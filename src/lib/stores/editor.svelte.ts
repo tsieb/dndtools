@@ -1,9 +1,6 @@
 import type { Note, NoteId } from '$lib/types/note.js';
 import { notesState } from './notes.svelte.js';
 import { debounce } from '$lib/utils/debounce.js';
-import { extractWikilinks } from '$lib/services/link-extractor.js';
-import { getStorage } from '$lib/storage/index.js';
-import { createNoteId } from '$lib/types/note.js';
 
 class EditorState {
 	content = $state('');
@@ -38,22 +35,6 @@ class EditorState {
 				content: this.content,
 				title: this.title,
 			});
-
-			// Extract and store links
-			const extracted = extractWikilinks(this.content);
-			const storage = getStorage();
-			const links = await Promise.all(
-				extracted.map(async (link) => {
-					const targetId = notesState.resolveTitle(link.title);
-					return {
-						sourceId: this.noteId!,
-						targetId: targetId ?? createNoteId(`unresolved:${link.title}`),
-						displayText: link.displayText,
-						position: link.position,
-					};
-				}),
-			);
-			await storage.setLinksFrom(this.noteId, links);
 
 			this.dirty = false;
 			this.lastSaved = new Date().toISOString();

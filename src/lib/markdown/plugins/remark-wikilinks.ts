@@ -40,6 +40,10 @@ const remarkWikilinks: Plugin<[WikilinkOptions?], Root> = (options = {}) => {
 			let match;
 
 			while ((match = WIKILINK_REGEX.exec(value)) !== null) {
+				if (match.index > 0 && value[match.index - 1] === '!') {
+					continue;
+				}
+
 				const title = match[1]!.trim();
 				const displayText = match[2]?.trim() ?? title;
 				const resolved = resolveLink(title);

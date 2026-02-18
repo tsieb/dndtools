@@ -32,10 +32,13 @@ export default ts.config(
 				'error',
 				{ argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
 			],
+			// Typed-route signatures reject query/hash and dynamic href strings in Svelte templates.
+			'svelte/no-navigation-without-resolve': 'off',
 		},
 	},
 	{
 		ignores: [
+			'**/dist/',
 			'.svelte-kit/',
 			'build/',
 			'dist/',

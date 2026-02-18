@@ -1,39 +1,45 @@
-# DND Tools Documentation Index
+# DND Tools Documentation
 
-This folder is the project source of truth for product direction, architecture, and engineering standards.
+This docs set is the authoritative engineering reference for this repository.
 
-## Project Goals
+## Scope
 
-1. Build a local-first D&D notes app that works fully offline.
-2. Keep the app lightweight for low-end devices (initial bundle target: < 100KB gzipped).
-3. Support markdown + Obsidian-style wikilinks with backlinks and search.
-4. Preserve user trust with autosave, soft delete, and exportable data.
-5. Evolve cleanly toward cloud sync and collaborative features without rewriting core layers.
-6. Provide structured AI agent access via an MCP server for campaign planning and note management.
+DND Tools is an Electron-first local markdown vault application with an integrated MCP sidecar.
 
-## Current Status
+Primary runtime mode:
+- Desktop runtime: Electron main + renderer + filesystem storage + MCP sidecar.
 
-- The repository is currently documentation-first.
-- Roadmap implementation starts at Phase 0 in `docs/ROADMAP.md`.
-- Documents define the target architecture and development standards to apply as code is scaffolded.
+## Source of Truth
 
-## Documentation Map
+Read in this order:
+1. `docs/ARCHITECTURE.md`
+2. `docs/DATA_MODEL.md`
+3. `docs/DEVELOPMENT.md`
+4. `docs/TESTING.md`
+5. `docs/UX_GUIDELINES.md`
+6. `docs/AGENTIC_NOTES_WORKFLOW.md`
+7. `docs/ROADMAP.md`
+8. `docs/TODO.md`
 
-- `docs/README.md`: Documentation index and source-of-truth ownership.
-- `docs/ROADMAP.md`: Product sequencing and milestone exit criteria.
-- `docs/ARCHITECTURE.md`: System layering and data flow.
-- `docs/DATA_MODEL.md`: Canonical data contracts and `StorageAdapter` interface.
-- `docs/TECH_STACK.md`: Technology choices and dependency constraints.
-- `docs/UX_GUIDELINES.md`: UX principles, accessibility, and interaction behavior.
-- `docs/DEVELOPMENT.md`: Coding standards, workflow, and contributor practices.
-- `docs/TESTING.md`: Test strategy, organization, and CI expectations.
-- `CLAUDE.md`: Agent-focused implementation guardrails.
+## Documentation Quality Rules (Mandatory)
 
-## Consistency Rules
+- Every behavior claim in docs must map to a real file path in the repo.
+- Planned work must be marked as `TODO(APP)` and include reason, risk, and target files.
+- Do not present aspirational behavior as if already implemented.
+- When contracts change (types, IPC, tools, storage format), update docs in the same change set.
+- Use exact tool names, script names, and type names.
 
-1. `docs/DATA_MODEL.md` owns data contracts (`Note`, `AppSettings`, `StorageAdapter`, `FileSystemAdapter`).
-2. `docs/ROADMAP.md` owns phase ordering and delivery scope.
-3. `docs/UX_GUIDELINES.md` owns UX/accessibility interaction expectations.
-4. `docs/ARCHITECTURE.md` owns the MCP server design and layer responsibilities.
-5. Other docs should reference these sources rather than redefining contracts.
-6. Any behavior change must update all impacted docs in the same change.
+## Current Product Baseline (Verified)
+
+- Notes are markdown files in a vault folder when running desktop mode.
+- MCP runs as a sidecar process and defaults to staged write mode (pending approvals).
+- Renderer uses `StorageAdapter` backed by `desktop-filesystem` via Electron bridge.
+- Import/export in UI is currently markdown file import + JSON bundle export.
+
+## Global Known Gaps (High Priority)
+
+- `TODO(APP):` Harden filesystem writes with atomic temp-write + rename strategy.
+- `TODO(APP):` Replace generic IPC storage method dispatch with a narrower typed IPC surface.
+- `TODO(APP):` Add comprehensive MCP tool tests (most tools currently untested).
+- `TODO(APP):` Add CI workflows that enforce lint/typecheck/test/build gates.
+- `TODO(APP):` Improve portable export format beyond JSON-only bundle.

@@ -1,30 +1,118 @@
 <script lang="ts">
+	import type { EditorView } from '@codemirror/view';
+	import { executeEditorAction } from '$lib/utils/editor-commands.js';
+
 	interface Props {
-		onaction: (action: string) => void;
+		editorView: EditorView | null;
 	}
 
-	let { onaction }: Props = $props();
+	let { editorView }: Props = $props();
 
-	const actions = [
-		{ action: 'bold', label: 'B', title: 'Bold (Ctrl+B)', class: 'font-bold' },
-		{ action: 'italic', label: 'I', title: 'Italic (Ctrl+I)', class: 'italic' },
-		{ action: 'heading', label: 'H', title: 'Heading', class: 'font-bold' },
-		{ action: 'link', label: 'Link', title: 'Link (Ctrl+K)', class: '' },
-		{ action: 'list', label: 'List', title: 'Bullet list', class: '' },
-		{ action: 'code', label: '<>', title: 'Code', class: 'font-mono text-xs' },
+	interface ToolbarAction {
+		action: string;
+		label: string;
+		title: string;
+		icon: string;
+		class?: string;
+	}
+
+	const textGroup: ToolbarAction[] = [
+		{ action: 'bold', label: 'B', title: 'Bold (Ctrl+B)', icon: '', class: 'font-bold' },
+		{ action: 'italic', label: 'I', title: 'Italic (Ctrl+I)', icon: '', class: 'italic' },
+		{ action: 'strikethrough', label: 'S', title: 'Strikethrough', icon: '', class: 'line-through' },
+		{ action: 'code', label: '`', title: 'Inline code (Ctrl+E)', icon: '', class: 'font-mono' },
 	];
+
+	const blockGroup: ToolbarAction[] = [
+		{ action: 'heading2', label: 'H2', title: 'Heading 2', icon: '', class: 'font-bold text-xs' },
+		{ action: 'heading3', label: 'H3', title: 'Heading 3', icon: '', class: 'font-semibold text-xs' },
+		{ action: 'blockquote', label: '\u201C', title: 'Blockquote', icon: '', class: 'text-lg leading-none' },
+		{ action: 'code-block', label: '{}', title: 'Code block', icon: '', class: 'font-mono text-xs' },
+	];
+
+	const listGroup: ToolbarAction[] = [
+		{ action: 'bullet-list', label: '\u2022', title: 'Bullet list', icon: '', class: 'text-lg leading-none' },
+		{ action: 'numbered-list', label: '1.', title: 'Numbered list', icon: '', class: 'text-xs font-mono' },
+		{ action: 'task-list', label: '\u2611', title: 'Task list', icon: '', class: 'text-sm' },
+	];
+
+	const insertGroup: ToolbarAction[] = [
+		{ action: 'link', label: '\uD83D\uDD17', title: 'Link (Ctrl+K)', icon: '', class: 'text-sm' },
+		{ action: 'wikilink', label: '[[]]', title: 'Wikilink', icon: '', class: 'font-mono text-xs' },
+		{ action: 'object-embed', label: 'EMB', title: 'Embed template', icon: '', class: 'font-mono text-[10px]' },
+		{ action: 'table', label: '\u2637', title: 'Table', icon: '', class: 'text-sm' },
+		{ action: 'horizontal-rule', label: '\u2015', title: 'Divider', icon: '', class: 'text-sm' },
+	];
+
+	function handleAction(action: string): void {
+		if (!editorView) return;
+		executeEditorAction(editorView, action);
+		editorView.focus();
+	}
 </script>
 
 <div
-	class="flex items-center gap-0.5 px-2 py-1.5 border border-border dark:border-tavern-border rounded-lg bg-surface dark:bg-tavern-surface mb-2"
+	class="flex items-center gap-0.5 px-2 py-1.5 border border-border dark:border-tavern-border rounded-lg bg-surface dark:bg-tavern-surface mb-2 flex-wrap"
 	role="toolbar"
 	aria-label="Editor formatting"
 >
-	{#each actions as act}
+	<!-- Text formatting -->
+	{#each textGroup as act (act.action)}
 		<button
-			class="px-2 py-1 text-sm rounded text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt hover:text-ink dark:hover:text-tavern-text transition-colors {act.class}"
+			type="button"
+			class="w-8 h-8 flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ?? ''}"
 			title={act.title}
-			onclick={() => onaction(act.action)}
+			aria-label={act.title}
+			onclick={() => handleAction(act.action)}
+			disabled={!editorView}
+		>
+			{act.label}
+		</button>
+	{/each}
+
+	<div class="w-px h-5 bg-border dark:bg-tavern-border mx-0.5"></div>
+
+	<!-- Block formatting -->
+	{#each blockGroup as act (act.action)}
+		<button
+			type="button"
+			class="w-8 h-8 flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ?? ''}"
+			title={act.title}
+			aria-label={act.title}
+			onclick={() => handleAction(act.action)}
+			disabled={!editorView}
+		>
+			{act.label}
+		</button>
+	{/each}
+
+	<div class="w-px h-5 bg-border dark:bg-tavern-border mx-0.5"></div>
+
+	<!-- Lists -->
+	{#each listGroup as act (act.action)}
+		<button
+			type="button"
+			class="w-8 h-8 flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ?? ''}"
+			title={act.title}
+			aria-label={act.title}
+			onclick={() => handleAction(act.action)}
+			disabled={!editorView}
+		>
+			{act.label}
+		</button>
+	{/each}
+
+	<div class="w-px h-5 bg-border dark:bg-tavern-border mx-0.5"></div>
+
+	<!-- Insert -->
+	{#each insertGroup as act (act.action)}
+		<button
+			type="button"
+			class="w-8 h-8 flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ?? ''}"
+			title={act.title}
+			aria-label={act.title}
+			onclick={() => handleAction(act.action)}
+			disabled={!editorView}
 		>
 			{act.label}
 		</button>

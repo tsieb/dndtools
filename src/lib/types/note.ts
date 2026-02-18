@@ -19,12 +19,16 @@ export interface Note {
 	title: string;
 	content: string;
 	folder: FolderId;
+	/** Relative markdown path when backed by filesystem storage */
+	filePath?: string;
 	tags: string[];
 	frontmatter: Record<string, unknown>;
 	readonly createdAt: string;
 	updatedAt: string;
 	deleted: boolean;
 	deletedAt: string | null;
+	pinned: boolean;
+	pinnedAt: string | null;
 }
 
 export interface Link {

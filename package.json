@@ -18,14 +18,16 @@
 		"typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check": "pnpm lint && pnpm typecheck && pnpm test",
 		"mcp:dev": "tsx mcp/index.ts",
-		"mcp:build": "tsup mcp/index.ts --format esm --dts --outDir mcp/dist",
-		"mcp:inspect": "npx @modelcontextprotocol/inspector tsx mcp/index.ts"
+		"mcp:build": "tsup mcp/index.ts --format cjs --dts --outDir mcp/dist",
+		"mcp:inspect": "npx @modelcontextprotocol/inspector tsx mcp/index.ts",
+		"desktop:build": "pnpm build && pnpm mcp:build && tsup electron/main.ts electron/preload.ts --format cjs --platform=node --external electron --outDir electron/dist",
+		"desktop:start": "electron electron/dist/main.cjs",
+		"desktop": "pnpm desktop:build && pnpm desktop:start"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
 		"@modelcontextprotocol/sdk": "^1.26.0",
 		"@playwright/test": "^1.58.2",
-		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
@@ -36,7 +38,7 @@
 		"eslint": "^10.0.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.15.0",
-		"fake-indexeddb": "^6.2.5",
+		"electron": "^37.0.0",
 		"globals": "^17.3.0",
 		"gray-matter": "^4.0.3",
 		"jsdom": "^28.0.0",
@@ -55,7 +57,8 @@
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
-			"esbuild"
+			"esbuild",
+			"electron"
 		]
 	},
 	"dependencies": {
@@ -65,8 +68,6 @@
 		"@codemirror/language": "^6.12.1",
 		"@codemirror/state": "^6.5.4",
 		"@codemirror/view": "^6.39.13",
-		"dexie": "^4.3.0",
-		"lucide-svelte": "^0.563.0",
 		"minisearch": "^7.2.0",
 		"nanoid": "^5.1.6",
 		"rehype-sanitize": "^6.0.0",

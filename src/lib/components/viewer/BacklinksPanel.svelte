@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { NoteId } from '$lib/types/note.js';
 	import { linksState } from '$lib/stores/links.svelte.js';
 	import { notesState } from '$lib/stores/notes.svelte.js';
@@ -9,12 +10,13 @@
 
 	let { noteId }: Props = $props();
 	let expanded = $state(false);
+	let notesById = $derived(notesState.noteById);
 
 	let backlinks = $derived.by(() => {
 		const sourceIds = linksState.getBacklinkIds(noteId);
 		return sourceIds
 			.map((id) => {
-				const note = notesState.notes.find((n) => n.id === id);
+				const note = notesById.get(id as NoteId);
 				return note ? { id: note.id, title: note.title } : null;
 			})
 			.filter((b): b is { id: NoteId; title: string } => b !== null);
@@ -35,10 +37,10 @@
 
 		{#if expanded}
 			<ul class="mt-3 space-y-2">
-				{#each backlinks as backlink}
+				{#each backlinks as backlink (backlink.id)}
 					<li>
 						<a
-							href="/notes/{backlink.id}"
+							href={resolve(`/notes/${backlink.id}`)}
 							class="text-sm font-medium text-accent dark:text-tavern-accent hover:text-accent-hover dark:hover:text-tavern-accent-hover underline underline-offset-2"
 						>
 							{backlink.title}

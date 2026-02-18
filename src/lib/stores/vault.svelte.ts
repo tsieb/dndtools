@@ -1,17 +1,17 @@
 import { notesState } from './notes.svelte.js';
-import type { Folder, FolderId, TagEntry } from '$lib/types/note.js';
-import { createFolderId, ROOT_FOLDER } from '$lib/types/note.js';
+import type { Folder, TagEntry } from '$lib/types/note.js';
+import { createFolderId } from '$lib/types/note.js';
 
 class VaultState {
 	/** All unique folders derived from notes */
 	folders = $derived.by<Folder[]>(() => {
-		const folderMap = new Map<string, number>();
+		const folderCounts: Record<string, number> = {};
 		for (const note of notesState.activeNotes) {
 			const folder = note.folder;
-			folderMap.set(folder, (folderMap.get(folder) ?? 0) + 1);
+			folderCounts[folder] = (folderCounts[folder] ?? 0) + 1;
 		}
 
-		return Array.from(folderMap.entries()).map(([path, count]) => {
+		return Object.entries(folderCounts).map(([path, count]) => {
 			const segments = path.split('/').filter(Boolean);
 			const name = segments[segments.length - 1] ?? 'Root';
 			const parentPath = segments.length > 1 ? '/' + segments.slice(0, -1).join('/') : '/';
@@ -26,13 +26,13 @@ class VaultState {
 
 	/** Tag counts aggregated from all active notes */
 	tagCounts = $derived.by<TagEntry[]>(() => {
-		const tagMap = new Map<string, number>();
+		const tagCounts: Record<string, number> = {};
 		for (const note of notesState.activeNotes) {
 			for (const tag of note.tags) {
-				tagMap.set(tag, (tagMap.get(tag) ?? 0) + 1);
+				tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
 			}
 		}
-		return Array.from(tagMap.entries())
+		return Object.entries(tagCounts)
 			.map(([name, count]) => ({ name, count }))
 			.sort((a, b) => b.count - a.count);
 	});

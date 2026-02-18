@@ -1,5 +1,11 @@
 import type { Note, NoteId, FolderId, Link, TagEntry } from './note.js';
 import type { AppSettings } from './settings.js';
+import type {
+	SessionBoard,
+	SessionBoardId,
+	RelatedNoteSuggestion,
+} from './session-board.js';
+import type { VaultObject, VaultObjectId, VaultObjectType } from './object.js';
 
 export interface ImportResult {
 	imported: number;
@@ -30,6 +36,20 @@ export interface StorageAdapter {
 	getLinksFrom(noteId: NoteId): Promise<Link[]>;
 	getLinksTo(noteId: NoteId): Promise<Link[]>;
 	setLinksFrom(noteId: NoteId, links: Link[]): Promise<void>;
+	getAllLinks?(): Promise<Link[]>;
+
+	// Session Boards
+	getSessionBoards(): Promise<SessionBoard[]>;
+	getSessionBoard(id: SessionBoardId): Promise<SessionBoard | null>;
+	saveSessionBoard(board: SessionBoard): Promise<void>;
+	deleteSessionBoard(id: SessionBoardId): Promise<void>;
+	suggestRelatedNotes(noteIds: NoteId[], limit?: number): Promise<RelatedNoteSuggestion[]>;
+
+	// Vault Objects
+	getObject(id: VaultObjectId): Promise<VaultObject | null>;
+	getAllObjects(options?: { type?: VaultObjectType; query?: string }): Promise<VaultObject[]>;
+	saveObject(object: VaultObject): Promise<void>;
+	deleteObject(id: VaultObjectId): Promise<void>;
 
 	// Settings
 	getSetting<K extends keyof AppSettings>(key: K): Promise<AppSettings[K]>;

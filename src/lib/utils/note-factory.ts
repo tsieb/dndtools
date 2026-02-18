@@ -17,6 +17,8 @@ export function createNewNote(overrides?: Partial<Note>): Note {
 		updatedAt: now,
 		deleted: false,
 		deletedAt: null,
+		pinned: false,
+		pinnedAt: null,
 		...overrides,
 	};
 }

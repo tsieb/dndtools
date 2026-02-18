@@ -17,6 +17,30 @@ export type {
 export { DEFAULT_SETTINGS } from './settings.js';
 
 export type { StorageAdapter, ImportResult } from './storage.js';
+export type {
+	VaultObjectId,
+	VaultObjectType,
+	AbilityScoreKey,
+	AbilityScores,
+	StatBlockEntry,
+	StatBlockData,
+	CharacterData,
+	ImageData,
+	StatBlockObject,
+	CharacterObject,
+	ImageObject,
+	VaultObject,
+	ObjectEmbedRef,
+} from './object.js';
+export { createVaultObjectId } from './object.js';
+
+export type {
+	SessionBoardId,
+	SessionBoard,
+	SessionBoardTile,
+	RelatedNoteSuggestion,
+} from './session-board.js';
+export { createSessionBoardId } from './session-board.js';
 
 export type { Result } from './result.js';
 export { ok, err, isOk, isErr } from './result.js';

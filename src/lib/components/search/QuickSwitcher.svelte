@@ -1,8 +1,8 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
-	import { searchService, type SearchResult } from '$lib/services/search.js';
+	import { searchService } from '$lib/services/search.js';
 	import { notesState } from '$lib/stores/notes.svelte.js';
-	import type { NoteId } from '$lib/types/note.js';
 
 	interface Props {
 		open: boolean;
@@ -16,10 +16,16 @@
 
 	let results = $derived.by(() => {
 		if (!query.trim()) {
-			return notesState.activeNotes
+			return [...notesState.activeNotes]
 				.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 				.slice(0, 10)
-				.map((n) => ({ id: n.id, title: n.title, folder: n.folder, score: 0 }));
+				.map((n) => ({
+					id: n.id,
+					title: n.title,
+					folder: n.folder,
+					filePath: n.filePath ?? null,
+					score: 0,
+				}));
 		}
 		return searchService.search(query).slice(0, 10);
 	});
@@ -33,7 +39,7 @@
 	});
 
 	function navigate(id: string): void {
-		goto(`/notes/${id}`);
+		goto(resolve(`/notes/${id}`));
 		onclose();
 	}
 
@@ -87,21 +93,23 @@
 
 			{#if results.length > 0}
 				<ul class="max-h-[40vh] overflow-y-auto py-1" role="listbox" id="quick-switcher-list">
-					{#each results as result, i}
-						<li role="option" aria-selected={i === selectedIndex} id="qs-item-{i}">
+					{#each results as result, i (result.id)}
+						<li role="option" aria-selected={i === selectedIndex} id={`qs-item-${i}`}>
 							<button
+								type="button"
 								class="w-full text-left px-3 py-2 flex flex-col transition-colors
 									{i === selectedIndex
 									? 'bg-accent-subtle dark:bg-tavern-accent-subtle'
 									: 'hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
 								onclick={() => navigate(result.id)}
+								title={result.title}
 							>
 								<span class="text-sm font-medium text-ink dark:text-tavern-text truncate">
 									{result.title}
 								</span>
-								{#if result.folder && result.folder !== '/'}
+								{#if result.filePath || (result.folder && result.folder !== '/')}
 									<span class="text-xs text-ink-muted dark:text-tavern-muted truncate">
-										{result.folder}
+										{result.filePath ?? result.folder}
 									</span>
 								{/if}
 							</button>

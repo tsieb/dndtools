@@ -1,13 +1,20 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { EditorView as EditorViewType } from '@codemirror/view';
+	import {
+		toggleBold,
+		toggleItalic,
+		toggleInlineCode,
+		insertLink,
+	} from '$lib/utils/editor-commands.js';
 
 	interface Props {
 		content: string;
 		onchange: (value: string) => void;
+		onviewready?: (view: EditorViewType) => void;
 	}
 
-	let { content, onchange }: Props = $props();
+	let { content, onchange, onviewready }: Props = $props();
 
 	let editorContainer: HTMLDivElement | undefined = $state();
 	let view: EditorViewType | undefined;
@@ -23,7 +30,7 @@
 				{ EditorView, keymap },
 				{ EditorState },
 				{ markdown, markdownLanguage },
-				{ defaultKeymap, history, historyKeymap },
+				{ defaultKeymap, history, historyKeymap, undo, redo },
 				{ syntaxHighlighting, defaultHighlightStyle, indentOnInput },
 				{ closeBrackets, closeBracketsKeymap },
 			] = await Promise.all([
@@ -43,6 +50,34 @@
 				}
 			});
 
+			// Formatting keyboard shortcuts
+			const formattingKeymap = keymap.of([
+				{
+					key: 'Mod-b',
+					run: (v: EditorViewType) => toggleBold(v),
+				},
+				{
+					key: 'Mod-i',
+					run: (v: EditorViewType) => toggleItalic(v),
+				},
+				{
+					key: 'Mod-e',
+					run: (v: EditorViewType) => toggleInlineCode(v),
+				},
+				{
+					key: 'Mod-k',
+					run: (v: EditorViewType) => insertLink(v),
+				},
+				{
+					key: 'Mod-z',
+					run: (v: EditorViewType) => undo({ state: v.state, dispatch: v.dispatch }),
+				},
+				{
+					key: 'Mod-Shift-z',
+					run: (v: EditorViewType) => redo({ state: v.state, dispatch: v.dispatch }),
+				},
+			]);
+
 			const theme = EditorView.theme({
 				'&': {
 					fontSize: '16px',
@@ -52,10 +87,11 @@
 				'.cm-content': {
 					fontFamily: 'inherit',
 					lineHeight: '1.6',
-					padding: '0.5rem 0',
+					padding: '0.75rem 0',
 				},
 				'.cm-focused .cm-cursor': {
 					borderLeftColor: 'var(--color-accent, #8b4513)',
+					borderLeftWidth: '2px',
 				},
 				'.cm-focused .cm-selectionBackground, ::selection': {
 					backgroundColor: 'var(--color-accent-subtle, #f0e6d8) !important',
@@ -69,6 +105,13 @@
 				'&.cm-focused': {
 					outline: 'none',
 				},
+				'.cm-activeLine': {
+					backgroundColor: 'var(--color-surface-alt, #f5f0e8)',
+					borderRadius: '2px',
+				},
+				'.cm-line': {
+					padding: '1px 0.5rem',
+				},
 			});
 
 			view = new EditorView({
@@ -81,6 +124,7 @@
 						indentOnInput(),
 						closeBrackets(),
 						EditorView.lineWrapping,
+						formattingKeymap,
 						keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap]),
 						updateListener,
 						theme,
@@ -90,6 +134,7 @@
 			});
 
 			mounted = true;
+			onviewready?.(view);
 		})();
 
 		return () => {
@@ -110,5 +155,5 @@
 
 <div
 	bind:this={editorContainer}
-	class="min-h-[400px] w-full border border-border dark:border-tavern-border rounded-lg bg-surface dark:bg-tavern-surface overflow-hidden"
+	class="min-h-[400px] w-full border border-border dark:border-tavern-border rounded-t-lg bg-surface dark:bg-tavern-surface overflow-hidden focus-within:border-accent/50 dark:focus-within:border-tavern-accent/50 transition-colors"
 ></div>
