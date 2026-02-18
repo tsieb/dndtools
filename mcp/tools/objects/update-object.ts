@@ -8,8 +8,8 @@ import {
 	normalizeImageData,
 	normalizeStatBlockData,
 	summarizeVaultObject,
-} from '../../../src/lib/services/objects.js';
-import { formatNoteEmbed } from '../../../src/lib/services/object-embeds.js';
+} from '../../../src/lib/domain/objects.js';
+import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
 import { errorResult, jsonResult } from '../shared/response.js';
 import { objectSummary } from '../shared/object-summary.js';
 

@@ -21,10 +21,10 @@ import { createSessionBoardId } from '../src/lib/types/session-board.js';
 import { DEFAULT_SETTINGS } from '../src/lib/types/settings.js';
 import { slugify } from '../src/lib/utils/slug.js';
 import { nowISO } from '../src/lib/utils/date.js';
-import { buildRelatedNoteSuggestions } from '../src/lib/services/related-note-suggestions.js';
-import { normalizeVaultObject } from '../src/lib/services/objects.js';
-import { noteToVaultObject, vaultObjectToNote } from '../src/lib/services/object-notes.js';
-import { withMcpChangePreview } from '../src/lib/services/mcp-change-preview.js';
+import { buildRelatedNoteSuggestions } from '../src/lib/domain/related-note-suggestions.js';
+import { normalizeVaultObject } from '../src/lib/domain/objects.js';
+import { noteToVaultObject, vaultObjectToNote } from '../src/lib/domain/object-notes.js';
+import { withMcpChangePreview } from '../src/lib/domain/mcp-change-preview.js';
 import { writeFileAtomic, writeJsonAtomic } from './safe-write.js';
 
 /** Stored link entry in the vault index */
@@ -1351,7 +1351,7 @@ export class FileSystemAdapter implements StorageAdapter {
 
 	/** Resolve wikilinks in a note's content to actual note IDs and update the link index */
 	async resolveAndIndexLinks(noteId: NoteId, content: string): Promise<void> {
-		const { extractWikilinks } = await import('../src/lib/services/link-extractor.js');
+		const { extractWikilinks } = await import('../src/lib/domain/link-extractor.js');
 		const extracted = extractWikilinks(content);
 		const links: Link[] = [];
 

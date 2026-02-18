@@ -10,9 +10,9 @@ import type { McpChangeRecord, McpChangeType } from '../src/lib/types/mcp.js';
 import type { VaultObject, VaultObjectId, VaultObjectType } from '../src/lib/types/object.js';
 import { nowISO } from '../src/lib/utils/date.js';
 import { slugify } from '../src/lib/utils/slug.js';
-import { extractWikilinks } from '../src/lib/services/link-extractor.js';
-import { buildRelatedNoteSuggestions } from '../src/lib/services/related-note-suggestions.js';
-import { buildMcpChangePreview } from '../src/lib/services/mcp-change-preview.js';
+import { extractWikilinks } from '../src/lib/domain/link-extractor.js';
+import { buildRelatedNoteSuggestions } from '../src/lib/domain/related-note-suggestions.js';
+import { buildMcpChangePreview } from '../src/lib/domain/mcp-change-preview.js';
 import { FileSystemAdapter } from './storage.js';
 
 function cloneNote(note: Note): Note {

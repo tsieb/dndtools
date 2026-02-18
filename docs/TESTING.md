@@ -58,11 +58,11 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
   - `src/lib/markdown/pipeline.test.ts`
   - `src/lib/markdown/plugins/rehype-callouts.test.ts`
 - Services:
-  - `src/lib/services/export.test.ts`
-  - `src/lib/services/link-extractor.test.ts`
-  - `src/lib/services/templates.test.ts`
-  - `src/lib/services/search.test.ts`
-  - `src/lib/services/related-note-suggestions.test.ts`
+  - `src/lib/domain/export.test.ts`
+  - `src/lib/domain/link-extractor.test.ts`
+  - `src/lib/domain/templates.test.ts`
+  - `src/lib/domain/search.test.ts`
+  - `src/lib/domain/related-note-suggestions.test.ts`
 - Utils:
   - `src/lib/utils/date.test.ts`
   - `src/lib/utils/debounce.test.ts`

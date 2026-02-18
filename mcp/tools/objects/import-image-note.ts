@@ -8,8 +8,8 @@ import { createFolderId, createNoteId } from '../../../src/lib/types/note.js';
 import { generateVaultObjectId } from '../../../src/lib/utils/id.js';
 import { nowISO } from '../../../src/lib/utils/date.js';
 import { slugify } from '../../../src/lib/utils/slug.js';
-import { normalizeImageData, summarizeVaultObject } from '../../../src/lib/services/objects.js';
-import { formatNoteEmbed } from '../../../src/lib/services/object-embeds.js';
+import { normalizeImageData, summarizeVaultObject } from '../../../src/lib/domain/objects.js';
+import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
 import { errorResult, jsonResult } from '../shared/response.js';
 
 const IMAGE_EXTENSIONS = new Set([

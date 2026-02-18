@@ -24,7 +24,7 @@ Responsibilities:
 Implemented in:
 - `src/routes/+layout.svelte`
 - `src/lib/runtime/bootstrap.ts`
-- `src/lib/storage/index.ts`
+- `src/lib/platform/storage/index.ts`
 
 Responsibilities:
 - UI, interaction flows, search, markdown rendering, editor workflows.
@@ -103,7 +103,7 @@ Staged mode behavior:
 ### 6.2 Shared Helpers
 
 - Reusable MCP helpers go in `mcp/tools/shared/*`.
-- Shared renderer domain logic goes in `src/lib/services/*`.
+- Shared renderer domain logic goes in `src/lib/domain/*`.
 
 ### 6.3 Renderer Boundaries
 
@@ -128,7 +128,7 @@ Risk: broad invocation surface increases attack and misuse risk.
 Target files:
 - `electron/main.ts`
 - `electron/preload.ts`
-- `src/lib/storage/electron-adapter.ts`
+- `src/lib/platform/storage/electron-adapter.ts`
 
 ## 8. Performance Architecture Requirements
 
@@ -139,8 +139,8 @@ Target files:
 
 `TODO(APP):` Introduce incremental link graph updates with per-note invalidation.
 Target files:
-- `src/lib/stores/links.svelte.ts`
-- `src/lib/services/link-extractor.ts`
+- `src/lib/state/links.svelte.ts`
+- `src/lib/domain/link-extractor.ts`
 - `mcp/storage.ts`
 
 ## 9. Reliability and Integrity Gaps

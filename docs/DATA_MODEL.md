@@ -100,7 +100,7 @@ Vault metadata files in `.vault/`:
 
 ## 4. Link Semantics
 
-Wikilink extraction (`src/lib/services/link-extractor.ts`) supports:
+Wikilink extraction (`src/lib/domain/link-extractor.ts`) supports:
 - `[[Title]]`
 - `[[Title|Display]]`
 - ID hints: `[[note:<id>|Display]]` and `[[id:<id>|Display]]`
@@ -108,7 +108,7 @@ Wikilink extraction (`src/lib/services/link-extractor.ts`) supports:
 
 ## 5. Search Index Model
 
-`src/lib/services/search.ts` indexes:
+`src/lib/domain/search.ts` indexes:
 - title
 - content
 - tags
@@ -122,7 +122,7 @@ Boost settings:
 
 ## 6. Import and Export (Current Behavior)
 
-Current UI behavior (`src/lib/services/export.ts`):
+Current UI behavior (`src/lib/domain/export.ts`):
 - single note export: markdown file
 - multi-note export: JSON bundle (`dndtools-vault-export.json`)
 - import supports markdown files and JSON bundle format
@@ -130,7 +130,7 @@ Current UI behavior (`src/lib/services/export.ts`):
 `TODO(APP):` Add robust portable zip/tar markdown export profile with validation report.
 Reason: JSON bundle is DND Tools specific and less interoperable with markdown tools.
 Target files:
-- `src/lib/services/export.ts`
+- `src/lib/domain/export.ts`
 - `docs/UX_GUIDELINES.md`
 
 ## 7. Data Integrity Requirements
@@ -153,4 +153,4 @@ Target: `mcp/storage.ts`.
 
 `TODO(APP):` Add strict runtime validation for imported markdown frontmatter and JSON bundle schema.
 Current issue: parser is intentionally permissive and can accept malformed inputs.
-Target: `src/lib/services/export.ts`.
+Target: `src/lib/domain/export.ts`.

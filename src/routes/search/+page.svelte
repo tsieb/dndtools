@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { searchService, type SearchResult } from '$lib/services/search.js';
-	import { notesState } from '$lib/stores/notes.svelte.js';
-	import NoteCard from '$lib/components/common/NoteCard.svelte';
+	import { searchService, type SearchResult } from '$lib/domain/search.js';
+	import { notesState } from '$lib/state/notes.svelte.js';
+	import NoteCard from '$lib/ui/common/NoteCard.svelte';
 	import { goto } from '$app/navigation';
 
 	let query = $state('');

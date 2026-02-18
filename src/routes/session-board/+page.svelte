@@ -2,10 +2,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import SessionBoardTileCard from '$lib/components/board/SessionBoardTile.svelte';
+	import SessionBoardTileCard from '$lib/ui/board/SessionBoardTile.svelte';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
-	import { notesState } from '$lib/stores/notes.svelte.js';
-	import { sessionBoardsState } from '$lib/stores/session-boards.svelte.js';
+	import { notesState } from '$lib/state/notes.svelte.js';
+	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import type { NoteId } from '$lib/types/note.js';
 	import type { SessionBoard, SessionBoardTile } from '$lib/types/session-board.js';
 

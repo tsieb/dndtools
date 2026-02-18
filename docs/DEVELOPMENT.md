@@ -76,7 +76,7 @@ Impact: weakens contract clarity and security posture.
 Target:
 - `electron/main.ts`
 - `electron/preload.ts`
-- `src/lib/storage/electron-adapter.ts`
+- `src/lib/platform/storage/electron-adapter.ts`
 
 `TODO(APP):` MCP tool test coverage is incomplete for many domains.
 Impact: behavioral drift risk in agent workflows.

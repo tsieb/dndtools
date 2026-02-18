@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { FileSystemAdapter } from '../../storage.js';
 import { createVaultObjectId } from '../../../src/lib/types/object.js';
-import { formatNoteEmbed } from '../../../src/lib/services/object-embeds.js';
+import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
 import { errorResult, jsonResult } from '../shared/response.js';
 
 export function registerReadObjectTool(server: McpServer, storage: FileSystemAdapter): void {

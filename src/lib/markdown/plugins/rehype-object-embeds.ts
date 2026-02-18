@@ -1,7 +1,7 @@
 import { visit } from 'unist-util-visit';
 import type { VaultObject, VaultObjectType } from '$lib/types/object.js';
-import { getVaultObjectTypeLabel, summarizeVaultObject } from '$lib/services/objects.js';
-import { parseEmbedRenderOptions, type EmbedRenderOptions } from '$lib/services/object-embeds.js';
+import { getVaultObjectTypeLabel, summarizeVaultObject } from '$lib/domain/objects.js';
+import { parseEmbedRenderOptions, type EmbedRenderOptions } from '$lib/domain/object-embeds.js';
 
 interface HastElement {
 	type: 'element';

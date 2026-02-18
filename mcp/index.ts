@@ -4,8 +4,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import path from 'node:path';
 import { FileSystemAdapter } from './storage.js';
 import { StagedMcpAdapter } from './staged-storage.js';
-import { registerTools } from './tools.js';
-import { registerResources } from './resources.js';
+import { registerTools } from './tools/index.js';
+import { registerResources } from './resources/index.js';
 
 // Vault directory: first CLI arg, or DNDTOOLS_VAULT env var, or ./vault
 const vaultDir = path.resolve(

@@ -4,7 +4,7 @@ import type { FileSystemAdapter } from '../../storage.js';
 import { createNoteId } from '../../../src/lib/types/note.js';
 import { createVaultObjectId } from '../../../src/lib/types/object.js';
 import { nowISO } from '../../../src/lib/utils/date.js';
-import { formatNoteEmbed } from '../../../src/lib/services/object-embeds.js';
+import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
 import { errorResult, jsonResult } from '../shared/response.js';
 import { applyEmbedAtPosition, wouldCreateEmbedCycle } from '../shared/embed-note.js';
 

@@ -1,11 +1,11 @@
-import { initStorage } from '$lib/storage/index.js';
-import { ui } from '$lib/stores/ui.svelte.js';
-import { notesState } from '$lib/stores/notes.svelte.js';
-import { searchService } from '$lib/services/search.js';
-import { linksState } from '$lib/stores/links.svelte.js';
-import { createWelcomeNote } from '$lib/services/welcome-note.js';
-import { mcpChangesState } from '$lib/stores/mcp-changes.svelte.js';
-import { sessionBoardsState } from '$lib/stores/session-boards.svelte.js';
+import { initStorage } from '$lib/platform/storage/index.js';
+import { ui } from '$lib/state/ui.svelte.js';
+import { notesState } from '$lib/state/notes.svelte.js';
+import { searchService } from '$lib/domain/search.js';
+import { linksState } from '$lib/state/links.svelte.js';
+import { createWelcomeNote } from '$lib/domain/welcome-note.js';
+import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
+import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 
 let bootstrapPromise: Promise<void> | null = null;
 

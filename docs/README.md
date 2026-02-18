@@ -13,13 +13,14 @@ Primary runtime mode:
 
 Read in this order:
 1. `docs/ARCHITECTURE.md`
-2. `docs/DATA_MODEL.md`
-3. `docs/DEVELOPMENT.md`
-4. `docs/TESTING.md`
-5. `docs/UX_GUIDELINES.md`
-6. `docs/AGENTIC_NOTES_WORKFLOW.md`
-7. `docs/ROADMAP.md`
-8. `docs/TODO.md`
+2. `docs/PROJECT_STRUCTURE.md`
+3. `docs/DATA_MODEL.md`
+4. `docs/DEVELOPMENT.md`
+5. `docs/TESTING.md`
+6. `docs/UX_GUIDELINES.md`
+7. `docs/AGENTIC_NOTES_WORKFLOW.md`
+8. `docs/ROADMAP.md`
+9. `docs/TODO.md`
 
 ## Documentation Quality Rules (Mandatory)
 

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { notesState } from '$lib/stores/notes.svelte.js';
-	import { vaultState } from '$lib/stores/vault.svelte.js';
-	import { linksState } from '$lib/stores/links.svelte.js';
-	import NoteCard from '$lib/components/common/NoteCard.svelte';
-	import Button from '$lib/components/common/Button.svelte';
+	import { notesState } from '$lib/state/notes.svelte.js';
+	import { vaultState } from '$lib/state/vault.svelte.js';
+	import { linksState } from '$lib/state/links.svelte.js';
+	import NoteCard from '$lib/ui/common/NoteCard.svelte';
+	import Button from '$lib/ui/common/Button.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 

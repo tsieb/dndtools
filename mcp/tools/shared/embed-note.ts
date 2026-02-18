@@ -1,5 +1,5 @@
 import type { FileSystemAdapter } from '../../storage.js';
-import { extractNoteEmbeds } from '../../../src/lib/services/object-embeds.js';
+import { extractNoteEmbeds } from '../../../src/lib/domain/object-embeds.js';
 
 export function appendEmbed(content: string, embed: string): string {
 	const trimmed = content.trimEnd();

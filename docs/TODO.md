@@ -314,7 +314,7 @@ Context:
 Targets:
 - `electron/main.ts`
 - `electron/preload.ts`
-- `src/lib/storage/electron-adapter.ts`
+- `src/lib/platform/storage/electron-adapter.ts`
 
 ### 4. MCP Tool Test Coverage
 - [ ] `TODO(APP)` Add direct tests for every tool under `mcp/tools/**`.
@@ -337,20 +337,20 @@ Targets:
 - [ ] `TODO(APP)` Add tests for approve/reject/approve-all/reject-all + race conditions.
 Targets:
 - `mcp/staged-storage.test.ts`
-- `src/lib/stores/mcp-changes.svelte.ts` tests
+- `src/lib/state/mcp-changes.svelte.ts` tests
 
 ### 7. Incremental Link Graph Updates
 - [ ] `TODO(APP)` Avoid full graph rebuild when a single note changes.
 Context:
 - Current patterns frequently rebuild from full note set.
 Targets:
-- `src/lib/stores/links.svelte.ts`
-- `src/lib/services/link-extractor.ts`
+- `src/lib/state/links.svelte.ts`
+- `src/lib/domain/link-extractor.ts`
 
 ### 8. Import Validation and Conflict Preview
 - [ ] `TODO(APP)` Add pre-import validation report (duplicates, invalid frontmatter, path collisions).
 Targets:
-- `src/lib/services/export.ts`
+- `src/lib/domain/export.ts`
 - `src/routes/settings/+page.svelte`
 
 ### 9. Export Portability Improvements
@@ -358,7 +358,7 @@ Targets:
 Context:
 - Current multi-note export format is JSON bundle only.
 Targets:
-- `src/lib/services/export.ts`
+- `src/lib/domain/export.ts`
 
 ### 10. Accessibility Automation
 - [ ] `TODO(APP)` Integrate accessibility checks into Playwright for key routes.

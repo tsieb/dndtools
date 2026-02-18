@@ -8,8 +8,8 @@ import {
 	normalizeAbilityScores,
 	normalizeStatBlockData,
 	summarizeVaultObject,
-} from '../../../src/lib/services/objects.js';
-import { formatNoteEmbed } from '../../../src/lib/services/object-embeds.js';
+} from '../../../src/lib/domain/objects.js';
+import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
 import {
 	abilityScoresSchema,
 	objectBaseSchema,

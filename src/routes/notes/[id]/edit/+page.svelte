@@ -1,16 +1,16 @@
 <script lang="ts">
 	import type { EditorView } from '@codemirror/view';
-	import { notesState } from '$lib/stores/notes.svelte.js';
-	import { editorState } from '$lib/stores/editor.svelte.js';
-	import { toastState } from '$lib/stores/toast.svelte.js';
+	import { notesState } from '$lib/state/notes.svelte.js';
+	import { editorState } from '$lib/state/editor.svelte.js';
+	import { toastState } from '$lib/state/toast.svelte.js';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { createNoteId } from '$lib/types/note.js';
-	import EditorToolbar from '$lib/components/editor/EditorToolbar.svelte';
-	import ObjectEmbedMenu from '$lib/components/editor/ObjectEmbedMenu.svelte';
-	import EditorStatusBar from '$lib/components/editor/EditorStatusBar.svelte';
-	import Button from '$lib/components/common/Button.svelte';
+	import EditorToolbar from '$lib/ui/editor/EditorToolbar.svelte';
+	import ObjectEmbedMenu from '$lib/ui/editor/ObjectEmbedMenu.svelte';
+	import EditorStatusBar from '$lib/ui/editor/EditorStatusBar.svelte';
+	import Button from '$lib/ui/common/Button.svelte';
 
 	const noteId = $derived(createNoteId(page.params.id ?? ''));
 	let note = $derived(notesState.getNoteById(noteId));
@@ -39,7 +39,7 @@
 		return headings;
 	});
 
-	const EditorPromise = import('$lib/components/editor/CodeMirrorEditor.svelte');
+	const EditorPromise = import('$lib/ui/editor/CodeMirrorEditor.svelte');
 
 	$effect(() => {
 		if (note && editorState.noteId !== note.id) {

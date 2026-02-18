@@ -1,19 +1,19 @@
 <script lang="ts">
 	import '../app.css';
-	import AppShell from '$lib/components/layout/AppShell.svelte';
-	import Toast from '$lib/components/common/Toast.svelte';
-	import { notesState } from '$lib/stores/notes.svelte.js';
-	import { linksState } from '$lib/stores/links.svelte.js';
-	import { runtimeState } from '$lib/stores/runtime.svelte.js';
-	import { mcpChangesState } from '$lib/stores/mcp-changes.svelte.js';
-	import { sessionBoardsState } from '$lib/stores/session-boards.svelte.js';
-	import { toastState } from '$lib/stores/toast.svelte.js';
-	import { ui } from '$lib/stores/ui.svelte.js';
-	import { searchService } from '$lib/services/search.js';
-	import { refreshDesktopVault } from '$lib/desktop/bridge.js';
+	import AppShell from '$lib/ui/layout/AppShell.svelte';
+	import Toast from '$lib/ui/common/Toast.svelte';
+	import { notesState } from '$lib/state/notes.svelte.js';
+	import { linksState } from '$lib/state/links.svelte.js';
+	import { runtimeState } from '$lib/state/runtime.svelte.js';
+	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
+	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
+	import { toastState } from '$lib/state/toast.svelte.js';
+	import { ui } from '$lib/state/ui.svelte.js';
+	import { searchService } from '$lib/domain/search.js';
+	import { refreshDesktopVault } from '$lib/platform/desktop/bridge.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import type { NoteTemplate } from '$lib/services/templates.js';
+	import type { NoteTemplate } from '$lib/domain/templates.js';
 	import { createFolderId } from '$lib/types/note.js';
 
 	let { children } = $props();
@@ -110,7 +110,7 @@
 		{@render children()}
 	</AppShell>
 	{#if quickSwitcherOpen}
-		{#await import('$lib/components/search/QuickSwitcher.svelte')}
+		{#await import('$lib/ui/search/QuickSwitcher.svelte')}
 			<div class="hidden" aria-hidden="true"></div>
 		{:then QuickSwitcherModule}
 			<QuickSwitcherModule.default
@@ -120,7 +120,7 @@
 		{/await}
 	{/if}
 	{#if templateDialogOpen}
-		{#await import('$lib/components/common/TemplateDialog.svelte')}
+		{#await import('$lib/ui/common/TemplateDialog.svelte')}
 			<div class="hidden" aria-hidden="true"></div>
 		{:then TemplateDialogModule}
 			<TemplateDialogModule.default

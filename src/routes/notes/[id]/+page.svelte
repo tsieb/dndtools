@@ -1,12 +1,12 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { notesState } from '$lib/stores/notes.svelte.js';
-	import { toastState } from '$lib/stores/toast.svelte.js';
-	import NoteViewer from '$lib/components/viewer/NoteViewer.svelte';
-	import NoteHeader from '$lib/components/viewer/NoteHeader.svelte';
-	import BacklinksPanel from '$lib/components/viewer/BacklinksPanel.svelte';
-	import TableOfContents from '$lib/components/viewer/TableOfContents.svelte';
-	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+	import { notesState } from '$lib/state/notes.svelte.js';
+	import { toastState } from '$lib/state/toast.svelte.js';
+	import NoteViewer from '$lib/ui/viewer/NoteViewer.svelte';
+	import NoteHeader from '$lib/ui/viewer/NoteHeader.svelte';
+	import BacklinksPanel from '$lib/ui/viewer/BacklinksPanel.svelte';
+	import TableOfContents from '$lib/ui/viewer/TableOfContents.svelte';
+	import ConfirmDialog from '$lib/ui/common/ConfirmDialog.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 

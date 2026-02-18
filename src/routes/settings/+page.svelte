@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import ThemeToggle from '$lib/components/common/ThemeToggle.svelte';
-	import Button from '$lib/components/common/Button.svelte';
-	import { vaultState } from '$lib/stores/vault.svelte.js';
-	import { notesState } from '$lib/stores/notes.svelte.js';
-	import { mcpChangesState } from '$lib/stores/mcp-changes.svelte.js';
-	import { toastState } from '$lib/stores/toast.svelte.js';
+	import ThemeToggle from '$lib/ui/common/ThemeToggle.svelte';
+	import Button from '$lib/ui/common/Button.svelte';
+	import { vaultState } from '$lib/state/vault.svelte.js';
+	import { notesState } from '$lib/state/notes.svelte.js';
+	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
+	import { toastState } from '$lib/state/toast.svelte.js';
 	import {
 		exportAllNotes,
 		parseMarkdownFile,
 		parseJsonBundle,
-	} from '$lib/services/export.js';
-	import { searchService } from '$lib/services/search.js';
-	import { getStorage } from '$lib/storage/index.js';
-	import { linksState } from '$lib/stores/links.svelte.js';
+	} from '$lib/domain/export.js';
+	import { searchService } from '$lib/domain/search.js';
+	import { getStorage } from '$lib/platform/storage/index.js';
+	import { linksState } from '$lib/state/links.svelte.js';
 	import type { Note } from '$lib/types/note.js';
 	import { createFolderId } from '$lib/types/note.js';
 	import { createNewNote } from '$lib/utils/note-factory.js';
@@ -26,7 +26,7 @@
 		restartDesktopMcpSidecar,
 		type DesktopIntegrityReport,
 		type DesktopMcpStatus,
-	} from '$lib/desktop/bridge.js';
+	} from '$lib/platform/desktop/bridge.js';
 
 	type SettingsTabId = 'general' | 'vault' | 'mcp';
 	type SettingsTab = {
