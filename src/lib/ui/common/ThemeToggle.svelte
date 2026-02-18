@@ -25,7 +25,7 @@
 		const currentIndex = themes.findIndex((theme) => theme.value === currentTheme);
 		if (currentIndex < 0) return;
 
-		let nextIndex = currentIndex;
+		let nextIndex: number;
 		switch (event.key) {
 			case 'ArrowRight':
 			case 'ArrowDown':

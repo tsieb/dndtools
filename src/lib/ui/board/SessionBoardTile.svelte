@@ -53,7 +53,6 @@
 		const href = link.getAttribute('href');
 		if (href?.startsWith('/')) {
 			event.preventDefault();
-			// eslint-disable-next-line svelte/no-navigation-without-resolve
 			void goto(href);
 		}
 	}

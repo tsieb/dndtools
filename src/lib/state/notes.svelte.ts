@@ -1,4 +1,5 @@
 import type { Note, NoteId, Link } from '$lib/types/note.js';
+import { SvelteMap } from 'svelte/reactivity';
 import { createNoteId } from '$lib/types/note.js';
 import { getStorage } from '$lib/platform/storage/index.js';
 import { createNewNote } from '$lib/utils/note-factory.js';
@@ -15,7 +16,7 @@ class NotesState {
 	error = $state<string | null>(null);
 
 	noteById = $derived.by(() => {
-		const map = new Map<NoteId, Note>();
+		const map = new SvelteMap<NoteId, Note>();
 		for (const note of this.notes) {
 			map.set(note.id, note);
 		}
@@ -25,7 +26,7 @@ class NotesState {
 	activeNotes = $derived(this.notes.filter((n) => !n.deleted));
 
 	activeNoteById = $derived.by(() => {
-		const map = new Map<NoteId, Note>();
+		const map = new SvelteMap<NoteId, Note>();
 		for (const note of this.activeNotes) {
 			map.set(note.id, note);
 		}
@@ -33,7 +34,7 @@ class NotesState {
 	});
 
 	activeNoteTitleIndex = $derived.by(() => {
-		const map = new Map<string, NoteId>();
+		const map = new SvelteMap<string, NoteId>();
 		for (const note of this.activeNotes) {
 			map.set(note.title.toLowerCase(), note.id);
 		}

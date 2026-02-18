@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Note } from '$lib/types/note.js';
 	import type { VaultObject } from '$lib/types/object.js';
+	import { SvelteMap } from 'svelte/reactivity';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
 	import { noteToVaultObject } from '$lib/domain/object-notes.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
@@ -26,8 +27,8 @@
 	let objectCachePromise: Promise<ObjectIndex> | null = null;
 
 	function createObjectIndex(objects: VaultObject[]): ObjectIndex {
-		const byKey = new Map<string, VaultObject>();
-		const byId = new Map<string, VaultObject>();
+		const byKey = new SvelteMap<string, VaultObject>();
+		const byId = new SvelteMap<string, VaultObject>();
 		for (const object of objects) {
 			byKey.set(`${object.type}:${object.id}`, object);
 			byId.set(String(object.id), object);
@@ -63,15 +64,20 @@
 
 		const run = async (): Promise<void> => {
 			const activeNotes = notesState.activeNotes;
-			const notesById = new Map(activeNotes.map((entry) => [String(entry.id), entry]));
-			const notesByTitle = new Map(activeNotes.map((entry) => [entry.title.toLowerCase(), entry]));
+			const notesById = new SvelteMap(activeNotes.map((entry) => [String(entry.id), entry]));
+			const notesByTitle = new SvelteMap(
+				activeNotes.map((entry) => [entry.title.toLowerCase(), entry]),
+			);
 			const noteObjects = activeNotes
 				.map((entry) => noteToVaultObject(entry))
 				.filter((object): object is VaultObject => !!object);
 			const noteObjectIndex = createObjectIndex(noteObjects);
 			const storageObjectIndex = note.content.includes(OBJECT_EMBED_MARKER)
 				? await getCachedStorageObjectIndex()
-				: { byKey: new Map<string, VaultObject>(), byId: new Map<string, VaultObject>() };
+				: {
+						byKey: new SvelteMap<string, VaultObject>(),
+						byId: new SvelteMap<string, VaultObject>(),
+					};
 
 			const result = await renderMarkdown(note.content, {
 				resolveLink: (title) => {

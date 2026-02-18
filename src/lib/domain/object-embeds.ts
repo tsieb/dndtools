@@ -1,5 +1,5 @@
 import { createVaultObjectId, type ObjectEmbedRef, type VaultObjectType } from '$lib/types/object.js';
-import { createNoteId, type NoteId } from '$lib/types/note.js';
+import type { NoteId } from '$lib/types/note.js';
 
 const OBJECT_EMBED_REGEX = /!\[\[obj:(stat_block|character|image):([A-Za-z0-9_-]+)(?:\|([^\]]+))?\]\]/g;
 const NOTE_EMBED_REGEX = /!\[\[([^\]]+)\]\]/g;

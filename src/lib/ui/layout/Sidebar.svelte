@@ -11,10 +11,10 @@
 	}
 
 	let { onnewnote, ontemplate }: Props = $props();
-	let showRecent = $state(true);
+	let showRecent = $state(false);
 	let showPinned = $state(true);
-	let showFolders = $state(true);
-	let showTags = $state(true);
+	let showFolders = $state(false);
+	let showTags = $state(false);
 
 	let pinnedNotes = $derived(notesState.pinnedNotes);
 
