@@ -125,4 +125,3 @@ export function buildRelatedNoteSuggestions({
 		.sort((a, b) => b.score - a.score || String(a.noteId).localeCompare(String(b.noteId)))
 		.slice(0, limit);
 }
-

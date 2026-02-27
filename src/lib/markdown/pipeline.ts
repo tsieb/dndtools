@@ -43,13 +43,8 @@ const sanitizeSchema: typeof defaultSchema = {
 			['data-object-type'],
 			['hidden'],
 		],
-		img: [
-			...(defaultSchema.attributes?.['img'] ?? []),
-			['className', /^object-embed/],
-		],
-		'*': [
-			...(defaultSchema.attributes?.['*'] ?? []),
-		],
+		img: [...(defaultSchema.attributes?.['img'] ?? []), ['className', /^object-embed/]],
+		'*': [...(defaultSchema.attributes?.['*'] ?? [])],
 	},
 	tagNames: [...(defaultSchema.tagNames ?? []), 'input'],
 };

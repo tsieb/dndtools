@@ -1,16 +1,31 @@
 import type { Note, NoteId, FolderId, Link, TagEntry } from './note.js';
 import type { AppSettings } from './settings.js';
+import type { SessionBoard, SessionBoardId, RelatedNoteSuggestion } from './session-board.js';
 import type {
-	SessionBoard,
-	SessionBoardId,
-	RelatedNoteSuggestion,
-} from './session-board.js';
-import type { VaultObject, VaultObjectId, VaultObjectType } from './object.js';
+	ObjectLintIssue,
+	ObjectRelationshipGraph,
+	VaultObject,
+	VaultObjectHistoryEntry,
+	VaultObjectId,
+	VaultObjectType,
+} from './object.js';
 
 export interface ImportResult {
 	imported: number;
 	skipped: number;
 	errors: string[];
+}
+
+export interface SafetySnapshot {
+	id: string;
+	createdAt: string;
+	reason: string;
+	noteCount: number;
+}
+
+export interface SnapshotRestoreResult {
+	restored: number;
+	skipped: number;
 }
 
 export interface StorageAdapter {
@@ -50,10 +65,20 @@ export interface StorageAdapter {
 	getAllObjects(options?: { type?: VaultObjectType; query?: string }): Promise<VaultObject[]>;
 	saveObject(object: VaultObject): Promise<void>;
 	deleteObject(id: VaultObjectId): Promise<void>;
+	getObjectRelationshipGraph(): Promise<ObjectRelationshipGraph>;
+	lintObjects(): Promise<ObjectLintIssue[]>;
+	getObjectHistory(
+		id: VaultObjectId,
+		options?: { limit?: number },
+	): Promise<VaultObjectHistoryEntry[]>;
+	revertObjectToHistory(id: VaultObjectId, historyEntryId: string): Promise<VaultObject | null>;
 
 	// Settings
 	getSetting<K extends keyof AppSettings>(key: K): Promise<AppSettings[K]>;
 	setSetting<K extends keyof AppSettings>(key: K, value: AppSettings[K]): Promise<void>;
+	createSafetySnapshot(reason?: string): Promise<SafetySnapshot>;
+	listSafetySnapshots(): Promise<SafetySnapshot[]>;
+	restoreDeletedFromSnapshot(snapshotId: string): Promise<SnapshotRestoreResult>;
 
 	// Bulk
 	importNotes(notes: Note[]): Promise<ImportResult>;

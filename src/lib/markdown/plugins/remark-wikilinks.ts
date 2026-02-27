@@ -19,10 +19,12 @@ export interface WikilinkOptions {
 }
 
 const remarkWikilinks: Plugin<[WikilinkOptions?], Root> = (options = {}) => {
-	const resolveLink = options.resolveLink ?? ((title: string) => ({
-		href: `/notes?create=${encodeURIComponent(title)}`,
-		exists: false,
-	}));
+	const resolveLink =
+		options.resolveLink ??
+		((title: string) => ({
+			href: `/notes?create=${encodeURIComponent(title)}`,
+			exists: false,
+		}));
 
 	return (tree: Root) => {
 		visit(tree, 'text', (node: Text, index, parent) => {

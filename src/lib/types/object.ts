@@ -1,6 +1,25 @@
 export type VaultObjectId = string & { readonly __brand: 'VaultObjectId' };
 
-export type VaultObjectType = 'stat_block' | 'character' | 'image';
+export type VaultObjectType =
+	| 'stat_block'
+	| 'character'
+	| 'image'
+	| 'npc'
+	| 'location'
+	| 'faction'
+	| 'quest'
+	| 'item'
+	| 'encounter'
+	| 'timeline_event';
+
+export type ObjectRelationshipType = 'parent' | 'child' | 'ally' | 'enemy' | 'appears_in_session';
+
+export interface ObjectRelationship {
+	type: ObjectRelationshipType;
+	targetId?: VaultObjectId;
+	sessionId?: string;
+	description?: string;
+}
 
 export type AbilityScoreKey = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
 
@@ -59,12 +78,82 @@ export interface ImageData {
 	height?: number;
 }
 
+export interface NpcData {
+	role?: string;
+	ancestry?: string;
+	alignment?: string;
+	disposition?: string;
+	armorClass?: number;
+	hitPoints?: number;
+	goals: string[];
+	secrets: string[];
+	notes?: string;
+}
+
+export interface LocationData {
+	locationType?: string;
+	region?: string;
+	population?: string;
+	climate?: string;
+	dangerLevel?: string;
+	features: string[];
+	notableNpcIds: string[];
+}
+
+export interface FactionData {
+	factionType?: string;
+	alignment?: string;
+	influence?: string;
+	leader?: string;
+	goals: string[];
+	resources: string[];
+	headquartersId?: string;
+}
+
+export interface QuestData {
+	status?: string;
+	giverId?: string;
+	objective?: string;
+	reward?: string;
+	dueSession?: string;
+	steps: string[];
+	relatedLocationIds: string[];
+}
+
+export interface ItemData {
+	itemType?: string;
+	rarity?: string;
+	attunement?: boolean;
+	ownerId?: string;
+	value?: string;
+	properties: string[];
+}
+
+export interface EncounterData {
+	encounterType?: string;
+	challengeRating?: string;
+	environment?: string;
+	objective?: string;
+	participants: string[];
+	rewards: string[];
+}
+
+export interface TimelineEventData {
+	date?: string;
+	era?: string;
+	significance?: string;
+	summary?: string;
+	involvedObjectIds: string[];
+	consequences: string[];
+}
+
 export interface VaultObjectBase<TType extends VaultObjectType, TData> {
 	id: VaultObjectId;
 	type: TType;
 	name: string;
 	summary: string;
 	tags: string[];
+	relationships: ObjectRelationship[];
 	data: TData;
 	createdAt: string;
 	updatedAt: string;
@@ -73,8 +162,63 @@ export interface VaultObjectBase<TType extends VaultObjectType, TData> {
 export type StatBlockObject = VaultObjectBase<'stat_block', StatBlockData>;
 export type CharacterObject = VaultObjectBase<'character', CharacterData>;
 export type ImageObject = VaultObjectBase<'image', ImageData>;
+export type NpcObject = VaultObjectBase<'npc', NpcData>;
+export type LocationObject = VaultObjectBase<'location', LocationData>;
+export type FactionObject = VaultObjectBase<'faction', FactionData>;
+export type QuestObject = VaultObjectBase<'quest', QuestData>;
+export type ItemObject = VaultObjectBase<'item', ItemData>;
+export type EncounterObject = VaultObjectBase<'encounter', EncounterData>;
+export type TimelineEventObject = VaultObjectBase<'timeline_event', TimelineEventData>;
 
-export type VaultObject = StatBlockObject | CharacterObject | ImageObject;
+export type VaultObject =
+	| StatBlockObject
+	| CharacterObject
+	| ImageObject
+	| NpcObject
+	| LocationObject
+	| FactionObject
+	| QuestObject
+	| ItemObject
+	| EncounterObject
+	| TimelineEventObject;
+
+export interface ObjectGraphNode {
+	id: VaultObjectId;
+	type: VaultObjectType;
+	name: string;
+}
+
+export interface ObjectGraphEdge {
+	fromId: VaultObjectId;
+	type: ObjectRelationshipType;
+	toId?: VaultObjectId;
+	sessionId?: string;
+	description?: string;
+	unresolved: boolean;
+}
+
+export interface ObjectRelationshipGraph {
+	nodes: ObjectGraphNode[];
+	edges: ObjectGraphEdge[];
+}
+
+export type ObjectLintSeverity = 'error' | 'warning';
+
+export interface ObjectLintIssue {
+	objectId: VaultObjectId;
+	code: string;
+	message: string;
+	severity: ObjectLintSeverity;
+	field?: string;
+}
+
+export interface VaultObjectHistoryEntry {
+	id: string;
+	objectId: VaultObjectId;
+	recordedAt: string;
+	reason: 'save' | 'delete' | 'revert';
+	object: VaultObject;
+}
 
 export interface ObjectEmbedRef {
 	type: VaultObjectType;

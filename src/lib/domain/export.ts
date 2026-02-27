@@ -1,4 +1,5 @@
 import type { Note } from '$lib/types/note.js';
+import { createFolderId } from '$lib/types/note.js';
 import { notesState } from '$lib/state/notes.svelte.js';
 
 interface BundleNote {
@@ -17,6 +18,21 @@ interface ExportBundle {
 export interface UnpackedVaultFile {
 	relativePath: string;
 	content: string;
+}
+
+export interface ObsidianImportCandidate {
+	title: string;
+	content: string;
+	tags: string[];
+	folder: Note['folder'];
+	sourcePath: string;
+}
+
+export interface ObsidianImportPreview {
+	markdownCount: number;
+	candidates: ObsidianImportCandidate[];
+	skippedPaths: string[];
+	duplicateTitles: string[];
 }
 
 /** Convert a note to markdown with YAML frontmatter */
@@ -50,13 +66,14 @@ function downloadFile(content: string, filename: string, mimeType: string = 'tex
 
 /** Slugify a title for use as filename */
 function toFilename(title: string): string {
-	return title
-		.toLowerCase()
-		.replace(/[^a-z0-9\s-]/g, '')
-		.replace(/\s+/g, '-')
-		.replace(/-+/g, '-')
-		.replace(/^-|-$/g, '')
-		|| 'untitled';
+	return (
+		title
+			.toLowerCase()
+			.replace(/[^a-z0-9\s-]/g, '')
+			.replace(/\s+/g, '-')
+			.replace(/-+/g, '-')
+			.replace(/^-|-$/g, '') || 'untitled'
+	);
 }
 
 /** Export a single note as a .md file download */
@@ -183,7 +200,10 @@ export function parseMarkdownFile(content: string, filename: string): Partial<No
 
 		const tagsMatch = fmBlock.match(/tags:\s*\[([^\]]*)\]/);
 		if (tagsMatch?.[1]) {
-			note.tags = tagsMatch[1].split(',').map((t) => t.trim()).filter(Boolean);
+			note.tags = tagsMatch[1]
+				.split(',')
+				.map((t) => t.trim())
+				.filter(Boolean);
 		}
 	} else {
 		note.content = content;
@@ -210,4 +230,48 @@ export function parseJsonBundle(content: string): Partial<Note>[] {
 		tags: n.tags || [],
 		folder: n.folder as Note['folder'],
 	}));
+}
+
+export function buildObsidianImportPreview(
+	files: UnpackedVaultFile[],
+	existingTitles: Iterable<string>,
+): ObsidianImportPreview {
+	const existing = new Set(Array.from(existingTitles, (title) => title.trim().toLowerCase()));
+	const duplicateTitleSet = new Set<string>();
+	const candidates: ObsidianImportCandidate[] = [];
+	const skippedPaths: string[] = [];
+	let markdownCount = 0;
+
+	for (const file of files) {
+		const normalizedPath = file.relativePath.replace(/\\/g, '/');
+		if (!/\.(md|markdown)$/i.test(normalizedPath)) {
+			skippedPaths.push(normalizedPath);
+			continue;
+		}
+
+		markdownCount++;
+		const filename = normalizedPath.split('/').pop() ?? normalizedPath;
+		const parsed = parseMarkdownFile(file.content, filename);
+		const title =
+			parsed.title?.trim() || filename.replace(/\.(md|markdown)$/i, '').trim() || 'Untitled';
+		const normalizedTitle = title.toLowerCase();
+		if (existing.has(normalizedTitle)) {
+			duplicateTitleSet.add(title);
+		}
+
+		candidates.push({
+			title,
+			content: parsed.content ?? '',
+			tags: parsed.tags ?? [],
+			folder: createFolderId(folderFromRelativePath(normalizedPath)),
+			sourcePath: normalizedPath,
+		});
+	}
+
+	return {
+		markdownCount,
+		candidates,
+		skippedPaths,
+		duplicateTitles: Array.from(duplicateTitleSet).sort((a, b) => a.localeCompare(b)),
+	};
 }

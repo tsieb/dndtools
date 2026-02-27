@@ -8,9 +8,6 @@ export interface NoteTemplate {
 	readonly defaultFolder: string;
 }
 
-const isoDate = new Date().toISOString().split('T')[0];
-const localDate = new Date().toLocaleDateString();
-
 export const DND_TEMPLATES: readonly NoteTemplate[] = [
 	{
 		id: 'npc',
@@ -289,13 +286,13 @@ Consequences if the party retreats, fails, or negotiates.
 		defaultFolder: '/sessions',
 		content: `---
 tags: [session]
-date: ${isoDate}
+date: {{date_iso}}
 ---
 
-# Session X: Title
+# Session {{session_number}}: Title
 
 > [!info] Session Info
-> **Date:** ${localDate} | **Duration:** ~3h
+> **Date:** {{date_pretty}} | **Campaign:** {{campaign_name}} | **Duration:** ~3h
 
 ## Previously
 Brief recap of where we left off.
@@ -336,13 +333,13 @@ Brief recap of where we left off.
 		defaultFolder: '/sessions',
 		content: `---
 tags: [session, prep]
-date: ${isoDate}
+date: {{date_iso}}
 ---
 
-# Session Prep: Title
+# Session {{session_number}} Prep: Title
 
 > [!dm] Prep Snapshot
-> **Target Length:** 3 hours | **Planned Pillars:** Exploration / Social / Combat
+> **Campaign:** {{campaign_name}} | **Target Length:** 3 hours | **Planned Pillars:** Exploration / Social / Combat
 
 ## Last Session Fallout
 - Consequence 1
@@ -374,6 +371,46 @@ date: ${isoDate}
 - [ ] Resolve one active thread
 - [ ] Introduce one new thread
 - [ ] Leave a clear next objective
+`,
+	},
+	{
+		id: 'session-recap',
+		name: 'Session Recap Scaffold',
+		description: 'One-click recap structure with continuity handoff',
+		icon: '\u270D\uFE0F',
+		defaultTags: ['session', 'recap'],
+		defaultFolder: '/sessions',
+		content: `---
+tags: [session, recap]
+date: {{date_iso}}
+session: {{session_number}}
+campaign: {{campaign_name}}
+---
+
+# Session {{session_number}} Recap - {{campaign_name}}
+
+> [!info] Table Recap
+> **Date:** {{date_pretty}} | **Cast:** {{character_names_csv}}
+
+## Last Time On
+Three to five bullet points of what actually happened.
+
+## Character Moments
+{{character_names_bullets}}
+
+## Continuity Ledger
+- **New facts established:**
+- **NPC status changes:**
+- **Location/world changes:**
+- **Rules or rulings to remember:**
+
+## Carry Forward
+- [ ] Next-session objective
+- [ ] Outstanding question
+- [ ] Prep item for DM
+
+## Shareable Player Summary
+Write a short version you can paste to players verbatim.
 `,
 	},
 	{

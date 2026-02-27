@@ -1,7 +1,12 @@
-import { createVaultObjectId, type ObjectEmbedRef, type VaultObjectType } from '$lib/types/object.js';
+import {
+	createVaultObjectId,
+	type ObjectEmbedRef,
+	type VaultObjectType,
+} from '$lib/types/object.js';
 import type { NoteId } from '$lib/types/note.js';
 
-const OBJECT_EMBED_REGEX = /!\[\[obj:(stat_block|character|image):([A-Za-z0-9_-]+)(?:\|([^\]]+))?\]\]/g;
+const OBJECT_EMBED_REGEX =
+	/!\[\[obj:(stat_block|character|image|npc|location|faction|quest|item|encounter|timeline_event):([A-Za-z0-9_-]+)(?:\|([^\]]+))?\]\]/g;
 const NOTE_EMBED_REGEX = /!\[\[([^\]]+)\]\]/g;
 
 export type EmbedRenderView = 'card' | 'inline' | 'content';
@@ -52,15 +57,9 @@ export function parseEmbedRenderOptions(raw: string | undefined): EmbedRenderOpt
 	return options;
 }
 
-export function formatObjectEmbed(
-	type: VaultObjectType,
-	id: string,
-	label?: string,
-): string {
+export function formatObjectEmbed(type: VaultObjectType, id: string, label?: string): string {
 	const cleanLabel = label?.trim();
-	return cleanLabel
-		? `![[obj:${type}:${id}|${cleanLabel}]]`
-		: `![[obj:${type}:${id}]]`;
+	return cleanLabel ? `![[obj:${type}:${id}|${cleanLabel}]]` : `![[obj:${type}:${id}]]`;
 }
 
 export function formatNoteEmbed(
@@ -76,7 +75,8 @@ export function formatNoteEmbed(
 	const cleanLabel = label?.trim();
 	const optionParts: string[] = [];
 	if (options?.view) optionParts.push(`view=${options.view}`);
-	if (typeof options?.open === 'boolean') optionParts.push(`open=${options.open ? 'true' : 'false'}`);
+	if (typeof options?.open === 'boolean')
+		optionParts.push(`open=${options.open ? 'true' : 'false'}`);
 	if (typeof options?.maxDepth === 'number' && Number.isFinite(options.maxDepth)) {
 		optionParts.push(`maxDepth=${Math.max(1, Math.trunc(options.maxDepth))}`);
 	}
@@ -141,8 +141,7 @@ export function extractNoteEmbeds(content: string): NoteEmbedRef[] {
 		const maybeOptions = rawOptions?.trim();
 		const optionsFromLabel =
 			labelRaw && labelRaw.includes('=') && !maybeOptions ? parseEmbedRenderOptions(labelRaw) : {};
-		const label =
-			labelRaw && !(labelRaw.includes('=') && !maybeOptions) ? labelRaw : undefined;
+		const label = labelRaw && !(labelRaw.includes('=') && !maybeOptions) ? labelRaw : undefined;
 		const options = {
 			...optionsFromLabel,
 			...parseEmbedRenderOptions(maybeOptions),

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+	buildObsidianImportPreview,
 	bundleToMarkdownFiles,
 	folderFromRelativePath,
 	noteToMarkdown,
@@ -183,5 +184,43 @@ describe('bundleToMarkdownFiles', () => {
 		expect(() => bundleToMarkdownFiles(JSON.stringify({ bad: true }))).toThrow(
 			'Invalid export file format',
 		);
+	});
+});
+
+describe('buildObsidianImportPreview', () => {
+	it('builds import candidates from markdown files and ignores non-markdown', () => {
+		const preview = buildObsidianImportPreview(
+			[
+				{
+					relativePath: 'my-vault/notes/alpha.md',
+					content: '# Alpha',
+				},
+				{
+					relativePath: 'my-vault/assets/map.png',
+					content: 'binary',
+				},
+			],
+			[],
+		);
+
+		expect(preview.markdownCount).toBe(1);
+		expect(preview.candidates).toHaveLength(1);
+		expect(preview.candidates[0]?.title).toBe('alpha');
+		expect(preview.candidates[0]?.folder).toBe('/notes');
+		expect(preview.skippedPaths).toEqual(['my-vault/assets/map.png']);
+	});
+
+	it('flags potential duplicate titles against existing notes', () => {
+		const preview = buildObsidianImportPreview(
+			[
+				{
+					relativePath: 'vault/session-log.md',
+					content: '# Session Log',
+				},
+			],
+			['session log'],
+		);
+
+		expect(preview.duplicateTitles).toEqual(['session log']);
 	});
 });

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { extractFrontmatter, extractTags, extractTitle } from './frontmatter.js';
+import {
+	extractFrontmatter,
+	extractTags,
+	extractTitle,
+	stringifyFrontmatter,
+	upsertFrontmatter,
+} from './frontmatter.js';
 
 describe('extractFrontmatter', () => {
 	it('extracts YAML frontmatter', () => {
@@ -91,5 +97,35 @@ describe('extractTitle', () => {
 	it('trims whitespace', () => {
 		const title = extractTitle({ title: '  Spaced  ' }, '');
 		expect(title).toBe('Spaced');
+	});
+});
+
+describe('stringifyFrontmatter', () => {
+	it('returns empty string when there are no values', () => {
+		expect(stringifyFrontmatter({ title: '', tags: [] })).toBe('');
+	});
+
+	it('builds a frontmatter block with valid keys', () => {
+		const result = stringifyFrontmatter({ title: 'Test', tags: ['npc'] });
+		expect(result.startsWith('---\n')).toBe(true);
+		expect(result).toContain('title: Test');
+		expect(result).toContain('- npc');
+	});
+});
+
+describe('upsertFrontmatter', () => {
+	it('adds frontmatter to markdown without a frontmatter block', () => {
+		const content = '# Heading\n\nBody';
+		const result = upsertFrontmatter(content, { type: 'npc' });
+		expect(result).toContain('type: npc');
+		expect(result).toContain('# Heading');
+	});
+
+	it('updates existing keys and keeps body intact', () => {
+		const content = '---\ntype: old\n---\n\nBody';
+		const result = upsertFrontmatter(content, { type: 'new', status: 'active' });
+		expect(result).toContain('type: new');
+		expect(result).toContain('status: active');
+		expect(result.endsWith('Body')).toBe(true);
 	});
 });

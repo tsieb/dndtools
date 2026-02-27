@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { DND_TEMPLATES, type NoteTemplate } from './templates.js';
 
 describe('DND_TEMPLATES', () => {
-	it('has 20 templates', () => {
-		expect(DND_TEMPLATES).toHaveLength(20);
+	it('has 21 templates', () => {
+		expect(DND_TEMPLATES).toHaveLength(21);
 	});
 
 	it('each template has a unique id', () => {
@@ -34,6 +34,7 @@ describe('DND_TEMPLATES', () => {
 		expect(ids).toContain('dungeon');
 		expect(ids).toContain('session');
 		expect(ids).toContain('session-prep');
+		expect(ids).toContain('session-recap');
 		expect(ids).toContain('quest');
 		expect(ids).toContain('adventure-hook');
 		expect(ids).toContain('campaign-arc');
@@ -70,6 +71,7 @@ describe('DND_TEMPLATES', () => {
 	it('Session template includes task list items', () => {
 		const session = DND_TEMPLATES.find((t) => t.id === 'session') as NoteTemplate;
 		expect(session.content).toContain('- [ ]');
+		expect(session.content).toContain('{{session_number}}');
 	});
 
 	it('Quest template includes status field', () => {

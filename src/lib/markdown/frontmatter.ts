@@ -1,4 +1,4 @@
-import { parse as parseYaml } from 'yaml';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---/;
 const EMPTY_FRONTMATTER_REGEX = /^---\r?\n---/;
@@ -9,11 +9,35 @@ export interface FrontmatterResult {
 	body: string;
 }
 
+export function stringifyFrontmatter(frontmatter: Record<string, unknown>): string {
+	const cleaned = Object.fromEntries(
+		Object.entries(frontmatter).filter(([, value]) => {
+			if (value === undefined || value === null) return false;
+			if (typeof value === 'string') return value.trim().length > 0;
+			if (Array.isArray(value)) return value.length > 0;
+			return true;
+		}),
+	);
+	if (Object.keys(cleaned).length === 0) return '';
+	return `---\n${stringifyYaml(cleaned).trimEnd()}\n---\n\n`;
+}
+
+export function upsertFrontmatter(content: string, updates: Record<string, unknown>): string {
+	const parsed = extractFrontmatter(content);
+	const next = { ...parsed.frontmatter, ...updates };
+	const frontmatterBlock = stringifyFrontmatter(next);
+	if (!frontmatterBlock) return parsed.body;
+	return `${frontmatterBlock}${parsed.body}`;
+}
+
 /** Extract YAML frontmatter and body from markdown content */
 export function extractFrontmatter(content: string): FrontmatterResult {
 	// Handle empty frontmatter
 	const emptyMatch = content.match(EMPTY_FRONTMATTER_REGEX);
-	if (emptyMatch && (!content.match(FRONTMATTER_REGEX) || content.match(FRONTMATTER_REGEX)?.[1]?.trim() === '')) {
+	if (
+		emptyMatch &&
+		(!content.match(FRONTMATTER_REGEX) || content.match(FRONTMATTER_REGEX)?.[1]?.trim() === '')
+	) {
 		const body = content.slice(emptyMatch[0].length).replace(/^\r?\n+/, '');
 		return { frontmatter: {}, body };
 	}
@@ -25,9 +49,8 @@ export function extractFrontmatter(content: string): FrontmatterResult {
 
 	try {
 		const parsed = parseYaml(match[1]!) as unknown;
-		const frontmatter = typeof parsed === 'object' && parsed !== null
-			? (parsed as Record<string, unknown>)
-			: {};
+		const frontmatter =
+			typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {};
 		const body = content.slice(match[0].length).replace(/^\r?\n+/, '');
 		return { frontmatter, body };
 	} catch {

@@ -85,7 +85,12 @@ export function rehypeCallouts() {
 			}
 
 			// Remove empty first paragraph
-			if (firstP.children.length === 0 || (firstP.children.length === 1 && firstP.children[0]?.type === 'text' && (firstP.children[0] as HastText).value.trim() === '')) {
+			if (
+				firstP.children.length === 0 ||
+				(firstP.children.length === 1 &&
+					firstP.children[0]?.type === 'text' &&
+					(firstP.children[0] as HastText).value.trim() === '')
+			) {
 				el.children = el.children.filter((c) => c !== firstP);
 			}
 

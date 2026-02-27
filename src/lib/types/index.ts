@@ -1,19 +1,7 @@
-export type {
-	NoteId,
-	FolderId,
-	Note,
-	Link,
-	TagEntry,
-	Folder,
-} from './note.js';
+export type { NoteId, FolderId, Note, Link, TagEntry, Folder } from './note.js';
 export { createNoteId, createFolderId, ROOT_FOLDER } from './note.js';
 
-export type {
-	AppSettings,
-	EditorSettings,
-	SortSettings,
-	SettingRecord,
-} from './settings.js';
+export type { AppSettings, EditorSettings, SortSettings, SettingRecord } from './settings.js';
 export { DEFAULT_SETTINGS } from './settings.js';
 
 export type { StorageAdapter, ImportResult } from './storage.js';
@@ -26,10 +14,32 @@ export type {
 	StatBlockData,
 	CharacterData,
 	ImageData,
+	NpcData,
+	LocationData,
+	FactionData,
+	QuestData,
+	ItemData,
+	EncounterData,
+	TimelineEventData,
+	ObjectRelationshipType,
+	ObjectRelationship,
 	StatBlockObject,
 	CharacterObject,
 	ImageObject,
+	NpcObject,
+	LocationObject,
+	FactionObject,
+	QuestObject,
+	ItemObject,
+	EncounterObject,
+	TimelineEventObject,
 	VaultObject,
+	ObjectGraphNode,
+	ObjectGraphEdge,
+	ObjectRelationshipGraph,
+	ObjectLintSeverity,
+	ObjectLintIssue,
+	VaultObjectHistoryEntry,
 	ObjectEmbedRef,
 } from './object.js';
 export { createVaultObjectId } from './object.js';

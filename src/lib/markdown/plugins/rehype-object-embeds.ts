@@ -221,19 +221,109 @@ function buildObjectDetails(object: VaultObject): HastNode[] {
 			if (creditLine) lines.push(creditLine);
 			return lines;
 		}
+		case 'npc': {
+			const lines: HastNode[] = [];
+			const roleLine = detailLine('Role:', object.data.role);
+			if (roleLine) lines.push(roleLine);
+			const ancestryLine = detailLine('Ancestry:', object.data.ancestry);
+			if (ancestryLine) lines.push(ancestryLine);
+			const alignLine = detailLine('Alignment:', object.data.alignment);
+			if (alignLine) lines.push(alignLine);
+			const goalLine = detailList('Goals:', object.data.goals.slice(0, 3));
+			if (goalLine) lines.push(goalLine);
+			const secretLine = detailList('Secrets:', object.data.secrets.slice(0, 3));
+			if (secretLine) lines.push(secretLine);
+			return lines;
+		}
+		case 'location': {
+			const lines: HastNode[] = [];
+			const typeLine = detailLine('Type:', object.data.locationType);
+			if (typeLine) lines.push(typeLine);
+			const regionLine = detailLine('Region:', object.data.region);
+			if (regionLine) lines.push(regionLine);
+			const dangerLine = detailLine('Danger:', object.data.dangerLevel);
+			if (dangerLine) lines.push(dangerLine);
+			const featuresLine = detailList('Features:', object.data.features.slice(0, 4));
+			if (featuresLine) lines.push(featuresLine);
+			return lines;
+		}
+		case 'faction': {
+			const lines: HastNode[] = [];
+			const typeLine = detailLine('Type:', object.data.factionType);
+			if (typeLine) lines.push(typeLine);
+			const influenceLine = detailLine('Influence:', object.data.influence);
+			if (influenceLine) lines.push(influenceLine);
+			const leaderLine = detailLine('Leader:', object.data.leader);
+			if (leaderLine) lines.push(leaderLine);
+			const goalsLine = detailList('Goals:', object.data.goals.slice(0, 4));
+			if (goalsLine) lines.push(goalsLine);
+			return lines;
+		}
+		case 'quest': {
+			const lines: HastNode[] = [];
+			const statusLine = detailLine('Status:', object.data.status);
+			if (statusLine) lines.push(statusLine);
+			const objectiveLine = detailLine('Objective:', object.data.objective);
+			if (objectiveLine) lines.push(objectiveLine);
+			const rewardLine = detailLine('Reward:', object.data.reward);
+			if (rewardLine) lines.push(rewardLine);
+			const stepsLine = detailList('Steps:', object.data.steps.slice(0, 4));
+			if (stepsLine) lines.push(stepsLine);
+			return lines;
+		}
+		case 'item': {
+			const lines: HastNode[] = [];
+			const typeLine = detailLine('Type:', object.data.itemType);
+			if (typeLine) lines.push(typeLine);
+			const rarityLine = detailLine('Rarity:', object.data.rarity);
+			if (rarityLine) lines.push(rarityLine);
+			const ownerLine = detailLine('Owner:', object.data.ownerId);
+			if (ownerLine) lines.push(ownerLine);
+			const propsLine = detailList('Properties:', object.data.properties.slice(0, 4));
+			if (propsLine) lines.push(propsLine);
+			return lines;
+		}
+		case 'encounter': {
+			const lines: HastNode[] = [];
+			const typeLine = detailLine('Type:', object.data.encounterType);
+			if (typeLine) lines.push(typeLine);
+			const crLine = detailLine('CR:', object.data.challengeRating);
+			if (crLine) lines.push(crLine);
+			const envLine = detailLine('Environment:', object.data.environment);
+			if (envLine) lines.push(envLine);
+			const objectiveLine = detailLine('Objective:', object.data.objective);
+			if (objectiveLine) lines.push(objectiveLine);
+			const participantsLine = detailList('Participants:', object.data.participants.slice(0, 4));
+			if (participantsLine) lines.push(participantsLine);
+			return lines;
+		}
+		case 'timeline_event': {
+			const lines: HastNode[] = [];
+			const dateLine = detailLine('Date:', object.data.date);
+			if (dateLine) lines.push(dateLine);
+			const eraLine = detailLine('Era:', object.data.era);
+			if (eraLine) lines.push(eraLine);
+			const sigLine = detailLine('Significance:', object.data.significance);
+			if (sigLine) lines.push(sigLine);
+			const summaryLine = detailLine('Summary:', object.data.summary);
+			if (summaryLine) lines.push(summaryLine);
+			return lines;
+		}
 	}
 }
 
 function parseEmbedToken(inner: string): EmbedMatch | null {
-	const segments = inner
-		.split('|')
-		.map((entry) => entry.trim());
+	const segments = inner.split('|').map((entry) => entry.trim());
 	const target = segments[0];
 	if (!target) return null;
 
 	const optionIndex = segments.findIndex((segment, index) => index > 0 && segment.includes('='));
 	const label =
-		optionIndex === 1 ? undefined : optionIndex > 1 ? segments.slice(1, optionIndex).join(' | ') : segments[1];
+		optionIndex === 1
+			? undefined
+			: optionIndex > 1
+				? segments.slice(1, optionIndex).join(' | ')
+				: segments[1];
 	const rawOptions =
 		optionIndex >= 0
 			? segments.slice(optionIndex).join(',')
@@ -247,7 +337,19 @@ function parseEmbedToken(inner: string): EmbedMatch | null {
 		const type = parts[1];
 		const id = parts[2];
 		if (!type || !id) return null;
-		if (type !== 'stat_block' && type !== 'character' && type !== 'image') return null;
+		if (
+			type !== 'stat_block' &&
+			type !== 'character' &&
+			type !== 'image' &&
+			type !== 'npc' &&
+			type !== 'location' &&
+			type !== 'faction' &&
+			type !== 'quest' &&
+			type !== 'item' &&
+			type !== 'encounter' &&
+			type !== 'timeline_event'
+		)
+			return null;
 		return {
 			kind: 'object',
 			type,
@@ -322,9 +424,13 @@ function createEmbedHeader(
 	};
 }
 
-function createObjectEmbedCard(match: ObjectEmbedMatch, object: VaultObject | null | undefined): HastElement {
+function createObjectEmbedCard(
+	match: ObjectEmbedMatch,
+	object: VaultObject | null | undefined,
+): HastElement {
 	const resolved = object ?? null;
-	const title = match.label?.trim() || resolved?.name || `Missing ${getVaultObjectTypeLabel(match.type)}`;
+	const title =
+		match.label?.trim() || resolved?.name || `Missing ${getVaultObjectTypeLabel(match.type)}`;
 	const summary = resolved?.summary?.trim() || (resolved ? summarizeVaultObject(resolved) : '');
 	const details = resolved ? buildObjectDetails(resolved) : [];
 	const showToggle = match.options.view !== 'inline';
@@ -344,7 +450,13 @@ function createObjectEmbedCard(match: ObjectEmbedMatch, object: VaultObject | nu
 			'data-object-type': match.type,
 		},
 		children: [
-			createEmbedHeader(getVaultObjectTypeLabel(match.type), title, showToggle, match.id, match.type),
+			createEmbedHeader(
+				getVaultObjectTypeLabel(match.type),
+				title,
+				showToggle,
+				match.id,
+				match.type,
+			),
 			...(summary
 				? [
 						{
@@ -399,7 +511,10 @@ function createNoteEmbedCard(
 	} else {
 		const kindLine = detailLine('Kind:', resolved?.kind ?? 'note');
 		if (kindLine) details.push(kindLine);
-		const idLine = detailLine('Id:', resolved?.id ?? (match.targetBy === 'id' ? match.target : undefined));
+		const idLine = detailLine(
+			'Id:',
+			resolved?.id ?? (match.targetBy === 'id' ? match.target : undefined),
+		);
 		if (idLine) details.push(idLine);
 		const updatedLine = detailLine('Updated:', resolved?.updatedAt);
 		if (updatedLine) details.push(updatedLine);
@@ -429,7 +544,7 @@ function createNoteEmbedCard(
 		},
 		children: [
 			createEmbedHeader(
-				object ? getVaultObjectTypeLabel(object.type) : resolved?.kind ?? 'Note',
+				object ? getVaultObjectTypeLabel(object.type) : (resolved?.kind ?? 'Note'),
 				title,
 				showToggle,
 				resolved?.id ?? match.target,
@@ -507,9 +622,7 @@ export function rehypeObjectEmbeds(options: RehypeObjectEmbedsOptions = {}) {
 					if (parsed.kind === 'object') {
 						children.push(createObjectEmbedCard(parsed, resolveObject(parsed)));
 					} else {
-						children.push(
-							createNoteEmbedCard(parsed, resolveNote(parsed), options.currentNoteId),
-						);
+						children.push(createNoteEmbedCard(parsed, resolveNote(parsed), options.currentNoteId));
 					}
 					lastIndex = match.index + match[0].length;
 				}
@@ -526,4 +639,3 @@ export function rehypeObjectEmbeds(options: RehypeObjectEmbedsOptions = {}) {
 		);
 	};
 }
-

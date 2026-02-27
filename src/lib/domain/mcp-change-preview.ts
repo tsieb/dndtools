@@ -1,8 +1,10 @@
 import type { McpChangeRecord, McpChangePreview } from '../types/mcp.js';
 import type { Note } from '../types/note.js';
+import { extractWikilinks } from './link-extractor.js';
 
 const COMPACT_LINE_LIMIT = 24;
 const FULL_LINE_LIMIT = 300;
+const LINK_PREVIEW_LIMIT = 12;
 
 function splitLines(content: string): string[] {
 	return content.replace(/\r\n/g, '\n').split('\n');
@@ -37,8 +39,75 @@ function metadataChanges(before: Note | null, after: Note | null): string[] {
 	if (formatTags(prev.tags) !== formatTags(next.tags)) changed.push('tags');
 	if (prev.deleted !== next.deleted) changed.push(next.deleted ? 'trashed' : 'restored');
 	if (prev.filePath !== next.filePath) changed.push('path');
-	if (JSON.stringify(prev.frontmatter) !== JSON.stringify(next.frontmatter)) changed.push('frontmatter');
+	if (JSON.stringify(prev.frontmatter) !== JSON.stringify(next.frontmatter))
+		changed.push('frontmatter');
 	return changed;
+}
+
+function hasMetadata(metadata: string[], key: string): boolean {
+	return metadata.includes(key);
+}
+
+function summarizeSemanticImpact(preview: McpChangePreview): string {
+	const parts: string[] = [];
+	if (preview.semantic.titleChanged) parts.push('rename');
+	if (preview.semantic.folderChanged) parts.push('move');
+	if (preview.semantic.tagsChanged) parts.push('retag');
+	if (preview.semantic.frontmatterChanged) parts.push('frontmatter');
+	if (preview.semantic.deletedStateChanged) parts.push('trash-state');
+	if (parts.length === 0) {
+		return preview.semantic.structural ? 'structural update' : 'content update';
+	}
+	return parts.join(', ');
+}
+
+function normalizeLinkTarget(target: string): string {
+	return target.trim().toLowerCase();
+}
+
+function getLinkTargetSet(content: string): Set<string> {
+	const links = extractWikilinks(content);
+	const targets = new Set<string>();
+	for (const link of links) {
+		if (link.targetIdHint) {
+			targets.add(`id:${normalizeLinkTarget(link.targetIdHint)}`);
+			continue;
+		}
+		targets.add(`title:${normalizeLinkTarget(link.title)}`);
+	}
+	return targets;
+}
+
+function compactLinkTargets(values: Set<string>): string[] {
+	return [...values].sort((a, b) => a.localeCompare(b)).slice(0, LINK_PREVIEW_LIMIT);
+}
+
+function buildLinkImpact(
+	beforeContent: string,
+	afterContent: string,
+): McpChangePreview['linkImpact'] {
+	const beforeTargets = getLinkTargetSet(beforeContent);
+	const afterTargets = getLinkTargetSet(afterContent);
+	const added = new Set<string>();
+	const removed = new Set<string>();
+
+	for (const target of afterTargets) {
+		if (!beforeTargets.has(target)) {
+			added.add(target);
+		}
+	}
+	for (const target of beforeTargets) {
+		if (!afterTargets.has(target)) {
+			removed.add(target);
+		}
+	}
+
+	return {
+		added: added.size,
+		removed: removed.size,
+		addedTargets: compactLinkTargets(added),
+		removedTargets: compactLinkTargets(removed),
+	};
 }
 
 function buildLineDiff(
@@ -97,8 +166,12 @@ function buildSummary(record: McpChangeRecord, preview: McpChangePreview): strin
 	if (preview.metadata.length > 0) {
 		parts.push(`Fields: ${preview.metadata.join(', ')}`);
 	}
+	parts.push(`Semantic: ${summarizeSemanticImpact(preview)}`);
 	if (preview.addedLines > 0 || preview.removedLines > 0) {
 		parts.push(`Lines: +${preview.addedLines} -${preview.removedLines}`);
+	}
+	if (preview.linkImpact.added > 0 || preview.linkImpact.removed > 0) {
+		parts.push(`Links: +${preview.linkImpact.added} -${preview.linkImpact.removed}`);
 	}
 	if (parts.length === 0) {
 		parts.push(record.summary);
@@ -114,6 +187,25 @@ export function buildMcpChangePreview(record: McpChangeRecord): McpChangePreview
 	const metadata = metadataChanges(beforeNote, afterNote);
 	const compact = buildLineDiff(beforeContent, afterContent, COMPACT_LINE_LIMIT);
 	const full = buildLineDiff(beforeContent, afterContent, FULL_LINE_LIMIT);
+	const semantic: McpChangePreview['semantic'] = {
+		titleChanged: hasMetadata(metadata, 'title'),
+		folderChanged: hasMetadata(metadata, 'folder') || hasMetadata(metadata, 'path'),
+		tagsChanged: hasMetadata(metadata, 'tags'),
+		frontmatterChanged: hasMetadata(metadata, 'frontmatter'),
+		deletedStateChanged:
+			hasMetadata(metadata, 'deleted') ||
+			hasMetadata(metadata, 'trashed') ||
+			hasMetadata(metadata, 'restored'),
+		structural:
+			record.type !== 'update' ||
+			hasMetadata(metadata, 'title') ||
+			hasMetadata(metadata, 'folder') ||
+			hasMetadata(metadata, 'path') ||
+			hasMetadata(metadata, 'frontmatter') ||
+			hasMetadata(metadata, 'created') ||
+			hasMetadata(metadata, 'deleted'),
+	};
+	const linkImpact = buildLinkImpact(beforeContent, afterContent);
 
 	const preview: McpChangePreview = {
 		summary: '',
@@ -123,6 +215,8 @@ export function buildMcpChangePreview(record: McpChangeRecord): McpChangePreview
 		compactDiff: compact.text,
 		fullDiff: full.text,
 		hasMore: full.truncated,
+		semantic,
+		linkImpact,
 	};
 	preview.summary = buildSummary(record, preview);
 	return preview;

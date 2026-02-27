@@ -1,68 +1,219 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
-interface DesktopMcpStatus {
-	state: 'stopped' | 'running' | 'error';
-	vaultDir: string | null;
-	entry: string | null;
-	pid: number | null;
-	lastStartedAt: string | null;
-	error: string | null;
-}
+	interface DesktopMcpStatus {
+		state: 'stopped' | 'running' | 'error';
+		vaultDir: string | null;
+		entry: string | null;
+		pid: number | null;
+		lastStartedAt: string | null;
+		lastStoppedAt: string | null;
+		lastExitReason: string | null;
+		restartCount: number;
+		crashCount: number;
+		error: string | null;
+	}
 
-interface DesktopMcpChangeRecord {
-	id: string;
-	createdAt: string;
-	resolvedAt: string | null;
-	source: 'mcp';
-	type: 'create' | 'update' | 'soft_delete' | 'restore' | 'permanent_delete';
-	status: 'pending' | 'approved' | 'rejected';
-	noteId: string;
-	title: string;
-	summary: string;
-	before: { note: import('$lib/types/note.js').Note } | null;
-	after: { note: import('$lib/types/note.js').Note } | null;
-	preview?: {
+	interface DesktopMcpLifecycleEvent {
+		at: string;
+		event: 'start' | 'stop' | 'restart' | 'crash';
+		reason: string | null;
+		pid: number | null;
+	}
+
+	interface DesktopStructuredErrorEvent {
+		id: string;
+		at: string;
+		category: 'storage' | 'parsing' | 'ipc' | 'mcp_sidecar' | 'ui_runtime';
+		code: string;
+		message: string;
+		severity: 'error' | 'warning' | 'info';
+		details: string | null;
+		context: Record<string, string | number | boolean | null>;
+	}
+
+	interface DesktopSystemHealth {
+		generatedAt: string;
+		lastSuccessful: {
+			runtime_bootstrap: string | null;
+			vault_sync: string | null;
+			search_index: string | null;
+			link_graph_build: string | null;
+		};
+		recentErrors: DesktopStructuredErrorEvent[];
+		mcpStatus: DesktopMcpStatus;
+		mcpLifecycle: DesktopMcpLifecycleEvent[];
+	}
+
+	interface DesktopMcpChangeRecord {
+		id: string;
+		createdAt: string;
+		resolvedAt: string | null;
+		source: 'mcp';
+		type: 'create' | 'update' | 'soft_delete' | 'restore' | 'permanent_delete';
+		status: 'pending' | 'approved' | 'rejected';
+		noteId: string;
+		title: string;
 		summary: string;
-		metadata: string[];
-		addedLines: number;
-		removedLines: number;
-		compactDiff: string;
-		fullDiff: string;
-		hasMore: boolean;
-	};
-}
+		before: { note: import('$lib/types/note.js').Note } | null;
+		after: { note: import('$lib/types/note.js').Note } | null;
+		preview?: {
+			summary: string;
+			metadata: string[];
+			addedLines: number;
+			removedLines: number;
+			compactDiff: string;
+			fullDiff: string;
+			hasMore: boolean;
+			semantic: {
+				titleChanged: boolean;
+				folderChanged: boolean;
+				tagsChanged: boolean;
+				frontmatterChanged: boolean;
+				deletedStateChanged: boolean;
+				structural: boolean;
+			};
+			linkImpact: {
+				added: number;
+				removed: number;
+				addedTargets: string[];
+				removedTargets: string[];
+			};
+		};
+		agentId?: string;
+		conflict?: {
+			reason:
+				| 'target_missing'
+				| 'target_exists'
+				| 'target_changed_since_stage'
+				| 'target_already_deleted';
+			details: string;
+			detectedAt: string;
+		} | null;
+		policy?: {
+			presetId: 'strict_review' | 'balanced' | 'trusted';
+			decision: 'pending_review' | 'auto_approved';
+			reason: string;
+		};
+		audit?: Array<{
+			at: string;
+			actor: string;
+			action: 'staged' | 'approved' | 'rejected' | 'auto_approved' | 'conflict_blocked';
+			reason: string;
+			notes?: string;
+		}>;
+	}
 
-interface DesktopIntegrityIssue {
-	file: 'index.json' | 'session-boards.json' | 'objects.json' | 'mcp-changelog.json';
-	status: 'ok' | 'missing' | 'invalid_json' | 'invalid_shape';
-	repaired: boolean;
-	details: string | null;
-}
+	interface DesktopMcpPolicySettings {
+		defaultPresetId: 'strict_review' | 'balanced' | 'trusted';
+		perAgent: Record<string, 'strict_review' | 'balanced' | 'trusted'>;
+	}
 
-interface DesktopIntegrityReport {
-	checkedAt: string;
-	healthy: boolean;
-	repairApplied: boolean;
-	issues: DesktopIntegrityIssue[];
-}
+	interface DesktopIntegrityIssue {
+		file:
+			| 'index.json'
+			| 'settings.json'
+			| 'session-boards.json'
+			| 'objects.json'
+			| 'object-history.json'
+			| 'mcp-changelog.json';
+		status: 'ok' | 'missing' | 'invalid_json' | 'invalid_shape';
+		repaired: boolean;
+		details: string | null;
+	}
+
+	interface DesktopIntegrityReport {
+		checkedAt: string;
+		healthy: boolean;
+		repairApplied: boolean;
+		issues: DesktopIntegrityIssue[];
+		noteIssues: Array<{
+			noteId: string;
+			filePath: string;
+			status: 'missing_marker' | 'invalid_marker' | 'checksum_mismatch';
+			details: string;
+			repaired: boolean;
+		}>;
+		journalRecovery: {
+			replayed: boolean;
+			pendingEntries: number;
+			recoveredAt: string | null;
+		};
+	}
+
+	interface DesktopSafetySnapshot {
+		id: string;
+		createdAt: string;
+		reason: string;
+		noteCount: number;
+	}
+
+	interface DesktopSchemaMigrationFailure {
+		step: string;
+		file: string | null;
+		message: string;
+	}
+
+	interface DesktopSchemaMigrationStepReport {
+		id: 'metadata_v1_to_v2' | 'notes_v1_to_v2' | 'objects_v1_to_v2';
+		description: string;
+		fromVersion: number;
+		toVersion: number;
+		pending: number;
+		applied: number;
+		changedFiles: string[];
+		warnings: string[];
+		failures: DesktopSchemaMigrationFailure[];
+	}
+
+	interface DesktopSchemaMigrationReport {
+		startedAt: string;
+		finishedAt: string;
+		dryRun: boolean;
+		upgradeRequired: boolean;
+		upgradeApplied: boolean;
+		rollbackApplied: boolean;
+		checkpointDir: string | null;
+		from: {
+			notes: number;
+			objects: number;
+			metadata: number;
+		};
+		to: {
+			notes: number;
+			objects: number;
+			metadata: number;
+		};
+		changedFiles: string[];
+		warnings: string[];
+		failures: DesktopSchemaMigrationFailure[];
+		steps: DesktopSchemaMigrationStepReport[];
+	}
 
 	interface Window {
 		dndtoolsDesktop?: {
-			getNote(id: import('$lib/types/note.js').NoteId): Promise<import('$lib/types/note.js').Note | null>;
+			getNote(
+				id: import('$lib/types/note.js').NoteId,
+			): Promise<import('$lib/types/note.js').Note | null>;
 			getAllNotes(options?: {
 				includeDeleted?: boolean;
 			}): Promise<import('$lib/types/note.js').Note[]>;
 			saveNote(note: import('$lib/types/note.js').Note): Promise<void>;
 			deleteNote(id: import('$lib/types/note.js').NoteId, permanent?: boolean): Promise<void>;
 			restoreNote(id: import('$lib/types/note.js').NoteId): Promise<void>;
-			getNotesByFolder(folder: import('$lib/types/note.js').FolderId): Promise<import('$lib/types/note.js').Note[]>;
+			getNotesByFolder(
+				folder: import('$lib/types/note.js').FolderId,
+			): Promise<import('$lib/types/note.js').Note[]>;
 			getNotesByTag(tag: string): Promise<import('$lib/types/note.js').Note[]>;
 			getRecentNotes(limit: number): Promise<import('$lib/types/note.js').Note[]>;
 			getDeletedNotes(): Promise<import('$lib/types/note.js').Note[]>;
 			resolveTitle(title: string): Promise<import('$lib/types/note.js').Note | null>;
-			getLinksFrom(noteId: import('$lib/types/note.js').NoteId): Promise<import('$lib/types/note.js').Link[]>;
-			getLinksTo(noteId: import('$lib/types/note.js').NoteId): Promise<import('$lib/types/note.js').Link[]>;
+			getLinksFrom(
+				noteId: import('$lib/types/note.js').NoteId,
+			): Promise<import('$lib/types/note.js').Link[]>;
+			getLinksTo(
+				noteId: import('$lib/types/note.js').NoteId,
+			): Promise<import('$lib/types/note.js').Link[]>;
 			setLinksFrom(
 				noteId: import('$lib/types/note.js').NoteId,
 				links: import('$lib/types/note.js').Link[],
@@ -72,9 +223,7 @@ interface DesktopIntegrityReport {
 			getSessionBoard(
 				id: import('$lib/types/session-board.js').SessionBoardId,
 			): Promise<import('$lib/types/session-board.js').SessionBoard | null>;
-			saveSessionBoard(
-				board: import('$lib/types/session-board.js').SessionBoard,
-			): Promise<void>;
+			saveSessionBoard(board: import('$lib/types/session-board.js').SessionBoard): Promise<void>;
 			deleteSessionBoard(id: import('$lib/types/session-board.js').SessionBoardId): Promise<void>;
 			suggestRelatedNotes(
 				noteIds: import('$lib/types/note.js').NoteId[],
@@ -89,6 +238,16 @@ interface DesktopIntegrityReport {
 			}): Promise<import('$lib/types/object.js').VaultObject[]>;
 			saveObject(object: import('$lib/types/object.js').VaultObject): Promise<void>;
 			deleteObject(id: import('$lib/types/object.js').VaultObjectId): Promise<void>;
+			getObjectRelationshipGraph(): Promise<import('$lib/types/object.js').ObjectRelationshipGraph>;
+			lintObjects(): Promise<import('$lib/types/object.js').ObjectLintIssue[]>;
+			getObjectHistory(
+				id: import('$lib/types/object.js').VaultObjectId,
+				options?: { limit?: number },
+			): Promise<import('$lib/types/object.js').VaultObjectHistoryEntry[]>;
+			revertObjectToHistory(
+				id: import('$lib/types/object.js').VaultObjectId,
+				historyEntryId: string,
+			): Promise<import('$lib/types/object.js').VaultObject | null>;
 			getSetting<K extends keyof import('$lib/types/settings.js').AppSettings>(
 				key: K,
 			): Promise<import('$lib/types/settings.js').AppSettings[K]>;
@@ -96,6 +255,11 @@ interface DesktopIntegrityReport {
 				key: K,
 				value: import('$lib/types/settings.js').AppSettings[K],
 			): Promise<void>;
+			createSafetySnapshot(reason?: string): Promise<DesktopSafetySnapshot>;
+			listSafetySnapshots(): Promise<DesktopSafetySnapshot[]>;
+			restoreDeletedFromSnapshot(
+				snapshotId: string,
+			): Promise<{ restored: number; skipped: number }>;
 			importNotes(
 				notes: import('$lib/types/note.js').Note[],
 			): Promise<import('$lib/types/storage.js').ImportResult>;
@@ -105,12 +269,26 @@ interface DesktopIntegrityReport {
 			refreshFromDisk(): Promise<void>;
 			getIntegrityReport(): Promise<DesktopIntegrityReport>;
 			repairIntegrity(): Promise<DesktopIntegrityReport>;
+			getSchemaMigrationReport(): Promise<DesktopSchemaMigrationReport>;
+			runSchemaMigrations(options?: {
+				dryRun?: boolean;
+				createCheckpoint?: boolean;
+			}): Promise<DesktopSchemaMigrationReport>;
 			getBackendInfo(): Promise<{ backend: 'desktop-filesystem'; vaultDir: string }>;
 			pickVaultDirectory(): Promise<{ vaultDir: string } | null>;
 			getMcpStatus(): Promise<DesktopMcpStatus>;
 			restartMcpSidecar(): Promise<DesktopMcpStatus>;
+			getDiagnosticsHealth(): Promise<DesktopSystemHealth>;
+			markDiagnosticsSuccess(
+				subsystem: 'runtime_bootstrap' | 'vault_sync' | 'search_index' | 'link_graph_build',
+			): Promise<void>;
+			recordDiagnosticsError(event: DesktopStructuredErrorEvent): Promise<void>;
+			exportDiagnosticsBundle(): Promise<{ canceled: boolean; path: string | null }>;
 			refreshVault(): Promise<{ noteCount: number }>;
 			listMcpPendingChanges(): Promise<DesktopMcpChangeRecord[]>;
+			listMcpAuditTrail(limit?: number): Promise<DesktopMcpChangeRecord[]>;
+			getMcpPolicySettings(): Promise<DesktopMcpPolicySettings>;
+			setMcpPolicySettings(settings: DesktopMcpPolicySettings): Promise<DesktopMcpPolicySettings>;
 			approveMcpChange(changeId: string): Promise<DesktopMcpChangeRecord | null>;
 			approveAllMcpChanges(): Promise<DesktopMcpChangeRecord[]>;
 			rejectMcpChange(changeId: string): Promise<DesktopMcpChangeRecord | null>;
@@ -119,9 +297,7 @@ interface DesktopIntegrityReport {
 			toggleWindowMaximize(): Promise<void>;
 			closeWindow(): Promise<void>;
 			getWindowState(): Promise<{ isMaximized: boolean }>;
-			onWindowStateChange(
-				callback: (state: { isMaximized: boolean }) => void,
-			): () => void;
+			onWindowStateChange(callback: (state: { isMaximized: boolean }) => void): () => void;
 		};
 	}
 
