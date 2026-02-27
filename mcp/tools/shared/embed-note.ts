@@ -23,11 +23,7 @@ export function applyEmbedAtPosition(
 	return position === 'prepend' ? prependEmbed(content, embed) : appendEmbed(content, embed);
 }
 
-function pathExists(
-	edges: Map<string, Set<string>>,
-	start: string,
-	goal: string,
-): boolean {
+function pathExists(edges: Map<string, Set<string>>, start: string, goal: string): boolean {
 	if (start === goal) return true;
 	const visited = new Set<string>();
 	const stack = [start];
@@ -65,7 +61,9 @@ export async function wouldCreateEmbedCycle(
 		for (const ref of refs) {
 			const resolvedTarget =
 				ref.targetBy === 'id'
-					? (byId.has(ref.target) ? ref.target : null)
+					? byId.has(ref.target)
+						? ref.target
+						: null
 					: (byTitle.get(ref.target.toLowerCase()) ?? null);
 			if (!resolvedTarget) continue;
 			const entry = edges.get(source) ?? new Set<string>();
@@ -80,4 +78,3 @@ export async function wouldCreateEmbedCycle(
 
 	return pathExists(edges, targetId, sourceId);
 }
-

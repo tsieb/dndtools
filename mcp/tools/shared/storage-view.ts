@@ -54,4 +54,3 @@ export async function getFolderTreeView(storage: FileSystemAdapter): Promise<Fol
 	}
 	return storage.getFolderTree();
 }
-

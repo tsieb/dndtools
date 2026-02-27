@@ -19,4 +19,3 @@ export function noteSummary(note: Note): {
 		deleted: note.deleted,
 	};
 }
-
