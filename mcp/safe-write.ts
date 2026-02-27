@@ -45,6 +45,38 @@ export async function writeFileAtomic(
 	}
 }
 
-export async function writeJsonAtomic(targetPath: string, value: unknown): Promise<void> {
-	await writeFileAtomic(targetPath, JSON.stringify(value, null, '\t'));
+export interface JsonAtomicWriteOptions {
+	validate?: (value: unknown) => boolean;
+	label?: string;
+}
+
+function serializeAndValidateJson(value: unknown, options?: JsonAtomicWriteOptions): string {
+	const serialized = JSON.stringify(value, null, '\t');
+	if (typeof serialized !== 'string') {
+		throw new Error('Failed to serialize JSON payload for atomic write.');
+	}
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(serialized);
+	} catch {
+		const label = options?.label ?? 'json';
+		throw new Error(`Serialized ${label} payload failed JSON parse validation.`);
+	}
+
+	if (options?.validate && !options.validate(parsed)) {
+		const label = options.label ?? 'json';
+		throw new Error(`Serialized ${label} payload failed schema validation.`);
+	}
+
+	return serialized;
+}
+
+export async function writeJsonAtomic(
+	targetPath: string,
+	value: unknown,
+	options?: JsonAtomicWriteOptions,
+): Promise<void> {
+	const serialized = serializeAndValidateJson(value, options);
+	await writeFileAtomic(targetPath, serialized);
 }

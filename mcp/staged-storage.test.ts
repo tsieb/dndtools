@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { StagedMcpAdapter } from './staged-storage.js';
 import { FileSystemAdapter } from './storage.js';
 import { createFolderId, createNoteId, type Note } from '../src/lib/types/note.js';
+import type { McpPolicySettings } from '../src/lib/types/settings.js';
 
 function makeNote(overrides: Partial<Note> = {}): Note {
 	return {
@@ -113,5 +114,84 @@ describe('StagedMcpAdapter', () => {
 
 		const results = await staged.searchNotes('dragon');
 		expect(results.map((entry) => entry.note.id)).toEqual([active.id]);
+	});
+
+	it('auto-approves non-structural edits under balanced policy preset', async () => {
+		const balancedPolicy: McpPolicySettings = {
+			defaultPresetId: 'balanced',
+			perAgent: {},
+		};
+		await base.setSetting('mcpPolicySettings', balancedPolicy);
+		const baseNote = makeNote({
+			id: createNoteId('note-policy-base'),
+			title: 'Policy Baseline',
+			content: 'v1',
+		});
+		await base.saveNote(baseNote);
+		await staged.refreshFromDisk();
+
+		await staged.saveNote({
+			...baseNote,
+			content: 'v2 content update only',
+			updatedAt: '2026-01-03T00:00:00.000Z',
+		});
+
+		expect((await base.getPendingMcpChanges()).length).toBe(0);
+		expect((await base.getNote(baseNote.id))?.content).toBe('v2 content update only');
+
+		const audit = await base.getMcpAuditTrail();
+		expect(audit[0]?.policy?.decision).toBe('auto_approved');
+		expect(audit[0]?.audit?.some((event) => event.action === 'auto_approved')).toBe(true);
+	});
+
+	it('keeps structural edits pending under balanced policy preset', async () => {
+		const balancedPolicy: McpPolicySettings = {
+			defaultPresetId: 'balanced',
+			perAgent: {},
+		};
+		await base.setSetting('mcpPolicySettings', balancedPolicy);
+
+		const created = makeNote({
+			id: createNoteId('note-policy-create'),
+			title: 'Structural Create',
+		});
+		await staged.saveNote(created);
+
+		const pending = await base.getPendingMcpChanges();
+		expect(pending).toHaveLength(1);
+		expect(pending[0]?.preview?.semantic.structural).toBe(true);
+		expect(pending[0]?.policy?.presetId).toBe('balanced');
+		expect(pending[0]?.policy?.decision).toBe('pending_review');
+	});
+
+	it('flags and blocks approval when live edits conflict with staged snapshots', async () => {
+		const baseNote = makeNote({
+			id: createNoteId('note-conflict'),
+			title: 'Conflict Target',
+			content: 'base content',
+		});
+		await base.saveNote(baseNote);
+		await staged.refreshFromDisk();
+
+		await staged.saveNote({
+			...baseNote,
+			content: 'staged content',
+			updatedAt: '2026-01-02T00:00:00.000Z',
+		});
+
+		await base.saveNote({
+			...baseNote,
+			content: 'live ui edit',
+			updatedAt: '2026-01-03T00:00:00.000Z',
+		});
+
+		const pending = await base.getPendingMcpChanges();
+		expect(pending).toHaveLength(1);
+		expect(pending[0]?.conflict?.reason).toBe('target_changed_since_stage');
+
+		await expect(base.approveMcpChange(pending[0]!.id)).rejects.toThrow('Conflict detected');
+
+		const recorded = (await base.getMcpChangeLog()).find((entry) => entry.id === pending[0]!.id);
+		expect(recorded?.audit?.some((event) => event.action === 'conflict_blocked')).toBe(true);
 	});
 });

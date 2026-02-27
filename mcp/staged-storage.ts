@@ -1,4 +1,8 @@
-import type { ImportResult } from '../src/lib/types/storage.js';
+import type {
+	ImportResult,
+	SafetySnapshot,
+	SnapshotRestoreResult,
+} from '../src/lib/types/storage.js';
 import type { AppSettings } from '../src/lib/types/settings.js';
 import type { FolderId, Link, Note, NoteId, TagEntry } from '../src/lib/types/note.js';
 import type {
@@ -7,10 +11,21 @@ import type {
 	RelatedNoteSuggestion,
 } from '../src/lib/types/session-board.js';
 import type { McpChangeRecord, McpChangeType } from '../src/lib/types/mcp.js';
-import type { VaultObject, VaultObjectId, VaultObjectType } from '../src/lib/types/object.js';
+import type {
+	ObjectLintIssue,
+	ObjectRelationshipGraph,
+	VaultObject,
+	VaultObjectHistoryEntry,
+	VaultObjectId,
+	VaultObjectType,
+} from '../src/lib/types/object.js';
 import { nowISO } from '../src/lib/utils/date.js';
 import { slugify } from '../src/lib/utils/slug.js';
 import { extractWikilinks } from '../src/lib/domain/link-extractor.js';
+import {
+	extractAliasesFromFrontmatter,
+	resolveLinkTargetId,
+} from '../src/lib/domain/link-resolution.js';
 import { buildRelatedNoteSuggestions } from '../src/lib/domain/related-note-suggestions.js';
 import { buildMcpChangePreview } from '../src/lib/domain/mcp-change-preview.js';
 import { FileSystemAdapter } from './storage.js';
@@ -122,6 +137,7 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 			noteId,
 			title: reference?.title ?? 'Untitled',
 			summary: this.summarizeChange(type, reference ?? null),
+			agentId: process.env.DNDTOOLS_MCP_AGENT,
 			before: before ? { note: cloneNote(before) } : null,
 			after: after ? { note: cloneNote(after) } : null,
 			preview: buildMcpChangePreview({
@@ -134,6 +150,7 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 				noteId,
 				title: reference?.title ?? 'Untitled',
 				summary: this.summarizeChange(type, reference ?? null),
+				agentId: process.env.DNDTOOLS_MCP_AGENT,
 				before: before ? { note: cloneNote(before) } : null,
 				after: after ? { note: cloneNote(after) } : null,
 			}),
@@ -217,16 +234,27 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 	}
 
 	async resolveTitle(title: string): Promise<Note | null> {
-		const lower = title.toLowerCase();
 		const notes = await this.getVirtualNotes(false);
-		return notes.find((note) => note.title.toLowerCase() === lower) ?? null;
+		const resolvedId = resolveLinkTargetId(
+			title,
+			notes.map((note) => ({
+				id: String(note.id),
+				title: note.title,
+				updatedAt: note.updatedAt,
+				aliases: extractAliasesFromFrontmatter(note.frontmatter),
+			})),
+		);
+		return resolvedId ? (notes.find((note) => note.id === resolvedId) ?? null) : null;
 	}
 
 	private async computeLinks(): Promise<Link[]> {
 		const notes = await this.getVirtualNotes(false);
-		const titleToId = new Map<string, NoteId>(
-			notes.map((note) => [note.title.toLowerCase(), note.id]),
-		);
+		const resolutionEntries = notes.map((note) => ({
+			id: String(note.id),
+			title: note.title,
+			updatedAt: note.updatedAt,
+			aliases: extractAliasesFromFrontmatter(note.frontmatter),
+		}));
 		const idToId = new Map<string, NoteId>(notes.map((note) => [String(note.id), note.id]));
 		const links: Link[] = [];
 
@@ -235,7 +263,7 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 			for (const link of extracted) {
 				const targetId = link.targetIdHint
 					? idToId.get(link.targetIdHint)
-					: titleToId.get(link.title.toLowerCase());
+					: resolveLinkTargetId(link.title, resolutionEntries);
 				if (!targetId) {
 					continue;
 				}
@@ -286,10 +314,7 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 		await this.base.deleteSessionBoard(id);
 	}
 
-	async suggestRelatedNotes(
-		noteIds: NoteId[],
-		limit = 8,
-	): Promise<RelatedNoteSuggestion[]> {
+	async suggestRelatedNotes(noteIds: NoteId[], limit = 8): Promise<RelatedNoteSuggestion[]> {
 		if (noteIds.length === 0) return [];
 		const [notes, links] = await Promise.all([this.getVirtualNotes(false), this.computeLinks()]);
 		return buildRelatedNoteSuggestions({
@@ -319,12 +344,46 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 		await this.base.deleteObject(id);
 	}
 
+	async getObjectRelationshipGraph(): Promise<ObjectRelationshipGraph> {
+		return this.base.getObjectRelationshipGraph();
+	}
+
+	async lintObjects(): Promise<ObjectLintIssue[]> {
+		return this.base.lintObjects();
+	}
+
+	async getObjectHistory(
+		id: VaultObjectId,
+		options?: { limit?: number },
+	): Promise<VaultObjectHistoryEntry[]> {
+		return this.base.getObjectHistory(id, options);
+	}
+
+	async revertObjectToHistory(
+		id: VaultObjectId,
+		historyEntryId: string,
+	): Promise<VaultObject | null> {
+		return this.base.revertObjectToHistory(id, historyEntryId);
+	}
+
 	async getSetting<K extends keyof AppSettings>(key: K): Promise<AppSettings[K]> {
 		return this.base.getSetting(key);
 	}
 
 	async setSetting<K extends keyof AppSettings>(key: K, value: AppSettings[K]): Promise<void> {
 		await this.base.setSetting(key, value);
+	}
+
+	async createSafetySnapshot(reason?: string): Promise<SafetySnapshot> {
+		return this.base.createSafetySnapshot(reason);
+	}
+
+	async listSafetySnapshots(): Promise<SafetySnapshot[]> {
+		return this.base.listSafetySnapshots();
+	}
+
+	async restoreDeletedFromSnapshot(snapshotId: string): Promise<SnapshotRestoreResult> {
+		return this.base.restoreDeletedFromSnapshot(snapshotId);
 	}
 
 	async importNotes(notes: Note[]): Promise<ImportResult> {
@@ -420,7 +479,9 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 		displayText: string;
 		position: number;
 	}> {
-		throw new Error('getAllLinksFromIndex requires async staged snapshot; use getAllLinksFromIndexAsync()');
+		throw new Error(
+			'getAllLinksFromIndex requires async staged snapshot; use getAllLinksFromIndexAsync()',
+		);
 	}
 
 	async getAllLinksFromIndexAsync(): Promise<
@@ -444,7 +505,9 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 		throw new Error('getFolderTree requires async staged snapshot; use getFolderTreeAsync()');
 	}
 
-	async getFolderTreeAsync(): Promise<Array<{ path: string; noteCount: number; subfolders: string[] }>> {
+	async getFolderTreeAsync(): Promise<
+		Array<{ path: string; noteCount: number; subfolders: string[] }>
+	> {
 		const notes = await this.getVirtualNotes(false);
 		const folderCounts = new Map<string, number>();
 		const folders = new Set<string>();

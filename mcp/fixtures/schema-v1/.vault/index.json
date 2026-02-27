@@ -1,0 +1,26 @@
+{
+	"version": 1,
+	"notes": {
+		"note-goblin-ambush": {
+			"title": "Goblin Ambush",
+			"filename": "goblin-ambush.md",
+			"folder": "/campaign/npcs",
+			"tags": ["goblin", "combat"],
+			"createdAt": "2026-01-10T10:00:00.000Z",
+			"updatedAt": "2026-01-10T10:00:00.000Z",
+			"deleted": false,
+			"deletedAt": null
+		},
+		"obj-sildar": {
+			"title": "Sildar Hallwinter",
+			"filename": "sildar-hallwinter.md",
+			"folder": "/objects",
+			"tags": ["npc"],
+			"createdAt": "2026-01-10T10:00:00.000Z",
+			"updatedAt": "2026-01-10T10:00:00.000Z",
+			"deleted": false,
+			"deletedAt": null
+		}
+	},
+	"links": {}
+}

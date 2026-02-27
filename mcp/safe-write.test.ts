@@ -37,4 +37,28 @@ describe('safe-write', () => {
 		const parsed = JSON.parse(await fs.readFile(target, 'utf-8')) as Record<string, unknown>;
 		expect(parsed.version).toBe(1);
 	});
+
+	it('fails JSON atomic write when serialized payload fails validation', async () => {
+		const target = path.join(tmpDir, '.vault', 'index.json');
+		await expect(
+			writeJsonAtomic(
+				target,
+				{ version: 'invalid', notes: {}, links: {} },
+				{
+					label: 'index.json',
+					validate: (value) => {
+						const record = value as Record<string, unknown>;
+						return typeof record.version === 'number';
+					},
+				},
+			),
+		).rejects.toThrow(/schema validation/i);
+		await expect(fs.stat(target)).rejects.toThrow();
+	});
+
+	it('fails JSON atomic write for non-serializable payloads', async () => {
+		const target = path.join(tmpDir, '.vault', 'settings.json');
+		await expect(writeJsonAtomic(target, { value: BigInt(1) })).rejects.toThrow();
+		await expect(fs.stat(target)).rejects.toThrow();
+	});
 });

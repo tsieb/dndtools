@@ -40,6 +40,7 @@ function testObject(overrides: Partial<VaultObject> = {}): VaultObject {
 		name: 'Test Character',
 		summary: 'Human Fighter 3',
 		tags: ['npc'],
+		relationships: [],
 		data: {
 			ancestry: 'Human',
 			className: 'Fighter',
@@ -99,6 +100,64 @@ describe('FileSystemAdapter', () => {
 
 			const after = await adapter.getMetadataIntegrityReport();
 			expect(after.healthy).toBe(true);
+		});
+
+		it('reports and repairs corrupted settings metadata', async () => {
+			const settingsPath = path.join(tmpDir, '.vault', 'settings.json');
+			await fs.writeFile(settingsPath, '{"theme":', 'utf-8');
+
+			const report = await adapter.getMetadataIntegrityReport();
+			expect(report.healthy).toBe(false);
+			expect(report.issues.some((issue) => issue.file === 'settings.json')).toBe(true);
+
+			const repaired = await adapter.repairMetadataIntegrity();
+			expect(
+				repaired.issues.some((issue) => issue.file === 'settings.json' && issue.repaired),
+			).toBe(true);
+
+			const after = await adapter.getMetadataIntegrityReport();
+			expect(after.healthy).toBe(true);
+		});
+
+		it('detects checksum mismatch in note integrity markers', async () => {
+			const note = testNote({ title: 'Checksum Note', content: 'Original body' });
+			await adapter.saveNote(note);
+
+			const filePath = path.join(tmpDir, 'checksum-note.md');
+			const raw = await fs.readFile(filePath, 'utf-8');
+			await fs.writeFile(filePath, raw.replace('Original body', 'Tampered body'), 'utf-8');
+
+			const report = await adapter.getMetadataIntegrityReport();
+			expect(report.healthy).toBe(false);
+			expect(report.noteIssues.some((issue) => issue.status === 'checksum_mismatch')).toBe(true);
+
+			await adapter.repairMetadataIntegrity();
+			const after = await adapter.getMetadataIntegrityReport();
+			expect(after.healthy).toBe(true);
+			expect(after.noteIssues).toHaveLength(0);
+		});
+
+		it('replays interrupted write journal entries on startup', async () => {
+			const journalPath = path.join(tmpDir, '.vault', 'write-journal.json');
+			await fs.writeFile(
+				journalPath,
+				JSON.stringify(
+					{
+						version: 1,
+						pending: [{ id: 'pending-1', operation: 'save-note', startedAt: nowISO() }],
+					},
+					null,
+					2,
+				),
+				'utf-8',
+			);
+
+			const restarted = new FileSystemAdapter(tmpDir);
+			await restarted.initialize();
+			const report = await restarted.getMetadataIntegrityReport();
+			expect(report.journalRecovery.replayed).toBe(true);
+			expect(report.journalRecovery.pendingEntries).toBe(1);
+			await restarted.close();
 		});
 	});
 
@@ -301,6 +360,34 @@ describe('FileSystemAdapter', () => {
 			const resolved = await adapter.resolveTitle('Nonexistent Note');
 			expect(resolved).toBeNull();
 		});
+
+		it('resolves a note by alias', async () => {
+			const note = testNote({
+				title: 'City of Splendors',
+				frontmatter: { aliases: ['Waterdeep'] },
+			});
+			await adapter.saveNote(note);
+
+			const resolved = await adapter.resolveTitle('Waterdeep');
+			expect(resolved?.id).toBe(note.id);
+		});
+
+		it('prefers exact title over alias when disambiguating', async () => {
+			const aliasCarrier = testNote({
+				title: 'Sword Coast',
+				frontmatter: { aliases: ['Harbor'] },
+				updatedAt: '2025-01-01T00:00:00.000Z',
+			});
+			const exact = testNote({
+				title: 'Harbor',
+				updatedAt: '2024-01-01T00:00:00.000Z',
+			});
+			await adapter.saveNote(aliasCarrier);
+			await adapter.saveNote(exact);
+
+			const resolved = await adapter.resolveTitle('Harbor');
+			expect(resolved?.id).toBe(exact.id);
+		});
 	});
 
 	describe('links', () => {
@@ -378,6 +465,7 @@ describe('FileSystemAdapter', () => {
 					type: 'image',
 					name: 'Map',
 					summary: 'Dungeon map',
+					relationships: [],
 					data: { url: 'https://example.com/map.png' },
 				}),
 			);
@@ -385,6 +473,42 @@ describe('FileSystemAdapter', () => {
 			const characters = await adapter.getAllObjects({ type: 'character' });
 			expect(characters).toHaveLength(1);
 			expect(characters[0]?.type).toBe('character');
+		});
+
+		it('records object history and can revert to a prior version', async () => {
+			const object = testObject({
+				id: createVaultObjectId('obj-history'),
+				summary: 'Version 1',
+			});
+			await adapter.saveObject(object);
+			await adapter.saveObject({
+				...object,
+				summary: 'Version 2',
+				updatedAt: nowISO(),
+			});
+
+			const history = await adapter.getObjectHistory(object.id);
+			expect(history.length).toBeGreaterThan(0);
+			expect(history[0]?.object.summary).toBe('Version 1');
+
+			const reverted = await adapter.revertObjectToHistory(object.id, history[0]!.id);
+			expect(reverted?.summary).toBe('Version 1');
+		});
+
+		it('builds relationship graph and reports lint issues', async () => {
+			const object = testObject({
+				id: createVaultObjectId('obj-rel'),
+				relationships: [{ type: 'ally', targetId: createVaultObjectId('missing-id') }],
+			});
+			await adapter.saveObject(object);
+
+			const graph = await adapter.getObjectRelationshipGraph();
+			expect(graph.edges.some((edge) => edge.unresolved)).toBe(true);
+
+			const lint = await adapter.lintObjects();
+			expect(lint.some((issue) => issue.code === 'object.relationship_broken_reference')).toBe(
+				true,
+			);
 		});
 	});
 
@@ -404,6 +528,41 @@ describe('FileSystemAdapter', () => {
 			const loaded = await adapter.getSessionBoard(board.id);
 			expect(loaded).not.toBeNull();
 			expect(loaded!.name).toBe('Session Zero');
+		});
+
+		it('preserves tile style fields without injecting defaults', async () => {
+			const now = nowISO();
+			const board = {
+				id: createSessionBoardId('board-style'),
+				name: 'Style Board',
+				description: '',
+				tiles: [
+					{
+						id: 'tile-1',
+						noteId: createNoteId('note-style'),
+						x: 2,
+						y: 3,
+						w: 4,
+						h: 2,
+						style: {
+							backgroundColor: '#112233',
+						},
+					},
+				],
+				createdAt: now,
+				updatedAt: now,
+			};
+			await adapter.saveSessionBoard(board);
+
+			const loaded = await adapter.getSessionBoard(board.id);
+			expect(loaded).not.toBeNull();
+			expect(loaded?.tiles[0]?.x).toBe(2);
+			expect(loaded?.tiles[0]?.y).toBe(3);
+			expect(loaded?.tiles[0]?.style).toEqual({
+				backgroundColor: '#112233',
+			});
+			expect(loaded?.tiles[0]?.style?.borderWidth).toBeUndefined();
+			expect(loaded?.tiles[0]?.style?.borderRadius).toBeUndefined();
 		});
 
 		it('suggests related notes', async () => {
@@ -495,6 +654,29 @@ describe('FileSystemAdapter', () => {
 			expect(result.imported).toBe(1);
 			expect(result.skipped).toBe(1);
 			expect(result.errors.length).toBe(0);
+		});
+
+		it('creates and restores from a safety snapshot', async () => {
+			const note = testNote({ title: 'Snapshot Restore', content: 'Keep me' });
+			await adapter.saveNote(note);
+			const snapshot = await adapter.createSafetySnapshot('manual-test');
+
+			await adapter.deleteNote(note.id, true);
+			expect(await adapter.getNote(note.id)).toBeNull();
+
+			const restored = await adapter.restoreDeletedFromSnapshot(snapshot.id);
+			expect(restored.restored).toBe(1);
+			expect((await adapter.getNote(note.id))?.deleted).toBe(false);
+		});
+
+		it('enforces backup retention count', async () => {
+			await adapter.setSetting('backupRetentionCount', 1);
+			await adapter.createSafetySnapshot('first');
+			await adapter.createSafetySnapshot('second');
+
+			const snapshots = await adapter.listSafetySnapshots();
+			expect(snapshots).toHaveLength(1);
+			expect(snapshots[0]?.reason).toBe('second');
 		});
 	});
 
