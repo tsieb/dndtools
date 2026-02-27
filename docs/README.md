@@ -7,20 +7,24 @@ This docs set is the authoritative engineering reference for this repository.
 DND Tools is an Electron-first local markdown vault application with an integrated MCP sidecar.
 
 Primary runtime mode:
+
 - Desktop runtime: Electron main + renderer + filesystem storage + MCP sidecar.
 
 ## Source of Truth
 
 Read in this order:
+
 1. `docs/ARCHITECTURE.md`
 2. `docs/PROJECT_STRUCTURE.md`
 3. `docs/DATA_MODEL.md`
 4. `docs/DEVELOPMENT.md`
-5. `docs/TESTING.md`
-6. `docs/UX_GUIDELINES.md`
-7. `docs/AGENTIC_NOTES_WORKFLOW.md`
-8. `docs/ROADMAP.md`
-9. `docs/TODO.md`
+5. `docs/GIT_WORKFLOW.md`
+6. `docs/TESTING.md`
+7. `docs/UX_GUIDELINES.md`
+8. `docs/AGENTIC_NOTES_WORKFLOW.md`
+9. `docs/MCP_INSPECTOR_WORKFLOW.md`
+10. `docs/ROADMAP.md`
+11. `docs/TODO.md`
 
 ## Documentation Quality Rules (Mandatory)
 
@@ -36,11 +40,13 @@ Read in this order:
 - MCP runs as a sidecar process and defaults to staged write mode (pending approvals).
 - Renderer uses `StorageAdapter` backed by `desktop-filesystem` via Electron bridge.
 - Import/export in UI is currently markdown file import + JSON bundle export.
+- MCP resources expose canonical versioned URIs under `dndtools://v1/*` with legacy aliases.
+- Vault-intelligence tools provide campaign health, coverage gaps, stale-note APIs, and task bundles.
 
 ## Global Known Gaps (High Priority)
 
-- `TODO(APP):` Harden filesystem writes with atomic temp-write + rename strategy.
+- Filesystem writes now use atomic temp-write + fsync + rename with startup write-journal recovery in `mcp/safe-write.ts` and `mcp/storage.ts`.
 - `TODO(APP):` Replace generic IPC storage method dispatch with a narrower typed IPC surface.
 - `TODO(APP):` Add comprehensive MCP tool tests (most tools currently untested).
-- `TODO(APP):` Add CI workflows that enforce lint/typecheck/test/build gates.
+- CI workflows exist for lint/typecheck/unit tests (`.github/workflows/ci.yml`) and E2E (`.github/workflows/e2e.yml`). `TODO(APP):` Add desktop build validation, coverage threshold enforcement, and cross-platform matrix testing.
 - `TODO(APP):` Improve portable export format beyond JSON-only bundle.

@@ -29,6 +29,8 @@ This repository is organized by runtime boundary and responsibility.
 - `mcp/tools/`: MCP tool modules grouped by domain (`notes`, `search`, `vault`, `boards`, `objects`).
 - `mcp/tools/shared/`: MCP shared helpers.
 - `mcp/resources/`: MCP resource modules.
+- `mcp/resources/uri-strategy.ts`: canonical + legacy resource URI mapping.
+- `mcp/resources/resource-catalog.ts`: discoverability metadata resource.
 - `mcp/storage.ts`: filesystem storage implementation.
 - `mcp/staged-storage.ts`: staged write-mode wrapper.
 

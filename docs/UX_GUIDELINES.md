@@ -5,11 +5,13 @@ This document defines strict UX requirements for DND Tools and tracks known gaps
 ## 1. Product UX Context
 
 Primary usage context:
+
 - active tabletop sessions
 - fast retrieval under time pressure
 - low tolerance for data loss or confusing state
 
 Primary user roles:
+
 - Dungeon Masters (heavy linking, high note volume)
 - Players (lighter but frequent read/update access)
 
@@ -24,13 +26,29 @@ Primary user roles:
 ## 3. Current Implemented UX Baseline
 
 Verified from code:
+
 - Theme system with light/dark/system modes.
-- Sidebar with recent, pinned, folders, and tags sections.
-- Quick switcher (`Ctrl/Cmd+P`).
+- Sticky location bar with breadcrumbs and route context hints.
+- Sidebar mode switcher for folder tree, recent, favorites, and campaign entities.
+- Command palette (`Ctrl/Cmd+P`) supporting actions, navigation, settings, and notes.
+- Command palette template creation actions, including one-click session recap scaffold generation.
 - New note shortcut (`Ctrl/Cmd+N`).
 - Global search shortcut (`Ctrl/Cmd+Shift+F`).
+- Top bar back/forward controls with recent-route clarity.
+- Link graph exploration view with folder/tag/text filters and isolated-node toggle.
+- Top bar template button for quick "create from template" access.
 - Editor lazy loading and rich toolbar actions.
+- Reusable editor snippet library in the insert menu.
+- Editor split-pane mode with synchronized preview scrolling.
+- Structured frontmatter metadata controls in note edit flow.
+- Structured object forms for object-backed notes with markdown sync, lint feedback, and history-revert controls.
+- Unresolved-link workflow in editor (batch create, quick rename, disambiguation suggestions).
 - Backlinks panel in note view.
+- Session-mode focus reading toggle with minimal chrome.
+- Related note quick-jump panel (tags, backlinks, object references).
+- Guided first-run onboarding checklist with dismiss/revisit controls.
+- Contextual onboarding tips for wikilinks, backlinks, and object embeds.
+- First-run shortcuts for sample vault starters and Obsidian import preview.
 - Settings tabs including MCP pending changes (desktop mode).
 - Skip link and focus-visible styling.
 - Reduced motion media query handling.
@@ -60,6 +78,7 @@ Verified from code:
 Current theme tokens are in `src/app.css` and must remain source of truth.
 
 Rules:
+
 - use semantic tokens, not hard-coded random colors
 - ensure contrast ratios meet WCAG 2.1 AA
 - use consistent spacing and interaction states
@@ -75,16 +94,19 @@ Rules:
 
 `TODO(APP):` Add automated accessibility assertions in E2E for key routes.
 Target:
+
 - `tests/e2e/*`
 - Playwright setup with axe integration.
 
 ## 7. Mobile and Responsive Requirements
 
 Current behavior:
+
 - sidebar becomes overlay drawer on mobile
 - main content remains scrollable
 
 Required improvements:
+
 - stable touch target sizing (>=44x44 for core controls)
 - better keyboard + virtual keyboard handling in editor
 - explicit viewport-specific QA matrix
@@ -100,7 +122,5 @@ Required improvements:
 ## 9. Known UX Gaps
 
 `TODO(APP):` Add explicit failure state UX for background save/index failures with retry guidance.
-
-`TODO(APP):` Add unresolved-link disambiguation flow for duplicate titles.
 
 `TODO(APP):` Add import/export preview UX with conflict reporting before applying changes.

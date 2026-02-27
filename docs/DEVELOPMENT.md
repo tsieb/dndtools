@@ -11,6 +11,7 @@ This document defines enforceable engineering standards for this repository.
 ## 2. Canonical Scripts
 
 From `package.json`:
+
 - `pnpm dev`: Vite dev server for renderer development
 - `pnpm build`: renderer build
 - `pnpm test`: vitest run
@@ -29,11 +30,15 @@ From `package.json`:
 ## 3. Required Workflow
 
 For every non-trivial change:
+
 1. Update code in the correct runtime boundary.
 2. Update tests at the right level.
 3. Run `pnpm check`.
 4. Run `pnpm test:e2e` when UI behavior changed.
 5. Update docs when contracts or architecture changed.
+
+For story-scoped work, branch before starting — see `docs/GIT_WORKFLOW.md`
+for branch naming, commit conventions, PR process, and recovery guidance.
 
 ## 4. Boundary Rules (Mandatory)
 
@@ -53,6 +58,7 @@ For every non-trivial change:
 ## 6. Definition of Done (Engineering)
 
 A task is complete only when all are true:
+
 - behavior implemented
 - tests added/updated
 - docs synced
@@ -67,13 +73,15 @@ A task is complete only when all are true:
 
 ## 8. Current High-Risk Gaps
 
-`TODO(APP):` No CI pipeline currently enforces quality gates.
-Impact: regressions can merge unnoticed.
-Target: add `.github/workflows/*` for lint/typecheck/test/build/e2e.
+`TODO(APP):` CI pipeline covers lint/format/typecheck/tests/build and e2e. Remaining gaps:
+coverage threshold enforcement (thresholds in `vite.config.ts` are aspirational; Svelte UI
+components have 0% unit coverage — expand via MASTER_PLAN S2.1.1 before enforcing in CI)
+and desktop build matrix (MASTER_PLAN S2.1.3). Target: `vite.config.ts` + new `desktop-build.yml`.
 
 `TODO(APP):` Electron storage IPC uses broad dynamic dispatch.
 Impact: weakens contract clarity and security posture.
 Target:
+
 - `electron/main.ts`
 - `electron/preload.ts`
 - `src/lib/platform/storage/electron-adapter.ts`
@@ -85,6 +93,7 @@ Target: `mcp/**/*.test.ts` expansion.
 ## 9. Architectural Governance
 
 For major design changes, require:
+
 - problem statement
 - alternatives considered
 - migration plan

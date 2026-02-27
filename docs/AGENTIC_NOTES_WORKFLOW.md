@@ -13,6 +13,7 @@ From repo root:
   - `node mcp/dist/index.cjs <ABSOLUTE_VAULT_PATH>`
 
 Default vault resolution in `mcp/index.ts`:
+
 1. `process.argv[2]`
 2. `DNDTOOLS_VAULT`
 3. `./vault`
@@ -23,6 +24,7 @@ Default vault resolution in `mcp/index.ts`:
 - Direct mode: pass `--direct` or set `DNDTOOLS_MCP_STAGED=0`.
 
 Recommendation:
+
 - use staged mode for agent-driven edits in real vaults.
 - use direct mode only for controlled automation/test contexts.
 
@@ -30,18 +32,19 @@ Recommendation:
 
 ```json
 {
-  "mcpServers": {
-    "dndtools": {
-      "command": "node",
-      "args": ["C:/path/to/dndtools/mcp/dist/index.cjs", "C:/path/to/vault"]
-    }
-  }
+	"mcpServers": {
+		"dndtools": {
+			"command": "node",
+			"args": ["C:/path/to/dndtools/mcp/dist/index.cjs", "C:/path/to/vault"]
+		}
+	}
 }
 ```
 
 ## 4. Tool Contract (Current)
 
 ### Notes
+
 - `list_notes`
 - `read_note`
 - `create_note`
@@ -50,18 +53,27 @@ Recommendation:
 - `restore_note`
 
 ### Search
+
 - `search_notes`
 - `get_backlinks`
 - `get_tags`
 
 ### Vault
+
 - `get_vault_summary`
+- `get_campaign_health`
+- `get_coverage_gaps`
+- `get_stale_notes`
+- `get_session_prep_bundle`
+- `get_recap_generation_bundle`
+- `get_continuity_check_bundle`
 - `get_folder_tree`
 - `get_recent_activity`
 - `get_link_graph`
 - `vault_health_check`
 
 ### Session Boards
+
 - `list_session_boards`
 - `create_session_board`
 - `update_session_board`
@@ -69,6 +81,7 @@ Recommendation:
 - `suggest_related_board_notes`
 
 ### Objects
+
 - `list_objects`
 - `read_object`
 - `create_stat_block_object`
@@ -84,17 +97,34 @@ Recommendation:
 
 ## 5. Resource Contract (Current)
 
-- `note://{id}` style note resource (see `mcp/resources/note.ts`)
-- vault structure resource
-- vault tag resource
+- Canonical URI set (stable, versioned):
+  - `dndtools://v1/notes/{id}`
+  - `dndtools://v1/vault/structure`
+  - `dndtools://v1/vault/tags`
+  - `dndtools://v1/resources/catalog`
+- Backward-compatible legacy aliases are still registered:
+  - `note://{id}`
+  - `vault://structure`
+  - `vault://tags`
+- Discoverability metadata is available in the resource catalog:
+  - handler: `mcp/resources/resource-catalog.ts`
+  - strategy constants: `mcp/resources/uri-strategy.ts`
 
 ## 6. Recommended Agent Execution Sequence
 
-1. Discover: `get_vault_summary`, `list_notes`, `search_notes`.
-2. Inspect target notes with `read_note`.
-3. Apply focused mutations with `create_note`/`update_note`.
-4. Validate impact using `get_backlinks` and `get_link_graph`.
-5. In staged mode, review and approve in app Settings MCP tab.
+1. Discover baseline:
+   - `get_vault_summary`, `get_campaign_health`, `get_coverage_gaps`
+2. Select task bundle:
+   - session prep: `get_session_prep_bundle`
+   - recap generation: `get_recap_generation_bundle`
+   - continuity audit: `get_continuity_check_bundle`
+3. Inspect scoped notes:
+   - `search_notes`, `read_note`, `get_backlinks`
+4. Mutate only after reads:
+   - `create_note` / `update_note` / object or board write tools
+5. Validate and close:
+   - `get_link_graph`, `vault_health_check`
+   - staged mode approval in Settings MCP tab
 
 ## 7. Prompt Contract (Strict)
 
@@ -110,17 +140,77 @@ CONSTRAINTS:
 - Return changed note ids/titles and unresolved questions.
 ```
 
+### 7.1 Task Prompt Templates
+
+Session prep (read-only):
+
+```text
+TASK: Prepare next session brief
+VAULT_SCOPE: /campaign
+ALLOWED_ACTIONS: read
+CONSTRAINTS:
+- Start with get_session_prep_bundle and get_campaign_health.
+- Cite note ids for every claim.
+- Call out high severity coverage gaps before drafting prep bullets.
+```
+
+Recap generation (read-only draft):
+
+```text
+TASK: Draft recap from last session updates
+VAULT_SCOPE: /campaign
+ALLOWED_ACTIONS: read
+CONSTRAINTS:
+- Use get_recap_generation_bundle since <ISO timestamp>.
+- Do not invent events not present in changed notes/objects/boards.
+- Return unresolved continuity questions as a separate list.
+```
+
+Safe edit pass (staged writes):
+
+```text
+TASK: Normalize stale NPC notes
+VAULT_SCOPE: /campaign/npcs
+ALLOWED_ACTIONS: read|update
+CONSTRAINTS:
+- Read note before each update.
+- Keep wikilinks and frontmatter valid.
+- Use idempotencyKey on retries.
+- Summarize changed note ids/titles and why each edit was needed.
+```
+
 ## 8. Safety Requirements
 
 - default to soft delete, not permanent delete
 - avoid bulk destructive operations without explicit user intent
 - keep edits idempotent where possible
 - return explicit summaries of created/updated/deleted notes
+- block write execution when `get_campaign_health` reports `needs_attention` unless user explicitly overrides
 
-## 9. Known Gaps
+## 9. Tool Permissions and Retry Safety
 
-`TODO(APP):` Document and enforce tool-level permissions (read-only, staged-write, direct-write).
+Tool permissions are enforced server-side:
+
+- `read-only`: no mutations, available in all modes
+- `write-staged`: allowed in staged and direct modes
+- `write-direct`: blocked in staged mode; requires direct mode
+
+Retry guidance:
+
+- idempotent tools: safe to retry directly
+- non-idempotent tools: pass `idempotencyKey` on retries
+- if `MCP_PERMISSION_DENIED` is returned for direct-write tools, restart MCP with `--direct`
+
+## 10. MCP Inspector
+
+Inspector workflow is documented in:
+
+- `docs/MCP_INSPECTOR_WORKFLOW.md`
+
+This flow is tied to the runtime model in:
+
+- `docs/ARCHITECTURE.md` section 1.3 and section 5.
+
+## 11. Known Gaps
 
 `TODO(APP):` Add end-to-end test coverage for staged MCP approval workflows.
-
-`TODO(APP):` Add examples for object/session-board workflows in this doc.

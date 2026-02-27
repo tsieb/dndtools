@@ -14,6 +14,7 @@ This strategy optimizes for defect prevention, not just test count.
 ### 2.1 Coverage Gates (Safety Net, Not Goal)
 
 Configured thresholds for `src/lib/**`:
+
 - statements >= 80
 - branches >= 75
 - functions >= 80
@@ -50,9 +51,16 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
   - `mcp/storage.test.ts`
   - `mcp/staged-storage.test.ts`
   - `mcp/safe-write.test.ts`
+  - `mcp/recovery.test.ts`
+  - staged MCP oversight tests now cover policy auto-approval, structural-review gating, and live-edit conflict blocking.
 - MCP tool contracts:
-  - `mcp/tools/all-tools.test.ts` (registration/smoke)
+  - `mcp/tools/all-tools.test.ts` (all-tool contract, permission, strict-input, retry safety)
+  - `mcp/resources/contracts.test.ts` (resource request/response contract validation)
+  - `mcp/resources/resource-catalog.test.ts` (resource URI discoverability metadata)
   - `mcp/tools/notes/update-note.test.ts` (behavior contract)
+  - `mcp/tools/vault/get-vault-summary.test.ts` (vault intelligence summary contract)
+  - `mcp/tools/vault/vault-health-check.test.ts` (broken-link edge cases)
+  - `mcp/tools/vault/vault-intelligence.test.ts` (health-score and gap calculations)
 - Markdown and parsing:
   - `src/lib/markdown/frontmatter.test.ts`
   - `src/lib/markdown/pipeline.test.ts`
@@ -60,6 +68,11 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
 - Services:
   - `src/lib/domain/export.test.ts`
   - `src/lib/domain/link-extractor.test.ts`
+  - `src/lib/domain/object-relationships.test.ts`
+  - `src/lib/domain/object-validation.test.ts`
+  - `src/lib/domain/object-templates.test.ts`
+  - `src/lib/domain/mcp-change-preview.test.ts`
+  - `src/lib/domain/template-automation.test.ts`
   - `src/lib/domain/templates.test.ts`
   - `src/lib/domain/search.test.ts`
   - `src/lib/domain/related-note-suggestions.test.ts`
@@ -84,7 +97,6 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
 
 ## 5. High-Value Next Expansions
 
-- Add direct tests for each MCP tool module (notes/search/vault/boards/objects), focusing on error handling and idempotency.
 - Add staged workflow tests for approve/reject-all conflict scenarios.
 - Add e2e coverage for trash restore/permanent delete and MCP pending-change review.
 - Add accessibility checks (focus order, keyboard-only flow, labels) in Playwright.
