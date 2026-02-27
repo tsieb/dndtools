@@ -13,8 +13,20 @@ import { toastState } from '$lib/state/toast.svelte.js';
 import {
 	getDesktopIntegrityReport,
 	getDesktopSchemaMigrationReport,
-	runDesktopSchemaMigrations,
+	type DesktopSchemaMigrationReport,
 } from '$lib/platform/desktop/bridge.js';
+
+/**
+ * Thrown when the vault's schema requires user-approved migration before the
+ * app can proceed. The caller (RuntimeState) intercepts this and gates the UI
+ * on the migration readiness screen instead of showing a hard error.
+ */
+export class MigrationRequiredError extends Error {
+	constructor(public readonly report: DesktopSchemaMigrationReport) {
+		super('MIGRATION_REQUIRED');
+		this.name = 'MigrationRequiredError';
+	}
+}
 
 let bootstrapPromise: Promise<void> | null = null;
 
@@ -26,16 +38,15 @@ export async function bootstrapApplication(): Promise<void> {
 	bootstrapPromise = (async () => {
 		try {
 			const preflight = await getDesktopSchemaMigrationReport();
+			if (preflight.vaultTooNew) {
+				throw new Error(
+					'This vault was created with a newer version of DND Tools and cannot be opened. Please upgrade the application.',
+				);
+			}
 			if (preflight.upgradeRequired) {
-				const migration = await runDesktopSchemaMigrations({
-					dryRun: false,
-					createCheckpoint: true,
-				});
-				if (migration.failures.length > 0) {
-					throw new Error(
-						`Vault upgrade required, but migration failed: ${migration.failures[0]?.message ?? 'unknown error'}`,
-					);
-				}
+				// Surface to the caller rather than auto-applying so the user can
+				// review the dry-run report and approve the upgrade explicitly.
+				throw new MigrationRequiredError(preflight);
 			}
 		} catch (error) {
 			if (window.dndtoolsDesktop) {

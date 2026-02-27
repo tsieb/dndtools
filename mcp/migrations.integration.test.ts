@@ -96,4 +96,87 @@ describe('schema migrations integration', () => {
 
 		await adapter.close();
 	});
+
+	it('detects vaultTooNew when vault metadata version exceeds supported version', async () => {
+		// Write a metadata file with a version far ahead of what the app understands.
+		const indexPath = path.join(vaultDir, '.vault', 'index.json');
+		const current = JSON.parse(await fs.readFile(indexPath, 'utf-8')) as Record<string, unknown>;
+		await fs.writeFile(indexPath, JSON.stringify({ ...current, version: 9999 }), 'utf-8');
+
+		const report = await getSchemaMigrationReport(vaultDir);
+
+		expect(report.vaultTooNew).toBe(true);
+		// No upgrade should be attempted when the vault is too new.
+		expect(report.upgradeApplied).toBe(false);
+	});
+
+	it('detects vaultTooNew when a note frontmatter version exceeds supported version', async () => {
+		// Write a note with a future schema version.
+		const notePath = path.join(vaultDir, 'campaign', 'npcs', 'goblin-ambush.md');
+		const raw = await fs.readFile(notePath, 'utf-8');
+		const parsed = matter(raw);
+		const nextFrontmatter = {
+			...(parsed.data as Record<string, unknown>),
+			dndtoolsSchemaVersion: 9999,
+		};
+		await fs.writeFile(notePath, matter.stringify(parsed.content, nextFrontmatter), 'utf-8');
+
+		const report = await getSchemaMigrationReport(vaultDir);
+
+		expect(report.vaultTooNew).toBe(true);
+		expect(report.upgradeApplied).toBe(false);
+	});
+
+	it('does not apply migrations when vault is too new even if called without dryRun', async () => {
+		const indexPath = path.join(vaultDir, '.vault', 'index.json');
+		const current = JSON.parse(await fs.readFile(indexPath, 'utf-8')) as Record<string, unknown>;
+		await fs.writeFile(indexPath, JSON.stringify({ ...current, version: 9999 }), 'utf-8');
+
+		const report = await runSchemaMigrations(vaultDir, { dryRun: false, createCheckpoint: true });
+
+		expect(report.vaultTooNew).toBe(true);
+		expect(report.upgradeApplied).toBe(false);
+		// The too-new index must remain untouched (not downgraded).
+		const after = JSON.parse(await fs.readFile(indexPath, 'utf-8')) as Record<string, unknown>;
+		expect(after.version).toBe(9999);
+	});
+
+	it('checkpoint directory is created and can be used to restore the vault', async () => {
+		// Apply the migration to create a checkpoint and advance schema to v2.
+		const report = await runSchemaMigrations(vaultDir, { dryRun: false, createCheckpoint: true });
+		expect(report.upgradeApplied).toBe(true);
+		expect(report.checkpointDir).toBeTruthy();
+
+		// The checkpoint directory must exist on disk.
+		const checkpointAbsDir = path.join(vaultDir, report.checkpointDir!);
+		await expect(fs.stat(checkpointAbsDir)).resolves.toBeTruthy();
+
+		// The checkpoint must contain a backup of index.json with the pre-migration (v1) content.
+		const checkpointIndex = await readJson(path.join(checkpointAbsDir, '.vault', 'index.json'));
+		expect(checkpointIndex.version).toBe(1);
+
+		// Tamper with the vault to simulate accidental corruption after the migration.
+		const liveIndexPath = path.join(vaultDir, '.vault', 'index.json');
+		await fs.writeFile(
+			liveIndexPath,
+			JSON.stringify({ version: 999, notes: {}, links: {} }),
+			'utf-8',
+		);
+
+		// Restore from the checkpoint using the adapter API.
+		const { FileSystemAdapter: FSAdapter } = await import('./storage.js');
+		const adapter = new FSAdapter(vaultDir);
+		// Initialize triggers migration (no-op now as it's already at v2), then loads state.
+		await adapter.initialize();
+
+		const checkpointName = path.basename(checkpointAbsDir);
+		const restoreResult = await adapter.restoreMigrationCheckpoint(checkpointName);
+		expect(restoreResult.restored).toBeGreaterThan(0);
+
+		// index.json must now reflect the checkpoint's v1 content.
+		const restoredIndex = await readJson(liveIndexPath);
+		expect(restoredIndex.version).toBe(1);
+
+		await adapter.close();
+	});
 });

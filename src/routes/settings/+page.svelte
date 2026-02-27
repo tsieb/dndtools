@@ -31,11 +31,14 @@
 		getDesktopMcpPolicySettings,
 		setDesktopMcpPolicySettings,
 		listDesktopMcpAuditTrail,
+		listDesktopMigrationCheckpoints,
+		restoreDesktopMigrationCheckpoint,
 		type DesktopIntegrityReport,
 		type DesktopMcpStatus,
 		type DesktopSystemHealth,
 		type DesktopMcpChangeRecord,
 		type DesktopMcpPolicySettings,
+		type DesktopMigrationCheckpoint,
 	} from '$lib/platform/desktop/bridge.js';
 	import { markSubsystemSuccess, reportRuntimeError } from '$lib/runtime/diagnostics.js';
 
@@ -82,6 +85,10 @@
 	let mcpChangeFilterAgent = $state('all');
 	let mcpDiffSearch = $state('');
 	let selectedMcpChangeIds = $state<string[]>([]);
+	let migrationCheckpoints = $state<DesktopMigrationCheckpoint[]>([]);
+	let loadingCheckpoints = $state(false);
+	let restoringCheckpoint = $state(false);
+	let selectedCheckpointName = $state('');
 
 	const settingsTabs: readonly SettingsTab[] = [
 		{ id: 'general', label: 'General' },
@@ -100,6 +107,7 @@
 		void loadBackupSettings();
 		void loadSafetySnapshots();
 		void loadTemplateContextSettings();
+		void loadMigrationCheckpoints();
 	});
 
 	$effect(() => {
@@ -713,6 +721,37 @@
 			toastState.error(`Failed to export diagnostics bundle: ${String(error)}`);
 		} finally {
 			exportingDiagnostics = false;
+		}
+	}
+
+	async function loadMigrationCheckpoints(): Promise<void> {
+		if (!window.dndtoolsDesktop) return;
+		loadingCheckpoints = true;
+		try {
+			migrationCheckpoints = await listDesktopMigrationCheckpoints();
+			if (migrationCheckpoints.length > 0 && !selectedCheckpointName) {
+				selectedCheckpointName = migrationCheckpoints[0]?.name ?? '';
+			}
+		} catch (error) {
+			reportSettingsError('ipc', 'SETTINGS_LIST_CHECKPOINTS_FAILED', error);
+		} finally {
+			loadingCheckpoints = false;
+		}
+	}
+
+	async function handleRestoreCheckpoint(): Promise<void> {
+		if (!selectedCheckpointName) return;
+		restoringCheckpoint = true;
+		try {
+			const result = await restoreDesktopMigrationCheckpoint(selectedCheckpointName);
+			toastState.success(
+				`Vault restored from checkpoint (${result.restored} file${result.restored === 1 ? '' : 's'} recovered). Please restart the application.`,
+			);
+		} catch (error) {
+			reportSettingsError('storage', 'SETTINGS_RESTORE_CHECKPOINT_FAILED', error);
+			toastState.error(`Failed to restore checkpoint: ${String(error)}`);
+		} finally {
+			restoringCheckpoint = false;
 		}
 	}
 
@@ -1874,6 +1913,80 @@
 								</li>
 							{/each}
 						</ul>
+					{/if}
+				</div>
+			</section>
+			<section>
+				<div class="flex items-center justify-between gap-3 mb-4">
+					<h2 class="text-lg font-semibold text-ink dark:text-tavern-text">
+						Schema Migration Checkpoints
+					</h2>
+					<Button
+						variant="ghost"
+						size="sm"
+						onclick={loadMigrationCheckpoints}
+						disabled={loadingCheckpoints}
+					>
+						{loadingCheckpoints ? 'Loading…' : 'Refresh'}
+					</Button>
+				</div>
+				<div
+					class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4"
+				>
+					<p class="text-xs text-ink-muted dark:text-tavern-muted mb-3">
+						Checkpoint backups are created automatically before each schema migration. Use these to
+						restore your vault to a pre-migration state if needed.
+					</p>
+					{#if !window.dndtoolsDesktop}
+						<p class="text-xs text-ink-muted dark:text-tavern-muted italic">
+							Only available in desktop mode.
+						</p>
+					{:else if loadingCheckpoints}
+						<p class="text-xs text-ink-muted dark:text-tavern-muted">Loading checkpoints…</p>
+					{:else if migrationCheckpoints.length === 0}
+						<p class="text-xs text-ink-muted dark:text-tavern-muted">
+							No schema migration checkpoints found.
+						</p>
+					{:else}
+						<div class="space-y-3">
+							<div>
+								<label
+									for="checkpoint-select"
+									class="block text-xs font-medium text-ink dark:text-tavern-text mb-1.5"
+								>
+									Select checkpoint to restore
+								</label>
+								<select
+									id="checkpoint-select"
+									bind:value={selectedCheckpointName}
+									class="w-full rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm text-ink dark:text-tavern-text px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent dark:focus:ring-tavern-accent"
+								>
+									{#each migrationCheckpoints as checkpoint (checkpoint.name)}
+										<option value={checkpoint.name}>
+											{checkpoint.name} — {checkpoint.fileCount} file{checkpoint.fileCount === 1
+												? ''
+												: 's'} — {checkpoint.createdAt}
+										</option>
+									{/each}
+								</select>
+							</div>
+							<div
+								class="rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-3 py-2"
+							>
+								<p class="text-xs text-amber-700 dark:text-amber-300">
+									Restoring a checkpoint overwrites the current vault files with the backed-up
+									versions. The application will need to be restarted after the restore completes.
+								</p>
+							</div>
+							<Button
+								variant="danger"
+								size="sm"
+								onclick={handleRestoreCheckpoint}
+								disabled={restoringCheckpoint || !selectedCheckpointName}
+							>
+								{restoringCheckpoint ? 'Restoring…' : 'Restore Selected Checkpoint'}
+							</Button>
+						</div>
 					{/if}
 				</div>
 			</section>

@@ -52,6 +52,8 @@ export interface SchemaMigrationReport {
 	upgradeRequired: boolean;
 	upgradeApplied: boolean;
 	rollbackApplied: boolean;
+	/** True when the vault schema is newer than this app understands. Opening is refused. */
+	vaultTooNew: boolean;
 	checkpointDir: string | null;
 	from: VaultSchemaVersions;
 	to: VaultSchemaVersions;
@@ -91,7 +93,9 @@ function toRecord(value: unknown): Record<string, unknown> {
 	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
 		return {};
 	}
-	return value as Record<string, unknown>;
+	// gray-matter may return shared object references for identical sources; clone to avoid
+	// cross-call mutations leaking between migration passes or tests.
+	return structuredClone(value as Record<string, unknown>);
 }
 
 function readVersion(raw: unknown, fallback: number): number {
@@ -170,6 +174,11 @@ async function collectNoteCandidates(vaultDir: string): Promise<NoteMigrationCan
 		const noteVersion = readVersion(fm[NOTE_SCHEMA_VERSION_KEY], 1);
 		const objectInfo = parseObjectVersion(fm);
 		const relPath = path.relative(vaultDir, filePath).replace(/\\/g, '/');
+		if (process.env['DEBUG_MIGRATIONS']) {
+			console.log(
+				`DEBUG note candidate FULLPATH: ${filePath} dndtoolsSchemaVersion=${String(fm[NOTE_SCHEMA_VERSION_KEY])} noteVersion=${noteVersion}`,
+			);
+		}
 		candidates.push({
 			filePath,
 			relPath,
@@ -242,6 +251,27 @@ function aggregateFromVersions(
 		objects: objectVersion,
 		metadata: metadataVersion,
 	};
+}
+
+/**
+ * Detect whether any file in the vault carries a schema version greater than
+ * what this build of the application understands. When true the vault was
+ * created (or last migrated) by a newer app version and must not be opened.
+ */
+function detectVaultTooNew(
+	noteCandidates: NoteMigrationCandidate[],
+	metadataCandidates: MetadataMigrationCandidate[],
+): boolean {
+	for (const c of noteCandidates) {
+		if (c.noteVersion > CURRENT_SCHEMA_VERSION.notes) return true;
+	}
+	for (const c of noteCandidates) {
+		if (c.isObjectNote && c.objectVersion > CURRENT_SCHEMA_VERSION.objects) return true;
+	}
+	for (const c of metadataCandidates) {
+		if (c.exists && c.version > CURRENT_SCHEMA_VERSION.metadata) return true;
+	}
+	return false;
 }
 
 function createStepReport(
@@ -317,6 +347,7 @@ export async function runSchemaMigrations(
 	const noteCandidates = await collectNoteCandidates(resolvedVaultDir);
 	const metadataCandidates = await collectMetadataCandidates(resolvedVaultDir);
 	const from = aggregateFromVersions(noteCandidates, metadataCandidates);
+	const vaultTooNew = detectVaultTooNew(noteCandidates, metadataCandidates);
 
 	const metadataPending = metadataCandidates.filter((candidate) => candidate.needsUpgrade);
 	const notesPending = noteCandidates.filter((candidate) => candidate.noteNeedsUpgrade);
@@ -351,6 +382,7 @@ export async function runSchemaMigrations(
 		upgradeRequired: metadataStep.pending > 0 || notesStep.pending > 0 || objectsStep.pending > 0,
 		upgradeApplied: false,
 		rollbackApplied: false,
+		vaultTooNew,
 		checkpointDir: null,
 		from,
 		to: {
@@ -388,7 +420,7 @@ export async function runSchemaMigrations(
 
 	report.changedFiles = [...changedFileSet].sort((a, b) => a.localeCompare(b));
 
-	if (dryRun || !report.upgradeRequired) {
+	if (dryRun || vaultTooNew || !report.upgradeRequired) {
 		report.finishedAt = nowISO();
 		return report;
 	}

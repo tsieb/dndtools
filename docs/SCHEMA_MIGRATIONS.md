@@ -51,22 +51,41 @@ When applying migrations with checkpoints enabled:
 
 Electron bootstrap enforces migration guardrails in two places:
 
-- `electron/main.ts` vault selection/bootstrap preflight
-- `src/lib/runtime/bootstrap.ts` runtime preflight
+- `electron/main.ts` vault selection/bootstrap preflight — blocks vault-too-new and auto-migrates on vault change
+- `src/lib/runtime/bootstrap.ts` runtime preflight — throws `MigrationRequiredError` when upgrade is needed; re-throws on vault-too-new
 
-Both paths fail fast if migration is required but cannot be completed successfully.
+`RuntimeState` (`src/lib/state/runtime.svelte.ts`) intercepts `MigrationRequiredError` and exposes:
+
+- `migrationReport` — the dry-run report (shown in the readiness screen)
+- `applyMigration()` — applies the migration after user approval and re-bootstraps
+
+`+layout.svelte` renders `MigrationReadinessScreen` when `migrationReport` is non-null, blocking all vault access until the user approves or cancels.
+
+---
+
+## Migration Checkpoints (Restore Path)
+
+Checkpoints are created under `.vault/checkpoints/schema-migration-<timestamp>-<id>/`.
+
+`FileSystemAdapter` exposes:
+
+- `listMigrationCheckpoints()` — scans for checkpoint directories
+- `restoreMigrationCheckpoint(name)` — copies backed-up files back and reloads in-memory state
+
+IPC: `dndtools:schema:list-checkpoints` / `dndtools:schema:restore-checkpoint`
+Bridge: `listDesktopMigrationCheckpoints()` / `restoreDesktopMigrationCheckpoint(name)`
+UI: Settings → System Health → "Schema Migration Checkpoints" section
 
 ---
 
 ## Story Implementation Status (Epic 1.2)
 
 > Status key: ✅ Complete | 🔄 Partial | ❌ Not started
-> An executing agent must verify each item against the actual implementation and update this table.
 
-| Story  | Description                                  | Status | Notes                                                                                                                                                               |
-| ------ | -------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| S1.2.1 | Schema versioning contract                   | 🔄     | Version keys defined above; policy doc exists; verify app refuses vault with newer schema than supported                                                            |
-| S1.2.2 | Migration runner with dry-run mode           | 🔄     | `mcp/migrations.ts` implements `getSchemaMigrationReport` and `runSchemaMigrations`; verify dry-run path is exercised and report surfaced in UI                     |
-| S1.2.3 | Rollback checkpoint and restore              | 🔄     | Checkpoint backup path implemented; verify Settings → System Health one-click restore UI exists                                                                     |
-| S1.2.4 | Migration integration test fixtures          | 🔄     | `mcp/fixtures/` and `mcp/migrations.integration.test.ts` exist; verify fixture coverage for each version bump                                                       |
-| S1.2.5 | "Vault upgrade required" bootstrap guardrail | 🔄     | Electron and renderer bootstrap enforced (see above); verify user-visible migration readiness screen with dry-run preview, backup status, and apply/cancel controls |
+| Story  | Description                                  | Status | Notes                                                                                                                                                                                                                                                                                          |
+| ------ | -------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1.2.1 | Schema versioning contract                   | ✅     | Version keys defined; policy doc exists; `vaultTooNew` detection in `mcp/migrations.ts`; `electron/main.ts` and `bootstrap.ts` refuse vaults with schema newer than `CURRENT_SCHEMA_VERSION`                                                                                                   |
+| S1.2.2 | Migration runner with dry-run mode           | ✅     | `getSchemaMigrationReport` (dry-run) and `runSchemaMigrations` implemented in `mcp/migrations.ts`; UI surfaces the dry-run report in `MigrationReadinessScreen` before any write is attempted                                                                                                  |
+| S1.2.3 | Rollback checkpoint and restore              | ✅     | Checkpoint backup on every migration run; rollback on failure; `listMigrationCheckpoints` + `restoreMigrationCheckpoint` on `FileSystemAdapter`; IPC handlers + bridge functions; one-click restore UI in Settings → System Health → "Schema Migration Checkpoints"                            |
+| S1.2.4 | Migration integration test fixtures          | ✅     | `mcp/fixtures/schema-v1/` fixture vault; `mcp/migrations.integration.test.ts` covers dry-run, apply+checkpoint, adapter init, `vaultTooNew` (metadata version), `vaultTooNew` (note frontmatter version), no-apply when too-new, and rollback-on-failure (via `writeJsonAtomic` mock)          |
+| S1.2.5 | "Vault upgrade required" bootstrap guardrail | ✅     | `bootstrap.ts` throws `MigrationRequiredError` instead of auto-applying; `RuntimeState` exposes `migrationReport` + `applyMigration()`; `MigrationReadinessScreen` component renders dry-run preview, backup notice, warnings, and Apply/Cancel controls; `+layout.svelte` gates on this state |

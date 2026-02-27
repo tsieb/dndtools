@@ -166,6 +166,13 @@ declare global {
 		failures: DesktopSchemaMigrationFailure[];
 	}
 
+	interface DesktopMigrationCheckpoint {
+		name: string;
+		dirPath: string;
+		createdAt: string;
+		fileCount: number;
+	}
+
 	interface DesktopSchemaMigrationReport {
 		startedAt: string;
 		finishedAt: string;
@@ -173,6 +180,8 @@ declare global {
 		upgradeRequired: boolean;
 		upgradeApplied: boolean;
 		rollbackApplied: boolean;
+		/** True when the vault schema is newer than this app understands. Opening is refused. */
+		vaultTooNew: boolean;
 		checkpointDir: string | null;
 		from: {
 			notes: number;
@@ -274,6 +283,8 @@ declare global {
 				dryRun?: boolean;
 				createCheckpoint?: boolean;
 			}): Promise<DesktopSchemaMigrationReport>;
+			listMigrationCheckpoints(): Promise<DesktopMigrationCheckpoint[]>;
+			restoreMigrationCheckpoint(checkpointName: string): Promise<{ restored: number }>;
 			getBackendInfo(): Promise<{ backend: 'desktop-filesystem'; vaultDir: string }>;
 			pickVaultDirectory(): Promise<{ vaultDir: string } | null>;
 			getMcpStatus(): Promise<DesktopMcpStatus>;

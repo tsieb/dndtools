@@ -249,6 +249,19 @@
 		{/await}
 	{/if}
 	<Toast />
+{:else if runtimeState.migrationReport}
+	{#await import('$lib/ui/migration/MigrationReadinessScreen.svelte')}
+		<div class="flex h-screen items-center justify-center bg-parchment dark:bg-tavern-bg">
+			<p class="text-sm text-ink-muted dark:text-tavern-muted">Loading upgrade screen…</p>
+		</div>
+	{:then MigrationModule}
+		<MigrationModule.default
+			report={runtimeState.migrationReport}
+			applying={runtimeState.applyingMigration}
+			error={runtimeState.migrationError}
+			onapply={() => void runtimeState.applyMigration()}
+		/>
+	{/await}
 {:else if runtimeState.error}
 	<div class="flex h-screen items-center justify-center bg-parchment dark:bg-tavern-bg">
 		<div

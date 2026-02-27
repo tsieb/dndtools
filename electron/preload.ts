@@ -57,6 +57,9 @@ contextBridge.exposeInMainWorld('dndtoolsDesktop', {
 	getSchemaMigrationReport: () => ipcRenderer.invoke('dndtools:schema:get-migration-report'),
 	runSchemaMigrations: (options?: { dryRun?: boolean; createCheckpoint?: boolean }) =>
 		ipcRenderer.invoke('dndtools:schema:run-migrations', options),
+	listMigrationCheckpoints: () => ipcRenderer.invoke('dndtools:schema:list-checkpoints'),
+	restoreMigrationCheckpoint: (checkpointName: string) =>
+		ipcRenderer.invoke('dndtools:schema:restore-checkpoint', checkpointName),
 	getBackendInfo: () => ipcRenderer.invoke('dndtools:backend-info'),
 	pickVaultDirectory: () => ipcRenderer.invoke('dndtools:pick-vault'),
 	getMcpStatus: () => ipcRenderer.invoke('dndtools:mcp-status'),
