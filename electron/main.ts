@@ -4,13 +4,20 @@ import fsSync from 'node:fs';
 import http from 'node:http';
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import { FileSystemAdapter } from '../mcp/storage.js';
+import {
+	getSchemaMigrationReport as getVaultSchemaMigrationReport,
+	runSchemaMigrations as runVaultSchemaMigrations,
+} from '../mcp/migrations.js';
 import { McpSidecar } from './mcp-sidecar.js';
 import type { McpChangeRecord } from '../src/lib/types/mcp.js';
+import type { HealthSubsystem, StructuredErrorEvent } from '../src/lib/types/diagnostics.js';
+import { DiagnosticsTracker } from './diagnostics.js';
 
 let storage: FileSystemAdapter | null = null;
 let vaultDir = '';
 let staticServer: http.Server | null = null;
 const mcpSidecar = new McpSidecar();
+const diagnostics = new DiagnosticsTracker();
 
 const CONTENT_TYPES: Record<string, string> = {
 	'.html': 'text/html; charset=utf-8',
@@ -58,7 +65,10 @@ function resolveWindowIconPath(): string | undefined {
 	return candidates.find((candidate) => fsSync.existsSync(candidate));
 }
 
-async function readStaticAsset(rootDir: string, rawPath: string): Promise<{
+async function readStaticAsset(
+	rootDir: string,
+	rawPath: string,
+): Promise<{
 	status: number;
 	contentType: string;
 	body: Buffer;
@@ -137,10 +147,52 @@ async function setVaultDirectory(nextVaultDir: string): Promise<void> {
 		await storage.close();
 	}
 
+	const schemaPreflight = await getVaultSchemaMigrationReport(nextVaultDir);
+	if (schemaPreflight.upgradeRequired) {
+		const applied = await runVaultSchemaMigrations(nextVaultDir, {
+			dryRun: false,
+			createCheckpoint: true,
+		});
+		if (applied.failures.length > 0) {
+			throw new Error(
+				`Vault upgrade required but migration failed: ${applied.failures[0]?.message ?? 'unknown error'}`,
+			);
+		}
+	}
+
 	storage = new FileSystemAdapter(nextVaultDir);
-	await storage.initialize();
+	try {
+		await storage.initialize();
+		diagnostics.markSubsystemSuccess('vault_sync');
+	} catch (error) {
+		diagnostics.recordError(
+			createStructuredError({
+				category: 'storage',
+				code: 'STORAGE_INIT_FAILED',
+				message: error instanceof Error ? error.message : String(error),
+				details: error instanceof Error ? (error.stack ?? null) : null,
+				context: {
+					stage: 'setVaultDirectory',
+				},
+			}),
+		);
+		throw error;
+	}
 	vaultDir = nextVaultDir;
 	await mcpSidecar.restart(nextVaultDir);
+	const sidecarStatus = mcpSidecar.getStatus();
+	if (sidecarStatus.state === 'error') {
+		diagnostics.recordError(
+			createStructuredError({
+				category: 'mcp_sidecar',
+				code: 'MCP_SIDECAR_START_FAILED',
+				message: sidecarStatus.error ?? 'Failed to start MCP sidecar',
+				context: {
+					vaultDir: nextVaultDir,
+				},
+			}),
+		);
+	}
 }
 
 function requireStorage(): FileSystemAdapter {
@@ -148,6 +200,83 @@ function requireStorage(): FileSystemAdapter {
 		throw new Error('Storage is not initialized');
 	}
 	return storage;
+}
+
+function createStructuredError(input: {
+	category: StructuredErrorEvent['category'];
+	code: string;
+	message: string;
+	details?: string | null;
+	context?: StructuredErrorEvent['context'];
+}): StructuredErrorEvent {
+	return {
+		id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+		at: new Date().toISOString(),
+		category: input.category,
+		code: input.code,
+		message: input.message,
+		severity: 'error',
+		details: input.details ?? null,
+		context: input.context ?? {},
+	};
+}
+
+function isHealthSubsystem(value: unknown): value is HealthSubsystem {
+	return (
+		value === 'runtime_bootstrap' ||
+		value === 'vault_sync' ||
+		value === 'search_index' ||
+		value === 'link_graph_build'
+	);
+}
+
+function isStructuredErrorEvent(value: unknown): value is StructuredErrorEvent {
+	if (!value || typeof value !== 'object') return false;
+	const candidate = value as Partial<StructuredErrorEvent>;
+	return (
+		typeof candidate.id === 'string' &&
+		typeof candidate.at === 'string' &&
+		typeof candidate.category === 'string' &&
+		typeof candidate.code === 'string' &&
+		typeof candidate.message === 'string' &&
+		typeof candidate.severity === 'string' &&
+		typeof candidate.context === 'object' &&
+		candidate.context !== null
+	);
+}
+
+async function collectBundleMetrics(): Promise<{
+	noteCount: number | null;
+	tagCount: number | null;
+	pendingMcpChangeCount: number | null;
+}> {
+	const current = storage;
+	if (!current) {
+		return {
+			noteCount: null,
+			tagCount: null,
+			pendingMcpChangeCount: null,
+		};
+	}
+
+	try {
+		const [noteCount, tagCounts, pendingChanges] = await Promise.all([
+			current.getNoteCount(),
+			current.getTagCounts(),
+			current.getPendingMcpChanges(),
+		]);
+		return {
+			noteCount,
+			tagCount: tagCounts.length,
+			pendingMcpChangeCount: pendingChanges.length,
+		};
+	} catch {
+		return {
+			noteCount: null,
+			tagCount: null,
+			pendingMcpChangeCount: null,
+		};
+	}
 }
 
 async function createMainWindow(): Promise<void> {
@@ -283,12 +412,42 @@ ipcMain.handle('dndtools:storage:save-object', async (_event, object: unknown) =
 ipcMain.handle('dndtools:storage:delete-object', async (_event, id: string) => {
 	await requireStorage().deleteObject(id as never);
 });
+ipcMain.handle('dndtools:storage:get-object-relationship-graph', async () => {
+	return requireStorage().getObjectRelationshipGraph();
+});
+ipcMain.handle('dndtools:storage:lint-objects', async () => {
+	return requireStorage().lintObjects();
+});
+ipcMain.handle(
+	'dndtools:storage:get-object-history',
+	async (_event, id: string, options?: { limit?: number }) => {
+		return requireStorage().getObjectHistory(id as never, options);
+	},
+);
+ipcMain.handle(
+	'dndtools:storage:revert-object-history',
+	async (_event, id: string, historyEntryId: string) => {
+		return requireStorage().revertObjectToHistory(id as never, historyEntryId);
+	},
+);
 ipcMain.handle('dndtools:storage:get-setting', async (_event, key: string) => {
 	return requireStorage().getSetting(key as never);
 });
 ipcMain.handle('dndtools:storage:set-setting', async (_event, key: string, value: unknown) => {
 	await requireStorage().setSetting(key as never, value as never);
 });
+ipcMain.handle('dndtools:storage:create-safety-snapshot', async (_event, reason?: string) => {
+	return requireStorage().createSafetySnapshot(reason);
+});
+ipcMain.handle('dndtools:storage:list-safety-snapshots', async () => {
+	return requireStorage().listSafetySnapshots();
+});
+ipcMain.handle(
+	'dndtools:storage:restore-deleted-from-snapshot',
+	async (_event, snapshotId: string) => {
+		return requireStorage().restoreDeletedFromSnapshot(snapshotId);
+	},
+);
 ipcMain.handle('dndtools:storage:import-notes', async (_event, notes: unknown) => {
 	return requireStorage().importNotes(notes as never);
 });
@@ -310,6 +469,15 @@ ipcMain.handle('dndtools:storage:get-integrity-report', async () => {
 ipcMain.handle('dndtools:storage:repair-integrity', async () => {
 	return requireStorage().repairMetadataIntegrity();
 });
+ipcMain.handle('dndtools:schema:get-migration-report', async () => {
+	return requireStorage().getSchemaMigrationReport();
+});
+ipcMain.handle(
+	'dndtools:schema:run-migrations',
+	async (_event, options?: { dryRun?: boolean; createCheckpoint?: boolean }) => {
+		return requireStorage().runSchemaMigrations(options);
+	},
+);
 
 ipcMain.handle('dndtools:backend-info', async () => {
 	return {
@@ -324,17 +492,92 @@ ipcMain.handle('dndtools:mcp-status', async () => {
 
 ipcMain.handle('dndtools:mcp-restart', async () => {
 	await mcpSidecar.restart(vaultDir);
-	return mcpSidecar.getStatus();
+	const status = mcpSidecar.getStatus();
+	if (status.state === 'error') {
+		diagnostics.recordError(
+			createStructuredError({
+				category: 'mcp_sidecar',
+				code: 'MCP_SIDECAR_RESTART_FAILED',
+				message: status.error ?? 'MCP sidecar restart failed',
+			}),
+		);
+	}
+	return status;
+});
+
+ipcMain.handle('dndtools:diagnostics:mark-success', async (_event, subsystem: unknown) => {
+	if (!isHealthSubsystem(subsystem)) {
+		throw new Error(`Invalid subsystem: ${String(subsystem)}`);
+	}
+	diagnostics.markSubsystemSuccess(subsystem);
+});
+
+ipcMain.handle('dndtools:diagnostics:record-error', async (_event, event: unknown) => {
+	if (!isStructuredErrorEvent(event)) {
+		throw new Error('Invalid diagnostics error event payload');
+	}
+	diagnostics.recordError(event);
+});
+
+ipcMain.handle('dndtools:diagnostics:get-health', async () => {
+	return {
+		...diagnostics.getHealthSnapshot(),
+		mcpStatus: mcpSidecar.getStatus(),
+		mcpLifecycle: mcpSidecar.getLifecycleEvents(),
+	};
+});
+
+ipcMain.handle('dndtools:diagnostics:export', async () => {
+	const suffix = new Date().toISOString().replace(/[:.]/g, '-');
+	const defaultPath = path.join(app.getPath('documents'), `dndtools-diagnostics-${suffix}.json`);
+	const picked = await dialog.showSaveDialog({
+		title: 'Export Diagnostics Bundle',
+		defaultPath,
+		filters: [{ name: 'JSON', extensions: ['json'] }],
+	});
+
+	if (picked.canceled || !picked.filePath) {
+		return { canceled: true, path: null as string | null };
+	}
+
+	const health = diagnostics.getHealthSnapshot();
+	const metricsBase = await collectBundleMetrics();
+	const bundle = {
+		generatedAt: new Date().toISOString(),
+		health,
+		environment: diagnostics.getEnvironment(),
+		metrics: diagnostics.getMetrics(metricsBase),
+		mcp: {
+			status: mcpSidecar.getStatus(),
+			lifecycle: mcpSidecar.getLifecycleEvents(120),
+		},
+		logs: health.recentErrors,
+	};
+	await fs.writeFile(picked.filePath, JSON.stringify(bundle, null, 2), 'utf-8');
+	return { canceled: false, path: picked.filePath };
 });
 
 ipcMain.handle('dndtools:vault-refresh', async () => {
 	const current = requireStorage();
 	await current.refreshFromDisk();
+	diagnostics.markSubsystemSuccess('vault_sync');
 	return { noteCount: await current.getNoteCount() };
 });
 
 ipcMain.handle('dndtools:mcp-changes:list', async (): Promise<McpChangeRecord[]> => {
 	return requireStorage().getPendingMcpChanges();
+});
+
+ipcMain.handle('dndtools:mcp-changes:audit', async (_event, limit?: number) => {
+	return requireStorage().getMcpAuditTrail(limit);
+});
+
+ipcMain.handle('dndtools:mcp-policy:get', async () => {
+	return requireStorage().getMcpPolicySettings();
+});
+
+ipcMain.handle('dndtools:mcp-policy:set', async (_event, settings: unknown) => {
+	return requireStorage().setMcpPolicySettings(settings as never);
 });
 
 ipcMain.handle('dndtools:mcp-changes:approve', async (_event, changeId: string) => {
@@ -389,6 +632,28 @@ ipcMain.handle('dndtools:window:get-state', async (event) => {
 	return {
 		isMaximized: win?.isMaximized() ?? false,
 	};
+});
+
+process.on('uncaughtException', (error) => {
+	diagnostics.recordError(
+		createStructuredError({
+			category: 'ui_runtime',
+			code: 'MAIN_UNCAUGHT_EXCEPTION',
+			message: error.message,
+			details: error.stack ?? null,
+		}),
+	);
+});
+
+process.on('unhandledRejection', (reason) => {
+	diagnostics.recordError(
+		createStructuredError({
+			category: 'ui_runtime',
+			code: 'MAIN_UNHANDLED_REJECTION',
+			message: reason instanceof Error ? reason.message : String(reason),
+			details: reason instanceof Error ? (reason.stack ?? null) : null,
+		}),
+	);
 });
 
 app.whenReady().then(async () => {

@@ -32,9 +32,21 @@ contextBridge.exposeInMainWorld('dndtoolsDesktop', {
 		ipcRenderer.invoke('dndtools:storage:get-all-objects', options),
 	saveObject: (object: unknown) => ipcRenderer.invoke('dndtools:storage:save-object', object),
 	deleteObject: (id: string) => ipcRenderer.invoke('dndtools:storage:delete-object', id),
+	getObjectRelationshipGraph: () =>
+		ipcRenderer.invoke('dndtools:storage:get-object-relationship-graph'),
+	lintObjects: () => ipcRenderer.invoke('dndtools:storage:lint-objects'),
+	getObjectHistory: (id: string, options?: { limit?: number }) =>
+		ipcRenderer.invoke('dndtools:storage:get-object-history', id, options),
+	revertObjectToHistory: (id: string, historyEntryId: string) =>
+		ipcRenderer.invoke('dndtools:storage:revert-object-history', id, historyEntryId),
 	getSetting: (key: string) => ipcRenderer.invoke('dndtools:storage:get-setting', key),
 	setSetting: (key: string, value: unknown) =>
 		ipcRenderer.invoke('dndtools:storage:set-setting', key, value),
+	createSafetySnapshot: (reason?: string) =>
+		ipcRenderer.invoke('dndtools:storage:create-safety-snapshot', reason),
+	listSafetySnapshots: () => ipcRenderer.invoke('dndtools:storage:list-safety-snapshots'),
+	restoreDeletedFromSnapshot: (snapshotId: string) =>
+		ipcRenderer.invoke('dndtools:storage:restore-deleted-from-snapshot', snapshotId),
 	importNotes: (notes: unknown[]) => ipcRenderer.invoke('dndtools:storage:import-notes', notes),
 	exportAllNotes: () => ipcRenderer.invoke('dndtools:storage:export-all-notes'),
 	getNoteCount: () => ipcRenderer.invoke('dndtools:storage:get-note-count'),
@@ -42,15 +54,30 @@ contextBridge.exposeInMainWorld('dndtoolsDesktop', {
 	refreshFromDisk: () => ipcRenderer.invoke('dndtools:storage:refresh-from-disk'),
 	getIntegrityReport: () => ipcRenderer.invoke('dndtools:storage:get-integrity-report'),
 	repairIntegrity: () => ipcRenderer.invoke('dndtools:storage:repair-integrity'),
+	getSchemaMigrationReport: () => ipcRenderer.invoke('dndtools:schema:get-migration-report'),
+	runSchemaMigrations: (options?: { dryRun?: boolean; createCheckpoint?: boolean }) =>
+		ipcRenderer.invoke('dndtools:schema:run-migrations', options),
 	getBackendInfo: () => ipcRenderer.invoke('dndtools:backend-info'),
 	pickVaultDirectory: () => ipcRenderer.invoke('dndtools:pick-vault'),
 	getMcpStatus: () => ipcRenderer.invoke('dndtools:mcp-status'),
 	restartMcpSidecar: () => ipcRenderer.invoke('dndtools:mcp-restart'),
+	getDiagnosticsHealth: () => ipcRenderer.invoke('dndtools:diagnostics:get-health'),
+	markDiagnosticsSuccess: (subsystem: unknown) =>
+		ipcRenderer.invoke('dndtools:diagnostics:mark-success', subsystem),
+	recordDiagnosticsError: (event: unknown) =>
+		ipcRenderer.invoke('dndtools:diagnostics:record-error', event),
+	exportDiagnosticsBundle: () => ipcRenderer.invoke('dndtools:diagnostics:export'),
 	refreshVault: () => ipcRenderer.invoke('dndtools:vault-refresh'),
 	listMcpPendingChanges: () => ipcRenderer.invoke('dndtools:mcp-changes:list'),
-	approveMcpChange: (changeId: string) => ipcRenderer.invoke('dndtools:mcp-changes:approve', changeId),
+	listMcpAuditTrail: (limit?: number) => ipcRenderer.invoke('dndtools:mcp-changes:audit', limit),
+	getMcpPolicySettings: () => ipcRenderer.invoke('dndtools:mcp-policy:get'),
+	setMcpPolicySettings: (settings: unknown) =>
+		ipcRenderer.invoke('dndtools:mcp-policy:set', settings),
+	approveMcpChange: (changeId: string) =>
+		ipcRenderer.invoke('dndtools:mcp-changes:approve', changeId),
 	approveAllMcpChanges: () => ipcRenderer.invoke('dndtools:mcp-changes:approve-all'),
-	rejectMcpChange: (changeId: string) => ipcRenderer.invoke('dndtools:mcp-changes:reject', changeId),
+	rejectMcpChange: (changeId: string) =>
+		ipcRenderer.invoke('dndtools:mcp-changes:reject', changeId),
 	rejectAllMcpChanges: () => ipcRenderer.invoke('dndtools:mcp-changes:reject-all'),
 	minimizeWindow: () => ipcRenderer.invoke('dndtools:window:minimize'),
 	toggleWindowMaximize: () => ipcRenderer.invoke('dndtools:window:toggle-maximize'),
