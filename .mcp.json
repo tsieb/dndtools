@@ -1,9 +1,9 @@
 {
-  "mcpServers": {
-    "dndtools": {
-      "type": "stdio",
-      "command": "cmd",
-      "args": ["/c", "npx", "tsx", "mcp/index.ts", "C:/Users/trent/Documents/dnd"]
-    }
-  }
+	"mcpServers": {
+		"dndtools": {
+			"type": "stdio",
+			"command": "cmd",
+			"args": ["/c", "npx", "tsx", "mcp/index.ts", "C:/Users/trent/Documents/dnd"]
+		}
+	}
 }
