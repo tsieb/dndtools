@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { FileSystemAdapter } from '../../storage.js';
 import { createNoteId } from '../../../src/lib/types/note.js';
-import { errorResult, textResult } from '../shared/response.js';
+import { errorResult, jsonResult } from '../shared/response.js';
 
 export function registerRestoreNoteTool(server: McpServer, storage: FileSystemAdapter): void {
 	server.tool(
@@ -17,11 +17,21 @@ export function registerRestoreNoteTool(server: McpServer, storage: FileSystemAd
 				return errorResult('Note not found.');
 			}
 			if (!note.deleted) {
-				return textResult(`Note "${note.title}" is already active.`);
+				return jsonResult({
+					id: note.id,
+					title: note.title,
+					status: 'active' as const,
+					changed: false,
+				});
 			}
 
 			await storage.restoreNote(note.id);
-			return textResult(`Restored "${note.title}".`);
+			return jsonResult({
+				id: note.id,
+				title: note.title,
+				status: 'active' as const,
+				changed: true,
+			});
 		},
 	);
 }

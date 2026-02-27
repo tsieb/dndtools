@@ -21,7 +21,7 @@ const runDirect = process.argv.includes('--direct') || process.env.DNDTOOLS_MCP_
 const storage = runDirect ? new FileSystemAdapter(vaultDir) : new StagedMcpAdapter(vaultDir);
 
 // Register tools and resources
-registerTools(server, storage);
+registerTools(server, storage, { writeMode: runDirect ? 'direct' : 'staged' });
 registerResources(server, storage);
 
 // Start

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { FileSystemAdapter } from '../../storage.js';
 import { createNoteId } from '../../../src/lib/types/note.js';
-import { errorResult, textResult } from '../shared/response.js';
+import { errorResult, jsonResult } from '../shared/response.js';
 
 export function registerDeleteNoteTool(server: McpServer, storage: FileSystemAdapter): void {
 	server.tool(
@@ -19,11 +19,12 @@ export function registerDeleteNoteTool(server: McpServer, storage: FileSystemAda
 			}
 
 			await storage.deleteNote(note.id, permanent);
-			return textResult(
-				permanent
-					? `Permanently deleted "${note.title}".`
-					: `Moved "${note.title}" to trash.`,
-			);
+			return jsonResult({
+				id: note.id,
+				title: note.title,
+				permanent,
+				status: permanent ? 'deleted' : 'trashed',
+			});
 		},
 	);
 }

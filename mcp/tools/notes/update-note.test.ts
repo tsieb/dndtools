@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { registerUpdateNoteTool } from './update-note.js';
 import { createFolderId, createNoteId, type Note } from '../../../src/lib/types/note.js';
-import type { ToolResult } from '../shared/response.js';
+import { parseToolEnvelope, type ToolResult } from '../shared/response.js';
 
 type ToolHandler = (input: Record<string, unknown>) => Promise<ToolResult>;
 
@@ -38,7 +38,9 @@ function makeNote(overrides: Partial<Note> = {}): Note {
 }
 
 function parseJson(result: ToolResult): Record<string, unknown> {
-	return JSON.parse(result.content[0]?.text ?? '{}') as Record<string, unknown>;
+	const envelope = parseToolEnvelope(result);
+	if (!envelope || !envelope.ok) return {};
+	return envelope.data as Record<string, unknown>;
 }
 
 describe('update_note tool', () => {
@@ -53,7 +55,11 @@ describe('update_note tool', () => {
 
 		const result = await server.handler?.({ id: 'missing', title: 'Next' });
 		expect(result?.isError).toBe(true);
-		expect(result?.content[0]?.text).toBe('Note not found.');
+		const envelope = result ? parseToolEnvelope(result) : null;
+		expect(envelope?.ok).toBe(false);
+		if (!envelope || envelope.ok) return;
+		expect(envelope.error.code).toBe('MCP_NOT_FOUND');
+		expect(envelope.error.message).toBe('Note not found.');
 	});
 
 	it('merges frontmatter by default and reindexes on content/title/folder changes', async () => {
@@ -110,10 +116,7 @@ describe('update_note tool', () => {
 				}),
 			);
 		const server = new MockMcpServer();
-		registerUpdateNoteTool(
-			server as never,
-			{ getNote, saveNote, resolveAndIndexLinks } as never,
-		);
+		registerUpdateNoteTool(server as never, { getNote, saveNote, resolveAndIndexLinks } as never);
 
 		await server.handler?.({
 			id: 'note-1',
