@@ -85,7 +85,10 @@
 <div class="p-6 max-w-content mx-auto">
 	<div class="flex items-center justify-between mb-6">
 		<div>
-			<h1 class="text-2xl font-bold text-ink dark:text-tavern-text" style="font-family: var(--font-serif)">
+			<h1
+				class="text-2xl font-bold text-ink dark:text-tavern-text"
+				style="font-family: var(--font-serif)"
+			>
 				{#if tagFilter}
 					Notes tagged "{tagFilter}"
 				{:else}
@@ -93,7 +96,8 @@
 				{/if}
 			</h1>
 			<p class="text-sm text-ink-muted dark:text-tavern-muted mt-1">
-				{totalCount} {totalCount === 1 ? 'note' : 'notes'}
+				{totalCount}
+				{totalCount === 1 ? 'note' : 'notes'}
 			</p>
 		</div>
 		<Button variant="primary" onclick={handleNewNote}>New Note</Button>
@@ -107,8 +111,18 @@
 				placeholder="Filter by title, content, tag, or file path"
 				class="w-full pl-10 pr-3 py-2 rounded-md bg-surface dark:bg-tavern-surface border border-border dark:border-tavern-border text-sm text-ink dark:text-tavern-text placeholder:text-ink-faint dark:placeholder:text-tavern-faint"
 			/>
-			<svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-faint dark:text-tavern-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+			<svg
+				class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-faint dark:text-tavern-faint"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+				stroke-width="2"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+				/>
 			</svg>
 		</div>
 		<div class="flex items-center gap-2 flex-wrap text-sm">
@@ -171,10 +185,19 @@
 	{#if pinnedNotes.length > 0}
 		<div class="mb-6">
 			<div class="flex items-center gap-2 mb-3">
-				<svg class="w-3.5 h-3.5 text-accent dark:text-tavern-accent" fill="currentColor" viewBox="0 0 24 24">
-					<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+				<svg
+					class="w-3.5 h-3.5 text-accent dark:text-tavern-accent"
+					fill="currentColor"
+					viewBox="0 0 24 24"
+				>
+					<path
+						d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+					/>
 				</svg>
-				<span class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint">Pinned</span>
+				<span
+					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
+					>Pinned</span
+				>
 			</div>
 			<div class="grid gap-3 sm:grid-cols-2">
 				{#each pinnedNotes as note (note.id)}
@@ -199,7 +222,10 @@
 	{:else}
 		<div class="text-center py-16">
 			<p class="text-ink-muted dark:text-tavern-muted mb-2">No notes match your current filters.</p>
-			<a href={resolve('/notes')} class="text-sm text-accent dark:text-tavern-accent hover:underline">
+			<a
+				href={resolve('/notes')}
+				class="text-sm text-accent dark:text-tavern-accent hover:underline"
+			>
 				Clear filters
 			</a>
 		</div>

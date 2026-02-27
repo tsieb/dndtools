@@ -5,11 +5,11 @@ class UIState {
 	sidebarOpen = $state(true);
 	sidebarWidth = $state(260);
 	isMobile = $state(false);
+	focusReading = $state(false);
 
 	resolvedTheme = $derived<'light' | 'dark'>(
 		this.theme === 'system'
-			? typeof window !== 'undefined' &&
-				window.matchMedia('(prefers-color-scheme: dark)').matches
+			? typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
 				? 'dark'
 				: 'light'
 			: this.theme,
@@ -20,6 +20,7 @@ class UIState {
 		this.theme = await storage.getSetting('theme');
 		this.sidebarOpen = await storage.getSetting('sidebarOpen');
 		this.sidebarWidth = await storage.getSetting('sidebarWidth');
+		this.focusReading = await storage.getSetting('focusReading');
 	}
 
 	async setTheme(theme: 'light' | 'dark' | 'system'): Promise<void> {
@@ -30,6 +31,11 @@ class UIState {
 	toggleSidebar(): void {
 		this.sidebarOpen = !this.sidebarOpen;
 		getStorage().setSetting('sidebarOpen', this.sidebarOpen);
+	}
+
+	async setFocusReading(value: boolean): Promise<void> {
+		this.focusReading = value;
+		await getStorage().setSetting('focusReading', value);
 	}
 
 	checkMobile(): void {

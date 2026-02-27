@@ -1,12 +1,24 @@
 import type { Note, NoteId, FolderId, Link, TagEntry } from '$lib/types/note.js';
 import type { AppSettings } from '$lib/types/settings.js';
-import type { ImportResult, StorageAdapter } from '$lib/types/storage.js';
+import type {
+	ImportResult,
+	SafetySnapshot,
+	SnapshotRestoreResult,
+	StorageAdapter,
+} from '$lib/types/storage.js';
 import type {
 	SessionBoard,
 	SessionBoardId,
 	RelatedNoteSuggestion,
 } from '$lib/types/session-board.js';
-import type { VaultObject, VaultObjectId, VaultObjectType } from '$lib/types/object.js';
+import type {
+	ObjectLintIssue,
+	ObjectRelationshipGraph,
+	VaultObject,
+	VaultObjectHistoryEntry,
+	VaultObjectId,
+	VaultObjectType,
+} from '$lib/types/object.js';
 
 function getBridge(): NonNullable<Window['dndtoolsDesktop']> {
 	const bridge = window.dndtoolsDesktop;
@@ -117,12 +129,43 @@ export class ElectronStorageAdapter implements StorageAdapter {
 		return getBridge().deleteObject(id);
 	}
 
+	getObjectRelationshipGraph(): Promise<ObjectRelationshipGraph> {
+		return getBridge().getObjectRelationshipGraph();
+	}
+
+	lintObjects(): Promise<ObjectLintIssue[]> {
+		return getBridge().lintObjects();
+	}
+
+	getObjectHistory(
+		id: VaultObjectId,
+		options?: { limit?: number },
+	): Promise<VaultObjectHistoryEntry[]> {
+		return getBridge().getObjectHistory(id, options);
+	}
+
+	revertObjectToHistory(id: VaultObjectId, historyEntryId: string): Promise<VaultObject | null> {
+		return getBridge().revertObjectToHistory(id, historyEntryId);
+	}
+
 	getSetting<K extends keyof AppSettings>(key: K): Promise<AppSettings[K]> {
 		return getBridge().getSetting(key);
 	}
 
 	setSetting<K extends keyof AppSettings>(key: K, value: AppSettings[K]): Promise<void> {
 		return getBridge().setSetting(key, value);
+	}
+
+	createSafetySnapshot(reason?: string): Promise<SafetySnapshot> {
+		return getBridge().createSafetySnapshot(reason);
+	}
+
+	listSafetySnapshots(): Promise<SafetySnapshot[]> {
+		return getBridge().listSafetySnapshots();
+	}
+
+	restoreDeletedFromSnapshot(snapshotId: string): Promise<SnapshotRestoreResult> {
+		return getBridge().restoreDeletedFromSnapshot(snapshotId);
 	}
 
 	importNotes(notes: Note[]): Promise<ImportResult> {

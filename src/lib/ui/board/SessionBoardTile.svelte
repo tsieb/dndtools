@@ -68,10 +68,16 @@
 </script>
 
 <div
-	class="relative rounded-lg border bg-surface/95 dark:bg-tavern-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[border-color,box-shadow] duration-150 cursor-pointer hover:shadow-md {selected
-		? 'border-accent dark:border-tavern-accent ring-2 ring-accent/30 dark:ring-tavern-accent/30'
+	class="relative rounded-lg border bg-surface/95 dark:bg-tavern-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-150 cursor-pointer hover:shadow-md {selected
+		? 'border-border dark:border-tavern-border ring-2 ring-accent/45 dark:ring-tavern-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
 		: 'border-border dark:border-tavern-border'}"
-	style="background-color: {tile.style?.backgroundColor ?? ''}; border-color: {tile.style?.borderColor ?? ''}; border-width: {tile.style?.borderWidth ? `${tile.style.borderWidth}px` : ''}; border-radius: {tile.style?.borderRadius ? `${tile.style.borderRadius}px` : ''}; opacity: {tile.style?.opacity ?? 1}; transform-origin: top left; transform: scale({tile.style?.scale ?? 1});"
+	style="background-color: {tile.style?.backgroundColor ?? ''}; border-color: {tile.style
+		?.borderColor ?? ''}; border-width: {tile.style?.borderWidth !== undefined
+		? `${tile.style.borderWidth}px`
+		: ''}; border-radius: {tile.style?.borderRadius !== undefined
+		? `${tile.style.borderRadius}px`
+		: ''}; opacity: {tile.style?.opacity ?? 1}; transform-origin: top left; transform: scale({tile
+		.style?.scale ?? 1});"
 	role="button"
 	tabindex="0"
 	aria-label={`Session board tile: ${note.title}`}
@@ -105,7 +111,9 @@
 			style="background-color: {tintColor}; opacity: {Math.max(0, Math.min(0.75, tintOpacity))};"
 		></div>
 	{/if}
-	<header class="px-3 py-2 border-b border-border dark:border-tavern-border flex items-center gap-2">
+	<header
+		class="px-3 py-2 border-b border-border dark:border-tavern-border flex items-center gap-2"
+	>
 		<button
 			type="button"
 			class="text-left truncate flex-1 font-medium text-sm text-ink dark:text-tavern-text hover:text-accent dark:hover:text-tavern-accent transition-colors"
@@ -116,24 +124,26 @@
 			{note.title}
 		</button>
 		{#if editable}
-			<span class="text-[11px] px-2 py-0.5 rounded border border-border dark:border-tavern-border text-ink-faint dark:text-tavern-faint">
+			<span
+				class="text-[11px] px-2 py-0.5 rounded border border-border dark:border-tavern-border text-ink-faint dark:text-tavern-faint"
+			>
 				Drag to move
 			</span>
 		{/if}
 	</header>
 	<div class="relative p-3 flex-1 min-h-0 {scrollable ? 'overflow-y-auto' : 'overflow-hidden'}">
-		<div
-			class="markdown-content text-sm leading-relaxed"
-			role="document"
-			bind:this={contentEl}
-		>
+		<div class="markdown-content text-sm leading-relaxed" role="document" bind:this={contentEl}>
 			<!-- Content is sanitized by renderMarkdown before injecting HTML. -->
 			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			{@html html}
 		</div>
 		{#if editable && !scrollable}
-			<div class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface/95 dark:from-tavern-surface/95 to-transparent"></div>
-			<div class="pointer-events-none absolute bottom-2 right-2 text-[10px] px-1.5 py-0.5 rounded border border-border/60 bg-surface/90 dark:bg-tavern-surface/90 text-ink-faint dark:text-tavern-faint">
+			<div
+				class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface/95 dark:from-tavern-surface/95 to-transparent"
+			></div>
+			<div
+				class="pointer-events-none absolute bottom-2 right-2 text-[10px] px-1.5 py-0.5 rounded border border-border/60 bg-surface/90 dark:bg-tavern-surface/90 text-ink-faint dark:text-tavern-faint"
+			>
 				Select to scroll
 			</div>
 		{/if}

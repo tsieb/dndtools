@@ -30,7 +30,9 @@
 			: 'text-success dark:text-tavern-success'}"
 	>
 		{#if editorState.saving}
-			<span class="inline-block w-2 h-2 rounded-full bg-warning dark:bg-tavern-warning animate-pulse"></span>
+			<span
+				class="inline-block w-2 h-2 rounded-full bg-warning dark:bg-tavern-warning animate-pulse"
+			></span>
 		{:else if editorState.dirty}
 			<span class="inline-block w-2 h-2 rounded-full bg-warning dark:bg-tavern-warning"></span>
 		{:else}

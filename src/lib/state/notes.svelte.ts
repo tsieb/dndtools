@@ -7,6 +7,12 @@ import { nowISO } from '$lib/utils/date.js';
 import { extractFrontmatter, extractTags, extractTitle } from '$lib/markdown/frontmatter.js';
 import { searchService } from '$lib/domain/search.js';
 import { extractWikilinks } from '$lib/domain/link-extractor.js';
+import { hasMeaningfulNoteContent } from '$lib/domain/note-persistence.js';
+import {
+	extractAliasesFromFrontmatter,
+	resolveLinkTargetId,
+	type LinkResolutionEntry,
+} from '$lib/domain/link-resolution.js';
 import { linksState } from './links.svelte.js';
 
 class NotesState {
@@ -14,6 +20,8 @@ class NotesState {
 	activeNoteId = $state<NoteId | null>(null);
 	loading = $state(false);
 	error = $state<string | null>(null);
+	private draftNoteIds = new Set<NoteId>();
+	private linkSyncRevision = new Map<string, string>();
 
 	noteById = $derived.by(() => {
 		const map = new SvelteMap<NoteId, Note>();
@@ -23,7 +31,11 @@ class NotesState {
 		return map;
 	});
 
-	activeNotes = $derived(this.notes.filter((n) => !n.deleted));
+	activeNotes = $derived(
+		this.notes.filter(
+			(n) => !n.deleted && (!this.draftNoteIds.has(n.id) || hasMeaningfulNoteContent(n)),
+		),
+	);
 
 	activeNoteById = $derived.by(() => {
 		const map = new SvelteMap<NoteId, Note>();
@@ -33,13 +45,14 @@ class NotesState {
 		return map;
 	});
 
-	activeNoteTitleIndex = $derived.by(() => {
-		const map = new SvelteMap<string, NoteId>();
-		for (const note of this.activeNotes) {
-			map.set(note.title.toLowerCase(), note.id);
-		}
-		return map;
-	});
+	private linkResolutionEntries = $derived.by<LinkResolutionEntry[]>(() =>
+		this.activeNotes.map((note) => ({
+			id: String(note.id),
+			title: note.title,
+			updatedAt: note.updatedAt,
+			aliases: extractAliasesFromFrontmatter(note.frontmatter),
+		})),
+	);
 
 	activeNote = $derived<Note | null>(
 		this.activeNoteId ? (this.activeNoteById.get(this.activeNoteId) ?? null) : null,
@@ -66,6 +79,7 @@ class NotesState {
 		if (note.deleted) {
 			await storage.setLinksFrom(note.id, []);
 			linksState.removeNote(note.id);
+			this.linkSyncRevision.delete(String(note.id));
 			return;
 		}
 
@@ -85,7 +99,46 @@ class NotesState {
 			.filter((entry): entry is Link => !!entry);
 
 		await storage.setLinksFrom(note.id, links);
-		linksState.updateNoteLinks(note.id, links.map((link) => link.targetId));
+		linksState.updateNoteLinks(
+			note.id,
+			links.map((link) => link.targetId),
+		);
+		this.linkSyncRevision.set(String(note.id), note.updatedAt);
+	}
+
+	private async syncLinksFromStorageSnapshot(): Promise<void> {
+		const storage = getStorage();
+		const active = [...this.activeNotes];
+		const activeIdSet = new Set(active.map((note) => String(note.id)));
+
+		linksState.syncNotes(active.map((note) => note.id));
+		for (const id of [...this.linkSyncRevision.keys()]) {
+			if (!activeIdSet.has(id)) {
+				this.linkSyncRevision.delete(id);
+				linksState.removeNote(createNoteId(id));
+			}
+		}
+
+		const changed = active.filter(
+			(note) => this.linkSyncRevision.get(String(note.id)) !== note.updatedAt,
+		);
+		if (changed.length === 0) return;
+
+		const perNoteLinks = await Promise.all(
+			changed.map(async (note) => ({
+				id: note.id,
+				updatedAt: note.updatedAt,
+				links: await storage.getLinksFrom(note.id),
+			})),
+		);
+
+		for (const entry of perNoteLinks) {
+			linksState.updateNoteLinks(
+				entry.id,
+				entry.links.map((link) => link.targetId),
+			);
+			this.linkSyncRevision.set(String(entry.id), entry.updatedAt);
+		}
 	}
 
 	getNoteById(id: NoteId): Note | null {
@@ -102,7 +155,8 @@ class NotesState {
 		try {
 			const storage = getStorage();
 			this.notes = await storage.getAllNotes({ includeDeleted: true });
-			linksState.syncNotes(this.activeNotes.map((entry) => entry.id));
+			this.draftNoteIds.clear();
+			await this.syncLinksFromStorageSnapshot();
 		} catch (e) {
 			this.error = String(e);
 		} finally {
@@ -112,6 +166,14 @@ class NotesState {
 
 	async createNote(overrides?: Partial<Note>): Promise<Note> {
 		const note = createNewNote(overrides);
+		const shouldPersist = hasMeaningfulNoteContent(note);
+
+		if (!shouldPersist) {
+			this.draftNoteIds.add(note.id);
+			this.notes = [...this.notes, note];
+			return note;
+		}
+
 		const storage = getStorage();
 		await storage.saveNote(note);
 		const persisted = (await storage.getNote(note.id)) ?? note;
@@ -126,6 +188,7 @@ class NotesState {
 		const storage = getStorage();
 		const existing = this.noteById.get(id);
 		if (!existing) return;
+		const isDraft = this.draftNoteIds.has(id);
 
 		// Parse frontmatter for metadata updates when content changes
 		let parsedUpdates = { ...updates };
@@ -147,17 +210,30 @@ class NotesState {
 			updatedAt: nowISO(),
 		};
 
+		if (isDraft && !hasMeaningfulNoteContent(updated)) {
+			this.setNoteById(updated);
+			return;
+		}
+
 		await storage.saveNote(updated);
 		const persisted = (await storage.getNote(id)) ?? updated;
 		this.setNoteById(persisted);
+		this.draftNoteIds.delete(id);
 		searchService.addNote(persisted);
-		if (updates.content !== undefined || persisted.deleted) {
+		if (updates.content !== undefined || persisted.deleted || isDraft) {
 			await this.syncNoteLinks(persisted);
 		}
 		linksState.syncNotes(this.activeNotes.map((entry) => entry.id));
 	}
 
 	async deleteNote(id: NoteId): Promise<void> {
+		if (this.draftNoteIds.has(id)) {
+			this.draftNoteIds.delete(id);
+			this.notes = this.notes.filter((n) => n.id !== id);
+			if (this.activeNoteId === id) this.activeNoteId = null;
+			return;
+		}
+
 		const storage = getStorage();
 		await storage.deleteNote(id);
 		const index = this.notes.findIndex((n) => n.id === id);
@@ -174,6 +250,7 @@ class NotesState {
 		}
 		searchService.removeNote(id);
 		linksState.removeNote(id);
+		this.linkSyncRevision.delete(String(id));
 		linksState.syncNotes(this.activeNotes.map((entry) => entry.id));
 	}
 
@@ -199,9 +276,11 @@ class NotesState {
 	async permanentDelete(id: NoteId): Promise<void> {
 		const storage = getStorage();
 		await storage.deleteNote(id, true);
+		this.draftNoteIds.delete(id);
 		this.notes = this.notes.filter((n) => n.id !== id);
 		searchService.removeNote(id);
 		linksState.removeNote(id);
+		this.linkSyncRevision.delete(String(id));
 		linksState.syncNotes(this.activeNotes.map((entry) => entry.id));
 	}
 
@@ -210,18 +289,20 @@ class NotesState {
 		const storage = getStorage();
 		await Promise.all(ids.map((id) => storage.deleteNote(id, true)));
 		const idSet = new Set(ids);
+		for (const id of ids) this.draftNoteIds.delete(id);
 		this.notes = this.notes.filter((n) => !idSet.has(n.id));
 		for (const id of ids) {
 			searchService.removeNote(id);
 			linksState.removeNote(id);
+			this.linkSyncRevision.delete(String(id));
 		}
 		linksState.syncNotes(this.activeNotes.map((entry) => entry.id));
 	}
 
-	async togglePin(id: NoteId): Promise<void> {
-		const storage = getStorage();
+	async togglePin(id: NoteId): Promise<boolean | null> {
 		const note = this.noteById.get(id);
-		if (!note) return;
+		if (!note) return null;
+		const isDraft = this.draftNoteIds.has(id);
 
 		const pinned = !note.pinned;
 		const updated: Note = {
@@ -231,14 +312,33 @@ class NotesState {
 			updatedAt: nowISO(),
 		};
 
+		if (isDraft && !hasMeaningfulNoteContent(updated)) {
+			this.setNoteById(updated);
+			return updated.pinned;
+		}
+
+		const storage = getStorage();
 		await storage.saveNote(updated);
 		const persisted = (await storage.getNote(id)) ?? updated;
+		this.draftNoteIds.delete(id);
 		const index = this.notes.findIndex((n) => n.id === id);
 		if (index >= 0) {
 			const next = [...this.notes];
 			next[index] = persisted;
 			this.notes = next;
 		}
+		return persisted.pinned;
+	}
+
+	discardDraftIfUntouched(id: NoteId): boolean {
+		if (!this.draftNoteIds.has(id)) return false;
+		const note = this.noteById.get(id);
+		if (!note || hasMeaningfulNoteContent(note)) return false;
+
+		this.draftNoteIds.delete(id);
+		this.notes = this.notes.filter((entry) => entry.id !== id);
+		if (this.activeNoteId === id) this.activeNoteId = null;
+		return true;
 	}
 
 	setActive(id: NoteId | null): void {
@@ -246,7 +346,7 @@ class NotesState {
 	}
 
 	resolveTitle(title: string): NoteId | null {
-		return this.activeNoteTitleIndex.get(title.toLowerCase()) ?? null;
+		return resolveLinkTargetId(title, this.linkResolutionEntries);
 	}
 }
 

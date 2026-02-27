@@ -1,45 +1,44 @@
 <script lang="ts">
 	import type { EditorView } from '@codemirror/view';
-	import { notesState } from '$lib/state/notes.svelte.js';
-	import { editorState } from '$lib/state/editor.svelte.js';
-	import { toastState } from '$lib/state/toast.svelte.js';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { createNoteId } from '$lib/types/note.js';
-	import EditorToolbar from '$lib/ui/editor/EditorToolbar.svelte';
-	import ObjectEmbedMenu from '$lib/ui/editor/ObjectEmbedMenu.svelte';
-	import EditorStatusBar from '$lib/ui/editor/EditorStatusBar.svelte';
+	import { notesState } from '$lib/state/notes.svelte.js';
+	import { editorState } from '$lib/state/editor.svelte.js';
+	import { editorPreferencesState } from '$lib/state/editor-preferences.svelte.js';
+	import { toastState } from '$lib/state/toast.svelte.js';
+	import { extractFrontmatter, upsertFrontmatter } from '$lib/markdown/frontmatter.js';
+	import { findUnresolvedLinks, renameWikilinkTarget } from '$lib/domain/unresolved-links.js';
 	import Button from '$lib/ui/common/Button.svelte';
+	import EditorToolbar from '$lib/ui/editor/EditorToolbar.svelte';
+	import EditorInsertMenu from '$lib/ui/editor/EditorInsertMenu.svelte';
+	import EditorStatusBar from '$lib/ui/editor/EditorStatusBar.svelte';
+	import ObjectEmbedMenu from '$lib/ui/editor/ObjectEmbedMenu.svelte';
+	import EditorPreviewPane from '$lib/ui/editor/EditorPreviewPane.svelte';
+	import MetadataEditor from '$lib/ui/editor/MetadataEditor.svelte';
+	import ObjectStructuredEditor from '$lib/ui/editor/ObjectStructuredEditor.svelte';
+	import UnresolvedLinksPanel from '$lib/ui/editor/UnresolvedLinksPanel.svelte';
+
+	const EditorPromise = import('$lib/ui/editor/CodeMirrorEditor.svelte');
 
 	const noteId = $derived(createNoteId(page.params.id ?? ''));
 	let note = $derived(notesState.getNoteById(noteId));
 	let editorView = $state<EditorView | null>(null);
+	let editorScrollEl = $state<HTMLElement | null>(null);
+	let previewScrollEl = $state<HTMLDivElement | null>(null);
+	let syncingFrom = $state<'editor' | 'preview' | null>(null);
 
-	interface SectionHeading {
-		level: number;
-		text: string;
-		offset: number;
-	}
-
-	let sectionHeadings = $derived.by<SectionHeading[]>(() => {
-		const headings: SectionHeading[] = [];
-		let offset = 0;
-		for (const line of editorState.content.split('\n')) {
-			const match = line.match(/^(#{1,6})\s+(.+)$/);
-			if (match && match[2]) {
-				headings.push({
-					level: match[1]!.length,
-					text: match[2].trim(),
-					offset,
-				});
-			}
-			offset += line.length + 1;
-		}
-		return headings;
-	});
-
-	const EditorPromise = import('$lib/ui/editor/CodeMirrorEditor.svelte');
+	let frontmatter = $derived(extractFrontmatter(editorState.content).frontmatter);
+	let unresolved = $derived(findUnresolvedLinks(editorState.content, notesState.activeNotes));
+	let editorSettings = $derived(editorPreferencesState.settings);
+	let editorSettingsKey = $derived(
+		JSON.stringify({
+			fontSize: editorSettings.fontSize,
+			lineHeight: editorSettings.lineHeight,
+			wordWrap: editorSettings.wordWrap,
+		}),
+	);
 
 	$effect(() => {
 		if (note && editorState.noteId !== note.id) {
@@ -47,15 +46,45 @@
 		}
 	});
 
-	// Ctrl+S to save
+	$effect(() => {
+		if (!editorScrollEl || !previewScrollEl) return;
+		const editorEl = editorScrollEl;
+		const previewEl = previewScrollEl;
+
+		const sync = (source: HTMLElement, target: HTMLElement, origin: 'editor' | 'preview') => {
+			if (syncingFrom && syncingFrom !== origin) return;
+			const sourceMax = source.scrollHeight - source.clientHeight;
+			const targetMax = target.scrollHeight - target.clientHeight;
+			if (sourceMax <= 0 || targetMax <= 0) return;
+
+			syncingFrom = origin;
+			target.scrollTop = (source.scrollTop / sourceMax) * targetMax;
+			requestAnimationFrame(() => {
+				if (syncingFrom === origin) syncingFrom = null;
+			});
+		};
+
+		const onEditorScroll = () => sync(editorEl, previewEl, 'editor');
+		const onPreviewScroll = () => sync(previewEl, editorEl, 'preview');
+
+		editorEl.addEventListener('scroll', onEditorScroll);
+		previewEl.addEventListener('scroll', onPreviewScroll);
+		return () => {
+			editorEl.removeEventListener('scroll', onEditorScroll);
+			previewEl.removeEventListener('scroll', onPreviewScroll);
+		};
+	});
+
 	function handleKeydown(event: KeyboardEvent): void {
 		const mod = event.ctrlKey || event.metaKey;
 		if (mod && event.key === 's') {
 			event.preventDefault();
-			editorState.save().then(() => {
+			void editorState.save().then(() => {
 				toastState.success('Note saved');
 			});
-		} else if (mod && event.key === 'Enter') {
+			return;
+		}
+		if (mod && event.key === 'Enter') {
 			event.preventDefault();
 			void handleDone();
 		}
@@ -65,6 +94,10 @@
 		if (editorState.dirty) {
 			await editorState.save();
 		}
+		if (notesState.discardDraftIfUntouched(noteId)) {
+			goto(resolve('/notes'));
+			return;
+		}
 		goto(resolve(`/notes/${noteId}`));
 	}
 
@@ -72,45 +105,79 @@
 		editorView = view;
 	}
 
-	function insertAtCursor(value: string): void {
-		if (!editorView) return;
-		const selection = editorView.state.selection.main;
-		editorView.dispatch({
-			changes: { from: selection.from, to: selection.to, insert: value },
-			selection: { anchor: selection.from + value.length },
-			scrollIntoView: true,
-		});
-		editorView.focus();
+	function handleMetadataApply(updates: Record<string, unknown>): void {
+		editorState.setContent(upsertFrontmatter(editorState.content, updates));
+		toastState.success('Metadata updated');
 	}
 
-	function jumpToSection(offset: number): void {
-		if (!editorView) return;
-		editorView.dispatch({
-			selection: { anchor: offset },
-			scrollIntoView: true,
+	async function createUnresolvedNote(title: string): Promise<void> {
+		const existing = notesState.resolveTitle(title);
+		if (existing) {
+			toastState.success(`"${title}" already exists`);
+			return;
+		}
+		await notesState.createNote({
+			title,
+			content: `# ${title}\n`,
 		});
-		editorView.focus();
+		toastState.success(`Created "${title}"`);
+	}
+
+	async function createAllUnresolvedNotes(): Promise<void> {
+		for (const entry of unresolved) {
+			await createUnresolvedNote(entry.title);
+		}
+	}
+
+	function applyRename(from: string, to: string): void {
+		if (!to.trim()) return;
+		editorState.setContent(renameWikilinkTarget(editorState.content, from, to));
+	}
+
+	function applyDisambiguation(from: string, to: string): void {
+		if (!to.trim()) return;
+		editorState.setContent(renameWikilinkTarget(editorState.content, from, to));
+	}
+
+	async function updateEditorSetting(
+		updates: Partial<typeof editorPreferencesState.settings>,
+	): Promise<void> {
+		await editorPreferencesState.update(updates);
+	}
+
+	async function handleObjectReloaded(): Promise<void> {
+		await notesState.loadAll();
+		const refreshed = notesState.getNoteById(noteId);
+		if (!refreshed) return;
+		editorState.load(refreshed);
+		toastState.success('Object note synchronized');
 	}
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
 
 {#if note}
-	<div class="p-6 max-w-content mx-auto">
-		<div class="flex items-center justify-between mb-4">
+	<div class="mx-auto max-w-[1200px] p-6">
+		<div class="mb-4 flex items-center justify-between">
 			<Button variant="ghost" onclick={handleDone}>
-				<svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<svg
+					class="mr-1 h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+				>
 					<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
 				</svg>
 				Done
 			</Button>
 			<div class="flex items-center gap-2">
 				<button
-					class="px-3 py-1.5 text-sm rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
-					onclick={() => {
-						editorState.save().then(() => toastState.success('Note saved'));
-					}}
+					class="rounded-md px-3 py-1.5 text-sm text-ink-muted transition-colors hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
 					title="Save (Ctrl+S)"
+					onclick={() => {
+						void editorState.save().then(() => toastState.success('Note saved'));
+					}}
 				>
 					Save
 				</button>
@@ -120,74 +187,160 @@
 		<input
 			type="text"
 			value={editorState.title}
-			oninput={(e) => editorState.setTitle(e.currentTarget.value)}
-			class="w-full text-2xl font-bold bg-transparent border-none outline-none text-ink dark:text-tavern-text placeholder:text-ink-faint dark:placeholder:text-tavern-faint mb-4"
+			oninput={(event) => editorState.setTitle(event.currentTarget.value)}
+			class="mb-4 w-full border-none bg-transparent text-2xl font-bold text-ink outline-none placeholder:text-ink-faint dark:text-tavern-text dark:placeholder:text-tavern-faint"
 			placeholder="Note title..."
 		/>
 
-		<EditorToolbar {editorView} />
-		<ObjectEmbedMenu {editorView} />
-		<div class="flex flex-wrap gap-2 mb-2">
-			<button class="px-2 py-1 rounded-md text-xs bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text" onclick={() => insertAtCursor('- ')}>
-				Bullet
-			</button>
-			<button class="px-2 py-1 rounded-md text-xs bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text" onclick={() => insertAtCursor('- [ ] ')}>
-				Task
-			</button>
-			<button class="px-2 py-1 rounded-md text-xs bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text" onclick={() => insertAtCursor('## ')}>
-				Section
-			</button>
-			<button class="px-2 py-1 rounded-md text-xs bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text" onclick={() => insertAtCursor('> [!note] ')}>
-				Callout
-			</button>
-			<button class="px-2 py-1 rounded-md text-xs bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text" onclick={() => insertAtCursor(`\n- ${new Date().toISOString().slice(0, 10)}: `)}>
-				Date Stamp
-			</button>
-		</div>
-
-		{#if sectionHeadings.length > 0}
-			<div class="mb-2 rounded-lg border border-border dark:border-tavern-border bg-surface-alt/60 dark:bg-tavern-surface-alt/60 p-2">
-				<p class="text-xs uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-2">
-					Section Navigator
-				</p>
-				<div class="flex flex-wrap gap-1.5">
-					{#each sectionHeadings as heading (heading.offset)}
-						<button
-							class="px-2 py-1 rounded text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface dark:hover:bg-tavern-surface hover:text-ink dark:hover:text-tavern-text"
-							style="margin-left: {(heading.level - 1) * 0.4}rem"
-							onclick={() => jumpToSection(heading.offset)}
-						>
-							{heading.text}
-						</button>
-					{/each}
-				</div>
-			</div>
-		{/if}
-
-		{#await EditorPromise}
-			<div
-				class="min-h-[400px] w-full border border-border dark:border-tavern-border rounded-lg bg-surface dark:bg-tavern-surface flex items-center justify-center"
+		<section
+			class="mb-3 rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
+		>
+			<h2
+				class="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
 			>
-				<div class="text-center">
-					<div class="inline-block w-5 h-5 border-2 border-accent/30 dark:border-tavern-accent/30 border-t-accent dark:border-t-tavern-accent rounded-full animate-spin mb-2"></div>
-					<p class="text-ink-muted dark:text-tavern-muted text-sm">Loading editor...</p>
-				</div>
+				Editor Defaults (Vault)
+			</h2>
+			<div class="grid gap-2 md:grid-cols-5">
+				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+					Font
+					<input
+						type="number"
+						min="12"
+						max="24"
+						value={editorSettings.fontSize}
+						onchange={(event) =>
+							updateEditorSetting({
+								fontSize: Number((event.currentTarget as HTMLInputElement).value),
+							})}
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+					/>
+				</label>
+				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+					Line Wrap
+					<select
+						value={String(editorSettings.wordWrap)}
+						onchange={(event) =>
+							updateEditorSetting({
+								wordWrap: (event.currentTarget as HTMLSelectElement).value === 'true',
+							})}
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+					>
+						<option value="true">Enabled</option>
+						<option value="false">Off</option>
+					</select>
+				</label>
+				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+					Vim
+					<select
+						value={String(editorSettings.vimMode)}
+						onchange={(event) =>
+							updateEditorSetting({
+								vimMode: (event.currentTarget as HTMLSelectElement).value === 'true',
+							})}
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+					>
+						<option value="false">Disabled</option>
+						<option value="true">Enabled</option>
+					</select>
+				</label>
+				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+					Toolbar
+					<select
+						value={editorSettings.toolbarDensity}
+						onchange={(event) =>
+							updateEditorSetting({
+								toolbarDensity: (event.currentTarget as HTMLSelectElement).value as
+									| 'compact'
+									| 'comfortable',
+							})}
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+					>
+						<option value="comfortable">Comfortable</option>
+						<option value="compact">Compact</option>
+					</select>
+				</label>
+				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+					Split Pane
+					<select
+						value={String(editorSettings.splitPane)}
+						onchange={(event) =>
+							updateEditorSetting({
+								splitPane: (event.currentTarget as HTMLSelectElement).value === 'true',
+							})}
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+					>
+						<option value="true">Editor + Preview</option>
+						<option value="false">Editor Only</option>
+					</select>
+				</label>
 			</div>
-		{:then Editor}
-			<Editor.default
-				content={editorState.content}
-				onchange={(v) => editorState.setContent(v)}
-				onviewready={handleViewReady}
-			/>
-		{/await}
+			<p class="mt-2 text-xs text-ink-faint dark:text-tavern-faint">
+				Vim mode preference is stored now; full keybinding support is planned.
+			</p>
+		</section>
+
+		<MetadataEditor {frontmatter} onapply={handleMetadataApply} />
+		<ObjectStructuredEditor {note} onreloaded={handleObjectReloaded} />
+		<UnresolvedLinksPanel
+			{unresolved}
+			oncreateone={(title) => void createUnresolvedNote(title)}
+			oncreateall={() => void createAllUnresolvedNotes()}
+			onrename={applyRename}
+			ondisambiguate={applyDisambiguation}
+		/>
+
+		<EditorToolbar {editorView} density={editorSettings.toolbarDensity} />
+		<EditorInsertMenu {editorView} />
+		<ObjectEmbedMenu {editorView} />
+
+		<div
+			class={`grid gap-3 ${editorSettings.splitPane ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}
+		>
+			<div class="min-h-[500px]">
+				{#await EditorPromise}
+					<div
+						class="flex min-h-[500px] w-full items-center justify-center rounded-lg border border-border bg-surface dark:border-tavern-border dark:bg-tavern-surface"
+					>
+						<div class="text-center">
+							<div
+								class="mb-2 inline-block h-5 w-5 animate-spin rounded-full border-2 border-accent/30 border-t-accent dark:border-tavern-accent/30 dark:border-t-tavern-accent"
+							></div>
+							<p class="text-sm text-ink-muted dark:text-tavern-muted">Loading editor...</p>
+						</div>
+					</div>
+				{:then Editor}
+					{#key editorSettingsKey}
+						<Editor.default
+							content={editorState.content}
+							onchange={(value) => editorState.setContent(value)}
+							onviewready={handleViewReady}
+							onscrollready={(element: HTMLElement) => (editorScrollEl = element)}
+							settings={editorSettings}
+						/>
+					{/key}
+				{/await}
+			</div>
+
+			{#if editorSettings.splitPane}
+				<div class="min-h-[500px]">
+					<EditorPreviewPane
+						content={editorState.content}
+						oncontainerready={(element) => (previewScrollEl = element)}
+					/>
+				</div>
+			{/if}
+		</div>
 
 		<EditorStatusBar />
 	</div>
 {:else}
-	<div class="flex items-center justify-center h-full">
-		<div class="text-center py-16">
-			<p class="text-lg text-ink-muted dark:text-tavern-muted mb-2">Note not found</p>
-			<a href={resolve('/notes')} class="text-accent dark:text-tavern-accent hover:text-accent-hover dark:hover:text-tavern-accent-hover text-sm">
+	<div class="flex h-full items-center justify-center">
+		<div class="py-16 text-center">
+			<p class="mb-2 text-lg text-ink-muted dark:text-tavern-muted">Note not found</p>
+			<a
+				href={resolve('/notes')}
+				class="text-sm text-accent hover:text-accent-hover dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
+			>
 				Back to notes
 			</a>
 		</div>

@@ -48,7 +48,9 @@ test.describe('Navigation', () => {
 		await page.keyboard.press('Control+p');
 		// Quick switcher dialog should appear
 		await expect(
-			page.getByRole('dialog', { name: /quick switcher/i }).or(page.getByPlaceholder(/search notes/i)),
+			page
+				.getByRole('dialog', { name: /quick switcher/i })
+				.or(page.getByPlaceholder(/search notes/i)),
 		).toBeVisible({ timeout: 2000 });
 	});
 

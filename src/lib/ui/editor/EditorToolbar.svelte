@@ -4,9 +4,11 @@
 
 	interface Props {
 		editorView: EditorView | null;
+		density?: 'compact' | 'comfortable';
 	}
 
-	let { editorView }: Props = $props();
+	let { editorView, density = 'comfortable' }: Props = $props();
+	let buttonSizeClass = $derived(density === 'compact' ? 'w-7 h-7 text-[11px]' : 'w-8 h-8');
 
 	interface ToolbarAction {
 		action: string;
@@ -19,27 +21,69 @@
 	const textGroup: ToolbarAction[] = [
 		{ action: 'bold', label: 'B', title: 'Bold (Ctrl+B)', icon: '', class: 'font-bold' },
 		{ action: 'italic', label: 'I', title: 'Italic (Ctrl+I)', icon: '', class: 'italic' },
-		{ action: 'strikethrough', label: 'S', title: 'Strikethrough', icon: '', class: 'line-through' },
+		{
+			action: 'strikethrough',
+			label: 'S',
+			title: 'Strikethrough',
+			icon: '',
+			class: 'line-through',
+		},
 		{ action: 'code', label: '`', title: 'Inline code (Ctrl+E)', icon: '', class: 'font-mono' },
 	];
 
 	const blockGroup: ToolbarAction[] = [
 		{ action: 'heading2', label: 'H2', title: 'Heading 2', icon: '', class: 'font-bold text-xs' },
-		{ action: 'heading3', label: 'H3', title: 'Heading 3', icon: '', class: 'font-semibold text-xs' },
-		{ action: 'blockquote', label: '\u201C', title: 'Blockquote', icon: '', class: 'text-lg leading-none' },
-		{ action: 'code-block', label: '{}', title: 'Code block', icon: '', class: 'font-mono text-xs' },
+		{
+			action: 'heading3',
+			label: 'H3',
+			title: 'Heading 3',
+			icon: '',
+			class: 'font-semibold text-xs',
+		},
+		{
+			action: 'blockquote',
+			label: '\u201C',
+			title: 'Blockquote',
+			icon: '',
+			class: 'text-lg leading-none',
+		},
+		{
+			action: 'code-block',
+			label: '{}',
+			title: 'Code block',
+			icon: '',
+			class: 'font-mono text-xs',
+		},
 	];
 
 	const listGroup: ToolbarAction[] = [
-		{ action: 'bullet-list', label: '\u2022', title: 'Bullet list', icon: '', class: 'text-lg leading-none' },
-		{ action: 'numbered-list', label: '1.', title: 'Numbered list', icon: '', class: 'text-xs font-mono' },
+		{
+			action: 'bullet-list',
+			label: '\u2022',
+			title: 'Bullet list',
+			icon: '',
+			class: 'text-lg leading-none',
+		},
+		{
+			action: 'numbered-list',
+			label: '1.',
+			title: 'Numbered list',
+			icon: '',
+			class: 'text-xs font-mono',
+		},
 		{ action: 'task-list', label: '\u2611', title: 'Task list', icon: '', class: 'text-sm' },
 	];
 
 	const insertGroup: ToolbarAction[] = [
 		{ action: 'link', label: '\uD83D\uDD17', title: 'Link (Ctrl+K)', icon: '', class: 'text-sm' },
 		{ action: 'wikilink', label: '[[]]', title: 'Wikilink', icon: '', class: 'font-mono text-xs' },
-		{ action: 'object-embed', label: 'EMB', title: 'Embed template', icon: '', class: 'font-mono text-[10px]' },
+		{
+			action: 'object-embed',
+			label: 'EMB',
+			title: 'Embed template',
+			icon: '',
+			class: 'font-mono text-[10px]',
+		},
 		{ action: 'table', label: '\u2637', title: 'Table', icon: '', class: 'text-sm' },
 		{ action: 'horizontal-rule', label: '\u2015', title: 'Divider', icon: '', class: 'text-sm' },
 	];
@@ -60,7 +104,8 @@
 	{#each textGroup as act (act.action)}
 		<button
 			type="button"
-			class="w-8 h-8 flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ?? ''}"
+			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ??
+				''}"
 			title={act.title}
 			aria-label={act.title}
 			onclick={() => handleAction(act.action)}
@@ -76,7 +121,8 @@
 	{#each blockGroup as act (act.action)}
 		<button
 			type="button"
-			class="w-8 h-8 flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ?? ''}"
+			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ??
+				''}"
 			title={act.title}
 			aria-label={act.title}
 			onclick={() => handleAction(act.action)}
@@ -92,7 +138,8 @@
 	{#each listGroup as act (act.action)}
 		<button
 			type="button"
-			class="w-8 h-8 flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ?? ''}"
+			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ??
+				''}"
 			title={act.title}
 			aria-label={act.title}
 			onclick={() => handleAction(act.action)}
@@ -108,7 +155,8 @@
 	{#each insertGroup as act (act.action)}
 		<button
 			type="button"
-			class="w-8 h-8 flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ?? ''}"
+			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ??
+				''}"
 			title={act.title}
 			aria-label={act.title}
 			onclick={() => handleAction(act.action)}

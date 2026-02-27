@@ -5,8 +5,10 @@
 	import NoteViewer from '$lib/ui/viewer/NoteViewer.svelte';
 	import NoteHeader from '$lib/ui/viewer/NoteHeader.svelte';
 	import BacklinksPanel from '$lib/ui/viewer/BacklinksPanel.svelte';
+	import RelatedNoteJumps from '$lib/ui/viewer/RelatedNoteJumps.svelte';
 	import TableOfContents from '$lib/ui/viewer/TableOfContents.svelte';
 	import ConfirmDialog from '$lib/ui/common/ConfirmDialog.svelte';
+	import { ui } from '$lib/state/ui.svelte.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
@@ -44,13 +46,25 @@
 
 {#if note}
 	<div class="p-6">
+		<div class="mx-auto mb-3 flex max-w-content justify-end">
+			<button
+				type="button"
+				class="rounded-md px-2.5 py-1 text-xs text-ink-muted hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+				onclick={() => void ui.setFocusReading(!ui.focusReading)}
+				aria-pressed={ui.focusReading}
+			>
+				{ui.focusReading ? 'Exit Focus Reading' : 'Focus Reading'}
+			</button>
+		</div>
 		<NoteHeader
 			{note}
 			onedit={() => goto(resolve(`/notes/${data.noteId}/edit`))}
 			ondelete={() => (showDeleteConfirm = true)}
 		/>
 		<TableOfContents content={note.content} />
-		<div class="max-w-content mx-auto mb-4 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3">
+		<div
+			class="max-w-content mx-auto mb-4 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
+		>
 			<div class="flex items-center gap-2">
 				<input
 					type="text"
@@ -73,6 +87,7 @@
 			</div>
 		</div>
 		<NoteViewer {note} />
+		<RelatedNoteJumps noteId={data.noteId} />
 		<BacklinksPanel noteId={data.noteId} />
 	</div>
 

@@ -3,6 +3,7 @@
 	import type { NoteId } from '$lib/types/note.js';
 	import { linksState } from '$lib/state/links.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { findBacklinkContextSnippet } from '$lib/domain/backlink-context.js';
 
 	interface Props {
 		noteId: NoteId;
@@ -17,16 +18,24 @@
 		return sourceIds
 			.map((id) => {
 				const note = notesById.get(id as NoteId);
-				return note ? { id: note.id, title: note.title } : null;
+				if (!note) return null;
+				return {
+					id: note.id,
+					title: note.title,
+					contextSnippet:
+						findBacklinkContextSnippet({
+							sourceContent: note.content,
+							targetId: noteId,
+							resolveTitle: (title) => notesState.resolveTitle(title),
+						}) ?? 'Linked reference in this note.',
+				};
 			})
-			.filter((b): b is { id: NoteId; title: string } => b !== null);
+			.filter((b): b is { id: NoteId; title: string; contextSnippet: string } => b !== null);
 	});
 </script>
 
 {#if backlinks.length > 0}
-	<div
-		class="max-w-content mx-auto mt-8 pt-4 border-t border-border dark:border-tavern-border"
-	>
+	<div class="max-w-content mx-auto mt-8 pt-4 border-t border-border dark:border-tavern-border">
 		<button
 			class="flex items-center gap-2 text-sm font-medium text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text transition-colors"
 			onclick={() => (expanded = !expanded)}
@@ -45,6 +54,9 @@
 						>
 							{backlink.title}
 						</a>
+						<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted">
+							{backlink.contextSnippet}
+						</p>
 					</li>
 				{/each}
 			</ul>

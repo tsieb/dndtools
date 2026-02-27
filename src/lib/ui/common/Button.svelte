@@ -37,8 +37,7 @@
 			'bg-surface border border-border text-ink hover:bg-surface-alt dark:bg-tavern-surface dark:border-tavern-border dark:text-tavern-text dark:hover:bg-tavern-surface-alt',
 		ghost:
 			'text-ink-muted hover:bg-surface-alt hover:text-ink dark:text-tavern-muted dark:hover:bg-tavern-surface-alt dark:hover:text-tavern-text',
-		danger:
-			'bg-error text-white hover:bg-red-800 dark:bg-tavern-error dark:hover:bg-red-700',
+		danger: 'bg-error text-white hover:bg-red-800 dark:bg-tavern-error dark:hover:bg-red-700',
 	};
 </script>
 
@@ -47,7 +46,7 @@
 	{disabled}
 	{title}
 	class="{baseClasses} {sizeClasses[size]} {variantClasses[variant]}"
-	onclick={onclick}
+	{onclick}
 >
 	{@render children()}
 </button>

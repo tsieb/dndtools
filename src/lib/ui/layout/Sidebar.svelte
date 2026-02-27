@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { vaultState } from '$lib/state/vault.svelte.js';
+	import { navigationState } from '$lib/state/navigation.svelte.js';
+	import { onboardingState } from '$lib/state/onboarding.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
+	import { isVaultObjectNote } from '$lib/domain/object-notes.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
@@ -10,26 +13,48 @@
 		ontemplate: () => void;
 	}
 
+	type SidebarMode = 'tree' | 'recent' | 'favorites' | 'campaign';
+
 	let { onnewnote, ontemplate }: Props = $props();
-	let showRecent = $state(false);
-	let showPinned = $state(true);
-	let showFolders = $state(false);
+	let mode = $state<SidebarMode>('tree');
 	let showTags = $state(false);
 
-	let pinnedNotes = $derived(notesState.pinnedNotes);
-
+	let pinnedNotes = $derived(notesState.pinnedNotes.slice(0, 20));
 	let recentNotes = $derived(
 		notesState.activeNotes
-			.filter((n) => !n.pinned)
+			.filter((note) => !note.pinned)
 			.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-			.slice(0, 8),
+			.slice(0, 12),
 	);
-
-	let folderNotes = $derived(
+	let recentlyVisited = $derived.by(() =>
+		navigationState.recentNoteIds
+			.map((id) => notesState.getActiveNoteById(id))
+			.filter((note) => !!note)
+			.slice(0, 10),
+	);
+	let folderTreeEntries = $derived.by(() =>
 		vaultState.folders
 			.filter((folder) => folder.id !== '/')
 			.sort((a, b) => a.id.localeCompare(b.id))
-			.slice(0, 20),
+			.map((folder) => {
+				const parts = folder.id.split('/').filter(Boolean);
+				return {
+					id: folder.id,
+					name: parts[parts.length - 1] ?? folder.id,
+					depth: Math.max(0, parts.length - 1),
+					noteCount: folder.noteCount,
+				};
+			})
+			.slice(0, 60),
+	);
+	let pinnedCampaignEntities = $derived.by(() =>
+		notesState.pinnedNotes.filter((note) => isVaultObjectNote(note)).slice(0, 12),
+	);
+	let campaignEntities = $derived.by(() =>
+		notesState.activeNotes
+			.filter((note) => isVaultObjectNote(note))
+			.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+			.slice(0, 12),
 	);
 
 	function navigateToNote(id: string): void {
@@ -38,6 +63,18 @@
 			ui.sidebarOpen = false;
 		}
 	}
+
+	function navigateToPath(path: string): void {
+		goto(path);
+		if (ui.isMobile) {
+			ui.sidebarOpen = false;
+		}
+	}
+
+	function reopenOnboarding(): void {
+		void onboardingState.reopenChecklist();
+		navigateToPath(resolve('/'));
+	}
 </script>
 
 <aside
@@ -45,7 +82,6 @@
 		{ui.isMobile ? 'fixed inset-y-0 left-0 z-40 w-[280px] shadow-xl animate-slide-in' : ''}"
 	style="width: {ui.isMobile ? '280px' : ui.sidebarWidth + 'px'}"
 >
-	<!-- Header -->
 	<div class="p-3 border-b border-border dark:border-tavern-border space-y-2">
 		<button
 			type="button"
@@ -64,102 +100,179 @@
 			onclick={ontemplate}
 			title="Create from template"
 		>
-			<span class="text-sm" aria-hidden="true">📜</span>
+			<span class="text-sm" aria-hidden="true">T</span>
 			From Template
 		</button>
 	</div>
 
-	<!-- Scrollable content -->
 	<div class="flex-1 overflow-y-auto">
-		<!-- Navigation -->
 		<nav class="p-3 space-y-0.5">
 			<a
 				href={resolve('/')}
 				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
 			>
-				<svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4" />
-				</svg>
 				Home
 			</a>
 			<a
 				href={resolve('/notes')}
 				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
 			>
-				<svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-				</svg>
 				All Notes
-				<span class="ml-auto text-xs text-ink-faint dark:text-tavern-faint">{vaultState.noteCount}</span>
+				<span class="ml-auto text-xs text-ink-faint dark:text-tavern-faint"
+					>{vaultState.noteCount}</span
+				>
 			</a>
 			<a
 				href={resolve('/search')}
 				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
 			>
-				<svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-				</svg>
 				Search
+			</a>
+			<a
+				href={resolve('/graph')}
+				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
+			>
+				Graph
 			</a>
 			<a
 				href={resolve('/session-board')}
 				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
 			>
-				<svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4V4zm9 0h7v4h-7V4zM4 13h4v7H4v-7zm6 0h10v7H10v-7z" />
-				</svg>
 				Session Board
 			</a>
 		</nav>
 
-		<!-- Pinned Notes -->
-		{#if pinnedNotes.length > 0}
-			<div class="px-3 pb-2">
+		<div class="px-3 pb-2">
+			<div
+				class="grid grid-cols-2 gap-1 rounded-md border border-border dark:border-tavern-border p-1 bg-surface dark:bg-tavern-surface"
+			>
 				<button
 					type="button"
-					class="flex items-center gap-1.5 w-full text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5 hover:text-ink-muted dark:hover:text-tavern-muted transition-colors"
-					onclick={() => (showPinned = !showPinned)}
-					aria-expanded={showPinned}
-					aria-controls="sidebar-section-pinned"
-					title={showPinned ? 'Collapse pinned notes' : 'Expand pinned notes'}
+					class="px-2 py-1 text-[11px] rounded {mode === 'tree'
+						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
+						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+					onclick={() => (mode = 'tree')}
 				>
-					<span class="text-[10px]">{showPinned ? '\u25BC' : '\u25B6'}</span>
-					Pinned
+					Tree
 				</button>
-				{#if showPinned}
-					<div class="space-y-0.5" id="sidebar-section-pinned">
-						{#each pinnedNotes as note (note.id)}
+				<button
+					type="button"
+					class="px-2 py-1 text-[11px] rounded {mode === 'recent'
+						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
+						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+					onclick={() => (mode = 'recent')}
+				>
+					Recent
+				</button>
+				<button
+					type="button"
+					class="px-2 py-1 text-[11px] rounded {mode === 'favorites'
+						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
+						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+					onclick={() => (mode = 'favorites')}
+				>
+					Favorites
+				</button>
+				<button
+					type="button"
+					class="px-2 py-1 text-[11px] rounded {mode === 'campaign'
+						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
+						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+					onclick={() => (mode = 'campaign')}
+				>
+					Campaign
+				</button>
+			</div>
+		</div>
+
+		{#if mode === 'tree'}
+			<div class="px-3 pb-2">
+				<p
+					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
+				>
+					Folder Tree
+				</p>
+				<div class="space-y-0.5">
+					{#if folderTreeEntries.length === 0}
+						<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
+							No folders yet
+						</p>
+					{:else}
+						{#each folderTreeEntries as folder (folder.id)}
 							<button
-								class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-colors flex items-center gap-2"
+								class="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors flex items-center gap-2"
+								style="padding-left: {0.75 + folder.depth * 0.65}rem"
+								onclick={() =>
+									navigateToPath(`${resolve('/notes')}?folder=${encodeURIComponent(folder.id)}`)}
+							>
+								<span class="truncate">{folder.name}</span>
+								<span class="ml-auto opacity-70">{folder.noteCount}</span>
+							</button>
+						{/each}
+					{/if}
+				</div>
+			</div>
+
+			{#if vaultState.tagCounts.length > 0}
+				<div class="px-3 pb-3">
+					<button
+						type="button"
+						class="flex items-center gap-1.5 w-full text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5 hover:text-ink-muted dark:hover:text-tavern-muted transition-colors"
+						onclick={() => (showTags = !showTags)}
+						aria-expanded={showTags}
+						aria-controls="sidebar-section-tags"
+					>
+						<span class="text-[10px]">{showTags ? '\u25BC' : '\u25B6'}</span>
+						Tags
+					</button>
+					{#if showTags}
+						<div class="flex flex-wrap gap-1 px-2.5" id="sidebar-section-tags">
+							{#each vaultState.tagCounts.slice(0, 18) as tag (tag.name)}
+								<button
+									class="px-2 py-0.5 text-xs rounded-full bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent hover:bg-accent/20 dark:hover:bg-tavern-accent/20 transition-colors"
+									onclick={() =>
+										navigateToPath(`${resolve('/notes')}?tag=${encodeURIComponent(tag.name)}`)}
+								>
+									{tag.name}
+									<span class="opacity-60 ml-0.5">{tag.count}</span>
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{/if}
+		{:else if mode === 'recent'}
+			<div class="px-3 pb-2">
+				<p
+					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
+				>
+					Recently Visited
+				</p>
+				<div class="space-y-0.5">
+					{#if recentlyVisited.length === 0}
+						<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
+							No visit history yet
+						</p>
+					{:else}
+						{#each recentlyVisited as note (note.id)}
+							<button
+								class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-colors"
 								onclick={() => navigateToNote(note.id)}
 								title={note.title}
 							>
-								<svg class="w-3 h-3 shrink-0 text-accent dark:text-tavern-accent" fill="currentColor" viewBox="0 0 24 24">
-									<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-								</svg>
-								<span class="truncate">{note.title}</span>
+								{note.title}
 							</button>
 						{/each}
-					</div>
-				{/if}
+					{/if}
+				</div>
 			</div>
-		{/if}
-
-		<!-- Recent Notes -->
-		<div class="px-3 pb-2">
-			<button
-				type="button"
-				class="flex items-center gap-1.5 w-full text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5 hover:text-ink-muted dark:hover:text-tavern-muted transition-colors"
-				onclick={() => (showRecent = !showRecent)}
-				aria-expanded={showRecent}
-				aria-controls="sidebar-section-recent"
-				title={showRecent ? 'Collapse recent notes' : 'Expand recent notes'}
-			>
-				<span class="text-[10px]">{showRecent ? '\u25BC' : '\u25B6'}</span>
-				Recent
-			</button>
-			{#if showRecent}
-				<div class="space-y-0.5" id="sidebar-section-recent">
+			<div class="px-3 pb-3">
+				<p
+					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
+				>
+					Recently Updated
+				</p>
+				<div class="space-y-0.5">
 					{#each recentNotes as note (note.id)}
 						<button
 							class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-colors"
@@ -170,83 +283,98 @@
 						</button>
 					{/each}
 				</div>
-			{/if}
-		</div>
-
-		<!-- Folder Paths -->
-		{#if folderNotes.length > 0}
-			<div class="px-3 pb-2">
-				<button
-					type="button"
-					class="flex items-center gap-1.5 w-full text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5 hover:text-ink-muted dark:hover:text-tavern-muted transition-colors"
-					onclick={() => (showFolders = !showFolders)}
-					aria-expanded={showFolders}
-					aria-controls="sidebar-section-folders"
-					title={showFolders ? 'Collapse folders' : 'Expand folders'}
-				>
-					<span class="text-[10px]">{showFolders ? '\u25BC' : '\u25B6'}</span>
-					Folders
-				</button>
-				{#if showFolders}
-					<div class="space-y-0.5" id="sidebar-section-folders">
-						{#each folderNotes as folder (folder.id)}
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-							<a
-								href={`/notes?folder=${encodeURIComponent(folder.id)}`}
-								class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
-								title={folder.id}
-							>
-								<span class="truncate font-mono">{folder.id}</span>
-								<span class="ml-auto opacity-70">{folder.noteCount}</span>
-							</a>
-						{/each}
-					</div>
-				{/if}
 			</div>
-		{/if}
-
-		<!-- Tags -->
-		{#if vaultState.tagCounts.length > 0}
+		{:else if mode === 'favorites'}
 			<div class="px-3 pb-3">
-				<button
-					type="button"
-					class="flex items-center gap-1.5 w-full text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5 hover:text-ink-muted dark:hover:text-tavern-muted transition-colors"
-					onclick={() => (showTags = !showTags)}
-					aria-expanded={showTags}
-					aria-controls="sidebar-section-tags"
-					title={showTags ? 'Collapse tags' : 'Expand tags'}
+				<p
+					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
 				>
-					<span class="text-[10px]">{showTags ? '\u25BC' : '\u25B6'}</span>
-					Tags
-				</button>
-				{#if showTags}
-					<div class="flex flex-wrap gap-1 px-2.5" id="sidebar-section-tags">
-						{#each vaultState.tagCounts.slice(0, 15) as tag (tag.name)}
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-							<a
-								href={`/notes?tag=${encodeURIComponent(tag.name)}`}
-								class="px-2 py-0.5 text-xs rounded-full bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent hover:bg-accent/20 dark:hover:bg-tavern-accent/20 transition-colors"
+					Favorites
+				</p>
+				<div class="space-y-0.5">
+					{#if pinnedNotes.length === 0}
+						<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
+							Pin notes to surface favorites
+						</p>
+					{:else}
+						{#each pinnedNotes as note (note.id)}
+							<button
+								class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-colors flex items-center gap-2"
+								onclick={() => navigateToNote(note.id)}
+								title={note.title}
 							>
-								{tag.name}
-								<span class="opacity-60 ml-0.5">{tag.count}</span>
-							</a>
+								<span class="text-accent dark:text-tavern-accent" aria-hidden="true">*</span>
+								<span class="truncate">{note.title}</span>
+							</button>
 						{/each}
-					</div>
-				{/if}
+					{/if}
+				</div>
+			</div>
+		{:else}
+			<div class="px-3 pb-2">
+				<p
+					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
+				>
+					Pinned Campaign Entities
+				</p>
+				<div class="space-y-0.5">
+					{#if pinnedCampaignEntities.length === 0}
+						<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
+							Pin object notes to keep campaign-critical entities in reach
+						</p>
+					{:else}
+						{#each pinnedCampaignEntities as note (note.id)}
+							<button
+								class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-colors"
+								onclick={() => navigateToNote(note.id)}
+								title={note.title}
+							>
+								{note.title}
+							</button>
+						{/each}
+					{/if}
+				</div>
+			</div>
+
+			<div class="px-3 pb-3">
+				<p
+					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
+				>
+					Recent Entities
+				</p>
+				<div class="space-y-0.5">
+					{#if campaignEntities.length === 0}
+						<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
+							No object notes yet
+						</p>
+					{:else}
+						{#each campaignEntities as note (note.id)}
+							<button
+								class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-colors"
+								onclick={() => navigateToNote(note.id)}
+								title={note.title}
+							>
+								{note.title}
+							</button>
+						{/each}
+					{/if}
+				</div>
 			</div>
 		{/if}
 	</div>
 
-	<!-- Footer -->
 	<div class="px-3 py-2 border-t border-border dark:border-tavern-border">
+		<button
+			type="button"
+			class="w-full text-left flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs text-ink-faint dark:text-tavern-faint hover:text-ink-muted dark:hover:text-tavern-muted transition-colors"
+			onclick={reopenOnboarding}
+		>
+			Onboarding
+		</button>
 		<a
 			href={resolve('/settings')}
 			class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs text-ink-faint dark:text-tavern-faint hover:text-ink-muted dark:hover:text-tavern-muted transition-colors"
 		>
-			<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-				<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-			</svg>
 			Settings
 		</a>
 	</div>

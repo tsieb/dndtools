@@ -3,7 +3,10 @@
 </script>
 
 {#if toastState.toasts.length > 0}
-	<div class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite">
+	<div
+		class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none"
+		aria-live="polite"
+	>
 		{#each toastState.toasts as toast (toast.id)}
 			<div
 				class="pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border text-sm font-medium animate-slide-in

@@ -1,4 +1,5 @@
 import { bootstrapApplication } from '$lib/runtime/bootstrap.js';
+import { reportRuntimeError } from '$lib/runtime/diagnostics.js';
 
 class RuntimeState {
 	ready = $state(false);
@@ -17,6 +18,11 @@ class RuntimeState {
 			this.ready = true;
 		} catch (error) {
 			this.error = error instanceof Error ? error.message : String(error);
+			void reportRuntimeError({
+				category: 'ui_runtime',
+				error,
+				code: 'RUNTIME_INITIALIZE_FAILED',
+			});
 		} finally {
 			this.initializing = false;
 		}

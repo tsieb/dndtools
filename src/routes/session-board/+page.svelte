@@ -1,4 +1,3 @@
-
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -27,8 +26,23 @@
 	let overlayContentEl = $state<HTMLDivElement | null>(null);
 	let boardViewportEl = $state<HTMLDivElement | null>(null);
 	let draftPositions = $state<Record<string, { x: number; y: number }>>({});
-	let drag = $state<{ tileId: string; pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);
-	let pan = $state<{ pointerId: number; startX: number; startY: number; scrollLeft: number; scrollTop: number; button: number; moved: boolean } | null>(null);
+	let drag = $state<{
+		tileId: string;
+		pointerId: number;
+		startX: number;
+		startY: number;
+		originX: number;
+		originY: number;
+	} | null>(null);
+	let pan = $state<{
+		pointerId: number;
+		startX: number;
+		startY: number;
+		scrollLeft: number;
+		scrollTop: number;
+		button: number;
+		moved: boolean;
+	} | null>(null);
 	let zoom = $state(DEFAULT_ZOOM);
 	let lastBoardId = $state<string | null>(null);
 	let suggestionKey = $state('');
@@ -41,7 +55,9 @@
 		minRows: activeBoard?.layout?.minRows ?? DEFAULT_LAYOUT.minRows,
 		gap: activeBoard?.layout?.gap ?? DEFAULT_LAYOUT.gap,
 	}));
-	let selectedTile = $derived.by(() => activeBoard?.tiles.find((t) => t.id === selectedTileId) ?? null);
+	let selectedTile = $derived.by(
+		() => activeBoard?.tiles.find((t) => t.id === selectedTileId) ?? null,
+	);
 	let overlayNote = $derived(overlayNoteId ? (activeNotesById.get(overlayNoteId) ?? null) : null);
 	let zoomPercent = $derived(Math.round(zoom * 100));
 
@@ -79,8 +95,14 @@
 				return { tile, note, x: draft?.x ?? tile.x, y: draft?.y ?? tile.y };
 			})
 			.filter(
-				(entry): entry is { tile: SessionBoardTile; note: (typeof notesState.activeNotes)[number]; x: number; y: number } =>
-					Boolean(entry),
+				(
+					entry,
+				): entry is {
+					tile: SessionBoardTile;
+					note: (typeof notesState.activeNotes)[number];
+					x: number;
+					y: number;
+				} => Boolean(entry),
 			);
 	});
 
@@ -93,7 +115,8 @@
 	});
 
 	$effect(() => {
-		if (sessionBoardsState.boards.length === 0 && !sessionBoardsState.loading) void sessionBoardsState.loadAll();
+		if (sessionBoardsState.boards.length === 0 && !sessionBoardsState.loading)
+			void sessionBoardsState.loadAll();
 	});
 
 	$effect(() => {
@@ -151,8 +174,12 @@
 		function move(event: PointerEvent): void {
 			if (drag && activeBoard && event.pointerId === drag.pointerId) {
 				const activeDrag = drag;
-				const dx = Math.round((event.clientX - activeDrag.startX) / ((CELL_WIDTH + layout.gap) * zoom));
-				const dy = Math.round((event.clientY - activeDrag.startY) / ((layout.rowHeight + layout.gap) * zoom));
+				const dx = Math.round(
+					(event.clientX - activeDrag.startX) / ((CELL_WIDTH + layout.gap) * zoom),
+				);
+				const dy = Math.round(
+					(event.clientY - activeDrag.startY) / ((layout.rowHeight + layout.gap) * zoom),
+				);
 				const tile = activeBoard.tiles.find((t) => t.id === activeDrag.tileId);
 				if (!tile) return;
 				const w = Math.max(2, Math.min(layout.columns, tile.w));
@@ -168,7 +195,10 @@
 			if (pan && boardViewportEl && event.pointerId === pan.pointerId) {
 				boardViewportEl.scrollLeft = pan.scrollLeft - (event.clientX - pan.startX);
 				boardViewportEl.scrollTop = pan.scrollTop - (event.clientY - pan.startY);
-				if (!pan.moved && (Math.abs(event.clientX - pan.startX) > 3 || Math.abs(event.clientY - pan.startY) > 3)) {
+				if (
+					!pan.moved &&
+					(Math.abs(event.clientX - pan.startX) > 3 || Math.abs(event.clientY - pan.startY) > 3)
+				) {
 					pan = { ...pan, moved: true };
 				}
 			}
@@ -287,15 +317,22 @@
 	}
 	async function saveBoard(): Promise<void> {
 		if (!activeBoard) return;
-		await sessionBoardsState.updateBoard(activeBoard.id, { name: boardNameDraft, description: boardDescriptionDraft });
+		await sessionBoardsState.updateBoard(activeBoard.id, {
+			name: boardNameDraft,
+			description: boardDescriptionDraft,
+		});
 	}
 	async function updateLayout(updates: Partial<SessionBoard['layout']>): Promise<void> {
 		if (!activeBoard) return;
-		await sessionBoardsState.updateBoard(activeBoard.id, { layout: { ...(activeBoard.layout ?? DEFAULT_LAYOUT), ...updates } });
+		await sessionBoardsState.updateBoard(activeBoard.id, {
+			layout: { ...(activeBoard.layout ?? DEFAULT_LAYOUT), ...updates },
+		});
 	}
 	async function updateStyle(updates: Partial<SessionBoard['style']>): Promise<void> {
 		if (!activeBoard) return;
-		await sessionBoardsState.updateBoard(activeBoard.id, { style: { ...(activeBoard.style ?? {}), ...updates } });
+		await sessionBoardsState.updateBoard(activeBoard.id, {
+			style: { ...(activeBoard.style ?? {}), ...updates },
+		});
 	}
 	async function addNote(noteId: NoteId): Promise<void> {
 		if (!activeBoard) return;
@@ -382,199 +419,531 @@
 </script>
 
 <div class="h-full min-h-0 box-border overflow-hidden p-4">
-	<div class="grid h-full min-h-0 gap-4 overflow-hidden {mode === 'edit' ? 'xl:grid-cols-[330px_minmax(0,1fr)]' : 'grid-cols-1'}">
+	<div
+		class="grid h-full min-h-0 gap-4 overflow-hidden {mode === 'edit'
+			? 'xl:grid-cols-[330px_minmax(0,1fr)]'
+			: 'grid-cols-1'}"
+	>
 		{#if mode === 'edit'}
-			<aside class="h-full min-h-0 rounded-xl border border-border-strong/60 dark:border-tavern-border-strong/60 bg-surface/98 dark:bg-tavern-surface/96 shadow-sm overflow-hidden flex flex-col">
-			<div class="px-4 py-3 border-b border-border dark:border-tavern-border">
-				<h1 class="text-xl font-bold text-ink dark:text-tavern-text" style="font-family: var(--font-serif)">Session Board</h1>
-				<p class="text-xs text-ink-muted dark:text-tavern-muted mt-1">Keep your most useful session notes in one quickly readable workspace.</p>
-			</div>
+			<aside
+				class="h-full min-h-0 rounded-xl border border-border-strong/60 dark:border-tavern-border-strong/60 bg-surface/98 dark:bg-tavern-surface/96 shadow-sm overflow-hidden flex flex-col"
+			>
+				<div class="px-4 py-3 border-b border-border dark:border-tavern-border">
+					<h1
+						class="text-xl font-bold text-ink dark:text-tavern-text"
+						style="font-family: var(--font-serif)"
+					>
+						Session Board
+					</h1>
+					<p class="text-xs text-ink-muted dark:text-tavern-muted mt-1">
+						Keep your most useful session notes in one quickly readable workspace.
+					</p>
+				</div>
 
-			<div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
-				<section class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3">
-					<h2 class="text-sm font-semibold text-ink dark:text-tavern-text mb-2">Create Board</h2>
-					<input type="text" bind:value={newBoardName} class="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm" placeholder="Board name" />
-					<textarea bind:value={newBoardDescription} rows="2" class="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm" placeholder="Short purpose"></textarea>
-					<button class="w-full px-3 py-1.5 rounded-md bg-accent hover:bg-accent-hover dark:bg-tavern-accent dark:hover:bg-tavern-accent-hover dark:text-tavern-bg text-white text-sm transition-colors" onclick={createBoard}>Create Session Board</button>
-				</section>
+				<div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
+					<section
+						class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
+					>
+						<h2 class="text-sm font-semibold text-ink dark:text-tavern-text mb-2">Create Board</h2>
+						<input
+							type="text"
+							bind:value={newBoardName}
+							class="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+							placeholder="Board name"
+						/>
+						<textarea
+							bind:value={newBoardDescription}
+							rows="2"
+							class="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+							placeholder="Short purpose"
+						></textarea>
+						<button
+							class="w-full px-3 py-1.5 rounded-md bg-accent hover:bg-accent-hover dark:bg-tavern-accent dark:hover:bg-tavern-accent-hover dark:text-tavern-bg text-white text-sm transition-colors"
+							onclick={createBoard}>Create Session Board</button
+						>
+					</section>
 
-				<section class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3">
-					<h2 class="text-sm font-semibold text-ink dark:text-tavern-text mb-2">Boards</h2>
-					<div class="space-y-1 max-h-56 overflow-y-auto pr-1">
-						{#if sessionBoardsState.boards.length === 0}
-							<p class="text-xs text-ink-faint dark:text-tavern-faint">No boards yet.</p>
-						{:else}
-							{#each sessionBoardsState.boards as board (board.id)}
-								<button
-									class="w-full text-left px-2.5 py-1.5 rounded-md border text-sm transition-colors {activeBoard?.id === board.id
-										? 'border-accent/45 dark:border-tavern-accent/45 bg-accent-subtle dark:bg-tavern-accent-subtle text-ink dark:text-tavern-text'
-										: 'border-border/45 dark:border-tavern-border/45 text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text hover:bg-surface-alt/70 dark:hover:bg-tavern-surface-alt/70'}"
-									onclick={() => sessionBoardsState.setActiveBoard(board.id)}
-								>
-									<div class="truncate">{board.name}</div>
-									<div class="text-[11px] opacity-70">{board.tiles.length} tiles</div>
-								</button>
-							{/each}
-						{/if}
-					</div>
-				</section>
-
-				{#if activeBoard}
-					<section class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3 space-y-2">
-						<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Add Notes</h2>
-						<input type="text" bind:value={noteQuery} class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm" placeholder="Search notes (titles first, tags second)" />
-						<div class="space-y-1 max-h-44 overflow-y-auto pr-1">
-							{#if availableNotes.length === 0}
-								<p class="text-xs text-ink-faint dark:text-tavern-faint">No matching notes.</p>
+					<section
+						class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
+					>
+						<h2 class="text-sm font-semibold text-ink dark:text-tavern-text mb-2">Boards</h2>
+						<div class="space-y-1 max-h-56 overflow-y-auto pr-1">
+							{#if sessionBoardsState.boards.length === 0}
+								<p class="text-xs text-ink-faint dark:text-tavern-faint">No boards yet.</p>
 							{:else}
-								{#each availableNotes as note (note.id)}
-									<button class="w-full text-left px-2 py-1.5 rounded-md text-sm border border-transparent hover:border-border dark:hover:border-tavern-border hover:bg-surface-alt/70 dark:hover:bg-tavern-surface-alt/70 transition-colors" onclick={() => addNote(note.id)}>
-										<div class="truncate">{note.title}</div>
-										{#if note.tags.length > 0}
-											<div class="text-[11px] text-ink-faint truncate">#{note.tags.slice(0, 3).join(' #')}</div>
-										{/if}
+								{#each sessionBoardsState.boards as board (board.id)}
+									<button
+										class="w-full text-left px-2.5 py-1.5 rounded-md border text-sm transition-colors {activeBoard?.id ===
+										board.id
+											? 'border-accent/45 dark:border-tavern-accent/45 bg-accent-subtle dark:bg-tavern-accent-subtle text-ink dark:text-tavern-text'
+											: 'border-border/45 dark:border-tavern-border/45 text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text hover:bg-surface-alt/70 dark:hover:bg-tavern-surface-alt/70'}"
+										onclick={() => sessionBoardsState.setActiveBoard(board.id)}
+									>
+										<div class="truncate">{board.name}</div>
+										<div class="text-[11px] opacity-70">{board.tiles.length} tiles</div>
 									</button>
 								{/each}
 							{/if}
 						</div>
 					</section>
 
-					<section class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3">
-						<div class="flex items-center justify-between mb-2">
-							<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Related Suggestions</h2>
-							<button class="text-xs px-2 py-1 rounded border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors" onclick={() => void sessionBoardsState.suggestForBoard(activeBoard.id, 10)}>Refresh</button>
-						</div>
-						<div class="space-y-1 max-h-44 overflow-y-auto pr-1">
-							{#if sessionBoardsState.suggestionsLoading}
-								<p class="text-xs text-ink-faint dark:text-tavern-faint">Finding related notes...</p>
-							{:else if sessionBoardsState.suggestions.length === 0}
-								<p class="text-xs text-ink-faint dark:text-tavern-faint">Add notes to get suggestions.</p>
-							{:else}
-								{#each sessionBoardsState.suggestions as suggestion (suggestion.noteId)}
-									{@const note = activeNotesById.get(suggestion.noteId)}
-									{#if note}
-										<button class="w-full text-left px-2 py-1.5 rounded-md text-sm border border-transparent hover:border-border dark:hover:border-tavern-border hover:bg-surface-alt/70 dark:hover:bg-tavern-surface-alt/70 transition-colors" onclick={() => addNote(note.id)}>
-											<div class="flex items-center justify-between gap-2">
-												<span class="truncate">{note.title}</span>
-												<span class="text-[11px]">score {suggestion.score}</span>
-											</div>
+					{#if activeBoard}
+						<section
+							class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3 space-y-2"
+						>
+							<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Add Notes</h2>
+							<input
+								type="text"
+								bind:value={noteQuery}
+								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+								placeholder="Search notes (titles first, tags second)"
+							/>
+							<div class="space-y-1 max-h-44 overflow-y-auto pr-1">
+								{#if availableNotes.length === 0}
+									<p class="text-xs text-ink-faint dark:text-tavern-faint">No matching notes.</p>
+								{:else}
+									{#each availableNotes as note (note.id)}
+										<button
+											class="w-full text-left px-2 py-1.5 rounded-md text-sm border border-transparent hover:border-border dark:hover:border-tavern-border hover:bg-surface-alt/70 dark:hover:bg-tavern-surface-alt/70 transition-colors"
+											onclick={() => addNote(note.id)}
+										>
+											<div class="truncate">{note.title}</div>
+											{#if note.tags.length > 0}
+												<div class="text-[11px] text-ink-faint truncate">
+													#{note.tags.slice(0, 3).join(' #')}
+												</div>
+											{/if}
 										</button>
-									{/if}
-								{/each}
-							{/if}
-						</div>
-					</section>
+									{/each}
+								{/if}
+							</div>
+						</section>
 
-					<section class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3">
-						<h2 class="text-sm font-semibold text-ink dark:text-tavern-text mb-2">Interaction</h2>
-						<ul class="space-y-1 text-xs text-ink-muted dark:text-tavern-muted">
-							<li>Left drag empty canvas to pan quickly.</li>
-							<li>Right drag anywhere to pan without selecting.</li>
-							<li>Use <span class="font-mono">Ctrl/Cmd + scroll</span> or zoom buttons to scale the board.</li>
-						</ul>
-					</section>
-				{/if}
-			</div>
+						<section
+							class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
+						>
+							<div class="flex items-center justify-between mb-2">
+								<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">
+									Related Suggestions
+								</h2>
+								<button
+									class="text-xs px-2 py-1 rounded border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+									onclick={() => void sessionBoardsState.suggestForBoard(activeBoard.id, 10)}
+									>Refresh</button
+								>
+							</div>
+							<div class="space-y-1 max-h-44 overflow-y-auto pr-1">
+								{#if sessionBoardsState.suggestionsLoading}
+									<p class="text-xs text-ink-faint dark:text-tavern-faint">
+										Finding related notes...
+									</p>
+								{:else if sessionBoardsState.suggestions.length === 0}
+									<p class="text-xs text-ink-faint dark:text-tavern-faint">
+										Add notes to get suggestions.
+									</p>
+								{:else}
+									{#each sessionBoardsState.suggestions as suggestion (suggestion.noteId)}
+										{@const note = activeNotesById.get(suggestion.noteId)}
+										{#if note}
+											<button
+												class="w-full text-left px-2 py-1.5 rounded-md text-sm border border-transparent hover:border-border dark:hover:border-tavern-border hover:bg-surface-alt/70 dark:hover:bg-tavern-surface-alt/70 transition-colors"
+												onclick={() => addNote(note.id)}
+											>
+												<div class="flex items-center justify-between gap-2">
+													<span class="truncate">{note.title}</span>
+													<span class="text-[11px]">score {suggestion.score}</span>
+												</div>
+											</button>
+										{/if}
+									{/each}
+								{/if}
+							</div>
+						</section>
+
+						<section
+							class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
+						>
+							<h2 class="text-sm font-semibold text-ink dark:text-tavern-text mb-2">Interaction</h2>
+							<ul class="space-y-1 text-xs text-ink-muted dark:text-tavern-muted">
+								<li>Left drag empty canvas to pan quickly.</li>
+								<li>Right drag anywhere to pan without selecting.</li>
+								<li>
+									Use <span class="font-mono">Ctrl/Cmd + scroll</span> or zoom buttons to scale the board.
+								</li>
+							</ul>
+						</section>
+					{/if}
+				</div>
 			</aside>
 		{/if}
 
-		<section class="h-full min-h-0 rounded-xl border border-border-strong/60 dark:border-tavern-border-strong/60 bg-surface/95 dark:bg-tavern-surface/95 shadow-sm overflow-hidden flex flex-col">
+		<section
+			class="h-full min-h-0 rounded-xl border border-border-strong/60 dark:border-tavern-border-strong/60 bg-surface/95 dark:bg-tavern-surface/95 shadow-sm overflow-hidden flex flex-col"
+		>
 			{#if !activeBoard}
 				<div class="h-full flex items-center justify-center text-center px-6">
 					<div class="max-w-md">
-						<p class="text-base font-semibold text-ink dark:text-tavern-text">Create or select a board to begin.</p>
-						<p class="text-sm text-ink-muted dark:text-tavern-muted mt-1">Session boards are designed for quick reference during sessions.</p>
+						<p class="text-base font-semibold text-ink dark:text-tavern-text">
+							Create or select a board to begin.
+						</p>
+						<p class="text-sm text-ink-muted dark:text-tavern-muted mt-1">
+							Session boards are designed for quick reference during sessions.
+						</p>
 						{#if mode === 'view'}
-							<button class="mt-3 px-3 py-1.5 rounded-md text-sm border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors" onclick={() => (mode = 'edit')}>Enter Edit Mode</button>
+							<button
+								class="mt-3 px-3 py-1.5 rounded-md text-sm border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+								onclick={() => (mode = 'edit')}>Enter Edit Mode</button
+							>
 						{/if}
 					</div>
 				</div>
 			{:else}
-				<div class="shrink-0 border-b border-border dark:border-tavern-border bg-surface/97 dark:bg-tavern-surface/96 backdrop-blur px-3 py-3 {mode === 'edit' ? 'space-y-3' : ''}">
+				<div
+					class="shrink-0 border-b border-border dark:border-tavern-border bg-surface/97 dark:bg-tavern-surface/96 backdrop-blur px-3 py-3 {mode ===
+					'edit'
+						? 'space-y-3'
+						: ''}"
+				>
 					{#if mode === 'edit'}
 						<div class="flex flex-wrap items-start gap-2">
-							<input type="text" bind:value={boardNameDraft} class="min-w-[220px] flex-1 px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm" />
-							<input type="text" bind:value={boardDescriptionDraft} class="min-w-[220px] flex-[2] px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm" placeholder="Board description" />
-							<button class="px-3 py-1.5 rounded-md text-sm border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors" onclick={saveBoard}>Save</button>
+							<input
+								type="text"
+								bind:value={boardNameDraft}
+								class="min-w-[220px] flex-1 px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+							/>
+							<input
+								type="text"
+								bind:value={boardDescriptionDraft}
+								class="min-w-[220px] flex-[2] px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+								placeholder="Board description"
+							/>
+							<button
+								class="px-3 py-1.5 rounded-md text-sm border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+								onclick={saveBoard}>Save</button
+							>
 						</div>
 					{/if}
 
 					<div class="flex flex-wrap items-center gap-2">
 						{#if mode === 'view'}
-							<select class="min-w-[220px] max-w-[420px] truncate px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm" value={activeBoard.id} onchange={handleBoardSelectChange}>
+							<select
+								class="min-w-[220px] max-w-[420px] truncate px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+								value={activeBoard.id}
+								onchange={handleBoardSelectChange}
+							>
 								{#each sessionBoardsState.boards as board (board.id)}
 									<option value={board.id}>{board.name}</option>
 								{/each}
 							</select>
 						{/if}
 						<div class="flex items-center gap-1">
-							<button class="px-3 py-1.5 text-xs rounded border transition-colors {mode === 'view' ? 'bg-accent dark:bg-tavern-accent text-white dark:text-tavern-bg border-transparent' : 'border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}" onclick={() => (mode = 'view')}>View</button>
-							<button class="px-3 py-1.5 text-xs rounded border transition-colors {mode === 'edit' ? 'bg-accent dark:bg-tavern-accent text-white dark:text-tavern-bg border-transparent' : 'border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}" onclick={() => (mode = 'edit')}>Edit</button>
+							<button
+								class="px-3 py-1.5 text-xs rounded border transition-colors {mode === 'view'
+									? 'bg-accent dark:bg-tavern-accent text-white dark:text-tavern-bg border-transparent'
+									: 'border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+								onclick={() => (mode = 'view')}>View</button
+							>
+							<button
+								class="px-3 py-1.5 text-xs rounded border transition-colors {mode === 'edit'
+									? 'bg-accent dark:bg-tavern-accent text-white dark:text-tavern-bg border-transparent'
+									: 'border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+								onclick={() => (mode = 'edit')}>Edit</button
+							>
 						</div>
 						{#if mode === 'edit'}
-							<span class="text-xs text-ink-muted dark:text-tavern-muted hidden lg:inline">Edit mode: drag, resize, style, and position tiles.</span>
+							<span class="text-xs text-ink-muted dark:text-tavern-muted hidden lg:inline"
+								>Edit mode: drag, resize, style, and position tiles.</span
+							>
 						{/if}
 
-						<div class="ml-auto flex items-center gap-1 rounded-md border border-border dark:border-tavern-border bg-surface-alt/80 dark:bg-tavern-surface-alt/80 px-1.5 py-1">
-							<button class="h-7 w-7 rounded border border-border dark:border-tavern-border text-sm hover:bg-surface dark:hover:bg-tavern-surface transition-colors" onclick={() => setZoom(zoom - 0.12)} aria-label="Zoom out">-</button>
-							<div class="min-w-14 text-center text-xs font-semibold text-ink dark:text-tavern-text">{zoomPercent}%</div>
-							<button class="h-7 w-7 rounded border border-border dark:border-tavern-border text-sm hover:bg-surface dark:hover:bg-tavern-surface transition-colors" onclick={() => setZoom(zoom + 0.12)} aria-label="Zoom in">+</button>
-							<button class="h-7 px-2 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface dark:hover:bg-tavern-surface transition-colors" onclick={() => setZoom(DEFAULT_ZOOM)}>100%</button>
-							<button class="h-7 px-2 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface dark:hover:bg-tavern-surface transition-colors" onclick={fitCanvasToViewport}>Fit</button>
+						<div
+							class="ml-auto flex items-center gap-1 rounded-md border border-border dark:border-tavern-border bg-surface-alt/80 dark:bg-tavern-surface-alt/80 px-1.5 py-1"
+						>
+							<button
+								class="h-7 w-7 rounded border border-border dark:border-tavern-border text-sm hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								onclick={() => setZoom(zoom - 0.12)}
+								aria-label="Zoom out">-</button
+							>
+							<div
+								class="min-w-14 text-center text-xs font-semibold text-ink dark:text-tavern-text"
+							>
+								{zoomPercent}%
+							</div>
+							<button
+								class="h-7 w-7 rounded border border-border dark:border-tavern-border text-sm hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								onclick={() => setZoom(zoom + 0.12)}
+								aria-label="Zoom in">+</button
+							>
+							<button
+								class="h-7 px-2 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								onclick={() => setZoom(DEFAULT_ZOOM)}>100%</button
+							>
+							<button
+								class="h-7 px-2 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								onclick={fitCanvasToViewport}>Fit</button
+							>
 						</div>
 					</div>
 
 					{#if mode === 'edit'}
-						<details class="rounded-md border border-border dark:border-tavern-border bg-surface-alt/60 dark:bg-tavern-surface-alt/60 p-2.5">
-							<summary class="cursor-pointer list-none select-none text-xs font-semibold text-ink dark:text-tavern-text">
+						<details
+							class="rounded-md border border-border dark:border-tavern-border bg-surface-alt/60 dark:bg-tavern-surface-alt/60 p-2.5"
+						>
+							<summary
+								class="cursor-pointer list-none select-none text-xs font-semibold text-ink dark:text-tavern-text"
+							>
 								Advanced board and tile options
 							</summary>
 							<div class="mt-2 space-y-2">
-							<div class="grid gap-2 md:grid-cols-4">
-								<label class="text-xs">Columns<input type="number" min="8" max="32" value={layout.columns} onchange={(e) => onNumberChange(e, layout.columns, (v) => void updateLayout({ columns: v }))} class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface" /></label>
-								<label class="text-xs">Row Height<input type="number" min="70" max="220" value={layout.rowHeight} onchange={(e) => onNumberChange(e, layout.rowHeight, (v) => void updateLayout({ rowHeight: v }))} class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface" /></label>
-								<label class="text-xs">Min Rows<input type="number" min="6" max="240" value={layout.minRows} onchange={(e) => onNumberChange(e, layout.minRows, (v) => void updateLayout({ minRows: v }))} class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface" /></label>
-								<label class="text-xs">Gap<input type="number" min="0" max="28" value={layout.gap} onchange={(e) => onNumberChange(e, layout.gap, (v) => void updateLayout({ gap: v }))} class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface" /></label>
-							</div>
+								<div class="grid gap-2 md:grid-cols-4">
+									<label class="text-xs"
+										>Columns<input
+											type="number"
+											min="8"
+											max="32"
+											value={layout.columns}
+											onchange={(e) =>
+												onNumberChange(e, layout.columns, (v) => void updateLayout({ columns: v }))}
+											class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
+										/></label
+									>
+									<label class="text-xs"
+										>Row Height<input
+											type="number"
+											min="70"
+											max="220"
+											value={layout.rowHeight}
+											onchange={(e) =>
+												onNumberChange(
+													e,
+													layout.rowHeight,
+													(v) => void updateLayout({ rowHeight: v }),
+												)}
+											class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
+										/></label
+									>
+									<label class="text-xs"
+										>Min Rows<input
+											type="number"
+											min="6"
+											max="240"
+											value={layout.minRows}
+											onchange={(e) =>
+												onNumberChange(e, layout.minRows, (v) => void updateLayout({ minRows: v }))}
+											class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
+										/></label
+									>
+									<label class="text-xs"
+										>Gap<input
+											type="number"
+											min="0"
+											max="28"
+											value={layout.gap}
+											onchange={(e) =>
+												onNumberChange(e, layout.gap, (v) => void updateLayout({ gap: v }))}
+											class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
+										/></label
+									>
+								</div>
 
-							<div class="grid gap-2 md:grid-cols-4">
-								<label class="text-xs">Board Color<input type="color" value={activeBoard.style?.backgroundColor ?? '#f5f5f5'} onchange={(e) => void updateStyle({ backgroundColor: (e.currentTarget as HTMLInputElement).value })} class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border" /></label>
-								<label class="text-xs">Pattern<select value={activeBoard.style?.backgroundPattern ?? 'none'} onchange={(e) => void updateStyle({ backgroundPattern: (e.currentTarget as HTMLSelectElement).value as 'none' | 'grid' | 'dots' })} class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border px-2 bg-surface dark:bg-tavern-surface"><option value="none">None</option><option value="grid">Grid</option><option value="dots">Dots</option></select></label>
-								<label class="text-xs">Section Tint<input type="color" value={activeBoard.style?.sectionTintColor ?? '#7c3aed'} onchange={(e) => void updateStyle({ sectionTintColor: (e.currentTarget as HTMLInputElement).value })} class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border" /></label>
-								<label class="text-xs">Section Opacity<input type="range" min="0" max="0.75" step="0.05" value={activeBoard.style?.sectionTintOpacity ?? 0} oninput={(e) => void updateStyle({ sectionTintOpacity: Number((e.currentTarget as HTMLInputElement).value) })} class="mt-2 w-full" /></label>
-							</div>
+								<div class="grid gap-2 md:grid-cols-4">
+									<label class="text-xs"
+										>Board Color<input
+											type="color"
+											value={activeBoard.style?.backgroundColor ?? '#f5f5f5'}
+											onchange={(e) =>
+												void updateStyle({
+													backgroundColor: (e.currentTarget as HTMLInputElement).value,
+												})}
+											class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border"
+										/></label
+									>
+									<label class="text-xs"
+										>Pattern<select
+											value={activeBoard.style?.backgroundPattern ?? 'none'}
+											onchange={(e) =>
+												void updateStyle({
+													backgroundPattern: (e.currentTarget as HTMLSelectElement).value as
+														| 'none'
+														| 'grid'
+														| 'dots',
+												})}
+											class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border px-2 bg-surface dark:bg-tavern-surface"
+											><option value="none">None</option><option value="grid">Grid</option><option
+												value="dots">Dots</option
+											></select
+										></label
+									>
+									<label class="text-xs"
+										>Section Tint<input
+											type="color"
+											value={activeBoard.style?.sectionTintColor ?? '#7c3aed'}
+											onchange={(e) =>
+												void updateStyle({
+													sectionTintColor: (e.currentTarget as HTMLInputElement).value,
+												})}
+											class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border"
+										/></label
+									>
+									<label class="text-xs"
+										>Section Opacity<input
+											type="range"
+											min="0"
+											max="0.75"
+											step="0.05"
+											value={activeBoard.style?.sectionTintOpacity ?? 0}
+											oninput={(e) =>
+												void updateStyle({
+													sectionTintOpacity: Number((e.currentTarget as HTMLInputElement).value),
+												})}
+											class="mt-2 w-full"
+										/></label
+									>
+								</div>
 
-							<div class="rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-2">
-								{#if selectedTile}
-									<div class="grid gap-2 md:grid-cols-4 xl:grid-cols-8">
-										<label class="text-xs">X<input type="number" value={selectedTile.x} onchange={(e) => onNumberChange(e, selectedTile.x, (v) => void updateSelected({ x: v }))} class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border" /></label>
-										<label class="text-xs">Y<input type="number" value={selectedTile.y} onchange={(e) => onNumberChange(e, selectedTile.y, (v) => void updateSelected({ y: v }))} class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border" /></label>
-										<label class="text-xs">W<input type="number" min="2" max={layout.columns} value={selectedTile.w} onchange={(e) => onNumberChange(e, selectedTile.w, (v) => void updateSelected({ w: v }))} class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border" /></label>
-										<label class="text-xs">H<input type="number" min="2" max="8" value={selectedTile.h} onchange={(e) => onNumberChange(e, selectedTile.h, (v) => void updateSelected({ h: v }))} class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border" /></label>
-										<label class="text-xs">Tile Bg<input type="color" value={selectedTile.style?.backgroundColor ?? '#ffffff'} onchange={(e) => void updateSelected({ style: { ...(selectedTile.style ?? {}), backgroundColor: (e.currentTarget as HTMLInputElement).value } })} class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border" /></label>
-										<label class="text-xs">Border<input type="color" value={selectedTile.style?.borderColor ?? '#7f8c8d'} onchange={(e) => void updateSelected({ style: { ...(selectedTile.style ?? {}), borderColor: (e.currentTarget as HTMLInputElement).value } })} class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border" /></label>
-										<label class="text-xs">Width<input type="number" min="0" max="8" value={selectedTile.style?.borderWidth ?? 1} onchange={(e) => onNumberChange(e, selectedTile.style?.borderWidth ?? 1, (v) => void updateSelected({ style: { ...(selectedTile.style ?? {}), borderWidth: v } }))} class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border" /></label>
-										<label class="text-xs">Scale<input type="number" min="0.5" max="2.5" step="0.05" value={selectedTile.style?.scale ?? 1} onchange={(e) => onNumberChange(e, selectedTile.style?.scale ?? 1, (v) => void updateSelected({ style: { ...(selectedTile.style ?? {}), scale: v } }))} class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border" /></label>
-										<button class="h-9 mt-5 px-2 rounded border border-error/40 text-error hover:bg-error/5 transition-colors" onclick={() => void removeTile(selectedTile.id)}>Remove Tile</button>
-									</div>
-								{:else}
-									<p class="text-xs text-ink-faint dark:text-tavern-faint">Select a tile to edit it.</p>
-								{/if}
-							</div>
+								<div
+									class="rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-2"
+								>
+									{#if selectedTile}
+										<div class="grid gap-2 md:grid-cols-4 xl:grid-cols-8">
+											<label class="text-xs"
+												>X<input
+													type="number"
+													value={selectedTile.x}
+													onchange={(e) =>
+														onNumberChange(e, selectedTile.x, (v) => void updateSelected({ x: v }))}
+													class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
+												/></label
+											>
+											<label class="text-xs"
+												>Y<input
+													type="number"
+													value={selectedTile.y}
+													onchange={(e) =>
+														onNumberChange(e, selectedTile.y, (v) => void updateSelected({ y: v }))}
+													class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
+												/></label
+											>
+											<label class="text-xs"
+												>W<input
+													type="number"
+													min="2"
+													max={layout.columns}
+													value={selectedTile.w}
+													onchange={(e) =>
+														onNumberChange(e, selectedTile.w, (v) => void updateSelected({ w: v }))}
+													class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
+												/></label
+											>
+											<label class="text-xs"
+												>H<input
+													type="number"
+													min="2"
+													max="8"
+													value={selectedTile.h}
+													onchange={(e) =>
+														onNumberChange(e, selectedTile.h, (v) => void updateSelected({ h: v }))}
+													class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
+												/></label
+											>
+											<label class="text-xs"
+												>Tile Bg<input
+													type="color"
+													value={selectedTile.style?.backgroundColor ?? '#ffffff'}
+													onchange={(e) =>
+														void updateSelected({
+															style: {
+																...(selectedTile.style ?? {}),
+																backgroundColor: (e.currentTarget as HTMLInputElement).value,
+															},
+														})}
+													class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border"
+												/></label
+											>
+											<label class="text-xs"
+												>Border<input
+													type="color"
+													value={selectedTile.style?.borderColor ?? '#7f8c8d'}
+													onchange={(e) =>
+														void updateSelected({
+															style: {
+																...(selectedTile.style ?? {}),
+																borderColor: (e.currentTarget as HTMLInputElement).value,
+															},
+														})}
+													class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border"
+												/></label
+											>
+											<label class="text-xs"
+												>Width<input
+													type="number"
+													min="0"
+													max="8"
+													value={selectedTile.style?.borderWidth ?? 1}
+													onchange={(e) =>
+														onNumberChange(
+															e,
+															selectedTile.style?.borderWidth ?? 1,
+															(v) =>
+																void updateSelected({
+																	style: { ...(selectedTile.style ?? {}), borderWidth: v },
+																}),
+														)}
+													class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
+												/></label
+											>
+											<label class="text-xs"
+												>Scale<input
+													type="number"
+													min="0.5"
+													max="2.5"
+													step="0.05"
+													value={selectedTile.style?.scale ?? 1}
+													onchange={(e) =>
+														onNumberChange(
+															e,
+															selectedTile.style?.scale ?? 1,
+															(v) =>
+																void updateSelected({
+																	style: { ...(selectedTile.style ?? {}), scale: v },
+																}),
+														)}
+													class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
+												/></label
+											>
+											<button
+												class="h-9 mt-5 px-2 rounded border border-error/40 text-error hover:bg-error/5 transition-colors"
+												onclick={() => void removeTile(selectedTile.id)}>Remove Tile</button
+											>
+										</div>
+									{:else}
+										<p class="text-xs text-ink-faint dark:text-tavern-faint">
+											Select a tile to edit it.
+										</p>
+									{/if}
+								</div>
 							</div>
 						</details>
 					{/if}
 				</div>
 
 				{#if renderedTiles.length === 0}
-					<div class="h-full flex items-center justify-center text-sm text-ink-muted dark:text-tavern-muted">
-						{mode === 'edit' ? 'Add notes from the left panel to populate this board.' : 'This board has no tiles yet.'}
+					<div
+						class="h-full flex items-center justify-center text-sm text-ink-muted dark:text-tavern-muted"
+					>
+						{mode === 'edit'
+							? 'Add notes from the left panel to populate this board.'
+							: 'This board has no tiles yet.'}
 					</div>
 				{:else}
 					<div class="flex-1 min-h-0 p-3">
-						<div class="h-full min-h-0 rounded-lg border border-border/70 dark:border-tavern-border/70 bg-surface-alt/70 dark:bg-tavern-surface-alt/65 overflow-hidden flex flex-col">
+						<div
+							class="h-full min-h-0 rounded-lg border border-border/70 dark:border-tavern-border/70 bg-surface-alt/70 dark:bg-tavern-surface-alt/65 overflow-hidden flex flex-col"
+						>
 							{#if mode === 'edit'}
-								<div class="px-3 py-2 border-b border-border/80 dark:border-tavern-border/80 text-xs text-ink-muted dark:text-tavern-muted flex items-center justify-between gap-2">
+								<div
+									class="px-3 py-2 border-b border-border/80 dark:border-tavern-border/80 text-xs text-ink-muted dark:text-tavern-muted flex items-center justify-between gap-2"
+								>
 									<span>Left drag empty space or right drag anywhere to pan.</span>
 									<span class="hidden md:inline">Ctrl/Cmd + scroll to zoom.</span>
 								</div>
@@ -592,9 +961,19 @@
 								bind:this={boardViewportEl}
 								tabindex="0"
 							>
-								<div class="relative m-3" style="width: {canvas.width * zoom}px; height: {canvas.height * zoom}px;">
-									<div class="absolute left-0 top-0 origin-top-left" style="width: {canvas.width}px; height: {canvas.height}px; transform: scale({zoom}); background-color: {activeBoard.style?.backgroundColor ?? ''};">
-										<div class="absolute inset-0 pointer-events-none" style={patternStyle(activeBoard)}></div>
+								<div
+									class="relative m-3"
+									style="width: {canvas.width * zoom}px; height: {canvas.height * zoom}px;"
+								>
+									<div
+										class="absolute left-0 top-0 origin-top-left"
+										style="width: {canvas.width}px; height: {canvas.height}px; transform: scale({zoom}); background-color: {activeBoard
+											.style?.backgroundColor ?? ''};"
+									>
+										<div
+											class="absolute inset-0 pointer-events-none"
+											style={patternStyle(activeBoard)}
+										></div>
 										{#each renderedTiles as { tile, note, x, y } (tile.id)}
 											<div class="absolute" style={tileStyle(tile, x, y)}>
 												<SessionBoardTileCard
@@ -626,12 +1005,27 @@
 </div>
 
 {#if overlayNote}
-	<div class="fixed inset-0 z-50 bg-black/55 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-		<div class="w-full max-w-5xl max-h-[85vh] rounded-lg border border-border bg-surface shadow-xl flex flex-col">
+	<div
+		class="fixed inset-0 z-50 bg-black/55 flex items-center justify-center p-4"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div
+			class="w-full max-w-5xl max-h-[85vh] rounded-lg border border-border bg-surface shadow-xl flex flex-col"
+		>
 			<div class="px-4 py-3 border-b border-border flex items-center gap-2">
 				<h2 class="text-base font-semibold truncate flex-1">{overlayNote.title}</h2>
-				<button class="px-2.5 py-1 rounded text-xs border border-border" onclick={() => { overlayNoteId = null; void goto(resolve(`/notes/${overlayNote.id}`)); }}>Open Note</button>
-				<button class="px-2.5 py-1 rounded text-xs border border-border" onclick={() => (overlayNoteId = null)}>Close</button>
+				<button
+					class="px-2.5 py-1 rounded text-xs border border-border"
+					onclick={() => {
+						overlayNoteId = null;
+						void goto(resolve(`/notes/${overlayNote.id}`));
+					}}>Open Note</button
+				>
+				<button
+					class="px-2.5 py-1 rounded text-xs border border-border"
+					onclick={() => (overlayNoteId = null)}>Close</button
+				>
 			</div>
 			<div class="p-4 overflow-y-auto min-h-0">
 				<div class="markdown-content" role="document" bind:this={overlayContentEl}>

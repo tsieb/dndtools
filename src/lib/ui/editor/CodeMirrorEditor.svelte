@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { EditorView as EditorViewType } from '@codemirror/view';
+	import type { EditorSettings } from '$lib/types/settings.js';
 	import {
 		toggleBold,
 		toggleItalic,
@@ -12,9 +13,11 @@
 		content: string;
 		onchange: (value: string) => void;
 		onviewready?: (view: EditorViewType) => void;
+		onscrollready?: (element: HTMLElement) => void;
+		settings?: EditorSettings;
 	}
 
-	let { content, onchange, onviewready }: Props = $props();
+	let { content, onchange, onviewready, onscrollready, settings }: Props = $props();
 
 	let editorContainer: HTMLDivElement | undefined = $state();
 	let view: EditorViewType | undefined;
@@ -80,13 +83,12 @@
 
 			const theme = EditorView.theme({
 				'&': {
-					fontSize: '16px',
-					fontFamily:
-						"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+					fontSize: `${settings?.fontSize ?? 16}px`,
+					fontFamily: 'var(--font-sans)',
 				},
 				'.cm-content': {
 					fontFamily: 'inherit',
-					lineHeight: '1.6',
+					lineHeight: String(settings?.lineHeight ?? 1.6),
 					padding: '0.75rem 0',
 				},
 				'.cm-focused .cm-cursor': {
@@ -123,7 +125,7 @@
 						history(),
 						indentOnInput(),
 						closeBrackets(),
-						EditorView.lineWrapping,
+						...(settings?.wordWrap === false ? [] : [EditorView.lineWrapping]),
 						formattingKeymap,
 						keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap]),
 						updateListener,
@@ -135,6 +137,7 @@
 
 			mounted = true;
 			onviewready?.(view);
+			onscrollready?.(view.scrollDOM);
 		})();
 
 		return () => {

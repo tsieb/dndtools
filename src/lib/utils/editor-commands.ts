@@ -6,7 +6,11 @@ function wrapSelection(view: EditorView, before: string, after: string): boolean
 	const selected = view.state.sliceDoc(from, to);
 
 	// Check if selection is already wrapped — toggle off
-	if (selected.startsWith(before) && selected.endsWith(after) && selected.length >= before.length + after.length) {
+	if (
+		selected.startsWith(before) &&
+		selected.endsWith(after) &&
+		selected.length >= before.length + after.length
+	) {
 		view.dispatch({
 			changes: { from, to, insert: selected.slice(before.length, -after.length) },
 		});
@@ -170,7 +174,8 @@ export function insertHorizontalRule(view: EditorView): boolean {
 
 export function insertTable(view: EditorView): boolean {
 	const { from } = view.state.selection.main;
-	const table = '| Column 1 | Column 2 | Column 3 |\n| -------- | -------- | -------- |\n| cell     | cell     | cell     |';
+	const table =
+		'| Column 1 | Column 2 | Column 3 |\n| -------- | -------- | -------- |\n| cell     | cell     | cell     |';
 
 	view.dispatch({
 		changes: { from, insert: table },
@@ -203,24 +208,43 @@ export function insertObjectEmbedTemplate(view: EditorView): boolean {
 /** Map action names to command functions */
 export function executeEditorAction(view: EditorView, action: string): boolean {
 	switch (action) {
-		case 'bold': return toggleBold(view);
-		case 'italic': return toggleItalic(view);
-		case 'strikethrough': return toggleStrikethrough(view);
-		case 'code': return toggleInlineCode(view);
-		case 'heading1': return insertHeading(view, 1);
-		case 'heading2': return insertHeading(view, 2);
-		case 'heading3': return insertHeading(view, 3);
-		case 'link': return insertLink(view);
-		case 'wikilink': return insertWikilink(view);
-		case 'bullet-list': return insertBulletList(view);
-		case 'numbered-list': return insertNumberedList(view);
-		case 'task-list': return insertTaskList(view);
-		case 'blockquote': return insertBlockquote(view);
-		case 'code-block': return insertCodeBlock(view);
-		case 'horizontal-rule': return insertHorizontalRule(view);
-		case 'table': return insertTable(view);
-		case 'callout': return insertCallout(view);
-		case 'object-embed': return insertObjectEmbedTemplate(view);
-		default: return false;
+		case 'bold':
+			return toggleBold(view);
+		case 'italic':
+			return toggleItalic(view);
+		case 'strikethrough':
+			return toggleStrikethrough(view);
+		case 'code':
+			return toggleInlineCode(view);
+		case 'heading1':
+			return insertHeading(view, 1);
+		case 'heading2':
+			return insertHeading(view, 2);
+		case 'heading3':
+			return insertHeading(view, 3);
+		case 'link':
+			return insertLink(view);
+		case 'wikilink':
+			return insertWikilink(view);
+		case 'bullet-list':
+			return insertBulletList(view);
+		case 'numbered-list':
+			return insertNumberedList(view);
+		case 'task-list':
+			return insertTaskList(view);
+		case 'blockquote':
+			return insertBlockquote(view);
+		case 'code-block':
+			return insertCodeBlock(view);
+		case 'horizontal-rule':
+			return insertHorizontalRule(view);
+		case 'table':
+			return insertTable(view);
+		case 'callout':
+			return insertCallout(view);
+		case 'object-embed':
+			return insertObjectEmbedTemplate(view);
+		default:
+			return false;
 	}
 }

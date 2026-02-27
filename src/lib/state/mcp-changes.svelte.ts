@@ -32,6 +32,16 @@ class McpChangesState {
 		return !!applied;
 	}
 
+	async approveMany(changeIds: string[]): Promise<number> {
+		let approved = 0;
+		for (const changeId of changeIds) {
+			const applied = await approveDesktopMcpChange(changeId);
+			if (applied) approved += 1;
+		}
+		await this.refresh();
+		return approved;
+	}
+
 	async approveAll(): Promise<number> {
 		const applied = await approveAllDesktopMcpChanges();
 		await this.refresh();
@@ -42,6 +52,16 @@ class McpChangesState {
 		const rejected = await rejectDesktopMcpChange(changeId);
 		await this.refresh();
 		return !!rejected;
+	}
+
+	async rejectMany(changeIds: string[]): Promise<number> {
+		let rejectedCount = 0;
+		for (const changeId of changeIds) {
+			const rejected = await rejectDesktopMcpChange(changeId);
+			if (rejected) rejectedCount += 1;
+		}
+		await this.refresh();
+		return rejectedCount;
 	}
 
 	async rejectAll(): Promise<number> {

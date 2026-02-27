@@ -18,7 +18,10 @@
 		for (const line of lines) {
 			const match = line.match(/^(#{1,3})\s+(.+)$/);
 			if (match && match[1] && match[2]) {
-				const text = match[2].replace(/[*_`~]/g, '').replaceAll('[', '').replaceAll(']', '');
+				const text = match[2]
+					.replace(/[*_`~]/g, '')
+					.replaceAll('[', '')
+					.replaceAll(']', '');
 				const id = text
 					.toLowerCase()
 					.replace(/[^a-z0-9\s-]/g, '')
@@ -45,7 +48,10 @@
 		</button>
 
 		{#if expanded}
-			<div id="toc-list" class="rounded-lg border border-border dark:border-tavern-border bg-surface-alt/50 dark:bg-tavern-surface-alt/50 px-4 py-3">
+			<div
+				id="toc-list"
+				class="rounded-lg border border-border dark:border-tavern-border bg-surface-alt/50 dark:bg-tavern-surface-alt/50 px-4 py-3"
+			>
 				<ul class="space-y-1">
 					{#each headings as heading (heading.id)}
 						<li style="padding-left: {(heading.level - 1) * 0.75}rem">

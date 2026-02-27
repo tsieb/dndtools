@@ -20,8 +20,11 @@ test.describe('Search', () => {
 		await page.waitForTimeout(500);
 
 		// Should show results or "no results" depending on data
-		const hasResults = await page.locator('a[href*="/notes/"]').count();
-		const hasNoResults = await page.getByText(/no results/i).isVisible().catch(() => false);
+		const hasResults = await page.locator('text=/score\\s+[0-9]/i').count();
+		const hasNoResults = await page
+			.getByText(/no results/i)
+			.isVisible()
+			.catch(() => false);
 		expect(hasResults > 0 || hasNoResults).toBeTruthy();
 	});
 

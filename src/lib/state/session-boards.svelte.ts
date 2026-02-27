@@ -21,6 +21,26 @@ const DEFAULT_LAYOUT = {
 	gap: 12,
 } as const;
 
+function normalizeTileStyle(style: SessionBoardTile['style']): SessionBoardTile['style'] {
+	if (!style) return undefined;
+	const normalized: NonNullable<SessionBoardTile['style']> = {};
+	if (style.backgroundColor !== undefined) normalized.backgroundColor = style.backgroundColor;
+	if (style.borderColor !== undefined) normalized.borderColor = style.borderColor;
+	if (style.borderWidth !== undefined) {
+		normalized.borderWidth = Math.max(0, Math.min(8, Math.round(style.borderWidth)));
+	}
+	if (style.borderRadius !== undefined) {
+		normalized.borderRadius = Math.max(0, Math.min(36, Math.round(style.borderRadius)));
+	}
+	if (style.opacity !== undefined) {
+		normalized.opacity = Math.max(0.2, Math.min(1, style.opacity));
+	}
+	if (style.scale !== undefined) {
+		normalized.scale = Math.max(0.5, Math.min(2.5, style.scale));
+	}
+	return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
 function collides(a: SessionBoardTile, b: SessionBoardTile): boolean {
 	return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
@@ -62,31 +82,39 @@ function clampTile(tile: SessionBoardTile, columns = GRID_COLUMNS): SessionBoard
 		y,
 		w,
 		h,
-		style: tile.style
-			? {
-					backgroundColor: tile.style.backgroundColor,
-					borderColor: tile.style.borderColor,
-					borderWidth: Math.max(0, Math.min(8, Math.round(tile.style.borderWidth ?? 1))),
-					borderRadius: Math.max(0, Math.min(36, Math.round(tile.style.borderRadius ?? 10))),
-					opacity: Math.max(0.2, Math.min(1, tile.style.opacity ?? 1)),
-					scale:
-						tile.style.scale === undefined
-							? undefined
-							: Math.max(0.5, Math.min(2.5, tile.style.scale)),
-				}
-			: undefined,
+		style: normalizeTileStyle(tile.style),
 	};
 }
 
-function normalizeBoard(
-	board: SessionBoard,
-	updates?: Partial<SessionBoard>,
-): SessionBoard {
+function normalizeBoard(board: SessionBoard, updates?: Partial<SessionBoard>): SessionBoard {
 	const layout = {
-		columns: Math.max(8, Math.min(32, Math.round(updates?.layout?.columns ?? board.layout?.columns ?? DEFAULT_LAYOUT.columns))),
-		rowHeight: Math.max(70, Math.min(220, Math.round(updates?.layout?.rowHeight ?? board.layout?.rowHeight ?? DEFAULT_LAYOUT.rowHeight))),
-		minRows: Math.max(6, Math.min(240, Math.round(updates?.layout?.minRows ?? board.layout?.minRows ?? DEFAULT_LAYOUT.minRows))),
-		gap: Math.max(0, Math.min(28, Math.round(updates?.layout?.gap ?? board.layout?.gap ?? DEFAULT_LAYOUT.gap))),
+		columns: Math.max(
+			8,
+			Math.min(
+				32,
+				Math.round(updates?.layout?.columns ?? board.layout?.columns ?? DEFAULT_LAYOUT.columns),
+			),
+		),
+		rowHeight: Math.max(
+			70,
+			Math.min(
+				220,
+				Math.round(
+					updates?.layout?.rowHeight ?? board.layout?.rowHeight ?? DEFAULT_LAYOUT.rowHeight,
+				),
+			),
+		),
+		minRows: Math.max(
+			6,
+			Math.min(
+				240,
+				Math.round(updates?.layout?.minRows ?? board.layout?.minRows ?? DEFAULT_LAYOUT.minRows),
+			),
+		),
+		gap: Math.max(
+			0,
+			Math.min(28, Math.round(updates?.layout?.gap ?? board.layout?.gap ?? DEFAULT_LAYOUT.gap)),
+		),
 	};
 
 	const style = updates?.style
@@ -126,10 +154,7 @@ class SessionBoardsState {
 			this.boards = boards;
 			if (boards.length > 0 && !this.activeBoardId) {
 				this.activeBoardId = boards[0]!.id;
-			} else if (
-				this.activeBoardId &&
-				!boards.some((board) => board.id === this.activeBoardId)
-			) {
+			} else if (this.activeBoardId && !boards.some((board) => board.id === this.activeBoardId)) {
 				this.activeBoardId = boards[0]?.id ?? null;
 			}
 		} catch (error) {
@@ -218,7 +243,11 @@ class SessionBoardsState {
 		});
 	}
 
-	async updateTile(boardId: SessionBoardId, tileId: string, updates: Partial<SessionBoardTile>): Promise<void> {
+	async updateTile(
+		boardId: SessionBoardId,
+		tileId: string,
+		updates: Partial<SessionBoardTile>,
+	): Promise<void> {
 		const board = this.boards.find((entry) => entry.id === boardId);
 		if (!board) return;
 		const columns = board.layout?.columns ?? GRID_COLUMNS;
