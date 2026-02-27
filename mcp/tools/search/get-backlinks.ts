@@ -2,7 +2,8 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { FileSystemAdapter } from '../../storage.js';
 import { createNoteId } from '../../../src/lib/types/note.js';
-import { errorResult, jsonResult, textResult } from '../shared/response.js';
+import { buildContextSnippetAtPosition } from '../../../src/lib/domain/backlink-context.js';
+import { errorResult, jsonResult } from '../shared/response.js';
 
 export function registerGetBacklinksTool(server: McpServer, storage: FileSystemAdapter): void {
 	server.tool(
@@ -18,9 +19,6 @@ export function registerGetBacklinksTool(server: McpServer, storage: FileSystemA
 			}
 
 			const backlinks = await storage.getLinksTo(target.id);
-			if (backlinks.length === 0) {
-				return textResult(`No backlinks found for "${target.title}".`);
-			}
 
 			const results = await Promise.all(
 				backlinks.map(async (link) => {
@@ -30,6 +28,9 @@ export function registerGetBacklinksTool(server: McpServer, storage: FileSystemA
 						sourceTitle: source?.title ?? 'Unknown',
 						displayText: link.displayText,
 						position: link.position,
+						contextSnippet: source
+							? buildContextSnippetAtPosition(source.content, link.position)
+							: 'Linked reference unavailable.',
 					};
 				}),
 			);

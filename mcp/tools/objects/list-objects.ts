@@ -3,15 +3,28 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { FileSystemAdapter } from '../../storage.js';
 import type { VaultObjectType } from '../../../src/lib/types/object.js';
 import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
-import { jsonResult, textResult } from '../shared/response.js';
+import { jsonResult } from '../shared/response.js';
 import { objectSummary } from '../shared/object-summary.js';
 
 export function registerListObjectsTool(server: McpServer, storage: FileSystemAdapter): void {
 	server.tool(
 		'list_objects',
-		'List embeddable note-objects (stat blocks, character sheets, images) with optional filtering.',
+		'List embeddable note-objects with optional type/query filtering.',
 		{
-			type: z.enum(['stat_block', 'character', 'image']).optional(),
+			type: z
+				.enum([
+					'stat_block',
+					'character',
+					'image',
+					'npc',
+					'location',
+					'faction',
+					'quest',
+					'item',
+					'encounter',
+					'timeline_event',
+				])
+				.optional(),
 			query: z.string().optional(),
 			limit: z.number().int().min(1).max(200).optional().default(50),
 		},
@@ -25,12 +38,7 @@ export function registerListObjectsTool(server: McpServer, storage: FileSystemAd
 				embed: formatNoteEmbed({ id: object.id }, object.name, { view: 'card' }),
 			}));
 
-			if (payload.length === 0) {
-				return textResult('No objects found.');
-			}
-
 			return jsonResult(payload);
 		},
 	);
 }
-

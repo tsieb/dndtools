@@ -7,26 +7,32 @@ import { createNoteId } from '../../../src/lib/types/note.js';
 import { nowISO } from '../../../src/lib/utils/date.js';
 import { errorResult, jsonResult } from '../shared/response.js';
 
-const tileInput = z.object({
-	id: z.string().min(1).optional(),
-	noteId: z.string().min(1),
-	x: z.number().int().min(0).max(31),
-	y: z.number().int().min(0).max(200),
-	w: z.number().int().min(2).max(32),
-	h: z.number().int().min(2).max(8),
-	style: z
-		.object({
-			backgroundColor: z.string().optional(),
-			borderColor: z.string().optional(),
-			borderWidth: z.number().int().min(0).max(8).optional(),
-			borderRadius: z.number().int().min(0).max(36).optional(),
-			opacity: z.number().min(0.2).max(1).optional(),
-			scale: z.number().min(0.5).max(2.5).optional(),
-		})
-		.optional(),
-});
+const tileInput = z
+	.object({
+		id: z.string().min(1).optional(),
+		noteId: z.string().min(1),
+		x: z.number().int().min(0).max(31),
+		y: z.number().int().min(0).max(200),
+		w: z.number().int().min(2).max(32),
+		h: z.number().int().min(2).max(8),
+		style: z
+			.object({
+				backgroundColor: z.string().optional(),
+				borderColor: z.string().optional(),
+				borderWidth: z.number().int().min(0).max(8).optional(),
+				borderRadius: z.number().int().min(0).max(36).optional(),
+				opacity: z.number().min(0.2).max(1).optional(),
+				scale: z.number().min(0.5).max(2.5).optional(),
+			})
+			.strict()
+			.optional(),
+	})
+	.strict();
 
-export function registerUpdateSessionBoardTool(server: McpServer, storage: FileSystemAdapter): void {
+export function registerUpdateSessionBoardTool(
+	server: McpServer,
+	storage: FileSystemAdapter,
+): void {
 	server.tool(
 		'update_session_board',
 		'Update session board metadata and tile layout.',
@@ -42,6 +48,7 @@ export function registerUpdateSessionBoardTool(server: McpServer, storage: FileS
 					minRows: z.number().int().min(6).max(240).optional(),
 					gap: z.number().int().min(0).max(28).optional(),
 				})
+				.strict()
 				.optional(),
 			style: z
 				.object({
@@ -50,6 +57,7 @@ export function registerUpdateSessionBoardTool(server: McpServer, storage: FileS
 					sectionTintColor: z.string().optional(),
 					sectionTintOpacity: z.number().min(0).max(0.75).optional(),
 				})
+				.strict()
 				.optional(),
 			addNoteIds: z.array(z.string().min(1)).optional().default([]),
 		},

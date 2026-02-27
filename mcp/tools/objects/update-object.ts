@@ -4,9 +4,17 @@ import type { FileSystemAdapter } from '../../storage.js';
 import { createVaultObjectId } from '../../../src/lib/types/object.js';
 import { nowISO } from '../../../src/lib/utils/date.js';
 import {
+	normalizeEncounterData,
+	normalizeFactionData,
 	normalizeCharacterData,
 	normalizeImageData,
+	normalizeItemData,
+	normalizeLocationData,
+	normalizeNpcData,
+	normalizeObjectRelationships,
+	normalizeQuestData,
 	normalizeStatBlockData,
+	normalizeTimelineEventData,
 	summarizeVaultObject,
 } from '../../../src/lib/domain/objects.js';
 import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
@@ -22,10 +30,20 @@ export function registerUpdateObjectTool(server: McpServer, storage: FileSystemA
 			name: z.string().optional(),
 			summary: z.string().optional(),
 			tags: z.array(z.string()).optional(),
+			relationships: z
+				.array(
+					z.object({
+						type: z.enum(['parent', 'child', 'ally', 'enemy', 'appears_in_session']),
+						targetId: z.string().optional(),
+						sessionId: z.string().optional(),
+						description: z.string().optional(),
+					}),
+				)
+				.optional(),
 			data: z.record(z.string(), z.unknown()).optional(),
 			dataMode: z.enum(['merge', 'replace']).optional().default('merge'),
 		},
-		async ({ id, name, summary, tags, data, dataMode }) => {
+		async ({ id, name, summary, tags, relationships, data, dataMode }) => {
 			const existing = await storage.getObject(createVaultObjectId(id));
 			if (!existing) {
 				return errorResult('Object not found.');
@@ -43,6 +61,10 @@ export function registerUpdateObjectTool(server: McpServer, storage: FileSystemA
 				name: name ?? existing.name,
 				summary: summary ?? existing.summary,
 				tags: tags ?? existing.tags,
+				relationships:
+					relationships === undefined
+						? existing.relationships
+						: normalizeObjectRelationships(relationships),
 				updatedAt: nowISO(),
 			};
 
@@ -55,6 +77,27 @@ export function registerUpdateObjectTool(server: McpServer, storage: FileSystemA
 					break;
 				case 'image':
 					updated.data = normalizeImageData(rawData);
+					break;
+				case 'npc':
+					updated.data = normalizeNpcData(rawData);
+					break;
+				case 'location':
+					updated.data = normalizeLocationData(rawData);
+					break;
+				case 'faction':
+					updated.data = normalizeFactionData(rawData);
+					break;
+				case 'quest':
+					updated.data = normalizeQuestData(rawData);
+					break;
+				case 'item':
+					updated.data = normalizeItemData(rawData);
+					break;
+				case 'encounter':
+					updated.data = normalizeEncounterData(rawData);
+					break;
+				case 'timeline_event':
+					updated.data = normalizeTimelineEventData(rawData);
 					break;
 			}
 
@@ -71,4 +114,3 @@ export function registerUpdateObjectTool(server: McpServer, storage: FileSystemA
 		},
 	);
 }
-

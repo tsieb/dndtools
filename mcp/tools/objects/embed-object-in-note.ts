@@ -8,10 +8,7 @@ import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
 import { errorResult, jsonResult } from '../shared/response.js';
 import { applyEmbedAtPosition, wouldCreateEmbedCycle } from '../shared/embed-note.js';
 
-export function registerEmbedObjectInNoteTool(
-	server: McpServer,
-	storage: FileSystemAdapter,
-): void {
+export function registerEmbedObjectInNoteTool(server: McpServer, storage: FileSystemAdapter): void {
 	server.tool(
 		'embed_object_in_note',
 		'Insert a reusable object embed into a note using the rich embed syntax.',
@@ -36,7 +33,10 @@ export function registerEmbedObjectInNoteTool(
 				return errorResult('Object not found.');
 			}
 
-			if (!allowCycle && (await wouldCreateEmbedCycle(storage, String(note.id), String(object.id)))) {
+			if (
+				!allowCycle &&
+				(await wouldCreateEmbedCycle(storage, String(note.id), String(object.id)))
+			) {
 				return errorResult(
 					'Embedding this object would create an embed cycle. Set allowCycle=true to override.',
 				);

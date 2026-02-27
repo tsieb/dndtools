@@ -28,4 +28,3 @@ export function registerDeleteObjectTool(server: McpServer, storage: FileSystemA
 		},
 	);
 }
-

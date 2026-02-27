@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { FileSystemAdapter } from '../../storage.js';
-import { jsonResult, textResult } from '../shared/response.js';
+import { jsonResult } from '../shared/response.js';
 
 export function registerSearchNotesTool(server: McpServer, storage: FileSystemAdapter): void {
 	server.tool(
@@ -22,10 +22,6 @@ export function registerSearchNotesTool(server: McpServer, storage: FileSystemAd
 				score,
 				snippet: note.content.slice(0, 240),
 			}));
-
-			if (payload.length === 0) {
-				return textResult(`No results for "${query}".`);
-			}
 
 			return jsonResult(payload);
 		},

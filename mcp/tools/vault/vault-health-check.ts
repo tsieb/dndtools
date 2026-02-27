@@ -1,16 +1,11 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { FileSystemAdapter } from '../../storage.js';
+import { extractWikilinks } from '../../../src/lib/domain/link-extractor.js';
 import { jsonResult } from '../shared/response.js';
 import { getLinkEntriesView } from '../shared/storage-view.js';
 
 interface HealthIssue {
-	type:
-		| 'broken_link'
-		| 'orphan'
-		| 'empty_note'
-		| 'untagged'
-		| 'root_folder'
-		| 'duplicate_title';
+	type: 'broken_link' | 'orphan' | 'empty_note' | 'untagged' | 'root_folder' | 'duplicate_title';
 	severity: 'warning' | 'info';
 	noteId: string;
 	noteTitle: string;
@@ -18,10 +13,7 @@ interface HealthIssue {
 	suggestion: string;
 }
 
-export function registerVaultHealthCheckTool(
-	server: McpServer,
-	storage: FileSystemAdapter,
-): void {
+export function registerVaultHealthCheckTool(server: McpServer, storage: FileSystemAdapter): void {
 	server.tool(
 		'vault_health_check',
 		'Run a structural health scan for broken links and organization problems.',
@@ -31,22 +23,23 @@ export function registerVaultHealthCheckTool(
 			const active = notes.filter((note) => !note.deleted);
 			const links = await getLinkEntriesView(storage);
 			const noteById = new Map(active.map((note) => [note.id, note]));
-			const noteByTitle = new Map(active.map((note) => [note.title.toLowerCase(), note.id]));
+			const noteTitles = new Set(active.map((note) => note.title.toLowerCase().trim()));
 
 			const issues: HealthIssue[] = [];
 
 			for (const note of active) {
-				const regex = /\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]/g;
-				let match: RegExpExecArray | null;
-				while ((match = regex.exec(note.content)) !== null) {
-					const targetTitle = match[1]?.trim().toLowerCase();
-					if (!targetTitle || !noteByTitle.has(targetTitle)) {
+				const extractedLinks = extractWikilinks(note.content);
+				for (const link of extractedLinks) {
+					const resolved = link.targetIdHint
+						? noteById.has(link.targetIdHint)
+						: noteTitles.has(link.title.toLowerCase().trim());
+					if (!resolved) {
 						issues.push({
 							type: 'broken_link',
 							severity: 'warning',
 							noteId: note.id,
 							noteTitle: note.title,
-							detail: `Unresolved wikilink [[${match[1] ?? 'unknown'}]]`,
+							detail: `Unresolved wikilink [[${link.title || 'unknown'}]]`,
 							suggestion: 'Create or rename the linked note to match the target title.',
 						});
 					}

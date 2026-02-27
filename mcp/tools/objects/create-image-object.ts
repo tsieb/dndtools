@@ -4,16 +4,17 @@ import type { FileSystemAdapter } from '../../storage.js';
 import type { ImageObject } from '../../../src/lib/types/object.js';
 import { generateVaultObjectId } from '../../../src/lib/utils/id.js';
 import { nowISO } from '../../../src/lib/utils/date.js';
-import { normalizeImageData, summarizeVaultObject } from '../../../src/lib/domain/objects.js';
+import {
+	normalizeImageData,
+	normalizeObjectRelationships,
+	summarizeVaultObject,
+} from '../../../src/lib/domain/objects.js';
 import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
 import { objectBaseSchema } from '../shared/object-schema.js';
 import { jsonResult } from '../shared/response.js';
 import { objectSummary } from '../shared/object-summary.js';
 
-export function registerCreateImageObjectTool(
-	server: McpServer,
-	storage: FileSystemAdapter,
-): void {
+export function registerCreateImageObjectTool(server: McpServer, storage: FileSystemAdapter): void {
 	server.tool(
 		'create_image_object',
 		'Create a reusable image note with metadata for embeds.',
@@ -34,6 +35,7 @@ export function registerCreateImageObjectTool(
 				name: input.name,
 				summary: input.summary,
 				tags: input.tags,
+				relationships: normalizeObjectRelationships(input.relationships),
 				data: normalizeImageData({
 					url: input.url,
 					alt: input.alt,
@@ -59,4 +61,3 @@ export function registerCreateImageObjectTool(
 		},
 	);
 }
-

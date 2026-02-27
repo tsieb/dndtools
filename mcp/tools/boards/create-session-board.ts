@@ -33,7 +33,10 @@ function buildInitialTiles(noteIds: string[]): Array<{
 	});
 }
 
-export function registerCreateSessionBoardTool(server: McpServer, storage: FileSystemAdapter): void {
+export function registerCreateSessionBoardTool(
+	server: McpServer,
+	storage: FileSystemAdapter,
+): void {
 	server.tool(
 		'create_session_board',
 		'Create a new session board dashboard and optionally seed it with notes.',

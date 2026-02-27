@@ -17,12 +17,12 @@ export function registerReadObjectTool(server: McpServer, storage: FileSystemAda
 			if (!object) {
 				return errorResult('Object not found.');
 			}
+			const { relationships: _relationships, ...base } = object;
 
 			return jsonResult({
-				...object,
+				...base,
 				embed: formatNoteEmbed({ id: object.id }, object.name, { view: 'card' }),
 			});
 		},
 	);
 }
-

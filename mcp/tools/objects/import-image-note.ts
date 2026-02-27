@@ -8,7 +8,11 @@ import { createFolderId, createNoteId } from '../../../src/lib/types/note.js';
 import { generateVaultObjectId } from '../../../src/lib/utils/id.js';
 import { nowISO } from '../../../src/lib/utils/date.js';
 import { slugify } from '../../../src/lib/utils/slug.js';
-import { normalizeImageData, summarizeVaultObject } from '../../../src/lib/domain/objects.js';
+import {
+	normalizeImageData,
+	normalizeObjectRelationships,
+	summarizeVaultObject,
+} from '../../../src/lib/domain/objects.js';
 import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
 import { errorResult, jsonResult } from '../shared/response.js';
 
@@ -31,10 +35,7 @@ function asFileUri(filePath: string): string {
 	return `file:///${encodeURI(filePath.replace(/\\/g, '/'))}`;
 }
 
-export function registerImportImageNoteTool(
-	server: McpServer,
-	storage: FileSystemAdapter,
-): void {
+export function registerImportImageNoteTool(server: McpServer, storage: FileSystemAdapter): void {
 	server.tool(
 		'import_image_note',
 		'Copy or move a local image file into the vault and create an embeddable image note.',
@@ -43,6 +44,17 @@ export function registerImportImageNoteTool(
 			name: z.string().optional().describe('Optional image note name (defaults to filename)'),
 			summary: z.string().optional().default(''),
 			tags: z.array(z.string()).optional().default([]),
+			relationships: z
+				.array(
+					z.object({
+						type: z.enum(['parent', 'child', 'ally', 'enemy', 'appears_in_session']),
+						targetId: z.string().optional(),
+						sessionId: z.string().optional(),
+						description: z.string().optional(),
+					}),
+				)
+				.optional()
+				.default([]),
 			assetFolder: z.string().optional().default('/assets/images'),
 			noteFolder: z.string().optional().default('/objects/image'),
 			alt: z.string().optional(),
@@ -104,6 +116,7 @@ export function registerImportImageNoteTool(
 				name: baseName,
 				summary: input.summary,
 				tags: input.tags,
+				relationships: normalizeObjectRelationships(input.relationships),
 				data: normalizeImageData({
 					url: asFileUri(destinationAbs),
 					alt: input.alt,

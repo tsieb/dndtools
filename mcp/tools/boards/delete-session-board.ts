@@ -4,7 +4,10 @@ import type { FileSystemAdapter } from '../../storage.js';
 import { createSessionBoardId } from '../../../src/lib/types/session-board.js';
 import { jsonResult } from '../shared/response.js';
 
-export function registerDeleteSessionBoardTool(server: McpServer, storage: FileSystemAdapter): void {
+export function registerDeleteSessionBoardTool(
+	server: McpServer,
+	storage: FileSystemAdapter,
+): void {
 	server.tool(
 		'delete_session_board',
 		'Delete a session board by id.',
@@ -17,4 +20,3 @@ export function registerDeleteSessionBoardTool(server: McpServer, storage: FileS
 		},
 	);
 }
-

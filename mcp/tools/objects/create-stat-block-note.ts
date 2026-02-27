@@ -6,6 +6,7 @@ import { generateVaultObjectId } from '../../../src/lib/utils/id.js';
 import { nowISO } from '../../../src/lib/utils/date.js';
 import {
 	normalizeAbilityScores,
+	normalizeObjectRelationships,
 	normalizeStatBlockData,
 	summarizeVaultObject,
 } from '../../../src/lib/domain/objects.js';
@@ -48,6 +49,7 @@ export function registerCreateStatBlockNoteTool(
 				name: input.name,
 				summary: input.summary,
 				tags: input.tags,
+				relationships: normalizeObjectRelationships(input.relationships),
 				data: normalizeStatBlockData({
 					size: input.size,
 					creatureType: input.creatureType,
@@ -79,4 +81,3 @@ export function registerCreateStatBlockNoteTool(
 		},
 	);
 }
-

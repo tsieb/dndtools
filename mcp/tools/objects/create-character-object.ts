@@ -7,6 +7,7 @@ import { nowISO } from '../../../src/lib/utils/date.js';
 import {
 	normalizeAbilityScores,
 	normalizeCharacterData,
+	normalizeObjectRelationships,
 	summarizeVaultObject,
 } from '../../../src/lib/domain/objects.js';
 import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
@@ -46,6 +47,7 @@ export function registerCreateCharacterObjectTool(
 				name: input.name,
 				summary: input.summary,
 				tags: input.tags,
+				relationships: normalizeObjectRelationships(input.relationships),
 				data: normalizeCharacterData({
 					ancestry: input.ancestry,
 					className: input.className,
@@ -56,9 +58,7 @@ export function registerCreateCharacterObjectTool(
 					hitPoints: input.hitPoints,
 					speed: input.speed,
 					proficiencyBonus: input.proficiencyBonus,
-					abilities: input.abilities
-						? normalizeAbilityScores(input.abilities)
-						: undefined,
+					abilities: input.abilities ? normalizeAbilityScores(input.abilities) : undefined,
 					goals: input.goals,
 					bonds: input.bonds,
 					flaws: input.flaws,
@@ -81,4 +81,3 @@ export function registerCreateCharacterObjectTool(
 		},
 	);
 }
-

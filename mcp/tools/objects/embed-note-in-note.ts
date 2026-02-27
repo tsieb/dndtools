@@ -7,10 +7,7 @@ import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
 import { errorResult, jsonResult } from '../shared/response.js';
 import { applyEmbedAtPosition, wouldCreateEmbedCycle } from '../shared/embed-note.js';
 
-export function registerEmbedNoteInNoteTool(
-	server: McpServer,
-	storage: FileSystemAdapter,
-): void {
+export function registerEmbedNoteInNoteTool(server: McpServer, storage: FileSystemAdapter): void {
 	server.tool(
 		'embed_note_in_note',
 		'Embed any note into another note with render metadata and cycle protection.',
@@ -35,7 +32,10 @@ export function registerEmbedNoteInNoteTool(
 				return errorResult('Embedded note not found.');
 			}
 
-			if (!allowCycle && (await wouldCreateEmbedCycle(storage, String(note.id), String(target.id)))) {
+			if (
+				!allowCycle &&
+				(await wouldCreateEmbedCycle(storage, String(note.id), String(target.id)))
+			) {
 				return errorResult(
 					'Embedding this note would create an embed cycle. Set allowCycle=true to override.',
 				);
@@ -65,4 +65,3 @@ export function registerEmbedNoteInNoteTool(
 		},
 	);
 }
-

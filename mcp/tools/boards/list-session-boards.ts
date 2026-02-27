@@ -13,4 +13,3 @@ export function registerListSessionBoardsTool(server: McpServer, storage: FileSy
 		},
 	);
 }
-
