@@ -19,6 +19,7 @@ import type { AppSettings } from '../src/lib/types/settings.js';
 import type { SessionBoardId, SessionBoard } from '../src/lib/types/session-board.js';
 import type { VaultObjectId, VaultObject } from '../src/lib/types/object.js';
 import { DiagnosticsTracker } from './diagnostics.js';
+import * as BackupScheduler from './backup-scheduler.js';
 import {
 	parseIpcArg,
 	idSchema,
@@ -31,6 +32,7 @@ import {
 	vaultObjectSchema,
 	sessionBoardSchema,
 	appSettingsKeySchema,
+	settingValueSchemas,
 	mcpPolicySettingsSchema,
 	migrationOptionsSchema,
 	healthSubsystemSchema,
@@ -174,6 +176,7 @@ async function startStaticServer(rootDir: string): Promise<string> {
 }
 
 async function setVaultDirectory(nextVaultDir: string): Promise<void> {
+	BackupScheduler.stop();
 	if (storage) {
 		await storage.close();
 	}
@@ -215,6 +218,11 @@ async function setVaultDirectory(nextVaultDir: string): Promise<void> {
 		throw error;
 	}
 	vaultDir = nextVaultDir;
+	BackupScheduler.start(
+		nextVaultDir,
+		() => storage,
+		async () => (storage ? storage.getSetting('backupCadence').catch(() => null) : null),
+	);
 	// Configure sidecar log path and load persisted events before restarting.
 	mcpSidecar.setLogPath(nextVaultDir);
 	await mcpSidecar.loadPersistedEvents();
@@ -529,10 +537,17 @@ ipcMain.handle('dndtools:storage:get-setting', async (_event, rawKey: unknown) =
 	return requireStorage().getSetting(key as keyof AppSettings);
 });
 
-ipcMain.handle('dndtools:storage:set-setting', async (_event, rawKey: unknown, value: unknown) => {
-	const key = parseIpcArg(appSettingsKeySchema, rawKey, 'storage:set-setting:key');
-	await requireStorage().setSetting(key as keyof AppSettings, value as never);
-});
+ipcMain.handle(
+	'dndtools:storage:set-setting',
+	async (_event, rawKey: unknown, rawValue: unknown) => {
+		const key = parseIpcArg(appSettingsKeySchema, rawKey, 'storage:set-setting:key');
+		const value = parseIpcArg(settingValueSchemas[key], rawValue, 'storage:set-setting:value');
+		if (key === 'backupCadence') {
+			BackupScheduler.updateCadence(value as string, () => storage);
+		}
+		await requireStorage().setSetting(key as keyof AppSettings, value as never);
+	},
+);
 
 ipcMain.handle('dndtools:storage:create-safety-snapshot', async (_event, rawReason: unknown) => {
 	const reason = parseIpcArg(snapshotReasonSchema, rawReason, 'storage:create-safety-snapshot');
@@ -693,6 +708,7 @@ ipcMain.handle('dndtools:diagnostics:export', async () => {
 	const metrics = diagnostics.getMetrics(metricsBase);
 	const mcpStatus = mcpSidecar.getStatus();
 	const mcpLifecycle = mcpSidecar.getLifecycleEvents(120);
+	const integrityReport = (await storage?.getMetadataIntegrityReport().catch(() => null)) ?? null;
 
 	// Redact user-identifying paths before bundling.
 	const redactedVaultDir = vaultDir ? '[VAULT_DIR_REDACTED]' : null;
@@ -734,6 +750,10 @@ ipcMain.handle('dndtools:diagnostics:export', async () => {
 		context: e.context,
 	}));
 
+	const integrityJson = vaultDir
+		? JSON.stringify(integrityReport, null, 2).replaceAll(vaultDir, '[VAULT_DIR]')
+		: JSON.stringify(integrityReport, null, 2);
+
 	const readme = [
 		'DND Tools Diagnostics Bundle',
 		'============================',
@@ -744,6 +764,7 @@ ipcMain.handle('dndtools:diagnostics:export', async () => {
 		'  diagnostics.json  â€” Runtime environment, health timestamps, MCP status, metrics.',
 		'  errors.json       â€” Recent structured error events (vault paths redacted).',
 		'  sidecar-log.json  â€” MCP sidecar lifecycle event history.',
+		'  integrity.json    \u2014 Vault metadata integrity report (vault paths redacted).',
 		'',
 		'How to share:',
 		'  Attach this zip file to a GitHub issue at:',
@@ -761,6 +782,7 @@ ipcMain.handle('dndtools:diagnostics:export', async () => {
 		'sidecar-log.json',
 		Buffer.from(JSON.stringify({ events: mcpLifecycle }, null, 2), 'utf-8'),
 	);
+	zip.addFile('integrity.json', Buffer.from(integrityJson, 'utf-8'));
 	zip.addFile('README.txt', Buffer.from(readme, 'utf-8'));
 	zip.writeZip(picked.filePath);
 
@@ -925,6 +947,7 @@ app.on('before-quit', (event) => {
 				await current.createSafetySnapshot('auto-on-close').catch(() => undefined);
 			}
 		} finally {
+			BackupScheduler.stop();
 			await current.close().catch(() => undefined);
 			void mcpSidecar.stop();
 			if (staticServer) {

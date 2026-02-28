@@ -303,6 +303,62 @@ export const importNotesSchema = z.array(noteSchema).max(MAX_IMPORT_NOTES);
 /** Optional snapshot reason string. */
 export const snapshotReasonSchema = z.string().max(MAX_STRING_LENGTH).optional();
 
+// ─── Per-key AppSettings value schemas ───────────────────────────────────────
+
+/**
+ * Maps each AppSettings key to the Zod schema its value must satisfy.
+ * Used by the set-setting IPC handler to validate the value argument in
+ * addition to the already-whitelisted key.  Closes risk R1 in SECURITY.md.
+ */
+export const settingValueSchemas: Record<string, z.ZodTypeAny> = {
+	theme: z.enum(['light', 'dark', 'system']),
+	sidebarOpen: z.boolean(),
+	sidebarWidth: z.number().int().min(160).max(600),
+	focusReading: z.boolean(),
+	defaultNoteView: z.enum(['read', 'edit']),
+	editor: z.object({
+		fontSize: z.number().int().min(8).max(72),
+		lineHeight: z.number().min(1).max(3),
+		showLineNumbers: z.boolean(),
+		wordWrap: z.boolean(),
+		vimMode: z.boolean(),
+		splitPane: z.boolean(),
+		toolbarDensity: z.enum(['compact', 'comfortable']),
+	}),
+	autoSaveDelay: z.number().int().min(0).max(10_000),
+	trashRetentionDays: z.number().int().min(0).max(365),
+	backupCadence: z.enum(['hourly', 'daily', 'on-close', 'manual']),
+	backupRetentionCount: z.number().int().min(1).max(100),
+	defaultSort: z.object({
+		field: z.enum(['title', 'updatedAt', 'createdAt']),
+		direction: z.enum(['asc', 'desc']),
+	}),
+	savedSearches: z
+		.array(
+			z.object({
+				id: z.string().min(1).max(MAX_STRING_LENGTH),
+				name: z.string().min(1).max(MAX_STRING_LENGTH),
+				query: z.string().max(MAX_STRING_LENGTH),
+				createdAt: z.string().min(1).max(MAX_STRING_LENGTH),
+				updatedAt: z.string().min(1).max(MAX_STRING_LENGTH),
+			}),
+		)
+		.max(500),
+	onboarding: z.object({
+		dismissed: z.boolean(),
+		completedSteps: z
+			.array(z.enum(['create_first_note', 'add_link', 'add_tag', 'use_search', 'open_settings']))
+			.max(50),
+		dismissedTips: z.array(z.enum(['wikilinks', 'backlinks', 'object_embeds'])).max(50),
+	}),
+	templateContext: z.object({
+		campaignName: z.string().max(MAX_STRING_LENGTH),
+		sessionNumber: z.number().int().min(0).max(10_000),
+		characterNames: z.array(z.string().max(MAX_STRING_LENGTH)).max(100),
+	}),
+	mcpPolicySettings: mcpPolicySettingsSchema,
+};
+
 // ─── Validation helper ────────────────────────────────────────────────────────
 
 /**

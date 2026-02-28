@@ -1,6 +1,6 @@
 # DND Tools Security Model
 
-**Last updated:** 2026-02-27
+**Last updated:** 2026-02-28
 **Owner:** Engineering
 **Epic:** 1.4 — IPC Hardening & Security Model
 
@@ -158,10 +158,10 @@ arrays) to confuse the storage layer.
   to branded types (e.g. `as NoteId`) which is a TypeScript-only assertion, not
   a runtime coercion.
 
-**Residual risk:** `setSetting` accepts an unvalidated `value` argument because
-the correct type depends on the key at runtime. The key is strictly whitelisted
-(see §4.3); the value is passed to the storage layer which is responsible for
-serialisation. **Remediation target: Epic 1.5** (add per-key value schemas).
+**Residual risk:** None. `setSetting` now validates both the key (via
+`appSettingsKeySchema`) and the value (via `settingValueSchemas` keyed by the
+validated setting key, defined in `electron/ipc-schemas.ts`). Both validations
+occur before any storage call.
 
 ### 4.3 Settings Key Injection
 
@@ -303,7 +303,7 @@ routes if the link resolver does not validate the target.
 
 | ID  | Description                                     | Severity | Status    | Remediation Target |
 | --- | ----------------------------------------------- | -------- | --------- | ------------------ |
-| R1  | `setSetting` value not schema-validated per key | Low      | Open      | Epic 1.5           |
+| R1  | `setSetting` value not schema-validated per key | Low      | Closed    | Epic 1.5           |
 | R2  | rehype-sanitize defaults must not be relaxed    | Low      | Monitor   | Ongoing            |
 | R3  | Cloud sync will expand attack surface           | Medium   | Future    | Phase 5 pre-launch |
 | R4  | `trusted` MCP agents bypass write review        | Low      | By-design | Document in UI     |
