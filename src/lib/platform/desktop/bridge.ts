@@ -134,7 +134,7 @@ export interface DesktopIntegrityReport {
 	noteIssues: Array<{
 		noteId: string;
 		filePath: string;
-		status: 'missing_marker' | 'invalid_marker' | 'checksum_mismatch';
+		status: 'missing_marker' | 'invalid_marker' | 'checksum_mismatch' | 'orphan_entry';
 		details: string;
 		repaired: boolean;
 	}>;
@@ -150,6 +150,8 @@ export interface DesktopSafetySnapshot {
 	createdAt: string;
 	reason: string;
 	noteCount: number;
+	/** File size in bytes. Zero if unavailable. */
+	sizeBytes?: number;
 }
 
 export interface DesktopSnapshotRestoreResult {
@@ -350,4 +352,14 @@ export function onDesktopWindowStateChange(
 	callback: (state: DesktopWindowState) => void,
 ): () => void {
 	return requireBridge().onWindowStateChange(callback);
+}
+
+export async function rebuildDesktopVaultIndex(): Promise<{ rebuilt: number }> {
+	return requireBridge().rebuildVaultIndex();
+}
+
+export async function clearDesktopMcpChangelog(options?: {
+	maxAgeMs?: number;
+}): Promise<{ removed: number }> {
+	return requireBridge().clearMcpChangelog(options);
 }

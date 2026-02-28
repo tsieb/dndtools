@@ -7,6 +7,7 @@
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { editorPreferencesState } from '$lib/state/editor-preferences.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
+	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
 	import { onboardingState } from '$lib/state/onboarding.svelte.js';
 	import { ONBOARDING_STEPS } from '$lib/domain/onboarding.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
@@ -31,6 +32,8 @@
 		getDesktopMcpPolicySettings,
 		setDesktopMcpPolicySettings,
 		listDesktopMcpAuditTrail,
+		rebuildDesktopVaultIndex,
+		clearDesktopMcpChangelog,
 		type DesktopIntegrityReport,
 		type DesktopMcpStatus,
 		type DesktopSystemHealth,
@@ -74,6 +77,8 @@
 		perAgent: {},
 	});
 	let savingMcpPolicySettings = $state(false);
+	let rebuildingIndex = $state(false);
+	let clearingChangelog = $state(false);
 	let mcpAuditTrail = $state<DesktopMcpChangeRecord[]>([]);
 	let mcpAuditLoading = $state(false);
 	let mcpChangeFilterType = $state<McpPendingFilterType>('all');
@@ -227,7 +232,8 @@
 				markSubsystemSuccess('link_graph_build'),
 			]);
 			systemHealth = await getDesktopSystemHealth();
-			if (repaired.issues.length === 0) {
+			await vaultHealthState.refresh();
+			if (repaired.issues.length === 0 && repaired.noteIssues.length === 0) {
 				toastState.success('Metadata integrity is healthy');
 				return;
 			}
@@ -764,6 +770,37 @@
 			: 'Sidecar is stopped. Restart to launch it.';
 	});
 
+	async function handleRebuildIndex(): Promise<void> {
+		rebuildingIndex = true;
+		try {
+			const result = await rebuildDesktopVaultIndex();
+			await refreshDesktopState();
+			await vaultHealthState.refresh();
+			toastState.success(`Rebuilt vault index (${result.rebuilt} entries)`);
+		} catch (error) {
+			reportSettingsError('storage', 'SETTINGS_REBUILD_INDEX_FAILED', error);
+			toastState.error(`Failed to rebuild index: ${String(error)}`);
+		} finally {
+			rebuildingIndex = false;
+		}
+	}
+
+	async function handleClearChangelog(): Promise<void> {
+		clearingChangelog = true;
+		try {
+			const result = await clearDesktopMcpChangelog({ maxAgeMs: 7 * 24 * 60 * 60 * 1000 });
+			await loadMcpAuditTrail();
+			toastState.success(
+				`Cleared ${result.removed} resolved change${result.removed === 1 ? '' : 's'} older than 7 days`,
+			);
+		} catch (error) {
+			reportSettingsError('storage', 'SETTINGS_CLEAR_CHANGELOG_FAILED', error);
+			toastState.error(`Failed to clear changelog: ${String(error)}`);
+		} finally {
+			clearingChangelog = false;
+		}
+	}
+
 	async function updateEditorSettings(
 		updates: Partial<typeof editorPreferencesState.settings>,
 	): Promise<void> {
@@ -1113,7 +1150,7 @@
 									{integrityReport
 										? integrityReport.healthy
 											? 'All .vault metadata and note markers passed validation.'
-											: `${integrityReport.issues.length + integrityReport.noteIssues.length} issue${integrityReport.issues.length + integrityReport.noteIssues.length === 1 ? '' : 's'} detected.`
+											: `${integrityReport.issues.filter((i) => !i.repaired && i.status !== 'ok').length + integrityReport.noteIssues.filter((i) => !i.repaired).length} unrepaired issue${integrityReport.issues.filter((i) => !i.repaired && i.status !== 'ok').length + integrityReport.noteIssues.filter((i) => !i.repaired).length === 1 ? '' : 's'} detected.`
 										: refreshingDesktopState
 											? 'Scanning...'
 											: 'Status unavailable'}
@@ -1138,37 +1175,81 @@
 							</span>
 						</div>
 
-						{#if integrityReport && integrityReport.issues.length > 0}
+						{#if integrityReport && integrityReport.issues.some((i) => !i.repaired && i.status !== 'ok')}
+							<p class="text-xs font-medium text-rose-700 dark:text-rose-400">
+								Critical — metadata files
+							</p>
 							<ul
-								class="rounded border border-border dark:border-tavern-border divide-y divide-border dark:divide-tavern-border"
+								class="rounded border border-rose-200 dark:border-rose-900 divide-y divide-rose-100 dark:divide-rose-900"
 							>
-								{#each integrityReport.issues as issue (issue.file)}
+								{#each integrityReport.issues.filter((i) => !i.repaired && i.status !== 'ok') as issue (issue.file)}
 									<li class="px-3 py-2 text-xs">
 										<p class="font-mono text-ink dark:text-tavern-text">{issue.file}</p>
-										<p class="text-ink-muted dark:text-tavern-muted mt-1">
-											{issue.status}{issue.repaired ? ' (repaired)' : ''}
-										</p>
+										<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
+										{#if issue.details}<p class="text-ink-faint dark:text-tavern-faint mt-0.5">
+												{issue.details}
+											</p>{/if}
 									</li>
 								{/each}
 							</ul>
 						{/if}
 
-						{#if integrityReport && integrityReport.noteIssues.length > 0}
+						{#if integrityReport?.noteIssues.some((i) => !i.repaired && (i.status === 'checksum_mismatch' || i.status === 'orphan_entry'))}
+							<p class="text-xs font-medium text-amber-700 dark:text-amber-400">
+								Warning — note integrity
+							</p>
+							<ul
+								class="rounded border border-amber-200 dark:border-amber-900 divide-y divide-amber-100 dark:divide-amber-900"
+							>
+								{#each integrityReport.noteIssues.filter((i) => !i.repaired && (i.status === 'checksum_mismatch' || i.status === 'orphan_entry')) as issue (issue.noteId + issue.filePath)}
+									<li class="px-3 py-2 text-xs">
+										<p class="font-mono text-ink dark:text-tavern-text">{issue.filePath}</p>
+										<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
+										{#if issue.status === 'checksum_mismatch'}<p
+												class="text-ink-faint dark:text-tavern-faint mt-0.5"
+											>
+												Content changed outside DND Tools. Re-open and save the note to update the
+												checksum.
+											</p>{/if}
+										{#if issue.status === 'orphan_entry'}<p
+												class="text-ink-faint dark:text-tavern-faint mt-0.5"
+											>
+												File missing on disk. Rebuild the index to remove the stale entry.
+											</p>{/if}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+
+						{#if integrityReport?.noteIssues.some((i) => !i.repaired && (i.status === 'missing_marker' || i.status === 'invalid_marker'))}
+							<p class="text-xs font-medium text-ink-muted dark:text-tavern-muted">
+								Info — marker issues (auto-repaired on next save)
+							</p>
 							<ul
 								class="rounded border border-border dark:border-tavern-border divide-y divide-border dark:divide-tavern-border"
 							>
-								{#each integrityReport.noteIssues as issue (issue.noteId + issue.filePath)}
+								{#each integrityReport.noteIssues.filter((i) => !i.repaired && (i.status === 'missing_marker' || i.status === 'invalid_marker')) as issue (issue.noteId + issue.filePath)}
 									<li class="px-3 py-2 text-xs">
 										<p class="font-mono text-ink dark:text-tavern-text">{issue.filePath}</p>
-										<p class="text-ink-muted dark:text-tavern-muted mt-1">
-											{issue.status}{issue.repaired ? ' (repaired)' : ''}
-										</p>
+										<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
 									</li>
 								{/each}
 							</ul>
 						{/if}
 
-						<div class="flex items-center gap-2">
+						{#if integrityReport && integrityReport.issues.some((i) => i.repaired)}
+							<ul
+								class="rounded border border-emerald-100 dark:border-emerald-900 divide-y divide-emerald-50 dark:divide-emerald-900"
+							>
+								{#each integrityReport.issues.filter((i) => i.repaired) as issue (issue.file)}
+									<li class="px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+										{issue.file} — repaired automatically
+									</li>
+								{/each}
+							</ul>
+						{/if}
+
+						<div class="flex flex-wrap items-center gap-2">
 							<Button
 								variant="secondary"
 								size="sm"
@@ -1176,6 +1257,14 @@
 								disabled={repairingIntegrity}
 							>
 								{repairingIntegrity ? 'Repairing...' : 'Repair Metadata'}
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								onclick={handleRebuildIndex}
+								disabled={rebuildingIndex}
+							>
+								{rebuildingIndex ? 'Rebuilding...' : 'Rebuild Index'}
 							</Button>
 							<Button
 								variant="ghost"
@@ -1210,6 +1299,7 @@
 							>
 								<option value="hourly">Hourly</option>
 								<option value="daily">Daily</option>
+								<option value="on-close">On close</option>
 								<option value="manual">Manual only</option>
 							</select>
 						</div>
@@ -1266,8 +1356,10 @@
 								>
 									{#each safetySnapshots as snapshot (snapshot.id)}
 										<option value={snapshot.id}>
-											{new Date(snapshot.createdAt).toLocaleString()} - {snapshot.reason} ({snapshot.noteCount}
-											notes)
+											{new Date(snapshot.createdAt).toLocaleString()} — {snapshot.reason} ({snapshot.noteCount}
+											notes{snapshot.sizeBytes
+												? `, ${snapshot.sizeBytes > 1048576 ? (snapshot.sizeBytes / 1048576).toFixed(1) + ' MB' : Math.round(snapshot.sizeBytes / 1024) + ' KB'}`
+												: ''})
 										</option>
 									{/each}
 								</select>
@@ -1704,14 +1796,24 @@
 				<div class="mt-6">
 					<div class="flex items-center justify-between mb-3">
 						<h3 class="text-base font-semibold text-ink dark:text-tavern-text">MCP Audit Trail</h3>
-						<Button
-							variant="ghost"
-							size="sm"
-							onclick={loadMcpAuditTrail}
-							disabled={mcpAuditLoading}
-						>
-							{mcpAuditLoading ? 'Refreshing...' : 'Refresh Audit'}
-						</Button>
+						<div class="flex items-center gap-2">
+							<Button
+								variant="ghost"
+								size="sm"
+								onclick={loadMcpAuditTrail}
+								disabled={mcpAuditLoading}
+							>
+								{mcpAuditLoading ? 'Refreshing...' : 'Refresh Audit'}
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								onclick={handleClearChangelog}
+								disabled={clearingChangelog}
+							>
+								{clearingChangelog ? 'Clearing...' : 'Clear Resolved (7d+)'}
+							</Button>
+						</div>
 					</div>
 					<div
 						class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface overflow-hidden"

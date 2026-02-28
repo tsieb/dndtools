@@ -5,6 +5,7 @@
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { runtimeState } from '$lib/state/runtime.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
+	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
@@ -55,6 +56,12 @@
 	$effect(() => {
 		void runtimeState.initialize();
 		installGlobalRuntimeDiagnostics();
+	});
+
+	$effect(() => {
+		if (runtimeState.ready) {
+			void vaultHealthState.refresh();
+		}
 	});
 
 	$effect(() => {

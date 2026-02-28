@@ -222,7 +222,11 @@ interface MetadataIntegrityIssue {
 	details: string | null;
 }
 
-type NoteIntegrityIssueStatus = 'missing_marker' | 'invalid_marker' | 'checksum_mismatch';
+type NoteIntegrityIssueStatus =
+	| 'missing_marker'
+	| 'invalid_marker'
+	| 'checksum_mismatch'
+	| 'orphan_entry';
 
 interface NoteIntegrityIssue {
 	noteId: string;
@@ -971,7 +975,8 @@ export class FileSystemAdapter implements StorageAdapter {
 
 	private async maybeCreateScheduledSnapshot(trigger: string): Promise<void> {
 		const cadence = await this.getSetting('backupCadence');
-		if (cadence === 'manual') return;
+		// 'manual' and 'on-close' are not triggered by vault mutations.
+		if (cadence === 'manual' || cadence === 'on-close') return;
 
 		const snapshots = await this.listSafetySnapshots();
 		const latest = snapshots.find((entry) => entry.reason.startsWith('auto-'));
@@ -1068,10 +1073,19 @@ export class FileSystemAdapter implements StorageAdapter {
 		for (const [noteId, entry] of Object.entries(this.index.notes)) {
 			const filePath = this.noteFilePath(createFolderId(entry.folder), entry.filename);
 			let parsed: { data: Record<string, unknown>; content: string };
+			let raw: string;
 			try {
-				const raw = await fs.readFile(filePath, 'utf-8');
+				raw = await fs.readFile(filePath, 'utf-8');
 				parsed = matter(raw) as { data: Record<string, unknown>; content: string };
 			} catch {
+				// File is missing on disk but still referenced in index — orphaned entry.
+				issues.push({
+					noteId,
+					filePath: this.toRelativeVaultPath(createFolderId(entry.folder), entry.filename),
+					status: 'orphan_entry',
+					details: 'Note is listed in index.json but its file does not exist on disk.',
+					repaired: false,
+				});
 				continue;
 			}
 
@@ -1204,6 +1218,37 @@ export class FileSystemAdapter implements StorageAdapter {
 		await this.rebuildIndexIfNeeded();
 		await this.scanMetadataIntegrity();
 		return repaired;
+	}
+
+	/** Force a full rebuild of the in-memory index from files on disk. */
+	async rebuildVaultIndex(): Promise<{ rebuilt: number }> {
+		await this.rebuildIndex();
+		const count = Object.keys(this.index.notes).length;
+		return { rebuilt: count };
+	}
+
+	/**
+	 * Remove resolved (approved/rejected) MCP changelog entries older than the
+	 * given age threshold. Returns how many entries were removed.
+	 */
+	async clearMcpChangelog(options?: { maxAgeMs?: number }): Promise<{ removed: number }> {
+		const changelog = await this.loadMcpChangeLog();
+		const before = changelog.changes.length;
+		const cutoff = options?.maxAgeMs != null ? Date.now() - options.maxAgeMs : null;
+
+		changelog.changes = changelog.changes.filter((change) => {
+			// Keep pending changes always.
+			if (change.status === 'pending') return true;
+			// Keep recent resolved changes if a cutoff is specified.
+			if (cutoff !== null && change.resolvedAt) {
+				return new Date(change.resolvedAt).getTime() > cutoff;
+			}
+			// No cutoff — remove all resolved changes.
+			return cutoff !== null;
+		});
+
+		await this.saveMcpChangeLog(changelog);
+		return { removed: before - changelog.changes.length };
 	}
 
 	async getSchemaMigrationReport(): Promise<SchemaMigrationReport> {
@@ -1892,7 +1937,18 @@ export class FileSystemAdapter implements StorageAdapter {
 
 	async listSafetySnapshots(): Promise<SafetySnapshot[]> {
 		const manifest = await this.loadSnapshotManifest();
-		return [...manifest.snapshots].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+		const sorted = [...manifest.snapshots].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+		// Augment each entry with the snapshot file size (best-effort).
+		return Promise.all(
+			sorted.map(async (snapshot) => {
+				try {
+					const stat = await fs.stat(this.snapshotFilePath(snapshot.id));
+					return { ...snapshot, sizeBytes: stat.size };
+				} catch {
+					return { ...snapshot, sizeBytes: 0 };
+				}
+			}),
+		);
 	}
 
 	async restoreDeletedFromSnapshot(snapshotId: string): Promise<SnapshotRestoreResult> {

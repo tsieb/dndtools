@@ -130,7 +130,7 @@ declare global {
 		noteIssues: Array<{
 			noteId: string;
 			filePath: string;
-			status: 'missing_marker' | 'invalid_marker' | 'checksum_mismatch';
+			status: 'missing_marker' | 'invalid_marker' | 'checksum_mismatch' | 'orphan_entry';
 			details: string;
 			repaired: boolean;
 		}>;
@@ -146,6 +146,7 @@ declare global {
 		createdAt: string;
 		reason: string;
 		noteCount: number;
+		sizeBytes?: number;
 	}
 
 	interface DesktopSchemaMigrationFailure {
@@ -269,6 +270,8 @@ declare global {
 			refreshFromDisk(): Promise<void>;
 			getIntegrityReport(): Promise<DesktopIntegrityReport>;
 			repairIntegrity(): Promise<DesktopIntegrityReport>;
+			rebuildVaultIndex(): Promise<{ rebuilt: number }>;
+			clearMcpChangelog(options?: { maxAgeMs?: number }): Promise<{ removed: number }>;
 			getSchemaMigrationReport(): Promise<DesktopSchemaMigrationReport>;
 			runSchemaMigrations(options?: {
 				dryRun?: boolean;
