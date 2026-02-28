@@ -51,5 +51,8 @@
 		]
 	},
 	"enableAllProjectMcpServers": true,
-	"enabledMcpjsonServers": ["dndtools"]
+	"enabledMcpjsonServers": ["dndtools"],
+	"env": {
+		"CLAUDE_CODE_MAX_OUTPUT_TOKENS": "64000"
+	}
 }
