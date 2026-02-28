@@ -273,6 +273,7 @@ export const structuredErrorEventSchema = z.object({
 	code: z.string().min(1).max(MAX_STRING_LENGTH),
 	message: z.string().min(1).max(MAX_CONTENT_LENGTH),
 	severity: z.enum(['error', 'warning', 'info']),
+	recoveryHint: z.string().max(MAX_STRING_LENGTH).nullable().optional().default(null),
 	details: z.string().max(MAX_CONTENT_LENGTH).nullable(),
 	context: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
 });

@@ -28,6 +28,7 @@ declare global {
 		code: string;
 		message: string;
 		severity: 'error' | 'warning' | 'info';
+		recoveryHint: string | null;
 		details: string | null;
 		context: Record<string, string | number | boolean | null>;
 	}

@@ -422,7 +422,22 @@ describe('AC3 — Enum values / whitelists are enforced', () => {
 			expect(result.success).toBe(false);
 		});
 
-		it('accepts a fully valid error event', () => {
+		it('accepts a fully valid error event with recoveryHint', () => {
+			const result = structuredErrorEventSchema.safeParse({
+				id: 'err-1',
+				at: '2026-01-01T00:00:00.000Z',
+				category: 'storage',
+				code: 'STORAGE_INIT_FAILED',
+				message: 'init failed',
+				severity: 'error',
+				recoveryHint: 'Check vault directory access and restart the application.',
+				details: 'stack trace here',
+				context: { stage: 'boot', retryCount: 0, recovered: false },
+			});
+			expect(result.success).toBe(true);
+		});
+
+		it('accepts a valid error event without recoveryHint (backwards-compat)', () => {
 			const result = structuredErrorEventSchema.safeParse({
 				id: 'err-1',
 				at: '2026-01-01T00:00:00.000Z',
@@ -434,6 +449,8 @@ describe('AC3 — Enum values / whitelists are enforced', () => {
 				context: { stage: 'boot', retryCount: 0, recovered: false },
 			});
 			expect(result.success).toBe(true);
+			// Missing recoveryHint defaults to null
+			expect(result.data?.recoveryHint).toBeNull();
 		});
 	});
 

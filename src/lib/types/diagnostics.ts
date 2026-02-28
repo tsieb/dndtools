@@ -15,6 +15,8 @@ export interface StructuredErrorEvent {
 	code: string;
 	message: string;
 	severity: ErrorSeverity;
+	/** Human-readable guidance on how to resolve the error. */
+	recoveryHint: string | null;
 	details: string | null;
 	context: Record<string, string | number | boolean | null>;
 }

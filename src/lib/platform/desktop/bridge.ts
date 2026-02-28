@@ -38,6 +38,7 @@ export interface DesktopSystemHealth {
 		code: string;
 		message: string;
 		severity: 'error' | 'warning' | 'info';
+		recoveryHint: string | null;
 		details: string | null;
 		context: Record<string, string | number | boolean | null>;
 	}>;
@@ -243,6 +244,7 @@ export async function reportDesktopStructuredError(event: {
 	code: string;
 	message: string;
 	severity: 'error' | 'warning' | 'info';
+	recoveryHint: string | null;
 	details: string | null;
 	context: Record<string, string | number | boolean | null>;
 }): Promise<void> {

@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import http from 'node:http';
+import AdmZip from 'adm-zip';
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import { z } from 'zod';
 import { FileSystemAdapter } from '../mcp/storage.js';
@@ -12,6 +13,7 @@ import {
 import { McpSidecar } from './mcp-sidecar.js';
 import type { McpChangeRecord } from '../src/lib/types/mcp.js';
 import type { HealthSubsystem, StructuredErrorEvent } from '../src/lib/types/diagnostics.js';
+import { getErrorTaxonomyEntry } from '../src/lib/domain/error-taxonomy.js';
 import type { NoteId, FolderId, Link } from '../src/lib/types/note.js';
 import type { AppSettings } from '../src/lib/types/settings.js';
 import type { SessionBoardId, SessionBoard } from '../src/lib/types/session-board.js';
@@ -212,6 +214,9 @@ async function setVaultDirectory(nextVaultDir: string): Promise<void> {
 		throw error;
 	}
 	vaultDir = nextVaultDir;
+	// Configure sidecar log path and load persisted events before restarting.
+	mcpSidecar.setLogPath(nextVaultDir);
+	await mcpSidecar.loadPersistedEvents();
 	await mcpSidecar.restart(nextVaultDir);
 	const sidecarStatus = mcpSidecar.getStatus();
 	if (sidecarStatus.state === 'error') {
@@ -242,13 +247,15 @@ function createStructuredError(input: {
 	details?: string | null;
 	context?: StructuredErrorEvent['context'];
 }): StructuredErrorEvent {
+	const entry = getErrorTaxonomyEntry(input.code);
 	return {
 		id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
 		at: new Date().toISOString(),
 		category: input.category,
 		code: input.code,
 		message: input.message,
-		severity: 'error',
+		severity: entry?.severity ?? 'error',
+		recoveryHint: entry?.recoveryHint ?? null,
 		details: input.details ?? null,
 		context: input.context ?? {},
 	};
@@ -658,12 +665,13 @@ ipcMain.handle('dndtools:diagnostics:get-health', async () => {
 });
 
 ipcMain.handle('dndtools:diagnostics:export', async () => {
-	const suffix = new Date().toISOString().replace(/[:.]/g, '-');
-	const defaultPath = path.join(app.getPath('documents'), `dndtools-diagnostics-${suffix}.json`);
+	const now = new Date();
+	const suffix = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+	const defaultPath = path.join(app.getPath('documents'), `dndtools-diagnostics-${suffix}.zip`);
 	const picked = await dialog.showSaveDialog({
 		title: 'Export Diagnostics Bundle',
 		defaultPath,
-		filters: [{ name: 'JSON', extensions: ['json'] }],
+		filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
 	});
 
 	if (picked.canceled || !picked.filePath) {
@@ -672,18 +680,81 @@ ipcMain.handle('dndtools:diagnostics:export', async () => {
 
 	const health = diagnostics.getHealthSnapshot();
 	const metricsBase = await collectBundleMetrics();
-	const bundle = {
-		generatedAt: new Date().toISOString(),
-		health,
-		environment: diagnostics.getEnvironment(),
-		metrics: diagnostics.getMetrics(metricsBase),
-		mcp: {
-			status: mcpSidecar.getStatus(),
-			lifecycle: mcpSidecar.getLifecycleEvents(120),
+	const environment = diagnostics.getEnvironment();
+	const metrics = diagnostics.getMetrics(metricsBase);
+	const mcpStatus = mcpSidecar.getStatus();
+	const mcpLifecycle = mcpSidecar.getLifecycleEvents(120);
+
+	// Redact user-identifying paths before bundling.
+	const redactedVaultDir = vaultDir ? '[VAULT_DIR_REDACTED]' : null;
+	const redactedMcpEntry = mcpStatus.entry ? path.basename(mcpStatus.entry) : null;
+
+	const diagnosticsJson = {
+		generatedAt: now.toISOString(),
+		appVersion: app.getVersion(),
+		environment,
+		metrics,
+		health: {
+			generatedAt: health.generatedAt,
+			lastSuccessful: health.lastSuccessful,
 		},
-		logs: health.recentErrors,
+		mcp: {
+			state: mcpStatus.state,
+			entry: redactedMcpEntry,
+			vaultDir: redactedVaultDir,
+			pid: mcpStatus.pid,
+			lastStartedAt: mcpStatus.lastStartedAt,
+			lastStoppedAt: mcpStatus.lastStoppedAt,
+			lastExitReason: mcpStatus.lastExitReason,
+			restartCount: mcpStatus.restartCount,
+			crashCount: mcpStatus.crashCount,
+			error: mcpStatus.error,
+		},
 	};
-	await fs.writeFile(picked.filePath, JSON.stringify(bundle, null, 2), 'utf-8');
+
+	// Redact error events: preserve operational fields, strip vault paths from messages.
+	const redactedErrors = health.recentErrors.map((e) => ({
+		id: e.id,
+		at: e.at,
+		category: e.category,
+		code: e.code,
+		severity: e.severity,
+		recoveryHint: e.recoveryHint,
+		// Strip vault dir from message/details to avoid leaking user path.
+		message: vaultDir ? e.message.replaceAll(vaultDir, '[VAULT_DIR]') : e.message,
+		context: e.context,
+	}));
+
+	const readme = [
+		'DND Tools Diagnostics Bundle',
+		'============================',
+		'',
+		`Generated: ${now.toISOString()}`,
+		'',
+		'Contents:',
+		'  diagnostics.json  — Runtime environment, health timestamps, MCP status, metrics.',
+		'  errors.json       — Recent structured error events (vault paths redacted).',
+		'  sidecar-log.json  — MCP sidecar lifecycle event history.',
+		'',
+		'How to share:',
+		'  Attach this zip file to a GitHub issue at:',
+		'  https://github.com/anthropics/dndtools/issues',
+		'',
+		'Privacy:',
+		'  Vault directory paths are redacted. Note titles and content are NOT included.',
+		'  Error messages may contain application-level details but not note content.',
+	].join('\n');
+
+	const zip = new AdmZip();
+	zip.addFile('diagnostics.json', Buffer.from(JSON.stringify(diagnosticsJson, null, 2), 'utf-8'));
+	zip.addFile('errors.json', Buffer.from(JSON.stringify(redactedErrors, null, 2), 'utf-8'));
+	zip.addFile(
+		'sidecar-log.json',
+		Buffer.from(JSON.stringify({ events: mcpLifecycle }, null, 2), 'utf-8'),
+	);
+	zip.addFile('README.txt', Buffer.from(readme, 'utf-8'));
+	zip.writeZip(picked.filePath);
+
 	return { canceled: false, path: picked.filePath };
 });
 
