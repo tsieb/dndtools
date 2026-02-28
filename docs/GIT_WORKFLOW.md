@@ -113,7 +113,9 @@ docs: add GIT_WORKFLOW.md with branch and commit conventions
 chore(ci): add format:check step to quality workflow
 ```
 
-This convention aligns with Conventional Commits. MASTER_PLAN S2.1.4 plans `commitlint` enforcement and `release-please` for automated changelogs — no commit message format changes will be needed when that story is executed.
+This convention aligns with Conventional Commits and is enforced in CI via
+`.github/workflows/commitlint.yml`. Releases are automated via
+`.github/workflows/release-please.yml` and `.github/workflows/release-assets.yml`.
 
 ### 2.5 Commit Sizing
 
@@ -150,7 +152,15 @@ Run these after the pre-push gate, before opening a PR, when the change warrants
 
 ### 3.3 CI (On Every PR)
 
-The CI workflow runs: lint → format check → typecheck → unit tests with coverage → build → e2e tests.
+PRs are validated by multiple workflows:
+
+- `.github/workflows/ci.yml`:
+  - Node LTS matrix quality checks (lint, typecheck, unit tests, and `pnpm check`)
+  - docs drift validation (`pnpm docs:validate`) for path integrity, `TODO(APP)` metadata, and migration-version sync
+- `.github/workflows/e2e.yml`:
+  - headed desktop E2E smoke in Electron via Playwright + `xvfb` on Ubuntu
+- `.github/workflows/commitlint.yml`:
+  - Conventional Commits enforcement across PR commit history
 
 A PR must not be merged if CI is red. Fix the issue with a new commit on the story branch — CI re-runs automatically.
 
@@ -233,13 +243,13 @@ Available on free personal GitHub accounts:
 - Allow force pushes: disabled
 - Allow deletions: disabled
 
-### Release Tooling (MASTER_PLAN S2.1.4 — Defer)
+### Release Tooling (Implemented)
 
-When S2.1.4 is executed:
-
-- Add `commitlint` to enforce the Conventional Commits format at PR level
-- Add `release-please` for automated changelog, version bumps, and GitHub Release creation
-- The commit format documented in §2 is already compatible — no messages need to change
+- `release-please` opens and updates release PRs from Conventional Commit history
+  (`.github/workflows/release-please.yml`)
+- Release artifact workflow publishes desktop bundles + MCP bundle and signed checksums
+  (`.github/workflows/release-assets.yml`)
+- Published release notes must include a `## Human Reviewed Notes` section before artifact publication proceeds
 
 ---
 
@@ -250,6 +260,10 @@ When S2.1.4 is executed:
 | `docs/MASTER_PLAN.md`       | Epic and Story identifiers for branch naming        |
 | `docs/PLANNING_TIERS.md`    | Initiative → Epic → Story → Task → Atomic hierarchy |
 | `docs/DEVELOPMENT.md`       | Canonical quality commands and boundary rules       |
-| `.github/workflows/ci.yml`  | CI quality gate definition                          |
-| `.github/workflows/e2e.yml` | E2E test CI definition                              |
+| `.github/workflows/ci.yml`  | Core quality and docs validation gates              |
+| `.github/workflows/e2e.yml` | Desktop E2E CI definition                           |
+| `.github/workflows/desktop-build.yml` | Cross-platform desktop build + smoke matrix |
+| `.github/workflows/commitlint.yml` | Conventional Commit enforcement                |
+| `.github/workflows/release-please.yml` | Automated release PR + changelog generation |
+| `.github/workflows/release-assets.yml` | Release artifact publication and signing      |
 | `CLAUDE.md`                 | Agent development guide                             |

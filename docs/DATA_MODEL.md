@@ -199,6 +199,7 @@ Current UI behavior (`src/lib/domain/export.ts`):
 - import supports markdown files and JSON bundle format
 
 `TODO(APP):` Add robust portable zip/tar markdown export profile with validation report.
+Risk: quality and behavior drift if deferred.
 Reason: JSON bundle is DND Tools specific and less interoperable with markdown tools.
 Target files:
 
@@ -228,5 +229,6 @@ Filesystem write integrity is implemented:
 - interrupted-write regression tests cover note/index/settings/changelog (`mcp/recovery.test.ts`)
 
 `TODO(APP):` Add strict runtime validation for imported markdown frontmatter and JSON bundle schema.
+Risk: quality and behavior drift if deferred.
 Current issue: parser is intentionally permissive and can accept malformed inputs.
 Target: `src/lib/domain/export.ts`.

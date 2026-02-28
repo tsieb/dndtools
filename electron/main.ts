@@ -48,6 +48,7 @@ let vaultDir = '';
 let staticServer: http.Server | null = null;
 const mcpSidecar = new McpSidecar();
 const diagnostics = new DiagnosticsTracker();
+const smokeTestMode = process.env.DNDTOOLS_SMOKE_TEST === '1';
 
 const CONTENT_TYPES: Record<string, string> = {
 	'.html': 'text/html; charset=utf-8',
@@ -332,6 +333,14 @@ async function createMainWindow(): Promise<void> {
 	window.once('ready-to-show', () => {
 		window.show();
 		emitWindowState();
+		if (smokeTestMode) {
+			console.log('DNDTOOLS_SMOKE_READY');
+			setTimeout(() => {
+				if (!window.isDestroyed()) {
+					window.close();
+				}
+			}, 350);
+		}
 	});
 
 	const entry = getRendererEntrypoint();

@@ -40,12 +40,14 @@ DND Tools is an Electron-first local markdown vault application with:
 
 - SvelteKit 2, Svelte 5, TypeScript 5 strict
 - Tailwind CSS 4 + custom CSS tokens in `src/app.css`
-- CodeMirror 6
-- unified/remark/rehype markdown pipeline
+- CodeMirror 6 (lazy-loaded)
+- unified/remark/rehype markdown pipeline with custom wikilink plugin
 - MiniSearch for full-text local search
 - Dexie for IndexedDB fallback
 - Electron 37 desktop shell
 - MCP SDK for tool/resource server
+- Vitest (unit/integration) + Playwright (E2E) for testing
+- pnpm as package manager
 
 ## Repository Structure
 
@@ -84,6 +86,8 @@ Scopes: `mcp`, `renderer`, `electron`, `storage`, `ui`, `ci`
 Pre-commit hooks run `pnpm lint && pnpm format:check` automatically.
 Pre-push hooks run `pnpm check` automatically. Never bypass with `--no-verify`.
 
+Always run `pnpm format` before staging many files — Prettier is enforced in CI and pre-commit.
+
 When a story is complete, open a PR and enable auto-merge:
 
 gh pr create --title "<type>(<scope>): <summary> [Epic X.Y / SX.X.X]" --base master
@@ -121,6 +125,58 @@ Full branch strategy, commit sizing, PR process, and recovery:
 2. Place business logic in `src/lib/services/*` or stores.
 3. Add/adjust e2e tests for critical paths.
 4. Update docs if user behavior changed.
+
+## Key Architecture Decisions
+
+- Storage abstraction layer (`StorageAdapter` interface) — never access IndexedDB directly from components.
+- Markdown pipeline in `src/lib/markdown/` — all parsing goes through unified, never manual.
+- Offline-first: treat network as enhancement, not requirement.
+- State managed via Svelte 5 runes classes in `src/lib/state/*.svelte.ts`.
+- MCP server (`mcp/`) for AI agent vault access:
+  - Uses `FileSystemAdapter` (reads/writes markdown files on disk)
+  - 30+ tools across `vault/`, `notes/`, `objects/`, `boards/`, `search/` domains
+  - Tool contract framework (`mcp/tools/shared/contracts.ts`) — permissions, idempotency, retry
+  - Schema migrations (`mcp/migrations.ts`) — versioned, with checkpoint/rollback
+  - Staged storage (`mcp/staged-storage.ts`) — MCP writes staged for human review by default
+  - Vault intelligence (`mcp/tools/vault/vault-intelligence.ts`) — analytics engine for agent planning
+
+## Documentation Map
+
+- `CLAUDE.md` — agentic development guide (root, authoritative)
+- `docs/MASTER_PLAN.md` — comprehensive initiative/epic/story roadmap
+- `docs/GIT_WORKFLOW.md` — branch strategy, commit format, PR process, recovery
+- `docs/PLANNING_TIERS.md` — five-tier planning hierarchy
+- `docs/SCHEMA_MIGRATIONS.md` — versioning policy, migration engine, rollback
+- `docs/MCP_INSPECTOR_WORKFLOW.md` — testing MCP tools interactively
+- `docs/ARCHITECTURE.md` — system design & component map
+- `docs/DEVELOPMENT.md` — dev standards, workflow, tooling
+- `docs/DATA_MODEL.md` — data structures & storage
+- `docs/AGENTIC_NOTES_WORKFLOW.md` — MCP tool contracts for agent note workflows
+
+## Development Phases
+
+- Phase 0: Scaffolding (SvelteKit + tooling setup) — complete
+- Phase 1: Core note system (MVP — CRUD, markdown, editor, nav, MCP server) — complete
+- Phase 2: Linking & knowledge graph (wikilinks, backlinks, tags) — complete
+- Phase 3: Search & discovery (full-text, quick switcher, graph view) — complete
+- Phase 4: Polish & advanced features (import/export, templates, a11y audit) — in progress
+- Phase 5: Cloud & sharing — future
+- Phase 6: D&D-specific tools — maps, player features, campaign mgmt — future
+
+## Completed Epics
+
+- **Epic 1.3** — Integrity Verification & Self-Repair (commit `115d933`):
+  - `NoteIntegrityIssueStatus` extended with `'orphan_entry'`
+  - `vaultHealthState` singleton in `src/lib/state/vaultHealth.svelte.ts`
+  - TopBar health badge (triangle warning icon, severity-coloured)
+  - `pnpm vault:verify` CLI (`mcp/cli/vault-verify.ts`)
+  - Settings Vault tab: severity-grouped report, Rebuild Index, Clear Changelog, on-close cadence, snapshot sizes
+  - IPC: `dndtools:storage:rebuild-index`, `dndtools:storage:clear-changelog`
+  - Pre-migration safety snapshot in run-migrations IPC handler
+  - `electron/ipc-schemas.ts` + `ipc-security.test.ts` (IPC security foundation)
+
+- **Epic 1.5** — Diagnostic Telemetry & Health Dashboard (commit `d3375cf`):
+  - In progress on branch `story/1.5-diagnostic-telemetry-health`
 
 ## What Not To Do
 

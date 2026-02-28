@@ -51,7 +51,10 @@ This is the verified stack in the repository today.
 ## Current Stack Gaps
 
 `TODO(APP):` Add automated accessibility checks (axe/Playwright integration).
+Reason: keyboard and semantics are manually tested, but CI lacks automated a11y assertions.
+Target: Playwright + axe integration under `tests/e2e/**` and CI workflow wiring.
+Risk: accessibility regressions may ship undetected.
 
-`TODO(APP):` Add CI workflows to enforce lint/typecheck/test/e2e/build on pull requests.
+- CI workflows now enforce lint/typecheck/unit tests, docs validation, desktop E2E, and desktop build matrix.
 
-`TODO(APP):` Review and reduce broad IPC dispatch pattern for stricter Electron security best practices.
+- IPC storage dispatch now uses explicit channels with payload schemas; follow-up security work remains in threat-model documentation.

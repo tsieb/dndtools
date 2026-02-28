@@ -12,10 +12,12 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:e2e": "playwright test",
+		"test:e2e:desktop": "playwright test -c playwright.desktop.config.ts",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
+		"docs:validate": "tsx scripts/docs-validate.ts",
 		"typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check": "pnpm lint && pnpm typecheck && pnpm test",
 		"mcp:dev": "tsx mcp/index.ts",
@@ -24,6 +26,7 @@
 		"vault:verify": "tsx mcp/cli/vault-verify.ts",
 		"desktop:build": "pnpm build && pnpm mcp:build && tsup electron/main.ts electron/preload.ts --format cjs --platform=node --external electron --outDir electron/dist",
 		"desktop:start": "electron electron/dist/main.cjs",
+		"desktop:smoke": "node scripts/desktop-smoke-test.mjs",
 		"desktop": "pnpm desktop:build && pnpm desktop:start"
 	},
 	"devDependencies": {

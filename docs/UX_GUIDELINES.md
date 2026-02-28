@@ -93,6 +93,8 @@ Rules:
 - Avoid keyboard traps in modals/sidebars.
 
 `TODO(APP):` Add automated accessibility assertions in E2E for key routes.
+Reason: backlog item tracked for planned implementation.
+Risk: quality and behavior drift if deferred.
 Target:
 
 - `tests/e2e/*`
@@ -112,6 +114,9 @@ Required improvements:
 - explicit viewport-specific QA matrix
 
 `TODO(APP):` Add mobile-specific e2e scenarios for note edit/search/sidebar interactions.
+Reason: backlog item tracked for planned implementation.
+Target: see the surrounding section and referenced files in this block.
+Risk: quality and behavior drift if deferred.
 
 ## 8. Reliability UX Requirements
 
@@ -122,5 +127,11 @@ Required improvements:
 ## 9. Known UX Gaps
 
 `TODO(APP):` Add explicit failure state UX for background save/index failures with retry guidance.
+Reason: backlog item tracked for planned implementation.
+Target: see the surrounding section and referenced files in this block.
+Risk: quality and behavior drift if deferred.
 
 `TODO(APP):` Add import/export preview UX with conflict reporting before applying changes.
+Reason: backlog item tracked for planned implementation.
+Target: see the surrounding section and referenced files in this block.
+Risk: quality and behavior drift if deferred.

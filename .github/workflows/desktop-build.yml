@@ -1,0 +1,61 @@
+name: Desktop Build Matrix
+
+on:
+  push:
+    branches:
+      - 'release/**'
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop-build:
+    name: desktop-build-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build desktop bundles
+        run: pnpm desktop:build
+
+      - name: Smoke launch desktop app (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm desktop:smoke
+
+      - name: Smoke launch desktop app (Windows/macOS)
+        if: runner.os != 'Linux'
+        run: pnpm desktop:smoke
+
+      - name: Upload desktop artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-bundle-${{ matrix.os }}
+          path: |
+            build/**
+            electron/dist/**
+            mcp/dist/**
+          if-no-files-found: error

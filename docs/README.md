@@ -46,7 +46,9 @@ Read in this order:
 ## Global Known Gaps (High Priority)
 
 - Filesystem writes now use atomic temp-write + fsync + rename with startup write-journal recovery in `mcp/safe-write.ts` and `mcp/storage.ts`.
-- `TODO(APP):` Replace generic IPC storage method dispatch with a narrower typed IPC surface.
-- `TODO(APP):` Add comprehensive MCP tool tests (most tools currently untested).
-- CI workflows exist for lint/typecheck/unit tests (`.github/workflows/ci.yml`) and E2E (`.github/workflows/e2e.yml`). `TODO(APP):` Add desktop build validation, coverage threshold enforcement, and cross-platform matrix testing.
+- IPC now uses explicit channel handlers with payload validation in `electron/main.ts` and `electron/ipc-schemas.ts`.
+- CI now includes Node LTS quality gates, docs drift checks, desktop E2E, desktop build matrix, and release automation under `.github/workflows/*.yml`.
 - `TODO(APP):` Improve portable export format beyond JSON-only bundle.
+Reason: current export remains JSON-first and less interoperable with external markdown tooling.
+Target: `src/lib/domain/export.ts`, export UX in `src/routes/settings/+page.svelte`.
+Risk: cross-tool portability friction and lower long-term vault interoperability.

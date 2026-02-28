@@ -157,6 +157,7 @@ Required protections:
 - avoid broad "method + args" dispatch patterns
 
 `TODO(APP):` Replace generic storage IPC dispatcher (`dndtools:storage`) with explicit IPC channels per operation.
+Reason: backlog item tracked for planned implementation.
 Risk: broad invocation surface increases attack and misuse risk.
 Target files:
 
@@ -188,6 +189,7 @@ Compatibility:
 ## 9. Reliability and Integrity Gaps
 
 `TODO(APP):` Atomic writes for note/index/settings/session board/object metadata files.
+Risk: quality and behavior drift if deferred.
 Current issue: direct `writeFile` can leave partial files on crash/power loss.
 Target files:
 
@@ -200,6 +202,7 @@ Implemented for object workflow depth:
 - object validation/lint and relationship graph APIs exposed through storage/Electron bridge.
 
 `TODO(APP):` Metadata integrity verification and repair flow for `.vault/index.json`.
+Risk: quality and behavior drift if deferred.
 Current issue: index rebuild only if empty; stale/corrupt states are not fully diagnosed.
 Target files:
 
@@ -224,6 +227,9 @@ For any major architecture change, add/update ADR content in docs before merge:
 - rollback plan
 
 `TODO(APP):` Add ADR directory and baseline ADRs for:
+Reason: backlog item tracked for planned implementation.
+Target: see the surrounding section and referenced files in this block.
+Risk: quality and behavior drift if deferred.
 
 - Electron filesystem ownership
 - staged MCP write model

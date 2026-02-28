@@ -1,0 +1,21 @@
+name: Commitlint
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: commitlint-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Lint commit messages
+        uses: wagoid/commitlint-github-action@v6

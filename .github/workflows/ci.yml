@@ -6,9 +6,49 @@ on:
       - main
       - master
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  quality:
+  quality-matrix:
+    name: quality-matrix (node-${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        node-version: [20, 22]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+  check-script-contract:
+    name: check-script-contract
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,17 +68,53 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
+      - name: Validate check script contract
+        run: pnpm check
 
-      - name: Format check
-        run: pnpm format:check
+  docs-validation:
+    name: docs-validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
-      - name: Unit tests
-        run: pnpm test
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
 
-      - name: Build
-        run: pnpm build
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate docs invariants
+        run: pnpm docs:validate
+
+  quality:
+    name: quality
+    if: ${{ always() }}
+    needs:
+      - quality-matrix
+      - docs-validation
+      - check-script-contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce matrix success
+        run: |
+          if [ "${{ needs.quality-matrix.result }}" != "success" ]; then
+            echo "quality-matrix did not succeed (result: ${{ needs.quality-matrix.result }})." >&2
+            exit 1
+          fi
+          if [ "${{ needs.docs-validation.result }}" != "success" ]; then
+            echo "docs-validation did not succeed (result: ${{ needs.docs-validation.result }})." >&2
+            exit 1
+          fi
+          if [ "${{ needs.check-script-contract.result }}" != "success" ]; then
+            echo "check-script-contract did not succeed (result: ${{ needs.check-script-contract.result }})." >&2
+            exit 1
+          fi

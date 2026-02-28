@@ -248,10 +248,10 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 
 ### Project 9.2: CI/CD and Release Confidence (P1)
 
-- [ ] Add CI matrix across major OS targets for desktop build validation.
-- [ ] Add artifact smoke tests for packaged app startup and vault open path.
-- [ ] Add automated changelog generation tied to conventional release categories.
-- [ ] Add release checklist automation (tests, build, docs sync, migration notes).
+- [x] Add CI matrix across major OS targets for desktop build validation.
+- [x] Add artifact smoke tests for packaged app startup and vault open path.
+- [x] Add automated changelog generation tied to conventional release categories.
+- [-] Add release checklist automation (tests, build, docs sync, migration notes).
 
 ### Project 9.3: Developer Experience and Maintainability (P2)
 
@@ -329,6 +329,7 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 ### 1. Atomic Filesystem Writes
 
 - [ ] `TODO(APP)` Implement temp-file + fsync + rename write path for markdown and `.vault/*.json` files.
+      Risk: quality and behavior drift if deferred.
       Context:
 - Current implementation uses direct `writeFile` in `mcp/storage.ts`.
 - Crash/power interruption can produce partial or corrupted files.
@@ -339,6 +340,7 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 ### 2. Metadata Integrity and Repair
 
 - [ ] `TODO(APP)` Add startup integrity scan for `.vault/index.json`, `session-boards.json`, `objects.json`, `mcp-changelog.json`.
+      Risk: quality and behavior drift if deferred.
       Context:
 - Current rebuild behavior is mostly "if empty then rebuild" and not full integrity validation.
   Targets:
@@ -348,6 +350,7 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 ### 3. IPC Surface Hardening
 
 - [ ] `TODO(APP)` Replace `dndtools:storage` dynamic method dispatch with explicit IPC handlers per operation.
+      Risk: quality and behavior drift if deferred.
       Context:
 - Current string-based dispatch increases attack surface and weakens compile-time guarantees.
   Targets:
@@ -358,6 +361,7 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 ### 4. MCP Tool Test Coverage
 
 - [x] `TODO(APP)` Add direct tests for every tool under `mcp/tools/**`.
+      Risk: quality and behavior drift if deferred.
       Context:
 - MCP tools now have contract and per-module coverage (`mcp/tools/all-tools.test.ts` plus domain tests).
   Targets:
@@ -365,9 +369,10 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 
 ### 5. CI Quality Gates
 
-- [ ] `TODO(APP)` Add GitHub Actions workflows enforcing lint/typecheck/test/build/e2e.
+- [x] `TODO(APP)` Add GitHub Actions workflows enforcing lint/typecheck/test/build/e2e.
+      Risk: quality and behavior drift if deferred.
       Context:
-- No repository CI workflows currently present.
+- Quality matrix, desktop E2E, desktop build matrix, docs validation, commitlint, and release workflows are configured.
   Targets:
 - `.github/workflows/ci.yml`
 - `.github/workflows/e2e.yml`
@@ -377,6 +382,8 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 ### 6. Staged MCP Workflow Regression Suite
 
 - [ ] `TODO(APP)` Add tests for approve/reject/approve-all/reject-all + race conditions.
+      Reason: backlog item tracked for planned implementation.
+      Risk: quality and behavior drift if deferred.
       Targets:
 - `mcp/staged-storage.test.ts`
 - `src/lib/state/mcp-changes.svelte.ts` tests
@@ -384,6 +391,7 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 ### 7. Incremental Link Graph Updates
 
 - [x] `TODO(APP)` Avoid full graph rebuild when a single note changes.
+      Risk: quality and behavior drift if deferred.
       Context:
 - Current patterns frequently rebuild from full note set.
   Targets:
@@ -393,6 +401,8 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 ### 8. Import Validation and Conflict Preview
 
 - [ ] `TODO(APP)` Add pre-import validation report (duplicates, invalid frontmatter, path collisions).
+      Reason: backlog item tracked for planned implementation.
+      Risk: quality and behavior drift if deferred.
       Targets:
 - `src/lib/domain/export.ts`
 - `src/routes/settings/+page.svelte`
@@ -400,6 +410,7 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 ### 9. Export Portability Improvements
 
 - [ ] `TODO(APP)` Add markdown directory zip export profile in addition to JSON bundle.
+      Risk: quality and behavior drift if deferred.
       Context:
 - Current multi-note export format is JSON bundle only.
   Targets:
@@ -408,6 +419,8 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 ### 10. Accessibility Automation
 
 - [ ] `TODO(APP)` Integrate accessibility checks into Playwright for key routes.
+      Reason: backlog item tracked for planned implementation.
+      Risk: quality and behavior drift if deferred.
       Targets:
 - `tests/e2e/*`
 - Playwright test utilities
@@ -417,6 +430,8 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 ### 11. ADR Process
 
 - [ ] `TODO(APP)` Add architecture decision record template and baseline ADRs.
+      Reason: backlog item tracked for planned implementation.
+      Risk: quality and behavior drift if deferred.
       Targets:
 - `docs/adr/000-template.md`
 - initial ADRs for storage boundary, staged MCP mode, IPC strategy
@@ -424,6 +439,8 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 ### 12. Performance Budgets
 
 - [ ] `TODO(APP)` Define and track budgets for startup, search latency, and save latency.
+      Reason: backlog item tracked for planned implementation.
+      Risk: quality and behavior drift if deferred.
       Targets:
 - `docs/ARCHITECTURE.md`
 - instrumentation in renderer services/stores
@@ -431,6 +448,8 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 ### 13. Sidecar Runtime Independence
 
 - [ ] `TODO(APP)` Remove dependency on external `node` binary in packaged desktop builds.
+      Reason: backlog item tracked for planned implementation.
+      Risk: quality and behavior drift if deferred.
       Targets:
 - `electron/mcp-sidecar.ts`
 - build/release pipeline
@@ -438,4 +457,10 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 ## Documentation Hygiene Tasks
 
 - [ ] `TODO(APP)` keep docs synchronized whenever types/scripts/tool names change.
-- [ ] `TODO(APP)` add docs validation check in CI (at minimum, link/path checks + spellcheck optional).
+      Reason: backlog item tracked for planned implementation.
+      Target: see the surrounding section and referenced files in this block.
+      Risk: quality and behavior drift if deferred.
+- [x] `TODO(APP)` add docs validation check in CI (at minimum, link/path checks + spellcheck optional).
+      Reason: backlog item tracked for planned implementation.
+      Target: see the surrounding section and referenced files in this block.
+      Risk: quality and behavior drift if deferred.

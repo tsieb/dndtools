@@ -214,3 +214,6 @@ This flow is tied to the runtime model in:
 ## 11. Known Gaps
 
 `TODO(APP):` Add end-to-end test coverage for staged MCP approval workflows.
+Reason: backlog item tracked for planned implementation.
+Target: see the surrounding section and referenced files in this block.
+Risk: quality and behavior drift if deferred.

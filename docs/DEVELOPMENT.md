@@ -17,14 +17,17 @@ From `package.json`:
 - `pnpm test`: vitest run
 - `pnpm test:watch`: vitest watch
 - `pnpm test:e2e`: playwright
+- `pnpm test:e2e:desktop`: desktop Playwright smoke suite
 - `pnpm lint`: eslint
 - `pnpm typecheck`: svelte-check
 - `pnpm check`: lint + typecheck + tests
+- `pnpm docs:validate`: docs path/TODO/schema drift checks
 - `pnpm mcp:dev`: run MCP from source
 - `pnpm mcp:build`: build MCP bundle
 - `pnpm mcp:inspect`: run MCP inspector
 - `pnpm desktop:build`: build renderer + MCP + Electron bundles
 - `pnpm desktop:start`: launch built Electron app
+- `pnpm desktop:smoke`: launch built desktop app against temp vault and assert readiness
 - `pnpm desktop`: build + start desktop
 
 ## 3. Required Workflow
@@ -73,22 +76,20 @@ A task is complete only when all are true:
 
 ## 8. Current High-Risk Gaps
 
-`TODO(APP):` CI pipeline covers lint/format/typecheck/tests/build and e2e. Remaining gaps:
-coverage threshold enforcement (thresholds in `vite.config.ts` are aspirational; Svelte UI
-components have 0% unit coverage — expand via MASTER_PLAN S2.1.1 before enforcing in CI)
-and desktop build matrix (MASTER_PLAN S2.1.3). Target: `vite.config.ts` + new `desktop-build.yml`.
+`TODO(APP):` Coverage thresholds are configured but not yet enforced in the CI gate.
+Reason: UI coverage is still below reliable enforcement thresholds for route and component flows.
+Target: `vite.config.ts`, `.github/workflows/ci.yml`, `tests/**/*`.
+Risk: regressions can slip through in low-coverage renderer areas.
 
-`TODO(APP):` Electron storage IPC uses broad dynamic dispatch.
-Impact: weakens contract clarity and security posture.
-Target:
+`TODO(APP):` Desktop release artifacts are built and signed at checksum level, but OS-native installer signing/notarization is not yet automated.
+Reason: current pipeline validates runtime bundles; platform trust-sign workflows are still pending.
+Target: `.github/workflows/release-assets.yml`, packaging/signing tooling in desktop release pipeline.
+Risk: distribution trust posture remains weaker than a fully signed/notarized installer chain.
 
-- `electron/main.ts`
-- `electron/preload.ts`
-- `src/lib/platform/storage/electron-adapter.ts`
-
-`TODO(APP):` MCP tool test coverage is incomplete for many domains.
-Impact: behavioral drift risk in agent workflows.
+`TODO(APP):` MCP tool coverage is broad but still not complete for all read-path edge cases and concurrent scenarios.
+Reason: write-critical tools are covered; deeper read-edge assertions still need expansion.
 Target: `mcp/**/*.test.ts` expansion.
+Risk: agent-facing behavior drift in less common read flows.
 
 ## 9. Architectural Governance
 
@@ -101,3 +102,6 @@ For major design changes, require:
 - docs update in same change
 
 `TODO(APP):` Create ADR process directory and template under `docs/adr/`.
+Reason: architecture choices still rely on scattered context across implementation docs.
+Target: `docs/adr/` with template + baseline records.
+Risk: future decisions may diverge without shared rationale and migration context.
