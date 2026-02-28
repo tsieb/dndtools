@@ -38,6 +38,7 @@ export interface DesktopSystemHealth {
 		code: string;
 		message: string;
 		severity: 'error' | 'warning' | 'info';
+		recoveryHint: string | null;
 		details: string | null;
 		context: Record<string, string | number | boolean | null>;
 	}>;
@@ -134,7 +135,7 @@ export interface DesktopIntegrityReport {
 	noteIssues: Array<{
 		noteId: string;
 		filePath: string;
-		status: 'missing_marker' | 'invalid_marker' | 'checksum_mismatch';
+		status: 'missing_marker' | 'invalid_marker' | 'checksum_mismatch' | 'orphan_entry';
 		details: string;
 		repaired: boolean;
 	}>;
@@ -150,6 +151,8 @@ export interface DesktopSafetySnapshot {
 	createdAt: string;
 	reason: string;
 	noteCount: number;
+	/** File size in bytes. Zero if unavailable. */
+	sizeBytes?: number;
 }
 
 export interface DesktopSnapshotRestoreResult {
@@ -250,6 +253,7 @@ export async function reportDesktopStructuredError(event: {
 	code: string;
 	message: string;
 	severity: 'error' | 'warning' | 'info';
+	recoveryHint: string | null;
 	details: string | null;
 	context: Record<string, string | number | boolean | null>;
 }): Promise<void> {
@@ -369,4 +373,14 @@ export function onDesktopWindowStateChange(
 	callback: (state: DesktopWindowState) => void,
 ): () => void {
 	return requireBridge().onWindowStateChange(callback);
+}
+
+export async function rebuildDesktopVaultIndex(): Promise<{ rebuilt: number }> {
+	return requireBridge().rebuildVaultIndex();
+}
+
+export async function clearDesktopMcpChangelog(options?: {
+	maxAgeMs?: number;
+}): Promise<{ removed: number }> {
+	return requireBridge().clearMcpChangelog(options);
 }

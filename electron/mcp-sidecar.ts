@@ -18,6 +18,13 @@ export interface McpSidecarStatus {
 	error: string | null;
 }
 
+/** Maximum number of lifecycle events kept in the in-memory ring buffer. */
+const MAX_IN_MEMORY_EVENTS = 500;
+/** Maximum number of lifecycle events persisted to the on-disk log. */
+const MAX_PERSISTED_EVENTS = 200;
+/** Current version of the on-disk sidecar log format. */
+const SIDECAR_LOG_VERSION = 1;
+
 function resolveDefaultEntry(): string | null {
 	const candidates = [
 		// Packaged/Electron build output (electron/dist -> repo root)
@@ -36,6 +43,7 @@ function resolveDefaultEntry(): string | null {
 export class McpSidecar {
 	private child: ChildProcess | null = null;
 	private lifecycleEvents: McpLifecycleEvent[] = [];
+	private logPath: string | null = null;
 	private status: McpSidecarStatus = {
 		state: 'stopped',
 		vaultDir: null,
@@ -57,11 +65,64 @@ export class McpSidecar {
 		return this.lifecycleEvents.slice(-limit).reverse();
 	}
 
+	/**
+	 * Set the vault directory so lifecycle events can be persisted to
+	 * `.vault/sidecar-log.json`.  Call this before the first `restart()`.
+	 */
+	setLogPath(vaultDir: string): void {
+		this.logPath = path.join(vaultDir, '.vault', 'sidecar-log.json');
+	}
+
+	/**
+	 * Load previously persisted lifecycle events from `.vault/sidecar-log.json`.
+	 *
+	 * Allows event history to survive application restarts.
+	 * Errors are silently swallowed — the log file may not exist yet on first launch.
+	 */
+	async loadPersistedEvents(): Promise<void> {
+		if (!this.logPath) return;
+		try {
+			const raw = await fs.promises.readFile(this.logPath, 'utf-8');
+			const data: unknown = JSON.parse(raw);
+			if (
+				data !== null &&
+				typeof data === 'object' &&
+				'version' in data &&
+				(data as { version: unknown }).version === SIDECAR_LOG_VERSION &&
+				'events' in data &&
+				Array.isArray((data as { events: unknown }).events)
+			) {
+				const events = (data as { events: McpLifecycleEvent[] }).events;
+				this.lifecycleEvents = events.slice(-MAX_IN_MEMORY_EVENTS);
+			}
+		} catch {
+			// File may not exist yet on first launch — that is expected.
+		}
+	}
+
 	private recordLifecycleEvent(event: McpLifecycleEvent): void {
 		this.lifecycleEvents.push(event);
-		if (this.lifecycleEvents.length > 500) {
+		if (this.lifecycleEvents.length > MAX_IN_MEMORY_EVENTS) {
 			this.lifecycleEvents.shift();
 		}
+		this.persistLogAsync();
+	}
+
+	/**
+	 * Persist the last N lifecycle events to `.vault/sidecar-log.json`.
+	 *
+	 * Best-effort, non-blocking write.  Errors are silently ignored so a
+	 * write failure never disrupts sidecar lifecycle management.
+	 */
+	private persistLogAsync(): void {
+		if (!this.logPath) return;
+		const logPath = this.logPath;
+		const events = this.lifecycleEvents.slice(-MAX_PERSISTED_EVENTS);
+		const payload = JSON.stringify({ version: SIDECAR_LOG_VERSION, events }, null, 2);
+		void fs.promises
+			.mkdir(path.dirname(logPath), { recursive: true })
+			.then(() => fs.promises.writeFile(logPath, payload, 'utf-8'))
+			.catch(() => undefined);
 	}
 
 	async restart(vaultDir: string): Promise<void> {

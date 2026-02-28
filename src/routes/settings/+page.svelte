@@ -7,6 +7,7 @@
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { editorPreferencesState } from '$lib/state/editor-preferences.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
+	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
 	import { onboardingState } from '$lib/state/onboarding.svelte.js';
 	import { ONBOARDING_STEPS } from '$lib/domain/onboarding.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
@@ -33,6 +34,8 @@
 		listDesktopMcpAuditTrail,
 		listDesktopMigrationCheckpoints,
 		restoreDesktopMigrationCheckpoint,
+		rebuildDesktopVaultIndex,
+		clearDesktopMcpChangelog,
 		type DesktopIntegrityReport,
 		type DesktopMcpStatus,
 		type DesktopSystemHealth,
@@ -77,6 +80,8 @@
 		perAgent: {},
 	});
 	let savingMcpPolicySettings = $state(false);
+	let rebuildingIndex = $state(false);
+	let clearingChangelog = $state(false);
 	let mcpAuditTrail = $state<DesktopMcpChangeRecord[]>([]);
 	let mcpAuditLoading = $state(false);
 	let mcpChangeFilterType = $state<McpPendingFilterType>('all');
@@ -235,7 +240,8 @@
 				markSubsystemSuccess('link_graph_build'),
 			]);
 			systemHealth = await getDesktopSystemHealth();
-			if (repaired.issues.length === 0) {
+			await vaultHealthState.refresh();
+			if (repaired.issues.length === 0 && repaired.noteIssues.length === 0) {
 				toastState.success('Metadata integrity is healthy');
 				return;
 			}
@@ -803,6 +809,95 @@
 			: 'Sidecar is stopped. Restart to launch it.';
 	});
 
+	// ── System Health subsystem status ──────────────────────────────────────────
+
+	type SubsystemStatus = 'ok' | 'stale' | 'never' | 'error';
+
+	/**
+	 * Derive a status level from a last-successful timestamp.
+	 * Timestamps within the last 2 hours are considered fresh ('ok').
+	 * Older timestamps are 'stale'.  Null means the subsystem has never succeeded.
+	 */
+	function getTimestampStatus(ts: string | null): Exclude<SubsystemStatus, 'error'> {
+		if (!ts) return 'never';
+		const ageMs = Date.now() - new Date(ts).getTime();
+		return ageMs < 2 * 60 * 60 * 1000 ? 'ok' : 'stale';
+	}
+
+	/**
+	 * Return whether any recent error belongs to a given error category.
+	 * Used to flip a subsystem status to 'error' when fresh errors exist.
+	 */
+	function hasRecentErrors(
+		category: 'storage' | 'parsing' | 'ipc' | 'mcp_sidecar' | 'ui_runtime',
+	): boolean {
+		return (
+			systemHealth?.recentErrors.some((e) => e.category === category && e.severity === 'error') ??
+			false
+		);
+	}
+
+	let subsystemStatuses = $derived.by(
+		(): Record<
+			'runtime_bootstrap' | 'vault_sync' | 'search_index' | 'link_graph_build' | 'mcp_sidecar',
+			SubsystemStatus
+		> => {
+			if (!systemHealth) {
+				return {
+					runtime_bootstrap: 'never',
+					vault_sync: 'never',
+					search_index: 'never',
+					link_graph_build: 'never',
+					mcp_sidecar: 'never',
+				};
+			}
+
+			const ls = systemHealth.lastSuccessful;
+			const mcpState = systemHealth.mcpStatus.state;
+
+			return {
+				runtime_bootstrap: hasRecentErrors('ui_runtime')
+					? 'error'
+					: getTimestampStatus(ls.runtime_bootstrap),
+				vault_sync: hasRecentErrors('storage') ? 'error' : getTimestampStatus(ls.vault_sync),
+				search_index: getTimestampStatus(ls.search_index),
+				link_graph_build: getTimestampStatus(ls.link_graph_build),
+				mcp_sidecar: mcpState === 'error' ? 'error' : mcpState === 'running' ? 'ok' : 'never',
+			};
+		},
+	);
+
+	async function handleRebuildIndex(): Promise<void> {
+		rebuildingIndex = true;
+		try {
+			const result = await rebuildDesktopVaultIndex();
+			await refreshDesktopState();
+			await vaultHealthState.refresh();
+			toastState.success(`Rebuilt vault index (${result.rebuilt} entries)`);
+		} catch (error) {
+			reportSettingsError('storage', 'SETTINGS_REBUILD_INDEX_FAILED', error);
+			toastState.error(`Failed to rebuild index: ${String(error)}`);
+		} finally {
+			rebuildingIndex = false;
+		}
+	}
+
+	async function handleClearChangelog(): Promise<void> {
+		clearingChangelog = true;
+		try {
+			const result = await clearDesktopMcpChangelog({ maxAgeMs: 7 * 24 * 60 * 60 * 1000 });
+			await loadMcpAuditTrail();
+			toastState.success(
+				`Cleared ${result.removed} resolved change${result.removed === 1 ? '' : 's'} older than 7 days`,
+			);
+		} catch (error) {
+			reportSettingsError('storage', 'SETTINGS_CLEAR_CHANGELOG_FAILED', error);
+			toastState.error(`Failed to clear changelog: ${String(error)}`);
+		} finally {
+			clearingChangelog = false;
+		}
+	}
+
 	async function updateEditorSettings(
 		updates: Partial<typeof editorPreferencesState.settings>,
 	): Promise<void> {
@@ -1152,7 +1247,7 @@
 									{integrityReport
 										? integrityReport.healthy
 											? 'All .vault metadata and note markers passed validation.'
-											: `${integrityReport.issues.length + integrityReport.noteIssues.length} issue${integrityReport.issues.length + integrityReport.noteIssues.length === 1 ? '' : 's'} detected.`
+											: `${integrityReport.issues.filter((i) => !i.repaired && i.status !== 'ok').length + integrityReport.noteIssues.filter((i) => !i.repaired).length} unrepaired issue${integrityReport.issues.filter((i) => !i.repaired && i.status !== 'ok').length + integrityReport.noteIssues.filter((i) => !i.repaired).length === 1 ? '' : 's'} detected.`
 										: refreshingDesktopState
 											? 'Scanning...'
 											: 'Status unavailable'}
@@ -1177,37 +1272,81 @@
 							</span>
 						</div>
 
-						{#if integrityReport && integrityReport.issues.length > 0}
+						{#if integrityReport && integrityReport.issues.some((i) => !i.repaired && i.status !== 'ok')}
+							<p class="text-xs font-medium text-rose-700 dark:text-rose-400">
+								Critical — metadata files
+							</p>
 							<ul
-								class="rounded border border-border dark:border-tavern-border divide-y divide-border dark:divide-tavern-border"
+								class="rounded border border-rose-200 dark:border-rose-900 divide-y divide-rose-100 dark:divide-rose-900"
 							>
-								{#each integrityReport.issues as issue (issue.file)}
+								{#each integrityReport.issues.filter((i) => !i.repaired && i.status !== 'ok') as issue (issue.file)}
 									<li class="px-3 py-2 text-xs">
 										<p class="font-mono text-ink dark:text-tavern-text">{issue.file}</p>
-										<p class="text-ink-muted dark:text-tavern-muted mt-1">
-											{issue.status}{issue.repaired ? ' (repaired)' : ''}
-										</p>
+										<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
+										{#if issue.details}<p class="text-ink-faint dark:text-tavern-faint mt-0.5">
+												{issue.details}
+											</p>{/if}
 									</li>
 								{/each}
 							</ul>
 						{/if}
 
-						{#if integrityReport && integrityReport.noteIssues.length > 0}
+						{#if integrityReport?.noteIssues.some((i) => !i.repaired && (i.status === 'checksum_mismatch' || i.status === 'orphan_entry'))}
+							<p class="text-xs font-medium text-amber-700 dark:text-amber-400">
+								Warning — note integrity
+							</p>
+							<ul
+								class="rounded border border-amber-200 dark:border-amber-900 divide-y divide-amber-100 dark:divide-amber-900"
+							>
+								{#each integrityReport.noteIssues.filter((i) => !i.repaired && (i.status === 'checksum_mismatch' || i.status === 'orphan_entry')) as issue (issue.noteId + issue.filePath)}
+									<li class="px-3 py-2 text-xs">
+										<p class="font-mono text-ink dark:text-tavern-text">{issue.filePath}</p>
+										<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
+										{#if issue.status === 'checksum_mismatch'}<p
+												class="text-ink-faint dark:text-tavern-faint mt-0.5"
+											>
+												Content changed outside DND Tools. Re-open and save the note to update the
+												checksum.
+											</p>{/if}
+										{#if issue.status === 'orphan_entry'}<p
+												class="text-ink-faint dark:text-tavern-faint mt-0.5"
+											>
+												File missing on disk. Rebuild the index to remove the stale entry.
+											</p>{/if}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+
+						{#if integrityReport?.noteIssues.some((i) => !i.repaired && (i.status === 'missing_marker' || i.status === 'invalid_marker'))}
+							<p class="text-xs font-medium text-ink-muted dark:text-tavern-muted">
+								Info — marker issues (auto-repaired on next save)
+							</p>
 							<ul
 								class="rounded border border-border dark:border-tavern-border divide-y divide-border dark:divide-tavern-border"
 							>
-								{#each integrityReport.noteIssues as issue (issue.noteId + issue.filePath)}
+								{#each integrityReport.noteIssues.filter((i) => !i.repaired && (i.status === 'missing_marker' || i.status === 'invalid_marker')) as issue (issue.noteId + issue.filePath)}
 									<li class="px-3 py-2 text-xs">
 										<p class="font-mono text-ink dark:text-tavern-text">{issue.filePath}</p>
-										<p class="text-ink-muted dark:text-tavern-muted mt-1">
-											{issue.status}{issue.repaired ? ' (repaired)' : ''}
-										</p>
+										<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
 									</li>
 								{/each}
 							</ul>
 						{/if}
 
-						<div class="flex items-center gap-2">
+						{#if integrityReport && integrityReport.issues.some((i) => i.repaired)}
+							<ul
+								class="rounded border border-emerald-100 dark:border-emerald-900 divide-y divide-emerald-50 dark:divide-emerald-900"
+							>
+								{#each integrityReport.issues.filter((i) => i.repaired) as issue (issue.file)}
+									<li class="px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+										{issue.file} — repaired automatically
+									</li>
+								{/each}
+							</ul>
+						{/if}
+
+						<div class="flex flex-wrap items-center gap-2">
 							<Button
 								variant="secondary"
 								size="sm"
@@ -1215,6 +1354,14 @@
 								disabled={repairingIntegrity}
 							>
 								{repairingIntegrity ? 'Repairing...' : 'Repair Metadata'}
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								onclick={handleRebuildIndex}
+								disabled={rebuildingIndex}
+							>
+								{rebuildingIndex ? 'Rebuilding...' : 'Rebuild Index'}
 							</Button>
 							<Button
 								variant="ghost"
@@ -1249,6 +1396,7 @@
 							>
 								<option value="hourly">Hourly</option>
 								<option value="daily">Daily</option>
+								<option value="on-close">On close</option>
 								<option value="manual">Manual only</option>
 							</select>
 						</div>
@@ -1305,8 +1453,10 @@
 								>
 									{#each safetySnapshots as snapshot (snapshot.id)}
 										<option value={snapshot.id}>
-											{new Date(snapshot.createdAt).toLocaleString()} - {snapshot.reason} ({snapshot.noteCount}
-											notes)
+											{new Date(snapshot.createdAt).toLocaleString()} — {snapshot.reason} ({snapshot.noteCount}
+											notes{snapshot.sizeBytes
+												? `, ${snapshot.sizeBytes > 1048576 ? (snapshot.sizeBytes / 1048576).toFixed(1) + ' MB' : Math.round(snapshot.sizeBytes / 1024) + ' KB'}`
+												: ''})
 										</option>
 									{/each}
 								</select>
@@ -1743,14 +1893,24 @@
 				<div class="mt-6">
 					<div class="flex items-center justify-between mb-3">
 						<h3 class="text-base font-semibold text-ink dark:text-tavern-text">MCP Audit Trail</h3>
-						<Button
-							variant="ghost"
-							size="sm"
-							onclick={loadMcpAuditTrail}
-							disabled={mcpAuditLoading}
-						>
-							{mcpAuditLoading ? 'Refreshing...' : 'Refresh Audit'}
-						</Button>
+						<div class="flex items-center gap-2">
+							<Button
+								variant="ghost"
+								size="sm"
+								onclick={loadMcpAuditTrail}
+								disabled={mcpAuditLoading}
+							>
+								{mcpAuditLoading ? 'Refreshing...' : 'Refresh Audit'}
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								onclick={handleClearChangelog}
+								disabled={clearingChangelog}
+							>
+								{clearingChangelog ? 'Clearing...' : 'Clear Resolved (7d+)'}
+							</Button>
+						</div>
 					</div>
 					<div
 						class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface overflow-hidden"
@@ -1795,6 +1955,7 @@
 			aria-labelledby="settings-tab-health"
 			class="space-y-8"
 		>
+			<!-- ── Subsystem Status Grid ─────────────────────────────────────── -->
 			<section>
 				<div class="flex items-center justify-between gap-3 mb-4">
 					<h2 class="text-lg font-semibold text-ink dark:text-tavern-text">System Health</h2>
@@ -1813,76 +1974,252 @@
 							onclick={refreshDesktopState}
 							disabled={refreshingDesktopState}
 						>
-							Refresh
+							{refreshingDesktopState ? 'Refreshing...' : 'Refresh'}
 						</Button>
 					</div>
 				</div>
 
-				<div
-					class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-4"
-				>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">
-						Latest refresh: {systemHealth?.generatedAt ?? 'n/a'}
+				{#if systemHealth}
+					<p class="text-xs text-ink-muted dark:text-tavern-muted mb-3">
+						Last refreshed: {systemHealth.generatedAt}
 					</p>
+				{/if}
 
-					<div class="grid gap-2 md:grid-cols-2">
-						<div class="rounded border border-border dark:border-tavern-border p-3">
-							<p class="text-xs text-ink-muted dark:text-tavern-muted">
-								Last Successful Runtime Bootstrap
-							</p>
-							<p class="text-sm font-mono text-ink dark:text-tavern-text mt-1">
-								{systemHealth?.lastSuccessful.runtime_bootstrap ?? 'n/a'}
-							</p>
+				<div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+					<!-- Runtime Bootstrap -->
+					<div
+						class="rounded-lg border p-3 space-y-2
+							{subsystemStatuses.runtime_bootstrap === 'ok'
+							? 'border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30'
+							: subsystemStatuses.runtime_bootstrap === 'error'
+								? 'border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30'
+								: subsystemStatuses.runtime_bootstrap === 'stale'
+									? 'border-yellow-200 dark:border-yellow-900 bg-yellow-50 dark:bg-yellow-950/30'
+									: 'border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface'}"
+					>
+						<div class="flex items-center gap-2">
+							<span
+								class="inline-block h-2 w-2 rounded-full flex-shrink-0
+									{subsystemStatuses.runtime_bootstrap === 'ok'
+									? 'bg-green-500'
+									: subsystemStatuses.runtime_bootstrap === 'error'
+										? 'bg-red-500'
+										: subsystemStatuses.runtime_bootstrap === 'stale'
+											? 'bg-yellow-500'
+											: 'bg-gray-400'}"
+								aria-label="Status: {subsystemStatuses.runtime_bootstrap}"
+							></span>
+							<p class="text-xs font-medium text-ink dark:text-tavern-text">Runtime Bootstrap</p>
 						</div>
-						<div class="rounded border border-border dark:border-tavern-border p-3">
-							<p class="text-xs text-ink-muted dark:text-tavern-muted">
-								Last Successful Vault Sync
-							</p>
-							<p class="text-sm font-mono text-ink dark:text-tavern-text mt-1">
-								{systemHealth?.lastSuccessful.vault_sync ?? 'n/a'}
-							</p>
+						<p class="text-xs text-ink-muted dark:text-tavern-muted font-mono">
+							{systemHealth?.lastSuccessful.runtime_bootstrap ?? 'Never'}
+						</p>
+						{#if subsystemStatuses.runtime_bootstrap === 'error' || subsystemStatuses.runtime_bootstrap === 'stale'}
+							<button
+								class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+								onclick={() => window.location.reload()}
+							>
+								Reload Application
+							</button>
+						{/if}
+					</div>
+
+					<!-- Vault Sync -->
+					<div
+						class="rounded-lg border p-3 space-y-2
+							{subsystemStatuses.vault_sync === 'ok'
+							? 'border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30'
+							: subsystemStatuses.vault_sync === 'error'
+								? 'border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30'
+								: subsystemStatuses.vault_sync === 'stale'
+									? 'border-yellow-200 dark:border-yellow-900 bg-yellow-50 dark:bg-yellow-950/30'
+									: 'border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface'}"
+					>
+						<div class="flex items-center gap-2">
+							<span
+								class="inline-block h-2 w-2 rounded-full flex-shrink-0
+									{subsystemStatuses.vault_sync === 'ok'
+									? 'bg-green-500'
+									: subsystemStatuses.vault_sync === 'error'
+										? 'bg-red-500'
+										: subsystemStatuses.vault_sync === 'stale'
+											? 'bg-yellow-500'
+											: 'bg-gray-400'}"
+								aria-label="Status: {subsystemStatuses.vault_sync}"
+							></span>
+							<p class="text-xs font-medium text-ink dark:text-tavern-text">Vault Sync</p>
 						</div>
-						<div class="rounded border border-border dark:border-tavern-border p-3">
-							<p class="text-xs text-ink-muted dark:text-tavern-muted">
-								Last Successful Search Index Build
-							</p>
-							<p class="text-sm font-mono text-ink dark:text-tavern-text mt-1">
-								{systemHealth?.lastSuccessful.search_index ?? 'n/a'}
-							</p>
+						<p class="text-xs text-ink-muted dark:text-tavern-muted font-mono">
+							{systemHealth?.lastSuccessful.vault_sync ?? 'Never'}
+						</p>
+						{#if subsystemStatuses.vault_sync === 'error' || subsystemStatuses.vault_sync === 'stale' || subsystemStatuses.vault_sync === 'never'}
+							<button
+								class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+								onclick={refreshDesktopState}
+							>
+								Refresh Vault
+							</button>
+						{/if}
+					</div>
+
+					<!-- Search Index -->
+					<div
+						class="rounded-lg border p-3 space-y-2
+							{subsystemStatuses.search_index === 'ok'
+							? 'border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30'
+							: subsystemStatuses.search_index === 'error'
+								? 'border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30'
+								: subsystemStatuses.search_index === 'stale'
+									? 'border-yellow-200 dark:border-yellow-900 bg-yellow-50 dark:bg-yellow-950/30'
+									: 'border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface'}"
+					>
+						<div class="flex items-center gap-2">
+							<span
+								class="inline-block h-2 w-2 rounded-full flex-shrink-0
+									{subsystemStatuses.search_index === 'ok'
+									? 'bg-green-500'
+									: subsystemStatuses.search_index === 'error'
+										? 'bg-red-500'
+										: subsystemStatuses.search_index === 'stale'
+											? 'bg-yellow-500'
+											: 'bg-gray-400'}"
+								aria-label="Status: {subsystemStatuses.search_index}"
+							></span>
+							<p class="text-xs font-medium text-ink dark:text-tavern-text">Search Index</p>
 						</div>
-						<div class="rounded border border-border dark:border-tavern-border p-3">
-							<p class="text-xs text-ink-muted dark:text-tavern-muted">
-								Last Successful Link Graph Build
-							</p>
-							<p class="text-sm font-mono text-ink dark:text-tavern-text mt-1">
-								{systemHealth?.lastSuccessful.link_graph_build ?? 'n/a'}
-							</p>
+						<p class="text-xs text-ink-muted dark:text-tavern-muted font-mono">
+							{systemHealth?.lastSuccessful.search_index ?? 'Never'}
+						</p>
+						{#if subsystemStatuses.search_index === 'error' || subsystemStatuses.search_index === 'stale' || subsystemStatuses.search_index === 'never'}
+							<button
+								class="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+								onclick={handleRebuildIndex}
+								disabled={rebuildingIndex}
+							>
+								{rebuildingIndex ? 'Rebuilding…' : 'Rebuild Index'}
+							</button>
+						{/if}
+					</div>
+
+					<!-- Link Graph -->
+					<div
+						class="rounded-lg border p-3 space-y-2
+							{subsystemStatuses.link_graph_build === 'ok'
+							? 'border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30'
+							: subsystemStatuses.link_graph_build === 'error'
+								? 'border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30'
+								: subsystemStatuses.link_graph_build === 'stale'
+									? 'border-yellow-200 dark:border-yellow-900 bg-yellow-50 dark:bg-yellow-950/30'
+									: 'border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface'}"
+					>
+						<div class="flex items-center gap-2">
+							<span
+								class="inline-block h-2 w-2 rounded-full flex-shrink-0
+									{subsystemStatuses.link_graph_build === 'ok'
+									? 'bg-green-500'
+									: subsystemStatuses.link_graph_build === 'error'
+										? 'bg-red-500'
+										: subsystemStatuses.link_graph_build === 'stale'
+											? 'bg-yellow-500'
+											: 'bg-gray-400'}"
+								aria-label="Status: {subsystemStatuses.link_graph_build}"
+							></span>
+							<p class="text-xs font-medium text-ink dark:text-tavern-text">Link Graph</p>
 						</div>
+						<p class="text-xs text-ink-muted dark:text-tavern-muted font-mono">
+							{systemHealth?.lastSuccessful.link_graph_build ?? 'Never'}
+						</p>
+						{#if subsystemStatuses.link_graph_build === 'error' || subsystemStatuses.link_graph_build === 'stale' || subsystemStatuses.link_graph_build === 'never'}
+							<button
+								class="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+								onclick={handleRebuildIndex}
+								disabled={rebuildingIndex}
+							>
+								{rebuildingIndex ? 'Rebuilding…' : 'Rebuild Index'}
+							</button>
+						{/if}
+					</div>
+
+					<!-- MCP Sidecar -->
+					<div
+						class="rounded-lg border p-3 space-y-2
+							{subsystemStatuses.mcp_sidecar === 'ok'
+							? 'border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30'
+							: subsystemStatuses.mcp_sidecar === 'error'
+								? 'border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30'
+								: 'border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface'}"
+					>
+						<div class="flex items-center gap-2">
+							<span
+								class="inline-block h-2 w-2 rounded-full flex-shrink-0
+									{subsystemStatuses.mcp_sidecar === 'ok'
+									? 'bg-green-500'
+									: subsystemStatuses.mcp_sidecar === 'error'
+										? 'bg-red-500'
+										: 'bg-gray-400'}"
+								aria-label="Status: {subsystemStatuses.mcp_sidecar}"
+							></span>
+							<p class="text-xs font-medium text-ink dark:text-tavern-text">MCP Sidecar</p>
+						</div>
+						<p class="text-xs text-ink-muted dark:text-tavern-muted">
+							{systemHealth?.mcpStatus.state ?? 'Unknown'}
+							{#if systemHealth?.mcpStatus.pid}
+								· PID {systemHealth.mcpStatus.pid}
+							{/if}
+						</p>
+						{#if subsystemStatuses.mcp_sidecar !== 'ok'}
+							<button
+								class="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+								onclick={handleRestartMcpSidecar}
+								disabled={restartingMcp}
+							>
+								{restartingMcp ? 'Restarting…' : 'Restart Sidecar'}
+							</button>
+						{/if}
 					</div>
 				</div>
 			</section>
 
+			<!-- ── MCP Lifecycle Telemetry ───────────────────────────────────── -->
 			<section>
-				<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">
-					MCP Lifecycle Telemetry
-				</h2>
+				<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">MCP Sidecar Log</h2>
 				<div
 					class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface overflow-hidden"
 				>
 					{#if !systemHealth || systemHealth.mcpLifecycle.length === 0}
 						<div class="p-4 text-sm text-ink-muted dark:text-tavern-muted">
-							No lifecycle events yet.
+							No lifecycle events recorded yet.
 						</div>
 					{:else}
-						<ul class="divide-y divide-border dark:divide-tavern-border">
+						<ul class="divide-y divide-border dark:divide-tavern-border max-h-64 overflow-y-auto">
 							{#each systemHealth.mcpLifecycle as lifecycle (lifecycle.at + lifecycle.event)}
-								<li class="p-3 text-xs">
-									<p class="text-ink dark:text-tavern-text font-medium">
-										{lifecycle.event} at {lifecycle.at}
-									</p>
-									<p class="text-ink-muted dark:text-tavern-muted mt-1">
-										PID: {lifecycle.pid ?? 'n/a'} - Reason: {lifecycle.reason ?? 'n/a'}
-									</p>
+								<li class="p-3 text-xs flex items-start gap-2">
+									<span
+										class="mt-0.5 inline-block h-2 w-2 rounded-full flex-shrink-0
+											{lifecycle.event === 'crash'
+											? 'bg-red-500'
+											: lifecycle.event === 'start'
+												? 'bg-green-500'
+												: lifecycle.event === 'restart'
+													? 'bg-yellow-500'
+													: 'bg-gray-400'}"
+										aria-hidden="true"
+									></span>
+									<div>
+										<p class="text-ink dark:text-tavern-text font-medium capitalize">
+											{lifecycle.event}
+											<span class="font-normal text-ink-muted dark:text-tavern-muted"
+												>· {lifecycle.at}</span
+											>
+										</p>
+										{#if lifecycle.reason || lifecycle.pid}
+											<p class="text-ink-muted dark:text-tavern-muted mt-0.5">
+												{#if lifecycle.pid}PID {lifecycle.pid}{/if}{#if lifecycle.pid && lifecycle.reason}
+													·
+												{/if}{#if lifecycle.reason}{lifecycle.reason}{/if}
+											</p>
+										{/if}
+									</div>
 								</li>
 							{/each}
 						</ul>
@@ -1890,9 +2227,10 @@
 				</div>
 			</section>
 
+			<!-- ── Recent Error Events ───────────────────────────────────────── -->
 			<section>
 				<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">
-					Structured Error Events
+					Recent Error Events
 				</h2>
 				<div
 					class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface overflow-hidden"
@@ -1902,14 +2240,36 @@
 							No recent errors recorded.
 						</div>
 					{:else}
-						<ul class="divide-y divide-border dark:divide-tavern-border">
+						<ul class="divide-y divide-border dark:divide-tavern-border max-h-80 overflow-y-auto">
 							{#each systemHealth.recentErrors as error (error.id)}
-								<li class="p-3 text-xs">
-									<p class="text-ink dark:text-tavern-text font-medium">
-										[{error.category}] {error.code}
-									</p>
-									<p class="text-ink-muted dark:text-tavern-muted mt-1">{error.message}</p>
-									<p class="text-ink-faint dark:text-tavern-faint mt-1">{error.at}</p>
+								<li class="p-3 text-xs space-y-1">
+									<div class="flex items-center gap-2">
+										<span
+											class="inline-block h-2 w-2 rounded-full flex-shrink-0
+												{error.severity === 'error'
+												? 'bg-red-500'
+												: error.severity === 'warning'
+													? 'bg-yellow-500'
+													: 'bg-blue-400'}"
+											aria-label="Severity: {error.severity}"
+										></span>
+										<p class="text-ink dark:text-tavern-text font-medium font-mono">
+											{error.code}
+										</p>
+										<span
+											class="ml-auto text-ink-faint dark:text-tavern-faint text-[10px] uppercase tracking-wide"
+											>{error.category}</span
+										>
+									</div>
+									<p class="text-ink-muted dark:text-tavern-muted">{error.message}</p>
+									{#if error.recoveryHint}
+										<p
+											class="text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 rounded px-2 py-1"
+										>
+											Hint: {error.recoveryHint}
+										</p>
+									{/if}
+									<p class="text-ink-faint dark:text-tavern-faint">{error.at}</p>
 								</li>
 							{/each}
 						</ul>

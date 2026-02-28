@@ -4,6 +4,7 @@
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
+	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
 	import {
 		closeDesktopWindow,
 		getDesktopWindowState,
@@ -155,6 +156,39 @@
 		<div class="hidden sm:block ml-1">
 			<ThemeToggle />
 		</div>
+		{#if vaultHealthState.severity !== 'none'}
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+			<a
+				href={`${resolve('/settings')}?tab=vault`}
+				class="relative p-1.5 rounded-md transition-colors {vaultHealthState.severity === 'critical'
+					? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+					: vaultHealthState.severity === 'warning'
+						? 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+				aria-label="Vault integrity issues detected"
+				title="{vaultHealthState.issueCount} vault integrity {vaultHealthState.issueCount === 1
+					? 'issue'
+					: 'issues'} detected — click to review"
+			>
+				<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+					/>
+				</svg>
+				<span
+					class="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full text-white text-[10px] leading-4 text-center {vaultHealthState.severity ===
+					'critical'
+						? 'bg-red-600'
+						: vaultHealthState.severity === 'warning'
+							? 'bg-amber-500'
+							: 'bg-ink-muted dark:bg-tavern-muted'}"
+				>
+					{vaultHealthState.issueCount}
+				</span>
+			</a>
+		{/if}
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 		<a
 			href={`${resolve('/settings')}?tab=mcp#mcp-changes`}

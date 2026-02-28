@@ -58,7 +58,7 @@ export interface AppSettings {
 	editor: EditorSettings;
 	autoSaveDelay: number;
 	trashRetentionDays: number;
-	backupCadence: 'hourly' | 'daily' | 'manual';
+	backupCadence: 'hourly' | 'daily' | 'on-close' | 'manual';
 	backupRetentionCount: number;
 	defaultSort: SortSettings;
 	savedSearches: SavedSearch[];

@@ -21,6 +21,7 @@
 		"mcp:dev": "tsx mcp/index.ts",
 		"mcp:build": "tsup mcp/index.ts --format cjs --dts --outDir mcp/dist",
 		"mcp:inspect": "npx @modelcontextprotocol/inspector tsx mcp/index.ts",
+		"vault:verify": "tsx mcp/cli/vault-verify.ts",
 		"desktop:build": "pnpm build && pnpm mcp:build && tsup electron/main.ts electron/preload.ts --format cjs --platform=node --external electron --outDir electron/dist",
 		"desktop:start": "electron electron/dist/main.cjs",
 		"desktop": "pnpm desktop:build && pnpm desktop:start"
@@ -35,8 +36,10 @@
 		"@tailwindcss/vite": "^4.1.18",
 		"@testing-library/jest-dom": "^6.9.1",
 		"@testing-library/svelte": "^5.3.1",
+		"@types/adm-zip": "^0.5.7",
 		"@types/mdast": "^4.0.4",
 		"@vitest/coverage-v8": "^4.0.18",
+		"adm-zip": "^0.5.16",
 		"electron": "^37.0.0",
 		"eslint": "^10.0.0",
 		"eslint-config-prettier": "^10.1.8",

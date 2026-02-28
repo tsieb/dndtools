@@ -1,8 +1,10 @@
-import path from 'node:path';
+﻿import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import http from 'node:http';
+import AdmZip from 'adm-zip';
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { z } from 'zod';
 import { FileSystemAdapter } from '../mcp/storage.js';
 import {
 	getSchemaMigrationReport as getVaultSchemaMigrationReport,
@@ -11,7 +13,35 @@ import {
 import { McpSidecar } from './mcp-sidecar.js';
 import type { McpChangeRecord } from '../src/lib/types/mcp.js';
 import type { HealthSubsystem, StructuredErrorEvent } from '../src/lib/types/diagnostics.js';
+import { getErrorTaxonomyEntry } from '../src/lib/domain/error-taxonomy.js';
+import type { NoteId, FolderId, Link } from '../src/lib/types/note.js';
+import type { AppSettings } from '../src/lib/types/settings.js';
+import type { SessionBoardId, SessionBoard } from '../src/lib/types/session-board.js';
+import type { VaultObjectId, VaultObject } from '../src/lib/types/object.js';
 import { DiagnosticsTracker } from './diagnostics.js';
+import {
+	parseIpcArg,
+	idSchema,
+	folderPathSchema,
+	tagSchema,
+	limitSchema,
+	optionalLimitSchema,
+	noteSchema,
+	linkSchema,
+	vaultObjectSchema,
+	sessionBoardSchema,
+	appSettingsKeySchema,
+	mcpPolicySettingsSchema,
+	migrationOptionsSchema,
+	healthSubsystemSchema,
+	structuredErrorEventSchema,
+	getAllNotesOptionsSchema,
+	getAllObjectsOptionsSchema,
+	getObjectHistoryOptionsSchema,
+	suggestNoteIdsSchema,
+	importNotesSchema,
+	snapshotReasonSchema,
+} from './ipc-schemas.js';
 
 let storage: FileSystemAdapter | null = null;
 let vaultDir = '';
@@ -184,6 +214,9 @@ async function setVaultDirectory(nextVaultDir: string): Promise<void> {
 		throw error;
 	}
 	vaultDir = nextVaultDir;
+	// Configure sidecar log path and load persisted events before restarting.
+	mcpSidecar.setLogPath(nextVaultDir);
+	await mcpSidecar.loadPersistedEvents();
 	await mcpSidecar.restart(nextVaultDir);
 	const sidecarStatus = mcpSidecar.getStatus();
 	if (sidecarStatus.state === 'error') {
@@ -214,40 +247,18 @@ function createStructuredError(input: {
 	details?: string | null;
 	context?: StructuredErrorEvent['context'];
 }): StructuredErrorEvent {
+	const entry = getErrorTaxonomyEntry(input.code);
 	return {
 		id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
 		at: new Date().toISOString(),
 		category: input.category,
 		code: input.code,
 		message: input.message,
-		severity: 'error',
+		severity: entry?.severity ?? 'error',
+		recoveryHint: entry?.recoveryHint ?? null,
 		details: input.details ?? null,
 		context: input.context ?? {},
 	};
-}
-
-function isHealthSubsystem(value: unknown): value is HealthSubsystem {
-	return (
-		value === 'runtime_bootstrap' ||
-		value === 'vault_sync' ||
-		value === 'search_index' ||
-		value === 'link_graph_build'
-	);
-}
-
-function isStructuredErrorEvent(value: unknown): value is StructuredErrorEvent {
-	if (!value || typeof value !== 'object') return false;
-	const candidate = value as Partial<StructuredErrorEvent>;
-	return (
-		typeof candidate.id === 'string' &&
-		typeof candidate.at === 'string' &&
-		typeof candidate.category === 'string' &&
-		typeof candidate.code === 'string' &&
-		typeof candidate.message === 'string' &&
-		typeof candidate.severity === 'string' &&
-		typeof candidate.context === 'object' &&
-		candidate.context !== null
-	);
 }
 
 async function collectBundleMetrics(): Promise<{
@@ -336,159 +347,277 @@ async function createMainWindow(): Promise<void> {
 	await window.loadURL(localUrl);
 }
 
-ipcMain.handle('dndtools:storage:get-note', async (_event, id: string) => {
-	return requireStorage().getNote(id as never);
+// â”€â”€â”€ Storage IPC handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+ipcMain.handle('dndtools:storage:get-note', async (_event, rawId: unknown) => {
+	const id = parseIpcArg(idSchema, rawId, 'storage:get-note');
+	return requireStorage().getNote(id as NoteId);
 });
-ipcMain.handle(
-	'dndtools:storage:get-all-notes',
-	async (_event, options?: { includeDeleted?: boolean }) => {
-		return requireStorage().getAllNotes(options);
-	},
-);
-ipcMain.handle('dndtools:storage:save-note', async (_event, note: unknown) => {
+
+ipcMain.handle('dndtools:storage:get-all-notes', async (_event, rawOptions: unknown) => {
+	const options = parseIpcArg(getAllNotesOptionsSchema, rawOptions, 'storage:get-all-notes');
+	return requireStorage().getAllNotes(options);
+});
+
+ipcMain.handle('dndtools:storage:save-note', async (_event, rawNote: unknown) => {
+	const note = parseIpcArg(noteSchema, rawNote, 'storage:save-note');
 	await requireStorage().saveNote(note as never);
 });
-ipcMain.handle('dndtools:storage:delete-note', async (_event, id: string, permanent?: boolean) => {
-	await requireStorage().deleteNote(id as never, permanent);
+
+ipcMain.handle(
+	'dndtools:storage:delete-note',
+	async (_event, rawId: unknown, rawPermanent: unknown) => {
+		const id = parseIpcArg(idSchema, rawId, 'storage:delete-note:id');
+		const permanent = parseIpcArg(
+			z.boolean().optional(),
+			rawPermanent,
+			'storage:delete-note:permanent',
+		);
+		await requireStorage().deleteNote(id as NoteId, permanent);
+	},
+);
+
+ipcMain.handle('dndtools:storage:restore-note', async (_event, rawId: unknown) => {
+	const id = parseIpcArg(idSchema, rawId, 'storage:restore-note');
+	await requireStorage().restoreNote(id as NoteId);
 });
-ipcMain.handle('dndtools:storage:restore-note', async (_event, id: string) => {
-	await requireStorage().restoreNote(id as never);
+
+ipcMain.handle('dndtools:storage:get-notes-by-folder', async (_event, rawFolder: unknown) => {
+	const folder = parseIpcArg(folderPathSchema, rawFolder, 'storage:get-notes-by-folder');
+	return requireStorage().getNotesByFolder(folder as FolderId);
 });
-ipcMain.handle('dndtools:storage:get-notes-by-folder', async (_event, folder: string) => {
-	return requireStorage().getNotesByFolder(folder as never);
-});
-ipcMain.handle('dndtools:storage:get-notes-by-tag', async (_event, tag: string) => {
+
+ipcMain.handle('dndtools:storage:get-notes-by-tag', async (_event, rawTag: unknown) => {
+	const tag = parseIpcArg(tagSchema, rawTag, 'storage:get-notes-by-tag');
 	return requireStorage().getNotesByTag(tag);
 });
-ipcMain.handle('dndtools:storage:get-recent-notes', async (_event, limit: number) => {
+
+ipcMain.handle('dndtools:storage:get-recent-notes', async (_event, rawLimit: unknown) => {
+	const limit = parseIpcArg(limitSchema, rawLimit, 'storage:get-recent-notes');
 	return requireStorage().getRecentNotes(limit);
 });
+
 ipcMain.handle('dndtools:storage:get-deleted-notes', async () => {
 	return requireStorage().getDeletedNotes();
 });
-ipcMain.handle('dndtools:storage:resolve-title', async (_event, title: string) => {
+
+ipcMain.handle('dndtools:storage:resolve-title', async (_event, rawTitle: unknown) => {
+	const title = parseIpcArg(z.string().min(1).max(1024), rawTitle, 'storage:resolve-title');
 	return requireStorage().resolveTitle(title);
 });
-ipcMain.handle('dndtools:storage:get-links-from', async (_event, noteId: string) => {
-	return requireStorage().getLinksFrom(noteId as never);
+
+ipcMain.handle('dndtools:storage:get-links-from', async (_event, rawNoteId: unknown) => {
+	const noteId = parseIpcArg(idSchema, rawNoteId, 'storage:get-links-from');
+	return requireStorage().getLinksFrom(noteId as NoteId);
 });
-ipcMain.handle('dndtools:storage:get-links-to', async (_event, noteId: string) => {
-	return requireStorage().getLinksTo(noteId as never);
+
+ipcMain.handle('dndtools:storage:get-links-to', async (_event, rawNoteId: unknown) => {
+	const noteId = parseIpcArg(idSchema, rawNoteId, 'storage:get-links-to');
+	return requireStorage().getLinksTo(noteId as NoteId);
 });
+
 ipcMain.handle(
 	'dndtools:storage:set-links-from',
-	async (_event, noteId: string, links: unknown) => {
-		await requireStorage().setLinksFrom(noteId as never, links as never);
+	async (_event, rawNoteId: unknown, rawLinks: unknown) => {
+		const noteId = parseIpcArg(idSchema, rawNoteId, 'storage:set-links-from:noteId');
+		const links = parseIpcArg(z.array(linkSchema), rawLinks, 'storage:set-links-from:links');
+		await requireStorage().setLinksFrom(noteId as NoteId, links as Link[]);
 	},
 );
+
 ipcMain.handle('dndtools:storage:get-all-links', async () => {
 	return requireStorage().getAllLinks();
 });
+
 ipcMain.handle('dndtools:storage:get-session-boards', async () => {
 	return requireStorage().getSessionBoards();
 });
-ipcMain.handle('dndtools:storage:get-session-board', async (_event, id: string) => {
-	return requireStorage().getSessionBoard(id as never);
+
+ipcMain.handle('dndtools:storage:get-session-board', async (_event, rawId: unknown) => {
+	const id = parseIpcArg(idSchema, rawId, 'storage:get-session-board');
+	return requireStorage().getSessionBoard(id as SessionBoardId);
 });
-ipcMain.handle('dndtools:storage:save-session-board', async (_event, board: unknown) => {
-	await requireStorage().saveSessionBoard(board as never);
+
+ipcMain.handle('dndtools:storage:save-session-board', async (_event, rawBoard: unknown) => {
+	const board = parseIpcArg(sessionBoardSchema, rawBoard, 'storage:save-session-board');
+	await requireStorage().saveSessionBoard(board as SessionBoard);
 });
-ipcMain.handle('dndtools:storage:delete-session-board', async (_event, id: string) => {
-	await requireStorage().deleteSessionBoard(id as never);
+
+ipcMain.handle('dndtools:storage:delete-session-board', async (_event, rawId: unknown) => {
+	const id = parseIpcArg(idSchema, rawId, 'storage:delete-session-board');
+	await requireStorage().deleteSessionBoard(id as SessionBoardId);
 });
+
 ipcMain.handle(
 	'dndtools:storage:suggest-related-notes',
-	async (_event, noteIds: string[], limit?: number) => {
-		return requireStorage().suggestRelatedNotes(noteIds as never, limit);
+	async (_event, rawNoteIds: unknown, rawLimit: unknown) => {
+		const noteIds = parseIpcArg(
+			suggestNoteIdsSchema,
+			rawNoteIds,
+			'storage:suggest-related-notes:noteIds',
+		);
+		const limit = parseIpcArg(optionalLimitSchema, rawLimit, 'storage:suggest-related-notes:limit');
+		return requireStorage().suggestRelatedNotes(noteIds as NoteId[], limit);
 	},
 );
-ipcMain.handle('dndtools:storage:get-object', async (_event, id: string) => {
-	return requireStorage().getObject(id as never);
+
+ipcMain.handle('dndtools:storage:get-object', async (_event, rawId: unknown) => {
+	const id = parseIpcArg(idSchema, rawId, 'storage:get-object');
+	return requireStorage().getObject(id as VaultObjectId);
 });
-ipcMain.handle(
-	'dndtools:storage:get-all-objects',
-	async (_event, options?: { type?: string; query?: string }) => {
-		return requireStorage().getAllObjects(options);
-	},
-);
-ipcMain.handle('dndtools:storage:save-object', async (_event, object: unknown) => {
-	await requireStorage().saveObject(object as never);
+
+ipcMain.handle('dndtools:storage:get-all-objects', async (_event, rawOptions: unknown) => {
+	const options = parseIpcArg(getAllObjectsOptionsSchema, rawOptions, 'storage:get-all-objects');
+	return requireStorage().getAllObjects(options);
 });
-ipcMain.handle('dndtools:storage:delete-object', async (_event, id: string) => {
-	await requireStorage().deleteObject(id as never);
+
+ipcMain.handle('dndtools:storage:save-object', async (_event, rawObject: unknown) => {
+	const object = parseIpcArg(vaultObjectSchema, rawObject, 'storage:save-object');
+	await requireStorage().saveObject(object as VaultObject);
 });
+
+ipcMain.handle('dndtools:storage:delete-object', async (_event, rawId: unknown) => {
+	const id = parseIpcArg(idSchema, rawId, 'storage:delete-object');
+	await requireStorage().deleteObject(id as VaultObjectId);
+});
+
 ipcMain.handle('dndtools:storage:get-object-relationship-graph', async () => {
 	return requireStorage().getObjectRelationshipGraph();
 });
+
 ipcMain.handle('dndtools:storage:lint-objects', async () => {
 	return requireStorage().lintObjects();
 });
+
 ipcMain.handle(
 	'dndtools:storage:get-object-history',
-	async (_event, id: string, options?: { limit?: number }) => {
-		return requireStorage().getObjectHistory(id as never, options);
+	async (_event, rawId: unknown, rawOptions: unknown) => {
+		const id = parseIpcArg(idSchema, rawId, 'storage:get-object-history:id');
+		const options = parseIpcArg(
+			getObjectHistoryOptionsSchema,
+			rawOptions,
+			'storage:get-object-history:options',
+		);
+		return requireStorage().getObjectHistory(id as VaultObjectId, options);
 	},
 );
+
 ipcMain.handle(
 	'dndtools:storage:revert-object-history',
-	async (_event, id: string, historyEntryId: string) => {
-		return requireStorage().revertObjectToHistory(id as never, historyEntryId);
+	async (_event, rawId: unknown, rawHistoryEntryId: unknown) => {
+		const id = parseIpcArg(idSchema, rawId, 'storage:revert-object-history:id');
+		const historyEntryId = parseIpcArg(
+			idSchema,
+			rawHistoryEntryId,
+			'storage:revert-object-history:historyEntryId',
+		);
+		return requireStorage().revertObjectToHistory(id as VaultObjectId, historyEntryId);
 	},
 );
-ipcMain.handle('dndtools:storage:get-setting', async (_event, key: string) => {
-	return requireStorage().getSetting(key as never);
+
+ipcMain.handle('dndtools:storage:get-setting', async (_event, rawKey: unknown) => {
+	const key = parseIpcArg(appSettingsKeySchema, rawKey, 'storage:get-setting');
+	return requireStorage().getSetting(key as keyof AppSettings);
 });
-ipcMain.handle('dndtools:storage:set-setting', async (_event, key: string, value: unknown) => {
-	await requireStorage().setSetting(key as never, value as never);
+
+ipcMain.handle('dndtools:storage:set-setting', async (_event, rawKey: unknown, value: unknown) => {
+	const key = parseIpcArg(appSettingsKeySchema, rawKey, 'storage:set-setting:key');
+	await requireStorage().setSetting(key as keyof AppSettings, value as never);
 });
-ipcMain.handle('dndtools:storage:create-safety-snapshot', async (_event, reason?: string) => {
+
+ipcMain.handle('dndtools:storage:create-safety-snapshot', async (_event, rawReason: unknown) => {
+	const reason = parseIpcArg(snapshotReasonSchema, rawReason, 'storage:create-safety-snapshot');
 	return requireStorage().createSafetySnapshot(reason);
 });
+
 ipcMain.handle('dndtools:storage:list-safety-snapshots', async () => {
 	return requireStorage().listSafetySnapshots();
 });
+
 ipcMain.handle(
 	'dndtools:storage:restore-deleted-from-snapshot',
-	async (_event, snapshotId: string) => {
+	async (_event, rawSnapshotId: unknown) => {
+		const snapshotId = parseIpcArg(
+			idSchema,
+			rawSnapshotId,
+			'storage:restore-deleted-from-snapshot',
+		);
 		return requireStorage().restoreDeletedFromSnapshot(snapshotId);
 	},
 );
-ipcMain.handle('dndtools:storage:import-notes', async (_event, notes: unknown) => {
+
+ipcMain.handle('dndtools:storage:import-notes', async (_event, rawNotes: unknown) => {
+	const notes = parseIpcArg(importNotesSchema, rawNotes, 'storage:import-notes');
 	return requireStorage().importNotes(notes as never);
 });
+
 ipcMain.handle('dndtools:storage:export-all-notes', async () => {
 	return requireStorage().exportAllNotes();
 });
+
 ipcMain.handle('dndtools:storage:get-note-count', async () => {
 	return requireStorage().getNoteCount();
 });
+
 ipcMain.handle('dndtools:storage:get-tag-counts', async () => {
 	return requireStorage().getTagCounts();
 });
+
 ipcMain.handle('dndtools:storage:refresh-from-disk', async () => {
 	await requireStorage().refreshFromDisk();
 });
+
 ipcMain.handle('dndtools:storage:get-integrity-report', async () => {
 	return requireStorage().getMetadataIntegrityReport();
 });
+
 ipcMain.handle('dndtools:storage:repair-integrity', async () => {
 	return requireStorage().repairMetadataIntegrity();
 });
+
+ipcMain.handle('dndtools:storage:rebuild-index', async () => {
+	return requireStorage().rebuildVaultIndex();
+});
+
+ipcMain.handle(
+	'dndtools:storage:clear-changelog',
+	async (_event, options?: { maxAgeMs?: number }) => {
+		return requireStorage().clearMcpChangelog(options);
+	},
+);
+
+// â”€â”€â”€ Schema migration IPC handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 ipcMain.handle('dndtools:schema:get-migration-report', async () => {
 	return requireStorage().getSchemaMigrationReport();
 });
-ipcMain.handle(
-	'dndtools:schema:run-migrations',
-	async (_event, options?: { dryRun?: boolean; createCheckpoint?: boolean }) => {
-		return requireStorage().runSchemaMigrations(options);
-	},
-);
+
+ipcMain.handle('dndtools:schema:run-migrations', async (_event, rawOptions: unknown) => {
+	const options = parseIpcArg(migrationOptionsSchema, rawOptions, 'schema:run-migrations');
+	const store = requireStorage();
+	// Create a safety snapshot before applying live migrations so the user can
+	// restore via the UI if something goes wrong, regardless of the checkpoint.
+	if (!options.dryRun) {
+		await store.createSafetySnapshot('before-migration').catch(() => undefined);
+	}
+	return store.runSchemaMigrations(options);
+});
+
 ipcMain.handle('dndtools:schema:list-checkpoints', async () => {
 	return requireStorage().listMigrationCheckpoints();
 });
-ipcMain.handle('dndtools:schema:restore-checkpoint', async (_event, checkpointName: string) => {
+
+ipcMain.handle('dndtools:schema:restore-checkpoint', async (_event, rawCheckpointName: unknown) => {
+	const checkpointName = parseIpcArg(
+		z.string().min(1).max(512),
+		rawCheckpointName,
+		'schema:restore-checkpoint',
+	);
 	return requireStorage().restoreMigrationCheckpoint(checkpointName);
 });
+
+// Meta / platform IPC handlers
+
 
 ipcMain.handle('dndtools:backend-info', async () => {
 	return {
@@ -516,18 +645,16 @@ ipcMain.handle('dndtools:mcp-restart', async () => {
 	return status;
 });
 
-ipcMain.handle('dndtools:diagnostics:mark-success', async (_event, subsystem: unknown) => {
-	if (!isHealthSubsystem(subsystem)) {
-		throw new Error(`Invalid subsystem: ${String(subsystem)}`);
-	}
-	diagnostics.markSubsystemSuccess(subsystem);
+// â”€â”€â”€ Diagnostics IPC handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+ipcMain.handle('dndtools:diagnostics:mark-success', async (_event, rawSubsystem: unknown) => {
+	const subsystem = parseIpcArg(healthSubsystemSchema, rawSubsystem, 'diagnostics:mark-success');
+	diagnostics.markSubsystemSuccess(subsystem as HealthSubsystem);
 });
 
-ipcMain.handle('dndtools:diagnostics:record-error', async (_event, event: unknown) => {
-	if (!isStructuredErrorEvent(event)) {
-		throw new Error('Invalid diagnostics error event payload');
-	}
-	diagnostics.recordError(event);
+ipcMain.handle('dndtools:diagnostics:record-error', async (_event, rawEvent: unknown) => {
+	const event = parseIpcArg(structuredErrorEventSchema, rawEvent, 'diagnostics:record-error');
+	diagnostics.recordError(event as StructuredErrorEvent);
 });
 
 ipcMain.handle('dndtools:diagnostics:get-health', async () => {
@@ -539,12 +666,13 @@ ipcMain.handle('dndtools:diagnostics:get-health', async () => {
 });
 
 ipcMain.handle('dndtools:diagnostics:export', async () => {
-	const suffix = new Date().toISOString().replace(/[:.]/g, '-');
-	const defaultPath = path.join(app.getPath('documents'), `dndtools-diagnostics-${suffix}.json`);
+	const now = new Date();
+	const suffix = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+	const defaultPath = path.join(app.getPath('documents'), `dndtools-diagnostics-${suffix}.zip`);
 	const picked = await dialog.showSaveDialog({
 		title: 'Export Diagnostics Bundle',
 		defaultPath,
-		filters: [{ name: 'JSON', extensions: ['json'] }],
+		filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
 	});
 
 	if (picked.canceled || !picked.filePath) {
@@ -553,20 +681,85 @@ ipcMain.handle('dndtools:diagnostics:export', async () => {
 
 	const health = diagnostics.getHealthSnapshot();
 	const metricsBase = await collectBundleMetrics();
-	const bundle = {
-		generatedAt: new Date().toISOString(),
-		health,
-		environment: diagnostics.getEnvironment(),
-		metrics: diagnostics.getMetrics(metricsBase),
-		mcp: {
-			status: mcpSidecar.getStatus(),
-			lifecycle: mcpSidecar.getLifecycleEvents(120),
+	const environment = diagnostics.getEnvironment();
+	const metrics = diagnostics.getMetrics(metricsBase);
+	const mcpStatus = mcpSidecar.getStatus();
+	const mcpLifecycle = mcpSidecar.getLifecycleEvents(120);
+
+	// Redact user-identifying paths before bundling.
+	const redactedVaultDir = vaultDir ? '[VAULT_DIR_REDACTED]' : null;
+	const redactedMcpEntry = mcpStatus.entry ? path.basename(mcpStatus.entry) : null;
+
+	const diagnosticsJson = {
+		generatedAt: now.toISOString(),
+		appVersion: app.getVersion(),
+		environment,
+		metrics,
+		health: {
+			generatedAt: health.generatedAt,
+			lastSuccessful: health.lastSuccessful,
 		},
-		logs: health.recentErrors,
+		mcp: {
+			state: mcpStatus.state,
+			entry: redactedMcpEntry,
+			vaultDir: redactedVaultDir,
+			pid: mcpStatus.pid,
+			lastStartedAt: mcpStatus.lastStartedAt,
+			lastStoppedAt: mcpStatus.lastStoppedAt,
+			lastExitReason: mcpStatus.lastExitReason,
+			restartCount: mcpStatus.restartCount,
+			crashCount: mcpStatus.crashCount,
+			error: mcpStatus.error,
+		},
 	};
-	await fs.writeFile(picked.filePath, JSON.stringify(bundle, null, 2), 'utf-8');
+
+	// Redact error events: preserve operational fields, strip vault paths from messages.
+	const redactedErrors = health.recentErrors.map((e) => ({
+		id: e.id,
+		at: e.at,
+		category: e.category,
+		code: e.code,
+		severity: e.severity,
+		recoveryHint: e.recoveryHint,
+		// Strip vault dir from message/details to avoid leaking user path.
+		message: vaultDir ? e.message.replaceAll(vaultDir, '[VAULT_DIR]') : e.message,
+		context: e.context,
+	}));
+
+	const readme = [
+		'DND Tools Diagnostics Bundle',
+		'============================',
+		'',
+		`Generated: ${now.toISOString()}`,
+		'',
+		'Contents:',
+		'  diagnostics.json  â€” Runtime environment, health timestamps, MCP status, metrics.',
+		'  errors.json       â€” Recent structured error events (vault paths redacted).',
+		'  sidecar-log.json  â€” MCP sidecar lifecycle event history.',
+		'',
+		'How to share:',
+		'  Attach this zip file to a GitHub issue at:',
+		'  https://github.com/anthropics/dndtools/issues',
+		'',
+		'Privacy:',
+		'  Vault directory paths are redacted. Note titles and content are NOT included.',
+		'  Error messages may contain application-level details but not note content.',
+	].join('\n');
+
+	const zip = new AdmZip();
+	zip.addFile('diagnostics.json', Buffer.from(JSON.stringify(diagnosticsJson, null, 2), 'utf-8'));
+	zip.addFile('errors.json', Buffer.from(JSON.stringify(redactedErrors, null, 2), 'utf-8'));
+	zip.addFile(
+		'sidecar-log.json',
+		Buffer.from(JSON.stringify({ events: mcpLifecycle }, null, 2), 'utf-8'),
+	);
+	zip.addFile('README.txt', Buffer.from(readme, 'utf-8'));
+	zip.writeZip(picked.filePath);
+
 	return { canceled: false, path: picked.filePath };
 });
+
+// â”€â”€â”€ Vault IPC handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 ipcMain.handle('dndtools:vault-refresh', async () => {
 	const current = requireStorage();
@@ -575,11 +768,14 @@ ipcMain.handle('dndtools:vault-refresh', async () => {
 	return { noteCount: await current.getNoteCount() };
 });
 
+// â”€â”€â”€ MCP change review IPC handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 ipcMain.handle('dndtools:mcp-changes:list', async (): Promise<McpChangeRecord[]> => {
 	return requireStorage().getPendingMcpChanges();
 });
 
-ipcMain.handle('dndtools:mcp-changes:audit', async (_event, limit?: number) => {
+ipcMain.handle('dndtools:mcp-changes:audit', async (_event, rawLimit: unknown) => {
+	const limit = parseIpcArg(optionalLimitSchema, rawLimit, 'mcp-changes:audit');
 	return requireStorage().getMcpAuditTrail(limit);
 });
 
@@ -587,11 +783,13 @@ ipcMain.handle('dndtools:mcp-policy:get', async () => {
 	return requireStorage().getMcpPolicySettings();
 });
 
-ipcMain.handle('dndtools:mcp-policy:set', async (_event, settings: unknown) => {
+ipcMain.handle('dndtools:mcp-policy:set', async (_event, rawSettings: unknown) => {
+	const settings = parseIpcArg(mcpPolicySettingsSchema, rawSettings, 'mcp-policy:set');
 	return requireStorage().setMcpPolicySettings(settings as never);
 });
 
-ipcMain.handle('dndtools:mcp-changes:approve', async (_event, changeId: string) => {
+ipcMain.handle('dndtools:mcp-changes:approve', async (_event, rawChangeId: unknown) => {
+	const changeId = parseIpcArg(idSchema, rawChangeId, 'mcp-changes:approve');
 	return requireStorage().approveMcpChange(changeId);
 });
 
@@ -599,13 +797,16 @@ ipcMain.handle('dndtools:mcp-changes:approve-all', async () => {
 	return requireStorage().approveAllMcpChanges();
 });
 
-ipcMain.handle('dndtools:mcp-changes:reject', async (_event, changeId: string) => {
+ipcMain.handle('dndtools:mcp-changes:reject', async (_event, rawChangeId: unknown) => {
+	const changeId = parseIpcArg(idSchema, rawChangeId, 'mcp-changes:reject');
 	return requireStorage().rejectMcpChange(changeId);
 });
 
 ipcMain.handle('dndtools:mcp-changes:reject-all', async () => {
 	return requireStorage().rejectAllMcpChanges();
 });
+
+// â”€â”€â”€ Vault picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 ipcMain.handle('dndtools:pick-vault', async () => {
 	const picked = await dialog.showOpenDialog({
@@ -619,6 +820,8 @@ ipcMain.handle('dndtools:pick-vault', async () => {
 	await setVaultDirectory(nextVault);
 	return { vaultDir: nextVault };
 });
+
+// â”€â”€â”€ Window management IPC handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 ipcMain.handle('dndtools:window:minimize', async (event) => {
 	BrowserWindow.fromWebContents(event.sender)?.minimize();
@@ -645,6 +848,8 @@ ipcMain.handle('dndtools:window:get-state', async (event) => {
 	};
 });
 
+// â”€â”€â”€ Process-level error trapping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 process.on('uncaughtException', (error) => {
 	diagnostics.recordError(
 		createStructuredError({
@@ -667,6 +872,8 @@ process.on('unhandledRejection', (reason) => {
 	);
 });
 
+// â”€â”€â”€ Application lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 app.whenReady().then(async () => {
 	await setVaultDirectory(resolveVaultDir());
 	await createMainWindow();
@@ -682,11 +889,41 @@ app.on('activate', async () => {
 	}
 });
 
-app.on('before-quit', () => {
-	void storage?.close();
-	void mcpSidecar.stop();
-	if (staticServer) {
-		staticServer.close();
-		staticServer = null;
+let isQuitting = false;
+
+app.on('before-quit', (event) => {
+	if (isQuitting) return;
+
+	const current = storage;
+	const needsOnCloseSnapshot = !!current;
+
+	if (!needsOnCloseSnapshot) {
+		void mcpSidecar.stop();
+		if (staticServer) {
+			staticServer.close();
+			staticServer = null;
+		}
+		return;
 	}
+
+	// Prevent default quit to allow async cleanup (snapshot + close) to finish.
+	event.preventDefault();
+	isQuitting = true;
+
+	void (async () => {
+		try {
+			const cadence = await current.getSetting('backupCadence').catch(() => null);
+			if (cadence === 'on-close') {
+				await current.createSafetySnapshot('auto-on-close').catch(() => undefined);
+			}
+		} finally {
+			await current.close().catch(() => undefined);
+			void mcpSidecar.stop();
+			if (staticServer) {
+				staticServer.close();
+				staticServer = null;
+			}
+			app.quit();
+		}
+	})();
 });

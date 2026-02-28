@@ -54,6 +54,9 @@ contextBridge.exposeInMainWorld('dndtoolsDesktop', {
 	refreshFromDisk: () => ipcRenderer.invoke('dndtools:storage:refresh-from-disk'),
 	getIntegrityReport: () => ipcRenderer.invoke('dndtools:storage:get-integrity-report'),
 	repairIntegrity: () => ipcRenderer.invoke('dndtools:storage:repair-integrity'),
+	rebuildVaultIndex: () => ipcRenderer.invoke('dndtools:storage:rebuild-index'),
+	clearMcpChangelog: (options?: { maxAgeMs?: number }) =>
+		ipcRenderer.invoke('dndtools:storage:clear-changelog', options),
 	getSchemaMigrationReport: () => ipcRenderer.invoke('dndtools:schema:get-migration-report'),
 	runSchemaMigrations: (options?: { dryRun?: boolean; createCheckpoint?: boolean }) =>
 		ipcRenderer.invoke('dndtools:schema:run-migrations', options),

@@ -21,6 +21,8 @@ export interface SafetySnapshot {
 	createdAt: string;
 	reason: string;
 	noteCount: number;
+	/** File size of the snapshot in bytes. May be absent on non-filesystem adapters. */
+	sizeBytes?: number;
 }
 
 export interface SnapshotRestoreResult {
