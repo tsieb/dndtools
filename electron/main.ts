@@ -627,7 +627,6 @@ ipcMain.handle('dndtools:schema:restore-checkpoint', async (_event, rawCheckpoin
 
 // Meta / platform IPC handlers
 
-
 ipcMain.handle('dndtools:backend-info', async () => {
 	return {
 		backend: 'desktop-filesystem',

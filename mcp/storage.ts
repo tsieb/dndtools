@@ -477,7 +477,7 @@ function cloneVaultObject(object: VaultObject): VaultObject {
 		...object,
 		tags: [...object.tags],
 		data: JSON.parse(JSON.stringify(object.data)) as VaultObject['data'],
-	});
+	} as VaultObject);
 }
 
 function areObjectsEquivalent(a: VaultObject, b: VaultObject): boolean {

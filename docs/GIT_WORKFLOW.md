@@ -255,15 +255,15 @@ Available on free personal GitHub accounts:
 
 ## 7. Reference
 
-| Document                    | Purpose                                             |
-| --------------------------- | --------------------------------------------------- |
-| `docs/MASTER_PLAN.md`       | Epic and Story identifiers for branch naming        |
-| `docs/PLANNING_TIERS.md`    | Initiative → Epic → Story → Task → Atomic hierarchy |
-| `docs/DEVELOPMENT.md`       | Canonical quality commands and boundary rules       |
-| `.github/workflows/ci.yml`  | Core quality and docs validation gates              |
-| `.github/workflows/e2e.yml` | Desktop E2E CI definition                           |
-| `.github/workflows/desktop-build.yml` | Cross-platform desktop build + smoke matrix |
-| `.github/workflows/commitlint.yml` | Conventional Commit enforcement                |
-| `.github/workflows/release-please.yml` | Automated release PR + changelog generation |
-| `.github/workflows/release-assets.yml` | Release artifact publication and signing      |
-| `CLAUDE.md`                 | Agent development guide                             |
+| Document                               | Purpose                                             |
+| -------------------------------------- | --------------------------------------------------- |
+| `docs/MASTER_PLAN.md`                  | Epic and Story identifiers for branch naming        |
+| `docs/PLANNING_TIERS.md`               | Initiative → Epic → Story → Task → Atomic hierarchy |
+| `docs/DEVELOPMENT.md`                  | Canonical quality commands and boundary rules       |
+| `.github/workflows/ci.yml`             | Core quality and docs validation gates              |
+| `.github/workflows/e2e.yml`            | Desktop E2E CI definition                           |
+| `.github/workflows/desktop-build.yml`  | Cross-platform desktop build + smoke matrix         |
+| `.github/workflows/commitlint.yml`     | Conventional Commit enforcement                     |
+| `.github/workflows/release-please.yml` | Automated release PR + changelog generation         |
+| `.github/workflows/release-assets.yml` | Release artifact publication and signing            |
+| `CLAUDE.md`                            | Agent development guide                             |

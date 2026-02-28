@@ -19,6 +19,7 @@
 	let saveName = $state('');
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
+	const SEARCH_DEBOUNCE_MS = 50;
 
 	let notesById = $derived(notesState.noteById);
 
@@ -72,7 +73,7 @@
 			response = searchService.searchDetailed(normalized);
 			searching = false;
 			searchTimeout = null;
-		}, 140);
+		}, SEARCH_DEBOUNCE_MS);
 	}
 
 	function handleInput(event: Event): void {

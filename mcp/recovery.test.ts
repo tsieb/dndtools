@@ -9,6 +9,8 @@ import { nowISO } from '../src/lib/utils/date.js';
 import { generateNoteId } from '../src/lib/utils/id.js';
 import type { Note } from '../src/lib/types/note.js';
 
+const schemaFixtureVault = path.resolve('mcp/fixtures/schema-v1');
+
 function testNote(overrides: Partial<Note> = {}): Note {
 	const now = nowISO();
 	return {
@@ -165,5 +167,22 @@ describe('interrupted write recovery', () => {
 		const after = await adapter.getMcpChangeLog();
 		expect(after).toHaveLength(1);
 		await expect(fs.stat(tempPath)).rejects.toThrow();
+	});
+
+	it('initializes schema-v1 fixture vaults through migration and integrity recovery paths', async () => {
+		const fixtureDir = path.join(tmpDir, 'fixture-vault');
+		await fs.cp(schemaFixtureVault, fixtureDir, { recursive: true });
+
+		const fixtureAdapter = new FileSystemAdapter(fixtureDir);
+		await fixtureAdapter.initialize();
+
+		const migrationReport = await fixtureAdapter.getSchemaMigrationReport();
+		expect(migrationReport.upgradeRequired).toBe(false);
+		expect(migrationReport.vaultTooNew).toBe(false);
+
+		const integrityReport = await fixtureAdapter.getMetadataIntegrityReport();
+		expect(integrityReport.healthy).toBe(true);
+
+		await fixtureAdapter.close();
 	});
 });

@@ -17,7 +17,9 @@ From `package.json`:
 - `pnpm test`: vitest run
 - `pnpm test:watch`: vitest watch
 - `pnpm test:e2e`: playwright
-- `pnpm test:e2e:desktop`: desktop Playwright smoke suite
+- `pnpm test:e2e:desktop`: desktop Playwright suite
+- `pnpm test:e2e:desktop:critical`: desktop route/workflow regression gate
+- `pnpm test:e2e:desktop:perf`: desktop performance benchmark suite (`@perf`)
 - `pnpm lint`: eslint
 - `pnpm typecheck`: svelte-check
 - `pnpm check`: lint + typecheck + tests
@@ -85,11 +87,6 @@ Risk: regressions can slip through in low-coverage renderer areas.
 Reason: current pipeline validates runtime bundles; platform trust-sign workflows are still pending.
 Target: `.github/workflows/release-assets.yml`, packaging/signing tooling in desktop release pipeline.
 Risk: distribution trust posture remains weaker than a fully signed/notarized installer chain.
-
-`TODO(APP):` MCP tool coverage is broad but still not complete for all read-path edge cases and concurrent scenarios.
-Reason: write-critical tools are covered; deeper read-edge assertions still need expansion.
-Target: `mcp/**/*.test.ts` expansion.
-Risk: agent-facing behavior drift in less common read flows.
 
 ## 9. Architectural Governance
 

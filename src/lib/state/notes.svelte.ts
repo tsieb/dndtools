@@ -216,12 +216,15 @@ class NotesState {
 		}
 
 		await storage.saveNote(updated);
-		const persisted = (await storage.getNote(id)) ?? updated;
+		const requiresStorageRefresh = updates.title !== undefined || updates.folder !== undefined;
+		const persisted = requiresStorageRefresh ? ((await storage.getNote(id)) ?? updated) : updated;
 		this.setNoteById(persisted);
 		this.draftNoteIds.delete(id);
 		searchService.addNote(persisted);
 		if (updates.content !== undefined || persisted.deleted || isDraft) {
-			await this.syncNoteLinks(persisted);
+			// Link synchronization is intentionally asynchronous so save latency
+			// reflects content persistence, not downstream graph recomputation.
+			void this.syncNoteLinks(persisted);
 		}
 		linksState.syncNotes(this.activeNotes.map((entry) => entry.id));
 	}

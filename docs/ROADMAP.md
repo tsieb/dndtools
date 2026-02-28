@@ -14,33 +14,33 @@ This roadmap starts from the current Electron-first + staged-MCP baseline.
 1. Data Integrity Hardening
 
 - `TODO(APP):` atomic file writes for notes and `.vault` metadata.
-Reason: backlog item tracked for planned implementation.
-Target: see the surrounding section and referenced files in this block.
-Risk: quality and behavior drift if deferred.
+  Reason: backlog item tracked for planned implementation.
+  Target: see the surrounding section and referenced files in this block.
+  Risk: quality and behavior drift if deferred.
 - `TODO(APP):` corruption detection + guided repair flow.
-Reason: backlog item tracked for planned implementation.
-Target: see the surrounding section and referenced files in this block.
-Risk: quality and behavior drift if deferred.
+  Reason: backlog item tracked for planned implementation.
+  Target: see the surrounding section and referenced files in this block.
+  Risk: quality and behavior drift if deferred.
 - `TODO(APP):` migration/version strategy for `.vault` metadata files.
-Reason: backlog item tracked for planned implementation.
-Target: see the surrounding section and referenced files in this block.
-Risk: quality and behavior drift if deferred.
+  Reason: backlog item tracked for planned implementation.
+  Target: see the surrounding section and referenced files in this block.
+  Risk: quality and behavior drift if deferred.
 
 2. Security Hardening
 
 - Explicit typed IPC channels are in place with schema validation on handlers.
 - `TODO(APP):` add threat model doc for Electron + local vault + MCP surfaces.
-Reason: security controls are implemented but threat model governance doc is still missing.
-Target: `docs/SECURITY.md`.
-Risk: attack-surface assumptions can drift without a maintained risk register.
+  Reason: security controls are implemented but threat model governance doc is still missing.
+  Target: `docs/SECURITY.md`.
+  Risk: attack-surface assumptions can drift without a maintained risk register.
 
 3. Test and CI Enforcement
 
 - Core CI, desktop E2E, desktop build matrix, docs validation, commitlint, and release workflows are active in `.github/workflows/`.
 - `TODO(APP):` MCP tool test suite expansion to all tools.
-Reason: broad coverage exists, but edge-case depth remains uneven in some read-focused tools.
-Target: `mcp/tools/**/*.test.ts`.
-Risk: regression detection for low-frequency MCP paths remains weaker.
+  Reason: broad coverage exists, but edge-case depth remains uneven in some read-focused tools.
+  Target: `mcp/tools/**/*.test.ts`.
+  Risk: regression detection for low-frequency MCP paths remains weaker.
 
 ## Phase 2: Core UX and Performance (P1)
 
