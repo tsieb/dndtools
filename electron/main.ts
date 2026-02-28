@@ -148,6 +148,11 @@ async function setVaultDirectory(nextVaultDir: string): Promise<void> {
 	}
 
 	const schemaPreflight = await getVaultSchemaMigrationReport(nextVaultDir);
+	if (schemaPreflight.vaultTooNew) {
+		throw new Error(
+			'This vault was created with a newer version of DND Tools and cannot be opened. Please upgrade the application.',
+		);
+	}
 	if (schemaPreflight.upgradeRequired) {
 		const applied = await runVaultSchemaMigrations(nextVaultDir, {
 			dryRun: false,
@@ -478,6 +483,12 @@ ipcMain.handle(
 		return requireStorage().runSchemaMigrations(options);
 	},
 );
+ipcMain.handle('dndtools:schema:list-checkpoints', async () => {
+	return requireStorage().listMigrationCheckpoints();
+});
+ipcMain.handle('dndtools:schema:restore-checkpoint', async (_event, checkpointName: string) => {
+	return requireStorage().restoreMigrationCheckpoint(checkpointName);
+});
 
 ipcMain.handle('dndtools:backend-info', async () => {
 	return {

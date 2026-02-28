@@ -157,6 +157,13 @@ export interface DesktopSnapshotRestoreResult {
 	skipped: number;
 }
 
+export interface DesktopMigrationCheckpoint {
+	name: string;
+	dirPath: string;
+	createdAt: string;
+	fileCount: number;
+}
+
 export interface DesktopSchemaMigrationFailure {
 	step: string;
 	file: string | null;
@@ -182,6 +189,8 @@ export interface DesktopSchemaMigrationReport {
 	upgradeRequired: boolean;
 	upgradeApplied: boolean;
 	rollbackApplied: boolean;
+	/** True when the vault schema is newer than this app understands. Opening is refused. */
+	vaultTooNew: boolean;
 	checkpointDir: string | null;
 	from: {
 		notes: number;
@@ -276,6 +285,16 @@ export async function runDesktopSchemaMigrations(options?: {
 	createCheckpoint?: boolean;
 }): Promise<DesktopSchemaMigrationReport> {
 	return requireBridge().runSchemaMigrations(options);
+}
+
+export async function listDesktopMigrationCheckpoints(): Promise<DesktopMigrationCheckpoint[]> {
+	return requireBridge().listMigrationCheckpoints();
+}
+
+export async function restoreDesktopMigrationCheckpoint(
+	checkpointName: string,
+): Promise<{ restored: number }> {
+	return requireBridge().restoreMigrationCheckpoint(checkpointName);
 }
 
 export async function createDesktopSafetySnapshot(reason?: string): Promise<DesktopSafetySnapshot> {

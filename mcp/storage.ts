@@ -52,6 +52,27 @@ import {
 } from './migrations.js';
 import { writeFileAtomic, writeJsonAtomic } from './safe-write.js';
 
+/** A schema migration checkpoint directory entry returned to callers. */
+export interface MigrationCheckpointEntry {
+	name: string;
+	dirPath: string;
+	createdAt: string;
+	fileCount: number;
+}
+
+async function countFiles(dir: string): Promise<number> {
+	let count = 0;
+	const entries = await fs.readdir(dir, { withFileTypes: true });
+	for (const entry of entries) {
+		if (entry.isFile()) {
+			count += 1;
+		} else if (entry.isDirectory()) {
+			count += await countFiles(path.join(dir, entry.name));
+		}
+	}
+	return count;
+}
+
 /** Stored link entry in the vault index */
 interface StoredLink {
 	targetId: string;
@@ -1224,6 +1245,75 @@ export class FileSystemAdapter implements StorageAdapter {
 			await this.rebuildIndexIfNeeded();
 		}
 		return report;
+	}
+
+	async listMigrationCheckpoints(): Promise<MigrationCheckpointEntry[]> {
+		const checkpointsDir = path.join(this.metaDir, 'checkpoints');
+		try {
+			const entries = await fs.readdir(checkpointsDir, { withFileTypes: true });
+			const results: MigrationCheckpointEntry[] = [];
+			for (const entry of entries) {
+				if (!entry.isDirectory() || !entry.name.startsWith('schema-migration-')) continue;
+				const dirPath = path.join(checkpointsDir, entry.name);
+				const stat = await fs.stat(dirPath);
+				// Count backed-up files by walking the checkpoint directory tree.
+				const backupCount = await countFiles(dirPath);
+				results.push({
+					name: entry.name,
+					dirPath: path.relative(this.vaultDir, dirPath).replace(/\\/g, '/'),
+					createdAt: stat.birthtime.toISOString(),
+					fileCount: backupCount,
+				});
+			}
+			// Most-recent first.
+			results.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+			return results;
+		} catch {
+			return [];
+		}
+	}
+
+	async restoreMigrationCheckpoint(checkpointName: string): Promise<{ restored: number }> {
+		const checkpointsDir = path.join(this.metaDir, 'checkpoints');
+		// Validate the name to prevent path traversal.
+		if (
+			!checkpointName.startsWith('schema-migration-') ||
+			checkpointName.includes('/') ||
+			checkpointName.includes('\\') ||
+			checkpointName.includes('..')
+		) {
+			throw new Error(`Invalid checkpoint name: ${checkpointName}`);
+		}
+		const checkpointDir = path.join(checkpointsDir, checkpointName);
+		await fs.stat(checkpointDir); // throws if missing — caller should handle
+
+		let restored = 0;
+		const restore = async (srcDir: string, relBase: string): Promise<void> => {
+			const entries = await fs.readdir(srcDir, { withFileTypes: true });
+			for (const entry of entries) {
+				const relPath = relBase ? `${relBase}/${entry.name}` : entry.name;
+				const srcPath = path.join(srcDir, entry.name);
+				const destPath = path.join(this.vaultDir, relPath);
+				if (entry.isDirectory()) {
+					await fs.mkdir(destPath, { recursive: true });
+					await restore(srcPath, relPath);
+				} else if (entry.isFile()) {
+					await fs.mkdir(path.dirname(destPath), { recursive: true });
+					await fs.copyFile(srcPath, destPath);
+					restored += 1;
+				}
+			}
+		};
+
+		await restore(checkpointDir, '');
+		// Reload in-memory state from the restored files.
+		await this.scanMetadataIntegrity({ repair: true });
+		await this.loadIndex();
+		await this.loadSessionBoards();
+		await this.loadObjects();
+		await this.loadObjectHistory();
+		await this.rebuildIndexIfNeeded();
+		return { restored };
 	}
 
 	async initialize(): Promise<void> {
