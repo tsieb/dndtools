@@ -13,6 +13,8 @@
 		"test:watch": "vitest",
 		"test:e2e": "playwright test",
 		"test:e2e:desktop": "playwright test -c playwright.desktop.config.ts",
+		"test:e2e:desktop:critical": "playwright test -c playwright.desktop.config.ts --grep-invert @perf",
+		"test:e2e:desktop:perf": "playwright test -c playwright.desktop.config.ts --grep @perf",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
 		"format": "prettier --write .",

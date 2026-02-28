@@ -49,6 +49,6 @@ Read in this order:
 - IPC now uses explicit channel handlers with payload validation in `electron/main.ts` and `electron/ipc-schemas.ts`.
 - CI now includes Node LTS quality gates, docs drift checks, desktop E2E, desktop build matrix, and release automation under `.github/workflows/*.yml`.
 - `TODO(APP):` Improve portable export format beyond JSON-only bundle.
-Reason: current export remains JSON-first and less interoperable with external markdown tooling.
-Target: `src/lib/domain/export.ts`, export UX in `src/routes/settings/+page.svelte`.
-Risk: cross-tool portability friction and lower long-term vault interoperability.
+  Reason: current export remains JSON-first and less interoperable with external markdown tooling.
+  Target: `src/lib/domain/export.ts`, export UX in `src/routes/settings/+page.svelte`.
+  Risk: cross-tool portability friction and lower long-term vault interoperability.

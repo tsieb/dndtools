@@ -186,6 +186,23 @@ Compatibility:
 - Search index updates should be incremental where possible.
 - Link graph updates are incremental for note mutations and vault reloads; full rebuild is reserved for explicit recovery paths.
 
+### 8.1 Hard Budgets (Epic 2.2.5)
+
+The following user-visible latencies are treated as hard budgets:
+
+| Operation                                                   | Target budget | Regression failure threshold |
+| ----------------------------------------------------------- | ------------- | ---------------------------- |
+| Cold start (desktop app launch to shell ready)              | `<= 3000ms`   | `> 3600ms`                   |
+| Note open (notes list -> note viewer ready)                 | `<= 200ms`    | `> 240ms`                    |
+| Search response (query input -> result visible)             | `<= 150ms`    | `> 180ms`                    |
+| Save latency (explicit save action -> success confirmation) | `<= 100ms`    | `> 120ms`                    |
+
+Regression threshold policy:
+
+- Weekly benchmark failures are triggered at `> 20%` above target budget.
+- Benchmarks run in `.github/workflows/performance-regression.yml`.
+- Benchmarks are implemented in `tests/e2e-desktop/performance.spec.ts` and tagged `@perf`.
+
 ## 9. Reliability and Integrity Gaps
 
 `TODO(APP):` Atomic writes for note/index/settings/session board/object metadata files.

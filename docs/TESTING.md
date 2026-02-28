@@ -83,9 +83,24 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
 
 ### 3.2 E2E
 
-- `tests/e2e/navigation.spec.ts`
-- `tests/e2e/note-crud.spec.ts`
-- `tests/e2e/search.spec.ts`
+- Desktop smoke and critical routes:
+  - `tests/e2e-desktop/desktop-smoke.spec.ts`
+  - `tests/e2e-desktop/critical-workflows.spec.ts`
+- Route matrix:
+  - `docs/E2E_COVERAGE_MATRIX.md`
+- Browser-focused exploratory suite:
+  - `tests/e2e/navigation.spec.ts`
+  - `tests/e2e/note-crud.spec.ts`
+  - `tests/e2e/search.spec.ts`
+
+### 3.3 Performance Regression
+
+- Weekly desktop benchmark suite:
+  - `tests/e2e-desktop/performance.spec.ts` (`@perf`)
+- Enforced budgets live in:
+  - `docs/ARCHITECTURE.md` (Section 8.1)
+- Scheduled workflow:
+  - `.github/workflows/performance-regression.yml`
 
 ## 4. Mandatory Test Rules
 
@@ -94,11 +109,11 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
 - User-critical UI flow changes include e2e coverage.
 - Storage or MCP write-path changes include integrity/state-transition tests.
 - Ranking/suggestion logic must include deterministic ordering tests.
+- Changes touching covered routes must preserve `docs/E2E_COVERAGE_MATRIX.md` expectations.
 
 ## 5. High-Value Next Expansions
 
 - Add staged workflow tests for approve/reject-all conflict scenarios.
-- Add e2e coverage for trash restore/permanent delete and MCP pending-change review.
 - Add accessibility checks (focus order, keyboard-only flow, labels) in Playwright.
 
 ## 6. Commands
@@ -107,4 +122,6 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
 - `pnpm test -- --coverage`
 - `pnpm test:watch`
 - `pnpm test:e2e`
+- `pnpm test:e2e:desktop:critical`
+- `pnpm test:e2e:desktop:perf` (set `PERF_BENCHMARK=1`)
 - `pnpm check`

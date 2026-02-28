@@ -11,7 +11,16 @@ const repoRoot = process.cwd();
 const docsRoot = path.join(repoRoot, 'docs');
 const schemaDocPath = path.join(docsRoot, 'SCHEMA_MIGRATIONS.md');
 const migrationsSourcePath = path.join(repoRoot, 'mcp', 'migrations.ts');
-const pathPrefixAllowlist = ['.github/', 'docs/', 'src/', 'mcp/', 'electron/', 'tests/', 'scripts/', 'static/'];
+const pathPrefixAllowlist = [
+	'.github/',
+	'docs/',
+	'src/',
+	'mcp/',
+	'electron/',
+	'tests/',
+	'scripts/',
+	'static/',
+];
 const rootFileAllowlist = new Set([
 	'package.json',
 	'pnpm-lock.yaml',
@@ -49,7 +58,8 @@ function isLikelyLocalPath(token: string): boolean {
 	if (!normalized) return false;
 	if (normalized.startsWith('http://') || normalized.startsWith('https://')) return false;
 	if (normalized.startsWith('mailto:') || normalized.startsWith('#')) return false;
-	if (normalized.includes('*') || normalized.includes('{') || normalized.includes('}')) return false;
+	if (normalized.includes('*') || normalized.includes('{') || normalized.includes('}'))
+		return false;
 	if (normalized.includes(' ')) return false;
 	if (normalized.includes('://')) return false;
 	if (normalized.startsWith('<') || normalized.endsWith('>')) return false;
@@ -158,7 +168,9 @@ function validateTodoFields(markdown: string, filePath: string): ValidationIssue
 	return issues;
 }
 
-function parseSchemaVersionsFromMigrations(source: string): Record<'notes' | 'objects' | 'metadata', number> {
+function parseSchemaVersionsFromMigrations(
+	source: string,
+): Record<'notes' | 'objects' | 'metadata', number> {
 	const blockMatch = source.match(
 		/export const CURRENT_SCHEMA_VERSION = \{\s*notes:\s*(\d+),\s*objects:\s*(\d+),\s*metadata:\s*(\d+),\s*\} as const;/s,
 	);
@@ -172,7 +184,9 @@ function parseSchemaVersionsFromMigrations(source: string): Record<'notes' | 'ob
 	};
 }
 
-function parseSchemaVersionsFromDocs(markdown: string): Record<'notes' | 'objects' | 'metadata', number> {
+function parseSchemaVersionsFromDocs(
+	markdown: string,
+): Record<'notes' | 'objects' | 'metadata', number> {
 	const versions: Partial<Record<'notes' | 'objects' | 'metadata', number>> = {};
 	for (const match of markdown.matchAll(/-\s*(notes|objects|metadata):\s*`(\d+)`/g)) {
 		const key = match[1] as 'notes' | 'objects' | 'metadata';
@@ -183,7 +197,9 @@ function parseSchemaVersionsFromDocs(markdown: string): Record<'notes' | 'object
 		versions.objects === undefined ||
 		versions.metadata === undefined
 	) {
-		throw new Error('Could not parse notes/objects/metadata version targets from docs/SCHEMA_MIGRATIONS.md');
+		throw new Error(
+			'Could not parse notes/objects/metadata version targets from docs/SCHEMA_MIGRATIONS.md',
+		);
 	}
 	return versions as Record<'notes' | 'objects' | 'metadata', number>;
 }

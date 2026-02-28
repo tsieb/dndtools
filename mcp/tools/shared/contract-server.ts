@@ -52,6 +52,7 @@ export function createContractServer(
 ): McpServer {
 	const grantedPermission = grantedPermissionFor(options?.writeMode);
 	const responseCache = new Map<string, ToolResult>();
+	const inFlightCache = new Map<string, Promise<ToolResult>>();
 
 	const contractServer = {
 		...server,
@@ -105,50 +106,67 @@ export function createContractServer(
 					return cloneToolResult(responseCache.get(cacheKey)!);
 				}
 
-				let rawResult: ToolResult;
-				try {
-					rawResult = await handler(inputWithoutKey);
-				} catch (error) {
-					const message = error instanceof Error ? error.message : 'Unhandled MCP tool exception.';
-					return errorResult(message, {
-						code: 'MCP_INTERNAL_ERROR',
-						retriable: true,
-						tool: name,
-						hint: 'Retry once. If it still fails, inspect MCP logs and storage health.',
-					});
+				const execute = async (): Promise<ToolResult> => {
+					let rawResult: ToolResult;
+					try {
+						rawResult = await handler(inputWithoutKey);
+					} catch (error) {
+						const message =
+							error instanceof Error ? error.message : 'Unhandled MCP tool exception.';
+						return errorResult(message, {
+							code: 'MCP_INTERNAL_ERROR',
+							retriable: true,
+							tool: name,
+							hint: 'Retry once. If it still fails, inspect MCP logs and storage health.',
+						});
+					}
+
+					const envelope = parseToolEnvelope(rawResult);
+					if (!envelope) {
+						return errorResult('Tool returned a non-contract response envelope.', {
+							code: 'MCP_RESPONSE_SCHEMA_INVALID',
+							tool: name,
+							hint: 'Return responses through shared response helpers and retry.',
+						});
+					}
+
+					if (!envelope.ok) {
+						return errorResult(envelope.error.message, {
+							...envelope.error,
+							tool: envelope.error.tool ?? name,
+						});
+					}
+
+					const parsedResponse = contract.responseSchema.safeParse(envelope.data);
+					if (!parsedResponse.success) {
+						return errorResult('Tool response payload failed schema validation.', {
+							code: 'MCP_RESPONSE_SCHEMA_INVALID',
+							tool: name,
+							hint: contract.remediationHint,
+							details: toIssueSummary(parsedResponse.error),
+						});
+					}
+
+					const normalizedResult = jsonResult(parsedResponse.data);
+					if (cacheKey) {
+						responseCache.set(cacheKey, cloneToolResult(normalizedResult));
+					}
+					return normalizedResult;
+				};
+
+				if (!cacheKey) {
+					return execute();
 				}
 
-				const envelope = parseToolEnvelope(rawResult);
-				if (!envelope) {
-					return errorResult('Tool returned a non-contract response envelope.', {
-						code: 'MCP_RESPONSE_SCHEMA_INVALID',
-						tool: name,
-						hint: 'Return responses through shared response helpers and retry.',
-					});
+				if (inFlightCache.has(cacheKey)) {
+					return cloneToolResult(await inFlightCache.get(cacheKey)!);
 				}
 
-				if (!envelope.ok) {
-					return errorResult(envelope.error.message, {
-						...envelope.error,
-						tool: envelope.error.tool ?? name,
-					});
-				}
-
-				const parsedResponse = contract.responseSchema.safeParse(envelope.data);
-				if (!parsedResponse.success) {
-					return errorResult('Tool response payload failed schema validation.', {
-						code: 'MCP_RESPONSE_SCHEMA_INVALID',
-						tool: name,
-						hint: contract.remediationHint,
-						details: toIssueSummary(parsedResponse.error),
-					});
-				}
-
-				const normalizedResult = jsonResult(parsedResponse.data);
-				if (cacheKey) {
-					responseCache.set(cacheKey, cloneToolResult(normalizedResult));
-				}
-				return normalizedResult;
+				const inFlight = execute().finally(() => {
+					inFlightCache.delete(cacheKey);
+				});
+				inFlightCache.set(cacheKey, inFlight);
+				return cloneToolResult(await inFlight);
 			});
 		},
 	};

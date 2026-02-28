@@ -26,6 +26,25 @@ function makeNote(overrides: Partial<Note> = {}): Note {
 	};
 }
 
+async function withAgent(agentId: string | undefined, run: () => Promise<void>): Promise<void> {
+	const previous = process.env.DNDTOOLS_MCP_AGENT;
+	if (agentId) {
+		process.env.DNDTOOLS_MCP_AGENT = agentId;
+	} else {
+		delete process.env.DNDTOOLS_MCP_AGENT;
+	}
+
+	try {
+		await run();
+	} finally {
+		if (previous === undefined) {
+			delete process.env.DNDTOOLS_MCP_AGENT;
+		} else {
+			process.env.DNDTOOLS_MCP_AGENT = previous;
+		}
+	}
+}
+
 describe('StagedMcpAdapter', () => {
 	let tmpDir: string;
 	let base: FileSystemAdapter;
@@ -193,5 +212,168 @@ describe('StagedMcpAdapter', () => {
 
 		const recorded = (await base.getMcpChangeLog()).find((entry) => entry.id === pending[0]!.id);
 		expect(recorded?.audit?.some((event) => event.action === 'conflict_blocked')).toBe(true);
+	});
+
+	it('supports filtered batch approvals while leaving non-matching pending changes untouched', async () => {
+		await staged.saveNote(
+			makeNote({
+				id: createNoteId('note-batch-approve-1'),
+				title: 'Batch Approve One',
+			}),
+		);
+		await staged.saveNote(
+			makeNote({
+				id: createNoteId('note-batch-approve-2'),
+				title: 'Batch Approve Two',
+			}),
+		);
+		await staged.saveNote(
+			makeNote({
+				id: createNoteId('note-batch-hold-1'),
+				title: 'Batch Hold One',
+			}),
+		);
+
+		const pendingBefore = await base.getPendingMcpChanges();
+		expect(pendingBefore).toHaveLength(3);
+
+		const filtered = pendingBefore.filter((change) => change.title.includes('Approve'));
+		expect(filtered).toHaveLength(2);
+		for (const change of filtered) {
+			await base.approveMcpChange(change.id);
+		}
+
+		const pendingAfter = await base.getPendingMcpChanges();
+		expect(pendingAfter).toHaveLength(1);
+		expect(pendingAfter[0]?.title).toBe('Batch Hold One');
+
+		const approvedNotes = await base.getAllNotes();
+		expect(approvedNotes.some((note) => note.title === 'Batch Approve One')).toBe(true);
+		expect(approvedNotes.some((note) => note.title === 'Batch Approve Two')).toBe(true);
+		expect(approvedNotes.some((note) => note.title === 'Batch Hold One')).toBe(false);
+	});
+
+	it('enforces policy presets per agent id', async () => {
+		const perAgentPolicy: McpPolicySettings = {
+			defaultPresetId: 'strict_review',
+			perAgent: {
+				'trusted-agent': 'trusted',
+				'strict-agent': 'strict_review',
+			},
+		};
+		await base.setSetting('mcpPolicySettings', perAgentPolicy);
+
+		await withAgent('trusted-agent', async () => {
+			await staged.saveNote(
+				makeNote({
+					id: createNoteId('note-policy-trusted'),
+					title: 'Trusted Structural Create',
+				}),
+			);
+		});
+
+		await withAgent('strict-agent', async () => {
+			await staged.saveNote(
+				makeNote({
+					id: createNoteId('note-policy-strict'),
+					title: 'Strict Structural Create',
+				}),
+			);
+		});
+
+		const pending = await base.getPendingMcpChanges();
+		expect(pending).toHaveLength(1);
+		expect(pending[0]?.agentId).toBe('strict-agent');
+		expect(pending[0]?.policy?.presetId).toBe('strict_review');
+		expect(pending[0]?.policy?.decision).toBe('pending_review');
+
+		const auditTrail = await base.getMcpAuditTrail();
+		const trustedEntry = auditTrail.find((entry) => entry.noteId === 'note-policy-trusted');
+		expect(trustedEntry?.agentId).toBe('trusted-agent');
+		expect(trustedEntry?.policy?.presetId).toBe('trusted');
+		expect(trustedEntry?.policy?.decision).toBe('auto_approved');
+		expect(trustedEntry?.audit?.some((event) => event.action === 'auto_approved')).toBe(true);
+	});
+
+	it('records complete audit trails for staged, approved, rejected, and conflict-blocked flows', async () => {
+		const approvedBase = makeNote({
+			id: createNoteId('note-audit-approved'),
+			title: 'Audit Approved',
+			content: 'v1',
+		});
+		await base.saveNote(approvedBase);
+		await staged.refreshFromDisk();
+		await staged.saveNote({
+			...approvedBase,
+			content: 'v2',
+			updatedAt: '2026-01-04T00:00:00.000Z',
+		});
+		const approvedPending = (await base.getPendingMcpChanges()).find(
+			(entry) => entry.noteId === approvedBase.id,
+		);
+		expect(approvedPending).toBeTruthy();
+		await base.approveMcpChange(approvedPending!.id);
+
+		const rejectedBase = makeNote({
+			id: createNoteId('note-audit-rejected'),
+			title: 'Audit Rejected',
+			content: 'v1',
+		});
+		await base.saveNote(rejectedBase);
+		await staged.refreshFromDisk();
+		await staged.saveNote({
+			...rejectedBase,
+			content: 'v2',
+			updatedAt: '2026-01-05T00:00:00.000Z',
+		});
+		const rejectedPending = (await base.getPendingMcpChanges()).find(
+			(entry) => entry.noteId === rejectedBase.id,
+		);
+		expect(rejectedPending).toBeTruthy();
+		await base.rejectMcpChange(rejectedPending!.id);
+
+		const conflictedBase = makeNote({
+			id: createNoteId('note-audit-conflict'),
+			title: 'Audit Conflict',
+			content: 'v1',
+		});
+		await base.saveNote(conflictedBase);
+		await staged.refreshFromDisk();
+		await staged.saveNote({
+			...conflictedBase,
+			content: 'staged content',
+			updatedAt: '2026-01-06T00:00:00.000Z',
+		});
+		await base.saveNote({
+			...conflictedBase,
+			content: 'live edit content',
+			updatedAt: '2026-01-07T00:00:00.000Z',
+		});
+		const conflictedPending = (await base.getPendingMcpChanges()).find(
+			(entry) => entry.noteId === conflictedBase.id,
+		);
+		expect(conflictedPending).toBeTruthy();
+		await expect(base.approveMcpChange(conflictedPending!.id)).rejects.toThrow('Conflict detected');
+
+		const changeLog = await base.getMcpChangeLog();
+		const approvedRecord = changeLog.find((entry) => entry.noteId === approvedBase.id);
+		const rejectedRecord = changeLog.find((entry) => entry.noteId === rejectedBase.id);
+		const conflictedRecord = changeLog.find((entry) => entry.noteId === conflictedBase.id);
+
+		expect(approvedRecord?.audit?.map((entry) => entry.action)).toContain('staged');
+		expect(approvedRecord?.audit?.map((entry) => entry.action)).toContain('approved');
+		expect(rejectedRecord?.audit?.map((entry) => entry.action)).toContain('staged');
+		expect(rejectedRecord?.audit?.map((entry) => entry.action)).toContain('rejected');
+		expect(conflictedRecord?.audit?.map((entry) => entry.action)).toContain('staged');
+		expect(conflictedRecord?.audit?.map((entry) => entry.action)).toContain('conflict_blocked');
+
+		for (const record of [approvedRecord, rejectedRecord, conflictedRecord]) {
+			expect(record).toBeTruthy();
+			for (const auditEntry of record?.audit ?? []) {
+				expect(auditEntry.at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+				expect(auditEntry.actor.length).toBeGreaterThan(0);
+				expect(auditEntry.reason.length).toBeGreaterThan(0);
+			}
+		}
 	});
 });

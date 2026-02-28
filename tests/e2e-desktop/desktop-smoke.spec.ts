@@ -24,7 +24,9 @@ test.describe('Desktop smoke', () => {
 		try {
 			const window = await electronApp.firstWindow();
 			await expect(window).toHaveTitle(/DND Tools/i);
-			await expect(window.getByText('DND Tools')).toBeVisible({ timeout: 15_000 });
+			await expect(window.getByRole('link', { name: 'DND Tools' })).toBeVisible({
+				timeout: 15_000,
+			});
 		} finally {
 			await electronApp.close();
 			await fs.rm(vaultDir, { recursive: true, force: true });
