@@ -1,6 +1,13 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import type { Note } from '$lib/types/note.js';
-	import type { ObjectLintIssue, ObjectRelationship, VaultObject } from '$lib/types/object.js';
+	import type {
+		ObjectGraphEdge,
+		ObjectLintIssue,
+		ObjectRelationship,
+		VaultObject,
+	} from '$lib/types/object.js';
 	import { getStorage } from '$lib/platform/storage/index.js';
 	import { nowISO } from '$lib/utils/date.js';
 	import { noteToVaultObject } from '$lib/domain/object-notes.js';
@@ -27,12 +34,23 @@
 
 	let { note, onreloaded }: Props = $props();
 
+	type RelationshipRow = {
+		id: string;
+		direction: 'outbound' | 'inbound';
+		label: string;
+		targetId?: string;
+		targetName?: string;
+		sessionId?: string;
+		unresolved: boolean;
+	};
+
 	let object = $derived(noteToVaultObject(note));
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let lintIssues = $state<ObjectLintIssue[]>([]);
 	let history = $state<VaultObjectHistoryEntry[]>([]);
 	let relationshipStats = $state({ outbound: 0, inbound: 0 });
+	let relationshipRows = $state<RelationshipRow[]>([]);
 	let fieldA = $state('');
 	let fieldB = $state('');
 	let fieldC = $state('');
@@ -60,7 +78,9 @@
 					? String(relationship.targetId)
 					: (relationship.sessionId ?? '');
 				const suffix = relationship.description ? `:${relationship.description}` : '';
-				return `${relationship.type}:${target}${suffix}`;
+				const kind =
+					relationship.type === 'custom' ? (relationship.label ?? 'custom') : relationship.type;
+				return `${kind}:${target}${suffix}`;
 			})
 			.join('\n');
 	}
@@ -76,20 +96,15 @@
 					const type = typeRaw?.trim();
 					const target = targetRaw?.trim();
 					const description = descParts.join(':').trim() || undefined;
-					if (
-						type !== 'parent' &&
-						type !== 'child' &&
-						type !== 'ally' &&
-						type !== 'enemy' &&
-						type !== 'appears_in_session'
-					) {
-						return null;
-					}
+					if (!type) return null;
 					if (!target) return null;
 					if (type === 'appears_in_session') {
 						return { type, sessionId: target, description };
 					}
-					return { type, targetId: target as never, description };
+					if (type === 'parent' || type === 'child' || type === 'ally' || type === 'enemy') {
+						return { type, targetId: target as never, description };
+					}
+					return { type: 'custom', label: type, targetId: target as never, description };
 				}),
 		);
 	}
@@ -284,14 +299,86 @@
 		}
 	}
 
+	function relationshipLabel(edge: ObjectGraphEdge): string {
+		return edge.type === 'custom' ? (edge.label ?? 'custom') : edge.type;
+	}
+
+	function buildRelationshipRows(
+		graph: { edges: ObjectGraphEdge[] },
+		objects: VaultObject[],
+		currentId: string,
+	): RelationshipRow[] {
+		const names = new Map(objects.map((entry) => [String(entry.id), entry.name]));
+		const rows: RelationshipRow[] = [];
+		for (const [index, edge] of graph.edges.entries()) {
+			const fromId = String(edge.fromId);
+			const toId = edge.toId ? String(edge.toId) : undefined;
+			if (fromId !== currentId && toId !== currentId) continue;
+
+			if (fromId === currentId) {
+				rows.push({
+					id: `${fromId}:${relationshipLabel(edge)}:${toId ?? edge.sessionId ?? index}:out`,
+					direction: 'outbound',
+					label: relationshipLabel(edge),
+					targetId: toId,
+					targetName: toId ? names.get(toId) : undefined,
+					sessionId: edge.sessionId,
+					unresolved: edge.unresolved,
+				});
+				continue;
+			}
+
+			rows.push({
+				id: `${fromId}:${relationshipLabel(edge)}:${toId ?? edge.sessionId ?? index}:in`,
+				direction: 'inbound',
+				label: relationshipLabel(edge),
+				targetId: fromId,
+				targetName: names.get(fromId),
+				sessionId: undefined,
+				unresolved: edge.unresolved,
+			});
+		}
+		rows.sort((a, b) => {
+			if (a.unresolved !== b.unresolved) return a.unresolved ? -1 : 1;
+			return `${a.direction}:${a.targetName ?? a.sessionId ?? a.targetId ?? ''}`.localeCompare(
+				`${b.direction}:${b.targetName ?? b.sessionId ?? b.targetId ?? ''}`,
+			);
+		});
+		return rows;
+	}
+
+	function computeHistoryDelta(index: number): string {
+		const current = history[index];
+		const previous = history[index + 1];
+		if (!current) return '';
+		if (!previous) return 'Initial snapshot.';
+
+		const changed: string[] = [];
+		if (current.object.name !== previous.object.name) changed.push('name');
+		if (current.object.summary !== previous.object.summary) changed.push('summary');
+		if (JSON.stringify(current.object.tags) !== JSON.stringify(previous.object.tags)) {
+			changed.push('tags');
+		}
+		if (
+			JSON.stringify(current.object.relationships) !== JSON.stringify(previous.object.relationships)
+		) {
+			changed.push('relationships');
+		}
+		if (JSON.stringify(current.object.data) !== JSON.stringify(previous.object.data)) {
+			changed.push('structured fields');
+		}
+		return changed.length > 0 ? `Delta: ${changed.join(', ')}.` : 'No structured delta.';
+	}
+
 	async function refreshDiagnostics(): Promise<void> {
 		if (!object) return;
 		try {
 			const storage = getStorage();
-			const [issues, entries, graph] = await Promise.all([
+			const [issues, entries, graph, allObjects] = await Promise.all([
 				storage.lintObjects(),
 				storage.getObjectHistory(object.id, { limit: 20 }),
 				storage.getObjectRelationshipGraph(),
+				storage.getAllObjects(),
 			]);
 			lintIssues = issues.filter((entry) => String(entry.objectId) === String(object.id));
 			history = entries;
@@ -299,6 +386,7 @@
 				outbound: graph.edges.filter((edge) => String(edge.fromId) === String(object.id)).length,
 				inbound: graph.edges.filter((edge) => String(edge.toId) === String(object.id)).length,
 			};
+			relationshipRows = buildRelationshipRows(graph, allObjects, String(object.id));
 		} catch (err) {
 			error = String(err);
 		}
@@ -497,6 +585,118 @@
 			loading = false;
 		}
 	}
+
+	async function openObjectNote(targetId: string): Promise<void> {
+		await goto(resolve(`/notes/${targetId}`));
+	}
+
+	function relationshipIndexFromField(field: string | undefined): number | null {
+		if (!field) return null;
+		const match = /relationships\[(\d+)\]/.exec(field);
+		if (!match?.[1]) return null;
+		const parsed = Number.parseInt(match[1], 10);
+		return Number.isFinite(parsed) ? parsed : null;
+	}
+
+	async function applyLintFix(issue: ObjectLintIssue): Promise<void> {
+		if (!object || loading) return;
+
+		if (
+			issue.code === 'object.relationship_broken_reference' ||
+			issue.code === 'object.relationship_target_required'
+		) {
+			const index = relationshipIndexFromField(issue.field);
+			if (index === null) return;
+			const next = parseRelationships(relationships).filter((_entry, idx) => idx !== index);
+			relationships = relationshipLines(next);
+			await applyStructuredChanges();
+			return;
+		}
+
+		if (issue.code === 'object.parent_child_cycle') {
+			const next = parseRelationships(relationships).filter(
+				(entry) => entry.type !== 'parent' && entry.type !== 'child',
+			);
+			relationships = relationshipLines(next);
+			await applyStructuredChanges();
+			return;
+		}
+
+		if (issue.code === 'stat_block.creature_type_required') {
+			fieldA = fieldA.trim() || 'humanoid';
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'stat_block.hp_required') {
+			fieldD = fieldD.trim() || '1d8';
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'npc.role_required') {
+			fieldA = fieldA.trim() || 'ally';
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'location.type_required') {
+			fieldA = fieldA.trim() || 'settlement';
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'faction.type_required') {
+			fieldA = fieldA.trim() || 'organization';
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'quest.objective_required') {
+			fieldB = fieldB.trim() || 'Define quest objective';
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'item.type_required') {
+			fieldA = fieldA.trim() || 'gear';
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'encounter.objective_required') {
+			fieldD = fieldD.trim() || 'Defeat enemies';
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'timeline_event.date_required') {
+			fieldA = fieldA.trim() || 'Unknown date';
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'timeline_event.summary_required') {
+			fieldD = fieldD.trim() || 'Describe this event';
+			await applyStructuredChanges();
+			return;
+		}
+
+		if (issue.code === 'object.duplicate_canonical_name' || issue.code === 'object.name_required') {
+			loading = true;
+			error = null;
+			try {
+				const fallbackBase = object.name.trim() || `Untitled ${object.type}`;
+				const suffix = String(object.id).slice(-6);
+				const nextName =
+					issue.code === 'object.duplicate_canonical_name'
+						? `${fallbackBase} (${suffix})`
+						: fallbackBase;
+				await getStorage().saveObject({
+					...object,
+					name: nextName,
+					updatedAt: nowISO(),
+				});
+				await onreloaded?.();
+				await refreshDiagnostics();
+			} catch (err) {
+				error = String(err);
+			} finally {
+				loading = false;
+			}
+		}
+	}
 </script>
 
 {#if object}
@@ -553,7 +753,7 @@
 				/>
 			</label>
 			<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
-				Relationships (<code>type:targetOrSession:description</code>)
+				Relationships (<code>type-or-label:targetOrSession:description</code>)
 				<textarea
 					bind:value={relationships}
 					rows="3"
@@ -573,12 +773,62 @@
 				Graph: {relationshipStats.outbound} outbound / {relationshipStats.inbound} inbound
 			</p>
 		</div>
+		<div class="mt-3 rounded border border-border bg-surface-alt p-2 dark:border-tavern-border dark:bg-tavern-surface-alt">
+			<p class="text-xs font-semibold text-ink-faint dark:text-tavern-faint">Relationship Graph</p>
+			{#if relationshipRows.length === 0}
+				<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted">
+					No relationship edges for this object yet.
+				</p>
+			{:else}
+				<ul class="mt-1 space-y-1 text-xs text-ink dark:text-tavern-text">
+					{#each relationshipRows as row (row.id)}
+						<li class="flex items-center gap-2">
+							<span class="rounded bg-surface px-1.5 py-0.5 text-[10px] uppercase tracking-wide dark:bg-tavern-surface">
+								{row.direction}
+							</span>
+							<span class="font-semibold">{row.label}</span>
+							{#if row.sessionId}
+								<span class="text-ink-muted dark:text-tavern-muted">session:{row.sessionId}</span>
+							{:else if row.targetId}
+								<button
+									type="button"
+									class="rounded bg-surface px-2 py-0.5 text-left text-[11px] hover:bg-surface-alt dark:bg-tavern-surface dark:hover:bg-tavern-surface-alt"
+									onclick={() => row.targetId && void openObjectNote(row.targetId)}
+								>
+									{row.targetName ?? row.targetId}
+								</button>
+							{/if}
+							{#if row.unresolved}
+								<span class="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning">
+									missing
+								</span>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
 		{#if lintIssues.length > 0}
 			<div class="mt-3 rounded border border-warning/40 bg-warning/10 p-2">
 				<p class="text-xs font-semibold text-warning">Validation</p>
 				<ul class="mt-1 space-y-1 text-xs text-ink dark:text-tavern-text">
 					{#each lintIssues as issue (issue.code + issue.field)}
-						<li>{issue.severity.toUpperCase()}: {issue.message}</li>
+						<li class="flex items-start justify-between gap-2">
+							<div class="min-w-0">
+								<p>{issue.severity.toUpperCase()}: {issue.message}</p>
+								{#if issue.suggestedFix}
+									<p class="text-[11px] text-ink-muted dark:text-tavern-muted">{issue.suggestedFix}</p>
+								{/if}
+							</div>
+							<button
+								type="button"
+								class="shrink-0 rounded bg-surface-alt px-2 py-0.5 text-[11px] text-ink hover:bg-surface dark:bg-tavern-surface dark:text-tavern-text dark:hover:bg-tavern-surface-alt"
+								onclick={() => void applyLintFix(issue)}
+								disabled={loading}
+							>
+								Fix
+							</button>
+						</li>
 					{/each}
 				</ul>
 			</div>
@@ -589,7 +839,7 @@
 				<div
 					class="mt-1 max-h-40 overflow-y-auto rounded border border-border dark:border-tavern-border"
 				>
-					{#each history as entry (entry.id)}
+					{#each history as entry, index (entry.id)}
 						<div
 							class="flex items-center justify-between gap-2 border-b border-border px-2 py-1.5 text-xs dark:border-tavern-border last:border-b-0"
 						>
@@ -598,6 +848,9 @@
 									{entry.reason} - {entry.recordedAt}
 								</p>
 								<p class="truncate text-ink-muted dark:text-tavern-muted">{entry.object.name}</p>
+								<p class="truncate text-[11px] text-ink-faint dark:text-tavern-faint">
+									{computeHistoryDelta(index)}
+								</p>
 							</div>
 							<button
 								class="rounded bg-surface-alt px-2 py-1 text-[11px] text-ink dark:bg-tavern-surface-alt dark:text-tavern-text"

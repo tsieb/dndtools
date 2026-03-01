@@ -23,7 +23,7 @@
 		getObjectTemplateSeed,
 		type ObjectTemplateVariant,
 	} from '$lib/domain/object-templates.js';
-	import { formatNoteEmbed } from '$lib/domain/object-embeds.js';
+	import { formatNoteEmbed, formatObjectEmbed } from '$lib/domain/object-embeds.js';
 
 	interface Props {
 		editorView: EditorView | null;
@@ -112,20 +112,15 @@
 				const type = typeRaw?.trim();
 				const target = targetRaw?.trim();
 				const description = descParts.join(':').trim() || undefined;
-				if (
-					type !== 'parent' &&
-					type !== 'child' &&
-					type !== 'ally' &&
-					type !== 'enemy' &&
-					type !== 'appears_in_session'
-				) {
-					return null;
-				}
+				if (!type) return null;
 				if (!target) return null;
 				if (type === 'appears_in_session') {
 					return { type, sessionId: target, description };
 				}
-				return { type, targetId: target as never, description };
+				if (type === 'parent' || type === 'child' || type === 'ally' || type === 'enemy') {
+					return { type, targetId: target as never, description };
+				}
+				return { type: 'custom', label: type, targetId: target as never, description };
 			});
 
 		return normalizeObjectRelationships(parsed);
@@ -151,7 +146,7 @@
 
 	function insertEmbed(object: VaultObject): void {
 		if (!editorView) return;
-		const embed = formatNoteEmbed({ id: object.id }, object.name, { view: 'card' });
+		const embed = formatObjectEmbed(String(object.id), object.name, { view: 'card' });
 		const selection = editorView.state.selection.main;
 		const before = editorView.state.sliceDoc(Math.max(0, selection.from - 1), selection.from);
 		const prefix = before && before !== '\n' ? '\n' : '';
@@ -626,7 +621,7 @@
 						/>
 					</label>
 					<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
-						Relationships (one per line: <code>type:targetOrSession:optional description</code>)
+						Relationships (one per line: <code>type-or-label:targetOrSession:optional description</code>)
 						<textarea
 							bind:value={relationships}
 							rows="3"

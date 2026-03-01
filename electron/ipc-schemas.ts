@@ -143,12 +143,43 @@ export const vaultObjectTypeSchema = z.enum([
 	'timeline_event',
 ]);
 
-const objectRelationshipSchema = z.object({
-	type: z.enum(['parent', 'child', 'ally', 'enemy', 'appears_in_session']),
-	targetId: idSchema.optional(),
-	sessionId: idSchema.optional(),
-	description: z.string().max(MAX_STRING_LENGTH).optional(),
-});
+const objectRelationshipCoreTypeSchema = z.enum([
+	'parent',
+	'child',
+	'ally',
+	'enemy',
+	'appears_in_session',
+]);
+
+const objectRelationshipSchema = z
+	.union([
+		z
+			.object({
+				type: objectRelationshipCoreTypeSchema,
+				targetId: idSchema.optional(),
+				sessionId: idSchema.optional(),
+				description: z.string().max(MAX_STRING_LENGTH).optional(),
+			})
+			.strict(),
+		z
+			.object({
+				type: z.literal('custom'),
+				label: z.string().min(1).max(120),
+				targetId: idSchema.optional(),
+				sessionId: idSchema.optional(),
+				description: z.string().max(MAX_STRING_LENGTH).optional(),
+			})
+			.strict(),
+	])
+	.superRefine((value, ctx) => {
+		if (!value.targetId && !value.sessionId) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: 'Relationship must include targetId or sessionId.',
+				path: ['targetId'],
+			});
+		}
+	});
 
 /**
  * VaultObject shape for saveObject.

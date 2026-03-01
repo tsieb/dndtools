@@ -15,6 +15,7 @@ const npc: VaultObject = {
 	relationships: [
 		{ type: 'ally', targetId: createVaultObjectId('faction-1') },
 		{ type: 'appears_in_session', sessionId: 'session-3' },
+		{ type: 'custom', label: 'mentor', targetId: createVaultObjectId('faction-1') },
 	],
 	data: {
 		role: 'ally',
@@ -55,8 +56,11 @@ describe('buildObjectRelationshipGraph', () => {
 		]);
 
 		expect(graph.nodes).toHaveLength(2);
-		expect(graph.edges).toHaveLength(4);
+		expect(graph.edges).toHaveLength(5);
 		expect(graph.edges.some((edge) => edge.unresolved)).toBe(true);
+		expect(
+			graph.edges.some((edge) => edge.type === 'custom' && edge.label === 'mentor'),
+		).toBe(true);
 	});
 
 	it('returns bidirectional neighbors for linked objects', () => {

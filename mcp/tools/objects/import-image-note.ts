@@ -15,6 +15,7 @@ import {
 } from '../../../src/lib/domain/objects.js';
 import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
 import { errorResult, jsonResult } from '../shared/response.js';
+import { objectRelationshipSchema } from '../shared/object-schema.js';
 
 const IMAGE_EXTENSIONS = new Set([
 	'.png',
@@ -44,17 +45,7 @@ export function registerImportImageNoteTool(server: McpServer, storage: FileSyst
 			name: z.string().optional().describe('Optional image note name (defaults to filename)'),
 			summary: z.string().optional().default(''),
 			tags: z.array(z.string()).optional().default([]),
-			relationships: z
-				.array(
-					z.object({
-						type: z.enum(['parent', 'child', 'ally', 'enemy', 'appears_in_session']),
-						targetId: z.string().optional(),
-						sessionId: z.string().optional(),
-						description: z.string().optional(),
-					}),
-				)
-				.optional()
-				.default([]),
+			relationships: z.array(objectRelationshipSchema).optional().default([]),
 			assetFolder: z.string().optional().default('/assets/images'),
 			noteFolder: z.string().optional().default('/objects/image'),
 			alt: z.string().optional(),

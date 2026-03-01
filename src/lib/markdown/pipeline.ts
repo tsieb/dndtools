@@ -51,7 +51,10 @@ const sanitizeSchema: typeof defaultSchema = {
 
 export interface RenderOptions {
 	resolveLink?: WikilinkOptions['resolveLink'];
-	resolveObject?: (type: VaultObjectType, id: string) => VaultObject | null | undefined;
+	resolveObject?: (input: {
+		type?: VaultObjectType;
+		id: string;
+	}) => VaultObject | null | undefined;
 	resolveNote?: (input: {
 		target: string;
 		targetBy: 'id' | 'title';
@@ -74,8 +77,8 @@ export async function renderMarkdown(
 		.use(rehypeSlug)
 		.use(rehypeCallouts)
 		.use(rehypeObjectEmbeds, {
-			resolveObject: ({ type, id }: { type: VaultObjectType; id: string }) =>
-				options.resolveObject?.(type, id),
+			resolveObject: ({ type, id }: { type?: VaultObjectType; id: string }) =>
+				options.resolveObject?.({ type, id }),
 			resolveNote: ({ target, targetBy }: { target: string; targetBy: 'id' | 'title' }) =>
 				options.resolveNote?.({ target, targetBy }),
 			currentNoteId: options.currentNoteId,

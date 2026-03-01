@@ -47,6 +47,10 @@ const remarkWikilinks: Plugin<[WikilinkOptions?], Root> = (options = {}) => {
 				}
 
 				const title = match[1]!.trim();
+				// Preserve object embed syntax for the embed renderer pass.
+				if (title.toLowerCase().startsWith('obj:')) {
+					continue;
+				}
 				const displayText = match[2]?.trim() ?? title;
 				const resolved = resolveLink(title);
 

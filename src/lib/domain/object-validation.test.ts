@@ -3,9 +3,9 @@ import { lintVaultObjects } from '$lib/domain/object-validation.js';
 import type { VaultObject } from '$lib/types/object.js';
 import { createVaultObjectId } from '$lib/types/object.js';
 
-function makeQuestObject(overrides: Partial<VaultObject> = {}): VaultObject {
+function makeQuestObject(id = 'quest-1', overrides: Partial<VaultObject> = {}): VaultObject {
 	return {
-		id: createVaultObjectId('quest-1'),
+		id: createVaultObjectId(id),
 		type: 'quest',
 		name: 'Broken Quest',
 		summary: '',
@@ -31,7 +31,7 @@ describe('lintVaultObjects', () => {
 	});
 
 	it('reports broken relationship references', () => {
-		const quest = makeQuestObject({
+		const quest = makeQuestObject('quest-2', {
 			data: {
 				status: 'active',
 				objective: 'Recover artifact',
@@ -50,5 +50,60 @@ describe('lintVaultObjects', () => {
 		expect(issues.some((issue) => issue.code === 'object.relationship_broken_reference')).toBe(
 			true,
 		);
+	});
+
+	it('detects parent/child hierarchy cycles', () => {
+		const a = makeQuestObject('quest-a', {
+			name: 'A',
+			data: {
+				status: 'active',
+				objective: 'A objective',
+				reward: '',
+				steps: [],
+				relatedLocationIds: [],
+			},
+			relationships: [{ type: 'child', targetId: createVaultObjectId('quest-b') }],
+		});
+		const b = makeQuestObject('quest-b', {
+			name: 'B',
+			data: {
+				status: 'active',
+				objective: 'B objective',
+				reward: '',
+				steps: [],
+				relatedLocationIds: [],
+			},
+			relationships: [{ type: 'child', targetId: createVaultObjectId('quest-a') }],
+		});
+		const issues = lintVaultObjects([a, b]);
+		const cycleIssues = issues.filter((issue) => issue.code === 'object.parent_child_cycle');
+		expect(cycleIssues).toHaveLength(2);
+	});
+
+	it('detects duplicate canonical names', () => {
+		const a = makeQuestObject('dup-a', {
+			name: 'Sildar Hallwinter',
+			data: {
+				status: 'active',
+				objective: 'A objective',
+				reward: '',
+				steps: [],
+				relatedLocationIds: [],
+			},
+		});
+		const b = makeQuestObject('dup-b', {
+			name: ' sildar   hallwinter ',
+			data: {
+				status: 'active',
+				objective: 'B objective',
+				reward: '',
+				steps: [],
+				relatedLocationIds: [],
+			},
+		});
+		const issues = lintVaultObjects([a, b]);
+		const duplicates = issues.filter((issue) => issue.code === 'object.duplicate_canonical_name');
+		expect(duplicates).toHaveLength(2);
+		expect(duplicates.every((issue) => issue.severity === 'warning')).toBe(true);
 	});
 });

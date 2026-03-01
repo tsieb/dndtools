@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import {
+	objectRelationshipSchema,
+	vaultObjectTypeSchema,
+} from './object-schema.js';
 
 export type ToolPermission = 'read-only' | 'write-staged' | 'write-direct';
 export type ToolRetryPolicy = 'idempotent' | 'idempotency-key-required';
@@ -81,19 +85,6 @@ const sessionBoardSchema = z
 	})
 	.strict();
 
-const vaultObjectTypeSchema = z.enum([
-	'stat_block',
-	'character',
-	'image',
-	'npc',
-	'location',
-	'faction',
-	'quest',
-	'item',
-	'encounter',
-	'timeline_event',
-]);
-
 const vaultObjectSummarySchema = z
 	.object({
 		id: z.string().min(1),
@@ -118,18 +109,7 @@ const fullObjectWithEmbedSchema = z
 		name: z.string().min(1),
 		summary: z.string(),
 		tags: z.array(z.string()),
-		relationships: z
-			.array(
-				z
-					.object({
-						type: z.enum(['parent', 'child', 'ally', 'enemy', 'appears_in_session']),
-						targetId: z.string().min(1).optional(),
-						sessionId: z.string().min(1).optional(),
-						description: z.string().optional(),
-					})
-					.strict(),
-			)
-			.optional(),
+		relationships: z.array(objectRelationshipSchema).optional(),
 		data: z.record(z.string(), z.unknown()),
 		createdAt: z.string().min(1),
 		updatedAt: z.string().min(1),
