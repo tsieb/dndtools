@@ -1,10 +1,7 @@
 import type { AppSettings } from '$lib/types/settings.js';
 import type { Note } from '$lib/types/note.js';
 import { createFolderId } from '$lib/types/note.js';
-import type {
-	NoteTemplate,
-	TemplateScope,
-} from '$lib/types/template-library.js';
+import type { NoteTemplate, TemplateScope } from '$lib/types/template-library.js';
 import { GLOBAL_TEMPLATE_IDS } from './templates.js';
 
 export type { TemplateScope };
@@ -152,32 +149,34 @@ export function getScopedTemplates(
 	activeFolder: string | null,
 ): ScopedNoteTemplate[] {
 	const normalizedActiveFolder = normalizeFolderPath(activeFolder);
-	return templates.map((template) => {
-		const { scope, scopeFolder } = resolveTemplateScope(template);
-		return {
-			template,
-			scope,
-			scopeFolder,
-		} satisfies ScopedNoteTemplate;
-	}).sort((a, b) => {
-		if (
-			normalizedActiveFolder &&
-			a.scope === 'folder' &&
-			b.scope === 'global' &&
-			a.scopeFolder === normalizedActiveFolder
-		) {
-			return -1;
-		}
-		if (
-			normalizedActiveFolder &&
-			b.scope === 'folder' &&
-			a.scope === 'global' &&
-			b.scopeFolder === normalizedActiveFolder
-		) {
-			return 1;
-		}
-		return a.template.name.localeCompare(b.template.name);
-	});
+	return templates
+		.map((template) => {
+			const { scope, scopeFolder } = resolveTemplateScope(template);
+			return {
+				template,
+				scope,
+				scopeFolder,
+			} satisfies ScopedNoteTemplate;
+		})
+		.sort((a, b) => {
+			if (
+				normalizedActiveFolder &&
+				a.scope === 'folder' &&
+				b.scope === 'global' &&
+				a.scopeFolder === normalizedActiveFolder
+			) {
+				return -1;
+			}
+			if (
+				normalizedActiveFolder &&
+				b.scope === 'folder' &&
+				a.scope === 'global' &&
+				b.scopeFolder === normalizedActiveFolder
+			) {
+				return 1;
+			}
+			return a.template.name.localeCompare(b.template.name);
+		});
 }
 
 export function getFolderScopedTemplateMatches(
@@ -193,7 +192,9 @@ export function getFolderScopedTemplateMatches(
 
 export function resolveTemplateTitle(template: NoteTemplate, context: TemplateContext): string {
 	const titleTemplate =
-		template.titleTemplate ?? TEMPLATE_TITLE_OVERRIDES[template.id] ?? `${template.name} - {{date_iso}}`;
+		template.titleTemplate ??
+		TEMPLATE_TITLE_OVERRIDES[template.id] ??
+		`${template.name} - {{date_iso}}`;
 	return renderTemplateVariables(titleTemplate, context);
 }
 

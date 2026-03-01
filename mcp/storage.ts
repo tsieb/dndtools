@@ -1167,7 +1167,10 @@ export class FileSystemAdapter implements StorageAdapter {
 		}
 	}
 
-	private parseTemplateScope(relativePath: string): { scope: 'global' | 'folder'; scopeFolder: string | null } {
+	private parseTemplateScope(relativePath: string): {
+		scope: 'global' | 'folder';
+		scopeFolder: string | null;
+	} {
 		const normalized = relativePath.replace(/\\/g, '/');
 		const folder = path.posix.dirname(normalized);
 		if (folder === '.' || folder === '' || folder === 'global' || folder.startsWith('global/')) {

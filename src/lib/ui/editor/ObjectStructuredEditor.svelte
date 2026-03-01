@@ -773,7 +773,9 @@
 				Graph: {relationshipStats.outbound} outbound / {relationshipStats.inbound} inbound
 			</p>
 		</div>
-		<div class="mt-3 rounded border border-border bg-surface-alt p-2 dark:border-tavern-border dark:bg-tavern-surface-alt">
+		<div
+			class="mt-3 rounded border border-border bg-surface-alt p-2 dark:border-tavern-border dark:bg-tavern-surface-alt"
+		>
 			<p class="text-xs font-semibold text-ink-faint dark:text-tavern-faint">Relationship Graph</p>
 			{#if relationshipRows.length === 0}
 				<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted">
@@ -783,7 +785,9 @@
 				<ul class="mt-1 space-y-1 text-xs text-ink dark:text-tavern-text">
 					{#each relationshipRows as row (row.id)}
 						<li class="flex items-center gap-2">
-							<span class="rounded bg-surface px-1.5 py-0.5 text-[10px] uppercase tracking-wide dark:bg-tavern-surface">
+							<span
+								class="rounded bg-surface px-1.5 py-0.5 text-[10px] uppercase tracking-wide dark:bg-tavern-surface"
+							>
 								{row.direction}
 							</span>
 							<span class="font-semibold">{row.label}</span>
@@ -817,7 +821,9 @@
 							<div class="min-w-0">
 								<p>{issue.severity.toUpperCase()}: {issue.message}</p>
 								{#if issue.suggestedFix}
-									<p class="text-[11px] text-ink-muted dark:text-tavern-muted">{issue.suggestedFix}</p>
+									<p class="text-[11px] text-ink-muted dark:text-tavern-muted">
+										{issue.suggestedFix}
+									</p>
 								{/if}
 							</div>
 							<button

@@ -239,16 +239,26 @@ const objectRecordBase = {
 };
 
 export const vaultObjectRecordSchema = z.discriminatedUnion('type', [
-	z.object({ ...objectRecordBase, type: z.literal('stat_block'), data: statBlockDataSchema }).strict(),
-	z.object({ ...objectRecordBase, type: z.literal('character'), data: characterDataSchema }).strict(),
+	z
+		.object({ ...objectRecordBase, type: z.literal('stat_block'), data: statBlockDataSchema })
+		.strict(),
+	z
+		.object({ ...objectRecordBase, type: z.literal('character'), data: characterDataSchema })
+		.strict(),
 	z.object({ ...objectRecordBase, type: z.literal('image'), data: imageDataSchema }).strict(),
 	z.object({ ...objectRecordBase, type: z.literal('npc'), data: npcDataSchema }).strict(),
 	z.object({ ...objectRecordBase, type: z.literal('location'), data: locationDataSchema }).strict(),
 	z.object({ ...objectRecordBase, type: z.literal('faction'), data: factionDataSchema }).strict(),
 	z.object({ ...objectRecordBase, type: z.literal('quest'), data: questDataSchema }).strict(),
 	z.object({ ...objectRecordBase, type: z.literal('item'), data: itemDataSchema }).strict(),
-	z.object({ ...objectRecordBase, type: z.literal('encounter'), data: encounterDataSchema }).strict(),
 	z
-		.object({ ...objectRecordBase, type: z.literal('timeline_event'), data: timelineEventDataSchema })
+		.object({ ...objectRecordBase, type: z.literal('encounter'), data: encounterDataSchema })
+		.strict(),
+	z
+		.object({
+			...objectRecordBase,
+			type: z.literal('timeline_event'),
+			data: timelineEventDataSchema,
+		})
 		.strict(),
 ]);

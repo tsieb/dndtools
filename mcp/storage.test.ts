@@ -97,7 +97,11 @@ describe('FileSystemAdapter', () => {
 		it('loads folder-scoped templates from .vault/templates path structure', async () => {
 			const customFolder = path.join(tmpDir, '.vault', 'templates', 'sessions');
 			await fs.mkdir(customFolder, { recursive: true });
-			await fs.writeFile(path.join(customFolder, 'session-checklist.md'), '# Session Checklist\n', 'utf-8');
+			await fs.writeFile(
+				path.join(customFolder, 'session-checklist.md'),
+				'# Session Checklist\n',
+				'utf-8',
+			);
 
 			const templates = await adapter.getNoteTemplates();
 			const scoped = templates.find(

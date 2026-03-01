@@ -5,7 +5,10 @@ import type { Note } from '../../../src/lib/types/note.js';
 import { createFolderId } from '../../../src/lib/types/note.js';
 import { generateNoteId } from '../../../src/lib/utils/id.js';
 import { nowISO } from '../../../src/lib/utils/date.js';
-import { buildTemplateContext, renderNoteTemplate } from '../../../src/lib/domain/template-automation.js';
+import {
+	buildTemplateContext,
+	renderNoteTemplate,
+} from '../../../src/lib/domain/template-automation.js';
 import { frontmatterSchema } from '../shared/frontmatter.js';
 import { errorResult, jsonResult } from '../shared/response.js';
 
@@ -22,7 +25,11 @@ export function registerCreateNoteTool(server: McpServer, storage: FileSystemAda
 		'create_note',
 		'Create a new note with managed metadata, optional template rendering, and optional custom frontmatter.',
 		{
-			title: z.string().min(1).optional().describe('Note title (optional when templateId is provided)'),
+			title: z
+				.string()
+				.min(1)
+				.optional()
+				.describe('Note title (optional when templateId is provided)'),
 			content: z.string().optional().describe('Markdown content'),
 			folder: z.string().optional().describe('Folder path'),
 			tags: z.array(z.string()).optional().describe('Tag list without # prefix'),
@@ -33,7 +40,9 @@ export function registerCreateNoteTool(server: McpServer, storage: FileSystemAda
 			templateId: z.string().min(1).optional().describe('Template id from .vault/templates'),
 			templateContext: templateContextOverrideSchema
 				.optional()
-				.describe('Optional template variable overrides for campaignName/sessionNumber/characterNames'),
+				.describe(
+					'Optional template variable overrides for campaignName/sessionNumber/characterNames',
+				),
 		},
 		async ({ title, content, folder, tags, frontmatter, templateId, templateContext }) => {
 			const hasExplicitContent = content !== undefined;

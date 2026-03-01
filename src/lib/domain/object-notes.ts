@@ -175,9 +175,7 @@ function buildObjectMarkdown(
 							: `session:${relationship.sessionId ?? 'unknown'}`;
 						const suffix = relationship.description ? ` - ${relationship.description}` : '';
 						const typeLabel =
-							relationship.type === 'custom'
-								? (relationship.label ?? 'custom')
-								: relationship.type;
+							relationship.type === 'custom' ? (relationship.label ?? 'custom') : relationship.type;
 						return `- ${typeLabel}: ${target}${suffix}`;
 					}),
 				]

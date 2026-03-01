@@ -57,7 +57,8 @@ function makeStorage(vaultDir: string): Record<string, (...args: unknown[]) => P
 			name: 'Session Recap Scaffold',
 			description: 'Template for recaps',
 			icon: 'T',
-			content: '# Session {{session_number}} Recap - {{campaign_name}}\n\nCast: {{character_names_csv}}\n',
+			content:
+				'# Session {{session_number}} Recap - {{campaign_name}}\n\nCast: {{character_names_csv}}\n',
 			defaultTags: ['session', 'recap'],
 			defaultFolder: '/sessions',
 			scope: 'global',

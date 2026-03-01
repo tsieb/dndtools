@@ -1,8 +1,5 @@
 import { z } from 'zod';
-import {
-	objectRelationshipSchema,
-	vaultObjectTypeSchema,
-} from './object-schema.js';
+import { objectRelationshipSchema, vaultObjectTypeSchema } from './object-schema.js';
 
 export type ToolPermission = 'read-only' | 'write-staged' | 'write-direct';
 export type ToolRetryPolicy = 'idempotent' | 'idempotency-key-required';

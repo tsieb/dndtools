@@ -51,10 +51,7 @@ const sanitizeSchema: typeof defaultSchema = {
 
 export interface RenderOptions {
 	resolveLink?: WikilinkOptions['resolveLink'];
-	resolveObject?: (input: {
-		type?: VaultObjectType;
-		id: string;
-	}) => VaultObject | null | undefined;
+	resolveObject?: (input: { type?: VaultObjectType; id: string }) => VaultObject | null | undefined;
 	resolveNote?: (input: {
 		target: string;
 		targetBy: 'id' | 'title';

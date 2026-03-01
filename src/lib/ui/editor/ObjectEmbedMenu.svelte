@@ -621,7 +621,9 @@
 						/>
 					</label>
 					<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
-						Relationships (one per line: <code>type-or-label:targetOrSession:optional description</code>)
+						Relationships (one per line: <code
+							>type-or-label:targetOrSession:optional description</code
+						>)
 						<textarea
 							bind:value={relationships}
 							rows="3"

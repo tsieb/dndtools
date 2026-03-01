@@ -58,9 +58,9 @@ describe('buildObjectRelationshipGraph', () => {
 		expect(graph.nodes).toHaveLength(2);
 		expect(graph.edges).toHaveLength(5);
 		expect(graph.edges.some((edge) => edge.unresolved)).toBe(true);
-		expect(
-			graph.edges.some((edge) => edge.type === 'custom' && edge.label === 'mentor'),
-		).toBe(true);
+		expect(graph.edges.some((edge) => edge.type === 'custom' && edge.label === 'mentor')).toBe(
+			true,
+		);
 	});
 
 	it('returns bidirectional neighbors for linked objects', () => {

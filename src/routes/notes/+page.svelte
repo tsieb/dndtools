@@ -131,9 +131,15 @@
 		goto(resolve(`/notes/${note.id}/edit`));
 	}
 
-	async function handleTemplateCreate(template: NoteTemplate, folderOverride?: string): Promise<void> {
+	async function handleTemplateCreate(
+		template: NoteTemplate,
+		folderOverride?: string,
+	): Promise<void> {
 		templateDialogOpen = false;
-		await createFromTemplate(template, folderOverride ?? normalizeFolderContext(folderFilter) ?? undefined);
+		await createFromTemplate(
+			template,
+			folderOverride ?? normalizeFolderContext(folderFilter) ?? undefined,
+		);
 	}
 
 	$effect(() => {

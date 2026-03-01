@@ -16,14 +16,26 @@ describe('normalizeObjectRelationships', () => {
 			{ type: 'custom', label: 'mentor', targetId: 'obj-2' },
 		]);
 		expect(normalized).toEqual([
-			{ type: 'custom', label: 'mentor', targetId: 'obj-2', sessionId: undefined, description: undefined },
+			{
+				type: 'custom',
+				label: 'mentor',
+				targetId: 'obj-2',
+				sessionId: undefined,
+				description: undefined,
+			},
 		]);
 	});
 
 	it('maps unknown relationship types into custom labels', () => {
 		const normalized = normalizeObjectRelationships([{ type: 'rival', targetId: 'obj-3' }]);
 		expect(normalized).toEqual([
-			{ type: 'custom', label: 'rival', targetId: 'obj-3', sessionId: undefined, description: undefined },
+			{
+				type: 'custom',
+				label: 'rival',
+				targetId: 'obj-3',
+				sessionId: undefined,
+				description: undefined,
+			},
 		]);
 	});
 

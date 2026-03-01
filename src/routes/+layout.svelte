@@ -150,7 +150,10 @@
 		templateDialogCandidates = null;
 	}
 
-	async function createFromTemplate(template: NoteTemplate, folderOverride?: string): Promise<void> {
+	async function createFromTemplate(
+		template: NoteTemplate,
+		folderOverride?: string,
+	): Promise<void> {
 		const setting = await loadTemplateContextSetting();
 		const context = buildTemplateContext(setting);
 		const rendered = renderNoteTemplate(template, context, folderOverride);
@@ -196,7 +199,8 @@
 		template: NoteTemplate,
 		folderOverride?: string,
 	): Promise<void> {
-		const resolvedFolder = resolveFolderContext(folderOverride) ?? templateDialogFolderOverride ?? undefined;
+		const resolvedFolder =
+			resolveFolderContext(folderOverride) ?? templateDialogFolderOverride ?? undefined;
 		closeTemplateDialog();
 		await createFromTemplate(template, resolvedFolder);
 	}

@@ -159,7 +159,7 @@ export function normalizeObjectRelationships(value: unknown): ObjectRelationship
 			!CORE_RELATIONSHIP_TYPES.has(rawType.toLowerCase() as BaseObjectRelationshipType)
 				? rawType
 				: undefined;
-		const label = type === 'custom' ? explicitLabel ?? implicitLabel : undefined;
+		const label = type === 'custom' ? (explicitLabel ?? implicitLabel) : undefined;
 		if (type === 'custom' && !label) continue;
 
 		const targetId =

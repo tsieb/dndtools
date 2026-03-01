@@ -29,7 +29,10 @@
 	const templateVariables = getTemplateVariableReference();
 
 	let filteredSnippets = $derived.by(() => {
-		const normalized = snippetQuery.replace(/^\/snippets\s*/i, '').trim().toLowerCase();
+		const normalized = snippetQuery
+			.replace(/^\/snippets\s*/i, '')
+			.trim()
+			.toLowerCase();
 		if (!normalized) return templateLibraryState.snippets;
 		return templateLibraryState.snippets.filter((snippet) => {
 			const haystack = `${snippet.name} ${snippet.description} ${snippet.content}`.toLowerCase();
@@ -264,7 +267,8 @@
 					{#each templateVariables as variable (variable.key)}
 						<tr class="border-t border-border/70 dark:border-tavern-border/70">
 							<td class="px-2 py-1 font-mono text-ink dark:text-tavern-text">{variable.key}</td>
-							<td class="px-2 py-1 text-ink-muted dark:text-tavern-muted">{variable.description}</td>
+							<td class="px-2 py-1 text-ink-muted dark:text-tavern-muted">{variable.description}</td
+							>
 							<td class="px-2 py-1 text-ink-muted dark:text-tavern-muted">{variable.example}</td>
 						</tr>
 					{/each}
@@ -313,14 +317,19 @@
 					{/each}
 				{/if}
 			</div>
-			<div class="rounded border border-border dark:border-tavern-border bg-surface-alt/60 dark:bg-tavern-surface-alt/60 p-2">
-				<p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint dark:text-tavern-faint">
+			<div
+				class="rounded border border-border dark:border-tavern-border bg-surface-alt/60 dark:bg-tavern-surface-alt/60 p-2"
+			>
+				<p
+					class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint dark:text-tavern-faint"
+				>
 					Live Preview
 				</p>
 				{#if snippetPreviewLoading}
 					<p class="text-xs text-ink-muted dark:text-tavern-muted">Rendering preview...</p>
 				{:else if snippetPreview}
-					<pre class="max-h-40 overflow-auto whitespace-pre-wrap text-xs text-ink dark:text-tavern-text">{snippetPreview}</pre>
+					<pre
+						class="max-h-40 overflow-auto whitespace-pre-wrap text-xs text-ink dark:text-tavern-text">{snippetPreview}</pre>
 				{:else}
 					<p class="text-xs text-ink-faint dark:text-tavern-faint">Select a snippet to preview</p>
 				{/if}

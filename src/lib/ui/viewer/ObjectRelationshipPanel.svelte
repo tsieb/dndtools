@@ -102,11 +102,15 @@
 	<section
 		class="max-w-content mx-auto mb-4 rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
 	>
-		<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint">
+		<h2
+			class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
+		>
 			Relationship Graph
 		</h2>
 		{#if loading}
-			<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">Loading relationship graph...</p>
+			<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">
+				Loading relationship graph...
+			</p>
 		{:else if error}
 			<p class="mt-2 text-xs text-error dark:text-tavern-error">{error}</p>
 		{:else if rows.length === 0}
@@ -135,7 +139,9 @@
 							</button>
 						{/if}
 						{#if row.unresolved}
-							<span class="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning">missing</span>
+							<span class="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning"
+								>missing</span
+							>
 						{/if}
 					</li>
 				{/each}

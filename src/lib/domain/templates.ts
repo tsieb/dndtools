@@ -13,7 +13,12 @@ interface SeedNoteTemplate {
 
 export type { NoteTemplate };
 
-export const GLOBAL_TEMPLATE_IDS = new Set(['campaign-arc', 'timeline', 'rumor-clue', 'session-recap']);
+export const GLOBAL_TEMPLATE_IDS = new Set([
+	'campaign-arc',
+	'timeline',
+	'rumor-clue',
+	'session-recap',
+]);
 
 const DND_TEMPLATE_SEEDS: readonly SeedNoteTemplate[] = [
 	{

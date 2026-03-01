@@ -127,9 +127,7 @@ export function formatNoteEmbed(
 	return `![[${targetText}]]`;
 }
 
-function parseObjectTarget(
-	target: string,
-): { type?: VaultObjectType; id: string } | null {
+function parseObjectTarget(target: string): { type?: VaultObjectType; id: string } | null {
 	const parts = target.split(':').map((segment) => segment.trim());
 	if (parts[0] !== 'obj') return null;
 
