@@ -61,6 +61,17 @@ describe('DND_TEMPLATES', () => {
 		}
 	});
 
+	it('assigns scope metadata to every template', () => {
+		for (const template of DND_TEMPLATES) {
+			expect(template.scope === 'global' || template.scope === 'folder').toBe(true);
+			if (template.scope === 'global') {
+				expect(template.scopeFolder).toBeNull();
+			} else {
+				expect(template.scopeFolder).toMatch(/^\//);
+			}
+		}
+	});
+
 	it('NPC template includes expected sections', () => {
 		const npc = DND_TEMPLATES.find((t) => t.id === 'npc') as NoteTemplate;
 		expect(npc.content).toContain('## Description');

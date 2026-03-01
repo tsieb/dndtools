@@ -17,12 +17,25 @@
 	interface Props {
 		onnewnote: () => void;
 		onsearch: () => void;
-		ontemplate: () => void;
+		ontemplate: (folderOverride?: string) => void;
 		onrefresh: () => void;
 	}
 
 	let { onnewnote, onsearch, ontemplate, onrefresh }: Props = $props();
 	let isMaximized = $state(false);
+	let createMenuOpen = $state(false);
+	let createMenuAnchor = $state<HTMLElement | null>(null);
+
+	$effect(() => {
+		if (!createMenuOpen || typeof window === 'undefined') return;
+		const onPointerDown = (event: MouseEvent): void => {
+			if (!(event.target instanceof Node)) return;
+			if (createMenuAnchor?.contains(event.target)) return;
+			createMenuOpen = false;
+		};
+		window.addEventListener('mousedown', onPointerDown);
+		return () => window.removeEventListener('mousedown', onPointerDown);
+	});
 
 	onMount(() => {
 		void getDesktopWindowState()
@@ -132,27 +145,50 @@
 			<span class="hidden sm:inline">Search</span>
 			<kbd class="hidden sm:inline text-xs font-mono opacity-60">Ctrl+P</kbd>
 		</button>
-		<button
-			class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors"
-			onclick={onnewnote}
-			aria-label="New note"
-			title="New note (Ctrl+N)"
-		>
-			<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-			</svg>
-		</button>
-		<button
-			class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
-			onclick={ontemplate}
-			aria-label="Create from template"
-			title="Create from template"
-		>
-			<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6" />
-				<path stroke-linecap="round" stroke-linejoin="round" d="M8 4h6l4 4v12H8z" />
-			</svg>
-		</button>
+		<div class="relative" bind:this={createMenuAnchor}>
+			<button
+				class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors"
+				onclick={() => (createMenuOpen = !createMenuOpen)}
+				aria-label="New note options"
+				title="New note options (Ctrl+N)"
+				aria-haspopup="menu"
+				aria-expanded={createMenuOpen}
+			>
+				<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+				</svg>
+			</button>
+			{#if createMenuOpen}
+				<div
+					class="absolute right-0 mt-1 w-48 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface shadow-lg z-30 overflow-hidden"
+					role="menu"
+					aria-label="Create note menu"
+				>
+					<button
+						type="button"
+						class="w-full text-left px-3 py-2 text-sm text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+						onclick={() => {
+							createMenuOpen = false;
+							onnewnote();
+						}}
+						role="menuitem"
+					>
+						New note
+					</button>
+					<button
+						type="button"
+						class="w-full text-left px-3 py-2 text-sm text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+						onclick={() => {
+							createMenuOpen = false;
+							ontemplate();
+						}}
+						role="menuitem"
+					>
+						Create from template
+					</button>
+				</div>
+			{/if}
+		</div>
 		<div class="hidden sm:block ml-1">
 			<ThemeToggle />
 		</div>

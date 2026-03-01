@@ -81,6 +81,32 @@ describe('FileSystemAdapter', () => {
 			const stat = await fs.stat(indexPath);
 			expect(stat.isFile()).toBe(true);
 		});
+
+		it('creates seeded template and snippet library directories', async () => {
+			const templatesDir = path.join(tmpDir, '.vault', 'templates');
+			const snippetsDir = path.join(tmpDir, '.vault', 'snippets');
+			expect((await fs.stat(templatesDir)).isDirectory()).toBe(true);
+			expect((await fs.stat(snippetsDir)).isDirectory()).toBe(true);
+
+			const templates = await adapter.getNoteTemplates();
+			const snippets = await adapter.getReusableSnippets();
+			expect(templates.length).toBeGreaterThan(0);
+			expect(snippets.length).toBeGreaterThan(0);
+		});
+
+		it('loads folder-scoped templates from .vault/templates path structure', async () => {
+			const customFolder = path.join(tmpDir, '.vault', 'templates', 'sessions');
+			await fs.mkdir(customFolder, { recursive: true });
+			await fs.writeFile(path.join(customFolder, 'session-checklist.md'), '# Session Checklist\n', 'utf-8');
+
+			const templates = await adapter.getNoteTemplates();
+			const scoped = templates.find(
+				(entry) => entry.sourcePath?.replace(/\\/g, '/') === 'sessions/session-checklist.md',
+			);
+			expect(scoped).toBeTruthy();
+			expect(scoped?.scope).toBe('folder');
+			expect(scoped?.scopeFolder).toBe('/sessions');
+		});
 	});
 
 	describe('metadata integrity', () => {

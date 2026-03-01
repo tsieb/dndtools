@@ -46,6 +46,24 @@ function makeStorage(vaultDir: string): Record<string, (...args: unknown[]) => P
 		['note-1', makeNote('note-1', 'Alpha')],
 		['note-2', makeNote('note-2', 'Beta')],
 	]);
+	const templateContext = {
+		campaignName: 'Test Campaign',
+		sessionNumber: 7,
+		characterNames: ['Aria', 'Brom'],
+	};
+	const templates = [
+		{
+			id: 'session-recap',
+			name: 'Session Recap Scaffold',
+			description: 'Template for recaps',
+			icon: 'T',
+			content: '# Session {{session_number}} Recap - {{campaign_name}}\n\nCast: {{character_names_csv}}\n',
+			defaultTags: ['session', 'recap'],
+			defaultFolder: '/sessions',
+			scope: 'global',
+			scopeFolder: null,
+		},
+	];
 	const objects = new Map<string, Record<string, unknown>>([
 		[
 			'obj-1',
@@ -108,6 +126,9 @@ function makeStorage(vaultDir: string): Record<string, (...args: unknown[]) => P
 			[...notes.values()].find(
 				(note) => String(note.title).toLowerCase() === String(title).toLowerCase(),
 			) ?? null,
+		getSetting: async (key) => (String(key) === 'templateContext' ? templateContext : null),
+		getNoteTemplates: async () => templates,
+		getReusableSnippets: async () => [],
 		setLinksFrom: async () => undefined,
 		resolveAndIndexLinks: async () => undefined,
 		getLinksTo: async () => [
@@ -454,6 +475,39 @@ describe('MCP tool contracts', () => {
 			if (!parsed || parsed.ok) continue;
 			expect(parsed.error.code).toBe('MCP_NOT_FOUND');
 		}
+	});
+
+	it('renders create_note template variables from tool-call context overrides', async () => {
+		const server = new MockMcpServer();
+		registerTools(server as never, makeStorage(tmpDir) as never, { writeMode: 'direct' });
+		const createHandler = server.handlers.get('create_note');
+		const readHandler = server.handlers.get('read_note');
+		expect(createHandler).toBeTypeOf('function');
+		expect(readHandler).toBeTypeOf('function');
+
+		const created = parseToolEnvelope(
+			await createHandler!({
+				templateId: 'session-recap',
+				templateContext: {
+					campaignName: 'Override Campaign',
+					sessionNumber: 22,
+					characterNames: ['Lia'],
+				},
+			}),
+		);
+		expect(created?.ok).toBe(true);
+		if (!created || !created.ok) return;
+		const createdData = created.data as { id: string; folder: string; tags: string[] };
+
+		expect(createdData.folder).toBe('/sessions');
+		expect(createdData.tags).toEqual(['session', 'recap']);
+
+		const read = parseToolEnvelope(await readHandler!({ id: createdData.id }));
+		expect(read?.ok).toBe(true);
+		if (!read || !read.ok) return;
+		const readData = read.data as { title: string; content: string };
+		expect(readData.title).toContain('Session 22 Recap - Override Campaign');
+		expect(readData.content).toContain('Cast: Lia');
 	});
 
 	it('supports idempotency-key retries for non-idempotent tools', async () => {

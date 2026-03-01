@@ -1,19 +1,21 @@
 <script lang="ts">
 	import Modal from './Modal.svelte';
 	import { getScopedTemplates, type ScopedNoteTemplate } from '$lib/domain/template-automation.js';
-	import type { NoteTemplate } from '$lib/domain/templates.js';
+	import type { NoteTemplate } from '$lib/types/template-library.js';
 
 	interface Props {
 		open: boolean;
 		activeFolder: string | null;
+		folderOverride?: string | null;
+		templates: readonly NoteTemplate[];
 		onclose: () => void;
 		oncreate: (template: NoteTemplate, folderOverride?: string) => void;
 	}
 
-	let { open, activeFolder, onclose, oncreate }: Props = $props();
+	let { open, activeFolder, folderOverride = null, templates, onclose, oncreate }: Props = $props();
 	let query = $state('');
 
-	let scopedTemplates = $derived(getScopedTemplates(activeFolder));
+	let scopedTemplates = $derived(getScopedTemplates(templates, activeFolder));
 	let visibleTemplates = $derived.by<ScopedNoteTemplate[]>(() => {
 		const normalized = query.trim().toLowerCase();
 		if (!normalized) return scopedTemplates;
@@ -41,7 +43,7 @@
 		{#each visibleTemplates as entry (entry.template.id)}
 			<button
 				class="text-left p-3 rounded-lg border border-border dark:border-tavern-border bg-surface-alt/50 dark:bg-tavern-surface-alt/50 hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:border-accent/30 dark:hover:border-tavern-accent/30 transition-all group"
-				onclick={() => oncreate(entry.template)}
+				onclick={() => oncreate(entry.template, folderOverride ?? undefined)}
 			>
 				<div class="flex items-center gap-2 mb-1">
 					<span class="text-lg">{entry.template.icon}</span>

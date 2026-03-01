@@ -1,9 +1,6 @@
-export interface ReusableSnippet {
-	readonly id: string;
-	readonly name: string;
-	readonly description: string;
-	readonly content: string;
-}
+import type { ReusableSnippet } from '../types/template-library.js';
+
+export type { ReusableSnippet };
 
 export const REUSABLE_SNIPPETS: readonly ReusableSnippet[] = [
 	{

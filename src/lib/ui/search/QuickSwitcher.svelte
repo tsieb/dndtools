@@ -5,13 +5,13 @@
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
-	import { DND_TEMPLATES } from '$lib/domain/templates.js';
+	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
 
 	interface Props {
 		open: boolean;
 		onclose: () => void;
 		onnewnote: () => void;
-		ontemplate: () => void;
+		ontemplate: (folderOverride?: string) => void;
 		oncreatefromtemplate: (templateId: string) => void;
 		onsessionrecap: () => void;
 	}
@@ -190,7 +190,7 @@
 				run: () => navigate(`${resolve('/settings')}?tab=mcp#mcp-changes`),
 			},
 		];
-		for (const template of DND_TEMPLATES) {
+		for (const template of templateLibraryState.templates) {
 			items.push({
 				id: `action-template-${template.id}`,
 				group: 'Actions',

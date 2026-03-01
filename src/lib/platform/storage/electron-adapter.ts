@@ -19,6 +19,7 @@ import type {
 	VaultObjectId,
 	VaultObjectType,
 } from '$lib/types/object.js';
+import type { NoteTemplate, ReusableSnippet } from '$lib/types/template-library.js';
 
 function getBridge(): NonNullable<Window['dndtoolsDesktop']> {
 	const bridge = window.dndtoolsDesktop;
@@ -154,6 +155,14 @@ export class ElectronStorageAdapter implements StorageAdapter {
 
 	setSetting<K extends keyof AppSettings>(key: K, value: AppSettings[K]): Promise<void> {
 		return getBridge().setSetting(key, value);
+	}
+
+	getNoteTemplates(): Promise<NoteTemplate[]> {
+		return getBridge().getNoteTemplates();
+	}
+
+	getReusableSnippets(): Promise<ReusableSnippet[]> {
+		return getBridge().getReusableSnippets();
 	}
 
 	createSafetySnapshot(reason?: string): Promise<SafetySnapshot> {

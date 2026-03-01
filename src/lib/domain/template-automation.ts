@@ -1,9 +1,13 @@
 import type { AppSettings } from '$lib/types/settings.js';
 import type { Note } from '$lib/types/note.js';
 import { createFolderId } from '$lib/types/note.js';
-import { DND_TEMPLATES, type NoteTemplate } from './templates.js';
+import type {
+	NoteTemplate,
+	TemplateScope,
+} from '$lib/types/template-library.js';
+import { GLOBAL_TEMPLATE_IDS } from './templates.js';
 
-export type TemplateScope = 'global' | 'folder';
+export type { TemplateScope };
 
 export interface TemplateContext {
 	dateISO: string;
@@ -26,8 +30,6 @@ export interface RenderedTemplate {
 	folder: string;
 }
 
-const GLOBAL_TEMPLATE_IDS = new Set(['campaign-arc', 'timeline', 'rumor-clue', 'session-recap']);
-
 const TEMPLATE_TITLE_OVERRIDES: Record<string, string> = {
 	session: 'Session {{session_number}} - {{campaign_name}}',
 	'session-prep': 'Session {{session_number}} Prep - {{campaign_name}}',
@@ -35,9 +37,69 @@ const TEMPLATE_TITLE_OVERRIDES: Record<string, string> = {
 };
 
 const VARIABLE_PATTERN = /\{\{\s*([a-z_]+)\s*\}\}/gi;
+const VARIABLE_REFERENCE = [
+	{
+		key: '{{date_iso}}',
+		description: 'Current date in YYYY-MM-DD format',
+		example: '2026-03-01',
+	},
+	{
+		key: '{{date_pretty}}',
+		description: 'Localized current date for display',
+		example: '3/1/2026',
+	},
+	{
+		key: '{{campaign_name}}',
+		description: 'Campaign name from Template Automation settings',
+		example: 'Shadows Over Phandalin',
+	},
+	{
+		key: '{{session_number}}',
+		description: 'Session number from Template Automation settings',
+		example: '12',
+	},
+	{
+		key: '{{character_names_csv}}',
+		description: 'Character names joined by commas',
+		example: 'Aria, Brom, Cyra',
+	},
+	{
+		key: '{{character_names_bullets}}',
+		description: 'Character names rendered as markdown bullets',
+		example: '- **Aria:**',
+	},
+] as const;
 
 function normalizeCharacterNames(names: readonly string[]): string[] {
 	return names.map((entry) => entry.trim()).filter((entry) => entry.length > 0);
+}
+
+function normalizeFolderPath(folder: string | null | undefined): string | null {
+	if (!folder) return null;
+	const trimmed = folder.trim();
+	if (!trimmed) return null;
+	const normalized = trimmed.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
+	return normalized ? `/${normalized}` : '/';
+}
+
+function resolveTemplateScope(template: NoteTemplate): {
+	scope: TemplateScope;
+	scopeFolder: string | null;
+} {
+	if (template.scope === 'global') {
+		return { scope: 'global', scopeFolder: null };
+	}
+	if (template.scope === 'folder') {
+		const scopeFolder = normalizeFolderPath(template.scopeFolder ?? template.defaultFolder) ?? '/';
+		return { scope: 'folder', scopeFolder };
+	}
+	if (GLOBAL_TEMPLATE_IDS.has(template.id)) {
+		return { scope: 'global', scopeFolder: null };
+	}
+	return {
+		scope: 'folder',
+		scopeFolder: normalizeFolderPath(template.defaultFolder) ?? '/',
+	};
 }
 
 function buildVariableTable(context: TemplateContext): Record<string, string> {
@@ -77,36 +139,40 @@ export function renderTemplateVariables(text: string, context: TemplateContext):
 	return text.replace(VARIABLE_PATTERN, (_, raw: string) => table[raw.toLowerCase()] ?? '');
 }
 
-export function getScopedTemplates(activeFolder: string | null): ScopedNoteTemplate[] {
-	return DND_TEMPLATES.map((template) => {
-		const isGlobal = GLOBAL_TEMPLATE_IDS.has(template.id);
-		if (isGlobal) {
-			return {
-				template,
-				scope: 'global',
-				scopeFolder: null,
-			} satisfies ScopedNoteTemplate;
-		}
+export function getTemplateVariableReference(): ReadonlyArray<{
+	key: string;
+	description: string;
+	example: string;
+}> {
+	return VARIABLE_REFERENCE;
+}
 
+export function getScopedTemplates(
+	templates: readonly NoteTemplate[],
+	activeFolder: string | null,
+): ScopedNoteTemplate[] {
+	const normalizedActiveFolder = normalizeFolderPath(activeFolder);
+	return templates.map((template) => {
+		const { scope, scopeFolder } = resolveTemplateScope(template);
 		return {
 			template,
-			scope: 'folder',
-			scopeFolder: template.defaultFolder,
+			scope,
+			scopeFolder,
 		} satisfies ScopedNoteTemplate;
 	}).sort((a, b) => {
 		if (
-			activeFolder &&
+			normalizedActiveFolder &&
 			a.scope === 'folder' &&
 			b.scope === 'global' &&
-			a.scopeFolder === activeFolder
+			a.scopeFolder === normalizedActiveFolder
 		) {
 			return -1;
 		}
 		if (
-			activeFolder &&
+			normalizedActiveFolder &&
 			b.scope === 'folder' &&
 			a.scope === 'global' &&
-			b.scopeFolder === activeFolder
+			b.scopeFolder === normalizedActiveFolder
 		) {
 			return 1;
 		}
@@ -114,8 +180,20 @@ export function getScopedTemplates(activeFolder: string | null): ScopedNoteTempl
 	});
 }
 
+export function getFolderScopedTemplateMatches(
+	templates: readonly NoteTemplate[],
+	activeFolder: string | null,
+): NoteTemplate[] {
+	const normalizedActiveFolder = normalizeFolderPath(activeFolder);
+	if (!normalizedActiveFolder) return [];
+	return getScopedTemplates(templates, normalizedActiveFolder)
+		.filter((entry) => entry.scope === 'folder' && entry.scopeFolder === normalizedActiveFolder)
+		.map((entry) => entry.template);
+}
+
 export function resolveTemplateTitle(template: NoteTemplate, context: TemplateContext): string {
-	const titleTemplate = TEMPLATE_TITLE_OVERRIDES[template.id] ?? `${template.name} - {{date_iso}}`;
+	const titleTemplate =
+		template.titleTemplate ?? TEMPLATE_TITLE_OVERRIDES[template.id] ?? `${template.name} - {{date_iso}}`;
 	return renderTemplateVariables(titleTemplate, context);
 }
 

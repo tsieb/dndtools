@@ -20,6 +20,7 @@ import type {
 	VaultObjectId,
 	VaultObjectType,
 } from '../src/lib/types/object.js';
+import type { NoteTemplate, ReusableSnippet } from '../src/lib/types/template-library.js';
 import { nowISO } from '../src/lib/utils/date.js';
 import { slugify } from '../src/lib/utils/slug.js';
 import { extractWikilinks } from '../src/lib/domain/link-extractor.js';
@@ -390,6 +391,14 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 
 	async setSetting<K extends keyof AppSettings>(key: K, value: AppSettings[K]): Promise<void> {
 		await this.base.setSetting(key, value);
+	}
+
+	async getNoteTemplates(): Promise<NoteTemplate[]> {
+		return this.base.getNoteTemplates();
+	}
+
+	async getReusableSnippets(): Promise<ReusableSnippet[]> {
+		return this.base.getReusableSnippets();
 	}
 
 	async createSafetySnapshot(reason?: string): Promise<SafetySnapshot> {

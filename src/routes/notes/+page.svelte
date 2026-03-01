@@ -1,16 +1,29 @@
 <script lang="ts">
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { vaultState } from '$lib/state/vault.svelte.js';
+	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
+	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
 	import NoteCard from '$lib/ui/common/NoteCard.svelte';
+	import TemplateDialog from '$lib/ui/common/TemplateDialog.svelte';
 	import Button from '$lib/ui/common/Button.svelte';
 	import { searchService } from '$lib/domain/search.js';
+	import {
+		buildTemplateContext,
+		getFolderScopedTemplateMatches,
+		renderNoteTemplate,
+		toNewNoteOverrides,
+	} from '$lib/domain/template-automation.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { createFolderId } from '$lib/types/note.js';
+	import type { NoteTemplate } from '$lib/types/template-library.js';
 
 	let sortField = $state<'updatedAt' | 'title' | 'createdAt' | 'folder'>('updatedAt');
 	let sortDir = $state<'asc' | 'desc'>('desc');
 	let query = $state('');
+	let templateDialogOpen = $state(false);
+	let templateCandidates = $state<readonly NoteTemplate[]>([]);
 
 	let tagFilter = $derived(page.url.searchParams.get('tag'));
 	let folderFilter = $derived(page.url.searchParams.get('folder'));
@@ -66,10 +79,61 @@
 
 	let totalCount = $derived(pinnedNotes.length + filteredNotes.length);
 
+	function shouldAdvanceSessionCounter(templateId: string): boolean {
+		return (
+			templateId === 'session' || templateId === 'session-prep' || templateId === 'session-recap'
+		);
+	}
+
+	function normalizeFolderContext(folder: string | null | undefined): string | null {
+		if (!folder) return null;
+		const normalized = folder.trim().replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
+		return normalized ? `/${normalized}` : '/';
+	}
+
+	async function createFromTemplate(
+		template: NoteTemplate,
+		folderOverride?: string,
+	): Promise<void> {
+		const setting = await settingsStorageState.getTemplateContext();
+		const context = buildTemplateContext(setting);
+		const rendered = renderNoteTemplate(template, context, folderOverride);
+		const note = await notesState.createNote(toNewNoteOverrides(rendered));
+		if (shouldAdvanceSessionCounter(template.id)) {
+			await settingsStorageState.saveTemplateContext({
+				...setting,
+				sessionNumber: context.sessionNumber + 1,
+			});
+		}
+		goto(resolve(`/notes/${note.id}/edit`));
+	}
+
 	async function handleNewNote(): Promise<void> {
 		const title = createTitle ?? undefined;
-		const note = await notesState.createNote(title ? { title } : undefined);
+		const folderContext = normalizeFolderContext(folderFilter);
+		if (!title) {
+			const matches = getFolderScopedTemplateMatches(templateLibraryState.templates, folderContext);
+			if (matches.length === 1) {
+				await createFromTemplate(matches[0]!, folderContext ?? undefined);
+				return;
+			}
+			if (matches.length > 1) {
+				templateCandidates = matches;
+				templateDialogOpen = true;
+				return;
+			}
+		}
+
+		const note = await notesState.createNote({
+			...(title ? { title } : {}),
+			...(folderContext ? { folder: createFolderId(folderContext) } : {}),
+		});
 		goto(resolve(`/notes/${note.id}/edit`));
+	}
+
+	async function handleTemplateCreate(template: NoteTemplate, folderOverride?: string): Promise<void> {
+		templateDialogOpen = false;
+		await createFromTemplate(template, folderOverride ?? normalizeFolderContext(folderFilter) ?? undefined);
 	}
 
 	$effect(() => {
@@ -230,4 +294,13 @@
 			</a>
 		</div>
 	{/if}
+
+	<TemplateDialog
+		open={templateDialogOpen}
+		activeFolder={folderFilter}
+		folderOverride={normalizeFolderContext(folderFilter)}
+		templates={templateCandidates}
+		onclose={() => (templateDialogOpen = false)}
+		oncreate={handleTemplateCreate}
+	/>
 </div>

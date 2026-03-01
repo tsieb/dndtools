@@ -11,7 +11,7 @@
 
 	interface Props {
 		onnewnote: () => void;
-		ontemplate: () => void;
+		ontemplate: (folderOverride?: string) => void;
 	}
 
 	type SidebarMode = 'tree' | 'recent' | 'favorites' | 'campaign';
@@ -19,6 +19,8 @@
 	let { onnewnote, ontemplate }: Props = $props();
 	let mode = $state<SidebarMode>('tree');
 	let showTags = $state(false);
+	let folderContextMenu = $state<{ folderId: string; x: number; y: number } | null>(null);
+	let folderContextMenuEl = $state<HTMLElement | null>(null);
 
 	let pinnedNotes = $derived(notesState.pinnedNotes.slice(0, 20));
 	let recentNotes = $derived(
@@ -77,6 +79,29 @@
 		}
 	});
 
+	$effect(() => {
+		if (!folderContextMenu || typeof window === 'undefined') return;
+		const close = (event?: Event): void => {
+			if (event?.target instanceof Node && folderContextMenuEl?.contains(event.target)) {
+				return;
+			}
+			folderContextMenu = null;
+		};
+		const closeOnEscape = (event: KeyboardEvent): void => {
+			if (event.key === 'Escape') close();
+		};
+		window.addEventListener('mousedown', close);
+		window.addEventListener('keydown', closeOnEscape);
+		window.addEventListener('resize', close);
+		window.addEventListener('scroll', close, true);
+		return () => {
+			window.removeEventListener('mousedown', close);
+			window.removeEventListener('keydown', closeOnEscape);
+			window.removeEventListener('resize', close);
+			window.removeEventListener('scroll', close, true);
+		};
+	});
+
 	function navigateToNote(id: string): void {
 		goto(resolve(`/notes/${id}`));
 		if (ui.isMobile) {
@@ -94,6 +119,31 @@
 	function reopenOnboarding(): void {
 		void onboardingState.reopenChecklist();
 		navigateToPath(resolve('/'));
+	}
+
+	function openFolderContextMenu(folderId: string, x: number, y: number): void {
+		folderContextMenu = { folderId, x, y };
+	}
+
+	function handleFolderContextMenu(event: MouseEvent, folderId: string): void {
+		event.preventDefault();
+		event.stopPropagation();
+		openFolderContextMenu(folderId, event.clientX, event.clientY);
+	}
+
+	function handleFolderContextKeydown(event: KeyboardEvent, folderId: string): void {
+		if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+			event.preventDefault();
+			const target = event.currentTarget as HTMLElement | null;
+			if (!target) return;
+			const rect = target.getBoundingClientRect();
+			openFolderContextMenu(folderId, rect.left + rect.width / 2, rect.bottom + 4);
+		}
+	}
+
+	function createFromTemplateInFolder(folderId: string): void {
+		folderContextMenu = null;
+		ontemplate(folderId);
 	}
 </script>
 
@@ -117,7 +167,7 @@
 		<button
 			type="button"
 			class="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md border border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg text-sm transition-colors"
-			onclick={ontemplate}
+			onclick={() => ontemplate()}
 			title="Create from template"
 		>
 			<span class="text-sm" aria-hidden="true">T</span>
@@ -251,6 +301,8 @@
 								style="padding-left: {0.75 + folder.depth * 0.65}rem"
 								onclick={() =>
 									navigateToPath(`${resolve('/notes')}?folder=${encodeURIComponent(folder.id)}`)}
+								oncontextmenu={(event) => handleFolderContextMenu(event, folder.id)}
+								onkeydown={(event) => handleFolderContextKeydown(event, folder.id)}
 							>
 								<span class="truncate">{folder.name}</span>
 								<span class="ml-auto opacity-70">{folder.noteCount}</span>
@@ -425,4 +477,23 @@
 			Settings
 		</a>
 	</div>
+
+	{#if folderContextMenu}
+		<div
+			class="fixed z-50 min-w-44 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface shadow-lg p-1"
+			style="left: {folderContextMenu.x}px; top: {folderContextMenu.y}px;"
+			role="menu"
+			aria-label="Folder actions"
+			bind:this={folderContextMenuEl}
+		>
+			<button
+				type="button"
+				class="w-full text-left rounded px-2.5 py-1.5 text-xs text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+				onclick={() => folderContextMenu && createFromTemplateInFolder(folderContextMenu.folderId)}
+				role="menuitem"
+			>
+				Create from template here
+			</button>
+		</div>
+	{/if}
 </aside>
