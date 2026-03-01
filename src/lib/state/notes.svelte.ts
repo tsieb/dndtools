@@ -10,7 +10,10 @@ import { extractWikilinks } from '$lib/domain/link-extractor.js';
 import { hasMeaningfulNoteContent } from '$lib/domain/note-persistence.js';
 import {
 	extractAliasesFromFrontmatter,
+	resolveLinkCandidates,
+	resolveUniqueLinkTargetId,
 	resolveLinkTargetId,
+	type LinkResolutionCandidate,
 	type LinkResolutionEntry,
 } from '$lib/domain/link-resolution.js';
 import { linksState } from './links.svelte.js';
@@ -86,16 +89,30 @@ class NotesState {
 		}
 
 		const links: Link[] = extractWikilinks(note.content)
-			.map((link) => {
-				const targetId = link.targetIdHint
-					? createNoteId(link.targetIdHint)
-					: this.resolveTitle(link.title);
-				if (!targetId) return null;
+			.map((link): Link | null => {
+				if (link.targetIdHint) {
+					const targetId = createNoteId(link.targetIdHint);
+					if (!this.activeNoteById.get(targetId)) return null;
+					return {
+						sourceId: note.id,
+						targetId,
+						displayText: link.displayText,
+						position: link.position,
+						resolvedBy: 'id' as const,
+						resolvedAlias: null,
+					};
+				}
+
+				const candidates = this.resolveTitleCandidates(link.title);
+				if (candidates.length !== 1) return null;
+				const winner = candidates[0]!;
 				return {
 					sourceId: note.id,
-					targetId,
+					targetId: createNoteId(winner.id),
 					displayText: link.displayText,
 					position: link.position,
+					resolvedBy: winner.matchedBy,
+					resolvedAlias: winner.matchedAlias ?? null,
 				};
 			})
 			.filter((entry): entry is Link => !!entry);
@@ -378,6 +395,14 @@ class NotesState {
 
 	resolveTitle(title: string): NoteId | null {
 		return resolveLinkTargetId(title, this.linkResolutionEntries);
+	}
+
+	resolveTitleStrict(title: string): NoteId | null {
+		return resolveUniqueLinkTargetId(title, this.linkResolutionEntries);
+	}
+
+	resolveTitleCandidates(title: string): LinkResolutionCandidate[] {
+		return resolveLinkCandidates(title, this.linkResolutionEntries);
 	}
 }
 

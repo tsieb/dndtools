@@ -101,6 +101,8 @@ export const linkSchema = z.object({
 	targetId: idSchema,
 	displayText: z.string().max(MAX_STRING_LENGTH),
 	position: z.number().int().nonnegative(),
+	resolvedBy: z.enum(['id', 'title', 'alias']).optional(),
+	resolvedAlias: z.string().max(MAX_STRING_LENGTH).nullable().optional(),
 });
 
 /**

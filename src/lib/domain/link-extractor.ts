@@ -2,6 +2,7 @@ export interface ExtractedLink {
 	title: string;
 	displayText: string;
 	position: number;
+	length: number;
 	targetIdHint?: string;
 }
 
@@ -71,6 +72,7 @@ export function extractWikilinks(
 		const rawTarget = unescapeLinkPart(target).trim();
 		const rawDisplay = display === undefined ? undefined : unescapeLinkPart(display).trim();
 		const displayText = rawDisplay || rawTarget;
+		const length = closeIndex + 2 - linkStart;
 		cursor = closeIndex + 1;
 
 		if (!rawTarget) continue;
@@ -83,6 +85,7 @@ export function extractWikilinks(
 				title: displayText,
 				displayText,
 				position: linkStart,
+				length,
 				targetIdHint,
 			});
 			continue;
@@ -92,6 +95,7 @@ export function extractWikilinks(
 			title: rawTarget,
 			displayText,
 			position: linkStart,
+			length,
 		});
 	}
 

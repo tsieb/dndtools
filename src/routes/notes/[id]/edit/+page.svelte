@@ -9,7 +9,11 @@
 	import { editorPreferencesState } from '$lib/state/editor-preferences.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import { extractFrontmatter, upsertFrontmatter } from '$lib/markdown/frontmatter.js';
-	import { findUnresolvedLinks, renameWikilinkTarget } from '$lib/domain/unresolved-links.js';
+	import {
+		analyzeLinkIssues,
+		disambiguateWikilinkTarget,
+		renameWikilinkTarget,
+	} from '$lib/domain/unresolved-links.js';
 	import Button from '$lib/ui/common/Button.svelte';
 	import EditorToolbar from '$lib/ui/editor/EditorToolbar.svelte';
 	import EditorInsertMenu from '$lib/ui/editor/EditorInsertMenu.svelte';
@@ -30,7 +34,19 @@
 	let syncingFrom = $state<'editor' | 'preview' | null>(null);
 
 	let frontmatter = $derived(extractFrontmatter(editorState.content).frontmatter);
-	let unresolved = $derived(findUnresolvedLinks(editorState.content, notesState.activeNotes));
+	let linkIssues = $derived(analyzeLinkIssues(editorState.content, notesState.activeNotes));
+	let unresolved = $derived(linkIssues.unresolved);
+	let ambiguous = $derived(linkIssues.ambiguous);
+	let wikilinkHighlights = $derived.by<
+		Array<{ from: number; to: number; kind: 'unresolved' | 'ambiguous' }>
+	>(() => [
+		...unresolved.flatMap((entry) =>
+			entry.ranges.map((range) => ({ ...range, kind: 'unresolved' as const })),
+		),
+		...ambiguous.flatMap((entry) =>
+			entry.ranges.map((range) => ({ ...range, kind: 'ambiguous' as const })),
+		),
+	]);
 	let editorSettings = $derived(editorPreferencesState.settings);
 	let editorSettingsKey = $derived(
 		JSON.stringify({
@@ -124,7 +140,7 @@
 	}
 
 	async function createAllUnresolvedNotes(): Promise<void> {
-		for (const entry of unresolved) {
+		for (const entry of unresolved.filter((candidate) => candidate.targetKind === 'title')) {
 			await createUnresolvedNote(entry.title);
 		}
 	}
@@ -134,9 +150,11 @@
 		editorState.setContent(renameWikilinkTarget(editorState.content, from, to));
 	}
 
-	function applyDisambiguation(from: string, to: string): void {
-		if (!to.trim()) return;
-		editorState.setContent(renameWikilinkTarget(editorState.content, from, to));
+	function applyDisambiguation(from: string, targetId: string, displayTitle: string): void {
+		if (!targetId.trim()) return;
+		editorState.setContent(
+			disambiguateWikilinkTarget(editorState.content, from, targetId, displayTitle),
+		);
 	}
 
 	async function updateEditorSetting(
@@ -283,6 +301,7 @@
 		<ObjectStructuredEditor {note} onreloaded={handleObjectReloaded} />
 		<UnresolvedLinksPanel
 			{unresolved}
+			{ambiguous}
 			oncreateone={(title) => void createUnresolvedNote(title)}
 			oncreateall={() => void createAllUnresolvedNotes()}
 			onrename={applyRename}
@@ -316,6 +335,7 @@
 							onviewready={handleViewReady}
 							onscrollready={(element: HTMLElement) => (editorScrollEl = element)}
 							settings={editorSettings}
+							{wikilinkHighlights}
 						/>
 					{/key}
 				{/await}

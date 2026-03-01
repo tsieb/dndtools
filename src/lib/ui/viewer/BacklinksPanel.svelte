@@ -26,7 +26,7 @@
 						findBacklinkContextSnippet({
 							sourceContent: note.content,
 							targetId: noteId,
-							resolveTitle: (title) => notesState.resolveTitle(title),
+							resolveTitle: (title) => notesState.resolveTitleStrict(title),
 						}) ?? 'Linked reference in this note.',
 				};
 			})

@@ -368,6 +368,8 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 					sourceTitle: z.string().min(1),
 					displayText: z.string(),
 					position: z.number().int().nonnegative(),
+					matchedByAlias: z.boolean(),
+					matchedAlias: z.string().nullable(),
 					contextSnippet: z.string(),
 				})
 				.strict(),
