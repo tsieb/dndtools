@@ -31,14 +31,19 @@ export async function createTempVaultDir(prefix: string): Promise<string> {
 }
 
 export async function launchDesktopApp(vaultDir: string): Promise<DesktopAppHandle> {
+	const windowTimeoutMs = Number(process.env.DNDTOOLS_E2E_WINDOW_TIMEOUT_MS ?? '300000');
+	const shellReadyTimeoutMs = Number(process.env.DNDTOOLS_E2E_SHELL_READY_TIMEOUT_MS ?? '60000');
 	const appMain = path.join(process.cwd(), 'electron', 'dist', 'main.cjs');
 	const electronApp = await electron.launch({
 		args: [appMain, `--vault=${vaultDir}`],
 		env: launchEnvironment(),
 	});
-	const page = await electronApp.firstWindow();
+	const page = (electronApp.windows()[0] ??
+		(await electronApp.waitForEvent('window', { timeout: windowTimeoutMs }))) as Page;
 	await expect(page).toHaveTitle(/DND Tools/i);
-	await expect(page.getByRole('link', { name: 'DND Tools' })).toBeVisible({ timeout: 15_000 });
+	await expect(page.getByRole('link', { name: 'DND Tools' })).toBeVisible({
+		timeout: shellReadyTimeoutMs,
+	});
 	return { electronApp, page, vaultDir };
 }
 

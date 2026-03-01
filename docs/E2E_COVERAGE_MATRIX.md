@@ -9,6 +9,7 @@ This matrix defines the critical desktop workflows covered by Playwright and the
 - Critical suite: `tests/e2e-desktop/critical-workflows.spec.ts`
 - Smoke suite: `tests/e2e-desktop/desktop-smoke.spec.ts`
 - Performance suite: `tests/e2e-desktop/performance.spec.ts` (`@perf`, weekly)
+- Memory suite: `tests/e2e-desktop/memory.spec.ts` (`@memory`, nightly)
 
 ## Route Coverage Matrix
 

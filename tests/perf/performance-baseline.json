@@ -1,0 +1,32 @@
+{
+	"version": 1,
+	"generatedAt": "2026-03-01T00:00:00.000Z",
+	"datasets": [
+		{
+			"dataset": "notes_1000",
+			"noteCount": 1000,
+			"metrics": {
+				"cold_start": 1800,
+				"vault_open": 1100,
+				"note_open": 120,
+				"search_response": 70,
+				"note_save": 55,
+				"graph_rebuild_incremental": 20,
+				"mcp_bundle_call": 420
+			}
+		},
+		{
+			"dataset": "notes_5000",
+			"noteCount": 5000,
+			"metrics": {
+				"cold_start": 2800,
+				"vault_open": 1900,
+				"note_open": 170,
+				"search_response": 120,
+				"note_save": 85,
+				"graph_rebuild_incremental": 42,
+				"mcp_bundle_call": 760
+			}
+		}
+	]
+}

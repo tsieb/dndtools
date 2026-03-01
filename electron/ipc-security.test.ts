@@ -30,6 +30,7 @@ import {
 	migrationOptionsSchema,
 	healthSubsystemSchema,
 	structuredErrorEventSchema,
+	performanceMeasurementSchema,
 	getAllNotesOptionsSchema,
 	getAllObjectsOptionsSchema,
 	getObjectHistoryOptionsSchema,
@@ -172,6 +173,16 @@ describe('AC1 — Oversized payloads', () => {
 	it('rejects snapshot reasons exceeding 1024 characters', () => {
 		const longReason = 'r'.repeat(1025);
 		expect(snapshotReasonSchema.safeParse(longReason).success).toBe(false);
+	});
+
+	it('rejects performance measurements with unrealistic duration values', () => {
+		const result = performanceMeasurementSchema.safeParse({
+			operation: 'search_response',
+			durationMs: 1_000_000,
+			source: 'renderer',
+			context: {},
+		});
+		expect(result.success).toBe(false);
 	});
 });
 
@@ -364,6 +375,28 @@ describe('AC3 — Enum values / whitelists are enforced', () => {
 
 		it('rejects unknown subsystem "file_watcher"', () => {
 			expect(healthSubsystemSchema.safeParse('file_watcher').success).toBe(false);
+		});
+	});
+
+	describe('performanceMeasurementSchema', () => {
+		it('accepts a valid performance telemetry event', () => {
+			const result = performanceMeasurementSchema.safeParse({
+				operation: 'note_save',
+				durationMs: 82.4,
+				source: 'renderer',
+				context: { contentLength: 1200 },
+			});
+			expect(result.success).toBe(true);
+		});
+
+		it('rejects unknown performance operation names', () => {
+			const result = performanceMeasurementSchema.safeParse({
+				operation: 'index_build',
+				durationMs: 82.4,
+				source: 'renderer',
+				context: {},
+			});
+			expect(result.success).toBe(false);
 		});
 	});
 

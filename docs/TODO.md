@@ -144,9 +144,9 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 
 ### Project 5.1: Startup and Runtime Performance (P1)
 
-- [ ] Define hard budgets for cold start, route transition, search response, save latency.
-- [ ] Add telemetry for indexing time, search latency, and render cost per route.
-- [ ] Move heavy indexing/parsing work off main UI thread where possible.
+- [x] Define hard budgets for cold start, route transition, search response, save latency.
+- [x] Add telemetry for indexing time, search latency, and render cost per route.
+- [x] Move heavy indexing/parsing work off main UI thread where possible.
 - [ ] Add lazy loading boundaries for expensive components/routes.
 - [ ] Add cache invalidation strategy for link graph/search index/object summaries.
 
@@ -156,11 +156,11 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 - [ ] Add virtualized lists for large result sets.
 - [ ] Add background indexing with progress + cancellation UX.
 - [ ] Add adaptive debounce and batching strategies under heavy edit churn.
-- [ ] Add benchmark dataset and automated performance regression suite.
+- [x] Add benchmark dataset and automated performance regression suite.
 
 ### Project 5.3: Memory and Resource Management (P2)
 
-- [ ] Add memory profiling for renderer and sidecar under long sessions.
+- [x] Add memory profiling for renderer and sidecar under long sessions.
 - [ ] Add periodic cleanup of stale caches and detached graph/index artifacts.
 - [ ] Add safeguards for oversized notes/assets (warnings, soft limits, chunking options).
 
@@ -446,7 +446,7 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 
 ### 12. Performance Budgets
 
-- [ ] `TODO(APP)` Define and track budgets for startup, search latency, and save latency.
+- [x] `TODO(APP)` Define and track budgets for startup, search latency, and save latency.
       Reason: backlog item tracked for planned implementation.
       Risk: quality and behavior drift if deferred.
       Targets:

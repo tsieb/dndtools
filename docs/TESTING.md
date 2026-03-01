@@ -97,10 +97,22 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
 
 - Weekly desktop benchmark suite:
   - `tests/e2e-desktop/performance.spec.ts` (`@perf`)
+- Baseline and comparison:
+  - `tests/perf/performance-baseline.json`
+  - `scripts/compare-performance-baseline.ts`
 - Enforced budgets live in:
   - `docs/ARCHITECTURE.md` (Section 8.1)
 - Scheduled workflow:
   - `.github/workflows/performance-regression.yml`
+
+### 3.4 Memory Profiling
+
+- Nightly desktop memory profile:
+  - `tests/e2e-desktop/memory.spec.ts` (`@memory`)
+- Local profiling entrypoint:
+  - `scripts/memory-profile.ts`
+- Scheduled workflow:
+  - `.github/workflows/memory-profile.yml`
 
 ## 4. Mandatory Test Rules
 
@@ -124,4 +136,7 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
 - `pnpm test:e2e`
 - `pnpm test:e2e:desktop:critical`
 - `pnpm test:e2e:desktop:perf` (set `PERF_BENCHMARK=1`)
+- `pnpm test:e2e:desktop:memory` (set `MEMORY_PROFILE=1`)
+- `pnpm perf:compare -- --current <path-to-results-json>`
+- `pnpm memory:profile`
 - `pnpm check`

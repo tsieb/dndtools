@@ -278,6 +278,25 @@ export const structuredErrorEventSchema = z.object({
 	context: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
 });
 
+/** Budgeted performance measurement payload for diagnostics:record-performance. */
+export const performanceMeasurementSchema = z.object({
+	operation: z.enum([
+		'cold_start',
+		'vault_open',
+		'note_open',
+		'search_response',
+		'note_save',
+		'graph_rebuild_incremental',
+		'mcp_bundle_call',
+	]),
+	durationMs: z.number().finite().min(0).max(600_000),
+	at: z.string().max(MAX_STRING_LENGTH).optional(),
+	source: z.enum(['renderer', 'main', 'mcp']),
+	context: z
+		.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]))
+		.optional(),
+});
+
 /** Options for getAllNotes. */
 export const getAllNotesOptionsSchema = z
 	.object({ includeDeleted: z.boolean().optional() })

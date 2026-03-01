@@ -15,6 +15,7 @@
 		"test:e2e:desktop": "playwright test -c playwright.desktop.config.ts",
 		"test:e2e:desktop:critical": "playwright test -c playwright.desktop.config.ts --grep-invert @perf",
 		"test:e2e:desktop:perf": "playwright test -c playwright.desktop.config.ts --grep @perf",
+		"test:e2e:desktop:memory": "playwright test -c playwright.desktop.config.ts --grep @memory",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
 		"format": "prettier --write .",
@@ -30,7 +31,9 @@
 		"desktop:start": "electron electron/dist/main.cjs",
 		"desktop:smoke": "node scripts/desktop-smoke-test.mjs",
 		"desktop": "pnpm desktop:build && pnpm desktop:start",
-		"fixture:vault": "tsx scripts/generate-fixture-vault.ts"
+		"fixture:vault": "tsx scripts/generate-fixture-vault.ts",
+		"perf:compare": "tsx scripts/compare-performance-baseline.ts",
+		"memory:profile": "tsx scripts/memory-profile.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

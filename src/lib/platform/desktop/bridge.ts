@@ -44,6 +44,49 @@ export interface DesktopSystemHealth {
 	}>;
 	mcpStatus: DesktopMcpStatus;
 	mcpLifecycle: DesktopMcpLifecycleEvent[];
+	performance: {
+		generatedAt: string;
+		summaries: Array<{
+			operation:
+				| 'cold_start'
+				| 'vault_open'
+				| 'note_open'
+				| 'search_response'
+				| 'note_save'
+				| 'graph_rebuild_incremental'
+				| 'mcp_bundle_call';
+			label: string;
+			description: string;
+			targetMs: number;
+			regressionThresholdMs: number;
+			sampleCount: number;
+			p50Ms: number | null;
+			p95Ms: number | null;
+			p99Ms: number | null;
+			averageMs: number | null;
+			maxMs: number | null;
+			lastMs: number | null;
+			lastAt: string | null;
+			exceededBudgetCount: number;
+		}>;
+		timeline: Array<{
+			operation:
+				| 'cold_start'
+				| 'vault_open'
+				| 'note_open'
+				| 'search_response'
+				| 'note_save'
+				| 'graph_rebuild_incremental'
+				| 'mcp_bundle_call';
+			durationMs: number;
+			at: string;
+			source: 'renderer' | 'main' | 'mcp';
+			context?: Record<string, string | number | boolean | null>;
+			budgetMs: number;
+			regressionThresholdMs: number;
+			exceededBudget: boolean;
+		}>;
+	};
 }
 
 export interface DesktopMcpChangeRecord {
@@ -259,6 +302,24 @@ export async function reportDesktopStructuredError(event: {
 }): Promise<void> {
 	if (!window.dndtoolsDesktop) return;
 	await window.dndtoolsDesktop.recordDiagnosticsError(event);
+}
+
+export async function recordDesktopPerformanceMeasurement(event: {
+	operation:
+		| 'cold_start'
+		| 'vault_open'
+		| 'note_open'
+		| 'search_response'
+		| 'note_save'
+		| 'graph_rebuild_incremental'
+		| 'mcp_bundle_call';
+	durationMs: number;
+	at?: string;
+	source: 'renderer' | 'main' | 'mcp';
+	context?: Record<string, string | number | boolean | null>;
+}): Promise<void> {
+	if (!window.dndtoolsDesktop) return;
+	await window.dndtoolsDesktop.recordDiagnosticsPerformance(event);
 }
 
 export async function exportDesktopDiagnosticsBundle(): Promise<{

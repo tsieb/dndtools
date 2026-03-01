@@ -12,7 +12,11 @@ import {
 } from '../mcp/migrations.js';
 import { McpSidecar } from './mcp-sidecar.js';
 import type { McpChangeRecord } from '../src/lib/types/mcp.js';
-import type { HealthSubsystem, StructuredErrorEvent } from '../src/lib/types/diagnostics.js';
+import type {
+	HealthSubsystem,
+	PerformanceMeasurementInput,
+	StructuredErrorEvent,
+} from '../src/lib/types/diagnostics.js';
 import { getErrorTaxonomyEntry } from '../src/lib/domain/error-taxonomy.js';
 import type { NoteId, FolderId, Link } from '../src/lib/types/note.js';
 import type { AppSettings } from '../src/lib/types/settings.js';
@@ -37,6 +41,7 @@ import {
 	migrationOptionsSchema,
 	healthSubsystemSchema,
 	structuredErrorEventSchema,
+	performanceMeasurementSchema,
 	getAllNotesOptionsSchema,
 	getAllObjectsOptionsSchema,
 	getObjectHistoryOptionsSchema,
@@ -176,69 +181,99 @@ async function startStaticServer(rootDir: string): Promise<string> {
 }
 
 async function setVaultDirectory(nextVaultDir: string): Promise<void> {
-	BackupScheduler.stop();
-	if (storage) {
-		await storage.close();
-	}
+	const measureId = `vault-open-${Date.now()}`;
+	const startMark = `dndtools:${measureId}:start`;
+	const endMark = `dndtools:${measureId}:end`;
+	const measureName = `dndtools:${measureId}:measure`;
+	const startedAt = performance.now();
+	performance.mark(startMark);
+	let completed = false;
 
-	const schemaPreflight = await getVaultSchemaMigrationReport(nextVaultDir);
-	if (schemaPreflight.vaultTooNew) {
-		throw new Error(
-			'This vault was created with a newer version of DND Tools and cannot be opened. Please upgrade the application.',
-		);
-	}
-	if (schemaPreflight.upgradeRequired) {
-		const applied = await runVaultSchemaMigrations(nextVaultDir, {
-			dryRun: false,
-			createCheckpoint: true,
-		});
-		if (applied.failures.length > 0) {
+	try {
+		BackupScheduler.stop();
+		if (storage) {
+			await storage.close();
+		}
+
+		const schemaPreflight = await getVaultSchemaMigrationReport(nextVaultDir);
+		if (schemaPreflight.vaultTooNew) {
 			throw new Error(
-				`Vault upgrade required but migration failed: ${applied.failures[0]?.message ?? 'unknown error'}`,
+				'This vault was created with a newer version of DND Tools and cannot be opened. Please upgrade the application.',
 			);
 		}
-	}
+		if (schemaPreflight.upgradeRequired) {
+			const applied = await runVaultSchemaMigrations(nextVaultDir, {
+				dryRun: false,
+				createCheckpoint: true,
+			});
+			if (applied.failures.length > 0) {
+				throw new Error(
+					`Vault upgrade required but migration failed: ${applied.failures[0]?.message ?? 'unknown error'}`,
+				);
+			}
+		}
 
-	storage = new FileSystemAdapter(nextVaultDir);
-	try {
-		await storage.initialize();
-		diagnostics.markSubsystemSuccess('vault_sync');
-	} catch (error) {
-		diagnostics.recordError(
-			createStructuredError({
-				category: 'storage',
-				code: 'STORAGE_INIT_FAILED',
-				message: error instanceof Error ? error.message : String(error),
-				details: error instanceof Error ? (error.stack ?? null) : null,
-				context: {
-					stage: 'setVaultDirectory',
-				},
-			}),
+		storage = new FileSystemAdapter(nextVaultDir);
+		try {
+			await storage.initialize();
+			diagnostics.markSubsystemSuccess('vault_sync');
+		} catch (error) {
+			diagnostics.recordError(
+				createStructuredError({
+					category: 'storage',
+					code: 'STORAGE_INIT_FAILED',
+					message: error instanceof Error ? error.message : String(error),
+					details: error instanceof Error ? (error.stack ?? null) : null,
+					context: {
+						stage: 'setVaultDirectory',
+					},
+				}),
+			);
+			throw error;
+		}
+		vaultDir = nextVaultDir;
+		BackupScheduler.start(
+			nextVaultDir,
+			() => storage,
+			async () => (storage ? storage.getSetting('backupCadence').catch(() => null) : null),
 		);
-		throw error;
-	}
-	vaultDir = nextVaultDir;
-	BackupScheduler.start(
-		nextVaultDir,
-		() => storage,
-		async () => (storage ? storage.getSetting('backupCadence').catch(() => null) : null),
-	);
-	// Configure sidecar log path and load persisted events before restarting.
-	mcpSidecar.setLogPath(nextVaultDir);
-	await mcpSidecar.loadPersistedEvents();
-	await mcpSidecar.restart(nextVaultDir);
-	const sidecarStatus = mcpSidecar.getStatus();
-	if (sidecarStatus.state === 'error') {
-		diagnostics.recordError(
-			createStructuredError({
-				category: 'mcp_sidecar',
-				code: 'MCP_SIDECAR_START_FAILED',
-				message: sidecarStatus.error ?? 'Failed to start MCP sidecar',
-				context: {
-					vaultDir: nextVaultDir,
-				},
-			}),
+		// Configure sidecar log path and load persisted events before restarting.
+		mcpSidecar.setLogPath(nextVaultDir);
+		await mcpSidecar.loadPersistedEvents();
+		await mcpSidecar.restart(nextVaultDir);
+		const sidecarStatus = mcpSidecar.getStatus();
+		if (sidecarStatus.state === 'error') {
+			diagnostics.recordError(
+				createStructuredError({
+					category: 'mcp_sidecar',
+					code: 'MCP_SIDECAR_START_FAILED',
+					message: sidecarStatus.error ?? 'Failed to start MCP sidecar',
+					context: {
+						vaultDir: nextVaultDir,
+					},
+				}),
+			);
+		}
+		completed = true;
+	} finally {
+		performance.mark(endMark);
+		performance.measure(measureName, startMark, endMark);
+		const measured = performance.getEntriesByName(measureName, 'measure').at(-1);
+		const durationMs = Number(
+			((measured?.duration ?? performance.now() - startedAt) || 0).toFixed(2),
 		);
+		performance.clearMarks(startMark);
+		performance.clearMarks(endMark);
+		performance.clearMeasures(measureName);
+		diagnostics.recordPerformance({
+			operation: 'vault_open',
+			durationMs,
+			source: 'main',
+			context: {
+				success: completed,
+				vaultName: path.basename(nextVaultDir),
+			},
+		});
 	}
 }
 
@@ -301,6 +336,23 @@ async function collectBundleMetrics(): Promise<{
 			tagCount: null,
 			pendingMcpChangeCount: null,
 		};
+	}
+}
+
+async function ingestMcpPerformanceSamples(): Promise<void> {
+	if (!vaultDir) return;
+	const perfLogPath = path.join(vaultDir, '.vault', 'mcp-performance.json');
+	try {
+		const raw = await fs.readFile(perfLogPath, 'utf-8');
+		const parsed = JSON.parse(raw) as { events?: unknown[] };
+		if (!Array.isArray(parsed.events)) return;
+		for (const event of parsed.events) {
+			const validated = performanceMeasurementSchema.safeParse(event);
+			if (!validated.success) continue;
+			diagnostics.recordPerformance(validated.data as PerformanceMeasurementInput);
+		}
+	} catch {
+		// No MCP performance log yet or parse failure. Ignore.
 	}
 }
 
@@ -680,7 +732,17 @@ ipcMain.handle('dndtools:diagnostics:record-error', async (_event, rawEvent: unk
 	diagnostics.recordError(event as StructuredErrorEvent);
 });
 
+ipcMain.handle('dndtools:diagnostics:record-performance', async (_event, rawEvent: unknown) => {
+	const event = parseIpcArg(
+		performanceMeasurementSchema,
+		rawEvent,
+		'diagnostics:record-performance',
+	);
+	diagnostics.recordPerformance(event as PerformanceMeasurementInput);
+});
+
 ipcMain.handle('dndtools:diagnostics:get-health', async () => {
+	await ingestMcpPerformanceSamples();
 	return {
 		...diagnostics.getHealthSnapshot(),
 		mcpStatus: mcpSidecar.getStatus(),
@@ -702,13 +764,14 @@ ipcMain.handle('dndtools:diagnostics:export', async () => {
 		return { canceled: true, path: null as string | null };
 	}
 
-	const health = diagnostics.getHealthSnapshot();
 	const metricsBase = await collectBundleMetrics();
 	const environment = diagnostics.getEnvironment();
 	const metrics = diagnostics.getMetrics(metricsBase);
 	const mcpStatus = mcpSidecar.getStatus();
 	const mcpLifecycle = mcpSidecar.getLifecycleEvents(120);
 	const integrityReport = (await storage?.getMetadataIntegrityReport().catch(() => null)) ?? null;
+	await ingestMcpPerformanceSamples();
+	const refreshedHealth = diagnostics.getHealthSnapshot();
 
 	// Redact user-identifying paths before bundling.
 	const redactedVaultDir = vaultDir ? '[VAULT_DIR_REDACTED]' : null;
@@ -720,8 +783,9 @@ ipcMain.handle('dndtools:diagnostics:export', async () => {
 		environment,
 		metrics,
 		health: {
-			generatedAt: health.generatedAt,
-			lastSuccessful: health.lastSuccessful,
+			generatedAt: refreshedHealth.generatedAt,
+			lastSuccessful: refreshedHealth.lastSuccessful,
+			performance: refreshedHealth.performance,
 		},
 		mcp: {
 			state: mcpStatus.state,
@@ -738,7 +802,7 @@ ipcMain.handle('dndtools:diagnostics:export', async () => {
 	};
 
 	// Redact error events: preserve operational fields, strip vault paths from messages.
-	const redactedErrors = health.recentErrors.map((e) => ({
+	const redactedErrors = refreshedHealth.recentErrors.map((e) => ({
 		id: e.id,
 		at: e.at,
 		category: e.category,

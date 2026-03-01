@@ -1,6 +1,8 @@
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { NoteId } from '$lib/types/note.js';
 import { getStorage } from '$lib/platform/storage/index.js';
+import { recordPerformanceMeasurement } from '$lib/runtime/diagnostics.js';
+import { workerBridge } from '$lib/runtime/worker-bridge.js';
 
 export interface BacklinkInfo {
 	sourceId: NoteId;
@@ -13,6 +15,7 @@ class LinksState {
 	private forwardMap = $state<SvelteMap<string, SvelteSet<string>>>(new SvelteMap());
 	/** Backward links map: noteId -> sourceIds */
 	private backwardMap = $state<SvelteMap<string, SvelteSet<string>>>(new SvelteMap());
+	private updateMeasureCounter = 0;
 
 	private removeBackwardIfEmpty(targetId: string): void {
 		const backlinks = this.backwardMap.get(targetId);
@@ -33,9 +36,7 @@ class LinksState {
 	async buildGraph(): Promise<void> {
 		const storage = getStorage();
 		const allNotes = await storage.getAllNotes();
-		const activeIds = new Set(allNotes.map((note) => String(note.id)));
-		const forward = new SvelteMap<string, SvelteSet<string>>();
-		const backward = new SvelteMap<string, SvelteSet<string>>();
+		const activeIds = allNotes.map((note) => String(note.id));
 		let allLinks = storage.getAllLinks ? await storage.getAllLinks() : null;
 
 		if (!allLinks) {
@@ -48,22 +49,22 @@ class LinksState {
 			allLinks = perNoteLinks.flatMap(({ links }) => links);
 		}
 
-		for (const note of allNotes) {
-			forward.set(String(note.id), new SvelteSet());
+		const graph = await workerBridge.buildLinkGraph({
+			noteIds: activeIds,
+			links: allLinks.map((link) => ({
+				sourceId: String(link.sourceId),
+				targetId: String(link.targetId),
+			})),
+		});
+
+		const forward = new SvelteMap<string, SvelteSet<string>>();
+		for (const [sourceId, targets] of graph.forwardEntries) {
+			forward.set(sourceId, new SvelteSet(targets));
 		}
 
-		for (const link of allLinks) {
-			const sourceId = String(link.sourceId);
-			const targetId = String(link.targetId);
-			if (!activeIds.has(sourceId)) continue;
-			const sourceTargets = forward.get(sourceId);
-			if (!sourceTargets) continue;
-
-			sourceTargets.add(targetId);
-			if (!backward.has(targetId)) {
-				backward.set(targetId, new SvelteSet());
-			}
-			backward.get(targetId)!.add(sourceId);
+		const backward = new SvelteMap<string, SvelteSet<string>>();
+		for (const [targetId, sources] of graph.backwardEntries) {
+			backward.set(targetId, new SvelteSet(sources));
 		}
 
 		this.forwardMap = forward;
@@ -87,6 +88,13 @@ class LinksState {
 	}
 
 	updateNoteLinks(noteId: NoteId, targetIds: NoteId[]): void {
+		const measureId = `graph-incremental-${Date.now()}-${this.updateMeasureCounter++}`;
+		const startMark = `dndtools:${measureId}:start`;
+		const endMark = `dndtools:${measureId}:end`;
+		const measureName = `dndtools:${measureId}:measure`;
+		const startedAt = performance.now();
+		performance.mark(startMark);
+
 		const sourceId = String(noteId);
 		this.removeOutgoingLinks(sourceId);
 
@@ -99,6 +107,24 @@ class LinksState {
 			}
 			this.backwardMap.get(targetId)!.add(sourceId);
 		}
+
+		performance.mark(endMark);
+		performance.measure(measureName, startMark, endMark);
+		const measured = performance.getEntriesByName(measureName, 'measure').at(-1);
+		const durationMs = Number(
+			((measured?.duration ?? performance.now() - startedAt) || 0).toFixed(2),
+		);
+		performance.clearMarks(startMark);
+		performance.clearMarks(endMark);
+		performance.clearMeasures(measureName);
+		void recordPerformanceMeasurement({
+			operation: 'graph_rebuild_incremental',
+			durationMs,
+			context: {
+				sourceId,
+				targetCount: newTargets.size,
+			},
+		});
 	}
 
 	removeNote(noteId: NoteId): void {

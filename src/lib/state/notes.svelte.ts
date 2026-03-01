@@ -14,6 +14,7 @@ import {
 	type LinkResolutionEntry,
 } from '$lib/domain/link-resolution.js';
 import { linksState } from './links.svelte.js';
+import { recordPerformanceMeasurement } from '$lib/runtime/diagnostics.js';
 
 class NotesState {
 	notes = $state<Note[]>([]);
@@ -22,6 +23,7 @@ class NotesState {
 	error = $state<string | null>(null);
 	private draftNoteIds = new Set<NoteId>();
 	private linkSyncRevision = new Map<string, string>();
+	private saveMeasureCounter = 0;
 
 	noteById = $derived.by(() => {
 		const map = new SvelteMap<NoteId, Note>();
@@ -215,7 +217,33 @@ class NotesState {
 			return;
 		}
 
+		const measureId = `note-save-${Date.now()}-${this.saveMeasureCounter++}`;
+		const startMark = `dndtools:${measureId}:start`;
+		const endMark = `dndtools:${measureId}:end`;
+		const measureName = `dndtools:${measureId}:measure`;
+		const saveStartedAt = performance.now();
+		performance.mark(startMark);
 		await storage.saveNote(updated);
+		performance.mark(endMark);
+		performance.measure(measureName, startMark, endMark);
+		const measured = performance.getEntriesByName(measureName, 'measure').at(-1);
+		const durationMs = Number(
+			((measured?.duration ?? performance.now() - saveStartedAt) || 0).toFixed(2),
+		);
+		performance.clearMarks(startMark);
+		performance.clearMarks(endMark);
+		performance.clearMeasures(measureName);
+		void recordPerformanceMeasurement({
+			operation: 'note_save',
+			durationMs,
+			context: {
+				contentChanged: updates.content !== undefined,
+				titleChanged: updates.title !== undefined,
+				folderChanged: updates.folder !== undefined,
+				isDraft,
+				contentLength: updated.content.length,
+			},
+		});
 		const requiresStorageRefresh = updates.title !== undefined || updates.folder !== undefined;
 		const persisted = requiresStorageRefresh ? ((await storage.getNote(id)) ?? updated) : updated;
 		this.setNoteById(persisted);

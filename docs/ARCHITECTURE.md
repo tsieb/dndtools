@@ -185,23 +185,29 @@ Compatibility:
 - Heavy editor code must remain lazy-loaded (`CodeMirrorEditor` route usage).
 - Search index updates should be incremental where possible.
 - Link graph updates are incremental for note mutations and vault reloads; full rebuild is reserved for explicit recovery paths.
+- Heavy renderer computations run through `src/lib/runtime/worker-bridge.ts` (search index build, full graph rebuild, note batch parse) so large vaults do not block the main thread.
 
-### 8.1 Hard Budgets (Epic 2.2.5)
+### 8.1 Hard Budgets (Epic 2.5)
 
 The following user-visible latencies are treated as hard budgets:
 
-| Operation                                                   | Target budget | Regression failure threshold |
-| ----------------------------------------------------------- | ------------- | ---------------------------- |
-| Cold start (desktop app launch to shell ready)              | `<= 3000ms`   | `> 3600ms`                   |
-| Note open (notes list -> note viewer ready)                 | `<= 200ms`    | `> 240ms`                    |
-| Search response (query input -> result visible)             | `<= 150ms`    | `> 180ms`                    |
-| Save latency (explicit save action -> success confirmation) | `<= 100ms`    | `> 120ms`                    |
+| Operation                                                    | Target budget | Regression failure threshold |
+| ------------------------------------------------------------ | ------------- | ---------------------------- |
+| Cold start (desktop app launch to shell ready)               | `<= 3000ms`   | `> 3600ms`                   |
+| Vault open (5k notes, select/open -> loaded shell)           | `<= 2000ms`   | `> 2400ms`                   |
+| Note open (notes list -> note viewer ready)                  | `<= 200ms`    | `> 240ms`                    |
+| Search response (query input -> result visible)              | `<= 150ms`    | `> 180ms`                    |
+| Save latency (explicit save action -> success confirmation)  | `<= 100ms`    | `> 120ms`                    |
+| Graph rebuild (incremental, single-note mutation)            | `<= 50ms`     | `> 60ms`                     |
+| MCP semantic bundle call (`session/recap/continuity` bundle) | `<= 800ms`    | `> 960ms`                    |
 
 Regression threshold policy:
 
 - Weekly benchmark failures are triggered at `> 20%` above target budget.
 - Benchmarks run in `.github/workflows/performance-regression.yml`.
 - Benchmarks are implemented in `tests/e2e-desktop/performance.spec.ts` and tagged `@perf`.
+- Canonical registry and operation identifiers live in `src/lib/types/diagnostics.ts` (`PERFORMANCE_BUDGETS`).
+- Any budget change must include a dedicated ADR update before merge.
 
 ## 9. Reliability and Integrity Gaps
 

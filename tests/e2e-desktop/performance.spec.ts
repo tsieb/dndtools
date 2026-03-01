@@ -1,170 +1,255 @@
-import { test, expect } from '@playwright/test';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { test, expect, type Page } from '@playwright/test';
+import { launchDesktopApp } from './helpers/desktop-app.js';
+import { generateFixtureVault } from '../../scripts/generate-fixture-vault.js';
 import { FileSystemAdapter } from '../../mcp/storage.js';
-import { createTempVaultDir, launchDesktopApp, closeDesktopApp } from './helpers/desktop-app.js';
+import { registerGetSessionPrepBundleTool } from '../../mcp/tools/vault/get-session-prep-bundle.js';
+import { parseToolEnvelope, type ToolResult } from '../../mcp/tools/shared/response.js';
+import { PERFORMANCE_BUDGETS, type PerformanceOperation } from '../../src/lib/types/diagnostics.js';
 
-const HARD_BUDGET_MS = {
-	coldStart: 3_000,
-	noteOpen: 200,
-	searchResponse: 150,
-	saveLatency: 100,
-} as const;
+const PERF_OUTPUT_PATH =
+	process.env.PERF_RESULTS_PATH ??
+	path.join(process.cwd(), 'tmp', 'performance', 'latest-performance-results.json');
 
-const BUDGET_FAILURE_FACTOR = 1.2;
-const MEASUREMENT_TOLERANCE_MS = 10;
+type DatasetConfig = {
+	name: 'notes_1000' | 'notes_5000';
+	noteCount: number;
+	seed: number;
+};
 
-function buildNote(id: string, title: string, content: string): Record<string, unknown> {
-	const now = new Date().toISOString();
-	return {
-		id,
-		title,
-		content,
-		folder: '/',
-		tags: [],
-		frontmatter: {},
-		createdAt: now,
-		updatedAt: now,
-		deleted: false,
-		deletedAt: null,
-		pinned: false,
-		pinnedAt: null,
-	};
-}
+type PerformanceSummarySnapshot = {
+	sampleCount: number;
+	lastMs: number | null;
+};
 
-function maxAllowedBudget(targetMs: number): number {
-	return targetMs * BUDGET_FAILURE_FACTOR + MEASUREMENT_TOLERANCE_MS;
-}
+type DatasetResult = {
+	dataset: DatasetConfig['name'];
+	noteCount: number;
+	metrics: Record<PerformanceOperation, number>;
+};
 
-function median(values: number[]): number {
-	const sorted = [...values].sort((a, b) => a - b);
-	const mid = Math.floor(sorted.length / 2);
-	if (sorted.length % 2 === 0) {
-		return (sorted[mid - 1]! + sorted[mid]!) / 2;
+class MockMcpServer {
+	handler: ((input: Record<string, unknown>) => Promise<ToolResult>) | null = null;
+
+	tool(
+		name: string,
+		_description: string,
+		_schema: Record<string, unknown>,
+		handler: (input: Record<string, unknown>) => Promise<ToolResult>,
+	): void {
+		if (name === 'get_session_prep_bundle') {
+			this.handler = handler;
+		}
 	}
-	return sorted[mid]!;
+}
+
+const DATASETS: readonly DatasetConfig[] = [
+	{ name: 'notes_1000', noteCount: 1_000, seed: 20260301 },
+	{ name: 'notes_5000', noteCount: 5_000, seed: 20260302 },
+] as const;
+
+function asNumber(value: number | null | undefined): number {
+	return Number((value ?? 0).toFixed(2));
+}
+
+async function createFixtureVault(config: DatasetConfig): Promise<string> {
+	const baseDir = await fs.mkdtemp(path.join(os.tmpdir(), `dndtools-perf-${config.name}-`));
+	await generateFixtureVault({
+		outputDir: baseDir,
+		noteCount: config.noteCount,
+		objectCount: 0,
+		depth: 4,
+		linkDensity: 0.08,
+		tagDistribution: 'lore:4,npc:3,quest:2,location:2',
+		force: true,
+		seed: config.seed,
+	});
+	return baseDir;
+}
+
+async function getOperationSummary(
+	page: Page,
+	operation: PerformanceOperation,
+): Promise<PerformanceSummarySnapshot> {
+	return page.evaluate(async (op) => {
+		const bridge = window.dndtoolsDesktop;
+		if (!bridge) return { sampleCount: 0, lastMs: null };
+		const health = await bridge.getDiagnosticsHealth();
+		const summary = health.performance.summaries.find((entry) => entry.operation === op);
+		return {
+			sampleCount: summary?.sampleCount ?? 0,
+			lastMs: summary?.lastMs ?? null,
+		};
+	}, operation);
+}
+
+async function waitForOperationSample(
+	page: Page,
+	operation: PerformanceOperation,
+	previousCount: number,
+	timeoutMs = 15_000,
+): Promise<number> {
+	const startedAt = Date.now();
+	while (Date.now() - startedAt <= timeoutMs) {
+		const summary = await getOperationSummary(page, operation);
+		if (summary.sampleCount > previousCount && summary.lastMs !== null) {
+			return asNumber(summary.lastMs);
+		}
+		await page.waitForTimeout(100);
+	}
+	throw new Error(`Timed out waiting for ${operation} telemetry sample.`);
+}
+
+async function measureMcpBundleCall(vaultDir: string): Promise<number> {
+	const storage = new FileSystemAdapter(vaultDir);
+	await storage.initialize();
+	try {
+		const server = new MockMcpServer();
+		registerGetSessionPrepBundleTool(server as never, storage as never);
+		if (!server.handler) {
+			throw new Error('Failed to register get_session_prep_bundle handler.');
+		}
+		const startedAt = performance.now();
+		const result = await server.handler({});
+		const elapsedMs = performance.now() - startedAt;
+		const envelope = parseToolEnvelope(result);
+		expect(envelope?.ok).toBe(true);
+		return asNumber(elapsedMs);
+	} finally {
+		await storage.close();
+	}
+}
+
+async function runDatasetBenchmark(config: DatasetConfig): Promise<DatasetResult> {
+	const vaultDir = await createFixtureVault(config);
+	const app = await launchDesktopApp(vaultDir);
+
+	try {
+		const coldStartMs = await waitForOperationSample(app.page, 'cold_start', 0);
+		const vaultOpenMs = await waitForOperationSample(app.page, 'vault_open', 0);
+
+		const noteOpenBefore = await getOperationSummary(app.page, 'note_open');
+		await app.page.getByRole('link', { name: 'All Notes' }).first().click();
+		await app.page.getByText('Fixture Note 00001').first().click();
+		await expect(app.page.getByRole('heading', { name: 'Fixture Note 00001' })).toBeVisible();
+		const noteOpenMs = await waitForOperationSample(
+			app.page,
+			'note_open',
+			noteOpenBefore.sampleCount,
+		);
+
+		const searchBefore = await getOperationSummary(app.page, 'search_response');
+		await app.page.getByRole('link', { name: 'Search' }).first().click();
+		const searchInput = app.page.getByPlaceholder('Search notes...');
+		await searchInput.fill('Fixture Note 00001');
+		await expect(app.page.getByRole('button', { name: 'Fixture Note 00001' })).toBeVisible();
+		const searchResponseMs = await waitForOperationSample(
+			app.page,
+			'search_response',
+			searchBefore.sampleCount,
+		);
+
+		await app.page.getByRole('button', { name: 'Fixture Note 00001' }).first().click();
+		await expect(app.page.getByRole('heading', { name: 'Fixture Note 00001' })).toBeVisible();
+		await app.page.getByRole('button', { name: 'Edit' }).click();
+		const titleInput = app.page.getByPlaceholder('Note title...');
+		await expect(titleInput).toBeVisible();
+		const priorTitle = await titleInput.inputValue();
+		await titleInput.fill(`${priorTitle} Perf`);
+
+		const saveBefore = await getOperationSummary(app.page, 'note_save');
+		const graphBefore = await getOperationSummary(app.page, 'graph_rebuild_incremental');
+		await app.page.getByRole('button', { name: 'Save' }).click();
+		const noteSaveMs = await waitForOperationSample(app.page, 'note_save', saveBefore.sampleCount);
+		const graphRebuildIncrementalMs = await waitForOperationSample(
+			app.page,
+			'graph_rebuild_incremental',
+			graphBefore.sampleCount,
+		);
+
+		const mcpBundleCallMs = await measureMcpBundleCall(vaultDir);
+
+		return {
+			dataset: config.name,
+			noteCount: config.noteCount,
+			metrics: {
+				cold_start: coldStartMs,
+				vault_open: vaultOpenMs,
+				note_open: noteOpenMs,
+				search_response: searchResponseMs,
+				note_save: noteSaveMs,
+				graph_rebuild_incremental: graphRebuildIncrementalMs,
+				mcp_bundle_call: mcpBundleCallMs,
+			},
+		};
+	} finally {
+		await app.electronApp.close();
+		await fs.rm(vaultDir, { recursive: true, force: true });
+	}
+}
+
+async function writePerformanceResults(results: DatasetResult[]): Promise<void> {
+	await fs.mkdir(path.dirname(PERF_OUTPUT_PATH), { recursive: true });
+	await fs.writeFile(
+		PERF_OUTPUT_PATH,
+		`${JSON.stringify(
+			{
+				version: 1,
+				generatedAt: new Date().toISOString(),
+				budgets: PERFORMANCE_BUDGETS,
+				datasets: results,
+			},
+			null,
+			2,
+		)}\n`,
+		'utf-8',
+	);
 }
 
 test.describe('Desktop performance regression budgets @perf', () => {
 	test.skip(
 		!process.env.PERF_BENCHMARK,
-		'Performance benchmarks run in the scheduled regression workflow.',
+		'Performance benchmarks run in scheduled/explicit regression workflows only.',
 	);
 
-	test('meets hard latency budgets with <=20% tolerance', async ({ browserName }, testInfo) => {
-		const vaultDir = await createTempVaultDir('dndtools-e2e-perf-');
-		const adapter = new FileSystemAdapter(vaultDir);
-		await adapter.initialize();
-		await adapter.saveNote(
-			buildNote(
-				'note-perf-anchor',
-				'Performance Anchor',
-				'Contains PerfSearchToken for deterministic search verification.',
-			) as never,
-		);
-		await adapter.close();
+	test('measures all budgeted operations against hard thresholds', async ({
+		browserName,
+	}, testInfo) => {
+		test.setTimeout(25 * 60_000);
+		const results: DatasetResult[] = [];
 
-		const coldStartBegin = performance.now();
-		const app = await launchDesktopApp(vaultDir);
-		const coldStartMs = performance.now() - coldStartBegin;
+		for (const dataset of DATASETS) {
+			results.push(await runDatasetBenchmark(dataset));
+		}
 
-		try {
-			await app.page.getByRole('link', { name: 'All Notes' }).first().click();
-			const noteOpenSamplesMs: number[] = [];
-			for (let iteration = 0; iteration < 4; iteration += 1) {
-				const noteOpenStart = performance.now();
-				await app.page.getByText('Performance Anchor').first().click();
-				await expect(app.page.getByRole('heading', { name: 'Performance Anchor' })).toBeVisible();
-				noteOpenSamplesMs.push(performance.now() - noteOpenStart);
-				if (iteration < 3) {
-					await app.page.getByRole('link', { name: 'All Notes' }).first().click();
-				}
+		await writePerformanceResults(results);
+
+		await testInfo.attach('performance-results', {
+			contentType: 'application/json',
+			body: JSON.stringify(
+				{
+					browserName,
+					outputPath: PERF_OUTPUT_PATH,
+					budgets: PERFORMANCE_BUDGETS,
+					datasets: results,
+				},
+				null,
+				2,
+			),
+		});
+
+		for (const dataset of results) {
+			for (const [operation, value] of Object.entries(dataset.metrics) as Array<
+				[PerformanceOperation, number]
+			>) {
+				const threshold = PERFORMANCE_BUDGETS[operation].regressionThresholdMs;
+				expect(
+					value,
+					`${dataset.dataset}:${operation} exceeded regression threshold (${threshold}ms)`,
+				).toBeLessThanOrEqual(threshold);
 			}
-			const noteOpenMs = median(noteOpenSamplesMs.slice(1));
-
-			await app.page.getByRole('link', { name: 'Search' }).first().click();
-			const searchInput = app.page.getByPlaceholder('Search notes...');
-			const searchSamplesMs: number[] = [];
-			for (let iteration = 0; iteration < 8; iteration += 1) {
-				await searchInput.fill('PerfSearchToken');
-				await expect(app.page.getByRole('button', { name: 'Performance Anchor' })).toBeVisible();
-				const telemetryText =
-					(await app.page
-						.locator('span', { hasText: /Search .*ms/ })
-						.first()
-						.textContent()) ?? '';
-				const elapsed = Number(telemetryText.match(/:\s*([0-9.]+)ms/i)?.[1] ?? '0');
-				searchSamplesMs.push(elapsed);
-				if (iteration < 7) {
-					await searchInput.fill('');
-					await app.page.waitForTimeout(180);
-				}
-			}
-			const stableSearchSamples = searchSamplesMs.slice(2).sort((a, b) => a - b);
-			const trimmedSearchSamples =
-				stableSearchSamples.length >= 5
-					? stableSearchSamples.slice(1, stableSearchSamples.length - 1)
-					: stableSearchSamples;
-			const searchResponseMs = median(trimmedSearchSamples);
-
-			const saveSamplesMs: number[] = [];
-			for (let iteration = 0; iteration < 6; iteration += 1) {
-				const saveLatency = await app.page.evaluate(async (sample) => {
-					const bridge = window.dndtoolsDesktop;
-					if (!bridge) return Number.NaN;
-					const note = await bridge.getNote('note-perf-anchor' as never);
-					if (!note) return Number.NaN;
-					const next = {
-						...note,
-						content: `${note.content}\nperf-save-${sample}`,
-						updatedAt: new Date().toISOString(),
-					};
-					const started = performance.now();
-					await bridge.saveNote(next as never);
-					return performance.now() - started;
-				}, iteration);
-				saveSamplesMs.push(saveLatency);
-			}
-			const stableSaveSamples = saveSamplesMs.slice(1).sort((a, b) => a - b);
-			const trimmedSaveSamples =
-				stableSaveSamples.length >= 5
-					? stableSaveSamples.slice(1, stableSaveSamples.length - 1)
-					: stableSaveSamples;
-			const saveLatencyMs = median(trimmedSaveSamples);
-
-			const metrics = {
-				coldStartMs: Number(coldStartMs.toFixed(2)),
-				noteOpenMs: Number(noteOpenMs.toFixed(2)),
-				searchResponseMs: Number(searchResponseMs.toFixed(2)),
-				saveLatencyMs: Number(saveLatencyMs.toFixed(2)),
-			};
-
-			await testInfo.attach('performance-metrics', {
-				contentType: 'application/json',
-				body: JSON.stringify(
-					{
-						browserName,
-						budgets: HARD_BUDGET_MS,
-						failureToleranceFactor: BUDGET_FAILURE_FACTOR,
-						measurementToleranceMs: MEASUREMENT_TOLERANCE_MS,
-						noteOpenSamplesMs: noteOpenSamplesMs.map((entry) => Number(entry.toFixed(2))),
-						searchSamplesMs: searchSamplesMs.map((entry) => Number(entry.toFixed(2))),
-						saveSamplesMs: saveSamplesMs.map((entry) => Number(entry.toFixed(2))),
-						metrics,
-					},
-					null,
-					2,
-				),
-			});
-
-			expect(metrics.coldStartMs).toBeLessThanOrEqual(maxAllowedBudget(HARD_BUDGET_MS.coldStart));
-			expect(metrics.noteOpenMs).toBeLessThanOrEqual(maxAllowedBudget(HARD_BUDGET_MS.noteOpen));
-			expect(metrics.searchResponseMs).toBeLessThanOrEqual(
-				maxAllowedBudget(HARD_BUDGET_MS.searchResponse),
-			);
-			expect(metrics.saveLatencyMs).toBeLessThanOrEqual(
-				maxAllowedBudget(HARD_BUDGET_MS.saveLatency),
-			);
-		} finally {
-			await closeDesktopApp(app);
 		}
 	});
 });
