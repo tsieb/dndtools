@@ -3,6 +3,7 @@
 	import { vaultState } from '$lib/state/vault.svelte.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { onboardingState } from '$lib/state/onboarding.svelte.js';
+	import { searchState } from '$lib/state/search.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { isVaultObjectNote } from '$lib/domain/object-notes.js';
 	import { goto } from '$app/navigation';
@@ -56,6 +57,25 @@
 			.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 			.slice(0, 12),
 	);
+	let sidebarCollections = $derived.by(() => {
+		const saved = searchState.savedSearches.map((entry) => ({
+			id: `saved:${entry.id}`,
+			name: entry.name,
+			query: entry.query,
+		}));
+		const smart = searchState.smartCollections.map((entry) => ({
+			id: `smart:${entry.id}`,
+			name: entry.name,
+			query: entry.query,
+		}));
+		return [...saved, ...smart].slice(0, 10);
+	});
+
+	$effect(() => {
+		if (!searchState.loaded && !searchState.loading) {
+			void searchState.loadSavedSearches();
+		}
+	});
 
 	function navigateToNote(id: string): void {
 		goto(resolve(`/notes/${id}`));
@@ -141,6 +161,33 @@
 				Session Board
 			</a>
 		</nav>
+
+		<div class="px-3 pb-2">
+			<p
+				class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
+			>
+				Collections
+			</p>
+			<div class="space-y-0.5">
+				{#if sidebarCollections.length === 0}
+					<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
+						Save searches to pin collections
+					</p>
+				{:else}
+					{#each sidebarCollections as collection (collection.id)}
+						<button
+							type="button"
+							class="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors truncate"
+							title={collection.query}
+							onclick={() =>
+								navigateToPath(`${resolve('/search')}?q=${encodeURIComponent(collection.query)}`)}
+						>
+							{collection.name}
+						</button>
+					{/each}
+				{/if}
+			</div>
+		</div>
 
 		<div class="px-3 pb-2">
 			<div

@@ -16,6 +16,13 @@ export interface DesktopMcpStatus {
 	error: string | null;
 }
 
+export interface DesktopEmbeddingStatus {
+	available: boolean;
+	model: string | null;
+	models: string[];
+	reason: string | null;
+}
+
 export interface DesktopMcpLifecycleEvent {
 	at: string;
 	event: 'start' | 'stop' | 'restart' | 'crash';
@@ -272,6 +279,14 @@ export async function pickDesktopVaultDirectory(): Promise<{ vaultDir: string } 
 
 export async function getDesktopMcpStatus(): Promise<DesktopMcpStatus> {
 	return requireBridge().getMcpStatus();
+}
+
+export async function getDesktopEmbeddingStatus(): Promise<DesktopEmbeddingStatus> {
+	return requireBridge().getEmbeddingStatus();
+}
+
+export async function embedDesktopTexts(model: string, texts: string[]): Promise<number[][]> {
+	return requireBridge().embedTexts(model, texts);
 }
 
 export async function restartDesktopMcpSidecar(): Promise<DesktopMcpStatus> {

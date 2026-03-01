@@ -6,6 +6,7 @@ import { recordPerformanceMeasurement } from '$lib/runtime/diagnostics.js';
 import { workerBridge } from '$lib/runtime/worker-bridge.js';
 import { parseNotesForIndex, SEARCH_INDEX_OPTIONS } from '$lib/runtime/worker/operations.js';
 import type { IndexedNoteDocument } from '$lib/runtime/worker/types.js';
+import { extractWikilinks } from '$lib/domain/link-extractor.js';
 
 export interface SearchResult {
 	id: NoteId;
@@ -35,6 +36,7 @@ export interface ParsedSearchQuery {
 	tagFilters: string[];
 	folderFilters: string[];
 	typeFilters: string[];
+	linkFilters: string[];
 	hasTagNoneFilter: boolean;
 	updatedFilters: UpdatedFilter[];
 	operatorErrors: string[];
@@ -101,6 +103,15 @@ function normalizeFolder(value: string): string {
 	if (!trimmed) return '';
 	if (trimmed.startsWith('/')) return trimmed;
 	return `/${trimmed}`;
+}
+
+function normalizeLinkTarget(value: string): string {
+	const [targetRaw] = value.split('|', 1);
+	const target = (targetRaw ?? value)
+		.trim()
+		.replace(/\\([\\|\]])/g, '$1')
+		.toLowerCase();
+	return target.replace(/\s+/g, ' ');
 }
 
 function asDayRange(isoDate: string): { fromMs: number; toMs: number } | null {
@@ -218,12 +229,26 @@ function parseQuery(query: string): ParsedSearchQuery {
 	const tagFilters: string[] = [];
 	const folderFilters: string[] = [];
 	const typeFilters: string[] = [];
+	const linkFilters: string[] = [];
 	const updatedFilters: UpdatedFilter[] = [];
 	const operatorErrors: string[] = [];
 	let hasTagNoneFilter = false;
 
+	const linkStrippedQuery = query.replace(
+		/links:\[\[([\s\S]*?)\]\]/gi,
+		(_match, rawValue: string) => {
+			const normalized = normalizeLinkTarget(rawValue);
+			if (!normalized) {
+				operatorErrors.push('Invalid links: filter');
+			} else {
+				linkFilters.push(normalized);
+			}
+			return ' ';
+		},
+	);
+
 	const tokenRegex = /"([^"]+)"|(\S+)/g;
-	const matches = query.matchAll(tokenRegex);
+	const matches = linkStrippedQuery.matchAll(tokenRegex);
 	for (const match of matches) {
 		const phrase = match[1];
 		const token = match[2];
@@ -299,6 +324,7 @@ function parseQuery(query: string): ParsedSearchQuery {
 		tagFilters: unique(tagFilters),
 		folderFilters: unique(folderFilters),
 		typeFilters: unique(typeFilters),
+		linkFilters: unique(linkFilters),
 		hasTagNoneFilter,
 		updatedFilters,
 		operatorErrors,
@@ -413,6 +439,28 @@ function hasOperatorMatch(note: Note, parsed: ParsedSearchQuery): boolean {
 	for (const expectedType of parsed.typeFilters) {
 		if (type !== expectedType) {
 			return false;
+		}
+	}
+
+	if (parsed.linkFilters.length > 0) {
+		const links = extractWikilinks(note.content);
+		const linkTargets = new Set<string>();
+		for (const link of links) {
+			linkTargets.add(normalizeLinkTarget(link.title));
+			if (link.displayText) {
+				linkTargets.add(normalizeLinkTarget(link.displayText));
+			}
+			if (link.targetIdHint) {
+				linkTargets.add(normalizeLinkTarget(link.targetIdHint));
+				linkTargets.add(normalizeLinkTarget(`note:${link.targetIdHint}`));
+				linkTargets.add(normalizeLinkTarget(`id:${link.targetIdHint}`));
+			}
+		}
+
+		for (const expectedLink of parsed.linkFilters) {
+			if (!linkTargets.has(expectedLink)) {
+				return false;
+			}
 		}
 	}
 
@@ -741,6 +789,7 @@ class SearchService {
 					parsed.tagFilters.length +
 					parsed.folderFilters.length +
 					parsed.typeFilters.length +
+					parsed.linkFilters.length +
 					parsed.updatedFilters.length,
 			},
 		});

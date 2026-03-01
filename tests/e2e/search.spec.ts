@@ -11,6 +11,11 @@ test.describe('Search', () => {
 		await expect(page.getByPlaceholder(/search notes/i)).toBeVisible();
 	});
 
+	test('search hydrates query from URL parameter', async ({ page }) => {
+		await page.goto('/search?q=Welcome');
+		await expect(page.getByPlaceholder(/search notes/i)).toHaveValue('Welcome');
+	});
+
 	test('search shows results for matching query', async ({ page }) => {
 		await page.goto('/search');
 		const input = page.getByPlaceholder(/search notes/i);
@@ -31,6 +36,18 @@ test.describe('Search', () => {
 	test('search shows empty state when no query', async ({ page }) => {
 		await page.goto('/search');
 		await expect(page.getByText(/type to search/i)).toBeVisible();
+	});
+
+	test('saved searches appear in sidebar collections', async ({ page }) => {
+		await page.goto('/search');
+		const input = page.getByPlaceholder(/search notes/i);
+		await input.fill('Welcome');
+		await page.waitForTimeout(300);
+
+		await page.getByPlaceholder(/name this search/i).fill('Welcome Collection');
+		await page.getByRole('button', { name: /^save$/i }).click();
+
+		await expect(page.getByRole('button', { name: 'Welcome Collection' }).first()).toBeVisible();
 	});
 
 	test('quick switcher opens and closes with Escape', async ({ page }) => {
