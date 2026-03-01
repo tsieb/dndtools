@@ -10,6 +10,7 @@ node_modules
 /build
 dist
 mcp/dist
+/tmp
 
 # OS
 .DS_Store
