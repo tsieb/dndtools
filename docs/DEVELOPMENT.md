@@ -98,7 +98,8 @@ For major design changes, require:
 - test plan
 - docs update in same change
 
-`TODO(APP):` Create ADR process directory and template under `docs/adr/`.
-Reason: architecture choices still rely on scattered context across implementation docs.
-Target: `docs/adr/` with template + baseline records.
-Risk: future decisions may diverge without shared rationale and migration context.
+ADR governance is implemented under `docs/adr/`:
+
+- `docs/adr/000-template.md` defines required decision sections.
+- `docs/adr/README.md` is the canonical index for accepted decisions.
+- Major architecture changes must update/add ADR content in the same change set.

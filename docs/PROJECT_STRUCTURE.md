@@ -9,6 +9,7 @@ This repository is organized by runtime boundary and responsibility.
 - `mcp/`: MCP server runtime and tool/resource modules.
 - `tests/`: cross-cutting test fixtures and e2e tests.
 - `docs/`: architecture, data model, development, and roadmap docs.
+- `docs/adr/`: architecture decision records and decision index.
 - `static/`: static assets served by the renderer.
 - `vault/`: local development vault data.
 

@@ -243,10 +243,20 @@ For any major architecture change, add/update ADR content in docs before merge:
 - migration impact
 - rollback plan
 
-`TODO(APP):` Add ADR directory and baseline ADRs for:
-Reason: backlog item tracked for planned implementation.
-Target: see the surrounding section and referenced files in this block.
-Risk: quality and behavior drift if deferred.
+Required process:
 
-- Electron filesystem ownership
-- staged MCP write model
+1. Start from `docs/adr/000-template.md`.
+2. Add or update a numbered ADR in `docs/adr/`.
+3. Update the ADR index in `docs/adr/README.md` with one-line summary and status.
+4. Update affected implementation docs in the same change set.
+
+Baseline decision coverage is documented in:
+
+- `docs/adr/001-electron-filesystem-ownership.md`
+- `docs/adr/002-staged-mcp-write-model.md`
+- `docs/adr/003-ipc-surface-strategy.md`
+- `docs/adr/004-storage-adapter-boundary.md`
+- `docs/adr/005-unified-markdown-pipeline.md`
+- `docs/adr/006-multi-platform-approach-electron-capacitor.md`
+- `docs/adr/007-cloud-backend-architecture-aws.md`
+- `docs/adr/008-mcp-semantic-bundling-strategy.md`

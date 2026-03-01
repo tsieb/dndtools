@@ -429,12 +429,20 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 
 ### 11. ADR Process
 
-- [ ] `TODO(APP)` Add architecture decision record template and baseline ADRs.
+- [x] `TODO(APP)` Add architecture decision record template and baseline ADRs.
       Reason: backlog item tracked for planned implementation.
       Risk: quality and behavior drift if deferred.
       Targets:
 - `docs/adr/000-template.md`
-- initial ADRs for storage boundary, staged MCP mode, IPC strategy
+- `docs/adr/README.md`
+- `docs/adr/001-electron-filesystem-ownership.md`
+- `docs/adr/002-staged-mcp-write-model.md`
+- `docs/adr/003-ipc-surface-strategy.md`
+- `docs/adr/004-storage-adapter-boundary.md`
+- `docs/adr/005-unified-markdown-pipeline.md`
+- `docs/adr/006-multi-platform-approach-electron-capacitor.md`
+- `docs/adr/007-cloud-backend-architecture-aws.md`
+- `docs/adr/008-mcp-semantic-bundling-strategy.md`
 
 ### 12. Performance Budgets
 

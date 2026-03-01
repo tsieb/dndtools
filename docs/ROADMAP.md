@@ -73,7 +73,7 @@ This roadmap starts from the current Electron-first + staged-MCP baseline.
 
 3. Documentation and Governance
 
-- establish ADR process and baseline ADRs.
+- ADR process and baseline ADR catalog are established in `docs/adr/`.
 - keep docs and contracts in lockstep through CI checks.
 
 ## Deferred Until Stability Gates
