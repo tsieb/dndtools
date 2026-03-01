@@ -48,6 +48,8 @@ import {
 	suggestNoteIdsSchema,
 	importNotesSchema,
 	snapshotReasonSchema,
+	semanticModelSchema,
+	semanticTextsSchema,
 } from './ipc-schemas.js';
 
 let storage: FileSystemAdapter | null = null;
@@ -354,6 +356,91 @@ async function ingestMcpPerformanceSamples(): Promise<void> {
 	} catch {
 		// No MCP performance log yet or parse failure. Ignore.
 	}
+}
+
+type EmbeddingStatus = {
+	available: boolean;
+	model: string | null;
+	models: string[];
+	reason: string | null;
+};
+
+const OLLAMA_BASE_URL = process.env.DNDTOOLS_OLLAMA_URL ?? 'http://127.0.0.1:11434';
+const EMBEDDING_MODEL_HINT = /(embed|embedding|nomic-embed|bge|e5|gte)/i;
+
+function chooseEmbeddingModel(models: string[]): string | null {
+	const exact = models.find((name) => EMBEDDING_MODEL_HINT.test(name));
+	return exact ?? null;
+}
+
+async function fetchEmbeddingStatus(): Promise<EmbeddingStatus> {
+	try {
+		const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
+			method: 'GET',
+			signal: AbortSignal.timeout(2000),
+		});
+		if (!response.ok) {
+			return {
+				available: false,
+				model: null,
+				models: [],
+				reason: `Ollama tags request failed (${response.status})`,
+			};
+		}
+		const payload = (await response.json()) as {
+			models?: Array<{ name?: string; model?: string }>;
+		};
+		const models = (payload.models ?? [])
+			.map((entry) => entry.name ?? entry.model ?? '')
+			.map((value) => value.trim())
+			.filter(Boolean);
+		const model = chooseEmbeddingModel(models);
+		if (!model) {
+			return {
+				available: false,
+				model: null,
+				models,
+				reason: 'No embedding model found in local Ollama',
+			};
+		}
+		return {
+			available: true,
+			model,
+			models,
+			reason: null,
+		};
+	} catch (error) {
+		return {
+			available: false,
+			model: null,
+			models: [],
+			reason: error instanceof Error ? error.message : String(error),
+		};
+	}
+}
+
+async function fetchEmbeddings(model: string, texts: string[]): Promise<number[][]> {
+	const vectors: number[][] = [];
+	for (const text of texts) {
+		const response = await fetch(`${OLLAMA_BASE_URL}/api/embeddings`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				model,
+				prompt: text,
+			}),
+			signal: AbortSignal.timeout(5_000),
+		});
+		if (!response.ok) {
+			throw new Error(`Embedding request failed (${response.status})`);
+		}
+		const payload = (await response.json()) as { embedding?: number[] };
+		if (!Array.isArray(payload.embedding)) {
+			throw new Error('Embedding payload missing vector');
+		}
+		vectors.push(payload.embedding.map((value) => Number(value) || 0));
+	}
+	return vectors;
 }
 
 async function createMainWindow(): Promise<void> {
@@ -704,6 +791,19 @@ ipcMain.handle('dndtools:backend-info', async () => {
 ipcMain.handle('dndtools:mcp-status', async () => {
 	return mcpSidecar.getStatus();
 });
+
+ipcMain.handle('dndtools:semantic:status', async () => {
+	return fetchEmbeddingStatus();
+});
+
+ipcMain.handle(
+	'dndtools:semantic:embed',
+	async (_event, rawModel: unknown, rawTexts: unknown): Promise<number[][]> => {
+		const model = parseIpcArg(semanticModelSchema, rawModel, 'semantic:embed:model');
+		const texts = parseIpcArg(semanticTextsSchema, rawTexts, 'semantic:embed:texts');
+		return fetchEmbeddings(model, texts);
+	},
+);
 
 ipcMain.handle('dndtools:mcp-restart', async () => {
 	await mcpSidecar.restart(vaultDir);

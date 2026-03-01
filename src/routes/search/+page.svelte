@@ -1,27 +1,79 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { searchService, type SearchQueryResult, type SearchResult } from '$lib/domain/search.js';
+	import { semanticSearchService } from '$lib/domain/semantic-search.js';
 	import { searchState } from '$lib/state/search.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { formatRelativeDate } from '$lib/utils/date.js';
+
+	type FacetKind = 'tag' | 'folder' | 'type' | 'date';
+
+	interface DatePreset {
+		id: string;
+		label: string;
+		description: string;
+		windowMs: number;
+	}
+
+	const SEARCH_DEBOUNCE_MS = 50;
+	const DATE_PRESETS: DatePreset[] = [
+		{
+			id: '24h',
+			label: '24h',
+			description: 'Updated in the last day',
+			windowMs: 24 * 60 * 60 * 1000,
+		},
+		{
+			id: '7d',
+			label: '7d',
+			description: 'Updated in the last week',
+			windowMs: 7 * 24 * 60 * 60 * 1000,
+		},
+		{
+			id: '30d',
+			label: '30d',
+			description: 'Updated in the last month',
+			windowMs: 30 * 24 * 60 * 60 * 1000,
+		},
+		{
+			id: '90d',
+			label: '90d',
+			description: 'Updated in the last quarter',
+			windowMs: 90 * 24 * 60 * 60 * 1000,
+		},
+	];
 
 	let query = $state('');
 	let response = $state<SearchQueryResult | null>(null);
 	let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 	let searching = $state(false);
 	let inputRef: HTMLInputElement | undefined = $state();
+	let searchRunToken = 0;
+	let searchRunError = $state<string | null>(null);
 
 	let selectedTags = $state<string[]>([]);
 	let selectedFolders = $state<string[]>([]);
 	let selectedTypes = $state<string[]>([]);
+	let selectedDatePresets = $state<string[]>([]);
+	let facetsCollapsed = $state(false);
+	let showCheatSheet = $state(false);
+
+	let semanticEnabled = $state(false);
+	let semanticReady = $state(false);
+	let semanticChecking = $state(false);
+	let semanticStatus = $state<string | null>(null);
+	let semanticError = $state<string | null>(null);
+	let semanticResultIds = $state<string[]>([]);
+	let lastUrlQuery = $state<string | null>(null);
 
 	let saveName = $state('');
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
-	const SEARCH_DEBOUNCE_MS = 50;
 
 	let notesById = $derived(notesState.noteById);
+	let semanticResultIdSet = $derived(new Set(semanticResultIds));
 
 	$effect(() => {
 		if (!searchState.loaded && !searchState.loading) {
@@ -30,7 +82,20 @@
 	});
 
 	$effect(() => {
+		void refreshSemanticAvailability();
+	});
+
+	$effect(() => {
 		inputRef?.focus();
+	});
+
+	$effect(() => {
+		const queryFromUrl = (page.url.searchParams.get('q') ?? '').trim();
+		if (queryFromUrl === lastUrlQuery) {
+			return;
+		}
+		lastUrlQuery = queryFromUrl;
+		applyQuery(queryFromUrl);
 	});
 
 	$effect(() => {
@@ -49,13 +114,38 @@
 		selectedTags = [];
 		selectedFolders = [];
 		selectedTypes = [];
+		selectedDatePresets = [];
+	}
+
+	async function refreshSemanticAvailability(force = false): Promise<void> {
+		semanticChecking = true;
+		try {
+			const status = await semanticSearchService.getAvailability(force);
+			semanticReady = status.enabled;
+			semanticStatus = status.enabled
+				? `Semantic model ready (${status.model})`
+				: `Semantic search unavailable: ${status.reason ?? 'unknown reason'}`;
+			if (!status.enabled) {
+				semanticEnabled = false;
+			}
+		} catch (error) {
+			semanticReady = false;
+			semanticEnabled = false;
+			semanticStatus = `Semantic search unavailable: ${error instanceof Error ? error.message : String(error)}`;
+		} finally {
+			semanticChecking = false;
+		}
 	}
 
 	function applyQuery(nextQuery: string): void {
 		query = nextQuery;
+		searchRunError = null;
+		semanticError = null;
+		semanticResultIds = [];
 		selectedTags = [];
 		selectedFolders = [];
 		selectedTypes = [];
+		selectedDatePresets = [];
 		if (searchTimeout) {
 			clearTimeout(searchTimeout);
 			searchTimeout = null;
@@ -69,18 +159,86 @@
 		}
 
 		searching = true;
+		searchRunToken += 1;
+		const runToken = searchRunToken;
 		searchTimeout = setTimeout(() => {
-			response = searchService.searchDetailed(normalized);
-			searching = false;
-			searchTimeout = null;
+			void runSearch(runToken, normalized);
 		}, SEARCH_DEBOUNCE_MS);
+	}
+
+	async function runSearch(runToken: number, normalizedQuery: string): Promise<void> {
+		try {
+			const keyword = searchService.searchDetailed(normalizedQuery);
+			let mergedResults = keyword.results;
+			let semanticIds: string[] = [];
+
+			if (semanticEnabled) {
+				try {
+					const semantic = await semanticSearchService.search({
+						query: normalizedQuery,
+						notes: notesState.notes,
+						excludeIds: new Set(keyword.results.map((result) => String(result.id))),
+						limit: 8,
+					});
+					if (runToken !== searchRunToken) return;
+					const supplemental: SearchResult[] = [];
+					for (const match of semantic) {
+						const note = notesState.getActiveNoteById(match.id);
+						if (!note) continue;
+						supplemental.push({
+							id: note.id,
+							title: note.title,
+							folder: String(note.folder),
+							filePath: note.filePath ?? null,
+							score: match.score,
+							snippet: note.content.slice(0, 200).replace(/\s+/g, ' ').trim(),
+							anchor: null,
+							tags: [...note.tags],
+							type:
+								typeof note.frontmatter.type === 'string'
+									? note.frontmatter.type.toLowerCase()
+									: null,
+							updatedAt: note.updatedAt,
+						});
+					}
+					mergedResults = [...keyword.results, ...supplemental];
+					semanticIds = supplemental.map((entry) => String(entry.id));
+					semanticError = null;
+				} catch (error) {
+					semanticError =
+						error instanceof Error
+							? `Semantic search failed: ${error.message}`
+							: `Semantic search failed: ${String(error)}`;
+				}
+			}
+
+			if (runToken !== searchRunToken) return;
+			response = {
+				...keyword,
+				results: mergedResults,
+			};
+			semanticResultIds = semanticIds;
+			searchRunError = null;
+		} catch (error) {
+			if (runToken !== searchRunToken) return;
+			searchRunError =
+				error instanceof Error
+					? `Search failed: ${error.message}`
+					: `Search failed: ${String(error)}`;
+			response = null;
+		} finally {
+			if (runToken === searchRunToken) {
+				searching = false;
+				searchTimeout = null;
+			}
+		}
 	}
 
 	function handleInput(event: Event): void {
 		applyQuery((event.target as HTMLInputElement).value);
 	}
 
-	function toggleFilter(kind: 'tag' | 'folder' | 'type', value: string): void {
+	function toggleFilter(kind: FacetKind, value: string): void {
 		if (kind === 'tag') {
 			selectedTags = selectedTags.includes(value)
 				? selectedTags.filter((entry) => entry !== value)
@@ -93,9 +251,15 @@
 				: normalizeList([...selectedFolders, value]);
 			return;
 		}
-		selectedTypes = selectedTypes.includes(value)
-			? selectedTypes.filter((entry) => entry !== value)
-			: normalizeList([...selectedTypes, value]);
+		if (kind === 'type') {
+			selectedTypes = selectedTypes.includes(value)
+				? selectedTypes.filter((entry) => entry !== value)
+				: normalizeList([...selectedTypes, value]);
+			return;
+		}
+		selectedDatePresets = selectedDatePresets.includes(value)
+			? selectedDatePresets.filter((entry) => entry !== value)
+			: normalizeList([...selectedDatePresets, value]);
 	}
 
 	function openResult(result: SearchResult, jumpToAnchor = false): void {
@@ -119,45 +283,131 @@
 		}
 	}
 
+	function datePresetThresholdMs(presetId: string): number | null {
+		const preset = DATE_PRESETS.find((entry) => entry.id === presetId);
+		if (!preset) return null;
+		return Date.now() - preset.windowMs;
+	}
+
+	function passesDatePreset(result: SearchResult): boolean {
+		if (selectedDatePresets.length === 0) return true;
+		const updatedMs = Date.parse(result.updatedAt);
+		if (Number.isNaN(updatedMs)) return false;
+		return selectedDatePresets.some((presetId) => {
+			const threshold = datePresetThresholdMs(presetId);
+			return threshold !== null && updatedMs >= threshold;
+		});
+	}
+
+	function matchesFacetFilters(
+		result: SearchResult,
+		options: {
+			ignore?: FacetKind;
+		} = {},
+	): boolean {
+		if (options.ignore !== 'tag' && selectedTags.length > 0) {
+			const lower = result.tags.map((tag) => tag.toLowerCase());
+			if (!selectedTags.some((tag) => lower.includes(tag.toLowerCase()))) {
+				return false;
+			}
+		}
+		if (options.ignore !== 'folder' && selectedFolders.length > 0) {
+			if (!selectedFolders.includes(result.folder)) {
+				return false;
+			}
+		}
+		if (options.ignore !== 'type' && selectedTypes.length > 0) {
+			if (!result.type || !selectedTypes.includes(result.type)) {
+				return false;
+			}
+		}
+		if (options.ignore !== 'date' && !passesDatePreset(result)) {
+			return false;
+		}
+		return true;
+	}
+
+	function sortFacets(values: Record<string, number>): Array<{ value: string; count: number }> {
+		return Object.entries(values)
+			.map(([value, count]) => ({ value, count: count ?? 0 }))
+			.sort((a, b) => {
+				if (a.count !== b.count) return b.count - a.count;
+				return a.value.localeCompare(b.value);
+			});
+	}
+
 	let filteredResults = $derived.by(() => {
 		const results = response?.results ?? [];
-		return results.filter((result) => {
-			if (selectedTags.length > 0) {
-				const lower = result.tags.map((tag) => tag.toLowerCase());
-				if (!selectedTags.some((tag) => lower.includes(tag.toLowerCase()))) {
-					return false;
+		return results.filter((result) => matchesFacetFilters(result));
+	});
+
+	let liveTagFacets = $derived.by(() => {
+		const counts: Record<string, number> = {};
+		for (const result of response?.results ?? []) {
+			if (!matchesFacetFilters(result, { ignore: 'tag' })) continue;
+			for (const tag of result.tags) {
+				const normalized = tag.trim().toLowerCase();
+				if (!normalized) continue;
+				counts[normalized] = (counts[normalized] ?? 0) + 1;
+			}
+		}
+		return sortFacets(counts);
+	});
+
+	let liveFolderFacets = $derived.by(() => {
+		const counts: Record<string, number> = {};
+		for (const result of response?.results ?? []) {
+			if (!matchesFacetFilters(result, { ignore: 'folder' })) continue;
+			counts[result.folder] = (counts[result.folder] ?? 0) + 1;
+		}
+		return sortFacets(counts);
+	});
+
+	let liveTypeFacets = $derived.by(() => {
+		const counts: Record<string, number> = {};
+		for (const result of response?.results ?? []) {
+			if (!matchesFacetFilters(result, { ignore: 'type' })) continue;
+			if (!result.type) continue;
+			counts[result.type] = (counts[result.type] ?? 0) + 1;
+		}
+		return sortFacets(counts);
+	});
+
+	let liveDateFacets = $derived.by(() => {
+		return DATE_PRESETS.map((preset) => {
+			const threshold = Date.now() - preset.windowMs;
+			let count = 0;
+			for (const result of response?.results ?? []) {
+				if (!matchesFacetFilters(result, { ignore: 'date' })) continue;
+				const updatedMs = Date.parse(result.updatedAt);
+				if (Number.isNaN(updatedMs)) continue;
+				if (updatedMs >= threshold) {
+					count += 1;
 				}
 			}
-			if (selectedFolders.length > 0) {
-				if (!selectedFolders.includes(result.folder)) {
-					return false;
-				}
-			}
-			if (selectedTypes.length > 0) {
-				if (!result.type || !selectedTypes.includes(result.type)) {
-					return false;
-				}
-			}
-			return true;
+			return { ...preset, count };
 		});
 	});
 
 	let operatorChips = $derived.by(() => {
 		if (!response) return [] as string[];
 		const parsed = response.parsed;
-		const chips = [
+		return [
 			...parsed.tagFilters.map((tag) => `tag:${tag}`),
 			...(parsed.hasTagNoneFilter ? ['tag:none'] : []),
 			...parsed.folderFilters.map((folder) => `folder:${folder}`),
 			...parsed.typeFilters.map((type) => `type:${type}`),
+			...parsed.linkFilters.map((link) => `links:[[${link}]]`),
 			...parsed.updatedFilters.map((entry) => `updated:${entry.raw}`),
 			...parsed.phrases.map((phrase) => `"${phrase}"`),
 		];
-		return chips;
 	});
 
 	let activeFacetChipCount = $derived(
-		selectedTags.length + selectedFolders.length + selectedTypes.length,
+		selectedTags.length +
+			selectedFolders.length +
+			selectedTypes.length +
+			selectedDatePresets.length,
 	);
 
 	let telemetryLabel = $derived.by(() => {
@@ -177,7 +427,7 @@
 		</h1>
 		<p class="text-sm text-ink-muted dark:text-tavern-muted mt-1">
 			Use operators like <code>tag:</code>, <code>folder:</code>, <code>type:</code>,
-			<code>updated:</code>, and quoted phrases.
+			<code>updated:</code>, <code>links:[[Note Title]]</code>, and quoted phrases.
 		</p>
 	</div>
 
@@ -201,9 +451,34 @@
 			value={query}
 			oninput={handleInput}
 			placeholder="Search notes..."
-			class="w-full pl-11 pr-4 py-3 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-ink dark:text-tavern-text placeholder:text-ink-faint dark:placeholder:text-tavern-faint outline-none focus:border-accent dark:focus:border-tavern-accent text-base transition-colors"
+			class="w-full pl-11 pr-24 py-3 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-ink dark:text-tavern-text placeholder:text-ink-faint dark:placeholder:text-tavern-faint outline-none focus:border-accent dark:focus:border-tavern-accent text-base transition-colors"
 		/>
+		<button
+			type="button"
+			class="absolute right-2.5 top-1/2 -translate-y-1/2 px-2 py-1 rounded-md border border-border dark:border-tavern-border text-xs text-ink-muted dark:text-tavern-muted"
+			aria-expanded={showCheatSheet}
+			aria-controls="search-operator-cheatsheet"
+			onclick={() => (showCheatSheet = !showCheatSheet)}
+		>
+			Operators
+		</button>
 	</div>
+
+	{#if showCheatSheet}
+		<div
+			id="search-operator-cheatsheet"
+			class="mt-2 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt p-3 text-xs text-ink-muted dark:text-tavern-muted"
+		>
+			<ul class="space-y-1 list-disc pl-4">
+				<li><code>tag:session</code> notes with tag session</li>
+				<li><code>folder:/campaign/npcs</code> notes under a folder path</li>
+				<li><code>type:character</code> note frontmatter type</li>
+				<li><code>updated:>=-7d</code> notes updated in last 7 days</li>
+				<li><code>links:[[Sildar Hallwinter]]</code> notes linking to that note</li>
+				<li><code>"goblin ambush"</code> exact phrase search</li>
+			</ul>
+		</div>
+	{/if}
 
 	<div class="flex flex-wrap items-center gap-2 mt-3" aria-live="polite">
 		{#if searching}
@@ -227,7 +502,36 @@
 				</span>
 			{/if}
 		{/if}
+		{#if semanticReady}
+			<label
+				class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-border dark:border-tavern-border text-xs text-ink-muted dark:text-tavern-muted"
+			>
+				<input type="checkbox" bind:checked={semanticEnabled} aria-label="Enable semantic search" />
+				Semantic search
+			</label>
+		{:else if semanticStatus}
+			<span class="text-xs text-ink-faint dark:text-tavern-faint">{semanticStatus}</span>
+		{/if}
+		<button
+			type="button"
+			class="text-xs text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text"
+			disabled={semanticChecking}
+			onclick={() => refreshSemanticAvailability(true)}
+		>
+			{semanticChecking ? 'Checking semantic...' : 'Refresh semantic status'}
+		</button>
 	</div>
+
+	{#if semanticError}
+		<div class="mt-2 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
+			{semanticError}
+		</div>
+	{/if}
+	{#if searchRunError}
+		<div class="mt-2 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
+			{searchRunError}
+		</div>
+	{/if}
 
 	{#if query.trim()}
 		<div class="mt-4 grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -315,7 +619,15 @@
 						class="rounded-lg border border-border dark:border-tavern-border bg-surface/70 dark:bg-tavern-surface/70 p-3 space-y-3"
 					>
 						<div class="flex items-center justify-between">
-							<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Facets</h2>
+							<button
+								type="button"
+								class="text-left text-sm font-semibold text-ink dark:text-tavern-text"
+								onclick={() => (facetsCollapsed = !facetsCollapsed)}
+								aria-expanded={!facetsCollapsed}
+								aria-controls="search-facets-panel"
+							>
+								Facets {facetsCollapsed ? 'show' : 'hide'}
+							</button>
 							<button
 								type="button"
 								class="text-xs text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text"
@@ -324,84 +636,114 @@
 							>
 						</div>
 
-						<div>
-							<p
-								class="text-[11px] uppercase tracking-wide text-ink-faint dark:text-tavern-faint mb-1"
-							>
-								Tags
-							</p>
-							<div class="flex flex-wrap gap-1.5">
-								{#if response.facets.tags.length === 0}
-									<span class="text-xs text-ink-faint dark:text-tavern-faint">No tags</span>
-								{:else}
-									{#each response.facets.tags as facet (facet.value)}
-										<button
-											type="button"
-											onclick={() => toggleFilter('tag', facet.value)}
-											class="px-2 py-1 rounded-md text-xs border {selectedTags.includes(facet.value)
-												? 'border-accent bg-accent-subtle text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-												: 'border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted'}"
-										>
-											{facet.value} ({facet.count})
-										</button>
-									{/each}
-								{/if}
-							</div>
-						</div>
+						{#if !facetsCollapsed}
+							<div id="search-facets-panel" class="space-y-3">
+								<div>
+									<p
+										class="text-[11px] uppercase tracking-wide text-ink-faint dark:text-tavern-faint mb-1"
+									>
+										Tags
+									</p>
+									<div class="flex flex-wrap gap-1.5">
+										{#if liveTagFacets.length === 0}
+											<span class="text-xs text-ink-faint dark:text-tavern-faint">No tags</span>
+										{:else}
+											{#each liveTagFacets as facet (facet.value)}
+												<button
+													type="button"
+													onclick={() => toggleFilter('tag', facet.value)}
+													class="px-2 py-1 rounded-md text-xs border {selectedTags.includes(
+														facet.value,
+													)
+														? 'border-accent bg-accent-subtle text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
+														: 'border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted'}"
+												>
+													{facet.value} ({facet.count})
+												</button>
+											{/each}
+										{/if}
+									</div>
+								</div>
 
-						<div>
-							<p
-								class="text-[11px] uppercase tracking-wide text-ink-faint dark:text-tavern-faint mb-1"
-							>
-								Folders
-							</p>
-							<div class="flex flex-wrap gap-1.5">
-								{#if response.facets.folders.length === 0}
-									<span class="text-xs text-ink-faint dark:text-tavern-faint">No folders</span>
-								{:else}
-									{#each response.facets.folders as facet (facet.value)}
-										<button
-											type="button"
-											onclick={() => toggleFilter('folder', facet.value)}
-											class="px-2 py-1 rounded-md text-xs border {selectedFolders.includes(
-												facet.value,
-											)
-												? 'border-accent bg-accent-subtle text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-												: 'border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted'}"
-										>
-											{facet.value} ({facet.count})
-										</button>
-									{/each}
-								{/if}
-							</div>
-						</div>
+								<div>
+									<p
+										class="text-[11px] uppercase tracking-wide text-ink-faint dark:text-tavern-faint mb-1"
+									>
+										Folders
+									</p>
+									<div class="flex flex-wrap gap-1.5">
+										{#if liveFolderFacets.length === 0}
+											<span class="text-xs text-ink-faint dark:text-tavern-faint">No folders</span>
+										{:else}
+											{#each liveFolderFacets as facet (facet.value)}
+												<button
+													type="button"
+													onclick={() => toggleFilter('folder', facet.value)}
+													class="px-2 py-1 rounded-md text-xs border {selectedFolders.includes(
+														facet.value,
+													)
+														? 'border-accent bg-accent-subtle text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
+														: 'border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted'}"
+												>
+													{facet.value} ({facet.count})
+												</button>
+											{/each}
+										{/if}
+									</div>
+								</div>
 
-						<div>
-							<p
-								class="text-[11px] uppercase tracking-wide text-ink-faint dark:text-tavern-faint mb-1"
-							>
-								Types
-							</p>
-							<div class="flex flex-wrap gap-1.5">
-								{#if response.facets.types.length === 0}
-									<span class="text-xs text-ink-faint dark:text-tavern-faint">No types</span>
-								{:else}
-									{#each response.facets.types as facet (facet.value)}
-										<button
-											type="button"
-											onclick={() => toggleFilter('type', facet.value)}
-											class="px-2 py-1 rounded-md text-xs border {selectedTypes.includes(
-												facet.value,
-											)
-												? 'border-accent bg-accent-subtle text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-												: 'border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted'}"
-										>
-											{facet.value} ({facet.count})
-										</button>
-									{/each}
-								{/if}
+								<div>
+									<p
+										class="text-[11px] uppercase tracking-wide text-ink-faint dark:text-tavern-faint mb-1"
+									>
+										Types
+									</p>
+									<div class="flex flex-wrap gap-1.5">
+										{#if liveTypeFacets.length === 0}
+											<span class="text-xs text-ink-faint dark:text-tavern-faint">No types</span>
+										{:else}
+											{#each liveTypeFacets as facet (facet.value)}
+												<button
+													type="button"
+													onclick={() => toggleFilter('type', facet.value)}
+													class="px-2 py-1 rounded-md text-xs border {selectedTypes.includes(
+														facet.value,
+													)
+														? 'border-accent bg-accent-subtle text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
+														: 'border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted'}"
+												>
+													{facet.value} ({facet.count})
+												</button>
+											{/each}
+										{/if}
+									</div>
+								</div>
+
+								<div>
+									<p
+										class="text-[11px] uppercase tracking-wide text-ink-faint dark:text-tavern-faint mb-1"
+									>
+										Updated
+									</p>
+									<div class="flex flex-wrap gap-1.5">
+										{#each liveDateFacets as facet (facet.id)}
+											<button
+												type="button"
+												title={facet.description}
+												onclick={() => toggleFilter('date', facet.id)}
+												class="px-2 py-1 rounded-md text-xs border {selectedDatePresets.includes(
+													facet.id,
+												)
+													? 'border-accent bg-accent-subtle text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
+													: 'border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted'}"
+											>
+												{facet.label} ({facet.count})
+											</button>
+										{/each}
+									</div>
+								</div>
 							</div>
-						</div>
+						{/if}
 					</section>
 				{/if}
 			</aside>
@@ -420,7 +762,7 @@
 							onclick={() => toggleFilter('tag', tag)}
 							class="px-2 py-1 rounded-md text-xs bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent"
 						>
-							tag:{tag} ×
+							tag:{tag} x
 						</button>
 					{/each}
 					{#each selectedFolders as folder (folder)}
@@ -429,7 +771,7 @@
 							onclick={() => toggleFilter('folder', folder)}
 							class="px-2 py-1 rounded-md text-xs bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent"
 						>
-							folder:{folder} ×
+							folder:{folder} x
 						</button>
 					{/each}
 					{#each selectedTypes as type (type)}
@@ -438,7 +780,16 @@
 							onclick={() => toggleFilter('type', type)}
 							class="px-2 py-1 rounded-md text-xs bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent"
 						>
-							type:{type} ×
+							type:{type} x
+						</button>
+					{/each}
+					{#each selectedDatePresets as presetId (presetId)}
+						<button
+							type="button"
+							onclick={() => toggleFilter('date', presetId)}
+							class="px-2 py-1 rounded-md text-xs bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent"
+						>
+							updated:{presetId} x
 						</button>
 					{/each}
 					{#if operatorChips.length > 0 || activeFacetChipCount > 0}
@@ -467,6 +818,7 @@
 					<div class="space-y-3">
 						{#each filteredResults as result (result.id)}
 							{@const note = notesById.get(result.id)}
+							{@const semanticOnly = semanticResultIdSet.has(String(result.id))}
 							<div
 								class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
 							>
@@ -483,9 +835,17 @@
 											{result.filePath ?? result.folder}
 										</p>
 									</div>
-									<span class="text-[11px] text-ink-faint dark:text-tavern-faint"
-										>score {result.score.toFixed(1)}</span
-									>
+									<div class="text-right space-y-1">
+										{#if semanticOnly}
+											<span
+												class="inline-block px-2 py-0.5 rounded-full text-[11px] bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent"
+												>semantic</span
+											>
+										{/if}
+										<div class="text-[11px] text-ink-faint dark:text-tavern-faint">
+											score {result.score.toFixed(2)}
+										</div>
+									</div>
 								</div>
 								{#if result.snippet}
 									<p class="mt-2 text-sm text-ink-muted dark:text-tavern-muted">{result.snippet}</p>
@@ -533,6 +893,7 @@
 				<li><code>folder:/campaign/npcs</code> notes under a folder</li>
 				<li><code>type:character</code> frontmatter note type</li>
 				<li><code>updated:>=-7d</code> recently updated notes</li>
+				<li><code>links:[[Sildar Hallwinter]]</code> notes linking to a note</li>
 				<li><code>"goblin ambush"</code> exact phrase match</li>
 			</ul>
 		</div>

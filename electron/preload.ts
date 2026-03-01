@@ -66,6 +66,9 @@ contextBridge.exposeInMainWorld('dndtoolsDesktop', {
 	getBackendInfo: () => ipcRenderer.invoke('dndtools:backend-info'),
 	pickVaultDirectory: () => ipcRenderer.invoke('dndtools:pick-vault'),
 	getMcpStatus: () => ipcRenderer.invoke('dndtools:mcp-status'),
+	getEmbeddingStatus: () => ipcRenderer.invoke('dndtools:semantic:status'),
+	embedTexts: (model: string, texts: string[]) =>
+		ipcRenderer.invoke('dndtools:semantic:embed', model, texts),
 	restartMcpSidecar: () => ipcRenderer.invoke('dndtools:mcp-restart'),
 	getDiagnosticsHealth: () => ipcRenderer.invoke('dndtools:diagnostics:get-health'),
 	markDiagnosticsSuccess: (subsystem: unknown) =>

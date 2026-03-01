@@ -14,6 +14,13 @@ declare global {
 		error: string | null;
 	}
 
+	interface DesktopEmbeddingStatus {
+		available: boolean;
+		model: string | null;
+		models: string[];
+		reason: string | null;
+	}
+
 	interface DesktopMcpLifecycleEvent {
 		at: string;
 		event: 'start' | 'stop' | 'restart' | 'crash';
@@ -334,6 +341,8 @@ declare global {
 			getBackendInfo(): Promise<{ backend: 'desktop-filesystem'; vaultDir: string }>;
 			pickVaultDirectory(): Promise<{ vaultDir: string } | null>;
 			getMcpStatus(): Promise<DesktopMcpStatus>;
+			getEmbeddingStatus(): Promise<DesktopEmbeddingStatus>;
+			embedTexts(model: string, texts: string[]): Promise<number[][]>;
 			restartMcpSidecar(): Promise<DesktopMcpStatus>;
 			getDiagnosticsHealth(): Promise<DesktopSystemHealth>;
 			markDiagnosticsSuccess(

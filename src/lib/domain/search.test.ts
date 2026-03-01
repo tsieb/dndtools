@@ -23,11 +23,12 @@ function note(overrides: Partial<Note> = {}): Note {
 describe('parseQuery', () => {
 	it('parses operators and quoted phrases', () => {
 		const parsed = parseQuery(
-			'tag:session folder:/campaign type:character updated:>=2026-01-01 "goblin ambush" scout',
+			'tag:session folder:/campaign type:character updated:>=2026-01-01 links:[[Sildar Hallwinter]] "goblin ambush" scout',
 		);
 		expect(parsed.tagFilters).toEqual(['session']);
 		expect(parsed.folderFilters).toEqual(['/campaign']);
 		expect(parsed.typeFilters).toEqual(['character']);
+		expect(parsed.linkFilters).toEqual(['sildar hallwinter']);
 		expect(parsed.updatedFilters).toHaveLength(1);
 		expect(parsed.phrases).toEqual(['goblin ambush']);
 		expect(parsed.terms).toEqual(['scout']);
@@ -97,6 +98,24 @@ describe('searchService', () => {
 		const results = searchService.searchDetailed(
 			'tag:session folder:/campaign type:character updated:>=2026-01-01 goblin',
 		).results;
+		expect(results.map((entry) => entry.id)).toEqual(['a']);
+	});
+
+	it('applies links operator against wikilink targets', async () => {
+		await searchService.buildIndex([
+			note({
+				id: createNoteId('a'),
+				title: 'Scene A',
+				content: 'The party meets [[Sildar Hallwinter]] at the inn.',
+			}),
+			note({
+				id: createNoteId('b'),
+				title: 'Scene B',
+				content: 'No character links here.',
+			}),
+		]);
+
+		const results = searchService.searchDetailed('links:[[Sildar Hallwinter]]').results;
 		expect(results.map((entry) => entry.id)).toEqual(['a']);
 	});
 

@@ -39,6 +39,8 @@ const MAX_IMPORT_NOTES = 10_000;
 const MAX_SUGGEST_IDS = 200;
 /** Maximum value for any integer limit parameter. */
 const MAX_LIMIT = 10_000;
+/** Maximum number of text chunks per semantic embedding request. */
+const MAX_EMBED_TEXTS = 32;
 /** Maximum number of tiles on a session board. */
 const MAX_TILES = 500;
 /** Maximum character length for filesystem paths. */
@@ -354,6 +356,15 @@ export const importNotesSchema = z.array(noteSchema).max(MAX_IMPORT_NOTES);
 
 /** Optional snapshot reason string. */
 export const snapshotReasonSchema = z.string().max(MAX_STRING_LENGTH).optional();
+
+/** Embedding model name passed to semantic embedding IPC endpoint. */
+export const semanticModelSchema = z.string().min(1).max(MAX_STRING_LENGTH);
+
+/** Bounded text array for semantic embedding requests. */
+export const semanticTextsSchema = z
+	.array(z.string().min(1).max(MAX_CONTENT_LENGTH))
+	.min(1)
+	.max(MAX_EMBED_TEXTS);
 
 // ─── Per-key AppSettings value schemas ───────────────────────────────────────
 

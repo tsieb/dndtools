@@ -38,6 +38,8 @@ import {
 	importNotesSchema,
 	snapshotReasonSchema,
 	vaultObjectTypeSchema,
+	semanticModelSchema,
+	semanticTextsSchema,
 } from './ipc-schemas.js';
 
 // ─── Shared test fixtures ─────────────────────────────────────────────────────
@@ -183,6 +185,15 @@ describe('AC1 — Oversized payloads', () => {
 			context: {},
 		});
 		expect(result.success).toBe(false);
+	});
+
+	it('rejects semantic embedding batches above limit', () => {
+		const batch = Array.from({ length: 33 }, (_, idx) => `text ${idx + 1}`);
+		expect(semanticTextsSchema.safeParse(batch).success).toBe(false);
+	});
+
+	it('accepts a valid semantic model name', () => {
+		expect(semanticModelSchema.safeParse('nomic-embed-text').success).toBe(true);
 	});
 });
 
