@@ -16,7 +16,7 @@
 		let cancelled = false;
 		void renderMarkdown(content, {
 			resolveLink: (title) => {
-				const targetId = notesState.resolveTitle(title);
+				const targetId = notesState.resolveTitleStrict(title);
 				return targetId
 					? { href: `/notes/${targetId}`, exists: true }
 					: { href: `/notes?create=${encodeURIComponent(title)}`, exists: false };

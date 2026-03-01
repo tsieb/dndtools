@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	extractAliasesFromFrontmatter,
 	resolveLinkCandidates,
+	resolveUniqueLinkTargetId,
 	resolveLinkTargetId,
 } from './link-resolution.js';
 
@@ -58,5 +59,36 @@ describe('resolveLinkTargetId', () => {
 			'x:title',
 			'y:alias',
 		]);
+		expect(candidates[1]?.matchedAlias).toBe('Neverwinter');
+	});
+
+	it('returns null when resolution is ambiguous and unique resolution is required', () => {
+		const resolved = resolveUniqueLinkTargetId('Harbor Ward', [
+			{
+				id: 'old',
+				title: 'Waterdeep Harbor',
+				updatedAt: '2025-01-01T00:00:00.000Z',
+				aliases: ['Harbor Ward'],
+			},
+			{
+				id: 'new',
+				title: 'Dockside',
+				updatedAt: '2026-01-01T00:00:00.000Z',
+				aliases: ['Harbor Ward'],
+			},
+		]);
+		expect(resolved).toBeNull();
+	});
+
+	it('returns the id when there is exactly one candidate', () => {
+		const resolved = resolveUniqueLinkTargetId('Waterdeep', [
+			{
+				id: 'city',
+				title: 'City of Splendors',
+				updatedAt: '2026-01-01T00:00:00.000Z',
+				aliases: ['Waterdeep'],
+			},
+		]);
+		expect(resolved).toBe('city');
 	});
 });

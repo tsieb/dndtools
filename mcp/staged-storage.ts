@@ -5,6 +5,7 @@ import type {
 } from '../src/lib/types/storage.js';
 import type { AppSettings } from '../src/lib/types/settings.js';
 import type { FolderId, Link, Note, NoteId, TagEntry } from '../src/lib/types/note.js';
+import { createNoteId } from '../src/lib/types/note.js';
 import type {
 	SessionBoard,
 	SessionBoardId,
@@ -24,6 +25,7 @@ import { slugify } from '../src/lib/utils/slug.js';
 import { extractWikilinks } from '../src/lib/domain/link-extractor.js';
 import {
 	extractAliasesFromFrontmatter,
+	resolveLinkCandidates,
 	resolveLinkTargetId,
 } from '../src/lib/domain/link-resolution.js';
 import { buildRelatedNoteSuggestions } from '../src/lib/domain/related-note-suggestions.js';
@@ -261,18 +263,34 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 		for (const note of notes) {
 			const extracted = extractWikilinks(note.content);
 			for (const link of extracted) {
-				const targetId = link.targetIdHint
-					? idToId.get(link.targetIdHint)
-					: resolveLinkTargetId(link.title, resolutionEntries);
-				if (!targetId) {
+				if (link.targetIdHint) {
+					const targetId = idToId.get(link.targetIdHint);
+					if (!targetId) {
+						continue;
+					}
+					links.push({
+						sourceId: note.id,
+						targetId,
+						displayText: link.displayText,
+						position: link.position,
+						resolvedBy: 'id',
+						resolvedAlias: null,
+					});
 					continue;
 				}
 
+				const candidates = resolveLinkCandidates(link.title, resolutionEntries);
+				if (candidates.length !== 1) {
+					continue;
+				}
+				const target = candidates[0]!;
 				links.push({
 					sourceId: note.id,
-					targetId,
+					targetId: createNoteId(target.id),
 					displayText: link.displayText,
 					position: link.position,
+					resolvedBy: target.matchedBy,
+					resolvedAlias: target.matchedAlias ?? null,
 				});
 			}
 		}

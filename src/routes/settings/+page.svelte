@@ -12,6 +12,7 @@
 	import { ONBOARDING_STEPS } from '$lib/domain/onboarding.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import { exportAllNotes, parseMarkdownFile, parseJsonBundle } from '$lib/domain/export.js';
+	import { buildVaultUnresolvedLinkReport } from '$lib/domain/unresolved-links.js';
 	import { searchService } from '$lib/domain/search.js';
 	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
 	import type { Note } from '$lib/types/note.js';
@@ -94,6 +95,7 @@
 	let loadingCheckpoints = $state(false);
 	let restoringCheckpoint = $state(false);
 	let selectedCheckpointName = $state('');
+	let creatingMissingLinkNotes = $state(false);
 
 	const settingsTabs: readonly SettingsTab[] = [
 		{ id: 'general', label: 'General' },
@@ -103,6 +105,19 @@
 	] as const;
 
 	const visibleTabs = $derived(settingsTabs);
+	const vaultUnresolvedLinkIssues = $derived(
+		buildVaultUnresolvedLinkReport(notesState.activeNotes).slice(0, 80),
+	);
+	const creatableVaultUnresolvedTitles = $derived(
+		[
+			...new Set(
+				vaultUnresolvedLinkIssues
+					.filter((issue) => issue.targetKind === 'title')
+					.map((issue) => issue.targetLabel.trim())
+					.filter((title) => title.length > 0),
+			),
+		].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
+	);
 
 	onMount(() => {
 		void refreshDesktopState();
@@ -254,6 +269,48 @@
 			toastState.error(`Failed to repair metadata integrity: ${String(error)}`);
 		} finally {
 			repairingIntegrity = false;
+		}
+	}
+
+	async function handleCreateAllMissingLinkNotes(): Promise<void> {
+		if (creatableVaultUnresolvedTitles.length === 0) return;
+		creatingMissingLinkNotes = true;
+		let created = 0;
+		let skipped = 0;
+		try {
+			for (const title of creatableVaultUnresolvedTitles) {
+				if (notesState.resolveTitleCandidates(title).length > 0) {
+					skipped += 1;
+					continue;
+				}
+				await notesState.createNote({
+					title,
+					content: `# ${title}\n`,
+				});
+				created += 1;
+			}
+
+			if (created > 0) {
+				await Promise.all([
+					markSubsystemSuccess('vault_sync'),
+					markSubsystemSuccess('search_index'),
+					markSubsystemSuccess('link_graph_build'),
+				]);
+			}
+
+			await vaultHealthState.refresh();
+			if (created === 0) {
+				toastState.success('No missing link targets required creation');
+			} else {
+				toastState.success(
+					`Created ${created} note${created === 1 ? '' : 's'} from unresolved links${skipped > 0 ? ` (${skipped} skipped)` : ''}`,
+				);
+			}
+		} catch (error) {
+			reportSettingsError('storage', 'SETTINGS_CREATE_MISSING_LINK_NOTES_FAILED', error);
+			toastState.error(`Failed to create missing link notes: ${String(error)}`);
+		} finally {
+			creatingMissingLinkNotes = false;
 		}
 	}
 
@@ -1415,6 +1472,67 @@
 							</Button>
 						</div>
 					</div>
+				</div>
+			</section>
+
+			<section>
+				<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">Vault Link Health</h2>
+				<div
+					class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-3"
+				>
+					<div class="flex flex-wrap items-center justify-between gap-2">
+						<div>
+							<p class="text-xs text-ink-muted dark:text-tavern-muted">
+								Unresolved wikilinks across active notes
+							</p>
+							<p class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
+								{vaultUnresolvedLinkIssues.length}
+								issue{vaultUnresolvedLinkIssues.length === 1 ? '' : 's'}
+							</p>
+						</div>
+						<Button
+							variant="secondary"
+							size="sm"
+							onclick={handleCreateAllMissingLinkNotes}
+							disabled={creatingMissingLinkNotes || creatableVaultUnresolvedTitles.length === 0}
+						>
+							{creatingMissingLinkNotes
+								? 'Creating...'
+								: `Create All Missing Notes (${creatableVaultUnresolvedTitles.length})`}
+						</Button>
+					</div>
+
+					{#if vaultUnresolvedLinkIssues.length === 0}
+						<p class="text-xs text-ink-muted dark:text-tavern-muted">
+							No unresolved wikilinks detected.
+						</p>
+					{:else}
+						<ul
+							class="rounded border border-border dark:border-tavern-border divide-y divide-border dark:divide-tavern-border"
+						>
+							{#each vaultUnresolvedLinkIssues as issue (issue.sourceId + issue.targetKind + (issue.targetIdHint ?? issue.targetLabel))}
+								<li class="px-3 py-2 text-xs space-y-1">
+									<p class="font-medium text-ink dark:text-tavern-text">
+										{issue.sourceTitle}
+										<span class="text-ink-faint dark:text-tavern-faint">({issue.sourceFolder})</span
+										>
+									</p>
+									<p class="text-ink-muted dark:text-tavern-muted">
+										[[{issue.targetLabel}]]
+										{#if issue.targetKind === 'id' && issue.targetIdHint}
+											<span class="ml-1 text-ink-faint dark:text-tavern-faint"
+												>missing id: {issue.targetIdHint}</span
+											>
+										{/if}
+										<span class="ml-1 text-ink-faint dark:text-tavern-faint">x{issue.count}</span>
+									</p>
+									{#if issue.contexts.length > 0}
+										<p class="text-ink-faint dark:text-tavern-faint">{issue.contexts[0]}</p>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					{/if}
 				</div>
 			</section>
 

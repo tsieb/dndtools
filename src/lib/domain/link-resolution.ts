@@ -5,13 +5,16 @@ export interface LinkResolutionEntry {
 	title: string;
 	updatedAt: string;
 	aliases?: string[];
+	folder?: string;
 }
 
 export interface LinkResolutionCandidate {
 	id: string;
 	title: string;
 	updatedAt: string;
+	folder?: string;
 	matchedBy: 'title' | 'alias';
+	matchedAlias?: string | null;
 }
 
 function normalizeLabel(value: string): string {
@@ -60,14 +63,19 @@ export function resolveLinkCandidates(
 	const byId = new Map<string, LinkResolutionCandidate>();
 	for (const entry of entries) {
 		const titleMatch = normalizeLabel(entry.title) === normalized;
-		const aliasMatch = (entry.aliases ?? []).some((alias) => normalizeLabel(alias) === normalized);
+		const matchedAlias = (entry.aliases ?? []).find(
+			(alias) => normalizeLabel(alias) === normalized,
+		);
+		const aliasMatch = !!matchedAlias;
 		if (!titleMatch && !aliasMatch) continue;
 
 		const candidate: LinkResolutionCandidate = {
 			id: entry.id,
 			title: entry.title,
 			updatedAt: entry.updatedAt,
+			folder: entry.folder,
 			matchedBy: titleMatch ? 'title' : 'alias',
+			matchedAlias: titleMatch ? null : (matchedAlias ?? null),
 		};
 		const existing = byId.get(entry.id);
 		if (!existing || compareCandidates(candidate, existing) < 0) {
@@ -81,4 +89,13 @@ export function resolveLinkCandidates(
 export function resolveLinkTargetId(label: string, entries: LinkResolutionEntry[]): NoteId | null {
 	const best = resolveLinkCandidates(label, entries)[0];
 	return best ? createNoteId(best.id) : null;
+}
+
+export function resolveUniqueLinkTargetId(
+	label: string,
+	entries: LinkResolutionEntry[],
+): NoteId | null {
+	const candidates = resolveLinkCandidates(label, entries);
+	if (candidates.length !== 1) return null;
+	return createNoteId(candidates[0]!.id);
 }

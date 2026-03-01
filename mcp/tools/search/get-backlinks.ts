@@ -28,6 +28,8 @@ export function registerGetBacklinksTool(server: McpServer, storage: FileSystemA
 						sourceTitle: source?.title ?? 'Unknown',
 						displayText: link.displayText,
 						position: link.position,
+						matchedByAlias: link.resolvedBy === 'alias',
+						matchedAlias: link.resolvedBy === 'alias' ? (link.resolvedAlias ?? null) : null,
 						contextSnippet: source
 							? buildContextSnippetAtPosition(source.content, link.position)
 							: 'Linked reference unavailable.',

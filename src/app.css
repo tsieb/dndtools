@@ -231,6 +231,22 @@ a.wikilink--unresolved {
 	text-decoration-style: dashed;
 }
 
+.markdown-content a.wikilink--unresolved::after {
+	content: ' create note';
+	display: inline-block;
+	margin-left: 0.3rem;
+	padding: 0.05rem 0.35rem;
+	border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+	border-radius: 999px;
+	font-size: 0.66rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: color-mix(in srgb, var(--color-warning) 75%, black);
+	background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+	vertical-align: text-top;
+}
+
 html.dark a.wikilink {
 	color: var(--color-tavern-accent);
 }
@@ -241,6 +257,12 @@ html.dark a.wikilink:hover {
 
 html.dark a.wikilink--unresolved {
 	color: var(--color-tavern-muted);
+}
+
+html.dark .markdown-content a.wikilink--unresolved::after {
+	border-color: color-mix(in srgb, var(--color-tavern-warning) 45%, transparent);
+	color: var(--color-tavern-warning);
+	background: color-mix(in srgb, var(--color-tavern-warning) 18%, transparent);
 }
 
 /* ===== Markdown content styles ===== */

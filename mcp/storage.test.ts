@@ -388,6 +388,21 @@ describe('FileSystemAdapter', () => {
 			const resolved = await adapter.resolveTitle('Harbor');
 			expect(resolved?.id).toBe(exact.id);
 		});
+
+		it('writes aliasIndex entries to index.json for alias lookups', async () => {
+			const note = testNote({
+				title: 'City of Splendors',
+				frontmatter: { aliases: ['Waterdeep', 'The Crown of the North'] },
+			});
+			await adapter.saveNote(note);
+			const indexPath = path.join(tmpDir, '.vault', 'index.json');
+			const raw = JSON.parse(await fs.readFile(indexPath, 'utf-8')) as {
+				aliasIndex?: Record<string, string[]>;
+			};
+
+			expect(raw.aliasIndex?.['waterdeep']).toContain(note.id);
+			expect(raw.aliasIndex?.['the crown of the north']).toContain(note.id);
+		});
 	});
 
 	describe('links', () => {
@@ -429,6 +444,52 @@ describe('FileSystemAdapter', () => {
 			const backlinks = await adapter.getLinksTo(target.id);
 			expect(backlinks.length).toBe(1);
 			expect(backlinks[0]!.sourceId).toBe(source.id);
+		});
+
+		it('preserves alias resolution metadata on stored links', async () => {
+			const source = testNote({ title: 'Session Log' });
+			const target = testNote({
+				title: 'City of Splendors',
+				frontmatter: { aliases: ['Waterdeep'] },
+			});
+			await adapter.saveNote(source);
+			await adapter.saveNote(target);
+
+			await adapter.setLinksFrom(source.id, [
+				{
+					sourceId: source.id,
+					targetId: target.id,
+					displayText: 'Waterdeep',
+					position: 5,
+					resolvedBy: 'alias',
+					resolvedAlias: 'Waterdeep',
+				},
+			]);
+
+			const backlinks = await adapter.getLinksTo(target.id);
+			expect(backlinks).toMatchObject([
+				{
+					resolvedBy: 'alias',
+					resolvedAlias: 'Waterdeep',
+				},
+			]);
+		});
+
+		it('does not index ambiguous title links without explicit note id', async () => {
+			const first = testNote({ id: createNoteId('harbor-1'), title: 'Harbor' });
+			const second = testNote({ id: createNoteId('harbor-2'), title: 'Harbor' });
+			const source = testNote({
+				id: createNoteId('source-log'),
+				title: 'Log',
+				content: 'Meet at [[Harbor]].',
+			});
+			await adapter.saveNote(first);
+			await adapter.saveNote(second);
+			await adapter.saveNote(source);
+
+			await adapter.resolveAndIndexLinks(source.id, source.content);
+			const links = await adapter.getLinksFrom(source.id);
+			expect(links).toEqual([]);
 		});
 	});
 

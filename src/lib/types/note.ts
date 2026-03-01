@@ -36,6 +36,10 @@ export interface Link {
 	targetId: NoteId;
 	displayText: string;
 	position: number;
+	/** How this link target was resolved from the source wikilink. */
+	resolvedBy?: 'id' | 'title' | 'alias';
+	/** Alias text that matched when resolvedBy is alias. */
+	resolvedAlias?: string | null;
 }
 
 export interface TagEntry {

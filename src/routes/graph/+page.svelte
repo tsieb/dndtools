@@ -33,7 +33,7 @@
 	let qualityReport = $derived.by(() =>
 		buildLinkGraphQualityReport({
 			notes: allActiveNotes,
-			resolveTitle: (title) => notesState.resolveTitle(title),
+			resolveTitle: (title) => notesState.resolveTitleStrict(title),
 		}),
 	);
 

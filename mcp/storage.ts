@@ -37,6 +37,7 @@ import { nowISO } from '../src/lib/utils/date.js';
 import { buildRelatedNoteSuggestions } from '../src/lib/domain/related-note-suggestions.js';
 import {
 	extractAliasesFromFrontmatter,
+	resolveLinkCandidates,
 	resolveLinkTargetId,
 } from '../src/lib/domain/link-resolution.js';
 import { normalizeVaultObject } from '../src/lib/domain/objects.js';
@@ -78,6 +79,8 @@ interface StoredLink {
 	targetId: string;
 	displayText: string;
 	position: number;
+	resolvedBy?: 'id' | 'title' | 'alias';
+	resolvedAlias?: string | null;
 }
 
 /** Vault index cache structure */
@@ -98,10 +101,11 @@ interface VaultIndex {
 		}
 	>;
 	links: Record<string, StoredLink[]>;
+	aliasIndex: Record<string, string[]>;
 }
 
 function emptyIndex(): VaultIndex {
-	return { version: CURRENT_SCHEMA_VERSION.metadata, notes: {}, links: {} };
+	return { version: CURRENT_SCHEMA_VERSION.metadata, notes: {}, links: {}, aliasIndex: {} };
 }
 
 interface SessionBoardStore {
@@ -184,7 +188,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isIndexShape(value: unknown): boolean {
 	if (!isRecord(value)) return false;
-	return typeof value.version === 'number' && isRecord(value.notes) && isRecord(value.links);
+	const aliasIndex = value.aliasIndex;
+	return (
+		typeof value.version === 'number' &&
+		isRecord(value.notes) &&
+		isRecord(value.links) &&
+		(aliasIndex === undefined || isRecord(aliasIndex))
+	);
 }
 
 function isSessionBoardShape(value: unknown): boolean {
@@ -714,18 +724,61 @@ export class FileSystemAdapter implements StorageAdapter {
 		return filename;
 	}
 
+	private normalizeAliasKey(value: string): string {
+		return value.trim().toLowerCase();
+	}
+
+	private rebuildAliasIndex(): void {
+		const aliasIndex = new Map<string, Set<string>>();
+		for (const [noteId, entry] of Object.entries(this.index.notes)) {
+			if (entry.deleted) continue;
+			const aliases = Array.isArray(entry.aliases) ? entry.aliases : [];
+			for (const alias of aliases) {
+				if (typeof alias !== 'string') continue;
+				const key = this.normalizeAliasKey(alias);
+				if (!key) continue;
+				const existing = aliasIndex.get(key);
+				if (existing) {
+					existing.add(noteId);
+				} else {
+					aliasIndex.set(key, new Set([noteId]));
+				}
+			}
+		}
+		this.index.aliasIndex = Object.fromEntries(
+			[...aliasIndex.entries()].map(([alias, noteIds]) => [
+				alias,
+				[...noteIds].sort((a, b) => a.localeCompare(b)),
+			]),
+		);
+	}
+
 	// --- Index persistence ---
 
 	private async loadIndex(): Promise<void> {
 		try {
 			const data = await fs.readFile(this.indexPath, 'utf-8');
-			this.index = JSON.parse(data) as VaultIndex;
+			const parsed = JSON.parse(data) as Partial<VaultIndex>;
+			const notes = isRecord(parsed.notes) ? (parsed.notes as VaultIndex['notes']) : {};
+			const links = isRecord(parsed.links) ? (parsed.links as VaultIndex['links']) : {};
+			const aliasIndex = isRecord(parsed.aliasIndex)
+				? (parsed.aliasIndex as VaultIndex['aliasIndex'])
+				: {};
+			this.index = {
+				version:
+					typeof parsed.version === 'number' ? parsed.version : CURRENT_SCHEMA_VERSION.metadata,
+				notes,
+				links,
+				aliasIndex,
+			};
+			this.rebuildAliasIndex();
 		} catch {
 			this.index = emptyIndex();
 		}
 	}
 
 	private async saveIndex(): Promise<void> {
+		this.rebuildAliasIndex();
 		await this.writeIndexMetadata(this.index);
 	}
 
@@ -1680,6 +1733,8 @@ export class FileSystemAdapter implements StorageAdapter {
 			targetId: createNoteId(s.targetId),
 			displayText: s.displayText,
 			position: s.position,
+			resolvedBy: s.resolvedBy,
+			resolvedAlias: s.resolvedAlias ?? null,
 		}));
 	}
 
@@ -1693,6 +1748,8 @@ export class FileSystemAdapter implements StorageAdapter {
 						targetId: noteId,
 						displayText: link.displayText,
 						position: link.position,
+						resolvedBy: link.resolvedBy,
+						resolvedAlias: link.resolvedAlias ?? null,
 					});
 				}
 			}
@@ -1706,6 +1763,8 @@ export class FileSystemAdapter implements StorageAdapter {
 				targetId: l.targetId,
 				displayText: l.displayText,
 				position: l.position,
+				resolvedBy: l.resolvedBy,
+				resolvedAlias: l.resolvedAlias ?? null,
 			}));
 			await this.saveIndex();
 		});
@@ -1717,6 +1776,8 @@ export class FileSystemAdapter implements StorageAdapter {
 			targetId: createNoteId(link.targetId),
 			displayText: link.displayText,
 			position: link.position,
+			resolvedBy: link.resolvedBy,
+			resolvedAlias: link.resolvedAlias ?? null,
 		}));
 	}
 
@@ -2170,12 +2231,16 @@ export class FileSystemAdapter implements StorageAdapter {
 		targetId: string;
 		displayText: string;
 		position: number;
+		resolvedBy?: 'id' | 'title' | 'alias';
+		resolvedAlias?: string | null;
 	}> {
 		const allLinks: Array<{
 			sourceId: string;
 			targetId: string;
 			displayText: string;
 			position: number;
+			resolvedBy?: 'id' | 'title' | 'alias';
+			resolvedAlias?: string | null;
 		}> = [];
 		for (const [sourceId, links] of Object.entries(this.index.links)) {
 			for (const link of links) {
@@ -2184,6 +2249,8 @@ export class FileSystemAdapter implements StorageAdapter {
 					targetId: link.targetId,
 					displayText: link.displayText,
 					position: link.position,
+					resolvedBy: link.resolvedBy,
+					resolvedAlias: link.resolvedAlias ?? null,
 				});
 			}
 		}
@@ -2600,19 +2667,41 @@ export class FileSystemAdapter implements StorageAdapter {
 		const { extractWikilinks } = await import('../src/lib/domain/link-extractor.js');
 		const extracted = extractWikilinks(content);
 		const links: Link[] = [];
+		const resolutionEntries = Object.entries(this.index.notes)
+			.filter(([, entry]) => !entry.deleted)
+			.map(([id, entry]) => ({
+				id,
+				title: entry.title,
+				updatedAt: entry.updatedAt,
+				aliases: entry.aliases ?? [],
+			}));
 
 		for (const wl of extracted) {
-			const target = wl.targetIdHint
-				? await this.getNote(createNoteId(wl.targetIdHint))
-				: await this.resolveTitle(wl.title);
-			if (target) {
+			if (wl.targetIdHint) {
+				const target = await this.getNote(createNoteId(wl.targetIdHint));
+				if (!target) continue;
 				links.push({
 					sourceId: noteId,
 					targetId: target.id,
 					displayText: wl.displayText,
 					position: wl.position,
+					resolvedBy: 'id',
+					resolvedAlias: null,
 				});
+				continue;
 			}
+
+			const candidates = resolveLinkCandidates(wl.title, resolutionEntries);
+			if (candidates.length !== 1) continue;
+			const target = candidates[0]!;
+			links.push({
+				sourceId: noteId,
+				targetId: createNoteId(target.id),
+				displayText: wl.displayText,
+				position: wl.position,
+				resolvedBy: target.matchedBy,
+				resolvedAlias: target.matchedAlias ?? null,
+			});
 		}
 
 		await this.setLinksFrom(noteId, links);

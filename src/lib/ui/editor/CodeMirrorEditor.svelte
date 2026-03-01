@@ -15,13 +15,22 @@
 		onviewready?: (view: EditorViewType) => void;
 		onscrollready?: (element: HTMLElement) => void;
 		settings?: EditorSettings;
+		wikilinkHighlights?: Array<{ from: number; to: number; kind: 'unresolved' | 'ambiguous' }>;
 	}
 
-	let { content, onchange, onviewready, onscrollready, settings }: Props = $props();
+	let {
+		content,
+		onchange,
+		onviewready,
+		onscrollready,
+		settings,
+		wikilinkHighlights = [],
+	}: Props = $props();
 
 	let editorContainer: HTMLDivElement | undefined = $state();
 	let view: EditorViewType | undefined;
 	let mounted = $state(false);
+	let applyWikilinkHighlights: (() => void) | null = null;
 
 	onMount(() => {
 		if (!editorContainer) return;
@@ -30,8 +39,8 @@
 
 		(async () => {
 			const [
-				{ EditorView, keymap },
-				{ EditorState },
+				{ EditorView, keymap, Decoration },
+				{ EditorState, StateEffect, StateField },
 				{ markdown, markdownLanguage },
 				{ defaultKeymap, history, historyKeymap, undo, redo },
 				{ syntaxHighlighting, defaultHighlightStyle, indentOnInput },
@@ -51,6 +60,35 @@
 				if (update.docChanged) {
 					onchange(update.state.doc.toString());
 				}
+			});
+			const setWikilinkHighlightsEffect =
+				StateEffect.define<Array<{ from: number; to: number; kind: 'unresolved' | 'ambiguous' }>>();
+			const wikilinkHighlightField = StateField.define({
+				create: () => Decoration.none,
+				update: (decorations, transaction) => {
+					let next = decorations.map(transaction.changes);
+					for (const effect of transaction.effects) {
+						if (!effect.is(setWikilinkHighlightsEffect)) continue;
+						const marks = effect.value
+							.filter(
+								(range) =>
+									range.from >= 0 &&
+									range.to > range.from &&
+									range.to <= transaction.state.doc.length,
+							)
+							.map((range) =>
+								Decoration.mark({
+									class:
+										range.kind === 'unresolved'
+											? 'cm-wikilink-unresolved'
+											: 'cm-wikilink-ambiguous',
+								}).range(range.from, range.to),
+							);
+						next = Decoration.set(marks, true);
+					}
+					return next;
+				},
+				provide: (field) => EditorView.decorations.from(field),
 			});
 
 			// Formatting keyboard shortcuts
@@ -114,7 +152,35 @@
 				'.cm-line': {
 					padding: '1px 0.5rem',
 				},
+				'.cm-wikilink-unresolved': {
+					backgroundColor: 'color-mix(in srgb, var(--color-warning) 16%, transparent)',
+					textDecoration: 'underline',
+					textDecorationStyle: 'wavy',
+					textDecorationColor: 'var(--color-warning)',
+				},
+				'.cm-wikilink-ambiguous': {
+					backgroundColor: 'color-mix(in srgb, var(--color-accent) 15%, transparent)',
+					textDecoration: 'underline',
+					textDecorationStyle: 'dotted',
+					textDecorationColor: 'var(--color-accent)',
+				},
 			});
+
+			function dispatchWikilinkHighlights(): void {
+				if (!view) return;
+				const docLength = view.state.doc.length;
+				const safeRanges = (wikilinkHighlights ?? [])
+					.map((range) => ({
+						from: Math.max(0, Math.min(range.from, docLength)),
+						to: Math.max(0, Math.min(range.to, docLength)),
+						kind: range.kind,
+					}))
+					.filter((range) => range.to > range.from);
+				view.dispatch({
+					effects: setWikilinkHighlightsEffect.of(safeRanges),
+				});
+			}
+			applyWikilinkHighlights = dispatchWikilinkHighlights;
 
 			view = new EditorView({
 				state: EditorState.create({
@@ -129,11 +195,13 @@
 						formattingKeymap,
 						keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap]),
 						updateListener,
+						wikilinkHighlightField,
 						theme,
 					],
 				}),
 				parent: editorContainer,
 			});
+			dispatchWikilinkHighlights();
 
 			mounted = true;
 			onviewready?.(view);
@@ -142,6 +210,7 @@
 
 		return () => {
 			destroyed = true;
+			applyWikilinkHighlights = null;
 			view?.destroy();
 		};
 	});
@@ -153,6 +222,11 @@
 				changes: { from: 0, to: view.state.doc.length, insert: content },
 			});
 		}
+	});
+
+	$effect(() => {
+		if (!view || !mounted || !applyWikilinkHighlights) return;
+		applyWikilinkHighlights();
 	});
 </script>
 
