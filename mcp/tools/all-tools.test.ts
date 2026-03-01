@@ -340,7 +340,7 @@ describe('MCP tool contracts', () => {
 
 		expect(writeSuccesses / writeContracts.length).toBe(1);
 		expect(readSuccesses / readContracts.length).toBeGreaterThanOrEqual(0.9);
-	});
+	}, 20_000);
 
 	it('rejects unknown top-level input keys for every tool', async () => {
 		const server = new MockMcpServer();

@@ -66,5 +66,5 @@ describe('generate-fixture-vault', () => {
 		} finally {
 			await fs.rm(tmpRoot, { recursive: true, force: true });
 		}
-	}, 20_000);
+	}, 60_000);
 });

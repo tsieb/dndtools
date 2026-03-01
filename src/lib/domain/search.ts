@@ -1,6 +1,11 @@
 import type MiniSearchType from 'minisearch';
 import type { Note, NoteId } from '$lib/types/note.js';
 import { slugify } from '$lib/utils/slug.js';
+import { PERFORMANCE_BUDGETS } from '$lib/types/diagnostics.js';
+import { recordPerformanceMeasurement } from '$lib/runtime/diagnostics.js';
+import { workerBridge } from '$lib/runtime/worker-bridge.js';
+import { parseNotesForIndex, SEARCH_INDEX_OPTIONS } from '$lib/runtime/worker/operations.js';
+import type { IndexedNoteDocument } from '$lib/runtime/worker/types.js';
 
 export interface SearchResult {
 	id: NoteId;
@@ -15,16 +20,7 @@ export interface SearchResult {
 	updatedAt: string;
 }
 
-interface IndexedNote {
-	id: string;
-	title: string;
-	content: string;
-	tags: string;
-	folder: string;
-	filePath: string;
-	type: string;
-	updatedAt: string;
-}
+type IndexedNote = IndexedNoteDocument;
 
 interface UpdatedFilter {
 	fromMs: number | null;
@@ -72,8 +68,10 @@ export interface SearchQueryResult {
 	telemetry: SearchTelemetry;
 }
 
-const SEARCH_BUDGET_MS = 80;
+const SEARCH_BUDGET_MS = PERFORMANCE_BUDGETS.search_response.targetMs;
 const SEARCH_TIMING_WINDOW = 50;
+const SEARCH_INDEX_WORKER_THRESHOLD = 500;
+let searchMeasureCounter = 0;
 
 function noteType(note: Note): string {
 	const value = note.frontmatter.type;
@@ -550,26 +548,55 @@ class SearchService {
 
 	async buildIndex(notes: Note[]): Promise<void> {
 		const nextSignature = this.buildSignature(notes);
-		if (!this.index) {
-			const MiniSearch = (await import('minisearch')).default;
-			this.index = new MiniSearch<IndexedNote>({
-				fields: ['title', 'content', 'tags', 'folder', 'filePath', 'type'],
-				storeFields: ['title', 'folder', 'filePath', 'type', 'tags', 'updatedAt'],
-				searchOptions: {
-					boost: { title: 4, tags: 2.5, type: 2, content: 1.2, folder: 1 },
-					fuzzy: 0.2,
-					prefix: true,
-				},
-			});
-		}
 		if (this.indexSignature === nextSignature) {
 			return;
 		}
-		this.index.removeAll();
-		const indexed = notes.filter((n) => !n.deleted);
-		this.index.addAll(indexed.map(noteToIndexed));
-		this.indexedIds = new Set(indexed.map((note) => String(note.id)));
-		this.notesById = new Map(indexed.map((note) => [String(note.id), note]));
+
+		const MiniSearch = (await import('minisearch')).default;
+		const indexedById = new Map(
+			notes.filter((note) => !note.deleted).map((note) => [String(note.id), note]),
+		);
+
+		if (notes.length >= SEARCH_INDEX_WORKER_THRESHOLD) {
+			try {
+				const parsed = await workerBridge.parseNoteBatch({ notes });
+				const built = await workerBridge.buildSearchIndex({ documents: parsed.documents });
+				this.index = MiniSearch.loadJSON<IndexedNote>(built.serializedIndex, SEARCH_INDEX_OPTIONS);
+				this.indexedIds = new Set(parsed.documents.map((note) => note.id));
+				this.notesById = new Map(
+					parsed.documents
+						.map((doc) => [doc.id, indexedById.get(doc.id)])
+						.filter((entry): entry is [string, Note] => !!entry[1]),
+				);
+			} catch {
+				if (!this.index) {
+					this.index = new MiniSearch<IndexedNote>(SEARCH_INDEX_OPTIONS);
+				}
+				this.index.removeAll();
+				const parsed = parseNotesForIndex({ notes });
+				this.index.addAll(parsed.documents);
+				this.indexedIds = new Set(parsed.documents.map((note) => note.id));
+				this.notesById = new Map(
+					parsed.documents
+						.map((doc) => [doc.id, indexedById.get(doc.id)])
+						.filter((entry): entry is [string, Note] => !!entry[1]),
+				);
+			}
+		} else {
+			if (!this.index) {
+				this.index = new MiniSearch<IndexedNote>(SEARCH_INDEX_OPTIONS);
+			}
+			this.index.removeAll();
+			const parsed = parseNotesForIndex({ notes });
+			this.index.addAll(parsed.documents);
+			this.indexedIds = new Set(parsed.documents.map((note) => note.id));
+			this.notesById = new Map(
+				parsed.documents
+					.map((doc) => [doc.id, indexedById.get(doc.id)])
+					.filter((entry): entry is [string, Note] => !!entry[1]),
+			);
+		}
+
 		this.indexSignature = nextSignature;
 		this.resetQueryCache();
 	}
@@ -579,16 +606,51 @@ class SearchService {
 	}
 
 	searchDetailed(query: string): SearchQueryResult {
+		const measureId = `search-${Date.now()}-${searchMeasureCounter++}`;
+		const startMark = `dndtools:${measureId}:start`;
+		const endMark = `dndtools:${measureId}:end`;
+		const measureName = `dndtools:${measureId}:measure`;
+		performance.mark(startMark);
 		const startedAt = performance.now();
 		const normalizedQuery = query.trim();
 		const parsed = parseQuery(normalizedQuery);
 		if (!this.index || !normalizedQuery) {
-			return this.createEmptyResult(
+			const result = this.createEmptyResult(
 				parsed,
 				Math.round((performance.now() - startedAt) * 100) / 100,
 			);
+			const elapsedMs = result.telemetry.elapsedMs;
+			performance.mark(endMark);
+			performance.measure(measureName, startMark, endMark);
+			performance.clearMarks(startMark);
+			performance.clearMarks(endMark);
+			performance.clearMeasures(measureName);
+			void recordPerformanceMeasurement({
+				operation: 'search_response',
+				durationMs: elapsedMs,
+				context: {
+					queryLength: normalizedQuery.length,
+					resultCount: 0,
+				},
+			});
+			return result;
 		}
 		if (normalizedQuery === this.lastQuery && this.lastResult) {
+			const elapsedMs = Math.round((performance.now() - startedAt) * 100) / 100;
+			performance.mark(endMark);
+			performance.measure(measureName, startMark, endMark);
+			performance.clearMarks(startMark);
+			performance.clearMarks(endMark);
+			performance.clearMeasures(measureName);
+			void recordPerformanceMeasurement({
+				operation: 'search_response',
+				durationMs: elapsedMs,
+				context: {
+					queryLength: normalizedQuery.length,
+					resultCount: this.lastResult.results.length,
+					cached: true,
+				},
+			});
 			return this.lastResult;
 		}
 
@@ -664,6 +726,24 @@ class SearchService {
 		};
 		this.lastQuery = normalizedQuery;
 		this.lastResult = output;
+		performance.mark(endMark);
+		performance.measure(measureName, startMark, endMark);
+		performance.clearMarks(startMark);
+		performance.clearMarks(endMark);
+		performance.clearMeasures(measureName);
+		void recordPerformanceMeasurement({
+			operation: 'search_response',
+			durationMs: elapsedMs,
+			context: {
+				queryLength: normalizedQuery.length,
+				resultCount: results.length,
+				operatorCount:
+					parsed.tagFilters.length +
+					parsed.folderFilters.length +
+					parsed.typeFilters.length +
+					parsed.updatedFilters.length,
+			},
+		});
 		return output;
 	}
 

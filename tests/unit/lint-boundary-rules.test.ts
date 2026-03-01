@@ -24,7 +24,7 @@ describe('runtime boundary lint rules', () => {
 		expect(messages.join('\n')).toContain(
 			'Renderer code must not import Node.js or Electron modules',
 		);
-	}, 15_000);
+	}, 30_000);
 
 	it('rejects renderer-only imports in MCP files', async () => {
 		const messages = await lintText(

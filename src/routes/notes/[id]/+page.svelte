@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import type { PageData } from './$types';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
@@ -11,17 +12,66 @@
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { recordPerformanceMeasurement } from '$lib/runtime/diagnostics.js';
 
 	let { data }: { data: PageData } = $props();
 	let showDeleteConfirm = $state(false);
 	let quickAdd = $state('');
+	let noteOpenMeasured = $state(false);
+	let noteOpenMeasurement = $state<{
+		startMark: string;
+		endMark: string;
+		measureName: string;
+		startedAt: number;
+	} | null>(null);
 
 	let note = $derived(notesState.getNoteById(data.noteId));
+
+	$effect(() => {
+		if (!data.noteId) return;
+		const measureId = `note-open-${Date.now()}-${data.noteId}`;
+		const startMark = `dndtools:${measureId}:start`;
+		noteOpenMeasurement = {
+			startMark,
+			endMark: `dndtools:${measureId}:end`,
+			measureName: `dndtools:${measureId}:measure`,
+			startedAt: performance.now(),
+		};
+		noteOpenMeasured = false;
+		performance.mark(startMark);
+	});
 
 	$effect(() => {
 		if (data.noteId) {
 			notesState.setActive(data.noteId);
 		}
+	});
+
+	$effect(() => {
+		if (!note || noteOpenMeasured || !noteOpenMeasurement) return;
+		noteOpenMeasured = true;
+		const measurement = noteOpenMeasurement;
+		void tick().then(() => {
+			const { startMark, endMark, measureName, startedAt } = measurement;
+			performance.mark(endMark);
+			performance.measure(measureName, startMark, endMark);
+			const measured = performance.getEntriesByName(measureName, 'measure').at(-1);
+			const durationMs = Number(
+				((measured?.duration ?? performance.now() - startedAt) || 0).toFixed(2),
+			);
+			performance.clearMarks(startMark);
+			performance.clearMarks(endMark);
+			performance.clearMeasures(measureName);
+			void recordPerformanceMeasurement({
+				operation: 'note_open',
+				durationMs,
+				context: {
+					noteId: note.id,
+					contentLength: note.content.length,
+					tagCount: note.tags.length,
+				},
+			});
+		});
 	});
 
 	async function handleDelete(): Promise<void> {

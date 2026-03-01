@@ -72,6 +72,8 @@ contextBridge.exposeInMainWorld('dndtoolsDesktop', {
 		ipcRenderer.invoke('dndtools:diagnostics:mark-success', subsystem),
 	recordDiagnosticsError: (event: unknown) =>
 		ipcRenderer.invoke('dndtools:diagnostics:record-error', event),
+	recordDiagnosticsPerformance: (event: unknown) =>
+		ipcRenderer.invoke('dndtools:diagnostics:record-performance', event),
 	exportDiagnosticsBundle: () => ipcRenderer.invoke('dndtools:diagnostics:export'),
 	refreshVault: () => ipcRenderer.invoke('dndtools:vault-refresh'),
 	listMcpPendingChanges: () => ipcRenderer.invoke('dndtools:mcp-changes:list'),

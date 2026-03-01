@@ -855,6 +855,60 @@
 		},
 	);
 
+	const performanceOperationOrder = [
+		'cold_start',
+		'vault_open',
+		'note_open',
+		'search_response',
+		'note_save',
+		'graph_rebuild_incremental',
+		'mcp_bundle_call',
+	] as const;
+
+	let performanceSummaries = $derived.by(() => {
+		const summaries = systemHealth?.performance.summaries ?? [];
+		return [...summaries].sort(
+			(a, b) =>
+				performanceOperationOrder.indexOf(a.operation) -
+				performanceOperationOrder.indexOf(b.operation),
+		);
+	});
+
+	let slowPerformanceGroups = $derived.by(() => {
+		const timeline = systemHealth?.performance.timeline ?? [];
+		const grouped: Record<
+			string,
+			Array<{
+				operation: string;
+				durationMs: number;
+				at: string;
+				exceededBudget: boolean;
+				source: 'renderer' | 'main' | 'mcp';
+			}>
+		> = {};
+		for (const sample of timeline) {
+			const key = sample.operation;
+			if (!grouped[key]) grouped[key] = [];
+			grouped[key]!.push({
+				operation: sample.operation,
+				durationMs: sample.durationMs,
+				at: sample.at,
+				exceededBudget: sample.exceededBudget,
+				source: sample.source,
+			});
+		}
+		return Object.entries(grouped)
+			.map(([operation, samples]) => ({
+				operation,
+				samples: [...samples].sort((a, b) => b.durationMs - a.durationMs).slice(0, 4),
+			}))
+			.sort((a, b) => a.operation.localeCompare(b.operation));
+	});
+
+	function formatDuration(value: number | null): string {
+		return value === null ? '-' : `${value.toFixed(1)}ms`;
+	}
+
 	async function handleRebuildIndex(): Promise<void> {
 		rebuildingIndex = true;
 		try {
@@ -2169,6 +2223,129 @@
 			</section>
 
 			<!-- ── MCP Lifecycle Telemetry ───────────────────────────────────── -->
+			<section>
+				<div class="flex items-center justify-between gap-3 mb-4">
+					<h2 class="text-lg font-semibold text-ink dark:text-tavern-text">Performance</h2>
+					{#if systemHealth?.performance}
+						<p class="text-xs text-ink-muted dark:text-tavern-muted">
+							Timeline samples: {systemHealth.performance.timeline.length}
+						</p>
+					{/if}
+				</div>
+				<div
+					class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface overflow-hidden"
+				>
+					{#if !systemHealth || performanceSummaries.length === 0}
+						<div class="p-4 text-sm text-ink-muted dark:text-tavern-muted">
+							No performance telemetry yet.
+						</div>
+					{:else}
+						<div class="overflow-x-auto">
+							<table class="w-full text-xs">
+								<thead
+									class="bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted"
+								>
+									<tr>
+										<th class="text-left px-3 py-2 font-medium">Operation</th>
+										<th class="text-right px-3 py-2 font-medium">Budget</th>
+										<th class="text-right px-3 py-2 font-medium">P50</th>
+										<th class="text-right px-3 py-2 font-medium">P95</th>
+										<th class="text-right px-3 py-2 font-medium">P99</th>
+										<th class="text-right px-3 py-2 font-medium">Samples</th>
+									</tr>
+								</thead>
+								<tbody class="divide-y divide-border dark:divide-tavern-border">
+									{#each performanceSummaries as summary (summary.operation)}
+										<tr>
+											<td class="px-3 py-2">
+												<p class="font-medium text-ink dark:text-tavern-text">
+													{summary.label}
+												</p>
+												<p class="text-[11px] text-ink-faint dark:text-tavern-faint">
+													{summary.description}
+												</p>
+											</td>
+											<td class="px-3 py-2 text-right font-mono text-ink dark:text-tavern-text">
+												{summary.targetMs}ms
+											</td>
+											<td
+												class="px-3 py-2 text-right font-mono text-ink-muted dark:text-tavern-muted"
+											>
+												{formatDuration(summary.p50Ms)}
+											</td>
+											<td
+												class="px-3 py-2 text-right font-mono {summary.p95Ms !== null &&
+												summary.p95Ms > summary.targetMs
+													? 'text-rose-600 dark:text-rose-400'
+													: 'text-ink-muted dark:text-tavern-muted'}"
+											>
+												{formatDuration(summary.p95Ms)}
+											</td>
+											<td
+												class="px-3 py-2 text-right font-mono {summary.p99Ms !== null &&
+												summary.p99Ms > summary.targetMs
+													? 'text-rose-600 dark:text-rose-400'
+													: 'text-ink-muted dark:text-tavern-muted'}"
+											>
+												{formatDuration(summary.p99Ms)}
+											</td>
+											<td class="px-3 py-2 text-right text-ink-muted dark:text-tavern-muted">
+												{summary.sampleCount}
+											</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{/if}
+				</div>
+
+				<div class="mt-4">
+					<h3 class="text-sm font-semibold text-ink dark:text-tavern-text mb-2">
+						Slowest Recent Operations
+					</h3>
+					<div
+						class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface overflow-hidden"
+					>
+						{#if !systemHealth || slowPerformanceGroups.length === 0}
+							<div class="p-4 text-sm text-ink-muted dark:text-tavern-muted">
+								No recent samples.
+							</div>
+						{:else}
+							<div
+								class="max-h-72 overflow-y-auto divide-y divide-border dark:divide-tavern-border"
+							>
+								{#each slowPerformanceGroups as group (group.operation)}
+									<div class="p-3">
+										<p
+											class="text-xs font-semibold uppercase tracking-wide text-ink-faint dark:text-tavern-faint mb-2"
+										>
+											{group.operation}
+										</p>
+										<ul class="space-y-1">
+											{#each group.samples as sample (sample.at + sample.durationMs)}
+												<li class="flex items-center justify-between text-xs">
+													<span class="text-ink-muted dark:text-tavern-muted">
+														{sample.at} · {sample.source}
+													</span>
+													<span
+														class="font-mono {sample.exceededBudget
+															? 'text-rose-600 dark:text-rose-400'
+															: 'text-ink dark:text-tavern-text'}"
+													>
+														{sample.durationMs.toFixed(1)}ms
+													</span>
+												</li>
+											{/each}
+										</ul>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</div>
+			</section>
+
 			<section>
 				<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">MCP Sidecar Log</h2>
 				<div

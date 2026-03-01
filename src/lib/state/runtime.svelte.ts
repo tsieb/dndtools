@@ -1,5 +1,5 @@
 import { bootstrapApplication, MigrationRequiredError } from '$lib/runtime/bootstrap.js';
-import { reportRuntimeError } from '$lib/runtime/diagnostics.js';
+import { recordPerformanceMeasurement, reportRuntimeError } from '$lib/runtime/diagnostics.js';
 import {
 	runDesktopSchemaMigrations,
 	type DesktopSchemaMigrationReport,
@@ -18,6 +18,13 @@ class RuntimeState {
 		if (this.ready || this.initializing) {
 			return;
 		}
+
+		const measureId = `cold-start-${Date.now()}`;
+		const startMark = `dndtools:${measureId}:start`;
+		const endMark = `dndtools:${measureId}:end`;
+		const measureName = `dndtools:${measureId}:measure`;
+		const startedAt = performance.now();
+		performance.mark(startMark);
 
 		this.initializing = true;
 		this.error = null;
@@ -39,6 +46,24 @@ class RuntimeState {
 				});
 			}
 		} finally {
+			performance.mark(endMark);
+			performance.measure(measureName, startMark, endMark);
+			const measured = performance.getEntriesByName(measureName, 'measure').at(-1);
+			const durationMs = Number(
+				((measured?.duration ?? performance.now() - startedAt) || 0).toFixed(2),
+			);
+			performance.clearMarks(startMark);
+			performance.clearMarks(endMark);
+			performance.clearMeasures(measureName);
+			void recordPerformanceMeasurement({
+				operation: 'cold_start',
+				durationMs,
+				context: {
+					ready: this.ready,
+					migrationRequired: !!this.migrationReport,
+					hadError: this.error !== null,
+				},
+			});
 			this.initializing = false;
 		}
 	}

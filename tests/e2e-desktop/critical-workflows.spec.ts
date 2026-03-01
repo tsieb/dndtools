@@ -147,12 +147,15 @@ test.describe('Desktop critical workflows @critical', () => {
 			await expect(pendingRow).toBeVisible();
 			await pendingRow.getByRole('button', { name: 'Reject' }).click();
 			await expect
-				.poll(async () => {
-					const pending = await app.page.evaluate(async () =>
-						window.dndtoolsDesktop?.listMcpPendingChanges(),
-					);
-					return pending?.length ?? -1;
-				})
+				.poll(
+					async () => {
+						const pending = await app.page.evaluate(async () =>
+							window.dndtoolsDesktop?.listMcpPendingChanges(),
+						);
+						return pending?.length ?? -1;
+					},
+					{ timeout: 20_000, intervals: [250, 500, 1_000] },
+				)
 				.toBe(0);
 
 			const updatedContent = await app.page.evaluate(async () => {

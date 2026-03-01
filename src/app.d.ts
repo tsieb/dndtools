@@ -33,6 +33,43 @@ declare global {
 		context: Record<string, string | number | boolean | null>;
 	}
 
+	type DesktopPerformanceOperation =
+		| 'cold_start'
+		| 'vault_open'
+		| 'note_open'
+		| 'search_response'
+		| 'note_save'
+		| 'graph_rebuild_incremental'
+		| 'mcp_bundle_call';
+
+	interface DesktopPerformanceSummary {
+		operation: DesktopPerformanceOperation;
+		label: string;
+		description: string;
+		targetMs: number;
+		regressionThresholdMs: number;
+		sampleCount: number;
+		p50Ms: number | null;
+		p95Ms: number | null;
+		p99Ms: number | null;
+		averageMs: number | null;
+		maxMs: number | null;
+		lastMs: number | null;
+		lastAt: string | null;
+		exceededBudgetCount: number;
+	}
+
+	interface DesktopPerformanceMeasurement {
+		operation: DesktopPerformanceOperation;
+		durationMs: number;
+		at: string;
+		source: 'renderer' | 'main' | 'mcp';
+		context?: Record<string, string | number | boolean | null>;
+		budgetMs: number;
+		regressionThresholdMs: number;
+		exceededBudget: boolean;
+	}
+
 	interface DesktopSystemHealth {
 		generatedAt: string;
 		lastSuccessful: {
@@ -44,6 +81,11 @@ declare global {
 		recentErrors: DesktopStructuredErrorEvent[];
 		mcpStatus: DesktopMcpStatus;
 		mcpLifecycle: DesktopMcpLifecycleEvent[];
+		performance: {
+			generatedAt: string;
+			summaries: DesktopPerformanceSummary[];
+			timeline: DesktopPerformanceMeasurement[];
+		};
 	}
 
 	interface DesktopMcpChangeRecord {
@@ -298,6 +340,13 @@ declare global {
 				subsystem: 'runtime_bootstrap' | 'vault_sync' | 'search_index' | 'link_graph_build',
 			): Promise<void>;
 			recordDiagnosticsError(event: DesktopStructuredErrorEvent): Promise<void>;
+			recordDiagnosticsPerformance(event: {
+				operation: DesktopPerformanceOperation;
+				durationMs: number;
+				at?: string;
+				source: 'renderer' | 'main' | 'mcp';
+				context?: Record<string, string | number | boolean | null>;
+			}): Promise<void>;
 			exportDiagnosticsBundle(): Promise<{ canceled: boolean; path: string | null }>;
 			refreshVault(): Promise<{ noteCount: number }>;
 			listMcpPendingChanges(): Promise<DesktopMcpChangeRecord[]>;
