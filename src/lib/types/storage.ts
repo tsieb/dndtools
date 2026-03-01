@@ -1,6 +1,7 @@
 import type { Note, NoteId, FolderId, Link, TagEntry } from './note.js';
 import type { AppSettings } from './settings.js';
 import type { SessionBoard, SessionBoardId, RelatedNoteSuggestion } from './session-board.js';
+import type { NoteTemplate, ReusableSnippet } from './template-library.js';
 import type {
 	ObjectLintIssue,
 	ObjectRelationshipGraph,
@@ -78,6 +79,8 @@ export interface StorageAdapter {
 	// Settings
 	getSetting<K extends keyof AppSettings>(key: K): Promise<AppSettings[K]>;
 	setSetting<K extends keyof AppSettings>(key: K, value: AppSettings[K]): Promise<void>;
+	getNoteTemplates(): Promise<NoteTemplate[]>;
+	getReusableSnippets(): Promise<ReusableSnippet[]>;
 	createSafetySnapshot(reason?: string): Promise<SafetySnapshot>;
 	listSafetySnapshots(): Promise<SafetySnapshot[]>;
 	restoreDeletedFromSnapshot(snapshotId: string): Promise<SnapshotRestoreResult>;

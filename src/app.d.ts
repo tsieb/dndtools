@@ -315,6 +315,8 @@ declare global {
 				key: K,
 				value: import('$lib/types/settings.js').AppSettings[K],
 			): Promise<void>;
+			getNoteTemplates(): Promise<import('$lib/types/template-library.js').NoteTemplate[]>;
+			getReusableSnippets(): Promise<import('$lib/types/template-library.js').ReusableSnippet[]>;
 			createSafetySnapshot(reason?: string): Promise<DesktopSafetySnapshot>;
 			listSafetySnapshots(): Promise<DesktopSafetySnapshot[]>;
 			restoreDeletedFromSnapshot(

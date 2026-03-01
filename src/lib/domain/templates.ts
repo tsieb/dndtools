@@ -1,14 +1,21 @@
-export interface NoteTemplate {
-	readonly id: string;
-	readonly name: string;
-	readonly description: string;
-	readonly icon: string;
-	readonly content: string;
-	readonly defaultTags: readonly string[];
-	readonly defaultFolder: string;
+import type { NoteTemplate } from '../types/template-library.js';
+
+interface SeedNoteTemplate {
+	id: string;
+	name: string;
+	description: string;
+	icon: string;
+	content: string;
+	defaultTags: readonly string[];
+	defaultFolder: string;
+	titleTemplate?: string;
 }
 
-export const DND_TEMPLATES: readonly NoteTemplate[] = [
+export type { NoteTemplate };
+
+export const GLOBAL_TEMPLATE_IDS = new Set(['campaign-arc', 'timeline', 'rumor-clue', 'session-recap']);
+
+const DND_TEMPLATE_SEEDS: readonly SeedNoteTemplate[] = [
 	{
 		id: 'npc',
 		name: 'NPC',
@@ -891,3 +898,13 @@ Track which clues players ignored, misread, or weaponized.
 `,
 	},
 ] as const;
+
+export const DND_TEMPLATES: readonly NoteTemplate[] = DND_TEMPLATE_SEEDS.map((template) => {
+	const isGlobal = GLOBAL_TEMPLATE_IDS.has(template.id);
+	return {
+		...template,
+		defaultTags: [...template.defaultTags],
+		scope: isGlobal ? 'global' : 'folder',
+		scopeFolder: isGlobal ? null : template.defaultFolder,
+	};
+});

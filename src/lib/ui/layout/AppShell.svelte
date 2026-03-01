@@ -8,7 +8,7 @@
 	interface Props {
 		onnewnote: () => void;
 		onsearch: () => void;
-		ontemplate: () => void;
+		ontemplate: (folderOverride?: string) => void;
 		onrefresh: () => void;
 		children: Snippet;
 	}

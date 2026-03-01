@@ -20,21 +20,27 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { DND_TEMPLATES, type NoteTemplate } from '$lib/domain/templates.js';
-	import { createNoteId } from '$lib/types/note.js';
+	import { createFolderId, createNoteId } from '$lib/types/note.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
+	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
 	import {
 		buildTemplateContext,
+		getFolderScopedTemplateMatches,
 		renderNoteTemplate,
 		toNewNoteOverrides,
 	} from '$lib/domain/template-automation.js';
 	import type { AppSettings } from '$lib/types/settings.js';
+	import type { NoteTemplate } from '$lib/types/template-library.js';
 
 	let { children } = $props();
 	let quickSwitcherOpen = $state(false);
 	let templateDialogOpen = $state(false);
-	let activeTemplateFolder = $derived.by(() => page.url.searchParams.get('folder'));
+	let templateDialogFolderOverride = $state<string | null>(null);
+	let templateDialogCandidates = $state<readonly NoteTemplate[] | null>(null);
+	let activeTemplateFolder = $derived.by(
+		() => templateDialogFolderOverride ?? page.url.searchParams.get('folder'),
+	);
 
 	function routeLabel(url: URL): string {
 		const { pathname, searchParams } = url;
@@ -61,6 +67,9 @@
 	$effect(() => {
 		if (runtimeState.ready) {
 			void vaultHealthState.refresh();
+			if (!templateLibraryState.loading) {
+				void templateLibraryState.refresh();
+			}
 		}
 	});
 
@@ -116,8 +125,60 @@
 		}
 	});
 
-	async function handleNewNote(): Promise<void> {
-		const note = await notesState.createNote();
+	function normalizeFolderContext(folder: string | null | undefined): string | null {
+		if (!folder) return null;
+		const normalized = folder.trim().replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
+		return normalized ? `/${normalized}` : '/';
+	}
+
+	function resolveFolderContext(folderOverride?: string): string | null {
+		return normalizeFolderContext(folderOverride ?? page.url.searchParams.get('folder'));
+	}
+
+	function openTemplateDialog(
+		folderOverride?: string | null,
+		candidates?: readonly NoteTemplate[],
+	): void {
+		templateDialogFolderOverride = folderOverride ? resolveFolderContext(folderOverride) : null;
+		templateDialogCandidates = candidates ?? null;
+		templateDialogOpen = true;
+	}
+
+	function closeTemplateDialog(): void {
+		templateDialogOpen = false;
+		templateDialogFolderOverride = null;
+		templateDialogCandidates = null;
+	}
+
+	async function createFromTemplate(template: NoteTemplate, folderOverride?: string): Promise<void> {
+		const setting = await loadTemplateContextSetting();
+		const context = buildTemplateContext(setting);
+		const rendered = renderNoteTemplate(template, context, folderOverride);
+		const note = await notesState.createNote(toNewNoteOverrides(rendered));
+		if (shouldAdvanceSessionCounter(template.id)) {
+			await settingsStorageState.saveTemplateContext({
+				...setting,
+				sessionNumber: context.sessionNumber + 1,
+			});
+		}
+		goto(resolve(`/notes/${note.id}/edit`));
+	}
+
+	async function handleNewNote(folderOverride?: string): Promise<void> {
+		const folderContext = resolveFolderContext(folderOverride);
+		const matches = getFolderScopedTemplateMatches(templateLibraryState.templates, folderContext);
+		if (matches.length === 1) {
+			await createFromTemplate(matches[0]!, folderContext ?? undefined);
+			return;
+		}
+		if (matches.length > 1) {
+			openTemplateDialog(folderContext, matches);
+			return;
+		}
+
+		const note = await notesState.createNote(
+			folderContext ? { folder: createFolderId(folderContext) } : undefined,
+		);
 		goto(resolve(`/notes/${note.id}/edit`));
 	}
 
@@ -135,22 +196,13 @@
 		template: NoteTemplate,
 		folderOverride?: string,
 	): Promise<void> {
-		templateDialogOpen = false;
-		const setting = await loadTemplateContextSetting();
-		const context = buildTemplateContext(setting);
-		const rendered = renderNoteTemplate(template, context, folderOverride);
-		const note = await notesState.createNote(toNewNoteOverrides(rendered));
-		if (shouldAdvanceSessionCounter(template.id)) {
-			await settingsStorageState.saveTemplateContext({
-				...setting,
-				sessionNumber: context.sessionNumber + 1,
-			});
-		}
-		goto(resolve(`/notes/${note.id}/edit`));
+		const resolvedFolder = resolveFolderContext(folderOverride) ?? templateDialogFolderOverride ?? undefined;
+		closeTemplateDialog();
+		await createFromTemplate(template, resolvedFolder);
 	}
 
 	async function handleCreateFromTemplateId(templateId: string): Promise<void> {
-		const template = DND_TEMPLATES.find((entry) => entry.id === templateId);
+		const template = templateLibraryState.templates.find((entry) => entry.id === templateId);
 		if (!template) return;
 		await handleTemplateCreate(template);
 	}
@@ -171,6 +223,7 @@
 				searchService.buildIndex(notesState.notes),
 				mcpChangesState.refresh(),
 				sessionBoardsState.loadAll(),
+				templateLibraryState.refresh(),
 			]);
 			await Promise.all([
 				markSubsystemSuccess('vault_sync'),
@@ -223,7 +276,7 @@
 	<AppShell
 		onnewnote={handleNewNote}
 		onsearch={() => (quickSwitcherOpen = true)}
-		ontemplate={() => (templateDialogOpen = true)}
+		ontemplate={openTemplateDialog}
 		onrefresh={handleRefreshVault}
 	>
 		{@render children()}
@@ -236,7 +289,7 @@
 				bind:open={quickSwitcherOpen}
 				onclose={() => (quickSwitcherOpen = false)}
 				onnewnote={handleNewNote}
-				ontemplate={() => (templateDialogOpen = true)}
+				ontemplate={openTemplateDialog}
 				oncreatefromtemplate={(templateId: string) => void handleCreateFromTemplateId(templateId)}
 				onsessionrecap={() => void handleSessionRecapScaffold()}
 			/>
@@ -249,7 +302,9 @@
 			<TemplateDialogModule.default
 				open={templateDialogOpen}
 				activeFolder={activeTemplateFolder}
-				onclose={() => (templateDialogOpen = false)}
+				folderOverride={templateDialogFolderOverride}
+				templates={templateDialogCandidates ?? templateLibraryState.templates}
+				onclose={closeTemplateDialog}
 				oncreate={handleTemplateCreate}
 			/>
 		{/await}

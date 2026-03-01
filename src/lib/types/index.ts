@@ -54,3 +54,5 @@ export { createSessionBoardId } from './session-board.js';
 
 export type { Result } from './result.js';
 export { ok, err, isOk, isErr } from './result.js';
+
+export type { TemplateScope, NoteTemplate, ReusableSnippet } from './template-library.js';

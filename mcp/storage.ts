@@ -10,6 +10,7 @@ import type {
 	SnapshotRestoreResult,
 } from '../src/lib/types/storage.js';
 import type { Note, NoteId, FolderId, Link, TagEntry } from '../src/lib/types/note.js';
+import type { NoteTemplate, ReusableSnippet } from '../src/lib/types/template-library.js';
 import type {
 	SessionBoard,
 	SessionBoardId,
@@ -45,6 +46,8 @@ import { buildObjectRelationshipGraph } from '../src/lib/domain/object-relations
 import { noteToVaultObject, vaultObjectToNote } from '../src/lib/domain/object-notes.js';
 import { lintVaultObjects } from '../src/lib/domain/object-validation.js';
 import { withMcpChangePreview } from '../src/lib/domain/mcp-change-preview.js';
+import { DND_TEMPLATES, GLOBAL_TEMPLATE_IDS } from '../src/lib/domain/templates.js';
+import { REUSABLE_SNIPPETS } from '../src/lib/domain/snippets.js';
 import {
 	CURRENT_SCHEMA_VERSION,
 	getSchemaMigrationReport as getVaultSchemaMigrationReport,
@@ -72,6 +75,19 @@ async function countFiles(dir: string): Promise<number> {
 		}
 	}
 	return count;
+}
+
+function toTitleCaseFromSlug(value: string): string {
+	return value
+		.split(/[-_]+/g)
+		.filter((segment) => segment.length > 0)
+		.map((segment) => segment[0]!.toUpperCase() + segment.slice(1))
+		.join(' ');
+}
+
+function ensureLeadingSlash(value: string): string {
+	const normalized = value.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+	return normalized ? `/${normalized}` : '/';
 }
 
 /** Stored link entry in the vault index */
@@ -572,6 +588,14 @@ export class FileSystemAdapter implements StorageAdapter {
 		return path.join(this.metaDir, 'write-journal.json');
 	}
 
+	private get templatesDir(): string {
+		return path.join(this.metaDir, 'templates');
+	}
+
+	private get snippetsDir(): string {
+		return path.join(this.metaDir, 'snippets');
+	}
+
 	private metadataFiles(): Array<{
 		name: MetadataFileName;
 		filePath: string;
@@ -1066,6 +1090,92 @@ export class FileSystemAdapter implements StorageAdapter {
 		}
 	}
 
+	private async pathExists(targetPath: string): Promise<boolean> {
+		try {
+			await fs.access(targetPath);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	private async listMarkdownFilesInDir(rootDir: string): Promise<string[]> {
+		const results: string[] = [];
+
+		const walk = async (dir: string): Promise<void> => {
+			let entries: Dirent[];
+			try {
+				entries = await fs.readdir(dir, { withFileTypes: true });
+			} catch {
+				return;
+			}
+
+			for (const entry of entries) {
+				const fullPath = path.join(dir, entry.name);
+				if (entry.isDirectory()) {
+					await walk(fullPath);
+					continue;
+				}
+				if (!entry.isFile()) continue;
+				if (!entry.name.toLowerCase().endsWith('.md')) continue;
+				results.push(fullPath);
+			}
+		};
+
+		await walk(rootDir);
+		results.sort((a, b) => a.localeCompare(b));
+		return results;
+	}
+
+	private templateSeedFilePath(template: NoteTemplate): string {
+		const folder =
+			template.scope === 'global' || GLOBAL_TEMPLATE_IDS.has(template.id)
+				? 'global'
+				: String(template.defaultFolder).replace(/^\/+/, '');
+		return path.join(this.templatesDir, folder, `${template.id}.md`);
+	}
+
+	private async writeTextFileIfMissing(filePath: string, content: string): Promise<void> {
+		if (await this.pathExists(filePath)) return;
+		await fs.mkdir(path.dirname(filePath), { recursive: true });
+		const normalizedContent = content.endsWith('\n') ? content : `${content}\n`;
+		await writeFileAtomic(filePath, normalizedContent);
+	}
+
+	private async seedTemplateAndSnippetLibraryIfEmpty(): Promise<void> {
+		await fs.mkdir(this.templatesDir, { recursive: true });
+		await fs.mkdir(this.snippetsDir, { recursive: true });
+
+		const [templateFiles, snippetFiles] = await Promise.all([
+			this.listMarkdownFilesInDir(this.templatesDir),
+			this.listMarkdownFilesInDir(this.snippetsDir),
+		]);
+
+		if (templateFiles.length === 0) {
+			for (const template of DND_TEMPLATES) {
+				await this.writeTextFileIfMissing(this.templateSeedFilePath(template), template.content);
+			}
+		}
+
+		if (snippetFiles.length === 0) {
+			for (const snippet of REUSABLE_SNIPPETS) {
+				await this.writeTextFileIfMissing(
+					path.join(this.snippetsDir, `${snippet.id}.md`),
+					snippet.content,
+				);
+			}
+		}
+	}
+
+	private parseTemplateScope(relativePath: string): { scope: 'global' | 'folder'; scopeFolder: string | null } {
+		const normalized = relativePath.replace(/\\/g, '/');
+		const folder = path.posix.dirname(normalized);
+		if (folder === '.' || folder === '' || folder === 'global' || folder.startsWith('global/')) {
+			return { scope: 'global', scopeFolder: null };
+		}
+		return { scope: 'folder', scopeFolder: ensureLeadingSlash(folder) };
+	}
+
 	// --- File I/O ---
 
 	/** Read a markdown file and parse into a Note */
@@ -1417,6 +1527,7 @@ export class FileSystemAdapter implements StorageAdapter {
 	async initialize(): Promise<void> {
 		await fs.mkdir(this.vaultDir, { recursive: true });
 		await fs.mkdir(this.metaDir, { recursive: true });
+		await this.seedTemplateAndSnippetLibraryIfEmpty();
 		const migrationReport = await this.runSchemaMigrations({
 			dryRun: false,
 			createCheckpoint: true,
@@ -2051,6 +2162,92 @@ export class FileSystemAdapter implements StorageAdapter {
 			settings[key] = value;
 			await this.writeSettingsMetadata(settings);
 		});
+	}
+
+	async getNoteTemplates(): Promise<NoteTemplate[]> {
+		await this.seedTemplateAndSnippetLibraryIfEmpty();
+		const templateFiles = await this.listMarkdownFilesInDir(this.templatesDir);
+		const builtInById = new Map(DND_TEMPLATES.map((template) => [template.id, template]));
+		const usedIds = new Set<string>();
+		const templates: NoteTemplate[] = [];
+
+		for (const filePath of templateFiles) {
+			const content = await fs.readFile(filePath, 'utf-8');
+			const relativePath = path.relative(this.templatesDir, filePath).replace(/\\/g, '/');
+			const baseId = path.basename(filePath, '.md');
+			const { scope, scopeFolder } = this.parseTemplateScope(relativePath);
+			const builtIn = builtInById.get(baseId);
+			const fallbackFolder = scopeFolder ?? '/';
+
+			let id = baseId;
+			if (usedIds.has(id)) {
+				const slug = slugify(relativePath.replace(/\.md$/i, '').replace(/\//g, '-'));
+				id = slug || `${baseId}-${templates.length + 1}`;
+			}
+			let collisionCounter = 2;
+			while (usedIds.has(id)) {
+				id = `${baseId}-${collisionCounter}`;
+				collisionCounter += 1;
+			}
+			usedIds.add(id);
+
+			templates.push({
+				id,
+				name: builtIn?.name ?? (toTitleCaseFromSlug(baseId) || baseId),
+				description:
+					builtIn?.description ??
+					(scope === 'global'
+						? 'Global note template'
+						: `Template scoped to ${scopeFolder ?? fallbackFolder}`),
+				icon: builtIn?.icon ?? 'T',
+				content,
+				defaultTags: builtIn ? [...builtIn.defaultTags] : [],
+				defaultFolder: builtIn?.defaultFolder ?? fallbackFolder,
+				scope,
+				scopeFolder,
+				titleTemplate: builtIn?.titleTemplate,
+				sourcePath: relativePath,
+			});
+		}
+
+		return templates.sort((a, b) => a.name.localeCompare(b.name));
+	}
+
+	async getReusableSnippets(): Promise<ReusableSnippet[]> {
+		await this.seedTemplateAndSnippetLibraryIfEmpty();
+		const snippetFiles = await this.listMarkdownFilesInDir(this.snippetsDir);
+		const builtInById = new Map(REUSABLE_SNIPPETS.map((snippet) => [snippet.id, snippet]));
+		const usedIds = new Set<string>();
+		const snippets: ReusableSnippet[] = [];
+
+		for (const filePath of snippetFiles) {
+			const content = await fs.readFile(filePath, 'utf-8');
+			const relativePath = path.relative(this.snippetsDir, filePath).replace(/\\/g, '/');
+			const baseId = path.basename(filePath, '.md');
+			const builtIn = builtInById.get(baseId);
+
+			let id = baseId;
+			if (usedIds.has(id)) {
+				const slug = slugify(relativePath.replace(/\.md$/i, '').replace(/\//g, '-'));
+				id = slug || `${baseId}-${snippets.length + 1}`;
+			}
+			let collisionCounter = 2;
+			while (usedIds.has(id)) {
+				id = `${baseId}-${collisionCounter}`;
+				collisionCounter += 1;
+			}
+			usedIds.add(id);
+
+			snippets.push({
+				id,
+				name: builtIn?.name ?? (toTitleCaseFromSlug(baseId) || baseId),
+				description: builtIn?.description ?? 'Reusable snippet',
+				content,
+				sourcePath: relativePath,
+			});
+		}
+
+		return snippets.sort((a, b) => a.name.localeCompare(b.name));
 	}
 
 	async createSafetySnapshot(reason = 'manual'): Promise<SafetySnapshot> {

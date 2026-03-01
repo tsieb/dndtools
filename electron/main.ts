@@ -688,6 +688,14 @@ ipcMain.handle(
 	},
 );
 
+ipcMain.handle('dndtools:storage:get-note-templates', async () => {
+	return requireStorage().getNoteTemplates();
+});
+
+ipcMain.handle('dndtools:storage:get-reusable-snippets', async () => {
+	return requireStorage().getReusableSnippets();
+});
+
 ipcMain.handle('dndtools:storage:create-safety-snapshot', async (_event, rawReason: unknown) => {
 	const reason = parseIpcArg(snapshotReasonSchema, rawReason, 'storage:create-safety-snapshot');
 	return requireStorage().createSafetySnapshot(reason);

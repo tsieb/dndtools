@@ -42,6 +42,8 @@ contextBridge.exposeInMainWorld('dndtoolsDesktop', {
 	getSetting: (key: string) => ipcRenderer.invoke('dndtools:storage:get-setting', key),
 	setSetting: (key: string, value: unknown) =>
 		ipcRenderer.invoke('dndtools:storage:set-setting', key, value),
+	getNoteTemplates: () => ipcRenderer.invoke('dndtools:storage:get-note-templates'),
+	getReusableSnippets: () => ipcRenderer.invoke('dndtools:storage:get-reusable-snippets'),
 	createSafetySnapshot: (reason?: string) =>
 		ipcRenderer.invoke('dndtools:storage:create-safety-snapshot', reason),
 	listSafetySnapshots: () => ipcRenderer.invoke('dndtools:storage:list-safety-snapshots'),

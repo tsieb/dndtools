@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { DND_TEMPLATES } from './templates.js';
 import {
 	buildTemplateContext,
+	getFolderScopedTemplateMatches,
 	getScopedTemplates,
+	getTemplateVariableReference,
 	renderNoteTemplate,
 	renderTemplateVariables,
 	resolveTemplateTitle,
@@ -30,7 +32,7 @@ describe('template automation', () => {
 	});
 
 	it('assigns global and folder-scoped templates', () => {
-		const scoped = getScopedTemplates('/sessions');
+		const scoped = getScopedTemplates(DND_TEMPLATES, '/sessions');
 		expect(scoped.some((entry) => entry.scope === 'global')).toBe(true);
 		expect(
 			scoped.some((entry) => entry.scope === 'folder' && entry.scopeFolder === '/sessions'),
@@ -53,5 +55,18 @@ describe('template automation', () => {
 		expect(title).toContain('Session 12 Recap');
 		expect(rendered.content).toContain('Red Hand');
 		expect(rendered.content).toContain('Bryn');
+	});
+
+	it('matches only folder-scoped templates for automatic new-note flow', () => {
+		const matches = getFolderScopedTemplateMatches(DND_TEMPLATES, '/sessions');
+		expect(matches.length).toBeGreaterThan(0);
+		expect(matches.every((entry) => entry.scope === 'folder')).toBe(true);
+		expect(matches.every((entry) => entry.scopeFolder === '/sessions')).toBe(true);
+	});
+
+	it('exposes a template variable reference table', () => {
+		const reference = getTemplateVariableReference();
+		expect(reference.map((entry) => entry.key)).toContain('{{campaign_name}}');
+		expect(reference.map((entry) => entry.key)).toContain('{{character_names_bullets}}');
 	});
 });
