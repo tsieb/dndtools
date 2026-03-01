@@ -4,6 +4,7 @@
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import NoteViewer from '$lib/ui/viewer/NoteViewer.svelte';
+	import ObjectRelationshipPanel from '$lib/ui/viewer/ObjectRelationshipPanel.svelte';
 	import NoteHeader from '$lib/ui/viewer/NoteHeader.svelte';
 	import BacklinksPanel from '$lib/ui/viewer/BacklinksPanel.svelte';
 	import RelatedNoteJumps from '$lib/ui/viewer/RelatedNoteJumps.svelte';
@@ -137,6 +138,7 @@
 			</div>
 		</div>
 		<NoteViewer {note} />
+		<ObjectRelationshipPanel {note} />
 		<RelatedNoteJumps noteId={data.noteId} />
 		<BacklinksPanel noteId={data.noteId} />
 	</div>

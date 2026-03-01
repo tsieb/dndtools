@@ -6,6 +6,7 @@ function issue(
 	message: string,
 	severity: 'error' | 'warning',
 	field?: string,
+	suggestedFix?: string,
 ): ObjectLintIssue {
 	return {
 		objectId: object.id,
@@ -13,16 +14,106 @@ function issue(
 		message,
 		severity,
 		field,
+		suggestedFix,
 	};
+}
+
+function canonicalName(value: string): string {
+	return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function hierarchyAdjacency(objects: VaultObject[]): Map<string, Set<string>> {
+	const ids = new Set(objects.map((object) => String(object.id)));
+	const adjacency = new Map<string, Set<string>>();
+
+	for (const object of objects) {
+		const fromId = String(object.id);
+		if (!adjacency.has(fromId)) adjacency.set(fromId, new Set());
+
+		for (const relationship of object.relationships) {
+			if (!relationship.targetId) continue;
+			const targetId = String(relationship.targetId);
+			if (!ids.has(targetId)) continue;
+
+			if (relationship.type === 'child') {
+				(adjacency.get(fromId) ?? new Set()).add(targetId);
+				continue;
+			}
+			if (relationship.type === 'parent') {
+				if (!adjacency.has(targetId)) adjacency.set(targetId, new Set());
+				(adjacency.get(targetId) ?? new Set()).add(fromId);
+			}
+		}
+	}
+
+	return adjacency;
+}
+
+function detectHierarchyCycles(objects: VaultObject[]): Set<string> {
+	const adjacency = hierarchyAdjacency(objects);
+	const state = new Map<string, 0 | 1 | 2>();
+	const stack: string[] = [];
+	const cycleIds = new Set<string>();
+
+	const visit = (id: string): void => {
+		state.set(id, 1);
+		stack.push(id);
+
+		for (const next of adjacency.get(id) ?? []) {
+			const nextState = state.get(next) ?? 0;
+			if (nextState === 0) {
+				visit(next);
+				continue;
+			}
+			if (nextState === 1) {
+				const start = stack.lastIndexOf(next);
+				const cyclePath = start >= 0 ? stack.slice(start) : [next];
+				for (const cycleId of cyclePath) {
+					cycleIds.add(cycleId);
+				}
+			}
+		}
+
+		stack.pop();
+		state.set(id, 2);
+	};
+
+	for (const object of objects) {
+		const id = String(object.id);
+		if ((state.get(id) ?? 0) === 0) {
+			visit(id);
+		}
+	}
+
+	return cycleIds;
 }
 
 export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 	const byId = new Set(objects.map((object) => String(object.id)));
 	const lint: ObjectLintIssue[] = [];
+	const names = new Map<string, VaultObject[]>();
+	const cyclicHierarchyObjectIds = detectHierarchyCycles(objects);
+
+	for (const object of objects) {
+		const key = canonicalName(object.name);
+		if (!key) continue;
+		const bucket = names.get(key) ?? [];
+		bucket.push(object);
+		names.set(key, bucket);
+	}
 
 	for (const object of objects) {
 		if (!object.name.trim()) {
-			lint.push(issue(object, 'object.name_required', 'Object name is required.', 'error', 'name'));
+			lint.push(
+				issue(
+					object,
+					'object.name_required',
+					'Object name is required.',
+					'error',
+					'name',
+					'Set a unique display name.',
+				),
+			);
 		}
 
 		for (const [index, relationship] of object.relationships.entries()) {
@@ -34,6 +125,7 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 						'Relationship must include a target object id or session id.',
 						'error',
 						`relationships[${index}]`,
+						'Set a valid target id/session id or remove this relationship.',
 					),
 				);
 				continue;
@@ -46,9 +138,37 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 						`Relationship target "${String(relationship.targetId)}" does not exist.`,
 						'error',
 						`relationships[${index}].targetId`,
+						'Remove the broken relationship or select a valid target object.',
 					),
 				);
 			}
+		}
+
+		if (cyclicHierarchyObjectIds.has(String(object.id))) {
+			lint.push(
+				issue(
+					object,
+					'object.parent_child_cycle',
+					'Parent/child hierarchy contains a cycle.',
+					'error',
+					'relationships',
+					'Remove at least one parent/child edge in this chain.',
+				),
+			);
+		}
+
+		const duplicateBucket = names.get(canonicalName(object.name));
+		if (duplicateBucket && duplicateBucket.length > 1) {
+			lint.push(
+				issue(
+					object,
+					'object.duplicate_canonical_name',
+					`Another object has the same canonical name "${object.name.trim()}".`,
+					'warning',
+					'name',
+					'Rename this object to a unique canonical name.',
+				),
+			);
 		}
 
 		switch (object.type) {
@@ -61,6 +181,7 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 							'Creature type is required for stat blocks.',
 							'error',
 							'data.creatureType',
+							'Provide creature type.',
 						),
 					);
 				}
@@ -72,6 +193,7 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 							'Hit points are required for stat blocks.',
 							'warning',
 							'data.hitPoints',
+							'Provide hit points.',
 						),
 					);
 				}
@@ -84,6 +206,8 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 							'character.identity_recommended',
 							'Add ancestry or class to improve character card quality.',
 							'warning',
+							undefined,
+							'Add ancestry and/or class.',
 						),
 					);
 				}
@@ -97,6 +221,7 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 							'Image URL is required for image objects.',
 							'error',
 							'data.url',
+							'Provide an image URL or file URI.',
 						),
 					);
 				}
@@ -104,7 +229,14 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 			case 'npc':
 				if (!object.data.role?.trim()) {
 					lint.push(
-						issue(object, 'npc.role_required', 'NPC role is required.', 'error', 'data.role'),
+						issue(
+							object,
+							'npc.role_required',
+							'NPC role is required.',
+							'error',
+							'data.role',
+							'Provide role (for example: ally, rival, merchant).',
+						),
 					);
 				}
 				break;
@@ -117,6 +249,7 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 							'Location type is required.',
 							'error',
 							'data.locationType',
+							'Provide a location type.',
 						),
 					);
 				}
@@ -130,6 +263,7 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 							'Faction type is required.',
 							'error',
 							'data.factionType',
+							'Provide a faction type.',
 						),
 					);
 				}
@@ -143,6 +277,7 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 							'Quest objective is required.',
 							'error',
 							'data.objective',
+							'Provide a quest objective.',
 						),
 					);
 				}
@@ -150,7 +285,14 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 			case 'item':
 				if (!object.data.itemType?.trim()) {
 					lint.push(
-						issue(object, 'item.type_required', 'Item type is required.', 'error', 'data.itemType'),
+						issue(
+							object,
+							'item.type_required',
+							'Item type is required.',
+							'error',
+							'data.itemType',
+							'Provide an item type.',
+						),
 					);
 				}
 				break;
@@ -163,6 +305,7 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 							'Encounter objective is required.',
 							'error',
 							'data.objective',
+							'Provide an encounter objective.',
 						),
 					);
 				}
@@ -176,6 +319,7 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 							'Timeline event date is required.',
 							'error',
 							'data.date',
+							'Provide an in-world date.',
 						),
 					);
 				}
@@ -187,6 +331,7 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 							'Timeline event summary is required.',
 							'error',
 							'data.summary',
+							'Provide a concise event summary.',
 						),
 					);
 				}

@@ -14,6 +14,7 @@ export function buildObjectRelationshipGraph(objects: VaultObject[]): ObjectRela
 			object.relationships.map((relationship) => ({
 				fromId: object.id,
 				type: relationship.type,
+				label: relationship.label,
 				toId: relationship.targetId,
 				sessionId: relationship.sessionId,
 				description: relationship.description,

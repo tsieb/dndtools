@@ -609,6 +609,15 @@ describe('Additional validation edge cases', () => {
 			expect(result.success).toBe(false);
 		});
 
+		it('accepts custom relationship labels when type is custom', () => {
+			const result = vaultObjectSchema.safeParse(
+				makeMinimalObject({
+					relationships: [{ type: 'custom', label: 'mentor', targetId: 'obj-123' }],
+				}),
+			);
+			expect(result.success).toBe(true);
+		});
+
 		it('rejects an object with an unknown type', () => {
 			const result = vaultObjectSchema.safeParse(makeMinimalObject({ type: 'deity' }));
 			expect(result.success).toBe(false);

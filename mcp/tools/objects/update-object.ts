@@ -20,6 +20,7 @@ import {
 import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
 import { errorResult, jsonResult } from '../shared/response.js';
 import { objectSummary } from '../shared/object-summary.js';
+import { objectRelationshipSchema } from '../shared/object-schema.js';
 
 export function registerUpdateObjectTool(server: McpServer, storage: FileSystemAdapter): void {
 	server.tool(
@@ -30,16 +31,7 @@ export function registerUpdateObjectTool(server: McpServer, storage: FileSystemA
 			name: z.string().optional(),
 			summary: z.string().optional(),
 			tags: z.array(z.string()).optional(),
-			relationships: z
-				.array(
-					z.object({
-						type: z.enum(['parent', 'child', 'ally', 'enemy', 'appears_in_session']),
-						targetId: z.string().optional(),
-						sessionId: z.string().optional(),
-						description: z.string().optional(),
-					}),
-				)
-				.optional(),
+			relationships: z.array(objectRelationshipSchema).optional(),
 			data: z.record(z.string(), z.unknown()).optional(),
 			dataMode: z.enum(['merge', 'replace']).optional().default('merge'),
 		},

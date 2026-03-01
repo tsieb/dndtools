@@ -21,8 +21,8 @@
 		byId: Map<string, VaultObject>;
 	}
 
-	const OBJECT_CACHE_TTL_MS = 10_000;
-	const OBJECT_EMBED_MARKER = '![[obj:';
+const OBJECT_CACHE_TTL_MS = 10_000;
+const OBJECT_EMBED_MARKER = '[[obj:';
 	let objectCache: { index: ObjectIndex; loadedAt: number } | null = null;
 	let objectCachePromise: Promise<ObjectIndex> | null = null;
 
@@ -86,9 +86,11 @@
 						? { href: `/notes/${targetId}`, exists: true }
 						: { href: `/notes?create=${encodeURIComponent(title)}`, exists: false };
 				},
-				resolveObject: (type, id) =>
-					noteObjectIndex.byKey.get(`${type}:${id}`) ??
-					storageObjectIndex.byKey.get(`${type}:${id}`) ??
+				resolveObject: ({ type, id }) =>
+					(type
+						? noteObjectIndex.byKey.get(`${type}:${id}`) ??
+							storageObjectIndex.byKey.get(`${type}:${id}`)
+						: noteObjectIndex.byId.get(String(id)) ?? storageObjectIndex.byId.get(String(id))) ??
 					null,
 				resolveNote: ({ target, targetBy }) => {
 					const resolved =

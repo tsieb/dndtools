@@ -4,7 +4,7 @@ import type { FileSystemAdapter } from '../../storage.js';
 import { createNoteId } from '../../../src/lib/types/note.js';
 import { createVaultObjectId } from '../../../src/lib/types/object.js';
 import { nowISO } from '../../../src/lib/utils/date.js';
-import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
+import { formatObjectEmbed } from '../../../src/lib/domain/object-embeds.js';
 import { errorResult, jsonResult } from '../shared/response.js';
 import { applyEmbedAtPosition, wouldCreateEmbedCycle } from '../shared/embed-note.js';
 
@@ -42,7 +42,7 @@ export function registerEmbedObjectInNoteTool(server: McpServer, storage: FileSy
 				);
 			}
 
-			const embed = formatNoteEmbed({ id: object.id }, label ?? object.name, {
+			const embed = formatObjectEmbed(String(object.id), label ?? object.name, {
 				view: renderView,
 				open,
 				maxDepth,

@@ -5,9 +5,21 @@ import {
 } from '$lib/types/object.js';
 import type { NoteId } from '$lib/types/note.js';
 
-const OBJECT_EMBED_REGEX =
-	/!\[\[obj:(stat_block|character|image|npc|location|faction|quest|item|encounter|timeline_event):([A-Za-z0-9_-]+)(?:\|([^\]]+))?\]\]/g;
+const OBJECT_EMBED_TOKEN_REGEX = /!?\[\[([^\]]+)\]\]/g;
 const NOTE_EMBED_REGEX = /!\[\[([^\]]+)\]\]/g;
+const OBJECT_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+const OBJECT_TYPES = new Set<VaultObjectType>([
+	'stat_block',
+	'character',
+	'image',
+	'npc',
+	'location',
+	'faction',
+	'quest',
+	'item',
+	'encounter',
+	'timeline_event',
+]);
 
 export type EmbedRenderView = 'card' | 'inline' | 'content';
 
@@ -57,9 +69,37 @@ export function parseEmbedRenderOptions(raw: string | undefined): EmbedRenderOpt
 	return options;
 }
 
-export function formatObjectEmbed(type: VaultObjectType, id: string, label?: string): string {
+function formatEmbedOptions(options?: EmbedRenderOptions): string[] {
+	if (!options) return [];
+	const optionParts: string[] = [];
+	if (options.view) optionParts.push(`view=${options.view}`);
+	if (typeof options.open === 'boolean') {
+		optionParts.push(`open=${options.open ? 'true' : 'false'}`);
+	}
+	if (typeof options.maxDepth === 'number' && Number.isFinite(options.maxDepth)) {
+		optionParts.push(`maxDepth=${Math.max(1, Math.trunc(options.maxDepth))}`);
+	}
+	return optionParts;
+}
+
+export function formatObjectEmbed(
+	id: string,
+	label?: string,
+	options?: EmbedRenderOptions,
+): string {
 	const cleanLabel = label?.trim();
-	return cleanLabel ? `![[obj:${type}:${id}|${cleanLabel}]]` : `![[obj:${type}:${id}]]`;
+	const optionParts = formatEmbedOptions(options);
+
+	if (cleanLabel && optionParts.length > 0) {
+		return `[[obj:${id}|${cleanLabel}|${optionParts.join(',')}]]`;
+	}
+	if (cleanLabel) {
+		return `[[obj:${id}|${cleanLabel}]]`;
+	}
+	if (optionParts.length > 0) {
+		return `[[obj:${id}|${optionParts.join(',')}]]`;
+	}
+	return `[[obj:${id}]]`;
 }
 
 export function formatNoteEmbed(
@@ -73,13 +113,7 @@ export function formatNoteEmbed(
 	}
 
 	const cleanLabel = label?.trim();
-	const optionParts: string[] = [];
-	if (options?.view) optionParts.push(`view=${options.view}`);
-	if (typeof options?.open === 'boolean')
-		optionParts.push(`open=${options.open ? 'true' : 'false'}`);
-	if (typeof options?.maxDepth === 'number' && Number.isFinite(options.maxDepth)) {
-		optionParts.push(`maxDepth=${Math.max(1, Math.trunc(options.maxDepth))}`);
-	}
+	const optionParts = formatEmbedOptions(options);
 
 	if (cleanLabel && optionParts.length > 0) {
 		return `![[${targetText}|${cleanLabel}|${optionParts.join(',')}]]`;
@@ -93,20 +127,45 @@ export function formatNoteEmbed(
 	return `![[${targetText}]]`;
 }
 
+function parseObjectTarget(
+	target: string,
+): { type?: VaultObjectType; id: string } | null {
+	const parts = target.split(':').map((segment) => segment.trim());
+	if (parts[0] !== 'obj') return null;
+
+	if (parts.length === 3) {
+		const maybeType = parts[1];
+		const id = parts[2];
+		if (!maybeType || !id || !OBJECT_TYPES.has(maybeType as VaultObjectType)) return null;
+		if (!OBJECT_ID_PATTERN.test(id)) return null;
+		return { type: maybeType as VaultObjectType, id };
+	}
+
+	if (parts.length === 2) {
+		const id = parts[1];
+		if (!id || !OBJECT_ID_PATTERN.test(id)) return null;
+		return { id };
+	}
+
+	return null;
+}
+
 export function extractObjectEmbeds(content: string): ObjectEmbedRef[] {
 	const embeds: ObjectEmbedRef[] = [];
 	let match: RegExpExecArray | null;
-	OBJECT_EMBED_REGEX.lastIndex = 0;
+	OBJECT_EMBED_TOKEN_REGEX.lastIndex = 0;
 
-	while ((match = OBJECT_EMBED_REGEX.exec(content)) !== null) {
-		const rawType = match[1];
-		const rawId = match[2];
-		if (!rawType || !rawId) continue;
+	while ((match = OBJECT_EMBED_TOKEN_REGEX.exec(content)) !== null) {
+		const inner = (match[1] ?? '').trim();
+		if (!inner) continue;
+		const [targetSpec, rawLabel] = inner.split('|');
+		const parsed = parseObjectTarget(targetSpec?.trim() ?? '');
+		if (!parsed) continue;
 
 		embeds.push({
-			type: rawType as VaultObjectType,
-			id: createVaultObjectId(rawId),
-			label: match[3]?.trim() || undefined,
+			type: parsed.type,
+			id: createVaultObjectId(parsed.id),
+			label: rawLabel?.trim() || undefined,
 			position: match.index,
 		});
 	}
@@ -160,6 +219,9 @@ export function extractNoteEmbeds(content: string): NoteEmbedRef[] {
 }
 
 export function isObjectEmbedToken(value: string): boolean {
-	OBJECT_EMBED_REGEX.lastIndex = 0;
-	return OBJECT_EMBED_REGEX.test(value.trim());
+	const trimmed = value.trim();
+	const match = /^!?\[\[([^\]]+)\]\]$/.exec(trimmed);
+	if (!match?.[1]) return false;
+	const [targetSpec] = match[1].split('|');
+	return parseObjectTarget(targetSpec?.trim() ?? '') !== null;
 }

@@ -1,5 +1,6 @@
 import type {
 	AbilityScores,
+	BaseObjectRelationshipType,
 	EncounterData,
 	FactionData,
 	CharacterData,
@@ -120,14 +121,24 @@ function normalizeStringList(value: unknown): string[] {
 		: [];
 }
 
+const CORE_RELATIONSHIP_TYPES = new Set<BaseObjectRelationshipType>([
+	'parent',
+	'child',
+	'ally',
+	'enemy',
+	'appears_in_session',
+]);
+
 function normalizeRelationshipType(value: unknown): ObjectRelationshipType | null {
-	return value === 'parent' ||
-		value === 'child' ||
-		value === 'ally' ||
-		value === 'enemy' ||
-		value === 'appears_in_session'
-		? value
-		: null;
+	if (typeof value !== 'string') return null;
+	const normalized = value.trim().toLowerCase();
+	if (!normalized) return null;
+	if (normalized === 'custom') return 'custom';
+	if (CORE_RELATIONSHIP_TYPES.has(normalized as BaseObjectRelationshipType)) {
+		return normalized as BaseObjectRelationshipType;
+	}
+	// Unknown relationship identifiers are preserved as custom labels.
+	return 'custom';
 }
 
 export function normalizeObjectRelationships(value: unknown): ObjectRelationship[] {
@@ -136,8 +147,20 @@ export function normalizeObjectRelationships(value: unknown): ObjectRelationship
 	for (const entry of value) {
 		if (typeof entry !== 'object' || entry === null) continue;
 		const source = entry as Record<string, unknown>;
-		const type = normalizeRelationshipType(source.type);
+		const rawType = typeof source.type === 'string' ? source.type.trim() : '';
+		const type = normalizeRelationshipType(rawType);
 		if (!type) continue;
+		const explicitLabel =
+			typeof source.label === 'string' && source.label.trim() ? source.label.trim() : undefined;
+		const implicitLabel =
+			type === 'custom' &&
+			rawType &&
+			rawType.toLowerCase() !== 'custom' &&
+			!CORE_RELATIONSHIP_TYPES.has(rawType.toLowerCase() as BaseObjectRelationshipType)
+				? rawType
+				: undefined;
+		const label = type === 'custom' ? explicitLabel ?? implicitLabel : undefined;
+		if (type === 'custom' && !label) continue;
 
 		const targetId =
 			typeof source.targetId === 'string' && source.targetId.trim()
@@ -153,7 +176,7 @@ export function normalizeObjectRelationships(value: unknown): ObjectRelationship
 				: undefined;
 		if (!targetId && !sessionId) continue;
 
-		normalized.push({ type, targetId, sessionId, description });
+		normalized.push({ type, label, targetId, sessionId, description });
 	}
 	return normalized;
 }

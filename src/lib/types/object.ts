@@ -12,10 +12,18 @@ export type VaultObjectType =
 	| 'encounter'
 	| 'timeline_event';
 
-export type ObjectRelationshipType = 'parent' | 'child' | 'ally' | 'enemy' | 'appears_in_session';
+export type BaseObjectRelationshipType =
+	| 'parent'
+	| 'child'
+	| 'ally'
+	| 'enemy'
+	| 'appears_in_session';
+
+export type ObjectRelationshipType = BaseObjectRelationshipType | 'custom';
 
 export interface ObjectRelationship {
 	type: ObjectRelationshipType;
+	label?: string;
 	targetId?: VaultObjectId;
 	sessionId?: string;
 	description?: string;
@@ -191,6 +199,7 @@ export interface ObjectGraphNode {
 export interface ObjectGraphEdge {
 	fromId: VaultObjectId;
 	type: ObjectRelationshipType;
+	label?: string;
 	toId?: VaultObjectId;
 	sessionId?: string;
 	description?: string;
@@ -210,6 +219,7 @@ export interface ObjectLintIssue {
 	message: string;
 	severity: ObjectLintSeverity;
 	field?: string;
+	suggestedFix?: string;
 }
 
 export interface VaultObjectHistoryEntry {
@@ -221,7 +231,7 @@ export interface VaultObjectHistoryEntry {
 }
 
 export interface ObjectEmbedRef {
-	type: VaultObjectType;
+	type?: VaultObjectType;
 	id: VaultObjectId;
 	label?: string;
 	position: number;

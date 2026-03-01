@@ -749,6 +749,15 @@ html.dark .object-embed__badge {
 	color: var(--color-ink);
 }
 
+.object-embed__title-link {
+	text-decoration: none;
+}
+
+.object-embed__title-link:hover,
+.object-embed__title-link:focus-visible {
+	text-decoration: underline;
+}
+
 html.dark .object-embed__title {
 	color: var(--color-tavern-text);
 }

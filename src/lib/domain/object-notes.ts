@@ -174,7 +174,11 @@ function buildObjectMarkdown(
 							? `obj:${relationship.targetId}`
 							: `session:${relationship.sessionId ?? 'unknown'}`;
 						const suffix = relationship.description ? ` - ${relationship.description}` : '';
-						return `- ${relationship.type}: ${target}${suffix}`;
+						const typeLabel =
+							relationship.type === 'custom'
+								? (relationship.label ?? 'custom')
+								: relationship.type;
+						return `- ${typeLabel}: ${target}${suffix}`;
 					}),
 				]
 			: [];

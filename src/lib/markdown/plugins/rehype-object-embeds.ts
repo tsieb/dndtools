@@ -24,7 +24,7 @@ interface HastRoot {
 
 interface ObjectEmbedMatch {
 	kind: 'object';
-	type: VaultObjectType;
+	type?: VaultObjectType;
 	id: string;
 	label?: string;
 	options: EmbedRenderOptions;
@@ -51,7 +51,7 @@ export interface ResolvedNoteEmbed {
 	cycleDetected?: boolean;
 }
 
-const EMBED_TOKEN_REGEX = /!\[\[([^\]]+)\]\]/g;
+const EMBED_TOKEN_REGEX = /!?\[\[([^\]]+)\]\]/g;
 
 export interface RehypeObjectEmbedsOptions {
 	resolveObject?: (match: ObjectEmbedMatch) => VaultObject | null | undefined;
@@ -334,29 +334,43 @@ function parseEmbedToken(inner: string): EmbedMatch | null {
 
 	if (target.startsWith('obj:')) {
 		const parts = target.split(':');
-		const type = parts[1];
-		const id = parts[2];
-		if (!type || !id) return null;
-		if (
-			type !== 'stat_block' &&
-			type !== 'character' &&
-			type !== 'image' &&
-			type !== 'npc' &&
-			type !== 'location' &&
-			type !== 'faction' &&
-			type !== 'quest' &&
-			type !== 'item' &&
-			type !== 'encounter' &&
-			type !== 'timeline_event'
-		)
-			return null;
-		return {
-			kind: 'object',
-			type,
-			id,
-			label,
-			options,
-		};
+		if (parts.length === 3) {
+			const type = parts[1];
+			const id = parts[2];
+			if (!type || !id) return null;
+			if (
+				type !== 'stat_block' &&
+				type !== 'character' &&
+				type !== 'image' &&
+				type !== 'npc' &&
+				type !== 'location' &&
+				type !== 'faction' &&
+				type !== 'quest' &&
+				type !== 'item' &&
+				type !== 'encounter' &&
+				type !== 'timeline_event'
+			) {
+				return null;
+			}
+			return {
+				kind: 'object',
+				type,
+				id,
+				label,
+				options,
+			};
+		}
+		if (parts.length === 2) {
+			const id = parts[1]?.trim();
+			if (!id) return null;
+			return {
+				kind: 'object',
+				id,
+				label,
+				options,
+			};
+		}
+		return null;
 	}
 
 	if (target.startsWith('note:') || target.startsWith('id:')) {
@@ -386,6 +400,7 @@ function createEmbedHeader(
 	showToggle: boolean,
 	dataId: string,
 	dataType: string,
+	href?: string,
 ): HastElement {
 	return {
 		type: 'element',
@@ -400,8 +415,13 @@ function createEmbedHeader(
 			},
 			{
 				type: 'element',
-				tagName: 'span',
-				properties: { className: ['object-embed__title'] },
+				tagName: href ? 'a' : 'span',
+				properties: href
+					? {
+							className: ['object-embed__title', 'object-embed__title-link'],
+							href,
+						}
+					: { className: ['object-embed__title'] },
 				children: [text(title)],
 			},
 			...(showToggle
@@ -429,11 +449,12 @@ function createObjectEmbedCard(
 	object: VaultObject | null | undefined,
 ): HastElement {
 	const resolved = object ?? null;
-	const title =
-		match.label?.trim() || resolved?.name || `Missing ${getVaultObjectTypeLabel(match.type)}`;
+	const effectiveType = resolved?.type ?? match.type;
+	const title = match.label?.trim() || resolved?.name || `Missing ${effectiveType ?? 'Object'}`;
 	const summary = resolved?.summary?.trim() || (resolved ? summarizeVaultObject(resolved) : '');
 	const details = resolved ? buildObjectDetails(resolved) : [];
 	const showToggle = match.options.view !== 'inline';
+	const styleTypeClass = effectiveType ? `object-embed--${effectiveType}` : 'object-embed--note';
 
 	return {
 		type: 'element',
@@ -441,21 +462,22 @@ function createObjectEmbedCard(
 		properties: {
 			className: [
 				'object-embed',
-				`object-embed--${match.type}`,
+				styleTypeClass,
 				showToggle ? 'object-embed--card' : 'object-embed--inline',
 				resolved ? 'object-embed--resolved' : 'object-embed--missing',
 			],
 			'data-object-card': 'true',
 			'data-object-id': match.id,
-			'data-object-type': match.type,
+			'data-object-type': effectiveType ?? 'object',
 		},
 		children: [
 			createEmbedHeader(
-				getVaultObjectTypeLabel(match.type),
+				effectiveType ? getVaultObjectTypeLabel(effectiveType) : 'Object',
 				title,
 				showToggle,
 				match.id,
-				match.type,
+				effectiveType ?? 'object',
+				resolved ? `/notes/${resolved.id}` : undefined,
 			),
 			...(summary
 				? [
@@ -549,6 +571,11 @@ function createNoteEmbedCard(
 				showToggle,
 				resolved?.id ?? match.target,
 				object?.type ?? 'note',
+				resolved?.id
+					? `/notes/${resolved.id}`
+					: match.targetBy === 'id'
+						? `/notes/${match.target}`
+						: undefined,
 			),
 			...(summary
 				? [

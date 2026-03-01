@@ -124,6 +124,31 @@ describe('renderMarkdown', () => {
 		expect(html).toContain('data-object-id="abc123"');
 	});
 
+	it('renders id-based object embeds and links card titles to object notes', async () => {
+		const md = '[[obj:abc123|Goblin Scout]]';
+		const html = await renderMarkdown(md, {
+			resolveObject: () => ({
+				id: createVaultObjectId('abc123'),
+				type: 'stat_block',
+				name: 'Goblin Scout',
+				summary: 'AC 15 | HP 7 | CR 1/4',
+				tags: ['npc'],
+				relationships: [],
+				createdAt: '2026-02-18T00:00:00.000Z',
+				updatedAt: '2026-02-18T00:00:00.000Z',
+				data: {
+					abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
+					traits: [],
+					actions: [],
+					reactions: [],
+					legendaryActions: [],
+				},
+			}),
+		});
+		expect(html).toContain('object-embed');
+		expect(html).toContain('href="/notes/abc123"');
+	});
+
 	it('renders note embeds as rich cards with metadata options', async () => {
 		const md = '![[note:note-1|Session Recap|view=card,open=true]]';
 		const html = await renderMarkdown(md, {
