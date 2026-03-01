@@ -1,0 +1,23 @@
+# Default ownership
+* @trent
+
+# Product and planning docs
+/docs/ @trent
+
+# Runtime boundaries
+/src/routes/ @trent
+/src/lib/state/ @trent
+/src/lib/ui/ @trent
+/src/lib/platform/ @trent
+/src/lib/runtime/ @trent
+/src/lib/domain/ @trent
+/src/lib/markdown/ @trent
+/src/lib/types/ @trent
+
+/electron/ @trent
+/mcp/ @trent
+
+# Quality and automation
+/tests/ @trent
+/scripts/ @trent
+/.github/workflows/ @trent

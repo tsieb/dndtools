@@ -13,7 +13,7 @@
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import { exportAllNotes, parseMarkdownFile, parseJsonBundle } from '$lib/domain/export.js';
 	import { searchService } from '$lib/domain/search.js';
-	import { getStorage } from '$lib/platform/storage/index.js';
+	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
 	import type { Note } from '$lib/types/note.js';
 	import type { SafetySnapshot } from '$lib/types/storage.js';
 	import type { AppSettings } from '$lib/types/settings.js';
@@ -259,13 +259,9 @@
 
 	async function loadBackupSettings(): Promise<void> {
 		try {
-			const storage = getStorage();
-			const [cadence, retention] = await Promise.all([
-				storage.getSetting('backupCadence'),
-				storage.getSetting('backupRetentionCount'),
-			]);
-			backupCadence = cadence;
-			backupRetentionCount = retention;
+			const settings = await settingsStorageState.getBackupSettings();
+			backupCadence = settings.cadence;
+			backupRetentionCount = settings.retentionCount;
 		} catch (error) {
 			reportSettingsError('storage', 'SETTINGS_LOAD_BACKUP_SETTINGS_FAILED', error);
 			toastState.error(`Failed to load backup settings: ${String(error)}`);
@@ -274,8 +270,7 @@
 
 	async function loadTemplateContextSettings(): Promise<void> {
 		try {
-			const storage = getStorage();
-			const templateContext = await storage.getSetting('templateContext');
+			const templateContext = await settingsStorageState.getTemplateContext();
 			templateCampaignName = templateContext.campaignName;
 			templateSessionNumber = templateContext.sessionNumber;
 			templateCharacterNamesText = templateContext.characterNames.join(', ');
@@ -288,13 +283,12 @@
 	async function saveTemplateContextSettings(): Promise<void> {
 		savingTemplateContext = true;
 		try {
-			const storage = getStorage();
 			const characterNames = templateCharacterNamesText
 				.split(',')
 				.map((entry) => entry.trim())
 				.filter((entry) => entry.length > 0);
 			const sessionNumber = Math.max(1, Math.round(templateSessionNumber || 1));
-			await storage.setSetting('templateContext', {
+			await settingsStorageState.saveTemplateContext({
 				campaignName: templateCampaignName.trim(),
 				sessionNumber,
 				characterNames,
@@ -313,13 +307,11 @@
 	async function saveBackupSettings(): Promise<void> {
 		savingBackupSettings = true;
 		try {
-			const storage = getStorage();
-			const retention = Math.max(1, Math.round(backupRetentionCount));
-			await Promise.all([
-				storage.setSetting('backupCadence', backupCadence),
-				storage.setSetting('backupRetentionCount', retention),
-			]);
-			backupRetentionCount = retention;
+			const settings = await settingsStorageState.saveBackupSettings({
+				cadence: backupCadence,
+				retentionCount: backupRetentionCount,
+			});
+			backupRetentionCount = settings.retentionCount;
 			toastState.success('Backup settings saved');
 			await loadSafetySnapshots();
 		} catch (error) {
@@ -332,8 +324,7 @@
 
 	async function loadSafetySnapshots(): Promise<void> {
 		try {
-			const storage = getStorage();
-			const snapshots = await storage.listSafetySnapshots();
+			const snapshots = await settingsStorageState.listSafetySnapshots();
 			safetySnapshots = snapshots;
 			if (!selectedSnapshotId && snapshots.length > 0) {
 				selectedSnapshotId = snapshots[0]!.id;
@@ -348,8 +339,7 @@
 	async function createSafetySnapshot(reason: string): Promise<void> {
 		creatingSnapshot = true;
 		try {
-			const storage = getStorage();
-			await storage.createSafetySnapshot(reason);
+			await settingsStorageState.createSafetySnapshot(reason);
 			await loadSafetySnapshots();
 			toastState.success('Created safety snapshot');
 		} catch (error) {
@@ -364,8 +354,7 @@
 		if (!selectedSnapshotId) return;
 		restoringSnapshot = true;
 		try {
-			const storage = getStorage();
-			const result = await storage.restoreDeletedFromSnapshot(selectedSnapshotId);
+			const result = await settingsStorageState.restoreDeletedFromSnapshot(selectedSnapshotId);
 			await Promise.all([notesState.loadAll(), searchService.buildIndex(notesState.notes)]);
 			await Promise.all([
 				markSubsystemSuccess('vault_sync'),
@@ -438,9 +427,8 @@
 		}
 
 		try {
-			const storage = getStorage();
-			await storage.createSafetySnapshot('before-import');
-			const result = await storage.importNotes(parsedNotes);
+			await settingsStorageState.createSafetySnapshot('before-import');
+			const result = await settingsStorageState.importNotes(parsedNotes);
 			await notesState.loadAll();
 			await searchService.buildIndex(notesState.notes);
 			await Promise.all([

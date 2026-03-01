@@ -26,6 +26,7 @@ Story: <!-- e.g., S2.1.1 — Core CI workflow -->
 
 - [ ] Docs updated for any changed contracts, types, or user-visible behavior
 - [ ] Any `TODO(APP)` annotations include reason and target files
+- [ ] Long-lived `// TODO(APP)` deferments are linked to `DEBT.md` entries (required after one quarter)
 
 ---
 

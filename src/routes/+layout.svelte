@@ -23,7 +23,7 @@
 	import { DND_TEMPLATES, type NoteTemplate } from '$lib/domain/templates.js';
 	import { createNoteId } from '$lib/types/note.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
-	import { getStorage } from '$lib/platform/storage/index.js';
+	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
 	import {
 		buildTemplateContext,
 		renderNoteTemplate,
@@ -128,7 +128,7 @@
 	}
 
 	async function loadTemplateContextSetting(): Promise<AppSettings['templateContext']> {
-		return getStorage().getSetting('templateContext');
+		return settingsStorageState.getTemplateContext();
 	}
 
 	async function handleTemplateCreate(
@@ -136,13 +136,12 @@
 		folderOverride?: string,
 	): Promise<void> {
 		templateDialogOpen = false;
-		const storage = getStorage();
 		const setting = await loadTemplateContextSetting();
 		const context = buildTemplateContext(setting);
 		const rendered = renderNoteTemplate(template, context, folderOverride);
 		const note = await notesState.createNote(toNewNoteOverrides(rendered));
 		if (shouldAdvanceSessionCounter(template.id)) {
-			await storage.setSetting('templateContext', {
+			await settingsStorageState.saveTemplateContext({
 				...setting,
 				sessionNumber: context.sessionNumber + 1,
 			});

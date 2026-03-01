@@ -29,7 +29,8 @@
 		"desktop:build": "pnpm build && pnpm mcp:build && tsup electron/main.ts electron/preload.ts --format cjs --platform=node --external electron --outDir electron/dist",
 		"desktop:start": "electron electron/dist/main.cjs",
 		"desktop:smoke": "node scripts/desktop-smoke-test.mjs",
-		"desktop": "pnpm desktop:build && pnpm desktop:start"
+		"desktop": "pnpm desktop:build && pnpm desktop:start",
+		"fixture:vault": "tsx scripts/generate-fixture-vault.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

@@ -31,6 +31,7 @@ From `package.json`:
 - `pnpm desktop:start`: launch built Electron app
 - `pnpm desktop:smoke`: launch built desktop app against temp vault and assert readiness
 - `pnpm desktop`: build + start desktop
+- `pnpm fixture:vault -- [options]`: generate configurable fixture vault for perf/migration/debug scenarios
 
 ## 3. Required Workflow
 
@@ -51,6 +52,9 @@ for branch naming, commit conventions, PR process, and recovery guidance.
 - Electron main/preload must not import renderer-only modules except shared types.
 - MCP server code must not import Svelte runtime modules.
 - Persistence logic belongs in adapters/services, not Svelte components.
+- Route components must not import storage adapters directly; they must use state modules.
+
+Boundary violations are lint-enforced in `eslint.config.js` and fail CI via `pnpm lint`.
 
 ## 5. Coding Rules
 
@@ -74,21 +78,32 @@ A task is complete only when all are true:
 
 - Use exact file paths and tool names.
 - Separate "implemented" from "planned".
-- Every `TODO(APP)` must include reason and target files.
+- Every `TODO(APP)` must include `reason`, `risk`, and `target` fields.
+- Any source-code `// TODO(APP)` that remains open beyond one quarter must map to an item in `DEBT.md`.
 
-## 8. Current High-Risk Gaps
+## 8. Refactor Budget Governance (Required)
 
-`TODO(APP):` Coverage thresholds are configured but not yet enforced in the CI gate.
-Reason: UI coverage is still below reliable enforcement thresholds for route and component flows.
-Target: `vite.config.ts`, `.github/workflows/ci.yml`, `tests/**/*`.
-Risk: regressions can slip through in low-coverage renderer areas.
+Technical debt is tracked in the root-level `DEBT.md` register.
 
-`TODO(APP):` Desktop release artifacts are built and signed at checksum level, but OS-native installer signing/notarization is not yet automated.
-Reason: current pipeline validates runtime bundles; platform trust-sign workflows are still pending.
-Target: `.github/workflows/release-assets.yml`, packaging/signing tooling in desktop release pipeline.
-Risk: distribution trust posture remains weaker than a fully signed/notarized installer chain.
+Policy:
 
-## 9. Architectural Governance
+- Every debt item must include: `ID`, `Severity`, `Impact`, `Owner`, and `Resolution Window`.
+- Any PR introducing a long-lived deferment must either:
+  - resolve the debt in the same PR, or
+  - add/update a debt item in `DEBT.md` before merge.
+- Quarterly debt review is mandatory. If a `// TODO(APP)` in source survives longer than one quarter, a linked debt item is required before further feature work in that area.
+- Debt entries should be small and actionable. Break large debt clusters into separate IDs with independent windows.
+
+## 9. Current High-Risk Debt Items
+
+Tracked in `DEBT.md`:
+
+- `DEBT-2026-001`: CI coverage threshold enforcement
+- `DEBT-2026-002`: OS-native installer signing/notarization automation
+- `DEBT-2026-003`: Accessibility automation coverage for critical UI flows
+- `DEBT-2026-004`: Portable markdown export profile with validation report
+
+## 10. Architectural Governance
 
 For major design changes, require:
 
