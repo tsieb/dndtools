@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
 	import ThemeToggle from '$lib/ui/common/ThemeToggle.svelte';
 	import Button from '$lib/ui/common/Button.svelte';
 	import { vaultState } from '$lib/state/vault.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { linksState } from '$lib/state/links.svelte.js';
 	import { editorPreferencesState } from '$lib/state/editor-preferences.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
@@ -13,6 +15,7 @@
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import { exportAllNotes, parseMarkdownFile, parseJsonBundle } from '$lib/domain/export.js';
 	import { buildVaultUnresolvedLinkReport } from '$lib/domain/unresolved-links.js';
+	import { buildLinkGraphQualityReport } from '$lib/domain/link-graph-intelligence.js';
 	import { searchService } from '$lib/domain/search.js';
 	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
 	import type { Note } from '$lib/types/note.js';
@@ -67,6 +70,7 @@
 	type McpPendingFilterType = DesktopMcpChangeRecord['type'] | 'all';
 	type McpPendingFilterRisk = 'all' | 'structural' | 'safe';
 	type McpPendingFilterConflict = 'all' | 'conflicted' | 'clean';
+	type LinkQualityDrilldownKey = 'broken' | 'alias' | 'loops' | 'cross_folder' | 'orphans' | 'hubs';
 
 	let desktopVaultDir = $state<string>('');
 	let mcpStatus = $state<DesktopMcpStatus | null>(null);
@@ -109,6 +113,7 @@
 	let restoringCheckpoint = $state(false);
 	let selectedCheckpointName = $state('');
 	let creatingMissingLinkNotes = $state(false);
+	let linkQualityDrilldown = $state<LinkQualityDrilldownKey>('broken');
 	let analyzingImportSource = $state(false);
 	let importAnalysisReport = $state<DesktopImportAnalysisReport | null>(null);
 	let importDefaultResolution = $state<DesktopImportResolutionChoice>('merge');
@@ -129,6 +134,45 @@
 	] as const;
 
 	const visibleTabs = $derived(settingsTabs);
+	const vaultLinkQualityReport = $derived.by(() =>
+		buildLinkGraphQualityReport({
+			notes: notesState.activeNotes,
+		}),
+	);
+	const vaultHubNoteIds = $derived(linksState.getHubNoteIds());
+	const vaultOrphanNoteIds = $derived(linksState.getOrphanNoteIds());
+	const linkQualityDrilldownNoteIds = $derived.by(() => {
+		switch (linkQualityDrilldown) {
+			case 'broken':
+				return vaultLinkQualityReport.drilldown.brokenLinkNoteIds;
+			case 'alias':
+				return vaultLinkQualityReport.drilldown.aliasMatchedNoteIds;
+			case 'loops':
+				return vaultLinkQualityReport.drilldown.loopNoteIds;
+			case 'cross_folder':
+				return vaultLinkQualityReport.drilldown.crossFolderNoteIds;
+			case 'orphans':
+				return vaultOrphanNoteIds;
+			case 'hubs':
+				return vaultHubNoteIds;
+		}
+	});
+	const linkQualityDrilldownLabel = $derived.by(() => {
+		switch (linkQualityDrilldown) {
+			case 'broken':
+				return 'Broken-link source notes';
+			case 'alias':
+				return 'Alias-matched link notes';
+			case 'loops':
+				return 'Loop-connected notes';
+			case 'cross_folder':
+				return 'Cross-folder linked notes';
+			case 'orphans':
+				return 'Orphan notes';
+			case 'hubs':
+				return 'Hub notes';
+		}
+	});
 	const vaultUnresolvedLinkIssues = $derived(
 		buildVaultUnresolvedLinkReport(notesState.activeNotes).slice(0, 80),
 	);
@@ -1681,61 +1725,174 @@
 			<section>
 				<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">Vault Link Health</h2>
 				<div
-					class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-3"
+					class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-4"
 				>
-					<div class="flex flex-wrap items-center justify-between gap-2">
-						<div>
-							<p class="text-xs text-ink-muted dark:text-tavern-muted">
-								Unresolved wikilinks across active notes
+					<div class="grid gap-2 md:grid-cols-3">
+						<button
+							type="button"
+							class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt dark:border-tavern-border dark:hover:bg-tavern-surface-alt"
+							onclick={() => (linkQualityDrilldown = 'orphans')}
+						>
+							<p class="text-xs text-ink-muted dark:text-tavern-muted">Orphan notes</p>
+							<p class="text-base font-semibold text-ink dark:text-tavern-text">
+								{vaultOrphanNoteIds.length}
 							</p>
-							<p class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
-								{vaultUnresolvedLinkIssues.length}
-								issue{vaultUnresolvedLinkIssues.length === 1 ? '' : 's'}
+						</button>
+						<button
+							type="button"
+							class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt dark:border-tavern-border dark:hover:bg-tavern-surface-alt"
+							onclick={() => (linkQualityDrilldown = 'hubs')}
+						>
+							<p class="text-xs text-ink-muted dark:text-tavern-muted">Hub notes</p>
+							<p class="text-base font-semibold text-ink dark:text-tavern-text">
+								{vaultHubNoteIds.length}
+							</p>
+						</button>
+						<div class="rounded border border-border px-3 py-2 dark:border-tavern-border">
+							<p class="text-xs text-ink-muted dark:text-tavern-muted">Total links</p>
+							<p class="text-base font-semibold text-ink dark:text-tavern-text">
+								{vaultLinkQualityReport.totals.totalLinks}
 							</p>
 						</div>
-						<Button
-							variant="secondary"
-							size="sm"
-							onclick={handleCreateAllMissingLinkNotes}
-							disabled={creatingMissingLinkNotes || creatableVaultUnresolvedTitles.length === 0}
-						>
-							{creatingMissingLinkNotes
-								? 'Creating...'
-								: `Create All Missing Notes (${creatableVaultUnresolvedTitles.length})`}
-						</Button>
 					</div>
 
-					{#if vaultUnresolvedLinkIssues.length === 0}
-						<p class="text-xs text-ink-muted dark:text-tavern-muted">
-							No unresolved wikilinks detected.
-						</p>
-					{:else}
-						<ul
-							class="rounded border border-border dark:border-tavern-border divide-y divide-border dark:divide-tavern-border"
+					<div class="grid gap-2 md:grid-cols-4">
+						<button
+							type="button"
+							class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt dark:border-tavern-border dark:hover:bg-tavern-surface-alt"
+							onclick={() => (linkQualityDrilldown = 'broken')}
 						>
-							{#each vaultUnresolvedLinkIssues as issue (issue.sourceId + issue.targetKind + (issue.targetIdHint ?? issue.targetLabel))}
-								<li class="px-3 py-2 text-xs space-y-1">
-									<p class="font-medium text-ink dark:text-tavern-text">
-										{issue.sourceTitle}
-										<span class="text-ink-faint dark:text-tavern-faint">({issue.sourceFolder})</span
-										>
-									</p>
-									<p class="text-ink-muted dark:text-tavern-muted">
-										[[{issue.targetLabel}]]
-										{#if issue.targetKind === 'id' && issue.targetIdHint}
-											<span class="ml-1 text-ink-faint dark:text-tavern-faint"
-												>missing id: {issue.targetIdHint}</span
+							<p class="text-xs text-ink-muted dark:text-tavern-muted">Broken links</p>
+							<p class="text-sm font-semibold text-ink dark:text-tavern-text">
+								{vaultLinkQualityReport.totals.brokenLinks}
+							</p>
+						</button>
+						<button
+							type="button"
+							class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt dark:border-tavern-border dark:hover:bg-tavern-surface-alt"
+							onclick={() => (linkQualityDrilldown = 'alias')}
+						>
+							<p class="text-xs text-ink-muted dark:text-tavern-muted">Alias-matched links</p>
+							<p class="text-sm font-semibold text-ink dark:text-tavern-text">
+								{vaultLinkQualityReport.totals.aliasMatchedLinks}
+							</p>
+						</button>
+						<button
+							type="button"
+							class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt dark:border-tavern-border dark:hover:bg-tavern-surface-alt"
+							onclick={() => (linkQualityDrilldown = 'loops')}
+						>
+							<p class="text-xs text-ink-muted dark:text-tavern-muted">Loops (A↔B)</p>
+							<p class="text-sm font-semibold text-ink dark:text-tavern-text">
+								{vaultLinkQualityReport.totals.loops}
+							</p>
+						</button>
+						<button
+							type="button"
+							class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt dark:border-tavern-border dark:hover:bg-tavern-surface-alt"
+							onclick={() => (linkQualityDrilldown = 'cross_folder')}
+						>
+							<p class="text-xs text-ink-muted dark:text-tavern-muted">Cross-folder density</p>
+							<p class="text-sm font-semibold text-ink dark:text-tavern-text">
+								{Math.round(vaultLinkQualityReport.totals.crossFolderLinkDensity * 100)}%
+							</p>
+						</button>
+					</div>
+
+					<div class="rounded border border-border p-3 dark:border-tavern-border">
+						<p class="text-xs font-medium text-ink dark:text-tavern-text">
+							{linkQualityDrilldownLabel} ({linkQualityDrilldownNoteIds.length})
+						</p>
+						{#if linkQualityDrilldownNoteIds.length === 0}
+							<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted">
+								No notes in this category.
+							</p>
+						{:else}
+							<ul class="mt-2 space-y-1">
+								{#each linkQualityDrilldownNoteIds.slice(0, 16) as noteId (noteId)}
+									{@const note = notesState.getNoteById(noteId)}
+									{#if note}
+										<li class="text-xs text-ink-muted dark:text-tavern-muted">
+											<a
+												href={resolve(`/notes/${note.id}`)}
+												class="text-accent hover:underline dark:text-tavern-accent"
 											>
-										{/if}
-										<span class="ml-1 text-ink-faint dark:text-tavern-faint">x{issue.count}</span>
-									</p>
-									{#if issue.contexts.length > 0}
-										<p class="text-ink-faint dark:text-tavern-faint">{issue.contexts[0]}</p>
+												{note.title}
+											</a>
+											<span class="ml-1 text-ink-faint dark:text-tavern-faint"
+												>{String(note.folder)}</span
+											>
+											{#if linkQualityDrilldown === 'hubs'}
+												{@const hubInfo = linksState.getHubInfo(note.id)}
+												{#if hubInfo}
+													<span class="ml-1 text-ink-faint dark:text-tavern-faint">
+														({hubInfo.betweenness.toFixed(3)})
+													</span>
+												{/if}
+											{/if}
+										</li>
 									{/if}
-								</li>
-							{/each}
-						</ul>
-					{/if}
+								{/each}
+							</ul>
+						{/if}
+					</div>
+
+					<div class="border-t border-border pt-4 dark:border-tavern-border">
+						<div class="flex flex-wrap items-center justify-between gap-2">
+							<div>
+								<p class="text-xs text-ink-muted dark:text-tavern-muted">
+									Unresolved wikilinks across active notes
+								</p>
+								<p class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
+									{vaultUnresolvedLinkIssues.length}
+									issue{vaultUnresolvedLinkIssues.length === 1 ? '' : 's'}
+								</p>
+							</div>
+							<Button
+								variant="secondary"
+								size="sm"
+								onclick={handleCreateAllMissingLinkNotes}
+								disabled={creatingMissingLinkNotes || creatableVaultUnresolvedTitles.length === 0}
+							>
+								{creatingMissingLinkNotes
+									? 'Creating...'
+									: `Create All Missing Notes (${creatableVaultUnresolvedTitles.length})`}
+							</Button>
+						</div>
+
+						{#if vaultUnresolvedLinkIssues.length === 0}
+							<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">
+								No unresolved wikilinks detected.
+							</p>
+						{:else}
+							<ul
+								class="mt-2 rounded border border-border dark:border-tavern-border divide-y divide-border dark:divide-tavern-border"
+							>
+								{#each vaultUnresolvedLinkIssues as issue (issue.sourceId + issue.targetKind + (issue.targetIdHint ?? issue.targetLabel))}
+									<li class="px-3 py-2 text-xs space-y-1">
+										<p class="font-medium text-ink dark:text-tavern-text">
+											{issue.sourceTitle}
+											<span class="text-ink-faint dark:text-tavern-faint"
+												>({issue.sourceFolder})</span
+											>
+										</p>
+										<p class="text-ink-muted dark:text-tavern-muted">
+											[[{issue.targetLabel}]]
+											{#if issue.targetKind === 'id' && issue.targetIdHint}
+												<span class="ml-1 text-ink-faint dark:text-tavern-faint"
+													>missing id: {issue.targetIdHint}</span
+												>
+											{/if}
+											<span class="ml-1 text-ink-faint dark:text-tavern-faint">x{issue.count}</span>
+										</p>
+										{#if issue.contexts.length > 0}
+											<p class="text-ink-faint dark:text-tavern-faint">{issue.contexts[0]}</p>
+										{/if}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
 				</div>
 			</section>
 

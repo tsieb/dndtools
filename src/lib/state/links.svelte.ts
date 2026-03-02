@@ -3,6 +3,7 @@ import type { NoteId } from '$lib/types/note.js';
 import { getStorage } from '$lib/platform/storage/index.js';
 import { recordPerformanceMeasurement } from '$lib/runtime/diagnostics.js';
 import { workerBridge } from '$lib/runtime/worker-bridge.js';
+import { computeGraphStructureInsights } from '$lib/domain/link-graph-intelligence.js';
 
 export interface BacklinkInfo {
 	sourceId: NoteId;
@@ -10,12 +11,57 @@ export interface BacklinkInfo {
 	contextSnippet: string;
 }
 
+export interface GraphInsights {
+	orphanNoteIds: NoteId[];
+	hubNoteIds: NoteId[];
+	hubById: Record<
+		string,
+		{ betweenness: number; inbound: number; outbound: number; degree: number }
+	>;
+}
+
 class LinksState {
 	/** Forward links map: noteId -> targetIds */
 	private forwardMap = $state<SvelteMap<string, SvelteSet<string>>>(new SvelteMap());
 	/** Backward links map: noteId -> sourceIds */
 	private backwardMap = $state<SvelteMap<string, SvelteSet<string>>>(new SvelteMap());
+	private graphInsights = $state<GraphInsights>({
+		orphanNoteIds: [],
+		hubNoteIds: [],
+		hubById: {},
+	});
 	private updateMeasureCounter = 0;
+
+	private recomputeGraphInsights(): void {
+		const nodeIds = [...this.forwardMap.keys()];
+		const edges: Array<{ sourceId: string; targetId: string }> = [];
+		for (const [sourceId, targets] of this.forwardMap.entries()) {
+			for (const targetId of targets) {
+				if (!this.forwardMap.has(targetId)) continue;
+				edges.push({ sourceId, targetId });
+			}
+		}
+		const insights = computeGraphStructureInsights({
+			nodeIds,
+			edges,
+			hubLimit: 8,
+		});
+		this.graphInsights = {
+			orphanNoteIds: insights.orphanNoteIds.map((id) => id as NoteId),
+			hubNoteIds: insights.hubNotes.map((entry) => entry.noteId as NoteId),
+			hubById: Object.fromEntries(
+				insights.hubNotes.map((entry) => [
+					entry.noteId,
+					{
+						betweenness: entry.betweenness,
+						inbound: entry.inbound,
+						outbound: entry.outbound,
+						degree: entry.degree,
+					},
+				]),
+			),
+		};
+	}
 
 	private removeBackwardIfEmpty(targetId: string): void {
 		const backlinks = this.backwardMap.get(targetId);
@@ -69,6 +115,7 @@ class LinksState {
 
 		this.forwardMap = forward;
 		this.backwardMap = backward;
+		this.recomputeGraphInsights();
 	}
 
 	getBacklinkIds(noteId: NoteId): string[] {
@@ -85,6 +132,20 @@ class LinksState {
 
 	getForwardLinkCount(noteId: NoteId): number {
 		return this.forwardMap.get(String(noteId))?.size ?? 0;
+	}
+
+	getOrphanNoteIds(): NoteId[] {
+		return [...this.graphInsights.orphanNoteIds];
+	}
+
+	getHubNoteIds(): NoteId[] {
+		return [...this.graphInsights.hubNoteIds];
+	}
+
+	getHubInfo(
+		noteId: NoteId,
+	): { betweenness: number; inbound: number; outbound: number; degree: number } | null {
+		return this.graphInsights.hubById[String(noteId)] ?? null;
 	}
 
 	updateNoteLinks(noteId: NoteId, targetIds: NoteId[]): void {
@@ -107,6 +168,7 @@ class LinksState {
 			}
 			this.backwardMap.get(targetId)!.add(sourceId);
 		}
+		this.recomputeGraphInsights();
 
 		performance.mark(endMark);
 		performance.measure(measureName, startMark, endMark);
@@ -132,6 +194,7 @@ class LinksState {
 		this.removeOutgoingLinks(id);
 		this.forwardMap.delete(id);
 		this.backwardMap.delete(id);
+		this.recomputeGraphInsights();
 	}
 
 	syncNotes(noteIds: Iterable<NoteId>): void {
@@ -146,6 +209,7 @@ class LinksState {
 				this.forwardMap.set(id, new SvelteSet());
 			}
 		}
+		this.recomputeGraphInsights();
 	}
 }
 

@@ -29,6 +29,12 @@ export function registerGetCoverageGapsTool(server: McpServer, storage: FileSyst
 				staleAfterDays: insights.staleAfterDays,
 				totalGaps: insights.coverageGaps.length,
 				coverageGaps: insights.coverageGaps.slice(0, limit),
+				graphInsights: {
+					orphanCount: insights.graphInsights.orphanCount,
+					orphanNoteIds: insights.graphInsights.orphanNoteIds.slice(0, limit),
+					hubCount: insights.graphInsights.hubCount,
+					hubNoteIds: insights.graphInsights.hubNotes.slice(0, limit).map((entry) => entry.noteId),
+				},
 			});
 		},
 	);

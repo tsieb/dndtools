@@ -1,5 +1,6 @@
 import type { FileSystemAdapter } from '../../storage.js';
 import { getIndexEntriesView, getLinkEntriesView } from '../shared/storage-view.js';
+import { computeGraphStructureInsights } from '../../../src/lib/domain/link-graph-intelligence.js';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -55,6 +56,15 @@ interface TopLinkedNote {
 	incomingLinks: number;
 }
 
+interface GraphHubSnapshot {
+	noteId: string;
+	title: string;
+	inbound: number;
+	outbound: number;
+	degree: number;
+	betweenness: number;
+}
+
 export interface VaultIntelligence {
 	generatedAt: string;
 	staleAfterDays: number;
@@ -64,6 +74,12 @@ export interface VaultIntelligence {
 		links: number;
 		objects: number;
 		boards: number;
+	};
+	graphInsights: {
+		orphanCount: number;
+		orphanNoteIds: string[];
+		hubCount: number;
+		hubNotes: GraphHubSnapshot[];
 	};
 	metrics: {
 		orphanNotes: number;
@@ -150,6 +166,12 @@ export async function buildVaultIntelligence(
 	const links = rawLinks.filter(
 		(link) => activeIdSet.has(link.sourceId) && activeIdSet.has(link.targetId),
 	);
+	const structure = computeGraphStructureInsights({
+		nodeIds: activeEntries.map((entry) => entry.id),
+		edges: links.map((link) => ({ sourceId: link.sourceId, targetId: link.targetId })),
+		hubLimit: maxExamples,
+	});
+	const activeEntryById = new Map(activeEntries.map((entry) => [entry.id, entry]));
 
 	const incomingCounts = new Map<string, number>();
 	const outgoingCounts = new Map<string, number>();
@@ -162,9 +184,16 @@ export async function buildVaultIntelligence(
 	const rootFolder = activeEntries.filter((entry) => entry.folder === '/');
 	const noIncoming = activeEntries.filter((entry) => !incomingCounts.has(entry.id));
 	const noOutgoing = activeEntries.filter((entry) => !outgoingCounts.has(entry.id));
-	const orphanEntries = activeEntries.filter(
-		(entry) => !incomingCounts.has(entry.id) && !outgoingCounts.has(entry.id),
-	);
+	const orphanIdSet = new Set(structure.orphanNoteIds);
+	const orphanEntries = activeEntries.filter((entry) => orphanIdSet.has(entry.id));
+	const hubNotes: GraphHubSnapshot[] = structure.hubNotes.map((hub) => ({
+		noteId: hub.noteId,
+		title: activeEntryById.get(hub.noteId)?.title ?? 'Unknown',
+		inbound: hub.inbound,
+		outbound: hub.outbound,
+		degree: hub.degree,
+		betweenness: hub.betweenness,
+	}));
 
 	const duplicateTitleGroups = new Map<string, string[]>();
 	for (const entry of activeEntries) {
@@ -204,7 +233,7 @@ export async function buildVaultIntelligence(
 			daysSinceUpdate: toDaysSince(entry.updatedAt, nowMs),
 		}));
 
-	const entryById = new Map(activeEntries.map((entry) => [entry.id, entry]));
+	const entryById = activeEntryById;
 	const topLinkedNotes = [...incomingCounts.entries()]
 		.sort((a, b) => {
 			if (b[1] !== a[1]) return b[1] - a[1];
@@ -336,6 +365,12 @@ export async function buildVaultIntelligence(
 			links: links.length,
 			objects: objects.length,
 			boards: boards.length,
+		},
+		graphInsights: {
+			orphanCount: orphanEntries.length,
+			orphanNoteIds: [...orphanIdSet].sort((a, b) => a.localeCompare(b)),
+			hubCount: hubNotes.length,
+			hubNotes,
 		},
 		metrics: {
 			orphanNotes: orphanEntries.length,

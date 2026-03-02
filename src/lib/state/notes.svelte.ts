@@ -7,6 +7,7 @@ import { nowISO } from '$lib/utils/date.js';
 import { extractFrontmatter, extractTags, extractTitle } from '$lib/markdown/frontmatter.js';
 import { searchService } from '$lib/domain/search.js';
 import { extractWikilinks } from '$lib/domain/link-extractor.js';
+import { buildTwoSentenceContextSnippetAtPosition } from '$lib/domain/backlink-context.js';
 import { hasMeaningfulNoteContent } from '$lib/domain/note-persistence.js';
 import {
 	extractAliasesFromFrontmatter,
@@ -100,6 +101,7 @@ class NotesState {
 						position: link.position,
 						resolvedBy: 'id' as const,
 						resolvedAlias: null,
+						contextSnippet: buildTwoSentenceContextSnippetAtPosition(note.content, link.position),
 					};
 				}
 
@@ -113,6 +115,7 @@ class NotesState {
 					position: link.position,
 					resolvedBy: winner.matchedBy,
 					resolvedAlias: winner.matchedAlias ?? null,
+					contextSnippet: buildTwoSentenceContextSnippetAtPosition(note.content, link.position),
 				};
 			})
 			.filter((entry): entry is Link => !!entry);

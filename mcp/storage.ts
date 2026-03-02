@@ -36,6 +36,7 @@ import { DEFAULT_SETTINGS } from '../src/lib/types/settings.js';
 import { slugify } from '../src/lib/utils/slug.js';
 import { nowISO } from '../src/lib/utils/date.js';
 import { buildRelatedNoteSuggestions } from '../src/lib/domain/related-note-suggestions.js';
+import { buildTwoSentenceContextSnippetAtPosition } from '../src/lib/domain/backlink-context.js';
 import {
 	extractAliasesFromFrontmatter,
 	resolveLinkCandidates,
@@ -97,6 +98,7 @@ interface StoredLink {
 	position: number;
 	resolvedBy?: 'id' | 'title' | 'alias';
 	resolvedAlias?: string | null;
+	contextSnippet?: string | null;
 }
 
 /** Vault index cache structure */
@@ -1849,6 +1851,7 @@ export class FileSystemAdapter implements StorageAdapter {
 			position: s.position,
 			resolvedBy: s.resolvedBy,
 			resolvedAlias: s.resolvedAlias ?? null,
+			contextSnippet: s.contextSnippet ?? null,
 		}));
 	}
 
@@ -1864,6 +1867,7 @@ export class FileSystemAdapter implements StorageAdapter {
 						position: link.position,
 						resolvedBy: link.resolvedBy,
 						resolvedAlias: link.resolvedAlias ?? null,
+						contextSnippet: link.contextSnippet ?? null,
 					});
 				}
 			}
@@ -1879,6 +1883,7 @@ export class FileSystemAdapter implements StorageAdapter {
 				position: l.position,
 				resolvedBy: l.resolvedBy,
 				resolvedAlias: l.resolvedAlias ?? null,
+				contextSnippet: l.contextSnippet ?? null,
 			}));
 			await this.saveIndex();
 		});
@@ -1892,6 +1897,7 @@ export class FileSystemAdapter implements StorageAdapter {
 			position: link.position,
 			resolvedBy: link.resolvedBy,
 			resolvedAlias: link.resolvedAlias ?? null,
+			contextSnippet: link.contextSnippet ?? null,
 		}));
 	}
 
@@ -2433,6 +2439,7 @@ export class FileSystemAdapter implements StorageAdapter {
 		position: number;
 		resolvedBy?: 'id' | 'title' | 'alias';
 		resolvedAlias?: string | null;
+		contextSnippet?: string | null;
 	}> {
 		const allLinks: Array<{
 			sourceId: string;
@@ -2441,6 +2448,7 @@ export class FileSystemAdapter implements StorageAdapter {
 			position: number;
 			resolvedBy?: 'id' | 'title' | 'alias';
 			resolvedAlias?: string | null;
+			contextSnippet?: string | null;
 		}> = [];
 		for (const [sourceId, links] of Object.entries(this.index.links)) {
 			for (const link of links) {
@@ -2451,6 +2459,7 @@ export class FileSystemAdapter implements StorageAdapter {
 					position: link.position,
 					resolvedBy: link.resolvedBy,
 					resolvedAlias: link.resolvedAlias ?? null,
+					contextSnippet: link.contextSnippet ?? null,
 				});
 			}
 		}
@@ -2887,6 +2896,7 @@ export class FileSystemAdapter implements StorageAdapter {
 					position: wl.position,
 					resolvedBy: 'id',
 					resolvedAlias: null,
+					contextSnippet: buildTwoSentenceContextSnippetAtPosition(content, wl.position),
 				});
 				continue;
 			}
@@ -2901,6 +2911,7 @@ export class FileSystemAdapter implements StorageAdapter {
 				position: wl.position,
 				resolvedBy: target.matchedBy,
 				resolvedAlias: target.matchedAlias ?? null,
+				contextSnippet: buildTwoSentenceContextSnippetAtPosition(content, wl.position),
 			});
 		}
 

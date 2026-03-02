@@ -1,6 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { FileSystemAdapter } from '../../storage.js';
 import { extractWikilinks } from '../../../src/lib/domain/link-extractor.js';
+import { buildLinkGraphQualityReport } from '../../../src/lib/domain/link-graph-intelligence.js';
 import { jsonResult } from '../shared/response.js';
 import { getLinkEntriesView } from '../shared/storage-view.js';
 
@@ -123,6 +124,7 @@ export function registerVaultHealthCheckTool(server: McpServer, storage: FileSys
 
 			const warnings = issues.filter((issue) => issue.severity === 'warning').length;
 			const infos = issues.filter((issue) => issue.severity === 'info').length;
+			const linkQuality = buildLinkGraphQualityReport({ notes: active });
 
 			return jsonResult({
 				summary: {
@@ -130,6 +132,23 @@ export function registerVaultHealthCheckTool(server: McpServer, storage: FileSys
 					warnings,
 					infos,
 					totalIssues: issues.length,
+				},
+				linkQuality: {
+					totalLinks: linkQuality.totals.totalLinks,
+					brokenLinks: linkQuality.totals.brokenLinks,
+					aliasMatchedLinks: linkQuality.totals.aliasMatchedLinks,
+					loops: linkQuality.totals.loops,
+					crossFolderLinkDensity: linkQuality.totals.crossFolderLinkDensity,
+					orphanCount: linkQuality.orphanNoteIds.length,
+					hubCount: linkQuality.highCentrality.length,
+					drilldown: {
+						orphanNoteIds: linkQuality.orphanNoteIds,
+						hubNoteIds: linkQuality.highCentrality.map((entry) => entry.noteId),
+						brokenLinkNoteIds: linkQuality.drilldown.brokenLinkNoteIds,
+						aliasMatchedNoteIds: linkQuality.drilldown.aliasMatchedNoteIds,
+						loopNoteIds: linkQuality.drilldown.loopNoteIds,
+						crossFolderNoteIds: linkQuality.drilldown.crossFolderNoteIds,
+					},
 				},
 				issues,
 			});

@@ -40,6 +40,8 @@ export interface Link {
 	resolvedBy?: 'id' | 'title' | 'alias';
 	/** Alias text that matched when resolvedBy is alias. */
 	resolvedAlias?: string | null;
+	/** Two-sentence context snippet around the backlink occurrence. */
+	contextSnippet?: string | null;
 }
 
 export interface TagEntry {

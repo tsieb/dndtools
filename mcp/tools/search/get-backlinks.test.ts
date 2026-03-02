@@ -57,6 +57,7 @@ describe('get_backlinks tool', () => {
 						position: 8,
 						resolvedBy: 'alias',
 						resolvedAlias: 'Waterdeep',
+						contextSnippet: 'Met in Waterdeep where the market never sleeps.',
 					},
 				],
 			} as never,
@@ -74,6 +75,7 @@ describe('get_backlinks tool', () => {
 				sourceTitle: source.title,
 				matchedByAlias: true,
 				matchedAlias: 'Waterdeep',
+				contextSnippet: 'Met in Waterdeep where the market never sleeps.',
 			},
 		]);
 	});

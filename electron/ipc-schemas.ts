@@ -105,6 +105,11 @@ export const linkSchema = z.object({
 	position: z.number().int().nonnegative(),
 	resolvedBy: z.enum(['id', 'title', 'alias']).optional(),
 	resolvedAlias: z.string().max(MAX_STRING_LENGTH).nullable().optional(),
+	contextSnippet: z
+		.string()
+		.max(MAX_STRING_LENGTH * 4)
+		.nullable()
+		.optional(),
 });
 
 /**
