@@ -71,5 +71,32 @@ describe('session-board domain', () => {
 			expect(normalizedTimer.timer?.countdownMs).toBe(120_000);
 			expect(normalizedTimer.timer?.minimalDisplay).toBe(true);
 		}
+
+		const normalizedCombat = normalizeSessionBoardTile({
+			id: 'combat-tile',
+			type: 'combat',
+			x: 0,
+			y: 0,
+			w: 6,
+			h: 4,
+			combat: {
+				encounterName: 'Bridge Fight',
+				systemId: 'dnd5e',
+				round: 3,
+				activeCombatantId: 'a',
+				combatants: [{ id: 'a', name: 'A', initiative: 14, tieRank: 1 }],
+				notes: '',
+				loot: '',
+				startedAt: '2026-03-02T00:00:00.000Z',
+				endedAt: null,
+				lastLogNoteId: null,
+			},
+		} as never);
+		expect(normalizedCombat.type).toBe('combat');
+		if (normalizedCombat.type === 'combat') {
+			expect(normalizedCombat.combat?.encounterName).toBe('Bridge Fight');
+			expect(normalizedCombat.combat?.combatants).toHaveLength(1);
+			expect(normalizedCombat.combat?.combatants[0]?.name).toBe('A');
+		}
 	});
 });

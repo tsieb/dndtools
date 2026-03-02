@@ -46,9 +46,17 @@ Board model includes:
 
 - board metadata (`name`, `description`)
 - tile layout (`x,y,w,h`)
-- tile kinds (`note` and `calendar`)
+- tile kinds (`note`, `calendar`, `timer`, `combat`)
 - per-tile style overrides
 - board-level layout/style settings
+
+Combat tile state (`type: combat`) includes:
+
+- encounter metadata (`encounterName`, `systemId`, `round`, `activeCombatantId`)
+- combatants with initiative, tie rank, HP/AC, conditions, ready/delay, concentration
+- death save tracking for PC rows
+- linked object metadata (`linkedObjectId`, `linkedObjectType`, `statsPreview`)
+- encounter log draft inputs (`notes`, `loot`) and `lastLogNoteId`
 
 ### 1.5 World Calendar
 

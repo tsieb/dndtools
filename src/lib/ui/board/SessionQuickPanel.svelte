@@ -18,8 +18,16 @@
 	let activeNotesById = $derived(notesState.activeNoteById);
 	let tiles = $derived.by(() => activeBoard?.tiles ?? []);
 
-	function tileType(tile: SessionBoardTile): 'note' | 'calendar' | 'timer' {
-		return tile.type ?? 'note';
+	function tileType(tile: SessionBoardTile): 'note' | 'calendar' | 'timer' | 'combat' {
+		switch (tile.type) {
+			case 'calendar':
+			case 'combat':
+			case 'timer':
+			case 'note':
+				return tile.type;
+			default:
+				return 'note';
+		}
 	}
 
 	function notePreview(noteId: string): string {
@@ -53,6 +61,11 @@
 		const type = tileType(tile);
 		if (type === 'note' && tile.noteId) {
 			void goto(resolve(`/notes/${tile.noteId}`));
+			onclose();
+			return;
+		}
+		if (type === 'combat') {
+			void goto(resolve('/combat'));
 			onclose();
 			return;
 		}
@@ -143,7 +156,9 @@
 											: 'Note slot'
 										: tileType(tile) === 'timer'
 											? 'Timer'
-											: 'Calendar'}
+											: tileType(tile) === 'combat'
+												? 'Combat'
+												: 'Calendar'}
 								</div>
 								{#if tileType(tile) === 'note'}
 									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5 truncate">
@@ -164,6 +179,13 @@
 									</div>
 									<div class="text-xs text-ink-muted dark:text-tavern-muted">
 										Open Session Board to control timer.
+									</div>
+								{:else if tileType(tile) === 'combat'}
+									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
+										Combat Tracker
+									</div>
+									<div class="text-xs text-ink-muted dark:text-tavern-muted">
+										Open Combat route for full initiative controls.
 									</div>
 								{:else}
 									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
