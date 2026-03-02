@@ -238,6 +238,68 @@ const sessionBoardTileBaseSchema = z.object({
 	style: sessionBoardTileStyleSchema.optional(),
 });
 
+const sessionBoardCombatantSchema = z
+	.object({
+		id: idSchema,
+		name: z.string().min(1).max(MAX_STRING_LENGTH),
+		initiative: z.number().int().min(-100).max(100).nullable(),
+		initiativeModifier: z.number().int().min(-100).max(100),
+		tieRank: z.number().int().min(0).max(1000),
+		ready: z.boolean(),
+		delayed: z.boolean(),
+		isPlayerCharacter: z.boolean(),
+		currentHp: z.number().int().min(-100_000).max(100_000).nullable(),
+		maxHp: z.number().int().min(0).max(100_000).nullable(),
+		armorClass: z.number().int().min(-50).max(100).nullable(),
+		conditions: z.array(z.string().max(64)).max(64),
+		concentration: z.boolean(),
+		deathSaves: z
+			.object({
+				successes: z.number().int().min(0).max(3),
+				failures: z.number().int().min(0).max(3),
+			})
+			.strict(),
+		outcome: z.enum(['active', 'fell', 'fled']),
+		damageDealt: z.number().int().min(0).max(1_000_000),
+		linkedObjectId: idSchema.optional(),
+		linkedObjectType: z.enum(['stat_block', 'character']).optional(),
+		linkedObjectName: z.string().max(MAX_STRING_LENGTH).optional(),
+		statsPreview: z
+			.object({
+				size: z.string().max(64).optional(),
+				creatureType: z.string().max(64).optional(),
+				alignment: z.string().max(64).optional(),
+				challengeRating: z.string().max(64).optional(),
+				speed: z.string().max(128).optional(),
+				proficiencyBonus: z.string().max(64).optional(),
+				className: z.string().max(128).optional(),
+				level: z.number().int().min(1).max(100).optional(),
+				traits: z.array(z.string().max(MAX_STRING_LENGTH)).max(40),
+				actions: z.array(z.string().max(MAX_STRING_LENGTH)).max(40),
+				reactions: z.array(z.string().max(MAX_STRING_LENGTH)).max(40),
+				legendaryActions: z.array(z.string().max(MAX_STRING_LENGTH)).max(40),
+			})
+			.strict()
+			.optional(),
+		statsExpanded: z.boolean().optional(),
+	})
+	.strict();
+
+const sessionBoardCombatStateSchema = z
+	.object({
+		encounterName: z.string().max(120),
+		systemId: z.string().max(64),
+		round: z.number().int().min(0).max(999),
+		activeCombatantId: idSchema.nullable(),
+		combatants: z.array(sessionBoardCombatantSchema).max(200),
+		notes: z.string().max(MAX_CONTENT_LENGTH).optional(),
+		loot: z.string().max(MAX_CONTENT_LENGTH).optional(),
+		startedAt: z.string().max(MAX_STRING_LENGTH).nullable(),
+		endedAt: z.string().max(MAX_STRING_LENGTH).nullable(),
+		lastLogNoteId: idSchema.nullable(),
+	})
+	.strict();
+
 const sessionBoardNoteTileSchema = sessionBoardTileBaseSchema
 	.extend({
 		type: z.literal('note').optional(),
@@ -260,11 +322,34 @@ const sessionBoardTimerTileSchema = sessionBoardTileBaseSchema
 	})
 	.strict();
 
+const sessionBoardCombatTileSchema = sessionBoardTileBaseSchema
+	.extend({
+		type: z.literal('combat'),
+		combat: sessionBoardCombatStateSchema.optional(),
+	})
+	.strict();
+
 const sessionBoardTileSchema = z.union([
 	sessionBoardNoteTileSchema,
 	sessionBoardCalendarTileSchema,
 	sessionBoardTimerTileSchema,
+	sessionBoardCombatTileSchema,
 ]);
+
+const sessionContextItemSchema = z
+	.object({
+		noteId: idSchema,
+		category: z.enum(['npc', 'location', 'quest', 'party']),
+		pinnedAt: z.string().min(1).max(MAX_STRING_LENGTH),
+	})
+	.strict();
+
+const sessionContextSchema = z
+	.object({
+		collapsed: z.boolean(),
+		items: z.array(sessionContextItemSchema).max(24),
+	})
+	.strict();
 
 const sessionBoardTemplateSchema = z
 	.object({
@@ -320,6 +405,7 @@ export const sessionBoardSchema = z.object({
 		})
 		.strict()
 		.optional(),
+	sessionContext: sessionContextSchema.optional(),
 	createdAt: z.string().min(1).max(MAX_STRING_LENGTH),
 	updatedAt: z.string().min(1).max(MAX_STRING_LENGTH),
 });

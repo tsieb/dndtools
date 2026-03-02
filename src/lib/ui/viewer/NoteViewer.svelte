@@ -7,6 +7,7 @@
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import { formatWorldDate } from '$lib/domain/world-calendar.js';
+	import { describeQuickReferenceNote } from '$lib/domain/quick-reference.js';
 	import { getStorage } from '$lib/platform/storage/index.js';
 	import { goto } from '$app/navigation';
 
@@ -17,6 +18,19 @@
 	let { note }: Props = $props();
 	let html = $state('');
 	let contentEl = $state<HTMLDivElement | null>(null);
+	let wikilinkCard = $state<{
+		title: string;
+		noteTitle: string;
+		exists: boolean;
+		keyStats: string[];
+		previewLines: string[];
+		left: number;
+		top: number;
+	} | null>(null);
+	let activeWikilinkEl = $state<HTMLAnchorElement | null>(null);
+	const wikilinkCardId = 'note-viewer-wikilink-card';
+	let openCardTimer: ReturnType<typeof setTimeout> | null = null;
+	let closeCardTimer: ReturnType<typeof setTimeout> | null = null;
 
 	interface ObjectIndex {
 		byKey: Map<string, VaultObject>;
@@ -195,12 +209,153 @@
 		}
 	}
 
+	function isWikilinkAnchor(value: EventTarget | null): HTMLAnchorElement | null {
+		if (!(value instanceof HTMLElement)) return null;
+		const link = value.closest('a.wikilink') as HTMLAnchorElement | null;
+		if (!link) return null;
+		return link.dataset.wikilink ? link : null;
+	}
+
+	function clearHoverTimers(): void {
+		if (openCardTimer !== null) {
+			clearTimeout(openCardTimer);
+			openCardTimer = null;
+		}
+		if (closeCardTimer !== null) {
+			clearTimeout(closeCardTimer);
+			closeCardTimer = null;
+		}
+	}
+
+	function hideWikilinkCard(): void {
+		if (activeWikilinkEl) {
+			activeWikilinkEl.removeAttribute('aria-describedby');
+			activeWikilinkEl = null;
+		}
+		wikilinkCard = null;
+	}
+
+	function showWikilinkCard(link: HTMLAnchorElement): void {
+		const title = link.dataset.wikilink?.trim();
+		if (!title) return;
+		const resolvedId = notesState.resolveTitle(title);
+		const targetNote = resolvedId ? notesState.getActiveNoteById(resolvedId) : null;
+		const meta = targetNote ? describeQuickReferenceNote(targetNote) : null;
+
+		const rect = link.getBoundingClientRect();
+		const cardWidth = 320;
+		const cardHeight = 190;
+		const left = Math.max(8, Math.min(window.innerWidth - cardWidth - 8, rect.left));
+		const defaultTop = rect.bottom + 10;
+		const top =
+			defaultTop + cardHeight > window.innerHeight
+				? Math.max(8, rect.top - cardHeight - 10)
+				: defaultTop;
+
+		if (activeWikilinkEl && activeWikilinkEl !== link) {
+			activeWikilinkEl.removeAttribute('aria-describedby');
+		}
+		activeWikilinkEl = link;
+		activeWikilinkEl.setAttribute('aria-describedby', wikilinkCardId);
+
+		wikilinkCard = {
+			title,
+			noteTitle: targetNote?.title ?? title,
+			exists: !!targetNote,
+			keyStats: meta?.keyStats ?? [],
+			previewLines: meta?.previewLines ?? [],
+			left,
+			top,
+		};
+	}
+
+	function scheduleShow(link: HTMLAnchorElement): void {
+		if (closeCardTimer !== null) {
+			clearTimeout(closeCardTimer);
+			closeCardTimer = null;
+		}
+		if (openCardTimer !== null) clearTimeout(openCardTimer);
+		openCardTimer = setTimeout(() => {
+			openCardTimer = null;
+			showWikilinkCard(link);
+		}, 130);
+	}
+
+	function scheduleHide(): void {
+		if (openCardTimer !== null) {
+			clearTimeout(openCardTimer);
+			openCardTimer = null;
+		}
+		if (closeCardTimer !== null) clearTimeout(closeCardTimer);
+		closeCardTimer = setTimeout(() => {
+			closeCardTimer = null;
+			hideWikilinkCard();
+		}, 120);
+	}
+
+	function handleMouseOver(event: MouseEvent): void {
+		const link = isWikilinkAnchor(event.target);
+		if (!link) return;
+		scheduleShow(link);
+	}
+
+	function handleMouseOut(event: MouseEvent): void {
+		const link = isWikilinkAnchor(event.target);
+		if (!link) return;
+		const related = event.relatedTarget;
+		if (related instanceof Node && link.contains(related)) return;
+		scheduleHide();
+	}
+
+	function handleFocusIn(event: FocusEvent): void {
+		const link = isWikilinkAnchor(event.target);
+		if (!link) return;
+		scheduleShow(link);
+	}
+
+	function handleFocusOut(event: FocusEvent): void {
+		const link = isWikilinkAnchor(event.target);
+		if (!link) return;
+		const related = event.relatedTarget;
+		if (related instanceof Node && link.contains(related)) return;
+		scheduleHide();
+	}
+
+	function handleKeyInteraction(event: KeyboardEvent): void {
+		if (event.key !== ' ' && event.key !== 'Spacebar') return;
+		const link = isWikilinkAnchor(event.target);
+		if (!link) return;
+		event.preventDefault();
+		clearHoverTimers();
+		if (activeWikilinkEl === link && wikilinkCard) {
+			hideWikilinkCard();
+			return;
+		}
+		showWikilinkCard(link);
+	}
+
 	$effect(() => {
 		if (!contentEl) return;
 		const element = contentEl;
 		element.addEventListener('click', handleClick);
+		element.addEventListener('mouseover', handleMouseOver);
+		element.addEventListener('mouseout', handleMouseOut);
+		element.addEventListener('focusin', handleFocusIn);
+		element.addEventListener('focusout', handleFocusOut);
+		element.addEventListener('keydown', handleKeyInteraction);
 		return () => {
 			element.removeEventListener('click', handleClick);
+			element.removeEventListener('mouseover', handleMouseOver);
+			element.removeEventListener('mouseout', handleMouseOut);
+			element.removeEventListener('focusin', handleFocusIn);
+			element.removeEventListener('focusout', handleFocusOut);
+			element.removeEventListener('keydown', handleKeyInteraction);
+		};
+	});
+
+	$effect(() => {
+		return () => {
+			clearHoverTimers();
 		};
 	});
 </script>
@@ -210,3 +365,30 @@
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 	{@html html}
 </div>
+
+{#if wikilinkCard}
+	<div
+		id={wikilinkCardId}
+		role="tooltip"
+		class="fixed z-30 w-80 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface shadow-xl p-3 pointer-events-none"
+		style={`left:${wikilinkCard.left}px; top:${wikilinkCard.top}px;`}
+	>
+		<p class="text-sm font-semibold text-ink dark:text-tavern-text truncate">
+			{wikilinkCard.noteTitle}
+		</p>
+		{#if wikilinkCard.keyStats.length > 0}
+			<p class="mt-1 text-[11px] text-ink-muted dark:text-tavern-muted">
+				{wikilinkCard.keyStats.join(' | ')}
+			</p>
+		{/if}
+		{#if wikilinkCard.previewLines.length > 0}
+			<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">
+				{wikilinkCard.previewLines.slice(0, 3).join(' ')}
+			</p>
+		{:else if !wikilinkCard.exists}
+			<p class="mt-2 text-xs text-ink-faint dark:text-tavern-faint">
+				No note currently resolves for [[{wikilinkCard.title}]].
+			</p>
+		{/if}
+	</div>
+{/if}

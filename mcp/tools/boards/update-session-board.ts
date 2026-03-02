@@ -10,7 +10,7 @@ import { errorResult, jsonResult } from '../shared/response.js';
 const tileInput = z
 	.object({
 		id: z.string().min(1).optional(),
-		type: z.enum(['note', 'calendar', 'timer']).optional(),
+		type: z.enum(['note', 'calendar', 'timer', 'combat']).optional(),
 		noteId: z.string().min(1).optional(),
 		previewDepth: z.enum(['title', 'summary', 'full']).optional(),
 		previewLineCount: z.number().int().min(1).max(40).optional(),
@@ -26,6 +26,7 @@ const tileInput = z
 			})
 			.strict()
 			.optional(),
+		combat: z.record(z.string(), z.unknown()).optional(),
 		x: z.number().int().min(0).max(31),
 		y: z.number().int().min(0).max(200),
 		w: z.number().int().min(2).max(32),
@@ -43,10 +44,10 @@ const tileInput = z
 			.optional(),
 	})
 	.superRefine((tile, ctx) => {
-		if (tile.type === 'timer' && tile.noteId) {
+		if ((tile.type === 'timer' || tile.type === 'combat') && tile.noteId) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
-				message: 'noteId is not allowed on timer tiles.',
+				message: 'noteId is only allowed on note tiles.',
 				path: ['noteId'],
 			});
 		}
@@ -102,6 +103,7 @@ export function registerUpdateSessionBoardTool(
 						previewDepth: tile.previewDepth,
 						previewLineCount: tile.previewLineCount,
 						timer: tile.type === 'timer' ? tile.timer : undefined,
+						combat: tile.type === 'combat' ? tile.combat : undefined,
 						x: tile.x,
 						y: tile.y,
 						w: tile.w,

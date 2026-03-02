@@ -2,8 +2,10 @@
 import { describe, expect, it } from 'vitest';
 import {
 	BUILT_IN_SESSION_BOARD_TEMPLATES,
+	DEFAULT_SESSION_CONTEXT,
 	createDefaultTimerState,
 	normalizeBoardTemplatesSetting,
+	normalizeSessionContextState,
 	normalizeSessionBoardTile,
 } from './session-board.js';
 
@@ -98,5 +100,25 @@ describe('session-board domain', () => {
 			expect(normalizedCombat.combat?.combatants).toHaveLength(1);
 			expect(normalizedCombat.combat?.combatants[0]?.name).toBe('A');
 		}
+	});
+
+	it('normalizes session context state and enforces category uniqueness by note id', () => {
+		const normalized = normalizeSessionContextState({
+			collapsed: true,
+			items: [
+				{ noteId: 'npc-a', category: 'npc', pinnedAt: '2026-03-02T00:00:00.000Z' },
+				{ noteId: 'npc-a', category: 'npc', pinnedAt: '2026-03-01T00:00:00.000Z' },
+				{ noteId: 'loc-a', category: 'location', pinnedAt: '2026-03-02T01:00:00.000Z' },
+				{ noteId: '', category: 'quest', pinnedAt: '2026-03-02T01:00:00.000Z' },
+				{ noteId: 'bad-category', category: 'other', pinnedAt: '2026-03-02T01:00:00.000Z' },
+			],
+		});
+		expect(normalized.collapsed).toBe(true);
+		expect(normalized.items).toHaveLength(2);
+		expect(normalized.items.map((item) => item.noteId)).toEqual(['loc-a', 'npc-a']);
+	});
+
+	it('falls back to default context state for invalid input', () => {
+		expect(normalizeSessionContextState(null)).toEqual(DEFAULT_SESSION_CONTEXT);
 	});
 });

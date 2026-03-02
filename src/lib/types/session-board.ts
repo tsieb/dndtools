@@ -12,6 +12,7 @@ export type SessionBoardTileType = 'note' | 'calendar' | 'timer' | 'combat';
 export type SessionBoardPreviewDepth = 'title' | 'summary' | 'full';
 export type SessionBoardTimerMode = 'elapsed' | 'countdown';
 export type CombatantOutcome = 'active' | 'fell' | 'fled';
+export type SessionContextCategory = 'npc' | 'location' | 'quest' | 'party';
 
 export interface SessionBoardDeathSaves {
 	successes: number;
@@ -127,6 +128,17 @@ export interface SessionBoardStyle {
 	sectionTintOpacity?: number;
 }
 
+export interface SessionContextItem {
+	noteId: NoteId;
+	category: SessionContextCategory;
+	pinnedAt: string;
+}
+
+export interface SessionContextState {
+	collapsed: boolean;
+	items: SessionContextItem[];
+}
+
 export interface SessionBoardTemplate {
 	id: string;
 	name: string;
@@ -146,6 +158,7 @@ export interface SessionBoard {
 	tiles: SessionBoardTile[];
 	layout?: SessionBoardLayout;
 	style?: SessionBoardStyle;
+	sessionContext?: SessionContextState;
 	createdAt: string;
 	updatedAt: string;
 }

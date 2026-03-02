@@ -769,5 +769,52 @@ describe('Additional validation edge cases', () => {
 			const result = sessionBoardSchema.safeParse(makeMinimalBoard({ tiles }));
 			expect(result.success).toBe(false);
 		});
+
+		it('accepts combat tiles with combat state payload', () => {
+			const tiles = [
+				{
+					id: 'combat-1',
+					type: 'combat',
+					x: 0,
+					y: 0,
+					w: 6,
+					h: 4,
+					combat: {
+						encounterName: 'Bridge Skirmish',
+						systemId: 'dnd5e',
+						round: 1,
+						activeCombatantId: null,
+						combatants: [],
+						notes: '',
+						loot: '',
+						startedAt: null,
+						endedAt: null,
+						lastLogNoteId: null,
+					},
+				},
+			];
+			const result = sessionBoardSchema.safeParse(makeMinimalBoard({ tiles }));
+			expect(result.success).toBe(true);
+		});
+	});
+
+	describe('sessionBoardSchema session context', () => {
+		it('accepts persisted session context payload', () => {
+			const result = sessionBoardSchema.safeParse(
+				makeMinimalBoard({
+					sessionContext: {
+						collapsed: false,
+						items: [
+							{
+								noteId: 'note-abc123',
+								category: 'npc',
+								pinnedAt: '2026-03-02T00:00:00.000Z',
+							},
+						],
+					},
+				}),
+			);
+			expect(result.success).toBe(true);
+		});
 	});
 });

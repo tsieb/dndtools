@@ -38,6 +38,8 @@
 	let { children } = $props();
 	let quickSwitcherOpen = $state(false);
 	let sessionQuickPanelOpen = $state(false);
+	let quickReferenceOverlayOpen = $state(false);
+	let quickReferenceSplitNoteId = $state<string | null>(null);
 	let templateDialogOpen = $state(false);
 	let templateDialogFolderOverride = $state<string | null>(null);
 	let templateDialogCandidates = $state<readonly NoteTemplate[] | null>(null);
@@ -267,6 +269,9 @@
 		if (mod && event.key === 'p') {
 			event.preventDefault();
 			quickSwitcherOpen = true;
+		} else if (mod && event.shiftKey && event.code === 'Space') {
+			event.preventDefault();
+			quickReferenceOverlayOpen = !quickReferenceOverlayOpen;
 		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'b') {
 			event.preventDefault();
 			sessionQuickPanelOpen = !sessionQuickPanelOpen;
@@ -313,6 +318,28 @@
 				ontemplate={openTemplateDialog}
 				oncreatefromtemplate={(templateId: string) => void handleCreateFromTemplateId(templateId)}
 				onsessionrecap={() => void handleSessionRecapScaffold()}
+				onopensplitview={(noteId: string) => (quickReferenceSplitNoteId = noteId)}
+			/>
+		{/await}
+	{/if}
+	{#if quickReferenceOverlayOpen}
+		{#await import('$lib/ui/search/QuickReferenceOverlay.svelte')}
+			<div class="hidden" aria-hidden="true"></div>
+		{:then QuickReferenceOverlayModule}
+			<QuickReferenceOverlayModule.default
+				bind:open={quickReferenceOverlayOpen}
+				onclose={() => (quickReferenceOverlayOpen = false)}
+				onopensplitview={(noteId: string) => (quickReferenceSplitNoteId = noteId)}
+			/>
+		{/await}
+	{/if}
+	{#if quickReferenceSplitNoteId}
+		{#await import('$lib/ui/search/QuickReferenceSplitView.svelte')}
+			<div class="hidden" aria-hidden="true"></div>
+		{:then QuickReferenceSplitViewModule}
+			<QuickReferenceSplitViewModule.default
+				noteId={createNoteId(quickReferenceSplitNoteId)}
+				onclose={() => (quickReferenceSplitNoteId = null)}
 			/>
 		{/await}
 	{/if}

@@ -11,10 +11,12 @@ import type {
 	SessionBoardTile,
 } from '$lib/types/session-board.js';
 import {
+	DEFAULT_SESSION_CONTEXT,
 	DEFAULT_SESSION_BOARD_LAYOUT,
 	cloneTemplateForBoard,
 	normalizeBoardTemplatesSetting,
 	normalizeSessionBoardLayout,
+	normalizeSessionContextState,
 	normalizeSessionBoardStyle,
 	normalizeSessionBoardTile,
 } from '$lib/domain/session-board.js';
@@ -81,6 +83,9 @@ function normalizeBoard(board: SessionBoard, updates?: Partial<SessionBoard>): S
 		layout,
 		style: normalizeSessionBoardStyle(
 			updates?.style ? { ...(board.style ?? {}), ...updates.style } : board.style,
+		),
+		sessionContext: normalizeSessionContextState(
+			updates?.sessionContext ?? board.sessionContext ?? DEFAULT_SESSION_CONTEXT,
 		),
 		tiles: nextTiles,
 	};
@@ -212,6 +217,7 @@ class SessionBoardsState {
 				? normalizeSessionBoardLayout(template.layout)
 				: { ...DEFAULT_SESSION_BOARD_LAYOUT },
 			style: normalizeSessionBoardStyle(template?.style),
+			sessionContext: { collapsed: false, items: [] },
 			createdAt: now,
 			updatedAt: now,
 		};
@@ -434,6 +440,79 @@ class SessionBoardsState {
 		} finally {
 			this.suggestionsLoading = false;
 		}
+	}
+
+	async setSessionContextCollapsed(boardId: SessionBoardId, collapsed: boolean): Promise<void> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return;
+		const context = normalizeSessionContextState(board.sessionContext ?? DEFAULT_SESSION_CONTEXT);
+		await this.updateBoard(boardId, {
+			sessionContext: {
+				...context,
+				collapsed,
+			},
+		});
+	}
+
+	async pinSessionContextItem(
+		boardId: SessionBoardId,
+		noteId: NoteId,
+		category: 'npc' | 'location' | 'quest' | 'party',
+	): Promise<void> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return;
+		const context = normalizeSessionContextState(board.sessionContext ?? DEFAULT_SESSION_CONTEXT);
+		const now = nowISO();
+		const nextItems = context.items.filter((item) => {
+			if (item.noteId === noteId) return false;
+			if ((category === 'location' || category === 'quest') && item.category === category) {
+				return false;
+			}
+			return true;
+		});
+		nextItems.push({ noteId, category, pinnedAt: now });
+		await this.updateBoard(boardId, {
+			sessionContext: {
+				...context,
+				items: nextItems.sort((a, b) => b.pinnedAt.localeCompare(a.pinnedAt)),
+			},
+		});
+	}
+
+	async unpinSessionContextItem(boardId: SessionBoardId, noteId: NoteId): Promise<void> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return;
+		const context = normalizeSessionContextState(board.sessionContext ?? DEFAULT_SESSION_CONTEXT);
+		await this.updateBoard(boardId, {
+			sessionContext: {
+				...context,
+				items: context.items.filter((item) => item.noteId !== noteId),
+			},
+		});
+	}
+
+	async recategorizeSessionContextItem(
+		boardId: SessionBoardId,
+		noteId: NoteId,
+		category: 'npc' | 'location' | 'quest' | 'party',
+	): Promise<void> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return;
+		const context = normalizeSessionContextState(board.sessionContext ?? DEFAULT_SESSION_CONTEXT);
+		const existing = context.items.find((item) => item.noteId === noteId);
+		if (!existing) return;
+		const nextItems = context.items
+			.filter((item) => item.noteId !== noteId)
+			.filter((item) =>
+				category === 'location' || category === 'quest' ? item.category !== category : true,
+			);
+		nextItems.push({ ...existing, category });
+		await this.updateBoard(boardId, {
+			sessionContext: {
+				...context,
+				items: nextItems.sort((a, b) => b.pinnedAt.localeCompare(a.pinnedAt)),
+			},
+		});
 	}
 }
 
