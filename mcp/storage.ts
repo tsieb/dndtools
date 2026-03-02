@@ -51,8 +51,10 @@ import { DND_TEMPLATES, GLOBAL_TEMPLATE_IDS } from '../src/lib/domain/templates.
 import { REUSABLE_SNIPPETS } from '../src/lib/domain/snippets.js';
 import { normalizeWorldCalendar } from '../src/lib/domain/world-calendar.js';
 import {
+	DEFAULT_SESSION_CONTEXT,
 	normalizeBoardTemplatesSetting,
 	normalizeSessionBoardLayout,
+	normalizeSessionContextState,
 	normalizeSessionBoardStyle,
 	normalizeSessionBoardTile,
 } from '../src/lib/domain/session-board.js';
@@ -431,7 +433,10 @@ function normalizeSessionBoardRecord(
 			{
 				id: rawTile.id,
 				type:
-					rawTile.type === 'calendar' || rawTile.type === 'timer' || rawTile.type === 'note'
+					rawTile.type === 'calendar' ||
+					rawTile.type === 'timer' ||
+					rawTile.type === 'note' ||
+					rawTile.type === 'combat'
 						? rawTile.type
 						: undefined,
 				noteId,
@@ -447,6 +452,9 @@ function normalizeSessionBoardRecord(
 					typeof rawTile.previewLineCount === 'number' ? rawTile.previewLineCount : undefined,
 				timer: isRecord(rawTile.timer)
 					? (rawTile.timer as unknown as SessionBoard['tiles'][number]['timer'])
+					: undefined,
+				combat: isRecord(rawTile.combat)
+					? (rawTile.combat as unknown as SessionBoard['tiles'][number]['combat'])
 					: undefined,
 			},
 			layout.columns,
@@ -476,6 +484,9 @@ function normalizeSessionBoardRecord(
 		layout,
 		style: normalizeSessionBoardStyle(
 			isRecord(value.style) ? (value.style as SessionBoard['style']) : undefined,
+		),
+		sessionContext: normalizeSessionContextState(
+			isRecord(value.sessionContext) ? value.sessionContext : DEFAULT_SESSION_CONTEXT,
 		),
 		createdAt,
 		updatedAt,
@@ -2033,6 +2044,9 @@ export class FileSystemAdapter implements StorageAdapter {
 			);
 			const timestamp = nowISO();
 			const createdAt = board.createdAt || timestamp;
+			const sessionContext = normalizeSessionContextState(
+				board.sessionContext ?? DEFAULT_SESSION_CONTEXT,
+			);
 
 			this.sessionBoards.boards[board.id] = {
 				id: createSessionBoardId(String(board.id)),
@@ -2041,6 +2055,7 @@ export class FileSystemAdapter implements StorageAdapter {
 				tiles: normalizedTiles,
 				layout,
 				style: normalizeSessionBoardStyle(board.style),
+				sessionContext,
 				createdAt,
 				updatedAt: board.updatedAt || timestamp,
 			};

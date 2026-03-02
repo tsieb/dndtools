@@ -44,8 +44,12 @@ const sessionBoardTileStyleSchema = z
 const sessionBoardTileSchema = z
 	.object({
 		id: z.string().min(1),
-		type: z.enum(['note', 'calendar']).optional(),
+		type: z.enum(['note', 'calendar', 'timer', 'combat']).optional(),
 		noteId: z.string().min(1).optional(),
+		previewDepth: z.enum(['title', 'summary', 'full']).optional(),
+		previewLineCount: z.number().int().min(1).max(40).optional(),
+		timer: z.record(z.string(), z.unknown()).optional(),
+		combat: z.record(z.string(), z.unknown()).optional(),
 		x: z.number(),
 		y: z.number(),
 		w: z.number(),
@@ -53,7 +57,8 @@ const sessionBoardTileSchema = z
 		style: sessionBoardTileStyleSchema.optional(),
 	})
 	.superRefine((tile, ctx) => {
-		if (tile.type === 'calendar') return;
+		const type = tile.type ?? 'note';
+		if (type === 'calendar' || type === 'timer' || type === 'combat') return;
 		if (!tile.noteId) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
@@ -85,6 +90,21 @@ const sessionBoardSchema = z
 				backgroundPattern: z.enum(['none', 'grid', 'dots']).optional(),
 				sectionTintColor: z.string().optional(),
 				sectionTintOpacity: z.number().optional(),
+			})
+			.strict()
+			.optional(),
+		sessionContext: z
+			.object({
+				collapsed: z.boolean(),
+				items: z.array(
+					z
+						.object({
+							noteId: z.string().min(1),
+							category: z.enum(['npc', 'location', 'quest', 'party']),
+							pinnedAt: z.string().min(1),
+						})
+						.strict(),
+				),
 			})
 			.strict()
 			.optional(),

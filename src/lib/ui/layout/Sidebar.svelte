@@ -8,6 +8,7 @@
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { isVaultObjectNote } from '$lib/domain/object-notes.js';
 	import WorldCalendarReference from '$lib/ui/calendar/WorldCalendarReference.svelte';
+	import SessionContextPanel from '$lib/ui/session/SessionContextPanel.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
@@ -244,6 +245,10 @@
 
 		<div class="px-3 pb-2">
 			<WorldCalendarReference notes={notesState.activeNotes} title="Calendar" collapsible compact />
+		</div>
+
+		<div class="px-3 pb-2">
+			<SessionContextPanel />
 		</div>
 
 		<div class="px-3 pb-2">

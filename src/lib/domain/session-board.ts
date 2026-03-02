@@ -1,4 +1,7 @@
 import type {
+	SessionContextCategory,
+	SessionContextItem,
+	SessionContextState,
 	SessionBoardLayout,
 	SessionBoardPreviewDepth,
 	SessionBoardStyle,
@@ -7,6 +10,7 @@ import type {
 	SessionBoardTileStyle,
 	SessionBoardTimerState,
 } from '../types/session-board.js';
+import { createNoteId } from '../types/note.js';
 import { createDefaultCombatState, normalizeCombatState } from './combat-tracker.js';
 
 const MIN_COLUMNS = 8;
@@ -27,6 +31,7 @@ const MIN_TILE_SCALE = 0.5;
 const MAX_TILE_SCALE = 2.5;
 const MIN_PREVIEW_LINES = 1;
 const MAX_PREVIEW_LINES = 40;
+const MAX_SESSION_CONTEXT_ITEMS = 24;
 
 export const DEFAULT_SESSION_BOARD_LAYOUT: SessionBoardLayout = {
 	columns: 12,
@@ -38,6 +43,10 @@ export const DEFAULT_SESSION_BOARD_LAYOUT: SessionBoardLayout = {
 export const DEFAULT_NOTE_PREVIEW_DEPTH: SessionBoardPreviewDepth = 'summary';
 export const DEFAULT_NOTE_PREVIEW_LINES = 8;
 export const DEFAULT_TIMER_COUNTDOWN_MS = 60 * 60 * 1000;
+export const DEFAULT_SESSION_CONTEXT: SessionContextState = {
+	collapsed: false,
+	items: [],
+};
 
 const BUILT_IN_TEMPLATE_TIMESTAMP = '2026-03-02T00:00:00.000Z';
 
@@ -154,6 +163,47 @@ export function normalizeSessionBoardTimerState(value: unknown): SessionBoardTim
 			.slice(0, 200)
 			.map((entry) => Math.max(0, Math.round(entry))),
 		minimalDisplay: value.minimalDisplay === true,
+	};
+}
+
+function normalizeSessionContextCategory(value: unknown): SessionContextCategory | null {
+	return value === 'npc' || value === 'location' || value === 'quest' || value === 'party'
+		? value
+		: null;
+}
+
+function normalizeSessionContextItem(value: unknown): SessionContextItem | null {
+	if (!isRecord(value)) return null;
+	const noteId = typeof value.noteId === 'string' ? value.noteId.trim() : '';
+	if (!noteId) return null;
+	const category = normalizeSessionContextCategory(value.category);
+	if (!category) return null;
+	const pinnedAt =
+		typeof value.pinnedAt === 'string' && value.pinnedAt.trim().length > 0
+			? value.pinnedAt
+			: new Date().toISOString();
+	return {
+		noteId: createNoteId(noteId),
+		category,
+		pinnedAt,
+	};
+}
+
+export function normalizeSessionContextState(value: unknown): SessionContextState {
+	if (!isRecord(value)) return { ...DEFAULT_SESSION_CONTEXT };
+	const rawItems = Array.isArray(value.items) ? value.items : [];
+	const uniqueByNoteId = new Map<string, SessionContextItem>();
+	for (const rawItem of rawItems) {
+		const item = normalizeSessionContextItem(rawItem);
+		if (!item) continue;
+		uniqueByNoteId.set(item.noteId, item);
+	}
+	const items = [...uniqueByNoteId.values()]
+		.sort((a, b) => b.pinnedAt.localeCompare(a.pinnedAt))
+		.slice(0, MAX_SESSION_CONTEXT_ITEMS);
+	return {
+		collapsed: value.collapsed === true,
+		items,
 	};
 }
 
