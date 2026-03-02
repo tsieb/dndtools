@@ -2,14 +2,21 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import SessionBoardTileCard from '$lib/ui/board/SessionBoardTile.svelte';
+	import SessionBoardTimerTile from '$lib/ui/board/SessionBoardTimerTile.svelte';
 	import WorldCalendarReference from '$lib/ui/calendar/WorldCalendarReference.svelte';
+	import { DEFAULT_SESSION_BOARD_LAYOUT } from '$lib/domain/session-board.js';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import type { NoteId } from '$lib/types/note.js';
-	import type { SessionBoard, SessionBoardTile } from '$lib/types/session-board.js';
+	import type {
+		SessionBoard,
+		SessionBoardNoteTile,
+		SessionBoardTile,
+		SessionBoardTimerTile as SessionBoardTimerTileModel,
+	} from '$lib/types/session-board.js';
 
-	const DEFAULT_LAYOUT = { columns: 12, rowHeight: 120, minRows: 12, gap: 12 } as const;
+	const DEFAULT_LAYOUT = DEFAULT_SESSION_BOARD_LAYOUT;
 	const CELL_WIDTH = 160;
 	const MIN_ZOOM = 0.2;
 	const MAX_ZOOM = 4;
@@ -17,9 +24,13 @@
 
 	let newBoardName = $state('Session Board');
 	let newBoardDescription = $state('');
+	let createTemplateId = $state('');
 	let noteQuery = $state('');
 	let boardNameDraft = $state('');
 	let boardDescriptionDraft = $state('');
+	let applyTemplateId = $state('');
+	let saveTemplateName = $state('');
+	let saveTemplateDescription = $state('');
 	let mode = $state<'view' | 'edit'>('view');
 	let selectedTileId = $state<string | null>(null);
 	let overlayNoteId = $state<NoteId | null>(null);
@@ -50,8 +61,10 @@
 
 	type RenderedTileEntry =
 		| { tile: SessionBoardTile; kind: 'calendar'; x: number; y: number }
+		| { tile: SessionBoardTimerTileModel; kind: 'timer'; x: number; y: number }
+		| { tile: SessionBoardNoteTile; kind: 'note_slot'; x: number; y: number }
 		| {
-				tile: SessionBoardTile;
+				tile: SessionBoardNoteTile;
 				kind: 'note';
 				note: (typeof notesState.activeNotes)[number];
 				x: number;
@@ -60,6 +73,7 @@
 
 	let activeBoard = $derived(sessionBoardsState.activeBoard);
 	let activeNotesById = $derived(notesState.activeNoteById);
+	let boardTemplates = $derived(sessionBoardsState.templates);
 	let layout = $derived.by(() => ({
 		columns: activeBoard?.layout?.columns ?? DEFAULT_LAYOUT.columns,
 		rowHeight: activeBoard?.layout?.rowHeight ?? DEFAULT_LAYOUT.rowHeight,
@@ -68,6 +82,11 @@
 	}));
 	let selectedTile = $derived.by(
 		() => activeBoard?.tiles.find((t) => t.id === selectedTileId) ?? null,
+	);
+	let selectedNoteTile = $derived.by(() =>
+		selectedTile && (selectedTile.type ?? 'note') === 'note'
+			? (selectedTile as SessionBoardNoteTile)
+			: null,
 	);
 	let overlayNote = $derived(overlayNoteId ? (activeNotesById.get(overlayNoteId) ?? null) : null);
 	let zoomPercent = $derived(Math.round(zoom * 100));
@@ -109,9 +128,19 @@
 				entries.push({ tile, kind: 'calendar', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
 				continue;
 			}
-			if (!tile.noteId) continue;
+			if (tile.type === 'timer') {
+				entries.push({ tile, kind: 'timer', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
+				continue;
+			}
+			if (!tile.noteId) {
+				entries.push({ tile, kind: 'note_slot', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
+				continue;
+			}
 			const note = activeNotesById.get(tile.noteId);
-			if (!note) continue;
+			if (!note) {
+				entries.push({ tile, kind: 'note_slot', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
+				continue;
+			}
 			entries.push({ tile, kind: 'note', note, x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
 		}
 		return entries;
@@ -140,6 +169,9 @@
 		if (activeBoard.id !== lastBoardId) {
 			boardNameDraft = activeBoard.name;
 			boardDescriptionDraft = activeBoard.description;
+			saveTemplateName = `${activeBoard.name} Layout`;
+			saveTemplateDescription = activeBoard.description;
+			applyTemplateId = '';
 			selectedTileId = null;
 			draftPositions = {};
 			zoom = DEFAULT_ZOOM;
@@ -322,9 +354,14 @@
 	}
 
 	async function createBoard(): Promise<void> {
-		await sessionBoardsState.createBoard(newBoardName, newBoardDescription);
+		await sessionBoardsState.createBoard(
+			newBoardName,
+			newBoardDescription,
+			createTemplateId || undefined,
+		);
 		newBoardName = 'Session Board';
 		newBoardDescription = '';
+		createTemplateId = '';
 	}
 	async function saveBoard(): Promise<void> {
 		if (!activeBoard) return;
@@ -352,6 +389,28 @@
 	async function addCalendarTile(): Promise<void> {
 		if (!activeBoard) return;
 		await sessionBoardsState.addCalendarTile(activeBoard.id);
+	}
+	async function addTimerTile(): Promise<void> {
+		if (!activeBoard) return;
+		await sessionBoardsState.addTimerTile(activeBoard.id);
+	}
+	async function applyTemplate(): Promise<void> {
+		if (!activeBoard || !applyTemplateId) return;
+		await sessionBoardsState.applyTemplateToBoard(activeBoard.id, applyTemplateId);
+	}
+	async function saveCurrentLayoutAsTemplate(): Promise<void> {
+		if (!activeBoard) return;
+		await sessionBoardsState.saveTemplateFromBoard(
+			activeBoard.id,
+			saveTemplateName,
+			saveTemplateDescription,
+		);
+	}
+	async function deleteTemplate(templateId: string): Promise<void> {
+		if (!templateId) return;
+		await sessionBoardsState.deleteTemplate(templateId);
+		if (createTemplateId === templateId) createTemplateId = '';
+		if (applyTemplateId === templateId) applyTemplateId = '';
 	}
 	async function removeTile(tileId: string): Promise<void> {
 		if (!activeBoard) return;
@@ -477,6 +536,18 @@
 							class="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
 							placeholder="Short purpose"
 						></textarea>
+						<label class="block text-xs text-ink-muted dark:text-tavern-muted mb-2">
+							Template
+							<select
+								bind:value={createTemplateId}
+								class="mt-1 w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+							>
+								<option value="">Blank board</option>
+								{#each boardTemplates as template (template.id)}
+									<option value={template.id}>{template.name}</option>
+								{/each}
+							</select>
+						</label>
 						<button
 							class="w-full px-3 py-1.5 rounded-md bg-accent hover:bg-accent-hover dark:bg-tavern-accent dark:hover:bg-tavern-accent-hover dark:text-tavern-bg text-white text-sm transition-colors"
 							onclick={createBoard}>Create Session Board</button
@@ -507,6 +578,86 @@
 						</div>
 					</section>
 
+					<section
+						class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3 space-y-2"
+					>
+						<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Board Templates</h2>
+						<p class="text-[11px] text-ink-muted dark:text-tavern-muted">
+							Use built-in layouts for common scenes or save your own reusable board setup.
+						</p>
+						{#if activeBoard}
+							<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+								Apply template
+								<select
+									bind:value={applyTemplateId}
+									class="mt-1 w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+								>
+									<option value="">Select template</option>
+									{#each boardTemplates as template (template.id)}
+										<option value={template.id}>{template.name}</option>
+									{/each}
+								</select>
+							</label>
+							<button
+								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors disabled:opacity-60"
+								onclick={applyTemplate}
+								disabled={!applyTemplateId}
+							>
+								Apply Template To Current Board
+							</button>
+
+							<div class="pt-2 border-t border-border/70 dark:border-tavern-border/70 space-y-2">
+								<input
+									type="text"
+									bind:value={saveTemplateName}
+									class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+									placeholder="Template name"
+								/>
+								<textarea
+									bind:value={saveTemplateDescription}
+									rows="2"
+									class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+									placeholder="Template description"
+								></textarea>
+								<button
+									class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+									onclick={saveCurrentLayoutAsTemplate}
+								>
+									Save Current Layout As Template
+								</button>
+							</div>
+						{/if}
+
+						<div class="max-h-36 overflow-y-auto pr-1 space-y-1">
+							{#if boardTemplates.length === 0}
+								<p class="text-xs text-ink-faint dark:text-tavern-faint">No templates available.</p>
+							{:else}
+								{#each boardTemplates as template (template.id)}
+									<div
+										class="rounded border border-border/60 dark:border-tavern-border/60 px-2 py-1.5"
+									>
+										<div class="flex items-center justify-between gap-2">
+											<div class="truncate text-xs font-medium text-ink dark:text-tavern-text">
+												{template.name}
+											</div>
+											{#if !template.builtIn}
+												<button
+													class="text-[11px] px-1.5 py-0.5 rounded border border-error/40 text-error hover:bg-error/5 transition-colors"
+													onclick={() => void deleteTemplate(template.id)}
+												>
+													Delete
+												</button>
+											{/if}
+										</div>
+										<div class="text-[11px] text-ink-faint dark:text-tavern-faint truncate">
+											{template.description || `${template.tiles.length} tiles`}
+										</div>
+									</div>
+								{/each}
+							{/if}
+						</div>
+					</section>
+
 					{#if activeBoard}
 						<section
 							class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3 space-y-2"
@@ -517,6 +668,12 @@
 								onclick={addCalendarTile}
 							>
 								Add Calendar Tile
+							</button>
+							<button
+								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								onclick={addTimerTile}
+							>
+								Add Timer Tile
 							</button>
 							<input
 								type="text"
@@ -872,6 +1029,39 @@
 													class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
 												/></label
 											>
+											{#if selectedNoteTile}
+												<label class="text-xs"
+													>Preview<select
+														value={selectedNoteTile.previewDepth ?? 'summary'}
+														onchange={(e) =>
+															void updateSelected({
+																previewDepth: (e.currentTarget as HTMLSelectElement).value as
+																	| 'title'
+																	| 'summary'
+																	| 'full',
+															})}
+														class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border px-2 bg-surface dark:bg-tavern-surface"
+														><option value="title">Title only</option><option value="summary"
+															>Summary</option
+														><option value="full">Full</option></select
+													></label
+												>
+												<label class="text-xs"
+													>Summary Lines<input
+														type="number"
+														min="1"
+														max="40"
+														value={selectedNoteTile.previewLineCount ?? 8}
+														onchange={(e) =>
+															onNumberChange(
+																e,
+																selectedNoteTile.previewLineCount ?? 8,
+																(v) => void updateSelected({ previewLineCount: v }),
+															)}
+														class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
+													/></label
+												>
+											{/if}
 											<label class="text-xs"
 												>Tile Bg<input
 													type="color"
@@ -1020,6 +1210,51 @@
 														}}
 														ondragstart={(event) => startTileDrag(tile.id, event)}
 													/>
+												{:else if entry.kind === 'timer'}
+													<SessionBoardTimerTile
+														tile={entry.tile}
+														selected={mode === 'edit' && selectedTileId === tile.id}
+														editable={mode === 'edit'}
+														onselect={() => {
+															if (mode === 'edit') selectedTileId = tile.id;
+														}}
+														onupdate={(timer) => {
+															if (!activeBoard) return;
+															void sessionBoardsState.updateTile(activeBoard.id, tile.id, {
+																timer,
+															});
+														}}
+														ondragstart={(event) => startTileDrag(tile.id, event)}
+													/>
+												{:else if entry.kind === 'note_slot'}
+													<div
+														class="relative h-full rounded-lg border border-dashed border-border bg-surface/90 p-3 dark:border-tavern-border dark:bg-tavern-surface/90"
+														data-board-tile="true"
+													>
+														{#if mode === 'edit'}
+															<button
+																type="button"
+																class="absolute inset-0 z-10 cursor-move bg-transparent"
+																aria-label="Drag note slot tile"
+																onpointerdown={(event) => {
+																	selectedTileId = tile.id;
+																	startTileDrag(tile.id, event, {
+																		ignoreInteractiveTarget: true,
+																	});
+																}}
+															></button>
+														{/if}
+														<div
+															class="relative z-20 h-full flex flex-col justify-center gap-2 text-center"
+														>
+															<div class="text-xs font-semibold text-ink dark:text-tavern-text">
+																Empty note slot
+															</div>
+															<div class="text-[11px] text-ink-muted dark:text-tavern-muted">
+																Use Add Notes to assign a note to this tile.
+															</div>
+														</div>
+													</div>
 												{:else}
 													<div
 														class="relative h-full rounded-lg border border-border bg-surface p-2 dark:border-tavern-border dark:bg-tavern-surface"

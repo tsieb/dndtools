@@ -51,6 +51,12 @@ import { DND_TEMPLATES, GLOBAL_TEMPLATE_IDS } from '../src/lib/domain/templates.
 import { REUSABLE_SNIPPETS } from '../src/lib/domain/snippets.js';
 import { normalizeWorldCalendar } from '../src/lib/domain/world-calendar.js';
 import {
+	normalizeBoardTemplatesSetting,
+	normalizeSessionBoardLayout,
+	normalizeSessionBoardStyle,
+	normalizeSessionBoardTile,
+} from '../src/lib/domain/session-board.js';
+import {
 	CURRENT_SCHEMA_VERSION,
 	getSchemaMigrationReport as getVaultSchemaMigrationReport,
 	runSchemaMigrations as runVaultSchemaMigrations,
@@ -393,10 +399,88 @@ function normalizeSettingValue<K extends keyof AppSettings>(
 	if (key === 'mcpPolicySettings') {
 		return normalizeMcpPolicySettings(value) as AppSettings[K];
 	}
+	if (key === 'boardTemplates') {
+		return normalizeBoardTemplatesSetting(value) as AppSettings[K];
+	}
 	if (key === 'worldCalendar') {
 		return normalizeWorldCalendar(value) as AppSettings[K];
 	}
 	return (value as AppSettings[K]) ?? DEFAULT_SETTINGS[key];
+}
+
+function normalizeSessionBoardRecord(
+	key: string,
+	value: unknown,
+): { id: SessionBoardId; board: SessionBoard } | null {
+	if (!isRecord(value)) return null;
+	const rawTiles = Array.isArray(value.tiles) ? value.tiles : [];
+	const layout = normalizeSessionBoardLayout(isRecord(value.layout) ? value.layout : undefined);
+	const tiles: SessionBoard['tiles'] = [];
+
+	for (const rawTile of rawTiles) {
+		if (!isRecord(rawTile) || typeof rawTile.id !== 'string' || rawTile.id.trim().length === 0) {
+			continue;
+		}
+		const noteIdRaw =
+			typeof rawTile.noteId === 'string'
+				? rawTile.noteId.trim()
+				: String(rawTile.noteId ?? '').trim();
+		const noteId =
+			noteIdRaw.length > 0 && noteIdRaw !== 'undefined' ? createNoteId(noteIdRaw) : undefined;
+		const normalizedTile = normalizeSessionBoardTile(
+			{
+				id: rawTile.id,
+				type:
+					rawTile.type === 'calendar' || rawTile.type === 'timer' || rawTile.type === 'note'
+						? rawTile.type
+						: undefined,
+				noteId,
+				x: typeof rawTile.x === 'number' ? rawTile.x : 0,
+				y: typeof rawTile.y === 'number' ? rawTile.y : 0,
+				w: typeof rawTile.w === 'number' ? rawTile.w : 4,
+				h: typeof rawTile.h === 'number' ? rawTile.h : 3,
+				style: isRecord(rawTile.style)
+					? (rawTile.style as SessionBoard['tiles'][number]['style'])
+					: undefined,
+				previewDepth: rawTile.previewDepth as 'title' | 'summary' | 'full' | undefined,
+				previewLineCount:
+					typeof rawTile.previewLineCount === 'number' ? rawTile.previewLineCount : undefined,
+				timer: isRecord(rawTile.timer)
+					? (rawTile.timer as unknown as SessionBoard['tiles'][number]['timer'])
+					: undefined,
+			},
+			layout.columns,
+		);
+		tiles.push(normalizedTile);
+	}
+
+	const idRaw = typeof value.id === 'string' && value.id.trim().length > 0 ? value.id : key;
+	const id = createSessionBoardId(idRaw);
+	const createdAt =
+		typeof value.createdAt === 'string' && value.createdAt.trim().length > 0
+			? value.createdAt
+			: nowISO();
+	const updatedAt =
+		typeof value.updatedAt === 'string' && value.updatedAt.trim().length > 0
+			? value.updatedAt
+			: createdAt;
+
+	const board: SessionBoard = {
+		id,
+		name:
+			typeof value.name === 'string' && value.name.trim().length > 0
+				? value.name.trim()
+				: 'Session Board',
+		description: typeof value.description === 'string' ? value.description : '',
+		tiles,
+		layout,
+		style: normalizeSessionBoardStyle(
+			isRecord(value.style) ? (value.style as SessionBoard['style']) : undefined,
+		),
+		createdAt,
+		updatedAt,
+	};
+	return { id, board };
 }
 
 function noteMatchesSnapshot(live: Note, snapshot: Note): boolean {
@@ -826,9 +910,16 @@ export class FileSystemAdapter implements StorageAdapter {
 		try {
 			const raw = await fs.readFile(this.sessionBoardsPath, 'utf-8');
 			const parsed = JSON.parse(raw) as Partial<SessionBoardStore>;
+			const rawBoards = isRecord(parsed.boards) ? parsed.boards : {};
+			const boards: Record<string, SessionBoard> = {};
+			for (const [key, value] of Object.entries(rawBoards)) {
+				const normalized = normalizeSessionBoardRecord(key, value);
+				if (!normalized) continue;
+				boards[normalized.id] = normalized.board;
+			}
 			this.sessionBoards = {
 				version: parsed.version ?? CURRENT_SCHEMA_VERSION.metadata,
-				boards: parsed.boards ?? {},
+				boards,
 			};
 		} catch {
 			this.sessionBoards = emptySessionBoardStore();
@@ -1927,62 +2018,31 @@ export class FileSystemAdapter implements StorageAdapter {
 
 	async saveSessionBoard(board: SessionBoard): Promise<void> {
 		await this.withWriteJournal('save-session-board', async () => {
-			const normalizeInt = (value: number, min: number, max: number): number =>
-				Math.min(max, Math.max(min, Math.round(value)));
-			const normalizeTileStyle = (style: SessionBoard['tiles'][number]['style']) => {
-				if (!style) return undefined;
-				const normalized: NonNullable<SessionBoard['tiles'][number]['style']> = {};
-				if (style.backgroundColor !== undefined) normalized.backgroundColor = style.backgroundColor;
-				if (style.borderColor !== undefined) normalized.borderColor = style.borderColor;
-				if (style.borderWidth !== undefined) {
-					normalized.borderWidth = normalizeInt(style.borderWidth, 0, 8);
-				}
-				if (style.borderRadius !== undefined) {
-					normalized.borderRadius = normalizeInt(style.borderRadius, 0, 36);
-				}
-				if (style.opacity !== undefined) {
-					normalized.opacity = Math.max(0.2, Math.min(1, style.opacity));
-				}
-				if (style.scale !== undefined) {
-					normalized.scale = Math.max(0.5, Math.min(2.5, style.scale));
-				}
-				return Object.keys(normalized).length > 0 ? normalized : undefined;
-			};
-			const columns = normalizeInt(board.layout?.columns ?? 12, 8, 32);
-			const normalizedTiles = board.tiles.map((tile) => {
-				const w = normalizeInt(tile.w, 2, columns);
-				return {
-					id: tile.id,
-					noteId: createNoteId(String(tile.noteId)),
-					x: normalizeInt(tile.x, 0, columns - w),
-					y: normalizeInt(tile.y, 0, 200),
-					w,
-					h: normalizeInt(tile.h, 2, 8),
-					style: normalizeTileStyle(tile.style),
-				};
-			});
+			const layout = normalizeSessionBoardLayout(board.layout);
+			const normalizedTiles = board.tiles.map((tile) =>
+				normalizeSessionBoardTile(
+					{
+						...tile,
+						noteId:
+							typeof tile.noteId === 'string' && tile.noteId.trim().length > 0
+								? createNoteId(tile.noteId)
+								: undefined,
+					},
+					layout.columns,
+				),
+			);
+			const timestamp = nowISO();
+			const createdAt = board.createdAt || timestamp;
 
 			this.sessionBoards.boards[board.id] = {
 				id: createSessionBoardId(String(board.id)),
 				name: board.name.trim() || 'Session Board',
 				description: board.description ?? '',
 				tiles: normalizedTiles,
-				layout: {
-					columns,
-					rowHeight: normalizeInt(board.layout?.rowHeight ?? 120, 70, 220),
-					minRows: normalizeInt(board.layout?.minRows ?? 12, 6, 240),
-					gap: normalizeInt(board.layout?.gap ?? 12, 0, 28),
-				},
-				style: board.style
-					? {
-							backgroundColor: board.style.backgroundColor,
-							backgroundPattern: board.style.backgroundPattern ?? 'none',
-							sectionTintColor: board.style.sectionTintColor,
-							sectionTintOpacity: Math.max(0, Math.min(0.75, board.style.sectionTintOpacity ?? 0)),
-						}
-					: undefined,
-				createdAt: board.createdAt,
-				updatedAt: board.updatedAt,
+				layout,
+				style: normalizeSessionBoardStyle(board.style),
+				createdAt,
+				updatedAt: board.updatedAt || timestamp,
 			};
 			await this.saveSessionBoards();
 		});

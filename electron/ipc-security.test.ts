@@ -332,6 +332,7 @@ describe('AC3 — Enum values / whitelists are enforced', () => {
 			'onboarding',
 			'templateContext',
 			'mcpPolicySettings',
+			'boardTemplates',
 		] as const;
 
 		for (const key of validKeys) {

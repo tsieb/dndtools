@@ -202,6 +202,48 @@ test.describe('Desktop critical workflows @critical', () => {
 		}
 	});
 
+	test('session board templates and timer tiles work together', async () => {
+		const app = await launchWithSeed(async (adapter) => {
+			await adapter.saveNote(
+				buildNote('note-template-anchor', 'Template Anchor', 'Template seed content.') as never,
+			);
+		});
+		try {
+			await app.page.getByRole('link', { name: 'Session Board' }).first().click();
+			await app.page.getByRole('button', { name: 'Edit' }).first().click();
+
+			const createBoardSection = app.page.locator('section').filter({ hasText: 'Create Board' });
+			await createBoardSection.getByPlaceholder('Board name').fill('Template Driven Board');
+			await createBoardSection.getByLabel('Template').selectOption({ label: 'Combat Scene' });
+			await createBoardSection.getByRole('button', { name: 'Create Session Board' }).click();
+
+			const addNotesSection = app.page.locator('section').filter({ hasText: 'Add Notes' });
+			await addNotesSection
+				.getByRole('button', { name: /Template Anchor/ })
+				.first()
+				.click();
+			await expect
+				.poll(async () => {
+					const board = await app.page.evaluate(async () => {
+						const boards = (await window.dndtoolsDesktop?.getSessionBoards()) ?? [];
+						return boards.find((entry) => entry.name === 'Template Driven Board') ?? null;
+					});
+					return board?.tiles.some((tile) => tile.noteId === 'note-template-anchor') ?? false;
+				})
+				.toBe(true);
+			await expect(app.page.getByText('Session Timer').first()).toBeVisible();
+
+			const boardState = await app.page.evaluate(async () => {
+				const boards = (await window.dndtoolsDesktop?.getSessionBoards()) ?? [];
+				return boards.find((board) => board.name === 'Template Driven Board') ?? null;
+			});
+			expect(boardState).not.toBeNull();
+			expect(boardState?.tiles.some((tile) => tile.type === 'timer')).toBe(true);
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
 	test('object creation workflow embeds object content and persists object metadata', async () => {
 		const app = await launchWithSeed();
 		try {

@@ -10,8 +10,22 @@ import { errorResult, jsonResult } from '../shared/response.js';
 const tileInput = z
 	.object({
 		id: z.string().min(1).optional(),
-		type: z.enum(['note', 'calendar']).optional(),
+		type: z.enum(['note', 'calendar', 'timer']).optional(),
 		noteId: z.string().min(1).optional(),
+		previewDepth: z.enum(['title', 'summary', 'full']).optional(),
+		previewLineCount: z.number().int().min(1).max(40).optional(),
+		timer: z
+			.object({
+				mode: z.enum(['elapsed', 'countdown']),
+				running: z.boolean(),
+				accumulatedMs: z.number().int().min(0),
+				startedAtMs: z.number().int().nullable(),
+				countdownMs: z.number().int().min(0),
+				lapsMs: z.array(z.number().int().min(0)).max(200),
+				minimalDisplay: z.boolean(),
+			})
+			.strict()
+			.optional(),
 		x: z.number().int().min(0).max(31),
 		y: z.number().int().min(0).max(200),
 		w: z.number().int().min(2).max(32),
@@ -29,11 +43,10 @@ const tileInput = z
 			.optional(),
 	})
 	.superRefine((tile, ctx) => {
-		if (tile.type === 'calendar') return;
-		if (!tile.noteId) {
+		if (tile.type === 'timer' && tile.noteId) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
-				message: 'noteId is required for note tiles.',
+				message: 'noteId is not allowed on timer tiles.',
 				path: ['noteId'],
 			});
 		}
@@ -82,7 +95,13 @@ export function registerUpdateSessionBoardTool(
 				? tiles.map((tile) => ({
 						id: tile.id ?? nanoid(10),
 						type: tile.type ?? 'note',
-						noteId: tile.type === 'calendar' ? undefined : createNoteId(tile.noteId as string),
+						noteId:
+							(tile.type ?? 'note') === 'note' && tile.noteId
+								? createNoteId(tile.noteId)
+								: undefined,
+						previewDepth: tile.previewDepth,
+						previewLineCount: tile.previewLineCount,
+						timer: tile.type === 'timer' ? tile.timer : undefined,
 						x: tile.x,
 						y: tile.y,
 						w: tile.w,

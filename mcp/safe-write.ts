@@ -20,6 +20,47 @@ async function trySyncDirectory(directory: string): Promise<void> {
 	}
 }
 
+function isTransientRenameError(error: unknown): boolean {
+	if (!error || typeof error !== 'object') return false;
+	const code = (error as { code?: string }).code;
+	return code === 'EPERM' || code === 'EBUSY' || code === 'EACCES';
+}
+
+async function sleep(ms: number): Promise<void> {
+	await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function renameWithRetry(tempPath: string, targetPath: string): Promise<void> {
+	const maxAttempts = 20;
+	let delayMs = 10;
+	let lastError: unknown = null;
+	for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+		try {
+			await fs.rename(tempPath, targetPath);
+			return;
+		} catch (error) {
+			lastError = error;
+			if (!isTransientRenameError(error)) {
+				throw error;
+			}
+			if (attempt === maxAttempts) {
+				break;
+			}
+			await sleep(delayMs);
+			delayMs = Math.min(150, Math.round(delayMs * 1.5));
+		}
+	}
+
+	// Windows can keep the target briefly locked by antivirus/indexers.
+	// Fall back to replace-by-copy to avoid user-visible write failures.
+	if (isTransientRenameError(lastError)) {
+		await fs.copyFile(tempPath, targetPath);
+		await fs.rm(tempPath, { force: true }).catch(() => undefined);
+		return;
+	}
+	throw lastError;
+}
+
 export async function writeFileAtomic(
 	targetPath: string,
 	data: string | Uint8Array,
@@ -36,7 +77,7 @@ export async function writeFileAtomic(
 		await handle.close();
 		handle = null;
 
-		await fs.rename(tempPath, targetPath);
+		await renameWithRetry(tempPath, targetPath);
 		await trySyncDirectory(directory);
 	} catch (error) {
 		await handle?.close().catch(() => undefined);

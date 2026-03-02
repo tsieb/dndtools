@@ -37,6 +37,7 @@
 
 	let { children } = $props();
 	let quickSwitcherOpen = $state(false);
+	let sessionQuickPanelOpen = $state(false);
 	let templateDialogOpen = $state(false);
 	let templateDialogFolderOverride = $state<string | null>(null);
 	let templateDialogCandidates = $state<readonly NoteTemplate[] | null>(null);
@@ -265,6 +266,9 @@
 		if (mod && event.key === 'p') {
 			event.preventDefault();
 			quickSwitcherOpen = true;
+		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'b') {
+			event.preventDefault();
+			sessionQuickPanelOpen = !sessionQuickPanelOpen;
 		} else if (mod && event.key === 'n') {
 			event.preventDefault();
 			void handleNewNote();
@@ -308,6 +312,16 @@
 				ontemplate={openTemplateDialog}
 				oncreatefromtemplate={(templateId: string) => void handleCreateFromTemplateId(templateId)}
 				onsessionrecap={() => void handleSessionRecapScaffold()}
+			/>
+		{/await}
+	{/if}
+	{#if sessionQuickPanelOpen}
+		{#await import('$lib/ui/board/SessionQuickPanel.svelte')}
+			<div class="hidden" aria-hidden="true"></div>
+		{:then SessionQuickPanelModule}
+			<SessionQuickPanelModule.default
+				bind:open={sessionQuickPanelOpen}
+				onclose={() => (sessionQuickPanelOpen = false)}
 			/>
 		{/await}
 	{/if}
