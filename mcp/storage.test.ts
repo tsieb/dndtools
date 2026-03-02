@@ -505,6 +505,24 @@ describe('FileSystemAdapter', () => {
 			]);
 		});
 
+		it('pre-indexes backlink context snippets at write time', async () => {
+			const target = testNote({ id: createNoteId('target-city'), title: 'Waterdeep' });
+			const source = testNote({
+				id: createNoteId('source-log'),
+				title: 'Session Log',
+				content:
+					'We arrived at dawn. The market opened as we entered [[Waterdeep]] and met the guildmaster. Night fell quickly.',
+			});
+			await adapter.saveNote(target);
+			await adapter.saveNote(source);
+
+			await adapter.resolveAndIndexLinks(source.id, source.content);
+			const backlinks = await adapter.getLinksTo(target.id);
+			expect(backlinks).toHaveLength(1);
+			expect(backlinks[0]?.contextSnippet).toContain('entered [[Waterdeep]]');
+			expect(backlinks[0]?.contextSnippet).toContain('met the guildmaster');
+		});
+
 		it('does not index ambiguous title links without explicit note id', async () => {
 			const first = testNote({ id: createNoteId('harbor-1'), title: 'Harbor' });
 			const second = testNote({ id: createNoteId('harbor-2'), title: 'Harbor' });

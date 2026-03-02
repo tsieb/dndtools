@@ -24,6 +24,7 @@ import type { NoteTemplate, ReusableSnippet } from '../src/lib/types/template-li
 import { nowISO } from '../src/lib/utils/date.js';
 import { slugify } from '../src/lib/utils/slug.js';
 import { extractWikilinks } from '../src/lib/domain/link-extractor.js';
+import { buildTwoSentenceContextSnippetAtPosition } from '../src/lib/domain/backlink-context.js';
 import {
 	extractAliasesFromFrontmatter,
 	resolveLinkCandidates,
@@ -276,6 +277,7 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 						position: link.position,
 						resolvedBy: 'id',
 						resolvedAlias: null,
+						contextSnippet: buildTwoSentenceContextSnippetAtPosition(note.content, link.position),
 					});
 					continue;
 				}
@@ -292,6 +294,7 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 					position: link.position,
 					resolvedBy: target.matchedBy,
 					resolvedAlias: target.matchedAlias ?? null,
+					contextSnippet: buildTwoSentenceContextSnippetAtPosition(note.content, link.position),
 				});
 			}
 		}

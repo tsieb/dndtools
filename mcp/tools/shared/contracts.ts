@@ -162,6 +162,7 @@ const linkGraphSchema = z
 							inbound: z.number().int().nonnegative(),
 							outbound: z.number().int().nonnegative(),
 							degree: z.number().int().nonnegative(),
+							betweenness: z.number().nonnegative(),
 						})
 						.strict(),
 				),
@@ -440,6 +441,14 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 				staleAfterDays: z.number().int().nonnegative(),
 				totalGaps: z.number().int().nonnegative(),
 				coverageGaps: z.array(coverageGapSchema),
+				graphInsights: z
+					.object({
+						orphanCount: z.number().int().nonnegative(),
+						orphanNoteIds: z.array(z.string().min(1)),
+						hubCount: z.number().int().nonnegative(),
+						hubNoteIds: z.array(z.string().min(1)),
+					})
+					.strict(),
 			})
 			.strict(),
 		remediationHint: 'Address high severity gaps first, then rerun this tool.',
@@ -605,6 +614,27 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 						warnings: z.number().int().nonnegative(),
 						infos: z.number().int().nonnegative(),
 						totalIssues: z.number().int().nonnegative(),
+					})
+					.strict(),
+				linkQuality: z
+					.object({
+						totalLinks: z.number().int().nonnegative(),
+						brokenLinks: z.number().int().nonnegative(),
+						aliasMatchedLinks: z.number().int().nonnegative(),
+						loops: z.number().int().nonnegative(),
+						crossFolderLinkDensity: z.number().nonnegative(),
+						orphanCount: z.number().int().nonnegative(),
+						hubCount: z.number().int().nonnegative(),
+						drilldown: z
+							.object({
+								orphanNoteIds: z.array(z.string().min(1)),
+								hubNoteIds: z.array(z.string().min(1)),
+								brokenLinkNoteIds: z.array(z.string().min(1)),
+								aliasMatchedNoteIds: z.array(z.string().min(1)),
+								loopNoteIds: z.array(z.string().min(1)),
+								crossFolderNoteIds: z.array(z.string().min(1)),
+							})
+							.strict(),
 					})
 					.strict(),
 				issues: z.array(healthIssueSchema),

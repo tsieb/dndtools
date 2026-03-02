@@ -2,7 +2,6 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { FileSystemAdapter } from '../../storage.js';
 import { createNoteId } from '../../../src/lib/types/note.js';
-import { buildContextSnippetAtPosition } from '../../../src/lib/domain/backlink-context.js';
 import { errorResult, jsonResult } from '../shared/response.js';
 
 export function registerGetBacklinksTool(server: McpServer, storage: FileSystemAdapter): void {
@@ -30,9 +29,7 @@ export function registerGetBacklinksTool(server: McpServer, storage: FileSystemA
 						position: link.position,
 						matchedByAlias: link.resolvedBy === 'alias',
 						matchedAlias: link.resolvedBy === 'alias' ? (link.resolvedAlias ?? null) : null,
-						contextSnippet: source
-							? buildContextSnippetAtPosition(source.content, link.position)
-							: 'Linked reference unavailable.',
+						contextSnippet: link.contextSnippet ?? 'Linked reference unavailable.',
 					};
 				}),
 			);

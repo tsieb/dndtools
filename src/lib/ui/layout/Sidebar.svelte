@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { vaultState } from '$lib/state/vault.svelte.js';
+	import { linksState } from '$lib/state/links.svelte.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { onboardingState } from '$lib/state/onboarding.svelte.js';
 	import { searchState } from '$lib/state/search.svelte.js';
@@ -72,6 +73,8 @@
 		}));
 		return [...saved, ...smart].slice(0, 10);
 	});
+	let orphanBadgeCount = $derived(linksState.getOrphanNoteIds().length);
+	let hubBadgeCount = $derived(linksState.getHubNoteIds().length);
 
 	$effect(() => {
 		if (!searchState.loaded && !searchState.loading) {
@@ -203,6 +206,26 @@
 				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
 			>
 				Graph
+				{#if orphanBadgeCount > 0 || hubBadgeCount > 0}
+					<span class="ml-auto flex items-center gap-1">
+						{#if orphanBadgeCount > 0}
+							<span
+								class="rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 dark:bg-rose-900/50 dark:text-rose-200"
+								title={`${orphanBadgeCount} orphan note${orphanBadgeCount === 1 ? '' : 's'}`}
+							>
+								O {orphanBadgeCount}
+							</span>
+						{/if}
+						{#if hubBadgeCount > 0}
+							<span
+								class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/50 dark:text-amber-200"
+								title={`${hubBadgeCount} hub note${hubBadgeCount === 1 ? '' : 's'}`}
+							>
+								H {hubBadgeCount}
+							</span>
+						{/if}
+					</span>
+				{/if}
 			</a>
 			<a
 				href={resolve('/session-board')}

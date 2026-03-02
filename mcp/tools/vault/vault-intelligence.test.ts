@@ -63,6 +63,8 @@ describe('buildVaultIntelligence', () => {
 		});
 
 		expect(insights.totals.activeNotes).toBe(4);
+		expect(insights.graphInsights.orphanCount).toBe(2);
+		expect(insights.graphInsights.hubCount).toBe(0);
 		expect(insights.metrics.orphanNotes).toBe(2);
 		expect(insights.metrics.untaggedNotes).toBe(2);
 		expect(insights.metrics.duplicateTitleGroups).toBe(1);
@@ -91,5 +93,9 @@ describe('buildVaultIntelligence', () => {
 		expect(insights.campaignHealth.status).toBe('healthy');
 		expect(insights.campaignHealth.score).toBe(100);
 		expect(insights.coverageGaps).toHaveLength(0);
+		expect(insights.graphInsights).toMatchObject({
+			orphanCount: 0,
+			hubCount: 0,
+		});
 	});
 });

@@ -90,6 +90,11 @@ Broken [[Missing]].`,
 		const broken = getBrokenLinkIssues(result as ToolResult);
 		expect(broken).toHaveLength(1);
 		expect(broken[0]?.detail).toContain('[[Missing]]');
+		const payload = parseJson(result as ToolResult);
+		expect(payload.linkQuality).toMatchObject({
+			brokenLinks: 1,
+		});
+		expect((payload.linkQuality as { totalLinks?: number })?.totalLinks).toBeGreaterThan(0);
 	});
 
 	it('flags unresolved note-id links as broken', async () => {
@@ -121,5 +126,9 @@ Broken [[Missing]].`,
 		const broken = getBrokenLinkIssues(result as ToolResult);
 		expect(broken).toHaveLength(1);
 		expect(broken[0]?.detail).toContain('[[Ghost]]');
+		const payload = parseJson(result as ToolResult);
+		expect(payload.linkQuality).toMatchObject({
+			brokenLinks: 1,
+		});
 	});
 });
