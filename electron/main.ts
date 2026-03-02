@@ -23,6 +23,7 @@ import type { AppSettings } from '../src/lib/types/settings.js';
 import type { SessionBoardId, SessionBoard } from '../src/lib/types/session-board.js';
 import type { VaultObjectId, VaultObject } from '../src/lib/types/object.js';
 import { DiagnosticsTracker } from './diagnostics.js';
+import { ImportExportService } from './import-export-service.js';
 import * as BackupScheduler from './backup-scheduler.js';
 import {
 	parseIpcArg,
@@ -50,6 +51,10 @@ import {
 	snapshotReasonSchema,
 	semanticModelSchema,
 	semanticTextsSchema,
+	importSourceRequestSchema,
+	startImportJobSchema,
+	importJobQuerySchema,
+	exportMarkdownZipSchema,
 } from './ipc-schemas.js';
 
 let storage: FileSystemAdapter | null = null;
@@ -285,6 +290,11 @@ function requireStorage(): FileSystemAdapter {
 	}
 	return storage;
 }
+
+const importExportService = new ImportExportService(
+	() => requireStorage(),
+	() => vaultDir,
+);
 
 function createStructuredError(input: {
 	category: StructuredErrorEvent['category'];
@@ -724,6 +734,95 @@ ipcMain.handle('dndtools:storage:import-notes', async (_event, rawNotes: unknown
 
 ipcMain.handle('dndtools:storage:export-all-notes', async () => {
 	return requireStorage().exportAllNotes();
+});
+
+ipcMain.handle('dndtools:import-export:pick-source', async () => {
+	const picked = await dialog.showOpenDialog({
+		properties: ['openDirectory'],
+		title: 'Choose Import Source Folder',
+	});
+	if (picked.canceled || picked.filePaths.length === 0) return null;
+	return { sourceRoot: path.resolve(picked.filePaths[0]!) };
+});
+
+ipcMain.handle('dndtools:import-export:analyze-source', async (_event, rawRequest: unknown) => {
+	const request = parseIpcArg(
+		importSourceRequestSchema,
+		rawRequest,
+		'import-export:analyze-source',
+	);
+	return importExportService.analyzeImportSource(request.sourceRoot);
+});
+
+ipcMain.handle('dndtools:import-export:start-job', async (_event, rawRequest: unknown) => {
+	const request = parseIpcArg(startImportJobSchema, rawRequest, 'import-export:start-job');
+	return importExportService.startImportJob({
+		sourceRoot: request.sourceRoot,
+		defaultResolution: request.defaultResolution,
+		resumeFromCheckpoint: request.resumeFromCheckpoint ?? false,
+	});
+});
+
+ipcMain.handle('dndtools:import-export:get-job', async (_event, rawRequest: unknown) => {
+	const request = parseIpcArg(importJobQuerySchema, rawRequest, 'import-export:get-job');
+	return importExportService.getImportJobProgress(request.jobId);
+});
+
+ipcMain.handle('dndtools:import-export:get-checkpoint', async () => {
+	return importExportService.getImportCheckpointSummary();
+});
+
+ipcMain.handle('dndtools:import-export:resume-checkpoint', async () => {
+	const checkpoint = await importExportService.getImportCheckpointSummary();
+	if (!checkpoint.exists || !checkpoint.sourceRoot) {
+		return null;
+	}
+	return importExportService.startImportJob({
+		sourceRoot: checkpoint.sourceRoot,
+		defaultResolution: checkpoint.defaultResolution,
+		resumeFromCheckpoint: true,
+	});
+});
+
+ipcMain.handle('dndtools:import-export:clear-checkpoint', async () => {
+	await importExportService.clearImportCheckpoint();
+	return importExportService.getImportCheckpointSummary();
+});
+
+ipcMain.handle('dndtools:import-export:export-zip', async (_event, rawRequest: unknown) => {
+	const request = parseIpcArg(exportMarkdownZipSchema, rawRequest, 'import-export:export-zip');
+	let outputPath = request.outputPath ?? null;
+	if (!outputPath) {
+		const suffix = request.profile === 'deterministic_markdown_zip' ? 'deterministic' : 'portable';
+		const defaultPath = path.join(app.getPath('documents'), `dndtools-export-${suffix}.zip`);
+		const picked = await dialog.showSaveDialog({
+			title: 'Export Markdown Zip',
+			defaultPath,
+			filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
+		});
+		if (picked.canceled || !picked.filePath) {
+			const now = new Date().toISOString();
+			return {
+				canceled: true,
+				path: null,
+				profile: request.profile,
+				noteCount: 0,
+				assetCount: 0,
+				validation: {
+					generatedAt: now,
+					brokenEmbeds: 0,
+					unresolvedLinks: 0,
+					issues: [],
+				},
+			};
+		}
+		outputPath = picked.filePath;
+	}
+
+	return importExportService.exportMarkdownZip({
+		profile: request.profile,
+		outputPath: path.resolve(outputPath),
+	});
 });
 
 ipcMain.handle('dndtools:storage:get-note-count', async () => {

@@ -261,6 +261,16 @@ export interface DesktopSchemaMigrationReport {
 	steps: DesktopSchemaMigrationStepReport[];
 }
 
+export type DesktopImportAnalysisReport =
+	import('$lib/types/import-export.js').ImportAnalysisReport;
+export type DesktopImportJobProgress = import('$lib/types/import-export.js').ImportJobProgress;
+export type DesktopImportCheckpointSummary =
+	import('$lib/types/import-export.js').ImportCheckpointSummary;
+export type DesktopImportResolutionChoice =
+	import('$lib/types/import-export.js').ImportResolutionChoice;
+export type DesktopExportProfile = import('$lib/types/import-export.js').ExportProfile;
+export type DesktopExportZipResult = import('$lib/types/import-export.js').ExportZipResult;
+
 function requireBridge(): NonNullable<Window['dndtoolsDesktop']> {
 	const bridge = window.dndtoolsDesktop;
 	if (!bridge) {
@@ -389,6 +399,49 @@ export async function restoreDeletedFromDesktopSnapshot(
 	snapshotId: string,
 ): Promise<DesktopSnapshotRestoreResult> {
 	return requireBridge().restoreDeletedFromSnapshot(snapshotId);
+}
+
+export async function pickDesktopImportSourceDirectory(): Promise<{ sourceRoot: string } | null> {
+	return requireBridge().pickImportSourceDirectory();
+}
+
+export async function analyzeDesktopImportSource(request: {
+	sourceRoot: string;
+}): Promise<DesktopImportAnalysisReport> {
+	return requireBridge().analyzeImportSource(request);
+}
+
+export async function startDesktopImportJob(request: {
+	sourceRoot: string;
+	defaultResolution: DesktopImportResolutionChoice;
+	resumeFromCheckpoint?: boolean;
+}): Promise<DesktopImportJobProgress> {
+	return requireBridge().startImportJob(request);
+}
+
+export async function getDesktopImportJob(request: {
+	jobId: string;
+}): Promise<DesktopImportJobProgress | null> {
+	return requireBridge().getImportJob(request);
+}
+
+export async function getDesktopImportCheckpoint(): Promise<DesktopImportCheckpointSummary> {
+	return requireBridge().getImportCheckpoint();
+}
+
+export async function resumeDesktopImportCheckpoint(): Promise<DesktopImportJobProgress | null> {
+	return requireBridge().resumeImportCheckpoint();
+}
+
+export async function clearDesktopImportCheckpoint(): Promise<DesktopImportCheckpointSummary> {
+	return requireBridge().clearImportCheckpoint();
+}
+
+export async function exportDesktopMarkdownZip(request: {
+	profile: DesktopExportProfile;
+	outputPath?: string;
+}): Promise<DesktopExportZipResult> {
+	return requireBridge().exportMarkdownZip(request);
 }
 
 export async function listDesktopMcpPendingChanges(): Promise<DesktopMcpChangeRecord[]> {

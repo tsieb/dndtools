@@ -40,6 +40,12 @@ import {
 	vaultObjectTypeSchema,
 	semanticModelSchema,
 	semanticTextsSchema,
+	importResolutionSchema,
+	importSourceRequestSchema,
+	startImportJobSchema,
+	importJobQuerySchema,
+	exportProfileSchema,
+	exportMarkdownZipSchema,
 } from './ipc-schemas.js';
 
 // ─── Shared test fixtures ─────────────────────────────────────────────────────
@@ -194,6 +200,11 @@ describe('AC1 — Oversized payloads', () => {
 
 	it('accepts a valid semantic model name', () => {
 		expect(semanticModelSchema.safeParse('nomic-embed-text').success).toBe(true);
+	});
+
+	it('rejects malformed import source request payloads', () => {
+		expect(importSourceRequestSchema.safeParse({ sourceRoot: '' }).success).toBe(false);
+		expect(importSourceRequestSchema.safeParse({}).success).toBe(false);
 	});
 });
 
@@ -408,6 +419,27 @@ describe('AC3 — Enum values / whitelists are enforced', () => {
 				context: {},
 			});
 			expect(result.success).toBe(false);
+		});
+	});
+
+	describe('import/export profile enums', () => {
+		it('accepts all supported import resolution values', () => {
+			for (const resolution of ['skip', 'overwrite', 'merge']) {
+				expect(importResolutionSchema.safeParse(resolution).success).toBe(true);
+			}
+		});
+
+		it('rejects unknown import resolution values', () => {
+			expect(importResolutionSchema.safeParse('replace-all').success).toBe(false);
+		});
+
+		it('accepts all supported export profiles', () => {
+			expect(exportProfileSchema.safeParse('portable_markdown_zip').success).toBe(true);
+			expect(exportProfileSchema.safeParse('deterministic_markdown_zip').success).toBe(true);
+		});
+
+		it('rejects unknown export profiles', () => {
+			expect(exportProfileSchema.safeParse('zip').success).toBe(false);
 		});
 	});
 
@@ -670,6 +702,43 @@ describe('Additional validation edge cases', () => {
 
 		it('accepts { limit: 50 }', () => {
 			expect(getObjectHistoryOptionsSchema.safeParse({ limit: 50 }).success).toBe(true);
+		});
+	});
+
+	describe('import/export job payload schemas', () => {
+		it('accepts a valid start import job payload', () => {
+			const result = startImportJobSchema.safeParse({
+				sourceRoot: '/vault/import-source',
+				defaultResolution: 'merge',
+				resumeFromCheckpoint: true,
+			});
+			expect(result.success).toBe(true);
+		});
+
+		it('rejects start import job payload with invalid resolution', () => {
+			const result = startImportJobSchema.safeParse({
+				sourceRoot: '/vault/import-source',
+				defaultResolution: 'replace',
+			});
+			expect(result.success).toBe(false);
+		});
+
+		it('accepts import job query payload', () => {
+			expect(importJobQuerySchema.safeParse({ jobId: 'job-123' }).success).toBe(true);
+		});
+
+		it('accepts markdown zip export payload with optional output path', () => {
+			expect(
+				exportMarkdownZipSchema.safeParse({
+					profile: 'portable_markdown_zip',
+				}).success,
+			).toBe(true);
+			expect(
+				exportMarkdownZipSchema.safeParse({
+					profile: 'deterministic_markdown_zip',
+					outputPath: '/tmp/export.zip',
+				}).success,
+			).toBe(true);
 		});
 	});
 

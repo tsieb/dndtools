@@ -43,7 +43,8 @@ Read in this order:
 - Notes are markdown files in a vault folder when running desktop mode.
 - MCP runs as a sidecar process and defaults to staged write mode (pending approvals).
 - Renderer uses `StorageAdapter` backed by `desktop-filesystem` via Electron bridge.
-- Import/export in UI is currently markdown file import + JSON bundle export.
+- Import/export includes Obsidian analyzer + conflict-aware import jobs with resumable checkpoints.
+- Export supports portable markdown zip and deterministic git-friendly markdown zip with validation.
 - MCP resources expose canonical versioned URIs under `dndtools://v1/*` with legacy aliases.
 - Vault-intelligence tools provide campaign health, coverage gaps, stale-note APIs, and task bundles.
 
@@ -52,7 +53,3 @@ Read in this order:
 - Filesystem writes now use atomic temp-write + fsync + rename with startup write-journal recovery in `mcp/safe-write.ts` and `mcp/storage.ts`.
 - IPC now uses explicit channel handlers with payload validation in `electron/main.ts` and `electron/ipc-schemas.ts`.
 - CI now includes Node LTS quality gates, docs drift checks, desktop E2E, desktop build matrix, and release automation under `.github/workflows/*.yml`.
-- `TODO(APP):` Improve portable export format beyond JSON-only bundle.
-  Reason: current export remains JSON-first and less interoperable with external markdown tooling.
-  Target: `src/lib/domain/export.ts`, export UX in `src/routes/settings/+page.svelte`.
-  Risk: cross-tool portability friction and lower long-term vault interoperability.

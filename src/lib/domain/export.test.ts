@@ -164,7 +164,7 @@ describe('bundleToMarkdownFiles', () => {
 
 		expect(files).toHaveLength(1);
 		expect(files[0]?.relativePath).toBe('places/town-square.md');
-		expect(files[0]?.content).toContain('title: "Town Square"');
+		expect(files[0]?.content).toContain('title: Town Square');
 		expect(files[0]?.content).toContain('# Center');
 	});
 

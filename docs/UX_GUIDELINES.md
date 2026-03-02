@@ -131,7 +131,8 @@ Reason: backlog item tracked for planned implementation.
 Target: see the surrounding section and referenced files in this block.
 Risk: quality and behavior drift if deferred.
 
-`TODO(APP):` Add import/export preview UX with conflict reporting before applying changes.
-Reason: backlog item tracked for planned implementation.
-Target: see the surrounding section and referenced files in this block.
-Risk: quality and behavior drift if deferred.
+Import/export preview UX with conflict reporting is now available in Settings:
+
+- Obsidian source analyzer reports severity-tagged issues before import.
+- Conflict policy selection (`skip` / `overwrite` / `merge`) is explicit before starting import.
+- Large imports expose background progress and resumable checkpoint controls.
