@@ -4,41 +4,28 @@ import { nowISO } from '$lib/utils/date.js';
 import { generateSessionBoardId } from '$lib/utils/id.js';
 import type { NoteId } from '$lib/types/note.js';
 import type {
+	RelatedNoteSuggestion,
 	SessionBoard,
 	SessionBoardId,
+	SessionBoardTemplate,
 	SessionBoardTile,
-	RelatedNoteSuggestion,
 } from '$lib/types/session-board.js';
+import {
+	DEFAULT_SESSION_BOARD_LAYOUT,
+	cloneTemplateForBoard,
+	normalizeBoardTemplatesSetting,
+	normalizeSessionBoardLayout,
+	normalizeSessionBoardStyle,
+	normalizeSessionBoardTile,
+} from '$lib/domain/session-board.js';
 
-const GRID_COLUMNS = 12;
+const GRID_COLUMNS = DEFAULT_SESSION_BOARD_LAYOUT.columns;
 const DEFAULT_TILE_W = 4;
 const DEFAULT_TILE_H = 3;
 const MAX_GRID_ROWS = 200;
-const DEFAULT_LAYOUT = {
-	columns: GRID_COLUMNS,
-	rowHeight: 120,
-	minRows: 12,
-	gap: 12,
-} as const;
 
-function normalizeTileStyle(style: SessionBoardTile['style']): SessionBoardTile['style'] {
-	if (!style) return undefined;
-	const normalized: NonNullable<SessionBoardTile['style']> = {};
-	if (style.backgroundColor !== undefined) normalized.backgroundColor = style.backgroundColor;
-	if (style.borderColor !== undefined) normalized.borderColor = style.borderColor;
-	if (style.borderWidth !== undefined) {
-		normalized.borderWidth = Math.max(0, Math.min(8, Math.round(style.borderWidth)));
-	}
-	if (style.borderRadius !== undefined) {
-		normalized.borderRadius = Math.max(0, Math.min(36, Math.round(style.borderRadius)));
-	}
-	if (style.opacity !== undefined) {
-		normalized.opacity = Math.max(0.2, Math.min(1, style.opacity));
-	}
-	if (style.scale !== undefined) {
-		normalized.scale = Math.max(0.5, Math.min(2.5, style.scale));
-	}
-	return Object.keys(normalized).length > 0 ? normalized : undefined;
+function getTileType(tile: SessionBoardTile): 'note' | 'calendar' | 'timer' {
+	return tile.type ?? 'note';
 }
 
 function collides(a: SessionBoardTile, b: SessionBoardTile): boolean {
@@ -71,66 +58,73 @@ function findNextOpenPosition(
 	return { x: 0, y: fallbackY };
 }
 
-function clampTile(tile: SessionBoardTile, columns = GRID_COLUMNS): SessionBoardTile {
-	const w = Math.max(2, Math.min(columns, Math.round(tile.w)));
-	const h = Math.max(2, Math.min(8, Math.round(tile.h)));
-	const x = Math.max(0, Math.min(columns - w, Math.round(tile.x)));
-	const y = Math.max(0, Math.min(MAX_GRID_ROWS, Math.round(tile.y)));
-	return {
-		...tile,
-		x,
-		y,
-		w,
-		h,
-		style: normalizeTileStyle(tile.style),
-	};
-}
-
 function normalizeBoard(board: SessionBoard, updates?: Partial<SessionBoard>): SessionBoard {
-	const layout = {
-		columns: Math.max(
-			8,
-			Math.min(
-				32,
-				Math.round(updates?.layout?.columns ?? board.layout?.columns ?? DEFAULT_LAYOUT.columns),
-			),
-		),
-		rowHeight: Math.max(
-			70,
-			Math.min(
-				220,
-				Math.round(
-					updates?.layout?.rowHeight ?? board.layout?.rowHeight ?? DEFAULT_LAYOUT.rowHeight,
-				),
-			),
-		),
-		minRows: Math.max(
-			6,
-			Math.min(
-				240,
-				Math.round(updates?.layout?.minRows ?? board.layout?.minRows ?? DEFAULT_LAYOUT.minRows),
-			),
-		),
-		gap: Math.max(
-			0,
-			Math.min(28, Math.round(updates?.layout?.gap ?? board.layout?.gap ?? DEFAULT_LAYOUT.gap)),
-		),
-	};
-
-	const style = updates?.style
-		? {
-				...board.style,
-				...updates.style,
-			}
-		: board.style;
-
+	const layout = normalizeSessionBoardLayout({
+		...(board.layout ?? DEFAULT_SESSION_BOARD_LAYOUT),
+		...(updates?.layout ?? {}),
+	});
+	const nextTiles = (updates?.tiles ?? board.tiles).map((tile) =>
+		normalizeSessionBoardTile(tile, layout.columns),
+	);
 	return {
 		...board,
 		...updates,
 		layout,
-		style,
-		tiles: (updates?.tiles ?? board.tiles).map((tile) => clampTile(tile, layout.columns)),
+		style: normalizeSessionBoardStyle(
+			updates?.style ? { ...(board.style ?? {}), ...updates.style } : board.style,
+		),
+		tiles: nextTiles,
 	};
+}
+
+function cloneBoardTileForTemplate(tile: SessionBoardTile): SessionBoardTile {
+	const type = getTileType(tile);
+	if (type === 'note') {
+		return {
+			...tile,
+			type: 'note',
+			noteId: undefined,
+		};
+	}
+	if (type === 'timer') {
+		return {
+			...tile,
+			type: 'timer',
+			timer: tile.timer
+				? {
+						...tile.timer,
+						running: false,
+						startedAtMs: null,
+						lapsMs: [],
+						accumulatedMs: 0,
+					}
+				: undefined,
+		};
+	}
+	return {
+		...tile,
+		type: 'calendar',
+	};
+}
+
+function instantiateTemplateTiles(template: SessionBoardTemplate): SessionBoardTile[] {
+	const cloned = cloneTemplateForBoard(template);
+	return cloned.tiles.map((tile) => {
+		const normalized = normalizeSessionBoardTile(
+			{
+				...tile,
+				id: nanoid(10),
+			},
+			cloned.layout?.columns ?? DEFAULT_SESSION_BOARD_LAYOUT.columns,
+		);
+		if ((normalized.type ?? 'note') === 'note') {
+			return {
+				...normalized,
+				noteId: undefined,
+			};
+		}
+		return normalized;
+	});
 }
 
 class SessionBoardsState {
@@ -141,21 +135,41 @@ class SessionBoardsState {
 	suggestions = $state<RelatedNoteSuggestion[]>([]);
 	suggestionsLoading = $state(false);
 
+	templates = $state<SessionBoardTemplate[]>([]);
+	templatesLoading = $state(false);
+	templatesError = $state<string | null>(null);
+
 	activeBoard = $derived.by<SessionBoard | null>(() => {
 		if (!this.activeBoardId) return null;
 		return this.boards.find((board) => board.id === this.activeBoardId) ?? null;
 	});
 
+	templateById = $derived.by<Map<string, SessionBoardTemplate>>(() => {
+		return new Map(this.templates.map((template) => [template.id, template]));
+	});
+
+	customTemplates = $derived.by<SessionBoardTemplate[]>(() =>
+		this.templates.filter((template) => !template.builtIn),
+	);
+
 	async loadAll(): Promise<void> {
 		this.loading = true;
 		this.error = null;
 		try {
-			const boards = await getStorage().getSessionBoards();
-			this.boards = boards;
-			if (boards.length > 0 && !this.activeBoardId) {
-				this.activeBoardId = boards[0]!.id;
-			} else if (this.activeBoardId && !boards.some((board) => board.id === this.activeBoardId)) {
-				this.activeBoardId = boards[0]?.id ?? null;
+			const storage = getStorage();
+			const [boards, templatesRaw] = await Promise.all([
+				storage.getSessionBoards(),
+				storage.getSetting('boardTemplates'),
+			]);
+			this.boards = boards.map((board) => normalizeBoard(board));
+			this.templates = normalizeBoardTemplatesSetting(templatesRaw);
+			if (this.boards.length > 0 && !this.activeBoardId) {
+				this.activeBoardId = this.boards[0]!.id;
+			} else if (
+				this.activeBoardId &&
+				!this.boards.some((board) => board.id === this.activeBoardId)
+			) {
+				this.activeBoardId = this.boards[0]?.id ?? null;
 			}
 		} catch (error) {
 			this.error = String(error);
@@ -164,14 +178,24 @@ class SessionBoardsState {
 		}
 	}
 
-	async createBoard(name: string, description = ''): Promise<SessionBoard> {
+	private async persistTemplates(templates: SessionBoardTemplate[]): Promise<void> {
+		const normalized = normalizeBoardTemplatesSetting(templates);
+		await getStorage().setSetting('boardTemplates', normalized);
+		this.templates = normalized;
+	}
+
+	async createBoard(name: string, description = '', templateId?: string): Promise<SessionBoard> {
 		const now = nowISO();
+		const template = templateId ? (this.templateById.get(templateId) ?? null) : null;
 		const board: SessionBoard = {
 			id: generateSessionBoardId(),
 			name: name.trim() || 'Session Board',
 			description: description.trim(),
-			tiles: [],
-			layout: { ...DEFAULT_LAYOUT },
+			tiles: template ? instantiateTemplateTiles(template) : [],
+			layout: template?.layout
+				? normalizeSessionBoardLayout(template.layout)
+				: { ...DEFAULT_SESSION_BOARD_LAYOUT },
+			style: normalizeSessionBoardStyle(template?.style),
 			createdAt: now,
 			updatedAt: now,
 		};
@@ -179,6 +203,51 @@ class SessionBoardsState {
 		this.boards = [board, ...this.boards];
 		this.activeBoardId = board.id;
 		return board;
+	}
+
+	async applyTemplateToBoard(boardId: SessionBoardId, templateId: string): Promise<void> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		const template = this.templateById.get(templateId);
+		if (!board || !template) return;
+		await this.updateBoard(boardId, {
+			tiles: instantiateTemplateTiles(template),
+			layout: template.layout ? normalizeSessionBoardLayout(template.layout) : board.layout,
+			style: normalizeSessionBoardStyle(template.style),
+		});
+	}
+
+	async saveTemplateFromBoard(
+		boardId: SessionBoardId,
+		name: string,
+		description = '',
+	): Promise<SessionBoardTemplate | null> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return null;
+		const now = nowISO();
+		const template: SessionBoardTemplate = {
+			id: `custom-${nanoid(10)}`,
+			name: name.trim() || `${board.name} Template`,
+			description: description.trim(),
+			tiles: board.tiles.map((tile) => cloneBoardTileForTemplate(tile)),
+			layout: board.layout ? { ...board.layout } : { ...DEFAULT_SESSION_BOARD_LAYOUT },
+			style: board.style ? { ...board.style } : undefined,
+			builtIn: false,
+			createdAt: now,
+			updatedAt: now,
+		};
+		await this.persistTemplates([...this.templates, template]);
+		return template;
+	}
+
+	async deleteTemplate(templateId: string): Promise<void> {
+		const template = this.templateById.get(templateId);
+		if (!template || template.builtIn) return;
+		await this.persistTemplates(this.templates.filter((entry) => entry.id !== templateId));
+	}
+
+	setActiveBoard(id: SessionBoardId | null): void {
+		this.activeBoardId = id;
+		this.suggestions = [];
 	}
 
 	async updateBoard(id: SessionBoardId, updates: Partial<SessionBoard>): Promise<void> {
@@ -206,15 +275,17 @@ class SessionBoardsState {
 		this.suggestions = [];
 	}
 
-	setActiveBoard(id: SessionBoardId | null): void {
-		this.activeBoardId = id;
-		this.suggestions = [];
-	}
-
 	async addNoteToBoard(boardId: SessionBoardId, noteId: NoteId): Promise<void> {
 		const board = this.boards.find((entry) => entry.id === boardId);
 		if (!board) return;
-		if (board.tiles.some((tile) => tile.type !== 'calendar' && tile.noteId === noteId)) return;
+		if (board.tiles.some((tile) => (tile.type ?? 'note') === 'note' && tile.noteId === noteId))
+			return;
+
+		const emptySlot = board.tiles.find((tile) => (tile.type ?? 'note') === 'note' && !tile.noteId);
+		if (emptySlot) {
+			await this.updateTile(boardId, emptySlot.id, { noteId });
+			return;
+		}
 
 		const position = findNextOpenPosition(
 			board.tiles,
@@ -261,6 +332,28 @@ class SessionBoardsState {
 		});
 	}
 
+	async addTimerTile(boardId: SessionBoardId): Promise<void> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return;
+		const position = findNextOpenPosition(
+			board.tiles,
+			DEFAULT_TILE_W,
+			DEFAULT_TILE_H,
+			board.layout?.columns ?? GRID_COLUMNS,
+		);
+		const tile: SessionBoardTile = {
+			id: nanoid(10),
+			type: 'timer',
+			x: position.x,
+			y: position.y,
+			w: DEFAULT_TILE_W,
+			h: DEFAULT_TILE_H,
+		};
+		await this.updateBoard(boardId, {
+			tiles: [...board.tiles, tile],
+		});
+	}
+
 	async removeTile(boardId: SessionBoardId, tileId: string): Promise<void> {
 		const board = this.boards.find((entry) => entry.id === boardId);
 		if (!board) return;
@@ -278,7 +371,7 @@ class SessionBoardsState {
 		if (!board) return;
 		const columns = board.layout?.columns ?? GRID_COLUMNS;
 		const tiles = board.tiles.map((tile) =>
-			tile.id === tileId ? clampTile({ ...tile, ...updates }, columns) : tile,
+			tile.id === tileId ? normalizeSessionBoardTile({ ...tile, ...updates }, columns) : tile,
 		);
 		await this.updateBoard(boardId, { tiles });
 	}
@@ -291,7 +384,10 @@ class SessionBoardsState {
 		}
 
 		const seedNoteIds = board.tiles
-			.filter((tile): tile is SessionBoardTile & { noteId: NoteId } => !!tile.noteId)
+			.filter(
+				(tile): tile is SessionBoardTile & { noteId: NoteId } =>
+					(tile.type ?? 'note') === 'note' && !!tile.noteId,
+			)
 			.map((tile) => tile.noteId);
 		if (seedNoteIds.length === 0) {
 			this.suggestions = [];

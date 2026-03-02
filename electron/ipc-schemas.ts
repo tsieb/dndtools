@@ -217,15 +217,82 @@ const sessionBoardTileStyleSchema = z
 	})
 	.strict();
 
-const sessionBoardTileSchema = z
+const sessionBoardTimerStateSchema = z
 	.object({
-		id: z.string().min(1).max(MAX_ID_LENGTH),
-		noteId: idSchema,
-		x: z.number().int().min(0).max(31),
-		y: z.number().int().min(0).max(200),
-		w: z.number().int().min(1).max(32),
-		h: z.number().int().min(1).max(8),
-		style: sessionBoardTileStyleSchema.optional(),
+		mode: z.enum(['elapsed', 'countdown']),
+		running: z.boolean(),
+		accumulatedMs: z.number().int().min(0).max(31_536_000_000),
+		startedAtMs: z.number().int().nullable(),
+		countdownMs: z.number().int().min(0).max(31_536_000_000),
+		lapsMs: z.array(z.number().int().min(0).max(31_536_000_000)).max(200),
+		minimalDisplay: z.boolean(),
+	})
+	.strict();
+
+const sessionBoardTileBaseSchema = z.object({
+	id: z.string().min(1).max(MAX_ID_LENGTH),
+	x: z.number().int().min(0).max(31),
+	y: z.number().int().min(0).max(200),
+	w: z.number().int().min(1).max(32),
+	h: z.number().int().min(1).max(8),
+	style: sessionBoardTileStyleSchema.optional(),
+});
+
+const sessionBoardNoteTileSchema = sessionBoardTileBaseSchema
+	.extend({
+		type: z.literal('note').optional(),
+		noteId: idSchema.optional(),
+		previewDepth: z.enum(['title', 'summary', 'full']).optional(),
+		previewLineCount: z.number().int().min(1).max(40).optional(),
+	})
+	.strict();
+
+const sessionBoardCalendarTileSchema = sessionBoardTileBaseSchema
+	.extend({
+		type: z.literal('calendar'),
+	})
+	.strict();
+
+const sessionBoardTimerTileSchema = sessionBoardTileBaseSchema
+	.extend({
+		type: z.literal('timer'),
+		timer: sessionBoardTimerStateSchema.optional(),
+	})
+	.strict();
+
+const sessionBoardTileSchema = z.union([
+	sessionBoardNoteTileSchema,
+	sessionBoardCalendarTileSchema,
+	sessionBoardTimerTileSchema,
+]);
+
+const sessionBoardTemplateSchema = z
+	.object({
+		id: idSchema,
+		name: z.string().min(1).max(80),
+		description: z.string().max(300),
+		tiles: z.array(sessionBoardTileSchema).max(MAX_TILES),
+		layout: z
+			.object({
+				columns: z.number().int().min(8).max(32),
+				rowHeight: z.number().int().min(70).max(220),
+				minRows: z.number().int().min(6).max(240),
+				gap: z.number().int().min(0).max(28),
+			})
+			.strict()
+			.optional(),
+		style: z
+			.object({
+				backgroundColor: z.string().optional(),
+				backgroundPattern: z.enum(['none', 'grid', 'dots']).optional(),
+				sectionTintColor: z.string().optional(),
+				sectionTintOpacity: z.number().min(0).max(0.75).optional(),
+			})
+			.strict()
+			.optional(),
+		builtIn: z.boolean().optional(),
+		createdAt: z.string().min(1).max(MAX_STRING_LENGTH),
+		updatedAt: z.string().min(1).max(MAX_STRING_LENGTH),
 	})
 	.strict();
 
@@ -278,6 +345,7 @@ export const appSettingsKeySchema = z.enum([
 	'onboarding',
 	'templateContext',
 	'mcpPolicySettings',
+	'boardTemplates',
 ]);
 
 /** MCP write-review policy settings shape for the mcp-policy:set channel. */
@@ -454,6 +522,7 @@ export const settingValueSchemas: Record<string, z.ZodTypeAny> = {
 		characterNames: z.array(z.string().max(MAX_STRING_LENGTH)).max(100),
 	}),
 	mcpPolicySettings: mcpPolicySettingsSchema,
+	boardTemplates: z.array(sessionBoardTemplateSchema).max(100),
 };
 
 // ─── Validation helper ────────────────────────────────────────────────────────

@@ -7,10 +7,27 @@ export function createSessionBoardId(id: string): SessionBoardId {
 	return id as SessionBoardId;
 }
 
+export type SessionBoardTileType = 'note' | 'calendar' | 'timer';
+export type SessionBoardPreviewDepth = 'title' | 'summary' | 'full';
+export type SessionBoardTimerMode = 'elapsed' | 'countdown';
+
+export interface SessionBoardTimerState {
+	mode: SessionBoardTimerMode;
+	running: boolean;
+	accumulatedMs: number;
+	startedAtMs: number | null;
+	countdownMs: number;
+	lapsMs: number[];
+	minimalDisplay: boolean;
+}
+
 export interface SessionBoardTile {
 	id: string;
-	type?: 'note' | 'calendar';
+	type?: SessionBoardTileType;
 	noteId?: NoteId;
+	previewDepth?: SessionBoardPreviewDepth;
+	previewLineCount?: number;
+	timer?: SessionBoardTimerState;
 	/** 0-indexed grid column start */
 	x: number;
 	/** 0-indexed grid row start */
@@ -21,6 +38,10 @@ export interface SessionBoardTile {
 	h: number;
 	style?: SessionBoardTileStyle;
 }
+
+export type SessionBoardNoteTile = SessionBoardTile;
+export type SessionBoardCalendarTile = SessionBoardTile;
+export type SessionBoardTimerTile = SessionBoardTile;
 
 export interface SessionBoardTileStyle {
 	backgroundColor?: string;
@@ -43,6 +64,18 @@ export interface SessionBoardStyle {
 	backgroundPattern?: 'none' | 'grid' | 'dots';
 	sectionTintColor?: string;
 	sectionTintOpacity?: number;
+}
+
+export interface SessionBoardTemplate {
+	id: string;
+	name: string;
+	description: string;
+	tiles: SessionBoardTile[];
+	layout?: SessionBoardLayout;
+	style?: SessionBoardStyle;
+	builtIn?: boolean;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export interface SessionBoard {

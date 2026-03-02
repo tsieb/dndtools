@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
+	import { normalizePreviewDepth, normalizePreviewLineCount } from '$lib/domain/session-board.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import type { Note } from '$lib/types/note.js';
 	import type { SessionBoardTile } from '$lib/types/session-board.js';
@@ -32,9 +33,24 @@
 	}: Props = $props();
 	let html = $state('');
 	let contentEl = $state<HTMLDivElement | null>(null);
+	let depth = $derived.by(() => normalizePreviewDepth(tile.previewDepth));
+	let previewLines = $derived.by(() => normalizePreviewLineCount(tile.previewLineCount));
+
+	function buildPreviewContent(noteContent: string): string {
+		if (depth === 'title') return '';
+		if (depth === 'full') return noteContent;
+		const lines = noteContent.split(/\r?\n/).slice(0, previewLines);
+		return lines.join('\n').trim();
+	}
 
 	$effect(() => {
-		renderMarkdown(note.content, {
+		const previewContent = buildPreviewContent(note.content);
+		if (!previewContent) {
+			html = '';
+			return;
+		}
+		let stale = false;
+		void renderMarkdown(previewContent, {
 			resolveLink: (title) => {
 				const targetId = notesState.resolveTitle(title);
 				return targetId
@@ -42,8 +58,11 @@
 					: { href: `/notes?create=${encodeURIComponent(title)}`, exists: false };
 			},
 		}).then((result) => {
-			html = result;
+			if (!stale) html = result;
 		});
+		return () => {
+			stale = true;
+		};
 	});
 
 	function handleMarkdownClick(event: MouseEvent): void {
@@ -130,13 +149,26 @@
 				Drag to move
 			</span>
 		{/if}
+		<span
+			class="text-[10px] px-1.5 py-0.5 rounded border border-border/70 dark:border-tavern-border/70 text-ink-faint dark:text-tavern-faint"
+		>
+			{depth === 'title' ? 'Title' : depth === 'summary' ? `${previewLines} lines` : 'Full'}
+		</span>
 	</header>
 	<div class="relative p-3 flex-1 min-h-0 {scrollable ? 'overflow-y-auto' : 'overflow-hidden'}">
-		<div class="markdown-content text-sm leading-relaxed" role="document" bind:this={contentEl}>
-			<!-- Content is sanitized by renderMarkdown before injecting HTML. -->
-			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-			{@html html}
-		</div>
+		{#if depth === 'title'}
+			<div
+				class="h-full flex items-center justify-center text-xs text-ink-muted dark:text-tavern-muted"
+			>
+				Title-only preview enabled
+			</div>
+		{:else}
+			<div class="markdown-content text-sm leading-relaxed" role="document" bind:this={contentEl}>
+				<!-- Content is sanitized by renderMarkdown before injecting HTML. -->
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+				{@html html}
+			</div>
+		{/if}
 		{#if editable && !scrollable}
 			<div
 				class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface/95 dark:from-tavern-surface/95 to-transparent"

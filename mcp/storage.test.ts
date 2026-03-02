@@ -552,6 +552,33 @@ describe('FileSystemAdapter', () => {
 			const theme = await adapter.getSetting('theme');
 			expect(theme).toBe('dark');
 		});
+
+		it('returns built-in board templates by default', async () => {
+			const templates = await adapter.getSetting('boardTemplates');
+			expect(templates.length).toBeGreaterThanOrEqual(4);
+			expect(templates.some((template) => template.name === 'Combat Scene')).toBe(true);
+			expect(templates.every((template) => template.tiles.length > 0)).toBe(true);
+		});
+
+		it('persists custom board templates alongside built-ins', async () => {
+			const now = nowISO();
+			await adapter.setSetting('boardTemplates', [
+				{
+					id: 'custom-layout-alpha',
+					name: 'Custom Alpha',
+					description: 'Saved custom layout',
+					tiles: [{ id: 'slot-1', type: 'note', x: 0, y: 0, w: 4, h: 3 }],
+					layout: { columns: 12, rowHeight: 120, minRows: 12, gap: 12 },
+					style: { backgroundPattern: 'none' },
+					builtIn: false,
+					createdAt: now,
+					updatedAt: now,
+				},
+			]);
+			const templates = await adapter.getSetting('boardTemplates');
+			expect(templates.some((template) => template.id === 'custom-layout-alpha')).toBe(true);
+			expect(templates.some((template) => template.name === 'Combat Scene')).toBe(true);
+		});
 	});
 
 	describe('objects', () => {
@@ -672,6 +699,71 @@ describe('FileSystemAdapter', () => {
 			});
 			expect(loaded?.tiles[0]?.style?.borderWidth).toBeUndefined();
 			expect(loaded?.tiles[0]?.style?.borderRadius).toBeUndefined();
+		});
+
+		it('persists note, calendar, and timer tile types with preview and timer state', async () => {
+			const now = nowISO();
+			const board = {
+				id: createSessionBoardId('board-mixed-tiles'),
+				name: 'Mixed Tile Board',
+				description: '',
+				tiles: [
+					{
+						id: 'note-slot',
+						type: 'note' as const,
+						x: 0,
+						y: 0,
+						w: 4,
+						h: 3,
+						previewDepth: 'summary' as const,
+						previewLineCount: 6,
+					},
+					{
+						id: 'calendar-tile',
+						type: 'calendar' as const,
+						x: 4,
+						y: 0,
+						w: 4,
+						h: 3,
+					},
+					{
+						id: 'timer-tile',
+						type: 'timer' as const,
+						x: 8,
+						y: 0,
+						w: 4,
+						h: 3,
+						timer: {
+							mode: 'countdown' as const,
+							running: false,
+							accumulatedMs: 90_000,
+							startedAtMs: null,
+							countdownMs: 600_000,
+							lapsMs: [15_000, 30_000],
+							minimalDisplay: true,
+						},
+					},
+				],
+				createdAt: now,
+				updatedAt: now,
+			};
+			await adapter.saveSessionBoard(board);
+
+			const loaded = await adapter.getSessionBoard(board.id);
+			expect(loaded).not.toBeNull();
+			const noteSlot = loaded?.tiles.find((tile) => tile.id === 'note-slot');
+			expect(noteSlot?.type ?? 'note').toBe('note');
+			if (noteSlot && (noteSlot.type ?? 'note') === 'note') {
+				expect(noteSlot.previewLineCount).toBe(6);
+			}
+			const calendarTile = loaded?.tiles.find((tile) => tile.id === 'calendar-tile');
+			expect(calendarTile?.type).toBe('calendar');
+			const timerTile = loaded?.tiles.find((tile) => tile.id === 'timer-tile');
+			expect(timerTile?.type).toBe('timer');
+			if (timerTile?.type === 'timer') {
+				expect(timerTile.timer?.mode).toBe('countdown');
+				expect(timerTile.timer?.minimalDisplay).toBe(true);
+			}
 		});
 
 		it('suggests related notes', async () => {

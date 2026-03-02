@@ -1,4 +1,5 @@
 import type { WorldCalendar } from './world-calendar.js';
+import type { SessionBoardTemplate } from './session-board.js';
 
 export interface EditorSettings {
 	fontSize: number;
@@ -68,6 +69,7 @@ export interface AppSettings {
 	templateContext: TemplateContextSettings;
 	mcpPolicySettings: McpPolicySettings;
 	worldCalendar: WorldCalendar;
+	boardTemplates: SessionBoardTemplate[];
 }
 
 export interface SettingRecord {
@@ -113,6 +115,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 		defaultPresetId: 'strict_review',
 		perAgent: {},
 	},
+	boardTemplates: [],
 	worldCalendar: {
 		version: 1,
 		months: [
