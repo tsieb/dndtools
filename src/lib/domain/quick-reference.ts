@@ -131,7 +131,9 @@ function entityTypeLabel(note: Note, type: QuickReferenceEntityType): string {
 	return getVaultObjectTypeLabel(type);
 }
 
-export function buildQuickReferenceEntityRecords(notes: readonly Note[]): QuickReferenceEntityRecord[] {
+export function buildQuickReferenceEntityRecords(
+	notes: readonly Note[],
+): QuickReferenceEntityRecord[] {
 	return notes
 		.filter((note) => !note.deleted)
 		.map((note) => {

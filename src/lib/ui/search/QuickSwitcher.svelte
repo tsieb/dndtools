@@ -389,14 +389,18 @@
 											{quickReferenceIconToken(item.entity.type)}
 										</span>
 										<div class="min-w-0 flex-1">
-											<span class="text-sm font-medium text-ink dark:text-tavern-text truncate block">
+											<span
+												class="text-sm font-medium text-ink dark:text-tavern-text truncate block"
+											>
 												{item.title}
 											</span>
 											<span class="text-xs text-ink-muted dark:text-tavern-muted truncate block">
 												{item.subtitle}
 											</span>
 											{#if item.entity.previewLines.length > 0}
-												<span class="text-[11px] text-ink-faint dark:text-tavern-faint truncate block mt-0.5">
+												<span
+													class="text-[11px] text-ink-faint dark:text-tavern-faint truncate block mt-0.5"
+												>
 													{item.entity.previewLines.join(' ')}
 												</span>
 											{/if}

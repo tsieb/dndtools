@@ -3,7 +3,10 @@
 	import { resolve } from '$app/paths';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
-	import { DEFAULT_SESSION_CONTEXT, normalizeSessionContextState } from '$lib/domain/session-board.js';
+	import {
+		DEFAULT_SESSION_CONTEXT,
+		normalizeSessionContextState,
+	} from '$lib/domain/session-board.js';
 	import type { SessionContextCategory } from '$lib/types/session-board.js';
 	import type { NoteId } from '$lib/types/note.js';
 
@@ -98,7 +101,9 @@
 <section
 	class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
 >
-	<div class="flex items-center justify-between px-3 py-2 border-b border-border dark:border-tavern-border">
+	<div
+		class="flex items-center justify-between px-3 py-2 border-b border-border dark:border-tavern-border"
+	>
 		<button
 			type="button"
 			class="text-left text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint hover:text-ink-muted dark:hover:text-tavern-muted transition-colors"
@@ -123,7 +128,9 @@
 		<div class="p-3 space-y-2.5">
 			{#each CATEGORY_ORDER as category (category)}
 				<div>
-					<p class="text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1">
+					<p
+						class="text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1"
+					>
 						{CATEGORY_LABELS[category]}
 					</p>
 					{#if groupedItems(category).length === 0}
@@ -218,4 +225,3 @@
 		{/if}
 	{/if}
 </section>
-

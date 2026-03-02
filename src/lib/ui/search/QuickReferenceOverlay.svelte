@@ -133,7 +133,9 @@
 					</div>
 
 					{#if results.length === 0}
-						<div class="flex-1 rounded border border-dashed border-border dark:border-tavern-border p-4 text-sm text-ink-muted dark:text-tavern-muted">
+						<div
+							class="flex-1 rounded border border-dashed border-border dark:border-tavern-border p-4 text-sm text-ink-muted dark:text-tavern-muted"
+						>
 							No matching entities.
 						</div>
 					{:else}
@@ -141,11 +143,16 @@
 							{#each results as result, index (result.noteId)}
 								<li role="option" aria-selected={index === selectedIndex}>
 									<div
-										class="w-full rounded-md border px-3 py-2 transition-colors {index === selectedIndex
+										class="w-full rounded-md border px-3 py-2 transition-colors {index ===
+										selectedIndex
 											? 'border-accent/40 bg-accent-subtle dark:border-tavern-accent/40 dark:bg-tavern-accent-subtle'
 											: 'border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
 									>
-										<button type="button" class="w-full text-left" onclick={() => openResult(result.noteId)}>
+										<button
+											type="button"
+											class="w-full text-left"
+											onclick={() => openResult(result.noteId)}
+										>
 											<div class="flex items-start gap-2">
 												<span
 													class="h-6 w-6 shrink-0 rounded-full border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-[11px] font-semibold flex items-center justify-center text-ink-muted dark:text-tavern-muted"
@@ -163,12 +170,16 @@
 														</p>
 													</div>
 													{#if result.keyStats.length > 0}
-														<p class="mt-0.5 text-[11px] text-ink-muted dark:text-tavern-muted truncate">
+														<p
+															class="mt-0.5 text-[11px] text-ink-muted dark:text-tavern-muted truncate"
+														>
 															{result.keyStats.join(' | ')}
 														</p>
 													{/if}
 													{#if result.previewLines.length > 0}
-														<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted line-clamp-2">
+														<p
+															class="mt-1 text-xs text-ink-muted dark:text-tavern-muted line-clamp-2"
+														>
 															{result.previewLines.join(' ')}
 														</p>
 													{/if}
