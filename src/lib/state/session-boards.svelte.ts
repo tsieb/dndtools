@@ -18,14 +18,23 @@ import {
 	normalizeSessionBoardStyle,
 	normalizeSessionBoardTile,
 } from '$lib/domain/session-board.js';
+import { createDefaultCombatState } from '$lib/domain/combat-tracker.js';
 
 const GRID_COLUMNS = DEFAULT_SESSION_BOARD_LAYOUT.columns;
 const DEFAULT_TILE_W = 4;
 const DEFAULT_TILE_H = 3;
 const MAX_GRID_ROWS = 200;
 
-function getTileType(tile: SessionBoardTile): 'note' | 'calendar' | 'timer' {
-	return tile.type ?? 'note';
+function getTileType(tile: SessionBoardTile): 'note' | 'calendar' | 'timer' | 'combat' {
+	switch (tile.type) {
+		case 'calendar':
+		case 'combat':
+		case 'timer':
+		case 'note':
+			return tile.type;
+		default:
+			return 'note';
+	}
 }
 
 function collides(a: SessionBoardTile, b: SessionBoardTile): boolean {
@@ -99,6 +108,13 @@ function cloneBoardTileForTemplate(tile: SessionBoardTile): SessionBoardTile {
 						accumulatedMs: 0,
 					}
 				: undefined,
+		};
+	}
+	if (type === 'combat') {
+		return {
+			...tile,
+			type: 'combat',
+			combat: createDefaultCombatState(),
 		};
 	}
 	return {
@@ -348,6 +364,24 @@ class SessionBoardsState {
 			y: position.y,
 			w: DEFAULT_TILE_W,
 			h: DEFAULT_TILE_H,
+		};
+		await this.updateBoard(boardId, {
+			tiles: [...board.tiles, tile],
+		});
+	}
+
+	async addCombatTile(boardId: SessionBoardId): Promise<void> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return;
+		const position = findNextOpenPosition(board.tiles, 6, 4, board.layout?.columns ?? GRID_COLUMNS);
+		const tile: SessionBoardTile = {
+			id: nanoid(10),
+			type: 'combat',
+			combat: createDefaultCombatState(),
+			x: position.x,
+			y: position.y,
+			w: 6,
+			h: 4,
 		};
 		await this.updateBoard(boardId, {
 			tiles: [...board.tiles, tile],

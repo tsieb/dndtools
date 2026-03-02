@@ -7,6 +7,7 @@ import type {
 	SessionBoardTileStyle,
 	SessionBoardTimerState,
 } from '../types/session-board.js';
+import { createDefaultCombatState, normalizeCombatState } from './combat-tracker.js';
 
 const MIN_COLUMNS = 8;
 const MAX_COLUMNS = 32;
@@ -184,6 +185,13 @@ export function normalizeSessionBoardTile(tile: SessionBoardTile, columns = 12):
 			timer: normalizeSessionBoardTimerState(tile.timer),
 		};
 	}
+	if (tile.type === 'combat') {
+		return {
+			...common,
+			type: 'combat',
+			combat: normalizeCombatState(tile.combat ?? createDefaultCombatState()),
+		};
+	}
 	const noteId =
 		typeof tile.noteId === 'string' && tile.noteId.trim().length > 0 ? tile.noteId : undefined;
 	return {
@@ -222,10 +230,18 @@ const BUILT_IN_TEMPLATE_SEED = [
 		description: 'Initiative, combat notes, and a tactical timer for fast turn flow.',
 		tiles: [
 			{ id: 'combat-timer', type: 'timer', x: 0, y: 0, w: 3, h: 2 },
-			{ id: 'combat-initiative', type: 'note', x: 3, y: 0, w: 5, h: 3, previewDepth: 'summary' },
-			{ id: 'combat-opposition', type: 'note', x: 8, y: 0, w: 4, h: 3, previewDepth: 'summary' },
-			{ id: 'combat-arena', type: 'note', x: 0, y: 2, w: 6, h: 4, previewDepth: 'full' },
-			{ id: 'combat-objectives', type: 'note', x: 6, y: 3, w: 6, h: 3, previewDepth: 'summary' },
+			{
+				id: 'combat-initiative',
+				type: 'combat',
+				x: 3,
+				y: 0,
+				w: 6,
+				h: 4,
+				combat: createDefaultCombatState(BUILT_IN_TEMPLATE_TIMESTAMP),
+			},
+			{ id: 'combat-opposition', type: 'note', x: 9, y: 0, w: 3, h: 4, previewDepth: 'summary' },
+			{ id: 'combat-arena', type: 'note', x: 0, y: 2, w: 5, h: 4, previewDepth: 'full' },
+			{ id: 'combat-objectives', type: 'note', x: 5, y: 4, w: 7, h: 3, previewDepth: 'summary' },
 		],
 		layout: { ...DEFAULT_SESSION_BOARD_LAYOUT },
 		style: { backgroundPattern: 'grid', sectionTintColor: '#9a3412', sectionTintOpacity: 0.08 },
@@ -347,6 +363,26 @@ export function cloneTemplateForBoard(template: SessionBoardTemplate): SessionBo
 				tile.type === 'timer' && tile.timer
 					? { ...tile.timer, lapsMs: [...tile.timer.lapsMs] }
 					: tile.timer,
+			combat:
+				tile.type === 'combat' && tile.combat
+					? {
+							...tile.combat,
+							combatants: tile.combat.combatants.map((combatant) => ({
+								...combatant,
+								conditions: [...combatant.conditions],
+								deathSaves: { ...combatant.deathSaves },
+								statsPreview: combatant.statsPreview
+									? {
+											...combatant.statsPreview,
+											traits: [...combatant.statsPreview.traits],
+											actions: [...combatant.statsPreview.actions],
+											reactions: [...combatant.statsPreview.reactions],
+											legendaryActions: [...combatant.statsPreview.legendaryActions],
+										}
+									: undefined,
+							})),
+						}
+					: tile.combat,
 		})),
 	};
 }

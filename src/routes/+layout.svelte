@@ -58,6 +58,7 @@
 		if (pathname === '/search') return 'Search';
 		if (pathname === '/graph') return 'Graph';
 		if (pathname === '/session-board') return 'Session Board';
+		if (pathname === '/combat') return 'Combat Tracker';
 		if (pathname === '/settings') return 'Settings';
 		return pathname;
 	}
