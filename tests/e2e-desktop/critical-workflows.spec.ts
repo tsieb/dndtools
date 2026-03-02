@@ -193,7 +193,15 @@ test.describe('Desktop critical workflows @critical', () => {
 				.getByRole('button', { name: /Board Anchor/ })
 				.first()
 				.click();
-			await expect(app.page.locator('[data-board-tile="true"]')).toHaveCount(1);
+			await expect
+				.poll(async () => {
+					const board = await app.page.evaluate(async () => {
+						const boards = (await window.dndtoolsDesktop?.getSessionBoards()) ?? [];
+						return boards.find((entry) => entry.id === 'board-critical') ?? null;
+					});
+					return board?.tiles.some((tile) => tile.noteId === 'note-board-anchor') ?? false;
+				})
+				.toBe(true);
 			await expect(
 				app.page.getByRole('button', { name: 'Session board tile: Board Anchor' }),
 			).toBeVisible();
