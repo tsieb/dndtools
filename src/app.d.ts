@@ -326,6 +326,29 @@ declare global {
 				notes: import('$lib/types/note.js').Note[],
 			): Promise<import('$lib/types/storage.js').ImportResult>;
 			exportAllNotes(): Promise<import('$lib/types/note.js').Note[]>;
+			pickImportSourceDirectory(): Promise<{ sourceRoot: string } | null>;
+			analyzeImportSource(request: {
+				sourceRoot: string;
+			}): Promise<import('$lib/types/import-export.js').ImportAnalysisReport>;
+			startImportJob(request: {
+				sourceRoot: string;
+				defaultResolution: import('$lib/types/import-export.js').ImportResolutionChoice;
+				resumeFromCheckpoint?: boolean;
+			}): Promise<import('$lib/types/import-export.js').ImportJobProgress>;
+			getImportJob(request: {
+				jobId: string;
+			}): Promise<import('$lib/types/import-export.js').ImportJobProgress | null>;
+			getImportCheckpoint(): Promise<import('$lib/types/import-export.js').ImportCheckpointSummary>;
+			resumeImportCheckpoint(): Promise<
+				import('$lib/types/import-export.js').ImportJobProgress | null
+			>;
+			clearImportCheckpoint(): Promise<
+				import('$lib/types/import-export.js').ImportCheckpointSummary
+			>;
+			exportMarkdownZip(request: {
+				profile: import('$lib/types/import-export.js').ExportProfile;
+				outputPath?: string;
+			}): Promise<import('$lib/types/import-export.js').ExportZipResult>;
 			getNoteCount(): Promise<number>;
 			getTagCounts(): Promise<import('$lib/types/note.js').TagEntry[]>;
 			refreshFromDisk(): Promise<void>;

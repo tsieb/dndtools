@@ -56,3 +56,21 @@ export type { Result } from './result.js';
 export { ok, err, isOk, isErr } from './result.js';
 
 export type { TemplateScope, NoteTemplate, ReusableSnippet } from './template-library.js';
+export type {
+	ImportIssueSeverity,
+	ImportResolutionChoice,
+	ImportIssueCode,
+	ImportAnalysisIssue,
+	ImportCandidateSummary,
+	ImportFeatureMappingReport,
+	ImportAnalysisStats,
+	ImportAnalysisReport,
+	ImportJobStatus,
+	ImportJobProgress,
+	ImportCheckpointSummary,
+	ExportProfile,
+	ExportValidationIssueCode,
+	ExportValidationIssue,
+	ExportValidationReport,
+	ExportZipResult,
+} from './import-export.js';

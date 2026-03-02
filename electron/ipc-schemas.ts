@@ -366,6 +366,35 @@ export const semanticTextsSchema = z
 	.min(1)
 	.max(MAX_EMBED_TEXTS);
 
+/** Supported conflict resolution behaviors for import collisions. */
+export const importResolutionSchema = z.enum(['skip', 'overwrite', 'merge']);
+
+/** Import analyze/start payload for desktop folder-based imports. */
+export const importSourceRequestSchema = z.object({
+	sourceRoot: folderPathSchema,
+});
+
+/** Start import job payload. */
+export const startImportJobSchema = z.object({
+	sourceRoot: folderPathSchema,
+	defaultResolution: importResolutionSchema,
+	resumeFromCheckpoint: z.boolean().optional(),
+});
+
+/** Query payload for a running import job. */
+export const importJobQuerySchema = z.object({
+	jobId: idSchema,
+});
+
+/** Supported zip export profiles for interoperability. */
+export const exportProfileSchema = z.enum(['portable_markdown_zip', 'deterministic_markdown_zip']);
+
+/** Payload for markdown zip export operation. */
+export const exportMarkdownZipSchema = z.object({
+	profile: exportProfileSchema,
+	outputPath: folderPathSchema.optional(),
+});
+
 // ─── Per-key AppSettings value schemas ───────────────────────────────────────
 
 /**

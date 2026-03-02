@@ -51,6 +51,17 @@ contextBridge.exposeInMainWorld('dndtoolsDesktop', {
 		ipcRenderer.invoke('dndtools:storage:restore-deleted-from-snapshot', snapshotId),
 	importNotes: (notes: unknown[]) => ipcRenderer.invoke('dndtools:storage:import-notes', notes),
 	exportAllNotes: () => ipcRenderer.invoke('dndtools:storage:export-all-notes'),
+	pickImportSourceDirectory: () => ipcRenderer.invoke('dndtools:import-export:pick-source'),
+	analyzeImportSource: (request: unknown) =>
+		ipcRenderer.invoke('dndtools:import-export:analyze-source', request),
+	startImportJob: (request: unknown) =>
+		ipcRenderer.invoke('dndtools:import-export:start-job', request),
+	getImportJob: (request: unknown) => ipcRenderer.invoke('dndtools:import-export:get-job', request),
+	getImportCheckpoint: () => ipcRenderer.invoke('dndtools:import-export:get-checkpoint'),
+	resumeImportCheckpoint: () => ipcRenderer.invoke('dndtools:import-export:resume-checkpoint'),
+	clearImportCheckpoint: () => ipcRenderer.invoke('dndtools:import-export:clear-checkpoint'),
+	exportMarkdownZip: (request: unknown) =>
+		ipcRenderer.invoke('dndtools:import-export:export-zip', request),
 	getNoteCount: () => ipcRenderer.invoke('dndtools:storage:get-note-count'),
 	getTagCounts: () => ipcRenderer.invoke('dndtools:storage:get-tag-counts'),
 	refreshFromDisk: () => ipcRenderer.invoke('dndtools:storage:refresh-from-disk'),

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { page } from '$app/state';
 	import ThemeToggle from '$lib/ui/common/ThemeToggle.svelte';
 	import Button from '$lib/ui/common/Button.svelte';
@@ -37,12 +37,25 @@
 		restoreDesktopMigrationCheckpoint,
 		rebuildDesktopVaultIndex,
 		clearDesktopMcpChangelog,
+		pickDesktopImportSourceDirectory,
+		analyzeDesktopImportSource,
+		startDesktopImportJob,
+		getDesktopImportJob,
+		getDesktopImportCheckpoint,
+		resumeDesktopImportCheckpoint,
+		clearDesktopImportCheckpoint,
+		exportDesktopMarkdownZip,
 		type DesktopIntegrityReport,
 		type DesktopMcpStatus,
 		type DesktopSystemHealth,
 		type DesktopMcpChangeRecord,
 		type DesktopMcpPolicySettings,
 		type DesktopMigrationCheckpoint,
+		type DesktopImportAnalysisReport,
+		type DesktopImportCheckpointSummary,
+		type DesktopImportJobProgress,
+		type DesktopImportResolutionChoice,
+		type DesktopExportZipResult,
 	} from '$lib/platform/desktop/bridge.js';
 	import { markSubsystemSuccess, reportRuntimeError } from '$lib/runtime/diagnostics.js';
 
@@ -96,6 +109,17 @@
 	let restoringCheckpoint = $state(false);
 	let selectedCheckpointName = $state('');
 	let creatingMissingLinkNotes = $state(false);
+	let analyzingImportSource = $state(false);
+	let importAnalysisReport = $state<DesktopImportAnalysisReport | null>(null);
+	let importDefaultResolution = $state<DesktopImportResolutionChoice>('merge');
+	let importJob = $state<DesktopImportJobProgress | null>(null);
+	let importCheckpoint = $state<DesktopImportCheckpointSummary | null>(null);
+	let resumingImportCheckpoint = $state(false);
+	let clearingImportCheckpointState = $state(false);
+	let exportingPortableZip = $state(false);
+	let exportingDeterministicZip = $state(false);
+	let latestExportReport = $state<DesktopExportZipResult | null>(null);
+	let importPollTimer: ReturnType<typeof setInterval> | null = null;
 
 	const settingsTabs: readonly SettingsTab[] = [
 		{ id: 'general', label: 'General' },
@@ -128,6 +152,11 @@
 		void loadSafetySnapshots();
 		void loadTemplateContextSettings();
 		void loadMigrationCheckpoints();
+		void loadImportCheckpointSummary();
+	});
+
+	onDestroy(() => {
+		stopImportPolling();
 	});
 
 	$effect(() => {
@@ -434,6 +463,178 @@
 		toastState.success(`Exported ${vaultState.noteCount} notes`);
 	}
 
+	function stopImportPolling(): void {
+		if (importPollTimer) {
+			clearInterval(importPollTimer);
+			importPollTimer = null;
+		}
+	}
+
+	async function loadImportCheckpointSummary(): Promise<void> {
+		if (!window.dndtoolsDesktop) {
+			importCheckpoint = null;
+			return;
+		}
+		try {
+			importCheckpoint = await getDesktopImportCheckpoint();
+		} catch (error) {
+			reportSettingsError('ipc', 'SETTINGS_IMPORT_CHECKPOINT_LOAD_FAILED', error);
+			importCheckpoint = null;
+		}
+	}
+
+	async function refreshImportJobProgress(jobId: string): Promise<void> {
+		try {
+			const latest = await getDesktopImportJob({ jobId });
+			if (!latest) {
+				stopImportPolling();
+				return;
+			}
+
+			const previousStatus = importJob?.status ?? null;
+			importJob = latest;
+			if (latest.status === 'completed' && previousStatus !== 'completed') {
+				stopImportPolling();
+				await Promise.all([notesState.loadAll(), searchService.buildIndex(notesState.notes)]);
+				await Promise.all([
+					markSubsystemSuccess('vault_sync'),
+					markSubsystemSuccess('search_index'),
+					markSubsystemSuccess('link_graph_build'),
+				]);
+				await loadImportCheckpointSummary();
+				toastState.success(
+					`Import completed: ${latest.imported} imported, ${latest.overwritten} overwritten, ${latest.merged} merged, ${latest.skipped} skipped.`,
+				);
+			} else if (latest.status === 'failed' && previousStatus !== 'failed') {
+				stopImportPolling();
+				await loadImportCheckpointSummary();
+				toastState.error(latest.lastError ?? 'Import failed. Resume is available from checkpoint.');
+			}
+		} catch (error) {
+			stopImportPolling();
+			reportSettingsError('ipc', 'SETTINGS_IMPORT_JOB_POLL_FAILED', error);
+			toastState.error(`Failed to poll import job status: ${String(error)}`);
+		}
+	}
+
+	function startImportPolling(jobId: string): void {
+		stopImportPolling();
+		importPollTimer = setInterval(() => {
+			void refreshImportJobProgress(jobId);
+		}, 700);
+	}
+
+	async function handleAnalyzeImportSource(): Promise<void> {
+		if (!window.dndtoolsDesktop) {
+			toastState.error('Desktop import analyzer is only available in Electron mode.');
+			return;
+		}
+
+		analyzingImportSource = true;
+		try {
+			const picked = await pickDesktopImportSourceDirectory();
+			if (!picked) return;
+			importAnalysisReport = await analyzeDesktopImportSource({ sourceRoot: picked.sourceRoot });
+			importDefaultResolution = importAnalysisReport.stats.errors > 0 ? 'skip' : 'merge';
+			toastState.success(
+				`Analyzed ${importAnalysisReport.markdownFiles} markdown files (${importAnalysisReport.issues.length} issues).`,
+			);
+		} catch (error) {
+			reportSettingsError('parsing', 'SETTINGS_IMPORT_ANALYZE_FAILED', error);
+			toastState.error(`Failed to analyze import source: ${String(error)}`);
+		} finally {
+			analyzingImportSource = false;
+		}
+	}
+
+	async function handleStartAnalyzedImport(): Promise<void> {
+		if (!window.dndtoolsDesktop || !importAnalysisReport) return;
+		try {
+			const started = await startDesktopImportJob({
+				sourceRoot: importAnalysisReport.sourceRoot,
+				defaultResolution: importDefaultResolution,
+				resumeFromCheckpoint: false,
+			});
+			importJob = started;
+			startImportPolling(started.jobId);
+			toastState.success(
+				started.totalFiles > 500
+					? 'Large import started in background.'
+					: 'Import started. Progress will update automatically.',
+			);
+		} catch (error) {
+			reportSettingsError('storage', 'SETTINGS_IMPORT_START_FAILED', error);
+			toastState.error(`Failed to start import: ${String(error)}`);
+		}
+	}
+
+	async function handleResumeImportFromCheckpoint(): Promise<void> {
+		if (!window.dndtoolsDesktop || !importCheckpoint?.exists) return;
+		resumingImportCheckpoint = true;
+		try {
+			const resumed = await resumeDesktopImportCheckpoint();
+			if (!resumed) {
+				toastState.error('No resumable checkpoint found.');
+				await loadImportCheckpointSummary();
+				return;
+			}
+			importJob = resumed;
+			startImportPolling(resumed.jobId);
+			toastState.success('Resumed import from checkpoint.');
+		} catch (error) {
+			reportSettingsError('storage', 'SETTINGS_IMPORT_RESUME_FAILED', error);
+			toastState.error(`Failed to resume import: ${String(error)}`);
+		} finally {
+			resumingImportCheckpoint = false;
+		}
+	}
+
+	async function handleClearImportCheckpoint(): Promise<void> {
+		if (!window.dndtoolsDesktop) return;
+		clearingImportCheckpointState = true;
+		try {
+			importCheckpoint = await clearDesktopImportCheckpoint();
+			toastState.success('Cleared import checkpoint.');
+		} catch (error) {
+			reportSettingsError('storage', 'SETTINGS_IMPORT_CLEAR_CHECKPOINT_FAILED', error);
+			toastState.error(`Failed to clear checkpoint: ${String(error)}`);
+		} finally {
+			clearingImportCheckpointState = false;
+		}
+	}
+
+	async function handleExportMarkdownZip(
+		profile: 'portable_markdown_zip' | 'deterministic_markdown_zip',
+	): Promise<void> {
+		if (!window.dndtoolsDesktop) {
+			toastState.error('Markdown ZIP export is only available in Electron mode.');
+			return;
+		}
+		if (profile === 'portable_markdown_zip') {
+			exportingPortableZip = true;
+		} else {
+			exportingDeterministicZip = true;
+		}
+		try {
+			const result = await exportDesktopMarkdownZip({ profile });
+			latestExportReport = result;
+			if (result.canceled) return;
+			const warningSuffix =
+				result.validation.issues.length > 0
+					? ` (${result.validation.issues.length} validation warnings)`
+					: '';
+			toastState.success(
+				`Exported ${result.noteCount} notes and ${result.assetCount} assets to ZIP${warningSuffix}.`,
+			);
+		} catch (error) {
+			reportSettingsError('storage', 'SETTINGS_EXPORT_ZIP_FAILED', error);
+			toastState.error(`Failed to export markdown ZIP: ${String(error)}`);
+		} finally {
+			exportingPortableZip = false;
+			exportingDeterministicZip = false;
+		}
+	}
+
 	async function importFiles(files: File[]): Promise<void> {
 		const parsedNotes: Note[] = [];
 		const importErrors: string[] = [];
@@ -453,6 +654,7 @@
 								folder: partial.folder
 									? createFolderId(String(partial.folder))
 									: createFolderId('/'),
+								frontmatter: { ...(partial.frontmatter ?? {}) },
 							}),
 						);
 					}
@@ -469,6 +671,7 @@
 						content: partial.content ?? '',
 						tags: partial.tags ?? [],
 						folder,
+						frontmatter: { ...(partial.frontmatter ?? {}) },
 					}),
 				);
 			} catch (error) {
@@ -1641,24 +1844,224 @@
 				>
 					<div class="flex items-start justify-between gap-4">
 						<div>
-							<p class="text-sm font-medium text-ink dark:text-tavern-text">Export Vault</p>
+							<p class="text-sm font-medium text-ink dark:text-tavern-text">
+								Portable Markdown ZIP
+							</p>
 							<p class="text-xs text-ink-muted dark:text-tavern-muted mt-0.5">
-								Download all notes as a JSON bundle
+								Exports plain `.md` files, an `assets/` directory, README, and validation report.
 							</p>
 						</div>
-						<Button variant="secondary" size="sm" onclick={handleExportAll}>Export All</Button>
+						<Button
+							variant="secondary"
+							size="sm"
+							onclick={() => handleExportMarkdownZip('portable_markdown_zip')}
+							disabled={exportingPortableZip}
+						>
+							{exportingPortableZip ? 'Exporting...' : 'Export ZIP'}
+						</Button>
 					</div>
 					<div
 						class="border-t border-border dark:border-tavern-border pt-4 flex items-start justify-between gap-4"
 					>
 						<div>
-							<p class="text-sm font-medium text-ink dark:text-tavern-text">Import Notes</p>
+							<p class="text-sm font-medium text-ink dark:text-tavern-text">
+								Deterministic Git-Friendly ZIP
+							</p>
 							<p class="text-xs text-ink-muted dark:text-tavern-muted mt-0.5">
-								Import .md files or a DND Tools export (.json)
+								Canonical path ordering, sorted frontmatter, normalized timestamps, stable IDs.
 							</p>
 						</div>
-						<Button variant="secondary" size="sm" onclick={handleImportFiles}>Import</Button>
+						<Button
+							variant="secondary"
+							size="sm"
+							onclick={() => handleExportMarkdownZip('deterministic_markdown_zip')}
+							disabled={exportingDeterministicZip}
+						>
+							{exportingDeterministicZip ? 'Exporting...' : 'Export Deterministic ZIP'}
+						</Button>
 					</div>
+
+					<div class="border-t border-border dark:border-tavern-border pt-4 space-y-3">
+						<div class="flex items-start justify-between gap-4">
+							<div>
+								<p class="text-sm font-medium text-ink dark:text-tavern-text">
+									Obsidian Import Analyzer
+								</p>
+								<p class="text-xs text-ink-muted dark:text-tavern-muted mt-0.5">
+									Checks duplicate titles, ID collisions, frontmatter validity, encoding, missing
+									files, and manual link mappings before import.
+								</p>
+							</div>
+							<Button
+								variant="secondary"
+								size="sm"
+								onclick={handleAnalyzeImportSource}
+								disabled={analyzingImportSource}
+							>
+								{analyzingImportSource ? 'Analyzing...' : 'Analyze Source'}
+							</Button>
+						</div>
+
+						{#if importAnalysisReport}
+							<div
+								class="rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt p-3 space-y-2"
+							>
+								<p class="text-xs text-ink dark:text-tavern-text">
+									Source: <span class="font-mono">{importAnalysisReport.sourceRoot}</span>
+								</p>
+								<p class="text-xs text-ink-muted dark:text-tavern-muted">
+									Markdown files: {importAnalysisReport.markdownFiles} · Issues:
+									{importAnalysisReport.issues.length} (errors: {importAnalysisReport.stats.errors},
+									warnings: {importAnalysisReport.stats.warnings})
+								</p>
+								<p class="text-xs text-ink-muted dark:text-tavern-muted">
+									Mapped: {importAnalysisReport.featureMapping.mapped.length} · Ignored:
+									{importAnalysisReport.featureMapping.ignored.length} · Manual:
+									{importAnalysisReport.featureMapping.manualResolution.length}
+								</p>
+								<div class="flex flex-wrap items-center gap-3 pt-1">
+									<label
+										for="import-resolution-default"
+										class="text-xs font-medium text-ink dark:text-tavern-text"
+									>
+										Default conflict resolution
+									</label>
+									<select
+										id="import-resolution-default"
+										bind:value={importDefaultResolution}
+										class="rounded border border-border dark:border-tavern-border bg-white dark:bg-tavern-surface px-2 py-1 text-xs"
+									>
+										<option value="merge">Merge</option>
+										<option value="overwrite">Overwrite</option>
+										<option value="skip">Skip</option>
+									</select>
+									<Button
+										variant="secondary"
+										size="sm"
+										onclick={handleStartAnalyzedImport}
+										disabled={importJob?.status === 'running'}
+									>
+										Start Import
+									</Button>
+								</div>
+
+								{#if importAnalysisReport.issues.length > 0}
+									<div
+										class="max-h-40 overflow-y-auto rounded border border-border dark:border-tavern-border"
+									>
+										<table class="w-full text-xs">
+											<thead class="bg-surface-alt dark:bg-tavern-surface-alt">
+												<tr>
+													<th class="px-2 py-1 text-left font-medium">Severity</th>
+													<th class="px-2 py-1 text-left font-medium">Issue</th>
+													<th class="px-2 py-1 text-left font-medium">Source</th>
+												</tr>
+											</thead>
+											<tbody class="divide-y divide-border dark:divide-tavern-border">
+												{#each importAnalysisReport.issues.slice(0, 120) as issue (issue.id)}
+													<tr>
+														<td class="px-2 py-1 uppercase">{issue.severity}</td>
+														<td class="px-2 py-1">{issue.message}</td>
+														<td class="px-2 py-1 font-mono">{issue.sourcePath}</td>
+													</tr>
+												{/each}
+											</tbody>
+										</table>
+									</div>
+								{/if}
+							</div>
+						{/if}
+					</div>
+
+					{#if importCheckpoint?.exists}
+						<div
+							class="border-t border-border dark:border-tavern-border pt-4 flex flex-wrap items-center gap-3"
+						>
+							<p class="text-xs text-ink-muted dark:text-tavern-muted">
+								Checkpoint available: {importCheckpoint.processedFiles}/{importCheckpoint.totalFiles}
+								processed · {importCheckpoint.remainingFiles} remaining
+							</p>
+							<Button
+								variant="secondary"
+								size="sm"
+								onclick={handleResumeImportFromCheckpoint}
+								disabled={resumingImportCheckpoint}
+							>
+								{resumingImportCheckpoint ? 'Resuming...' : 'Resume Import'}
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								onclick={handleClearImportCheckpoint}
+								disabled={clearingImportCheckpointState}
+							>
+								{clearingImportCheckpointState ? 'Clearing...' : 'Clear Checkpoint'}
+							</Button>
+						</div>
+					{/if}
+
+					{#if importJob}
+						<div
+							class="border-t border-border dark:border-tavern-border pt-4 rounded-md bg-surface-alt dark:bg-tavern-surface-alt p-3 space-y-2"
+						>
+							<p class="text-xs font-medium text-ink dark:text-tavern-text">
+								Import Job: {importJob.status}
+							</p>
+							<p class="text-xs text-ink-muted dark:text-tavern-muted">
+								Processed {importJob.processedFiles}/{importJob.totalFiles} · Imported
+								{importJob.imported} · Overwritten {importJob.overwritten} · Merged
+								{importJob.merged} · Skipped {importJob.skipped}
+							</p>
+							<div
+								class="h-2 rounded bg-border dark:bg-tavern-border overflow-hidden"
+								role="progressbar"
+								aria-valuemin="0"
+								aria-valuemax={Math.max(1, importJob.totalFiles)}
+								aria-valuenow={importJob.processedFiles}
+							>
+								<div
+									class="h-full bg-accent transition-all"
+									style={`width: ${Math.min(100, Math.round((importJob.processedFiles / Math.max(1, importJob.totalFiles)) * 100))}%`}
+								></div>
+							</div>
+							{#if importJob.errors.length > 0}
+								<p class="text-xs text-rose-600 dark:text-rose-400">
+									{importJob.errors[importJob.errors.length - 1]}
+								</p>
+							{/if}
+						</div>
+					{/if}
+
+					<div
+						class="border-t border-border dark:border-tavern-border pt-4 flex items-start justify-between gap-4"
+					>
+						<div>
+							<p class="text-sm font-medium text-ink dark:text-tavern-text">
+								Legacy JSON/Markdown Export
+							</p>
+							<p class="text-xs text-ink-muted dark:text-tavern-muted mt-0.5">
+								Compatibility fallback for browser mode and older bundles.
+							</p>
+						</div>
+						<div class="flex items-center gap-2">
+							<Button variant="ghost" size="sm" onclick={handleExportAll}>Export Legacy</Button>
+							<Button variant="ghost" size="sm" onclick={handleImportFiles}>Import Legacy</Button>
+						</div>
+					</div>
+
+					{#if latestExportReport && !latestExportReport.canceled}
+						<div
+							class="rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt p-3 text-xs"
+						>
+							<p class="font-medium text-ink dark:text-tavern-text">
+								Last export ({latestExportReport.profile})
+							</p>
+							<p class="text-ink-muted dark:text-tavern-muted">
+								Notes: {latestExportReport.noteCount} · Assets: {latestExportReport.assetCount} · Validation
+								issues: {latestExportReport.validation.issues.length}
+							</p>
+						</div>
+					{/if}
 				</div>
 			</section>
 		</div>

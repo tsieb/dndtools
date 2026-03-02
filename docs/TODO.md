@@ -216,19 +216,19 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 
 ### Project 8.1: Robust Import Pipelines (P1)
 
-- [ ] Add pre-import analyzer (duplicates, invalid frontmatter, link conflicts, file encoding issues).
-- [ ] Add interactive import mapping (folders, tags, frontmatter keys, overwrite policies).
-- [ ] Add resumable import flow for large vaults.
-- [ ] Add detailed import report with warnings and skipped items.
-- [ ] Add targeted import compatibility packs (Obsidian first-class, generic markdown fallback).
+- [x] Add pre-import analyzer (duplicates, invalid frontmatter, link conflicts, file encoding issues).
+- [x] Add interactive import mapping (folders, tags, frontmatter keys, overwrite policies).
+- [x] Add resumable import flow for large vaults.
+- [x] Add detailed import report with warnings and skipped items.
+- [x] Add targeted import compatibility packs (Obsidian first-class, generic markdown fallback).
 
 ### Project 8.2: Export Quality and Portability (P1)
 
-- [ ] Add export profiles (raw markdown, portable bundle, archive with assets).
-- [ ] Add export validation pass (broken embeds, unresolved links, missing metadata).
-- [ ] Add deterministic export mode for version-control friendly outputs.
+- [x] Add export profiles (raw markdown, portable bundle, archive with assets).
+- [x] Add export validation pass (broken embeds, unresolved links, missing metadata).
+- [x] Add deterministic export mode for version-control friendly outputs.
 - [ ] Add “export changed since date” incremental package option.
-- [ ] Add restore-from-export verification workflow and tests.
+- [x] Add restore-from-export verification workflow and tests.
 
 ### Project 8.3: External Tool Integrations (P3)
 
@@ -400,7 +400,7 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 
 ### 8. Import Validation and Conflict Preview
 
-- [ ] `TODO(APP)` Add pre-import validation report (duplicates, invalid frontmatter, path collisions).
+- [x] `TODO(APP)` Add pre-import validation report (duplicates, invalid frontmatter, path collisions).
       Reason: backlog item tracked for planned implementation.
       Risk: quality and behavior drift if deferred.
       Targets:
@@ -409,10 +409,10 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 
 ### 9. Export Portability Improvements
 
-- [ ] `TODO(APP)` Add markdown directory zip export profile in addition to JSON bundle.
+- [x] `TODO(APP)` Add markdown directory zip export profile in addition to JSON bundle.
       Risk: quality and behavior drift if deferred.
       Context:
-- Current multi-note export format is JSON bundle only.
+- Portable and deterministic markdown zip profiles are now available in Settings import/export.
   Targets:
 - `src/lib/domain/export.ts`
 

@@ -192,19 +192,14 @@ Boost settings:
 
 ## 6. Import and Export (Current Behavior)
 
-Current UI behavior (`src/lib/domain/export.ts`):
+Current behavior (`src/routes/settings/+page.svelte`, `electron/import-export-service.ts`, `src/lib/domain/import-export.ts`):
 
-- single note export: markdown file
-- multi-note export: JSON bundle (`dndtools-vault-export.json`)
-- import supports markdown files and JSON bundle format
-
-`TODO(APP):` Add robust portable zip/tar markdown export profile with validation report.
-Risk: quality and behavior drift if deferred.
-Reason: JSON bundle is DND Tools specific and less interoperable with markdown tools.
-Target files:
-
-- `src/lib/domain/export.ts`
-- `docs/UX_GUIDELINES.md`
+- Obsidian import analyzer detects duplicate titles, ID collisions, invalid frontmatter, encoding errors, missing linked files, size-limit violations, and manual-resolution wikilink cases.
+- Import runs as a resumable background job with persisted checkpoint state under `.vault/import-checkpoints/`.
+- Conflict policy supports `skip`, `overwrite`, or `merge` resolution.
+- Portable markdown zip export writes plain `.md` files, `assets/`, `README.md`, and `validation-report.json`.
+- Deterministic export mode normalizes timestamps, sorts frontmatter keys, and uses stable IDs for diff-friendly version control.
+- Legacy single-note markdown and JSON bundle import/export remain available for compatibility.
 
 ## 7. Data Integrity Requirements
 
@@ -228,7 +223,4 @@ Filesystem write integrity is implemented:
 - startup recovery replays/rolls back pending journal entries (`.vault/write-journal.json`)
 - interrupted-write regression tests cover note/index/settings/changelog (`mcp/recovery.test.ts`)
 
-`TODO(APP):` Add strict runtime validation for imported markdown frontmatter and JSON bundle schema.
-Risk: quality and behavior drift if deferred.
-Current issue: parser is intentionally permissive and can accept malformed inputs.
-Target: `src/lib/domain/export.ts`.
+Import runtime now validates frontmatter parseability, UTF-8 encoding, file size bounds, and collision conditions before execution. Blocking issues are skipped with surfaced diagnostics.

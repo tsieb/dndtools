@@ -144,6 +144,7 @@
 					content: candidate.content,
 					tags: [...candidate.tags],
 					folder: candidate.folder,
+					frontmatter: { ...candidate.frontmatter },
 				}),
 			);
 			const result = await getStorage().importNotes(notes);
@@ -332,6 +333,8 @@
 				<p>Importable notes: {preview.candidates.length}</p>
 				<p>Skipped non-markdown files: {preview.skippedPaths.length}</p>
 				<p>Potential duplicate titles: {preview.duplicateTitles.length}</p>
+				<p>Mapped compatibility features: {preview.featureMapping.mapped.length}</p>
+				<p>Manual resolution hints: {preview.featureMapping.manualResolution.length}</p>
 			</div>
 
 			{#if preview.duplicateTitles.length > 0}
