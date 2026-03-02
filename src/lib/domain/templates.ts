@@ -299,12 +299,14 @@ Consequences if the party retreats, fails, or negotiates.
 		content: `---
 tags: [session]
 date: {{date_iso}}
+worldDate: {{world_date_offset}}
+worldDateISO: {{world_date_iso}}
 ---
 
 # Session {{session_number}}: Title
 
 > [!info] Session Info
-> **Date:** {{date_pretty}} | **Campaign:** {{campaign_name}} | **Duration:** ~3h
+> **Date:** {{date_pretty}} | **In-World:** {{world_date_short}} | **Campaign:** {{campaign_name}} | **Duration:** ~3h
 
 ## Previously
 Brief recap of where we left off.
@@ -346,6 +348,8 @@ Brief recap of where we left off.
 		content: `---
 tags: [session, prep]
 date: {{date_iso}}
+worldDate: {{world_date_offset}}
+worldDateISO: {{world_date_iso}}
 ---
 
 # Session {{session_number}} Prep: Title
@@ -395,6 +399,8 @@ date: {{date_iso}}
 		content: `---
 tags: [session, recap]
 date: {{date_iso}}
+worldDate: {{world_date_offset}}
+worldDateISO: {{world_date_iso}}
 session: {{session_number}}
 campaign: {{campaign_name}}
 ---
@@ -402,7 +408,7 @@ campaign: {{campaign_name}}
 # Session {{session_number}} Recap - {{campaign_name}}
 
 > [!info] Table Recap
-> **Date:** {{date_pretty}} | **Cast:** {{character_names_csv}}
+> **Date:** {{date_pretty}} | **In-World:** {{world_date_short}} | **Cast:** {{character_names_csv}}
 
 ## Last Time On
 Three to five bullet points of what actually happened.

@@ -49,6 +49,7 @@ import { lintVaultObjects } from '../src/lib/domain/object-validation.js';
 import { withMcpChangePreview } from '../src/lib/domain/mcp-change-preview.js';
 import { DND_TEMPLATES, GLOBAL_TEMPLATE_IDS } from '../src/lib/domain/templates.js';
 import { REUSABLE_SNIPPETS } from '../src/lib/domain/snippets.js';
+import { normalizeWorldCalendar } from '../src/lib/domain/world-calendar.js';
 import {
 	CURRENT_SCHEMA_VERSION,
 	getSchemaMigrationReport as getVaultSchemaMigrationReport,
@@ -383,6 +384,19 @@ function normalizeMcpPolicySettings(value: unknown): McpPolicySettings {
 		}
 	}
 	return { defaultPresetId, perAgent };
+}
+
+function normalizeSettingValue<K extends keyof AppSettings>(
+	key: K,
+	value: unknown,
+): AppSettings[K] {
+	if (key === 'mcpPolicySettings') {
+		return normalizeMcpPolicySettings(value) as AppSettings[K];
+	}
+	if (key === 'worldCalendar') {
+		return normalizeWorldCalendar(value) as AppSettings[K];
+	}
+	return (value as AppSettings[K]) ?? DEFAULT_SETTINGS[key];
 }
 
 function noteMatchesSnapshot(live: Note, snapshot: Note): boolean {
@@ -2153,9 +2167,9 @@ export class FileSystemAdapter implements StorageAdapter {
 		try {
 			const data = await fs.readFile(this.settingsPath, 'utf-8');
 			const settings = JSON.parse(data) as Partial<AppSettings>;
-			return settings[key] ?? DEFAULT_SETTINGS[key];
+			return normalizeSettingValue(key, settings[key] ?? DEFAULT_SETTINGS[key]);
 		} catch {
-			return DEFAULT_SETTINGS[key];
+			return normalizeSettingValue(key, DEFAULT_SETTINGS[key]);
 		}
 	}
 
@@ -2168,7 +2182,7 @@ export class FileSystemAdapter implements StorageAdapter {
 			// No existing settings file
 		}
 		await this.withWriteJournal('set-setting', async () => {
-			settings[key] = value;
+			settings[key] = normalizeSettingValue(key, value);
 			await this.writeSettingsMetadata(settings);
 		});
 	}

@@ -19,6 +19,8 @@
 		normalizeTimelineEventData,
 		summarizeVaultObject,
 	} from '$lib/domain/objects.js';
+	import { formatWorldDate } from '$lib/domain/world-calendar.js';
+	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import {
 		getObjectTemplateSeed,
 		type ObjectTemplateVariant,
@@ -331,12 +333,18 @@
 						rewards: parseCsv(listB),
 					}),
 				};
-			case 'timeline_event':
+			case 'timeline_event': {
+				const parsedOffset = Number.parseInt(fieldA.trim(), 10);
+				const worldDateOffset = Number.isFinite(parsedOffset) ? parsedOffset : undefined;
 				return {
 					...base,
 					type: 'timeline_event',
 					data: normalizeTimelineEventData({
-						date: fieldA,
+						date:
+							worldDateOffset !== undefined
+								? formatWorldDate(worldCalendarState.calendar, worldDateOffset, 'iso')
+								: fieldA,
+						worldDateOffset,
 						era: fieldB,
 						significance: fieldC,
 						summary: fieldD,
@@ -344,6 +352,7 @@
 						consequences: parseCsv(listB),
 					}),
 				};
+			}
 		}
 	}
 
@@ -439,7 +448,7 @@
 				};
 			case 'timeline_event':
 				return {
-					a: 'Date',
+					a: 'Day Offset',
 					b: 'Era',
 					c: 'Significance',
 					d: 'Summary',

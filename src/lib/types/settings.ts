@@ -1,3 +1,5 @@
+import type { WorldCalendar } from './world-calendar.js';
+
 export interface EditorSettings {
 	fontSize: number;
 	lineHeight: number;
@@ -65,6 +67,7 @@ export interface AppSettings {
 	onboarding: OnboardingSettings;
 	templateContext: TemplateContextSettings;
 	mcpPolicySettings: McpPolicySettings;
+	worldCalendar: WorldCalendar;
 }
 
 export interface SettingRecord {
@@ -109,5 +112,47 @@ export const DEFAULT_SETTINGS: AppSettings = {
 	mcpPolicySettings: {
 		defaultPresetId: 'strict_review',
 		perAgent: {},
+	},
+	worldCalendar: {
+		version: 1,
+		months: [
+			{ name: 'January', days: 31 },
+			{ name: 'February', days: 28 },
+			{ name: 'March', days: 31 },
+			{ name: 'April', days: 30 },
+			{ name: 'May', days: 31 },
+			{ name: 'June', days: 30 },
+			{ name: 'July', days: 31 },
+			{ name: 'August', days: 31 },
+			{ name: 'September', days: 30 },
+			{ name: 'October', days: 31 },
+			{ name: 'November', days: 30 },
+			{ name: 'December', days: 31 },
+		],
+		weekLength: 7,
+		dayNames: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+		leapYearRules: [
+			{
+				name: 'Leap day every 4 years',
+				interval: 4,
+				monthIndex: 1,
+				dayDelta: 1,
+			},
+			{
+				name: 'Skip leap day every 100 years',
+				interval: 100,
+				monthIndex: 1,
+				dayDelta: -1,
+			},
+			{
+				name: 'Restore leap day every 400 years',
+				interval: 400,
+				monthIndex: 1,
+				dayDelta: 1,
+			},
+		],
+		eras: [{ name: 'Common Era', epochOffset: 0 }],
+		moonCycles: [],
+		currentDayOffset: 0,
 	},
 };

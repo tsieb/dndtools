@@ -95,8 +95,11 @@
 		template: NoteTemplate,
 		folderOverride?: string,
 	): Promise<void> {
-		const setting = await settingsStorageState.getTemplateContext();
-		const context = buildTemplateContext(setting);
+		const [setting, worldCalendar] = await Promise.all([
+			settingsStorageState.getTemplateContext(),
+			settingsStorageState.getWorldCalendar(),
+		]);
+		const context = buildTemplateContext(setting, new Date(), { worldCalendar });
 		const rendered = renderNoteTemplate(template, context, folderOverride);
 		const note = await notesState.createNote(toNewNoteOverrides(rendered));
 		if (shouldAdvanceSessionCounter(template.id)) {

@@ -10,7 +10,8 @@ import { errorResult, jsonResult } from '../shared/response.js';
 const tileInput = z
 	.object({
 		id: z.string().min(1).optional(),
-		noteId: z.string().min(1),
+		type: z.enum(['note', 'calendar']).optional(),
+		noteId: z.string().min(1).optional(),
 		x: z.number().int().min(0).max(31),
 		y: z.number().int().min(0).max(200),
 		w: z.number().int().min(2).max(32),
@@ -26,6 +27,16 @@ const tileInput = z
 			})
 			.strict()
 			.optional(),
+	})
+	.superRefine((tile, ctx) => {
+		if (tile.type === 'calendar') return;
+		if (!tile.noteId) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: 'noteId is required for note tiles.',
+				path: ['noteId'],
+			});
+		}
 	})
 	.strict();
 
@@ -70,7 +81,8 @@ export function registerUpdateSessionBoardTool(
 			const baseTiles = tiles
 				? tiles.map((tile) => ({
 						id: tile.id ?? nanoid(10),
-						noteId: createNoteId(tile.noteId),
+						type: tile.type ?? 'note',
+						noteId: tile.type === 'calendar' ? undefined : createNoteId(tile.noteId as string),
 						x: tile.x,
 						y: tile.y,
 						w: tile.w,
@@ -87,6 +99,7 @@ export function registerUpdateSessionBoardTool(
 					if (usedNoteIds.has(typed)) continue;
 					baseTiles.push({
 						id: nanoid(10),
+						type: 'note',
 						noteId: typed,
 						x: 0,
 						y: nextY,

@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { Note } from '$lib/types/note.js';
 	import { formatRelativeDate, formatDate } from '$lib/utils/date.js';
+	import { formatWorldDate, parseWorldDateInput } from '$lib/domain/world-calendar.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import { exportNote } from '$lib/domain/export.js';
 	import Button from '$lib/ui/common/Button.svelte';
@@ -19,6 +21,51 @@
 				? `${note.title}.md`
 				: `${note.folder.replace(/^\//, '')}/${note.title}.md`),
 	);
+	let inWorldDate = $derived.by(() => {
+		const objectMeta =
+			typeof note.frontmatter.dndtools === 'object' && note.frontmatter.dndtools !== null
+				? (note.frontmatter.dndtools as Record<string, unknown>)
+				: null;
+		const objectEnvelope =
+			objectMeta && typeof objectMeta.object === 'object' && objectMeta.object !== null
+				? (objectMeta.object as Record<string, unknown>)
+				: null;
+		const objectData =
+			objectEnvelope && typeof objectEnvelope.data === 'object' && objectEnvelope.data !== null
+				? (objectEnvelope.data as Record<string, unknown>)
+				: null;
+		const fromNumber = [
+			objectData?.worldDateOffset,
+			note.frontmatter.worldDate,
+			note.frontmatter.world_date,
+			note.frontmatter.sessionDateOffset,
+			note.frontmatter.session_date_offset,
+		]
+			.map((value) => {
+				if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+				if (typeof value === 'string' && value.trim().length > 0) {
+					const parsed = Number.parseInt(value, 10);
+					return Number.isFinite(parsed) ? parsed : null;
+				}
+				return null;
+			})
+			.find((value) => value !== null);
+		const parsedOffset =
+			fromNumber ??
+			parseWorldDateInput(
+				worldCalendarState.calendar,
+				objectData?.date ??
+					note.frontmatter.worldDate ??
+					note.frontmatter.world_date ??
+					note.frontmatter.date,
+			)?.dayOffset ??
+			null;
+		if (parsedOffset === null) return null;
+		return {
+			short: formatWorldDate(worldCalendarState.calendar, parsedOffset, 'short'),
+			long: formatWorldDate(worldCalendarState.calendar, parsedOffset, 'long'),
+		};
+	});
 
 	async function handlePin(): Promise<void> {
 		const pinned = await notesState.togglePin(note.id);
@@ -51,6 +98,10 @@
 				<span title={formatDate(note.updatedAt)}>Edited {formatRelativeDate(note.updatedAt)}</span>
 				<span aria-hidden="true">&middot;</span>
 				<span title={formatDate(note.createdAt)}>Created {formatRelativeDate(note.createdAt)}</span>
+				{#if inWorldDate}
+					<span aria-hidden="true">&middot;</span>
+					<span title={inWorldDate.long}>In-world {inWorldDate.short}</span>
+				{/if}
 			</div>
 		</div>
 		<div class="flex items-center gap-1 shrink-0">

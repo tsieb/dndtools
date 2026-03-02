@@ -148,6 +148,7 @@ export interface EncounterData {
 
 export interface TimelineEventData {
 	date?: string;
+	worldDateOffset?: number;
 	era?: string;
 	significance?: string;
 	summary?: string;

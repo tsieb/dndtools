@@ -9,7 +9,8 @@ export function createSessionBoardId(id: string): SessionBoardId {
 
 export interface SessionBoardTile {
 	id: string;
-	noteId: NoteId;
+	type?: 'note' | 'calendar';
+	noteId?: NoteId;
 	/** 0-indexed grid column start */
 	x: number;
 	/** 0-indexed grid row start */

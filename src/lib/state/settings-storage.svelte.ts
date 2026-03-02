@@ -2,6 +2,8 @@ import { getStorage } from '$lib/platform/storage/index.js';
 import type { Note } from '$lib/types/note.js';
 import type { AppSettings } from '$lib/types/settings.js';
 import type { ImportResult, SafetySnapshot, SnapshotRestoreResult } from '$lib/types/storage.js';
+import type { WorldCalendar } from '$lib/types/world-calendar.js';
+import { normalizeWorldCalendar } from '$lib/domain/world-calendar.js';
 
 type BackupSettings = {
 	cadence: AppSettings['backupCadence'];
@@ -15,6 +17,37 @@ class SettingsStorageState {
 
 	async saveTemplateContext(templateContext: AppSettings['templateContext']): Promise<void> {
 		await getStorage().setSetting('templateContext', templateContext);
+	}
+
+	async getWorldCalendar(): Promise<WorldCalendar> {
+		const calendar = await getStorage().getSetting('worldCalendar');
+		return normalizeWorldCalendar(calendar);
+	}
+
+	async saveWorldCalendar(calendar: WorldCalendar): Promise<WorldCalendar> {
+		const normalized = normalizeWorldCalendar(calendar);
+		await getStorage().setSetting('worldCalendar', normalized);
+		return normalized;
+	}
+
+	async setCurrentWorldDate(dayOffset: number): Promise<WorldCalendar> {
+		const calendar = await this.getWorldCalendar();
+		const normalized = normalizeWorldCalendar({
+			...calendar,
+			currentDayOffset: Math.trunc(dayOffset),
+		});
+		await getStorage().setSetting('worldCalendar', normalized);
+		return normalized;
+	}
+
+	async advanceWorldDate(deltaDays: number): Promise<WorldCalendar> {
+		const calendar = await this.getWorldCalendar();
+		const normalized = normalizeWorldCalendar({
+			...calendar,
+			currentDayOffset: calendar.currentDayOffset + Math.trunc(deltaDays),
+		});
+		await getStorage().setSetting('worldCalendar', normalized);
+		return normalized;
 	}
 
 	async getBackupSettings(): Promise<BackupSettings> {

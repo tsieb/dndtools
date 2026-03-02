@@ -2,6 +2,12 @@ import type { AppSettings } from '$lib/types/settings.js';
 import type { Note } from '$lib/types/note.js';
 import { createFolderId } from '$lib/types/note.js';
 import type { NoteTemplate, TemplateScope } from '$lib/types/template-library.js';
+import type { WorldCalendar } from '$lib/types/world-calendar.js';
+import {
+	DEFAULT_WORLD_CALENDAR,
+	formatWorldDate,
+	normalizeWorldCalendar,
+} from '$lib/domain/world-calendar.js';
 import { GLOBAL_TEMPLATE_IDS } from './templates.js';
 
 export type { TemplateScope };
@@ -12,6 +18,9 @@ export interface TemplateContext {
 	campaignName: string;
 	sessionNumber: number;
 	characterNames: string[];
+	worldDateOffset: number;
+	worldDateShort: string;
+	worldDateISO: string;
 }
 
 export interface ScopedNoteTemplate {
@@ -65,6 +74,21 @@ const VARIABLE_REFERENCE = [
 		description: 'Character names rendered as markdown bullets',
 		example: '- **Aria:**',
 	},
+	{
+		key: '{{world_date_offset}}',
+		description: 'Current in-world day offset from calendar epoch',
+		example: '11324',
+	},
+	{
+		key: '{{world_date_short}}',
+		description: 'Current in-world date using active calendar short format',
+		example: '15 Harvestmoon, Year 312',
+	},
+	{
+		key: '{{world_date_iso}}',
+		description: 'Current in-world date as ISO-equivalent format',
+		example: '0312-09-15',
+	},
 ] as const;
 
 function normalizeCharacterNames(names: readonly string[]): string[] {
@@ -114,20 +138,29 @@ function buildVariableTable(context: TemplateContext): Record<string, string> {
 		session_number: String(context.sessionNumber),
 		character_names_csv: fallbackCharacterName,
 		character_names_bullets: bulletRows,
+		world_date_offset: String(context.worldDateOffset),
+		world_date_short: context.worldDateShort,
+		world_date_iso: context.worldDateISO,
 	};
 }
 
 export function buildTemplateContext(
 	settings: AppSettings['templateContext'],
 	now = new Date(),
+	options?: { worldCalendar?: WorldCalendar },
 ): TemplateContext {
 	const sessionNumber = Math.max(1, Math.round(settings.sessionNumber || 1));
+	const worldCalendar = normalizeWorldCalendar(options?.worldCalendar ?? DEFAULT_WORLD_CALENDAR);
+	const worldDateOffset = worldCalendar.currentDayOffset;
 	return {
 		dateISO: now.toISOString().slice(0, 10),
 		datePretty: now.toLocaleDateString(),
 		campaignName: settings.campaignName.trim(),
 		sessionNumber,
 		characterNames: normalizeCharacterNames(settings.characterNames),
+		worldDateOffset,
+		worldDateShort: formatWorldDate(worldCalendar, worldDateOffset, 'short'),
+		worldDateISO: formatWorldDate(worldCalendar, worldDateOffset, 'iso'),
 	};
 }
 

@@ -65,12 +65,16 @@ export function registerCreateNoteTool(server: McpServer, storage: FileSystemAda
 				}
 
 				const baseContext = await storage.getSetting('templateContext');
+				const worldCalendar = await storage.getSetting('worldCalendar');
 				const mergedContext = {
 					campaignName: templateContext?.campaignName ?? baseContext.campaignName,
 					sessionNumber: templateContext?.sessionNumber ?? baseContext.sessionNumber,
 					characterNames: templateContext?.characterNames ?? baseContext.characterNames,
 				};
-				const rendered = renderNoteTemplate(template, buildTemplateContext(mergedContext));
+				const rendered = renderNoteTemplate(
+					template,
+					buildTemplateContext(mergedContext, new Date(), { worldCalendar }),
+				);
 				resolvedTitle = resolvedTitle ?? rendered.title;
 				if (!hasExplicitContent) {
 					resolvedContent = rendered.content;

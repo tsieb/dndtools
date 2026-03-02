@@ -185,6 +185,7 @@ export function getObjectTemplateSeed(
 				relationships: [],
 				data: normalizeTimelineEventData({
 					date: '',
+					worldDateOffset: 0,
 					era: '',
 					significance: '',
 					summary: '',

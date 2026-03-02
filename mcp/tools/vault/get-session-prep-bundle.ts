@@ -3,6 +3,12 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { FileSystemAdapter } from '../../storage.js';
 import { jsonResult } from '../shared/response.js';
 import { buildVaultIntelligence, DEFAULT_STALE_AFTER_DAYS } from './vault-intelligence.js';
+import { collectCalendarEventEntries } from '../../../src/lib/domain/world-calendar-events.js';
+import {
+	formatWorldDate,
+	normalizeWorldCalendar,
+	parseWorldDateInput,
+} from '../../../src/lib/domain/world-calendar.js';
 
 function parseTimestamp(value: string): number {
 	const parsed = Date.parse(value);
@@ -18,6 +24,7 @@ export function registerGetSessionPrepBundleTool(
 		'Build a session-prep bundle with priority notes, stale risks, and board context.',
 		{
 			focusTag: z.string().min(1).optional(),
+			worldDate: z.union([z.string().min(1), z.number().int()]).optional(),
 			staleAfterDays: z
 				.number()
 				.int()
@@ -28,15 +35,19 @@ export function registerGetSessionPrepBundleTool(
 			recentLimit: z.number().int().min(1).max(100).optional().default(12),
 			boardLimit: z.number().int().min(1).max(25).optional().default(8),
 		},
-		async ({ focusTag, staleAfterDays, recentLimit, boardLimit }) => {
-			const [insights, notes, boards] = await Promise.all([
+		async ({ focusTag, worldDate, staleAfterDays, recentLimit, boardLimit }) => {
+			const [insights, notes, boards, worldCalendarRaw] = await Promise.all([
 				buildVaultIntelligence(storage, {
 					staleAfterDays,
 					maxExamples: Math.max(recentLimit, boardLimit),
 				}),
 				storage.getAllNotes(),
 				storage.getSessionBoards(),
+				storage.getSetting('worldCalendar'),
 			]);
+			const worldCalendar = normalizeWorldCalendar(worldCalendarRaw);
+			const parsedWorldDate = parseWorldDateInput(worldCalendar, worldDate);
+			const effectiveWorldDateOffset = parsedWorldDate?.dayOffset ?? worldCalendar.currentDayOffset;
 
 			const normalizedFocusTag = focusTag?.trim().toLowerCase();
 			const activeNotes = notes.filter((note) => !note.deleted);
@@ -83,14 +94,34 @@ export function registerGetSessionPrepBundleTool(
 			const continuityFlags = insights.coverageGaps
 				.filter((gap) => gap.severity === 'high' || gap.severity === 'medium')
 				.slice(0, 6);
+			const calendarHighlights = collectCalendarEventEntries(activeNotes, worldCalendar, {
+				fromDayOffset: effectiveWorldDateOffset - 30,
+				toDayOffset: effectiveWorldDateOffset + 90,
+			})
+				.slice(0, recentLimit)
+				.map((event) => ({
+					noteId: event.noteId,
+					title: event.title,
+					kind: event.kind,
+					dayOffset: event.dayOffset,
+					dateShort: formatWorldDate(worldCalendar, event.dayOffset, 'short'),
+					dateIso: formatWorldDate(worldCalendar, event.dayOffset, 'iso'),
+					summary: event.summary,
+				}));
 
 			return jsonResult({
 				bundle: 'session_prep',
 				generatedAt: insights.generatedAt,
+				worldDate: {
+					dayOffset: effectiveWorldDateOffset,
+					short: formatWorldDate(worldCalendar, effectiveWorldDateOffset, 'short'),
+					iso: formatWorldDate(worldCalendar, effectiveWorldDateOffset, 'iso'),
+				},
 				focusTag: normalizedFocusTag ?? null,
 				campaignHealth: insights.campaignHealth,
 				recentScopedNotes,
 				staleScopedNotes,
+				calendarHighlights,
 				boardContext,
 				continuityFlags,
 				recommendedToolFlow: [

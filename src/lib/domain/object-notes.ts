@@ -377,6 +377,7 @@ function buildObjectMarkdown(
 			'## Timeline Event',
 			'',
 			`- Date: ${value.date ?? ''}`.trimEnd(),
+			`- World Date Offset: ${value.worldDateOffset ?? ''}`.trimEnd(),
 			`- Era: ${value.era ?? ''}`.trimEnd(),
 			`- Significance: ${value.significance ?? ''}`.trimEnd(),
 			`- Summary: ${value.summary ?? ''}`.trimEnd(),

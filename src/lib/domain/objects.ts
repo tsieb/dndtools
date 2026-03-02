@@ -262,8 +262,13 @@ export function normalizeEncounterData(value: Partial<EncounterData> | undefined
 export function normalizeTimelineEventData(
 	value: Partial<TimelineEventData> | undefined,
 ): TimelineEventData {
+	const worldDateOffset =
+		typeof value?.worldDateOffset === 'number' && Number.isFinite(value.worldDateOffset)
+			? Math.trunc(value.worldDateOffset)
+			: undefined;
 	return {
 		date: value?.date?.trim() || undefined,
+		worldDateOffset: Number.isFinite(worldDateOffset) ? worldDateOffset : undefined,
 		era: value?.era?.trim() || undefined,
 		significance: value?.significance?.trim() || undefined,
 		summary: value?.summary?.trim() || undefined,
@@ -442,7 +447,9 @@ export function summarizeVaultObject(object: VaultObject): string {
 			return [encounterType, cr].filter((entry): entry is string => !!entry).join(' | ');
 		}
 		case 'timeline_event': {
-			const date = object.data.date ?? null;
+			const date =
+				object.data.date ??
+				(object.data.worldDateOffset !== undefined ? `Day ${object.data.worldDateOffset}` : null);
 			const era = object.data.era ?? null;
 			return [date, era].filter((entry): entry is string => !!entry).join(' | ');
 		}

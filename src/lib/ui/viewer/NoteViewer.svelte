@@ -5,6 +5,8 @@
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
 	import { noteToVaultObject } from '$lib/domain/object-notes.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
+	import { formatWorldDate } from '$lib/domain/world-calendar.js';
 	import { getStorage } from '$lib/platform/storage/index.js';
 	import { goto } from '$app/navigation';
 
@@ -86,12 +88,33 @@
 						? { href: `/notes/${targetId}`, exists: true }
 						: { href: `/notes?create=${encodeURIComponent(title)}`, exists: false };
 				},
-				resolveObject: ({ type, id }) =>
-					(type
-						? (noteObjectIndex.byKey.get(`${type}:${id}`) ??
-							storageObjectIndex.byKey.get(`${type}:${id}`))
-						: (noteObjectIndex.byId.get(String(id)) ?? storageObjectIndex.byId.get(String(id)))) ??
-					null,
+				resolveObject: ({ type, id }) => {
+					const resolved =
+						(type
+							? (noteObjectIndex.byKey.get(`${type}:${id}`) ??
+								storageObjectIndex.byKey.get(`${type}:${id}`))
+							: (noteObjectIndex.byId.get(String(id)) ??
+								storageObjectIndex.byId.get(String(id)))) ?? null;
+					if (
+						resolved &&
+						resolved.type === 'timeline_event' &&
+						typeof resolved.data.worldDateOffset === 'number' &&
+						Number.isFinite(resolved.data.worldDateOffset)
+					) {
+						return {
+							...resolved,
+							data: {
+								...resolved.data,
+								date: formatWorldDate(
+									worldCalendarState.calendar,
+									resolved.data.worldDateOffset,
+									'short',
+								),
+							},
+						};
+					}
+					return resolved;
+				},
 				resolveNote: ({ target, targetBy }) => {
 					const resolved =
 						targetBy === 'id' ? notesById.get(target) : notesByTitle.get(target.toLowerCase());

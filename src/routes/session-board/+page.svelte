@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import SessionBoardTileCard from '$lib/ui/board/SessionBoardTile.svelte';
+	import WorldCalendarReference from '$lib/ui/calendar/WorldCalendarReference.svelte';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
@@ -47,6 +48,16 @@
 	let lastBoardId = $state<string | null>(null);
 	let suggestionKey = $state('');
 
+	type RenderedTileEntry =
+		| { tile: SessionBoardTile; kind: 'calendar'; x: number; y: number }
+		| {
+				tile: SessionBoardTile;
+				kind: 'note';
+				note: (typeof notesState.activeNotes)[number];
+				x: number;
+				y: number;
+		  };
+
 	let activeBoard = $derived(sessionBoardsState.activeBoard);
 	let activeNotesById = $derived(notesState.activeNoteById);
 	let layout = $derived.by(() => ({
@@ -62,7 +73,11 @@
 	let zoomPercent = $derived(Math.round(zoom * 100));
 
 	let availableNotes = $derived.by(() => {
-		const used = new Set(activeBoard?.tiles.map((t) => t.noteId) ?? []);
+		const used = new Set(
+			(activeBoard?.tiles ?? [])
+				.filter((tile): tile is SessionBoardTile & { noteId: NoteId } => !!tile.noteId)
+				.map((tile) => tile.noteId),
+		);
 		const q = noteQuery.trim().toLowerCase();
 		const base = notesState.activeNotes.filter((n) => !used.has(n.id));
 		if (!q) return base.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 40);
@@ -86,24 +101,20 @@
 	});
 
 	let renderedTiles = $derived.by(() => {
-		if (!activeBoard) return [];
-		return activeBoard.tiles
-			.map((tile) => {
-				const note = activeNotesById.get(tile.noteId);
-				if (!note) return null;
-				const draft = draftPositions[tile.id];
-				return { tile, note, x: draft?.x ?? tile.x, y: draft?.y ?? tile.y };
-			})
-			.filter(
-				(
-					entry,
-				): entry is {
-					tile: SessionBoardTile;
-					note: (typeof notesState.activeNotes)[number];
-					x: number;
-					y: number;
-				} => Boolean(entry),
-			);
+		if (!activeBoard) return [] as RenderedTileEntry[];
+		const entries: RenderedTileEntry[] = [];
+		for (const tile of activeBoard.tiles) {
+			const draft = draftPositions[tile.id];
+			if (tile.type === 'calendar') {
+				entries.push({ tile, kind: 'calendar', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
+				continue;
+			}
+			if (!tile.noteId) continue;
+			const note = activeNotesById.get(tile.noteId);
+			if (!note) continue;
+			entries.push({ tile, kind: 'note', note, x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
+		}
+		return entries;
 	});
 
 	let canvas = $derived.by(() => {
@@ -137,7 +148,7 @@
 		if (selectedTileId && !activeBoard.tiles.some((tile) => tile.id === selectedTileId)) {
 			selectedTileId = null;
 		}
-		const key = `${activeBoard.id}:${[...new Set(activeBoard.tiles.map((t) => t.noteId))].sort().join('|')}`;
+		const key = `${activeBoard.id}:${[...new Set(activeBoard.tiles.map((t) => t.noteId ?? t.type ?? 'none'))].sort().join('|')}`;
 		if (key !== suggestionKey) {
 			suggestionKey = key;
 			void sessionBoardsState.suggestForBoard(activeBoard.id, 10);
@@ -338,6 +349,10 @@
 		if (!activeBoard) return;
 		await sessionBoardsState.addNoteToBoard(activeBoard.id, noteId);
 	}
+	async function addCalendarTile(): Promise<void> {
+		if (!activeBoard) return;
+		await sessionBoardsState.addCalendarTile(activeBoard.id);
+	}
 	async function removeTile(tileId: string): Promise<void> {
 		if (!activeBoard) return;
 		await sessionBoardsState.removeTile(activeBoard.id, tileId);
@@ -348,10 +363,15 @@
 		await sessionBoardsState.updateTile(activeBoard.id, selectedTileId, updates);
 	}
 
-	function startTileDrag(tileId: string, event: PointerEvent): void {
+	function startTileDrag(
+		tileId: string,
+		event: PointerEvent,
+		options?: { ignoreInteractiveTarget?: boolean },
+	): void {
 		if (mode !== 'edit' || !activeBoard || event.button !== 0) return;
 		const target = event.target as HTMLElement;
-		if (target.closest('a,button,input,textarea,select,label')) return;
+		if (!options?.ignoreInteractiveTarget && target.closest('a,button,input,textarea,select,label'))
+			return;
 		event.preventDefault();
 		event.stopPropagation();
 		const tile = activeBoard.tiles.find((t) => t.id === tileId);
@@ -492,6 +512,12 @@
 							class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3 space-y-2"
 						>
 							<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Add Notes</h2>
+							<button
+								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								onclick={addCalendarTile}
+							>
+								Add Calendar Tile
+							</button>
 							<input
 								type="text"
 								bind:value={noteQuery}
@@ -974,23 +1000,50 @@
 											class="absolute inset-0 pointer-events-none"
 											style={patternStyle(activeBoard)}
 										></div>
-										{#each renderedTiles as { tile, note, x, y } (tile.id)}
-											<div class="absolute" style={tileStyle(tile, x, y)}>
-												<SessionBoardTileCard
-													{tile}
-													{note}
-													selected={mode === 'edit' && selectedTileId === tile.id}
-													editable={mode === 'edit'}
-													scrollable={mode === 'view' || selectedTileId === tile.id}
-													tintColor={activeBoard.style?.sectionTintColor ?? '#7c3aed'}
-													tintOpacity={activeBoard.style?.sectionTintOpacity ?? 0}
-													onopen={() => (overlayNoteId = note.id)}
-													onselect={() => {
-														if (mode === 'edit') selectedTileId = tile.id;
-														else overlayNoteId = note.id;
-													}}
-													ondragstart={(event) => startTileDrag(tile.id, event)}
-												/>
+										{#each renderedTiles as entry (entry.tile.id)}
+											{@const tile = entry.tile}
+											<div class="absolute" style={tileStyle(tile, entry.x, entry.y)}>
+												{#if entry.kind === 'note' && entry.note}
+													{@const note = entry.note}
+													<SessionBoardTileCard
+														{tile}
+														{note}
+														selected={mode === 'edit' && selectedTileId === tile.id}
+														editable={mode === 'edit'}
+														scrollable={mode === 'view' || selectedTileId === tile.id}
+														tintColor={activeBoard.style?.sectionTintColor ?? '#7c3aed'}
+														tintOpacity={activeBoard.style?.sectionTintOpacity ?? 0}
+														onopen={() => (overlayNoteId = note.id)}
+														onselect={() => {
+															if (mode === 'edit') selectedTileId = tile.id;
+															else overlayNoteId = note.id;
+														}}
+														ondragstart={(event) => startTileDrag(tile.id, event)}
+													/>
+												{:else}
+													<div
+														class="relative h-full rounded-lg border border-border bg-surface p-2 dark:border-tavern-border dark:bg-tavern-surface"
+														data-board-tile="true"
+													>
+														{#if mode === 'edit'}
+															<button
+																type="button"
+																class="absolute inset-0 z-10 cursor-move bg-transparent"
+																aria-label="Drag calendar tile"
+																onpointerdown={(event) => {
+																	selectedTileId = tile.id;
+																	startTileDrag(tile.id, event, {
+																		ignoreInteractiveTarget: true,
+																	});
+																}}
+															></button>
+														{/if}
+														<WorldCalendarReference
+															notes={notesState.activeNotes}
+															title="Calendar Reference"
+														/>
+													</div>
+												{/if}
 											</div>
 										{/each}
 									</div>

@@ -25,7 +25,9 @@ export function registerSuggestRelatedBoardNotesTool(
 				if (!board) {
 					return errorResult(`Session board not found: ${boardId}`);
 				}
-				seedNoteIds = board.tiles.map((tile) => tile.noteId);
+				seedNoteIds = board.tiles
+					.map((tile) => tile.noteId)
+					.filter((noteId): noteId is ReturnType<typeof createNoteId> => !!noteId);
 			}
 
 			const suggestions = await storage.suggestRelatedNotes(seedNoteIds, limit);

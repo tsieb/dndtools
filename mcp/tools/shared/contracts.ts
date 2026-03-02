@@ -44,12 +44,23 @@ const sessionBoardTileStyleSchema = z
 const sessionBoardTileSchema = z
 	.object({
 		id: z.string().min(1),
-		noteId: z.string().min(1),
+		type: z.enum(['note', 'calendar']).optional(),
+		noteId: z.string().min(1).optional(),
 		x: z.number(),
 		y: z.number(),
 		w: z.number(),
 		h: z.number(),
 		style: sessionBoardTileStyleSchema.optional(),
+	})
+	.superRefine((tile, ctx) => {
+		if (tile.type === 'calendar') return;
+		if (!tile.noteId) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: 'noteId is required for note tiles.',
+				path: ['noteId'],
+			});
+		}
 	})
 	.strict();
 
@@ -233,6 +244,26 @@ const noteSnapshotSchema = z
 		tags: z.array(z.string()),
 		updatedAt: z.string().min(1),
 		daysSinceUpdate: z.number().int().nonnegative().optional(),
+	})
+	.strict();
+
+const worldDateSummarySchema = z
+	.object({
+		dayOffset: z.number().int(),
+		short: z.string().min(1),
+		iso: z.string().min(1),
+	})
+	.strict();
+
+const calendarEventSummarySchema = z
+	.object({
+		noteId: z.string().min(1),
+		title: z.string().min(1),
+		kind: z.enum(['timeline_event', 'session_note']),
+		dayOffset: z.number().int(),
+		dateShort: z.string().min(1),
+		dateIso: z.string().min(1),
+		summary: z.string(),
 	})
 	.strict();
 
@@ -473,10 +504,12 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 			.object({
 				bundle: z.literal('session_prep'),
 				generatedAt: z.string().min(1),
+				worldDate: worldDateSummarySchema,
 				focusTag: z.string().nullable(),
 				campaignHealth: campaignHealthSchema,
 				recentScopedNotes: z.array(noteSnapshotSchema.omit({ daysSinceUpdate: true })),
 				staleScopedNotes: z.array(noteSnapshotSchema.omit({ daysSinceUpdate: true })),
+				calendarHighlights: z.array(calendarEventSummarySchema),
 				boardContext: z.array(
 					z
 						.object({
@@ -502,6 +535,7 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 				bundle: z.literal('recap_generation'),
 				generatedAt: z.string().min(1),
 				since: z.string().min(1),
+				worldDate: worldDateSummarySchema,
 				changedNotes: z.array(noteSnapshotSchema.omit({ daysSinceUpdate: true })),
 				changedObjects: z.array(
 					z
@@ -523,6 +557,7 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 						})
 						.strict(),
 				),
+				calendarSummaries: z.array(calendarEventSummarySchema),
 				tagMomentum: z.array(
 					z
 						.object({
@@ -602,6 +637,27 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 		retryPolicy: 'idempotent',
 		responseSchema: linkGraphSchema,
 		remediationHint: 'If edges look stale, trigger note reindexing and retry.',
+	},
+	get_calendar_events: {
+		permission: 'read-only',
+		retryPolicy: 'idempotent',
+		responseSchema: z
+			.object({
+				dateRange: z
+					.object({
+						fromDayOffset: z.number().int(),
+						toDayOffset: z.number().int(),
+						fromShort: z.string().min(1),
+						toShort: z.string().min(1),
+						fromIso: z.string().min(1),
+						toIso: z.string().min(1),
+					})
+					.strict(),
+				totalEvents: z.number().int().nonnegative(),
+				events: z.array(calendarEventSummarySchema),
+			})
+			.strict(),
+		remediationHint: 'Use world day offsets or YYYY-MM-DD calendar dates for deterministic ranges.',
 	},
 	vault_health_check: {
 		permission: 'read-only',

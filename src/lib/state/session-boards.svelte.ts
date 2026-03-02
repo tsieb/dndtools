@@ -55,7 +55,7 @@ function findNextOpenPosition(
 		for (let x = 0; x <= columns - w; x += 1) {
 			const probe: SessionBoardTile = {
 				id: '__probe__',
-				noteId: '' as NoteId,
+				type: 'note',
 				x,
 				y,
 				w,
@@ -214,7 +214,7 @@ class SessionBoardsState {
 	async addNoteToBoard(boardId: SessionBoardId, noteId: NoteId): Promise<void> {
 		const board = this.boards.find((entry) => entry.id === boardId);
 		if (!board) return;
-		if (board.tiles.some((tile) => tile.noteId === noteId)) return;
+		if (board.tiles.some((tile) => tile.type !== 'calendar' && tile.noteId === noteId)) return;
 
 		const position = findNextOpenPosition(
 			board.tiles,
@@ -224,7 +224,33 @@ class SessionBoardsState {
 		);
 		const tile: SessionBoardTile = {
 			id: nanoid(10),
+			type: 'note',
 			noteId,
+			x: position.x,
+			y: position.y,
+			w: DEFAULT_TILE_W,
+			h: DEFAULT_TILE_H,
+		};
+		await this.updateBoard(boardId, {
+			tiles: [...board.tiles, tile],
+		});
+	}
+
+	async addCalendarTile(boardId: SessionBoardId): Promise<void> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return;
+		const existingCalendar = board.tiles.find((tile) => tile.type === 'calendar');
+		if (existingCalendar) return;
+
+		const position = findNextOpenPosition(
+			board.tiles,
+			DEFAULT_TILE_W,
+			DEFAULT_TILE_H,
+			board.layout?.columns ?? GRID_COLUMNS,
+		);
+		const tile: SessionBoardTile = {
+			id: nanoid(10),
+			type: 'calendar',
 			x: position.x,
 			y: position.y,
 			w: DEFAULT_TILE_W,
@@ -264,7 +290,9 @@ class SessionBoardsState {
 			return;
 		}
 
-		const seedNoteIds = board.tiles.map((tile) => tile.noteId);
+		const seedNoteIds = board.tiles
+			.filter((tile): tile is SessionBoardTile & { noteId: NoteId } => !!tile.noteId)
+			.map((tile) => tile.noteId);
 		if (seedNoteIds.length === 0) {
 			this.suggestions = [];
 			return;

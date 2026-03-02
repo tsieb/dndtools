@@ -7,6 +7,7 @@
 	import { searchState } from '$lib/state/search.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { isVaultObjectNote } from '$lib/domain/object-notes.js';
+	import WorldCalendarReference from '$lib/ui/calendar/WorldCalendarReference.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
@@ -234,6 +235,10 @@
 				Session Board
 			</a>
 		</nav>
+
+		<div class="px-3 pb-2">
+			<WorldCalendarReference notes={notesState.activeNotes} title="Calendar" collapsible compact />
+		</div>
 
 		<div class="px-3 pb-2">
 			<p

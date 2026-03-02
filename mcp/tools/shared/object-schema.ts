@@ -207,6 +207,7 @@ export const encounterDataSchema = z
 export const timelineEventDataSchema = z
 	.object({
 		date: z.string().optional(),
+		worldDateOffset: z.number().int().optional(),
 		era: z.string().optional(),
 		significance: z.string().optional(),
 		summary: z.string().optional(),

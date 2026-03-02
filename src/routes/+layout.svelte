@@ -24,6 +24,7 @@
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
 	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
+	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import {
 		buildTemplateContext,
 		getFolderScopedTemplateMatches,
@@ -32,6 +33,7 @@
 	} from '$lib/domain/template-automation.js';
 	import type { AppSettings } from '$lib/types/settings.js';
 	import type { NoteTemplate } from '$lib/types/template-library.js';
+	import type { WorldCalendar } from '$lib/types/world-calendar.js';
 
 	let { children } = $props();
 	let quickSwitcherOpen = $state(false);
@@ -69,6 +71,9 @@
 			void vaultHealthState.refresh();
 			if (!templateLibraryState.loading) {
 				void templateLibraryState.refresh();
+			}
+			if (!worldCalendarState.loaded && !worldCalendarState.loading) {
+				void worldCalendarState.load();
 			}
 		}
 	});
@@ -154,8 +159,11 @@
 		template: NoteTemplate,
 		folderOverride?: string,
 	): Promise<void> {
-		const setting = await loadTemplateContextSetting();
-		const context = buildTemplateContext(setting);
+		const [setting, worldCalendar] = await Promise.all([
+			loadTemplateContextSetting(),
+			loadWorldCalendarSetting(),
+		]);
+		const context = buildTemplateContext(setting, new Date(), { worldCalendar });
 		const rendered = renderNoteTemplate(template, context, folderOverride);
 		const note = await notesState.createNote(toNewNoteOverrides(rendered));
 		if (shouldAdvanceSessionCounter(template.id)) {
@@ -193,6 +201,10 @@
 
 	async function loadTemplateContextSetting(): Promise<AppSettings['templateContext']> {
 		return settingsStorageState.getTemplateContext();
+	}
+
+	async function loadWorldCalendarSetting(): Promise<WorldCalendar> {
+		return settingsStorageState.getWorldCalendar();
 	}
 
 	async function handleTemplateCreate(

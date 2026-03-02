@@ -51,6 +51,33 @@ function makeStorage(vaultDir: string): Record<string, (...args: unknown[]) => P
 		sessionNumber: 7,
 		characterNames: ['Aria', 'Brom'],
 	};
+	const worldCalendar = {
+		version: 1,
+		months: [
+			{ name: 'January', days: 31 },
+			{ name: 'February', days: 28 },
+			{ name: 'March', days: 31 },
+			{ name: 'April', days: 30 },
+			{ name: 'May', days: 31 },
+			{ name: 'June', days: 30 },
+			{ name: 'July', days: 31 },
+			{ name: 'August', days: 31 },
+			{ name: 'September', days: 30 },
+			{ name: 'October', days: 31 },
+			{ name: 'November', days: 30 },
+			{ name: 'December', days: 31 },
+		],
+		weekLength: 7,
+		dayNames: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+		leapYearRules: [
+			{ name: 'Leap day every 4 years', interval: 4, monthIndex: 1, dayDelta: 1 },
+			{ name: 'Skip leap day every 100 years', interval: 100, monthIndex: 1, dayDelta: -1 },
+			{ name: 'Restore leap day every 400 years', interval: 400, monthIndex: 1, dayDelta: 1 },
+		],
+		eras: [{ name: 'Common Era', epochOffset: 0 }],
+		moonCycles: [],
+		currentDayOffset: 0,
+	};
 	const templates = [
 		{
 			id: 'session-recap',
@@ -127,7 +154,12 @@ function makeStorage(vaultDir: string): Record<string, (...args: unknown[]) => P
 			[...notes.values()].find(
 				(note) => String(note.title).toLowerCase() === String(title).toLowerCase(),
 			) ?? null,
-		getSetting: async (key) => (String(key) === 'templateContext' ? templateContext : null),
+		getSetting: async (key) => {
+			const normalized = String(key);
+			if (normalized === 'templateContext') return templateContext;
+			if (normalized === 'worldCalendar') return worldCalendar;
+			return null;
+		},
 		getNoteTemplates: async () => templates,
 		getReusableSnippets: async () => [],
 		setLinksFrom: async () => undefined,
@@ -207,9 +239,21 @@ function buildValidInputs(tmpDir: string): Record<ToolName, Record<string, unkno
 		get_campaign_health: { staleAfterDays: 45, maxGapExamples: 5 },
 		get_coverage_gaps: { staleAfterDays: 45, limit: 5 },
 		get_stale_notes: { staleAfterDays: 45, limit: 5 },
-		get_session_prep_bundle: { focusTag: 'tag', staleAfterDays: 45, recentLimit: 5, boardLimit: 3 },
-		get_recap_generation_bundle: { noteLimit: 5, objectLimit: 5, boardLimit: 5 },
+		get_session_prep_bundle: {
+			focusTag: 'tag',
+			worldDate: '0001-01-01',
+			staleAfterDays: 45,
+			recentLimit: 5,
+			boardLimit: 3,
+		},
+		get_recap_generation_bundle: {
+			worldDate: '0001-01-01',
+			noteLimit: 5,
+			objectLimit: 5,
+			boardLimit: 5,
+		},
 		get_continuity_check_bundle: { staleAfterDays: 45, maxExamples: 5 },
+		get_calendar_events: { dateRange: { from: '0001-01-01', to: '0001-01-07' }, limit: 10 },
 		get_folder_tree: {},
 		get_recent_activity: { limit: 10 },
 		get_link_graph: { includeDeleted: false, includeIsolated: true },

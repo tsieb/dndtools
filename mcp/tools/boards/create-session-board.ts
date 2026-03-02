@@ -9,6 +9,7 @@ import { jsonResult } from '../shared/response.js';
 
 function buildInitialTiles(noteIds: string[]): Array<{
 	id: string;
+	type: 'note';
 	noteId: ReturnType<typeof createNoteId>;
 	x: number;
 	y: number;
@@ -24,6 +25,7 @@ function buildInitialTiles(noteIds: string[]): Array<{
 		const row = Math.floor(index / columns);
 		return {
 			id: nanoid(10),
+			type: 'note',
 			noteId: createNoteId(noteId),
 			x: col * width,
 			y: row * height,

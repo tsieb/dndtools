@@ -311,7 +311,11 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 				}
 				break;
 			case 'timeline_event':
-				if (!object.data.date?.trim()) {
+				if (
+					!object.data.date?.trim() &&
+					(typeof object.data.worldDateOffset !== 'number' ||
+						!Number.isFinite(object.data.worldDateOffset))
+				) {
 					lint.push(
 						issue(
 							object,

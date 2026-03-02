@@ -11,6 +11,7 @@
 	import { getStorage } from '$lib/platform/storage/index.js';
 	import { nowISO } from '$lib/utils/date.js';
 	import { noteToVaultObject } from '$lib/domain/object-notes.js';
+	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import {
 		normalizeCharacterData,
 		normalizeEncounterData,
@@ -25,6 +26,7 @@
 		normalizeTimelineEventData,
 		summarizeVaultObject,
 	} from '$lib/domain/objects.js';
+	import { formatWorldDate, parseWorldDateInput } from '$lib/domain/world-calendar.js';
 	import type { VaultObjectHistoryEntry } from '$lib/types/object.js';
 
 	interface Props {
@@ -58,6 +60,15 @@
 	let listA = $state('');
 	let listB = $state('');
 	let relationships = $state('');
+	let timelineDatePreview = $derived.by(() => {
+		if (!object || object.type !== 'timeline_event') return null;
+		const parsed = Number.parseInt(fieldA.trim(), 10);
+		if (!Number.isFinite(parsed)) return null;
+		return {
+			short: formatWorldDate(worldCalendarState.calendar, parsed, 'short'),
+			iso: formatWorldDate(worldCalendarState.calendar, parsed, 'iso'),
+		};
+	});
 
 	function parseCsv(raw: string): string[] {
 		return raw
@@ -187,7 +198,13 @@
 				listB = object.data.rewards.join(', ');
 				return;
 			case 'timeline_event':
-				fieldA = object.data.date ?? '';
+				fieldA = (() => {
+					if (object.data.worldDateOffset !== undefined) {
+						return String(object.data.worldDateOffset);
+					}
+					const parsed = parseWorldDateInput(worldCalendarState.calendar, object.data.date ?? '');
+					return parsed ? String(parsed.dayOffset) : '';
+				})();
 				fieldB = object.data.era ?? '';
 				fieldC = object.data.significance ?? '';
 				fieldD = object.data.summary ?? '';
@@ -289,7 +306,7 @@
 				};
 			case 'timeline_event':
 				return {
-					a: 'Date',
+					a: 'Day Offset',
 					b: 'Era',
 					c: 'Significance',
 					d: 'Summary',
@@ -534,14 +551,20 @@
 						rewards: parseCsv(listB),
 					}),
 				};
-			case 'timeline_event':
+			case 'timeline_event': {
+				const parsedOffset = Number.parseInt(fieldA.trim(), 10);
+				const worldDateOffset = Number.isFinite(parsedOffset) ? parsedOffset : undefined;
 				return {
 					...existing,
 					updatedAt,
 					relationships: parsedRelationships,
 					data: normalizeTimelineEventData({
 						...existing.data,
-						date: fieldA,
+						date:
+							worldDateOffset !== undefined
+								? formatWorldDate(worldCalendarState.calendar, worldDateOffset, 'iso')
+								: existing.data.date,
+						worldDateOffset,
 						era: fieldB,
 						significance: fieldC,
 						summary: fieldD,
@@ -549,6 +572,7 @@
 						consequences: parseCsv(listB),
 					}),
 				};
+			}
 		}
 	}
 
@@ -663,7 +687,7 @@
 			return;
 		}
 		if (issue.code === 'timeline_event.date_required') {
-			fieldA = fieldA.trim() || 'Unknown date';
+			fieldA = fieldA.trim() || String(worldCalendarState.calendar.currentDayOffset);
 			await applyStructuredChanges();
 			return;
 		}
@@ -738,6 +762,18 @@
 					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
 				/>
 			</label>
+			{#if object.type === 'timeline_event' && timelineDatePreview}
+				<div
+					class="md:col-span-2 rounded border border-border bg-surface-alt px-2 py-1.5 text-xs text-ink-muted dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-muted"
+				>
+					<p>
+						Formatted date: <span class="font-medium text-ink dark:text-tavern-text"
+							>{timelineDatePreview.short}</span
+						>
+					</p>
+					<p class="mt-0.5">ISO-equivalent: <code>{timelineDatePreview.iso}</code></p>
+				</div>
+			{/if}
 			<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
 				{labels.listA} (comma-separated)
 				<input

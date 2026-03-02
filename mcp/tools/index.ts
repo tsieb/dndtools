@@ -16,6 +16,7 @@ import { registerGetStaleNotesTool } from './vault/get-stale-notes.js';
 import { registerGetFolderTreeTool } from './vault/get-folder-tree.js';
 import { registerGetRecentActivityTool } from './vault/get-recent-activity.js';
 import { registerGetLinkGraphTool } from './vault/get-link-graph.js';
+import { registerGetCalendarEventsTool } from './vault/get-calendar-events.js';
 import { registerVaultHealthCheckTool } from './vault/vault-health-check.js';
 import { registerGetSessionPrepBundleTool } from './vault/get-session-prep-bundle.js';
 import { registerGetRecapGenerationBundleTool } from './vault/get-recap-generation-bundle.js';
@@ -64,6 +65,7 @@ export function registerTools(
 	registerGetFolderTreeTool(contractServer, storage);
 	registerGetRecentActivityTool(contractServer, storage);
 	registerGetLinkGraphTool(contractServer, storage);
+	registerGetCalendarEventsTool(contractServer, storage);
 	registerVaultHealthCheckTool(contractServer, storage);
 	registerGetSessionPrepBundleTool(contractServer, storage);
 	registerGetRecapGenerationBundleTool(contractServer, storage);

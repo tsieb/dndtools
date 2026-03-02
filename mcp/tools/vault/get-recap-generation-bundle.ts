@@ -3,6 +3,12 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { FileSystemAdapter } from '../../storage.js';
 import { jsonResult } from '../shared/response.js';
 import { getIndexEntriesView } from '../shared/storage-view.js';
+import { collectCalendarEventEntries } from '../../../src/lib/domain/world-calendar-events.js';
+import {
+	formatWorldDate,
+	normalizeWorldCalendar,
+	parseWorldDateInput,
+} from '../../../src/lib/domain/world-calendar.js';
 
 function parseTimestamp(value: string): number {
 	const parsed = Date.parse(value);
@@ -29,19 +35,25 @@ export function registerGetRecapGenerationBundleTool(
 		'Build a recap-generation bundle containing recent note/object/board updates and tag momentum.',
 		{
 			since: z.string().optional().describe('ISO timestamp lower bound; defaults to 7 days ago'),
+			worldDate: z.union([z.string().min(1), z.number().int()]).optional(),
 			noteLimit: z.number().int().min(1).max(200).optional().default(30),
 			objectLimit: z.number().int().min(1).max(100).optional().default(25),
 			boardLimit: z.number().int().min(1).max(50).optional().default(20),
 		},
-		async ({ since, noteLimit, objectLimit, boardLimit }) => {
+		async ({ since, worldDate, noteLimit, objectLimit, boardLimit }) => {
 			const now = new Date();
 			const effectiveSince = toIsoOrDefault(since, defaultSinceIso(now));
 
-			const [indexEntries, objects, boards] = await Promise.all([
+			const [indexEntries, objects, boards, notes, worldCalendarRaw] = await Promise.all([
 				getIndexEntriesView(storage),
 				storage.getAllObjects(),
 				storage.getSessionBoards(),
+				storage.getAllNotes(),
+				storage.getSetting('worldCalendar'),
 			]);
+			const worldCalendar = normalizeWorldCalendar(worldCalendarRaw);
+			const parsedWorldDate = parseWorldDateInput(worldCalendar, worldDate);
+			const effectiveWorldDateOffset = parsedWorldDate?.dayOffset ?? worldCalendar.currentDayOffset;
 
 			const changedNotes = indexEntries
 				.filter((entry) => !entry.deleted)
@@ -84,14 +96,33 @@ export function registerGetRecapGenerationBundleTool(
 					tagMomentum.set(tag, (tagMomentum.get(tag) ?? 0) + 1);
 				}
 			}
+			const changedNoteIds = new Set(changedNotes.map((note) => note.id));
+			const calendarSummaries = collectCalendarEventEntries(notes, worldCalendar)
+				.filter((event) => changedNoteIds.has(event.noteId))
+				.slice(0, noteLimit)
+				.map((event) => ({
+					noteId: event.noteId,
+					title: event.title,
+					kind: event.kind,
+					dayOffset: event.dayOffset,
+					dateShort: formatWorldDate(worldCalendar, event.dayOffset, 'short'),
+					dateIso: formatWorldDate(worldCalendar, event.dayOffset, 'iso'),
+					summary: event.summary,
+				}));
 
 			return jsonResult({
 				bundle: 'recap_generation',
 				generatedAt: now.toISOString(),
 				since: effectiveSince,
+				worldDate: {
+					dayOffset: effectiveWorldDateOffset,
+					short: formatWorldDate(worldCalendar, effectiveWorldDateOffset, 'short'),
+					iso: formatWorldDate(worldCalendar, effectiveWorldDateOffset, 'iso'),
+				},
 				changedNotes,
 				changedObjects,
 				changedBoards,
+				calendarSummaries,
 				tagMomentum: [...tagMomentum.entries()]
 					.map(([tag, count]) => ({ tag, count }))
 					.sort((a, b) => {

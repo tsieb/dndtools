@@ -12,6 +12,7 @@ Authoritative files:
 - `src/lib/types/object.ts`
 - `src/lib/types/session-board.ts`
 - `src/lib/types/mcp.ts`
+- `src/lib/types/world-calendar.ts`
 
 ### 1.1 Note
 
@@ -45,10 +46,30 @@ Board model includes:
 
 - board metadata (`name`, `description`)
 - tile layout (`x,y,w,h`)
+- tile kinds (`note` and `calendar`)
 - per-tile style overrides
 - board-level layout/style settings
 
-### 1.5 Vault Objects
+### 1.5 World Calendar
+
+App settings now persist a `worldCalendar` object under `.vault/settings.json`.
+
+Schema highlights (`src/lib/types/world-calendar.ts`):
+
+- `version`: currently `1`
+- `months[]`: `{ name, days }`
+- `weekLength` and `dayNames[]`
+- `leapYearRules[]`: `{ name, interval, monthIndex, dayDelta }`
+- `eras[]`: `{ name, epochOffset }`
+- `moonCycles[]` (max 4 in UI): `{ name, periodDays, phaseNames[], offsetDays }`
+- `currentDayOffset`: integer day offset from epoch
+
+Date model:
+
+- `WorldDate` stores `{ dayOffset: number }`
+- formatters support `short`, `long`, and `iso` outputs for any configured calendar
+
+### 1.6 Vault Objects
 
 Supported object types:
 
@@ -69,7 +90,20 @@ Objects are persisted as note-backed entities and include:
 - `relationships` edges (`parent`, `child`, `ally`, `enemy`, `appears_in_session`)
 - history snapshots for revert (`.vault/object-history.json`)
 
-### 1.6 MCP Change Record
+Timeline event payload now supports in-world date storage:
+
+- `timeline_event.data.worldDateOffset?: number`
+- legacy/display field `timeline_event.data.date?: string` is still accepted
+
+### 1.7 Session Note In-World Date Frontmatter
+
+Calendar extraction logic reads session note in-world dates from:
+
+- `frontmatter.worldDate` / `frontmatter.world_date`
+- `frontmatter.sessionDateOffset` / `frontmatter.session_date_offset`
+- fallback parse from `frontmatter.date` when it is a world-date string
+
+### 1.8 MCP Change Record
 
 Staged MCP change lifecycle:
 
@@ -91,7 +125,7 @@ Change records may include:
 - `conflict` (detected conflict reason/details for pending changes)
 - `audit[]` event trail (staged/approved/rejected/auto-approved/conflict-blocked with actor + reason)
 
-### 1.7 MCP Policy Settings
+### 1.9 MCP Policy Settings
 
 Policy settings are persisted in app settings under `mcpPolicySettings`:
 
@@ -104,7 +138,7 @@ Preset ids:
 - `balanced`
 - `trusted`
 
-### 1.8 Template Automation Context
+### 1.10 Template Automation Context
 
 Template rendering now supports vault-level variable context stored in settings:
 
@@ -120,6 +154,9 @@ Supported variables include:
 - `{{session_number}}`
 - `{{character_names_csv}}`
 - `{{character_names_bullets}}`
+- `{{world_date_offset}}`
+- `{{world_date_short}}`
+- `{{world_date_iso}}`
 
 ## 2. Storage Adapter Contract
 
@@ -197,7 +234,7 @@ Current behavior (`src/routes/settings/+page.svelte`, `electron/import-export-se
 - Obsidian import analyzer detects duplicate titles, ID collisions, invalid frontmatter, encoding errors, missing linked files, size-limit violations, and manual-resolution wikilink cases.
 - Import runs as a resumable background job with persisted checkpoint state under `.vault/import-checkpoints/`.
 - Conflict policy supports `skip`, `overwrite`, or `merge` resolution.
-- Portable markdown zip export writes plain `.md` files, `assets/`, `README.md`, and `validation-report.json`.
+- Portable markdown zip export writes plain `.md` files, an `assets/` directory, a root readme file, and `validation-report.json`.
 - Deterministic export mode normalizes timestamps, sorts frontmatter keys, and uses stable IDs for diff-friendly version control.
 - Legacy single-note markdown and JSON bundle import/export remain available for compatibility.
 
@@ -215,7 +252,23 @@ Schema policy and migration workflow are defined in:
 - `docs/SCHEMA_MIGRATIONS.md`
 - `mcp/migrations.ts`
 
-## 8. Known Gaps and TODOs
+## 8. MCP Calendar Contracts
+
+Epic 3.7 calendar-aware MCP additions:
+
+- `get_session_prep_bundle`
+  - accepts optional `worldDate` (day offset or world ISO-equivalent string)
+  - returns `worldDate` summary and `calendarHighlights[]`
+- `get_recap_generation_bundle`
+  - accepts optional `worldDate`
+  - returns `worldDate` summary and `calendarSummaries[]`
+- `get_calendar_events`
+  - input: `dateRange { from, to? }`, optional `includeKinds[]`, optional `limit`
+  - output: normalized in-world range and matching timeline/session events
+
+Schemas are defined in `mcp/tools/shared/contracts.ts`.
+
+## 9. Known Gaps and TODOs
 
 Filesystem write integrity is implemented:
 
