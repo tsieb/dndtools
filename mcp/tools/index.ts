@@ -9,6 +9,9 @@ import { registerRestoreNoteTool } from './notes/restore-note.js';
 import { registerSearchNotesTool } from './search/search-notes.js';
 import { registerGetBacklinksTool } from './search/get-backlinks.js';
 import { registerGetTagsTool } from './search/get-tags.js';
+import { registerGetDiceMacrosTool } from './dice/get-dice-macros.js';
+import { registerRollDiceExpressionTool } from './dice/roll-dice-expression.js';
+import { registerRollDiceMacroTool } from './dice/roll-dice-macro.js';
 import { registerGetVaultSummaryTool } from './vault/get-vault-summary.js';
 import { registerGetCampaignHealthTool } from './vault/get-campaign-health.js';
 import { registerGetCoverageGapsTool } from './vault/get-coverage-gaps.js';
@@ -57,6 +60,9 @@ export function registerTools(
 	registerSearchNotesTool(contractServer, storage);
 	registerGetBacklinksTool(contractServer, storage);
 	registerGetTagsTool(contractServer, storage);
+	registerRollDiceExpressionTool(contractServer, storage);
+	registerGetDiceMacrosTool(contractServer, storage);
+	registerRollDiceMacroTool(contractServer, storage);
 
 	registerGetVaultSummaryTool(contractServer, storage);
 	registerGetCampaignHealthTool(contractServer, storage);

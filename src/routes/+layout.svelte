@@ -38,6 +38,7 @@
 	let { children } = $props();
 	let quickSwitcherOpen = $state(false);
 	let sessionQuickPanelOpen = $state(false);
+	let diceTrayOpen = $state(false);
 	let quickReferenceOverlayOpen = $state(false);
 	let quickReferenceSplitNoteId = $state<string | null>(null);
 	let templateDialogOpen = $state(false);
@@ -275,6 +276,9 @@
 		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'b') {
 			event.preventDefault();
 			sessionQuickPanelOpen = !sessionQuickPanelOpen;
+		} else if (mod && event.key.toLowerCase() === 'd') {
+			event.preventDefault();
+			diceTrayOpen = !diceTrayOpen;
 		} else if (mod && event.key === 'n') {
 			event.preventDefault();
 			void handleNewNote();
@@ -302,6 +306,7 @@
 	<AppShell
 		onnewnote={handleNewNote}
 		onsearch={() => (quickSwitcherOpen = true)}
+		ondice={() => (diceTrayOpen = true)}
 		ontemplate={openTemplateDialog}
 		onrefresh={handleRefreshVault}
 	>
@@ -315,6 +320,7 @@
 				bind:open={quickSwitcherOpen}
 				onclose={() => (quickSwitcherOpen = false)}
 				onnewnote={handleNewNote}
+				onopendicetray={() => (diceTrayOpen = true)}
 				ontemplate={openTemplateDialog}
 				oncreatefromtemplate={(templateId: string) => void handleCreateFromTemplateId(templateId)}
 				onsessionrecap={() => void handleSessionRecapScaffold()}
@@ -350,6 +356,16 @@
 			<SessionQuickPanelModule.default
 				bind:open={sessionQuickPanelOpen}
 				onclose={() => (sessionQuickPanelOpen = false)}
+			/>
+		{/await}
+	{/if}
+	{#if diceTrayOpen}
+		{#await import('$lib/ui/dice/DiceTrayOverlay.svelte')}
+			<div class="hidden" aria-hidden="true"></div>
+		{:then DiceTrayOverlayModule}
+			<DiceTrayOverlayModule.default
+				bind:open={diceTrayOpen}
+				onclose={() => (diceTrayOpen = false)}
 			/>
 		{/await}
 	{/if}

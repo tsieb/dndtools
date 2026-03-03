@@ -18,10 +18,11 @@
 	let activeNotesById = $derived(notesState.activeNoteById);
 	let tiles = $derived.by(() => activeBoard?.tiles ?? []);
 
-	function tileType(tile: SessionBoardTile): 'note' | 'calendar' | 'timer' | 'combat' {
+	function tileType(tile: SessionBoardTile): 'note' | 'calendar' | 'timer' | 'combat' | 'dice' {
 		switch (tile.type) {
 			case 'calendar':
 			case 'combat':
+			case 'dice':
 			case 'timer':
 			case 'note':
 				return tile.type;
@@ -66,6 +67,11 @@
 		}
 		if (type === 'combat') {
 			void goto(resolve('/combat'));
+			onclose();
+			return;
+		}
+		if (type === 'dice') {
+			void goto(resolve('/session-board'));
 			onclose();
 			return;
 		}
@@ -158,7 +164,9 @@
 											? 'Timer'
 											: tileType(tile) === 'combat'
 												? 'Combat'
-												: 'Calendar'}
+												: tileType(tile) === 'dice'
+													? 'Dice'
+													: 'Calendar'}
 								</div>
 								{#if tileType(tile) === 'note'}
 									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5 truncate">
@@ -186,6 +194,13 @@
 									</div>
 									<div class="text-xs text-ink-muted dark:text-tavern-muted">
 										Open Combat route for full initiative controls.
+									</div>
+								{:else if tileType(tile) === 'dice'}
+									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
+										Dice Tray
+									</div>
+									<div class="text-xs text-ink-muted dark:text-tavern-muted">
+										Open Session Board to use roll controls.
 									</div>
 								{:else}
 									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">

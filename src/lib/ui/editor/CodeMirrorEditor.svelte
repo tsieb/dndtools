@@ -3,6 +3,7 @@
 	import type { EditorView as EditorViewType } from '@codemirror/view';
 	import type { EditorSettings } from '$lib/types/settings.js';
 	import {
+		executeInlineRollSlashCommand,
 		toggleBold,
 		toggleItalic,
 		toggleInlineCode,
@@ -116,6 +117,10 @@
 				{
 					key: 'Mod-Shift-z',
 					run: (v: EditorViewType) => redo({ state: v.state, dispatch: v.dispatch }),
+				},
+				{
+					key: 'Enter',
+					run: (v: EditorViewType) => executeInlineRollSlashCommand(v),
 				},
 			]);
 

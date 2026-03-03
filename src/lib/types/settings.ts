@@ -45,6 +45,14 @@ export interface TemplateContextSettings {
 	characterNames: string[];
 }
 
+export interface DiceMacro {
+	id: string;
+	label: string;
+	expression: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
 export type McpPolicyPresetId = 'strict_review' | 'balanced' | 'trusted';
 
 export interface McpPolicySettings {
@@ -67,6 +75,7 @@ export interface AppSettings {
 	savedSearches: SavedSearch[];
 	onboarding: OnboardingSettings;
 	templateContext: TemplateContextSettings;
+	diceMacros: DiceMacro[];
 	mcpPolicySettings: McpPolicySettings;
 	worldCalendar: WorldCalendar;
 	boardTemplates: SessionBoardTemplate[];
@@ -111,6 +120,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 		sessionNumber: 1,
 		characterNames: [],
 	},
+	diceMacros: [],
 	mcpPolicySettings: {
 		defaultPresetId: 'strict_review',
 		perAgent: {},

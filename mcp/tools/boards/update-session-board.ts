@@ -10,7 +10,7 @@ import { errorResult, jsonResult } from '../shared/response.js';
 const tileInput = z
 	.object({
 		id: z.string().min(1).optional(),
-		type: z.enum(['note', 'calendar', 'timer', 'combat']).optional(),
+		type: z.enum(['note', 'calendar', 'timer', 'combat', 'dice']).optional(),
 		noteId: z.string().min(1).optional(),
 		previewDepth: z.enum(['title', 'summary', 'full']).optional(),
 		previewLineCount: z.number().int().min(1).max(40).optional(),
@@ -44,7 +44,7 @@ const tileInput = z
 			.optional(),
 	})
 	.superRefine((tile, ctx) => {
-		if ((tile.type === 'timer' || tile.type === 'combat') && tile.noteId) {
+		if ((tile.type === 'timer' || tile.type === 'combat' || tile.type === 'dice') && tile.noteId) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				message: 'noteId is only allowed on note tiles.',

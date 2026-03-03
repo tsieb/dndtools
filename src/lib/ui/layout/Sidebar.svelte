@@ -14,12 +14,13 @@
 
 	interface Props {
 		onnewnote: () => void;
+		ondice: () => void;
 		ontemplate: (folderOverride?: string) => void;
 	}
 
 	type SidebarMode = 'tree' | 'recent' | 'favorites' | 'campaign';
 
-	let { onnewnote, ontemplate }: Props = $props();
+	let { onnewnote, ondice, ontemplate }: Props = $props();
 	let mode = $state<SidebarMode>('tree');
 	let showTags = $state(false);
 	let folderContextMenu = $state<{ folderId: string; x: number; y: number } | null>(null);
@@ -124,6 +125,13 @@
 	function reopenOnboarding(): void {
 		void onboardingState.reopenChecklist();
 		navigateToPath(resolve('/'));
+	}
+
+	function openDiceTray(): void {
+		ondice();
+		if (ui.isMobile) {
+			ui.sidebarOpen = false;
+		}
 	}
 
 	function openFolderContextMenu(folderId: string, x: number, y: number): void {
@@ -241,6 +249,13 @@
 			>
 				Combat
 			</a>
+			<button
+				type="button"
+				class="w-full text-left flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
+				onclick={openDiceTray}
+			>
+				Dice Tray
+			</button>
 		</nav>
 
 		<div class="px-3 pb-2">

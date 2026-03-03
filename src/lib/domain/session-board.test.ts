@@ -100,6 +100,16 @@ describe('session-board domain', () => {
 			expect(normalizedCombat.combat?.combatants).toHaveLength(1);
 			expect(normalizedCombat.combat?.combatants[0]?.name).toBe('A');
 		}
+
+		const normalizedDice = normalizeSessionBoardTile({
+			id: 'dice-tile',
+			type: 'dice',
+			x: 0,
+			y: 0,
+			w: 5,
+			h: 4,
+		});
+		expect(normalizedDice.type).toBe('dice');
 	});
 
 	it('normalizes session context state and enforces category uniqueness by note id', () => {

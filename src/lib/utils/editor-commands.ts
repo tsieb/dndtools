@@ -1,4 +1,5 @@
 import type { EditorView } from '@codemirror/view';
+import { parseInlineRollCommand, rollDiceExpression } from '$lib/domain/dice.js';
 
 /** Wrap selected text with markers, or toggle them off if already wrapped */
 function wrapSelection(view: EditorView, before: string, after: string): boolean {
@@ -203,6 +204,49 @@ export function insertObjectEmbedTemplate(view: EditorView): boolean {
 		selection: { anchor: from + template.length },
 	});
 	return true;
+}
+
+export function insertDiceRollResult(
+	view: EditorView,
+	expression: string,
+): { ok: true; markdownLine: string } | { ok: false; error: string } {
+	const normalized = expression.trim();
+	if (!normalized) {
+		return { ok: false, error: 'Roll expression is required.' };
+	}
+	try {
+		const result = rollDiceExpression(normalized);
+		const { from, to } = view.state.selection.main;
+		const insert = `${result.markdownLine}\n`;
+		view.dispatch({
+			changes: { from, to, insert },
+			selection: { anchor: from + insert.length },
+			scrollIntoView: true,
+		});
+		return { ok: true, markdownLine: result.markdownLine };
+	} catch (error) {
+		return { ok: false, error: String(error) };
+	}
+}
+
+export function executeInlineRollSlashCommand(view: EditorView): boolean {
+	const selection = view.state.selection.main;
+	const line = view.state.doc.lineAt(selection.from);
+	const expression = parseInlineRollCommand(line.text);
+	if (!expression) return false;
+	try {
+		const result = rollDiceExpression(expression);
+		const insert = `${result.markdownLine}\n`;
+		view.dispatch({
+			changes: { from: line.from, to: line.to, insert },
+			selection: { anchor: line.from + insert.length },
+			scrollIntoView: true,
+		});
+		return true;
+	} catch {
+		// Fall through to default Enter behavior for invalid expressions.
+		return false;
+	}
 }
 
 /** Map action names to command functions */

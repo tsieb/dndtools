@@ -10,6 +10,7 @@
 	import { getStorage } from '$lib/platform/storage/index.js';
 	import {
 		executeEditorAction,
+		insertDiceRollResult,
 		insertCallout,
 		insertObjectEmbedTemplate,
 		insertTable,
@@ -25,6 +26,8 @@
 	let snippetPreviewLoading = $state(false);
 	let snippetLibraryOpen = $state(false);
 	let snippetQuery = $state('/snippets');
+	let rollExpression = $state('1d20+5');
+	let rollError = $state('');
 
 	const templateVariables = getTemplateVariableReference();
 
@@ -115,6 +118,17 @@
 		editorView.focus();
 	}
 
+	function insertRollMarkdown(): void {
+		if (!editorView) return;
+		const result = insertDiceRollResult(editorView, rollExpression);
+		if (!result.ok) {
+			rollError = result.error;
+			return;
+		}
+		rollError = '';
+		editorView.focus();
+	}
+
 	function insertTableBlock(): void {
 		if (!editorView) return;
 		insertTable(editorView);
@@ -156,7 +170,27 @@
 			class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
 			onclick={insertDiceBlock}
 		>
-			Dice
+			Dice Block
+		</button>
+		<input
+			type="text"
+			bind:value={rollExpression}
+			class="h-7 w-28 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-xs text-ink dark:text-tavern-text"
+			placeholder="1d20+5"
+			aria-label="Roll expression"
+			onkeydown={(event) => {
+				if (event.key === 'Enter') {
+					event.preventDefault();
+					insertRollMarkdown();
+				}
+			}}
+		/>
+		<button
+			type="button"
+			class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			onclick={insertRollMarkdown}
+		>
+			Roll
 		</button>
 	</div>
 
@@ -277,6 +311,10 @@
 		</div>
 	</details>
 </div>
+
+{#if rollError}
+	<p class="mb-2 text-xs text-error">{rollError}</p>
+{/if}
 
 {#if snippetLibraryOpen}
 	<div

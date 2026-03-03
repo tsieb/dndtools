@@ -242,6 +242,12 @@ export function normalizeSessionBoardTile(tile: SessionBoardTile, columns = 12):
 			combat: normalizeCombatState(tile.combat ?? createDefaultCombatState()),
 		};
 	}
+	if (tile.type === 'dice') {
+		return {
+			...common,
+			type: 'dice',
+		};
+	}
 	const noteId =
 		typeof tile.noteId === 'string' && tile.noteId.trim().length > 0 ? tile.noteId : undefined;
 	return {
@@ -292,6 +298,7 @@ const BUILT_IN_TEMPLATE_SEED = [
 			{ id: 'combat-opposition', type: 'note', x: 9, y: 0, w: 3, h: 4, previewDepth: 'summary' },
 			{ id: 'combat-arena', type: 'note', x: 0, y: 2, w: 5, h: 4, previewDepth: 'full' },
 			{ id: 'combat-objectives', type: 'note', x: 5, y: 4, w: 7, h: 3, previewDepth: 'summary' },
+			{ id: 'combat-dice', type: 'dice', x: 0, y: 6, w: 5, h: 3 },
 		],
 		layout: { ...DEFAULT_SESSION_BOARD_LAYOUT },
 		style: { backgroundPattern: 'grid', sectionTintColor: '#9a3412', sectionTintOpacity: 0.08 },

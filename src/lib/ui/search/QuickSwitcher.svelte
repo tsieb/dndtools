@@ -9,6 +9,7 @@
 		type QuickReferenceEntitySearchResult,
 	} from '$lib/domain/quick-reference.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { diceState } from '$lib/state/dice.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
@@ -18,6 +19,7 @@
 		open: boolean;
 		onclose: () => void;
 		onnewnote: () => void;
+		onopendicetray: () => void;
 		ontemplate: (folderOverride?: string) => void;
 		oncreatefromtemplate: (templateId: string) => void;
 		onsessionrecap: () => void;
@@ -43,6 +45,7 @@
 		open = $bindable(),
 		onclose,
 		onnewnote,
+		onopendicetray,
 		ontemplate,
 		oncreatefromtemplate,
 		onsessionrecap,
@@ -157,6 +160,17 @@
 				},
 			},
 			{
+				id: 'action-open-dice',
+				group: 'Actions',
+				title: 'Open Dice Tray',
+				subtitle: 'Roll dice and review session history',
+				keywords: 'dice roll tray ctrl+d action',
+				run: () => {
+					onopendicetray();
+					onclose();
+				},
+			},
+			{
 				id: 'action-back',
 				group: 'Navigation',
 				title: 'Back',
@@ -246,6 +260,21 @@
 				},
 			});
 		}
+		for (const macro of diceState.macros) {
+			items.push({
+				id: `action-dice-macro-${macro.id}`,
+				group: 'Actions',
+				title: `Roll: ${macro.label}`,
+				subtitle: macro.expression,
+				keywords: `dice macro roll ${macro.label} ${macro.expression}`,
+				run: () => {
+					const attempt = diceState.rollMacro(macro, 'command_palette');
+					if (attempt.ok) {
+						onclose();
+					}
+				},
+			});
+		}
 		return items;
 	});
 
@@ -269,6 +298,7 @@
 			query = '';
 			selectedIndex = 0;
 			setTimeout(() => inputRef?.focus(), 0);
+			void diceState.ensureMacrosLoaded();
 		}
 	});
 
