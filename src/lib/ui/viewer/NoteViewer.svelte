@@ -10,7 +10,14 @@
 	import { formatWorldDate } from '$lib/domain/world-calendar.js';
 	import { describeQuickReferenceNote } from '$lib/domain/quick-reference.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
+	import {
+		RandomTableError,
+		buildRandomTableIndex,
+		replaceRollBlockAtIndex,
+		rollRandomTable,
+	} from '$lib/domain/random-tables.js';
 	import { getStorage } from '$lib/platform/storage/index.js';
+	import { toastState } from '$lib/state/toast.svelte.js';
 	import { goto } from '$app/navigation';
 
 	interface Props {
@@ -198,6 +205,20 @@
 
 	function handleClick(event: MouseEvent): void {
 		const target = event.target as HTMLElement;
+		const rollAction = target.closest('button[data-roll-action]') as HTMLButtonElement | null;
+		if (rollAction) {
+			event.preventDefault();
+			const action = rollAction.dataset.rollAction;
+			if (action === 'roll') {
+				void handleRollBlockRoll(rollAction);
+				return;
+			}
+			if (action === 'accept') {
+				void handleRollBlockAccept(rollAction);
+				return;
+			}
+		}
+
 		const toggle = target.closest('[data-object-action="toggle"]') as HTMLElement | null;
 		if (toggle) {
 			event.preventDefault();
@@ -220,6 +241,82 @@
 			event.preventDefault();
 			goto(href);
 		}
+	}
+
+	function buildRollTableLookup() {
+		return buildRandomTableIndex({
+			vaultNotes: modeScopedActiveNotes.map((entry) => ({
+				id: String(entry.id),
+				title: entry.title,
+				content: entry.content,
+				tags: entry.tags,
+				folder: String(entry.folder),
+				updatedAt: entry.updatedAt,
+			})),
+		});
+	}
+
+	async function handleRollBlockRoll(button: HTMLButtonElement): Promise<void> {
+		const tableName =
+			button.dataset.rollTable?.trim() ??
+			button.closest<HTMLElement>('[data-roll-table]')?.dataset.rollTable?.trim() ??
+			'';
+		const rollIndexRaw =
+			button.dataset.rollIndex ??
+			button.closest<HTMLElement>('[data-roll-index]')?.dataset.rollIndex ??
+			'-1';
+		const rollIndex = Number.parseInt(rollIndexRaw, 10);
+		if (!tableName || !Number.isFinite(rollIndex) || rollIndex < 0) return;
+
+		try {
+			const index = buildRollTableLookup();
+			const roll = rollRandomTable(index, tableName);
+			const container = button.closest<HTMLElement>('[data-roll-index]');
+			if (!container) return;
+			const historyList = container.querySelector<HTMLElement>('[data-roll-history]');
+			if (historyList) {
+				const item = document.createElement('li');
+				item.className = 'roll-block__history-item';
+				item.textContent = roll.result;
+				historyList.prepend(item);
+				historyList.hidden = false;
+			}
+			const acceptButton = container.querySelector<HTMLButtonElement>(
+				'button[data-roll-action="accept"]',
+			);
+			if (acceptButton) {
+				if (playerModeState.enabled) {
+					acceptButton.hidden = true;
+				} else {
+					acceptButton.dataset.rollResult = roll.result;
+					acceptButton.hidden = false;
+				}
+			}
+		} catch (error) {
+			if (error instanceof RandomTableError) {
+				toastState.error(error.message);
+				return;
+			}
+			toastState.error(`Failed to roll table: ${String(error)}`);
+		}
+	}
+
+	async function handleRollBlockAccept(button: HTMLButtonElement): Promise<void> {
+		if (playerModeState.enabled) return;
+		const rollIndexRaw =
+			button.dataset.rollIndex ??
+			button.closest<HTMLElement>('[data-roll-index]')?.dataset.rollIndex ??
+			'-1';
+		const rollIndex = Number.parseInt(rollIndexRaw, 10);
+		const rollResult = button.dataset.rollResult?.trim() ?? '';
+		if (!rollResult || !Number.isFinite(rollIndex) || rollIndex < 0) return;
+		const nextContent = replaceRollBlockAtIndex(note.content, rollIndex, rollResult);
+		if (nextContent === note.content) {
+			toastState.error('Unable to replace roll block in note content.');
+			return;
+		}
+		await notesState.updateNote(note.id, { content: nextContent });
+		toastState.success('Inserted rolled text into note.');
 	}
 
 	function isWikilinkAnchor(value: EventTarget | null): HTMLAnchorElement | null {

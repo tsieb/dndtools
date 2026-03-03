@@ -491,6 +491,87 @@ html.dark .markdown-content strong {
 	color: var(--color-tavern-text);
 }
 
+.roll-block {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.35rem;
+	margin: 0.1rem 0.2rem 0.35rem 0;
+	padding: 0.28rem 0.45rem;
+	border-radius: 8px;
+	border: 1px solid var(--color-border);
+	background: var(--color-surface-alt);
+	vertical-align: middle;
+}
+
+html.dark .roll-block {
+	border-color: var(--color-tavern-border);
+	background: var(--color-tavern-surface-alt);
+}
+
+.roll-block__trigger,
+.roll-block__accept {
+	border: 1px solid var(--color-border);
+	background: var(--color-surface);
+	color: var(--color-ink);
+	border-radius: 999px;
+	padding: 0.12rem 0.48rem;
+	font-size: 0.72rem;
+	line-height: 1.2;
+	cursor: pointer;
+}
+
+.roll-block__trigger:hover,
+.roll-block__accept:hover {
+	background: var(--color-accent-subtle);
+	border-color: var(--color-accent);
+}
+
+html.dark .roll-block__trigger,
+html.dark .roll-block__accept {
+	border-color: var(--color-tavern-border);
+	background: var(--color-tavern-surface);
+	color: var(--color-tavern-text);
+}
+
+html.dark .roll-block__trigger:hover,
+html.dark .roll-block__accept:hover {
+	background: var(--color-tavern-accent-subtle);
+	border-color: var(--color-tavern-accent);
+}
+
+.roll-block__label {
+	font-size: 0.78rem;
+	font-weight: 600;
+	color: var(--color-ink);
+}
+
+html.dark .roll-block__label {
+	color: var(--color-tavern-text);
+}
+
+.roll-block__history {
+	flex-basis: 100%;
+	margin: 0.2rem 0 0;
+	padding: 0;
+	list-style: none;
+	display: grid;
+	gap: 0.25rem;
+}
+
+.roll-block__history-item {
+	font-size: 0.78rem;
+	padding: 0.2rem 0.35rem;
+	border-radius: 6px;
+	background: var(--color-surface);
+	border: 1px dashed var(--color-border);
+}
+
+html.dark .roll-block__history-item {
+	background: var(--color-tavern-surface);
+	border-color: var(--color-tavern-border);
+}
+
 /* ===== Callout blocks ===== */
 
 .callout {

@@ -64,6 +64,10 @@ Recommendation:
 - `get_dice_macros`
 - `roll_dice_macro`
 
+### Random Generation
+
+- `roll_table`
+
 ### Vault
 
 - `get_vault_summary`

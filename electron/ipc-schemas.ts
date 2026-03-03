@@ -329,11 +329,25 @@ const sessionBoardCombatTileSchema = sessionBoardTileBaseSchema
 	})
 	.strict();
 
+const sessionBoardDiceTileSchema = sessionBoardTileBaseSchema
+	.extend({
+		type: z.literal('dice'),
+	})
+	.strict();
+
+const sessionBoardGeneratorTileSchema = sessionBoardTileBaseSchema
+	.extend({
+		type: z.literal('generator'),
+	})
+	.strict();
+
 const sessionBoardTileSchema = z.union([
 	sessionBoardNoteTileSchema,
 	sessionBoardCalendarTileSchema,
 	sessionBoardTimerTileSchema,
 	sessionBoardCombatTileSchema,
+	sessionBoardDiceTileSchema,
+	sessionBoardGeneratorTileSchema,
 ]);
 
 const sessionContextItemSchema = z

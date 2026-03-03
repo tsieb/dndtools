@@ -42,10 +42,29 @@ function makeNote(id: string, title: string): Record<string, unknown> {
 	};
 }
 
+function makeRandomTableNote(id: string, title: string): Record<string, unknown> {
+	return {
+		...makeNote(id, title),
+		content: [
+			'---',
+			'tags: [random-table]',
+			'---',
+			'',
+			'```random-table',
+			'2 | Common Event',
+			'1 | Rare Event',
+			'```',
+			'',
+		].join('\n'),
+		tags: ['random-table'],
+	};
+}
+
 function makeStorage(vaultDir: string): Record<string, (...args: unknown[]) => Promise<unknown>> {
 	const notes = new Map<string, Record<string, unknown>>([
 		['note-1', makeNote('note-1', 'Alpha')],
 		['note-2', makeNote('note-2', 'Beta')],
+		['note-table-1', makeRandomTableNote('note-table-1', 'Loot Table')],
 	]);
 	const templateContext = {
 		campaignName: 'Test Campaign',
@@ -251,6 +270,7 @@ function buildValidInputs(tmpDir: string): Record<ToolName, Record<string, unkno
 		roll_dice_expression: { expression: '1d20+5' },
 		get_dice_macros: {},
 		roll_dice_macro: { label: 'Sneak Attack' },
+		roll_table: { name: 'Loot Table', includeSystem: false, maxDepth: 4 },
 		get_vault_summary: {},
 		get_campaign_health: { staleAfterDays: 45, maxGapExamples: 5 },
 		get_coverage_gaps: { staleAfterDays: 45, limit: 5 },
@@ -491,7 +511,12 @@ describe('MCP tool contracts', () => {
 
 		const emptyServer = new MockMcpServer();
 		registerTools(emptyServer as never, emptyStorage as never, { writeMode: 'direct' });
-		const allowedNotFound = new Set<ToolName>(['read_note', 'read_object', 'get_backlinks']);
+		const allowedNotFound = new Set<ToolName>([
+			'read_note',
+			'read_object',
+			'get_backlinks',
+			'roll_table',
+		]);
 
 		for (const [toolName, contract] of Object.entries(MCP_TOOL_CONTRACTS) as Array<
 			[ToolName, (typeof MCP_TOOL_CONTRACTS)[ToolName]]

@@ -98,6 +98,14 @@ describe('renderMarkdown', () => {
 		expect(html).not.toContain('<blockquote>');
 	});
 
+	it('renders roll blocks with interactive hooks', async () => {
+		const html = await renderMarkdown('Try {{roll: Loot Table}} now');
+		expect(html).toContain('roll-block');
+		expect(html).toContain('data-roll-table="Loot Table"');
+		expect(html).toContain('data-roll-action="roll"');
+		expect(html).toContain('data-roll-action="accept"');
+	});
+
 	it('renders object embeds as rich cards', async () => {
 		const md = '![[obj:stat_block:abc123|Goblin Scout]]';
 		const html = await renderMarkdown(md, {

@@ -1,5 +1,6 @@
 import type { EditorView } from '@codemirror/view';
 import { parseInlineRollCommand, rollDiceExpression } from '$lib/domain/dice.js';
+import { formatRollBlock, parseInlineTableCommand } from '$lib/domain/random-tables.js';
 
 /** Wrap selected text with markers, or toggle them off if already wrapped */
 function wrapSelection(view: EditorView, before: string, after: string): boolean {
@@ -206,6 +207,17 @@ export function insertObjectEmbedTemplate(view: EditorView): boolean {
 	return true;
 }
 
+export function insertRollTableBlock(view: EditorView, tableName = 'Table Name'): boolean {
+	const { from, to } = view.state.selection.main;
+	const block = formatRollBlock(tableName);
+	view.dispatch({
+		changes: { from, to, insert: block },
+		selection: { anchor: from + block.length },
+		scrollIntoView: true,
+	});
+	return true;
+}
+
 export function insertDiceRollResult(
 	view: EditorView,
 	expression: string,
@@ -249,6 +261,20 @@ export function executeInlineRollSlashCommand(view: EditorView): boolean {
 	}
 }
 
+export function executeInlineTableSlashCommand(view: EditorView): boolean {
+	const selection = view.state.selection.main;
+	const line = view.state.doc.lineAt(selection.from);
+	const tableName = parseInlineTableCommand(line.text);
+	if (!tableName) return false;
+	const insert = `${formatRollBlock(tableName)}\n`;
+	view.dispatch({
+		changes: { from: line.from, to: line.to, insert },
+		selection: { anchor: line.from + insert.length },
+		scrollIntoView: true,
+	});
+	return true;
+}
+
 /** Map action names to command functions */
 export function executeEditorAction(view: EditorView, action: string): boolean {
 	switch (action) {
@@ -288,6 +314,8 @@ export function executeEditorAction(view: EditorView, action: string): boolean {
 			return insertCallout(view);
 		case 'object-embed':
 			return insertObjectEmbedTemplate(view);
+		case 'roll-table-block':
+			return insertRollTableBlock(view);
 		default:
 			return false;
 	}

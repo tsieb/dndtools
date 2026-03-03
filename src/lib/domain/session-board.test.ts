@@ -110,6 +110,16 @@ describe('session-board domain', () => {
 			h: 4,
 		});
 		expect(normalizedDice.type).toBe('dice');
+
+		const normalizedGenerator = normalizeSessionBoardTile({
+			id: 'generator-tile',
+			type: 'generator',
+			x: 0,
+			y: 0,
+			w: 5,
+			h: 4,
+		});
+		expect(normalizedGenerator.type).toBe('generator');
 	});
 
 	it('normalizes session context state and enforces category uniqueness by note id', () => {

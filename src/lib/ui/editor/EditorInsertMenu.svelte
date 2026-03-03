@@ -13,6 +13,7 @@
 		insertDiceRollResult,
 		insertCallout,
 		insertObjectEmbedTemplate,
+		insertRollTableBlock,
 		insertTable,
 	} from '$lib/utils/editor-commands.js';
 
@@ -27,6 +28,7 @@
 	let snippetLibraryOpen = $state(false);
 	let snippetQuery = $state('/snippets');
 	let rollExpression = $state('1d20+5');
+	let rollTableName = $state('Loot Table');
 	let rollError = $state('');
 
 	const templateVariables = getTemplateVariableReference();
@@ -129,6 +131,12 @@
 		editorView.focus();
 	}
 
+	function insertRollTableMarkdown(): void {
+		if (!editorView) return;
+		insertRollTableBlock(editorView, rollTableName);
+		editorView.focus();
+	}
+
 	function insertTableBlock(): void {
 		if (!editorView) return;
 		insertTable(editorView);
@@ -191,6 +199,26 @@
 			onclick={insertRollMarkdown}
 		>
 			Roll
+		</button>
+		<input
+			type="text"
+			bind:value={rollTableName}
+			class="h-7 w-32 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-xs text-ink dark:text-tavern-text"
+			placeholder="Table Name"
+			aria-label="Roll table name"
+			onkeydown={(event) => {
+				if (event.key === 'Enter') {
+					event.preventDefault();
+					insertRollTableMarkdown();
+				}
+			}}
+		/>
+		<button
+			type="button"
+			class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			onclick={insertRollTableMarkdown}
+		>
+			Roll Block
 		</button>
 	</div>
 

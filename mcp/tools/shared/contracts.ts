@@ -68,6 +68,27 @@ const diceRollResultSchema = z
 	})
 	.strict();
 
+const randomTableTraceSchema = z
+	.object({
+		tableName: z.string().min(1),
+		source: z.enum(['vault', 'system']),
+		selectedResult: z.string().min(1),
+		resolvedResult: z.string().min(1),
+		depth: z.number().int().nonnegative(),
+	})
+	.strict();
+
+const randomTableRollSchema = z
+	.object({
+		tableName: z.string().min(1),
+		result: z.string().min(1),
+		referencedTables: z.array(z.string().min(1)),
+		trace: z.array(randomTableTraceSchema),
+		availableTableCount: z.number().int().nonnegative(),
+		invalidTableCount: z.number().int().nonnegative(),
+	})
+	.strict();
+
 const sessionBoardTileStyleSchema = z
 	.object({
 		backgroundColor: z.string().optional(),
@@ -82,7 +103,7 @@ const sessionBoardTileStyleSchema = z
 const sessionBoardTileSchema = z
 	.object({
 		id: z.string().min(1),
-		type: z.enum(['note', 'calendar', 'timer', 'combat', 'dice']).optional(),
+		type: z.enum(['note', 'calendar', 'timer', 'combat', 'dice', 'generator']).optional(),
 		noteId: z.string().min(1).optional(),
 		previewDepth: z.enum(['title', 'summary', 'full']).optional(),
 		previewLineCount: z.number().int().min(1).max(40).optional(),
@@ -507,6 +528,13 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 			})
 			.strict(),
 		remediationHint: 'Call get_dice_macros first to resolve macro id or label.',
+	},
+	roll_table: {
+		permission: 'read-only',
+		retryPolicy: 'idempotent',
+		responseSchema: randomTableRollSchema,
+		remediationHint:
+			'Ensure the target table exists and is tagged random-table, then retry by exact table name.',
 	},
 	get_vault_summary: {
 		permission: 'read-only',

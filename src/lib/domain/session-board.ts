@@ -248,6 +248,12 @@ export function normalizeSessionBoardTile(tile: SessionBoardTile, columns = 12):
 			type: 'dice',
 		};
 	}
+	if (tile.type === 'generator') {
+		return {
+			...common,
+			type: 'generator',
+		};
+	}
 	const noteId =
 		typeof tile.noteId === 'string' && tile.noteId.trim().length > 0 ? tile.noteId : undefined;
 	return {
@@ -316,6 +322,7 @@ const BUILT_IN_TEMPLATE_SEED = [
 			{ id: 'npc-threads', type: 'note', x: 9, y: 0, w: 3, h: 4, previewDepth: 'summary' },
 			{ id: 'npc-location', type: 'note', x: 0, y: 4, w: 7, h: 3, previewDepth: 'full' },
 			{ id: 'npc-clock', type: 'timer', x: 7, y: 4, w: 5, h: 3 },
+			{ id: 'npc-generator', type: 'generator', x: 0, y: 7, w: 6, h: 3 },
 		],
 		layout: { ...DEFAULT_SESSION_BOARD_LAYOUT },
 		style: { backgroundPattern: 'dots', sectionTintColor: '#075985', sectionTintOpacity: 0.08 },

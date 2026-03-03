@@ -5,6 +5,7 @@
 	import SessionBoardTimerTile from '$lib/ui/board/SessionBoardTimerTile.svelte';
 	import CombatTrackerTile from '$lib/ui/board/CombatTrackerTile.svelte';
 	import DiceTrayTile from '$lib/ui/board/DiceTrayTile.svelte';
+	import GeneratorTile from '$lib/ui/board/GeneratorTile.svelte';
 	import WorldCalendarReference from '$lib/ui/calendar/WorldCalendarReference.svelte';
 	import { DEFAULT_SESSION_BOARD_LAYOUT } from '$lib/domain/session-board.js';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
@@ -16,6 +17,7 @@
 		SessionBoardNoteTile,
 		SessionBoardCombatTile as SessionBoardCombatTileModel,
 		SessionBoardDiceTile as SessionBoardDiceTileModel,
+		SessionBoardGeneratorTile as SessionBoardGeneratorTileModel,
 		SessionBoardTile,
 		SessionBoardTimerTile as SessionBoardTimerTileModel,
 	} from '$lib/types/session-board.js';
@@ -68,6 +70,7 @@
 		| { tile: SessionBoardTimerTileModel; kind: 'timer'; x: number; y: number }
 		| { tile: SessionBoardCombatTileModel; kind: 'combat'; x: number; y: number }
 		| { tile: SessionBoardDiceTileModel; kind: 'dice'; x: number; y: number }
+		| { tile: SessionBoardGeneratorTileModel; kind: 'generator'; x: number; y: number }
 		| { tile: SessionBoardNoteTile; kind: 'note_slot'; x: number; y: number }
 		| {
 				tile: SessionBoardNoteTile;
@@ -144,6 +147,10 @@
 			}
 			if (tile.type === 'dice') {
 				entries.push({ tile, kind: 'dice', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
+				continue;
+			}
+			if (tile.type === 'generator') {
+				entries.push({ tile, kind: 'generator', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
 				continue;
 			}
 			if (!tile.noteId) {
@@ -411,6 +418,10 @@
 	async function addDiceTile(): Promise<void> {
 		if (!activeBoard) return;
 		await sessionBoardsState.addDiceTile(activeBoard.id);
+	}
+	async function addGeneratorTile(): Promise<void> {
+		if (!activeBoard) return;
+		await sessionBoardsState.addGeneratorTile(activeBoard.id);
 	}
 	async function addCombatTile(): Promise<void> {
 		if (!activeBoard) return;
@@ -710,6 +721,12 @@
 								onclick={addDiceTile}
 							>
 								Add Dice Tray Tile
+							</button>
+							<button
+								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								onclick={addGeneratorTile}
+							>
+								Add Generator Tile
 							</button>
 							<input
 								type="text"
@@ -1280,6 +1297,16 @@
 													/>
 												{:else if entry.kind === 'dice'}
 													<DiceTrayTile
+														tile={entry.tile}
+														selected={mode === 'edit' && selectedTileId === tile.id}
+														editable={mode === 'edit'}
+														onselect={() => {
+															if (mode === 'edit') selectedTileId = tile.id;
+														}}
+														ondragstart={(event) => startTileDrag(tile.id, event)}
+													/>
+												{:else if entry.kind === 'generator'}
+													<GeneratorTile
 														tile={entry.tile}
 														selected={mode === 'edit' && selectedTileId === tile.id}
 														editable={mode === 'edit'}

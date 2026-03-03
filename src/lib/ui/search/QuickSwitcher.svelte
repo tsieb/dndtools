@@ -22,6 +22,7 @@
 		onclose: () => void;
 		onnewnote: () => void;
 		onopendicetray: () => void;
+		onopengenerator: () => void;
 		ontemplate: (folderOverride?: string) => void;
 		oncreatefromtemplate: (templateId: string) => void;
 		onsessionrecap: () => void;
@@ -49,6 +50,7 @@
 		onclose,
 		onnewnote,
 		onopendicetray,
+		onopengenerator,
 		ontemplate,
 		oncreatefromtemplate,
 		onsessionrecap,
@@ -203,6 +205,20 @@
 				keywords: 'dice roll tray ctrl+d action',
 				run: () => {
 					onopendicetray();
+					onclose();
+				},
+			},
+			{
+				id: 'action-open-generator',
+				group: 'Actions',
+				title: 'Open Generator Panel',
+				subtitle: playerModeState.enabled
+					? 'Unavailable while player mode is active'
+					: 'Tables, dice macros, and NPC quick generation',
+				keywords: 'generator random table npc ctrl+g action',
+				disabled: playerModeState.enabled,
+				run: () => {
+					onopengenerator();
 					onclose();
 				},
 			},

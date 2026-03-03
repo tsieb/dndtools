@@ -12,6 +12,7 @@ import { registerGetTagsTool } from './search/get-tags.js';
 import { registerGetDiceMacrosTool } from './dice/get-dice-macros.js';
 import { registerRollDiceExpressionTool } from './dice/roll-dice-expression.js';
 import { registerRollDiceMacroTool } from './dice/roll-dice-macro.js';
+import { registerRollTableTool } from './random/roll-table.js';
 import { registerGetVaultSummaryTool } from './vault/get-vault-summary.js';
 import { registerGetCampaignHealthTool } from './vault/get-campaign-health.js';
 import { registerGetCoverageGapsTool } from './vault/get-coverage-gaps.js';
@@ -64,6 +65,7 @@ export function registerTools(
 	registerRollDiceExpressionTool(contractServer, storage);
 	registerGetDiceMacrosTool(contractServer, storage);
 	registerRollDiceMacroTool(contractServer, storage);
+	registerRollTableTool(contractServer, storage);
 
 	registerGetVaultSummaryTool(contractServer, storage);
 	registerGetCampaignHealthTool(contractServer, storage);

@@ -18,11 +18,14 @@
 	let activeNotesById = $derived(notesState.activeNoteById);
 	let tiles = $derived.by(() => activeBoard?.tiles ?? []);
 
-	function tileType(tile: SessionBoardTile): 'note' | 'calendar' | 'timer' | 'combat' | 'dice' {
+	function tileType(
+		tile: SessionBoardTile,
+	): 'note' | 'calendar' | 'timer' | 'combat' | 'dice' | 'generator' {
 		switch (tile.type) {
 			case 'calendar':
 			case 'combat':
 			case 'dice':
+			case 'generator':
 			case 'timer':
 			case 'note':
 				return tile.type;
@@ -71,6 +74,11 @@
 			return;
 		}
 		if (type === 'dice') {
+			void goto(resolve('/session-board'));
+			onclose();
+			return;
+		}
+		if (type === 'generator') {
 			void goto(resolve('/session-board'));
 			onclose();
 			return;
@@ -166,7 +174,9 @@
 												? 'Combat'
 												: tileType(tile) === 'dice'
 													? 'Dice'
-													: 'Calendar'}
+													: tileType(tile) === 'generator'
+														? 'Generator'
+														: 'Calendar'}
 								</div>
 								{#if tileType(tile) === 'note'}
 									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5 truncate">
@@ -201,6 +211,13 @@
 									</div>
 									<div class="text-xs text-ink-muted dark:text-tavern-muted">
 										Open Session Board to use roll controls.
+									</div>
+								{:else if tileType(tile) === 'generator'}
+									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
+										Generator
+									</div>
+									<div class="text-xs text-ink-muted dark:text-tavern-muted">
+										Open Session Board to use random generation tools.
 									</div>
 								{:else}
 									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">

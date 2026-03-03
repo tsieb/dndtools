@@ -40,6 +40,7 @@
 	let quickSwitcherOpen = $state(false);
 	let sessionQuickPanelOpen = $state(false);
 	let diceTrayOpen = $state(false);
+	let generatorOpen = $state(false);
 	let quickReferenceOverlayOpen = $state(false);
 	let quickReferenceSplitNoteId = $state<string | null>(null);
 	let templateDialogOpen = $state(false);
@@ -317,6 +318,11 @@
 		} else if (mod && event.key.toLowerCase() === 'd') {
 			event.preventDefault();
 			diceTrayOpen = !diceTrayOpen;
+		} else if (mod && event.key.toLowerCase() === 'g') {
+			event.preventDefault();
+			if (!playerModeState.enabled) {
+				generatorOpen = !generatorOpen;
+			}
 		} else if (mod && event.key === 'n') {
 			event.preventDefault();
 			if (!playerModeState.enabled) {
@@ -362,6 +368,7 @@
 				onclose={() => (quickSwitcherOpen = false)}
 				onnewnote={handleNewNote}
 				onopendicetray={() => (diceTrayOpen = true)}
+				onopengenerator={() => (generatorOpen = true)}
 				ontemplate={openTemplateDialog}
 				oncreatefromtemplate={(templateId: string) => void handleCreateFromTemplateId(templateId)}
 				onsessionrecap={() => void handleSessionRecapScaffold()}
@@ -408,6 +415,16 @@
 			<DiceTrayOverlayModule.default
 				bind:open={diceTrayOpen}
 				onclose={() => (diceTrayOpen = false)}
+			/>
+		{/await}
+	{/if}
+	{#if generatorOpen}
+		{#await import('$lib/ui/generator/GeneratorOverlay.svelte')}
+			<div class="hidden" aria-hidden="true"></div>
+		{:then GeneratorOverlayModule}
+			<GeneratorOverlayModule.default
+				bind:open={generatorOpen}
+				onclose={() => (generatorOpen = false)}
 			/>
 		{/await}
 	{/if}

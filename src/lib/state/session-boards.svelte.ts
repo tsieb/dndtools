@@ -27,11 +27,14 @@ const DEFAULT_TILE_W = 4;
 const DEFAULT_TILE_H = 3;
 const MAX_GRID_ROWS = 200;
 
-function getTileType(tile: SessionBoardTile): 'note' | 'calendar' | 'timer' | 'combat' | 'dice' {
+function getTileType(
+	tile: SessionBoardTile,
+): 'note' | 'calendar' | 'timer' | 'combat' | 'dice' | 'generator' {
 	switch (tile.type) {
 		case 'calendar':
 		case 'combat':
 		case 'dice':
+		case 'generator':
 		case 'timer':
 		case 'note':
 			return tile.type;
@@ -127,6 +130,12 @@ function cloneBoardTileForTemplate(tile: SessionBoardTile): SessionBoardTile {
 		return {
 			...tile,
 			type: 'dice',
+		};
+	}
+	if (type === 'generator') {
+		return {
+			...tile,
+			type: 'generator',
 		};
 	}
 	return {
@@ -394,6 +403,23 @@ class SessionBoardsState {
 			y: position.y,
 			w: 5,
 			h: 4,
+		};
+		await this.updateBoard(boardId, {
+			tiles: [...board.tiles, tile],
+		});
+	}
+
+	async addGeneratorTile(boardId: SessionBoardId): Promise<void> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return;
+		const position = findNextOpenPosition(board.tiles, 6, 5, board.layout?.columns ?? GRID_COLUMNS);
+		const tile: SessionBoardTile = {
+			id: nanoid(10),
+			type: 'generator',
+			x: position.x,
+			y: position.y,
+			w: 6,
+			h: 5,
 		};
 		await this.updateBoard(boardId, {
 			tiles: [...board.tiles, tile],

@@ -9,6 +9,7 @@ import rehypeStringify from 'rehype-stringify';
 import remarkWikilinks, { type WikilinkOptions } from './plugins/remark-wikilinks.js';
 import { rehypeCallouts } from './plugins/rehype-callouts.js';
 import { rehypeObjectEmbeds, type ResolvedNoteEmbed } from './plugins/rehype-object-embeds.js';
+import { rehypeRollBlocks } from './plugins/rehype-roll-blocks.js';
 import type { VaultObject, VaultObjectType } from '$lib/types/object.js';
 
 // Extend sanitize schema to allow wikilink attributes, checkboxes, and callouts
@@ -32,21 +33,41 @@ const sanitizeSchema: typeof defaultSchema = {
 		],
 		div: [
 			...(defaultSchema.attributes?.['div'] ?? []),
-			['className', /^(callout|object-embed)/],
+			['className', /^(callout|object-embed|roll-block)/],
 			['data-callout'],
 		],
 		span: [
 			...(defaultSchema.attributes?.['span'] ?? []),
-			['className', /^(callout|object-embed)/],
+			['className', /^(callout|object-embed|roll-block)/],
 			['data-object-card'],
 			['data-object-id'],
 			['data-object-type'],
+			['data-roll-table'],
+			['data-roll-index'],
 			['hidden'],
 		],
+		button: [
+			...(defaultSchema.attributes?.['button'] ?? []),
+			['className', /^roll-block__/],
+			['type', 'button'],
+			['data-roll-action'],
+			['data-roll-table'],
+			['data-roll-index'],
+			['data-roll-result'],
+			['aria-label'],
+			['hidden'],
+		],
+		ul: [
+			...(defaultSchema.attributes?.['ul'] ?? []),
+			['className', /^roll-block__/],
+			['data-roll-history'],
+			['hidden'],
+		],
+		li: [...(defaultSchema.attributes?.['li'] ?? []), ['className', /^roll-block__/]],
 		img: [...(defaultSchema.attributes?.['img'] ?? []), ['className', /^object-embed/]],
 		'*': [...(defaultSchema.attributes?.['*'] ?? [])],
 	},
-	tagNames: [...(defaultSchema.tagNames ?? []), 'input'],
+	tagNames: [...(defaultSchema.tagNames ?? []), 'input', 'button'],
 };
 
 export interface RenderOptions {
@@ -73,6 +94,7 @@ export async function renderMarkdown(
 		.use(remarkRehype, { allowDangerousHtml: false })
 		.use(rehypeSlug)
 		.use(rehypeCallouts)
+		.use(rehypeRollBlocks)
 		.use(rehypeObjectEmbeds, {
 			resolveObject: ({ type, id }: { type?: VaultObjectType; id: string }) =>
 				options.resolveObject?.({ type, id }),

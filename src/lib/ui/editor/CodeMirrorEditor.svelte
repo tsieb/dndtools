@@ -3,6 +3,7 @@
 	import type { EditorView as EditorViewType } from '@codemirror/view';
 	import type { EditorSettings } from '$lib/types/settings.js';
 	import {
+		executeInlineTableSlashCommand,
 		executeInlineRollSlashCommand,
 		toggleBold,
 		toggleItalic,
@@ -120,7 +121,8 @@
 				},
 				{
 					key: 'Enter',
-					run: (v: EditorViewType) => executeInlineRollSlashCommand(v),
+					run: (v: EditorViewType) =>
+						executeInlineTableSlashCommand(v) || executeInlineRollSlashCommand(v),
 				},
 			]);
 

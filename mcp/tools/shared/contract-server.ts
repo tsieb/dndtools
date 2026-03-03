@@ -95,12 +95,16 @@ async function appendMcpPerfSample(
 	if (events.length > MCP_PERF_MAX_EVENTS) {
 		events = events.slice(-MCP_PERF_MAX_EVENTS);
 	}
-	await fs.mkdir(path.dirname(logPath), { recursive: true });
-	await fs.writeFile(
-		logPath,
-		`${JSON.stringify({ version: MCP_PERF_LOG_VERSION, events }, null, 2)}\n`,
-		'utf-8',
-	);
+	try {
+		await fs.mkdir(path.dirname(logPath), { recursive: true });
+		await fs.writeFile(
+			logPath,
+			`${JSON.stringify({ version: MCP_PERF_LOG_VERSION, events }, null, 2)}\n`,
+			'utf-8',
+		);
+	} catch {
+		// Diagnostics logging must never break tool execution.
+	}
 }
 
 export function createContractServer(
