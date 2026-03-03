@@ -53,7 +53,10 @@ test.describe('Desktop critical workflows @critical', () => {
 	test('note CRUD workflow: create, update, and delete', async () => {
 		const app = await launchWithSeed();
 		try {
-			await app.page.getByLabel('New note').click();
+			if ((await app.page.getByRole('button', { name: 'New Note' }).count()) === 0) {
+				await app.page.getByRole('button', { name: 'Toggle sidebar' }).first().click();
+			}
+			await app.page.getByRole('button', { name: 'New Note' }).first().click();
 			await expect(app.page).toHaveURL(/\/notes\/[^/]+\/edit$/);
 
 			await app.page.locator('.cm-content').first().click();
@@ -188,7 +191,9 @@ test.describe('Desktop critical workflows @critical', () => {
 			await app.page.getByRole('link', { name: 'Session Board' }).first().click();
 			await app.page.getByRole('button', { name: 'Edit' }).first().click();
 
-			const addNotesSection = app.page.locator('section').filter({ hasText: 'Add Notes' });
+			const addNotesSection = app.page
+				.locator('section')
+				.filter({ hasText: 'Add Tiles and Notes' });
 			await addNotesSection
 				.getByRole('button', { name: /Board Anchor/ })
 				.first()
@@ -225,7 +230,9 @@ test.describe('Desktop critical workflows @critical', () => {
 			await createBoardSection.getByLabel('Template').selectOption({ label: 'Combat Scene' });
 			await createBoardSection.getByRole('button', { name: 'Create Session Board' }).click();
 
-			const addNotesSection = app.page.locator('section').filter({ hasText: 'Add Notes' });
+			const addNotesSection = app.page
+				.locator('section')
+				.filter({ hasText: 'Add Tiles and Notes' });
 			await addNotesSection
 				.getByRole('button', { name: /Template Anchor/ })
 				.first()
@@ -255,7 +262,10 @@ test.describe('Desktop critical workflows @critical', () => {
 	test('object creation workflow embeds object content and persists object metadata', async () => {
 		const app = await launchWithSeed();
 		try {
-			await app.page.getByLabel('New note').click();
+			if ((await app.page.getByRole('button', { name: 'New Note' }).count()) === 0) {
+				await app.page.getByRole('button', { name: 'Toggle sidebar' }).first().click();
+			}
+			await app.page.getByRole('button', { name: 'New Note' }).first().click();
 			await expect(app.page).toHaveURL(/\/notes\/[^/]+\/edit$/);
 			const match = app.page.url().match(/\/notes\/([^/]+)\/edit$/);
 			expect(match).toBeTruthy();
@@ -279,6 +289,74 @@ test.describe('Desktop critical workflows @critical', () => {
 
 			expect(persisted.objectNames).toContain('Captain Aria');
 			expect(persisted.noteContent).toContain('Captain Aria');
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('timeline route shows world events and linked session logs with filters', async () => {
+		const app = await launchWithSeed(async (adapter) => {
+			await adapter.saveNote({
+				...buildNote('npc-scout', 'Scout Captain', 'NPC profile'),
+				frontmatter: {
+					dndtools: {
+						object: {
+							kind: 'npc',
+							data: {
+								disposition: 'active',
+							},
+						},
+					},
+				},
+			} as never);
+			await adapter.saveNote({
+				...buildNote('timeline-siege', 'Siege of Blackspire', 'Major timeline event'),
+				tags: ['timeline', 'arc:warfront', 'pending-resolution'],
+				frontmatter: {
+					dndtools: {
+						object: {
+							kind: 'timeline_event',
+							summary: 'The siege begins.',
+							data: {
+								worldDateOffset: 15,
+								summary: 'The siege begins.',
+								involvedObjectIds: ['npc-scout'],
+								arcTag: 'warfront',
+								resolutionStatus: 'pending_resolution',
+							},
+						},
+					},
+				},
+			} as never);
+			await adapter.saveNote({
+				...buildNote('session-10', 'Session 10', 'Players scouted the siege perimeter.'),
+				tags: ['session'],
+				frontmatter: {
+					worldDate: 15,
+					timelineEventId: 'timeline-siege',
+				},
+			} as never);
+		});
+
+		try {
+			if ((await app.page.getByRole('link', { name: 'Timeline' }).count()) === 0) {
+				await app.page.getByRole('button', { name: 'Toggle sidebar' }).first().click();
+			}
+			await app.page.getByRole('link', { name: 'Timeline' }).first().click();
+			await expect(app.page).toHaveURL(/\/timeline$/);
+			await expect(app.page.getByRole('heading', { name: 'Campaign Timeline' })).toBeVisible();
+			await expect(app.page.getByRole('link', { name: 'Siege of Blackspire' })).toBeVisible();
+			await expect(app.page.getByRole('link', { name: 'Session 10' })).toBeVisible();
+			await expect(app.page.getByText('Pending', { exact: true })).toBeVisible();
+
+			await app.page.locator('label:has-text("Arc") select').selectOption({ label: 'warfront' });
+			await app.page
+				.locator('label:has-text("Participant") select')
+				.selectOption({ label: 'Scout Captain' });
+			await expect(app.page.getByText('No timeline entries match the active filters.')).toHaveCount(
+				0,
+			);
+			await expect(app.page.getByRole('link', { name: 'Siege of Blackspire' })).toBeVisible();
 		} finally {
 			await closeDesktopApp(app);
 		}

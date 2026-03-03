@@ -211,6 +211,9 @@ export const timelineEventDataSchema = z
 		era: z.string().optional(),
 		significance: z.string().optional(),
 		summary: z.string().optional(),
+		arcTag: z.string().optional(),
+		linkedSessionNoteId: z.string().optional(),
+		resolutionStatus: z.string().optional(),
 		involvedObjectIds: z.array(z.string()).optional().default([]),
 		consequences: z.array(z.string()).optional().default([]),
 	})

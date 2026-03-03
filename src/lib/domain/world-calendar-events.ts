@@ -2,6 +2,11 @@ import type { Note } from '$lib/types/note.js';
 import type { WorldCalendar } from '$lib/types/world-calendar.js';
 import { noteToVaultObject } from '$lib/domain/object-notes.js';
 import { parseWorldDateInput } from '$lib/domain/world-calendar.js';
+import {
+	getSessionDayOffset,
+	isSessionNote,
+	summarizeSessionNote,
+} from '$lib/domain/session-timeline.js';
 
 export type CalendarEventKind = 'timeline_event' | 'session_note';
 
@@ -41,37 +46,6 @@ function resolveTimelineEventOffset(note: Note, calendar: WorldCalendar): number
 	return parseOffsetFromDateString(calendar, object.data.date);
 }
 
-function isSessionNote(note: Note): boolean {
-	if (note.tags.some((tag) => tag.toLowerCase() === 'session')) return true;
-	return (
-		note.frontmatter.session !== undefined ||
-		note.frontmatter['session_number'] !== undefined ||
-		note.frontmatter['session-log'] !== undefined
-	);
-}
-
-function resolveSessionOffset(note: Note, calendar: WorldCalendar): number | null {
-	const fromFrontmatter =
-		asOffset(note.frontmatter.worldDate) ??
-		asOffset(note.frontmatter.world_date) ??
-		asOffset(note.frontmatter.sessionDateOffset) ??
-		asOffset(note.frontmatter.session_date_offset);
-	if (fromFrontmatter !== null) return fromFrontmatter;
-	return (
-		parseOffsetFromDateString(calendar, note.frontmatter.worldDate) ??
-		parseOffsetFromDateString(calendar, note.frontmatter.world_date) ??
-		parseOffsetFromDateString(calendar, note.frontmatter.date)
-	);
-}
-
-function summarizeSessionNote(note: Note): string {
-	const firstContentLine = note.content
-		.split('\n')
-		.map((line) => line.trim())
-		.find((line) => line.length > 0 && !line.startsWith('#'));
-	return firstContentLine ?? 'Session note';
-}
-
 export function collectCalendarEventEntries(
 	notes: readonly Note[],
 	calendar: WorldCalendar,
@@ -106,7 +80,7 @@ export function collectCalendarEventEntries(
 		}
 
 		if (!isSessionNote(note)) continue;
-		const sessionOffset = resolveSessionOffset(note, calendar);
+		const sessionOffset = getSessionDayOffset(note, calendar);
 		if (sessionOffset === null) continue;
 		if ((from !== undefined && sessionOffset < from) || (to !== undefined && sessionOffset > to)) {
 			continue;

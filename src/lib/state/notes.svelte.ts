@@ -9,6 +9,7 @@ import { searchService } from '$lib/domain/search.js';
 import { extractWikilinks } from '$lib/domain/link-extractor.js';
 import { buildTwoSentenceContextSnippetAtPosition } from '$lib/domain/backlink-context.js';
 import { hasMeaningfulNoteContent } from '$lib/domain/note-persistence.js';
+import { syncSessionTimelineLink } from '$lib/domain/session-timeline.js';
 import {
 	extractAliasesFromFrontmatter,
 	resolveLinkCandidates,
@@ -78,6 +79,44 @@ class NotesState {
 		const next = [...this.notes];
 		next[index] = updated;
 		this.notes = next;
+	}
+
+	private upsertNote(updated: Note): void {
+		const index = this.notes.findIndex((entry) => entry.id === updated.id);
+		if (index < 0) {
+			this.notes = [...this.notes, updated];
+			return;
+		}
+		const next = [...this.notes];
+		next[index] = updated;
+		this.notes = next;
+	}
+
+	private async syncSessionTimelineLinkage(note: Note): Promise<void> {
+		const storage = getStorage();
+		const linkage = await syncSessionTimelineLink(storage, note);
+		if (!linkage) return;
+
+		if (linkage.nextFrontmatter) {
+			const linkedNote = {
+				...note,
+				frontmatter: linkage.nextFrontmatter,
+				updatedAt: nowISO(),
+			};
+			await storage.saveNote(linkedNote);
+			this.upsertNote(linkedNote);
+			searchService.addNote(linkedNote);
+		}
+
+		if (!linkage.linkedTimelineEventId) return;
+		const timelineNote = await storage.getNote(createNoteId(linkage.linkedTimelineEventId));
+		if (!timelineNote) return;
+		this.upsertNote(timelineNote);
+		searchService.addNote(timelineNote);
+		if (linkage.timelineEventCreated || linkage.timelineEventUpdated) {
+			void this.syncNoteLinks(timelineNote);
+		}
+		linksState.syncNotes(this.activeNotes.map((entry) => entry.id));
 	}
 
 	private async syncNoteLinks(note: Note): Promise<void> {
@@ -275,6 +314,7 @@ class NotesState {
 			void this.syncNoteLinks(persisted);
 		}
 		linksState.syncNotes(this.activeNotes.map((entry) => entry.id));
+		void this.syncSessionTimelineLinkage(persisted);
 	}
 
 	async deleteNote(id: NoteId): Promise<void> {

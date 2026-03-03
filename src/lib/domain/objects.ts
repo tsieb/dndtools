@@ -272,6 +272,9 @@ export function normalizeTimelineEventData(
 		era: value?.era?.trim() || undefined,
 		significance: value?.significance?.trim() || undefined,
 		summary: value?.summary?.trim() || undefined,
+		arcTag: value?.arcTag?.trim() || undefined,
+		linkedSessionNoteId: value?.linkedSessionNoteId?.trim() || undefined,
+		resolutionStatus: value?.resolutionStatus?.trim() || undefined,
 		involvedObjectIds: normalizeStringList(value?.involvedObjectIds),
 		consequences: normalizeStringList(value?.consequences),
 	};

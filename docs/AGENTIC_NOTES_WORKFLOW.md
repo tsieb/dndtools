@@ -77,6 +77,7 @@ Recommendation:
 - `get_recent_activity`
 - `get_link_graph`
 - `vault_health_check`
+- `get_open_threads`
 
 ### Session Boards
 
