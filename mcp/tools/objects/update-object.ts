@@ -7,6 +7,7 @@ import {
 	normalizeEncounterData,
 	normalizeFactionData,
 	normalizeCharacterData,
+	normalizeHandoutData,
 	normalizeImageData,
 	normalizeItemData,
 	normalizeLocationData,
@@ -87,6 +88,9 @@ export function registerUpdateObjectTool(server: McpServer, storage: FileSystemA
 					break;
 				case 'item':
 					updated.data = normalizeItemData(rawData);
+					break;
+				case 'handout':
+					updated.data = normalizeHandoutData(rawData);
 					break;
 				case 'encounter':
 					updated.data = normalizeEncounterData(rawData);

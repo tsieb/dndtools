@@ -370,6 +370,7 @@ describe('AC3 — Enum values / whitelists are enforced', () => {
 			'faction',
 			'quest',
 			'item',
+			'handout',
 			'encounter',
 			'timeline_event',
 		] as const;

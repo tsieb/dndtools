@@ -8,7 +8,14 @@ export function createSessionBoardId(id: string): SessionBoardId {
 	return id as SessionBoardId;
 }
 
-export type SessionBoardTileType = 'note' | 'calendar' | 'timer' | 'combat' | 'dice' | 'generator';
+export type SessionBoardTileType =
+	| 'note'
+	| 'calendar'
+	| 'timer'
+	| 'combat'
+	| 'dice'
+	| 'generator'
+	| 'handouts';
 export type SessionBoardPreviewDepth = 'title' | 'summary' | 'full';
 export type SessionBoardTimerMode = 'elapsed' | 'countdown';
 export type CombatantOutcome = 'active' | 'fell' | 'fled';
@@ -106,6 +113,7 @@ export type SessionBoardTimerTile = SessionBoardTile;
 export type SessionBoardCombatTile = SessionBoardTile;
 export type SessionBoardDiceTile = SessionBoardTile;
 export type SessionBoardGeneratorTile = SessionBoardTile;
+export type SessionBoardHandoutTile = SessionBoardTile;
 
 export interface SessionBoardTileStyle {
 	backgroundColor?: string;

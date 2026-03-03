@@ -9,6 +9,7 @@
 		normalizeCharacterData,
 		normalizeEncounterData,
 		normalizeFactionData,
+		normalizeHandoutData,
 		normalizeImageData,
 		normalizeItemData,
 		normalizeLocationData,
@@ -321,6 +322,26 @@
 						properties: parseCsv(listA),
 					}),
 				};
+			case 'handout':
+				return {
+					...base,
+					type: 'handout',
+					data: normalizeHandoutData({
+						title: name.trim() || seed.name,
+						content: fieldA,
+						handoutType:
+							fieldB === 'letter' ||
+							fieldB === 'map_fragment' ||
+							fieldB === 'image' ||
+							fieldB === 'cipher' ||
+							fieldB === 'rumor' ||
+							fieldB === 'document'
+								? fieldB
+								: 'document',
+						campaignSession: fieldC,
+						delivered: fieldD.toLowerCase() === 'yes',
+					}),
+				};
 			case 'encounter':
 				return {
 					...base,
@@ -438,6 +459,15 @@
 					listA: 'Properties',
 					listB: 'Unused',
 				};
+			case 'handout':
+				return {
+					a: 'Content',
+					b: 'Handout type',
+					c: 'Session',
+					d: 'Delivered? (yes/no)',
+					listA: 'Unused',
+					listB: 'Unused',
+				};
 			case 'encounter':
 				return {
 					a: 'Type',
@@ -542,6 +572,7 @@
 							<option value="faction">Faction</option>
 							<option value="quest">Quest</option>
 							<option value="item">Item</option>
+							<option value="handout">Handout</option>
 							<option value="encounter">Encounter</option>
 							<option value="timeline_event">Timeline Event</option>
 						</select>
@@ -671,6 +702,7 @@
 						<option value="faction">Factions</option>
 						<option value="quest">Quests</option>
 						<option value="item">Items</option>
+						<option value="handout">Handouts</option>
 						<option value="encounter">Encounters</option>
 						<option value="timeline_event">Timeline Events</option>
 					</select>

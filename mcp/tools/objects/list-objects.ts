@@ -21,6 +21,7 @@ export function registerListObjectsTool(server: McpServer, storage: FileSystemAd
 					'faction',
 					'quest',
 					'item',
+					'handout',
 					'encounter',
 					'timeline_event',
 				])

@@ -5,6 +5,7 @@
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import NoteCard from '$lib/ui/common/NoteCard.svelte';
+	import PlayerHandoutInbox from '$lib/ui/player/PlayerHandoutInbox.svelte';
 
 	let query = $state('');
 	let normalizedQuery = $derived(query.trim().toLowerCase());
@@ -59,6 +60,10 @@
 		>
 			Exit Player Mode
 		</button>
+	</div>
+
+	<div class="mb-4">
+		<PlayerHandoutInbox />
 	</div>
 
 	<div class="mb-4">

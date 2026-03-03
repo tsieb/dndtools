@@ -296,6 +296,58 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 					);
 				}
 				break;
+			case 'handout':
+				if (!object.data.title?.trim()) {
+					lint.push(
+						issue(
+							object,
+							'handout.title_required',
+							'Handout title is required.',
+							'error',
+							'data.title',
+							'Provide a handout title.',
+						),
+					);
+				}
+				if (!object.data.content?.trim()) {
+					lint.push(
+						issue(
+							object,
+							'handout.content_required',
+							'Handout content is required.',
+							'error',
+							'data.content',
+							'Provide markdown content for this handout.',
+						),
+					);
+				}
+				if (object.data.handoutType === 'cipher') {
+					if (!object.data.cipher?.decodedContent?.trim()) {
+						lint.push(
+							issue(
+								object,
+								'handout.cipher_decoded_required',
+								'Cipher handouts require decoded text.',
+								'error',
+								'data.cipher.decodedContent',
+								'Provide decoded text for DM reveal.',
+							),
+						);
+					}
+					if (!object.data.cipher?.substitutionKey?.trim()) {
+						lint.push(
+							issue(
+								object,
+								'handout.cipher_key_required',
+								'Cipher handouts require a substitution key.',
+								'warning',
+								'data.cipher.substitutionKey',
+								'Generate a substitution key before delivery.',
+							),
+						);
+					}
+				}
+				break;
 			case 'encounter':
 				if (!object.data.objective?.trim()) {
 					lint.push(

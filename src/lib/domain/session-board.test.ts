@@ -120,6 +120,16 @@ describe('session-board domain', () => {
 			h: 4,
 		});
 		expect(normalizedGenerator.type).toBe('generator');
+
+		const normalizedHandouts = normalizeSessionBoardTile({
+			id: 'handouts-tile',
+			type: 'handouts',
+			x: 0,
+			y: 0,
+			w: 6,
+			h: 4,
+		});
+		expect(normalizedHandouts.type).toBe('handouts');
 	});
 
 	it('normalizes session context state and enforces category uniqueness by note id', () => {

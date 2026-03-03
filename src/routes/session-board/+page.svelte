@@ -6,6 +6,7 @@
 	import CombatTrackerTile from '$lib/ui/board/CombatTrackerTile.svelte';
 	import DiceTrayTile from '$lib/ui/board/DiceTrayTile.svelte';
 	import GeneratorTile from '$lib/ui/board/GeneratorTile.svelte';
+	import HandoutLibraryTile from '$lib/ui/board/HandoutLibraryTile.svelte';
 	import WorldCalendarReference from '$lib/ui/calendar/WorldCalendarReference.svelte';
 	import { DEFAULT_SESSION_BOARD_LAYOUT } from '$lib/domain/session-board.js';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
@@ -18,6 +19,7 @@
 		SessionBoardCombatTile as SessionBoardCombatTileModel,
 		SessionBoardDiceTile as SessionBoardDiceTileModel,
 		SessionBoardGeneratorTile as SessionBoardGeneratorTileModel,
+		SessionBoardHandoutTile as SessionBoardHandoutTileModel,
 		SessionBoardTile,
 		SessionBoardTimerTile as SessionBoardTimerTileModel,
 	} from '$lib/types/session-board.js';
@@ -71,6 +73,7 @@
 		| { tile: SessionBoardCombatTileModel; kind: 'combat'; x: number; y: number }
 		| { tile: SessionBoardDiceTileModel; kind: 'dice'; x: number; y: number }
 		| { tile: SessionBoardGeneratorTileModel; kind: 'generator'; x: number; y: number }
+		| { tile: SessionBoardHandoutTileModel; kind: 'handouts'; x: number; y: number }
 		| { tile: SessionBoardNoteTile; kind: 'note_slot'; x: number; y: number }
 		| {
 				tile: SessionBoardNoteTile;
@@ -151,6 +154,10 @@
 			}
 			if (tile.type === 'generator') {
 				entries.push({ tile, kind: 'generator', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
+				continue;
+			}
+			if (tile.type === 'handouts') {
+				entries.push({ tile, kind: 'handouts', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
 				continue;
 			}
 			if (!tile.noteId) {
@@ -426,6 +433,10 @@
 	async function addCombatTile(): Promise<void> {
 		if (!activeBoard) return;
 		await sessionBoardsState.addCombatTile(activeBoard.id);
+	}
+	async function addHandoutTile(): Promise<void> {
+		if (!activeBoard) return;
+		await sessionBoardsState.addHandoutTile(activeBoard.id);
 	}
 	async function applyTemplate(): Promise<void> {
 		if (!activeBoard || !applyTemplateId) return;
@@ -727,6 +738,12 @@
 								onclick={addGeneratorTile}
 							>
 								Add Generator Tile
+							</button>
+							<button
+								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								onclick={addHandoutTile}
+							>
+								Add Handout Library Tile
 							</button>
 							<input
 								type="text"
@@ -1307,6 +1324,16 @@
 													/>
 												{:else if entry.kind === 'generator'}
 													<GeneratorTile
+														tile={entry.tile}
+														selected={mode === 'edit' && selectedTileId === tile.id}
+														editable={mode === 'edit'}
+														onselect={() => {
+															if (mode === 'edit') selectedTileId = tile.id;
+														}}
+														ondragstart={(event: PointerEvent) => startTileDrag(tile.id, event)}
+													/>
+												{:else if entry.kind === 'handouts'}
+													<HandoutLibraryTile
 														tile={entry.tile}
 														selected={mode === 'edit' && selectedTileId === tile.id}
 														editable={mode === 'edit'}

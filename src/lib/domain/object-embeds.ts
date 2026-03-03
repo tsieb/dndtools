@@ -17,6 +17,7 @@ const OBJECT_TYPES = new Set<VaultObjectType>([
 	'faction',
 	'quest',
 	'item',
+	'handout',
 	'encounter',
 	'timeline_event',
 ]);

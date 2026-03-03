@@ -17,6 +17,7 @@
 
 	interface Props {
 		onnewnote: () => void;
+		oncreatehandout: () => void;
 		onsearch: () => void;
 		ondice: () => void;
 		ontemplate: (folderOverride?: string) => void;
@@ -24,7 +25,15 @@
 		onsetplayermode: (enabled: boolean) => void;
 	}
 
-	let { onnewnote, onsearch, ondice, ontemplate, onrefresh, onsetplayermode }: Props = $props();
+	let {
+		onnewnote,
+		oncreatehandout,
+		onsearch,
+		ondice,
+		ontemplate,
+		onrefresh,
+		onsetplayermode,
+	}: Props = $props();
 	let isMaximized = $state(false);
 	let createMenuOpen = $state(false);
 	let createMenuAnchor = $state<HTMLElement | null>(null);
@@ -173,8 +182,8 @@
 				<button
 					class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors"
 					onclick={() => (createMenuOpen = !createMenuOpen)}
-					aria-label="New note options"
-					title="New note options (Ctrl+N)"
+					aria-label="Create options"
+					title="Create options (Ctrl+N)"
 					aria-haspopup="menu"
 					aria-expanded={createMenuOpen}
 				>
@@ -192,7 +201,7 @@
 					<div
 						class="absolute right-0 mt-1 w-48 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface shadow-lg z-30 overflow-hidden"
 						role="menu"
-						aria-label="Create note menu"
+						aria-label="Create menu"
 					>
 						<button
 							type="button"
@@ -215,6 +224,17 @@
 							role="menuitem"
 						>
 							Create from template
+						</button>
+						<button
+							type="button"
+							class="w-full text-left px-3 py-2 text-sm text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+							onclick={() => {
+								createMenuOpen = false;
+								oncreatehandout();
+							}}
+							role="menuitem"
+						>
+							Create handout
 						</button>
 					</div>
 				{/if}

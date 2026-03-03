@@ -6,7 +6,7 @@ import {
 } from './object-schema.js';
 
 describe('object-schema', () => {
-	it('accepts all object data schemas for the 10 supported types', () => {
+	it('accepts all object data schemas for the 11 supported types', () => {
 		const samples = {
 			stat_block: {
 				abilities: {},
@@ -42,6 +42,12 @@ describe('object-schema', () => {
 			},
 			item: {
 				properties: [],
+			},
+			handout: {
+				title: 'Letter from the Duke',
+				content: 'Meet me at dawn.',
+				handoutType: 'letter',
+				delivered: false,
 			},
 			encounter: {
 				participants: [],

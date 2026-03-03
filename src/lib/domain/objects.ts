@@ -4,6 +4,7 @@ import type {
 	EncounterData,
 	FactionData,
 	CharacterData,
+	HandoutData,
 	ImageData,
 	ItemData,
 	LocationData,
@@ -250,6 +251,64 @@ export function normalizeItemData(value: Partial<ItemData> | undefined): ItemDat
 	};
 }
 
+const HANDOUT_TYPES = new Set(['letter', 'map_fragment', 'image', 'cipher', 'rumor', 'document']);
+const HANDOUT_EFFECTS = new Set([
+	'parchment',
+	'torn_edge',
+	'blood_stain',
+	'burned_edge',
+	'ink_blot',
+]);
+const HANDOUT_REVEAL_ANIMATIONS = new Set(['scroll_rollout', 'letter_unfold']);
+type HandoutAgingEffect = NonNullable<HandoutData['visualStyle']>['effects'][number];
+
+export function normalizeHandoutData(value: Partial<HandoutData> | undefined): HandoutData {
+	const handoutType = HANDOUT_TYPES.has(String(value?.handoutType))
+		? (value?.handoutType as HandoutData['handoutType'])
+		: 'document';
+	const delivered = value?.delivered === true;
+	const effects = Array.isArray(value?.visualStyle?.effects)
+		? value.visualStyle.effects
+				.map((effect) => String(effect))
+				.filter((effect): effect is HandoutAgingEffect => HANDOUT_EFFECTS.has(effect))
+		: [];
+	const revealAnimation = HANDOUT_REVEAL_ANIMATIONS.has(String(value?.revealAnimation))
+		? (value?.revealAnimation as HandoutData['revealAnimation'])
+		: handoutType === 'letter' || handoutType === 'cipher'
+			? 'letter_unfold'
+			: 'scroll_rollout';
+
+	const normalized: HandoutData = {
+		title: value?.title?.trim() || '',
+		content: value?.content ?? '',
+		handoutType,
+		sourceNpcId: value?.sourceNpcId?.trim() || undefined,
+		sourceLocationId: value?.sourceLocationId?.trim() || undefined,
+		campaignSession: value?.campaignSession?.trim() || undefined,
+		delivered,
+		deliveredAt: delivered ? value?.deliveredAt?.trim() || undefined : undefined,
+		revealAnimation,
+		visualStyle: effects.length > 0 ? { effects } : undefined,
+	};
+
+	if (handoutType !== 'cipher') {
+		return normalized;
+	}
+
+	const cipher = value?.cipher;
+	const encryptedContent = cipher?.encryptedContent ?? normalized.content;
+	const decodedContent = cipher?.decodedContent ?? '';
+	normalized.cipher = {
+		encryptedContent,
+		decodedContent,
+		substitutionKey: cipher?.substitutionKey?.trim() || '',
+		decodedRevealed: cipher?.decodedRevealed === true,
+		decodedRevealedAt: cipher?.decodedRevealedAt?.trim() || undefined,
+	};
+	normalized.content = encryptedContent;
+	return normalized;
+}
+
 export function normalizeEncounterData(value: Partial<EncounterData> | undefined): EncounterData {
 	return {
 		encounterType: value?.encounterType?.trim() || undefined,
@@ -364,6 +423,16 @@ export function normalizeVaultObject(object: VaultObject): VaultObject {
 				relationships: normalizeObjectRelationships(object.relationships),
 				data: normalizeItemData(object.data),
 			};
+		case 'handout':
+			return {
+				...object,
+				name: object.name.trim(),
+				summary: object.summary.trim(),
+				tags: object.tags.map((tag) => tag.trim()).filter(Boolean),
+				visibility: normalizeContentVisibility(object.visibility),
+				relationships: normalizeObjectRelationships(object.relationships),
+				data: normalizeHandoutData(object.data),
+			};
 		case 'encounter':
 			return {
 				...object,
@@ -405,6 +474,8 @@ export function getVaultObjectTypeLabel(type: VaultObjectType): string {
 			return 'Quest';
 		case 'item':
 			return 'Item';
+		case 'handout':
+			return 'Handout';
 		case 'encounter':
 			return 'Encounter';
 		case 'timeline_event':
@@ -455,6 +526,11 @@ export function summarizeVaultObject(object: VaultObject): string {
 			const type = object.data.itemType ?? null;
 			const rarity = object.data.rarity ?? null;
 			return [type, rarity].filter((entry): entry is string => !!entry).join(' | ');
+		}
+		case 'handout': {
+			const type = object.data.handoutType.replace(/_/g, ' ');
+			const status = object.data.delivered ? 'Delivered' : 'Undelivered';
+			return [type, status].filter((entry): entry is string => !!entry).join(' | ');
 		}
 		case 'encounter': {
 			const encounterType = object.data.encounterType ?? null;

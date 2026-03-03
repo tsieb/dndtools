@@ -103,7 +103,9 @@ const sessionBoardTileStyleSchema = z
 const sessionBoardTileSchema = z
 	.object({
 		id: z.string().min(1),
-		type: z.enum(['note', 'calendar', 'timer', 'combat', 'dice', 'generator']).optional(),
+		type: z
+			.enum(['note', 'calendar', 'timer', 'combat', 'dice', 'generator', 'handouts'])
+			.optional(),
 		noteId: z.string().min(1).optional(),
 		previewDepth: z.enum(['title', 'summary', 'full']).optional(),
 		previewLineCount: z.number().int().min(1).max(40).optional(),

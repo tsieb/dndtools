@@ -189,6 +189,7 @@ const OBJECT_TYPES: readonly VaultObjectType[] = [
 	'faction',
 	'quest',
 	'item',
+	'handout',
 	'encounter',
 	'timeline_event',
 ] as const;
@@ -241,6 +242,23 @@ function buildObjectData(type: VaultObjectType, index: number): VaultObject['dat
 			return {
 				properties: ['versatile'],
 				rarity: 'uncommon',
+			};
+		case 'handout':
+			return {
+				title: `Fixture Handout ${index + 1}`,
+				content: `This is fixture handout content #${index + 1}.`,
+				handoutType: index % 3 === 0 ? 'cipher' : 'document',
+				campaignSession: `Session ${1 + (index % 12)}`,
+				delivered: index % 2 === 0,
+				cipher:
+					index % 3 === 0
+						? {
+								encryptedContent: `Qeb nrfzh yoltk clu grjmp lsbo qeb ixwv ald #${index + 1}.`,
+								decodedContent: `The quick brown fox jumps over the lazy dog #${index + 1}.`,
+								substitutionKey: 'ZYXWVUTSRQPONMLKJIHGFEDCBA',
+								decodedRevealed: false,
+							}
+						: undefined,
 			};
 		case 'encounter':
 			return {

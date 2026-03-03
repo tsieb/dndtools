@@ -11,6 +11,7 @@ export type VaultObjectType =
 	| 'faction'
 	| 'quest'
 	| 'item'
+	| 'handout'
 	| 'encounter'
 	| 'timeline_event';
 
@@ -140,6 +141,41 @@ export interface ItemData {
 	properties: string[];
 }
 
+export type HandoutType = 'letter' | 'map_fragment' | 'image' | 'cipher' | 'rumor' | 'document';
+export type HandoutAgingEffect =
+	| 'parchment'
+	| 'torn_edge'
+	| 'blood_stain'
+	| 'burned_edge'
+	| 'ink_blot';
+export type HandoutRevealAnimation = 'scroll_rollout' | 'letter_unfold';
+
+export interface HandoutCipherData {
+	encryptedContent: string;
+	decodedContent: string;
+	substitutionKey: string;
+	decodedRevealed: boolean;
+	decodedRevealedAt?: string;
+}
+
+export interface HandoutVisualStyle {
+	effects: HandoutAgingEffect[];
+}
+
+export interface HandoutData {
+	title: string;
+	content: string;
+	handoutType: HandoutType;
+	sourceNpcId?: string;
+	sourceLocationId?: string;
+	campaignSession?: string;
+	delivered: boolean;
+	deliveredAt?: string;
+	revealAnimation?: HandoutRevealAnimation;
+	visualStyle?: HandoutVisualStyle;
+	cipher?: HandoutCipherData;
+}
+
 export interface EncounterData {
 	encounterType?: string;
 	challengeRating?: string;
@@ -183,6 +219,7 @@ export type LocationObject = VaultObjectBase<'location', LocationData>;
 export type FactionObject = VaultObjectBase<'faction', FactionData>;
 export type QuestObject = VaultObjectBase<'quest', QuestData>;
 export type ItemObject = VaultObjectBase<'item', ItemData>;
+export type HandoutObject = VaultObjectBase<'handout', HandoutData>;
 export type EncounterObject = VaultObjectBase<'encounter', EncounterData>;
 export type TimelineEventObject = VaultObjectBase<'timeline_event', TimelineEventData>;
 
@@ -195,6 +232,7 @@ export type VaultObject =
 	| FactionObject
 	| QuestObject
 	| ItemObject
+	| HandoutObject
 	| EncounterObject
 	| TimelineEventObject;
 

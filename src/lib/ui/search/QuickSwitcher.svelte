@@ -21,6 +21,7 @@
 		open: boolean;
 		onclose: () => void;
 		onnewnote: () => void;
+		oncreatehandout: () => void;
 		onopendicetray: () => void;
 		onopengenerator: () => void;
 		ontemplate: (folderOverride?: string) => void;
@@ -49,6 +50,7 @@
 		open = $bindable(),
 		onclose,
 		onnewnote,
+		oncreatehandout,
 		onopendicetray,
 		onopengenerator,
 		ontemplate,
@@ -157,6 +159,20 @@
 				run: () => {
 					onclose();
 					ontemplate();
+				},
+			},
+			{
+				id: 'action-create-handout',
+				group: 'Actions',
+				title: 'Create handout',
+				subtitle: playerModeState.enabled
+					? 'Unavailable while player mode is active'
+					: 'Open handout creator overlay',
+				keywords: 'handout prop letter map cipher creator',
+				disabled: playerModeState.enabled,
+				run: () => {
+					onclose();
+					oncreatehandout();
 				},
 			},
 			{

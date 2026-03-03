@@ -1,6 +1,7 @@
 import type {
 	EncounterData,
 	FactionData,
+	HandoutData,
 	ImageData,
 	ItemData,
 	LocationData,
@@ -14,6 +15,7 @@ import type {
 import {
 	normalizeEncounterData,
 	normalizeFactionData,
+	normalizeHandoutData,
 	normalizeImageData,
 	normalizeItemData,
 	normalizeLocationData,
@@ -38,6 +40,7 @@ export interface ObjectTemplateSeed {
 		| FactionData
 		| QuestData
 		| ItemData
+		| HandoutData
 		| EncounterData
 		| TimelineEventData
 		| Record<string, unknown>;
@@ -162,6 +165,21 @@ export function getObjectTemplateSeed(
 					rarity: 'common',
 					attunement: false,
 					properties: [],
+				}),
+			};
+		case 'handout':
+			return {
+				name: 'New Handout',
+				summary: '',
+				tags: ['handout'],
+				relationships: [],
+				data: normalizeHandoutData({
+					title: 'New Handout',
+					content: '',
+					handoutType: 'document',
+					delivered: false,
+					visualStyle: { effects: ['parchment'] },
+					revealAnimation: 'scroll_rollout',
 				}),
 			};
 		case 'encounter':

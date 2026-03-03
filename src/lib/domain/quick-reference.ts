@@ -35,6 +35,8 @@ export function quickReferenceIconToken(type: QuickReferenceEntityType): string 
 			return 'L';
 		case 'item':
 			return 'I';
+		case 'handout':
+			return 'H';
 		case 'quest':
 			return 'Q';
 		case 'character':

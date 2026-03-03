@@ -20,12 +20,13 @@
 
 	function tileType(
 		tile: SessionBoardTile,
-	): 'note' | 'calendar' | 'timer' | 'combat' | 'dice' | 'generator' {
+	): 'note' | 'calendar' | 'timer' | 'combat' | 'dice' | 'generator' | 'handouts' {
 		switch (tile.type) {
 			case 'calendar':
 			case 'combat':
 			case 'dice':
 			case 'generator':
+			case 'handouts':
 			case 'timer':
 			case 'note':
 				return tile.type;
@@ -80,6 +81,11 @@
 		}
 		if (type === 'generator') {
 			void goto(resolve('/session-board'));
+			onclose();
+			return;
+		}
+		if (type === 'handouts') {
+			void goto(`${resolve('/settings')}?tab=handouts`);
 			onclose();
 			return;
 		}
@@ -176,7 +182,9 @@
 													? 'Dice'
 													: tileType(tile) === 'generator'
 														? 'Generator'
-														: 'Calendar'}
+														: tileType(tile) === 'handouts'
+															? 'Handouts'
+															: 'Calendar'}
 								</div>
 								{#if tileType(tile) === 'note'}
 									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5 truncate">
@@ -218,6 +226,13 @@
 									</div>
 									<div class="text-xs text-ink-muted dark:text-tavern-muted">
 										Open Session Board to use random generation tools.
+									</div>
+								{:else if tileType(tile) === 'handouts'}
+									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
+										Handout Library
+									</div>
+									<div class="text-xs text-ink-muted dark:text-tavern-muted">
+										Open Settings to deliver and manage handouts.
 									</div>
 								{:else}
 									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">

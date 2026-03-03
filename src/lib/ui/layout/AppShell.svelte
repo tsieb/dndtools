@@ -7,6 +7,7 @@
 
 	interface Props {
 		onnewnote: () => void;
+		oncreatehandout: () => void;
 		onsearch: () => void;
 		ondice: () => void;
 		ontemplate: (folderOverride?: string) => void;
@@ -15,15 +16,31 @@
 		children: Snippet;
 	}
 
-	let { onnewnote, onsearch, ondice, ontemplate, onrefresh, onsetplayermode, children }: Props =
-		$props();
+	let {
+		onnewnote,
+		oncreatehandout,
+		onsearch,
+		ondice,
+		ontemplate,
+		onrefresh,
+		onsetplayermode,
+		children,
+	}: Props = $props();
 </script>
 
 <a href="#main-content" class="skip-nav">Skip to content</a>
 
 <div class="flex flex-col h-screen">
 	{#if !ui.focusReading}
-		<TopBar {onnewnote} {onsearch} {ondice} {ontemplate} {onrefresh} {onsetplayermode} />
+		<TopBar
+			{onnewnote}
+			{oncreatehandout}
+			{onsearch}
+			{ondice}
+			{ontemplate}
+			{onrefresh}
+			{onsetplayermode}
+		/>
 	{/if}
 
 	<div class="flex flex-1 overflow-hidden">

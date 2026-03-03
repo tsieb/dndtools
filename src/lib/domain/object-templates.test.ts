@@ -12,6 +12,7 @@ describe('getObjectTemplateSeed', () => {
 			'faction',
 			'quest',
 			'item',
+			'handout',
 			'encounter',
 			'timeline_event',
 		] as const;
