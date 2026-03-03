@@ -9,6 +9,7 @@ export const vaultObjectTypeSchema = z.enum([
 	'faction',
 	'quest',
 	'item',
+	'handout',
 	'encounter',
 	'timeline_event',
 ]);
@@ -199,6 +200,37 @@ export const itemDataSchema = z
 	})
 	.strict();
 
+export const handoutDataSchema = z
+	.object({
+		title: z.string().min(1),
+		content: z.string(),
+		handoutType: z.enum(['letter', 'map_fragment', 'image', 'cipher', 'rumor', 'document']),
+		sourceNpcId: z.string().optional(),
+		sourceLocationId: z.string().optional(),
+		campaignSession: z.string().optional(),
+		delivered: z.boolean(),
+		deliveredAt: z.string().optional(),
+		revealAnimation: z.enum(['scroll_rollout', 'letter_unfold']).optional(),
+		visualStyle: z
+			.object({
+				effects: z
+					.array(z.enum(['parchment', 'torn_edge', 'blood_stain', 'burned_edge', 'ink_blot']))
+					.optional()
+					.default([]),
+			})
+			.optional(),
+		cipher: z
+			.object({
+				encryptedContent: z.string(),
+				decodedContent: z.string(),
+				substitutionKey: z.string(),
+				decodedRevealed: z.boolean(),
+				decodedRevealedAt: z.string().optional(),
+			})
+			.optional(),
+	})
+	.strict();
+
 export const encounterDataSchema = z
 	.object({
 		encounterType: z.string().optional(),
@@ -234,6 +266,7 @@ export const objectDataSchemaByType = {
 	faction: factionDataSchema,
 	quest: questDataSchema,
 	item: itemDataSchema,
+	handout: handoutDataSchema,
 	encounter: encounterDataSchema,
 	timeline_event: timelineEventDataSchema,
 } as const;
@@ -262,6 +295,7 @@ export const vaultObjectRecordSchema = z.discriminatedUnion('type', [
 	z.object({ ...objectRecordBase, type: z.literal('faction'), data: factionDataSchema }).strict(),
 	z.object({ ...objectRecordBase, type: z.literal('quest'), data: questDataSchema }).strict(),
 	z.object({ ...objectRecordBase, type: z.literal('item'), data: itemDataSchema }).strict(),
+	z.object({ ...objectRecordBase, type: z.literal('handout'), data: handoutDataSchema }).strict(),
 	z
 		.object({ ...objectRecordBase, type: z.literal('encounter'), data: encounterDataSchema })
 		.strict(),

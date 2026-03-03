@@ -449,7 +449,8 @@ function normalizeSessionBoardRecord(
 					rawTile.type === 'note' ||
 					rawTile.type === 'combat' ||
 					rawTile.type === 'dice' ||
-					rawTile.type === 'generator'
+					rawTile.type === 'generator' ||
+					rawTile.type === 'handouts'
 						? rawTile.type
 						: undefined,
 				noteId,

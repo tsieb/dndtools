@@ -7,6 +7,7 @@
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
+	import { handoutsState } from '$lib/state/handouts.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { onboardingState } from '$lib/state/onboarding.svelte.js';
@@ -44,6 +45,7 @@
 	let quickReferenceOverlayOpen = $state(false);
 	let quickReferenceSplitNoteId = $state<string | null>(null);
 	let templateDialogOpen = $state(false);
+	let handoutCreatorOpen = $state(false);
 	let templateDialogFolderOverride = $state<string | null>(null);
 	let templateDialogCandidates = $state<readonly NoteTemplate[] | null>(null);
 	let activeTemplateFolder = $derived.by(
@@ -97,6 +99,16 @@
 		const handler = (): void => ui.checkMobile();
 		window.addEventListener('resize', handler);
 		return () => window.removeEventListener('resize', handler);
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const handleOpen = (): void => {
+			if (playerModeState.enabled) return;
+			handoutCreatorOpen = true;
+		};
+		window.addEventListener('dndtools:open-handout-creator', handleOpen);
+		return () => window.removeEventListener('dndtools:open-handout-creator', handleOpen);
 	});
 
 	$effect(() => {
@@ -266,6 +278,7 @@
 				searchService.buildIndex(notesState.notes),
 				mcpChangesState.refresh(),
 				sessionBoardsState.loadAll(),
+				handoutsState.loadAll(),
 				templateLibraryState.refresh(),
 			]);
 			await Promise.all([
@@ -301,6 +314,11 @@
 		await handleSetPlayerMode(!playerModeState.enabled);
 	}
 
+	function handleCreateHandout(): void {
+		if (playerModeState.enabled) return;
+		handoutCreatorOpen = true;
+	}
+
 	function handleKeydown(event: KeyboardEvent): void {
 		const mod = event.ctrlKey || event.metaKey;
 		const target = event.target as HTMLElement;
@@ -328,6 +346,9 @@
 			if (!playerModeState.enabled) {
 				void handleNewNote();
 			}
+		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'h') {
+			event.preventDefault();
+			handleCreateHandout();
 		} else if (mod && event.key === 'b' && !isInEditor) {
 			event.preventDefault();
 			ui.toggleSidebar();
@@ -351,6 +372,7 @@
 {#if runtimeState.ready}
 	<AppShell
 		onnewnote={handleNewNote}
+		oncreatehandout={handleCreateHandout}
 		onsearch={() => (quickSwitcherOpen = true)}
 		ondice={() => (diceTrayOpen = true)}
 		ontemplate={openTemplateDialog}
@@ -367,6 +389,7 @@
 				bind:open={quickSwitcherOpen}
 				onclose={() => (quickSwitcherOpen = false)}
 				onnewnote={handleNewNote}
+				oncreatehandout={handleCreateHandout}
 				onopendicetray={() => (diceTrayOpen = true)}
 				onopengenerator={() => (generatorOpen = true)}
 				ontemplate={openTemplateDialog}
@@ -439,6 +462,16 @@
 				templates={templateDialogCandidates ?? templateLibraryState.templates}
 				onclose={closeTemplateDialog}
 				oncreate={handleTemplateCreate}
+			/>
+		{/await}
+	{/if}
+	{#if handoutCreatorOpen}
+		{#await import('$lib/ui/handouts/HandoutCreatorOverlay.svelte')}
+			<div class="hidden" aria-hidden="true"></div>
+		{:then HandoutCreatorOverlayModule}
+			<HandoutCreatorOverlayModule.default
+				bind:open={handoutCreatorOpen}
+				onclose={() => (handoutCreatorOpen = false)}
 			/>
 		{/await}
 	{/if}

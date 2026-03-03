@@ -152,6 +152,7 @@ function parseObjectVersion(frontmatter: Record<string, unknown>): {
 		kind === 'faction' ||
 		kind === 'quest' ||
 		kind === 'item' ||
+		kind === 'handout' ||
 		kind === 'encounter' ||
 		kind === 'timeline_event';
 	if (!isObjectNote) {

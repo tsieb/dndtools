@@ -254,6 +254,12 @@ export function normalizeSessionBoardTile(tile: SessionBoardTile, columns = 12):
 			type: 'generator',
 		};
 	}
+	if (tile.type === 'handouts') {
+		return {
+			...common,
+			type: 'handouts',
+		};
+	}
 	const noteId =
 		typeof tile.noteId === 'string' && tile.noteId.trim().length > 0 ? tile.noteId : undefined;
 	return {

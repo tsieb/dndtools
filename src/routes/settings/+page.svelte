@@ -4,6 +4,7 @@
 	import { resolve } from '$app/paths';
 	import ThemeToggle from '$lib/ui/common/ThemeToggle.svelte';
 	import Button from '$lib/ui/common/Button.svelte';
+	import HandoutLibraryPanel from '$lib/ui/handouts/HandoutLibraryPanel.svelte';
 	import { vaultState } from '$lib/state/vault.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { linksState } from '$lib/state/links.svelte.js';
@@ -141,6 +142,7 @@
 		{ id: 'general', label: 'General' },
 		{ id: 'world', label: 'World' },
 		{ id: 'vault', label: 'Vault' },
+		{ id: 'handouts', label: 'Handouts' },
 		{ id: 'mcp', label: 'MCP' },
 		{ id: 'health', label: 'System Health' },
 	] as const;
@@ -2093,6 +2095,17 @@
 						</Button>
 					</div>
 				</div>
+			</section>
+		</div>
+	{:else if activeTab === 'handouts'}
+		<div
+			role="tabpanel"
+			id="settings-panel-handouts"
+			aria-labelledby="settings-tab-handouts"
+			class="space-y-8"
+		>
+			<section>
+				<HandoutLibraryPanel />
 			</section>
 		</div>
 	{:else if activeTab === 'vault'}

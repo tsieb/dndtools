@@ -283,6 +283,34 @@ function buildObjectDetails(object: VaultObject): HastNode[] {
 			if (propsLine) lines.push(propsLine);
 			return lines;
 		}
+		case 'handout': {
+			const lines: HastNode[] = [];
+			const typeLine = detailLine('Type:', object.data.handoutType.replace(/_/g, ' '));
+			if (typeLine) lines.push(typeLine);
+			const sessionLine = detailLine('Session:', object.data.campaignSession);
+			if (sessionLine) lines.push(sessionLine);
+			const deliveredLine = detailLine('Delivered:', object.data.delivered ? 'yes' : 'no');
+			if (deliveredLine) lines.push(deliveredLine);
+			const sourceLine = detailLine(
+				'Source:',
+				object.data.sourceNpcId
+					? `NPC ${object.data.sourceNpcId}`
+					: object.data.sourceLocationId
+						? `Location ${object.data.sourceLocationId}`
+						: undefined,
+			);
+			if (sourceLine) lines.push(sourceLine);
+			if (object.data.handoutType === 'cipher' && object.data.cipher) {
+				const keyLine = detailLine('Cipher Key:', object.data.cipher.substitutionKey);
+				if (keyLine) lines.push(keyLine);
+				const decodedLine = detailLine(
+					'Decoded Revealed:',
+					object.data.cipher.decodedRevealed ? 'yes' : 'no',
+				);
+				if (decodedLine) lines.push(decodedLine);
+			}
+			return lines;
+		}
 		case 'encounter': {
 			const lines: HastNode[] = [];
 			const typeLine = detailLine('Type:', object.data.encounterType);
@@ -347,6 +375,7 @@ function parseEmbedToken(inner: string): EmbedMatch | null {
 				type !== 'faction' &&
 				type !== 'quest' &&
 				type !== 'item' &&
+				type !== 'handout' &&
 				type !== 'encounter' &&
 				type !== 'timeline_event'
 			) {

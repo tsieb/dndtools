@@ -3,6 +3,7 @@ import type {
 	EncounterData,
 	FactionData,
 	CharacterData,
+	HandoutData,
 	ImageData,
 	ItemData,
 	LocationData,
@@ -20,6 +21,7 @@ import {
 	normalizeEncounterData,
 	normalizeFactionData,
 	normalizeCharacterData,
+	normalizeHandoutData,
 	normalizeImageData,
 	normalizeItemData,
 	normalizeLocationData,
@@ -65,6 +67,7 @@ function normalizeObjectType(kind: unknown): VaultObjectType | null {
 		kind === 'faction' ||
 		kind === 'quest' ||
 		kind === 'item' ||
+		kind === 'handout' ||
 		kind === 'encounter' ||
 		kind === 'timeline_event'
 	) {
@@ -85,6 +88,7 @@ function normalizeObjectData(
 	| FactionData
 	| QuestData
 	| ItemData
+	| HandoutData
 	| EncounterData
 	| TimelineEventData {
 	const source = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
@@ -105,6 +109,8 @@ function normalizeObjectData(
 			return normalizeQuestData(source as Partial<QuestData>);
 		case 'item':
 			return normalizeItemData(source as Partial<ItemData>);
+		case 'handout':
+			return normalizeHandoutData(source as Partial<HandoutData>);
 		case 'encounter':
 			return normalizeEncounterData(source as Partial<EncounterData>);
 		case 'timeline_event':
@@ -163,6 +169,7 @@ function buildObjectMarkdown(
 		| FactionData
 		| QuestData
 		| ItemData
+		| HandoutData
 		| EncounterData
 		| TimelineEventData,
 	relationships: ObjectRelationship[] = [],
@@ -348,6 +355,44 @@ function buildObjectMarkdown(
 			...(value.properties.length > 0
 				? value.properties.map((entry) => `- ${entry}`)
 				: ['- _Add properties_']),
+			...relationshipLines,
+		].join('\n');
+	}
+
+	if (type === 'handout') {
+		const value = data as HandoutData;
+		const effectLine = value.visualStyle?.effects?.length
+			? value.visualStyle.effects.join(', ')
+			: '';
+		const sourceLine = value.sourceNpcId
+			? `NPC ${value.sourceNpcId}`
+			: value.sourceLocationId
+				? `Location ${value.sourceLocationId}`
+				: '';
+		const cipherLines =
+			value.handoutType === 'cipher' && value.cipher
+				? [
+						'',
+						'## Cipher',
+						`- Key: ${value.cipher.substitutionKey ?? ''}`.trimEnd(),
+						`- Decoded Revealed: ${value.cipher.decodedRevealed ? 'yes' : 'no'}`,
+						'',
+						'### Decoded Text',
+						value.cipher.decodedContent || '_Add decoded text_',
+					]
+				: [];
+		return [
+			'## Handout',
+			'',
+			`- Handout Type: ${value.handoutType}`.trimEnd(),
+			`- Session: ${value.campaignSession ?? ''}`.trimEnd(),
+			`- Source: ${sourceLine}`.trimEnd(),
+			`- Delivered: ${value.delivered ? 'yes' : 'no'}`.trimEnd(),
+			`- Visual Effects: ${effectLine}`.trimEnd(),
+			'',
+			'## Content',
+			value.content || '_Add handout content_',
+			...cipherLines,
 			...relationshipLines,
 		].join('\n');
 	}

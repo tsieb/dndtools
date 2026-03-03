@@ -16,6 +16,7 @@
 		normalizeCharacterData,
 		normalizeEncounterData,
 		normalizeFactionData,
+		normalizeHandoutData,
 		normalizeImageData,
 		normalizeItemData,
 		normalizeLocationData,
@@ -189,6 +190,14 @@
 				listA = object.data.properties.join(', ');
 				listB = '';
 				return;
+			case 'handout':
+				fieldA = object.data.content ?? '';
+				fieldB = object.data.handoutType ?? 'document';
+				fieldC = object.data.campaignSession ?? '';
+				fieldD = object.data.delivered ? 'yes' : 'no';
+				listA = '';
+				listB = '';
+				return;
 			case 'encounter':
 				fieldA = object.data.encounterType ?? '';
 				fieldB = object.data.challengeRating ?? '';
@@ -293,6 +302,15 @@
 					c: 'Owner id',
 					d: 'Value',
 					listA: 'Properties',
+					listB: 'Unused',
+				};
+			case 'handout':
+				return {
+					a: 'Content',
+					b: 'Handout type',
+					c: 'Session',
+					d: 'Delivered? (yes/no)',
+					listA: 'Unused',
 					listB: 'Unused',
 				};
 			case 'encounter':
@@ -536,6 +554,28 @@
 						properties: parseCsv(listA),
 					}),
 				};
+			case 'handout':
+				return {
+					...existing,
+					updatedAt,
+					relationships: parsedRelationships,
+					data: normalizeHandoutData({
+						...existing.data,
+						title: existing.name,
+						content: fieldA,
+						handoutType:
+							fieldB === 'letter' ||
+							fieldB === 'map_fragment' ||
+							fieldB === 'image' ||
+							fieldB === 'cipher' ||
+							fieldB === 'rumor' ||
+							fieldB === 'document'
+								? fieldB
+								: existing.data.handoutType,
+						campaignSession: fieldC,
+						delivered: fieldD.toLowerCase() === 'yes',
+					}),
+				};
 			case 'encounter':
 				return {
 					...existing,
@@ -678,6 +718,23 @@
 		}
 		if (issue.code === 'item.type_required') {
 			fieldA = fieldA.trim() || 'gear';
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'handout.title_required') {
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'handout.content_required') {
+			fieldA = fieldA.trim() || 'Add handout content';
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'handout.cipher_decoded_required') {
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'handout.cipher_key_required') {
 			await applyStructuredChanges();
 			return;
 		}

@@ -146,6 +146,7 @@ export const vaultObjectTypeSchema = z.enum([
 	'faction',
 	'quest',
 	'item',
+	'handout',
 	'encounter',
 	'timeline_event',
 ]);
@@ -341,6 +342,12 @@ const sessionBoardGeneratorTileSchema = sessionBoardTileBaseSchema
 	})
 	.strict();
 
+const sessionBoardHandoutTileSchema = sessionBoardTileBaseSchema
+	.extend({
+		type: z.literal('handouts'),
+	})
+	.strict();
+
 const sessionBoardTileSchema = z.union([
 	sessionBoardNoteTileSchema,
 	sessionBoardCalendarTileSchema,
@@ -348,6 +355,7 @@ const sessionBoardTileSchema = z.union([
 	sessionBoardCombatTileSchema,
 	sessionBoardDiceTileSchema,
 	sessionBoardGeneratorTileSchema,
+	sessionBoardHandoutTileSchema,
 ]);
 
 const sessionContextItemSchema = z

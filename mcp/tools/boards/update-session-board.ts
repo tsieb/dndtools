@@ -10,7 +10,9 @@ import { errorResult, jsonResult } from '../shared/response.js';
 const tileInput = z
 	.object({
 		id: z.string().min(1).optional(),
-		type: z.enum(['note', 'calendar', 'timer', 'combat', 'dice', 'generator']).optional(),
+		type: z
+			.enum(['note', 'calendar', 'timer', 'combat', 'dice', 'generator', 'handouts'])
+			.optional(),
 		noteId: z.string().min(1).optional(),
 		previewDepth: z.enum(['title', 'summary', 'full']).optional(),
 		previewLineCount: z.number().int().min(1).max(40).optional(),
@@ -48,7 +50,8 @@ const tileInput = z
 			(tile.type === 'timer' ||
 				tile.type === 'combat' ||
 				tile.type === 'dice' ||
-				tile.type === 'generator') &&
+				tile.type === 'generator' ||
+				tile.type === 'handouts') &&
 			tile.noteId
 		) {
 			ctx.addIssue({
