@@ -210,6 +210,7 @@
 			name: name.trim() || seed.name,
 			summary: summary.trim() || seed.summary,
 			tags: parsedTags.length > 0 ? parsedTags : seed.tags,
+			visibility: 'dm_only' as const,
 			relationships:
 				parsedRelationships.length > 0
 					? parsedRelationships

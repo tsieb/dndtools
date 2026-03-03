@@ -3,8 +3,10 @@
 	import { resolve } from '$app/paths';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { linksState } from '$lib/state/links.svelte.js';
+	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { buildRelatedNoteJumps } from '$lib/domain/related-note-jumps.js';
 	import { createNoteId, type NoteId } from '$lib/types/note.js';
+	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 
 	interface Props {
 		noteId: NoteId;
@@ -12,14 +14,29 @@
 
 	let { noteId }: Props = $props();
 	let note = $derived(notesState.getNoteById(noteId));
+	let modeScopedNotes = $derived.by(() =>
+		playerModeState.enabled
+			? notesState.activeNotes.filter((entry) => isNoteVisibleInPlayerMode(entry))
+			: notesState.activeNotes,
+	);
 	let jumpSet = $derived.by(() => {
 		if (!note) {
 			return { sameTags: [], backlinks: [], sameObjectReferences: [] };
 		}
+		if (playerModeState.enabled && !isNoteVisibleInPlayerMode(note)) {
+			return { sameTags: [], backlinks: [], sameObjectReferences: [] };
+		}
 		return buildRelatedNoteJumps({
 			note,
-			notes: notesState.activeNotes,
-			backlinkIds: linksState.getBacklinkIds(noteId).map((id) => createNoteId(id)),
+			notes: modeScopedNotes,
+			backlinkIds: linksState
+				.getBacklinkIds(noteId)
+				.map((id) => createNoteId(id))
+				.filter((id) => {
+					if (!playerModeState.enabled) return true;
+					const target = notesState.getActiveNoteById(id);
+					return !!target && isNoteVisibleInPlayerMode(target);
+				}),
 			limitPerSection: 4,
 		});
 	});

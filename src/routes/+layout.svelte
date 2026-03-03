@@ -25,6 +25,7 @@
 	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
 	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
+	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import {
 		buildTemplateContext,
 		getFolderScopedTemplateMatches,
@@ -64,6 +65,7 @@
 		if (pathname === '/session-board') return 'Session Board';
 		if (pathname === '/combat') return 'Combat Tracker';
 		if (pathname === '/settings') return 'Settings';
+		if (pathname === '/player') return 'Player View';
 		return pathname;
 	}
 
@@ -133,6 +135,24 @@
 		const label = page.url.pathname.endsWith('/edit') ? `${note.title} (Edit)` : note.title;
 		if (current.label !== label) {
 			navigationState.updateCurrentLabel(label);
+		}
+	});
+
+	$effect(() => {
+		if (page.url.pathname.startsWith('/player') && !playerModeState.enabled) {
+			void playerModeState.setEnabled(true);
+		}
+	});
+
+	$effect(() => {
+		if (!playerModeState.enabled) return;
+		if (
+			page.url.pathname === '/graph' ||
+			page.url.pathname === '/timeline' ||
+			page.url.pathname === '/session-board' ||
+			page.url.pathname === '/combat'
+		) {
+			goto(resolve('/player'));
 		}
 	});
 
@@ -263,6 +283,23 @@
 		}
 	}
 
+	async function handleSetPlayerMode(enabled: boolean): Promise<void> {
+		await playerModeState.setEnabled(enabled);
+		if (enabled) {
+			if (!page.url.pathname.startsWith('/player')) {
+				goto(resolve('/player'));
+			}
+			return;
+		}
+		if (page.url.pathname.startsWith('/player')) {
+			goto(resolve('/notes'));
+		}
+	}
+
+	async function handleTogglePlayerMode(): Promise<void> {
+		await handleSetPlayerMode(!playerModeState.enabled);
+	}
+
 	function handleKeydown(event: KeyboardEvent): void {
 		const mod = event.ctrlKey || event.metaKey;
 		const target = event.target as HTMLElement;
@@ -282,7 +319,9 @@
 			diceTrayOpen = !diceTrayOpen;
 		} else if (mod && event.key === 'n') {
 			event.preventDefault();
-			void handleNewNote();
+			if (!playerModeState.enabled) {
+				void handleNewNote();
+			}
 		} else if (mod && event.key === 'b' && !isInEditor) {
 			event.preventDefault();
 			ui.toggleSidebar();
@@ -310,6 +349,7 @@
 		ondice={() => (diceTrayOpen = true)}
 		ontemplate={openTemplateDialog}
 		onrefresh={handleRefreshVault}
+		onsetplayermode={handleSetPlayerMode}
 	>
 		{@render children()}
 	</AppShell>
@@ -326,6 +366,7 @@
 				oncreatefromtemplate={(templateId: string) => void handleCreateFromTemplateId(templateId)}
 				onsessionrecap={() => void handleSessionRecapScaffold()}
 				onopensplitview={(noteId: string) => (quickReferenceSplitNoteId = noteId)}
+				ontoggleplayermode={handleTogglePlayerMode}
 			/>
 		{/await}
 	{/if}

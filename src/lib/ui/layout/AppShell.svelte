@@ -11,17 +11,19 @@
 		ondice: () => void;
 		ontemplate: (folderOverride?: string) => void;
 		onrefresh: () => void;
+		onsetplayermode: (enabled: boolean) => void;
 		children: Snippet;
 	}
 
-	let { onnewnote, onsearch, ondice, ontemplate, onrefresh, children }: Props = $props();
+	let { onnewnote, onsearch, ondice, ontemplate, onrefresh, onsetplayermode, children }: Props =
+		$props();
 </script>
 
 <a href="#main-content" class="skip-nav">Skip to content</a>
 
 <div class="flex flex-col h-screen">
 	{#if !ui.focusReading}
-		<TopBar {onnewnote} {onsearch} {ondice} {ontemplate} {onrefresh} />
+		<TopBar {onnewnote} {onsearch} {ondice} {ontemplate} {onrefresh} {onsetplayermode} />
 	{/if}
 
 	<div class="flex flex-1 overflow-hidden">

@@ -3,6 +3,8 @@
 	import { getStorage } from '$lib/platform/storage/index.js';
 	import type { NoteId } from '$lib/types/note.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { playerModeState } from '$lib/state/player-mode.svelte.js';
+	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 
 	interface Props {
 		noteId: NoteId;
@@ -34,6 +36,7 @@
 					.map((link) => {
 						const source = notesState.getNoteById(link.sourceId);
 						if (!source) return null;
+						if (playerModeState.enabled && !isNoteVisibleInPlayerMode(source)) return null;
 						return {
 							key: `${source.id}:${link.position}:${link.displayText}`,
 							sourceId: source.id,

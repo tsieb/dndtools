@@ -30,10 +30,12 @@ import {
 	normalizeTimelineEventData,
 	summarizeVaultObject,
 } from '$lib/domain/objects.js';
+import { DEFAULT_CONTENT_VISIBILITY, normalizeContentVisibility } from '$lib/types/visibility.js';
 
 interface DndToolsObjectEnvelope {
 	kind?: string;
 	summary?: unknown;
+	visibility?: unknown;
 	data?: unknown;
 	relationships?: unknown;
 	embed?: {
@@ -133,6 +135,7 @@ export function noteToVaultObject(note: Note): VaultObject | null {
 		name: note.title,
 		summary: rawSummary.trim(),
 		tags: [...note.tags],
+		visibility: normalizeContentVisibility(meta?.object?.visibility, note.visibility),
 		relationships: normalizeObjectRelationships(meta?.object?.relationships),
 		createdAt: note.createdAt,
 		updatedAt: note.updatedAt,
@@ -233,6 +236,7 @@ function buildObjectMarkdown(
 			'## Flaws',
 			...(value.flaws.length > 0 ? value.flaws.map((entry) => `- ${entry}`) : ['- _Add flaws_']),
 			...(value.notes ? ['', '## Notes', '', value.notes] : []),
+			...(value.dmNotes ? ['', '## DM Notes', '', value.dmNotes] : []),
 			...relationshipLines,
 		].join('\n');
 	}
@@ -428,6 +432,7 @@ export function vaultObjectToNote(
 		object: {
 			kind: object.type,
 			summary,
+			visibility: normalizeContentVisibility(object.visibility, DEFAULT_CONTENT_VISIBILITY),
 			data,
 			relationships,
 			embed: {
@@ -449,6 +454,7 @@ export function vaultObjectToNote(
 		filePath: existing?.filePath,
 		tags: [...object.tags],
 		frontmatter: baseFrontmatter,
+		visibility: normalizeContentVisibility(object.visibility, DEFAULT_CONTENT_VISIBILITY),
 		createdAt: existing?.createdAt ?? object.createdAt,
 		updatedAt: object.updatedAt,
 		deleted: existing?.deleted ?? false,

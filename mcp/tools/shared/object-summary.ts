@@ -6,6 +6,7 @@ export function objectSummary(object: VaultObject): {
 	name: string;
 	summary: string;
 	tags: string[];
+	visibility: VaultObject['visibility'];
 	updatedAt: string;
 } {
 	return {
@@ -14,6 +15,7 @@ export function objectSummary(object: VaultObject): {
 		name: object.name,
 		summary: object.summary,
 		tags: object.tags,
+		visibility: object.visibility,
 		updatedAt: object.updatedAt,
 	};
 }

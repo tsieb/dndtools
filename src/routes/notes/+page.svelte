@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { vaultState } from '$lib/state/vault.svelte.js';
+	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
 	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
 	import NoteCard from '$lib/ui/common/NoteCard.svelte';
@@ -18,6 +19,7 @@
 	import { page } from '$app/state';
 	import { createFolderId } from '$lib/types/note.js';
 	import type { NoteTemplate } from '$lib/types/template-library.js';
+	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 
 	let sortField = $state<'updatedAt' | 'title' | 'createdAt' | 'folder'>('updatedAt');
 	let sortDir = $state<'asc' | 'desc'>('desc');
@@ -31,13 +33,23 @@
 	let handledCreateTitle = $state<string | null>(null);
 
 	let normalizedQuery = $derived(query.trim());
+	let modeScopedNotes = $derived.by(() =>
+		playerModeState.enabled
+			? notesState.activeNotes.filter((note) => isNoteVisibleInPlayerMode(note))
+			: notesState.activeNotes,
+	);
+	let modeScopedPinnedNotes = $derived.by(() =>
+		playerModeState.enabled
+			? notesState.pinnedNotes.filter((note) => isNoteVisibleInPlayerMode(note))
+			: notesState.pinnedNotes,
+	);
 	let searchResultIds = $derived.by<Set<string> | null>(() => {
 		if (!normalizedQuery) return null;
 		return new Set(searchService.search(normalizedQuery).map((result) => String(result.id)));
 	});
 
 	let pinnedNotes = $derived.by(() => {
-		return notesState.pinnedNotes.filter((note) => {
+		return modeScopedPinnedNotes.filter((note) => {
 			if (tagFilter && !note.tags.includes(tagFilter)) return false;
 			if (folderFilter && note.folder !== folderFilter) return false;
 			return !searchResultIds || searchResultIds.has(String(note.id));
@@ -45,7 +57,7 @@
 	});
 
 	let filteredNotes = $derived.by(() => {
-		let notes = notesState.activeNotes.filter((n) => !n.pinned);
+		let notes = modeScopedNotes.filter((n) => !n.pinned);
 
 		if (tagFilter) {
 			notes = notes.filter((n) => n.tags.includes(tagFilter!));
@@ -71,8 +83,10 @@
 	});
 
 	let folderOptions = $derived(
-		vaultState.folders
-			.map((folder) => folder.id)
+		(playerModeState.enabled
+			? [...new Set(modeScopedNotes.map((note) => String(note.folder)))]
+			: vaultState.folders.map((folder) => folder.id)
+		)
 			.filter((folder) => folder !== '/')
 			.sort((a, b) => a.localeCompare(b)),
 	);
@@ -112,6 +126,7 @@
 	}
 
 	async function handleNewNote(): Promise<void> {
+		if (playerModeState.enabled) return;
 		const title = createTitle ?? undefined;
 		const folderContext = normalizeFolderContext(folderFilter);
 		if (!title) {
@@ -164,6 +179,8 @@
 			>
 				{#if tagFilter}
 					Notes tagged "{tagFilter}"
+				{:else if playerModeState.enabled}
+					Player Notes
 				{:else}
 					All Notes
 				{/if}
@@ -173,7 +190,9 @@
 				{totalCount === 1 ? 'note' : 'notes'}
 			</p>
 		</div>
-		<Button variant="primary" onclick={handleNewNote}>New Note</Button>
+		{#if !playerModeState.enabled}
+			<Button variant="primary" onclick={handleNewNote}>New Note</Button>
+		{/if}
 	</div>
 
 	<div class="space-y-3 mb-4">

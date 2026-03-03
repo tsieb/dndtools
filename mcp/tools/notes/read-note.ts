@@ -31,6 +31,7 @@ export function registerReadNoteTool(server: McpServer, storage: FileSystemAdapt
 				folder: note.folder,
 				filePath: note.filePath ?? null,
 				tags: note.tags,
+				visibility: note.visibility,
 				frontmatter: note.frontmatter,
 				content: note.content,
 				createdAt: note.createdAt,

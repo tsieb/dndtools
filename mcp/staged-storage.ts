@@ -32,6 +32,7 @@ import {
 } from '../src/lib/domain/link-resolution.js';
 import { buildRelatedNoteSuggestions } from '../src/lib/domain/related-note-suggestions.js';
 import { buildMcpChangePreview } from '../src/lib/domain/mcp-change-preview.js';
+import { normalizeContentVisibility } from '../src/lib/types/visibility.js';
 import { FileSystemAdapter } from './storage.js';
 
 function cloneNote(note: Note): Note {
@@ -39,6 +40,7 @@ function cloneNote(note: Note): Note {
 		...note,
 		tags: [...note.tags],
 		frontmatter: { ...note.frontmatter },
+		visibility: normalizeContentVisibility(note.visibility),
 	};
 }
 

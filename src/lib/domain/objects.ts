@@ -17,6 +17,7 @@ import type {
 	VaultObjectType,
 } from '$lib/types/object.js';
 import { createVaultObjectId } from '$lib/types/object.js';
+import { normalizeContentVisibility } from '$lib/types/visibility.js';
 
 const DEFAULT_ABILITY_SCORES: AbilityScores = {
 	str: 10,
@@ -95,6 +96,7 @@ export function normalizeCharacterData(value: Partial<CharacterData> | undefined
 		bonds: value?.bonds?.map((entry) => entry.trim()).filter(Boolean) ?? [],
 		flaws: value?.flaws?.map((entry) => entry.trim()).filter(Boolean) ?? [],
 		notes: value?.notes?.trim() || undefined,
+		dmNotes: value?.dmNotes?.trim() || undefined,
 	};
 }
 
@@ -288,6 +290,7 @@ export function normalizeVaultObject(object: VaultObject): VaultObject {
 				name: object.name.trim(),
 				summary: object.summary.trim(),
 				tags: object.tags.map((tag) => tag.trim()).filter(Boolean),
+				visibility: normalizeContentVisibility(object.visibility),
 				relationships: normalizeObjectRelationships(object.relationships),
 				data: normalizeStatBlockData(object.data),
 			};
@@ -297,6 +300,7 @@ export function normalizeVaultObject(object: VaultObject): VaultObject {
 				name: object.name.trim(),
 				summary: object.summary.trim(),
 				tags: object.tags.map((tag) => tag.trim()).filter(Boolean),
+				visibility: normalizeContentVisibility(object.visibility),
 				relationships: normalizeObjectRelationships(object.relationships),
 				data: normalizeCharacterData(object.data),
 			};
@@ -306,6 +310,7 @@ export function normalizeVaultObject(object: VaultObject): VaultObject {
 				name: object.name.trim(),
 				summary: object.summary.trim(),
 				tags: object.tags.map((tag) => tag.trim()).filter(Boolean),
+				visibility: normalizeContentVisibility(object.visibility),
 				relationships: normalizeObjectRelationships(object.relationships),
 				data: normalizeImageData(object.data),
 			};
@@ -315,6 +320,7 @@ export function normalizeVaultObject(object: VaultObject): VaultObject {
 				name: object.name.trim(),
 				summary: object.summary.trim(),
 				tags: object.tags.map((tag) => tag.trim()).filter(Boolean),
+				visibility: normalizeContentVisibility(object.visibility),
 				relationships: normalizeObjectRelationships(object.relationships),
 				data: normalizeNpcData(object.data),
 			};
@@ -324,6 +330,7 @@ export function normalizeVaultObject(object: VaultObject): VaultObject {
 				name: object.name.trim(),
 				summary: object.summary.trim(),
 				tags: object.tags.map((tag) => tag.trim()).filter(Boolean),
+				visibility: normalizeContentVisibility(object.visibility),
 				relationships: normalizeObjectRelationships(object.relationships),
 				data: normalizeLocationData(object.data),
 			};
@@ -333,6 +340,7 @@ export function normalizeVaultObject(object: VaultObject): VaultObject {
 				name: object.name.trim(),
 				summary: object.summary.trim(),
 				tags: object.tags.map((tag) => tag.trim()).filter(Boolean),
+				visibility: normalizeContentVisibility(object.visibility),
 				relationships: normalizeObjectRelationships(object.relationships),
 				data: normalizeFactionData(object.data),
 			};
@@ -342,6 +350,7 @@ export function normalizeVaultObject(object: VaultObject): VaultObject {
 				name: object.name.trim(),
 				summary: object.summary.trim(),
 				tags: object.tags.map((tag) => tag.trim()).filter(Boolean),
+				visibility: normalizeContentVisibility(object.visibility),
 				relationships: normalizeObjectRelationships(object.relationships),
 				data: normalizeQuestData(object.data),
 			};
@@ -351,6 +360,7 @@ export function normalizeVaultObject(object: VaultObject): VaultObject {
 				name: object.name.trim(),
 				summary: object.summary.trim(),
 				tags: object.tags.map((tag) => tag.trim()).filter(Boolean),
+				visibility: normalizeContentVisibility(object.visibility),
 				relationships: normalizeObjectRelationships(object.relationships),
 				data: normalizeItemData(object.data),
 			};
@@ -360,6 +370,7 @@ export function normalizeVaultObject(object: VaultObject): VaultObject {
 				name: object.name.trim(),
 				summary: object.summary.trim(),
 				tags: object.tags.map((tag) => tag.trim()).filter(Boolean),
+				visibility: normalizeContentVisibility(object.visibility),
 				relationships: normalizeObjectRelationships(object.relationships),
 				data: normalizeEncounterData(object.data),
 			};
@@ -369,6 +380,7 @@ export function normalizeVaultObject(object: VaultObject): VaultObject {
 				name: object.name.trim(),
 				summary: object.summary.trim(),
 				tags: object.tags.map((tag) => tag.trim()).filter(Boolean),
+				visibility: normalizeContentVisibility(object.visibility),
 				relationships: normalizeObjectRelationships(object.relationships),
 				data: normalizeTimelineEventData(object.data),
 			};

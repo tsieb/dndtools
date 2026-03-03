@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeObjectRelationships } from '$lib/domain/objects.js';
+import { normalizeCharacterData, normalizeObjectRelationships } from '$lib/domain/objects.js';
 
 describe('normalizeObjectRelationships', () => {
 	it('keeps built-in relationship types', () => {
@@ -42,5 +42,16 @@ describe('normalizeObjectRelationships', () => {
 	it('rejects custom relationships without labels', () => {
 		const normalized = normalizeObjectRelationships([{ type: 'custom', targetId: 'obj-4' }]);
 		expect(normalized).toEqual([]);
+	});
+});
+
+describe('normalizeCharacterData', () => {
+	it('normalizes and preserves dmNotes', () => {
+		const normalized = normalizeCharacterData({
+			notes: '  public notes  ',
+			dmNotes: '  secret note  ',
+		});
+		expect(normalized.notes).toBe('public notes');
+		expect(normalized.dmNotes).toBe('secret note');
 	});
 });

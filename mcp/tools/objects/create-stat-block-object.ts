@@ -49,6 +49,7 @@ export function registerCreateStatBlockObjectTool(
 				name: input.name,
 				summary: input.summary,
 				tags: input.tags,
+				visibility: input.visibility,
 				relationships: normalizeObjectRelationships(input.relationships),
 				data: normalizeStatBlockData({
 					size: input.size,

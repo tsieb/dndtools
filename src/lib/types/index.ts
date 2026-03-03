@@ -1,5 +1,12 @@
 export type { NoteId, FolderId, Note, Link, TagEntry, Folder } from './note.js';
 export { createNoteId, createFolderId, ROOT_FOLDER } from './note.js';
+export type { ContentVisibility } from './visibility.js';
+export {
+	CONTENT_VISIBILITY_VALUES,
+	DEFAULT_CONTENT_VISIBILITY,
+	isContentVisibility,
+	normalizeContentVisibility,
+} from './visibility.js';
 
 export type {
 	AppSettings,

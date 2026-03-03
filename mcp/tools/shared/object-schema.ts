@@ -13,6 +13,8 @@ export const vaultObjectTypeSchema = z.enum([
 	'timeline_event',
 ]);
 
+export const contentVisibilitySchema = z.enum(['dm_only', 'shared', 'public']);
+
 export const objectRelationshipCoreTypeSchema = z.enum([
 	'parent',
 	'child',
@@ -78,6 +80,10 @@ export const objectBaseSchema = {
 	name: z.string().min(1).describe('Display name'),
 	summary: z.string().optional().default('').describe('Short summary used in embeds'),
 	tags: z.array(z.string()).optional().default([]).describe('Tag list without #'),
+	visibility: contentVisibilitySchema
+		.optional()
+		.default('dm_only')
+		.describe('Content visibility boundary'),
 	relationships: z
 		.array(objectRelationshipSchema)
 		.optional()
@@ -237,6 +243,7 @@ const objectRecordBase = {
 	name: z.string().min(1),
 	summary: z.string(),
 	tags: z.array(z.string()).default([]),
+	visibility: contentVisibilitySchema.default('dm_only'),
 	relationships: z.array(objectRelationshipSchema).default([]),
 	createdAt: z.string().min(1),
 	updatedAt: z.string().min(1),

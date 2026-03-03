@@ -11,6 +11,7 @@ function makeNote(overrides: Partial<Note> = {}): Note {
 		folder: createFolderId('/'),
 		tags: ['session'],
 		frontmatter: {},
+		visibility: overrides.visibility ?? 'dm_only',
 		createdAt: '2026-02-01T00:00:00.000Z',
 		updatedAt: '2026-02-01T00:00:00.000Z',
 		deleted: false,

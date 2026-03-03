@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { StagedMcpAdapter } from './staged-storage.js';
 import { FileSystemAdapter } from './storage.js';
 import { createFolderId, createNoteId, type Note } from '../src/lib/types/note.js';
+import { DEFAULT_CONTENT_VISIBILITY } from '../src/lib/types/visibility.js';
 import type { McpPolicySettings } from '../src/lib/types/settings.js';
 
 function makeNote(overrides: Partial<Note> = {}): Note {
@@ -23,6 +24,7 @@ function makeNote(overrides: Partial<Note> = {}): Note {
 		pinned: false,
 		pinnedAt: null,
 		...overrides,
+		visibility: overrides.visibility ?? DEFAULT_CONTENT_VISIBILITY,
 	};
 }
 

@@ -13,6 +13,8 @@
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
+	import { playerModeState } from '$lib/state/player-mode.svelte.js';
+	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import type { NoteId } from '$lib/types/note.js';
 
 	interface Props {
@@ -24,6 +26,7 @@
 		oncreatefromtemplate: (templateId: string) => void;
 		onsessionrecap: () => void;
 		onopensplitview: (noteId: NoteId) => void;
+		ontoggleplayermode: () => void;
 	}
 
 	type PaletteGroup = 'Actions' | 'Navigation' | 'Settings' | 'Notes' | 'Entities';
@@ -50,11 +53,17 @@
 		oncreatefromtemplate,
 		onsessionrecap,
 		onopensplitview,
+		ontoggleplayermode,
 	}: Props = $props();
 	let query = $state('');
 	let selectedIndex = $state(0);
 	let inputRef: HTMLInputElement | undefined = $state();
-	let entityRecords = $derived(buildQuickReferenceEntityRecords(notesState.activeNotes));
+	let modeScopedNotes = $derived.by(() =>
+		playerModeState.enabled
+			? notesState.activeNotes.filter((note) => isNoteVisibleInPlayerMode(note))
+			: notesState.activeNotes,
+	);
+	let entityRecords = $derived(buildQuickReferenceEntityRecords(modeScopedNotes));
 	let isEntityMode = $derived(query.trim().startsWith('@'));
 	let entityQuery = $derived(query.trim().slice(1).trim());
 
@@ -78,7 +87,7 @@
 	const noteItems = $derived.by<PaletteItem[]>(() => {
 		const normalized = query.trim();
 		const noteResults = !normalized
-			? [...notesState.activeNotes]
+			? [...modeScopedNotes]
 					.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 					.slice(0, 8)
 					.map((note) => ({
@@ -96,6 +105,11 @@
 					}))
 			: searchService
 					.search(normalized)
+					.filter((result) => {
+						if (!playerModeState.enabled) return true;
+						const note = notesState.getActiveNoteById(result.id);
+						return !!note && isNoteVisibleInPlayerMode(note);
+					})
 					.slice(0, 10)
 					.map((result) => ({
 						id: `note-${result.id}`,
@@ -119,8 +133,11 @@
 				id: 'action-new-note',
 				group: 'Actions',
 				title: 'New note',
-				subtitle: 'Create and open a fresh note',
+				subtitle: playerModeState.enabled
+					? 'Unavailable while player mode is active'
+					: 'Create and open a fresh note',
 				keywords: 'create add note action',
+				disabled: playerModeState.enabled,
 				run: () => {
 					onclose();
 					void onnewnote();
@@ -130,8 +147,11 @@
 				id: 'action-template',
 				group: 'Actions',
 				title: 'New from template',
-				subtitle: 'Start from a campaign template',
+				subtitle: playerModeState.enabled
+					? 'Unavailable while player mode is active'
+					: 'Start from a campaign template',
 				keywords: 'template create action',
+				disabled: playerModeState.enabled,
 				run: () => {
 					onclose();
 					ontemplate();
@@ -141,8 +161,11 @@
 				id: 'action-session-recap',
 				group: 'Actions',
 				title: 'Generate session recap scaffold',
-				subtitle: 'Create a structured session recap note',
+				subtitle: playerModeState.enabled
+					? 'Unavailable while player mode is active'
+					: 'Create a structured session recap note',
 				keywords: 'session recap scaffold template',
+				disabled: playerModeState.enabled,
 				run: () => {
 					onclose();
 					onsessionrecap();
@@ -157,6 +180,19 @@
 				run: () => {
 					ui.toggleSidebar();
 					onclose();
+				},
+			},
+			{
+				id: 'action-toggle-player-mode',
+				group: 'Actions',
+				title: playerModeState.enabled ? 'Exit Player Mode' : 'Enter Player Mode',
+				subtitle: playerModeState.enabled
+					? 'Return to DM view with full content access'
+					: 'Switch to shared/public player boundary',
+				keywords: 'player mode visibility shared public dm',
+				run: () => {
+					onclose();
+					ontoggleplayermode();
 				},
 			},
 			{
@@ -201,10 +237,18 @@
 			{
 				id: 'nav-home',
 				group: 'Navigation',
-				title: 'Go to Home',
-				subtitle: '/',
-				keywords: 'home route navigation',
-				run: () => navigate(resolve('/')),
+				title: playerModeState.enabled ? 'Go to Player View' : 'Go to Home',
+				subtitle: playerModeState.enabled ? '/player' : '/',
+				keywords: 'home player route navigation',
+				run: () => navigate(resolve(playerModeState.enabled ? '/player' : '/')),
+			},
+			{
+				id: 'nav-player',
+				group: 'Navigation',
+				title: 'Go to Player View',
+				subtitle: '/player',
+				keywords: 'player shared public visibility navigation',
+				run: () => navigate(resolve('/player')),
 			},
 			{
 				id: 'nav-notes',
@@ -228,6 +272,7 @@
 				title: 'Go to Timeline',
 				subtitle: '/timeline',
 				keywords: 'timeline campaign chronology navigation',
+				disabled: playerModeState.enabled,
 				run: () => navigate(resolve('/timeline')),
 			},
 			{
@@ -236,6 +281,7 @@
 				title: 'Go to Session Board',
 				subtitle: '/session-board',
 				keywords: 'board session navigation',
+				disabled: playerModeState.enabled,
 				run: () => navigate(resolve('/session-board')),
 			},
 			{
@@ -262,6 +308,7 @@
 				title: `Create: ${template.name}`,
 				subtitle: `Template in ${template.defaultFolder}`,
 				keywords: `template ${template.name} ${template.defaultFolder}`,
+				disabled: playerModeState.enabled,
 				run: () => {
 					onclose();
 					oncreatefromtemplate(template.id);

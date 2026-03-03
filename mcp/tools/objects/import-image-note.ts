@@ -45,6 +45,7 @@ export function registerImportImageNoteTool(server: McpServer, storage: FileSyst
 			name: z.string().optional().describe('Optional image note name (defaults to filename)'),
 			summary: z.string().optional().default(''),
 			tags: z.array(z.string()).optional().default([]),
+			visibility: z.enum(['dm_only', 'shared', 'public']).optional().default('dm_only'),
 			relationships: z.array(objectRelationshipSchema).optional().default([]),
 			assetFolder: z.string().optional().default('/assets/images'),
 			noteFolder: z.string().optional().default('/objects/image'),
@@ -107,6 +108,7 @@ export function registerImportImageNoteTool(server: McpServer, storage: FileSyst
 				name: baseName,
 				summary: input.summary,
 				tags: input.tags,
+				visibility: input.visibility,
 				relationships: normalizeObjectRelationships(input.relationships),
 				data: normalizeImageData({
 					url: asFileUri(destinationAbs),

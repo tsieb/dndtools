@@ -14,6 +14,7 @@ function note(overrides: Partial<Note>): Note {
 		folder: createFolderId('/sessions'),
 		tags: ['session'],
 		frontmatter: { worldDate: 10 },
+		visibility: overrides.visibility ?? 'dm_only',
 		createdAt: '2026-01-01T00:00:00.000Z',
 		updatedAt: '2026-01-01T00:00:00.000Z',
 		deleted: false,
@@ -66,6 +67,7 @@ describe('session-timeline helpers', () => {
 			name: 'Session 1 Timeline',
 			summary: '',
 			tags: ['timeline'],
+			visibility: 'dm_only',
 			relationships: [],
 			data: {
 				worldDateOffset: 1,

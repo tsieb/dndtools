@@ -207,6 +207,7 @@ export async function syncSessionTimelineLink(
 			tags: unique(
 				['timeline', 'session-log', ...note.tags].map((entry) => entry.trim()).filter(Boolean),
 			),
+			visibility: note.visibility,
 			relationships: [],
 			data: normalizeTimelineEventData({
 				date: canonicalDate,

@@ -3,7 +3,9 @@
 	import type { PageData } from './$types';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
+	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import NoteViewer from '$lib/ui/viewer/NoteViewer.svelte';
+	import PlayerCharacterSheet from '$lib/ui/player/PlayerCharacterSheet.svelte';
 	import ObjectRelationshipPanel from '$lib/ui/viewer/ObjectRelationshipPanel.svelte';
 	import NoteHeader from '$lib/ui/viewer/NoteHeader.svelte';
 	import BacklinksPanel from '$lib/ui/viewer/BacklinksPanel.svelte';
@@ -14,6 +16,8 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { recordPerformanceMeasurement } from '$lib/runtime/diagnostics.js';
+	import { noteToVaultObject } from '$lib/domain/object-notes.js';
+	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 
 	let { data }: { data: PageData } = $props();
 	let showDeleteConfirm = $state(false);
@@ -26,7 +30,21 @@
 		startedAt: number;
 	} | null>(null);
 
-	let note = $derived(notesState.getNoteById(data.noteId));
+	let rawNote = $derived(notesState.getNoteById(data.noteId));
+	let note = $derived.by(() => {
+		if (!rawNote) return null;
+		if (!playerModeState.enabled) return rawNote;
+		return isNoteVisibleInPlayerMode(rawNote) ? rawNote : null;
+	});
+	let hiddenByVisibility = $derived(
+		playerModeState.enabled && !!rawNote && !isNoteVisibleInPlayerMode(rawNote),
+	);
+	let playerCharacterObject = $derived.by(() => {
+		if (!playerModeState.enabled || !note || note.visibility !== 'shared') return null;
+		const object = noteToVaultObject(note);
+		if (!object || object.type !== 'character') return null;
+		return object;
+	});
 
 	$effect(() => {
 		if (!data.noteId) return;
@@ -109,47 +127,72 @@
 		</div>
 		<NoteHeader
 			{note}
+			readonly={playerModeState.enabled}
 			onedit={() => goto(resolve(`/notes/${data.noteId}/edit`))}
 			ondelete={() => (showDeleteConfirm = true)}
 		/>
 		<TableOfContents content={note.content} />
-		<div
-			class="max-w-content mx-auto mb-4 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
-		>
-			<div class="flex items-center gap-2">
-				<input
-					type="text"
-					bind:value={quickAdd}
-					placeholder="Quick add to this note..."
-					class="flex-1 bg-transparent text-sm text-ink dark:text-tavern-text placeholder:text-ink-faint dark:placeholder:text-tavern-faint outline-none"
-					onkeydown={(event) => {
-						if (event.key === 'Enter') {
-							event.preventDefault();
-							void handleQuickAdd();
-						}
-					}}
-				/>
-				<button
-					class="px-2.5 py-1.5 text-xs rounded-md bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent hover:bg-accent/20 dark:hover:bg-tavern-accent/20"
-					onclick={handleQuickAdd}
-				>
-					Add
-				</button>
+		{#if !playerModeState.enabled}
+			<div
+				class="max-w-content mx-auto mb-4 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
+			>
+				<div class="flex items-center gap-2">
+					<input
+						type="text"
+						bind:value={quickAdd}
+						placeholder="Quick add to this note..."
+						class="flex-1 bg-transparent text-sm text-ink dark:text-tavern-text placeholder:text-ink-faint dark:placeholder:text-tavern-faint outline-none"
+						onkeydown={(event) => {
+							if (event.key === 'Enter') {
+								event.preventDefault();
+								void handleQuickAdd();
+							}
+						}}
+					/>
+					<button
+						class="px-2.5 py-1.5 text-xs rounded-md bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent hover:bg-accent/20 dark:hover:bg-tavern-accent/20"
+						onclick={handleQuickAdd}
+					>
+						Add
+					</button>
+				</div>
 			</div>
-		</div>
-		<NoteViewer {note} />
-		<ObjectRelationshipPanel {note} />
+		{/if}
+		{#if playerCharacterObject}
+			<PlayerCharacterSheet object={playerCharacterObject} />
+		{:else}
+			<NoteViewer {note} />
+		{/if}
+		{#if !playerModeState.enabled}
+			<ObjectRelationshipPanel {note} />
+		{/if}
 		<RelatedNoteJumps noteId={data.noteId} />
 		<BacklinksPanel noteId={data.noteId} />
 	</div>
 
-	<ConfirmDialog
-		open={showDeleteConfirm}
-		title="Delete Note"
-		message={'Are you sure you want to delete "' + note.title + '"? It will be moved to trash.'}
-		onconfirm={handleDelete}
-		oncancel={() => (showDeleteConfirm = false)}
-	/>
+	{#if !playerModeState.enabled}
+		<ConfirmDialog
+			open={showDeleteConfirm}
+			title="Delete Note"
+			message={'Are you sure you want to delete "' + note.title + '"? It will be moved to trash.'}
+			onconfirm={handleDelete}
+			oncancel={() => (showDeleteConfirm = false)}
+		/>
+	{/if}
+{:else if hiddenByVisibility}
+	<div class="flex items-center justify-center h-full">
+		<div class="text-center py-16">
+			<p class="text-lg text-ink-muted dark:text-tavern-muted mb-2">
+				This note is not visible in player mode.
+			</p>
+			<a
+				href={resolve('/player')}
+				class="text-accent dark:text-tavern-accent hover:text-accent-hover dark:hover:text-tavern-accent-hover text-sm"
+			>
+				Back to player view
+			</a>
+		</div>
+	</div>
 {:else}
 	<div class="flex items-center justify-center h-full">
 		<div class="text-center py-16">

@@ -1,4 +1,5 @@
 import type { Note } from '$lib/types/note.js';
+import { DEFAULT_CONTENT_VISIBILITY } from '$lib/types/visibility.js';
 
 const DEFAULT_UNTITLED_TITLE = 'untitled';
 
@@ -7,8 +8,9 @@ function hasCustomFrontmatter(note: Pick<Note, 'frontmatter'>): boolean {
 }
 
 export function hasMeaningfulNoteContent(
-	note: Pick<Note, 'title' | 'content' | 'tags' | 'frontmatter'>,
+	note: Pick<Note, 'title' | 'content' | 'tags' | 'frontmatter' | 'visibility'>,
 ): boolean {
+	if (note.visibility !== DEFAULT_CONTENT_VISIBILITY) return true;
 	if (note.content.trim().length > 0) return true;
 	if (note.tags.length > 0) return true;
 	if (hasCustomFrontmatter(note)) return true;

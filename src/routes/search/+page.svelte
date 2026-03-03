@@ -6,6 +6,9 @@
 	import { semanticSearchService } from '$lib/domain/semantic-search.js';
 	import { searchState } from '$lib/state/search.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { playerModeState } from '$lib/state/player-mode.svelte.js';
+	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
+	import type { NoteId } from '$lib/types/note.js';
 	import { formatRelativeDate } from '$lib/utils/date.js';
 
 	type FacetKind = 'tag' | 'folder' | 'type' | 'date';
@@ -65,7 +68,7 @@
 	let semanticChecking = $state(false);
 	let semanticStatus = $state<string | null>(null);
 	let semanticError = $state<string | null>(null);
-	let semanticResultIds = $state<string[]>([]);
+	let semanticResultIds = $state<NoteId[]>([]);
 	let lastUrlQuery = $state<string | null>(null);
 
 	let saveName = $state('');
@@ -170,13 +173,16 @@
 		try {
 			const keyword = searchService.searchDetailed(normalizedQuery);
 			let mergedResults = keyword.results;
-			let semanticIds: string[] = [];
+			let semanticIds: NoteId[] = [];
 
 			if (semanticEnabled) {
 				try {
+					const semanticCandidateNotes = playerModeState.enabled
+						? notesState.activeNotes.filter((note) => isNoteVisibleInPlayerMode(note))
+						: notesState.notes;
 					const semantic = await semanticSearchService.search({
 						query: normalizedQuery,
-						notes: notesState.notes,
+						notes: semanticCandidateNotes,
 						excludeIds: new Set(keyword.results.map((result) => String(result.id))),
 						limit: 8,
 					});
@@ -185,6 +191,7 @@
 					for (const match of semantic) {
 						const note = notesState.getActiveNoteById(match.id);
 						if (!note) continue;
+						if (playerModeState.enabled && !isNoteVisibleInPlayerMode(note)) continue;
 						supplemental.push({
 							id: note.id,
 							title: note.title,
@@ -202,7 +209,7 @@
 						});
 					}
 					mergedResults = [...keyword.results, ...supplemental];
-					semanticIds = supplemental.map((entry) => String(entry.id));
+					semanticIds = supplemental.map((entry) => entry.id);
 					semanticError = null;
 				} catch (error) {
 					semanticError =
@@ -213,11 +220,22 @@
 			}
 
 			if (runToken !== searchRunToken) return;
+			const visibleResults = playerModeState.enabled
+				? mergedResults.filter((result) => {
+						const note = notesById.get(result.id);
+						return !!note && isNoteVisibleInPlayerMode(note);
+					})
+				: mergedResults;
 			response = {
 				...keyword,
-				results: mergedResults,
+				results: visibleResults,
 			};
-			semanticResultIds = semanticIds;
+			semanticResultIds = playerModeState.enabled
+				? semanticIds.filter((id) => {
+						const note = notesById.get(id);
+						return !!note && isNoteVisibleInPlayerMode(note);
+					})
+				: semanticIds;
 			searchRunError = null;
 		} catch (error) {
 			if (runToken !== searchRunToken) return;
@@ -818,7 +836,7 @@
 					<div class="space-y-3">
 						{#each filteredResults as result (result.id)}
 							{@const note = notesById.get(result.id)}
-							{@const semanticOnly = semanticResultIdSet.has(String(result.id))}
+							{@const semanticOnly = semanticResultIdSet.has(result.id)}
 							<div
 								class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
 							>
