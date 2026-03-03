@@ -223,6 +223,14 @@
 				run: () => navigate(resolve('/search')),
 			},
 			{
+				id: 'nav-timeline',
+				group: 'Navigation',
+				title: 'Go to Timeline',
+				subtitle: '/timeline',
+				keywords: 'timeline campaign chronology navigation',
+				run: () => navigate(resolve('/timeline')),
+			},
+			{
 				id: 'nav-session-board',
 				group: 'Navigation',
 				title: 'Go to Session Board',

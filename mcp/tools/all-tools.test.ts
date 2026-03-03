@@ -267,6 +267,7 @@ function buildValidInputs(tmpDir: string): Record<ToolName, Record<string, unkno
 		},
 		get_continuity_check_bundle: { staleAfterDays: 45, maxExamples: 5 },
 		get_calendar_events: { dateRange: { from: '0001-01-01', to: '0001-01-07' }, limit: 10 },
+		get_open_threads: { limitPerType: 10, includeKinds: ['quests', 'npcs', 'timeline_events'] },
 		get_folder_tree: {},
 		get_recent_activity: { limit: 10 },
 		get_link_graph: { includeDeleted: false, includeIsolated: true },

@@ -7,8 +7,10 @@
 	import { searchState } from '$lib/state/search.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { isVaultObjectNote } from '$lib/domain/object-notes.js';
+	import { buildOpenThreadsReport } from '$lib/domain/open-threads.js';
 	import WorldCalendarReference from '$lib/ui/calendar/WorldCalendarReference.svelte';
 	import SessionContextPanel from '$lib/ui/session/SessionContextPanel.svelte';
+	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
@@ -78,6 +80,42 @@
 	});
 	let orphanBadgeCount = $derived(linksState.getOrphanNoteIds().length);
 	let hubBadgeCount = $derived(linksState.getHubNoteIds().length);
+	let openThreads = $derived.by(() =>
+		buildOpenThreadsReport(notesState.activeNotes, worldCalendarState.calendar),
+	);
+	let openThreadItems = $derived.by(() => {
+		const combined: Array<{
+			id: string;
+			noteId: string;
+			label: string;
+			type: 'Quest' | 'NPC' | 'Timeline';
+		}> = [];
+		for (const entry of openThreads.quests.slice(0, 4)) {
+			combined.push({
+				id: `quest:${entry.objectId}`,
+				noteId: entry.noteId,
+				label: entry.title,
+				type: 'Quest',
+			});
+		}
+		for (const entry of openThreads.npcs.slice(0, 4)) {
+			combined.push({
+				id: `npc:${entry.objectId}`,
+				noteId: entry.noteId,
+				label: entry.title,
+				type: 'NPC',
+			});
+		}
+		for (const entry of openThreads.timelineEvents.slice(0, 4)) {
+			combined.push({
+				id: `timeline:${entry.objectId}`,
+				noteId: entry.noteId,
+				label: entry.title,
+				type: 'Timeline',
+			});
+		}
+		return combined.slice(0, 8);
+	});
 
 	$effect(() => {
 		if (!searchState.loaded && !searchState.loading) {
@@ -238,6 +276,12 @@
 				{/if}
 			</a>
 			<a
+				href={resolve('/timeline')}
+				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
+			>
+				Timeline
+			</a>
+			<a
 				href={resolve('/session-board')}
 				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
 			>
@@ -257,6 +301,51 @@
 				Dice Tray
 			</button>
 		</nav>
+
+		<div class="px-3 pb-2">
+			<p
+				class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
+			>
+				Open Threads
+			</p>
+			<div
+				class="rounded-md border border-border dark:border-tavern-border p-2 bg-surface dark:bg-tavern-surface space-y-1.5"
+			>
+				<div
+					class="flex items-center justify-between text-[11px] text-ink-faint dark:text-tavern-faint"
+				>
+					<span>Quests {openThreads.totals.quests}</span>
+					<span>NPCs {openThreads.totals.npcs}</span>
+					<span>Timeline {openThreads.totals.timelineEvents}</span>
+				</div>
+				{#if openThreadItems.length === 0}
+					<p class="text-xs text-ink-muted dark:text-tavern-muted px-1 py-0.5">
+						No open threads detected.
+					</p>
+				{:else}
+					<ul class="space-y-0.5">
+						{#each openThreadItems as thread (thread.id)}
+							<li>
+								<button
+									type="button"
+									class="w-full text-left rounded px-2 py-1 text-xs text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+									onclick={() => navigateToNote(thread.noteId)}
+								>
+									<span class="opacity-70">{thread.type}:</span>
+									{thread.label}
+								</button>
+							</li>
+						{/each}
+					</ul>
+					<a
+						href={resolve('/timeline')}
+						class="inline-block px-2 text-xs text-accent hover:underline dark:text-tavern-accent"
+					>
+						Open timeline view
+					</a>
+				{/if}
+			</div>
+		</div>
 
 		<div class="px-3 pb-2">
 			<WorldCalendarReference notes={notesState.activeNotes} title="Calendar" collapsible compact />

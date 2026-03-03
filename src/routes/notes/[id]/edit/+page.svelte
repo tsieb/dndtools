@@ -4,16 +4,28 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { createNoteId } from '$lib/types/note.js';
+	import type { Note } from '$lib/types/note.js';
+	import type { TimelineEventObject } from '$lib/types/object.js';
+	import { noteToVaultObject } from '$lib/domain/object-notes.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { editorState } from '$lib/state/editor.svelte.js';
 	import { editorPreferencesState } from '$lib/state/editor-preferences.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
-	import { extractFrontmatter, upsertFrontmatter } from '$lib/markdown/frontmatter.js';
+	import {
+		extractFrontmatter,
+		stringifyFrontmatter,
+		upsertFrontmatter,
+	} from '$lib/markdown/frontmatter.js';
 	import {
 		analyzeLinkIssues,
 		disambiguateWikilinkTarget,
 		renameWikilinkTarget,
 	} from '$lib/domain/unresolved-links.js';
+	import {
+		getSessionTimelineEventId,
+		isSessionNote,
+		SESSION_TIMELINE_LINK_KEYS,
+	} from '$lib/domain/session-timeline.js';
 	import Button from '$lib/ui/common/Button.svelte';
 	import EditorToolbar from '$lib/ui/editor/EditorToolbar.svelte';
 	import EditorInsertMenu from '$lib/ui/editor/EditorInsertMenu.svelte';
@@ -25,6 +37,7 @@
 	import UnresolvedLinksPanel from '$lib/ui/editor/UnresolvedLinksPanel.svelte';
 
 	const EditorPromise = import('$lib/ui/editor/CodeMirrorEditor.svelte');
+	type TimelineEventCandidate = { note: Note; object: TimelineEventObject };
 
 	const noteId = $derived(createNoteId(page.params.id ?? ''));
 	let note = $derived(notesState.getNoteById(noteId));
@@ -48,6 +61,25 @@
 		),
 	]);
 	let editorSettings = $derived(editorPreferencesState.settings);
+	let timelineEventCandidates = $derived.by<TimelineEventCandidate[]>(() => {
+		const candidates: TimelineEventCandidate[] = [];
+		for (const entry of notesState.activeNotes) {
+			const object = noteToVaultObject(entry);
+			if (!object || object.type !== 'timeline_event') continue;
+			candidates.push({ note: entry, object });
+		}
+		candidates.sort((a, b) => b.note.updatedAt.localeCompare(a.note.updatedAt));
+		return candidates;
+	});
+	let linkedTimelineEventId = $derived(getSessionTimelineEventId(frontmatter));
+	let linkedTimelineEvent = $derived.by(
+		() =>
+			timelineEventCandidates.find((entry) => String(entry.note.id) === linkedTimelineEventId) ??
+			null,
+	);
+	let sessionTimelineEligible = $derived(
+		note ? isSessionNote({ tags: note.tags, frontmatter }) : false,
+	);
 	let editorSettingsKey = $derived(
 		JSON.stringify({
 			fontSize: editorSettings.fontSize,
@@ -124,6 +156,37 @@
 	function handleMetadataApply(updates: Record<string, unknown>): void {
 		editorState.setContent(upsertFrontmatter(editorState.content, updates));
 		toastState.success('Metadata updated');
+	}
+
+	function replaceFrontmatter(nextFrontmatter: Record<string, unknown>): void {
+		const parsed = extractFrontmatter(editorState.content);
+		const frontmatterBlock = stringifyFrontmatter(nextFrontmatter);
+		editorState.setContent(frontmatterBlock ? `${frontmatterBlock}${parsed.body}` : parsed.body);
+	}
+
+	function linkTimelineEvent(eventId: string): void {
+		if (!eventId.trim()) return;
+		const parsed = extractFrontmatter(editorState.content);
+		const nextFrontmatter: Record<string, unknown> = {
+			...parsed.frontmatter,
+			timelineEventId: eventId,
+		};
+		for (const key of SESSION_TIMELINE_LINK_KEYS) {
+			if (key === 'timelineEventId') continue;
+			if (key in nextFrontmatter) delete nextFrontmatter[key];
+		}
+		replaceFrontmatter(nextFrontmatter);
+		toastState.success('Linked session note to timeline event');
+	}
+
+	function clearTimelineEventLink(): void {
+		const parsed = extractFrontmatter(editorState.content);
+		const nextFrontmatter: Record<string, unknown> = { ...parsed.frontmatter };
+		for (const key of SESSION_TIMELINE_LINK_KEYS) {
+			if (key in nextFrontmatter) delete nextFrontmatter[key];
+		}
+		replaceFrontmatter(nextFrontmatter);
+		toastState.success('Removed timeline linkage');
 	}
 
 	async function createUnresolvedNote(title: string): Promise<void> {
@@ -298,6 +361,54 @@
 		</section>
 
 		<MetadataEditor {frontmatter} onapply={handleMetadataApply} />
+		{#if sessionTimelineEligible}
+			<section
+				class="mb-3 rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
+			>
+				<h2
+					class="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
+				>
+					Session Timeline Link
+				</h2>
+				<p class="text-xs text-ink-muted dark:text-tavern-muted">
+					Session notes can link to timeline events. If no link exists, saving auto-creates one from
+					this note's world date metadata.
+				</p>
+				<div class="mt-2 flex flex-wrap items-center gap-2">
+					<select
+						class="min-w-[220px] rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+						value={linkedTimelineEventId ?? ''}
+						onchange={(event) =>
+							linkTimelineEvent((event.currentTarget as HTMLSelectElement).value)}
+					>
+						<option value="">Link to existing timeline event...</option>
+						{#each timelineEventCandidates as candidate (candidate.note.id)}
+							<option value={candidate.note.id}>{candidate.note.title}</option>
+						{/each}
+					</select>
+					{#if linkedTimelineEventId}
+						<button
+							type="button"
+							class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+							onclick={clearTimelineEventLink}
+						>
+							Clear link
+						</button>
+					{/if}
+				</div>
+				{#if linkedTimelineEvent}
+					<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">
+						Linked event:
+						<a
+							href={resolve(`/notes/${linkedTimelineEvent.note.id}`)}
+							class="text-accent hover:underline dark:text-tavern-accent"
+						>
+							{linkedTimelineEvent.note.title}
+						</a>
+					</p>
+				{/if}
+			</section>
+		{/if}
 		<ObjectStructuredEditor {note} onreloaded={handleObjectReloaded} />
 		<UnresolvedLinksPanel
 			{unresolved}

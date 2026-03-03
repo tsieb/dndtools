@@ -381,6 +381,9 @@ function buildObjectMarkdown(
 			`- Era: ${value.era ?? ''}`.trimEnd(),
 			`- Significance: ${value.significance ?? ''}`.trimEnd(),
 			`- Summary: ${value.summary ?? ''}`.trimEnd(),
+			`- Arc Tag: ${value.arcTag ?? ''}`.trimEnd(),
+			`- Linked Session Note: ${value.linkedSessionNoteId ?? ''}`.trimEnd(),
+			`- Resolution Status: ${value.resolutionStatus ?? ''}`.trimEnd(),
 			'',
 			'## Involved Object IDs',
 			...(value.involvedObjectIds.length > 0

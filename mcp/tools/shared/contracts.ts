@@ -313,6 +313,44 @@ const calendarEventSummarySchema = z
 	})
 	.strict();
 
+const openQuestThreadSchema = z
+	.object({
+		objectId: z.string().min(1),
+		noteId: z.string().min(1),
+		title: z.string().min(1),
+		status: z.string().nullable(),
+		objective: z.string().nullable(),
+		updatedAt: z.string().min(1),
+	})
+	.strict();
+
+const openNpcThreadSchema = z
+	.object({
+		objectId: z.string().min(1),
+		noteId: z.string().min(1),
+		title: z.string().min(1),
+		disposition: z.string().nullable(),
+		updatedAt: z.string().min(1),
+		reason: z.string().min(1),
+	})
+	.strict();
+
+const openTimelineThreadSchema = z
+	.object({
+		objectId: z.string().min(1),
+		noteId: z.string().min(1),
+		title: z.string().min(1),
+		arcTag: z.string().nullable(),
+		dayOffset: z.number().int().nullable(),
+		dateShort: z.string().nullable(),
+		dateIso: z.string().nullable(),
+		summary: z.string(),
+		linkedSessionNoteId: z.string().nullable(),
+		updatedAt: z.string().min(1),
+		reason: z.string().min(1),
+	})
+	.strict();
+
 export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 	list_notes: {
 		permission: 'read-only',
@@ -731,6 +769,28 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 			})
 			.strict(),
 		remediationHint: 'Use world day offsets or YYYY-MM-DD calendar dates for deterministic ranges.',
+	},
+	get_open_threads: {
+		permission: 'read-only',
+		retryPolicy: 'idempotent',
+		responseSchema: z
+			.object({
+				generatedAt: z.string().min(1),
+				totals: z
+					.object({
+						quests: z.number().int().nonnegative(),
+						npcs: z.number().int().nonnegative(),
+						timelineEvents: z.number().int().nonnegative(),
+						all: z.number().int().nonnegative(),
+					})
+					.strict(),
+				quests: z.array(openQuestThreadSchema),
+				npcs: z.array(openNpcThreadSchema),
+				timelineEvents: z.array(openTimelineThreadSchema),
+			})
+			.strict(),
+		remediationHint:
+			'Mark timeline events as pending-resolution and keep quest/NPC statuses current for accurate thread lists.',
 	},
 	vault_health_check: {
 		permission: 'read-only',

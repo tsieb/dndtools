@@ -13,15 +13,16 @@ This matrix defines the critical desktop workflows covered by Playwright and the
 
 ## Route Coverage Matrix
 
-| Route               | Covered workflows                                                            | Test evidence                                                                                                                   |
-| ------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                 | Vault opens, app shell renders, first-run onboarding checklist is actionable | `desktop-smoke.spec.ts`, `critical-workflows.spec.ts` ("vault opens and first-run onboarding is actionable")                    |
-| `/notes`            | Notes listing and note-entry navigation                                      | `critical-workflows.spec.ts` ("note CRUD workflow", "wikilink navigation and search workflows")                                 |
-| `/notes/[id]`       | Note viewer rendering and wikilink navigation                                | `critical-workflows.spec.ts` ("wikilink navigation and search workflows")                                                       |
-| `/notes/[id]/edit`  | Note create/update flow, object creation/embed flow                          | `critical-workflows.spec.ts` ("note CRUD workflow", "object creation workflow")                                                 |
-| `/search`           | Search query execution and result rendering                                  | `critical-workflows.spec.ts` ("vault opens and first-run onboarding is actionable", "wikilink navigation and search workflows") |
-| `/settings?tab=mcp` | MCP pending-change review and approval lifecycle                             | `critical-workflows.spec.ts` ("MCP pending review approves staged changes from settings")                                       |
-| `/session-board`    | Session board creation and note-tile management                              | `critical-workflows.spec.ts` ("session board management creates board and attaches notes")                                      |
+| Route               | Covered workflows                                                               | Test evidence                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                 | Vault opens, app shell renders, first-run onboarding checklist is actionable    | `desktop-smoke.spec.ts`, `critical-workflows.spec.ts` ("vault opens and first-run onboarding is actionable")                    |
+| `/notes`            | Notes listing and note-entry navigation                                         | `critical-workflows.spec.ts` ("note CRUD workflow", "wikilink navigation and search workflows")                                 |
+| `/notes/[id]`       | Note viewer rendering and wikilink navigation                                   | `critical-workflows.spec.ts` ("wikilink navigation and search workflows")                                                       |
+| `/notes/[id]/edit`  | Note create/update flow, object creation/embed flow                             | `critical-workflows.spec.ts` ("note CRUD workflow", "object creation workflow")                                                 |
+| `/search`           | Search query execution and result rendering                                     | `critical-workflows.spec.ts` ("vault opens and first-run onboarding is actionable", "wikilink navigation and search workflows") |
+| `/timeline`         | Chronological world/session timeline rendering with arc and participant filters | `critical-workflows.spec.ts` ("timeline route shows world events and linked session logs with filters")                         |
+| `/settings?tab=mcp` | MCP pending-change review and approval lifecycle                                | `critical-workflows.spec.ts` ("MCP pending review approves staged changes from settings")                                       |
+| `/session-board`    | Session board creation and note-tile management                                 | `critical-workflows.spec.ts` ("session board management creates board and attaches notes")                                      |
 
 ## Merge Blocking Policy
 

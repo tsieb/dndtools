@@ -152,6 +152,9 @@ export interface TimelineEventData {
 	era?: string;
 	significance?: string;
 	summary?: string;
+	arcTag?: string;
+	linkedSessionNoteId?: string;
+	resolutionStatus?: string;
 	involvedObjectIds: string[];
 	consequences: string[];
 }
