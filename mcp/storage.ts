@@ -31,6 +31,11 @@ import type {
 	McpPolicySettings,
 } from '../src/lib/types/settings.js';
 import { createNoteId, createFolderId, ROOT_FOLDER } from '../src/lib/types/note.js';
+import type { ContentVisibility } from '../src/lib/types/visibility.js';
+import {
+	DEFAULT_CONTENT_VISIBILITY,
+	normalizeContentVisibility,
+} from '../src/lib/types/visibility.js';
 import { createSessionBoardId } from '../src/lib/types/session-board.js';
 import { DEFAULT_SETTINGS } from '../src/lib/types/settings.js';
 import { slugify } from '../src/lib/utils/slug.js';
@@ -121,6 +126,7 @@ interface VaultIndex {
 			filename: string;
 			folder: string;
 			tags: string[];
+			visibility: ContentVisibility;
 			aliases?: string[];
 			createdAt: string;
 			updatedAt: string;
@@ -207,6 +213,7 @@ function cloneNoteSnapshot(note: Note): Note {
 		...note,
 		tags: [...note.tags],
 		frontmatter: { ...note.frontmatter },
+		visibility: normalizeContentVisibility(note.visibility),
 	};
 }
 
@@ -509,6 +516,7 @@ function noteMatchesSnapshot(live: Note, snapshot: Note): boolean {
 		live.updatedAt === snapshot.updatedAt &&
 		live.deleted === snapshot.deleted &&
 		live.deletedAt === snapshot.deletedAt &&
+		live.visibility === snapshot.visibility &&
 		JSON.stringify(live.tags) === JSON.stringify(snapshot.tags) &&
 		JSON.stringify(live.frontmatter) === JSON.stringify(snapshot.frontmatter)
 	);
@@ -523,6 +531,7 @@ const MANAGED_FRONTMATTER_KEYS = new Set([
 	'updatedAt',
 	'deleted',
 	'deletedAt',
+	'visibility',
 	'pinned',
 	'pinnedAt',
 	NOTE_MARKER_KEY,
@@ -538,6 +547,7 @@ function splitFrontmatter(data: Record<string, unknown>): {
 		updatedAt?: string;
 		deleted?: boolean;
 		deletedAt?: string | null;
+		visibility?: ContentVisibility;
 		pinned?: boolean;
 		pinnedAt?: string | null;
 		integrity?: {
@@ -556,6 +566,7 @@ function splitFrontmatter(data: Record<string, unknown>): {
 		updatedAt?: string;
 		deleted?: boolean;
 		deletedAt?: string | null;
+		visibility?: ContentVisibility;
 		pinned?: boolean;
 		pinnedAt?: string | null;
 		integrity?: {
@@ -582,6 +593,9 @@ function splitFrontmatter(data: Record<string, unknown>): {
 		if (key === 'deleted' && typeof value === 'boolean') managed.deleted = value;
 		if (key === 'deletedAt' && (typeof value === 'string' || value === null)) {
 			managed.deletedAt = value;
+		}
+		if (key === 'visibility') {
+			managed.visibility = normalizeContentVisibility(value);
 		}
 		if (key === 'pinned' && typeof value === 'boolean') managed.pinned = value;
 		if (key === 'pinnedAt' && (typeof value === 'string' || value === null)) {
@@ -1305,7 +1319,11 @@ export class FileSystemAdapter implements StorageAdapter {
 	// --- File I/O ---
 
 	/** Read a markdown file and parse into a Note */
-	private async readNoteFile(filePath: string, relativePath?: string): Promise<Note | null> {
+	private async readNoteFile(
+		filePath: string,
+		relativePath?: string,
+		options?: { fallbackVisibility?: ContentVisibility },
+	): Promise<Note | null> {
 		try {
 			const raw = await fs.readFile(filePath, 'utf-8');
 			const { data, content } = matter(raw);
@@ -1321,6 +1339,10 @@ export class FileSystemAdapter implements StorageAdapter {
 				filePath: relativePath,
 				tags: managed.tags ?? [],
 				frontmatter: custom,
+				visibility: normalizeContentVisibility(
+					managed.visibility,
+					options?.fallbackVisibility ?? DEFAULT_CONTENT_VISIBILITY,
+				),
 				createdAt: managed.createdAt ?? now,
 				updatedAt: managed.updatedAt ?? now,
 				deleted: managed.deleted ?? false,
@@ -1346,6 +1368,7 @@ export class FileSystemAdapter implements StorageAdapter {
 			updatedAt: note.updatedAt,
 			deleted: note.deleted,
 			deletedAt: note.deletedAt,
+			visibility: normalizeContentVisibility(note.visibility),
 			pinned: note.pinned,
 			pinnedAt: note.pinnedAt,
 			[NOTE_MARKER_KEY]: {
@@ -1366,6 +1389,7 @@ export class FileSystemAdapter implements StorageAdapter {
 			filename,
 			folder: String(note.folder),
 			tags: note.tags,
+			visibility: normalizeContentVisibility(note.visibility),
 			aliases: extractAliasesFromFrontmatter(note.frontmatter),
 			createdAt: note.createdAt,
 			updatedAt: note.updatedAt,
@@ -1732,6 +1756,7 @@ export class FileSystemAdapter implements StorageAdapter {
 				filename,
 				folder: String(folder),
 				tags: note.tags,
+				visibility: normalizeContentVisibility(note.visibility),
 				aliases: extractAliasesFromFrontmatter(note.frontmatter),
 				createdAt: note.createdAt,
 				updatedAt: note.updatedAt,
@@ -1780,6 +1805,7 @@ export class FileSystemAdapter implements StorageAdapter {
 		return this.readNoteFile(
 			filePath,
 			this.toRelativeVaultPath(createFolderId(entry.folder), entry.filename),
+			{ fallbackVisibility: normalizeContentVisibility(entry.visibility) },
 		);
 	}
 
@@ -2424,6 +2450,7 @@ export class FileSystemAdapter implements StorageAdapter {
 					...note,
 					deleted: false,
 					deletedAt: null,
+					visibility: normalizeContentVisibility(note.visibility),
 					updatedAt: nowISO(),
 				};
 				await this.saveNoteInternal(recovered, false);
@@ -2504,6 +2531,7 @@ export class FileSystemAdapter implements StorageAdapter {
 		folder: string;
 		filePath: string;
 		tags: string[];
+		visibility: ContentVisibility;
 		createdAt: string;
 		updatedAt: string;
 		deleted: boolean;
@@ -2516,6 +2544,7 @@ export class FileSystemAdapter implements StorageAdapter {
 				title: entry.title,
 				folder: entry.folder,
 				tags: entry.tags,
+				visibility: normalizeContentVisibility(entry.visibility),
 				createdAt: entry.createdAt,
 				updatedAt: entry.updatedAt,
 				deleted: entry.deleted,

@@ -3,6 +3,10 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { FileSystemAdapter } from '../../storage.js';
 import type { Note } from '../../../src/lib/types/note.js';
 import { createFolderId } from '../../../src/lib/types/note.js';
+import {
+	DEFAULT_CONTENT_VISIBILITY,
+	normalizeContentVisibility,
+} from '../../../src/lib/types/visibility.js';
 import { generateNoteId } from '../../../src/lib/utils/id.js';
 import { nowISO } from '../../../src/lib/utils/date.js';
 import {
@@ -33,6 +37,11 @@ export function registerCreateNoteTool(server: McpServer, storage: FileSystemAda
 			content: z.string().optional().describe('Markdown content'),
 			folder: z.string().optional().describe('Folder path'),
 			tags: z.array(z.string()).optional().describe('Tag list without # prefix'),
+			visibility: z
+				.enum(['dm_only', 'shared', 'public'])
+				.optional()
+				.default('dm_only')
+				.describe('Content visibility boundary'),
 			frontmatter: frontmatterSchema
 				.optional()
 				.default({})
@@ -44,7 +53,16 @@ export function registerCreateNoteTool(server: McpServer, storage: FileSystemAda
 					'Optional template variable overrides for campaignName/sessionNumber/characterNames',
 				),
 		},
-		async ({ title, content, folder, tags, frontmatter, templateId, templateContext }) => {
+		async ({
+			title,
+			content,
+			folder,
+			tags,
+			visibility,
+			frontmatter,
+			templateId,
+			templateContext,
+		}) => {
 			const hasExplicitContent = content !== undefined;
 			const hasExplicitFolder = folder !== undefined;
 			const hasExplicitTags = tags !== undefined;
@@ -95,6 +113,9 @@ export function registerCreateNoteTool(server: McpServer, storage: FileSystemAda
 				});
 			}
 
+			const sanitizedFrontmatter = { ...frontmatter };
+			delete sanitizedFrontmatter.visibility;
+
 			const now = nowISO();
 			const note: Note = {
 				id: generateNoteId(),
@@ -102,7 +123,8 @@ export function registerCreateNoteTool(server: McpServer, storage: FileSystemAda
 				content: resolvedContent,
 				folder: createFolderId(resolvedFolder),
 				tags: resolvedTags,
-				frontmatter,
+				frontmatter: sanitizedFrontmatter,
+				visibility: normalizeContentVisibility(visibility, DEFAULT_CONTENT_VISIBILITY),
 				createdAt: now,
 				updatedAt: now,
 				deleted: false,
@@ -121,6 +143,7 @@ export function registerCreateNoteTool(server: McpServer, storage: FileSystemAda
 				folder: persisted.folder,
 				filePath: persisted.filePath ?? null,
 				tags: persisted.tags,
+				visibility: persisted.visibility,
 			});
 		},
 	);

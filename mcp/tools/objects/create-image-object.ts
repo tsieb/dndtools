@@ -35,6 +35,7 @@ export function registerCreateImageObjectTool(server: McpServer, storage: FileSy
 				name: input.name,
 				summary: input.summary,
 				tags: input.tags,
+				visibility: input.visibility,
 				relationships: normalizeObjectRelationships(input.relationships),
 				data: normalizeImageData({
 					url: input.url,

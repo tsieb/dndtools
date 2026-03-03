@@ -4,6 +4,7 @@ import type { FileSystemAdapter } from '../../storage.js';
 import type { Note } from '../../../src/lib/types/note.js';
 import { createFolderId, createNoteId } from '../../../src/lib/types/note.js';
 import { nowISO } from '../../../src/lib/utils/date.js';
+import { normalizeContentVisibility } from '../../../src/lib/types/visibility.js';
 import { frontmatterSchema } from '../shared/frontmatter.js';
 import { errorResult, jsonResult } from '../shared/response.js';
 
@@ -17,10 +18,11 @@ export function registerUpdateNoteTool(server: McpServer, storage: FileSystemAda
 			content: z.string().optional(),
 			folder: z.string().optional(),
 			tags: z.array(z.string()).optional(),
+			visibility: z.enum(['dm_only', 'shared', 'public']).optional(),
 			frontmatter: frontmatterSchema.optional(),
 			frontmatterMode: z.enum(['merge', 'replace']).optional().default('merge'),
 		},
-		async ({ id, title, content, folder, tags, frontmatter, frontmatterMode }) => {
+		async ({ id, title, content, folder, tags, visibility, frontmatter, frontmatterMode }) => {
 			const existing = await storage.getNote(createNoteId(id));
 			if (!existing) {
 				return errorResult('Note not found.');
@@ -32,6 +34,7 @@ export function registerUpdateNoteTool(server: McpServer, storage: FileSystemAda
 					: frontmatterMode === 'replace'
 						? frontmatter
 						: { ...existing.frontmatter, ...frontmatter };
+			delete nextFrontmatter.visibility;
 
 			const updated: Note = {
 				...existing,
@@ -39,6 +42,7 @@ export function registerUpdateNoteTool(server: McpServer, storage: FileSystemAda
 				content: content ?? existing.content,
 				folder: folder ? createFolderId(folder) : existing.folder,
 				tags: tags ?? existing.tags,
+				visibility: normalizeContentVisibility(visibility, existing.visibility),
 				frontmatter: nextFrontmatter,
 				updatedAt: nowISO(),
 			};
@@ -55,6 +59,7 @@ export function registerUpdateNoteTool(server: McpServer, storage: FileSystemAda
 				folder: persisted.folder,
 				filePath: persisted.filePath ?? null,
 				tags: persisted.tags,
+				visibility: persisted.visibility,
 				updatedAt: persisted.updatedAt,
 			});
 		},

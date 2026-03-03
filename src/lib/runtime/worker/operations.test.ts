@@ -17,6 +17,7 @@ function makeNote(id: string, title: string, deleted = false) {
 		filePath: `${title.toLowerCase()}.md`,
 		tags: ['lore'],
 		frontmatter: { type: 'npc' },
+		visibility: 'dm_only' as const,
 		createdAt: '2026-01-01T00:00:00.000Z',
 		updatedAt: '2026-01-01T00:00:00.000Z',
 		deleted,

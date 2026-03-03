@@ -12,9 +12,10 @@
 		note: Note;
 		onedit: () => void;
 		ondelete: () => void;
+		readonly?: boolean;
 	}
 
-	let { note, onedit, ondelete }: Props = $props();
+	let { note, onedit, ondelete, readonly = false }: Props = $props();
 	let filePath = $derived(
 		note.filePath ??
 			(note.folder === '/'
@@ -105,26 +106,28 @@
 			</div>
 		</div>
 		<div class="flex items-center gap-1 shrink-0">
-			<button
-				class="p-1.5 rounded-md transition-colors {note.pinned
-					? 'text-accent dark:text-tavern-accent bg-accent-subtle dark:bg-tavern-accent-subtle'
-					: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
-				onclick={handlePin}
-				title={note.pinned ? 'Unpin note' : 'Pin note'}
-				aria-label={note.pinned ? 'Unpin note' : 'Pin note'}
-			>
-				<svg
-					class="w-4 h-4"
-					fill={note.pinned ? 'currentColor' : 'none'}
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="2"
+			{#if !readonly}
+				<button
+					class="p-1.5 rounded-md transition-colors {note.pinned
+						? 'text-accent dark:text-tavern-accent bg-accent-subtle dark:bg-tavern-accent-subtle'
+						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+					onclick={handlePin}
+					title={note.pinned ? 'Unpin note' : 'Pin note'}
+					aria-label={note.pinned ? 'Unpin note' : 'Pin note'}
 				>
-					<path
-						d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-					/>
-				</svg>
-			</button>
+					<svg
+						class="w-4 h-4"
+						fill={note.pinned ? 'currentColor' : 'none'}
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path
+							d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+						/>
+					</svg>
+				</button>
+			{/if}
 			<button
 				class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
 				onclick={handleExport}
@@ -139,16 +142,24 @@
 					/>
 				</svg>
 			</button>
-			<Button variant="primary" size="sm" onclick={onedit}>Edit</Button>
-			<Button variant="ghost" size="sm" onclick={ondelete} title="Delete note">
-				<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-					/>
-				</svg>
-			</Button>
+			{#if !readonly}
+				<Button variant="primary" size="sm" onclick={onedit}>Edit</Button>
+				<Button variant="ghost" size="sm" onclick={ondelete} title="Delete note">
+					<svg
+						class="w-4 h-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+						/>
+					</svg>
+				</Button>
+			{/if}
 		</div>
 	</div>
 

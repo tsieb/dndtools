@@ -8,6 +8,7 @@
 	import type { TimelineEventObject } from '$lib/types/object.js';
 	import { noteToVaultObject } from '$lib/domain/object-notes.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { editorState } from '$lib/state/editor.svelte.js';
 	import { editorPreferencesState } from '$lib/state/editor-preferences.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
@@ -35,12 +36,18 @@
 	import MetadataEditor from '$lib/ui/editor/MetadataEditor.svelte';
 	import ObjectStructuredEditor from '$lib/ui/editor/ObjectStructuredEditor.svelte';
 	import UnresolvedLinksPanel from '$lib/ui/editor/UnresolvedLinksPanel.svelte';
+	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 
 	const EditorPromise = import('$lib/ui/editor/CodeMirrorEditor.svelte');
 	type TimelineEventCandidate = { note: Note; object: TimelineEventObject };
 
 	const noteId = $derived(createNoteId(page.params.id ?? ''));
-	let note = $derived(notesState.getNoteById(noteId));
+	let rawNote = $derived(notesState.getNoteById(noteId));
+	let note = $derived.by(() => {
+		if (!rawNote) return null;
+		if (!playerModeState.enabled) return rawNote;
+		return isNoteVisibleInPlayerMode(rawNote) ? rawNote : null;
+	});
 	let editorView = $state<EditorView | null>(null);
 	let editorScrollEl = $state<HTMLElement | null>(null);
 	let previewScrollEl = $state<HTMLDivElement | null>(null);
@@ -237,7 +244,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-{#if note}
+{#if note && !playerModeState.enabled}
 	<div class="mx-auto max-w-[1200px] p-6">
 		<div class="mb-4 flex items-center justify-between">
 			<Button variant="ghost" onclick={handleDone}>
@@ -467,12 +474,14 @@
 {:else}
 	<div class="flex h-full items-center justify-center">
 		<div class="py-16 text-center">
-			<p class="mb-2 text-lg text-ink-muted dark:text-tavern-muted">Note not found</p>
+			<p class="mb-2 text-lg text-ink-muted dark:text-tavern-muted">
+				{playerModeState.enabled ? 'Editing is disabled in player mode.' : 'Note not found'}
+			</p>
 			<a
-				href={resolve('/notes')}
+				href={resolve(playerModeState.enabled ? '/player' : '/notes')}
 				class="text-sm text-accent hover:text-accent-hover dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
 			>
-				Back to notes
+				{playerModeState.enabled ? 'Back to player view' : 'Back to notes'}
 			</a>
 		</div>
 	</div>

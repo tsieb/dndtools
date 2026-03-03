@@ -38,6 +38,7 @@ export function registerCreateCharacterObjectTool(
 			bonds: z.array(z.string()).optional().default([]),
 			flaws: z.array(z.string()).optional().default([]),
 			notes: z.string().optional(),
+			dmNotes: z.string().optional(),
 		},
 		async (input) => {
 			const now = nowISO();
@@ -47,6 +48,7 @@ export function registerCreateCharacterObjectTool(
 				name: input.name,
 				summary: input.summary,
 				tags: input.tags,
+				visibility: input.visibility,
 				relationships: normalizeObjectRelationships(input.relationships),
 				data: normalizeCharacterData({
 					ancestry: input.ancestry,
@@ -63,6 +65,7 @@ export function registerCreateCharacterObjectTool(
 					bonds: input.bonds,
 					flaws: input.flaws,
 					notes: input.notes,
+					dmNotes: input.dmNotes,
 				}),
 				createdAt: now,
 				updatedAt: now,

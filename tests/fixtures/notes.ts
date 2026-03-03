@@ -1,5 +1,6 @@
 import { createNoteId, createFolderId, type Note } from '$lib/types/note.js';
 import { generateNoteId } from '$lib/utils/id.js';
+import { DEFAULT_CONTENT_VISIBILITY } from '$lib/types/visibility.js';
 
 /** Create a test note with sensible defaults */
 export function createTestNote(overrides: Partial<Note> = {}): Note {
@@ -18,6 +19,7 @@ export function createTestNote(overrides: Partial<Note> = {}): Note {
 		pinned: false,
 		pinnedAt: null,
 		...overrides,
+		visibility: overrides.visibility ?? DEFAULT_CONTENT_VISIBILITY,
 	};
 }
 

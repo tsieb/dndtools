@@ -3,7 +3,9 @@
 	import { resolve } from '$app/paths';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import type { NoteId } from '$lib/types/note.js';
+	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 
 	interface Props {
 		noteId: NoteId;
@@ -11,7 +13,12 @@
 	}
 
 	let { noteId, onclose }: Props = $props();
-	let note = $derived(notesState.getActiveNoteById(noteId) ?? notesState.getNoteById(noteId));
+	let note = $derived.by(() => {
+		const resolved = notesState.getActiveNoteById(noteId) ?? notesState.getNoteById(noteId);
+		if (!resolved) return null;
+		if (!playerModeState.enabled) return resolved;
+		return isNoteVisibleInPlayerMode(resolved) ? resolved : null;
+	});
 	let html = $state('');
 	let contentEl = $state<HTMLDivElement | null>(null);
 
@@ -24,6 +31,12 @@
 		void renderMarkdown(note.content, {
 			resolveLink: (title) => {
 				const id = notesState.resolveTitle(title);
+				if (id && playerModeState.enabled) {
+					const target = notesState.getActiveNoteById(id);
+					if (!target || !isNoteVisibleInPlayerMode(target)) {
+						return { href: `/notes?create=${encodeURIComponent(title)}`, exists: false };
+					}
+				}
 				return id
 					? { href: `/notes/${id}`, exists: true }
 					: { href: `/notes?create=${encodeURIComponent(title)}`, exists: false };

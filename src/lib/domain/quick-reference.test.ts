@@ -14,6 +14,7 @@ function makeNote(overrides: Partial<Note> = {}): Note {
 		filePath: undefined,
 		tags: [],
 		frontmatter: {},
+		visibility: overrides.visibility ?? 'dm_only',
 		createdAt: '2026-03-02T00:00:00.000Z',
 		updatedAt: '2026-03-02T00:00:00.000Z',
 		deleted: false,

@@ -5,6 +5,7 @@
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
+	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import {
 		closeDesktopWindow,
 		getDesktopWindowState,
@@ -20,9 +21,10 @@
 		ondice: () => void;
 		ontemplate: (folderOverride?: string) => void;
 		onrefresh: () => void;
+		onsetplayermode: (enabled: boolean) => void;
 	}
 
-	let { onnewnote, onsearch, ondice, ontemplate, onrefresh }: Props = $props();
+	let { onnewnote, onsearch, ondice, ontemplate, onrefresh, onsetplayermode }: Props = $props();
 	let isMaximized = $state(false);
 	let createMenuOpen = $state(false);
 	let createMenuAnchor = $state<HTMLElement | null>(null);
@@ -117,6 +119,17 @@
 
 	<div class="flex items-center gap-1 desktop-no-drag">
 		<button
+			class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors mr-1 {playerModeState.enabled
+				? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'
+				: 'bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted hover:bg-border dark:hover:bg-tavern-border'}"
+			onclick={() => onsetplayermode(!playerModeState.enabled)}
+			aria-pressed={playerModeState.enabled}
+			aria-label={playerModeState.enabled ? 'Exit player mode' : 'Enter player mode'}
+			title={playerModeState.enabled ? 'Exit player mode' : 'Enter player mode'}
+		>
+			<span>{playerModeState.enabled ? 'Player Mode' : 'DM Mode'}</span>
+		</button>
+		<button
 			class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
 			onclick={onrefresh}
 			aria-label="Refresh vault"
@@ -155,50 +168,58 @@
 			<span aria-hidden="true">Dice</span>
 			<kbd class="hidden sm:inline text-xs font-mono opacity-60">Ctrl+D</kbd>
 		</button>
-		<div class="relative" bind:this={createMenuAnchor}>
-			<button
-				class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors"
-				onclick={() => (createMenuOpen = !createMenuOpen)}
-				aria-label="New note options"
-				title="New note options (Ctrl+N)"
-				aria-haspopup="menu"
-				aria-expanded={createMenuOpen}
-			>
-				<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-				</svg>
-			</button>
-			{#if createMenuOpen}
-				<div
-					class="absolute right-0 mt-1 w-48 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface shadow-lg z-30 overflow-hidden"
-					role="menu"
-					aria-label="Create note menu"
+		{#if !playerModeState.enabled}
+			<div class="relative" bind:this={createMenuAnchor}>
+				<button
+					class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors"
+					onclick={() => (createMenuOpen = !createMenuOpen)}
+					aria-label="New note options"
+					title="New note options (Ctrl+N)"
+					aria-haspopup="menu"
+					aria-expanded={createMenuOpen}
 				>
-					<button
-						type="button"
-						class="w-full text-left px-3 py-2 text-sm text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
-						onclick={() => {
-							createMenuOpen = false;
-							onnewnote();
-						}}
-						role="menuitem"
+					<svg
+						class="w-5 h-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
 					>
-						New note
-					</button>
-					<button
-						type="button"
-						class="w-full text-left px-3 py-2 text-sm text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
-						onclick={() => {
-							createMenuOpen = false;
-							ontemplate();
-						}}
-						role="menuitem"
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+					</svg>
+				</button>
+				{#if createMenuOpen}
+					<div
+						class="absolute right-0 mt-1 w-48 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface shadow-lg z-30 overflow-hidden"
+						role="menu"
+						aria-label="Create note menu"
 					>
-						Create from template
-					</button>
-				</div>
-			{/if}
-		</div>
+						<button
+							type="button"
+							class="w-full text-left px-3 py-2 text-sm text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+							onclick={() => {
+								createMenuOpen = false;
+								onnewnote();
+							}}
+							role="menuitem"
+						>
+							New note
+						</button>
+						<button
+							type="button"
+							class="w-full text-left px-3 py-2 text-sm text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+							onclick={() => {
+								createMenuOpen = false;
+								ontemplate();
+							}}
+							role="menuitem"
+						>
+							Create from template
+						</button>
+					</div>
+				{/if}
+			</div>
+		{/if}
 		<div class="hidden sm:block ml-1">
 			<ThemeToggle />
 		</div>

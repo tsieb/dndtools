@@ -4,7 +4,9 @@
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { linksState } from '$lib/state/links.svelte.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
+	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { createNoteId } from '$lib/types/note.js';
+	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 
 	interface Crumb {
 		label: string;
@@ -18,6 +20,7 @@
 		['/timeline', 'Timeline'],
 		['/session-board', 'Session Board'],
 		['/settings', 'Settings'],
+		['/player', 'Player View'],
 	]);
 
 	function folderSegments(folder: string): string[] {
@@ -54,7 +57,11 @@
 		if (noteMatch) {
 			const id = createNoteId(decodeURIComponent(noteMatch[1] ?? ''));
 			const isEdit = noteMatch[2] === 'edit';
-			const note = notesState.getNoteById(id);
+			const rawNote = notesState.getNoteById(id);
+			const note =
+				rawNote && (!playerModeState.enabled || isNoteVisibleInPlayerMode(rawNote))
+					? rawNote
+					: null;
 			crumbs.push({ label: 'All Notes', href: resolve('/notes') });
 			if (note) {
 				const segments = folderSegments(String(note.folder));
@@ -93,7 +100,11 @@
 		const noteMatch = pathname.match(/^\/notes\/([^/]+)(?:\/edit)?$/);
 		if (noteMatch) {
 			const id = createNoteId(decodeURIComponent(noteMatch[1] ?? ''));
-			const note = notesState.getNoteById(id);
+			const rawNote = notesState.getNoteById(id);
+			const note =
+				rawNote && (!playerModeState.enabled || isNoteVisibleInPlayerMode(rawNote))
+					? rawNote
+					: null;
 			if (!note) return '';
 			const backlinks = linksState.getBacklinkCount(note.id);
 			const outbound = linksState.getForwardLinkCount(note.id);

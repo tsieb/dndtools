@@ -4,6 +4,7 @@ import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { nanoid } from 'nanoid';
 import { FileSystemAdapter } from '../mcp/storage.js';
+import { DEFAULT_CONTENT_VISIBILITY } from '../src/lib/types/visibility.js';
 import { nowISO } from '../src/lib/utils/date.js';
 import { createFolderId, createNoteId, type Note } from '../src/lib/types/note.js';
 import {
@@ -149,6 +150,7 @@ function createFixtureNote(
 		folder: createFolderId(buildFolderPath(index, depth, rng)),
 		tags: sampleTags(distribution, rng),
 		frontmatter: { fixture: true },
+		visibility: DEFAULT_CONTENT_VISIBILITY,
 		createdAt: now,
 		updatedAt: now,
 		deleted: false,
@@ -266,6 +268,7 @@ function createFixtureObject(index: number, tags: string[]): VaultObject {
 		name: `Fixture ${type.replace('_', ' ')} ${index + 1}`,
 		summary: `Generated ${type} fixture`,
 		tags,
+		visibility: DEFAULT_CONTENT_VISIBILITY,
 		relationships: [],
 		data: buildObjectData(type, index),
 		createdAt: now,

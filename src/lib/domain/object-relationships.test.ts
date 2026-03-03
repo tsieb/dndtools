@@ -12,6 +12,7 @@ const npc: VaultObject = {
 	name: 'Sildar',
 	summary: '',
 	tags: ['npc'],
+	visibility: 'dm_only',
 	relationships: [
 		{ type: 'ally', targetId: createVaultObjectId('faction-1') },
 		{ type: 'appears_in_session', sessionId: 'session-3' },
@@ -32,6 +33,7 @@ const faction: VaultObject = {
 	name: 'Lords Alliance',
 	summary: '',
 	tags: ['faction'],
+	visibility: 'dm_only',
 	relationships: [{ type: 'ally', targetId: createVaultObjectId('npc-1') }],
 	data: {
 		factionType: 'alliance',

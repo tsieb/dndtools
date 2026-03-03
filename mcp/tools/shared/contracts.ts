@@ -18,6 +18,7 @@ const noteSummarySchema = z
 		folder: z.string().min(1),
 		filePath: z.string().nullable(),
 		tags: z.array(z.string()),
+		visibility: z.enum(['dm_only', 'shared', 'public']),
 		updatedAt: z.string().min(1),
 		deleted: z.boolean(),
 	})
@@ -146,6 +147,7 @@ const vaultObjectSummarySchema = z
 		name: z.string().min(1),
 		summary: z.string(),
 		tags: z.array(z.string()),
+		visibility: z.enum(['dm_only', 'shared', 'public']),
 		updatedAt: z.string().min(1),
 	})
 	.strict();
@@ -163,6 +165,7 @@ const fullObjectWithEmbedSchema = z
 		name: z.string().min(1),
 		summary: z.string(),
 		tags: z.array(z.string()),
+		visibility: z.enum(['dm_only', 'shared', 'public']),
 		relationships: z.array(objectRelationshipSchema).optional(),
 		data: z.record(z.string(), z.unknown()),
 		createdAt: z.string().min(1),
@@ -368,6 +371,7 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 				folder: z.string().min(1),
 				filePath: z.string().nullable(),
 				tags: z.array(z.string()),
+				visibility: z.enum(['dm_only', 'shared', 'public']),
 				frontmatter: z.record(z.string(), z.unknown()),
 				content: z.string(),
 				createdAt: z.string().min(1),
@@ -388,6 +392,7 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 				folder: z.string().min(1),
 				filePath: z.string().nullable(),
 				tags: z.array(z.string()),
+				visibility: z.enum(['dm_only', 'shared', 'public']),
 			})
 			.strict(),
 		remediationHint: 'Provide idempotencyKey for safe create retries.',
@@ -402,6 +407,7 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 				folder: z.string().min(1),
 				filePath: z.string().nullable(),
 				tags: z.array(z.string()),
+				visibility: z.enum(['dm_only', 'shared', 'public']),
 				updatedAt: z.string().min(1),
 			})
 			.strict(),

@@ -65,6 +65,7 @@ export interface AppSettings {
 	sidebarOpen: boolean;
 	sidebarWidth: number;
 	focusReading: boolean;
+	playerModeEnabled: boolean;
 	defaultNoteView: 'read' | 'edit';
 	editor: EditorSettings;
 	autoSaveDelay: number;
@@ -91,6 +92,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 	sidebarOpen: true,
 	sidebarWidth: 260,
 	focusReading: false,
+	playerModeEnabled: false,
 	defaultNoteView: 'read',
 	editor: {
 		fontSize: 16,

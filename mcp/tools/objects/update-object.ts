@@ -21,6 +21,7 @@ import { formatNoteEmbed } from '../../../src/lib/domain/object-embeds.js';
 import { errorResult, jsonResult } from '../shared/response.js';
 import { objectSummary } from '../shared/object-summary.js';
 import { objectRelationshipSchema } from '../shared/object-schema.js';
+import { normalizeContentVisibility } from '../../../src/lib/types/visibility.js';
 
 export function registerUpdateObjectTool(server: McpServer, storage: FileSystemAdapter): void {
 	server.tool(
@@ -31,11 +32,12 @@ export function registerUpdateObjectTool(server: McpServer, storage: FileSystemA
 			name: z.string().optional(),
 			summary: z.string().optional(),
 			tags: z.array(z.string()).optional(),
+			visibility: z.enum(['dm_only', 'shared', 'public']).optional(),
 			relationships: z.array(objectRelationshipSchema).optional(),
 			data: z.record(z.string(), z.unknown()).optional(),
 			dataMode: z.enum(['merge', 'replace']).optional().default('merge'),
 		},
-		async ({ id, name, summary, tags, relationships, data, dataMode }) => {
+		async ({ id, name, summary, tags, visibility, relationships, data, dataMode }) => {
 			const existing = await storage.getObject(createVaultObjectId(id));
 			if (!existing) {
 				return errorResult('Object not found.');
@@ -53,6 +55,7 @@ export function registerUpdateObjectTool(server: McpServer, storage: FileSystemA
 				name: name ?? existing.name,
 				summary: summary ?? existing.summary,
 				tags: tags ?? existing.tags,
+				visibility: normalizeContentVisibility(visibility, existing.visibility),
 				relationships:
 					relationships === undefined
 						? existing.relationships

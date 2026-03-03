@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import type { NoteId } from '$lib/types/note.js';
 	import {
 		buildQuickReferenceEntityRecords,
@@ -9,6 +10,7 @@
 		searchQuickReferenceEntities,
 	} from '$lib/domain/quick-reference.js';
 	import SessionContextPanel from '$lib/ui/session/SessionContextPanel.svelte';
+	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 
 	interface Props {
 		open: boolean;
@@ -21,7 +23,12 @@
 	let selectedIndex = $state(0);
 	let inputRef: HTMLInputElement | undefined = $state();
 
-	let entityRecords = $derived(buildQuickReferenceEntityRecords(notesState.activeNotes));
+	let modeScopedNotes = $derived.by(() =>
+		playerModeState.enabled
+			? notesState.activeNotes.filter((note) => isNoteVisibleInPlayerMode(note))
+			: notesState.activeNotes,
+	);
+	let entityRecords = $derived(buildQuickReferenceEntityRecords(modeScopedNotes));
 	let results = $derived(searchQuickReferenceEntities(entityRecords, query, 12));
 
 	$effect(() => {

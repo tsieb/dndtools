@@ -1,3 +1,5 @@
+import type { ContentVisibility } from './visibility.js';
+
 /** Branded type for Note IDs */
 export type NoteId = string & { readonly __brand: 'NoteId' };
 
@@ -23,6 +25,7 @@ export interface Note {
 	filePath?: string;
 	tags: string[];
 	frontmatter: Record<string, unknown>;
+	visibility: ContentVisibility;
 	readonly createdAt: string;
 	updatedAt: string;
 	deleted: boolean;

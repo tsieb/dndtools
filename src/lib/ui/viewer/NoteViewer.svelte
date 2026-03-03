@@ -5,9 +5,11 @@
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
 	import { noteToVaultObject } from '$lib/domain/object-notes.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import { formatWorldDate } from '$lib/domain/world-calendar.js';
 	import { describeQuickReferenceNote } from '$lib/domain/quick-reference.js';
+	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import { getStorage } from '$lib/platform/storage/index.js';
 	import { goto } from '$app/navigation';
 
@@ -31,6 +33,11 @@
 	const wikilinkCardId = 'note-viewer-wikilink-card';
 	let openCardTimer: ReturnType<typeof setTimeout> | null = null;
 	let closeCardTimer: ReturnType<typeof setTimeout> | null = null;
+	let modeScopedActiveNotes = $derived.by(() =>
+		playerModeState.enabled
+			? notesState.activeNotes.filter((entry) => isNoteVisibleInPlayerMode(entry))
+			: notesState.activeNotes,
+	);
 
 	interface ObjectIndex {
 		byKey: Map<string, VaultObject>;
@@ -79,7 +86,7 @@
 		let cancelled = false;
 
 		const run = async (): Promise<void> => {
-			const activeNotes = notesState.activeNotes;
+			const activeNotes = modeScopedActiveNotes;
 			const notesById = new SvelteMap(activeNotes.map((entry) => [String(entry.id), entry]));
 			const notesByTitle = new SvelteMap(
 				activeNotes.map((entry) => [entry.title.toLowerCase(), entry]),
@@ -98,6 +105,12 @@
 			const result = await renderMarkdown(note.content, {
 				resolveLink: (title) => {
 					const targetId = notesState.resolveTitleStrict(title);
+					if (targetId && playerModeState.enabled) {
+						const target = notesState.getActiveNoteById(targetId);
+						if (!target || !isNoteVisibleInPlayerMode(target)) {
+							return { href: `/notes?create=${encodeURIComponent(title)}`, exists: false };
+						}
+					}
 					return targetId
 						? { href: `/notes/${targetId}`, exists: true }
 						: { href: `/notes?create=${encodeURIComponent(title)}`, exists: false };
@@ -240,6 +253,9 @@
 		if (!title) return;
 		const resolvedId = notesState.resolveTitle(title);
 		const targetNote = resolvedId ? notesState.getActiveNoteById(resolvedId) : null;
+		if (targetNote && playerModeState.enabled && !isNoteVisibleInPlayerMode(targetNote)) {
+			return;
+		}
 		const meta = targetNote ? describeQuickReferenceNote(targetNote) : null;
 
 		const rect = link.getBoundingClientRect();

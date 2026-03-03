@@ -9,6 +9,7 @@ describe('hasMeaningfulNoteContent', () => {
 				content: '',
 				tags: [],
 				frontmatter: {},
+				visibility: 'dm_only',
 			}),
 		).toBe(false);
 	});
@@ -20,6 +21,7 @@ describe('hasMeaningfulNoteContent', () => {
 				content: 'Some content',
 				tags: [],
 				frontmatter: {},
+				visibility: 'dm_only',
 			}),
 		).toBe(true);
 	});
@@ -31,6 +33,7 @@ describe('hasMeaningfulNoteContent', () => {
 				content: '',
 				tags: [],
 				frontmatter: {},
+				visibility: 'dm_only',
 			}),
 		).toBe(true);
 	});
@@ -42,6 +45,7 @@ describe('hasMeaningfulNoteContent', () => {
 				content: '',
 				tags: ['npc'],
 				frontmatter: {},
+				visibility: 'dm_only',
 			}),
 		).toBe(true);
 		expect(
@@ -50,6 +54,19 @@ describe('hasMeaningfulNoteContent', () => {
 				content: '',
 				tags: [],
 				frontmatter: { session: 1 },
+				visibility: 'dm_only',
+			}),
+		).toBe(true);
+	});
+
+	it('returns true when visibility differs from dm_only', () => {
+		expect(
+			hasMeaningfulNoteContent({
+				title: 'Untitled',
+				content: '',
+				tags: [],
+				frontmatter: {},
+				visibility: 'shared',
 			}),
 		).toBe(true);
 	});

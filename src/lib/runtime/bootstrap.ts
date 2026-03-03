@@ -8,6 +8,7 @@ import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 import { searchState } from '$lib/state/search.svelte.js';
 import { editorPreferencesState } from '$lib/state/editor-preferences.svelte.js';
+import { playerModeState } from '$lib/state/player-mode.svelte.js';
 import { markSubsystemSuccess, reportRuntimeError } from '$lib/runtime/diagnostics.js';
 import { toastState } from '$lib/state/toast.svelte.js';
 import {
@@ -59,6 +60,7 @@ export async function bootstrapApplication(): Promise<void> {
 			ui.loadFromStorage(),
 			editorPreferencesState.load(),
 			onboardingState.loadFromStorage(),
+			playerModeState.loadFromStorage(),
 		]);
 		ui.checkMobile();
 

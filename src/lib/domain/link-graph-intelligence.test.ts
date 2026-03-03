@@ -17,6 +17,7 @@ function makeNote(
 		filePath: `${id}.md`,
 		tags: [],
 		frontmatter,
+		visibility: 'dm_only',
 		createdAt: nowISO(),
 		updatedAt: nowISO(),
 		deleted: false,

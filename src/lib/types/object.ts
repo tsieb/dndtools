@@ -1,3 +1,5 @@
+import type { ContentVisibility } from './visibility.js';
+
 export type VaultObjectId = string & { readonly __brand: 'VaultObjectId' };
 
 export type VaultObjectType =
@@ -75,6 +77,7 @@ export interface CharacterData {
 	bonds: string[];
 	flaws: string[];
 	notes?: string;
+	dmNotes?: string;
 }
 
 export interface ImageData {
@@ -165,6 +168,7 @@ export interface VaultObjectBase<TType extends VaultObjectType, TData> {
 	name: string;
 	summary: string;
 	tags: string[];
+	visibility: ContentVisibility;
 	relationships: ObjectRelationship[];
 	data: TData;
 	createdAt: string;
