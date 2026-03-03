@@ -54,6 +54,13 @@ test.describe('Navigation', () => {
 		).toBeVisible({ timeout: 2000 });
 	});
 
+	test('keyboard shortcut Ctrl+D opens dice tray', async ({ page }) => {
+		await page.keyboard.press('Control+d');
+		await expect(page.getByRole('dialog', { name: /dice tray/i })).toBeVisible({
+			timeout: 2000,
+		});
+	});
+
 	test('settings page shows keyboard shortcuts', async ({ page }) => {
 		await page.goto('/settings');
 		await expect(page.getByText('Keyboard Shortcuts')).toBeVisible();

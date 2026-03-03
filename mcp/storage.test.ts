@@ -701,7 +701,7 @@ describe('FileSystemAdapter', () => {
 			expect(loaded?.tiles[0]?.style?.borderRadius).toBeUndefined();
 		});
 
-		it('persists note, calendar, and timer tile types with preview and timer state', async () => {
+		it('persists note, calendar, timer, and dice tile types with preview and timer state', async () => {
 			const now = nowISO();
 			const board = {
 				id: createSessionBoardId('board-mixed-tiles'),
@@ -743,6 +743,14 @@ describe('FileSystemAdapter', () => {
 							minimalDisplay: true,
 						},
 					},
+					{
+						id: 'dice-tile',
+						type: 'dice' as const,
+						x: 0,
+						y: 3,
+						w: 5,
+						h: 3,
+					},
 				],
 				createdAt: now,
 				updatedAt: now,
@@ -764,6 +772,8 @@ describe('FileSystemAdapter', () => {
 				expect(timerTile.timer?.mode).toBe('countdown');
 				expect(timerTile.timer?.minimalDisplay).toBe(true);
 			}
+			const diceTile = loaded?.tiles.find((tile) => tile.id === 'dice-tile');
+			expect(diceTile?.type).toBe('dice');
 		});
 
 		it('suggests related notes', async () => {

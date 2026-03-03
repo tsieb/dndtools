@@ -58,6 +58,12 @@ Recommendation:
 - `get_backlinks`
 - `get_tags`
 
+### Dice
+
+- `roll_dice_expression`
+- `get_dice_macros`
+- `roll_dice_macro`
+
 ### Vault
 
 - `get_vault_summary`

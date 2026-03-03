@@ -8,19 +8,20 @@
 	interface Props {
 		onnewnote: () => void;
 		onsearch: () => void;
+		ondice: () => void;
 		ontemplate: (folderOverride?: string) => void;
 		onrefresh: () => void;
 		children: Snippet;
 	}
 
-	let { onnewnote, onsearch, ontemplate, onrefresh, children }: Props = $props();
+	let { onnewnote, onsearch, ondice, ontemplate, onrefresh, children }: Props = $props();
 </script>
 
 <a href="#main-content" class="skip-nav">Skip to content</a>
 
 <div class="flex flex-col h-screen">
 	{#if !ui.focusReading}
-		<TopBar {onnewnote} {onsearch} {ontemplate} {onrefresh} />
+		<TopBar {onnewnote} {onsearch} {ondice} {ontemplate} {onrefresh} />
 	{/if}
 
 	<div class="flex flex-1 overflow-hidden">
@@ -33,7 +34,7 @@
 					aria-label="Close sidebar"
 				></button>
 			{/if}
-			<Sidebar {onnewnote} {ontemplate} />
+			<Sidebar {onnewnote} {ondice} {ontemplate} />
 		{/if}
 
 		<main id="main-content" class="app-main flex-1 overflow-y-auto bg-parchment dark:bg-tavern-bg">

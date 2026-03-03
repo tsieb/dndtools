@@ -30,6 +30,43 @@ const tagCountSchema = z
 	})
 	.strict();
 
+const diceMacroSchema = z
+	.object({
+		id: z.string().min(1),
+		label: z.string().min(1),
+		expression: z.string().min(1),
+		createdAt: z.string().min(1),
+		updatedAt: z.string().min(1),
+	})
+	.strict();
+
+const diceRollDetailSchema = z
+	.object({
+		notation: z.string().min(1),
+		count: z.number().int().positive(),
+		sides: z.number().int().positive(),
+		rolls: z.array(z.number().int().positive()),
+		kept: z.array(z.number().int().positive()),
+		keptIndices: z.array(z.number().int().nonnegative()),
+		dropped: z.array(z.number().int().positive()),
+		droppedIndices: z.array(z.number().int().nonnegative()),
+		subtotal: z.number(),
+		keepMode: z.enum(['highest', 'lowest']).nullable(),
+		keepCount: z.number().int().positive().nullable(),
+	})
+	.strict();
+
+const diceRollResultSchema = z
+	.object({
+		expression: z.string().min(1),
+		total: z.number(),
+		totalText: z.string().min(1),
+		breakdown: z.string().min(1),
+		markdownLine: z.string().min(1),
+		rolls: z.array(diceRollDetailSchema),
+	})
+	.strict();
+
 const sessionBoardTileStyleSchema = z
 	.object({
 		backgroundColor: z.string().optional(),
@@ -44,7 +81,7 @@ const sessionBoardTileStyleSchema = z
 const sessionBoardTileSchema = z
 	.object({
 		id: z.string().min(1),
-		type: z.enum(['note', 'calendar', 'timer', 'combat']).optional(),
+		type: z.enum(['note', 'calendar', 'timer', 'combat', 'dice']).optional(),
 		noteId: z.string().min(1).optional(),
 		previewDepth: z.enum(['title', 'summary', 'full']).optional(),
 		previewLineCount: z.number().int().min(1).max(40).optional(),
@@ -55,17 +92,6 @@ const sessionBoardTileSchema = z
 		w: z.number(),
 		h: z.number(),
 		style: sessionBoardTileStyleSchema.optional(),
-	})
-	.superRefine((tile, ctx) => {
-		const type = tile.type ?? 'note';
-		if (type === 'calendar' || type === 'timer' || type === 'combat') return;
-		if (!tile.noteId) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: 'noteId is required for note tiles.',
-				path: ['noteId'],
-			});
-		}
 	})
 	.strict();
 
@@ -410,6 +436,33 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 		retryPolicy: 'idempotent',
 		responseSchema: z.array(tagCountSchema),
 		remediationHint: 'Tags appear after notes are tagged and indexed.',
+	},
+	roll_dice_expression: {
+		permission: 'read-only',
+		retryPolicy: 'idempotent',
+		responseSchema: diceRollResultSchema,
+		remediationHint: 'Use expressions like 1d20+5, 4d6kh3, adv, or dis.',
+	},
+	get_dice_macros: {
+		permission: 'read-only',
+		retryPolicy: 'idempotent',
+		responseSchema: z.array(diceMacroSchema),
+		remediationHint: 'Define dice macros in the app settings or dice tray.',
+	},
+	roll_dice_macro: {
+		permission: 'read-only',
+		retryPolicy: 'idempotent',
+		responseSchema: z
+			.object({
+				macro: diceMacroSchema.pick({
+					id: true,
+					label: true,
+					expression: true,
+				}),
+				roll: diceRollResultSchema,
+			})
+			.strict(),
+		remediationHint: 'Call get_dice_macros first to resolve macro id or label.',
 	},
 	get_vault_summary: {
 		permission: 'read-only',

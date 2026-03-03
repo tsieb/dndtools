@@ -50,6 +50,7 @@ import { withMcpChangePreview } from '../src/lib/domain/mcp-change-preview.js';
 import { DND_TEMPLATES, GLOBAL_TEMPLATE_IDS } from '../src/lib/domain/templates.js';
 import { REUSABLE_SNIPPETS } from '../src/lib/domain/snippets.js';
 import { normalizeWorldCalendar } from '../src/lib/domain/world-calendar.js';
+import { normalizeDiceMacros } from '../src/lib/domain/dice.js';
 import {
 	DEFAULT_SESSION_CONTEXT,
 	normalizeBoardTemplatesSetting,
@@ -404,6 +405,9 @@ function normalizeSettingValue<K extends keyof AppSettings>(
 	if (key === 'boardTemplates') {
 		return normalizeBoardTemplatesSetting(value) as AppSettings[K];
 	}
+	if (key === 'diceMacros') {
+		return normalizeDiceMacros(value) as AppSettings[K];
+	}
 	if (key === 'worldCalendar') {
 		return normalizeWorldCalendar(value) as AppSettings[K];
 	}
@@ -436,7 +440,8 @@ function normalizeSessionBoardRecord(
 					rawTile.type === 'calendar' ||
 					rawTile.type === 'timer' ||
 					rawTile.type === 'note' ||
-					rawTile.type === 'combat'
+					rawTile.type === 'combat' ||
+					rawTile.type === 'dice'
 						? rawTile.type
 						: undefined,
 				noteId,

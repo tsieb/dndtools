@@ -17,11 +17,12 @@
 	interface Props {
 		onnewnote: () => void;
 		onsearch: () => void;
+		ondice: () => void;
 		ontemplate: (folderOverride?: string) => void;
 		onrefresh: () => void;
 	}
 
-	let { onnewnote, onsearch, ontemplate, onrefresh }: Props = $props();
+	let { onnewnote, onsearch, ondice, ontemplate, onrefresh }: Props = $props();
 	let isMaximized = $state(false);
 	let createMenuOpen = $state(false);
 	let createMenuAnchor = $state<HTMLElement | null>(null);
@@ -144,6 +145,15 @@
 			</svg>
 			<span class="hidden sm:inline">Search</span>
 			<kbd class="hidden sm:inline text-xs font-mono opacity-60">Ctrl+P</kbd>
+		</button>
+		<button
+			class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-ink-faint dark:text-tavern-faint bg-surface-alt dark:bg-tavern-surface-alt hover:bg-border dark:hover:bg-tavern-border transition-colors mr-1"
+			onclick={ondice}
+			aria-label="Open dice tray"
+			title="Dice tray (Ctrl+D)"
+		>
+			<span aria-hidden="true">Dice</span>
+			<kbd class="hidden sm:inline text-xs font-mono opacity-60">Ctrl+D</kbd>
 		</button>
 		<div class="relative" bind:this={createMenuAnchor}>
 			<button

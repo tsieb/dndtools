@@ -46,6 +46,7 @@ Organize notes with tags:
 |----------|--------|
 | **Ctrl+N** | Create new note |
 | **Ctrl+P** | Quick switcher (find any note fast) |
+| **Ctrl+D** | Open dice tray |
 | **Ctrl+E** | Toggle edit/view mode |
 | **Ctrl+B** | Toggle sidebar |
 | **Ctrl+Shift+F** | Global search |

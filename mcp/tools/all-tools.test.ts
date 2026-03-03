@@ -51,6 +51,15 @@ function makeStorage(vaultDir: string): Record<string, (...args: unknown[]) => P
 		sessionNumber: 7,
 		characterNames: ['Aria', 'Brom'],
 	};
+	const diceMacros = [
+		{
+			id: 'macro-sneak-attack',
+			label: 'Sneak Attack',
+			expression: '1d20+7',
+			createdAt: '2026-01-01T00:00:00.000Z',
+			updatedAt: '2026-01-01T00:00:00.000Z',
+		},
+	];
 	const worldCalendar = {
 		version: 1,
 		months: [
@@ -157,6 +166,7 @@ function makeStorage(vaultDir: string): Record<string, (...args: unknown[]) => P
 		getSetting: async (key) => {
 			const normalized = String(key);
 			if (normalized === 'templateContext') return templateContext;
+			if (normalized === 'diceMacros') return diceMacros;
 			if (normalized === 'worldCalendar') return worldCalendar;
 			return null;
 		},
@@ -235,6 +245,9 @@ function buildValidInputs(tmpDir: string): Record<ToolName, Record<string, unkno
 		search_notes: { query: 'alpha', limit: 5 },
 		get_backlinks: { id: 'note-1' },
 		get_tags: {},
+		roll_dice_expression: { expression: '1d20+5' },
+		get_dice_macros: {},
+		roll_dice_macro: { label: 'Sneak Attack' },
 		get_vault_summary: {},
 		get_campaign_health: { staleAfterDays: 45, maxGapExamples: 5 },
 		get_coverage_gaps: { staleAfterDays: 45, limit: 5 },

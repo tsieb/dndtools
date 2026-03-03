@@ -4,6 +4,7 @@
 	import SessionBoardTileCard from '$lib/ui/board/SessionBoardTile.svelte';
 	import SessionBoardTimerTile from '$lib/ui/board/SessionBoardTimerTile.svelte';
 	import CombatTrackerTile from '$lib/ui/board/CombatTrackerTile.svelte';
+	import DiceTrayTile from '$lib/ui/board/DiceTrayTile.svelte';
 	import WorldCalendarReference from '$lib/ui/calendar/WorldCalendarReference.svelte';
 	import { DEFAULT_SESSION_BOARD_LAYOUT } from '$lib/domain/session-board.js';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
@@ -14,6 +15,7 @@
 		SessionBoard,
 		SessionBoardNoteTile,
 		SessionBoardCombatTile as SessionBoardCombatTileModel,
+		SessionBoardDiceTile as SessionBoardDiceTileModel,
 		SessionBoardTile,
 		SessionBoardTimerTile as SessionBoardTimerTileModel,
 	} from '$lib/types/session-board.js';
@@ -65,6 +67,7 @@
 		| { tile: SessionBoardTile; kind: 'calendar'; x: number; y: number }
 		| { tile: SessionBoardTimerTileModel; kind: 'timer'; x: number; y: number }
 		| { tile: SessionBoardCombatTileModel; kind: 'combat'; x: number; y: number }
+		| { tile: SessionBoardDiceTileModel; kind: 'dice'; x: number; y: number }
 		| { tile: SessionBoardNoteTile; kind: 'note_slot'; x: number; y: number }
 		| {
 				tile: SessionBoardNoteTile;
@@ -137,6 +140,10 @@
 			}
 			if (tile.type === 'combat') {
 				entries.push({ tile, kind: 'combat', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
+				continue;
+			}
+			if (tile.type === 'dice') {
+				entries.push({ tile, kind: 'dice', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
 				continue;
 			}
 			if (!tile.noteId) {
@@ -400,6 +407,10 @@
 	async function addTimerTile(): Promise<void> {
 		if (!activeBoard) return;
 		await sessionBoardsState.addTimerTile(activeBoard.id);
+	}
+	async function addDiceTile(): Promise<void> {
+		if (!activeBoard) return;
+		await sessionBoardsState.addDiceTile(activeBoard.id);
 	}
 	async function addCombatTile(): Promise<void> {
 		if (!activeBoard) return;
@@ -673,7 +684,9 @@
 						<section
 							class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3 space-y-2"
 						>
-							<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Add Notes</h2>
+							<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">
+								Add Tiles and Notes
+							</h2>
 							<button
 								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
 								onclick={addCalendarTile}
@@ -691,6 +704,12 @@
 								onclick={addCombatTile}
 							>
 								Add Combat Tracker Tile
+							</button>
+							<button
+								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								onclick={addDiceTile}
+							>
+								Add Dice Tray Tile
 							</button>
 							<input
 								type="text"
@@ -1256,6 +1275,16 @@
 															void sessionBoardsState.updateTile(activeBoard.id, tile.id, {
 																combat,
 															});
+														}}
+														ondragstart={(event) => startTileDrag(tile.id, event)}
+													/>
+												{:else if entry.kind === 'dice'}
+													<DiceTrayTile
+														tile={entry.tile}
+														selected={mode === 'edit' && selectedTileId === tile.id}
+														editable={mode === 'edit'}
+														onselect={() => {
+															if (mode === 'edit') selectedTileId = tile.id;
 														}}
 														ondragstart={(event) => startTileDrag(tile.id, event)}
 													/>
