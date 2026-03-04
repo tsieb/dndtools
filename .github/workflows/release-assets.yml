@@ -102,16 +102,88 @@ jobs:
             dist-desktop/*.blockmap
           if-no-files-found: error
 
+  build-android-apk:
+    runs-on: ubuntu-latest
+    needs:
+      - validate-release-notes
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'release'
+    env:
+      DNDTOOLS_ANDROID_KEYSTORE_BASE64: ${{ secrets.DNDTOOLS_ANDROID_KEYSTORE_BASE64 }}
+      DNDTOOLS_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.DNDTOOLS_ANDROID_KEYSTORE_PASSWORD }}
+      DNDTOOLS_ANDROID_KEY_ALIAS: ${{ secrets.DNDTOOLS_ANDROID_KEY_ALIAS }}
+      DNDTOOLS_ANDROID_KEY_PASSWORD: ${{ secrets.DNDTOOLS_ANDROID_KEY_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate Android signing prerequisites
+        run: |
+          if [ -z "$DNDTOOLS_ANDROID_KEYSTORE_BASE64" ] || [ -z "$DNDTOOLS_ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$DNDTOOLS_ANDROID_KEY_ALIAS" ] || [ -z "$DNDTOOLS_ANDROID_KEY_PASSWORD" ]; then
+            echo "Missing Android signing secrets (DNDTOOLS_ANDROID_KEYSTORE_BASE64, DNDTOOLS_ANDROID_KEYSTORE_PASSWORD, DNDTOOLS_ANDROID_KEY_ALIAS, DNDTOOLS_ANDROID_KEY_PASSWORD)." >&2
+            exit 1
+          fi
+
+      - name: Build web assets and sync Android project
+        run: pnpm android:sync
+
+      - name: Materialize release keystore
+        run: |
+          mkdir -p android/app
+          echo "$DNDTOOLS_ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/dndtools-release.jks
+          cat > android/keystore.properties <<EOF
+          storeFile=app/dndtools-release.jks
+          storePassword=$DNDTOOLS_ANDROID_KEYSTORE_PASSWORD
+          keyAlias=$DNDTOOLS_ANDROID_KEY_ALIAS
+          keyPassword=$DNDTOOLS_ANDROID_KEY_PASSWORD
+          EOF
+          chmod 600 android/keystore.properties android/app/dndtools-release.jks
+
+      - name: Build signed Android release APK
+        run: |
+          cd android
+          ./gradlew assembleRelease
+
+      - name: Upload signed Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-android-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
   publish-release-assets:
     runs-on: ubuntu-latest
     needs:
       - build-desktop-installers
+      - build-android-apk
     if: github.event_name == 'release'
     steps:
       - name: Download signed installer artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: signed-desktop-*
+          pattern: signed-*
           path: artifacts
 
       - name: Package checksums

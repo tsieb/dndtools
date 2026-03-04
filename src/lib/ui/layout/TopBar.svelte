@@ -37,6 +37,9 @@
 	let isMaximized = $state(false);
 	let createMenuOpen = $state(false);
 	let createMenuAnchor = $state<HTMLElement | null>(null);
+	let desktopBridgeAvailable = $derived(
+		typeof window !== 'undefined' && typeof window.dndtoolsDesktop !== 'undefined',
+	);
 
 	$effect(() => {
 		if (!createMenuOpen || typeof window === 'undefined') return;
@@ -50,6 +53,9 @@
 	});
 
 	onMount(() => {
+		if (!window.dndtoolsDesktop) {
+			return;
+		}
 		void getDesktopWindowState()
 			.then((state) => (isMaximized = state.isMaximized))
 			.catch(() => undefined);
@@ -61,7 +67,9 @@
 </script>
 
 <header
-	class="h-[52px] flex items-center justify-between px-3 border-b border-border dark:border-tavern-border bg-surface/88 dark:bg-tavern-surface/88 backdrop-blur-md shrink-0 desktop-drag"
+	class="h-[52px] flex items-center justify-between px-3 border-b border-border dark:border-tavern-border bg-surface/88 dark:bg-tavern-surface/88 backdrop-blur-md shrink-0 {desktopBridgeAvailable
+		? 'desktop-drag'
+		: ''}"
 >
 	<div class="flex items-center gap-3 min-w-0">
 		<button
@@ -313,27 +321,17 @@
 				<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
 			</svg>
 		</a>
-		<div class="ml-2 mr-1 h-6 w-px bg-border dark:bg-tavern-border"></div>
-		<div
-			class="flex items-center rounded-md overflow-hidden border border-border dark:border-tavern-border"
-		>
-			<button
-				class="w-9 h-8 flex items-center justify-center text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
-				onclick={() => void minimizeDesktopWindow()}
-				aria-label="Minimize window"
-				title="Minimize"
+		{#if desktopBridgeAvailable}
+			<div class="ml-2 mr-1 h-6 w-px bg-border dark:bg-tavern-border"></div>
+			<div
+				class="flex items-center rounded-md overflow-hidden border border-border dark:border-tavern-border"
 			>
-				<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
-				</svg>
-			</button>
-			<button
-				class="w-9 h-8 flex items-center justify-center text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors border-x border-border dark:border-tavern-border"
-				onclick={() => void toggleDesktopWindowMaximize()}
-				aria-label={isMaximized ? 'Restore window' : 'Maximize window'}
-				title={isMaximized ? 'Restore' : 'Maximize'}
-			>
-				{#if isMaximized}
+				<button
+					class="w-9 h-8 flex items-center justify-center text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					onclick={() => void minimizeDesktopWindow()}
+					aria-label="Minimize window"
+					title="Minimize"
+				>
 					<svg
 						class="w-4 h-4"
 						fill="none"
@@ -341,10 +339,44 @@
 						stroke="currentColor"
 						stroke-width="2"
 					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M9 9h9v9H9V9z" />
-						<path stroke-linecap="round" stroke-linejoin="round" d="M6 6h9v2H8v7H6V6z" />
+						<path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
 					</svg>
-				{:else}
+				</button>
+				<button
+					class="w-9 h-8 flex items-center justify-center text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors border-x border-border dark:border-tavern-border"
+					onclick={() => void toggleDesktopWindowMaximize()}
+					aria-label={isMaximized ? 'Restore window' : 'Maximize window'}
+					title={isMaximized ? 'Restore' : 'Maximize'}
+				>
+					{#if isMaximized}
+						<svg
+							class="w-4 h-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M9 9h9v9H9V9z" />
+							<path stroke-linecap="round" stroke-linejoin="round" d="M6 6h9v2H8v7H6V6z" />
+						</svg>
+					{:else}
+						<svg
+							class="w-4 h-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<rect x="6" y="6" width="12" height="12" rx="1" />
+						</svg>
+					{/if}
+				</button>
+				<button
+					class="w-9 h-8 flex items-center justify-center text-ink-muted dark:text-tavern-muted hover:bg-red-600 hover:text-white transition-colors"
+					onclick={() => void closeDesktopWindow()}
+					aria-label="Close window"
+					title="Close"
+				>
 					<svg
 						class="w-4 h-4"
 						fill="none"
@@ -352,20 +384,10 @@
 						stroke="currentColor"
 						stroke-width="2"
 					>
-						<rect x="6" y="6" width="12" height="12" rx="1" />
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6L6 18" />
 					</svg>
-				{/if}
-			</button>
-			<button
-				class="w-9 h-8 flex items-center justify-center text-ink-muted dark:text-tavern-muted hover:bg-red-600 hover:text-white transition-colors"
-				onclick={() => void closeDesktopWindow()}
-				aria-label="Close window"
-				title="Close"
-			>
-				<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6L6 18" />
-				</svg>
-			</button>
-		</div>
+				</button>
+			</div>
+		{/if}
 	</div>
 </header>

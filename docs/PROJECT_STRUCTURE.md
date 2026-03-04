@@ -6,6 +6,7 @@ This repository is organized by runtime boundary and responsibility.
 
 - `src/`: SvelteKit renderer application.
 - `electron/`: Electron main/preload runtime.
+- `android/`: Capacitor-managed Android project and Gradle build files.
 - `mcp/`: MCP server runtime and tool/resource modules.
 - `tests/`: cross-cutting test fixtures and e2e tests.
 - `docs/`: architecture, data model, development, and roadmap docs.
@@ -20,6 +21,7 @@ This repository is organized by runtime boundary and responsibility.
 - `src/lib/ui/`: reusable UI components.
 - `src/lib/platform/desktop/`: desktop bridge integration.
 - `src/lib/platform/storage/`: storage adapter integration.
+- `src/lib/state/mobile-keyboard.svelte.ts`: keyboard viewport adaptation state.
 - `src/lib/runtime/`: app bootstrap/runtime orchestration.
 - `src/lib/markdown/`: markdown parsing/render pipeline.
 - `src/lib/types/`: shared type contracts.

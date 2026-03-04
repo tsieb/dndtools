@@ -13,7 +13,7 @@ The current implementation is desktop-first and Electron-only. Product direction
 Current implementation status:
 
 - Desktop runtime is implemented with Electron shell + SvelteKit renderer + filesystem storage.
-- Android runtime is not yet implemented.
+- Android runtime is implemented with Capacitor shell + Android Gradle project + filesystem adapter.
 
 ## Decision
 

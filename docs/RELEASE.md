@@ -9,6 +9,7 @@ This document defines the release pipeline for signed desktop builds and how to 
 - Windows: signed `NSIS` installer (`.exe`) with blockmap metadata for differential updates.
 - macOS: signed + notarized `dmg` and `zip` artifacts.
 - Linux: `AppImage` and `.deb` packages.
+- Android: signed release APK (`app-release.apk`) from Gradle (`android/` project).
 
 Artifacts are emitted to `dist-desktop/` by:
 
@@ -28,6 +29,13 @@ Store these in repository secrets:
 - `RELEASE_SIGNING_PRIVATE_KEY`: PEM private key used to sign `SHA256SUMS.txt`.
 
 The release workflow fails fast if required platform secrets are missing.
+
+Android signing secrets:
+
+- `DNDTOOLS_ANDROID_KEYSTORE_BASE64`
+- `DNDTOOLS_ANDROID_KEYSTORE_PASSWORD`
+- `DNDTOOLS_ANDROID_KEY_ALIAS`
+- `DNDTOOLS_ANDROID_KEY_PASSWORD`
 
 ## 3. Windows Signing Policy
 
@@ -89,9 +97,10 @@ Behavior:
 
 1. Validate release notes include `## Human Reviewed Notes`.
 2. Build signed installers in OS matrix.
-3. Upload per-OS artifacts.
-4. Build and sign `SHA256SUMS.txt`.
-5. Upload all assets to the GitHub release tag.
+3. Build signed Android release APK.
+4. Upload signed desktop + Android artifacts.
+5. Build and sign `SHA256SUMS.txt`.
+6. Upload all assets to the GitHub release tag.
 
 ## 8. Rotation & Incident Response
 

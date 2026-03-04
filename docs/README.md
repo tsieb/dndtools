@@ -4,11 +4,13 @@ This docs set is the authoritative engineering reference for this repository.
 
 ## Scope
 
-DND Tools is an Electron-first local markdown vault application with an integrated MCP sidecar.
+DND Tools is a local-first markdown vault application with shared renderer/domain logic
+across Electron desktop and Capacitor Android runtimes.
 
-Primary runtime mode:
+Runtime modes:
 
 - Desktop runtime: Electron main + renderer + filesystem storage + MCP sidecar.
+- Android runtime: Capacitor shell + renderer + Capacitor filesystem adapter (no MCP sidecar).
 
 ## Source of Truth
 
@@ -20,16 +22,18 @@ Read in this order:
 4. `docs/DATA_MODEL.md`
 5. `docs/DEVELOPMENT.md`
 6. `docs/RELEASE.md`
-7. `docs/OWNERSHIP.md`
-8. `docs/GIT_WORKFLOW.md`
-9. `docs/TESTING.md`
-10. `docs/PERFORMANCE.md`
-11. `docs/UX_GUIDELINES.md`
-12. `docs/AGENTIC_NOTES_WORKFLOW.md`
-13. `docs/MCP_INSPECTOR_WORKFLOW.md`
-14. `docs/ROADMAP.md`
-15. `docs/TODO.md`
-16. `DEBT.md`
+7. `docs/MOBILE.md`
+8. `docs/SIDELOAD.md`
+9. `docs/OWNERSHIP.md`
+10. `docs/GIT_WORKFLOW.md`
+11. `docs/TESTING.md`
+12. `docs/PERFORMANCE.md`
+13. `docs/UX_GUIDELINES.md`
+14. `docs/AGENTIC_NOTES_WORKFLOW.md`
+15. `docs/MCP_INSPECTOR_WORKFLOW.md`
+16. `docs/ROADMAP.md`
+17. `docs/TODO.md`
+18. `DEBT.md`
 
 ## Documentation Quality Rules (Mandatory)
 

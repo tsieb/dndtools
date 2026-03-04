@@ -22,6 +22,19 @@ Responsibilities:
 - Manage desktop auto-update state and staged rollout gating.
 - Serve built renderer assets in production with a local static server.
 
+### 1.1.1 Android Shell (Capacitor)
+
+Implemented in:
+
+- `capacitor.config.ts`
+- `android/`
+
+Responsibilities:
+
+- Host the same renderer bundle inside a native Android WebView shell.
+- Bridge approved native plugin APIs (filesystem) to the renderer runtime.
+- Build/sign APK artifacts through Gradle.
+
 ### 1.2 Renderer Process
 
 Implemented in:
@@ -56,11 +69,13 @@ Responsibilities:
 
 ## 2. Runtime Data Path
 
-Desktop mode (only supported runtime):
-
-Data path:
+Desktop data path:
 
 - Renderer -> preload bridge -> Electron IPC -> `FileSystemAdapter`.
+
+Android data path:
+
+- Renderer -> `CapacitorStorageAdapter` -> Capacitor Filesystem plugin -> app-private storage.
 
 MCP path:
 
@@ -84,7 +99,9 @@ Rules:
 
 Executed by `bootstrapApplication()` in `src/lib/runtime/bootstrap.ts`:
 
-1. `initStorage()` initializes desktop filesystem storage.
+1. `initStorage()` initializes runtime-specific storage:
+   - desktop: `ElectronStorageAdapter`
+   - android/web-capable: `CapacitorStorageAdapter`
 2. Load UI settings from storage.
 3. Load all notes.
 4. If vault is empty, create welcome note.
@@ -94,6 +111,11 @@ Required behavior:
 
 - bootstrap must be idempotent and guarded by a single in-flight promise.
 - failures must surface a user-visible error state.
+
+Android runtime degradations (intentional):
+
+- No MCP sidecar process (desktop-only capability).
+- Desktop-only controls (window controls, auto-update, desktop diagnostics) must be hidden or no-op.
 
 ## 5. MCP Write Modes
 

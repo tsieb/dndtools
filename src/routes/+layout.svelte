@@ -27,6 +27,7 @@
 	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
+	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import {
 		buildTemplateContext,
 		getFolderScopedTemplateMatches,
@@ -103,6 +104,12 @@
 		const handler = (): void => ui.checkMobile();
 		window.addEventListener('resize', handler);
 		return () => window.removeEventListener('resize', handler);
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		mobileKeyboardState.initialize();
+		return () => mobileKeyboardState.dispose();
 	});
 
 	$effect(() => {
@@ -277,7 +284,9 @@
 
 	async function handleRefreshVault(): Promise<void> {
 		try {
-			await refreshDesktopVault();
+			if (window.dndtoolsDesktop) {
+				await refreshDesktopVault();
+			}
 			await notesState.loadAll();
 			await Promise.all([
 				searchService.buildIndex(notesState.notes),
