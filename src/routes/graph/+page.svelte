@@ -329,11 +329,13 @@
 		<input
 			type="text"
 			bind:value={query}
+			aria-label="Filter graph notes by text"
 			placeholder="Highlight matching notes..."
 			class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
 		/>
 		<select
 			bind:value={selectedFolder}
+			aria-label="Filter graph by folder"
 			class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
 		>
 			<option value="">All folders</option>
@@ -343,6 +345,7 @@
 		</select>
 		<select
 			bind:value={selectedTag}
+			aria-label="Filter graph by tag"
 			class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
 		>
 			<option value="">All tags</option>

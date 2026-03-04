@@ -8,6 +8,7 @@
 		onclick?: () => void;
 		type?: 'button' | 'submit';
 		title?: string;
+		ariaLabel?: string;
 		children: Snippet;
 	}
 
@@ -18,11 +19,12 @@
 		onclick,
 		type = 'button',
 		title,
+		ariaLabel,
 		children,
 	}: Props = $props();
 
 	const baseClasses =
-		'inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed';
+		'inline-flex min-h-11 min-w-11 items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed';
 
 	const sizeClasses = {
 		sm: 'px-2 py-1 text-sm gap-1',
@@ -45,6 +47,7 @@
 	{type}
 	{disabled}
 	{title}
+	aria-label={ariaLabel ?? title}
 	class="{baseClasses} {sizeClasses[size]} {variantClasses[variant]}"
 	{onclick}
 >

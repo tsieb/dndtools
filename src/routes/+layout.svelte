@@ -9,6 +9,7 @@
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import { handoutsState } from '$lib/state/handouts.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
+	import { a11yAnnouncerState } from '$lib/state/a11y-announcer.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { onboardingState } from '$lib/state/onboarding.svelte.js';
 	import { searchService } from '$lib/domain/search.js';
@@ -29,6 +30,7 @@
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import { syncState } from '$lib/state/sync.svelte.js';
+	import LiveAnnouncer from '$lib/ui/a11y/LiveAnnouncer.svelte';
 	import {
 		buildTemplateContext,
 		getFolderScopedTemplateMatches,
@@ -50,6 +52,7 @@
 	let handoutCreatorOpen = $state(false);
 	let templateDialogFolderOverride = $state<string | null>(null);
 	let templateDialogCandidates = $state<readonly NoteTemplate[] | null>(null);
+	let lastAnnouncedRoute = $state<string | null>(null);
 	let runtimeBootstrapRequested = false;
 	let activeTemplateFolder = $derived.by(
 		() => templateDialogFolderOverride ?? page.url.searchParams.get('folder'),
@@ -172,6 +175,13 @@
 		if (page.url.pathname.startsWith('/player') && !playerModeState.enabled) {
 			void playerModeState.setEnabled(true);
 		}
+	});
+
+	$effect(() => {
+		const routeKey = `${page.url.pathname}${page.url.search}`;
+		if (routeKey === lastAnnouncedRoute) return;
+		lastAnnouncedRoute = routeKey;
+		a11yAnnouncerState.announceAssertive(`${routeLabel(page.url)} view loaded.`);
 	});
 
 	$effect(() => {
@@ -496,6 +506,7 @@
 		{/await}
 	{/if}
 	<Toast />
+	<LiveAnnouncer />
 {:else if runtimeState.migrationReport}
 	{#await import('$lib/ui/migration/MigrationReadinessScreen.svelte')}
 		<div class="flex h-screen items-center justify-center bg-parchment dark:bg-tavern-bg">

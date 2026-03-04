@@ -5,6 +5,7 @@
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { normalizeSessionBoardTimerState } from '$lib/domain/session-board.js';
 	import type { SessionBoardTile } from '$lib/types/session-board.js';
+	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
 
 	interface Props {
 		open: boolean;
@@ -125,6 +126,7 @@
 		role="dialog"
 		aria-modal="true"
 		aria-label="Session quick panel"
+		use:focusTrap
 		onclick={handleBackdrop}
 		onkeydown={handleKeydown}
 		tabindex="-1"

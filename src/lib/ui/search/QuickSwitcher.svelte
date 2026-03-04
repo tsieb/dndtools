@@ -16,6 +16,7 @@
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import type { NoteId } from '$lib/types/note.js';
+	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
 
 	interface Props {
 		open: boolean;
@@ -61,6 +62,8 @@
 	}: Props = $props();
 	let query = $state('');
 	let selectedIndex = $state(0);
+	let lastSelectionQuery = $state('');
+	let wasOpen = $state(false);
 	let inputRef: HTMLInputElement | undefined = $state();
 	let modeScopedNotes = $derived.by(() =>
 		playerModeState.enabled
@@ -389,19 +392,34 @@
 		return [...filteredCommands, ...noteItems];
 	});
 
+	function firstEnabledIndex(): number {
+		const index = items.findIndex((item) => !item.disabled);
+		return index >= 0 ? index : 0;
+	}
+
 	$effect(() => {
-		if (open) {
+		if (open && !wasOpen) {
 			query = '';
-			selectedIndex = 0;
+			selectedIndex = firstEnabledIndex();
+			lastSelectionQuery = '';
 			setTimeout(() => inputRef?.focus(), 0);
 			void diceState.ensureMacrosLoaded();
 		}
+		wasOpen = open;
 	});
 
 	$effect(() => {
+		const normalizedQuery = query.trim().toLowerCase();
+		if (normalizedQuery !== lastSelectionQuery) {
+			lastSelectionQuery = normalizedQuery;
+			selectedIndex = firstEnabledIndex();
+		}
 		const maxIndex = Math.max(0, items.length - 1);
 		if (selectedIndex > maxIndex) {
 			selectedIndex = maxIndex;
+		}
+		if (items[selectedIndex]?.disabled) {
+			selectedIndex = firstEnabledIndex();
 		}
 	});
 
@@ -463,6 +481,7 @@
 		role="dialog"
 		aria-modal="true"
 		aria-label="Quick switcher"
+		use:focusTrap
 		onclick={handleBackdrop}
 		onkeydown={handleKeydown}
 		tabindex="-1"

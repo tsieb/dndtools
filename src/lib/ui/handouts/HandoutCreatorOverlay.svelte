@@ -13,6 +13,7 @@
 	import { normalizeHandoutData } from '$lib/domain/objects.js';
 	import { handoutsState } from '$lib/state/handouts.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
+	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
 
 	interface Props {
 		open: boolean;
@@ -261,6 +262,7 @@
 		role="dialog"
 		aria-modal="true"
 		aria-label="Create handout"
+		use:focusTrap
 		onclick={handleBackdrop}
 		onkeydown={handleKeydown}
 		tabindex="-1"

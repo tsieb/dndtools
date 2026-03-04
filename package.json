@@ -15,6 +15,7 @@
 		"test:e2e": "playwright test",
 		"test:e2e:desktop": "playwright test -c playwright.desktop.config.ts",
 		"test:e2e:desktop:critical": "playwright test -c playwright.desktop.config.ts --grep-invert @perf",
+		"test:e2e:desktop:a11y": "playwright test -c playwright.desktop.config.ts --grep @a11y",
 		"test:e2e:desktop:perf": "playwright test -c playwright.desktop.config.ts --grep @perf",
 		"test:e2e:desktop:memory": "playwright test -c playwright.desktop.config.ts --grep @memory",
 		"lint": "eslint .",
@@ -45,6 +46,7 @@
 		"memory:profile": "tsx scripts/memory-profile.ts"
 	},
 	"devDependencies": {
+		"@axe-core/playwright": "^4.11.1",
 		"@capacitor/android": "^8.1.0",
 		"@capacitor/cli": "^8.1.0",
 		"@eslint/js": "^10.0.1",

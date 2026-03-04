@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
 
 	interface Props {
 		open: boolean;
@@ -30,6 +31,7 @@
 		aria-modal="true"
 		aria-label={title ?? 'Dialog'}
 		tabindex="-1"
+		use:focusTrap
 		onkeydown={handleKeydown}
 		onclick={handleBackdropClick}
 	>
