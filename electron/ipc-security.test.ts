@@ -334,6 +334,8 @@ describe('AC3 — Enum values / whitelists are enforced', () => {
 			'templateContext',
 			'diceMacros',
 			'mcpPolicySettings',
+			'syncConflictStrategy',
+			'syncEngineState',
 			'worldCalendar',
 			'boardTemplates',
 		] as const;

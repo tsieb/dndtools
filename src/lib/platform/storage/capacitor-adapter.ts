@@ -5,6 +5,7 @@ import { buildRelatedNoteSuggestions } from '$lib/domain/related-note-suggestion
 import { resolveLinkTargetId, extractAliasesFromFrontmatter } from '$lib/domain/link-resolution.js';
 import { REUSABLE_SNIPPETS } from '$lib/domain/snippets.js';
 import { DND_TEMPLATES } from '$lib/domain/templates.js';
+import { normalizeSyncConflictStrategy, normalizeSyncEngineState } from '$lib/domain/sync.js';
 import { normalizeWorldCalendar } from '$lib/domain/world-calendar.js';
 import {
 	normalizeMobileVaultRoot,
@@ -130,6 +131,8 @@ function normalizeSettings(raw: unknown): AppSettings {
 					? source.mcpPolicySettings.perAgent
 					: base.mcpPolicySettings.perAgent,
 		},
+		syncConflictStrategy: normalizeSyncConflictStrategy(source.syncConflictStrategy),
+		syncEngineState: normalizeSyncEngineState(source.syncEngineState),
 		savedSearches: Array.isArray(source.savedSearches) ? source.savedSearches : base.savedSearches,
 		diceMacros: Array.isArray(source.diceMacros) ? source.diceMacros : base.diceMacros,
 		boardTemplates: Array.isArray(source.boardTemplates)

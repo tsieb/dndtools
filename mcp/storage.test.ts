@@ -547,6 +547,17 @@ describe('FileSystemAdapter', () => {
 			expect(theme).toBe('system');
 		});
 
+		it('returns default sync settings when missing', async () => {
+			const [strategy, engineState] = await Promise.all([
+				adapter.getSetting('syncConflictStrategy'),
+				adapter.getSetting('syncEngineState'),
+			]);
+			expect(strategy).toBe('manual');
+			expect(engineState.queue).toEqual([]);
+			expect(engineState.conflicts).toEqual([]);
+			expect(engineState.remoteNotes).toEqual({});
+		});
+
 		it('saves and retrieves settings', async () => {
 			await adapter.setSetting('theme', 'dark');
 			const theme = await adapter.getSetting('theme');

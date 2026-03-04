@@ -16,6 +16,9 @@ describe('resolveSettingsTabFromUrl', () => {
 		expect(resolveSettingsTabFromUrl(new URL('https://example.test/settings?tab=handouts'))).toBe(
 			'handouts',
 		);
+		expect(resolveSettingsTabFromUrl(new URL('https://example.test/settings?tab=sync'))).toBe(
+			'sync',
+		);
 		expect(resolveSettingsTabFromUrl(new URL('https://example.test/settings?tab=health'))).toBe(
 			'health',
 		);

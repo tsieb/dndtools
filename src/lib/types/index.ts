@@ -16,6 +16,18 @@ export type {
 	SettingRecord,
 } from './settings.js';
 export { DEFAULT_SETTINGS } from './settings.js';
+export type {
+	SyncIndicatorState,
+	SyncConflictStrategy,
+	SyncQueueEntityType,
+	SyncQueueOperation,
+	SyncQueueEntry,
+	SyncConflictReason,
+	SyncConflictRecord,
+	SyncEngineState,
+	SyncConflictResolution,
+} from './sync.js';
+export { SYNC_ENGINE_STATE_VERSION, createDefaultSyncEngineState } from './sync.js';
 
 export type { StorageAdapter, ImportResult } from './storage.js';
 export type {

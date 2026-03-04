@@ -178,6 +178,29 @@ Supported variables include:
 - `{{world_date_short}}`
 - `{{world_date_iso}}`
 
+### 1.11 Offline Sync State
+
+Offline sync metadata is persisted in app settings:
+
+- `syncConflictStrategy`: `'manual' | 'use_latest'`
+- `syncEngineState`:
+  - `queue[]` deferred replay entries
+  - `conflicts[]` three-way conflict records
+  - `remoteNotes` mirror snapshots used for ancestor/remote comparison
+  - `lastSyncAt`, `lastSyncError`
+
+Queue entries include note-level snapshots for conflict-safe replay:
+
+- `ancestorNote`
+- `localNote`
+- operation + entity metadata
+
+Conflict records carry explicit three-way snapshots:
+
+- ancestor
+- local
+- remote
+
 ## 2. Storage Adapter Contract
 
 Required interface is defined in `src/lib/types/storage.ts` and includes:
@@ -193,6 +216,9 @@ Required interface is defined in `src/lib/types/storage.ts` and includes:
 - settings
 - import/export
 - stats
+
+Runtime write-path behavior now includes a sync wrapper (`src/lib/platform/storage/sync-adapter.ts`)
+that records deferred sync metadata without changing the `StorageAdapter` contract.
 
 ## 3. Filesystem Vault Format (Implemented)
 

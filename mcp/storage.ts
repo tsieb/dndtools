@@ -55,6 +55,7 @@ import { withMcpChangePreview } from '../src/lib/domain/mcp-change-preview.js';
 import { DND_TEMPLATES, GLOBAL_TEMPLATE_IDS } from '../src/lib/domain/templates.js';
 import { REUSABLE_SNIPPETS } from '../src/lib/domain/snippets.js';
 import { normalizeWorldCalendar } from '../src/lib/domain/world-calendar.js';
+import { normalizeSyncConflictStrategy, normalizeSyncEngineState } from '../src/lib/domain/sync.js';
 import { normalizeDiceMacros } from '../src/lib/domain/dice.js';
 import {
 	DEFAULT_SESSION_CONTEXT,
@@ -417,6 +418,12 @@ function normalizeSettingValue<K extends keyof AppSettings>(
 	}
 	if (key === 'worldCalendar') {
 		return normalizeWorldCalendar(value) as AppSettings[K];
+	}
+	if (key === 'syncConflictStrategy') {
+		return normalizeSyncConflictStrategy(value) as AppSettings[K];
+	}
+	if (key === 'syncEngineState') {
+		return normalizeSyncEngineState(value) as AppSettings[K];
 	}
 	return (value as AppSettings[K]) ?? DEFAULT_SETTINGS[key];
 }

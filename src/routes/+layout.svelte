@@ -28,6 +28,7 @@
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
+	import { syncState } from '$lib/state/sync.svelte.js';
 	import {
 		buildTemplateContext,
 		getFolderScopedTemplateMatches,
@@ -110,6 +111,11 @@
 		if (typeof window === 'undefined') return;
 		mobileKeyboardState.initialize();
 		return () => mobileKeyboardState.dispose();
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		return () => syncState.dispose();
 	});
 
 	$effect(() => {

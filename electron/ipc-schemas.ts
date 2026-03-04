@@ -520,6 +520,8 @@ export const appSettingsKeySchema = z.enum([
 	'templateContext',
 	'diceMacros',
 	'mcpPolicySettings',
+	'syncConflictStrategy',
+	'syncEngineState',
 	'worldCalendar',
 	'boardTemplates',
 ]);
@@ -531,6 +533,66 @@ export const mcpPolicySettingsSchema = z.object({
 		z.string().max(MAX_STRING_LENGTH),
 		z.enum(['strict_review', 'balanced', 'trusted']),
 	),
+});
+
+export const syncConflictStrategySchema = z.enum(['manual', 'use_latest']);
+export const syncQueueEntityTypeSchema = z.enum([
+	'note',
+	'session_board',
+	'object',
+	'setting',
+	'links',
+	'bulk',
+	'snapshot',
+]);
+export const syncQueueOperationSchema = z.enum([
+	'note_upsert',
+	'note_permanent_delete',
+	'session_board_upsert',
+	'session_board_delete',
+	'object_upsert',
+	'object_delete',
+	'setting_update',
+	'links_update',
+	'bulk_import',
+	'bulk_restore',
+	'snapshot_create',
+]);
+export const syncConflictReasonSchema = z.enum([
+	'remote_created_during_local_create',
+	'remote_updated_since_ancestor',
+	'remote_deleted_since_ancestor',
+]);
+export const syncQueueEntrySchema = z.object({
+	id: z.string().min(1).max(MAX_STRING_LENGTH),
+	createdAt: z.string().min(1).max(MAX_STRING_LENGTH),
+	updatedAt: z.string().min(1).max(MAX_STRING_LENGTH),
+	entityType: syncQueueEntityTypeSchema,
+	operation: syncQueueOperationSchema,
+	entityId: z.string().min(1).max(MAX_STRING_LENGTH),
+	ancestorNote: noteSchema.nullable(),
+	localNote: noteSchema.nullable(),
+	attempts: z.number().int().min(0).max(100_000),
+	lastError: z.string().max(MAX_CONTENT_LENGTH).nullable(),
+});
+export const syncConflictRecordSchema = z.object({
+	id: z.string().min(1).max(MAX_STRING_LENGTH),
+	queueEntryId: z.string().min(1).max(MAX_STRING_LENGTH),
+	noteId: z.string().min(1).max(MAX_STRING_LENGTH),
+	title: z.string().min(1).max(MAX_STRING_LENGTH),
+	detectedAt: z.string().min(1).max(MAX_STRING_LENGTH),
+	reason: syncConflictReasonSchema,
+	ancestorNote: noteSchema.nullable(),
+	localNote: noteSchema.nullable(),
+	remoteNote: noteSchema.nullable(),
+});
+export const syncEngineStateSchema = z.object({
+	version: z.number().int().min(1).max(100),
+	queue: z.array(syncQueueEntrySchema).max(5_000),
+	conflicts: z.array(syncConflictRecordSchema).max(2_000),
+	remoteNotes: z.record(z.string().max(MAX_STRING_LENGTH), noteSchema),
+	lastSyncAt: z.string().max(MAX_STRING_LENGTH).nullable(),
+	lastSyncError: z.string().max(MAX_CONTENT_LENGTH).nullable(),
 });
 
 /** Optional options for schema migration runs. */
@@ -710,6 +772,8 @@ export const settingValueSchemas: Record<string, z.ZodTypeAny> = {
 		)
 		.max(200),
 	mcpPolicySettings: mcpPolicySettingsSchema,
+	syncConflictStrategy: syncConflictStrategySchema,
+	syncEngineState: syncEngineStateSchema,
 	worldCalendar: z.object({
 		version: z.literal(1),
 		months: z

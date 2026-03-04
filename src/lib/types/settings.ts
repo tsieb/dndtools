@@ -1,5 +1,10 @@
 import type { WorldCalendar } from './world-calendar.js';
 import type { SessionBoardTemplate } from './session-board.js';
+import {
+	createDefaultSyncEngineState,
+	type SyncConflictStrategy,
+	type SyncEngineState,
+} from './sync.js';
 
 export interface EditorSettings {
 	fontSize: number;
@@ -78,6 +83,8 @@ export interface AppSettings {
 	templateContext: TemplateContextSettings;
 	diceMacros: DiceMacro[];
 	mcpPolicySettings: McpPolicySettings;
+	syncConflictStrategy: SyncConflictStrategy;
+	syncEngineState: SyncEngineState;
 	worldCalendar: WorldCalendar;
 	boardTemplates: SessionBoardTemplate[];
 }
@@ -127,6 +134,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
 		defaultPresetId: 'strict_review',
 		perAgent: {},
 	},
+	syncConflictStrategy: 'manual',
+	syncEngineState: createDefaultSyncEngineState(),
 	boardTemplates: [],
 	worldCalendar: {
 		version: 1,

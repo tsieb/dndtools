@@ -5,6 +5,7 @@
 	import ThemeToggle from '$lib/ui/common/ThemeToggle.svelte';
 	import Button from '$lib/ui/common/Button.svelte';
 	import HandoutLibraryPanel from '$lib/ui/handouts/HandoutLibraryPanel.svelte';
+	import SyncSettingsPanel from '$lib/ui/settings/SyncSettingsPanel.svelte';
 	import { vaultState } from '$lib/state/vault.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { linksState } from '$lib/state/links.svelte.js';
@@ -171,6 +172,7 @@
 		{ id: 'about', label: 'About' },
 		{ id: 'world', label: 'World' },
 		{ id: 'vault', label: 'Vault' },
+		{ id: 'sync', label: 'Sync' },
 		{ id: 'handouts', label: 'Handouts' },
 		{ id: 'mcp', label: 'MCP' },
 		{ id: 'health', label: 'System Health' },
@@ -365,6 +367,16 @@
 			error,
 			context: { route: '/settings' },
 		});
+	}
+
+	async function refreshRendererAfterSyncChange(): Promise<void> {
+		try {
+			await notesState.loadAll();
+			await Promise.all([searchService.buildIndex(notesState.notes), vaultHealthState.refresh()]);
+		} catch (error) {
+			reportSettingsError('storage', 'SETTINGS_SYNC_REFRESH_FAILED', error);
+			toastState.error(`Failed to refresh notes after sync: ${String(error)}`);
+		}
 	}
 
 	async function refreshDesktopState(): Promise<void> {
@@ -3219,6 +3231,15 @@
 					{/if}
 				</div>
 			</section>
+		</div>
+	{:else if activeTab === 'sync'}
+		<div
+			role="tabpanel"
+			id="settings-panel-sync"
+			aria-labelledby="settings-tab-sync"
+			class="space-y-8"
+		>
+			<SyncSettingsPanel onrefreshlocal={refreshRendererAfterSyncChange} />
 		</div>
 	{:else if activeTab === 'mcp'}
 		<div

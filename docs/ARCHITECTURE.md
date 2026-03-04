@@ -48,6 +48,7 @@ Responsibilities:
 - UI, interaction flows, search, markdown rendering, editor workflows.
 - Runtime bootstrap orchestration.
 - Backend-agnostic state management via `StorageAdapter`.
+- Offline sync orchestration (connectivity probes, deferred write queue replay, conflict workflows).
 - Desktop integrations only through `window.dndtoolsDesktop` bridge.
 
 ### 1.3 MCP Server Process
@@ -71,11 +72,11 @@ Responsibilities:
 
 Desktop data path:
 
-- Renderer -> preload bridge -> Electron IPC -> `FileSystemAdapter`.
+- Renderer -> Sync-aware storage wrapper -> preload bridge -> Electron IPC -> `FileSystemAdapter`.
 
 Android data path:
 
-- Renderer -> `CapacitorStorageAdapter` -> Capacitor Filesystem plugin -> app-private storage.
+- Renderer -> Sync-aware storage wrapper -> `CapacitorStorageAdapter` -> Capacitor Filesystem plugin -> app-private storage.
 
 MCP path:
 
@@ -102,10 +103,11 @@ Executed by `bootstrapApplication()` in `src/lib/runtime/bootstrap.ts`:
 1. `initStorage()` initializes runtime-specific storage:
    - desktop: `ElectronStorageAdapter`
    - android/web-capable: `CapacitorStorageAdapter`
-2. Load UI settings from storage.
-3. Load all notes.
-4. If vault is empty, create welcome note.
-5. Build search index, link graph, MCP changes, and session boards in parallel.
+2. `syncState` initializes persisted sync strategy/queue state and connectivity listeners.
+3. Load UI settings from storage.
+4. Load all notes.
+5. If vault is empty, create welcome note.
+6. Build search index, link graph, MCP changes, and session boards in parallel.
 
 Required behavior:
 
@@ -291,3 +293,5 @@ Baseline decision coverage is documented in:
 - `docs/adr/006-multi-platform-approach-electron-capacitor.md`
 - `docs/adr/007-cloud-backend-architecture-aws.md`
 - `docs/adr/008-mcp-semantic-bundling-strategy.md`
+- `docs/adr/009-performance-budget-registry-and-telemetry.md`
+- `docs/adr/010-offline-sync-queue-and-conflict-resolution.md`

@@ -1,4 +1,6 @@
 import type { StorageAdapter } from '$lib/types/storage.js';
+import { SyncAwareStorageAdapter } from '$lib/platform/storage/sync-adapter.js';
+import { syncState } from '$lib/state/sync.svelte.js';
 
 let adapter: StorageAdapter | null = null;
 let initPromise: Promise<void> | null = null;
@@ -20,8 +22,10 @@ export async function initStorage(): Promise<void> {
 
 	if (!initPromise) {
 		initPromise = (async () => {
-			adapter = await createAdapter();
-			await adapter.initialize();
+			const baseAdapter = await createAdapter();
+			await baseAdapter.initialize();
+			await syncState.initialize(baseAdapter);
+			adapter = new SyncAwareStorageAdapter(baseAdapter, syncState);
 		})().catch((error) => {
 			initPromise = null;
 			throw error;

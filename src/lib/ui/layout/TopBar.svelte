@@ -6,6 +6,7 @@
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
+	import { syncState } from '$lib/state/sync.svelte.js';
 	import {
 		closeDesktopWindow,
 		getDesktopWindowState,
@@ -64,6 +65,39 @@
 			isMaximized = state.isMaximized;
 		});
 	});
+
+	const syncIndicator = $derived.by(() => {
+		if (syncState.indicator === 'syncing') {
+			return {
+				label: 'Syncing',
+				dotClass: 'bg-blue-500 animate-pulse',
+				title: 'Syncing queued changes',
+			};
+		}
+		if (syncState.indicator === 'offline') {
+			return {
+				label: 'Offline',
+				dotClass: 'bg-amber-500',
+				title: 'Offline mode: changes are queued for sync',
+			};
+		}
+		if (syncState.indicator === 'error') {
+			return {
+				label: 'Sync Error',
+				dotClass: 'bg-rose-500',
+				title: 'Sync requires attention',
+			};
+		}
+		return {
+			label: 'Online',
+			dotClass: 'bg-emerald-500',
+			title: 'All changes are synced',
+		};
+	});
+
+	const syncBadgeCount = $derived.by(() =>
+		syncState.conflictCount > 0 ? syncState.conflictCount : syncState.queueDepth,
+	);
 </script>
 
 <header
@@ -160,6 +194,30 @@
 				/>
 			</svg>
 		</button>
+		<a
+			href={`${resolve('/settings')}?tab=sync`}
+			class="relative flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors {syncState.indicator ===
+			'error'
+				? 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/50'
+				: syncState.indicator === 'offline'
+					? 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50'
+					: syncState.indicator === 'syncing'
+						? 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50'
+						: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-950/50'}"
+			title={syncIndicator.title}
+			aria-label={`Sync status: ${syncIndicator.label}`}
+		>
+			<span class="inline-block h-2 w-2 rounded-full {syncIndicator.dotClass}" aria-hidden="true"
+			></span>
+			<span class="hidden lg:inline">{syncIndicator.label}</span>
+			{#if syncBadgeCount > 0}
+				<span
+					class="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-ink dark:bg-tavern-text text-white text-[10px] leading-4 text-center"
+				>
+					{syncBadgeCount}
+				</span>
+			{/if}
+		</a>
 		<button
 			class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-ink-faint dark:text-tavern-faint bg-surface-alt dark:bg-tavern-surface-alt hover:bg-border dark:hover:bg-tavern-border transition-colors mr-1"
 			onclick={onsearch}

@@ -52,6 +52,7 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
   - `mcp/staged-storage.test.ts`
   - `mcp/safe-write.test.ts`
   - `mcp/recovery.test.ts`
+  - `src/lib/platform/storage/sync-adapter.test.ts`
   - staged MCP oversight tests now cover policy auto-approval, structural-review gating, and live-edit conflict blocking.
 - MCP tool contracts:
   - `mcp/tools/all-tools.test.ts` (all-tool contract, permission, strict-input, retry safety)
@@ -76,6 +77,7 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
   - `src/lib/domain/templates.test.ts`
   - `src/lib/domain/search.test.ts`
   - `src/lib/domain/related-note-suggestions.test.ts`
+  - `src/lib/domain/sync.test.ts`
 - Utils:
   - `src/lib/utils/date.test.ts`
   - `src/lib/utils/debounce.test.ts`
