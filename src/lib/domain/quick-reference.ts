@@ -51,6 +51,8 @@ export function quickReferenceIconToken(type: QuickReferenceEntityType): string 
 			return 'T';
 		case 'image':
 			return 'P';
+		case 'map':
+			return 'M';
 		case 'rule':
 			return 'R';
 	}

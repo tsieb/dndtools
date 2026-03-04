@@ -13,6 +13,7 @@
 		normalizeImageData,
 		normalizeItemData,
 		normalizeLocationData,
+		normalizeMapData,
 		normalizeNpcData,
 		normalizeObjectRelationships,
 		normalizeQuestData,
@@ -103,6 +104,43 @@
 	function parseIntOrUndefined(value: string): number | undefined {
 		const parsed = Number.parseInt(value.trim(), 10);
 		return Number.isFinite(parsed) ? parsed : undefined;
+	}
+
+	function parseFloatOrUndefined(value: string): number | undefined {
+		const parsed = Number.parseFloat(value.trim());
+		return Number.isFinite(parsed) ? parsed : undefined;
+	}
+
+	function parseMapGridConfig(raw: string): {
+		type: 'square' | 'hex';
+		visible: boolean;
+		originX: number;
+		originY: number;
+		cellSize: number;
+	} | null {
+		const entries = parseCsv(raw);
+		if (entries.length === 0) return null;
+		const [typeRaw, cellSizeRaw, originXRaw, originYRaw, visibleRaw] = entries;
+		const type = typeRaw?.toLowerCase() === 'hex' ? 'hex' : 'square';
+		const cellSize = parseFloatOrUndefined(cellSizeRaw ?? '');
+		const originX = parseFloatOrUndefined(originXRaw ?? '') ?? 0;
+		const originY = parseFloatOrUndefined(originYRaw ?? '') ?? 0;
+		const visible = (visibleRaw ?? 'true').toLowerCase() !== 'false';
+		if (cellSize === undefined || cellSize <= 0) return null;
+		return { type, visible, originX, originY, cellSize };
+	}
+
+	function parseMapViewportConfig(
+		raw: string,
+	): { zoom: number; panX: number; panY: number } | null {
+		const entries = parseCsv(raw);
+		if (entries.length === 0) return null;
+		const [zoomRaw, panXRaw, panYRaw] = entries;
+		const zoom = parseFloatOrUndefined(zoomRaw ?? '');
+		const panX = parseFloatOrUndefined(panXRaw ?? '') ?? 0;
+		const panY = parseFloatOrUndefined(panYRaw ?? '') ?? 0;
+		if (zoom === undefined || zoom <= 0) return null;
+		return { zoom, panX, panY };
 	}
 
 	function parseRelationships(raw: string): ObjectRelationship[] {
@@ -258,6 +296,26 @@
 						credit: fieldD,
 					}),
 				};
+			case 'map': {
+				const unitsPerGridSquare = parseFloatOrUndefined(fieldC);
+				return {
+					...base,
+					type: 'map',
+					data: normalizeMapData({
+						filePath: fieldA,
+						areaNoteId: fieldB || undefined,
+						scale:
+							unitsPerGridSquare && unitsPerGridSquare > 0
+								? {
+										unitsPerGridSquare,
+										unitLabel: fieldD.trim() || 'ft',
+									}
+								: undefined,
+						grid: parseMapGridConfig(listA) ?? undefined,
+						initialViewport: parseMapViewportConfig(listB) ?? undefined,
+					}),
+				};
+			}
 			case 'npc':
 				return {
 					...base,
@@ -414,6 +472,15 @@
 					listA: 'Unused',
 					listB: 'Unused',
 				};
+			case 'map':
+				return {
+					a: 'File path',
+					b: 'Area note id',
+					c: 'Scale units/square',
+					d: 'Scale unit label',
+					listA: 'Grid (type,cellSize,originX,originY,visible)',
+					listB: 'Viewport (zoom,panX,panY)',
+				};
 			case 'npc':
 				return {
 					a: 'Role',
@@ -501,6 +568,9 @@
 			if (object.type === 'image' && !object.data.url.trim()) {
 				throw new Error('Image URL is required for image objects.');
 			}
+			if (object.type === 'map' && !object.data.filePath.trim()) {
+				throw new Error('Map file path is required for map objects.');
+			}
 
 			const storage = getStorage();
 			await storage.saveObject(object);
@@ -567,6 +637,7 @@
 							<option value="stat_block">Stat Block</option>
 							<option value="character">Character</option>
 							<option value="image">Image</option>
+							<option value="map">Map</option>
 							<option value="npc">NPC</option>
 							<option value="location">Location</option>
 							<option value="faction">Faction</option>
@@ -697,6 +768,7 @@
 						<option value="stat_block">Stat blocks</option>
 						<option value="character">Characters</option>
 						<option value="image">Images</option>
+						<option value="map">Maps</option>
 						<option value="npc">NPCs</option>
 						<option value="location">Locations</option>
 						<option value="faction">Factions</option>

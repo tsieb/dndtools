@@ -16,6 +16,7 @@ export function registerListObjectsTool(server: McpServer, storage: FileSystemAd
 					'stat_block',
 					'character',
 					'image',
+					'map',
 					'npc',
 					'location',
 					'faction',

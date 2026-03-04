@@ -7,6 +7,7 @@ describe('getObjectTemplateSeed', () => {
 			'stat_block',
 			'character',
 			'image',
+			'map',
 			'npc',
 			'location',
 			'faction',

@@ -62,6 +62,9 @@ contextBridge.exposeInMainWorld('dndtoolsDesktop', {
 	clearImportCheckpoint: () => ipcRenderer.invoke('dndtools:import-export:clear-checkpoint'),
 	exportMarkdownZip: (request: unknown) =>
 		ipcRenderer.invoke('dndtools:import-export:export-zip', request),
+	importMapFromDialog: () => ipcRenderer.invoke('dndtools:maps:import-from-dialog'),
+	resolveMapAssetUrl: (relativePath: string) =>
+		ipcRenderer.invoke('dndtools:maps:resolve-asset-url', relativePath),
 	getNoteCount: () => ipcRenderer.invoke('dndtools:storage:get-note-count'),
 	getTagCounts: () => ipcRenderer.invoke('dndtools:storage:get-tag-counts'),
 	refreshFromDisk: () => ipcRenderer.invoke('dndtools:storage:refresh-from-disk'),

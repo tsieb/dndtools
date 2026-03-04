@@ -6,7 +6,7 @@ import {
 } from './object-schema.js';
 
 describe('object-schema', () => {
-	it('accepts all object data schemas for the 11 supported types', () => {
+	it('accepts all object data schemas for the 12 supported types', () => {
 		const samples = {
 			stat_block: {
 				abilities: {},
@@ -23,6 +23,9 @@ describe('object-schema', () => {
 			},
 			image: {
 				url: 'file:///map.png',
+			},
+			map: {
+				filePath: '.vault/assets/maps/region-map.png',
 			},
 			npc: {
 				goals: [],

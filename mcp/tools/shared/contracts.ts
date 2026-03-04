@@ -210,6 +210,7 @@ const linkGraphSchema = z
 					folder: z.string().min(1),
 					tags: z.array(z.string()),
 					deleted: z.boolean(),
+					kind: z.enum(['note', 'map']),
 				})
 				.strict(),
 		),
@@ -220,6 +221,7 @@ const linkGraphSchema = z
 					targetId: z.string().min(1),
 					displayText: z.string(),
 					position: z.number().int().nonnegative(),
+					kind: z.enum(['wikilink', 'map_area', 'location_map']),
 				})
 				.strict(),
 		),
@@ -325,6 +327,42 @@ const worldDateSummarySchema = z
 		dayOffset: z.number().int(),
 		short: z.string().min(1),
 		iso: z.string().min(1),
+	})
+	.strict();
+
+const sessionPrepActiveMapSchema = z
+	.object({
+		id: z.string().min(1),
+		name: z.string().min(1),
+		filePath: z.string().min(1),
+		areaNoteId: z.string().min(1).nullable(),
+		tags: z.array(z.string()),
+		updatedAt: z.string().min(1),
+		scale: z
+			.object({
+				unitsPerGridSquare: z.number().positive(),
+				unitLabel: z.string().min(1),
+			})
+			.strict()
+			.nullable(),
+		grid: z
+			.object({
+				type: z.enum(['square', 'hex']),
+				visible: z.boolean(),
+				originX: z.number(),
+				originY: z.number(),
+				cellSize: z.number().positive(),
+			})
+			.strict()
+			.nullable(),
+		initialViewport: z
+			.object({
+				zoom: z.number().positive(),
+				panX: z.number(),
+				panY: z.number(),
+			})
+			.strict()
+			.nullable(),
 	})
 	.strict();
 
@@ -668,6 +706,7 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 						})
 						.strict(),
 				),
+				activeMap: sessionPrepActiveMapSchema.nullable(),
 				continuityFlags: z.array(coverageGapSchema),
 				recommendedToolFlow: z.array(z.string().min(1)),
 				safeOperatingPattern: z.string().min(1),

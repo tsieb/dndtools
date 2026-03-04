@@ -141,6 +141,7 @@ export const vaultObjectTypeSchema = z.enum([
 	'stat_block',
 	'character',
 	'image',
+	'map',
 	'npc',
 	'location',
 	'faction',
@@ -705,6 +706,13 @@ export const exportMarkdownZipSchema = z.object({
 	profile: exportProfileSchema,
 	outputPath: folderPathSchema.optional(),
 });
+
+/** Vault-relative map asset path under `.vault/assets/maps/`. */
+export const mapAssetRelativePathSchema = z
+	.string()
+	.min(1)
+	.max(MAX_PATH_LENGTH)
+	.refine(isPathSafe, { message: 'Path traversal sequences are not allowed in map asset paths' });
 
 // ─── Per-key AppSettings value schemas ───────────────────────────────────────
 

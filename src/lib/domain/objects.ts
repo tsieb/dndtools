@@ -8,6 +8,7 @@ import type {
 	ImageData,
 	ItemData,
 	LocationData,
+	MapData,
 	NpcData,
 	ObjectRelationship,
 	ObjectRelationshipType,
@@ -115,6 +116,78 @@ export function normalizeImageData(value: Partial<ImageData> | undefined): Image
 			typeof value?.height === 'number' && Number.isFinite(value.height)
 				? Math.max(1, Math.trunc(value.height))
 				: undefined,
+	};
+}
+
+function normalizeFiniteNumber(value: unknown, fallback: number, min: number, max: number): number {
+	if (typeof value === 'number' && Number.isFinite(value)) {
+		return Math.min(max, Math.max(min, value));
+	}
+	if (typeof value === 'string') {
+		const parsed = Number.parseFloat(value);
+		if (Number.isFinite(parsed)) {
+			return Math.min(max, Math.max(min, parsed));
+		}
+	}
+	return fallback;
+}
+
+export function normalizeMapData(value: Partial<MapData> | undefined): MapData {
+	const filePath = value?.filePath?.trim() ?? '';
+	const hasScale =
+		typeof value?.scale?.unitsPerGridSquare === 'number' &&
+		Number.isFinite(value.scale.unitsPerGridSquare) &&
+		value.scale.unitsPerGridSquare > 0;
+	const hasGrid =
+		value?.grid &&
+		(typeof value.grid.originX === 'number' || typeof value.grid.originX === 'string');
+	const hasViewport =
+		value?.initialViewport &&
+		(typeof value.initialViewport.zoom === 'number' ||
+			typeof value.initialViewport.zoom === 'string');
+	return {
+		filePath,
+		mimeType: value?.mimeType?.trim() || undefined,
+		byteSize:
+			typeof value?.byteSize === 'number' && Number.isFinite(value.byteSize)
+				? Math.max(0, Math.trunc(value.byteSize))
+				: undefined,
+		width:
+			typeof value?.width === 'number' && Number.isFinite(value.width)
+				? Math.max(1, Math.trunc(value.width))
+				: undefined,
+		height:
+			typeof value?.height === 'number' && Number.isFinite(value.height)
+				? Math.max(1, Math.trunc(value.height))
+				: undefined,
+		areaNoteId: value?.areaNoteId?.trim() || undefined,
+		scale: hasScale
+			? {
+					unitsPerGridSquare: normalizeFiniteNumber(
+						value?.scale?.unitsPerGridSquare,
+						5,
+						0.01,
+						1_000_000,
+					),
+					unitLabel: value?.scale?.unitLabel?.trim() || 'ft',
+				}
+			: undefined,
+		grid: hasGrid
+			? {
+					type: value?.grid?.type === 'hex' ? 'hex' : 'square',
+					visible: value?.grid?.visible !== false,
+					originX: normalizeFiniteNumber(value?.grid?.originX, 0, -1_000_000, 1_000_000),
+					originY: normalizeFiniteNumber(value?.grid?.originY, 0, -1_000_000, 1_000_000),
+					cellSize: normalizeFiniteNumber(value?.grid?.cellSize, 70, 4, 20_000),
+				}
+			: undefined,
+		initialViewport: hasViewport
+			? {
+					zoom: normalizeFiniteNumber(value?.initialViewport?.zoom, 1, 0.1, 8),
+					panX: normalizeFiniteNumber(value?.initialViewport?.panX, 0, -10_000_000, 10_000_000),
+					panY: normalizeFiniteNumber(value?.initialViewport?.panY, 0, -10_000_000, 10_000_000),
+				}
+			: undefined,
 	};
 }
 
@@ -373,6 +446,16 @@ export function normalizeVaultObject(object: VaultObject): VaultObject {
 				relationships: normalizeObjectRelationships(object.relationships),
 				data: normalizeImageData(object.data),
 			};
+		case 'map':
+			return {
+				...object,
+				name: object.name.trim(),
+				summary: object.summary.trim(),
+				tags: object.tags.map((tag) => tag.trim()).filter(Boolean),
+				visibility: normalizeContentVisibility(object.visibility),
+				relationships: normalizeObjectRelationships(object.relationships),
+				data: normalizeMapData(object.data),
+			};
 		case 'npc':
 			return {
 				...object,
@@ -464,6 +547,8 @@ export function getVaultObjectTypeLabel(type: VaultObjectType): string {
 			return 'Character';
 		case 'image':
 			return 'Image';
+		case 'map':
+			return 'Map';
 		case 'npc':
 			return 'NPC';
 		case 'location':
@@ -502,6 +587,16 @@ export function summarizeVaultObject(object: VaultObject): string {
 		}
 		case 'image':
 			return object.data.caption ?? object.data.credit ?? '';
+		case 'map': {
+			const dimensions =
+				object.data.width && object.data.height
+					? `${object.data.width}x${object.data.height}`
+					: null;
+			const scale = object.data.scale
+				? `1 sq = ${object.data.scale.unitsPerGridSquare} ${object.data.scale.unitLabel}`
+				: null;
+			return [dimensions, scale].filter((entry): entry is string => !!entry).join(' | ');
+		}
 		case 'npc': {
 			const role = object.data.role ?? null;
 			const ancestry = object.data.ancestry ?? null;

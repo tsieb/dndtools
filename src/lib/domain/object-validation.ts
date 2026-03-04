@@ -226,6 +226,44 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 					);
 				}
 				break;
+			case 'map':
+				if (!object.data.filePath?.trim()) {
+					lint.push(
+						issue(
+							object,
+							'map.file_path_required',
+							'Map file path is required.',
+							'error',
+							'data.filePath',
+							'Import a map image or provide a valid map asset path.',
+						),
+					);
+				}
+				if (object.data.scale && !object.data.scale.unitLabel?.trim()) {
+					lint.push(
+						issue(
+							object,
+							'map.scale_unit_required',
+							'Scale unit label is required when map scale is set.',
+							'warning',
+							'data.scale.unitLabel',
+							'Set a unit label (for example: ft, m, mi).',
+						),
+					);
+				}
+				if (object.data.grid && object.data.grid.cellSize <= 0) {
+					lint.push(
+						issue(
+							object,
+							'map.grid_cell_size_invalid',
+							'Grid cell size must be greater than zero.',
+							'error',
+							'data.grid.cellSize',
+							'Set a positive grid cell size.',
+						),
+					);
+				}
+				break;
 			case 'npc':
 				if (!object.data.role?.trim()) {
 					lint.push(

@@ -7,6 +7,7 @@ import type {
 	ImageData,
 	ItemData,
 	LocationData,
+	MapData,
 	NpcData,
 	ObjectRelationship,
 	QuestData,
@@ -25,6 +26,7 @@ import {
 	normalizeImageData,
 	normalizeItemData,
 	normalizeLocationData,
+	normalizeMapData,
 	normalizeNpcData,
 	normalizeObjectRelationships,
 	normalizeQuestData,
@@ -62,6 +64,7 @@ function normalizeObjectType(kind: unknown): VaultObjectType | null {
 		kind === 'stat_block' ||
 		kind === 'character' ||
 		kind === 'image' ||
+		kind === 'map' ||
 		kind === 'npc' ||
 		kind === 'location' ||
 		kind === 'faction' ||
@@ -83,6 +86,7 @@ function normalizeObjectData(
 	| StatBlockData
 	| CharacterData
 	| ImageData
+	| MapData
 	| NpcData
 	| LocationData
 	| FactionData
@@ -99,6 +103,8 @@ function normalizeObjectData(
 			return normalizeCharacterData(source as Partial<CharacterData>);
 		case 'image':
 			return normalizeImageData(source as Partial<ImageData>);
+		case 'map':
+			return normalizeMapData(source as Partial<MapData>);
 		case 'npc':
 			return normalizeNpcData(source as Partial<NpcData>);
 		case 'location':
@@ -164,6 +170,7 @@ function buildObjectMarkdown(
 		| StatBlockData
 		| CharacterData
 		| ImageData
+		| MapData
 		| NpcData
 		| LocationData
 		| FactionData
@@ -268,6 +275,25 @@ function buildObjectMarkdown(
 				? value.secrets.map((entry) => `- ${entry}`)
 				: ['- _Add secrets_']),
 			...(value.notes ? ['', '## Notes', '', value.notes] : []),
+			...relationshipLines,
+		].join('\n');
+	}
+
+	if (type === 'map') {
+		const value = data as MapData;
+		return [
+			'## Map',
+			'',
+			`- File Path: ${value.filePath ?? ''}`.trimEnd(),
+			`- Area Note ID: ${value.areaNoteId ?? ''}`.trimEnd(),
+			`- Dimensions: ${value.width && value.height ? `${value.width}x${value.height}` : ''}`.trimEnd(),
+			`- Scale: ${value.scale ? `1 sq = ${value.scale.unitsPerGridSquare} ${value.scale.unitLabel}` : ''}`.trimEnd(),
+			'',
+			'## Grid',
+			`- Type: ${value.grid?.type ?? ''}`.trimEnd(),
+			`- Visible: ${value.grid ? (value.grid.visible ? 'yes' : 'no') : ''}`.trimEnd(),
+			`- Origin: ${value.grid ? `${value.grid.originX}, ${value.grid.originY}` : ''}`.trimEnd(),
+			`- Cell Size: ${value.grid?.cellSize ?? ''}`.trimEnd(),
 			...relationshipLines,
 		].join('\n');
 	}

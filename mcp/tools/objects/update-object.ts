@@ -11,6 +11,7 @@ import {
 	normalizeImageData,
 	normalizeItemData,
 	normalizeLocationData,
+	normalizeMapData,
 	normalizeNpcData,
 	normalizeObjectRelationships,
 	normalizeQuestData,
@@ -73,6 +74,9 @@ export function registerUpdateObjectTool(server: McpServer, storage: FileSystemA
 					break;
 				case 'image':
 					updated.data = normalizeImageData(rawData);
+					break;
+				case 'map':
+					updated.data = normalizeMapData(rawData);
 					break;
 				case 'npc':
 					updated.data = normalizeNpcData(rawData);

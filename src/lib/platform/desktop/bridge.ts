@@ -336,6 +336,16 @@ export type DesktopImportResolutionChoice =
 	import('$lib/types/import-export.js').ImportResolutionChoice;
 export type DesktopExportProfile = import('$lib/types/import-export.js').ExportProfile;
 export type DesktopExportZipResult = import('$lib/types/import-export.js').ExportZipResult;
+export type DesktopMapImportResult =
+	| { canceled: true }
+	| {
+			canceled: false;
+			filePath: string;
+			fileUrl: string;
+			byteSize: number;
+			mimeType: string;
+			name: string;
+	  };
 
 function requireBridge(): NonNullable<Window['dndtoolsDesktop']> {
 	const bridge = window.dndtoolsDesktop;
@@ -542,6 +552,14 @@ export async function exportDesktopMarkdownZip(request: {
 	outputPath?: string;
 }): Promise<DesktopExportZipResult> {
 	return requireBridge().exportMarkdownZip(request);
+}
+
+export async function importDesktopMapFromDialog(): Promise<DesktopMapImportResult> {
+	return requireBridge().importMapFromDialog();
+}
+
+export async function resolveDesktopMapAssetUrl(relativePath: string): Promise<string | null> {
+	return requireBridge().resolveMapAssetUrl(relativePath);
 }
 
 export async function listDesktopMcpPendingChanges(): Promise<DesktopMcpChangeRecord[]> {

@@ -5,6 +5,7 @@ import type {
 	ImageData,
 	ItemData,
 	LocationData,
+	MapData,
 	NpcData,
 	ObjectRelationship,
 	QuestData,
@@ -19,6 +20,7 @@ import {
 	normalizeImageData,
 	normalizeItemData,
 	normalizeLocationData,
+	normalizeMapData,
 	normalizeNpcData,
 	normalizeQuestData,
 	normalizeStatBlockData,
@@ -35,6 +37,7 @@ export interface ObjectTemplateSeed {
 	data:
 		| StatBlockData
 		| ImageData
+		| MapData
 		| NpcData
 		| LocationData
 		| FactionData
@@ -101,6 +104,32 @@ export function getObjectTemplateSeed(
 					alt: '',
 					caption: '',
 					credit: '',
+				}),
+			};
+		case 'map':
+			return {
+				name: 'New Map',
+				summary: '',
+				tags: ['map'],
+				relationships: [],
+				data: normalizeMapData({
+					filePath: '',
+					scale: {
+						unitsPerGridSquare: 5,
+						unitLabel: 'ft',
+					},
+					grid: {
+						type: 'square',
+						visible: true,
+						originX: 0,
+						originY: 0,
+						cellSize: 70,
+					},
+					initialViewport: {
+						zoom: 1,
+						panX: 0,
+						panY: 0,
+					},
 				}),
 			};
 		case 'npc':

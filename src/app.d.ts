@@ -421,6 +421,18 @@ declare global {
 				profile: import('$lib/types/import-export.js').ExportProfile;
 				outputPath?: string;
 			}): Promise<import('$lib/types/import-export.js').ExportZipResult>;
+			importMapFromDialog(): Promise<
+				| { canceled: true }
+				| {
+						canceled: false;
+						filePath: string;
+						fileUrl: string;
+						byteSize: number;
+						mimeType: string;
+						name: string;
+				  }
+			>;
+			resolveMapAssetUrl(relativePath: string): Promise<string | null>;
 			getNoteCount(): Promise<number>;
 			getTagCounts(): Promise<import('$lib/types/note.js').TagEntry[]>;
 			refreshFromDisk(): Promise<void>;

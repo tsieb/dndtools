@@ -4,6 +4,7 @@ export const vaultObjectTypeSchema = z.enum([
 	'stat_block',
 	'character',
 	'image',
+	'map',
 	'npc',
 	'location',
 	'faction',
@@ -139,6 +140,42 @@ export const imageDataSchema = z
 	})
 	.strict();
 
+export const mapDataSchema = z
+	.object({
+		filePath: z.string().min(1),
+		mimeType: z.string().optional(),
+		byteSize: z.number().int().min(0).optional(),
+		width: z.number().int().min(1).optional(),
+		height: z.number().int().min(1).optional(),
+		areaNoteId: z.string().optional(),
+		scale: z
+			.object({
+				unitsPerGridSquare: z.number().positive(),
+				unitLabel: z.string().min(1),
+			})
+			.strict()
+			.optional(),
+		grid: z
+			.object({
+				type: z.enum(['square', 'hex']),
+				visible: z.boolean(),
+				originX: z.number(),
+				originY: z.number(),
+				cellSize: z.number().positive(),
+			})
+			.strict()
+			.optional(),
+		initialViewport: z
+			.object({
+				zoom: z.number().positive(),
+				panX: z.number(),
+				panY: z.number(),
+			})
+			.strict()
+			.optional(),
+	})
+	.strict();
+
 export const npcDataSchema = z
 	.object({
 		role: z.string().optional(),
@@ -261,6 +298,7 @@ export const objectDataSchemaByType = {
 	stat_block: statBlockDataSchema,
 	character: characterDataSchema,
 	image: imageDataSchema,
+	map: mapDataSchema,
 	npc: npcDataSchema,
 	location: locationDataSchema,
 	faction: factionDataSchema,
@@ -290,6 +328,7 @@ export const vaultObjectRecordSchema = z.discriminatedUnion('type', [
 		.object({ ...objectRecordBase, type: z.literal('character'), data: characterDataSchema })
 		.strict(),
 	z.object({ ...objectRecordBase, type: z.literal('image'), data: imageDataSchema }).strict(),
+	z.object({ ...objectRecordBase, type: z.literal('map'), data: mapDataSchema }).strict(),
 	z.object({ ...objectRecordBase, type: z.literal('npc'), data: npcDataSchema }).strict(),
 	z.object({ ...objectRecordBase, type: z.literal('location'), data: locationDataSchema }).strict(),
 	z.object({ ...objectRecordBase, type: z.literal('faction'), data: factionDataSchema }).strict(),

@@ -17,6 +17,7 @@
 		['/', 'Home'],
 		['/notes', 'All Notes'],
 		['/search', 'Search'],
+		['/maps', 'Maps'],
 		['/timeline', 'Timeline'],
 		['/session-board', 'Session Board'],
 		['/settings', 'Settings'],

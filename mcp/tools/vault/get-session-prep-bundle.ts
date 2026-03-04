@@ -15,6 +15,21 @@ function parseTimestamp(value: string): number {
 	return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function pickActiveLocationNoteId(
+	boards: Awaited<ReturnType<FileSystemAdapter['getSessionBoards']>>,
+): string | null {
+	const sortedBoards = [...boards].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+	for (const board of sortedBoards) {
+		const locationItems = (board.sessionContext?.items ?? [])
+			.filter((item) => item.category === 'location')
+			.sort((a, b) => b.pinnedAt.localeCompare(a.pinnedAt));
+		if (locationItems.length > 0) {
+			return String(locationItems[0]!.noteId);
+		}
+	}
+	return null;
+}
+
 export function registerGetSessionPrepBundleTool(
 	server: McpServer,
 	storage: FileSystemAdapter,
@@ -36,7 +51,7 @@ export function registerGetSessionPrepBundleTool(
 			boardLimit: z.number().int().min(1).max(25).optional().default(8),
 		},
 		async ({ focusTag, worldDate, staleAfterDays, recentLimit, boardLimit }) => {
-			const [insights, notes, boards, worldCalendarRaw] = await Promise.all([
+			const [insights, notes, boards, worldCalendarRaw, mapObjects] = await Promise.all([
 				buildVaultIntelligence(storage, {
 					staleAfterDays,
 					maxExamples: Math.max(recentLimit, boardLimit),
@@ -44,6 +59,7 @@ export function registerGetSessionPrepBundleTool(
 				storage.getAllNotes(),
 				storage.getSessionBoards(),
 				storage.getSetting('worldCalendar'),
+				storage.getAllObjects({ type: 'map' }),
 			]);
 			const worldCalendar = normalizeWorldCalendar(worldCalendarRaw);
 			const parsedWorldDate = parseWorldDateInput(worldCalendar, worldDate);
@@ -90,6 +106,14 @@ export function registerGetSessionPrepBundleTool(
 					updatedAt: board.updatedAt,
 					tileCount: board.tiles.length,
 				}));
+			const activeLocationNoteId = pickActiveLocationNoteId(boards);
+			const activeMap =
+				activeLocationNoteId === null
+					? null
+					: (mapObjects
+							.filter((object) => object.type === 'map')
+							.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+							.find((object) => object.data.areaNoteId === activeLocationNoteId) ?? null);
 
 			const continuityFlags = insights.coverageGaps
 				.filter((gap) => gap.severity === 'high' || gap.severity === 'medium')
@@ -123,6 +147,19 @@ export function registerGetSessionPrepBundleTool(
 				staleScopedNotes,
 				calendarHighlights,
 				boardContext,
+				activeMap: activeMap
+					? {
+							id: String(activeMap.id),
+							name: activeMap.name,
+							filePath: activeMap.data.filePath,
+							areaNoteId: activeMap.data.areaNoteId ?? null,
+							tags: activeMap.tags,
+							updatedAt: activeMap.updatedAt,
+							scale: activeMap.data.scale ?? null,
+							grid: activeMap.data.grid ?? null,
+							initialViewport: activeMap.data.initialViewport ?? null,
+						}
+					: null,
 				continuityFlags,
 				recommendedToolFlow: [
 					'get_campaign_health',

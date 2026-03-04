@@ -9,6 +9,17 @@ import {
 	resolveLinkTargetId,
 } from '../../../src/lib/domain/link-resolution.js';
 
+function matchesFolderFilter(path: string, normalizedFolder: string): boolean {
+	if (!normalizedFolder) return true;
+	const normalizedPath = path.toLowerCase();
+	if (normalizedFolder === '/') return true;
+	return (
+		normalizedPath === normalizedFolder ||
+		normalizedPath.startsWith(`${normalizedFolder}/`) ||
+		normalizedFolder.startsWith(`${normalizedPath}/`)
+	);
+}
+
 export function registerGetLinkGraphTool(server: McpServer, storage: FileSystemAdapter): void {
 	server.tool(
 		'get_link_graph',
@@ -25,19 +36,58 @@ export function registerGetLinkGraphTool(server: McpServer, storage: FileSystemA
 			const normalizedTag = tagFilter?.trim().toLowerCase() ?? '';
 			const entries = (await getIndexEntriesView(storage))
 				.filter((entry) => includeDeleted || !entry.deleted)
-				.filter((entry) =>
-					normalizedFolder
-						? entry.folder.toLowerCase() === normalizedFolder ||
-							entry.folder.toLowerCase().startsWith(`${normalizedFolder}/`)
-						: true,
-				)
+				.filter((entry) => matchesFolderFilter(entry.folder, normalizedFolder))
 				.filter((entry) =>
 					normalizedTag ? entry.tags.some((tag) => tag.toLowerCase() === normalizedTag) : true,
 				);
+			const mapObjects = (await storage.getAllObjects({ type: 'map' }))
+				.filter((object) => object.type === 'map')
+				.filter(() => matchesFolderFilter('/maps', normalizedFolder))
+				.filter((object) =>
+					normalizedTag ? object.tags.some((tag) => tag.toLowerCase() === normalizedTag) : true,
+				);
+
 			const nodeIdSet = new Set(entries.map((entry) => entry.id));
-			const links = (await getLinkEntriesView(storage))
+			for (const mapObject of mapObjects) {
+				nodeIdSet.add(String(mapObject.id));
+			}
+			const noteLinks = (await getLinkEntriesView(storage))
 				.filter((link) => nodeIdSet.has(link.sourceId))
 				.filter((link) => nodeIdSet.has(link.targetId));
+			const mapLinks = mapObjects
+				.filter(
+					(object) => !!object.data.areaNoteId && nodeIdSet.has(String(object.data.areaNoteId)),
+				)
+				.flatMap((object) => {
+					const mapId = String(object.id);
+					const noteId = String(object.data.areaNoteId);
+					return [
+						{
+							sourceId: mapId,
+							targetId: noteId,
+							displayText: 'area',
+							position: 0,
+							kind: 'map_area' as const,
+						},
+						{
+							sourceId: noteId,
+							targetId: mapId,
+							displayText: 'map',
+							position: 0,
+							kind: 'location_map' as const,
+						},
+					];
+				});
+			const links = [
+				...noteLinks.map((link) => ({
+					sourceId: link.sourceId,
+					targetId: link.targetId,
+					displayText: link.displayText,
+					position: link.position,
+					kind: 'wikilink' as const,
+				})),
+				...mapLinks,
+			];
 
 			const connected = new Set<string>();
 			for (const link of links) {
@@ -53,13 +103,27 @@ export function registerGetLinkGraphTool(server: McpServer, storage: FileSystemA
 					folder: entry.folder,
 					tags: entry.tags,
 					deleted: entry.deleted,
-				}));
+					kind: 'note' as const,
+				}))
+				.concat(
+					mapObjects
+						.filter((object) => includeIsolated || connected.has(String(object.id)))
+						.map((object) => ({
+							id: String(object.id),
+							title: object.name,
+							folder: '/maps',
+							tags: object.tags,
+							deleted: false,
+							kind: 'map' as const,
+						})),
+				);
 
 			const edges = links.map((link) => ({
 				sourceId: link.sourceId,
 				targetId: link.targetId,
 				displayText: link.displayText,
 				position: link.position,
+				kind: link.kind,
 			}));
 
 			const quality = includeQuality
