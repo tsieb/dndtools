@@ -1,7 +1,8 @@
-﻿import path from 'node:path';
+import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import http from 'node:http';
+import { pathToFileURL } from 'node:url';
 import AdmZip from 'adm-zip';
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import { z } from 'zod';
@@ -62,6 +63,7 @@ import {
 	startImportJobSchema,
 	importJobQuerySchema,
 	exportMarkdownZipSchema,
+	mapAssetRelativePathSchema,
 } from './ipc-schemas.js';
 
 let storage: FileSystemAdapter | null = null;
@@ -112,6 +114,83 @@ const CONTENT_TYPES: Record<string, string> = {
 	'.txt': 'text/plain; charset=utf-8',
 	'.map': 'application/json; charset=utf-8',
 };
+
+const MAP_IMPORT_MAX_BYTES = 50 * 1024 * 1024;
+const MAP_IMPORT_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.svg']);
+const MAP_IMPORT_FILTERS = [
+	{
+		name: 'Map Images',
+		extensions: ['png', 'jpg', 'jpeg', 'webp', 'svg'],
+	},
+];
+
+function sanitizeFileNameSegment(value: string): string {
+	return value
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9_-]+/g, '-')
+		.replace(/^-+|-+$/g, '');
+}
+
+function normalizeMapAssetRelativePath(relativePath: string): string {
+	return relativePath.replace(/\\/g, '/').replace(/^\/+/, '');
+}
+
+function ensurePathInsideVault(vaultRoot: string, candidatePath: string): void {
+	const relative = path.relative(path.resolve(vaultRoot), path.resolve(candidatePath));
+	if (
+		relative.startsWith('..') ||
+		path.isAbsolute(relative) ||
+		relative.split(path.sep).includes('..')
+	) {
+		throw new Error('Path escapes the active vault.');
+	}
+}
+
+async function importMapAssetFromSource(
+	sourceAbsolutePath: string,
+	vaultRoot: string,
+): Promise<{
+	filePath: string;
+	fileUrl: string;
+	byteSize: number;
+	mimeType: string;
+	name: string;
+}> {
+	const sourceStats = await fs.stat(sourceAbsolutePath);
+	if (!sourceStats.isFile()) {
+		throw new Error('Selected map asset is not a file.');
+	}
+	if (sourceStats.size > MAP_IMPORT_MAX_BYTES) {
+		throw new Error('Map asset exceeds 50 MB limit.');
+	}
+
+	const extension = path.extname(sourceAbsolutePath).toLowerCase();
+	if (!MAP_IMPORT_EXTENSIONS.has(extension)) {
+		throw new Error('Unsupported map asset format.');
+	}
+
+	const sourceName = path.basename(sourceAbsolutePath, extension);
+	const slug = sanitizeFileNameSegment(sourceName) || 'map';
+	const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+	const fileName = `${slug}-${timestamp}${extension}`;
+	const relativePath = path.join('.vault', 'assets', 'maps', fileName);
+	const normalizedRelativePath = normalizeMapAssetRelativePath(relativePath);
+	const targetAbsolutePath = path.join(vaultRoot, normalizedRelativePath);
+	ensurePathInsideVault(vaultRoot, targetAbsolutePath);
+
+	await fs.mkdir(path.dirname(targetAbsolutePath), { recursive: true });
+	await fs.copyFile(sourceAbsolutePath, targetAbsolutePath);
+
+	const mimeType = CONTENT_TYPES[extension] ?? 'application/octet-stream';
+	return {
+		filePath: normalizedRelativePath,
+		fileUrl: pathToFileURL(targetAbsolutePath).toString(),
+		byteSize: sourceStats.size,
+		mimeType,
+		name: sourceName || 'Map',
+	};
+}
 
 function resolveVaultDirFromArgsOrEnv(): string | null {
 	const vaultFlag = process.argv.find((arg) => arg.startsWith('--vault='));
@@ -1089,6 +1168,48 @@ ipcMain.handle('dndtools:import-export:export-zip', async (_event, rawRequest: u
 		profile: request.profile,
 		outputPath: path.resolve(outputPath),
 	});
+});
+
+ipcMain.handle('dndtools:maps:import-from-dialog', async () => {
+	const picked = await dialog.showOpenDialog({
+		title: 'Import Map Asset',
+		properties: ['openFile'],
+		filters: MAP_IMPORT_FILTERS,
+	});
+	if (picked.canceled || picked.filePaths.length === 0) {
+		return { canceled: true };
+	}
+
+	const sourceAbsolutePath = path.resolve(picked.filePaths[0]!);
+	const imported = await importMapAssetFromSource(sourceAbsolutePath, vaultDir);
+	return {
+		canceled: false,
+		...imported,
+	};
+});
+
+ipcMain.handle('dndtools:maps:resolve-asset-url', async (_event, rawRelativePath: unknown) => {
+	const relativePath = parseIpcArg(
+		mapAssetRelativePathSchema,
+		rawRelativePath,
+		'maps:resolve-asset-url:path',
+	);
+	const normalizedRelativePath = normalizeMapAssetRelativePath(relativePath);
+	if (!normalizedRelativePath.startsWith('.vault/assets/maps/')) {
+		throw new Error('Map asset path must be under .vault/assets/maps/.');
+	}
+
+	const absolutePath = path.join(vaultDir, normalizedRelativePath);
+	ensurePathInsideVault(vaultDir, absolutePath);
+	try {
+		const stat = await fs.stat(absolutePath);
+		if (!stat.isFile()) {
+			return null;
+		}
+		return pathToFileURL(absolutePath).toString();
+	} catch {
+		return null;
+	}
 });
 
 ipcMain.handle('dndtools:storage:get-note-count', async () => {

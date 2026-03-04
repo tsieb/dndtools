@@ -370,6 +370,7 @@ describe('AC3 — Enum values / whitelists are enforced', () => {
 			'stat_block',
 			'character',
 			'image',
+			'map',
 			'npc',
 			'location',
 			'faction',

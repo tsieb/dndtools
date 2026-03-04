@@ -73,6 +73,7 @@
 		}
 		if (pathname === '/search') return 'Search';
 		if (pathname === '/graph') return 'Graph';
+		if (pathname === '/maps') return 'Maps';
 		if (pathname === '/timeline') return 'Timeline';
 		if (pathname === '/session-board') return 'Session Board';
 		if (pathname === '/encounter/new') return 'Encounter Builder';
@@ -214,6 +215,7 @@
 		if (!playerModeState.enabled) return;
 		if (
 			page.url.pathname === '/graph' ||
+			page.url.pathname === '/maps' ||
 			page.url.pathname === '/timeline' ||
 			page.url.pathname === '/session-board' ||
 			page.url.pathname === '/encounter/new' ||

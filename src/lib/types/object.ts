@@ -6,6 +6,7 @@ export type VaultObjectType =
 	| 'stat_block'
 	| 'character'
 	| 'image'
+	| 'map'
 	| 'npc'
 	| 'location'
 	| 'faction'
@@ -88,6 +89,39 @@ export interface ImageData {
 	credit?: string;
 	width?: number;
 	height?: number;
+}
+
+export type MapGridType = 'square' | 'hex';
+
+export interface MapScaleData {
+	unitsPerGridSquare: number;
+	unitLabel: string;
+}
+
+export interface MapGridData {
+	type: MapGridType;
+	visible: boolean;
+	originX: number;
+	originY: number;
+	cellSize: number;
+}
+
+export interface MapViewportData {
+	zoom: number;
+	panX: number;
+	panY: number;
+}
+
+export interface MapData {
+	filePath: string;
+	mimeType?: string;
+	byteSize?: number;
+	width?: number;
+	height?: number;
+	areaNoteId?: string;
+	scale?: MapScaleData;
+	grid?: MapGridData;
+	initialViewport?: MapViewportData;
 }
 
 export interface NpcData {
@@ -214,6 +248,7 @@ export interface VaultObjectBase<TType extends VaultObjectType, TData> {
 export type StatBlockObject = VaultObjectBase<'stat_block', StatBlockData>;
 export type CharacterObject = VaultObjectBase<'character', CharacterData>;
 export type ImageObject = VaultObjectBase<'image', ImageData>;
+export type MapObject = VaultObjectBase<'map', MapData>;
 export type NpcObject = VaultObjectBase<'npc', NpcData>;
 export type LocationObject = VaultObjectBase<'location', LocationData>;
 export type FactionObject = VaultObjectBase<'faction', FactionData>;
@@ -227,6 +262,7 @@ export type VaultObject =
 	| StatBlockObject
 	| CharacterObject
 	| ImageObject
+	| MapObject
 	| NpcObject
 	| LocationObject
 	| FactionObject

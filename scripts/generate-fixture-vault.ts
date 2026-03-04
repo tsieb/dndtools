@@ -184,6 +184,7 @@ const OBJECT_TYPES: readonly VaultObjectType[] = [
 	'stat_block',
 	'character',
 	'image',
+	'map',
 	'npc',
 	'location',
 	'faction',
@@ -216,6 +217,29 @@ function buildObjectData(type: VaultObjectType, index: number): VaultObject['dat
 			return {
 				url: `https://example.invalid/fixtures/image-${index + 1}.png`,
 				alt: `Fixture image ${index + 1}`,
+			};
+		case 'map':
+			return {
+				filePath: `.vault/assets/maps/fixture-map-${index + 1}.png`,
+				width: 4096,
+				height: 4096,
+				areaNoteId: `fixture-note-${String((index % 20) + 1).padStart(5, '0')}`,
+				scale: {
+					unitsPerGridSquare: 5,
+					unitLabel: 'ft',
+				},
+				grid: {
+					type: index % 2 === 0 ? 'square' : 'hex',
+					visible: true,
+					originX: 0,
+					originY: 0,
+					cellSize: 70,
+				},
+				initialViewport: {
+					zoom: 1,
+					panX: 0,
+					panY: 0,
+				},
 			};
 		case 'npc':
 			return {

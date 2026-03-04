@@ -12,6 +12,7 @@ const OBJECT_TYPES = new Set<VaultObjectType>([
 	'stat_block',
 	'character',
 	'image',
+	'map',
 	'npc',
 	'location',
 	'faction',

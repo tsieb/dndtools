@@ -20,6 +20,7 @@
 		normalizeImageData,
 		normalizeItemData,
 		normalizeLocationData,
+		normalizeMapData,
 		normalizeNpcData,
 		normalizeObjectRelationships,
 		normalizeQuestData,
@@ -81,6 +82,43 @@
 	function parseIntOrUndefined(value: string): number | undefined {
 		const parsed = Number.parseInt(value.trim(), 10);
 		return Number.isFinite(parsed) ? parsed : undefined;
+	}
+
+	function parseFloatOrUndefined(value: string): number | undefined {
+		const parsed = Number.parseFloat(value.trim());
+		return Number.isFinite(parsed) ? parsed : undefined;
+	}
+
+	function parseMapGridConfig(raw: string): {
+		type: 'square' | 'hex';
+		visible: boolean;
+		originX: number;
+		originY: number;
+		cellSize: number;
+	} | null {
+		const entries = parseCsv(raw);
+		if (entries.length === 0) return null;
+		const [typeRaw, cellSizeRaw, originXRaw, originYRaw, visibleRaw] = entries;
+		const type = typeRaw?.toLowerCase() === 'hex' ? 'hex' : 'square';
+		const cellSize = parseFloatOrUndefined(cellSizeRaw ?? '');
+		const originX = parseFloatOrUndefined(originXRaw ?? '') ?? 0;
+		const originY = parseFloatOrUndefined(originYRaw ?? '') ?? 0;
+		const visible = (visibleRaw ?? 'true').toLowerCase() !== 'false';
+		if (cellSize === undefined || cellSize <= 0) return null;
+		return { type, visible, originX, originY, cellSize };
+	}
+
+	function parseMapViewportConfig(
+		raw: string,
+	): { zoom: number; panX: number; panY: number } | null {
+		const entries = parseCsv(raw);
+		if (entries.length === 0) return null;
+		const [zoomRaw, panXRaw, panYRaw] = entries;
+		const zoom = parseFloatOrUndefined(zoomRaw ?? '');
+		const panX = parseFloatOrUndefined(panXRaw ?? '') ?? 0;
+		const panY = parseFloatOrUndefined(panYRaw ?? '') ?? 0;
+		if (zoom === undefined || zoom <= 0) return null;
+		return { zoom, panX, panY };
 	}
 
 	function relationshipLines(source: ObjectRelationship[]): string {
@@ -149,6 +187,21 @@
 				fieldD = object.data.credit ?? '';
 				listA = '';
 				listB = '';
+				return;
+			case 'map':
+				fieldA = object.data.filePath ?? '';
+				fieldB = object.data.areaNoteId ?? '';
+				fieldC =
+					object.data.scale?.unitsPerGridSquare !== undefined
+						? String(object.data.scale.unitsPerGridSquare)
+						: '';
+				fieldD = object.data.scale?.unitLabel ?? '';
+				listA = object.data.grid
+					? `${object.data.grid.type},${object.data.grid.cellSize},${object.data.grid.originX},${object.data.grid.originY},${object.data.grid.visible ? 'true' : 'false'}`
+					: '';
+				listB = object.data.initialViewport
+					? `${object.data.initialViewport.zoom},${object.data.initialViewport.panX},${object.data.initialViewport.panY}`
+					: '';
 				return;
 			case 'npc':
 				fieldA = object.data.role ?? '';
@@ -258,6 +311,15 @@
 					d: 'Credit',
 					listA: 'Unused',
 					listB: 'Unused',
+				};
+			case 'map':
+				return {
+					a: 'File path',
+					b: 'Area note id',
+					c: 'Scale units/square',
+					d: 'Scale unit label',
+					listA: 'Grid (type,cellSize,originX,originY,visible)',
+					listB: 'Viewport (zoom,panX,panY)',
 				};
 			case 'npc':
 				return {
@@ -480,6 +542,28 @@
 						credit: fieldD,
 					}),
 				};
+			case 'map': {
+				const unitsPerGridSquare = parseFloatOrUndefined(fieldC);
+				return {
+					...existing,
+					updatedAt,
+					relationships: parsedRelationships,
+					data: normalizeMapData({
+						...existing.data,
+						filePath: fieldA,
+						areaNoteId: fieldB || undefined,
+						scale:
+							unitsPerGridSquare && unitsPerGridSquare > 0
+								? {
+										unitsPerGridSquare,
+										unitLabel: fieldD.trim() || 'ft',
+									}
+								: undefined,
+						grid: parseMapGridConfig(listA) ?? undefined,
+						initialViewport: parseMapViewportConfig(listB) ?? undefined,
+					}),
+				};
+			}
 			case 'npc':
 				return {
 					...existing,
@@ -735,6 +819,26 @@
 			return;
 		}
 		if (issue.code === 'handout.cipher_key_required') {
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'map.file_path_required') {
+			fieldA = fieldA.trim() || '.vault/assets/maps/map.png';
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'map.scale_unit_required') {
+			fieldD = fieldD.trim() || 'ft';
+			await applyStructuredChanges();
+			return;
+		}
+		if (issue.code === 'map.grid_cell_size_invalid') {
+			const parsed = parseMapGridConfig(listA);
+			const gridType = parsed?.type ?? 'square';
+			const originX = parsed?.originX ?? 0;
+			const originY = parsed?.originY ?? 0;
+			const visible = parsed?.visible ?? true;
+			listA = `${gridType},70,${originX},${originY},${visible ? 'true' : 'false'}`;
 			await applyStructuredChanges();
 			return;
 		}

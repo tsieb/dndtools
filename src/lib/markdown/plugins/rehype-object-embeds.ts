@@ -221,6 +221,30 @@ function buildObjectDetails(object: VaultObject): HastNode[] {
 			if (creditLine) lines.push(creditLine);
 			return lines;
 		}
+		case 'map': {
+			const lines: HastNode[] = [];
+			const pathLine = detailLine('File:', object.data.filePath);
+			if (pathLine) lines.push(pathLine);
+			const areaLine = detailLine('Area Note:', object.data.areaNoteId);
+			if (areaLine) lines.push(areaLine);
+			const dimensionsLine =
+				object.data.width && object.data.height
+					? detailLine('Dimensions:', `${object.data.width} x ${object.data.height}`)
+					: null;
+			if (dimensionsLine) lines.push(dimensionsLine);
+			const scaleLine = object.data.scale
+				? detailLine(
+						'Scale:',
+						`1 square = ${object.data.scale.unitsPerGridSquare} ${object.data.scale.unitLabel}`,
+					)
+				: null;
+			if (scaleLine) lines.push(scaleLine);
+			const gridLine = object.data.grid
+				? detailLine('Grid:', `${object.data.grid.type}, ${object.data.grid.cellSize}px cells`)
+				: null;
+			if (gridLine) lines.push(gridLine);
+			return lines;
+		}
 		case 'npc': {
 			const lines: HastNode[] = [];
 			const roleLine = detailLine('Role:', object.data.role);
@@ -370,6 +394,7 @@ function parseEmbedToken(inner: string): EmbedMatch | null {
 				type !== 'stat_block' &&
 				type !== 'character' &&
 				type !== 'image' &&
+				type !== 'map' &&
 				type !== 'npc' &&
 				type !== 'location' &&
 				type !== 'faction' &&
