@@ -5,6 +5,7 @@ This is the verified stack in the repository today.
 ## Runtime
 
 - Electron 37 (`electron/` desktop shell)
+- Capacitor 8 (`android/` native shell, shared renderer bundle)
 - SvelteKit 2 + Svelte 5 (`src/` renderer)
 - Node.js for MCP sidecar (`mcp/`)
 
@@ -13,6 +14,7 @@ This is the verified stack in the repository today.
 - TypeScript 5 (strict)
 - Vite 7
 - tsup (MCP and Electron bundling)
+- Gradle 8 + Android SDK (Android APK builds)
 - ESLint 10 flat config
 - Prettier 3
 - pnpm
@@ -26,6 +28,7 @@ This is the verified stack in the repository today.
 ## Data and Persistence
 
 - Desktop primary backend: filesystem markdown vault via `FileSystemAdapter`
+- Android/web-capable backend: Capacitor Filesystem-backed `CapacitorStorageAdapter`
 - Shared contracts under `src/lib/types/*`
 
 ## Content and Search

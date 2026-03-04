@@ -20,11 +20,12 @@
 		onnewnote: () => void;
 		ondice: () => void;
 		ontemplate: (folderOverride?: string) => void;
+		presentation?: 'sidebar' | 'sheet';
 	}
 
 	type SidebarMode = 'tree' | 'recent' | 'favorites' | 'campaign';
 
-	let { onnewnote, ondice, ontemplate }: Props = $props();
+	let { onnewnote, ondice, ontemplate, presentation = 'sidebar' }: Props = $props();
 	let mode = $state<SidebarMode>('tree');
 	let showTags = $state(false);
 	let folderContextMenu = $state<{ folderId: string; x: number; y: number } | null>(null);
@@ -249,8 +250,14 @@
 
 <aside
 	class="h-full flex flex-col bg-surface-alt dark:bg-tavern-surface border-r border-border dark:border-tavern-border overflow-hidden
-		{ui.isMobile ? 'fixed inset-y-0 left-0 z-40 w-[280px] shadow-xl animate-slide-in' : ''}"
-	style="width: {ui.isMobile ? '280px' : ui.sidebarWidth + 'px'}"
+		{ui.isMobile && presentation === 'sidebar'
+		? 'fixed inset-y-0 left-0 z-40 w-[280px] shadow-xl animate-slide-in'
+		: ''}"
+	style="width: {ui.isMobile && presentation === 'sidebar'
+		? '280px'
+		: presentation === 'sheet'
+			? '100%'
+			: ui.sidebarWidth + 'px'}"
 >
 	<div class="p-3 border-b border-border dark:border-tavern-border space-y-2">
 		{#if playerModeState.enabled}

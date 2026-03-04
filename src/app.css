@@ -48,6 +48,10 @@
 }
 
 /* Base styles */
+:root {
+	--dndtools-keyboard-inset: 0px;
+}
+
 html {
 	font-family: var(--font-sans);
 	-webkit-font-smoothing: antialiased;
@@ -76,6 +80,10 @@ html.dark body {
 		radial-gradient(1100px 520px at 0% -10%, #2a2018 0%, transparent 65%),
 		radial-gradient(800px 420px at 100% 0%, #241b14 0%, transparent 62%), var(--color-tavern-bg);
 	color: var(--color-tavern-text);
+}
+
+html.dndtools-keyboard-open .mobile-bottom-nav {
+	display: none;
 }
 
 .app-main {

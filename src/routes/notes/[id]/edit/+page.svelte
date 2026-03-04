@@ -11,6 +11,8 @@
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { editorState } from '$lib/state/editor.svelte.js';
 	import { editorPreferencesState } from '$lib/state/editor-preferences.svelte.js';
+	import { ui } from '$lib/state/ui.svelte.js';
+	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import {
 		extractFrontmatter,
@@ -94,6 +96,7 @@
 			wordWrap: editorSettings.wordWrap,
 		}),
 	);
+	let dockEditorToolbar = $derived(ui.isMobile && mobileKeyboardState.keyboardOpen);
 
 	$effect(() => {
 		if (note && editorState.noteId !== note.id) {
@@ -426,7 +429,15 @@
 			ondisambiguate={applyDisambiguation}
 		/>
 
-		<EditorToolbar {editorView} density={editorSettings.toolbarDensity} />
+		<div
+			class="editor-toolbar-shell {dockEditorToolbar ? 'editor-toolbar-shell--docked' : ''}"
+			data-testid="mobile-editor-toolbar"
+		>
+			<EditorToolbar {editorView} density={editorSettings.toolbarDensity} />
+		</div>
+		{#if dockEditorToolbar}
+			<div class="h-14" aria-hidden="true"></div>
+		{/if}
 		<EditorInsertMenu {editorView} />
 		<ObjectEmbedMenu {editorView} />
 
@@ -486,3 +497,24 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.editor-toolbar-shell {
+		position: relative;
+	}
+
+	.editor-toolbar-shell--docked {
+		position: fixed;
+		left: 0.75rem;
+		right: 0.75rem;
+		bottom: calc(var(--dndtools-keyboard-inset, 0px) + 0.35rem);
+		z-index: 35;
+		padding-top: 0.25rem;
+		background: color-mix(in srgb, var(--color-surface) 86%, transparent);
+		border-radius: 0.75rem;
+	}
+
+	:global(html.dark) .editor-toolbar-shell--docked {
+		background: color-mix(in srgb, var(--color-tavern-surface) 88%, transparent);
+	}
+</style>

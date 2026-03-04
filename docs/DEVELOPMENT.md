@@ -7,6 +7,7 @@ This document defines enforceable engineering standards for this repository.
 - Node.js 20+
 - pnpm 9+
 - Windows/macOS/Linux desktop environment for Electron testing
+- Java 21 + Android SDK/Platform tools (required for Android APK builds)
 
 ## 2. Canonical Scripts
 
@@ -35,6 +36,10 @@ From `package.json`:
 - `pnpm desktop:start`: launch built Electron app
 - `pnpm desktop:smoke`: launch built desktop app against temp vault and assert readiness
 - `pnpm desktop`: build + start desktop
+- `pnpm android:add`: scaffold native Android project (one-time)
+- `pnpm android:sync`: build renderer and sync web assets/plugins into `android/`
+- `pnpm android:open`: open Android Studio project
+- `pnpm android:assemble:release`: build release APK via Gradle (`android/app/build/outputs/apk/release/`)
 - `pnpm fixture:vault -- [options]`: generate configurable fixture vault for perf/migration/debug scenarios
 
 ## 3. Required Workflow

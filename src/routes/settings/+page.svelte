@@ -81,6 +81,11 @@
 		type DesktopImportResolutionChoice,
 		type DesktopExportZipResult,
 	} from '$lib/platform/desktop/bridge.js';
+	import {
+		DEFAULT_MOBILE_VAULT_ROOT,
+		MOBILE_VAULT_ROOT_STORAGE_KEY,
+		normalizeMobileVaultRoot,
+	} from '$lib/platform/mobile-vault-root.js';
 	import { markSubsystemSuccess, reportRuntimeError } from '$lib/runtime/diagnostics.js';
 
 	type SettingsTab = {
@@ -159,6 +164,7 @@
 	let exportingDeterministicZip = $state(false);
 	let latestExportReport = $state<DesktopExportZipResult | null>(null);
 	let importPollTimer: ReturnType<typeof setInterval> | null = null;
+	let mobileVaultRootInput = $state(DEFAULT_MOBILE_VAULT_ROOT);
 
 	const settingsTabs: readonly SettingsTab[] = [
 		{ id: 'general', label: 'General' },
@@ -236,19 +242,40 @@
 		].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
 	);
 
+	function hasDesktopBridge(): boolean {
+		return typeof window !== 'undefined' && !!window.dndtoolsDesktop;
+	}
+
+	function loadMobileVaultRootPreference(): void {
+		if (typeof window === 'undefined' || hasDesktopBridge()) return;
+		const stored = window.localStorage.getItem(MOBILE_VAULT_ROOT_STORAGE_KEY);
+		mobileVaultRootInput = normalizeMobileVaultRoot(stored ?? DEFAULT_MOBILE_VAULT_ROOT);
+	}
+
+	function saveMobileVaultRootPreference(): void {
+		if (typeof window === 'undefined' || hasDesktopBridge()) return;
+		const next = normalizeMobileVaultRoot(mobileVaultRootInput);
+		window.localStorage.setItem(MOBILE_VAULT_ROOT_STORAGE_KEY, next);
+		mobileVaultRootInput = next;
+		toastState.success('Android vault directory saved. Restart the app to apply.');
+	}
+
 	onMount(() => {
-		void refreshDesktopState();
-		void loadRecentVaults();
-		void loadCurrentVaultPermissions();
-		void refreshUpdateStatus();
+		loadMobileVaultRootPreference();
+		if (hasDesktopBridge()) {
+			void refreshDesktopState();
+			void loadRecentVaults();
+			void loadCurrentVaultPermissions();
+			void refreshUpdateStatus();
+			void loadMcpPolicySettings();
+			void loadMcpAuditTrail();
+			void loadMigrationCheckpoints();
+		}
 		void mcpChangesState.refresh();
-		void loadMcpPolicySettings();
-		void loadMcpAuditTrail();
 		void loadBackupSettings();
 		void loadSafetySnapshots();
 		void loadTemplateContextSettings();
 		void loadWorldCalendarSettings();
-		void loadMigrationCheckpoints();
 		void loadImportCheckpointSummary();
 	});
 
@@ -341,6 +368,14 @@
 	}
 
 	async function refreshDesktopState(): Promise<void> {
+		if (!hasDesktopBridge()) {
+			desktopVaultDir = '';
+			mcpStatus = null;
+			integrityReport = null;
+			systemHealth = null;
+			updateStatus = null;
+			return;
+		}
 		refreshingDesktopState = true;
 		try {
 			const [backendInfo, nextMcpStatus, nextIntegrity, nextHealth, nextUpdateStatus] =
@@ -1033,6 +1068,10 @@
 	}
 
 	async function loadRecentVaults(): Promise<void> {
+		if (!hasDesktopBridge()) {
+			recentVaults = [];
+			return;
+		}
 		loadingRecentVaults = true;
 		try {
 			recentVaults = await listDesktopRecentVaults(8);
@@ -1045,6 +1084,10 @@
 	}
 
 	async function loadCurrentVaultPermissions(): Promise<void> {
+		if (!hasDesktopBridge()) {
+			currentVaultPermissions = null;
+			return;
+		}
 		checkingVaultPermissions = true;
 		try {
 			currentVaultPermissions = await getDesktopVaultPermissions();
@@ -1057,6 +1100,10 @@
 	}
 
 	async function refreshUpdateStatus(): Promise<void> {
+		if (!hasDesktopBridge()) {
+			updateStatus = null;
+			return;
+		}
 		try {
 			updateStatus = await getDesktopUpdateStatus();
 		} catch (error) {
@@ -1189,6 +1236,7 @@
 	}
 
 	async function loadMcpPolicySettings(): Promise<void> {
+		if (!hasDesktopBridge()) return;
 		try {
 			mcpPolicySettings = await getDesktopMcpPolicySettings();
 		} catch (error) {
@@ -1211,6 +1259,10 @@
 	}
 
 	async function loadMcpAuditTrail(): Promise<void> {
+		if (!hasDesktopBridge()) {
+			mcpAuditTrail = [];
+			return;
+		}
 		mcpAuditLoading = true;
 		try {
 			mcpAuditTrail = await listDesktopMcpAuditTrail(120);
@@ -1380,7 +1432,7 @@
 	}
 
 	async function loadMigrationCheckpoints(): Promise<void> {
-		if (!window.dndtoolsDesktop) return;
+		if (!hasDesktopBridge()) return;
 		loadingCheckpoints = true;
 		try {
 			migrationCheckpoints = await listDesktopMigrationCheckpoints();
@@ -2386,258 +2438,285 @@
 					{/if}
 
 					<div class="pt-3 border-t border-border dark:border-tavern-border">
-						<p class="text-xs text-ink-muted dark:text-tavern-muted">Desktop Vault Folder</p>
-						<p class="text-xs font-mono text-ink-faint dark:text-tavern-faint break-all mt-1">
-							{desktopVaultDir || (refreshingDesktopState ? 'Loading...' : 'Unavailable')}
-						</p>
-						<div class="mt-2 flex items-center gap-2">
-							{#if currentVaultPermissions}
-								<span
-									class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-surface-alt dark:bg-tavern-surface-alt text-ink dark:text-tavern-text"
-								>
-									Permissions: {currentVaultPermissions.health}
-								</span>
-							{:else}
-								<span
-									class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted"
-								>
-									Permissions: unknown
-								</span>
-							{/if}
-						</div>
-						{#if currentVaultPermissions?.remediation}
-							<p class="mt-2 text-xs text-amber-700 dark:text-amber-400">
-								{currentVaultPermissions.remediation}
+						{#if hasDesktopBridge()}
+							<p class="text-xs text-ink-muted dark:text-tavern-muted">Desktop Vault Folder</p>
+							<p class="text-xs font-mono text-ink-faint dark:text-tavern-faint break-all mt-1">
+								{desktopVaultDir || (refreshingDesktopState ? 'Loading...' : 'Unavailable')}
 							</p>
-						{/if}
-						<div class="mt-3 flex items-center gap-2">
-							<Button
-								variant="secondary"
-								size="sm"
-								onclick={handleChangeDesktopVault}
-								disabled={switchingVault}
-							>
-								{switchingVault ? 'Switching...' : 'Change Vault Folder'}
-							</Button>
-							<Button variant="ghost" size="sm" onclick={refreshDesktopState}>
-								Refresh Status
-							</Button>
-							<Button
-								variant="ghost"
-								size="sm"
-								onclick={loadCurrentVaultPermissions}
-								disabled={checkingVaultPermissions}
-							>
-								{checkingVaultPermissions ? 'Checking...' : 'Check Permissions'}
-							</Button>
-						</div>
-						<div class="mt-4 rounded border border-border dark:border-tavern-border p-3">
-							<div class="flex items-center justify-between gap-2 mb-2">
-								<p class="text-xs font-medium text-ink dark:text-tavern-text">Recent Vaults</p>
+							<div class="mt-2 flex items-center gap-2">
+								{#if currentVaultPermissions}
+									<span
+										class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-surface-alt dark:bg-tavern-surface-alt text-ink dark:text-tavern-text"
+									>
+										Permissions: {currentVaultPermissions.health}
+									</span>
+								{:else}
+									<span
+										class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted"
+									>
+										Permissions: unknown
+									</span>
+								{/if}
+							</div>
+							{#if currentVaultPermissions?.remediation}
+								<p class="mt-2 text-xs text-amber-700 dark:text-amber-400">
+									{currentVaultPermissions.remediation}
+								</p>
+							{/if}
+							<div class="mt-3 flex items-center gap-2">
+								<Button
+									variant="secondary"
+									size="sm"
+									onclick={handleChangeDesktopVault}
+									disabled={switchingVault}
+								>
+									{switchingVault ? 'Switching...' : 'Change Vault Folder'}
+								</Button>
+								<Button variant="ghost" size="sm" onclick={refreshDesktopState}>
+									Refresh Status
+								</Button>
 								<Button
 									variant="ghost"
 									size="sm"
-									onclick={loadRecentVaults}
-									disabled={loadingRecentVaults}
+									onclick={loadCurrentVaultPermissions}
+									disabled={checkingVaultPermissions}
 								>
-									{loadingRecentVaults ? 'Loading...' : 'Refresh'}
+									{checkingVaultPermissions ? 'Checking...' : 'Check Permissions'}
 								</Button>
 							</div>
-							{#if recentVaults.length === 0}
-								<p class="text-xs text-ink-muted dark:text-tavern-muted">No recent vaults.</p>
-							{:else}
-								<ul class="space-y-2">
-									{#each recentVaults as recent (recent.vaultDir)}
-										<li
-											class="rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-2"
-										>
-											<div class="flex items-start justify-between gap-2">
-												<div class="min-w-0">
-													<p class="text-xs font-mono text-ink dark:text-tavern-text break-all">
-														{recent.vaultDir}
-													</p>
-													<p class="text-[11px] text-ink-muted dark:text-tavern-muted mt-1">
-														Last opened: {recent.lastOpenedAt}
-													</p>
-													<p class="text-[11px] text-ink-faint dark:text-tavern-faint mt-1">
-														Health: {recent.health}
-													</p>
-													{#if recent.remediation}
-														<p class="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
-															{recent.remediation}
+							<div class="mt-4 rounded border border-border dark:border-tavern-border p-3">
+								<div class="flex items-center justify-between gap-2 mb-2">
+									<p class="text-xs font-medium text-ink dark:text-tavern-text">Recent Vaults</p>
+									<Button
+										variant="ghost"
+										size="sm"
+										onclick={loadRecentVaults}
+										disabled={loadingRecentVaults}
+									>
+										{loadingRecentVaults ? 'Loading...' : 'Refresh'}
+									</Button>
+								</div>
+								{#if recentVaults.length === 0}
+									<p class="text-xs text-ink-muted dark:text-tavern-muted">No recent vaults.</p>
+								{:else}
+									<ul class="space-y-2">
+										{#each recentVaults as recent (recent.vaultDir)}
+											<li
+												class="rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-2"
+											>
+												<div class="flex items-start justify-between gap-2">
+													<div class="min-w-0">
+														<p class="text-xs font-mono text-ink dark:text-tavern-text break-all">
+															{recent.vaultDir}
 														</p>
-													{/if}
+														<p class="text-[11px] text-ink-muted dark:text-tavern-muted mt-1">
+															Last opened: {recent.lastOpenedAt}
+														</p>
+														<p class="text-[11px] text-ink-faint dark:text-tavern-faint mt-1">
+															Health: {recent.health}
+														</p>
+														{#if recent.remediation}
+															<p class="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+																{recent.remediation}
+															</p>
+														{/if}
+													</div>
+													<Button
+														variant="ghost"
+														size="sm"
+														onclick={() => handleSwitchToRecentVault(recent.vaultDir)}
+														disabled={switchingVault || !recent.readable || !recent.writable}
+													>
+														Switch
+													</Button>
 												</div>
-												<Button
-													variant="ghost"
-													size="sm"
-													onclick={() => handleSwitchToRecentVault(recent.vaultDir)}
-													disabled={switchingVault || !recent.readable || !recent.writable}
-												>
-													Switch
-												</Button>
-											</div>
+											</li>
+										{/each}
+									</ul>
+								{/if}
+							</div>
+							{#if latestVaultSwitch}
+								<div class="mt-4 rounded border border-border dark:border-tavern-border p-3">
+									<p class="text-xs font-medium text-ink dark:text-tavern-text mb-2">
+										Last Vault Switch
+									</p>
+									<ul class="space-y-1">
+										{#each latestVaultSwitch.steps as step (step.id + step.at)}
+											<li class="text-xs text-ink-muted dark:text-tavern-muted">
+												<span class="font-medium text-ink dark:text-tavern-text">{step.id}</span>
+												({step.status}) — {step.detail}
+											</li>
+										{/each}
+									</ul>
+									{#if latestVaultSwitch.remediation}
+										<p class="mt-2 text-xs text-amber-700 dark:text-amber-400">
+											{latestVaultSwitch.remediation}
+										</p>
+									{/if}
+								</div>
+							{/if}
+						{:else}
+							<p class="text-xs text-ink-muted dark:text-tavern-muted">Android Vault Directory</p>
+							<p class="text-xs text-ink-faint dark:text-tavern-faint mt-1">
+								Stored under app-private files. Change the relative folder path and restart to
+								switch vault roots.
+							</p>
+							<div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+								<input
+									type="text"
+									value={mobileVaultRootInput}
+									oninput={(event) =>
+										(mobileVaultRootInput = (event.currentTarget as HTMLInputElement).value)}
+									class="w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-xs font-mono text-ink dark:text-tavern-text"
+									placeholder="dndtools/vault"
+									aria-label="Android vault directory"
+								/>
+								<Button variant="secondary" size="sm" onclick={saveMobileVaultRootPreference}>
+									Save
+								</Button>
+							</div>
+							<p class="mt-2 text-xs text-ink-faint dark:text-tavern-faint">
+								Current path: <span class="font-mono">{mobileVaultRootInput}</span>
+							</p>
+						{/if}
+					</div>
+
+					{#if hasDesktopBridge()}
+						<div class="pt-3 border-t border-border dark:border-tavern-border space-y-3">
+							<div class="flex items-center justify-between gap-2">
+								<div>
+									<p class="text-xs text-ink-muted dark:text-tavern-muted">Metadata Integrity</p>
+									<p class="text-xs text-ink-faint dark:text-tavern-faint mt-1">
+										{integrityReport
+											? integrityReport.healthy
+												? 'All .vault metadata and note markers passed validation.'
+												: `${integrityReport.issues.filter((i) => !i.repaired && i.status !== 'ok').length + integrityReport.noteIssues.filter((i) => !i.repaired).length} unrepaired issue${integrityReport.issues.filter((i) => !i.repaired && i.status !== 'ok').length + integrityReport.noteIssues.filter((i) => !i.repaired).length === 1 ? '' : 's'} detected.`
+											: refreshingDesktopState
+												? 'Scanning...'
+												: 'Status unavailable'}
+									</p>
+									{#if integrityReport?.journalRecovery.replayed}
+										<p class="text-xs text-amber-700 mt-1">
+											Recovered from {integrityReport.journalRecovery.pendingEntries} interrupted write{integrityReport
+												.journalRecovery.pendingEntries === 1
+												? ''
+												: 's'} on startup.
+										</p>
+									{/if}
+								</div>
+								<span
+									class="px-2 py-0.5 rounded-full text-xs font-medium"
+									class:bg-emerald-100={integrityReport?.healthy}
+									class:text-emerald-800={integrityReport?.healthy}
+									class:bg-rose-100={integrityReport && !integrityReport.healthy}
+									class:text-rose-800={integrityReport && !integrityReport.healthy}
+								>
+									{integrityReport?.healthy ? 'healthy' : 'attention'}
+								</span>
+							</div>
+
+							{#if integrityReport && integrityReport.issues.some((i) => !i.repaired && i.status !== 'ok')}
+								<p class="text-xs font-medium text-rose-700 dark:text-rose-400">
+									Critical — metadata files
+								</p>
+								<ul
+									class="rounded border border-rose-200 dark:border-rose-900 divide-y divide-rose-100 dark:divide-rose-900"
+								>
+									{#each integrityReport.issues.filter((i) => !i.repaired && i.status !== 'ok') as issue (issue.file)}
+										<li class="px-3 py-2 text-xs">
+											<p class="font-mono text-ink dark:text-tavern-text">{issue.file}</p>
+											<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
+											{#if issue.details}<p class="text-ink-faint dark:text-tavern-faint mt-0.5">
+													{issue.details}
+												</p>{/if}
 										</li>
 									{/each}
 								</ul>
 							{/if}
-						</div>
-						{#if latestVaultSwitch}
-							<div class="mt-4 rounded border border-border dark:border-tavern-border p-3">
-								<p class="text-xs font-medium text-ink dark:text-tavern-text mb-2">
-									Last Vault Switch
+
+							{#if integrityReport?.noteIssues.some((i) => !i.repaired && (i.status === 'checksum_mismatch' || i.status === 'orphan_entry'))}
+								<p class="text-xs font-medium text-amber-700 dark:text-amber-400">
+									Warning — note integrity
 								</p>
-								<ul class="space-y-1">
-									{#each latestVaultSwitch.steps as step (step.id + step.at)}
-										<li class="text-xs text-ink-muted dark:text-tavern-muted">
-											<span class="font-medium text-ink dark:text-tavern-text">{step.id}</span>
-											({step.status}) — {step.detail}
+								<ul
+									class="rounded border border-amber-200 dark:border-amber-900 divide-y divide-amber-100 dark:divide-amber-900"
+								>
+									{#each integrityReport.noteIssues.filter((i) => !i.repaired && (i.status === 'checksum_mismatch' || i.status === 'orphan_entry')) as issue (issue.noteId + issue.filePath)}
+										<li class="px-3 py-2 text-xs">
+											<p class="font-mono text-ink dark:text-tavern-text">{issue.filePath}</p>
+											<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
+											{#if issue.status === 'checksum_mismatch'}<p
+													class="text-ink-faint dark:text-tavern-faint mt-0.5"
+												>
+													Content changed outside DND Tools. Re-open and save the note to update the
+													checksum.
+												</p>{/if}
+											{#if issue.status === 'orphan_entry'}<p
+													class="text-ink-faint dark:text-tavern-faint mt-0.5"
+												>
+													File missing on disk. Rebuild the index to remove the stale entry.
+												</p>{/if}
 										</li>
 									{/each}
 								</ul>
-								{#if latestVaultSwitch.remediation}
-									<p class="mt-2 text-xs text-amber-700 dark:text-amber-400">
-										{latestVaultSwitch.remediation}
-									</p>
-								{/if}
-							</div>
-						{/if}
-					</div>
+							{/if}
 
-					<div class="pt-3 border-t border-border dark:border-tavern-border space-y-3">
-						<div class="flex items-center justify-between gap-2">
-							<div>
-								<p class="text-xs text-ink-muted dark:text-tavern-muted">Metadata Integrity</p>
-								<p class="text-xs text-ink-faint dark:text-tavern-faint mt-1">
-									{integrityReport
-										? integrityReport.healthy
-											? 'All .vault metadata and note markers passed validation.'
-											: `${integrityReport.issues.filter((i) => !i.repaired && i.status !== 'ok').length + integrityReport.noteIssues.filter((i) => !i.repaired).length} unrepaired issue${integrityReport.issues.filter((i) => !i.repaired && i.status !== 'ok').length + integrityReport.noteIssues.filter((i) => !i.repaired).length === 1 ? '' : 's'} detected.`
-										: refreshingDesktopState
-											? 'Scanning...'
-											: 'Status unavailable'}
+							{#if integrityReport?.noteIssues.some((i) => !i.repaired && (i.status === 'missing_marker' || i.status === 'invalid_marker'))}
+								<p class="text-xs font-medium text-ink-muted dark:text-tavern-muted">
+									Info — marker issues (auto-repaired on next save)
 								</p>
-								{#if integrityReport?.journalRecovery.replayed}
-									<p class="text-xs text-amber-700 mt-1">
-										Recovered from {integrityReport.journalRecovery.pendingEntries} interrupted write{integrityReport
-											.journalRecovery.pendingEntries === 1
-											? ''
-											: 's'} on startup.
-									</p>
-								{/if}
+								<ul
+									class="rounded border border-border dark:border-tavern-border divide-y divide-border dark:divide-tavern-border"
+								>
+									{#each integrityReport.noteIssues.filter((i) => !i.repaired && (i.status === 'missing_marker' || i.status === 'invalid_marker')) as issue (issue.noteId + issue.filePath)}
+										<li class="px-3 py-2 text-xs">
+											<p class="font-mono text-ink dark:text-tavern-text">{issue.filePath}</p>
+											<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+
+							{#if integrityReport && integrityReport.issues.some((i) => i.repaired)}
+								<ul
+									class="rounded border border-emerald-100 dark:border-emerald-900 divide-y divide-emerald-50 dark:divide-emerald-900"
+								>
+									{#each integrityReport.issues.filter((i) => i.repaired) as issue (issue.file)}
+										<li class="px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+											{issue.file} — repaired automatically
+										</li>
+									{/each}
+								</ul>
+							{/if}
+
+							<div class="flex flex-wrap items-center gap-2">
+								<Button
+									variant="secondary"
+									size="sm"
+									onclick={handleRepairIntegrity}
+									disabled={repairingIntegrity}
+								>
+									{repairingIntegrity ? 'Repairing...' : 'Repair Metadata'}
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									onclick={handleRebuildIndex}
+									disabled={rebuildingIndex}
+								>
+									{rebuildingIndex ? 'Rebuilding...' : 'Rebuild Index'}
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									onclick={refreshDesktopState}
+									disabled={refreshingDesktopState}
+								>
+									Rescan
+								</Button>
 							</div>
-							<span
-								class="px-2 py-0.5 rounded-full text-xs font-medium"
-								class:bg-emerald-100={integrityReport?.healthy}
-								class:text-emerald-800={integrityReport?.healthy}
-								class:bg-rose-100={integrityReport && !integrityReport.healthy}
-								class:text-rose-800={integrityReport && !integrityReport.healthy}
-							>
-								{integrityReport?.healthy ? 'healthy' : 'attention'}
-							</span>
 						</div>
-
-						{#if integrityReport && integrityReport.issues.some((i) => !i.repaired && i.status !== 'ok')}
-							<p class="text-xs font-medium text-rose-700 dark:text-rose-400">
-								Critical — metadata files
-							</p>
-							<ul
-								class="rounded border border-rose-200 dark:border-rose-900 divide-y divide-rose-100 dark:divide-rose-900"
-							>
-								{#each integrityReport.issues.filter((i) => !i.repaired && i.status !== 'ok') as issue (issue.file)}
-									<li class="px-3 py-2 text-xs">
-										<p class="font-mono text-ink dark:text-tavern-text">{issue.file}</p>
-										<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
-										{#if issue.details}<p class="text-ink-faint dark:text-tavern-faint mt-0.5">
-												{issue.details}
-											</p>{/if}
-									</li>
-								{/each}
-							</ul>
-						{/if}
-
-						{#if integrityReport?.noteIssues.some((i) => !i.repaired && (i.status === 'checksum_mismatch' || i.status === 'orphan_entry'))}
-							<p class="text-xs font-medium text-amber-700 dark:text-amber-400">
-								Warning — note integrity
-							</p>
-							<ul
-								class="rounded border border-amber-200 dark:border-amber-900 divide-y divide-amber-100 dark:divide-amber-900"
-							>
-								{#each integrityReport.noteIssues.filter((i) => !i.repaired && (i.status === 'checksum_mismatch' || i.status === 'orphan_entry')) as issue (issue.noteId + issue.filePath)}
-									<li class="px-3 py-2 text-xs">
-										<p class="font-mono text-ink dark:text-tavern-text">{issue.filePath}</p>
-										<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
-										{#if issue.status === 'checksum_mismatch'}<p
-												class="text-ink-faint dark:text-tavern-faint mt-0.5"
-											>
-												Content changed outside DND Tools. Re-open and save the note to update the
-												checksum.
-											</p>{/if}
-										{#if issue.status === 'orphan_entry'}<p
-												class="text-ink-faint dark:text-tavern-faint mt-0.5"
-											>
-												File missing on disk. Rebuild the index to remove the stale entry.
-											</p>{/if}
-									</li>
-								{/each}
-							</ul>
-						{/if}
-
-						{#if integrityReport?.noteIssues.some((i) => !i.repaired && (i.status === 'missing_marker' || i.status === 'invalid_marker'))}
-							<p class="text-xs font-medium text-ink-muted dark:text-tavern-muted">
-								Info — marker issues (auto-repaired on next save)
-							</p>
-							<ul
-								class="rounded border border-border dark:border-tavern-border divide-y divide-border dark:divide-tavern-border"
-							>
-								{#each integrityReport.noteIssues.filter((i) => !i.repaired && (i.status === 'missing_marker' || i.status === 'invalid_marker')) as issue (issue.noteId + issue.filePath)}
-									<li class="px-3 py-2 text-xs">
-										<p class="font-mono text-ink dark:text-tavern-text">{issue.filePath}</p>
-										<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
-									</li>
-								{/each}
-							</ul>
-						{/if}
-
-						{#if integrityReport && integrityReport.issues.some((i) => i.repaired)}
-							<ul
-								class="rounded border border-emerald-100 dark:border-emerald-900 divide-y divide-emerald-50 dark:divide-emerald-900"
-							>
-								{#each integrityReport.issues.filter((i) => i.repaired) as issue (issue.file)}
-									<li class="px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
-										{issue.file} — repaired automatically
-									</li>
-								{/each}
-							</ul>
-						{/if}
-
-						<div class="flex flex-wrap items-center gap-2">
-							<Button
-								variant="secondary"
-								size="sm"
-								onclick={handleRepairIntegrity}
-								disabled={repairingIntegrity}
-							>
-								{repairingIntegrity ? 'Repairing...' : 'Repair Metadata'}
-							</Button>
-							<Button
-								variant="ghost"
-								size="sm"
-								onclick={handleRebuildIndex}
-								disabled={rebuildingIndex}
-							>
-								{rebuildingIndex ? 'Rebuilding...' : 'Rebuild Index'}
-							</Button>
-							<Button
-								variant="ghost"
-								size="sm"
-								onclick={refreshDesktopState}
-								disabled={refreshingDesktopState}
-							>
-								Rescan
-							</Button>
-						</div>
-					</div>
+					{/if}
 				</div>
 			</section>
 

@@ -4,8 +4,12 @@ let adapter: StorageAdapter | null = null;
 let initPromise: Promise<void> | null = null;
 
 async function createAdapter(): Promise<StorageAdapter> {
-	const { ElectronStorageAdapter } = await import('./electron-adapter.js');
-	return new ElectronStorageAdapter();
+	if (typeof window !== 'undefined' && window.dndtoolsDesktop) {
+		const { ElectronStorageAdapter } = await import('./electron-adapter.js');
+		return new ElectronStorageAdapter();
+	}
+	const { CapacitorStorageAdapter } = await import('./capacitor-adapter.js');
+	return new CapacitorStorageAdapter();
 }
 
 /** Initialize storage adapter once at app startup. */
