@@ -21,6 +21,7 @@ import {
 	normalizeSessionBoardTile,
 } from '$lib/domain/session-board.js';
 import { createDefaultCombatState } from '$lib/domain/combat-tracker.js';
+import { createDefaultEncounterState } from '$lib/domain/encounter-builder.js';
 
 const GRID_COLUMNS = DEFAULT_SESSION_BOARD_LAYOUT.columns;
 const DEFAULT_TILE_W = 4;
@@ -29,10 +30,11 @@ const MAX_GRID_ROWS = 200;
 
 function getTileType(
 	tile: SessionBoardTile,
-): 'note' | 'calendar' | 'timer' | 'combat' | 'dice' | 'generator' | 'handouts' {
+): 'note' | 'calendar' | 'timer' | 'combat' | 'encounter' | 'dice' | 'generator' | 'handouts' {
 	switch (tile.type) {
 		case 'calendar':
 		case 'combat':
+		case 'encounter':
 		case 'dice':
 		case 'generator':
 		case 'handouts':
@@ -131,6 +133,13 @@ function cloneBoardTileForTemplate(tile: SessionBoardTile): SessionBoardTile {
 		return {
 			...tile,
 			type: 'dice',
+		};
+	}
+	if (type === 'encounter') {
+		return {
+			...tile,
+			type: 'encounter',
+			encounter: createDefaultEncounterState(),
 		};
 	}
 	if (type === 'generator') {
@@ -445,6 +454,24 @@ class SessionBoardsState {
 			y: position.y,
 			w: 6,
 			h: 4,
+		};
+		await this.updateBoard(boardId, {
+			tiles: [...board.tiles, tile],
+		});
+	}
+
+	async addEncounterTile(boardId: SessionBoardId): Promise<void> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return;
+		const position = findNextOpenPosition(board.tiles, 6, 5, board.layout?.columns ?? GRID_COLUMNS);
+		const tile: SessionBoardTile = {
+			id: nanoid(10),
+			type: 'encounter',
+			encounter: createDefaultEncounterState(),
+			x: position.x,
+			y: position.y,
+			w: 6,
+			h: 5,
 		};
 		await this.updateBoard(boardId, {
 			tiles: [...board.tiles, tile],

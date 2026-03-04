@@ -23,6 +23,7 @@ This matrix defines the critical desktop workflows covered by Playwright and the
 | `/timeline`         | Chronological world/session timeline rendering with arc and participant filters | `critical-workflows.spec.ts` ("timeline route shows world events and linked session logs with filters")                         |
 | `/settings?tab=mcp` | MCP pending-change review and approval lifecycle                                | `critical-workflows.spec.ts` ("MCP pending review approves staged changes from settings")                                       |
 | `/session-board`    | Session board creation and note-tile management                                 | `critical-workflows.spec.ts` ("session board management creates board and attaches notes")                                      |
+| `/encounter/new`    | Encounter builder route availability and encounter-tile creation flow           | `critical-workflows.spec.ts` ("encounter builder route renders and supports encounter tile creation")                           |
 
 ## Merge Blocking Policy
 

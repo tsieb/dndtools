@@ -12,6 +12,7 @@ import type {
 } from '../types/session-board.js';
 import { createNoteId } from '../types/note.js';
 import { createDefaultCombatState, normalizeCombatState } from './combat-tracker.js';
+import { createDefaultEncounterState, normalizeEncounterState } from './encounter-builder.js';
 
 const MIN_COLUMNS = 8;
 const MAX_COLUMNS = 32;
@@ -242,6 +243,13 @@ export function normalizeSessionBoardTile(tile: SessionBoardTile, columns = 12):
 			combat: normalizeCombatState(tile.combat ?? createDefaultCombatState()),
 		};
 	}
+	if (tile.type === 'encounter') {
+		return {
+			...common,
+			type: 'encounter',
+			encounter: normalizeEncounterState(tile.encounter ?? createDefaultEncounterState()),
+		};
+	}
 	if (tile.type === 'dice') {
 		return {
 			...common,
@@ -307,9 +315,18 @@ const BUILT_IN_TEMPLATE_SEED = [
 				h: 4,
 				combat: createDefaultCombatState(BUILT_IN_TEMPLATE_TIMESTAMP),
 			},
-			{ id: 'combat-opposition', type: 'note', x: 9, y: 0, w: 3, h: 4, previewDepth: 'summary' },
-			{ id: 'combat-arena', type: 'note', x: 0, y: 2, w: 5, h: 4, previewDepth: 'full' },
-			{ id: 'combat-objectives', type: 'note', x: 5, y: 4, w: 7, h: 3, previewDepth: 'summary' },
+			{
+				id: 'combat-builder',
+				type: 'encounter',
+				x: 9,
+				y: 0,
+				w: 3,
+				h: 4,
+				encounter: createDefaultEncounterState(BUILT_IN_TEMPLATE_TIMESTAMP),
+			},
+			{ id: 'combat-opposition', type: 'note', x: 0, y: 4, w: 4, h: 3, previewDepth: 'summary' },
+			{ id: 'combat-arena', type: 'note', x: 4, y: 4, w: 4, h: 3, previewDepth: 'full' },
+			{ id: 'combat-objectives', type: 'note', x: 8, y: 4, w: 4, h: 3, previewDepth: 'summary' },
 			{ id: 'combat-dice', type: 'dice', x: 0, y: 6, w: 5, h: 3 },
 		],
 		layout: { ...DEFAULT_SESSION_BOARD_LAYOUT },
@@ -451,8 +468,40 @@ export function cloneTemplateForBoard(template: SessionBoardTemplate): SessionBo
 										}
 									: undefined,
 							})),
+							legendaryTrackers: tile.combat.legendaryTrackers.map((tracker) => ({
+								...tracker,
+								actions: tracker.actions.map((action) => ({ ...action })),
+							})),
+							lairTracker: {
+								...tile.combat.lairTracker,
+								actions: tile.combat.lairTracker.actions.map((action) => ({ ...action })),
+							},
+							notableRolls: tile.combat.notableRolls.map((roll) => ({ ...roll })),
 						}
 					: tile.combat,
+			encounter:
+				tile.type === 'encounter' && tile.encounter
+					? {
+							...tile.encounter,
+							partyMembers: tile.encounter.partyMembers.map((member) => ({ ...member })),
+							combatants: tile.encounter.combatants.map((entry) => ({
+								...entry,
+								legendaryActions: entry.legendaryActions.map((action) => ({ ...action })),
+								lairActions: entry.lairActions.map((action) => ({ ...action })),
+							})),
+							tacticalChecklist: tile.encounter.tacticalChecklist.map((entry) => ({ ...entry })),
+							budget: { ...tile.encounter.budget },
+							legendaryTrackers: tile.encounter.legendaryTrackers.map((tracker) => ({
+								...tracker,
+								actions: tracker.actions.map((action) => ({ ...action })),
+							})),
+							lairTracker: {
+								...tile.encounter.lairTracker,
+								actions: tile.encounter.lairTracker.actions.map((action) => ({ ...action })),
+							},
+							notableRolls: tile.encounter.notableRolls.map((roll) => ({ ...roll })),
+						}
+					: tile.encounter,
 		})),
 	};
 }

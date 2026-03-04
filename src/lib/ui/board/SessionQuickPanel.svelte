@@ -20,10 +20,11 @@
 
 	function tileType(
 		tile: SessionBoardTile,
-	): 'note' | 'calendar' | 'timer' | 'combat' | 'dice' | 'generator' | 'handouts' {
+	): 'note' | 'calendar' | 'timer' | 'combat' | 'encounter' | 'dice' | 'generator' | 'handouts' {
 		switch (tile.type) {
 			case 'calendar':
 			case 'combat':
+			case 'encounter':
 			case 'dice':
 			case 'generator':
 			case 'handouts':
@@ -71,6 +72,11 @@
 		}
 		if (type === 'combat') {
 			void goto(resolve('/combat'));
+			onclose();
+			return;
+		}
+		if (type === 'encounter') {
+			void goto(resolve('/encounter/new'));
 			onclose();
 			return;
 		}
@@ -178,13 +184,15 @@
 											? 'Timer'
 											: tileType(tile) === 'combat'
 												? 'Combat'
-												: tileType(tile) === 'dice'
-													? 'Dice'
-													: tileType(tile) === 'generator'
-														? 'Generator'
-														: tileType(tile) === 'handouts'
-															? 'Handouts'
-															: 'Calendar'}
+												: tileType(tile) === 'encounter'
+													? 'Encounter'
+													: tileType(tile) === 'dice'
+														? 'Dice'
+														: tileType(tile) === 'generator'
+															? 'Generator'
+															: tileType(tile) === 'handouts'
+																? 'Handouts'
+																: 'Calendar'}
 								</div>
 								{#if tileType(tile) === 'note'}
 									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5 truncate">
@@ -212,6 +220,13 @@
 									</div>
 									<div class="text-xs text-ink-muted dark:text-tavern-muted">
 										Open Combat route for full initiative controls.
+									</div>
+								{:else if tileType(tile) === 'encounter'}
+									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
+										Encounter Builder
+									</div>
+									<div class="text-xs text-ink-muted dark:text-tavern-muted">
+										Build and balance encounters with CR budgeting.
 									</div>
 								{:else if tileType(tile) === 'dice'}
 									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">

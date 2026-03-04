@@ -13,6 +13,7 @@ export type SessionBoardTileType =
 	| 'calendar'
 	| 'timer'
 	| 'combat'
+	| 'encounter'
 	| 'dice'
 	| 'generator'
 	| 'handouts';
@@ -20,6 +21,19 @@ export type SessionBoardPreviewDepth = 'title' | 'summary' | 'full';
 export type SessionBoardTimerMode = 'elapsed' | 'countdown';
 export type CombatantOutcome = 'active' | 'fell' | 'fled';
 export type SessionContextCategory = 'npc' | 'location' | 'quest' | 'party';
+export type EncounterDifficulty =
+	| 'trivial'
+	| 'easy'
+	| 'medium'
+	| 'hard'
+	| 'deadly'
+	| 'overwhelming';
+export type EncounterEnvironmentType = 'forest' | 'dungeon' | 'urban' | 'water' | 'aerial';
+export type EncounterNotableRollKind =
+	| 'critical_hit'
+	| 'critical_failure'
+	| 'death_save_success'
+	| 'death_save_failure';
 
 export interface SessionBoardDeathSaves {
 	successes: number;
@@ -58,11 +72,52 @@ export interface SessionBoardCombatant {
 	deathSaves: SessionBoardDeathSaves;
 	outcome: CombatantOutcome;
 	damageDealt: number;
+	startingHp?: number | null;
 	linkedObjectId?: VaultObjectId;
 	linkedObjectType?: 'stat_block' | 'character';
 	linkedObjectName?: string;
 	statsPreview?: SessionBoardLinkedStatsPreview;
 	statsExpanded?: boolean;
+}
+
+export interface SessionBoardCombatLegendaryAction {
+	id: string;
+	name: string;
+	cost: number;
+	usedCount: number;
+}
+
+export interface SessionBoardCombatLegendaryTracker {
+	combatantId: string;
+	combatantName: string;
+	chargesMax: number;
+	chargesRemaining: number;
+	actions: SessionBoardCombatLegendaryAction[];
+}
+
+export interface SessionBoardCombatLairAction {
+	id: string;
+	name: string;
+	description?: string;
+	autoTrigger: boolean;
+	usedCount: number;
+}
+
+export interface SessionBoardCombatLairTracker {
+	enabled: boolean;
+	initiativeCount: number;
+	lastTriggeredRound: number | null;
+	actions: SessionBoardCombatLairAction[];
+}
+
+export interface SessionBoardCombatNotableRoll {
+	id: string;
+	kind: EncounterNotableRollKind;
+	combatantName: string;
+	combatantId?: string;
+	round: number;
+	note?: string;
+	recordedAt: string;
 }
 
 export interface SessionBoardCombatState {
@@ -71,8 +126,109 @@ export interface SessionBoardCombatState {
 	round: number;
 	activeCombatantId: string | null;
 	combatants: SessionBoardCombatant[];
+	legendaryTrackers: SessionBoardCombatLegendaryTracker[];
+	lairTracker: SessionBoardCombatLairTracker;
+	notableRolls: SessionBoardCombatNotableRoll[];
+	outcome: string;
 	notes: string;
 	loot: string;
+	startedAt: string | null;
+	endedAt: string | null;
+	lastLogNoteId: NoteId | null;
+}
+
+export interface SessionBoardEncounterPartyMember {
+	id: string;
+	name: string;
+	level: number;
+	linkedObjectId?: VaultObjectId;
+}
+
+export interface SessionBoardEncounterLegendaryAction {
+	id: string;
+	name: string;
+	cost: number;
+	description?: string;
+	usedCount: number;
+}
+
+export interface SessionBoardEncounterLairAction {
+	id: string;
+	name: string;
+	description?: string;
+	autoTrigger: boolean;
+	usedCount: number;
+}
+
+export interface SessionBoardEncounterCombatantEntry {
+	id: string;
+	name: string;
+	count: number;
+	challengeRating: string;
+	xpPerCreature: number;
+	statBlockObjectId?: VaultObjectId;
+	legendaryActions: SessionBoardEncounterLegendaryAction[];
+	lairActions: SessionBoardEncounterLairAction[];
+}
+
+export interface SessionBoardEncounterChecklistItem {
+	id: string;
+	label: string;
+	checked: boolean;
+}
+
+export interface SessionBoardEncounterBudget {
+	easy: number;
+	medium: number;
+	hard: number;
+	deadly: number;
+	baseXp: number;
+	adjustedXp: number;
+	multiplier: number;
+	difficulty: EncounterDifficulty;
+}
+
+export interface SessionBoardEncounterLegendaryTracker {
+	combatantEntryId: string;
+	combatantName: string;
+	chargesMax: number;
+	chargesRemaining: number;
+	actions: SessionBoardEncounterLegendaryAction[];
+}
+
+export interface SessionBoardEncounterLairTracker {
+	enabled: boolean;
+	initiativeCount: number;
+	lastTriggeredRound: number | null;
+	actions: SessionBoardEncounterLairAction[];
+}
+
+export interface SessionBoardEncounterNotableRoll {
+	id: string;
+	kind: EncounterNotableRollKind;
+	combatantName: string;
+	combatantEntryId?: string;
+	round: number;
+	note?: string;
+	recordedAt: string;
+}
+
+export interface SessionBoardEncounterState {
+	encounterName: string;
+	partyMembers: SessionBoardEncounterPartyMember[];
+	combatants: SessionBoardEncounterCombatantEntry[];
+	environmentType: EncounterEnvironmentType | null;
+	environmentNoteId: NoteId | null;
+	environmentName: string;
+	tacticalChecklist: SessionBoardEncounterChecklistItem[];
+	budget: SessionBoardEncounterBudget;
+	round: number;
+	activeCombatantEntryId: string | null;
+	legendaryTrackers: SessionBoardEncounterLegendaryTracker[];
+	lairTracker: SessionBoardEncounterLairTracker;
+	notableRolls: SessionBoardEncounterNotableRoll[];
+	notes: string;
+	outcome: string;
 	startedAt: string | null;
 	endedAt: string | null;
 	lastLogNoteId: NoteId | null;
@@ -96,6 +252,7 @@ export interface SessionBoardTile {
 	previewLineCount?: number;
 	timer?: SessionBoardTimerState;
 	combat?: SessionBoardCombatState;
+	encounter?: SessionBoardEncounterState;
 	/** 0-indexed grid column start */
 	x: number;
 	/** 0-indexed grid row start */
@@ -111,6 +268,7 @@ export type SessionBoardNoteTile = SessionBoardTile;
 export type SessionBoardCalendarTile = SessionBoardTile;
 export type SessionBoardTimerTile = SessionBoardTile;
 export type SessionBoardCombatTile = SessionBoardTile;
+export type SessionBoardEncounterTile = SessionBoardTile;
 export type SessionBoardDiceTile = SessionBoardTile;
 export type SessionBoardGeneratorTile = SessionBoardTile;
 export type SessionBoardHandoutTile = SessionBoardTile;

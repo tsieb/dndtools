@@ -3,27 +3,39 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { nowISO } from '$lib/utils/date.js';
-	import { createFolderId } from '$lib/types/note.js';
+	import { createFolderId, createNoteId } from '$lib/types/note.js';
 	import { getStorage } from '$lib/platform/storage/index.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import {
 		advanceCombatTurn,
 		buildEncounterLogDraft,
+		buildEncounterRewardSummary,
 		conditionCatalogForSystem,
 		createDefaultCombatState,
 		getLinkedCombatantDefaults,
 		normalizeCombatState,
+		recordCombatNotableRoll,
 		reorderTieCombatants,
 		sortCombatantsForInitiative,
+		spendLegendaryAction,
+		startCombatantTurn,
+		triggerLairActions,
 	} from '$lib/domain/combat-tracker.js';
+	import {
+		buildLairActionsFromStatBlock,
+		buildLegendaryActionsFromStatBlock,
+	} from '$lib/domain/encounter-builder.js';
+	import { buildRandomTableIndex, rollRandomTable } from '$lib/domain/random-tables.js';
+	import { getSessionTimelineEventId, isSessionNote } from '$lib/domain/session-timeline.js';
 	import { reportRuntimeError } from '$lib/runtime/diagnostics.js';
 	import type {
+		EncounterNotableRollKind,
 		SessionBoardCombatState,
 		SessionBoardCombatTile,
 		SessionBoardCombatant,
 	} from '$lib/types/session-board.js';
-	import type { VaultObject } from '$lib/types/object.js';
+	import type { StatBlockObject, VaultObject } from '$lib/types/object.js';
 
 	interface Props {
 		tile: SessionBoardCombatTile;
@@ -62,6 +74,8 @@
 	let combat = $derived.by(() => normalizeCombatState(tile.combat ?? createDefaultCombatState()));
 	let combatants = $derived.by(() => sortCombatantsForInitiative(combat.combatants));
 	let conditionCatalog = $derived.by(() => conditionCatalogForSystem(combat.systemId));
+	let legendaryTrackers = $derived.by(() => combat.legendaryTrackers);
+	let lairTracker = $derived.by(() => combat.lairTracker);
 	let activeCombatant = $derived.by(
 		() => combatants.find((combatant) => combatant.id === combat.activeCombatantId) ?? null,
 	);
@@ -111,6 +125,23 @@
 		onupdate(normalizeCombatState(next));
 	}
 
+	function asStatBlockObject(value: VaultObject | undefined): StatBlockObject | null {
+		return value && value.type === 'stat_block' ? value : null;
+	}
+
+	function syncLegendaryTrackerBindings(
+		nextCombatants: readonly SessionBoardCombatant[],
+		nextTrackers: SessionBoardCombatState['legendaryTrackers'],
+	): SessionBoardCombatState['legendaryTrackers'] {
+		const namesById = new Map(nextCombatants.map((combatant) => [combatant.id, combatant.name]));
+		return nextTrackers
+			.filter((tracker) => namesById.has(tracker.combatantId))
+			.map((tracker) => ({
+				...tracker,
+				combatantName: namesById.get(tracker.combatantId) ?? tracker.combatantName,
+			}));
+	}
+
 	function updateCombatant(
 		combatantId: string,
 		updater: (combatant: SessionBoardCombatant) => SessionBoardCombatant,
@@ -123,6 +154,7 @@
 		persist({
 			...combat,
 			combatants: nextCombatants,
+			legendaryTrackers: syncLegendaryTrackerBindings(nextCombatants, combat.legendaryTrackers),
 		});
 	}
 
@@ -204,6 +236,7 @@
 		const linkedObject = addLinkedObjectId
 			? linkedObjectById.get(addLinkedObjectId as VaultObject['id'])
 			: undefined;
+		const statBlock = asStatBlockObject(linkedObject);
 		const linkedDefaults = linkedObject ? getLinkedCombatantDefaults(linkedObject) : null;
 		const name = addName.trim() || linkedObject?.name?.trim() || '';
 		if (!name) {
@@ -234,6 +267,7 @@
 			deathSaves: { successes: 0, failures: 0 },
 			outcome: 'active',
 			damageDealt: 0,
+			startingHp: maxHp,
 			linkedObjectId: linkedObject?.id,
 			linkedObjectType:
 				linkedObject?.type === 'stat_block' || linkedObject?.type === 'character'
@@ -244,9 +278,54 @@
 			statsExpanded: false,
 		};
 		const nextCombatants = sortCombatantsForInitiative([...combatants, nextCombatant]);
+		let nextLegendaryTrackers = syncLegendaryTrackerBindings(
+			nextCombatants,
+			combat.legendaryTrackers,
+		);
+		let nextLairTracker = combat.lairTracker;
+		if (statBlock) {
+			const legendaryActions = buildLegendaryActionsFromStatBlock(statBlock);
+			if (legendaryActions.length > 0) {
+				nextLegendaryTrackers = [
+					...nextLegendaryTrackers,
+					{
+						combatantId: nextCombatant.id,
+						combatantName: nextCombatant.name,
+						chargesMax: 3,
+						chargesRemaining: 3,
+						actions: legendaryActions.map((entry) => ({
+							id: entry.id,
+							name: entry.name,
+							cost: entry.cost,
+							usedCount: entry.usedCount,
+						})),
+					},
+				];
+			}
+			const lairActions = buildLairActionsFromStatBlock(statBlock);
+			if (lairActions.length > 0) {
+				const existingNames = nextLairTracker.actions.map((entry) =>
+					entry.name.trim().toLowerCase(),
+				);
+				const merged = [...nextLairTracker.actions];
+				for (const action of lairActions) {
+					const key = action.name.trim().toLowerCase();
+					if (!key || existingNames.includes(key)) continue;
+					existingNames.push(key);
+					merged.push({ ...action });
+				}
+				nextLairTracker = {
+					...nextLairTracker,
+					enabled: true,
+					actions: merged,
+				};
+			}
+		}
 		persist({
 			...combat,
 			combatants: nextCombatants,
+			legendaryTrackers: nextLegendaryTrackers,
+			lairTracker: nextLairTracker,
 			activeCombatantId: combat.activeCombatantId ?? nextCombatants[0]?.id ?? null,
 		});
 		addPanelOpen = false;
@@ -258,6 +337,9 @@
 		persist({
 			...combat,
 			combatants: nextCombatants,
+			legendaryTrackers: combat.legendaryTrackers.filter(
+				(tracker) => tracker.combatantId !== combatantId,
+			),
 			activeCombatantId:
 				combat.activeCombatantId === combatantId
 					? (nextCombatants[0]?.id ?? null)
@@ -312,18 +394,240 @@
 		persist({ ...combat, loot: value.slice(0, 2000) });
 	}
 
+	function setEncounterOutcome(value: string): void {
+		persist({ ...combat, outcome: value.slice(0, 600) });
+	}
+
+	function addNotableRoll(combatant: SessionBoardCombatant, kind: EncounterNotableRollKind): void {
+		persist(
+			recordCombatNotableRoll(combat, {
+				kind,
+				combatantName: combatant.name,
+				combatantId: combatant.id,
+				round: combat.round,
+			}),
+		);
+	}
+
+	function adjustLegendaryCharges(combatantId: string, delta: number): void {
+		const nextTrackers = combat.legendaryTrackers.map((tracker) => {
+			if (tracker.combatantId !== combatantId) return tracker;
+			const next = Math.min(tracker.chargesMax, Math.max(0, tracker.chargesRemaining + delta));
+			return { ...tracker, chargesRemaining: next };
+		});
+		persist({ ...combat, legendaryTrackers: nextTrackers });
+	}
+
+	function setLegendaryChargesMax(combatantId: string, value: string): void {
+		const parsed = parseIntNullable(value);
+		if (parsed === null) return;
+		const chargesMax = Math.max(1, Math.min(9, parsed));
+		const nextTrackers = combat.legendaryTrackers.map((tracker) => {
+			if (tracker.combatantId !== combatantId) return tracker;
+			return {
+				...tracker,
+				chargesMax,
+				chargesRemaining: Math.min(chargesMax, tracker.chargesRemaining),
+			};
+		});
+		persist({ ...combat, legendaryTrackers: nextTrackers });
+	}
+
+	function updateLegendaryAction(
+		combatantId: string,
+		actionId: string,
+		field: 'name' | 'cost',
+		value: string,
+	): void {
+		const nextTrackers = combat.legendaryTrackers.map((tracker) => {
+			if (tracker.combatantId !== combatantId) return tracker;
+			return {
+				...tracker,
+				actions: tracker.actions.map((action) => {
+					if (action.id !== actionId) return action;
+					if (field === 'name') {
+						const nextName = value.trim();
+						return nextName ? { ...action, name: nextName.slice(0, 120) } : action;
+					}
+					const parsed = parseIntNullable(value);
+					return parsed === null ? action : { ...action, cost: Math.max(1, Math.min(5, parsed)) };
+				}),
+			};
+		});
+		persist({ ...combat, legendaryTrackers: nextTrackers });
+	}
+
+	function addLegendaryAction(combatantId: string): void {
+		const nextTrackers = combat.legendaryTrackers.map((tracker) => {
+			if (tracker.combatantId !== combatantId) return tracker;
+			return {
+				...tracker,
+				actions: [
+					...tracker.actions,
+					{
+						id: `${combatantId}-legendary-${Date.now()}-${tracker.actions.length + 1}`,
+						name: 'Legendary Action',
+						cost: 1,
+						usedCount: 0,
+					},
+				],
+			};
+		});
+		persist({ ...combat, legendaryTrackers: nextTrackers });
+	}
+
+	function removeLegendaryAction(combatantId: string, actionId: string): void {
+		const nextTrackers = combat.legendaryTrackers.map((tracker) => {
+			if (tracker.combatantId !== combatantId) return tracker;
+			return {
+				...tracker,
+				actions: tracker.actions.filter((action) => action.id !== actionId),
+			};
+		});
+		persist({ ...combat, legendaryTrackers: nextTrackers });
+	}
+
+	function toggleLairEnabled(): void {
+		persist({
+			...combat,
+			lairTracker: {
+				...combat.lairTracker,
+				enabled: !combat.lairTracker.enabled,
+			},
+		});
+	}
+
+	function setLairInitiativeCount(value: string): void {
+		const parsed = parseIntNullable(value);
+		if (parsed === null) return;
+		persist({
+			...combat,
+			lairTracker: {
+				...combat.lairTracker,
+				initiativeCount: Math.max(1, Math.min(30, parsed)),
+			},
+		});
+	}
+
+	function triggerLairNow(): void {
+		persist(triggerLairActions(combat, { autoOnly: false }));
+	}
+
+	function addLairAction(): void {
+		persist({
+			...combat,
+			lairTracker: {
+				...combat.lairTracker,
+				actions: [
+					...combat.lairTracker.actions,
+					{
+						id: `lair-${Date.now()}-${combat.lairTracker.actions.length + 1}`,
+						name: 'Lair Action',
+						autoTrigger: combat.lairTracker.actions.length === 0,
+						usedCount: 0,
+					},
+				],
+			},
+		});
+	}
+
+	function updateLairAction(
+		actionId: string,
+		field: 'name' | 'autoTrigger',
+		value: string | boolean,
+	): void {
+		persist({
+			...combat,
+			lairTracker: {
+				...combat.lairTracker,
+				actions: combat.lairTracker.actions.map((action) => {
+					if (action.id !== actionId) return action;
+					if (field === 'autoTrigger') {
+						return { ...action, autoTrigger: value === true };
+					}
+					const nextName = String(value).trim();
+					return nextName ? { ...action, name: nextName.slice(0, 120) } : action;
+				}),
+			},
+		});
+	}
+
+	function removeLairAction(actionId: string): void {
+		persist({
+			...combat,
+			lairTracker: {
+				...combat.lairTracker,
+				actions: combat.lairTracker.actions.filter((action) => action.id !== actionId),
+			},
+		});
+	}
+
+	function resolveActiveSessionTimelineLink(): {
+		eventId: string;
+		eventTitle: string | null;
+	} | null {
+		const sessionNotes = [...notesState.activeNotes]
+			.filter((note) => isSessionNote(note))
+			.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+		for (const note of sessionNotes) {
+			const eventId = getSessionTimelineEventId(note.frontmatter);
+			if (!eventId) continue;
+			const eventNote = notesState.getActiveNoteById(createNoteId(eventId));
+			return {
+				eventId,
+				eventTitle: eventNote?.title ?? null,
+			};
+		}
+		return null;
+	}
+
 	async function saveEncounterLog(): Promise<void> {
 		try {
-			const draft = buildEncounterLogDraft(combat);
+			const rewards = buildEncounterRewardSummary(combat);
+			const timelineLink = resolveActiveSessionTimelineLink();
+			let treasureRoll: { tableName: string; result: string; tier: 1 | 2 | 3 } | null = null;
+			try {
+				const tableIndex = buildRandomTableIndex({
+					vaultNotes: notesState.activeNotes.map((note) => ({
+						id: String(note.id),
+						title: note.title,
+						content: note.content,
+						tags: note.tags,
+						folder: String(note.folder),
+						updatedAt: note.updatedAt,
+					})),
+				});
+				const rolled = rollRandomTable(tableIndex, rewards.treasureTableName);
+				treasureRoll = {
+					tableName: rolled.tableName,
+					result: rolled.result,
+					tier: rewards.treasureTier,
+				};
+			} catch (error) {
+				toastState.info(`Treasure table roll unavailable: ${String(error)}`);
+			}
+
+			const draft = buildEncounterLogDraft(combat, {
+				treasureRoll,
+				xpAwards: rewards.xpAwards,
+				timelineEventId: timelineLink?.eventId ?? null,
+				timelineEventTitle: timelineLink?.eventTitle ?? null,
+			});
 			const note = await notesState.createNote({
 				title: draft.title,
 				content: draft.content,
 				folder: createFolderId(draft.folder),
 				tags: draft.tags,
 				frontmatter: {
+					...(timelineLink?.eventId ? { timelineEventId: timelineLink.eventId } : {}),
 					encounter: {
 						participantObjectIds: draft.participantObjectIds,
 						roundCount: Math.max(1, combat.round),
+						outcome: combat.outcome,
+						notableRolls: combat.notableRolls,
+						xpAwards: rewards.xpAwards,
+						treasureRoll,
+						timelineEventId: timelineLink?.eventId ?? null,
 						savedAt: nowISO(),
 					},
 				},
@@ -600,12 +904,7 @@
 								type="button"
 								class="h-7 w-7 rounded border border-border dark:border-tavern-border text-[11px] hover:bg-surface dark:hover:bg-tavern-surface"
 								title="Set active"
-								onclick={() =>
-									persist({
-										...combat,
-										activeCombatantId: combatant.id,
-										startedAt: combat.startedAt ?? nowISO(),
-									})}
+								onclick={() => persist(startCombatantTurn(combat, combatant.id))}
 							>
 								{combat.activeCombatantId === combatant.id ? '>' : ''}
 							</button>
@@ -829,6 +1128,40 @@
 							{/each}
 						</div>
 
+						<div class="mt-2 flex flex-wrap items-center gap-1 text-[11px]">
+							<span class="text-ink-muted dark:text-tavern-muted">Notable rolls</span>
+							<button
+								type="button"
+								class="px-1.5 py-0.5 rounded border border-border dark:border-tavern-border hover:bg-surface dark:hover:bg-tavern-surface"
+								onclick={() => addNotableRoll(combatant, 'critical_hit')}
+							>
+								Crit +
+							</button>
+							<button
+								type="button"
+								class="px-1.5 py-0.5 rounded border border-border dark:border-tavern-border hover:bg-surface dark:hover:bg-tavern-surface"
+								onclick={() => addNotableRoll(combatant, 'critical_failure')}
+							>
+								Crit -
+							</button>
+							{#if combatant.isPlayerCharacter}
+								<button
+									type="button"
+									class="px-1.5 py-0.5 rounded border border-border dark:border-tavern-border hover:bg-surface dark:hover:bg-tavern-surface"
+									onclick={() => addNotableRoll(combatant, 'death_save_success')}
+								>
+									DS +
+								</button>
+								<button
+									type="button"
+									class="px-1.5 py-0.5 rounded border border-border dark:border-tavern-border hover:bg-surface dark:hover:bg-tavern-surface"
+									onclick={() => addNotableRoll(combatant, 'death_save_failure')}
+								>
+									DS -
+								</button>
+							{/if}
+						</div>
+
 						{#if combatant.isPlayerCharacter}
 							<div class="mt-2 flex items-center gap-2 text-[11px]">
 								<span class="text-ink-muted dark:text-tavern-muted">Death Saves</span>
@@ -922,12 +1255,218 @@
 				{/each}
 			</ul>
 		{/if}
+
+		{#if legendaryTrackers.length > 0}
+			<section
+				class="mt-3 rounded border border-border/70 dark:border-tavern-border/70 p-2 space-y-2"
+			>
+				<p class="text-xs font-semibold text-ink dark:text-tavern-text">
+					Legendary Actions (turn resets)
+				</p>
+				{#each legendaryTrackers as tracker (tracker.combatantId)}
+					<div
+						class="rounded border border-border/60 dark:border-tavern-border/60 p-2 bg-surface-alt/45 dark:bg-tavern-surface-alt/45"
+					>
+						<div class="flex flex-wrap items-center gap-2 text-[11px]">
+							<span class="font-semibold text-ink dark:text-tavern-text"
+								>{tracker.combatantName}</span
+							>
+							<span class="text-ink-muted dark:text-tavern-muted">
+								Charges {tracker.chargesRemaining}/{tracker.chargesMax}
+							</span>
+							<button
+								type="button"
+								class="px-1.5 py-0.5 rounded border border-border dark:border-tavern-border"
+								onclick={() => adjustLegendaryCharges(tracker.combatantId, -1)}
+							>
+								-1
+							</button>
+							<button
+								type="button"
+								class="px-1.5 py-0.5 rounded border border-border dark:border-tavern-border"
+								onclick={() => adjustLegendaryCharges(tracker.combatantId, 1)}
+							>
+								+1
+							</button>
+							<label class="inline-flex items-center gap-1">
+								Max
+								<input
+									type="number"
+									min="1"
+									max="9"
+									value={tracker.chargesMax}
+									class="h-6 w-12 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-1 text-[11px]"
+									onchange={(event) =>
+										setLegendaryChargesMax(
+											tracker.combatantId,
+											(event.currentTarget as HTMLInputElement).value,
+										)}
+								/>
+							</label>
+						</div>
+						<div class="mt-2 flex flex-wrap gap-1">
+							{#each tracker.actions as action (action.id)}
+								<div
+									class="rounded border border-border/60 dark:border-tavern-border/60 p-1.5 space-y-1"
+								>
+									<div class="flex items-center gap-1">
+										<button
+											type="button"
+											class="px-1.5 py-0.5 rounded border border-border dark:border-tavern-border text-[11px] hover:bg-surface dark:hover:bg-tavern-surface"
+											onclick={() =>
+												persist(spendLegendaryAction(combat, tracker.combatantId, action.id))}
+										>
+											Use ({action.cost})
+										</button>
+										<span class="text-[11px] text-ink-muted dark:text-tavern-muted"
+											>used {action.usedCount}</span
+										>
+										<button
+											type="button"
+											class="h-5 w-5 rounded border border-error/40 text-error hover:bg-error/5 text-[11px]"
+											onclick={() => removeLegendaryAction(tracker.combatantId, action.id)}
+											aria-label={`Remove ${action.name}`}
+										>
+											x
+										</button>
+									</div>
+									<div class="flex items-center gap-1">
+										<input
+											type="text"
+											value={action.name}
+											class="h-6 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-1.5 text-[11px]"
+											onchange={(event) =>
+												updateLegendaryAction(
+													tracker.combatantId,
+													action.id,
+													'name',
+													(event.currentTarget as HTMLInputElement).value,
+												)}
+										/>
+										<label class="inline-flex items-center gap-1 text-[11px]">
+											Cost
+											<input
+												type="number"
+												min="1"
+												max="5"
+												value={action.cost}
+												class="h-6 w-11 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-1 text-[11px]"
+												onchange={(event) =>
+													updateLegendaryAction(
+														tracker.combatantId,
+														action.id,
+														'cost',
+														(event.currentTarget as HTMLInputElement).value,
+													)}
+											/>
+										</label>
+									</div>
+								</div>
+							{/each}
+							<button
+								type="button"
+								class="px-1.5 py-0.5 h-fit rounded border border-border dark:border-tavern-border text-[11px] hover:bg-surface dark:hover:bg-tavern-surface"
+								onclick={() => addLegendaryAction(tracker.combatantId)}
+							>
+								Add Action
+							</button>
+						</div>
+					</div>
+				{/each}
+			</section>
+		{/if}
+
+		<section
+			class="mt-3 rounded border border-border/70 dark:border-tavern-border/70 p-2 space-y-2"
+		>
+			<div class="flex flex-wrap items-center gap-2 text-xs">
+				<label class="inline-flex items-center gap-1 text-ink dark:text-tavern-text">
+					<input type="checkbox" checked={lairTracker.enabled} onchange={toggleLairEnabled} />
+					Lair actions
+				</label>
+				<label class="inline-flex items-center gap-1 text-ink-muted dark:text-tavern-muted">
+					Initiative
+					<input
+						type="number"
+						min="1"
+						max="30"
+						value={lairTracker.initiativeCount}
+						class="h-7 w-14 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-1.5 text-xs"
+						onchange={(event) =>
+							setLairInitiativeCount((event.currentTarget as HTMLInputElement).value)}
+					/>
+				</label>
+				<button
+					type="button"
+					class="px-2 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface dark:hover:bg-tavern-surface"
+					onclick={triggerLairNow}
+					disabled={!lairTracker.enabled || lairTracker.actions.length === 0}
+				>
+					Trigger Now
+				</button>
+				{#if lairTracker.lastTriggeredRound !== null}
+					<span class="text-[11px] text-ink-muted dark:text-tavern-muted">
+						Last triggered round {lairTracker.lastTriggeredRound}
+					</span>
+				{/if}
+			</div>
+			{#if lairTracker.actions.length === 0}
+				<p class="text-[11px] text-ink-muted dark:text-tavern-muted">No lair actions configured.</p>
+			{:else}
+				<ul class="space-y-1">
+					{#each lairTracker.actions as action (action.id)}
+						<li class="flex flex-wrap items-center gap-1 text-[11px]">
+							<input
+								type="text"
+								value={action.name}
+								class="h-6 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-1.5 text-[11px]"
+								onchange={(event) =>
+									updateLairAction(
+										action.id,
+										'name',
+										(event.currentTarget as HTMLInputElement).value,
+									)}
+							/>
+							<label class="inline-flex items-center gap-1">
+								<input
+									type="checkbox"
+									checked={action.autoTrigger}
+									onchange={(event) =>
+										updateLairAction(
+											action.id,
+											'autoTrigger',
+											(event.currentTarget as HTMLInputElement).checked,
+										)}
+								/>
+								Auto
+							</label>
+							<span class="text-ink-muted dark:text-tavern-muted">used {action.usedCount}</span>
+							<button
+								type="button"
+								class="h-5 w-5 rounded border border-error/40 text-error hover:bg-error/5"
+								onclick={() => removeLairAction(action.id)}
+								aria-label={`Remove ${action.name}`}
+							>
+								x
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			<button
+				type="button"
+				class="px-2 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface dark:hover:bg-tavern-surface"
+				onclick={addLairAction}
+			>
+				Add Lair Action
+			</button>
+		</section>
 	</div>
 
 	<footer
 		class="px-3 py-2 border-t border-border/70 dark:border-tavern-border/70 bg-surface-alt/45 dark:bg-tavern-surface-alt/45"
 	>
-		<div class="grid gap-2 md:grid-cols-2">
+		<div class="grid gap-2 md:grid-cols-3">
 			<label class="text-xs text-ink-muted dark:text-tavern-muted">
 				Encounter notes
 				<textarea
@@ -947,7 +1486,22 @@
 					onchange={(event) => setEncounterLoot((event.currentTarget as HTMLTextAreaElement).value)}
 				></textarea>
 			</label>
+			<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				Encounter outcome
+				<textarea
+					rows="2"
+					class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1 text-xs"
+					value={combat.outcome}
+					onchange={(event) =>
+						setEncounterOutcome((event.currentTarget as HTMLTextAreaElement).value)}
+				></textarea>
+			</label>
 		</div>
+		{#if combat.notableRolls.length > 0}
+			<p class="mt-1 text-[11px] text-ink-muted dark:text-tavern-muted">
+				{combat.notableRolls.length} notable rolls recorded for encounter log.
+			</p>
+		{/if}
 		<div class="mt-2 flex flex-wrap items-center gap-2">
 			<button
 				type="button"

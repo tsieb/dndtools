@@ -11,7 +11,7 @@ const tileInput = z
 	.object({
 		id: z.string().min(1).optional(),
 		type: z
-			.enum(['note', 'calendar', 'timer', 'combat', 'dice', 'generator', 'handouts'])
+			.enum(['note', 'calendar', 'timer', 'combat', 'encounter', 'dice', 'generator', 'handouts'])
 			.optional(),
 		noteId: z.string().min(1).optional(),
 		previewDepth: z.enum(['title', 'summary', 'full']).optional(),
@@ -29,6 +29,7 @@ const tileInput = z
 			.strict()
 			.optional(),
 		combat: z.record(z.string(), z.unknown()).optional(),
+		encounter: z.record(z.string(), z.unknown()).optional(),
 		x: z.number().int().min(0).max(31),
 		y: z.number().int().min(0).max(200),
 		w: z.number().int().min(2).max(32),
@@ -49,6 +50,7 @@ const tileInput = z
 		if (
 			(tile.type === 'timer' ||
 				tile.type === 'combat' ||
+				tile.type === 'encounter' ||
 				tile.type === 'dice' ||
 				tile.type === 'generator' ||
 				tile.type === 'handouts') &&
@@ -113,6 +115,7 @@ export function registerUpdateSessionBoardTool(
 						previewLineCount: tile.previewLineCount,
 						timer: tile.type === 'timer' ? tile.timer : undefined,
 						combat: tile.type === 'combat' ? tile.combat : undefined,
+						encounter: tile.type === 'encounter' ? tile.encounter : undefined,
 						x: tile.x,
 						y: tile.y,
 						w: tile.w,

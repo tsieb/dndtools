@@ -104,13 +104,14 @@ const sessionBoardTileSchema = z
 	.object({
 		id: z.string().min(1),
 		type: z
-			.enum(['note', 'calendar', 'timer', 'combat', 'dice', 'generator', 'handouts'])
+			.enum(['note', 'calendar', 'timer', 'combat', 'encounter', 'dice', 'generator', 'handouts'])
 			.optional(),
 		noteId: z.string().min(1).optional(),
 		previewDepth: z.enum(['title', 'summary', 'full']).optional(),
 		previewLineCount: z.number().int().min(1).max(40).optional(),
 		timer: z.record(z.string(), z.unknown()).optional(),
 		combat: z.record(z.string(), z.unknown()).optional(),
+		encounter: z.record(z.string(), z.unknown()).optional(),
 		x: z.number(),
 		y: z.number(),
 		w: z.number(),

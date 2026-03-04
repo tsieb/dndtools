@@ -48,6 +48,7 @@
 	let handoutCreatorOpen = $state(false);
 	let templateDialogFolderOverride = $state<string | null>(null);
 	let templateDialogCandidates = $state<readonly NoteTemplate[] | null>(null);
+	let runtimeBootstrapRequested = false;
 	let activeTemplateFolder = $derived.by(
 		() => templateDialogFolderOverride ?? page.url.searchParams.get('folder'),
 	);
@@ -66,6 +67,7 @@
 		if (pathname === '/graph') return 'Graph';
 		if (pathname === '/timeline') return 'Timeline';
 		if (pathname === '/session-board') return 'Session Board';
+		if (pathname === '/encounter/new') return 'Encounter Builder';
 		if (pathname === '/combat') return 'Combat Tracker';
 		if (pathname === '/settings') return 'Settings';
 		if (pathname === '/player') return 'Player View';
@@ -73,6 +75,8 @@
 	}
 
 	$effect(() => {
+		if (runtimeBootstrapRequested) return;
+		runtimeBootstrapRequested = true;
 		void runtimeState.initialize();
 		installGlobalRuntimeDiagnostics();
 	});
@@ -163,6 +167,7 @@
 			page.url.pathname === '/graph' ||
 			page.url.pathname === '/timeline' ||
 			page.url.pathname === '/session-board' ||
+			page.url.pathname === '/encounter/new' ||
 			page.url.pathname === '/combat'
 		) {
 			goto(resolve('/player'));

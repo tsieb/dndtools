@@ -130,6 +130,49 @@ describe('session-board domain', () => {
 			h: 4,
 		});
 		expect(normalizedHandouts.type).toBe('handouts');
+
+		const normalizedEncounter = normalizeSessionBoardTile({
+			id: 'encounter-tile',
+			type: 'encounter',
+			x: 0,
+			y: 0,
+			w: 6,
+			h: 5,
+			encounter: {
+				encounterName: 'Ridge Ambush',
+				partyMembers: [{ id: 'party-1', name: 'Elyra', level: 5 }],
+				combatants: [],
+				environmentType: 'forest',
+				environmentNoteId: null,
+				environmentName: '',
+				tacticalChecklist: [],
+				budget: {
+					easy: 250,
+					medium: 500,
+					hard: 750,
+					deadly: 1100,
+					baseXp: 200,
+					adjustedXp: 200,
+					multiplier: 1,
+					difficulty: 'easy',
+				},
+				round: 1,
+				activeCombatantEntryId: null,
+				legendaryTrackers: [],
+				lairTracker: { enabled: false, initiativeCount: 20, lastTriggeredRound: null, actions: [] },
+				notableRolls: [],
+				notes: '',
+				outcome: '',
+				startedAt: '2026-03-02T00:00:00.000Z',
+				endedAt: null,
+				lastLogNoteId: null,
+			},
+		} as never);
+		expect(normalizedEncounter.type).toBe('encounter');
+		if (normalizedEncounter.type === 'encounter') {
+			expect(normalizedEncounter.encounter?.encounterName).toBe('Ridge Ambush');
+			expect(normalizedEncounter.encounter?.environmentType).toBe('forest');
+		}
 	});
 
 	it('normalizes session context state and enforces category uniqueness by note id', () => {

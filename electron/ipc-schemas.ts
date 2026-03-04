@@ -262,6 +262,7 @@ const sessionBoardCombatantSchema = z
 			.strict(),
 		outcome: z.enum(['active', 'fell', 'fled']),
 		damageDealt: z.number().int().min(0).max(1_000_000),
+		startingHp: z.number().int().min(0).max(100_000).nullable().optional(),
 		linkedObjectId: idSchema.optional(),
 		linkedObjectType: z.enum(['stat_block', 'character']).optional(),
 		linkedObjectName: z.string().max(MAX_STRING_LENGTH).optional(),
@@ -286,6 +287,56 @@ const sessionBoardCombatantSchema = z
 	})
 	.strict();
 
+const sessionBoardCombatLegendaryActionSchema = z
+	.object({
+		id: idSchema,
+		name: z.string().min(1).max(MAX_STRING_LENGTH),
+		cost: z.number().int().min(1).max(5),
+		usedCount: z.number().int().min(0).max(100_000),
+	})
+	.strict();
+
+const sessionBoardCombatLegendaryTrackerSchema = z
+	.object({
+		combatantId: idSchema,
+		combatantName: z.string().min(1).max(MAX_STRING_LENGTH),
+		chargesMax: z.number().int().min(1).max(9),
+		chargesRemaining: z.number().int().min(0).max(9),
+		actions: z.array(sessionBoardCombatLegendaryActionSchema).max(40),
+	})
+	.strict();
+
+const sessionBoardCombatLairActionSchema = z
+	.object({
+		id: idSchema,
+		name: z.string().min(1).max(MAX_STRING_LENGTH),
+		description: z.string().max(MAX_CONTENT_LENGTH).optional(),
+		autoTrigger: z.boolean(),
+		usedCount: z.number().int().min(0).max(100_000),
+	})
+	.strict();
+
+const sessionBoardCombatLairTrackerSchema = z
+	.object({
+		enabled: z.boolean(),
+		initiativeCount: z.number().int().min(1).max(30),
+		lastTriggeredRound: z.number().int().min(0).max(999).nullable(),
+		actions: z.array(sessionBoardCombatLairActionSchema).max(40),
+	})
+	.strict();
+
+const sessionBoardCombatNotableRollSchema = z
+	.object({
+		id: idSchema,
+		kind: z.enum(['critical_hit', 'critical_failure', 'death_save_success', 'death_save_failure']),
+		combatantName: z.string().min(1).max(MAX_STRING_LENGTH),
+		combatantId: idSchema.optional(),
+		round: z.number().int().min(1).max(999),
+		note: z.string().max(220).optional(),
+		recordedAt: z.string().min(1).max(MAX_STRING_LENGTH),
+	})
+	.strict();
+
 const sessionBoardCombatStateSchema = z
 	.object({
 		encounterName: z.string().max(120),
@@ -293,6 +344,10 @@ const sessionBoardCombatStateSchema = z
 		round: z.number().int().min(0).max(999),
 		activeCombatantId: idSchema.nullable(),
 		combatants: z.array(sessionBoardCombatantSchema).max(200),
+		legendaryTrackers: z.array(sessionBoardCombatLegendaryTrackerSchema).max(50).optional(),
+		lairTracker: sessionBoardCombatLairTrackerSchema.optional(),
+		notableRolls: z.array(sessionBoardCombatNotableRollSchema).max(200).optional(),
+		outcome: z.string().max(600).optional(),
 		notes: z.string().max(MAX_CONTENT_LENGTH).optional(),
 		loot: z.string().max(MAX_CONTENT_LENGTH).optional(),
 		startedAt: z.string().max(MAX_STRING_LENGTH).nullable(),
@@ -300,6 +355,8 @@ const sessionBoardCombatStateSchema = z
 		lastLogNoteId: idSchema.nullable(),
 	})
 	.strict();
+
+const sessionBoardEncounterStateSchema = z.record(z.string(), z.unknown());
 
 const sessionBoardNoteTileSchema = sessionBoardTileBaseSchema
 	.extend({
@@ -330,6 +387,13 @@ const sessionBoardCombatTileSchema = sessionBoardTileBaseSchema
 	})
 	.strict();
 
+const sessionBoardEncounterTileSchema = sessionBoardTileBaseSchema
+	.extend({
+		type: z.literal('encounter'),
+		encounter: sessionBoardEncounterStateSchema.optional(),
+	})
+	.strict();
+
 const sessionBoardDiceTileSchema = sessionBoardTileBaseSchema
 	.extend({
 		type: z.literal('dice'),
@@ -353,6 +417,7 @@ const sessionBoardTileSchema = z.union([
 	sessionBoardCalendarTileSchema,
 	sessionBoardTimerTileSchema,
 	sessionBoardCombatTileSchema,
+	sessionBoardEncounterTileSchema,
 	sessionBoardDiceTileSchema,
 	sessionBoardGeneratorTileSchema,
 	sessionBoardHandoutTileSchema,
@@ -442,6 +507,7 @@ export const appSettingsKeySchema = z.enum([
 	'sidebarOpen',
 	'sidebarWidth',
 	'focusReading',
+	'playerModeEnabled',
 	'defaultNoteView',
 	'editor',
 	'autoSaveDelay',
@@ -452,7 +518,9 @@ export const appSettingsKeySchema = z.enum([
 	'savedSearches',
 	'onboarding',
 	'templateContext',
+	'diceMacros',
 	'mcpPolicySettings',
+	'worldCalendar',
 	'boardTemplates',
 ]);
 
@@ -588,6 +656,7 @@ export const settingValueSchemas: Record<string, z.ZodTypeAny> = {
 	sidebarOpen: z.boolean(),
 	sidebarWidth: z.number().int().min(160).max(600),
 	focusReading: z.boolean(),
+	playerModeEnabled: z.boolean(),
 	defaultNoteView: z.enum(['read', 'edit']),
 	editor: z.object({
 		fontSize: z.number().int().min(8).max(72),
@@ -629,7 +698,62 @@ export const settingValueSchemas: Record<string, z.ZodTypeAny> = {
 		sessionNumber: z.number().int().min(0).max(10_000),
 		characterNames: z.array(z.string().max(MAX_STRING_LENGTH)).max(100),
 	}),
+	diceMacros: z
+		.array(
+			z.object({
+				id: z.string().min(1).max(MAX_STRING_LENGTH),
+				label: z.string().min(1).max(MAX_STRING_LENGTH),
+				expression: z.string().min(1).max(MAX_STRING_LENGTH),
+				createdAt: z.string().min(1).max(MAX_STRING_LENGTH),
+				updatedAt: z.string().min(1).max(MAX_STRING_LENGTH),
+			}),
+		)
+		.max(200),
 	mcpPolicySettings: mcpPolicySettingsSchema,
+	worldCalendar: z.object({
+		version: z.literal(1),
+		months: z
+			.array(
+				z.object({
+					name: z.string().min(1).max(80),
+					days: z.number().int().min(1).max(400),
+				}),
+			)
+			.min(1)
+			.max(100),
+		weekLength: z.number().int().min(1).max(30),
+		dayNames: z.array(z.string().min(1).max(80)).min(1).max(30),
+		leapYearRules: z
+			.array(
+				z.object({
+					name: z.string().min(1).max(80),
+					interval: z.number().int().min(1).max(100_000),
+					monthIndex: z.number().int().min(0).max(99),
+					dayDelta: z.number().int().min(-100).max(100),
+				}),
+			)
+			.max(100),
+		eras: z
+			.array(
+				z.object({
+					name: z.string().min(1).max(120),
+					epochOffset: z.number().int().min(-1_000_000_000).max(1_000_000_000),
+				}),
+			)
+			.min(1)
+			.max(100),
+		moonCycles: z
+			.array(
+				z.object({
+					name: z.string().min(1).max(120),
+					periodDays: z.number().int().min(1).max(100_000),
+					phaseNames: z.array(z.string().min(1).max(120)).min(1).max(64),
+					offsetDays: z.number().int().min(-1_000_000_000).max(1_000_000_000),
+				}),
+			)
+			.max(100),
+		currentDayOffset: z.number().int().min(-1_000_000_000).max(1_000_000_000),
+	}),
 	boardTemplates: z.array(sessionBoardTemplateSchema).max(100),
 };
 

@@ -32,6 +32,7 @@ import {
 } from '../src/lib/domain/link-resolution.js';
 import { buildRelatedNoteSuggestions } from '../src/lib/domain/related-note-suggestions.js';
 import { buildMcpChangePreview } from '../src/lib/domain/mcp-change-preview.js';
+import type { ContentVisibility } from '../src/lib/types/visibility.js';
 import { normalizeContentVisibility } from '../src/lib/types/visibility.js';
 import { FileSystemAdapter } from './storage.js';
 
@@ -470,6 +471,7 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 		folder: string;
 		filePath: string;
 		tags: string[];
+		visibility: ContentVisibility;
 		createdAt: string;
 		updatedAt: string;
 		deleted: boolean;
@@ -485,6 +487,7 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 			folder: string;
 			filePath: string;
 			tags: string[];
+			visibility: ContentVisibility;
 			createdAt: string;
 			updatedAt: string;
 			deleted: boolean;
@@ -498,6 +501,7 @@ export class StagedMcpAdapter extends FileSystemAdapter {
 			folder: String(note.folder),
 			filePath: note.filePath ?? this.defaultFilePathFor(note),
 			tags: [...note.tags],
+			visibility: normalizeContentVisibility(note.visibility),
 			createdAt: note.createdAt,
 			updatedAt: note.updatedAt,
 			deleted: note.deleted,

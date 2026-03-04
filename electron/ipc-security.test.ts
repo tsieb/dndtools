@@ -321,6 +321,7 @@ describe('AC3 — Enum values / whitelists are enforced', () => {
 			'sidebarOpen',
 			'sidebarWidth',
 			'focusReading',
+			'playerModeEnabled',
 			'defaultNoteView',
 			'editor',
 			'autoSaveDelay',
@@ -331,7 +332,9 @@ describe('AC3 — Enum values / whitelists are enforced', () => {
 			'savedSearches',
 			'onboarding',
 			'templateContext',
+			'diceMacros',
 			'mcpPolicySettings',
+			'worldCalendar',
 			'boardTemplates',
 		] as const;
 

@@ -4,6 +4,7 @@
 	import SessionBoardTileCard from '$lib/ui/board/SessionBoardTile.svelte';
 	import SessionBoardTimerTile from '$lib/ui/board/SessionBoardTimerTile.svelte';
 	import CombatTrackerTile from '$lib/ui/board/CombatTrackerTile.svelte';
+	import EncounterBuilderTile from '$lib/ui/board/EncounterBuilderTile.svelte';
 	import DiceTrayTile from '$lib/ui/board/DiceTrayTile.svelte';
 	import GeneratorTile from '$lib/ui/board/GeneratorTile.svelte';
 	import HandoutLibraryTile from '$lib/ui/board/HandoutLibraryTile.svelte';
@@ -17,6 +18,7 @@
 		SessionBoard,
 		SessionBoardNoteTile,
 		SessionBoardCombatTile as SessionBoardCombatTileModel,
+		SessionBoardEncounterTile as SessionBoardEncounterTileModel,
 		SessionBoardDiceTile as SessionBoardDiceTileModel,
 		SessionBoardGeneratorTile as SessionBoardGeneratorTileModel,
 		SessionBoardHandoutTile as SessionBoardHandoutTileModel,
@@ -71,6 +73,7 @@
 		| { tile: SessionBoardTile; kind: 'calendar'; x: number; y: number }
 		| { tile: SessionBoardTimerTileModel; kind: 'timer'; x: number; y: number }
 		| { tile: SessionBoardCombatTileModel; kind: 'combat'; x: number; y: number }
+		| { tile: SessionBoardEncounterTileModel; kind: 'encounter'; x: number; y: number }
 		| { tile: SessionBoardDiceTileModel; kind: 'dice'; x: number; y: number }
 		| { tile: SessionBoardGeneratorTileModel; kind: 'generator'; x: number; y: number }
 		| { tile: SessionBoardHandoutTileModel; kind: 'handouts'; x: number; y: number }
@@ -146,6 +149,10 @@
 			}
 			if (tile.type === 'combat') {
 				entries.push({ tile, kind: 'combat', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
+				continue;
+			}
+			if (tile.type === 'encounter') {
+				entries.push({ tile, kind: 'encounter', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
 				continue;
 			}
 			if (tile.type === 'dice') {
@@ -433,6 +440,10 @@
 	async function addCombatTile(): Promise<void> {
 		if (!activeBoard) return;
 		await sessionBoardsState.addCombatTile(activeBoard.id);
+	}
+	async function addEncounterTile(): Promise<void> {
+		if (!activeBoard) return;
+		await sessionBoardsState.addEncounterTile(activeBoard.id);
 	}
 	async function addHandoutTile(): Promise<void> {
 		if (!activeBoard) return;
@@ -726,6 +737,12 @@
 								onclick={addCombatTile}
 							>
 								Add Combat Tracker Tile
+							</button>
+							<button
+								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								onclick={addEncounterTile}
+							>
+								Add Encounter Builder Tile
 							</button>
 							<button
 								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
@@ -1308,6 +1325,22 @@
 															if (!activeBoard) return;
 															void sessionBoardsState.updateTile(activeBoard.id, tile.id, {
 																combat,
+															});
+														}}
+														ondragstart={(event) => startTileDrag(tile.id, event)}
+													/>
+												{:else if entry.kind === 'encounter'}
+													<EncounterBuilderTile
+														tile={entry.tile}
+														selected={mode === 'edit' && selectedTileId === tile.id}
+														editable={mode === 'edit'}
+														onselect={() => {
+															if (mode === 'edit') selectedTileId = tile.id;
+														}}
+														onupdate={(encounter) => {
+															if (!activeBoard) return;
+															void sessionBoardsState.updateTile(activeBoard.id, tile.id, {
+																encounter,
 															});
 														}}
 														ondragstart={(event) => startTileDrag(tile.id, event)}
