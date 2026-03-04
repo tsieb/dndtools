@@ -25,6 +25,13 @@ import type { VaultObjectId, VaultObject } from '../src/lib/types/object.js';
 import { DiagnosticsTracker } from './diagnostics.js';
 import { ImportExportService } from './import-export-service.js';
 import * as BackupScheduler from './backup-scheduler.js';
+import { DesktopUpdateService } from './update-service.js';
+import {
+	VaultHistoryStore,
+	evaluateVaultPermissions,
+	type RecentVaultEntry,
+	type VaultPermissionReport,
+} from './vault-history.js';
 import {
 	parseIpcArg,
 	idSchema,
@@ -63,6 +70,30 @@ let staticServer: http.Server | null = null;
 const mcpSidecar = new McpSidecar();
 const diagnostics = new DiagnosticsTracker();
 const smokeTestMode = process.env.DNDTOOLS_SMOKE_TEST === '1';
+const autoUpdateEnabled =
+	process.env.DNDTOOLS_DISABLE_AUTO_UPDATE !== '1' && process.env.NODE_ENV !== 'test';
+let vaultHistoryStore: VaultHistoryStore | null = null;
+let updateService: DesktopUpdateService | null = null;
+let updateCheckInterval: NodeJS.Timeout | null = null;
+
+type VaultSwitchStepId = 'permission_check' | 'open_target' | 'rollback';
+
+interface VaultSwitchStep {
+	id: VaultSwitchStepId;
+	status: 'completed' | 'failed' | 'skipped';
+	at: string;
+	detail: string;
+}
+
+interface VaultSwitchResult {
+	ok: boolean;
+	vaultDir: string | null;
+	previousVaultDir: string | null;
+	rollbackApplied: boolean;
+	steps: VaultSwitchStep[];
+	error: string | null;
+	remediation: string | null;
+}
 
 const CONTENT_TYPES: Record<string, string> = {
 	'.html': 'text/html; charset=utf-8',
@@ -82,7 +113,7 @@ const CONTENT_TYPES: Record<string, string> = {
 	'.map': 'application/json; charset=utf-8',
 };
 
-function resolveVaultDir(): string {
+function resolveVaultDirFromArgsOrEnv(): string | null {
 	const vaultFlag = process.argv.find((arg) => arg.startsWith('--vault='));
 	if (vaultFlag) return path.resolve(vaultFlag.slice('--vault='.length));
 
@@ -90,7 +121,28 @@ function resolveVaultDir(): string {
 	if (positional) return path.resolve(positional);
 
 	if (process.env.DNDTOOLS_VAULT) return path.resolve(process.env.DNDTOOLS_VAULT);
+	return null;
+}
+
+function getDefaultVaultDir(): string {
 	return path.join(app.getPath('documents'), 'dndtools-vault');
+}
+
+function toErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+function createVaultSwitchStep(
+	id: VaultSwitchStepId,
+	status: VaultSwitchStep['status'],
+	detail: string,
+): VaultSwitchStep {
+	return {
+		id,
+		status,
+		detail,
+		at: new Date().toISOString(),
+	};
 }
 
 function getRendererEntrypoint(): { devUrl: string | null; filePath: string } {
@@ -284,11 +336,225 @@ async function setVaultDirectory(nextVaultDir: string): Promise<void> {
 	}
 }
 
+async function getStartupVaultCandidate(): Promise<string> {
+	const explicit = resolveVaultDirFromArgsOrEnv();
+	if (explicit) return explicit;
+	const recent = await vaultHistoryStore?.getLastVaultDir();
+	if (recent) return recent;
+	return getDefaultVaultDir();
+}
+
+function renderRecentVaultLine(entry: RecentVaultEntry): string {
+	const healthLabel =
+		entry.health === 'healthy'
+			? 'healthy'
+			: entry.health === 'read_only'
+				? 'read-only'
+				: entry.health === 'permission_denied'
+					? 'permission denied'
+					: entry.health === 'unavailable'
+						? 'missing'
+						: 'error';
+	return `${path.basename(entry.vaultDir)} — ${healthLabel} — ${entry.lastOpenedAt}`;
+}
+
+async function promptStartupVaultSelection(errorMessage: string): Promise<string | null> {
+	const recent = (await vaultHistoryStore?.listRecentVaults(3)) ?? [];
+	const recentButtons = recent.map((entry) => `Open ${path.basename(entry.vaultDir)}`);
+	const chooseButton = 'Choose vault folder';
+	const defaultButton = 'Use default vault';
+	const quitButton = 'Quit';
+	const buttons = [...recentButtons, chooseButton, defaultButton, quitButton];
+	const chooseIndex = recentButtons.length;
+	const defaultIndex = recentButtons.length + 1;
+	const quitIndex = recentButtons.length + 2;
+
+	const detailLines = [
+		`Open error: ${errorMessage}`,
+		'',
+		...(recent.length > 0
+			? ['Recent vaults:', ...recent.map((entry) => `- ${renderRecentVaultLine(entry)}`)]
+			: ['No recent vaults recorded yet.']),
+		'',
+		'Select a vault to continue.',
+	];
+
+	const response = await dialog.showMessageBox({
+		type: 'warning',
+		title: 'Vault unavailable',
+		message: 'The last vault could not be opened.',
+		detail: detailLines.join('\n'),
+		buttons,
+		defaultId: 0,
+		cancelId: quitIndex,
+		noLink: true,
+	});
+
+	if (response.response >= 0 && response.response < recent.length) {
+		return recent[response.response]!.vaultDir;
+	}
+	if (response.response === chooseIndex) {
+		const picked = await dialog.showOpenDialog({
+			properties: ['openDirectory', 'createDirectory'],
+			title: 'Choose DND Tools Vault Folder',
+		});
+		if (picked.canceled || picked.filePaths.length === 0) return null;
+		return path.resolve(picked.filePaths[0]!);
+	}
+	if (response.response === defaultIndex) {
+		return getDefaultVaultDir();
+	}
+	if (response.response === quitIndex || response.response === -1) {
+		return null;
+	}
+	return null;
+}
+
+async function initializeStartupVault(): Promise<boolean> {
+	let candidate = await getStartupVaultCandidate();
+	for (let attempts = 0; attempts < 5; attempts += 1) {
+		try {
+			await setVaultDirectory(candidate);
+			await vaultHistoryStore?.recordVaultOpen(candidate);
+			return true;
+		} catch (error) {
+			const message = toErrorMessage(error);
+			await vaultHistoryStore?.recordVaultFailure(candidate, message);
+			diagnostics.recordError(
+				createStructuredError({
+					category: 'storage',
+					code: 'STORAGE_INIT_FAILED',
+					message,
+					context: {
+						stage: 'startup-vault-selection',
+						vaultDir: candidate,
+					},
+				}),
+			);
+			const next = await promptStartupVaultSelection(message);
+			if (!next) {
+				return false;
+			}
+			candidate = path.resolve(next);
+		}
+	}
+	return false;
+}
+
+async function switchVaultDirectory(nextVaultDir: string): Promise<VaultSwitchResult> {
+	const targetVaultDir = path.resolve(nextVaultDir);
+	const previousVaultDir = vaultDir ? path.resolve(vaultDir) : null;
+	const steps: VaultSwitchStep[] = [];
+	const permissions = await evaluateVaultPermissions(targetVaultDir);
+
+	if (!permissions.readable || !permissions.writable) {
+		steps.push(
+			createVaultSwitchStep(
+				'permission_check',
+				'failed',
+				permissions.remediation ?? 'Vault permission check failed.',
+			),
+		);
+		await vaultHistoryStore?.recordVaultFailure(
+			targetVaultDir,
+			permissions.remediation ?? 'Vault permission check failed.',
+		);
+		steps.push(
+			createVaultSwitchStep('open_target', 'skipped', 'Skipped due to permission failure.'),
+		);
+		steps.push(
+			createVaultSwitchStep(
+				'rollback',
+				'skipped',
+				'No switch attempt was made, rollback not required.',
+			),
+		);
+		return {
+			ok: false,
+			vaultDir: previousVaultDir,
+			previousVaultDir,
+			rollbackApplied: false,
+			steps,
+			error: 'Vault permission check failed.',
+			remediation: permissions.remediation,
+		};
+	}
+
+	steps.push(
+		createVaultSwitchStep(
+			'permission_check',
+			'completed',
+			'Vault read/write permissions verified.',
+		),
+	);
+	try {
+		await setVaultDirectory(targetVaultDir);
+		await vaultHistoryStore?.recordVaultOpen(targetVaultDir);
+		steps.push(createVaultSwitchStep('open_target', 'completed', 'Vault opened successfully.'));
+		steps.push(createVaultSwitchStep('rollback', 'skipped', 'Rollback not required.'));
+		return {
+			ok: true,
+			vaultDir: targetVaultDir,
+			previousVaultDir,
+			rollbackApplied: false,
+			steps,
+			error: null,
+			remediation: null,
+		};
+	} catch (error) {
+		const message = toErrorMessage(error);
+		steps.push(createVaultSwitchStep('open_target', 'failed', message));
+		await vaultHistoryStore?.recordVaultFailure(targetVaultDir, message);
+
+		let rollbackApplied = false;
+		let rollbackError: string | null = null;
+		if (previousVaultDir && previousVaultDir !== targetVaultDir) {
+			try {
+				await setVaultDirectory(previousVaultDir);
+				await vaultHistoryStore?.recordVaultOpen(previousVaultDir);
+				rollbackApplied = true;
+				steps.push(
+					createVaultSwitchStep(
+						'rollback',
+						'completed',
+						'Restored previous vault after switch failure.',
+					),
+				);
+			} catch (rollbackFailure) {
+				rollbackError = toErrorMessage(rollbackFailure);
+				steps.push(createVaultSwitchStep('rollback', 'failed', rollbackError));
+			}
+		} else {
+			steps.push(
+				createVaultSwitchStep('rollback', 'skipped', 'No previous vault available for rollback.'),
+			);
+		}
+
+		return {
+			ok: false,
+			vaultDir: rollbackApplied ? previousVaultDir : null,
+			previousVaultDir,
+			rollbackApplied,
+			steps,
+			error: rollbackError ? `${message} (rollback failed: ${rollbackError})` : message,
+			remediation:
+				'Select another vault folder, then confirm this folder exists and has read/write access for your user account.',
+		};
+	}
+}
+
 function requireStorage(): FileSystemAdapter {
 	if (!storage) {
 		throw new Error('Storage is not initialized');
 	}
 	return storage;
+}
+
+function requireUpdateService(): DesktopUpdateService {
+	if (!updateService) {
+		throw new Error('Update service is not initialized');
+	}
+	return updateService;
 }
 
 const importExportService = new ImportExportService(
@@ -899,6 +1165,31 @@ ipcMain.handle('dndtools:mcp-status', async () => {
 	return mcpSidecar.getStatus();
 });
 
+ipcMain.handle('dndtools:update:get-status', async () => {
+	return requireUpdateService().getStatus();
+});
+
+ipcMain.handle('dndtools:update:check', async () => {
+	return requireUpdateService().checkForUpdates();
+});
+
+ipcMain.handle('dndtools:update:download', async () => {
+	return requireUpdateService().downloadUpdateNow();
+});
+
+ipcMain.handle('dndtools:update:install', async () => {
+	return requireUpdateService().installUpdateNow();
+});
+
+ipcMain.handle('dndtools:update:remind-later', async (_event, rawHours: unknown) => {
+	const hours = parseIpcArg(
+		z.number().int().min(1).max(168).optional(),
+		rawHours,
+		'update:remind-later:hours',
+	);
+	return requireUpdateService().remindLater(hours ?? 24);
+});
+
 ipcMain.handle('dndtools:semantic:status', async () => {
 	return fetchEmbeddingStatus();
 });
@@ -1107,19 +1398,50 @@ ipcMain.handle('dndtools:mcp-changes:reject-all', async () => {
 	return requireStorage().rejectAllMcpChanges();
 });
 
-// â”€â”€â”€ Vault picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€ Vault picker and lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+ipcMain.handle('dndtools:vault:recent', async (_event, rawLimit: unknown) => {
+	const limit = parseIpcArg(
+		z.number().int().min(1).max(20).optional(),
+		rawLimit,
+		'vault:recent:limit',
+	);
+	return (await vaultHistoryStore?.listRecentVaults(limit ?? 8)) ?? [];
+});
+
+ipcMain.handle('dndtools:vault:permissions', async (_event, rawVaultDir: unknown) => {
+	const requested = parseIpcArg(
+		z.string().min(1).max(2048).optional(),
+		rawVaultDir,
+		'vault:permissions:vaultDir',
+	);
+	const target = requested ? path.resolve(requested) : vaultDir;
+	if (!target) {
+		return {
+			vaultDir: '',
+			health: 'unavailable',
+			readable: false,
+			writable: false,
+			available: false,
+			remediation: 'No vault is currently selected.',
+		} satisfies VaultPermissionReport;
+	}
+	return evaluateVaultPermissions(target);
+});
+
+ipcMain.handle('dndtools:vault:switch', async (_event, rawVaultDir: unknown) => {
+	const nextVaultDir = parseIpcArg(folderPathSchema, rawVaultDir, 'vault:switch:vaultDir');
+	return switchVaultDirectory(nextVaultDir);
+});
 
 ipcMain.handle('dndtools:pick-vault', async () => {
 	const picked = await dialog.showOpenDialog({
 		properties: ['openDirectory', 'createDirectory'],
 		title: 'Choose DND Tools Vault Folder',
 	});
-
 	if (picked.canceled || picked.filePaths.length === 0) return null;
-
-	const nextVault = picked.filePaths[0]!;
-	await setVaultDirectory(nextVault);
-	return { vaultDir: nextVault };
+	const nextVault = path.resolve(picked.filePaths[0]!);
+	return switchVaultDirectory(nextVault);
 });
 
 // â”€â”€â”€ Window management IPC handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1176,8 +1498,33 @@ process.on('unhandledRejection', (reason) => {
 // â”€â”€â”€ Application lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.whenReady().then(async () => {
-	await setVaultDirectory(resolveVaultDir());
+	vaultHistoryStore = new VaultHistoryStore(
+		path.join(app.getPath('userData'), 'vault-history.json'),
+	);
+	updateService = new DesktopUpdateService({
+		userDataDir: app.getPath('userData'),
+		currentVersion: app.getVersion(),
+		enabled: app.isPackaged && autoUpdateEnabled,
+	});
+	await updateService.initialize();
+
+	const startupReady = await initializeStartupVault();
+	if (!startupReady) {
+		app.quit();
+		return;
+	}
+
 	await createMainWindow();
+
+	if (updateService.getStatus().enabled) {
+		void updateService.checkForUpdates();
+		updateCheckInterval = setInterval(
+			() => {
+				void updateService?.checkForUpdates();
+			},
+			6 * 60 * 60 * 1000,
+		);
+	}
 });
 
 app.on('window-all-closed', () => {
@@ -1200,6 +1547,10 @@ app.on('before-quit', (event) => {
 
 	if (!needsOnCloseSnapshot) {
 		void mcpSidecar.stop();
+		if (updateCheckInterval) {
+			clearInterval(updateCheckInterval);
+			updateCheckInterval = null;
+		}
 		if (staticServer) {
 			staticServer.close();
 			staticServer = null;
@@ -1221,6 +1572,10 @@ app.on('before-quit', (event) => {
 			BackupScheduler.stop();
 			await current.close().catch(() => undefined);
 			void mcpSidecar.stop();
+			if (updateCheckInterval) {
+				clearInterval(updateCheckInterval);
+				updateCheckInterval = null;
+			}
 			if (staticServer) {
 				staticServer.close();
 				staticServer = null;

@@ -192,10 +192,10 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 
 ### Project 7.1: Packaging and Runtime Independence (P0)
 
-- [ ] Bundle MCP runtime inside desktop release artifacts consistently.
-- [ ] Remove external Node binary dependency for sidecar in packaged app.
-- [ ] Add startup validations for missing/corrupt bundled runtime assets.
-- [ ] Add signed builds and installer hardening for target OSes.
+- [x] Bundle MCP runtime inside desktop release artifacts consistently.
+- [x] Remove external Node binary dependency for sidecar in packaged app.
+- [x] Add startup validations for missing/corrupt bundled runtime assets.
+- [x] Add signed builds and installer hardening for target OSes.
 
 ### Project 7.2: Electron Security and IPC Hardening (P0)
 
@@ -207,10 +207,10 @@ Build the best local-first, markdown-native D&D knowledge workspace with:
 
 ### Project 7.3: Vault Lifecycle UX (P1)
 
-- [ ] Improve vault switching UX with explicit progress, rollback, and failure handling.
-- [ ] Add recent vault list with health indicators.
-- [ ] Add vault permission checks and clear remediation instructions.
-- [ ] Add startup vault selector when last vault is unavailable.
+- [x] Improve vault switching UX with explicit progress, rollback, and failure handling.
+- [x] Add recent vault list with health indicators.
+- [x] Add vault permission checks and clear remediation instructions.
+- [x] Add startup vault selector when last vault is unavailable.
 
 ## Arc 8: Import/Export and Interoperability
 

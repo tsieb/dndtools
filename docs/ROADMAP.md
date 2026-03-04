@@ -63,8 +63,8 @@ This roadmap starts from the current Electron-first + staged-MCP baseline.
 
 1. Packaging
 
-- remove packaged runtime dependency on external node binary for sidecar spawn.
-- startup diagnostics for missing bundled MCP artifacts.
+- packaged runtime no longer depends on an external system `node` binary for sidecar spawn.
+- startup diagnostics now include bundled runtime validation and sidecar artifact checks.
 
 2. Accessibility Program
 

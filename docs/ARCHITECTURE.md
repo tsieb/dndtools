@@ -19,6 +19,7 @@ Responsibilities:
 - Host filesystem storage (`FileSystemAdapter`) in the trusted process.
 - Expose a constrained bridge to renderer via preload.
 - Spawn/restart/stop MCP sidecar and expose status.
+- Manage desktop auto-update state and staged rollout gating.
 - Serve built renderer assets in production with a local static server.
 
 ### 1.2 Renderer Process
@@ -63,7 +64,9 @@ Data path:
 
 MCP path:
 
-- Electron main -> sidecar `node mcp/dist/index.cjs <vaultDir>`.
+- Electron main -> sidecar using bundled Electron Node runtime (`process.execPath` with
+  `ELECTRON_RUN_AS_NODE=1`) -> `mcp/dist/index.cjs <vaultDir>`.
+- Development fallback: system `node` runtime when bundled runtime validation fails.
 
 ## 3. Storage Boundary (Strict)
 

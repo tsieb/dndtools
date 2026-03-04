@@ -1,9 +1,10 @@
-export type SettingsTabId = 'general' | 'world' | 'vault' | 'handouts' | 'mcp' | 'health';
+export type SettingsTabId = 'general' | 'about' | 'world' | 'vault' | 'handouts' | 'mcp' | 'health';
 
 export function resolveSettingsTabFromUrl(url: URL): SettingsTabId | null {
 	const tab = url.searchParams.get('tab');
 	if (
 		tab === 'general' ||
+		tab === 'about' ||
 		tab === 'world' ||
 		tab === 'vault' ||
 		tab === 'handouts' ||

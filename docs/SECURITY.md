@@ -1,6 +1,6 @@
 # DND Tools Security Model
 
-**Last updated:** 2026-02-28
+**Last updated:** 2026-03-04
 **Owner:** Engineering
 **Epic:** 1.4 — IPC Hardening & Security Model
 
@@ -254,7 +254,7 @@ DND Tools is **local-only** in its current form. There is no:
 - User account or authentication service
 - Cloud storage backend
 - Third-party analytics or telemetry
-- Remote update mechanism
+- Remote user-data sync service
 
 When cloud sync is added (planned Phase 5), this document must be updated to
 cover:
@@ -263,6 +263,9 @@ cover:
 - Sync conflict resolution and trust model for remote data
 - End-to-end encryption for vault content in transit
 - Server-side rate limiting and abuse prevention
+
+Desktop updates use GitHub Releases via `electron-updater` with signed release
+artifacts and staged rollout controls for major-version adoption.
 
 ---
 

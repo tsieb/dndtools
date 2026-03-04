@@ -7,6 +7,8 @@ export interface DesktopMcpStatus {
 	state: 'stopped' | 'running' | 'error';
 	vaultDir: string | null;
 	entry: string | null;
+	runtimeSource: 'bundled_electron' | 'system_node' | null;
+	runtimeVersion: string | null;
 	pid: number | null;
 	lastStartedAt: string | null;
 	lastStoppedAt: string | null;
@@ -14,6 +16,70 @@ export interface DesktopMcpStatus {
 	restartCount: number;
 	crashCount: number;
 	error: string | null;
+}
+
+export interface DesktopUpdateStatus {
+	enabled: boolean;
+	state:
+		| 'idle'
+		| 'disabled'
+		| 'checking'
+		| 'up_to_date'
+		| 'available'
+		| 'deferred'
+		| 'downloading'
+		| 'downloaded'
+		| 'error';
+	currentVersion: string;
+	latestVersion: string | null;
+	releaseName: string | null;
+	releaseDate: string | null;
+	releaseNotes: string | null;
+	downloadProgressPercent: number | null;
+	downloadedBytes: number | null;
+	totalBytes: number | null;
+	lastCheckedAt: string | null;
+	deferredUntil: string | null;
+	stagedRollout: {
+		active: boolean;
+		reason: 'major' | 'not_major';
+		eligible: boolean;
+		cohortPercent: number;
+		allowedPercent: number;
+		dailyPercent: number;
+		daysSinceRelease: number;
+	} | null;
+	message: string | null;
+	error: string | null;
+}
+
+export interface DesktopVaultPermissionReport {
+	vaultDir: string;
+	health: 'healthy' | 'read_only' | 'permission_denied' | 'unavailable' | 'error';
+	readable: boolean;
+	writable: boolean;
+	available: boolean;
+	remediation: string | null;
+}
+
+export interface DesktopRecentVaultEntry extends DesktopVaultPermissionReport {
+	lastOpenedAt: string;
+	lastError: string | null;
+}
+
+export interface DesktopVaultSwitchResult {
+	ok: boolean;
+	vaultDir: string | null;
+	previousVaultDir: string | null;
+	rollbackApplied: boolean;
+	steps: Array<{
+		id: 'permission_check' | 'open_target' | 'rollback';
+		status: 'completed' | 'failed' | 'skipped';
+		at: string;
+		detail: string;
+	}>;
+	error: string | null;
+	remediation: string | null;
 }
 
 export interface DesktopEmbeddingStatus {
@@ -283,12 +349,46 @@ export async function getDesktopBackendInfo(): Promise<DesktopBackendInfo> {
 	return requireBridge().getBackendInfo();
 }
 
-export async function pickDesktopVaultDirectory(): Promise<{ vaultDir: string } | null> {
+export async function pickDesktopVaultDirectory(): Promise<DesktopVaultSwitchResult | null> {
 	return requireBridge().pickVaultDirectory();
 }
 
 export async function getDesktopMcpStatus(): Promise<DesktopMcpStatus> {
 	return requireBridge().getMcpStatus();
+}
+
+export async function getDesktopUpdateStatus(): Promise<DesktopUpdateStatus> {
+	return requireBridge().getUpdateStatus();
+}
+
+export async function checkDesktopForUpdates(): Promise<DesktopUpdateStatus> {
+	return requireBridge().checkForUpdates();
+}
+
+export async function downloadDesktopUpdate(): Promise<DesktopUpdateStatus> {
+	return requireBridge().downloadUpdate();
+}
+
+export async function installDesktopUpdate(): Promise<DesktopUpdateStatus> {
+	return requireBridge().installUpdate();
+}
+
+export async function remindLaterDesktopUpdate(hours?: number): Promise<DesktopUpdateStatus> {
+	return requireBridge().remindLaterUpdate(hours);
+}
+
+export async function listDesktopRecentVaults(limit?: number): Promise<DesktopRecentVaultEntry[]> {
+	return requireBridge().listRecentVaults(limit);
+}
+
+export async function getDesktopVaultPermissions(
+	vaultDir?: string,
+): Promise<DesktopVaultPermissionReport> {
+	return requireBridge().getVaultPermissions(vaultDir);
+}
+
+export async function switchDesktopVault(vaultDir: string): Promise<DesktopVaultSwitchResult> {
+	return requireBridge().switchVault(vaultDir);
 }
 
 export async function getDesktopEmbeddingStatus(): Promise<DesktopEmbeddingStatus> {

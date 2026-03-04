@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import type { McpLifecycleEvent } from '../src/lib/types/diagnostics.js';
 
 export type McpSidecarState = 'stopped' | 'running' | 'error';
@@ -9,6 +9,8 @@ export interface McpSidecarStatus {
 	state: McpSidecarState;
 	vaultDir: string | null;
 	entry: string | null;
+	runtimeSource: 'bundled_electron' | 'system_node' | null;
+	runtimeVersion: string | null;
 	pid: number | null;
 	lastStartedAt: string | null;
 	lastStoppedAt: string | null;
@@ -24,6 +26,88 @@ const MAX_IN_MEMORY_EVENTS = 500;
 const MAX_PERSISTED_EVENTS = 200;
 /** Current version of the on-disk sidecar log format. */
 const SIDECAR_LOG_VERSION = 1;
+/** Minimum supported major version for a development fallback system Node runtime. */
+const MIN_SYSTEM_NODE_MAJOR = 20;
+
+interface RuntimeCandidate {
+	source: 'bundled_electron' | 'system_node';
+	command: string;
+	argsPrefix: string[];
+	env: NodeJS.ProcessEnv;
+}
+
+interface ValidatedRuntimeCandidate extends RuntimeCandidate {
+	version: string;
+}
+
+function parseNodeVersion(raw: string): { version: string; major: number } | null {
+	const trimmed = raw.trim();
+	const match = /^v(\d+)\./.exec(trimmed);
+	if (!match) return null;
+	const major = Number.parseInt(match[1] ?? '', 10);
+	if (!Number.isFinite(major)) return null;
+	return { version: trimmed, major };
+}
+
+function isDevelopmentMode(): boolean {
+	if (process.env.NODE_ENV === 'development') return true;
+	if (process.defaultApp) return true;
+	return /[\\/]node_modules[\\/]electron[\\/]/i.test(process.execPath);
+}
+
+function runtimeCandidates(): RuntimeCandidate[] {
+	const candidates: RuntimeCandidate[] = [
+		{
+			source: 'bundled_electron',
+			command: process.execPath,
+			argsPrefix: [],
+			env: {
+				ELECTRON_RUN_AS_NODE: '1',
+			},
+		},
+	];
+	if (isDevelopmentMode()) {
+		candidates.push({
+			source: 'system_node',
+			command: 'node',
+			argsPrefix: [],
+			env: {},
+		});
+	}
+	return candidates;
+}
+
+function validateRuntimeCandidate(candidate: RuntimeCandidate): ValidatedRuntimeCandidate | null {
+	const result = spawnSync(candidate.command, [...candidate.argsPrefix, '--version'], {
+		env: { ...process.env, ...candidate.env },
+		encoding: 'utf-8',
+		timeout: 3000,
+		windowsHide: true,
+	});
+	if (result.error || result.status !== 0) return null;
+	const parsed = parseNodeVersion(result.stdout || result.stderr || '');
+	if (!parsed) return null;
+	if (candidate.source === 'bundled_electron') {
+		const expectedMajor = Number.parseInt(process.versions.node.split('.')[0] ?? '', 10);
+		if (!Number.isFinite(expectedMajor) || parsed.major !== expectedMajor) {
+			return null;
+		}
+	} else if (parsed.major < MIN_SYSTEM_NODE_MAJOR) {
+		return null;
+	}
+	return {
+		...candidate,
+		version: parsed.version,
+	};
+}
+
+function resolveRuntimeCandidate(): ValidatedRuntimeCandidate | null {
+	for (const candidate of runtimeCandidates()) {
+		const validated = validateRuntimeCandidate(candidate);
+		if (validated) return validated;
+	}
+	return null;
+}
 
 function resolveDefaultEntry(): string | null {
 	const candidates = [
@@ -48,6 +132,8 @@ export class McpSidecar {
 		state: 'stopped',
 		vaultDir: null,
 		entry: null,
+		runtimeSource: null,
+		runtimeVersion: null,
 		pid: null,
 		lastStartedAt: null,
 		lastStoppedAt: null,
@@ -147,6 +233,8 @@ export class McpSidecar {
 				state: 'error',
 				vaultDir,
 				entry: null,
+				runtimeSource: null,
+				runtimeVersion: null,
 				pid: null,
 				lastStartedAt: null,
 				lastStoppedAt: new Date().toISOString(),
@@ -164,10 +252,37 @@ export class McpSidecar {
 			return;
 		}
 
-		const child = spawn('node', [entry, vaultDir], {
+		const runtime = resolveRuntimeCandidate();
+		if (!runtime) {
+			this.status = {
+				state: 'error',
+				vaultDir,
+				entry,
+				runtimeSource: null,
+				runtimeVersion: null,
+				pid: null,
+				lastStartedAt: null,
+				lastStoppedAt: new Date().toISOString(),
+				lastExitReason: 'runtime_validation_failed',
+				restartCount: this.status.restartCount,
+				crashCount: this.status.crashCount,
+				error:
+					'No compatible MCP runtime found. Packaged builds require the bundled Electron Node runtime; development mode can fall back to system Node 20+.',
+			};
+			this.recordLifecycleEvent({
+				at: new Date().toISOString(),
+				event: 'crash',
+				reason: 'runtime_validation_failed',
+				pid: null,
+			});
+			return;
+		}
+
+		const child = spawn(runtime.command, [...runtime.argsPrefix, entry, vaultDir], {
 			// Keep stdin open so the stdio MCP server stays alive between status refreshes.
 			stdio: ['pipe', 'ignore', 'ignore'],
 			windowsHide: true,
+			env: { ...process.env, ...runtime.env },
 		});
 
 		this.child = child;
@@ -175,6 +290,8 @@ export class McpSidecar {
 			state: 'running',
 			vaultDir,
 			entry,
+			runtimeSource: runtime.source,
+			runtimeVersion: runtime.version,
 			pid: child.pid ?? null,
 			lastStartedAt: new Date().toISOString(),
 			lastStoppedAt: null,
