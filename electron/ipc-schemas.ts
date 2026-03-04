@@ -659,6 +659,13 @@ export const getAllObjectsOptionsSchema = z
 /** Options for getObjectHistory. */
 export const getObjectHistoryOptionsSchema = z.object({ limit: optionalLimitSchema }).optional();
 
+/** Optional options for clearing MCP changelog records. */
+export const clearChangelogOptionsSchema = z
+	.object({
+		maxAgeMs: z.number().positive().optional(),
+	})
+	.optional();
+
 /** Array of Note IDs for suggest-related-notes (first positional arg). */
 export const suggestNoteIdsSchema = z.array(idSchema).max(MAX_SUGGEST_IDS);
 

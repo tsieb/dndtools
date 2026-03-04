@@ -20,6 +20,8 @@ import {
 } from '$lib/domain/link-resolution.js';
 import { linksState } from './links.svelte.js';
 import { recordPerformanceMeasurement } from '$lib/runtime/diagnostics.js';
+import { playerModeState } from './player-mode.svelte.js';
+import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 
 class NotesState {
 	notes = $state<Note[]>([]);
@@ -38,9 +40,12 @@ class NotesState {
 		return map;
 	});
 
-	activeNotes = $derived(
+	activeNotes = $derived.by(() =>
 		this.notes.filter(
-			(n) => !n.deleted && (!this.draftNoteIds.has(n.id) || hasMeaningfulNoteContent(n)),
+			(note) =>
+				!note.deleted &&
+				(!this.draftNoteIds.has(note.id) || hasMeaningfulNoteContent(note)) &&
+				(!playerModeState.enabled || isNoteVisibleInPlayerMode(note)),
 		),
 	);
 

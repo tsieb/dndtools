@@ -14,12 +14,13 @@ concurrency:
 
 jobs:
   quality-matrix:
-    name: quality-matrix (node-${{ matrix.node-version }})
-    runs-on: ubuntu-latest
+    name: quality-matrix (${{ matrix.os }}, node-${{ matrix.node-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
-        node-version: [20, 22]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [22]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,8 +45,8 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Unit tests
-        run: pnpm test
+      - name: Unit tests (coverage thresholds enforced)
+        run: pnpm test -- --coverage --coverage.thresholds.statements=80 --coverage.thresholds.branches=75 --coverage.thresholds.functions=80 --coverage.thresholds.lines=80
 
   check-script-contract:
     name: check-script-contract
@@ -98,6 +99,8 @@ jobs:
   desktop-e2e-critical:
     name: desktop-e2e-critical
     runs-on: ubuntu-latest
+    env:
+      PERF_BENCHMARK: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4

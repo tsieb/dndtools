@@ -183,14 +183,11 @@ Required protections:
 - keep preload API surface minimal and typed
 - avoid broad "method + args" dispatch patterns
 
-`TODO(APP):` Replace generic storage IPC dispatcher (`dndtools:storage`) with explicit IPC channels per operation.
-Reason: backlog item tracked for planned implementation.
-Risk: broad invocation surface increases attack and misuse risk.
-Target files:
+Current implementation status:
 
-- `electron/main.ts`
-- `electron/preload.ts`
-- `src/lib/platform/storage/electron-adapter.ts`
+- explicit named IPC channels are used for storage operations in `electron/main.ts`
+- preload exposes a finite typed bridge in `electron/preload.ts`
+- renderer calls route through `src/lib/platform/storage/electron-adapter.ts`
 
 ## 7.1 MCP Resource URI Strategy
 
@@ -236,14 +233,9 @@ Regression threshold policy:
 - Canonical registry and operation identifiers live in `src/lib/types/diagnostics.ts` (`PERFORMANCE_BUDGETS`).
 - Any budget change must include a dedicated ADR update before merge.
 
-## 9. Reliability and Integrity Gaps
+## 9. Reliability and Integrity Status
 
-`TODO(APP):` Atomic writes for note/index/settings/session board/object metadata files.
-Risk: quality and behavior drift if deferred.
-Current issue: direct `writeFile` can leave partial files on crash/power loss.
-Target files:
-
-- `mcp/storage.ts`
+Atomic writes for note/index/settings/session board/object metadata files are implemented in `mcp/storage.ts` via `mcp/safe-write.ts`.
 
 Implemented for object workflow depth:
 
@@ -251,13 +243,7 @@ Implemented for object workflow depth:
 - structured object editor in `src/lib/ui/editor/ObjectStructuredEditor.svelte` with markdown sync via storage object saves.
 - object validation/lint and relationship graph APIs exposed through storage/Electron bridge.
 
-`TODO(APP):` Metadata integrity verification and repair flow for `.vault/index.json`.
-Risk: quality and behavior drift if deferred.
-Current issue: index rebuild only if empty; stale/corrupt states are not fully diagnosed.
-Target files:
-
-- `mcp/storage.ts`
-- `docs/TODO.md` (tracking)
+Metadata integrity verification and repair flow for `.vault/index.json` and other `.vault/*.json` files is implemented in `mcp/storage.ts` (metadata integrity scan + repair paths).
 
 Implemented reliability telemetry baseline:
 

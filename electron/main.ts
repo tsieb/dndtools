@@ -1115,12 +1115,10 @@ ipcMain.handle('dndtools:storage:rebuild-index', async () => {
 	return requireStorage().rebuildVaultIndex();
 });
 
-ipcMain.handle(
-	'dndtools:storage:clear-changelog',
-	async (_event, options?: { maxAgeMs?: number }) => {
-		return requireStorage().clearMcpChangelog(options);
-	},
-);
+ipcMain.handle('dndtools:storage:clear-changelog', async (_event, rawOptions: unknown) => {
+	const options = parseIpcArg(clearChangelogOptionsSchema, rawOptions, 'storage:clear-changelog');
+	return requireStorage().clearMcpChangelog(options);
+});
 
 // â”€â”€â”€ Schema migration IPC handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

@@ -3,22 +3,17 @@
 	import { resolve } from '$app/paths';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
-	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import NoteCard from '$lib/ui/common/NoteCard.svelte';
 	import PlayerHandoutInbox from '$lib/ui/player/PlayerHandoutInbox.svelte';
 
 	let query = $state('');
 	let normalizedQuery = $derived(query.trim().toLowerCase());
 
-	let visibleNotes = $derived.by(() =>
-		notesState.activeNotes.filter((note) => isNoteVisibleInPlayerMode(note)),
-	);
-
 	let filteredNotes = $derived.by(() => {
 		if (!normalizedQuery) {
-			return [...visibleNotes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+			return [...notesState.activeNotes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 		}
-		return visibleNotes
+		return notesState.activeNotes
 			.filter((note) => {
 				const haystack = [note.title, note.content, note.tags.join(' '), String(note.folder)]
 					.join(' ')

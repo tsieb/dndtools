@@ -13,6 +13,9 @@
  *  AC4 — The preload bridge surface is finite and typed (structural verification).
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import {
 	parseIpcArg,
@@ -563,6 +566,20 @@ describe('AC3 — Enum values / whitelists are enforced', () => {
 // this test documents the expected method surface.
 
 describe('AC4 — Preload bridge surface is closed', () => {
+	it('preload bridge method count stays under the security cap', () => {
+		const currentFile = fileURLToPath(import.meta.url);
+		const preloadPath = path.resolve(path.dirname(currentFile), 'preload.ts');
+		const preloadSource = fs.readFileSync(preloadPath, 'utf8');
+		const objectMatch = preloadSource.match(
+			/contextBridge\.exposeInMainWorld\('dndtoolsDesktop',\s*\{([\s\S]*?)\}\);/,
+		);
+		expect(objectMatch).not.toBeNull();
+		const body = objectMatch?.[1] ?? '';
+		const methodCount = body.match(/^[\t ]*[a-zA-Z0-9_]+:\s*/gm)?.length ?? 0;
+		expect(methodCount).toBeGreaterThan(0);
+		expect(methodCount).toBeLessThanOrEqual(100);
+	});
+
 	it('parseIpcArg throws a structured Error (not a ZodError) on validation failure', () => {
 		expect(() => parseIpcArg(idSchema, '', 'test:channel')).toThrow(
 			'[IPC:test:channel] Payload validation failed',
