@@ -15,7 +15,12 @@
 	import { onboardingState } from '$lib/state/onboarding.svelte.js';
 	import { ONBOARDING_STEPS } from '$lib/domain/onboarding.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
-	import { exportAllNotes, parseMarkdownFile, parseJsonBundle } from '$lib/domain/export.js';
+	import {
+		buildNotesExportPayload,
+		exportAllNotes,
+		parseMarkdownFile,
+		parseJsonBundle,
+	} from '$lib/domain/export.js';
 	import { buildVaultUnresolvedLinkReport } from '$lib/domain/unresolved-links.js';
 	import { buildLinkGraphQualityReport } from '$lib/domain/link-graph-intelligence.js';
 	import { searchService } from '$lib/domain/search.js';
@@ -87,6 +92,12 @@
 		MOBILE_VAULT_ROOT_STORAGE_KEY,
 		normalizeMobileVaultRoot,
 	} from '$lib/platform/mobile-vault-root.js';
+	import {
+		pickImportFilesViaFileSystemAccess,
+		saveTextFileViaFileSystemAccess,
+		supportsOpenFilePicker,
+		supportsSaveFilePicker,
+	} from '$lib/platform/browser/file-system-access.js';
 	import { markSubsystemSuccess, reportRuntimeError } from '$lib/runtime/diagnostics.js';
 
 	type SettingsTab = {
@@ -98,6 +109,11 @@
 	type McpPendingFilterRisk = 'all' | 'structural' | 'safe';
 	type McpPendingFilterConflict = 'all' | 'conflicted' | 'clean';
 	type LinkQualityDrilldownKey = 'broken' | 'alias' | 'loops' | 'cross_folder' | 'orphans' | 'hubs';
+	type BrowserModeGap = {
+		feature: string;
+		electronBehavior: string;
+		browserBehavior: string;
+	};
 
 	let desktopVaultDir = $state<string>('');
 	let mcpStatus = $state<DesktopMcpStatus | null>(null);
@@ -179,6 +195,32 @@
 	] as const;
 
 	const visibleTabs = $derived(settingsTabs);
+	const isBrowserMode = $derived.by(() => !hasDesktopBridge());
+	const webNotificationsSupported = $derived.by(
+		() => typeof window !== 'undefined' && 'Notification' in window,
+	);
+	const browserModeGaps: readonly BrowserModeGap[] = [
+		{
+			feature: 'Filesystem vault selection',
+			electronBehavior: 'Pick and switch local vault folders on disk.',
+			browserBehavior: 'Use IndexedDB browser vault. Import/export uses browser file pickers.',
+		},
+		{
+			feature: 'MCP sidecar',
+			electronBehavior: 'Local MCP process with staged review workflows.',
+			browserBehavior: 'MCP controls are disabled. Suggestions rely on client-side algorithms.',
+		},
+		{
+			feature: 'Auto-update',
+			electronBehavior: 'Built-in update channel with staged rollout support.',
+			browserBehavior: 'Updates come from normal browser refresh and cache updates.',
+		},
+		{
+			feature: 'Notifications',
+			electronBehavior: 'Desktop native notification surface.',
+			browserBehavior: 'Uses Web Notifications API when available and permitted.',
+		},
+	] as const;
 	const vaultLinkQualityReport = $derived.by(() =>
 		buildLinkGraphQualityReport({
 			notes: notesState.activeNotes,
@@ -800,6 +842,32 @@
 	}
 
 	async function handleExportAll(): Promise<void> {
+		const payload = buildNotesExportPayload(notesState.activeNotes);
+		if (!payload) {
+			toastState.error('No notes available to export.');
+			return;
+		}
+
+		if (supportsSaveFilePicker()) {
+			try {
+				const saved = await saveTextFileViaFileSystemAccess({
+					suggestedName: payload.filename,
+					content: payload.content,
+					mimeType: payload.mimeType,
+					description: payload.mimeType === 'application/json' ? 'JSON export' : 'Markdown export',
+					extensions: payload.mimeType === 'application/json' ? ['.json'] : ['.md', '.markdown'],
+				});
+				if (saved) {
+					toastState.success(`Exported ${vaultState.noteCount} notes`);
+				}
+				return;
+			} catch (error) {
+				reportSettingsError('storage', 'SETTINGS_EXPORT_SAVE_PICKER_FAILED', error);
+				toastState.error(`Failed to write export file: ${String(error)}`);
+				return;
+			}
+		}
+
 		exportAllNotes();
 		toastState.success(`Exported ${vaultState.noteCount} notes`);
 	}
@@ -1056,6 +1124,20 @@
 	}
 
 	async function handleImportFiles(): Promise<void> {
+		if (supportsOpenFilePicker()) {
+			try {
+				const files = await pickImportFilesViaFileSystemAccess();
+				if (files && files.length > 0) {
+					await importFiles(files);
+				}
+				return;
+			} catch (error) {
+				reportSettingsError('storage', 'SETTINGS_IMPORT_PICKER_FAILED', error);
+				toastState.error(`Failed to pick files for import: ${String(error)}`);
+				return;
+			}
+		}
+
 		const input = document.createElement('input');
 		input.type = 'file';
 		input.multiple = true;
@@ -1184,6 +1266,10 @@
 	}
 
 	async function handleCheckForUpdates(): Promise<void> {
+		if (!hasDesktopBridge()) {
+			toastState.error('Desktop update controls are unavailable in browser mode.');
+			return;
+		}
 		checkingUpdates = true;
 		try {
 			updateStatus = await checkDesktopForUpdates();
@@ -1196,6 +1282,10 @@
 	}
 
 	async function handleUpdateNow(): Promise<void> {
+		if (!hasDesktopBridge()) {
+			toastState.error('Desktop update controls are unavailable in browser mode.');
+			return;
+		}
 		if (!updateStatus) return;
 		applyingUpdate = true;
 		try {
@@ -1213,6 +1303,10 @@
 	}
 
 	async function handleRemindUpdateLater(): Promise<void> {
+		if (!hasDesktopBridge()) {
+			toastState.error('Desktop update controls are unavailable in browser mode.');
+			return;
+		}
 		deferringUpdate = true;
 		try {
 			updateStatus = await remindLaterDesktopUpdate(24);
@@ -1948,14 +2042,27 @@
 					class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4"
 				>
 					<p class="text-sm text-ink dark:text-tavern-text font-medium">
-						DND Tools v{updateStatus?.currentVersion ?? 'unknown'}
+						DND Tools v{updateStatus?.currentVersion ?? 'web'}
 					</p>
 					<p class="text-sm text-ink-muted dark:text-tavern-muted mt-1">
-						Electron-first local vault editor with built-in MCP sidecar support.
+						{#if isBrowserMode}
+							Browser-mode PWA runtime with offline-first IndexedDB storage.
+						{:else}
+							Electron-first local vault editor with built-in MCP sidecar support.
+						{/if}
 					</p>
 					<p class="text-xs text-ink-faint dark:text-tavern-faint mt-3">
-						Data is stored in local markdown files in your selected vault folder.
+						{#if isBrowserMode}
+							Data is stored in your browser vault (IndexedDB). Use import/export to move data.
+						{:else}
+							Data is stored in local markdown files in your selected vault folder.
+						{/if}
 					</p>
+					<div
+						class="mt-3 inline-flex items-center rounded px-2 py-1 text-xs font-medium bg-surface-alt dark:bg-tavern-surface-alt text-ink dark:text-tavern-text"
+					>
+						Runtime mode: {isBrowserMode ? 'Browser' : 'Desktop'}
+					</div>
 				</div>
 			</section>
 
@@ -1966,7 +2073,7 @@
 						variant="secondary"
 						size="sm"
 						onclick={handleCheckForUpdates}
-						disabled={checkingUpdates}
+						disabled={checkingUpdates || isBrowserMode}
 					>
 						{checkingUpdates ? 'Checking…' : 'Check for Updates'}
 					</Button>
@@ -1974,7 +2081,12 @@
 				<div
 					class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-3"
 				>
-					{#if !updateStatus}
+					{#if isBrowserMode}
+						<p class="text-sm text-ink-muted dark:text-tavern-muted">
+							Browser mode does not use Electron auto-update. Update by refreshing the app in your
+							browser.
+						</p>
+					{:else if !updateStatus}
 						<p class="text-sm text-ink-muted dark:text-tavern-muted">Update status unavailable.</p>
 					{:else}
 						<div class="flex flex-wrap items-center gap-2">
@@ -2046,6 +2158,51 @@
 							</p>
 						{/if}
 					{/if}
+				</div>
+			</section>
+			<section>
+				<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">
+					Browser Mode Limits
+				</h2>
+				<div
+					class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-3"
+				>
+					<p class="text-xs text-ink-muted dark:text-tavern-muted">
+						Feature parity audit for browser mode versus Electron desktop behavior.
+					</p>
+					<div class="overflow-x-auto">
+						<table class="w-full text-xs">
+							<thead
+								class="bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted"
+							>
+								<tr>
+									<th class="text-left px-3 py-2 font-medium">Feature</th>
+									<th class="text-left px-3 py-2 font-medium">Desktop</th>
+									<th class="text-left px-3 py-2 font-medium">Browser</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-border dark:divide-tavern-border">
+								{#each browserModeGaps as gap (gap.feature)}
+									<tr>
+										<td class="px-3 py-2 font-medium text-ink dark:text-tavern-text">
+											{gap.feature}
+										</td>
+										<td class="px-3 py-2 text-ink-muted dark:text-tavern-muted">
+											{gap.electronBehavior}
+										</td>
+										<td class="px-3 py-2 text-ink-muted dark:text-tavern-muted">
+											{gap.browserBehavior}
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+					<p class="text-xs text-ink-faint dark:text-tavern-faint">
+						Web Notifications API status: {webNotificationsSupported
+							? 'supported by this browser'
+							: 'not supported by this browser'}.
+					</p>
 				</div>
 			</section>
 		</div>

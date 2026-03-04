@@ -22,6 +22,43 @@ function toFilename(title: string): string {
 	);
 }
 
+export interface ExportPayload {
+	filename: string;
+	content: string;
+	mimeType: string;
+}
+
+/** Build the canonical browser export payload for one or many notes. */
+export function buildNotesExportPayload(notes: Note[]): ExportPayload | null {
+	if (notes.length === 0) return null;
+	if (notes.length === 1 && notes[0]) {
+		return {
+			filename: `${toFilename(notes[0].title)}.md`,
+			content: noteToMarkdown(notes[0]),
+			mimeType: 'text/markdown',
+		};
+	}
+
+	const bundle = {
+		version: 1,
+		exportedAt: new Date().toISOString(),
+		noteCount: notes.length,
+		notes: notes.map((note) => ({
+			title: note.title,
+			folder: note.folder,
+			tags: note.tags,
+			content: note.content,
+			createdAt: note.createdAt,
+			updatedAt: note.updatedAt,
+		})),
+	};
+	return {
+		filename: 'dndtools-vault-export.json',
+		content: JSON.stringify(bundle, null, 2),
+		mimeType: 'application/json',
+	};
+}
+
 /** Convert a note to markdown with YAML frontmatter */
 export function noteToMarkdown(note: Note): string {
 	const lines: string[] = ['---'];
@@ -59,27 +96,9 @@ export function exportNote(note: Note): void {
 
 /** Export all active notes as markdown/json browser downloads. */
 export function exportAllNotes(): void {
-	const notes = notesState.activeNotes;
-	if (notes.length === 0) return;
-	if (notes.length === 1 && notes[0]) {
-		exportNote(notes[0]);
-		return;
-	}
-
-	const bundle = {
-		version: 1,
-		exportedAt: new Date().toISOString(),
-		noteCount: notes.length,
-		notes: notes.map((note) => ({
-			title: note.title,
-			folder: note.folder,
-			tags: note.tags,
-			content: note.content,
-			createdAt: note.createdAt,
-			updatedAt: note.updatedAt,
-		})),
-	};
-	downloadFile(JSON.stringify(bundle, null, 2), 'dndtools-vault-export.json', 'application/json');
+	const payload = buildNotesExportPayload(notesState.activeNotes);
+	if (!payload) return;
+	downloadFile(payload.content, payload.filename, payload.mimeType);
 }
 
 export {

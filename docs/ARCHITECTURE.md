@@ -35,6 +35,21 @@ Responsibilities:
 - Bridge approved native plugin APIs (filesystem) to the renderer runtime.
 - Build/sign APK artifacts through Gradle.
 
+### 1.1.2 Browser PWA Runtime
+
+Implemented in:
+
+- `vite.config.ts` (`vite-plugin-pwa` service worker + manifest)
+- `src/lib/platform/storage/indexeddb-adapter.ts`
+- `src/lib/state/pwa.svelte.ts`
+
+Responsibilities:
+
+- Run the shared renderer bundle as an installable Progressive Web App.
+- Persist vault state locally in IndexedDB through `IndexedDbStorageAdapter`.
+- Cache app shell and static assets for offline operation via service worker.
+- Surface install/offline-cache UX states in-app.
+
 ### 1.2 Renderer Process
 
 Implemented in:
@@ -78,6 +93,10 @@ Android data path:
 
 - Renderer -> Sync-aware storage wrapper -> `CapacitorStorageAdapter` -> Capacitor Filesystem plugin -> app-private storage.
 
+Browser data path:
+
+- Renderer -> Sync-aware storage wrapper -> `IndexedDbStorageAdapter` -> Dexie/IndexedDB tables.
+
 MCP path:
 
 - Electron main -> sidecar using bundled Electron Node runtime (`process.execPath` with
@@ -102,7 +121,8 @@ Executed by `bootstrapApplication()` in `src/lib/runtime/bootstrap.ts`:
 
 1. `initStorage()` initializes runtime-specific storage:
    - desktop: `ElectronStorageAdapter`
-   - android/web-capable: `CapacitorStorageAdapter`
+   - android native: `CapacitorStorageAdapter`
+   - browser/PWA: `IndexedDbStorageAdapter`
 2. `syncState` initializes persisted sync strategy/queue state and connectivity listeners.
 3. Load UI settings from storage.
 4. Load all notes.
@@ -118,6 +138,13 @@ Android runtime degradations (intentional):
 
 - No MCP sidecar process (desktop-only capability).
 - Desktop-only controls (window controls, auto-update, desktop diagnostics) must be hidden or no-op.
+
+Browser runtime degradations (intentional):
+
+- No filesystem vault chooser; browser mode uses local IndexedDB vault + import/export workflows.
+- No MCP sidecar process; MCP-specific controls are disabled and client-side algorithms remain available.
+- No Electron auto-update; updates come from browser refresh + service worker cache refresh.
+- Notifications use the Web Notifications API when the browser supports and grants permission.
 
 ## 5. MCP Write Modes
 

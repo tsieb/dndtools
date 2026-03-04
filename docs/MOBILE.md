@@ -35,7 +35,8 @@ Canonical build pipeline:
 ## Runtime Behavior
 
 - Desktop runtime keeps using `ElectronStorageAdapter`.
-- Android (and non-desktop fallback) uses `CapacitorStorageAdapter`.
+- Android native runtime uses `CapacitorStorageAdapter`.
+- Browser/PWA runtime uses `IndexedDbStorageAdapter` (Dexie/IndexedDB tables).
 - MCP sidecar is desktop-only; Android degrades to client-computed behavior for
   suggestions/object graph/lint where possible.
 

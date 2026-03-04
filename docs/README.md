@@ -11,6 +11,7 @@ Runtime modes:
 
 - Desktop runtime: Electron main + renderer + filesystem storage + MCP sidecar.
 - Android runtime: Capacitor shell + renderer + Capacitor filesystem adapter (no MCP sidecar).
+- Browser runtime: PWA renderer + IndexedDB storage adapter + service worker cache (no MCP sidecar).
 
 ## Source of Truth
 
@@ -47,7 +48,8 @@ Read in this order:
 
 - Notes are markdown files in a vault folder when running desktop mode.
 - MCP runs as a sidecar process and defaults to staged write mode (pending approvals).
-- Renderer uses `StorageAdapter` backed by `desktop-filesystem` via Electron bridge.
+- Renderer uses runtime-selected `StorageAdapter`:
+  Electron bridge (desktop), Capacitor filesystem (Android), Dexie/IndexedDB (browser PWA).
 - Import/export includes Obsidian analyzer + conflict-aware import jobs with resumable checkpoints.
 - Export supports portable markdown zip and deterministic git-friendly markdown zip with validation.
 - MCP resources expose canonical versioned URIs under `dndtools://v1/*` with legacy aliases.

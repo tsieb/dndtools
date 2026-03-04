@@ -1,17 +1,32 @@
 import type { StorageAdapter } from '$lib/types/storage.js';
+import { Capacitor } from '@capacitor/core';
 import { SyncAwareStorageAdapter } from '$lib/platform/storage/sync-adapter.js';
 import { syncState } from '$lib/state/sync.svelte.js';
 
 let adapter: StorageAdapter | null = null;
 let initPromise: Promise<void> | null = null;
 
-async function createAdapter(): Promise<StorageAdapter> {
+export type StorageRuntime = 'electron' | 'capacitor' | 'indexeddb';
+
+export function detectStorageRuntime(): StorageRuntime {
 	if (typeof window !== 'undefined' && window.dndtoolsDesktop) {
-		const { ElectronStorageAdapter } = await import('./electron-adapter.js');
-		return new ElectronStorageAdapter();
+		return 'electron';
 	}
-	const { CapacitorStorageAdapter } = await import('./capacitor-adapter.js');
-	return new CapacitorStorageAdapter();
+	return Capacitor.isNativePlatform() ? 'capacitor' : 'indexeddb';
+}
+
+async function createAdapter(): Promise<StorageAdapter> {
+	const runtime = detectStorageRuntime();
+	if (runtime === 'electron') {
+		const module = await import('./electron-adapter.js');
+		return new module.ElectronStorageAdapter();
+	}
+	if (runtime === 'capacitor') {
+		const module = await import('./capacitor-adapter.js');
+		return new module.CapacitorStorageAdapter();
+	}
+	const module = await import('./indexeddb-adapter.js');
+	return new module.IndexedDbStorageAdapter();
 }
 
 /** Initialize storage adapter once at app startup. */
