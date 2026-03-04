@@ -30,7 +30,10 @@
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import { syncState } from '$lib/state/sync.svelte.js';
+	import { pwaState } from '$lib/state/pwa.svelte.js';
 	import LiveAnnouncer from '$lib/ui/a11y/LiveAnnouncer.svelte';
+	import InstallPromptBanner from '$lib/ui/pwa/InstallPromptBanner.svelte';
+	import { registerSW } from 'virtual:pwa-register';
 	import {
 		buildTemplateContext,
 		getFolderScopedTemplateMatches,
@@ -123,6 +126,28 @@
 
 	$effect(() => {
 		if (typeof window === 'undefined') return;
+		pwaState.initialize();
+		registerSW({
+			immediate: true,
+			onOfflineReady: () => {
+				pwaState.markServiceWorkerReady();
+			},
+			onRegisteredSW: () => {
+				pwaState.markServiceWorkerReady();
+			},
+			onRegisterError: (error) => {
+				void reportRuntimeError({
+					category: 'ui_runtime',
+					code: 'PWA_REGISTER_FAILED',
+					error,
+				});
+			},
+		});
+		return () => pwaState.dispose();
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
 		const handleOpen = (): void => {
 			if (playerModeState.enabled) return;
 			handoutCreatorOpen = true;
@@ -150,6 +175,7 @@
 			const isEdit = noteMatch[2] === 'edit';
 			const note = notesState.getNoteById(noteId);
 			const title = note?.title ?? `Note ${noteId}`;
+			pwaState.recordNoteOpened(String(noteId));
 			navigationState.record(pathWithSearch, {
 				label: isEdit ? `${title} (Edit)` : title,
 				noteId,
@@ -395,6 +421,8 @@
 		name="description"
 		content="D&D campaign note-taking app with wikilinks and bidirectional linking"
 	/>
+	<link rel="manifest" href="/manifest.webmanifest" />
+	<meta name="theme-color" content="#1f2937" />
 </svelte:head>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -505,6 +533,7 @@
 			/>
 		{/await}
 	{/if}
+	<InstallPromptBanner />
 	<Toast />
 	<LiveAnnouncer />
 {:else if runtimeState.migrationReport}

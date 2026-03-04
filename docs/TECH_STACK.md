@@ -28,7 +28,8 @@ This is the verified stack in the repository today.
 ## Data and Persistence
 
 - Desktop primary backend: filesystem markdown vault via `FileSystemAdapter`
-- Android/web-capable backend: Capacitor Filesystem-backed `CapacitorStorageAdapter`
+- Android native backend: Capacitor Filesystem-backed `CapacitorStorageAdapter`
+- Browser/PWA backend: Dexie-backed `IndexedDbStorageAdapter` over IndexedDB
 - Shared contracts under `src/lib/types/*`
 
 ## Content and Search

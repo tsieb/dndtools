@@ -1,3 +1,4 @@
+/// <reference types="vite-plugin-pwa/client" />
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
@@ -314,6 +315,11 @@ declare global {
 		warnings: string[];
 		failures: DesktopSchemaMigrationFailure[];
 		steps: DesktopSchemaMigrationStepReport[];
+	}
+
+	interface BeforeInstallPromptEvent extends Event {
+		prompt(): Promise<void>;
+		userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 	}
 
 	interface Window {

@@ -7,6 +7,7 @@
 	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { syncState } from '$lib/state/sync.svelte.js';
+	import { pwaState } from '$lib/state/pwa.svelte.js';
 	import {
 		closeDesktopWindow,
 		getDesktopWindowState,
@@ -218,6 +219,16 @@
 				</span>
 			{/if}
 		</a>
+		{#if pwaState.cacheOnlyOffline}
+			<span
+				class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-amber-800 dark:text-amber-200 bg-amber-100 dark:bg-amber-950/40"
+				title="Offline: service worker cache is serving the app"
+				aria-label="App offline from service worker cache"
+			>
+				<span class="inline-block h-2 w-2 rounded-full bg-amber-500" aria-hidden="true"></span>
+				<span class="hidden lg:inline">App Offline</span>
+			</span>
+		{/if}
 		<button
 			class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-ink-faint dark:text-tavern-faint bg-surface-alt dark:bg-tavern-surface-alt hover:bg-border dark:hover:bg-tavern-border transition-colors mr-1"
 			onclick={onsearch}
