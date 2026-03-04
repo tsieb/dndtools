@@ -701,7 +701,7 @@ describe('FileSystemAdapter', () => {
 			expect(loaded?.tiles[0]?.style?.borderRadius).toBeUndefined();
 		});
 
-		it('persists note, calendar, timer, dice, and handout tile types with preview and timer state', async () => {
+		it('persists note, calendar, timer, encounter, dice, and handout tile types with preview and timer state', async () => {
 			const now = nowISO();
 			const board = {
 				id: createSessionBoardId('board-mixed-tiles'),
@@ -752,6 +752,48 @@ describe('FileSystemAdapter', () => {
 						h: 3,
 					},
 					{
+						id: 'encounter-tile',
+						type: 'encounter' as const,
+						x: 9,
+						y: 3,
+						w: 3,
+						h: 3,
+						encounter: {
+							encounterName: 'Bridge Ambush',
+							partyMembers: [],
+							combatants: [],
+							environmentType: null,
+							environmentNoteId: null,
+							environmentName: '',
+							tacticalChecklist: [],
+							budget: {
+								easy: 0,
+								medium: 0,
+								hard: 0,
+								deadly: 0,
+								baseXp: 0,
+								adjustedXp: 0,
+								multiplier: 1,
+								difficulty: 'trivial',
+							},
+							round: 1,
+							activeCombatantEntryId: null,
+							legendaryTrackers: [],
+							lairTracker: {
+								enabled: false,
+								initiativeCount: 20,
+								lastTriggeredRound: null,
+								actions: [],
+							},
+							notableRolls: [],
+							notes: '',
+							outcome: '',
+							startedAt: now,
+							endedAt: null,
+							lastLogNoteId: null,
+						},
+					},
+					{
 						id: 'handout-tile',
 						type: 'handouts' as const,
 						x: 5,
@@ -782,6 +824,8 @@ describe('FileSystemAdapter', () => {
 			}
 			const diceTile = loaded?.tiles.find((tile) => tile.id === 'dice-tile');
 			expect(diceTile?.type).toBe('dice');
+			const encounterTile = loaded?.tiles.find((tile) => tile.id === 'encounter-tile');
+			expect(encounterTile?.type).toBe('encounter');
 			const handoutTile = loaded?.tiles.find((tile) => tile.id === 'handout-tile');
 			expect(handoutTile?.type).toBe('handouts');
 		});

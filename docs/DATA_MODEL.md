@@ -46,7 +46,7 @@ Board model includes:
 
 - board metadata (`name`, `description`)
 - tile layout (`x,y,w,h`)
-- tile kinds (`note`, `calendar`, `timer`, `combat`)
+- tile kinds (`note`, `calendar`, `timer`, `combat`, `encounter`, `dice`, `generator`, `handouts`)
 - per-tile style overrides
 - board-level layout/style settings
 
@@ -54,9 +54,21 @@ Combat tile state (`type: combat`) includes:
 
 - encounter metadata (`encounterName`, `systemId`, `round`, `activeCombatantId`)
 - combatants with initiative, tie rank, HP/AC, conditions, ready/delay, concentration
-- death save tracking for PC rows
+- death save tracking for PC rows and `startingHp` baseline for HP-delta logging
 - linked object metadata (`linkedObjectId`, `linkedObjectType`, `statsPreview`)
-- encounter log draft inputs (`notes`, `loot`) and `lastLogNoteId`
+- legendary action trackers (`chargesRemaining`, per-action cost/usage)
+- lair action tracker (`initiativeCount`, `lastTriggeredRound`, auto/manual trigger actions)
+- notable roll capture (`critical_hit`, `critical_failure`, death-save outcomes)
+- encounter outcome text, encounter log draft inputs (`notes`, `loot`), and `lastLogNoteId`
+
+Encounter builder tile state (`type: encounter`) includes:
+
+- party members sourced from session context linked character objects
+- combatant entries sourced from vault stat blocks (`count`, `challengeRating`, `xpPerCreature`)
+- computed 5e budget (`easy`, `medium`, `hard`, `deadly`, `baseXp`, `adjustedXp`, `multiplier`, `difficulty`)
+- environment linkage (`environmentType`, `environmentNoteId`, `environmentName`)
+- tactical checklist derived from environment profile
+- legendary/lair tracker seeds and notable-roll capture fields for in-session handoff
 
 ### 1.5 World Calendar
 

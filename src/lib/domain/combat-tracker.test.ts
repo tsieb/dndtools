@@ -3,11 +3,15 @@ import { describe, expect, it } from 'vitest';
 import {
 	advanceCombatTurn,
 	buildEncounterLogDraft,
+	buildEncounterRewardSummary,
 	createDefaultCombatState,
 	getLinkedCombatantDefaults,
 	normalizeCombatState,
+	recordCombatNotableRoll,
 	reorderTieCombatants,
 	sortCombatantsForInitiative,
+	spendLegendaryAction,
+	startCombatantTurn,
 	summarizeEncounter,
 } from './combat-tracker.js';
 
@@ -182,5 +186,145 @@ describe('combat-tracker domain', () => {
 		expect(draft.content).toContain('## Outcome Summary');
 		expect(draft.content).toContain('Total Damage Dealt: 23');
 		expect(draft.participantObjectIds).toEqual(expect.arrayContaining(['obj-pc', 'obj-goblin']));
+	});
+
+	it('resets legendary charges on turn start and auto-triggers lair actions at initiative 20', () => {
+		const state = normalizeCombatState({
+			round: 1,
+			activeCombatantId: 'a',
+			combatants: [
+				{ id: 'a', name: 'Dragon', initiative: 22, tieRank: 0, delayed: false, ready: false },
+				{ id: 'b', name: 'Lich', initiative: 18, tieRank: 0, delayed: false, ready: false },
+			],
+			legendaryTrackers: [
+				{
+					combatantId: 'b',
+					combatantName: 'Lich',
+					chargesMax: 3,
+					chargesRemaining: 0,
+					actions: [{ id: 'l-1', name: 'Cantrip', cost: 1, usedCount: 0 }],
+				},
+			],
+			lairTracker: {
+				enabled: true,
+				initiativeCount: 20,
+				lastTriggeredRound: null,
+				actions: [{ id: 'la-1', name: 'Arcane Pulse', autoTrigger: true, usedCount: 0 }],
+			},
+		});
+
+		const advanced = advanceCombatTurn(state);
+		expect(advanced.activeCombatantId).toBe('b');
+		expect(advanced.legendaryTrackers[0]?.chargesRemaining).toBe(3);
+		expect(advanced.lairTracker.lastTriggeredRound).toBe(1);
+		expect(advanced.lairTracker.actions[0]?.usedCount).toBe(1);
+	});
+
+	it('spends legendary action charges and records notable rolls', () => {
+		const state = normalizeCombatState({
+			round: 3,
+			activeCombatantId: 'drake',
+			combatants: [{ id: 'drake', name: 'Drake', initiative: 16, tieRank: 0 }],
+			legendaryTrackers: [
+				{
+					combatantId: 'drake',
+					combatantName: 'Drake',
+					chargesMax: 3,
+					chargesRemaining: 3,
+					actions: [{ id: 'tail', name: 'Tail Swipe', cost: 2, usedCount: 0 }],
+				},
+			],
+		});
+		const spent = spendLegendaryAction(state, 'drake', 'tail');
+		expect(spent.legendaryTrackers[0]?.chargesRemaining).toBe(1);
+		expect(spent.legendaryTrackers[0]?.actions[0]?.usedCount).toBe(1);
+
+		const withRoll = recordCombatNotableRoll(spent, {
+			kind: 'critical_hit',
+			combatantName: 'Drake',
+		});
+		expect(withRoll.notableRolls).toHaveLength(1);
+		expect(withRoll.notableRolls[0]?.kind).toBe('critical_hit');
+		expect(withRoll.notableRolls[0]?.round).toBe(3);
+	});
+
+	it('derives reward summary and includes timeline/reward details in encounter logs', () => {
+		const state = normalizeCombatState({
+			encounterName: 'Crypt Break',
+			round: 5,
+			outcome: 'Party sealed the crypt and escaped.',
+			combatants: [
+				{
+					id: 'pc1',
+					name: 'Iris',
+					isPlayerCharacter: true,
+					linkedObjectType: 'character',
+					linkedObjectId: 'obj-iris',
+					statsPreview: { traits: [], actions: [], reactions: [], legendaryActions: [], level: 5 },
+				},
+				{
+					id: 'pc2',
+					name: 'Bran',
+					isPlayerCharacter: true,
+					linkedObjectType: 'character',
+					linkedObjectId: 'obj-bran',
+					statsPreview: { traits: [], actions: [], reactions: [], legendaryActions: [], level: 5 },
+				},
+				{
+					id: 'wight',
+					name: 'Wight',
+					isPlayerCharacter: false,
+					statsPreview: {
+						traits: [],
+						actions: [],
+						reactions: [],
+						legendaryActions: [],
+						challengeRating: '3',
+					},
+				},
+			],
+		});
+		const rewardSummary = buildEncounterRewardSummary(state);
+		expect(rewardSummary.totalBaseXp).toBe(700);
+		expect(rewardSummary.xpAwards.map((entry) => entry.xp)).toEqual([350, 350]);
+
+		const draft = buildEncounterLogDraft(state, {
+			now: new Date('2026-03-02T12:00:00.000Z'),
+			timelineEventId: 'timeline-42',
+			timelineEventTitle: 'Battle of the Crypt',
+			xpAwards: rewardSummary.xpAwards,
+			treasureRoll: {
+				tableName: rewardSummary.treasureTableName,
+				tier: rewardSummary.treasureTier,
+				result: 'Gem cache worth 120 gp',
+			},
+		});
+		expect(draft.tags).toContain('timeline-linked');
+		expect(draft.content).toContain('Timeline Event: [[Battle of the Crypt]] (timeline-42)');
+		expect(draft.content).toContain('Gem cache worth 120 gp');
+		expect(draft.content).toContain('XP [[Iris]]: 350');
+	});
+
+	it('can set an explicit active combatant turn', () => {
+		const state = normalizeCombatState({
+			round: 2,
+			activeCombatantId: null,
+			combatants: [
+				{ id: 'a', name: 'A', initiative: 17, tieRank: 0 },
+				{ id: 'b', name: 'B', initiative: 12, tieRank: 0 },
+			],
+			legendaryTrackers: [
+				{
+					combatantId: 'b',
+					combatantName: 'B',
+					chargesMax: 3,
+					chargesRemaining: 0,
+					actions: [{ id: 'b-1', name: 'Swipe', cost: 1, usedCount: 0 }],
+				},
+			],
+		});
+		const activated = startCombatantTurn(state, 'b');
+		expect(activated.activeCombatantId).toBe('b');
+		expect(activated.legendaryTrackers[0]?.chargesRemaining).toBe(3);
 	});
 });

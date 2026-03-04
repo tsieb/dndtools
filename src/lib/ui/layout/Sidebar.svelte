@@ -354,6 +354,12 @@
 					Session Board
 				</a>
 				<a
+					href={resolve('/encounter/new')}
+					class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
+				>
+					Encounter Builder
+				</a>
+				<a
 					href={resolve('/combat')}
 					class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
 				>

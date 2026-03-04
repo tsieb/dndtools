@@ -317,6 +317,15 @@
 				run: () => navigate(resolve('/session-board')),
 			},
 			{
+				id: 'nav-encounter-builder',
+				group: 'Navigation',
+				title: 'Go to Encounter Builder',
+				subtitle: '/encounter/new',
+				keywords: 'encounter builder cr budget environment legendary lair navigation',
+				disabled: playerModeState.enabled,
+				run: () => navigate(resolve('/encounter/new')),
+			},
+			{
 				id: 'settings-main',
 				group: 'Settings',
 				title: 'Open Settings',

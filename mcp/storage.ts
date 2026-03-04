@@ -448,6 +448,7 @@ function normalizeSessionBoardRecord(
 					rawTile.type === 'timer' ||
 					rawTile.type === 'note' ||
 					rawTile.type === 'combat' ||
+					rawTile.type === 'encounter' ||
 					rawTile.type === 'dice' ||
 					rawTile.type === 'generator' ||
 					rawTile.type === 'handouts'
@@ -469,6 +470,9 @@ function normalizeSessionBoardRecord(
 					: undefined,
 				combat: isRecord(rawTile.combat)
 					? (rawTile.combat as unknown as SessionBoard['tiles'][number]['combat'])
+					: undefined,
+				encounter: isRecord(rawTile.encounter)
+					? (rawTile.encounter as unknown as SessionBoard['tiles'][number]['encounter'])
 					: undefined,
 			},
 			layout.columns,

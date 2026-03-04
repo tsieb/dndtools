@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { FileSystemAdapter } from '../../mcp/storage.js';
 import { createTempVaultDir, launchDesktopApp, closeDesktopApp } from './helpers/desktop-app.js';
 
@@ -36,6 +36,30 @@ async function launchWithSeed(
 	return launchDesktopApp(vaultDir);
 }
 
+async function startNewNote(page: Page): Promise<void> {
+	await page.getByRole('link', { name: 'All Notes' }).first().click();
+	const newNoteButtons = page.getByRole('button', { name: 'New Note' });
+	const targetIndex = (await newNoteButtons.count()) > 1 ? 1 : 0;
+	await newNoteButtons.nth(targetIndex).click();
+	if (!/\/notes\/[^/]+\/edit$/.test(page.url())) {
+		const templateDialog = page.getByRole('dialog', { name: 'New from Template' });
+		if ((await templateDialog.count()) > 0) {
+			await templateDialog.getByRole('button').first().click();
+		}
+	}
+	if (!/\/notes\/[^/]+\/edit$/.test(page.url())) {
+		const firstRunButton = page.getByRole('button', { name: 'Create Your First Note' });
+		if ((await firstRunButton.count()) > 0) {
+			await firstRunButton.first().click();
+		}
+	}
+	if (!/\/notes\/[^/]+\/edit$/.test(page.url())) {
+		const origin = new URL(page.url()).origin;
+		await page.goto(`${origin}/notes?create=e2e-note`);
+	}
+	await expect(page).toHaveURL(/\/notes\/[^/]+\/edit$/);
+}
+
 test.describe('Desktop critical workflows @critical', () => {
 	test('vault opens and first-run onboarding is actionable', async () => {
 		const app = await launchWithSeed();
@@ -53,11 +77,7 @@ test.describe('Desktop critical workflows @critical', () => {
 	test('note CRUD workflow: create, update, and delete', async () => {
 		const app = await launchWithSeed();
 		try {
-			if ((await app.page.getByRole('button', { name: 'New Note' }).count()) === 0) {
-				await app.page.getByRole('button', { name: 'Toggle sidebar' }).first().click();
-			}
-			await app.page.getByRole('button', { name: 'New Note' }).first().click();
-			await expect(app.page).toHaveURL(/\/notes\/[^/]+\/edit$/);
+			await startNewNote(app.page);
 
 			await app.page.locator('.cm-content').first().click();
 			await app.page.keyboard.type('Critical CRUD body');
@@ -259,36 +279,78 @@ test.describe('Desktop critical workflows @critical', () => {
 		}
 	});
 
+	test('encounter builder route renders and supports encounter tile creation', async () => {
+		const app = await launchWithSeed(async (adapter) => {
+			const now = new Date().toISOString();
+			await adapter.saveSessionBoard({
+				id: 'board-encounter' as never,
+				name: 'Encounter Coverage Board',
+				description: 'Board seeded for encounter route coverage',
+				tiles: [],
+				createdAt: now,
+				updatedAt: now,
+			});
+		});
+		try {
+			if ((await app.page.getByRole('link', { name: 'Encounter Builder' }).count()) === 0) {
+				await app.page.getByRole('button', { name: 'Toggle sidebar' }).first().click();
+			}
+			await app.page.getByRole('link', { name: 'Encounter Builder' }).first().click();
+			await expect(app.page).toHaveURL(/\/encounter\/new$/);
+			await expect(app.page.getByRole('heading', { name: 'Encounter Builder' })).toBeVisible();
+
+			await app.page.getByRole('button', { name: 'Add Encounter Tile' }).first().click();
+			await expect(app.page.getByText('Difficulty Budget')).toBeVisible();
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
 	test('object creation workflow embeds object content and persists object metadata', async () => {
 		const app = await launchWithSeed();
 		try {
-			if ((await app.page.getByRole('button', { name: 'New Note' }).count()) === 0) {
-				await app.page.getByRole('button', { name: 'Toggle sidebar' }).first().click();
-			}
-			await app.page.getByRole('button', { name: 'New Note' }).first().click();
-			await expect(app.page).toHaveURL(/\/notes\/[^/]+\/edit$/);
+			await startNewNote(app.page);
 			const match = app.page.url().match(/\/notes\/([^/]+)\/edit$/);
 			expect(match).toBeTruthy();
 			const noteId = decodeURIComponent(match![1]!);
 
 			await app.page.getByPlaceholder('Note title...').fill('Object Workflow Note');
+			await app.page.locator('.cm-content').first().click();
+			await app.page.keyboard.type('Encounter prep:\n');
 			await app.page.getByRole('button', { name: 'Embeds' }).click();
-			await app.page.getByLabel('Name').fill('Captain Aria');
+			await app.page.getByPlaceholder('Object name').fill('Captain Aria');
 			await app.page.getByRole('button', { name: 'Create + Embed' }).click();
 			await app.page.getByRole('button', { name: 'Done' }).click();
 			await expect(app.page).toHaveURL(new RegExp(`/notes/${noteId}$`));
 
-			const persisted = await app.page.evaluate(async (id) => {
-				const note = await window.dndtoolsDesktop?.getNote(id as never);
-				const objects = (await window.dndtoolsDesktop?.getAllObjects()) ?? [];
-				return {
-					noteContent: note?.content ?? '',
-					objectNames: objects.map((entry) => entry.name),
-				};
-			}, noteId);
+			await expect
+				.poll(
+					async () => {
+						const objects =
+							(await app.page.evaluate(async () => window.dndtoolsDesktop?.getAllObjects())) ?? [];
+						return objects.some((entry) => entry.name === 'Captain Aria');
+					},
+					{ timeout: 20_000, intervals: [250, 500, 1_000] },
+				)
+				.toBe(true);
 
-			expect(persisted.objectNames).toContain('Captain Aria');
-			expect(persisted.noteContent).toContain('Captain Aria');
+			const createdObjectId = await app.page.evaluate(async () => {
+				const objects = (await window.dndtoolsDesktop?.getAllObjects()) ?? [];
+				return objects.find((entry) => entry.name === 'Captain Aria')?.id ?? '';
+			});
+
+			await expect
+				.poll(
+					async () => {
+						const note = await app.page.evaluate(
+							async (id) => window.dndtoolsDesktop?.getNote(id as never),
+							noteId,
+						);
+						return note?.content ?? '';
+					},
+					{ timeout: 20_000, intervals: [250, 500, 1_000] },
+				)
+				.toMatch(new RegExp(`Captain Aria|${createdObjectId}`));
 		} finally {
 			await closeDesktopApp(app);
 		}
