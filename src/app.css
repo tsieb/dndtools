@@ -9,7 +9,7 @@
 	--color-border-strong: #c4b8a8;
 	--color-ink: #2c1810;
 	--color-ink-muted: #6b5b4f;
-	--color-ink-faint: #9a8b7f;
+	--color-ink-faint: #635345;
 	--color-accent: #8b4513;
 	--color-accent-hover: #a0522d;
 	--color-accent-subtle: #f0e6d8;
@@ -25,7 +25,7 @@
 	--color-tavern-border-strong: #5a4f48;
 	--color-tavern-text: #e8ddd0;
 	--color-tavern-muted: #a89888;
-	--color-tavern-faint: #786858;
+	--color-tavern-faint: #b5a38f;
 	--color-tavern-accent: #d4a76a;
 	--color-tavern-accent-hover: #e0be85;
 	--color-tavern-accent-subtle: #3a2e22;
@@ -161,6 +161,10 @@ html.dark .app-main::before {
 
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
+	html:focus-within {
+		scroll-behavior: auto;
+	}
+
 	*,
 	*::before,
 	*::after {
@@ -188,6 +192,14 @@ html.dark :focus-visible {
 		[aria-disabled='true']
 	) {
 	cursor: pointer;
+}
+
+/* Baseline touch target sizing for interactive controls. */
+:where(button, [role='button'], [role='tab'], [role='radio'], summary, a[aria-label]):not(
+		:disabled
+	):not([aria-disabled='true']) {
+	min-width: 2.75rem;
+	min-height: 2.75rem;
 }
 
 :where(a[href]):hover {

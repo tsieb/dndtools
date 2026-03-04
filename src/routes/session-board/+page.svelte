@@ -9,6 +9,7 @@
 	import GeneratorTile from '$lib/ui/board/GeneratorTile.svelte';
 	import HandoutLibraryTile from '$lib/ui/board/HandoutLibraryTile.svelte';
 	import WorldCalendarReference from '$lib/ui/calendar/WorldCalendarReference.svelte';
+	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
 	import { DEFAULT_SESSION_BOARD_LAYOUT } from '$lib/domain/session-board.js';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
@@ -553,6 +554,7 @@
 </script>
 
 <div class="h-full min-h-0 box-border overflow-hidden p-4">
+	<h1 class="sr-only">Session Board</h1>
 	<div
 		class="grid h-full min-h-0 gap-4 overflow-hidden {mode === 'edit'
 			? 'xl:grid-cols-[330px_minmax(0,1fr)]'
@@ -897,6 +899,7 @@
 					<div class="flex flex-wrap items-center gap-2">
 						{#if mode === 'view'}
 							<select
+								aria-label="Select active session board"
 								class="min-w-[220px] max-w-[420px] truncate px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
 								value={activeBoard.id}
 								onchange={handleBoardSelectChange}
@@ -1446,6 +1449,8 @@
 		class="fixed inset-0 z-50 bg-black/55 flex items-center justify-center p-4"
 		role="dialog"
 		aria-modal="true"
+		aria-label="Session board note preview"
+		use:focusTrap
 	>
 		<div
 			class="w-full max-w-5xl max-h-[85vh] rounded-lg border border-border bg-surface shadow-xl flex flex-col"

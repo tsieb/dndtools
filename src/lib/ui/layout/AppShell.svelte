@@ -7,6 +7,7 @@
 	import Sidebar from './Sidebar.svelte';
 	import MobileBottomNav from './MobileBottomNav.svelte';
 	import LocationBar from '$lib/ui/navigation/LocationBar.svelte';
+	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
 
 	interface Props {
 		onnewnote: () => void;
@@ -152,6 +153,7 @@
 			class="fixed inset-x-0 bottom-0 z-40 max-h-[82vh] overflow-hidden rounded-t-2xl border border-border bg-surface shadow-2xl dark:border-tavern-border dark:bg-tavern-surface"
 			role="dialog"
 			aria-label="Library sheet"
+			use:focusTrap
 		>
 			<Sidebar {onnewnote} {ondice} {ontemplate} presentation="sheet" />
 		</div>

@@ -18,6 +18,7 @@
 		onscrollready?: (element: HTMLElement) => void;
 		settings?: EditorSettings;
 		wikilinkHighlights?: Array<{ from: number; to: number; kind: 'unresolved' | 'ambiguous' }>;
+		ariaLabel?: string;
 	}
 
 	let {
@@ -27,6 +28,7 @@
 		onscrollready,
 		settings,
 		wikilinkHighlights = [],
+		ariaLabel = 'Markdown editor',
 	}: Props = $props();
 
 	let editorContainer: HTMLDivElement | undefined = $state();
@@ -203,6 +205,9 @@
 						keymap.of([...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap]),
 						updateListener,
 						wikilinkHighlightField,
+						EditorView.contentAttributes.of({
+							'aria-label': ariaLabel,
+						}),
 						theme,
 					],
 				}),

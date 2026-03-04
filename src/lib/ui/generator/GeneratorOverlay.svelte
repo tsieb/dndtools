@@ -1,5 +1,6 @@
 <script lang="ts">
 	import GeneratorPanel from '$lib/ui/generator/GeneratorPanel.svelte';
+	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
 
 	interface Props {
 		open: boolean;
@@ -26,6 +27,7 @@
 		role="dialog"
 		aria-modal="true"
 		aria-label="Generator panel"
+		use:focusTrap
 		onclick={handleBackdrop}
 		onkeydown={handleKeydown}
 		tabindex="-1"

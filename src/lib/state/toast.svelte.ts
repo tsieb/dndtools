@@ -1,3 +1,5 @@
+import { a11yAnnouncerState } from '$lib/state/a11y-announcer.svelte.js';
+
 interface Toast {
 	id: string;
 	message: string;
@@ -12,6 +14,11 @@ class ToastState {
 	add(message: string, type: Toast['type'] = 'info', duration: number = 3000): void {
 		const id = `toast-${++counter}`;
 		this.toasts = [...this.toasts, { id, message, type }];
+		if (type === 'error') {
+			a11yAnnouncerState.announceAssertive(message);
+		} else {
+			a11yAnnouncerState.announcePolite(message);
+		}
 
 		if (duration > 0) {
 			setTimeout(() => this.remove(id), duration);

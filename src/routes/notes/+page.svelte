@@ -221,6 +221,7 @@
 			<span class="text-ink-muted dark:text-tavern-muted">Sort:</span>
 			<select
 				bind:value={sortField}
+				aria-label="Sort notes by"
 				class="bg-surface dark:bg-tavern-surface border border-border dark:border-tavern-border rounded-md px-2.5 py-1.5 text-sm text-ink dark:text-tavern-text"
 			>
 				<option value="updatedAt">Last modified</option>
@@ -237,6 +238,7 @@
 				{sortDir === 'asc' ? '\u2191' : '\u2193'}
 			</button>
 			<select
+				aria-label="Filter notes by folder"
 				onchange={(event) => {
 					const value = event.currentTarget.value;
 					const next = new URL(page.url);

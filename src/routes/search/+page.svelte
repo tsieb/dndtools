@@ -6,6 +6,7 @@
 	import { semanticSearchService } from '$lib/domain/semantic-search.js';
 	import { searchState } from '$lib/state/search.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { a11yAnnouncerState } from '$lib/state/a11y-announcer.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import type { NoteId } from '$lib/types/note.js';
@@ -74,6 +75,7 @@
 	let saveName = $state('');
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
+	let lastLiveMessage = $state('');
 
 	let notesById = $derived(notesState.noteById);
 	let semanticResultIdSet = $derived(new Set(semanticResultIds));
@@ -432,6 +434,28 @@
 		const telemetry = response?.telemetry;
 		if (!telemetry) return null;
 		return `Search ${telemetry.exceededBudget ? 'over budget' : 'within budget'}: ${telemetry.elapsedMs.toFixed(1)}ms (p95 ${telemetry.p95Ms.toFixed(1)}ms, avg ${telemetry.averageMs.toFixed(1)}ms)`;
+	});
+
+	$effect(() => {
+		const normalizedQuery = query.trim();
+		if (!normalizedQuery) {
+			lastLiveMessage = '';
+			return;
+		}
+
+		let message: string;
+		if (searching) {
+			message = `Searching for ${normalizedQuery}.`;
+		} else if (searchRunError) {
+			message = searchRunError;
+		} else {
+			const resultCount = filteredResults.length;
+			message = `${resultCount} ${resultCount === 1 ? 'result' : 'results'} for ${normalizedQuery}.`;
+		}
+
+		if (message === lastLiveMessage) return;
+		lastLiveMessage = message;
+		a11yAnnouncerState.announcePolite(message);
 	});
 </script>
 

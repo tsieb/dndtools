@@ -249,6 +249,7 @@
 
 {#if note && !playerModeState.enabled}
 	<div class="mx-auto max-w-[1200px] p-6">
+		<h1 class="sr-only">Edit {note.title}</h1>
 		<div class="mb-4 flex items-center justify-between">
 			<Button variant="ghost" onclick={handleDone}>
 				<svg
@@ -386,6 +387,7 @@
 				</p>
 				<div class="mt-2 flex flex-wrap items-center gap-2">
 					<select
+						aria-label="Link session note to existing timeline event"
 						class="min-w-[220px] rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
 						value={linkedTimelineEventId ?? ''}
 						onchange={(event) =>

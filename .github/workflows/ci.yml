@@ -141,6 +141,52 @@ jobs:
           path: playwright-report/
           if-no-files-found: ignore
 
+  desktop-e2e-accessibility:
+    name: desktop-e2e-accessibility
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build desktop bundles
+        run: pnpm desktop:build
+
+      - name: Run desktop accessibility e2e suite
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm test:e2e:desktop:a11y
+
+      - name: Upload accessibility Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-desktop-a11y
+          path: playwright-report/
+          if-no-files-found: ignore
+
   quality:
     name: quality
     if: ${{ always() }}
@@ -149,6 +195,7 @@ jobs:
       - docs-validation
       - check-script-contract
       - desktop-e2e-critical
+      - desktop-e2e-accessibility
     runs-on: ubuntu-latest
     steps:
       - name: Enforce matrix success
@@ -167,5 +214,9 @@ jobs:
           fi
           if [ "${{ needs.desktop-e2e-critical.result }}" != "success" ]; then
             echo "desktop-e2e-critical did not succeed (result: ${{ needs.desktop-e2e-critical.result }})." >&2
+            exit 1
+          fi
+          if [ "${{ needs.desktop-e2e-accessibility.result }}" != "success" ]; then
+            echo "desktop-e2e-accessibility did not succeed (result: ${{ needs.desktop-e2e-accessibility.result }})." >&2
             exit 1
           fi

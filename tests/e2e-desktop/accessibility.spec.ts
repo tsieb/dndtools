@@ -1,0 +1,298 @@
+import AxeBuilder from '@axe-core/playwright';
+import { test, expect, type Page } from '@playwright/test';
+import { FileSystemAdapter } from '../../mcp/storage.js';
+import { createTempVaultDir, launchDesktopApp, closeDesktopApp } from './helpers/desktop-app.js';
+
+function buildNote(
+	id: string,
+	title: string,
+	content: string,
+	overrides: Partial<Record<string, unknown>> = {},
+): Record<string, unknown> {
+	const now = new Date().toISOString();
+	return {
+		id,
+		title,
+		content,
+		folder: '/',
+		tags: [],
+		frontmatter: {},
+		createdAt: now,
+		updatedAt: now,
+		deleted: false,
+		deletedAt: null,
+		pinned: false,
+		pinnedAt: null,
+		...overrides,
+	};
+}
+
+async function launchWithSeed(): Promise<Awaited<ReturnType<typeof launchDesktopApp>>> {
+	const vaultDir = await createTempVaultDir('dndtools-a11y-vault-');
+	const adapter = new FileSystemAdapter(vaultDir);
+	await adapter.initialize();
+	try {
+		await adapter.saveNote(
+			buildNote(
+				'a11y-note',
+				'Accessibility Anchor',
+				'# Accessibility Anchor\n\nSee [[Accessibility Link Target]].\n\nAccessibilityToken',
+			) as never,
+		);
+		await adapter.saveNote(
+			buildNote(
+				'a11y-link-target',
+				'Accessibility Link Target',
+				'# Accessibility Link Target',
+			) as never,
+		);
+		await adapter.saveNote(
+			buildNote('a11y-entity', 'Accessibility NPC', 'Entity content.', {
+				tags: ['npc'],
+				frontmatter: {
+					dndtools: {
+						object: {
+							kind: 'npc',
+							summary: 'Accessibility validation NPC',
+							data: {
+								ac: 14,
+								hp: 22,
+							},
+						},
+					},
+				},
+			}) as never,
+		);
+
+		const now = new Date().toISOString();
+		await adapter.saveSessionBoard({
+			id: 'a11y-board' as never,
+			name: 'Accessibility Session Board',
+			description: 'Board for keyboard workflow validation',
+			tiles: [],
+			createdAt: now,
+			updatedAt: now,
+		});
+	} finally {
+		await adapter.close();
+	}
+	return launchDesktopApp(vaultDir);
+}
+
+async function gotoPath(page: Page, path: string): Promise<void> {
+	const origin = new URL(page.url()).origin;
+	await page.goto(`${origin}${path}`);
+	await expect(page.locator('main')).toBeVisible();
+	await page.waitForTimeout(150);
+}
+
+async function expectNoSeriousOrCriticalAxeViolations(page: Page): Promise<void> {
+	const results = await new AxeBuilder({ page })
+		.setLegacyMode(true)
+		.options({
+			resultTypes: ['violations'],
+		})
+		.analyze();
+	const violations = results.violations.filter((violation) =>
+		['critical', 'serious'].includes(violation.impact ?? ''),
+	);
+	expect(
+		violations,
+		violations
+			.map(
+				(violation) =>
+					`${violation.impact ?? 'unknown'}: ${violation.id} (${violation.nodes.length})`,
+			)
+			.join('\n'),
+	).toEqual([]);
+}
+
+const PRIMARY_ROUTES: string[] = [
+	'/',
+	'/notes',
+	'/notes/a11y-note',
+	'/notes/a11y-note/edit',
+	'/search',
+	'/graph',
+	'/timeline',
+	'/session-board',
+	'/encounter/new',
+	'/combat',
+	'/settings',
+	'/player',
+];
+
+test.describe('Desktop accessibility compliance @critical @a11y', () => {
+	test('axe scan passes with no serious or critical violations on all primary routes', async () => {
+		const app = await launchWithSeed();
+		try {
+			for (const route of PRIMARY_ROUTES) {
+				await gotoPath(app.page, route);
+				await expectNoSeriousOrCriticalAxeViolations(app.page);
+			}
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('major workflows remain keyboard-completable', async () => {
+		const app = await launchWithSeed();
+		try {
+			await app.page.keyboard.press('Control+n');
+			await expect(app.page).toHaveURL(/\/notes\/[^/]+\/edit$/);
+			await app.page.getByPlaceholder('Note title...').focus();
+			await app.page.keyboard.type('Keyboard Created Note');
+			await app.page.locator('.cm-content').first().focus();
+			await app.page.keyboard.type('Keyboard flow body with [[Accessibility Link Target]].');
+			await app.page.keyboard.press('Control+s');
+			await expect(app.page.getByRole('status').getByText('Note saved')).toBeVisible();
+			await app.page.keyboard.press('Control+Enter');
+			await expect(app.page).toHaveURL(/\/notes\/[^/]+$/);
+
+			await app.page.getByRole('link', { name: 'Accessibility Link Target' }).focus();
+			await app.page.keyboard.press('Enter');
+			await expect(app.page).toHaveURL(/\/notes\/a11y-link-target$/);
+
+			await app.page.keyboard.press('Control+Shift+F');
+			await expect(app.page).toHaveURL(/\/search$/);
+			await app.page.getByPlaceholder('Search notes...').fill('AccessibilityToken');
+			await expect(app.page.getByRole('button', { name: 'Accessibility Anchor' })).toBeVisible();
+
+			await app.page.getByPlaceholder('Search notes...').fill('Accessibility NPC');
+			const entityResult = app.page
+				.locator('div.rounded-lg.border button.font-semibold', {
+					hasText: 'Accessibility NPC',
+				})
+				.first();
+			await expect(entityResult).toBeVisible();
+			await entityResult.focus();
+			await app.page.keyboard.press('Enter');
+			await expect(app.page).toHaveURL(/\/notes\/a11y-entity$/);
+
+			await app.page.keyboard.press('Control+p');
+			const quickSwitcher = app.page.getByRole('dialog', { name: 'Quick switcher' });
+			await expect(quickSwitcher).toBeVisible();
+			const quickSwitcherInput = quickSwitcher.getByRole('combobox', {
+				name: 'Search commands and notes',
+			});
+			await quickSwitcherInput.fill('Go to Session Board');
+			await quickSwitcherInput.press('Enter');
+			await expect(app.page).toHaveURL(/\/session-board$/);
+			await app.page.getByRole('button', { name: 'Edit' }).first().focus();
+			await app.page.keyboard.press('Enter');
+			await expect(app.page.getByText('Board Templates')).toBeVisible();
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('screen-reader announcements update for route changes and async operations', async () => {
+		const app = await launchWithSeed();
+		try {
+			await expect(app.page.getByTestId('a11y-live-assertive')).toContainText('Home view loaded.');
+
+			await gotoPath(app.page, '/search');
+			await expect(app.page.getByTestId('a11y-live-assertive')).toContainText(
+				'Search view loaded.',
+			);
+
+			await app.page.getByPlaceholder('Search notes...').fill('AccessibilityToken');
+			await expect(app.page.getByTestId('a11y-live-polite')).toContainText(
+				/\d+\s+results?\s+for AccessibilityToken\./,
+			);
+
+			await app.page.keyboard.press('Control+n');
+			await expect(app.page).toHaveURL(/\/notes\/[^/]+\/edit$/);
+			await app.page.locator('.cm-content').first().focus();
+			await app.page.keyboard.type('Save announcement validation');
+			await app.page.keyboard.press('Control+s');
+			await expect(app.page.getByTestId('a11y-live-polite')).toContainText('Note saved');
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('routes expose a semantic page heading hierarchy', async () => {
+		const app = await launchWithSeed();
+		try {
+			const headingChecks: Array<{ path: string; expectedHeading: string | RegExp }> = [
+				{ path: '/', expectedHeading: /Your Vault|Welcome|Player View/i },
+				{ path: '/notes', expectedHeading: /All Notes|Notes/i },
+				{ path: '/notes/a11y-note', expectedHeading: 'Accessibility Anchor' },
+				{ path: '/notes/a11y-note/edit', expectedHeading: /Edit Accessibility Anchor/i },
+				{ path: '/search', expectedHeading: 'Search & Discovery' },
+				{ path: '/graph', expectedHeading: 'Link Graph' },
+				{ path: '/timeline', expectedHeading: 'Campaign Timeline' },
+				{ path: '/session-board', expectedHeading: /Session Board/i },
+				{ path: '/encounter/new', expectedHeading: 'Encounter Builder' },
+				{ path: '/combat', expectedHeading: 'Combat Tracker' },
+				{ path: '/settings', expectedHeading: 'Settings' },
+				{ path: '/player', expectedHeading: /Player/i },
+			];
+
+			for (const check of headingChecks) {
+				await gotoPath(app.page, check.path);
+				const h1 = app.page.getByRole('heading', { level: 1, name: check.expectedHeading });
+				await expect(h1.first()).toBeVisible();
+			}
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('all control targets satisfy 44x44 minimum touch target policy', async () => {
+		const app = await launchWithSeed();
+		try {
+			for (const route of PRIMARY_ROUTES) {
+				await gotoPath(app.page, route);
+				const violations = await app.page.evaluate(() => {
+					const MIN_SIZE = 44;
+					const selector =
+						'button, [role="button"], [role="tab"], [role="radio"], summary, a[aria-label]';
+					const elements = Array.from(document.querySelectorAll<HTMLElement>(selector));
+					const failures: string[] = [];
+
+					for (const element of elements) {
+						if (
+							element.hasAttribute('disabled') ||
+							element.getAttribute('aria-disabled') === 'true'
+						) {
+							continue;
+						}
+						const style = window.getComputedStyle(element);
+						if (
+							style.display === 'none' ||
+							style.visibility === 'hidden' ||
+							style.pointerEvents === 'none'
+						) {
+							continue;
+						}
+						const rect = element.getBoundingClientRect();
+						if (rect.width < 1 || rect.height < 1) continue;
+						if (rect.width >= MIN_SIZE && rect.height >= MIN_SIZE) continue;
+						const descriptor = [
+							element.tagName.toLowerCase(),
+							element.getAttribute('aria-label')?.trim(),
+							element.getAttribute('title')?.trim(),
+							element.textContent?.trim(),
+						]
+							.filter((entry) => !!entry)
+							.join(' | ');
+						failures.push(
+							`${descriptor || '<unnamed>'} (${Math.round(rect.width)}x${Math.round(rect.height)})`,
+						);
+					}
+
+					return failures.slice(0, 40);
+				});
+
+				expect(
+					violations,
+					`Touch-target violations on ${route}:\n${violations.join('\n')}`,
+				).toEqual([]);
+			}
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+});

@@ -232,7 +232,7 @@
 				/>
 			</svg>
 			<span class="hidden sm:inline">Search</span>
-			<kbd class="hidden sm:inline text-xs font-mono opacity-60">Ctrl+P</kbd>
+			<kbd class="hidden sm:inline text-xs font-mono">Ctrl+P</kbd>
 		</button>
 		<button
 			class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-ink-faint dark:text-tavern-faint bg-surface-alt dark:bg-tavern-surface-alt hover:bg-border dark:hover:bg-tavern-border transition-colors mr-1"
@@ -241,7 +241,7 @@
 			title="Dice tray (Ctrl+D)"
 		>
 			<span aria-hidden="true">Dice</span>
-			<kbd class="hidden sm:inline text-xs font-mono opacity-60">Ctrl+D</kbd>
+			<kbd class="hidden sm:inline text-xs font-mono">Ctrl+D</kbd>
 		</button>
 		{#if !playerModeState.enabled}
 			<div class="relative" bind:this={createMenuAnchor}>
