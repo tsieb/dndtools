@@ -19,16 +19,17 @@ Read in this order:
 3. `docs/PROJECT_STRUCTURE.md`
 4. `docs/DATA_MODEL.md`
 5. `docs/DEVELOPMENT.md`
-6. `docs/OWNERSHIP.md`
-7. `docs/GIT_WORKFLOW.md`
-8. `docs/TESTING.md`
-9. `docs/PERFORMANCE.md`
-10. `docs/UX_GUIDELINES.md`
-11. `docs/AGENTIC_NOTES_WORKFLOW.md`
-12. `docs/MCP_INSPECTOR_WORKFLOW.md`
-13. `docs/ROADMAP.md`
-14. `docs/TODO.md`
-15. `DEBT.md`
+6. `docs/RELEASE.md`
+7. `docs/OWNERSHIP.md`
+8. `docs/GIT_WORKFLOW.md`
+9. `docs/TESTING.md`
+10. `docs/PERFORMANCE.md`
+11. `docs/UX_GUIDELINES.md`
+12. `docs/AGENTIC_NOTES_WORKFLOW.md`
+13. `docs/MCP_INSPECTOR_WORKFLOW.md`
+14. `docs/ROADMAP.md`
+15. `docs/TODO.md`
+16. `DEBT.md`
 
 ## Documentation Quality Rules (Mandatory)
 

@@ -3,6 +3,7 @@
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",
+	"main": "electron/dist/main.cjs",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
@@ -28,6 +29,10 @@
 		"mcp:inspect": "npx @modelcontextprotocol/inspector tsx mcp/index.ts",
 		"vault:verify": "tsx mcp/cli/vault-verify.ts",
 		"desktop:build": "pnpm build && pnpm mcp:build && tsup electron/main.ts electron/preload.ts --format cjs --platform=node --external electron --outDir electron/dist",
+		"desktop:package": "pnpm desktop:build && electron-builder --config electron-builder.yml --publish never",
+		"desktop:package:win": "pnpm desktop:package -- --win nsis",
+		"desktop:package:mac": "pnpm desktop:package -- --mac dmg zip",
+		"desktop:package:linux": "pnpm desktop:package -- --linux AppImage deb",
 		"desktop:start": "electron electron/dist/main.cjs",
 		"desktop:smoke": "node scripts/desktop-smoke-test.mjs",
 		"desktop": "pnpm desktop:build && pnpm desktop:start",
@@ -50,6 +55,7 @@
 		"@vitest/coverage-v8": "^4.0.18",
 		"adm-zip": "^0.5.16",
 		"electron": "^37.0.0",
+		"electron-builder": "^25.1.8",
 		"eslint": "^10.0.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.15.0",
@@ -99,6 +105,7 @@
 		"remark-rehype": "^11.1.2",
 		"unified": "^11.0.5",
 		"unist-util-visit": "^5.1.0",
-		"yaml": "^2.8.2"
+		"yaml": "^2.8.2",
+		"electron-updater": "^6.7.0"
 	}
 }

@@ -28,6 +28,10 @@ From `package.json`:
 - `pnpm mcp:build`: build MCP bundle
 - `pnpm mcp:inspect`: run MCP inspector
 - `pnpm desktop:build`: build renderer + MCP + Electron bundles
+- `pnpm desktop:package`: build and package desktop installers via `electron-builder`
+- `pnpm desktop:package:win`: build/package signed Windows NSIS installer
+- `pnpm desktop:package:mac`: build/package signed + notarized macOS artifacts
+- `pnpm desktop:package:linux`: build/package Linux AppImage + `.deb`
 - `pnpm desktop:start`: launch built Electron app
 - `pnpm desktop:smoke`: launch built desktop app against temp vault and assert readiness
 - `pnpm desktop`: build + start desktop
@@ -99,7 +103,6 @@ Policy:
 Tracked in `DEBT.md`:
 
 - `DEBT-2026-001`: CI coverage threshold enforcement
-- `DEBT-2026-002`: OS-native installer signing/notarization automation
 - `DEBT-2026-003`: Accessibility automation coverage for critical UI flows
 - `DEBT-2026-004`: Portable markdown export profile with validation report
 

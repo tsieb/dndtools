@@ -77,7 +77,16 @@ contextBridge.exposeInMainWorld('dndtoolsDesktop', {
 	restoreMigrationCheckpoint: (checkpointName: string) =>
 		ipcRenderer.invoke('dndtools:schema:restore-checkpoint', checkpointName),
 	getBackendInfo: () => ipcRenderer.invoke('dndtools:backend-info'),
+	getUpdateStatus: () => ipcRenderer.invoke('dndtools:update:get-status'),
+	checkForUpdates: () => ipcRenderer.invoke('dndtools:update:check'),
+	downloadUpdate: () => ipcRenderer.invoke('dndtools:update:download'),
+	installUpdate: () => ipcRenderer.invoke('dndtools:update:install'),
+	remindLaterUpdate: (hours?: number) => ipcRenderer.invoke('dndtools:update:remind-later', hours),
 	pickVaultDirectory: () => ipcRenderer.invoke('dndtools:pick-vault'),
+	listRecentVaults: (limit?: number) => ipcRenderer.invoke('dndtools:vault:recent', limit),
+	getVaultPermissions: (vaultDir?: string) =>
+		ipcRenderer.invoke('dndtools:vault:permissions', vaultDir),
+	switchVault: (vaultDir: string) => ipcRenderer.invoke('dndtools:vault:switch', vaultDir),
 	getMcpStatus: () => ipcRenderer.invoke('dndtools:mcp-status'),
 	getEmbeddingStatus: () => ipcRenderer.invoke('dndtools:semantic:status'),
 	embedTexts: (model: string, texts: string[]) =>

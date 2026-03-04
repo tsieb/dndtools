@@ -5,6 +5,8 @@ declare global {
 		state: 'stopped' | 'running' | 'error';
 		vaultDir: string | null;
 		entry: string | null;
+		runtimeSource: 'bundled_electron' | 'system_node' | null;
+		runtimeVersion: string | null;
 		pid: number | null;
 		lastStartedAt: string | null;
 		lastStoppedAt: string | null;
@@ -12,6 +14,70 @@ declare global {
 		restartCount: number;
 		crashCount: number;
 		error: string | null;
+	}
+
+	interface DesktopUpdateStatus {
+		enabled: boolean;
+		state:
+			| 'idle'
+			| 'disabled'
+			| 'checking'
+			| 'up_to_date'
+			| 'available'
+			| 'deferred'
+			| 'downloading'
+			| 'downloaded'
+			| 'error';
+		currentVersion: string;
+		latestVersion: string | null;
+		releaseName: string | null;
+		releaseDate: string | null;
+		releaseNotes: string | null;
+		downloadProgressPercent: number | null;
+		downloadedBytes: number | null;
+		totalBytes: number | null;
+		lastCheckedAt: string | null;
+		deferredUntil: string | null;
+		stagedRollout: {
+			active: boolean;
+			reason: 'major' | 'not_major';
+			eligible: boolean;
+			cohortPercent: number;
+			allowedPercent: number;
+			dailyPercent: number;
+			daysSinceRelease: number;
+		} | null;
+		message: string | null;
+		error: string | null;
+	}
+
+	interface DesktopVaultPermissionReport {
+		vaultDir: string;
+		health: 'healthy' | 'read_only' | 'permission_denied' | 'unavailable' | 'error';
+		readable: boolean;
+		writable: boolean;
+		available: boolean;
+		remediation: string | null;
+	}
+
+	interface DesktopRecentVaultEntry extends DesktopVaultPermissionReport {
+		lastOpenedAt: string;
+		lastError: string | null;
+	}
+
+	interface DesktopVaultSwitchResult {
+		ok: boolean;
+		vaultDir: string | null;
+		previousVaultDir: string | null;
+		rollbackApplied: boolean;
+		steps: Array<{
+			id: 'permission_check' | 'open_target' | 'rollback';
+			status: 'completed' | 'failed' | 'skipped';
+			at: string;
+			detail: string;
+		}>;
+		error: string | null;
+		remediation: string | null;
 	}
 
 	interface DesktopEmbeddingStatus {
@@ -364,8 +430,16 @@ declare global {
 			listMigrationCheckpoints(): Promise<DesktopMigrationCheckpoint[]>;
 			restoreMigrationCheckpoint(checkpointName: string): Promise<{ restored: number }>;
 			getBackendInfo(): Promise<{ backend: 'desktop-filesystem'; vaultDir: string }>;
-			pickVaultDirectory(): Promise<{ vaultDir: string } | null>;
+			pickVaultDirectory(): Promise<DesktopVaultSwitchResult | null>;
+			listRecentVaults(limit?: number): Promise<DesktopRecentVaultEntry[]>;
+			getVaultPermissions(vaultDir?: string): Promise<DesktopVaultPermissionReport>;
+			switchVault(vaultDir: string): Promise<DesktopVaultSwitchResult>;
 			getMcpStatus(): Promise<DesktopMcpStatus>;
+			getUpdateStatus(): Promise<DesktopUpdateStatus>;
+			checkForUpdates(): Promise<DesktopUpdateStatus>;
+			downloadUpdate(): Promise<DesktopUpdateStatus>;
+			installUpdate(): Promise<DesktopUpdateStatus>;
+			remindLaterUpdate(hours?: number): Promise<DesktopUpdateStatus>;
 			getEmbeddingStatus(): Promise<DesktopEmbeddingStatus>;
 			embedTexts(model: string, texts: string[]): Promise<number[][]>;
 			restartMcpSidecar(): Promise<DesktopMcpStatus>;

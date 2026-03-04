@@ -38,7 +38,15 @@
 		getDesktopIntegrityReport,
 		getDesktopSystemHealth,
 		pickDesktopVaultDirectory,
+		listDesktopRecentVaults,
+		getDesktopVaultPermissions,
+		switchDesktopVault,
 		getDesktopMcpStatus,
+		getDesktopUpdateStatus,
+		checkDesktopForUpdates,
+		downloadDesktopUpdate,
+		installDesktopUpdate,
+		remindLaterDesktopUpdate,
 		exportDesktopDiagnosticsBundle,
 		repairDesktopIntegrity,
 		restartDesktopMcpSidecar,
@@ -59,9 +67,13 @@
 		exportDesktopMarkdownZip,
 		type DesktopIntegrityReport,
 		type DesktopMcpStatus,
+		type DesktopUpdateStatus,
 		type DesktopSystemHealth,
 		type DesktopMcpChangeRecord,
 		type DesktopMcpPolicySettings,
+		type DesktopRecentVaultEntry,
+		type DesktopVaultPermissionReport,
+		type DesktopVaultSwitchResult,
 		type DesktopMigrationCheckpoint,
 		type DesktopImportAnalysisReport,
 		type DesktopImportCheckpointSummary,
@@ -85,8 +97,18 @@
 	let mcpStatus = $state<DesktopMcpStatus | null>(null);
 	let integrityReport = $state<DesktopIntegrityReport | null>(null);
 	let systemHealth = $state<DesktopSystemHealth | null>(null);
+	let updateStatus = $state<DesktopUpdateStatus | null>(null);
+	let recentVaults = $state<DesktopRecentVaultEntry[]>([]);
+	let currentVaultPermissions = $state<DesktopVaultPermissionReport | null>(null);
 	let refreshingDesktopState = $state(false);
+	let loadingRecentVaults = $state(false);
+	let checkingVaultPermissions = $state(false);
 	let repairingIntegrity = $state(false);
+	let switchingVault = $state(false);
+	let latestVaultSwitch = $state<DesktopVaultSwitchResult | null>(null);
+	let checkingUpdates = $state(false);
+	let applyingUpdate = $state(false);
+	let deferringUpdate = $state(false);
 	let savingBackupSettings = $state(false);
 	let creatingSnapshot = $state(false);
 	let restoringSnapshot = $state(false);
@@ -140,6 +162,7 @@
 
 	const settingsTabs: readonly SettingsTab[] = [
 		{ id: 'general', label: 'General' },
+		{ id: 'about', label: 'About' },
 		{ id: 'world', label: 'World' },
 		{ id: 'vault', label: 'Vault' },
 		{ id: 'handouts', label: 'Handouts' },
@@ -215,6 +238,9 @@
 
 	onMount(() => {
 		void refreshDesktopState();
+		void loadRecentVaults();
+		void loadCurrentVaultPermissions();
+		void refreshUpdateStatus();
 		void mcpChangesState.refresh();
 		void loadMcpPolicySettings();
 		void loadMcpAuditTrail();
@@ -317,21 +343,25 @@
 	async function refreshDesktopState(): Promise<void> {
 		refreshingDesktopState = true;
 		try {
-			const [backendInfo, nextMcpStatus, nextIntegrity, nextHealth] = await Promise.all([
-				getDesktopBackendInfo(),
-				getDesktopMcpStatus(),
-				getDesktopIntegrityReport(),
-				getDesktopSystemHealth(),
-			]);
+			const [backendInfo, nextMcpStatus, nextIntegrity, nextHealth, nextUpdateStatus] =
+				await Promise.all([
+					getDesktopBackendInfo(),
+					getDesktopMcpStatus(),
+					getDesktopIntegrityReport(),
+					getDesktopSystemHealth(),
+					getDesktopUpdateStatus(),
+				]);
 			desktopVaultDir = backendInfo.vaultDir;
 			mcpStatus = nextMcpStatus;
 			integrityReport = nextIntegrity;
 			systemHealth = nextHealth;
+			updateStatus = nextUpdateStatus;
 		} catch (error) {
 			desktopVaultDir = '';
 			mcpStatus = null;
 			integrityReport = null;
 			systemHealth = null;
+			updateStatus = null;
 			reportSettingsError('ipc', 'SETTINGS_REFRESH_DESKTOP_STATE_FAILED', error);
 			toastState.error(`Failed to load desktop runtime info: ${String(error)}`);
 		} finally {
@@ -1002,29 +1032,136 @@
 		);
 	}
 
-	async function handleChangeDesktopVault(): Promise<void> {
+	async function loadRecentVaults(): Promise<void> {
+		loadingRecentVaults = true;
 		try {
-			const next = await pickDesktopVaultDirectory();
-			if (!next) return;
+			recentVaults = await listDesktopRecentVaults(8);
+		} catch (error) {
+			reportSettingsError('ipc', 'SETTINGS_RECENT_VAULTS_FAILED', error);
+			recentVaults = [];
+		} finally {
+			loadingRecentVaults = false;
+		}
+	}
 
-			desktopVaultDir = next.vaultDir;
-			await notesState.loadAll();
-			await Promise.all([
-				searchService.buildIndex(notesState.notes),
-				refreshDesktopState(),
-				mcpChangesState.refresh(),
-				loadMcpPolicySettings(),
-				loadMcpAuditTrail(),
-			]);
-			await Promise.all([
-				markSubsystemSuccess('vault_sync'),
-				markSubsystemSuccess('search_index'),
-				markSubsystemSuccess('link_graph_build'),
-			]);
-			toastState.success('Switched vault folder');
+	async function loadCurrentVaultPermissions(): Promise<void> {
+		checkingVaultPermissions = true;
+		try {
+			currentVaultPermissions = await getDesktopVaultPermissions();
+		} catch (error) {
+			reportSettingsError('ipc', 'SETTINGS_VAULT_PERMISSION_CHECK_FAILED', error);
+			currentVaultPermissions = null;
+		} finally {
+			checkingVaultPermissions = false;
+		}
+	}
+
+	async function refreshUpdateStatus(): Promise<void> {
+		try {
+			updateStatus = await getDesktopUpdateStatus();
+		} catch (error) {
+			reportSettingsError('ipc', 'SETTINGS_UPDATE_STATUS_FAILED', error);
+			updateStatus = null;
+		}
+	}
+
+	async function applyVaultSwitchResult(result: DesktopVaultSwitchResult): Promise<void> {
+		latestVaultSwitch = result;
+		if (!result.ok || !result.vaultDir) {
+			const remediation = result.remediation ? ` ${result.remediation}` : '';
+			toastState.error(`Vault switch failed: ${result.error ?? 'Unknown error.'}${remediation}`);
+			await Promise.all([loadRecentVaults(), loadCurrentVaultPermissions()]);
+			return;
+		}
+
+		desktopVaultDir = result.vaultDir;
+		await notesState.loadAll();
+		await Promise.all([
+			searchService.buildIndex(notesState.notes),
+			refreshDesktopState(),
+			mcpChangesState.refresh(),
+			loadMcpPolicySettings(),
+			loadMcpAuditTrail(),
+			loadRecentVaults(),
+			loadCurrentVaultPermissions(),
+		]);
+		await Promise.all([
+			markSubsystemSuccess('vault_sync'),
+			markSubsystemSuccess('search_index'),
+			markSubsystemSuccess('link_graph_build'),
+		]);
+		toastState.success(
+			result.rollbackApplied
+				? 'Switched vault with automatic rollback safeguards.'
+				: 'Switched vault folder.',
+		);
+	}
+
+	async function handleChangeDesktopVault(): Promise<void> {
+		switchingVault = true;
+		try {
+			const result = await pickDesktopVaultDirectory();
+			if (!result) return;
+			await applyVaultSwitchResult(result);
 		} catch (error) {
 			reportSettingsError('storage', 'SETTINGS_SWITCH_VAULT_FAILED', error);
 			toastState.error(`Failed to switch vault folder: ${String(error)}`);
+		} finally {
+			switchingVault = false;
+		}
+	}
+
+	async function handleSwitchToRecentVault(vaultDir: string): Promise<void> {
+		switchingVault = true;
+		try {
+			const result = await switchDesktopVault(vaultDir);
+			await applyVaultSwitchResult(result);
+		} catch (error) {
+			reportSettingsError('storage', 'SETTINGS_SWITCH_RECENT_VAULT_FAILED', error);
+			toastState.error(`Failed to switch vault folder: ${String(error)}`);
+		} finally {
+			switchingVault = false;
+		}
+	}
+
+	async function handleCheckForUpdates(): Promise<void> {
+		checkingUpdates = true;
+		try {
+			updateStatus = await checkDesktopForUpdates();
+		} catch (error) {
+			reportSettingsError('ipc', 'SETTINGS_CHECK_UPDATES_FAILED', error);
+			toastState.error(`Failed to check for updates: ${String(error)}`);
+		} finally {
+			checkingUpdates = false;
+		}
+	}
+
+	async function handleUpdateNow(): Promise<void> {
+		if (!updateStatus) return;
+		applyingUpdate = true;
+		try {
+			if (updateStatus.state === 'downloaded') {
+				updateStatus = await installDesktopUpdate();
+				return;
+			}
+			updateStatus = await downloadDesktopUpdate();
+		} catch (error) {
+			reportSettingsError('ipc', 'SETTINGS_APPLY_UPDATE_FAILED', error);
+			toastState.error(`Failed to apply update: ${String(error)}`);
+		} finally {
+			applyingUpdate = false;
+		}
+	}
+
+	async function handleRemindUpdateLater(): Promise<void> {
+		deferringUpdate = true;
+		try {
+			updateStatus = await remindLaterDesktopUpdate(24);
+		} catch (error) {
+			reportSettingsError('ipc', 'SETTINGS_REMIND_UPDATE_LATER_FAILED', error);
+			toastState.error(`Failed to defer update reminder: ${String(error)}`);
+		} finally {
+			deferringUpdate = false;
 		}
 	}
 
@@ -1733,19 +1870,118 @@
 					</table>
 				</div>
 			</section>
-
+		</div>
+	{:else if activeTab === 'about'}
+		<div
+			role="tabpanel"
+			id="settings-panel-about"
+			aria-labelledby="settings-tab-about"
+			class="space-y-8"
+		>
 			<section>
 				<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">About</h2>
 				<div
 					class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4"
 				>
-					<p class="text-sm text-ink dark:text-tavern-text font-medium">DND Tools v0.2.0</p>
+					<p class="text-sm text-ink dark:text-tavern-text font-medium">
+						DND Tools v{updateStatus?.currentVersion ?? 'unknown'}
+					</p>
 					<p class="text-sm text-ink-muted dark:text-tavern-muted mt-1">
 						Electron-first local vault editor with built-in MCP sidecar support.
 					</p>
 					<p class="text-xs text-ink-faint dark:text-tavern-faint mt-3">
 						Data is stored in local markdown files in your selected vault folder.
 					</p>
+				</div>
+			</section>
+
+			<section>
+				<div class="flex items-center justify-between gap-3 mb-4">
+					<h2 class="text-lg font-semibold text-ink dark:text-tavern-text">Updates</h2>
+					<Button
+						variant="secondary"
+						size="sm"
+						onclick={handleCheckForUpdates}
+						disabled={checkingUpdates}
+					>
+						{checkingUpdates ? 'Checking…' : 'Check for Updates'}
+					</Button>
+				</div>
+				<div
+					class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-3"
+				>
+					{#if !updateStatus}
+						<p class="text-sm text-ink-muted dark:text-tavern-muted">Update status unavailable.</p>
+					{:else}
+						<div class="flex flex-wrap items-center gap-2">
+							<span
+								class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-surface-alt dark:bg-tavern-surface-alt text-ink dark:text-tavern-text"
+							>
+								State: {updateStatus.state}
+							</span>
+							{#if updateStatus.latestVersion}
+								<span
+									class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+								>
+									Latest: {updateStatus.latestVersion}
+								</span>
+							{/if}
+						</div>
+						<p class="text-sm text-ink-muted dark:text-tavern-muted">
+							{updateStatus.message ?? 'No update message.'}
+						</p>
+						{#if updateStatus.lastCheckedAt}
+							<p class="text-xs text-ink-faint dark:text-tavern-faint">
+								Last checked: {updateStatus.lastCheckedAt}
+							</p>
+						{/if}
+						{#if updateStatus.downloadProgressPercent !== null}
+							<p class="text-xs text-ink-faint dark:text-tavern-faint">
+								Download progress: {updateStatus.downloadProgressPercent.toFixed(1)}%
+							</p>
+						{/if}
+						{#if updateStatus.releaseNotes}
+							<details class="rounded border border-border dark:border-tavern-border p-2">
+								<summary class="text-sm text-ink dark:text-tavern-text cursor-pointer">
+									Changelog preview
+								</summary>
+								<pre
+									class="mt-2 whitespace-pre-wrap text-xs text-ink-muted dark:text-tavern-muted max-h-48 overflow-y-auto">{updateStatus.releaseNotes}</pre>
+							</details>
+						{/if}
+						{#if updateStatus.state === 'available' || updateStatus.state === 'downloaded'}
+							<div class="flex flex-wrap items-center gap-2">
+								<Button
+									variant="secondary"
+									size="sm"
+									onclick={handleUpdateNow}
+									disabled={applyingUpdate}
+								>
+									{#if applyingUpdate}
+										Working…
+									{:else if updateStatus.state === 'downloaded'}
+										Install Update Now
+									{:else}
+										Update Now
+									{/if}
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									onclick={handleRemindUpdateLater}
+									disabled={deferringUpdate || applyingUpdate}
+								>
+									{deferringUpdate ? 'Deferring…' : 'Remind Later'}
+								</Button>
+							</div>
+						{/if}
+						{#if updateStatus.stagedRollout?.active}
+							<p class="text-xs text-ink-faint dark:text-tavern-faint">
+								Staged rollout: {updateStatus.stagedRollout.allowedPercent}% eligibility window,
+								your cohort {updateStatus.stagedRollout.cohortPercent}%.
+							</p>
+						{/if}
+					{/if}
 				</div>
 			</section>
 		</div>
@@ -2154,14 +2390,118 @@
 						<p class="text-xs font-mono text-ink-faint dark:text-tavern-faint break-all mt-1">
 							{desktopVaultDir || (refreshingDesktopState ? 'Loading...' : 'Unavailable')}
 						</p>
+						<div class="mt-2 flex items-center gap-2">
+							{#if currentVaultPermissions}
+								<span
+									class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-surface-alt dark:bg-tavern-surface-alt text-ink dark:text-tavern-text"
+								>
+									Permissions: {currentVaultPermissions.health}
+								</span>
+							{:else}
+								<span
+									class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted"
+								>
+									Permissions: unknown
+								</span>
+							{/if}
+						</div>
+						{#if currentVaultPermissions?.remediation}
+							<p class="mt-2 text-xs text-amber-700 dark:text-amber-400">
+								{currentVaultPermissions.remediation}
+							</p>
+						{/if}
 						<div class="mt-3 flex items-center gap-2">
-							<Button variant="secondary" size="sm" onclick={handleChangeDesktopVault}>
-								Change Vault Folder
+							<Button
+								variant="secondary"
+								size="sm"
+								onclick={handleChangeDesktopVault}
+								disabled={switchingVault}
+							>
+								{switchingVault ? 'Switching...' : 'Change Vault Folder'}
 							</Button>
 							<Button variant="ghost" size="sm" onclick={refreshDesktopState}>
 								Refresh Status
 							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								onclick={loadCurrentVaultPermissions}
+								disabled={checkingVaultPermissions}
+							>
+								{checkingVaultPermissions ? 'Checking...' : 'Check Permissions'}
+							</Button>
 						</div>
+						<div class="mt-4 rounded border border-border dark:border-tavern-border p-3">
+							<div class="flex items-center justify-between gap-2 mb-2">
+								<p class="text-xs font-medium text-ink dark:text-tavern-text">Recent Vaults</p>
+								<Button
+									variant="ghost"
+									size="sm"
+									onclick={loadRecentVaults}
+									disabled={loadingRecentVaults}
+								>
+									{loadingRecentVaults ? 'Loading...' : 'Refresh'}
+								</Button>
+							</div>
+							{#if recentVaults.length === 0}
+								<p class="text-xs text-ink-muted dark:text-tavern-muted">No recent vaults.</p>
+							{:else}
+								<ul class="space-y-2">
+									{#each recentVaults as recent (recent.vaultDir)}
+										<li
+											class="rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-2"
+										>
+											<div class="flex items-start justify-between gap-2">
+												<div class="min-w-0">
+													<p class="text-xs font-mono text-ink dark:text-tavern-text break-all">
+														{recent.vaultDir}
+													</p>
+													<p class="text-[11px] text-ink-muted dark:text-tavern-muted mt-1">
+														Last opened: {recent.lastOpenedAt}
+													</p>
+													<p class="text-[11px] text-ink-faint dark:text-tavern-faint mt-1">
+														Health: {recent.health}
+													</p>
+													{#if recent.remediation}
+														<p class="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+															{recent.remediation}
+														</p>
+													{/if}
+												</div>
+												<Button
+													variant="ghost"
+													size="sm"
+													onclick={() => handleSwitchToRecentVault(recent.vaultDir)}
+													disabled={switchingVault || !recent.readable || !recent.writable}
+												>
+													Switch
+												</Button>
+											</div>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+						{#if latestVaultSwitch}
+							<div class="mt-4 rounded border border-border dark:border-tavern-border p-3">
+								<p class="text-xs font-medium text-ink dark:text-tavern-text mb-2">
+									Last Vault Switch
+								</p>
+								<ul class="space-y-1">
+									{#each latestVaultSwitch.steps as step (step.id + step.at)}
+										<li class="text-xs text-ink-muted dark:text-tavern-muted">
+											<span class="font-medium text-ink dark:text-tavern-text">{step.id}</span>
+											({step.status}) — {step.detail}
+										</li>
+									{/each}
+								</ul>
+								{#if latestVaultSwitch.remediation}
+									<p class="mt-2 text-xs text-amber-700 dark:text-amber-400">
+										{latestVaultSwitch.remediation}
+									</p>
+								{/if}
+							</div>
+						{/if}
 					</div>
 
 					<div class="pt-3 border-t border-border dark:border-tavern-border space-y-3">
