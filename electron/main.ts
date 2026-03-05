@@ -64,6 +64,7 @@ import {
 	importJobQuerySchema,
 	exportMarkdownZipSchema,
 	mapAssetRelativePathSchema,
+	sessionStateSchema,
 } from './ipc-schemas.js';
 
 let storage: FileSystemAdapter | null = null;
@@ -1218,6 +1219,15 @@ ipcMain.handle('dndtools:storage:get-note-count', async () => {
 
 ipcMain.handle('dndtools:storage:get-tag-counts', async () => {
 	return requireStorage().getTagCounts();
+});
+
+ipcMain.handle('dndtools:storage:get-session-state', async () => {
+	return requireStorage().getSessionState();
+});
+
+ipcMain.handle('dndtools:storage:save-session-state', async (_event, rawState: unknown) => {
+	const state = parseIpcArg(sessionStateSchema, rawState, 'storage:save-session-state');
+	await requireStorage().saveSessionState(state);
 });
 
 ipcMain.handle('dndtools:storage:refresh-from-disk', async () => {

@@ -132,4 +132,37 @@ describe('normalizeMapData', () => {
 		expect(normalized.lastSessionFog?.fogState.polygons).toHaveLength(1);
 		expect(normalized.lastSessionFog?.sourceBoardId).toBe('board-1');
 	});
+
+	it('normalizes map parent linkage and travel routes', () => {
+		const normalized = normalizeMapData({
+			filePath: '.vault/assets/maps/world.png',
+			parentMapId: ' map-world ',
+			parentPoiId: ' poi-north-road ',
+			routes: [
+				{
+					id: 'route-north',
+					name: ' North Road ',
+					style: 'curved',
+					waypoints: [
+						{ x: -0.2, y: 0.1 },
+						{ x: 0.4, y: 1.2 },
+					],
+				},
+			],
+		});
+		expect(normalized.parentMapId).toBe('map-world');
+		expect(normalized.parentPoiId).toBe('poi-north-road');
+		expect(normalized.routes).toEqual([
+			{
+				id: 'route-north',
+				name: 'North Road',
+				style: 'curved',
+				waypoints: [
+					{ x: 0, y: 0.1 },
+					{ x: 0.4, y: 1 },
+				],
+				layerId: undefined,
+			},
+		]);
+	});
 });

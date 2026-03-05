@@ -24,6 +24,7 @@ import { registerGetCalendarEventsTool } from './vault/get-calendar-events.js';
 import { registerGetOpenThreadsTool } from './vault/get-open-threads.js';
 import { registerVaultHealthCheckTool } from './vault/vault-health-check.js';
 import { registerGetSessionPrepBundleTool } from './vault/get-session-prep-bundle.js';
+import { registerEstimateTravelTimeTool } from './vault/estimate-travel-time.js';
 import { registerGetRecapGenerationBundleTool } from './vault/get-recap-generation-bundle.js';
 import { registerGetContinuityCheckBundleTool } from './vault/get-continuity-check-bundle.js';
 import { registerCreateSessionBoardTool } from './boards/create-session-board.js';
@@ -78,6 +79,7 @@ export function registerTools(
 	registerGetOpenThreadsTool(contractServer, storage);
 	registerVaultHealthCheckTool(contractServer, storage);
 	registerGetSessionPrepBundleTool(contractServer, storage);
+	registerEstimateTravelTimeTool(contractServer, storage);
 	registerGetRecapGenerationBundleTool(contractServer, storage);
 	registerGetContinuityCheckBundleTool(contractServer, storage);
 

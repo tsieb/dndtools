@@ -1,6 +1,7 @@
 import type { Note, NoteId, FolderId, Link, TagEntry } from './note.js';
 import type { AppSettings } from './settings.js';
 import type { SessionBoard, SessionBoardId, RelatedNoteSuggestion } from './session-board.js';
+import type { SessionState } from './session-state.js';
 import type { NoteTemplate, ReusableSnippet } from './template-library.js';
 import type {
 	ObjectLintIssue,
@@ -92,4 +93,8 @@ export interface StorageAdapter {
 	// Stats
 	getNoteCount(): Promise<number>;
 	getTagCounts(): Promise<TagEntry[]>;
+
+	// Session runtime state
+	getSessionState?(): Promise<SessionState>;
+	saveSessionState?(state: SessionState): Promise<void>;
 }

@@ -363,6 +363,45 @@ const sessionPrepActiveMapSchema = z
 			})
 			.strict()
 			.nullable(),
+		parentMapId: z.string().min(1).nullable(),
+		parentPoiId: z.string().min(1).nullable(),
+	})
+	.strict();
+
+const sessionPrepCurrentLocationSchema = z
+	.object({
+		mapId: z.string().min(1),
+		mapName: z.string().min(1).nullable(),
+		x: z.number().min(0).max(1),
+		y: z.number().min(0).max(1),
+		poiId: z.string().min(1).nullable(),
+		poiLabel: z.string().min(1).nullable(),
+		source: z.enum(['poi', 'point']),
+		updatedAt: z.string().min(1),
+	})
+	.strict();
+
+const sessionPrepParentMapSchema = z
+	.object({
+		id: z.string().min(1),
+		name: z.string().min(1),
+		filePath: z.string().min(1),
+		areaNoteId: z.string().min(1).nullable(),
+		tags: z.array(z.string()),
+		updatedAt: z.string().min(1),
+		locationOnParent: z
+			.object({
+				poiId: z.string().min(1),
+				poiLabel: z.string().min(1),
+				coordinates: z
+					.object({
+						x: z.number().min(0).max(1),
+						y: z.number().min(0).max(1),
+					})
+					.strict(),
+			})
+			.strict()
+			.nullable(),
 	})
 	.strict();
 
@@ -375,6 +414,14 @@ const calendarEventSummarySchema = z
 		dateShort: z.string().min(1),
 		dateIso: z.string().min(1),
 		summary: z.string(),
+	})
+	.strict();
+
+const travelPaceEstimateSchema = z
+	.object({
+		miles: z.number().nonnegative(),
+		hours: z.number().nonnegative(),
+		days: z.number().nonnegative(),
 	})
 	.strict();
 
@@ -718,12 +765,65 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 						.strict(),
 				),
 				activeMap: sessionPrepActiveMapSchema.nullable(),
+				currentLocation: sessionPrepCurrentLocationSchema.nullable(),
+				parentMap: sessionPrepParentMapSchema.nullable(),
 				continuityFlags: z.array(coverageGapSchema),
 				recommendedToolFlow: z.array(z.string().min(1)),
 				safeOperatingPattern: z.string().min(1),
 			})
 			.strict(),
 		remediationHint: 'Use this bundle to prioritize reads before any writes.',
+	},
+	estimate_travel_time: {
+		permission: 'read-only',
+		retryPolicy: 'idempotent',
+		responseSchema: z
+			.object({
+				map: z
+					.object({
+						id: z.string().min(1),
+						name: z.string().min(1),
+					})
+					.strict(),
+				route: z
+					.object({
+						id: z.string().min(1),
+						name: z.string().min(1),
+						style: z.enum(['straight', 'curved']),
+						waypointCount: z.number().int().min(2),
+					})
+					.strict(),
+				distance: z
+					.object({
+						pixels: z.number().nonnegative(),
+						gridSquares: z.number().nonnegative().nullable(),
+						scaledDistance: z.number().nonnegative().nullable(),
+						unitLabel: z.string().min(1).nullable(),
+						miles: z.number().nonnegative(),
+					})
+					.strict(),
+				pace: z
+					.object({
+						slow: travelPaceEstimateSchema,
+						normal: travelPaceEstimateSchema,
+						fast: travelPaceEstimateSchema,
+					})
+					.strict(),
+				assumptions: z
+					.object({
+						hoursPerTravelDay: z.number().positive(),
+						milesPerHour: z
+							.object({
+								slow: z.number().positive(),
+								normal: z.number().positive(),
+								fast: z.number().positive(),
+							})
+							.strict(),
+					})
+					.strict(),
+			})
+			.strict(),
+		remediationHint: 'Ensure map scale and route waypoints are configured before retrying.',
 	},
 	get_recap_generation_bundle: {
 		permission: 'read-only',

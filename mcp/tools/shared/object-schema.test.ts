@@ -109,6 +109,8 @@ describe('object-schema', () => {
 	it('accepts map records with layers and POIs', () => {
 		const parsed = objectDataSchemaByType.map.safeParse({
 			filePath: '.vault/assets/maps/phandalin.png',
+			parentMapId: 'map-region',
+			parentPoiId: 'poi-phandalin',
 			layers: [
 				{
 					id: 'layer-dm',
@@ -127,6 +129,17 @@ describe('object-schema', () => {
 					y: 0.61,
 					layerId: 'layer-dm',
 					linkedNoteId: 'note-phandalin',
+				},
+			],
+			routes: [
+				{
+					id: 'route-north',
+					name: 'North Road',
+					style: 'curved',
+					waypoints: [
+						{ x: 0.1, y: 0.2 },
+						{ x: 0.3, y: 0.4 },
+					],
 				},
 			],
 		});

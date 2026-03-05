@@ -123,6 +123,47 @@ function makeStorage(vaultDir: string): Record<string, (...args: unknown[]) => P
 	];
 	const objects = new Map<string, Record<string, unknown>>([
 		[
+			'map-1',
+			{
+				id: 'map-1',
+				type: 'map',
+				name: 'Sword Coast',
+				summary: 'Regional atlas map',
+				tags: ['map', 'region'],
+				visibility: 'dm_only',
+				relationships: [],
+				data: {
+					filePath: '.vault/assets/maps/sword-coast.png',
+					width: 1200,
+					height: 800,
+					scale: {
+						unitsPerGridSquare: 1,
+						unitLabel: 'mi',
+					},
+					grid: {
+						type: 'square',
+						visible: true,
+						originX: 0,
+						originY: 0,
+						cellSize: 100,
+					},
+					routes: [
+						{
+							id: 'route-north-road',
+							name: 'North Road',
+							style: 'straight',
+							waypoints: [
+								{ x: 0.1, y: 0.2 },
+								{ x: 0.7, y: 0.2 },
+							],
+						},
+					],
+				},
+				createdAt: '2026-01-01T00:00:00.000Z',
+				updatedAt: '2026-01-01T00:00:00.000Z',
+			},
+		],
+		[
 			'obj-1',
 			{
 				id: 'obj-1',
@@ -282,6 +323,7 @@ function buildValidInputs(tmpDir: string): Record<ToolName, Record<string, unkno
 			recentLimit: 5,
 			boardLimit: 3,
 		},
+		estimate_travel_time: { mapId: 'map-1', routeName: 'North Road' },
 		get_recap_generation_bundle: {
 			worldDate: '0001-01-01',
 			noteLimit: 5,
@@ -516,6 +558,7 @@ describe('MCP tool contracts', () => {
 			'read_object',
 			'get_backlinks',
 			'roll_table',
+			'estimate_travel_time',
 		]);
 
 		for (const [toolName, contract] of Object.entries(MCP_TOOL_CONTRACTS) as Array<

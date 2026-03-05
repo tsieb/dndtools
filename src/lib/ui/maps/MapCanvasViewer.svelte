@@ -1,5 +1,10 @@
 <script lang="ts">
-	import type { MapGridData, MapPoiCategory, MapViewportData } from '$lib/types/object.js';
+	import type {
+		MapGridData,
+		MapPoiCategory,
+		MapRouteStyle,
+		MapViewportData,
+	} from '$lib/types/object.js';
 	import type { MapFogPolygonOperation, MapFogState } from '$lib/types/map-fog.js';
 	import { revealBoundsFromFogState, splitFogPolygonsByMode } from '$lib/domain/map-fog.js';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -40,6 +45,24 @@
 		stroke?: string;
 	}
 
+	export interface MapViewerRouteWaypoint {
+		x: number;
+		y: number;
+	}
+
+	export interface MapViewerRoute {
+		id: string;
+		name: string;
+		style: MapRouteStyle;
+		waypoints: readonly MapViewerRouteWaypoint[];
+	}
+
+	export interface MapViewerPartyMarker {
+		x: number;
+		y: number;
+		label?: string;
+	}
+
 	export interface MapViewerPointerPayload {
 		x: number;
 		y: number;
@@ -68,6 +91,9 @@
 		pathCells?: readonly MapViewerGridCell[];
 		difficultTerrainCells?: readonly MapViewerGridCell[];
 		templateOverlays?: readonly MapViewerTemplateOverlay[];
+		routes?: readonly MapViewerRoute[];
+		activeRouteId?: string | null;
+		partyMarker?: MapViewerPartyMarker | null;
 		fogEnabled?: boolean;
 		fogState?: MapFogState | null;
 		fogFeatherPx?: number;
@@ -94,6 +120,14 @@
 		onmappointerdown?: (payload: MapViewerPointerPayload) => void;
 		onmappointermove?: (payload: MapViewerPointerPayload) => void;
 		onmappointerup?: (payload: MapViewerPointerPayload) => void;
+		onmapcontextmenu?: (payload: {
+			x: number;
+			y: number;
+			cellX: number | null;
+			cellY: number | null;
+			clientX: number;
+			clientY: number;
+		}) => void;
 	}
 
 	let {
@@ -111,6 +145,9 @@
 		pathCells = [],
 		difficultTerrainCells = [],
 		templateOverlays = [],
+		routes = [],
+		activeRouteId = null,
+		partyMarker = null,
 		fogEnabled = false,
 		fogState = null,
 		fogFeatherPx = 5,
@@ -131,6 +168,7 @@
 		onmappointerdown,
 		onmappointermove,
 		onmappointerup,
+		onmapcontextmenu,
 	}: Props = $props();
 
 	let canvasEl = $state<HTMLCanvasElement | null>(null);
@@ -670,6 +708,94 @@
 		}
 	}
 
+	function drawRoutes(ctx: CanvasRenderingContext2D): void {
+		if (!image || routes.length === 0) return;
+		const zoom = Math.max(MIN_ZOOM, viewport.zoom);
+		for (const route of routes) {
+			if (!route.waypoints || route.waypoints.length < 2) continue;
+			ctx.save();
+			const highlighted = activeRouteId === route.id;
+			ctx.lineWidth = highlighted ? 3.2 : 2;
+			ctx.strokeStyle = highlighted ? 'rgba(20, 83, 45, 0.95)' : 'rgba(15, 118, 110, 0.82)';
+			ctx.beginPath();
+			const first = route.waypoints[0]!;
+			ctx.moveTo(
+				viewport.panX + first.x * image.width * zoom,
+				viewport.panY + first.y * image.height * zoom,
+			);
+			if (route.style === 'curved' && route.waypoints.length >= 3) {
+				for (let i = 0; i < route.waypoints.length - 1; i += 1) {
+					const current = route.waypoints[i]!;
+					const next = route.waypoints[i + 1]!;
+					const controlX = viewport.panX + current.x * image.width * zoom;
+					const controlY = viewport.panY + current.y * image.height * zoom;
+					const endX = viewport.panX + ((current.x + next.x) / 2) * image.width * zoom;
+					const endY = viewport.panY + ((current.y + next.y) / 2) * image.height * zoom;
+					ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+				}
+				const last = route.waypoints[route.waypoints.length - 1]!;
+				ctx.lineTo(
+					viewport.panX + last.x * image.width * zoom,
+					viewport.panY + last.y * image.height * zoom,
+				);
+			} else {
+				for (const waypoint of route.waypoints.slice(1)) {
+					ctx.lineTo(
+						viewport.panX + waypoint.x * image.width * zoom,
+						viewport.panY + waypoint.y * image.height * zoom,
+					);
+				}
+			}
+			ctx.stroke();
+			for (const waypoint of route.waypoints) {
+				ctx.beginPath();
+				ctx.fillStyle = highlighted ? 'rgba(22, 101, 52, 1)' : 'rgba(13, 148, 136, 0.95)';
+				ctx.arc(
+					viewport.panX + waypoint.x * image.width * zoom,
+					viewport.panY + waypoint.y * image.height * zoom,
+					highlighted ? 4.5 : 3.5,
+					0,
+					Math.PI * 2,
+				);
+				ctx.fill();
+			}
+			ctx.restore();
+		}
+	}
+
+	function drawPartyMarker(ctx: CanvasRenderingContext2D): void {
+		if (!image || !partyMarker) return;
+		const zoom = Math.max(MIN_ZOOM, viewport.zoom);
+		const x = viewport.panX + partyMarker.x * image.width * zoom;
+		const y = viewport.panY + partyMarker.y * image.height * zoom;
+		ctx.save();
+		ctx.fillStyle = 'rgba(37, 99, 235, 0.92)';
+		ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+		ctx.lineWidth = 2;
+		ctx.beginPath();
+		ctx.arc(x, y, 11, 0, Math.PI * 2);
+		ctx.fill();
+		ctx.stroke();
+		ctx.fillStyle = 'rgba(255,255,255,0.98)';
+		ctx.font = '600 11px ui-sans-serif, system-ui, sans-serif';
+		ctx.textAlign = 'center';
+		ctx.textBaseline = 'middle';
+		ctx.fillText('P', x, y + 0.5);
+		if (partyMarker.label) {
+			ctx.fillStyle = 'rgba(15,23,42,0.86)';
+			const text = partyMarker.label;
+			const padding = 6;
+			const metrics = ctx.measureText(text);
+			const width = metrics.width + padding * 2;
+			const height = 18;
+			ctx.fillRect(x + 14, y - height / 2, width, height);
+			ctx.fillStyle = '#ffffff';
+			ctx.textAlign = 'left';
+			ctx.fillText(text, x + 14 + padding, y);
+		}
+		ctx.restore();
+	}
+
 	function drawScene(): void {
 		if (!canvasEl || !viewportEl) return;
 		const rect = viewportEl.getBoundingClientRect();
@@ -705,6 +831,8 @@
 		}
 
 		drawGrid(ctx, cssWidth, cssHeight);
+		drawRoutes(ctx);
+		drawPartyMarker(ctx);
 		drawGridCellOverlay(
 			ctx,
 			difficultTerrainCells,
@@ -722,6 +850,25 @@
 			);
 		}
 		drawFogOverlay(ctx);
+	}
+
+	function onContextMenu(event: MouseEvent): void {
+		if (!viewportEl || !onmapcontextmenu) return;
+		event.preventDefault();
+		const rect = viewportEl.getBoundingClientRect();
+		const localX = event.clientX - rect.left;
+		const localY = event.clientY - rect.top;
+		const fractions = localPointToMapFraction(localX, localY);
+		if (!fractions) return;
+		const cell = localPointToGridCell(localX, localY);
+		onmapcontextmenu({
+			x: fractions.x,
+			y: fractions.y,
+			cellX: cell?.x ?? null,
+			cellY: cell?.y ?? null,
+			clientX: event.clientX,
+			clientY: event.clientY,
+		});
 	}
 
 	function updateGridFromPointer(pointerX: number, pointerY: number): void {
@@ -1182,6 +1329,7 @@
 		onpointerup={onPointerUp}
 		onpointercancel={onPointerUp}
 		onlostpointercapture={onPointerUp}
+		oncontextmenu={onContextMenu}
 	>
 		<canvas bind:this={canvasEl} class="absolute inset-0 h-full w-full"></canvas>
 		{#if image && pois.length > 0}

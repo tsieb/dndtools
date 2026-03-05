@@ -251,6 +251,7 @@ Vault metadata files in `.vault/`:
 - `index.json`
 - `settings.json`
 - `session-boards.json`
+- `session-state.json`
 - `objects.json`
 - `object-history.json`
 - `mcp-changelog.json`
