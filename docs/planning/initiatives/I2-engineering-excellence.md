@@ -1,5 +1,7 @@
 # Initiative 2 — Engineering Excellence
 
+## Status: COMPLETED
+
 **Outcome:** Every change to DND Tools is gated by automated quality checks. The
 codebase has a complete test pyramid, architectural decisions are recorded and reasoned,
 and the developer experience makes correct behavior the path of least resistance.

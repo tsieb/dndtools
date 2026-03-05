@@ -1,5 +1,7 @@
 # Initiative 6 — Multi-Platform Distribution
 
+## Status: COMPLETED
+
 **Outcome:** DND Tools runs excellently on desktop (Windows, macOS, Linux), Android
 (sideloaded APK), and in any modern browser. The desktop experience is polished,
 signed, and self-updating. The mobile experience is native-feeling and offline-capable.

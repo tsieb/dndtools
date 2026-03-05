@@ -1,5 +1,7 @@
 # Initiative 3 — Core Knowledge Architecture
 
+## Status: COMPLETED
+
 **Outcome:** The vault knowledge model is complete, intelligent, and interoperable. Notes
 link to structured objects, the graph is always accurate, search is instant and faceted,
 templates reduce repetitive work, and vaults move freely in and out of the app.

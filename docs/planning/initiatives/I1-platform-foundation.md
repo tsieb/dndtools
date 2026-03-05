@@ -1,5 +1,7 @@
 # Initiative 1 — Platform Foundation & Trust
 
+## Status: COMPLETED
+
 **Outcome:** Every byte written by the application is safe from crash, corruption, and
 undetected decay. The schema evolves predictably. The IPC surface is audited and narrow.
 DMs can trust this application with campaigns they have worked on for years.

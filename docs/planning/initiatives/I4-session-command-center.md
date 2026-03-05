@@ -1,5 +1,7 @@
 # Initiative 4 — Session-Time Command Center
 
+## Status: COMPLETED
+
 **Outcome:** DND Tools is the best possible tool to have open at the table during a live
 game session. Information is instant, action is one keystroke away, and the DM never
 loses the thread.
