@@ -5,6 +5,7 @@
 	import { mapsState } from '$lib/state/maps.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { objectsState } from '$lib/state/objects.svelte.js';
+	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import {
@@ -18,7 +19,22 @@
 		normalizeMapTagInput,
 	} from '$lib/domain/map-library.js';
 	import { extractNotePreviewLines, objectPreviewLines } from '$lib/domain/map-pois.js';
+	import {
+		appendMapHistory,
+		autoPlaceCombatTokens,
+		cellsForTemplate,
+		conditionIconsForCombatant,
+		findShortestPath,
+		gridCellKey,
+		hpBarToneForCombatant,
+		movementSquaresForCombatant,
+		normalizeTemplateInput,
+		rangeProfileForCombatant,
+		reachableCells,
+		type GridCell,
+	} from '$lib/domain/combat-map.js';
 	import { noteToVaultObject } from '$lib/domain/object-notes.js';
+	import { createDefaultCombatMapState, normalizeCombatState } from '$lib/domain/combat-tracker.js';
 	import {
 		createDefaultMapAnnotationLayers,
 		DEFAULT_MAP_LAYER_ID,
@@ -36,6 +52,13 @@
 		MapPoiData,
 		MapViewportData,
 	} from '$lib/types/object.js';
+	import type {
+		SessionBoardCombatMapTemplate,
+		SessionBoardCombatState,
+		SessionBoardCombatTile,
+		SessionBoardId,
+	} from '$lib/types/session-board.js';
+	import CombatTrackerTile from '$lib/ui/board/CombatTrackerTile.svelte';
 	import MapCanvasViewer from '$lib/ui/maps/MapCanvasViewer.svelte';
 	import QuickReferenceSplitView from '$lib/ui/search/QuickReferenceSplitView.svelte';
 	import Modal from '$lib/ui/common/Modal.svelte';
@@ -57,6 +80,16 @@
 		{ value: 'rose', label: 'Rose' },
 		{ value: 'violet', label: 'Violet' },
 		{ value: 'slate', label: 'Slate' },
+	];
+
+	const TEMPLATE_SHAPE_OPTIONS: readonly {
+		value: SessionBoardCombatMapTemplate['shape'];
+		label: string;
+	}[] = [
+		{ value: 'sphere', label: 'Sphere' },
+		{ value: 'cone', label: 'Cone (60deg)' },
+		{ value: 'line', label: 'Line' },
+		{ value: 'cube', label: 'Cube' },
 	];
 
 	let mapAssetUrls = $state<Record<string, string | null>>({});
@@ -102,6 +135,23 @@
 	let dirty = $state(false);
 	let draftSourceKey = $state<string | null>(null);
 	let reportedLoadError = $state<string | null>(null);
+	let combatModeEnabled = $state(false);
+	let selectedBoardId = $state<SessionBoardId | null>(null);
+	let selectedCombatTileId = $state<string | null>(null);
+	let terrainPaintMode = $state(false);
+	let terrainEraseMode = $state(false);
+	let terrainPainting = $state(false);
+	let templatePlacementMode = $state(false);
+	let templateDragOriginCell = $state<GridCell | null>(null);
+	let templatePreviewTargetCell = $state<GridCell | null>(null);
+	let templateShape = $state<SessionBoardCombatMapTemplate['shape']>('sphere');
+	let templateRadiusSquares = $state(4);
+	let templateLineLengthSquares = $state(6);
+	let templateLineWidthSquares = $state(1);
+	let pathPreviewCells = $state<GridCell[]>([]);
+	let lastCombatMapSyncKey = $state<string | null>(null);
+	let savingCombatMap = $state(false);
+	let combatPersistQueue: Promise<void> = Promise.resolve();
 
 	const desktopAvailable = $derived(
 		typeof window !== 'undefined' && typeof window.dndtoolsDesktop !== 'undefined',
@@ -264,6 +314,162 @@
 				})
 			: null,
 	);
+	const boards = $derived(sessionBoardsState.boards);
+	const selectedBoard = $derived.by(
+		() =>
+			boards.find((board) => board.id === selectedBoardId) ??
+			sessionBoardsState.activeBoard ??
+			null,
+	);
+	const combatTiles = $derived.by(
+		() =>
+			(selectedBoard?.tiles.filter((tile) => tile.type === 'combat') as SessionBoardCombatTile[]) ??
+			[],
+	);
+	const selectedCombatTile = $derived.by(
+		() => combatTiles.find((tile) => tile.id === selectedCombatTileId) ?? combatTiles[0] ?? null,
+	);
+	const selectedCombat = $derived.by(() =>
+		selectedCombatTile ? normalizeCombatState(selectedCombatTile.combat) : null,
+	);
+	const selectedEncounterLocationId = $derived.by(() => {
+		if (!selectedBoard?.sessionContext?.items?.length) return null;
+		return (
+			selectedBoard.sessionContext.items.find((item) => item.category === 'location')?.noteId ??
+			null
+		);
+	});
+	const mapLinkedToEncounterLocation = $derived.by(() => {
+		if (!selectedMap || !selectedEncounterLocationId) return false;
+		return (selectedMap.data.areaNoteId?.trim() ?? '') === selectedEncounterLocationId;
+	});
+	const combatMapState = $derived.by(
+		() => selectedCombat?.mapState ?? createDefaultCombatMapState(),
+	);
+	const activeCombatant = $derived.by(
+		() =>
+			selectedCombat?.combatants.find((entry) => entry.id === selectedCombat.activeCombatantId) ??
+			null,
+	);
+	const selectedCombatToken = $derived.by(() => {
+		const requestedId =
+			combatMapState.selectedCombatantId ?? selectedCombat?.activeCombatantId ?? null;
+		if (!requestedId) return null;
+		return combatMapState.tokens.find((token) => token.combatantId === requestedId) ?? null;
+	});
+	const movementBudgetSquares = $derived.by(() =>
+		activeCombatant
+			? movementSquaresForCombatant(
+					activeCombatant,
+					Math.max(1, Number.parseFloat(draftScaleUnits) || 5),
+				)
+			: 0,
+	);
+	const selectedRangeProfile = $derived.by(() =>
+		activeCombatant
+			? rangeProfileForCombatant(
+					activeCombatant,
+					Math.max(1, Number.parseFloat(draftScaleUnits) || 5),
+				)
+			: null,
+	);
+	const blockedCellKeys = $derived.by(() => {
+		const blocked: string[] = [];
+		for (const token of combatMapState.tokens) {
+			if (selectedCombatToken && token.combatantId === selectedCombatToken.combatantId) continue;
+			blocked.push(gridCellKey({ x: token.x, y: token.y }));
+		}
+		return blocked;
+	});
+	const difficultTerrainCellKeys = $derived.by(() =>
+		combatMapState.difficultTerrain.map((cell) => gridCellKey(cell)),
+	);
+	const movementRangeCells = $derived.by(() => {
+		if (!combatModeEnabled || !selectedCombatToken || !selectedCombat || !selectedMap?.data.grid)
+			return [];
+		return reachableCells(
+			{ x: selectedCombatToken.x, y: selectedCombatToken.y },
+			movementBudgetSquares,
+			{
+				gridType: gridDraft.type,
+				blocked: new Set(blockedCellKeys),
+				difficultTerrain: new Set(difficultTerrainCellKeys),
+			},
+		).map((entry) => entry.cell);
+	});
+	const templateOverlays = $derived.by(() => {
+		if (!combatModeEnabled || !selectedMap?.data.grid) return [];
+		return combatMapState.templates.map((template) => ({
+			id: template.id,
+			cells: cellsForTemplate(template, gridDraft.type),
+			color:
+				template.shape === 'cone'
+					? 'rgba(251, 146, 60, 0.18)'
+					: template.shape === 'line'
+						? 'rgba(56, 189, 248, 0.18)'
+						: template.shape === 'cube'
+							? 'rgba(168, 85, 247, 0.18)'
+							: 'rgba(239, 68, 68, 0.18)',
+			stroke:
+				template.shape === 'cone'
+					? 'rgba(249, 115, 22, 0.85)'
+					: template.shape === 'line'
+						? 'rgba(14, 116, 144, 0.85)'
+						: template.shape === 'cube'
+							? 'rgba(109, 40, 217, 0.85)'
+							: 'rgba(220, 38, 38, 0.85)',
+		}));
+	});
+	const templatePreviewOverlay = $derived.by(() => {
+		if (!templateDragOriginCell || !templatePreviewTargetCell || !selectedMap?.data.grid)
+			return null;
+		const preview = normalizeTemplateInput({
+			shape: templateShape,
+			originX: templateDragOriginCell.x,
+			originY: templateDragOriginCell.y,
+			targetX: templatePreviewTargetCell.x,
+			targetY: templatePreviewTargetCell.y,
+			radiusSquares: templateRadiusSquares,
+			lengthSquares: templateLineLengthSquares,
+			widthSquares: templateLineWidthSquares,
+		});
+		return {
+			id: 'template-preview',
+			cells: cellsForTemplate(preview, gridDraft.type),
+			color: 'rgba(16, 185, 129, 0.15)',
+			stroke: 'rgba(16, 185, 129, 0.8)',
+		};
+	});
+	const combinedTemplateOverlays = $derived.by(() => {
+		const overlays = [...templateOverlays];
+		if (templatePreviewOverlay) overlays.push(templatePreviewOverlay);
+		return overlays;
+	});
+	const combatViewerTokens = $derived.by(() => {
+		if (!selectedCombat) return [];
+		const combatantsById = new Map(selectedCombat.combatants.map((entry) => [entry.id, entry]));
+		return combatMapState.tokens
+			.map((token) => {
+				const combatant = combatantsById.get(token.combatantId);
+				if (!combatant) return null;
+				const hpRatio =
+					combatant.currentHp !== null && combatant.maxHp !== null && combatant.maxHp > 0
+						? Math.max(0, Math.min(1, combatant.currentHp / combatant.maxHp))
+						: null;
+				return {
+					id: token.combatantId,
+					label: combatant.name,
+					cellX: token.x,
+					cellY: token.y,
+					initials: token.initials || combatant.name.slice(0, 2).toUpperCase(),
+					imageUrl: token.imageUrl,
+					statusIcons: conditionIconsForCombatant(combatant),
+					hpRatio,
+					hpTone: hpBarToneForCombatant(combatant),
+				};
+			})
+			.filter((token): token is NonNullable<typeof token> => !!token);
+	});
 
 	function isAbsoluteUrl(value: string): boolean {
 		return /^(https?:\/\/|file:\/\/|data:|blob:)/i.test(value.trim());
@@ -575,6 +781,24 @@
 		markDirty();
 	}
 
+	function mapFractionToGridCell(x: number, y: number): GridCell | null {
+		const grid = selectedMap?.data.grid;
+		if (!grid || !draftImageSize) return null;
+		const imageX = x * draftImageSize.width;
+		const imageY = y * draftImageSize.height;
+		if (grid.type === 'square') {
+			return {
+				x: Math.floor((imageX - grid.originX) / Math.max(1, grid.cellSize)),
+				y: Math.floor((imageY - grid.originY) / Math.max(1, grid.cellSize)),
+			};
+		}
+		const hexHeight = Math.sqrt(3) * (grid.cellSize / 2);
+		const row = Math.round((imageY - grid.originY) / Math.max(0.001, hexHeight));
+		const offsetX = row % 2 === 0 ? 0 : grid.cellSize / 2;
+		const col = Math.round((imageX - grid.originX - offsetX) / Math.max(1, grid.cellSize));
+		return { x: col, y: row };
+	}
+
 	function handleMapClick(payload: {
 		x: number;
 		y: number;
@@ -582,6 +806,27 @@
 		metaKey: boolean;
 		shiftKey: boolean;
 	}): void {
+		if (combatModeEnabled && selectedCombat && selectedMap?.data.grid) {
+			if (templatePlacementMode || terrainPaintMode) return;
+			const cell = mapFractionToGridCell(payload.x, payload.y);
+			if (cell && selectedCombatToken) {
+				const path = findShortestPath(
+					{ x: selectedCombatToken.x, y: selectedCombatToken.y },
+					cell,
+					{
+						gridType: gridDraft.type,
+						blocked: new Set(blockedCellKeys),
+						difficultTerrain: new Set(difficultTerrainCellKeys),
+					},
+				);
+				pathPreviewCells = path?.cells ?? [];
+				if (!path) {
+					toastState.info('No route to the selected square.');
+				}
+			}
+			return;
+		}
+
 		if (!editPoiMode || !selectedMap) return;
 		const layerId = draftLayers.some((layer) => layer.id === newPoiLayerId)
 			? newPoiLayerId
@@ -675,6 +920,467 @@
 			? (value as MapPoiCategory)
 			: 'landmark';
 	}
+
+	function createCombatMapId(prefix: string): string {
+		if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+			return `${prefix}-${crypto.randomUUID().slice(0, 10)}`;
+		}
+		return `${prefix}-${Math.random().toString(36).slice(2, 12)}`;
+	}
+
+	function queueCombatPersist(nextCombat: SessionBoardCombatState): void {
+		if (!selectedBoard || !selectedCombatTile) return;
+		const boardId = selectedBoard.id;
+		const tileId = selectedCombatTile.id;
+		const normalized = normalizeCombatState(nextCombat);
+		savingCombatMap = true;
+		combatPersistQueue = combatPersistQueue
+			.then(async () => {
+				await sessionBoardsState.updateTile(boardId, tileId, { combat: normalized });
+			})
+			.catch((saveError) => {
+				void reportRuntimeError({
+					category: 'storage',
+					code: 'COMBAT_MAP_STATE_SAVE_FAILED',
+					error: saveError,
+				});
+				toastState.error(`Failed to save combat map changes: ${String(saveError)}`);
+			})
+			.finally(() => {
+				savingCombatMap = false;
+			});
+	}
+
+	function appendCombatMapHistoryEntry(
+		mapState: SessionBoardCombatState['mapState'],
+		kind: 'movement' | 'status' | 'terrain' | 'template' | 'sync',
+		message: string,
+		combatantId?: string,
+	): SessionBoardCombatState['mapState'] {
+		return appendMapHistory(
+			mapState,
+			{
+				at: nowISO(),
+				kind,
+				message,
+				combatantId,
+			},
+			() => createCombatMapId('map-history'),
+		);
+	}
+
+	function appendStatusChangeHistory(
+		previous: SessionBoardCombatState,
+		next: SessionBoardCombatState,
+	): SessionBoardCombatState['mapState'] {
+		let mapState = next.mapState;
+		const previousById = new Map(previous.combatants.map((entry) => [entry.id, entry]));
+		for (const combatant of next.combatants) {
+			const before = previousById.get(combatant.id);
+			if (!before) continue;
+			if (before.currentHp !== combatant.currentHp) {
+				mapState = appendCombatMapHistoryEntry(
+					mapState,
+					'status',
+					`${combatant.name} HP ${before.currentHp ?? 'n/a'} -> ${combatant.currentHp ?? 'n/a'}`,
+					combatant.id,
+				);
+			}
+			const previousOutcome = before.outcome;
+			if (previousOutcome !== combatant.outcome) {
+				mapState = appendCombatMapHistoryEntry(
+					mapState,
+					'status',
+					`${combatant.name} outcome changed to ${combatant.outcome}`,
+					combatant.id,
+				);
+			}
+			const beforeConditions = before.conditions
+				.map((entry) => entry.toLowerCase())
+				.sort()
+				.join('|');
+			const afterConditions = combatant.conditions
+				.map((entry) => entry.toLowerCase())
+				.sort()
+				.join('|');
+			if (beforeConditions !== afterConditions) {
+				mapState = appendCombatMapHistoryEntry(
+					mapState,
+					'status',
+					`${combatant.name} conditions: ${
+						combatant.conditions.length > 0 ? combatant.conditions.join(', ') : 'none'
+					}`,
+					combatant.id,
+				);
+			}
+		}
+		return mapState;
+	}
+
+	function buildAutoSyncedMapState(
+		baseCombat: SessionBoardCombatState,
+	): SessionBoardCombatState['mapState'] {
+		let mapState = baseCombat.mapState ?? createDefaultCombatMapState();
+		const linkedMapId =
+			mapLinkedToEncounterLocation && selectedMap ? String(selectedMap.id) : mapState.mapId;
+		const shouldAutoPlaceTokens =
+			!!linkedMapId && mapLinkedToEncounterLocation && baseCombat.combatants.length > 0;
+		const nextTokens = shouldAutoPlaceTokens
+			? autoPlaceCombatTokens(baseCombat.combatants, mapState.tokens)
+			: mapState.tokens.filter((token) =>
+					baseCombat.combatants.some((combatant) => combatant.id === token.combatantId),
+				);
+		if (
+			nextTokens.length !== mapState.tokens.length ||
+			nextTokens.some(
+				(token, index) =>
+					mapState.tokens[index]?.combatantId !== token.combatantId ||
+					mapState.tokens[index]?.x !== token.x ||
+					mapState.tokens[index]?.y !== token.y,
+			)
+		) {
+			mapState = appendCombatMapHistoryEntry(
+				{
+					...mapState,
+					tokens: nextTokens,
+				},
+				'sync',
+				'Combatants synchronized to map tokens.',
+			);
+		} else if (linkedMapId !== mapState.mapId) {
+			mapState = appendCombatMapHistoryEntry(
+				{
+					...mapState,
+					mapId: linkedMapId,
+				},
+				'sync',
+				'Active combat map link updated.',
+			);
+		}
+		return {
+			...mapState,
+			mapId: linkedMapId ?? null,
+			selectedCombatantId: baseCombat.activeCombatantId ?? mapState.selectedCombatantId ?? null,
+		};
+	}
+
+	function ensureCombatMapSynchronized(): void {
+		if (!combatModeEnabled || !selectedCombat || !selectedCombatTile) return;
+		const syncKey = [
+			selectedCombatTile.id,
+			selectedMap ? String(selectedMap.id) : 'no-map',
+			selectedCombat.combatants.length,
+			selectedCombat.combatants.map((entry) => entry.id).join('|'),
+			selectedCombat.mapState.tokens.length,
+			selectedCombat.activeCombatantId ?? '',
+			mapLinkedToEncounterLocation ? 'linked' : 'unlinked',
+		].join(':');
+		if (syncKey === lastCombatMapSyncKey) return;
+		lastCombatMapSyncKey = syncKey;
+		const nextMapState = buildAutoSyncedMapState(selectedCombat);
+		const next = normalizeCombatState({
+			...selectedCombat,
+			mapState: nextMapState,
+		});
+		if (JSON.stringify(next.mapState) !== JSON.stringify(selectedCombat.mapState)) {
+			queueCombatPersist(next);
+		}
+	}
+
+	function handleCombatTrackerUpdate(nextCombatState: SessionBoardCombatState): void {
+		if (!selectedCombat) return;
+		const normalizedNext = normalizeCombatState(nextCombatState);
+		const mapState = appendStatusChangeHistory(selectedCombat, normalizedNext);
+		queueCombatPersist({
+			...normalizedNext,
+			mapState: {
+				...mapState,
+				selectedCombatantId: normalizedNext.activeCombatantId ?? mapState.selectedCombatantId,
+				templates:
+					normalizedNext.endedAt && normalizedNext.endedAt !== selectedCombat.endedAt
+						? []
+						: mapState.templates,
+			},
+		});
+	}
+
+	function setTerrainCell(cell: GridCell, difficult: boolean): void {
+		if (!selectedCombat) return;
+		const key = gridCellKey(cell);
+		const current = new Set(combatMapState.difficultTerrain.map((entry) => gridCellKey(entry)));
+		const alreadySet = current.has(key);
+		if ((difficult && alreadySet) || (!difficult && !alreadySet)) return;
+		let nextTerrain = combatMapState.difficultTerrain;
+		if (difficult) {
+			nextTerrain = [...nextTerrain, cell];
+		} else {
+			nextTerrain = nextTerrain.filter((entry) => gridCellKey(entry) !== key);
+		}
+		const nextMapState = appendCombatMapHistoryEntry(
+			{
+				...combatMapState,
+				difficultTerrain: nextTerrain,
+			},
+			'terrain',
+			`${difficult ? 'Marked' : 'Cleared'} difficult terrain at (${cell.x}, ${cell.y}).`,
+		);
+		queueCombatPersist({
+			...selectedCombat,
+			mapState: nextMapState,
+		});
+	}
+
+	function handleCombatTokenClick(payload: {
+		id: string;
+		ctrlKey: boolean;
+		metaKey: boolean;
+	}): void {
+		if (!selectedCombat) return;
+		const nextMapState = {
+			...combatMapState,
+			selectedCombatantId: payload.id,
+		};
+		queueCombatPersist({
+			...selectedCombat,
+			activeCombatantId: payload.id,
+			mapState: nextMapState,
+		});
+	}
+
+	function handleCombatTokenDrop(payload: { id: string; cellX: number; cellY: number }): void {
+		if (!selectedCombat) return;
+		const token = combatMapState.tokens.find((entry) => entry.combatantId === payload.id);
+		if (!token) return;
+		const start = { x: token.x, y: token.y };
+		const target = { x: payload.cellX, y: payload.cellY };
+		const path = findShortestPath(start, target, {
+			gridType: gridDraft.type,
+			blocked: new Set(
+				combatMapState.tokens
+					.filter((entry) => entry.combatantId !== payload.id)
+					.map((entry) => gridCellKey({ x: entry.x, y: entry.y })),
+			),
+			difficultTerrain: new Set(difficultTerrainCellKeys),
+		});
+		if (!path) {
+			toastState.error('No valid path to destination square.');
+			return;
+		}
+		const budget = activeCombatant ? movementSquaresForCombatant(activeCombatant) : 0;
+		if (budget > 0 && path.cost > budget) {
+			toastState.error(`Movement exceeds speed (${path.cost} > ${budget} squares).`);
+			return;
+		}
+		pathPreviewCells = path.cells;
+		const nextTokens = combatMapState.tokens.map((entry) =>
+			entry.combatantId === payload.id ? { ...entry, x: target.x, y: target.y } : entry,
+		);
+		const label =
+			selectedCombat.combatants.find((entry) => entry.id === payload.id)?.name ?? payload.id;
+		const nextMapState = appendCombatMapHistoryEntry(
+			{
+				...combatMapState,
+				tokens: nextTokens,
+				selectedCombatantId: payload.id,
+			},
+			'movement',
+			`${label} moved to (${target.x}, ${target.y}) using ${path.cost} squares.`,
+			payload.id,
+		);
+		queueCombatPersist({
+			...selectedCombat,
+			activeCombatantId: payload.id,
+			mapState: nextMapState,
+		});
+	}
+
+	function beginTemplateDrag(cell: GridCell): void {
+		templateDragOriginCell = cell;
+		templatePreviewTargetCell = cell;
+	}
+
+	function finalizeTemplateDrag(): void {
+		if (!selectedCombat || !templateDragOriginCell || !templatePreviewTargetCell) return;
+		const nextTemplate = normalizeTemplateInput({
+			id: createCombatMapId('template'),
+			shape: templateShape,
+			originX: templateDragOriginCell.x,
+			originY: templateDragOriginCell.y,
+			targetX: templatePreviewTargetCell.x,
+			targetY: templatePreviewTargetCell.y,
+			radiusSquares: templateRadiusSquares,
+			lengthSquares: templateLineLengthSquares,
+			widthSquares: templateLineWidthSquares,
+			createdAt: nowISO(),
+		});
+		const nextMapState = appendCombatMapHistoryEntry(
+			{
+				...combatMapState,
+				templates: [...combatMapState.templates, nextTemplate],
+			},
+			'template',
+			`Placed ${templateShape} template from (${nextTemplate.originX}, ${nextTemplate.originY}) to (${nextTemplate.targetX}, ${nextTemplate.targetY}).`,
+		);
+		queueCombatPersist({
+			...selectedCombat,
+			mapState: nextMapState,
+		});
+		templateDragOriginCell = null;
+		templatePreviewTargetCell = null;
+	}
+
+	function removeTemplate(templateId: string): void {
+		if (!selectedCombat) return;
+		const existing = combatMapState.templates.find((entry) => entry.id === templateId);
+		if (!existing) return;
+		const nextMapState = appendCombatMapHistoryEntry(
+			{
+				...combatMapState,
+				templates: combatMapState.templates.filter((entry) => entry.id !== templateId),
+			},
+			'template',
+			`Removed ${existing.shape} template.`,
+		);
+		queueCombatPersist({
+			...selectedCombat,
+			mapState: nextMapState,
+		});
+	}
+
+	function clearAllTemplates(): void {
+		if (!selectedCombat || combatMapState.templates.length === 0) return;
+		const nextMapState = appendCombatMapHistoryEntry(
+			{
+				...combatMapState,
+				templates: [],
+			},
+			'template',
+			'Cleared all AoE templates.',
+		);
+		queueCombatPersist({
+			...selectedCombat,
+			mapState: nextMapState,
+		});
+	}
+
+	function handleMapPointerDown(payload: {
+		x: number;
+		y: number;
+		cellX: number | null;
+		cellY: number | null;
+		button: number;
+		buttons: number;
+		ctrlKey: boolean;
+		metaKey: boolean;
+		shiftKey: boolean;
+		altKey: boolean;
+	}): void {
+		if (!combatModeEnabled || payload.cellX === null || payload.cellY === null) return;
+		const cell = { x: payload.cellX, y: payload.cellY };
+		if (templatePlacementMode) {
+			beginTemplateDrag(cell);
+			return;
+		}
+		if (terrainPaintMode) {
+			terrainPainting = true;
+			setTerrainCell(cell, !terrainEraseMode);
+		}
+	}
+
+	function handleMapPointerMove(payload: {
+		x: number;
+		y: number;
+		cellX: number | null;
+		cellY: number | null;
+		button: number;
+		buttons: number;
+		ctrlKey: boolean;
+		metaKey: boolean;
+		shiftKey: boolean;
+		altKey: boolean;
+	}): void {
+		if (!combatModeEnabled || payload.cellX === null || payload.cellY === null) return;
+		const cell = { x: payload.cellX, y: payload.cellY };
+		if (templatePlacementMode && templateDragOriginCell) {
+			templatePreviewTargetCell = cell;
+			return;
+		}
+		if (terrainPaintMode && terrainPainting) {
+			setTerrainCell(cell, !terrainEraseMode);
+		}
+	}
+
+	function handleMapPointerUp(payload: {
+		x: number;
+		y: number;
+		cellX: number | null;
+		cellY: number | null;
+		button: number;
+		buttons: number;
+		ctrlKey: boolean;
+		metaKey: boolean;
+		shiftKey: boolean;
+		altKey: boolean;
+	}): void {
+		if (templatePlacementMode && templateDragOriginCell) {
+			if (payload.cellX !== null && payload.cellY !== null) {
+				templatePreviewTargetCell = { x: payload.cellX, y: payload.cellY };
+			}
+			finalizeTemplateDrag();
+		}
+		terrainPainting = false;
+	}
+
+	$effect(() => {
+		if (sessionBoardsState.boards.length === 0 && !sessionBoardsState.loading) {
+			void sessionBoardsState.loadAll();
+		}
+	});
+
+	$effect(() => {
+		if (selectedBoardId && boards.some((board) => board.id === selectedBoardId)) return;
+		selectedBoardId = sessionBoardsState.activeBoard?.id ?? boards[0]?.id ?? null;
+	});
+
+	$effect(() => {
+		if (selectedBoardId) sessionBoardsState.setActiveBoard(selectedBoardId);
+	});
+
+	$effect(() => {
+		if (selectedCombatTileId && combatTiles.some((tile) => tile.id === selectedCombatTileId))
+			return;
+		selectedCombatTileId = combatTiles[0]?.id ?? null;
+	});
+
+	$effect(() => {
+		if (!combatModeEnabled) {
+			pathPreviewCells = [];
+			templateDragOriginCell = null;
+			templatePreviewTargetCell = null;
+			terrainPainting = false;
+			return;
+		}
+		ensureCombatMapSynchronized();
+	});
+
+	$effect(() => {
+		if (!selectedCombat?.endedAt) return;
+		if (!combatMapState.templates.length) return;
+		queueCombatPersist({
+			...selectedCombat,
+			mapState: {
+				...combatMapState,
+				templates: [],
+			},
+		});
+	});
+
+	$effect(() => {
+		if (!selectedCombatToken) {
+			pathPreviewCells = [];
+			return;
+		}
+	});
 
 	$effect(() => {
 		void mapsState.loadAll();
@@ -928,6 +1634,17 @@
 						>
 							{editPoiMode ? 'Stop POI Placement' : 'Edit POIs'}
 						</button>
+						<button
+							type="button"
+							class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt disabled:opacity-55 dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+							disabled={!selectedMap.data.grid || !selectedCombatTile}
+							onclick={() => {
+								combatModeEnabled = !combatModeEnabled;
+								editPoiMode = combatModeEnabled ? false : editPoiMode;
+							}}
+						>
+							{combatModeEnabled ? 'Exit Combat Mode' : 'Combat Mode'}
+						</button>
 						<label
 							class="flex items-center gap-1.5 rounded border border-border px-2 py-1 dark:border-tavern-border"
 						>
@@ -949,6 +1666,137 @@
 						<p class="font-medium text-ink-muted dark:text-tavern-muted">{scaleLabel}</p>
 					{/if}
 				</div>
+				{#if combatModeEnabled}
+					<div
+						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-[11px] dark:border-tavern-border/70"
+					>
+						<label class="text-ink-muted dark:text-tavern-muted">
+							Board
+							<select
+								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 text-[11px] dark:border-tavern-border dark:bg-tavern-surface-alt"
+								bind:value={selectedBoardId}
+							>
+								{#each boards as board (board.id)}
+									<option value={board.id}>{board.name}</option>
+								{/each}
+							</select>
+						</label>
+						<label class="text-ink-muted dark:text-tavern-muted">
+							Combat Tile
+							<select
+								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 text-[11px] dark:border-tavern-border dark:bg-tavern-surface-alt"
+								bind:value={selectedCombatTileId}
+							>
+								{#each combatTiles as tile (tile.id)}
+									<option value={tile.id}>{tile.id}</option>
+								{/each}
+							</select>
+						</label>
+						<span class="text-ink-muted dark:text-tavern-muted">
+							{mapLinkedToEncounterLocation
+								? 'Map is linked to the encounter location.'
+								: 'Map is not linked to the active encounter location.'}
+						</span>
+						{#if activeCombatant}
+							<span
+								class="rounded bg-surface-alt px-1.5 py-0.5 text-ink dark:bg-tavern-surface-alt dark:text-tavern-text"
+							>
+								Move {movementBudgetSquares} sq
+							</span>
+							{#if selectedRangeProfile}
+								<span
+									class="rounded bg-surface-alt px-1.5 py-0.5 text-ink dark:bg-tavern-surface-alt dark:text-tavern-text"
+								>
+									Range {selectedRangeProfile.squares} sq ({selectedRangeProfile.label})
+								</span>
+							{/if}
+						{/if}
+					</div>
+					<div
+						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-[11px] dark:border-tavern-border/70"
+					>
+						<label class="inline-flex items-center gap-1 text-ink-muted dark:text-tavern-muted">
+							<input type="checkbox" bind:checked={terrainPaintMode} />
+							Paint Difficult Terrain
+						</label>
+						<label class="inline-flex items-center gap-1 text-ink-muted dark:text-tavern-muted">
+							<input type="checkbox" bind:checked={terrainEraseMode} disabled={!terrainPaintMode} />
+							Erase mode
+						</label>
+						<label class="inline-flex items-center gap-1 text-ink-muted dark:text-tavern-muted">
+							<input type="checkbox" bind:checked={templatePlacementMode} />
+							Template Drag Placement
+						</label>
+						<label class="text-ink-muted dark:text-tavern-muted">
+							Template
+							<select
+								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 dark:border-tavern-border dark:bg-tavern-surface-alt"
+								bind:value={templateShape}
+							>
+								{#each TEMPLATE_SHAPE_OPTIONS as option (option.value)}
+									<option value={option.value}>{option.label}</option>
+								{/each}
+							</select>
+						</label>
+						<label class="text-ink-muted dark:text-tavern-muted">
+							Radius
+							<input
+								type="number"
+								min="1"
+								max="30"
+								class="ml-1 w-14 rounded border border-border bg-surface-alt px-1.5 py-0.5 dark:border-tavern-border dark:bg-tavern-surface-alt"
+								bind:value={templateRadiusSquares}
+								disabled={templateShape === 'line'}
+							/>
+						</label>
+						<label class="text-ink-muted dark:text-tavern-muted">
+							Line L
+							<input
+								type="number"
+								min="1"
+								max="60"
+								class="ml-1 w-14 rounded border border-border bg-surface-alt px-1.5 py-0.5 dark:border-tavern-border dark:bg-tavern-surface-alt"
+								bind:value={templateLineLengthSquares}
+								disabled={templateShape !== 'line'}
+							/>
+						</label>
+						<label class="text-ink-muted dark:text-tavern-muted">
+							Line W
+							<input
+								type="number"
+								min="1"
+								max="10"
+								class="ml-1 w-14 rounded border border-border bg-surface-alt px-1.5 py-0.5 dark:border-tavern-border dark:bg-tavern-surface-alt"
+								bind:value={templateLineWidthSquares}
+								disabled={templateShape !== 'line'}
+							/>
+						</label>
+						<button
+							type="button"
+							class="rounded border border-border px-2 py-0.5 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+							onclick={clearAllTemplates}
+							disabled={combatMapState.templates.length === 0}
+						>
+							Clear Templates
+						</button>
+						{#if savingCombatMap}
+							<span class="text-ink-faint dark:text-tavern-faint">Saving combat map...</span>
+						{/if}
+					</div>
+					{#if combatMapState.templates.length > 0}
+						<div class="mb-2 flex flex-wrap items-center gap-1">
+							{#each combatMapState.templates as template (template.id)}
+								<button
+									type="button"
+									class="rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+									onclick={() => removeTemplate(template.id)}
+								>
+									{template.shape} @{template.originX},{template.originY} x
+								</button>
+							{/each}
+						</div>
+					{/if}
+				{/if}
 				{#if editPoiMode}
 					<p class="mb-2 text-xs text-ink-faint dark:text-tavern-faint">
 						Click the map to place a pin. Drag pins to reposition. Click a pin to edit details.
@@ -963,6 +1811,15 @@
 						editableGrid={editGridHandles}
 						pois={viewerPois}
 						poiEditable={editPoiMode}
+						combatTokens={combatModeEnabled ? combatViewerTokens : []}
+						activeCombatTokenId={combatModeEnabled
+							? (selectedCombatToken?.combatantId ?? selectedCombat?.activeCombatantId ?? null)
+							: null}
+						combatTokenEditable={combatModeEnabled}
+						movementRangeCells={combatModeEnabled ? movementRangeCells : []}
+						pathCells={combatModeEnabled ? pathPreviewCells : []}
+						difficultTerrainCells={combatModeEnabled ? combatMapState.difficultTerrain : []}
+						templateOverlays={combatModeEnabled ? combinedTemplateOverlays : []}
 						initialViewport={draftInitialViewport ?? undefined}
 						ongridchange={handleGridChange}
 						onviewportchange={handleViewportChange}
@@ -971,6 +1828,11 @@
 						onpoimove={handlePoiMove}
 						onpoiclick={handlePoiClick}
 						onpoihover={handlePoiHover}
+						oncombattokenclick={handleCombatTokenClick}
+						oncombattokendrop={handleCombatTokenDrop}
+						onmappointerdown={handleMapPointerDown}
+						onmappointermove={handleMapPointerMove}
+						onmappointerup={handleMapPointerUp}
 					/>
 				{/key}
 				{#if poiHover && hoveredPoi}
@@ -1006,6 +1868,27 @@
 			<aside
 				class="rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
 			>
+				{#if combatModeEnabled}
+					<div class="mb-3 space-y-2">
+						<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">
+							Combat Tracker Sync
+						</h2>
+						{#if selectedCombatTile}
+							<div class="h-[420px] min-h-[320px]">
+								<CombatTrackerTile
+									tile={selectedCombatTile}
+									standalone
+									onselect={() => undefined}
+									onupdate={handleCombatTrackerUpdate}
+								/>
+							</div>
+						{:else}
+							<p class="text-xs text-ink-muted dark:text-tavern-muted">
+								Select a board and combat tile to enable map-tracker synchronization.
+							</p>
+						{/if}
+					</div>
+				{/if}
 				<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Map Metadata</h2>
 				<div class="mt-3 space-y-2.5">
 					<label class="block text-xs text-ink-muted dark:text-tavern-muted">
@@ -1373,6 +2256,31 @@
 							</p>
 						{/if}
 					</div>
+					{#if combatModeEnabled && selectedCombat}
+						<div class="rounded border border-border p-2 dark:border-tavern-border">
+							<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">
+								Combat Map Activity
+							</h3>
+							{#if selectedCombat.mapState.history.length === 0}
+								<p class="mt-1 text-[11px] text-ink-muted dark:text-tavern-muted">
+									No movement or status events yet.
+								</p>
+							{:else}
+								<ul
+									class="mt-1 max-h-36 space-y-1 overflow-auto text-[11px] text-ink-muted dark:text-tavern-muted"
+								>
+									{#each [...selectedCombat.mapState.history]
+										.slice(-8)
+										.reverse() as entry (entry.id)}
+										<li class="rounded bg-surface-alt px-1.5 py-1 dark:bg-tavern-surface-alt">
+											<p class="font-medium text-ink dark:text-tavern-text">{entry.kind}</p>
+											<p>{entry.message}</p>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+					{/if}
 				</div>
 				<div class="mt-3 flex items-center gap-2">
 					<button

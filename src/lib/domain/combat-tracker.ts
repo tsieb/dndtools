@@ -8,6 +8,11 @@ import {
 import type {
 	CombatantOutcome,
 	EncounterNotableRollKind,
+	SessionBoardCombatMapHistoryEntry,
+	SessionBoardCombatMapState,
+	SessionBoardCombatMapTemplate,
+	SessionBoardCombatMapTerrainCell,
+	SessionBoardCombatMapToken,
 	SessionBoardCombatLairAction,
 	SessionBoardCombatLairTracker,
 	SessionBoardCombatLegendaryAction,
@@ -46,6 +51,10 @@ const MAX_LOOT_LENGTH = 2_000;
 const MAX_OUTCOME_LENGTH = 600;
 const MAX_DAMAGE = 99_999;
 const MAX_NOTABLE_ROLLS = 200;
+const MAX_COMBAT_MAP_TOKENS = 300;
+const MAX_COMBAT_MAP_TERRAIN_CELLS = 20_000;
+const MAX_COMBAT_MAP_TEMPLATES = 100;
+const MAX_COMBAT_MAP_HISTORY = 800;
 
 function clampInt(value: number, min: number, max: number): number {
 	return Math.min(max, Math.max(min, Math.round(value)));
@@ -193,6 +202,208 @@ function normalizeNotableRoll(value: unknown, index: number): SessionBoardCombat
 		round: clampInt(Number(value.round) || 1, 1, 999),
 		note: normalizeText(value.note, 220) || undefined,
 		recordedAt: normalizeText(value.recordedAt, 120) || nowISO(),
+	};
+}
+
+function normalizeCombatMapToken(
+	value: unknown,
+	_index: number,
+	combatants: readonly SessionBoardCombatant[],
+): SessionBoardCombatMapToken | null {
+	if (!isRecord(value)) return null;
+	const combatantId = normalizeText(value.combatantId, 80);
+	if (!combatantId || !combatants.some((combatant) => combatant.id === combatantId)) return null;
+	const x = asNullableInt(value.x);
+	const y = asNullableInt(value.y);
+	if (x === null || y === null) return null;
+	return {
+		combatantId,
+		x: clampInt(x, -10_000, 10_000),
+		y: clampInt(y, -10_000, 10_000),
+		imageUrl: normalizeText(value.imageUrl, 600) || undefined,
+		initials: normalizeText(value.initials, 8) || undefined,
+	};
+}
+
+function normalizeCombatMapTerrainCell(
+	value: unknown,
+	_index: number,
+): SessionBoardCombatMapTerrainCell | null {
+	if (!isRecord(value)) return null;
+	const x = asNullableInt(value.x);
+	const y = asNullableInt(value.y);
+	if (x === null || y === null) return null;
+	return {
+		x: clampInt(x, -10_000, 10_000),
+		y: clampInt(y, -10_000, 10_000),
+	};
+}
+
+function normalizeCombatMapTemplate(
+	value: unknown,
+	index: number,
+): SessionBoardCombatMapTemplate | null {
+	if (!isRecord(value)) return null;
+	const shape =
+		value.shape === 'sphere' ||
+		value.shape === 'cone' ||
+		value.shape === 'line' ||
+		value.shape === 'cube'
+			? value.shape
+			: null;
+	if (!shape) return null;
+	const originX = asNullableInt(value.originX);
+	const originY = asNullableInt(value.originY);
+	const targetX = asNullableInt(value.targetX);
+	const targetY = asNullableInt(value.targetY);
+	if (originX === null || originY === null || targetX === null || targetY === null) return null;
+	return {
+		id: normalizeText(value.id, 80) || `template-${index + 1}`,
+		shape,
+		originX: clampInt(originX, -10_000, 10_000),
+		originY: clampInt(originY, -10_000, 10_000),
+		targetX: clampInt(targetX, -10_000, 10_000),
+		targetY: clampInt(targetY, -10_000, 10_000),
+		radiusSquares:
+			shape === 'sphere' || shape === 'cone' || shape === 'cube'
+				? clampInt(Number(value.radiusSquares) || 1, 1, 200)
+				: undefined,
+		widthSquares: shape === 'line' ? clampInt(Number(value.widthSquares) || 1, 1, 50) : undefined,
+		lengthSquares:
+			shape === 'line' ? clampInt(Number(value.lengthSquares) || 6, 1, 500) : undefined,
+		label: normalizeText(value.label, 120) || undefined,
+		createdAt: normalizeText(value.createdAt, 120) || nowISO(),
+	};
+}
+
+function normalizeCombatMapHistoryEntry(
+	value: unknown,
+	index: number,
+	combatants: readonly SessionBoardCombatant[],
+): SessionBoardCombatMapHistoryEntry | null {
+	if (!isRecord(value)) return null;
+	const kind =
+		value.kind === 'movement' ||
+		value.kind === 'status' ||
+		value.kind === 'terrain' ||
+		value.kind === 'template' ||
+		value.kind === 'sync'
+			? value.kind
+			: null;
+	if (!kind) return null;
+	const message = normalizeText(value.message, 300);
+	if (!message) return null;
+	const combatantId = normalizeText(value.combatantId, 80);
+	return {
+		id: normalizeText(value.id, 80) || `map-history-${index + 1}`,
+		at: normalizeText(value.at, 120) || nowISO(),
+		kind,
+		message,
+		combatantId:
+			combatantId && combatants.some((combatant) => combatant.id === combatantId)
+				? combatantId
+				: undefined,
+	};
+}
+
+export function createDefaultCombatMapState(): SessionBoardCombatMapState {
+	return {
+		mapId: null,
+		tokens: [],
+		difficultTerrain: [],
+		templates: [],
+		selectedCombatantId: null,
+		history: [],
+	};
+}
+
+function normalizeCombatMapState(
+	value: unknown,
+	combatants: readonly SessionBoardCombatant[],
+	activeCombatantId: string | null,
+): SessionBoardCombatMapState {
+	if (!isRecord(value)) return createDefaultCombatMapState();
+	const tokensRaw = Array.isArray(value.tokens) ? value.tokens : [];
+	const seenTokenCombatants = new Set<string>();
+	const tokens: SessionBoardCombatMapToken[] = [];
+	for (const [index, entry] of tokensRaw.entries()) {
+		const normalized = normalizeCombatMapToken(entry, index, combatants);
+		if (!normalized) continue;
+		if (seenTokenCombatants.has(normalized.combatantId)) continue;
+		seenTokenCombatants.add(normalized.combatantId);
+		tokens.push(normalized);
+		if (tokens.length >= MAX_COMBAT_MAP_TOKENS) break;
+	}
+
+	const terrainRaw = Array.isArray(value.difficultTerrain) ? value.difficultTerrain : [];
+	const seenTerrain = new Set<string>();
+	const difficultTerrain: SessionBoardCombatMapTerrainCell[] = [];
+	for (const [index, entry] of terrainRaw.entries()) {
+		const normalized = normalizeCombatMapTerrainCell(entry, index);
+		if (!normalized) continue;
+		const key = `${normalized.x},${normalized.y}`;
+		if (seenTerrain.has(key)) continue;
+		seenTerrain.add(key);
+		difficultTerrain.push(normalized);
+		if (difficultTerrain.length >= MAX_COMBAT_MAP_TERRAIN_CELLS) break;
+	}
+
+	const templatesRaw = Array.isArray(value.templates) ? value.templates : [];
+	const templates = templatesRaw
+		.map((entry, index) => normalizeCombatMapTemplate(entry, index))
+		.filter((entry): entry is SessionBoardCombatMapTemplate => !!entry)
+		.slice(0, MAX_COMBAT_MAP_TEMPLATES);
+
+	const historyRaw = Array.isArray(value.history) ? value.history : [];
+	const history = historyRaw
+		.map((entry, index) => normalizeCombatMapHistoryEntry(entry, index, combatants))
+		.filter((entry): entry is SessionBoardCombatMapHistoryEntry => !!entry)
+		.slice(-MAX_COMBAT_MAP_HISTORY);
+
+	const requestedSelectedCombatantId = normalizeText(value.selectedCombatantId, 80);
+	const selectedCombatantId =
+		activeCombatantId && combatants.some((combatant) => combatant.id === activeCombatantId)
+			? activeCombatantId
+			: requestedSelectedCombatantId &&
+				  combatants.some((combatant) => combatant.id === requestedSelectedCombatantId)
+				? requestedSelectedCombatantId
+				: null;
+
+	const fogState =
+		isRecord(value.fogState) && Array.isArray(value.fogState.revealedPolygons)
+			? {
+					revealedPolygons: value.fogState.revealedPolygons
+						.map((polygon) => {
+							if (!isRecord(polygon) || !Array.isArray(polygon.points)) return null;
+							const points = polygon.points
+								.map((point) => {
+									if (!isRecord(point)) return null;
+									const x = asFiniteNumber(point.x);
+									const y = asFiniteNumber(point.y);
+									if (x === null || y === null) return null;
+									return {
+										x: Math.max(0, Math.min(1, x)),
+										y: Math.max(0, Math.min(1, y)),
+									};
+								})
+								.filter((point): point is { x: number; y: number } => !!point)
+								.slice(0, 2_000);
+							if (points.length < 3) return null;
+							return { points };
+						})
+						.filter((polygon): polygon is { points: Array<{ x: number; y: number }> } => !!polygon)
+						.slice(0, 500),
+				}
+			: undefined;
+
+	return {
+		mapId: normalizeText(value.mapId, 120) || null,
+		tokens,
+		difficultTerrain,
+		templates,
+		selectedCombatantId,
+		history,
+		fogState,
 	};
 }
 
@@ -389,6 +600,7 @@ export function createDefaultCombatState(now = nowISO()): SessionBoardCombatStat
 			actions: [],
 		},
 		notableRolls: [],
+		mapState: createDefaultCombatMapState(),
 		outcome: '',
 		notes: '',
 		loot: '',
@@ -420,6 +632,7 @@ export function normalizeCombatState(value: unknown): SessionBoardCombatState {
 		.map((entry, index) => normalizeNotableRoll(entry, index))
 		.filter((entry): entry is SessionBoardCombatNotableRoll => !!entry)
 		.slice(0, MAX_NOTABLE_ROLLS);
+	const mapState = normalizeCombatMapState(value.mapState, combatants, activeCombatantId);
 	return {
 		encounterName: normalizeText(value.encounterName, MAX_NAME_LENGTH),
 		systemId: normalizeText(value.systemId, 40) || 'dnd5e',
@@ -429,6 +642,7 @@ export function normalizeCombatState(value: unknown): SessionBoardCombatState {
 		legendaryTrackers,
 		lairTracker,
 		notableRolls,
+		mapState,
 		outcome: normalizeText(value.outcome, MAX_OUTCOME_LENGTH),
 		notes: normalizeText(value.notes, MAX_NOTES_LENGTH),
 		loot: normalizeText(value.loot, MAX_LOOT_LENGTH),
@@ -910,6 +1124,13 @@ export function buildEncounterLogDraft(
 					const notePart = roll.note ? ` (${roll.note})` : '';
 					return `- Round ${roll.round}: ${label} - ${roll.combatantName}${notePart}`;
 				});
+	const mapState = state.mapState;
+	const mapHistoryLines =
+		mapState.history.length === 0
+			? ['- No combat-map events recorded.']
+			: mapState.history
+					.slice(-10)
+					.map((entry) => `- ${entry.at}: [${entry.kind}] ${entry.message}`);
 
 	const content = [
 		`# ${encounterName}`,
@@ -939,6 +1160,16 @@ export function buildEncounterLogDraft(
 		`- Fell: ${summary.fell.length > 0 ? summary.fell.map((combatant) => formatCombatantLink(combatant)).join(', ') : 'None'}`,
 		`- Fled: ${summary.fled.length > 0 ? summary.fled.map((combatant) => formatCombatantLink(combatant)).join(', ') : 'None'}`,
 		`- Total Damage Dealt: ${summary.totalDamageDealt}`,
+		'',
+		'## Combat Map Archive',
+		`- Active Map ID: ${mapState.mapId ?? 'none'}`,
+		`- Token Placements: ${mapState.tokens.length}`,
+		`- AoE Templates: ${mapState.templates.length}`,
+		`- Difficult Terrain Cells: ${mapState.difficultTerrain.length}`,
+		`- Fog State Polygons: ${mapState.fogState?.revealedPolygons.length ?? 0}`,
+		'',
+		'### Combat Map History',
+		...mapHistoryLines,
 		'',
 		'## Rewards',
 		options?.treasureRoll

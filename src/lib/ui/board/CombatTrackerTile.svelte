@@ -629,6 +629,14 @@
 						treasureRoll,
 						timelineEventId: timelineLink?.eventId ?? null,
 						savedAt: nowISO(),
+						mapStateArchive: {
+							mapId: combat.mapState.mapId,
+							tokens: combat.mapState.tokens,
+							templates: combat.mapState.templates,
+							difficultTerrain: combat.mapState.difficultTerrain,
+							fogState: combat.mapState.fogState,
+							history: combat.mapState.history.slice(-200),
+						},
 					},
 				},
 			});

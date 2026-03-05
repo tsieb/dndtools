@@ -477,6 +477,24 @@ export function cloneTemplateForBoard(template: SessionBoardTemplate): SessionBo
 								actions: tile.combat.lairTracker.actions.map((action) => ({ ...action })),
 							},
 							notableRolls: tile.combat.notableRolls.map((roll) => ({ ...roll })),
+							mapState: {
+								...tile.combat.mapState,
+								tokens: tile.combat.mapState.tokens.map((token) => ({ ...token })),
+								difficultTerrain: tile.combat.mapState.difficultTerrain.map((cell) => ({
+									...cell,
+								})),
+								templates: tile.combat.mapState.templates.map((template) => ({ ...template })),
+								history: tile.combat.mapState.history.map((entry) => ({ ...entry })),
+								fogState: tile.combat.mapState.fogState
+									? {
+											revealedPolygons: tile.combat.mapState.fogState.revealedPolygons.map(
+												(polygon) => ({
+													points: polygon.points.map((point) => ({ ...point })),
+												}),
+											),
+										}
+									: undefined,
+							},
 						}
 					: tile.combat,
 			encounter:

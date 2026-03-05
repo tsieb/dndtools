@@ -20,6 +20,8 @@ export type SessionBoardTileType =
 export type SessionBoardPreviewDepth = 'title' | 'summary' | 'full';
 export type SessionBoardTimerMode = 'elapsed' | 'countdown';
 export type CombatantOutcome = 'active' | 'fell' | 'fled';
+export type CombatMapTemplateShape = 'sphere' | 'cone' | 'line' | 'cube';
+export type CombatMapHistoryKind = 'movement' | 'status' | 'terrain' | 'template' | 'sync';
 export type SessionContextCategory = 'npc' | 'location' | 'quest' | 'party';
 export type EncounterDifficulty =
 	| 'trivial'
@@ -120,6 +122,58 @@ export interface SessionBoardCombatNotableRoll {
 	recordedAt: string;
 }
 
+export interface SessionBoardCombatMapToken {
+	combatantId: string;
+	x: number;
+	y: number;
+	imageUrl?: string;
+	initials?: string;
+}
+
+export interface SessionBoardCombatMapTerrainCell {
+	x: number;
+	y: number;
+}
+
+export interface SessionBoardCombatMapTemplate {
+	id: string;
+	shape: CombatMapTemplateShape;
+	originX: number;
+	originY: number;
+	targetX: number;
+	targetY: number;
+	radiusSquares?: number;
+	widthSquares?: number;
+	lengthSquares?: number;
+	label?: string;
+	createdAt: string;
+}
+
+export interface SessionBoardCombatMapHistoryEntry {
+	id: string;
+	at: string;
+	kind: CombatMapHistoryKind;
+	message: string;
+	combatantId?: string;
+}
+
+export interface SessionBoardCombatMapState {
+	mapId: string | null;
+	tokens: SessionBoardCombatMapToken[];
+	difficultTerrain: SessionBoardCombatMapTerrainCell[];
+	templates: SessionBoardCombatMapTemplate[];
+	selectedCombatantId: string | null;
+	history: SessionBoardCombatMapHistoryEntry[];
+	fogState?: {
+		revealedPolygons: Array<{
+			points: Array<{
+				x: number;
+				y: number;
+			}>;
+		}>;
+	};
+}
+
 export interface SessionBoardCombatState {
 	encounterName: string;
 	systemId: string;
@@ -129,6 +183,7 @@ export interface SessionBoardCombatState {
 	legendaryTrackers: SessionBoardCombatLegendaryTracker[];
 	lairTracker: SessionBoardCombatLairTracker;
 	notableRolls: SessionBoardCombatNotableRoll[];
+	mapState: SessionBoardCombatMapState;
 	outcome: string;
 	notes: string;
 	loot: string;

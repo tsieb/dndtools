@@ -184,8 +184,55 @@ describe('combat-tracker domain', () => {
 		expect(draft.title).toContain('Bridge Skirmish');
 		expect(draft.tags).toEqual(expect.arrayContaining(['combat', 'encounter-log']));
 		expect(draft.content).toContain('## Outcome Summary');
+		expect(draft.content).toContain('## Combat Map Archive');
+		expect(draft.content).toContain('Token Placements');
 		expect(draft.content).toContain('Total Damage Dealt: 23');
 		expect(draft.participantObjectIds).toEqual(expect.arrayContaining(['obj-pc', 'obj-goblin']));
+	});
+
+	it('normalizes combat map state and binds selection to active combatant', () => {
+		const normalized = normalizeCombatState({
+			activeCombatantId: 'pc',
+			combatants: [{ id: 'pc', name: 'Elyra', initiative: 14, tieRank: 0 }],
+			mapState: {
+				mapId: 'map-bridge',
+				selectedCombatantId: 'unknown',
+				tokens: [
+					{ combatantId: 'pc', x: 3, y: 2 },
+					{ combatantId: 'missing', x: 9, y: 9 },
+				],
+				difficultTerrain: [
+					{ x: 2, y: 1 },
+					{ x: 2, y: 1 },
+				],
+				templates: [
+					{
+						id: 'template-1',
+						shape: 'sphere',
+						originX: 3,
+						originY: 2,
+						targetX: 3,
+						targetY: 2,
+						radiusSquares: 2,
+						createdAt: '2026-03-04T00:00:00.000Z',
+					},
+				],
+				history: [
+					{
+						id: 'history-1',
+						at: '2026-03-04T00:00:00.000Z',
+						kind: 'movement',
+						message: 'Elyra moved.',
+					},
+				],
+			},
+		});
+		expect(normalized.mapState.mapId).toBe('map-bridge');
+		expect(normalized.mapState.tokens).toHaveLength(1);
+		expect(normalized.mapState.selectedCombatantId).toBe('pc');
+		expect(normalized.mapState.difficultTerrain).toHaveLength(1);
+		expect(normalized.mapState.templates).toHaveLength(1);
+		expect(normalized.mapState.history).toHaveLength(1);
 	});
 
 	it('resets legendary charges on turn start and auto-triggers lair actions at initiative 20', () => {
