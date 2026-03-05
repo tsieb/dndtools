@@ -89,3 +89,19 @@ atomic reviewable unit of work — one PR, one demonstrable outcome.
 | I10 | Player Character Suite        | P1       | I3, I4     | [I10-player-character-suite.md](I10-player-character-suite.md)           |
 | I11 | Atmosphere, Audio & Immersion | P2       | I4         | [I11-atmosphere-audio-immersion.md](I11-atmosphere-audio-immersion.md)   |
 | I12 | Community & Content Ecosystem | P3       | I7, I8     | [I12-community-content-ecosystem.md](I12-community-content-ecosystem.md) |
+
+**UX Refactor Cluster (I13–I18):** These six initiatives constitute the major UX
+overhaul. They must be executed in dependency order: I13 (IA and navigation model) is
+the prerequisite for all others. I14 (adaptive shell) and I15 (design system) build in
+parallel on I13's foundation. I16, I17, and I18 build on I13–I15. These initiatives
+will touch nearly every file in `src/` and require a dedicated story branch series.
+Plan for a long-running refactor branch strategy: each initiative is a branch, each
+epic within it is a PR. Features that depend on the new navigation model (I5 AI UX,
+I9 Maps UX, I10 Player UX) should not be started until I13 and I14 are complete.
+
+| I13 | Information Architecture & Navigation | P0 (UX) | — | [I13-information-architecture-navigation.md](I13-information-architecture-navigation.md) |
+| I14 | Adaptive Cross-Platform Shell | P1 (UX) | I13 | [I14-adaptive-cross-platform-shell.md](I14-adaptive-cross-platform-shell.md) |
+| I15 | Design System & Visual Language | P1 (UX) | I13, I14 | [I15-design-system-visual-language.md](I15-design-system-visual-language.md) |
+| I16 | Session-Time UX Reimagined | P1 (UX) | I4, I13, I14, I15 | [I16-session-time-ux-reimagined.md](I16-session-time-ux-reimagined.md) |
+| I17 | Learnability & Progressive Disclosure | P1 (UX) | I13, I14, I15 | [I17-learnability-progressive-disclosure.md](I17-learnability-progressive-disclosure.md) |
+| I18 | Accessibility & Inclusive Design | P1 (UX) | I13, I14, I15 | [I18-accessibility-inclusive-design.md](I18-accessibility-inclusive-design.md) |
