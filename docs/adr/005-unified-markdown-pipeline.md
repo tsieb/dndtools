@@ -62,4 +62,4 @@ Use one unified markdown rendering pipeline:
 - `src/lib/markdown/plugins/rehype-callouts.ts`
 - `src/lib/markdown/plugins/rehype-object-embeds.ts`
 - `src/lib/markdown/pipeline.test.ts`
-- `docs/SECURITY.md`
+- `docs/architecture/SECURITY.md`

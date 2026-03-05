@@ -23,7 +23,7 @@ The five tiers below are ordered from largest to smallest. Each tier answers a d
 
 **Timescale:** Months to quarters
 **Owned by:** Project lead or product direction
-**Lives in:** `docs/ROADMAP.md`, release milestones, project board epics
+**Lives in:** `docs/planning/ROADMAP.md`, release milestones, project board epics
 
 An Initiative is a strategic goal that defines a major direction for the project. It represents a capability, product area, or outcome that takes sustained effort across multiple features to achieve. Initiatives do not map to code directly — they map to intent.
 
@@ -49,7 +49,7 @@ An Initiative is complete when a meaningful product-level outcome has been deliv
 
 **Timescale:** One to several weeks
 **Owned by:** A single developer or small team
-**Lives in:** `docs/TODO.md`, sprint planning, GitHub project columns
+**Lives in:** `docs/planning/initiatives/` story tables, sprint planning, GitHub project columns
 
 An Epic is a coherent feature domain — a system or subsystem that can be described independently and delivers observable value when complete. Epics are the primary unit of feature planning. They sit at the level of a folder, module, or logical capability area.
 
@@ -154,7 +154,7 @@ An Atomic action is complete when it is done. No review, no test gate — just a
 | Tier | Name       | Timescale | Owned By            | Tracked In           | Done When                      |
 | ---- | ---------- | --------- | ------------------- | -------------------- | ------------------------------ |
 | 1    | Initiative | Months    | Project lead        | Roadmap / milestones | Outcome delivered              |
-| 2    | Epic       | Weeks     | Developer / team    | TODO.md / board      | Feature is usable + tested     |
+| 2    | Epic       | Weeks     | Developer / team    | initiatives/ / board | Feature is usable + tested     |
 | 3    | Story      | Days      | One developer       | Issues / PRs         | Reviewed + tests pass          |
 | 4    | Task       | Hours     | One developer       | Commits / todo list  | Code correct + unit tests pass |
 | 5    | Atomic     | Minutes   | Developer (session) | In-session todo      | Checkbox checked               |
@@ -184,15 +184,15 @@ Tier 5 lives in a session context (Claude todo list, scratchpad). Tiers 1–4 sh
 
 ## Mapping to This Project
 
-| Project artifact                 | Tier       |
-| -------------------------------- | ---------- |
-| `docs/ROADMAP.md` phase entries  | Initiative |
-| `docs/TODO.md` feature groups    | Epic       |
-| GitHub issues                    | Story      |
-| Commit messages                  | Task       |
-| Claude `TodoWrite` session items | Atomic     |
+| Project artifact                         | Tier       |
+| ---------------------------------------- | ---------- |
+| `docs/planning/ROADMAP.md` phase entries | Initiative |
+| `docs/planning/initiatives/I*.md` epics  | Epic       |
+| GitHub issues                            | Story      |
+| Commit messages                          | Task       |
+| Claude `TodoWrite` session items         | Atomic     |
 
-When writing new goals into `docs/TODO.md`, each entry should be at the Epic level — concrete enough to own, but broad enough to contain multiple PRs. When opening a GitHub issue, scope it to a single Story — one PR, one reviewable outcome.
+When writing new Epics, add them to the relevant `docs/planning/initiatives/I*.md` file. When opening a GitHub issue, scope it to a single Story — one PR, one reviewable outcome.
 
 ---
 
@@ -201,5 +201,5 @@ When writing new goals into `docs/TODO.md`, each entry should be at the Epic lev
 - **Mega-epics**: An Epic that spans months and contains 20+ Stories is an Initiative wearing an Epic's label. Split it.
 - **Nano-stories**: A Story that is a single file change is a Task. Elevating it wastes issue-tracking overhead.
 - **Floating tasks**: Tasks with no parent Story have no traceability. Every Task should belong to a Story, even informally.
-- **Premature atomics in planning docs**: Atomic actions should not appear in `docs/TODO.md` or GitHub issues. They exist only in active session context.
+- **Premature atomics in planning docs**: Atomic actions should not appear in initiative epic/story files or GitHub issues. They exist only in active session context.
 - **Stale Initiative debt**: Initiatives that sit open for more than two quarters without producing Epics are goals that were never real. Archive or re-scope them.

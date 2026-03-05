@@ -92,13 +92,7 @@ Rules:
 - Skip-to-content present and functional.
 - Avoid keyboard traps in modals/sidebars.
 
-`TODO(APP):` Add automated accessibility assertions in E2E for key routes.
-Reason: backlog item tracked for planned implementation.
-Risk: quality and behavior drift if deferred.
-Target:
-
-- `tests/e2e/*`
-- Playwright setup with axe integration.
+Automated accessibility assertions are implemented in `tests/e2e-desktop/accessibility.spec.ts` with Playwright + axe integration. All 10 a11y gaps closed; CI gate active. See `docs/development/ACCESSIBILITY.md`.
 
 ## 7. Mobile and Responsive Requirements
 

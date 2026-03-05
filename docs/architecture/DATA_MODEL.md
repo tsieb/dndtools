@@ -295,7 +295,7 @@ Mandatory for future changes:
 
 Schema policy and migration workflow are defined in:
 
-- `docs/SCHEMA_MIGRATIONS.md`
+- `docs/operations/SCHEMA_MIGRATIONS.md`
 - `mcp/migrations.ts`
 
 ## 8. MCP Calendar Contracts

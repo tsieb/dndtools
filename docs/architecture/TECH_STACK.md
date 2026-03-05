@@ -52,13 +52,8 @@ This is the verified stack in the repository today.
 - Playwright (e2e)
 - testing-library for component-level tests when needed
 
-## Current Stack Gaps
+## Implemented Stack Additions
 
-`TODO(APP):` Add automated accessibility checks (axe/Playwright integration).
-Reason: keyboard and semantics are manually tested, but CI lacks automated a11y assertions.
-Target: Playwright + axe integration under `tests/e2e/**` and CI workflow wiring.
-Risk: accessibility regressions may ship undetected.
-
-- CI workflows now enforce lint/typecheck/unit tests, docs validation, desktop E2E, and desktop build matrix.
-
-- IPC storage dispatch now uses explicit channels with payload schemas; follow-up security work remains in threat-model documentation.
+- Automated accessibility checks: Playwright + axe integration in `tests/e2e-desktop/accessibility.spec.ts`; WCAG 2.1 AA CI gate active. See `docs/development/ACCESSIBILITY.md`.
+- CI workflows enforce: lint/typecheck/unit tests, docs validation, desktop E2E critical workflows, and desktop build matrix.
+- IPC storage dispatch uses explicit named channels with Zod payload schemas (`electron/ipc-schemas.ts`). Security regression tests in `electron/ipc-security.test.ts`.

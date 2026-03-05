@@ -91,9 +91,12 @@ pnpm desktop:package -- --dir
 
 ## 7. Release Workflow
 
-Workflow: `.github/workflows/release-assets.yml`
+Two workflows cooperate:
 
-Behavior:
+- **`.github/workflows/release-please.yml`** — listens for merged PRs and creates/updates a release PR using the conventional-commit log. When the release PR is merged, it creates a GitHub release tag.
+- **`.github/workflows/release-assets.yml`** — triggers on the GitHub release tag. Builds and signs all platform artifacts, then uploads them to the release.
+
+`release-assets.yml` behavior:
 
 1. Validate release notes include `## Human Reviewed Notes`.
 2. Build signed installers in OS matrix.
@@ -102,7 +105,54 @@ Behavior:
 5. Build and sign `SHA256SUMS.txt`.
 6. Upload all assets to the GitHub release tag.
 
-## 8. Rotation & Incident Response
+## 8. Android Sideload Installation
+
+For installing signed APKs directly on a device:
+
+1. Download the signed APK from release assets (or copy local build output from `android/app/build/outputs/apk/release/app-release.apk`).
+2. On Android, enable install permission for your installer app:
+   - Android 13+: Settings → Apps → Special access → Install unknown apps.
+3. Open the APK and confirm installation.
+
+ADB alternative:
+
+```bash
+adb install -r android/app/build/outputs/apk/release/app-release.apk
+```
+
+Local signed build:
+
+1. Create `android/keystore.properties`:
+
+```properties
+storeFile=app/dndtools-release.jks
+storePassword=<store-password>
+keyAlias=<key-alias>
+keyPassword=<key-password>
+```
+
+2. Place keystore at `android/app/dndtools-release.jks`.
+3. Run:
+
+```bash
+pnpm android:sync
+cd android
+./gradlew assembleRelease
+```
+
+### First-Run Vault Selection (Android)
+
+1. Launch the app.
+2. Open Settings → Vault.
+3. Under "Android Vault Directory", set the desired relative root (default: `dndtools/vault`).
+4. Save and restart the app.
+
+Notes:
+
+- Vault data is stored in app-private Android storage through Capacitor Filesystem.
+- Desktop-only MCP sidecar and desktop runtime controls are unavailable on Android.
+
+## 9. Rotation & Incident Response
 
 Certificate/key rotation cadence:
 

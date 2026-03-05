@@ -43,6 +43,8 @@ Recommendation:
 
 ## 4. Tool Contract (Current)
 
+Canonical registration: `mcp/tools/index.ts` (source of truth for the full list and count).
+
 ### Notes
 
 - `list_notes`
@@ -74,14 +76,15 @@ Recommendation:
 - `get_campaign_health`
 - `get_coverage_gaps`
 - `get_stale_notes`
-- `get_session_prep_bundle`
-- `get_recap_generation_bundle`
-- `get_continuity_check_bundle`
 - `get_folder_tree`
 - `get_recent_activity`
 - `get_link_graph`
-- `vault_health_check`
+- `get_calendar_events`
 - `get_open_threads`
+- `get_session_prep_bundle`
+- `get_recap_generation_bundle`
+- `get_continuity_check_bundle`
+- `vault_health_check`
 
 ### Session Boards
 
@@ -206,21 +209,36 @@ Tool permissions are enforced server-side:
 - `write-staged`: allowed in staged and direct modes
 - `write-direct`: blocked in staged mode; requires direct mode
 
+Permission classes from tool metadata:
+
+- `read`: Returns data without mutating vault state.
+- `write`: Mutates vault state immediately.
+- `staged_write`: Proposes changes for approval through staged storage.
+
 Retry guidance:
 
 - idempotent tools: safe to retry directly
 - non-idempotent tools: pass `idempotencyKey` on retries
 - if `MCP_PERMISSION_DENIED` is returned for direct-write tools, restart MCP with `--direct`
+- Safe retries: `read` tools and idempotent `write` operations.
+- Cautious retries: non-idempotent writes unless caller provides an idempotency key.
+
+Update policy when adding or changing a tool:
+
+1. Update registration in `mcp/tools/index.ts`.
+2. Update contract metadata in `mcp/tools/shared/contracts.ts`.
+3. Add or update a dedicated test in `mcp/tools/**`.
+4. Update Section 4 of this document if the tool contract surface changes.
 
 ## 10. MCP Inspector
 
 Inspector workflow is documented in:
 
-- `docs/MCP_INSPECTOR_WORKFLOW.md`
+- `docs/operations/MCP_INSPECTOR_WORKFLOW.md`
 
 This flow is tied to the runtime model in:
 
-- `docs/ARCHITECTURE.md` section 1.3 and section 5.
+- `docs/architecture/ARCHITECTURE.md` section 1.3 and section 5.
 
 ## 11. Known Gaps
 

@@ -9,7 +9,7 @@ interface ValidationIssue {
 
 const repoRoot = process.cwd();
 const docsRoot = path.join(repoRoot, 'docs');
-const schemaDocPath = path.join(docsRoot, 'SCHEMA_MIGRATIONS.md');
+const schemaDocPath = path.join(docsRoot, 'operations', 'SCHEMA_MIGRATIONS.md');
 const migrationsSourcePath = path.join(repoRoot, 'mcp', 'migrations.ts');
 const pathPrefixAllowlist = [
 	'.github/',
@@ -212,8 +212,8 @@ async function validateDocs(): Promise<ValidationIssue[]> {
 		const content = await fs.readFile(markdownFile, 'utf-8');
 		issues.push(...validateTodoFields(content, markdownFile));
 
-		// MASTER_PLAN is intentionally aspirational and references future files by design.
-		if (path.basename(markdownFile) === 'MASTER_PLAN.md') {
+		// Initiative files are intentionally aspirational and reference future files by design.
+		if (markdownFile.includes(path.join('planning', 'initiatives'))) {
 			continue;
 		}
 
@@ -243,7 +243,7 @@ async function validateDocs(): Promise<ValidationIssue[]> {
 	for (const key of ['notes', 'objects', 'metadata'] as const) {
 		if (docVersions[key] !== sourceVersions[key]) {
 			issues.push({
-				file: 'docs/SCHEMA_MIGRATIONS.md',
+				file: 'docs/operations/SCHEMA_MIGRATIONS.md',
 				line: 1,
 				message: `Schema version mismatch for "${key}": docs=${docVersions[key]} source=${sourceVersions[key]}`,
 			});

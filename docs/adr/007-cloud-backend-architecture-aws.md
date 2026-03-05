@@ -61,7 +61,7 @@ Adopt AWS Cognito + S3 + API Gateway as the target cloud architecture:
 
 ## Verification and Evidence
 
-- `docs/MASTER_PLAN.md`
-- `docs/SECURITY.md`
-- `docs/ROADMAP.md`
-- `docs/ARCHITECTURE.md`
+- `docs/planning/initiatives/README.md`
+- `docs/architecture/SECURITY.md`
+- `docs/planning/ROADMAP.md`
+- `docs/architecture/ARCHITECTURE.md`

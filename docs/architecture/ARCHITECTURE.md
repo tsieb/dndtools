@@ -284,7 +284,7 @@ Current issue: index rebuild only if empty; stale/corrupt states are not fully d
 Target files:
 
 - `mcp/storage.ts`
-- `docs/TODO.md` (tracking)
+- `docs/planning/initiatives/README.md` (tracking)
 
 Implemented reliability telemetry baseline:
 

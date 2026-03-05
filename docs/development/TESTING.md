@@ -88,12 +88,26 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
 - Desktop smoke and critical routes:
   - `tests/e2e-desktop/desktop-smoke.spec.ts`
   - `tests/e2e-desktop/critical-workflows.spec.ts`
-- Route matrix:
-  - `docs/E2E_COVERAGE_MATRIX.md`
 - Browser-focused exploratory suite:
   - `tests/e2e/navigation.spec.ts`
   - `tests/e2e/note-crud.spec.ts`
   - `tests/e2e/search.spec.ts`
+
+#### Desktop Route Coverage Matrix
+
+Runner: Playwright (`playwright.desktop.config.ts`). Merge-blocking policy: desktop critical E2E enforced in CI (`.github/workflows/ci.yml` job: `desktop-e2e-critical`) and PR workflow (`.github/workflows/e2e.yml`).
+
+| Route               | Covered workflows                                                               | Test evidence                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `/`                 | Vault opens, app shell renders, first-run onboarding checklist is actionable    | `desktop-smoke.spec.ts`, `critical-workflows.spec.ts` ("vault opens and first-run onboarding is actionable") |
+| `/notes`            | Notes listing and note-entry navigation                                         | `critical-workflows.spec.ts` ("note CRUD workflow", "wikilink navigation and search workflows")              |
+| `/notes/[id]`       | Note viewer rendering and wikilink navigation                                   | `critical-workflows.spec.ts` ("wikilink navigation and search workflows")                                    |
+| `/notes/[id]/edit`  | Note create/update flow, object creation/embed flow                             | `critical-workflows.spec.ts` ("note CRUD workflow", "object creation workflow")                              |
+| `/search`           | Search query execution and result rendering                                     | `critical-workflows.spec.ts` ("wikilink navigation and search workflows")                                    |
+| `/timeline`         | Chronological world/session timeline rendering with arc and participant filters | `critical-workflows.spec.ts` ("timeline route shows world events and linked session logs with filters")      |
+| `/settings?tab=mcp` | MCP pending-change review and approval lifecycle                                | `critical-workflows.spec.ts` ("MCP pending review approves staged changes from settings")                    |
+| `/session-board`    | Session board creation and note-tile management                                 | `critical-workflows.spec.ts` ("session board management creates board and attaches notes")                   |
+| `/encounter/new`    | Encounter builder route availability and encounter-tile creation flow           | `critical-workflows.spec.ts` ("encounter builder route renders and supports encounter tile creation")        |
 
 ### 3.3 Performance Regression
 
@@ -103,7 +117,7 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
   - `tests/perf/performance-baseline.json`
   - `scripts/compare-performance-baseline.ts`
 - Enforced budgets live in:
-  - `docs/ARCHITECTURE.md` (Section 8.1)
+  - `docs/development/PERFORMANCE.md` (Section 1)
 - Scheduled workflow:
   - `.github/workflows/performance-regression.yml`
 
@@ -123,7 +137,7 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
 - User-critical UI flow changes include e2e coverage.
 - Storage or MCP write-path changes include integrity/state-transition tests.
 - Ranking/suggestion logic must include deterministic ordering tests.
-- Changes touching covered routes must preserve `docs/E2E_COVERAGE_MATRIX.md` expectations.
+- Changes touching covered routes must preserve the desktop route coverage matrix in Section 3.2 above.
 
 ## 5. High-Value Next Expansions
 

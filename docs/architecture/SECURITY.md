@@ -304,12 +304,12 @@ routes if the link resolver does not validate the target.
 
 ## 8. Risk Register
 
-| ID  | Description                                     | Severity | Status    | Remediation Target |
-| --- | ----------------------------------------------- | -------- | --------- | ------------------ |
-| R1  | `setSetting` value not schema-validated per key | Low      | Closed    | Epic 1.5           |
-| R2  | rehype-sanitize defaults must not be relaxed    | Low      | Monitor   | Ongoing            |
-| R3  | Cloud sync will expand attack surface           | Medium   | Future    | Phase 5 pre-launch |
-| R4  | `trusted` MCP agents bypass write review        | Low      | By-design | Document in UI     |
+| ID  | Description                                     | Severity | Status    | Remediation Target | Owner       | Review Cadence |
+| --- | ----------------------------------------------- | -------- | --------- | ------------------ | ----------- | -------------- |
+| R1  | `setSetting` value not schema-validated per key | Low      | Closed    | Epic 1.5           | Engineering | —              |
+| R2  | rehype-sanitize defaults must not be relaxed    | Low      | Monitor   | Ongoing            | Engineering | Each dep bump  |
+| R3  | Cloud sync will expand attack surface           | Medium   | Future    | Phase 5 pre-launch | Engineering | Pre-Phase 5    |
+| R4  | `trusted` MCP agents bypass write review        | Low      | By-design | Document in UI     | Engineering | Annual         |
 
 ---
 

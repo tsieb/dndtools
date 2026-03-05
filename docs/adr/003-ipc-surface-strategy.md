@@ -61,4 +61,4 @@ IPC uses explicit, named channels with runtime schema validation:
 - `electron/preload.ts`
 - `src/lib/platform/desktop/bridge.ts`
 - `electron/ipc-security.test.ts`
-- `docs/SECURITY.md`
+- `docs/architecture/SECURITY.md`

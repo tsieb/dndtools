@@ -180,7 +180,7 @@ A story branch is ready to merge when:
 
 ### 4.1 Scope
 
-One PR per Story. A Story is the smallest piece of work that provides standalone value (see `docs/PLANNING_TIERS.md`). PRs covering multiple stories are only acceptable if the stories are strictly sequential and the combination was pre-planned.
+One PR per Story. A Story is the smallest piece of work that provides standalone value (see `docs/planning/PLANNING_TIERS.md`). PRs covering multiple stories are only acceptable if the stories are strictly sequential and the combination was pre-planned.
 
 ### 4.2 PR Title
 
@@ -257,9 +257,9 @@ Available on free personal GitHub accounts:
 
 | Document                               | Purpose                                             |
 | -------------------------------------- | --------------------------------------------------- |
-| `docs/MASTER_PLAN.md`                  | Epic and Story identifiers for branch naming        |
-| `docs/PLANNING_TIERS.md`               | Initiative → Epic → Story → Task → Atomic hierarchy |
-| `docs/DEVELOPMENT.md`                  | Canonical quality commands and boundary rules       |
+| `docs/planning/initiatives/README.md`  | Epic and Story identifiers for branch naming        |
+| `docs/planning/PLANNING_TIERS.md`      | Initiative → Epic → Story → Task → Atomic hierarchy |
+| `docs/development/DEVELOPMENT.md`      | Canonical quality commands and boundary rules       |
 | `.github/workflows/ci.yml`             | Core quality and docs validation gates              |
 | `.github/workflows/e2e.yml`            | Desktop E2E CI definition                           |
 | `.github/workflows/desktop-build.yml`  | Cross-platform desktop build + smoke matrix         |

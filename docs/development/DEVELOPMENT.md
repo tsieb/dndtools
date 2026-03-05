@@ -52,7 +52,7 @@ For every non-trivial change:
 4. Run `pnpm test:e2e` when UI behavior changed.
 5. Update docs when contracts or architecture changed.
 
-For story-scoped work, branch before starting — see `docs/GIT_WORKFLOW.md`
+For story-scoped work, branch before starting — see `docs/development/GIT_WORKFLOW.md`
 for branch naming, commit conventions, PR process, and recovery guidance.
 
 ## 4. Boundary Rules (Mandatory)
@@ -82,6 +82,7 @@ A task is complete only when all are true:
 - docs synced
 - no boundary violations introduced
 - no known regressions in lint/typecheck/tests
+- performance budgets not regressed (see `docs/development/PERFORMANCE.md` Section 1 for thresholds)
 
 ## 7. Documentation Rules
 

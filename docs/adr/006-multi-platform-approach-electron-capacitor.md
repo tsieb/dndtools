@@ -61,9 +61,9 @@ Adopt a shared renderer/domain strategy with runtime-specific shells:
 
 ## Verification and Evidence
 
-- `docs/MASTER_PLAN.md`
-- `docs/TECH_STACK.md`
-- `docs/ROADMAP.md`
+- `docs/planning/initiatives/README.md`
+- `docs/architecture/TECH_STACK.md`
+- `docs/planning/ROADMAP.md`
 - `src/lib/platform/storage/index.ts`
 - `src/lib/platform/storage/electron-adapter.ts`
 - `src/lib/types/storage.ts`

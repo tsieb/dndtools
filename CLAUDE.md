@@ -96,7 +96,7 @@ gh pr merge --auto --squash
 **You may merge your own PRs when CI passes** — no human approval required.
 
 Full branch strategy, commit sizing, PR process, and recovery:
-→ `docs/GIT_WORKFLOW.md`
+→ `docs/development/GIT_WORKFLOW.md`
 
 ## Common Task Notes
 
@@ -105,19 +105,19 @@ Full branch strategy, commit sizing, PR process, and recovery:
 1. Add tool file under correct `mcp/tools/<domain>/` folder.
 2. Register in `mcp/tools/index.ts`.
 3. Add tests for success, validation failure, and edge cases.
-4. Update `docs/AGENTIC_NOTES_WORKFLOW.md` if tool contract changes.
+4. Update `docs/reference/AGENTIC_NOTES_WORKFLOW.md` if tool contract changes.
 
 ### Storage Contract Changes
 
 1. Update `src/lib/types/storage.ts`.
 2. Update both adapters:
 
-- `src/lib/storage/indexeddb-adapter.ts`
+- `src/lib/platform/storage/indexeddb-adapter.ts`
 - `mcp/storage.ts`
 
 3. Update Electron adapter bridge if needed.
 4. Add migration/tests.
-5. Update `docs/DATA_MODEL.md` and `docs/ARCHITECTURE.md`.
+5. Update `docs/architecture/DATA_MODEL.md` and `docs/architecture/ARCHITECTURE.md`.
 
 ### UI Workflow Changes
 
@@ -134,7 +134,7 @@ Full branch strategy, commit sizing, PR process, and recovery:
 - State managed via Svelte 5 runes classes in `src/lib/state/*.svelte.ts`.
 - MCP server (`mcp/`) for AI agent vault access:
   - Uses `FileSystemAdapter` (reads/writes markdown files on disk)
-  - 30+ tools across `vault/`, `notes/`, `objects/`, `boards/`, `search/` domains
+  - 43+ tools across `vault/`, `notes/`, `objects/`, `boards/`, `search/`, `dice/`, `random/` domains (canonical list: `mcp/tools/index.ts`)
   - Tool contract framework (`mcp/tools/shared/contracts.ts`) — permissions, idempotency, retry
   - Schema migrations (`mcp/migrations.ts`) — versioned, with checkpoint/rollback
   - Staged storage (`mcp/staged-storage.ts`) — MCP writes staged for human review by default
@@ -143,15 +143,21 @@ Full branch strategy, commit sizing, PR process, and recovery:
 ## Documentation Map
 
 - `CLAUDE.md` — agentic development guide (root, authoritative)
-- `docs/MASTER_PLAN.md` — comprehensive initiative/epic/story roadmap
-- `docs/GIT_WORKFLOW.md` — branch strategy, commit format, PR process, recovery
-- `docs/PLANNING_TIERS.md` — five-tier planning hierarchy
-- `docs/SCHEMA_MIGRATIONS.md` — versioning policy, migration engine, rollback
-- `docs/MCP_INSPECTOR_WORKFLOW.md` — testing MCP tools interactively
-- `docs/ARCHITECTURE.md` — system design & component map
-- `docs/DEVELOPMENT.md` — dev standards, workflow, tooling
-- `docs/DATA_MODEL.md` — data structures & storage
-- `docs/AGENTIC_NOTES_WORKFLOW.md` — MCP tool contracts for agent note workflows
+- `docs/README.md` — documentation hub and guided reading index
+- `docs/GLOSSARY.md` — domain terminology definitions
+- `docs/CONTRIBUTING.md` — onboarding and first-run guide
+
+Architecture: `docs/architecture/` — ARCHITECTURE.md, DATA_MODEL.md, TECH_STACK.md, SECURITY.md
+
+Development: `docs/development/` — DEVELOPMENT.md, GIT_WORKFLOW.md, TESTING.md, PERFORMANCE.md, ACCESSIBILITY.md, UX_GUIDELINES.md, OWNERSHIP.md
+
+Planning: `docs/planning/` — ROADMAP.md, PLANNING_TIERS.md, `initiatives/README.md` (initiative map + vision), `initiatives/I1-*.md`…`I12-*.md` (per-initiative epic/story details)
+
+Operations: `docs/operations/` — SCHEMA_MIGRATIONS.md, MCP_INSPECTOR_WORKFLOW.md, RELEASE.md, MOBILE.md
+
+Reference: `docs/reference/` — AGENTIC_NOTES_WORKFLOW.md (MCP tool contracts), RANDOM_TABLES.md, PROJECT_STRUCTURE.md
+
+Architecture Decisions: `docs/adr/README.md` — ADR index (ADR-001 through ADR-010)
 
 ## Development Phases
 
@@ -191,7 +197,7 @@ Full branch strategy, commit sizing, PR process, and recovery:
 
 ## Current Known Gaps to Respect
 
-- CI workflows exist (`.github/workflows/ci.yml`, `.github/workflows/e2e.yml`) but are not yet comprehensive: desktop build validation, coverage threshold enforcement, and cross-platform matrix testing are not yet added.
+- CI workflows exist (`.github/workflows/ci.yml`, `.github/workflows/e2e.yml`) but are not yet comprehensive: coverage threshold enforcement and cross-platform matrix testing are not yet added.
 - MCP tool-level test coverage is incomplete — many tools rely only on `all-tools.test.ts` contract tests; dedicated per-tool unit/integration tests are sparse.
-- IPC storage dispatch is broader than ideal and should be tightened (tracked as Epic 1.4 in `docs/MASTER_PLAN.md`).
+- Epic 1.4 (IPC Hardening) is substantially complete: explicit named channels, Zod schema validation, `SECURITY.md` threat model, and IPC security regression tests are all in place. One residual gap: `dndtools:storage:clear-changelog` handler does not use `parseIpcArg()` validation.
 - Atomic filesystem writes are implemented in `mcp/safe-write.ts` and `mcp/storage.ts`; write-journal recovery runs at startup. This is substantially complete.

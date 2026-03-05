@@ -86,7 +86,7 @@ Workflow files:
 ## 6) Evidence Map by Story
 
 - S6.4.1 (audit + register):
-  - This file (`docs/ACCESSIBILITY.md`) with criteria/severity/owner register.
+  - This file (`docs/development/ACCESSIBILITY.md`) with criteria/severity/owner register.
 - S6.4.2 (automated CI tests):
   - `tests/e2e-desktop/accessibility.spec.ts`
   - `package.json` script `test:e2e:desktop:a11y`

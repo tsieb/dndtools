@@ -64,4 +64,4 @@ Use semantic, algorithmic bundle tools as the default high-level read path:
 - `mcp/tools/vault/vault-intelligence.ts`
 - `mcp/tools/shared/contracts.ts`
 - `mcp/tools/shared/contract-server.ts`
-- `docs/AGENTIC_NOTES_WORKFLOW.md`
+- `docs/reference/AGENTIC_NOTES_WORKFLOW.md`
