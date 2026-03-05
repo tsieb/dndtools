@@ -5,6 +5,7 @@
 		variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
 		size?: 'sm' | 'md' | 'lg';
 		disabled?: boolean;
+		loading?: boolean;
 		onclick?: () => void;
 		type?: 'button' | 'submit';
 		title?: string;
@@ -16,15 +17,17 @@
 		variant = 'secondary',
 		size = 'md',
 		disabled = false,
+		loading = false,
 		onclick,
 		type = 'button',
 		title,
 		ariaLabel,
 		children,
 	}: Props = $props();
+	const isDisabled = $derived(disabled || loading);
 
 	const baseClasses =
-		'inline-flex min-h-11 min-w-11 items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed';
+		'relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-md font-medium transition-[transform,colors] active:scale-[0.97] active:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100';
 
 	const sizeClasses = {
 		sm: 'px-2 py-1 text-sm gap-1',
@@ -41,15 +44,36 @@
 			'text-ink-muted hover:bg-surface-alt hover:text-ink dark:text-tavern-muted dark:hover:bg-tavern-surface-alt dark:hover:text-tavern-text',
 		danger: 'bg-error text-white hover:bg-red-800 dark:bg-tavern-error dark:hover:bg-red-700',
 	};
+
+	const spinnerClasses = {
+		sm: 'h-3 w-3 border-[1.5px]',
+		md: 'h-[14px] w-[14px] border-2',
+		lg: 'h-4 w-4 border-2',
+	};
 </script>
 
 <button
 	{type}
-	{disabled}
+	disabled={isDisabled}
 	{title}
 	aria-label={ariaLabel ?? title}
+	aria-busy={loading || undefined}
 	class="{baseClasses} {sizeClasses[size]} {variantClasses[variant]}"
 	{onclick}
 >
-	{@render children()}
+	{#if loading}
+		<span
+			class="pointer-events-none absolute inset-0 flex items-center justify-center"
+			aria-hidden="true"
+		>
+			<span
+				class="inline-block rounded-full border-current border-r-transparent animate-spin motion-reduce:animate-none motion-reduce:opacity-80 {spinnerClasses[
+					size
+				]}"
+			></span>
+		</span>
+	{/if}
+	<span class={loading ? 'invisible' : ''}>
+		{@render children()}
+	</span>
 </button>

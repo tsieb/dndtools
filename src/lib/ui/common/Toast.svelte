@@ -1,30 +1,58 @@
 <script lang="ts">
 	import { toastState } from '$lib/state/toast.svelte.js';
+	import { ui } from '$lib/state/ui.svelte.js';
+
+	let visibleToasts = $derived(toastState.toasts.slice(-4));
+	let hiddenToastCount = $derived(Math.max(0, toastState.toasts.length - visibleToasts.length));
 </script>
 
-{#if toastState.toasts.length > 0}
+{#if visibleToasts.length > 0}
 	<div
-		class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none"
+		class="fixed right-4 z-[100] flex flex-col gap-2 pointer-events-none {ui.isMobile
+			? 'bottom-[calc(1rem+env(safe-area-inset-bottom)+4rem)]'
+			: 'bottom-4'}"
 		aria-live="polite"
 	>
-		{#each toastState.toasts as toast (toast.id)}
+		{#if hiddenToastCount > 0}
 			<div
-				class="pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border text-sm font-medium animate-slide-in
+				class="pointer-events-auto rounded-lg border border-border/50 bg-surface px-3 py-1.5 text-xs font-medium text-ink shadow-md dark:border-tavern-border/50 dark:bg-tavern-surface dark:text-tavern-text"
+			>
+				+{hiddenToastCount} more
+			</div>
+		{/if}
+		{#each visibleToasts as toast (toast.id)}
+			<div
+				class="pointer-events-auto relative flex items-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium shadow-md backdrop-blur-sm animate-slide-in
 					{toast.type === 'success'
-					? 'bg-success/10 border-success/30 text-success dark:bg-tavern-success/10 dark:border-tavern-success/30 dark:text-tavern-success'
+					? 'bg-surface border-success/60 text-success dark:bg-tavern-surface dark:border-tavern-success/60 dark:text-tavern-success'
 					: toast.type === 'error'
-						? 'bg-error/10 border-error/30 text-error dark:bg-tavern-error/10 dark:border-tavern-error/30 dark:text-tavern-error'
-						: 'bg-accent/10 border-accent/30 text-accent dark:bg-tavern-accent/10 dark:border-tavern-accent/30 dark:text-tavern-accent'}"
-				role="status"
+						? 'bg-surface border-error/60 text-error dark:bg-tavern-surface dark:border-tavern-error/60 dark:text-tavern-error'
+						: toast.type === 'warning'
+							? 'bg-surface border-warning/60 text-warning dark:bg-tavern-surface dark:border-tavern-warning/60 dark:text-tavern-warning'
+							: 'bg-surface border-accent/60 text-accent dark:bg-tavern-surface dark:border-tavern-accent/60 dark:text-tavern-accent'}"
+				role={toast.type === 'error' || toast.type === 'warning' ? 'alert' : 'status'}
+				onmouseenter={() => toastState.pause(toast.id)}
+				onmouseleave={() => toastState.resume(toast.id)}
+				onfocusin={() => toastState.pause(toast.id)}
+				onfocusout={() => toastState.resume(toast.id)}
 			>
 				<span class="shrink-0">
-					{#if toast.type === 'success'}&#10003;{:else if toast.type === 'error'}&#10007;{:else}&#8505;{/if}
+					{#if toast.type === 'success'}
+						&#10003;
+					{:else if toast.type === 'error'}
+						&#10007;
+					{:else if toast.type === 'warning'}
+						&#9888;
+					{:else}
+						&#8505;
+					{/if}
 				</span>
 				<span>{toast.message}</span>
 				<button
-					class="ml-2 opacity-60 hover:opacity-100 transition-opacity"
+					class="ml-2 rounded p-0.5 opacity-70 transition-[transform,opacity] hover:opacity-100 active:scale-[0.97]"
 					onclick={() => toastState.remove(toast.id)}
 					aria-label="Dismiss"
+					title="Dismiss notification"
 				>
 					&#10005;
 				</button>
