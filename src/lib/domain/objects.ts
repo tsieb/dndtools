@@ -24,6 +24,7 @@ import type {
 } from '$lib/types/object.js';
 import { createVaultObjectId } from '$lib/types/object.js';
 import { normalizeContentVisibility } from '$lib/types/visibility.js';
+import { normalizeMapFogState } from '$lib/domain/map-fog.js';
 
 const DEFAULT_ABILITY_SCORES: AbilityScores = {
 	str: 10,
@@ -295,6 +296,29 @@ export function normalizeMapData(value: Partial<MapData> | undefined): MapData {
 		layers = createDefaultMapAnnotationLayers();
 	}
 	const pois = normalizeMapPois(value?.pois, layers ?? []);
+	const rawLastSessionFog = value?.lastSessionFog;
+	const lastSessionFog =
+		rawLastSessionFog &&
+		typeof rawLastSessionFog === 'object' &&
+		rawLastSessionFog !== null &&
+		!Array.isArray(rawLastSessionFog)
+			? (() => {
+					const source = rawLastSessionFog as unknown as Record<string, unknown>;
+					const fogState = normalizeMapFogState(source.fogState, {
+						fallbackUpdatedAt: typeof source.savedAt === 'string' ? source.savedAt : undefined,
+					});
+					if (!fogState) return undefined;
+					return {
+						savedAt:
+							typeof source.savedAt === 'string' && source.savedAt.trim()
+								? source.savedAt
+								: fogState.updatedAt,
+						sourceBoardId: toOptionalTrimmedString(source.sourceBoardId),
+						sourceCombatTileId: toOptionalTrimmedString(source.sourceCombatTileId),
+						fogState,
+					};
+				})()
+			: undefined;
 	return {
 		filePath,
 		mimeType: value?.mimeType?.trim() || undefined,
@@ -340,6 +364,7 @@ export function normalizeMapData(value: Partial<MapData> | undefined): MapData {
 			: undefined,
 		layers,
 		pois,
+		lastSessionFog,
 	};
 }
 

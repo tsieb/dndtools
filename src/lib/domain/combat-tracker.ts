@@ -25,6 +25,7 @@ import type {
 } from '$lib/types/session-board.js';
 import type { VaultObject, VaultObjectId } from '$lib/types/object.js';
 import { nowISO } from '$lib/utils/date.js';
+import { countFogPolygonsByMode, normalizeMapFogState } from '$lib/domain/map-fog.js';
 
 export const DND5E_CONDITIONS = [
 	'Blinded',
@@ -287,7 +288,8 @@ function normalizeCombatMapHistoryEntry(
 		value.kind === 'status' ||
 		value.kind === 'terrain' ||
 		value.kind === 'template' ||
-		value.kind === 'sync'
+		value.kind === 'sync' ||
+		value.kind === 'fog'
 			? value.kind
 			: null;
 	if (!kind) return null;
@@ -369,32 +371,7 @@ function normalizeCombatMapState(
 				? requestedSelectedCombatantId
 				: null;
 
-	const fogState =
-		isRecord(value.fogState) && Array.isArray(value.fogState.revealedPolygons)
-			? {
-					revealedPolygons: value.fogState.revealedPolygons
-						.map((polygon) => {
-							if (!isRecord(polygon) || !Array.isArray(polygon.points)) return null;
-							const points = polygon.points
-								.map((point) => {
-									if (!isRecord(point)) return null;
-									const x = asFiniteNumber(point.x);
-									const y = asFiniteNumber(point.y);
-									if (x === null || y === null) return null;
-									return {
-										x: Math.max(0, Math.min(1, x)),
-										y: Math.max(0, Math.min(1, y)),
-									};
-								})
-								.filter((point): point is { x: number; y: number } => !!point)
-								.slice(0, 2_000);
-							if (points.length < 3) return null;
-							return { points };
-						})
-						.filter((polygon): polygon is { points: Array<{ x: number; y: number }> } => !!polygon)
-						.slice(0, 500),
-				}
-			: undefined;
+	const fogState = normalizeMapFogState(value.fogState);
 
 	return {
 		mapId: normalizeText(value.mapId, 120) || null,
@@ -1166,7 +1143,8 @@ export function buildEncounterLogDraft(
 		`- Token Placements: ${mapState.tokens.length}`,
 		`- AoE Templates: ${mapState.templates.length}`,
 		`- Difficult Terrain Cells: ${mapState.difficultTerrain.length}`,
-		`- Fog State Polygons: ${mapState.fogState?.revealedPolygons.length ?? 0}`,
+		`- Fog Reveals: ${countFogPolygonsByMode(mapState.fogState).reveal}`,
+		`- Fog Refog Operations: ${countFogPolygonsByMode(mapState.fogState).refog}`,
 		'',
 		'### Combat Map History',
 		...mapHistoryLines,

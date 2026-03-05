@@ -29,6 +29,7 @@
 	import { buildRandomTableIndex, rollRandomTable } from '$lib/domain/random-tables.js';
 	import { getSessionTimelineEventId, isSessionNote } from '$lib/domain/session-timeline.js';
 	import { reportRuntimeError } from '$lib/runtime/diagnostics.js';
+	import { normalizeMapData, summarizeVaultObject } from '$lib/domain/objects.js';
 	import type {
 		EncounterNotableRollKind,
 		SessionBoardCombatState,
@@ -581,6 +582,43 @@
 		return null;
 	}
 
+	async function persistMapFogSnapshotAtSessionEnd(): Promise<void> {
+		const mapId = combat.mapState.mapId?.trim();
+		if (!mapId || !combat.mapState.fogState) return;
+		try {
+			const storage = getStorage();
+			const object = await storage.getObject(mapId as never);
+			if (!object || object.type !== 'map') return;
+			const savedAt = nowISO();
+			const updated = {
+				...object,
+				data: normalizeMapData({
+					...object.data,
+					lastSessionFog: {
+						savedAt,
+						sourceCombatTileId: tile.id,
+						fogState: combat.mapState.fogState,
+					},
+				}),
+				updatedAt: savedAt,
+			};
+			await storage.saveObject({
+				...updated,
+				summary: summarizeVaultObject(updated) || object.summary,
+			});
+		} catch (error) {
+			await reportRuntimeError({
+				category: 'storage',
+				code: 'MAP_FOG_SNAPSHOT_SAVE_FAILED',
+				error,
+				context: {
+					mapId,
+					tileId: tile.id,
+				},
+			});
+		}
+	}
+
 	async function saveEncounterLog(): Promise<void> {
 		try {
 			const rewards = buildEncounterRewardSummary(combat);
@@ -640,6 +678,7 @@
 					},
 				},
 			});
+			await persistMapFogSnapshotAtSessionEnd();
 			persist({
 				...combat,
 				endedAt: nowISO(),

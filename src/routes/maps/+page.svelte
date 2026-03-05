@@ -33,6 +33,16 @@
 		reachableCells,
 		type GridCell,
 	} from '$lib/domain/combat-map.js';
+	import {
+		appendFogPolygonOperation,
+		countFogPolygonsByMode,
+		createDefaultMapFogState,
+		normalizeMapFogState,
+		normalizeLassoPoints,
+		polygonFromCircle,
+		polygonFromRectangle,
+		revealBoundsFromFogState,
+	} from '$lib/domain/map-fog.js';
 	import { noteToVaultObject } from '$lib/domain/object-notes.js';
 	import { createDefaultCombatMapState, normalizeCombatState } from '$lib/domain/combat-tracker.js';
 	import {
@@ -52,6 +62,13 @@
 		MapPoiData,
 		MapViewportData,
 	} from '$lib/types/object.js';
+	import type {
+		MapFogBrushShape,
+		MapFogOperationMode,
+		MapFogPoint,
+		MapFogPolygonOperation,
+		MapFogState,
+	} from '$lib/types/map-fog.js';
 	import type {
 		SessionBoardCombatMapTemplate,
 		SessionBoardCombatState,
@@ -91,6 +108,17 @@
 		{ value: 'line', label: 'Line' },
 		{ value: 'cube', label: 'Cube' },
 	];
+
+	const FOG_TOOL_OPTIONS: readonly { value: MapFogBrushShape; label: string }[] = [
+		{ value: 'circle', label: 'Brush' },
+		{ value: 'rectangle', label: 'Rectangle' },
+		{ value: 'polygon', label: 'Lasso' },
+	];
+	const FOG_MODE_OPTIONS: readonly { value: MapFogOperationMode; label: string }[] = [
+		{ value: 'reveal', label: 'Reveal' },
+		{ value: 'refog', label: 'Re-fog' },
+	];
+	const MAP_FOG_CHANNEL = 'dndtools.map-fog.v1';
 
 	let mapAssetUrls = $state<Record<string, string | null>>({});
 	let importing = $state(false);
@@ -152,6 +180,28 @@
 	let lastCombatMapSyncKey = $state<string | null>(null);
 	let savingCombatMap = $state(false);
 	let combatPersistQueue: Promise<void> = Promise.resolve();
+	let fogEditingEnabled = $state(false);
+	let fogTool = $state<MapFogBrushShape>('circle');
+	let fogMode = $state<MapFogOperationMode>('reveal');
+	let fogBrushRadius = $state(0.06);
+	let fogPainting = $state(false);
+	let fogDragStart = $state<MapFogPoint | null>(null);
+	let fogDragCurrent = $state<MapFogPoint | null>(null);
+	let fogLassoPoints = $state<MapFogPoint[]>([]);
+	let fogColorTheme = $state<MapFogState['colorTheme']>('smoky_gray');
+	let fogFreeExplore = $state(false);
+	let fogAnimationOperation = $state<MapFogPolygonOperation | null>(null);
+	let remoteFogStateOverride = $state<MapFogState | null>(null);
+	let fogBroadcastChannel = $state<BroadcastChannel | null>(null);
+	let fogChannelPeerId = $state(
+		typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+			? crypto.randomUUID()
+			: `fog-peer-${Math.random().toString(36).slice(2, 10)}`,
+	);
+	let lastFogStateSyncKey = $state<string | null>(null);
+	let remoteFogScopeKey = $state<string | null>(null);
+	let lastFogSnapshotRequestKey = $state<string | null>(null);
+	let lastFogMapLinkKey = $state<string | null>(null);
 
 	const desktopAvailable = $derived(
 		typeof window !== 'undefined' && typeof window.dndtoolsDesktop !== 'undefined',
@@ -258,6 +308,7 @@
 		};
 	});
 	const viewerPois = $derived.by(() => {
+		if (playerModeState.enabled) return [];
 		const fromMap = filteredDraftPois.map((poi) => ({
 			id: poi.id,
 			label: poi.label,
@@ -346,6 +397,21 @@
 	const combatMapState = $derived.by(
 		() => selectedCombat?.mapState ?? createDefaultCombatMapState(),
 	);
+	const activeFogState = $derived.by<MapFogState>(
+		() => combatMapState.fogState ?? createDefaultMapFogState(),
+	);
+	const persistedFogFallback = $derived.by(
+		() => selectedMap?.data.lastSessionFog?.fogState ?? null,
+	);
+	const effectiveFogState = $derived.by<MapFogState>(() =>
+		playerModeState.enabled && remoteFogStateOverride
+			? remoteFogStateOverride
+			: playerModeState.enabled && activeFogState.polygons.length === 0 && persistedFogFallback
+				? persistedFogFallback
+				: activeFogState,
+	);
+	const fogPolygonCounts = $derived.by(() => countFogPolygonsByMode(effectiveFogState));
+	const fogRevealBounds = $derived.by(() => revealBoundsFromFogState(effectiveFogState));
 	const activeCombatant = $derived.by(
 		() =>
 			selectedCombat?.combatants.find((entry) => entry.id === selectedCombat.activeCombatantId) ??
@@ -446,6 +512,7 @@
 		return overlays;
 	});
 	const combatViewerTokens = $derived.by(() => {
+		if (playerModeState.enabled) return [];
 		if (!selectedCombat) return [];
 		const combatantsById = new Map(selectedCombat.combatants.map((entry) => [entry.id, entry]));
 		return combatMapState.tokens
@@ -806,6 +873,7 @@
 		metaKey: boolean;
 		shiftKey: boolean;
 	}): void {
+		if (isFogEditingContextReady()) return;
 		if (combatModeEnabled && selectedCombat && selectedMap?.data.grid) {
 			if (templatePlacementMode || terrainPaintMode) return;
 			const cell = mapFractionToGridCell(payload.x, payload.y);
@@ -928,6 +996,25 @@
 		return `${prefix}-${Math.random().toString(36).slice(2, 12)}`;
 	}
 
+	type FogChannelMessage =
+		| {
+				kind: 'fog_update';
+				peerId: string;
+				boardId: string;
+				tileId: string;
+				mapId: string;
+				fogState: MapFogState;
+				operation?: MapFogPolygonOperation;
+				issuedAt: string;
+		  }
+		| {
+				kind: 'fog_snapshot_request';
+				peerId: string;
+				boardId: string;
+				tileId: string;
+				mapId: string;
+		  };
+
 	function queueCombatPersist(nextCombat: SessionBoardCombatState): void {
 		if (!selectedBoard || !selectedCombatTile) return;
 		const boardId = selectedBoard.id;
@@ -953,7 +1040,7 @@
 
 	function appendCombatMapHistoryEntry(
 		mapState: SessionBoardCombatState['mapState'],
-		kind: 'movement' | 'status' | 'terrain' | 'template' | 'sync',
+		kind: 'movement' | 'status' | 'terrain' | 'template' | 'sync' | 'fog',
 		message: string,
 		combatantId?: string,
 	): SessionBoardCombatState['mapState'] {
@@ -967,6 +1054,217 @@
 			},
 			() => createCombatMapId('map-history'),
 		);
+	}
+
+	function postFogChannelMessage(message: FogChannelMessage): void {
+		if (!message.boardId || !message.tileId || !message.mapId) return;
+		fogBroadcastChannel?.postMessage(message);
+	}
+
+	function maybePlayRevealCue(operation: MapFogPolygonOperation): void {
+		if (operation.mode !== 'reveal') return;
+		if (typeof window === 'undefined') return;
+		const atmosphere = (
+			window as Window & {
+				dndtoolsAtmosphere?: { active?: boolean; playCue?: (cue: string) => void };
+			}
+		).dndtoolsAtmosphere;
+		if (atmosphere?.active && typeof atmosphere.playCue === 'function') {
+			atmosphere.playCue('reveal');
+		}
+		window.dispatchEvent(
+			new CustomEvent('dndtools:map-reveal', {
+				detail: {
+					operationId: operation.id,
+					mapId: selectedMap ? String(selectedMap.id) : null,
+				},
+			}),
+		);
+	}
+
+	function setFogConfig(next: Partial<Pick<MapFogState, 'colorTheme' | 'freeExplore'>>): void {
+		if (!selectedCombat) return;
+		const currentFog = combatMapState.fogState ?? createDefaultMapFogState();
+		if (
+			(next.colorTheme === undefined || next.colorTheme === currentFog.colorTheme) &&
+			(next.freeExplore === undefined || next.freeExplore === currentFog.freeExplore)
+		) {
+			return;
+		}
+		const updatedAt = nowISO();
+		const nextFogState: MapFogState = {
+			...currentFog,
+			...next,
+			updatedAt,
+		};
+		const nextMapState = appendCombatMapHistoryEntry(
+			{
+				...combatMapState,
+				fogState: nextFogState,
+			},
+			'fog',
+			`Fog settings updated (${nextFogState.colorTheme}, free explore ${
+				nextFogState.freeExplore ? 'on' : 'off'
+			}).`,
+		);
+		queueCombatPersist({
+			...selectedCombat,
+			mapState: nextMapState,
+		});
+		postFogChannelMessage({
+			kind: 'fog_update',
+			peerId: fogChannelPeerId,
+			boardId: String(selectedBoard?.id ?? ''),
+			tileId: selectedCombatTile?.id ?? '',
+			mapId: selectedMap ? String(selectedMap.id) : '',
+			fogState: nextFogState,
+			issuedAt: updatedAt,
+		});
+	}
+
+	function applyFogPolygonOperation(operation: MapFogPolygonOperation): void {
+		if (!selectedCombat) return;
+		const updatedAt = nowISO();
+		const nextFogState = appendFogPolygonOperation(
+			combatMapState.fogState,
+			{
+				id: operation.id,
+				mode: operation.mode,
+				shape: operation.shape,
+				points: operation.points,
+				createdAt: operation.createdAt,
+			},
+			updatedAt,
+		);
+		nextFogState.colorTheme = fogColorTheme;
+		nextFogState.freeExplore = fogFreeExplore;
+		const message =
+			operation.mode === 'reveal'
+				? `Revealed ${operation.shape} area (${operation.points.length} points).`
+				: `Re-fogged ${operation.shape} area (${operation.points.length} points).`;
+		const nextMapState = appendCombatMapHistoryEntry(
+			{
+				...combatMapState,
+				fogState: nextFogState,
+			},
+			'fog',
+			message,
+		);
+		queueCombatPersist({
+			...selectedCombat,
+			mapState: nextMapState,
+		});
+		if (operation.mode === 'reveal') {
+			maybePlayRevealCue(operation);
+		}
+		postFogChannelMessage({
+			kind: 'fog_update',
+			peerId: fogChannelPeerId,
+			boardId: String(selectedBoard?.id ?? ''),
+			tileId: selectedCombatTile?.id ?? '',
+			mapId: selectedMap ? String(selectedMap.id) : '',
+			fogState: nextFogState,
+			operation,
+			issuedAt: updatedAt,
+		});
+	}
+
+	function clearFogOperations(): void {
+		if (!selectedCombat) return;
+		const updatedAt = nowISO();
+		const nextFogState: MapFogState = {
+			...(combatMapState.fogState ?? createDefaultMapFogState()),
+			polygons: [],
+			colorTheme: fogColorTheme,
+			freeExplore: fogFreeExplore,
+			updatedAt,
+		};
+		const nextMapState = appendCombatMapHistoryEntry(
+			{
+				...combatMapState,
+				fogState: nextFogState,
+			},
+			'fog',
+			'Cleared all fog reveal/refog operations.',
+		);
+		queueCombatPersist({
+			...selectedCombat,
+			mapState: nextMapState,
+		});
+		postFogChannelMessage({
+			kind: 'fog_update',
+			peerId: fogChannelPeerId,
+			boardId: String(selectedBoard?.id ?? ''),
+			tileId: selectedCombatTile?.id ?? '',
+			mapId: selectedMap ? String(selectedMap.id) : '',
+			fogState: nextFogState,
+			issuedAt: updatedAt,
+		});
+	}
+
+	function isFogMessageInScope(message: {
+		boardId: string;
+		tileId: string;
+		mapId: string;
+	}): boolean {
+		if (!selectedBoard || !selectedCombatTile || !selectedMap) return false;
+		return (
+			message.boardId === String(selectedBoard.id) &&
+			message.tileId === selectedCombatTile.id &&
+			message.mapId === String(selectedMap.id)
+		);
+	}
+
+	function handleFogChannelMessage(raw: unknown): void {
+		if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return;
+		const message = raw as Partial<FogChannelMessage>;
+		if (!message.kind || typeof message.peerId !== 'string') return;
+		if (message.peerId === fogChannelPeerId) return;
+
+		if (
+			message.kind === 'fog_snapshot_request' &&
+			!playerModeState.enabled &&
+			typeof message.boardId === 'string' &&
+			typeof message.tileId === 'string' &&
+			typeof message.mapId === 'string' &&
+			isFogMessageInScope({
+				boardId: message.boardId,
+				tileId: message.tileId,
+				mapId: message.mapId,
+			})
+		) {
+			postFogChannelMessage({
+				kind: 'fog_update',
+				peerId: fogChannelPeerId,
+				boardId: message.boardId,
+				tileId: message.tileId,
+				mapId: message.mapId,
+				fogState: activeFogState,
+				issuedAt: nowISO(),
+			});
+			return;
+		}
+
+		if (
+			message.kind !== 'fog_update' ||
+			typeof message.boardId !== 'string' ||
+			typeof message.tileId !== 'string' ||
+			typeof message.mapId !== 'string' ||
+			!isFogMessageInScope({
+				boardId: message.boardId,
+				tileId: message.tileId,
+				mapId: message.mapId,
+			})
+		) {
+			return;
+		}
+		const normalizedState = normalizeMapFogState(message.fogState);
+		if (!normalizedState) return;
+		remoteFogStateOverride = normalizedState;
+		const operation = message.operation;
+		if (operation?.mode === 'reveal') {
+			fogAnimationOperation = operation;
+		}
 	}
 
 	function appendStatusChangeHistory(
@@ -1263,6 +1561,76 @@
 		});
 	}
 
+	function isFogEditingContextReady(): boolean {
+		return fogEditingEnabled && !!selectedCombat && !!selectedMap;
+	}
+
+	function commitFogPolygon(shape: MapFogBrushShape, points: MapFogPoint[]): void {
+		const normalizedPoints = normalizeLassoPoints(points, 0.0015);
+		if (normalizedPoints.length < 3) return;
+		const operation: MapFogPolygonOperation = {
+			id: createCombatMapId('fog-op'),
+			mode: fogMode,
+			shape,
+			points: normalizedPoints,
+			createdAt: nowISO(),
+		};
+		applyFogPolygonOperation(operation);
+	}
+
+	function handleFogPointerDown(point: MapFogPoint): void {
+		if (!isFogEditingContextReady()) return;
+		if (fogTool === 'circle') {
+			fogPainting = true;
+			fogDragCurrent = point;
+			commitFogPolygon('circle', polygonFromCircle(point, fogBrushRadius, 18));
+			return;
+		}
+		if (fogTool === 'rectangle') {
+			fogPainting = true;
+			fogDragStart = point;
+			fogDragCurrent = point;
+			return;
+		}
+		fogPainting = true;
+		fogLassoPoints = [point];
+	}
+
+	function handleFogPointerMove(point: MapFogPoint): void {
+		if (!isFogEditingContextReady() || !fogPainting) return;
+		if (fogTool === 'circle') {
+			const previous = fogDragCurrent;
+			fogDragCurrent = point;
+			if (!previous) {
+				commitFogPolygon('circle', polygonFromCircle(point, fogBrushRadius, 18));
+				return;
+			}
+			if (Math.hypot(point.x - previous.x, point.y - previous.y) < fogBrushRadius * 0.35) return;
+			commitFogPolygon('circle', polygonFromCircle(point, fogBrushRadius, 18));
+			return;
+		}
+		if (fogTool === 'rectangle') {
+			fogDragCurrent = point;
+			return;
+		}
+		fogLassoPoints = [...fogLassoPoints, point];
+	}
+
+	function handleFogPointerUp(point: MapFogPoint): void {
+		if (!isFogEditingContextReady()) return;
+		if (fogTool === 'rectangle' && fogDragStart) {
+			const polygon = polygonFromRectangle(fogDragStart, point);
+			commitFogPolygon('rectangle', polygon);
+		}
+		if (fogTool === 'polygon' && fogLassoPoints.length > 2) {
+			commitFogPolygon('polygon', [...fogLassoPoints, point]);
+		}
+		fogPainting = false;
+		fogDragStart = null;
+		fogDragCurrent = null;
+		fogLassoPoints = [];
+	}
+
 	function handleMapPointerDown(payload: {
 		x: number;
 		y: number;
@@ -1275,6 +1643,11 @@
 		shiftKey: boolean;
 		altKey: boolean;
 	}): void {
+		if (isFogEditingContextReady()) {
+			if (payload.button !== 0) return;
+			handleFogPointerDown({ x: payload.x, y: payload.y });
+			return;
+		}
 		if (!combatModeEnabled || payload.cellX === null || payload.cellY === null) return;
 		const cell = { x: payload.cellX, y: payload.cellY };
 		if (templatePlacementMode) {
@@ -1299,6 +1672,10 @@
 		shiftKey: boolean;
 		altKey: boolean;
 	}): void {
+		if (isFogEditingContextReady()) {
+			handleFogPointerMove({ x: payload.x, y: payload.y });
+			return;
+		}
 		if (!combatModeEnabled || payload.cellX === null || payload.cellY === null) return;
 		const cell = { x: payload.cellX, y: payload.cellY };
 		if (templatePlacementMode && templateDragOriginCell) {
@@ -1322,6 +1699,10 @@
 		shiftKey: boolean;
 		altKey: boolean;
 	}): void {
+		if (isFogEditingContextReady()) {
+			handleFogPointerUp({ x: payload.x, y: payload.y });
+			return;
+		}
 		if (templatePlacementMode && templateDragOriginCell) {
 			if (payload.cellX !== null && payload.cellY !== null) {
 				templatePreviewTargetCell = { x: payload.cellX, y: payload.cellY };
@@ -1353,6 +1734,73 @@
 	});
 
 	$effect(() => {
+		if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
+		const channel = new BroadcastChannel(MAP_FOG_CHANNEL);
+		channel.onmessage = (event: MessageEvent<unknown>) => {
+			handleFogChannelMessage(event.data);
+		};
+		fogBroadcastChannel = channel;
+		return () => {
+			channel.close();
+			if (fogBroadcastChannel === channel) {
+				fogBroadcastChannel = null;
+			}
+		};
+	});
+
+	$effect(() => {
+		if (!playerModeState.enabled) {
+			remoteFogStateOverride = null;
+			remoteFogScopeKey = null;
+			return;
+		}
+		if (!selectedBoard || !selectedCombatTile || !selectedMap) return;
+		const key = `${selectedBoard.id}:${selectedCombatTile.id}:${selectedMap.id}`;
+		if (remoteFogScopeKey !== key) {
+			remoteFogStateOverride = null;
+			remoteFogScopeKey = key;
+			lastFogSnapshotRequestKey = null;
+		}
+		if (!fogBroadcastChannel) return;
+		if (lastFogSnapshotRequestKey === key) return;
+		lastFogSnapshotRequestKey = key;
+		postFogChannelMessage({
+			kind: 'fog_snapshot_request',
+			peerId: fogChannelPeerId,
+			boardId: String(selectedBoard.id),
+			tileId: selectedCombatTile.id,
+			mapId: String(selectedMap.id),
+		});
+	});
+
+	$effect(() => {
+		if (!selectedCombat || !selectedCombatTile || !selectedMap) return;
+		if (combatMapState.fogState) return;
+		const initializedFog = createDefaultMapFogState();
+		const nextMapState = appendCombatMapHistoryEntry(
+			{
+				...combatMapState,
+				fogState: initializedFog,
+			},
+			'fog',
+			'Initialized fog-of-war state for map session.',
+		);
+		queueCombatPersist({
+			...selectedCombat,
+			mapState: nextMapState,
+		});
+	});
+
+	$effect(() => {
+		if (!selectedCombatTile || !selectedMap) return;
+		const key = `${selectedCombatTile.id}:${String(selectedMap.id)}:${activeFogState.updatedAt}:${activeFogState.polygons.length}`;
+		if (lastFogStateSyncKey === key) return;
+		lastFogStateSyncKey = key;
+		fogColorTheme = activeFogState.colorTheme;
+		fogFreeExplore = activeFogState.freeExplore;
+	});
+
+	$effect(() => {
 		if (!combatModeEnabled) {
 			pathPreviewCells = [];
 			templateDragOriginCell = null;
@@ -1361,6 +1809,38 @@
 			return;
 		}
 		ensureCombatMapSynchronized();
+	});
+
+	$effect(() => {
+		if (!fogEditingEnabled || !selectedCombat || !selectedMap) {
+			lastFogMapLinkKey = null;
+			return;
+		}
+		const mapId = String(selectedMap.id);
+		if (combatMapState.mapId === mapId) return;
+		const key = `${selectedCombatTile?.id ?? 'no-tile'}:${mapId}`;
+		if (lastFogMapLinkKey === key) return;
+		lastFogMapLinkKey = key;
+		queueCombatPersist({
+			...selectedCombat,
+			mapState: appendCombatMapHistoryEntry(
+				{
+					...combatMapState,
+					mapId,
+				},
+				'fog',
+				'Fog editing linked to active map.',
+			),
+		});
+	});
+
+	$effect(() => {
+		if (!playerModeState.enabled) return;
+		fogEditingEnabled = false;
+		editPoiMode = false;
+		editGridHandles = false;
+		terrainPaintMode = false;
+		templatePlacementMode = false;
 	});
 
 	$effect(() => {
@@ -1418,6 +1898,20 @@
 	});
 
 	$effect(() => {
+		if (playerModeState.enabled) {
+			const playerMapId = selectedCombat?.mapState.mapId ?? null;
+			if (playerMapId && maps.some((entry) => String(entry.id) === playerMapId)) {
+				selectedMapId = playerMapId;
+				return;
+			}
+			const queryMapId = page.url.searchParams.get('map');
+			if (queryMapId && maps.some((entry) => String(entry.id) === queryMapId)) {
+				selectedMapId = queryMapId;
+				return;
+			}
+			selectedMapId = null;
+			return;
+		}
 		if (filteredMaps.length === 0) {
 			selectedMapId = null;
 			return;
@@ -1428,6 +1922,7 @@
 	});
 
 	$effect(() => {
+		if (playerModeState.enabled) return;
 		const queryMapId = page.url.searchParams.get('map');
 		if (!queryMapId) return;
 		if (selectedMapId === queryMapId) return;
@@ -1470,62 +1965,70 @@
 				Map Library
 			</h1>
 			<p class="mt-1 text-sm text-ink-muted dark:text-tavern-muted">
-				{filteredMaps.length} of {maps.length} map{maps.length === 1 ? '' : 's'}
+				{#if playerModeState.enabled}
+					Player map view with fog-of-war enforcement
+				{:else}
+					{filteredMaps.length} of {maps.length} map{maps.length === 1 ? '' : 's'}
+				{/if}
 			</p>
 		</div>
-		<button
-			type="button"
-			class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover"
-			onclick={() => void handleImportMap()}
-			disabled={!desktopAvailable || importing}
-			title={desktopAvailable ? 'Import a map image into the vault' : 'Desktop mode required'}
-		>
-			{importing ? 'Importing...' : 'Import Map'}
-		</button>
+		{#if !playerModeState.enabled}
+			<button
+				type="button"
+				class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover"
+				onclick={() => void handleImportMap()}
+				disabled={!desktopAvailable || importing}
+				title={desktopAvailable ? 'Import a map image into the vault' : 'Desktop mode required'}
+			>
+				{importing ? 'Importing...' : 'Import Map'}
+			</button>
+		{/if}
 	</header>
 
-	<section
-		class="mb-4 grid gap-2 rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface md:grid-cols-4"
-	>
-		<input
-			type="text"
-			bind:value={query}
-			placeholder="Search maps by name, tags, area, or file path"
-			aria-label="Search maps"
-			class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-		/>
-		<select
-			bind:value={selectedTag}
-			aria-label="Filter maps by tag"
-			class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+	{#if !playerModeState.enabled}
+		<section
+			class="mb-4 grid gap-2 rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface md:grid-cols-4"
 		>
-			<option value="">All tags</option>
-			{#each tagOptions as tag (tag)}
-				<option value={tag}>#{tag}</option>
-			{/each}
-		</select>
-		<select
-			bind:value={selectedAreaNoteId}
-			aria-label="Filter maps by linked area"
-			class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-		>
-			<option value="">All areas</option>
-			{#each areaOptions as area (area.id)}
-				<option value={area.id}>{area.label}</option>
-			{/each}
-		</select>
-		<button
-			type="button"
-			class="rounded border border-border px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
-			onclick={() => {
-				query = '';
-				selectedTag = '';
-				selectedAreaNoteId = '';
-			}}
-		>
-			Reset filters
-		</button>
-	</section>
+			<input
+				type="text"
+				bind:value={query}
+				placeholder="Search maps by name, tags, area, or file path"
+				aria-label="Search maps"
+				class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+			/>
+			<select
+				bind:value={selectedTag}
+				aria-label="Filter maps by tag"
+				class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+			>
+				<option value="">All tags</option>
+				{#each tagOptions as tag (tag)}
+					<option value={tag}>#{tag}</option>
+				{/each}
+			</select>
+			<select
+				bind:value={selectedAreaNoteId}
+				aria-label="Filter maps by linked area"
+				class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+			>
+				<option value="">All areas</option>
+				{#each areaOptions as area (area.id)}
+					<option value={area.id}>{area.label}</option>
+				{/each}
+			</select>
+			<button
+				type="button"
+				class="rounded border border-border px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+				onclick={() => {
+					query = '';
+					selectedTag = '';
+					selectedAreaNoteId = '';
+				}}
+			>
+				Reset filters
+			</button>
+		</section>
+	{/if}
 
 	{#if error}
 		<div
@@ -1535,138 +2038,159 @@
 		</div>
 	{/if}
 
-	<section
-		class="rounded-lg border border-border bg-surface p-4 dark:border-tavern-border dark:bg-tavern-surface"
-	>
-		<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Library</h2>
-		{#if loading}
-			<p class="mt-2 text-sm text-ink-muted dark:text-tavern-muted">Loading maps...</p>
-		{:else if filteredMaps.length === 0}
-			<p class="mt-2 text-sm text-ink-muted dark:text-tavern-muted">
-				{maps.length === 0
-					? 'No maps in the vault yet. Import your first map image.'
-					: 'No maps match the active filters.'}
-			</p>
-		{:else}
-			<ul class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-				{#each filteredMaps as map (map.id)}
-					<li>
-						<button
-							type="button"
-							class="group w-full overflow-hidden rounded-md border text-left transition-colors {selectedMapId ===
-							String(map.id)
-								? 'border-accent bg-accent-subtle/40 dark:border-tavern-accent dark:bg-tavern-accent-subtle/40'
-								: 'border-border bg-surface-alt hover:border-accent/60 dark:border-tavern-border dark:bg-tavern-surface-alt dark:hover:border-tavern-accent/70'}"
-							onclick={() => (selectedMapId = String(map.id))}
-						>
-							<div class="aspect-[4/3] overflow-hidden bg-parchment/70 dark:bg-tavern-bg/70">
-								{#if mapAssetUrls[String(map.id)]}
-									<img
-										src={mapAssetUrls[String(map.id)] ?? undefined}
-										alt={map.name}
-										loading="lazy"
-										class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-									/>
-								{:else}
-									<div
-										class="flex h-full items-center justify-center px-3 text-center text-xs text-ink-muted dark:text-tavern-muted"
-									>
-										Preview unavailable
-									</div>
-								{/if}
-							</div>
-							<div class="space-y-1 p-2.5">
-								<p class="truncate text-sm font-medium text-ink dark:text-tavern-text">
-									{map.name}
-								</p>
-								<p class="truncate text-[11px] text-ink-faint dark:text-tavern-faint">
-									{areaLabelForMap(map)}
-								</p>
-								<div class="flex flex-wrap gap-1">
-									{#each map.tags.slice(0, 3) as tag (tag)}
-										<span
-											class="rounded bg-surface px-1.5 py-0.5 text-[10px] text-ink-faint dark:bg-tavern-surface dark:text-tavern-faint"
+	{#if !playerModeState.enabled}
+		<section
+			class="rounded-lg border border-border bg-surface p-4 dark:border-tavern-border dark:bg-tavern-surface"
+		>
+			<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Library</h2>
+			{#if loading}
+				<p class="mt-2 text-sm text-ink-muted dark:text-tavern-muted">Loading maps...</p>
+			{:else if filteredMaps.length === 0}
+				<p class="mt-2 text-sm text-ink-muted dark:text-tavern-muted">
+					{maps.length === 0
+						? 'No maps in the vault yet. Import your first map image.'
+						: 'No maps match the active filters.'}
+				</p>
+			{:else}
+				<ul class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+					{#each filteredMaps as map (map.id)}
+						<li>
+							<button
+								type="button"
+								class="group w-full overflow-hidden rounded-md border text-left transition-colors {selectedMapId ===
+								String(map.id)
+									? 'border-accent bg-accent-subtle/40 dark:border-tavern-accent dark:bg-tavern-accent-subtle/40'
+									: 'border-border bg-surface-alt hover:border-accent/60 dark:border-tavern-border dark:bg-tavern-surface-alt dark:hover:border-tavern-accent/70'}"
+								onclick={() => (selectedMapId = String(map.id))}
+							>
+								<div class="aspect-[4/3] overflow-hidden bg-parchment/70 dark:bg-tavern-bg/70">
+									{#if mapAssetUrls[String(map.id)]}
+										<img
+											src={mapAssetUrls[String(map.id)] ?? undefined}
+											alt={map.name}
+											loading="lazy"
+											class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+										/>
+									{:else}
+										<div
+											class="flex h-full items-center justify-center px-3 text-center text-xs text-ink-muted dark:text-tavern-muted"
 										>
-											#{tag}
-										</span>
-									{/each}
+											Preview unavailable
+										</div>
+									{/if}
 								</div>
-							</div>
-						</button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
+								<div class="space-y-1 p-2.5">
+									<p class="truncate text-sm font-medium text-ink dark:text-tavern-text">
+										{map.name}
+									</p>
+									<p class="truncate text-[11px] text-ink-faint dark:text-tavern-faint">
+										{areaLabelForMap(map)}
+									</p>
+									<div class="flex flex-wrap gap-1">
+										{#each map.tags.slice(0, 3) as tag (tag)}
+											<span
+												class="rounded bg-surface px-1.5 py-0.5 text-[10px] text-ink-faint dark:bg-tavern-surface dark:text-tavern-faint"
+											>
+												#{tag}
+											</span>
+										{/each}
+									</div>
+								</div>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
+	{/if}
 
 	{#if selectedMap}
-		<section class="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+		<section
+			class="mt-4 grid gap-4 {playerModeState.enabled ? '' : 'xl:grid-cols-[minmax(0,1fr)_360px]'}"
+		>
 			<div
 				class="relative rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
 			>
 				<div class="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-					<div class="flex flex-wrap items-center gap-2">
-						<button
-							type="button"
-							class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
-							onclick={() => {
-								runtimeShowGrid = !runtimeShowGrid;
-							}}
-						>
-							{runtimeShowGrid ? 'Hide Grid Overlay' : 'Show Grid Overlay'}
-						</button>
-						<button
-							type="button"
-							class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
-							onclick={() => {
-								editGridHandles = !editGridHandles;
-								runtimeShowGrid = true;
-							}}
-						>
-							{editGridHandles ? 'Stop Grid Alignment' : 'Align Grid'}
-						</button>
-						<button
-							type="button"
-							class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
-							onclick={() => {
-								editPoiMode = !editPoiMode;
-							}}
-						>
-							{editPoiMode ? 'Stop POI Placement' : 'Edit POIs'}
-						</button>
-						<button
-							type="button"
-							class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt disabled:opacity-55 dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
-							disabled={!selectedMap.data.grid || !selectedCombatTile}
-							onclick={() => {
-								combatModeEnabled = !combatModeEnabled;
-								editPoiMode = combatModeEnabled ? false : editPoiMode;
-							}}
-						>
-							{combatModeEnabled ? 'Exit Combat Mode' : 'Combat Mode'}
-						</button>
-						<label
-							class="flex items-center gap-1.5 rounded border border-border px-2 py-1 dark:border-tavern-border"
-						>
-							<input type="checkbox" bind:checked={previewPlayerLayers} />
-							Player layer preview
-						</label>
-						<select
-							bind:value={activeLayerFilter}
-							class="rounded border border-border bg-surface-alt px-2 py-1 text-[11px] text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-							aria-label="Filter visible pins by layer"
-						>
-							<option value="all">All layers</option>
-							{#each draftLayers as layer (layer.id)}
-								<option value={layer.id}>{layer.name}</option>
-							{/each}
-						</select>
-					</div>
+					{#if !playerModeState.enabled}
+						<div class="flex flex-wrap items-center gap-2">
+							<button
+								type="button"
+								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+								onclick={() => {
+									runtimeShowGrid = !runtimeShowGrid;
+								}}
+							>
+								{runtimeShowGrid ? 'Hide Grid Overlay' : 'Show Grid Overlay'}
+							</button>
+							<button
+								type="button"
+								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+								onclick={() => {
+									editGridHandles = !editGridHandles;
+									runtimeShowGrid = true;
+								}}
+							>
+								{editGridHandles ? 'Stop Grid Alignment' : 'Align Grid'}
+							</button>
+							<button
+								type="button"
+								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+								onclick={() => {
+									editPoiMode = !editPoiMode;
+								}}
+							>
+								{editPoiMode ? 'Stop POI Placement' : 'Edit POIs'}
+							</button>
+							<button
+								type="button"
+								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt disabled:opacity-55 dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+								disabled={!selectedMap.data.grid || !selectedCombatTile}
+								onclick={() => {
+									combatModeEnabled = !combatModeEnabled;
+									editPoiMode = combatModeEnabled ? false : editPoiMode;
+								}}
+							>
+								{combatModeEnabled ? 'Exit Combat Mode' : 'Combat Mode'}
+							</button>
+							<button
+								type="button"
+								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt disabled:opacity-55 dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+								disabled={!selectedCombatTile}
+								onclick={() => {
+									fogEditingEnabled = !fogEditingEnabled;
+									combatModeEnabled = false;
+								}}
+							>
+								{fogEditingEnabled ? 'Stop Fog Tools' : 'Fog of War Tools'}
+							</button>
+							<label
+								class="flex items-center gap-1.5 rounded border border-border px-2 py-1 dark:border-tavern-border"
+							>
+								<input type="checkbox" bind:checked={previewPlayerLayers} />
+								Player layer preview
+							</label>
+							<select
+								bind:value={activeLayerFilter}
+								class="rounded border border-border bg-surface-alt px-2 py-1 text-[11px] text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+								aria-label="Filter visible pins by layer"
+							>
+								<option value="all">All layers</option>
+								{#each draftLayers as layer (layer.id)}
+									<option value={layer.id}>{layer.name}</option>
+								{/each}
+							</select>
+						</div>
+					{:else}
+						<p class="text-ink-muted dark:text-tavern-muted">
+							Player view: unrevealed map areas remain hidden.
+						</p>
+					{/if}
 					{#if scaleLabel}
 						<p class="font-medium text-ink-muted dark:text-tavern-muted">{scaleLabel}</p>
 					{/if}
 				</div>
-				{#if combatModeEnabled}
+				{#if selectedCombatTile}
 					<div
 						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-[11px] dark:border-tavern-border/70"
 					>
@@ -1692,6 +2216,88 @@
 								{/each}
 							</select>
 						</label>
+						{#if !playerModeState.enabled}
+							<label class="text-ink-muted dark:text-tavern-muted">
+								Tool
+								<select
+									class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 dark:border-tavern-border dark:bg-tavern-surface-alt"
+									bind:value={fogTool}
+									disabled={!fogEditingEnabled}
+								>
+									{#each FOG_TOOL_OPTIONS as option (option.value)}
+										<option value={option.value}>{option.label}</option>
+									{/each}
+								</select>
+							</label>
+							<label class="text-ink-muted dark:text-tavern-muted">
+								Mode
+								<select
+									class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 dark:border-tavern-border dark:bg-tavern-surface-alt"
+									bind:value={fogMode}
+									disabled={!fogEditingEnabled}
+								>
+									{#each FOG_MODE_OPTIONS as option (option.value)}
+										<option value={option.value}>{option.label}</option>
+									{/each}
+								</select>
+							</label>
+							<label class="text-ink-muted dark:text-tavern-muted">
+								Brush Radius
+								<input
+									type="range"
+									min="0.01"
+									max="0.2"
+									step="0.005"
+									bind:value={fogBrushRadius}
+									disabled={!fogEditingEnabled || fogTool !== 'circle'}
+								/>
+							</label>
+							<label class="text-ink-muted dark:text-tavern-muted">
+								Fog Color
+								<select
+									class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 dark:border-tavern-border dark:bg-tavern-surface-alt"
+									bind:value={fogColorTheme}
+									onchange={() => setFogConfig({ colorTheme: fogColorTheme })}
+								>
+									<option value="smoky_gray">Smoky Gray</option>
+									<option value="black">Black</option>
+								</select>
+							</label>
+							<label class="inline-flex items-center gap-1 text-ink-muted dark:text-tavern-muted">
+								<input
+									type="checkbox"
+									bind:checked={fogFreeExplore}
+									onchange={() => setFogConfig({ freeExplore: fogFreeExplore })}
+								/>
+								Player free explore
+							</label>
+							<button
+								type="button"
+								class="rounded border border-border px-2 py-0.5 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+								onclick={clearFogOperations}
+							>
+								Clear Fog Ops
+							</button>
+						{:else}
+							<span class="text-ink-muted dark:text-tavern-muted">
+								Free explore: {effectiveFogState.freeExplore ? 'enabled' : 'disabled'}
+							</span>
+							<span class="text-ink-faint dark:text-tavern-faint">
+								Revealed zones: {fogPolygonCounts.reveal}
+							</span>
+							{#if fogRevealBounds}
+								<span class="text-ink-faint dark:text-tavern-faint">
+									Reveal bounds: {(fogRevealBounds.maxX - fogRevealBounds.minX).toFixed(2)} x
+									{(fogRevealBounds.maxY - fogRevealBounds.minY).toFixed(2)}
+								</span>
+							{/if}
+						{/if}
+					</div>
+				{/if}
+				{#if combatModeEnabled}
+					<div
+						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-[11px] dark:border-tavern-border/70"
+					>
 						<span class="text-ink-muted dark:text-tavern-muted">
 							{mapLinkedToEncounterLocation
 								? 'Map is linked to the encounter location.'
@@ -1802,6 +2408,11 @@
 						Click the map to place a pin. Drag pins to reposition. Click a pin to edit details.
 					</p>
 				{/if}
+				{#if fogEditingEnabled}
+					<p class="mb-2 text-xs text-ink-faint dark:text-tavern-faint">
+						Fog tools active. Paint reveal or re-fog shapes directly on the map.
+					</p>
+				{/if}
 				{#key `${selectedMap.id}:${viewerKey}`}
 					<MapCanvasViewer
 						src={selectedMapAssetUrl}
@@ -1820,6 +2431,15 @@
 						pathCells={combatModeEnabled ? pathPreviewCells : []}
 						difficultTerrainCells={combatModeEnabled ? combatMapState.difficultTerrain : []}
 						templateOverlays={combatModeEnabled ? combinedTemplateOverlays : []}
+						fogEnabled={!!selectedCombatTile ||
+							playerModeState.enabled ||
+							!!selectedMap.data.lastSessionFog}
+						fogState={effectiveFogState}
+						fogFeatherPx={5}
+						fogPlayerEnforced={playerModeState.enabled}
+						fogAnimationOperation={playerModeState.enabled ? fogAnimationOperation : null}
+						fogAnimationDurationMs={800}
+						navigationLocked={fogEditingEnabled}
 						initialViewport={draftInitialViewport ?? undefined}
 						ongridchange={handleGridChange}
 						onviewportchange={handleViewportChange}
@@ -1865,442 +2485,445 @@
 				{/if}
 			</div>
 
-			<aside
-				class="rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
-			>
-				{#if combatModeEnabled}
-					<div class="mb-3 space-y-2">
-						<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">
-							Combat Tracker Sync
-						</h2>
-						{#if selectedCombatTile}
-							<div class="h-[420px] min-h-[320px]">
-								<CombatTrackerTile
-									tile={selectedCombatTile}
-									standalone
-									onselect={() => undefined}
-									onupdate={handleCombatTrackerUpdate}
-								/>
-							</div>
-						{:else}
-							<p class="text-xs text-ink-muted dark:text-tavern-muted">
-								Select a board and combat tile to enable map-tracker synchronization.
-							</p>
-						{/if}
-					</div>
-				{/if}
-				<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Map Metadata</h2>
-				<div class="mt-3 space-y-2.5">
-					<label class="block text-xs text-ink-muted dark:text-tavern-muted">
-						Name
-						<input
-							type="text"
-							bind:value={draftName}
-							oninput={markDirty}
-							class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-						/>
-					</label>
-					<label class="block text-xs text-ink-muted dark:text-tavern-muted">
-						Tags (comma-separated)
-						<input
-							type="text"
-							bind:value={draftTags}
-							oninput={markDirty}
-							class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-						/>
-					</label>
-					<label class="block text-xs text-ink-muted dark:text-tavern-muted">
-						Linked Area (location note)
-						<select
-							bind:value={draftAreaNoteId}
-							onchange={markDirty}
-							class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-						>
-							<option value="">Unlinked</option>
-							{#if draftAreaNoteId && !locationNotes.some((note) => String(note.id) === draftAreaNoteId)}
-								<option value={draftAreaNoteId}>{draftAreaNoteId}</option>
+			{#if !playerModeState.enabled}
+				<aside
+					class="rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
+				>
+					{#if combatModeEnabled}
+						<div class="mb-3 space-y-2">
+							<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">
+								Combat Tracker Sync
+							</h2>
+							{#if selectedCombatTile}
+								<div class="h-[420px] min-h-[320px]">
+									<CombatTrackerTile
+										tile={selectedCombatTile}
+										standalone
+										onselect={() => undefined}
+										onupdate={handleCombatTrackerUpdate}
+									/>
+								</div>
+							{:else}
+								<p class="text-xs text-ink-muted dark:text-tavern-muted">
+									Select a board and combat tile to enable map-tracker synchronization.
+								</p>
 							{/if}
-							{#each locationNotes as note (note.id)}
-								<option value={String(note.id)}>{note.title}</option>
-							{/each}
-						</select>
-					</label>
-					{#if draftAreaNoteId}
-						<button
-							type="button"
-							class="text-xs text-accent hover:underline dark:text-tavern-accent"
-							onclick={() => void goto(resolve(`/notes/${draftAreaNoteId}`))}
-						>
-							Open linked location note
-						</button>
-					{/if}
-					<label
-						class="flex items-center gap-2 rounded border border-border px-2 py-1.5 text-xs text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
-					>
-						<input type="checkbox" bind:checked={draftScaleEnabled} onchange={markDirty} />
-						Enable scale label
-					</label>
-					{#if draftScaleEnabled}
-						<div class="grid grid-cols-2 gap-2">
-							<label class="text-xs text-ink-muted dark:text-tavern-muted">
-								Units per square
-								<input
-									type="number"
-									min="0.01"
-									step="0.01"
-									bind:value={draftScaleUnits}
-									oninput={markDirty}
-									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-								/>
-							</label>
-							<label class="text-xs text-ink-muted dark:text-tavern-muted">
-								Unit label
-								<input
-									type="text"
-									bind:value={draftScaleUnitLabel}
-									oninput={markDirty}
-									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-								/>
-							</label>
 						</div>
 					{/if}
-					<div class="grid grid-cols-2 gap-2">
-						<label class="text-xs text-ink-muted dark:text-tavern-muted">
-							Grid type
+					<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Map Metadata</h2>
+					<div class="mt-3 space-y-2.5">
+						<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+							Name
+							<input
+								type="text"
+								bind:value={draftName}
+								oninput={markDirty}
+								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+							/>
+						</label>
+						<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+							Tags (comma-separated)
+							<input
+								type="text"
+								bind:value={draftTags}
+								oninput={markDirty}
+								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+							/>
+						</label>
+						<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+							Linked Area (location note)
 							<select
-								bind:value={draftGridType}
+								bind:value={draftAreaNoteId}
 								onchange={markDirty}
 								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
 							>
-								<option value="square">Square</option>
-								<option value="hex">Hex</option>
-							</select>
-						</label>
-						<label class="text-xs text-ink-muted dark:text-tavern-muted">
-							Cell size (px)
-							<input
-								type="number"
-								min="4"
-								step="1"
-								bind:value={draftGridCellSize}
-								oninput={markDirty}
-								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-							/>
-						</label>
-						<label class="text-xs text-ink-muted dark:text-tavern-muted">
-							Origin X
-							<input
-								type="number"
-								step="0.1"
-								bind:value={draftGridOriginX}
-								oninput={markDirty}
-								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-							/>
-						</label>
-						<label class="text-xs text-ink-muted dark:text-tavern-muted">
-							Origin Y
-							<input
-								type="number"
-								step="0.1"
-								bind:value={draftGridOriginY}
-								oninput={markDirty}
-								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-							/>
-						</label>
-					</div>
-					<label
-						class="flex items-center gap-2 rounded border border-border px-2 py-1.5 text-xs text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
-					>
-						<input type="checkbox" bind:checked={draftGridVisible} onchange={markDirty} />
-						Show grid by default
-					</label>
-					<div
-						class="rounded border border-border bg-surface-alt px-2 py-1.5 text-[11px] text-ink-faint dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-faint"
-					>
-						<p class="truncate">File: {selectedMap.data.filePath || 'Missing path'}</p>
-						{#if selectedMap.data.byteSize}
-							<p>Size: {(selectedMap.data.byteSize / 1024 / 1024).toFixed(2)} MB</p>
-						{/if}
-						{#if draftImageSize}
-							<p>Dimensions: {draftImageSize.width} x {draftImageSize.height}</p>
-						{/if}
-						<p>Layers: {draftLayers.length}</p>
-						<p>POIs: {draftPois.length}</p>
-					</div>
-					<div class="rounded border border-border p-2 dark:border-tavern-border">
-						<div class="flex items-center justify-between">
-							<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">Layer System</h3>
-							<button
-								type="button"
-								class="rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
-								onclick={handleAddLayer}
-							>
-								Add Layer
-							</button>
-						</div>
-						<div class="mt-2 space-y-2">
-							{#each draftLayers as layer (layer.id)}
-								<div class="rounded border border-border p-2 dark:border-tavern-border">
-									<input
-										type="text"
-										value={layer.name}
-										oninput={(event) =>
-											updateLayer(layer.id, (entry) => ({
-												...entry,
-												name: (event.currentTarget as HTMLInputElement).value,
-											}))}
-										class="w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-									/>
-									<div class="mt-1.5 grid grid-cols-2 gap-1.5">
-										<select
-											value={layer.colorTheme}
-											onchange={(event) =>
-												updateLayer(layer.id, (entry) => ({
-													...entry,
-													colorTheme: toLayerTheme(
-														(event.currentTarget as HTMLSelectElement).value,
-													),
-												}))}
-											class="rounded border border-border bg-surface-alt px-2 py-1 text-[11px] text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-										>
-											{#each LAYER_THEME_OPTIONS as option (option.value)}
-												<option value={option.value}>{option.label}</option>
-											{/each}
-										</select>
-										<button
-											type="button"
-											class="rounded border border-border px-2 py-1 text-[11px] text-error hover:bg-error/10 disabled:opacity-40 dark:border-tavern-border"
-											disabled={draftLayers.length <= 1}
-											onclick={() => handleDeleteLayer(layer.id)}
-										>
-											Delete
-										</button>
-									</div>
-									<div
-										class="mt-1.5 flex items-center gap-3 text-[11px] text-ink-muted dark:text-tavern-muted"
-									>
-										<label class="flex items-center gap-1">
-											<input
-												type="checkbox"
-												checked={layer.visible}
-												onchange={(event) =>
-													updateLayer(layer.id, (entry) => ({
-														...entry,
-														visible: (event.currentTarget as HTMLInputElement).checked,
-													}))}
-											/>
-											Visible
-										</label>
-										<label class="flex items-center gap-1">
-											<input
-												type="checkbox"
-												checked={layer.playerVisible}
-												onchange={(event) =>
-													updateLayer(layer.id, (entry) => ({
-														...entry,
-														playerVisible: (event.currentTarget as HTMLInputElement).checked,
-													}))}
-											/>
-											Player Visible
-										</label>
-									</div>
-								</div>
-							{/each}
-						</div>
-					</div>
-					<div class="rounded border border-border p-2 dark:border-tavern-border">
-						<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">
-							POI Pins by Category
-						</h3>
-						<div
-							class="mt-1.5 grid grid-cols-2 gap-1 text-[11px] text-ink-muted dark:text-tavern-muted"
-						>
-							{#each POI_CATEGORY_OPTIONS as category (category.value)}
-								<p>{category.label}: {poiCountsByCategory[category.value] ?? 0}</p>
-							{/each}
-						</div>
-						<label class="mt-2 block text-[11px] text-ink-muted dark:text-tavern-muted">
-							New pins default layer
-							<select
-								bind:value={newPoiLayerId}
-								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-							>
-								{#each draftLayers as layer (layer.id)}
-									<option value={layer.id}>{layer.name}</option>
+								<option value="">Unlinked</option>
+								{#if draftAreaNoteId && !locationNotes.some((note) => String(note.id) === draftAreaNoteId)}
+									<option value={draftAreaNoteId}>{draftAreaNoteId}</option>
+								{/if}
+								{#each locationNotes as note (note.id)}
+									<option value={String(note.id)}>{note.title}</option>
 								{/each}
 							</select>
 						</label>
-					</div>
-					<div class="rounded border border-border p-2 dark:border-tavern-border">
-						<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">Selected Pin</h3>
-						{#if selectedPoi}
-							<div class="mt-2 space-y-2">
-								<label class="block text-[11px] text-ink-muted dark:text-tavern-muted">
-									Label
+						{#if draftAreaNoteId}
+							<button
+								type="button"
+								class="text-xs text-accent hover:underline dark:text-tavern-accent"
+								onclick={() => void goto(resolve(`/notes/${draftAreaNoteId}`))}
+							>
+								Open linked location note
+							</button>
+						{/if}
+						<label
+							class="flex items-center gap-2 rounded border border-border px-2 py-1.5 text-xs text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
+						>
+							<input type="checkbox" bind:checked={draftScaleEnabled} onchange={markDirty} />
+							Enable scale label
+						</label>
+						{#if draftScaleEnabled}
+							<div class="grid grid-cols-2 gap-2">
+								<label class="text-xs text-ink-muted dark:text-tavern-muted">
+									Units per square
 									<input
-										type="text"
-										value={selectedPoi.label}
-										oninput={(event) =>
-											updatePoi(selectedPoi.id, (poi) => ({
-												...poi,
-												label: (event.currentTarget as HTMLInputElement).value,
-											}))}
-										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+										type="number"
+										min="0.01"
+										step="0.01"
+										bind:value={draftScaleUnits}
+										oninput={markDirty}
+										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
 									/>
 								</label>
-								<div class="grid grid-cols-2 gap-2">
-									<label class="text-[11px] text-ink-muted dark:text-tavern-muted">
-										Category
-										<select
-											value={selectedPoi.category}
-											onchange={(event) =>
-												updatePoi(selectedPoi.id, (poi) => ({
-													...poi,
-													category: selectedPoiCategory(
-														(event.currentTarget as HTMLSelectElement).value,
-													),
-												}))}
-											class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-										>
-											{#each POI_CATEGORY_OPTIONS as option (option.value)}
-												<option value={option.value}>{option.label}</option>
-											{/each}
-										</select>
-									</label>
-									<label class="text-[11px] text-ink-muted dark:text-tavern-muted">
-										Layer
-										<select
-											value={selectedPoi.layerId ?? ''}
-											onchange={(event) =>
-												updatePoi(selectedPoi.id, (poi) => ({
-													...poi,
-													layerId: (event.currentTarget as HTMLSelectElement).value || undefined,
-												}))}
-											class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-										>
-											{#each draftLayers as layer (layer.id)}
-												<option value={layer.id}>{layer.name}</option>
-											{/each}
-										</select>
-									</label>
-								</div>
-								<label class="block text-[11px] text-ink-muted dark:text-tavern-muted">
-									Linked note
-									<select
-										value={selectedPoi.linkedNoteId ?? ''}
-										onchange={(event) =>
-											updatePoi(selectedPoi.id, (poi) => ({
-												...poi,
-												linkedNoteId: (event.currentTarget as HTMLSelectElement).value || undefined,
-											}))}
-										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-									>
-										<option value="">None</option>
-										{#each noteOptions as note (note.id)}
-											<option value={String(note.id)}>{note.title}</option>
-										{/each}
-									</select>
+								<label class="text-xs text-ink-muted dark:text-tavern-muted">
+									Unit label
+									<input
+										type="text"
+										bind:value={draftScaleUnitLabel}
+										oninput={markDirty}
+										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+									/>
 								</label>
-								<label class="block text-[11px] text-ink-muted dark:text-tavern-muted">
-									Linked object
-									<select
-										value={selectedPoi.linkedObjectId ?? ''}
-										onchange={(event) =>
-											updatePoi(selectedPoi.id, (poi) => ({
-												...poi,
-												linkedObjectId:
-													(event.currentTarget as HTMLSelectElement).value || undefined,
-											}))}
-										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
-									>
-										<option value="">None</option>
-										{#each objectOptions as object (object.id)}
-											<option value={String(object.id)}>{object.name} ({object.type})</option>
-										{/each}
-									</select>
-								</label>
-								<p class="text-[11px] text-ink-faint dark:text-tavern-faint">
-									Position: {selectedPoi.x.toFixed(3)}, {selectedPoi.y.toFixed(3)}
-								</p>
-								<div class="flex flex-wrap gap-1.5">
-									{#if resolveLinkedNoteIdForPoi(selectedPoi)}
-										<button
-											type="button"
-											class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
-											onclick={() =>
-												void goto(resolve(`/notes/${resolveLinkedNoteIdForPoi(selectedPoi)}`))}
-										>
-											Open linked note
-										</button>
-									{:else}
-										<button
-											type="button"
-											class="rounded border border-border px-2 py-1 text-[11px] text-accent hover:bg-accent-subtle dark:border-tavern-border dark:text-tavern-accent dark:hover:bg-tavern-accent-subtle"
-											onclick={() => void handleCreateNoteFromPoi(selectedPoi.id)}
-										>
-											Create note
-										</button>
-									{/if}
-									<button
-										type="button"
-										class="rounded border border-border px-2 py-1 text-[11px] text-error hover:bg-error/10 dark:border-tavern-border"
-										onclick={() => handleDeletePoi(selectedPoi.id)}
-									>
-										Delete pin
-									</button>
-								</div>
 							</div>
-						{:else}
-							<p class="mt-2 text-[11px] text-ink-muted dark:text-tavern-muted">
-								Select a pin to edit links and metadata.
-							</p>
 						{/if}
-					</div>
-					{#if combatModeEnabled && selectedCombat}
+						<div class="grid grid-cols-2 gap-2">
+							<label class="text-xs text-ink-muted dark:text-tavern-muted">
+								Grid type
+								<select
+									bind:value={draftGridType}
+									onchange={markDirty}
+									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+								>
+									<option value="square">Square</option>
+									<option value="hex">Hex</option>
+								</select>
+							</label>
+							<label class="text-xs text-ink-muted dark:text-tavern-muted">
+								Cell size (px)
+								<input
+									type="number"
+									min="4"
+									step="1"
+									bind:value={draftGridCellSize}
+									oninput={markDirty}
+									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+								/>
+							</label>
+							<label class="text-xs text-ink-muted dark:text-tavern-muted">
+								Origin X
+								<input
+									type="number"
+									step="0.1"
+									bind:value={draftGridOriginX}
+									oninput={markDirty}
+									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+								/>
+							</label>
+							<label class="text-xs text-ink-muted dark:text-tavern-muted">
+								Origin Y
+								<input
+									type="number"
+									step="0.1"
+									bind:value={draftGridOriginY}
+									oninput={markDirty}
+									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+								/>
+							</label>
+						</div>
+						<label
+							class="flex items-center gap-2 rounded border border-border px-2 py-1.5 text-xs text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
+						>
+							<input type="checkbox" bind:checked={draftGridVisible} onchange={markDirty} />
+							Show grid by default
+						</label>
+						<div
+							class="rounded border border-border bg-surface-alt px-2 py-1.5 text-[11px] text-ink-faint dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-faint"
+						>
+							<p class="truncate">File: {selectedMap.data.filePath || 'Missing path'}</p>
+							{#if selectedMap.data.byteSize}
+								<p>Size: {(selectedMap.data.byteSize / 1024 / 1024).toFixed(2)} MB</p>
+							{/if}
+							{#if draftImageSize}
+								<p>Dimensions: {draftImageSize.width} x {draftImageSize.height}</p>
+							{/if}
+							<p>Layers: {draftLayers.length}</p>
+							<p>POIs: {draftPois.length}</p>
+						</div>
+						<div class="rounded border border-border p-2 dark:border-tavern-border">
+							<div class="flex items-center justify-between">
+								<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">Layer System</h3>
+								<button
+									type="button"
+									class="rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+									onclick={handleAddLayer}
+								>
+									Add Layer
+								</button>
+							</div>
+							<div class="mt-2 space-y-2">
+								{#each draftLayers as layer (layer.id)}
+									<div class="rounded border border-border p-2 dark:border-tavern-border">
+										<input
+											type="text"
+											value={layer.name}
+											oninput={(event) =>
+												updateLayer(layer.id, (entry) => ({
+													...entry,
+													name: (event.currentTarget as HTMLInputElement).value,
+												}))}
+											class="w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+										/>
+										<div class="mt-1.5 grid grid-cols-2 gap-1.5">
+											<select
+												value={layer.colorTheme}
+												onchange={(event) =>
+													updateLayer(layer.id, (entry) => ({
+														...entry,
+														colorTheme: toLayerTheme(
+															(event.currentTarget as HTMLSelectElement).value,
+														),
+													}))}
+												class="rounded border border-border bg-surface-alt px-2 py-1 text-[11px] text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+											>
+												{#each LAYER_THEME_OPTIONS as option (option.value)}
+													<option value={option.value}>{option.label}</option>
+												{/each}
+											</select>
+											<button
+												type="button"
+												class="rounded border border-border px-2 py-1 text-[11px] text-error hover:bg-error/10 disabled:opacity-40 dark:border-tavern-border"
+												disabled={draftLayers.length <= 1}
+												onclick={() => handleDeleteLayer(layer.id)}
+											>
+												Delete
+											</button>
+										</div>
+										<div
+											class="mt-1.5 flex items-center gap-3 text-[11px] text-ink-muted dark:text-tavern-muted"
+										>
+											<label class="flex items-center gap-1">
+												<input
+													type="checkbox"
+													checked={layer.visible}
+													onchange={(event) =>
+														updateLayer(layer.id, (entry) => ({
+															...entry,
+															visible: (event.currentTarget as HTMLInputElement).checked,
+														}))}
+												/>
+												Visible
+											</label>
+											<label class="flex items-center gap-1">
+												<input
+													type="checkbox"
+													checked={layer.playerVisible}
+													onchange={(event) =>
+														updateLayer(layer.id, (entry) => ({
+															...entry,
+															playerVisible: (event.currentTarget as HTMLInputElement).checked,
+														}))}
+												/>
+												Player Visible
+											</label>
+										</div>
+									</div>
+								{/each}
+							</div>
+						</div>
 						<div class="rounded border border-border p-2 dark:border-tavern-border">
 							<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">
-								Combat Map Activity
+								POI Pins by Category
 							</h3>
-							{#if selectedCombat.mapState.history.length === 0}
-								<p class="mt-1 text-[11px] text-ink-muted dark:text-tavern-muted">
-									No movement or status events yet.
-								</p>
-							{:else}
-								<ul
-									class="mt-1 max-h-36 space-y-1 overflow-auto text-[11px] text-ink-muted dark:text-tavern-muted"
+							<div
+								class="mt-1.5 grid grid-cols-2 gap-1 text-[11px] text-ink-muted dark:text-tavern-muted"
+							>
+								{#each POI_CATEGORY_OPTIONS as category (category.value)}
+									<p>{category.label}: {poiCountsByCategory[category.value] ?? 0}</p>
+								{/each}
+							</div>
+							<label class="mt-2 block text-[11px] text-ink-muted dark:text-tavern-muted">
+								New pins default layer
+								<select
+									bind:value={newPoiLayerId}
+									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
 								>
-									{#each [...selectedCombat.mapState.history]
-										.slice(-8)
-										.reverse() as entry (entry.id)}
-										<li class="rounded bg-surface-alt px-1.5 py-1 dark:bg-tavern-surface-alt">
-											<p class="font-medium text-ink dark:text-tavern-text">{entry.kind}</p>
-											<p>{entry.message}</p>
-										</li>
+									{#each draftLayers as layer (layer.id)}
+										<option value={layer.id}>{layer.name}</option>
 									{/each}
-								</ul>
+								</select>
+							</label>
+						</div>
+						<div class="rounded border border-border p-2 dark:border-tavern-border">
+							<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">Selected Pin</h3>
+							{#if selectedPoi}
+								<div class="mt-2 space-y-2">
+									<label class="block text-[11px] text-ink-muted dark:text-tavern-muted">
+										Label
+										<input
+											type="text"
+											value={selectedPoi.label}
+											oninput={(event) =>
+												updatePoi(selectedPoi.id, (poi) => ({
+													...poi,
+													label: (event.currentTarget as HTMLInputElement).value,
+												}))}
+											class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+										/>
+									</label>
+									<div class="grid grid-cols-2 gap-2">
+										<label class="text-[11px] text-ink-muted dark:text-tavern-muted">
+											Category
+											<select
+												value={selectedPoi.category}
+												onchange={(event) =>
+													updatePoi(selectedPoi.id, (poi) => ({
+														...poi,
+														category: selectedPoiCategory(
+															(event.currentTarget as HTMLSelectElement).value,
+														),
+													}))}
+												class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+											>
+												{#each POI_CATEGORY_OPTIONS as option (option.value)}
+													<option value={option.value}>{option.label}</option>
+												{/each}
+											</select>
+										</label>
+										<label class="text-[11px] text-ink-muted dark:text-tavern-muted">
+											Layer
+											<select
+												value={selectedPoi.layerId ?? ''}
+												onchange={(event) =>
+													updatePoi(selectedPoi.id, (poi) => ({
+														...poi,
+														layerId: (event.currentTarget as HTMLSelectElement).value || undefined,
+													}))}
+												class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+											>
+												{#each draftLayers as layer (layer.id)}
+													<option value={layer.id}>{layer.name}</option>
+												{/each}
+											</select>
+										</label>
+									</div>
+									<label class="block text-[11px] text-ink-muted dark:text-tavern-muted">
+										Linked note
+										<select
+											value={selectedPoi.linkedNoteId ?? ''}
+											onchange={(event) =>
+												updatePoi(selectedPoi.id, (poi) => ({
+													...poi,
+													linkedNoteId:
+														(event.currentTarget as HTMLSelectElement).value || undefined,
+												}))}
+											class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+										>
+											<option value="">None</option>
+											{#each noteOptions as note (note.id)}
+												<option value={String(note.id)}>{note.title}</option>
+											{/each}
+										</select>
+									</label>
+									<label class="block text-[11px] text-ink-muted dark:text-tavern-muted">
+										Linked object
+										<select
+											value={selectedPoi.linkedObjectId ?? ''}
+											onchange={(event) =>
+												updatePoi(selectedPoi.id, (poi) => ({
+													...poi,
+													linkedObjectId:
+														(event.currentTarget as HTMLSelectElement).value || undefined,
+												}))}
+											class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+										>
+											<option value="">None</option>
+											{#each objectOptions as object (object.id)}
+												<option value={String(object.id)}>{object.name} ({object.type})</option>
+											{/each}
+										</select>
+									</label>
+									<p class="text-[11px] text-ink-faint dark:text-tavern-faint">
+										Position: {selectedPoi.x.toFixed(3)}, {selectedPoi.y.toFixed(3)}
+									</p>
+									<div class="flex flex-wrap gap-1.5">
+										{#if resolveLinkedNoteIdForPoi(selectedPoi)}
+											<button
+												type="button"
+												class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+												onclick={() =>
+													void goto(resolve(`/notes/${resolveLinkedNoteIdForPoi(selectedPoi)}`))}
+											>
+												Open linked note
+											</button>
+										{:else}
+											<button
+												type="button"
+												class="rounded border border-border px-2 py-1 text-[11px] text-accent hover:bg-accent-subtle dark:border-tavern-border dark:text-tavern-accent dark:hover:bg-tavern-accent-subtle"
+												onclick={() => void handleCreateNoteFromPoi(selectedPoi.id)}
+											>
+												Create note
+											</button>
+										{/if}
+										<button
+											type="button"
+											class="rounded border border-border px-2 py-1 text-[11px] text-error hover:bg-error/10 dark:border-tavern-border"
+											onclick={() => handleDeletePoi(selectedPoi.id)}
+										>
+											Delete pin
+										</button>
+									</div>
+								</div>
+							{:else}
+								<p class="mt-2 text-[11px] text-ink-muted dark:text-tavern-muted">
+									Select a pin to edit links and metadata.
+								</p>
 							{/if}
 						</div>
-					{/if}
-				</div>
-				<div class="mt-3 flex items-center gap-2">
-					<button
-						type="button"
-						class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover"
-						disabled={!dirty || saving}
-						onclick={() => void handleSave()}
-					>
-						{saving ? 'Saving...' : 'Save Map'}
-					</button>
-					<button
-						type="button"
-						class="rounded-md border border-border px-3 py-1.5 text-xs text-ink-muted hover:bg-surface-alt disabled:cursor-not-allowed disabled:opacity-60 dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
-						disabled={!dirty || saving}
-						onclick={discardDraft}
-					>
-						Discard
-					</button>
-				</div>
-			</aside>
+						{#if combatModeEnabled && selectedCombat}
+							<div class="rounded border border-border p-2 dark:border-tavern-border">
+								<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">
+									Session Event Log
+								</h3>
+								{#if selectedCombat.mapState.history.length === 0}
+									<p class="mt-1 text-[11px] text-ink-muted dark:text-tavern-muted">
+										No map session events yet.
+									</p>
+								{:else}
+									<ul
+										class="mt-1 max-h-36 space-y-1 overflow-auto text-[11px] text-ink-muted dark:text-tavern-muted"
+									>
+										{#each [...selectedCombat.mapState.history]
+											.slice(-8)
+											.reverse() as entry (entry.id)}
+											<li class="rounded bg-surface-alt px-1.5 py-1 dark:bg-tavern-surface-alt">
+												<p class="font-medium text-ink dark:text-tavern-text">{entry.kind}</p>
+												<p>{entry.message}</p>
+											</li>
+										{/each}
+									</ul>
+								{/if}
+							</div>
+						{/if}
+					</div>
+					<div class="mt-3 flex items-center gap-2">
+						<button
+							type="button"
+							class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover"
+							disabled={!dirty || saving}
+							onclick={() => void handleSave()}
+						>
+							{saving ? 'Saving...' : 'Save Map'}
+						</button>
+						<button
+							type="button"
+							class="rounded-md border border-border px-3 py-1.5 text-xs text-ink-muted hover:bg-surface-alt disabled:cursor-not-allowed disabled:opacity-60 dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+							disabled={!dirty || saving}
+							onclick={discardDraft}
+						>
+							Discard
+						</button>
+					</div>
+				</aside>
+			{/if}
 		</section>
 	{/if}
 </div>

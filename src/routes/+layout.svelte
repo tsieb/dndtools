@@ -215,7 +215,6 @@
 		if (!playerModeState.enabled) return;
 		if (
 			page.url.pathname === '/graph' ||
-			page.url.pathname === '/maps' ||
 			page.url.pathname === '/timeline' ||
 			page.url.pathname === '/session-board' ||
 			page.url.pathname === '/encounter/new' ||
