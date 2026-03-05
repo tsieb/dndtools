@@ -529,6 +529,17 @@ export const MCP_TOOL_CONTRACTS: Record<string, ToolContract> = {
 					sourceTitle: z.string().min(1),
 					displayText: z.string(),
 					position: z.number().int().nonnegative(),
+					kind: z.enum(['wikilink', 'map_placement']),
+					mapId: z.string().min(1).optional(),
+					mapName: z.string().min(1).optional(),
+					poiId: z.string().min(1).nullable().optional(),
+					coordinates: z
+						.object({
+							x: z.number().min(0).max(1),
+							y: z.number().min(0).max(1),
+						})
+						.strict()
+						.optional(),
 					matchedByAlias: z.boolean(),
 					matchedAlias: z.string().nullable(),
 					contextSnippet: z.string(),

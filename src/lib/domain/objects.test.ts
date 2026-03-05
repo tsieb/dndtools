@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeCharacterData, normalizeObjectRelationships } from '$lib/domain/objects.js';
+import {
+	createDefaultMapAnnotationLayers,
+	normalizeCharacterData,
+	normalizeMapData,
+	normalizeObjectRelationships,
+} from '$lib/domain/objects.js';
 
 describe('normalizeObjectRelationships', () => {
 	it('keeps built-in relationship types', () => {
@@ -53,5 +58,47 @@ describe('normalizeCharacterData', () => {
 		});
 		expect(normalized.notes).toBe('public notes');
 		expect(normalized.dmNotes).toBe('secret note');
+	});
+});
+
+describe('normalizeMapData', () => {
+	it('normalizes POIs and clamps normalized coordinates', () => {
+		const layers = createDefaultMapAnnotationLayers();
+		const normalized = normalizeMapData({
+			filePath: '.vault/assets/maps/city.png',
+			layers,
+			pois: [
+				{
+					id: 'poi-market',
+					label: ' Market Square ',
+					category: 'city',
+					x: 1.6,
+					y: -0.5,
+					layerId: layers[0]?.id,
+					linkedNoteId: ' note-market ',
+				},
+			],
+		});
+		expect(normalized.pois).toEqual([
+			{
+				id: 'poi-market',
+				label: 'Market Square',
+				category: 'city',
+				x: 1,
+				y: 0,
+				layerId: layers[0]?.id,
+				linkedNoteId: 'note-market',
+				linkedObjectId: undefined,
+			},
+		]);
+	});
+
+	it('creates default layers when POIs are present but layers are missing', () => {
+		const normalized = normalizeMapData({
+			filePath: '.vault/assets/maps/region.png',
+			pois: [{ id: 'poi-keep', label: 'Ancient Keep', category: 'dungeon', x: 0.2, y: 0.3 }],
+		});
+		expect(normalized.layers?.length).toBeGreaterThan(0);
+		expect(normalized.pois?.[0]?.layerId).toBe(normalized.layers?.[0]?.id);
 	});
 });

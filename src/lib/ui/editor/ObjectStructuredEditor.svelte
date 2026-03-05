@@ -13,6 +13,7 @@
 	import { noteToVaultObject } from '$lib/domain/object-notes.js';
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import {
+		createDefaultMapAnnotationLayers,
 		normalizeCharacterData,
 		normalizeEncounterData,
 		normalizeFactionData,
@@ -552,6 +553,8 @@
 						...existing.data,
 						filePath: fieldA,
 						areaNoteId: fieldB || undefined,
+						layers: existing.data.layers ?? createDefaultMapAnnotationLayers(),
+						pois: existing.data.pois ?? [],
 						scale:
 							unitsPerGridSquare && unitsPerGridSquare > 0
 								? {

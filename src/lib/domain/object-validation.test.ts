@@ -24,6 +24,25 @@ function makeQuestObject(id = 'quest-1', overrides: Partial<VaultObject> = {}): 
 	} as VaultObject;
 }
 
+function makeMapObject(id = 'map-1', overrides: Partial<VaultObject> = {}): VaultObject {
+	return {
+		id: createVaultObjectId(id),
+		type: 'map',
+		name: 'Sword Coast',
+		summary: '',
+		tags: ['map'],
+		relationships: [],
+		data: {
+			filePath: '.vault/assets/maps/sword-coast.png',
+			pois: [],
+			layers: [],
+		},
+		createdAt: '2026-01-01T00:00:00.000Z',
+		updatedAt: '2026-01-01T00:00:00.000Z',
+		...overrides,
+	} as VaultObject;
+}
+
 describe('lintVaultObjects', () => {
 	it('reports required-field issues for object-specific schemas', () => {
 		const issues = lintVaultObjects([makeQuestObject()]);
@@ -105,5 +124,22 @@ describe('lintVaultObjects', () => {
 		const duplicates = issues.filter((issue) => issue.code === 'object.duplicate_canonical_name');
 		expect(duplicates).toHaveLength(2);
 		expect(duplicates.every((issue) => issue.severity === 'warning')).toBe(true);
+	});
+
+	it('validates map POI coordinates and layer references', () => {
+		const map = makeMapObject('map-poi-invalid', {
+			data: {
+				filePath: '.vault/assets/maps/city.png',
+				layers: [
+					{ id: 'dm', name: 'DM Notes', colorTheme: 'amber', visible: true, playerVisible: false },
+				],
+				pois: [{ id: 'poi-1', label: '', category: 'city', x: 1.2, y: -0.2, layerId: 'missing' }],
+			},
+		});
+		const issues = lintVaultObjects([map]);
+		expect(issues.some((issue) => issue.code === 'map.poi_label_required')).toBe(true);
+		expect(issues.some((issue) => issue.code === 'map.poi_x_out_of_bounds')).toBe(true);
+		expect(issues.some((issue) => issue.code === 'map.poi_y_out_of_bounds')).toBe(true);
+		expect(issues.some((issue) => issue.code === 'map.poi_layer_missing')).toBe(true);
 	});
 });

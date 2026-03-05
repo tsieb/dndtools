@@ -2,8 +2,15 @@
 	import { tick } from 'svelte';
 	import type { PageData } from './$types';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { mapsState } from '$lib/state/maps.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
+	import { resolveDesktopMapAssetUrl } from '$lib/platform/desktop/bridge.js';
+	import {
+		collectMapPlacementsForNote,
+		extractMapFrontmatterPlacement,
+		type MapPlacementLink,
+	} from '$lib/domain/map-pois.js';
 	import NoteViewer from '$lib/ui/viewer/NoteViewer.svelte';
 	import PlayerCharacterSheet from '$lib/ui/player/PlayerCharacterSheet.svelte';
 	import ObjectRelationshipPanel from '$lib/ui/viewer/ObjectRelationshipPanel.svelte';
@@ -22,6 +29,7 @@
 	let { data }: { data: PageData } = $props();
 	let showDeleteConfirm = $state(false);
 	let quickAdd = $state('');
+	let minimapImageUrl = $state<string | null>(null);
 	let noteOpenMeasured = $state(false);
 	let noteOpenMeasurement = $state<{
 		startMark: string;
@@ -39,12 +47,56 @@
 	let hiddenByVisibility = $derived(
 		playerModeState.enabled && !!rawNote && !isNoteVisibleInPlayerMode(rawNote),
 	);
+	let isLocationNote = $derived.by(() => {
+		if (!note) return false;
+		const frontmatterType =
+			typeof note.frontmatter.type === 'string' ? note.frontmatter.type.toLowerCase() : '';
+		if (frontmatterType === 'location') return true;
+		if (note.tags.some((tag) => tag.toLowerCase() === 'location')) return true;
+		return noteToVaultObject(note)?.type === 'location';
+	});
+	let mapPlacements = $derived.by(() => {
+		if (!note) return [] as MapPlacementLink[];
+		return collectMapPlacementsForNote(mapsState.maps, String(note.id), note.frontmatter);
+	});
+	let frontmatterMapPlacement = $derived.by(() => {
+		if (!note) return null;
+		if (!isLocationNote) return null;
+		const placement = extractMapFrontmatterPlacement(note.frontmatter);
+		if (!placement) return null;
+		const map = mapsState.mapById[placement.mapId] ?? null;
+		if (!map) return null;
+		return {
+			...placement,
+			mapName: map.name,
+			filePath: map.data.filePath,
+		};
+	});
 	let playerCharacterObject = $derived.by(() => {
 		if (!playerModeState.enabled || !note || note.visibility !== 'shared') return null;
 		const object = noteToVaultObject(note);
 		if (!object || object.type !== 'character') return null;
 		return object;
 	});
+
+	function isAbsoluteUrl(value: string): boolean {
+		return /^(https?:\/\/|file:\/\/|data:|blob:)/i.test(value.trim());
+	}
+
+	function mapPlacementHref(placement: {
+		mapId: string;
+		poiId: string | null;
+		coordinates: { x: number; y: number };
+	}): string {
+		const params = [`map=${encodeURIComponent(placement.mapId)}`];
+		if (placement.poiId) {
+			params.push(`poi=${encodeURIComponent(placement.poiId)}`);
+		} else {
+			params.push(`x=${encodeURIComponent(String(placement.coordinates.x))}`);
+			params.push(`y=${encodeURIComponent(String(placement.coordinates.y))}`);
+		}
+		return `${resolve('/maps')}?${params.join('&')}`;
+	}
 
 	$effect(() => {
 		if (!data.noteId) return;
@@ -64,6 +116,37 @@
 		if (data.noteId) {
 			notesState.setActive(data.noteId);
 		}
+	});
+
+	$effect(() => {
+		void mapsState.loadAll();
+	});
+
+	$effect(() => {
+		const placement = frontmatterMapPlacement;
+		if (!placement) {
+			minimapImageUrl = null;
+			return;
+		}
+		if (isAbsoluteUrl(placement.filePath)) {
+			minimapImageUrl = placement.filePath;
+			return;
+		}
+		if (typeof window === 'undefined' || !window.dndtoolsDesktop) {
+			minimapImageUrl = null;
+			return;
+		}
+		let stale = false;
+		void resolveDesktopMapAssetUrl(placement.filePath)
+			.then((resolved) => {
+				if (!stale) minimapImageUrl = resolved;
+			})
+			.catch(() => {
+				if (!stale) minimapImageUrl = null;
+			});
+		return () => {
+			stale = true;
+		};
 	});
 
 	$effect(() => {
@@ -127,10 +210,45 @@
 		</div>
 		<NoteHeader
 			{note}
+			{mapPlacements}
 			readonly={playerModeState.enabled}
 			onedit={() => goto(resolve(`/notes/${data.noteId}/edit`))}
 			ondelete={() => (showDeleteConfirm = true)}
 		/>
+		{#if frontmatterMapPlacement}
+			<div
+				class="max-w-content mx-auto mb-4 rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
+			>
+				<div class="mb-2 flex items-center justify-between gap-2">
+					<p class="text-xs font-semibold text-ink dark:text-tavern-text">Map Minimap</p>
+					<a
+						href={mapPlacementHref(frontmatterMapPlacement)}
+						class="text-xs text-accent underline underline-offset-2 hover:text-accent-hover dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
+					>
+						Open {frontmatterMapPlacement.mapName}
+					</a>
+				</div>
+				{#if minimapImageUrl}
+					<div
+						class="relative h-40 overflow-hidden rounded border border-border dark:border-tavern-border"
+					>
+						<img
+							src={minimapImageUrl}
+							alt={`${frontmatterMapPlacement.mapName} minimap`}
+							class="h-full w-full object-cover"
+						/>
+						<div
+							class="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-accent shadow"
+							style={`left:${frontmatterMapPlacement.coordinates.x * 100}%;top:${frontmatterMapPlacement.coordinates.y * 100}%;`}
+						></div>
+					</div>
+				{:else}
+					<p class="text-xs text-ink-muted dark:text-tavern-muted">
+						Minimap preview unavailable in this runtime.
+					</p>
+				{/if}
+			</div>
+		{/if}
 		<TableOfContents content={note.content} />
 		{#if !playerModeState.enabled}
 			<div

@@ -6,6 +6,7 @@
 	import { generateVaultObjectId } from '$lib/utils/id.js';
 	import { nowISO } from '$lib/utils/date.js';
 	import {
+		createDefaultMapAnnotationLayers,
 		normalizeCharacterData,
 		normalizeEncounterData,
 		normalizeFactionData,
@@ -304,6 +305,8 @@
 					data: normalizeMapData({
 						filePath: fieldA,
 						areaNoteId: fieldB || undefined,
+						layers: createDefaultMapAnnotationLayers(),
+						pois: [],
 						scale:
 							unitsPerGridSquare && unitsPerGridSquare > 0
 								? {

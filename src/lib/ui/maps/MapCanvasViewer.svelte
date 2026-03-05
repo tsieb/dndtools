@@ -1,6 +1,16 @@
 <script lang="ts">
-	import type { MapGridData, MapViewportData } from '$lib/types/object.js';
+	import type { MapGridData, MapPoiCategory, MapViewportData } from '$lib/types/object.js';
 	import { SvelteMap } from 'svelte/reactivity';
+
+	export interface MapViewerPoi {
+		id: string;
+		label: string;
+		category: MapPoiCategory;
+		x: number;
+		y: number;
+		colorTheme?: string;
+		hidden?: boolean;
+	}
 
 	interface Props {
 		src: string | null;
@@ -8,10 +18,22 @@
 		grid?: MapGridData;
 		showGrid?: boolean;
 		editableGrid?: boolean;
+		pois?: readonly MapViewerPoi[];
+		poiEditable?: boolean;
 		initialViewport?: MapViewportData;
 		ongridchange?: (grid: MapGridData) => void;
 		onviewportchange?: (viewport: MapViewportData) => void;
 		onimageinfo?: (info: { width: number; height: number }) => void;
+		onmapclick?: (payload: {
+			x: number;
+			y: number;
+			ctrlKey: boolean;
+			metaKey: boolean;
+			shiftKey: boolean;
+		}) => void;
+		onpoiclick?: (payload: { id: string; ctrlKey: boolean; metaKey: boolean }) => void;
+		onpoimove?: (payload: { id: string; x: number; y: number }) => void;
+		onpoihover?: (payload: { id: string | null; clientX: number; clientY: number }) => void;
 	}
 
 	let {
@@ -20,10 +42,16 @@
 		grid = undefined,
 		showGrid = true,
 		editableGrid = false,
+		pois = [],
+		poiEditable = false,
 		initialViewport = undefined,
 		ongridchange,
 		onviewportchange,
 		onimageinfo,
+		onmapclick,
+		onpoiclick,
+		onpoimove,
+		onpoihover,
 	}: Props = $props();
 
 	let canvasEl = $state<HTMLCanvasElement | null>(null);
@@ -34,6 +62,16 @@
 	let viewport = $state<MapViewportData>({ zoom: 1, panX: 0, panY: 0 });
 	let workingGrid = $state<MapGridData | undefined>(undefined);
 	let pointerHint = $state('');
+	let suppressPoiClickId = $state<string | null>(null);
+	let clickCandidate: {
+		pointerId: number;
+		startX: number;
+		startY: number;
+		ctrlKey: boolean;
+		metaKey: boolean;
+		shiftKey: boolean;
+		moved: boolean;
+	} | null = null;
 
 	let drawQueued = false;
 	const activePointers = new SvelteMap<number, { x: number; y: number }>();
@@ -54,12 +92,68 @@
 		pointerId: number;
 		handle: 'origin' | 'size';
 	} | null = null;
+	let poiDrag: {
+		pointerId: number;
+		poiId: string;
+		startX: number;
+		startY: number;
+		moved: boolean;
+	} | null = null;
 
 	const MIN_ZOOM = 0.05;
 	const MAX_ZOOM = 12;
+	const POI_CLICK_DRAG_THRESHOLD = 4;
+	const POI_CATEGORY_ICON: Record<MapPoiCategory, string> = {
+		city: '\u25CF',
+		dungeon: '\u25A0',
+		landmark: '\u25C6',
+		structure: '\u25B2',
+		secret: '\u2736',
+		encounter: '\u2694',
+	};
 
 	function clampZoom(value: number): number {
 		return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
+	}
+
+	function mapFractionToLocalPoint(x: number, y: number): { x: number; y: number } | null {
+		if (!image) return null;
+		const zoom = Math.max(MIN_ZOOM, viewport.zoom);
+		return {
+			x: viewport.panX + x * image.width * zoom,
+			y: viewport.panY + y * image.height * zoom,
+		};
+	}
+
+	function localPointToMapFraction(
+		localX: number,
+		localY: number,
+	): { x: number; y: number } | null {
+		if (!image) return null;
+		const zoom = Math.max(MIN_ZOOM, viewport.zoom);
+		const imageX = (localX - viewport.panX) / zoom;
+		const imageY = (localY - viewport.panY) / zoom;
+		return {
+			x: Math.min(1, Math.max(0, imageX / image.width)),
+			y: Math.min(1, Math.max(0, imageY / image.height)),
+		};
+	}
+
+	function poiThemeColor(theme: string | undefined): string {
+		switch (theme) {
+			case 'emerald':
+				return '#047857';
+			case 'azure':
+				return '#0c4a6e';
+			case 'rose':
+				return '#9f1239';
+			case 'violet':
+				return '#5b21b6';
+			case 'slate':
+				return '#334155';
+			default:
+				return '#9a3412';
+		}
 	}
 
 	function queueDraw(): void {
@@ -268,6 +362,15 @@
 		const localY = event.clientY - rect.top;
 		activePointers.set(event.pointerId, { x: localX, y: localY });
 		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+		clickCandidate = {
+			pointerId: event.pointerId,
+			startX: localX,
+			startY: localY,
+			ctrlKey: event.ctrlKey,
+			metaKey: event.metaKey,
+			shiftKey: event.shiftKey,
+			moved: false,
+		};
 
 		const handle = resolveHandleAtPoint(localX, localY);
 		if (handle) {
@@ -291,8 +394,28 @@
 		const rect = viewportEl.getBoundingClientRect();
 		const localX = event.clientX - rect.left;
 		const localY = event.clientY - rect.top;
+		if (
+			clickCandidate &&
+			clickCandidate.pointerId === event.pointerId &&
+			Math.hypot(localX - clickCandidate.startX, localY - clickCandidate.startY) >
+				POI_CLICK_DRAG_THRESHOLD
+		) {
+			clickCandidate = { ...clickCandidate, moved: true };
+		}
 		if (activePointers.has(event.pointerId)) {
 			activePointers.set(event.pointerId, { x: localX, y: localY });
+		}
+
+		if (poiDrag && poiDrag.pointerId === event.pointerId) {
+			if (Math.hypot(localX - poiDrag.startX, localY - poiDrag.startY) > POI_CLICK_DRAG_THRESHOLD) {
+				poiDrag = { ...poiDrag, moved: true };
+			}
+			const fractions = localPointToMapFraction(localX, localY);
+			if (fractions) {
+				onpoimove?.({ id: poiDrag.poiId, x: fractions.x, y: fractions.y });
+				pointerHint = 'Moving pin';
+			}
+			return;
 		}
 
 		if (gridDrag && gridDrag.pointerId === event.pointerId) {
@@ -332,6 +455,32 @@
 	}
 
 	function onPointerUp(event: PointerEvent): void {
+		if (poiDrag?.pointerId === event.pointerId) {
+			if (poiDrag.moved) {
+				suppressPoiClickId = poiDrag.poiId;
+			}
+			poiDrag = null;
+		}
+		if (clickCandidate?.pointerId === event.pointerId && !clickCandidate.moved) {
+			if (viewportEl) {
+				const rect = viewportEl.getBoundingClientRect();
+				const localX = event.clientX - rect.left;
+				const localY = event.clientY - rect.top;
+				const fractions = localPointToMapFraction(localX, localY);
+				if (fractions) {
+					onmapclick?.({
+						x: fractions.x,
+						y: fractions.y,
+						ctrlKey: clickCandidate.ctrlKey,
+						metaKey: clickCandidate.metaKey,
+						shiftKey: clickCandidate.shiftKey,
+					});
+				}
+			}
+		}
+		if (clickCandidate?.pointerId === event.pointerId) {
+			clickCandidate = null;
+		}
 		activePointers.delete(event.pointerId);
 		if (panDrag?.pointerId === event.pointerId) {
 			panDrag = null;
@@ -343,6 +492,44 @@
 			pinchGesture = null;
 		}
 		pointerHint = '';
+	}
+
+	function handlePoiPointerDown(event: PointerEvent, poiId: string): void {
+		event.stopPropagation();
+		if (!poiEditable) return;
+		if (!viewportEl) return;
+		const rect = viewportEl.getBoundingClientRect();
+		const localX = event.clientX - rect.left;
+		const localY = event.clientY - rect.top;
+		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+		poiDrag = {
+			pointerId: event.pointerId,
+			poiId,
+			startX: localX,
+			startY: localY,
+			moved: false,
+		};
+	}
+
+	function emitPoiHover(poiId: string | null, event: MouseEvent | FocusEvent): void {
+		if (!onpoihover) return;
+		const target = event.currentTarget as HTMLElement | null;
+		if (!target) return;
+		const rect = target.getBoundingClientRect();
+		onpoihover({
+			id: poiId,
+			clientX: rect.left + rect.width / 2,
+			clientY: rect.top,
+		});
+	}
+
+	function handlePoiClick(event: MouseEvent, poiId: string): void {
+		event.stopPropagation();
+		if (suppressPoiClickId === poiId) {
+			suppressPoiClickId = null;
+			return;
+		}
+		onpoiclick?.({ id: poiId, ctrlKey: event.ctrlKey, metaKey: event.metaKey });
 	}
 
 	function onWheel(event: WheelEvent): void {
@@ -507,6 +694,31 @@
 		onlostpointercapture={onPointerUp}
 	>
 		<canvas bind:this={canvasEl} class="absolute inset-0 h-full w-full"></canvas>
+		{#if image && pois.length > 0}
+			<div class="pointer-events-none absolute inset-0">
+				{#each pois.filter((poi) => !poi.hidden) as poi (poi.id)}
+					{@const point = mapFractionToLocalPoint(poi.x, poi.y)}
+					{#if point}
+						<button
+							type="button"
+							class="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/90 text-white shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+							style={`left:${point.x}px;top:${point.y}px;background:${poiThemeColor(poi.colorTheme)};width:24px;height:24px;`}
+							aria-label={`${poi.label} (${poi.category})`}
+							title={poi.label}
+							onpointerdown={(event) => handlePoiPointerDown(event, poi.id)}
+							onpointerup={(event) => event.stopPropagation()}
+							onclick={(event) => handlePoiClick(event, poi.id)}
+							onmouseenter={(event) => emitPoiHover(poi.id, event)}
+							onmouseleave={(event) => emitPoiHover(null, event)}
+							onfocus={(event) => emitPoiHover(poi.id, event)}
+							onblur={(event) => emitPoiHover(null, event)}
+						>
+							<span class="text-xs leading-none">{POI_CATEGORY_ICON[poi.category]}</span>
+						</button>
+					{/if}
+				{/each}
+			</div>
+		{/if}
 		{#if !src}
 			<div
 				class="absolute inset-0 flex items-center justify-center text-sm text-ink-muted dark:text-tavern-muted"

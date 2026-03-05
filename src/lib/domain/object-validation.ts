@@ -226,7 +226,7 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 					);
 				}
 				break;
-			case 'map':
+			case 'map': {
 				if (!object.data.filePath?.trim()) {
 					lint.push(
 						issue(
@@ -263,7 +263,101 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 						),
 					);
 				}
+				const layerIds = new Set<string>();
+				for (const [index, layer] of (object.data.layers ?? []).entries()) {
+					const layerId = layer.id?.trim();
+					if (!layerId) {
+						lint.push(
+							issue(
+								object,
+								'map.layer_id_required',
+								'Map annotation layers must include an id.',
+								'error',
+								`data.layers[${index}].id`,
+								'Set a stable layer id.',
+							),
+						);
+						continue;
+					}
+					if (layerIds.has(layerId)) {
+						lint.push(
+							issue(
+								object,
+								'map.layer_id_duplicate',
+								`Layer id "${layerId}" is used more than once.`,
+								'error',
+								`data.layers[${index}].id`,
+								'Use unique ids for each annotation layer.',
+							),
+						);
+						continue;
+					}
+					layerIds.add(layerId);
+					if (!layer.name?.trim()) {
+						lint.push(
+							issue(
+								object,
+								'map.layer_name_required',
+								'Map annotation layers should include a display name.',
+								'warning',
+								`data.layers[${index}].name`,
+								'Set a short layer name.',
+							),
+						);
+					}
+				}
+				for (const [index, poi] of (object.data.pois ?? []).entries()) {
+					if (!poi.label?.trim()) {
+						lint.push(
+							issue(
+								object,
+								'map.poi_label_required',
+								'POI pins require a label.',
+								'error',
+								`data.pois[${index}].label`,
+								'Provide a pin label.',
+							),
+						);
+					}
+					if (!Number.isFinite(poi.x) || poi.x < 0 || poi.x > 1) {
+						lint.push(
+							issue(
+								object,
+								'map.poi_x_out_of_bounds',
+								'POI x coordinate must be between 0 and 1.',
+								'error',
+								`data.pois[${index}].x`,
+								'Set x as a normalized fraction of map width.',
+							),
+						);
+					}
+					if (!Number.isFinite(poi.y) || poi.y < 0 || poi.y > 1) {
+						lint.push(
+							issue(
+								object,
+								'map.poi_y_out_of_bounds',
+								'POI y coordinate must be between 0 and 1.',
+								'error',
+								`data.pois[${index}].y`,
+								'Set y as a normalized fraction of map height.',
+							),
+						);
+					}
+					if (poi.layerId?.trim() && layerIds.size > 0 && !layerIds.has(poi.layerId)) {
+						lint.push(
+							issue(
+								object,
+								'map.poi_layer_missing',
+								`POI layer "${poi.layerId}" does not exist on this map.`,
+								'warning',
+								`data.pois[${index}].layerId`,
+								'Select an existing layer id or remove layer assignment.',
+							),
+						);
+					}
+				}
 				break;
+			}
 			case 'npc':
 				if (!object.data.role?.trim()) {
 					lint.push(
