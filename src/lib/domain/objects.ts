@@ -8,7 +8,11 @@ import type {
 	ImageData,
 	ItemData,
 	LocationData,
+	MapAnnotationLayerColorTheme,
+	MapAnnotationLayerData,
 	MapData,
+	MapPoiCategory,
+	MapPoiData,
 	NpcData,
 	ObjectRelationship,
 	ObjectRelationshipType,
@@ -132,6 +136,147 @@ function normalizeFiniteNumber(value: unknown, fallback: number, min: number, ma
 	return fallback;
 }
 
+export const MAP_POI_CATEGORY_VALUES = [
+	'city',
+	'dungeon',
+	'landmark',
+	'structure',
+	'secret',
+	'encounter',
+] as const satisfies readonly MapPoiCategory[];
+const MAP_POI_CATEGORY_SET = new Set<string>(MAP_POI_CATEGORY_VALUES);
+const MAP_LAYER_COLOR_VALUES = [
+	'amber',
+	'emerald',
+	'azure',
+	'rose',
+	'violet',
+	'slate',
+] as const satisfies readonly MapAnnotationLayerColorTheme[];
+const MAP_LAYER_COLOR_SET = new Set<string>(MAP_LAYER_COLOR_VALUES);
+export const DEFAULT_MAP_LAYER_ID = 'layer-dm-notes';
+
+function normalizeMapPoiCategory(value: unknown): MapPoiCategory {
+	if (typeof value === 'string') {
+		const normalized = value.trim().toLowerCase();
+		if (MAP_POI_CATEGORY_SET.has(normalized)) {
+			return normalized as MapPoiCategory;
+		}
+	}
+	return 'landmark';
+}
+
+function normalizeMapLayerColorTheme(value: unknown): MapAnnotationLayerColorTheme {
+	if (typeof value === 'string') {
+		const normalized = value.trim().toLowerCase();
+		if (MAP_LAYER_COLOR_SET.has(normalized)) {
+			return normalized as MapAnnotationLayerColorTheme;
+		}
+	}
+	return 'amber';
+}
+
+function toOptionalTrimmedString(value: unknown): string | undefined {
+	if (typeof value !== 'string') return undefined;
+	const trimmed = value.trim();
+	return trimmed || undefined;
+}
+
+function makeUniqueId(
+	preferredId: string | undefined,
+	fallbackPrefix: string,
+	used: Set<string>,
+): string {
+	const base = preferredId?.trim() || `${fallbackPrefix}-${used.size + 1}`;
+	let candidate = base;
+	let suffix = 2;
+	while (used.has(candidate)) {
+		candidate = `${base}-${suffix++}`;
+	}
+	used.add(candidate);
+	return candidate;
+}
+
+export function createDefaultMapAnnotationLayers(): MapAnnotationLayerData[] {
+	return [
+		{
+			id: DEFAULT_MAP_LAYER_ID,
+			name: 'DM Notes',
+			colorTheme: 'amber',
+			visible: true,
+			playerVisible: false,
+		},
+		{
+			id: 'layer-history',
+			name: 'History',
+			colorTheme: 'slate',
+			visible: true,
+			playerVisible: true,
+		},
+		{
+			id: 'layer-quest-markers',
+			name: 'Quest Markers',
+			colorTheme: 'emerald',
+			visible: true,
+			playerVisible: true,
+		},
+	];
+}
+
+function normalizeMapLayers(value: unknown): MapAnnotationLayerData[] | undefined {
+	if (!Array.isArray(value)) return undefined;
+	const normalized: MapAnnotationLayerData[] = [];
+	const usedIds = new Set<string>();
+	for (const entry of value) {
+		if (typeof entry !== 'object' || entry === null) continue;
+		const source = entry as Record<string, unknown>;
+		const id = makeUniqueId(toOptionalTrimmedString(source.id), 'layer', usedIds);
+		normalized.push({
+			id,
+			name: toOptionalTrimmedString(source.name) ?? `Layer ${normalized.length + 1}`,
+			colorTheme: normalizeMapLayerColorTheme(source.colorTheme),
+			visible: source.visible !== false,
+			playerVisible: source.playerVisible === true,
+		});
+	}
+	return normalized;
+}
+
+function normalizeMapPois(
+	value: unknown,
+	layers: readonly MapAnnotationLayerData[],
+): MapPoiData[] | undefined {
+	if (!Array.isArray(value)) return undefined;
+	const normalized: MapPoiData[] = [];
+	const usedIds = new Set<string>();
+	const availableLayerIds = new Set(layers.map((layer) => layer.id));
+	const fallbackLayerId = layers[0]?.id;
+	for (const entry of value) {
+		if (typeof entry !== 'object' || entry === null) continue;
+		const source = entry as Record<string, unknown>;
+		const id = makeUniqueId(toOptionalTrimmedString(source.id), 'poi', usedIds);
+		const label = toOptionalTrimmedString(source.label) ?? `POI ${normalized.length + 1}`;
+		const x = normalizeFiniteNumber(source.x, 0.5, 0, 1);
+		const y = normalizeFiniteNumber(source.y, 0.5, 0, 1);
+		const requestedLayerId = toOptionalTrimmedString(source.layerId);
+		normalized.push({
+			id,
+			label,
+			category: normalizeMapPoiCategory(source.category),
+			x,
+			y,
+			layerId: requestedLayerId
+				? availableLayerIds.has(requestedLayerId)
+					? requestedLayerId
+					: fallbackLayerId
+				: fallbackLayerId,
+			linkedNoteId: toOptionalTrimmedString(source.linkedNoteId),
+			linkedObjectId: toOptionalTrimmedString(source.linkedObjectId),
+		});
+	}
+	return normalized;
+}
+
 export function normalizeMapData(value: Partial<MapData> | undefined): MapData {
 	const filePath = value?.filePath?.trim() ?? '';
 	const hasScale =
@@ -145,6 +290,11 @@ export function normalizeMapData(value: Partial<MapData> | undefined): MapData {
 		value?.initialViewport &&
 		(typeof value.initialViewport.zoom === 'number' ||
 			typeof value.initialViewport.zoom === 'string');
+	let layers = normalizeMapLayers(value?.layers);
+	if ((!layers || layers.length === 0) && Array.isArray(value?.pois) && value.pois.length > 0) {
+		layers = createDefaultMapAnnotationLayers();
+	}
+	const pois = normalizeMapPois(value?.pois, layers ?? []);
 	return {
 		filePath,
 		mimeType: value?.mimeType?.trim() || undefined,
@@ -188,6 +338,8 @@ export function normalizeMapData(value: Partial<MapData> | undefined): MapData {
 					panY: normalizeFiniteNumber(value?.initialViewport?.panY, 0, -10_000_000, 10_000_000),
 				}
 			: undefined,
+		layers,
+		pois,
 	};
 }
 
@@ -595,7 +747,11 @@ export function summarizeVaultObject(object: VaultObject): string {
 			const scale = object.data.scale
 				? `1 sq = ${object.data.scale.unitsPerGridSquare} ${object.data.scale.unitLabel}`
 				: null;
-			return [dimensions, scale].filter((entry): entry is string => !!entry).join(' | ');
+			const poiCount =
+				Array.isArray(object.data.pois) && object.data.pois.length > 0
+					? `${object.data.pois.length} POI${object.data.pois.length === 1 ? '' : 's'}`
+					: null;
+			return [dimensions, scale, poiCount].filter((entry): entry is string => !!entry).join(' | ');
 		}
 		case 'npc': {
 			const role = object.data.role ?? null;

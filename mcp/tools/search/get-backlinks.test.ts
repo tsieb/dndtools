@@ -60,6 +60,7 @@ describe('get_backlinks tool', () => {
 						contextSnippet: 'Met in Waterdeep where the market never sleeps.',
 					},
 				],
+				getAllObjects: async () => [],
 			} as never,
 		);
 
@@ -73,9 +74,64 @@ describe('get_backlinks tool', () => {
 			{
 				sourceId: source.id,
 				sourceTitle: source.title,
+				kind: 'wikilink',
 				matchedByAlias: true,
 				matchedAlias: 'Waterdeep',
 				contextSnippet: 'Met in Waterdeep where the market never sleeps.',
+			},
+		]);
+	});
+
+	it('includes map placement backlinks for linked POIs', async () => {
+		const target = makeNote('note-castle', 'Cragmaw Castle', '# Cragmaw');
+		const server = new MockMcpServer();
+		registerGetBacklinksTool(
+			server as never,
+			{
+				getNote: async (id) => (String(id) === String(target.id) ? target : null),
+				getLinksTo: async () => [],
+				getAllObjects: async () => [
+					{
+						id: 'map-1',
+						type: 'map',
+						name: 'Sword Coast',
+						summary: '',
+						tags: ['map'],
+						visibility: 'dm_only',
+						relationships: [],
+						data: {
+							filePath: '.vault/assets/maps/sword-coast.png',
+							pois: [
+								{
+									id: 'poi-castle',
+									label: 'Cragmaw Castle',
+									category: 'dungeon',
+									x: 0.42,
+									y: 0.66,
+									linkedNoteId: String(target.id),
+								},
+							],
+						},
+						createdAt: '2026-01-01T00:00:00.000Z',
+						updatedAt: '2026-01-01T00:00:00.000Z',
+					},
+				],
+			} as never,
+		);
+
+		const result = await server.handler?.({ id: String(target.id) });
+		const envelope = parseToolEnvelope(result as ToolResult);
+		if (!envelope || !envelope.ok) {
+			throw new Error('Expected a successful tool response');
+		}
+
+		expect(envelope.data).toMatchObject([
+			{
+				kind: 'map_placement',
+				mapId: 'map-1',
+				mapName: 'Sword Coast',
+				poiId: 'poi-castle',
+				coordinates: { x: 0.42, y: 0.66 },
 			},
 		]);
 	});
@@ -87,6 +143,7 @@ describe('get_backlinks tool', () => {
 			{
 				getNote: async () => null,
 				getLinksTo: async () => [],
+				getAllObjects: async () => [],
 			} as never,
 		);
 

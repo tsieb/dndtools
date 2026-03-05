@@ -92,6 +92,14 @@ export interface ImageData {
 }
 
 export type MapGridType = 'square' | 'hex';
+export type MapPoiCategory = 'city' | 'dungeon' | 'landmark' | 'structure' | 'secret' | 'encounter';
+export type MapAnnotationLayerColorTheme =
+	| 'amber'
+	| 'emerald'
+	| 'azure'
+	| 'rose'
+	| 'violet'
+	| 'slate';
 
 export interface MapScaleData {
 	unitsPerGridSquare: number;
@@ -112,6 +120,25 @@ export interface MapViewportData {
 	panY: number;
 }
 
+export interface MapPoiData {
+	id: string;
+	label: string;
+	category: MapPoiCategory;
+	x: number;
+	y: number;
+	layerId?: string;
+	linkedNoteId?: string;
+	linkedObjectId?: string;
+}
+
+export interface MapAnnotationLayerData {
+	id: string;
+	name: string;
+	colorTheme: MapAnnotationLayerColorTheme;
+	visible: boolean;
+	playerVisible: boolean;
+}
+
 export interface MapData {
 	filePath: string;
 	mimeType?: string;
@@ -122,6 +149,8 @@ export interface MapData {
 	scale?: MapScaleData;
 	grid?: MapGridData;
 	initialViewport?: MapViewportData;
+	layers?: MapAnnotationLayerData[];
+	pois?: MapPoiData[];
 }
 
 export interface NpcData {

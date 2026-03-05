@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { Note } from '$lib/types/note.js';
+	import type { MapPlacementLink } from '$lib/domain/map-pois.js';
 	import { formatRelativeDate, formatDate } from '$lib/utils/date.js';
 	import { formatWorldDate, parseWorldDateInput } from '$lib/domain/world-calendar.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
@@ -13,9 +15,12 @@
 		onedit: () => void;
 		ondelete: () => void;
 		readonly?: boolean;
+		mapPlacements?: readonly MapPlacementLink[];
 	}
 
-	let { note, onedit, ondelete, readonly = false }: Props = $props();
+	let { note, onedit, ondelete, readonly = false, mapPlacements = [] }: Props = $props();
+	const primaryMapPlacement = $derived(mapPlacements[0] ?? null);
+	const additionalMapPlacementCount = $derived(Math.max(0, mapPlacements.length - 1));
 	let filePath = $derived(
 		note.filePath ??
 			(note.folder === '/'
@@ -78,6 +83,17 @@
 		exportNote(note);
 		toastState.success('Note exported');
 	}
+
+	function mapPlacementHref(placement: MapPlacementLink): string {
+		const params = [`map=${encodeURIComponent(placement.mapId)}`];
+		if (placement.poiId) {
+			params.push(`poi=${encodeURIComponent(placement.poiId)}`);
+		} else {
+			params.push(`x=${encodeURIComponent(String(placement.coordinates.x))}`);
+			params.push(`y=${encodeURIComponent(String(placement.coordinates.y))}`);
+		}
+		return `${resolve('/maps')}?${params.join('&')}`;
+	}
 </script>
 
 <div class="max-w-content mx-auto mb-6">
@@ -104,6 +120,28 @@
 					<span title={inWorldDate.long}>In-world {inWorldDate.short}</span>
 				{/if}
 			</div>
+			{#if primaryMapPlacement}
+				<div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+					<span
+						class="rounded-full border border-border bg-surface-alt px-2 py-0.5 font-medium text-ink-muted dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-muted"
+					>
+						Located on map
+					</span>
+					<a
+						href={mapPlacementHref(primaryMapPlacement)}
+						class="text-accent hover:text-accent-hover underline underline-offset-2 dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
+					>
+						{primaryMapPlacement.mapName}
+					</a>
+					{#if additionalMapPlacementCount > 0}
+						<span class="text-ink-faint dark:text-tavern-faint">
+							+{additionalMapPlacementCount} more placement{additionalMapPlacementCount === 1
+								? ''
+								: 's'}
+						</span>
+					{/if}
+				</div>
+			{/if}
 		</div>
 		<div class="flex items-center gap-1 shrink-0">
 			{#if !readonly}

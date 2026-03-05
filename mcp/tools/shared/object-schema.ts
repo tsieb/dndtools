@@ -173,6 +173,35 @@ export const mapDataSchema = z
 			})
 			.strict()
 			.optional(),
+		layers: z
+			.array(
+				z
+					.object({
+						id: z.string().min(1),
+						name: z.string().min(1),
+						colorTheme: z.enum(['amber', 'emerald', 'azure', 'rose', 'violet', 'slate']),
+						visible: z.boolean(),
+						playerVisible: z.boolean(),
+					})
+					.strict(),
+			)
+			.optional(),
+		pois: z
+			.array(
+				z
+					.object({
+						id: z.string().min(1),
+						label: z.string().min(1),
+						category: z.enum(['city', 'dungeon', 'landmark', 'structure', 'secret', 'encounter']),
+						x: z.number().min(0).max(1),
+						y: z.number().min(0).max(1),
+						layerId: z.string().min(1).optional(),
+						linkedNoteId: z.string().min(1).optional(),
+						linkedObjectId: z.string().min(1).optional(),
+					})
+					.strict(),
+			)
+			.optional(),
 	})
 	.strict();
 

@@ -288,12 +288,22 @@ function buildObjectMarkdown(
 			`- Area Note ID: ${value.areaNoteId ?? ''}`.trimEnd(),
 			`- Dimensions: ${value.width && value.height ? `${value.width}x${value.height}` : ''}`.trimEnd(),
 			`- Scale: ${value.scale ? `1 sq = ${value.scale.unitsPerGridSquare} ${value.scale.unitLabel}` : ''}`.trimEnd(),
+			`- Layers: ${value.layers?.length ?? 0}`.trimEnd(),
+			`- POIs: ${value.pois?.length ?? 0}`.trimEnd(),
 			'',
 			'## Grid',
 			`- Type: ${value.grid?.type ?? ''}`.trimEnd(),
 			`- Visible: ${value.grid ? (value.grid.visible ? 'yes' : 'no') : ''}`.trimEnd(),
 			`- Origin: ${value.grid ? `${value.grid.originX}, ${value.grid.originY}` : ''}`.trimEnd(),
 			`- Cell Size: ${value.grid?.cellSize ?? ''}`.trimEnd(),
+			'',
+			'## Points of Interest',
+			...(value.pois && value.pois.length > 0
+				? value.pois.map(
+						(poi) =>
+							`- ${poi.label} (${poi.category}) at ${poi.x.toFixed(3)}, ${poi.y.toFixed(3)}${poi.layerId ? ` [${poi.layerId}]` : ''}`,
+					)
+				: ['- _No POIs configured_']),
 			...relationshipLines,
 		].join('\n');
 	}

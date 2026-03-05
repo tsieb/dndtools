@@ -14,6 +14,7 @@ import type {
 	VaultObjectType,
 } from '$lib/types/object.js';
 import {
+	createDefaultMapAnnotationLayers,
 	normalizeEncounterData,
 	normalizeFactionData,
 	normalizeHandoutData,
@@ -114,6 +115,8 @@ export function getObjectTemplateSeed(
 				relationships: [],
 				data: normalizeMapData({
 					filePath: '',
+					layers: createDefaultMapAnnotationLayers(),
+					pois: [],
 					scale: {
 						unitsPerGridSquare: 5,
 						unitLabel: 'ft',

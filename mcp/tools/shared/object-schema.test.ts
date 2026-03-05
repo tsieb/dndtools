@@ -105,4 +105,31 @@ describe('object-schema', () => {
 		});
 		expect(parsed.success).toBe(true);
 	});
+
+	it('accepts map records with layers and POIs', () => {
+		const parsed = objectDataSchemaByType.map.safeParse({
+			filePath: '.vault/assets/maps/phandalin.png',
+			layers: [
+				{
+					id: 'layer-dm',
+					name: 'DM Notes',
+					colorTheme: 'amber',
+					visible: true,
+					playerVisible: false,
+				},
+			],
+			pois: [
+				{
+					id: 'poi-town-square',
+					label: 'Town Square',
+					category: 'city',
+					x: 0.42,
+					y: 0.61,
+					layerId: 'layer-dm',
+					linkedNoteId: 'note-phandalin',
+				},
+			],
+		});
+		expect(parsed.success).toBe(true);
+	});
 });
