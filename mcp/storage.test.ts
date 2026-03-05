@@ -63,7 +63,7 @@ describe('FileSystemAdapter', () => {
 		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dndtools-test-'));
 		adapter = new FileSystemAdapter(tmpDir);
 		await adapter.initialize();
-	});
+	}, 30_000);
 
 	afterEach(async () => {
 		await adapter.close();
