@@ -20,6 +20,7 @@ import type {
 	VaultObjectType,
 } from '$lib/types/object.js';
 import type { NoteTemplate, ReusableSnippet } from '$lib/types/template-library.js';
+import type { SessionState } from '$lib/types/session-state.js';
 
 function getBridge(): NonNullable<Window['dndtoolsDesktop']> {
 	const bridge = window.dndtoolsDesktop;
@@ -191,5 +192,13 @@ export class ElectronStorageAdapter implements StorageAdapter {
 
 	getTagCounts(): Promise<TagEntry[]> {
 		return getBridge().getTagCounts();
+	}
+
+	getSessionState(): Promise<SessionState> {
+		return getBridge().getSessionState();
+	}
+
+	saveSessionState(state: SessionState): Promise<void> {
+		return getBridge().saveSessionState(state);
 	}
 }

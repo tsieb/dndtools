@@ -132,6 +132,21 @@ export interface MapPoiData {
 	linkedObjectId?: string;
 }
 
+export type MapRouteStyle = 'straight' | 'curved';
+
+export interface MapRouteWaypointData {
+	x: number;
+	y: number;
+}
+
+export interface MapRouteData {
+	id: string;
+	name: string;
+	style: MapRouteStyle;
+	waypoints: MapRouteWaypointData[];
+	layerId?: string;
+}
+
 export interface MapAnnotationLayerData {
 	id: string;
 	name: string;
@@ -159,6 +174,9 @@ export interface MapData {
 	initialViewport?: MapViewportData;
 	layers?: MapAnnotationLayerData[];
 	pois?: MapPoiData[];
+	parentMapId?: string;
+	parentPoiId?: string;
+	routes?: MapRouteData[];
 	lastSessionFog?: MapFogSnapshotData;
 }
 

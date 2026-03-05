@@ -714,6 +714,23 @@ export const mapAssetRelativePathSchema = z
 	.max(MAX_PATH_LENGTH)
 	.refine(isPathSafe, { message: 'Path traversal sequences are not allowed in map asset paths' });
 
+/** Session runtime state persisted in `.vault/session-state.json`. */
+export const sessionStateSchema = z
+	.object({
+		version: z.literal(1),
+		partyLocation: z
+			.object({
+				mapId: idSchema,
+				x: z.number().min(0).max(1),
+				y: z.number().min(0).max(1),
+				poiId: idSchema.optional(),
+				source: z.enum(['poi', 'point']),
+				updatedAt: z.string().min(1).max(MAX_STRING_LENGTH),
+			})
+			.nullable(),
+	})
+	.strict();
+
 // ─── Per-key AppSettings value schemas ───────────────────────────────────────
 
 /**

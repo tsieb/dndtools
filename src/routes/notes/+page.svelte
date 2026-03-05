@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { vaultState } from '$lib/state/vault.svelte.js';
+	import { mapsState } from '$lib/state/maps.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
 	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
@@ -20,6 +21,7 @@
 	import { createFolderId } from '$lib/types/note.js';
 	import type { NoteTemplate } from '$lib/types/template-library.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
+	import { notesInMapScope } from '$lib/domain/map-atlas.js';
 
 	let sortField = $state<'updatedAt' | 'title' | 'createdAt' | 'folder'>('updatedAt');
 	let sortDir = $state<'asc' | 'desc'>('desc');
@@ -29,6 +31,7 @@
 
 	let tagFilter = $derived(page.url.searchParams.get('tag'));
 	let folderFilter = $derived(page.url.searchParams.get('folder'));
+	let mapFilter = $derived(page.url.searchParams.get('mapId'));
 	let createTitle = $derived(page.url.searchParams.get('create'));
 	let handledCreateTitle = $state<string | null>(null);
 
@@ -47,17 +50,27 @@
 		if (!normalizedQuery) return null;
 		return new Set(searchService.search(normalizedQuery).map((result) => String(result.id)));
 	});
+	let mapScopedNotes = $derived.by(() => {
+		if (!mapFilter) return modeScopedNotes;
+		return notesInMapScope(modeScopedNotes, mapsState.maps, mapFilter);
+	});
 
 	let pinnedNotes = $derived.by(() => {
 		return modeScopedPinnedNotes.filter((note) => {
 			if (tagFilter && !note.tags.includes(tagFilter)) return false;
 			if (folderFilter && note.folder !== folderFilter) return false;
+			if (
+				mapFilter &&
+				!mapScopedNotes.some((candidate) => String(candidate.id) === String(note.id))
+			) {
+				return false;
+			}
 			return !searchResultIds || searchResultIds.has(String(note.id));
 		});
 	});
 
 	let filteredNotes = $derived.by(() => {
-		let notes = modeScopedNotes.filter((n) => !n.pinned);
+		let notes = mapScopedNotes.filter((n) => !n.pinned);
 
 		if (tagFilter) {
 			notes = notes.filter((n) => n.tags.includes(tagFilter!));
@@ -92,6 +105,10 @@
 	);
 
 	let totalCount = $derived(pinnedNotes.length + filteredNotes.length);
+	let mapFilterLabel = $derived.by(() => {
+		if (!mapFilter) return null;
+		return mapsState.mapById[mapFilter]?.name ?? mapFilter;
+	});
 
 	function shouldAdvanceSessionCounter(templateId: string): boolean {
 		return (
@@ -167,6 +184,10 @@
 			return;
 		}
 		if (!createTitle) handledCreateTitle = null;
+	});
+
+	$effect(() => {
+		void mapsState.loadAll();
 	});
 </script>
 
@@ -269,6 +290,15 @@
 					class="px-2.5 py-1 rounded-md bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted text-xs hover:text-ink dark:hover:text-tavern-text transition-colors flex items-center gap-1"
 				>
 					{folderFilter}
+					<span aria-hidden="true">&times;</span>
+				</a>
+			{/if}
+			{#if mapFilter}
+				<a
+					href={resolve('/notes')}
+					class="px-2.5 py-1 rounded-md bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted text-xs hover:text-ink dark:hover:text-tavern-text transition-colors flex items-center gap-1"
+				>
+					Map: {mapFilterLabel}
 					<span aria-hidden="true">&times;</span>
 				</a>
 			{/if}

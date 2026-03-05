@@ -90,6 +90,11 @@ function detectHierarchyCycles(objects: VaultObject[]): Set<string> {
 
 export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 	const byId = new Set(objects.map((object) => String(object.id)));
+	const mapsById = new Map(
+		objects
+			.filter((object): object is Extract<VaultObject, { type: 'map' }> => object.type === 'map')
+			.map((object) => [String(object.id), object]),
+	);
 	const lint: ObjectLintIssue[] = [];
 	const names = new Map<string, VaultObject[]>();
 	const cyclicHierarchyObjectIds = detectHierarchyCycles(objects);
@@ -354,6 +359,113 @@ export function lintVaultObjects(objects: VaultObject[]): ObjectLintIssue[] {
 								'Select an existing layer id or remove layer assignment.',
 							),
 						);
+					}
+				}
+				if (object.data.parentMapId?.trim()) {
+					const parentMapId = object.data.parentMapId.trim();
+					if (parentMapId === String(object.id)) {
+						lint.push(
+							issue(
+								object,
+								'map.parent_self_reference',
+								'Map parent cannot reference itself.',
+								'error',
+								'data.parentMapId',
+								'Select a different parent map or clear parent.',
+							),
+						);
+					}
+					const parentMap = mapsById.get(parentMapId);
+					if (!parentMap) {
+						lint.push(
+							issue(
+								object,
+								'map.parent_missing',
+								`Parent map "${parentMapId}" does not exist.`,
+								'warning',
+								'data.parentMapId',
+								'Select an existing parent map or clear parent.',
+							),
+						);
+					}
+					if (object.data.parentPoiId?.trim() && parentMap) {
+						const parentPoiId = object.data.parentPoiId.trim();
+						const hasPoi = (parentMap.data.pois ?? []).some((poi) => poi.id === parentPoiId);
+						if (!hasPoi) {
+							lint.push(
+								issue(
+									object,
+									'map.parent_poi_missing',
+									`Parent POI "${parentPoiId}" was not found on parent map "${parentMap.name}".`,
+									'warning',
+									'data.parentPoiId',
+									'Choose a POI that exists on the selected parent map.',
+								),
+							);
+						}
+					}
+				} else if (object.data.parentPoiId?.trim()) {
+					lint.push(
+						issue(
+							object,
+							'map.parent_poi_without_parent',
+							'Parent POI is set but parent map is missing.',
+							'warning',
+							'data.parentPoiId',
+							'Set data.parentMapId or clear the parent POI.',
+						),
+					);
+				}
+				for (const [index, route] of (object.data.routes ?? []).entries()) {
+					if (!route.name?.trim()) {
+						lint.push(
+							issue(
+								object,
+								'map.route_name_required',
+								'Travel routes should include a name.',
+								'warning',
+								`data.routes[${index}].name`,
+								'Set a route name.',
+							),
+						);
+					}
+					if ((route.waypoints ?? []).length < 2) {
+						lint.push(
+							issue(
+								object,
+								'map.route_waypoints_required',
+								'Travel routes require at least two waypoints.',
+								'warning',
+								`data.routes[${index}].waypoints`,
+								'Add at least two waypoints.',
+							),
+						);
+					}
+					for (const [waypointIndex, waypoint] of (route.waypoints ?? []).entries()) {
+						if (!Number.isFinite(waypoint.x) || waypoint.x < 0 || waypoint.x > 1) {
+							lint.push(
+								issue(
+									object,
+									'map.route_waypoint_x_out_of_bounds',
+									'Route waypoint x coordinate must be between 0 and 1.',
+									'error',
+									`data.routes[${index}].waypoints[${waypointIndex}].x`,
+									'Set x as a normalized fraction.',
+								),
+							);
+						}
+						if (!Number.isFinite(waypoint.y) || waypoint.y < 0 || waypoint.y > 1) {
+							lint.push(
+								issue(
+									object,
+									'map.route_waypoint_y_out_of_bounds',
+									'Route waypoint y coordinate must be between 0 and 1.',
+									'error',
+									`data.routes[${index}].waypoints[${waypointIndex}].y`,
+									'Set y as a normalized fraction.',
+								),
+							);
+						}
 					}
 				}
 				break;

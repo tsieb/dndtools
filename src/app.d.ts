@@ -435,6 +435,8 @@ declare global {
 			resolveMapAssetUrl(relativePath: string): Promise<string | null>;
 			getNoteCount(): Promise<number>;
 			getTagCounts(): Promise<import('$lib/types/note.js').TagEntry[]>;
+			getSessionState(): Promise<import('$lib/types/session-state.js').SessionState>;
+			saveSessionState(state: import('$lib/types/session-state.js').SessionState): Promise<void>;
 			refreshFromDisk(): Promise<void>;
 			getIntegrityReport(): Promise<DesktopIntegrityReport>;
 			repairIntegrity(): Promise<DesktopIntegrityReport>;

@@ -67,6 +67,9 @@ contextBridge.exposeInMainWorld('dndtoolsDesktop', {
 		ipcRenderer.invoke('dndtools:maps:resolve-asset-url', relativePath),
 	getNoteCount: () => ipcRenderer.invoke('dndtools:storage:get-note-count'),
 	getTagCounts: () => ipcRenderer.invoke('dndtools:storage:get-tag-counts'),
+	getSessionState: () => ipcRenderer.invoke('dndtools:storage:get-session-state'),
+	saveSessionState: (state: unknown) =>
+		ipcRenderer.invoke('dndtools:storage:save-session-state', state),
 	refreshFromDisk: () => ipcRenderer.invoke('dndtools:storage:refresh-from-disk'),
 	getIntegrityReport: () => ipcRenderer.invoke('dndtools:storage:get-integrity-report'),
 	repairIntegrity: () => ipcRenderer.invoke('dndtools:storage:repair-integrity'),

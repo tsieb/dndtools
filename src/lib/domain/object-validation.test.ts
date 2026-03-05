@@ -142,4 +142,29 @@ describe('lintVaultObjects', () => {
 		expect(issues.some((issue) => issue.code === 'map.poi_y_out_of_bounds')).toBe(true);
 		expect(issues.some((issue) => issue.code === 'map.poi_layer_missing')).toBe(true);
 	});
+
+	it('validates map parent references and route waypoints', () => {
+		const map = makeMapObject('map-child', {
+			data: {
+				filePath: '.vault/assets/maps/child.png',
+				parentMapId: 'missing-parent',
+				parentPoiId: 'poi-does-not-exist',
+				routes: [
+					{
+						id: 'route-1',
+						name: '',
+						style: 'straight',
+						waypoints: [{ x: 1.2, y: -0.4 }],
+					},
+				],
+				pois: [],
+				layers: [],
+			},
+		});
+		const issues = lintVaultObjects([map]);
+		expect(issues.some((issue) => issue.code === 'map.parent_missing')).toBe(true);
+		expect(issues.some((issue) => issue.code === 'map.route_waypoints_required')).toBe(true);
+		expect(issues.some((issue) => issue.code === 'map.route_waypoint_x_out_of_bounds')).toBe(true);
+		expect(issues.some((issue) => issue.code === 'map.route_waypoint_y_out_of_bounds')).toBe(true);
+	});
 });

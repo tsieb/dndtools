@@ -3,6 +3,10 @@
 	import { resolve } from '$app/paths';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
+	import { mapsState } from '$lib/state/maps.svelte.js';
+	import { sessionState } from '$lib/state/session-state.svelte.js';
+	import { extractMapFrontmatterPlacement } from '$lib/domain/map-pois.js';
+	import { nowISO } from '$lib/utils/date.js';
 	import {
 		DEFAULT_SESSION_CONTEXT,
 		normalizeSessionContextState,
@@ -33,6 +37,8 @@
 		normalizeSessionContextState(activeBoard?.sessionContext ?? DEFAULT_SESSION_CONTEXT),
 	);
 	let notesById = $derived(notesState.activeNoteById);
+	let mapById = $derived(mapsState.mapById);
+	let partyLocation = $derived(sessionState.partyLocation);
 	let filteredCandidates = $derived.by(() => {
 		const normalized = query.trim().toLowerCase();
 		const pinned = new Set(context.items.map((item) => item.noteId));
@@ -46,6 +52,17 @@
 				);
 			})
 			.slice(0, compact ? 6 : 10);
+	});
+
+	const pinnedLocationItem = $derived.by(
+		() => context.items.find((item) => item.category === 'location') ?? null,
+	);
+	const pinnedLocationNote = $derived.by(() =>
+		pinnedLocationItem ? (notesById.get(pinnedLocationItem.noteId) ?? null) : null,
+	);
+	const pinnedLocationMapPlacement = $derived.by(() => {
+		if (!pinnedLocationNote) return null;
+		return extractMapFrontmatterPlacement(pinnedLocationNote.frontmatter ?? {});
 	});
 
 	function groupedItems(category: SessionContextCategory): typeof context.items {
@@ -96,6 +113,23 @@
 			saving = false;
 		}
 	}
+
+	async function setPartyLocationFromPinnedContext(): Promise<void> {
+		if (!pinnedLocationMapPlacement) return;
+		await sessionState.setPartyLocation({
+			mapId: pinnedLocationMapPlacement.mapId,
+			x: pinnedLocationMapPlacement.coordinates.x,
+			y: pinnedLocationMapPlacement.coordinates.y,
+			poiId: pinnedLocationMapPlacement.poiId ?? undefined,
+			source: pinnedLocationMapPlacement.poiId ? 'poi' : 'point',
+			updatedAt: nowISO(),
+		});
+	}
+
+	$effect(() => {
+		void mapsState.loadAll();
+		void sessionState.load();
+	});
 </script>
 
 <section
@@ -126,6 +160,29 @@
 		</p>
 	{:else}
 		<div class="p-3 space-y-2.5">
+			<div
+				class="rounded border border-border/70 dark:border-tavern-border/70 bg-surface-alt/70 dark:bg-tavern-surface-alt/70 px-2 py-1.5"
+			>
+				<p class="text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint">
+					Active Party Location
+				</p>
+				{#if partyLocation}
+					<p class="mt-1 text-xs text-ink dark:text-tavern-text">
+						{mapById[partyLocation.mapId]?.name ?? partyLocation.mapId} @
+						{partyLocation.x.toFixed(3)}, {partyLocation.y.toFixed(3)}
+					</p>
+				{:else}
+					<p class="mt-1 text-xs text-ink-faint dark:text-tavern-faint">Not set</p>
+				{/if}
+				<button
+					type="button"
+					class="mt-1 rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:bg-surface dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface"
+					disabled={!pinnedLocationMapPlacement}
+					onclick={() => void setPartyLocationFromPinnedContext()}
+				>
+					Use pinned location note
+				</button>
+			</div>
 			{#each CATEGORY_ORDER as category (category)}
 				<div>
 					<p

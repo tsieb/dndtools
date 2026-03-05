@@ -13,6 +13,8 @@ import type {
 	MapData,
 	MapPoiCategory,
 	MapPoiData,
+	MapRouteData,
+	MapRouteStyle,
 	NpcData,
 	ObjectRelationship,
 	ObjectRelationshipType,
@@ -278,6 +280,47 @@ function normalizeMapPois(
 	return normalized;
 }
 
+function normalizeMapRouteStyle(value: unknown): MapRouteStyle {
+	return value === 'curved' ? 'curved' : 'straight';
+}
+
+function normalizeMapRoutes(
+	value: unknown,
+	layers: readonly MapAnnotationLayerData[],
+): MapRouteData[] | undefined {
+	if (!Array.isArray(value)) return undefined;
+	const normalized: MapRouteData[] = [];
+	const usedIds = new Set<string>();
+	const layerIds = new Set(layers.map((layer) => layer.id));
+	for (const entry of value) {
+		if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+		const source = entry as Record<string, unknown>;
+		const waypoints = Array.isArray(source.waypoints)
+			? source.waypoints
+					.map((waypoint) => {
+						if (!waypoint || typeof waypoint !== 'object' || Array.isArray(waypoint)) {
+							return null;
+						}
+						const node = waypoint as Record<string, unknown>;
+						return {
+							x: normalizeFiniteNumber(node.x, 0.5, 0, 1),
+							y: normalizeFiniteNumber(node.y, 0.5, 0, 1),
+						};
+					})
+					.filter((waypoint): waypoint is { x: number; y: number } => !!waypoint)
+			: [];
+		const requestedLayerId = toOptionalTrimmedString(source.layerId);
+		normalized.push({
+			id: makeUniqueId(toOptionalTrimmedString(source.id), 'route', usedIds),
+			name: toOptionalTrimmedString(source.name) ?? `Route ${normalized.length + 1}`,
+			style: normalizeMapRouteStyle(source.style),
+			waypoints,
+			layerId: requestedLayerId && layerIds.has(requestedLayerId) ? requestedLayerId : undefined,
+		});
+	}
+	return normalized;
+}
+
 export function normalizeMapData(value: Partial<MapData> | undefined): MapData {
 	const filePath = value?.filePath?.trim() ?? '';
 	const hasScale =
@@ -296,6 +339,7 @@ export function normalizeMapData(value: Partial<MapData> | undefined): MapData {
 		layers = createDefaultMapAnnotationLayers();
 	}
 	const pois = normalizeMapPois(value?.pois, layers ?? []);
+	const routes = normalizeMapRoutes(value?.routes, layers ?? []);
 	const rawLastSessionFog = value?.lastSessionFog;
 	const lastSessionFog =
 		rawLastSessionFog &&
@@ -364,6 +408,9 @@ export function normalizeMapData(value: Partial<MapData> | undefined): MapData {
 			: undefined,
 		layers,
 		pois,
+		parentMapId: value?.parentMapId?.trim() || undefined,
+		parentPoiId: value?.parentPoiId?.trim() || undefined,
+		routes,
 		lastSessionFog,
 	};
 }
@@ -776,7 +823,13 @@ export function summarizeVaultObject(object: VaultObject): string {
 				Array.isArray(object.data.pois) && object.data.pois.length > 0
 					? `${object.data.pois.length} POI${object.data.pois.length === 1 ? '' : 's'}`
 					: null;
-			return [dimensions, scale, poiCount].filter((entry): entry is string => !!entry).join(' | ');
+			const routeCount =
+				Array.isArray(object.data.routes) && object.data.routes.length > 0
+					? `${object.data.routes.length} route${object.data.routes.length === 1 ? '' : 's'}`
+					: null;
+			return [dimensions, scale, poiCount, routeCount]
+				.filter((entry): entry is string => !!entry)
+				.join(' | ');
 		}
 		case 'npc': {
 			const role = object.data.role ?? null;

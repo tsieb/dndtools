@@ -30,6 +30,11 @@ import type {
 	McpPolicyPresetId,
 	McpPolicySettings,
 } from '../src/lib/types/settings.js';
+import {
+	DEFAULT_SESSION_STATE,
+	normalizeSessionState,
+	type SessionState,
+} from '../src/lib/types/session-state.js';
 import { createNoteId, createFolderId, ROOT_FOLDER } from '../src/lib/types/note.js';
 import type { ContentVisibility } from '../src/lib/types/visibility.js';
 import {
@@ -719,6 +724,10 @@ export class FileSystemAdapter implements StorageAdapter {
 		return path.join(this.metaDir, 'mcp-changelog.json');
 	}
 
+	private get sessionStatePath(): string {
+		return path.join(this.metaDir, 'session-state.json');
+	}
+
 	private get backupsDir(): string {
 		return path.join(this.metaDir, 'backups');
 	}
@@ -843,6 +852,18 @@ export class FileSystemAdapter implements StorageAdapter {
 			changeLog,
 			isMcpChangeLogShape,
 			'mcp-changelog.json',
+		);
+	}
+
+	private async writeSessionState(state: SessionState): Promise<void> {
+		await this.writeMetadataJson(
+			this.sessionStatePath,
+			state,
+			(value) => {
+				const normalized = normalizeSessionState(value);
+				return typeof normalized.version === 'number';
+			},
+			'session-state.json',
 		);
 	}
 
@@ -2303,6 +2324,22 @@ export class FileSystemAdapter implements StorageAdapter {
 		await this.withWriteJournal('set-setting', async () => {
 			settings[key] = normalizeSettingValue(key, value);
 			await this.writeSettingsMetadata(settings);
+		});
+	}
+
+	async getSessionState(): Promise<SessionState> {
+		try {
+			const raw = await fs.readFile(this.sessionStatePath, 'utf-8');
+			return normalizeSessionState(JSON.parse(raw));
+		} catch {
+			return { ...DEFAULT_SESSION_STATE };
+		}
+	}
+
+	async saveSessionState(state: SessionState): Promise<void> {
+		const normalized = normalizeSessionState(state);
+		await this.withWriteJournal('save-session-state', async () => {
+			await this.writeSessionState(normalized);
 		});
 	}
 

@@ -25,7 +25,7 @@ function payload(result: ToolResult): Record<string, unknown> {
 }
 
 describe('get_session_prep_bundle tool', () => {
-	it('surfaces activeMap when a location is pinned in session context', async () => {
+	it('surfaces active map, current location, and parent map context', async () => {
 		const server = new MockMcpServer();
 		registerGetSessionPrepBundleTool(
 			server as never,
@@ -63,7 +63,7 @@ describe('get_session_prep_bundle tool', () => {
 				],
 				getAllObjects: async () => [
 					{
-						id: 'map-1',
+						id: 'map-parent',
 						type: 'map',
 						name: 'Sword Coast Region',
 						summary: '',
@@ -72,14 +72,48 @@ describe('get_session_prep_bundle tool', () => {
 						relationships: [],
 						data: {
 							filePath: '.vault/assets/maps/sword-coast.png',
+							pois: [
+								{
+									id: 'poi-phandalin',
+									label: 'Phandalin',
+									category: 'city',
+									x: 0.35,
+									y: 0.42,
+								},
+							],
+						},
+						createdAt: '2026-01-01T00:00:00.000Z',
+						updatedAt: '2026-01-03T00:00:00.000Z',
+					},
+					{
+						id: 'map-1',
+						type: 'map',
+						name: 'Phandalin Town',
+						summary: '',
+						tags: ['town'],
+						visibility: 'dm_only',
+						relationships: [],
+						data: {
+							filePath: '.vault/assets/maps/phandalin-town.png',
 							areaNoteId: 'loc-note',
+							parentMapId: 'map-parent',
+							parentPoiId: 'poi-phandalin',
 							scale: {
 								unitsPerGridSquare: 5,
 								unitLabel: 'mi',
 							},
+							pois: [
+								{
+									id: 'poi-inn',
+									label: 'Stonehill Inn',
+									category: 'structure',
+									x: 0.18,
+									y: 0.71,
+								},
+							],
 						},
 						createdAt: '2026-01-01T00:00:00.000Z',
-						updatedAt: '2026-01-03T00:00:00.000Z',
+						updatedAt: '2026-01-05T00:00:00.000Z',
 					},
 				],
 				getSessionBoards: async () => [
@@ -102,6 +136,17 @@ describe('get_session_prep_bundle tool', () => {
 						},
 					},
 				],
+				getSessionState: async () => ({
+					version: 1,
+					partyLocation: {
+						mapId: 'map-1',
+						x: 0.18,
+						y: 0.71,
+						poiId: 'poi-inn',
+						source: 'poi',
+						updatedAt: '2026-01-06T00:00:00.000Z',
+					},
+				}),
 				getSetting: async () => ({
 					version: 1,
 					months: [{ name: 'Month 1', days: 30 }],
@@ -119,10 +164,27 @@ describe('get_session_prep_bundle tool', () => {
 		expect(result).toBeTruthy();
 		const data = payload(result as ToolResult);
 		const activeMap = data.activeMap as Record<string, unknown> | null;
+		const currentLocation = data.currentLocation as Record<string, unknown> | null;
+		const parentMap = data.parentMap as Record<string, unknown> | null;
 
 		expect(activeMap).toBeTruthy();
 		expect(activeMap?.id).toBe('map-1');
 		expect(activeMap?.areaNoteId).toBe('loc-note');
-		expect(activeMap?.filePath).toBe('.vault/assets/maps/sword-coast.png');
+		expect(activeMap?.filePath).toBe('.vault/assets/maps/phandalin-town.png');
+		expect(activeMap?.parentMapId).toBe('map-parent');
+		expect(activeMap?.parentPoiId).toBe('poi-phandalin');
+
+		expect(currentLocation).toBeTruthy();
+		expect(currentLocation?.mapId).toBe('map-1');
+		expect(currentLocation?.mapName).toBe('Phandalin Town');
+		expect(currentLocation?.poiId).toBe('poi-inn');
+		expect(currentLocation?.poiLabel).toBe('Stonehill Inn');
+
+		expect(parentMap).toBeTruthy();
+		expect(parentMap?.id).toBe('map-parent');
+		expect(parentMap?.name).toBe('Sword Coast Region');
+		expect((parentMap?.locationOnParent as Record<string, unknown> | null)?.poiId).toBe(
+			'poi-phandalin',
+		);
 	});
 });

@@ -41,6 +41,11 @@ import type {
 	SnapshotRestoreResult,
 	StorageAdapter,
 } from '$lib/types/storage.js';
+import {
+	DEFAULT_SESSION_STATE,
+	normalizeSessionState,
+	type SessionState,
+} from '$lib/types/session-state.js';
 import { nowISO } from '$lib/utils/date.js';
 
 const STATE_VERSION = 1;
@@ -59,6 +64,7 @@ interface CapacitorVaultState {
 	objectHistory: VaultObjectHistoryEntry[];
 	settings: AppSettings;
 	safetySnapshots: SnapshotRecord[];
+	sessionState: SessionState;
 }
 
 interface AdapterOptions {
@@ -83,6 +89,7 @@ function createDefaultState(): CapacitorVaultState {
 		objectHistory: [],
 		settings: deepCopy(DEFAULT_SETTINGS),
 		safetySnapshots: [],
+		sessionState: deepCopy(DEFAULT_SESSION_STATE),
 	};
 }
 
@@ -159,6 +166,7 @@ function normalizeState(raw: unknown): CapacitorVaultState {
 		objectHistory: Array.isArray(source.objectHistory) ? source.objectHistory : [],
 		settings: normalizeSettings(source.settings),
 		safetySnapshots: Array.isArray(source.safetySnapshots) ? source.safetySnapshots : [],
+		sessionState: normalizeSessionState(source.sessionState),
 	};
 }
 
@@ -773,6 +781,16 @@ export class CapacitorStorageAdapter implements StorageAdapter {
 			return [...counts.entries()]
 				.map(([name, count]) => ({ name, count }))
 				.sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+		});
+	}
+
+	async getSessionState(): Promise<SessionState> {
+		return this.readState((state) => normalizeSessionState(state.sessionState));
+	}
+
+	async saveSessionState(state: SessionState): Promise<void> {
+		await this.mutateState((current) => {
+			current.sessionState = normalizeSessionState(state);
 		});
 	}
 }

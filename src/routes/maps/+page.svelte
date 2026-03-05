@@ -7,6 +7,7 @@
 	import { objectsState } from '$lib/state/objects.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
+	import { sessionState } from '$lib/state/session-state.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import {
 		importDesktopMapFromDialog,
@@ -18,6 +19,17 @@
 		formatMapScaleLabel,
 		normalizeMapTagInput,
 	} from '$lib/domain/map-library.js';
+	import {
+		mapBreadcrumbs,
+		mapHierarchyEntries,
+		mapIndexById,
+		resolvePoiLinkedMapId,
+	} from '$lib/domain/map-atlas.js';
+	import {
+		estimateTravelTimeForRoute,
+		formatScaledDistance,
+		summarizeRouteDistance,
+	} from '$lib/domain/map-routes.js';
 	import { extractNotePreviewLines, objectPreviewLines } from '$lib/domain/map-pois.js';
 	import {
 		appendMapHistory,
@@ -60,6 +72,8 @@
 		MapObject,
 		MapPoiCategory,
 		MapPoiData,
+		MapRouteData,
+		MapRouteStyle,
 		MapViewportData,
 	} from '$lib/types/object.js';
 	import type {
@@ -119,6 +133,7 @@
 		{ value: 'refog', label: 'Re-fog' },
 	];
 	const MAP_FOG_CHANNEL = 'dndtools.map-fog.v1';
+	const MAP_PARTY_LOCATION_CHANNEL = 'dndtools.map-party-location.v1';
 
 	let mapAssetUrls = $state<Record<string, string | null>>({});
 	let importing = $state(false);
@@ -160,6 +175,9 @@
 	let modalNoteId = $state<string | null>(null);
 	let draftInitialViewport = $state<MapViewportData | null>(null);
 	let draftImageSize = $state<{ width: number; height: number } | null>(null);
+	let draftParentMapId = $state('');
+	let draftParentPoiId = $state('');
+	let draftRoutes = $state<MapRouteData[]>([]);
 	let dirty = $state(false);
 	let draftSourceKey = $state<string | null>(null);
 	let reportedLoadError = $state<string | null>(null);
@@ -193,6 +211,7 @@
 	let fogAnimationOperation = $state<MapFogPolygonOperation | null>(null);
 	let remoteFogStateOverride = $state<MapFogState | null>(null);
 	let fogBroadcastChannel = $state<BroadcastChannel | null>(null);
+	let partyBroadcastChannel = $state<BroadcastChannel | null>(null);
 	let fogChannelPeerId = $state(
 		typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
 			? crypto.randomUUID()
@@ -202,6 +221,14 @@
 	let remoteFogScopeKey = $state<string | null>(null);
 	let lastFogSnapshotRequestKey = $state<string | null>(null);
 	let lastFogMapLinkKey = $state<string | null>(null);
+	let routeEditMode = $state(false);
+	let selectedRouteId = $state<string | null>(null);
+	let newRouteName = $state('New Route');
+	let newRouteStyle = $state<MapRouteStyle>('straight');
+	let mapContextMenu = $state<{ clientX: number; clientY: number; x: number; y: number } | null>(
+		null,
+	);
+	let lastPartyLocationBroadcastKey = $state<string | null>(null);
 
 	const desktopAvailable = $derived(
 		typeof window !== 'undefined' && typeof window.dndtoolsDesktop !== 'undefined',
@@ -251,6 +278,15 @@
 	const selectedMap = $derived.by(
 		() => filteredMaps.find((entry) => String(entry.id) === selectedMapId) ?? null,
 	);
+	const mapById = $derived.by(() => mapIndexById(maps));
+	const mapHierarchy = $derived.by(() => mapHierarchyEntries(maps));
+	const selectedMapBreadcrumbs = $derived.by(() =>
+		selectedMap ? mapBreadcrumbs(String(selectedMap.id), maps) : [],
+	);
+	const selectedParentMap = $derived.by(() =>
+		draftParentMapId ? (mapById[draftParentMapId] ?? null) : null,
+	);
+	const parentPoiOptions = $derived.by(() => selectedParentMap?.data.pois ?? []);
 
 	const selectedMapAssetUrl = $derived.by(() =>
 		selectedMap ? (mapAssetUrls[String(selectedMap.id)] ?? null) : null,
@@ -268,9 +304,9 @@
 		),
 	);
 	const objectOptions = $derived.by(() =>
-		Object.values(vaultObjectsById)
-			.filter((object) => object.type !== 'map')
-			.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+		Object.values(vaultObjectsById).sort((a, b) =>
+			a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+		),
 	);
 	const layerById = $derived.by(() => {
 		const index: Record<string, MapAnnotationLayerData> = {};
@@ -278,6 +314,53 @@
 			index[layer.id] = layer;
 		}
 		return index;
+	});
+	const routeById = $derived.by(() => {
+		const index: Record<string, MapRouteData> = {};
+		for (const route of draftRoutes) {
+			index[route.id] = route;
+		}
+		return index;
+	});
+	const selectedRoute = $derived.by(() =>
+		selectedRouteId ? (routeById[selectedRouteId] ?? null) : null,
+	);
+	const routeSummaries = $derived.by(() => {
+		if (!selectedMap) return [] as Array<{ route: MapRouteData; label: string }>;
+		return draftRoutes.map((route) => {
+			const summary = summarizeRouteDistance(route, {
+				width: draftImageSize?.width ?? selectedMap.data.width,
+				height: draftImageSize?.height ?? selectedMap.data.height,
+				grid: gridDraft,
+				scale: draftScaleEnabled
+					? {
+							unitsPerGridSquare: Number.parseFloat(draftScaleUnits) || 5,
+							unitLabel: draftScaleUnitLabel,
+						}
+					: undefined,
+			});
+			const pieces: string[] = [];
+			if (summary.gridSquares !== null) {
+				pieces.push(`${summary.gridSquares.toFixed(2)} sq`);
+			}
+			if (summary.scaledDistance !== null && summary.unitLabel) {
+				pieces.push(formatScaledDistance(summary.scaledDistance, summary.unitLabel));
+			}
+			return {
+				route,
+				label: pieces.join(' | ') || 'Distance unavailable',
+			};
+		});
+	});
+	const partyLocation = $derived(sessionState.partyLocation);
+	const partyMarker = $derived.by(() => {
+		if (!partyLocation || !selectedMap) return null;
+		if (partyLocation.mapId !== String(selectedMap.id)) return null;
+		return {
+			x: partyLocation.x,
+			y: partyLocation.y,
+			label: 'Party',
+		};
 	});
 	const isPlayerFacingLayerFilter = $derived(playerModeState.enabled || previewPlayerLayers);
 	const filteredDraftPois = $derived.by(() =>
@@ -616,6 +699,14 @@
 			: { zoom: 1, panX: 0, panY: 0 };
 		draftImageSize =
 			map.data.width && map.data.height ? { width: map.data.width, height: map.data.height } : null;
+		draftParentMapId = map.data.parentMapId ?? '';
+		draftParentPoiId = map.data.parentPoiId ?? '';
+		draftRoutes = (map.data.routes ?? []).map((route) => ({
+			...route,
+			waypoints: route.waypoints.map((waypoint) => ({ ...waypoint })),
+		}));
+		selectedRouteId = draftRoutes[0]?.id ?? null;
+		routeEditMode = false;
 		dirty = false;
 		viewerKey += 1;
 	}
@@ -752,6 +843,8 @@
 				data: normalizeMapData({
 					...selectedMap.data,
 					areaNoteId: draftAreaNoteId || undefined,
+					parentMapId: draftParentMapId || undefined,
+					parentPoiId: draftParentPoiId || undefined,
 					width: draftImageSize?.width ?? selectedMap.data.width,
 					height: draftImageSize?.height ?? selectedMap.data.height,
 					scale: draftScaleEnabled
@@ -769,6 +862,7 @@
 					},
 					layers: draftLayers,
 					pois: draftPois,
+					routes: draftRoutes,
 					initialViewport: draftInitialViewport ?? selectedMap.data.initialViewport,
 				}),
 				summary: '',
@@ -873,7 +967,27 @@
 		metaKey: boolean;
 		shiftKey: boolean;
 	}): void {
+		mapContextMenu = null;
 		if (isFogEditingContextReady()) return;
+		if (routeEditMode) {
+			if (!selectedRoute) {
+				const routeId = generateMapAnnotationId('layer').replace('layer-', 'route-');
+				upsertRoute({
+					id: routeId,
+					name: newRouteName.trim() || `Route ${draftRoutes.length + 1}`,
+					style: newRouteStyle,
+					waypoints: [{ x: payload.x, y: payload.y }],
+				});
+				return;
+			}
+			const updated: MapRouteData = {
+				...selectedRoute,
+				style: selectedRoute.style ?? newRouteStyle,
+				waypoints: [...selectedRoute.waypoints, { x: payload.x, y: payload.y }],
+			};
+			upsertRoute(updated);
+			return;
+		}
 		if (combatModeEnabled && selectedCombat && selectedMap?.data.grid) {
 			if (templatePlacementMode || terrainPaintMode) return;
 			const cell = mapFractionToGridCell(payload.x, payload.y);
@@ -924,9 +1038,15 @@
 	}
 
 	function handlePoiClick(payload: { id: string; ctrlKey: boolean; metaKey: boolean }): void {
+		mapContextMenu = null;
 		selectedPoiId = payload.id;
 		const poi = draftPois.find((entry) => entry.id === payload.id);
 		if (!poi) return;
+		const childMapId = mapLinkedFromPoi(poi);
+		if (childMapId) {
+			selectMapById(childMapId);
+			return;
+		}
 		const noteId = resolveLinkedNoteIdForPoi(poi);
 		if (!noteId) return;
 		if (payload.ctrlKey || payload.metaKey) {
@@ -989,6 +1109,77 @@
 			: 'landmark';
 	}
 
+	function selectMapById(mapId: string | null): void {
+		if (!mapId) return;
+		if (!maps.some((entry) => String(entry.id) === mapId)) return;
+		selectedMapId = mapId;
+		void goto(`${resolve('/maps')}?map=${encodeURIComponent(mapId)}`, {
+			replaceState: true,
+			noScroll: true,
+		});
+	}
+
+	function mapLinkedFromPoi(poi: MapPoiData): string | null {
+		return resolvePoiLinkedMapId(poi, mapById);
+	}
+
+	function upsertRoute(route: MapRouteData): void {
+		const existing = draftRoutes.find((entry) => entry.id === route.id);
+		if (existing) {
+			draftRoutes = draftRoutes.map((entry) => (entry.id === route.id ? route : entry));
+		} else {
+			draftRoutes = [...draftRoutes, route];
+		}
+		selectedRouteId = route.id;
+		markDirty();
+	}
+
+	function handleCreateRoute(): void {
+		const routeId = generateMapAnnotationId('layer').replace('layer-', 'route-');
+		const route: MapRouteData = {
+			id: routeId,
+			name: newRouteName.trim() || `Route ${draftRoutes.length + 1}`,
+			style: newRouteStyle,
+			waypoints: [],
+		};
+		upsertRoute(route);
+		routeEditMode = true;
+	}
+
+	function handleDeleteRoute(routeId: string): void {
+		draftRoutes = draftRoutes.filter((route) => route.id !== routeId);
+		if (selectedRouteId === routeId) {
+			selectedRouteId = draftRoutes[0]?.id ?? null;
+		}
+		markDirty();
+	}
+
+	function handleClearRouteWaypoints(routeId: string): void {
+		draftRoutes = draftRoutes.map((route) =>
+			route.id === routeId ? { ...route, waypoints: [] } : route,
+		);
+		markDirty();
+	}
+
+	async function handleMarkPartyLocation(location: {
+		x: number;
+		y: number;
+		poiId?: string;
+		source: 'poi' | 'point';
+	}): Promise<void> {
+		if (!selectedMap) return;
+		mapContextMenu = null;
+		await sessionState.setPartyLocation({
+			mapId: String(selectedMap.id),
+			x: location.x,
+			y: location.y,
+			poiId: location.poiId,
+			source: location.source,
+			updatedAt: nowISO(),
+		});
+		toastState.success('Party location updated.');
+	}
+
 	function createCombatMapId(prefix: string): string {
 		if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
 			return `${prefix}-${crypto.randomUUID().slice(0, 10)}`;
@@ -1014,6 +1205,19 @@
 				tileId: string;
 				mapId: string;
 		  };
+
+	type PartyLocationChannelMessage = {
+		kind: 'party_location_update';
+		peerId: string;
+		location: {
+			mapId: string;
+			x: number;
+			y: number;
+			poiId?: string;
+			source: 'poi' | 'point';
+			updatedAt: string;
+		} | null;
+	};
 
 	function queueCombatPersist(nextCombat: SessionBoardCombatState): void {
 		if (!selectedBoard || !selectedCombatTile) return;
@@ -1059,6 +1263,34 @@
 	function postFogChannelMessage(message: FogChannelMessage): void {
 		if (!message.boardId || !message.tileId || !message.mapId) return;
 		fogBroadcastChannel?.postMessage(message);
+	}
+
+	function postPartyLocationMessage(location: PartyLocationChannelMessage['location']): void {
+		partyBroadcastChannel?.postMessage({
+			kind: 'party_location_update',
+			peerId: fogChannelPeerId,
+			location,
+		} satisfies PartyLocationChannelMessage);
+	}
+
+	function handlePartyLocationMessage(raw: unknown): void {
+		if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return;
+		const message = raw as Partial<PartyLocationChannelMessage>;
+		if (message.kind !== 'party_location_update') return;
+		if (typeof message.peerId !== 'string' || message.peerId === fogChannelPeerId) return;
+		const location = message.location;
+		void sessionState.setPartyLocation(
+			location
+				? {
+						mapId: location.mapId,
+						x: location.x,
+						y: location.y,
+						poiId: location.poiId,
+						source: location.source === 'poi' ? 'poi' : 'point',
+						updatedAt: location.updatedAt,
+					}
+				: null,
+		);
 	}
 
 	function maybePlayRevealCue(operation: MapFogPolygonOperation): void {
@@ -1712,6 +1944,23 @@
 		terrainPainting = false;
 	}
 
+	function handleMapContextMenu(payload: {
+		x: number;
+		y: number;
+		cellX: number | null;
+		cellY: number | null;
+		clientX: number;
+		clientY: number;
+	}): void {
+		if (playerModeState.enabled || !selectedMap) return;
+		mapContextMenu = {
+			clientX: payload.clientX,
+			clientY: payload.clientY,
+			x: payload.x,
+			y: payload.y,
+		};
+	}
+
 	$effect(() => {
 		if (sessionBoardsState.boards.length === 0 && !sessionBoardsState.loading) {
 			void sessionBoardsState.loadAll();
@@ -1746,6 +1995,46 @@
 				fogBroadcastChannel = null;
 			}
 		};
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
+		const channel = new BroadcastChannel(MAP_PARTY_LOCATION_CHANNEL);
+		channel.onmessage = (event: MessageEvent<unknown>) => {
+			handlePartyLocationMessage(event.data);
+		};
+		partyBroadcastChannel = channel;
+		return () => {
+			channel.close();
+			if (partyBroadcastChannel === channel) {
+				partyBroadcastChannel = null;
+			}
+		};
+	});
+
+	$effect(() => {
+		void sessionState.load();
+	});
+
+	$effect(() => {
+		const location = partyLocation;
+		const key = location
+			? `${location.mapId}:${location.x.toFixed(5)}:${location.y.toFixed(5)}:${location.updatedAt}`
+			: 'none';
+		if (key === lastPartyLocationBroadcastKey) return;
+		lastPartyLocationBroadcastKey = key;
+		postPartyLocationMessage(
+			location
+				? {
+						mapId: location.mapId,
+						x: location.x,
+						y: location.y,
+						poiId: location.poiId,
+						source: location.source,
+						updatedAt: location.updatedAt,
+					}
+				: null,
+		);
 	});
 
 	$effect(() => {
@@ -1838,9 +2127,11 @@
 		if (!playerModeState.enabled) return;
 		fogEditingEnabled = false;
 		editPoiMode = false;
+		routeEditMode = false;
 		editGridHandles = false;
 		terrainPaintMode = false;
 		templatePlacementMode = false;
+		mapContextMenu = null;
 	});
 
 	$effect(() => {
@@ -1899,6 +2190,11 @@
 
 	$effect(() => {
 		if (playerModeState.enabled) {
+			const partyMapId = partyLocation?.mapId ?? null;
+			if (partyMapId && maps.some((entry) => String(entry.id) === partyMapId)) {
+				selectedMapId = partyMapId;
+				return;
+			}
 			const playerMapId = selectedCombat?.mapState.mapId ?? null;
 			if (playerMapId && maps.some((entry) => String(entry.id) === playerMapId)) {
 				selectedMapId = playerMapId;
@@ -1910,6 +2206,11 @@
 				return;
 			}
 			selectedMapId = null;
+			return;
+		}
+		const partyMapId = partyLocation?.mapId ?? null;
+		if (partyMapId && maps.some((entry) => String(entry.id) === partyMapId) && !selectedMapId) {
+			selectedMapId = partyMapId;
 			return;
 		}
 		if (filteredMaps.length === 0) {
@@ -1952,6 +2253,39 @@
 		if (queryMapId !== String(selectedMap.id) || !queryPoiId) return;
 		if (!draftPois.some((poi) => poi.id === queryPoiId)) return;
 		selectedPoiId = queryPoiId;
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const onWindowKeyDown = (event: KeyboardEvent): void => {
+			if (event.key !== 'Escape') return;
+			if (
+				event.target instanceof HTMLElement &&
+				(event.target.tagName === 'INPUT' ||
+					event.target.tagName === 'TEXTAREA' ||
+					event.target.tagName === 'SELECT' ||
+					event.target.isContentEditable)
+			) {
+				return;
+			}
+			if (mapContextMenu) {
+				mapContextMenu = null;
+				return;
+			}
+			if (selectedMap?.data.parentMapId) {
+				event.preventDefault();
+				selectMapById(selectedMap.data.parentMapId);
+			}
+		};
+		const onWindowPointerDown = (): void => {
+			if (mapContextMenu) mapContextMenu = null;
+		};
+		window.addEventListener('keydown', onWindowKeyDown);
+		window.addEventListener('pointerdown', onWindowPointerDown);
+		return () => {
+			window.removeEventListener('keydown', onWindowKeyDown);
+			window.removeEventListener('pointerdown', onWindowPointerDown);
+		};
 	});
 </script>
 
@@ -2111,6 +2445,31 @@
 			<div
 				class="relative rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
 			>
+				{#if selectedMapBreadcrumbs.length > 0}
+					<nav
+						class="mb-2 flex flex-wrap items-center gap-1 text-[11px] text-ink-muted dark:text-tavern-muted"
+						aria-label="Map hierarchy breadcrumbs"
+					>
+						{#each selectedMapBreadcrumbs as crumb, index (crumb.mapId)}
+							{#if index > 0}
+								<span aria-hidden="true">&rarr;</span>
+							{/if}
+							{#if index < selectedMapBreadcrumbs.length - 1}
+								<button
+									type="button"
+									class="rounded px-1 py-0.5 hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+									onclick={() => selectMapById(crumb.mapId)}
+								>
+									{crumb.name}
+								</button>
+							{:else}
+								<span class="rounded bg-surface-alt px-1.5 py-0.5 dark:bg-tavern-surface-alt">
+									{crumb.name}
+								</span>
+							{/if}
+						{/each}
+					</nav>
+				{/if}
 				<div class="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
 					{#if !playerModeState.enabled}
 						<div class="flex flex-wrap items-center gap-2">
@@ -2141,6 +2500,15 @@
 								}}
 							>
 								{editPoiMode ? 'Stop POI Placement' : 'Edit POIs'}
+							</button>
+							<button
+								type="button"
+								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+								onclick={() => {
+									routeEditMode = !routeEditMode;
+								}}
+							>
+								{routeEditMode ? 'Stop Route Editing' : 'Edit Travel Routes'}
 							</button>
 							<button
 								type="button"
@@ -2184,6 +2552,11 @@
 					{:else}
 						<p class="text-ink-muted dark:text-tavern-muted">
 							Player view: unrevealed map areas remain hidden.
+						</p>
+					{/if}
+					{#if partyLocation}
+						<p class="text-ink-faint dark:text-tavern-faint">
+							Party at {partyLocation.x.toFixed(3)}, {partyLocation.y.toFixed(3)}
 						</p>
 					{/if}
 					{#if scaleLabel}
@@ -2408,9 +2781,19 @@
 						Click the map to place a pin. Drag pins to reposition. Click a pin to edit details.
 					</p>
 				{/if}
+				{#if routeEditMode}
+					<p class="mb-2 text-xs text-ink-faint dark:text-tavern-faint">
+						Route edit mode: click the map to add waypoints to the selected route.
+					</p>
+				{/if}
 				{#if fogEditingEnabled}
 					<p class="mb-2 text-xs text-ink-faint dark:text-tavern-faint">
 						Fog tools active. Paint reveal or re-fog shapes directly on the map.
+					</p>
+				{/if}
+				{#if selectedMap.data.parentMapId}
+					<p class="mb-2 text-xs text-ink-faint dark:text-tavern-faint">
+						Press Escape to navigate up to parent map.
 					</p>
 				{/if}
 				{#key `${selectedMap.id}:${viewerKey}`}
@@ -2431,6 +2814,9 @@
 						pathCells={combatModeEnabled ? pathPreviewCells : []}
 						difficultTerrainCells={combatModeEnabled ? combatMapState.difficultTerrain : []}
 						templateOverlays={combatModeEnabled ? combinedTemplateOverlays : []}
+						routes={draftRoutes}
+						activeRouteId={selectedRouteId}
+						{partyMarker}
 						fogEnabled={!!selectedCombatTile ||
 							playerModeState.enabled ||
 							!!selectedMap.data.lastSessionFog}
@@ -2453,6 +2839,7 @@
 						onmappointerdown={handleMapPointerDown}
 						onmappointermove={handleMapPointerMove}
 						onmappointerup={handleMapPointerUp}
+						onmapcontextmenu={handleMapContextMenu}
 					/>
 				{/key}
 				{#if poiHover && hoveredPoi}
@@ -2481,6 +2868,30 @@
 								Create note from pin
 							</button>
 						{/if}
+					</div>
+				{/if}
+				{#if mapContextMenu}
+					{@const contextMenu = mapContextMenu}
+					<div
+						class="fixed z-40 min-w-40 rounded-md border border-border bg-surface p-1 shadow-xl dark:border-tavern-border dark:bg-tavern-surface"
+						style={`left:${contextMenu.clientX}px;top:${contextMenu.clientY}px;`}
+						role="menu"
+						aria-label="Map context menu"
+						tabindex="-1"
+						onpointerdown={(event) => event.stopPropagation()}
+					>
+						<button
+							type="button"
+							class="w-full rounded px-2 py-1 text-left text-xs text-ink hover:bg-surface-alt dark:text-tavern-text dark:hover:bg-tavern-surface-alt"
+							onclick={() =>
+								void handleMarkPartyLocation({
+									x: contextMenu.x,
+									y: contextMenu.y,
+									source: 'point',
+								})}
+						>
+							Mark party here
+						</button>
 					</div>
 				{/if}
 			</div>
@@ -2555,6 +2966,43 @@
 								Open linked location note
 							</button>
 						{/if}
+						<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+							Parent map
+							<select
+								bind:value={draftParentMapId}
+								onchange={() => {
+									if (
+										draftParentPoiId &&
+										!parentPoiOptions.some((poi) => poi.id === draftParentPoiId)
+									) {
+										draftParentPoiId = '';
+									}
+									markDirty();
+								}}
+								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+							>
+								<option value="">None (root map)</option>
+								{#each mapHierarchy as entry (entry.mapId)}
+									{#if entry.mapId !== String(selectedMap.id)}
+										<option value={entry.mapId}>{'..'.repeat(entry.depth)} {entry.name}</option>
+									{/if}
+								{/each}
+							</select>
+						</label>
+						<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+							Location on parent (POI)
+							<select
+								bind:value={draftParentPoiId}
+								onchange={markDirty}
+								disabled={!draftParentMapId}
+								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink disabled:opacity-60 dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+							>
+								<option value="">None selected</option>
+								{#each parentPoiOptions as poi (poi.id)}
+									<option value={poi.id}>{poi.label}</option>
+								{/each}
+							</select>
+						</label>
 						<label
 							class="flex items-center gap-2 rounded border border-border px-2 py-1.5 text-xs text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
 						>
@@ -2753,6 +3201,107 @@
 							</label>
 						</div>
 						<div class="rounded border border-border p-2 dark:border-tavern-border">
+							<div class="flex items-center justify-between">
+								<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">Travel Routes</h3>
+								<button
+									type="button"
+									class="rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+									onclick={handleCreateRoute}
+								>
+									Add Route
+								</button>
+							</div>
+							<div class="mt-2 grid grid-cols-2 gap-2">
+								<label class="text-[11px] text-ink-muted dark:text-tavern-muted">
+									Route name
+									<input
+										type="text"
+										bind:value={newRouteName}
+										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+									/>
+								</label>
+								<label class="text-[11px] text-ink-muted dark:text-tavern-muted">
+									Style
+									<select
+										bind:value={newRouteStyle}
+										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+									>
+										<option value="straight">Straight</option>
+										<option value="curved">Curved</option>
+									</select>
+								</label>
+							</div>
+							{#if draftRoutes.length === 0}
+								<p class="mt-2 text-[11px] text-ink-faint dark:text-tavern-faint">
+									No routes yet. Create one, then click map waypoints.
+								</p>
+							{:else}
+								<div class="mt-2 space-y-1.5">
+									{#each routeSummaries as entry (entry.route.id)}
+										<div
+											class="rounded border border-border p-1.5 dark:border-tavern-border {selectedRouteId ===
+											entry.route.id
+												? 'bg-accent-subtle/40 dark:bg-tavern-accent-subtle/40'
+												: ''}"
+										>
+											<button
+												type="button"
+												class="w-full text-left text-[11px] font-medium text-ink dark:text-tavern-text"
+												onclick={() => (selectedRouteId = entry.route.id)}
+											>
+												{entry.route.name}
+											</button>
+											<p class="text-[11px] text-ink-faint dark:text-tavern-faint">{entry.label}</p>
+											<div class="mt-1 flex flex-wrap gap-1">
+												<button
+													type="button"
+													class="rounded border border-border px-1.5 py-0.5 text-[10px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+													onclick={() => handleClearRouteWaypoints(entry.route.id)}
+												>
+													Clear points
+												</button>
+												<button
+													type="button"
+													class="rounded border border-border px-1.5 py-0.5 text-[10px] text-error hover:bg-error/10 dark:border-tavern-border"
+													onclick={() => handleDeleteRoute(entry.route.id)}
+												>
+													Delete
+												</button>
+											</div>
+										</div>
+									{/each}
+								</div>
+							{/if}
+							{#if selectedRoute}
+								<p class="mt-2 text-[11px] text-ink-faint dark:text-tavern-faint">
+									Editing: {selectedRoute.name} ({selectedRoute.waypoints.length} waypoint{selectedRoute
+										.waypoints.length === 1
+										? ''
+										: 's'})
+								</p>
+								{#if selectedMap}
+									{@const estimate = estimateTravelTimeForRoute(selectedRoute, {
+										width: draftImageSize?.width ?? selectedMap.data.width,
+										height: draftImageSize?.height ?? selectedMap.data.height,
+										grid: gridDraft,
+										scale: draftScaleEnabled
+											? {
+													unitsPerGridSquare: Number.parseFloat(draftScaleUnits) || 5,
+													unitLabel: draftScaleUnitLabel,
+												}
+											: undefined,
+									})}
+									{#if estimate}
+										<p class="mt-1 text-[11px] text-ink-faint dark:text-tavern-faint">
+											Travel (5e): slow {estimate.pace.slow.hours.toFixed(2)}h | normal
+											{estimate.pace.normal.hours.toFixed(2)}h | fast
+											{estimate.pace.fast.hours.toFixed(2)}h
+										</p>
+									{/if}
+								{/if}
+							{/if}
+						</div>
+						<div class="rounded border border-border p-2 dark:border-tavern-border">
 							<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">Selected Pin</h3>
 							{#if selectedPoi}
 								<div class="mt-2 space-y-2">
@@ -2845,6 +3394,19 @@
 										Position: {selectedPoi.x.toFixed(3)}, {selectedPoi.y.toFixed(3)}
 									</p>
 									<div class="flex flex-wrap gap-1.5">
+										<button
+											type="button"
+											class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+											onclick={() =>
+												void handleMarkPartyLocation({
+													x: selectedPoi.x,
+													y: selectedPoi.y,
+													poiId: selectedPoi.id,
+													source: 'poi',
+												})}
+										>
+											Mark party here
+										</button>
 										{#if resolveLinkedNoteIdForPoi(selectedPoi)}
 											<button
 												type="button"

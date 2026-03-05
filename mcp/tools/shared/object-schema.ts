@@ -228,6 +228,30 @@ export const mapDataSchema = z
 					.strict(),
 			)
 			.optional(),
+		parentMapId: z.string().min(1).optional(),
+		parentPoiId: z.string().min(1).optional(),
+		routes: z
+			.array(
+				z
+					.object({
+						id: z.string().min(1),
+						name: z.string().min(1),
+						style: z.enum(['straight', 'curved']),
+						waypoints: z
+							.array(
+								z
+									.object({
+										x: z.number().min(0).max(1),
+										y: z.number().min(0).max(1),
+									})
+									.strict(),
+							)
+							.min(0),
+						layerId: z.string().min(1).optional(),
+					})
+					.strict(),
+			)
+			.optional(),
 		lastSessionFog: z
 			.object({
 				savedAt: z.string().min(1),

@@ -37,12 +37,18 @@ import type {
 	SnapshotRestoreResult,
 	StorageAdapter,
 } from '$lib/types/storage.js';
+import {
+	DEFAULT_SESSION_STATE,
+	normalizeSessionState,
+	type SessionState,
+} from '$lib/types/session-state.js';
 import { nowISO } from '$lib/utils/date.js';
 
 const HISTORY_LIMIT = 100;
 const SNAPSHOT_LIMIT = 20;
 const CHANGELOG_LIMIT = 500;
 const DEFAULT_VAULT_NAMESPACE = 'browser-default';
+const SESSION_STATE_KEY = '__session_state__';
 
 interface AdapterOptions {
 	dbName?: string;
@@ -819,5 +825,32 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
 		return [...counts.entries()]
 			.map(([name, count]) => ({ name, count }))
 			.sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+	}
+
+	async getSessionState(): Promise<SessionState> {
+		const record = await this.database.settings.get(SESSION_STATE_KEY);
+		if (!record) return { ...DEFAULT_SESSION_STATE };
+		return normalizeSessionState(record.value);
+	}
+
+	async saveSessionState(state: SessionState): Promise<void> {
+		const normalized = normalizeSessionState(state);
+		await this.database.transaction(
+			'rw',
+			this.database.settings,
+			this.database.changelog,
+			async () => {
+				await this.database.settings.put({
+					key: SESSION_STATE_KEY,
+					value: deepCopy(normalized),
+				});
+				await this.recordChangelog(
+					'setting',
+					'session_state_update',
+					SESSION_STATE_KEY,
+					normalized,
+				);
+			},
+		);
 	}
 }

@@ -17,6 +17,7 @@ import type {
 import type { NoteTemplate, ReusableSnippet } from '$lib/types/template-library.js';
 import type { ImportResult, SafetySnapshot, SnapshotRestoreResult } from '$lib/types/storage.js';
 import type { SyncWriteTracker } from '$lib/types/sync.js';
+import type { SessionState } from '$lib/types/session-state.js';
 
 export class SyncAwareStorageAdapter implements StorageAdapter {
 	constructor(
@@ -262,5 +263,22 @@ export class SyncAwareStorageAdapter implements StorageAdapter {
 
 	getTagCounts(): Promise<TagEntry[]> {
 		return this.base.getTagCounts();
+	}
+
+	getSessionState(): Promise<SessionState> {
+		if (!this.base.getSessionState) {
+			return Promise.resolve({ version: 1, partyLocation: null });
+		}
+		return this.base.getSessionState();
+	}
+
+	async saveSessionState(state: SessionState): Promise<void> {
+		if (!this.base.saveSessionState) return;
+		await this.base.saveSessionState(state);
+		this.tracker.recordOpaqueMutation({
+			operation: 'setting_update',
+			entityType: 'setting',
+			entityId: 'session_state',
+		});
 	}
 }

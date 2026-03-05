@@ -7,7 +7,9 @@
 	import { searchState } from '$lib/state/search.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
+	import { mapsState } from '$lib/state/maps.svelte.js';
 	import { isVaultObjectNote } from '$lib/domain/object-notes.js';
+	import { mapDescendantIds, mapHierarchyEntries, noteMapIds } from '$lib/domain/map-atlas.js';
 	import { buildOpenThreadsReport } from '$lib/domain/open-threads.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import WorldCalendarReference from '$lib/ui/calendar/WorldCalendarReference.svelte';
@@ -28,6 +30,7 @@
 	let { onnewnote, ondice, ontemplate, presentation = 'sidebar' }: Props = $props();
 	let mode = $state<SidebarMode>('tree');
 	let showTags = $state(false);
+	let treeViewMode = $state<'folder' | 'map'>('folder');
 	let folderContextMenu = $state<{ folderId: string; x: number; y: number } | null>(null);
 	let folderContextMenuEl = $state<HTMLElement | null>(null);
 
@@ -104,6 +107,37 @@
 			})
 			.slice(0, 60),
 	);
+	let mapTreeEntries = $derived.by(() => {
+		const hierarchy = mapHierarchyEntries(mapsState.maps);
+		if (hierarchy.length === 0) return [];
+		const noteIdsByMap: Record<string, string[]> = {};
+		for (const note of modeScopedNotes) {
+			for (const mapId of noteMapIds(note, mapsState.maps)) {
+				const noteId = String(note.id);
+				const bucket = noteIdsByMap[mapId] ?? [];
+				if (!bucket.includes(noteId)) {
+					bucket.push(noteId);
+				}
+				noteIdsByMap[mapId] = bucket;
+			}
+		}
+		return hierarchy.map((entry) => {
+			const noteIds: string[] = [];
+			for (const scopedMapId of mapDescendantIds(entry.mapId, mapsState.maps)) {
+				for (const noteId of noteIdsByMap[scopedMapId] ?? []) {
+					if (!noteIds.includes(noteId)) {
+						noteIds.push(noteId);
+					}
+				}
+			}
+			return {
+				id: entry.mapId,
+				name: entry.name,
+				depth: entry.depth,
+				noteCount: noteIds.length,
+			};
+		});
+	});
 	let pinnedCampaignEntities = $derived.by(() =>
 		modeScopedPinnedNotes.filter((note) => isVaultObjectNote(note)).slice(0, 12),
 	);
@@ -169,6 +203,10 @@
 		if (!searchState.loaded && !searchState.loading) {
 			void searchState.loadSavedSearches();
 		}
+	});
+
+	$effect(() => {
+		void mapsState.loadAll();
 	});
 
 	$effect(() => {
@@ -517,28 +555,57 @@
 
 		{#if mode === 'tree'}
 			<div class="px-3 pb-2">
-				<p
-					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
-				>
-					Folder Tree
-				</p>
+				<div class="mb-1.5 flex items-center justify-between px-2.5">
+					<p
+						class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
+					>
+						{treeViewMode === 'folder' ? 'Folder Tree' : 'Map Hierarchy'}
+					</p>
+					{#if !playerModeState.enabled}
+						<button
+							type="button"
+							class="rounded border border-border px-1.5 py-0.5 text-[10px] text-ink-faint hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-faint dark:hover:bg-tavern-surface-alt"
+							onclick={() => (treeViewMode = treeViewMode === 'folder' ? 'map' : 'folder')}
+						>
+							{treeViewMode === 'folder' ? 'Map view' : 'Folder view'}
+						</button>
+					{/if}
+				</div>
 				<div class="space-y-0.5">
-					{#if folderTreeEntries.length === 0}
+					{#if treeViewMode === 'folder'}
+						{#if folderTreeEntries.length === 0}
+							<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
+								No folders yet
+							</p>
+						{:else}
+							{#each folderTreeEntries as folder (folder.id)}
+								<button
+									class="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors flex items-center gap-2"
+									style="padding-left: {0.75 + folder.depth * 0.65}rem"
+									onclick={() =>
+										navigateToPath(`${resolve('/notes')}?folder=${encodeURIComponent(folder.id)}`)}
+									oncontextmenu={(event) => handleFolderContextMenu(event, folder.id)}
+									onkeydown={(event) => handleFolderContextKeydown(event, folder.id)}
+								>
+									<span class="truncate">{folder.name}</span>
+									<span class="ml-auto opacity-70">{folder.noteCount}</span>
+								</button>
+							{/each}
+						{/if}
+					{:else if mapTreeEntries.length === 0}
 						<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
-							No folders yet
+							No map hierarchy yet
 						</p>
 					{:else}
-						{#each folderTreeEntries as folder (folder.id)}
+						{#each mapTreeEntries as mapEntry (mapEntry.id)}
 							<button
 								class="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors flex items-center gap-2"
-								style="padding-left: {0.75 + folder.depth * 0.65}rem"
+								style="padding-left: {0.75 + mapEntry.depth * 0.65}rem"
 								onclick={() =>
-									navigateToPath(`${resolve('/notes')}?folder=${encodeURIComponent(folder.id)}`)}
-								oncontextmenu={(event) => handleFolderContextMenu(event, folder.id)}
-								onkeydown={(event) => handleFolderContextKeydown(event, folder.id)}
+									navigateToPath(`${resolve('/notes')}?mapId=${encodeURIComponent(mapEntry.id)}`)}
 							>
-								<span class="truncate">{folder.name}</span>
-								<span class="ml-auto opacity-70">{folder.noteCount}</span>
+								<span class="truncate">{mapEntry.name}</span>
+								<span class="ml-auto opacity-70">{mapEntry.noteCount}</span>
 							</button>
 						{/each}
 					{/if}
