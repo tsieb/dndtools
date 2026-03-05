@@ -12,9 +12,33 @@
 	let charCount = $derived(editorState.content.length);
 
 	let readingTime = $derived(Math.max(1, Math.ceil(wordCount / 200)));
+	let showSavingIndicator = $state(false);
+	let savingIndicatorTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+
+	$effect(() => {
+		if (editorState.saving) {
+			if (showSavingIndicator || savingIndicatorTimer) return;
+			savingIndicatorTimer = setTimeout(() => {
+				showSavingIndicator = true;
+				savingIndicatorTimer = null;
+			}, 300);
+			return;
+		}
+		if (savingIndicatorTimer) {
+			clearTimeout(savingIndicatorTimer);
+			savingIndicatorTimer = null;
+		}
+		showSavingIndicator = false;
+	});
+
+	$effect(() => {
+		return () => {
+			if (savingIndicatorTimer) clearTimeout(savingIndicatorTimer);
+		};
+	});
 
 	let saveStatus = $derived.by(() => {
-		if (editorState.saving) return 'Saving...';
+		if (editorState.saving && showSavingIndicator) return 'Saving...';
 		if (editorState.dirty) return 'Unsaved changes';
 		if (editorState.lastSaved) return `Saved ${formatRelativeDate(editorState.lastSaved)}`;
 		return 'Saved';
@@ -29,7 +53,7 @@
 			? 'text-warning dark:text-tavern-warning'
 			: 'text-success dark:text-tavern-success'}"
 	>
-		{#if editorState.saving}
+		{#if editorState.saving && showSavingIndicator}
 			<span
 				class="inline-block w-2 h-2 rounded-full bg-warning dark:bg-tavern-warning animate-pulse"
 			></span>

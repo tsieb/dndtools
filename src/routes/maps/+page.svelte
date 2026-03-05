@@ -2313,7 +2313,7 @@
 		{#if !playerModeState.enabled}
 			<button
 				type="button"
-				class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover"
+				class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 				onclick={() => void handleImportMap()}
 				disabled={!desktopAvailable || importing}
 				title={desktopAvailable ? 'Import a map image into the vault' : 'Desktop mode required'}
@@ -3473,17 +3473,19 @@
 					<div class="mt-3 flex items-center gap-2">
 						<button
 							type="button"
-							class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover"
+							class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 							disabled={!dirty || saving}
 							onclick={() => void handleSave()}
+							title={saving ? 'Saving map...' : 'Save map changes'}
 						>
 							{saving ? 'Saving...' : 'Save Map'}
 						</button>
 						<button
 							type="button"
-							class="rounded-md border border-border px-3 py-1.5 text-xs text-ink-muted hover:bg-surface-alt disabled:cursor-not-allowed disabled:opacity-60 dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+							class="rounded-md border border-border px-3 py-1.5 text-xs text-ink-muted hover:bg-surface-alt disabled:cursor-not-allowed disabled:opacity-60 dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 							disabled={!dirty || saving}
 							onclick={discardDraft}
+							title="Discard unsaved changes"
 						>
 							Discard
 						</button>

@@ -17,6 +17,7 @@
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 
 	interface Props {
 		onnewnote: () => void;
@@ -33,6 +34,9 @@
 	let treeViewMode = $state<'folder' | 'map'>('folder');
 	let folderContextMenu = $state<{ folderId: string; x: number; y: number } | null>(null);
 	let folderContextMenuEl = $state<HTMLElement | null>(null);
+	let reselectedNoteId = $state<string | null>(null);
+	let reselectedNoteTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+	let currentPath = $derived(page.url.pathname);
 
 	let modeScopedNotes = $derived.by(() =>
 		playerModeState.enabled
@@ -212,6 +216,27 @@
 	});
 
 	$effect(() => {
+		return () => {
+			if (reselectedNoteTimer) clearTimeout(reselectedNoteTimer);
+		};
+	});
+
+	function triggerReselectedNoteFeedback(id: string): void {
+		reselectedNoteId = id;
+		if (reselectedNoteTimer) clearTimeout(reselectedNoteTimer);
+		reselectedNoteTimer = setTimeout(() => {
+			reselectedNoteId = null;
+			reselectedNoteTimer = null;
+		}, 700);
+		if (typeof document !== 'undefined') {
+			const main = document.getElementById('main-content');
+			if (main instanceof HTMLElement) {
+				main.scrollTo({ top: 0, behavior: 'smooth' });
+			}
+		}
+	}
+
+	$effect(() => {
 		if (!folderContextMenu || typeof window === 'undefined') return;
 		const close = (event?: Event): void => {
 			if (event?.target instanceof Node && folderContextMenuEl?.contains(event.target)) {
@@ -235,7 +260,15 @@
 	});
 
 	function navigateToNote(id: string): void {
-		goto(resolve(`/notes/${id}`));
+		const targetPath = resolve(`/notes/${id}`);
+		if (currentPath === targetPath || currentPath === `${targetPath}/edit`) {
+			triggerReselectedNoteFeedback(id);
+			if (ui.isMobile) {
+				ui.sidebarOpen = false;
+			}
+			return;
+		}
+		goto(targetPath);
 		if (ui.isMobile) {
 			ui.sidebarOpen = false;
 		}
@@ -299,7 +332,7 @@
 			? '100%'
 			: ui.sidebarWidth + 'px'}"
 >
-	<div class="p-3 border-b border-border dark:border-tavern-border space-y-2">
+	<div class="p-3 border-b border-border dark:border-tavern-border space-y-2 flex-shrink-0">
 		{#if playerModeState.enabled}
 			<p
 				class="rounded-md border border-emerald-300/50 bg-emerald-50/70 px-3 py-2 text-xs font-medium text-emerald-800 dark:border-emerald-700/50 dark:bg-emerald-900/25 dark:text-emerald-200"
@@ -309,7 +342,7 @@
 		{:else}
 			<button
 				type="button"
-				class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-accent text-white hover:bg-accent-hover dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover text-sm font-medium transition-colors"
+				class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-accent text-white hover:bg-accent-hover dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover text-sm font-medium transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 				onclick={onnewnote}
 				title="Create a new note"
 			>
@@ -320,118 +353,212 @@
 			</button>
 			<button
 				type="button"
-				class="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md border border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg text-sm transition-colors"
+				class="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md border border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg text-sm transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 				onclick={() => ontemplate()}
 				title="Create from template"
 			>
 				<span class="text-sm" aria-hidden="true">T</span>
 				From Template
 			</button>
+			<button
+				type="button"
+				class="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md border border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg text-sm transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+				onclick={openDiceTray}
+				title="Roll dice"
+			>
+				Dice Tray
+			</button>
 		{/if}
 	</div>
 
-	<div class="flex-1 overflow-y-auto">
-		<nav class="p-3 space-y-0.5">
-			<a
-				href={resolve('/')}
-				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
+	<nav class="p-3 space-y-0.5 border-b border-border dark:border-tavern-border flex-shrink-0">
+		<a
+			href={resolve('/')}
+			class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+		>
+			Home
+		</a>
+		<a
+			href={resolve('/player')}
+			class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm {playerModeState.enabled
+				? 'bg-emerald-100/70 text-emerald-800 dark:bg-emerald-900/25 dark:text-emerald-200'
+				: 'text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text'} transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+		>
+			Player View
+		</a>
+		<a
+			href={resolve('/notes')}
+			class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+		>
+			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"
+				/>
+				<path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5" />
+			</svg>
+			All Notes
+			<span class="ml-auto text-xs text-ink-faint dark:text-tavern-faint"
+				>{modeScopedNoteCount}</span
 			>
-				Home
+		</a>
+		<a
+			href={resolve('/search')}
+			class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+		>
+			Search
+		</a>
+		{#if !playerModeState.enabled}
+			<a
+				href={resolve('/graph')}
+				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+			>
+				Graph
+				{#if orphanBadgeCount > 0 || hubBadgeCount > 0}
+					<span class="ml-auto flex items-center gap-1">
+						{#if orphanBadgeCount > 0}
+							<span
+								class="rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 dark:bg-rose-900/50 dark:text-rose-200"
+								title={`${orphanBadgeCount} orphan note${orphanBadgeCount === 1 ? '' : 's'}`}
+							>
+								O {orphanBadgeCount}
+							</span>
+						{/if}
+						{#if hubBadgeCount > 0}
+							<span
+								class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/50 dark:text-amber-200"
+								title={`${hubBadgeCount} hub note${hubBadgeCount === 1 ? '' : 's'}`}
+							>
+								H {hubBadgeCount}
+							</span>
+						{/if}
+					</span>
+				{/if}
 			</a>
 			<a
-				href={resolve('/player')}
-				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm {playerModeState.enabled
-					? 'bg-emerald-100/70 text-emerald-800 dark:bg-emerald-900/25 dark:text-emerald-200'
-					: 'text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text'} transition-colors"
+				href={resolve('/maps')}
+				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 			>
-				Player View
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2V6z"
+					/>
+				</svg>
+				Maps
 			</a>
 			<a
-				href={resolve('/notes')}
-				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
+				href={resolve('/timeline')}
+				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 			>
-				All Notes
-				<span class="ml-auto text-xs text-ink-faint dark:text-tavern-faint"
-					>{modeScopedNoteCount}</span
-				>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M4 12h16" />
+					<circle cx="7" cy="12" r="1.5" fill="currentColor" stroke="none" />
+					<circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+					<circle cx="17" cy="12" r="1.5" fill="currentColor" stroke="none" />
+				</svg>
+				Timeline
 			</a>
 			<a
-				href={resolve('/search')}
-				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
+				href={resolve('/session-board')}
+				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 			>
-				Search
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<rect x="4" y="4" width="7" height="7" rx="1" />
+					<rect x="13" y="4" width="7" height="7" rx="1" />
+					<rect x="4" y="13" width="7" height="7" rx="1" />
+					<rect x="13" y="13" width="7" height="7" rx="1" />
+				</svg>
+				Session Board
 			</a>
-			{#if !playerModeState.enabled}
-				<a
-					href={resolve('/graph')}
-					class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
-				>
-					Graph
-					{#if orphanBadgeCount > 0 || hubBadgeCount > 0}
-						<span class="ml-auto flex items-center gap-1">
-							{#if orphanBadgeCount > 0}
-								<span
-									class="rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 dark:bg-rose-900/50 dark:text-rose-200"
-									title={`${orphanBadgeCount} orphan note${orphanBadgeCount === 1 ? '' : 's'}`}
-								>
-									O {orphanBadgeCount}
-								</span>
-							{/if}
-							{#if hubBadgeCount > 0}
-								<span
-									class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/50 dark:text-amber-200"
-									title={`${hubBadgeCount} hub note${hubBadgeCount === 1 ? '' : 's'}`}
-								>
-									H {hubBadgeCount}
-								</span>
-							{/if}
-						</span>
-					{/if}
-				</a>
-				<a
-					href={resolve('/maps')}
-					class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
-				>
-					Maps
-				</a>
-				<a
-					href={resolve('/timeline')}
-					class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
-				>
-					Timeline
-				</a>
-				<a
-					href={resolve('/session-board')}
-					class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
-				>
-					Session Board
-				</a>
-				<a
-					href={resolve('/encounter/new')}
-					class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
-				>
-					Encounter Builder
-				</a>
-				<a
-					href={resolve('/combat')}
-					class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
-				>
-					Combat
-				</a>
+			<a
+				href={resolve('/encounter/new')}
+				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M8 4l8 8M16 4l-8 8M5 13l6 6M19 13l-6 6"
+					/>
+				</svg>
+				Encounter Builder
+			</a>
+			<a
+				href={resolve('/combat')}
+				class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M13 2L3 14h7l-1 8 10-12h-7z" />
+				</svg>
+				Combat
+			</a>
+			<button
+				type="button"
+				class="w-full text-left flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+				onclick={openDiceTray}
+			>
+				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M5 5h14v14H5z" />
+					<circle cx="9" cy="9" r="1" fill="currentColor" stroke="none" />
+					<circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
+					<circle cx="15" cy="15" r="1" fill="currentColor" stroke="none" />
+				</svg>
+				Dice Tray
+			</button>
+		{/if}
+	</nav>
+
+	<div class="sidebar-scroll flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+		<div class="px-3 pt-2 pb-2">
+			<div
+				class="grid grid-cols-2 gap-1 rounded-md border border-border dark:border-tavern-border p-1 bg-surface dark:bg-tavern-surface"
+			>
 				<button
 					type="button"
-					class="w-full text-left flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors"
-					onclick={openDiceTray}
+					class="px-2 py-1 text-[11px] rounded {mode === 'tree'
+						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent font-medium'
+						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt font-normal'}"
+					onclick={() => (mode = 'tree')}
 				>
-					Dice Tray
+					Tree
 				</button>
-			{/if}
-		</nav>
+				<button
+					type="button"
+					class="px-2 py-1 text-[11px] rounded {mode === 'recent'
+						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent font-medium'
+						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt font-normal'}"
+					onclick={() => (mode = 'recent')}
+				>
+					Recent
+				</button>
+				<button
+					type="button"
+					class="px-2 py-1 text-[11px] rounded {mode === 'favorites'
+						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent font-medium'
+						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt font-normal'}"
+					onclick={() => (mode = 'favorites')}
+				>
+					Favorites
+				</button>
+				<button
+					type="button"
+					class="px-2 py-1 text-[11px] rounded {mode === 'campaign'
+						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent font-medium'
+						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt font-normal'}"
+					onclick={() => (mode = 'campaign')}
+				>
+					Campaign
+				</button>
+			</div>
+		</div>
 
 		{#if !playerModeState.enabled}
 			<div class="px-3 pb-2">
 				<p
-					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
+					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint cursor-default mb-1.5 px-2.5"
 				>
 					Open Threads
 				</p>
@@ -455,11 +582,15 @@
 								<li>
 									<button
 										type="button"
-										class="w-full text-left rounded px-2 py-1 text-xs text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+										class="w-full text-left rounded px-2 py-1 text-xs text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95 {reselectedNoteId ===
+										thread.noteId
+											? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
+											: ''}"
 										onclick={() => navigateToNote(thread.noteId)}
+										title={thread.label}
 									>
 										<span class="opacity-70">{thread.type}:</span>
-										{thread.label}
+										<span class="truncate">{thread.label}</span>
 									</button>
 								</li>
 							{/each}
@@ -487,7 +618,7 @@
 
 		<div class="px-3 pb-2">
 			<p
-				class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
+				class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint cursor-default mb-1.5 px-2.5"
 			>
 				Collections
 			</p>
@@ -500,8 +631,8 @@
 					{#each sidebarCollections as collection (collection.id)}
 						<button
 							type="button"
-							class="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors truncate"
-							title={collection.query}
+							class="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-[transform,colors] active:scale-[0.97] active:brightness-95 truncate"
+							title={collection.name}
 							onclick={() =>
 								navigateToPath(`${resolve('/search')}?q=${encodeURIComponent(collection.query)}`)}
 						>
@@ -512,61 +643,21 @@
 			</div>
 		</div>
 
-		<div class="px-3 pb-2">
-			<div
-				class="grid grid-cols-2 gap-1 rounded-md border border-border dark:border-tavern-border p-1 bg-surface dark:bg-tavern-surface"
-			>
-				<button
-					type="button"
-					class="px-2 py-1 text-[11px] rounded {mode === 'tree'
-						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
-						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
-					onclick={() => (mode = 'tree')}
-				>
-					Tree
-				</button>
-				<button
-					type="button"
-					class="px-2 py-1 text-[11px] rounded {mode === 'recent'
-						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
-						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
-					onclick={() => (mode = 'recent')}
-				>
-					Recent
-				</button>
-				<button
-					type="button"
-					class="px-2 py-1 text-[11px] rounded {mode === 'favorites'
-						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
-						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
-					onclick={() => (mode = 'favorites')}
-				>
-					Favorites
-				</button>
-				<button
-					type="button"
-					class="px-2 py-1 text-[11px] rounded {mode === 'campaign'
-						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
-						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
-					onclick={() => (mode = 'campaign')}
-				>
-					Campaign
-				</button>
-			</div>
-		</div>
-
 		{#if mode === 'tree'}
 			<div class="px-3 pb-2">
 				<div class="mb-1.5 flex items-center justify-between px-2.5">
 					<p
-						class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
+						class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint cursor-default"
 					>
 						{treeViewMode === 'folder' ? 'Folder Tree' : 'Map Hierarchy'}
 					</p>
 					{#if !playerModeState.enabled}
 						<button
 							type="button"
-							class="rounded border border-border px-1.5 py-0.5 text-[10px] text-ink-faint hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-faint dark:hover:bg-tavern-surface-alt"
+							class="rounded border border-border px-1.5 py-0.5 text-[10px] hover:bg-surface-alt dark:border-tavern-border dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95 {treeViewMode ===
+							'folder'
+								? 'text-accent dark:text-tavern-accent font-medium'
+								: 'text-ink-faint dark:text-tavern-faint font-normal'}"
 							onclick={() => (treeViewMode = treeViewMode === 'folder' ? 'map' : 'folder')}
 						>
 							{treeViewMode === 'folder' ? 'Map view' : 'Folder view'}
@@ -582,15 +673,19 @@
 						{:else}
 							{#each folderTreeEntries as folder (folder.id)}
 								<button
-									class="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors flex items-center gap-2"
-									style="padding-left: {0.75 + folder.depth * 0.65}rem"
+									type="button"
+									class="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-[transform,colors] active:scale-[0.97] active:brightness-95 flex items-center gap-2"
+									style="padding-left: {0.75 + folder.depth * 0.75}rem"
 									onclick={() =>
 										navigateToPath(`${resolve('/notes')}?folder=${encodeURIComponent(folder.id)}`)}
 									oncontextmenu={(event) => handleFolderContextMenu(event, folder.id)}
 									onkeydown={(event) => handleFolderContextKeydown(event, folder.id)}
+									title={folder.id}
 								>
 									<span class="truncate">{folder.name}</span>
-									<span class="ml-auto opacity-70">{folder.noteCount}</span>
+									<span class="ml-auto text-[11px] text-ink-faint dark:text-tavern-faint"
+										>({folder.noteCount})</span
+									>
 								</button>
 							{/each}
 						{/if}
@@ -601,13 +696,17 @@
 					{:else}
 						{#each mapTreeEntries as mapEntry (mapEntry.id)}
 							<button
-								class="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-colors flex items-center gap-2"
-								style="padding-left: {0.75 + mapEntry.depth * 0.65}rem"
+								type="button"
+								class="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-ink-muted dark:text-tavern-muted hover:bg-parchment dark:hover:bg-tavern-bg hover:text-ink dark:hover:text-tavern-text transition-[transform,colors] active:scale-[0.97] active:brightness-95 flex items-center gap-2"
+								style="padding-left: {0.75 + mapEntry.depth * 0.75}rem"
 								onclick={() =>
 									navigateToPath(`${resolve('/notes')}?mapId=${encodeURIComponent(mapEntry.id)}`)}
+								title={mapEntry.name}
 							>
 								<span class="truncate">{mapEntry.name}</span>
-								<span class="ml-auto opacity-70">{mapEntry.noteCount}</span>
+								<span class="ml-auto text-[11px] text-ink-faint dark:text-tavern-faint"
+									>({mapEntry.noteCount})</span
+								>
 							</button>
 						{/each}
 					{/if}
@@ -618,7 +717,7 @@
 				<div class="px-3 pb-3">
 					<button
 						type="button"
-						class="flex items-center gap-1.5 w-full text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5 hover:text-ink-muted dark:hover:text-tavern-muted transition-colors"
+						class="flex items-center gap-1.5 w-full text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5 hover:text-ink-muted dark:hover:text-tavern-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 						onclick={() => (showTags = !showTags)}
 						aria-expanded={showTags}
 						aria-controls="sidebar-section-tags"
@@ -630,7 +729,8 @@
 						<div class="flex flex-wrap gap-1 px-2.5" id="sidebar-section-tags">
 							{#each modeScopedTagCounts.slice(0, 18) as tag (tag.name)}
 								<button
-									class="px-2 py-0.5 text-xs rounded-full bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent hover:bg-accent/20 dark:hover:bg-tavern-accent/20 transition-colors"
+									type="button"
+									class="px-2 py-0.5 text-xs rounded-full bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent hover:bg-accent/20 dark:hover:bg-tavern-accent/20 transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 									onclick={() =>
 										navigateToPath(`${resolve('/notes')}?tag=${encodeURIComponent(tag.name)}`)}
 								>
@@ -645,7 +745,7 @@
 		{:else if mode === 'recent'}
 			<div class="px-3 pb-2">
 				<p
-					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
+					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint cursor-default mb-1.5 px-2.5"
 				>
 					Recently Visited
 				</p>
@@ -657,7 +757,11 @@
 					{:else}
 						{#each recentlyVisited as note (note.id)}
 							<button
-								class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-colors"
+								type="button"
+								class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-[transform,colors] active:scale-[0.97] active:brightness-95 {reselectedNoteId ===
+								note.id
+									? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
+									: ''}"
 								onclick={() => navigateToNote(note.id)}
 								title={note.title}
 							>
@@ -669,14 +773,18 @@
 			</div>
 			<div class="px-3 pb-3">
 				<p
-					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
+					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint cursor-default mb-1.5 px-2.5"
 				>
 					Recently Updated
 				</p>
 				<div class="space-y-0.5">
 					{#each recentNotes as note (note.id)}
 						<button
-							class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-colors"
+							type="button"
+							class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-[transform,colors] active:scale-[0.97] active:brightness-95 {reselectedNoteId ===
+							note.id
+								? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
+								: ''}"
 							onclick={() => navigateToNote(note.id)}
 							title={note.title}
 						>
@@ -688,7 +796,7 @@
 		{:else if mode === 'favorites'}
 			<div class="px-3 pb-3">
 				<p
-					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
+					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint cursor-default mb-1.5 px-2.5"
 				>
 					Favorites
 				</p>
@@ -700,7 +808,11 @@
 					{:else}
 						{#each pinnedNotes as note (note.id)}
 							<button
-								class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-colors flex items-center gap-2"
+								type="button"
+								class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-[transform,colors] active:scale-[0.97] active:brightness-95 flex items-center gap-2 {reselectedNoteId ===
+								note.id
+									? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
+									: ''}"
 								onclick={() => navigateToNote(note.id)}
 								title={note.title}
 							>
@@ -714,7 +826,7 @@
 		{:else}
 			<div class="px-3 pb-2">
 				<p
-					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
+					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint cursor-default mb-1.5 px-2.5"
 				>
 					Pinned Campaign Entities
 				</p>
@@ -726,7 +838,11 @@
 					{:else}
 						{#each pinnedCampaignEntities as note (note.id)}
 							<button
-								class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-colors"
+								type="button"
+								class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-[transform,colors] active:scale-[0.97] active:brightness-95 {reselectedNoteId ===
+								note.id
+									? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
+									: ''}"
 								onclick={() => navigateToNote(note.id)}
 								title={note.title}
 							>
@@ -739,7 +855,7 @@
 
 			<div class="px-3 pb-3">
 				<p
-					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1.5 px-2.5"
+					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint cursor-default mb-1.5 px-2.5"
 				>
 					Recent Entities
 				</p>
@@ -751,7 +867,11 @@
 					{:else}
 						{#each campaignEntities as note (note.id)}
 							<button
-								class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-colors"
+								type="button"
+								class="w-full text-left px-2.5 py-1.5 rounded-md text-sm truncate text-ink dark:text-tavern-text hover:bg-parchment dark:hover:bg-tavern-bg transition-[transform,colors] active:scale-[0.97] active:brightness-95 {reselectedNoteId ===
+								note.id
+									? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
+									: ''}"
 								onclick={() => navigateToNote(note.id)}
 								title={note.title}
 							>
@@ -767,14 +887,14 @@
 	<div class="px-3 py-2 border-t border-border dark:border-tavern-border">
 		<button
 			type="button"
-			class="w-full text-left flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs text-ink-faint dark:text-tavern-faint hover:text-ink-muted dark:hover:text-tavern-muted transition-colors"
+			class="w-full text-left flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs text-ink-faint dark:text-tavern-faint hover:text-ink-muted dark:hover:text-tavern-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 			onclick={reopenOnboarding}
 		>
 			Onboarding
 		</button>
 		<a
 			href={resolve('/settings')}
-			class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs text-ink-faint dark:text-tavern-faint hover:text-ink-muted dark:hover:text-tavern-muted transition-colors"
+			class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs text-ink-faint dark:text-tavern-faint hover:text-ink-muted dark:hover:text-tavern-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 		>
 			Settings
 		</a>

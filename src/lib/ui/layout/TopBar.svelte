@@ -108,7 +108,7 @@
 >
 	<div class="flex items-center gap-3 min-w-0">
 		<button
-			class="desktop-no-drag p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+			class="desktop-no-drag p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 			onclick={() => ui.toggleSidebar()}
 			aria-label="Toggle sidebar"
 			title="Toggle sidebar (Ctrl+B)"
@@ -118,7 +118,7 @@
 			</svg>
 		</button>
 		<button
-			class="desktop-no-drag p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+			class="desktop-no-drag p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95 disabled:opacity-40 disabled:hover:bg-transparent"
 			onclick={() => window.history.back()}
 			disabled={!navigationState.canGoBack}
 			aria-label="Go back"
@@ -137,7 +137,7 @@
 			</svg>
 		</button>
 		<button
-			class="desktop-no-drag p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+			class="desktop-no-drag p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95 disabled:opacity-40 disabled:hover:bg-transparent"
 			onclick={() => window.history.forward()}
 			disabled={!navigationState.canGoForward}
 			aria-label="Go forward"
@@ -162,7 +162,7 @@
 				class="w-7 h-7 rounded-md shadow-sm ring-1 ring-black/10 dark:ring-white/10"
 			/>
 			<span
-				class="text-base font-semibold text-ink dark:text-tavern-text tracking-tight group-hover:text-accent dark:group-hover:text-tavern-accent transition-colors"
+				class="text-base font-semibold text-ink dark:text-tavern-text tracking-tight group-hover:text-accent dark:group-hover:text-tavern-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 			>
 				DND Tools
 			</span>
@@ -171,7 +171,7 @@
 
 	<div class="flex items-center gap-1 desktop-no-drag">
 		<button
-			class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors mr-1 {playerModeState.enabled
+			class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-[transform,colors] active:scale-[0.97] active:brightness-95 mr-1 {playerModeState.enabled
 				? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'
 				: 'bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted hover:bg-border dark:hover:bg-tavern-border'}"
 			onclick={() => onsetplayermode(!playerModeState.enabled)}
@@ -182,7 +182,7 @@
 			<span>{playerModeState.enabled ? 'Player Mode' : 'DM Mode'}</span>
 		</button>
 		<button
-			class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+			class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 			onclick={onrefresh}
 			aria-label="Refresh vault"
 			title="Refresh vault from disk"
@@ -197,7 +197,7 @@
 		</button>
 		<a
 			href={`${resolve('/settings')}?tab=sync`}
-			class="relative flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors {syncState.indicator ===
+			class="relative flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium transition-[transform,colors] active:scale-[0.97] active:brightness-95 {syncState.indicator ===
 			'error'
 				? 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/50'
 				: syncState.indicator === 'offline'
@@ -230,7 +230,7 @@
 			</span>
 		{/if}
 		<button
-			class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-ink-faint dark:text-tavern-faint bg-surface-alt dark:bg-tavern-surface-alt hover:bg-border dark:hover:bg-tavern-border transition-colors mr-1"
+			class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-ink-faint dark:text-tavern-faint bg-surface-alt dark:bg-tavern-surface-alt hover:bg-border dark:hover:bg-tavern-border transition-[transform,colors] active:scale-[0.97] active:brightness-95 mr-1"
 			onclick={onsearch}
 			aria-label="Search"
 			title="Quick search (Ctrl+P)"
@@ -246,7 +246,7 @@
 			<kbd class="hidden sm:inline text-xs font-mono">Ctrl+P</kbd>
 		</button>
 		<button
-			class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-ink-faint dark:text-tavern-faint bg-surface-alt dark:bg-tavern-surface-alt hover:bg-border dark:hover:bg-tavern-border transition-colors mr-1"
+			class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-ink-faint dark:text-tavern-faint bg-surface-alt dark:bg-tavern-surface-alt hover:bg-border dark:hover:bg-tavern-border transition-[transform,colors] active:scale-[0.97] active:brightness-95 mr-1"
 			onclick={ondice}
 			aria-label="Open dice tray"
 			title="Dice tray (Ctrl+D)"
@@ -257,7 +257,7 @@
 		{#if !playerModeState.enabled}
 			<div class="relative" bind:this={createMenuAnchor}>
 				<button
-					class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors"
+					class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 					onclick={() => (createMenuOpen = !createMenuOpen)}
 					aria-label="Create options"
 					title="Create options (Ctrl+N)"
@@ -324,7 +324,8 @@
 			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 			<a
 				href={`${resolve('/settings')}?tab=vault`}
-				class="relative p-1.5 rounded-md transition-colors {vaultHealthState.severity === 'critical'
+				class="relative p-1.5 rounded-md transition-[transform,colors] active:scale-[0.97] active:brightness-95 {vaultHealthState.severity ===
+				'critical'
 					? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
 					: vaultHealthState.severity === 'warning'
 						? 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20'
@@ -356,7 +357,7 @@
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 		<a
 			href={`${resolve('/settings')}?tab=mcp#mcp-changes`}
-			class="relative p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+			class="relative p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 			aria-label="Pending MCP changes"
 			title="Review pending MCP changes"
 		>
@@ -377,7 +378,7 @@
 		</a>
 		<a
 			href={resolve('/settings')}
-			class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+			class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 			aria-label="Settings"
 			title="Open settings"
 		>
@@ -396,7 +397,7 @@
 				class="flex items-center rounded-md overflow-hidden border border-border dark:border-tavern-border"
 			>
 				<button
-					class="w-9 h-8 flex items-center justify-center text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					class="w-9 h-8 flex items-center justify-center text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 					onclick={() => void minimizeDesktopWindow()}
 					aria-label="Minimize window"
 					title="Minimize"
@@ -412,7 +413,7 @@
 					</svg>
 				</button>
 				<button
-					class="w-9 h-8 flex items-center justify-center text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors border-x border-border dark:border-tavern-border"
+					class="w-9 h-8 flex items-center justify-center text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95 border-x border-border dark:border-tavern-border"
 					onclick={() => void toggleDesktopWindowMaximize()}
 					aria-label={isMaximized ? 'Restore window' : 'Maximize window'}
 					title={isMaximized ? 'Restore' : 'Maximize'}
@@ -441,7 +442,7 @@
 					{/if}
 				</button>
 				<button
-					class="w-9 h-8 flex items-center justify-center text-ink-muted dark:text-tavern-muted hover:bg-red-600 hover:text-white transition-colors"
+					class="w-9 h-8 flex items-center justify-center text-ink-muted dark:text-tavern-muted hover:bg-red-600 hover:text-white transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 					onclick={() => void closeDesktopWindow()}
 					aria-label="Close window"
 					title="Close"

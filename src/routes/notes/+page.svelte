@@ -105,6 +105,7 @@
 	);
 
 	let totalCount = $derived(pinnedNotes.length + filteredNotes.length);
+	let showListSkeleton = $derived(notesState.loading && notesState.notes.length === 0);
 	let mapFilterLabel = $derived.by(() => {
 		if (!mapFilter) return null;
 		return mapsState.mapById[mapFilter]?.name ?? mapFilter;
@@ -253,7 +254,7 @@
 				<option value="folder">Folder</option>
 			</select>
 			<button
-				class="w-8 h-8 flex items-center justify-center rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+				class="w-8 h-8 flex items-center justify-center rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 				onclick={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}
 				title="Toggle sort direction"
 				aria-label="Sort {sortDir === 'asc' ? 'descending' : 'ascending'}"
@@ -333,7 +334,33 @@
 		</div>
 	{/if}
 
-	{#if filteredNotes.length > 0}
+	{#if showListSkeleton}
+		<div class="grid gap-3 sm:grid-cols-2">
+			{#each Array(8) as _, i (`skeleton-${i}`)}
+				<div
+					class="rounded-lg border border-border/60 dark:border-tavern-border/60 bg-surface dark:bg-tavern-surface p-4"
+				>
+					<div
+						class="h-5 w-2/3 rounded bg-border/50 dark:bg-tavern-border/50 animate-pulse mb-3"
+					></div>
+					<div
+						class="h-3 w-full rounded bg-border/50 dark:bg-tavern-border/50 animate-pulse mb-2"
+					></div>
+					<div
+						class="h-3 w-4/5 rounded bg-border/50 dark:bg-tavern-border/50 animate-pulse mb-3"
+					></div>
+					<div class="flex gap-2">
+						<div
+							class="h-5 w-16 rounded-full bg-border/50 dark:bg-tavern-border/50 animate-pulse"
+						></div>
+						<div
+							class="h-5 w-20 rounded-full bg-border/50 dark:bg-tavern-border/50 animate-pulse"
+						></div>
+					</div>
+				</div>
+			{/each}
+		</div>
+	{:else if filteredNotes.length > 0}
 		<div class="grid gap-3 sm:grid-cols-2">
 			{#each filteredNotes as note (note.id)}
 				<NoteCard {note} onclick={(id) => goto(resolve(`/notes/${id}`))} />

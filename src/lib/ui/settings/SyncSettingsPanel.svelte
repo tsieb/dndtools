@@ -159,14 +159,14 @@
 					<option value="use_latest">Use latest timestamp automatically</option>
 				</select>
 			</label>
-			<Button variant="secondary" size="sm" onclick={handleSaveStrategy} disabled={savingStrategy}>
+			<Button variant="secondary" size="sm" onclick={handleSaveStrategy} loading={savingStrategy}>
 				{savingStrategy ? 'Saving...' : 'Save Strategy'}
 			</Button>
 			<Button
 				variant="ghost"
 				size="sm"
 				onclick={handleSyncNow}
-				disabled={syncingNow || syncState.syncing}
+				loading={syncingNow || syncState.syncing}
 			>
 				{syncingNow || syncState.syncing ? 'Syncing...' : 'Sync Now'}
 			</Button>
@@ -191,11 +191,12 @@
 							<li>
 								<button
 									type="button"
-									class="w-full text-left px-3 py-2 hover:bg-surface-alt dark:hover:bg-tavern-surface-alt {selectedConflictId ===
+									class="w-full text-left px-3 py-2 transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:hover:bg-tavern-surface-alt {selectedConflictId ===
 									conflict.id
 										? 'bg-surface-alt dark:bg-tavern-surface-alt'
 										: ''}"
 									onclick={() => (selectedConflictId = conflict.id)}
+									title={conflict.title}
 								>
 									<p class="text-sm font-medium text-ink dark:text-tavern-text truncate">
 										{conflict.title}

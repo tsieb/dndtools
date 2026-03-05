@@ -29,6 +29,8 @@
 	let { data }: { data: PageData } = $props();
 	let showDeleteConfirm = $state(false);
 	let quickAdd = $state('');
+	let quickAdding = $state(false);
+	let deleting = $state(false);
 	let minimapImageUrl = $state<string | null>(null);
 	let noteOpenMeasured = $state(false);
 	let noteOpenMeasurement = $state<{
@@ -179,22 +181,33 @@
 	});
 
 	async function handleDelete(): Promise<void> {
+		if (deleting) return;
+		deleting = true;
 		showDeleteConfirm = false;
 		const title = note?.title ?? 'Note';
-		await notesState.deleteNote(data.noteId);
-		toastState.success(`"${title}" moved to trash`);
-		goto(resolve('/notes'));
+		try {
+			await notesState.deleteNote(data.noteId);
+			toastState.success(`"${title}" moved to trash`);
+			goto(resolve('/notes'));
+		} finally {
+			deleting = false;
+		}
 	}
 
 	async function handleQuickAdd(): Promise<void> {
 		const text = quickAdd.trim();
-		if (!note || !text) return;
+		if (!note || !text || quickAdding) return;
+		quickAdding = true;
 		const prefix = note.content.trim().length > 0 ? '\n' : '';
-		await notesState.updateNote(note.id, {
-			content: `${note.content}${prefix}- ${text}`,
-		});
-		quickAdd = '';
-		toastState.success('Added to note');
+		try {
+			await notesState.updateNote(note.id, {
+				content: `${note.content}${prefix}- ${text}`,
+			});
+			quickAdd = '';
+			toastState.success('Added to note');
+		} finally {
+			quickAdding = false;
+		}
 	}
 </script>
 
@@ -203,7 +216,7 @@
 		<div class="mx-auto mb-3 flex max-w-content justify-end">
 			<button
 				type="button"
-				class="rounded-md px-2.5 py-1 text-xs text-ink-muted hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+				class="rounded-md px-2.5 py-1 text-xs text-ink-muted hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 				onclick={() => void ui.setFocusReading(!ui.focusReading)}
 				aria-pressed={ui.focusReading}
 			>
@@ -270,10 +283,13 @@
 						}}
 					/>
 					<button
-						class="px-2.5 py-1.5 text-xs rounded-md bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent hover:bg-accent/20 dark:hover:bg-tavern-accent/20"
+						type="button"
+						class="px-2.5 py-1.5 text-xs rounded-md bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent hover:bg-accent/20 dark:hover:bg-tavern-accent/20 transition-[transform,colors] active:scale-[0.97] active:brightness-95 disabled:opacity-60 disabled:cursor-not-allowed"
 						onclick={handleQuickAdd}
+						disabled={quickAdding}
+						title={quickAdding ? 'Adding to note...' : 'Add bullet to note'}
 					>
-						Add
+						{quickAdding ? 'Adding...' : 'Add'}
 					</button>
 				</div>
 			</div>
@@ -297,6 +313,7 @@
 			message={'Are you sure you want to delete "' + note.title + '"? It will be moved to trash.'}
 			onconfirm={handleDelete}
 			oncancel={() => (showDeleteConfirm = false)}
+			confirmLoading={deleting}
 		/>
 	{/if}
 {:else if hiddenByVisibility}

@@ -104,7 +104,7 @@
 	{#each textGroup as act (act.action)}
 		<button
 			type="button"
-			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ??
+			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
 				''}"
 			title={act.title}
 			aria-label={act.title}
@@ -121,7 +121,7 @@
 	{#each blockGroup as act (act.action)}
 		<button
 			type="button"
-			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ??
+			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
 				''}"
 			title={act.title}
 			aria-label={act.title}
@@ -138,7 +138,7 @@
 	{#each listGroup as act (act.action)}
 		<button
 			type="button"
-			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ??
+			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
 				''}"
 			title={act.title}
 			aria-label={act.title}
@@ -155,7 +155,7 @@
 	{#each insertGroup as act (act.action)}
 		<button
 			type="button"
-			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-colors {act.class ??
+			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
 				''}"
 			title={act.title}
 			aria-label={act.title}

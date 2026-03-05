@@ -19,6 +19,7 @@
 	}
 
 	let { note, onedit, ondelete, readonly = false, mapPlacements = [] }: Props = $props();
+	let pinning = $state(false);
 	const primaryMapPlacement = $derived(mapPlacements[0] ?? null);
 	const additionalMapPlacementCount = $derived(Math.max(0, mapPlacements.length - 1));
 	let filePath = $derived(
@@ -74,9 +75,15 @@
 	});
 
 	async function handlePin(): Promise<void> {
-		const pinned = await notesState.togglePin(note.id);
-		if (pinned === null) return;
-		toastState.success(pinned ? 'Note pinned' : 'Note unpinned');
+		if (pinning) return;
+		pinning = true;
+		try {
+			const pinned = await notesState.togglePin(note.id);
+			if (pinned === null) return;
+			toastState.success(pinned ? 'Note pinned' : 'Note unpinned');
+		} finally {
+			pinning = false;
+		}
 	}
 
 	function handleExport(): void {
@@ -146,12 +153,14 @@
 		<div class="flex items-center gap-1 shrink-0">
 			{#if !readonly}
 				<button
-					class="p-1.5 rounded-md transition-colors {note.pinned
+					type="button"
+					class="p-1.5 rounded-md transition-[transform,colors] active:scale-[0.97] active:brightness-95 disabled:opacity-60 disabled:cursor-not-allowed {note.pinned
 						? 'text-accent dark:text-tavern-accent bg-accent-subtle dark:bg-tavern-accent-subtle'
 						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
 					onclick={handlePin}
 					title={note.pinned ? 'Unpin note' : 'Pin note'}
 					aria-label={note.pinned ? 'Unpin note' : 'Pin note'}
+					disabled={pinning}
 				>
 					<svg
 						class="w-4 h-4"
@@ -167,7 +176,8 @@
 				</button>
 			{/if}
 			<button
-				class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+				type="button"
+				class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 				onclick={handleExport}
 				title="Export as .md"
 				aria-label="Export note"
@@ -207,7 +217,7 @@
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a
 					href={`/notes?tag=${encodeURIComponent(tag)}`}
-					class="px-2 py-0.5 text-xs rounded-full bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent hover:bg-accent/20 dark:hover:bg-tavern-accent/20 transition-colors"
+					class="px-2 py-0.5 text-xs rounded-full bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent hover:bg-accent/20 dark:hover:bg-tavern-accent/20 transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 				>
 					#{tag}
 				</a>
