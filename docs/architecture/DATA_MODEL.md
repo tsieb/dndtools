@@ -63,8 +63,10 @@ Combat tile state (`type: combat`) includes:
 - combat map state (`mapState`) with:
   - map token placements keyed to combatants (`x`,`y` grid cells)
   - difficult terrain overlays and AoE template overlays (`sphere`, `cone`, `line`, `cube`)
-  - synchronized map selection (`selectedCombatantId`) and optional fog snapshot payload
-  - append-only combat map history entries for movement/status/terrain/template/sync events
+  - synchronized map selection (`selectedCombatantId`) and fog-of-war payload:
+    `fogState.colorTheme`, `fogState.freeExplore`, and ordered polygon operations
+    (`mode: reveal|refog`, `shape`, normalized points)
+  - append-only combat map history entries for movement/status/terrain/template/sync/fog events
 
 Encounter builder tile state (`type: encounter`) includes:
 

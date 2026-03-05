@@ -101,4 +101,35 @@ describe('normalizeMapData', () => {
 		expect(normalized.layers?.length).toBeGreaterThan(0);
 		expect(normalized.pois?.[0]?.layerId).toBe(normalized.layers?.[0]?.id);
 	});
+
+	it('normalizes persisted session fog snapshots', () => {
+		const normalized = normalizeMapData({
+			filePath: '.vault/assets/maps/foggy.png',
+			lastSessionFog: {
+				savedAt: '2026-03-04T00:00:00.000Z',
+				sourceBoardId: 'board-1',
+				sourceCombatTileId: 'tile-1',
+				fogState: {
+					colorTheme: 'black',
+					freeExplore: false,
+					polygons: [
+						{
+							id: 'fog-1',
+							mode: 'reveal',
+							shape: 'rectangle',
+							points: [
+								{ x: 0.1, y: 0.1 },
+								{ x: 0.4, y: 0.1 },
+								{ x: 0.4, y: 0.4 },
+							],
+							createdAt: '2026-03-04T00:00:00.000Z',
+						},
+					],
+					updatedAt: '2026-03-04T00:00:00.000Z',
+				},
+			},
+		});
+		expect(normalized.lastSessionFog?.fogState.polygons).toHaveLength(1);
+		expect(normalized.lastSessionFog?.sourceBoardId).toBe('board-1');
+	});
 });

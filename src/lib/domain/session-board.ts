@@ -487,11 +487,11 @@ export function cloneTemplateForBoard(template: SessionBoardTemplate): SessionBo
 								history: tile.combat.mapState.history.map((entry) => ({ ...entry })),
 								fogState: tile.combat.mapState.fogState
 									? {
-											revealedPolygons: tile.combat.mapState.fogState.revealedPolygons.map(
-												(polygon) => ({
-													points: polygon.points.map((point) => ({ ...point })),
-												}),
-											),
+											...tile.combat.mapState.fogState,
+											polygons: tile.combat.mapState.fogState.polygons.map((polygon) => ({
+												...polygon,
+												points: polygon.points.map((point) => ({ ...point })),
+											})),
 										}
 									: undefined,
 							},

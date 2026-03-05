@@ -1,4 +1,5 @@
 import type { ContentVisibility } from './visibility.js';
+import type { MapFogState } from './map-fog.js';
 
 export type VaultObjectId = string & { readonly __brand: 'VaultObjectId' };
 
@@ -139,6 +140,13 @@ export interface MapAnnotationLayerData {
 	playerVisible: boolean;
 }
 
+export interface MapFogSnapshotData {
+	savedAt: string;
+	sourceBoardId?: string;
+	sourceCombatTileId?: string;
+	fogState: MapFogState;
+}
+
 export interface MapData {
 	filePath: string;
 	mimeType?: string;
@@ -151,6 +159,7 @@ export interface MapData {
 	initialViewport?: MapViewportData;
 	layers?: MapAnnotationLayerData[];
 	pois?: MapPoiData[];
+	lastSessionFog?: MapFogSnapshotData;
 }
 
 export interface NpcData {

@@ -140,6 +140,32 @@ export const imageDataSchema = z
 	})
 	.strict();
 
+const mapFogPointSchema = z
+	.object({
+		x: z.number().min(0).max(1),
+		y: z.number().min(0).max(1),
+	})
+	.strict();
+
+const mapFogPolygonSchema = z
+	.object({
+		id: z.string().min(1),
+		mode: z.enum(['reveal', 'refog']),
+		shape: z.enum(['circle', 'rectangle', 'polygon']),
+		points: z.array(mapFogPointSchema).min(3),
+		createdAt: z.string().min(1),
+	})
+	.strict();
+
+const mapFogStateSchema = z
+	.object({
+		colorTheme: z.enum(['black', 'smoky_gray']),
+		freeExplore: z.boolean(),
+		polygons: z.array(mapFogPolygonSchema),
+		updatedAt: z.string().min(1),
+	})
+	.strict();
+
 export const mapDataSchema = z
 	.object({
 		filePath: z.string().min(1),
@@ -201,6 +227,15 @@ export const mapDataSchema = z
 					})
 					.strict(),
 			)
+			.optional(),
+		lastSessionFog: z
+			.object({
+				savedAt: z.string().min(1),
+				sourceBoardId: z.string().min(1).optional(),
+				sourceCombatTileId: z.string().min(1).optional(),
+				fogState: mapFogStateSchema,
+			})
+			.strict()
 			.optional(),
 	})
 	.strict();

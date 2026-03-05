@@ -225,6 +225,17 @@ describe('combat-tracker domain', () => {
 						message: 'Elyra moved.',
 					},
 				],
+				fogState: {
+					revealedPolygons: [
+						{
+							points: [
+								{ x: 0.1, y: 0.1 },
+								{ x: 0.2, y: 0.1 },
+								{ x: 0.2, y: 0.2 },
+							],
+						},
+					],
+				},
 			},
 		});
 		expect(normalized.mapState.mapId).toBe('map-bridge');
@@ -233,6 +244,8 @@ describe('combat-tracker domain', () => {
 		expect(normalized.mapState.difficultTerrain).toHaveLength(1);
 		expect(normalized.mapState.templates).toHaveLength(1);
 		expect(normalized.mapState.history).toHaveLength(1);
+		expect(normalized.mapState.fogState?.polygons).toHaveLength(1);
+		expect(normalized.mapState.fogState?.polygons[0]?.mode).toBe('reveal');
 	});
 
 	it('resets legendary charges on turn start and auto-triggers lair actions at initiative 20', () => {

@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { MapGridData, MapPoiCategory, MapViewportData } from '$lib/types/object.js';
+	import type { MapFogPolygonOperation, MapFogState } from '$lib/types/map-fog.js';
+	import { revealBoundsFromFogState, splitFogPolygonsByMode } from '$lib/domain/map-fog.js';
 	import { SvelteMap } from 'svelte/reactivity';
 
 	export interface MapViewerGridCell {
@@ -66,6 +68,13 @@
 		pathCells?: readonly MapViewerGridCell[];
 		difficultTerrainCells?: readonly MapViewerGridCell[];
 		templateOverlays?: readonly MapViewerTemplateOverlay[];
+		fogEnabled?: boolean;
+		fogState?: MapFogState | null;
+		fogFeatherPx?: number;
+		fogPlayerEnforced?: boolean;
+		fogAnimationOperation?: MapFogPolygonOperation | null;
+		fogAnimationDurationMs?: number;
+		navigationLocked?: boolean;
 		initialViewport?: MapViewportData;
 		ongridchange?: (grid: MapGridData) => void;
 		onviewportchange?: (viewport: MapViewportData) => void;
@@ -102,6 +111,13 @@
 		pathCells = [],
 		difficultTerrainCells = [],
 		templateOverlays = [],
+		fogEnabled = false,
+		fogState = null,
+		fogFeatherPx = 5,
+		fogPlayerEnforced = false,
+		fogAnimationOperation = null,
+		fogAnimationDurationMs = 800,
+		navigationLocked = false,
 		initialViewport = undefined,
 		ongridchange,
 		onviewportchange,
@@ -170,6 +186,13 @@
 		startY: number;
 		moved: boolean;
 	} | null = null;
+	let fogAnimation: {
+		id: string;
+		polygon: MapFogPolygonOperation;
+		startedAt: number;
+		durationMs: number;
+	} | null = null;
+	let lastFogAnimationId = $state<string | null>(null);
 
 	const MIN_ZOOM = 0.05;
 	const MAX_ZOOM = 12;
@@ -185,6 +208,57 @@
 
 	function clampZoom(value: number): number {
 		return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
+	}
+
+	function prefersReducedMotion(): boolean {
+		if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+		return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	}
+
+	function resolveFogExplorationBounds(): {
+		minX: number;
+		minY: number;
+		maxX: number;
+		maxY: number;
+	} | null {
+		if (!fogEnabled || !fogState || fogState.freeExplore) return null;
+		return revealBoundsFromFogState(fogState);
+	}
+
+	function isFogExplorationBlocked(): boolean {
+		if (!fogEnabled) return false;
+		if (!fogPlayerEnforced) return false;
+		if (fogState?.freeExplore) return false;
+		return !resolveFogExplorationBounds();
+	}
+
+	function clampViewportToFog(next: MapViewportData): MapViewportData {
+		if (!fogEnabled || !fogPlayerEnforced || !image || !viewportEl) return next;
+		const bounds = resolveFogExplorationBounds();
+		if (!bounds) {
+			return { ...viewport };
+		}
+		const revealWidth = Math.max(1, (bounds.maxX - bounds.minX) * image.width);
+		const revealHeight = Math.max(1, (bounds.maxY - bounds.minY) * image.height);
+		const requiredZoom = Math.max(
+			MIN_ZOOM,
+			viewportEl.clientWidth / revealWidth,
+			viewportEl.clientHeight / revealHeight,
+		);
+		const zoom = clampZoom(Math.max(next.zoom, requiredZoom));
+		const minPanX = viewportEl.clientWidth - bounds.maxX * image.width * zoom;
+		const maxPanX = -bounds.minX * image.width * zoom;
+		const minPanY = viewportEl.clientHeight - bounds.maxY * image.height * zoom;
+		const maxPanY = -bounds.minY * image.height * zoom;
+		const clampAxis = (value: number, min: number, max: number): number => {
+			if (min <= max) return Math.max(min, Math.min(max, value));
+			return (min + max) / 2;
+		};
+		return {
+			zoom,
+			panX: clampAxis(next.panX, minPanX, maxPanX),
+			panY: clampAxis(next.panY, minPanY, maxPanY),
+		};
 	}
 
 	function mapFractionToLocalPoint(x: number, y: number): { x: number; y: number } | null {
@@ -327,10 +401,11 @@
 	}
 
 	function setViewport(next: MapViewportData): void {
+		const clampedFogViewport = clampViewportToFog(next);
 		viewport = {
-			zoom: clampZoom(next.zoom),
-			panX: next.panX,
-			panY: next.panY,
+			zoom: clampZoom(clampedFogViewport.zoom),
+			panX: clampedFogViewport.panX,
+			panY: clampedFogViewport.panY,
 		};
 		onviewportchange?.(viewport);
 		queueDraw();
@@ -506,6 +581,95 @@
 		ctx.restore();
 	}
 
+	function drawFogPolygonPath(
+		ctx: CanvasRenderingContext2D,
+		polygon: MapFogPolygonOperation,
+		zoom: number,
+	): void {
+		if (!image || polygon.points.length < 3) return;
+		for (const [index, point] of polygon.points.entries()) {
+			const x = viewport.panX + point.x * image.width * zoom;
+			const y = viewport.panY + point.y * image.height * zoom;
+			if (index === 0) ctx.moveTo(x, y);
+			else ctx.lineTo(x, y);
+		}
+		ctx.closePath();
+	}
+
+	function drawFogOverlay(ctx: CanvasRenderingContext2D): void {
+		if (!image || !fogEnabled) return;
+		const zoom = Math.max(MIN_ZOOM, viewport.zoom);
+		const mapLeft = viewport.panX;
+		const mapTop = viewport.panY;
+		const mapWidth = image.width * zoom;
+		const mapHeight = image.height * zoom;
+		const fogFill =
+			fogState?.colorTheme === 'black' ? 'rgba(8, 8, 8, 0.88)' : 'rgba(71, 85, 105, 0.76)';
+		const fogTexture =
+			fogState?.colorTheme === 'black' ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.065)';
+		const { revealed, refog } = splitFogPolygonsByMode(fogState);
+
+		ctx.save();
+		ctx.beginPath();
+		ctx.rect(mapLeft, mapTop, mapWidth, mapHeight);
+		ctx.clip();
+		ctx.fillStyle = fogFill;
+		ctx.fillRect(mapLeft, mapTop, mapWidth, mapHeight);
+		ctx.fillStyle = fogTexture;
+		for (let x = mapLeft - 32; x < mapLeft + mapWidth + 32; x += 16) {
+			ctx.fillRect(x, mapTop - 12, 6, mapHeight + 24);
+		}
+
+		if (revealed.length > 0) {
+			ctx.globalCompositeOperation = 'destination-out';
+			ctx.filter = `blur(${Math.max(0, fogFeatherPx)}px)`;
+			for (const polygon of revealed) {
+				ctx.beginPath();
+				drawFogPolygonPath(ctx, polygon, zoom);
+				ctx.fillStyle = 'rgba(0,0,0,1)';
+				ctx.fill();
+			}
+			ctx.filter = 'none';
+		}
+
+		if (refog.length > 0) {
+			ctx.globalCompositeOperation = 'source-over';
+			ctx.filter = `blur(${Math.max(0, fogFeatherPx)}px)`;
+			ctx.fillStyle = fogFill;
+			for (const polygon of refog) {
+				ctx.beginPath();
+				drawFogPolygonPath(ctx, polygon, zoom);
+				ctx.fill();
+			}
+			ctx.filter = 'none';
+		}
+		ctx.restore();
+
+		if (fogAnimation && fogAnimation.polygon.mode === 'reveal') {
+			const elapsed = performance.now() - fogAnimation.startedAt;
+			const duration = Math.max(120, fogAnimation.durationMs);
+			const progress = Math.min(1, elapsed / duration);
+			const remainingAlpha = (1 - progress) * (1 - progress);
+			ctx.save();
+			ctx.beginPath();
+			ctx.rect(mapLeft, mapTop, mapWidth, mapHeight);
+			ctx.clip();
+			ctx.beginPath();
+			drawFogPolygonPath(ctx, fogAnimation.polygon, zoom);
+			ctx.fillStyle =
+				fogState?.colorTheme === 'black'
+					? `rgba(8, 8, 8, ${remainingAlpha * 0.75})`
+					: `rgba(71, 85, 105, ${remainingAlpha * 0.62})`;
+			ctx.fill();
+			ctx.restore();
+			if (progress < 1) {
+				queueDraw();
+			} else {
+				fogAnimation = null;
+			}
+		}
+	}
+
 	function drawScene(): void {
 		if (!canvasEl || !viewportEl) return;
 		const rect = viewportEl.getBoundingClientRect();
@@ -557,6 +721,7 @@
 				overlay.stroke ?? 'rgba(220, 38, 38, 0.75)',
 			);
 		}
+		drawFogOverlay(ctx);
 	}
 
 	function updateGridFromPointer(pointerX: number, pointerY: number): void {
@@ -604,15 +769,18 @@
 			pointerHint = handle === 'origin' ? 'Adjusting grid origin' : 'Adjusting grid size';
 			return;
 		}
+		if (isFogExplorationBlocked()) return;
 
-		panDrag = {
-			pointerId: event.pointerId,
-			startX: localX,
-			startY: localY,
-			startPanX: viewport.panX,
-			startPanY: viewport.panY,
-		};
-		pointerHint = 'Panning map';
+		if (!navigationLocked) {
+			panDrag = {
+				pointerId: event.pointerId,
+				startX: localX,
+				startY: localY,
+				startPanX: viewport.panX,
+				startPanY: viewport.panY,
+			};
+			pointerHint = 'Panning map';
+		}
 	}
 
 	function onPointerMove(event: PointerEvent): void {
@@ -662,6 +830,8 @@
 		}
 
 		if (activePointers.size === 2) {
+			if (navigationLocked) return;
+			if (isFogExplorationBlocked()) return;
 			const pointers = [...activePointers.values()];
 			const first = pointers[0];
 			const second = pointers[1];
@@ -684,6 +854,8 @@
 		}
 
 		if (panDrag && panDrag.pointerId === event.pointerId) {
+			if (navigationLocked) return;
+			if (isFogExplorationBlocked()) return;
 			setViewport({
 				zoom: viewport.zoom,
 				panX: panDrag.startPanX + (localX - panDrag.startX),
@@ -815,6 +987,8 @@
 
 	function onWheel(event: WheelEvent): void {
 		if (!viewportEl) return;
+		if (navigationLocked) return;
+		if (isFogExplorationBlocked()) return;
 		event.preventDefault();
 		const rect = viewportEl.getBoundingClientRect();
 		const localX = event.clientX - rect.left;
@@ -824,6 +998,8 @@
 	}
 
 	function onKeyDown(event: KeyboardEvent): void {
+		if (navigationLocked) return;
+		if (isFogExplorationBlocked()) return;
 		const step = 40;
 		if (event.key === 'ArrowLeft') {
 			event.preventDefault();
@@ -875,6 +1051,39 @@
 			panX: initialViewport.panX,
 			panY: initialViewport.panY,
 		});
+	});
+
+	$effect(() => {
+		const operation = fogAnimationOperation;
+		if (!operation) return;
+		if (operation.id === lastFogAnimationId) return;
+		lastFogAnimationId = operation.id;
+		if (prefersReducedMotion()) {
+			fogAnimation = null;
+			return;
+		}
+		fogAnimation = {
+			id: operation.id,
+			polygon: operation,
+			startedAt: performance.now(),
+			durationMs: fogAnimationDurationMs,
+		};
+		queueDraw();
+	});
+
+	$effect(() => {
+		if (!fogPlayerEnforced) return;
+		const clamped = clampViewportToFog(viewport);
+		if (
+			clamped.zoom === viewport.zoom &&
+			clamped.panX === viewport.panX &&
+			clamped.panY === viewport.panY
+		) {
+			return;
+		}
+		viewport = clamped;
+		onviewportchange?.(viewport);
+		queueDraw();
 	});
 
 	$effect(() => {

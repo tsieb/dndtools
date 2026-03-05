@@ -1,5 +1,6 @@
 import type { NoteId } from './note.js';
 import type { VaultObjectId } from './object.js';
+import type { MapFogState } from './map-fog.js';
 
 /** Branded type for Session Board IDs */
 export type SessionBoardId = string & { readonly __brand: 'SessionBoardId' };
@@ -21,7 +22,7 @@ export type SessionBoardPreviewDepth = 'title' | 'summary' | 'full';
 export type SessionBoardTimerMode = 'elapsed' | 'countdown';
 export type CombatantOutcome = 'active' | 'fell' | 'fled';
 export type CombatMapTemplateShape = 'sphere' | 'cone' | 'line' | 'cube';
-export type CombatMapHistoryKind = 'movement' | 'status' | 'terrain' | 'template' | 'sync';
+export type CombatMapHistoryKind = 'movement' | 'status' | 'terrain' | 'template' | 'sync' | 'fog';
 export type SessionContextCategory = 'npc' | 'location' | 'quest' | 'party';
 export type EncounterDifficulty =
 	| 'trivial'
@@ -164,14 +165,7 @@ export interface SessionBoardCombatMapState {
 	templates: SessionBoardCombatMapTemplate[];
 	selectedCombatantId: string | null;
 	history: SessionBoardCombatMapHistoryEntry[];
-	fogState?: {
-		revealedPolygons: Array<{
-			points: Array<{
-				x: number;
-				y: number;
-			}>;
-		}>;
-	};
+	fogState?: MapFogState;
 }
 
 export interface SessionBoardCombatState {
