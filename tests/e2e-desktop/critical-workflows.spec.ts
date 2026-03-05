@@ -20,6 +20,49 @@ function buildNote(id: string, title: string, content: string): Record<string, u
 	};
 }
 
+function buildMapObject(id: string, name: string, areaNoteId: string): Record<string, unknown> {
+	const now = new Date().toISOString();
+	return {
+		id,
+		type: 'map',
+		name,
+		summary: 'Map seeded for desktop critical workflow coverage.',
+		tags: ['travel', 'region'],
+		visibility: 'dm_only',
+		relationships: [],
+		data: {
+			filePath: '.vault/assets/maps/coverage-map.png',
+			width: 1200,
+			height: 800,
+			areaNoteId,
+			scale: {
+				unitsPerGridSquare: 1,
+				unitLabel: 'mi',
+			},
+			grid: {
+				type: 'square',
+				visible: true,
+				originX: 0,
+				originY: 0,
+				cellSize: 100,
+			},
+			layers: [
+				{
+					id: 'layer-default',
+					name: 'Default',
+					visible: true,
+					playerVisible: true,
+					colorTheme: 'amber',
+				},
+			],
+			pois: [],
+			routes: [],
+		},
+		createdAt: now,
+		updatedAt: now,
+	};
+}
+
 async function launchWithSeed(
 	seed?: (adapter: FileSystemAdapter) => Promise<void>,
 ): Promise<Awaited<ReturnType<typeof launchDesktopApp>>> {
@@ -34,6 +77,11 @@ async function launchWithSeed(
 		}
 	}
 	return launchDesktopApp(vaultDir);
+}
+
+async function gotoDesktopPath(page: Page, route: string): Promise<void> {
+	const origin = new URL(page.url()).origin;
+	await page.goto(`${origin}${route}`);
 }
 
 async function startNewNote(page: Page): Promise<void> {
@@ -416,6 +464,156 @@ test.describe('Desktop critical workflows @critical', () => {
 				0,
 			);
 			await expect(app.page.getByRole('link', { name: 'Siege of Blackspire' })).toBeVisible();
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('graph route filters linked notes and opens selected nodes', async () => {
+		const app = await launchWithSeed(async (adapter) => {
+			await adapter.saveNote(
+				buildNote('graph-hub', 'Graph Hub', 'See [[Graph Target]]. [[Graph Target]].') as never,
+			);
+			await adapter.saveNote({
+				...buildNote('graph-target', 'Graph Target', 'Target content'),
+				tags: ['graph-tag'],
+			} as never);
+			await adapter.saveNote({
+				...buildNote('graph-isolated', 'Graph Isolated', 'Unlinked content'),
+				tags: ['graph-tag'],
+			} as never);
+			await adapter.resolveAndIndexLinks(
+				'graph-hub' as never,
+				'See [[Graph Target]]. [[Graph Target]].',
+			);
+		});
+		try {
+			await gotoDesktopPath(app.page, '/graph');
+			await expect(app.page).toHaveURL(/\/graph$/);
+			await expect(app.page.getByRole('heading', { name: 'Link Graph' })).toBeVisible();
+
+			await app.page.getByLabel('Filter graph by tag').selectOption({ label: 'graph-tag' });
+			await expect(app.page.locator('[aria-label="Graph Target"]')).toBeVisible();
+			await expect(app.page.locator('[aria-label="Graph Isolated"]')).toHaveCount(0);
+
+			await app.page.getByLabel('Hide isolated').uncheck();
+			await expect(app.page.locator('[aria-label="Graph Isolated"]')).toBeVisible();
+
+			const graphTargetNode = app.page.locator('[aria-label="Graph Target"]').first();
+			await graphTargetNode.focus();
+			await graphTargetNode.press('Enter');
+			await expect(app.page.getByRole('heading', { name: 'Graph Target' })).toBeVisible();
+			await app.page.getByRole('button', { name: 'Open note' }).click();
+			await expect(app.page).toHaveURL(/\/notes\/graph-target$/);
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('combat tracker route exposes board selection and no-tile recovery controls', async () => {
+		const app = await launchWithSeed(async (adapter) => {
+			const now = new Date().toISOString();
+			await adapter.saveSessionBoard({
+				id: 'board-combat-route' as never,
+				name: 'Combat Route Board',
+				description: 'Board seeded for combat route interaction coverage',
+				tiles: [],
+				layout: {
+					columns: 12,
+					rowHeight: 120,
+					minRows: 12,
+					gap: 12,
+				},
+				style: {
+					backgroundPattern: 'none',
+				},
+				createdAt: now,
+				updatedAt: now,
+			});
+		});
+		try {
+			await gotoDesktopPath(app.page, '/combat');
+			await expect(app.page).toHaveURL(/\/combat$/);
+			await expect(app.page.getByRole('heading', { name: 'Combat Tracker' })).toBeVisible();
+			await app.page
+				.locator('label:has-text("Board") select')
+				.first()
+				.selectOption({ label: 'Combat Route Board' });
+			await expect(app.page.getByText('Selected board has no combat tile.')).toBeVisible();
+			await expect(app.page.getByRole('button', { name: 'Add Combat Tile' }).last()).toBeEnabled();
+			await app.page.getByRole('link', { name: 'Open Session Board' }).click();
+			await expect(app.page).toHaveURL(/\/session-board$/);
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('player view shows only shared/public notes and supports exit flow', async () => {
+		const app = await launchWithSeed(async (adapter) => {
+			await adapter.saveNote({
+				...buildNote('player-shared', 'Shared Briefing', 'Shared visibility token'),
+				visibility: 'shared',
+			} as never);
+			await adapter.saveNote({
+				...buildNote('player-public', 'Public Recap', 'Public visibility token'),
+				visibility: 'public',
+			} as never);
+			await adapter.saveNote({
+				...buildNote('player-secret', 'DM Secret', 'Should stay hidden from players'),
+				visibility: 'dm_only',
+			} as never);
+		});
+		try {
+			await gotoDesktopPath(app.page, '/player');
+			await expect(app.page).toHaveURL(/\/player$/);
+			await expect(app.page.getByRole('heading', { name: 'Player View' })).toBeVisible();
+
+			await expect(app.page.getByText('Shared Briefing')).toBeVisible();
+			await expect(app.page.getByText('Public Recap')).toBeVisible();
+			await expect(app.page.getByText('DM Secret')).toHaveCount(0);
+
+			await app.page.getByPlaceholder('Search visible notes').fill('Public visibility token');
+			await expect(app.page.getByText('Public Recap')).toBeVisible();
+			await expect(app.page.getByText('Shared Briefing')).toHaveCount(0);
+
+			await app.page.getByRole('button', { name: /^Exit Player Mode$/ }).click();
+			await expect(app.page).toHaveURL(/\/notes$/);
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('maps route filters map library and loads map detail controls', async () => {
+		const app = await launchWithSeed(async (adapter) => {
+			await adapter.saveNote({
+				...buildNote('map-area-note', 'Frontier Region', 'Mapped area note'),
+				tags: ['location'],
+				frontmatter: {
+					dndtools: {
+						object: {
+							kind: 'location',
+							summary: 'Frontier location metadata',
+						},
+					},
+				},
+			} as never);
+			await adapter.saveObject(
+				buildMapObject('map-critical-route', 'Frontier Atlas', 'map-area-note') as never,
+			);
+		});
+		try {
+			await gotoDesktopPath(app.page, '/maps');
+			await expect(app.page).toHaveURL(/\/maps$/);
+			await expect(app.page.getByRole('heading', { name: 'Map Library' })).toBeVisible();
+
+			await app.page.getByLabel('Search maps').fill('Frontier');
+			await app.page.getByLabel('Filter maps by tag').selectOption({ label: '#travel' });
+			await app.page.getByRole('button', { name: /Frontier Atlas/ }).click();
+
+			await expect(app.page.getByText('Layer System')).toBeVisible();
+			await expect(app.page.getByRole('heading', { name: 'Travel Routes' })).toBeVisible();
+			await expect(app.page.getByRole('button', { name: 'Edit POIs' })).toBeVisible();
+			await expect(app.page.getByRole('button', { name: 'Edit Travel Routes' })).toBeVisible();
 		} finally {
 			await closeDesktopApp(app);
 		}

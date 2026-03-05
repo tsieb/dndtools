@@ -25,6 +25,30 @@ test.describe('Navigation', () => {
 		await expect(page.getByPlaceholder('Search notes...')).toBeVisible();
 	});
 
+	test('navigates to graph page', async ({ page }) => {
+		await page.goto('/graph');
+		await page.waitForURL('/graph');
+		await expect(page.getByRole('heading', { name: 'Link Graph' })).toBeVisible();
+	});
+
+	test('navigates to maps page', async ({ page }) => {
+		await page.goto('/maps');
+		await page.waitForURL('/maps');
+		await expect(page.getByRole('heading', { name: 'Map Library' })).toBeVisible();
+	});
+
+	test('navigates to combat page', async ({ page }) => {
+		await page.goto('/combat');
+		await page.waitForURL('/combat');
+		await expect(page.getByRole('heading', { name: 'Combat Tracker' })).toBeVisible();
+	});
+
+	test('navigates to player page', async ({ page }) => {
+		await page.goto('/player');
+		await page.waitForURL('/player');
+		await expect(page.getByRole('heading', { name: 'Player View' })).toBeVisible();
+	});
+
 	test('navigates to settings page', async ({ page }) => {
 		await page.goto('/settings');
 		await page.waitForURL('/settings');
