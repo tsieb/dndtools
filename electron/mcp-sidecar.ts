@@ -40,6 +40,11 @@ interface ValidatedRuntimeCandidate extends RuntimeCandidate {
 	version: string;
 }
 
+interface McpSidecarOptions {
+	entryOverride?: string;
+	runtimeResolver?: () => ValidatedRuntimeCandidate | null;
+}
+
 function parseNodeVersion(raw: string): { version: string; major: number } | null {
 	const trimmed = raw.trim();
 	const match = /^v(\d+)\./.exec(trimmed);
@@ -128,6 +133,8 @@ export class McpSidecar {
 	private child: ChildProcess | null = null;
 	private lifecycleEvents: McpLifecycleEvent[] = [];
 	private logPath: string | null = null;
+	private readonly entryOverride: string | undefined;
+	private readonly runtimeResolver: () => ValidatedRuntimeCandidate | null;
 	private status: McpSidecarStatus = {
 		state: 'stopped',
 		vaultDir: null,
@@ -142,6 +149,11 @@ export class McpSidecar {
 		crashCount: 0,
 		error: null,
 	};
+
+	constructor(options: McpSidecarOptions = {}) {
+		this.entryOverride = options.entryOverride;
+		this.runtimeResolver = options.runtimeResolver ?? resolveRuntimeCandidate;
+	}
 
 	getStatus(): McpSidecarStatus {
 		return { ...this.status };
@@ -227,7 +239,7 @@ export class McpSidecar {
 			};
 		}
 
-		const entry = resolveDefaultEntry();
+		const entry = this.entryOverride ?? resolveDefaultEntry();
 		if (!entry) {
 			this.status = {
 				state: 'error',
@@ -252,7 +264,7 @@ export class McpSidecar {
 			return;
 		}
 
-		const runtime = resolveRuntimeCandidate();
+		const runtime = this.runtimeResolver();
 		if (!runtime) {
 			this.status = {
 				state: 'error',

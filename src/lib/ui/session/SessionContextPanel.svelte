@@ -127,8 +127,12 @@
 	}
 
 	$effect(() => {
-		void mapsState.loadAll();
-		void sessionState.load();
+		if (!mapsState.loaded && !mapsState.loading) {
+			void mapsState.loadAll();
+		}
+		if (!sessionState.loaded && !sessionState.loading) {
+			void sessionState.load();
+		}
 	});
 </script>
 

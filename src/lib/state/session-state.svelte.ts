@@ -9,11 +9,13 @@ import {
 class SessionStateStore {
 	state = $state<SessionState>({ ...DEFAULT_SESSION_STATE });
 	loading = $state(false);
+	loaded = $state(false);
 	error = $state<string | null>(null);
 
 	partyLocation = $derived(this.state.partyLocation);
 
 	async load(): Promise<void> {
+		if (this.loading) return;
 		this.loading = true;
 		this.error = null;
 		try {
@@ -27,6 +29,7 @@ class SessionStateStore {
 			this.error = String(error);
 			this.state = { ...DEFAULT_SESSION_STATE };
 		} finally {
+			this.loaded = true;
 			this.loading = false;
 		}
 	}

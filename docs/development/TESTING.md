@@ -93,6 +93,10 @@ Note: coverage runs require `@vitest/coverage-v8` to be installed.
   - `tests/e2e/note-crud.spec.ts`
   - `tests/e2e/search.spec.ts`
 
+Desktop E2E prerequisite:
+
+- run `pnpm desktop:build` before `pnpm test:e2e:desktop:*` commands in a clean workspace (or after removing `electron/dist` or `mcp/dist`).
+
 #### Desktop Route Coverage Matrix
 
 Runner: Playwright (`playwright.desktop.config.ts`). Merge-blocking policy: desktop critical E2E enforced in CI (`.github/workflows/ci.yml` job: `desktop-e2e-critical`) and PR workflow (`.github/workflows/e2e.yml`).
@@ -150,6 +154,7 @@ Runner: Playwright (`playwright.desktop.config.ts`). Merge-blocking policy: desk
 - `pnpm test -- --coverage`
 - `pnpm test:watch`
 - `pnpm test:e2e`
+- `pnpm desktop:build` (required before desktop E2E in clean workspaces)
 - `pnpm test:e2e:desktop:critical`
 - `pnpm test:e2e:desktop:perf` (set `PERF_BENCHMARK=1`)
 - `pnpm test:e2e:desktop:memory` (set `MEMORY_PROFILE=1`)

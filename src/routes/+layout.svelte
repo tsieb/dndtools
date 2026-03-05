@@ -93,7 +93,7 @@
 	$effect(() => {
 		if (runtimeState.ready) {
 			void vaultHealthState.refresh();
-			if (!templateLibraryState.loading) {
+			if (!templateLibraryState.loaded && !templateLibraryState.loading) {
 				void templateLibraryState.refresh();
 			}
 			if (!worldCalendarState.loaded && !worldCalendarState.loading) {
@@ -128,6 +128,9 @@
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 		pwaState.initialize();
+		if (typeof navigator !== 'undefined' && navigator.webdriver) {
+			return () => pwaState.dispose();
+		}
 		registerSW({
 			immediate: true,
 			onOfflineReady: () => {

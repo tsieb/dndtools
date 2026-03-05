@@ -63,7 +63,7 @@ export default defineConfig({
 				runtimeCaching: [
 					{
 						urlPattern: ({ sameOrigin, request }) =>
-							sameOrigin && ['document', 'script', 'style', 'worker'].includes(request.destination),
+							sameOrigin && ['script', 'style', 'worker'].includes(request.destination),
 						handler: 'StaleWhileRevalidate',
 						options: {
 							cacheName: 'dndtools-app-shell',

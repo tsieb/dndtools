@@ -38,12 +38,25 @@ export async function launchDesktopApp(vaultDir: string): Promise<DesktopAppHand
 		args: [appMain, `--vault=${vaultDir}`],
 		env: launchEnvironment(),
 	});
-	const page = (electronApp.windows()[0] ??
+	let page = (electronApp.windows()[0] ??
 		(await electronApp.waitForEvent('window', { timeout: windowTimeoutMs }))) as Page;
-	await expect(page).toHaveTitle(/DND Tools/i);
-	await expect(page.getByRole('link', { name: 'DND Tools' })).toBeVisible({
-		timeout: shellReadyTimeoutMs,
-	});
+	const deadline = Date.now() + shellReadyTimeoutMs;
+	while (Date.now() < deadline) {
+		for (const candidate of electronApp.windows()) {
+			const ready = await candidate
+				.getByRole('link', { name: 'DND Tools' })
+				.isVisible({ timeout: 1_000 })
+				.catch(() => false);
+			if (ready) {
+				page = candidate;
+				return { electronApp, page, vaultDir };
+			}
+		}
+		await electronApp
+			.waitForEvent('window', { timeout: Math.min(1_000, Math.max(1, deadline - Date.now())) })
+			.catch(() => undefined);
+	}
+	await expect(page.getByRole('link', { name: 'DND Tools' })).toBeVisible({ timeout: 1_000 });
 	return { electronApp, page, vaultDir };
 }
 

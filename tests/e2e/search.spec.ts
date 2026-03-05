@@ -1,24 +1,25 @@
 import { test, expect } from '@playwright/test';
+import { waitForAppReady } from './helpers.js';
 
 test.describe('Search', () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/');
-		await page.waitForSelector('text=DND Tools', { timeout: 10000 });
+		await waitForAppReady(page);
 	});
 
 	test('search page has input field', async ({ page }) => {
 		await page.goto('/search');
-		await expect(page.getByPlaceholder(/search notes/i)).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Search & Discovery' })).toBeVisible();
+		await expect(page.getByPlaceholder('Search notes...')).toBeVisible();
 	});
 
 	test('search hydrates query from URL parameter', async ({ page }) => {
 		await page.goto('/search?q=Welcome');
-		await expect(page.getByPlaceholder(/search notes/i)).toHaveValue('Welcome');
+		await expect(page.getByPlaceholder('Search notes...')).toHaveValue('Welcome');
 	});
 
 	test('search shows results for matching query', async ({ page }) => {
 		await page.goto('/search');
-		const input = page.getByPlaceholder(/search notes/i);
+		const input = page.getByPlaceholder('Search notes...');
 		await input.fill('Welcome');
 
 		// Wait for debounced search results
@@ -35,16 +36,16 @@ test.describe('Search', () => {
 
 	test('search shows empty state when no query', async ({ page }) => {
 		await page.goto('/search');
-		await expect(page.getByText(/type to search/i)).toBeVisible();
+		await expect(page.getByText(/Type to search across all notes/i)).toBeVisible();
 	});
 
 	test('saved searches appear in sidebar collections', async ({ page }) => {
 		await page.goto('/search');
-		const input = page.getByPlaceholder(/search notes/i);
+		const input = page.getByPlaceholder('Search notes...');
 		await input.fill('Welcome');
 		await page.waitForTimeout(300);
 
-		await page.getByPlaceholder(/name this search/i).fill('Welcome Collection');
+		await page.getByPlaceholder('Name this search').fill('Welcome Collection');
 		await page.getByRole('button', { name: /^save$/i }).click();
 
 		await expect(page.getByRole('button', { name: 'Welcome Collection' }).first()).toBeVisible();

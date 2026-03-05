@@ -1,69 +1,49 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+import { waitForAppReady } from './helpers.js';
+
+async function startNewNote(page: Page): Promise<void> {
+	await page.goto(`/notes?create=${encodeURIComponent('E2E Generated Note')}`);
+	await expect(page).toHaveURL(/\/notes\/[^/]+\/edit$/, { timeout: 15_000 });
+}
 
 test.describe('Note CRUD', () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/');
-		// Wait for app to initialize
-		await page.waitForSelector('text=DND Tools', { timeout: 10000 });
+		await waitForAppReady(page);
 	});
 
-	test('displays welcome note on first launch', async ({ page }) => {
-		// The welcome note should be created automatically
-		await expect(page.getByText('Welcome to DND Tools')).toBeVisible();
-	});
-
-	test('creates a new note', async ({ page }) => {
-		// Click "New Note" button in top bar
-		await page.getByRole('button', { name: /new note/i }).click();
-
-		// Should navigate to notes page or create a note
-		await page.waitForURL(/\/notes\//);
-
-		// Should be on the edit page for the new note
-		await expect(page.getByPlaceholder(/note title/i)).toBeVisible();
-	});
-
-	test('navigates to notes list', async ({ page }) => {
-		// Click on "Notes" in sidebar or navigate
+	test('notes list route renders', async ({ page }) => {
 		await page.goto('/notes');
-		await expect(page.getByText(/notes/i).first()).toBeVisible();
+		await expect(
+			page.getByRole('heading', { name: /All Notes|Player Notes|Notes tagged/i }),
+		).toBeVisible();
+		await expect(page.getByRole('button', { name: 'New Note' }).first()).toBeVisible();
 	});
 
-	test('views a note', async ({ page }) => {
-		// Navigate to notes and click on a note
-		await page.goto('/notes');
-		await page.waitForSelector('[data-testid="note-card"], .note-card, a[href*="/notes/"]', {
-			timeout: 5000,
-		});
+	test('creates a new note and opens editor', async ({ page }) => {
+		await startNewNote(page);
+		await expect(page.getByPlaceholder('Note title...')).toBeVisible();
+	});
 
-		// Click on the first note link
-		const noteLink = page.locator('a[href*="/notes/"]').first();
-		if (await noteLink.isVisible()) {
-			await noteLink.click();
-			await page.waitForURL(/\/notes\/.+/);
-			// Should show note content
-			await expect(page.locator('.markdown-content, [data-testid="note-content"]')).toBeVisible();
-		}
+	test('views a note from notes list', async ({ page }) => {
+		await page.goto('/notes');
+		const firstCard = page
+			.locator('button')
+			.filter({ hasText: /Welcome to DND Tools/i })
+			.first();
+		await expect(firstCard).toBeVisible();
+		await firstCard.click();
+		await expect(page).toHaveURL(/\/notes\/[^/]+$/);
+		await expect(page.locator('.markdown-content[role="document"]')).toBeVisible();
 	});
 
 	test('deletes a note with confirmation', async ({ page }) => {
-		// Navigate to a note
-		await page.goto('/notes');
-		await page.waitForTimeout(1000);
-
-		const noteLink = page.locator('a[href*="/notes/"]').first();
-		if (await noteLink.isVisible()) {
-			await noteLink.click();
-			await page.waitForURL(/\/notes\/.+/);
-
-			// Click delete button
-			const deleteBtn = page.getByRole('button', { name: /delete/i });
-			if (await deleteBtn.isVisible()) {
-				await deleteBtn.click();
-
-				// Confirmation dialog should appear
-				await expect(page.getByText(/are you sure/i)).toBeVisible();
-			}
-		}
+		await startNewNote(page);
+		await page.getByPlaceholder('Note title...').fill('E2E Delete Target');
+		await page.getByRole('button', { name: 'Done' }).click();
+		await expect(page).toHaveURL(/\/notes\/[^/]+$/);
+		await page.getByTitle('Delete note').click();
+		await expect(page.getByText(/Are you sure you want to delete/i)).toBeVisible();
+		await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+		await expect(page).toHaveURL(/\/notes$/);
 	});
 });

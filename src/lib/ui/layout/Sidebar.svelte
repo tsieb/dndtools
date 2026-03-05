@@ -206,7 +206,9 @@
 	});
 
 	$effect(() => {
-		void mapsState.loadAll();
+		if (!mapsState.loaded && !mapsState.loading) {
+			void mapsState.loadAll();
+		}
 	});
 
 	$effect(() => {

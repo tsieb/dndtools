@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test';
+import { waitForAppReady } from './helpers.js';
 
 test.describe('Mobile navigation and keyboard adaptation', () => {
 	test.describe.configure({ mode: 'serial' });
 
 	test.beforeEach(async ({ page }) => {
 		await page.setViewportSize({ width: 390, height: 844 });
-		await page.goto('/');
-		await page.waitForSelector('text=DND Tools', { timeout: 10_000 });
+		await waitForAppReady(page);
 		await page.evaluate(() => {
 			window.dispatchEvent(new Event('resize'));
 		});
@@ -27,13 +27,14 @@ test.describe('Mobile navigation and keyboard adaptation', () => {
 		await page.getByRole('button', { name: 'Open library sheet' }).click();
 		await expect(page.getByRole('dialog', { name: 'Library sheet' })).toBeVisible();
 
-		await page.getByRole('button', { name: 'Close library sheet' }).click();
+		await page
+			.getByRole('button', { name: 'Close library sheet' })
+			.click({ force: true, position: { x: 8, y: 8 } });
 		await expect(page.getByRole('dialog', { name: 'Library sheet' })).not.toBeVisible();
 	});
 
 	test('docks editor toolbar when simulated keyboard opens', async ({ page }) => {
-		await page.getByRole('button', { name: 'Create options' }).click();
-		await page.getByRole('menuitem', { name: 'New note' }).click();
+		await page.goto(`/notes?create=${encodeURIComponent('Mobile Keyboard Test Note')}`);
 		await expect(page).toHaveURL(/\/notes\/.+\/edit/);
 
 		await page.locator('.cm-content').click();

@@ -4,6 +4,7 @@ import { getStorage } from '$lib/platform/storage/index.js';
 class MapsState {
 	maps = $state<MapObject[]>([]);
 	loading = $state(false);
+	loaded = $state(false);
 	error = $state<string | null>(null);
 
 	mapById = $derived.by(() => {
@@ -15,6 +16,7 @@ class MapsState {
 	});
 
 	async loadAll(): Promise<void> {
+		if (this.loading) return;
 		this.loading = true;
 		this.error = null;
 		try {
@@ -25,6 +27,7 @@ class MapsState {
 		} catch (error) {
 			this.error = String(error);
 		} finally {
+			this.loaded = true;
 			this.loading = false;
 		}
 	}

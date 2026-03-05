@@ -32,6 +32,7 @@ class PwaState {
 
 	private lastTrackedNoteId: string | null = null;
 	private teardown: (() => void) | null = null;
+	private hasRuntimeInitialization = false;
 
 	browserRuntime = $derived.by(
 		() => typeof window !== 'undefined' && !window.dndtoolsDesktop && !Capacitor.isNativePlatform(),
@@ -61,8 +62,9 @@ class PwaState {
 	}
 
 	initialize(): void {
-		if (this.initialized || typeof window === 'undefined') return;
+		if (this.hasRuntimeInitialization || typeof window === 'undefined') return;
 		if (window.dndtoolsDesktop || Capacitor.isNativePlatform()) {
+			this.hasRuntimeInitialization = true;
 			this.initialized = true;
 			return;
 		}
@@ -107,12 +109,15 @@ class PwaState {
 			window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
 			window.removeEventListener('appinstalled', onInstalled);
 		};
+		this.hasRuntimeInitialization = true;
 		this.initialized = true;
 	}
 
 	dispose(): void {
+		if (!this.hasRuntimeInitialization) return;
 		this.teardown?.();
 		this.teardown = null;
+		this.hasRuntimeInitialization = false;
 		this.initialized = false;
 	}
 
