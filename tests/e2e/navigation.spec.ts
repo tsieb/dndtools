@@ -141,9 +141,9 @@ test.describe('Navigation', () => {
 		).toBeVisible();
 	});
 
-	test('keyboard shortcut Ctrl+P opens quick switcher', async ({ page }) => {
+	test('keyboard shortcut Ctrl+P opens command palette', async ({ page }) => {
 		await page.keyboard.press('Control+p');
-		await expect(page.getByRole('dialog', { name: /quick switcher/i })).toBeVisible({
+		await expect(page.getByRole('dialog', { name: /command palette/i })).toBeVisible({
 			timeout: 5_000,
 		});
 	});

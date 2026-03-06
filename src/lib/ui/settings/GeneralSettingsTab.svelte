@@ -277,7 +277,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each [['Ctrl+N', 'Create new note'], ['Ctrl+P', 'Quick switcher'], ['Ctrl+D', 'Open dice tray'], ['Ctrl+Shift+Space', 'Quick reference HUD'], ['Ctrl+B', 'Toggle local navigation / Bold (in editor)'], ['Ctrl+Shift+F', 'Global search'], ['Ctrl+S', 'Save note (in editor)'], ['Ctrl+I', 'Italic (in editor)'], ['Ctrl+E', 'Inline code (in editor)'], ['Ctrl+K', 'Insert link (in editor)'], ['Ctrl+Z', 'Undo (in editor)'], ['Ctrl+Shift+Z', 'Redo (in editor)']] as [shortcut, action] (shortcut)}
+					{#each [['Ctrl+N', 'Create new note'], ['Ctrl+P', 'Command palette'], ['Ctrl+D', 'Open dice tray'], ['Ctrl+Shift+Space', 'Quick reference HUD'], ['Ctrl+B', 'Toggle local navigation / Bold (in editor)'], ['Ctrl+Shift+F', 'Global search'], ['Ctrl+S', 'Save note (in editor)'], ['Ctrl+I', 'Italic (in editor)'], ['Ctrl+E', 'Inline code (in editor)'], ['Ctrl+K', 'Insert link (in editor)'], ['Ctrl+Z', 'Undo (in editor)'], ['Ctrl+Shift+Z', 'Redo (in editor)']] as [shortcut, action] (shortcut)}
 						<tr class="border-b border-border dark:border-tavern-border last:border-0">
 							<td class="px-4 py-2.5">
 								<kbd

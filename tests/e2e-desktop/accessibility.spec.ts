@@ -170,14 +170,14 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 			await expect(app.page).toHaveURL(/\/notes\/a11y-entity$/);
 
 			await app.page.keyboard.press('Control+p');
-			const quickSwitcher = app.page.getByRole('dialog', { name: 'Quick switcher' });
-			await expect(quickSwitcher).toBeVisible();
-			const quickSwitcherInput = quickSwitcher.getByRole('combobox', {
-				name: 'Search commands and notes',
+			const commandPalette = app.page.getByRole('dialog', { name: 'Command palette' });
+			await expect(commandPalette).toBeVisible();
+			const commandPaletteInput = commandPalette.getByRole('combobox', {
+				name: 'Command palette query',
 			});
-			await quickSwitcherInput.fill('Go to Session Board');
-			await quickSwitcherInput.press('Enter');
-			await expect(app.page).toHaveURL(/\/session-board$/);
+			await commandPaletteInput.fill('/session');
+			await commandPaletteInput.press('Enter');
+			await expect(app.page).toHaveURL(/\/session\/boards$/);
 			await app.page.getByRole('button', { name: 'Edit' }).first().focus();
 			await app.page.keyboard.press('Enter');
 			await expect(app.page.getByText('Board Templates')).toBeVisible();
