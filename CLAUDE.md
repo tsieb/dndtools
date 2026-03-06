@@ -278,6 +278,25 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
     - `tests/e2e/navigation.spec.ts`
     - `tests/e2e-desktop/accessibility.spec.ts`
     - `tests/e2e-desktop/interactive-controls.spec.ts`
+- **Epic 14.1** — Layout Token Architecture and Breakpoint Contract:
+  - Added canonical layout tier state in `src/lib/state/layout.svelte.ts`:
+    - Contract breakpoints: compact `<640`, medium `640–1099`, expanded `>=1100`
+    - `ResizeObserver` viewport tracking with 100ms debounce
+    - SSR-safe default tier (`expanded`)
+  - Rewired shell/layout consumers to tier-based state (removed legacy `ui.checkMobile` / width breakpoint logic):
+    - `src/routes/+layout.svelte`
+    - `src/lib/ui/layout/AppShell.svelte`
+    - `src/lib/ui/layout/Sidebar.svelte`
+    - `src/lib/ui/layout/PrimaryNav.svelte`
+    - local-nav panels + compact editor/notification behavior
+  - Added structural layout tokens in `src/app.css` and removed `--width-sidebar`:
+    - rail/panel/detail widths
+    - top bar and bottom nav heights
+    - tier breakpoint tokens
+  - Added architecture contract doc: `docs/architecture/LAYOUT_TIERS.md`
+  - Added tests:
+    - `src/lib/state/layout.svelte.test.ts`
+    - `tests/e2e/navigation.spec.ts` (tier breakpoint shell behavior)
 
 ## What Not To Do
 
