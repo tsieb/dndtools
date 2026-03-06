@@ -242,23 +242,19 @@
 <div class="h-full min-h-0 flex flex-col gap-2 p-2.5">
 	{#if showHeader}
 		<div class="flex items-center justify-between gap-2">
-			<h3 class="text-sm font-semibold text-ink dark:text-tavern-text">Generator</h3>
-			<span
-				class="rounded border border-border dark:border-tavern-border px-2 py-1 text-[11px] text-ink-faint dark:text-tavern-faint"
-			>
+			<h3 class="text-sm font-semibold text-ink">Generator</h3>
+			<span class="rounded border border-border px-2 py-1 text-[11px] text-ink-faint">
 				Ctrl+G
 			</span>
 		</div>
 	{/if}
 
-	<div
-		class="flex items-center gap-1 rounded border border-border/70 dark:border-tavern-border/70 p-1"
-	>
+	<div class="flex items-center gap-1 rounded border border-border/70 p-1">
 		<button
 			type="button"
 			class="flex-1 rounded px-2 py-1 text-xs transition-colors {tab === 'dice'
-				? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
-				: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+				? 'bg-accent-subtle text-accent'
+				: 'text-ink-muted hover:bg-surface-alt'}"
 			onclick={() => (tab = 'dice')}
 		>
 			Dice Macros
@@ -266,8 +262,8 @@
 		<button
 			type="button"
 			class="flex-1 rounded px-2 py-1 text-xs transition-colors {tab === 'tables'
-				? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
-				: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+				? 'bg-accent-subtle text-accent'
+				: 'text-ink-muted hover:bg-surface-alt'}"
 			onclick={() => (tab = 'tables')}
 		>
 			Tables
@@ -275,8 +271,8 @@
 		<button
 			type="button"
 			class="flex-1 rounded px-2 py-1 text-xs transition-colors {tab === 'npc'
-				? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
-				: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+				? 'bg-accent-subtle text-accent'
+				: 'text-ink-muted hover:bg-surface-alt'}"
 			onclick={() => (tab = 'npc')}
 		>
 			NPC Quick
@@ -284,23 +280,21 @@
 	</div>
 
 	{#if tab === 'dice'}
-		<div
-			class="min-h-0 flex-1 overflow-hidden rounded border border-border/70 dark:border-tavern-border/70"
-		>
+		<div class="min-h-0 flex-1 overflow-hidden rounded border border-border/70">
 			<DiceTrayPanel {compact} showHeader={false} source="tray" />
 		</div>
 	{:else if tab === 'tables'}
-		<div class="min-h-0 flex-1 rounded border border-border/70 dark:border-tavern-border/70 p-2">
+		<div class="min-h-0 flex-1 rounded border border-border/70 p-2">
 			<div class="mb-2 flex items-center gap-2">
 				<input
 					type="text"
 					bind:value={tableQuery}
-					class="h-8 min-w-0 flex-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm text-ink dark:text-tavern-text"
+					class="h-8 min-w-0 flex-1 rounded border border-border bg-surface px-2 text-sm text-ink"
 					placeholder="Search random tables..."
 				/>
 				<button
 					type="button"
-					class="rounded border border-border dark:border-tavern-border px-2.5 py-1.5 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+					class="rounded border border-border px-2.5 py-1.5 text-xs text-ink-muted hover:bg-surface-alt"
 					onclick={() => void createCustomTableNote()}
 				>
 					New Table
@@ -308,24 +302,22 @@
 			</div>
 			<div class="max-h-[58vh] overflow-y-auto space-y-1 pr-1">
 				{#if filteredTables.length === 0}
-					<p class="text-xs text-ink-faint dark:text-tavern-faint">No random tables found.</p>
+					<p class="text-xs text-ink-faint">No random tables found.</p>
 				{:else}
 					{#each filteredTables as table (table.source + ':' + table.sourceId)}
-						<div
-							class="rounded border border-border/60 dark:border-tavern-border/60 px-2 py-1.5 bg-surface-alt/45 dark:bg-tavern-surface-alt/45"
-						>
+						<div class="rounded border border-border/60 px-2 py-1.5 bg-surface-alt/45">
 							<div class="flex items-center gap-2">
 								<div class="min-w-0 flex-1">
-									<p class="truncate text-xs font-medium text-ink dark:text-tavern-text">
+									<p class="truncate text-xs font-medium text-ink">
 										{table.name}
 									</p>
-									<p class="text-[11px] text-ink-faint dark:text-tavern-faint">
+									<p class="text-[11px] text-ink-faint">
 										{table.source === 'system' ? 'System' : 'Vault'} | {table.rows.length} rows
 									</p>
 								</div>
 								<button
 									type="button"
-									class="rounded border border-border dark:border-tavern-border px-2 py-1 text-[11px] text-ink-muted dark:text-tavern-muted hover:bg-surface dark:hover:bg-tavern-surface"
+									class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface"
 									onclick={() => rollTableByName(table.name)}
 								>
 									Roll
@@ -333,7 +325,7 @@
 								{#if table.source === 'system'}
 									<button
 										type="button"
-										class="rounded border border-border dark:border-tavern-border px-2 py-1 text-[11px] text-ink-muted dark:text-tavern-muted hover:bg-surface dark:hover:bg-tavern-surface"
+										class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface"
 										onclick={() => void copySystemTable(table.name)}
 									>
 										Copy
@@ -343,9 +335,7 @@
 							{#if tableHistory(table.name).length > 0}
 								<ul class="mt-1 space-y-1">
 									{#each tableHistory(table.name) as rollResult, index (`${table.name}:${index}`)}
-										<li
-											class="rounded border border-border/60 dark:border-tavern-border/60 px-2 py-1 text-[11px] text-ink dark:text-tavern-text"
-										>
+										<li class="rounded border border-border/60 px-2 py-1 text-[11px] text-ink">
 											{rollResult}
 										</li>
 									{/each}
@@ -360,18 +350,18 @@
 			{/if}
 		</div>
 	{:else}
-		<div class="min-h-0 flex-1 rounded border border-border/70 dark:border-tavern-border/70 p-2">
+		<div class="min-h-0 flex-1 rounded border border-border/70 p-2">
 			<div class="mb-2 flex items-center gap-2">
 				<button
 					type="button"
-					class="rounded bg-accent px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover"
+					class="rounded bg-accent px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover"
 					onclick={generateNpcDraft}
 				>
 					Generate NPC
 				</button>
 				<button
 					type="button"
-					class="rounded border border-border dark:border-tavern-border px-2.5 py-1.5 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt disabled:opacity-60"
+					class="rounded border border-border px-2.5 py-1.5 text-xs text-ink-muted hover:bg-surface-alt disabled:opacity-60"
 					onclick={() => void createDraftCharacterObject()}
 					disabled={!npcDraft || creatingNpcDraft || objectsLoading}
 				>
@@ -381,13 +371,11 @@
 
 			{#if npcDraft}
 				<div class="space-y-1.5 text-xs">
-					<div class="rounded border border-border/60 dark:border-tavern-border/60 p-2">
-						<p class="text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint">
-							Name
-						</p>
-						<p class="text-sm font-semibold text-ink dark:text-tavern-text">{npcDraft.name}</p>
+					<div class="rounded border border-border/60 p-2">
+						<p class="text-[11px] uppercase tracking-wider text-ink-faint">Name</p>
+						<p class="text-sm font-semibold text-ink">{npcDraft.name}</p>
 					</div>
-					<div class="rounded border border-border/60 dark:border-tavern-border/60 p-2">
+					<div class="rounded border border-border/60 p-2">
 						<p><strong>Trait:</strong> {npcDraft.trait}</p>
 						<p><strong>Ideal:</strong> {npcDraft.ideal}</p>
 						<p><strong>Bond:</strong> {npcDraft.bond}</p>
@@ -401,9 +389,7 @@
 					</div>
 				</div>
 			{:else}
-				<p class="text-xs text-ink-faint dark:text-tavern-faint">
-					Generate an NPC to produce a contextual draft.
-				</p>
+				<p class="text-xs text-ink-faint">Generate an NPC to produce a contextual draft.</p>
 			{/if}
 
 			{#if npcError}

@@ -562,42 +562,37 @@
 	>
 		{#if mode === 'edit'}
 			<aside
-				class="h-full min-h-0 rounded-xl border border-border-strong/60 dark:border-tavern-border-strong/60 bg-surface/98 dark:bg-tavern-surface/96 shadow-sm overflow-hidden flex flex-col"
+				class="h-full min-h-0 rounded-xl border border-border-strong/60 bg-surface/98 shadow-sm overflow-hidden flex flex-col"
 			>
-				<div class="px-4 py-3 border-b border-border dark:border-tavern-border">
-					<h1
-						class="text-xl font-bold text-ink dark:text-tavern-text"
-						style="font-family: var(--font-serif)"
-					>
+				<div class="px-4 py-3 border-b border-border">
+					<h1 class="text-xl font-bold text-ink" style="font-family: var(--font-serif)">
 						Session Board
 					</h1>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted mt-1">
+					<p class="text-xs text-ink-muted mt-1">
 						Keep your most useful session notes in one quickly readable workspace.
 					</p>
 				</div>
 
 				<div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
-					<section
-						class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
-					>
-						<h2 class="text-sm font-semibold text-ink dark:text-tavern-text mb-2">Create Board</h2>
+					<section class="rounded-lg border border-border bg-surface p-3">
+						<h2 class="text-sm font-semibold text-ink mb-2">Create Board</h2>
 						<input
 							type="text"
 							bind:value={newBoardName}
-							class="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+							class="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
 							placeholder="Board name"
 						/>
 						<textarea
 							bind:value={newBoardDescription}
 							rows="2"
-							class="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+							class="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
 							placeholder="Short purpose"
 						></textarea>
-						<label class="block text-xs text-ink-muted dark:text-tavern-muted mb-2">
+						<label class="block text-xs text-ink-muted mb-2">
 							Template
 							<select
 								bind:value={createTemplateId}
-								class="mt-1 w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+								class="mt-1 w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
 							>
 								<option value="">Blank board</option>
 								{#each boardTemplates as template (template.id)}
@@ -606,25 +601,23 @@
 							</select>
 						</label>
 						<button
-							class="w-full px-3 py-1.5 rounded-md bg-accent hover:bg-accent-hover dark:bg-tavern-accent dark:hover:bg-tavern-accent-hover dark:text-tavern-bg text-white text-sm transition-colors"
+							class="w-full px-3 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-white text-sm transition-colors"
 							onclick={createBoard}>Create Session Board</button
 						>
 					</section>
 
-					<section
-						class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
-					>
-						<h2 class="text-sm font-semibold text-ink dark:text-tavern-text mb-2">Boards</h2>
+					<section class="rounded-lg border border-border bg-surface p-3">
+						<h2 class="text-sm font-semibold text-ink mb-2">Boards</h2>
 						<div class="space-y-1 max-h-56 overflow-y-auto pr-1">
 							{#if sessionBoardsState.boards.length === 0}
-								<p class="text-xs text-ink-faint dark:text-tavern-faint">No boards yet.</p>
+								<p class="text-xs text-ink-faint">No boards yet.</p>
 							{:else}
 								{#each sessionBoardsState.boards as board (board.id)}
 									<button
 										class="w-full text-left px-2.5 py-1.5 rounded-md border text-sm transition-colors {activeBoard?.id ===
 										board.id
-											? 'border-accent/45 dark:border-tavern-accent/45 bg-accent-subtle dark:bg-tavern-accent-subtle text-ink dark:text-tavern-text'
-											: 'border-border/45 dark:border-tavern-border/45 text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text hover:bg-surface-alt/70 dark:hover:bg-tavern-surface-alt/70'}"
+											? 'border-accent/45 bg-accent-subtle text-ink'
+											: 'border-border/45 text-ink-muted hover:text-ink hover:bg-surface-alt/70'}"
 										onclick={() => sessionBoardsState.setActiveBoard(board.id)}
 									>
 										<div class="truncate">{board.name}</div>
@@ -635,19 +628,17 @@
 						</div>
 					</section>
 
-					<section
-						class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3 space-y-2"
-					>
-						<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Board Templates</h2>
-						<p class="text-[11px] text-ink-muted dark:text-tavern-muted">
+					<section class="rounded-lg border border-border bg-surface p-3 space-y-2">
+						<h2 class="text-sm font-semibold text-ink">Board Templates</h2>
+						<p class="text-[11px] text-ink-muted">
 							Use built-in layouts for common scenes or save your own reusable board setup.
 						</p>
 						{#if activeBoard}
-							<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+							<label class="block text-xs text-ink-muted">
 								Apply template
 								<select
 									bind:value={applyTemplateId}
-									class="mt-1 w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+									class="mt-1 w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
 								>
 									<option value="">Select template</option>
 									{#each boardTemplates as template (template.id)}
@@ -656,28 +647,28 @@
 								</select>
 							</label>
 							<button
-								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors disabled:opacity-60"
+								class="w-full px-2.5 py-1.5 rounded-md border border-border text-xs hover:bg-surface-alt transition-colors disabled:opacity-60"
 								onclick={applyTemplate}
 								disabled={!applyTemplateId}
 							>
 								Apply Template To Current Board
 							</button>
 
-							<div class="pt-2 border-t border-border/70 dark:border-tavern-border/70 space-y-2">
+							<div class="pt-2 border-t border-border/70 space-y-2">
 								<input
 									type="text"
 									bind:value={saveTemplateName}
-									class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+									class="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
 									placeholder="Template name"
 								/>
 								<textarea
 									bind:value={saveTemplateDescription}
 									rows="2"
-									class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+									class="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
 									placeholder="Template description"
 								></textarea>
 								<button
-									class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+									class="w-full px-2.5 py-1.5 rounded-md border border-border text-xs hover:bg-surface-alt transition-colors"
 									onclick={saveCurrentLayoutAsTemplate}
 								>
 									Save Current Layout As Template
@@ -687,14 +678,12 @@
 
 						<div class="max-h-36 overflow-y-auto pr-1 space-y-1">
 							{#if boardTemplates.length === 0}
-								<p class="text-xs text-ink-faint dark:text-tavern-faint">No templates available.</p>
+								<p class="text-xs text-ink-faint">No templates available.</p>
 							{:else}
 								{#each boardTemplates as template (template.id)}
-									<div
-										class="rounded border border-border/60 dark:border-tavern-border/60 px-2 py-1.5"
-									>
+									<div class="rounded border border-border/60 px-2 py-1.5">
 										<div class="flex items-center justify-between gap-2">
-											<div class="truncate text-xs font-medium text-ink dark:text-tavern-text">
+											<div class="truncate text-xs font-medium text-ink">
 												{template.name}
 											</div>
 											{#if !template.builtIn}
@@ -706,7 +695,7 @@
 												</button>
 											{/if}
 										</div>
-										<div class="text-[11px] text-ink-faint dark:text-tavern-faint truncate">
+										<div class="text-[11px] text-ink-faint truncate">
 											{template.description || `${template.tiles.length} tiles`}
 										</div>
 									</div>
@@ -716,50 +705,46 @@
 					</section>
 
 					{#if activeBoard}
-						<section
-							class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3 space-y-2"
-						>
-							<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">
-								Add Tiles and Notes
-							</h2>
+						<section class="rounded-lg border border-border bg-surface p-3 space-y-2">
+							<h2 class="text-sm font-semibold text-ink">Add Tiles and Notes</h2>
 							<button
-								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								class="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-xs text-ink hover:bg-surface transition-colors"
 								onclick={addCalendarTile}
 							>
 								Add Calendar Tile
 							</button>
 							<button
-								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								class="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-xs text-ink hover:bg-surface transition-colors"
 								onclick={addTimerTile}
 							>
 								Add Timer Tile
 							</button>
 							<button
-								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								class="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-xs text-ink hover:bg-surface transition-colors"
 								onclick={addCombatTile}
 							>
 								Add Combat Tracker Tile
 							</button>
 							<button
-								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								class="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-xs text-ink hover:bg-surface transition-colors"
 								onclick={addEncounterTile}
 							>
 								Add Encounter Builder Tile
 							</button>
 							<button
-								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								class="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-xs text-ink hover:bg-surface transition-colors"
 								onclick={addDiceTile}
 							>
 								Add Dice Tray Tile
 							</button>
 							<button
-								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								class="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-xs text-ink hover:bg-surface transition-colors"
 								onclick={addGeneratorTile}
 							>
 								Add Generator Tile
 							</button>
 							<button
-								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								class="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-xs text-ink hover:bg-surface transition-colors"
 								onclick={addHandoutTile}
 							>
 								Add Handout Library Tile
@@ -767,16 +752,16 @@
 							<input
 								type="text"
 								bind:value={noteQuery}
-								class="w-full px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+								class="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
 								placeholder="Search notes (titles first, tags second)"
 							/>
 							<div class="space-y-1 max-h-44 overflow-y-auto pr-1">
 								{#if availableNotes.length === 0}
-									<p class="text-xs text-ink-faint dark:text-tavern-faint">No matching notes.</p>
+									<p class="text-xs text-ink-faint">No matching notes.</p>
 								{:else}
 									{#each availableNotes as note (note.id)}
 										<button
-											class="w-full text-left px-2 py-1.5 rounded-md text-sm border border-transparent hover:border-border dark:hover:border-tavern-border hover:bg-surface-alt/70 dark:hover:bg-tavern-surface-alt/70 transition-colors"
+											class="w-full text-left px-2 py-1.5 rounded-md text-sm border border-transparent hover:border-border hover:bg-surface-alt/70 transition-colors"
 											onclick={() => addNote(note.id)}
 										>
 											<div class="truncate">{note.title}</div>
@@ -791,34 +776,26 @@
 							</div>
 						</section>
 
-						<section
-							class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
-						>
+						<section class="rounded-lg border border-border bg-surface p-3">
 							<div class="flex items-center justify-between mb-2">
-								<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">
-									Related Suggestions
-								</h2>
+								<h2 class="text-sm font-semibold text-ink">Related Suggestions</h2>
 								<button
-									class="text-xs px-2 py-1 rounded border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+									class="text-xs px-2 py-1 rounded border border-border hover:bg-surface-alt transition-colors"
 									onclick={() => void sessionBoardsState.suggestForBoard(activeBoard.id, 10)}
 									>Refresh</button
 								>
 							</div>
 							<div class="space-y-1 max-h-44 overflow-y-auto pr-1">
 								{#if sessionBoardsState.suggestionsLoading}
-									<p class="text-xs text-ink-faint dark:text-tavern-faint">
-										Finding related notes...
-									</p>
+									<p class="text-xs text-ink-faint">Finding related notes...</p>
 								{:else if sessionBoardsState.suggestions.length === 0}
-									<p class="text-xs text-ink-faint dark:text-tavern-faint">
-										Add notes to get suggestions.
-									</p>
+									<p class="text-xs text-ink-faint">Add notes to get suggestions.</p>
 								{:else}
 									{#each sessionBoardsState.suggestions as suggestion (suggestion.noteId)}
 										{@const note = activeNotesById.get(suggestion.noteId)}
 										{#if note}
 											<button
-												class="w-full text-left px-2 py-1.5 rounded-md text-sm border border-transparent hover:border-border dark:hover:border-tavern-border hover:bg-surface-alt/70 dark:hover:bg-tavern-surface-alt/70 transition-colors"
+												class="w-full text-left px-2 py-1.5 rounded-md text-sm border border-transparent hover:border-border hover:bg-surface-alt/70 transition-colors"
 												onclick={() => addNote(note.id)}
 											>
 												<div class="flex items-center justify-between gap-2">
@@ -832,11 +809,9 @@
 							</div>
 						</section>
 
-						<section
-							class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
-						>
-							<h2 class="text-sm font-semibold text-ink dark:text-tavern-text mb-2">Interaction</h2>
-							<ul class="space-y-1 text-xs text-ink-muted dark:text-tavern-muted">
+						<section class="rounded-lg border border-border bg-surface p-3">
+							<h2 class="text-sm font-semibold text-ink mb-2">Interaction</h2>
+							<ul class="space-y-1 text-xs text-ink-muted">
 								<li>Left drag empty canvas to pan quickly.</li>
 								<li>Right drag anywhere to pan without selecting.</li>
 								<li>
@@ -850,20 +825,18 @@
 		{/if}
 
 		<section
-			class="h-full min-h-0 rounded-xl border border-border-strong/60 dark:border-tavern-border-strong/60 bg-surface/95 dark:bg-tavern-surface/95 shadow-sm overflow-hidden flex flex-col"
+			class="h-full min-h-0 rounded-xl border border-border-strong/60 bg-surface/95 shadow-sm overflow-hidden flex flex-col"
 		>
 			{#if !activeBoard}
 				<div class="h-full flex items-center justify-center text-center px-6">
 					<div class="max-w-md">
-						<p class="text-base font-semibold text-ink dark:text-tavern-text">
-							Create or select a board to begin.
-						</p>
-						<p class="text-sm text-ink-muted dark:text-tavern-muted mt-1">
+						<p class="text-base font-semibold text-ink">Create or select a board to begin.</p>
+						<p class="text-sm text-ink-muted mt-1">
 							Session boards are designed for quick reference during sessions.
 						</p>
 						{#if mode === 'view'}
 							<button
-								class="mt-3 px-3 py-1.5 rounded-md text-sm border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+								class="mt-3 px-3 py-1.5 rounded-md text-sm border border-border hover:bg-surface-alt transition-colors"
 								onclick={() => (mode = 'edit')}>Enter Edit Mode</button
 							>
 						{/if}
@@ -871,7 +844,7 @@
 				</div>
 			{:else}
 				<div
-					class="shrink-0 border-b border-border dark:border-tavern-border bg-surface/97 dark:bg-tavern-surface/96 backdrop-blur px-3 py-3 {mode ===
+					class="shrink-0 border-b border-border bg-surface/97 backdrop-blur px-3 py-3 {mode ===
 					'edit'
 						? 'space-y-3'
 						: ''}"
@@ -881,16 +854,16 @@
 							<input
 								type="text"
 								bind:value={boardNameDraft}
-								class="min-w-[220px] flex-1 px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+								class="min-w-[220px] flex-1 px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
 							/>
 							<input
 								type="text"
 								bind:value={boardDescriptionDraft}
-								class="min-w-[220px] flex-[2] px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+								class="min-w-[220px] flex-[2] px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
 								placeholder="Board description"
 							/>
 							<button
-								class="px-3 py-1.5 rounded-md text-sm border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+								class="px-3 py-1.5 rounded-md text-sm border border-border hover:bg-surface-alt transition-colors"
 								onclick={saveBoard}>Save</button
 							>
 						</div>
@@ -900,7 +873,7 @@
 						{#if mode === 'view'}
 							<select
 								aria-label="Select active session board"
-								class="min-w-[220px] max-w-[420px] truncate px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-sm"
+								class="min-w-[220px] max-w-[420px] truncate px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
 								value={activeBoard.id}
 								onchange={handleBoardSelectChange}
 							>
@@ -912,59 +885,53 @@
 						<div class="flex items-center gap-1">
 							<button
 								class="px-3 py-1.5 text-xs rounded border transition-colors {mode === 'view'
-									? 'bg-accent dark:bg-tavern-accent text-white dark:text-tavern-bg border-transparent'
-									: 'border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+									? 'bg-accent text-white border-transparent'
+									: 'border-border hover:bg-surface-alt'}"
 								onclick={() => (mode = 'view')}>View</button
 							>
 							<button
 								class="px-3 py-1.5 text-xs rounded border transition-colors {mode === 'edit'
-									? 'bg-accent dark:bg-tavern-accent text-white dark:text-tavern-bg border-transparent'
-									: 'border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+									? 'bg-accent text-white border-transparent'
+									: 'border-border hover:bg-surface-alt'}"
 								onclick={() => (mode = 'edit')}>Edit</button
 							>
 						</div>
 						{#if mode === 'edit'}
-							<span class="text-xs text-ink-muted dark:text-tavern-muted hidden lg:inline"
+							<span class="text-xs text-ink-muted hidden lg:inline"
 								>Edit mode: drag, resize, style, and position tiles.</span
 							>
 						{/if}
 
 						<div
-							class="ml-auto flex items-center gap-1 rounded-md border border-border dark:border-tavern-border bg-surface-alt/80 dark:bg-tavern-surface-alt/80 px-1.5 py-1"
+							class="ml-auto flex items-center gap-1 rounded-md border border-border bg-surface-alt/80 px-1.5 py-1"
 						>
 							<button
-								class="h-7 w-7 rounded border border-border dark:border-tavern-border text-sm hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								class="h-7 w-7 rounded border border-border text-sm hover:bg-surface transition-colors"
 								onclick={() => setZoom(zoom - 0.12)}
 								aria-label="Zoom out">-</button
 							>
-							<div
-								class="min-w-14 text-center text-xs font-semibold text-ink dark:text-tavern-text"
-							>
+							<div class="min-w-14 text-center text-xs font-semibold text-ink">
 								{zoomPercent}%
 							</div>
 							<button
-								class="h-7 w-7 rounded border border-border dark:border-tavern-border text-sm hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								class="h-7 w-7 rounded border border-border text-sm hover:bg-surface transition-colors"
 								onclick={() => setZoom(zoom + 0.12)}
 								aria-label="Zoom in">+</button
 							>
 							<button
-								class="h-7 px-2 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								class="h-7 px-2 rounded border border-border text-xs hover:bg-surface transition-colors"
 								onclick={() => setZoom(DEFAULT_ZOOM)}>100%</button
 							>
 							<button
-								class="h-7 px-2 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+								class="h-7 px-2 rounded border border-border text-xs hover:bg-surface transition-colors"
 								onclick={fitCanvasToViewport}>Fit</button
 							>
 						</div>
 					</div>
 
 					{#if mode === 'edit'}
-						<details
-							class="rounded-md border border-border dark:border-tavern-border bg-surface-alt/60 dark:bg-tavern-surface-alt/60 p-2.5"
-						>
-							<summary
-								class="cursor-pointer list-none select-none text-xs font-semibold text-ink dark:text-tavern-text"
-							>
+						<details class="rounded-md border border-border bg-surface-alt/60 p-2.5">
+							<summary class="cursor-pointer list-none select-none text-xs font-semibold text-ink">
 								Advanced board and tile options
 							</summary>
 							<div class="mt-2 space-y-2">
@@ -977,7 +944,7 @@
 											value={layout.columns}
 											onchange={(e) =>
 												onNumberChange(e, layout.columns, (v) => void updateLayout({ columns: v }))}
-											class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
+											class="mt-1 w-full px-2 py-1 rounded border border-border bg-surface"
 										/></label
 									>
 									<label class="text-xs"
@@ -992,7 +959,7 @@
 													layout.rowHeight,
 													(v) => void updateLayout({ rowHeight: v }),
 												)}
-											class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
+											class="mt-1 w-full px-2 py-1 rounded border border-border bg-surface"
 										/></label
 									>
 									<label class="text-xs"
@@ -1003,7 +970,7 @@
 											value={layout.minRows}
 											onchange={(e) =>
 												onNumberChange(e, layout.minRows, (v) => void updateLayout({ minRows: v }))}
-											class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
+											class="mt-1 w-full px-2 py-1 rounded border border-border bg-surface"
 										/></label
 									>
 									<label class="text-xs"
@@ -1014,7 +981,7 @@
 											value={layout.gap}
 											onchange={(e) =>
 												onNumberChange(e, layout.gap, (v) => void updateLayout({ gap: v }))}
-											class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
+											class="mt-1 w-full px-2 py-1 rounded border border-border bg-surface"
 										/></label
 									>
 								</div>
@@ -1028,7 +995,7 @@
 												void updateStyle({
 													backgroundColor: (e.currentTarget as HTMLInputElement).value,
 												})}
-											class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border"
+											class="mt-1 h-9 w-full rounded border border-border"
 										/></label
 									>
 									<label class="text-xs"
@@ -1041,7 +1008,7 @@
 														| 'grid'
 														| 'dots',
 												})}
-											class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border px-2 bg-surface dark:bg-tavern-surface"
+											class="mt-1 h-9 w-full rounded border border-border px-2 bg-surface"
 											><option value="none">None</option><option value="grid">Grid</option><option
 												value="dots">Dots</option
 											></select
@@ -1055,7 +1022,7 @@
 												void updateStyle({
 													sectionTintColor: (e.currentTarget as HTMLInputElement).value,
 												})}
-											class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border"
+											class="mt-1 h-9 w-full rounded border border-border"
 										/></label
 									>
 									<label class="text-xs"
@@ -1074,9 +1041,7 @@
 									>
 								</div>
 
-								<div
-									class="rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-2"
-								>
+								<div class="rounded border border-border bg-surface p-2">
 									{#if selectedTile}
 										<div class="grid gap-2 md:grid-cols-4 xl:grid-cols-8">
 											<label class="text-xs"
@@ -1085,7 +1050,7 @@
 													value={selectedTile.x}
 													onchange={(e) =>
 														onNumberChange(e, selectedTile.x, (v) => void updateSelected({ x: v }))}
-													class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
+													class="mt-1 w-full px-2 py-1 rounded border border-border"
 												/></label
 											>
 											<label class="text-xs"
@@ -1094,7 +1059,7 @@
 													value={selectedTile.y}
 													onchange={(e) =>
 														onNumberChange(e, selectedTile.y, (v) => void updateSelected({ y: v }))}
-													class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
+													class="mt-1 w-full px-2 py-1 rounded border border-border"
 												/></label
 											>
 											<label class="text-xs"
@@ -1105,7 +1070,7 @@
 													value={selectedTile.w}
 													onchange={(e) =>
 														onNumberChange(e, selectedTile.w, (v) => void updateSelected({ w: v }))}
-													class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
+													class="mt-1 w-full px-2 py-1 rounded border border-border"
 												/></label
 											>
 											<label class="text-xs"
@@ -1116,7 +1081,7 @@
 													value={selectedTile.h}
 													onchange={(e) =>
 														onNumberChange(e, selectedTile.h, (v) => void updateSelected({ h: v }))}
-													class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
+													class="mt-1 w-full px-2 py-1 rounded border border-border"
 												/></label
 											>
 											{#if selectedNoteTile}
@@ -1130,7 +1095,7 @@
 																	| 'summary'
 																	| 'full',
 															})}
-														class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border px-2 bg-surface dark:bg-tavern-surface"
+														class="mt-1 h-9 w-full rounded border border-border px-2 bg-surface"
 														><option value="title">Title only</option><option value="summary"
 															>Summary</option
 														><option value="full">Full</option></select
@@ -1148,7 +1113,7 @@
 																selectedNoteTile.previewLineCount ?? 8,
 																(v) => void updateSelected({ previewLineCount: v }),
 															)}
-														class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
+														class="mt-1 w-full px-2 py-1 rounded border border-border"
 													/></label
 												>
 											{/if}
@@ -1163,7 +1128,7 @@
 																backgroundColor: (e.currentTarget as HTMLInputElement).value,
 															},
 														})}
-													class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border"
+													class="mt-1 h-9 w-full rounded border border-border"
 												/></label
 											>
 											<label class="text-xs"
@@ -1177,7 +1142,7 @@
 																borderColor: (e.currentTarget as HTMLInputElement).value,
 															},
 														})}
-													class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border"
+													class="mt-1 h-9 w-full rounded border border-border"
 												/></label
 											>
 											<label class="text-xs"
@@ -1195,7 +1160,7 @@
 																	style: { ...(selectedTile.style ?? {}), borderWidth: v },
 																}),
 														)}
-													class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
+													class="mt-1 w-full px-2 py-1 rounded border border-border"
 												/></label
 											>
 											<label class="text-xs"
@@ -1214,7 +1179,7 @@
 																	style: { ...(selectedTile.style ?? {}), scale: v },
 																}),
 														)}
-													class="mt-1 w-full px-2 py-1 rounded border border-border dark:border-tavern-border"
+													class="mt-1 w-full px-2 py-1 rounded border border-border"
 												/></label
 											>
 											<button
@@ -1223,9 +1188,7 @@
 											>
 										</div>
 									{:else}
-										<p class="text-xs text-ink-faint dark:text-tavern-faint">
-											Select a tile to edit it.
-										</p>
+										<p class="text-xs text-ink-faint">Select a tile to edit it.</p>
 									{/if}
 								</div>
 							</div>
@@ -1234,9 +1197,7 @@
 				</div>
 
 				{#if renderedTiles.length === 0}
-					<div
-						class="h-full flex items-center justify-center text-sm text-ink-muted dark:text-tavern-muted"
-					>
+					<div class="h-full flex items-center justify-center text-sm text-ink-muted">
 						{mode === 'edit'
 							? 'Add notes from the left panel to populate this board.'
 							: 'This board has no tiles yet.'}
@@ -1244,11 +1205,11 @@
 				{:else}
 					<div class="flex-1 min-h-0 p-3">
 						<div
-							class="h-full min-h-0 rounded-lg border border-border/70 dark:border-tavern-border/70 bg-surface-alt/70 dark:bg-tavern-surface-alt/65 overflow-hidden flex flex-col"
+							class="h-full min-h-0 rounded-lg border border-border/70 bg-surface-alt/70 overflow-hidden flex flex-col"
 						>
 							{#if mode === 'edit'}
 								<div
-									class="px-3 py-2 border-b border-border/80 dark:border-tavern-border/80 text-xs text-ink-muted dark:text-tavern-muted flex items-center justify-between gap-2"
+									class="px-3 py-2 border-b border-border/80 text-xs text-ink-muted flex items-center justify-between gap-2"
 								>
 									<span>Left drag empty space or right drag anywhere to pan.</span>
 									<span class="hidden md:inline">Ctrl/Cmd + scroll to zoom.</span>
@@ -1380,7 +1341,7 @@
 													/>
 												{:else if entry.kind === 'note_slot'}
 													<div
-														class="relative h-full rounded-lg border border-dashed border-border bg-surface/90 p-3 dark:border-tavern-border dark:bg-tavern-surface/90"
+														class="relative h-full rounded-lg border border-dashed border-border bg-surface/90 p-3"
 														data-board-tile="true"
 													>
 														{#if mode === 'edit'}
@@ -1399,17 +1360,15 @@
 														<div
 															class="relative z-20 h-full flex flex-col justify-center gap-2 text-center"
 														>
-															<div class="text-xs font-semibold text-ink dark:text-tavern-text">
-																Empty note slot
-															</div>
-															<div class="text-[11px] text-ink-muted dark:text-tavern-muted">
+															<div class="text-xs font-semibold text-ink">Empty note slot</div>
+															<div class="text-[11px] text-ink-muted">
 																Use Add Notes to assign a note to this tile.
 															</div>
 														</div>
 													</div>
 												{:else}
 													<div
-														class="relative h-full rounded-lg border border-border bg-surface p-2 dark:border-tavern-border dark:bg-tavern-surface"
+														class="relative h-full rounded-lg border border-border bg-surface p-2"
 														data-board-tile="true"
 													>
 														{#if mode === 'edit'}

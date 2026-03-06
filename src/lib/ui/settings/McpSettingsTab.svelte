@@ -356,14 +356,12 @@
 
 <div role="tabpanel" id="settings-panel-mcp" aria-labelledby="settings-tab-mcp" class="space-y-8">
 	<section>
-		<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">MCP Sidecar</h2>
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-3"
-		>
+		<h2 class="text-lg font-semibold text-ink mb-4">MCP Sidecar</h2>
+		<div class="rounded-lg border border-border bg-surface p-4 space-y-3">
 			<div class="flex items-center justify-between">
 				<div>
-					<p class="text-sm font-medium text-ink dark:text-tavern-text">State</p>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted mt-0.5">
+					<p class="text-sm font-medium text-ink">State</p>
+					<p class="text-xs text-ink-muted mt-0.5">
 						Runs the local MCP server against your selected vault for AI tooling.
 					</p>
 				</div>
@@ -380,7 +378,7 @@
 				</span>
 			</div>
 
-			<div class="text-xs text-ink-faint dark:text-tavern-faint space-y-1">
+			<div class="text-xs text-ink-faint space-y-1">
 				<p>{mcpStateMessage}</p>
 				<p>PID: {mcpStatus?.pid ?? 'n/a'}</p>
 				<p>Entry: {mcpStatus?.entry ?? 'not available'}</p>
@@ -394,7 +392,7 @@
 				{/if}
 			</div>
 
-			<div class="pt-2 border-t border-border dark:border-tavern-border flex items-center gap-2">
+			<div class="pt-2 border-t border-border flex items-center gap-2">
 				<Button variant="secondary" size="sm" onclick={onrestartmcp} loading={restartingMcp}>
 					{restartingMcp ? 'Restarting...' : 'Restart MCP Sidecar'}
 				</Button>
@@ -404,17 +402,15 @@
 	</section>
 
 	<section id="mcp-changes">
-		<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">MCP Pending Changes</h2>
+		<h2 class="text-lg font-semibold text-ink mb-4">MCP Pending Changes</h2>
 
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-3"
-		>
-			<p class="text-xs text-ink-muted dark:text-tavern-muted">
+		<div class="rounded-lg border border-border bg-surface p-4 space-y-3">
+			<p class="text-xs text-ink-muted">
 				Policy presets are tracked per agent. Read-only actions are always safe, and structural
 				edits can require manual review.
 			</p>
 			<div class="grid md:grid-cols-2 gap-3">
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Default preset
 					<select
 						value={mcpPolicySettings.defaultPresetId}
@@ -424,7 +420,7 @@
 								defaultPresetId: (event.currentTarget as HTMLSelectElement)
 									.value as DesktopMcpPolicySettings['defaultPresetId'],
 							})}
-						class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 					>
 						<option value="strict_review">Strict review</option>
 						<option value="balanced">Balanced</option>
@@ -445,7 +441,7 @@
 			{#if mcpKnownAgents.length > 0}
 				<div class="grid md:grid-cols-2 gap-3">
 					{#each mcpKnownAgents as agentId (agentId)}
-						<label class="text-xs text-ink-muted dark:text-tavern-muted">
+						<label class="text-xs text-ink-muted">
 							Agent: {agentId}
 							<select
 								value={mcpPolicySettings.perAgent[agentId] ?? mcpPolicySettings.defaultPresetId}
@@ -455,7 +451,7 @@
 										(event.currentTarget as HTMLSelectElement)
 											.value as DesktopMcpPolicySettings['defaultPresetId'],
 									)}
-								class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 							>
 								<option value="strict_review">Strict review</option>
 								<option value="balanced">Balanced</option>
@@ -467,15 +463,13 @@
 			{/if}
 		</div>
 
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 mt-4 space-y-3"
-		>
+		<div class="rounded-lg border border-border bg-surface p-4 mt-4 space-y-3">
 			<div class="grid md:grid-cols-2 lg:grid-cols-5 gap-2">
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Type
 					<select
 						bind:value={mcpChangeFilterType}
-						class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 					>
 						<option value="all">All</option>
 						<option value="create">Create</option>
@@ -485,33 +479,33 @@
 						<option value="permanent_delete">Permanent delete</option>
 					</select>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Risk
 					<select
 						bind:value={mcpChangeFilterRisk}
-						class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 					>
 						<option value="all">All</option>
 						<option value="structural">Structural</option>
 						<option value="safe">Safe content</option>
 					</select>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Conflicts
 					<select
 						bind:value={mcpChangeFilterConflict}
-						class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 					>
 						<option value="all">All</option>
 						<option value="conflicted">Conflicted</option>
 						<option value="clean">Clean</option>
 					</select>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Agent
 					<select
 						bind:value={mcpChangeFilterAgent}
-						class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 					>
 						<option value="all">All agents</option>
 						{#each mcpKnownAgents as agentId (agentId)}
@@ -519,13 +513,13 @@
 						{/each}
 					</select>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Diff search
 					<input
 						type="text"
 						bind:value={mcpDiffSearch}
 						placeholder="Find text in summary or diff"
-						class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 					/>
 				</label>
 			</div>
@@ -602,19 +596,15 @@
 			</div>
 		</div>
 
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface overflow-hidden mt-4"
-		>
+		<div class="rounded-lg border border-border bg-surface overflow-hidden mt-4">
 			{#if mcpChangesState.loading}
-				<div class="p-4 text-sm text-ink-muted dark:text-tavern-muted">
-					Loading pending changes...
-				</div>
+				<div class="p-4 text-sm text-ink-muted">Loading pending changes...</div>
 			{:else if filteredMcpChanges.length === 0}
-				<div class="p-4 text-sm text-ink-muted dark:text-tavern-muted">
+				<div class="p-4 text-sm text-ink-muted">
 					No pending MCP changes match the active filters.
 				</div>
 			{:else}
-				<ul class="divide-y divide-border dark:divide-tavern-border">
+				<ul class="divide-y divide-border">
 					{#each filteredMcpChanges as change (change.id)}
 						<li class="p-4 flex items-start justify-between gap-4">
 							<div class="min-w-0 flex-1">
@@ -629,16 +619,16 @@
 											)}
 										aria-label={`Select change ${change.id}`}
 									/>
-									<p class="text-sm font-medium text-ink dark:text-tavern-text truncate">
+									<p class="text-sm font-medium text-ink truncate">
 										{change.summary}
 									</p>
 									<span
-										class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-surface-alt dark:bg-tavern-surface-alt text-ink-faint dark:text-tavern-faint"
+										class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-surface-alt text-ink-faint"
 									>
 										{change.type}
 									</span>
 									<span
-										class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-surface-alt dark:bg-tavern-surface-alt text-ink-faint dark:text-tavern-faint"
+										class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-surface-alt text-ink-faint"
 									>
 										agent:{change.agentId ?? 'default-agent'}
 									</span>
@@ -663,13 +653,13 @@
 										</span>
 									{/if}
 								</div>
-								<p class="text-xs text-ink-muted dark:text-tavern-muted mt-1">
+								<p class="text-xs text-ink-muted mt-1">
 									{change.noteId} - {change.after?.note.filePath ??
 										change.before?.note.filePath ??
 										'path pending'}
 								</p>
 								{#if change.policy}
-									<p class="text-xs text-ink-muted dark:text-tavern-muted mt-1">
+									<p class="text-xs text-ink-muted mt-1">
 										Policy: {change.policy.presetId} - {change.policy.reason}
 									</p>
 								{/if}
@@ -679,22 +669,22 @@
 									</p>
 								{/if}
 								{#if change.preview}
-									<p class="text-xs text-ink-muted dark:text-tavern-muted mt-2">
+									<p class="text-xs text-ink-muted mt-2">
 										{change.preview.summary}
 									</p>
-									<p class="text-xs text-ink-faint dark:text-tavern-faint mt-1">
+									<p class="text-xs text-ink-faint mt-1">
 										Link impact: +{change.preview.linkImpact.added} / -{change.preview.linkImpact
 											.removed}
 									</p>
 									<pre
-										class="mt-2 text-xs font-mono whitespace-pre-wrap break-words rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt p-2 text-ink-faint dark:text-tavern-faint">{change
+										class="mt-2 text-xs font-mono whitespace-pre-wrap break-words rounded border border-border bg-surface-alt p-2 text-ink-faint">{change
 											.preview.compactDiff}</pre>
 									<details class="mt-2">
-										<summary class="cursor-pointer text-xs text-accent dark:text-tavern-accent">
+										<summary class="cursor-pointer text-xs text-accent">
 											Show full changes
 										</summary>
 										<pre
-											class="mt-2 text-xs font-mono whitespace-pre-wrap break-words rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt p-2 text-ink-faint dark:text-tavern-faint">{change
+											class="mt-2 text-xs font-mono whitespace-pre-wrap break-words rounded border border-border bg-surface-alt p-2 text-ink-faint">{change
 												.preview.fullDiff}</pre>
 									</details>
 								{/if}
@@ -725,7 +715,7 @@
 
 		<div class="mt-6">
 			<div class="flex items-center justify-between mb-3">
-				<h3 class="text-base font-semibold text-ink dark:text-tavern-text">MCP Audit Trail</h3>
+				<h3 class="text-base font-semibold text-ink">MCP Audit Trail</h3>
 				<div class="flex items-center gap-2">
 					<Button variant="ghost" size="sm" onclick={loadMcpAuditTrail} loading={mcpAuditLoading}>
 						{mcpAuditLoading ? 'Refreshing...' : 'Refresh Audit'}
@@ -740,30 +730,24 @@
 					</Button>
 				</div>
 			</div>
-			<div
-				class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface overflow-hidden"
-			>
+			<div class="rounded-lg border border-border bg-surface overflow-hidden">
 				{#if mcpAuditLoading}
-					<div class="p-4 text-sm text-ink-muted dark:text-tavern-muted">
-						Loading MCP audit trail...
-					</div>
+					<div class="p-4 text-sm text-ink-muted">Loading MCP audit trail...</div>
 				{:else if mcpAuditTrail.length === 0}
-					<div class="p-4 text-sm text-ink-muted dark:text-tavern-muted">
-						No MCP audit history yet.
-					</div>
+					<div class="p-4 text-sm text-ink-muted">No MCP audit history yet.</div>
 				{:else}
-					<ul class="divide-y divide-border dark:divide-tavern-border">
+					<ul class="divide-y divide-border">
 						{#each mcpAuditTrail as change (change.id + (change.resolvedAt ?? change.createdAt))}
 							<li class="p-3 text-xs space-y-1">
-								<p class="font-medium text-ink dark:text-tavern-text">
+								<p class="font-medium text-ink">
 									{change.status} - {change.summary}
 								</p>
-								<p class="text-ink-muted dark:text-tavern-muted">
+								<p class="text-ink-muted">
 									When: {change.resolvedAt ?? change.createdAt} | Agent: {change.agentId ??
 										'default-agent'} | Why: {change.policy?.reason ?? 'manual review'}
 								</p>
 								{#if change.audit && change.audit.length > 0}
-									<p class="text-ink-faint dark:text-tavern-faint">
+									<p class="text-ink-faint">
 										Last event: {change.audit[change.audit.length - 1]?.action} by {change.audit[
 											change.audit.length - 1
 										]?.actor}

@@ -218,7 +218,7 @@
 		<div class="mx-auto mb-3 flex max-w-content justify-end">
 			<button
 				type="button"
-				class="rounded-md px-2.5 py-1 text-xs text-ink-muted hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+				class="rounded-md px-2.5 py-1 text-xs text-ink-muted hover:bg-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 				onclick={() => void ui.setFocusReading(!ui.focusReading)}
 				aria-pressed={ui.focusReading}
 			>
@@ -233,22 +233,18 @@
 			ondelete={() => (showDeleteConfirm = true)}
 		/>
 		{#if frontmatterMapPlacement}
-			<div
-				class="max-w-content mx-auto mb-4 rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
-			>
+			<div class="max-w-content mx-auto mb-4 rounded-lg border border-border bg-surface p-3">
 				<div class="mb-2 flex items-center justify-between gap-2">
-					<p class="text-xs font-semibold text-ink dark:text-tavern-text">Map Minimap</p>
+					<p class="text-xs font-semibold text-ink">Map Minimap</p>
 					<a
 						href={mapPlacementHref(frontmatterMapPlacement)}
-						class="text-xs text-accent underline underline-offset-2 hover:text-accent-hover dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
+						class="text-xs text-accent underline underline-offset-2 hover:text-accent-hover"
 					>
 						Open {frontmatterMapPlacement.mapName}
 					</a>
 				</div>
 				{#if minimapImageUrl}
-					<div
-						class="relative h-40 overflow-hidden rounded border border-border dark:border-tavern-border"
-					>
+					<div class="relative h-40 overflow-hidden rounded border border-border">
 						<img
 							src={minimapImageUrl}
 							alt={`${frontmatterMapPlacement.mapName} minimap`}
@@ -260,23 +256,19 @@
 						></div>
 					</div>
 				{:else}
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">
-						Minimap preview unavailable in this runtime.
-					</p>
+					<p class="text-xs text-ink-muted">Minimap preview unavailable in this runtime.</p>
 				{/if}
 			</div>
 		{/if}
 		<TableOfContents content={note.content} />
 		{#if !playerModeState.enabled}
-			<div
-				class="max-w-content mx-auto mb-4 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
-			>
+			<div class="max-w-content mx-auto mb-4 rounded-lg border border-border bg-surface p-3">
 				<div class="flex items-center gap-2">
 					<input
 						type="text"
 						bind:value={quickAdd}
 						placeholder="Quick add to this note..."
-						class="flex-1 bg-transparent text-sm text-ink dark:text-tavern-text placeholder:text-ink-faint dark:placeholder:text-tavern-faint outline-none"
+						class="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none"
 						onkeydown={(event) => {
 							if (event.key === 'Enter') {
 								event.preventDefault();
@@ -286,7 +278,7 @@
 					/>
 					<button
 						type="button"
-						class="px-2.5 py-1.5 text-xs rounded-md bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent hover:bg-accent/20 dark:hover:bg-tavern-accent/20 transition-[transform,colors] active:scale-[0.97] active:brightness-95 disabled:opacity-60 disabled:cursor-not-allowed"
+						class="px-2.5 py-1.5 text-xs rounded-md bg-accent-subtle text-accent hover:bg-accent/20 transition-[transform,colors] active:scale-[0.97] active:brightness-95 disabled:opacity-60 disabled:cursor-not-allowed"
 						onclick={handleQuickAdd}
 						disabled={quickAdding}
 						title={quickAdding ? 'Adding to note...' : 'Add bullet to note'}
@@ -336,13 +328,8 @@
 {:else if hiddenByVisibility}
 	<div class="flex items-center justify-center h-full">
 		<div class="text-center py-16">
-			<p class="text-lg text-ink-muted dark:text-tavern-muted mb-2">
-				This note is not visible in player mode.
-			</p>
-			<a
-				href={resolve('/player')}
-				class="text-accent dark:text-tavern-accent hover:text-accent-hover dark:hover:text-tavern-accent-hover text-sm"
-			>
+			<p class="text-lg text-ink-muted mb-2">This note is not visible in player mode.</p>
+			<a href={resolve('/player')} class="text-accent hover:text-accent-hover text-sm">
 				Back to player view
 			</a>
 		</div>
@@ -350,11 +337,8 @@
 {:else}
 	<div class="flex items-center justify-center h-full">
 		<div class="text-center py-16">
-			<p class="text-lg text-ink-muted dark:text-tavern-muted mb-2">Note not found</p>
-			<a
-				href={resolve('/knowledge/notes')}
-				class="text-accent dark:text-tavern-accent hover:text-accent-hover dark:hover:text-tavern-accent-hover text-sm"
-			>
+			<p class="text-lg text-ink-muted mb-2">Note not found</p>
+			<a href={resolve('/knowledge/notes')} class="text-accent hover:text-accent-hover text-sm">
 				Back to notes
 			</a>
 		</div>

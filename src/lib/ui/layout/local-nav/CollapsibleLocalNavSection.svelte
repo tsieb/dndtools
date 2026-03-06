@@ -30,7 +30,7 @@
 <section class="px-3 pb-2">
 	<button
 		type="button"
-		class="mb-1.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink-faint transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt hover:text-ink-muted dark:text-tavern-faint dark:hover:bg-tavern-surface-alt dark:hover:text-tavern-muted"
+		class="mb-1.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider text-ink-faint transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt hover:text-ink-muted"
 		onclick={toggle}
 		aria-expanded={!collapsed}
 		aria-controls={contentId}

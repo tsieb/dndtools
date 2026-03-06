@@ -35,28 +35,24 @@
 	}
 </script>
 
-<section
-	class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-3"
->
+<section class="rounded-lg border border-border bg-surface p-4 space-y-3">
 	<div class="flex items-center justify-between gap-2">
 		<div>
-			<h2 class="text-base font-semibold text-ink dark:text-tavern-text">Handout Inbox</h2>
-			<p class="text-xs text-ink-muted dark:text-tavern-muted">
-				Delivered handouts remain here permanently.
-			</p>
+			<h2 class="text-base font-semibold text-ink">Handout Inbox</h2>
+			<p class="text-xs text-ink-muted">Delivered handouts remain here permanently.</p>
 		</div>
 		<input
 			type="text"
 			bind:value={query}
 			placeholder="Search handouts"
-			class="w-56 max-w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1.5 text-xs text-ink dark:text-tavern-text"
+			class="w-56 max-w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-xs text-ink"
 		/>
 	</div>
 
 	{#if handoutsState.loading}
-		<p class="text-xs text-ink-muted dark:text-tavern-muted">Loading handouts...</p>
+		<p class="text-xs text-ink-muted">Loading handouts...</p>
 	{:else if filtered.length === 0}
-		<p class="text-xs text-ink-muted dark:text-tavern-muted">
+		<p class="text-xs text-ink-muted">
 			{deliveredHandouts.length === 0
 				? 'No handouts have been delivered yet.'
 				: 'No delivered handouts match your search.'}
@@ -67,12 +63,10 @@
 				{@const view = resolveHandoutRenderView(handout)}
 				<li class={`handout-preview ${revealAnimationClass(handout)}`}>
 					<div class="flex flex-wrap items-center gap-2 mb-1">
-						<h3 class="text-sm font-semibold text-ink dark:text-tavern-text">
+						<h3 class="text-sm font-semibold text-ink">
 							{handout.data.title || handout.name}
 						</h3>
-						<span
-							class="text-[11px] px-1.5 py-0.5 rounded border border-border/70 dark:border-tavern-border/70 text-ink-faint dark:text-tavern-faint"
-						>
+						<span class="text-[11px] px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
 							{handoutTypeLabel(handout.data.handoutType)}
 						</span>
 						{#if view.locked}
@@ -83,7 +77,7 @@
 							</span>
 						{/if}
 						{#if handout.data.deliveredAt}
-							<span class="text-[11px] text-ink-faint dark:text-tavern-faint">
+							<span class="text-[11px] text-ink-faint">
 								Delivered {handout.data.deliveredAt}
 							</span>
 						{/if}

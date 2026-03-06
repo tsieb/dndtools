@@ -136,51 +136,39 @@
 	});
 </script>
 
-<section
-	class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
->
-	<div
-		class="flex items-center justify-between px-3 py-2 border-b border-border dark:border-tavern-border"
-	>
+<section class="rounded-lg border border-border bg-surface">
+	<div class="flex items-center justify-between px-3 py-2 border-b border-border">
 		<button
 			type="button"
-			class="text-left text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint hover:text-ink-muted dark:hover:text-tavern-muted transition-colors"
+			class="text-left text-xs font-semibold uppercase tracking-wider text-ink-faint hover:text-ink-muted transition-colors"
 			onclick={toggleCollapsed}
 			disabled={saving || !activeBoard}
 			aria-expanded={!context.collapsed}
 		>
 			Session Context
 		</button>
-		<span class="text-[11px] text-ink-faint dark:text-tavern-faint">{context.items.length}</span>
+		<span class="text-[11px] text-ink-faint">{context.items.length}</span>
 	</div>
 
 	{#if !activeBoard}
-		<p class="px-3 py-2 text-xs text-ink-muted dark:text-tavern-muted">
-			Select a session board to pin active entities.
-		</p>
+		<p class="px-3 py-2 text-xs text-ink-muted">Select a session board to pin active entities.</p>
 	{:else if context.collapsed}
-		<p class="px-3 py-2 text-xs text-ink-faint dark:text-tavern-faint">
-			Collapsed. Expand to view pinned context.
-		</p>
+		<p class="px-3 py-2 text-xs text-ink-faint">Collapsed. Expand to view pinned context.</p>
 	{:else}
 		<div class="p-3 space-y-2.5">
-			<div
-				class="rounded border border-border/70 dark:border-tavern-border/70 bg-surface-alt/70 dark:bg-tavern-surface-alt/70 px-2 py-1.5"
-			>
-				<p class="text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint">
-					Active Party Location
-				</p>
+			<div class="rounded border border-border/70 bg-surface-alt/70 px-2 py-1.5">
+				<p class="text-[11px] uppercase tracking-wider text-ink-faint">Active Party Location</p>
 				{#if partyLocation}
-					<p class="mt-1 text-xs text-ink dark:text-tavern-text">
+					<p class="mt-1 text-xs text-ink">
 						{mapById[partyLocation.mapId]?.name ?? partyLocation.mapId} @
 						{partyLocation.x.toFixed(3)}, {partyLocation.y.toFixed(3)}
 					</p>
 				{:else}
-					<p class="mt-1 text-xs text-ink-faint dark:text-tavern-faint">Not set</p>
+					<p class="mt-1 text-xs text-ink-faint">Not set</p>
 				{/if}
 				<button
 					type="button"
-					class="mt-1 rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:bg-surface dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface"
+					class="mt-1 rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:bg-surface"
 					disabled={!pinnedLocationMapPlacement}
 					onclick={() => void setPartyLocationFromPinnedContext()}
 				>
@@ -189,31 +177,27 @@
 			</div>
 			{#each CATEGORY_ORDER as category (category)}
 				<div>
-					<p
-						class="text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1"
-					>
+					<p class="text-[11px] uppercase tracking-wider text-ink-faint mb-1">
 						{CATEGORY_LABELS[category]}
 					</p>
 					{#if groupedItems(category).length === 0}
-						<p class="text-xs text-ink-faint dark:text-tavern-faint">None pinned</p>
+						<p class="text-xs text-ink-faint">None pinned</p>
 					{:else}
 						<div class="space-y-1.5">
 							{#each groupedItems(category) as item (item.noteId)}
 								{@const note = notesById.get(item.noteId)}
-								<div
-									class="rounded border border-border/70 dark:border-tavern-border/70 px-2 py-1.5 bg-surface-alt/60 dark:bg-tavern-surface-alt/60"
-								>
+								<div class="rounded border border-border/70 px-2 py-1.5 bg-surface-alt/60">
 									<div class="flex items-center gap-1.5">
 										<button
 											type="button"
-											class="flex-1 truncate text-left text-xs text-ink dark:text-tavern-text hover:underline"
+											class="flex-1 truncate text-left text-xs text-ink hover:underline"
 											onclick={() => note && openNote(note.id)}
 											title={note?.title ?? String(item.noteId)}
 										>
 											{note?.title ?? `Missing note (${item.noteId})`}
 										</button>
 										<select
-											class="rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-1.5 py-0.5 text-[11px] text-ink-muted dark:text-tavern-muted"
+											class="rounded border border-border bg-surface px-1.5 py-0.5 text-[11px] text-ink-muted"
 											value={item.category}
 											onchange={(event) =>
 												void recategorize(
@@ -230,7 +214,7 @@
 										</select>
 										<button
 											type="button"
-											class="text-[11px] px-1.5 py-0.5 rounded border border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text"
+											class="text-[11px] px-1.5 py-0.5 rounded border border-border text-ink-muted hover:text-ink"
 											onclick={() => void unpin(item.noteId)}
 											aria-label="Unpin from session context"
 										>
@@ -246,16 +230,16 @@
 		</div>
 
 		{#if showAddControls}
-			<div class="px-3 pb-3 pt-1 border-t border-border/70 dark:border-tavern-border/70 space-y-2">
+			<div class="px-3 pb-3 pt-1 border-t border-border/70 space-y-2">
 				<div class="flex items-center gap-2">
 					<input
 						type="text"
 						bind:value={query}
 						placeholder="Pin note to session context..."
-						class="flex-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1 text-xs text-ink dark:text-tavern-text"
+						class="flex-1 rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
 					/>
 					<select
-						class="rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted"
+						class="rounded border border-border bg-surface px-2 py-1 text-xs text-ink-muted"
 						bind:value={addCategory}
 						aria-label="Session context category"
 					>
@@ -267,13 +251,13 @@
 				</div>
 
 				{#if filteredCandidates.length === 0}
-					<p class="text-xs text-ink-faint dark:text-tavern-faint">No matching notes available</p>
+					<p class="text-xs text-ink-faint">No matching notes available</p>
 				{:else}
 					<div class="space-y-1 max-h-28 overflow-y-auto">
 						{#each filteredCandidates as candidate (candidate.id)}
 							<button
 								type="button"
-								class="w-full rounded border border-border/70 dark:border-tavern-border/70 px-2 py-1 text-left text-xs text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors truncate"
+								class="w-full rounded border border-border/70 px-2 py-1 text-left text-xs text-ink hover:bg-surface-alt transition-colors truncate"
 								onclick={() => void pinCandidate(candidate.id)}
 								title={candidate.title}
 							>

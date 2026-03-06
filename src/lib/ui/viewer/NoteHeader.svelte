@@ -106,15 +106,12 @@
 <div class="max-w-content mx-auto mb-6">
 	<div class="flex items-start justify-between gap-4">
 		<div class="min-w-0 flex-1">
-			<h1
-				class="text-2xl font-bold text-ink dark:text-tavern-text break-words"
-				style="font-family: var(--font-serif)"
-			>
+			<h1 class="text-2xl font-bold text-ink break-words" style="font-family: var(--font-serif)">
 				{note.title}
 			</h1>
-			<div class="flex items-center gap-2 mt-2 text-sm text-ink-muted dark:text-tavern-muted">
+			<div class="flex items-center gap-2 mt-2 text-sm text-ink-muted">
 				<span
-					class="px-2 py-0.5 rounded-md bg-surface-alt dark:bg-tavern-surface-alt text-xs font-mono truncate max-w-[420px]"
+					class="px-2 py-0.5 rounded-md bg-surface-alt text-xs font-mono truncate max-w-[420px]"
 				>
 					{filePath}
 				</span>
@@ -130,18 +127,18 @@
 			{#if primaryMapPlacement}
 				<div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
 					<span
-						class="rounded-full border border-border bg-surface-alt px-2 py-0.5 font-medium text-ink-muted dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-muted"
+						class="rounded-full border border-border bg-surface-alt px-2 py-0.5 font-medium text-ink-muted"
 					>
 						Located on map
 					</span>
 					<a
 						href={mapPlacementHref(primaryMapPlacement)}
-						class="text-accent hover:text-accent-hover underline underline-offset-2 dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
+						class="text-accent hover:text-accent-hover underline underline-offset-2"
 					>
 						{primaryMapPlacement.mapName}
 					</a>
 					{#if additionalMapPlacementCount > 0}
-						<span class="text-ink-faint dark:text-tavern-faint">
+						<span class="text-ink-faint">
 							+{additionalMapPlacementCount} more placement{additionalMapPlacementCount === 1
 								? ''
 								: 's'}
@@ -155,8 +152,8 @@
 				<button
 					type="button"
 					class="p-1.5 rounded-md transition-[transform,colors] active:scale-[0.97] active:brightness-95 disabled:opacity-60 disabled:cursor-not-allowed {note.pinned
-						? 'text-accent dark:text-tavern-accent bg-accent-subtle dark:bg-tavern-accent-subtle'
-						: 'text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+						? 'text-accent bg-accent-subtle'
+						: 'text-ink-muted hover:bg-surface-alt'}"
 					onclick={handlePin}
 					title={note.pinned ? 'Unpin note' : 'Pin note'}
 					aria-label={note.pinned ? 'Unpin note' : 'Pin note'}
@@ -177,7 +174,7 @@
 			{/if}
 			<button
 				type="button"
-				class="p-1.5 rounded-md text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+				class="p-1.5 rounded-md text-ink-muted hover:bg-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 				onclick={handleExport}
 				title="Export as .md"
 				aria-label="Export note"
@@ -217,7 +214,7 @@
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a
 					href={`/knowledge/notes?tag=${encodeURIComponent(tag)}`}
-					class="px-2 py-0.5 text-xs rounded-full bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent hover:bg-accent/20 dark:hover:bg-tavern-accent/20 transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+					class="px-2 py-0.5 text-xs rounded-full bg-accent-subtle text-accent hover:bg-accent/20 transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 				>
 					#{tag}
 				</a>

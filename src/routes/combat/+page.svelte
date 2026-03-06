@@ -81,27 +81,22 @@
 
 <div class="h-full min-h-0 overflow-hidden p-4">
 	<section
-		class="h-full min-h-0 rounded-xl border border-border-strong/60 dark:border-tavern-border-strong/60 bg-surface/95 dark:bg-tavern-surface/95 shadow-sm overflow-hidden flex flex-col"
+		class="h-full min-h-0 rounded-xl border border-border-strong/60 bg-surface/95 shadow-sm overflow-hidden flex flex-col"
 	>
-		<header class="px-4 py-3 border-b border-border dark:border-tavern-border space-y-2">
+		<header class="px-4 py-3 border-b border-border space-y-2">
 			<div class="flex flex-wrap items-center gap-2">
-				<h1
-					class="text-xl font-bold text-ink dark:text-tavern-text"
-					style="font-family: var(--font-serif)"
-				>
+				<h1 class="text-xl font-bold text-ink" style="font-family: var(--font-serif)">
 					Combat Tracker
 				</h1>
-				<span
-					class="text-[11px] px-2 py-0.5 rounded border border-border/70 dark:border-tavern-border/70 text-ink-muted dark:text-tavern-muted"
-				>
+				<span class="text-[11px] px-2 py-0.5 rounded border border-border/70 text-ink-muted">
 					Shortcuts: <span class="font-mono">a</span> add, <span class="font-mono">n</span> next turn
 				</span>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Board
 					<select
-						class="ml-2 h-8 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+						class="ml-2 h-8 rounded border border-border bg-surface px-2 text-sm"
 						value={selectedBoard?.id ?? ''}
 						onchange={handleBoardSelection}
 					>
@@ -115,10 +110,10 @@
 					</select>
 				</label>
 				{#if combatTiles.length > 1}
-					<label class="text-xs text-ink-muted dark:text-tavern-muted">
+					<label class="text-xs text-ink-muted">
 						Combat Tile
 						<select
-							class="ml-2 h-8 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+							class="ml-2 h-8 rounded border border-border bg-surface px-2 text-sm"
 							value={selectedCombatTile?.id ?? ''}
 							onchange={(event) =>
 								(selectedCombatTileId = (event.currentTarget as HTMLSelectElement).value)}
@@ -131,7 +126,7 @@
 				{/if}
 				<button
 					type="button"
-					class="h-8 px-3 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					class="h-8 px-3 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 					onclick={() => void addCombatTile()}
 					disabled={!selectedBoard}
 				>
@@ -139,7 +134,7 @@
 				</button>
 				<a
 					href={resolve('/session/boards')}
-					class="h-8 px-3 inline-flex items-center rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					class="h-8 px-3 inline-flex items-center rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 				>
 					Open Session Board
 				</a>
@@ -149,16 +144,16 @@
 		<div class="flex-1 min-h-0 p-3">
 			{#if boards.length === 0}
 				<div
-					class="h-full rounded border border-dashed border-border/70 dark:border-tavern-border/70 flex items-center justify-center"
+					class="h-full rounded border border-dashed border-border/70 flex items-center justify-center"
 				>
 					<div class="text-center px-4">
-						<p class="text-sm text-ink dark:text-tavern-text">No session boards found.</p>
-						<p class="text-xs text-ink-muted dark:text-tavern-muted mt-1">
+						<p class="text-sm text-ink">No session boards found.</p>
+						<p class="text-xs text-ink-muted mt-1">
 							Create a board with a combat tracker tile to begin.
 						</p>
 						<button
 							type="button"
-							class="mt-3 px-3 py-1.5 rounded bg-accent hover:bg-accent-hover dark:bg-tavern-accent dark:hover:bg-tavern-accent-hover dark:text-tavern-bg text-white text-xs"
+							class="mt-3 px-3 py-1.5 rounded bg-accent hover:bg-accent-hover text-white text-xs"
 							onclick={() => void createBoardWithCombat()}
 							disabled={creatingBoard}
 						>
@@ -168,16 +163,16 @@
 				</div>
 			{:else if !selectedCombatTile}
 				<div
-					class="h-full rounded border border-dashed border-border/70 dark:border-tavern-border/70 flex items-center justify-center"
+					class="h-full rounded border border-dashed border-border/70 flex items-center justify-center"
 				>
 					<div class="text-center px-4">
-						<p class="text-sm text-ink dark:text-tavern-text">Selected board has no combat tile.</p>
-						<p class="text-xs text-ink-muted dark:text-tavern-muted mt-1">
+						<p class="text-sm text-ink">Selected board has no combat tile.</p>
+						<p class="text-xs text-ink-muted mt-1">
 							Add a combat tracker tile from this route or from Session Board edit mode.
 						</p>
 						<button
 							type="button"
-							class="mt-3 px-3 py-1.5 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+							class="mt-3 px-3 py-1.5 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 							onclick={() => void addCombatTile()}
 						>
 							Add Combat Tile

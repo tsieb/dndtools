@@ -30,9 +30,9 @@
 </script>
 
 <div
-	class="relative rounded-lg border bg-surface/95 dark:bg-tavern-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-150 cursor-pointer hover:shadow-md {selected
-		? 'border-border dark:border-tavern-border ring-2 ring-accent/45 dark:ring-tavern-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
-		: 'border-border dark:border-tavern-border'}"
+	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-150 cursor-pointer hover:shadow-md {selected
+		? 'border-border ring-2 ring-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
+		: 'border-border'}"
 	style="background-color: {tile.style?.backgroundColor ?? ''}; border-color: {tile.style
 		?.borderColor ?? ''}; border-width: {tile.style?.borderWidth !== undefined
 		? `${tile.style.borderWidth}px`
@@ -64,13 +64,9 @@
 		if (editable) ondragstart(event);
 	}}
 >
-	<header
-		class="px-3 py-2 border-b border-border dark:border-tavern-border flex items-center gap-2"
-	>
-		<div class="font-medium text-sm text-ink dark:text-tavern-text flex-1">Handouts</div>
-		<span
-			class="text-[10px] px-1.5 py-0.5 rounded border border-border/70 dark:border-tavern-border/70 text-ink-faint dark:text-tavern-faint"
-		>
+	<header class="px-3 py-2 border-b border-border flex items-center gap-2">
+		<div class="font-medium text-sm text-ink flex-1">Handouts</div>
+		<span class="text-[10px] px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
 			{connectedPlayers > 0
 				? `${connectedPlayers} player${connectedPlayers === 1 ? '' : 's'}`
 				: 'Offline'}
@@ -78,32 +74,28 @@
 	</header>
 	<div class="flex-1 min-h-0 p-3 space-y-2">
 		<div class="grid grid-cols-3 gap-2 text-[11px]">
-			<div class="rounded border border-border/70 dark:border-tavern-border/70 p-1.5">
-				<p class="text-ink-faint dark:text-tavern-faint">Total</p>
-				<p class="text-sm font-semibold text-ink dark:text-tavern-text">{totalCount}</p>
+			<div class="rounded border border-border/70 p-1.5">
+				<p class="text-ink-faint">Total</p>
+				<p class="text-sm font-semibold text-ink">{totalCount}</p>
 			</div>
-			<div class="rounded border border-border/70 dark:border-tavern-border/70 p-1.5">
-				<p class="text-ink-faint dark:text-tavern-faint">Delivered</p>
-				<p class="text-sm font-semibold text-ink dark:text-tavern-text">{deliveredCount}</p>
+			<div class="rounded border border-border/70 p-1.5">
+				<p class="text-ink-faint">Delivered</p>
+				<p class="text-sm font-semibold text-ink">{deliveredCount}</p>
 			</div>
-			<div class="rounded border border-border/70 dark:border-tavern-border/70 p-1.5">
-				<p class="text-ink-faint dark:text-tavern-faint">Pending</p>
-				<p class="text-sm font-semibold text-ink dark:text-tavern-text">{pendingCount}</p>
+			<div class="rounded border border-border/70 p-1.5">
+				<p class="text-ink-faint">Pending</p>
+				<p class="text-sm font-semibold text-ink">{pendingCount}</p>
 			</div>
 		</div>
 
-		<div class="rounded border border-border/70 dark:border-tavern-border/70 p-2 min-h-[5.25rem]">
-			<p
-				class="text-[11px] font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1"
-			>
-				Recent
-			</p>
+		<div class="rounded border border-border/70 p-2 min-h-[5.25rem]">
+			<p class="text-[11px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Recent</p>
 			{#if recentHandouts.length === 0}
-				<p class="text-xs text-ink-muted dark:text-tavern-muted">No handouts yet.</p>
+				<p class="text-xs text-ink-muted">No handouts yet.</p>
 			{:else}
 				<ul class="space-y-1">
 					{#each recentHandouts as handout (handout.id)}
-						<li class="text-xs truncate text-ink dark:text-tavern-text">
+						<li class="text-xs truncate text-ink">
 							{handout.data.title || handout.name}
 						</li>
 					{/each}
@@ -113,7 +105,7 @@
 
 		<button
 			type="button"
-			class="w-full rounded border border-border dark:border-tavern-border px-2 py-1.5 text-xs text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+			class="w-full rounded border border-border px-2 py-1.5 text-xs text-ink hover:bg-surface-alt transition-colors"
 			onclick={openLibrary}
 		>
 			Open Handout Library

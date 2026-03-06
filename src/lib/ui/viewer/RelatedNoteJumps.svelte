@@ -53,20 +53,18 @@
 
 {#if hasAny}
 	<section
-		class="max-w-content mx-auto mt-4 mb-4 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
+		class="max-w-content mx-auto mt-4 mb-4 rounded-lg border border-border bg-surface p-3"
 		aria-label="Quick jump to related notes"
 	>
-		<h2 class="text-sm font-semibold text-ink dark:text-tavern-text mb-2">Quick Jumps</h2>
+		<h2 class="text-sm font-semibold text-ink mb-2">Quick Jumps</h2>
 
 		{#if jumpSet.sameTags.length > 0}
 			<div class="mb-2">
-				<p class="text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1">
-					Same Tags
-				</p>
+				<p class="text-[11px] uppercase tracking-wider text-ink-faint mb-1">Same Tags</p>
 				<div class="flex flex-wrap gap-1.5">
 					{#each jumpSet.sameTags as jump (jump.noteId)}
 						<button
-							class="px-2 py-1 rounded-md text-xs bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent hover:bg-accent/20 dark:hover:bg-tavern-accent/20 transition-colors"
+							class="px-2 py-1 rounded-md text-xs bg-accent-subtle text-accent hover:bg-accent/20 transition-colors"
 							onclick={() => openNote(jump.noteId)}
 							title={jump.reason}
 						>
@@ -79,13 +77,11 @@
 
 		{#if jumpSet.backlinks.length > 0}
 			<div class="mb-2">
-				<p class="text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1">
-					Backlinks
-				</p>
+				<p class="text-[11px] uppercase tracking-wider text-ink-faint mb-1">Backlinks</p>
 				<div class="flex flex-wrap gap-1.5">
 					{#each jumpSet.backlinks as jump (jump.noteId)}
 						<button
-							class="px-2 py-1 rounded-md text-xs bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text transition-colors"
+							class="px-2 py-1 rounded-md text-xs bg-surface-alt text-ink-muted hover:text-ink transition-colors"
 							onclick={() => openNote(jump.noteId)}
 							title={jump.reason}
 						>
@@ -98,13 +94,13 @@
 
 		{#if jumpSet.sameObjectReferences.length > 0}
 			<div>
-				<p class="text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-1">
+				<p class="text-[11px] uppercase tracking-wider text-ink-faint mb-1">
 					Shared Object References
 				</p>
 				<div class="flex flex-wrap gap-1.5">
 					{#each jumpSet.sameObjectReferences as jump (jump.noteId)}
 						<button
-							class="px-2 py-1 rounded-md text-xs bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text transition-colors"
+							class="px-2 py-1 rounded-md text-xs bg-surface-alt text-ink-muted hover:text-ink transition-colors"
 							onclick={() => openNote(jump.noteId)}
 							title={jump.reason}
 						>

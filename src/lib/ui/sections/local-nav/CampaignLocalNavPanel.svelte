@@ -45,21 +45,15 @@
 <nav class="space-y-2 pb-2" aria-label="Local navigation: Campaign panel">
 	<CollapsibleLocalNavSection section="campaign" sectionId="entities" title="Entities">
 		{#if pinnedEntities.length === 0 && entities.length === 0}
-			<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
-				No campaign entities yet
-			</p>
+			<p class="px-2.5 py-1.5 text-xs text-ink-faint">No campaign entities yet</p>
 		{:else}
 			{#if pinnedEntities.length > 0}
-				<p
-					class="px-2.5 pb-1 text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
-				>
-					Pinned
-				</p>
+				<p class="px-2.5 pb-1 text-[11px] uppercase tracking-wider text-ink-faint">Pinned</p>
 				<div class="space-y-0.5 pb-2">
 					{#each pinnedEntities as note (note.id)}
 						<button
 							type="button"
-							class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-parchment dark:text-tavern-text dark:hover:bg-tavern-bg"
+							class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg"
 							onclick={() => navigateToNote(note.id)}
 							title={note.title}
 						>
@@ -69,16 +63,14 @@
 				</div>
 			{/if}
 			{#if entities.length > 0}
-				<p
-					class="px-2.5 pb-1 text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
-				>
+				<p class="px-2.5 pb-1 text-[11px] uppercase tracking-wider text-ink-faint">
 					Recently Updated
 				</p>
 				<div class="space-y-0.5">
 					{#each entities as note (note.id)}
 						<button
 							type="button"
-							class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-parchment dark:text-tavern-text dark:hover:bg-tavern-bg"
+							class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg"
 							onclick={() => navigateToNote(note.id)}
 							title={note.title}
 						>
@@ -91,22 +83,20 @@
 	</CollapsibleLocalNavSection>
 
 	<CollapsibleLocalNavSection section="campaign" sectionId="open-threads" title="Open Threads">
-		<div
-			class="rounded-md border border-border bg-surface p-2 text-xs dark:border-tavern-border dark:bg-tavern-surface"
-		>
-			<p class="text-ink-muted dark:text-tavern-muted">
+		<div class="rounded-md border border-border bg-surface p-2 text-xs">
+			<p class="text-ink-muted">
 				Quests {openThreads.totals.quests} | NPCs {openThreads.totals.npcs} | Timeline {openThreads
 					.totals.timelineEvents}
 			</p>
 		</div>
 		{#if openThreads.quests.length === 0 && openThreads.npcs.length === 0}
-			<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">No open threads</p>
+			<p class="px-2.5 py-1.5 text-xs text-ink-faint">No open threads</p>
 		{:else}
 			<div class="space-y-0.5 pt-2">
 				{#each [...openThreads.quests.slice(0, 4), ...openThreads.npcs.slice(0, 4)] as thread (`${thread.objectId}`)}
 					<button
 						type="button"
-						class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-parchment hover:text-ink dark:text-tavern-muted dark:hover:bg-tavern-bg dark:hover:text-tavern-text"
+						class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg hover:text-ink"
 						onclick={() => navigateToNote(thread.noteId)}
 						title={thread.title}
 					>
@@ -123,21 +113,19 @@
 		title="Timeline Events"
 	>
 		{#if openThreads.timelineEvents.length === 0}
-			<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
-				No pending timeline events
-			</p>
+			<p class="px-2.5 py-1.5 text-xs text-ink-faint">No pending timeline events</p>
 		{:else}
 			<div class="space-y-0.5">
 				{#each openThreads.timelineEvents.slice(0, 10) as event (event.objectId)}
 					<button
 						type="button"
-						class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-parchment hover:text-ink dark:text-tavern-muted dark:hover:bg-tavern-bg dark:hover:text-tavern-text"
+						class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg hover:text-ink"
 						onclick={() => navigateToNote(event.noteId)}
 						title={event.title}
 					>
 						<div class="truncate">{event.title}</div>
 						{#if event.dateShort}
-							<div class="text-[10px] text-ink-faint dark:text-tavern-faint">{event.dateShort}</div>
+							<div class="text-[10px] text-ink-faint">{event.dateShort}</div>
 						{/if}
 					</button>
 				{/each}

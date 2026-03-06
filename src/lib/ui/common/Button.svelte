@@ -36,13 +36,10 @@
 	};
 
 	const variantClasses = {
-		primary:
-			'bg-accent text-white hover:bg-accent-hover dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover',
-		secondary:
-			'bg-surface border border-border text-ink hover:bg-surface-alt dark:bg-tavern-surface dark:border-tavern-border dark:text-tavern-text dark:hover:bg-tavern-surface-alt',
-		ghost:
-			'text-ink-muted hover:bg-surface-alt hover:text-ink dark:text-tavern-muted dark:hover:bg-tavern-surface-alt dark:hover:text-tavern-text',
-		danger: 'bg-error text-white hover:bg-red-800 dark:bg-tavern-error dark:hover:bg-red-700',
+		primary: 'bg-accent text-white hover:bg-accent-hover',
+		secondary: 'bg-surface border border-border text-ink hover:bg-surface-alt',
+		ghost: 'text-ink-muted hover:bg-surface-alt hover:text-ink',
+		danger: 'bg-error text-white hover:bg-red-800 dark:hover:bg-red-700',
 	};
 
 	const spinnerClasses = {

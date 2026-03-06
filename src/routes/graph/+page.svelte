@@ -312,31 +312,24 @@
 
 <div class="mx-auto max-w-[1280px] p-6">
 	<header class="mb-5">
-		<h1
-			class="text-2xl font-bold text-ink dark:text-tavern-text"
-			style="font-family: var(--font-serif)"
-		>
-			Link Graph
-		</h1>
-		<p class="mt-1 text-sm text-ink-muted dark:text-tavern-muted">
+		<h1 class="text-2xl font-bold text-ink" style="font-family: var(--font-serif)">Link Graph</h1>
+		<p class="mt-1 text-sm text-ink-muted">
 			Force-directed exploration of note relationships with folder clustering and weighted links.
 		</p>
 	</header>
 
-	<section
-		class="mb-4 grid gap-2 rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface md:grid-cols-4"
-	>
+	<section class="mb-4 grid gap-2 rounded-lg border border-border bg-surface p-3 md:grid-cols-4">
 		<input
 			type="text"
 			bind:value={query}
 			aria-label="Filter graph notes by text"
 			placeholder="Highlight matching notes..."
-			class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+			class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 		/>
 		<select
 			bind:value={selectedFolder}
 			aria-label="Filter graph by folder"
-			class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+			class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 		>
 			<option value="">All folders</option>
 			{#each folders as folder (folder)}
@@ -346,7 +339,7 @@
 		<select
 			bind:value={selectedTag}
 			aria-label="Filter graph by tag"
-			class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+			class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 		>
 			<option value="">All tags</option>
 			{#each tags as tag (tag)}
@@ -354,7 +347,7 @@
 			{/each}
 		</select>
 		<label
-			class="flex items-center gap-2 rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+			class="flex items-center gap-2 rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 		>
 			<input type="checkbox" bind:checked={hideIsolated} />
 			Hide isolated
@@ -363,9 +356,7 @@
 
 	<section class="mb-4 flex flex-wrap items-center gap-2 text-xs">
 		{#each tags.slice(0, 8) as tag (tag)}
-			<span
-				class="rounded-full border border-border px-2 py-0.5 text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
-			>
+			<span class="rounded-full border border-border px-2 py-0.5 text-ink-muted">
 				<span
 					class="mr-1 inline-block h-2.5 w-2.5 rounded-full align-middle"
 					style={`background:${colorForTag(tag)};`}
@@ -374,17 +365,13 @@
 			</span>
 		{/each}
 		{#if tags.length === 0}
-			<span class="text-ink-muted dark:text-tavern-muted">No tags found for color coding yet.</span>
+			<span class="text-ink-muted">No tags found for color coding yet.</span>
 		{/if}
 	</section>
 
 	<section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-		<div
-			class="rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
-		>
-			<div
-				class="mb-2 flex flex-wrap items-center gap-3 text-xs text-ink-muted dark:text-tavern-muted"
-			>
+		<div class="rounded-lg border border-border bg-surface p-3">
+			<div class="mb-2 flex flex-wrap items-center gap-3 text-xs text-ink-muted">
 				<span>{graphNodes.length} nodes</span>
 				<span>{graphEdges.length} edges</span>
 				<span>{qualityReport.orphanNoteIds.length} orphans</span>
@@ -393,14 +380,14 @@
 				<span>{Math.round(qualityReport.totals.crossFolderLinkDensity * 100)}% cross-folder</span>
 			</div>
 			{#if graphNodes.length === 0}
-				<p class="text-sm text-ink-muted dark:text-tavern-muted">
+				<p class="text-sm text-ink-muted">
 					No nodes match the active folder/tag/isolation filters.
 				</p>
 			{:else}
 				<div class="overflow-x-auto">
 					<svg
 						viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-						class="min-w-[900px] rounded border border-border bg-parchment dark:border-tavern-border dark:bg-tavern-bg"
+						class="min-w-[900px] rounded border border-border bg-bg"
 						aria-label="Visual link graph"
 					>
 						{#each graphEdges as edge (edge.sourceId + '->' + edge.targetId)}
@@ -414,7 +401,7 @@
 									y2={targetPos.y}
 									stroke="currentColor"
 									stroke-width={Math.min(5, 1 + Math.log2(edge.count + 1))}
-									class="text-ink-faint/35 dark:text-tavern-faint/45"
+									class="text-ink-faint/35/45"
 									opacity={Math.min(0.85, 0.3 + edge.count * 0.12)}
 								/>
 							{/if}
@@ -444,12 +431,7 @@
 										stroke={selectedNodeId === String(node.id) ? '#1f2937' : '#11182755'}
 										stroke-width={selectedNodeId === String(node.id) ? 2.2 : 1.1}
 									/>
-									<text
-										x={pos.x}
-										y={pos.y + 28}
-										text-anchor="middle"
-										class="fill-ink text-[11px] dark:fill-tavern-text"
-									>
+									<text x={pos.x} y={pos.y + 28} text-anchor="middle" class="fill-ink text-[11px]">
 										{node.title.length > 18 ? `${node.title.slice(0, 18)}...` : node.title}
 									</text>
 								</g>
@@ -460,27 +442,21 @@
 			{/if}
 		</div>
 
-		<aside
-			class="rounded-lg border border-border bg-surface p-4 dark:border-tavern-border dark:bg-tavern-surface"
-		>
+		<aside class="rounded-lg border border-border bg-surface p-4">
 			{#if !selectedNode}
-				<p class="text-sm text-ink-muted dark:text-tavern-muted">Select a node to inspect it.</p>
+				<p class="text-sm text-ink-muted">Select a node to inspect it.</p>
 			{:else}
-				<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">{selectedNode.title}</h2>
-				<p class="mt-1 text-xs text-ink-faint dark:text-tavern-faint">
+				<h2 class="text-sm font-semibold text-ink">{selectedNode.title}</h2>
+				<p class="mt-1 text-xs text-ink-faint">
 					{String(selectedNode.folder)}
 				</p>
-				<p class="mt-3 text-xs text-ink-muted dark:text-tavern-muted">
+				<p class="mt-3 text-xs text-ink-muted">
 					{previewText(selectedNode.content)}
 				</p>
 
 				<div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
-					<span class="rounded bg-surface-alt px-2 py-0.5 dark:bg-tavern-surface-alt"
-						>in {selectedNode.inbound}</span
-					>
-					<span class="rounded bg-surface-alt px-2 py-0.5 dark:bg-tavern-surface-alt"
-						>out {selectedNode.outbound}</span
-					>
+					<span class="rounded bg-surface-alt px-2 py-0.5">in {selectedNode.inbound}</span>
+					<span class="rounded bg-surface-alt px-2 py-0.5">out {selectedNode.outbound}</span>
 					{#if selectedNode.hubScore > 0}
 						<span
 							class="rounded bg-amber-100 px-2 py-0.5 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200"
@@ -497,16 +473,16 @@
 
 				<div class="mt-4 space-y-3">
 					<div>
-						<p class="text-xs font-medium text-ink dark:text-tavern-text">Outbound</p>
+						<p class="text-xs font-medium text-ink">Outbound</p>
 						{#if selectedOutbound.length === 0}
-							<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted">No outbound links.</p>
+							<p class="mt-1 text-xs text-ink-muted">No outbound links.</p>
 						{:else}
 							<ul class="mt-1 space-y-1">
 								{#each selectedOutbound as entry (entry.id)}
 									<li>
 										<button
 											type="button"
-											class="text-xs text-accent hover:underline dark:text-tavern-accent"
+											class="text-xs text-accent hover:underline"
 											onclick={() => (selectedNodeId = entry.id)}
 										>
 											{entry.title}
@@ -517,16 +493,16 @@
 						{/if}
 					</div>
 					<div>
-						<p class="text-xs font-medium text-ink dark:text-tavern-text">Inbound</p>
+						<p class="text-xs font-medium text-ink">Inbound</p>
 						{#if selectedInbound.length === 0}
-							<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted">No inbound links.</p>
+							<p class="mt-1 text-xs text-ink-muted">No inbound links.</p>
 						{:else}
 							<ul class="mt-1 space-y-1">
 								{#each selectedInbound as entry (entry.id)}
 									<li>
 										<button
 											type="button"
-											class="text-xs text-accent hover:underline dark:text-tavern-accent"
+											class="text-xs text-accent hover:underline"
 											onclick={() => (selectedNodeId = entry.id)}
 										>
 											{entry.title}

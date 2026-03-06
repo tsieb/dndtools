@@ -382,6 +382,14 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
     - `src/lib/state/input-modality.svelte.test.ts`
     - `tests/e2e/navigation.spec.ts` (medium overlay, split-view, and shortcut overlay behaviors)
   - Updated medium-tier architecture contract docs in `docs/architecture/LAYOUT_TIERS.md`
+- **Epic 15.1** — Design Token Architecture:
+  - Redesigned `src/app.css` with a semantic color token layer (`--color-bg`, `--color-surface`, `--color-surface-elevated`, `--color-surface-alt`, `--color-border`, `--color-border-strong`, `--color-ink`, `--color-ink-muted`, `--color-ink-faint`, `--color-accent`, `--color-accent-hover`, `--color-accent-subtle`, `--color-accent-foreground`, `--color-success`, `--color-warning`, `--color-error`, `--color-focus-ring`)
+  - Dark mode override block `html.dark { }` sets all semantic tokens to tavern palette values — components no longer need `dark:` Tailwind prefix for structural/surface styling
+  - Typography scale tokens (`--text-2xs` through `--text-2xl`) override Tailwind defaults; letter-spacing and font-weight tokens added
+  - Spacing scale (4px base unit, `--space-0.5` through `--space-16`) with component token layer (`--component-nav-item-px/py`, `--component-card-padding`)
+  - Motion tokens (`--duration-fast/medium/slow`, `--easing-standard/decelerate/accelerate`) with `prefers-reduced-motion` collapse; elevation tokens (`--shadow-sm/md/lg`)
+  - All 85 Svelte component files migrated from `dark:*-tavern-*` patterns to single semantic token class (1936 → 60 remaining `dark:` usages, all for status-indicator colors only)
+  - Architecture contract: `docs/architecture/DESIGN_TOKENS.md`
 
 ## What Not To Do
 

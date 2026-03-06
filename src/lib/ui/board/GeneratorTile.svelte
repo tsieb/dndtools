@@ -14,9 +14,9 @@
 </script>
 
 <div
-	class="relative rounded-lg border bg-surface/95 dark:bg-tavern-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-150 cursor-pointer hover:shadow-md {selected
-		? 'border-border dark:border-tavern-border ring-2 ring-accent/45 dark:ring-tavern-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
-		: 'border-border dark:border-tavern-border'}"
+	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-150 cursor-pointer hover:shadow-md {selected
+		? 'border-border ring-2 ring-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
+		: 'border-border'}"
 	style="background-color: {tile.style?.backgroundColor ?? ''}; border-color: {tile.style
 		?.borderColor ?? ''}; border-width: {tile.style?.borderWidth !== undefined
 		? `${tile.style.borderWidth}px`
@@ -48,13 +48,9 @@
 		if (editable) ondragstart(event);
 	}}
 >
-	<header
-		class="px-3 py-2 border-b border-border dark:border-tavern-border flex items-center gap-2"
-	>
-		<div class="font-medium text-sm text-ink dark:text-tavern-text flex-1">Generator</div>
-		<span
-			class="text-[10px] px-1.5 py-0.5 rounded border border-border/70 dark:border-tavern-border/70 text-ink-faint dark:text-tavern-faint"
-		>
+	<header class="px-3 py-2 border-b border-border flex items-center gap-2">
+		<div class="font-medium text-sm text-ink flex-1">Generator</div>
+		<span class="text-[10px] px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
 			Ctrl+G
 		</span>
 	</header>

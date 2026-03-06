@@ -112,17 +112,15 @@
 </script>
 
 {#if loading || backlinks.length > 0}
-	<section
-		class="rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
-	>
+	<section class="rounded-lg border border-border bg-surface p-3">
 		<div class="flex items-center justify-between gap-2">
-			<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">
+			<h2 class="text-sm font-semibold text-ink">
 				Referenced by ({backlinks.length})
 			</h2>
 			{#if isNarrowViewport}
 				<button
 					type="button"
-					class="rounded px-2 py-1 text-xs text-ink-muted transition-colors hover:bg-surface-alt hover:text-ink dark:text-tavern-muted dark:hover:bg-tavern-surface-alt dark:hover:text-tavern-text"
+					class="rounded px-2 py-1 text-xs text-ink-muted transition-colors hover:bg-surface-alt hover:text-ink"
 					onclick={() => (expanded = !expanded)}
 					aria-expanded={expanded}
 					aria-label={expanded ? 'Collapse backlinks panel' : 'Expand backlinks panel'}
@@ -134,25 +132,21 @@
 
 		{#if expanded}
 			{#if loading}
-				<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">Loading backlinks...</p>
+				<p class="mt-2 text-xs text-ink-muted">Loading backlinks...</p>
 			{:else if backlinks.length === 0}
-				<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">No backlinks found.</p>
+				<p class="mt-2 text-xs text-ink-muted">No backlinks found.</p>
 			{:else}
 				<ul class="mt-3 space-y-3">
 					{#each backlinks as backlink (backlink.key)}
-						<li
-							class="rounded border border-border/70 bg-surface-alt/60 p-2 dark:border-tavern-border/70 dark:bg-tavern-surface-alt/60"
-						>
+						<li class="rounded border border-border/70 bg-surface-alt/60 p-2">
 							<a
 								href={resolve(`/knowledge/notes/${backlink.sourceId}`)}
-								class="text-sm font-medium text-accent underline underline-offset-2 hover:text-accent-hover dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
+								class="text-sm font-medium text-accent underline underline-offset-2 hover:text-accent-hover"
 							>
 								{backlink.sourceTitle}
 							</a>
 							<nav class="mt-1" aria-label="Contextual navigation: Backlink source folder path">
-								<ol
-									class="flex flex-wrap items-center gap-1 text-[11px] text-ink-faint dark:text-tavern-faint"
-								>
+								<ol class="flex flex-wrap items-center gap-1 text-[11px] text-ink-faint">
 									<li>Knowledge</li>
 									{#if backlink.sourceFolderSegments.length > 0}
 										<li aria-hidden="true">/</li>
@@ -165,7 +159,7 @@
 									{/each}
 								</ol>
 							</nav>
-							<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted">
+							<p class="mt-1 text-xs text-ink-muted">
 								{backlink.contextSnippet}
 							</p>
 						</li>

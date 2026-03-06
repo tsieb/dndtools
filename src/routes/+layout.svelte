@@ -803,8 +803,8 @@
 	<LiveAnnouncer />
 {:else if runtimeState.migrationReport}
 	{#await import('$lib/ui/migration/MigrationReadinessScreen.svelte')}
-		<div class="flex h-screen items-center justify-center bg-parchment dark:bg-tavern-bg">
-			<p class="text-sm text-ink-muted dark:text-tavern-muted">Loading upgrade screen…</p>
+		<div class="flex h-screen items-center justify-center bg-bg">
+			<p class="text-sm text-ink-muted">Loading upgrade screen…</p>
 		</div>
 	{:then MigrationModule}
 		<MigrationModule.default
@@ -815,14 +815,12 @@
 		/>
 	{/await}
 {:else if runtimeState.error}
-	<div class="flex h-screen items-center justify-center bg-parchment dark:bg-tavern-bg">
-		<div
-			class="text-center max-w-md p-6 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
-		>
-			<p class="text-lg font-semibold text-ink dark:text-tavern-text">Failed to load vault</p>
-			<p class="text-sm text-ink-muted dark:text-tavern-muted mt-2">{runtimeState.error}</p>
+	<div class="flex h-screen items-center justify-center bg-bg">
+		<div class="text-center max-w-md p-6 rounded-lg border border-border bg-surface">
+			<p class="text-lg font-semibold text-ink">Failed to load vault</p>
+			<p class="text-sm text-ink-muted mt-2">{runtimeState.error}</p>
 			<button
-				class="mt-4 px-3 py-1.5 rounded-md text-sm bg-accent text-white hover:bg-accent-hover dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover"
+				class="mt-4 px-3 py-1.5 rounded-md text-sm bg-accent text-white hover:bg-accent-hover"
 				onclick={handleRetryInit}
 			>
 				Retry
@@ -830,21 +828,17 @@
 		</div>
 	</div>
 {:else}
-	<div class="flex h-screen items-center justify-center bg-parchment dark:bg-tavern-bg">
+	<div class="flex h-screen items-center justify-center bg-bg">
 		<div class="text-center animate-fade-in">
 			<div class="mb-4 flex justify-center">
-				<img
-					src="/app-icon.svg"
-					alt=""
-					class="w-12 h-12 rounded-xl ring-1 ring-black/10 dark:ring-white/10 shadow-sm"
-				/>
+				<img src="/app-icon.svg" alt="" class="w-12 h-12 rounded-xl ring-1 ring-border shadow-sm" />
 			</div>
-			<p class="text-lg font-semibold text-ink dark:text-tavern-text">DND Tools</p>
+			<p class="text-lg font-semibold text-ink">DND Tools</p>
 			<div class="flex items-center justify-center gap-2 mt-3">
 				<div
-					class="w-4 h-4 border-2 border-accent/30 dark:border-tavern-accent/30 border-t-accent dark:border-t-tavern-accent rounded-full animate-spin"
+					class="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin"
 				></div>
-				<p class="text-sm text-ink-muted dark:text-tavern-muted">Loading your vault...</p>
+				<p class="text-sm text-ink-muted">Loading your vault...</p>
 			</div>
 		</div>
 	</div>

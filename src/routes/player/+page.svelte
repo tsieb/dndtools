@@ -43,19 +43,14 @@
 <div class="p-6 max-w-content mx-auto">
 	<div class="mb-5 flex items-center justify-between gap-3">
 		<div>
-			<h1
-				class="text-2xl font-bold text-ink dark:text-tavern-text"
-				style="font-family: var(--font-serif)"
-			>
+			<h1 class="text-2xl font-bold text-ink" style="font-family: var(--font-serif)">
 				Player Screen
 			</h1>
-			<p class="text-sm text-ink-muted dark:text-tavern-muted mt-1">
-				Showing shared and public notes only.
-			</p>
+			<p class="text-sm text-ink-muted mt-1">Showing shared and public notes only.</p>
 		</div>
 		<button
 			type="button"
-			class="rounded-md border border-border dark:border-tavern-border px-3 py-1.5 text-sm text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			class="rounded-md border border-border px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-alt"
 			onclick={() => void exitPlayerMode()}
 		>
 			Exit Player Mode
@@ -71,15 +66,13 @@
 			type="text"
 			bind:value={query}
 			placeholder="Search visible notes"
-			class="w-full rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-3 py-2 text-sm text-ink dark:text-tavern-text"
+			class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink"
 		/>
 	</div>
 
 	{#if filteredNotes.length === 0}
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-5 text-center"
-		>
-			<p class="text-sm text-ink-muted dark:text-tavern-muted">
+		<div class="rounded-lg border border-border bg-surface p-5 text-center">
+			<p class="text-sm text-ink-muted">
 				{normalizedQuery
 					? 'No player-visible notes match your search.'
 					: 'No shared or public notes are available.'}

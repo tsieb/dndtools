@@ -889,75 +889,69 @@
 
 {#if object}
 	{@const labels = labelsForObject(object)}
-	<section
-		class="mb-3 rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
-	>
-		<h2
-			class="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
-		>
+	<section class="mb-3 rounded-lg border border-border bg-surface p-3">
+		<h2 class="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint">
 			Object Form ({object.type})
 		</h2>
 		<div class="grid gap-2 md:grid-cols-2">
-			<label class="text-xs text-ink-muted dark:text-tavern-muted">
+			<label class="text-xs text-ink-muted">
 				{labels.a}
 				<input
 					bind:value={fieldA}
-					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 				/>
 			</label>
-			<label class="text-xs text-ink-muted dark:text-tavern-muted">
+			<label class="text-xs text-ink-muted">
 				{labels.b}
 				<input
 					bind:value={fieldB}
-					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 				/>
 			</label>
-			<label class="text-xs text-ink-muted dark:text-tavern-muted">
+			<label class="text-xs text-ink-muted">
 				{labels.c}
 				<input
 					bind:value={fieldC}
-					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 				/>
 			</label>
-			<label class="text-xs text-ink-muted dark:text-tavern-muted">
+			<label class="text-xs text-ink-muted">
 				{labels.d}
 				<input
 					bind:value={fieldD}
-					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 				/>
 			</label>
 			{#if object.type === 'timeline_event' && timelineDatePreview}
 				<div
-					class="md:col-span-2 rounded border border-border bg-surface-alt px-2 py-1.5 text-xs text-ink-muted dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-muted"
+					class="md:col-span-2 rounded border border-border bg-surface-alt px-2 py-1.5 text-xs text-ink-muted"
 				>
 					<p>
-						Formatted date: <span class="font-medium text-ink dark:text-tavern-text"
-							>{timelineDatePreview.short}</span
-						>
+						Formatted date: <span class="font-medium text-ink">{timelineDatePreview.short}</span>
 					</p>
 					<p class="mt-0.5">ISO-equivalent: <code>{timelineDatePreview.iso}</code></p>
 				</div>
 			{/if}
-			<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
+			<label class="text-xs text-ink-muted md:col-span-2">
 				{labels.listA} (comma-separated)
 				<input
 					bind:value={listA}
-					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 				/>
 			</label>
-			<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
+			<label class="text-xs text-ink-muted md:col-span-2">
 				{labels.listB} (comma-separated)
 				<input
 					bind:value={listB}
-					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 				/>
 			</label>
-			<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
+			<label class="text-xs text-ink-muted md:col-span-2">
 				Relationships (<code>type-or-label:targetOrSession:description</code>)
 				<textarea
 					bind:value={relationships}
 					rows="3"
-					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+					class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 				></textarea>
 			</label>
 		</div>
@@ -969,34 +963,28 @@
 			>
 				Apply + Sync Markdown
 			</button>
-			<p class="text-xs text-ink-faint dark:text-tavern-faint">
+			<p class="text-xs text-ink-faint">
 				Graph: {relationshipStats.outbound} outbound / {relationshipStats.inbound} inbound
 			</p>
 		</div>
-		<div
-			class="mt-3 rounded border border-border bg-surface-alt p-2 dark:border-tavern-border dark:bg-tavern-surface-alt"
-		>
-			<p class="text-xs font-semibold text-ink-faint dark:text-tavern-faint">Relationship Graph</p>
+		<div class="mt-3 rounded border border-border bg-surface-alt p-2">
+			<p class="text-xs font-semibold text-ink-faint">Relationship Graph</p>
 			{#if relationshipRows.length === 0}
-				<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted">
-					No relationship edges for this object yet.
-				</p>
+				<p class="mt-1 text-xs text-ink-muted">No relationship edges for this object yet.</p>
 			{:else}
-				<ul class="mt-1 space-y-1 text-xs text-ink dark:text-tavern-text">
+				<ul class="mt-1 space-y-1 text-xs text-ink">
 					{#each relationshipRows as row (row.id)}
 						<li class="flex items-center gap-2">
-							<span
-								class="rounded bg-surface px-1.5 py-0.5 text-[10px] uppercase tracking-wide dark:bg-tavern-surface"
-							>
+							<span class="rounded bg-surface px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
 								{row.direction}
 							</span>
 							<span class="font-semibold">{row.label}</span>
 							{#if row.sessionId}
-								<span class="text-ink-muted dark:text-tavern-muted">session:{row.sessionId}</span>
+								<span class="text-ink-muted">session:{row.sessionId}</span>
 							{:else if row.targetId}
 								<button
 									type="button"
-									class="rounded bg-surface px-2 py-0.5 text-left text-[11px] hover:bg-surface-alt dark:bg-tavern-surface dark:hover:bg-tavern-surface-alt"
+									class="rounded bg-surface px-2 py-0.5 text-left text-[11px] hover:bg-surface-alt"
 									onclick={() => row.targetId && void openObjectNote(row.targetId)}
 								>
 									{row.targetName ?? row.targetId}
@@ -1015,20 +1003,20 @@
 		{#if lintIssues.length > 0}
 			<div class="mt-3 rounded border border-warning/40 bg-warning/10 p-2">
 				<p class="text-xs font-semibold text-warning">Validation</p>
-				<ul class="mt-1 space-y-1 text-xs text-ink dark:text-tavern-text">
+				<ul class="mt-1 space-y-1 text-xs text-ink">
 					{#each lintIssues as issue (issue.code + issue.field)}
 						<li class="flex items-start justify-between gap-2">
 							<div class="min-w-0">
 								<p>{issue.severity.toUpperCase()}: {issue.message}</p>
 								{#if issue.suggestedFix}
-									<p class="text-[11px] text-ink-muted dark:text-tavern-muted">
+									<p class="text-[11px] text-ink-muted">
 										{issue.suggestedFix}
 									</p>
 								{/if}
 							</div>
 							<button
 								type="button"
-								class="shrink-0 rounded bg-surface-alt px-2 py-0.5 text-[11px] text-ink hover:bg-surface dark:bg-tavern-surface dark:text-tavern-text dark:hover:bg-tavern-surface-alt"
+								class="shrink-0 rounded bg-surface-alt px-2 py-0.5 text-[11px] text-ink hover:bg-surface"
 								onclick={() => void applyLintFix(issue)}
 								disabled={loading}
 							>
@@ -1041,25 +1029,23 @@
 		{/if}
 		{#if history.length > 0}
 			<div class="mt-3">
-				<p class="text-xs font-semibold text-ink-faint dark:text-tavern-faint">Change History</p>
-				<div
-					class="mt-1 max-h-40 overflow-y-auto rounded border border-border dark:border-tavern-border"
-				>
+				<p class="text-xs font-semibold text-ink-faint">Change History</p>
+				<div class="mt-1 max-h-40 overflow-y-auto rounded border border-border">
 					{#each history as entry, index (entry.id)}
 						<div
-							class="flex items-center justify-between gap-2 border-b border-border px-2 py-1.5 text-xs dark:border-tavern-border last:border-b-0"
+							class="flex items-center justify-between gap-2 border-b border-border px-2 py-1.5 text-xs last:border-b-0"
 						>
 							<div class="min-w-0">
-								<p class="truncate text-ink dark:text-tavern-text">
+								<p class="truncate text-ink">
 									{entry.reason} - {entry.recordedAt}
 								</p>
-								<p class="truncate text-ink-muted dark:text-tavern-muted">{entry.object.name}</p>
-								<p class="truncate text-[11px] text-ink-faint dark:text-tavern-faint">
+								<p class="truncate text-ink-muted">{entry.object.name}</p>
+								<p class="truncate text-[11px] text-ink-faint">
 									{computeHistoryDelta(index)}
 								</p>
 							</div>
 							<button
-								class="rounded bg-surface-alt px-2 py-1 text-[11px] text-ink dark:bg-tavern-surface-alt dark:text-tavern-text"
+								class="rounded bg-surface-alt px-2 py-1 text-[11px] text-ink"
 								onclick={() => void revertTo(entry.id)}
 								disabled={loading}
 							>
@@ -1071,7 +1057,7 @@
 			</div>
 		{/if}
 		{#if error}
-			<p class="mt-2 text-xs text-error dark:text-tavern-error">{error}</p>
+			<p class="mt-2 text-xs text-error">{error}</p>
 		{/if}
 	</section>
 {/if}

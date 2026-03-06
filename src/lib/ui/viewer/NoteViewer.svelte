@@ -486,23 +486,23 @@
 	<div
 		id={wikilinkCardId}
 		role="tooltip"
-		class="fixed z-30 w-80 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface shadow-xl p-3 pointer-events-none"
+		class="fixed z-30 w-80 rounded-lg border border-border bg-surface shadow-xl p-3 pointer-events-none"
 		style={`left:${wikilinkCard.left}px; top:${wikilinkCard.top}px;`}
 	>
-		<p class="text-sm font-semibold text-ink dark:text-tavern-text truncate">
+		<p class="text-sm font-semibold text-ink truncate">
 			{wikilinkCard.noteTitle}
 		</p>
 		{#if wikilinkCard.keyStats.length > 0}
-			<p class="mt-1 text-[11px] text-ink-muted dark:text-tavern-muted">
+			<p class="mt-1 text-[11px] text-ink-muted">
 				{wikilinkCard.keyStats.join(' | ')}
 			</p>
 		{/if}
 		{#if wikilinkCard.previewLines.length > 0}
-			<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">
+			<p class="mt-2 text-xs text-ink-muted">
 				{wikilinkCard.previewLines.slice(0, 3).join(' ')}
 			</p>
 		{:else if !wikilinkCard.exists}
-			<p class="mt-2 text-xs text-ink-faint dark:text-tavern-faint">
+			<p class="mt-2 text-xs text-ink-faint">
 				No note currently resolves for [[{wikilinkCard.title}]].
 			</p>
 		{/if}

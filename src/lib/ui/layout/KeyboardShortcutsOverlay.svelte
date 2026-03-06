@@ -53,28 +53,26 @@
 		tabindex="-1"
 	>
 		<div
-			class="w-full max-w-lg overflow-hidden rounded-lg border border-border bg-surface shadow-xl dark:border-tavern-border dark:bg-tavern-surface"
+			class="w-full max-w-lg overflow-hidden rounded-lg border border-border bg-surface shadow-xl"
 			use:focusTrap
 		>
-			<div
-				class="flex items-center justify-between border-b border-border px-4 py-3 dark:border-tavern-border"
-			>
-				<h2 class="text-base font-semibold text-ink dark:text-tavern-text">Keyboard Shortcuts</h2>
+			<div class="flex items-center justify-between border-b border-border px-4 py-3">
+				<h2 class="text-base font-semibold text-ink">Keyboard Shortcuts</h2>
 				<button
 					type="button"
-					class="rounded-md px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+					class="rounded-md px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 					onclick={closeOverlay}
 					aria-label="Close keyboard shortcuts overlay"
 				>
 					Close
 				</button>
 			</div>
-			<ul class="max-h-[65vh] divide-y divide-border overflow-y-auto dark:divide-tavern-border">
+			<ul class="max-h-[65vh] divide-y divide-border overflow-y-auto">
 				{#each SHORTCUTS as item (item.shortcut)}
 					<li class="flex items-center justify-between gap-3 px-4 py-3">
-						<span class="text-sm text-ink dark:text-tavern-text">{item.action}</span>
+						<span class="text-sm text-ink">{item.action}</span>
 						<kbd
-							class="rounded border border-border bg-surface-alt px-2 py-0.5 font-mono text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+							class="rounded border border-border bg-surface-alt px-2 py-0.5 font-mono text-xs text-ink"
 						>
 							{item.shortcut}
 						</kbd>

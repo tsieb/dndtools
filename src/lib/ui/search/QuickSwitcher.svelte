@@ -708,15 +708,15 @@
 		tabindex="-1"
 	>
 		<div
-			class="mx-4 w-full max-w-3xl overflow-hidden rounded-lg border border-border bg-surface shadow-xl dark:border-tavern-border dark:bg-tavern-surface"
+			class="mx-4 w-full max-w-3xl overflow-hidden rounded-lg border border-border bg-surface shadow-xl"
 		>
-			<div class="border-b border-border p-3 dark:border-tavern-border">
+			<div class="border-b border-border p-3">
 				<input
 					bind:this={inputRef}
 					bind:value={query}
 					type="text"
 					placeholder="Type to find notes | > commands | # tags | / sections"
-					class="w-full bg-transparent text-base text-ink outline-none placeholder:text-ink-faint dark:text-tavern-text dark:placeholder:text-tavern-faint"
+					class="w-full bg-transparent text-base text-ink outline-none placeholder:text-ink-faint"
 					role="combobox"
 					aria-label="Command palette query"
 					aria-expanded={items.length > 0}
@@ -726,13 +726,9 @@
 						: undefined}
 				/>
 				<div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-					<span
-						class="rounded-md bg-surface-alt px-2 py-1 text-ink-muted dark:bg-tavern-surface-alt dark:text-tavern-muted"
-						>{modeLabel}</span
-					>
+					<span class="rounded-md bg-surface-alt px-2 py-1 text-ink-muted">{modeLabel}</span>
 					{#if notesModeActive}
-						<span
-							class="rounded-md border border-border px-2 py-1 text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
+						<span class="rounded-md border border-border px-2 py-1 text-ink-muted"
 							>{scopeLabel}</span
 						>
 					{/if}
@@ -745,8 +741,8 @@
 								data-scope-selector="true"
 								class="rounded-md border px-2 py-1 text-xs {noteScope.kind === option.scope.kind &&
 								noteScope.value === option.scope.value
-									? 'border-accent bg-accent-subtle text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-									: 'border-border text-ink-muted dark:border-tavern-border dark:text-tavern-muted'}"
+									? 'border-accent bg-accent-subtle text-accent'
+									: 'border-border text-ink-muted'}"
 								onclick={() => setScope(option.scope)}
 								aria-pressed={noteScope.kind === option.scope.kind &&
 									noteScope.value === option.scope.value}
@@ -763,7 +759,7 @@
 					{#each items as item, i (item.id)}
 						{#if shouldShowGroup(i)}
 							<li
-								class="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
+								class="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint"
 							>
 								{item.group}
 							</li>
@@ -774,16 +770,16 @@
 								data-command-palette-option="true"
 								class="w-full px-3 py-2 text-left transition-colors disabled:opacity-50 {i ===
 								selectedIndex
-									? 'bg-accent-subtle dark:bg-tavern-accent-subtle'
-									: 'hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+									? 'bg-accent-subtle'
+									: 'hover:bg-surface-alt'}"
 								onclick={() => !item.disabled && void item.run()}
 								disabled={item.disabled}
 								title={item.title}
 							>
-								<span class="block truncate text-sm font-medium text-ink dark:text-tavern-text">
+								<span class="block truncate text-sm font-medium text-ink">
 									{item.title}
 								</span>
-								<span class="block truncate text-xs text-ink-muted dark:text-tavern-muted">
+								<span class="block truncate text-xs text-ink-muted">
 									{item.subtitle}
 								</span>
 							</button>
@@ -791,14 +787,12 @@
 					{/each}
 				</ul>
 			{:else}
-				<div class="px-3 py-6 text-center text-sm text-ink-muted dark:text-tavern-muted">
+				<div class="px-3 py-6 text-center text-sm text-ink-muted">
 					No results found for this mode
 				</div>
 			{/if}
 
-			<div
-				class="flex flex-wrap gap-3 border-t border-border px-3 py-2 text-xs text-ink-faint dark:border-tavern-border dark:text-tavern-faint"
-			>
+			<div class="flex flex-wrap gap-3 border-t border-border px-3 py-2 text-xs text-ink-faint">
 				<span><kbd class="font-mono">up/down</kbd> move</span>
 				<span><kbd class="font-mono">enter</kbd> activate</span>
 				<span><kbd class="font-mono">tab</kbd> scope controls</span>

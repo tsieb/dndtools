@@ -244,5 +244,5 @@
 
 <div
 	bind:this={editorContainer}
-	class="min-h-[400px] w-full border border-border dark:border-tavern-border rounded-t-lg bg-surface dark:bg-tavern-surface overflow-hidden focus-within:border-accent/50 dark:focus-within:border-tavern-accent/50 transition-colors"
+	class="min-h-[400px] w-full border border-border rounded-t-lg bg-surface overflow-hidden focus-within:border-accent/50 transition-colors"
 ></div>

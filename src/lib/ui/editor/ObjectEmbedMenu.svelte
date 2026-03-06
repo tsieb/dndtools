@@ -589,11 +589,9 @@
 	}
 </script>
 
-<div
-	class="mb-2 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
->
+<div class="mb-2 rounded-lg border border-border bg-surface">
 	<button
-		class="w-full px-3 py-2 text-left text-sm font-medium text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt rounded-lg"
+		class="w-full px-3 py-2 text-left text-sm font-medium text-ink hover:bg-surface-alt rounded-lg"
 		onclick={() => (expanded = !expanded)}
 	>
 		{expanded ? 'Hide Embeds' : 'Embeds'}
@@ -604,24 +602,24 @@
 			<div class="flex gap-2 mb-2">
 				<button
 					class="px-2 py-1 text-xs rounded-md {mode === 'create'
-						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
-						: 'bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted'}"
+						? 'bg-accent-subtle text-accent'
+						: 'bg-surface-alt text-ink-muted'}"
 					onclick={() => (mode = 'create')}
 				>
 					Create
 				</button>
 				<button
 					class="px-2 py-1 text-xs rounded-md {mode === 'embed-objects'
-						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
-						: 'bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted'}"
+						? 'bg-accent-subtle text-accent'
+						: 'bg-surface-alt text-ink-muted'}"
 					onclick={() => (mode = 'embed-objects')}
 				>
 					Embed Objects
 				</button>
 				<button
 					class="px-2 py-1 text-xs rounded-md {mode === 'embed-notes'
-						? 'bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent'
-						: 'bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted'}"
+						? 'bg-accent-subtle text-accent'
+						: 'bg-surface-alt text-ink-muted'}"
 					onclick={() => (mode = 'embed-notes')}
 				>
 					Embed Notes
@@ -631,11 +629,11 @@
 			{#if mode === 'create'}
 				{@const labels = labelSetForType(createType)}
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-					<label class="text-xs text-ink-muted dark:text-tavern-muted">
+					<label class="text-xs text-ink-muted">
 						Type
 						<select
 							bind:value={createType}
-							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm"
+							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border bg-surface text-sm"
 						>
 							<option value="stat_block">Stat Block</option>
 							<option value="character">Character</option>
@@ -651,98 +649,98 @@
 							<option value="timeline_event">Timeline Event</option>
 						</select>
 					</label>
-					<label class="text-xs text-ink-muted dark:text-tavern-muted">
+					<label class="text-xs text-ink-muted">
 						Template
 						<select
 							bind:value={templateVariant}
-							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm"
+							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border bg-surface text-sm"
 						>
 							<option value="dnd5e">D&D 5e Baseline</option>
 						</select>
 					</label>
-					<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
+					<label class="text-xs text-ink-muted md:col-span-2">
 						Name
 						<input
 							type="text"
 							bind:value={name}
-							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm"
+							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border bg-surface text-sm"
 							placeholder="Object name"
 						/>
 					</label>
-					<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
+					<label class="text-xs text-ink-muted md:col-span-2">
 						Summary
 						<input
 							type="text"
 							bind:value={summary}
-							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm"
+							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border bg-surface text-sm"
 							placeholder="Optional short summary"
 						/>
 					</label>
-					<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
+					<label class="text-xs text-ink-muted md:col-span-2">
 						Tags
 						<input
 							type="text"
 							bind:value={tags}
-							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm"
+							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border bg-surface text-sm"
 							placeholder="comma,separated,tags"
 						/>
 					</label>
-					<label class="text-xs text-ink-muted dark:text-tavern-muted">
+					<label class="text-xs text-ink-muted">
 						{labels.a}
 						<input
 							type="text"
 							bind:value={fieldA}
-							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm"
+							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border bg-surface text-sm"
 						/>
 					</label>
-					<label class="text-xs text-ink-muted dark:text-tavern-muted">
+					<label class="text-xs text-ink-muted">
 						{labels.b}
 						<input
 							type="text"
 							bind:value={fieldB}
-							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm"
+							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border bg-surface text-sm"
 						/>
 					</label>
-					<label class="text-xs text-ink-muted dark:text-tavern-muted">
+					<label class="text-xs text-ink-muted">
 						{labels.c}
 						<input
 							type="text"
 							bind:value={fieldC}
-							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm"
+							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border bg-surface text-sm"
 						/>
 					</label>
-					<label class="text-xs text-ink-muted dark:text-tavern-muted">
+					<label class="text-xs text-ink-muted">
 						{labels.d}
 						<input
 							type="text"
 							bind:value={fieldD}
-							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm"
+							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border bg-surface text-sm"
 						/>
 					</label>
-					<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
+					<label class="text-xs text-ink-muted md:col-span-2">
 						{labels.listA} (comma-separated)
 						<input
 							type="text"
 							bind:value={listA}
-							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm"
+							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border bg-surface text-sm"
 						/>
 					</label>
-					<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
+					<label class="text-xs text-ink-muted md:col-span-2">
 						{labels.listB} (comma-separated)
 						<input
 							type="text"
 							bind:value={listB}
-							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm"
+							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border bg-surface text-sm"
 						/>
 					</label>
-					<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
+					<label class="text-xs text-ink-muted md:col-span-2">
 						Relationships (one per line: <code
 							>type-or-label:targetOrSession:optional description</code
 						>)
 						<textarea
 							bind:value={relationships}
 							rows="3"
-							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm"
+							class="w-full mt-1 px-2 py-1.5 rounded-md border border-border bg-surface text-sm"
 						></textarea>
 					</label>
 				</div>
@@ -760,12 +758,12 @@
 					<input
 						type="text"
 						bind:value={query}
-						class="px-2 py-1.5 text-xs rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
+						class="px-2 py-1.5 text-xs rounded-md border border-border bg-surface"
 						placeholder="Search objects..."
 					/>
 					<select
 						bind:value={filterType}
-						class="px-2 py-1.5 text-xs rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
+						class="px-2 py-1.5 text-xs rounded-md border border-border bg-surface"
 					>
 						<option value="all">All types</option>
 						<option value="stat_block">Stat blocks</option>
@@ -783,33 +781,27 @@
 					</select>
 				</div>
 
-				<div
-					class="max-h-52 overflow-y-auto border border-border dark:border-tavern-border rounded-md"
-				>
+				<div class="max-h-52 overflow-y-auto border border-border rounded-md">
 					{#if loading}
-						<div class="px-2 py-2 text-xs text-ink-muted dark:text-tavern-muted">
-							Loading objects...
-						</div>
+						<div class="px-2 py-2 text-xs text-ink-muted">Loading objects...</div>
 					{:else if filteredObjects.length === 0}
-						<div class="px-2 py-2 text-xs text-ink-muted dark:text-tavern-muted">
-							No objects found.
-						</div>
+						<div class="px-2 py-2 text-xs text-ink-muted">No objects found.</div>
 					{:else}
 						{#each filteredObjects as object (object.id)}
 							<div
-								class="flex items-center gap-2 px-2 py-1.5 border-b border-border dark:border-tavern-border last:border-b-0"
+								class="flex items-center gap-2 px-2 py-1.5 border-b border-border last:border-b-0"
 							>
 								<div class="min-w-0 flex-1">
-									<p class="text-xs font-medium text-ink dark:text-tavern-text truncate">
+									<p class="text-xs font-medium text-ink truncate">
 										{object.name}
 									</p>
-									<p class="text-[11px] text-ink-muted dark:text-tavern-muted truncate">
+									<p class="text-[11px] text-ink-muted truncate">
 										{object.type}
 										{object.summary ? `- ${object.summary}` : ''}
 									</p>
 								</div>
 								<button
-									class="px-2 py-1 text-[11px] rounded-md bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent"
+									class="px-2 py-1 text-[11px] rounded-md bg-accent-subtle text-accent"
 									onclick={() => insertEmbed(object)}
 									disabled={!editorView}
 								>
@@ -824,37 +816,31 @@
 					<input
 						type="text"
 						bind:value={noteQuery}
-						class="w-full px-2 py-1.5 text-xs rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
+						class="w-full px-2 py-1.5 text-xs rounded-md border border-border bg-surface"
 						placeholder="Search notes..."
 					/>
 				</div>
 
-				<div
-					class="max-h-52 overflow-y-auto border border-border dark:border-tavern-border rounded-md"
-				>
+				<div class="max-h-52 overflow-y-auto border border-border rounded-md">
 					{#if loading}
-						<div class="px-2 py-2 text-xs text-ink-muted dark:text-tavern-muted">
-							Loading notes...
-						</div>
+						<div class="px-2 py-2 text-xs text-ink-muted">Loading notes...</div>
 					{:else if filteredNotes.length === 0}
-						<div class="px-2 py-2 text-xs text-ink-muted dark:text-tavern-muted">
-							No notes found.
-						</div>
+						<div class="px-2 py-2 text-xs text-ink-muted">No notes found.</div>
 					{:else}
 						{#each filteredNotes as note (note.id)}
 							<div
-								class="flex items-center gap-2 px-2 py-1.5 border-b border-border dark:border-tavern-border last:border-b-0"
+								class="flex items-center gap-2 px-2 py-1.5 border-b border-border last:border-b-0"
 							>
 								<div class="min-w-0 flex-1">
-									<p class="text-xs font-medium text-ink dark:text-tavern-text truncate">
+									<p class="text-xs font-medium text-ink truncate">
 										{note.title}
 									</p>
-									<p class="text-[11px] text-ink-muted dark:text-tavern-muted truncate">
+									<p class="text-[11px] text-ink-muted truncate">
 										{note.folder}
 									</p>
 								</div>
 								<button
-									class="px-2 py-1 text-[11px] rounded-md bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent"
+									class="px-2 py-1 text-[11px] rounded-md bg-accent-subtle text-accent"
 									onclick={() => insertNoteEmbed(note)}
 									disabled={!editorView}
 								>
@@ -867,7 +853,7 @@
 			{/if}
 
 			{#if error}
-				<p class="mt-2 text-xs text-error dark:text-tavern-error">{error}</p>
+				<p class="mt-2 text-xs text-error">{error}</p>
 			{/if}
 		</div>
 	{/if}

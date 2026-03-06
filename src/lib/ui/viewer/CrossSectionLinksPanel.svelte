@@ -118,22 +118,18 @@
 </script>
 
 {#if links.length > 0}
-	<section
-		class="rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
-	>
-		<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Cross-section links</h2>
+	<section class="rounded-lg border border-border bg-surface p-3">
+		<h2 class="text-sm font-semibold text-ink">Cross-section links</h2>
 		<ul class="mt-2 space-y-2">
 			{#each links as link (link.id)}
-				<li
-					class="rounded border border-border/70 bg-surface-alt/60 px-2 py-1.5 dark:border-tavern-border/70 dark:bg-tavern-surface-alt/60"
-				>
+				<li class="rounded border border-border/70 bg-surface-alt/60 px-2 py-1.5">
 					<a
 						href={link.href}
-						class="text-sm font-medium text-accent underline underline-offset-2 hover:text-accent-hover dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
+						class="text-sm font-medium text-accent underline underline-offset-2 hover:text-accent-hover"
 					>
 						{link.label}
 					</a>
-					<p class="mt-0.5 text-xs text-ink-muted dark:text-tavern-muted">{link.details}</p>
+					<p class="mt-0.5 text-xs text-ink-muted">{link.details}</p>
 				</li>
 			{/each}
 		</ul>

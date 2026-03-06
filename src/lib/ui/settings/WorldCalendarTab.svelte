@@ -225,24 +225,22 @@
 	class="space-y-8"
 >
 	<section>
-		<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">In-World Date</h2>
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-4"
-		>
+		<h2 class="text-lg font-semibold text-ink mb-4">In-World Date</h2>
+		<div class="rounded-lg border border-border bg-surface p-4 space-y-4">
 			<div class="grid gap-2 md:grid-cols-3">
-				<div class="rounded border border-border dark:border-tavern-border p-3">
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">Short</p>
-					<p class="text-sm font-medium text-ink dark:text-tavern-text mt-1">
+				<div class="rounded border border-border p-3">
+					<p class="text-xs text-ink-muted">Short</p>
+					<p class="text-sm font-medium text-ink mt-1">
 						{worldDateShort}
 					</p>
 				</div>
-				<div class="rounded border border-border dark:border-tavern-border p-3">
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">Long</p>
-					<p class="text-sm font-medium text-ink dark:text-tavern-text mt-1">{worldDateLong}</p>
+				<div class="rounded border border-border p-3">
+					<p class="text-xs text-ink-muted">Long</p>
+					<p class="text-sm font-medium text-ink mt-1">{worldDateLong}</p>
 				</div>
-				<div class="rounded border border-border dark:border-tavern-border p-3">
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">ISO-equivalent</p>
-					<p class="text-sm font-mono text-ink dark:text-tavern-text mt-1">{worldDateIso}</p>
+				<div class="rounded border border-border p-3">
+					<p class="text-xs text-ink-muted">ISO-equivalent</p>
+					<p class="text-sm font-mono text-ink mt-1">{worldDateIso}</p>
 				</div>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
@@ -258,11 +256,11 @@
 				<Button variant="secondary" size="sm" onclick={() => adjustCurrentWorldDate(1)}>
 					Start Session (+1 Day)
 				</Button>
-				<label class="ml-auto text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="ml-auto text-xs text-ink-muted">
 					Day offset
 					<input
 						type="number"
-						class="ml-2 w-28 rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+						class="ml-2 w-28 rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 						value={worldCalendar.currentDayOffset}
 						onchange={(event) =>
 							updateWorldCalendar({
@@ -272,17 +270,13 @@
 				</label>
 			</div>
 			{#if worldMoonStatuses.length > 0}
-				<div class="border-t border-border dark:border-tavern-border pt-3">
-					<p
-						class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
-					>
-						Moon Phases
-					</p>
+				<div class="border-t border-border pt-3">
+					<p class="text-xs font-semibold uppercase tracking-wider text-ink-faint">Moon Phases</p>
 					<ul class="mt-2 grid gap-2 md:grid-cols-2">
 						{#each worldMoonStatuses as moon (moon.name)}
-							<li class="rounded border border-border dark:border-tavern-border p-2 text-xs">
-								<p class="font-medium text-ink dark:text-tavern-text">{moon.name}</p>
-								<p class="text-ink-muted dark:text-tavern-muted">
+							<li class="rounded border border-border p-2 text-xs">
+								<p class="font-medium text-ink">{moon.name}</p>
+								<p class="text-ink-muted">
 									{moon.phaseName} (day {moon.dayInCycle + 1}/{moon.periodDays})
 								</p>
 							</li>
@@ -294,12 +288,10 @@
 	</section>
 
 	<section>
-		<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">Calendar Definition</h2>
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-4"
-		>
+		<h2 class="text-lg font-semibold text-ink mb-4">Calendar Definition</h2>
+		<div class="rounded-lg border border-border bg-surface p-4 space-y-4">
 			<div class="grid gap-3 md:grid-cols-2">
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Week Length
 					<input
 						type="number"
@@ -310,23 +302,23 @@
 							updateWorldCalendar({
 								weekLength: Number((event.currentTarget as HTMLInputElement).value),
 							})}
-						class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 					/>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Day Names (comma-separated)
 					<input
 						type="text"
 						bind:value={worldDayNamesText}
 						onchange={applyWorldDayNamesDraft}
-						class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 					/>
 				</label>
 			</div>
 
-			<div class="border-t border-border dark:border-tavern-border pt-4 space-y-2">
+			<div class="border-t border-border pt-4 space-y-2">
 				<div class="flex items-center justify-between">
-					<p class="text-sm font-medium text-ink dark:text-tavern-text">Months</p>
+					<p class="text-sm font-medium text-ink">Months</p>
 					<Button variant="ghost" size="sm" onclick={addWorldMonth}>Add Month</Button>
 				</div>
 				<div class="space-y-2">
@@ -339,7 +331,7 @@
 									updateWorldMonth(monthIndex, {
 										name: (event.currentTarget as HTMLInputElement).value,
 									})}
-								class="rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+								class="rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 							/>
 							<input
 								type="number"
@@ -350,7 +342,7 @@
 									updateWorldMonth(monthIndex, {
 										days: Number((event.currentTarget as HTMLInputElement).value),
 									})}
-								class="rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+								class="rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 							/>
 							<Button
 								variant="ghost"
@@ -365,18 +357,18 @@
 				</div>
 			</div>
 
-			<div class="border-t border-border dark:border-tavern-border pt-4 space-y-2">
+			<div class="border-t border-border pt-4 space-y-2">
 				<div class="flex items-center justify-between">
-					<p class="text-sm font-medium text-ink dark:text-tavern-text">Leap Year Rules</p>
+					<p class="text-sm font-medium text-ink">Leap Year Rules</p>
 					<Button variant="ghost" size="sm" onclick={addLeapRule}>Add Rule</Button>
 				</div>
 				{#if worldCalendar.leapYearRules.length === 0}
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">No leap rules configured.</p>
+					<p class="text-xs text-ink-muted">No leap rules configured.</p>
 				{:else}
 					<div class="space-y-2">
 						{#each worldCalendar.leapYearRules as rule, ruleIndex (`rule-${ruleIndex}`)}
 							<div
-								class="grid gap-2 md:grid-cols-[1fr_120px_120px_120px_auto] rounded border border-border dark:border-tavern-border p-2"
+								class="grid gap-2 md:grid-cols-[1fr_120px_120px_120px_auto] rounded border border-border p-2"
 							>
 								<input
 									type="text"
@@ -385,7 +377,7 @@
 										updateLeapRule(ruleIndex, {
 											name: (event.currentTarget as HTMLInputElement).value,
 										})}
-									class="rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+									class="rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 								/>
 								<input
 									type="number"
@@ -397,7 +389,7 @@
 										updateLeapRule(ruleIndex, {
 											interval: Number((event.currentTarget as HTMLInputElement).value),
 										})}
-									class="rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+									class="rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 								/>
 								<input
 									type="number"
@@ -409,7 +401,7 @@
 										updateLeapRule(ruleIndex, {
 											monthIndex: Number((event.currentTarget as HTMLInputElement).value),
 										})}
-									class="rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+									class="rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 								/>
 								<input
 									type="number"
@@ -421,7 +413,7 @@
 										updateLeapRule(ruleIndex, {
 											dayDelta: Number((event.currentTarget as HTMLInputElement).value),
 										})}
-									class="rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+									class="rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 								/>
 								<Button variant="ghost" size="sm" onclick={() => removeLeapRule(ruleIndex)}>
 									Remove
@@ -432,10 +424,10 @@
 				{/if}
 			</div>
 
-			<div class="grid gap-4 md:grid-cols-2 border-t border-border dark:border-tavern-border pt-4">
+			<div class="grid gap-4 md:grid-cols-2 border-t border-border pt-4">
 				<div class="space-y-2">
 					<div class="flex items-center justify-between">
-						<p class="text-sm font-medium text-ink dark:text-tavern-text">Eras</p>
+						<p class="text-sm font-medium text-ink">Eras</p>
 						<Button variant="ghost" size="sm" onclick={addEra}>Add Era</Button>
 					</div>
 					{#each worldCalendar.eras as era, eraIndex (`era-${eraIndex}`)}
@@ -447,7 +439,7 @@
 									updateEra(eraIndex, {
 										name: (event.currentTarget as HTMLInputElement).value,
 									})}
-								class="rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+								class="rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 							/>
 							<input
 								type="number"
@@ -456,7 +448,7 @@
 									updateEra(eraIndex, {
 										epochOffset: Number((event.currentTarget as HTMLInputElement).value),
 									})}
-								class="rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+								class="rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 							/>
 							<Button
 								variant="ghost"
@@ -472,7 +464,7 @@
 
 				<div class="space-y-2">
 					<div class="flex items-center justify-between">
-						<p class="text-sm font-medium text-ink dark:text-tavern-text">Moon Cycles (max 4)</p>
+						<p class="text-sm font-medium text-ink">Moon Cycles (max 4)</p>
 						<Button
 							variant="ghost"
 							size="sm"
@@ -483,10 +475,10 @@
 						</Button>
 					</div>
 					{#if worldCalendar.moonCycles.length === 0}
-						<p class="text-xs text-ink-muted dark:text-tavern-muted">No moons configured.</p>
+						<p class="text-xs text-ink-muted">No moons configured.</p>
 					{:else}
 						{#each worldCalendar.moonCycles as moon, moonIndex (`moon-${moonIndex}`)}
-							<div class="rounded border border-border dark:border-tavern-border p-2 space-y-2">
+							<div class="rounded border border-border p-2 space-y-2">
 								<div class="grid gap-2 grid-cols-2">
 									<input
 										type="text"
@@ -495,7 +487,7 @@
 											updateMoonCycle(moonIndex, {
 												name: (event.currentTarget as HTMLInputElement).value,
 											})}
-										class="rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+										class="rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 									/>
 									<input
 										type="number"
@@ -506,7 +498,7 @@
 											updateMoonCycle(moonIndex, {
 												periodDays: Number((event.currentTarget as HTMLInputElement).value),
 											})}
-										class="rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+										class="rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 									/>
 								</div>
 								<input
@@ -517,10 +509,10 @@
 											phaseNames: parsePhaseNames((event.currentTarget as HTMLInputElement).value),
 										})}
 									placeholder="New, Waxing, Full, Waning"
-									class="w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+									class="w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 								/>
 								<div class="flex items-center justify-between">
-									<label class="text-xs text-ink-muted dark:text-tavern-muted">
+									<label class="text-xs text-ink-muted">
 										Offset Days
 										<input
 											type="number"
@@ -529,7 +521,7 @@
 												updateMoonCycle(moonIndex, {
 													offsetDays: Number((event.currentTarget as HTMLInputElement).value),
 												})}
-											class="ml-2 w-20 rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+											class="ml-2 w-20 rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 										/>
 									</label>
 									<Button variant="ghost" size="sm" onclick={() => removeMoonCycle(moonIndex)}>
@@ -542,7 +534,7 @@
 				</div>
 			</div>
 
-			<div class="flex items-center gap-2 border-t border-border dark:border-tavern-border pt-3">
+			<div class="flex items-center gap-2 border-t border-border pt-3">
 				<Button
 					variant="secondary"
 					size="sm"

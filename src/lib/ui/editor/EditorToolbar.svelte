@@ -103,7 +103,7 @@
 </script>
 
 <div
-	class="flex items-center gap-0.5 px-2 py-1.5 border border-border dark:border-tavern-border rounded-lg bg-surface dark:bg-tavern-surface mb-2 flex-wrap"
+	class="flex items-center gap-0.5 px-2 py-1.5 border border-border rounded-lg bg-surface mb-2 flex-wrap"
 	role="toolbar"
 	aria-label="Editor formatting"
 >
@@ -111,7 +111,7 @@
 	{#each textGroup as act (act.action)}
 		<button
 			type="button"
-			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
+			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted hover:bg-accent-subtle hover:text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
 				''}"
 			title={act.title}
 			aria-label={act.title}
@@ -122,13 +122,13 @@
 		</button>
 	{/each}
 
-	<div class="w-px h-5 bg-border dark:bg-tavern-border mx-0.5"></div>
+	<div class="w-px h-5 bg-border mx-0.5"></div>
 
 	<!-- Block formatting -->
 	{#each blockGroup as act (act.action)}
 		<button
 			type="button"
-			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
+			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted hover:bg-accent-subtle hover:text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
 				''}"
 			title={act.title}
 			aria-label={act.title}
@@ -139,13 +139,13 @@
 		</button>
 	{/each}
 
-	<div class="w-px h-5 bg-border dark:bg-tavern-border mx-0.5"></div>
+	<div class="w-px h-5 bg-border mx-0.5"></div>
 
 	<!-- Lists -->
 	{#each listGroup as act (act.action)}
 		<button
 			type="button"
-			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
+			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted hover:bg-accent-subtle hover:text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
 				''}"
 			title={act.title}
 			aria-label={act.title}
@@ -156,13 +156,13 @@
 		</button>
 	{/each}
 
-	<div class="w-px h-5 bg-border dark:bg-tavern-border mx-0.5"></div>
+	<div class="w-px h-5 bg-border mx-0.5"></div>
 
 	<!-- Insert -->
 	{#each insertGroup as act (act.action)}
 		<button
 			type="button"
-			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
+			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted hover:bg-accent-subtle hover:text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
 				''}"
 			title={act.title}
 			aria-label={act.title}
@@ -174,10 +174,10 @@
 	{/each}
 
 	{#if layoutState.isExpanded}
-		<div class="w-px h-5 bg-border dark:bg-tavern-border mx-0.5"></div>
+		<div class="w-px h-5 bg-border mx-0.5"></div>
 		<button
 			type="button"
-			class="{buttonSizeClass} flex items-center justify-center rounded text-[10px] font-semibold uppercase tracking-wide text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+			class="{buttonSizeClass} flex items-center justify-center rounded text-[10px] font-semibold uppercase tracking-wide text-ink-muted hover:bg-accent-subtle hover:text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 			title="Toggle Zen mode (F11)"
 			aria-label="Toggle zen mode"
 			aria-pressed={desktopShellState.zenMode}

@@ -15,7 +15,7 @@
 	>
 		{#if hiddenToastCount > 0}
 			<div
-				class="pointer-events-auto rounded-lg border border-border/50 bg-surface px-3 py-1.5 text-xs font-medium text-ink shadow-md dark:border-tavern-border/50 dark:bg-tavern-surface dark:text-tavern-text"
+				class="pointer-events-auto rounded-lg border border-border/50 bg-surface px-3 py-1.5 text-xs font-medium text-ink shadow-md"
 			>
 				+{hiddenToastCount} more
 			</div>
@@ -24,12 +24,12 @@
 			<div
 				class="pointer-events-auto relative flex items-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium shadow-md backdrop-blur-sm animate-slide-in
 					{toast.type === 'success'
-					? 'bg-surface border-success/60 text-success dark:bg-tavern-surface dark:border-tavern-success/60 dark:text-tavern-success'
+					? 'bg-surface border-success/60 text-success'
 					: toast.type === 'error'
-						? 'bg-surface border-error/60 text-error dark:bg-tavern-surface dark:border-tavern-error/60 dark:text-tavern-error'
+						? 'bg-surface border-error/60 text-error'
 						: toast.type === 'warning'
-							? 'bg-surface border-warning/60 text-warning dark:bg-tavern-surface dark:border-tavern-warning/60 dark:text-tavern-warning'
-							: 'bg-surface border-accent/60 text-accent dark:bg-tavern-surface dark:border-tavern-accent/60 dark:text-tavern-accent'}"
+							? 'bg-surface border-warning/60 text-warning'
+							: 'bg-surface border-accent/60 text-accent'}"
 				role={toast.type === 'error' || toast.type === 'warning' ? 'alert' : 'status'}
 				onmouseenter={() => toastState.pause(toast.id)}
 				onmouseleave={() => toastState.resume(toast.id)}

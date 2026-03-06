@@ -68,26 +68,22 @@
 </script>
 
 <div
-	class="fixed right-0 top-0 z-50 h-screen w-full max-w-[38rem] border-l border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface shadow-2xl flex flex-col"
+	class="fixed right-0 top-0 z-50 h-screen w-full max-w-[38rem] border-l border-border bg-surface shadow-2xl flex flex-col"
 	role="dialog"
 	aria-modal="false"
 	aria-label="Split quick reference"
 >
-	<div
-		class="px-4 py-3 border-b border-border dark:border-tavern-border flex items-center gap-2 min-w-0"
-	>
+	<div class="px-4 py-3 border-b border-border flex items-center gap-2 min-w-0">
 		<div class="min-w-0 flex-1">
-			<p class="text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint">
-				Split Quick Reference
-			</p>
-			<p class="text-sm font-semibold truncate text-ink dark:text-tavern-text">
+			<p class="text-[11px] uppercase tracking-wider text-ink-faint">Split Quick Reference</p>
+			<p class="text-sm font-semibold truncate text-ink">
 				{note?.title ?? 'Missing note'}
 			</p>
 		</div>
 		{#if note}
 			<button
 				type="button"
-				class="px-2 py-1 rounded text-xs border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+				class="px-2 py-1 rounded text-xs border border-border hover:bg-surface-alt transition-colors"
 				onclick={() => void goto(resolve(`/knowledge/notes/${note.id}`))}
 			>
 				Open
@@ -95,7 +91,7 @@
 		{/if}
 		<button
 			type="button"
-			class="px-2 py-1 rounded text-xs border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+			class="px-2 py-1 rounded text-xs border border-border hover:bg-surface-alt transition-colors"
 			onclick={onclose}
 		>
 			Close
@@ -110,9 +106,7 @@
 				{@html html}
 			</div>
 		{:else}
-			<p class="text-sm text-ink-muted dark:text-tavern-muted">
-				The referenced note is unavailable.
-			</p>
+			<p class="text-sm text-ink-muted">The referenced note is unavailable.</p>
 		{/if}
 	</div>
 </div>

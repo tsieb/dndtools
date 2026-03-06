@@ -43,18 +43,16 @@
 </script>
 
 <div
-	class="desktop-drag flex h-[var(--layout-desktop-titlebar-height)] shrink-0 items-center border-b border-border/80 bg-surface-alt/80 px-2 dark:border-tavern-border/80 dark:bg-tavern-surface-alt/80 {isMac
+	class="desktop-drag flex h-[var(--layout-desktop-titlebar-height)] shrink-0 items-center border-b border-border/80 bg-surface-alt/80 px-2 {isMac
 		? 'pl-20'
 		: ''}"
 >
-	<div class="desktop-no-drag min-w-0 px-1 text-[11px] text-ink-faint dark:text-tavern-faint">
-		DND Tools
-	</div>
+	<div class="desktop-no-drag min-w-0 px-1 text-[11px] text-ink-faint">DND Tools</div>
 	{#if !isMac}
 		<div class="desktop-no-drag ml-auto flex items-center">
 			<button
 				type="button"
-				class="flex h-6 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:bg-border/70 dark:text-tavern-muted dark:hover:bg-tavern-border/70"
+				class="flex h-6 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:bg-border/70"
 				onclick={onMinimize}
 				aria-label="Minimize window"
 				title="Minimize"
@@ -65,7 +63,7 @@
 			</button>
 			<button
 				type="button"
-				class="flex h-6 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:bg-border/70 dark:text-tavern-muted dark:hover:bg-tavern-border/70"
+				class="flex h-6 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:bg-border/70"
 				onclick={onToggleMaximize}
 				aria-label={isMaximized ? 'Restore window' : 'Maximize window'}
 				title={isMaximized ? 'Restore' : 'Maximize'}
@@ -83,7 +81,7 @@
 			</button>
 			<button
 				type="button"
-				class="flex h-6 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:bg-red-600 hover:text-white dark:text-tavern-muted"
+				class="flex h-6 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:bg-red-600 hover:text-white"
 				onclick={onClose}
 				aria-label="Close window"
 				title="Close"

@@ -46,21 +46,15 @@
 </script>
 
 <div
-	class="flex items-center justify-between px-3 py-1.5 text-xs text-ink-muted dark:text-tavern-muted border border-t-0 border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt rounded-b-lg"
+	class="flex items-center justify-between px-3 py-1.5 text-xs text-ink-muted border border-t-0 border-border bg-surface-alt rounded-b-lg"
 >
-	<span
-		class="flex items-center gap-1.5 {editorState.dirty
-			? 'text-warning dark:text-tavern-warning'
-			: 'text-success dark:text-tavern-success'}"
-	>
+	<span class="flex items-center gap-1.5 {editorState.dirty ? 'text-warning' : 'text-success'}">
 		{#if editorState.saving && showSavingIndicator}
-			<span
-				class="inline-block w-2 h-2 rounded-full bg-warning dark:bg-tavern-warning animate-pulse"
-			></span>
+			<span class="inline-block w-2 h-2 rounded-full bg-warning animate-pulse"></span>
 		{:else if editorState.dirty}
-			<span class="inline-block w-2 h-2 rounded-full bg-warning dark:bg-tavern-warning"></span>
+			<span class="inline-block w-2 h-2 rounded-full bg-warning"></span>
 		{:else}
-			<span class="inline-block w-2 h-2 rounded-full bg-success dark:bg-tavern-success"></span>
+			<span class="inline-block w-2 h-2 rounded-full bg-success"></span>
 		{/if}
 		{saveStatus}
 	</span>

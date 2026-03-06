@@ -430,7 +430,7 @@
 						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 						<div
-							class="w-1.5 shrink-0 cursor-col-resize bg-border/65 transition-colors hover:bg-accent/70 focus:bg-accent/70 dark:bg-tavern-border/65 dark:hover:bg-tavern-accent/70 dark:focus:bg-tavern-accent/70"
+							class="w-1.5 shrink-0 cursor-col-resize bg-border/65 transition-colors hover:bg-accent/70 focus:bg-accent/70"
 							role="separator"
 							aria-label="Resize local navigation panel"
 							aria-orientation="vertical"
@@ -446,7 +446,7 @@
 
 				<main
 					id="main-content"
-					class="app-main flex-1 overflow-y-auto bg-parchment dark:bg-tavern-bg {layoutState.isCompact &&
+					class="app-main flex-1 overflow-y-auto bg-bg {layoutState.isCompact &&
 					!ui.focusReading &&
 					!compactEditorMode &&
 					!mobileKeyboardState.keyboardOpen
@@ -464,7 +464,7 @@
 							>
 								<button
 									type="button"
-									class="pointer-events-auto rounded-md border border-border bg-surface/92 px-2.5 py-1 text-xs font-medium text-ink shadow-sm transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:border-tavern-border dark:bg-tavern-surface/92 dark:text-tavern-text dark:hover:bg-tavern-surface-alt"
+									class="pointer-events-auto rounded-md border border-border bg-surface/92 px-2.5 py-1 text-xs font-medium text-ink shadow-sm transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 									onclick={exitZenMode}
 									aria-label="Exit zen mode"
 									title="Exit zen mode (F11)"
@@ -483,7 +483,7 @@
 
 				{#if detailPanelVisible && detailPanelContext}
 					<aside
-						class="detail-panel-enter h-full w-[var(--layout-detail-width)] shrink-0 overflow-y-auto border-l border-border bg-surface-alt/90 dark:border-tavern-border dark:bg-tavern-surface"
+						class="detail-panel-enter h-full w-[var(--layout-detail-width)] shrink-0 overflow-y-auto border-l border-border bg-surface-alt/90"
 						aria-label="Contextual detail panel"
 						data-testid="detail-panel"
 					>
@@ -502,7 +502,7 @@
 					>
 						<div class="absolute inset-0 bg-black/30"></div>
 						<div
-							class="absolute inset-y-0 left-0 z-10 overflow-hidden border-r border-border shadow-2xl dark:border-tavern-border"
+							class="absolute inset-y-0 left-0 z-10 overflow-hidden border-r border-border shadow-2xl"
 							role="dialog"
 							aria-modal="true"
 							aria-label="Local navigation overlay"
@@ -525,7 +525,7 @@
 			tabindex="-1"
 		>
 			<div
-				class="fixed inset-x-0 bottom-0 z-40 h-[70vh] max-h-[70vh] overflow-hidden rounded-t-2xl border border-border bg-surface shadow-2xl transition-transform duration-150 dark:border-tavern-border dark:bg-tavern-surface"
+				class="fixed inset-x-0 bottom-0 z-40 h-[70vh] max-h-[70vh] overflow-hidden rounded-t-2xl border border-border bg-surface shadow-2xl transition-transform duration-150"
 				style={sheetStyle}
 				role="dialog"
 				aria-modal="true"
@@ -538,7 +538,7 @@
 				ontouchend={handleSheetTouchEnd}
 			>
 				<div class="flex justify-center pb-1 pt-2">
-					<div class="h-1.5 w-12 rounded-full bg-border dark:bg-tavern-border"></div>
+					<div class="h-1.5 w-12 rounded-full bg-border"></div>
 				</div>
 				<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} presentation="sheet" />
 			</div>
@@ -548,7 +548,7 @@
 	{#if layoutState.isCompact && !ui.focusReading && !compactEditorMode && !ui.sidebarOpen && !mobileKeyboardState.keyboardOpen}
 		<button
 			type="button"
-			class="compact-browse-pill fixed left-1/2 z-30 -translate-x-1/2 rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm font-medium text-ink shadow-lg transition-[transform,colors] active:scale-[0.97] active:brightness-95 dark:border-tavern-border dark:bg-tavern-surface dark:text-tavern-text"
+			class="compact-browse-pill fixed left-1/2 z-30 -translate-x-1/2 rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm font-medium text-ink shadow-lg transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 			style="bottom: calc(var(--layout-bottomnav-height) + env(safe-area-inset-bottom) + 0.5rem);"
 			onclick={openCompactSheet}
 			aria-haspopup="dialog"

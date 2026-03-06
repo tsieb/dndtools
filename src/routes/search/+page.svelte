@@ -738,13 +738,10 @@
 
 <div class="p-6 max-w-[1120px] mx-auto">
 	<div class="mb-5">
-		<h1
-			class="text-2xl font-bold text-ink dark:text-tavern-text"
-			style="font-family: var(--font-serif)"
-		>
+		<h1 class="text-2xl font-bold text-ink" style="font-family: var(--font-serif)">
 			Search & Discovery
 		</h1>
-		<p class="text-sm text-ink-muted dark:text-tavern-muted mt-1">
+		<p class="text-sm text-ink-muted mt-1">
 			Use operators like <code>tag:</code>, <code>folder:</code>, <code>type:</code>,
 			<code>updated:</code>, <code>links:[[Note Title]]</code>, and quoted phrases.
 		</p>
@@ -752,7 +749,7 @@
 
 	<div class="relative">
 		<svg
-			class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-ink-faint dark:text-tavern-faint pointer-events-none"
+			class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-ink-faint pointer-events-none"
 			fill="none"
 			viewBox="0 0 24 24"
 			stroke="currentColor"
@@ -770,12 +767,12 @@
 			value={query}
 			oninput={handleInput}
 			placeholder="Search notes..."
-			class="w-full pl-11 pr-36 py-3 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-ink dark:text-tavern-text placeholder:text-ink-faint dark:placeholder:text-tavern-faint outline-none focus:border-accent dark:focus:border-tavern-accent text-base transition-colors"
+			class="w-full pl-11 pr-36 py-3 rounded-lg border border-border bg-surface text-ink placeholder:text-ink-faint outline-none focus:border-accent text-base transition-colors"
 		/>
 		{#if query.trim()}
 			<button
 				type="button"
-				class="absolute right-[86px] top-1/2 -translate-y-1/2 rounded-md border border-border bg-surface-alt px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-muted dark:hover:text-tavern-text disabled:opacity-60"
+				class="absolute right-[86px] top-1/2 -translate-y-1/2 rounded-md border border-border bg-surface-alt px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:text-ink disabled:opacity-60"
 				onclick={saveCurrentSearch}
 				disabled={saving}
 				aria-label="Save current search to collections"
@@ -786,7 +783,7 @@
 		{/if}
 		<button
 			type="button"
-			class="absolute right-2.5 top-1/2 -translate-y-1/2 px-2 py-1 rounded-md border border-border dark:border-tavern-border text-xs text-ink-muted dark:text-tavern-muted"
+			class="absolute right-2.5 top-1/2 -translate-y-1/2 px-2 py-1 rounded-md border border-border text-xs text-ink-muted"
 			aria-expanded={showCheatSheet}
 			aria-controls="search-operator-cheatsheet"
 			onclick={() => (showCheatSheet = !showCheatSheet)}
@@ -795,13 +792,9 @@
 		</button>
 	</div>
 
-	<div
-		class="mt-3 rounded-lg border border-border bg-surface/60 p-3 dark:border-tavern-border dark:bg-tavern-surface/60"
-	>
-		<p class="text-sm font-medium text-ink dark:text-tavern-text">{scopeLabel}</p>
-		<div
-			class="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-muted dark:text-tavern-muted"
-		>
+	<div class="mt-3 rounded-lg border border-border bg-surface/60 p-3">
+		<p class="text-sm font-medium text-ink">{scopeLabel}</p>
+		<div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
 			<label for="search-scope-kind">Scope</label>
 			<select
 				id="search-scope-kind"
@@ -809,7 +802,7 @@
 				value={searchScope.kind}
 				onchange={(event) =>
 					setScopeKind((event.target as HTMLSelectElement).value as SearchScopeKind)}
-				class="rounded-md border border-border bg-surface px-2 py-1 text-xs dark:border-tavern-border dark:bg-tavern-surface"
+				class="rounded-md border border-border bg-surface px-2 py-1 text-xs"
 			>
 				<option value="all">All notes</option>
 				<option value="folder">Folder</option>
@@ -821,7 +814,7 @@
 					value={searchScope.value ?? ''}
 					onchange={(event) =>
 						setSearchScope({ kind: 'folder', value: (event.target as HTMLSelectElement).value })}
-					class="min-w-[180px] rounded-md border border-border bg-surface px-2 py-1 text-xs dark:border-tavern-border dark:bg-tavern-surface"
+					class="min-w-[180px] rounded-md border border-border bg-surface px-2 py-1 text-xs"
 				>
 					{#if folderScopeOptions.length === 0}
 						<option value="/">/</option>
@@ -837,7 +830,7 @@
 					value={searchScope.value ?? ''}
 					onchange={(event) =>
 						setSearchScope({ kind: 'type', value: (event.target as HTMLSelectElement).value })}
-					class="min-w-[140px] rounded-md border border-border bg-surface px-2 py-1 text-xs dark:border-tavern-border dark:bg-tavern-surface"
+					class="min-w-[140px] rounded-md border border-border bg-surface px-2 py-1 text-xs"
 				>
 					{#if typeScopeOptions.length === 0}
 						<option value="npc">npc</option>
@@ -848,16 +841,14 @@
 					{/if}
 				</select>
 			{/if}
-			<span class="text-ink-faint dark:text-tavern-faint"
-				>Scope is encoded in the URL query string.</span
-			>
+			<span class="text-ink-faint">Scope is encoded in the URL query string.</span>
 		</div>
 	</div>
 
 	{#if showCheatSheet}
 		<div
 			id="search-operator-cheatsheet"
-			class="mt-2 rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt p-3 text-xs text-ink-muted dark:text-tavern-muted"
+			class="mt-2 rounded-md border border-border bg-surface-alt p-3 text-xs text-ink-muted"
 		>
 			<ul class="space-y-1 list-disc pl-4">
 				<li><code>tag:session</code> notes with tag session</li>
@@ -872,13 +863,12 @@
 
 	<div class="flex flex-wrap items-center gap-2 mt-3" aria-live="polite">
 		{#if searching}
-			<span
-				class="px-2 py-1 rounded-md text-xs bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted animate-pulse"
+			<span class="px-2 py-1 rounded-md text-xs bg-surface-alt text-ink-muted animate-pulse"
 				>Searching...</span
 			>
 		{/if}
 		{#if response}
-			<span class="text-sm text-ink-muted dark:text-tavern-muted">
+			<span class="text-sm text-ink-muted">
 				{filteredResults.length}
 				{filteredResults.length === 1 ? 'result' : 'results'}
 			</span>
@@ -894,17 +884,17 @@
 		{/if}
 		{#if semanticReady}
 			<label
-				class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-border dark:border-tavern-border text-xs text-ink-muted dark:text-tavern-muted"
+				class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-border text-xs text-ink-muted"
 			>
 				<input type="checkbox" bind:checked={semanticEnabled} aria-label="Enable semantic search" />
 				Semantic search
 			</label>
 		{:else if semanticStatus}
-			<span class="text-xs text-ink-faint dark:text-tavern-faint">{semanticStatus}</span>
+			<span class="text-xs text-ink-faint">{semanticStatus}</span>
 		{/if}
 		<button
 			type="button"
-			class="text-xs text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text"
+			class="text-xs text-ink-muted hover:text-ink"
 			disabled={semanticChecking}
 			onclick={() => refreshSemanticAvailability(true)}
 		>
@@ -931,13 +921,11 @@
 	{#if query.trim()}
 		<div class="mt-4 grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
 			<aside class="space-y-4">
-				<section
-					class="rounded-lg border border-border dark:border-tavern-border bg-surface/70 dark:bg-tavern-surface/70 p-3"
-				>
+				<section class="rounded-lg border border-border bg-surface/70 p-3">
 					<div class="flex items-center justify-between gap-2 mb-2">
-						<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Saved Searches</h2>
+						<h2 class="text-sm font-semibold text-ink">Saved Searches</h2>
 					</div>
-					<p class="text-xs text-ink-faint dark:text-tavern-faint">
+					<p class="text-xs text-ink-faint">
 						Use the Save button in the search bar to store the current query.
 					</p>
 
@@ -948,7 +936,7 @@
 									<button
 										type="button"
 										onclick={() => applyQuery(saved.query, { syncUrl: true, clearFacets: true })}
-										class="flex-1 min-w-0 text-left px-2 py-1 rounded-md bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:border-accent border border-transparent"
+										class="flex-1 min-w-0 text-left px-2 py-1 rounded-md bg-surface-alt text-xs text-ink hover:border-accent border border-transparent"
 										title={saved.query}
 									>
 										<div class="truncate">{saved.name}</div>
@@ -956,7 +944,7 @@
 									<button
 										type="button"
 										onclick={() => searchState.deleteSearch(saved.id)}
-										class="px-2 py-1 rounded-md text-xs text-ink-muted dark:text-tavern-muted hover:text-error"
+										class="px-2 py-1 rounded-md text-xs text-ink-muted hover:text-error"
 										aria-label={`Delete saved search ${saved.name}`}
 									>
 										Delete
@@ -964,28 +952,24 @@
 								</div>
 							{/each}
 						{:else}
-							<p class="text-xs text-ink-faint dark:text-tavern-faint">No saved searches yet.</p>
+							<p class="text-xs text-ink-faint">No saved searches yet.</p>
 						{/if}
 					</div>
 				</section>
 
-				<section
-					class="rounded-lg border border-border dark:border-tavern-border bg-surface/70 dark:bg-tavern-surface/70 p-3"
-				>
-					<h2 class="text-sm font-semibold text-ink dark:text-tavern-text mb-2">
-						Smart Collections
-					</h2>
+				<section class="rounded-lg border border-border bg-surface/70 p-3">
+					<h2 class="text-sm font-semibold text-ink mb-2">Smart Collections</h2>
 					<div class="space-y-1.5">
 						{#each searchState.smartCollections as collection (collection.id)}
 							<button
 								type="button"
 								onclick={() => applyQuery(collection.query, { syncUrl: true, clearFacets: true })}
-								class="w-full text-left px-2.5 py-2 rounded-md bg-surface-alt dark:bg-tavern-surface-alt hover:border-accent border border-transparent"
+								class="w-full text-left px-2.5 py-2 rounded-md bg-surface-alt hover:border-accent border border-transparent"
 							>
-								<div class="text-xs font-medium text-ink dark:text-tavern-text">
+								<div class="text-xs font-medium text-ink">
 									{collection.name}
 								</div>
-								<div class="text-[11px] text-ink-muted dark:text-tavern-muted mt-0.5">
+								<div class="text-[11px] text-ink-muted mt-0.5">
 									{collection.description}
 								</div>
 							</button>
@@ -994,13 +978,11 @@
 				</section>
 
 				{#if response}
-					<section
-						class="rounded-lg border border-border dark:border-tavern-border bg-surface/70 dark:bg-tavern-surface/70 p-3 space-y-3"
-					>
+					<section class="rounded-lg border border-border bg-surface/70 p-3 space-y-3">
 						<div class="flex items-center justify-between">
 							<button
 								type="button"
-								class="text-left text-sm font-semibold text-ink dark:text-tavern-text"
+								class="text-left text-sm font-semibold text-ink"
 								onclick={() => (facetsCollapsed = !facetsCollapsed)}
 								aria-expanded={!facetsCollapsed}
 								aria-controls="search-facets-panel"
@@ -1009,7 +991,7 @@
 							</button>
 							<button
 								type="button"
-								class="text-xs text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text"
+								class="text-xs text-ink-muted hover:text-ink"
 								onclick={clearFacetFilters}
 								disabled={activeFacetChipCount === 0}>Clear</button
 							>
@@ -1018,14 +1000,10 @@
 						{#if !facetsCollapsed}
 							<div id="search-facets-panel" class="space-y-3">
 								<div>
-									<p
-										class="text-[11px] uppercase tracking-wide text-ink-faint dark:text-tavern-faint mb-1"
-									>
-										Tags
-									</p>
+									<p class="text-[11px] uppercase tracking-wide text-ink-faint mb-1">Tags</p>
 									<div class="flex flex-wrap gap-1.5">
 										{#if liveTagFacets.length === 0}
-											<span class="text-xs text-ink-faint dark:text-tavern-faint">No tags</span>
+											<span class="text-xs text-ink-faint">No tags</span>
 										{:else}
 											{#each liveTagFacets as facet (facet.value)}
 												<button
@@ -1034,8 +1012,8 @@
 													class="px-2 py-1 rounded-md text-xs border {selectedTags.includes(
 														facet.value,
 													)
-														? 'border-accent bg-accent-subtle text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-														: 'border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted'}"
+														? 'border-accent bg-accent-subtle text-accent'
+														: 'border-border text-ink-muted'}"
 												>
 													{facet.value} ({facet.count})
 												</button>
@@ -1045,14 +1023,10 @@
 								</div>
 
 								<div>
-									<p
-										class="text-[11px] uppercase tracking-wide text-ink-faint dark:text-tavern-faint mb-1"
-									>
-										Folders
-									</p>
+									<p class="text-[11px] uppercase tracking-wide text-ink-faint mb-1">Folders</p>
 									<div class="flex flex-wrap gap-1.5">
 										{#if liveFolderFacets.length === 0}
-											<span class="text-xs text-ink-faint dark:text-tavern-faint">No folders</span>
+											<span class="text-xs text-ink-faint">No folders</span>
 										{:else}
 											{#each liveFolderFacets as facet (facet.value)}
 												<button
@@ -1061,8 +1035,8 @@
 													class="px-2 py-1 rounded-md text-xs border {selectedFolders.includes(
 														facet.value,
 													)
-														? 'border-accent bg-accent-subtle text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-														: 'border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted'}"
+														? 'border-accent bg-accent-subtle text-accent'
+														: 'border-border text-ink-muted'}"
 												>
 													{facet.value} ({facet.count})
 												</button>
@@ -1072,14 +1046,10 @@
 								</div>
 
 								<div>
-									<p
-										class="text-[11px] uppercase tracking-wide text-ink-faint dark:text-tavern-faint mb-1"
-									>
-										Types
-									</p>
+									<p class="text-[11px] uppercase tracking-wide text-ink-faint mb-1">Types</p>
 									<div class="flex flex-wrap gap-1.5">
 										{#if liveTypeFacets.length === 0}
-											<span class="text-xs text-ink-faint dark:text-tavern-faint">No types</span>
+											<span class="text-xs text-ink-faint">No types</span>
 										{:else}
 											{#each liveTypeFacets as facet (facet.value)}
 												<button
@@ -1088,8 +1058,8 @@
 													class="px-2 py-1 rounded-md text-xs border {selectedTypes.includes(
 														facet.value,
 													)
-														? 'border-accent bg-accent-subtle text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-														: 'border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted'}"
+														? 'border-accent bg-accent-subtle text-accent'
+														: 'border-border text-ink-muted'}"
 												>
 													{facet.value} ({facet.count})
 												</button>
@@ -1099,11 +1069,7 @@
 								</div>
 
 								<div>
-									<p
-										class="text-[11px] uppercase tracking-wide text-ink-faint dark:text-tavern-faint mb-1"
-									>
-										Updated
-									</p>
+									<p class="text-[11px] uppercase tracking-wide text-ink-faint mb-1">Updated</p>
 									<div class="flex flex-wrap gap-1.5">
 										{#each liveDateFacets as facet (facet.id)}
 											<button
@@ -1113,8 +1079,8 @@
 												class="px-2 py-1 rounded-md text-xs border {selectedDatePresets.includes(
 													facet.id,
 												)
-													? 'border-accent bg-accent-subtle text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-													: 'border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted'}"
+													? 'border-accent bg-accent-subtle text-accent'
+													: 'border-border text-ink-muted'}"
 											>
 												{facet.label} ({facet.count})
 											</button>
@@ -1130,16 +1096,13 @@
 			<section>
 				<div class="flex flex-wrap gap-1.5 mb-3">
 					{#each operatorChips as chip (chip)}
-						<span
-							class="px-2 py-1 rounded-md text-xs bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted"
-							>{chip}</span
-						>
+						<span class="px-2 py-1 rounded-md text-xs bg-surface-alt text-ink-muted">{chip}</span>
 					{/each}
 					{#each selectedTags as tag (tag)}
 						<button
 							type="button"
 							onclick={() => toggleFilter('tag', tag)}
-							class="px-2 py-1 rounded-md text-xs bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent"
+							class="px-2 py-1 rounded-md text-xs bg-accent-subtle text-accent"
 						>
 							tag:{tag} x
 						</button>
@@ -1148,7 +1111,7 @@
 						<button
 							type="button"
 							onclick={() => toggleFilter('folder', folder)}
-							class="px-2 py-1 rounded-md text-xs bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent"
+							class="px-2 py-1 rounded-md text-xs bg-accent-subtle text-accent"
 						>
 							folder:{folder} x
 						</button>
@@ -1157,7 +1120,7 @@
 						<button
 							type="button"
 							onclick={() => toggleFilter('type', type)}
-							class="px-2 py-1 rounded-md text-xs bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent"
+							class="px-2 py-1 rounded-md text-xs bg-accent-subtle text-accent"
 						>
 							type:{type} x
 						</button>
@@ -1166,7 +1129,7 @@
 						<button
 							type="button"
 							onclick={() => toggleFilter('date', presetId)}
-							class="px-2 py-1 rounded-md text-xs bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent"
+							class="px-2 py-1 rounded-md text-xs bg-accent-subtle text-accent"
 						>
 							updated:{presetId} x
 						</button>
@@ -1178,7 +1141,7 @@
 								applyQuery('', { syncUrl: true, clearFacets: true });
 								clearFacetFilters();
 							}}
-							class="px-2 py-1 rounded-md text-xs border border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted"
+							class="px-2 py-1 rounded-md text-xs border border-border text-ink-muted"
 						>
 							Clear all filters
 						</button>
@@ -1200,12 +1163,12 @@
 								{#if shouldGroupBySection}
 									<button
 										type="button"
-										class="flex w-full items-center justify-between rounded-md border border-border bg-surface-alt px-3 py-2 text-left text-sm font-semibold text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+										class="flex w-full items-center justify-between rounded-md border border-border bg-surface-alt px-3 py-2 text-left text-sm font-semibold text-ink"
 										onclick={() => toggleSectionGroup(group.id)}
 										aria-expanded={!(collapsedSectionGroups[group.id] ?? false)}
 									>
 										<span>{group.label}</span>
-										<span class="text-xs text-ink-muted dark:text-tavern-muted">
+										<span class="text-xs text-ink-muted">
 											{group.results.length}
 										</span>
 									</button>
@@ -1214,27 +1177,23 @@
 									{#each group.results as result (result.id)}
 										{@const note = notesById.get(result.id)}
 										{@const semanticOnly = isSemanticOnly(result.id)}
-										<div
-											class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
-										>
+										<div class="rounded-lg border border-border bg-surface p-3">
 											<div class="flex items-start justify-between gap-2">
 												<div>
 													<button
 														type="button"
-														class="font-semibold text-ink dark:text-tavern-text hover:text-accent dark:hover:text-tavern-accent"
+														class="font-semibold text-ink hover:text-accent"
 														onclick={() => openResult(result)}
 													>
 														{#each titleSegments(result.title) as segment, index (`${result.id}-segment-${index}`)}
 															<span
 																class={segment.match
-																	? 'rounded-sm bg-warning/20 px-[1px] text-ink dark:text-tavern-text'
+																	? 'rounded-sm bg-warning/20 px-[1px] text-ink'
 																	: ''}>{segment.text}</span
 															>
 														{/each}
 													</button>
-													<p
-														class="mt-0.5 flex flex-wrap items-center text-xs text-ink-faint dark:text-tavern-faint"
-													>
+													<p class="mt-0.5 flex flex-wrap items-center text-xs text-ink-faint">
 														{#each folderBreadcrumbParts(result.folder) as crumb, crumbIndex (`${result.id}-crumb-${crumbIndex}`)}
 															{#if crumbIndex > 0}<span class="px-1">/</span>{/if}
 															<span>{crumb}</span>
@@ -1244,40 +1203,36 @@
 												<div class="text-right space-y-1">
 													<div class="inline-flex items-center gap-1">
 														<span
-															class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border text-[10px] font-semibold text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
+															class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border text-[10px] font-semibold text-ink-muted"
 														>
 															{typeIconToken(result.type)}
 														</span>
 														{#if result.type}
-															<span class="text-[11px] text-ink-faint dark:text-tavern-faint"
-																>{result.type}</span
-															>
+															<span class="text-[11px] text-ink-faint">{result.type}</span>
 														{/if}
 													</div>
 													{#if semanticOnly}
 														<span
-															class="inline-block px-2 py-0.5 rounded-full text-[11px] bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent"
+															class="inline-block px-2 py-0.5 rounded-full text-[11px] bg-accent-subtle text-accent"
 															>semantic</span
 														>
 													{/if}
-													<div class="text-[11px] text-ink-faint dark:text-tavern-faint">
+													<div class="text-[11px] text-ink-faint">
 														score {result.score.toFixed(2)}
 													</div>
 												</div>
 											</div>
 											{#if result.snippet}
-												<p class="mt-2 text-sm text-ink-muted dark:text-tavern-muted">
+												<p class="mt-2 text-sm text-ink-muted">
 													{result.snippet}
 												</p>
 											{/if}
-											<div
-												class="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-faint dark:text-tavern-faint"
-											>
+											<div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-faint">
 												<span>{formatRelativeDate(result.updatedAt)}</span>
 												{#if note && note.tags.length > 0}
 													{#each note.tags.slice(0, 3) as tag (`${result.id}-tag-${tag}`)}
 														<span
-															class="rounded-md border border-border px-1.5 py-0.5 text-[11px] text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
+															class="rounded-md border border-border px-1.5 py-0.5 text-[11px] text-ink-muted"
 															>#{tag}</span
 														>
 													{/each}
@@ -1285,7 +1240,7 @@
 												{#if result.anchor}
 													<button
 														type="button"
-														class="text-accent dark:text-tavern-accent hover:underline"
+														class="text-accent hover:underline"
 														onclick={() => openResult(result, true)}
 													>
 														Jump to section
@@ -1300,8 +1255,8 @@
 					</div>
 				{:else if !searching}
 					<div class="mt-10 text-center">
-						<p class="text-ink-muted dark:text-tavern-muted">No results for "{query}"</p>
-						<p class="text-sm text-ink-faint dark:text-tavern-faint mt-1">
+						<p class="text-ink-muted">No results for "{query}"</p>
+						<p class="text-sm text-ink-faint mt-1">
 							Try adjusting scope, operators, facet filters, or spelling.
 						</p>
 					</div>
@@ -1309,13 +1264,9 @@
 			</section>
 		</div>
 	{:else}
-		<div
-			class="mt-8 rounded-lg border border-border dark:border-tavern-border bg-surface/70 dark:bg-tavern-surface/70 p-5"
-		>
-			<p class="text-ink-muted dark:text-tavern-muted">
-				Type to search across all notes and discover content faster.
-			</p>
-			<ul class="mt-3 space-y-1 text-sm text-ink-faint dark:text-tavern-faint list-disc pl-5">
+		<div class="mt-8 rounded-lg border border-border bg-surface/70 p-5">
+			<p class="text-ink-muted">Type to search across all notes and discover content faster.</p>
+			<ul class="mt-3 space-y-1 text-sm text-ink-faint list-disc pl-5">
 				<li><code>tag:session</code> notes tagged with session</li>
 				<li><code>folder:/campaign/npcs</code> notes under a folder</li>
 				<li><code>type:character</code> frontmatter note type</li>

@@ -285,14 +285,9 @@
 </script>
 
 <div class="p-6 max-w-content mx-auto">
-	<h1
-		class="text-2xl font-bold text-ink dark:text-tavern-text mb-6"
-		style="font-family: var(--font-serif)"
-	>
-		Settings
-	</h1>
+	<h1 class="text-2xl font-bold text-ink mb-6" style="font-family: var(--font-serif)">Settings</h1>
 
-	<div class="mb-6 border-b border-border dark:border-tavern-border">
+	<div class="mb-6 border-b border-border">
 		<div
 			class="flex flex-wrap gap-2 -mb-px"
 			role="tablist"
@@ -312,8 +307,8 @@
 					onkeydown={(event) => handleTabKeydown(event, tab.id)}
 					class={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
 						activeTab === tab.id
-							? 'border-accent text-accent dark:border-tavern-accent dark:text-tavern-accent'
-							: 'border-transparent text-ink-muted dark:text-tavern-muted hover:border-border dark:hover:border-tavern-border hover:text-ink dark:hover:text-tavern-text'
+							? 'border-accent text-accent'
+							: 'border-transparent text-ink-muted hover:border-border hover:text-ink'
 					}`}
 				>
 					{tab.label}

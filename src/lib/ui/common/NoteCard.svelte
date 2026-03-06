@@ -205,7 +205,7 @@
 	{/if}
 
 	<button
-		class="note-card-foreground group relative z-10 w-full rounded-lg border border-border bg-surface p-4 pr-11 text-left transition-[border,box-shadow,transform] hover:border-accent/40 hover:shadow-sm dark:border-tavern-border dark:bg-tavern-surface dark:hover:border-tavern-accent/40"
+		class="note-card-foreground group relative z-10 w-full rounded-lg border border-border bg-surface p-4 pr-11 text-left transition-[border,box-shadow,transform] hover:border-accent/40 hover:shadow-sm"
 		style={cardTransformStyle}
 		onclick={activateCard}
 		onkeydown={handleCardKeydown}
@@ -216,12 +216,10 @@
 		ontouchcancel={handleTouchCancel}
 	>
 		<div class="flex items-start justify-between gap-2">
-			<h3
-				class="font-medium text-ink transition-colors group-hover:text-accent dark:text-tavern-text dark:group-hover:text-tavern-accent"
-			>
+			<h3 class="font-medium text-ink transition-colors group-hover:text-accent">
 				{#if note.pinned}
 					<svg
-						class="mr-1 inline-block h-3.5 w-3.5 -mt-0.5 text-accent dark:text-tavern-accent"
+						class="mr-1 inline-block h-3.5 w-3.5 -mt-0.5 text-accent"
 						fill="currentColor"
 						viewBox="0 0 24 24"
 					>
@@ -234,11 +232,11 @@
 			</h3>
 		</div>
 		{#if preview}
-			<p class="mt-1.5 line-clamp-2 text-xs leading-relaxed text-ink-muted dark:text-tavern-muted">
+			<p class="mt-1.5 line-clamp-2 text-xs leading-relaxed text-ink-muted">
 				{preview}
 			</p>
 		{/if}
-		<div class="mt-2 flex items-center gap-2 text-xs text-ink-faint dark:text-tavern-faint">
+		<div class="mt-2 flex items-center gap-2 text-xs text-ink-faint">
 			<span class="truncate font-mono">{filePath}</span>
 			<span aria-hidden="true">&middot;</span>
 			<span>{formatRelativeDate(note.updatedAt)}</span>
@@ -248,14 +246,12 @@
 		{#if note.tags.length > 0}
 			<div class="mt-2 flex flex-wrap gap-1">
 				{#each note.tags.slice(0, 4) as tag (tag)}
-					<span
-						class="rounded-md bg-accent-subtle px-1.5 py-0.5 text-xs text-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent"
-					>
+					<span class="rounded-md bg-accent-subtle px-1.5 py-0.5 text-xs text-accent">
 						{tag}
 					</span>
 				{/each}
 				{#if note.tags.length > 4}
-					<span class="text-xs text-ink-faint dark:text-tavern-faint">+{note.tags.length - 4}</span>
+					<span class="text-xs text-ink-faint">+{note.tags.length - 4}</span>
 				{/if}
 			</div>
 		{/if}
@@ -264,7 +260,7 @@
 	{#if hasQuickActions}
 		<button
 			type="button"
-			class="absolute right-2 top-2 z-20 rounded-md p-1 text-ink-faint hover:bg-surface-alt hover:text-ink dark:text-tavern-faint dark:hover:bg-tavern-surface-alt dark:hover:text-tavern-text"
+			class="absolute right-2 top-2 z-20 rounded-md p-1 text-ink-faint hover:bg-surface-alt hover:text-ink"
 			onclick={toggleActionMenu}
 			aria-label="Note quick actions"
 			aria-haspopup="menu"
@@ -280,14 +276,14 @@
 
 	{#if actionMenuOpen && hasQuickActions}
 		<div
-			class="absolute right-2 top-11 z-30 min-w-32 rounded-md border border-border bg-surface p-1.5 shadow-lg dark:border-tavern-border dark:bg-tavern-surface"
+			class="absolute right-2 top-11 z-30 min-w-32 rounded-md border border-border bg-surface p-1.5 shadow-lg"
 			role="menu"
 			aria-label="Note card quick actions"
 		>
 			{#if onpin}
 				<button
 					type="button"
-					class="block w-full rounded px-2 py-1.5 text-left text-xs text-ink-muted hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+					class="block w-full rounded px-2 py-1.5 text-left text-xs text-ink-muted hover:bg-surface-alt"
 					role="menuitem"
 					onclick={invokePin}
 				>

@@ -151,8 +151,8 @@
 <section class="space-y-4">
 	<div class="flex flex-wrap items-center justify-between gap-2">
 		<div>
-			<h2 class="text-lg font-semibold text-ink dark:text-tavern-text">Handout Library</h2>
-			<p class="text-xs text-ink-muted dark:text-tavern-muted mt-0.5">
+			<h2 class="text-lg font-semibold text-ink">Handout Library</h2>
+			<p class="text-xs text-ink-muted mt-0.5">
 				Right-click any handout row and choose "Deliver to players" for session delivery.
 			</p>
 		</div>
@@ -168,7 +168,7 @@
 			</span>
 			<button
 				type="button"
-				class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+				class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 				onclick={requestCreatorOpen}
 			>
 				Create Handout
@@ -177,20 +177,20 @@
 	</div>
 
 	<div class="grid gap-2 md:grid-cols-4">
-		<label class="text-xs text-ink-muted dark:text-tavern-muted">
+		<label class="text-xs text-ink-muted">
 			Search
 			<input
 				type="text"
 				bind:value={query}
 				placeholder="Title, tags, content..."
-				class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1.5 text-sm text-ink dark:text-tavern-text"
+				class="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-sm text-ink"
 			/>
 		</label>
-		<label class="text-xs text-ink-muted dark:text-tavern-muted">
+		<label class="text-xs text-ink-muted">
 			Type
 			<select
 				bind:value={typeFilter}
-				class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm text-ink dark:text-tavern-text"
+				class="mt-1 h-9 w-full rounded border border-border bg-surface px-2 text-sm text-ink"
 			>
 				<option value="all">All types</option>
 				<option value="document">Document</option>
@@ -201,22 +201,22 @@
 				<option value="cipher">Cipher</option>
 			</select>
 		</label>
-		<label class="text-xs text-ink-muted dark:text-tavern-muted">
+		<label class="text-xs text-ink-muted">
 			Status
 			<select
 				bind:value={statusFilter}
-				class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm text-ink dark:text-tavern-text"
+				class="mt-1 h-9 w-full rounded border border-border bg-surface px-2 text-sm text-ink"
 			>
 				<option value="all">All statuses</option>
 				<option value="delivered">Delivered</option>
 				<option value="pending">Undelivered</option>
 			</select>
 		</label>
-		<label class="text-xs text-ink-muted dark:text-tavern-muted">
+		<label class="text-xs text-ink-muted">
 			Campaign session
 			<select
 				bind:value={sessionFilter}
-				class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm text-ink dark:text-tavern-text"
+				class="mt-1 h-9 w-full rounded border border-border bg-surface px-2 text-sm text-ink"
 			>
 				<option value="all">All sessions</option>
 				{#each sessions as session (session)}
@@ -227,34 +227,28 @@
 	</div>
 
 	{#if handoutsState.loading}
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 text-sm text-ink-muted dark:text-tavern-muted"
-		>
+		<div class="rounded-lg border border-border bg-surface p-4 text-sm text-ink-muted">
 			Loading handouts...
 		</div>
 	{:else if filteredHandouts.length === 0}
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 text-sm text-ink-muted dark:text-tavern-muted"
-		>
+		<div class="rounded-lg border border-border bg-surface p-4 text-sm text-ink-muted">
 			{handouts.length === 0
 				? 'No handouts yet. Create your first handout from the toolbar or this tab.'
 				: 'No handouts match the current filters.'}
 		</div>
 	{:else}
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface overflow-hidden"
-		>
-			<ul class="divide-y divide-border dark:divide-tavern-border">
+		<div class="rounded-lg border border-border bg-surface overflow-hidden">
+			<ul class="divide-y divide-border">
 				{#each filteredHandouts as handout (handout.id)}
 					<li class="p-3" oncontextmenu={(event) => openContextMenu(event, handout)}>
 						<div class="flex flex-wrap items-start justify-between gap-3">
 							<div class="min-w-0 flex-1">
 								<div class="flex flex-wrap items-center gap-2">
-									<p class="text-sm font-semibold text-ink dark:text-tavern-text truncate">
+									<p class="text-sm font-semibold text-ink truncate">
 										{handout.data.title || handout.name}
 									</p>
 									<span
-										class="text-[11px] px-1.5 py-0.5 rounded border border-border/70 dark:border-tavern-border/70 text-ink-faint dark:text-tavern-faint"
+										class="text-[11px] px-1.5 py-0.5 rounded border border-border/70 text-ink-faint"
 									>
 										{handoutTypeLabel(handout.data.handoutType)}
 									</span>
@@ -274,18 +268,18 @@
 									{/if}
 								</div>
 								{#if handout.data.campaignSession}
-									<p class="text-xs text-ink-faint dark:text-tavern-faint mt-0.5">
+									<p class="text-xs text-ink-faint mt-0.5">
 										{handout.data.campaignSession}
 									</p>
 								{/if}
-								<p class="text-xs text-ink-muted dark:text-tavern-muted mt-1 line-clamp-2">
+								<p class="text-xs text-ink-muted mt-1 line-clamp-2">
 									{handout.summary || handout.data.content || 'No summary provided.'}
 								</p>
 							</div>
 							<div class="flex flex-wrap items-center gap-1.5">
 								<button
 									type="button"
-									class="px-2 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors disabled:opacity-60"
+									class="px-2 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors disabled:opacity-60"
 									onclick={() => void deliver(handout)}
 									disabled={processingId === String(handout.id)}
 								>
@@ -294,7 +288,7 @@
 								{#if handout.data.handoutType === 'cipher'}
 									<button
 										type="button"
-										class="px-2 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors disabled:opacity-60"
+										class="px-2 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors disabled:opacity-60"
 										onclick={() => void revealDecoded(handout)}
 										disabled={processingId === String(handout.id) ||
 											handout.data.cipher?.decodedRevealed}
@@ -304,14 +298,14 @@
 								{/if}
 								<button
 									type="button"
-									class="px-2 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+									class="px-2 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 									onclick={() => exportPrintable(handout, false)}
 								>
 									Export HTML
 								</button>
 								<button
 									type="button"
-									class="px-2 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+									class="px-2 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 									onclick={() => openHandoutNote(handout)}
 								>
 									Open
@@ -328,13 +322,13 @@
 {#if contextMenu && contextHandout}
 	<div
 		data-handout-context-menu="true"
-		class="fixed z-[70] min-w-[200px] rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface shadow-xl p-1"
+		class="fixed z-[70] min-w-[200px] rounded-md border border-border bg-surface shadow-xl p-1"
 		style={`left: ${contextMenu.x}px; top: ${contextMenu.y}px;`}
 		role="menu"
 	>
 		<button
 			type="button"
-			class="w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			class="w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-surface-alt"
 			role="menuitem"
 			onclick={() => void deliver(contextHandout)}
 			disabled={processingId === String(contextHandout.id)}
@@ -344,7 +338,7 @@
 		{#if contextHandout.data.handoutType === 'cipher'}
 			<button
 				type="button"
-				class="w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt disabled:opacity-60"
+				class="w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-surface-alt disabled:opacity-60"
 				role="menuitem"
 				onclick={() => void revealDecoded(contextHandout)}
 				disabled={contextHandout.data.cipher?.decodedRevealed}
@@ -353,7 +347,7 @@
 			</button>
 			<button
 				type="button"
-				class="w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+				class="w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-surface-alt"
 				role="menuitem"
 				onclick={() => exportPrintable(contextHandout, true)}
 			>
@@ -362,7 +356,7 @@
 		{/if}
 		<button
 			type="button"
-			class="w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			class="w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-surface-alt"
 			role="menuitem"
 			onclick={() => exportPrintable(contextHandout, false)}
 		>
@@ -370,7 +364,7 @@
 		</button>
 		<button
 			type="button"
-			class="w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			class="w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-surface-alt"
 			role="menuitem"
 			onclick={() => openHandoutNote(contextHandout)}
 		>

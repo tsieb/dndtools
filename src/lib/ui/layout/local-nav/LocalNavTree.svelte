@@ -165,7 +165,7 @@
 			role="treeitem"
 			aria-level={1}
 			aria-selected="false"
-			class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-xs text-ink-faint disabled:cursor-default dark:text-tavern-faint"
+			class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-xs text-ink-faint disabled:cursor-default"
 		>
 			{emptyLabel}
 		</button>
@@ -175,8 +175,8 @@
 				type="button"
 				class="flex w-full items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-left text-xs transition-[transform,colors] active:scale-[0.97] active:brightness-95 {activeId ===
 				entry.id
-					? 'border-accent bg-accent-subtle/70 text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-					: 'border-transparent text-ink-muted hover:bg-parchment hover:text-ink dark:text-tavern-muted dark:hover:bg-tavern-bg dark:hover:text-tavern-text'} {entry.dimmed
+					? 'border-accent bg-accent-subtle/70 text-accent'
+					: 'border-transparent text-ink-muted hover:bg-bg hover:text-ink'} {entry.dimmed
 					? 'opacity-55'
 					: ''}"
 				style="padding-left: {0.75 + entry.depth * 0.75}rem"
@@ -195,9 +195,7 @@
 			>
 				<span class="truncate">{entry.label}</span>
 				{#if typeof entry.count === 'number'}
-					<span class="ml-auto text-[11px] text-ink-faint dark:text-tavern-faint"
-						>({entry.count})</span
-					>
+					<span class="ml-auto text-[11px] text-ink-faint">({entry.count})</span>
 				{/if}
 			</button>
 		{/each}

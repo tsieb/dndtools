@@ -53,10 +53,10 @@
 
 <aside
 	class="primary-nav-shell {compact ? 'mobile-bottom-nav' : ''} {isVertical
-		? 'h-full border-r border-border dark:border-tavern-border'
-		: 'fixed inset-x-0 bottom-0 z-30 border-t border-border dark:border-tavern-border'} {compact
-		? 'bg-surface/95 pb-[calc(0.3rem+env(safe-area-inset-bottom))] pt-1 backdrop-blur-md dark:bg-tavern-surface/95'
-		: 'bg-surface-alt dark:bg-tavern-surface'}"
+		? 'h-full border-r border-border'
+		: 'fixed inset-x-0 bottom-0 z-30 border-t border-border'} {compact
+		? 'bg-surface/95 pb-[calc(0.3rem+env(safe-area-inset-bottom))] pt-1 backdrop-blur-md'
+		: 'bg-surface-alt'}"
 	style={shellStyle}
 	data-mode={mode}
 	aria-hidden={compact && mobileKeyboardState.keyboardOpen ? 'true' : undefined}

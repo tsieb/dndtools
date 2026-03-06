@@ -143,31 +143,23 @@
 </script>
 
 {#if object}
-	<section
-		class="max-w-content mx-auto mb-4 rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
-	>
-		<h2
-			class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
-		>
+	<section class="max-w-content mx-auto mb-4 rounded-lg border border-border bg-surface p-3">
+		<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-faint">
 			Relationship Graph
 		</h2>
 		{#if crossLinks.length > 0}
 			<div class="mt-2 space-y-1.5">
-				<p class="text-[11px] uppercase tracking-wide text-ink-faint dark:text-tavern-faint">
-					Cross-section Links
-				</p>
+				<p class="text-[11px] uppercase tracking-wide text-ink-faint">Cross-section Links</p>
 				<ul class="space-y-1">
 					{#each crossLinks as link (link.id)}
-						<li
-							class="rounded border border-border/70 px-2 py-1 text-xs dark:border-tavern-border/70"
-						>
+						<li class="rounded border border-border/70 px-2 py-1 text-xs">
 							<a
 								href={link.href}
-								class="font-medium text-accent underline underline-offset-2 hover:text-accent-hover dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
+								class="font-medium text-accent underline underline-offset-2 hover:text-accent-hover"
 							>
 								{link.label}
 							</a>
-							<p class="mt-0.5 text-[11px] text-ink-muted dark:text-tavern-muted">
+							<p class="mt-0.5 text-[11px] text-ink-muted">
 								{link.details}
 							</p>
 						</li>
@@ -176,31 +168,25 @@
 			</div>
 		{/if}
 		{#if loading}
-			<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">
-				Loading relationship graph...
-			</p>
+			<p class="mt-2 text-xs text-ink-muted">Loading relationship graph...</p>
 		{:else if error}
-			<p class="mt-2 text-xs text-error dark:text-tavern-error">{error}</p>
+			<p class="mt-2 text-xs text-error">{error}</p>
 		{:else if rows.length === 0}
-			<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">
-				No relationship edges for this object.
-			</p>
+			<p class="mt-2 text-xs text-ink-muted">No relationship edges for this object.</p>
 		{:else}
-			<ul class="mt-2 space-y-1 text-xs text-ink dark:text-tavern-text">
+			<ul class="mt-2 space-y-1 text-xs text-ink">
 				{#each rows as row (row.id)}
 					<li class="flex items-center gap-2">
-						<span
-							class="rounded bg-surface-alt px-1.5 py-0.5 text-[10px] uppercase tracking-wide dark:bg-tavern-surface-alt"
-						>
+						<span class="rounded bg-surface-alt px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
 							{row.direction}
 						</span>
 						<span class="font-semibold">{row.label}</span>
 						{#if row.sessionId}
-							<span class="text-ink-muted dark:text-tavern-muted">session:{row.sessionId}</span>
+							<span class="text-ink-muted">session:{row.sessionId}</span>
 						{:else if row.targetId}
 							<button
 								type="button"
-								class="rounded bg-surface-alt px-2 py-0.5 text-left text-[11px] hover:bg-surface dark:bg-tavern-surface-alt dark:hover:bg-tavern-surface"
+								class="rounded bg-surface-alt px-2 py-0.5 text-left text-[11px] hover:bg-surface"
 								onclick={() =>
 									row.targetId &&
 									goto(resolve(`/knowledge/notes/${row.targetId}`), {
