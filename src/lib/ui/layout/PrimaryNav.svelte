@@ -6,6 +6,7 @@
 		type PrimarySection,
 	} from '$lib/state/navigation.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
+	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import PrimaryNavIcon from './PrimaryNavIcon.svelte';
 
 	interface Props {
@@ -50,6 +51,7 @@
 		: 'bg-surface-alt dark:bg-tavern-surface'}"
 	style={shellStyle}
 	data-mode={mode}
+	aria-hidden={compact && mobileKeyboardState.keyboardOpen ? 'true' : undefined}
 >
 	{#if playerModeState.enabled && isVertical}
 		<div

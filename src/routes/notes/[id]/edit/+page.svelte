@@ -96,6 +96,7 @@
 			wordWrap: editorSettings.wordWrap,
 		}),
 	);
+	let compactEditorLayout = $derived(layoutState.isCompact);
 	let dockEditorToolbar = $derived(layoutState.isCompact && mobileKeyboardState.keyboardOpen);
 
 	$effect(() => {
@@ -131,6 +132,16 @@
 			editorEl.removeEventListener('scroll', onEditorScroll);
 			previewEl.removeEventListener('scroll', onPreviewScroll);
 		};
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const handleDoneRequest = (): void => {
+			if (!layoutState.isCompact) return;
+			void handleDone();
+		};
+		window.addEventListener('dndtools:editor-done-request', handleDoneRequest);
+		return () => window.removeEventListener('dndtools:editor-done-request', handleDoneRequest);
 	});
 
 	function handleKeydown(event: KeyboardEvent): void {
@@ -248,21 +259,23 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if note && !playerModeState.enabled}
-	<div class="mx-auto max-w-[1200px] p-6">
+	<div class={compactEditorLayout ? 'h-full p-3' : 'mx-auto max-w-[1200px] p-6'}>
 		<h1 class="sr-only">Edit {note.title}</h1>
-		<div class="mb-4 flex items-center justify-between">
-			<Button variant="ghost" onclick={handleDone}>
-				<svg
-					class="mr-1 h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-				</svg>
-				Done
-			</Button>
+		<div class="mb-4 flex items-center {compactEditorLayout ? 'justify-end' : 'justify-between'}">
+			{#if !compactEditorLayout}
+				<Button variant="ghost" onclick={handleDone}>
+					<svg
+						class="mr-1 h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+					</svg>
+					Done
+				</Button>
+			{/if}
 			<div class="flex items-center gap-2">
 				<button
 					class="rounded-md px-3 py-1.5 text-sm text-ink-muted transition-colors hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
@@ -509,7 +522,9 @@
 		position: fixed;
 		left: 0.75rem;
 		right: 0.75rem;
-		bottom: calc(var(--dndtools-keyboard-inset, 0px) + 0.35rem);
+		bottom: calc(
+			max(env(keyboard-inset-height, 0px), var(--dndtools-keyboard-inset, 0px)) + 0.35rem
+		);
 		z-index: 35;
 		padding-top: 0.25rem;
 		background: color-mix(in srgb, var(--color-surface) 86%, transparent);
