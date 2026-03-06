@@ -114,7 +114,7 @@ Runner: Playwright (`playwright.desktop.config.ts`). Merge-blocking policy: desk
 | `/combat`           | Combat board selection and no-tile recovery controls                            | `critical-workflows.spec.ts` ("combat tracker route exposes board selection and no-tile recovery controls")  |
 | `/settings?tab=mcp` | MCP pending-change review and approval lifecycle                                | `critical-workflows.spec.ts` ("MCP pending review approves staged changes from settings")                    |
 | `/session-board`    | Session board creation and note-tile management                                 | `critical-workflows.spec.ts` ("session board management creates board and attaches notes")                   |
-| `/encounter/new`    | Encounter builder route availability and encounter-tile creation flow           | `critical-workflows.spec.ts` ("encounter builder route renders and supports encounter tile creation")        |
+| `/encounter/new`    | Encounter builder canonical route availability in desktop shell                 | `critical-workflows.spec.ts` ("encounter builder canonical route resolves in desktop shell")                 |
 | `/player`           | Player-safe note visibility filtering, search, and exit workflow                | `critical-workflows.spec.ts` ("player view shows only shared/public notes and supports exit flow")           |
 
 ### 3.3 Performance Regression

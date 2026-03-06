@@ -184,3 +184,172 @@ any budget that is exceeded. Performance is treated as a feature, not an afterth
 ---
 
 ---
+
+## Epic 2.6 - CI/CD Audit Follow-up Backlog
+
+**Goal:** Improve regression protection, release reliability, security posture, and CI speed without adding unnecessary contributor friction or paid tooling.
+
+**Stories:**
+
+- **S2.6.1 - Remove duplicate quality execution in CI**
+  Consolidate `pnpm check` duplication between `quality-matrix` and `check-script-contract`.
+  Implementation steps:
+  1. Keep one canonical full quality run (lint + typecheck + unit tests).
+  2. Remove or repurpose `check-script-contract` to run only unique checks.
+  3. Confirm `quality` remains the single required branch-protection status.
+
+- **S2.6.2 - De-duplicate desktop E2E workflow coverage**
+  Avoid running the same desktop critical/a11y suites in both `ci.yml` and `e2e.yml` for the same PR.
+  Implementation steps:
+  1. Choose one PR-required source of truth for desktop E2E.
+  2. Keep the second workflow as manual (`workflow_dispatch`) or scheduled extended coverage.
+  3. Update docs to reflect final gate ownership.
+
+- **S2.6.3 - Add path-aware gating for expensive jobs**
+  Ensure heavy desktop build/E2E jobs run only when relevant files change.
+  Implementation steps:
+  1. Add trigger `paths` filters or in-workflow path filtering.
+  2. Always run fast core checks (lint/typecheck/unit/docs/format).
+  3. Restrict desktop jobs to runtime/test/build-impacting paths.
+
+- **S2.6.4 - Enforce formatting in CI**
+  Add `pnpm format:check` as a CI gate to match local hooks.
+  Implementation steps:
+  1. Add dedicated format job to `ci.yml`.
+  2. Include it in the `quality` aggregate gate.
+  3. Keep autofix local-only to avoid CI churn.
+
+- **S2.6.5 - Activate coverage thresholds in CI**
+  Enforce existing Vitest thresholds by running tests with coverage in CI.
+  Implementation steps:
+  1. Add a coverage-enabled test command to CI (`vitest --coverage`).
+  2. Keep local default test command fast.
+  3. Document expected threshold behavior in testing docs.
+
+- **S2.6.6 - Add timeout governance for CI jobs**
+  Prevent stalled jobs from blocking queues and contributor flow.
+  Implementation steps:
+  1. Set `timeout-minutes` for all jobs by class (quick, build, release).
+  2. Tune timeouts using recent run data.
+  3. Revisit limits quarterly.
+
+- **S2.6.7 - Reduce repeated setup/build cost across jobs**
+  Cut redundant dependency installation and desktop build steps.
+  Implementation steps:
+  1. Identify repeated build/setup patterns in CI workflows.
+  2. Build once where practical and reuse via artifacts.
+  3. Keep artifact fan-out only where it reduces total wall-clock time.
+
+- **S2.6.8 - Align local toolchain docs with CI reality**
+  Remove Node/pnpm version ambiguity between docs and automation.
+  Implementation steps:
+  1. Decide supported local/CI Node versions.
+  2. Update `docs/CONTRIBUTING.md` and related docs.
+  3. Optionally add version matrix coverage if multiple versions are supported.
+
+- **S2.6.9 - Apply least-privilege permissions to all workflows**
+  Minimize token permissions on every workflow/job.
+  Implementation steps:
+  1. Add explicit baseline `permissions` to all workflows.
+  2. Grant elevated permissions only to jobs that publish or write.
+  3. Verify release workflows continue to function with scoped rights.
+
+- **S2.6.10 - Pin third-party GitHub Actions to SHAs**
+  Improve supply-chain integrity by pinning action revisions.
+  Implementation steps:
+  1. Replace floating action tags with commit SHAs.
+  2. Record update procedure in operations docs.
+  3. Add periodic maintenance task for SHA refreshes.
+
+- **S2.6.11 - Add Dependabot for dependencies and GitHub Actions**
+  Automate update intake with bounded PR volume.
+  Implementation steps:
+  1. Add `.github/dependabot.yml` for npm + GitHub Actions.
+  2. Configure weekly cadence and grouped updates.
+  3. Cap concurrent PRs to reduce noise.
+
+- **S2.6.12 - Add non-blocking scheduled security scanning**
+  Improve detection without slowing normal PR merges.
+  Implementation steps:
+  1. Add scheduled/manual security workflow (`pnpm audit` and/or CodeQL).
+  2. Keep it non-required for merge by default.
+  3. Escalate only high/critical findings.
+
+- **S2.6.13 - Lint workflow files with actionlint**
+  Catch workflow syntax and expression issues before merge.
+  Implementation steps:
+  1. Add an `actionlint` workflow triggered on workflow file changes.
+  2. Make it a required check for workflow-affecting PRs.
+  3. Include actionable failure messages.
+
+- **S2.6.14 - Make release asset build trigger idempotent**
+  Avoid full rebuilds on release note edits.
+  Implementation steps:
+  1. Restrict release trigger to `published` only.
+  2. Keep manual rerun path via `workflow_dispatch`.
+  3. Document re-run expectations in release docs.
+
+- **S2.6.15 - Harden release upload behavior**
+  Prevent accidental artifact overwrite while preserving intentional reruns.
+  Implementation steps:
+  1. Pre-check existing release assets before upload.
+  2. Fail clearly when overwrite is not explicitly intended.
+  3. Add an intentional override path for maintainers.
+
+- **S2.6.16 - Add build provenance for release artifacts**
+  Strengthen release trust and traceability with provenance metadata.
+  Implementation steps:
+  1. Add artifact attestation/provenance generation to release jobs.
+  2. Publish attestation outputs alongside release artifacts.
+  3. Document verification steps for consumers.
+
+- **S2.6.17 - Set CI artifact retention by artifact class**
+  Balance troubleshooting value with storage hygiene.
+  Implementation steps:
+  1. Define retention days for PR reports, perf artifacts, and release evidence.
+  2. Set `retention-days` per upload step.
+  3. Review retention policy during quarterly maintenance.
+
+- **S2.6.18 - Improve E2E failure diagnostics**
+  Make flaky/failing runs faster to debug.
+  Implementation steps:
+  1. Configure Playwright trace on retry and screenshots/videos on failure.
+  2. Ensure artifacts upload even when tests fail.
+  3. Add concise triage guidance to testing docs.
+
+- **S2.6.19 - Separate required gates from observability jobs**
+  Keep merge gates strict while preserving developer velocity.
+  Implementation steps:
+  1. Keep `quality` and commit hygiene as required checks.
+  2. Keep nightly perf/memory jobs informational unless regression thresholds are crossed.
+  3. Document check criticality in workflow comments/docs.
+
+- **S2.6.20 - Verify and document branch protection enforcement**
+  Ensure GitHub settings match intended CI policy.
+  Implementation steps:
+  1. Confirm required status checks and anti-bypass settings on primary branch.
+  2. Align docs with actual protected branch configuration.
+  3. Add periodic policy verification checklist.
+
+- **S2.6.21 - Standardize primary branch naming in workflows**
+  Remove dual-branch trigger ambiguity (`main` + `master`) where possible.
+  Implementation steps:
+  1. Select canonical primary branch.
+  2. Update all workflow triggers and docs consistently.
+  3. Remove stale branch references once migration completes.
+
+- **S2.6.22 - Add backup code ownership for CI/release paths**
+  Reduce single-owner bottlenecks for automation-critical files.
+  Implementation steps:
+  1. Add at least one backup owner for `.github/workflows/`, `scripts/`, release configs.
+  2. Keep ownership boundaries clear and minimal.
+  3. Validate review routing behavior after update.
+
+- **S2.6.23 - Add CI/CD optimization tracking cadence**
+  Treat pipeline health as an ongoing engineering surface.
+  Implementation steps:
+  1. Define monthly review for runtime, flake rate, and failure taxonomy.
+  2. Record key metrics and top bottlenecks in a short ops note.
+  3. Feed resulting action items into Initiative 2 task backlog.
+
+---

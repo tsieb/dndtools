@@ -39,6 +39,6 @@ This repository is organized by runtime boundary and responsibility.
 
 ## Cleanup Rules
 
-- Build artifacts (`build/`, `.svelte-kit/`) are generated and should not be committed.
+- Build artifacts (`build/`, `.svelte-kit/`, `mcp/dist/`) are generated and should not be committed.
 - Local package store (`.pnpm-store/`) is ignored.
 - Empty placeholder directories should be removed unless they are intentionally reserved with documentation.

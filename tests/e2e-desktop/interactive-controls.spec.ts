@@ -286,9 +286,12 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			await expect(forwardButton).toBeVisible();
 			if (await backButton.isEnabled()) {
 				await backButton.click();
-			}
-			if (await forwardButton.isEnabled()) {
+				await expect(app.page).toHaveURL(/\/atlas\/maps$/);
+				await expect(forwardButton).toBeEnabled();
 				await forwardButton.click();
+				await expect(app.page).toHaveURL(/\/knowledge$/);
+			} else {
+				await expect(backButton).toHaveAttribute('title', /No previous location/i);
 			}
 
 			const routeChecks: Array<{ label: string; url: RegExp }> = [
@@ -321,7 +324,7 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 		}
 	});
 
-	test('search interactions cover operators, saved searches, facets, and result navigation', async () => {
+	test('search interactions cover operators, facets, and result navigation', async () => {
 		const app = await launchWithSeed();
 		try {
 			await gotoDesktopPath(app.page, '/knowledge/search');
@@ -333,7 +336,9 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 				app.page.getByRole('button', { name: 'Navigation Anchor' }).first(),
 			).toBeVisible();
 
-			const operatorsToggle = app.page.locator('main').getByRole('button', { name: 'Operators' });
+			const operatorsToggle = app.page
+				.locator('button[aria-controls="search-operator-cheatsheet"]:visible')
+				.first();
 			await expect(operatorsToggle).toBeVisible();
 			await expect(operatorsToggle).toHaveAttribute('aria-controls', 'search-operator-cheatsheet');
 

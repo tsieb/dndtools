@@ -188,8 +188,10 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 				'Search view loaded.',
 			);
 
+			const politeLiveRegion = app.page.getByTestId('a11y-live-polite');
 			await app.page.getByPlaceholder('Search notes...').fill('AccessibilityToken');
-			await expect(app.page.getByTestId('a11y-live-polite')).toBeAttached();
+			await expect(app.page.getByRole('button', { name: 'Accessibility Anchor' })).toBeVisible();
+			await expect(politeLiveRegion).toHaveAttribute('aria-live', 'polite');
 		} finally {
 			await closeDesktopApp(app);
 		}
