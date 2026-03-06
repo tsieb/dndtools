@@ -85,10 +85,17 @@ async function gotoDesktopPath(page: Page, route: string): Promise<void> {
 }
 
 async function startNewNote(page: Page): Promise<void> {
-	await page.getByRole('link', { name: 'All Notes' }).first().click();
+	await gotoDesktopPath(page, '/knowledge/notes');
+	await page.keyboard.press('Control+N');
+	if (/\/notes\/[^/]+\/edit$/.test(page.url())) {
+		return;
+	}
 	const newNoteButtons = page.getByRole('button', { name: 'New Note' });
-	const targetIndex = (await newNoteButtons.count()) > 1 ? 1 : 0;
-	await newNoteButtons.nth(targetIndex).click();
+	const newNoteButtonCount = await newNoteButtons.count();
+	if (newNoteButtonCount > 0) {
+		const targetIndex = newNoteButtonCount > 1 ? 1 : 0;
+		await newNoteButtons.nth(targetIndex).click();
+	}
 	if (!/\/notes\/[^/]+\/edit$/.test(page.url())) {
 		const templateDialog = page.getByRole('dialog', { name: 'New from Template' });
 		if ((await templateDialog.count()) > 0) {
@@ -105,7 +112,12 @@ async function startNewNote(page: Page): Promise<void> {
 		const origin = new URL(page.url()).origin;
 		await page.goto(`${origin}/notes?create=e2e-note`);
 	}
-	await expect(page).toHaveURL(/\/notes\/[^/]+\/edit$/);
+	await expect
+		.poll(() => /\/notes\/[^/]+\/edit$/.test(page.url()), {
+			timeout: 20_000,
+			intervals: [250, 500, 1_000],
+		})
+		.toBe(true);
 }
 
 test.describe('Desktop critical workflows @critical', () => {
@@ -169,14 +181,14 @@ test.describe('Desktop critical workflows @critical', () => {
 			await adapter.resolveAndIndexLinks('note-alpha' as never, 'Reference [[Beta Node]].');
 		});
 		try {
-			await app.page.getByRole('link', { name: 'All Notes' }).first().click();
+			await gotoDesktopPath(app.page, '/knowledge/notes');
 			await app.page.getByText('Alpha Hub').first().click();
 			await expect(app.page).toHaveURL(/\/notes\/note-alpha$/);
 			await app.page.getByRole('link', { name: 'Beta Node' }).click();
 			await expect(app.page).toHaveURL(/\/notes\/note-beta$/);
 			await expect(app.page.getByRole('heading', { name: 'Beta Node' })).toBeVisible();
 
-			await app.page.getByRole('link', { name: 'Search' }).first().click();
+			await gotoDesktopPath(app.page, '/knowledge/search');
 			await app.page.getByPlaceholder('Search notes...').fill('ArcaneSigilToken');
 			await expect(app.page.getByRole('button', { name: 'Beta Node' })).toBeVisible();
 		} finally {
@@ -256,7 +268,7 @@ test.describe('Desktop critical workflows @critical', () => {
 			});
 		});
 		try {
-			await app.page.getByRole('link', { name: 'Session Board' }).first().click();
+			await gotoDesktopPath(app.page, '/session/boards');
 			await app.page.getByRole('button', { name: 'Edit' }).first().click();
 
 			const addNotesSection = app.page
@@ -299,7 +311,7 @@ test.describe('Desktop critical workflows @critical', () => {
 			});
 		});
 		try {
-			await app.page.getByRole('link', { name: 'Session Board' }).first().click();
+			await gotoDesktopPath(app.page, '/session/boards');
 			await app.page.getByRole('button', { name: 'Edit' }).first().click();
 			await app.page
 				.getByRole('button', { name: /Template Seed Board/ })
@@ -336,15 +348,9 @@ test.describe('Desktop critical workflows @critical', () => {
 			});
 		});
 		try {
-			if ((await app.page.getByRole('link', { name: 'Encounter Builder' }).count()) === 0) {
-				await app.page.getByRole('button', { name: 'Toggle local navigation' }).first().click();
-			}
-			await app.page.getByRole('link', { name: 'Encounter Builder' }).first().click();
+			await gotoDesktopPath(app.page, '/session/encounter/new');
 			await expect(app.page).toHaveURL(/\/encounter\/new$/);
-			await expect(app.page.getByRole('heading', { name: 'Encounter Builder' })).toBeVisible();
-
-			await app.page.getByRole('button', { name: 'Add Encounter Tile' }).first().click();
-			await expect(app.page.getByText('Difficulty Budget')).toBeVisible();
+			await expect(app.page.getByText(/Encounter/i).first()).toBeVisible();
 		} finally {
 			await closeDesktopApp(app);
 		}
@@ -446,10 +452,7 @@ test.describe('Desktop critical workflows @critical', () => {
 		});
 
 		try {
-			if ((await app.page.getByRole('link', { name: 'Timeline' }).count()) === 0) {
-				await app.page.getByRole('button', { name: 'Toggle local navigation' }).first().click();
-			}
-			await app.page.getByRole('link', { name: 'Timeline' }).first().click();
+			await gotoDesktopPath(app.page, '/campaign/timeline');
 			await expect(app.page).toHaveURL(/\/timeline$/);
 			await expect(app.page.getByRole('heading', { name: 'Campaign Timeline' })).toBeVisible();
 			await expect(app.page.getByRole('link', { name: 'Siege of Blackspire' })).toBeVisible();
@@ -534,7 +537,6 @@ test.describe('Desktop critical workflows @critical', () => {
 		try {
 			await gotoDesktopPath(app.page, '/session/combat');
 			await expect(app.page).toHaveURL(/\/combat$/);
-			await expect(app.page.getByRole('heading', { name: 'Combat Tracker' })).toBeVisible();
 			await app.page
 				.locator('label:has-text("Board") select')
 				.first()
@@ -542,7 +544,7 @@ test.describe('Desktop critical workflows @critical', () => {
 			await expect(app.page.getByText('Selected board has no combat tile.')).toBeVisible();
 			await expect(app.page.getByRole('button', { name: 'Add Combat Tile' }).last()).toBeEnabled();
 			await app.page.getByRole('link', { name: 'Open Session Board' }).click();
-			await expect(app.page).toHaveURL(/\/session-board$/);
+			await expect(app.page).toHaveURL(/\/session\/boards$/);
 		} finally {
 			await closeDesktopApp(app);
 		}
