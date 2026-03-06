@@ -109,7 +109,7 @@
 			<header class="px-4 py-3 border-b border-border flex items-center justify-between gap-3">
 				<div>
 					<h2 class="text-sm font-semibold text-ink">Quick Reference HUD</h2>
-					<p class="text-[11px] text-ink-muted">Ctrl+Shift+Space toggles this overlay.</p>
+					<p class="text-xs text-ink-muted">Ctrl+Shift+Space toggles this overlay.</p>
 				</div>
 				<button
 					type="button"
@@ -160,7 +160,7 @@
 										>
 											<div class="flex items-start gap-2">
 												<span
-													class="h-6 w-6 shrink-0 rounded-full border border-border bg-surface-alt text-[11px] font-semibold flex items-center justify-center text-ink-muted"
+													class="h-6 w-6 shrink-0 rounded-full border border-border bg-surface-alt text-xs font-semibold flex items-center justify-center text-ink-muted"
 													aria-hidden="true"
 												>
 													{quickReferenceIconToken(result.type)}
@@ -170,12 +170,12 @@
 														<p class="truncate text-sm font-medium text-ink">
 															{result.title}
 														</p>
-														<p class="text-[11px] text-ink-faint shrink-0">
+														<p class="text-xs text-ink-faint shrink-0">
 															{result.typeLabel}
 														</p>
 													</div>
 													{#if result.keyStats.length > 0}
-														<p class="mt-0.5 text-[11px] text-ink-muted truncate">
+														<p class="mt-0.5 text-xs text-ink-muted truncate">
 															{result.keyStats.join(' | ')}
 														</p>
 													{/if}
@@ -190,7 +190,7 @@
 										<div class="mt-2 flex items-center gap-1.5">
 											<button
 												type="button"
-												class="rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:text-ink"
+												class="rounded border border-border px-2 py-0.5 text-xs text-ink-muted hover:text-ink"
 												onclick={() => openResultInSplit(result.noteId)}
 											>
 												Split

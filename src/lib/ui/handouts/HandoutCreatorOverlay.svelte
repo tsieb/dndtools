@@ -273,7 +273,7 @@
 			<header class="px-4 py-3 border-b border-border flex items-center gap-3">
 				<div class="flex-1 min-w-0">
 					<h2 class="text-sm font-semibold text-ink truncate">Handout Creator</h2>
-					<p class="text-[11px] text-ink-muted">
+					<p class="text-xs text-ink-muted">
 						Create handouts with visual aging effects, cipher payloads, and printable export.
 					</p>
 				</div>

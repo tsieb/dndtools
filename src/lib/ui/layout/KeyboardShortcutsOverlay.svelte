@@ -53,7 +53,7 @@
 		tabindex="-1"
 	>
 		<div
-			class="w-full max-w-lg overflow-hidden rounded-lg border border-border bg-surface shadow-xl"
+			class="w-full max-w-lg overflow-hidden rounded-lg border border-border bg-surface-elevated shadow-lg"
 			use:focusTrap
 		>
 			<div class="flex items-center justify-between border-b border-border px-4 py-3">

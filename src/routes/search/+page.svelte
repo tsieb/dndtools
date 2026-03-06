@@ -969,7 +969,7 @@
 								<div class="text-xs font-medium text-ink">
 									{collection.name}
 								</div>
-								<div class="text-[11px] text-ink-muted mt-0.5">
+								<div class="text-xs text-ink-muted mt-0.5">
 									{collection.description}
 								</div>
 							</button>
@@ -1000,7 +1000,7 @@
 						{#if !facetsCollapsed}
 							<div id="search-facets-panel" class="space-y-3">
 								<div>
-									<p class="text-[11px] uppercase tracking-wide text-ink-faint mb-1">Tags</p>
+									<p class="text-xs uppercase tracking-wide text-ink-faint mb-1">Tags</p>
 									<div class="flex flex-wrap gap-1.5">
 										{#if liveTagFacets.length === 0}
 											<span class="text-xs text-ink-faint">No tags</span>
@@ -1023,7 +1023,7 @@
 								</div>
 
 								<div>
-									<p class="text-[11px] uppercase tracking-wide text-ink-faint mb-1">Folders</p>
+									<p class="text-xs uppercase tracking-wide text-ink-faint mb-1">Folders</p>
 									<div class="flex flex-wrap gap-1.5">
 										{#if liveFolderFacets.length === 0}
 											<span class="text-xs text-ink-faint">No folders</span>
@@ -1046,7 +1046,7 @@
 								</div>
 
 								<div>
-									<p class="text-[11px] uppercase tracking-wide text-ink-faint mb-1">Types</p>
+									<p class="text-xs uppercase tracking-wide text-ink-faint mb-1">Types</p>
 									<div class="flex flex-wrap gap-1.5">
 										{#if liveTypeFacets.length === 0}
 											<span class="text-xs text-ink-faint">No types</span>
@@ -1069,7 +1069,7 @@
 								</div>
 
 								<div>
-									<p class="text-[11px] uppercase tracking-wide text-ink-faint mb-1">Updated</p>
+									<p class="text-xs uppercase tracking-wide text-ink-faint mb-1">Updated</p>
 									<div class="flex flex-wrap gap-1.5">
 										{#each liveDateFacets as facet (facet.id)}
 											<button
@@ -1203,21 +1203,21 @@
 												<div class="text-right space-y-1">
 													<div class="inline-flex items-center gap-1">
 														<span
-															class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border text-[10px] font-semibold text-ink-muted"
+															class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border text-2xs font-semibold text-ink-muted"
 														>
 															{typeIconToken(result.type)}
 														</span>
 														{#if result.type}
-															<span class="text-[11px] text-ink-faint">{result.type}</span>
+															<span class="text-xs text-ink-faint">{result.type}</span>
 														{/if}
 													</div>
 													{#if semanticOnly}
 														<span
-															class="inline-block px-2 py-0.5 rounded-full text-[11px] bg-accent-subtle text-accent"
+															class="inline-block px-2 py-0.5 rounded-full text-xs bg-accent-subtle text-accent"
 															>semantic</span
 														>
 													{/if}
-													<div class="text-[11px] text-ink-faint">
+													<div class="text-xs text-ink-faint">
 														score {result.score.toFixed(2)}
 													</div>
 												</div>
@@ -1232,7 +1232,7 @@
 												{#if note && note.tags.length > 0}
 													{#each note.tags.slice(0, 3) as tag (`${result.id}-tag-${tag}`)}
 														<span
-															class="rounded-md border border-border px-1.5 py-0.5 text-[11px] text-ink-muted"
+															class="rounded-md border border-border px-1.5 py-0.5 text-xs text-ink-muted"
 															>#{tag}</span
 														>
 													{/each}

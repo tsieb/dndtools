@@ -525,7 +525,7 @@
 			tabindex="-1"
 		>
 			<div
-				class="fixed inset-x-0 bottom-0 z-40 h-[70vh] max-h-[70vh] overflow-hidden rounded-t-2xl border border-border bg-surface shadow-2xl transition-transform duration-150"
+				class="fixed inset-x-0 bottom-0 z-40 h-[70vh] max-h-[70vh] overflow-hidden rounded-t-2xl border border-border bg-surface shadow-2xl transition-transform duration-fast"
 				style={sheetStyle}
 				role="dialog"
 				aria-modal="true"

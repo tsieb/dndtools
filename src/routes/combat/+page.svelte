@@ -88,7 +88,7 @@
 				<h1 class="text-xl font-bold text-ink" style="font-family: var(--font-serif)">
 					Combat Tracker
 				</h1>
-				<span class="text-[11px] px-2 py-0.5 rounded border border-border/70 text-ink-muted">
+				<span class="text-xs px-2 py-0.5 rounded border border-border/70 text-ink-muted">
 					Shortcuts: <span class="font-mono">a</span> add, <span class="font-mono">n</span> next turn
 				</span>
 			</div>

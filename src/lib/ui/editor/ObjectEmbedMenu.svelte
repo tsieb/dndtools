@@ -795,13 +795,13 @@
 									<p class="text-xs font-medium text-ink truncate">
 										{object.name}
 									</p>
-									<p class="text-[11px] text-ink-muted truncate">
+									<p class="text-xs text-ink-muted truncate">
 										{object.type}
 										{object.summary ? `- ${object.summary}` : ''}
 									</p>
 								</div>
 								<button
-									class="px-2 py-1 text-[11px] rounded-md bg-accent-subtle text-accent"
+									class="px-2 py-1 text-xs rounded-md bg-accent-subtle text-accent"
 									onclick={() => insertEmbed(object)}
 									disabled={!editorView}
 								>
@@ -835,12 +835,12 @@
 									<p class="text-xs font-medium text-ink truncate">
 										{note.title}
 									</p>
-									<p class="text-[11px] text-ink-muted truncate">
+									<p class="text-xs text-ink-muted truncate">
 										{note.folder}
 									</p>
 								</div>
 								<button
-									class="px-2 py-1 text-[11px] rounded-md bg-accent-subtle text-accent"
+									class="px-2 py-1 text-xs rounded-md bg-accent-subtle text-accent"
 									onclick={() => insertNoteEmbed(note)}
 									disabled={!editorView}
 								>

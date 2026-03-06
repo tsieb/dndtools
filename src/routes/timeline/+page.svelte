@@ -186,7 +186,7 @@
 												</a>
 												{#if entry.pendingResolution}
 													<span
-														class="rounded bg-warning/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-warning"
+														class="rounded bg-warning/20 px-1.5 py-0.5 text-2xs font-semibold uppercase text-warning"
 													>
 														Pending
 													</span>
@@ -196,14 +196,14 @@
 												{entry.summary}
 											</p>
 											{#if entry.arcTag}
-												<p class="mt-1 text-[11px] text-ink-faint">
+												<p class="mt-1 text-xs text-ink-faint">
 													Arc: {entry.arcTag}
 												</p>
 											{/if}
 											{#if entry.linkedSessionNoteId}
 												<a
 													href={resolve(`/knowledge/notes/${entry.linkedSessionNoteId}`)}
-													class="mt-1 inline-block text-[11px] text-accent hover:underline"
+													class="mt-1 inline-block text-xs text-accent hover:underline"
 												>
 													Linked session log
 												</a>
@@ -235,7 +235,7 @@
 											{#if entry.linkedTimelineEventId}
 												<a
 													href={resolve(`/knowledge/notes/${entry.linkedTimelineEventId}`)}
-													class="mt-1 inline-block text-[11px] text-accent hover:underline"
+													class="mt-1 inline-block text-xs text-accent hover:underline"
 												>
 													Linked world event
 												</a>

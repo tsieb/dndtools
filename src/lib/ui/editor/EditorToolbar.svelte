@@ -10,7 +10,7 @@
 	}
 
 	let { editorView, density = 'comfortable' }: Props = $props();
-	let buttonSizeClass = $derived(density === 'compact' ? 'w-7 h-7 text-[11px]' : 'w-8 h-8');
+	let buttonSizeClass = $derived(density === 'compact' ? 'w-7 h-7 text-xs' : 'w-8 h-8');
 
 	interface ToolbarAction {
 		action: string;
@@ -84,7 +84,7 @@
 			label: 'EMB',
 			title: 'Embed template',
 			icon: '',
-			class: 'font-mono text-[10px]',
+			class: 'font-mono text-2xs',
 		},
 		{ action: 'table', label: '\u2637', title: 'Table', icon: '', class: 'text-sm' },
 		{ action: 'horizontal-rule', label: '\u2015', title: 'Divider', icon: '', class: 'text-sm' },
@@ -177,7 +177,7 @@
 		<div class="w-px h-5 bg-border mx-0.5"></div>
 		<button
 			type="button"
-			class="{buttonSizeClass} flex items-center justify-center rounded text-[10px] font-semibold uppercase tracking-wide text-ink-muted hover:bg-accent-subtle hover:text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+			class="{buttonSizeClass} flex items-center justify-center rounded text-2xs font-semibold uppercase tracking-wide text-ink-muted hover:bg-accent-subtle hover:text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 			title="Toggle Zen mode (F11)"
 			aria-label="Toggle zen mode"
 			aria-pressed={desktopShellState.zenMode}

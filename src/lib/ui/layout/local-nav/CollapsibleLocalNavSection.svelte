@@ -35,7 +35,7 @@
 		aria-expanded={!collapsed}
 		aria-controls={contentId}
 	>
-		<span class="text-[10px] leading-none">{collapsed ? '\u25B6' : '\u25BC'}</span>
+		<span class="text-2xs leading-none">{collapsed ? '\u25B6' : '\u25BC'}</span>
 		<span>{title}</span>
 	</button>
 	{#if !collapsed}

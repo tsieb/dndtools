@@ -51,7 +51,7 @@
 						{entry.template.name}
 					</span>
 					<span
-						class="ml-auto rounded-full border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink-faint"
+						class="ml-auto rounded-full border border-border px-1.5 py-0.5 text-2xs uppercase tracking-wide text-ink-faint"
 					>
 						{entry.scope === 'global' ? 'Global' : entry.scopeFolder}
 					</span>

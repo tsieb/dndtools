@@ -60,7 +60,7 @@
 
 		{#if jumpSet.sameTags.length > 0}
 			<div class="mb-2">
-				<p class="text-[11px] uppercase tracking-wider text-ink-faint mb-1">Same Tags</p>
+				<p class="text-xs uppercase tracking-wider text-ink-faint mb-1">Same Tags</p>
 				<div class="flex flex-wrap gap-1.5">
 					{#each jumpSet.sameTags as jump (jump.noteId)}
 						<button
@@ -77,7 +77,7 @@
 
 		{#if jumpSet.backlinks.length > 0}
 			<div class="mb-2">
-				<p class="text-[11px] uppercase tracking-wider text-ink-faint mb-1">Backlinks</p>
+				<p class="text-xs uppercase tracking-wider text-ink-faint mb-1">Backlinks</p>
 				<div class="flex flex-wrap gap-1.5">
 					{#each jumpSet.backlinks as jump (jump.noteId)}
 						<button
@@ -94,9 +94,7 @@
 
 		{#if jumpSet.sameObjectReferences.length > 0}
 			<div>
-				<p class="text-[11px] uppercase tracking-wider text-ink-faint mb-1">
-					Shared Object References
-				</p>
+				<p class="text-xs uppercase tracking-wider text-ink-faint mb-1">Shared Object References</p>
 				<div class="flex flex-wrap gap-1.5">
 					{#each jumpSet.sameObjectReferences as jump (jump.noteId)}
 						<button

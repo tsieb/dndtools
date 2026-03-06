@@ -102,7 +102,7 @@
 			<h3 class="text-sm font-semibold text-ink">Dice Tray</h3>
 			<button
 				type="button"
-				class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface-alt transition-colors disabled:opacity-50"
+				class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt transition-colors disabled:opacity-50"
 				onclick={() => diceState.clearHistory()}
 				disabled={history.length === 0}
 			>
@@ -143,7 +143,7 @@
 			{#each quickMacros as macro (macro.id)}
 				<button
 					type="button"
-					class="rounded border border-border/70 bg-surface-alt/70 px-2 py-1 text-[11px] text-ink hover:bg-surface transition-colors"
+					class="rounded border border-border/70 bg-surface-alt/70 px-2 py-1 text-xs text-ink hover:bg-surface transition-colors"
 					title={macro.expression}
 					onclick={() => rollMacro(macro)}
 				>
@@ -157,17 +157,17 @@
 		{#if lastRoll}
 			<div class="flex items-start justify-between gap-2">
 				<div class="min-w-0">
-					<p class="text-[11px] text-ink-muted truncate">
+					<p class="text-xs text-ink-muted truncate">
 						{lastRoll.expression}
 					</p>
 					<p class="text-lg font-bold text-ink">= {lastRoll.totalText}</p>
-					<p class="text-[11px] text-ink-faint">{lastRoll.breakdown}</p>
+					<p class="text-xs text-ink-faint">{lastRoll.breakdown}</p>
 				</div>
-				<p class="text-[11px] text-ink-faint">{formatTime(lastRoll.at)}</p>
+				<p class="text-xs text-ink-faint">{formatTime(lastRoll.at)}</p>
 			</div>
 			<div class="mt-2 space-y-1">
 				{#each lastRoll.rolls as detail, detailIndex (`${detail.notation}-${detailIndex}`)}
-					<div class="text-[11px] text-ink-muted">
+					<div class="text-xs text-ink-muted">
 						<span class="font-semibold text-ink">{detail.notation}</span>
 						<span class="ml-1">
 							{#each detail.rolls as value, index (`${detail.notation}-${detailIndex}-${index}`)}
@@ -198,11 +198,11 @@
 			<ul class="space-y-1">
 				{#each history as entry (entry.id)}
 					<li class="rounded border border-border/50 bg-surface px-2 py-1.5">
-						<div class="flex items-center justify-between gap-2 text-[11px]">
+						<div class="flex items-center justify-between gap-2 text-xs">
 							<span class="truncate text-ink">{entry.expression}</span>
 							<span class="font-mono text-ink">{entry.totalText}</span>
 						</div>
-						<div class="flex items-center justify-between gap-2 text-[10px] text-ink-faint mt-0.5">
+						<div class="flex items-center justify-between gap-2 text-2xs text-ink-faint mt-0.5">
 							<span
 								>{entry.macroLabel ? `${entry.macroLabel} (${entry.source})` : entry.source}</span
 							>
@@ -220,7 +220,7 @@
 				<h4 class="text-xs font-semibold uppercase tracking-wider text-ink-faint">Roll Macros</h4>
 				<button
 					type="button"
-					class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface-alt transition-colors"
+					class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt transition-colors"
 					onclick={() => (macroEditorOpen = !macroEditorOpen)}
 				>
 					{macroEditorOpen ? 'Hide' : 'Edit'}
@@ -285,28 +285,28 @@
 									<p class="text-xs font-medium text-ink truncate">
 										{macro.label}
 									</p>
-									<p class="text-[11px] text-ink-faint truncate">
+									<p class="text-xs text-ink-faint truncate">
 										{macro.expression}
 									</p>
 								</div>
 								<div class="flex items-center gap-1">
 									<button
 										type="button"
-										class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface transition-colors"
+										class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface transition-colors"
 										onclick={() => rollMacro(macro, 'macro')}
 									>
 										Roll
 									</button>
 									<button
 										type="button"
-										class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface transition-colors"
+										class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface transition-colors"
 										onclick={() => editMacro(macro)}
 									>
 										Edit
 									</button>
 									<button
 										type="button"
-										class="rounded border border-error/40 px-2 py-1 text-[11px] text-error hover:bg-error/5 transition-colors"
+										class="rounded border border-error/40 px-2 py-1 text-xs text-error hover:bg-error/5 transition-colors"
 										onclick={() => void deleteMacro(macro.id)}
 									>
 										Delete

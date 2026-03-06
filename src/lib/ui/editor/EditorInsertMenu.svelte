@@ -317,7 +317,7 @@
 	<details class="ml-auto text-xs text-ink-faint">
 		<summary class="cursor-pointer select-none">Template variables</summary>
 		<div class="mt-1 rounded border border-border overflow-x-auto">
-			<table class="min-w-[440px] text-left text-[11px]">
+			<table class="min-w-[440px] text-left text-xs">
 				<thead class="bg-surface-alt/70">
 					<tr>
 						<th class="px-2 py-1 font-semibold text-ink">Variable</th>
@@ -375,13 +375,13 @@
 							onclick={() => void selectSnippet(snippet.id)}
 						>
 							<p class="text-xs font-medium text-ink">{snippet.name}</p>
-							<p class="text-[11px] text-ink-faint">{snippet.description}</p>
+							<p class="text-xs text-ink-faint">{snippet.description}</p>
 						</button>
 					{/each}
 				{/if}
 			</div>
 			<div class="rounded border border-border bg-surface-alt/60 p-2">
-				<p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+				<p class="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">
 					Live Preview
 				</p>
 				{#if snippetPreviewLoading}

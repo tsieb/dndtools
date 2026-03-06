@@ -166,12 +166,12 @@
 				{#if overflowOpen}
 					<div
 						bind:this={overflowMenuEl}
-						class="absolute right-0 top-[calc(100%+0.35rem)] z-40 min-w-48 rounded-lg border border-border bg-surface p-2 shadow-xl"
+						class="absolute right-0 top-[calc(100%+0.35rem)] z-40 min-w-48 rounded-lg border border-border bg-surface-elevated p-2 shadow-lg"
 						role="menu"
 						aria-label="Compact topbar overflow menu"
 					>
 						<div class="mb-2 px-1">
-							<p class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Theme</p>
+							<p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">Theme</p>
 							<div class="mt-1 grid grid-cols-3 gap-1">
 								<button
 									type="button"
@@ -364,7 +364,7 @@
 							/>
 						</svg>
 						<span
-							class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full px-1 text-center text-[10px] leading-4 text-white {vaultHealthState.severity ===
+							class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full px-1 text-center text-2xs leading-4 text-white {vaultHealthState.severity ===
 							'critical'
 								? 'bg-red-600'
 								: vaultHealthState.severity === 'warning'
@@ -397,7 +397,7 @@
 					</svg>
 					{#if mcpChangesState.count > 0}
 						<span
-							class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full bg-warning px-1 text-center text-[10px] leading-4 text-white"
+							class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full bg-warning px-1 text-center text-2xs leading-4 text-white"
 						>
 							{mcpChangesState.count}
 						</span>

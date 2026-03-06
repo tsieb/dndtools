@@ -184,7 +184,7 @@
 			{#if onpin}
 				<button
 					type="button"
-					class="pointer-events-auto flex w-14 items-center justify-center rounded-l-lg bg-amber-500 text-[11px] font-semibold text-white"
+					class="pointer-events-auto flex w-14 items-center justify-center rounded-l-lg bg-amber-500 text-xs font-semibold text-white"
 					onclick={invokePin}
 					aria-label={note.pinned ? 'Unpin note' : 'Pin note'}
 				>
@@ -194,7 +194,7 @@
 			{#if ondelete}
 				<button
 					type="button"
-					class="pointer-events-auto flex w-14 items-center justify-center rounded-r-lg bg-red-600 text-[11px] font-semibold text-white"
+					class="pointer-events-auto flex w-14 items-center justify-center rounded-r-lg bg-red-600 text-xs font-semibold text-white"
 					onclick={invokeDelete}
 					aria-label="Delete note"
 				>
@@ -276,7 +276,7 @@
 
 	{#if actionMenuOpen && hasQuickActions}
 		<div
-			class="absolute right-2 top-11 z-30 min-w-32 rounded-md border border-border bg-surface p-1.5 shadow-lg"
+			class="absolute right-2 top-11 z-30 min-w-32 rounded-md border border-border bg-surface-elevated p-1.5 shadow-lg"
 			role="menu"
 			aria-label="Note card quick actions"
 		>

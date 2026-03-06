@@ -14,7 +14,7 @@
 </script>
 
 <div
-	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-150 cursor-pointer hover:shadow-md {selected
+	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-fast cursor-pointer hover:shadow-md {selected
 		? 'border-border ring-2 ring-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
 		: 'border-border'}"
 	style="background-color: {tile.style?.backgroundColor ?? ''}; border-color: {tile.style
@@ -50,7 +50,7 @@
 >
 	<header class="px-3 py-2 border-b border-border flex items-center gap-2">
 		<div class="font-medium text-sm text-ink flex-1">Dice Tray</div>
-		<span class="text-[10px] px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
+		<span class="text-2xs px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
 			Ctrl+D
 		</span>
 	</header>

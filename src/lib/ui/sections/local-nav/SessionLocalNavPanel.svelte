@@ -104,7 +104,7 @@
 							<div class="font-medium text-ink">
 								Resume {mostRecentBoard.name}
 							</div>
-							<div class="mt-0.5 text-[10px] text-ink-faint">Most recent board</div>
+							<div class="mt-0.5 text-2xs text-ink-faint">Most recent board</div>
 						</button>
 					{/if}
 				</div>
@@ -139,7 +139,7 @@
 			{#each ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'] as die (die)}
 				<button
 					type="button"
-					class="rounded-md border border-border px-1.5 py-1 text-[11px] font-semibold text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg hover:text-ink"
+					class="rounded-md border border-border px-1.5 py-1 text-xs font-semibold text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg hover:text-ink"
 					onclick={() => rollQuickDie(die)}
 					aria-label={`Roll ${die} and open dice tray`}
 				>

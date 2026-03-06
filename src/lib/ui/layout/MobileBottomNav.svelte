@@ -75,7 +75,7 @@
 		{#each navItems as item (item.id)}
 			<a
 				href={item.href}
-				class="flex min-h-12 flex-col items-center justify-center rounded-md px-1 py-1 text-[11px] font-medium transition-colors {item.match(
+				class="flex min-h-12 flex-col items-center justify-center rounded-md px-1 py-1 text-xs font-medium transition-colors {item.match(
 					currentPath,
 				)
 					? 'bg-accent-subtle text-accent'

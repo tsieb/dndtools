@@ -708,7 +708,7 @@
 		tabindex="-1"
 	>
 		<div
-			class="mx-4 w-full max-w-3xl overflow-hidden rounded-lg border border-border bg-surface shadow-xl"
+			class="mx-4 w-full max-w-3xl overflow-hidden rounded-lg border border-border bg-surface-elevated shadow-lg"
 		>
 			<div class="border-b border-border p-3">
 				<input
@@ -759,7 +759,7 @@
 					{#each items as item, i (item.id)}
 						{#if shouldShowGroup(i)}
 							<li
-								class="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint"
+								class="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-ink-faint"
 							>
 								{item.group}
 							</li>

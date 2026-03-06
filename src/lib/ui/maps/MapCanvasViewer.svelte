@@ -1379,7 +1379,7 @@
 								{/if}
 								{#if token.statusIcons && token.statusIcons.length > 0}
 									<div
-										class="absolute -right-1 -top-1 rounded bg-black/70 px-1 text-[9px] leading-4 text-white"
+										class="absolute -right-1 -top-1 rounded bg-black/70 px-1 text-2xs leading-4 text-white"
 									>
 										{token.statusIcons.join('')}
 									</div>

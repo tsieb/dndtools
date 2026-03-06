@@ -226,7 +226,7 @@
 	<div class="px-4 py-2">
 		<Breadcrumb items={breadcrumbs} />
 		{#if contextHint}
-			<p class="mt-1 text-[11px] text-ink-faint">{contextHint}</p>
+			<p class="mt-1 text-xs text-ink-faint">{contextHint}</p>
 		{/if}
 	</div>
 </div>

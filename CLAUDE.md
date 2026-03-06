@@ -383,12 +383,15 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
     - `tests/e2e/navigation.spec.ts` (medium overlay, split-view, and shortcut overlay behaviors)
   - Updated medium-tier architecture contract docs in `docs/architecture/LAYOUT_TIERS.md`
 - **Epic 15.1** — Design Token Architecture:
-  - Redesigned `src/app.css` with a semantic color token layer (`--color-bg`, `--color-surface`, `--color-surface-elevated`, `--color-surface-alt`, `--color-border`, `--color-border-strong`, `--color-ink`, `--color-ink-muted`, `--color-ink-faint`, `--color-accent`, `--color-accent-hover`, `--color-accent-subtle`, `--color-accent-foreground`, `--color-success`, `--color-warning`, `--color-error`, `--color-focus-ring`)
+  - Redesigned `src/app.css` with a semantic color token layer (`--color-bg`, `--color-surface`, `--color-surface-elevated`, `--color-surface-alt`, `--color-border`, `--color-border-strong`, `--color-ink`, `--color-ink-muted`, `--color-ink-faint`, `--color-accent`, `--color-accent-hover`, `--color-accent-subtle`, `--color-accent-foreground`, `--color-success`, `--color-warning`, `--color-error`, `--color-error-hover`, `--color-focus-ring`)
   - Dark mode override block `html.dark { }` sets all semantic tokens to tavern palette values — components no longer need `dark:` Tailwind prefix for structural/surface styling
-  - Typography scale tokens (`--text-2xs` through `--text-2xl`) override Tailwind defaults; letter-spacing and font-weight tokens added
-  - Spacing scale (4px base unit, `--space-0.5` through `--space-16`) with component token layer (`--component-nav-item-px/py`, `--component-card-padding`)
-  - Motion tokens (`--duration-fast/medium/slow`, `--easing-standard/decelerate/accelerate`) with `prefers-reduced-motion` collapse; elevation tokens (`--shadow-sm/md/lg`)
-  - All 85 Svelte component files migrated from `dark:*-tavern-*` patterns to single semantic token class (1936 → 60 remaining `dark:` usages, all for status-indicator colors only)
+  - Typography scale tokens (`--text-2xs` through `--text-2xl`) override Tailwind defaults; all `text-[Npx]` arbitrary sizes migrated to scale tokens across all component and route files
+  - Spacing scale (4px base unit, `--space-0.5` through `--space-16`) with component token layer; `--component-nav-item-px/py` tokens applied to `.primary-nav-item` CSS rule
+  - Motion tokens (`--duration-fast/medium/slow`) moved to `@theme` block so Tailwind generates `duration-fast` etc. utilities; elevation tokens (`--shadow-sm/md/lg`) moved to `@theme` overriding Tailwind built-in shadow values; `prefers-reduced-motion` collapses all durations
+  - All session board tiles and AppShell sheet migrated from `duration-150` to `duration-fast` Tailwind utility
+  - `bg-surface-elevated` applied to all floating elements (dropdowns, modals, overlays, tooltips) throughout the codebase
+  - Body background gradient refactored to use palette tokens via `color-mix()`; handout preview structural colors migrated to semantic tokens
+  - Token compliance lint gate: `pnpm lint:tokens` (`scripts/token-compliance-lint.ts`) enforces no arbitrary font sizes and no structural `dark:` prefixes; wired into `pnpm lint`
   - Architecture contract: `docs/architecture/DESIGN_TOKENS.md`
 
 ## What Not To Do

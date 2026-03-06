@@ -52,23 +52,23 @@
 
 	<div class="grid gap-3 sm:grid-cols-4 mb-4">
 		<div class="rounded-lg bg-surface-alt px-3 py-2">
-			<p class="text-[11px] uppercase tracking-wider text-ink-faint">Armor Class</p>
+			<p class="text-xs uppercase tracking-wider text-ink-faint">Armor Class</p>
 			<p class="text-lg font-semibold text-ink">
 				{object.data.armorClass ?? '-'}
 			</p>
 		</div>
 		<div class="rounded-lg bg-surface-alt px-3 py-2">
-			<p class="text-[11px] uppercase tracking-wider text-ink-faint">Hit Points</p>
+			<p class="text-xs uppercase tracking-wider text-ink-faint">Hit Points</p>
 			<p class="text-lg font-semibold text-ink">
 				{object.data.hitPoints ?? '-'}
 			</p>
 		</div>
 		<div class="rounded-lg bg-surface-alt px-3 py-2">
-			<p class="text-[11px] uppercase tracking-wider text-ink-faint">Speed</p>
+			<p class="text-xs uppercase tracking-wider text-ink-faint">Speed</p>
 			<p class="text-lg font-semibold text-ink">{object.data.speed ?? '-'}</p>
 		</div>
 		<div class="rounded-lg bg-surface-alt px-3 py-2">
-			<p class="text-[11px] uppercase tracking-wider text-ink-faint">Prof Bonus</p>
+			<p class="text-xs uppercase tracking-wider text-ink-faint">Prof Bonus</p>
 			<p class="text-lg font-semibold text-ink">
 				{object.data.proficiencyBonus ?? '-'}
 			</p>
@@ -78,7 +78,7 @@
 	<div class="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-4">
 		{#each abilityOrder as key (key)}
 			<div class="rounded-lg border border-border bg-bg px-2 py-2 text-center">
-				<p class="text-[11px] uppercase tracking-wider text-ink-faint">
+				<p class="text-xs uppercase tracking-wider text-ink-faint">
 					{labelForAbility(key)}
 				</p>
 				<p class="text-lg font-semibold text-ink">

@@ -243,9 +243,7 @@
 	{#if showHeader}
 		<div class="flex items-center justify-between gap-2">
 			<h3 class="text-sm font-semibold text-ink">Generator</h3>
-			<span class="rounded border border-border px-2 py-1 text-[11px] text-ink-faint">
-				Ctrl+G
-			</span>
+			<span class="rounded border border-border px-2 py-1 text-xs text-ink-faint"> Ctrl+G </span>
 		</div>
 	{/if}
 
@@ -311,13 +309,13 @@
 									<p class="truncate text-xs font-medium text-ink">
 										{table.name}
 									</p>
-									<p class="text-[11px] text-ink-faint">
+									<p class="text-xs text-ink-faint">
 										{table.source === 'system' ? 'System' : 'Vault'} | {table.rows.length} rows
 									</p>
 								</div>
 								<button
 									type="button"
-									class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface"
+									class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface"
 									onclick={() => rollTableByName(table.name)}
 								>
 									Roll
@@ -325,7 +323,7 @@
 								{#if table.source === 'system'}
 									<button
 										type="button"
-										class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface"
+										class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface"
 										onclick={() => void copySystemTable(table.name)}
 									>
 										Copy
@@ -335,7 +333,7 @@
 							{#if tableHistory(table.name).length > 0}
 								<ul class="mt-1 space-y-1">
 									{#each tableHistory(table.name) as rollResult, index (`${table.name}:${index}`)}
-										<li class="rounded border border-border/60 px-2 py-1 text-[11px] text-ink">
+										<li class="rounded border border-border/60 px-2 py-1 text-xs text-ink">
 											{rollResult}
 										</li>
 									{/each}
@@ -372,7 +370,7 @@
 			{#if npcDraft}
 				<div class="space-y-1.5 text-xs">
 					<div class="rounded border border-border/60 p-2">
-						<p class="text-[11px] uppercase tracking-wider text-ink-faint">Name</p>
+						<p class="text-xs uppercase tracking-wider text-ink-faint">Name</p>
 						<p class="text-sm font-semibold text-ink">{npcDraft.name}</p>
 					</div>
 					<div class="rounded border border-border/60 p-2">

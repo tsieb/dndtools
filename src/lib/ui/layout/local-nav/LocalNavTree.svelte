@@ -195,7 +195,7 @@
 			>
 				<span class="truncate">{entry.label}</span>
 				{#if typeof entry.count === 'number'}
-					<span class="ml-auto text-[11px] text-ink-faint">({entry.count})</span>
+					<span class="ml-auto text-xs text-ink-faint">({entry.count})</span>
 				{/if}
 			</button>
 		{/each}

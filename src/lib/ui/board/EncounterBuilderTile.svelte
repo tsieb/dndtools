@@ -387,7 +387,7 @@
 </script>
 
 <div
-	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-150 cursor-pointer hover:shadow-md {selected
+	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-fast cursor-pointer hover:shadow-md {selected
 		? 'border-border ring-2 ring-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
 		: 'border-border'}"
 	role="button"
@@ -434,7 +434,7 @@
 				</button>
 			{/if}
 		</div>
-		<div class="flex flex-wrap items-center gap-2 text-[11px] text-ink-muted">
+		<div class="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
 			<span>{encounter.partyMembers.length} party members</span>
 			<span>{encounter.combatants.length} combatant entries</span>
 			<span>Base XP {encounter.budget.baseXp.toLocaleString()}</span>
@@ -458,7 +458,7 @@
 					style="width: {Math.min(100, getEncounterDifficultyMeterPercent(encounter.budget))}%"
 				></div>
 			</div>
-			<div class="mt-2 grid grid-cols-2 gap-1 text-[11px] text-ink-muted">
+			<div class="mt-2 grid grid-cols-2 gap-1 text-xs text-ink-muted">
 				<span>Easy {encounter.budget.easy.toLocaleString()}</span>
 				<span>Medium {encounter.budget.medium.toLocaleString()}</span>
 				<span>Hard {encounter.budget.hard.toLocaleString()}</span>
@@ -483,7 +483,7 @@
 					<option value="aerial">Aerial</option>
 				</select>
 			</div>
-			<label class="block text-[11px] text-ink-muted">
+			<label class="block text-xs text-ink-muted">
 				Link map or location note
 				<select
 					class="mt-1 h-7 w-full rounded border border-border bg-surface px-2 text-xs"
@@ -499,17 +499,17 @@
 			{#if encounter.tacticalChecklist.length > 0}
 				<div class="space-y-1">
 					<div class="flex items-center justify-between">
-						<p class="text-[11px] font-semibold text-ink-muted">Tactical Checklist</p>
+						<p class="text-xs font-semibold text-ink-muted">Tactical Checklist</p>
 						<button
 							type="button"
-							class="text-[11px] px-1.5 py-0.5 rounded border border-border hover:bg-surface-alt"
+							class="text-xs px-1.5 py-0.5 rounded border border-border hover:bg-surface-alt"
 							onclick={resetChecklist}
 						>
 							Reset
 						</button>
 					</div>
 					{#each encounter.tacticalChecklist as item (item.id)}
-						<label class="flex items-center gap-1.5 text-[11px] text-ink">
+						<label class="flex items-center gap-1.5 text-xs text-ink">
 							<input
 								type="checkbox"
 								checked={item.checked}
@@ -533,16 +533,16 @@
 			/>
 			<div class="max-h-28 overflow-y-auto space-y-1">
 				{#if loading}
-					<p class="text-[11px] text-ink-muted">Loading stat blocks...</p>
+					<p class="text-xs text-ink-muted">Loading stat blocks...</p>
 				{:else if loadError}
-					<p class="text-[11px] text-error">{loadError}</p>
+					<p class="text-xs text-error">{loadError}</p>
 				{:else if filteredStatBlocks.length === 0}
-					<p class="text-[11px] text-ink-muted">No matching stat blocks.</p>
+					<p class="text-xs text-ink-muted">No matching stat blocks.</p>
 				{:else}
 					{#each filteredStatBlocks as object (object.id)}
 						<button
 							type="button"
-							class="w-full text-left rounded border border-border/70 px-2 py-1 text-[11px] hover:bg-surface-alt transition-colors"
+							class="w-full text-left rounded border border-border/70 px-2 py-1 text-xs hover:bg-surface-alt transition-colors"
 							onclick={() => addStatBlock(object)}
 						>
 							<span class="font-semibold text-ink">{object.name}</span>
@@ -555,7 +555,7 @@
 			</div>
 
 			{#if encounter.combatants.length === 0}
-				<p class="text-[11px] text-ink-muted">
+				<p class="text-xs text-ink-muted">
 					Add at least one stat block to calculate encounter difficulty.
 				</p>
 			{:else}
@@ -567,11 +567,11 @@
 									<div class="text-xs font-semibold text-ink truncate">
 										{entry.name}
 									</div>
-									<div class="text-[11px] text-ink-muted">
+									<div class="text-xs text-ink-muted">
 										CR {entry.challengeRating || 'n/a'} · XP {entry.xpPerCreature.toLocaleString()} each
 									</div>
 								</div>
-								<label class="text-[11px] text-ink-muted">
+								<label class="text-xs text-ink-muted">
 									Count
 									<input
 										type="number"
@@ -595,7 +595,7 @@
 									x
 								</button>
 							</div>
-							<div class="mt-1 text-[11px] text-ink-muted">
+							<div class="mt-1 text-xs text-ink-muted">
 								Subtotal XP {(entry.count * entry.xpPerCreature).toLocaleString()}
 								{#if entry.legendaryActions.length > 0}
 									· Legendary actions {entry.legendaryActions.length}

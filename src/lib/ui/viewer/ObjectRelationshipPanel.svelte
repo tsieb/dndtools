@@ -149,7 +149,7 @@
 		</h2>
 		{#if crossLinks.length > 0}
 			<div class="mt-2 space-y-1.5">
-				<p class="text-[11px] uppercase tracking-wide text-ink-faint">Cross-section Links</p>
+				<p class="text-xs uppercase tracking-wide text-ink-faint">Cross-section Links</p>
 				<ul class="space-y-1">
 					{#each crossLinks as link (link.id)}
 						<li class="rounded border border-border/70 px-2 py-1 text-xs">
@@ -159,7 +159,7 @@
 							>
 								{link.label}
 							</a>
-							<p class="mt-0.5 text-[11px] text-ink-muted">
+							<p class="mt-0.5 text-xs text-ink-muted">
 								{link.details}
 							</p>
 						</li>
@@ -177,7 +177,7 @@
 			<ul class="mt-2 space-y-1 text-xs text-ink">
 				{#each rows as row (row.id)}
 					<li class="flex items-center gap-2">
-						<span class="rounded bg-surface-alt px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+						<span class="rounded bg-surface-alt px-1.5 py-0.5 text-2xs uppercase tracking-wide">
 							{row.direction}
 						</span>
 						<span class="font-semibold">{row.label}</span>
@@ -186,7 +186,7 @@
 						{:else if row.targetId}
 							<button
 								type="button"
-								class="rounded bg-surface-alt px-2 py-0.5 text-left text-[11px] hover:bg-surface"
+								class="rounded bg-surface-alt px-2 py-0.5 text-left text-xs hover:bg-surface"
 								onclick={() =>
 									row.targetId &&
 									goto(resolve(`/knowledge/notes/${row.targetId}`), {
@@ -197,9 +197,7 @@
 							</button>
 						{/if}
 						{#if row.unresolved}
-							<span class="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning"
-								>missing</span
-							>
+							<span class="rounded bg-warning/15 px-1.5 py-0.5 text-2xs text-warning">missing</span>
 						{/if}
 					</li>
 				{/each}

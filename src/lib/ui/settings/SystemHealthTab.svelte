@@ -336,7 +336,7 @@
 										<p class="font-medium text-ink">
 											{summary.label}
 										</p>
-										<p class="text-[11px] text-ink-faint">
+										<p class="text-xs text-ink-faint">
 											{summary.description}
 										</p>
 									</td>
@@ -473,7 +473,7 @@
 								<p class="text-ink font-medium font-mono">
 									{error.code}
 								</p>
-								<span class="ml-auto text-ink-faint text-[10px] uppercase tracking-wide"
+								<span class="ml-auto text-ink-faint text-2xs uppercase tracking-wide"
 									>{error.category}</span
 								>
 							</div>

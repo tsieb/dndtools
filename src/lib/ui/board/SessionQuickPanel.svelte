@@ -139,9 +139,7 @@
 					<h2 class="text-sm font-semibold text-ink truncate">
 						{activeBoard ? `${activeBoard.name} quick panel` : 'Session quick panel'}
 					</h2>
-					<p class="text-[11px] text-ink-muted">
-						Ctrl+Shift+B toggles this overlay from any route.
-					</p>
+					<p class="text-xs text-ink-muted">Ctrl+Shift+B toggles this overlay from any route.</p>
 				</div>
 				<button
 					type="button"
@@ -169,7 +167,7 @@
 								class="rounded-lg border border-border p-2.5 text-left hover:bg-surface-alt/70 transition-colors"
 								onclick={() => openTile(tile)}
 							>
-								<div class="text-[11px] uppercase tracking-wider text-ink-faint">
+								<div class="text-xs uppercase tracking-wider text-ink-faint">
 									{tileType(tile) === 'note'
 										? tile.noteId
 											? 'Note'

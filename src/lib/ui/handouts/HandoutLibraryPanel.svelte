@@ -248,12 +248,12 @@
 										{handout.data.title || handout.name}
 									</p>
 									<span
-										class="text-[11px] px-1.5 py-0.5 rounded border border-border/70 text-ink-faint"
+										class="text-xs px-1.5 py-0.5 rounded border border-border/70 text-ink-faint"
 									>
 										{handoutTypeLabel(handout.data.handoutType)}
 									</span>
 									<span
-										class="text-[11px] px-1.5 py-0.5 rounded {handout.data.delivered
+										class="text-xs px-1.5 py-0.5 rounded {handout.data.delivered
 											? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/35 dark:text-emerald-200'
 											: 'bg-slate-100 text-slate-700 dark:bg-slate-900/35 dark:text-slate-300'}"
 									>
@@ -261,7 +261,7 @@
 									</span>
 									{#if handout.data.handoutType === 'cipher' && !handout.data.cipher?.decodedRevealed}
 										<span
-											class="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/35 dark:text-amber-200"
+											class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/35 dark:text-amber-200"
 										>
 											Locked
 										</span>
@@ -322,7 +322,7 @@
 {#if contextMenu && contextHandout}
 	<div
 		data-handout-context-menu="true"
-		class="fixed z-[70] min-w-[200px] rounded-md border border-border bg-surface shadow-xl p-1"
+		class="fixed z-[70] min-w-[200px] rounded-md border border-border bg-surface-elevated shadow-lg p-1"
 		style={`left: ${contextMenu.x}px; top: ${contextMenu.y}px;`}
 		role="menu"
 	>

@@ -147,7 +147,7 @@
 		>
 			Session Context
 		</button>
-		<span class="text-[11px] text-ink-faint">{context.items.length}</span>
+		<span class="text-xs text-ink-faint">{context.items.length}</span>
 	</div>
 
 	{#if !activeBoard}
@@ -157,7 +157,7 @@
 	{:else}
 		<div class="p-3 space-y-2.5">
 			<div class="rounded border border-border/70 bg-surface-alt/70 px-2 py-1.5">
-				<p class="text-[11px] uppercase tracking-wider text-ink-faint">Active Party Location</p>
+				<p class="text-xs uppercase tracking-wider text-ink-faint">Active Party Location</p>
 				{#if partyLocation}
 					<p class="mt-1 text-xs text-ink">
 						{mapById[partyLocation.mapId]?.name ?? partyLocation.mapId} @
@@ -168,7 +168,7 @@
 				{/if}
 				<button
 					type="button"
-					class="mt-1 rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:bg-surface"
+					class="mt-1 rounded border border-border px-2 py-0.5 text-xs text-ink-muted hover:bg-surface"
 					disabled={!pinnedLocationMapPlacement}
 					onclick={() => void setPartyLocationFromPinnedContext()}
 				>
@@ -177,7 +177,7 @@
 			</div>
 			{#each CATEGORY_ORDER as category (category)}
 				<div>
-					<p class="text-[11px] uppercase tracking-wider text-ink-faint mb-1">
+					<p class="text-xs uppercase tracking-wider text-ink-faint mb-1">
 						{CATEGORY_LABELS[category]}
 					</p>
 					{#if groupedItems(category).length === 0}
@@ -197,7 +197,7 @@
 											{note?.title ?? `Missing note (${item.noteId})`}
 										</button>
 										<select
-											class="rounded border border-border bg-surface px-1.5 py-0.5 text-[11px] text-ink-muted"
+											class="rounded border border-border bg-surface px-1.5 py-0.5 text-xs text-ink-muted"
 											value={item.category}
 											onchange={(event) =>
 												void recategorize(
@@ -214,7 +214,7 @@
 										</select>
 										<button
 											type="button"
-											class="text-[11px] px-1.5 py-0.5 rounded border border-border text-ink-muted hover:text-ink"
+											class="text-xs px-1.5 py-0.5 rounded border border-border text-ink-muted hover:text-ink"
 											onclick={() => void unpin(item.noteId)}
 											aria-label="Unpin from session context"
 										>

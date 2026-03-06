@@ -975,7 +975,7 @@
 				<ul class="mt-1 space-y-1 text-xs text-ink">
 					{#each relationshipRows as row (row.id)}
 						<li class="flex items-center gap-2">
-							<span class="rounded bg-surface px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
+							<span class="rounded bg-surface px-1.5 py-0.5 text-2xs uppercase tracking-wide">
 								{row.direction}
 							</span>
 							<span class="font-semibold">{row.label}</span>
@@ -984,14 +984,14 @@
 							{:else if row.targetId}
 								<button
 									type="button"
-									class="rounded bg-surface px-2 py-0.5 text-left text-[11px] hover:bg-surface-alt"
+									class="rounded bg-surface px-2 py-0.5 text-left text-xs hover:bg-surface-alt"
 									onclick={() => row.targetId && void openObjectNote(row.targetId)}
 								>
 									{row.targetName ?? row.targetId}
 								</button>
 							{/if}
 							{#if row.unresolved}
-								<span class="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning">
+								<span class="rounded bg-warning/15 px-1.5 py-0.5 text-2xs text-warning">
 									missing
 								</span>
 							{/if}
@@ -1009,14 +1009,14 @@
 							<div class="min-w-0">
 								<p>{issue.severity.toUpperCase()}: {issue.message}</p>
 								{#if issue.suggestedFix}
-									<p class="text-[11px] text-ink-muted">
+									<p class="text-xs text-ink-muted">
 										{issue.suggestedFix}
 									</p>
 								{/if}
 							</div>
 							<button
 								type="button"
-								class="shrink-0 rounded bg-surface-alt px-2 py-0.5 text-[11px] text-ink hover:bg-surface"
+								class="shrink-0 rounded bg-surface-alt px-2 py-0.5 text-xs text-ink hover:bg-surface"
 								onclick={() => void applyLintFix(issue)}
 								disabled={loading}
 							>
@@ -1040,12 +1040,12 @@
 									{entry.reason} - {entry.recordedAt}
 								</p>
 								<p class="truncate text-ink-muted">{entry.object.name}</p>
-								<p class="truncate text-[11px] text-ink-faint">
+								<p class="truncate text-xs text-ink-faint">
 									{computeHistoryDelta(index)}
 								</p>
 							</div>
 							<button
-								class="rounded bg-surface-alt px-2 py-1 text-[11px] text-ink"
+								class="rounded bg-surface-alt px-2 py-1 text-xs text-ink"
 								onclick={() => void revertTo(entry.id)}
 								disabled={loading}
 							>
