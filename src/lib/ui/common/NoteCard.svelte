@@ -8,6 +8,7 @@
 		onclick: (id: NoteId) => void;
 		onpin?: (id: NoteId) => void;
 		ondelete?: (id: NoteId) => void;
+		oncontextrequest?: (id: NoteId, event: MouseEvent) => void;
 	}
 
 	const SWIPE_ACTION_WIDTH = 112;
@@ -15,7 +16,7 @@
 	const LONG_PRESS_MS = 450;
 	const LONG_PRESS_MOVE_CANCEL_PX = 12;
 
-	let { note, onclick, onpin, ondelete }: Props = $props();
+	let { note, onclick, onpin, ondelete, oncontextrequest }: Props = $props();
 
 	let cardRoot = $state<HTMLElement | null>(null);
 	let actionsOpen = $state(false);
@@ -166,6 +167,15 @@
 		dragOffset = 0;
 		actionMenuOpen = !actionMenuOpen;
 	}
+
+	function handleContextMenu(event: MouseEvent): void {
+		if (!oncontextrequest) return;
+		event.preventDefault();
+		actionsOpen = false;
+		dragOffset = 0;
+		actionMenuOpen = false;
+		oncontextrequest(note.id, event);
+	}
 </script>
 
 <div class="relative overflow-visible" bind:this={cardRoot}>
@@ -199,6 +209,7 @@
 		style={cardTransformStyle}
 		onclick={activateCard}
 		onkeydown={handleCardKeydown}
+		oncontextmenu={handleContextMenu}
 		ontouchstart={handleTouchStart}
 		ontouchmove={handleTouchMove}
 		ontouchend={handleTouchEnd}

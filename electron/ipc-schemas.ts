@@ -714,6 +714,36 @@ export const mapAssetRelativePathSchema = z
 	.max(MAX_PATH_LENGTH)
 	.refine(isPathSafe, { message: 'Path traversal sequences are not allowed in map asset paths' });
 
+/** Note list context-menu request payload. */
+export const noteContextMenuRequestSchema = z
+	.object({
+		kind: z.literal('note'),
+		noteId: idSchema,
+		noteTitle: z.string().min(1).max(MAX_STRING_LENGTH),
+		pinned: z.boolean(),
+		folder: folderPathSchema,
+		availableFolders: z.array(folderPathSchema).max(200),
+		x: z.number().int().min(0).max(20_000).optional(),
+		y: z.number().int().min(0).max(20_000).optional(),
+	})
+	.strict();
+
+/** Folder tree context-menu request payload. */
+export const folderContextMenuRequestSchema = z
+	.object({
+		kind: z.literal('folder'),
+		folder: folderPathSchema,
+		x: z.number().int().min(0).max(20_000).optional(),
+		y: z.number().int().min(0).max(20_000).optional(),
+	})
+	.strict();
+
+/** Native desktop context-menu request payload. */
+export const desktopContextMenuRequestSchema = z.discriminatedUnion('kind', [
+	noteContextMenuRequestSchema,
+	folderContextMenuRequestSchema,
+]);
+
 /** Session runtime state persisted in `.vault/session-state.json`. */
 export const sessionStateSchema = z
 	.object({

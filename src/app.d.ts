@@ -476,7 +476,6 @@ declare global {
 				context?: Record<string, string | number | boolean | null>;
 			}): Promise<void>;
 			exportDiagnosticsBundle(): Promise<{ canceled: boolean; path: string | null }>;
-			refreshVault(): Promise<{ noteCount: number }>;
 			listMcpPendingChanges(): Promise<DesktopMcpChangeRecord[]>;
 			listMcpAuditTrail(limit?: number): Promise<DesktopMcpChangeRecord[]>;
 			getMcpPolicySettings(): Promise<DesktopMcpPolicySettings>;
@@ -485,11 +484,31 @@ declare global {
 			approveAllMcpChanges(): Promise<DesktopMcpChangeRecord[]>;
 			rejectMcpChange(changeId: string): Promise<DesktopMcpChangeRecord | null>;
 			rejectAllMcpChanges(): Promise<DesktopMcpChangeRecord[]>;
+			showNativeContextMenu(
+				request: unknown,
+			): Promise<
+				| { action: 'open' }
+				| { action: 'toggle-pin' }
+				| { action: 'delete' }
+				| { action: 'move'; folder: string }
+				| { action: 'open-folder' }
+				| { action: 'new-note' }
+				| null
+			>;
 			minimizeWindow(): Promise<void>;
 			toggleWindowMaximize(): Promise<void>;
 			closeWindow(): Promise<void>;
 			getWindowState(): Promise<{ isMaximized: boolean }>;
 			onWindowStateChange(callback: (state: { isMaximized: boolean }) => void): () => void;
+			onAppMenuCommand(callback: (payload: { command: string }) => void): () => void;
+			onDesktopNavigate(callback: (payload: { path: string }) => void): () => void;
+			onVaultFileSync(
+				callback: (payload: {
+					updatedNotes: import('$lib/types/note.js').Note[];
+					deletedNoteIds: string[];
+					updatedCount: number;
+				}) => void,
+			): () => void;
 		};
 	}
 

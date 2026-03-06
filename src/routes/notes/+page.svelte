@@ -24,6 +24,7 @@
 	import type { NoteTemplate } from '$lib/types/template-library.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import { notesInMapScope } from '$lib/domain/map-atlas.js';
+	import { showDesktopNativeContextMenu } from '$lib/platform/desktop/bridge.js';
 
 	let sortField = $state<'updatedAt' | 'title' | 'createdAt' | 'folder'>('updatedAt');
 	let sortDir = $state<'asc' | 'desc'>('desc');
@@ -223,6 +224,45 @@
 			quickDeletePending = false;
 		}
 	}
+
+	async function handleNoteContextRequest(noteId: NoteId, event: MouseEvent): Promise<void> {
+		if (typeof window === 'undefined' || !window.dndtoolsDesktop) return;
+		const note = notesState.getNoteById(noteId);
+		if (!note) return;
+		const availableFolders = [...new Set(['/', String(note.folder), ...folderOptions])].sort(
+			(a, b) => a.localeCompare(b),
+		);
+		const result = await showDesktopNativeContextMenu({
+			kind: 'note',
+			noteId: String(note.id),
+			noteTitle: note.title,
+			pinned: note.pinned,
+			folder: String(note.folder),
+			availableFolders,
+			x: Math.round(event.clientX),
+			y: Math.round(event.clientY),
+		});
+		if (!result) return;
+
+		if (result.action === 'open') {
+			goto(resolve(`/knowledge/notes/${note.id}`));
+			return;
+		}
+		if (result.action === 'toggle-pin') {
+			await handleQuickPin(note.id);
+			return;
+		}
+		if (result.action === 'delete') {
+			requestQuickDelete(note.id);
+			return;
+		}
+		if (result.action === 'move' && result.folder !== String(note.folder)) {
+			await notesState.updateNote(note.id, { folder: createFolderId(result.folder) });
+			toastState.success(
+				`Moved "${note.title}" to ${result.folder === '/' ? 'Root' : result.folder}`,
+			);
+		}
+	}
 </script>
 
 <div class="p-6 max-w-content mx-auto">
@@ -364,6 +404,7 @@
 						onclick={(id) => goto(resolve(`/knowledge/notes/${id}`))}
 						onpin={(id) => void handleQuickPin(id)}
 						ondelete={requestQuickDelete}
+						oncontextrequest={(id, event) => void handleNoteContextRequest(id, event)}
 					/>
 				{/each}
 			</div>
@@ -404,6 +445,7 @@
 					onclick={(id) => goto(resolve(`/knowledge/notes/${id}`))}
 					onpin={(id) => void handleQuickPin(id)}
 					ondelete={requestQuickDelete}
+					oncontextrequest={(id, event) => void handleNoteContextRequest(id, event)}
 				/>
 			{/each}
 		</div>

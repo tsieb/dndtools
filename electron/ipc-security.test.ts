@@ -46,6 +46,7 @@ import {
 	importJobQuerySchema,
 	exportProfileSchema,
 	exportMarkdownZipSchema,
+	desktopContextMenuRequestSchema,
 } from './ipc-schemas.js';
 
 // ─── Shared test fixtures ─────────────────────────────────────────────────────
@@ -821,6 +822,44 @@ describe('Additional validation edge cases', () => {
 					},
 				}),
 			);
+			expect(result.success).toBe(true);
+		});
+	});
+
+	describe('desktopContextMenuRequestSchema', () => {
+		it('accepts note context-menu payloads with bounded folder choices', () => {
+			const result = desktopContextMenuRequestSchema.safeParse({
+				kind: 'note',
+				noteId: 'note-abc123',
+				noteTitle: 'Arcane Ledger',
+				pinned: false,
+				folder: '/campaign/notes',
+				availableFolders: ['/', '/campaign', '/campaign/notes'],
+				x: 420,
+				y: 360,
+			});
+			expect(result.success).toBe(true);
+		});
+
+		it('rejects note context-menu payloads with traversal folder values', () => {
+			const result = desktopContextMenuRequestSchema.safeParse({
+				kind: 'note',
+				noteId: 'note-abc123',
+				noteTitle: 'Arcane Ledger',
+				pinned: false,
+				folder: '/campaign/notes',
+				availableFolders: ['../../outside'],
+			});
+			expect(result.success).toBe(false);
+		});
+
+		it('accepts folder context-menu payloads', () => {
+			const result = desktopContextMenuRequestSchema.safeParse({
+				kind: 'folder',
+				folder: '/campaign/locations',
+				x: 120,
+				y: 88,
+			});
 			expect(result.success).toBe(true);
 		});
 	});

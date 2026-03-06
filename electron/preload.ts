@@ -106,7 +106,6 @@ contextBridge.exposeInMainWorld('dndtoolsDesktop', {
 	recordDiagnosticsPerformance: (event: unknown) =>
 		ipcRenderer.invoke('dndtools:diagnostics:record-performance', event),
 	exportDiagnosticsBundle: () => ipcRenderer.invoke('dndtools:diagnostics:export'),
-	refreshVault: () => ipcRenderer.invoke('dndtools:vault-refresh'),
 	listMcpPendingChanges: () => ipcRenderer.invoke('dndtools:mcp-changes:list'),
 	listMcpAuditTrail: (limit?: number) => ipcRenderer.invoke('dndtools:mcp-changes:audit', limit),
 	getMcpPolicySettings: () => ipcRenderer.invoke('dndtools:mcp-policy:get'),
@@ -118,6 +117,8 @@ contextBridge.exposeInMainWorld('dndtoolsDesktop', {
 	rejectMcpChange: (changeId: string) =>
 		ipcRenderer.invoke('dndtools:mcp-changes:reject', changeId),
 	rejectAllMcpChanges: () => ipcRenderer.invoke('dndtools:mcp-changes:reject-all'),
+	showNativeContextMenu: (request: unknown) =>
+		ipcRenderer.invoke('dndtools:desktop:show-context-menu', request),
 	minimizeWindow: () => ipcRenderer.invoke('dndtools:window:minimize'),
 	toggleWindowMaximize: () => ipcRenderer.invoke('dndtools:window:toggle-maximize'),
 	closeWindow: () => ipcRenderer.invoke('dndtools:window:close'),
@@ -126,5 +127,29 @@ contextBridge.exposeInMainWorld('dndtoolsDesktop', {
 		const listener = (_event: unknown, payload: { isMaximized: boolean }) => callback(payload);
 		ipcRenderer.on('dndtools:window-state', listener);
 		return () => ipcRenderer.removeListener('dndtools:window-state', listener);
+	},
+	onAppMenuCommand: (callback: (payload: { command: string }) => void) => {
+		const listener = (_event: unknown, payload: { command: string }) => callback(payload);
+		ipcRenderer.on('dndtools:app-menu-command', listener);
+		return () => ipcRenderer.removeListener('dndtools:app-menu-command', listener);
+	},
+	onDesktopNavigate: (callback: (payload: { path: string }) => void) => {
+		const listener = (_event: unknown, payload: { path: string }) => callback(payload);
+		ipcRenderer.on('dndtools:desktop-navigate', listener);
+		return () => ipcRenderer.removeListener('dndtools:desktop-navigate', listener);
+	},
+	onVaultFileSync: (
+		callback: (payload: {
+			updatedNotes: unknown[];
+			deletedNoteIds: string[];
+			updatedCount: number;
+		}) => void,
+	) => {
+		const listener = (
+			_event: unknown,
+			payload: { updatedNotes: unknown[]; deletedNoteIds: string[]; updatedCount: number },
+		) => callback(payload);
+		ipcRenderer.on('dndtools:vault-file-sync', listener);
+		return () => ipcRenderer.removeListener('dndtools:vault-file-sync', listener);
 	},
 });

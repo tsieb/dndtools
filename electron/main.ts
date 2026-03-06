@@ -4,7 +4,15 @@ import fsSync from 'node:fs';
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 import AdmZip from 'adm-zip';
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import chokidar, { type FSWatcher as ChokidarWatcher } from 'chokidar';
+import {
+	app,
+	BrowserWindow,
+	Menu,
+	dialog,
+	ipcMain,
+	type MenuItemConstructorOptions,
+} from 'electron';
 import { z } from 'zod';
 import { FileSystemAdapter } from '../mcp/storage.js';
 import {
@@ -19,7 +27,13 @@ import type {
 	StructuredErrorEvent,
 } from '../src/lib/types/diagnostics.js';
 import { getErrorTaxonomyEntry } from '../src/lib/domain/error-taxonomy.js';
-import type { NoteId, FolderId, Link } from '../src/lib/types/note.js';
+import {
+	createNoteId,
+	type Note,
+	type NoteId,
+	type FolderId,
+	type Link,
+} from '../src/lib/types/note.js';
 import type { AppSettings } from '../src/lib/types/settings.js';
 import type { SessionBoardId, SessionBoard } from '../src/lib/types/session-board.js';
 import type { VaultObjectId, VaultObject } from '../src/lib/types/object.js';
@@ -65,7 +79,13 @@ import {
 	exportMarkdownZipSchema,
 	mapAssetRelativePathSchema,
 	sessionStateSchema,
+	desktopContextMenuRequestSchema,
 } from './ipc-schemas.js';
+import {
+	isVaultDirectoryArg,
+	parseDesktopIntentArg,
+	type DesktopIntent,
+} from './desktop-intents.js';
 
 let storage: FileSystemAdapter | null = null;
 let vaultDir = '';
@@ -78,6 +98,11 @@ const autoUpdateEnabled =
 let vaultHistoryStore: VaultHistoryStore | null = null;
 let updateService: DesktopUpdateService | null = null;
 let updateCheckInterval: NodeJS.Timeout | null = null;
+const pendingDesktopIntents: DesktopIntent[] = [];
+let processingDesktopIntents = false;
+let vaultWatcher: ChokidarWatcher | null = null;
+let vaultWatchFlushTimer: NodeJS.Timeout | null = null;
+const pendingVaultWatchPaths = new Set<string>();
 
 type VaultSwitchStepId = 'permission_check' | 'open_target' | 'rollback';
 
@@ -197,7 +222,7 @@ function resolveVaultDirFromArgsOrEnv(): string | null {
 	const vaultFlag = process.argv.find((arg) => arg.startsWith('--vault='));
 	if (vaultFlag) return path.resolve(vaultFlag.slice('--vault='.length));
 
-	const positional = process.argv.slice(2).find((arg) => !arg.startsWith('-'));
+	const positional = process.argv.slice(2).find((arg) => isVaultDirectoryArg(arg));
 	if (positional) return path.resolve(positional);
 
 	if (process.env.DNDTOOLS_VAULT) return path.resolve(process.env.DNDTOOLS_VAULT);
@@ -210,6 +235,226 @@ function getDefaultVaultDir(): string {
 
 function toErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+function extractDesktopIntentsFromArgs(argv: string[]): DesktopIntent[] {
+	const intents: DesktopIntent[] = [];
+	for (const arg of argv) {
+		const parsed = parseDesktopIntentArg(arg);
+		if (!parsed) continue;
+		intents.push(parsed);
+	}
+	return intents;
+}
+
+function getPrimaryWindow(): BrowserWindow | null {
+	return (
+		BrowserWindow.getFocusedWindow() ??
+		BrowserWindow.getAllWindows().find((window) => !window.isDestroyed()) ??
+		null
+	);
+}
+
+function focusWindow(window: BrowserWindow): void {
+	if (window.isMinimized()) {
+		window.restore();
+	}
+	window.show();
+	window.focus();
+}
+
+function toComparableAbsolutePath(targetPath: string): string {
+	const absolute = path.resolve(targetPath);
+	return process.platform === 'win32' ? absolute.toLowerCase() : absolute;
+}
+
+async function resolveRouteForDesktopIntent(intent: DesktopIntent): Promise<string | null> {
+	if (intent.kind === 'note') {
+		return `/knowledge/notes/${encodeURIComponent(intent.noteId)}`;
+	}
+	if (intent.kind === 'session') {
+		return `/session/boards?board=${encodeURIComponent(intent.boardId)}`;
+	}
+	if (!storage || !vaultDir) {
+		return null;
+	}
+
+	const current = storage;
+	const requestedPath = toComparableAbsolutePath(intent.filePath);
+	const findNoteIdByFilePath = (): string | null => {
+		for (const entry of current.getIndexEntries()) {
+			const entryAbsolutePath = toComparableAbsolutePath(path.join(vaultDir, entry.filePath));
+			if (entryAbsolutePath === requestedPath) {
+				return entry.id;
+			}
+		}
+		return null;
+	};
+
+	let noteId = findNoteIdByFilePath();
+	if (!noteId) {
+		await current.refreshFromDisk();
+		noteId = findNoteIdByFilePath();
+	}
+	if (!noteId) return null;
+	return `/knowledge/notes/${encodeURIComponent(noteId)}`;
+}
+
+function sendDesktopNavigationRequest(routePath: string): boolean {
+	const window = getPrimaryWindow();
+	if (!window) return false;
+	focusWindow(window);
+	window.webContents.send('dndtools:desktop-navigate', { path: routePath });
+	return true;
+}
+
+async function flushDesktopIntents(): Promise<void> {
+	if (processingDesktopIntents || pendingDesktopIntents.length === 0) return;
+	if (!app.isReady()) return;
+	processingDesktopIntents = true;
+	try {
+		while (pendingDesktopIntents.length > 0) {
+			const intent = pendingDesktopIntents[0]!;
+			const routePath = await resolveRouteForDesktopIntent(intent);
+			pendingDesktopIntents.shift();
+			if (!routePath) {
+				continue;
+			}
+			if (!sendDesktopNavigationRequest(routePath)) {
+				pendingDesktopIntents.unshift(intent);
+				break;
+			}
+		}
+	} finally {
+		processingDesktopIntents = false;
+	}
+}
+
+function queueDesktopIntent(intent: DesktopIntent): void {
+	pendingDesktopIntents.push(intent);
+	void flushDesktopIntents();
+}
+
+function normalizeRelativeVaultPath(relativePath: string): string {
+	const normalized = relativePath.replace(/\\/g, '/').replace(/^\/+/, '');
+	return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+function isWatchableVaultMarkdownPath(relativePath: string): boolean {
+	const normalized = normalizeRelativeVaultPath(relativePath);
+	if (!normalized || !normalized.endsWith('.md')) return false;
+	if (normalized.startsWith('.vault/') || normalized.includes('/.vault/')) return false;
+	if (normalized.startsWith('node_modules/') || normalized.includes('/node_modules/')) return false;
+	return true;
+}
+
+function indexEntryMapByRelativePath(store: FileSystemAdapter): Map<string, string> {
+	const byPath = new Map<string, string>();
+	for (const entry of store.getIndexEntries()) {
+		byPath.set(normalizeRelativeVaultPath(entry.filePath), entry.id);
+	}
+	return byPath;
+}
+
+async function flushVaultWatcherChanges(): Promise<void> {
+	if (vaultWatchFlushTimer) {
+		clearTimeout(vaultWatchFlushTimer);
+		vaultWatchFlushTimer = null;
+	}
+	if (pendingVaultWatchPaths.size === 0) return;
+	const changedPaths = [...pendingVaultWatchPaths];
+	pendingVaultWatchPaths.clear();
+
+	const current = storage;
+	if (!current || !vaultDir) return;
+
+	const beforeByPath = indexEntryMapByRelativePath(current);
+	await current.refreshFromDisk();
+	const afterByPath = indexEntryMapByRelativePath(current);
+
+	const touchedNoteIds = new Set<string>();
+	for (const changedPath of changedPaths) {
+		const normalizedPath = normalizeRelativeVaultPath(changedPath);
+		const beforeId = beforeByPath.get(normalizedPath);
+		const afterId = afterByPath.get(normalizedPath);
+		if (beforeId) touchedNoteIds.add(beforeId);
+		if (afterId) touchedNoteIds.add(afterId);
+	}
+	if (touchedNoteIds.size === 0) return;
+
+	const updatedNotes: Note[] = [];
+	const deletedNoteIds: string[] = [];
+	for (const noteId of touchedNoteIds) {
+		const note = await current.getNote(createNoteId(noteId));
+		if (note) {
+			updatedNotes.push(note);
+		} else {
+			deletedNoteIds.push(noteId);
+		}
+	}
+	if (updatedNotes.length === 0 && deletedNoteIds.length === 0) return;
+
+	const payload = {
+		updatedNotes,
+		deletedNoteIds,
+		updatedCount: updatedNotes.length + deletedNoteIds.length,
+	};
+	for (const window of BrowserWindow.getAllWindows()) {
+		if (window.isDestroyed()) continue;
+		window.webContents.send('dndtools:vault-file-sync', payload);
+	}
+	diagnostics.markSubsystemSuccess('vault_sync');
+}
+
+function queueVaultWatcherPath(relativePath: string): void {
+	if (!isWatchableVaultMarkdownPath(relativePath)) return;
+	pendingVaultWatchPaths.add(normalizeRelativeVaultPath(relativePath));
+	if (vaultWatchFlushTimer) {
+		clearTimeout(vaultWatchFlushTimer);
+	}
+	vaultWatchFlushTimer = setTimeout(() => {
+		void flushVaultWatcherChanges();
+	}, 350);
+}
+
+function stopVaultWatcher(): void {
+	if (vaultWatchFlushTimer) {
+		clearTimeout(vaultWatchFlushTimer);
+		vaultWatchFlushTimer = null;
+	}
+	pendingVaultWatchPaths.clear();
+	if (!vaultWatcher) return;
+	void vaultWatcher.close();
+	vaultWatcher = null;
+}
+
+function startVaultWatcher(nextVaultDir: string): void {
+	stopVaultWatcher();
+	vaultWatcher = chokidar.watch(path.join(nextVaultDir, '**/*.md'), {
+		ignoreInitial: true,
+		awaitWriteFinish: {
+			stabilityThreshold: 220,
+			pollInterval: 50,
+		},
+		ignored: [/(^|[/\\])\.vault([/\\]|$)/, /(^|[/\\])node_modules([/\\]|$)/],
+	});
+	const handlePathChange = (absolutePath: string): void => {
+		const relativePath = path.relative(nextVaultDir, absolutePath);
+		if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) return;
+		queueVaultWatcherPath(relativePath);
+	};
+	vaultWatcher.on('add', handlePathChange);
+	vaultWatcher.on('change', handlePathChange);
+	vaultWatcher.on('unlink', handlePathChange);
+	vaultWatcher.on('error', (error) => {
+		diagnostics.recordError(
+			createStructuredError({
+				category: 'storage',
+				code: 'FILE_WATCHER_FAILED',
+				message: error instanceof Error ? error.message : String(error),
+			}),
+		);
+	});
 }
 
 function createVaultSwitchStep(
@@ -330,6 +575,7 @@ async function setVaultDirectory(nextVaultDir: string): Promise<void> {
 
 	try {
 		BackupScheduler.stop();
+		stopVaultWatcher();
 		if (storage) {
 			await storage.close();
 		}
@@ -380,6 +626,7 @@ async function setVaultDirectory(nextVaultDir: string): Promise<void> {
 		mcpSidecar.setLogPath(nextVaultDir);
 		await mcpSidecar.loadPersistedEvents();
 		await mcpSidecar.restart(nextVaultDir);
+		startVaultWatcher(nextVaultDir);
 		const sidecarStatus = mcpSidecar.getStatus();
 		if (sidecarStatus.state === 'error') {
 			diagnostics.recordError(
@@ -393,6 +640,7 @@ async function setVaultDirectory(nextVaultDir: string): Promise<void> {
 				}),
 			);
 		}
+		void flushDesktopIntents();
 		completed = true;
 	} finally {
 		performance.mark(endMark);
@@ -714,6 +962,216 @@ async function ingestMcpPerformanceSamples(): Promise<void> {
 	}
 }
 
+type DesktopContextMenuRequest = z.infer<typeof desktopContextMenuRequestSchema>;
+type DesktopContextMenuResult =
+	| { action: 'open' }
+	| { action: 'toggle-pin' }
+	| { action: 'delete' }
+	| { action: 'move'; folder: string }
+	| { action: 'open-folder' }
+	| { action: 'new-note' };
+
+function labelForFolderPath(folderPath: string): string {
+	if (folderPath === '/') return 'Root';
+	const normalized = folderPath.replace(/^\/+/, '');
+	return normalized || 'Root';
+}
+
+function buildDesktopContextMenuTemplate(
+	request: DesktopContextMenuRequest,
+	onSelect: (result: DesktopContextMenuResult) => void,
+): MenuItemConstructorOptions[] {
+	if (request.kind === 'note') {
+		const moveChoices = request.availableFolders
+			.filter((folder) => folder !== request.folder)
+			.slice(0, 120)
+			.map(
+				(folder): MenuItemConstructorOptions => ({
+					label: labelForFolderPath(folder),
+					click: () => onSelect({ action: 'move', folder }),
+				}),
+			);
+		const moveSubmenu: MenuItemConstructorOptions[] =
+			moveChoices.length > 0 ? moveChoices : [{ label: 'No alternate folders', enabled: false }];
+		return [
+			{
+				label: 'Open',
+				click: () => onSelect({ action: 'open' }),
+			},
+			{
+				label: request.pinned ? 'Unpin' : 'Pin',
+				click: () => onSelect({ action: 'toggle-pin' }),
+			},
+			{
+				label: 'Move to Folder',
+				submenu: moveSubmenu,
+			},
+			{ type: 'separator' },
+			{
+				label: 'Delete',
+				click: () => onSelect({ action: 'delete' }),
+			},
+		];
+	}
+
+	return [
+		{
+			label: 'Open Folder',
+			click: () => onSelect({ action: 'open-folder' }),
+		},
+		{
+			label: 'New Note in Folder',
+			click: () => onSelect({ action: 'new-note' }),
+		},
+	];
+}
+
+async function popupDesktopContextMenu(
+	window: BrowserWindow,
+	request: DesktopContextMenuRequest,
+): Promise<DesktopContextMenuResult | null> {
+	let selected: DesktopContextMenuResult | null = null;
+	const menu = Menu.buildFromTemplate(
+		buildDesktopContextMenuTemplate(request, (result) => {
+			selected = result;
+		}),
+	);
+	await new Promise<void>((resolve) => {
+		menu.popup({
+			window,
+			...(typeof request.x === 'number' ? { x: request.x } : {}),
+			...(typeof request.y === 'number' ? { y: request.y } : {}),
+			callback: () => resolve(),
+		});
+	});
+	return selected;
+}
+
+type AppMenuCommand =
+	| 'new-note'
+	| 'open-vault'
+	| 'export-markdown'
+	| 'toggle-local-panel'
+	| 'toggle-dark-mode'
+	| 'start-session'
+	| 'open-dice-tray'
+	| 'open-combat-tracker'
+	| 'open-shortcuts'
+	| 'open-about';
+
+function emitAppMenuCommand(command: AppMenuCommand): void {
+	const target =
+		BrowserWindow.getFocusedWindow() ??
+		BrowserWindow.getAllWindows().find((window) => !window.isDestroyed());
+	if (!target) return;
+	target.webContents.send('dndtools:app-menu-command', { command });
+}
+
+function buildApplicationMenuTemplate(): MenuItemConstructorOptions[] {
+	const isMac = process.platform === 'darwin';
+
+	const template: MenuItemConstructorOptions[] = [
+		...(isMac ? ([{ role: 'appMenu' }] as MenuItemConstructorOptions[]) : []),
+		{
+			label: 'File',
+			submenu: [
+				{
+					label: 'New Note',
+					accelerator: 'CmdOrCtrl+N',
+					click: () => emitAppMenuCommand('new-note'),
+				},
+				{
+					label: 'Open Vault...',
+					accelerator: 'CmdOrCtrl+O',
+					click: () => emitAppMenuCommand('open-vault'),
+				},
+				{
+					label: 'Export Markdown...',
+					accelerator: 'CmdOrCtrl+Shift+E',
+					click: () => emitAppMenuCommand('export-markdown'),
+				},
+				{ type: 'separator' },
+				...(isMac
+					? ([{ role: 'close' }] as MenuItemConstructorOptions[])
+					: ([{ role: 'quit' }] as MenuItemConstructorOptions[])),
+			],
+		},
+		{
+			label: 'Edit',
+			submenu: [
+				{ role: 'undo' },
+				{ role: 'redo' },
+				{ type: 'separator' },
+				{ role: 'cut' },
+				{ role: 'copy' },
+				{ role: 'paste' },
+				{ role: 'selectAll' },
+			],
+		},
+		{
+			label: 'View',
+			submenu: [
+				{
+					label: 'Toggle Sidebar',
+					accelerator: 'CmdOrCtrl+B',
+					click: () => emitAppMenuCommand('toggle-local-panel'),
+				},
+				{
+					label: 'Toggle Dark Mode',
+					accelerator: 'CmdOrCtrl+Shift+L',
+					click: () => emitAppMenuCommand('toggle-dark-mode'),
+				},
+				{ type: 'separator' },
+				{ role: 'zoomIn' },
+				{ role: 'zoomOut' },
+				{ role: 'resetZoom' },
+				{ type: 'separator' },
+				{ role: 'togglefullscreen' },
+			],
+		},
+		{
+			label: 'Session',
+			submenu: [
+				{
+					label: 'Start Session',
+					accelerator: 'CmdOrCtrl+Shift+S',
+					click: () => emitAppMenuCommand('start-session'),
+				},
+				{
+					label: 'Open Dice Tray',
+					accelerator: 'CmdOrCtrl+D',
+					click: () => emitAppMenuCommand('open-dice-tray'),
+				},
+				{
+					label: 'Open Combat Tracker',
+					accelerator: 'CmdOrCtrl+Shift+C',
+					click: () => emitAppMenuCommand('open-combat-tracker'),
+				},
+			],
+		},
+		{
+			label: 'Help',
+			submenu: [
+				{
+					label: 'Keyboard Shortcuts',
+					accelerator: 'CmdOrCtrl+/',
+					click: () => emitAppMenuCommand('open-shortcuts'),
+				},
+				{
+					label: 'About',
+					click: () => emitAppMenuCommand('open-about'),
+				},
+			],
+		},
+	];
+
+	return template;
+}
+
+function configureApplicationMenu(): void {
+	Menu.setApplicationMenu(Menu.buildFromTemplate(buildApplicationMenuTemplate()));
+}
+
 type EmbeddingStatus = {
 	available: boolean;
 	model: string | null;
@@ -821,8 +1279,6 @@ async function createMainWindow(): Promise<void> {
 			preload: path.join(__dirname, 'preload.cjs'),
 		},
 	});
-	window.removeMenu();
-	window.setMenuBarVisibility(false);
 
 	const emitWindowState = (): void => {
 		if (window.isDestroyed()) return;
@@ -833,6 +1289,9 @@ async function createMainWindow(): Promise<void> {
 	window.on('unmaximize', emitWindowState);
 	window.on('enter-full-screen', emitWindowState);
 	window.on('leave-full-screen', emitWindowState);
+	window.webContents.on('did-finish-load', () => {
+		void flushDesktopIntents();
+	});
 	window.once('ready-to-show', () => {
 		window.show();
 		emitWindowState();
@@ -1484,13 +1943,6 @@ ipcMain.handle('dndtools:diagnostics:export', async () => {
 
 // â”€â”€â”€ Vault IPC handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-ipcMain.handle('dndtools:vault-refresh', async () => {
-	const current = requireStorage();
-	await current.refreshFromDisk();
-	diagnostics.markSubsystemSuccess('vault_sync');
-	return { noteCount: await current.getNoteCount() };
-});
-
 // â”€â”€â”€ MCP change review IPC handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 ipcMain.handle('dndtools:mcp-changes:list', async (): Promise<McpChangeRecord[]> => {
@@ -1577,6 +2029,16 @@ ipcMain.handle('dndtools:pick-vault', async () => {
 
 // â”€â”€â”€ Window management IPC handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+ipcMain.handle('dndtools:desktop:show-context-menu', async (event, rawRequest: unknown) => {
+	const request = parseIpcArg(
+		desktopContextMenuRequestSchema,
+		rawRequest,
+		'desktop:show-context-menu:request',
+	);
+	const window = BrowserWindow.fromWebContents(event.sender);
+	if (!window) return null;
+	return popupDesktopContextMenu(window, request);
+});
 ipcMain.handle('dndtools:window:minimize', async (event) => {
 	BrowserWindow.fromWebContents(event.sender)?.minimize();
 });
@@ -1628,6 +2090,44 @@ process.on('unhandledRejection', (reason) => {
 
 // â”€â”€â”€ Application lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+	app.quit();
+}
+
+app.on('second-instance', (_event, argv) => {
+	const intents = extractDesktopIntentsFromArgs(argv);
+	if (intents.length === 0) {
+		const window = getPrimaryWindow();
+		if (window) focusWindow(window);
+		return;
+	}
+	for (const intent of intents) {
+		queueDesktopIntent(intent);
+	}
+});
+
+app.on('open-url', (event, rawUrl) => {
+	event.preventDefault();
+	const intent = parseDesktopIntentArg(rawUrl);
+	if (!intent) return;
+	queueDesktopIntent(intent);
+});
+
+app.on('open-file', (event, filePath) => {
+	event.preventDefault();
+	const intent = parseDesktopIntentArg(filePath);
+	if (!intent) return;
+	queueDesktopIntent(intent);
+});
+
+function registerDesktopProtocolHandler(): void {
+	if (process.defaultApp && process.argv.length >= 2) {
+		app.setAsDefaultProtocolClient('dndtools', process.execPath, [path.resolve(process.argv[1]!)]);
+		return;
+	}
+	app.setAsDefaultProtocolClient('dndtools');
+}
 app.whenReady().then(async () => {
 	vaultHistoryStore = new VaultHistoryStore(
 		path.join(app.getPath('userData'), 'vault-history.json'),
@@ -1638,11 +2138,16 @@ app.whenReady().then(async () => {
 		enabled: app.isPackaged && autoUpdateEnabled,
 	});
 	await updateService.initialize();
+	configureApplicationMenu();
+	registerDesktopProtocolHandler();
 
 	const startupReady = await initializeStartupVault();
 	if (!startupReady) {
 		app.quit();
 		return;
+	}
+	for (const intent of extractDesktopIntentsFromArgs(process.argv)) {
+		queueDesktopIntent(intent);
 	}
 
 	await createMainWindow();
@@ -1665,7 +2170,9 @@ app.on('window-all-closed', () => {
 app.on('activate', async () => {
 	if (BrowserWindow.getAllWindows().length === 0) {
 		await createMainWindow();
+		return;
 	}
+	void flushDesktopIntents();
 });
 
 let isQuitting = false;
@@ -1678,6 +2185,7 @@ app.on('before-quit', (event) => {
 
 	if (!needsOnCloseSnapshot) {
 		void mcpSidecar.stop();
+		stopVaultWatcher();
 		if (updateCheckInterval) {
 			clearInterval(updateCheckInterval);
 			updateCheckInterval = null;
@@ -1703,6 +2211,7 @@ app.on('before-quit', (event) => {
 			BackupScheduler.stop();
 			await current.close().catch(() => undefined);
 			void mcpSidecar.stop();
+			stopVaultWatcher();
 			if (updateCheckInterval) {
 				clearInterval(updateCheckInterval);
 				updateCheckInterval = null;

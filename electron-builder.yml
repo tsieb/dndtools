@@ -23,6 +23,16 @@ publish:
 npmRebuild: false
 artifactName: '${productName}-${version}-${os}-${arch}.${ext}'
 
+protocols:
+  - name: DND Tools Deep Link
+    schemes:
+      - dndtools
+
+fileAssociations:
+  - ext: md
+    name: Markdown Document
+    role: Editor
+
 win:
   target:
     - target: nsis

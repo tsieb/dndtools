@@ -6,6 +6,7 @@
 	import { runtimeState } from '$lib/state/runtime.svelte.js';
 	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
 	import { a11yAnnouncerState } from '$lib/state/a11y-announcer.svelte.js';
+	import { toastState } from '$lib/state/toast.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { onboardingState } from '$lib/state/onboarding.svelte.js';
 	import { installGlobalRuntimeDiagnostics, reportRuntimeError } from '$lib/runtime/diagnostics.js';
@@ -22,12 +23,24 @@
 	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { desktopShellState } from '$lib/state/desktop-shell.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
+	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import { syncState } from '$lib/state/sync.svelte.js';
+	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 	import { pwaState } from '$lib/state/pwa.svelte.js';
 	import { isDetailPanelAvailable } from '$lib/domain/detail-panel-context.js';
+	import { searchService } from '$lib/domain/search.js';
 	import LiveAnnouncer from '$lib/ui/a11y/LiveAnnouncer.svelte';
 	import InstallPromptBanner from '$lib/ui/pwa/InstallPromptBanner.svelte';
 	import { registerSW } from 'virtual:pwa-register';
+	import {
+		onDesktopAppMenuCommand,
+		onDesktopNavigateRequest,
+		onDesktopVaultFileSync,
+		pickDesktopVaultDirectory,
+		exportDesktopMarkdownZip,
+		type DesktopAppMenuCommand,
+		type DesktopVaultFileSyncPayload,
+	} from '$lib/platform/desktop/bridge.js';
 	import {
 		buildTemplateContext,
 		getFolderScopedTemplateMatches,
@@ -35,6 +48,7 @@
 		toNewNoteOverrides,
 	} from '$lib/domain/template-automation.js';
 	import type { AppSettings } from '$lib/types/settings.js';
+	import { createSessionBoardId } from '$lib/types/session-board.js';
 	import type { NoteTemplate } from '$lib/types/template-library.js';
 	import type { WorldCalendar } from '$lib/types/world-calendar.js';
 
@@ -280,6 +294,13 @@
 	});
 
 	$effect(() => {
+		if (page.url.pathname !== '/session/boards') return;
+		const boardId = page.url.searchParams.get('board');
+		if (!boardId) return;
+		sessionBoardsState.setActiveBoard(createSessionBoardId(boardId));
+	});
+
+	$effect(() => {
 		const routeKey = `${page.url.pathname}${page.url.search}`;
 		if (routeKey === lastAnnouncedRoute) return;
 		lastAnnouncedRoute = routeKey;
@@ -422,6 +443,119 @@
 		handoutCreatorOpen = true;
 	}
 
+	async function toggleDarkThemeMode(): Promise<void> {
+		const next = ui.resolvedTheme === 'dark' ? 'light' : 'dark';
+		await ui.setTheme(next);
+	}
+
+	async function handleDesktopVaultPicker(): Promise<void> {
+		if (typeof window === 'undefined' || !window.dndtoolsDesktop) return;
+		const result = await pickDesktopVaultDirectory();
+		if (!result) return;
+		if (!result.ok || !result.vaultDir) {
+			toastState.error(result.error ?? 'Failed to switch vault folder.');
+			return;
+		}
+		await notesState.loadAll();
+		await Promise.all([
+			searchService.buildIndex(notesState.notes),
+			mcpChangesState.refresh(),
+			vaultHealthState.refresh(),
+		]);
+		navigationState.reset(resolve('/knowledge/notes'), { label: 'All Notes' });
+		goto(resolve('/knowledge/notes'));
+		toastState.success('Switched vault folder.');
+	}
+
+	async function handleDesktopMarkdownExport(): Promise<void> {
+		if (typeof window === 'undefined' || !window.dndtoolsDesktop) return;
+		const result = await exportDesktopMarkdownZip({ profile: 'portable_markdown_zip' });
+		if (result.canceled) return;
+		toastState.success('Exported markdown archive.');
+	}
+
+	async function handleDesktopAppMenuCommand(command: DesktopAppMenuCommand): Promise<void> {
+		if (command === 'new-note') {
+			if (playerModeState.enabled) return;
+			await handleNewNote();
+			return;
+		}
+		if (command === 'open-vault') {
+			await handleDesktopVaultPicker();
+			return;
+		}
+		if (command === 'export-markdown') {
+			await handleDesktopMarkdownExport();
+			return;
+		}
+		if (command === 'toggle-local-panel') {
+			if (layoutState.isExpanded) {
+				if (desktopShellState.zenMode) return;
+				desktopShellState.toggleLocalPanelCollapsed();
+			} else {
+				ui.toggleSidebar();
+			}
+			return;
+		}
+		if (command === 'toggle-dark-mode') {
+			await toggleDarkThemeMode();
+			return;
+		}
+		if (command === 'start-session') {
+			if (playerModeState.enabled) return;
+			goto(resolve('/session/boards'));
+			return;
+		}
+		if (command === 'open-dice-tray') {
+			diceTrayOpen = true;
+			return;
+		}
+		if (command === 'open-combat-tracker') {
+			if (playerModeState.enabled) return;
+			goto(resolve('/session/combat'));
+			return;
+		}
+		if (command === 'open-shortcuts') {
+			goto(`${resolve('/settings')}?tab=general`);
+			return;
+		}
+		if (command === 'open-about') {
+			goto(`${resolve('/settings')}?tab=about`);
+		}
+	}
+
+	async function handleDesktopVaultFileSync(payload: DesktopVaultFileSyncPayload): Promise<void> {
+		await notesState.applyExternalVaultSync({
+			updatedNotes: payload.updatedNotes,
+			deletedNoteIds: payload.deletedNoteIds,
+		});
+		if (payload.updatedCount <= 0) return;
+		toastState.info(
+			`${payload.updatedCount} ${payload.updatedCount === 1 ? 'note' : 'notes'} updated from disk`,
+		);
+	}
+
+	$effect(() => {
+		if (typeof window === 'undefined' || !window.dndtoolsDesktop) return;
+		return onDesktopAppMenuCommand((command) => {
+			void handleDesktopAppMenuCommand(command);
+		});
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined' || !window.dndtoolsDesktop) return;
+		return onDesktopNavigateRequest((path) => {
+			void goto(path);
+		});
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined' || !window.dndtoolsDesktop) return;
+		return onDesktopVaultFileSync((payload) => {
+			void handleDesktopVaultFileSync(payload);
+		});
+	});
+
 	function handleKeydown(event: KeyboardEvent): void {
 		const mod = event.ctrlKey || event.metaKey;
 		const target = event.target as HTMLElement;
@@ -462,6 +596,12 @@
 			if (!playerModeState.enabled) {
 				void handleNewNote();
 			}
+		} else if (mod && event.key.toLowerCase() === 'o') {
+			event.preventDefault();
+			void handleDesktopVaultPicker();
+		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'e') {
+			event.preventDefault();
+			void handleDesktopMarkdownExport();
 		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'h') {
 			event.preventDefault();
 			handleCreateHandout();
@@ -477,6 +617,20 @@
 			if (!detailPanelAvailable) return;
 			event.preventDefault();
 			desktopShellState.toggleDetailPanel();
+		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'l') {
+			event.preventDefault();
+			void toggleDarkThemeMode();
+		} else if (mod && event.shiftKey && event.key.toLowerCase() === 's') {
+			if (playerModeState.enabled) return;
+			event.preventDefault();
+			goto(resolve('/session/boards'));
+		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'c') {
+			if (playerModeState.enabled) return;
+			event.preventDefault();
+			goto(resolve('/session/combat'));
+		} else if (mod && event.key === '/') {
+			event.preventDefault();
+			goto(`${resolve('/settings')}?tab=general`);
 		} else if (mod && event.shiftKey && event.key === 'F') {
 			event.preventDefault();
 			goto(resolve('/knowledge/search'));

@@ -225,6 +225,49 @@ class NotesState {
 		}
 	}
 
+	async applyExternalVaultSync(input: {
+		updatedNotes: Note[];
+		deletedNoteIds: string[];
+	}): Promise<void> {
+		let changed = false;
+
+		if (input.deletedNoteIds.length > 0) {
+			const deletedIdSet = new Set(input.deletedNoteIds.map((id) => String(id)));
+			for (const deletedId of deletedIdSet) {
+				const noteId = createNoteId(deletedId);
+				this.draftNoteIds.delete(noteId);
+				searchService.removeNote(noteId);
+				linksState.removeNote(noteId);
+				this.linkSyncRevision.delete(String(noteId));
+				if (this.activeNoteId && String(this.activeNoteId) === deletedId) {
+					this.activeNoteId = null;
+				}
+			}
+			const nextNotes = this.notes.filter((note) => !deletedIdSet.has(String(note.id)));
+			if (nextNotes.length !== this.notes.length) {
+				this.notes = nextNotes;
+				changed = true;
+			}
+		}
+
+		for (const note of input.updatedNotes) {
+			this.draftNoteIds.delete(note.id);
+			this.upsertNote(note);
+			if (note.deleted) {
+				searchService.removeNote(note.id);
+				linksState.removeNote(note.id);
+				this.linkSyncRevision.delete(String(note.id));
+			} else {
+				searchService.addNote(note);
+			}
+			changed = true;
+		}
+
+		if (!changed) return;
+		await this.syncLinksFromStorageSnapshot();
+		linksState.syncNotes(this.activeNotes.map((entry) => entry.id));
+	}
+
 	async createNote(overrides?: Partial<Note>): Promise<Note> {
 		const note = createNewNote(overrides);
 		const shouldPersist = hasMeaningfulNoteContent(note);

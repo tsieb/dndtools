@@ -15,9 +15,17 @@
 		entries: readonly LocalNavTreeEntry[];
 		activeId?: string | null;
 		onselect: (entry: LocalNavTreeEntry) => void;
+		oncontextrequest?: (entry: LocalNavTreeEntry, event: MouseEvent) => void;
 	}
 
-	let { ariaLabel, emptyLabel, entries, activeId = null, onselect }: Props = $props();
+	let {
+		ariaLabel,
+		emptyLabel,
+		entries,
+		activeId = null,
+		onselect,
+		oncontextrequest,
+	}: Props = $props();
 
 	let focusedId = $state<string | null>(null);
 	const itemRefs: Record<string, HTMLButtonElement | undefined> = {};
@@ -141,6 +149,12 @@
 		if (!target) return;
 		focusEntry(target.id);
 	}
+
+	function handleTreeItemContextMenu(entry: LocalNavTreeEntry, event: MouseEvent): void {
+		if (!oncontextrequest) return;
+		event.preventDefault();
+		oncontextrequest(entry, event);
+	}
 </script>
 
 <div role="tree" aria-label={ariaLabel} onfocus={handleTreeFocus} tabindex="-1" class="space-y-0.5">
@@ -174,6 +188,7 @@
 				tabindex={focusedId === entry.id ? 0 : -1}
 				onclick={() => onselect(entry)}
 				onfocus={() => (focusedId = entry.id)}
+				oncontextmenu={(event) => handleTreeItemContextMenu(entry, event)}
 				onkeydown={(event) => handleTreeItemKeydown(event, index, entry)}
 				use:registerItem={entry.id}
 				title={entry.label}

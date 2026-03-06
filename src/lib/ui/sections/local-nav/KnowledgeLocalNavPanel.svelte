@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import CollapsibleLocalNavSection from '$lib/ui/layout/local-nav/CollapsibleLocalNavSection.svelte';
 	import LocalNavTree from '$lib/ui/layout/local-nav/LocalNavTree.svelte';
+	import type { LocalNavTreeEntry } from '$lib/ui/layout/local-nav/LocalNavTree.svelte';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { vaultState } from '$lib/state/vault.svelte.js';
 	import { searchState } from '$lib/state/search.svelte.js';
@@ -14,6 +15,7 @@
 	import type { RecentNavigationItem } from '$lib/state/navigation.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { layoutState } from '$lib/state/layout.svelte.js';
+	import { showDesktopNativeContextMenu } from '$lib/platform/desktop/bridge.js';
 
 	type KnowledgeMode = 'browse' | 'recent' | 'saved';
 	type TreeMode = 'folder' | 'map';
@@ -286,6 +288,31 @@
 		knowledgeMode = mode;
 	}
 
+	async function handleFolderContextRequest(
+		entry: LocalNavTreeEntry,
+		event: MouseEvent,
+	): Promise<void> {
+		if (typeof window === 'undefined' || !window.dndtoolsDesktop) return;
+		if (!entry.id.startsWith('folder:')) return;
+		const folder = entry.id.slice('folder:'.length) || '/';
+		const result = await showDesktopNativeContextMenu({
+			kind: 'folder',
+			folder,
+			x: Math.round(event.clientX),
+			y: Math.round(event.clientY),
+		});
+		if (!result) return;
+		if (result.action === 'open-folder') {
+			navigateToPath(entry.path);
+			return;
+		}
+		if (result.action === 'new-note') {
+			navigateToPath(
+				`${resolve('/knowledge/notes')}?folder=${encodeURIComponent(folder)}&create=${encodeURIComponent('New Note')}`,
+			);
+		}
+	}
+
 	function tabClass(mode: KnowledgeMode): string {
 		return knowledgeMode === mode
 			? 'bg-accent-subtle text-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
@@ -399,6 +426,7 @@
 						entries={folderTreeNodes}
 						activeId={routeParts.path === '/knowledge/notes' ? activeFolderId : null}
 						onselect={(entry) => navigateToPath(entry.path)}
+						oncontextrequest={(entry, event) => void handleFolderContextRequest(entry, event)}
 					/>
 				{:else}
 					<LocalNavTree

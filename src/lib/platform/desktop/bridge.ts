@@ -230,6 +230,51 @@ export interface DesktopWindowState {
 	isMaximized: boolean;
 }
 
+export type DesktopNativeContextMenuRequest =
+	| {
+			kind: 'note';
+			noteId: string;
+			noteTitle: string;
+			pinned: boolean;
+			folder: string;
+			availableFolders: string[];
+			x?: number;
+			y?: number;
+	  }
+	| {
+			kind: 'folder';
+			folder: string;
+			x?: number;
+			y?: number;
+	  };
+
+export type DesktopNativeContextMenuResult =
+	| { action: 'open' }
+	| { action: 'toggle-pin' }
+	| { action: 'delete' }
+	| { action: 'move'; folder: string }
+	| { action: 'open-folder' }
+	| { action: 'new-note' }
+	| null;
+
+export type DesktopAppMenuCommand =
+	| 'new-note'
+	| 'open-vault'
+	| 'export-markdown'
+	| 'toggle-local-panel'
+	| 'toggle-dark-mode'
+	| 'start-session'
+	| 'open-dice-tray'
+	| 'open-combat-tracker'
+	| 'open-shortcuts'
+	| 'open-about';
+
+export interface DesktopVaultFileSyncPayload {
+	updatedNotes: import('$lib/types/note.js').Note[];
+	deletedNoteIds: string[];
+	updatedCount: number;
+}
+
 export interface DesktopIntegrityIssue {
 	file:
 		| 'index.json'
@@ -464,10 +509,6 @@ export async function exportDesktopDiagnosticsBundle(): Promise<{
 	return requireBridge().exportDiagnosticsBundle();
 }
 
-export async function refreshDesktopVault(): Promise<{ noteCount: number }> {
-	return requireBridge().refreshVault();
-}
-
 export async function getDesktopIntegrityReport(): Promise<DesktopIntegrityReport> {
 	return requireBridge().getIntegrityReport();
 }
@@ -620,6 +661,50 @@ export function onDesktopWindowStateChange(
 	callback: (state: DesktopWindowState) => void,
 ): () => void {
 	return requireBridge().onWindowStateChange(callback);
+}
+
+export function onDesktopAppMenuCommand(
+	callback: (command: DesktopAppMenuCommand) => void,
+): () => void {
+	const allowed = new Set<DesktopAppMenuCommand>([
+		'new-note',
+		'open-vault',
+		'export-markdown',
+		'toggle-local-panel',
+		'toggle-dark-mode',
+		'start-session',
+		'open-dice-tray',
+		'open-combat-tracker',
+		'open-shortcuts',
+		'open-about',
+	]);
+	return requireBridge().onAppMenuCommand((payload) => {
+		if (!allowed.has(payload.command as DesktopAppMenuCommand)) return;
+		callback(payload.command as DesktopAppMenuCommand);
+	});
+}
+
+export function onDesktopNavigateRequest(callback: (path: string) => void): () => void {
+	return requireBridge().onDesktopNavigate((payload) => {
+		if (typeof payload.path !== 'string' || payload.path.trim().length === 0) return;
+		callback(payload.path);
+	});
+}
+
+export function onDesktopVaultFileSync(
+	callback: (payload: DesktopVaultFileSyncPayload) => void,
+): () => void {
+	return requireBridge().onVaultFileSync((payload) => {
+		if (!Array.isArray(payload.updatedNotes) || !Array.isArray(payload.deletedNoteIds)) return;
+		if (typeof payload.updatedCount !== 'number') return;
+		callback(payload as DesktopVaultFileSyncPayload);
+	});
+}
+
+export async function showDesktopNativeContextMenu(
+	request: DesktopNativeContextMenuRequest,
+): Promise<DesktopNativeContextMenuResult> {
+	return requireBridge().showNativeContextMenu(request);
 }
 
 export async function rebuildDesktopVaultIndex(): Promise<{ rebuilt: number }> {
