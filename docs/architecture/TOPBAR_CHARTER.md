@@ -1,6 +1,6 @@
 # TopBar Responsibility Charter
 
-This charter defines the allowed responsibility surface for `TopBar` after Epic 14.2.
+This charter defines the allowed responsibility surface for `TopBar` after Epic 14.3.
 
 ## Purpose
 
@@ -13,6 +13,7 @@ actions.
 
 1. Expanded/Medium responsibilities:
    - local navigation panel toggle (`Toggle local navigation`)
+   - contextual detail panel toggle (`Toggle contextual detail panel`)
    - back / forward history controls
    - current route title context
    - command palette trigger (`Open command palette`)

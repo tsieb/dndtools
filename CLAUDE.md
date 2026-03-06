@@ -317,6 +317,30 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
   - Added/updated tests:
     - `tests/e2e/mobile-ui.spec.ts`
     - `tests/e2e/helpers.ts`
+- **Epic 14.3** — Expanded Layout (Desktop Shell):
+  - Added expanded desktop shell state in `src/lib/state/desktop-shell.svelte.ts`:
+    - local panel collapsed state persisted in `localStorage`
+    - per-section local panel widths (`200px`-`320px`) persisted in `localStorage`
+    - per-section local panel scroll memory across navigation
+    - detail panel open state + zen mode state management
+  - Reworked expanded shell layout in `src/lib/ui/layout/AppShell.svelte`:
+    - permanent icon rail + persistent local panel behavior
+    - right contextual detail panel surface with route-aware availability
+    - draggable + keyboard-accessible local panel resize handle (`ArrowLeft`/`ArrowRight`)
+    - zen mode chrome collapse with breadcrumb + explicit exit control
+  - Added contextual detail panel component `src/lib/ui/layout/DetailPanel.svelte`:
+    - note context (cross-section links + backlinks + object metadata summary)
+    - map context legend summary for selected atlas map
+    - session quick-reference summary for active board
+  - Updated shell controls and shortcuts:
+    - `Ctrl+B` now collapses/expands expanded local panel (persisted)
+    - `Ctrl+Shift+R` toggles contextual detail panel when available
+    - `F11` and editor toolbar `Zen` button toggle zen mode
+    - TopBar charter updated to include detail panel toggle ownership
+  - Added/updated tests:
+    - `src/lib/state/desktop-shell.svelte.test.ts`
+    - `src/lib/domain/detail-panel-context.test.ts`
+    - `tests/e2e/navigation.spec.ts` (expanded shell collapse/detail/resize/zen behaviors)
 
 ## What Not To Do
 

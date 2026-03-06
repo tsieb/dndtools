@@ -16,8 +16,11 @@ This document defines the canonical viewport tiers for structural layout behavio
   - Local panel is temporary/overlay-driven
 - `expanded`: viewport width `>= 1100px`
   - Primary use: large desktop windows
-  - Layout: navigation rail + persistent local panel
-  - Optional right detail panel
+  - Layout: permanent icon rail (`60px`) + persistent local panel (`240px` default)
+  - Local panel can be collapsed with `Ctrl+B` (state persisted in `localStorage`)
+  - Local panel is resizable (`200px` to `320px`) with drag and keyboard (`ArrowLeft`/`ArrowRight`)
+  - Optional right detail panel (`300px`) toggled with `Ctrl+Shift+R` when context is available
+  - Zen mode (`F11`) collapses shell chrome to breadcrumb + exit control
 
 ## Source Of Truth
 
