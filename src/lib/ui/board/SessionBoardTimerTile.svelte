@@ -134,9 +134,9 @@
 </script>
 
 <div
-	class="relative rounded-lg border bg-surface/95 dark:bg-tavern-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-150 cursor-pointer hover:shadow-md {selected
-		? 'border-border dark:border-tavern-border ring-2 ring-accent/45 dark:ring-tavern-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
-		: 'border-border dark:border-tavern-border'}"
+	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-fast cursor-pointer hover:shadow-md {selected
+		? 'border-border ring-2 ring-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
+		: 'border-border'}"
 	role="button"
 	tabindex="0"
 	aria-label="Session timer tile"
@@ -161,39 +161,32 @@
 		if (editable) ondragstart(event);
 	}}
 >
-	<header
-		class="px-3 py-2 border-b border-border dark:border-tavern-border flex items-center gap-2"
-	>
-		<div class="font-medium text-sm text-ink dark:text-tavern-text flex-1">Session Timer</div>
-		<span
-			class="text-[10px] px-1.5 py-0.5 rounded border border-border/70 dark:border-tavern-border/70 text-ink-faint dark:text-tavern-faint"
-		>
+	<header class="px-3 py-2 border-b border-border flex items-center gap-2">
+		<div class="font-medium text-sm text-ink flex-1">Session Timer</div>
+		<span class="text-2xs px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
 			{timer.mode === 'countdown' ? 'Countdown' : 'Elapsed'}
 		</span>
 	</header>
 
 	{#if timer.minimalDisplay}
 		<div class="flex-1 min-h-0 flex flex-col items-center justify-center p-3 gap-2">
-			<div class="text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint">
+			<div class="text-xs uppercase tracking-wider text-ink-faint">
 				{timerLabel}
 			</div>
-			<div
-				class="font-mono text-4xl leading-none text-ink dark:text-tavern-text tabular-nums"
-				aria-live="polite"
-			>
+			<div class="font-mono text-4xl leading-none text-ink tabular-nums" aria-live="polite">
 				{formatClock(displayMs)}
 			</div>
 			<div class="flex items-center gap-2">
 				<button
 					type="button"
-					class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 					onclick={toggleRunning}
 				>
 					{timer.running ? 'Pause' : 'Start'}
 				</button>
 				<button
 					type="button"
-					class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 					onclick={toggleMinimalDisplay}
 				>
 					Expand
@@ -202,20 +195,15 @@
 		</div>
 	{:else}
 		<div class="flex-1 min-h-0 p-3 flex flex-col gap-2">
-			<div
-				class="rounded-md border border-border/70 dark:border-tavern-border/70 bg-surface-alt/70 dark:bg-tavern-surface-alt/70 px-2.5 py-2"
-			>
-				<div class="text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint">
+			<div class="rounded-md border border-border/70 bg-surface-alt/70 px-2.5 py-2">
+				<div class="text-xs uppercase tracking-wider text-ink-faint">
 					{timerLabel}
 				</div>
-				<div
-					class="font-mono text-3xl tabular-nums text-ink dark:text-tavern-text mt-1"
-					aria-live="polite"
-				>
+				<div class="font-mono text-3xl tabular-nums text-ink mt-1" aria-live="polite">
 					{formatClock(displayMs)}
 				</div>
 				{#if timer.mode === 'countdown'}
-					<div class="text-[11px] text-ink-muted dark:text-tavern-muted mt-1">
+					<div class="text-xs text-ink-muted mt-1">
 						Target: {Math.round(timer.countdownMs / 60000)} min
 					</div>
 				{/if}
@@ -224,28 +212,28 @@
 			<div class="flex flex-wrap gap-1.5">
 				<button
 					type="button"
-					class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 					onclick={toggleRunning}
 				>
 					{timer.running ? 'Pause' : 'Start'}
 				</button>
 				<button
 					type="button"
-					class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 					onclick={resetTimer}
 				>
 					Reset
 				</button>
 				<button
 					type="button"
-					class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 					onclick={addLap}
 				>
 					Lap
 				</button>
 				<button
 					type="button"
-					class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 					onclick={toggleMinimalDisplay}
 				>
 					Minimal
@@ -253,10 +241,10 @@
 			</div>
 
 			<div class="grid grid-cols-2 gap-2 items-end">
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Mode
 					<select
-						class="mt-1 h-8 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2"
+						class="mt-1 h-8 w-full rounded border border-border bg-surface px-2"
 						value={timer.mode}
 						onchange={(event) =>
 							switchMode(
@@ -267,13 +255,13 @@
 						<option value="countdown">Countdown</option>
 					</select>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Countdown (min)
 					<input
 						type="number"
 						min="1"
 						max="720"
-						class="mt-1 h-8 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2"
+						class="mt-1 h-8 w-full rounded border border-border bg-surface px-2"
 						value={Math.max(1, Math.round(timer.countdownMs / 60000))}
 						onchange={(event) =>
 							setCountdownMinutes(Number((event.currentTarget as HTMLInputElement).value))}
@@ -281,17 +269,15 @@
 				</label>
 			</div>
 
-			<div
-				class="flex-1 min-h-0 rounded border border-border/60 dark:border-tavern-border/60 p-2 overflow-y-auto"
-			>
+			<div class="flex-1 min-h-0 rounded border border-border/60 p-2 overflow-y-auto">
 				{#if timer.lapsMs.length === 0}
-					<div class="text-[11px] text-ink-faint dark:text-tavern-faint">No laps yet.</div>
+					<div class="text-xs text-ink-faint">No laps yet.</div>
 				{:else}
 					<ul class="space-y-1">
 						{#each timer.lapsMs as lapMs, index (`${lapMs}-${index}`)}
-							<li class="flex justify-between text-[11px]">
-								<span class="text-ink-muted dark:text-tavern-muted">Lap {index + 1}</span>
-								<span class="font-mono text-ink dark:text-tavern-text">{formatClock(lapMs)}</span>
+							<li class="flex justify-between text-xs">
+								<span class="text-ink-muted">Lap {index + 1}</span>
+								<span class="font-mono text-ink">{formatClock(lapMs)}</span>
 							</li>
 						{/each}
 					</ul>

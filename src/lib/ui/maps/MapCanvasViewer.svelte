@@ -1277,36 +1277,32 @@
 	});
 </script>
 
-<div
-	class="flex h-full min-h-[340px] flex-col rounded-lg border border-border bg-surface dark:border-tavern-border dark:bg-tavern-surface"
->
-	<div
-		class="flex items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs dark:border-tavern-border"
-	>
+<div class="flex h-full min-h-[340px] flex-col rounded-lg border border-border bg-surface">
+	<div class="flex items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs">
 		<div class="flex items-center gap-2">
 			<button
 				type="button"
-				class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+				class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt"
 				onclick={() => setZoomPreset('fit')}
 			>
 				Fit
 			</button>
 			<button
 				type="button"
-				class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+				class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt"
 				onclick={() => setZoomPreset('100')}
 			>
 				100%
 			</button>
 			<button
 				type="button"
-				class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+				class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt"
 				onclick={() => setZoomPreset('200')}
 			>
 				200%
 			</button>
 		</div>
-		<div class="flex items-center gap-2 text-ink-faint dark:text-tavern-faint">
+		<div class="flex items-center gap-2 text-ink-faint">
 			<span>{Math.round(viewport.zoom * 100)}%</span>
 			{#if pointerHint}
 				<span>{pointerHint}</span>
@@ -1318,7 +1314,7 @@
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<div
 		bind:this={viewportEl}
-		class="relative h-full min-h-[260px] flex-1 overflow-hidden bg-parchment/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent dark:bg-tavern-bg/70 dark:focus-visible:ring-tavern-accent"
+		class="relative h-full min-h-[260px] flex-1 overflow-hidden bg-parchment/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
 		tabindex="0"
 		role="application"
 		aria-label={alt}
@@ -1383,7 +1379,7 @@
 								{/if}
 								{#if token.statusIcons && token.statusIcons.length > 0}
 									<div
-										class="absolute -right-1 -top-1 rounded bg-black/70 px-1 text-[9px] leading-4 text-white"
+										class="absolute -right-1 -top-1 rounded bg-black/70 px-1 text-2xs leading-4 text-white"
 									>
 										{token.statusIcons.join('')}
 									</div>
@@ -1405,15 +1401,11 @@
 			</div>
 		{/if}
 		{#if !src}
-			<div
-				class="absolute inset-0 flex items-center justify-center text-sm text-ink-muted dark:text-tavern-muted"
-			>
+			<div class="absolute inset-0 flex items-center justify-center text-sm text-ink-muted">
 				Select a map to view.
 			</div>
 		{:else if loadingImage}
-			<div
-				class="absolute inset-0 flex items-center justify-center text-sm text-ink-muted dark:text-tavern-muted"
-			>
+			<div class="absolute inset-0 flex items-center justify-center text-sm text-ink-muted">
 				Loading map image...
 			</div>
 		{:else if imageError}

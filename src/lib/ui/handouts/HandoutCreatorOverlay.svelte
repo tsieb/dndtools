@@ -268,22 +268,18 @@
 		tabindex="-1"
 	>
 		<section
-			class="w-full max-w-5xl h-[88vh] rounded-xl border border-border dark:border-tavern-border bg-surface/98 dark:bg-tavern-surface/98 shadow-2xl flex flex-col overflow-hidden"
+			class="w-full max-w-5xl h-[88vh] rounded-xl border border-border bg-surface/98 shadow-2xl flex flex-col overflow-hidden"
 		>
-			<header
-				class="px-4 py-3 border-b border-border dark:border-tavern-border flex items-center gap-3"
-			>
+			<header class="px-4 py-3 border-b border-border flex items-center gap-3">
 				<div class="flex-1 min-w-0">
-					<h2 class="text-sm font-semibold text-ink dark:text-tavern-text truncate">
-						Handout Creator
-					</h2>
-					<p class="text-[11px] text-ink-muted dark:text-tavern-muted">
+					<h2 class="text-sm font-semibold text-ink truncate">Handout Creator</h2>
+					<p class="text-xs text-ink-muted">
 						Create handouts with visual aging effects, cipher payloads, and printable export.
 					</p>
 				</div>
 				<button
 					type="button"
-					class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 					onclick={() => exportDraft(false)}
 				>
 					Export HTML
@@ -291,7 +287,7 @@
 				{#if type === 'cipher'}
 					<button
 						type="button"
-						class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+						class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 						onclick={() => exportDraft(true)}
 					>
 						Export Decoded HTML
@@ -299,7 +295,7 @@
 				{/if}
 				<button
 					type="button"
-					class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 					onclick={onclose}
 				>
 					Close
@@ -307,34 +303,34 @@
 			</header>
 
 			<div class="flex-1 min-h-0 overflow-hidden grid lg:grid-cols-[360px_minmax(0,1fr)]">
-				<div class="border-r border-border dark:border-tavern-border p-4 overflow-y-auto space-y-3">
-					<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+				<div class="border-r border-border p-4 overflow-y-auto space-y-3">
+					<label class="block text-xs text-ink-muted">
 						Title
 						<input
 							type="text"
 							bind:value={title}
 							placeholder="Handout title"
-							class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1.5 text-sm text-ink dark:text-tavern-text"
+							class="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-sm text-ink"
 						/>
 					</label>
 
 					<div class="grid grid-cols-2 gap-2">
-						<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+						<label class="block text-xs text-ink-muted">
 							Type
 							<select
 								bind:value={type}
-								class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm text-ink dark:text-tavern-text"
+								class="mt-1 h-9 w-full rounded border border-border bg-surface px-2 text-sm text-ink"
 							>
 								{#each HANDOUT_TYPES as option (option.value)}
 									<option value={option.value}>{option.label}</option>
 								{/each}
 							</select>
 						</label>
-						<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+						<label class="block text-xs text-ink-muted">
 							Reveal animation
 							<select
 								bind:value={revealAnimation}
-								class="mt-1 h-9 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm text-ink dark:text-tavern-text"
+								class="mt-1 h-9 w-full rounded border border-border bg-surface px-2 text-sm text-ink"
 							>
 								<option value="scroll_rollout">Scroll rollout</option>
 								<option value="letter_unfold">Letter unfold</option>
@@ -342,65 +338,61 @@
 						</label>
 					</div>
 
-					<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+					<label class="block text-xs text-ink-muted">
 						Campaign session
 						<input
 							type="text"
 							bind:value={campaignSession}
 							placeholder="Session 14"
-							class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1.5 text-sm text-ink dark:text-tavern-text"
+							class="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-sm text-ink"
 						/>
 					</label>
 
 					<div class="grid grid-cols-2 gap-2">
-						<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+						<label class="block text-xs text-ink-muted">
 							Source NPC
 							<input
 								type="text"
 								bind:value={sourceNpcId}
 								placeholder="npc-id"
-								class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1.5 text-sm text-ink dark:text-tavern-text"
+								class="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-sm text-ink"
 							/>
 						</label>
-						<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+						<label class="block text-xs text-ink-muted">
 							Source location
 							<input
 								type="text"
 								bind:value={sourceLocationId}
 								placeholder="location-id"
-								class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1.5 text-sm text-ink dark:text-tavern-text"
+								class="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-sm text-ink"
 							/>
 						</label>
 					</div>
 
-					<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+					<label class="block text-xs text-ink-muted">
 						Summary
 						<input
 							type="text"
 							bind:value={summary}
 							placeholder="Optional summary"
-							class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1.5 text-sm text-ink dark:text-tavern-text"
+							class="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-sm text-ink"
 						/>
 					</label>
 
-					<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+					<label class="block text-xs text-ink-muted">
 						Tags (comma separated)
 						<input
 							type="text"
 							bind:value={tagsText}
-							class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1.5 text-sm text-ink dark:text-tavern-text"
+							class="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-sm text-ink"
 						/>
 					</label>
 
 					<div>
-						<p class="text-xs font-medium text-ink dark:text-tavern-text mb-1.5">
-							Visual aging effects
-						</p>
+						<p class="text-xs font-medium text-ink mb-1.5">Visual aging effects</p>
 						<div class="space-y-1.5">
 							{#each AGING_EFFECTS as option (option.value)}
-								<label
-									class="flex items-center gap-2 text-xs text-ink-muted dark:text-tavern-muted"
-								>
+								<label class="flex items-center gap-2 text-xs text-ink-muted">
 									<input
 										type="checkbox"
 										checked={effects.includes(option.value)}
@@ -413,56 +405,56 @@
 					</div>
 
 					{#if type === 'cipher'}
-						<div class="space-y-2 rounded border border-border dark:border-tavern-border p-2.5">
-							<p class="text-xs font-medium text-ink dark:text-tavern-text">Cipher settings</p>
-							<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+						<div class="space-y-2 rounded border border-border p-2.5">
+							<p class="text-xs font-medium text-ink">Cipher settings</p>
+							<label class="block text-xs text-ink-muted">
 								Decoded text
 								<textarea
 									bind:value={cipherDecoded}
 									rows="4"
-									class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1.5 text-xs text-ink dark:text-tavern-text"
+									class="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-xs text-ink"
 								></textarea>
 							</label>
-							<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+							<label class="block text-xs text-ink-muted">
 								Substitution key
 								<input
 									type="text"
 									bind:value={cipherKey}
 									placeholder="Auto-generated if blank"
-									class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1.5 text-xs font-mono text-ink dark:text-tavern-text"
+									class="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-xs font-mono text-ink"
 								/>
 							</label>
 							<button
 								type="button"
-								class="w-full rounded border border-border dark:border-tavern-border px-2 py-1.5 text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+								class="w-full rounded border border-border px-2 py-1.5 text-xs hover:bg-surface-alt transition-colors"
 								onclick={handleGenerateCipher}
 							>
 								Generate substitution cipher
 							</button>
-							<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+							<label class="block text-xs text-ink-muted">
 								Encrypted output
 								<textarea
 									bind:value={cipherEncrypted}
 									rows="4"
-									class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1.5 text-xs font-mono text-ink dark:text-tavern-text"
+									class="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-xs font-mono text-ink"
 								></textarea>
 							</label>
 						</div>
 					{/if}
 
-					<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+					<label class="block text-xs text-ink-muted">
 						{type === 'cipher' ? 'Encrypted markdown content' : 'Markdown content'}
 						<textarea
 							bind:value={content}
 							rows="7"
-							class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1.5 text-sm text-ink dark:text-tavern-text"
+							class="mt-1 w-full rounded border border-border bg-surface px-2 py-1.5 text-sm text-ink"
 						></textarea>
 					</label>
 
 					<div class="flex items-center justify-end gap-2 pt-1">
 						<button
 							type="button"
-							class="px-3 py-1.5 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+							class="px-3 py-1.5 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 							onclick={onclose}
 							disabled={saving}
 						>
@@ -480,9 +472,7 @@
 				</div>
 
 				<div class="p-4 overflow-y-auto">
-					<p
-						class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint mb-2"
-					>
+					<p class="text-xs font-semibold uppercase tracking-wider text-ink-faint mb-2">
 						Live preview
 					</p>
 					<article

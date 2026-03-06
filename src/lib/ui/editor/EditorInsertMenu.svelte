@@ -155,27 +155,27 @@
 </script>
 
 <div
-	class="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1.5"
+	class="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface px-2 py-1.5"
 >
 	<div class="flex items-center gap-1">
-		<span class="text-xs font-medium text-ink-faint dark:text-tavern-faint">Insert</span>
+		<span class="text-xs font-medium text-ink-faint">Insert</span>
 		<button
 			type="button"
-			class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 			onclick={() => run('wikilink')}
 		>
 			Wikilink
 		</button>
 		<button
 			type="button"
-			class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 			onclick={() => run('horizontal-rule')}
 		>
 			Divider
 		</button>
 		<button
 			type="button"
-			class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 			onclick={insertDiceBlock}
 		>
 			Dice Block
@@ -183,7 +183,7 @@
 		<input
 			type="text"
 			bind:value={rollExpression}
-			class="h-7 w-28 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-xs text-ink dark:text-tavern-text"
+			class="h-7 w-28 rounded border border-border bg-surface px-2 text-xs text-ink"
 			placeholder="1d20+5"
 			aria-label="Roll expression"
 			onkeydown={(event) => {
@@ -195,7 +195,7 @@
 		/>
 		<button
 			type="button"
-			class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 			onclick={insertRollMarkdown}
 		>
 			Roll
@@ -203,7 +203,7 @@
 		<input
 			type="text"
 			bind:value={rollTableName}
-			class="h-7 w-32 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-xs text-ink dark:text-tavern-text"
+			class="h-7 w-32 rounded border border-border bg-surface px-2 text-xs text-ink"
 			placeholder="Table Name"
 			aria-label="Roll table name"
 			onkeydown={(event) => {
@@ -215,21 +215,21 @@
 		/>
 		<button
 			type="button"
-			class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 			onclick={insertRollTableMarkdown}
 		>
 			Roll Block
 		</button>
 	</div>
 
-	<div class="h-4 w-px bg-border dark:bg-tavern-border"></div>
+	<div class="h-4 w-px bg-border"></div>
 
 	<div class="flex items-center gap-1">
-		<span class="text-xs font-medium text-ink-faint dark:text-tavern-faint">Callout</span>
+		<span class="text-xs font-medium text-ink-faint">Callout</span>
 		{#each ['info', 'note', 'tip', 'warning', 'quest', 'dm'] as calloutType (calloutType)}
 			<button
 				type="button"
-				class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+				class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 				onclick={() => runCallout(calloutType)}
 			>
 				{calloutType}
@@ -237,12 +237,12 @@
 		{/each}
 	</div>
 
-	<div class="h-4 w-px bg-border dark:bg-tavern-border"></div>
+	<div class="h-4 w-px bg-border"></div>
 
 	<div class="flex items-center gap-1">
 		<button
 			type="button"
-			class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 			onclick={insertTableBlock}
 			disabled={!editorView}
 		>
@@ -250,7 +250,7 @@
 		</button>
 		<button
 			type="button"
-			class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 			onclick={insertEmbedTemplate}
 			disabled={!editorView}
 		>
@@ -258,12 +258,12 @@
 		</button>
 	</div>
 
-	<div class="h-4 w-px bg-border dark:bg-tavern-border"></div>
+	<div class="h-4 w-px bg-border"></div>
 
-	<label class="text-xs text-ink-faint dark:text-tavern-faint">
+	<label class="text-xs text-ink-faint">
 		Template
 		<select
-			class="ml-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-1 py-0.5 text-xs text-ink dark:text-tavern-text"
+			class="ml-1 rounded border border-border bg-surface px-1 py-0.5 text-xs text-ink"
 			onchange={(event) => insertTemplate((event.currentTarget as HTMLSelectElement).value)}
 			disabled={!editorView}
 		>
@@ -274,13 +274,13 @@
 		</select>
 	</label>
 
-	<div class="h-4 w-px bg-border dark:bg-tavern-border"></div>
+	<div class="h-4 w-px bg-border"></div>
 
 	<div class="flex items-center gap-1">
-		<label class="text-xs text-ink-faint dark:text-tavern-faint">
+		<label class="text-xs text-ink-faint">
 			Snippet
 			<select
-				class="ml-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-1 py-0.5 text-xs text-ink dark:text-tavern-text"
+				class="ml-1 rounded border border-border bg-surface px-1 py-0.5 text-xs text-ink"
 				onchange={(event) => void selectSnippet((event.currentTarget as HTMLSelectElement).value)}
 				disabled={!editorView}
 			>
@@ -292,7 +292,7 @@
 		</label>
 		<button
 			type="button"
-			class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 			onclick={() => {
 				snippetLibraryOpen = !snippetLibraryOpen;
 				if (!snippetLibraryOpen) {
@@ -306,7 +306,7 @@
 		</button>
 		<button
 			type="button"
-			class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt disabled:opacity-50"
+			class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt disabled:opacity-50"
 			onclick={() => void insertSelectedSnippet()}
 			disabled={!editorView || !selectedSnippetId}
 		>
@@ -314,24 +314,23 @@
 		</button>
 	</div>
 
-	<details class="ml-auto text-xs text-ink-faint dark:text-tavern-faint">
+	<details class="ml-auto text-xs text-ink-faint">
 		<summary class="cursor-pointer select-none">Template variables</summary>
-		<div class="mt-1 rounded border border-border dark:border-tavern-border overflow-x-auto">
-			<table class="min-w-[440px] text-left text-[11px]">
-				<thead class="bg-surface-alt/70 dark:bg-tavern-surface-alt/70">
+		<div class="mt-1 rounded border border-border overflow-x-auto">
+			<table class="min-w-[440px] text-left text-xs">
+				<thead class="bg-surface-alt/70">
 					<tr>
-						<th class="px-2 py-1 font-semibold text-ink dark:text-tavern-text">Variable</th>
-						<th class="px-2 py-1 font-semibold text-ink dark:text-tavern-text">Description</th>
-						<th class="px-2 py-1 font-semibold text-ink dark:text-tavern-text">Example</th>
+						<th class="px-2 py-1 font-semibold text-ink">Variable</th>
+						<th class="px-2 py-1 font-semibold text-ink">Description</th>
+						<th class="px-2 py-1 font-semibold text-ink">Example</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each templateVariables as variable (variable.key)}
-						<tr class="border-t border-border/70 dark:border-tavern-border/70">
-							<td class="px-2 py-1 font-mono text-ink dark:text-tavern-text">{variable.key}</td>
-							<td class="px-2 py-1 text-ink-muted dark:text-tavern-muted">{variable.description}</td
-							>
-							<td class="px-2 py-1 text-ink-muted dark:text-tavern-muted">{variable.example}</td>
+						<tr class="border-t border-border/70">
+							<td class="px-2 py-1 font-mono text-ink">{variable.key}</td>
+							<td class="px-2 py-1 text-ink-muted">{variable.description}</td>
+							<td class="px-2 py-1 text-ink-muted">{variable.example}</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -345,59 +344,53 @@
 {/if}
 
 {#if snippetLibraryOpen}
-	<div
-		class="mb-3 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-2.5"
-	>
+	<div class="mb-3 rounded-lg border border-border bg-surface p-2.5">
 		<div class="mb-2 flex items-center justify-between gap-2">
 			<input
 				type="text"
-				class="w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-xs text-ink dark:text-tavern-text"
+				class="w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 				bind:value={snippetQuery}
 				placeholder="/snippets"
 			/>
 			<button
 				type="button"
-				class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+				class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 				onclick={() => (snippetLibraryOpen = false)}
 			>
 				Close
 			</button>
 		</div>
 		<div class="grid gap-2 md:grid-cols-2">
-			<div class="max-h-44 overflow-y-auto rounded border border-border dark:border-tavern-border">
+			<div class="max-h-44 overflow-y-auto rounded border border-border">
 				{#if filteredSnippets.length === 0}
-					<p class="px-2 py-2 text-xs text-ink-faint dark:text-tavern-faint">No snippets found</p>
+					<p class="px-2 py-2 text-xs text-ink-faint">No snippets found</p>
 				{:else}
 					{#each filteredSnippets as snippet (snippet.id)}
 						<button
 							type="button"
-							class="w-full border-b border-border/60 dark:border-tavern-border/60 px-2 py-1.5 text-left hover:bg-surface-alt dark:hover:bg-tavern-surface-alt {selectedSnippetId ===
+							class="w-full border-b border-border/60 px-2 py-1.5 text-left hover:bg-surface-alt {selectedSnippetId ===
 							snippet.id
-								? 'bg-accent-subtle dark:bg-tavern-accent-subtle'
+								? 'bg-accent-subtle'
 								: ''}"
 							onclick={() => void selectSnippet(snippet.id)}
 						>
-							<p class="text-xs font-medium text-ink dark:text-tavern-text">{snippet.name}</p>
-							<p class="text-[11px] text-ink-faint dark:text-tavern-faint">{snippet.description}</p>
+							<p class="text-xs font-medium text-ink">{snippet.name}</p>
+							<p class="text-xs text-ink-faint">{snippet.description}</p>
 						</button>
 					{/each}
 				{/if}
 			</div>
-			<div
-				class="rounded border border-border dark:border-tavern-border bg-surface-alt/60 dark:bg-tavern-surface-alt/60 p-2"
-			>
-				<p
-					class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint dark:text-tavern-faint"
-				>
+			<div class="rounded border border-border bg-surface-alt/60 p-2">
+				<p class="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">
 					Live Preview
 				</p>
 				{#if snippetPreviewLoading}
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">Rendering preview...</p>
+					<p class="text-xs text-ink-muted">Rendering preview...</p>
 				{:else if snippetPreview}
 					<pre
-						class="max-h-40 overflow-auto whitespace-pre-wrap text-xs text-ink dark:text-tavern-text">{snippetPreview}</pre>
+						class="max-h-40 overflow-auto whitespace-pre-wrap text-xs text-ink">{snippetPreview}</pre>
 				{:else}
-					<p class="text-xs text-ink-faint dark:text-tavern-faint">Select a snippet to preview</p>
+					<p class="text-xs text-ink-faint">Select a snippet to preview</p>
 				{/if}
 			</div>
 		</div>

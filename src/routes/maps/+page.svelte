@@ -2296,13 +2296,10 @@
 <div class="mx-auto max-w-[1400px] p-6">
 	<header class="mb-5 flex flex-wrap items-start justify-between gap-3">
 		<div>
-			<h1
-				class="text-2xl font-bold text-ink dark:text-tavern-text"
-				style="font-family: var(--font-serif)"
-			>
+			<h1 class="text-2xl font-bold text-ink" style="font-family: var(--font-serif)">
 				Map Library
 			</h1>
-			<p class="mt-1 text-sm text-ink-muted dark:text-tavern-muted">
+			<p class="mt-1 text-sm text-ink-muted">
 				{#if playerModeState.enabled}
 					Player map view with fog-of-war enforcement
 				{:else}
@@ -2313,7 +2310,7 @@
 		{#if !playerModeState.enabled}
 			<button
 				type="button"
-				class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+				class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 				onclick={() => void handleImportMap()}
 				disabled={!desktopAvailable || importing}
 				title={desktopAvailable ? 'Import a map image into the vault' : 'Desktop mode required'}
@@ -2324,20 +2321,18 @@
 	</header>
 
 	{#if !playerModeState.enabled}
-		<section
-			class="mb-4 grid gap-2 rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface md:grid-cols-4"
-		>
+		<section class="mb-4 grid gap-2 rounded-lg border border-border bg-surface p-3 md:grid-cols-4">
 			<input
 				type="text"
 				bind:value={query}
 				placeholder="Search maps by name, tags, area, or file path"
 				aria-label="Search maps"
-				class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+				class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 			/>
 			<select
 				bind:value={selectedTag}
 				aria-label="Filter maps by tag"
-				class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+				class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 			>
 				<option value="">All tags</option>
 				{#each tagOptions as tag (tag)}
@@ -2347,7 +2342,7 @@
 			<select
 				bind:value={selectedAreaNoteId}
 				aria-label="Filter maps by linked area"
-				class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+				class="rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 			>
 				<option value="">All areas</option>
 				{#each areaOptions as area (area.id)}
@@ -2356,7 +2351,7 @@
 			</select>
 			<button
 				type="button"
-				class="rounded border border-border px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+				class="rounded border border-border px-3 py-1.5 text-sm text-ink-muted hover:bg-surface-alt"
 				onclick={() => {
 					query = '';
 					selectedTag = '';
@@ -2369,22 +2364,18 @@
 	{/if}
 
 	{#if error}
-		<div
-			class="mb-4 rounded border border-error/40 bg-error/10 px-3 py-2 text-sm text-error dark:border-error/50"
-		>
+		<div class="mb-4 rounded border border-error/40 bg-error/10 px-3 py-2 text-sm text-error">
 			{error}
 		</div>
 	{/if}
 
 	{#if !playerModeState.enabled}
-		<section
-			class="rounded-lg border border-border bg-surface p-4 dark:border-tavern-border dark:bg-tavern-surface"
-		>
-			<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Library</h2>
+		<section class="rounded-lg border border-border bg-surface p-4">
+			<h2 class="text-sm font-semibold text-ink">Library</h2>
 			{#if loading}
-				<p class="mt-2 text-sm text-ink-muted dark:text-tavern-muted">Loading maps...</p>
+				<p class="mt-2 text-sm text-ink-muted">Loading maps...</p>
 			{:else if filteredMaps.length === 0}
-				<p class="mt-2 text-sm text-ink-muted dark:text-tavern-muted">
+				<p class="mt-2 text-sm text-ink-muted">
 					{maps.length === 0
 						? 'No maps in the vault yet. Import your first map image.'
 						: 'No maps match the active filters.'}
@@ -2397,38 +2388,36 @@
 								type="button"
 								class="group w-full overflow-hidden rounded-md border text-left transition-colors {selectedMapId ===
 								String(map.id)
-									? 'border-accent bg-accent-subtle/40 dark:border-tavern-accent dark:bg-tavern-accent-subtle/40'
-									: 'border-border bg-surface-alt hover:border-accent/60 dark:border-tavern-border dark:bg-tavern-surface-alt dark:hover:border-tavern-accent/70'}"
+									? 'border-accent bg-accent-subtle/40'
+									: 'border-border bg-surface-alt hover:border-accent/60'}"
 								onclick={() => (selectedMapId = String(map.id))}
 							>
-								<div class="aspect-[4/3] overflow-hidden bg-parchment/70 dark:bg-tavern-bg/70">
+								<div class="aspect-[4/3] overflow-hidden bg-parchment/70">
 									{#if mapAssetUrls[String(map.id)]}
 										<img
 											src={mapAssetUrls[String(map.id)] ?? undefined}
 											alt={map.name}
 											loading="lazy"
-											class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+											class="h-full w-full object-cover transition-transform duration-medium group-hover:scale-[1.02]"
 										/>
 									{:else}
 										<div
-											class="flex h-full items-center justify-center px-3 text-center text-xs text-ink-muted dark:text-tavern-muted"
+											class="flex h-full items-center justify-center px-3 text-center text-xs text-ink-muted"
 										>
 											Preview unavailable
 										</div>
 									{/if}
 								</div>
 								<div class="space-y-1 p-2.5">
-									<p class="truncate text-sm font-medium text-ink dark:text-tavern-text">
+									<p class="truncate text-sm font-medium text-ink">
 										{map.name}
 									</p>
-									<p class="truncate text-[11px] text-ink-faint dark:text-tavern-faint">
+									<p class="truncate text-xs text-ink-faint">
 										{areaLabelForMap(map)}
 									</p>
 									<div class="flex flex-wrap gap-1">
 										{#each map.tags.slice(0, 3) as tag (tag)}
-											<span
-												class="rounded bg-surface px-1.5 py-0.5 text-[10px] text-ink-faint dark:bg-tavern-surface dark:text-tavern-faint"
-											>
+											<span class="rounded bg-surface px-1.5 py-0.5 text-2xs text-ink-faint">
 												#{tag}
 											</span>
 										{/each}
@@ -2446,12 +2435,10 @@
 		<section
 			class="mt-4 grid gap-4 {playerModeState.enabled ? '' : 'xl:grid-cols-[minmax(0,1fr)_360px]'}"
 		>
-			<div
-				class="relative rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
-			>
+			<div class="relative rounded-lg border border-border bg-surface p-3">
 				{#if selectedMapBreadcrumbs.length > 0}
 					<nav
-						class="mb-2 flex flex-wrap items-center gap-1 text-[11px] text-ink-muted dark:text-tavern-muted"
+						class="mb-2 flex flex-wrap items-center gap-1 text-xs text-ink-muted"
 						aria-label="Contextual navigation: Map hierarchy breadcrumbs"
 					>
 						{#each selectedMapBreadcrumbs as crumb, index (crumb.mapId)}
@@ -2461,13 +2448,13 @@
 							{#if index < selectedMapBreadcrumbs.length - 1}
 								<button
 									type="button"
-									class="rounded px-1 py-0.5 hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+									class="rounded px-1 py-0.5 hover:bg-surface-alt"
 									onclick={() => selectMapById(crumb.mapId)}
 								>
 									{crumb.name}
 								</button>
 							{:else}
-								<span class="rounded bg-surface-alt px-1.5 py-0.5 dark:bg-tavern-surface-alt">
+								<span class="rounded bg-surface-alt px-1.5 py-0.5">
 									{crumb.name}
 								</span>
 							{/if}
@@ -2479,7 +2466,7 @@
 						<div class="flex flex-wrap items-center gap-2">
 							<button
 								type="button"
-								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt"
 								onclick={() => {
 									runtimeShowGrid = !runtimeShowGrid;
 								}}
@@ -2488,7 +2475,7 @@
 							</button>
 							<button
 								type="button"
-								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt"
 								onclick={() => {
 									editGridHandles = !editGridHandles;
 									runtimeShowGrid = true;
@@ -2498,7 +2485,7 @@
 							</button>
 							<button
 								type="button"
-								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt"
 								onclick={() => {
 									editPoiMode = !editPoiMode;
 								}}
@@ -2507,7 +2494,7 @@
 							</button>
 							<button
 								type="button"
-								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt"
 								onclick={() => {
 									routeEditMode = !routeEditMode;
 								}}
@@ -2516,7 +2503,7 @@
 							</button>
 							<button
 								type="button"
-								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt disabled:opacity-55 dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt disabled:opacity-55"
 								disabled={!selectedMap.data.grid || !selectedCombatTile}
 								onclick={() => {
 									combatModeEnabled = !combatModeEnabled;
@@ -2527,7 +2514,7 @@
 							</button>
 							<button
 								type="button"
-								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt disabled:opacity-55 dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt disabled:opacity-55"
 								disabled={!selectedCombatTile}
 								onclick={() => {
 									fogEditingEnabled = !fogEditingEnabled;
@@ -2536,15 +2523,13 @@
 							>
 								{fogEditingEnabled ? 'Stop Fog Tools' : 'Fog of War Tools'}
 							</button>
-							<label
-								class="flex items-center gap-1.5 rounded border border-border px-2 py-1 dark:border-tavern-border"
-							>
+							<label class="flex items-center gap-1.5 rounded border border-border px-2 py-1">
 								<input type="checkbox" bind:checked={previewPlayerLayers} />
 								Player layer preview
 							</label>
 							<select
 								bind:value={activeLayerFilter}
-								class="rounded border border-border bg-surface-alt px-2 py-1 text-[11px] text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+								class="rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 								aria-label="Filter visible pins by layer"
 							>
 								<option value="all">All layers</option>
@@ -2554,27 +2539,25 @@
 							</select>
 						</div>
 					{:else}
-						<p class="text-ink-muted dark:text-tavern-muted">
-							Player view: unrevealed map areas remain hidden.
-						</p>
+						<p class="text-ink-muted">Player view: unrevealed map areas remain hidden.</p>
 					{/if}
 					{#if partyLocation}
-						<p class="text-ink-faint dark:text-tavern-faint">
+						<p class="text-ink-faint">
 							Party at {partyLocation.x.toFixed(3)}, {partyLocation.y.toFixed(3)}
 						</p>
 					{/if}
 					{#if scaleLabel}
-						<p class="font-medium text-ink-muted dark:text-tavern-muted">{scaleLabel}</p>
+						<p class="font-medium text-ink-muted">{scaleLabel}</p>
 					{/if}
 				</div>
 				{#if selectedCombatTile}
 					<div
-						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-[11px] dark:border-tavern-border/70"
+						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-xs"
 					>
-						<label class="text-ink-muted dark:text-tavern-muted">
+						<label class="text-ink-muted">
 							Board
 							<select
-								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 text-[11px] dark:border-tavern-border dark:bg-tavern-surface-alt"
+								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 text-xs"
 								bind:value={selectedBoardId}
 							>
 								{#each boards as board (board.id)}
@@ -2582,10 +2565,10 @@
 								{/each}
 							</select>
 						</label>
-						<label class="text-ink-muted dark:text-tavern-muted">
+						<label class="text-ink-muted">
 							Combat Tile
 							<select
-								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 text-[11px] dark:border-tavern-border dark:bg-tavern-surface-alt"
+								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 text-xs"
 								bind:value={selectedCombatTileId}
 							>
 								{#each combatTiles as tile (tile.id)}
@@ -2594,10 +2577,10 @@
 							</select>
 						</label>
 						{#if !playerModeState.enabled}
-							<label class="text-ink-muted dark:text-tavern-muted">
+							<label class="text-ink-muted">
 								Tool
 								<select
-									class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 dark:border-tavern-border dark:bg-tavern-surface-alt"
+									class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5"
 									bind:value={fogTool}
 									disabled={!fogEditingEnabled}
 								>
@@ -2606,10 +2589,10 @@
 									{/each}
 								</select>
 							</label>
-							<label class="text-ink-muted dark:text-tavern-muted">
+							<label class="text-ink-muted">
 								Mode
 								<select
-									class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 dark:border-tavern-border dark:bg-tavern-surface-alt"
+									class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5"
 									bind:value={fogMode}
 									disabled={!fogEditingEnabled}
 								>
@@ -2618,7 +2601,7 @@
 									{/each}
 								</select>
 							</label>
-							<label class="text-ink-muted dark:text-tavern-muted">
+							<label class="text-ink-muted">
 								Brush Radius
 								<input
 									type="range"
@@ -2629,10 +2612,10 @@
 									disabled={!fogEditingEnabled || fogTool !== 'circle'}
 								/>
 							</label>
-							<label class="text-ink-muted dark:text-tavern-muted">
+							<label class="text-ink-muted">
 								Fog Color
 								<select
-									class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 dark:border-tavern-border dark:bg-tavern-surface-alt"
+									class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5"
 									bind:value={fogColorTheme}
 									onchange={() => setFogConfig({ colorTheme: fogColorTheme })}
 								>
@@ -2640,7 +2623,7 @@
 									<option value="black">Black</option>
 								</select>
 							</label>
-							<label class="inline-flex items-center gap-1 text-ink-muted dark:text-tavern-muted">
+							<label class="inline-flex items-center gap-1 text-ink-muted">
 								<input
 									type="checkbox"
 									bind:checked={fogFreeExplore}
@@ -2650,20 +2633,20 @@
 							</label>
 							<button
 								type="button"
-								class="rounded border border-border px-2 py-0.5 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+								class="rounded border border-border px-2 py-0.5 text-ink-muted hover:bg-surface-alt"
 								onclick={clearFogOperations}
 							>
 								Clear Fog Ops
 							</button>
 						{:else}
-							<span class="text-ink-muted dark:text-tavern-muted">
+							<span class="text-ink-muted">
 								Free explore: {effectiveFogState.freeExplore ? 'enabled' : 'disabled'}
 							</span>
-							<span class="text-ink-faint dark:text-tavern-faint">
+							<span class="text-ink-faint">
 								Revealed zones: {fogPolygonCounts.reveal}
 							</span>
 							{#if fogRevealBounds}
-								<span class="text-ink-faint dark:text-tavern-faint">
+								<span class="text-ink-faint">
 									Reveal bounds: {(fogRevealBounds.maxX - fogRevealBounds.minX).toFixed(2)} x
 									{(fogRevealBounds.maxY - fogRevealBounds.minY).toFixed(2)}
 								</span>
@@ -2673,47 +2656,43 @@
 				{/if}
 				{#if combatModeEnabled}
 					<div
-						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-[11px] dark:border-tavern-border/70"
+						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-xs"
 					>
-						<span class="text-ink-muted dark:text-tavern-muted">
+						<span class="text-ink-muted">
 							{mapLinkedToEncounterLocation
 								? 'Map is linked to the encounter location.'
 								: 'Map is not linked to the active encounter location.'}
 						</span>
 						{#if activeCombatant}
-							<span
-								class="rounded bg-surface-alt px-1.5 py-0.5 text-ink dark:bg-tavern-surface-alt dark:text-tavern-text"
-							>
+							<span class="rounded bg-surface-alt px-1.5 py-0.5 text-ink">
 								Move {movementBudgetSquares} sq
 							</span>
 							{#if selectedRangeProfile}
-								<span
-									class="rounded bg-surface-alt px-1.5 py-0.5 text-ink dark:bg-tavern-surface-alt dark:text-tavern-text"
-								>
+								<span class="rounded bg-surface-alt px-1.5 py-0.5 text-ink">
 									Range {selectedRangeProfile.squares} sq ({selectedRangeProfile.label})
 								</span>
 							{/if}
 						{/if}
 					</div>
 					<div
-						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-[11px] dark:border-tavern-border/70"
+						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-xs"
 					>
-						<label class="inline-flex items-center gap-1 text-ink-muted dark:text-tavern-muted">
+						<label class="inline-flex items-center gap-1 text-ink-muted">
 							<input type="checkbox" bind:checked={terrainPaintMode} />
 							Paint Difficult Terrain
 						</label>
-						<label class="inline-flex items-center gap-1 text-ink-muted dark:text-tavern-muted">
+						<label class="inline-flex items-center gap-1 text-ink-muted">
 							<input type="checkbox" bind:checked={terrainEraseMode} disabled={!terrainPaintMode} />
 							Erase mode
 						</label>
-						<label class="inline-flex items-center gap-1 text-ink-muted dark:text-tavern-muted">
+						<label class="inline-flex items-center gap-1 text-ink-muted">
 							<input type="checkbox" bind:checked={templatePlacementMode} />
 							Template Drag Placement
 						</label>
-						<label class="text-ink-muted dark:text-tavern-muted">
+						<label class="text-ink-muted">
 							Template
 							<select
-								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 dark:border-tavern-border dark:bg-tavern-surface-alt"
+								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5"
 								bind:value={templateShape}
 							>
 								{#each TEMPLATE_SHAPE_OPTIONS as option (option.value)}
@@ -2721,49 +2700,49 @@
 								{/each}
 							</select>
 						</label>
-						<label class="text-ink-muted dark:text-tavern-muted">
+						<label class="text-ink-muted">
 							Radius
 							<input
 								type="number"
 								min="1"
 								max="30"
-								class="ml-1 w-14 rounded border border-border bg-surface-alt px-1.5 py-0.5 dark:border-tavern-border dark:bg-tavern-surface-alt"
+								class="ml-1 w-14 rounded border border-border bg-surface-alt px-1.5 py-0.5"
 								bind:value={templateRadiusSquares}
 								disabled={templateShape === 'line'}
 							/>
 						</label>
-						<label class="text-ink-muted dark:text-tavern-muted">
+						<label class="text-ink-muted">
 							Line L
 							<input
 								type="number"
 								min="1"
 								max="60"
-								class="ml-1 w-14 rounded border border-border bg-surface-alt px-1.5 py-0.5 dark:border-tavern-border dark:bg-tavern-surface-alt"
+								class="ml-1 w-14 rounded border border-border bg-surface-alt px-1.5 py-0.5"
 								bind:value={templateLineLengthSquares}
 								disabled={templateShape !== 'line'}
 							/>
 						</label>
-						<label class="text-ink-muted dark:text-tavern-muted">
+						<label class="text-ink-muted">
 							Line W
 							<input
 								type="number"
 								min="1"
 								max="10"
-								class="ml-1 w-14 rounded border border-border bg-surface-alt px-1.5 py-0.5 dark:border-tavern-border dark:bg-tavern-surface-alt"
+								class="ml-1 w-14 rounded border border-border bg-surface-alt px-1.5 py-0.5"
 								bind:value={templateLineWidthSquares}
 								disabled={templateShape !== 'line'}
 							/>
 						</label>
 						<button
 							type="button"
-							class="rounded border border-border px-2 py-0.5 text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+							class="rounded border border-border px-2 py-0.5 text-ink-muted hover:bg-surface-alt"
 							onclick={clearAllTemplates}
 							disabled={combatMapState.templates.length === 0}
 						>
 							Clear Templates
 						</button>
 						{#if savingCombatMap}
-							<span class="text-ink-faint dark:text-tavern-faint">Saving combat map...</span>
+							<span class="text-ink-faint">Saving combat map...</span>
 						{/if}
 					</div>
 					{#if combatMapState.templates.length > 0}
@@ -2771,7 +2750,7 @@
 							{#each combatMapState.templates as template (template.id)}
 								<button
 									type="button"
-									class="rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+									class="rounded border border-border px-2 py-0.5 text-xs text-ink-muted hover:bg-surface-alt"
 									onclick={() => removeTemplate(template.id)}
 								>
 									{template.shape} @{template.originX},{template.originY} x
@@ -2781,24 +2760,22 @@
 					{/if}
 				{/if}
 				{#if editPoiMode}
-					<p class="mb-2 text-xs text-ink-faint dark:text-tavern-faint">
+					<p class="mb-2 text-xs text-ink-faint">
 						Click the map to place a pin. Drag pins to reposition. Click a pin to edit details.
 					</p>
 				{/if}
 				{#if routeEditMode}
-					<p class="mb-2 text-xs text-ink-faint dark:text-tavern-faint">
+					<p class="mb-2 text-xs text-ink-faint">
 						Route edit mode: click the map to add waypoints to the selected route.
 					</p>
 				{/if}
 				{#if fogEditingEnabled}
-					<p class="mb-2 text-xs text-ink-faint dark:text-tavern-faint">
+					<p class="mb-2 text-xs text-ink-faint">
 						Fog tools active. Paint reveal or re-fog shapes directly on the map.
 					</p>
 				{/if}
 				{#if selectedMap.data.parentMapId}
-					<p class="mb-2 text-xs text-ink-faint dark:text-tavern-faint">
-						Press Escape to navigate up to parent map.
-					</p>
+					<p class="mb-2 text-xs text-ink-faint">Press Escape to navigate up to parent map.</p>
 				{/if}
 				{#key `${selectedMap.id}:${viewerKey}`}
 					<MapCanvasViewer
@@ -2848,25 +2825,25 @@
 				{/key}
 				{#if poiHover && hoveredPoi}
 					<div
-						class="fixed z-40 w-72 rounded-md border border-border bg-surface px-3 py-2 text-xs shadow-xl dark:border-tavern-border dark:bg-tavern-surface"
+						class="fixed z-40 w-72 rounded-md border border-border bg-surface-elevated px-3 py-2 text-xs shadow-lg"
 						style={`left:${poiHover.clientX + 10}px;top:${poiHover.clientY + 10}px;`}
 						role="status"
 						aria-live="polite"
 					>
-						<p class="font-semibold text-ink dark:text-tavern-text">{hoveredPoi.label}</p>
-						<p class="mt-0.5 text-[11px] text-ink-faint dark:text-tavern-faint">
+						<p class="font-semibold text-ink">{hoveredPoi.label}</p>
+						<p class="mt-0.5 text-xs text-ink-faint">
 							{hoveredPoi.category}
 						</p>
 						{#if hoveredPreviewLines.length > 0}
 							<div class="mt-2 space-y-1">
 								{#each hoveredPreviewLines as line, index (`${hoveredPoi.id}-${index}`)}
-									<p class="line-clamp-1 text-ink-muted dark:text-tavern-muted">{line}</p>
+									<p class="line-clamp-1 text-ink-muted">{line}</p>
 								{/each}
 							</div>
 						{:else}
 							<button
 								type="button"
-								class="mt-2 rounded border border-border px-2 py-1 text-[11px] text-accent hover:bg-accent-subtle dark:border-tavern-border dark:text-tavern-accent dark:hover:bg-tavern-accent-subtle"
+								class="mt-2 rounded border border-border px-2 py-1 text-xs text-accent hover:bg-accent-subtle"
 								onclick={() => void handleCreateNoteFromPoi(hoveredPoi.id)}
 							>
 								Create note from pin
@@ -2877,7 +2854,7 @@
 				{#if mapContextMenu}
 					{@const contextMenu = mapContextMenu}
 					<div
-						class="fixed z-40 min-w-40 rounded-md border border-border bg-surface p-1 shadow-xl dark:border-tavern-border dark:bg-tavern-surface"
+						class="fixed z-40 min-w-40 rounded-md border border-border bg-surface-elevated p-1 shadow-lg"
 						style={`left:${contextMenu.clientX}px;top:${contextMenu.clientY}px;`}
 						role="menu"
 						aria-label="Map context menu"
@@ -2886,7 +2863,7 @@
 					>
 						<button
 							type="button"
-							class="w-full rounded px-2 py-1 text-left text-xs text-ink hover:bg-surface-alt dark:text-tavern-text dark:hover:bg-tavern-surface-alt"
+							class="w-full rounded px-2 py-1 text-left text-xs text-ink hover:bg-surface-alt"
 							onclick={() =>
 								void handleMarkPartyLocation({
 									x: contextMenu.x,
@@ -2901,14 +2878,10 @@
 			</div>
 
 			{#if !playerModeState.enabled}
-				<aside
-					class="rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
-				>
+				<aside class="rounded-lg border border-border bg-surface p-3">
 					{#if combatModeEnabled}
 						<div class="mb-3 space-y-2">
-							<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">
-								Combat Tracker Sync
-							</h2>
+							<h2 class="text-sm font-semibold text-ink">Combat Tracker Sync</h2>
 							{#if selectedCombatTile}
 								<div class="h-[420px] min-h-[320px]">
 									<CombatTrackerTile
@@ -2919,38 +2892,38 @@
 									/>
 								</div>
 							{:else}
-								<p class="text-xs text-ink-muted dark:text-tavern-muted">
+								<p class="text-xs text-ink-muted">
 									Select a board and combat tile to enable map-tracker synchronization.
 								</p>
 							{/if}
 						</div>
 					{/if}
-					<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Map Metadata</h2>
+					<h2 class="text-sm font-semibold text-ink">Map Metadata</h2>
 					<div class="mt-3 space-y-2.5">
-						<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+						<label class="block text-xs text-ink-muted">
 							Name
 							<input
 								type="text"
 								bind:value={draftName}
 								oninput={markDirty}
-								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 							/>
 						</label>
-						<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+						<label class="block text-xs text-ink-muted">
 							Tags (comma-separated)
 							<input
 								type="text"
 								bind:value={draftTags}
 								oninput={markDirty}
-								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 							/>
 						</label>
-						<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+						<label class="block text-xs text-ink-muted">
 							Linked Area (location note)
 							<select
 								bind:value={draftAreaNoteId}
 								onchange={markDirty}
-								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 							>
 								<option value="">Unlinked</option>
 								{#if draftAreaNoteId && !locationNotes.some((note) => String(note.id) === draftAreaNoteId)}
@@ -2964,13 +2937,13 @@
 						{#if draftAreaNoteId}
 							<button
 								type="button"
-								class="text-xs text-accent hover:underline dark:text-tavern-accent"
+								class="text-xs text-accent hover:underline"
 								onclick={() => void goto(resolve(`/knowledge/notes/${draftAreaNoteId}`))}
 							>
 								Open linked location note
 							</button>
 						{/if}
-						<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+						<label class="block text-xs text-ink-muted">
 							Parent map
 							<select
 								bind:value={draftParentMapId}
@@ -2983,7 +2956,7 @@
 									}
 									markDirty();
 								}}
-								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 							>
 								<option value="">None (root map)</option>
 								{#each mapHierarchy as entry (entry.mapId)}
@@ -2993,13 +2966,13 @@
 								{/each}
 							</select>
 						</label>
-						<label class="block text-xs text-ink-muted dark:text-tavern-muted">
+						<label class="block text-xs text-ink-muted">
 							Location on parent (POI)
 							<select
 								bind:value={draftParentPoiId}
 								onchange={markDirty}
 								disabled={!draftParentMapId}
-								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink disabled:opacity-60 dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink disabled:opacity-60"
 							>
 								<option value="">None selected</option>
 								{#each parentPoiOptions as poi (poi.id)}
@@ -3008,14 +2981,14 @@
 							</select>
 						</label>
 						<label
-							class="flex items-center gap-2 rounded border border-border px-2 py-1.5 text-xs text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
+							class="flex items-center gap-2 rounded border border-border px-2 py-1.5 text-xs text-ink-muted"
 						>
 							<input type="checkbox" bind:checked={draftScaleEnabled} onchange={markDirty} />
 							Enable scale label
 						</label>
 						{#if draftScaleEnabled}
 							<div class="grid grid-cols-2 gap-2">
-								<label class="text-xs text-ink-muted dark:text-tavern-muted">
+								<label class="text-xs text-ink-muted">
 									Units per square
 									<input
 										type="number"
@@ -3023,33 +2996,33 @@
 										step="0.01"
 										bind:value={draftScaleUnits}
 										oninput={markDirty}
-										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 									/>
 								</label>
-								<label class="text-xs text-ink-muted dark:text-tavern-muted">
+								<label class="text-xs text-ink-muted">
 									Unit label
 									<input
 										type="text"
 										bind:value={draftScaleUnitLabel}
 										oninput={markDirty}
-										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 									/>
 								</label>
 							</div>
 						{/if}
 						<div class="grid grid-cols-2 gap-2">
-							<label class="text-xs text-ink-muted dark:text-tavern-muted">
+							<label class="text-xs text-ink-muted">
 								Grid type
 								<select
 									bind:value={draftGridType}
 									onchange={markDirty}
-									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 								>
 									<option value="square">Square</option>
 									<option value="hex">Hex</option>
 								</select>
 							</label>
-							<label class="text-xs text-ink-muted dark:text-tavern-muted">
+							<label class="text-xs text-ink-muted">
 								Cell size (px)
 								<input
 									type="number"
@@ -3057,38 +3030,38 @@
 									step="1"
 									bind:value={draftGridCellSize}
 									oninput={markDirty}
-									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 								/>
 							</label>
-							<label class="text-xs text-ink-muted dark:text-tavern-muted">
+							<label class="text-xs text-ink-muted">
 								Origin X
 								<input
 									type="number"
 									step="0.1"
 									bind:value={draftGridOriginX}
 									oninput={markDirty}
-									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 								/>
 							</label>
-							<label class="text-xs text-ink-muted dark:text-tavern-muted">
+							<label class="text-xs text-ink-muted">
 								Origin Y
 								<input
 									type="number"
 									step="0.1"
 									bind:value={draftGridOriginY}
 									oninput={markDirty}
-									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 								/>
 							</label>
 						</div>
 						<label
-							class="flex items-center gap-2 rounded border border-border px-2 py-1.5 text-xs text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
+							class="flex items-center gap-2 rounded border border-border px-2 py-1.5 text-xs text-ink-muted"
 						>
 							<input type="checkbox" bind:checked={draftGridVisible} onchange={markDirty} />
 							Show grid by default
 						</label>
 						<div
-							class="rounded border border-border bg-surface-alt px-2 py-1.5 text-[11px] text-ink-faint dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-faint"
+							class="rounded border border-border bg-surface-alt px-2 py-1.5 text-xs text-ink-faint"
 						>
 							<p class="truncate">File: {selectedMap.data.filePath || 'Missing path'}</p>
 							{#if selectedMap.data.byteSize}
@@ -3100,12 +3073,12 @@
 							<p>Layers: {draftLayers.length}</p>
 							<p>POIs: {draftPois.length}</p>
 						</div>
-						<div class="rounded border border-border p-2 dark:border-tavern-border">
+						<div class="rounded border border-border p-2">
 							<div class="flex items-center justify-between">
-								<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">Layer System</h3>
+								<h3 class="text-xs font-semibold text-ink">Layer System</h3>
 								<button
 									type="button"
-									class="rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+									class="rounded border border-border px-2 py-0.5 text-xs text-ink-muted hover:bg-surface-alt"
 									onclick={handleAddLayer}
 								>
 									Add Layer
@@ -3113,7 +3086,7 @@
 							</div>
 							<div class="mt-2 space-y-2">
 								{#each draftLayers as layer (layer.id)}
-									<div class="rounded border border-border p-2 dark:border-tavern-border">
+									<div class="rounded border border-border p-2">
 										<input
 											type="text"
 											value={layer.name}
@@ -3122,7 +3095,7 @@
 													...entry,
 													name: (event.currentTarget as HTMLInputElement).value,
 												}))}
-											class="w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+											class="w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 										/>
 										<div class="mt-1.5 grid grid-cols-2 gap-1.5">
 											<select
@@ -3134,7 +3107,7 @@
 															(event.currentTarget as HTMLSelectElement).value,
 														),
 													}))}
-												class="rounded border border-border bg-surface-alt px-2 py-1 text-[11px] text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+												class="rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 											>
 												{#each LAYER_THEME_OPTIONS as option (option.value)}
 													<option value={option.value}>{option.label}</option>
@@ -3142,16 +3115,14 @@
 											</select>
 											<button
 												type="button"
-												class="rounded border border-border px-2 py-1 text-[11px] text-error hover:bg-error/10 disabled:opacity-40 dark:border-tavern-border"
+												class="rounded border border-border px-2 py-1 text-xs text-error hover:bg-error/10 disabled:opacity-40"
 												disabled={draftLayers.length <= 1}
 												onclick={() => handleDeleteLayer(layer.id)}
 											>
 												Delete
 											</button>
 										</div>
-										<div
-											class="mt-1.5 flex items-center gap-3 text-[11px] text-ink-muted dark:text-tavern-muted"
-										>
+										<div class="mt-1.5 flex items-center gap-3 text-xs text-ink-muted">
 											<label class="flex items-center gap-1">
 												<input
 													type="checkbox"
@@ -3181,22 +3152,18 @@
 								{/each}
 							</div>
 						</div>
-						<div class="rounded border border-border p-2 dark:border-tavern-border">
-							<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">
-								POI Pins by Category
-							</h3>
-							<div
-								class="mt-1.5 grid grid-cols-2 gap-1 text-[11px] text-ink-muted dark:text-tavern-muted"
-							>
+						<div class="rounded border border-border p-2">
+							<h3 class="text-xs font-semibold text-ink">POI Pins by Category</h3>
+							<div class="mt-1.5 grid grid-cols-2 gap-1 text-xs text-ink-muted">
 								{#each POI_CATEGORY_OPTIONS as category (category.value)}
 									<p>{category.label}: {poiCountsByCategory[category.value] ?? 0}</p>
 								{/each}
 							</div>
-							<label class="mt-2 block text-[11px] text-ink-muted dark:text-tavern-muted">
+							<label class="mt-2 block text-xs text-ink-muted">
 								New pins default layer
 								<select
 									bind:value={newPoiLayerId}
-									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+									class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 								>
 									{#each draftLayers as layer (layer.id)}
 										<option value={layer.id}>{layer.name}</option>
@@ -3204,31 +3171,31 @@
 								</select>
 							</label>
 						</div>
-						<div class="rounded border border-border p-2 dark:border-tavern-border">
+						<div class="rounded border border-border p-2">
 							<div class="flex items-center justify-between">
-								<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">Travel Routes</h3>
+								<h3 class="text-xs font-semibold text-ink">Travel Routes</h3>
 								<button
 									type="button"
-									class="rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+									class="rounded border border-border px-2 py-0.5 text-xs text-ink-muted hover:bg-surface-alt"
 									onclick={handleCreateRoute}
 								>
 									Add Route
 								</button>
 							</div>
 							<div class="mt-2 grid grid-cols-2 gap-2">
-								<label class="text-[11px] text-ink-muted dark:text-tavern-muted">
+								<label class="text-xs text-ink-muted">
 									Route name
 									<input
 										type="text"
 										bind:value={newRouteName}
-										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 									/>
 								</label>
-								<label class="text-[11px] text-ink-muted dark:text-tavern-muted">
+								<label class="text-xs text-ink-muted">
 									Style
 									<select
 										bind:value={newRouteStyle}
-										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 									>
 										<option value="straight">Straight</option>
 										<option value="curved">Curved</option>
@@ -3236,37 +3203,36 @@
 								</label>
 							</div>
 							{#if draftRoutes.length === 0}
-								<p class="mt-2 text-[11px] text-ink-faint dark:text-tavern-faint">
+								<p class="mt-2 text-xs text-ink-faint">
 									No routes yet. Create one, then click map waypoints.
 								</p>
 							{:else}
 								<div class="mt-2 space-y-1.5">
 									{#each routeSummaries as entry (entry.route.id)}
 										<div
-											class="rounded border border-border p-1.5 dark:border-tavern-border {selectedRouteId ===
-											entry.route.id
-												? 'bg-accent-subtle/40 dark:bg-tavern-accent-subtle/40'
+											class="rounded border border-border p-1.5 {selectedRouteId === entry.route.id
+												? 'bg-accent-subtle/40'
 												: ''}"
 										>
 											<button
 												type="button"
-												class="w-full text-left text-[11px] font-medium text-ink dark:text-tavern-text"
+												class="w-full text-left text-xs font-medium text-ink"
 												onclick={() => (selectedRouteId = entry.route.id)}
 											>
 												{entry.route.name}
 											</button>
-											<p class="text-[11px] text-ink-faint dark:text-tavern-faint">{entry.label}</p>
+											<p class="text-xs text-ink-faint">{entry.label}</p>
 											<div class="mt-1 flex flex-wrap gap-1">
 												<button
 													type="button"
-													class="rounded border border-border px-1.5 py-0.5 text-[10px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+													class="rounded border border-border px-1.5 py-0.5 text-2xs text-ink-muted hover:bg-surface-alt"
 													onclick={() => handleClearRouteWaypoints(entry.route.id)}
 												>
 													Clear points
 												</button>
 												<button
 													type="button"
-													class="rounded border border-border px-1.5 py-0.5 text-[10px] text-error hover:bg-error/10 dark:border-tavern-border"
+													class="rounded border border-border px-1.5 py-0.5 text-2xs text-error hover:bg-error/10"
 													onclick={() => handleDeleteRoute(entry.route.id)}
 												>
 													Delete
@@ -3277,7 +3243,7 @@
 								</div>
 							{/if}
 							{#if selectedRoute}
-								<p class="mt-2 text-[11px] text-ink-faint dark:text-tavern-faint">
+								<p class="mt-2 text-xs text-ink-faint">
 									Editing: {selectedRoute.name} ({selectedRoute.waypoints.length} waypoint{selectedRoute
 										.waypoints.length === 1
 										? ''
@@ -3296,7 +3262,7 @@
 											: undefined,
 									})}
 									{#if estimate}
-										<p class="mt-1 text-[11px] text-ink-faint dark:text-tavern-faint">
+										<p class="mt-1 text-xs text-ink-faint">
 											Travel (5e): slow {estimate.pace.slow.hours.toFixed(2)}h | normal
 											{estimate.pace.normal.hours.toFixed(2)}h | fast
 											{estimate.pace.fast.hours.toFixed(2)}h
@@ -3305,11 +3271,11 @@
 								{/if}
 							{/if}
 						</div>
-						<div class="rounded border border-border p-2 dark:border-tavern-border">
-							<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">Selected Pin</h3>
+						<div class="rounded border border-border p-2">
+							<h3 class="text-xs font-semibold text-ink">Selected Pin</h3>
 							{#if selectedPoi}
 								<div class="mt-2 space-y-2">
-									<label class="block text-[11px] text-ink-muted dark:text-tavern-muted">
+									<label class="block text-xs text-ink-muted">
 										Label
 										<input
 											type="text"
@@ -3319,11 +3285,11 @@
 													...poi,
 													label: (event.currentTarget as HTMLInputElement).value,
 												}))}
-											class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+											class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 										/>
 									</label>
 									<div class="grid grid-cols-2 gap-2">
-										<label class="text-[11px] text-ink-muted dark:text-tavern-muted">
+										<label class="text-xs text-ink-muted">
 											Category
 											<select
 												value={selectedPoi.category}
@@ -3334,14 +3300,14 @@
 															(event.currentTarget as HTMLSelectElement).value,
 														),
 													}))}
-												class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+												class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 											>
 												{#each POI_CATEGORY_OPTIONS as option (option.value)}
 													<option value={option.value}>{option.label}</option>
 												{/each}
 											</select>
 										</label>
-										<label class="text-[11px] text-ink-muted dark:text-tavern-muted">
+										<label class="text-xs text-ink-muted">
 											Layer
 											<select
 												value={selectedPoi.layerId ?? ''}
@@ -3350,7 +3316,7 @@
 														...poi,
 														layerId: (event.currentTarget as HTMLSelectElement).value || undefined,
 													}))}
-												class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+												class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 											>
 												{#each draftLayers as layer (layer.id)}
 													<option value={layer.id}>{layer.name}</option>
@@ -3358,7 +3324,7 @@
 											</select>
 										</label>
 									</div>
-									<label class="block text-[11px] text-ink-muted dark:text-tavern-muted">
+									<label class="block text-xs text-ink-muted">
 										Linked note
 										<select
 											value={selectedPoi.linkedNoteId ?? ''}
@@ -3368,7 +3334,7 @@
 													linkedNoteId:
 														(event.currentTarget as HTMLSelectElement).value || undefined,
 												}))}
-											class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+											class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 										>
 											<option value="">None</option>
 											{#each noteOptions as note (note.id)}
@@ -3376,7 +3342,7 @@
 											{/each}
 										</select>
 									</label>
-									<label class="block text-[11px] text-ink-muted dark:text-tavern-muted">
+									<label class="block text-xs text-ink-muted">
 										Linked object
 										<select
 											value={selectedPoi.linkedObjectId ?? ''}
@@ -3386,7 +3352,7 @@
 													linkedObjectId:
 														(event.currentTarget as HTMLSelectElement).value || undefined,
 												}))}
-											class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+											class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 										>
 											<option value="">None</option>
 											{#each objectOptions as object (object.id)}
@@ -3394,13 +3360,13 @@
 											{/each}
 										</select>
 									</label>
-									<p class="text-[11px] text-ink-faint dark:text-tavern-faint">
+									<p class="text-xs text-ink-faint">
 										Position: {selectedPoi.x.toFixed(3)}, {selectedPoi.y.toFixed(3)}
 									</p>
 									<div class="flex flex-wrap gap-1.5">
 										<button
 											type="button"
-											class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+											class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 											onclick={() =>
 												void handleMarkPartyLocation({
 													x: selectedPoi.x,
@@ -3414,7 +3380,7 @@
 										{#if resolveLinkedNoteIdForPoi(selectedPoi)}
 											<button
 												type="button"
-												class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+												class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 												onclick={() =>
 													void goto(
 														resolve(`/knowledge/notes/${resolveLinkedNoteIdForPoi(selectedPoi)}`),
@@ -3425,7 +3391,7 @@
 										{:else}
 											<button
 												type="button"
-												class="rounded border border-border px-2 py-1 text-[11px] text-accent hover:bg-accent-subtle dark:border-tavern-border dark:text-tavern-accent dark:hover:bg-tavern-accent-subtle"
+												class="rounded border border-border px-2 py-1 text-xs text-accent hover:bg-accent-subtle"
 												onclick={() => void handleCreateNoteFromPoi(selectedPoi.id)}
 											>
 												Create note
@@ -3433,7 +3399,7 @@
 										{/if}
 										<button
 											type="button"
-											class="rounded border border-border px-2 py-1 text-[11px] text-error hover:bg-error/10 dark:border-tavern-border"
+											class="rounded border border-border px-2 py-1 text-xs text-error hover:bg-error/10"
 											onclick={() => handleDeletePoi(selectedPoi.id)}
 										>
 											Delete pin
@@ -3441,29 +3407,21 @@
 									</div>
 								</div>
 							{:else}
-								<p class="mt-2 text-[11px] text-ink-muted dark:text-tavern-muted">
-									Select a pin to edit links and metadata.
-								</p>
+								<p class="mt-2 text-xs text-ink-muted">Select a pin to edit links and metadata.</p>
 							{/if}
 						</div>
 						{#if combatModeEnabled && selectedCombat}
-							<div class="rounded border border-border p-2 dark:border-tavern-border">
-								<h3 class="text-xs font-semibold text-ink dark:text-tavern-text">
-									Session Event Log
-								</h3>
+							<div class="rounded border border-border p-2">
+								<h3 class="text-xs font-semibold text-ink">Session Event Log</h3>
 								{#if selectedCombat.mapState.history.length === 0}
-									<p class="mt-1 text-[11px] text-ink-muted dark:text-tavern-muted">
-										No map session events yet.
-									</p>
+									<p class="mt-1 text-xs text-ink-muted">No map session events yet.</p>
 								{:else}
-									<ul
-										class="mt-1 max-h-36 space-y-1 overflow-auto text-[11px] text-ink-muted dark:text-tavern-muted"
-									>
+									<ul class="mt-1 max-h-36 space-y-1 overflow-auto text-xs text-ink-muted">
 										{#each [...selectedCombat.mapState.history]
 											.slice(-8)
 											.reverse() as entry (entry.id)}
-											<li class="rounded bg-surface-alt px-1.5 py-1 dark:bg-tavern-surface-alt">
-												<p class="font-medium text-ink dark:text-tavern-text">{entry.kind}</p>
+											<li class="rounded bg-surface-alt px-1.5 py-1">
+												<p class="font-medium text-ink">{entry.kind}</p>
 												<p>{entry.message}</p>
 											</li>
 										{/each}
@@ -3475,7 +3433,7 @@
 					<div class="mt-3 flex items-center gap-2">
 						<button
 							type="button"
-							class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+							class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 							disabled={!dirty || saving}
 							onclick={() => void handleSave()}
 							title={saving ? 'Saving map...' : 'Save map changes'}
@@ -3484,7 +3442,7 @@
 						</button>
 						<button
 							type="button"
-							class="rounded-md border border-border px-3 py-1.5 text-xs text-ink-muted hover:bg-surface-alt disabled:cursor-not-allowed disabled:opacity-60 dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+							class="rounded-md border border-border px-3 py-1.5 text-xs text-ink-muted hover:bg-surface-alt disabled:cursor-not-allowed disabled:opacity-60 transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 							disabled={!dirty || saving}
 							onclick={discardDraft}
 							title="Discard unsaved changes"
@@ -3509,6 +3467,6 @@
 	{#if modalNote}
 		<NoteViewer note={modalNote} />
 	{:else}
-		<p class="text-sm text-ink-muted dark:text-tavern-muted">Linked note unavailable.</p>
+		<p class="text-sm text-ink-muted">Linked note unavailable.</p>
 	{/if}
 </Modal>

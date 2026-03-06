@@ -197,7 +197,7 @@
 			return 'border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30';
 		if (status === 'stale')
 			return 'border-yellow-200 dark:border-yellow-900 bg-yellow-50 dark:bg-yellow-950/30';
-		return 'border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface';
+		return 'border-border bg-surface';
 	}
 
 	function subsystemDotClass(status: SubsystemStatus): string {
@@ -217,7 +217,7 @@
 	<!-- Subsystem Status Grid -->
 	<section>
 		<div class="flex items-center justify-between gap-3 mb-4">
-			<h2 class="text-lg font-semibold text-ink dark:text-tavern-text">System Health</h2>
+			<h2 class="text-lg font-semibold text-ink">System Health</h2>
 			<div class="flex items-center gap-2">
 				<Button
 					variant="secondary"
@@ -239,7 +239,7 @@
 		</div>
 
 		{#if systemHealth}
-			<p class="text-xs text-ink-muted dark:text-tavern-muted mb-3">
+			<p class="text-xs text-ink-muted mb-3">
 				Last refreshed: {systemHealth.generatedAt}
 			</p>
 		{/if}
@@ -253,11 +253,11 @@
 							class="inline-block h-2 w-2 rounded-full flex-shrink-0 {subsystemDotClass(status)}"
 							aria-label="Status: {status}"
 						></span>
-						<p class="text-xs font-medium text-ink dark:text-tavern-text capitalize">
+						<p class="text-xs font-medium text-ink capitalize">
 							{key.replace(/_/g, ' ')}
 						</p>
 					</div>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted font-mono">
+					<p class="text-xs text-ink-muted font-mono">
 						{#if key === 'mcp_sidecar'}
 							{systemHealth?.mcpStatus.state ?? 'Unknown'}
 							{#if systemHealth?.mcpStatus.pid}
@@ -306,26 +306,20 @@
 	<!-- Performance -->
 	<section>
 		<div class="flex items-center justify-between gap-3 mb-4">
-			<h2 class="text-lg font-semibold text-ink dark:text-tavern-text">Performance</h2>
+			<h2 class="text-lg font-semibold text-ink">Performance</h2>
 			{#if systemHealth?.performance}
-				<p class="text-xs text-ink-muted dark:text-tavern-muted">
+				<p class="text-xs text-ink-muted">
 					Timeline samples: {systemHealth.performance.timeline.length}
 				</p>
 			{/if}
 		</div>
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface overflow-hidden"
-		>
+		<div class="rounded-lg border border-border bg-surface overflow-hidden">
 			{#if !systemHealth || performanceSummaries.length === 0}
-				<div class="p-4 text-sm text-ink-muted dark:text-tavern-muted">
-					No performance telemetry yet.
-				</div>
+				<div class="p-4 text-sm text-ink-muted">No performance telemetry yet.</div>
 			{:else}
 				<div class="overflow-x-auto">
 					<table class="w-full text-xs">
-						<thead
-							class="bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted"
-						>
+						<thead class="bg-surface-alt text-ink-muted">
 							<tr>
 								<th class="text-left px-3 py-2 font-medium">Operation</th>
 								<th class="text-right px-3 py-2 font-medium">Budget</th>
@@ -335,28 +329,28 @@
 								<th class="text-right px-3 py-2 font-medium">Samples</th>
 							</tr>
 						</thead>
-						<tbody class="divide-y divide-border dark:divide-tavern-border">
+						<tbody class="divide-y divide-border">
 							{#each performanceSummaries as summary (summary.operation)}
 								<tr>
 									<td class="px-3 py-2">
-										<p class="font-medium text-ink dark:text-tavern-text">
+										<p class="font-medium text-ink">
 											{summary.label}
 										</p>
-										<p class="text-[11px] text-ink-faint dark:text-tavern-faint">
+										<p class="text-xs text-ink-faint">
 											{summary.description}
 										</p>
 									</td>
-									<td class="px-3 py-2 text-right font-mono text-ink dark:text-tavern-text">
+									<td class="px-3 py-2 text-right font-mono text-ink">
 										{summary.targetMs}ms
 									</td>
-									<td class="px-3 py-2 text-right font-mono text-ink-muted dark:text-tavern-muted">
+									<td class="px-3 py-2 text-right font-mono text-ink-muted">
 										{formatDuration(summary.p50Ms)}
 									</td>
 									<td
 										class="px-3 py-2 text-right font-mono {summary.p95Ms !== null &&
 										summary.p95Ms > summary.targetMs
 											? 'text-rose-600 dark:text-rose-400'
-											: 'text-ink-muted dark:text-tavern-muted'}"
+											: 'text-ink-muted'}"
 									>
 										{formatDuration(summary.p95Ms)}
 									</td>
@@ -364,11 +358,11 @@
 										class="px-3 py-2 text-right font-mono {summary.p99Ms !== null &&
 										summary.p99Ms > summary.targetMs
 											? 'text-rose-600 dark:text-rose-400'
-											: 'text-ink-muted dark:text-tavern-muted'}"
+											: 'text-ink-muted'}"
 									>
 										{formatDuration(summary.p99Ms)}
 									</td>
-									<td class="px-3 py-2 text-right text-ink-muted dark:text-tavern-muted">
+									<td class="px-3 py-2 text-right text-ink-muted">
 										{summary.sampleCount}
 									</td>
 								</tr>
@@ -380,33 +374,27 @@
 		</div>
 
 		<div class="mt-4">
-			<h3 class="text-sm font-semibold text-ink dark:text-tavern-text mb-2">
-				Slowest Recent Operations
-			</h3>
-			<div
-				class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface overflow-hidden"
-			>
+			<h3 class="text-sm font-semibold text-ink mb-2">Slowest Recent Operations</h3>
+			<div class="rounded-lg border border-border bg-surface overflow-hidden">
 				{#if !systemHealth || slowPerformanceGroups.length === 0}
-					<div class="p-4 text-sm text-ink-muted dark:text-tavern-muted">No recent samples.</div>
+					<div class="p-4 text-sm text-ink-muted">No recent samples.</div>
 				{:else}
-					<div class="max-h-72 overflow-y-auto divide-y divide-border dark:divide-tavern-border">
+					<div class="max-h-72 overflow-y-auto divide-y divide-border">
 						{#each slowPerformanceGroups as group (group.operation)}
 							<div class="p-3">
-								<p
-									class="text-xs font-semibold uppercase tracking-wide text-ink-faint dark:text-tavern-faint mb-2"
-								>
+								<p class="text-xs font-semibold uppercase tracking-wide text-ink-faint mb-2">
 									{group.operation}
 								</p>
 								<ul class="space-y-1">
 									{#each group.samples as sample (sample.at + sample.durationMs)}
 										<li class="flex items-center justify-between text-xs">
-											<span class="text-ink-muted dark:text-tavern-muted">
+											<span class="text-ink-muted">
 												{sample.at} · {sample.source}
 											</span>
 											<span
 												class="font-mono {sample.exceededBudget
 													? 'text-rose-600 dark:text-rose-400'
-													: 'text-ink dark:text-tavern-text'}"
+													: 'text-ink'}"
 											>
 												{sample.durationMs.toFixed(1)}ms
 											</span>
@@ -423,16 +411,12 @@
 
 	<!-- MCP Sidecar Log -->
 	<section>
-		<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">MCP Sidecar Log</h2>
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface overflow-hidden"
-		>
+		<h2 class="text-lg font-semibold text-ink mb-4">MCP Sidecar Log</h2>
+		<div class="rounded-lg border border-border bg-surface overflow-hidden">
 			{#if !systemHealth || systemHealth.mcpLifecycle.length === 0}
-				<div class="p-4 text-sm text-ink-muted dark:text-tavern-muted">
-					No lifecycle events recorded yet.
-				</div>
+				<div class="p-4 text-sm text-ink-muted">No lifecycle events recorded yet.</div>
 			{:else}
-				<ul class="divide-y divide-border dark:divide-tavern-border max-h-64 overflow-y-auto">
+				<ul class="divide-y divide-border max-h-64 overflow-y-auto">
 					{#each systemHealth.mcpLifecycle as lifecycle (lifecycle.at + lifecycle.event)}
 						<li class="p-3 text-xs flex items-start gap-2">
 							<span
@@ -447,14 +431,12 @@
 								aria-hidden="true"
 							></span>
 							<div>
-								<p class="text-ink dark:text-tavern-text font-medium capitalize">
+								<p class="text-ink font-medium capitalize">
 									{lifecycle.event}
-									<span class="font-normal text-ink-muted dark:text-tavern-muted"
-										>· {lifecycle.at}</span
-									>
+									<span class="font-normal text-ink-muted">· {lifecycle.at}</span>
 								</p>
 								{#if lifecycle.reason || lifecycle.pid}
-									<p class="text-ink-muted dark:text-tavern-muted mt-0.5">
+									<p class="text-ink-muted mt-0.5">
 										{#if lifecycle.pid}PID {lifecycle.pid}{/if}{#if lifecycle.pid && lifecycle.reason}
 											·
 										{/if}{#if lifecycle.reason}{lifecycle.reason}{/if}
@@ -470,16 +452,12 @@
 
 	<!-- Recent Error Events -->
 	<section>
-		<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">Recent Error Events</h2>
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface overflow-hidden"
-		>
+		<h2 class="text-lg font-semibold text-ink mb-4">Recent Error Events</h2>
+		<div class="rounded-lg border border-border bg-surface overflow-hidden">
 			{#if !systemHealth || systemHealth.recentErrors.length === 0}
-				<div class="p-4 text-sm text-ink-muted dark:text-tavern-muted">
-					No recent errors recorded.
-				</div>
+				<div class="p-4 text-sm text-ink-muted">No recent errors recorded.</div>
 			{:else}
-				<ul class="divide-y divide-border dark:divide-tavern-border max-h-80 overflow-y-auto">
+				<ul class="divide-y divide-border max-h-80 overflow-y-auto">
 					{#each systemHealth.recentErrors as error (error.id)}
 						<li class="p-3 text-xs space-y-1">
 							<div class="flex items-center gap-2">
@@ -492,15 +470,14 @@
 											: 'bg-blue-400'}"
 									aria-label="Severity: {error.severity}"
 								></span>
-								<p class="text-ink dark:text-tavern-text font-medium font-mono">
+								<p class="text-ink font-medium font-mono">
 									{error.code}
 								</p>
-								<span
-									class="ml-auto text-ink-faint dark:text-tavern-faint text-[10px] uppercase tracking-wide"
+								<span class="ml-auto text-ink-faint text-2xs uppercase tracking-wide"
 									>{error.category}</span
 								>
 							</div>
-							<p class="text-ink-muted dark:text-tavern-muted">{error.message}</p>
+							<p class="text-ink-muted">{error.message}</p>
 							{#if error.recoveryHint}
 								<p
 									class="text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 rounded px-2 py-1"
@@ -508,7 +485,7 @@
 									Hint: {error.recoveryHint}
 								</p>
 							{/if}
-							<p class="text-ink-faint dark:text-tavern-faint">{error.at}</p>
+							<p class="text-ink-faint">{error.at}</p>
 						</li>
 					{/each}
 				</ul>
@@ -519,9 +496,7 @@
 	<!-- Schema Migration Checkpoints -->
 	<section>
 		<div class="flex items-center justify-between gap-3 mb-4">
-			<h2 class="text-lg font-semibold text-ink dark:text-tavern-text">
-				Schema Migration Checkpoints
-			</h2>
+			<h2 class="text-lg font-semibold text-ink">Schema Migration Checkpoints</h2>
 			<Button
 				variant="ghost"
 				size="sm"
@@ -531,36 +506,27 @@
 				{loadingCheckpoints ? 'Loading…' : 'Refresh'}
 			</Button>
 		</div>
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4"
-		>
-			<p class="text-xs text-ink-muted dark:text-tavern-muted mb-3">
+		<div class="rounded-lg border border-border bg-surface p-4">
+			<p class="text-xs text-ink-muted mb-3">
 				Checkpoint backups are created automatically before each schema migration. Use these to
 				restore your vault to a pre-migration state if needed.
 			</p>
 			{#if !window.dndtoolsDesktop}
-				<p class="text-xs text-ink-muted dark:text-tavern-muted italic">
-					Only available in desktop mode.
-				</p>
+				<p class="text-xs text-ink-muted italic">Only available in desktop mode.</p>
 			{:else if loadingCheckpoints}
-				<p class="text-xs text-ink-muted dark:text-tavern-muted">Loading checkpoints…</p>
+				<p class="text-xs text-ink-muted">Loading checkpoints…</p>
 			{:else if migrationCheckpoints.length === 0}
-				<p class="text-xs text-ink-muted dark:text-tavern-muted">
-					No schema migration checkpoints found.
-				</p>
+				<p class="text-xs text-ink-muted">No schema migration checkpoints found.</p>
 			{:else}
 				<div class="space-y-3">
 					<div>
-						<label
-							for="checkpoint-select"
-							class="block text-xs font-medium text-ink dark:text-tavern-text mb-1.5"
-						>
+						<label for="checkpoint-select" class="block text-xs font-medium text-ink mb-1.5">
 							Select checkpoint to restore
 						</label>
 						<select
 							id="checkpoint-select"
 							bind:value={selectedCheckpointName}
-							class="w-full rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm text-ink dark:text-tavern-text px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent dark:focus:ring-tavern-accent"
+							class="w-full rounded-md border border-border bg-surface text-sm text-ink px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-accent"
 						>
 							{#each migrationCheckpoints as checkpoint (checkpoint.name)}
 								<option value={checkpoint.name}>

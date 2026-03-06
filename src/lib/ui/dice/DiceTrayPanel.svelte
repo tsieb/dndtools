@@ -99,10 +99,10 @@
 <div class="h-full min-h-0 flex flex-col gap-2 p-2.5">
 	{#if showHeader}
 		<div class="flex items-center justify-between gap-2">
-			<h3 class="text-sm font-semibold text-ink dark:text-tavern-text">Dice Tray</h3>
+			<h3 class="text-sm font-semibold text-ink">Dice Tray</h3>
 			<button
 				type="button"
-				class="rounded border border-border dark:border-tavern-border px-2 py-1 text-[11px] text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors disabled:opacity-50"
+				class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt transition-colors disabled:opacity-50"
 				onclick={() => diceState.clearHistory()}
 				disabled={history.length === 0}
 			>
@@ -116,7 +116,7 @@
 			type="text"
 			bind:value={expression}
 			placeholder="1d20+5, 4d6kh3, adv, dis"
-			class="h-8 min-w-0 flex-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm text-ink dark:text-tavern-text"
+			class="h-8 min-w-0 flex-1 rounded border border-border bg-surface px-2 text-sm text-ink"
 			aria-label="Dice expression"
 			onkeydown={(event) => {
 				if (event.key === 'Enter') {
@@ -127,7 +127,7 @@
 		/>
 		<button
 			type="button"
-			class="h-8 rounded bg-accent hover:bg-accent-hover dark:bg-tavern-accent dark:hover:bg-tavern-accent-hover dark:text-tavern-bg px-3 text-xs font-semibold text-white transition-colors"
+			class="h-8 rounded bg-accent hover:bg-accent-hover px-3 text-xs font-semibold text-white transition-colors"
 			onclick={rollFromInput}
 		>
 			Roll
@@ -143,7 +143,7 @@
 			{#each quickMacros as macro (macro.id)}
 				<button
 					type="button"
-					class="rounded border border-border/70 dark:border-tavern-border/70 bg-surface-alt/70 dark:bg-tavern-surface-alt/70 px-2 py-1 text-[11px] text-ink dark:text-tavern-text hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+					class="rounded border border-border/70 bg-surface-alt/70 px-2 py-1 text-xs text-ink hover:bg-surface transition-colors"
 					title={macro.expression}
 					onclick={() => rollMacro(macro)}
 				>
@@ -153,32 +153,30 @@
 		</div>
 	{/if}
 
-	<div
-		class="rounded border border-border/70 dark:border-tavern-border/70 bg-surface-alt/45 dark:bg-tavern-surface-alt/45 p-2"
-	>
+	<div class="rounded border border-border/70 bg-surface-alt/45 p-2">
 		{#if lastRoll}
 			<div class="flex items-start justify-between gap-2">
 				<div class="min-w-0">
-					<p class="text-[11px] text-ink-muted dark:text-tavern-muted truncate">
+					<p class="text-xs text-ink-muted truncate">
 						{lastRoll.expression}
 					</p>
-					<p class="text-lg font-bold text-ink dark:text-tavern-text">= {lastRoll.totalText}</p>
-					<p class="text-[11px] text-ink-faint dark:text-tavern-faint">{lastRoll.breakdown}</p>
+					<p class="text-lg font-bold text-ink">= {lastRoll.totalText}</p>
+					<p class="text-xs text-ink-faint">{lastRoll.breakdown}</p>
 				</div>
-				<p class="text-[11px] text-ink-faint dark:text-tavern-faint">{formatTime(lastRoll.at)}</p>
+				<p class="text-xs text-ink-faint">{formatTime(lastRoll.at)}</p>
 			</div>
 			<div class="mt-2 space-y-1">
 				{#each lastRoll.rolls as detail, detailIndex (`${detail.notation}-${detailIndex}`)}
-					<div class="text-[11px] text-ink-muted dark:text-tavern-muted">
-						<span class="font-semibold text-ink dark:text-tavern-text">{detail.notation}</span>
+					<div class="text-xs text-ink-muted">
+						<span class="font-semibold text-ink">{detail.notation}</span>
 						<span class="ml-1">
 							{#each detail.rolls as value, index (`${detail.notation}-${detailIndex}-${index}`)}
 								<span
 									class="inline-block mr-1 rounded border px-1 py-0.5 font-mono {detail.keptIndices.includes(
 										index,
 									)
-										? 'border-accent/40 dark:border-tavern-accent/40 text-ink dark:text-tavern-text'
-										: 'border-border/50 dark:border-tavern-border/50 text-ink-faint dark:text-tavern-faint line-through'}"
+										? 'border-accent/40 text-ink'
+										: 'border-border/50 text-ink-faint line-through'}"
 								>
 									{value}
 								</span>
@@ -189,28 +187,22 @@
 				{/each}
 			</div>
 		{:else}
-			<p class="text-xs text-ink-faint dark:text-tavern-faint">No rolls yet for this session.</p>
+			<p class="text-xs text-ink-faint">No rolls yet for this session.</p>
 		{/if}
 	</div>
 
-	<div
-		class="min-h-0 flex-1 rounded border border-border/60 dark:border-tavern-border/60 bg-surface/70 dark:bg-tavern-surface/70 p-2 overflow-y-auto"
-	>
+	<div class="min-h-0 flex-1 rounded border border-border/60 bg-surface/70 p-2 overflow-y-auto">
 		{#if history.length === 0}
-			<p class="text-xs text-ink-faint dark:text-tavern-faint">Roll history is empty.</p>
+			<p class="text-xs text-ink-faint">Roll history is empty.</p>
 		{:else}
 			<ul class="space-y-1">
 				{#each history as entry (entry.id)}
-					<li
-						class="rounded border border-border/50 dark:border-tavern-border/50 bg-surface dark:bg-tavern-surface px-2 py-1.5"
-					>
-						<div class="flex items-center justify-between gap-2 text-[11px]">
-							<span class="truncate text-ink dark:text-tavern-text">{entry.expression}</span>
-							<span class="font-mono text-ink dark:text-tavern-text">{entry.totalText}</span>
+					<li class="rounded border border-border/50 bg-surface px-2 py-1.5">
+						<div class="flex items-center justify-between gap-2 text-xs">
+							<span class="truncate text-ink">{entry.expression}</span>
+							<span class="font-mono text-ink">{entry.totalText}</span>
 						</div>
-						<div
-							class="flex items-center justify-between gap-2 text-[10px] text-ink-faint dark:text-tavern-faint mt-0.5"
-						>
+						<div class="flex items-center justify-between gap-2 text-2xs text-ink-faint mt-0.5">
 							<span
 								>{entry.macroLabel ? `${entry.macroLabel} (${entry.source})` : entry.source}</span
 							>
@@ -223,18 +215,12 @@
 	</div>
 
 	{#if !compact}
-		<div
-			class="rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-2"
-		>
+		<div class="rounded border border-border bg-surface p-2">
 			<div class="flex items-center justify-between gap-2">
-				<h4
-					class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
-				>
-					Roll Macros
-				</h4>
+				<h4 class="text-xs font-semibold uppercase tracking-wider text-ink-faint">Roll Macros</h4>
 				<button
 					type="button"
-					class="rounded border border-border dark:border-tavern-border px-2 py-1 text-[11px] text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt transition-colors"
 					onclick={() => (macroEditorOpen = !macroEditorOpen)}
 				>
 					{macroEditorOpen ? 'Hide' : 'Edit'}
@@ -244,21 +230,21 @@
 			{#if macroEditorOpen}
 				<div class="mt-2 space-y-2">
 					<div class="grid gap-2 md:grid-cols-2">
-						<label class="text-xs text-ink-muted dark:text-tavern-muted">
+						<label class="text-xs text-ink-muted">
 							Label
 							<input
 								type="text"
 								bind:value={macroLabel}
-								class="mt-1 h-8 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 text-sm text-ink dark:text-tavern-text"
+								class="mt-1 h-8 w-full rounded border border-border bg-surface-alt px-2 text-sm text-ink"
 								placeholder="Sneak Attack"
 							/>
 						</label>
-						<label class="text-xs text-ink-muted dark:text-tavern-muted">
+						<label class="text-xs text-ink-muted">
 							Expression
 							<input
 								type="text"
 								bind:value={macroExpression}
-								class="mt-1 h-8 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 text-sm text-ink dark:text-tavern-text"
+								class="mt-1 h-8 w-full rounded border border-border bg-surface-alt px-2 text-sm text-ink"
 								placeholder="1d20+7"
 							/>
 						</label>
@@ -266,7 +252,7 @@
 					<div class="flex items-center gap-2">
 						<button
 							type="button"
-							class="rounded bg-accent hover:bg-accent-hover dark:bg-tavern-accent dark:hover:bg-tavern-accent-hover dark:text-tavern-bg px-2.5 py-1.5 text-xs font-semibold text-white transition-colors disabled:opacity-50"
+							class="rounded bg-accent hover:bg-accent-hover px-2.5 py-1.5 text-xs font-semibold text-white transition-colors disabled:opacity-50"
 							onclick={() => void saveMacro()}
 							disabled={savingMacro}
 						>
@@ -275,7 +261,7 @@
 						{#if macroEditId}
 							<button
 								type="button"
-								class="rounded border border-border dark:border-tavern-border px-2.5 py-1.5 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+								class="rounded border border-border px-2.5 py-1.5 text-xs text-ink-muted hover:bg-surface-alt transition-colors"
 								onclick={resetMacroEditor}
 							>
 								Cancel Edit
@@ -289,40 +275,38 @@
 			{/if}
 
 			{#if macros.length === 0}
-				<p class="mt-2 text-xs text-ink-faint dark:text-tavern-faint">No macros saved yet.</p>
+				<p class="mt-2 text-xs text-ink-faint">No macros saved yet.</p>
 			{:else}
 				<ul class="mt-2 space-y-1 max-h-36 overflow-y-auto pr-1">
 					{#each macros as macro (macro.id)}
-						<li
-							class="rounded border border-border/60 dark:border-tavern-border/60 px-2 py-1.5 bg-surface-alt/40 dark:bg-tavern-surface-alt/40"
-						>
+						<li class="rounded border border-border/60 px-2 py-1.5 bg-surface-alt/40">
 							<div class="flex items-center justify-between gap-2">
 								<div class="min-w-0">
-									<p class="text-xs font-medium text-ink dark:text-tavern-text truncate">
+									<p class="text-xs font-medium text-ink truncate">
 										{macro.label}
 									</p>
-									<p class="text-[11px] text-ink-faint dark:text-tavern-faint truncate">
+									<p class="text-xs text-ink-faint truncate">
 										{macro.expression}
 									</p>
 								</div>
 								<div class="flex items-center gap-1">
 									<button
 										type="button"
-										class="rounded border border-border dark:border-tavern-border px-2 py-1 text-[11px] text-ink-muted dark:text-tavern-muted hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+										class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface transition-colors"
 										onclick={() => rollMacro(macro, 'macro')}
 									>
 										Roll
 									</button>
 									<button
 										type="button"
-										class="rounded border border-border dark:border-tavern-border px-2 py-1 text-[11px] text-ink-muted dark:text-tavern-muted hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+										class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface transition-colors"
 										onclick={() => editMacro(macro)}
 									>
 										Edit
 									</button>
 									<button
 										type="button"
-										class="rounded border border-error/40 px-2 py-1 text-[11px] text-error hover:bg-error/5 transition-colors"
+										class="rounded border border-error/40 px-2 py-1 text-xs text-error hover:bg-error/5 transition-colors"
 										onclick={() => void deleteMacro(macro.id)}
 									>
 										Delete

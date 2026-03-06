@@ -37,7 +37,7 @@
 	<nav class="max-w-content mx-auto mb-6" aria-label="Contextual navigation: Table of contents">
 		<button
 			type="button"
-			class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint hover:text-ink-muted dark:hover:text-tavern-muted transition-colors mb-2"
+			class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-faint hover:text-ink-muted transition-colors mb-2"
 			onclick={() => (expanded = !expanded)}
 			aria-expanded={expanded}
 			aria-controls="toc-list"
@@ -48,16 +48,13 @@
 		</button>
 
 		{#if expanded}
-			<div
-				id="toc-list"
-				class="rounded-lg border border-border dark:border-tavern-border bg-surface-alt/50 dark:bg-tavern-surface-alt/50 px-4 py-3"
-			>
+			<div id="toc-list" class="rounded-lg border border-border bg-surface-alt/50 px-4 py-3">
 				<ul class="space-y-1">
 					{#each headings as heading (heading.id)}
 						<li style="padding-left: {(heading.level - 1) * 0.75}rem">
 							<a
 								href="#{heading.id}"
-								class="text-sm text-ink-muted dark:text-tavern-muted hover:text-accent dark:hover:text-tavern-accent transition-colors"
+								class="text-sm text-ink-muted hover:text-accent transition-colors"
 							>
 								{heading.text}
 							</a>

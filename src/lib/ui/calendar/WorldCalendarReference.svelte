@@ -71,21 +71,15 @@
 	}
 </script>
 
-<section
-	class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
->
-	<div
-		class="flex items-center justify-between gap-2 px-3 py-2 border-b border-border dark:border-tavern-border"
-	>
-		<h2
-			class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
-		>
+<section class="rounded-lg border border-border bg-surface">
+	<div class="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
+		<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-faint">
 			{title}
 		</h2>
 		{#if collapsible}
 			<button
 				type="button"
-				class="text-xs px-2 py-0.5 rounded border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+				class="text-xs px-2 py-0.5 rounded border border-border hover:bg-surface-alt"
 				onclick={() => (manualCollapsed = !manualCollapsed)}
 				aria-expanded={!collapsed}
 			>
@@ -98,34 +92,34 @@
 		<div class="p-3 space-y-3">
 			<div class="flex items-center justify-between gap-2">
 				<div>
-					<p class="text-sm font-medium text-ink dark:text-tavern-text">{currentShort}</p>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">{currentIso}</p>
+					<p class="text-sm font-medium text-ink">{currentShort}</p>
+					<p class="text-xs text-ink-muted">{currentIso}</p>
 				</div>
 				<div class="flex items-center gap-1">
 					<button
 						type="button"
-						class="px-2 py-1 text-xs rounded border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+						class="px-2 py-1 text-xs rounded border border-border hover:bg-surface-alt"
 						onclick={() => void worldCalendarState.advance(-1)}
 					>
 						-1d
 					</button>
 					<button
 						type="button"
-						class="px-2 py-1 text-xs rounded border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+						class="px-2 py-1 text-xs rounded border border-border hover:bg-surface-alt"
 						onclick={() => void worldCalendarState.advance(1)}
 					>
 						+1d
 					</button>
 					<button
 						type="button"
-						class="px-2 py-1 text-xs rounded border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+						class="px-2 py-1 text-xs rounded border border-border hover:bg-surface-alt"
 						onclick={() => void worldCalendarState.advance(7)}
 					>
 						+7d
 					</button>
 					<button
 						type="button"
-						class="px-2 py-1 text-xs rounded border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+						class="px-2 py-1 text-xs rounded border border-border hover:bg-surface-alt"
 						onclick={() => void worldCalendarState.advance(1)}
 					>
 						Start Session
@@ -134,7 +128,7 @@
 			</div>
 
 			<div>
-				<p class="text-xs font-medium text-ink dark:text-tavern-text mb-1">
+				<p class="text-xs font-medium text-ink mb-1">
 					{monthGrid.monthName}, Year {monthGrid.year}
 				</p>
 				<div
@@ -142,7 +136,7 @@
 					style={`grid-template-columns: repeat(${monthGrid.dayNames.length}, minmax(0, 1fr));`}
 				>
 					{#each monthGrid.dayNames as dayName (dayName)}
-						<div class="text-[10px] text-center text-ink-faint dark:text-tavern-faint">
+						<div class="text-2xs text-center text-ink-faint">
 							{dayName.slice(0, 2)}
 						</div>
 					{/each}
@@ -151,21 +145,17 @@
 							{#if cell}
 								<button
 									type="button"
-									class="h-7 rounded text-[11px] border transition-colors {isSelected(
-										cell.dayOffset,
-									)
-										? 'border-accent bg-accent-subtle text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
+									class="h-7 rounded text-xs border transition-colors {isSelected(cell.dayOffset)
+										? 'border-accent bg-accent-subtle text-accent'
 										: cell.isToday
-											? 'border-emerald-300 dark:border-emerald-700 text-ink dark:text-tavern-text'
-											: 'border-border dark:border-tavern-border text-ink dark:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+											? 'border-emerald-300 dark:border-emerald-700 text-ink'
+											: 'border-border text-ink hover:bg-surface-alt'}"
 									onclick={() => (selectedDayOffset = cell.dayOffset)}
 									title={formatWorldDate(worldCalendarState.calendar, cell.dayOffset, 'long')}
 								>
 									<span>{cell.dayOfMonth}</span>
 									{#if cell.eventCount > 0}
-										<span class="ml-1 text-[9px] text-accent dark:text-tavern-accent"
-											>{cell.eventCount}</span
-										>
+										<span class="ml-1 text-2xs text-accent">{cell.eventCount}</span>
 									{/if}
 								</button>
 							{:else}
@@ -178,10 +168,10 @@
 
 			{#if moonStatuses.length > 0}
 				<div class="space-y-1">
-					<p class="text-xs font-medium text-ink dark:text-tavern-text">Moon Phases</p>
+					<p class="text-xs font-medium text-ink">Moon Phases</p>
 					{#each moonStatuses as moon (moon.name)}
-						<p class="text-xs text-ink-muted dark:text-tavern-muted">
-							<span class="font-medium text-ink dark:text-tavern-text">{moon.name}:</span>
+						<p class="text-xs text-ink-muted">
+							<span class="font-medium text-ink">{moon.name}:</span>
 							{moon.phaseName} (day {moon.dayInCycle + 1}/{moon.periodDays})
 						</p>
 					{/each}
@@ -189,22 +179,22 @@
 			{/if}
 
 			<div class="space-y-1">
-				<p class="text-xs font-medium text-ink dark:text-tavern-text">
+				<p class="text-xs font-medium text-ink">
 					Events on {formatWorldDate(worldCalendarState.calendar, effectiveSelectedOffset, 'short')}
 				</p>
 				{#if selectedEvents.length === 0}
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">No events.</p>
+					<p class="text-xs text-ink-muted">No events.</p>
 				{:else}
 					<ul class="space-y-1">
 						{#each selectedEvents as event (`${event.kind}:${event.noteId}`)}
-							<li class="text-xs text-ink-muted dark:text-tavern-muted">
+							<li class="text-xs text-ink-muted">
 								<a
 									href={resolve(`/knowledge/notes/${event.noteId}`)}
-									class="text-accent hover:underline dark:text-tavern-accent"
+									class="text-accent hover:underline"
 								>
 									{event.title}
 								</a>
-								<span class="ml-1 text-ink-faint dark:text-tavern-faint">({event.kind})</span>
+								<span class="ml-1 text-ink-faint">({event.kind})</span>
 							</li>
 						{/each}
 					</ul>

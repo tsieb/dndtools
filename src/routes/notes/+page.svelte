@@ -311,15 +311,12 @@
 	>
 		<section
 			class={mediumSplitActive
-				? 'min-h-0 overflow-y-auto rounded-lg border border-border bg-surface p-4 dark:border-tavern-border dark:bg-tavern-surface'
+				? 'min-h-0 overflow-y-auto rounded-lg border border-border bg-surface p-4'
 				: ''}
 		>
 			<div class="mb-6 flex items-center justify-between">
 				<div>
-					<h1
-						class="text-2xl font-bold text-ink dark:text-tavern-text"
-						style="font-family: var(--font-serif)"
-					>
+					<h1 class="text-2xl font-bold text-ink" style="font-family: var(--font-serif)">
 						{#if tagFilter}
 							Notes tagged "{tagFilter}"
 						{:else if playerModeState.enabled}
@@ -328,7 +325,7 @@
 							All Notes
 						{/if}
 					</h1>
-					<p class="mt-1 text-sm text-ink-muted dark:text-tavern-muted">
+					<p class="mt-1 text-sm text-ink-muted">
 						{totalCount}
 						{totalCount === 1 ? 'note' : 'notes'}
 					</p>
@@ -344,10 +341,10 @@
 						type="text"
 						bind:value={query}
 						placeholder="Filter by title, content, tag, or file path"
-						class="w-full rounded-md border border-border bg-surface py-2 pl-10 pr-3 text-sm text-ink placeholder:text-ink-faint dark:border-tavern-border dark:bg-tavern-surface dark:text-tavern-text dark:placeholder:text-tavern-faint"
+						class="w-full rounded-md border border-border bg-surface py-2 pl-10 pr-3 text-sm text-ink placeholder:text-ink-faint"
 					/>
 					<svg
-						class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint dark:text-tavern-faint"
+						class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -361,11 +358,11 @@
 					</svg>
 				</div>
 				<div class="flex flex-wrap items-center gap-2 text-sm">
-					<span class="text-ink-muted dark:text-tavern-muted">Sort:</span>
+					<span class="text-ink-muted">Sort:</span>
 					<select
 						bind:value={sortField}
 						aria-label="Sort notes by"
-						class="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface dark:text-tavern-text"
+						class="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-ink"
 					>
 						<option value="updatedAt">Last modified</option>
 						<option value="createdAt">Created</option>
@@ -373,7 +370,7 @@
 						<option value="folder">Folder</option>
 					</select>
 					<button
-						class="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:border-tavern-border dark:bg-tavern-surface dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+						class="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 						onclick={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}
 						title="Toggle sort direction"
 						aria-label="Sort {sortDir === 'asc' ? 'descending' : 'ascending'}"
@@ -390,7 +387,7 @@
 							goto(next.pathname + next.search, { replaceState: true });
 						}}
 						value={folderFilter ?? ''}
-						class="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface dark:text-tavern-text"
+						class="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-ink"
 					>
 						<option value="">All folders</option>
 						{#each folderOptions as folder (folder)}
@@ -400,7 +397,7 @@
 					{#if tagFilter}
 						<a
 							href={resolve('/knowledge/notes')}
-							class="ml-1 flex items-center gap-1 rounded-md bg-accent-subtle px-2.5 py-1 text-xs text-accent transition-colors hover:bg-accent/20 dark:bg-tavern-accent-subtle dark:text-tavern-accent dark:hover:bg-tavern-accent/20"
+							class="ml-1 flex items-center gap-1 rounded-md bg-accent-subtle px-2.5 py-1 text-xs text-accent transition-colors hover:bg-accent/20"
 						>
 							#{tagFilter}
 							<span aria-hidden="true">&times;</span>
@@ -409,7 +406,7 @@
 					{#if folderFilter}
 						<a
 							href={resolve('/knowledge/notes')}
-							class="flex items-center gap-1 rounded-md bg-surface-alt px-2.5 py-1 text-xs text-ink-muted transition-colors hover:text-ink dark:bg-tavern-surface-alt dark:text-tavern-muted dark:hover:text-tavern-text"
+							class="flex items-center gap-1 rounded-md bg-surface-alt px-2.5 py-1 text-xs text-ink-muted transition-colors hover:text-ink"
 						>
 							{folderFilter}
 							<span aria-hidden="true">&times;</span>
@@ -418,7 +415,7 @@
 					{#if mapFilter}
 						<a
 							href={resolve('/knowledge/notes')}
-							class="flex items-center gap-1 rounded-md bg-surface-alt px-2.5 py-1 text-xs text-ink-muted transition-colors hover:text-ink dark:bg-tavern-surface-alt dark:text-tavern-muted dark:hover:text-tavern-text"
+							class="flex items-center gap-1 rounded-md bg-surface-alt px-2.5 py-1 text-xs text-ink-muted transition-colors hover:text-ink"
 						>
 							Map: {mapFilterLabel}
 							<span aria-hidden="true">&times;</span>
@@ -430,18 +427,12 @@
 			{#if pinnedNotes.length > 0}
 				<div class="mb-6">
 					<div class="mb-3 flex items-center gap-2">
-						<svg
-							class="h-3.5 w-3.5 text-accent dark:text-tavern-accent"
-							fill="currentColor"
-							viewBox="0 0 24 24"
-						>
+						<svg class="h-3.5 w-3.5 text-accent" fill="currentColor" viewBox="0 0 24 24">
 							<path
 								d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
 							/>
 						</svg>
-						<span
-							class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
-							>Pinned</span
+						<span class="text-xs font-semibold uppercase tracking-wider text-ink-faint">Pinned</span
 						>
 					</div>
 					<div class="grid gap-3 {mediumSplitActive ? '' : 'sm:grid-cols-2'}">
@@ -461,25 +452,13 @@
 			{#if showListSkeleton}
 				<div class="grid gap-3 {mediumSplitActive ? '' : 'sm:grid-cols-2'}">
 					{#each Array(8) as _, i (`skeleton-${i}`)}
-						<div
-							class="rounded-lg border border-border/60 bg-surface p-4 dark:border-tavern-border/60 dark:bg-tavern-surface"
-						>
-							<div
-								class="mb-3 h-5 w-2/3 animate-pulse rounded bg-border/50 dark:bg-tavern-border/50"
-							></div>
-							<div
-								class="mb-2 h-3 w-full animate-pulse rounded bg-border/50 dark:bg-tavern-border/50"
-							></div>
-							<div
-								class="mb-3 h-3 w-4/5 animate-pulse rounded bg-border/50 dark:bg-tavern-border/50"
-							></div>
+						<div class="rounded-lg border border-border/60 bg-surface p-4">
+							<div class="mb-3 h-5 w-2/3 animate-pulse rounded bg-border/50"></div>
+							<div class="mb-2 h-3 w-full animate-pulse rounded bg-border/50"></div>
+							<div class="mb-3 h-3 w-4/5 animate-pulse rounded bg-border/50"></div>
 							<div class="flex gap-2">
-								<div
-									class="h-5 w-16 animate-pulse rounded-full bg-border/50 dark:bg-tavern-border/50"
-								></div>
-								<div
-									class="h-5 w-20 animate-pulse rounded-full bg-border/50 dark:bg-tavern-border/50"
-								></div>
+								<div class="h-5 w-16 animate-pulse rounded-full bg-border/50"></div>
+								<div class="h-5 w-20 animate-pulse rounded-full bg-border/50"></div>
 							</div>
 						</div>
 					{/each}
@@ -498,18 +477,13 @@
 				</div>
 			{:else if totalCount === 0}
 				<div class="py-16 text-center">
-					<p class="mb-4 text-ink-muted dark:text-tavern-muted">No notes yet.</p>
+					<p class="mb-4 text-ink-muted">No notes yet.</p>
 					<Button variant="primary" onclick={handleNewNote}>Create your first note</Button>
 				</div>
 			{:else}
 				<div class="py-16 text-center">
-					<p class="mb-2 text-ink-muted dark:text-tavern-muted">
-						No notes match your current filters.
-					</p>
-					<a
-						href={resolve('/knowledge/notes')}
-						class="text-sm text-accent hover:underline dark:text-tavern-accent"
-					>
+					<p class="mb-2 text-ink-muted">No notes match your current filters.</p>
+					<a href={resolve('/knowledge/notes')} class="text-sm text-accent hover:underline">
 						Clear filters
 					</a>
 				</div>
@@ -539,20 +513,18 @@
 
 		{#if mediumSplitActive}
 			<aside
-				class="min-h-0 overflow-hidden rounded-lg border border-border bg-surface dark:border-tavern-border dark:bg-tavern-surface"
+				class="min-h-0 overflow-hidden rounded-lg border border-border bg-surface"
 				aria-label="Knowledge note preview"
 				data-testid="knowledge-medium-detail"
 			>
 				{#if mediumSelectedNote}
 					<div class="flex h-full min-h-0 flex-col">
-						<div
-							class="flex items-center justify-between gap-2 border-b border-border px-4 py-3 dark:border-tavern-border"
-						>
+						<div class="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
 							<div class="min-w-0">
-								<p class="truncate text-sm font-semibold text-ink dark:text-tavern-text">
+								<p class="truncate text-sm font-semibold text-ink">
 									{mediumSelectedNote.title}
 								</p>
-								<p class="truncate text-xs text-ink-muted dark:text-tavern-muted">
+								<p class="truncate text-xs text-ink-muted">
 									{mediumSelectedNote.folder}
 								</p>
 							</div>
@@ -560,7 +532,7 @@
 								{#if !playerModeState.enabled}
 									<button
 										type="button"
-										class="rounded-md border border-border px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+										class="rounded-md border border-border px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 										onclick={() => goto(resolve(`/knowledge/notes/${mediumSelectedNote.id}/edit`))}
 									>
 										Edit
@@ -568,7 +540,7 @@
 								{/if}
 								<button
 									type="button"
-									class="rounded-md border border-border px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+									class="rounded-md border border-border px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 									onclick={clearMediumSelection}
 									aria-label="Clear selected note"
 								>
@@ -583,10 +555,8 @@
 				{:else}
 					<div class="flex h-full items-center justify-center p-8 text-center">
 						<div class="max-w-xs space-y-2">
-							<p class="text-base font-semibold text-ink dark:text-tavern-text">
-								Select a note to read it
-							</p>
-							<p class="text-sm text-ink-muted dark:text-tavern-muted">
+							<p class="text-base font-semibold text-ink">Select a note to read it</p>
+							<p class="text-sm text-ink-muted">
 								Choose a note from the list to preview its content here.
 							</p>
 						</div>

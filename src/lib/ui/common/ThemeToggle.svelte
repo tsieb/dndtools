@@ -59,7 +59,7 @@
 </script>
 
 <div
-	class="flex rounded-md border border-border dark:border-tavern-border overflow-hidden"
+	class="flex rounded-md border border-border overflow-hidden"
 	role="radiogroup"
 	aria-label="Theme"
 >
@@ -67,8 +67,8 @@
 		<button
 			id={`theme-option-${theme.value}`}
 			class="px-3 py-1 text-sm transition-colors {ui.theme === theme.value
-				? 'bg-accent text-white dark:bg-tavern-accent dark:text-tavern-bg'
-				: 'bg-surface dark:bg-tavern-surface text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+				? 'bg-accent text-white'
+				: 'bg-surface text-ink-muted hover:bg-surface-alt'}"
 			role="radio"
 			aria-checked={ui.theme === theme.value}
 			tabindex={ui.theme === theme.value ? 0 : -1}

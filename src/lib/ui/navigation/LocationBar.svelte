@@ -222,13 +222,11 @@
 	});
 </script>
 
-<div
-	class="sticky top-0 z-20 border-b border-border dark:border-tavern-border bg-surface/90 dark:bg-tavern-surface/90 backdrop-blur-md"
->
+<div class="sticky top-0 z-20 border-b border-border bg-surface/90 backdrop-blur-md">
 	<div class="px-4 py-2">
 		<Breadcrumb items={breadcrumbs} />
 		{#if contextHint}
-			<p class="mt-1 text-[11px] text-ink-faint dark:text-tavern-faint">{contextHint}</p>
+			<p class="mt-1 text-xs text-ink-faint">{contextHint}</p>
 		{/if}
 	</div>
 </div>

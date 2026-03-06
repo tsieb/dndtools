@@ -24,7 +24,7 @@
 </script>
 
 <Modal {open} {title} onclose={oncancel}>
-	<p class="text-ink dark:text-tavern-text mb-4">{message}</p>
+	<p class="text-ink mb-4">{message}</p>
 	<div class="flex justify-end gap-2">
 		<Button variant="secondary" onclick={oncancel}>Cancel</Button>
 		<Button variant="danger" onclick={onconfirm} loading={confirmLoading}>{confirmText}</Button>

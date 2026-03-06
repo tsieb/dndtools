@@ -769,9 +769,9 @@
 </script>
 
 <div
-	class="relative rounded-lg border bg-surface/95 dark:bg-tavern-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-150 cursor-pointer hover:shadow-md {selected
-		? 'border-border dark:border-tavern-border ring-2 ring-accent/45 dark:ring-tavern-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
-		: 'border-border dark:border-tavern-border'}"
+	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-fast cursor-pointer hover:shadow-md {selected
+		? 'border-border ring-2 ring-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
+		: 'border-border'}"
 	role="button"
 	tabindex="0"
 	aria-label={standalone ? 'Combat tracker' : 'Combat tracker tile'}
@@ -785,19 +785,19 @@
 	}}
 	onpointerdown={handlePointerDown}
 >
-	<header class="px-3 py-2 border-b border-border dark:border-tavern-border">
+	<header class="px-3 py-2 border-b border-border">
 		<div class="flex items-center gap-2">
 			<input
 				type="text"
 				value={combat.encounterName}
 				onchange={(event) => setEncounterName((event.currentTarget as HTMLInputElement).value)}
-				class="min-w-0 flex-1 px-2 py-1 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-sm"
+				class="min-w-0 flex-1 px-2 py-1 rounded border border-border bg-surface text-sm"
 				placeholder="Encounter name"
 				aria-label="Encounter name"
 			/>
 			<button
 				type="button"
-				class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+				class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 				onclick={moveToNextTurn}
 				title="Advance turn (n)"
 			>
@@ -805,7 +805,7 @@
 			</button>
 			<button
 				type="button"
-				class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+				class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 				onclick={() => {
 					addPanelOpen = !addPanelOpen;
 					if (addPanelOpen) requestAnimationFrame(() => addNameInput?.focus());
@@ -815,7 +815,7 @@
 				Add
 			</button>
 		</div>
-		<div class="mt-1 flex items-center gap-3 text-[11px] text-ink-muted dark:text-tavern-muted">
+		<div class="mt-1 flex items-center gap-3 text-xs text-ink-muted">
 			<span>Round {combat.round}</span>
 			<span>Active: {activeCombatant?.name ?? 'None'}</span>
 			<span>{combatants.length} combatants</span>
@@ -823,25 +823,23 @@
 	</header>
 
 	{#if addPanelOpen}
-		<div
-			class="px-3 py-2 border-b border-border/70 dark:border-tavern-border/70 bg-surface-alt/60 dark:bg-tavern-surface-alt/55"
-		>
+		<div class="px-3 py-2 border-b border-border/70 bg-surface-alt/60">
 			<div class="grid gap-2 sm:grid-cols-2">
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Name
 					<input
 						type="text"
 						bind:value={addName}
-						class="mt-1 h-8 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+						class="mt-1 h-8 w-full rounded border border-border bg-surface px-2 text-sm"
 						placeholder="Goblin Boss"
 						bind:this={addNameInput}
 					/>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Linked stat block or character
 					<select
 						bind:value={addLinkedObjectId}
-						class="mt-1 h-8 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+						class="mt-1 h-8 w-full rounded border border-border bg-surface px-2 text-sm"
 						disabled={objectsLoading}
 					>
 						<option value="">No linked object</option>
@@ -850,50 +848,48 @@
 						{/each}
 					</select>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Filter objects
 					<input
 						type="text"
 						bind:value={addObjectQuery}
-						class="mt-1 h-8 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+						class="mt-1 h-8 w-full rounded border border-border bg-surface px-2 text-sm"
 						placeholder="Search linked objects"
 					/>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Initiative
 					<input
 						type="number"
 						bind:value={addInitiative}
-						class="mt-1 h-8 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+						class="mt-1 h-8 w-full rounded border border-border bg-surface px-2 text-sm"
 						placeholder="14"
 					/>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Initiative Modifier
 					<input
 						type="number"
 						bind:value={addInitiativeModifier}
-						class="mt-1 h-8 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+						class="mt-1 h-8 w-full rounded border border-border bg-surface px-2 text-sm"
 						placeholder="+2"
 					/>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Max HP
 					<input
 						type="number"
 						bind:value={addMaxHp}
-						class="mt-1 h-8 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+						class="mt-1 h-8 w-full rounded border border-border bg-surface px-2 text-sm"
 						placeholder="11"
 					/>
 				</label>
 			</div>
-			<label
-				class="mt-2 inline-flex items-center gap-2 text-xs text-ink-muted dark:text-tavern-muted"
-			>
+			<label class="mt-2 inline-flex items-center gap-2 text-xs text-ink-muted">
 				<input
 					type="checkbox"
 					bind:checked={addIsPlayerCharacter}
-					class="h-4 w-4 rounded border-border dark:border-tavern-border"
+					class="h-4 w-4 rounded border-border"
 				/>
 				Player character (enable death saves)
 			</label>
@@ -903,14 +899,14 @@
 			<div class="mt-2 flex items-center gap-2">
 				<button
 					type="button"
-					class="px-2.5 py-1 rounded bg-accent hover:bg-accent-hover dark:bg-tavern-accent dark:hover:bg-tavern-accent-hover dark:text-tavern-bg text-white text-xs"
+					class="px-2.5 py-1 rounded bg-accent hover:bg-accent-hover text-white text-xs"
 					onclick={addCombatant}
 				>
 					Add Combatant
 				</button>
 				<button
 					type="button"
-					class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface dark:hover:bg-tavern-surface transition-colors"
+					class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface transition-colors"
 					onclick={() => {
 						addPanelOpen = false;
 						clearAddForm();
@@ -925,7 +921,7 @@
 	<div class="flex-1 min-h-0 overflow-y-auto p-2.5">
 		{#if combatants.length === 0}
 			<div
-				class="h-full rounded border border-dashed border-border/70 dark:border-tavern-border/70 p-3 text-xs text-ink-muted dark:text-tavern-muted flex flex-col gap-2"
+				class="h-full rounded border border-dashed border-border/70 p-3 text-xs text-ink-muted flex flex-col gap-2"
 			>
 				<p>No combatants yet. Press <span class="font-mono">a</span> to add one.</p>
 				<p>Use <span class="font-mono">n</span> to advance turns once initiative is set.</p>
@@ -934,10 +930,9 @@
 			<ul class="space-y-2">
 				{#each combatants as combatant (combatant.id)}
 					<li
-						class="rounded border border-border/70 dark:border-tavern-border/70 p-2 {combat.activeCombatantId ===
-						combatant.id
-							? 'bg-accent-subtle/70 dark:bg-tavern-accent-subtle/70'
-							: 'bg-surface-alt/40 dark:bg-tavern-surface-alt/30'}"
+						class="rounded border border-border/70 p-2 {combat.activeCombatantId === combatant.id
+							? 'bg-accent-subtle/70'
+							: 'bg-surface-alt/40'}"
 						draggable={combatant.initiative !== null}
 						ondragstart={(event) => handleDragStart(event, combatant.id)}
 						ondragover={(event) => {
@@ -949,7 +944,7 @@
 						<div class="flex items-center gap-2">
 							<button
 								type="button"
-								class="h-7 w-7 rounded border border-border dark:border-tavern-border text-[11px] hover:bg-surface dark:hover:bg-tavern-surface"
+								class="h-7 w-7 rounded border border-border text-xs hover:bg-surface"
 								title="Set active"
 								onclick={() => persist(startCombatantTurn(combat, combatant.id))}
 							>
@@ -960,41 +955,39 @@
 									<input
 										type="text"
 										value={combatant.name}
-										class="min-w-0 flex-1 h-7 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+										class="min-w-0 flex-1 h-7 rounded border border-border bg-surface px-2 text-sm"
 										onchange={(event) =>
 											updateCombatant(combatant.id, (entry) => ({
 												...entry,
 												name: (event.currentTarget as HTMLInputElement).value.trim() || entry.name,
 											}))}
 									/>
-									<span
-										class="text-[10px] px-1.5 py-0.5 rounded border border-border/70 dark:border-tavern-border/70"
-									>
+									<span class="text-2xs px-1.5 py-0.5 rounded border border-border/70">
 										{combatant.linkedObjectType ?? (combatant.isPlayerCharacter ? 'pc' : 'npc')}
 									</span>
 								</div>
 								{#if combatant.linkedObjectName}
-									<div class="text-[11px] text-ink-muted dark:text-tavern-muted truncate">
+									<div class="text-xs text-ink-muted truncate">
 										Linked: {combatant.linkedObjectName}
 									</div>
 								{/if}
 							</div>
-							<label class="text-[11px] flex items-center gap-1">
+							<label class="text-xs flex items-center gap-1">
 								Init
 								<input
 									type="number"
 									value={combatant.initiative ?? ''}
-									class="h-7 w-16 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+									class="h-7 w-16 rounded border border-border bg-surface px-2 text-sm"
 									onchange={(event) =>
 										handleInitInput(combatant.id, (event.currentTarget as HTMLInputElement).value)}
 								/>
 							</label>
-							<label class="text-[11px] flex items-center gap-1">
+							<label class="text-xs flex items-center gap-1">
 								Mod
 								<input
 									type="number"
 									value={combatant.initiativeModifier}
-									class="h-7 w-16 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+									class="h-7 w-16 rounded border border-border bg-surface px-2 text-sm"
 									onchange={(event) =>
 										updateCombatant(combatant.id, (entry) => ({
 											...entry,
@@ -1019,39 +1012,39 @@
 							<div class="flex items-center gap-1">
 								<button
 									type="button"
-									class="h-7 w-7 rounded border border-border dark:border-tavern-border text-xs"
+									class="h-7 w-7 rounded border border-border text-xs"
 									onclick={() => adjustHp(combatant.id, -1)}
 								>
 									-1
 								</button>
 								<button
 									type="button"
-									class="h-7 w-7 rounded border border-border dark:border-tavern-border text-xs"
+									class="h-7 w-7 rounded border border-border text-xs"
 									onclick={() => adjustHp(combatant.id, 1)}
 								>
 									+1
 								</button>
 								<button
 									type="button"
-									class="h-7 w-8 rounded border border-border dark:border-tavern-border text-xs"
+									class="h-7 w-8 rounded border border-border text-xs"
 									onclick={() => adjustHp(combatant.id, -5)}
 								>
 									-5
 								</button>
 								<button
 									type="button"
-									class="h-7 w-8 rounded border border-border dark:border-tavern-border text-xs"
+									class="h-7 w-8 rounded border border-border text-xs"
 									onclick={() => adjustHp(combatant.id, 5)}
 								>
 									+5
 								</button>
 							</div>
-							<label class="text-[11px] flex items-center gap-1">
+							<label class="text-xs flex items-center gap-1">
 								HP
 								<input
 									type="number"
 									value={combatant.currentHp ?? ''}
-									class="h-7 w-16 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+									class="h-7 w-16 rounded border border-border bg-surface px-2 text-sm"
 									onchange={(event) =>
 										handleHpInput(
 											combatant.id,
@@ -1063,7 +1056,7 @@
 								<input
 									type="number"
 									value={combatant.maxHp ?? ''}
-									class="h-7 w-16 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+									class="h-7 w-16 rounded border border-border bg-surface px-2 text-sm"
 									onchange={(event) =>
 										handleHpInput(
 											combatant.id,
@@ -1072,12 +1065,12 @@
 										)}
 								/>
 							</label>
-							<label class="text-[11px] flex items-center gap-1">
+							<label class="text-xs flex items-center gap-1">
 								AC
 								<input
 									type="number"
 									value={combatant.armorClass ?? ''}
-									class="h-7 w-14 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+									class="h-7 w-14 rounded border border-border bg-surface px-2 text-sm"
 									onchange={(event) =>
 										updateCombatant(combatant.id, (entry) => ({
 											...entry,
@@ -1085,12 +1078,12 @@
 										}))}
 								/>
 							</label>
-							<label class="text-[11px] flex items-center gap-1">
+							<label class="text-xs flex items-center gap-1">
 								Dmg
 								<input
 									type="number"
 									value={combatant.damageDealt}
-									class="h-7 w-16 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-sm"
+									class="h-7 w-16 rounded border border-border bg-surface px-2 text-sm"
 									onchange={(event) =>
 										handleHpInput(
 											combatant.id,
@@ -1100,7 +1093,7 @@
 								/>
 							</label>
 							<select
-								class="h-7 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 text-xs"
+								class="h-7 rounded border border-border bg-surface px-2 text-xs"
 								value={combatant.outcome}
 								onchange={(event) =>
 									updateCombatant(combatant.id, (entry) => ({
@@ -1116,7 +1109,7 @@
 								<option value="fled">Fled</option>
 							</select>
 							<div class="flex flex-wrap items-center gap-1">
-								<label class="inline-flex items-center gap-1 text-[11px]">
+								<label class="inline-flex items-center gap-1 text-xs">
 									<input
 										type="checkbox"
 										checked={combatant.delayed}
@@ -1124,7 +1117,7 @@
 									/>
 									Delay
 								</label>
-								<label class="inline-flex items-center gap-1 text-[11px]">
+								<label class="inline-flex items-center gap-1 text-xs">
 									<input
 										type="checkbox"
 										checked={combatant.ready}
@@ -1132,7 +1125,7 @@
 									/>
 									Ready
 								</label>
-								<label class="inline-flex items-center gap-1 text-[11px]">
+								<label class="inline-flex items-center gap-1 text-xs">
 									<input
 										type="checkbox"
 										checked={combatant.concentration}
@@ -1144,7 +1137,7 @@
 									/>
 									Concentration
 								</label>
-								<label class="inline-flex items-center gap-1 text-[11px]">
+								<label class="inline-flex items-center gap-1 text-xs">
 									<input
 										type="checkbox"
 										checked={combatant.isPlayerCharacter}
@@ -1163,11 +1156,11 @@
 							{#each conditionCatalog as condition (condition)}
 								<button
 									type="button"
-									class="px-2 py-0.5 rounded-full border text-[10px] transition-colors {combatant.conditions.some(
+									class="px-2 py-0.5 rounded-full border text-2xs transition-colors {combatant.conditions.some(
 										(entry) => entry.toLowerCase() === condition.toLowerCase(),
 									)
-										? 'border-accent/50 bg-accent-subtle text-accent dark:border-tavern-accent/50 dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-										: 'border-border/70 dark:border-tavern-border/70 text-ink-muted dark:text-tavern-muted hover:bg-surface dark:hover:bg-tavern-surface'}"
+										? 'border-accent/50 bg-accent-subtle text-accent'
+										: 'border-border/70 text-ink-muted hover:bg-surface'}"
 									onclick={() => toggleCondition(combatant.id, condition)}
 								>
 									{condition}
@@ -1175,18 +1168,18 @@
 							{/each}
 						</div>
 
-						<div class="mt-2 flex flex-wrap items-center gap-1 text-[11px]">
-							<span class="text-ink-muted dark:text-tavern-muted">Notable rolls</span>
+						<div class="mt-2 flex flex-wrap items-center gap-1 text-xs">
+							<span class="text-ink-muted">Notable rolls</span>
 							<button
 								type="button"
-								class="px-1.5 py-0.5 rounded border border-border dark:border-tavern-border hover:bg-surface dark:hover:bg-tavern-surface"
+								class="px-1.5 py-0.5 rounded border border-border hover:bg-surface"
 								onclick={() => addNotableRoll(combatant, 'critical_hit')}
 							>
 								Crit +
 							</button>
 							<button
 								type="button"
-								class="px-1.5 py-0.5 rounded border border-border dark:border-tavern-border hover:bg-surface dark:hover:bg-tavern-surface"
+								class="px-1.5 py-0.5 rounded border border-border hover:bg-surface"
 								onclick={() => addNotableRoll(combatant, 'critical_failure')}
 							>
 								Crit -
@@ -1194,14 +1187,14 @@
 							{#if combatant.isPlayerCharacter}
 								<button
 									type="button"
-									class="px-1.5 py-0.5 rounded border border-border dark:border-tavern-border hover:bg-surface dark:hover:bg-tavern-surface"
+									class="px-1.5 py-0.5 rounded border border-border hover:bg-surface"
 									onclick={() => addNotableRoll(combatant, 'death_save_success')}
 								>
 									DS +
 								</button>
 								<button
 									type="button"
-									class="px-1.5 py-0.5 rounded border border-border dark:border-tavern-border hover:bg-surface dark:hover:bg-tavern-surface"
+									class="px-1.5 py-0.5 rounded border border-border hover:bg-surface"
 									onclick={() => addNotableRoll(combatant, 'death_save_failure')}
 								>
 									DS -
@@ -1210,11 +1203,11 @@
 						</div>
 
 						{#if combatant.isPlayerCharacter}
-							<div class="mt-2 flex items-center gap-2 text-[11px]">
-								<span class="text-ink-muted dark:text-tavern-muted">Death Saves</span>
+							<div class="mt-2 flex items-center gap-2 text-xs">
+								<span class="text-ink-muted">Death Saves</span>
 								<button
 									type="button"
-									class="h-6 w-6 rounded border border-border dark:border-tavern-border"
+									class="h-6 w-6 rounded border border-border"
 									onclick={() => updateDeathSave(combatant.id, 'successes', -1)}
 								>
 									-
@@ -1222,14 +1215,14 @@
 								<span>S {combatant.deathSaves.successes}</span>
 								<button
 									type="button"
-									class="h-6 w-6 rounded border border-border dark:border-tavern-border"
+									class="h-6 w-6 rounded border border-border"
 									onclick={() => updateDeathSave(combatant.id, 'successes', 1)}
 								>
 									+
 								</button>
 								<button
 									type="button"
-									class="h-6 w-6 rounded border border-border dark:border-tavern-border"
+									class="h-6 w-6 rounded border border-border"
 									onclick={() => updateDeathSave(combatant.id, 'failures', -1)}
 								>
 									-
@@ -1237,7 +1230,7 @@
 								<span>F {combatant.deathSaves.failures}</span>
 								<button
 									type="button"
-									class="h-6 w-6 rounded border border-border dark:border-tavern-border"
+									class="h-6 w-6 rounded border border-border"
 									onclick={() => updateDeathSave(combatant.id, 'failures', 1)}
 								>
 									+
@@ -1249,7 +1242,7 @@
 							<div class="mt-2">
 								<button
 									type="button"
-									class="text-[11px] px-2 py-1 rounded border border-border dark:border-tavern-border hover:bg-surface dark:hover:bg-tavern-surface"
+									class="text-xs px-2 py-1 rounded border border-border hover:bg-surface"
 									onclick={() =>
 										updateCombatant(combatant.id, (entry) => ({
 											...entry,
@@ -1260,7 +1253,7 @@
 								</button>
 								{#if combatant.statsExpanded}
 									<div
-										class="mt-1 rounded border border-border/60 dark:border-tavern-border/60 bg-surface/70 dark:bg-tavern-surface/70 p-2 text-[11px] space-y-1"
+										class="mt-1 rounded border border-border/60 bg-surface/70 p-2 text-xs space-y-1"
 									>
 										<div class="flex flex-wrap gap-2">
 											{#if combatant.statsPreview.size}
@@ -1304,33 +1297,25 @@
 		{/if}
 
 		{#if legendaryTrackers.length > 0}
-			<section
-				class="mt-3 rounded border border-border/70 dark:border-tavern-border/70 p-2 space-y-2"
-			>
-				<p class="text-xs font-semibold text-ink dark:text-tavern-text">
-					Legendary Actions (turn resets)
-				</p>
+			<section class="mt-3 rounded border border-border/70 p-2 space-y-2">
+				<p class="text-xs font-semibold text-ink">Legendary Actions (turn resets)</p>
 				{#each legendaryTrackers as tracker (tracker.combatantId)}
-					<div
-						class="rounded border border-border/60 dark:border-tavern-border/60 p-2 bg-surface-alt/45 dark:bg-tavern-surface-alt/45"
-					>
-						<div class="flex flex-wrap items-center gap-2 text-[11px]">
-							<span class="font-semibold text-ink dark:text-tavern-text"
-								>{tracker.combatantName}</span
-							>
-							<span class="text-ink-muted dark:text-tavern-muted">
+					<div class="rounded border border-border/60 p-2 bg-surface-alt/45">
+						<div class="flex flex-wrap items-center gap-2 text-xs">
+							<span class="font-semibold text-ink">{tracker.combatantName}</span>
+							<span class="text-ink-muted">
 								Charges {tracker.chargesRemaining}/{tracker.chargesMax}
 							</span>
 							<button
 								type="button"
-								class="px-1.5 py-0.5 rounded border border-border dark:border-tavern-border"
+								class="px-1.5 py-0.5 rounded border border-border"
 								onclick={() => adjustLegendaryCharges(tracker.combatantId, -1)}
 							>
 								-1
 							</button>
 							<button
 								type="button"
-								class="px-1.5 py-0.5 rounded border border-border dark:border-tavern-border"
+								class="px-1.5 py-0.5 rounded border border-border"
 								onclick={() => adjustLegendaryCharges(tracker.combatantId, 1)}
 							>
 								+1
@@ -1342,7 +1327,7 @@
 									min="1"
 									max="9"
 									value={tracker.chargesMax}
-									class="h-6 w-12 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-1 text-[11px]"
+									class="h-6 w-12 rounded border border-border bg-surface px-1 text-xs"
 									onchange={(event) =>
 										setLegendaryChargesMax(
 											tracker.combatantId,
@@ -1353,24 +1338,20 @@
 						</div>
 						<div class="mt-2 flex flex-wrap gap-1">
 							{#each tracker.actions as action (action.id)}
-								<div
-									class="rounded border border-border/60 dark:border-tavern-border/60 p-1.5 space-y-1"
-								>
+								<div class="rounded border border-border/60 p-1.5 space-y-1">
 									<div class="flex items-center gap-1">
 										<button
 											type="button"
-											class="px-1.5 py-0.5 rounded border border-border dark:border-tavern-border text-[11px] hover:bg-surface dark:hover:bg-tavern-surface"
+											class="px-1.5 py-0.5 rounded border border-border text-xs hover:bg-surface"
 											onclick={() =>
 												persist(spendLegendaryAction(combat, tracker.combatantId, action.id))}
 										>
 											Use ({action.cost})
 										</button>
-										<span class="text-[11px] text-ink-muted dark:text-tavern-muted"
-											>used {action.usedCount}</span
-										>
+										<span class="text-xs text-ink-muted">used {action.usedCount}</span>
 										<button
 											type="button"
-											class="h-5 w-5 rounded border border-error/40 text-error hover:bg-error/5 text-[11px]"
+											class="h-5 w-5 rounded border border-error/40 text-error hover:bg-error/5 text-xs"
 											onclick={() => removeLegendaryAction(tracker.combatantId, action.id)}
 											aria-label={`Remove ${action.name}`}
 										>
@@ -1381,7 +1362,7 @@
 										<input
 											type="text"
 											value={action.name}
-											class="h-6 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-1.5 text-[11px]"
+											class="h-6 rounded border border-border bg-surface px-1.5 text-xs"
 											onchange={(event) =>
 												updateLegendaryAction(
 													tracker.combatantId,
@@ -1390,14 +1371,14 @@
 													(event.currentTarget as HTMLInputElement).value,
 												)}
 										/>
-										<label class="inline-flex items-center gap-1 text-[11px]">
+										<label class="inline-flex items-center gap-1 text-xs">
 											Cost
 											<input
 												type="number"
 												min="1"
 												max="5"
 												value={action.cost}
-												class="h-6 w-11 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-1 text-[11px]"
+												class="h-6 w-11 rounded border border-border bg-surface px-1 text-xs"
 												onchange={(event) =>
 													updateLegendaryAction(
 														tracker.combatantId,
@@ -1412,7 +1393,7 @@
 							{/each}
 							<button
 								type="button"
-								class="px-1.5 py-0.5 h-fit rounded border border-border dark:border-tavern-border text-[11px] hover:bg-surface dark:hover:bg-tavern-surface"
+								class="px-1.5 py-0.5 h-fit rounded border border-border text-xs hover:bg-surface"
 								onclick={() => addLegendaryAction(tracker.combatantId)}
 							>
 								Add Action
@@ -1423,50 +1404,48 @@
 			</section>
 		{/if}
 
-		<section
-			class="mt-3 rounded border border-border/70 dark:border-tavern-border/70 p-2 space-y-2"
-		>
+		<section class="mt-3 rounded border border-border/70 p-2 space-y-2">
 			<div class="flex flex-wrap items-center gap-2 text-xs">
-				<label class="inline-flex items-center gap-1 text-ink dark:text-tavern-text">
+				<label class="inline-flex items-center gap-1 text-ink">
 					<input type="checkbox" checked={lairTracker.enabled} onchange={toggleLairEnabled} />
 					Lair actions
 				</label>
-				<label class="inline-flex items-center gap-1 text-ink-muted dark:text-tavern-muted">
+				<label class="inline-flex items-center gap-1 text-ink-muted">
 					Initiative
 					<input
 						type="number"
 						min="1"
 						max="30"
 						value={lairTracker.initiativeCount}
-						class="h-7 w-14 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-1.5 text-xs"
+						class="h-7 w-14 rounded border border-border bg-surface px-1.5 text-xs"
 						onchange={(event) =>
 							setLairInitiativeCount((event.currentTarget as HTMLInputElement).value)}
 					/>
 				</label>
 				<button
 					type="button"
-					class="px-2 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface dark:hover:bg-tavern-surface"
+					class="px-2 py-1 rounded border border-border text-xs hover:bg-surface"
 					onclick={triggerLairNow}
 					disabled={!lairTracker.enabled || lairTracker.actions.length === 0}
 				>
 					Trigger Now
 				</button>
 				{#if lairTracker.lastTriggeredRound !== null}
-					<span class="text-[11px] text-ink-muted dark:text-tavern-muted">
+					<span class="text-xs text-ink-muted">
 						Last triggered round {lairTracker.lastTriggeredRound}
 					</span>
 				{/if}
 			</div>
 			{#if lairTracker.actions.length === 0}
-				<p class="text-[11px] text-ink-muted dark:text-tavern-muted">No lair actions configured.</p>
+				<p class="text-xs text-ink-muted">No lair actions configured.</p>
 			{:else}
 				<ul class="space-y-1">
 					{#each lairTracker.actions as action (action.id)}
-						<li class="flex flex-wrap items-center gap-1 text-[11px]">
+						<li class="flex flex-wrap items-center gap-1 text-xs">
 							<input
 								type="text"
 								value={action.name}
-								class="h-6 rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-1.5 text-[11px]"
+								class="h-6 rounded border border-border bg-surface px-1.5 text-xs"
 								onchange={(event) =>
 									updateLairAction(
 										action.id,
@@ -1487,7 +1466,7 @@
 								/>
 								Auto
 							</label>
-							<span class="text-ink-muted dark:text-tavern-muted">used {action.usedCount}</span>
+							<span class="text-ink-muted">used {action.usedCount}</span>
 							<button
 								type="button"
 								class="h-5 w-5 rounded border border-error/40 text-error hover:bg-error/5"
@@ -1502,7 +1481,7 @@
 			{/if}
 			<button
 				type="button"
-				class="px-2 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface dark:hover:bg-tavern-surface"
+				class="px-2 py-1 rounded border border-border text-xs hover:bg-surface"
 				onclick={addLairAction}
 			>
 				Add Lair Action
@@ -1510,34 +1489,32 @@
 		</section>
 	</div>
 
-	<footer
-		class="px-3 py-2 border-t border-border/70 dark:border-tavern-border/70 bg-surface-alt/45 dark:bg-tavern-surface-alt/45"
-	>
+	<footer class="px-3 py-2 border-t border-border/70 bg-surface-alt/45">
 		<div class="grid gap-2 md:grid-cols-3">
-			<label class="text-xs text-ink-muted dark:text-tavern-muted">
+			<label class="text-xs text-ink-muted">
 				Encounter notes
 				<textarea
 					rows="2"
-					class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1 text-xs"
+					class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs"
 					value={combat.notes}
 					onchange={(event) =>
 						setEncounterNotes((event.currentTarget as HTMLTextAreaElement).value)}
 				></textarea>
 			</label>
-			<label class="text-xs text-ink-muted dark:text-tavern-muted">
+			<label class="text-xs text-ink-muted">
 				Loot rolled
 				<textarea
 					rows="2"
-					class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1 text-xs"
+					class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs"
 					value={combat.loot}
 					onchange={(event) => setEncounterLoot((event.currentTarget as HTMLTextAreaElement).value)}
 				></textarea>
 			</label>
-			<label class="text-xs text-ink-muted dark:text-tavern-muted">
+			<label class="text-xs text-ink-muted">
 				Encounter outcome
 				<textarea
 					rows="2"
-					class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-2 py-1 text-xs"
+					class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs"
 					value={combat.outcome}
 					onchange={(event) =>
 						setEncounterOutcome((event.currentTarget as HTMLTextAreaElement).value)}
@@ -1545,14 +1522,14 @@
 			</label>
 		</div>
 		{#if combat.notableRolls.length > 0}
-			<p class="mt-1 text-[11px] text-ink-muted dark:text-tavern-muted">
+			<p class="mt-1 text-xs text-ink-muted">
 				{combat.notableRolls.length} notable rolls recorded for encounter log.
 			</p>
 		{/if}
 		<div class="mt-2 flex flex-wrap items-center gap-2">
 			<button
 				type="button"
-				class="px-3 py-1.5 rounded bg-accent hover:bg-accent-hover dark:bg-tavern-accent dark:hover:bg-tavern-accent-hover dark:text-tavern-bg text-white text-xs"
+				class="px-3 py-1.5 rounded bg-accent hover:bg-accent-hover text-white text-xs"
 				onclick={() => void saveEncounterLog()}
 			>
 				Save Encounter Log
@@ -1560,7 +1537,7 @@
 			{#if combat.lastLogNoteId}
 				<button
 					type="button"
-					class="px-3 py-1.5 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface dark:hover:bg-tavern-surface"
+					class="px-3 py-1.5 rounded border border-border text-xs hover:bg-surface"
 					onclick={openEncounterLog}
 				>
 					Open Last Log

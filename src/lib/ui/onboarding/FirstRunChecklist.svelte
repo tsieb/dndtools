@@ -173,15 +173,11 @@
 </script>
 
 {#if onboardingState.dismissed}
-	<section
-		class="rounded-xl border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 mb-6"
-	>
+	<section class="rounded-xl border border-border bg-surface p-4 mb-6">
 		<div class="flex flex-wrap items-center justify-between gap-3">
 			<div>
-				<p class="text-sm font-medium text-ink dark:text-tavern-text">Onboarding hidden</p>
-				<p class="text-xs text-ink-muted dark:text-tavern-muted mt-1">
-					Reopen it anytime to continue checklist progress.
-				</p>
+				<p class="text-sm font-medium text-ink">Onboarding hidden</p>
+				<p class="text-xs text-ink-muted mt-1">Reopen it anytime to continue checklist progress.</p>
 			</div>
 			<Button variant="secondary" size="sm" onclick={() => onboardingState.reopenChecklist()}>
 				Reopen onboarding
@@ -189,16 +185,14 @@
 		</div>
 	</section>
 {:else}
-	<section
-		class="rounded-xl border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 md:p-5 mb-6 space-y-5"
-	>
+	<section class="rounded-xl border border-border bg-surface p-4 md:p-5 mb-6 space-y-5">
 		<div class="flex items-start justify-between gap-4">
 			<div>
-				<h2 class="text-lg font-semibold text-ink dark:text-tavern-text">First-run Checklist</h2>
-				<p class="text-sm text-ink-muted dark:text-tavern-muted mt-1">
+				<h2 class="text-lg font-semibold text-ink">First-run Checklist</h2>
+				<p class="text-sm text-ink-muted mt-1">
 					Complete the core workflow once to get fast and reliable session-time navigation.
 				</p>
-				<p class="text-xs text-ink-faint dark:text-tavern-faint mt-2">
+				<p class="text-xs text-ink-faint mt-2">
 					Progress: {onboardingState.completedCount}/{ONBOARDING_STEPS.length}
 				</p>
 			</div>
@@ -209,19 +203,17 @@
 
 		<ul class="space-y-2">
 			{#each ONBOARDING_STEPS as step (step.id)}
-				<li
-					class="rounded-lg border border-border dark:border-tavern-border px-3 py-2.5 bg-surface-alt/40 dark:bg-tavern-surface-alt/30"
-				>
+				<li class="rounded-lg border border-border px-3 py-2.5 bg-surface-alt/40">
 					<div class="flex items-start justify-between gap-3">
 						<div>
-							<p class="text-sm font-medium text-ink dark:text-tavern-text">
+							<p class="text-sm font-medium text-ink">
 								{#if onboardingState.completedSteps.includes(step.id)}
 									[Done] {step.label}
 								{:else}
 									{step.label}
 								{/if}
 							</p>
-							<p class="text-xs text-ink-muted dark:text-tavern-muted mt-1">{step.description}</p>
+							<p class="text-xs text-ink-muted mt-1">{step.description}</p>
 						</div>
 						<div class="shrink-0">
 							{#if step.id === 'create_first_note'}
@@ -240,28 +232,26 @@
 		</ul>
 
 		<div>
-			<h3 class="text-sm font-semibold text-ink dark:text-tavern-text">Why This Matters</h3>
+			<h3 class="text-sm font-semibold text-ink">Why This Matters</h3>
 			<div class="grid gap-2 mt-2 md:grid-cols-3">
 				{#if visibleTips.length === 0}
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">
+					<p class="text-xs text-ink-muted">
 						All tips dismissed. Revisit from Settings when needed.
 					</p>
 				{:else}
 					{#each visibleTips as tip (tip.id)}
-						<div
-							class="rounded-lg border border-border dark:border-tavern-border bg-surface-alt/40 dark:bg-tavern-surface-alt/30 p-3"
-						>
+						<div class="rounded-lg border border-border bg-surface-alt/40 p-3">
 							<div class="flex items-start justify-between gap-2">
-								<p class="text-xs font-semibold text-ink dark:text-tavern-text">{tip.title}</p>
+								<p class="text-xs font-semibold text-ink">{tip.title}</p>
 								<button
 									type="button"
-									class="text-xs text-ink-faint dark:text-tavern-faint hover:text-ink dark:hover:text-tavern-text"
+									class="text-xs text-ink-faint hover:text-ink"
 									onclick={() => onboardingState.dismissTip(tip.id)}
 								>
 									Dismiss
 								</button>
 							</div>
-							<p class="text-xs text-ink-muted dark:text-tavern-muted mt-1">{tip.description}</p>
+							<p class="text-xs text-ink-muted mt-1">{tip.description}</p>
 						</div>
 					{/each}
 				{/if}
@@ -270,17 +260,15 @@
 
 		<div class="grid gap-4 md:grid-cols-2">
 			<div>
-				<h3 class="text-sm font-semibold text-ink dark:text-tavern-text">Sample Vault Templates</h3>
-				<p class="text-xs text-ink-muted dark:text-tavern-muted mt-1">
+				<h3 class="text-sm font-semibold text-ink">Sample Vault Templates</h3>
+				<p class="text-xs text-ink-muted mt-1">
 					Create a starter vault scaffold with connected notes and tags.
 				</p>
 				<div class="mt-2 space-y-2">
 					{#each DND_VAULT_TEMPLATES as template (template.id)}
-						<div
-							class="rounded-lg border border-border dark:border-tavern-border bg-surface-alt/40 dark:bg-tavern-surface-alt/30 p-3"
-						>
-							<p class="text-sm font-medium text-ink dark:text-tavern-text">{template.name}</p>
-							<p class="text-xs text-ink-muted dark:text-tavern-muted mt-1">
+						<div class="rounded-lg border border-border bg-surface-alt/40 p-3">
+							<p class="text-sm font-medium text-ink">{template.name}</p>
+							<p class="text-xs text-ink-muted mt-1">
 								{template.description}
 							</p>
 							<div class="mt-2">
@@ -299,13 +287,11 @@
 			</div>
 
 			<div>
-				<h3 class="text-sm font-semibold text-ink dark:text-tavern-text">Import from Obsidian</h3>
-				<p class="text-xs text-ink-muted dark:text-tavern-muted mt-1">
+				<h3 class="text-sm font-semibold text-ink">Import from Obsidian</h3>
+				<p class="text-xs text-ink-muted mt-1">
 					Select an Obsidian vault folder, review a safety preview, then import.
 				</p>
-				<div
-					class="mt-3 rounded-lg border border-border dark:border-tavern-border bg-surface-alt/40 dark:bg-tavern-surface-alt/30 p-3"
-				>
+				<div class="mt-3 rounded-lg border border-border bg-surface-alt/40 p-3">
 					<Button
 						size="sm"
 						variant="secondary"
@@ -314,7 +300,7 @@
 					>
 						{importing ? 'Preparing Preview...' : 'Choose Vault Folder'}
 					</Button>
-					<p class="text-xs text-ink-faint dark:text-tavern-faint mt-2">
+					<p class="text-xs text-ink-faint mt-2">
 						Safe preview shows importable markdown files and potential title duplicates first.
 					</p>
 				</div>
@@ -326,9 +312,7 @@
 <Modal open={previewOpen} title="Obsidian Import Preview" onclose={() => (previewOpen = false)}>
 	{#if preview}
 		<div class="space-y-3">
-			<div
-				class="rounded border border-border dark:border-tavern-border bg-surface-alt/40 dark:bg-tavern-surface-alt/30 p-3 text-xs text-ink dark:text-tavern-text"
-			>
+			<div class="rounded border border-border bg-surface-alt/40 p-3 text-xs text-ink">
 				<p>Markdown files detected: {preview.markdownCount}</p>
 				<p>Importable notes: {preview.candidates.length}</p>
 				<p>Skipped non-markdown files: {preview.skippedPaths.length}</p>
@@ -348,8 +332,8 @@
 			{/if}
 
 			<div>
-				<p class="text-xs font-semibold text-ink dark:text-tavern-text mb-1">Preview Paths</p>
-				<ul class="text-xs text-ink-muted dark:text-tavern-muted space-y-1">
+				<p class="text-xs font-semibold text-ink mb-1">Preview Paths</p>
+				<ul class="text-xs text-ink-muted space-y-1">
 					{#each preview.candidates.slice(0, 8) as candidate (candidate.sourcePath)}
 						<li class="font-mono">{candidate.sourcePath}</li>
 					{/each}

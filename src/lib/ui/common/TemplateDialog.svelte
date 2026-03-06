@@ -28,7 +28,7 @@
 </script>
 
 <Modal {open} title="New from Template" {onclose}>
-	<p class="text-sm text-ink-muted dark:text-tavern-muted mb-4">
+	<p class="text-sm text-ink-muted mb-4">
 		Choose a global or folder template to start with. You can customize it after creation.
 	</p>
 	<div class="mb-3">
@@ -36,29 +36,27 @@
 			type="text"
 			bind:value={query}
 			placeholder="Filter templates..."
-			class="w-full rounded-md border border-border dark:border-tavern-border bg-surface-alt/60 dark:bg-tavern-surface-alt/60 px-2.5 py-1.5 text-sm text-ink dark:text-tavern-text"
+			class="w-full rounded-md border border-border bg-surface-alt/60 px-2.5 py-1.5 text-sm text-ink"
 		/>
 	</div>
 	<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
 		{#each visibleTemplates as entry (entry.template.id)}
 			<button
-				class="text-left p-3 rounded-lg border border-border dark:border-tavern-border bg-surface-alt/50 dark:bg-tavern-surface-alt/50 hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:border-accent/30 dark:hover:border-tavern-accent/30 transition-all group"
+				class="text-left p-3 rounded-lg border border-border bg-surface-alt/50 hover:bg-accent-subtle hover:border-accent/30 transition-all group"
 				onclick={() => oncreate(entry.template, folderOverride ?? undefined)}
 			>
 				<div class="flex items-center gap-2 mb-1">
 					<span class="text-lg">{entry.template.icon}</span>
-					<span
-						class="font-medium text-ink dark:text-tavern-text group-hover:text-accent dark:group-hover:text-tavern-accent"
-					>
+					<span class="font-medium text-ink group-hover:text-accent">
 						{entry.template.name}
 					</span>
 					<span
-						class="ml-auto rounded-full border border-border dark:border-tavern-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink-faint dark:text-tavern-faint"
+						class="ml-auto rounded-full border border-border px-1.5 py-0.5 text-2xs uppercase tracking-wide text-ink-faint"
 					>
 						{entry.scope === 'global' ? 'Global' : entry.scopeFolder}
 					</span>
 				</div>
-				<p class="text-xs text-ink-muted dark:text-tavern-muted leading-relaxed">
+				<p class="text-xs text-ink-muted leading-relaxed">
 					{entry.template.description}
 				</p>
 			</button>

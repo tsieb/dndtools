@@ -132,22 +132,18 @@
 		tabindex="-1"
 	>
 		<section
-			class="w-full max-w-xl max-h-[82vh] rounded-xl border border-border dark:border-tavern-border bg-surface/98 dark:bg-tavern-surface/98 shadow-2xl flex flex-col overflow-hidden"
+			class="w-full max-w-xl max-h-[82vh] rounded-xl border border-border bg-surface/98 shadow-2xl flex flex-col overflow-hidden"
 		>
-			<header
-				class="px-4 py-3 border-b border-border dark:border-tavern-border flex items-center gap-2"
-			>
+			<header class="px-4 py-3 border-b border-border flex items-center gap-2">
 				<div class="flex-1 min-w-0">
-					<h2 class="text-sm font-semibold text-ink dark:text-tavern-text truncate">
+					<h2 class="text-sm font-semibold text-ink truncate">
 						{activeBoard ? `${activeBoard.name} quick panel` : 'Session quick panel'}
 					</h2>
-					<p class="text-[11px] text-ink-muted dark:text-tavern-muted">
-						Ctrl+Shift+B toggles this overlay from any route.
-					</p>
+					<p class="text-xs text-ink-muted">Ctrl+Shift+B toggles this overlay from any route.</p>
 				</div>
 				<button
 					type="button"
-					class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 					onclick={onclose}
 				>
 					Close
@@ -156,15 +152,11 @@
 
 			<div class="flex-1 min-h-0 overflow-y-auto p-3">
 				{#if !activeBoard}
-					<div
-						class="rounded-lg border border-border dark:border-tavern-border p-3 text-xs text-ink-muted dark:text-tavern-muted"
-					>
+					<div class="rounded-lg border border-border p-3 text-xs text-ink-muted">
 						No active board. Open Session Board and select one first.
 					</div>
 				{:else if tiles.length === 0}
-					<div
-						class="rounded-lg border border-border dark:border-tavern-border p-3 text-xs text-ink-muted dark:text-tavern-muted"
-					>
+					<div class="rounded-lg border border-border p-3 text-xs text-ink-muted">
 						This board has no tiles yet.
 					</div>
 				{:else}
@@ -172,12 +164,10 @@
 						{#each tiles as tile (tile.id)}
 							<button
 								type="button"
-								class="rounded-lg border border-border dark:border-tavern-border p-2.5 text-left hover:bg-surface-alt/70 dark:hover:bg-tavern-surface-alt/70 transition-colors"
+								class="rounded-lg border border-border p-2.5 text-left hover:bg-surface-alt/70 transition-colors"
 								onclick={() => openTile(tile)}
 							>
-								<div
-									class="text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
-								>
+								<div class="text-xs uppercase tracking-wider text-ink-faint">
 									{tileType(tile) === 'note'
 										? tile.noteId
 											? 'Note'
@@ -197,67 +187,47 @@
 																: 'Calendar'}
 								</div>
 								{#if tileType(tile) === 'note'}
-									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5 truncate">
+									<div class="text-sm font-medium text-ink mt-0.5 truncate">
 										{tile.noteId
 											? (activeNotesById.get(tile.noteId)?.title ?? 'Missing note')
 											: 'Unassigned'}
 									</div>
-									<div class="text-xs text-ink-muted dark:text-tavern-muted truncate mt-0.5">
+									<div class="text-xs text-ink-muted truncate mt-0.5">
 										{tile.noteId
 											? notePreview(tile.noteId)
 											: 'Assign a note from Session Board edit mode.'}
 									</div>
 								{:else if tileType(tile) === 'timer'}
-									<div
-										class="font-mono text-2xl tabular-nums text-ink dark:text-tavern-text mt-0.5"
-									>
+									<div class="font-mono text-2xl tabular-nums text-ink mt-0.5">
 										{timerDisplay(tile)}
 									</div>
-									<div class="text-xs text-ink-muted dark:text-tavern-muted">
-										Open Session Board to control timer.
-									</div>
+									<div class="text-xs text-ink-muted">Open Session Board to control timer.</div>
 								{:else if tileType(tile) === 'combat'}
-									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
-										Combat Tracker
-									</div>
-									<div class="text-xs text-ink-muted dark:text-tavern-muted">
+									<div class="text-sm font-medium text-ink mt-0.5">Combat Tracker</div>
+									<div class="text-xs text-ink-muted">
 										Open Combat route for full initiative controls.
 									</div>
 								{:else if tileType(tile) === 'encounter'}
-									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
-										Encounter Builder
-									</div>
-									<div class="text-xs text-ink-muted dark:text-tavern-muted">
+									<div class="text-sm font-medium text-ink mt-0.5">Encounter Builder</div>
+									<div class="text-xs text-ink-muted">
 										Build and balance encounters with CR budgeting.
 									</div>
 								{:else if tileType(tile) === 'dice'}
-									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
-										Dice Tray
-									</div>
-									<div class="text-xs text-ink-muted dark:text-tavern-muted">
-										Open Session Board to use roll controls.
-									</div>
+									<div class="text-sm font-medium text-ink mt-0.5">Dice Tray</div>
+									<div class="text-xs text-ink-muted">Open Session Board to use roll controls.</div>
 								{:else if tileType(tile) === 'generator'}
-									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
-										Generator
-									</div>
-									<div class="text-xs text-ink-muted dark:text-tavern-muted">
+									<div class="text-sm font-medium text-ink mt-0.5">Generator</div>
+									<div class="text-xs text-ink-muted">
 										Open Session Board to use random generation tools.
 									</div>
 								{:else if tileType(tile) === 'handouts'}
-									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
-										Handout Library
-									</div>
-									<div class="text-xs text-ink-muted dark:text-tavern-muted">
+									<div class="text-sm font-medium text-ink mt-0.5">Handout Library</div>
+									<div class="text-xs text-ink-muted">
 										Open Settings to deliver and manage handouts.
 									</div>
 								{:else}
-									<div class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
-										Calendar Reference
-									</div>
-									<div class="text-xs text-ink-muted dark:text-tavern-muted">
-										Open Session Board to view details.
-									</div>
+									<div class="text-sm font-medium text-ink mt-0.5">Calendar Reference</div>
+									<div class="text-xs text-ink-muted">Open Session Board to view details.</div>
 								{/if}
 							</button>
 						{/each}

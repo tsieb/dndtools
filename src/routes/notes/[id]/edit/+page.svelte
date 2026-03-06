@@ -278,7 +278,7 @@
 			{/if}
 			<div class="flex items-center gap-2">
 				<button
-					class="rounded-md px-3 py-1.5 text-sm text-ink-muted transition-colors hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+					class="rounded-md px-3 py-1.5 text-sm text-ink-muted transition-colors hover:bg-surface-alt"
 					title="Save (Ctrl+S)"
 					onclick={() => {
 						void editorState.save().then(() => toastState.success('Note saved'));
@@ -293,20 +293,16 @@
 			type="text"
 			value={editorState.title}
 			oninput={(event) => editorState.setTitle(event.currentTarget.value)}
-			class="mb-4 w-full border-none bg-transparent text-2xl font-bold text-ink outline-none placeholder:text-ink-faint dark:text-tavern-text dark:placeholder:text-tavern-faint"
+			class="mb-4 w-full border-none bg-transparent text-2xl font-bold text-ink outline-none placeholder:text-ink-faint"
 			placeholder="Note title..."
 		/>
 
-		<section
-			class="mb-3 rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
-		>
-			<h2
-				class="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
-			>
+		<section class="mb-3 rounded-lg border border-border bg-surface p-3">
+			<h2 class="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint">
 				Editor Defaults (Vault)
 			</h2>
 			<div class="grid gap-2 md:grid-cols-5">
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Font
 					<input
 						type="number"
@@ -317,10 +313,10 @@
 							updateEditorSetting({
 								fontSize: Number((event.currentTarget as HTMLInputElement).value),
 							})}
-						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 					/>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Line Wrap
 					<select
 						value={String(editorSettings.wordWrap)}
@@ -328,13 +324,13 @@
 							updateEditorSetting({
 								wordWrap: (event.currentTarget as HTMLSelectElement).value === 'true',
 							})}
-						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 					>
 						<option value="true">Enabled</option>
 						<option value="false">Off</option>
 					</select>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Vim
 					<select
 						value={String(editorSettings.vimMode)}
@@ -342,13 +338,13 @@
 							updateEditorSetting({
 								vimMode: (event.currentTarget as HTMLSelectElement).value === 'true',
 							})}
-						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 					>
 						<option value="false">Disabled</option>
 						<option value="true">Enabled</option>
 					</select>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Toolbar
 					<select
 						value={editorSettings.toolbarDensity}
@@ -358,13 +354,13 @@
 									| 'compact'
 									| 'comfortable',
 							})}
-						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 					>
 						<option value="comfortable">Comfortable</option>
 						<option value="compact">Compact</option>
 					</select>
 				</label>
-				<label class="text-xs text-ink-muted dark:text-tavern-muted">
+				<label class="text-xs text-ink-muted">
 					Split Pane
 					<select
 						value={String(editorSettings.splitPane)}
@@ -372,36 +368,32 @@
 							updateEditorSetting({
 								splitPane: (event.currentTarget as HTMLSelectElement).value === 'true',
 							})}
-						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+						class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 					>
 						<option value="true">Editor + Preview</option>
 						<option value="false">Editor Only</option>
 					</select>
 				</label>
 			</div>
-			<p class="mt-2 text-xs text-ink-faint dark:text-tavern-faint">
+			<p class="mt-2 text-xs text-ink-faint">
 				Vim mode preference is stored now; full keybinding support is planned.
 			</p>
 		</section>
 
 		<MetadataEditor {frontmatter} onapply={handleMetadataApply} />
 		{#if sessionTimelineEligible}
-			<section
-				class="mb-3 rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
-			>
-				<h2
-					class="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
-				>
+			<section class="mb-3 rounded-lg border border-border bg-surface p-3">
+				<h2 class="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint">
 					Session Timeline Link
 				</h2>
-				<p class="text-xs text-ink-muted dark:text-tavern-muted">
+				<p class="text-xs text-ink-muted">
 					Session notes can link to timeline events. If no link exists, saving auto-creates one from
 					this note's world date metadata.
 				</p>
 				<div class="mt-2 flex flex-wrap items-center gap-2">
 					<select
 						aria-label="Link session note to existing timeline event"
-						class="min-w-[220px] rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+						class="min-w-[220px] rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
 						value={linkedTimelineEventId ?? ''}
 						onchange={(event) =>
 							linkTimelineEvent((event.currentTarget as HTMLSelectElement).value)}
@@ -414,7 +406,7 @@
 					{#if linkedTimelineEventId}
 						<button
 							type="button"
-							class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+							class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 							onclick={clearTimelineEventLink}
 						>
 							Clear link
@@ -422,11 +414,11 @@
 					{/if}
 				</div>
 				{#if linkedTimelineEvent}
-					<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">
+					<p class="mt-2 text-xs text-ink-muted">
 						Linked event:
 						<a
 							href={resolve(`/knowledge/notes/${linkedTimelineEvent.note.id}`)}
-							class="text-accent hover:underline dark:text-tavern-accent"
+							class="text-accent hover:underline"
 						>
 							{linkedTimelineEvent.note.title}
 						</a>
@@ -462,13 +454,13 @@
 			<div class="min-h-[500px]">
 				{#await EditorPromise}
 					<div
-						class="flex min-h-[500px] w-full items-center justify-center rounded-lg border border-border bg-surface dark:border-tavern-border dark:bg-tavern-surface"
+						class="flex min-h-[500px] w-full items-center justify-center rounded-lg border border-border bg-surface"
 					>
 						<div class="text-center">
 							<div
-								class="mb-2 inline-block h-5 w-5 animate-spin rounded-full border-2 border-accent/30 border-t-accent dark:border-tavern-accent/30 dark:border-t-tavern-accent"
+								class="mb-2 inline-block h-5 w-5 animate-spin rounded-full border-2 border-accent/30 border-t-accent"
 							></div>
-							<p class="text-sm text-ink-muted dark:text-tavern-muted">Loading editor...</p>
+							<p class="text-sm text-ink-muted">Loading editor...</p>
 						</div>
 					</div>
 				{:then Editor}
@@ -500,12 +492,12 @@
 {:else}
 	<div class="flex h-full items-center justify-center">
 		<div class="py-16 text-center">
-			<p class="mb-2 text-lg text-ink-muted dark:text-tavern-muted">
+			<p class="mb-2 text-lg text-ink-muted">
 				{playerModeState.enabled ? 'Editing is disabled in player mode.' : 'Note not found'}
 			</p>
 			<a
 				href={resolve(playerModeState.enabled ? '/player' : '/knowledge/notes')}
-				class="text-sm text-accent hover:text-accent-hover dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
+				class="text-sm text-accent hover:text-accent-hover"
 			>
 				{playerModeState.enabled ? 'Back to player view' : 'Back to notes'}
 			</a>

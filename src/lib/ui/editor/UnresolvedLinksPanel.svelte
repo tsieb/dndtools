@@ -47,19 +47,13 @@
 </script>
 
 {#if unresolved.length > 0 || ambiguous.length > 0}
-	<section
-		class="mb-3 rounded-lg border border-warning/30 bg-warning/5 p-3 dark:border-tavern-warning/40 dark:bg-tavern-warning/10"
-	>
+	<section class="mb-3 rounded-lg border border-warning/30 bg-warning/5 p-3">
 		<div class="mb-2 flex items-center justify-between gap-2">
-			<h2
-				class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
-			>
-				Link Issues
-			</h2>
+			<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-faint">Link Issues</h2>
 			{#if unresolved.some((entry) => entry.targetKind === 'title')}
 				<button
 					type="button"
-					class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+					class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 					onclick={oncreateall}
 				>
 					Batch Create Missing Notes
@@ -77,11 +71,9 @@
 							class="rounded border border-amber-300/70 bg-amber-50/80 p-2 dark:border-amber-800/60 dark:bg-amber-900/10"
 						>
 							<div class="mb-1 flex items-center justify-between gap-2">
-								<p class="text-sm font-medium text-ink dark:text-tavern-text">
+								<p class="text-sm font-medium text-ink">
 									[[{entry.title}]]
-									<span class="ml-1 text-xs text-ink-faint dark:text-tavern-faint"
-										>x{entry.count}</span
-									>
+									<span class="ml-1 text-xs text-ink-faint">x{entry.count}</span>
 								</p>
 								<span class="text-xs text-amber-700 dark:text-amber-400">Needs disambiguation</span>
 							</div>
@@ -94,7 +86,7 @@
 											[key]: event.currentTarget.value,
 										};
 									}}
-									class="w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+									class="w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 								>
 									<option value="">Choose target note</option>
 									{#each entry.candidates as candidate (candidate.noteId)}
@@ -108,7 +100,7 @@
 								</select>
 								<button
 									type="button"
-									class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+									class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 									onclick={() => applySelectedDisambiguation(entry.title, key)}
 								>
 									Link
@@ -126,34 +118,28 @@
 				<ul class="space-y-2">
 					{#each unresolved as entry (entry.targetKind + ':' + (entry.targetIdHint ?? entry.title))}
 						{@const key = `unresolved:${entry.targetKind}:${entry.targetIdHint ?? entry.title}`}
-						<li
-							class="rounded border border-border dark:border-tavern-border bg-surface/80 dark:bg-tavern-surface/80 p-2"
-						>
+						<li class="rounded border border-border bg-surface/80 p-2">
 							<div class="mb-1 flex items-center justify-between gap-2">
-								<p class="text-sm font-medium text-ink dark:text-tavern-text">
+								<p class="text-sm font-medium text-ink">
 									[[{entry.title}]]
-									<span class="ml-1 text-xs text-ink-faint dark:text-tavern-faint"
-										>x{entry.count}</span
-									>
+									<span class="ml-1 text-xs text-ink-faint">x{entry.count}</span>
 								</p>
 								{#if entry.targetKind === 'title'}
 									<button
 										type="button"
-										class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+										class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 										onclick={() => oncreateone(entry.title)}
 									>
 										Create
 									</button>
 								{:else}
-									<span class="text-xs text-ink-faint dark:text-tavern-faint"
-										>Missing ID link: {entry.targetIdHint}</span
-									>
+									<span class="text-xs text-ink-faint">Missing ID link: {entry.targetIdHint}</span>
 								{/if}
 							</div>
 
 							{#if entry.targetKind === 'title'}
 								<div class="grid gap-2 md:grid-cols-2">
-									<label class="text-xs text-ink-muted dark:text-tavern-muted">
+									<label class="text-xs text-ink-muted">
 										Quick Rename
 										<div class="mt-1 flex gap-1">
 											<input
@@ -162,11 +148,11 @@
 												oninput={(event) => {
 													renameTo = { ...renameTo, [entry.title]: event.currentTarget.value };
 												}}
-												class="w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+												class="w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 											/>
 											<button
 												type="button"
-												class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+												class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 												onclick={() => onrename(entry.title, getRename(entry.title))}
 											>
 												Apply
@@ -174,7 +160,7 @@
 										</div>
 									</label>
 
-									<label class="text-xs text-ink-muted dark:text-tavern-muted">
+									<label class="text-xs text-ink-muted">
 										Resolve to Existing Note
 										<div class="mt-1 flex gap-1">
 											<select
@@ -185,7 +171,7 @@
 														[key]: event.currentTarget.value,
 													};
 												}}
-												class="w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+												class="w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 											>
 												<option value="">Choose existing note</option>
 												{#each entry.suggestions as suggestion (suggestion.noteId)}
@@ -199,7 +185,7 @@
 											</select>
 											<button
 												type="button"
-												class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+												class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 												onclick={() => applySelectedDisambiguation(entry.title, key)}
 											>
 												Link

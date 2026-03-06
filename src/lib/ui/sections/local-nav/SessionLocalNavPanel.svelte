@@ -80,11 +80,9 @@
 	{:else}
 		<CollapsibleLocalNavSection section="session" sectionId="active-board" title="Active Board">
 			{#if activeBoard}
-				<div
-					class="rounded-md border border-border bg-surface p-2 text-xs dark:border-tavern-border dark:bg-tavern-surface"
-				>
-					<p class="font-semibold text-ink dark:text-tavern-text">{activeBoard.name}</p>
-					<p class="mt-1 text-ink-muted dark:text-tavern-muted">
+				<div class="rounded-md border border-border bg-surface p-2 text-xs">
+					<p class="font-semibold text-ink">{activeBoard.name}</p>
+					<p class="mt-1 text-ink-muted">
 						Scene: {activeBoard.name} | Tiles: {activeBoard.tiles.length}
 					</p>
 				</div>
@@ -92,7 +90,7 @@
 				<div class="space-y-2">
 					<button
 						type="button"
-						class="w-full rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-accent-hover dark:bg-tavern-accent dark:text-tavern-bg dark:hover:bg-tavern-accent-hover"
+						class="w-full rounded-md bg-accent px-3 py-2 text-sm font-medium text-white transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-accent-hover"
 						onclick={startSession}
 					>
 						Start Session
@@ -100,15 +98,13 @@
 					{#if mostRecentBoard}
 						<button
 							type="button"
-							class="w-full rounded-md border border-border px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-parchment dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-bg"
+							class="w-full rounded-md border border-border px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg"
 							onclick={resumeMostRecentBoard}
 						>
-							<div class="font-medium text-ink dark:text-tavern-text">
+							<div class="font-medium text-ink">
 								Resume {mostRecentBoard.name}
 							</div>
-							<div class="mt-0.5 text-[10px] text-ink-faint dark:text-tavern-faint">
-								Most recent board
-							</div>
+							<div class="mt-0.5 text-2xs text-ink-faint">Most recent board</div>
 						</button>
 					{/if}
 				</div>
@@ -121,23 +117,19 @@
 			title="Initiative Status"
 		>
 			{#if initiativeSummary}
-				<div
-					class="space-y-1 rounded-md border border-border bg-surface p-2 text-xs dark:border-tavern-border dark:bg-tavern-surface"
-				>
-					<p class="text-ink dark:text-tavern-text">Round {initiativeSummary.round}</p>
-					<p class="text-ink-muted dark:text-tavern-muted">
+				<div class="space-y-1 rounded-md border border-border bg-surface p-2 text-xs">
+					<p class="text-ink">Round {initiativeSummary.round}</p>
+					<p class="text-ink-muted">
 						{initiativeSummary.activeCombatantName
 							? `Active: ${initiativeSummary.activeCombatantName}`
 							: 'No active combatant'}
 					</p>
-					<p class="text-ink-faint dark:text-tavern-faint">
+					<p class="text-ink-faint">
 						Combatants: {initiativeSummary.combatantCount}
 					</p>
 				</div>
 			{:else}
-				<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
-					No active combat encounter
-				</p>
+				<p class="px-2.5 py-1.5 text-xs text-ink-faint">No active combat encounter</p>
 			{/if}
 		</CollapsibleLocalNavSection>
 	{/if}
@@ -147,7 +139,7 @@
 			{#each ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'] as die (die)}
 				<button
 					type="button"
-					class="rounded-md border border-border px-1.5 py-1 text-[11px] font-semibold text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-parchment hover:text-ink dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-bg dark:hover:text-tavern-text"
+					class="rounded-md border border-border px-1.5 py-1 text-xs font-semibold text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg hover:text-ink"
 					onclick={() => rollQuickDie(die)}
 					aria-label={`Roll ${die} and open dice tray`}
 				>
@@ -157,7 +149,7 @@
 		</div>
 		<button
 			type="button"
-			class="mt-2 w-full rounded-md border border-border px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-parchment dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-bg"
+			class="mt-2 w-full rounded-md border border-border px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg"
 			onclick={openDiceTray}
 		>
 			Open full dice tray

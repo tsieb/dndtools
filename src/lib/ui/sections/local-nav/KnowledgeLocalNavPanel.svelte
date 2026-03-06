@@ -216,7 +216,7 @@
 
 	function noteButtonClass(noteId: string): string {
 		return noteIsActive(noteId)
-			? 'border-l-2 border-accent bg-accent-subtle/70 pl-2 text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
+			? 'border-l-2 border-accent bg-accent-subtle/70 pl-2 text-accent'
 			: 'border-l-2 border-transparent';
 	}
 
@@ -315,8 +315,8 @@
 
 	function tabClass(mode: KnowledgeMode): string {
 		return knowledgeMode === mode
-			? 'bg-accent-subtle text-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-			: 'text-ink-muted hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt';
+			? 'bg-accent-subtle text-accent'
+			: 'text-ink-muted hover:bg-surface-alt';
 	}
 
 	const browsePanelId = 'knowledge-panel-browse';
@@ -327,14 +327,14 @@
 <nav class="space-y-2" aria-label="Local navigation: Knowledge panel">
 	<div class="px-3 pt-2">
 		<div
-			class="grid grid-cols-3 gap-1 rounded-md border border-border bg-surface p-1 dark:border-tavern-border dark:bg-tavern-surface"
+			class="grid grid-cols-3 gap-1 rounded-md border border-border bg-surface p-1"
 			role="tablist"
 			aria-label="Knowledge panel mode tabs"
 		>
 			<button
 				id="knowledge-tab-browse"
 				type="button"
-				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition-colors {tabClass(
+				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors {tabClass(
 					'browse',
 				)}"
 				role="tab"
@@ -357,7 +357,7 @@
 			<button
 				id="knowledge-tab-recent"
 				type="button"
-				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition-colors {tabClass(
+				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors {tabClass(
 					'recent',
 				)}"
 				role="tab"
@@ -381,7 +381,7 @@
 			<button
 				id="knowledge-tab-saved"
 				type="button"
-				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition-colors {tabClass(
+				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors {tabClass(
 					'saved',
 				)}"
 				role="tab"
@@ -408,12 +408,12 @@
 		<div id={browsePanelId} role="tabpanel" aria-labelledby="knowledge-tab-browse" class="pb-2">
 			<CollapsibleLocalNavSection section="knowledge" sectionId="folder-tree" title="Folder Tree">
 				<div class="mb-2 flex items-center justify-between px-2.5">
-					<p class="text-[11px] uppercase tracking-wider text-ink-faint dark:text-tavern-faint">
+					<p class="text-xs uppercase tracking-wider text-ink-faint">
 						{treeMode === 'folder' ? 'Folder hierarchy' : 'Map hierarchy'}
 					</p>
 					<button
 						type="button"
-						class="rounded border border-border px-1.5 py-0.5 text-[10px] text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+						class="rounded border border-border px-1.5 py-0.5 text-2xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 						onclick={() => (treeMode = treeMode === 'folder' ? 'map' : 'folder')}
 					>
 						{treeMode === 'folder' ? 'Map view' : 'Folder view'}
@@ -446,13 +446,13 @@
 				defaultCollapsed={true}
 			>
 				{#if modeScopedTagCounts.length === 0}
-					<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">No tags yet</p>
+					<p class="px-2.5 py-1.5 text-xs text-ink-faint">No tags yet</p>
 				{:else}
 					<div class="flex flex-wrap gap-1 px-2.5">
 						{#each modeScopedTagCounts.slice(0, 18) as tag (tag.name)}
 							<button
 								type="button"
-								class="rounded-full bg-accent-subtle px-2 py-0.5 text-xs text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-accent/20 dark:bg-tavern-accent-subtle dark:text-tavern-accent dark:hover:bg-tavern-accent/20"
+								class="rounded-full bg-accent-subtle px-2 py-0.5 text-xs text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-accent/20"
 								onclick={() =>
 									navigateToPath(
 										`${resolve('/knowledge/notes')}?tag=${encodeURIComponent(tag.name)}`,
@@ -471,28 +471,24 @@
 			<CollapsibleLocalNavSection section="knowledge" sectionId="recent-history" title="Recent">
 				<div class="space-y-0.5">
 					{#if recentItems.length === 0}
-						<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
-							No visit history yet
-						</p>
+						<p class="px-2.5 py-1.5 text-xs text-ink-faint">No visit history yet</p>
 					{:else}
 						{#each recentItems as item (item.id)}
 							<button
 								type="button"
-								class="flex w-full items-center gap-2 rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-parchment dark:text-tavern-text dark:hover:bg-tavern-bg {activeRoute ===
+								class="flex w-full items-center gap-2 rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg {activeRoute ===
 								item.path
-									? 'border-accent bg-accent-subtle/70 text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
+									? 'border-accent bg-accent-subtle/70 text-accent'
 									: ''}"
 								onclick={() => navigateToPath(item.path)}
 								title={item.title}
 							>
 								<span
-									class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border text-[10px] font-semibold text-ink-faint dark:border-tavern-border dark:text-tavern-faint"
+									class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border text-2xs font-semibold text-ink-faint"
 									>{recentKindBadge(item.kind)}</span
 								>
 								<span class="min-w-0 flex-1 truncate">{item.title}</span>
-								<span class="text-[10px] uppercase text-ink-faint dark:text-tavern-faint"
-									>{item.subtitle}</span
-								>
+								<span class="text-2xs uppercase text-ink-faint">{item.subtitle}</span>
 							</button>
 						{/each}
 					{/if}
@@ -506,14 +502,12 @@
 			>
 				<div class="space-y-0.5">
 					{#if recentNotes.length === 0}
-						<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
-							No recently updated notes
-						</p>
+						<p class="px-2.5 py-1.5 text-xs text-ink-faint">No recently updated notes</p>
 					{:else}
 						{#each recentNotes as note (note.id)}
 							<button
 								type="button"
-								class="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-parchment dark:text-tavern-text dark:hover:bg-tavern-bg {noteButtonClass(
+								class="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg {noteButtonClass(
 									note.id,
 								)}"
 								onclick={() => navigateToNote(note.id)}
@@ -531,14 +525,14 @@
 			<CollapsibleLocalNavSection section="knowledge" sectionId="pinned-notes" title="Pinned Notes">
 				<div class="space-y-0.5">
 					{#if pinnedNotes.length === 0}
-						<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
+						<p class="px-2.5 py-1.5 text-xs text-ink-faint">
 							Pin notes to keep them in quick reach
 						</p>
 					{:else}
 						{#each pinnedNotes as note (note.id)}
 							<button
 								type="button"
-								class="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-parchment dark:text-tavern-text dark:hover:bg-tavern-bg {noteButtonClass(
+								class="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg {noteButtonClass(
 									note.id,
 								)}"
 								onclick={() => navigateToNote(note.id)}
@@ -558,24 +552,22 @@
 				defaultCollapsed={true}
 			>
 				{#if collectionPills.length === 0}
-					<p class="px-2.5 py-1.5 text-xs text-ink-faint dark:text-tavern-faint">
-						Save searches to create collections
-					</p>
+					<p class="px-2.5 py-1.5 text-xs text-ink-faint">Save searches to create collections</p>
 				{:else}
 					<div class="flex flex-wrap gap-1.5 px-2.5">
 						{#each collectionPills as collection (collection.id)}
 							<button
 								type="button"
-								class="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-surface px-2 py-1 text-[11px] text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:border-accent hover:text-ink dark:border-tavern-border dark:bg-tavern-surface dark:text-tavern-muted dark:hover:border-tavern-accent dark:hover:text-tavern-text"
+								class="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-surface px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:border-accent hover:text-ink"
 								onclick={() => openCollection(collection.query)}
 								title={collection.query}
 							>
-								<span class="text-[10px]" aria-hidden="true"
+								<span class="text-2xs" aria-hidden="true"
 									>{collection.isSmart ? '\u2726' : '\u25CF'}</span
 								>
 								<span class="truncate">{collection.name}</span>
 								<span
-									class="rounded-full bg-surface-alt px-1 py-0.5 text-[10px] uppercase text-ink-faint dark:bg-tavern-surface-alt dark:text-tavern-faint"
+									class="rounded-full bg-surface-alt px-1 py-0.5 text-2xs uppercase text-ink-faint"
 									>{collection.scope}</span
 								>
 							</button>

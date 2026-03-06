@@ -94,9 +94,9 @@
 </script>
 
 <div
-	class="relative rounded-lg border bg-surface/95 dark:bg-tavern-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-150 cursor-pointer hover:shadow-md {selected
-		? 'border-border dark:border-tavern-border ring-2 ring-accent/45 dark:ring-tavern-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
-		: 'border-border dark:border-tavern-border'}"
+	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-fast cursor-pointer hover:shadow-md {selected
+		? 'border-border ring-2 ring-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
+		: 'border-border'}"
 	style="background-color: {tile.style?.backgroundColor ?? ''}; border-color: {tile.style
 		?.borderColor ?? ''}; border-width: {tile.style?.borderWidth !== undefined
 		? `${tile.style.borderWidth}px`
@@ -137,12 +137,10 @@
 			style="background-color: {tintColor}; opacity: {Math.max(0, Math.min(0.75, tintOpacity))};"
 		></div>
 	{/if}
-	<header
-		class="px-3 py-2 border-b border-border dark:border-tavern-border flex items-center gap-2"
-	>
+	<header class="px-3 py-2 border-b border-border flex items-center gap-2">
 		<button
 			type="button"
-			class="text-left truncate flex-1 font-medium text-sm text-ink dark:text-tavern-text hover:text-accent dark:hover:text-tavern-accent transition-colors"
+			class="text-left truncate flex-1 font-medium text-sm text-ink hover:text-accent transition-colors"
 			onclick={onopen}
 			title="Open enlarged view"
 			aria-label={`Open enlarged view for ${note.title}`}
@@ -151,7 +149,7 @@
 		</button>
 		<button
 			type="button"
-			class="rounded px-1.5 py-0.5 text-[11px] text-accent underline underline-offset-2 hover:text-accent-hover dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
+			class="rounded px-1.5 py-0.5 text-xs text-accent underline underline-offset-2 hover:text-accent-hover"
 			onclick={handleViewInKnowledge}
 			title="View this source note in Knowledge"
 			aria-label={`View ${note.title} in Knowledge`}
@@ -159,23 +157,17 @@
 			View in Knowledge
 		</button>
 		{#if editable}
-			<span
-				class="text-[11px] px-2 py-0.5 rounded border border-border dark:border-tavern-border text-ink-faint dark:text-tavern-faint"
-			>
+			<span class="text-xs px-2 py-0.5 rounded border border-border text-ink-faint">
 				Drag to move
 			</span>
 		{/if}
-		<span
-			class="text-[10px] px-1.5 py-0.5 rounded border border-border/70 dark:border-tavern-border/70 text-ink-faint dark:text-tavern-faint"
-		>
+		<span class="text-2xs px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
 			{depth === 'title' ? 'Title' : depth === 'summary' ? `${previewLines} lines` : 'Full'}
 		</span>
 	</header>
 	<div class="relative p-3 flex-1 min-h-0 {scrollable ? 'overflow-y-auto' : 'overflow-hidden'}">
 		{#if depth === 'title'}
-			<div
-				class="h-full flex items-center justify-center text-xs text-ink-muted dark:text-tavern-muted"
-			>
+			<div class="h-full flex items-center justify-center text-xs text-ink-muted">
 				Title-only preview enabled
 			</div>
 		{:else}
@@ -187,10 +179,10 @@
 		{/if}
 		{#if editable && !scrollable}
 			<div
-				class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface/95 dark:from-tavern-surface/95 to-transparent"
+				class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface/95 to-transparent"
 			></div>
 			<div
-				class="pointer-events-none absolute bottom-2 right-2 text-[10px] px-1.5 py-0.5 rounded border border-border/60 bg-surface/90 dark:bg-tavern-surface/90 text-ink-faint dark:text-tavern-faint"
+				class="pointer-events-none absolute bottom-2 right-2 text-2xs px-1.5 py-0.5 rounded border border-border/60 bg-surface/90 text-ink-faint"
 			>
 				Select to scroll
 			</div>

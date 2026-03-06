@@ -104,20 +104,16 @@
 		tabindex="-1"
 	>
 		<section
-			class="w-full max-w-5xl rounded-xl border border-border dark:border-tavern-border bg-surface/98 dark:bg-tavern-surface/98 shadow-2xl overflow-hidden"
+			class="w-full max-w-5xl rounded-xl border border-border bg-surface/98 shadow-2xl overflow-hidden"
 		>
-			<header
-				class="px-4 py-3 border-b border-border dark:border-tavern-border flex items-center justify-between gap-3"
-			>
+			<header class="px-4 py-3 border-b border-border flex items-center justify-between gap-3">
 				<div>
-					<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Quick Reference HUD</h2>
-					<p class="text-[11px] text-ink-muted dark:text-tavern-muted">
-						Ctrl+Shift+Space toggles this overlay.
-					</p>
+					<h2 class="text-sm font-semibold text-ink">Quick Reference HUD</h2>
+					<p class="text-xs text-ink-muted">Ctrl+Shift+Space toggles this overlay.</p>
 				</div>
 				<button
 					type="button"
-					class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+					class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt"
 					onclick={onclose}
 				>
 					Close
@@ -125,7 +121,7 @@
 			</header>
 
 			<div class="grid lg:grid-cols-[19rem,1fr] gap-0 max-h-[82vh]">
-				<div class="border-r border-border dark:border-tavern-border p-3 overflow-y-auto">
+				<div class="border-r border-border p-3 overflow-y-auto">
 					<SessionContextPanel compact showAddControls={true} />
 				</div>
 
@@ -136,14 +132,14 @@
 							bind:value={query}
 							type="text"
 							placeholder="Search entities (NPC, location, item, rule)..."
-							class="w-full rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-3 py-2 text-sm text-ink dark:text-tavern-text"
+							class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink"
 							aria-label="Search quick reference entities"
 						/>
 					</div>
 
 					{#if results.length === 0}
 						<div
-							class="flex-1 rounded border border-dashed border-border dark:border-tavern-border p-4 text-sm text-ink-muted dark:text-tavern-muted"
+							class="flex-1 rounded border border-dashed border-border p-4 text-sm text-ink-muted"
 						>
 							No matching entities.
 						</div>
@@ -154,8 +150,8 @@
 									<div
 										class="w-full rounded-md border px-3 py-2 transition-colors {index ===
 										selectedIndex
-											? 'border-accent/40 bg-accent-subtle dark:border-tavern-accent/40 dark:bg-tavern-accent-subtle'
-											: 'border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
+											? 'border-accent/40 bg-accent-subtle'
+											: 'border-border hover:bg-surface-alt'}"
 									>
 										<button
 											type="button"
@@ -164,31 +160,27 @@
 										>
 											<div class="flex items-start gap-2">
 												<span
-													class="h-6 w-6 shrink-0 rounded-full border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-[11px] font-semibold flex items-center justify-center text-ink-muted dark:text-tavern-muted"
+													class="h-6 w-6 shrink-0 rounded-full border border-border bg-surface-alt text-xs font-semibold flex items-center justify-center text-ink-muted"
 													aria-hidden="true"
 												>
 													{quickReferenceIconToken(result.type)}
 												</span>
 												<div class="min-w-0 flex-1">
 													<div class="flex items-center justify-between gap-2">
-														<p class="truncate text-sm font-medium text-ink dark:text-tavern-text">
+														<p class="truncate text-sm font-medium text-ink">
 															{result.title}
 														</p>
-														<p class="text-[11px] text-ink-faint dark:text-tavern-faint shrink-0">
+														<p class="text-xs text-ink-faint shrink-0">
 															{result.typeLabel}
 														</p>
 													</div>
 													{#if result.keyStats.length > 0}
-														<p
-															class="mt-0.5 text-[11px] text-ink-muted dark:text-tavern-muted truncate"
-														>
+														<p class="mt-0.5 text-xs text-ink-muted truncate">
 															{result.keyStats.join(' | ')}
 														</p>
 													{/if}
 													{#if result.previewLines.length > 0}
-														<p
-															class="mt-1 text-xs text-ink-muted dark:text-tavern-muted line-clamp-2"
-														>
+														<p class="mt-1 text-xs text-ink-muted line-clamp-2">
 															{result.previewLines.join(' ')}
 														</p>
 													{/if}
@@ -198,7 +190,7 @@
 										<div class="mt-2 flex items-center gap-1.5">
 											<button
 												type="button"
-												class="rounded border border-border dark:border-tavern-border px-2 py-0.5 text-[11px] text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text"
+												class="rounded border border-border px-2 py-0.5 text-xs text-ink-muted hover:text-ink"
 												onclick={() => openResultInSplit(result.noteId)}
 											>
 												Split

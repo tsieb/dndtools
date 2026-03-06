@@ -112,21 +112,19 @@
 	class="space-y-8"
 >
 	<section>
-		<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">About</h2>
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4"
-		>
-			<p class="text-sm text-ink dark:text-tavern-text font-medium">
+		<h2 class="text-lg font-semibold text-ink mb-4">About</h2>
+		<div class="rounded-lg border border-border bg-surface p-4">
+			<p class="text-sm text-ink font-medium">
 				DND Tools v{updateStatus?.currentVersion ?? 'web'}
 			</p>
-			<p class="text-sm text-ink-muted dark:text-tavern-muted mt-1">
+			<p class="text-sm text-ink-muted mt-1">
 				{#if isBrowserMode}
 					Browser-mode PWA runtime with offline-first IndexedDB storage.
 				{:else}
 					Electron-first local vault editor with built-in MCP sidecar support.
 				{/if}
 			</p>
-			<p class="text-xs text-ink-faint dark:text-tavern-faint mt-3">
+			<p class="text-xs text-ink-faint mt-3">
 				{#if isBrowserMode}
 					Data is stored in your browser vault (IndexedDB). Use import/export to move data.
 				{:else}
@@ -134,7 +132,7 @@
 				{/if}
 			</p>
 			<div
-				class="mt-3 inline-flex items-center rounded px-2 py-1 text-xs font-medium bg-surface-alt dark:bg-tavern-surface-alt text-ink dark:text-tavern-text"
+				class="mt-3 inline-flex items-center rounded px-2 py-1 text-xs font-medium bg-surface-alt text-ink"
 			>
 				Runtime mode: {isBrowserMode ? 'Browser' : 'Desktop'}
 			</div>
@@ -143,7 +141,7 @@
 
 	<section>
 		<div class="flex items-center justify-between gap-3 mb-4">
-			<h2 class="text-lg font-semibold text-ink dark:text-tavern-text">Updates</h2>
+			<h2 class="text-lg font-semibold text-ink">Updates</h2>
 			<Button
 				variant="secondary"
 				size="sm"
@@ -153,20 +151,18 @@
 				{checkingUpdates ? 'Checking…' : 'Check for Updates'}
 			</Button>
 		</div>
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-3"
-		>
+		<div class="rounded-lg border border-border bg-surface p-4 space-y-3">
 			{#if isBrowserMode}
-				<p class="text-sm text-ink-muted dark:text-tavern-muted">
+				<p class="text-sm text-ink-muted">
 					Browser mode does not use Electron auto-update. Update by refreshing the app in your
 					browser.
 				</p>
 			{:else if !updateStatus}
-				<p class="text-sm text-ink-muted dark:text-tavern-muted">Update status unavailable.</p>
+				<p class="text-sm text-ink-muted">Update status unavailable.</p>
 			{:else}
 				<div class="flex flex-wrap items-center gap-2">
 					<span
-						class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-surface-alt dark:bg-tavern-surface-alt text-ink dark:text-tavern-text"
+						class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-surface-alt text-ink"
 					>
 						State: {updateStatus.state}
 					</span>
@@ -178,26 +174,24 @@
 						</span>
 					{/if}
 				</div>
-				<p class="text-sm text-ink-muted dark:text-tavern-muted">
+				<p class="text-sm text-ink-muted">
 					{updateStatus.message ?? 'No update message.'}
 				</p>
 				{#if updateStatus.lastCheckedAt}
-					<p class="text-xs text-ink-faint dark:text-tavern-faint">
+					<p class="text-xs text-ink-faint">
 						Last checked: {updateStatus.lastCheckedAt}
 					</p>
 				{/if}
 				{#if updateStatus.downloadProgressPercent !== null}
-					<p class="text-xs text-ink-faint dark:text-tavern-faint">
+					<p class="text-xs text-ink-faint">
 						Download progress: {updateStatus.downloadProgressPercent.toFixed(1)}%
 					</p>
 				{/if}
 				{#if updateStatus.releaseNotes}
-					<details class="rounded border border-border dark:border-tavern-border p-2">
-						<summary class="text-sm text-ink dark:text-tavern-text cursor-pointer">
-							Changelog preview
-						</summary>
+					<details class="rounded border border-border p-2">
+						<summary class="text-sm text-ink cursor-pointer"> Changelog preview </summary>
 						<pre
-							class="mt-2 whitespace-pre-wrap text-xs text-ink-muted dark:text-tavern-muted max-h-48 overflow-y-auto">{updateStatus.releaseNotes}</pre>
+							class="mt-2 whitespace-pre-wrap text-xs text-ink-muted max-h-48 overflow-y-auto">{updateStatus.releaseNotes}</pre>
 					</details>
 				{/if}
 				{#if updateStatus.state === 'available' || updateStatus.state === 'downloaded'}
@@ -227,7 +221,7 @@
 					</div>
 				{/if}
 				{#if updateStatus.stagedRollout?.active}
-					<p class="text-xs text-ink-faint dark:text-tavern-faint">
+					<p class="text-xs text-ink-faint">
 						Staged rollout: {updateStatus.stagedRollout.allowedPercent}% eligibility window, your
 						cohort {updateStatus.stagedRollout.cohortPercent}%.
 					</p>
@@ -237,34 +231,30 @@
 	</section>
 
 	<section>
-		<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">Browser Mode Limits</h2>
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-3"
-		>
-			<p class="text-xs text-ink-muted dark:text-tavern-muted">
+		<h2 class="text-lg font-semibold text-ink mb-4">Browser Mode Limits</h2>
+		<div class="rounded-lg border border-border bg-surface p-4 space-y-3">
+			<p class="text-xs text-ink-muted">
 				Feature parity audit for browser mode versus Electron desktop behavior.
 			</p>
 			<div class="overflow-x-auto">
 				<table class="w-full text-xs">
-					<thead
-						class="bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted"
-					>
+					<thead class="bg-surface-alt text-ink-muted">
 						<tr>
 							<th class="text-left px-3 py-2 font-medium">Feature</th>
 							<th class="text-left px-3 py-2 font-medium">Desktop</th>
 							<th class="text-left px-3 py-2 font-medium">Browser</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-border dark:divide-tavern-border">
+					<tbody class="divide-y divide-border">
 						{#each browserModeGaps as gap (gap.feature)}
 							<tr>
-								<td class="px-3 py-2 font-medium text-ink dark:text-tavern-text">
+								<td class="px-3 py-2 font-medium text-ink">
 									{gap.feature}
 								</td>
-								<td class="px-3 py-2 text-ink-muted dark:text-tavern-muted">
+								<td class="px-3 py-2 text-ink-muted">
 									{gap.electronBehavior}
 								</td>
-								<td class="px-3 py-2 text-ink-muted dark:text-tavern-muted">
+								<td class="px-3 py-2 text-ink-muted">
 									{gap.browserBehavior}
 								</td>
 							</tr>
@@ -272,7 +262,7 @@
 					</tbody>
 				</table>
 			</div>
-			<p class="text-xs text-ink-faint dark:text-tavern-faint">
+			<p class="text-xs text-ink-faint">
 				Web Notifications API status: {webNotificationsSupported
 					? 'supported by this browser'
 					: 'not supported by this browser'}.

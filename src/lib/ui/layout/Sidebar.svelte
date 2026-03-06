@@ -67,7 +67,7 @@
 </script>
 
 <aside
-	class="h-full flex flex-col overflow-hidden border-r border-border bg-surface-alt dark:border-tavern-border dark:bg-tavern-surface
+	class="h-full flex flex-col overflow-hidden border-r border-border bg-surface-alt
 		{layoutState.isCompact && presentation === 'sidebar'
 		? 'fixed inset-y-0 left-0 z-40 shadow-xl animate-slide-in'
 		: ''}"
@@ -82,7 +82,7 @@
 					: 'var(--layout-panel-width)'}"
 >
 	{#if playerModeState.enabled}
-		<div class="border-b border-border px-3 py-2 dark:border-tavern-border">
+		<div class="border-b border-border px-3 py-2">
 			<p
 				class="rounded-md border border-emerald-300/60 bg-emerald-50/80 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:border-emerald-700/60 dark:bg-emerald-900/25 dark:text-emerald-200"
 			>
@@ -128,9 +128,9 @@
 		</div>
 	</div>
 
-	<div class="border-t border-border px-3 py-2 dark:border-tavern-border">
+	<div class="border-t border-border px-3 py-2">
 		<div
-			class="mb-2 rounded-md border border-border p-1 dark:border-tavern-border"
+			class="mb-2 rounded-md border border-border p-1"
 			role="group"
 			aria-label="Persona switcher"
 		>
@@ -138,8 +138,8 @@
 				<button
 					type="button"
 					class="rounded-full px-2.5 py-1 text-xs font-semibold transition-[transform,colors] active:scale-[0.97] active:brightness-95 {playerModeState.enabled
-						? 'border border-border text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt'
-						: 'bg-accent text-white dark:bg-tavern-accent dark:text-tavern-bg'}"
+						? 'border border-border text-ink-muted hover:bg-surface-alt'
+						: 'bg-accent text-white'}"
 					aria-pressed={!playerModeState.enabled}
 					onclick={() => onsetplayermode(false)}
 				>
@@ -159,7 +159,7 @@
 		</div>
 		<button
 			type="button"
-			class="w-full rounded-md px-2.5 py-1.5 text-left text-xs text-ink-faint transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:text-ink-muted dark:text-tavern-faint dark:hover:text-tavern-muted"
+			class="w-full rounded-md px-2.5 py-1.5 text-left text-xs text-ink-faint transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:text-ink-muted"
 			onclick={reopenOnboarding}
 		>
 			Onboarding

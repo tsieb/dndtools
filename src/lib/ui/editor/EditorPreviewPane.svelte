@@ -66,7 +66,7 @@
 
 <div
 	bind:this={container}
-	class="h-full overflow-auto rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4"
+	class="h-full overflow-auto rounded-lg border border-border bg-surface p-4"
 	aria-label="Markdown preview"
 >
 	<div class="markdown-content max-w-none" role="document">

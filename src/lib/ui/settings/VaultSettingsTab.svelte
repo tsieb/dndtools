@@ -915,55 +915,53 @@
 	class="space-y-8"
 >
 	<section>
-		<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">Vault</h2>
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4"
-		>
+		<h2 class="text-lg font-semibold text-ink mb-4">Vault</h2>
+		<div class="rounded-lg border border-border bg-surface p-4">
 			<div class="grid grid-cols-3 gap-4 text-center mb-4">
 				<div>
-					<div class="text-2xl font-bold text-accent dark:text-tavern-accent">
+					<div class="text-2xl font-bold text-accent">
 						{vaultState.noteCount}
 					</div>
-					<div class="text-xs text-ink-muted dark:text-tavern-muted">Notes</div>
+					<div class="text-xs text-ink-muted">Notes</div>
 				</div>
 				<div>
-					<div class="text-2xl font-bold text-accent dark:text-tavern-accent">
+					<div class="text-2xl font-bold text-accent">
 						{vaultState.tagCounts.length}
 					</div>
-					<div class="text-xs text-ink-muted dark:text-tavern-muted">Tags</div>
+					<div class="text-xs text-ink-muted">Tags</div>
 				</div>
 				<div>
-					<div class="text-2xl font-bold text-accent dark:text-tavern-accent">
+					<div class="text-2xl font-bold text-accent">
 						{notesState.deletedNotes.length}
 					</div>
-					<div class="text-xs text-ink-muted dark:text-tavern-muted">In Trash</div>
+					<div class="text-xs text-ink-muted">In Trash</div>
 				</div>
 			</div>
 
 			{#if notesState.deletedNotes.length > 0}
-				<div class="pt-3 border-t border-border dark:border-tavern-border">
+				<div class="pt-3 border-t border-border">
 					<Button variant="danger" size="sm" onclick={handleEmptyTrash}>
 						Empty Trash ({notesState.deletedNotes.length})
 					</Button>
 				</div>
 			{/if}
 
-			<div class="pt-3 border-t border-border dark:border-tavern-border">
+			<div class="pt-3 border-t border-border">
 				{#if hasDesktopBridge()}
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">Desktop Vault Folder</p>
-					<p class="text-xs font-mono text-ink-faint dark:text-tavern-faint break-all mt-1">
+					<p class="text-xs text-ink-muted">Desktop Vault Folder</p>
+					<p class="text-xs font-mono text-ink-faint break-all mt-1">
 						{desktopVaultDir || (refreshingDesktopState ? 'Loading...' : 'Unavailable')}
 					</p>
 					<div class="mt-2 flex items-center gap-2">
 						{#if currentVaultPermissions}
 							<span
-								class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-surface-alt dark:bg-tavern-surface-alt text-ink dark:text-tavern-text"
+								class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-surface-alt text-ink"
 							>
 								Permissions: {currentVaultPermissions.health}
 							</span>
 						{:else}
 							<span
-								class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted"
+								class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-surface-alt text-ink-muted"
 							>
 								Permissions: unknown
 							</span>
@@ -995,9 +993,9 @@
 							{checkingVaultPermissions ? 'Checking...' : 'Check Permissions'}
 						</Button>
 					</div>
-					<div class="mt-4 rounded border border-border dark:border-tavern-border p-3">
+					<div class="mt-4 rounded border border-border p-3">
 						<div class="flex items-center justify-between gap-2 mb-2">
-							<p class="text-xs font-medium text-ink dark:text-tavern-text">Recent Vaults</p>
+							<p class="text-xs font-medium text-ink">Recent Vaults</p>
 							<Button
 								variant="ghost"
 								size="sm"
@@ -1008,26 +1006,24 @@
 							</Button>
 						</div>
 						{#if recentVaults.length === 0}
-							<p class="text-xs text-ink-muted dark:text-tavern-muted">No recent vaults.</p>
+							<p class="text-xs text-ink-muted">No recent vaults.</p>
 						{:else}
 							<ul class="space-y-2">
 								{#each recentVaults as recent (recent.vaultDir)}
-									<li
-										class="rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-2"
-									>
+									<li class="rounded border border-border bg-surface-alt px-2 py-2">
 										<div class="flex items-start justify-between gap-2">
 											<div class="min-w-0">
-												<p class="text-xs font-mono text-ink dark:text-tavern-text break-all">
+												<p class="text-xs font-mono text-ink break-all">
 													{recent.vaultDir}
 												</p>
-												<p class="text-[11px] text-ink-muted dark:text-tavern-muted mt-1">
+												<p class="text-xs text-ink-muted mt-1">
 													Last opened: {recent.lastOpenedAt}
 												</p>
-												<p class="text-[11px] text-ink-faint dark:text-tavern-faint mt-1">
+												<p class="text-xs text-ink-faint mt-1">
 													Health: {recent.health}
 												</p>
 												{#if recent.remediation}
-													<p class="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+													<p class="text-xs text-amber-700 dark:text-amber-400 mt-1">
 														{recent.remediation}
 													</p>
 												{/if}
@@ -1047,14 +1043,12 @@
 						{/if}
 					</div>
 					{#if latestVaultSwitch}
-						<div class="mt-4 rounded border border-border dark:border-tavern-border p-3">
-							<p class="text-xs font-medium text-ink dark:text-tavern-text mb-2">
-								Last Vault Switch
-							</p>
+						<div class="mt-4 rounded border border-border p-3">
+							<p class="text-xs font-medium text-ink mb-2">Last Vault Switch</p>
 							<ul class="space-y-1">
 								{#each latestVaultSwitch.steps as step (step.id + step.at)}
-									<li class="text-xs text-ink-muted dark:text-tavern-muted">
-										<span class="font-medium text-ink dark:text-tavern-text">{step.id}</span>
+									<li class="text-xs text-ink-muted">
+										<span class="font-medium text-ink">{step.id}</span>
 										({step.status}) â€” {step.detail}
 									</li>
 								{/each}
@@ -1067,8 +1061,8 @@
 						</div>
 					{/if}
 				{:else}
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">Android Vault Directory</p>
-					<p class="text-xs text-ink-faint dark:text-tavern-faint mt-1">
+					<p class="text-xs text-ink-muted">Android Vault Directory</p>
+					<p class="text-xs text-ink-faint mt-1">
 						Stored under app-private files. Change the relative folder path and restart to switch
 						vault roots.
 					</p>
@@ -1078,7 +1072,7 @@
 							value={mobileVaultRootInput}
 							oninput={(event) =>
 								(mobileVaultRootInput = (event.currentTarget as HTMLInputElement).value)}
-							class="w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-xs font-mono text-ink dark:text-tavern-text"
+							class="w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs font-mono text-ink"
 							placeholder="dndtools/vault"
 							aria-label="Android vault directory"
 						/>
@@ -1086,18 +1080,18 @@
 							Save
 						</Button>
 					</div>
-					<p class="mt-2 text-xs text-ink-faint dark:text-tavern-faint">
+					<p class="mt-2 text-xs text-ink-faint">
 						Current path: <span class="font-mono">{mobileVaultRootInput}</span>
 					</p>
 				{/if}
 			</div>
 
 			{#if hasDesktopBridge()}
-				<div class="pt-3 border-t border-border dark:border-tavern-border space-y-3">
+				<div class="pt-3 border-t border-border space-y-3">
 					<div class="flex items-center justify-between gap-2">
 						<div>
-							<p class="text-xs text-ink-muted dark:text-tavern-muted">Metadata Integrity</p>
-							<p class="text-xs text-ink-faint dark:text-tavern-faint mt-1">
+							<p class="text-xs text-ink-muted">Metadata Integrity</p>
+							<p class="text-xs text-ink-faint mt-1">
 								{integrityReport
 									? integrityReport.healthy
 										? 'All .vault metadata and note markers passed validation.'
@@ -1135,9 +1129,9 @@
 						>
 							{#each integrityReport.issues.filter((i) => !i.repaired && i.status !== 'ok') as issue (issue.file)}
 								<li class="px-3 py-2 text-xs">
-									<p class="font-mono text-ink dark:text-tavern-text">{issue.file}</p>
-									<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
-									{#if issue.details}<p class="text-ink-faint dark:text-tavern-faint mt-0.5">
+									<p class="font-mono text-ink">{issue.file}</p>
+									<p class="text-ink-muted mt-0.5">{issue.status}</p>
+									{#if issue.details}<p class="text-ink-faint mt-0.5">
 											{issue.details}
 										</p>{/if}
 								</li>
@@ -1154,17 +1148,13 @@
 						>
 							{#each integrityReport.noteIssues.filter((i) => !i.repaired && (i.status === 'checksum_mismatch' || i.status === 'orphan_entry')) as issue (issue.noteId + issue.filePath)}
 								<li class="px-3 py-2 text-xs">
-									<p class="font-mono text-ink dark:text-tavern-text">{issue.filePath}</p>
-									<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
-									{#if issue.status === 'checksum_mismatch'}<p
-											class="text-ink-faint dark:text-tavern-faint mt-0.5"
-										>
+									<p class="font-mono text-ink">{issue.filePath}</p>
+									<p class="text-ink-muted mt-0.5">{issue.status}</p>
+									{#if issue.status === 'checksum_mismatch'}<p class="text-ink-faint mt-0.5">
 											Content changed outside DND Tools. Re-open and save the note to update the
 											checksum.
 										</p>{/if}
-									{#if issue.status === 'orphan_entry'}<p
-											class="text-ink-faint dark:text-tavern-faint mt-0.5"
-										>
+									{#if issue.status === 'orphan_entry'}<p class="text-ink-faint mt-0.5">
 											File missing on disk. Rebuild the index to remove the stale entry.
 										</p>{/if}
 								</li>
@@ -1173,16 +1163,14 @@
 					{/if}
 
 					{#if integrityReport?.noteIssues.some((i) => !i.repaired && (i.status === 'missing_marker' || i.status === 'invalid_marker'))}
-						<p class="text-xs font-medium text-ink-muted dark:text-tavern-muted">
+						<p class="text-xs font-medium text-ink-muted">
 							Info â€” marker issues (auto-repaired on next save)
 						</p>
-						<ul
-							class="rounded border border-border dark:border-tavern-border divide-y divide-border dark:divide-tavern-border"
-						>
+						<ul class="rounded border border-border divide-y divide-border">
 							{#each integrityReport.noteIssues.filter((i) => !i.repaired && (i.status === 'missing_marker' || i.status === 'invalid_marker')) as issue (issue.noteId + issue.filePath)}
 								<li class="px-3 py-2 text-xs">
-									<p class="font-mono text-ink dark:text-tavern-text">{issue.filePath}</p>
-									<p class="text-ink-muted dark:text-tavern-muted mt-0.5">{issue.status}</p>
+									<p class="font-mono text-ink">{issue.filePath}</p>
+									<p class="text-ink-muted mt-0.5">{issue.status}</p>
 								</li>
 							{/each}
 						</ul>
@@ -1227,34 +1215,32 @@
 	</section>
 
 	<section>
-		<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">Vault Link Health</h2>
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-4"
-		>
+		<h2 class="text-lg font-semibold text-ink mb-4">Vault Link Health</h2>
+		<div class="rounded-lg border border-border bg-surface p-4 space-y-4">
 			<div class="grid gap-2 md:grid-cols-3">
 				<button
 					type="button"
-					class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt dark:border-tavern-border dark:hover:bg-tavern-surface-alt"
+					class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt"
 					onclick={() => (linkQualityDrilldown = 'orphans')}
 				>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">Orphan notes</p>
-					<p class="text-base font-semibold text-ink dark:text-tavern-text">
+					<p class="text-xs text-ink-muted">Orphan notes</p>
+					<p class="text-base font-semibold text-ink">
 						{vaultOrphanNoteIds.length}
 					</p>
 				</button>
 				<button
 					type="button"
-					class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt dark:border-tavern-border dark:hover:bg-tavern-surface-alt"
+					class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt"
 					onclick={() => (linkQualityDrilldown = 'hubs')}
 				>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">Hub notes</p>
-					<p class="text-base font-semibold text-ink dark:text-tavern-text">
+					<p class="text-xs text-ink-muted">Hub notes</p>
+					<p class="text-base font-semibold text-ink">
 						{vaultHubNoteIds.length}
 					</p>
 				</button>
-				<div class="rounded border border-border px-3 py-2 dark:border-tavern-border">
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">Total links</p>
-					<p class="text-base font-semibold text-ink dark:text-tavern-text">
+				<div class="rounded border border-border px-3 py-2">
+					<p class="text-xs text-ink-muted">Total links</p>
+					<p class="text-base font-semibold text-ink">
 						{vaultLinkQualityReport.totals.totalLinks}
 					</p>
 				</div>
@@ -1263,73 +1249,69 @@
 			<div class="grid gap-2 md:grid-cols-4">
 				<button
 					type="button"
-					class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt dark:border-tavern-border dark:hover:bg-tavern-surface-alt"
+					class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt"
 					onclick={() => (linkQualityDrilldown = 'broken')}
 				>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">Broken links</p>
-					<p class="text-sm font-semibold text-ink dark:text-tavern-text">
+					<p class="text-xs text-ink-muted">Broken links</p>
+					<p class="text-sm font-semibold text-ink">
 						{vaultLinkQualityReport.totals.brokenLinks}
 					</p>
 				</button>
 				<button
 					type="button"
-					class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt dark:border-tavern-border dark:hover:bg-tavern-surface-alt"
+					class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt"
 					onclick={() => (linkQualityDrilldown = 'alias')}
 				>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">Alias-matched links</p>
-					<p class="text-sm font-semibold text-ink dark:text-tavern-text">
+					<p class="text-xs text-ink-muted">Alias-matched links</p>
+					<p class="text-sm font-semibold text-ink">
 						{vaultLinkQualityReport.totals.aliasMatchedLinks}
 					</p>
 				</button>
 				<button
 					type="button"
-					class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt dark:border-tavern-border dark:hover:bg-tavern-surface-alt"
+					class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt"
 					onclick={() => (linkQualityDrilldown = 'loops')}
 				>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">Loops (Aâ†”B)</p>
-					<p class="text-sm font-semibold text-ink dark:text-tavern-text">
+					<p class="text-xs text-ink-muted">Loops (Aâ†”B)</p>
+					<p class="text-sm font-semibold text-ink">
 						{vaultLinkQualityReport.totals.loops}
 					</p>
 				</button>
 				<button
 					type="button"
-					class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt dark:border-tavern-border dark:hover:bg-tavern-surface-alt"
+					class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt"
 					onclick={() => (linkQualityDrilldown = 'cross_folder')}
 				>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">Cross-folder density</p>
-					<p class="text-sm font-semibold text-ink dark:text-tavern-text">
+					<p class="text-xs text-ink-muted">Cross-folder density</p>
+					<p class="text-sm font-semibold text-ink">
 						{Math.round(vaultLinkQualityReport.totals.crossFolderLinkDensity * 100)}%
 					</p>
 				</button>
 			</div>
 
-			<div class="rounded border border-border p-3 dark:border-tavern-border">
-				<p class="text-xs font-medium text-ink dark:text-tavern-text">
+			<div class="rounded border border-border p-3">
+				<p class="text-xs font-medium text-ink">
 					{linkQualityDrilldownLabel} ({linkQualityDrilldownNoteIds.length})
 				</p>
 				{#if linkQualityDrilldownNoteIds.length === 0}
-					<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted">
-						No notes in this category.
-					</p>
+					<p class="mt-1 text-xs text-ink-muted">No notes in this category.</p>
 				{:else}
 					<ul class="mt-2 space-y-1">
 						{#each linkQualityDrilldownNoteIds.slice(0, 16) as noteId (noteId)}
 							{@const note = notesState.getNoteById(noteId)}
 							{#if note}
-								<li class="text-xs text-ink-muted dark:text-tavern-muted">
+								<li class="text-xs text-ink-muted">
 									<a
 										href={resolve(`/knowledge/notes/${note.id}`)}
-										class="text-accent hover:underline dark:text-tavern-accent"
+										class="text-accent hover:underline"
 									>
 										{note.title}
 									</a>
-									<span class="ml-1 text-ink-faint dark:text-tavern-faint"
-										>{String(note.folder)}</span
-									>
+									<span class="ml-1 text-ink-faint">{String(note.folder)}</span>
 									{#if linkQualityDrilldown === 'hubs'}
 										{@const hubInfo = linksState.getHubInfo(note.id)}
 										{#if hubInfo}
-											<span class="ml-1 text-ink-faint dark:text-tavern-faint">
+											<span class="ml-1 text-ink-faint">
 												({hubInfo.betweenness.toFixed(3)})
 											</span>
 										{/if}
@@ -1341,13 +1323,11 @@
 				{/if}
 			</div>
 
-			<div class="border-t border-border pt-4 dark:border-tavern-border">
+			<div class="border-t border-border pt-4">
 				<div class="flex flex-wrap items-center justify-between gap-2">
 					<div>
-						<p class="text-xs text-ink-muted dark:text-tavern-muted">
-							Unresolved wikilinks across active notes
-						</p>
-						<p class="text-sm font-medium text-ink dark:text-tavern-text mt-0.5">
+						<p class="text-xs text-ink-muted">Unresolved wikilinks across active notes</p>
+						<p class="text-sm font-medium text-ink mt-0.5">
 							{vaultUnresolvedLinkIssues.length}
 							issue{vaultUnresolvedLinkIssues.length === 1 ? '' : 's'}
 						</p>
@@ -1365,30 +1345,24 @@
 				</div>
 
 				{#if vaultUnresolvedLinkIssues.length === 0}
-					<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">
-						No unresolved wikilinks detected.
-					</p>
+					<p class="mt-2 text-xs text-ink-muted">No unresolved wikilinks detected.</p>
 				{:else}
-					<ul
-						class="mt-2 rounded border border-border dark:border-tavern-border divide-y divide-border dark:divide-tavern-border"
-					>
+					<ul class="mt-2 rounded border border-border divide-y divide-border">
 						{#each vaultUnresolvedLinkIssues as issue (issue.sourceId + issue.targetKind + (issue.targetIdHint ?? issue.targetLabel))}
 							<li class="px-3 py-2 text-xs space-y-1">
-								<p class="font-medium text-ink dark:text-tavern-text">
+								<p class="font-medium text-ink">
 									{issue.sourceTitle}
-									<span class="text-ink-faint dark:text-tavern-faint">({issue.sourceFolder})</span>
+									<span class="text-ink-faint">({issue.sourceFolder})</span>
 								</p>
-								<p class="text-ink-muted dark:text-tavern-muted">
+								<p class="text-ink-muted">
 									[[{issue.targetLabel}]]
 									{#if issue.targetKind === 'id' && issue.targetIdHint}
-										<span class="ml-1 text-ink-faint dark:text-tavern-faint"
-											>missing id: {issue.targetIdHint}</span
-										>
+										<span class="ml-1 text-ink-faint">missing id: {issue.targetIdHint}</span>
 									{/if}
-									<span class="ml-1 text-ink-faint dark:text-tavern-faint">x{issue.count}</span>
+									<span class="ml-1 text-ink-faint">x{issue.count}</span>
 								</p>
 								{#if issue.contexts.length > 0}
-									<p class="text-ink-faint dark:text-tavern-faint">{issue.contexts[0]}</p>
+									<p class="text-ink-faint">{issue.contexts[0]}</p>
 								{/if}
 							</li>
 						{/each}
@@ -1399,21 +1373,16 @@
 	</section>
 
 	<section>
-		<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">Safety Snapshots</h2>
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-4"
-		>
+		<h2 class="text-lg font-semibold text-ink mb-4">Safety Snapshots</h2>
+		<div class="rounded-lg border border-border bg-surface p-4 space-y-4">
 			<div class="grid md:grid-cols-2 gap-4">
 				<div>
-					<label
-						class="text-xs text-ink-muted dark:text-tavern-muted block mb-1"
-						for="backup-cadence"
-					>
+					<label class="text-xs text-ink-muted block mb-1" for="backup-cadence">
 						Auto backup cadence
 					</label>
 					<select
 						id="backup-cadence"
-						class="w-full rounded border border-border dark:border-tavern-border bg-white dark:bg-tavern-surface-alt px-2 py-1.5 text-sm"
+						class="w-full rounded border border-border bg-white px-2 py-1.5 text-sm"
 						bind:value={backupCadence}
 					>
 						<option value="hourly">Hourly</option>
@@ -1423,10 +1392,7 @@
 					</select>
 				</div>
 				<div>
-					<label
-						class="text-xs text-ink-muted dark:text-tavern-muted block mb-1"
-						for="backup-retention"
-					>
+					<label class="text-xs text-ink-muted block mb-1" for="backup-retention">
 						Retention count
 					</label>
 					<input
@@ -1434,7 +1400,7 @@
 						type="number"
 						min="1"
 						step="1"
-						class="w-full rounded border border-border dark:border-tavern-border bg-white dark:bg-tavern-surface-alt px-2 py-1.5 text-sm"
+						class="w-full rounded border border-border bg-white px-2 py-1.5 text-sm"
 						bind:value={backupRetentionCount}
 					/>
 				</div>
@@ -1459,16 +1425,14 @@
 				</Button>
 			</div>
 
-			<div class="border-t border-border dark:border-tavern-border pt-4 space-y-2">
-				<p class="text-sm font-medium text-ink dark:text-tavern-text">
-					Restore deleted notes from snapshot
-				</p>
+			<div class="border-t border-border pt-4 space-y-2">
+				<p class="text-sm font-medium text-ink">Restore deleted notes from snapshot</p>
 				{#if safetySnapshots.length === 0}
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">No snapshots available yet.</p>
+					<p class="text-xs text-ink-muted">No snapshots available yet.</p>
 				{:else}
 					<div class="flex flex-col md:flex-row gap-2 md:items-center">
 						<select
-							class="flex-1 rounded border border-border dark:border-tavern-border bg-white dark:bg-tavern-surface-alt px-2 py-1.5 text-sm"
+							class="flex-1 rounded border border-border bg-white px-2 py-1.5 text-sm"
 							bind:value={selectedSnapshotId}
 						>
 							{#each safetySnapshots as snapshot (snapshot.id)}
@@ -1496,14 +1460,12 @@
 	</section>
 
 	<section>
-		<h2 class="text-lg font-semibold text-ink dark:text-tavern-text mb-4">Import and Export</h2>
-		<div
-			class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-4 space-y-4"
-		>
+		<h2 class="text-lg font-semibold text-ink mb-4">Import and Export</h2>
+		<div class="rounded-lg border border-border bg-surface p-4 space-y-4">
 			<div class="flex items-start justify-between gap-4">
 				<div>
-					<p class="text-sm font-medium text-ink dark:text-tavern-text">Portable Markdown ZIP</p>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted mt-0.5">
+					<p class="text-sm font-medium text-ink">Portable Markdown ZIP</p>
+					<p class="text-xs text-ink-muted mt-0.5">
 						Exports plain `.md` files, an `assets/` directory, README, and validation report.
 					</p>
 				</div>
@@ -1516,14 +1478,10 @@
 					{exportingPortableZip ? 'Exporting...' : 'Export ZIP'}
 				</Button>
 			</div>
-			<div
-				class="border-t border-border dark:border-tavern-border pt-4 flex items-start justify-between gap-4"
-			>
+			<div class="border-t border-border pt-4 flex items-start justify-between gap-4">
 				<div>
-					<p class="text-sm font-medium text-ink dark:text-tavern-text">
-						Deterministic Git-Friendly ZIP
-					</p>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted mt-0.5">
+					<p class="text-sm font-medium text-ink">Deterministic Git-Friendly ZIP</p>
+					<p class="text-xs text-ink-muted mt-0.5">
 						Canonical path ordering, sorted frontmatter, normalized timestamps, stable IDs.
 					</p>
 				</div>
@@ -1537,13 +1495,11 @@
 				</Button>
 			</div>
 
-			<div class="border-t border-border dark:border-tavern-border pt-4 space-y-3">
+			<div class="border-t border-border pt-4 space-y-3">
 				<div class="flex items-start justify-between gap-4">
 					<div>
-						<p class="text-sm font-medium text-ink dark:text-tavern-text">
-							Obsidian Import Analyzer
-						</p>
-						<p class="text-xs text-ink-muted dark:text-tavern-muted mt-0.5">
+						<p class="text-sm font-medium text-ink">Obsidian Import Analyzer</p>
+						<p class="text-xs text-ink-muted mt-0.5">
 							Checks duplicate titles, ID collisions, frontmatter validity, encoding, missing files,
 							and manual link mappings before import.
 						</p>
@@ -1559,33 +1515,28 @@
 				</div>
 
 				{#if importAnalysisReport}
-					<div
-						class="rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt p-3 space-y-2"
-					>
-						<p class="text-xs text-ink dark:text-tavern-text">
+					<div class="rounded-md border border-border bg-surface-alt p-3 space-y-2">
+						<p class="text-xs text-ink">
 							Source: <span class="font-mono">{importAnalysisReport.sourceRoot}</span>
 						</p>
-						<p class="text-xs text-ink-muted dark:text-tavern-muted">
+						<p class="text-xs text-ink-muted">
 							Markdown files: {importAnalysisReport.markdownFiles} Â· Issues:
 							{importAnalysisReport.issues.length} (errors: {importAnalysisReport.stats.errors},
 							warnings: {importAnalysisReport.stats.warnings})
 						</p>
-						<p class="text-xs text-ink-muted dark:text-tavern-muted">
+						<p class="text-xs text-ink-muted">
 							Mapped: {importAnalysisReport.featureMapping.mapped.length} Â· Ignored:
 							{importAnalysisReport.featureMapping.ignored.length} Â· Manual:
 							{importAnalysisReport.featureMapping.manualResolution.length}
 						</p>
 						<div class="flex flex-wrap items-center gap-3 pt-1">
-							<label
-								for="import-resolution-default"
-								class="text-xs font-medium text-ink dark:text-tavern-text"
-							>
+							<label for="import-resolution-default" class="text-xs font-medium text-ink">
 								Default conflict resolution
 							</label>
 							<select
 								id="import-resolution-default"
 								bind:value={importDefaultResolution}
-								class="rounded border border-border dark:border-tavern-border bg-white dark:bg-tavern-surface px-2 py-1 text-xs"
+								class="rounded border border-border bg-white px-2 py-1 text-xs"
 							>
 								<option value="merge">Merge</option>
 								<option value="overwrite">Overwrite</option>
@@ -1602,18 +1553,16 @@
 						</div>
 
 						{#if importAnalysisReport.issues.length > 0}
-							<div
-								class="max-h-40 overflow-y-auto rounded border border-border dark:border-tavern-border"
-							>
+							<div class="max-h-40 overflow-y-auto rounded border border-border">
 								<table class="w-full text-xs">
-									<thead class="bg-surface-alt dark:bg-tavern-surface-alt">
+									<thead class="bg-surface-alt">
 										<tr>
 											<th class="px-2 py-1 text-left font-medium">Severity</th>
 											<th class="px-2 py-1 text-left font-medium">Issue</th>
 											<th class="px-2 py-1 text-left font-medium">Source</th>
 										</tr>
 									</thead>
-									<tbody class="divide-y divide-border dark:divide-tavern-border">
+									<tbody class="divide-y divide-border">
 										{#each importAnalysisReport.issues.slice(0, 120) as issue (issue.id)}
 											<tr>
 												<td class="px-2 py-1 uppercase">{issue.severity}</td>
@@ -1630,10 +1579,8 @@
 			</div>
 
 			{#if importCheckpoint?.exists}
-				<div
-					class="border-t border-border dark:border-tavern-border pt-4 flex flex-wrap items-center gap-3"
-				>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">
+				<div class="border-t border-border pt-4 flex flex-wrap items-center gap-3">
+					<p class="text-xs text-ink-muted">
 						Checkpoint available: {importCheckpoint.processedFiles}/{importCheckpoint.totalFiles}
 						processed Â· {importCheckpoint.remainingFiles} remaining
 					</p>
@@ -1657,19 +1604,17 @@
 			{/if}
 
 			{#if importJob}
-				<div
-					class="border-t border-border dark:border-tavern-border pt-4 rounded-md bg-surface-alt dark:bg-tavern-surface-alt p-3 space-y-2"
-				>
-					<p class="text-xs font-medium text-ink dark:text-tavern-text">
+				<div class="border-t border-border pt-4 rounded-md bg-surface-alt p-3 space-y-2">
+					<p class="text-xs font-medium text-ink">
 						Import Job: {importJob.status}
 					</p>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">
+					<p class="text-xs text-ink-muted">
 						Processed {importJob.processedFiles}/{importJob.totalFiles} Â· Imported
 						{importJob.imported} Â· Overwritten {importJob.overwritten} Â· Merged
 						{importJob.merged} Â· Skipped {importJob.skipped}
 					</p>
 					<div
-						class="h-2 rounded bg-border dark:bg-tavern-border overflow-hidden"
+						class="h-2 rounded bg-border overflow-hidden"
 						role="progressbar"
 						aria-valuemin="0"
 						aria-valuemax={Math.max(1, importJob.totalFiles)}
@@ -1688,14 +1633,10 @@
 				</div>
 			{/if}
 
-			<div
-				class="border-t border-border dark:border-tavern-border pt-4 flex items-start justify-between gap-4"
-			>
+			<div class="border-t border-border pt-4 flex items-start justify-between gap-4">
 				<div>
-					<p class="text-sm font-medium text-ink dark:text-tavern-text">
-						Legacy JSON/Markdown Export
-					</p>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted mt-0.5">
+					<p class="text-sm font-medium text-ink">Legacy JSON/Markdown Export</p>
+					<p class="text-xs text-ink-muted mt-0.5">
 						Compatibility fallback for browser mode and older bundles.
 					</p>
 				</div>
@@ -1706,13 +1647,11 @@
 			</div>
 
 			{#if latestExportReport && !latestExportReport.canceled}
-				<div
-					class="rounded-md border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt p-3 text-xs"
-				>
-					<p class="font-medium text-ink dark:text-tavern-text">
+				<div class="rounded-md border border-border bg-surface-alt p-3 text-xs">
+					<p class="font-medium text-ink">
 						Last export ({latestExportReport.profile})
 					</p>
-					<p class="text-ink-muted dark:text-tavern-muted">
+					<p class="text-ink-muted">
 						Notes: {latestExportReport.noteCount} Â· Assets: {latestExportReport.assetCount} Â· Validation
 						issues: {latestExportReport.validation.issues.length}
 					</p>
@@ -1728,15 +1667,13 @@
 		aria-live="polite"
 		aria-busy="true"
 	>
-		<div
-			class="w-full max-w-sm rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface px-4 py-5 shadow-xl"
-		>
+		<div class="w-full max-w-sm rounded-lg border border-border bg-surface px-4 py-5 shadow-xl">
 			<div class="flex items-center gap-3">
 				<span
-					class="loading-spinner-delayed inline-block h-5 w-5 rounded-full border-2 border-accent border-r-transparent dark:border-tavern-accent dark:border-r-transparent"
+					class="loading-spinner-delayed inline-block h-5 w-5 rounded-full border-2 border-accent border-r-transparent"
 					aria-hidden="true"
 				></span>
-				<p class="text-sm font-medium text-ink dark:text-tavern-text">{blockingOperationLabel}</p>
+				<p class="text-sm font-medium text-ink">{blockingOperationLabel}</p>
 			</div>
 		</div>
 	</div>

@@ -55,13 +55,10 @@
 
 	{#if modeScopedActiveNotes.length === 0}
 		<div class="text-center py-16">
-			<h1
-				class="text-3xl font-bold text-ink dark:text-tavern-text mb-3"
-				style="font-family: var(--font-serif)"
-			>
+			<h1 class="text-3xl font-bold text-ink mb-3" style="font-family: var(--font-serif)">
 				{playerModeState.enabled ? 'Player Screen' : 'Welcome, Dungeon Master'}
 			</h1>
-			<p class="text-ink-muted dark:text-tavern-muted mb-8 max-w-md mx-auto leading-relaxed">
+			<p class="text-ink-muted mb-8 max-w-md mx-auto leading-relaxed">
 				{playerModeState.enabled
 					? 'No shared or public notes are available yet.'
 					: 'Start building your campaign knowledge base. Create notes for NPCs, locations, quests, and more, then connect them with [[wikilinks]].'}
@@ -72,7 +69,7 @@
 					>
 					<a
 						href={resolve('/settings')}
-						class="text-sm text-ink-muted dark:text-tavern-muted hover:text-accent dark:hover:text-tavern-accent transition-colors"
+						class="text-sm text-ink-muted hover:text-accent transition-colors"
 					>
 						or explore settings
 					</a>
@@ -81,35 +78,24 @@
 		</div>
 	{:else}
 		<div class="mb-8">
-			<h1
-				class="text-2xl font-bold text-ink dark:text-tavern-text"
-				style="font-family: var(--font-serif)"
-			>
+			<h1 class="text-2xl font-bold text-ink" style="font-family: var(--font-serif)">
 				{playerModeState.enabled ? 'Player Screen' : 'Your Vault'}
 			</h1>
 			<div class="grid grid-cols-3 gap-3 mt-4">
 				<a
 					href={resolve('/knowledge/notes')}
-					class="p-3 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface hover:border-accent/40 dark:hover:border-tavern-accent/40 transition-all group"
+					class="p-3 rounded-lg border border-border bg-surface hover:border-accent/40 transition-all group"
 				>
-					<div class="text-2xl font-bold text-accent dark:text-tavern-accent">{noteCount}</div>
-					<div
-						class="text-xs text-ink-muted dark:text-tavern-muted group-hover:text-ink dark:group-hover:text-tavern-text transition-colors"
-					>
-						Notes
-					</div>
+					<div class="text-2xl font-bold text-accent">{noteCount}</div>
+					<div class="text-xs text-ink-muted group-hover:text-ink transition-colors">Notes</div>
 				</a>
-				<div
-					class="p-3 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
-				>
-					<div class="text-2xl font-bold text-accent dark:text-tavern-accent">{tagCount}</div>
-					<div class="text-xs text-ink-muted dark:text-tavern-muted">Tags</div>
+				<div class="p-3 rounded-lg border border-border bg-surface">
+					<div class="text-2xl font-bold text-accent">{tagCount}</div>
+					<div class="text-xs text-ink-muted">Tags</div>
 				</div>
-				<div
-					class="p-3 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface"
-				>
-					<div class="text-2xl font-bold text-accent dark:text-tavern-accent">{linkCount}</div>
-					<div class="text-xs text-ink-muted dark:text-tavern-muted">Links</div>
+				<div class="p-3 rounded-lg border border-border bg-surface">
+					<div class="text-2xl font-bold text-accent">{linkCount}</div>
+					<div class="text-xs text-ink-muted">Links</div>
 				</div>
 			</div>
 		</div>
@@ -117,7 +103,7 @@
 		{#if pinnedNotes.length > 0}
 			<section class="mb-8">
 				<div class="flex items-center gap-2 mb-4">
-					<h2 class="text-lg font-semibold text-ink dark:text-tavern-text">Pinned</h2>
+					<h2 class="text-lg font-semibold text-ink">Pinned</h2>
 				</div>
 				<div class="grid gap-3 sm:grid-cols-2">
 					{#each pinnedNotes as note (note.id)}
@@ -129,10 +115,10 @@
 
 		<section>
 			<div class="flex items-center justify-between mb-4">
-				<h2 class="text-lg font-semibold text-ink dark:text-tavern-text">Recent Notes</h2>
+				<h2 class="text-lg font-semibold text-ink">Recent Notes</h2>
 				<a
 					href={resolve('/knowledge/notes')}
-					class="text-sm text-accent dark:text-tavern-accent hover:text-accent-hover dark:hover:text-tavern-accent-hover transition-colors"
+					class="text-sm text-accent hover:text-accent-hover transition-colors"
 				>
 					View all &rarr;
 				</a>

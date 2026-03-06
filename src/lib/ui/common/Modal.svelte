@@ -36,18 +36,12 @@
 		onclick={handleBackdropClick}
 	>
 		<div
-			class="bg-surface dark:bg-tavern-surface rounded-lg shadow-xl border border-border dark:border-tavern-border w-full max-w-lg mx-4 max-h-[70vh] flex flex-col"
+			class="bg-surface-elevated rounded-lg shadow-lg border border-border w-full max-w-lg mx-4 max-h-[70vh] flex flex-col"
 		>
 			{#if title}
-				<div
-					class="flex items-center justify-between px-4 py-3 border-b border-border dark:border-tavern-border"
-				>
-					<h2 class="text-lg font-semibold text-ink dark:text-tavern-text">{title}</h2>
-					<button
-						class="text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text p-1"
-						onclick={onclose}
-						aria-label="Close"
-					>
+				<div class="flex items-center justify-between px-4 py-3 border-b border-border">
+					<h2 class="text-lg font-semibold text-ink">{title}</h2>
+					<button class="text-ink-muted hover:text-ink p-1" onclick={onclose} aria-label="Close">
 						✕
 					</button>
 				</div>

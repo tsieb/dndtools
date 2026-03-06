@@ -33,20 +33,16 @@
 		tabindex="-1"
 	>
 		<section
-			class="w-full max-w-xl h-[82vh] rounded-xl border border-border dark:border-tavern-border bg-surface/98 dark:bg-tavern-surface/98 shadow-2xl flex flex-col overflow-hidden"
+			class="w-full max-w-xl h-[82vh] rounded-xl border border-border bg-surface/98 shadow-2xl flex flex-col overflow-hidden"
 		>
-			<header
-				class="px-4 py-3 border-b border-border dark:border-tavern-border flex items-center gap-2"
-			>
+			<header class="px-4 py-3 border-b border-border flex items-center gap-2">
 				<div class="flex-1 min-w-0">
-					<h2 class="text-sm font-semibold text-ink dark:text-tavern-text truncate">Dice Tray</h2>
-					<p class="text-[11px] text-ink-muted dark:text-tavern-muted">
-						Ctrl+D toggles this panel from any route.
-					</p>
+					<h2 class="text-sm font-semibold text-ink truncate">Dice Tray</h2>
+					<p class="text-xs text-ink-muted">Ctrl+D toggles this panel from any route.</p>
 				</div>
 				<button
 					type="button"
-					class="px-2.5 py-1 rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
+					class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 					onclick={onclose}
 				>
 					Close

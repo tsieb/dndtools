@@ -47,18 +47,12 @@
 	}
 </script>
 
-<section
-	class="mb-3 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
->
+<section class="mb-3 rounded-lg border border-border bg-surface p-3">
 	<div class="mb-2 flex items-center justify-between">
-		<h2
-			class="text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
-		>
-			Metadata
-		</h2>
+		<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-faint">Metadata</h2>
 		<button
 			type="button"
-			class="rounded px-2 py-1 text-xs text-ink-muted dark:text-tavern-muted hover:bg-surface-alt dark:hover:bg-tavern-surface-alt"
+			class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 			onclick={apply}
 		>
 			Apply
@@ -66,56 +60,56 @@
 	</div>
 
 	<div class="grid gap-2 md:grid-cols-2">
-		<label class="text-xs text-ink-muted dark:text-tavern-muted">
+		<label class="text-xs text-ink-muted">
 			Type
 			<input
 				type="text"
 				bind:value={type}
-				class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+				class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 				placeholder="npc, location, quest..."
 			/>
 		</label>
-		<label class="text-xs text-ink-muted dark:text-tavern-muted">
+		<label class="text-xs text-ink-muted">
 			Status
 			<input
 				type="text"
 				bind:value={status}
-				class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+				class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 				placeholder="active, archived..."
 			/>
 		</label>
-		<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
+		<label class="text-xs text-ink-muted md:col-span-2">
 			Summary
 			<input
 				type="text"
 				bind:value={summary}
-				class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+				class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 				placeholder="One-line note summary"
 			/>
 		</label>
-		<label class="text-xs text-ink-muted dark:text-tavern-muted">
+		<label class="text-xs text-ink-muted">
 			Session Date
 			<input
 				type="date"
 				bind:value={sessionDate}
-				class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+				class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 			/>
 		</label>
-		<label class="text-xs text-ink-muted dark:text-tavern-muted">
+		<label class="text-xs text-ink-muted">
 			Aliases
 			<input
 				type="text"
 				bind:value={aliases}
-				class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+				class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 				placeholder="comma,separated,aliases"
 			/>
 		</label>
-		<label class="text-xs text-ink-muted dark:text-tavern-muted md:col-span-2">
+		<label class="text-xs text-ink-muted md:col-span-2">
 			Tags
 			<input
 				type="text"
 				bind:value={tags}
-				class="mt-1 w-full rounded border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt px-2 py-1 text-sm text-ink dark:text-tavern-text"
+				class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-sm text-ink"
 				placeholder="dm,session,quest"
 			/>
 		</label>

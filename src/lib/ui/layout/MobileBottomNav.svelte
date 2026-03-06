@@ -55,13 +55,13 @@
 </script>
 
 <div
-	class="mobile-bottom-nav fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 pb-[calc(0.3rem+env(safe-area-inset-bottom))] pt-1 backdrop-blur-md dark:border-tavern-border dark:bg-tavern-surface/95"
+	class="mobile-bottom-nav fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 pb-[calc(0.3rem+env(safe-area-inset-bottom))] pt-1 backdrop-blur-md"
 	data-testid="mobile-bottom-nav"
 >
 	<div class="mx-auto mb-1 flex w-full max-w-[560px] justify-end px-3">
 		<button
 			type="button"
-			class="rounded-full border border-border px-3 py-1 text-xs font-medium text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
+			class="rounded-full border border-border px-3 py-1 text-xs font-medium text-ink-muted"
 			onclick={onopenlibrary}
 			aria-label="Open library sheet"
 		>
@@ -75,11 +75,11 @@
 		{#each navItems as item (item.id)}
 			<a
 				href={item.href}
-				class="flex min-h-12 flex-col items-center justify-center rounded-md px-1 py-1 text-[11px] font-medium transition-colors {item.match(
+				class="flex min-h-12 flex-col items-center justify-center rounded-md px-1 py-1 text-xs font-medium transition-colors {item.match(
 					currentPath,
 				)
-					? 'bg-accent-subtle text-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-					: 'text-ink-muted dark:text-tavern-muted'}"
+					? 'bg-accent-subtle text-accent'
+					: 'text-ink-muted'}"
 				aria-current={item.match(currentPath) ? 'page' : undefined}
 			>
 				<span>{item.label}</span>

@@ -100,14 +100,14 @@
 </script>
 
 <header
-	class="h-[var(--layout-topbar-height)] shrink-0 border-b border-border bg-surface/88 px-3 backdrop-blur-md dark:border-tavern-border dark:bg-tavern-surface/88"
+	class="h-[var(--layout-topbar-height)] shrink-0 border-b border-border bg-surface/88 px-3 backdrop-blur-md"
 >
 	<div class="flex h-full items-center justify-between gap-2">
 		{#if layoutState.isCompact}
 			<div class="min-w-0 flex flex-1 items-center gap-1.5">
 				{#if compactEditorMode}
 					<button
-						class="rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+						class="rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 						onclick={requestCompactEditorBack}
 						aria-label="Done editing"
 						title="Done"
@@ -123,12 +123,12 @@
 						</svg>
 					</button>
 				{/if}
-				<p class="truncate text-sm font-semibold text-ink dark:text-tavern-text">{routeTitle}</p>
+				<p class="truncate text-sm font-semibold text-ink">{routeTitle}</p>
 			</div>
 
 			<div class="relative ml-2 flex items-center gap-1.5">
 				<button
-					class="rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+					class="rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 					onclick={onsearch}
 					aria-label="Open command palette"
 					title="Open command palette (Ctrl+P)"
@@ -149,7 +149,7 @@
 				</button>
 				<button
 					bind:this={overflowButtonEl}
-					class="rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+					class="rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 					onclick={() => (overflowOpen = !overflowOpen)}
 					aria-label="More actions"
 					aria-haspopup="menu"
@@ -166,22 +166,18 @@
 				{#if overflowOpen}
 					<div
 						bind:this={overflowMenuEl}
-						class="absolute right-0 top-[calc(100%+0.35rem)] z-40 min-w-48 rounded-lg border border-border bg-surface p-2 shadow-xl dark:border-tavern-border dark:bg-tavern-surface"
+						class="absolute right-0 top-[calc(100%+0.35rem)] z-40 min-w-48 rounded-lg border border-border bg-surface-elevated p-2 shadow-lg"
 						role="menu"
 						aria-label="Compact topbar overflow menu"
 					>
 						<div class="mb-2 px-1">
-							<p
-								class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint dark:text-tavern-faint"
-							>
-								Theme
-							</p>
+							<p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">Theme</p>
 							<div class="mt-1 grid grid-cols-3 gap-1">
 								<button
 									type="button"
 									class="rounded px-1.5 py-1 text-xs {ui.theme === 'light'
-										? 'bg-accent-subtle text-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-										: 'text-ink-muted hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt'}"
+										? 'bg-accent-subtle text-accent'
+										: 'text-ink-muted hover:bg-surface-alt'}"
 									onclick={() => applyTheme('light')}
 									role="menuitemradio"
 									aria-checked={ui.theme === 'light'}
@@ -191,8 +187,8 @@
 								<button
 									type="button"
 									class="rounded px-1.5 py-1 text-xs {ui.theme === 'system'
-										? 'bg-accent-subtle text-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-										: 'text-ink-muted hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt'}"
+										? 'bg-accent-subtle text-accent'
+										: 'text-ink-muted hover:bg-surface-alt'}"
 									onclick={() => applyTheme('system')}
 									role="menuitemradio"
 									aria-checked={ui.theme === 'system'}
@@ -202,8 +198,8 @@
 								<button
 									type="button"
 									class="rounded px-1.5 py-1 text-xs {ui.theme === 'dark'
-										? 'bg-accent-subtle text-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
-										: 'text-ink-muted hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt'}"
+										? 'bg-accent-subtle text-accent'
+										: 'text-ink-muted hover:bg-surface-alt'}"
 									onclick={() => applyTheme('dark')}
 									role="menuitemradio"
 									aria-checked={ui.theme === 'dark'}
@@ -215,7 +211,7 @@
 
 						<a
 							href={resolve('/settings')}
-							class="block rounded px-2 py-1.5 text-sm text-ink-muted hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+							class="block rounded px-2 py-1.5 text-sm text-ink-muted hover:bg-surface-alt"
 							role="menuitem"
 							onclick={() => (overflowOpen = false)}
 						>
@@ -223,7 +219,7 @@
 						</a>
 						<button
 							type="button"
-							class="mt-1 w-full rounded px-2 py-1.5 text-left text-sm text-ink-muted hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+							class="mt-1 w-full rounded px-2 py-1.5 text-left text-sm text-ink-muted hover:bg-surface-alt"
 							role="menuitem"
 							onclick={() => {
 								overflowOpen = false;
@@ -238,7 +234,7 @@
 		{:else}
 			<div class="flex min-w-0 items-center gap-1.5">
 				<button
-					class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+					class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 					onclick={ontogglelocalpanel}
 					aria-label="Toggle local navigation"
 					title={showKeyboardHints ? 'Toggle local navigation (Ctrl+B)' : 'Toggle local navigation'}
@@ -256,7 +252,7 @@
 				{#if layoutState.isExpanded}
 					<button
 						type="button"
-						class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+						class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent"
 						onclick={ontoggledetailpanel}
 						disabled={!detailpanelavailable}
 						aria-pressed={detailpanelopen}
@@ -277,7 +273,7 @@
 					</button>
 				{/if}
 				<button
-					class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+					class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent"
 					onclick={() => window.history.back()}
 					disabled={!navigationState.canGoBack}
 					aria-label="Go back"
@@ -296,7 +292,7 @@
 					</svg>
 				</button>
 				<button
-					class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+					class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent"
 					onclick={() => window.history.forward()}
 					disabled={!navigationState.canGoForward}
 					aria-label="Go forward"
@@ -315,13 +311,13 @@
 					</svg>
 				</button>
 				<div class="ml-1 min-w-0">
-					<p class="truncate text-sm font-semibold text-ink dark:text-tavern-text">{routeTitle}</p>
+					<p class="truncate text-sm font-semibold text-ink">{routeTitle}</p>
 				</div>
 			</div>
 
 			<div class="desktop-no-drag ml-2 flex items-center gap-1.5">
 				<button
-					class="flex items-center gap-2 rounded-md bg-surface-alt px-2.5 py-1.5 text-sm text-ink-faint transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-border dark:bg-tavern-surface-alt dark:text-tavern-faint dark:hover:bg-tavern-border"
+					class="flex items-center gap-2 rounded-md bg-surface-alt px-2.5 py-1.5 text-sm text-ink-faint transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-border"
 					onclick={onsearch}
 					aria-label="Open command palette"
 					title={showKeyboardHints ? 'Open command palette (Ctrl+P)' : 'Open command palette'}
@@ -350,7 +346,7 @@
 							? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20'
 							: vaultHealthState.severity === 'warning'
 								? 'text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20'
-								: 'text-ink-muted hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt'}"
+								: 'text-ink-muted hover:bg-surface-alt'}"
 						aria-label="Vault integrity issues detected"
 						title="Open vault health report"
 					>
@@ -368,12 +364,12 @@
 							/>
 						</svg>
 						<span
-							class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full px-1 text-center text-[10px] leading-4 text-white {vaultHealthState.severity ===
+							class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full px-1 text-center text-2xs leading-4 text-white {vaultHealthState.severity ===
 							'critical'
 								? 'bg-red-600'
 								: vaultHealthState.severity === 'warning'
 									? 'bg-amber-500'
-									: 'bg-ink-muted dark:bg-tavern-muted'}"
+									: 'bg-ink-muted'}"
 						>
 							{vaultHealthState.issueCount}
 						</span>
@@ -382,7 +378,7 @@
 
 				<a
 					href={`${resolve('/settings')}?tab=mcp#mcp-changes`}
-					class="relative rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+					class="relative rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 					aria-label="Pending MCP changes"
 					title="Review pending MCP changes"
 				>
@@ -401,7 +397,7 @@
 					</svg>
 					{#if mcpChangesState.count > 0}
 						<span
-							class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full bg-warning px-1 text-center text-[10px] leading-4 text-white dark:bg-tavern-warning"
+							class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full bg-warning px-1 text-center text-2xs leading-4 text-white"
 						>
 							{mcpChangesState.count}
 						</span>

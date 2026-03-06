@@ -88,17 +88,11 @@
 <div class="h-full p-3">
 	{#if context === 'note'}
 		{#if note}
-			<div
-				class="mb-3 rounded-md border border-border bg-surface p-2.5 dark:border-tavern-border dark:bg-tavern-surface"
-			>
-				<p
-					class="text-xs font-semibold uppercase tracking-wide text-ink-faint dark:text-tavern-faint"
-				>
-					Note Context
-				</p>
-				<p class="mt-1 text-sm font-semibold text-ink dark:text-tavern-text">{note.title}</p>
+			<div class="mb-3 rounded-md border border-border bg-surface p-2.5">
+				<p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">Note Context</p>
+				<p class="mt-1 text-sm font-semibold text-ink">{note.title}</p>
 				{#if noteObject}
-					<ul class="mt-2 space-y-1 text-xs text-ink-muted dark:text-tavern-muted">
+					<ul class="mt-2 space-y-1 text-xs text-ink-muted">
 						<li>Type: {noteObject.type}</li>
 						<li>Tags: {note.tags.length}</li>
 						<li>Relationships: {noteObject.relationships.length}</li>
@@ -110,72 +104,62 @@
 				<BacklinksPanel noteId={note.id} />
 			</div>
 		{:else}
-			<p class="text-sm text-ink-muted dark:text-tavern-muted">Note context is unavailable.</p>
+			<p class="text-sm text-ink-muted">Note context is unavailable.</p>
 		{/if}
 	{:else if context === 'map'}
 		{#if selectedMap}
-			<section
-				class="rounded-md border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
-			>
-				<p
-					class="text-xs font-semibold uppercase tracking-wide text-ink-faint dark:text-tavern-faint"
-				>
-					Map Legend
-				</p>
-				<h2 class="mt-1 text-sm font-semibold text-ink dark:text-tavern-text">
+			<section class="rounded-md border border-border bg-surface p-3">
+				<p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">Map Legend</p>
+				<h2 class="mt-1 text-sm font-semibold text-ink">
 					{selectedMap.name}
 				</h2>
-				<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted">
+				<p class="mt-1 text-xs text-ink-muted">
 					{selectedMap.data.pois?.length ?? 0} points of interest
 				</p>
 				{#if poiCounts.length > 0}
-					<ul class="mt-3 space-y-1 text-xs text-ink-muted dark:text-tavern-muted">
+					<ul class="mt-3 space-y-1 text-xs text-ink-muted">
 						{#each poiCounts as [category, count] (`${category}-${count}`)}
 							<li
-								class="flex items-center justify-between gap-2 rounded border border-border/60 px-2 py-1 dark:border-tavern-border/70"
+								class="flex items-center justify-between gap-2 rounded border border-border/60 px-2 py-1"
 							>
 								<span class="capitalize">{category}</span>
-								<span class="font-semibold text-ink dark:text-tavern-text">{count}</span>
+								<span class="font-semibold text-ink">{count}</span>
 							</li>
 						{/each}
 					</ul>
 				{/if}
 			</section>
 		{:else}
-			<p class="text-sm text-ink-muted dark:text-tavern-muted">Select a map to view its legend.</p>
+			<p class="text-sm text-ink-muted">Select a map to view its legend.</p>
 		{/if}
 	{:else if context === 'session'}
-		<section
-			class="rounded-md border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
-		>
-			<p
-				class="text-xs font-semibold uppercase tracking-wide text-ink-faint dark:text-tavern-faint"
-			>
+		<section class="rounded-md border border-border bg-surface p-3">
+			<p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">
 				Session Quick Reference
 			</p>
 			{#if sessionBoardSummary}
-				<h2 class="mt-1 text-sm font-semibold text-ink dark:text-tavern-text">
+				<h2 class="mt-1 text-sm font-semibold text-ink">
 					{sessionBoardSummary.board.name}
 				</h2>
-				<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted">
+				<p class="mt-1 text-xs text-ink-muted">
 					{sessionBoardSummary.board.tiles.length} board tiles
 				</p>
-				<ul class="mt-3 space-y-1 text-xs text-ink-muted dark:text-tavern-muted">
+				<ul class="mt-3 space-y-1 text-xs text-ink-muted">
 					{#each sessionBoardSummary.typeCounts as [tileType, count] (`${tileType}-${count}`)}
 						<li
-							class="flex items-center justify-between gap-2 rounded border border-border/60 px-2 py-1 dark:border-tavern-border/70"
+							class="flex items-center justify-between gap-2 rounded border border-border/60 px-2 py-1"
 						>
 							<span class="capitalize">{tileType}</span>
-							<span class="font-semibold text-ink dark:text-tavern-text">{count}</span>
+							<span class="font-semibold text-ink">{count}</span>
 						</li>
 					{/each}
 				</ul>
 			{:else}
-				<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">
+				<p class="mt-2 text-xs text-ink-muted">
 					No active session board. Open
 					<a
 						href={resolve('/session/boards')}
-						class="text-accent underline underline-offset-2 hover:text-accent-hover dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
+						class="text-accent underline underline-offset-2 hover:text-accent-hover"
 					>
 						Session Boards
 					</a>

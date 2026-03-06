@@ -52,19 +52,16 @@
 			{#each normalizedItems as item, index (itemKey(item, index))}
 				<li class="inline-flex min-w-0 items-center gap-1">
 					{#if index > 0}
-						<span class="text-ink-faint dark:text-tavern-faint" aria-hidden="true">/</span>
+						<span class="text-ink-faint" aria-hidden="true">/</span>
 					{/if}
 					{#if index === normalizedItems.length - 1 || !item.href}
-						<span
-							class="truncate rounded px-1 font-medium text-ink dark:text-tavern-text"
-							aria-current="page"
-						>
+						<span class="truncate rounded px-1 font-medium text-ink" aria-current="page">
 							{item.label}
 						</span>
 					{:else}
 						<a
 							href={item.href}
-							class="truncate rounded px-1 text-ink-muted transition-colors hover:bg-surface-alt hover:text-ink dark:text-tavern-muted dark:hover:bg-tavern-surface-alt dark:hover:text-tavern-text"
+							class="truncate rounded px-1 text-ink-muted transition-colors hover:bg-surface-alt hover:text-ink"
 						>
 							{item.label}
 						</a>
@@ -76,27 +73,27 @@
 				{#if firstItem.href}
 					<a
 						href={firstItem.href}
-						class="truncate rounded px-1 text-ink-muted transition-colors hover:bg-surface-alt hover:text-ink dark:text-tavern-muted dark:hover:bg-tavern-surface-alt dark:hover:text-tavern-text"
+						class="truncate rounded px-1 text-ink-muted transition-colors hover:bg-surface-alt hover:text-ink"
 					>
 						{firstItem.label}
 					</a>
 				{:else}
-					<span class="truncate rounded px-1 text-ink-muted dark:text-tavern-muted">
+					<span class="truncate rounded px-1 text-ink-muted">
 						{firstItem.label}
 					</span>
 				{/if}
 			</li>
 			<li class="inline-flex min-w-0 items-center gap-1">
-				<span class="text-ink-faint dark:text-tavern-faint" aria-hidden="true">/</span>
+				<span class="text-ink-faint" aria-hidden="true">/</span>
 				<details class="group relative">
 					<summary
-						class="list-none cursor-pointer rounded px-1 text-ink-muted hover:bg-surface-alt hover:text-ink dark:text-tavern-muted dark:hover:bg-tavern-surface-alt dark:hover:text-tavern-text"
+						class="list-none cursor-pointer rounded px-1 text-ink-muted hover:bg-surface-alt hover:text-ink"
 						aria-label="Show full breadcrumb path"
 					>
 						...
 					</summary>
 					<div
-						class="absolute left-0 top-full z-30 mt-1 min-w-[180px] rounded-md border border-border bg-surface p-1 shadow-lg dark:border-tavern-border dark:bg-tavern-surface"
+						class="absolute left-0 top-full z-30 mt-1 min-w-[180px] rounded-md border border-border bg-surface-elevated p-1 shadow-lg"
 					>
 						<ol class="space-y-0.5">
 							{#each middleItems as item, index (itemKey(item, index))}
@@ -104,14 +101,12 @@
 									{#if item.href}
 										<a
 											href={item.href}
-											class="block truncate rounded px-2 py-1 text-xs text-ink-muted transition-colors hover:bg-surface-alt hover:text-ink dark:text-tavern-muted dark:hover:bg-tavern-surface-alt dark:hover:text-tavern-text"
+											class="block truncate rounded px-2 py-1 text-xs text-ink-muted transition-colors hover:bg-surface-alt hover:text-ink"
 										>
 											{item.label}
 										</a>
 									{:else}
-										<span
-											class="block truncate rounded px-2 py-1 text-xs font-medium text-ink dark:text-tavern-text"
-										>
+										<span class="block truncate rounded px-2 py-1 text-xs font-medium text-ink">
 											{item.label}
 										</span>
 									{/if}
@@ -122,11 +117,8 @@
 				</details>
 			</li>
 			<li class="inline-flex min-w-0 items-center gap-1">
-				<span class="text-ink-faint dark:text-tavern-faint" aria-hidden="true">/</span>
-				<span
-					class="truncate rounded px-1 font-medium text-ink dark:text-tavern-text"
-					aria-current="page"
-				>
+				<span class="text-ink-faint" aria-hidden="true">/</span>
+				<span class="truncate rounded px-1 font-medium text-ink" aria-current="page">
 					{lastItem.label}
 				</span>
 			</li>
