@@ -106,6 +106,81 @@ html.dark .app-main::before {
 		linear-gradient(300deg, rgba(224, 190, 133, 0.04), transparent 45%);
 }
 
+.primary-nav-item {
+	--primary-nav-active: 0;
+	color: color-mix(in srgb, var(--color-ink-muted) 92%, transparent);
+	border-left: 2px solid transparent;
+	transition:
+		color 140ms ease,
+		border-color 140ms ease,
+		background-color 140ms ease;
+}
+
+.primary-nav-item .primary-nav-icon {
+	background: color-mix(
+		in srgb,
+		var(--color-accent) calc(var(--primary-nav-active) * 100%),
+		transparent
+	);
+	color: color-mix(in srgb, white calc(var(--primary-nav-active) * 95%), var(--color-ink-muted));
+	box-shadow:
+		inset 0 0 0 calc(var(--primary-nav-active) * 1px)
+			color-mix(in srgb, var(--color-accent) 55%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--color-border) 75%, transparent);
+	transform: scale(calc(0.98 + var(--primary-nav-active) * 0.05));
+	transition:
+		background-color 160ms ease,
+		color 160ms ease,
+		box-shadow 160ms ease,
+		transform 160ms ease;
+}
+
+.primary-nav-item[data-active='true'] {
+	color: var(--color-ink);
+	border-left-color: var(--color-accent);
+	background: color-mix(in srgb, var(--color-accent-subtle) 65%, transparent);
+}
+
+html.dark .primary-nav-item {
+	color: color-mix(in srgb, var(--color-tavern-muted) 94%, transparent);
+}
+
+html.dark .primary-nav-item .primary-nav-icon {
+	background: color-mix(
+		in srgb,
+		var(--color-tavern-accent) calc(var(--primary-nav-active) * 85%),
+		transparent
+	);
+	color: color-mix(
+		in srgb,
+		var(--color-tavern-bg) calc(var(--primary-nav-active) * 90%),
+		var(--color-tavern-muted)
+	);
+	box-shadow:
+		inset 0 0 0 calc(var(--primary-nav-active) * 1px)
+			color-mix(in srgb, var(--color-tavern-accent) 55%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--color-tavern-border) 85%, transparent);
+}
+
+html.dark .primary-nav-item[data-active='true'] {
+	color: var(--color-tavern-text);
+	border-left-color: var(--color-tavern-accent);
+	background: color-mix(in srgb, var(--color-tavern-accent-subtle) 80%, transparent);
+}
+
+[data-mode='compact'] .primary-nav-item {
+	border-left-color: transparent;
+	border-top: 2px solid transparent;
+}
+
+[data-mode='compact'] .primary-nav-item[data-active='true'] {
+	border-top-color: var(--color-accent);
+}
+
+html.dark [data-mode='compact'] .primary-nav-item[data-active='true'] {
+	border-top-color: var(--color-tavern-accent);
+}
+
 /* Animations */
 @keyframes slide-in {
 	from {

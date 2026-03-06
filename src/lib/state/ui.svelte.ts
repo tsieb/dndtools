@@ -4,8 +4,13 @@ class UIState {
 	theme = $state<'light' | 'dark' | 'system'>('system');
 	sidebarOpen = $state(true);
 	sidebarWidth = $state(260);
-	isMobile = $state(false);
+	viewportWidth = $state(1280);
 	focusReading = $state(false);
+	isMobile = $derived(this.viewportWidth < 768);
+	isMedium = $derived(this.viewportWidth >= 768 && this.viewportWidth < 1100);
+	layoutMode = $derived<'compact' | 'medium' | 'expanded'>(
+		this.isMobile ? 'compact' : this.isMedium ? 'medium' : 'expanded',
+	);
 
 	resolvedTheme = $derived<'light' | 'dark'>(
 		this.theme === 'system'
@@ -40,7 +45,7 @@ class UIState {
 
 	checkMobile(): void {
 		if (typeof window !== 'undefined') {
-			this.isMobile = window.innerWidth < 768;
+			this.viewportWidth = window.innerWidth;
 			if (this.isMobile) {
 				this.sidebarOpen = false;
 			}

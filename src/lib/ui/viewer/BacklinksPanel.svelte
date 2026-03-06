@@ -90,7 +90,7 @@
 					{#each backlinks as backlink (backlink.key)}
 						<li>
 							<a
-								href={resolve(`/notes/${backlink.sourceId}`)}
+								href={resolve(`/knowledge/notes/${backlink.sourceId}`)}
 								class="text-sm font-medium text-accent dark:text-tavern-accent hover:text-accent-hover dark:hover:text-tavern-accent-hover underline underline-offset-2"
 							>
 								{backlink.sourceTitle}

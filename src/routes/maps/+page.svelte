@@ -1113,7 +1113,7 @@
 		if (!mapId) return;
 		if (!maps.some((entry) => String(entry.id) === mapId)) return;
 		selectedMapId = mapId;
-		void goto(`${resolve('/maps')}?map=${encodeURIComponent(mapId)}`, {
+		void goto(`${resolve('/atlas/maps')}?map=${encodeURIComponent(mapId)}`, {
 			replaceState: true,
 			noScroll: true,
 		});
@@ -2452,7 +2452,7 @@
 				{#if selectedMapBreadcrumbs.length > 0}
 					<nav
 						class="mb-2 flex flex-wrap items-center gap-1 text-[11px] text-ink-muted dark:text-tavern-muted"
-						aria-label="Map hierarchy breadcrumbs"
+						aria-label="Contextual navigation: Map hierarchy breadcrumbs"
 					>
 						{#each selectedMapBreadcrumbs as crumb, index (crumb.mapId)}
 							{#if index > 0}
@@ -2965,7 +2965,7 @@
 							<button
 								type="button"
 								class="text-xs text-accent hover:underline dark:text-tavern-accent"
-								onclick={() => void goto(resolve(`/notes/${draftAreaNoteId}`))}
+								onclick={() => void goto(resolve(`/knowledge/notes/${draftAreaNoteId}`))}
 							>
 								Open linked location note
 							</button>
@@ -3416,7 +3416,9 @@
 												type="button"
 												class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface-alt dark:border-tavern-border dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
 												onclick={() =>
-													void goto(resolve(`/notes/${resolveLinkedNoteIdForPoi(selectedPoi)}`))}
+													void goto(
+														resolve(`/knowledge/notes/${resolveLinkedNoteIdForPoi(selectedPoi)}`),
+													)}
 											>
 												Open linked note
 											</button>

@@ -7,18 +7,18 @@ test.describe('Search', () => {
 	});
 
 	test('search page has input field', async ({ page }) => {
-		await page.goto('/search');
+		await page.goto('/knowledge/search');
 		await expect(page.getByRole('heading', { name: 'Search & Discovery' })).toBeVisible();
 		await expect(page.getByPlaceholder('Search notes...')).toBeVisible();
 	});
 
 	test('search hydrates query from URL parameter', async ({ page }) => {
-		await page.goto('/search?q=Welcome');
+		await page.goto('/knowledge/search?q=Welcome');
 		await expect(page.getByPlaceholder('Search notes...')).toHaveValue('Welcome');
 	});
 
 	test('search shows results for matching query', async ({ page }) => {
-		await page.goto('/search');
+		await page.goto('/knowledge/search');
 		const input = page.getByPlaceholder('Search notes...');
 		await input.fill('Welcome');
 
@@ -35,12 +35,12 @@ test.describe('Search', () => {
 	});
 
 	test('search shows empty state when no query', async ({ page }) => {
-		await page.goto('/search');
+		await page.goto('/knowledge/search');
 		await expect(page.getByText(/Type to search across all notes/i)).toBeVisible();
 	});
 
 	test('saved searches appear in sidebar collections', async ({ page }) => {
-		await page.goto('/search');
+		await page.goto('/knowledge/search');
 		const input = page.getByPlaceholder('Search notes...');
 		await input.fill('Welcome');
 		await page.waitForTimeout(300);

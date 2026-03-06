@@ -70,11 +70,11 @@ describe('renderMarkdown', () => {
 	it('renders resolved wikilinks with correct href', async () => {
 		const html = await renderMarkdown('See [[Test]]', {
 			resolveLink: (_title) => ({
-				href: `/notes/abc123`,
+				href: `/knowledge/notes/abc123`,
 				exists: true,
 			}),
 		});
-		expect(html).toContain('/notes/abc123');
+		expect(html).toContain('/knowledge/notes/abc123');
 		expect(html).toContain('Test');
 	});
 
@@ -156,7 +156,7 @@ describe('renderMarkdown', () => {
 			}),
 		});
 		expect(html).toContain('object-embed');
-		expect(html).toContain('href="/notes/abc123"');
+		expect(html).toContain('href="/knowledge/notes/abc123"');
 	});
 
 	it('renders note embeds as rich cards with metadata options', async () => {

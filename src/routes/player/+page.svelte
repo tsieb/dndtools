@@ -36,7 +36,7 @@
 
 	async function exitPlayerMode(): Promise<void> {
 		await playerModeState.setEnabled(false);
-		goto(resolve('/notes'));
+		goto(resolve('/knowledge/notes'));
 	}
 </script>
 
@@ -47,7 +47,7 @@
 				class="text-2xl font-bold text-ink dark:text-tavern-text"
 				style="font-family: var(--font-serif)"
 			>
-				Player View
+				Player Screen
 			</h1>
 			<p class="text-sm text-ink-muted dark:text-tavern-muted mt-1">
 				Showing shared and public notes only.
@@ -88,7 +88,7 @@
 	{:else}
 		<div class="grid gap-3 sm:grid-cols-2">
 			{#each filteredNotes as note (note.id)}
-				<NoteCard {note} onclick={(id) => goto(resolve(`/notes/${id}`))} />
+				<NoteCard {note} onclick={(id) => goto(resolve(`/knowledge/notes/${id}`))} />
 			{/each}
 		</div>
 	{/if}

@@ -10,31 +10,28 @@ test.describe('Mobile navigation and keyboard adaptation', () => {
 		await page.evaluate(() => {
 			window.dispatchEvent(new Event('resize'));
 		});
-
-		const exitPlayerModeButton = page.getByRole('button', { name: 'Exit player mode' });
-		if (await exitPlayerModeButton.isVisible()) {
-			await exitPlayerModeButton.click();
-		}
 	});
 
 	test('renders bottom navigation and opens library sheet', async ({ page }) => {
-		const mobileNav = page.getByRole('navigation', { name: 'Mobile navigation' });
+		const mobileNav = page.getByRole('navigation', {
+			name: 'Global navigation: Primary sections',
+		});
 		await expect(mobileNav).toBeVisible({ timeout: 15_000 });
 
 		await mobileNav.getByRole('link', { name: 'Settings' }).click();
 		await expect(page).toHaveURL(/\/settings/);
 
-		await page.getByRole('button', { name: 'Open library sheet' }).click();
-		await expect(page.getByRole('dialog', { name: 'Library sheet' })).toBeVisible();
+		await page.getByRole('button', { name: 'Toggle local navigation' }).click();
+		await expect(page.getByRole('dialog', { name: 'Local navigation sheet' })).toBeVisible();
 
 		await page
-			.getByRole('button', { name: 'Close library sheet' })
+			.getByRole('button', { name: 'Close local navigation sheet' })
 			.click({ force: true, position: { x: 8, y: 8 } });
-		await expect(page.getByRole('dialog', { name: 'Library sheet' })).not.toBeVisible();
+		await expect(page.getByRole('dialog', { name: 'Local navigation sheet' })).not.toBeVisible();
 	});
 
 	test('docks editor toolbar when simulated keyboard opens', async ({ page }) => {
-		await page.goto(`/notes?create=${encodeURIComponent('Mobile Keyboard Test Note')}`);
+		await page.goto(`/knowledge/notes?create=${encodeURIComponent('Mobile Keyboard Test Note')}`);
 		await expect(page).toHaveURL(/\/notes\/.+\/edit/);
 
 		await page.locator('.cm-content').click();

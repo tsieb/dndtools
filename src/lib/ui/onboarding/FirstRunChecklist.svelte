@@ -57,12 +57,12 @@
 	async function handleCreateFirstNote(): Promise<void> {
 		const note = await notesState.createNote();
 		await onboardingState.completeStep('create_first_note');
-		goto(resolve(`/notes/${note.id}/edit`));
+		goto(resolve(`/knowledge/notes/${note.id}/edit`));
 	}
 
 	async function handleUseSearch(): Promise<void> {
 		await onboardingState.completeStep('use_search');
-		goto(resolve('/search'));
+		goto(resolve('/knowledge/search'));
 	}
 
 	async function handleOpenSettings(): Promise<void> {

@@ -133,7 +133,7 @@
 							<button
 								type="button"
 								class="rounded bg-surface-alt px-2 py-0.5 text-left text-[11px] hover:bg-surface dark:bg-tavern-surface-alt dark:hover:bg-tavern-surface"
-								onclick={() => row.targetId && goto(resolve(`/notes/${row.targetId}`))}
+								onclick={() => row.targetId && goto(resolve(`/knowledge/notes/${row.targetId}`))}
 							>
 								{row.targetName ?? row.targetId}
 							</button>

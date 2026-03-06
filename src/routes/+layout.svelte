@@ -4,21 +4,11 @@
 	import Toast from '$lib/ui/common/Toast.svelte';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { runtimeState } from '$lib/state/runtime.svelte.js';
-	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
-	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
-	import { handoutsState } from '$lib/state/handouts.svelte.js';
-	import { toastState } from '$lib/state/toast.svelte.js';
 	import { a11yAnnouncerState } from '$lib/state/a11y-announcer.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { onboardingState } from '$lib/state/onboarding.svelte.js';
-	import { searchService } from '$lib/domain/search.js';
-	import { refreshDesktopVault } from '$lib/platform/desktop/bridge.js';
-	import {
-		installGlobalRuntimeDiagnostics,
-		markSubsystemSuccess,
-		reportRuntimeError,
-	} from '$lib/runtime/diagnostics.js';
+	import { installGlobalRuntimeDiagnostics, reportRuntimeError } from '$lib/runtime/diagnostics.js';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -61,25 +51,45 @@
 		() => templateDialogFolderOverride ?? page.url.searchParams.get('folder'),
 	);
 
+	function canonicalizeLegacyPath(url: URL): string | null {
+		const { pathname, search } = url;
+		if (pathname === '/') return `/knowledge${search}`;
+		if (pathname === '/notes') return `/knowledge/notes${search}`;
+		const noteMatch = pathname.match(/^\/notes\/([^/]+)(?:\/(edit))?$/);
+		if (noteMatch) {
+			const noteId = noteMatch[1] ?? '';
+			const editSuffix = noteMatch[2] === 'edit' ? '/edit' : '';
+			return `/knowledge/notes/${noteId}${editSuffix}${search}`;
+		}
+		if (pathname === '/search') return `/knowledge/search${search}`;
+		if (pathname === '/graph') return `/knowledge/graph${search}`;
+		if (pathname === '/maps') return `/atlas/maps${search}`;
+		if (pathname === '/timeline') return `/campaign/timeline${search}`;
+		if (pathname === '/session-board') return `/session/boards${search}`;
+		if (pathname === '/encounter/new') return `/session/encounter/new${search}`;
+		if (pathname === '/combat') return `/session/combat${search}`;
+		return null;
+	}
+
 	function routeLabel(url: URL): string {
 		const { pathname, searchParams } = url;
-		if (pathname === '/') return 'Home';
-		if (pathname === '/notes') {
+		if (pathname === '/knowledge') return 'Knowledge';
+		if (pathname === '/knowledge/notes') {
 			const tag = searchParams.get('tag');
 			const folder = searchParams.get('folder');
 			if (tag) return `Notes #${tag}`;
 			if (folder) return `Notes ${folder}`;
 			return 'All Notes';
 		}
-		if (pathname === '/search') return 'Search';
-		if (pathname === '/graph') return 'Graph';
-		if (pathname === '/maps') return 'Maps';
-		if (pathname === '/timeline') return 'Timeline';
-		if (pathname === '/session-board') return 'Session Board';
-		if (pathname === '/encounter/new') return 'Encounter Builder';
-		if (pathname === '/combat') return 'Combat Tracker';
+		if (pathname === '/knowledge/search') return 'Search';
+		if (pathname === '/knowledge/graph') return 'Graph';
+		if (pathname === '/atlas/maps') return 'Maps';
+		if (pathname === '/campaign/timeline') return 'Timeline';
+		if (pathname === '/session/boards') return 'Session Board';
+		if (pathname === '/session/encounter/new') return 'Encounter Builder';
+		if (pathname === '/session/combat') return 'Combat Tracker';
 		if (pathname === '/settings') return 'Settings';
-		if (pathname === '/player') return 'Player View';
+		if (pathname === '/player') return 'Player Screen';
 		return pathname;
 	}
 
@@ -161,8 +171,16 @@
 	});
 
 	$effect(() => {
+		const canonical = canonicalizeLegacyPath(page.url);
+		if (!canonical) return;
+		const current = `${page.url.pathname}${page.url.search}`;
+		if (canonical === current) return;
+		goto(canonical, { replaceState: true, keepFocus: true, noScroll: true });
+	});
+
+	$effect(() => {
 		const routeId = page.route.id;
-		if (routeId === '/search') {
+		if (routeId === '/knowledge/search') {
 			void onboardingState.completeStep('use_search');
 		} else if (routeId === '/settings') {
 			void onboardingState.completeStep('open_settings');
@@ -172,8 +190,11 @@
 	afterNavigate(({ to }) => {
 		const next = to?.url;
 		if (!next) return;
-		const pathWithSearch = `${next.pathname}${next.search}`;
-		const noteMatch = next.pathname.match(/^\/notes\/([^/]+)(?:\/(edit))?$/);
+		const canonicalPath = canonicalizeLegacyPath(next);
+		const targetUrl = canonicalPath ? new URL(canonicalPath, next.origin) : next;
+		const pathWithSearch = `${targetUrl.pathname}${targetUrl.search}`;
+		navigationState.setActiveRoute(pathWithSearch);
+		const noteMatch = targetUrl.pathname.match(/^\/knowledge\/notes\/([^/]+)(?:\/(edit))?$/);
 		if (noteMatch) {
 			const noteId = createNoteId(decodeURIComponent(noteMatch[1] ?? ''));
 			const isEdit = noteMatch[2] === 'edit';
@@ -187,7 +208,11 @@
 			return;
 		}
 
-		navigationState.record(pathWithSearch, { label: routeLabel(next) });
+		navigationState.record(pathWithSearch, { label: routeLabel(targetUrl) });
+	});
+
+	$effect(() => {
+		navigationState.setActiveRoute(`${page.url.pathname}${page.url.search}`);
 	});
 
 	$effect(() => {
@@ -217,11 +242,11 @@
 	$effect(() => {
 		if (!playerModeState.enabled) return;
 		if (
-			page.url.pathname === '/graph' ||
-			page.url.pathname === '/timeline' ||
-			page.url.pathname === '/session-board' ||
-			page.url.pathname === '/encounter/new' ||
-			page.url.pathname === '/combat'
+			page.url.pathname === '/knowledge/graph' ||
+			page.url.pathname === '/campaign/timeline' ||
+			page.url.pathname === '/session/boards' ||
+			page.url.pathname === '/session/encounter/new' ||
+			page.url.pathname === '/session/combat'
 		) {
 			goto(resolve('/player'));
 		}
@@ -269,7 +294,7 @@
 				sessionNumber: context.sessionNumber + 1,
 			});
 		}
-		goto(resolve(`/notes/${note.id}/edit`));
+		goto(resolve(`/knowledge/notes/${note.id}/edit`));
 	}
 
 	async function handleNewNote(folderOverride?: string): Promise<void> {
@@ -287,7 +312,7 @@
 		const note = await notesState.createNote(
 			folderContext ? { folder: createFolderId(folderContext) } : undefined,
 		);
-		goto(resolve(`/notes/${note.id}/edit`));
+		goto(resolve(`/knowledge/notes/${note.id}/edit`));
 	}
 
 	function shouldAdvanceSessionCounter(templateId: string): boolean {
@@ -328,35 +353,6 @@
 		void runtimeState.initialize();
 	}
 
-	async function handleRefreshVault(): Promise<void> {
-		try {
-			if (window.dndtoolsDesktop) {
-				await refreshDesktopVault();
-			}
-			await notesState.loadAll();
-			await Promise.all([
-				searchService.buildIndex(notesState.notes),
-				mcpChangesState.refresh(),
-				sessionBoardsState.loadAll(),
-				handoutsState.loadAll(),
-				templateLibraryState.refresh(),
-			]);
-			await Promise.all([
-				markSubsystemSuccess('vault_sync'),
-				markSubsystemSuccess('search_index'),
-				markSubsystemSuccess('link_graph_build'),
-			]);
-			toastState.success('Vault refreshed');
-		} catch (error) {
-			void reportRuntimeError({
-				category: 'storage',
-				error,
-				code: 'VAULT_REFRESH_FAILED',
-			});
-			toastState.error(`Failed to refresh vault: ${String(error)}`);
-		}
-	}
-
 	async function handleSetPlayerMode(enabled: boolean): Promise<void> {
 		await playerModeState.setEnabled(enabled);
 		if (enabled) {
@@ -366,7 +362,7 @@
 			return;
 		}
 		if (page.url.pathname.startsWith('/player')) {
-			goto(resolve('/notes'));
+			goto(resolve('/knowledge/notes'));
 		}
 	}
 
@@ -414,7 +410,7 @@
 			ui.toggleSidebar();
 		} else if (mod && event.shiftKey && event.key === 'F') {
 			event.preventDefault();
-			goto(resolve('/search'));
+			goto(resolve('/knowledge/search'));
 		}
 	}
 </script>
@@ -434,11 +430,9 @@
 {#if runtimeState.ready}
 	<AppShell
 		onnewnote={handleNewNote}
-		oncreatehandout={handleCreateHandout}
 		onsearch={() => (quickSwitcherOpen = true)}
 		ondice={() => (diceTrayOpen = true)}
 		ontemplate={openTemplateDialog}
-		onrefresh={handleRefreshVault}
 		onsetplayermode={handleSetPlayerMode}
 	>
 		{@render children()}

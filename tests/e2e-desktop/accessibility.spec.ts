@@ -109,15 +109,15 @@ async function expectNoSeriousOrCriticalAxeViolations(page: Page): Promise<void>
 
 const PRIMARY_ROUTES: string[] = [
 	'/',
-	'/notes',
-	'/notes/a11y-note',
-	'/notes/a11y-note/edit',
-	'/search',
-	'/graph',
-	'/timeline',
-	'/session-board',
-	'/encounter/new',
-	'/combat',
+	'/knowledge/notes',
+	'/knowledge/notes/a11y-note',
+	'/knowledge/notes/a11y-note/edit',
+	'/knowledge/search',
+	'/knowledge/graph',
+	'/campaign/timeline',
+	'/session/boards',
+	'/session/encounter/new',
+	'/session/combat',
 	'/settings',
 	'/player',
 ];
@@ -191,7 +191,7 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 		try {
 			await expect(app.page.getByTestId('a11y-live-assertive')).toContainText('Home view loaded.');
 
-			await gotoPath(app.page, '/search');
+			await gotoPath(app.page, '/knowledge/search');
 			await expect(app.page.getByTestId('a11y-live-assertive')).toContainText(
 				'Search view loaded.',
 			);
@@ -216,16 +216,16 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 		const app = await launchWithSeed();
 		try {
 			const headingChecks: Array<{ path: string; expectedHeading: string | RegExp }> = [
-				{ path: '/', expectedHeading: /Your Vault|Welcome|Player View/i },
-				{ path: '/notes', expectedHeading: /All Notes|Notes/i },
-				{ path: '/notes/a11y-note', expectedHeading: 'Accessibility Anchor' },
-				{ path: '/notes/a11y-note/edit', expectedHeading: /Edit Accessibility Anchor/i },
-				{ path: '/search', expectedHeading: 'Search & Discovery' },
-				{ path: '/graph', expectedHeading: 'Link Graph' },
-				{ path: '/timeline', expectedHeading: 'Campaign Timeline' },
-				{ path: '/session-board', expectedHeading: /Session Board/i },
-				{ path: '/encounter/new', expectedHeading: 'Encounter Builder' },
-				{ path: '/combat', expectedHeading: 'Combat Tracker' },
+				{ path: '/', expectedHeading: /Your Vault|Welcome|Player Screen/i },
+				{ path: '/knowledge/notes', expectedHeading: /All Notes|Notes/i },
+				{ path: '/knowledge/notes/a11y-note', expectedHeading: 'Accessibility Anchor' },
+				{ path: '/knowledge/notes/a11y-note/edit', expectedHeading: /Edit Accessibility Anchor/i },
+				{ path: '/knowledge/search', expectedHeading: 'Search & Discovery' },
+				{ path: '/knowledge/graph', expectedHeading: 'Link Graph' },
+				{ path: '/campaign/timeline', expectedHeading: 'Campaign Timeline' },
+				{ path: '/session/boards', expectedHeading: /Session Board/i },
+				{ path: '/session/encounter/new', expectedHeading: 'Encounter Builder' },
+				{ path: '/session/combat', expectedHeading: 'Combat Tracker' },
 				{ path: '/settings', expectedHeading: 'Settings' },
 				{ path: '/player', expectedHeading: /Player/i },
 			];

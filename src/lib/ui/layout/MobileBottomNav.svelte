@@ -21,29 +21,29 @@
 		{
 			id: 'notes',
 			label: 'Notes',
-			href: resolve('/notes'),
-			match: (pathname) => pathname.startsWith('/notes') || pathname === '/',
+			href: resolve('/knowledge'),
+			match: (pathname) => pathname.startsWith('/knowledge'),
 		},
 		{
 			id: 'search',
 			label: 'Search',
-			href: resolve('/search'),
-			match: (pathname) => pathname.startsWith('/search'),
+			href: resolve('/knowledge/search'),
+			match: (pathname) => pathname.startsWith('/knowledge/search'),
 		},
 		{
 			id: 'graph',
 			label: 'Graph',
-			href: playerModeState.enabled ? resolve('/player') : resolve('/graph'),
-			match: (pathname) => pathname.startsWith('/graph'),
+			href: playerModeState.enabled ? resolve('/player') : resolve('/knowledge/graph'),
+			match: (pathname) => pathname.startsWith('/knowledge/graph'),
 		},
 		{
 			id: 'session',
 			label: 'Session',
-			href: playerModeState.enabled ? resolve('/player') : resolve('/session-board'),
+			href: playerModeState.enabled ? resolve('/player') : resolve('/session/boards'),
 			match: (pathname) =>
-				pathname.startsWith('/session-board') ||
-				pathname.startsWith('/combat') ||
-				pathname.startsWith('/encounter'),
+				pathname.startsWith('/session/boards') ||
+				pathname.startsWith('/session/combat') ||
+				pathname.startsWith('/session/encounter'),
 		},
 		{
 			id: 'settings',
@@ -70,7 +70,7 @@
 	</div>
 	<nav
 		class="mx-auto grid w-full max-w-[560px] grid-cols-5 gap-1 px-2"
-		aria-label="Mobile navigation"
+		aria-label="Global navigation: Mobile primary sections"
 	>
 		{#each navItems as item (item.id)}
 			<a

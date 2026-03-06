@@ -63,6 +63,11 @@ Responsibilities:
 - UI, interaction flows, search, markdown rendering, editor workflows.
 - Runtime bootstrap orchestration.
 - Backend-agnostic state management via `StorageAdapter`.
+- Section-rooted route hierarchy (`/knowledge/*`, `/atlas/*`, `/session/*`, `/campaign/*`, `/settings/*`) with
+  breadcrumb metadata exported from route `+page.ts` files.
+- Primary section shell navigation via `PrimaryNav` (`src/lib/ui/layout/PrimaryNav.svelte`) with section identity
+  defined in `docs/architecture/NAVIGATION_ICONOGRAPHY.md`.
+- Reduced TopBar scope defined by `docs/architecture/TOPBAR_CHARTER.md`.
 - Offline sync orchestration (connectivity probes, deferred write queue replay, conflict workflows).
 - Desktop integrations only through `window.dndtoolsDesktop` bridge.
 

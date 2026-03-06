@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { waitForAppReady } from './helpers.js';
 
 async function startNewNote(page: Page): Promise<void> {
-	await page.goto(`/notes?create=${encodeURIComponent('E2E Generated Note')}`);
+	await page.goto(`/knowledge/notes?create=${encodeURIComponent('E2E Generated Note')}`);
 	await expect(page).toHaveURL(/\/notes\/[^/]+\/edit$/, { timeout: 15_000 });
 }
 
@@ -12,7 +12,7 @@ test.describe('Note CRUD', () => {
 	});
 
 	test('notes list route renders', async ({ page }) => {
-		await page.goto('/notes');
+		await page.goto('/knowledge/notes');
 		await expect(
 			page.getByRole('heading', { name: /All Notes|Player Notes|Notes tagged/i }),
 		).toBeVisible();
@@ -25,7 +25,7 @@ test.describe('Note CRUD', () => {
 	});
 
 	test('views a note from notes list', async ({ page }) => {
-		await page.goto('/notes');
+		await page.goto('/knowledge/notes');
 		const firstCard = page
 			.locator('button')
 			.filter({ hasText: /Welcome to DND Tools/i })

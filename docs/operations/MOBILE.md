@@ -10,8 +10,8 @@ mobile UX support).
 - Capacitor filesystem-backed storage adapter:
   `src/lib/platform/storage/capacitor-adapter.ts`.
 - Mobile-first shell behavior:
-  - bottom navigation (Notes, Search, Graph, Session, Settings)
-  - slide-up library sheet for sidebar modes
+  - bottom primary navigation (`Knowledge`, `Atlas`, `Session`, `Campaign`, `Settings`)
+  - slide-up local navigation sheet toggled from TopBar
   - edge-swipe back/forward navigation
   - virtual keyboard viewport adaptation and editor-toolbar docking
 

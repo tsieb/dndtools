@@ -195,8 +195,8 @@
 			{
 				id: 'action-toggle-sidebar',
 				group: 'Actions',
-				title: 'Toggle sidebar',
-				subtitle: 'Show or hide sidebar navigation',
+				title: 'Toggle local navigation',
+				subtitle: 'Show or hide section-local navigation panel',
 				keywords: 'sidebar layout action',
 				run: () => {
 					ui.toggleSidebar();
@@ -272,7 +272,7 @@
 			{
 				id: 'nav-home',
 				group: 'Navigation',
-				title: playerModeState.enabled ? 'Go to Player View' : 'Go to Home',
+				title: playerModeState.enabled ? 'Go to Player Screen' : 'Go to Home',
 				subtitle: playerModeState.enabled ? '/player' : '/',
 				keywords: 'home player route navigation',
 				run: () => navigate(resolve(playerModeState.enabled ? '/player' : '/')),
@@ -280,7 +280,7 @@
 			{
 				id: 'nav-player',
 				group: 'Navigation',
-				title: 'Go to Player View',
+				title: 'Go to Player Screen',
 				subtitle: '/player',
 				keywords: 'player shared public visibility navigation',
 				run: () => navigate(resolve('/player')),
@@ -289,44 +289,44 @@
 				id: 'nav-notes',
 				group: 'Navigation',
 				title: 'Go to All Notes',
-				subtitle: '/notes',
+				subtitle: '/knowledge/notes',
 				keywords: 'notes list navigation',
-				run: () => navigate(resolve('/notes')),
+				run: () => navigate(resolve('/knowledge/notes')),
 			},
 			{
 				id: 'nav-search',
 				group: 'Navigation',
 				title: 'Go to Search',
-				subtitle: '/search',
+				subtitle: '/knowledge/search',
 				keywords: 'search route navigation',
-				run: () => navigate(resolve('/search')),
+				run: () => navigate(resolve('/knowledge/search')),
 			},
 			{
 				id: 'nav-timeline',
 				group: 'Navigation',
 				title: 'Go to Timeline',
-				subtitle: '/timeline',
+				subtitle: '/campaign/timeline',
 				keywords: 'timeline campaign chronology navigation',
 				disabled: playerModeState.enabled,
-				run: () => navigate(resolve('/timeline')),
+				run: () => navigate(resolve('/campaign/timeline')),
 			},
 			{
 				id: 'nav-session-board',
 				group: 'Navigation',
 				title: 'Go to Session Board',
-				subtitle: '/session-board',
+				subtitle: '/session/boards',
 				keywords: 'board session navigation',
 				disabled: playerModeState.enabled,
-				run: () => navigate(resolve('/session-board')),
+				run: () => navigate(resolve('/session/boards')),
 			},
 			{
 				id: 'nav-encounter-builder',
 				group: 'Navigation',
 				title: 'Go to Encounter Builder',
-				subtitle: '/encounter/new',
+				subtitle: '/session/encounter/new',
 				keywords: 'encounter builder cr budget environment legendary lair navigation',
 				disabled: playerModeState.enabled,
-				run: () => navigate(resolve('/encounter/new')),
+				run: () => navigate(resolve('/session/encounter/new')),
 			},
 			{
 				id: 'settings-main',
@@ -424,7 +424,7 @@
 	});
 
 	function navigateToNote(id: string): void {
-		goto(resolve(`/notes/${id}`));
+		goto(resolve(`/knowledge/notes/${id}`));
 		onclose();
 	}
 

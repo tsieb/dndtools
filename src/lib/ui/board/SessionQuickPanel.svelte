@@ -67,27 +67,27 @@
 	function openTile(tile: SessionBoardTile): void {
 		const type = tileType(tile);
 		if (type === 'note' && tile.noteId) {
-			void goto(resolve(`/notes/${tile.noteId}`));
+			void goto(resolve(`/knowledge/notes/${tile.noteId}`));
 			onclose();
 			return;
 		}
 		if (type === 'combat') {
-			void goto(resolve('/combat'));
+			void goto(resolve('/session/combat'));
 			onclose();
 			return;
 		}
 		if (type === 'encounter') {
-			void goto(resolve('/encounter/new'));
+			void goto(resolve('/session/encounter/new'));
 			onclose();
 			return;
 		}
 		if (type === 'dice') {
-			void goto(resolve('/session-board'));
+			void goto(resolve('/session/boards'));
 			onclose();
 			return;
 		}
 		if (type === 'generator') {
-			void goto(resolve('/session-board'));
+			void goto(resolve('/session/boards'));
 			onclose();
 			return;
 		}
@@ -96,7 +96,7 @@
 			onclose();
 			return;
 		}
-		void goto(resolve('/session-board'));
+		void goto(resolve('/session/boards'));
 		onclose();
 	}
 

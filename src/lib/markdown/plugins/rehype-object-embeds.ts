@@ -531,7 +531,7 @@ function createObjectEmbedCard(
 				showToggle,
 				match.id,
 				effectiveType ?? 'object',
-				resolved ? `/notes/${resolved.id}` : undefined,
+				resolved ? `/knowledge/notes/${resolved.id}` : undefined,
 			),
 			...(summary
 				? [
@@ -626,9 +626,9 @@ function createNoteEmbedCard(
 				resolved?.id ?? match.target,
 				object?.type ?? 'note',
 				resolved?.id
-					? `/notes/${resolved.id}`
+					? `/knowledge/notes/${resolved.id}`
 					: match.targetBy === 'id'
-						? `/notes/${match.target}`
+						? `/knowledge/notes/${match.target}`
 						: undefined,
 			),
 			...(summary

@@ -54,8 +54,8 @@
 			resolveLink: (title) => {
 				const targetId = notesState.resolveTitle(title);
 				return targetId
-					? { href: `/notes/${targetId}`, exists: true }
-					: { href: `/notes?create=${encodeURIComponent(title)}`, exists: false };
+					? { href: `/knowledge/notes/${targetId}`, exists: true }
+					: { href: `/knowledge/notes?create=${encodeURIComponent(title)}`, exists: false };
 			},
 		}).then((result) => {
 			if (!stale) html = result;

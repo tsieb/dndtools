@@ -146,7 +146,7 @@ async function gotoDesktopPath(page: Page, route: string): Promise<void> {
 async function ensureSidebarOpen(page: Page): Promise<void> {
 	if ((await page.locator('aside:visible').getByRole('button', { name: 'Tree' }).count()) > 0)
 		return;
-	await page.getByRole('button', { name: 'Toggle sidebar' }).first().click();
+	await page.getByRole('button', { name: 'Toggle local navigation' }).first().click();
 	await expect(page.locator('aside:visible').getByRole('button', { name: 'Tree' })).toBeVisible();
 }
 
@@ -204,9 +204,9 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			await ensureDmMode(app.page);
 			await ensureSidebarOpen(app.page);
 
-			await app.page.getByRole('button', { name: 'Toggle sidebar' }).click();
+			await app.page.getByRole('button', { name: 'Toggle local navigation' }).click();
 			await expect(app.page.getByRole('button', { name: 'Tree' })).toHaveCount(0);
-			await app.page.getByRole('button', { name: 'Toggle sidebar' }).click();
+			await app.page.getByRole('button', { name: 'Toggle local navigation' }).click();
 			await expect(app.page.getByRole('button', { name: 'Tree' })).toBeVisible();
 
 			await app.page.getByRole('button', { name: 'Create options' }).click();
@@ -336,7 +336,7 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 	test('search interactions cover operators, saved searches, facets, and result navigation', async () => {
 		const app = await launchWithSeed();
 		try {
-			await gotoDesktopPath(app.page, '/search');
+			await gotoDesktopPath(app.page, '/knowledge/search');
 			await expect(app.page.getByRole('heading', { name: 'Search & Discovery' })).toBeVisible();
 
 			const input = app.page.getByPlaceholder('Search notes...');
@@ -392,7 +392,7 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 	test('note view and editor interactions update UI state and persisted content', async () => {
 		const app = await launchWithSeed();
 		try {
-			await gotoDesktopPath(app.page, '/notes/note-shell-anchor');
+			await gotoDesktopPath(app.page, '/knowledge/notes/note-shell-anchor');
 			await expect(app.page.getByRole('heading', { name: 'Navigation Anchor' })).toBeVisible();
 
 			await app.page.getByPlaceholder('Quick add to this note...').fill('Checklist bullet');
@@ -408,10 +408,12 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 				.toContain('- Checklist bullet');
 
 			await app.page.getByRole('button', { name: 'Focus Reading' }).click();
-			await expect(app.page.getByRole('button', { name: 'Toggle sidebar' })).toHaveCount(0);
+			await expect(app.page.getByRole('button', { name: 'Toggle local navigation' })).toHaveCount(
+				0,
+			);
 			await expect(app.page.getByRole('button', { name: 'Exit Focus Reading' })).toBeVisible();
 			await app.page.getByRole('button', { name: 'Exit Focus Reading' }).click();
-			await expect(app.page.getByRole('button', { name: 'Toggle sidebar' })).toBeVisible();
+			await expect(app.page.getByRole('button', { name: 'Toggle local navigation' })).toBeVisible();
 
 			await app.page.getByRole('button', { name: 'Edit' }).click();
 			await expect(app.page).toHaveURL(/\/notes\/note-shell-anchor\/edit$/);

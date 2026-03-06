@@ -131,7 +131,7 @@ test.describe('Desktop critical workflows @critical', () => {
 			await app.page.keyboard.type('Critical CRUD body');
 			await app.page.getByRole('button', { name: 'Done' }).click();
 			await expect(app.page).toHaveURL(/\/notes\/[^/]+$/);
-			const createdId = decodeURIComponent(app.page.url().split('/notes/')[1] ?? '');
+			const createdId = decodeURIComponent(app.page.url().split('/knowledge/notes/')[1] ?? '');
 
 			await app.page.getByRole('button', { name: 'Edit' }).click();
 			await expect(app.page).toHaveURL(/\/notes\/[^/]+\/edit$/);
@@ -337,7 +337,7 @@ test.describe('Desktop critical workflows @critical', () => {
 		});
 		try {
 			if ((await app.page.getByRole('link', { name: 'Encounter Builder' }).count()) === 0) {
-				await app.page.getByRole('button', { name: 'Toggle sidebar' }).first().click();
+				await app.page.getByRole('button', { name: 'Toggle local navigation' }).first().click();
 			}
 			await app.page.getByRole('link', { name: 'Encounter Builder' }).first().click();
 			await expect(app.page).toHaveURL(/\/encounter\/new$/);
@@ -365,7 +365,7 @@ test.describe('Desktop critical workflows @critical', () => {
 			await app.page.getByPlaceholder('Object name').fill('Captain Aria');
 			await app.page.getByRole('button', { name: 'Create + Embed' }).click();
 			await app.page.getByRole('button', { name: 'Done' }).click();
-			await expect(app.page).toHaveURL(new RegExp(`/notes/${noteId}$`));
+			await expect(app.page).toHaveURL(new RegExp(`/knowledge/notes/${noteId}$`));
 
 			await expect
 				.poll(
@@ -447,7 +447,7 @@ test.describe('Desktop critical workflows @critical', () => {
 
 		try {
 			if ((await app.page.getByRole('link', { name: 'Timeline' }).count()) === 0) {
-				await app.page.getByRole('button', { name: 'Toggle sidebar' }).first().click();
+				await app.page.getByRole('button', { name: 'Toggle local navigation' }).first().click();
 			}
 			await app.page.getByRole('link', { name: 'Timeline' }).first().click();
 			await expect(app.page).toHaveURL(/\/timeline$/);
@@ -488,7 +488,7 @@ test.describe('Desktop critical workflows @critical', () => {
 			);
 		});
 		try {
-			await gotoDesktopPath(app.page, '/graph');
+			await gotoDesktopPath(app.page, '/knowledge/graph');
 			await expect(app.page).toHaveURL(/\/graph$/);
 			await expect(app.page.getByRole('heading', { name: 'Link Graph' })).toBeVisible();
 
@@ -532,7 +532,7 @@ test.describe('Desktop critical workflows @critical', () => {
 			});
 		});
 		try {
-			await gotoDesktopPath(app.page, '/combat');
+			await gotoDesktopPath(app.page, '/session/combat');
 			await expect(app.page).toHaveURL(/\/combat$/);
 			await expect(app.page.getByRole('heading', { name: 'Combat Tracker' })).toBeVisible();
 			await app.page
@@ -566,7 +566,7 @@ test.describe('Desktop critical workflows @critical', () => {
 		try {
 			await gotoDesktopPath(app.page, '/player');
 			await expect(app.page).toHaveURL(/\/player$/);
-			await expect(app.page.getByRole('heading', { name: 'Player View' })).toBeVisible();
+			await expect(app.page.getByRole('heading', { name: 'Player Screen' })).toBeVisible();
 
 			await expect(app.page.getByText('Shared Briefing')).toBeVisible();
 			await expect(app.page.getByText('Public Recap')).toBeVisible();
@@ -602,7 +602,7 @@ test.describe('Desktop critical workflows @critical', () => {
 			);
 		});
 		try {
-			await gotoDesktopPath(app.page, '/maps');
+			await gotoDesktopPath(app.page, '/atlas/maps');
 			await expect(app.page).toHaveURL(/\/maps$/);
 			await expect(app.page.getByRole('heading', { name: 'Map Library' })).toBeVisible();
 

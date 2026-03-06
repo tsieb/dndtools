@@ -738,7 +738,7 @@
 	}
 
 	async function openObjectNote(targetId: string): Promise<void> {
-		await goto(resolve(`/notes/${targetId}`));
+		await goto(resolve(`/knowledge/notes/${targetId}`));
 	}
 
 	function relationshipIndexFromField(field: string | undefined): number | null {

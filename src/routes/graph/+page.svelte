@@ -300,7 +300,7 @@
 	});
 
 	function openNote(id: string): void {
-		void goto(resolve(`/notes/${id}`));
+		void goto(resolve(`/knowledge/notes/${id}`));
 	}
 
 	function previewText(content: string): string {

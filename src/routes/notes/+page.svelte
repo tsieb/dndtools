@@ -140,7 +140,7 @@
 				sessionNumber: context.sessionNumber + 1,
 			});
 		}
-		goto(resolve(`/notes/${note.id}/edit`));
+		goto(resolve(`/knowledge/notes/${note.id}/edit`));
 	}
 
 	async function handleNewNote(): Promise<void> {
@@ -164,7 +164,7 @@
 			...(title ? { title } : {}),
 			...(folderContext ? { folder: createFolderId(folderContext) } : {}),
 		});
-		goto(resolve(`/notes/${note.id}/edit`));
+		goto(resolve(`/knowledge/notes/${note.id}/edit`));
 	}
 
 	async function handleTemplateCreate(
@@ -280,7 +280,7 @@
 			</select>
 			{#if tagFilter}
 				<a
-					href={resolve('/notes')}
+					href={resolve('/knowledge/notes')}
 					class="ml-1 px-2.5 py-1 rounded-md bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent text-xs hover:bg-accent/20 dark:hover:bg-tavern-accent/20 transition-colors flex items-center gap-1"
 				>
 					#{tagFilter}
@@ -289,7 +289,7 @@
 			{/if}
 			{#if folderFilter}
 				<a
-					href={resolve('/notes')}
+					href={resolve('/knowledge/notes')}
 					class="px-2.5 py-1 rounded-md bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted text-xs hover:text-ink dark:hover:text-tavern-text transition-colors flex items-center gap-1"
 				>
 					{folderFilter}
@@ -298,7 +298,7 @@
 			{/if}
 			{#if mapFilter}
 				<a
-					href={resolve('/notes')}
+					href={resolve('/knowledge/notes')}
 					class="px-2.5 py-1 rounded-md bg-surface-alt dark:bg-tavern-surface-alt text-ink-muted dark:text-tavern-muted text-xs hover:text-ink dark:hover:text-tavern-text transition-colors flex items-center gap-1"
 				>
 					Map: {mapFilterLabel}
@@ -328,7 +328,7 @@
 			</div>
 			<div class="grid gap-3 sm:grid-cols-2">
 				{#each pinnedNotes as note (note.id)}
-					<NoteCard {note} onclick={(id) => goto(resolve(`/notes/${id}`))} />
+					<NoteCard {note} onclick={(id) => goto(resolve(`/knowledge/notes/${id}`))} />
 				{/each}
 			</div>
 		</div>
@@ -363,12 +363,12 @@
 	{:else if filteredNotes.length > 0}
 		<div class="grid gap-3 sm:grid-cols-2">
 			{#each filteredNotes as note (note.id)}
-				<NoteCard {note} onclick={(id) => goto(resolve(`/notes/${id}`))} />
+				<NoteCard {note} onclick={(id) => goto(resolve(`/knowledge/notes/${id}`))} />
 			{/each}
 		</div>
 	{:else if totalCount === 0}
 		<div class="text-center py-16">
-			<div class="text-4xl mb-4" aria-hidden="true">📝</div>
+			<div class="text-4xl mb-4" aria-hidden="true">ðŸ“</div>
 			<p class="text-ink-muted dark:text-tavern-muted mb-4">No notes yet.</p>
 			<Button variant="primary" onclick={handleNewNote}>Create your first note</Button>
 		</div>
@@ -376,7 +376,7 @@
 		<div class="text-center py-16">
 			<p class="text-ink-muted dark:text-tavern-muted mb-2">No notes match your current filters.</p>
 			<a
-				href={resolve('/notes')}
+				href={resolve('/knowledge/notes')}
 				class="text-sm text-accent dark:text-tavern-accent hover:underline"
 			>
 				Clear filters

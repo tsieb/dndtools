@@ -283,7 +283,7 @@
 	}
 
 	function openResult(result: SearchResult, jumpToAnchor = false): void {
-		const notePath = resolve('/notes/[id]', { id: result.id });
+		const notePath = resolve('/knowledge/notes/[id]', { id: result.id });
 		const target = jumpToAnchor && result.anchor ? `${notePath}#${result.anchor}` : notePath;
 		goto(target);
 	}

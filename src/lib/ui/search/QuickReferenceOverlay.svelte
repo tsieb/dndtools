@@ -50,7 +50,7 @@
 	}
 
 	function openResult(noteId: NoteId): void {
-		void goto(resolve(`/notes/${noteId}`));
+		void goto(resolve(`/knowledge/notes/${noteId}`));
 		onclose();
 	}
 

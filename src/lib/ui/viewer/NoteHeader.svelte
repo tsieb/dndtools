@@ -99,7 +99,7 @@
 			params.push(`x=${encodeURIComponent(String(placement.coordinates.x))}`);
 			params.push(`y=${encodeURIComponent(String(placement.coordinates.y))}`);
 		}
-		return `${resolve('/maps')}?${params.join('&')}`;
+		return `${resolve('/atlas/maps')}?${params.join('&')}`;
 	}
 </script>
 
@@ -216,7 +216,7 @@
 			{#each note.tags as tag (tag)}
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a
-					href={`/notes?tag=${encodeURIComponent(tag)}`}
+					href={`/knowledge/notes?tag=${encodeURIComponent(tag)}`}
 					class="px-2 py-0.5 text-xs rounded-full bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent hover:bg-accent/20 dark:hover:bg-tavern-accent/20 transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 				>
 					#{tag}

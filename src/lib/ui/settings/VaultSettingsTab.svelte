@@ -1052,7 +1052,7 @@
 								{#each latestVaultSwitch.steps as step (step.id + step.at)}
 									<li class="text-xs text-ink-muted dark:text-tavern-muted">
 										<span class="font-medium text-ink dark:text-tavern-text">{step.id}</span>
-										({step.status}) — {step.detail}
+										({step.status}) â€” {step.detail}
 									</li>
 								{/each}
 							</ul>
@@ -1125,7 +1125,7 @@
 
 					{#if integrityReport && integrityReport.issues.some((i) => !i.repaired && i.status !== 'ok')}
 						<p class="text-xs font-medium text-rose-700 dark:text-rose-400">
-							Critical — metadata files
+							Critical â€” metadata files
 						</p>
 						<ul
 							class="rounded border border-rose-200 dark:border-rose-900 divide-y divide-rose-100 dark:divide-rose-900"
@@ -1144,7 +1144,7 @@
 
 					{#if integrityReport?.noteIssues.some((i) => !i.repaired && (i.status === 'checksum_mismatch' || i.status === 'orphan_entry'))}
 						<p class="text-xs font-medium text-amber-700 dark:text-amber-400">
-							Warning — note integrity
+							Warning â€” note integrity
 						</p>
 						<ul
 							class="rounded border border-amber-200 dark:border-amber-900 divide-y divide-amber-100 dark:divide-amber-900"
@@ -1171,7 +1171,7 @@
 
 					{#if integrityReport?.noteIssues.some((i) => !i.repaired && (i.status === 'missing_marker' || i.status === 'invalid_marker'))}
 						<p class="text-xs font-medium text-ink-muted dark:text-tavern-muted">
-							Info — marker issues (auto-repaired on next save)
+							Info â€” marker issues (auto-repaired on next save)
 						</p>
 						<ul
 							class="rounded border border-border dark:border-tavern-border divide-y divide-border dark:divide-tavern-border"
@@ -1191,7 +1191,7 @@
 						>
 							{#each integrityReport.issues.filter((i) => i.repaired) as issue (issue.file)}
 								<li class="px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
-									{issue.file} — repaired automatically
+									{issue.file} â€” repaired automatically
 								</li>
 							{/each}
 						</ul>
@@ -1283,7 +1283,7 @@
 					class="rounded border border-border px-3 py-2 text-left hover:bg-surface-alt dark:border-tavern-border dark:hover:bg-tavern-surface-alt"
 					onclick={() => (linkQualityDrilldown = 'loops')}
 				>
-					<p class="text-xs text-ink-muted dark:text-tavern-muted">Loops (A↔B)</p>
+					<p class="text-xs text-ink-muted dark:text-tavern-muted">Loops (Aâ†”B)</p>
 					<p class="text-sm font-semibold text-ink dark:text-tavern-text">
 						{vaultLinkQualityReport.totals.loops}
 					</p>
@@ -1315,7 +1315,7 @@
 							{#if note}
 								<li class="text-xs text-ink-muted dark:text-tavern-muted">
 									<a
-										href={resolve(`/notes/${note.id}`)}
+										href={resolve(`/knowledge/notes/${note.id}`)}
 										class="text-accent hover:underline dark:text-tavern-accent"
 									>
 										{note.title}
@@ -1470,7 +1470,7 @@
 						>
 							{#each safetySnapshots as snapshot (snapshot.id)}
 								<option value={snapshot.id}>
-									{new Date(snapshot.createdAt).toLocaleString()} — {snapshot.reason} ({snapshot.noteCount}
+									{new Date(snapshot.createdAt).toLocaleString()} â€” {snapshot.reason} ({snapshot.noteCount}
 									notes{snapshot.sizeBytes
 										? `, ${snapshot.sizeBytes > 1048576 ? (snapshot.sizeBytes / 1048576).toFixed(1) + ' MB' : Math.round(snapshot.sizeBytes / 1024) + ' KB'}`
 										: ''})
@@ -1563,13 +1563,13 @@
 							Source: <span class="font-mono">{importAnalysisReport.sourceRoot}</span>
 						</p>
 						<p class="text-xs text-ink-muted dark:text-tavern-muted">
-							Markdown files: {importAnalysisReport.markdownFiles} · Issues:
+							Markdown files: {importAnalysisReport.markdownFiles} Â· Issues:
 							{importAnalysisReport.issues.length} (errors: {importAnalysisReport.stats.errors},
 							warnings: {importAnalysisReport.stats.warnings})
 						</p>
 						<p class="text-xs text-ink-muted dark:text-tavern-muted">
-							Mapped: {importAnalysisReport.featureMapping.mapped.length} · Ignored:
-							{importAnalysisReport.featureMapping.ignored.length} · Manual:
+							Mapped: {importAnalysisReport.featureMapping.mapped.length} Â· Ignored:
+							{importAnalysisReport.featureMapping.ignored.length} Â· Manual:
 							{importAnalysisReport.featureMapping.manualResolution.length}
 						</p>
 						<div class="flex flex-wrap items-center gap-3 pt-1">
@@ -1632,7 +1632,7 @@
 				>
 					<p class="text-xs text-ink-muted dark:text-tavern-muted">
 						Checkpoint available: {importCheckpoint.processedFiles}/{importCheckpoint.totalFiles}
-						processed · {importCheckpoint.remainingFiles} remaining
+						processed Â· {importCheckpoint.remainingFiles} remaining
 					</p>
 					<Button
 						variant="secondary"
@@ -1661,9 +1661,9 @@
 						Import Job: {importJob.status}
 					</p>
 					<p class="text-xs text-ink-muted dark:text-tavern-muted">
-						Processed {importJob.processedFiles}/{importJob.totalFiles} · Imported
-						{importJob.imported} · Overwritten {importJob.overwritten} · Merged
-						{importJob.merged} · Skipped {importJob.skipped}
+						Processed {importJob.processedFiles}/{importJob.totalFiles} Â· Imported
+						{importJob.imported} Â· Overwritten {importJob.overwritten} Â· Merged
+						{importJob.merged} Â· Skipped {importJob.skipped}
 					</p>
 					<div
 						class="h-2 rounded bg-border dark:bg-tavern-border overflow-hidden"
@@ -1710,7 +1710,7 @@
 						Last export ({latestExportReport.profile})
 					</p>
 					<p class="text-ink-muted dark:text-tavern-muted">
-						Notes: {latestExportReport.noteCount} · Assets: {latestExportReport.assetCount} · Validation
+						Notes: {latestExportReport.noteCount} Â· Assets: {latestExportReport.assetCount} Â· Validation
 						issues: {latestExportReport.validation.issues.length}
 					</p>
 				</div>

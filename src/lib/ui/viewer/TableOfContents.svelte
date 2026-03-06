@@ -34,7 +34,7 @@
 </script>
 
 {#if headings.length > 2}
-	<nav class="max-w-content mx-auto mb-6" aria-label="Table of contents">
+	<nav class="max-w-content mx-auto mb-6" aria-label="Contextual navigation: Table of contents">
 		<button
 			type="button"
 			class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint hover:text-ink-muted dark:hover:text-tavern-muted transition-colors mb-2"

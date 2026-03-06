@@ -199,7 +199,7 @@
 						{#each selectedEvents as event (`${event.kind}:${event.noteId}`)}
 							<li class="text-xs text-ink-muted dark:text-tavern-muted">
 								<a
-									href={resolve(`/notes/${event.noteId}`)}
+									href={resolve(`/knowledge/notes/${event.noteId}`)}
 									class="text-accent hover:underline dark:text-tavern-accent"
 								>
 									{event.title}

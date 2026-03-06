@@ -346,7 +346,7 @@
 	}
 
 	function openStandaloneRoute(): void {
-		void goto(resolve('/encounter/new'));
+		void goto(resolve('/session/encounter/new'));
 	}
 
 	function difficultyToneClass(

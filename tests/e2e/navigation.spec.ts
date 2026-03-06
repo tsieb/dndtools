@@ -7,46 +7,48 @@ test.describe('Navigation', () => {
 	});
 
 	test('home page loads with app title', async ({ page }) => {
-		await expect(page.getByRole('link', { name: 'DND Tools' })).toBeVisible();
+		await expect(
+			page.getByRole('navigation', { name: 'Global navigation: Primary sections' }),
+		).toBeVisible();
 	});
 
 	test('navigates to notes page', async ({ page }) => {
-		await page.goto('/notes');
-		await page.waitForURL('/notes');
+		await page.goto('/knowledge/notes');
+		await page.waitForURL('/knowledge/notes');
 		await expect(
 			page.getByRole('heading', { name: /All Notes|Player Notes|Notes tagged/i }),
 		).toBeVisible();
 	});
 
 	test('navigates to search page', async ({ page }) => {
-		await page.goto('/search');
-		await page.waitForURL('/search');
+		await page.goto('/knowledge/search');
+		await page.waitForURL('/knowledge/search');
 		await expect(page.getByRole('heading', { name: 'Search & Discovery' })).toBeVisible();
 		await expect(page.getByPlaceholder('Search notes...')).toBeVisible();
 	});
 
 	test('navigates to graph page', async ({ page }) => {
-		await page.goto('/graph');
-		await page.waitForURL('/graph');
+		await page.goto('/knowledge/graph');
+		await page.waitForURL('/knowledge/graph');
 		await expect(page.getByRole('heading', { name: 'Link Graph' })).toBeVisible();
 	});
 
 	test('navigates to maps page', async ({ page }) => {
-		await page.goto('/maps');
-		await page.waitForURL('/maps');
+		await page.goto('/atlas/maps');
+		await page.waitForURL('/atlas/maps');
 		await expect(page.getByRole('heading', { name: 'Map Library' })).toBeVisible();
 	});
 
 	test('navigates to combat page', async ({ page }) => {
-		await page.goto('/combat');
-		await page.waitForURL('/combat');
+		await page.goto('/session/combat');
+		await page.waitForURL('/session/combat');
 		await expect(page.getByRole('heading', { name: 'Combat Tracker' })).toBeVisible();
 	});
 
 	test('navigates to player page', async ({ page }) => {
 		await page.goto('/player');
 		await page.waitForURL('/player');
-		await expect(page.getByRole('heading', { name: 'Player View' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Player Screen' })).toBeVisible();
 	});
 
 	test('navigates to settings page', async ({ page }) => {
@@ -56,7 +58,7 @@ test.describe('Navigation', () => {
 	});
 
 	test('sidebar toggle works', async ({ page }) => {
-		const toggleButton = page.getByRole('button', { name: 'Toggle sidebar' });
+		const toggleButton = page.getByRole('button', { name: 'Toggle local navigation' });
 		await toggleButton.click();
 		await expect(toggleButton).toBeVisible();
 	});
@@ -91,7 +93,7 @@ test.describe('Navigation', () => {
 	});
 
 	test('handles 404 gracefully for non-existent note', async ({ page }) => {
-		await page.goto('/notes/nonexistent-id');
+		await page.goto('/knowledge/notes/nonexistent-id');
 		await expect(page.getByText('Note not found')).toBeVisible();
 	});
 });
