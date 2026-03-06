@@ -12,8 +12,18 @@ This document defines the canonical viewport tiers for structural layout behavio
   - No persistent local navigation panel
 - `medium`: viewport width `640px` to `1099px`
   - Primary use: tablets and medium desktop windows
-  - Layout: icon rail (`60px`) + content
-  - Local panel is temporary/overlay-driven
+  - Layout: icon rail (`60px`) + content shell
+  - Primary rail behavior:
+    - Tapping a non-active section icon navigates to that section root route.
+    - Tapping the active section icon opens a temporary local-navigation overlay anchored to the rail edge.
+  - Local panel is temporary/overlay-driven (`300px` overlay width, dismissed via backdrop or `Escape`).
+  - Knowledge section uses a non-resizable split-view pattern:
+    - list pane at ~`38%`
+    - detail pane at ~`62%`
+    - empty detail state copy: `Select a note to read it`.
+  - Keyboard discoverability is modality-aware:
+    - touch-first medium hides shortcut hints
+    - first keyboard interaction enables shortcut hints, `Ctrl+P`, and `?` shortcut overlay.
 - `expanded`: viewport width `>= 1100px`
   - Primary use: large desktop windows
   - Layout: permanent icon rail (`60px`) + persistent local panel (`240px` default)
