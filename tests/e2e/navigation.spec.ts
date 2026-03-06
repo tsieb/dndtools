@@ -63,6 +63,80 @@ test.describe('Navigation', () => {
 		await expect(toggleButton).toBeVisible();
 	});
 
+	test('expanded local panel collapses with Ctrl+B and persists across reloads', async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 1280, height: 900 });
+		await page.goto('/knowledge/notes');
+		const localNav = page.getByRole('navigation', { name: 'Local navigation: Knowledge panel' });
+		await expect(localNav).toBeVisible();
+
+		await page.keyboard.press('Control+b');
+		await expect(localNav).toBeHidden();
+
+		await page.reload();
+		await expect(localNav).toBeHidden();
+
+		await page.keyboard.press('Control+b');
+		await expect(localNav).toBeVisible();
+	});
+
+	test('expanded detail panel toggle is availability-aware and keyboard accessible', async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 1280, height: 900 });
+		await page.goto('/settings');
+		const detailToggle = page.getByRole('button', { name: 'Toggle contextual detail panel' });
+		await expect(detailToggle).toBeDisabled();
+
+		await page.goto(`/knowledge/notes?create=${encodeURIComponent('Detail Panel Spec Note')}`);
+		await expect(page).toHaveURL(/\/knowledge\/notes\/.+\/edit/);
+		await page.goto(page.url().replace(/\/edit$/, ''));
+		await expect(detailToggle).toBeEnabled();
+
+		await detailToggle.click();
+		await expect(page.getByTestId('detail-panel')).toBeVisible();
+
+		await page.keyboard.press('Control+Shift+r');
+		await expect(page.getByTestId('detail-panel')).toBeHidden();
+	});
+
+	test('expanded local panel resize handle supports keyboard resizing', async ({ page }) => {
+		await page.setViewportSize({ width: 1280, height: 900 });
+		await page.goto('/knowledge/notes');
+		const localNav = page.getByRole('navigation', { name: 'Local navigation: Knowledge panel' });
+		const sidebar = localNav.locator('xpath=ancestor::aside[1]');
+		const resizeHandle = page.getByRole('separator', { name: 'Resize local navigation panel' });
+
+		await expect(localNav).toBeVisible();
+		await expect(resizeHandle).toBeVisible();
+		const before = await sidebar.boundingBox();
+		expect(before).not.toBeNull();
+
+		await resizeHandle.focus();
+		await page.keyboard.press('ArrowRight');
+		await page.keyboard.press('ArrowRight');
+
+		const after = await sidebar.boundingBox();
+		expect(after).not.toBeNull();
+		expect((after?.width ?? 0) - (before?.width ?? 0)).toBeGreaterThanOrEqual(15);
+	});
+
+	test('zen mode toggles shell chrome with F11', async ({ page }) => {
+		await page.setViewportSize({ width: 1280, height: 900 });
+		await page.goto('/knowledge/notes');
+		const localToggle = page.getByRole('button', { name: 'Toggle local navigation' });
+		const exitZen = page.getByRole('button', { name: 'Exit zen mode' });
+		await expect(localToggle).toBeVisible();
+
+		await page.keyboard.press('F11');
+		await expect(exitZen).toBeVisible();
+		await expect(localToggle).toBeHidden();
+
+		await page.keyboard.press('F11');
+		await expect(localToggle).toBeVisible();
+	});
+
 	test('breadcrumb uses semantic structure with aria-current marker', async ({ page }) => {
 		await page.goto('/knowledge/search');
 		await expect(page.getByRole('heading', { name: 'Search & Discovery' })).toBeVisible();
@@ -151,8 +225,7 @@ test.describe('Navigation', () => {
 		await expect(primaryNavShell).toHaveAttribute('data-mode', 'medium');
 
 		await page.setViewportSize({ width: 1100, height: 900 });
-		await expect(primaryNavShell).not.toHaveAttribute('data-mode', 'compact');
-		await expect(primaryNavShell).not.toHaveAttribute('data-mode', 'medium');
+		await expect(primaryNavShell).toHaveAttribute('data-mode', 'expanded');
 	});
 
 	test('keyboard shortcut Ctrl+P opens command palette', async ({ page }) => {
