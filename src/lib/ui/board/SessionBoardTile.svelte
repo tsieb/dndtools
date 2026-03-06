@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
 	import { normalizePreviewDepth, normalizePreviewLineCount } from '$lib/domain/session-board.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
@@ -76,6 +77,12 @@
 		}
 	}
 
+	function handleViewInKnowledge(): void {
+		void goto(resolve(`/knowledge/notes/${note.id}`), {
+			state: { label: note.title },
+		});
+	}
+
 	$effect(() => {
 		if (!contentEl) return;
 		const element = contentEl;
@@ -141,6 +148,15 @@
 			aria-label={`Open enlarged view for ${note.title}`}
 		>
 			{note.title}
+		</button>
+		<button
+			type="button"
+			class="rounded px-1.5 py-0.5 text-[11px] text-accent underline underline-offset-2 hover:text-accent-hover dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
+			onclick={handleViewInKnowledge}
+			title="View this source note in Knowledge"
+			aria-label={`View ${note.title} in Knowledge`}
+		>
+			View in Knowledge
 		</button>
 		{#if editable}
 			<span

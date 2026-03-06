@@ -44,10 +44,22 @@ export const PRIMARY_SECTION_NAV_ITEMS: readonly PrimarySectionNavItem[] = [
 	},
 ];
 
+const SECTION_ROOT_PATHS = new Set([
+	'/knowledge',
+	'/atlas/maps',
+	'/session/boards',
+	'/campaign/timeline',
+	'/settings',
+]);
+
 function toPathname(path: string): string {
 	const normalized = path.startsWith('/') ? path : `/${path}`;
 	const queryIndex = normalized.indexOf('?');
 	return queryIndex >= 0 ? normalized.slice(0, queryIndex) : normalized;
+}
+
+function isSectionRootPath(path: string): boolean {
+	return SECTION_ROOT_PATHS.has(toPathname(path));
 }
 
 export function primarySectionFromPath(path: string): PrimarySection {
@@ -97,8 +109,20 @@ class NavigationState {
 			? (this.entries[this.index + 1] ?? null)
 			: null,
 	);
-	canGoBack = $derived(this.backEntry !== null);
-	canGoForward = $derived(this.forwardEntry !== null);
+	canGoBack = $derived.by(() => {
+		const current = this.currentEntry;
+		const back = this.backEntry;
+		if (!current || !back) return false;
+		if (isSectionRootPath(current.path)) return false;
+		return primarySectionFromPath(current.path) === primarySectionFromPath(back.path);
+	});
+	canGoForward = $derived.by(() => {
+		const current = this.currentEntry;
+		const forward = this.forwardEntry;
+		if (!current || !forward) return false;
+		if (isSectionRootPath(current.path)) return false;
+		return primarySectionFromPath(current.path) === primarySectionFromPath(forward.path);
+	});
 
 	recentNoteIds = $derived.by(() => {
 		const seen = new SvelteSet<string>();
@@ -215,6 +239,24 @@ class NavigationState {
 		const normalized = label.trim();
 		if (!normalized) return;
 		this.updateCurrent({ label: normalized });
+	}
+
+	reset(path: string, context: NavigationContext): void {
+		const normalizedPath = this.normalizePath(path);
+		const now = new Date().toISOString();
+		const label = context.label.trim() || normalizedPath;
+		this.entries = [
+			{
+				path: normalizedPath,
+				label,
+				noteId: context.noteId ?? null,
+				recentKind: context.recentKind ?? (context.noteId ? 'note' : null),
+				recentItemId: context.recentItemId ?? (context.noteId ? String(context.noteId) : null),
+				visitedAt: now,
+			},
+		];
+		this.index = 0;
+		this.setActiveRoute(normalizedPath);
 	}
 
 	private updateCurrent(patch: Partial<NavigationEntry>): void {

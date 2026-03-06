@@ -61,7 +61,7 @@
 				onclick={() => window.history.back()}
 				disabled={!navigationState.canGoBack}
 				aria-label="Go back"
-				title={navigationState.backEntry
+				title={navigationState.canGoBack && navigationState.backEntry
 					? `Back to ${navigationState.backEntry.label}`
 					: 'No previous location'}
 			>
@@ -80,7 +80,7 @@
 				onclick={() => window.history.forward()}
 				disabled={!navigationState.canGoForward}
 				aria-label="Go forward"
-				title={navigationState.forwardEntry
+				title={navigationState.canGoForward && navigationState.forwardEntry
 					? `Forward to ${navigationState.forwardEntry.label}`
 					: 'No forward location'}
 			>

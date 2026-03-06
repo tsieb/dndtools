@@ -1461,8 +1461,10 @@
 					class="px-2.5 py-1 rounded text-xs border border-border"
 					onclick={() => {
 						overlayNoteId = null;
-						void goto(resolve(`/knowledge/notes/${overlayNote.id}`));
-					}}>Open Note</button
+						void goto(resolve(`/knowledge/notes/${overlayNote.id}`), {
+							state: { label: overlayNote.title },
+						});
+					}}>View in Knowledge</button
 				>
 				<button
 					class="px-2.5 py-1 rounded text-xs border border-border"

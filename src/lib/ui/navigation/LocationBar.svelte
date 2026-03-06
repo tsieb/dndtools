@@ -2,12 +2,16 @@
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { mapsState } from '$lib/state/maps.svelte.js';
+	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import { linksState } from '$lib/state/links.svelte.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
+	import { mapBreadcrumbs } from '$lib/domain/map-atlas.js';
 	import { createNoteId } from '$lib/types/note.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import type { BreadcrumbItem } from '$lib/types/breadcrumb.js';
+	import Breadcrumb from '$lib/ui/navigation/Breadcrumb.svelte';
 
 	interface Crumb {
 		label: string;
@@ -51,9 +55,101 @@
 			.filter(Boolean);
 	}
 
+	function buildNoteRouteCrumbs(pathname: string): Crumb[] | null {
+		const noteMatch = pathname.match(/^\/knowledge\/notes\/([^/]+)(?:\/(edit))?$/);
+		if (!noteMatch) return null;
+		const id = createNoteId(decodeURIComponent(noteMatch[1] ?? ''));
+		const isEdit = noteMatch[2] === 'edit';
+		const rawNote = notesState.getNoteById(id);
+		const note =
+			rawNote && (!playerModeState.enabled || isNoteVisibleInPlayerMode(rawNote)) ? rawNote : null;
+		const crumbs: Crumb[] = [
+			{ label: 'Knowledge', href: resolve('/knowledge') },
+			{ label: 'All Notes', href: resolve('/knowledge/notes') },
+		];
+		if (note) {
+			const segments = folderSegments(String(note.folder));
+			let currentPath = '';
+			for (const segment of segments) {
+				currentPath += `/${segment}`;
+				crumbs.push({
+					label: segment,
+					href: `${resolve('/knowledge/notes')}?folder=${encodeURIComponent(currentPath)}`,
+				});
+			}
+			crumbs.push({
+				label: note.title,
+				href: isEdit ? resolve(`/knowledge/notes/${id}`) : null,
+			});
+		} else {
+			crumbs.push({
+				label: `Note ${id}`,
+				href: isEdit ? resolve(`/knowledge/notes/${id}`) : null,
+			});
+		}
+		if (isEdit) {
+			crumbs.push({ label: 'Edit', href: null });
+		}
+		return crumbs;
+	}
+
+	function buildAtlasRouteCrumbs(pathname: string, search: URLSearchParams): Crumb[] | null {
+		if (pathname !== '/atlas/maps') return null;
+		const selectedMapId = search.get('map')?.trim();
+		const base: Crumb[] = [
+			{ label: 'Atlas', href: resolve('/atlas/maps') },
+			{ label: 'Maps', href: selectedMapId ? resolve('/atlas/maps') : null },
+		];
+		if (!selectedMapId) return base;
+		const selectedMap = mapsState.mapById[selectedMapId];
+		if (!selectedMap) {
+			return [
+				...base,
+				{
+					label: `Map ${selectedMapId}`,
+					href: null,
+				},
+			];
+		}
+		const hierarchy = mapBreadcrumbs(selectedMapId, mapsState.maps);
+		const hierarchyCrumbs = hierarchy.map((entry, index) => {
+			const isCurrent = index === hierarchy.length - 1;
+			return {
+				label: entry.name,
+				href: isCurrent ? null : `${resolve('/atlas/maps')}?map=${encodeURIComponent(entry.mapId)}`,
+			} satisfies Crumb;
+		});
+		return [...base, ...hierarchyCrumbs];
+	}
+
+	function buildSessionBoardCrumbs(pathname: string): Crumb[] | null {
+		if (pathname !== '/session/boards') return null;
+		const activeBoard = sessionBoardsState.activeBoard;
+		if (!activeBoard) {
+			return [
+				{ label: 'Session', href: resolve('/session/boards') },
+				{ label: 'Boards', href: null },
+			];
+		}
+		return [
+			{ label: 'Session', href: resolve('/session/boards') },
+			{ label: 'Boards', href: resolve('/session/boards') },
+			{ label: activeBoard.name, href: null },
+		];
+	}
+
 	const breadcrumbs = $derived.by<Crumb[]>(() => {
 		const pathname = page.url.pathname;
 		const search = page.url.searchParams;
+		const noteCrumbs = buildNoteRouteCrumbs(pathname);
+		if (noteCrumbs) return noteCrumbs;
+
+		const atlasCrumbs = buildAtlasRouteCrumbs(pathname, search);
+		if (atlasCrumbs) return atlasCrumbs;
+
+		const sessionBoardCrumbs = buildSessionBoardCrumbs(pathname);
+		if (sessionBoardCrumbs) return sessionBoardCrumbs;
+
 		const metadataCrumbs = toMetadataCrumbs(page.data);
 		if (metadataCrumbs) {
 			return metadataCrumbs.map((crumb) => ({
@@ -78,42 +174,6 @@
 			}
 			if (tag) {
 				crumbs.push({ label: `#${tag}`, href: null });
-			}
-			return crumbs;
-		}
-
-		const noteMatch = pathname.match(/^\/knowledge\/notes\/([^/]+)(?:\/(edit))?$/);
-		if (noteMatch) {
-			const id = createNoteId(decodeURIComponent(noteMatch[1] ?? ''));
-			const isEdit = noteMatch[2] === 'edit';
-			const rawNote = notesState.getNoteById(id);
-			const note =
-				rawNote && (!playerModeState.enabled || isNoteVisibleInPlayerMode(rawNote))
-					? rawNote
-					: null;
-			crumbs.push({ label: 'All Notes', href: resolve('/knowledge/notes') });
-			if (note) {
-				const segments = folderSegments(String(note.folder));
-				let currentPath = '';
-				for (const segment of segments) {
-					currentPath += `/${segment}`;
-					crumbs.push({
-						label: segment,
-						href: `${resolve('/knowledge/notes')}?folder=${encodeURIComponent(currentPath)}`,
-					});
-				}
-				crumbs.push({
-					label: note.title,
-					href: isEdit ? resolve(`/knowledge/notes/${id}`) : null,
-				});
-			} else {
-				crumbs.push({
-					label: `Note ${id}`,
-					href: isEdit ? resolve(`/knowledge/notes/${id}`) : null,
-				});
-			}
-			if (isEdit) {
-				crumbs.push({ label: 'Edit', href: null });
 			}
 			return crumbs;
 		}
@@ -146,7 +206,7 @@
 			const flowHint = from ? `From ${from}` : '';
 			return [folderHint, `${backlinks} backlinks`, `${outbound} outbound links`, flowHint]
 				.filter(Boolean)
-				.join(' • ');
+				.join(' | ');
 		}
 
 		if (pathname === '/knowledge/notes') {
@@ -155,7 +215,7 @@
 			if (!folder && !tag) return 'Browse all notes';
 			return [folder ? `Folder ${folder}` : '', tag ? `Tag #${tag}` : '']
 				.filter(Boolean)
-				.join(' • ');
+				.join(' | ');
 		}
 
 		return '';
@@ -166,26 +226,7 @@
 	class="sticky top-0 z-20 border-b border-border dark:border-tavern-border bg-surface/90 dark:bg-tavern-surface/90 backdrop-blur-md"
 >
 	<div class="px-4 py-2">
-		<nav
-			aria-label="Contextual navigation: Breadcrumb"
-			class="flex flex-wrap items-center gap-1 text-xs"
-		>
-			{#each breadcrumbs as crumb, index (`${crumb.label}-${index}`)}
-				{#if index > 0}
-					<span class="text-ink-faint dark:text-tavern-faint" aria-hidden="true">/</span>
-				{/if}
-				{#if crumb.href}
-					<a
-						href={crumb.href}
-						class="rounded px-1 text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
-					>
-						{crumb.label}
-					</a>
-				{:else}
-					<span class="rounded px-1 font-medium text-ink dark:text-tavern-text">{crumb.label}</span>
-				{/if}
-			{/each}
-		</nav>
+		<Breadcrumb items={breadcrumbs} />
 		{#if contextHint}
 			<p class="mt-1 text-[11px] text-ink-faint dark:text-tavern-faint">{contextHint}</p>
 		{/if}

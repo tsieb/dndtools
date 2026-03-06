@@ -40,6 +40,41 @@ describe('navigationState', () => {
 		expect(navigationState.currentEntry?.label).toBe('Settings');
 	});
 
+	it('enables back/forward only for same-section history and disables back on section roots', async () => {
+		const { navigationState } = await import('./navigation.svelte.js');
+
+		navigationState.record('/knowledge', { label: 'Knowledge' });
+		navigationState.record('/knowledge/search', { label: 'Search' });
+		expect(navigationState.canGoBack).toBe(true);
+		expect(navigationState.backEntry?.label).toBe('Knowledge');
+
+		navigationState.record('/settings', { label: 'Settings' });
+		expect(navigationState.canGoBack).toBe(false);
+
+		navigationState.record('/knowledge/notes', { label: 'All Notes' });
+		expect(navigationState.canGoBack).toBe(false);
+
+		navigationState.record('/knowledge', { label: 'Knowledge' });
+		expect(navigationState.canGoBack).toBe(false);
+	});
+
+	it('resets navigation history to a single current entry', async () => {
+		const { navigationState } = await import('./navigation.svelte.js');
+
+		navigationState.record('/knowledge/notes', { label: 'All Notes' });
+		navigationState.record('/knowledge/search', { label: 'Search' });
+		expect(navigationState.entries).toHaveLength(2);
+		expect(navigationState.canGoBack).toBe(true);
+
+		navigationState.reset('/settings', { label: 'Settings' });
+		expect(navigationState.entries).toHaveLength(1);
+		expect(navigationState.index).toBe(0);
+		expect(navigationState.currentEntry?.label).toBe('Settings');
+		expect(navigationState.activeSection).toBe('settings');
+		expect(navigationState.canGoBack).toBe(false);
+		expect(navigationState.canGoForward).toBe(false);
+	});
+
 	it('tracks cross-type recent navigation items with recency ordering', async () => {
 		const { navigationState } = await import('./navigation.svelte.js');
 

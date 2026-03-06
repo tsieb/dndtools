@@ -94,6 +94,25 @@
 		return pathname;
 	}
 
+	function setBrowserHistoryLabel(label: string): void {
+		if (typeof window === 'undefined') return;
+		const normalized = label.trim();
+		if (!normalized) return;
+		const currentState =
+			window.history.state && typeof window.history.state === 'object'
+				? (window.history.state as Record<string, unknown>)
+				: {};
+		if (currentState.label === normalized) return;
+		window.history.replaceState(
+			{
+				...currentState,
+				label: normalized,
+			},
+			'',
+			window.location.href,
+		);
+	}
+
 	$effect(() => {
 		if (runtimeBootstrapRequested) return;
 		runtimeBootstrapRequested = true;
@@ -202,29 +221,35 @@
 			const note = notesState.getNoteById(noteId);
 			const title = note?.title ?? `Note ${noteId}`;
 			const noteKind = note && isVaultObjectNote(note) ? 'entity' : 'note';
+			const label = isEdit ? `${title} (Edit)` : title;
 			pwaState.recordNoteOpened(String(noteId));
 			navigationState.record(pathWithSearch, {
-				label: isEdit ? `${title} (Edit)` : title,
+				label,
 				noteId,
 				recentKind: noteKind,
 				recentItemId: String(noteId),
 			});
+			setBrowserHistoryLabel(label);
 			return;
 		}
 
 		if (targetUrl.pathname === '/atlas/maps') {
 			const mapId = targetUrl.searchParams.get('map')?.trim() ?? '';
 			if (mapId) {
+				const label = `Map ${mapId}`;
 				navigationState.record(pathWithSearch, {
-					label: `Map ${mapId}`,
+					label,
 					recentKind: 'map',
 					recentItemId: mapId,
 				});
+				setBrowserHistoryLabel(label);
 				return;
 			}
 		}
 
-		navigationState.record(pathWithSearch, { label: routeLabel(targetUrl) });
+		const label = routeLabel(targetUrl);
+		navigationState.record(pathWithSearch, { label });
+		setBrowserHistoryLabel(label);
 	});
 
 	$effect(() => {
@@ -239,6 +264,7 @@
 		const label = page.url.pathname.endsWith('/edit') ? `${note.title} (Edit)` : note.title;
 		if (current.label !== label) {
 			navigationState.updateCurrentLabel(label);
+			setBrowserHistoryLabel(label);
 		}
 	});
 

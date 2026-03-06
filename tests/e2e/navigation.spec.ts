@@ -63,6 +63,32 @@ test.describe('Navigation', () => {
 		await expect(toggleButton).toBeVisible();
 	});
 
+	test('breadcrumb uses semantic structure with aria-current marker', async ({ page }) => {
+		await page.goto('/knowledge/search');
+		await expect(page.getByRole('heading', { name: 'Search & Discovery' })).toBeVisible();
+		const breadcrumb = page.getByRole('navigation', { name: 'Contextual navigation: Breadcrumb' });
+		await expect(breadcrumb).toBeVisible();
+		await expect(breadcrumb.locator('ol')).toBeVisible();
+		await expect(breadcrumb.locator('[aria-current="page"]')).toContainText('Search');
+	});
+
+	test('back button only enables for in-section history and disables on section root', async ({
+		page,
+	}) => {
+		await page.goto('/knowledge');
+		const backButton = page.getByRole('button', { name: 'Go back' });
+		await expect(backButton).toBeDisabled();
+
+		await page.keyboard.press('Control+Shift+F');
+		await page.waitForURL('/knowledge/search');
+		await expect(backButton).toBeEnabled();
+		await expect(backButton).toHaveAttribute('title', /Back to Knowledge/i);
+
+		await backButton.click();
+		await page.waitForURL('/knowledge');
+		await expect(backButton).toBeDisabled();
+	});
+
 	test('knowledge local navigation uses tabs, tree semantics, and persisted collapse state', async ({
 		page,
 	}) => {

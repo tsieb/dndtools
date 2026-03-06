@@ -222,6 +222,35 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
     - src/lib/state/local-navigation-panels.svelte.test.ts
     - updated src/lib/state/navigation.svelte.test.ts
     - updated tests/e2e/navigation.spec.ts
+- **Epic 13.4** — Contextual Navigation: Breadcrumbs, Backlinks, Deep Links:
+  - Added semantic breadcrumb component in `src/lib/ui/navigation/Breadcrumb.svelte`:
+    - Proper breadcrumb markup (`nav > ol > li`) with `aria-current="page"` on current item
+    - Narrow-viewport truncation with middle-crumb disclosure (`...`) for full-path reveal
+  - Updated `LocationBar` to consume the breadcrumb component and enrich route metadata with
+    contextual hierarchy:
+    - Folder hierarchy + note title for note detail routes
+    - Atlas map hierarchy for selected map routes
+    - Active session board name for session board routes
+  - Redesigned note backlinks UI in `src/lib/ui/viewer/BacklinksPanel.svelte`:
+    - New "Referenced by (N)" contextual panel treatment
+    - Source note title + folder path breadcrumb + excerpt snippet per backlink occurrence
+    - Desktop side-panel friendly with narrow-screen collapsible behavior
+  - Added cross-section contextual links panel in `src/lib/ui/viewer/CrossSectionLinksPanel.svelte`:
+    - "View entity" links into Campaign section for entity-like notes
+    - "View on Atlas" links for map-linked entities/notes
+    - Session-context quick link when note is active on current session board
+  - Updated session board note surfaces to expose explicit "View in Knowledge" links.
+  - Hardened navigation history behavior in `src/lib/state/navigation.svelte.ts`:
+    - Back/forward only enables for same-section history
+    - Back is disabled on section root routes
+    - Added explicit `navigationState.reset()` for vault switch/repair history reset
+  - Hooked vault switch and vault repair flows to clear navigation history state in
+    `src/lib/ui/settings/VaultSettingsTab.svelte`.
+  - Added browser history label normalization in `src/routes/+layout.svelte` so history entries
+    keep human-readable labels used by TopBar tooltips.
+  - Added/updated tests:
+    - `src/lib/state/navigation.svelte.test.ts`
+    - `tests/e2e/navigation.spec.ts`
 
 ## What Not To Do
 

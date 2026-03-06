@@ -16,6 +16,7 @@
 	import ObjectRelationshipPanel from '$lib/ui/viewer/ObjectRelationshipPanel.svelte';
 	import NoteHeader from '$lib/ui/viewer/NoteHeader.svelte';
 	import BacklinksPanel from '$lib/ui/viewer/BacklinksPanel.svelte';
+	import CrossSectionLinksPanel from '$lib/ui/viewer/CrossSectionLinksPanel.svelte';
 	import RelatedNoteJumps from '$lib/ui/viewer/RelatedNoteJumps.svelte';
 	import TableOfContents from '$lib/ui/viewer/TableOfContents.svelte';
 	import ConfirmDialog from '$lib/ui/common/ConfirmDialog.svelte';
@@ -294,16 +295,25 @@
 				</div>
 			</div>
 		{/if}
-		{#if playerCharacterObject}
-			<PlayerCharacterSheet object={playerCharacterObject} />
-		{:else}
-			<NoteViewer {note} />
-		{/if}
-		{#if !playerModeState.enabled}
-			<ObjectRelationshipPanel {note} />
-		{/if}
-		<RelatedNoteJumps noteId={data.noteId} />
-		<BacklinksPanel noteId={data.noteId} />
+		<div class="mx-auto grid max-w-[1240px] gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+			<div class="min-w-0">
+				{#if playerCharacterObject}
+					<PlayerCharacterSheet object={playerCharacterObject} />
+				{:else}
+					<NoteViewer {note} />
+				{/if}
+				{#if !playerModeState.enabled}
+					<ObjectRelationshipPanel {note} />
+				{/if}
+				<RelatedNoteJumps noteId={data.noteId} />
+			</div>
+			<aside class="space-y-3 lg:sticky lg:top-3 lg:self-start">
+				{#if !playerModeState.enabled}
+					<CrossSectionLinksPanel {note} {mapPlacements} />
+				{/if}
+				<BacklinksPanel noteId={data.noteId} />
+			</aside>
+		</div>
 	</div>
 
 	{#if !playerModeState.enabled}

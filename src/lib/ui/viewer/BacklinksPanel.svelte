@@ -14,14 +14,53 @@
 		key: string;
 		sourceId: NoteId;
 		sourceTitle: string;
+		sourceFolder: string;
+		sourceFolderSegments: string[];
 		contextSnippet: string;
 		position: number;
 	}
 
 	let { noteId }: Props = $props();
-	let expanded = $state(false);
+	let expanded = $state(true);
+	let isNarrowViewport = $state(false);
 	let backlinks = $state<BacklinkOccurrence[]>([]);
 	let loading = $state(false);
+
+	function compactSnippet(snippet: string): string {
+		const flattened = snippet.replace(/\s+/g, ' ').trim();
+		if (!flattened) return 'Linked reference in this note.';
+		if (flattened.length <= 180) return flattened;
+		return `${flattened.slice(0, 177).trimEnd()}...`;
+	}
+
+	function folderSegments(folder: string): string[] {
+		const normalized = folder.trim();
+		if (!normalized || normalized === '/') return [];
+		return normalized
+			.split('/')
+			.map((segment) => segment.trim())
+			.filter(Boolean);
+	}
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const mediaQuery = window.matchMedia('(max-width: 1023px)');
+		let initialized = false;
+		const applyViewport = (): void => {
+			isNarrowViewport = mediaQuery.matches;
+			if (!initialized) {
+				expanded = !mediaQuery.matches;
+				initialized = true;
+				return;
+			}
+			if (!mediaQuery.matches) {
+				expanded = true;
+			}
+		};
+		applyViewport();
+		mediaQuery.addEventListener('change', applyViewport);
+		return () => mediaQuery.removeEventListener('change', applyViewport);
+	});
 
 	$effect(() => {
 		let cancelled = false;
@@ -41,7 +80,9 @@
 							key: `${source.id}:${link.position}:${link.displayText}`,
 							sourceId: source.id,
 							sourceTitle: source.title,
-							contextSnippet: link.contextSnippet ?? 'Linked reference in this note.',
+							sourceFolder: String(source.folder),
+							sourceFolderSegments: folderSegments(String(source.folder)),
+							contextSnippet: compactSnippet(link.contextSnippet ?? ''),
 							position: link.position,
 						} satisfies BacklinkOccurrence;
 					})
@@ -71,14 +112,25 @@
 </script>
 
 {#if loading || backlinks.length > 0}
-	<div class="max-w-content mx-auto mt-8 pt-4 border-t border-border dark:border-tavern-border">
-		<button
-			class="flex items-center gap-2 text-sm font-medium text-ink-muted dark:text-tavern-muted hover:text-ink dark:hover:text-tavern-text transition-colors"
-			onclick={() => (expanded = !expanded)}
-		>
-			<span class="text-xs">{expanded ? '\u25BC' : '\u25B6'}</span>
-			Backlinks ({backlinks.length})
-		</button>
+	<section
+		class="rounded-lg border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
+	>
+		<div class="flex items-center justify-between gap-2">
+			<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">
+				Referenced by ({backlinks.length})
+			</h2>
+			{#if isNarrowViewport}
+				<button
+					type="button"
+					class="rounded px-2 py-1 text-xs text-ink-muted transition-colors hover:bg-surface-alt hover:text-ink dark:text-tavern-muted dark:hover:bg-tavern-surface-alt dark:hover:text-tavern-text"
+					onclick={() => (expanded = !expanded)}
+					aria-expanded={expanded}
+					aria-label={expanded ? 'Collapse backlinks panel' : 'Expand backlinks panel'}
+				>
+					{expanded ? 'Hide' : 'Show'}
+				</button>
+			{/if}
+		</div>
 
 		{#if expanded}
 			{#if loading}
@@ -86,15 +138,33 @@
 			{:else if backlinks.length === 0}
 				<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">No backlinks found.</p>
 			{:else}
-				<ul class="mt-3 space-y-2">
+				<ul class="mt-3 space-y-3">
 					{#each backlinks as backlink (backlink.key)}
-						<li>
+						<li
+							class="rounded border border-border/70 bg-surface-alt/60 p-2 dark:border-tavern-border/70 dark:bg-tavern-surface-alt/60"
+						>
 							<a
 								href={resolve(`/knowledge/notes/${backlink.sourceId}`)}
-								class="text-sm font-medium text-accent dark:text-tavern-accent hover:text-accent-hover dark:hover:text-tavern-accent-hover underline underline-offset-2"
+								class="text-sm font-medium text-accent underline underline-offset-2 hover:text-accent-hover dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
 							>
 								{backlink.sourceTitle}
 							</a>
+							<nav class="mt-1" aria-label="Contextual navigation: Backlink source folder path">
+								<ol
+									class="flex flex-wrap items-center gap-1 text-[11px] text-ink-faint dark:text-tavern-faint"
+								>
+									<li>Knowledge</li>
+									{#if backlink.sourceFolderSegments.length > 0}
+										<li aria-hidden="true">/</li>
+									{/if}
+									{#each backlink.sourceFolderSegments as segment, index (`${segment}-${index}`)}
+										<li>{segment}</li>
+										{#if index < backlink.sourceFolderSegments.length - 1}
+											<li aria-hidden="true">/</li>
+										{/if}
+									{/each}
+								</ol>
+							</nav>
 							<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted">
 								{backlink.contextSnippet}
 							</p>
@@ -103,5 +173,5 @@
 				</ul>
 			{/if}
 		{/if}
-	</div>
+	</section>
 {/if}

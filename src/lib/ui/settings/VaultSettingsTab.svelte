@@ -8,6 +8,7 @@
 	import { linksState } from '$lib/state/links.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
+	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
 	import { reportRuntimeError, markSubsystemSuccess } from '$lib/runtime/diagnostics.js';
 	import { searchService } from '$lib/domain/search.js';
@@ -307,6 +308,7 @@
 				markSubsystemSuccess('search_index'),
 				markSubsystemSuccess('link_graph_build'),
 			]);
+			navigationState.reset(resolve('/settings'), { label: 'Settings' });
 			await onrefreshdesktopstate();
 			await vaultHealthState.refresh();
 			if (repaired.issues.length === 0 && repaired.noteIssues.length === 0) {
@@ -353,6 +355,7 @@
 			markSubsystemSuccess('search_index'),
 			markSubsystemSuccess('link_graph_build'),
 		]);
+		navigationState.reset(resolve('/settings'), { label: 'Settings' });
 		toastState.success(
 			result.rollbackApplied
 				? 'Switched vault with automatic rollback safeguards.'
