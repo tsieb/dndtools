@@ -486,14 +486,14 @@
 	<div
 		id={wikilinkCardId}
 		role="tooltip"
-		class="fixed z-30 w-80 rounded-lg border border-border bg-surface shadow-xl p-3 pointer-events-none"
+		class="fixed z-30 w-80 rounded-lg border border-border bg-surface-elevated shadow-lg p-3 pointer-events-none"
 		style={`left:${wikilinkCard.left}px; top:${wikilinkCard.top}px;`}
 	>
 		<p class="text-sm font-semibold text-ink truncate">
 			{wikilinkCard.noteTitle}
 		</p>
 		{#if wikilinkCard.keyStats.length > 0}
-			<p class="mt-1 text-[11px] text-ink-muted">
+			<p class="mt-1 text-xs text-ink-muted">
 				{wikilinkCard.keyStats.join(' | ')}
 			</p>
 		{/if}

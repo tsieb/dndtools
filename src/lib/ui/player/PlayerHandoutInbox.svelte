@@ -66,18 +66,18 @@
 						<h3 class="text-sm font-semibold text-ink">
 							{handout.data.title || handout.name}
 						</h3>
-						<span class="text-[11px] px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
+						<span class="text-xs px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
 							{handoutTypeLabel(handout.data.handoutType)}
 						</span>
 						{#if view.locked}
 							<span
-								class="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/35 dark:text-amber-200"
+								class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/35 dark:text-amber-200"
 							>
 								Locked
 							</span>
 						{/if}
 						{#if handout.data.deliveredAt}
-							<span class="text-[11px] text-ink-faint">
+							<span class="text-xs text-ink-faint">
 								Delivered {handout.data.deliveredAt}
 							</span>
 						{/if}

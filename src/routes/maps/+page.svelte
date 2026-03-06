@@ -2398,7 +2398,7 @@
 											src={mapAssetUrls[String(map.id)] ?? undefined}
 											alt={map.name}
 											loading="lazy"
-											class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+											class="h-full w-full object-cover transition-transform duration-medium group-hover:scale-[1.02]"
 										/>
 									{:else}
 										<div
@@ -2412,12 +2412,12 @@
 									<p class="truncate text-sm font-medium text-ink">
 										{map.name}
 									</p>
-									<p class="truncate text-[11px] text-ink-faint">
+									<p class="truncate text-xs text-ink-faint">
 										{areaLabelForMap(map)}
 									</p>
 									<div class="flex flex-wrap gap-1">
 										{#each map.tags.slice(0, 3) as tag (tag)}
-											<span class="rounded bg-surface px-1.5 py-0.5 text-[10px] text-ink-faint">
+											<span class="rounded bg-surface px-1.5 py-0.5 text-2xs text-ink-faint">
 												#{tag}
 											</span>
 										{/each}
@@ -2438,7 +2438,7 @@
 			<div class="relative rounded-lg border border-border bg-surface p-3">
 				{#if selectedMapBreadcrumbs.length > 0}
 					<nav
-						class="mb-2 flex flex-wrap items-center gap-1 text-[11px] text-ink-muted"
+						class="mb-2 flex flex-wrap items-center gap-1 text-xs text-ink-muted"
 						aria-label="Contextual navigation: Map hierarchy breadcrumbs"
 					>
 						{#each selectedMapBreadcrumbs as crumb, index (crumb.mapId)}
@@ -2529,7 +2529,7 @@
 							</label>
 							<select
 								bind:value={activeLayerFilter}
-								class="rounded border border-border bg-surface-alt px-2 py-1 text-[11px] text-ink"
+								class="rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 								aria-label="Filter visible pins by layer"
 							>
 								<option value="all">All layers</option>
@@ -2552,12 +2552,12 @@
 				</div>
 				{#if selectedCombatTile}
 					<div
-						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-[11px]"
+						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-xs"
 					>
 						<label class="text-ink-muted">
 							Board
 							<select
-								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 text-[11px]"
+								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 text-xs"
 								bind:value={selectedBoardId}
 							>
 								{#each boards as board (board.id)}
@@ -2568,7 +2568,7 @@
 						<label class="text-ink-muted">
 							Combat Tile
 							<select
-								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 text-[11px]"
+								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 text-xs"
 								bind:value={selectedCombatTileId}
 							>
 								{#each combatTiles as tile (tile.id)}
@@ -2656,7 +2656,7 @@
 				{/if}
 				{#if combatModeEnabled}
 					<div
-						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-[11px]"
+						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-xs"
 					>
 						<span class="text-ink-muted">
 							{mapLinkedToEncounterLocation
@@ -2675,7 +2675,7 @@
 						{/if}
 					</div>
 					<div
-						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-[11px]"
+						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-xs"
 					>
 						<label class="inline-flex items-center gap-1 text-ink-muted">
 							<input type="checkbox" bind:checked={terrainPaintMode} />
@@ -2750,7 +2750,7 @@
 							{#each combatMapState.templates as template (template.id)}
 								<button
 									type="button"
-									class="rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:bg-surface-alt"
+									class="rounded border border-border px-2 py-0.5 text-xs text-ink-muted hover:bg-surface-alt"
 									onclick={() => removeTemplate(template.id)}
 								>
 									{template.shape} @{template.originX},{template.originY} x
@@ -2825,13 +2825,13 @@
 				{/key}
 				{#if poiHover && hoveredPoi}
 					<div
-						class="fixed z-40 w-72 rounded-md border border-border bg-surface px-3 py-2 text-xs shadow-xl"
+						class="fixed z-40 w-72 rounded-md border border-border bg-surface-elevated px-3 py-2 text-xs shadow-lg"
 						style={`left:${poiHover.clientX + 10}px;top:${poiHover.clientY + 10}px;`}
 						role="status"
 						aria-live="polite"
 					>
 						<p class="font-semibold text-ink">{hoveredPoi.label}</p>
-						<p class="mt-0.5 text-[11px] text-ink-faint">
+						<p class="mt-0.5 text-xs text-ink-faint">
 							{hoveredPoi.category}
 						</p>
 						{#if hoveredPreviewLines.length > 0}
@@ -2843,7 +2843,7 @@
 						{:else}
 							<button
 								type="button"
-								class="mt-2 rounded border border-border px-2 py-1 text-[11px] text-accent hover:bg-accent-subtle"
+								class="mt-2 rounded border border-border px-2 py-1 text-xs text-accent hover:bg-accent-subtle"
 								onclick={() => void handleCreateNoteFromPoi(hoveredPoi.id)}
 							>
 								Create note from pin
@@ -2854,7 +2854,7 @@
 				{#if mapContextMenu}
 					{@const contextMenu = mapContextMenu}
 					<div
-						class="fixed z-40 min-w-40 rounded-md border border-border bg-surface p-1 shadow-xl"
+						class="fixed z-40 min-w-40 rounded-md border border-border bg-surface-elevated p-1 shadow-lg"
 						style={`left:${contextMenu.clientX}px;top:${contextMenu.clientY}px;`}
 						role="menu"
 						aria-label="Map context menu"
@@ -3061,7 +3061,7 @@
 							Show grid by default
 						</label>
 						<div
-							class="rounded border border-border bg-surface-alt px-2 py-1.5 text-[11px] text-ink-faint"
+							class="rounded border border-border bg-surface-alt px-2 py-1.5 text-xs text-ink-faint"
 						>
 							<p class="truncate">File: {selectedMap.data.filePath || 'Missing path'}</p>
 							{#if selectedMap.data.byteSize}
@@ -3078,7 +3078,7 @@
 								<h3 class="text-xs font-semibold text-ink">Layer System</h3>
 								<button
 									type="button"
-									class="rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:bg-surface-alt"
+									class="rounded border border-border px-2 py-0.5 text-xs text-ink-muted hover:bg-surface-alt"
 									onclick={handleAddLayer}
 								>
 									Add Layer
@@ -3107,7 +3107,7 @@
 															(event.currentTarget as HTMLSelectElement).value,
 														),
 													}))}
-												class="rounded border border-border bg-surface-alt px-2 py-1 text-[11px] text-ink"
+												class="rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 											>
 												{#each LAYER_THEME_OPTIONS as option (option.value)}
 													<option value={option.value}>{option.label}</option>
@@ -3115,14 +3115,14 @@
 											</select>
 											<button
 												type="button"
-												class="rounded border border-border px-2 py-1 text-[11px] text-error hover:bg-error/10 disabled:opacity-40"
+												class="rounded border border-border px-2 py-1 text-xs text-error hover:bg-error/10 disabled:opacity-40"
 												disabled={draftLayers.length <= 1}
 												onclick={() => handleDeleteLayer(layer.id)}
 											>
 												Delete
 											</button>
 										</div>
-										<div class="mt-1.5 flex items-center gap-3 text-[11px] text-ink-muted">
+										<div class="mt-1.5 flex items-center gap-3 text-xs text-ink-muted">
 											<label class="flex items-center gap-1">
 												<input
 													type="checkbox"
@@ -3154,12 +3154,12 @@
 						</div>
 						<div class="rounded border border-border p-2">
 							<h3 class="text-xs font-semibold text-ink">POI Pins by Category</h3>
-							<div class="mt-1.5 grid grid-cols-2 gap-1 text-[11px] text-ink-muted">
+							<div class="mt-1.5 grid grid-cols-2 gap-1 text-xs text-ink-muted">
 								{#each POI_CATEGORY_OPTIONS as category (category.value)}
 									<p>{category.label}: {poiCountsByCategory[category.value] ?? 0}</p>
 								{/each}
 							</div>
-							<label class="mt-2 block text-[11px] text-ink-muted">
+							<label class="mt-2 block text-xs text-ink-muted">
 								New pins default layer
 								<select
 									bind:value={newPoiLayerId}
@@ -3176,14 +3176,14 @@
 								<h3 class="text-xs font-semibold text-ink">Travel Routes</h3>
 								<button
 									type="button"
-									class="rounded border border-border px-2 py-0.5 text-[11px] text-ink-muted hover:bg-surface-alt"
+									class="rounded border border-border px-2 py-0.5 text-xs text-ink-muted hover:bg-surface-alt"
 									onclick={handleCreateRoute}
 								>
 									Add Route
 								</button>
 							</div>
 							<div class="mt-2 grid grid-cols-2 gap-2">
-								<label class="text-[11px] text-ink-muted">
+								<label class="text-xs text-ink-muted">
 									Route name
 									<input
 										type="text"
@@ -3191,7 +3191,7 @@
 										class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
 									/>
 								</label>
-								<label class="text-[11px] text-ink-muted">
+								<label class="text-xs text-ink-muted">
 									Style
 									<select
 										bind:value={newRouteStyle}
@@ -3203,7 +3203,7 @@
 								</label>
 							</div>
 							{#if draftRoutes.length === 0}
-								<p class="mt-2 text-[11px] text-ink-faint">
+								<p class="mt-2 text-xs text-ink-faint">
 									No routes yet. Create one, then click map waypoints.
 								</p>
 							{:else}
@@ -3216,23 +3216,23 @@
 										>
 											<button
 												type="button"
-												class="w-full text-left text-[11px] font-medium text-ink"
+												class="w-full text-left text-xs font-medium text-ink"
 												onclick={() => (selectedRouteId = entry.route.id)}
 											>
 												{entry.route.name}
 											</button>
-											<p class="text-[11px] text-ink-faint">{entry.label}</p>
+											<p class="text-xs text-ink-faint">{entry.label}</p>
 											<div class="mt-1 flex flex-wrap gap-1">
 												<button
 													type="button"
-													class="rounded border border-border px-1.5 py-0.5 text-[10px] text-ink-muted hover:bg-surface-alt"
+													class="rounded border border-border px-1.5 py-0.5 text-2xs text-ink-muted hover:bg-surface-alt"
 													onclick={() => handleClearRouteWaypoints(entry.route.id)}
 												>
 													Clear points
 												</button>
 												<button
 													type="button"
-													class="rounded border border-border px-1.5 py-0.5 text-[10px] text-error hover:bg-error/10"
+													class="rounded border border-border px-1.5 py-0.5 text-2xs text-error hover:bg-error/10"
 													onclick={() => handleDeleteRoute(entry.route.id)}
 												>
 													Delete
@@ -3243,7 +3243,7 @@
 								</div>
 							{/if}
 							{#if selectedRoute}
-								<p class="mt-2 text-[11px] text-ink-faint">
+								<p class="mt-2 text-xs text-ink-faint">
 									Editing: {selectedRoute.name} ({selectedRoute.waypoints.length} waypoint{selectedRoute
 										.waypoints.length === 1
 										? ''
@@ -3262,7 +3262,7 @@
 											: undefined,
 									})}
 									{#if estimate}
-										<p class="mt-1 text-[11px] text-ink-faint">
+										<p class="mt-1 text-xs text-ink-faint">
 											Travel (5e): slow {estimate.pace.slow.hours.toFixed(2)}h | normal
 											{estimate.pace.normal.hours.toFixed(2)}h | fast
 											{estimate.pace.fast.hours.toFixed(2)}h
@@ -3275,7 +3275,7 @@
 							<h3 class="text-xs font-semibold text-ink">Selected Pin</h3>
 							{#if selectedPoi}
 								<div class="mt-2 space-y-2">
-									<label class="block text-[11px] text-ink-muted">
+									<label class="block text-xs text-ink-muted">
 										Label
 										<input
 											type="text"
@@ -3289,7 +3289,7 @@
 										/>
 									</label>
 									<div class="grid grid-cols-2 gap-2">
-										<label class="text-[11px] text-ink-muted">
+										<label class="text-xs text-ink-muted">
 											Category
 											<select
 												value={selectedPoi.category}
@@ -3307,7 +3307,7 @@
 												{/each}
 											</select>
 										</label>
-										<label class="text-[11px] text-ink-muted">
+										<label class="text-xs text-ink-muted">
 											Layer
 											<select
 												value={selectedPoi.layerId ?? ''}
@@ -3324,7 +3324,7 @@
 											</select>
 										</label>
 									</div>
-									<label class="block text-[11px] text-ink-muted">
+									<label class="block text-xs text-ink-muted">
 										Linked note
 										<select
 											value={selectedPoi.linkedNoteId ?? ''}
@@ -3342,7 +3342,7 @@
 											{/each}
 										</select>
 									</label>
-									<label class="block text-[11px] text-ink-muted">
+									<label class="block text-xs text-ink-muted">
 										Linked object
 										<select
 											value={selectedPoi.linkedObjectId ?? ''}
@@ -3360,13 +3360,13 @@
 											{/each}
 										</select>
 									</label>
-									<p class="text-[11px] text-ink-faint">
+									<p class="text-xs text-ink-faint">
 										Position: {selectedPoi.x.toFixed(3)}, {selectedPoi.y.toFixed(3)}
 									</p>
 									<div class="flex flex-wrap gap-1.5">
 										<button
 											type="button"
-											class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface-alt"
+											class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 											onclick={() =>
 												void handleMarkPartyLocation({
 													x: selectedPoi.x,
@@ -3380,7 +3380,7 @@
 										{#if resolveLinkedNoteIdForPoi(selectedPoi)}
 											<button
 												type="button"
-												class="rounded border border-border px-2 py-1 text-[11px] text-ink-muted hover:bg-surface-alt"
+												class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
 												onclick={() =>
 													void goto(
 														resolve(`/knowledge/notes/${resolveLinkedNoteIdForPoi(selectedPoi)}`),
@@ -3391,7 +3391,7 @@
 										{:else}
 											<button
 												type="button"
-												class="rounded border border-border px-2 py-1 text-[11px] text-accent hover:bg-accent-subtle"
+												class="rounded border border-border px-2 py-1 text-xs text-accent hover:bg-accent-subtle"
 												onclick={() => void handleCreateNoteFromPoi(selectedPoi.id)}
 											>
 												Create note
@@ -3399,7 +3399,7 @@
 										{/if}
 										<button
 											type="button"
-											class="rounded border border-border px-2 py-1 text-[11px] text-error hover:bg-error/10"
+											class="rounded border border-border px-2 py-1 text-xs text-error hover:bg-error/10"
 											onclick={() => handleDeletePoi(selectedPoi.id)}
 										>
 											Delete pin
@@ -3407,18 +3407,16 @@
 									</div>
 								</div>
 							{:else}
-								<p class="mt-2 text-[11px] text-ink-muted">
-									Select a pin to edit links and metadata.
-								</p>
+								<p class="mt-2 text-xs text-ink-muted">Select a pin to edit links and metadata.</p>
 							{/if}
 						</div>
 						{#if combatModeEnabled && selectedCombat}
 							<div class="rounded border border-border p-2">
 								<h3 class="text-xs font-semibold text-ink">Session Event Log</h3>
 								{#if selectedCombat.mapState.history.length === 0}
-									<p class="mt-1 text-[11px] text-ink-muted">No map session events yet.</p>
+									<p class="mt-1 text-xs text-ink-muted">No map session events yet.</p>
 								{:else}
-									<ul class="mt-1 max-h-36 space-y-1 overflow-auto text-[11px] text-ink-muted">
+									<ul class="mt-1 max-h-36 space-y-1 overflow-auto text-xs text-ink-muted">
 										{#each [...selectedCombat.mapState.history]
 											.slice(-8)
 											.reverse() as entry (entry.id)}

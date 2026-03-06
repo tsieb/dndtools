@@ -334,7 +334,7 @@
 			<button
 				id="knowledge-tab-browse"
 				type="button"
-				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition-colors {tabClass(
+				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors {tabClass(
 					'browse',
 				)}"
 				role="tab"
@@ -357,7 +357,7 @@
 			<button
 				id="knowledge-tab-recent"
 				type="button"
-				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition-colors {tabClass(
+				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors {tabClass(
 					'recent',
 				)}"
 				role="tab"
@@ -381,7 +381,7 @@
 			<button
 				id="knowledge-tab-saved"
 				type="button"
-				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-[11px] font-medium transition-colors {tabClass(
+				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors {tabClass(
 					'saved',
 				)}"
 				role="tab"
@@ -408,12 +408,12 @@
 		<div id={browsePanelId} role="tabpanel" aria-labelledby="knowledge-tab-browse" class="pb-2">
 			<CollapsibleLocalNavSection section="knowledge" sectionId="folder-tree" title="Folder Tree">
 				<div class="mb-2 flex items-center justify-between px-2.5">
-					<p class="text-[11px] uppercase tracking-wider text-ink-faint">
+					<p class="text-xs uppercase tracking-wider text-ink-faint">
 						{treeMode === 'folder' ? 'Folder hierarchy' : 'Map hierarchy'}
 					</p>
 					<button
 						type="button"
-						class="rounded border border-border px-1.5 py-0.5 text-[10px] text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
+						class="rounded border border-border px-1.5 py-0.5 text-2xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 						onclick={() => (treeMode = treeMode === 'folder' ? 'map' : 'folder')}
 					>
 						{treeMode === 'folder' ? 'Map view' : 'Folder view'}
@@ -484,11 +484,11 @@
 								title={item.title}
 							>
 								<span
-									class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border text-[10px] font-semibold text-ink-faint"
+									class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border text-2xs font-semibold text-ink-faint"
 									>{recentKindBadge(item.kind)}</span
 								>
 								<span class="min-w-0 flex-1 truncate">{item.title}</span>
-								<span class="text-[10px] uppercase text-ink-faint">{item.subtitle}</span>
+								<span class="text-2xs uppercase text-ink-faint">{item.subtitle}</span>
 							</button>
 						{/each}
 					{/if}
@@ -558,16 +558,16 @@
 						{#each collectionPills as collection (collection.id)}
 							<button
 								type="button"
-								class="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-surface px-2 py-1 text-[11px] text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:border-accent hover:text-ink"
+								class="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-surface px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:border-accent hover:text-ink"
 								onclick={() => openCollection(collection.query)}
 								title={collection.query}
 							>
-								<span class="text-[10px]" aria-hidden="true"
+								<span class="text-2xs" aria-hidden="true"
 									>{collection.isSmart ? '\u2726' : '\u25CF'}</span
 								>
 								<span class="truncate">{collection.name}</span>
 								<span
-									class="rounded-full bg-surface-alt px-1 py-0.5 text-[10px] uppercase text-ink-faint"
+									class="rounded-full bg-surface-alt px-1 py-0.5 text-2xs uppercase text-ink-faint"
 									>{collection.scope}</span
 								>
 							</button>

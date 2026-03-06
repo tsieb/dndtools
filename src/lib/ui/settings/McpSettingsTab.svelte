@@ -623,31 +623,31 @@
 										{change.summary}
 									</p>
 									<span
-										class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-surface-alt text-ink-faint"
+										class="px-1.5 py-0.5 rounded text-2xs font-semibold bg-surface-alt text-ink-faint"
 									>
 										{change.type}
 									</span>
 									<span
-										class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-surface-alt text-ink-faint"
+										class="px-1.5 py-0.5 rounded text-2xs font-semibold bg-surface-alt text-ink-faint"
 									>
 										agent:{change.agentId ?? 'default-agent'}
 									</span>
 									{#if change.preview?.semantic.structural}
 										<span
-											class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800"
+											class="px-1.5 py-0.5 rounded text-2xs font-semibold bg-amber-100 text-amber-800"
 										>
 											structural
 										</span>
 									{:else}
 										<span
-											class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800"
+											class="px-1.5 py-0.5 rounded text-2xs font-semibold bg-emerald-100 text-emerald-800"
 										>
 											safe
 										</span>
 									{/if}
 									{#if change.conflict}
 										<span
-											class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800"
+											class="px-1.5 py-0.5 rounded text-2xs font-semibold bg-rose-100 text-rose-800"
 										>
 											conflict
 										</span>

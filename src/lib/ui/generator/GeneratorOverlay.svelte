@@ -38,7 +38,7 @@
 			<header class="px-4 py-3 border-b border-border flex items-center gap-2">
 				<div class="flex-1 min-w-0">
 					<h2 class="text-sm font-semibold text-ink truncate">Generator</h2>
-					<p class="text-[11px] text-ink-muted">Ctrl+G toggles this panel from any route.</p>
+					<p class="text-xs text-ink-muted">Ctrl+G toggles this panel from any route.</p>
 				</div>
 				<button
 					type="button"

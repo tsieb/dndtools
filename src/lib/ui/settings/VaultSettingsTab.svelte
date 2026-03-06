@@ -1016,14 +1016,14 @@
 												<p class="text-xs font-mono text-ink break-all">
 													{recent.vaultDir}
 												</p>
-												<p class="text-[11px] text-ink-muted mt-1">
+												<p class="text-xs text-ink-muted mt-1">
 													Last opened: {recent.lastOpenedAt}
 												</p>
-												<p class="text-[11px] text-ink-faint mt-1">
+												<p class="text-xs text-ink-faint mt-1">
 													Health: {recent.health}
 												</p>
 												{#if recent.remediation}
-													<p class="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+													<p class="text-xs text-amber-700 dark:text-amber-400 mt-1">
 														{recent.remediation}
 													</p>
 												{/if}

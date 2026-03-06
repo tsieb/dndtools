@@ -48,7 +48,7 @@
 			<p class="px-2.5 py-1.5 text-xs text-ink-faint">No campaign entities yet</p>
 		{:else}
 			{#if pinnedEntities.length > 0}
-				<p class="px-2.5 pb-1 text-[11px] uppercase tracking-wider text-ink-faint">Pinned</p>
+				<p class="px-2.5 pb-1 text-xs uppercase tracking-wider text-ink-faint">Pinned</p>
 				<div class="space-y-0.5 pb-2">
 					{#each pinnedEntities as note (note.id)}
 						<button
@@ -63,9 +63,7 @@
 				</div>
 			{/if}
 			{#if entities.length > 0}
-				<p class="px-2.5 pb-1 text-[11px] uppercase tracking-wider text-ink-faint">
-					Recently Updated
-				</p>
+				<p class="px-2.5 pb-1 text-xs uppercase tracking-wider text-ink-faint">Recently Updated</p>
 				<div class="space-y-0.5">
 					{#each entities as note (note.id)}
 						<button
@@ -125,7 +123,7 @@
 					>
 						<div class="truncate">{event.title}</div>
 						{#if event.dateShort}
-							<div class="text-[10px] text-ink-faint">{event.dateShort}</div>
+							<div class="text-2xs text-ink-faint">{event.dateShort}</div>
 						{/if}
 					</button>
 				{/each}

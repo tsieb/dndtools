@@ -62,10 +62,7 @@
 	aria-hidden={compact && mobileKeyboardState.keyboardOpen ? 'true' : undefined}
 >
 	{#if playerModeState.enabled && isVertical}
-		<div
-			class="h-1 w-full bg-emerald-500/80 dark:bg-emerald-400/80"
-			aria-label="Player mode signal"
-		></div>
+		<div class="h-1 w-full bg-emerald-500/80" aria-label="Player mode signal"></div>
 	{/if}
 	<nav
 		class={compact
@@ -81,8 +78,8 @@
 				aria-label={item.label}
 				title={iconOnly ? item.label : undefined}
 				class="primary-nav-item {compact
-					? 'flex min-h-12 flex-col items-center justify-center rounded-md px-1 py-1 text-[11px] font-medium'
-					: 'flex min-h-11 items-center rounded-lg px-2.5 py-2 text-sm font-medium'}"
+					? 'flex min-h-12 flex-col items-center justify-center rounded-md text-2xs font-medium'
+					: 'flex min-h-11 items-center rounded-lg text-sm font-medium'}"
 				data-active={active ? 'true' : 'false'}
 				style="--primary-nav-active: {active ? 1 : 0}"
 				onclick={(event) => handleSectionClick(event, item.id, active)}

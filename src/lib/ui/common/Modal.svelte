@@ -36,7 +36,7 @@
 		onclick={handleBackdropClick}
 	>
 		<div
-			class="bg-surface rounded-lg shadow-xl border border-border w-full max-w-lg mx-4 max-h-[70vh] flex flex-col"
+			class="bg-surface-elevated rounded-lg shadow-lg border border-border w-full max-w-lg mx-4 max-h-[70vh] flex flex-col"
 		>
 			{#if title}
 				<div class="flex items-center justify-between px-4 py-3 border-b border-border">

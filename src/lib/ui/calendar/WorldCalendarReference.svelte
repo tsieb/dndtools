@@ -136,7 +136,7 @@
 					style={`grid-template-columns: repeat(${monthGrid.dayNames.length}, minmax(0, 1fr));`}
 				>
 					{#each monthGrid.dayNames as dayName (dayName)}
-						<div class="text-[10px] text-center text-ink-faint">
+						<div class="text-2xs text-center text-ink-faint">
 							{dayName.slice(0, 2)}
 						</div>
 					{/each}
@@ -145,9 +145,7 @@
 							{#if cell}
 								<button
 									type="button"
-									class="h-7 rounded text-[11px] border transition-colors {isSelected(
-										cell.dayOffset,
-									)
+									class="h-7 rounded text-xs border transition-colors {isSelected(cell.dayOffset)
 										? 'border-accent bg-accent-subtle text-accent'
 										: cell.isToday
 											? 'border-emerald-300 dark:border-emerald-700 text-ink'
@@ -157,7 +155,7 @@
 								>
 									<span>{cell.dayOfMonth}</span>
 									{#if cell.eventCount > 0}
-										<span class="ml-1 text-[9px] text-accent">{cell.eventCount}</span>
+										<span class="ml-1 text-2xs text-accent">{cell.eventCount}</span>
 									{/if}
 								</button>
 							{:else}

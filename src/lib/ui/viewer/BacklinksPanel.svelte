@@ -146,7 +146,7 @@
 								{backlink.sourceTitle}
 							</a>
 							<nav class="mt-1" aria-label="Contextual navigation: Backlink source folder path">
-								<ol class="flex flex-wrap items-center gap-1 text-[11px] text-ink-faint">
+								<ol class="flex flex-wrap items-center gap-1 text-xs text-ink-faint">
 									<li>Knowledge</li>
 									{#if backlink.sourceFolderSegments.length > 0}
 										<li aria-hidden="true">/</li>

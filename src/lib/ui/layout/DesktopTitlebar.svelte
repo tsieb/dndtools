@@ -47,7 +47,7 @@
 		? 'pl-20'
 		: ''}"
 >
-	<div class="desktop-no-drag min-w-0 px-1 text-[11px] text-ink-faint">DND Tools</div>
+	<div class="desktop-no-drag min-w-0 px-1 text-xs text-ink-faint">DND Tools</div>
 	{#if !isMac}
 		<div class="desktop-no-drag ml-auto flex items-center">
 			<button

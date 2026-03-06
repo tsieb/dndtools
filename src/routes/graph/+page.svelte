@@ -431,7 +431,7 @@
 										stroke={selectedNodeId === String(node.id) ? '#1f2937' : '#11182755'}
 										stroke-width={selectedNodeId === String(node.id) ? 2.2 : 1.1}
 									/>
-									<text x={pos.x} y={pos.y + 28} text-anchor="middle" class="fill-ink text-[11px]">
+									<text x={pos.x} y={pos.y + 28} text-anchor="middle" class="fill-ink text-xs">
 										{node.title.length > 18 ? `${node.title.slice(0, 18)}...` : node.title}
 									</text>
 								</g>

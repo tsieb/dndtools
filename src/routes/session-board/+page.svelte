@@ -621,7 +621,7 @@
 										onclick={() => sessionBoardsState.setActiveBoard(board.id)}
 									>
 										<div class="truncate">{board.name}</div>
-										<div class="text-[11px] opacity-70">{board.tiles.length} tiles</div>
+										<div class="text-xs opacity-70">{board.tiles.length} tiles</div>
 									</button>
 								{/each}
 							{/if}
@@ -630,7 +630,7 @@
 
 					<section class="rounded-lg border border-border bg-surface p-3 space-y-2">
 						<h2 class="text-sm font-semibold text-ink">Board Templates</h2>
-						<p class="text-[11px] text-ink-muted">
+						<p class="text-xs text-ink-muted">
 							Use built-in layouts for common scenes or save your own reusable board setup.
 						</p>
 						{#if activeBoard}
@@ -688,14 +688,14 @@
 											</div>
 											{#if !template.builtIn}
 												<button
-													class="text-[11px] px-1.5 py-0.5 rounded border border-error/40 text-error hover:bg-error/5 transition-colors"
+													class="text-xs px-1.5 py-0.5 rounded border border-error/40 text-error hover:bg-error/5 transition-colors"
 													onclick={() => void deleteTemplate(template.id)}
 												>
 													Delete
 												</button>
 											{/if}
 										</div>
-										<div class="text-[11px] text-ink-faint truncate">
+										<div class="text-xs text-ink-faint truncate">
 											{template.description || `${template.tiles.length} tiles`}
 										</div>
 									</div>
@@ -766,7 +766,7 @@
 										>
 											<div class="truncate">{note.title}</div>
 											{#if note.tags.length > 0}
-												<div class="text-[11px] text-ink-faint truncate">
+												<div class="text-xs text-ink-faint truncate">
 													#{note.tags.slice(0, 3).join(' #')}
 												</div>
 											{/if}
@@ -800,7 +800,7 @@
 											>
 												<div class="flex items-center justify-between gap-2">
 													<span class="truncate">{note.title}</span>
-													<span class="text-[11px]">score {suggestion.score}</span>
+													<span class="text-xs">score {suggestion.score}</span>
 												</div>
 											</button>
 										{/if}
@@ -1361,7 +1361,7 @@
 															class="relative z-20 h-full flex flex-col justify-center gap-2 text-center"
 														>
 															<div class="text-xs font-semibold text-ink">Empty note slot</div>
-															<div class="text-[11px] text-ink-muted">
+															<div class="text-xs text-ink-muted">
 																Use Add Notes to assign a note to this tile.
 															</div>
 														</div>
@@ -1412,7 +1412,7 @@
 		use:focusTrap
 	>
 		<div
-			class="w-full max-w-5xl max-h-[85vh] rounded-lg border border-border bg-surface shadow-xl flex flex-col"
+			class="w-full max-w-5xl max-h-[85vh] rounded-lg border border-border bg-surface-elevated shadow-lg flex flex-col"
 		>
 			<div class="px-4 py-3 border-b border-border flex items-center gap-2">
 				<h2 class="text-base font-semibold truncate flex-1">{overlayNote.title}</h2>

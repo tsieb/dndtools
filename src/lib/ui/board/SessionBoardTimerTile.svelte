@@ -134,7 +134,7 @@
 </script>
 
 <div
-	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-150 cursor-pointer hover:shadow-md {selected
+	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-fast cursor-pointer hover:shadow-md {selected
 		? 'border-border ring-2 ring-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
 		: 'border-border'}"
 	role="button"
@@ -163,14 +163,14 @@
 >
 	<header class="px-3 py-2 border-b border-border flex items-center gap-2">
 		<div class="font-medium text-sm text-ink flex-1">Session Timer</div>
-		<span class="text-[10px] px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
+		<span class="text-2xs px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
 			{timer.mode === 'countdown' ? 'Countdown' : 'Elapsed'}
 		</span>
 	</header>
 
 	{#if timer.minimalDisplay}
 		<div class="flex-1 min-h-0 flex flex-col items-center justify-center p-3 gap-2">
-			<div class="text-[11px] uppercase tracking-wider text-ink-faint">
+			<div class="text-xs uppercase tracking-wider text-ink-faint">
 				{timerLabel}
 			</div>
 			<div class="font-mono text-4xl leading-none text-ink tabular-nums" aria-live="polite">
@@ -196,14 +196,14 @@
 	{:else}
 		<div class="flex-1 min-h-0 p-3 flex flex-col gap-2">
 			<div class="rounded-md border border-border/70 bg-surface-alt/70 px-2.5 py-2">
-				<div class="text-[11px] uppercase tracking-wider text-ink-faint">
+				<div class="text-xs uppercase tracking-wider text-ink-faint">
 					{timerLabel}
 				</div>
 				<div class="font-mono text-3xl tabular-nums text-ink mt-1" aria-live="polite">
 					{formatClock(displayMs)}
 				</div>
 				{#if timer.mode === 'countdown'}
-					<div class="text-[11px] text-ink-muted mt-1">
+					<div class="text-xs text-ink-muted mt-1">
 						Target: {Math.round(timer.countdownMs / 60000)} min
 					</div>
 				{/if}
@@ -271,11 +271,11 @@
 
 			<div class="flex-1 min-h-0 rounded border border-border/60 p-2 overflow-y-auto">
 				{#if timer.lapsMs.length === 0}
-					<div class="text-[11px] text-ink-faint">No laps yet.</div>
+					<div class="text-xs text-ink-faint">No laps yet.</div>
 				{:else}
 					<ul class="space-y-1">
 						{#each timer.lapsMs as lapMs, index (`${lapMs}-${index}`)}
-							<li class="flex justify-between text-[11px]">
+							<li class="flex justify-between text-xs">
 								<span class="text-ink-muted">Lap {index + 1}</span>
 								<span class="font-mono text-ink">{formatClock(lapMs)}</span>
 							</li>

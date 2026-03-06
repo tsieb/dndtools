@@ -93,7 +93,7 @@
 						...
 					</summary>
 					<div
-						class="absolute left-0 top-full z-30 mt-1 min-w-[180px] rounded-md border border-border bg-surface p-1 shadow-lg"
+						class="absolute left-0 top-full z-30 mt-1 min-w-[180px] rounded-md border border-border bg-surface-elevated p-1 shadow-lg"
 					>
 						<ol class="space-y-0.5">
 							{#each middleItems as item, index (itemKey(item, index))}

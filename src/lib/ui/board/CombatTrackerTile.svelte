@@ -769,7 +769,7 @@
 </script>
 
 <div
-	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-150 cursor-pointer hover:shadow-md {selected
+	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-fast cursor-pointer hover:shadow-md {selected
 		? 'border-border ring-2 ring-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
 		: 'border-border'}"
 	role="button"
@@ -815,7 +815,7 @@
 				Add
 			</button>
 		</div>
-		<div class="mt-1 flex items-center gap-3 text-[11px] text-ink-muted">
+		<div class="mt-1 flex items-center gap-3 text-xs text-ink-muted">
 			<span>Round {combat.round}</span>
 			<span>Active: {activeCombatant?.name ?? 'None'}</span>
 			<span>{combatants.length} combatants</span>
@@ -944,7 +944,7 @@
 						<div class="flex items-center gap-2">
 							<button
 								type="button"
-								class="h-7 w-7 rounded border border-border text-[11px] hover:bg-surface"
+								class="h-7 w-7 rounded border border-border text-xs hover:bg-surface"
 								title="Set active"
 								onclick={() => persist(startCombatantTurn(combat, combatant.id))}
 							>
@@ -962,17 +962,17 @@
 												name: (event.currentTarget as HTMLInputElement).value.trim() || entry.name,
 											}))}
 									/>
-									<span class="text-[10px] px-1.5 py-0.5 rounded border border-border/70">
+									<span class="text-2xs px-1.5 py-0.5 rounded border border-border/70">
 										{combatant.linkedObjectType ?? (combatant.isPlayerCharacter ? 'pc' : 'npc')}
 									</span>
 								</div>
 								{#if combatant.linkedObjectName}
-									<div class="text-[11px] text-ink-muted truncate">
+									<div class="text-xs text-ink-muted truncate">
 										Linked: {combatant.linkedObjectName}
 									</div>
 								{/if}
 							</div>
-							<label class="text-[11px] flex items-center gap-1">
+							<label class="text-xs flex items-center gap-1">
 								Init
 								<input
 									type="number"
@@ -982,7 +982,7 @@
 										handleInitInput(combatant.id, (event.currentTarget as HTMLInputElement).value)}
 								/>
 							</label>
-							<label class="text-[11px] flex items-center gap-1">
+							<label class="text-xs flex items-center gap-1">
 								Mod
 								<input
 									type="number"
@@ -1039,7 +1039,7 @@
 									+5
 								</button>
 							</div>
-							<label class="text-[11px] flex items-center gap-1">
+							<label class="text-xs flex items-center gap-1">
 								HP
 								<input
 									type="number"
@@ -1065,7 +1065,7 @@
 										)}
 								/>
 							</label>
-							<label class="text-[11px] flex items-center gap-1">
+							<label class="text-xs flex items-center gap-1">
 								AC
 								<input
 									type="number"
@@ -1078,7 +1078,7 @@
 										}))}
 								/>
 							</label>
-							<label class="text-[11px] flex items-center gap-1">
+							<label class="text-xs flex items-center gap-1">
 								Dmg
 								<input
 									type="number"
@@ -1109,7 +1109,7 @@
 								<option value="fled">Fled</option>
 							</select>
 							<div class="flex flex-wrap items-center gap-1">
-								<label class="inline-flex items-center gap-1 text-[11px]">
+								<label class="inline-flex items-center gap-1 text-xs">
 									<input
 										type="checkbox"
 										checked={combatant.delayed}
@@ -1117,7 +1117,7 @@
 									/>
 									Delay
 								</label>
-								<label class="inline-flex items-center gap-1 text-[11px]">
+								<label class="inline-flex items-center gap-1 text-xs">
 									<input
 										type="checkbox"
 										checked={combatant.ready}
@@ -1125,7 +1125,7 @@
 									/>
 									Ready
 								</label>
-								<label class="inline-flex items-center gap-1 text-[11px]">
+								<label class="inline-flex items-center gap-1 text-xs">
 									<input
 										type="checkbox"
 										checked={combatant.concentration}
@@ -1137,7 +1137,7 @@
 									/>
 									Concentration
 								</label>
-								<label class="inline-flex items-center gap-1 text-[11px]">
+								<label class="inline-flex items-center gap-1 text-xs">
 									<input
 										type="checkbox"
 										checked={combatant.isPlayerCharacter}
@@ -1156,7 +1156,7 @@
 							{#each conditionCatalog as condition (condition)}
 								<button
 									type="button"
-									class="px-2 py-0.5 rounded-full border text-[10px] transition-colors {combatant.conditions.some(
+									class="px-2 py-0.5 rounded-full border text-2xs transition-colors {combatant.conditions.some(
 										(entry) => entry.toLowerCase() === condition.toLowerCase(),
 									)
 										? 'border-accent/50 bg-accent-subtle text-accent'
@@ -1168,7 +1168,7 @@
 							{/each}
 						</div>
 
-						<div class="mt-2 flex flex-wrap items-center gap-1 text-[11px]">
+						<div class="mt-2 flex flex-wrap items-center gap-1 text-xs">
 							<span class="text-ink-muted">Notable rolls</span>
 							<button
 								type="button"
@@ -1203,7 +1203,7 @@
 						</div>
 
 						{#if combatant.isPlayerCharacter}
-							<div class="mt-2 flex items-center gap-2 text-[11px]">
+							<div class="mt-2 flex items-center gap-2 text-xs">
 								<span class="text-ink-muted">Death Saves</span>
 								<button
 									type="button"
@@ -1242,7 +1242,7 @@
 							<div class="mt-2">
 								<button
 									type="button"
-									class="text-[11px] px-2 py-1 rounded border border-border hover:bg-surface"
+									class="text-xs px-2 py-1 rounded border border-border hover:bg-surface"
 									onclick={() =>
 										updateCombatant(combatant.id, (entry) => ({
 											...entry,
@@ -1253,7 +1253,7 @@
 								</button>
 								{#if combatant.statsExpanded}
 									<div
-										class="mt-1 rounded border border-border/60 bg-surface/70 p-2 text-[11px] space-y-1"
+										class="mt-1 rounded border border-border/60 bg-surface/70 p-2 text-xs space-y-1"
 									>
 										<div class="flex flex-wrap gap-2">
 											{#if combatant.statsPreview.size}
@@ -1301,7 +1301,7 @@
 				<p class="text-xs font-semibold text-ink">Legendary Actions (turn resets)</p>
 				{#each legendaryTrackers as tracker (tracker.combatantId)}
 					<div class="rounded border border-border/60 p-2 bg-surface-alt/45">
-						<div class="flex flex-wrap items-center gap-2 text-[11px]">
+						<div class="flex flex-wrap items-center gap-2 text-xs">
 							<span class="font-semibold text-ink">{tracker.combatantName}</span>
 							<span class="text-ink-muted">
 								Charges {tracker.chargesRemaining}/{tracker.chargesMax}
@@ -1327,7 +1327,7 @@
 									min="1"
 									max="9"
 									value={tracker.chargesMax}
-									class="h-6 w-12 rounded border border-border bg-surface px-1 text-[11px]"
+									class="h-6 w-12 rounded border border-border bg-surface px-1 text-xs"
 									onchange={(event) =>
 										setLegendaryChargesMax(
 											tracker.combatantId,
@@ -1342,16 +1342,16 @@
 									<div class="flex items-center gap-1">
 										<button
 											type="button"
-											class="px-1.5 py-0.5 rounded border border-border text-[11px] hover:bg-surface"
+											class="px-1.5 py-0.5 rounded border border-border text-xs hover:bg-surface"
 											onclick={() =>
 												persist(spendLegendaryAction(combat, tracker.combatantId, action.id))}
 										>
 											Use ({action.cost})
 										</button>
-										<span class="text-[11px] text-ink-muted">used {action.usedCount}</span>
+										<span class="text-xs text-ink-muted">used {action.usedCount}</span>
 										<button
 											type="button"
-											class="h-5 w-5 rounded border border-error/40 text-error hover:bg-error/5 text-[11px]"
+											class="h-5 w-5 rounded border border-error/40 text-error hover:bg-error/5 text-xs"
 											onclick={() => removeLegendaryAction(tracker.combatantId, action.id)}
 											aria-label={`Remove ${action.name}`}
 										>
@@ -1362,7 +1362,7 @@
 										<input
 											type="text"
 											value={action.name}
-											class="h-6 rounded border border-border bg-surface px-1.5 text-[11px]"
+											class="h-6 rounded border border-border bg-surface px-1.5 text-xs"
 											onchange={(event) =>
 												updateLegendaryAction(
 													tracker.combatantId,
@@ -1371,14 +1371,14 @@
 													(event.currentTarget as HTMLInputElement).value,
 												)}
 										/>
-										<label class="inline-flex items-center gap-1 text-[11px]">
+										<label class="inline-flex items-center gap-1 text-xs">
 											Cost
 											<input
 												type="number"
 												min="1"
 												max="5"
 												value={action.cost}
-												class="h-6 w-11 rounded border border-border bg-surface px-1 text-[11px]"
+												class="h-6 w-11 rounded border border-border bg-surface px-1 text-xs"
 												onchange={(event) =>
 													updateLegendaryAction(
 														tracker.combatantId,
@@ -1393,7 +1393,7 @@
 							{/each}
 							<button
 								type="button"
-								class="px-1.5 py-0.5 h-fit rounded border border-border text-[11px] hover:bg-surface"
+								class="px-1.5 py-0.5 h-fit rounded border border-border text-xs hover:bg-surface"
 								onclick={() => addLegendaryAction(tracker.combatantId)}
 							>
 								Add Action
@@ -1431,21 +1431,21 @@
 					Trigger Now
 				</button>
 				{#if lairTracker.lastTriggeredRound !== null}
-					<span class="text-[11px] text-ink-muted">
+					<span class="text-xs text-ink-muted">
 						Last triggered round {lairTracker.lastTriggeredRound}
 					</span>
 				{/if}
 			</div>
 			{#if lairTracker.actions.length === 0}
-				<p class="text-[11px] text-ink-muted">No lair actions configured.</p>
+				<p class="text-xs text-ink-muted">No lair actions configured.</p>
 			{:else}
 				<ul class="space-y-1">
 					{#each lairTracker.actions as action (action.id)}
-						<li class="flex flex-wrap items-center gap-1 text-[11px]">
+						<li class="flex flex-wrap items-center gap-1 text-xs">
 							<input
 								type="text"
 								value={action.name}
-								class="h-6 rounded border border-border bg-surface px-1.5 text-[11px]"
+								class="h-6 rounded border border-border bg-surface px-1.5 text-xs"
 								onchange={(event) =>
 									updateLairAction(
 										action.id,
@@ -1522,7 +1522,7 @@
 			</label>
 		</div>
 		{#if combat.notableRolls.length > 0}
-			<p class="mt-1 text-[11px] text-ink-muted">
+			<p class="mt-1 text-xs text-ink-muted">
 				{combat.notableRolls.length} notable rolls recorded for encounter log.
 			</p>
 		{/if}

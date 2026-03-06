@@ -53,6 +53,7 @@ Defined in `src/app.css` `@theme` block (light defaults) and overridden in
 | `--color-success`           | `#2e7d32`   | `#66bb6a`  | Success status                            |
 | `--color-warning`           | `#e65100`   | `#ffa726`  | Warning status                            |
 | `--color-error`             | `#b71c1c`   | `#ef5350`  | Error status                              |
+| `--color-error-hover`       | `#991b1b`   | `#f47171`  | Error hover state (danger button)         |
 | `--color-focus-ring`        | `#8b4513`   | `#d4a76a`  | Keyboard focus ring                       |
 
 Raw palette tokens (`--color-parchment-*`, `--color-tavern-*`) remain available for
@@ -85,6 +86,9 @@ Font-weight tokens: `--font-weight-normal` (400), `--font-weight-medium` (500),
 
 Font family tokens: `--font-sans`, `--font-serif`, `--font-mono`.
 
+Arbitrary pixel sizes (`text-[10px]`, `text-[11px]`) are **banned** — the
+`pnpm lint:tokens` gate enforces this. Use `text-2xs` or `text-xs`.
+
 ---
 
 ## S15.1.3 — Spacing Scale Tokens
@@ -109,26 +113,33 @@ Defined in `src/app.css` `:root` block. 4px base unit:
 | `--component-nav-item-py`  | `var(--space-1.5)` (6px) | Nav item vertical padding   |
 | `--component-card-padding` | `var(--space-4)` (16px)  | Card padding                |
 
-Components must not use arbitrary Tailwind spacing values for structural sizing.
-Use the space scale tokens via `var()` in component CSS.
+The `.primary-nav-item` CSS class in `app.css` directly applies
+`padding: var(--component-nav-item-py) var(--component-nav-item-px)`, making
+these tokens the authoritative source for nav item structural padding.
+
+Components that need component-level token consumption should use `var()` calls
+in their `<style>` blocks or via Tailwind arbitrary-value syntax
+`px-[var(--component-nav-item-px)]`.
 
 ---
 
 ## S15.1.4 — Motion and Elevation Tokens
 
-Defined in `src/app.css` `:root` block.
+Defined in `src/app.css` `@theme` block (so Tailwind generates utility classes).
 
 ### Duration tokens
 
-| Token                | Value | Use                                      |
-| -------------------- | ----- | ---------------------------------------- |
-| `--duration-instant` | 0ms   | Used when reduced-motion is active       |
-| `--duration-fast`    | 100ms | Micro-interactions: button press, toggle |
-| `--duration-medium`  | 200ms | Panel transitions, dropdown open         |
-| `--duration-slow`    | 350ms | Sheet slide-in, page transition          |
+| Token                | Value | Tailwind utility   | Use                                      |
+| -------------------- | ----- | ------------------ | ---------------------------------------- |
+| `--duration-instant` | 0ms   | `duration-instant` | Used when reduced-motion is active       |
+| `--duration-fast`    | 100ms | `duration-fast`    | Micro-interactions: button press, toggle |
+| `--duration-medium`  | 200ms | `duration-medium`  | Panel transitions, dropdown open         |
+| `--duration-slow`    | 350ms | `duration-slow`    | Sheet slide-in, page transition          |
 
-The `@media (prefers-reduced-motion: reduce)` block sets all three duration
-tokens to `0ms`, globally collapsing CSS transitions.
+Because these are in `@theme`, components use them as Tailwind utilities:
+`transition-[colors] duration-fast`. The `@media (prefers-reduced-motion: reduce)`
+block sets all three duration tokens to `0ms` in `:root`, globally collapsing
+CSS transitions regardless of how they are applied.
 
 ### Easing tokens
 
@@ -138,13 +149,35 @@ tokens to `0ms`, globally collapsing CSS transitions.
 | `--easing-decelerate` | `cubic-bezier(0, 0, 0.2, 1)`   | Elements entering screen |
 | `--easing-accelerate` | `cubic-bezier(0.4, 0, 1, 1)`   | Elements leaving screen  |
 
+Easing tokens are used via `var()` in `transition:` CSS shorthand in `app.css`
+global rules (`.primary-nav-item`, wikilinks, skip-nav).
+
 ### Elevation (shadow) tokens
 
-| Token         | Value                         | Use                |
-| ------------- | ----------------------------- | ------------------ |
-| `--shadow-sm` | `0 1px 3px rgba(0,0,0,0.08)`  | Subtle card shadow |
-| `--shadow-md` | `0 4px 12px rgba(0,0,0,0.12)` | Panels, dropdowns  |
-| `--shadow-lg` | `0 8px 24px rgba(0,0,0,0.18)` | Modals, overlays   |
+| Token         | Value                         | Tailwind utility | Use                |
+| ------------- | ----------------------------- | ---------------- | ------------------ |
+| `--shadow-sm` | `0 1px 3px rgba(0,0,0,0.08)`  | `shadow-sm`      | Subtle card shadow |
+| `--shadow-md` | `0 4px 12px rgba(0,0,0,0.12)` | `shadow-md`      | Panels, dropdowns  |
+| `--shadow-lg` | `0 8px 24px rgba(0,0,0,0.18)` | `shadow-lg`      | Modals, overlays   |
+
+Because these override Tailwind's built-in `shadow-sm/md/lg` via `@theme`,
+all uses of the standard Tailwind shadow utilities already consume the semantic
+token values. Use `shadow-sm`, `shadow-md`, `shadow-lg` in components.
+`shadow-xl` is not a defined token — use `shadow-lg` for the largest semantic
+elevation level.
+
+---
+
+## Token Compliance Lint
+
+`pnpm lint:tokens` (wired into `pnpm lint` / `pnpm check`) enforces:
+
+1. **No arbitrary pixel font sizes** — `text-[Npx]` is banned; use the scale.
+2. **No structural `dark:` prefixes** — `dark:bg-surface`, `dark:text-ink` etc.
+   are banned; dark mode is handled by `html.dark { }` in `app.css`.
+
+Permitted `dark:` patterns (status-indicator colours for legibility):
+`dark:text-emerald-*`, `dark:bg-amber-*`, `dark:text-rose-*`, etc.
 
 ---
 
@@ -165,20 +198,41 @@ tokens to `0ms`, globally collapsing CSS transitions.
 ```svelte
 <!-- Primary action button -->
 <button class="bg-accent text-accent-foreground hover:bg-accent-hover"> Save </button>
+
+<!-- Danger button — uses error-hover token, no dark: needed -->
+<button class="bg-error text-white hover:bg-error-hover"> Delete </button>
 ```
 
-### Using motion tokens in CSS
+### Using motion tokens in components
 
-```css
-.my-panel {
-	transition: transform var(--duration-medium) var(--easing-decelerate);
-}
+```svelte
+<!-- Via Tailwind utility (preferred) -->
+<div class="transition-[colors] duration-fast">...</div>
+
+<!-- Via CSS var in a style block -->
+<style>
+	.my-panel {
+		transition: transform var(--duration-medium) var(--easing-decelerate);
+	}
+</style>
 ```
 
 ### Using elevation tokens
 
-```css
-.my-dropdown {
-	box-shadow: var(--shadow-md);
-}
+```svelte
+<!-- Floating overlay — use surface-elevated + shadow-lg -->
+<div class="bg-surface-elevated shadow-lg border border-border">...</div>
+
+<!-- Card — use surface + shadow-sm -->
+<div class="bg-surface shadow-sm border border-border">...</div>
+```
+
+### Using typography scale
+
+```svelte
+<!-- WRONG: arbitrary size -->
+<span class="text-[11px] text-ink-muted">timestamp</span>
+
+<!-- CORRECT: scale token -->
+<span class="text-xs text-ink-muted">timestamp</span>
 ```

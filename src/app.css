@@ -54,6 +54,7 @@
 	--color-success: #2e7d32;
 	--color-warning: #e65100;
 	--color-error: #b71c1c;
+	--color-error-hover: #991b1b;
 	/* Focus */
 	--color-focus-ring: #8b4513;
 	/* Foreground on accent: white on dark-brown (light), near-black on gold (dark) */
@@ -101,6 +102,17 @@
 	/* ===== Animation Utilities ===== */
 	--animate-slide-in: slide-in 0.25s ease-out;
 	--animate-fade-in: fade-in 0.2s ease-out;
+
+	/* ===== S15.1.4: Motion Tokens — in @theme so Tailwind generates duration-fast etc. utilities ===== */
+	--duration-instant: 0ms;
+	--duration-fast: 100ms;
+	--duration-medium: 200ms;
+	--duration-slow: 350ms;
+
+	/* ===== S15.1.4: Elevation Tokens — in @theme so shadow-sm/md/lg Tailwind utilities use these values ===== */
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+	--shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
 /* ===== S15.1.3: Spacing Scale (4px base unit) ===== */
@@ -123,19 +135,10 @@
 	--component-nav-item-py: var(--space-1\.5); /* 6px vertical padding */
 	--component-card-padding: var(--space-4); /* 16px card padding */
 
-	/* ===== S15.1.4: Motion Tokens ===== */
-	--duration-instant: 0ms;
-	--duration-fast: 100ms; /* micro-interactions: button press, toggle */
-	--duration-medium: 200ms; /* panel transitions, dropdown open */
-	--duration-slow: 350ms; /* sheet slide-in, page transition */
+	/* ===== S15.1.4: Easing Tokens ===== */
 	--easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
 	--easing-decelerate: cubic-bezier(0, 0, 0.2, 1); /* elements entering screen */
 	--easing-accelerate: cubic-bezier(0.4, 0, 1, 1); /* elements leaving screen */
-
-	/* ===== S15.1.4: Elevation Tokens ===== */
-	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
-	--shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.18);
 
 	--dndtools-keyboard-inset: 0px;
 }
@@ -158,6 +161,7 @@ html.dark {
 	--color-success: #66bb6a;
 	--color-warning: #ffa726;
 	--color-error: #ef5350;
+	--color-error-hover: #f47171;
 	--color-focus-ring: #d4a76a;
 	--color-accent-foreground: #1a1410;
 }
@@ -172,15 +176,30 @@ html {
 
 body {
 	background:
-		radial-gradient(1200px 600px at 0% -10%, #fff5e8 0%, transparent 65%),
-		radial-gradient(900px 450px at 100% 0%, #f3ece1 0%, transparent 60%), var(--color-bg);
+		radial-gradient(
+			1200px 600px at 0% -10%,
+			color-mix(in srgb, var(--color-parchment-accent-subtle) 55%, var(--color-parchment-surface))
+				0%,
+			transparent 65%
+		),
+		radial-gradient(900px 450px at 100% 0%, var(--color-parchment-surface-alt) 0%, transparent 60%),
+		var(--color-bg);
 	color: var(--color-ink);
 }
 
 html.dark body {
 	background:
-		radial-gradient(1100px 520px at 0% -10%, #2a2018 0%, transparent 65%),
-		radial-gradient(800px 420px at 100% 0%, #241b14 0%, transparent 62%), var(--color-bg);
+		radial-gradient(
+			1100px 520px at 0% -10%,
+			color-mix(in srgb, var(--color-tavern-surface) 75%, var(--color-tavern-bg)) 0%,
+			transparent 65%
+		),
+		radial-gradient(
+			800px 420px at 100% 0%,
+			color-mix(in srgb, var(--color-tavern-bg) 70%, var(--color-tavern-surface)) 0%,
+			transparent 62%
+		),
+		var(--color-bg);
 	color: var(--color-ink);
 }
 
@@ -222,12 +241,19 @@ html.dark .app-main::before {
 
 .primary-nav-item {
 	--primary-nav-active: 0;
+	/* S15.1.3: component spacing tokens govern structural padding in expanded/medium layouts */
+	padding: var(--component-nav-item-py) var(--component-nav-item-px);
 	color: color-mix(in srgb, var(--color-ink-muted) 92%, transparent);
 	border-left: 2px solid transparent;
 	transition:
 		color var(--duration-fast) var(--easing-standard),
 		border-color var(--duration-fast) var(--easing-standard),
 		background-color var(--duration-fast) var(--easing-standard);
+}
+
+/* Compact bottom-nav overrides the component token padding */
+[data-mode='compact'] .primary-nav-item {
+	padding: 0.25rem;
 }
 
 .primary-nav-item .primary-nav-icon {
@@ -1034,8 +1060,13 @@ html.dark .callout-success {
 /* ===== Handout preview ===== */
 
 .handout-preview {
-	background: #fbf6e7;
-	border: 1px solid #8f8269;
+	/* Warm parchment surface derived from palette — intentional handout aesthetic */
+	background: color-mix(
+		in srgb,
+		var(--color-parchment-accent-subtle) 30%,
+		var(--color-parchment-surface)
+	);
+	border: 1px solid var(--color-parchment-border-strong);
 	border-radius: 0.55rem;
 	padding: 0.9rem 1rem;
 	position: relative;
@@ -1044,19 +1075,15 @@ html.dark .callout-success {
 }
 
 html.dark .handout-preview {
-	background: #2e241c;
-	border-color: #5d4a3b;
+	background: color-mix(in srgb, var(--color-tavern-surface-alt) 80%, var(--color-tavern-bg));
+	border-color: var(--color-tavern-border-strong);
 }
 
 .handout-preview h3 {
 	margin: 0;
 	font-size: 1rem;
 	font-weight: 700;
-	color: #2a2018;
-}
-
-html.dark .handout-preview h3 {
-	color: #f2d8bf;
+	color: var(--color-ink);
 }
 
 .handout-preview__meta {
@@ -1067,11 +1094,7 @@ html.dark .handout-preview h3 {
 	font-size: 0.7rem;
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
-	color: #4e4034;
-}
-
-html.dark .handout-preview__meta {
-	color: #d7b79a;
+	color: var(--color-ink-muted);
 }
 
 .handout-preview pre {
@@ -1080,11 +1103,7 @@ html.dark .handout-preview__meta {
 	font-family: var(--font-serif);
 	font-size: 0.95rem;
 	line-height: 1.45;
-	color: #2d241b;
-}
-
-html.dark .handout-preview pre {
-	color: #f0e1cf;
+	color: var(--color-ink);
 }
 
 .handout-preview--creator {

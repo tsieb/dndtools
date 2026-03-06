@@ -75,7 +75,7 @@
 >
 	<div class="px-4 py-3 border-b border-border flex items-center gap-2 min-w-0">
 		<div class="min-w-0 flex-1">
-			<p class="text-[11px] uppercase tracking-wider text-ink-faint">Split Quick Reference</p>
+			<p class="text-xs uppercase tracking-wider text-ink-faint">Split Quick Reference</p>
 			<p class="text-sm font-semibold truncate text-ink">
 				{note?.title ?? 'Missing note'}
 			</p>
