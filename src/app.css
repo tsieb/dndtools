@@ -39,8 +39,16 @@
 	--font-mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
 
 	/* Layout */
-	--width-sidebar: 260px;
-	--width-content: 720px;
+	--layout-breakpoint-compact-max: 639px;
+	--layout-breakpoint-medium-max: 1099px;
+	--layout-breakpoint-expanded-min: 1100px;
+	--layout-rail-width: 60px;
+	--layout-panel-width: 240px;
+	--layout-panel-width-narrow: 200px;
+	--layout-panel-width-wide: 320px;
+	--layout-detail-width: 300px;
+	--layout-topbar-height: 48px;
+	--layout-bottomnav-height: 60px;
 
 	/* Animations */
 	--animate-slide-in: slide-in 0.25s ease-out;

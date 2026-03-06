@@ -13,6 +13,7 @@
 	import { mapDescendantIds, mapHierarchyEntries, noteMapIds } from '$lib/domain/map-atlas.js';
 	import type { RecentNavigationItem } from '$lib/state/navigation.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
+	import { layoutState } from '$lib/state/layout.svelte.js';
 
 	type KnowledgeMode = 'browse' | 'recent' | 'saved';
 	type TreeMode = 'folder' | 'map';
@@ -218,7 +219,7 @@
 	}
 
 	function closeOnMobile(): void {
-		if (ui.isMobile) {
+		if (layoutState.isCompact) {
 			ui.sidebarOpen = false;
 		}
 	}

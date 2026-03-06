@@ -8,6 +8,7 @@
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
+	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { mapDescendantIds, mapHierarchyEntries, noteMapIds } from '$lib/domain/map-atlas.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 
@@ -96,7 +97,7 @@
 
 	function navigateToPath(path: string): void {
 		goto(path);
-		if (ui.isMobile) {
+		if (layoutState.isCompact) {
 			ui.sidebarOpen = false;
 		}
 	}

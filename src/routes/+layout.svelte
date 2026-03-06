@@ -19,6 +19,7 @@
 	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
+	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import { syncState } from '$lib/state/sync.svelte.js';
 	import { pwaState } from '$lib/state/pwa.svelte.js';
@@ -138,10 +139,8 @@
 	});
 
 	$effect(() => {
-		if (typeof window === 'undefined') return;
-		const handler = (): void => ui.checkMobile();
-		window.addEventListener('resize', handler);
-		return () => window.removeEventListener('resize', handler);
+		layoutState.initialize();
+		return () => layoutState.dispose();
 	});
 
 	$effect(() => {

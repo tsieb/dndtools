@@ -6,6 +6,7 @@
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { diceState } from '$lib/state/dice.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
+	import { layoutState } from '$lib/state/layout.svelte.js';
 	import type { SessionBoardCombatTile } from '$lib/types/session-board.js';
 
 	interface Props {
@@ -40,7 +41,7 @@
 	});
 
 	function closeOnMobile(): void {
-		if (ui.isMobile) {
+		if (layoutState.isCompact) {
 			ui.sidebarOpen = false;
 		}
 	}

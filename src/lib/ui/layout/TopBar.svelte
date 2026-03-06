@@ -40,7 +40,7 @@
 </script>
 
 <header
-	class="h-[52px] shrink-0 border-b border-border bg-surface/88 px-3 backdrop-blur-md dark:border-tavern-border dark:bg-tavern-surface/88 {desktopBridgeAvailable
+	class="h-[var(--layout-topbar-height)] shrink-0 border-b border-border bg-surface/88 px-3 backdrop-blur-md dark:border-tavern-border dark:bg-tavern-surface/88 {desktopBridgeAvailable
 		? 'desktop-drag'
 		: ''}"
 >

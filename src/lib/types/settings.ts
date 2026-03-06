@@ -97,7 +97,7 @@ export interface SettingRecord {
 export const DEFAULT_SETTINGS: AppSettings = {
 	theme: 'system',
 	sidebarOpen: true,
-	sidebarWidth: 260,
+	sidebarWidth: 240,
 	focusReading: false,
 	playerModeEnabled: false,
 	defaultNoteView: 'read',

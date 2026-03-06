@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { toastState } from '$lib/state/toast.svelte.js';
-	import { ui } from '$lib/state/ui.svelte.js';
+	import { layoutState } from '$lib/state/layout.svelte.js';
 
 	let visibleToasts = $derived(toastState.toasts.slice(-4));
 	let hiddenToastCount = $derived(Math.max(0, toastState.toasts.length - visibleToasts.length));
@@ -8,8 +8,8 @@
 
 {#if visibleToasts.length > 0}
 	<div
-		class="fixed right-4 z-[100] flex flex-col gap-2 pointer-events-none {ui.isMobile
-			? 'bottom-[calc(1rem+env(safe-area-inset-bottom)+4rem)]'
+		class="fixed right-4 z-[100] flex flex-col gap-2 pointer-events-none {layoutState.isCompact
+			? 'bottom-[calc(1rem+var(--layout-bottomnav-height)+env(safe-area-inset-bottom))]'
 			: 'bottom-4'}"
 		aria-live="polite"
 	>

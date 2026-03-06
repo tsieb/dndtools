@@ -11,7 +11,7 @@
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { editorState } from '$lib/state/editor.svelte.js';
 	import { editorPreferencesState } from '$lib/state/editor-preferences.svelte.js';
-	import { ui } from '$lib/state/ui.svelte.js';
+	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import {
@@ -96,7 +96,7 @@
 			wordWrap: editorSettings.wordWrap,
 		}),
 	);
-	let dockEditorToolbar = $derived(ui.isMobile && mobileKeyboardState.keyboardOpen);
+	let dockEditorToolbar = $derived(layoutState.isCompact && mobileKeyboardState.keyboardOpen);
 
 	$effect(() => {
 		if (note && editorState.noteId !== note.id) {

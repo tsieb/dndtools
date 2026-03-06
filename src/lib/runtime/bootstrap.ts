@@ -62,7 +62,6 @@ export async function bootstrapApplication(): Promise<void> {
 			onboardingState.loadFromStorage(),
 			playerModeState.loadFromStorage(),
 		]);
-		ui.checkMobile();
 
 		await notesState.loadAll();
 		if (notesState.notes.length === 0) {

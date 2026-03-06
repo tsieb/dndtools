@@ -6,6 +6,7 @@
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
+	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { isVaultObjectNote } from '$lib/domain/object-notes.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import { buildOpenThreadsReport } from '$lib/domain/open-threads.js';
@@ -35,7 +36,7 @@
 
 	function navigateToNote(id: string): void {
 		goto(resolve(`/knowledge/notes/${id}`));
-		if (ui.isMobile) {
+		if (layoutState.isCompact) {
 			ui.sidebarOpen = false;
 		}
 	}

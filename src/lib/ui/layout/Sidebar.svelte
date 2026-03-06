@@ -4,6 +4,7 @@
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { onboardingState } from '$lib/state/onboarding.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
+	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import {
 		AtlasLocalNavPanel,
@@ -34,7 +35,7 @@
 	function reopenOnboarding(): void {
 		void onboardingState.reopenChecklist();
 		goto(resolve('/knowledge'));
-		if (ui.isMobile) {
+		if (layoutState.isCompact) {
 			ui.sidebarOpen = false;
 		}
 	}
@@ -42,14 +43,14 @@
 
 <aside
 	class="h-full flex flex-col overflow-hidden border-r border-border bg-surface-alt dark:border-tavern-border dark:bg-tavern-surface
-		{ui.isMobile && presentation === 'sidebar'
-		? 'fixed inset-y-0 left-0 z-40 w-[280px] shadow-xl animate-slide-in'
+		{layoutState.isCompact && presentation === 'sidebar'
+		? 'fixed inset-y-0 left-0 z-40 shadow-xl animate-slide-in'
 		: ''}"
-	style="width: {ui.isMobile && presentation === 'sidebar'
-		? '280px'
+	style="width: {layoutState.isCompact && presentation === 'sidebar'
+		? 'var(--layout-panel-width)'
 		: presentation === 'sheet'
 			? '100%'
-			: ui.sidebarWidth + 'px'}"
+			: `clamp(var(--layout-panel-width-narrow), ${ui.sidebarWidth}px, var(--layout-panel-width-wide))`}"
 >
 	{#if playerModeState.enabled}
 		<div class="border-b border-border px-3 py-2 dark:border-tavern-border">

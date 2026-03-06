@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { ui } from '$lib/state/ui.svelte.js';
+	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import TopBar from './TopBar.svelte';
@@ -24,6 +25,7 @@
 	let swipeStartY = $state(0);
 	let swipeStartTime = $state(0);
 	let swipeIntent = $state<'back' | 'forward' | null>(null);
+	let lastLayoutTier = $state<'compact' | 'medium' | 'expanded' | null>(null);
 
 	$effect(() => {
 		if (!mobileKeyboardState.keyboardOpen) return;
@@ -32,20 +34,31 @@
 		}
 	});
 
+	$effect(() => {
+		const tier = layoutState.tier;
+		const initialCompactMount = tier === 'compact' && lastLayoutTier === null;
+		const transitionedToCompact =
+			tier === 'compact' && lastLayoutTier !== null && lastLayoutTier !== 'compact';
+		if ((initialCompactMount || transitionedToCompact) && ui.sidebarOpen) {
+			ui.sidebarOpen = false;
+		}
+		lastLayoutTier = tier;
+	});
+
 	const primaryNavMode = $derived.by<'expanded' | 'collapsed' | 'medium' | 'compact'>(() => {
-		if (ui.layoutMode === 'compact') return 'compact';
-		if (ui.layoutMode === 'medium') return 'medium';
+		if (layoutState.isCompact) return 'compact';
+		if (layoutState.isMedium) return 'medium';
 		return ui.sidebarOpen ? 'expanded' : 'collapsed';
 	});
 
 	function handleMainTouchStart(event: TouchEvent): void {
-		if (!ui.isMobile || ui.focusReading || ui.sidebarOpen) return;
+		if (!layoutState.isCompact || ui.focusReading || ui.sidebarOpen) return;
 		const touch = event.changedTouches[0];
 		if (!touch) return;
 		const edgeThreshold = 28;
 		if (touch.clientX <= edgeThreshold) {
 			swipeIntent = 'back';
-		} else if (touch.clientX >= window.innerWidth - edgeThreshold) {
+		} else if (touch.clientX >= layoutState.viewportWidth - edgeThreshold) {
 			swipeIntent = 'forward';
 		} else {
 			swipeIntent = null;
@@ -107,16 +120,16 @@
 		{/if}
 
 		<div class="flex min-h-0 flex-1 overflow-hidden">
-			{#if ui.sidebarOpen && !ui.focusReading && !ui.isMobile}
+			{#if ui.sidebarOpen && !ui.focusReading && !layoutState.isCompact}
 				<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} />
 			{/if}
 
 			<main
 				id="main-content"
-				class="app-main flex-1 overflow-y-auto bg-parchment dark:bg-tavern-bg {ui.isMobile &&
+				class="app-main flex-1 overflow-y-auto bg-parchment dark:bg-tavern-bg {layoutState.isCompact &&
 				!ui.focusReading &&
 				!mobileKeyboardState.keyboardOpen
-					? 'pb-24'
+					? 'pb-[calc(var(--layout-bottomnav-height)+env(safe-area-inset-bottom)+0.75rem)]'
 					: ''}"
 				ontouchstart={handleMainTouchStart}
 				ontouchmove={handleMainTouchMove}
@@ -132,7 +145,7 @@
 		</div>
 	</div>
 
-	{#if ui.isMobile && ui.sidebarOpen && !ui.focusReading}
+	{#if layoutState.isCompact && ui.sidebarOpen && !ui.focusReading}
 		<button
 			class="fixed inset-0 z-30 bg-black/35"
 			onclick={() => (ui.sidebarOpen = false)}

@@ -30,6 +30,16 @@
 	const compact = $derived(mode === 'compact');
 	const iconOnly = $derived(mode === 'collapsed' || mode === 'medium');
 	const isVertical = $derived(!compact);
+	const shellStyle = $derived.by(() => {
+		const width = isVertical
+			? mode === 'expanded'
+				? 'var(--layout-panel-width)'
+				: 'var(--layout-rail-width)'
+			: '100%';
+		return compact
+			? `width: ${width}; min-height: calc(var(--layout-bottomnav-height) + env(safe-area-inset-bottom));`
+			: `width: ${width};`;
+	});
 </script>
 
 <aside
@@ -38,7 +48,7 @@
 		: 'fixed inset-x-0 bottom-0 z-30 border-t border-border dark:border-tavern-border'} {compact
 		? 'bg-surface/95 pb-[calc(0.3rem+env(safe-area-inset-bottom))] pt-1 backdrop-blur-md dark:bg-tavern-surface/95'
 		: 'bg-surface-alt dark:bg-tavern-surface'}"
-	style="width: {isVertical ? (mode === 'expanded' ? '200px' : '60px') : '100%'}"
+	style={shellStyle}
 	data-mode={mode}
 >
 	{#if playerModeState.enabled && isVertical}
