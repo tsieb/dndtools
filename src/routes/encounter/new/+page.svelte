@@ -100,7 +100,7 @@
 				<span
 					class="text-[11px] px-2 py-0.5 rounded border border-border/70 dark:border-tavern-border/70 text-ink-muted dark:text-tavern-muted"
 				>
-					Route: <span class="font-mono">/encounter/new</span>
+					Route: <span class="font-mono">/session/encounter/new</span>
 				</span>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
@@ -144,7 +144,7 @@
 					Add Encounter Tile
 				</button>
 				<a
-					href={resolve('/session-board')}
+					href={resolve('/session/boards')}
 					class="h-8 px-3 inline-flex items-center rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
 				>
 					Open Session Board

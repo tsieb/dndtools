@@ -34,12 +34,12 @@
 				if (id && playerModeState.enabled) {
 					const target = notesState.getActiveNoteById(id);
 					if (!target || !isNoteVisibleInPlayerMode(target)) {
-						return { href: `/notes?create=${encodeURIComponent(title)}`, exists: false };
+						return { href: `/knowledge/notes?create=${encodeURIComponent(title)}`, exists: false };
 					}
 				}
 				return id
-					? { href: `/notes/${id}`, exists: true }
-					: { href: `/notes?create=${encodeURIComponent(title)}`, exists: false };
+					? { href: `/knowledge/notes/${id}`, exists: true }
+					: { href: `/knowledge/notes?create=${encodeURIComponent(title)}`, exists: false };
 			},
 		}).then((rendered) => {
 			if (!stale) html = rendered;
@@ -88,7 +88,7 @@
 			<button
 				type="button"
 				class="px-2 py-1 rounded text-xs border border-border dark:border-tavern-border hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
-				onclick={() => void goto(resolve(`/notes/${note.id}`))}
+				onclick={() => void goto(resolve(`/knowledge/notes/${note.id}`))}
 			>
 				Open
 			</button>

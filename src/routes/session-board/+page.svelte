@@ -237,8 +237,8 @@
 			resolveLink: (title) => {
 				const id = notesState.resolveTitle(title);
 				return id
-					? { href: `/notes/${id}`, exists: true }
-					: { href: `/notes?create=${encodeURIComponent(title)}`, exists: false };
+					? { href: `/knowledge/notes/${id}`, exists: true }
+					: { href: `/knowledge/notes?create=${encodeURIComponent(title)}`, exists: false };
 			},
 		}).then((result) => {
 			if (!stale) overlayHtml = result;
@@ -1461,7 +1461,7 @@
 					class="px-2.5 py-1 rounded text-xs border border-border"
 					onclick={() => {
 						overlayNoteId = null;
-						void goto(resolve(`/notes/${overlayNote.id}`));
+						void goto(resolve(`/knowledge/notes/${overlayNote.id}`));
 					}}>Open Note</button
 				>
 				<button

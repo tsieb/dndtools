@@ -189,7 +189,7 @@
 										>
 											<div class="flex items-center justify-between gap-2">
 												<a
-													href={resolve(`/notes/${entry.noteId}`)}
+													href={resolve(`/knowledge/notes/${entry.noteId}`)}
 													class="text-sm font-medium text-accent hover:underline dark:text-tavern-accent"
 												>
 													{entry.title}
@@ -212,7 +212,7 @@
 											{/if}
 											{#if entry.linkedSessionNoteId}
 												<a
-													href={resolve(`/notes/${entry.linkedSessionNoteId}`)}
+													href={resolve(`/knowledge/notes/${entry.linkedSessionNoteId}`)}
 													class="mt-1 inline-block text-[11px] text-accent hover:underline dark:text-tavern-accent"
 												>
 													Linked session log
@@ -238,7 +238,7 @@
 											class="rounded border border-border bg-surface-alt p-2 dark:border-tavern-border dark:bg-tavern-surface-alt"
 										>
 											<a
-												href={resolve(`/notes/${entry.noteId}`)}
+												href={resolve(`/knowledge/notes/${entry.noteId}`)}
 												class="text-sm font-medium text-accent hover:underline dark:text-tavern-accent"
 											>
 												{entry.title}
@@ -248,7 +248,7 @@
 											</p>
 											{#if entry.linkedTimelineEventId}
 												<a
-													href={resolve(`/notes/${entry.linkedTimelineEventId}`)}
+													href={resolve(`/knowledge/notes/${entry.linkedTimelineEventId}`)}
 													class="mt-1 inline-block text-[11px] text-accent hover:underline dark:text-tavern-accent"
 												>
 													Linked world event

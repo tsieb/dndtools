@@ -138,7 +138,7 @@
 					Add Combat Tile
 				</button>
 				<a
-					href={resolve('/session-board')}
+					href={resolve('/session/boards')}
 					class="h-8 px-3 inline-flex items-center rounded border border-border dark:border-tavern-border text-xs hover:bg-surface-alt dark:hover:bg-tavern-surface-alt transition-colors"
 				>
 					Open Session Board

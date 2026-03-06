@@ -49,7 +49,7 @@ Organize notes with tags:
 | **Ctrl+D** | Open dice tray |
 | **Ctrl+G** | Open generator panel |
 | **Ctrl+E** | Toggle edit/view mode |
-| **Ctrl+B** | Toggle sidebar |
+| **Ctrl+B** | Toggle local navigation |
 | **Ctrl+Shift+F** | Global search |
 
 ## Tips for DMs

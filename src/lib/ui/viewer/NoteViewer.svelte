@@ -115,12 +115,15 @@
 					if (targetId && playerModeState.enabled) {
 						const target = notesState.getActiveNoteById(targetId);
 						if (!target || !isNoteVisibleInPlayerMode(target)) {
-							return { href: `/notes?create=${encodeURIComponent(title)}`, exists: false };
+							return {
+								href: `/knowledge/notes?create=${encodeURIComponent(title)}`,
+								exists: false,
+							};
 						}
 					}
 					return targetId
-						? { href: `/notes/${targetId}`, exists: true }
-						: { href: `/notes?create=${encodeURIComponent(title)}`, exists: false };
+						? { href: `/knowledge/notes/${targetId}`, exists: true }
+						: { href: `/knowledge/notes?create=${encodeURIComponent(title)}`, exists: false };
 				},
 				resolveObject: ({ type, id }) => {
 					const resolved =

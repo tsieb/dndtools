@@ -47,7 +47,7 @@
 	);
 
 	function openNote(id: NoteId): void {
-		goto(resolve(`/notes/${id}`));
+		goto(resolve(`/knowledge/notes/${id}`));
 	}
 </script>
 

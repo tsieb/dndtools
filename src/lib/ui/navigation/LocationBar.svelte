@@ -7,6 +7,7 @@
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { createNoteId } from '$lib/types/note.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
+	import type { BreadcrumbItem } from '$lib/types/breadcrumb.js';
 
 	interface Crumb {
 		label: string;
@@ -14,15 +15,34 @@
 	}
 
 	const knownRoutes = new Map<string, string>([
-		['/', 'Home'],
-		['/notes', 'All Notes'],
-		['/search', 'Search'],
-		['/maps', 'Maps'],
-		['/timeline', 'Timeline'],
-		['/session-board', 'Session Board'],
+		['/knowledge', 'Knowledge'],
+		['/knowledge/notes', 'All Notes'],
+		['/knowledge/search', 'Search'],
+		['/knowledge/graph', 'Graph'],
+		['/atlas/maps', 'Maps'],
+		['/campaign/timeline', 'Timeline'],
+		['/session/boards', 'Session Board'],
+		['/session/combat', 'Combat Tracker'],
+		['/session/encounter/new', 'Encounter Builder'],
 		['/settings', 'Settings'],
-		['/player', 'Player View'],
+		['/player', 'Player Screen'],
 	]);
+
+	function toMetadataCrumbs(data: unknown): Crumb[] | null {
+		if (!data || typeof data !== 'object') return null;
+		const raw = (data as { breadcrumb?: unknown }).breadcrumb;
+		if (!Array.isArray(raw) || raw.length === 0) return null;
+		const parsed: Crumb[] = [];
+		for (const entry of raw) {
+			if (!entry || typeof entry !== 'object') return null;
+			const label = (entry as BreadcrumbItem).label;
+			const href = (entry as BreadcrumbItem).href;
+			if (typeof label !== 'string' || label.trim().length === 0) return null;
+			if (href !== null && typeof href !== 'string') return null;
+			parsed.push({ label, href });
+		}
+		return parsed;
+	}
 
 	function folderSegments(folder: string): string[] {
 		return folder
@@ -34,14 +54,22 @@
 	const breadcrumbs = $derived.by<Crumb[]>(() => {
 		const pathname = page.url.pathname;
 		const search = page.url.searchParams;
-		const crumbs: Crumb[] = [{ label: 'Home', href: resolve('/') }];
+		const metadataCrumbs = toMetadataCrumbs(page.data);
+		if (metadataCrumbs) {
+			return metadataCrumbs.map((crumb) => ({
+				label: crumb.label,
+				href: crumb.href,
+			}));
+		}
 
-		if (pathname === '/') {
-			crumbs[0] = { label: 'Home', href: null };
+		const crumbs: Crumb[] = [{ label: 'Knowledge', href: resolve('/knowledge') }];
+
+		if (pathname === '/knowledge') {
+			crumbs[0] = { label: 'Knowledge', href: null };
 			return crumbs;
 		}
 
-		if (pathname === '/notes') {
+		if (pathname === '/knowledge/notes') {
 			crumbs.push({ label: 'All Notes', href: null });
 			const folder = search.get('folder');
 			const tag = search.get('tag');
@@ -54,7 +82,7 @@
 			return crumbs;
 		}
 
-		const noteMatch = pathname.match(/^\/notes\/([^/]+)(?:\/(edit))?$/);
+		const noteMatch = pathname.match(/^\/knowledge\/notes\/([^/]+)(?:\/(edit))?$/);
 		if (noteMatch) {
 			const id = createNoteId(decodeURIComponent(noteMatch[1] ?? ''));
 			const isEdit = noteMatch[2] === 'edit';
@@ -63,7 +91,7 @@
 				rawNote && (!playerModeState.enabled || isNoteVisibleInPlayerMode(rawNote))
 					? rawNote
 					: null;
-			crumbs.push({ label: 'All Notes', href: resolve('/notes') });
+			crumbs.push({ label: 'All Notes', href: resolve('/knowledge/notes') });
 			if (note) {
 				const segments = folderSegments(String(note.folder));
 				let currentPath = '';
@@ -71,15 +99,18 @@
 					currentPath += `/${segment}`;
 					crumbs.push({
 						label: segment,
-						href: `${resolve('/notes')}?folder=${encodeURIComponent(currentPath)}`,
+						href: `${resolve('/knowledge/notes')}?folder=${encodeURIComponent(currentPath)}`,
 					});
 				}
 				crumbs.push({
 					label: note.title,
-					href: isEdit ? resolve(`/notes/${id}`) : null,
+					href: isEdit ? resolve(`/knowledge/notes/${id}`) : null,
 				});
 			} else {
-				crumbs.push({ label: `Note ${id}`, href: isEdit ? resolve(`/notes/${id}`) : null });
+				crumbs.push({
+					label: `Note ${id}`,
+					href: isEdit ? resolve(`/knowledge/notes/${id}`) : null,
+				});
 			}
 			if (isEdit) {
 				crumbs.push({ label: 'Edit', href: null });
@@ -98,7 +129,7 @@
 
 	const contextHint = $derived.by(() => {
 		const pathname = page.url.pathname;
-		const noteMatch = pathname.match(/^\/notes\/([^/]+)(?:\/edit)?$/);
+		const noteMatch = pathname.match(/^\/knowledge\/notes\/([^/]+)(?:\/edit)?$/);
 		if (noteMatch) {
 			const id = createNoteId(decodeURIComponent(noteMatch[1] ?? ''));
 			const rawNote = notesState.getNoteById(id);
@@ -118,7 +149,7 @@
 				.join(' • ');
 		}
 
-		if (pathname === '/notes') {
+		if (pathname === '/knowledge/notes') {
 			const folder = page.url.searchParams.get('folder');
 			const tag = page.url.searchParams.get('tag');
 			if (!folder && !tag) return 'Browse all notes';
@@ -135,7 +166,10 @@
 	class="sticky top-0 z-20 border-b border-border dark:border-tavern-border bg-surface/90 dark:bg-tavern-surface/90 backdrop-blur-md"
 >
 	<div class="px-4 py-2">
-		<nav aria-label="Breadcrumb" class="flex flex-wrap items-center gap-1 text-xs">
+		<nav
+			aria-label="Contextual navigation: Breadcrumb"
+			class="flex flex-wrap items-center gap-1 text-xs"
+		>
 			{#each breadcrumbs as crumb, index (`${crumb.label}-${index}`)}
 				{#if index > 0}
 					<span class="text-ink-faint dark:text-tavern-faint" aria-hidden="true">/</span>

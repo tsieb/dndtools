@@ -1,6 +1,60 @@
 import { SvelteSet } from 'svelte/reactivity';
 import type { NoteId } from '$lib/types/note.js';
 
+export type PrimarySection = 'knowledge' | 'atlas' | 'session' | 'campaign' | 'settings';
+
+export interface PrimarySectionNavItem {
+	id: PrimarySection;
+	label: string;
+	href: string;
+	match: (pathname: string) => boolean;
+}
+
+export const PRIMARY_SECTION_NAV_ITEMS: readonly PrimarySectionNavItem[] = [
+	{
+		id: 'knowledge',
+		label: 'Knowledge',
+		href: '/knowledge',
+		match: (pathname) => pathname.startsWith('/knowledge') || pathname === '/player',
+	},
+	{
+		id: 'atlas',
+		label: 'Atlas',
+		href: '/atlas/maps',
+		match: (pathname) => pathname.startsWith('/atlas'),
+	},
+	{
+		id: 'session',
+		label: 'Session',
+		href: '/session/boards',
+		match: (pathname) => pathname.startsWith('/session'),
+	},
+	{
+		id: 'campaign',
+		label: 'Campaign',
+		href: '/campaign/timeline',
+		match: (pathname) => pathname.startsWith('/campaign'),
+	},
+	{
+		id: 'settings',
+		label: 'Settings',
+		href: '/settings',
+		match: (pathname) => pathname.startsWith('/settings'),
+	},
+];
+
+function toPathname(path: string): string {
+	const normalized = path.startsWith('/') ? path : `/${path}`;
+	const queryIndex = normalized.indexOf('?');
+	return queryIndex >= 0 ? normalized.slice(0, queryIndex) : normalized;
+}
+
+export function primarySectionFromPath(path: string): PrimarySection {
+	const pathname = toPathname(path);
+	const match = PRIMARY_SECTION_NAV_ITEMS.find((item) => item.match(pathname));
+	return match?.id ?? 'knowledge';
+}
+
 interface NavigationEntry {
 	path: string;
 	label: string;
@@ -17,6 +71,8 @@ class NavigationState {
 	private readonly maxEntries = 120;
 	entries = $state<NavigationEntry[]>([]);
 	index = $state(-1);
+	activeRoute = $state('/knowledge');
+	activeSection = $state<PrimarySection>('knowledge');
 
 	currentEntry = $derived(
 		this.index >= 0 && this.index < this.entries.length ? (this.entries[this.index] ?? null) : null,
@@ -47,6 +103,7 @@ class NavigationState {
 
 	record(path: string, context: NavigationContext): void {
 		const normalizedPath = this.normalizePath(path);
+		this.setActiveRoute(normalizedPath);
 		const label = context.label.trim() || normalizedPath;
 		const noteId = context.noteId ?? null;
 		const current = this.currentEntry;
@@ -76,6 +133,12 @@ class NavigationState {
 		const overflow = Math.max(0, appended.length - this.maxEntries);
 		this.entries = overflow > 0 ? appended.slice(overflow) : appended;
 		this.index = this.entries.length - 1;
+	}
+
+	setActiveRoute(path: string): void {
+		const normalizedPath = this.normalizePath(path);
+		this.activeRoute = normalizedPath;
+		this.activeSection = primarySectionFromPath(normalizedPath);
 	}
 
 	updateCurrentLabel(label: string): void {

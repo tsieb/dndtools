@@ -1,4 +1,4 @@
-# CLAUDE.md - Agent Development Guide
+﻿# CLAUDE.md - Agent Development Guide
 
 This file documents repository-specific guidance for AI-assisted development.
 
@@ -86,17 +86,17 @@ Scopes: `mcp`, `renderer`, `electron`, `storage`, `ui`, `ci`
 Pre-commit hooks run `pnpm lint && pnpm format:check` automatically.
 Pre-push hooks run `pnpm check` automatically. Never bypass with `--no-verify`.
 
-Always run `pnpm format` before staging many files — Prettier is enforced in CI and pre-commit.
+Always run `pnpm format` before staging many files Ã¢â‚¬â€ Prettier is enforced in CI and pre-commit.
 
 When a story is complete, open a PR and enable auto-merge:
 
 gh pr create --title "<type>(<scope>): <summary> [Epic X.Y / SX.X.X]" --base master
 gh pr merge --auto --squash
 
-**You may merge your own PRs when CI passes** — no human approval required.
+**You may merge your own PRs when CI passes** Ã¢â‚¬â€ no human approval required.
 
 Full branch strategy, commit sizing, PR process, and recovery:
-→ `docs/development/GIT_WORKFLOW.md`
+Ã¢â€ â€™ `docs/development/GIT_WORKFLOW.md`
 
 ## Common Task Notes
 
@@ -128,50 +128,50 @@ Full branch strategy, commit sizing, PR process, and recovery:
 
 ## Key Architecture Decisions
 
-- Storage abstraction layer (`StorageAdapter` interface) — never access IndexedDB directly from components.
-- Markdown pipeline in `src/lib/markdown/` — all parsing goes through unified, never manual.
+- Storage abstraction layer (`StorageAdapter` interface) Ã¢â‚¬â€ never access IndexedDB directly from components.
+- Markdown pipeline in `src/lib/markdown/` Ã¢â‚¬â€ all parsing goes through unified, never manual.
 - Offline-first: treat network as enhancement, not requirement.
 - State managed via Svelte 5 runes classes in `src/lib/state/*.svelte.ts`.
 - MCP server (`mcp/`) for AI agent vault access:
   - Uses `FileSystemAdapter` (reads/writes markdown files on disk)
   - 43+ tools across `vault/`, `notes/`, `objects/`, `boards/`, `search/`, `dice/`, `random/` domains (canonical list: `mcp/tools/index.ts`)
-  - Tool contract framework (`mcp/tools/shared/contracts.ts`) — permissions, idempotency, retry
-  - Schema migrations (`mcp/migrations.ts`) — versioned, with checkpoint/rollback
-  - Staged storage (`mcp/staged-storage.ts`) — MCP writes staged for human review by default
-  - Vault intelligence (`mcp/tools/vault/vault-intelligence.ts`) — analytics engine for agent planning
+  - Tool contract framework (`mcp/tools/shared/contracts.ts`) Ã¢â‚¬â€ permissions, idempotency, retry
+  - Schema migrations (`mcp/migrations.ts`) Ã¢â‚¬â€ versioned, with checkpoint/rollback
+  - Staged storage (`mcp/staged-storage.ts`) Ã¢â‚¬â€ MCP writes staged for human review by default
+  - Vault intelligence (`mcp/tools/vault/vault-intelligence.ts`) Ã¢â‚¬â€ analytics engine for agent planning
 
 ## Documentation Map
 
-- `CLAUDE.md` — agentic development guide (root, authoritative)
-- `docs/README.md` — documentation hub and guided reading index
-- `docs/GLOSSARY.md` — domain terminology definitions
-- `docs/CONTRIBUTING.md` — onboarding and first-run guide
+- `CLAUDE.md` Ã¢â‚¬â€ agentic development guide (root, authoritative)
+- `docs/README.md` Ã¢â‚¬â€ documentation hub and guided reading index
+- `docs/GLOSSARY.md` Ã¢â‚¬â€ domain terminology definitions
+- `docs/CONTRIBUTING.md` Ã¢â‚¬â€ onboarding and first-run guide
 
-Architecture: `docs/architecture/` — ARCHITECTURE.md, DATA_MODEL.md, TECH_STACK.md, SECURITY.md
+Architecture: `docs/architecture/` Ã¢â‚¬â€ ARCHITECTURE.md, DATA_MODEL.md, TECH_STACK.md, SECURITY.md
 
-Development: `docs/development/` — DEVELOPMENT.md, GIT_WORKFLOW.md, TESTING.md, PERFORMANCE.md, ACCESSIBILITY.md, UX_GUIDELINES.md, OWNERSHIP.md
+Development: `docs/development/` Ã¢â‚¬â€ DEVELOPMENT.md, GIT_WORKFLOW.md, TESTING.md, PERFORMANCE.md, ACCESSIBILITY.md, UX_GUIDELINES.md, OWNERSHIP.md
 
-Planning: `docs/planning/` — ROADMAP.md, PLANNING_TIERS.md, `initiatives/README.md` (initiative map + vision), `initiatives/I1-*.md`…`I12-*.md` (per-initiative epic/story details)
+Planning: `docs/planning/` Ã¢â‚¬â€ ROADMAP.md, PLANNING_TIERS.md, `initiatives/README.md` (initiative map + vision), `initiatives/I1-*.md`Ã¢â‚¬Â¦`I12-*.md` (per-initiative epic/story details)
 
-Operations: `docs/operations/` — SCHEMA_MIGRATIONS.md, MCP_INSPECTOR_WORKFLOW.md, RELEASE.md, MOBILE.md
+Operations: `docs/operations/` Ã¢â‚¬â€ SCHEMA_MIGRATIONS.md, MCP_INSPECTOR_WORKFLOW.md, RELEASE.md, MOBILE.md
 
-Reference: `docs/reference/` — AGENTIC_NOTES_WORKFLOW.md (MCP tool contracts), RANDOM_TABLES.md, PROJECT_STRUCTURE.md
+Reference: `docs/reference/` Ã¢â‚¬â€ AGENTIC_NOTES_WORKFLOW.md (MCP tool contracts), RANDOM_TABLES.md, PROJECT_STRUCTURE.md
 
-Architecture Decisions: `docs/adr/README.md` — ADR index (ADR-001 through ADR-010)
+Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-001 through ADR-010)
 
 ## Development Phases
 
-- Phase 0: Scaffolding (SvelteKit + tooling setup) — complete
-- Phase 1: Core note system (MVP — CRUD, markdown, editor, nav, MCP server) — complete
-- Phase 2: Linking & knowledge graph (wikilinks, backlinks, tags) — complete
-- Phase 3: Search & discovery (full-text, quick switcher, graph view) — complete
-- Phase 4: Polish & advanced features (import/export, templates, a11y audit) — in progress
-- Phase 5: Cloud & sharing — future
-- Phase 6: D&D-specific tools — maps, player features, campaign mgmt — future
+- Phase 0: Scaffolding (SvelteKit + tooling setup) Ã¢â‚¬â€ complete
+- Phase 1: Core note system (MVP Ã¢â‚¬â€ CRUD, markdown, editor, nav, MCP server) Ã¢â‚¬â€ complete
+- Phase 2: Linking & knowledge graph (wikilinks, backlinks, tags) Ã¢â‚¬â€ complete
+- Phase 3: Search & discovery (full-text, quick switcher, graph view) Ã¢â‚¬â€ complete
+- Phase 4: Polish & advanced features (import/export, templates, a11y audit) Ã¢â‚¬â€ in progress
+- Phase 5: Cloud & sharing Ã¢â‚¬â€ future
+- Phase 6: D&D-specific tools Ã¢â‚¬â€ maps, player features, campaign mgmt Ã¢â‚¬â€ future
 
 ## Completed Epics
 
-- **Epic 1.3** — Integrity Verification & Self-Repair (commit `115d933`):
+- **Epic 1.3** Ã¢â‚¬â€ Integrity Verification & Self-Repair (commit `115d933`):
   - `NoteIntegrityIssueStatus` extended with `'orphan_entry'`
   - `vaultHealthState` singleton in `src/lib/state/vaultHealth.svelte.ts`
   - TopBar health badge (triangle warning icon, severity-coloured)
@@ -181,8 +181,28 @@ Architecture Decisions: `docs/adr/README.md` — ADR index (ADR-001 through ADR-
   - Pre-migration safety snapshot in run-migrations IPC handler
   - `electron/ipc-schemas.ts` + `ipc-security.test.ts` (IPC security foundation)
 
-- **Epic 1.5** — Diagnostic Telemetry & Health Dashboard (commit `d3375cf`):
+- **Epic 1.5** Ã¢â‚¬â€ Diagnostic Telemetry & Health Dashboard (commit `d3375cf`):
   - In progress on branch `story/1.5-diagnostic-telemetry-health`
+- **Epic 13.1** — IA Audit, North-Star Definition & Route Architecture:
+  - Added IA source of truth in docs/architecture/INFORMATION_ARCHITECTURE.md
+  - Added redundancy elimination log in docs/architecture/NAVIGATION_REDUNDANCY_LOG.md
+  - Added three-layer navigation contract in docs/architecture/NAVIGATION_CONTRACT.md
+  - Added nav-layer lint gate (scripts/nav-layer-lint.ts) and integrated it into pnpm lint
+  - Added canonical route hierarchy roots and section paths:
+    - /knowledge/\*
+    - /atlas/\*
+    - /session/\*
+    - /campaign/\*
+    - /settings/\*
+  - Added breadcrumb metadata loaders in canonical route +page.ts files and wired breadcrumb rendering to route metadata
+  - Added client-side canonicalization redirects for legacy route paths in src/routes/+layout.svelte
+- **Epic 13.2** — Global Navigation Layer Reconstruction:
+  - Added PrimaryNav shell component in src/lib/ui/layout/PrimaryNav.svelte
+  - Added section icon system in src/lib/ui/layout/PrimaryNavIcon.svelte
+  - Added iconography specification in docs/architecture/NAVIGATION_ICONOGRAPHY.md
+  - Reduced TopBar scope and documented ownership in docs/architecture/TOPBAR_CHARTER.md
+  - Added centralized activeSection / activeRoute state in src/lib/state/navigation.svelte.ts
+  - Moved DM/Player persona controls to sidebar footer switcher and added persistent player-mode shell indicators
 
 ## What Not To Do
 
@@ -191,13 +211,13 @@ Architecture Decisions: `docs/adr/README.md` — ADR index (ADR-001 through ADR-
 - do not introduce broad IPC without validation
 - do not claim docs are up to date without verifying files
 - do not merge large behavior changes without test updates
-- do not commit story-level work directly to `master` — use a story branch
+- do not commit story-level work directly to `master` Ã¢â‚¬â€ use a story branch
 - do not force-push `master` under any circumstances
 - do not use `--no-verify` to bypass git hooks
 
 ## Current Known Gaps to Respect
 
 - CI workflows exist (`.github/workflows/ci.yml`, `.github/workflows/e2e.yml`) but are not yet comprehensive: coverage threshold enforcement and cross-platform matrix testing are not yet added.
-- MCP tool-level test coverage is incomplete — many tools rely only on `all-tools.test.ts` contract tests; dedicated per-tool unit/integration tests are sparse.
+- MCP tool-level test coverage is incomplete Ã¢â‚¬â€ many tools rely only on `all-tools.test.ts` contract tests; dedicated per-tool unit/integration tests are sparse.
 - Epic 1.4 (IPC Hardening) is substantially complete: explicit named channels, Zod schema validation, `SECURITY.md` threat model, and IPC security regression tests are all in place. One residual gap: `dndtools:storage:clear-changelog` handler does not use `parseIpcArg()` validation.
 - Atomic filesystem writes are implemented in `mcp/safe-write.ts` and `mcp/storage.ts`; write-journal recovery runs at startup. This is substantially complete.

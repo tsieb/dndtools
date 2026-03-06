@@ -97,7 +97,7 @@
 			params.push(`x=${encodeURIComponent(String(placement.coordinates.x))}`);
 			params.push(`y=${encodeURIComponent(String(placement.coordinates.y))}`);
 		}
-		return `${resolve('/maps')}?${params.join('&')}`;
+		return `${resolve('/atlas/maps')}?${params.join('&')}`;
 	}
 
 	$effect(() => {
@@ -188,7 +188,7 @@
 		try {
 			await notesState.deleteNote(data.noteId);
 			toastState.success(`"${title}" moved to trash`);
-			goto(resolve('/notes'));
+			goto(resolve('/knowledge/notes'));
 		} finally {
 			deleting = false;
 		}
@@ -227,7 +227,7 @@
 			{note}
 			{mapPlacements}
 			readonly={playerModeState.enabled}
-			onedit={() => goto(resolve(`/notes/${data.noteId}/edit`))}
+			onedit={() => goto(resolve(`/knowledge/notes/${data.noteId}/edit`))}
 			ondelete={() => (showDeleteConfirm = true)}
 		/>
 		{#if frontmatterMapPlacement}
@@ -335,7 +335,7 @@
 		<div class="text-center py-16">
 			<p class="text-lg text-ink-muted dark:text-tavern-muted mb-2">Note not found</p>
 			<a
-				href={resolve('/notes')}
+				href={resolve('/knowledge/notes')}
 				class="text-accent dark:text-tavern-accent hover:text-accent-hover dark:hover:text-tavern-accent-hover text-sm"
 			>
 				Back to notes

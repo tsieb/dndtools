@@ -153,10 +153,10 @@
 			await editorState.save();
 		}
 		if (notesState.discardDraftIfUntouched(noteId)) {
-			goto(resolve('/notes'));
+			goto(resolve('/knowledge/notes'));
 			return;
 		}
-		goto(resolve(`/notes/${noteId}`));
+		goto(resolve(`/knowledge/notes/${noteId}`));
 	}
 
 	function handleViewReady(view: EditorView): void {
@@ -412,7 +412,7 @@
 					<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">
 						Linked event:
 						<a
-							href={resolve(`/notes/${linkedTimelineEvent.note.id}`)}
+							href={resolve(`/knowledge/notes/${linkedTimelineEvent.note.id}`)}
 							class="text-accent hover:underline dark:text-tavern-accent"
 						>
 							{linkedTimelineEvent.note.title}
@@ -491,7 +491,7 @@
 				{playerModeState.enabled ? 'Editing is disabled in player mode.' : 'Note not found'}
 			</p>
 			<a
-				href={resolve(playerModeState.enabled ? '/player' : '/notes')}
+				href={resolve(playerModeState.enabled ? '/player' : '/knowledge/notes')}
 				class="text-sm text-accent hover:text-accent-hover dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
 			>
 				{playerModeState.enabled ? 'Back to player view' : 'Back to notes'}

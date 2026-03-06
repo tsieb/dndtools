@@ -46,7 +46,7 @@
 
 	async function handleNewNote(): Promise<void> {
 		const note = await notesState.createNote();
-		goto(resolve(`/notes/${note.id}/edit`));
+		goto(resolve(`/knowledge/notes/${note.id}/edit`));
 	}
 </script>
 
@@ -59,7 +59,7 @@
 				class="text-3xl font-bold text-ink dark:text-tavern-text mb-3"
 				style="font-family: var(--font-serif)"
 			>
-				{playerModeState.enabled ? 'Player View' : 'Welcome, Dungeon Master'}
+				{playerModeState.enabled ? 'Player Screen' : 'Welcome, Dungeon Master'}
 			</h1>
 			<p class="text-ink-muted dark:text-tavern-muted mb-8 max-w-md mx-auto leading-relaxed">
 				{playerModeState.enabled
@@ -85,11 +85,11 @@
 				class="text-2xl font-bold text-ink dark:text-tavern-text"
 				style="font-family: var(--font-serif)"
 			>
-				{playerModeState.enabled ? 'Player View' : 'Your Vault'}
+				{playerModeState.enabled ? 'Player Screen' : 'Your Vault'}
 			</h1>
 			<div class="grid grid-cols-3 gap-3 mt-4">
 				<a
-					href={resolve('/notes')}
+					href={resolve('/knowledge/notes')}
 					class="p-3 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface hover:border-accent/40 dark:hover:border-tavern-accent/40 transition-all group"
 				>
 					<div class="text-2xl font-bold text-accent dark:text-tavern-accent">{noteCount}</div>
@@ -121,7 +121,7 @@
 				</div>
 				<div class="grid gap-3 sm:grid-cols-2">
 					{#each pinnedNotes as note (note.id)}
-						<NoteCard {note} onclick={(id) => goto(resolve(`/notes/${id}`))} />
+						<NoteCard {note} onclick={(id) => goto(resolve(`/knowledge/notes/${id}`))} />
 					{/each}
 				</div>
 			</section>
@@ -131,7 +131,7 @@
 			<div class="flex items-center justify-between mb-4">
 				<h2 class="text-lg font-semibold text-ink dark:text-tavern-text">Recent Notes</h2>
 				<a
-					href={resolve('/notes')}
+					href={resolve('/knowledge/notes')}
 					class="text-sm text-accent dark:text-tavern-accent hover:text-accent-hover dark:hover:text-tavern-accent-hover transition-colors"
 				>
 					View all &rarr;
@@ -139,7 +139,7 @@
 			</div>
 			<div class="grid gap-3 sm:grid-cols-2">
 				{#each recentNotes as note (note.id)}
-					<NoteCard {note} onclick={(id) => goto(resolve(`/notes/${id}`))} />
+					<NoteCard {note} onclick={(id) => goto(resolve(`/knowledge/notes/${id}`))} />
 				{/each}
 			</div>
 		</section>

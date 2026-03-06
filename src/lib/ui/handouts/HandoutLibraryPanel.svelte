@@ -88,7 +88,7 @@
 	}
 
 	function openHandoutNote(handout: HandoutObject): void {
-		void goto(resolve(`/notes/${handout.id}`));
+		void goto(resolve(`/knowledge/notes/${handout.id}`));
 	}
 
 	function openContextMenu(event: MouseEvent, handout: HandoutObject): void {

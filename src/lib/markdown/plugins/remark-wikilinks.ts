@@ -22,7 +22,7 @@ const remarkWikilinks: Plugin<[WikilinkOptions?], Root> = (options = {}) => {
 	const resolveLink =
 		options.resolveLink ??
 		((title: string) => ({
-			href: `/notes?create=${encodeURIComponent(title)}`,
+			href: `/knowledge/notes?create=${encodeURIComponent(title)}`,
 			exists: false,
 		}));
 

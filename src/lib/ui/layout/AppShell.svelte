@@ -4,32 +4,21 @@
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import TopBar from './TopBar.svelte';
+	import PrimaryNav from './PrimaryNav.svelte';
 	import Sidebar from './Sidebar.svelte';
-	import MobileBottomNav from './MobileBottomNav.svelte';
 	import LocationBar from '$lib/ui/navigation/LocationBar.svelte';
 	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
 
 	interface Props {
 		onnewnote: () => void;
-		oncreatehandout: () => void;
 		onsearch: () => void;
 		ondice: () => void;
 		ontemplate: (folderOverride?: string) => void;
-		onrefresh: () => void;
 		onsetplayermode: (enabled: boolean) => void;
 		children: Snippet;
 	}
 
-	let {
-		onnewnote,
-		oncreatehandout,
-		onsearch,
-		ondice,
-		ontemplate,
-		onrefresh,
-		onsetplayermode,
-		children,
-	}: Props = $props();
+	let { onnewnote, onsearch, ondice, ontemplate, onsetplayermode, children }: Props = $props();
 
 	let swipeStartX = $state(0);
 	let swipeStartY = $state(0);
@@ -43,9 +32,11 @@
 		}
 	});
 
-	function openMobileLibrarySheet(): void {
-		ui.sidebarOpen = true;
-	}
+	const primaryNavMode = $derived.by<'expanded' | 'collapsed' | 'medium' | 'compact'>(() => {
+		if (ui.layoutMode === 'compact') return 'compact';
+		if (ui.layoutMode === 'medium') return 'medium';
+		return ui.sidebarOpen ? 'expanded' : 'collapsed';
+	});
 
 	function handleMainTouchStart(event: TouchEvent): void {
 		if (!ui.isMobile || ui.focusReading || ui.sidebarOpen) return;
@@ -105,61 +96,55 @@
 
 <a href="#main-content" class="skip-nav">Skip to content</a>
 
-<div class="flex flex-col h-screen">
+<div class="flex h-screen overflow-hidden">
 	{#if !ui.focusReading}
-		<TopBar
-			{onnewnote}
-			{oncreatehandout}
-			{onsearch}
-			{ondice}
-			{ontemplate}
-			{onrefresh}
-			{onsetplayermode}
-		/>
+		<PrimaryNav mode={primaryNavMode} />
 	{/if}
 
-	<div class="flex flex-1 overflow-hidden">
-		{#if ui.sidebarOpen && !ui.focusReading && !ui.isMobile}
-			<Sidebar {onnewnote} {ondice} {ontemplate} />
+	<div class="flex min-w-0 flex-1 flex-col">
+		{#if !ui.focusReading}
+			<TopBar {onsearch} />
 		{/if}
 
-		<main
-			id="main-content"
-			class="app-main flex-1 overflow-y-auto bg-parchment dark:bg-tavern-bg {ui.isMobile &&
-			!ui.focusReading &&
-			!mobileKeyboardState.keyboardOpen
-				? 'pb-24'
-				: ''}"
-			ontouchstart={handleMainTouchStart}
-			ontouchmove={handleMainTouchMove}
-			ontouchend={handleMainTouchEnd}
-		>
-			{#if !ui.focusReading}
-				<LocationBar />
+		<div class="flex min-h-0 flex-1 overflow-hidden">
+			{#if ui.sidebarOpen && !ui.focusReading && !ui.isMobile}
+				<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} />
 			{/if}
-			<div class="h-full min-h-0 animate-fade-in">
-				{@render children()}
-			</div>
-		</main>
+
+			<main
+				id="main-content"
+				class="app-main flex-1 overflow-y-auto bg-parchment dark:bg-tavern-bg {ui.isMobile &&
+				!ui.focusReading &&
+				!mobileKeyboardState.keyboardOpen
+					? 'pb-24'
+					: ''}"
+				ontouchstart={handleMainTouchStart}
+				ontouchmove={handleMainTouchMove}
+				ontouchend={handleMainTouchEnd}
+			>
+				{#if !ui.focusReading}
+					<LocationBar />
+				{/if}
+				<div class="h-full min-h-0 animate-fade-in">
+					{@render children()}
+				</div>
+			</main>
+		</div>
 	</div>
 
 	{#if ui.isMobile && ui.sidebarOpen && !ui.focusReading}
 		<button
 			class="fixed inset-0 z-30 bg-black/35"
 			onclick={() => (ui.sidebarOpen = false)}
-			aria-label="Close library sheet"
+			aria-label="Close local navigation sheet"
 		></button>
 		<div
 			class="fixed inset-x-0 bottom-0 z-40 max-h-[82vh] overflow-hidden rounded-t-2xl border border-border bg-surface shadow-2xl dark:border-tavern-border dark:bg-tavern-surface"
 			role="dialog"
-			aria-label="Library sheet"
+			aria-label="Local navigation sheet"
 			use:focusTrap
 		>
-			<Sidebar {onnewnote} {ondice} {ontemplate} presentation="sheet" />
+			<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} presentation="sheet" />
 		</div>
-	{/if}
-
-	{#if ui.isMobile && !ui.focusReading && !mobileKeyboardState.keyboardOpen}
-		<MobileBottomNav onopenlibrary={openMobileLibrarySheet} />
 	{/if}
 </div>

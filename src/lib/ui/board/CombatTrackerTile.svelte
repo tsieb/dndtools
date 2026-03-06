@@ -700,7 +700,7 @@
 
 	function openEncounterLog(): void {
 		if (!combat.lastLogNoteId) return;
-		void goto(resolve(`/notes/${combat.lastLogNoteId}`));
+		void goto(resolve(`/knowledge/notes/${combat.lastLogNoteId}`));
 	}
 
 	function handleTileKeydown(event: KeyboardEvent): void {
