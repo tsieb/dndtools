@@ -5,6 +5,7 @@
 	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
+	import { inputModalityState } from '$lib/state/input-modality.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
 
@@ -57,6 +58,7 @@
 		if (pathname === '/player') return 'Player Screen';
 		return navigationState.currentEntry?.label ?? pathname;
 	});
+	const showKeyboardHints = $derived(!layoutState.isMedium || inputModalityState.keyboardDetected);
 
 	$effect(() => {
 		if (layoutState.isCompact) return;
@@ -239,7 +241,7 @@
 					class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
 					onclick={ontogglelocalpanel}
 					aria-label="Toggle local navigation"
-					title="Toggle local navigation (Ctrl+B)"
+					title={showKeyboardHints ? 'Toggle local navigation (Ctrl+B)' : 'Toggle local navigation'}
 				>
 					<svg
 						class="h-5 w-5"
@@ -322,7 +324,7 @@
 					class="flex items-center gap-2 rounded-md bg-surface-alt px-2.5 py-1.5 text-sm text-ink-faint transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-border dark:bg-tavern-surface-alt dark:text-tavern-faint dark:hover:bg-tavern-border"
 					onclick={onsearch}
 					aria-label="Open command palette"
-					title="Open command palette (Ctrl+P)"
+					title={showKeyboardHints ? 'Open command palette (Ctrl+P)' : 'Open command palette'}
 				>
 					<svg
 						class="h-4 w-4"

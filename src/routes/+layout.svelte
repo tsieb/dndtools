@@ -23,6 +23,7 @@
 	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { desktopShellState } from '$lib/state/desktop-shell.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
+	import { inputModalityState } from '$lib/state/input-modality.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import { syncState } from '$lib/state/sync.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
@@ -31,6 +32,7 @@
 	import { searchService } from '$lib/domain/search.js';
 	import LiveAnnouncer from '$lib/ui/a11y/LiveAnnouncer.svelte';
 	import InstallPromptBanner from '$lib/ui/pwa/InstallPromptBanner.svelte';
+	import KeyboardShortcutsOverlay from '$lib/ui/layout/KeyboardShortcutsOverlay.svelte';
 	import { registerSW } from 'virtual:pwa-register';
 	import {
 		onDesktopAppMenuCommand,
@@ -59,6 +61,7 @@
 	let generatorOpen = $state(false);
 	let quickReferenceOverlayOpen = $state(false);
 	let quickReferenceSplitNoteId = $state<string | null>(null);
+	let keyboardShortcutOverlayOpen = $state(false);
 	let templateDialogOpen = $state(false);
 	let handoutCreatorOpen = $state(false);
 	let templateDialogFolderOverride = $state<string | null>(null);
@@ -172,6 +175,11 @@
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 		return () => syncState.dispose();
+	});
+
+	$effect(() => {
+		if (layoutState.isMedium) return;
+		keyboardShortcutOverlayOpen = false;
 	});
 
 	$effect(() => {
@@ -556,10 +564,22 @@
 		});
 	});
 
+	function isTextEntryTarget(target: EventTarget | null): boolean {
+		if (!(target instanceof HTMLElement)) return false;
+		return (
+			target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]') !==
+				null || target.closest('.cm-editor') !== null
+		);
+	}
+
 	function handleKeydown(event: KeyboardEvent): void {
+		inputModalityState.observeKeyboardEvent(event);
 		const mod = event.ctrlKey || event.metaKey;
 		const target = event.target as HTMLElement;
 		const isInEditor = target.closest('.cm-editor') !== null;
+		const isTextEntry = isTextEntryTarget(target);
+		const mediumKeyboardDiscoverabilityEnabled =
+			!layoutState.isMedium || inputModalityState.keyboardDetected;
 		const compactEditorRoute = /^\/knowledge\/notes\/[^/]+\/edit$/.test(page.url.pathname);
 		const detailPanelAvailable =
 			layoutState.isExpanded &&
@@ -568,6 +588,25 @@
 			!desktopShellState.zenMode &&
 			isDetailPanelAvailable(page.url);
 
+		if (keyboardShortcutOverlayOpen && event.key === 'Escape') {
+			event.preventDefault();
+			keyboardShortcutOverlayOpen = false;
+			return;
+		}
+
+		const questionMarkPressed = event.key === '?' || (event.code === 'Slash' && event.shiftKey);
+		if (
+			questionMarkPressed &&
+			!mod &&
+			layoutState.isMedium &&
+			mediumKeyboardDiscoverabilityEnabled &&
+			!isTextEntry
+		) {
+			event.preventDefault();
+			keyboardShortcutOverlayOpen = true;
+			return;
+		}
+
 		if (event.key === 'F11' && layoutState.isExpanded) {
 			event.preventDefault();
 			desktopShellState.setZenMode(!desktopShellState.zenMode);
@@ -575,6 +614,7 @@
 		}
 
 		if (mod && event.key === 'p') {
+			if (!mediumKeyboardDiscoverabilityEnabled) return;
 			event.preventDefault();
 			quickSwitcherOpen = true;
 		} else if (mod && event.shiftKey && event.code === 'Space') {
@@ -754,6 +794,10 @@
 			/>
 		{/await}
 	{/if}
+	<KeyboardShortcutsOverlay
+		open={keyboardShortcutOverlayOpen}
+		onclose={() => (keyboardShortcutOverlayOpen = false)}
+	/>
 	<InstallPromptBanner />
 	<Toast />
 	<LiveAnnouncer />
