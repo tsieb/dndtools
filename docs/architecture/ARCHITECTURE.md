@@ -15,12 +15,15 @@ Implemented in:
 Responsibilities:
 
 - Own BrowserWindow lifecycle and frameless desktop shell behavior.
+- Provide native desktop shell integrations (titlebar/menu/context menus).
 - Select and initialize vault directory.
 - Host filesystem storage (`FileSystemAdapter`) in the trusted process.
 - Expose a constrained bridge to renderer via preload.
 - Spawn/restart/stop MCP sidecar and expose status.
 - Manage desktop auto-update state and staged rollout gating.
 - Serve built renderer assets in production with a local static server.
+- Register desktop open intents (`dndtools://` protocol and `.md` file association) and route to renderer.
+- Watch vault markdown files for external changes and publish incremental note refresh events.
 
 ### 1.1.1 Android Shell (Capacitor)
 

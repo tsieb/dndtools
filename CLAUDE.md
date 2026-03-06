@@ -341,6 +341,31 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
     - `src/lib/state/desktop-shell.svelte.test.ts`
     - `src/lib/domain/detail-panel-context.test.ts`
     - `tests/e2e/navigation.spec.ts` (expanded shell collapse/detail/resize/zen behaviors)
+- **Epic 14.4** — Electron Desktop Platform Refinements:
+  - Added dedicated desktop titlebar strip and removed TopBar drag ownership:
+    - new `src/lib/ui/layout/DesktopTitlebar.svelte` with Windows/Linux custom controls
+    - `src/lib/ui/layout/AppShell.svelte` now renders a 24px desktop titlebar region above TopBar
+    - TopBar no longer applies `desktop-drag`
+  - Added native desktop context menus via Electron Menu API:
+    - typed IPC schema in `electron/ipc-schemas.ts` (`desktopContextMenuRequestSchema`)
+    - context menu IPC handler in `electron/main.ts` (`dndtools:desktop:show-context-menu`)
+    - renderer integrations for folder tree (`KnowledgeLocalNavPanel`) and note cards (`NoteCard` / notes page)
+  - Added Electron application menu with accelerators and renderer command routing:
+    - File/Edit/View/Session/Help menu template in `electron/main.ts`
+    - renderer command handling in `src/routes/+layout.svelte`
+    - preload/bridge event wiring (`onAppMenuCommand`)
+  - Added protocol/file-open desktop intent handling:
+    - new parser module + tests (`electron/desktop-intents.ts`, `electron/desktop-intents.test.ts`)
+    - single-instance handling, protocol registration, open-url/open-file and second-instance routing in `electron/main.ts`
+    - `electron-builder.yml` now registers `dndtools://` protocol and `.md` file associations
+  - Replaced manual vault refresh flow with filesystem watch auto-refresh:
+    - chokidar watcher in `electron/main.ts` batches changed markdown paths and emits incremental updates
+    - preload/bridge event wiring (`onVaultFileSync`) and incremental renderer application (`notesState.applyExternalVaultSync`)
+    - user-facing toast notification in `src/routes/+layout.svelte` ("N notes updated from disk")
+  - Added/updated tests:
+    - `electron/ipc-security.test.ts` (native context menu IPC schema validation)
+    - `electron/desktop-intents.test.ts`
+    - `tests/e2e-desktop/interactive-controls.spec.ts` (vault watcher update flow)
 
 ## What Not To Do
 
