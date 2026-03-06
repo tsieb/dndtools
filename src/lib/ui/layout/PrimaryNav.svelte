@@ -66,6 +66,8 @@
 			<a
 				href={item.href}
 				aria-current={active ? 'page' : undefined}
+				aria-label={item.label}
+				title={iconOnly ? item.label : undefined}
 				class="primary-nav-item {compact
 					? 'flex min-h-12 flex-col items-center justify-center rounded-md px-1 py-1 text-[11px] font-medium'
 					: 'flex min-h-11 items-center rounded-lg px-2.5 py-2 text-sm font-medium'}"

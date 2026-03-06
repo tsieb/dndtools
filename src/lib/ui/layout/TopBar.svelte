@@ -30,10 +30,6 @@
 	let overflowMenuEl = $state<HTMLElement | null>(null);
 	let overflowButtonEl = $state<HTMLButtonElement | null>(null);
 
-	const desktopBridgeAvailable = $derived(
-		typeof window !== 'undefined' && typeof window.dndtoolsDesktop !== 'undefined',
-	);
-
 	const compactEditorMode = $derived.by(() => {
 		if (!layoutState.isCompact) return false;
 		return /^\/knowledge\/notes\/[^/]+\/edit$/.test(page.url.pathname);
@@ -102,10 +98,7 @@
 </script>
 
 <header
-	class="h-[var(--layout-topbar-height)] shrink-0 border-b border-border bg-surface/88 px-3 backdrop-blur-md dark:border-tavern-border dark:bg-tavern-surface/88 {desktopBridgeAvailable &&
-	!layoutState.isCompact
-		? 'desktop-drag'
-		: ''}"
+	class="h-[var(--layout-topbar-height)] shrink-0 border-b border-border bg-surface/88 px-3 backdrop-blur-md dark:border-tavern-border dark:bg-tavern-surface/88"
 >
 	<div class="flex h-full items-center justify-between gap-2">
 		{#if layoutState.isCompact}

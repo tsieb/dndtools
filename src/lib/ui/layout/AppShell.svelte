@@ -7,6 +7,7 @@
 	import { navigationState, type PrimarySection } from '$lib/state/navigation.svelte.js';
 	import { desktopShellState } from '$lib/state/desktop-shell.svelte.js';
 	import { detailPanelContextFromUrl } from '$lib/domain/detail-panel-context.js';
+	import DesktopTitlebar from './DesktopTitlebar.svelte';
 	import TopBar from './TopBar.svelte';
 	import PrimaryNav from './PrimaryNav.svelte';
 	import Sidebar from './Sidebar.svelte';
@@ -73,6 +74,9 @@
 	});
 	const detailPanelVisible = $derived.by(
 		() => detailPanelAvailable && desktopShellState.detailPanelOpen && !zenModeActive,
+	);
+	const desktopBridgeAvailable = $derived(
+		typeof window !== 'undefined' && typeof window.dndtoolsDesktop !== 'undefined',
 	);
 	const activeSection = $derived(navigationState.activeSection);
 	const activePanelWidth = $derived(desktopShellState.getLocalPanelWidth(activeSection));
@@ -327,90 +331,96 @@
 
 <a href="#main-content" class="skip-nav">Skip to content</a>
 
-<div class="flex h-screen overflow-hidden">
-	{#if !ui.focusReading && !compactEditorMode && !zenModeActive}
-		<PrimaryNav mode={primaryNavMode} />
+<div class="flex h-screen flex-col overflow-hidden">
+	{#if desktopBridgeAvailable}
+		<DesktopTitlebar />
 	{/if}
 
-	<div class="flex min-w-0 flex-1 flex-col">
-		{#if !ui.focusReading && !zenModeActive}
-			<TopBar
-				{onsearch}
-				{onsetplayermode}
-				detailpanelavailable={detailPanelAvailable}
-				detailpanelopen={desktopShellState.detailPanelOpen}
-				ontogglelocalpanel={toggleLocalPanel}
-				ontoggledetailpanel={toggleDetailPanel}
-			/>
+	<div class="flex min-h-0 flex-1 overflow-hidden">
+		{#if !ui.focusReading && !compactEditorMode && !zenModeActive}
+			<PrimaryNav mode={primaryNavMode} />
 		{/if}
 
-		<div class="flex min-h-0 flex-1 overflow-hidden">
-			{#if showDesktopSidebar}
-				<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} />
-				{#if layoutState.isExpanded}
-					<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-					<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-					<div
-						class="w-1.5 shrink-0 cursor-col-resize bg-border/65 transition-colors hover:bg-accent/70 focus:bg-accent/70 dark:bg-tavern-border/65 dark:hover:bg-tavern-accent/70 dark:focus:bg-tavern-accent/70"
-						role="separator"
-						aria-label="Resize local navigation panel"
-						aria-orientation="vertical"
-						aria-valuemin="200"
-						aria-valuemax="320"
-						aria-valuenow={activePanelWidth}
-						tabindex="0"
-						onpointerdown={handlePanelResizePointerDown}
-						onkeydown={handlePanelResizeKeydown}
-					></div>
-				{/if}
+		<div class="flex min-w-0 flex-1 flex-col">
+			{#if !ui.focusReading && !zenModeActive}
+				<TopBar
+					{onsearch}
+					{onsetplayermode}
+					detailpanelavailable={detailPanelAvailable}
+					detailpanelopen={desktopShellState.detailPanelOpen}
+					ontogglelocalpanel={toggleLocalPanel}
+					ontoggledetailpanel={toggleDetailPanel}
+				/>
 			{/if}
 
-			<main
-				id="main-content"
-				class="app-main flex-1 overflow-y-auto bg-parchment dark:bg-tavern-bg {layoutState.isCompact &&
-				!ui.focusReading &&
-				!compactEditorMode &&
-				!mobileKeyboardState.keyboardOpen
-					? 'pb-[calc(var(--layout-bottomnav-height)+env(safe-area-inset-bottom)+0.75rem)]'
-					: ''}"
-				ontouchstart={handleMainTouchStart}
-				ontouchmove={handleMainTouchMove}
-				ontouchend={handleMainTouchEnd}
-			>
-				{#if zenModeActive}
-					<div class="relative">
-						<LocationBar />
+			<div class="flex min-h-0 flex-1 overflow-hidden">
+				{#if showDesktopSidebar}
+					<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} />
+					{#if layoutState.isExpanded}
+						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 						<div
-							class="pointer-events-none absolute right-3 top-2.5 z-30 flex items-start justify-end"
-						>
-							<button
-								type="button"
-								class="pointer-events-auto rounded-md border border-border bg-surface/92 px-2.5 py-1 text-xs font-medium text-ink shadow-sm transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:border-tavern-border dark:bg-tavern-surface/92 dark:text-tavern-text dark:hover:bg-tavern-surface-alt"
-								onclick={exitZenMode}
-								aria-label="Exit zen mode"
-								title="Exit zen mode (F11)"
-							>
-								Exit Zen
-							</button>
-						</div>
-					</div>
-				{:else if !ui.focusReading && !compactEditorMode}
-					<LocationBar />
+							class="w-1.5 shrink-0 cursor-col-resize bg-border/65 transition-colors hover:bg-accent/70 focus:bg-accent/70 dark:bg-tavern-border/65 dark:hover:bg-tavern-accent/70 dark:focus:bg-tavern-accent/70"
+							role="separator"
+							aria-label="Resize local navigation panel"
+							aria-orientation="vertical"
+							aria-valuemin="200"
+							aria-valuemax="320"
+							aria-valuenow={activePanelWidth}
+							tabindex="0"
+							onpointerdown={handlePanelResizePointerDown}
+							onkeydown={handlePanelResizeKeydown}
+						></div>
+					{/if}
 				{/if}
-				<div class="h-full min-h-0 animate-fade-in">
-					{@render children()}
-				</div>
-			</main>
 
-			{#if detailPanelVisible && detailPanelContext}
-				<aside
-					class="detail-panel-enter h-full w-[var(--layout-detail-width)] shrink-0 overflow-y-auto border-l border-border bg-surface-alt/90 dark:border-tavern-border dark:bg-tavern-surface"
-					aria-label="Contextual detail panel"
-					data-testid="detail-panel"
+				<main
+					id="main-content"
+					class="app-main flex-1 overflow-y-auto bg-parchment dark:bg-tavern-bg {layoutState.isCompact &&
+					!ui.focusReading &&
+					!compactEditorMode &&
+					!mobileKeyboardState.keyboardOpen
+						? 'pb-[calc(var(--layout-bottomnav-height)+env(safe-area-inset-bottom)+0.75rem)]'
+						: ''}"
+					ontouchstart={handleMainTouchStart}
+					ontouchmove={handleMainTouchMove}
+					ontouchend={handleMainTouchEnd}
 				>
-					<DetailPanel context={detailPanelContext} />
-				</aside>
-			{/if}
+					{#if zenModeActive}
+						<div class="relative">
+							<LocationBar />
+							<div
+								class="pointer-events-none absolute right-3 top-2.5 z-30 flex items-start justify-end"
+							>
+								<button
+									type="button"
+									class="pointer-events-auto rounded-md border border-border bg-surface/92 px-2.5 py-1 text-xs font-medium text-ink shadow-sm transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:border-tavern-border dark:bg-tavern-surface/92 dark:text-tavern-text dark:hover:bg-tavern-surface-alt"
+									onclick={exitZenMode}
+									aria-label="Exit zen mode"
+									title="Exit zen mode (F11)"
+								>
+									Exit Zen
+								</button>
+							</div>
+						</div>
+					{:else if !ui.focusReading && !compactEditorMode}
+						<LocationBar />
+					{/if}
+					<div class="h-full min-h-0 animate-fade-in">
+						{@render children()}
+					</div>
+				</main>
+
+				{#if detailPanelVisible && detailPanelContext}
+					<aside
+						class="detail-panel-enter h-full w-[var(--layout-detail-width)] shrink-0 overflow-y-auto border-l border-border bg-surface-alt/90 dark:border-tavern-border dark:bg-tavern-surface"
+						aria-label="Contextual detail panel"
+						data-testid="detail-panel"
+					>
+						<DetailPanel context={detailPanelContext} />
+					</aside>
+				{/if}
+			</div>
 		</div>
 	</div>
 

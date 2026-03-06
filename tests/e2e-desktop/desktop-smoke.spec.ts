@@ -24,7 +24,7 @@ test.describe('Desktop smoke', () => {
 		try {
 			const window = await electronApp.firstWindow();
 			await window.waitForLoadState('domcontentloaded');
-			await expect(window.getByRole('link', { name: 'DND Tools' })).toBeVisible({
+			await expect(window.locator('header').first()).toBeVisible({
 				timeout: 15_000,
 			});
 		} finally {

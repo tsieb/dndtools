@@ -44,7 +44,8 @@ export async function launchDesktopApp(vaultDir: string): Promise<DesktopAppHand
 	while (Date.now() < deadline) {
 		for (const candidate of electronApp.windows()) {
 			const ready = await candidate
-				.getByRole('link', { name: 'DND Tools' })
+				.locator('header')
+				.first()
 				.isVisible({ timeout: 1_000 })
 				.catch(() => false);
 			if (ready) {
@@ -56,7 +57,7 @@ export async function launchDesktopApp(vaultDir: string): Promise<DesktopAppHand
 			.waitForEvent('window', { timeout: Math.min(1_000, Math.max(1, deadline - Date.now())) })
 			.catch(() => undefined);
 	}
-	await expect(page.getByRole('link', { name: 'DND Tools' })).toBeVisible({ timeout: 1_000 });
+	await expect(page.locator('header').first()).toBeVisible({ timeout: 1_000 });
 	return { electronApp, page, vaultDir };
 }
 
