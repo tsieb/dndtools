@@ -11,9 +11,11 @@
 
 	interface Props {
 		mode: 'expanded' | 'medium' | 'compact';
+		onmediumactivesectiontap?: (section: PrimarySection) => void;
+		onmediumsectionnavigate?: () => void;
 	}
 
-	let { mode }: Props = $props();
+	let { mode, onmediumactivesectiontap, onmediumsectionnavigate }: Props = $props();
 
 	function sectionHref(section: PrimarySection): string {
 		if (section === 'knowledge') return resolve('/knowledge');
@@ -37,6 +39,16 @@
 			? `width: ${width}; min-height: calc(var(--layout-bottomnav-height) + env(safe-area-inset-bottom));`
 			: `width: ${width};`;
 	});
+
+	function handleSectionClick(event: MouseEvent, section: PrimarySection, active: boolean): void {
+		if (mode !== 'medium') return;
+		if (active) {
+			event.preventDefault();
+			onmediumactivesectiontap?.(section);
+			return;
+		}
+		onmediumsectionnavigate?.();
+	}
 </script>
 
 <aside
@@ -73,6 +85,7 @@
 					: 'flex min-h-11 items-center rounded-lg px-2.5 py-2 text-sm font-medium'}"
 				data-active={active ? 'true' : 'false'}
 				style="--primary-nav-active: {active ? 1 : 0}"
+				onclick={(event) => handleSectionClick(event, item.id, active)}
 			>
 				<span class="primary-nav-icon flex h-8 w-8 items-center justify-center rounded-md">
 					<PrimaryNavIcon section={item.id} sizeClass="h-5 w-5" />
