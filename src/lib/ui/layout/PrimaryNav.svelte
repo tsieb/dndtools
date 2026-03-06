@@ -62,7 +62,7 @@
 	aria-hidden={compact && mobileKeyboardState.keyboardOpen ? 'true' : undefined}
 >
 	{#if playerModeState.enabled && isVertical}
-		<div class="h-1 w-full bg-emerald-500/80" aria-label="Player mode signal"></div>
+		<div class="h-1 w-full bg-emerald-500/80" aria-hidden="true"></div>
 	{/if}
 	<nav
 		class={compact

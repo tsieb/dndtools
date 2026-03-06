@@ -148,7 +148,7 @@
 				<button
 					type="button"
 					class="rounded-full px-2.5 py-1 text-xs font-semibold transition-[transform,colors] active:scale-[0.97] active:brightness-95 {playerModeState.enabled
-						? 'bg-emerald-600 text-white dark:bg-emerald-500 dark:text-emerald-950'
+						? 'bg-emerald-700 text-white dark:bg-emerald-500 dark:text-emerald-950'
 						: 'border border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/30'}"
 					aria-pressed={playerModeState.enabled}
 					onclick={() => onsetplayermode(true)}

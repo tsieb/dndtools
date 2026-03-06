@@ -614,7 +614,6 @@
 		}
 
 		if (mod && event.key === 'p') {
-			if (!mediumKeyboardDiscoverabilityEnabled) return;
 			event.preventDefault();
 			quickSwitcherOpen = true;
 		} else if (mod && event.shiftKey && event.code === 'Space') {
