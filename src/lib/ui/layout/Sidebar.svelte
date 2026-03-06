@@ -21,7 +21,7 @@
 		ondice: () => void;
 		ontemplate: (folderOverride?: string) => void;
 		onsetplayermode: (enabled: boolean) => void;
-		presentation?: 'sidebar' | 'sheet';
+		presentation?: 'sidebar' | 'sheet' | 'overlay';
 	}
 
 	let {
@@ -75,9 +75,11 @@
 		? 'var(--layout-panel-width)'
 		: presentation === 'sheet'
 			? '100%'
-			: layoutState.isExpanded
-				? `clamp(var(--layout-panel-width-narrow), ${sidebarWidth}px, var(--layout-panel-width-wide))`
-				: 'var(--layout-panel-width)'}"
+			: presentation === 'overlay'
+				? 'var(--layout-detail-width)'
+				: layoutState.isExpanded
+					? `clamp(var(--layout-panel-width-narrow), ${sidebarWidth}px, var(--layout-panel-width-wide))`
+					: 'var(--layout-panel-width)'}"
 >
 	{#if playerModeState.enabled}
 		<div class="border-b border-border px-3 py-2 dark:border-tavern-border">

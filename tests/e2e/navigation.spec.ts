@@ -228,6 +228,53 @@ test.describe('Navigation', () => {
 		await expect(primaryNavShell).toHaveAttribute('data-mode', 'expanded');
 	});
 
+	test('medium primary rail reopens local navigation as an overlay on active-section tap', async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 900, height: 900 });
+		await page.goto('/knowledge/notes');
+		const mediumOverlay = page.getByRole('dialog', { name: 'Local navigation overlay' });
+		await expect(mediumOverlay).toBeHidden();
+
+		const primaryNav = page.getByRole('navigation', {
+			name: 'Global navigation: Primary sections',
+		});
+		await primaryNav.getByRole('link', { name: 'Knowledge' }).click();
+		await expect(mediumOverlay).toBeVisible();
+
+		await page.keyboard.press('Escape');
+		await expect(mediumOverlay).toBeHidden();
+	});
+
+	test('medium knowledge uses split view with empty state and note preview selection', async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 900, height: 900 });
+		await page.goto(`/knowledge/notes?create=${encodeURIComponent('Medium Split Preview Note')}`);
+		await expect(page).toHaveURL(/\/knowledge\/notes\/.+\/edit/);
+
+		await page.goto('/knowledge/notes');
+		const splitShell = page.getByTestId('knowledge-medium-split');
+		const detailPane = page.getByTestId('knowledge-medium-detail');
+		await expect(splitShell).toBeVisible();
+		await expect(detailPane).toContainText('Select a note to read it');
+
+		await page.getByRole('button', { name: /Medium Split Preview Note/i }).click();
+		await expect(page).toHaveURL(/\/knowledge\/notes\?.*note=/);
+		await expect(detailPane).toContainText('Medium Split Preview Note');
+	});
+
+	test('medium keyboard shortcut overlay toggles with question-mark key', async ({ page }) => {
+		await page.setViewportSize({ width: 900, height: 900 });
+		await page.goto('/knowledge/notes');
+		await expect(page.locator('.primary-nav-shell')).toHaveAttribute('data-mode', 'medium');
+		await page.keyboard.press('Shift+Slash');
+		const shortcutsOverlay = page.getByRole('dialog', { name: 'Keyboard shortcut overlay' });
+		await expect(shortcutsOverlay).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(shortcutsOverlay).toBeHidden();
+	});
+
 	test('keyboard shortcut Ctrl+P opens command palette', async ({ page }) => {
 		await page.keyboard.press('Control+p');
 		await expect(page.getByRole('dialog', { name: /command palette/i })).toBeVisible({

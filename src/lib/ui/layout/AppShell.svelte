@@ -36,7 +36,7 @@
 	let sheetDragStartX = $state(0);
 	let sheetDragOffset = $state(0);
 	let sheetDragActive = $state(false);
-	let lastPathname = $state<string | null>(null);
+	let lastRouteKey = $state<string | null>(null);
 	let panelResizeActive = $state(false);
 	let panelResizeStartX = $state(0);
 	let panelResizeStartWidth = $state(0);
@@ -64,14 +64,20 @@
 			!zenModeActive &&
 			detailPanelContext !== null,
 	);
-	const showDesktopSidebar = $derived.by(() => {
+	const showInlineSidebar = $derived.by(() => {
 		if (ui.focusReading || compactEditorMode || zenModeActive) return false;
 		if (layoutState.isCompact) return false;
-		if (layoutState.isExpanded) {
-			return !desktopShellState.localPanelCollapsed;
-		}
-		return ui.sidebarOpen;
+		if (layoutState.isMedium) return false;
+		return !desktopShellState.localPanelCollapsed;
 	});
+	const mediumOverlayVisible = $derived.by(
+		() =>
+			layoutState.isMedium &&
+			ui.sidebarOpen &&
+			!ui.focusReading &&
+			!compactEditorMode &&
+			!zenModeActive,
+	);
 	const detailPanelVisible = $derived.by(
 		() => detailPanelAvailable && desktopShellState.detailPanelOpen && !zenModeActive,
 	);
@@ -82,7 +88,7 @@
 	const activePanelWidth = $derived(desktopShellState.getLocalPanelWidth(activeSection));
 
 	$effect(() => {
-		if (!mobileKeyboardState.keyboardOpen || !ui.sidebarOpen) return;
+		if (!layoutState.isCompact || !mobileKeyboardState.keyboardOpen || !ui.sidebarOpen) return;
 		closeCompactSheet(false);
 	});
 
@@ -91,8 +97,12 @@
 		const initialCompactMount = tier === 'compact' && lastLayoutTier === null;
 		const transitionedToCompact =
 			tier === 'compact' && lastLayoutTier !== null && lastLayoutTier !== 'compact';
+		const transitionedToMedium = tier === 'medium' && lastLayoutTier !== 'medium';
 		if ((initialCompactMount || transitionedToCompact) && ui.sidebarOpen) {
 			closeCompactSheet(false);
+		}
+		if (transitionedToMedium && ui.sidebarOpen) {
+			closeMediumOverlay();
 		}
 		lastLayoutTier = tier;
 	});
@@ -103,15 +113,19 @@
 	});
 
 	$effect(() => {
-		const pathname = page.url.pathname;
-		if (lastPathname === null) {
-			lastPathname = pathname;
+		const routeKey = `${page.url.pathname}${page.url.search}`;
+		if (lastRouteKey === null) {
+			lastRouteKey = routeKey;
 			return;
 		}
-		if (pathname !== lastPathname && ui.sidebarOpen && layoutState.isCompact) {
-			closeCompactSheet(false);
+		if (routeKey !== lastRouteKey && ui.sidebarOpen) {
+			if (layoutState.isCompact) {
+				closeCompactSheet(false);
+			} else if (layoutState.isMedium) {
+				closeMediumOverlay();
+			}
 		}
-		lastPathname = pathname;
+		lastRouteKey = routeKey;
 	});
 
 	$effect(() => {
@@ -148,6 +162,19 @@
 		window.addEventListener('popstate', handlePopstate);
 		return () => {
 			window.removeEventListener('popstate', handlePopstate);
+		};
+	});
+
+	$effect(() => {
+		if (!mediumOverlayVisible || typeof window === 'undefined') return;
+		const handleKeydown = (event: KeyboardEvent): void => {
+			if (event.key !== 'Escape') return;
+			event.preventDefault();
+			closeMediumOverlay();
+		};
+		window.addEventListener('keydown', handleKeydown);
+		return () => {
+			window.removeEventListener('keydown', handleKeydown);
 		};
 	});
 
@@ -190,6 +217,16 @@
 		ui.sidebarOpen = true;
 	}
 
+	function openMediumOverlay(): void {
+		if (!layoutState.isMedium || ui.focusReading || compactEditorMode || zenModeActive) return;
+		ui.sidebarOpen = true;
+	}
+
+	function closeMediumOverlay(): void {
+		if (!layoutState.isMedium || !ui.sidebarOpen) return;
+		ui.sidebarOpen = false;
+	}
+
 	function closeCompactSheet(syncHistory = true): void {
 		if (!ui.sidebarOpen) {
 			sheetHistoryPushed = false;
@@ -209,7 +246,25 @@
 			desktopShellState.toggleLocalPanelCollapsed();
 			return;
 		}
+		if (layoutState.isMedium) {
+			if (ui.sidebarOpen) {
+				closeMediumOverlay();
+			} else {
+				openMediumOverlay();
+			}
+			return;
+		}
 		ui.toggleSidebar();
+	}
+
+	function handleMediumActiveSectionTap(section: PrimarySection): void {
+		if (!layoutState.isMedium || navigationState.activeSection !== section) return;
+		openMediumOverlay();
+	}
+
+	function handleMediumSectionNavigate(): void {
+		if (!layoutState.isMedium || !ui.sidebarOpen) return;
+		closeMediumOverlay();
 	}
 
 	function toggleDetailPanel(): void {
@@ -289,9 +344,20 @@
 		closeCompactSheet();
 	}
 
+	function handleMediumOverlayKeydown(event: KeyboardEvent): void {
+		if (event.key !== 'Escape') return;
+		event.preventDefault();
+		closeMediumOverlay();
+	}
+
 	function handleSheetBackdrop(event: MouseEvent): void {
 		if (event.target !== event.currentTarget) return;
 		closeCompactSheet();
+	}
+
+	function handleMediumOverlayBackdrop(event: MouseEvent): void {
+		if (event.target !== event.currentTarget) return;
+		closeMediumOverlay();
 	}
 
 	function handleSheetTouchStart(event: TouchEvent): void {
@@ -338,7 +404,11 @@
 
 	<div class="flex min-h-0 flex-1 overflow-hidden">
 		{#if !ui.focusReading && !compactEditorMode && !zenModeActive}
-			<PrimaryNav mode={primaryNavMode} />
+			<PrimaryNav
+				mode={primaryNavMode}
+				onmediumactivesectiontap={handleMediumActiveSectionTap}
+				onmediumsectionnavigate={handleMediumSectionNavigate}
+			/>
 		{/if}
 
 		<div class="flex min-w-0 flex-1 flex-col">
@@ -353,8 +423,8 @@
 				/>
 			{/if}
 
-			<div class="flex min-h-0 flex-1 overflow-hidden">
-				{#if showDesktopSidebar}
+			<div class="relative flex min-h-0 flex-1 overflow-hidden">
+				{#if showInlineSidebar}
 					<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} />
 					{#if layoutState.isExpanded}
 						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -419,6 +489,27 @@
 					>
 						<DetailPanel context={detailPanelContext} />
 					</aside>
+				{/if}
+
+				{#if mediumOverlayVisible}
+					<div
+						class="absolute inset-0 z-30"
+						onclick={handleMediumOverlayBackdrop}
+						onkeydown={handleMediumOverlayKeydown}
+						role="button"
+						aria-label="Close local navigation overlay"
+						tabindex="-1"
+					>
+						<div class="absolute inset-0 bg-black/30"></div>
+						<div
+							class="absolute inset-y-0 left-0 z-10 overflow-hidden border-r border-border shadow-2xl dark:border-tavern-border"
+							role="dialog"
+							aria-modal="true"
+							aria-label="Local navigation overlay"
+						>
+							<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} presentation="overlay" />
+						</div>
+					</div>
 				{/if}
 			</div>
 		</div>

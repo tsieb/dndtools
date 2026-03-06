@@ -366,6 +366,22 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
     - `electron/ipc-security.test.ts` (native context menu IPC schema validation)
     - `electron/desktop-intents.test.ts`
     - `tests/e2e-desktop/interactive-controls.spec.ts` (vault watcher update flow)
+- **Epic 14.5** — Medium Layout (Tablet Shell):
+  - Added medium-layout primary rail overlay behavior in `src/lib/ui/layout/AppShell.svelte` and `src/lib/ui/layout/PrimaryNav.svelte`:
+    - tapping an active medium rail icon opens a temporary local-navigation overlay anchored to the rail edge
+    - overlay dismisses on backdrop tap and `Escape`
+  - Added medium Knowledge master-detail split in `src/routes/notes/+page.svelte`:
+    - non-resizable split panes (`~38%` list / `~62%` detail)
+    - URL-backed selected-note preview (`?note=<id>`)
+    - contextual empty-state when no note is selected
+  - Added medium input-modality awareness:
+    - new `src/lib/state/input-modality.svelte.ts` keyboard detection state
+    - tooltip shortcut hints now medium-modality-aware in `src/lib/ui/layout/TopBar.svelte`
+    - new `src/lib/ui/layout/KeyboardShortcutsOverlay.svelte`, opened via `?` in medium when keyboard modality is detected
+  - Added/updated tests:
+    - `src/lib/state/input-modality.svelte.test.ts`
+    - `tests/e2e/navigation.spec.ts` (medium overlay, split-view, and shortcut overlay behaviors)
+  - Updated medium-tier architecture contract docs in `docs/architecture/LAYOUT_TIERS.md`
 
 ## What Not To Do
 
