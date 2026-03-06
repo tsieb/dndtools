@@ -251,6 +251,33 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
   - Added/updated tests:
     - `src/lib/state/navigation.svelte.test.ts`
     - `tests/e2e/navigation.spec.ts`
+- **Epic 13.5** — Command Palette and Search as Primary Navigation:
+  - Replaced Quick Switcher with a prefix-driven command palette in `src/lib/ui/search/QuickSwitcher.svelte`:
+    - Default mode (no prefix) navigates notes via title/content search
+    - `>` mode executes commands (create note, session switch, settings vault, theme toggle, roll 1d20, etc.)
+    - `#` mode filters note navigation by tag
+    - `/` mode navigates primary section routes
+  - Added command-palette scope controls with explicit scope labeling (`All notes`, `Current folder`, `NPCs only`) and keyboard-complete behavior (Arrow wrap, Enter activation, Escape close + focus return, Tab/Shift+Tab scope traversal).
+  - Added shared scope contract helpers in:
+    - `src/lib/domain/search-scope.ts`
+    - `src/lib/domain/search-scope.test.ts`
+  - Extended search page (`src/routes/search/+page.svelte`) with URL-backed scope controls:
+    - Scope label + inline selector (`all` / `folder` / `type`)
+    - Scope persisted in query string (`scope`, `scopeValue`) for shareable/bookmarkable search URLs
+    - Scope-aware query execution and semantic fallback filtering
+  - Upgraded search result rendering for hierarchy context:
+    - Title match highlighting
+    - Folder breadcrumb path
+    - Type icon token + primary tags (up to 3) + last-modified date
+    - Section-grouped results with per-group collapse when scope is `all`
+  - Updated keyboard/help copy from “Quick switcher” to “Command palette”:
+    - `src/lib/ui/settings/GeneralSettingsTab.svelte`
+    - `src/lib/domain/welcome-note.ts`
+  - Added and updated end-to-end coverage:
+    - `tests/e2e/search.spec.ts`
+    - `tests/e2e/navigation.spec.ts`
+    - `tests/e2e-desktop/accessibility.spec.ts`
+    - `tests/e2e-desktop/interactive-controls.spec.ts`
 
 ## What Not To Do
 

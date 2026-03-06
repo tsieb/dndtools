@@ -3,11 +3,12 @@
 	import { goto } from '$app/navigation';
 	import { searchService } from '$lib/domain/search.js';
 	import {
-		buildQuickReferenceEntityRecords,
-		quickReferenceIconToken,
-		searchQuickReferenceEntities,
-		type QuickReferenceEntitySearchResult,
-	} from '$lib/domain/quick-reference.js';
+		DEFAULT_SEARCH_SCOPE,
+		describeSearchScope,
+		matchesSearchScope,
+		normalizeSearchScope,
+		type SearchScope,
+	} from '$lib/domain/search-scope.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { diceState } from '$lib/state/dice.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
@@ -15,7 +16,7 @@
 	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
-	import type { NoteId } from '$lib/types/note.js';
+	import type { Note, NoteId } from '$lib/types/note.js';
 	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
 
 	interface Props {
@@ -32,7 +33,8 @@
 		ontoggleplayermode: () => void;
 	}
 
-	type PaletteGroup = 'Actions' | 'Navigation' | 'Settings' | 'Notes' | 'Entities';
+	type PaletteMode = 'notes' | 'commands' | 'tags' | 'sections';
+	type PaletteGroup = 'Notes' | 'Commands' | 'Sections';
 
 	interface PaletteItem {
 		id: string;
@@ -41,11 +43,103 @@
 		subtitle: string;
 		keywords: string;
 		disabled?: boolean;
-		noteId?: NoteId;
-		entity?: QuickReferenceEntitySearchResult;
 		run: () => void | Promise<void>;
 		openSplit?: () => void | Promise<void>;
 	}
+
+	interface ScopeOption {
+		id: string;
+		label: string;
+		scope: SearchScope;
+	}
+
+	interface SectionDestination {
+		id: string;
+		title: string;
+		path: string;
+		description: string;
+		keywords: string;
+	}
+
+	const SECTION_DESTINATIONS: SectionDestination[] = [
+		{
+			id: 'knowledge-home',
+			title: 'Knowledge',
+			path: '/knowledge',
+			description: 'Knowledge section root',
+			keywords: 'knowledge section notes worldbuilding lore',
+		},
+		{
+			id: 'knowledge-notes',
+			title: 'Knowledge Notes',
+			path: '/knowledge/notes',
+			description: 'All notes and folders',
+			keywords: 'knowledge notes list folder browse',
+		},
+		{
+			id: 'knowledge-search',
+			title: 'Knowledge Search',
+			path: '/knowledge/search',
+			description: 'Search and discovery',
+			keywords: 'knowledge search discover operators',
+		},
+		{
+			id: 'knowledge-graph',
+			title: 'Knowledge Graph',
+			path: '/knowledge/graph',
+			description: 'Link graph view',
+			keywords: 'knowledge graph links network',
+		},
+		{
+			id: 'atlas-maps',
+			title: 'Atlas Maps',
+			path: '/atlas/maps',
+			description: 'Map library and hierarchy',
+			keywords: 'atlas maps world map navigation',
+		},
+		{
+			id: 'session-boards',
+			title: 'Session Boards',
+			path: '/session/boards',
+			description: 'Live session board',
+			keywords: 'session board scene dm tools',
+		},
+		{
+			id: 'session-encounter',
+			title: 'Session Encounter Builder',
+			path: '/session/encounter/new',
+			description: 'Encounter setup workflow',
+			keywords: 'session encounter builder combat prep',
+		},
+		{
+			id: 'session-combat',
+			title: 'Session Combat Tracker',
+			path: '/session/combat',
+			description: 'Combat tracker controls',
+			keywords: 'session combat initiative tracker',
+		},
+		{
+			id: 'campaign-timeline',
+			title: 'Campaign Timeline',
+			path: '/campaign/timeline',
+			description: 'Campaign chronology',
+			keywords: 'campaign timeline events',
+		},
+		{
+			id: 'settings',
+			title: 'Settings',
+			path: '/settings',
+			description: 'Application settings',
+			keywords: 'settings preferences configuration',
+		},
+		{
+			id: 'player',
+			title: 'Player Screen',
+			path: '/player',
+			description: 'Player-facing display',
+			keywords: 'player screen shared display',
+		},
+	];
 
 	let {
 		open = $bindable(),
@@ -60,336 +154,429 @@
 		onopensplitview,
 		ontoggleplayermode,
 	}: Props = $props();
+
 	let query = $state('');
 	let selectedIndex = $state(0);
-	let lastSelectionQuery = $state('');
+	let lastSelectionSignature = $state('');
 	let wasOpen = $state(false);
 	let inputRef: HTMLInputElement | undefined = $state();
+	let returnFocusTarget: HTMLElement | null = $state(null);
+	let noteScope = $state<SearchScope>({ ...DEFAULT_SEARCH_SCOPE });
+
 	let modeScopedNotes = $derived.by(() =>
 		playerModeState.enabled
 			? notesState.activeNotes.filter((note) => isNoteVisibleInPlayerMode(note))
 			: notesState.activeNotes,
 	);
-	let entityRecords = $derived(buildQuickReferenceEntityRecords(modeScopedNotes));
-	let isEntityMode = $derived(query.trim().startsWith('@'));
-	let entityQuery = $derived(query.trim().slice(1).trim());
 
-	const entityItems = $derived.by<PaletteItem[]>(() =>
-		searchQuickReferenceEntities(entityRecords, entityQuery, 12).map((entry) => ({
-			id: `entity-${entry.noteId}`,
-			group: 'Entities',
-			title: entry.title,
-			subtitle: `${entry.typeLabel}${entry.keyStats.length > 0 ? ` | ${entry.keyStats.join(' | ')}` : ''}`,
-			keywords: `${entry.typeLabel} ${entry.keyStats.join(' ')} ${entry.previewLines.join(' ')}`,
-			noteId: entry.noteId,
-			entity: entry,
-			run: () => navigateToNote(entry.noteId),
-			openSplit: () => {
-				onopensplitview(entry.noteId);
-				onclose();
+	let currentFolderScopeValue = $derived.by(() => {
+		const noteId = navigationState.currentEntry?.noteId;
+		if (!noteId) return null;
+		const note = notesState.getActiveNoteById(noteId);
+		if (!note) return null;
+		return String(note.folder);
+	});
+
+	let scopeOptions = $derived.by<ScopeOption[]>(() => {
+		const options: ScopeOption[] = [
+			{
+				id: 'scope-all',
+				label: 'All notes',
+				scope: { ...DEFAULT_SEARCH_SCOPE },
 			},
-		})),
-	);
+			{
+				id: 'scope-npc',
+				label: 'NPCs only',
+				scope: { kind: 'type', value: 'npc' },
+			},
+		];
+		if (currentFolderScopeValue) {
+			options.splice(1, 0, {
+				id: 'scope-folder-current',
+				label: `In ${currentFolderScopeValue}`,
+				scope: { kind: 'folder', value: currentFolderScopeValue },
+			});
+		}
+		return options;
+	});
+
+	const mode = $derived.by<PaletteMode>(() => {
+		const trimmed = query.trim();
+		if (trimmed.startsWith('>')) return 'commands';
+		if (trimmed.startsWith('#')) return 'tags';
+		if (trimmed.startsWith('/')) return 'sections';
+		return 'notes';
+	});
+
+	const modeLabel = $derived.by(() => {
+		if (mode === 'commands') return 'Commands mode';
+		if (mode === 'tags') return 'Tag filter mode';
+		if (mode === 'sections') return 'Section navigation mode';
+		return 'Note navigation mode';
+	});
+
+	const modeQuery = $derived.by(() => {
+		const trimmed = query.trim();
+		if (mode === 'notes') return trimmed;
+		return trimmed.slice(1).trim();
+	});
+
+	const scopeLabel = $derived(describeSearchScope(noteScope));
+	const notesModeActive = $derived(mode === 'notes' || mode === 'tags');
+
+	$effect(() => {
+		if (noteScope.kind === 'folder' && !currentFolderScopeValue) {
+			noteScope = { ...DEFAULT_SEARCH_SCOPE };
+		}
+	});
+
+	function readNoteType(note: Note): string | null {
+		const value = note.frontmatter.type;
+		if (typeof value !== 'string') return null;
+		const normalized = value.trim().toLowerCase();
+		return normalized || null;
+	}
+
+	function normalizeTag(value: string): string {
+		return value.trim().replace(/^#/, '').toLowerCase();
+	}
+
+	function asNoteItem(note: Note): PaletteItem {
+		const type = readNoteType(note);
+		const typePrefix = type ? `[${type}] ` : '';
+		const tagsPreview = note.tags.length > 0 ? ` | #${note.tags.slice(0, 3).join(' #')}` : '';
+		return {
+			id: `note-${note.id}`,
+			group: 'Notes',
+			title: note.title,
+			subtitle: `${typePrefix}${note.filePath ?? String(note.folder)}${tagsPreview}`,
+			keywords: `${note.title} ${note.content} ${note.tags.join(' ')} ${note.filePath ?? note.folder}`,
+			run: () => {
+				navigateToNote(note.id);
+			},
+			openSplit: () => {
+				onopensplitview(note.id);
+				closePalette();
+			},
+		};
+	}
 
 	const noteItems = $derived.by<PaletteItem[]>(() => {
-		const normalized = query.trim();
-		const noteResults = !normalized
-			? [...modeScopedNotes]
-					.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-					.slice(0, 8)
-					.map((note) => ({
-						id: `note-${note.id}`,
-						group: 'Notes' as const,
-						title: note.title,
-						subtitle: note.filePath ?? String(note.folder),
-						keywords: `${note.title} ${note.tags.join(' ')} ${note.filePath ?? note.folder}`,
-						noteId: note.id,
-						run: () => navigateToNote(note.id),
-						openSplit: () => {
-							onopensplitview(note.id);
-							onclose();
+		if (mode !== 'notes') return [];
+		const normalized = modeQuery.toLowerCase();
+		if (!normalized) {
+			return [...modeScopedNotes]
+				.filter((note) =>
+					matchesSearchScope(
+						{
+							folder: String(note.folder),
+							type: readNoteType(note),
 						},
-					}))
-			: searchService
-					.search(normalized)
-					.filter((result) => {
-						if (!playerModeState.enabled) return true;
-						const note = notesState.getActiveNoteById(result.id);
-						return !!note && isNoteVisibleInPlayerMode(note);
-					})
-					.slice(0, 10)
-					.map((result) => ({
-						id: `note-${result.id}`,
-						group: 'Notes' as const,
-						title: result.title,
-						subtitle: result.filePath ?? String(result.folder ?? '/'),
-						keywords: `${result.title} ${result.filePath ?? result.folder ?? ''}`,
-						noteId: result.id,
-						run: () => navigateToNote(result.id),
-						openSplit: () => {
-							onopensplitview(result.id);
-							onclose();
-						},
-					}));
-		return noteResults;
+						noteScope,
+					),
+				)
+				.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+				.slice(0, 12)
+				.map((note) => asNoteItem(note));
+		}
+
+		const matched = searchService.search(normalized);
+		const items: PaletteItem[] = [];
+		for (const result of matched.slice(0, 24)) {
+			const note = notesState.getActiveNoteById(result.id);
+			if (!note) continue;
+			if (
+				!matchesSearchScope(
+					{
+						folder: String(note.folder),
+						type: readNoteType(note),
+					},
+					noteScope,
+				)
+			) {
+				continue;
+			}
+			items.push(asNoteItem(note));
+		}
+		return items;
+	});
+
+	const tagItems = $derived.by<PaletteItem[]>(() => {
+		if (mode !== 'tags') return [];
+		const tagSearch = normalizeTag(modeQuery);
+		const tagged = modeScopedNotes
+			.filter((note) => {
+				if (
+					!matchesSearchScope({ folder: String(note.folder), type: readNoteType(note) }, noteScope)
+				) {
+					return false;
+				}
+				if (!tagSearch) {
+					return note.tags.length > 0;
+				}
+				return note.tags.some((tag) => normalizeTag(tag).includes(tagSearch));
+			})
+			.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+			.slice(0, 24);
+		return tagged.map((note) => asNoteItem(note));
 	});
 
 	const commandItems = $derived.by<PaletteItem[]>(() => {
 		const items: PaletteItem[] = [
 			{
-				id: 'action-new-note',
-				group: 'Actions',
-				title: 'New note',
+				id: 'command-create-note',
+				group: 'Commands',
+				title: 'Create note',
 				subtitle: playerModeState.enabled
-					? 'Unavailable while player mode is active'
+					? 'Unavailable while Player Mode is active'
 					: 'Create and open a fresh note',
-				keywords: 'create add note action',
+				keywords: 'create note new',
 				disabled: playerModeState.enabled,
 				run: () => {
-					onclose();
+					closePalette();
 					void onnewnote();
 				},
 			},
 			{
-				id: 'action-template',
-				group: 'Actions',
-				title: 'New from template',
+				id: 'command-switch-session',
+				group: 'Commands',
+				title: 'Switch to Session mode',
 				subtitle: playerModeState.enabled
-					? 'Unavailable while player mode is active'
-					: 'Start from a campaign template',
-				keywords: 'template create action',
-				disabled: playerModeState.enabled,
-				run: () => {
-					onclose();
-					ontemplate();
-				},
-			},
-			{
-				id: 'action-create-handout',
-				group: 'Actions',
-				title: 'Create handout',
-				subtitle: playerModeState.enabled
-					? 'Unavailable while player mode is active'
-					: 'Open handout creator overlay',
-				keywords: 'handout prop letter map cipher creator',
-				disabled: playerModeState.enabled,
-				run: () => {
-					onclose();
-					oncreatehandout();
-				},
-			},
-			{
-				id: 'action-session-recap',
-				group: 'Actions',
-				title: 'Generate session recap scaffold',
-				subtitle: playerModeState.enabled
-					? 'Unavailable while player mode is active'
-					: 'Create a structured session recap note',
-				keywords: 'session recap scaffold template',
-				disabled: playerModeState.enabled,
-				run: () => {
-					onclose();
-					onsessionrecap();
-				},
-			},
-			{
-				id: 'action-toggle-sidebar',
-				group: 'Actions',
-				title: 'Toggle local navigation',
-				subtitle: 'Show or hide section-local navigation panel',
-				keywords: 'sidebar layout action',
-				run: () => {
-					ui.toggleSidebar();
-					onclose();
-				},
-			},
-			{
-				id: 'action-toggle-player-mode',
-				group: 'Actions',
-				title: playerModeState.enabled ? 'Exit Player Mode' : 'Enter Player Mode',
-				subtitle: playerModeState.enabled
-					? 'Return to DM view with full content access'
-					: 'Switch to shared/public player boundary',
-				keywords: 'player mode visibility shared public dm',
-				run: () => {
-					onclose();
-					ontoggleplayermode();
-				},
-			},
-			{
-				id: 'action-open-dice',
-				group: 'Actions',
-				title: 'Open Dice Tray',
-				subtitle: 'Roll dice and review session history',
-				keywords: 'dice roll tray ctrl+d action',
-				run: () => {
-					onopendicetray();
-					onclose();
-				},
-			},
-			{
-				id: 'action-open-generator',
-				group: 'Actions',
-				title: 'Open Generator Panel',
-				subtitle: playerModeState.enabled
-					? 'Unavailable while player mode is active'
-					: 'Tables, dice macros, and NPC quick generation',
-				keywords: 'generator random table npc ctrl+g action',
-				disabled: playerModeState.enabled,
-				run: () => {
-					onopengenerator();
-					onclose();
-				},
-			},
-			{
-				id: 'action-back',
-				group: 'Navigation',
-				title: 'Back',
-				subtitle: navigationState.backEntry
-					? `Go to ${navigationState.backEntry.label}`
-					: 'No previous location',
-				keywords: 'history back previous navigation',
-				disabled: !navigationState.canGoBack,
-				run: () => {
-					window.history.back();
-					onclose();
-				},
-			},
-			{
-				id: 'action-forward',
-				group: 'Navigation',
-				title: 'Forward',
-				subtitle: navigationState.forwardEntry
-					? `Go to ${navigationState.forwardEntry.label}`
-					: 'No forward location',
-				keywords: 'history forward next navigation',
-				disabled: !navigationState.canGoForward,
-				run: () => {
-					window.history.forward();
-					onclose();
-				},
-			},
-			{
-				id: 'nav-home',
-				group: 'Navigation',
-				title: playerModeState.enabled ? 'Go to Player Screen' : 'Go to Home',
-				subtitle: playerModeState.enabled ? '/player' : '/',
-				keywords: 'home player route navigation',
-				run: () => navigate(resolve(playerModeState.enabled ? '/player' : '/')),
-			},
-			{
-				id: 'nav-player',
-				group: 'Navigation',
-				title: 'Go to Player Screen',
-				subtitle: '/player',
-				keywords: 'player shared public visibility navigation',
-				run: () => navigate(resolve('/player')),
-			},
-			{
-				id: 'nav-notes',
-				group: 'Navigation',
-				title: 'Go to All Notes',
-				subtitle: '/knowledge/notes',
-				keywords: 'notes list navigation',
-				run: () => navigate(resolve('/knowledge/notes')),
-			},
-			{
-				id: 'nav-search',
-				group: 'Navigation',
-				title: 'Go to Search',
-				subtitle: '/knowledge/search',
-				keywords: 'search route navigation',
-				run: () => navigate(resolve('/knowledge/search')),
-			},
-			{
-				id: 'nav-timeline',
-				group: 'Navigation',
-				title: 'Go to Timeline',
-				subtitle: '/campaign/timeline',
-				keywords: 'timeline campaign chronology navigation',
-				disabled: playerModeState.enabled,
-				run: () => navigate(resolve('/campaign/timeline')),
-			},
-			{
-				id: 'nav-session-board',
-				group: 'Navigation',
-				title: 'Go to Session Board',
-				subtitle: '/session/boards',
-				keywords: 'board session navigation',
+					? 'Unavailable while Player Mode is active'
+					: 'Open Session Boards',
+				keywords: 'switch session mode board',
 				disabled: playerModeState.enabled,
 				run: () => navigate(resolve('/session/boards')),
 			},
 			{
-				id: 'nav-encounter-builder',
-				group: 'Navigation',
-				title: 'Go to Encounter Builder',
-				subtitle: '/session/encounter/new',
-				keywords: 'encounter builder cr budget environment legendary lair navigation',
-				disabled: playerModeState.enabled,
-				run: () => navigate(resolve('/session/encounter/new')),
+				id: 'command-open-settings-vault',
+				group: 'Commands',
+				title: 'Open settings -> Vault',
+				subtitle: 'Open vault health and maintenance controls',
+				keywords: 'settings vault health repair',
+				run: () => navigate(`${resolve('/settings')}?tab=vault`),
 			},
 			{
-				id: 'settings-main',
-				group: 'Settings',
-				title: 'Open Settings',
-				subtitle: 'General app settings',
-				keywords: 'preferences configuration settings',
-				run: () => navigate(resolve('/settings')),
+				id: 'command-toggle-theme',
+				group: 'Commands',
+				title: 'Toggle dark mode',
+				subtitle: ui.resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
+				keywords: 'theme dark light toggle',
+				run: async () => {
+					const nextTheme = ui.resolvedTheme === 'dark' ? 'light' : 'dark';
+					await ui.setTheme(nextTheme);
+					closePalette();
+				},
 			},
 			{
-				id: 'settings-mcp',
-				group: 'Settings',
-				title: 'Review MCP Changes',
-				subtitle: 'Open pending MCP approvals',
-				keywords: 'mcp staged pending changes settings',
-				run: () => navigate(`${resolve('/settings')}?tab=mcp#mcp-changes`),
+				id: 'command-roll-1d20',
+				group: 'Commands',
+				title: 'Roll 1d20',
+				subtitle: 'Quick single d20 roll',
+				keywords: 'dice roll d20',
+				run: () => {
+					const attempt = diceState.roll('1d20', 'command_palette');
+					if (attempt.ok) {
+						closePalette();
+					}
+				},
 			},
-		];
-		for (const template of templateLibraryState.templates) {
-			items.push({
-				id: `action-template-${template.id}`,
-				group: 'Actions',
-				title: `Create: ${template.name}`,
-				subtitle: `Template in ${template.defaultFolder}`,
-				keywords: `template ${template.name} ${template.defaultFolder}`,
+			{
+				id: 'command-open-dice-tray',
+				group: 'Commands',
+				title: 'Open Dice Tray',
+				subtitle: 'Roll expressions and review history',
+				keywords: 'dice tray roll history',
+				run: () => {
+					onopendicetray();
+					closePalette();
+				},
+			},
+			{
+				id: 'command-template',
+				group: 'Commands',
+				title: 'Create from template',
+				subtitle: playerModeState.enabled
+					? 'Unavailable while Player Mode is active'
+					: 'Open template picker',
+				keywords: 'template create note',
 				disabled: playerModeState.enabled,
 				run: () => {
-					onclose();
+					closePalette();
+					ontemplate();
+				},
+			},
+			{
+				id: 'command-create-handout',
+				group: 'Commands',
+				title: 'Create handout',
+				subtitle: playerModeState.enabled
+					? 'Unavailable while Player Mode is active'
+					: 'Open handout creator',
+				keywords: 'handout create',
+				disabled: playerModeState.enabled,
+				run: () => {
+					closePalette();
+					oncreatehandout();
+				},
+			},
+			{
+				id: 'command-session-recap',
+				group: 'Commands',
+				title: 'Generate session recap scaffold',
+				subtitle: playerModeState.enabled
+					? 'Unavailable while Player Mode is active'
+					: 'Create a recap note from template',
+				keywords: 'session recap scaffold template',
+				disabled: playerModeState.enabled,
+				run: () => {
+					closePalette();
+					onsessionrecap();
+				},
+			},
+			{
+				id: 'command-toggle-sidebar',
+				group: 'Commands',
+				title: 'Toggle local navigation',
+				subtitle: 'Show or hide the local navigation panel',
+				keywords: 'sidebar local navigation toggle',
+				run: () => {
+					ui.toggleSidebar();
+					closePalette();
+				},
+			},
+			{
+				id: 'command-toggle-player-mode',
+				group: 'Commands',
+				title: playerModeState.enabled ? 'Exit Player Mode' : 'Enter Player Mode',
+				subtitle: playerModeState.enabled
+					? 'Return to DM-only content'
+					: 'Switch to player-visible content boundary',
+				keywords: 'player mode dm mode toggle',
+				run: () => {
+					closePalette();
+					ontoggleplayermode();
+				},
+			},
+			{
+				id: 'command-back',
+				group: 'Commands',
+				title: 'Back',
+				subtitle: navigationState.backEntry
+					? `Back to ${navigationState.backEntry.label}`
+					: 'No previous location',
+				keywords: 'back history navigation',
+				disabled: !navigationState.canGoBack,
+				run: () => {
+					window.history.back();
+					closePalette();
+				},
+			},
+			{
+				id: 'command-forward',
+				group: 'Commands',
+				title: 'Forward',
+				subtitle: navigationState.forwardEntry
+					? `Forward to ${navigationState.forwardEntry.label}`
+					: 'No forward location',
+				keywords: 'forward history navigation',
+				disabled: !navigationState.canGoForward,
+				run: () => {
+					window.history.forward();
+					closePalette();
+				},
+			},
+			{
+				id: 'command-open-generator',
+				group: 'Commands',
+				title: 'Open Generator Panel',
+				subtitle: playerModeState.enabled
+					? 'Unavailable while Player Mode is active'
+					: 'Open random tables and macro helpers',
+				keywords: 'generator random tables macros',
+				disabled: playerModeState.enabled,
+				run: () => {
+					onopengenerator();
+					closePalette();
+				},
+			},
+		];
+
+		for (const template of templateLibraryState.templates) {
+			items.push({
+				id: `command-template-${template.id}`,
+				group: 'Commands',
+				title: `Create: ${template.name}`,
+				subtitle: `Template in ${template.defaultFolder}`,
+				keywords: `template create ${template.name} ${template.defaultFolder}`,
+				disabled: playerModeState.enabled,
+				run: () => {
+					closePalette();
 					oncreatefromtemplate(template.id);
 				},
 			});
 		}
+
 		for (const macro of diceState.macros) {
 			items.push({
-				id: `action-dice-macro-${macro.id}`,
-				group: 'Actions',
+				id: `command-macro-${macro.id}`,
+				group: 'Commands',
 				title: `Roll: ${macro.label}`,
 				subtitle: macro.expression,
 				keywords: `dice macro roll ${macro.label} ${macro.expression}`,
 				run: () => {
 					const attempt = diceState.rollMacro(macro, 'command_palette');
 					if (attempt.ok) {
-						onclose();
+						closePalette();
 					}
 				},
 			});
 		}
-		return items;
+
+		if (mode !== 'commands') {
+			return [];
+		}
+
+		const normalized = modeQuery.toLowerCase();
+		if (!normalized) return items;
+		return items.filter((item) => {
+			const haystack = `${item.title} ${item.subtitle} ${item.keywords}`.toLowerCase();
+			return haystack.includes(normalized);
+		});
+	});
+
+	const sectionItems = $derived.by<PaletteItem[]>(() => {
+		if (mode !== 'sections') return [];
+		const normalized = modeQuery.toLowerCase();
+		const filtered =
+			normalized.length === 0
+				? SECTION_DESTINATIONS
+				: SECTION_DESTINATIONS.filter((entry) => {
+						const haystack =
+							`${entry.title} ${entry.description} ${entry.keywords} ${entry.path}`.toLowerCase();
+						return haystack.includes(normalized);
+					});
+		return filtered.map((entry) => ({
+			id: `section-${entry.id}`,
+			group: 'Sections',
+			title: entry.title,
+			subtitle: entry.path,
+			keywords: `${entry.description} ${entry.keywords}`,
+			disabled:
+				playerModeState.enabled &&
+				(entry.id === 'session-boards' ||
+					entry.id === 'session-encounter' ||
+					entry.id === 'session-combat' ||
+					entry.id === 'campaign-timeline'),
+			run: () => navigate(entry.path),
+		}));
 	});
 
 	const items = $derived.by<PaletteItem[]>(() => {
-		if (isEntityMode) {
-			return entityItems;
-		}
-		const normalized = query.trim().toLowerCase();
-		const filteredCommands =
-			normalized.length === 0
-				? commandItems
-				: commandItems.filter((item) => {
-						const haystack = `${item.title} ${item.subtitle} ${item.keywords}`.toLowerCase();
-						return haystack.includes(normalized);
-					});
-		return [...filteredCommands, ...noteItems];
+		if (mode === 'commands') return commandItems;
+		if (mode === 'sections') return sectionItems;
+		if (mode === 'tags') return tagItems;
+		return noteItems;
 	});
 
 	function firstEnabledIndex(): number {
@@ -399,9 +586,14 @@
 
 	$effect(() => {
 		if (open && !wasOpen) {
+			returnFocusTarget =
+				typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+					? document.activeElement
+					: null;
 			query = '';
+			noteScope = { ...DEFAULT_SEARCH_SCOPE };
 			selectedIndex = firstEnabledIndex();
-			lastSelectionQuery = '';
+			lastSelectionSignature = '';
 			setTimeout(() => inputRef?.focus(), 0);
 			void diceState.ensureMacrosLoaded();
 		}
@@ -409,9 +601,9 @@
 	});
 
 	$effect(() => {
-		const normalizedQuery = query.trim().toLowerCase();
-		if (normalizedQuery !== lastSelectionQuery) {
-			lastSelectionQuery = normalizedQuery;
+		const signature = `${mode}|${modeQuery.toLowerCase()}|${noteScope.kind}|${noteScope.value ?? ''}`;
+		if (signature !== lastSelectionSignature) {
+			lastSelectionSignature = signature;
 			selectedIndex = firstEnabledIndex();
 		}
 		const maxIndex = Math.max(0, items.length - 1);
@@ -423,14 +615,29 @@
 		}
 	});
 
+	function setScope(scope: SearchScope): void {
+		noteScope = normalizeSearchScope(scope);
+	}
+
+	function closePalette(): void {
+		open = false;
+		onclose();
+		const target = returnFocusTarget;
+		setTimeout(() => {
+			if (!target) return;
+			if (typeof document !== 'undefined' && !document.contains(target)) return;
+			target.focus();
+		}, 0);
+	}
+
 	function navigateToNote(id: string): void {
 		goto(resolve(`/knowledge/notes/${id}`));
-		onclose();
+		closePalette();
 	}
 
 	function navigate(path: string): void {
 		goto(path);
-		onclose();
+		closePalette();
 	}
 
 	function findNextIndex(start: number, direction: 1 | -1): number {
@@ -444,29 +651,43 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			closePalette();
+			return;
+		}
+
+		const target = event.target as HTMLElement;
+		const inputActive = target === inputRef;
+		const resultActive = target.closest('[data-command-palette-option]') !== null;
+		if (!inputActive && !resultActive) return;
+
 		if (event.key === 'ArrowDown') {
 			event.preventDefault();
 			selectedIndex = findNextIndex(selectedIndex, 1);
-		} else if (event.key === 'ArrowUp') {
+			return;
+		}
+
+		if (event.key === 'ArrowUp') {
 			event.preventDefault();
 			selectedIndex = findNextIndex(selectedIndex, -1);
-		} else if (event.key === 'Enter' && items[selectedIndex]) {
+			return;
+		}
+
+		if (event.key === 'Enter' && items[selectedIndex]) {
 			event.preventDefault();
 			const item = items[selectedIndex];
-			if (!item) return;
-			if (item.disabled) return;
+			if (!item || item.disabled) return;
 			if ((event.ctrlKey || event.metaKey) && item.openSplit) {
 				void item.openSplit();
 				return;
 			}
 			void item.run();
-		} else if (event.key === 'Escape') {
-			onclose();
 		}
 	}
 
 	function handleBackdrop(event: MouseEvent): void {
-		if (event.target === event.currentTarget) onclose();
+		if (event.target === event.currentTarget) closePalette();
 	}
 
 	function shouldShowGroup(index: number): boolean {
@@ -477,104 +698,110 @@
 
 {#if open}
 	<div
-		class="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] bg-black/50"
+		class="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[9vh]"
 		role="dialog"
 		aria-modal="true"
-		aria-label="Quick switcher"
+		aria-label="Command palette"
 		use:focusTrap
 		onclick={handleBackdrop}
 		onkeydown={handleKeydown}
 		tabindex="-1"
 	>
 		<div
-			class="bg-surface dark:bg-tavern-surface rounded-lg shadow-xl border border-border dark:border-tavern-border w-full max-w-2xl mx-4 overflow-hidden"
+			class="mx-4 w-full max-w-3xl overflow-hidden rounded-lg border border-border bg-surface shadow-xl dark:border-tavern-border dark:bg-tavern-surface"
 		>
-			<div class="p-3 border-b border-border dark:border-tavern-border">
+			<div class="border-b border-border p-3 dark:border-tavern-border">
 				<input
 					bind:this={inputRef}
 					bind:value={query}
 					type="text"
-					placeholder="Search commands and notes... (type @ for entities)"
-					class="w-full bg-transparent text-ink dark:text-tavern-text placeholder:text-ink-faint dark:placeholder:text-tavern-faint outline-none text-base"
+					placeholder="Type to find notes | > commands | # tags | / sections"
+					class="w-full bg-transparent text-base text-ink outline-none placeholder:text-ink-faint dark:text-tavern-text dark:placeholder:text-tavern-faint"
 					role="combobox"
-					aria-label="Search commands and notes"
+					aria-label="Command palette query"
 					aria-expanded={items.length > 0}
-					aria-controls="quick-switcher-list"
-					aria-activedescendant={items[selectedIndex] ? `qs-item-${selectedIndex}` : undefined}
+					aria-controls="command-palette-list"
+					aria-activedescendant={items[selectedIndex]
+						? `command-palette-item-${selectedIndex}`
+						: undefined}
 				/>
+				<div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+					<span
+						class="rounded-md bg-surface-alt px-2 py-1 text-ink-muted dark:bg-tavern-surface-alt dark:text-tavern-muted"
+						>{modeLabel}</span
+					>
+					{#if notesModeActive}
+						<span
+							class="rounded-md border border-border px-2 py-1 text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
+							>{scopeLabel}</span
+						>
+					{/if}
+				</div>
+				{#if notesModeActive}
+					<div class="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Search scope selector">
+						{#each scopeOptions as option (option.id)}
+							<button
+								type="button"
+								data-scope-selector="true"
+								class="rounded-md border px-2 py-1 text-xs {noteScope.kind === option.scope.kind &&
+								noteScope.value === option.scope.value
+									? 'border-accent bg-accent-subtle text-accent dark:border-tavern-accent dark:bg-tavern-accent-subtle dark:text-tavern-accent'
+									: 'border-border text-ink-muted dark:border-tavern-border dark:text-tavern-muted'}"
+								onclick={() => setScope(option.scope)}
+								aria-pressed={noteScope.kind === option.scope.kind &&
+									noteScope.value === option.scope.value}
+							>
+								{option.label}
+							</button>
+						{/each}
+					</div>
+				{/if}
 			</div>
 
 			{#if items.length > 0}
-				<ul class="max-h-[52vh] overflow-y-auto py-1" role="listbox" id="quick-switcher-list">
+				<ul class="max-h-[54vh] overflow-y-auto py-1" role="listbox" id="command-palette-list">
 					{#each items as item, i (item.id)}
 						{#if shouldShowGroup(i)}
 							<li
-								class="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
+								class="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint dark:text-tavern-faint"
 							>
 								{item.group}
 							</li>
 						{/if}
-						<li role="option" aria-selected={i === selectedIndex} id={`qs-item-${i}`}>
+						<li role="option" aria-selected={i === selectedIndex} id={`command-palette-item-${i}`}>
 							<button
 								type="button"
-								class="w-full text-left px-3 py-2 flex flex-col transition-colors disabled:opacity-50
-									{i === selectedIndex
+								data-command-palette-option="true"
+								class="w-full px-3 py-2 text-left transition-colors disabled:opacity-50 {i ===
+								selectedIndex
 									? 'bg-accent-subtle dark:bg-tavern-accent-subtle'
 									: 'hover:bg-surface-alt dark:hover:bg-tavern-surface-alt'}"
 								onclick={() => !item.disabled && void item.run()}
 								disabled={item.disabled}
 								title={item.title}
 							>
-								{#if item.entity}
-									<div class="flex items-start gap-2">
-										<span
-											class="h-6 w-6 mt-0.5 shrink-0 rounded-full border border-border dark:border-tavern-border bg-surface-alt dark:bg-tavern-surface-alt text-[11px] font-semibold flex items-center justify-center text-ink-muted dark:text-tavern-muted"
-											aria-hidden="true"
-										>
-											{quickReferenceIconToken(item.entity.type)}
-										</span>
-										<div class="min-w-0 flex-1">
-											<span
-												class="text-sm font-medium text-ink dark:text-tavern-text truncate block"
-											>
-												{item.title}
-											</span>
-											<span class="text-xs text-ink-muted dark:text-tavern-muted truncate block">
-												{item.subtitle}
-											</span>
-											{#if item.entity.previewLines.length > 0}
-												<span
-													class="text-[11px] text-ink-faint dark:text-tavern-faint truncate block mt-0.5"
-												>
-													{item.entity.previewLines.join(' ')}
-												</span>
-											{/if}
-										</div>
-									</div>
-								{:else}
-									<span class="text-sm font-medium text-ink dark:text-tavern-text truncate">
-										{item.title}
-									</span>
-									<span class="text-xs text-ink-muted dark:text-tavern-muted truncate">
-										{item.subtitle}
-									</span>
-								{/if}
+								<span class="block truncate text-sm font-medium text-ink dark:text-tavern-text">
+									{item.title}
+								</span>
+								<span class="block truncate text-xs text-ink-muted dark:text-tavern-muted">
+									{item.subtitle}
+								</span>
 							</button>
 						</li>
 					{/each}
 				</ul>
 			{:else}
 				<div class="px-3 py-6 text-center text-sm text-ink-muted dark:text-tavern-muted">
-					No commands or notes found
+					No results found for this mode
 				</div>
 			{/if}
 
 			<div
-				class="px-3 py-2 border-t border-border dark:border-tavern-border text-xs text-ink-faint dark:text-tavern-faint flex gap-3"
+				class="flex flex-wrap gap-3 border-t border-border px-3 py-2 text-xs text-ink-faint dark:border-tavern-border dark:text-tavern-faint"
 			>
 				<span><kbd class="font-mono">up/down</kbd> move</span>
-				<span><kbd class="font-mono">enter</kbd> run</span>
-				<span><kbd class="font-mono">ctrl+enter</kbd> split</span>
+				<span><kbd class="font-mono">enter</kbd> activate</span>
+				<span><kbd class="font-mono">tab</kbd> scope controls</span>
 				<span><kbd class="font-mono">esc</kbd> close</span>
 			</div>
 		</div>

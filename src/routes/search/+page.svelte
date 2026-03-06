@@ -4,21 +4,41 @@
 	import { resolve } from '$app/paths';
 	import { searchService, type SearchQueryResult, type SearchResult } from '$lib/domain/search.js';
 	import { semanticSearchService } from '$lib/domain/semantic-search.js';
+	import {
+		DEFAULT_SEARCH_SCOPE,
+		applySearchScopeToQuery,
+		describeSearchScope,
+		matchesSearchScope,
+		normalizeSearchScope,
+		parseSearchScopeFromParams,
+		writeSearchScopeToParams,
+		type SearchScope,
+		type SearchScopeKind,
+	} from '$lib/domain/search-scope.js';
 	import { searchState } from '$lib/state/search.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { a11yAnnouncerState } from '$lib/state/a11y-announcer.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
+	import type { Note } from '$lib/types/note.js';
 	import type { NoteId } from '$lib/types/note.js';
 	import { formatRelativeDate } from '$lib/utils/date.js';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
 	type FacetKind = 'tag' | 'folder' | 'type' | 'date';
+	type SearchSection = 'Knowledge' | 'Atlas' | 'Session' | 'Campaign' | 'Settings';
 
 	interface DatePreset {
 		id: string;
 		label: string;
 		description: string;
 		windowMs: number;
+	}
+
+	interface SectionGroup {
+		id: string;
+		label: string;
+		results: SearchResult[];
 	}
 
 	const SEARCH_DEBOUNCE_MS = 50;
@@ -70,14 +90,43 @@
 	let semanticStatus = $state<string | null>(null);
 	let semanticError = $state<string | null>(null);
 	let semanticResultIds = $state<NoteId[]>([]);
-	let lastUrlQuery = $state<string | null>(null);
+	let lastUrlSignature = $state<string | null>(null);
+	let searchScope = $state<SearchScope>({ ...DEFAULT_SEARCH_SCOPE });
+	let collapsedSectionGroups = $state<Record<string, boolean>>({});
 
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
 	let lastLiveMessage = $state('');
 
 	let notesById = $derived(notesState.noteById);
-	let semanticResultIdSet = $derived(new Set(semanticResultIds));
+	let scopeLabel = $derived(describeSearchScope(searchScope));
+	let visibleNotes = $derived.by(() =>
+		playerModeState.enabled
+			? notesState.activeNotes.filter((note) => isNoteVisibleInPlayerMode(note))
+			: notesState.activeNotes,
+	);
+	let folderScopeOptions = $derived.by(() => {
+		const seen: Record<string, true> = {};
+		const folders: string[] = [];
+		for (const note of visibleNotes) {
+			const folder = String(note.folder);
+			if (seen[folder]) continue;
+			seen[folder] = true;
+			folders.push(folder);
+		}
+		return folders.sort((a, b) => a.localeCompare(b));
+	});
+	let typeScopeOptions = $derived.by(() => {
+		const seen: Record<string, true> = {};
+		const types: string[] = [];
+		for (const note of visibleNotes) {
+			const type = noteType(note);
+			if (!type || seen[type]) continue;
+			seen[type] = true;
+			types.push(type);
+		}
+		return types.sort((a, b) => a.localeCompare(b));
+	});
 
 	$effect(() => {
 		if (!searchState.loaded && !searchState.loading) {
@@ -95,11 +144,14 @@
 
 	$effect(() => {
 		const queryFromUrl = (page.url.searchParams.get('q') ?? '').trim();
-		if (queryFromUrl === lastUrlQuery) {
+		const scopeFromUrl = parseSearchScopeFromParams(page.url.searchParams);
+		const signature = `${queryFromUrl}|${scopeFromUrl.kind}|${scopeFromUrl.value ?? ''}`;
+		if (signature === lastUrlSignature) {
 			return;
 		}
-		lastUrlQuery = queryFromUrl;
-		applyQuery(queryFromUrl);
+		lastUrlSignature = signature;
+		searchScope = scopeFromUrl;
+		applyQuery(queryFromUrl, { syncUrl: false, clearFacets: true });
 	});
 
 	$effect(() => {
@@ -112,6 +164,35 @@
 
 	function normalizeList(values: string[]): string[] {
 		return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+	}
+
+	function noteType(note: Note): string | null {
+		const value = note.frontmatter.type;
+		if (typeof value !== 'string') return null;
+		const normalized = value.trim().toLowerCase();
+		return normalized.length > 0 ? normalized : null;
+	}
+
+	function isSemanticOnly(id: NoteId): boolean {
+		return semanticResultIds.includes(id);
+	}
+
+	function syncUrlState(nextQuery: string, nextScope: SearchScope): void {
+		const params = new SvelteURLSearchParams(page.url.searchParams);
+		const normalizedQuery = nextQuery.trim();
+		if (normalizedQuery) {
+			params.set('q', normalizedQuery);
+		} else {
+			params.delete('q');
+		}
+		writeSearchScopeToParams(params, nextScope);
+		const nextSearch = params.toString();
+		const nextPath = nextSearch ? `${page.url.pathname}?${nextSearch}` : page.url.pathname;
+		const currentPath = `${page.url.pathname}${page.url.search}`;
+		const signature = `${normalizedQuery}|${nextScope.kind}|${nextScope.value ?? ''}`;
+		if (nextPath === currentPath && signature === lastUrlSignature) return;
+		lastUrlSignature = signature;
+		goto(nextPath, { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
 	function clearFacetFilters(): void {
@@ -141,18 +222,30 @@
 		}
 	}
 
-	function applyQuery(nextQuery: string): void {
+	function applyQuery(
+		nextQuery: string,
+		options: {
+			syncUrl?: boolean;
+			clearFacets?: boolean;
+		} = {},
+	): void {
+		const { syncUrl = false, clearFacets = true } = options;
 		query = nextQuery;
 		searchRunError = null;
 		semanticError = null;
 		semanticResultIds = [];
-		selectedTags = [];
-		selectedFolders = [];
-		selectedTypes = [];
-		selectedDatePresets = [];
+		if (clearFacets) {
+			selectedTags = [];
+			selectedFolders = [];
+			selectedTypes = [];
+			selectedDatePresets = [];
+		}
 		if (searchTimeout) {
 			clearTimeout(searchTimeout);
 			searchTimeout = null;
+		}
+		if (syncUrl) {
+			syncUrlState(nextQuery, searchScope);
 		}
 
 		const normalized = nextQuery.trim();
@@ -165,22 +258,34 @@
 		searching = true;
 		searchRunToken += 1;
 		const runToken = searchRunToken;
+		const scopeSnapshot = normalizeSearchScope(searchScope);
 		searchTimeout = setTimeout(() => {
-			void runSearch(runToken, normalized);
+			void runSearch(runToken, normalized, scopeSnapshot);
 		}, SEARCH_DEBOUNCE_MS);
 	}
 
-	async function runSearch(runToken: number, normalizedQuery: string): Promise<void> {
+	async function runSearch(
+		runToken: number,
+		normalizedQuery: string,
+		scopeForRun: SearchScope,
+	): Promise<void> {
 		try {
-			const keyword = searchService.searchDetailed(normalizedQuery);
+			const scopedQuery = applySearchScopeToQuery(normalizedQuery, scopeForRun);
+			const keyword = searchService.searchDetailed(scopedQuery);
 			let mergedResults = keyword.results;
 			let semanticIds: NoteId[] = [];
 
 			if (semanticEnabled) {
 				try {
-					const semanticCandidateNotes = playerModeState.enabled
-						? notesState.activeNotes.filter((note) => isNoteVisibleInPlayerMode(note))
-						: notesState.notes;
+					const semanticCandidateNotes = visibleNotes.filter((note) =>
+						matchesSearchScope(
+							{
+								folder: String(note.folder),
+								type: noteType(note),
+							},
+							scopeForRun,
+						),
+					);
 					const semantic = await semanticSearchService.search({
 						query: normalizedQuery,
 						notes: semanticCandidateNotes,
@@ -193,6 +298,17 @@
 						const note = notesState.getActiveNoteById(match.id);
 						if (!note) continue;
 						if (playerModeState.enabled && !isNoteVisibleInPlayerMode(note)) continue;
+						if (
+							!matchesSearchScope(
+								{
+									folder: String(note.folder),
+									type: noteType(note),
+								},
+								scopeForRun,
+							)
+						) {
+							continue;
+						}
 						supplemental.push({
 							id: note.id,
 							title: note.title,
@@ -202,10 +318,7 @@
 							snippet: note.content.slice(0, 200).replace(/\s+/g, ' ').trim(),
 							anchor: null,
 							tags: [...note.tags],
-							type:
-								typeof note.frontmatter.type === 'string'
-									? note.frontmatter.type.toLowerCase()
-									: null,
+							type: noteType(note),
 							updatedAt: note.updatedAt,
 						});
 					}
@@ -221,12 +334,20 @@
 			}
 
 			if (runToken !== searchRunToken) return;
-			const visibleResults = playerModeState.enabled
-				? mergedResults.filter((result) => {
-						const note = notesById.get(result.id);
-						return !!note && isNoteVisibleInPlayerMode(note);
-					})
-				: mergedResults;
+			const visibleResults = mergedResults.filter((result) => {
+				const note = notesById.get(result.id);
+				if (!note) return false;
+				if (playerModeState.enabled && !isNoteVisibleInPlayerMode(note)) {
+					return false;
+				}
+				return matchesSearchScope(
+					{
+						folder: String(note.folder),
+						type: noteType(note),
+					},
+					scopeForRun,
+				);
+			});
 			response = {
 				...keyword,
 				results: visibleResults,
@@ -254,7 +375,40 @@
 	}
 
 	function handleInput(event: Event): void {
-		applyQuery((event.target as HTMLInputElement).value);
+		applyQuery((event.target as HTMLInputElement).value, { syncUrl: true, clearFacets: true });
+	}
+
+	function setScopeKind(kind: SearchScopeKind): void {
+		if (kind === 'all') {
+			setSearchScope({ ...DEFAULT_SEARCH_SCOPE });
+			return;
+		}
+		if (kind === 'folder') {
+			setSearchScope({
+				kind: 'folder',
+				value:
+					searchScope.kind === 'folder' && searchScope.value
+						? searchScope.value
+						: (folderScopeOptions[0] ?? '/'),
+			});
+			return;
+		}
+		setSearchScope({
+			kind: 'type',
+			value:
+				searchScope.kind === 'type' && searchScope.value
+					? searchScope.value
+					: (typeScopeOptions[0] ?? 'npc'),
+		});
+	}
+
+	function setSearchScope(nextScope: SearchScope): void {
+		const normalized = normalizeSearchScope(nextScope);
+		searchScope = normalized;
+		syncUrlState(query, normalized);
+		if (query.trim()) {
+			applyQuery(query, { syncUrl: false, clearFacets: false });
+		}
 	}
 
 	function toggleFilter(kind: FacetKind, value: string): void {
@@ -293,7 +447,7 @@
 		saveError = null;
 		try {
 			const defaultName = query.trim().slice(0, 48);
-			await searchState.saveSearch(defaultName, query.trim());
+			await searchState.saveSearch(defaultName, applySearchScopeToQuery(query.trim(), searchScope));
 		} catch (error) {
 			saveError = error instanceof Error ? error.message : String(error);
 		} finally {
@@ -354,10 +508,135 @@
 			});
 	}
 
+	function inferResultSection(result: SearchResult): SearchSection {
+		const folder = result.folder.toLowerCase();
+		const type = (result.type ?? '').toLowerCase();
+		if (
+			folder.startsWith('/atlas') ||
+			folder.startsWith('/maps') ||
+			type === 'location' ||
+			type === 'map'
+		) {
+			return 'Atlas';
+		}
+		if (
+			folder.startsWith('/session') ||
+			type === 'encounter' ||
+			type === 'combat' ||
+			result.tags.some((tag) => tag.toLowerCase() === 'session')
+		) {
+			return 'Session';
+		}
+		if (
+			folder.startsWith('/campaign') ||
+			['npc', 'character', 'faction', 'quest', 'timeline_event'].includes(type)
+		) {
+			return 'Campaign';
+		}
+		if (folder.startsWith('/settings')) {
+			return 'Settings';
+		}
+		return 'Knowledge';
+	}
+
+	function folderBreadcrumbParts(folder: string): string[] {
+		const normalized = folder.trim().replace(/^\/+/, '');
+		if (!normalized) {
+			return ['Root'];
+		}
+		return ['Root', ...normalized.split('/').filter((segment) => segment.length > 0)];
+	}
+
+	function typeIconToken(type: string | null): string {
+		if (!type) return 'NT';
+		const normalized = type.trim().toUpperCase();
+		if (normalized.length >= 2) return normalized.slice(0, 2);
+		return `${normalized}T`;
+	}
+
+	function escapeRegex(value: string): string {
+		return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	}
+
 	let filteredResults = $derived.by(() => {
 		const results = response?.results ?? [];
 		return results.filter((result) => matchesFacetFilters(result));
 	});
+
+	let groupedBySection = $derived.by<SectionGroup[]>(() => {
+		const buckets: Record<SearchSection, SearchResult[]> = {
+			Knowledge: [],
+			Atlas: [],
+			Session: [],
+			Campaign: [],
+			Settings: [],
+		};
+		for (const result of filteredResults) {
+			const section = inferResultSection(result);
+			buckets[section].push(result);
+		}
+		const order: SearchSection[] = ['Knowledge', 'Atlas', 'Session', 'Campaign', 'Settings'];
+		const groups: SectionGroup[] = [];
+		for (const section of order) {
+			const entries = buckets[section];
+			if (!entries || entries.length === 0) continue;
+			groups.push({
+				id: section.toLowerCase(),
+				label: section,
+				results: entries,
+			});
+		}
+		return groups;
+	});
+
+	$effect(() => {
+		const nextState: Record<string, boolean> = {};
+		for (const group of groupedBySection) {
+			nextState[group.id] = collapsedSectionGroups[group.id] ?? false;
+		}
+		collapsedSectionGroups = nextState;
+	});
+
+	let shouldGroupBySection = $derived(searchScope.kind === 'all' && groupedBySection.length > 1);
+
+	let resultGroups = $derived.by<SectionGroup[]>(() => {
+		if (shouldGroupBySection) return groupedBySection;
+		if (filteredResults.length === 0) return [];
+		return [{ id: 'results', label: 'Results', results: filteredResults }];
+	});
+
+	function toggleSectionGroup(groupId: string): void {
+		collapsedSectionGroups = {
+			...collapsedSectionGroups,
+			[groupId]: !(collapsedSectionGroups[groupId] ?? false),
+		};
+	}
+
+	let highlightTerms = $derived.by(() => {
+		const parsed = response?.parsed;
+		if (!parsed) return [] as string[];
+		const terms = [...parsed.phrases, ...parsed.terms]
+			.map((entry) => entry.trim())
+			.filter((entry) => entry.length > 1)
+			.sort((a, b) => b.length - a.length);
+		return [...new Set(terms)].slice(0, 8);
+	});
+
+	function titleSegments(title: string): Array<{ text: string; match: boolean }> {
+		if (highlightTerms.length === 0) {
+			return [{ text: title, match: false }];
+		}
+		const pattern = highlightTerms.map((entry) => escapeRegex(entry)).join('|');
+		if (!pattern) {
+			return [{ text: title, match: false }];
+		}
+		const regex = new RegExp(`(${pattern})`, 'ig');
+		const parts = title.split(regex).filter((part) => part.length > 0);
+		return parts.map((part) => ({
+			text: part,
+			match: highlightTerms.some((term) => term.toLowerCase() === part.toLowerCase()),
+		}));
+	}
 
 	let liveTagFacets = $derived.by(() => {
 		const counts: Record<string, number> = {};
@@ -443,12 +722,12 @@
 
 		let message: string;
 		if (searching) {
-			message = `Searching for ${normalizedQuery}.`;
+			message = `${scopeLabel}. Searching for ${normalizedQuery}.`;
 		} else if (searchRunError) {
 			message = searchRunError;
 		} else {
 			const resultCount = filteredResults.length;
-			message = `${resultCount} ${resultCount === 1 ? 'result' : 'results'} for ${normalizedQuery}.`;
+			message = `${scopeLabel}. ${resultCount} ${resultCount === 1 ? 'result' : 'results'} for ${normalizedQuery}.`;
 		}
 
 		if (message === lastLiveMessage) return;
@@ -514,6 +793,65 @@
 		>
 			Operators
 		</button>
+	</div>
+
+	<div
+		class="mt-3 rounded-lg border border-border bg-surface/60 p-3 dark:border-tavern-border dark:bg-tavern-surface/60"
+	>
+		<p class="text-sm font-medium text-ink dark:text-tavern-text">{scopeLabel}</p>
+		<div
+			class="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-muted dark:text-tavern-muted"
+		>
+			<label for="search-scope-kind">Scope</label>
+			<select
+				id="search-scope-kind"
+				aria-label="Search scope kind"
+				value={searchScope.kind}
+				onchange={(event) =>
+					setScopeKind((event.target as HTMLSelectElement).value as SearchScopeKind)}
+				class="rounded-md border border-border bg-surface px-2 py-1 text-xs dark:border-tavern-border dark:bg-tavern-surface"
+			>
+				<option value="all">All notes</option>
+				<option value="folder">Folder</option>
+				<option value="type">Type</option>
+			</select>
+			{#if searchScope.kind === 'folder'}
+				<select
+					aria-label="Search scope folder"
+					value={searchScope.value ?? ''}
+					onchange={(event) =>
+						setSearchScope({ kind: 'folder', value: (event.target as HTMLSelectElement).value })}
+					class="min-w-[180px] rounded-md border border-border bg-surface px-2 py-1 text-xs dark:border-tavern-border dark:bg-tavern-surface"
+				>
+					{#if folderScopeOptions.length === 0}
+						<option value="/">/</option>
+					{:else}
+						{#each folderScopeOptions as folder (folder)}
+							<option value={folder}>{folder}</option>
+						{/each}
+					{/if}
+				</select>
+			{:else if searchScope.kind === 'type'}
+				<select
+					aria-label="Search scope type"
+					value={searchScope.value ?? ''}
+					onchange={(event) =>
+						setSearchScope({ kind: 'type', value: (event.target as HTMLSelectElement).value })}
+					class="min-w-[140px] rounded-md border border-border bg-surface px-2 py-1 text-xs dark:border-tavern-border dark:bg-tavern-surface"
+				>
+					{#if typeScopeOptions.length === 0}
+						<option value="npc">npc</option>
+					{:else}
+						{#each typeScopeOptions as type (type)}
+							<option value={type}>{type}</option>
+						{/each}
+					{/if}
+				</select>
+			{/if}
+			<span class="text-ink-faint dark:text-tavern-faint"
+				>Scope is encoded in the URL query string.</span
+			>
+		</div>
 	</div>
 
 	{#if showCheatSheet}
@@ -609,7 +947,7 @@
 								<div class="flex gap-1.5 items-center">
 									<button
 										type="button"
-										onclick={() => applyQuery(saved.query)}
+										onclick={() => applyQuery(saved.query, { syncUrl: true, clearFacets: true })}
 										class="flex-1 min-w-0 text-left px-2 py-1 rounded-md bg-surface-alt dark:bg-tavern-surface-alt text-xs text-ink dark:text-tavern-text hover:border-accent border border-transparent"
 										title={saved.query}
 									>
@@ -641,7 +979,7 @@
 						{#each searchState.smartCollections as collection (collection.id)}
 							<button
 								type="button"
-								onclick={() => applyQuery(collection.query)}
+								onclick={() => applyQuery(collection.query, { syncUrl: true, clearFacets: true })}
 								class="w-full text-left px-2.5 py-2 rounded-md bg-surface-alt dark:bg-tavern-surface-alt hover:border-accent border border-transparent"
 							>
 								<div class="text-xs font-medium text-ink dark:text-tavern-text">
@@ -837,7 +1175,7 @@
 						<button
 							type="button"
 							onclick={() => {
-								applyQuery('');
+								applyQuery('', { syncUrl: true, clearFacets: true });
 								clearFacetFilters();
 							}}
 							class="px-2 py-1 rounded-md text-xs border border-border dark:border-tavern-border text-ink-muted dark:text-tavern-muted"
@@ -856,59 +1194,107 @@
 				{/if}
 
 				{#if filteredResults.length > 0}
-					<div class="space-y-3">
-						{#each filteredResults as result (result.id)}
-							{@const note = notesById.get(result.id)}
-							{@const semanticOnly = semanticResultIdSet.has(result.id)}
-							<div
-								class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
-							>
-								<div class="flex items-start justify-between gap-2">
-									<div>
-										<button
-											type="button"
-											class="font-semibold text-ink dark:text-tavern-text hover:text-accent dark:hover:text-tavern-accent"
-											onclick={() => openResult(result)}
-										>
-											{result.title}
-										</button>
-										<p class="text-xs text-ink-faint dark:text-tavern-faint mt-0.5">
-											{result.filePath ?? result.folder}
-										</p>
-									</div>
-									<div class="text-right space-y-1">
-										{#if semanticOnly}
-											<span
-												class="inline-block px-2 py-0.5 rounded-full text-[11px] bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent"
-												>semantic</span
-											>
-										{/if}
-										<div class="text-[11px] text-ink-faint dark:text-tavern-faint">
-											score {result.score.toFixed(2)}
-										</div>
-									</div>
-								</div>
-								{#if result.snippet}
-									<p class="mt-2 text-sm text-ink-muted dark:text-tavern-muted">{result.snippet}</p>
+					<div class="space-y-4">
+						{#each resultGroups as group (group.id)}
+							<div class="space-y-3">
+								{#if shouldGroupBySection}
+									<button
+										type="button"
+										class="flex w-full items-center justify-between rounded-md border border-border bg-surface-alt px-3 py-2 text-left text-sm font-semibold text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-text"
+										onclick={() => toggleSectionGroup(group.id)}
+										aria-expanded={!(collapsedSectionGroups[group.id] ?? false)}
+									>
+										<span>{group.label}</span>
+										<span class="text-xs text-ink-muted dark:text-tavern-muted">
+											{group.results.length}
+										</span>
+									</button>
 								{/if}
-								<div
-									class="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-faint dark:text-tavern-faint"
-								>
-									<span>{formatRelativeDate(result.updatedAt)}</span>
-									{#if result.type}<span>{result.type}</span>{/if}
-									{#if result.anchor}
-										<button
-											type="button"
-											class="text-accent dark:text-tavern-accent hover:underline"
-											onclick={() => openResult(result, true)}
+								{#if !shouldGroupBySection || !(collapsedSectionGroups[group.id] ?? false)}
+									{#each group.results as result (result.id)}
+										{@const note = notesById.get(result.id)}
+										{@const semanticOnly = isSemanticOnly(result.id)}
+										<div
+											class="rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface p-3"
 										>
-											Jump to section
-										</button>
-									{/if}
-									{#if note && note.tags.length > 0}
-										<span>#{note.tags.slice(0, 4).join(' #')}</span>
-									{/if}
-								</div>
+											<div class="flex items-start justify-between gap-2">
+												<div>
+													<button
+														type="button"
+														class="font-semibold text-ink dark:text-tavern-text hover:text-accent dark:hover:text-tavern-accent"
+														onclick={() => openResult(result)}
+													>
+														{#each titleSegments(result.title) as segment, index (`${result.id}-segment-${index}`)}
+															<span
+																class={segment.match
+																	? 'rounded-sm bg-warning/20 px-[1px] text-ink dark:text-tavern-text'
+																	: ''}>{segment.text}</span
+															>
+														{/each}
+													</button>
+													<p
+														class="mt-0.5 flex flex-wrap items-center text-xs text-ink-faint dark:text-tavern-faint"
+													>
+														{#each folderBreadcrumbParts(result.folder) as crumb, crumbIndex (`${result.id}-crumb-${crumbIndex}`)}
+															{#if crumbIndex > 0}<span class="px-1">/</span>{/if}
+															<span>{crumb}</span>
+														{/each}
+													</p>
+												</div>
+												<div class="text-right space-y-1">
+													<div class="inline-flex items-center gap-1">
+														<span
+															class="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border text-[10px] font-semibold text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
+														>
+															{typeIconToken(result.type)}
+														</span>
+														{#if result.type}
+															<span class="text-[11px] text-ink-faint dark:text-tavern-faint"
+																>{result.type}</span
+															>
+														{/if}
+													</div>
+													{#if semanticOnly}
+														<span
+															class="inline-block px-2 py-0.5 rounded-full text-[11px] bg-accent-subtle dark:bg-tavern-accent-subtle text-accent dark:text-tavern-accent"
+															>semantic</span
+														>
+													{/if}
+													<div class="text-[11px] text-ink-faint dark:text-tavern-faint">
+														score {result.score.toFixed(2)}
+													</div>
+												</div>
+											</div>
+											{#if result.snippet}
+												<p class="mt-2 text-sm text-ink-muted dark:text-tavern-muted">
+													{result.snippet}
+												</p>
+											{/if}
+											<div
+												class="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-faint dark:text-tavern-faint"
+											>
+												<span>{formatRelativeDate(result.updatedAt)}</span>
+												{#if note && note.tags.length > 0}
+													{#each note.tags.slice(0, 3) as tag (`${result.id}-tag-${tag}`)}
+														<span
+															class="rounded-md border border-border px-1.5 py-0.5 text-[11px] text-ink-muted dark:border-tavern-border dark:text-tavern-muted"
+															>#{tag}</span
+														>
+													{/each}
+												{/if}
+												{#if result.anchor}
+													<button
+														type="button"
+														class="text-accent dark:text-tavern-accent hover:underline"
+														onclick={() => openResult(result, true)}
+													>
+														Jump to section
+													</button>
+												{/if}
+											</div>
+										</div>
+									{/each}
+								{/if}
 							</div>
 						{/each}
 					</div>
@@ -916,7 +1302,7 @@
 					<div class="mt-10 text-center">
 						<p class="text-ink-muted dark:text-tavern-muted">No results for "{query}"</p>
 						<p class="text-sm text-ink-faint dark:text-tavern-faint mt-1">
-							Try adjusting operators, facet filters, or spelling.
+							Try adjusting scope, operators, facet filters, or spelling.
 						</p>
 					</div>
 				{/if}

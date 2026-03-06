@@ -45,7 +45,7 @@ Organize notes with tags:
 | Shortcut | Action |
 |----------|--------|
 | **Ctrl+N** | Create new note |
-| **Ctrl+P** | Quick switcher (find any note fast) |
+| **Ctrl+P** | Command palette (find any note fast) |
 | **Ctrl+D** | Open dice tray |
 | **Ctrl+G** | Open generator panel |
 | **Ctrl+E** | Toggle edit/view mode |

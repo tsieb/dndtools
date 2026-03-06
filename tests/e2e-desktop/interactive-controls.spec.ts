@@ -241,11 +241,11 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			await app.page.getByRole('button', { name: 'Done' }).click();
 			await expect(app.page).toHaveURL(/\/notes\/[^/]+$/);
 
-			await app.page.getByRole('button', { name: 'Search' }).click();
-			const quickSwitcher = app.page.getByRole('dialog', { name: 'Quick switcher' });
-			await expect(quickSwitcher).toBeVisible();
+			await app.page.getByRole('button', { name: 'Open command palette' }).click();
+			const commandPalette = app.page.getByRole('dialog', { name: 'Command palette' });
+			await expect(commandPalette).toBeVisible();
 			await app.page.keyboard.press('Escape');
-			await expect(quickSwitcher).toHaveCount(0);
+			await expect(commandPalette).toHaveCount(0);
 
 			await app.page.getByRole('button', { name: 'Open dice tray' }).click();
 			const diceTray = app.page.getByRole('dialog', { name: 'Dice tray' });
@@ -350,7 +350,6 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			await app.page.getByRole('button', { name: 'Operators' }).click();
 			await expect(app.page.getByText('updated:>=-7d')).toHaveCount(0);
 
-			await app.page.getByPlaceholder('Name this search').fill('Shell Search');
 			await app.page.getByRole('button', { name: 'Save' }).click();
 			const savedSearchRunButton = app.page.locator('button[title="ArcaneShellToken"]').first();
 			await expect(savedSearchRunButton).toBeVisible();
@@ -358,7 +357,7 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			await expect(input).toHaveValue('ArcaneShellToken');
 
 			await app.page
-				.getByRole('button', { name: 'Delete saved search Shell Search' })
+				.getByRole('button', { name: 'Delete saved search ArcaneShellToken' })
 				.first()
 				.click();
 			await expect(app.page.locator('button[title="ArcaneShellToken"]')).toHaveCount(0);
