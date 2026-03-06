@@ -6,7 +6,9 @@ This document defines the canonical viewport tiers for structural layout behavio
 
 - `compact`: viewport width `< 640px`
   - Primary use: phones and narrow windows
-  - Layout: single-pane content, bottom navigation
+  - Layout: single-pane content, bottom navigation, local-nav bottom sheet
+  - Local panel entry points: persistent `Browse` pill + left-edge swipe-right
+  - Top bar: title context + command palette trigger + overflow utilities
   - No persistent local navigation panel
 - `medium`: viewport width `640px` to `1099px`
   - Primary use: tablets and medium desktop windows

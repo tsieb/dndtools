@@ -297,6 +297,26 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
   - Added tests:
     - `src/lib/state/layout.svelte.test.ts`
     - `tests/e2e/navigation.spec.ts` (tier breakpoint shell behavior)
+- **Epic 14.2** — Compact Layout (Mobile Shell):
+  - Reworked compact shell behavior in `src/lib/ui/layout/AppShell.svelte`:
+    - Added persistent `Browse` pill above bottom navigation.
+    - Added compact local-nav bottom sheet with drag handle, 70vh presentation, focus trap, and dismiss via backdrop, Escape, swipe-down, and mobile back gesture.
+    - Added compact left-edge swipe-right gesture to open the local-nav sheet.
+    - Suppressed navigation chrome for compact note editor routes to provide focused full-screen editing.
+  - Simplified compact topbar in `src/lib/ui/layout/TopBar.svelte`:
+    - Compact mode now shows title context, command palette icon, and overflow menu.
+    - Overflow menu hosts theme selection, settings shortcut, and DM/Player mode switch.
+    - Compact note editor mode now exposes a topbar back/done affordance.
+  - Updated compact primary nav behavior:
+    - Added keyboard-open ARIA hiding in `src/lib/ui/layout/PrimaryNav.svelte`.
+    - Updated compact active-state styling in `src/app.css` for accent-forward active labels.
+  - Added compact note-list gesture alternatives in `src/lib/ui/common/NoteCard.svelte` and `src/routes/notes/+page.svelte`:
+    - Swipe-left quick actions (pin/delete) for note cards.
+    - Long-press + explicit quick-action menu fallback to satisfy non-gesture alternatives.
+    - Delete confirmation flow and pin/unpin feedback for quick actions.
+  - Added/updated tests:
+    - `tests/e2e/mobile-ui.spec.ts`
+    - `tests/e2e/helpers.ts`
 
 ## What Not To Do
 
