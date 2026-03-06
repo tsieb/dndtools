@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { EditorView } from '@codemirror/view';
 	import { executeEditorAction } from '$lib/utils/editor-commands.js';
+	import { layoutState } from '$lib/state/layout.svelte.js';
+	import { desktopShellState } from '$lib/state/desktop-shell.svelte.js';
 
 	interface Props {
 		editorView: EditorView | null;
@@ -93,6 +95,11 @@
 		executeEditorAction(editorView, action);
 		editorView.focus();
 	}
+
+	function toggleZenMode(): void {
+		if (!layoutState.isExpanded) return;
+		desktopShellState.setZenMode(!desktopShellState.zenMode);
+	}
 </script>
 
 <div
@@ -165,4 +172,18 @@
 			{act.label}
 		</button>
 	{/each}
+
+	{#if layoutState.isExpanded}
+		<div class="w-px h-5 bg-border dark:bg-tavern-border mx-0.5"></div>
+		<button
+			type="button"
+			class="{buttonSizeClass} flex items-center justify-center rounded text-[10px] font-semibold uppercase tracking-wide text-ink-muted dark:text-tavern-muted hover:bg-accent-subtle dark:hover:bg-tavern-accent-subtle hover:text-accent dark:hover:text-tavern-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+			title="Toggle Zen mode (F11)"
+			aria-label="Toggle zen mode"
+			aria-pressed={desktopShellState.zenMode}
+			onclick={toggleZenMode}
+		>
+			Zen
+		</button>
+	{/if}
 </div>

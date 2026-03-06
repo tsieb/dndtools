@@ -20,9 +20,11 @@
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { layoutState } from '$lib/state/layout.svelte.js';
+	import { desktopShellState } from '$lib/state/desktop-shell.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import { syncState } from '$lib/state/sync.svelte.js';
 	import { pwaState } from '$lib/state/pwa.svelte.js';
+	import { isDetailPanelAvailable } from '$lib/domain/detail-panel-context.js';
 	import LiveAnnouncer from '$lib/ui/a11y/LiveAnnouncer.svelte';
 	import InstallPromptBanner from '$lib/ui/pwa/InstallPromptBanner.svelte';
 	import { registerSW } from 'virtual:pwa-register';
@@ -141,6 +143,10 @@
 	$effect(() => {
 		layoutState.initialize();
 		return () => layoutState.dispose();
+	});
+
+	$effect(() => {
+		desktopShellState.ensureHydrated();
 	});
 
 	$effect(() => {
@@ -420,6 +426,19 @@
 		const mod = event.ctrlKey || event.metaKey;
 		const target = event.target as HTMLElement;
 		const isInEditor = target.closest('.cm-editor') !== null;
+		const compactEditorRoute = /^\/knowledge\/notes\/[^/]+\/edit$/.test(page.url.pathname);
+		const detailPanelAvailable =
+			layoutState.isExpanded &&
+			!ui.focusReading &&
+			!compactEditorRoute &&
+			!desktopShellState.zenMode &&
+			isDetailPanelAvailable(page.url);
+
+		if (event.key === 'F11' && layoutState.isExpanded) {
+			event.preventDefault();
+			desktopShellState.setZenMode(!desktopShellState.zenMode);
+			return;
+		}
 
 		if (mod && event.key === 'p') {
 			event.preventDefault();
@@ -448,7 +467,16 @@
 			handleCreateHandout();
 		} else if (mod && event.key === 'b' && !isInEditor) {
 			event.preventDefault();
-			ui.toggleSidebar();
+			if (layoutState.isExpanded) {
+				if (desktopShellState.zenMode) return;
+				desktopShellState.toggleLocalPanelCollapsed();
+			} else {
+				ui.toggleSidebar();
+			}
+		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'r' && !isInEditor) {
+			if (!detailPanelAvailable) return;
+			event.preventDefault();
+			desktopShellState.toggleDetailPanel();
 		} else if (mod && event.shiftKey && event.key === 'F') {
 			event.preventDefault();
 			goto(resolve('/knowledge/search'));

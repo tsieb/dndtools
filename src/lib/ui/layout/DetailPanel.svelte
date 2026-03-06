@@ -1,0 +1,187 @@
+<script lang="ts">
+	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
+	import { mapsState } from '$lib/state/maps.svelte.js';
+	import { notesState } from '$lib/state/notes.svelte.js';
+	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
+	import { createNoteId } from '$lib/types/note.js';
+	import { collectMapPlacementsForNote } from '$lib/domain/map-pois.js';
+	import { noteToVaultObject } from '$lib/domain/object-notes.js';
+	import type { DetailPanelContext } from '$lib/domain/detail-panel-context.js';
+	import BacklinksPanel from '$lib/ui/viewer/BacklinksPanel.svelte';
+	import CrossSectionLinksPanel from '$lib/ui/viewer/CrossSectionLinksPanel.svelte';
+
+	interface Props {
+		context: DetailPanelContext;
+	}
+
+	let { context }: Props = $props();
+
+	const noteId = $derived.by(() => {
+		if (context !== 'note') return null;
+		const match = page.url.pathname.match(/^\/knowledge\/notes\/([^/]+)$/);
+		const rawId = match?.[1]?.trim();
+		if (!rawId) return null;
+		return createNoteId(decodeURIComponent(rawId));
+	});
+
+	const note = $derived.by(() => {
+		if (!noteId) return null;
+		return notesState.getNoteById(noteId) ?? null;
+	});
+
+	const mapPlacements = $derived.by(() => {
+		if (!note) return [];
+		return collectMapPlacementsForNote(mapsState.maps, String(note.id), note.frontmatter);
+	});
+
+	const noteObject = $derived.by(() => {
+		if (!note) return null;
+		return noteToVaultObject(note);
+	});
+
+	const mapId = $derived.by(() => {
+		if (context !== 'map') return '';
+		return page.url.searchParams.get('map')?.trim() ?? '';
+	});
+
+	const selectedMap = $derived.by(() => {
+		if (!mapId) return null;
+		return mapsState.mapById[mapId] ?? null;
+	});
+
+	const poiCounts = $derived.by(() => {
+		const counts: Record<string, number> = {};
+		for (const poi of selectedMap?.data.pois ?? []) {
+			counts[poi.category] = (counts[poi.category] ?? 0) + 1;
+		}
+		return Object.entries(counts).sort(([left], [right]) => left.localeCompare(right));
+	});
+
+	const sessionBoardSummary = $derived.by(() => {
+		const board = sessionBoardsState.activeBoard;
+		if (!board) return null;
+		const typeCounts: Record<string, number> = {};
+		for (const tile of board.tiles) {
+			const type = tile.type ?? 'note';
+			typeCounts[type] = (typeCounts[type] ?? 0) + 1;
+		}
+		return {
+			board,
+			typeCounts: Object.entries(typeCounts).sort(([left], [right]) => left.localeCompare(right)),
+		};
+	});
+
+	$effect(() => {
+		if (context !== 'map') return;
+		if (mapsState.loaded || mapsState.loading) return;
+		void mapsState.loadAll();
+	});
+
+	$effect(() => {
+		if (context !== 'session') return;
+		if (sessionBoardsState.loading || sessionBoardsState.boards.length > 0) return;
+		void sessionBoardsState.loadAll();
+	});
+</script>
+
+<div class="h-full p-3">
+	{#if context === 'note'}
+		{#if note}
+			<div
+				class="mb-3 rounded-md border border-border bg-surface p-2.5 dark:border-tavern-border dark:bg-tavern-surface"
+			>
+				<p
+					class="text-xs font-semibold uppercase tracking-wide text-ink-faint dark:text-tavern-faint"
+				>
+					Note Context
+				</p>
+				<p class="mt-1 text-sm font-semibold text-ink dark:text-tavern-text">{note.title}</p>
+				{#if noteObject}
+					<ul class="mt-2 space-y-1 text-xs text-ink-muted dark:text-tavern-muted">
+						<li>Type: {noteObject.type}</li>
+						<li>Tags: {note.tags.length}</li>
+						<li>Relationships: {noteObject.relationships.length}</li>
+					</ul>
+				{/if}
+			</div>
+			<div class="space-y-3">
+				<CrossSectionLinksPanel {note} {mapPlacements} />
+				<BacklinksPanel noteId={note.id} />
+			</div>
+		{:else}
+			<p class="text-sm text-ink-muted dark:text-tavern-muted">Note context is unavailable.</p>
+		{/if}
+	{:else if context === 'map'}
+		{#if selectedMap}
+			<section
+				class="rounded-md border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
+			>
+				<p
+					class="text-xs font-semibold uppercase tracking-wide text-ink-faint dark:text-tavern-faint"
+				>
+					Map Legend
+				</p>
+				<h2 class="mt-1 text-sm font-semibold text-ink dark:text-tavern-text">
+					{selectedMap.name}
+				</h2>
+				<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted">
+					{selectedMap.data.pois?.length ?? 0} points of interest
+				</p>
+				{#if poiCounts.length > 0}
+					<ul class="mt-3 space-y-1 text-xs text-ink-muted dark:text-tavern-muted">
+						{#each poiCounts as [category, count] (`${category}-${count}`)}
+							<li
+								class="flex items-center justify-between gap-2 rounded border border-border/60 px-2 py-1 dark:border-tavern-border/70"
+							>
+								<span class="capitalize">{category}</span>
+								<span class="font-semibold text-ink dark:text-tavern-text">{count}</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+		{:else}
+			<p class="text-sm text-ink-muted dark:text-tavern-muted">Select a map to view its legend.</p>
+		{/if}
+	{:else if context === 'session'}
+		<section
+			class="rounded-md border border-border bg-surface p-3 dark:border-tavern-border dark:bg-tavern-surface"
+		>
+			<p
+				class="text-xs font-semibold uppercase tracking-wide text-ink-faint dark:text-tavern-faint"
+			>
+				Session Quick Reference
+			</p>
+			{#if sessionBoardSummary}
+				<h2 class="mt-1 text-sm font-semibold text-ink dark:text-tavern-text">
+					{sessionBoardSummary.board.name}
+				</h2>
+				<p class="mt-1 text-xs text-ink-muted dark:text-tavern-muted">
+					{sessionBoardSummary.board.tiles.length} board tiles
+				</p>
+				<ul class="mt-3 space-y-1 text-xs text-ink-muted dark:text-tavern-muted">
+					{#each sessionBoardSummary.typeCounts as [tileType, count] (`${tileType}-${count}`)}
+						<li
+							class="flex items-center justify-between gap-2 rounded border border-border/60 px-2 py-1 dark:border-tavern-border/70"
+						>
+							<span class="capitalize">{tileType}</span>
+							<span class="font-semibold text-ink dark:text-tavern-text">{count}</span>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<p class="mt-2 text-xs text-ink-muted dark:text-tavern-muted">
+					No active session board. Open
+					<a
+						href={resolve('/session/boards')}
+						class="text-accent underline underline-offset-2 hover:text-accent-hover dark:text-tavern-accent dark:hover:text-tavern-accent-hover"
+					>
+						Session Boards
+					</a>
+					to select one.
+				</p>
+			{/if}
+		</section>
+	{/if}
+</div>

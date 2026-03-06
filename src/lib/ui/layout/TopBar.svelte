@@ -11,9 +11,20 @@
 	interface Props {
 		onsearch: () => void;
 		onsetplayermode: (enabled: boolean) => void;
+		ontogglelocalpanel: () => void;
+		ontoggledetailpanel: () => void;
+		detailpanelavailable: boolean;
+		detailpanelopen: boolean;
 	}
 
-	let { onsearch, onsetplayermode }: Props = $props();
+	let {
+		onsearch,
+		onsetplayermode,
+		ontogglelocalpanel,
+		ontoggledetailpanel,
+		detailpanelavailable,
+		detailpanelopen,
+	}: Props = $props();
 
 	let overflowOpen = $state(false);
 	let overflowMenuEl = $state<HTMLElement | null>(null);
@@ -233,7 +244,7 @@
 			<div class="flex min-w-0 items-center gap-1.5">
 				<button
 					class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
-					onclick={() => ui.toggleSidebar()}
+					onclick={ontogglelocalpanel}
 					aria-label="Toggle local navigation"
 					title="Toggle local navigation (Ctrl+B)"
 				>
@@ -247,6 +258,29 @@
 						<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
 					</svg>
 				</button>
+				{#if layoutState.isExpanded}
+					<button
+						type="button"
+						class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
+						onclick={ontoggledetailpanel}
+						disabled={!detailpanelavailable}
+						aria-pressed={detailpanelopen}
+						aria-label="Toggle contextual detail panel"
+						title={detailpanelavailable
+							? 'Toggle contextual detail panel (Ctrl+Shift+R)'
+							: 'No contextual detail panel for this view'}
+					>
+						<svg
+							class="h-4.5 w-4.5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h10M4 18h16" />
+						</svg>
+					</button>
+				{/if}
 				<button
 					class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent dark:text-tavern-muted dark:hover:bg-tavern-surface-alt"
 					onclick={() => window.history.back()}

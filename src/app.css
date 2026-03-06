@@ -219,6 +219,17 @@ html.dark [data-mode='compact'] .primary-nav-item {
 	}
 }
 
+@keyframes detail-panel-in {
+	from {
+		opacity: 0;
+		transform: translateX(14px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
 @keyframes spin {
 	to {
 		transform: rotate(360deg);
@@ -251,6 +262,10 @@ html.dark [data-mode='compact'] .primary-nav-item {
 
 .animate-fade-in {
 	animation: fade-in 0.2s ease-out;
+}
+
+.detail-panel-enter {
+	animation: detail-panel-in 0.18s ease-out;
 }
 
 .animate-spin {
@@ -297,6 +312,10 @@ html.dark .sidebar-scroll::-webkit-scrollbar-thumb {
 
 	.loading-spinner-delayed {
 		animation: reveal-after-delay 300ms linear forwards;
+	}
+
+	.detail-panel-enter {
+		animation: none;
 	}
 }
 

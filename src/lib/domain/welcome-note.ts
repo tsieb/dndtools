@@ -50,6 +50,8 @@ Organize notes with tags:
 | **Ctrl+G** | Open generator panel |
 | **Ctrl+E** | Toggle edit/view mode |
 | **Ctrl+B** | Toggle local navigation |
+| **Ctrl+Shift+R** | Toggle contextual detail panel |
+| **F11** | Toggle Zen mode |
 | **Ctrl+Shift+F** | Global search |
 
 ## Tips for DMs

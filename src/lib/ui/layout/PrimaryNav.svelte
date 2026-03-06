@@ -10,7 +10,7 @@
 	import PrimaryNavIcon from './PrimaryNavIcon.svelte';
 
 	interface Props {
-		mode: 'expanded' | 'collapsed' | 'medium' | 'compact';
+		mode: 'expanded' | 'medium' | 'compact';
 	}
 
 	let { mode }: Props = $props();
@@ -29,14 +29,10 @@
 	}));
 
 	const compact = $derived(mode === 'compact');
-	const iconOnly = $derived(mode === 'collapsed' || mode === 'medium');
+	const iconOnly = $derived(mode === 'expanded' || mode === 'medium');
 	const isVertical = $derived(!compact);
 	const shellStyle = $derived.by(() => {
-		const width = isVertical
-			? mode === 'expanded'
-				? 'var(--layout-panel-width)'
-				: 'var(--layout-rail-width)'
-			: '100%';
+		const width = isVertical ? 'var(--layout-rail-width)' : '100%';
 		return compact
 			? `width: ${width}; min-height: calc(var(--layout-bottomnav-height) + env(safe-area-inset-bottom));`
 			: `width: ${width};`;
@@ -76,15 +72,8 @@
 				data-active={active ? 'true' : 'false'}
 				style="--primary-nav-active: {active ? 1 : 0}"
 			>
-				<span
-					class="primary-nav-icon flex items-center justify-center rounded-md {mode === 'expanded'
-						? 'h-10 w-10'
-						: 'h-8 w-8'}"
-				>
-					<PrimaryNavIcon
-						section={item.id}
-						sizeClass={mode === 'expanded' ? 'h-7 w-7' : 'h-5 w-5'}
-					/>
+				<span class="primary-nav-icon flex h-8 w-8 items-center justify-center rounded-md">
+					<PrimaryNavIcon section={item.id} sizeClass="h-5 w-5" />
 				</span>
 				{#if !iconOnly}
 					<span class="{compact ? 'mt-0.5' : 'ml-2.5'} truncate">{item.label}</span>

@@ -4,9 +4,13 @@
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
+	import { navigationState, type PrimarySection } from '$lib/state/navigation.svelte.js';
+	import { desktopShellState } from '$lib/state/desktop-shell.svelte.js';
+	import { detailPanelContextFromUrl } from '$lib/domain/detail-panel-context.js';
 	import TopBar from './TopBar.svelte';
 	import PrimaryNav from './PrimaryNav.svelte';
 	import Sidebar from './Sidebar.svelte';
+	import DetailPanel from './DetailPanel.svelte';
 	import LocationBar from '$lib/ui/navigation/LocationBar.svelte';
 	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
 
@@ -32,11 +36,46 @@
 	let sheetDragOffset = $state(0);
 	let sheetDragActive = $state(false);
 	let lastPathname = $state<string | null>(null);
+	let panelResizeActive = $state(false);
+	let panelResizeStartX = $state(0);
+	let panelResizeStartWidth = $state(0);
+	let panelResizeSection = $state<PrimarySection>('knowledge');
+
+	$effect(() => {
+		desktopShellState.ensureHydrated();
+	});
 
 	const compactEditorMode = $derived.by(() => {
 		if (!layoutState.isCompact) return false;
 		return /^\/knowledge\/notes\/[^/]+\/edit$/.test(page.url.pathname);
 	});
+
+	const detailPanelContext = $derived(detailPanelContextFromUrl(page.url));
+	const zenModeActive = $derived.by(
+		() =>
+			layoutState.isExpanded && desktopShellState.zenMode && !compactEditorMode && !ui.focusReading,
+	);
+	const detailPanelAvailable = $derived.by(
+		() =>
+			layoutState.isExpanded &&
+			!ui.focusReading &&
+			!compactEditorMode &&
+			!zenModeActive &&
+			detailPanelContext !== null,
+	);
+	const showDesktopSidebar = $derived.by(() => {
+		if (ui.focusReading || compactEditorMode || zenModeActive) return false;
+		if (layoutState.isCompact) return false;
+		if (layoutState.isExpanded) {
+			return !desktopShellState.localPanelCollapsed;
+		}
+		return ui.sidebarOpen;
+	});
+	const detailPanelVisible = $derived.by(
+		() => detailPanelAvailable && desktopShellState.detailPanelOpen && !zenModeActive,
+	);
+	const activeSection = $derived(navigationState.activeSection);
+	const activePanelWidth = $derived(desktopShellState.getLocalPanelWidth(activeSection));
 
 	$effect(() => {
 		if (!mobileKeyboardState.keyboardOpen || !ui.sidebarOpen) return;
@@ -108,10 +147,36 @@
 		};
 	});
 
-	const primaryNavMode = $derived.by<'expanded' | 'collapsed' | 'medium' | 'compact'>(() => {
+	$effect(() => {
+		if (detailPanelAvailable) return;
+		if (!desktopShellState.detailPanelOpen) return;
+		desktopShellState.setDetailPanelOpen(false);
+	});
+
+	$effect(() => {
+		if (!panelResizeActive || typeof window === 'undefined') return;
+		const handlePointerMove = (event: PointerEvent): void => {
+			if (!layoutState.isExpanded || zenModeActive) return;
+			const delta = event.clientX - panelResizeStartX;
+			desktopShellState.setLocalPanelWidth(panelResizeSection, panelResizeStartWidth + delta);
+		};
+		const handlePointerEnd = (): void => {
+			panelResizeActive = false;
+		};
+		window.addEventListener('pointermove', handlePointerMove);
+		window.addEventListener('pointerup', handlePointerEnd);
+		window.addEventListener('pointercancel', handlePointerEnd);
+		return () => {
+			window.removeEventListener('pointermove', handlePointerMove);
+			window.removeEventListener('pointerup', handlePointerEnd);
+			window.removeEventListener('pointercancel', handlePointerEnd);
+		};
+	});
+
+	const primaryNavMode = $derived.by<'expanded' | 'medium' | 'compact'>(() => {
 		if (layoutState.isCompact) return 'compact';
 		if (layoutState.isMedium) return 'medium';
-		return ui.sidebarOpen ? 'expanded' : 'collapsed';
+		return 'expanded';
 	});
 
 	const sheetStyle = $derived.by(() => `transform: translateY(${Math.round(sheetDragOffset)}px);`);
@@ -133,6 +198,43 @@
 			return;
 		}
 		sheetHistoryPushed = false;
+	}
+
+	function toggleLocalPanel(): void {
+		if (layoutState.isExpanded) {
+			desktopShellState.toggleLocalPanelCollapsed();
+			return;
+		}
+		ui.toggleSidebar();
+	}
+
+	function toggleDetailPanel(): void {
+		if (!detailPanelAvailable) return;
+		desktopShellState.toggleDetailPanel();
+	}
+
+	function exitZenMode(): void {
+		desktopShellState.setZenMode(false);
+	}
+
+	function handlePanelResizePointerDown(event: PointerEvent): void {
+		if (!layoutState.isExpanded || zenModeActive || desktopShellState.localPanelCollapsed) return;
+		panelResizeActive = true;
+		panelResizeStartX = event.clientX;
+		panelResizeStartWidth = activePanelWidth;
+		panelResizeSection = activeSection;
+		const currentTarget = event.currentTarget;
+		if (currentTarget instanceof HTMLElement) {
+			currentTarget.setPointerCapture(event.pointerId);
+		}
+	}
+
+	function handlePanelResizeKeydown(event: KeyboardEvent): void {
+		if (!layoutState.isExpanded || zenModeActive || desktopShellState.localPanelCollapsed) return;
+		if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+		event.preventDefault();
+		const delta = event.key === 'ArrowLeft' ? -10 : 10;
+		desktopShellState.setLocalPanelWidth(activeSection, activePanelWidth + delta);
 	}
 
 	function handleMainTouchStart(event: TouchEvent): void {
@@ -226,18 +328,41 @@
 <a href="#main-content" class="skip-nav">Skip to content</a>
 
 <div class="flex h-screen overflow-hidden">
-	{#if !ui.focusReading && !compactEditorMode}
+	{#if !ui.focusReading && !compactEditorMode && !zenModeActive}
 		<PrimaryNav mode={primaryNavMode} />
 	{/if}
 
 	<div class="flex min-w-0 flex-1 flex-col">
-		{#if !ui.focusReading}
-			<TopBar {onsearch} {onsetplayermode} />
+		{#if !ui.focusReading && !zenModeActive}
+			<TopBar
+				{onsearch}
+				{onsetplayermode}
+				detailpanelavailable={detailPanelAvailable}
+				detailpanelopen={desktopShellState.detailPanelOpen}
+				ontogglelocalpanel={toggleLocalPanel}
+				ontoggledetailpanel={toggleDetailPanel}
+			/>
 		{/if}
 
 		<div class="flex min-h-0 flex-1 overflow-hidden">
-			{#if ui.sidebarOpen && !ui.focusReading && !layoutState.isCompact && !compactEditorMode}
+			{#if showDesktopSidebar}
 				<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} />
+				{#if layoutState.isExpanded}
+					<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+					<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+					<div
+						class="w-1.5 shrink-0 cursor-col-resize bg-border/65 transition-colors hover:bg-accent/70 focus:bg-accent/70 dark:bg-tavern-border/65 dark:hover:bg-tavern-accent/70 dark:focus:bg-tavern-accent/70"
+						role="separator"
+						aria-label="Resize local navigation panel"
+						aria-orientation="vertical"
+						aria-valuemin="200"
+						aria-valuemax="320"
+						aria-valuenow={activePanelWidth}
+						tabindex="0"
+						onpointerdown={handlePanelResizePointerDown}
+						onkeydown={handlePanelResizeKeydown}
+					></div>
+				{/if}
 			{/if}
 
 			<main
@@ -252,13 +377,40 @@
 				ontouchmove={handleMainTouchMove}
 				ontouchend={handleMainTouchEnd}
 			>
-				{#if !ui.focusReading && !compactEditorMode}
+				{#if zenModeActive}
+					<div class="relative">
+						<LocationBar />
+						<div
+							class="pointer-events-none absolute right-3 top-2.5 z-30 flex items-start justify-end"
+						>
+							<button
+								type="button"
+								class="pointer-events-auto rounded-md border border-border bg-surface/92 px-2.5 py-1 text-xs font-medium text-ink shadow-sm transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt dark:border-tavern-border dark:bg-tavern-surface/92 dark:text-tavern-text dark:hover:bg-tavern-surface-alt"
+								onclick={exitZenMode}
+								aria-label="Exit zen mode"
+								title="Exit zen mode (F11)"
+							>
+								Exit Zen
+							</button>
+						</div>
+					</div>
+				{:else if !ui.focusReading && !compactEditorMode}
 					<LocationBar />
 				{/if}
 				<div class="h-full min-h-0 animate-fade-in">
 					{@render children()}
 				</div>
 			</main>
+
+			{#if detailPanelVisible && detailPanelContext}
+				<aside
+					class="detail-panel-enter h-full w-[var(--layout-detail-width)] shrink-0 overflow-y-auto border-l border-border bg-surface-alt/90 dark:border-tavern-border dark:bg-tavern-surface"
+					aria-label="Contextual detail panel"
+					data-testid="detail-panel"
+				>
+					<DetailPanel context={detailPanelContext} />
+				</aside>
+			{/if}
 		</div>
 	</div>
 

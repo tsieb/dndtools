@@ -21,6 +21,7 @@
 	import TableOfContents from '$lib/ui/viewer/TableOfContents.svelte';
 	import ConfirmDialog from '$lib/ui/common/ConfirmDialog.svelte';
 	import { ui } from '$lib/state/ui.svelte.js';
+	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { recordPerformanceMeasurement } from '$lib/runtime/diagnostics.js';
@@ -295,7 +296,11 @@
 				</div>
 			</div>
 		{/if}
-		<div class="mx-auto grid max-w-[1240px] gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+		<div
+			class="mx-auto grid max-w-[1240px] gap-4 {layoutState.isExpanded
+				? 'grid-cols-1'
+				: 'lg:grid-cols-[minmax(0,1fr)_320px]'}"
+		>
 			<div class="min-w-0">
 				{#if playerCharacterObject}
 					<PlayerCharacterSheet object={playerCharacterObject} />
@@ -307,12 +312,14 @@
 				{/if}
 				<RelatedNoteJumps noteId={data.noteId} />
 			</div>
-			<aside class="space-y-3 lg:sticky lg:top-3 lg:self-start">
-				{#if !playerModeState.enabled}
-					<CrossSectionLinksPanel {note} {mapPlacements} />
-				{/if}
-				<BacklinksPanel noteId={data.noteId} />
-			</aside>
+			{#if !layoutState.isExpanded}
+				<aside class="space-y-3 lg:sticky lg:top-3 lg:self-start">
+					{#if !playerModeState.enabled}
+						<CrossSectionLinksPanel {note} {mapPlacements} />
+					{/if}
+					<BacklinksPanel noteId={data.noteId} />
+				</aside>
+			{/if}
 		</div>
 	</div>
 
