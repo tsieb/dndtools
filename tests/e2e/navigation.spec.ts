@@ -141,6 +141,20 @@ test.describe('Navigation', () => {
 		).toBeVisible();
 	});
 
+	test('shell switches layout tiers at breakpoint boundaries', async ({ page }) => {
+		const primaryNavShell = page.locator('.primary-nav-shell');
+
+		await page.setViewportSize({ width: 639, height: 900 });
+		await expect(primaryNavShell).toHaveAttribute('data-mode', 'compact');
+
+		await page.setViewportSize({ width: 640, height: 900 });
+		await expect(primaryNavShell).toHaveAttribute('data-mode', 'medium');
+
+		await page.setViewportSize({ width: 1100, height: 900 });
+		await expect(primaryNavShell).not.toHaveAttribute('data-mode', 'compact');
+		await expect(primaryNavShell).not.toHaveAttribute('data-mode', 'medium');
+	});
+
 	test('keyboard shortcut Ctrl+P opens command palette', async ({ page }) => {
 		await page.keyboard.press('Control+p');
 		await expect(page.getByRole('dialog', { name: /command palette/i })).toBeVisible({
