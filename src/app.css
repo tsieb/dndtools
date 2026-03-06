@@ -179,14 +179,23 @@ html.dark .primary-nav-item[data-active='true'] {
 [data-mode='compact'] .primary-nav-item {
 	border-left-color: transparent;
 	border-top: 2px solid transparent;
+	color: var(--color-ink-faint);
 }
 
 [data-mode='compact'] .primary-nav-item[data-active='true'] {
 	border-top-color: var(--color-accent);
+	color: var(--color-accent);
+	background: color-mix(in srgb, var(--color-accent-subtle) 75%, transparent);
 }
 
 html.dark [data-mode='compact'] .primary-nav-item[data-active='true'] {
 	border-top-color: var(--color-tavern-accent);
+	color: var(--color-tavern-accent);
+	background: color-mix(in srgb, var(--color-tavern-accent-subtle) 85%, transparent);
+}
+
+html.dark [data-mode='compact'] .primary-nav-item {
+	color: var(--color-tavern-faint);
 }
 
 /* Animations */

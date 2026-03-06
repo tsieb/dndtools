@@ -3,10 +3,12 @@
 	import { vaultState } from '$lib/state/vault.svelte.js';
 	import { mapsState } from '$lib/state/maps.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
+	import { toastState } from '$lib/state/toast.svelte.js';
 	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
 	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
 	import NoteCard from '$lib/ui/common/NoteCard.svelte';
 	import TemplateDialog from '$lib/ui/common/TemplateDialog.svelte';
+	import ConfirmDialog from '$lib/ui/common/ConfirmDialog.svelte';
 	import Button from '$lib/ui/common/Button.svelte';
 	import { searchService } from '$lib/domain/search.js';
 	import {
@@ -18,7 +20,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { createFolderId } from '$lib/types/note.js';
+	import { createFolderId, type NoteId } from '$lib/types/note.js';
 	import type { NoteTemplate } from '$lib/types/template-library.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import { notesInMapScope } from '$lib/domain/map-atlas.js';
@@ -28,6 +30,8 @@
 	let query = $state('');
 	let templateDialogOpen = $state(false);
 	let templateCandidates = $state<readonly NoteTemplate[]>([]);
+	let quickDeleteNoteId = $state<NoteId | null>(null);
+	let quickDeletePending = $state(false);
 
 	let tagFilter = $derived(page.url.searchParams.get('tag'));
 	let folderFilter = $derived(page.url.searchParams.get('folder'));
@@ -110,6 +114,9 @@
 		if (!mapFilter) return null;
 		return mapsState.mapById[mapFilter]?.name ?? mapFilter;
 	});
+	let quickDeleteNote = $derived.by(() =>
+		quickDeleteNoteId ? notesState.getNoteById(quickDeleteNoteId) : null,
+	);
 
 	function shouldAdvanceSessionCounter(templateId: string): boolean {
 		return (
@@ -192,6 +199,30 @@
 			void mapsState.loadAll();
 		}
 	});
+
+	async function handleQuickPin(noteId: NoteId): Promise<void> {
+		const pinned = await notesState.togglePin(noteId);
+		if (pinned === null) return;
+		toastState.success(pinned ? 'Note pinned' : 'Note unpinned');
+	}
+
+	function requestQuickDelete(noteId: NoteId): void {
+		quickDeleteNoteId = noteId;
+	}
+
+	async function confirmQuickDelete(): Promise<void> {
+		if (!quickDeleteNoteId || quickDeletePending) return;
+		quickDeletePending = true;
+		const deletingId = quickDeleteNoteId;
+		const deletingTitle = notesState.getNoteById(deletingId)?.title ?? 'Note';
+		try {
+			await notesState.deleteNote(deletingId);
+			toastState.success(`"${deletingTitle}" moved to trash`);
+			quickDeleteNoteId = null;
+		} finally {
+			quickDeletePending = false;
+		}
+	}
 </script>
 
 <div class="p-6 max-w-content mx-auto">
@@ -328,7 +359,12 @@
 			</div>
 			<div class="grid gap-3 sm:grid-cols-2">
 				{#each pinnedNotes as note (note.id)}
-					<NoteCard {note} onclick={(id) => goto(resolve(`/knowledge/notes/${id}`))} />
+					<NoteCard
+						{note}
+						onclick={(id) => goto(resolve(`/knowledge/notes/${id}`))}
+						onpin={(id) => void handleQuickPin(id)}
+						ondelete={requestQuickDelete}
+					/>
 				{/each}
 			</div>
 		</div>
@@ -363,7 +399,12 @@
 	{:else if filteredNotes.length > 0}
 		<div class="grid gap-3 sm:grid-cols-2">
 			{#each filteredNotes as note (note.id)}
-				<NoteCard {note} onclick={(id) => goto(resolve(`/knowledge/notes/${id}`))} />
+				<NoteCard
+					{note}
+					onclick={(id) => goto(resolve(`/knowledge/notes/${id}`))}
+					onpin={(id) => void handleQuickPin(id)}
+					ondelete={requestQuickDelete}
+				/>
 			{/each}
 		</div>
 	{:else if totalCount === 0}
@@ -391,5 +432,17 @@
 		templates={templateCandidates}
 		onclose={() => (templateDialogOpen = false)}
 		oncreate={handleTemplateCreate}
+	/>
+	<ConfirmDialog
+		open={quickDeleteNoteId !== null}
+		title="Delete Note"
+		message={`Are you sure you want to delete "${quickDeleteNote?.title ?? 'this note'}"? It will be moved to trash.`}
+		confirmText="Delete"
+		confirmLoading={quickDeletePending}
+		onconfirm={() => void confirmQuickDelete()}
+		oncancel={() => {
+			if (quickDeletePending) return;
+			quickDeleteNoteId = null;
+		}}
 	/>
 </div>

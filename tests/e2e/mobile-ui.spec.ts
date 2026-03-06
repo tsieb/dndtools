@@ -21,13 +21,26 @@ test.describe('Mobile navigation and keyboard adaptation', () => {
 		await mobileNav.getByRole('link', { name: 'Settings' }).click();
 		await expect(page).toHaveURL(/\/settings/);
 
-		await page.getByRole('button', { name: 'Toggle local navigation' }).click();
+		await page.getByRole('button', { name: 'Browse' }).click();
 		await expect(page.getByRole('dialog', { name: 'Local navigation sheet' })).toBeVisible();
 
 		await page
 			.getByRole('button', { name: 'Close local navigation sheet' })
 			.click({ force: true, position: { x: 8, y: 8 } });
 		await expect(page.getByRole('dialog', { name: 'Local navigation sheet' })).not.toBeVisible();
+	});
+
+	test('note cards expose quick actions with non-gesture fallback', async ({ page }) => {
+		await page.goto('/knowledge/notes');
+		const actionsButton = page.getByRole('button', { name: 'Note quick actions' }).first();
+		await expect(actionsButton).toBeVisible();
+		await actionsButton.click();
+
+		const quickActionsMenu = page.getByRole('menu', { name: 'Note card quick actions' });
+		await expect(quickActionsMenu).toBeVisible();
+		await quickActionsMenu.getByRole('menuitem', { name: 'Delete' }).click();
+		await expect(page.getByRole('dialog', { name: 'Delete Note' })).toBeVisible();
+		await page.getByRole('button', { name: 'Cancel' }).click();
 	});
 
 	test('docks editor toolbar when simulated keyboard opens', async ({ page }) => {
