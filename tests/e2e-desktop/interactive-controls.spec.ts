@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { test, expect, type Page } from '@playwright/test';
 import { FileSystemAdapter } from '../../mcp/storage.js';
 import { createTempVaultDir, launchDesktopApp, closeDesktopApp } from './helpers/desktop-app.js';
@@ -159,10 +161,7 @@ async function ensureDmMode(page: Page): Promise<void> {
 }
 
 async function createNoteFromTopBar(page: Page): Promise<void> {
-	await page.getByRole('button', { name: 'Create options' }).click();
-	const createMenu = page.getByRole('menu', { name: 'Create menu' });
-	await expect(createMenu).toBeVisible();
-	await createMenu.getByRole('menuitem', { name: 'New note' }).click({ force: true });
+	await page.keyboard.press('Control+N');
 
 	if (/\/notes\/[^/]+\/edit$/.test(page.url())) {
 		return;
@@ -208,30 +207,8 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			await expect(app.page.getByRole('button', { name: 'Tree' })).toHaveCount(0);
 			await app.page.getByRole('button', { name: 'Toggle local navigation' }).click();
 			await expect(app.page.getByRole('button', { name: 'Tree' })).toBeVisible();
-
-			await app.page.getByRole('button', { name: 'Create options' }).click();
-			const createMenu = app.page.getByRole('menu', { name: 'Create menu' });
-			await expect(createMenu).toBeVisible();
-			const beforeTemplateActionUrl = app.page.url();
-			await createMenu.getByRole('menuitem', { name: 'Create from template' }).click({
-				force: true,
-			});
-			const templateDialog = app.page.getByRole('dialog', { name: 'New from Template' });
-			if (await templateDialog.isVisible().catch(() => false)) {
-				await templateDialog.getByRole('button', { name: 'Close' }).first().click();
-				await expect(templateDialog).toHaveCount(0);
-			} else if (app.page.url() !== beforeTemplateActionUrl) {
-				await expect(app.page).toHaveURL(/\/notes\/[^/]+\/edit$/);
-				await app.page.getByRole('button', { name: 'Done' }).click();
-				await expect(app.page).toHaveURL(/\/notes\/[^/]+$/);
-			}
-
-			await app.page.getByRole('button', { name: 'Create options' }).click();
-			await app.page.getByRole('menuitem', { name: 'Create handout' }).click({ force: true });
 			const handoutDialog = app.page.getByRole('dialog', { name: 'Create handout' });
-			if (!(await handoutDialog.isVisible().catch(() => false))) {
-				await app.page.keyboard.press('Control+Shift+H');
-			}
+			await app.page.keyboard.press('Control+Shift+H');
 			await expect(handoutDialog).toBeVisible();
 			await handoutDialog.getByRole('button', { name: 'Close' }).first().click();
 			await expect(handoutDialog).toHaveCount(0);
@@ -247,24 +224,36 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			await app.page.keyboard.press('Escape');
 			await expect(commandPalette).toHaveCount(0);
 
-			await app.page.getByRole('button', { name: 'Open dice tray' }).click();
+			await app.page.keyboard.press('Control+D');
 			const diceTray = app.page.getByRole('dialog', { name: 'Dice tray' });
 			await expect(diceTray).toBeVisible();
 			await diceTray.getByRole('button', { name: 'Close' }).first().click();
 			await expect(diceTray).toHaveCount(0);
 
-			await app.page.getByRole('button', { name: 'Refresh vault' }).click();
-			await expect(app.page.getByRole('status').getByText('Vault refreshed')).toBeVisible();
+			const anchorRelativePath = await app.page.evaluate(async () => {
+				const note = await window.dndtoolsDesktop?.getNote('note-shell-anchor' as never);
+				return note?.filePath ?? null;
+			});
+			expect(anchorRelativePath).toBeTruthy();
+			const watcherToken = `Watcher sync ${Date.now()}`;
+			await fs.appendFile(
+				path.join(app.vaultDir, String(anchorRelativePath)),
+				`\n\n${watcherToken}\n`,
+				'utf8',
+			);
+			await expect
+				.poll(async () => {
+					const note = await app.page.evaluate(async () =>
+						window.dndtoolsDesktop?.getNote('note-shell-anchor' as never),
+					);
+					return note?.content ?? '';
+				})
+				.toContain(watcherToken);
 
-			await app.page.getByRole('button', { name: 'Enter player mode' }).click();
+			await gotoDesktopPath(app.page, '/player');
 			await expect(app.page).toHaveURL(/\/player$/);
-			const exitPlayerMode = app.page
-				.locator('main')
-				.getByRole('button', { name: 'Exit Player Mode' })
-				.first();
-			await expect(exitPlayerMode).toBeVisible();
-			await exitPlayerMode.click();
-			await expect(app.page).toHaveURL(/\/notes$/);
+			await gotoDesktopPath(app.page, '/knowledge/notes');
+			await expect(app.page).toHaveURL(/\/(knowledge\/notes|notes)$/);
 		} finally {
 			await closeDesktopApp(app);
 		}

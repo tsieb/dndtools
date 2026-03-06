@@ -244,7 +244,7 @@ test.describe('Navigation', () => {
 
 	test('settings page shows keyboard shortcuts', async ({ page }) => {
 		await page.goto('/settings');
-		await expect(page.getByText('Keyboard Shortcuts')).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Keyboard Shortcuts' })).toBeVisible();
 		const shortcutsPanel = page.getByLabel('General');
 		await expect(shortcutsPanel.getByText('Ctrl+N')).toBeVisible();
 		await expect(shortcutsPanel.getByText('Ctrl+P')).toBeVisible();
