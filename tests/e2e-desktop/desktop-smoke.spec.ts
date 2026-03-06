@@ -15,9 +15,13 @@ test.describe('Desktop smoke', () => {
 		}
 		launchEnv.ELECTRON_ENABLE_LOGGING = '0';
 		delete launchEnv.ELECTRON_RUN_AS_NODE;
+		const launchArgs = [appMain, `--vault=${vaultDir}`];
+		if (process.env.CI) {
+			launchArgs.push('--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage');
+		}
 
 		const electronApp = await electron.launch({
-			args: [appMain, `--vault=${vaultDir}`],
+			args: launchArgs,
 			env: launchEnv,
 		});
 

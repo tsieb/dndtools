@@ -47,7 +47,7 @@ Use one branch per story when stories are independent. Merge sequentially if the
 
 - Renderer must not use Node APIs — all data access goes through `StorageAdapter`
 - New IPC channels require Zod schema validation in `electron/ipc-schemas.ts`
-- MCP tools live under `mcp/tools/<domain>/`, registered in `mcp/tools/index.ts`
+- MCP tools live under `mcp/tools/`, grouped by domain directories and registered in `mcp/tools/index.ts`
 - Storage contract changes require both adapters updated: `src/lib/platform/storage/indexeddb-adapter.ts` and `mcp/storage.ts`
 - All markdown rendering goes through the unified pipeline — never manual string parsing
 - State in renderer uses Svelte 5 runes classes in `src/lib/state/*.svelte.ts`
@@ -66,13 +66,13 @@ Use one branch per story when stories are independent. Merge sequentially if the
 
 Every behavioral change requires tests. Match test type to scope:
 
-| Change type                | Required tests                                                                             |
-| -------------------------- | ------------------------------------------------------------------------------------------ |
-| MCP tool (new or modified) | Unit tests: success, validation failure, edge cases in `mcp/tools/<domain>/<tool>.test.ts` |
-| Storage / data contract    | Unit tests for both adapters; migration test if schema changes                             |
-| IPC channel                | Security regression test in `ipc-security.test.ts`                                         |
-| UI behavior                | E2E test in `tests/e2e/` or `tests/e2e-desktop/` covering the critical path                |
-| Renderer service/state     | Vitest unit tests                                                                          |
+| Change type                | Required tests                                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| MCP tool (new or modified) | Unit tests: success, validation failure, edge cases in files like `mcp/tools/notes/note-tools.test.ts` |
+| Storage / data contract    | Unit tests for both adapters; migration test if schema changes                                         |
+| IPC channel                | Security regression test in `ipc-security.test.ts`                                                     |
+| UI behavior                | E2E test in `tests/e2e/` or `tests/e2e-desktop/` covering the critical path                            |
+| Renderer service/state     | Vitest unit tests                                                                                      |
 
 Run before every commit:
 

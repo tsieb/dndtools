@@ -34,8 +34,12 @@ export async function launchDesktopApp(vaultDir: string): Promise<DesktopAppHand
 	const windowTimeoutMs = Number(process.env.DNDTOOLS_E2E_WINDOW_TIMEOUT_MS ?? '300000');
 	const shellReadyTimeoutMs = Number(process.env.DNDTOOLS_E2E_SHELL_READY_TIMEOUT_MS ?? '60000');
 	const appMain = path.join(process.cwd(), 'electron', 'dist', 'main.cjs');
+	const launchArgs = [appMain, `--vault=${vaultDir}`];
+	if (process.env.CI) {
+		launchArgs.push('--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage');
+	}
 	const electronApp = await electron.launch({
-		args: [appMain, `--vault=${vaultDir}`],
+		args: launchArgs,
 		env: launchEnvironment(),
 	});
 	let page = (electronApp.windows()[0] ??
