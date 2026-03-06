@@ -203,6 +203,25 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
   - Reduced TopBar scope and documented ownership in docs/architecture/TOPBAR_CHARTER.md
   - Added centralized activeSection / activeRoute state in src/lib/state/navigation.svelte.ts
   - Moved DM/Player persona controls to sidebar footer switcher and added persistent player-mode shell indicators
+- **Epic 13.3** — Local Navigation: Section Panels and Contextual Browse:
+  - Replaced monolithic sidebar content with section-scoped local navigation panels:
+    - KnowledgeLocalNavPanel
+    - AtlasLocalNavPanel
+    - SessionLocalNavPanel
+    - CampaignLocalNavPanel
+    - SettingsLocalNavPanel
+  - Added collapsible local panel sections with persisted localStorage state in src/lib/state/local-navigation-panels.svelte.ts
+  - Added reusable local-nav primitives:
+    - src/lib/ui/layout/local-nav/CollapsibleLocalNavSection.svelte
+    - src/lib/ui/layout/local-nav/LocalNavTree.svelte
+  - Implemented Knowledge local-nav tabs (Browse/Recent/Saved), ARIA tree semantics, saved search collection pills, and cross-type recent item rendering
+  - Extended navigation state with cross-type recent item tracking (note/entity/map) and route-level recording for atlas map visits
+  - Implemented Session local-nav status panel with active board summary, initiative snapshot, start/resume controls, and quick dice access
+  - Added direct Save action in search bar for saved search workflow
+  - Added tests:
+    - src/lib/state/local-navigation-panels.svelte.test.ts
+    - updated src/lib/state/navigation.svelte.test.ts
+    - updated tests/e2e/navigation.spec.ts
 
 ## What Not To Do
 

@@ -63,6 +63,51 @@ test.describe('Navigation', () => {
 		await expect(toggleButton).toBeVisible();
 	});
 
+	test('knowledge local navigation uses tabs, tree semantics, and persisted collapse state', async ({
+		page,
+	}) => {
+		await page.goto('/knowledge/notes');
+		await expect(
+			page.getByRole('heading', { name: /All Notes|Player Notes|Notes tagged/i }),
+		).toBeVisible();
+		const localNav = page.getByRole('navigation', { name: 'Local navigation: Knowledge panel' });
+		if (!(await localNav.isVisible().catch(() => false))) {
+			await page.getByRole('button', { name: 'Toggle local navigation' }).click();
+		}
+		await expect(localNav).toBeVisible();
+		await expect(
+			localNav.getByRole('tablist', { name: 'Knowledge panel mode tabs' }),
+		).toBeVisible();
+		await localNav.getByRole('tab', { name: 'Recent' }).click();
+		await expect(localNav.getByRole('tab', { name: 'Recent' })).toHaveAttribute(
+			'aria-selected',
+			'true',
+		);
+		await localNav.getByRole('tab', { name: 'Browse' }).click();
+		await expect(localNav.getByRole('tree', { name: 'Knowledge folder tree' })).toBeVisible();
+
+		const tagsToggle = localNav.getByRole('button', { name: 'Tags' });
+		await tagsToggle.click();
+		await expect(tagsToggle).toHaveAttribute('aria-expanded', 'true');
+
+		await page.reload();
+		const tagsAfterReload = page
+			.getByRole('navigation', { name: 'Local navigation: Knowledge panel' })
+			.getByRole('button', { name: 'Tags' });
+		await expect(tagsAfterReload).toHaveAttribute('aria-expanded', 'true');
+	});
+
+	test('settings section has no local panel content', async ({ page }) => {
+		await page.goto('/settings');
+		await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+		const localNav = page.getByRole('navigation', { name: 'Local navigation: Settings panel' });
+		if (!(await localNav.isVisible().catch(() => false))) {
+			await page.getByRole('button', { name: 'Toggle local navigation' }).click();
+		}
+		await expect(localNav).toBeVisible();
+		await expect(localNav).toContainText('Settings has no local navigation panel.');
+	});
+
 	test('theme toggle exists on settings page', async ({ page }) => {
 		await page.goto('/settings');
 		await expect(

@@ -2,6 +2,7 @@ import { SvelteSet } from 'svelte/reactivity';
 import type { NoteId } from '$lib/types/note.js';
 
 export type PrimarySection = 'knowledge' | 'atlas' | 'session' | 'campaign' | 'settings';
+export type RecentNavigationKind = 'note' | 'entity' | 'map';
 
 export interface PrimarySectionNavItem {
 	id: PrimarySection;
@@ -59,12 +60,25 @@ interface NavigationEntry {
 	path: string;
 	label: string;
 	noteId: NoteId | null;
+	recentKind: RecentNavigationKind | null;
+	recentItemId: string | null;
 	visitedAt: string;
 }
 
 interface NavigationContext {
 	label: string;
 	noteId?: NoteId;
+	recentKind?: RecentNavigationKind;
+	recentItemId?: string;
+}
+
+export interface RecentNavigationItem {
+	kind: RecentNavigationKind;
+	itemId: string;
+	label: string;
+	path: string;
+	noteId: NoteId | null;
+	visitedAt: string;
 }
 
 class NavigationState {
@@ -101,35 +115,91 @@ class NavigationState {
 		return ids;
 	});
 
+	recentItems = $derived.by<RecentNavigationItem[]>(() => {
+		const seen = new SvelteSet<string>();
+		const items: RecentNavigationItem[] = [];
+		for (let i = this.entries.length - 1; i >= 0; i -= 1) {
+			const entry = this.entries[i];
+			if (!entry) continue;
+			const kind = entry.recentKind ?? (entry.noteId ? 'note' : null);
+			if (!kind) continue;
+			const itemId = entry.recentItemId ?? (entry.noteId ? String(entry.noteId) : null);
+			if (!itemId) continue;
+			const dedupeKey = `${kind}:${itemId}`;
+			if (seen.has(dedupeKey)) continue;
+			seen.add(dedupeKey);
+			items.push({
+				kind,
+				itemId,
+				label: entry.label,
+				path: entry.path,
+				noteId: entry.noteId,
+				visitedAt: entry.visitedAt,
+			});
+			if (items.length >= 10) break;
+		}
+		return items;
+	});
+
 	record(path: string, context: NavigationContext): void {
 		const normalizedPath = this.normalizePath(path);
 		this.setActiveRoute(normalizedPath);
 		const label = context.label.trim() || normalizedPath;
 		const noteId = context.noteId ?? null;
+		const recentKind = context.recentKind ?? (noteId ? 'note' : null);
+		const recentItemId = context.recentItemId ?? (noteId ? String(noteId) : null);
 		const current = this.currentEntry;
 		const now = new Date().toISOString();
 
 		if (current?.path === normalizedPath) {
-			this.updateCurrent({ label, noteId, visitedAt: now });
+			this.updateCurrent({
+				label,
+				noteId,
+				recentKind,
+				recentItemId,
+				visitedAt: now,
+			});
 			return;
 		}
 
 		const previous = this.index > 0 ? (this.entries[this.index - 1] ?? null) : null;
 		if (previous?.path === normalizedPath) {
 			this.index -= 1;
-			this.updateCurrent({ label, noteId, visitedAt: now });
+			this.updateCurrent({
+				label,
+				noteId,
+				recentKind,
+				recentItemId,
+				visitedAt: now,
+			});
 			return;
 		}
 
 		const next = this.index >= 0 ? (this.entries[this.index + 1] ?? null) : null;
 		if (next?.path === normalizedPath) {
 			this.index += 1;
-			this.updateCurrent({ label, noteId, visitedAt: now });
+			this.updateCurrent({
+				label,
+				noteId,
+				recentKind,
+				recentItemId,
+				visitedAt: now,
+			});
 			return;
 		}
 
 		const truncated = this.index >= 0 ? this.entries.slice(0, this.index + 1) : [];
-		const appended = [...truncated, { path: normalizedPath, label, noteId, visitedAt: now }];
+		const appended = [
+			...truncated,
+			{
+				path: normalizedPath,
+				label,
+				noteId,
+				recentKind,
+				recentItemId,
+				visitedAt: now,
+			},
+		];
 		const overflow = Math.max(0, appended.length - this.maxEntries);
 		this.entries = overflow > 0 ? appended.slice(overflow) : appended;
 		this.index = this.entries.length - 1;

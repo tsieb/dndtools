@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { navigationState, PRIMARY_SECTION_NAV_ITEMS } from '$lib/state/navigation.svelte.js';
+	import {
+		navigationState,
+		PRIMARY_SECTION_NAV_ITEMS,
+		type PrimarySection,
+	} from '$lib/state/navigation.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import PrimaryNavIcon from './PrimaryNavIcon.svelte';
 
@@ -10,9 +14,17 @@
 
 	let { mode }: Props = $props();
 
+	function sectionHref(section: PrimarySection): string {
+		if (section === 'knowledge') return resolve('/knowledge');
+		if (section === 'atlas') return resolve('/atlas/maps');
+		if (section === 'session') return resolve('/session/boards');
+		if (section === 'campaign') return resolve('/campaign/timeline');
+		return resolve('/settings');
+	}
+
 	const items = PRIMARY_SECTION_NAV_ITEMS.map((item) => ({
 		...item,
-		href: resolve(item.href),
+		href: sectionHref(item.id),
 	}));
 
 	const compact = $derived(mode === 'compact');

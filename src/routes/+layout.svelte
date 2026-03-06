@@ -14,6 +14,7 @@
 	import { page } from '$app/state';
 	import { createFolderId, createNoteId } from '$lib/types/note.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
+	import { isVaultObjectNote } from '$lib/domain/object-notes.js';
 	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
 	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
@@ -200,12 +201,27 @@
 			const isEdit = noteMatch[2] === 'edit';
 			const note = notesState.getNoteById(noteId);
 			const title = note?.title ?? `Note ${noteId}`;
+			const noteKind = note && isVaultObjectNote(note) ? 'entity' : 'note';
 			pwaState.recordNoteOpened(String(noteId));
 			navigationState.record(pathWithSearch, {
 				label: isEdit ? `${title} (Edit)` : title,
 				noteId,
+				recentKind: noteKind,
+				recentItemId: String(noteId),
 			});
 			return;
+		}
+
+		if (targetUrl.pathname === '/atlas/maps') {
+			const mapId = targetUrl.searchParams.get('map')?.trim() ?? '';
+			if (mapId) {
+				navigationState.record(pathWithSearch, {
+					label: `Map ${mapId}`,
+					recentKind: 'map',
+					recentItemId: mapId,
+				});
+				return;
+			}
 		}
 
 		navigationState.record(pathWithSearch, { label: routeLabel(targetUrl) });

@@ -72,7 +72,6 @@
 	let semanticResultIds = $state<NoteId[]>([]);
 	let lastUrlQuery = $state<string | null>(null);
 
-	let saveName = $state('');
 	let saving = $state(false);
 	let saveError = $state<string | null>(null);
 	let lastLiveMessage = $state('');
@@ -294,8 +293,7 @@
 		saveError = null;
 		try {
 			const defaultName = query.trim().slice(0, 48);
-			await searchState.saveSearch(saveName.trim() || defaultName, query.trim());
-			saveName = '';
+			await searchState.saveSearch(defaultName, query.trim());
 		} catch (error) {
 			saveError = error instanceof Error ? error.message : String(error);
 		} finally {
@@ -493,8 +491,20 @@
 			value={query}
 			oninput={handleInput}
 			placeholder="Search notes..."
-			class="w-full pl-11 pr-24 py-3 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-ink dark:text-tavern-text placeholder:text-ink-faint dark:placeholder:text-tavern-faint outline-none focus:border-accent dark:focus:border-tavern-accent text-base transition-colors"
+			class="w-full pl-11 pr-36 py-3 rounded-lg border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-ink dark:text-tavern-text placeholder:text-ink-faint dark:placeholder:text-tavern-faint outline-none focus:border-accent dark:focus:border-tavern-accent text-base transition-colors"
 		/>
+		{#if query.trim()}
+			<button
+				type="button"
+				class="absolute right-[86px] top-1/2 -translate-y-1/2 rounded-md border border-border bg-surface-alt px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:text-ink dark:border-tavern-border dark:bg-tavern-surface-alt dark:text-tavern-muted dark:hover:text-tavern-text disabled:opacity-60"
+				onclick={saveCurrentSearch}
+				disabled={saving}
+				aria-label="Save current search to collections"
+				title="Save current search"
+			>
+				{saving ? 'Saving' : 'Save'}
+			</button>
+		{/if}
 		<button
 			type="button"
 			class="absolute right-2.5 top-1/2 -translate-y-1/2 px-2 py-1 rounded-md border border-border dark:border-tavern-border text-xs text-ink-muted dark:text-tavern-muted"
@@ -574,6 +584,11 @@
 			{searchRunError}
 		</div>
 	{/if}
+	{#if saveError}
+		<div class="mt-2 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-warning">
+			{saveError}
+		</div>
+	{/if}
 
 	{#if query.trim()}
 		<div class="mt-4 grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -584,25 +599,9 @@
 					<div class="flex items-center justify-between gap-2 mb-2">
 						<h2 class="text-sm font-semibold text-ink dark:text-tavern-text">Saved Searches</h2>
 					</div>
-					<div class="flex gap-2">
-						<input
-							type="text"
-							bind:value={saveName}
-							placeholder="Name this search"
-							class="flex-1 min-w-0 px-2.5 py-1.5 rounded-md border border-border dark:border-tavern-border bg-surface dark:bg-tavern-surface text-xs text-ink dark:text-tavern-text"
-						/>
-						<button
-							type="button"
-							onclick={saveCurrentSearch}
-							disabled={saving || !query.trim()}
-							class="px-2.5 py-1.5 rounded-md text-xs bg-accent text-white disabled:opacity-60"
-						>
-							{saving ? 'Saving...' : 'Save'}
-						</button>
-					</div>
-					{#if saveError}
-						<p class="text-xs text-error mt-2">{saveError}</p>
-					{/if}
+					<p class="text-xs text-ink-faint dark:text-tavern-faint">
+						Use the Save button in the search bar to store the current query.
+					</p>
 
 					<div class="mt-3 space-y-1.5">
 						{#if searchState.savedSearches.length > 0}
