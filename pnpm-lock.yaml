@@ -41,6 +41,9 @@ importers:
       electron-updater:
         specifier: ^6.7.0
         version: 6.8.3
+      lucide-svelte:
+        specifier: ^0.577.0
+        version: 0.577.0(svelte@5.50.2)
       minisearch:
         specifier: ^7.2.0
         version: 7.2.0
@@ -3495,6 +3498,11 @@ packages:
   lru-cache@7.18.3:
     resolution: {integrity: sha512-jumlc0BIUrS3qJGgIkWZsyfAM7NCWiBcCDhnd+3NNM5KbBmLTgHVfWBcg6W+rLUsIpzpERPsvwUP7CckAQSOoA==}
     engines: {node: '>=12'}
+
+  lucide-svelte@0.577.0:
+    resolution: {integrity: sha512-0i88o57KsaHWnc80J57fY99CWzlZsSdtH5kKjLUJa7z8dum/9/AbINNLzJ7NiRFUdOgMnfAmJt8jFbW2zeC5qQ==}
+    peerDependencies:
+      svelte: ^3 || ^4 || ^5.0.0-next.42
 
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
@@ -8918,6 +8926,10 @@ snapshots:
       yallist: 4.0.0
 
   lru-cache@7.18.3: {}
+
+  lucide-svelte@0.577.0(svelte@5.50.2):
+    dependencies:
+      svelte: 5.50.2
 
   lz-string@1.5.0: {}
 

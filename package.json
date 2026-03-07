@@ -111,6 +111,7 @@
 		"chokidar": "^5.0.0",
 		"dexie": "^4.2.1",
 		"electron-updater": "^6.7.0",
+		"lucide-svelte": "^0.577.0",
 		"minisearch": "^7.2.0",
 		"nanoid": "^5.1.6",
 		"rehype-sanitize": "^6.0.0",
