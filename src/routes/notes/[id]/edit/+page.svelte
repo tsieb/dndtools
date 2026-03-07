@@ -30,6 +30,7 @@
 		SESSION_TIMELINE_LINK_KEYS,
 	} from '$lib/domain/session-timeline.js';
 	import Button from '$lib/ui/common/Button.svelte';
+	import Icon from '$lib/ui/common/Icon.svelte';
 	import EditorToolbar from '$lib/ui/editor/EditorToolbar.svelte';
 	import EditorInsertMenu from '$lib/ui/editor/EditorInsertMenu.svelte';
 	import EditorStatusBar from '$lib/ui/editor/EditorStatusBar.svelte';
@@ -264,15 +265,7 @@
 		<div class="mb-4 flex items-center {compactEditorLayout ? 'justify-end' : 'justify-between'}">
 			{#if !compactEditorLayout}
 				<Button variant="ghost" onclick={handleDone}>
-					<svg
-						class="mr-1 h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-					</svg>
+					<Icon name="chevron-left" size="xs" />
 					Done
 				</Button>
 			{/if}

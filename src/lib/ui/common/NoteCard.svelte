@@ -2,6 +2,7 @@
 	import { layoutState } from '$lib/state/layout.svelte.js';
 	import type { Note, NoteId } from '$lib/types/note.js';
 	import { formatRelativeDate } from '$lib/utils/date.js';
+	import Icon from '$lib/ui/common/Icon.svelte';
 
 	interface Props {
 		note: Note;
@@ -218,15 +219,9 @@
 		<div class="flex items-start justify-between gap-2">
 			<h3 class="font-medium text-ink transition-colors group-hover:text-accent">
 				{#if note.pinned}
-					<svg
-						class="mr-1 inline-block h-3.5 w-3.5 -mt-0.5 text-accent"
-						fill="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-						/>
-					</svg>
+					<span class="mr-1 inline-block -mt-0.5 text-accent">
+						<Icon name="pin" size="xs" />
+					</span>
 				{/if}
 				{note.title}
 			</h3>
@@ -266,11 +261,7 @@
 			aria-haspopup="menu"
 			aria-expanded={actionMenuOpen}
 		>
-			<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-				<path
-					d="M4 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm6 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm6 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"
-				/>
-			</svg>
+			<Icon name="ellipsis" size="xs" />
 		</button>
 	{/if}
 

@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import CollapsibleLocalNavSection from '$lib/ui/layout/local-nav/CollapsibleLocalNavSection.svelte';
 	import LocalNavTree from '$lib/ui/layout/local-nav/LocalNavTree.svelte';
+	import Icon from '$lib/ui/common/Icon.svelte';
 	import type { LocalNavTreeEntry } from '$lib/ui/layout/local-nav/LocalNavTree.svelte';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { vaultState } from '$lib/state/vault.svelte.js';
@@ -343,15 +344,7 @@
 				tabindex={knowledgeMode === 'browse' ? 0 : -1}
 				onclick={() => activateTab('browse')}
 			>
-				<svg
-					class="h-3.5 w-3.5"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M3 12h18M3 18h18" />
-				</svg>
+				<Icon name="list" size="xs" />
 				<span>Browse</span>
 			</button>
 			<button
@@ -366,16 +359,7 @@
 				tabindex={knowledgeMode === 'recent' ? 0 : -1}
 				onclick={() => activateTab('recent')}
 			>
-				<svg
-					class="h-3.5 w-3.5"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<circle cx="12" cy="12" r="9" />
-					<path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2" />
-				</svg>
+				<Icon name="clock" size="xs" />
 				<span>Recent</span>
 			</button>
 			<button
@@ -390,15 +374,7 @@
 				tabindex={knowledgeMode === 'saved' ? 0 : -1}
 				onclick={() => activateTab('saved')}
 			>
-				<svg
-					class="h-3.5 w-3.5"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<path stroke-linecap="round" stroke-linejoin="round" d="M6 4h12v16l-6-3-6 3z" />
-				</svg>
+				<Icon name="bookmark" size="xs" />
 				<span>Saved</span>
 			</button>
 		</div>

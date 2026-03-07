@@ -7,6 +7,7 @@
 		onDesktopWindowStateChange,
 		toggleDesktopWindowMaximize,
 	} from '$lib/platform/desktop/bridge.js';
+	import Icon from '$lib/ui/common/Icon.svelte';
 
 	let isMac = $state(false);
 	let isMaximized = $state(false);
@@ -57,9 +58,7 @@
 				aria-label="Minimize window"
 				title="Minimize"
 			>
-				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-					<path d="M6 12h12" stroke-width="2" stroke-linecap="round" />
-				</svg>
+				<Icon name="minus" size="xs" />
 			</button>
 			<button
 				type="button"
@@ -68,16 +67,7 @@
 				aria-label={isMaximized ? 'Restore window' : 'Maximize window'}
 				title={isMaximized ? 'Restore' : 'Maximize'}
 			>
-				{#if isMaximized}
-					<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-						<path d="M8 8h8v8H8z" stroke-width="2" />
-						<path d="M6 6h8v2H8v6H6z" stroke-width="2" />
-					</svg>
-				{:else}
-					<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-						<rect x="7" y="7" width="10" height="10" stroke-width="2" />
-					</svg>
-				{/if}
+				<Icon name="square" size="xs" />
 			</button>
 			<button
 				type="button"
@@ -86,9 +76,7 @@
 				aria-label="Close window"
 				title="Close"
 			>
-				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-					<path d="M7 7l10 10M17 7L7 17" stroke-width="2" stroke-linecap="round" />
-				</svg>
+				<Icon name="x" size="xs" />
 			</button>
 		</div>
 	{/if}

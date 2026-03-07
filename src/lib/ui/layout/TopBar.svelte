@@ -8,6 +8,7 @@
 	import { inputModalityState } from '$lib/state/input-modality.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
+	import Icon from '$lib/ui/common/Icon.svelte';
 
 	interface Props {
 		onsearch: () => void;
@@ -112,15 +113,7 @@
 						aria-label="Done editing"
 						title="Done"
 					>
-						<svg
-							class="h-4.5 w-4.5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-						</svg>
+						<Icon name="chevron-left" size="sm" />
 					</button>
 				{/if}
 				<p class="truncate text-sm font-semibold text-ink">{routeTitle}</p>
@@ -133,19 +126,7 @@
 					aria-label="Open command palette"
 					title="Open command palette (Ctrl+P)"
 				>
-					<svg
-						class="h-4.5 w-4.5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-						/>
-					</svg>
+					<Icon name="search" size="sm" />
 				</button>
 				<button
 					bind:this={overflowButtonEl}
@@ -156,11 +137,7 @@
 					aria-expanded={overflowOpen}
 					title="More actions"
 				>
-					<svg class="h-4.5 w-4.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-						<path
-							d="M4 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm6 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm6 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"
-						/>
-					</svg>
+					<Icon name="ellipsis" size="sm" />
 				</button>
 
 				{#if overflowOpen}
@@ -239,15 +216,7 @@
 					aria-label="Toggle local navigation"
 					title={showKeyboardHints ? 'Toggle local navigation (Ctrl+B)' : 'Toggle local navigation'}
 				>
-					<svg
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-					</svg>
+					<Icon name="menu" size="md" />
 				</button>
 				{#if layoutState.isExpanded}
 					<button
@@ -261,15 +230,7 @@
 							? 'Toggle contextual detail panel (Ctrl+Shift+R)'
 							: 'No contextual detail panel for this view'}
 					>
-						<svg
-							class="h-4.5 w-4.5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h10M4 18h16" />
-						</svg>
+						<Icon name="panel-left" size="sm" />
 					</button>
 				{/if}
 				<button
@@ -281,15 +242,7 @@
 						? `Back to ${navigationState.backEntry.label}`
 						: 'No previous location'}
 				>
-					<svg
-						class="h-4.5 w-4.5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-					</svg>
+					<Icon name="chevron-left" size="sm" />
 				</button>
 				<button
 					class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent"
@@ -300,15 +253,7 @@
 						? `Forward to ${navigationState.forwardEntry.label}`
 						: 'No forward location'}
 				>
-					<svg
-						class="h-4.5 w-4.5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-					</svg>
+					<Icon name="chevron-right" size="sm" />
 				</button>
 				<div class="ml-1 min-w-0">
 					<p class="truncate text-sm font-semibold text-ink">{routeTitle}</p>
@@ -322,19 +267,7 @@
 					aria-label="Open command palette"
 					title={showKeyboardHints ? 'Open command palette (Ctrl+P)' : 'Open command palette'}
 				>
-					<svg
-						class="h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-						/>
-					</svg>
+					<Icon name="search" size="xs" />
 					<span class="hidden sm:inline">Command</span>
 				</button>
 
@@ -350,19 +283,7 @@
 						aria-label="Vault integrity issues detected"
 						title="Open vault health report"
 					>
-						<svg
-							class="h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-							/>
-						</svg>
+						<Icon name="triangle-alert" size="md" />
 						<span
 							class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full px-1 text-center text-2xs leading-4 text-white {vaultHealthState.severity ===
 							'critical'
@@ -382,19 +303,7 @@
 					aria-label="Pending MCP changes"
 					title="Review pending MCP changes"
 				>
-					<svg
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6a2 2 0 012-2z"
-						/>
-					</svg>
+					<Icon name="file-text" size="md" />
 					{#if mcpChangesState.count > 0}
 						<span
 							class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full bg-warning px-1 text-center text-2xs leading-4 text-white"

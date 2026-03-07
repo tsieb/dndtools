@@ -27,6 +27,7 @@
 	import TemplateDialog from '$lib/ui/common/TemplateDialog.svelte';
 	import Button from '$lib/ui/common/Button.svelte';
 	import NoteViewer from '$lib/ui/viewer/NoteViewer.svelte';
+	import Icon from '$lib/ui/common/Icon.svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
 	let sortField = $state<'updatedAt' | 'title' | 'createdAt' | 'folder'>('updatedAt');
@@ -343,19 +344,9 @@
 						placeholder="Filter by title, content, tag, or file path"
 						class="w-full rounded-md border border-border bg-surface py-2 pl-10 pr-3 text-sm text-ink placeholder:text-ink-faint"
 					/>
-					<svg
-						class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-						/>
-					</svg>
+					<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint">
+						<Icon name="search" size="xs" />
+					</span>
 				</div>
 				<div class="flex flex-wrap items-center gap-2 text-sm">
 					<span class="text-ink-muted">Sort:</span>
@@ -427,11 +418,7 @@
 			{#if pinnedNotes.length > 0}
 				<div class="mb-6">
 					<div class="mb-3 flex items-center gap-2">
-						<svg class="h-3.5 w-3.5 text-accent" fill="currentColor" viewBox="0 0 24 24">
-							<path
-								d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-							/>
-						</svg>
+						<span class="text-accent"><Icon name="pin" size="xs" /></span>
 						<span class="text-xs font-semibold uppercase tracking-wider text-ink-faint">Pinned</span
 						>
 					</div>

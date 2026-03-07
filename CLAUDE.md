@@ -393,6 +393,15 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
   - Body background gradient refactored to use palette tokens via `color-mix()`; handout preview structural colors migrated to semantic tokens
   - Token compliance lint gate: `pnpm lint:tokens` (`scripts/token-compliance-lint.ts`) enforces no arbitrary font sizes and no structural `dark:` prefixes; wired into `pnpm lint`
   - Architecture contract: `docs/architecture/DESIGN_TOKENS.md`
+- **Epic 15.2** — Icon System:
+  - Installed `lucide-svelte` (v0.577.0) as the single, tree-shakeable icon library
+  - Built `src/lib/ui/common/Icon.svelte`: `name: IconName`, `size` ('xs'|'sm'|'md'|'lg'), `color`, `strokeWidth`, `class` props; renders Lucide icons via `<svelte:component>`; `aria-hidden="true"` by default
+  - Exports `IconName` union type derived from `ICON_MAP` const; all 27 domain icons registered
+  - Replaced all inline SVG icon blocks across the codebase: `TopBar`, `DesktopTitlebar`, `NoteHeader`, `KnowledgeLocalNavPanel`, `MigrationReadinessScreen`, `NoteCard`, `notes/+page`, `search/+page`, `notes/[id]/edit/+page`
+  - Updated `PrimaryNavIcon.svelte` to use `<Icon>` with section→icon mapping (`book`, `map`, `hexagon`, `flag`, `settings`)
+  - Graph visualization SVG in `graph/+page.svelte` intentionally kept (data canvas, not an icon)
+  - Domain icon vocabulary documented in `docs/reference/ICON_VOCABULARY.md`
+  - Navigation iconography spec in `docs/architecture/NAVIGATION_ICONOGRAPHY.md` updated (source of truth is now `Icon` component)
 
 ## What Not To Do
 
