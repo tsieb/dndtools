@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Modal from './Modal.svelte';
+	import Dialog from './Dialog.svelte';
 	import Button from './Button.svelte';
 
 	interface Props {
@@ -23,10 +23,10 @@
 	}: Props = $props();
 </script>
 
-<Modal {open} {title} onclose={oncancel}>
-	<p class="text-ink mb-4">{message}</p>
+<Dialog {open} {title} maxWidth="sm" onclose={oncancel}>
+	<p class="mb-4 text-ink">{message}</p>
 	<div class="flex justify-end gap-2">
 		<Button variant="secondary" onclick={oncancel}>Cancel</Button>
 		<Button variant="danger" onclick={onconfirm} loading={confirmLoading}>{confirmText}</Button>
 	</div>
-</Modal>
+</Dialog>
