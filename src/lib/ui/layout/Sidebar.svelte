@@ -15,6 +15,8 @@
 		SessionLocalNavPanel,
 		SettingsLocalNavPanel,
 	} from '$lib/ui/sections/local-nav/index.js';
+	import Toggle from '$lib/ui/common/Toggle.svelte';
+	import Button from '$lib/ui/common/Button.svelte';
 
 	interface Props {
 		onnewnote: () => void;
@@ -128,41 +130,19 @@
 		</div>
 	</div>
 
-	<div class="border-t border-border px-3 py-2">
-		<div
-			class="mb-2 rounded-md border border-border p-1"
-			role="group"
-			aria-label="Persona switcher"
-		>
-			<div class="grid grid-cols-2 gap-1">
-				<button
-					type="button"
-					class="rounded-full px-2.5 py-1 text-xs font-semibold transition-[transform,colors] active:scale-[0.97] active:brightness-95 {playerModeState.enabled
-						? 'border border-border text-ink-muted hover:bg-surface-alt'
-						: 'bg-accent text-white'}"
-					aria-pressed={!playerModeState.enabled}
-					onclick={() => onsetplayermode(false)}
-				>
-					DM
-				</button>
-				<button
-					type="button"
-					class="rounded-full px-2.5 py-1 text-xs font-semibold transition-[transform,colors] active:scale-[0.97] active:brightness-95 {playerModeState.enabled
-						? 'bg-emerald-700 text-white dark:bg-emerald-500 dark:text-emerald-950'
-						: 'border border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/30'}"
-					aria-pressed={playerModeState.enabled}
-					onclick={() => onsetplayermode(true)}
-				>
-					Player
-				</button>
-			</div>
-		</div>
-		<button
-			type="button"
-			class="w-full rounded-md px-2.5 py-1.5 text-left text-xs text-ink-faint transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:text-ink-muted"
+	<div class="border-t border-border px-3 py-2 flex flex-col gap-1.5">
+		<Toggle
+			checked={playerModeState.enabled}
+			label="Player Mode"
+			onchange={(enabled) => onsetplayermode(enabled)}
+		/>
+		<Button
+			variant="ghost"
+			size="sm"
 			onclick={reopenOnboarding}
+			class="w-full justify-start text-ink-faint"
 		>
 			Onboarding
-		</button>
+		</Button>
 	</div>
 </aside>
