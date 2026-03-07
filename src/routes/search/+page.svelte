@@ -23,6 +23,7 @@
 	import type { Note } from '$lib/types/note.js';
 	import type { NoteId } from '$lib/types/note.js';
 	import { formatRelativeDate } from '$lib/utils/date.js';
+	import Icon from '$lib/ui/common/Icon.svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
 	type FacetKind = 'tag' | 'folder' | 'type' | 'date';
@@ -748,19 +749,9 @@
 	</div>
 
 	<div class="relative">
-		<svg
-			class="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-ink-faint pointer-events-none"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-			stroke-width="2"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-			/>
-		</svg>
+		<span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none">
+			<Icon name="search" size="md" />
+		</span>
 		<input
 			bind:this={inputRef}
 			type="text"

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { DesktopSchemaMigrationReport } from '$lib/platform/desktop/bridge.js';
+	import Icon from '$lib/ui/common/Icon.svelte';
 
 	interface Props {
 		report: DesktopSchemaMigrationReport;
@@ -26,19 +27,9 @@
 					class="flex-shrink-0 w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center"
 					aria-hidden="true"
 				>
-					<svg
-						class="w-5 h-5 text-amber-600 dark:text-amber-400"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-						/>
-					</svg>
+					<span class="text-amber-600 dark:text-amber-400">
+						<Icon name="triangle-alert" size="sm" />
+					</span>
 				</div>
 				<div>
 					<h1 class="text-base font-semibold text-ink leading-tight">Vault Upgrade Required</h1>
@@ -99,16 +90,9 @@
 			<div
 				class="flex items-start gap-2 rounded-md bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-3 py-2.5"
 			>
-				<svg
-					class="w-4 h-4 mt-0.5 text-emerald-600 dark:text-emerald-400 shrink-0"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="2"
-					aria-hidden="true"
-				>
-					<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-				</svg>
+				<span class="mt-0.5 text-emerald-600 dark:text-emerald-400 shrink-0">
+					<Icon name="check" size="xs" />
+				</span>
 				<p class="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">
 					A full checkpoint backup will be created before any files are modified. If anything goes
 					wrong, the vault will be automatically rolled back to its previous state.
@@ -161,15 +145,7 @@
 				aria-busy={applying}
 			>
 				{#if applying}
-					<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-						></circle>
-						<path
-							class="opacity-75"
-							fill="currentColor"
-							d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-						></path>
-					</svg>
+					<Icon name="loader" size="xs" class="animate-spin" />
 					Upgrading…
 				{:else}
 					Upgrade Vault
