@@ -205,8 +205,9 @@
 		</div>
 	{/if}
 
+	<!-- Card face: uses Card surface tokens (bg-surface, border-border, rounded-lg, shadow) -->
 	<button
-		class="note-card-foreground group relative z-10 w-full rounded-lg border border-border bg-surface p-4 pr-11 text-left transition-[border,box-shadow,transform] hover:border-accent/40 hover:shadow-sm"
+		class="note-card-foreground group relative z-10 w-full rounded-lg border border-border bg-surface p-4 pr-11 text-left shadow-sm transition-[border,box-shadow,transform] hover:border-accent/40 hover:shadow-md"
 		style={cardTransformStyle}
 		onclick={activateCard}
 		onkeydown={handleCardKeydown}
@@ -284,7 +285,7 @@
 			{#if ondelete}
 				<button
 					type="button"
-					class="mt-1 block w-full rounded px-2 py-1.5 text-left text-xs text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-900/30"
+					class="mt-1 block w-full rounded px-2 py-1.5 text-left text-xs text-error hover:bg-error/10"
 					role="menuitem"
 					onclick={invokeDelete}
 				>
