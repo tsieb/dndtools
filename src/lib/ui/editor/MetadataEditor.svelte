@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Button from '$lib/ui/common/Button.svelte';
+
 	interface Props {
 		frontmatter: Record<string, unknown>;
 		onapply: (updates: Record<string, unknown>) => void;
@@ -50,13 +52,7 @@
 <section class="mb-3 rounded-lg border border-border bg-surface p-3">
 	<div class="mb-2 flex items-center justify-between">
 		<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-faint">Metadata</h2>
-		<button
-			type="button"
-			class="rounded px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
-			onclick={apply}
-		>
-			Apply
-		</button>
+		<Button variant="ghost" size="sm" onclick={apply}>Apply</Button>
 	</div>
 
 	<div class="grid gap-2 md:grid-cols-2">
