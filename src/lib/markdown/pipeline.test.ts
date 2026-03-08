@@ -114,6 +114,12 @@ describe('renderMarkdown', () => {
 		expect(html).toContain('data-roll-action="accept"');
 	});
 
+	it('renders inline roll expressions as roll-button elements', async () => {
+		const html = await renderMarkdown('Attack with [[roll:1d20+5]] now');
+		expect(html).toContain('<roll-button');
+		expect(html).toContain('data-roll-expression="1d20+5"');
+	});
+
 	it('renders object embeds as rich cards', async () => {
 		const md = '![[obj:stat_block:abc123|Goblin Scout]]';
 		const html = await renderMarkdown(md, {

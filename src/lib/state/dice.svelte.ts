@@ -7,6 +7,7 @@ import {
 	type DiceRollDetail,
 	type DiceRollResult,
 } from '$lib/domain/dice.js';
+import { sessionModeState } from '$lib/state/session-mode.svelte.js';
 import type { DiceMacro } from '$lib/types/settings.js';
 import { nowISO } from '$lib/utils/date.js';
 
@@ -147,6 +148,21 @@ class DiceState {
 				macroLabel: meta?.macroLabel,
 			};
 			this.history = [entry, ...this.history].slice(0, MAX_HISTORY_ENTRIES);
+			void sessionModeState.recordDiceRoll({
+				id: entry.id,
+				at: entry.at,
+				source: entry.source,
+				expression: entry.expression,
+				totalText: entry.totalText,
+				breakdown: entry.breakdown,
+				rolls: entry.rolls.map((detail) => ({
+					notation: detail.notation,
+					rolls: [...detail.rolls],
+					kept: [...detail.kept],
+					keptIndices: [...detail.keptIndices],
+					subtotal: detail.subtotal,
+				})),
+			});
 			return { ok: true, entry };
 		} catch (error) {
 			const message =

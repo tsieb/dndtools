@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Note } from '$lib/types/note.js';
 	import type { VaultObject } from '$lib/types/object.js';
+	import { mount, unmount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
 	import { noteToVaultObject } from '$lib/domain/object-notes.js';
@@ -19,6 +20,7 @@
 	import { getStorage } from '$lib/platform/storage/index.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import { goto } from '$app/navigation';
+	import RollButton from '$lib/ui/viewer/RollButton.svelte';
 
 	interface Props {
 		note: Note;
@@ -40,6 +42,7 @@
 	const wikilinkCardId = 'note-viewer-wikilink-card';
 	let openCardTimer: ReturnType<typeof setTimeout> | null = null;
 	let closeCardTimer: ReturnType<typeof setTimeout> | null = null;
+	let inlineRollMounts: Array<ReturnType<typeof mount>> = [];
 	let modeScopedActiveNotes = $derived.by(() =>
 		playerModeState.enabled
 			? notesState.activeNotes.filter((entry) => isNoteVisibleInPlayerMode(entry))
@@ -450,6 +453,32 @@
 		showWikilinkCard(link);
 	}
 
+	function clearInlineRollButtons(): void {
+		for (const mounted of inlineRollMounts) {
+			unmount(mounted);
+		}
+		inlineRollMounts = [];
+	}
+
+	function hydrateInlineRollButtons(): void {
+		if (!contentEl) return;
+		const nodes = contentEl.querySelectorAll<HTMLElement>('roll-button[data-roll-expression]');
+		for (const node of nodes) {
+			const expression = node.dataset.rollExpression?.trim() ?? '';
+			if (!expression) continue;
+			const host = document.createElement('span');
+			host.className = 'roll-button-host';
+			node.replaceWith(host);
+			const mounted = mount(RollButton, {
+				target: host,
+				props: {
+					expression,
+				},
+			});
+			inlineRollMounts.push(mounted);
+		}
+	}
+
 	$effect(() => {
 		if (!contentEl) return;
 		const element = contentEl;
@@ -466,6 +495,20 @@
 			element.removeEventListener('focusin', handleFocusIn);
 			element.removeEventListener('focusout', handleFocusOut);
 			element.removeEventListener('keydown', handleKeyInteraction);
+		};
+	});
+
+	$effect(() => {
+		if (!contentEl) return;
+		const renderedHtml = html;
+		if (renderedHtml.length === 0) {
+			clearInlineRollButtons();
+			return;
+		}
+		clearInlineRollButtons();
+		hydrateInlineRollButtons();
+		return () => {
+			clearInlineRollButtons();
 		};
 	});
 

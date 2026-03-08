@@ -267,7 +267,14 @@ export class SyncAwareStorageAdapter implements StorageAdapter {
 
 	getSessionState(): Promise<SessionState> {
 		if (!this.base.getSessionState) {
-			return Promise.resolve({ version: 1, partyLocation: null });
+			return Promise.resolve({
+				version: 1,
+				partyLocation: null,
+				mode: 'idle',
+				activeSession: null,
+				sessionRollHistory: [],
+				pinnedRollableTableIds: [],
+			});
 		}
 		return this.base.getSessionState();
 	}

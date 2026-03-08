@@ -7,6 +7,7 @@ import rehypeSlug from 'rehype-slug';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import remarkWikilinks, { type WikilinkOptions } from './plugins/remark-wikilinks.js';
+import { remarkRollButtons } from './plugins/remark-roll-buttons.js';
 import { rehypeCallouts } from './plugins/rehype-callouts.js';
 import { rehypeFigureImages } from './plugins/rehype-figure-images.js';
 import { rehypeObjectEmbeds, type ResolvedNoteEmbed } from './plugins/rehype-object-embeds.js';
@@ -47,6 +48,7 @@ const sanitizeSchema: typeof defaultSchema = {
 			['data-roll-index'],
 			['hidden'],
 		],
+		'roll-button': [...(defaultSchema.attributes?.['roll-button'] ?? []), ['data-roll-expression']],
 		button: [
 			...(defaultSchema.attributes?.['button'] ?? []),
 			['className', /^roll-block__/],
@@ -73,7 +75,14 @@ const sanitizeSchema: typeof defaultSchema = {
 		],
 		'*': [...(defaultSchema.attributes?.['*'] ?? [])],
 	},
-	tagNames: [...(defaultSchema.tagNames ?? []), 'input', 'button', 'figure', 'figcaption'],
+	tagNames: [
+		...(defaultSchema.tagNames ?? []),
+		'input',
+		'button',
+		'figure',
+		'figcaption',
+		'roll-button',
+	],
 };
 
 export interface RenderOptions {
@@ -96,6 +105,7 @@ export async function renderMarkdown(
 		.use(remarkParse)
 		.use(remarkFrontmatter, ['yaml'])
 		.use(remarkGfm)
+		.use(remarkRollButtons)
 		.use(remarkWikilinks, { resolveLink: options.resolveLink })
 		.use(remarkRehype, { allowDangerousHtml: false })
 		.use(rehypeSlug)

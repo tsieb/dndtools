@@ -1,9 +1,13 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { nanoid } from 'nanoid';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
+	import { listRollableTables, rollRollableTable } from '$lib/domain/rollable-tables.js';
 	import { normalizeSessionBoardTimerState } from '$lib/domain/session-board.js';
+	import type { RollableTableEntry } from '$lib/domain/rollable-tables.js';
 	import type { SessionBoardTile } from '$lib/types/session-board.js';
 	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
 
@@ -14,10 +18,16 @@
 
 	let { open = $bindable(), onclose }: Props = $props();
 	let nowMs = $state(Date.now());
+	let latestPinnedTableRollById = $state<Record<string, string>>({});
 
 	let activeBoard = $derived(sessionBoardsState.activeBoard);
 	let activeNotesById = $derived(notesState.activeNoteById);
 	let tiles = $derived.by(() => activeBoard?.tiles ?? []);
+	let pinnedRollableTables = $derived.by(() => {
+		const tables = listRollableTables(notesState.activeNotes);
+		const pinned = new Set(sessionModeState.pinnedRollableTableIds);
+		return tables.filter((table) => pinned.has(table.id));
+	});
 
 	function tileType(
 		tile: SessionBoardTile,
@@ -100,6 +110,20 @@
 		onclose();
 	}
 
+	async function rollPinnedTable(table: RollableTableEntry): Promise<void> {
+		const rolled = rollRollableTable(table);
+		latestPinnedTableRollById = {
+			...latestPinnedTableRollById,
+			[table.id]: rolled.result,
+		};
+		await sessionModeState.recordTableRoll({
+			id: nanoid(12),
+			source: 'table',
+			tableName: table.tableName,
+			result: rolled.result,
+		});
+	}
+
 	function handleBackdrop(event: MouseEvent): void {
 		if (event.target === event.currentTarget) onclose();
 	}
@@ -151,6 +175,37 @@
 			</header>
 
 			<div class="flex-1 min-h-0 overflow-y-auto p-3">
+				{#if pinnedRollableTables.length > 0}
+					<section class="mb-3 rounded-lg border border-border p-2.5">
+						<p class="text-2xs font-semibold uppercase tracking-wide text-ink-faint">
+							Pinned Rollable Tables
+						</p>
+						<div class="mt-2 space-y-1.5">
+							{#each pinnedRollableTables as table (table.id)}
+								<div class="rounded-md border border-border/70 bg-surface-alt/35 p-2">
+									<div class="flex items-center justify-between gap-2">
+										<p class="truncate text-xs font-medium text-ink">{table.tableName}</p>
+										<button
+											type="button"
+											class="rounded border border-border px-2 py-0.5 text-2xs text-ink-muted hover:bg-surface"
+											onclick={() => void rollPinnedTable(table)}
+										>
+											Roll
+										</button>
+									</div>
+									{#if latestPinnedTableRollById[table.id]}
+										<p
+											class="mt-1 rounded border border-accent/35 bg-accent-subtle/45 px-1.5 py-1 text-2xs text-ink animate-fade-in"
+										>
+											{latestPinnedTableRollById[table.id]}
+										</p>
+									{/if}
+								</div>
+							{/each}
+						</div>
+					</section>
+				{/if}
+
 				{#if !activeBoard}
 					<div class="rounded-lg border border-border p-3 text-xs text-ink-muted">
 						No active board. Open Session Board and select one first.

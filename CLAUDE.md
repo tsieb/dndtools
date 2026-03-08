@@ -171,6 +171,43 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 16.1** — Session Mode as Application-Level State:
+  - Added application-level session mode state in `src/lib/state/session-mode.svelte.ts`
+  - Extended persisted session schema (`src/lib/types/session-state.ts`) with:
+    - `mode: 'idle' | 'active'`
+    - `activeSession` payload (`sessionBoardId`, `startedAt`, `sceneId`, `combatActive`)
+  - Kept session persistence in `.vault/session-state.json` through existing storage adapters
+  - Added Start Session / End Session flows in `src/lib/ui/sections/local-nav/SessionLocalNavPanel.svelte`
+  - Added global nav End Session entry point and session-active pulse indicator in `src/lib/ui/layout/PrimaryNav.svelte`
+  - Added session-active layout behavior in `src/lib/ui/layout/AppShell.svelte`:
+    - auto-open detail panel on active transition (expanded layout)
+    - compact session status bar above bottom navigation
+  - Wired session scene/combat persistence hooks in:
+    - `src/routes/session-board/+page.svelte`
+    - `src/routes/combat/+page.svelte`
+    - `src/routes/+layout.svelte`
+  - Added session state normalization tests in `src/lib/types/session-state.test.ts`
+
+- **Epic 16.2** — Dice: Always-Accessible, Session-Integrated:
+  - Added session-scoped roll-history persistence to `SessionState` (`sessionRollHistory`) and quick-table pinning (`pinnedRollableTableIds`) in `src/lib/types/session-state.ts` + `src/lib/state/session-state.svelte.ts`
+  - Wired dice rolls into active-session history logging via `src/lib/state/dice.svelte.ts` and `src/lib/state/session-mode.svelte.ts`
+  - Added persistent session dice bar UI (local nav + detail panel strip) using custom die-face SVG assets in `static/icons/dice/*` and `src/lib/ui/dice/SessionDiceBar.svelte`
+  - Added session roll-history detail panel (`src/lib/ui/session/SessionRollHistoryPanel.svelte`) with inline label editing, nat 20 / nat 1 flags, and expandable die breakdowns
+  - Added inline roll markdown support for `[[roll:EXPRESSION]]` through:
+    - `src/lib/markdown/plugins/remark-roll-buttons.ts`
+    - sanitize/pipeline updates in `src/lib/markdown/pipeline.ts`
+    - hydrated `RollButton` component in `src/lib/ui/viewer/RollButton.svelte`
+    - note-viewer hydration wiring in `src/lib/ui/viewer/NoteViewer.svelte`
+  - Added Session Tables tab with rollable markdown-table discovery + rolling:
+    - parser/roller domain in `src/lib/domain/rollable-tables.ts`
+    - Session local-nav integration in `src/lib/ui/sections/local-nav/SessionLocalNavPanel.svelte`
+    - pinned-table quick rolls in `src/lib/ui/board/SessionQuickPanel.svelte`
+  - Consolidated Dice Tray entry points to keyboard shortcut plus Session-section controls (idle Dice icon + active-session Custom button)
+  - Added tests:
+    - `src/lib/types/session-state.test.ts`
+    - `src/lib/markdown/pipeline.test.ts`
+    - `src/lib/domain/rollable-tables.test.ts`
+
 - **Epic 1.3** Ã¢â‚¬â€ Integrity Verification & Self-Repair (commit `115d933`):
   - `NoteIntegrityIssueStatus` extended with `'orphan_entry'`
   - `vaultHealthState` singleton in `src/lib/state/vaultHealth.svelte.ts`

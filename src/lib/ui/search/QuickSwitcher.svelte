@@ -24,7 +24,6 @@
 		onclose: () => void;
 		onnewnote: () => void;
 		oncreatehandout: () => void;
-		onopendicetray: () => void;
 		onopengenerator: () => void;
 		ontemplate: (folderOverride?: string) => void;
 		oncreatefromtemplate: (templateId: string) => void;
@@ -146,7 +145,6 @@
 		onclose,
 		onnewnote,
 		oncreatehandout,
-		onopendicetray,
 		onopengenerator,
 		ontemplate,
 		oncreatefromtemplate,
@@ -367,17 +365,6 @@
 					if (attempt.ok) {
 						closePalette();
 					}
-				},
-			},
-			{
-				id: 'command-open-dice-tray',
-				group: 'Commands',
-				title: 'Open Dice Tray',
-				subtitle: 'Roll expressions and review history',
-				keywords: 'dice tray roll history',
-				run: () => {
-					onopendicetray();
-					closePalette();
 				},
 			},
 			{

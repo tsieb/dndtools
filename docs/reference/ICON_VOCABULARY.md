@@ -110,6 +110,8 @@ They are not part of the domain vocabulary and must not be used for other purpos
    before adding new icons.
 5. **Accessibility** — Icons are decorative by default (`aria-hidden="true"`). Interactive
    elements that contain only an icon must set `aria-label` on the parent element.
+6. **Session dice exception** — Session die-face controls use dedicated SVG assets under
+   `static/icons/dice/` to render labeled polyhedral faces (`d4` through `d100`).
 
 ---
 

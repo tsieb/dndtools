@@ -256,6 +256,13 @@ Vault metadata files in `.vault/`:
 - `object-history.json`
 - `mcp-changelog.json`
 
+`session-state.json` currently stores:
+
+- `mode` (`idle` or `active`) and `activeSession` identifiers/timestamps
+- `partyLocation` map context
+- `sessionRollHistory` (session-scoped roll log entries used by Session detail panel)
+- `pinnedRollableTableIds` (user-selected table shortcuts for Session Quick Panel)
+
 ## 4. Link Semantics
 
 Wikilink extraction (`src/lib/domain/link-extractor.ts`) supports:
