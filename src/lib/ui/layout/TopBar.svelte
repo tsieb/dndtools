@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { ui } from '$lib/state/ui.svelte.js';
 	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
@@ -93,11 +92,6 @@
 		if (typeof window === 'undefined') return;
 		window.dispatchEvent(new CustomEvent('dndtools:editor-done-request'));
 	}
-
-	function applyTheme(nextTheme: 'light' | 'dark' | 'system'): void {
-		void ui.setTheme(nextTheme);
-		overflowOpen = false;
-	}
 </script>
 
 <header
@@ -147,45 +141,6 @@
 						role="menu"
 						aria-label="Compact topbar overflow menu"
 					>
-						<div class="mb-2 px-1">
-							<p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">Theme</p>
-							<div class="mt-1 grid grid-cols-3 gap-1">
-								<button
-									type="button"
-									class="rounded px-1.5 py-1 text-xs {ui.theme === 'light'
-										? 'bg-accent-subtle text-accent'
-										: 'text-ink-muted hover:bg-surface-alt'}"
-									onclick={() => applyTheme('light')}
-									role="menuitemradio"
-									aria-checked={ui.theme === 'light'}
-								>
-									Light
-								</button>
-								<button
-									type="button"
-									class="rounded px-1.5 py-1 text-xs {ui.theme === 'system'
-										? 'bg-accent-subtle text-accent'
-										: 'text-ink-muted hover:bg-surface-alt'}"
-									onclick={() => applyTheme('system')}
-									role="menuitemradio"
-									aria-checked={ui.theme === 'system'}
-								>
-									Auto
-								</button>
-								<button
-									type="button"
-									class="rounded px-1.5 py-1 text-xs {ui.theme === 'dark'
-										? 'bg-accent-subtle text-accent'
-										: 'text-ink-muted hover:bg-surface-alt'}"
-									onclick={() => applyTheme('dark')}
-									role="menuitemradio"
-									aria-checked={ui.theme === 'dark'}
-								>
-									Dark
-								</button>
-							</div>
-						</div>
-
 						<a
 							href={resolve('/settings')}
 							class="block rounded px-2 py-1.5 text-sm text-ink-muted hover:bg-surface-alt"

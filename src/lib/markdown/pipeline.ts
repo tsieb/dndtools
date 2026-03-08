@@ -8,6 +8,7 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import remarkWikilinks, { type WikilinkOptions } from './plugins/remark-wikilinks.js';
 import { rehypeCallouts } from './plugins/rehype-callouts.js';
+import { rehypeFigureImages } from './plugins/rehype-figure-images.js';
 import { rehypeObjectEmbeds, type ResolvedNoteEmbed } from './plugins/rehype-object-embeds.js';
 import { rehypeRollBlocks } from './plugins/rehype-roll-blocks.js';
 import type { VaultObject, VaultObjectType } from '$lib/types/object.js';
@@ -65,9 +66,14 @@ const sanitizeSchema: typeof defaultSchema = {
 		],
 		li: [...(defaultSchema.attributes?.['li'] ?? []), ['className', /^roll-block__/]],
 		img: [...(defaultSchema.attributes?.['img'] ?? []), ['className', /^object-embed/]],
+		figure: [...(defaultSchema.attributes?.['figure'] ?? []), ['className', /^note-figure$/]],
+		figcaption: [
+			...(defaultSchema.attributes?.['figcaption'] ?? []),
+			['className', /^note-figcaption$/],
+		],
 		'*': [...(defaultSchema.attributes?.['*'] ?? [])],
 	},
-	tagNames: [...(defaultSchema.tagNames ?? []), 'input', 'button'],
+	tagNames: [...(defaultSchema.tagNames ?? []), 'input', 'button', 'figure', 'figcaption'],
 };
 
 export interface RenderOptions {
@@ -94,6 +100,7 @@ export async function renderMarkdown(
 		.use(remarkRehype, { allowDangerousHtml: false })
 		.use(rehypeSlug)
 		.use(rehypeCallouts)
+		.use(rehypeFigureImages)
 		.use(rehypeRollBlocks)
 		.use(rehypeObjectEmbeds, {
 			resolveObject: ({ type, id }: { type?: VaultObjectType; id: string }) =>

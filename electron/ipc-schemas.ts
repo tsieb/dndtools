@@ -769,7 +769,7 @@ export const sessionStateSchema = z
  * addition to the already-whitelisted key.  Closes risk R1 in SECURITY.md.
  */
 export const settingValueSchemas: Record<string, z.ZodTypeAny> = {
-	theme: z.enum(['light', 'dark', 'system']),
+	theme: z.enum(['system', 'parchment', 'tavern', 'scholar', 'dungeon', 'light', 'dark']),
 	sidebarOpen: z.boolean(),
 	sidebarWidth: z.number().int().min(160).max(600),
 	focusReading: z.boolean(),

@@ -33,7 +33,7 @@
 	--color-tavern-warning: #ffa726;
 	--color-tavern-error: #ef5350;
 
-	/* ===== Semantic Color Tokens (light defaults; overridden in html.dark) ===== */
+	/* ===== Semantic Color Tokens (light defaults; overridden in theme preset classes) ===== */
 	/* Page and surface backgrounds */
 	--color-bg: #faf6f0;
 	--color-surface: #ffffff;
@@ -143,9 +143,8 @@
 	--dndtools-keyboard-inset: 0px;
 }
 
-/* ===== S15.1.1: Dark Mode Semantic Token Overrides ===== */
-/* Components reference semantic tokens only; dark: Tailwind prefix not needed */
-html.dark {
+/* ===== Theme preset semantic token overrides ===== */
+html.theme-tavern {
 	--color-bg: #1a1410;
 	--color-surface: #2c2420;
 	--color-surface-elevated: #352d28;
@@ -164,6 +163,48 @@ html.dark {
 	--color-error-hover: #f47171;
 	--color-focus-ring: #d4a76a;
 	--color-accent-foreground: #1a1410;
+}
+
+html.theme-scholar {
+	--color-bg: #f7fafc;
+	--color-surface: #ffffff;
+	--color-surface-elevated: #ffffff;
+	--color-surface-alt: #edf2f7;
+	--color-border: #cbd5e1;
+	--color-border-strong: #94a3b8;
+	--color-ink: #0f172a;
+	--color-ink-muted: #334155;
+	--color-ink-faint: #475569;
+	--color-accent: #1e3a8a;
+	--color-accent-hover: #1e40af;
+	--color-accent-subtle: #dbeafe;
+	--color-success: #15803d;
+	--color-warning: #b45309;
+	--color-error: #b91c1c;
+	--color-error-hover: #991b1b;
+	--color-focus-ring: #1e3a8a;
+	--color-accent-foreground: #ffffff;
+}
+
+html.theme-dungeon {
+	--color-bg: #05080d;
+	--color-surface: #0b1118;
+	--color-surface-elevated: #111b25;
+	--color-surface-alt: #12202e;
+	--color-border: #1f3142;
+	--color-border-strong: #2a4258;
+	--color-ink: #f8fbff;
+	--color-ink-muted: #b7d0e6;
+	--color-ink-faint: #95b6d1;
+	--color-accent: #00d2ff;
+	--color-accent-hover: #2be0ff;
+	--color-accent-subtle: #113243;
+	--color-success: #22c55e;
+	--color-warning: #f59e0b;
+	--color-error: #ef4444;
+	--color-error-hover: #dc2626;
+	--color-focus-ring: #00d2ff;
+	--color-accent-foreground: #001018;
 }
 
 /* ===== Base styles ===== */
@@ -187,7 +228,8 @@ body {
 	color: var(--color-ink);
 }
 
-html.dark body {
+html.theme-tavern body,
+html.theme-dungeon body {
 	background:
 		radial-gradient(
 			1100px 520px at 0% -10%,
@@ -231,7 +273,8 @@ html.dndtools-keyboard-open .mobile-bottom-nav {
 		linear-gradient(300deg, rgba(160, 82, 45, 0.03), transparent 40%);
 }
 
-html.dark .app-main::before {
+html.theme-tavern .app-main::before,
+html.theme-dungeon .app-main::before {
 	background:
 		linear-gradient(120deg, rgba(212, 167, 106, 0.08), transparent 35%),
 		linear-gradient(300deg, rgba(224, 190, 133, 0.04), transparent 45%);
@@ -496,11 +539,18 @@ html.dark .app-main::before {
 /* ===== Wikilink styles ===== */
 a.wikilink {
 	color: var(--color-accent);
-	text-decoration: underline;
-	text-decoration-style: solid;
-	text-underline-offset: 2px;
+	text-decoration: none;
 	cursor: pointer;
 	transition: color var(--duration-fast) var(--easing-standard);
+}
+
+a.wikilink::before {
+	content: '📄';
+	display: inline-block;
+	margin-right: 0.28rem;
+	font-size: 0.72em;
+	line-height: 1;
+	vertical-align: baseline;
 }
 
 a.wikilink:hover {
@@ -529,7 +579,7 @@ a.wikilink--unresolved {
 }
 
 /* ===== Markdown content styles ===== */
-/* NOTE: html.dark overrides are kept here intentionally — markdown content
+/* NOTE: theme-specific overrides are kept here intentionally — markdown content
    rendering uses specific typographic palette values that may differ from
    structural semantic tokens. */
 
@@ -559,6 +609,7 @@ a.wikilink--unresolved {
 }
 
 .markdown-content h3 {
+	font-family: var(--font-serif);
 	font-size: 1.25rem;
 	font-weight: 600;
 	margin-top: 1.25rem;
@@ -626,7 +677,8 @@ a.wikilink--unresolved {
 	line-height: 1.5;
 }
 
-html.dark .markdown-content pre {
+html.theme-tavern .markdown-content pre,
+html.theme-dungeon .markdown-content pre {
 	background-color: #111;
 }
 
@@ -658,7 +710,10 @@ html.dark .markdown-content pre {
 
 .markdown-content table {
 	width: 100%;
-	border-collapse: collapse;
+	display: block;
+	overflow-x: auto;
+	border-collapse: separate;
+	border-spacing: 0;
 	margin-bottom: 1rem;
 	font-size: 0.95em;
 }
@@ -674,6 +729,13 @@ html.dark .markdown-content pre {
 	background-color: var(--color-surface-alt);
 	font-weight: 600;
 	color: var(--color-ink);
+	position: sticky;
+	top: 0;
+	z-index: 1;
+}
+
+.markdown-content tbody tr:nth-child(odd) {
+	background-color: color-mix(in srgb, var(--color-surface-alt) 45%, transparent);
 }
 
 .markdown-content img {
@@ -681,6 +743,16 @@ html.dark .markdown-content pre {
 	height: auto;
 	border-radius: 8px;
 	border: 1px solid var(--color-border);
+}
+
+.markdown-content .note-figure {
+	margin: 1rem 0;
+}
+
+.markdown-content .note-figcaption {
+	margin-top: 0.35rem;
+	font-size: var(--text-xs);
+	color: var(--color-ink-muted);
 }
 
 .markdown-content input[type='checkbox'] {
@@ -803,6 +875,25 @@ html.dark .markdown-content pre {
 	color: #f59e0b;
 }
 
+.callout-secret {
+	border-left-color: #9333ea;
+	background-color: color-mix(in srgb, #9333ea 12%, var(--color-surface-alt));
+}
+
+.callout-secret .callout-title {
+	color: #9333ea;
+}
+
+.callout-secret > :not(.callout-title) {
+	filter: blur(0.24rem);
+	transition: filter var(--duration-medium) var(--easing-standard);
+}
+
+.callout-secret:hover > :not(.callout-title),
+.callout-secret:focus-within > :not(.callout-title) {
+	filter: blur(0);
+}
+
 .callout-danger {
 	border-left-color: #ef4444;
 }
@@ -814,7 +905,8 @@ html.dark .markdown-content pre {
 	border-left-color: #8b5cf6;
 	background-color: #f5f0ff;
 }
-html.dark .callout-dm {
+html.theme-tavern .callout-dm,
+html.theme-dungeon .callout-dm {
 	background-color: #1f1835;
 }
 .callout-dm .callout-title {
@@ -839,7 +931,8 @@ html.dark .callout-dm {
 	border-left-color: #dc2626;
 	background-color: #fef2f2;
 }
-html.dark .callout-quest {
+html.theme-tavern .callout-quest,
+html.theme-dungeon .callout-quest {
 	background-color: #1f1212;
 }
 .callout-quest .callout-title {
@@ -850,7 +943,8 @@ html.dark .callout-quest {
 	border-left-color: #059669;
 	background-color: #f0fdf4;
 }
-html.dark .callout-npc {
+html.theme-tavern .callout-npc,
+html.theme-dungeon .callout-npc {
 	background-color: #0f1f17;
 }
 .callout-npc .callout-title {
@@ -861,7 +955,8 @@ html.dark .callout-npc {
 	border-left-color: #d97706;
 	background-color: #fffbeb;
 }
-html.dark .callout-location {
+html.theme-tavern .callout-location,
+html.theme-dungeon .callout-location {
 	background-color: #1f1a0f;
 }
 .callout-location .callout-title {
@@ -872,7 +967,8 @@ html.dark .callout-location {
 	border-left-color: #7c3aed;
 	background-color: #faf5ff;
 }
-html.dark .callout-item {
+html.theme-tavern .callout-item,
+html.theme-dungeon .callout-item {
 	background-color: #1a1025;
 }
 .callout-item .callout-title {
@@ -890,7 +986,8 @@ html.dark .callout-item {
 	border-left-color: #22c55e;
 	background-color: #f0fdf4;
 }
-html.dark .callout-success {
+html.theme-tavern .callout-success,
+html.theme-dungeon .callout-success {
 	background-color: #0f1f17;
 }
 .callout-success .callout-title {
@@ -1074,7 +1171,8 @@ html.dark .callout-success {
 	box-shadow: 0 10px 22px -20px rgba(0, 0, 0, 0.6);
 }
 
-html.dark .handout-preview {
+html.theme-tavern .handout-preview,
+html.theme-dungeon .handout-preview {
 	background: color-mix(in srgb, var(--color-tavern-surface-alt) 80%, var(--color-tavern-bg));
 	border-color: var(--color-tavern-border-strong);
 }
@@ -1182,6 +1280,65 @@ html.dark .handout-preview {
 	to {
 		opacity: 1;
 		transform: rotateX(0) scale(1);
+	}
+}
+
+.dice-result-chip {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 2.6rem;
+	padding: 0.22rem 0.62rem;
+	border-radius: 999px;
+	font-weight: 700;
+	border: 1px solid color-mix(in srgb, var(--color-border-strong) 75%, transparent);
+	background: color-mix(in srgb, var(--color-surface-alt) 75%, transparent);
+	color: var(--color-ink);
+}
+
+.dice-result-chip[data-result-kind='nat20'] {
+	border-color: color-mix(in srgb, var(--color-warning) 70%, var(--color-accent));
+	background: linear-gradient(
+		120deg,
+		color-mix(in srgb, var(--color-warning) 26%, transparent),
+		color-mix(in srgb, var(--color-accent) 22%, transparent)
+	);
+	animation: dice-gold-shimmer var(--duration-medium) var(--easing-decelerate);
+}
+
+.dice-result-chip[data-result-kind='nat1'] {
+	border-color: color-mix(in srgb, var(--color-error) 70%, transparent);
+	background: color-mix(in srgb, var(--color-error) 14%, transparent);
+	animation: dice-red-pulse var(--duration-medium) var(--easing-standard);
+}
+
+@keyframes dice-gold-shimmer {
+	0% {
+		box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-warning) 45%, transparent);
+	}
+	100% {
+		box-shadow: 0 0 0 9px transparent;
+	}
+}
+
+@keyframes dice-red-pulse {
+	0% {
+		box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-error) 45%, transparent);
+	}
+	100% {
+		box-shadow: 0 0 0 9px transparent;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.dice-result-chip[data-result-kind='nat20'] {
+		animation: none;
+		border-width: 2px;
+	}
+
+	.dice-result-chip[data-result-kind='nat1'] {
+		animation: none;
+		border-width: 2px;
 	}
 }
 

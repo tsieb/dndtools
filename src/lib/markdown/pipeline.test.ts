@@ -17,6 +17,14 @@ describe('renderMarkdown', () => {
 		expect(html).toContain('Elminster');
 	});
 
+	it('wraps note images in a figure with figcaption from alt text', async () => {
+		const html = await renderMarkdown('![Ancient map of Neverwinter](/maps/neverwinter.png)');
+		expect(html).toContain('<figure');
+		expect(html).toContain('note-figure');
+		expect(html).toContain('<figcaption');
+		expect(html).toContain('Ancient map of Neverwinter');
+	});
+
 	it('renders GFM task lists', async () => {
 		const md = '- [x] Done\n- [ ] Not done';
 		const html = await renderMarkdown(md);

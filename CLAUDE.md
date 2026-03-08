@@ -418,6 +418,20 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
   - Updated `ConfirmDialog.svelte` to use `Dialog` directly
   - Updated `Toast.svelte` to use `Icon` for status icons; dismiss button aria-label changed to "Dismiss notification"; `role="alert"` for warning/error, `role="status"` for info/success
   - Updated `MetadataEditor.svelte` and `Modal.svelte` close button to use `Button`
+- **Epic 15.4** — TTRPG Visual Language:
+  - Added theme preset domain contract in `src/lib/domain/theme.ts` (+ tests) with presets `parchment`, `tavern`, `scholar`, `dungeon` and compatibility handling for legacy `light`/`dark` values.
+  - Reworked theme selection UX to preset-driven appearance controls:
+    - `ThemeToggle.svelte` now exposes Auto + four presets
+    - TopBar/command-palette direct theme toggles removed
+    - root layout applies `html.theme-*` classes and preserves `dark` family class behavior for compatibility.
+  - Upgraded markdown rendering pipeline and presentation:
+    - added figure/caption transform plugin (`rehype-figure-images`)
+    - added `[!Secret]` callout type support with visual treatment
+    - improved table, heading, wikilink, and image figure styling in `src/app.css`.
+  - Added canonical stat block visual renderer in `src/lib/ui/viewer/StatBlockView.svelte` and wired it into note page/detail panel object rendering.
+  - Refined `PlayerCharacterSheet.svelte` into a two-column, session-readable viewer (with compact mode for detail panel).
+  - Added dramatic dice-result chip treatments (nat 20 shimmer, nat 1 pulse, reduced-motion fallback) in `DiceTrayPanel.svelte` + `src/app.css`.
+  - Updated token architecture reference `docs/architecture/DESIGN_TOKENS.md` for preset-class based theme overrides.
 
 ## What Not To Do
 

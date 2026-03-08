@@ -357,18 +357,6 @@
 				run: () => navigate(`${resolve('/settings')}?tab=vault`),
 			},
 			{
-				id: 'command-toggle-theme',
-				group: 'Commands',
-				title: 'Toggle dark mode',
-				subtitle: ui.resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
-				keywords: 'theme dark light toggle',
-				run: async () => {
-					const nextTheme = ui.resolvedTheme === 'dark' ? 'light' : 'dark';
-					await ui.setTheme(nextTheme);
-					closePalette();
-				},
-			},
-			{
 				id: 'command-roll-1d20',
 				group: 'Commands',
 				title: 'Roll 1d20',

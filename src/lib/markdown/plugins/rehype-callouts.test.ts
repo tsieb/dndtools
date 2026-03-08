@@ -19,7 +19,7 @@ describe('rehype-callouts', () => {
 	});
 
 	it('supports D&D-specific callout types', async () => {
-		const types = ['dm', 'quest', 'npc', 'location', 'item', 'lore'];
+		const types = ['dm', 'quest', 'npc', 'location', 'item', 'lore', 'secret'];
 		for (const type of types) {
 			const md = `> [!${type}] Title\n> Content`;
 			const html = await renderMarkdown(md);

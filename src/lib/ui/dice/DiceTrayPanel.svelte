@@ -54,6 +54,16 @@
 		error = '';
 	}
 
+	function rollKindForEntry(entry: (typeof history)[number] | null): 'nat20' | 'nat1' | 'normal' {
+		if (!entry) return 'normal';
+		const d20 = entry.rolls.find((detail) => detail.notation.toLowerCase().includes('d20'));
+		if (!d20 || d20.kept.length !== 1) return 'normal';
+		const kept = d20.kept[0];
+		if (kept === 20) return 'nat20';
+		if (kept === 1) return 'nat1';
+		return 'normal';
+	}
+
 	function resetMacroEditor(): void {
 		macroEditId = null;
 		macroLabel = '';
@@ -160,7 +170,12 @@
 					<p class="text-xs text-ink-muted truncate">
 						{lastRoll.expression}
 					</p>
-					<p class="text-lg font-bold text-ink">= {lastRoll.totalText}</p>
+					<p class="text-lg font-bold text-ink">
+						=
+						<span class="dice-result-chip" data-result-kind={rollKindForEntry(lastRoll)}>
+							{lastRoll.totalText}
+						</span>
+					</p>
 					<p class="text-xs text-ink-faint">{lastRoll.breakdown}</p>
 				</div>
 				<p class="text-xs text-ink-faint">{formatTime(lastRoll.at)}</p>
@@ -200,7 +215,10 @@
 					<li class="rounded border border-border/50 bg-surface px-2 py-1.5">
 						<div class="flex items-center justify-between gap-2 text-xs">
 							<span class="truncate text-ink">{entry.expression}</span>
-							<span class="font-mono text-ink">{entry.totalText}</span>
+							<span
+								class="font-mono text-ink dice-result-chip"
+								data-result-kind={rollKindForEntry(entry)}>{entry.totalText}</span
+							>
 						</div>
 						<div class="flex items-center justify-between gap-2 text-2xs text-ink-faint mt-0.5">
 							<span
