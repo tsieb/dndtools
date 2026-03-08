@@ -402,6 +402,22 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
   - Graph visualization SVG in `graph/+page.svelte` intentionally kept (data canvas, not an icon)
   - Domain icon vocabulary documented in `docs/reference/ICON_VOCABULARY.md`
   - Navigation iconography spec in `docs/architecture/NAVIGATION_ICONOGRAPHY.md` updated (source of truth is now `Icon` component)
+- **Epic 15.3** — Core Component Library Rebuild:
+  - Extended `src/lib/ui/common/Button.svelte`: added `link` variant, `icon` (leading), `trailingIcon`, `ariaPressed`, `class` props; `children` optional for icon-only usage
+  - Added 8 new icons to Icon.svelte: `alert-circle`, `check-circle`, `chevron-down`, `eye`, `eye-off`, `info`, `plus`, with `<Comp>` syntax (replacing deprecated `<svelte:component>`)
+  - Built form component suite in `src/lib/ui/common/`: `Input.svelte`, `Textarea.svelte`, `Select.svelte`, `Checkbox.svelte`, `Toggle.svelte`, `TagInput.svelte` — all use semantic tokens, proper labels, error states with icon indicators
+  - Built navigation component suite in `src/lib/ui/nav/`: `NavItem.svelte` (link/button duality, icon, badge, depth), `NavSection.svelte` (collapsible with caret + action icon), `NavRail.svelte` (vertical icon rail), `NavBar.svelte` (horizontal compact nav); exported from `src/lib/ui/nav/index.ts`
+  - Refactored `CollapsibleLocalNavSection.svelte` to wrap `NavSection`
+  - Updated `Sidebar.svelte` DM/Player mode switcher to use `Toggle`; Onboarding button to use `Button`
+  - Built `src/lib/ui/common/Card.svelte` (header/body/footer slots, interactive mode, padding/elevation variants) and `ListItem.svelte` (link/button/div triple mode, leadingIcon, trailing/action slots)
+  - Updated `NoteCard.svelte` to use Card surface tokens (border, bg-surface, rounded-lg, shadow-sm) with consistent spacing
+  - Built `src/lib/ui/common/Dialog.svelte` (proper `aria-labelledby`, focus trap, Button close); `Modal.svelte` now wraps `Dialog`
+  - Built `src/lib/ui/common/Sheet.svelte` (bottom-anchored, drag-handle dismiss, focus trap)
+  - Built `src/lib/ui/common/Popover.svelte` (non-modal, outside-click/Escape dismiss, anchor-relative positioning)
+  - Built `src/lib/ui/common/Tooltip.svelte` (`role="tooltip"`, hover+focus trigger, placement variants)
+  - Updated `ConfirmDialog.svelte` to use `Dialog` directly
+  - Updated `Toast.svelte` to use `Icon` for status icons; dismiss button aria-label changed to "Dismiss notification"; `role="alert"` for warning/error, `role="status"` for info/success
+  - Updated `MetadataEditor.svelte` and `Modal.svelte` close button to use `Button`
 
 ## What Not To Do
 
