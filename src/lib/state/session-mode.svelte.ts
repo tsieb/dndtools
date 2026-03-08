@@ -3,6 +3,7 @@ import { sessionState } from '$lib/state/session-state.svelte.js';
 import type { SessionBoardId } from '$lib/types/session-board.js';
 import type {
 	ActiveSessionState,
+	SessionCombatantState,
 	SessionRollDetail,
 	SessionRollHistoryEntry,
 	SessionNaturalResult,
@@ -53,6 +54,11 @@ class SessionModeState {
 	rollHistory = $derived(sessionState.sessionRollHistory);
 	pinnedRollableTableIds = $derived(sessionState.pinnedRollableTableIds);
 	isActive = $derived(this.mode === 'active' && this.activeSession !== null);
+	combatants = $derived(this.activeSession?.combatants ?? []);
+	currentRound = $derived(this.activeSession?.currentRound ?? 1);
+	activeCombatantIndex = $derived(this.activeSession?.activeCombatantIndex ?? 0);
+	selectedCombatantId = $derived(this.activeSession?.selectedCombatantId ?? null);
+	combatReferenceObjectId = $derived(this.activeSession?.referenceObjectId ?? null);
 	elapsedMs = $derived.by(() => {
 		const activeSession = this.activeSession;
 		if (!activeSession) return 0;
@@ -77,6 +83,11 @@ class SessionModeState {
 			startedAt: input.startedAt ?? nowISO(),
 			sceneId: input.sceneId ?? null,
 			combatActive: input.combatActive === true,
+			combatants: [],
+			currentRound: 1,
+			activeCombatantIndex: 0,
+			selectedCombatantId: null,
+			referenceObjectId: null,
 		};
 		await sessionState.setSessionMode('active', next, { resetRollHistory: true });
 	}
@@ -101,6 +112,25 @@ class SessionModeState {
 			...activeSession,
 			combatActive,
 		});
+	}
+
+	async setCombatState(input: {
+		combatants: SessionCombatantState[];
+		currentRound: number;
+		activeCombatantIndex: number;
+		combatActive?: boolean;
+		selectedCombatantId?: string | null;
+		referenceObjectId?: string | null;
+	}): Promise<void> {
+		await sessionState.setCombatState(input);
+	}
+
+	async setCombatSelection(selectedCombatantId: string | null): Promise<void> {
+		await sessionState.setCombatSelection(selectedCombatantId);
+	}
+
+	async setCombatReferenceObjectId(referenceObjectId: string | null): Promise<void> {
+		await sessionState.setCombatReferenceObjectId(referenceObjectId);
 	}
 
 	async recordDiceRoll(entry: DiceLikeHistoryEntry): Promise<void> {

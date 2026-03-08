@@ -259,6 +259,14 @@ Vault metadata files in `.vault/`:
 `session-state.json` currently stores:
 
 - `mode` (`idle` or `active`) and `activeSession` identifiers/timestamps
+- active-session combat runtime state:
+  - `combatActive`
+  - `combatants[]` (`id`, `name`, `kind`, `initiative`, `currentHp`, `maxHp`, `tempHp`,
+    `conditions[]`, optional linked object metadata)
+  - `currentRound`
+  - `activeCombatantIndex`
+  - `selectedCombatantId`
+  - `referenceObjectId` (selected stat block quick-reference target)
 - `partyLocation` map context
 - `sessionRollHistory` (session-scoped roll log entries used by Session detail panel)
 - `pinnedRollableTableIds` (user-selected table shortcuts for Session Quick Panel)

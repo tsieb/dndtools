@@ -747,6 +747,82 @@ export const desktopContextMenuRequestSchema = z.discriminatedUnion('kind', [
 ]);
 
 /** Session runtime state persisted in `.vault/session-state.json`. */
+const sessionCombatConditionSchema = z
+	.object({
+		name: z.enum([
+			'Blinded',
+			'Charmed',
+			'Frightened',
+			'Grappled',
+			'Incapacitated',
+			'Invisible',
+			'Paralyzed',
+			'Petrified',
+			'Poisoned',
+			'Prone',
+			'Restrained',
+			'Stunned',
+			'Unconscious',
+		]),
+		roundsRemaining: z.number().int().min(1).max(999).nullable(),
+	})
+	.strict();
+
+const sessionCombatantSchema = z
+	.object({
+		id: idSchema,
+		name: z.string().min(1).max(MAX_STRING_LENGTH),
+		kind: z.enum(['pc', 'npc', 'creature']),
+		initiative: z.number().int().min(-100).max(100).nullable(),
+		currentHp: z.number().int().min(0).max(100_000),
+		maxHp: z.number().int().min(1).max(100_000),
+		tempHp: z.number().int().min(0).max(100_000),
+		conditions: z.array(sessionCombatConditionSchema).max(24),
+		linkedObjectId: idSchema.optional(),
+		linkedObjectType: z.enum(['stat_block', 'character']).optional(),
+		linkedObjectName: z.string().max(MAX_STRING_LENGTH).optional(),
+	})
+	.strict();
+
+const sessionActiveStateSchema = z
+	.object({
+		sessionBoardId: idSchema,
+		startedAt: z.string().min(1).max(MAX_STRING_LENGTH),
+		sceneId: z.string().max(MAX_STRING_LENGTH).nullable(),
+		combatActive: z.boolean(),
+		combatants: z.array(sessionCombatantSchema).max(200),
+		currentRound: z.number().int().min(1).max(999),
+		activeCombatantIndex: z.number().int().min(0).max(199),
+		selectedCombatantId: idSchema.nullable(),
+		referenceObjectId: idSchema.nullable(),
+	})
+	.strict();
+
+const sessionRollDetailSchema = z
+	.object({
+		notation: z.string().min(1).max(MAX_STRING_LENGTH),
+		rolls: z.array(z.number().int().min(-1_000).max(1_000)).max(400),
+		kept: z.array(z.number().int().min(-1_000).max(1_000)).max(400),
+		keptIndices: z.array(z.number().int().min(0).max(10_000)).max(400),
+		subtotal: z.number().int().min(-1_000_000).max(1_000_000),
+	})
+	.strict();
+
+const sessionRollHistoryEntrySchema = z
+	.object({
+		id: idSchema,
+		at: z.string().min(1).max(MAX_STRING_LENGTH),
+		kind: z.enum(['dice', 'table']),
+		source: z.string().min(1).max(MAX_STRING_LENGTH),
+		expression: z.string().min(1).max(MAX_STRING_LENGTH),
+		result: z.string().min(1).max(MAX_STRING_LENGTH),
+		breakdown: z.string().max(MAX_CONTENT_LENGTH),
+		rolls: z.array(sessionRollDetailSchema).max(100),
+		label: z.string().max(MAX_STRING_LENGTH).nullable(),
+		naturalResult: z.enum(['nat20', 'nat1']).nullable(),
+	})
+	.strict();
+
 export const sessionStateSchema = z
 	.object({
 		version: z.literal(1),
@@ -760,6 +836,10 @@ export const sessionStateSchema = z
 				updatedAt: z.string().min(1).max(MAX_STRING_LENGTH),
 			})
 			.nullable(),
+		mode: z.enum(['idle', 'active']),
+		activeSession: sessionActiveStateSchema.nullable(),
+		sessionRollHistory: z.array(sessionRollHistoryEntrySchema).max(300),
+		pinnedRollableTableIds: z.array(idSchema).max(300),
 	})
 	.strict();
 

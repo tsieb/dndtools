@@ -208,6 +208,31 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
     - `src/lib/markdown/pipeline.test.ts`
     - `src/lib/domain/rollable-tables.test.ts`
 
+- **Epic 16.3** — Combat Tracker: Persistent, Fast, and Touch-Ready:
+  - Moved combat tracker runtime state into persisted session state (`src/lib/types/session-state.ts`)
+    including combatants, round, active index, selected combatant, and stat block reference id.
+  - Added session combat domain helpers in `src/lib/domain/session-combat.ts` for:
+    - initiative sorting
+    - turn advancement with round-wrap condition decrement/expiry notices
+    - HP damage/heal/temp application with undo snapshots
+  - Rebuilt `/session/combat` UI (`src/routes/combat/+page.svelte`) as a full-height
+    list/detail tracker with:
+    - large `Next Turn` CTA and keyboard shortcuts (`n`, `d`, `h`)
+    - touch-friendly HP controls and press-hold numeric quick-adjust popover
+    - 5-second undo affordance after HP changes
+    - per-combatant condition badges + duration editing
+    - linked stat block reference actions (detail panel on expanded, bottom sheet on compact/medium)
+  - Updated Session local navigation combat snapshot (`src/lib/ui/sections/local-nav/SessionLocalNavPanel.svelte`)
+    to read from session-state combat fields instead of board tile state.
+  - Extended session detail panel quick-reference (`src/lib/ui/layout/DetailPanel.svelte`) to render
+    selected combat stat block references.
+  - Added collapsible stat block action/trait sections for mid-combat focus in
+    `src/lib/ui/viewer/StatBlockView.svelte`.
+  - Added/updated tests:
+    - `src/lib/domain/session-combat.test.ts`
+    - `src/lib/types/session-state.test.ts`
+    - `tests/e2e-desktop/critical-workflows.spec.ts`
+
 - **Epic 1.3** Ã¢â‚¬â€ Integrity Verification & Self-Repair (commit `115d933`):
   - `NoteIntegrityIssueStatus` extended with `'orphan_entry'`
   - `vaultHealthState` singleton in `src/lib/state/vaultHealth.svelte.ts`

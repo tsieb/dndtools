@@ -5,6 +5,7 @@ import {
 	type SessionPartyLocation,
 	type SessionMode,
 	type ActiveSessionState,
+	type SessionCombatantState,
 	type SessionRollHistoryEntry,
 	type SessionState,
 } from '$lib/types/session-state.js';
@@ -76,6 +77,54 @@ class SessionStateStore {
 			activeSession: mode === 'active' ? session : null,
 			sessionRollHistory: shouldResetRollHistory ? [] : this.state.sessionRollHistory,
 		});
+	}
+
+	async updateActiveSession(
+		updater: (session: ActiveSessionState) => ActiveSessionState,
+	): Promise<void> {
+		if (this.state.mode !== 'active' || !this.state.activeSession) return;
+		await this.save({
+			...this.state,
+			mode: 'active',
+			activeSession: updater(this.state.activeSession),
+		});
+	}
+
+	async setCombatState(input: {
+		combatants: SessionCombatantState[];
+		currentRound: number;
+		activeCombatantIndex: number;
+		combatActive?: boolean;
+		selectedCombatantId?: string | null;
+		referenceObjectId?: string | null;
+	}): Promise<void> {
+		await this.updateActiveSession((session) => ({
+			...session,
+			combatants: [...input.combatants],
+			currentRound: input.currentRound,
+			activeCombatantIndex: input.activeCombatantIndex,
+			combatActive: input.combatActive ?? input.combatants.length > 0,
+			selectedCombatantId:
+				input.selectedCombatantId !== undefined
+					? input.selectedCombatantId
+					: session.selectedCombatantId,
+			referenceObjectId:
+				input.referenceObjectId !== undefined ? input.referenceObjectId : session.referenceObjectId,
+		}));
+	}
+
+	async setCombatSelection(selectedCombatantId: string | null): Promise<void> {
+		await this.updateActiveSession((session) => ({
+			...session,
+			selectedCombatantId,
+		}));
+	}
+
+	async setCombatReferenceObjectId(referenceObjectId: string | null): Promise<void> {
+		await this.updateActiveSession((session) => ({
+			...session,
+			referenceObjectId,
+		}));
 	}
 
 	async appendSessionRoll(entry: SessionRollHistoryEntry): Promise<void> {

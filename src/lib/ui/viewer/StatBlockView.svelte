@@ -5,9 +5,10 @@
 	interface Props {
 		object: StatBlockObject;
 		compact?: boolean;
+		collapsibleSections?: boolean;
 	}
 
-	let { object, compact = false }: Props = $props();
+	let { object, compact = false, collapsibleSections = false }: Props = $props();
 
 	const abilityOrder: Array<keyof StatBlockObject['data']['abilities']> = [
 		'str',
@@ -27,10 +28,8 @@
 		return key.toUpperCase();
 	}
 
-	function sectionRows(entries: { name: string; description: string }[]): string[] {
-		return entries
-			.map((entry) => `${entry.name}. ${entry.description}`.trim())
-			.filter((entry) => entry.length > 0);
+	function sectionRow(entry: { name: string; description: string }): string {
+		return `${entry.name}. ${entry.description}`.trim();
 	}
 </script>
 
@@ -71,36 +70,72 @@
 		{#if object.data.traits.length > 0}
 			<section class="stat-block-view__section">
 				<h3>Traits</h3>
-				{#each sectionRows(object.data.traits) as line (line)}
-					<p>{line}</p>
-				{/each}
+				{#if collapsibleSections}
+					{#each object.data.traits as entry (`trait-${entry.name}`)}
+						<details class="stat-block-view__collapsible" open>
+							<summary>{entry.name}</summary>
+							<p>{entry.description}</p>
+						</details>
+					{/each}
+				{:else}
+					{#each object.data.traits as entry (`trait-${entry.name}`)}
+						<p>{sectionRow(entry)}</p>
+					{/each}
+				{/if}
 			</section>
 		{/if}
 
 		{#if object.data.actions.length > 0}
 			<section class="stat-block-view__section">
 				<h3>Actions</h3>
-				{#each sectionRows(object.data.actions) as line (line)}
-					<p>{line}</p>
-				{/each}
+				{#if collapsibleSections}
+					{#each object.data.actions as entry (`action-${entry.name}`)}
+						<details class="stat-block-view__collapsible" open>
+							<summary>{entry.name}</summary>
+							<p>{entry.description}</p>
+						</details>
+					{/each}
+				{:else}
+					{#each object.data.actions as entry (`action-${entry.name}`)}
+						<p>{sectionRow(entry)}</p>
+					{/each}
+				{/if}
 			</section>
 		{/if}
 
 		{#if object.data.reactions.length > 0}
 			<section class="stat-block-view__section">
 				<h3>Reactions</h3>
-				{#each sectionRows(object.data.reactions) as line (line)}
-					<p>{line}</p>
-				{/each}
+				{#if collapsibleSections}
+					{#each object.data.reactions as entry (`reaction-${entry.name}`)}
+						<details class="stat-block-view__collapsible" open>
+							<summary>{entry.name}</summary>
+							<p>{entry.description}</p>
+						</details>
+					{/each}
+				{:else}
+					{#each object.data.reactions as entry (`reaction-${entry.name}`)}
+						<p>{sectionRow(entry)}</p>
+					{/each}
+				{/if}
 			</section>
 		{/if}
 
 		{#if object.data.legendaryActions.length > 0}
 			<section class="stat-block-view__section">
 				<h3>Legendary Actions</h3>
-				{#each sectionRows(object.data.legendaryActions) as line (line)}
-					<p>{line}</p>
-				{/each}
+				{#if collapsibleSections}
+					{#each object.data.legendaryActions as entry (`legendary-${entry.name}`)}
+						<details class="stat-block-view__collapsible" open>
+							<summary>{entry.name}</summary>
+							<p>{entry.description}</p>
+						</details>
+					{/each}
+				{:else}
+					{#each object.data.legendaryActions as entry (`legendary-${entry.name}`)}
+						<p>{sectionRow(entry)}</p>
+					{/each}
+				{/if}
 			</section>
 		{/if}
 		<div class="stat-block-view__toprule" aria-hidden="true"></div>
@@ -150,6 +185,20 @@
 		margin: 0.24rem 0;
 		font-size: var(--text-sm);
 		line-height: 1.45;
+	}
+
+	.stat-block-view__collapsible {
+		margin: 0.28rem 0;
+		border: 1px solid var(--color-border);
+		border-radius: 0.45rem;
+		padding: 0.3rem 0.45rem;
+		background: color-mix(in srgb, var(--color-surface-alt) 40%, transparent);
+	}
+
+	.stat-block-view__collapsible summary {
+		cursor: pointer;
+		font-size: var(--text-sm);
+		font-weight: 600;
 	}
 
 	.stat-block-view__abilities {

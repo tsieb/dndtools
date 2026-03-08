@@ -1,3 +1,5 @@
+import type { VaultObjectId } from './object.js';
+
 export interface SessionPartyLocation {
 	mapId: string;
 	x: number;
@@ -34,11 +36,54 @@ export interface SessionRollHistoryEntry {
 
 export type SessionMode = 'idle' | 'active';
 
+export const SESSION_CONDITION_NAMES = [
+	'Blinded',
+	'Charmed',
+	'Frightened',
+	'Grappled',
+	'Incapacitated',
+	'Invisible',
+	'Paralyzed',
+	'Petrified',
+	'Poisoned',
+	'Prone',
+	'Restrained',
+	'Stunned',
+	'Unconscious',
+] as const;
+
+export type SessionConditionName = (typeof SESSION_CONDITION_NAMES)[number];
+export type SessionCombatantKind = 'pc' | 'npc' | 'creature';
+
+export interface SessionCombatCondition {
+	name: SessionConditionName;
+	roundsRemaining: number | null;
+}
+
+export interface SessionCombatantState {
+	id: string;
+	name: string;
+	kind: SessionCombatantKind;
+	initiative: number | null;
+	currentHp: number;
+	maxHp: number;
+	tempHp: number;
+	conditions: SessionCombatCondition[];
+	linkedObjectId?: VaultObjectId;
+	linkedObjectType?: 'stat_block' | 'character';
+	linkedObjectName?: string;
+}
+
 export interface ActiveSessionState {
 	sessionBoardId: string;
 	startedAt: string;
 	sceneId: string | null;
 	combatActive: boolean;
+	combatants: SessionCombatantState[];
+	currentRound: number;
+	activeCombatantIndex: number;
+	selectedCombatantId: string | null;
+	referenceObjectId: string | null;
 }
 
 export interface SessionState {
@@ -76,6 +121,78 @@ function toOptionalTrimmedString(value: unknown): string | undefined {
 	if (typeof value !== 'string') return undefined;
 	const trimmed = value.trim();
 	return trimmed || undefined;
+}
+
+function toNullableInt(value: unknown): number | null {
+	if (typeof value === 'number' && Number.isFinite(value)) {
+		return Math.trunc(value);
+	}
+	if (typeof value === 'string') {
+		const parsed = Number.parseInt(value, 10);
+		if (Number.isFinite(parsed)) {
+			return Math.trunc(parsed);
+		}
+	}
+	return null;
+}
+
+const CONDITION_NAME_SET = new Set<string>(SESSION_CONDITION_NAMES);
+
+function normalizeSessionCombatCondition(value: unknown): SessionCombatCondition | null {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+	const source = value as Record<string, unknown>;
+	const nameRaw = toOptionalTrimmedString(source.name);
+	if (!nameRaw || !CONDITION_NAME_SET.has(nameRaw)) return null;
+	const rounds = toNullableInt(source.roundsRemaining);
+	return {
+		name: nameRaw as SessionConditionName,
+		roundsRemaining: rounds === null ? null : Math.max(1, Math.min(999, rounds)),
+	};
+}
+
+function normalizeSessionCombatantState(value: unknown): SessionCombatantState | null {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+	const source = value as Record<string, unknown>;
+	const id = toOptionalTrimmedString(source.id);
+	const name = toOptionalTrimmedString(source.name);
+	if (!id || !name) return null;
+	const maxHpRaw = toNullableInt(source.maxHp);
+	const maxHp = Math.max(1, maxHpRaw ?? 1);
+	const currentHpRaw = toNullableInt(source.currentHp);
+	const currentHp = Math.max(0, Math.min(maxHp, currentHpRaw ?? maxHp));
+	const tempHpRaw = toNullableInt(source.tempHp);
+	const tempHp = Math.max(0, tempHpRaw ?? 0);
+	const kind: SessionCombatantKind =
+		source.kind === 'pc' || source.kind === 'npc' ? source.kind : 'creature';
+	const initiative = toNullableInt(source.initiative);
+	const conditionList = Array.isArray(source.conditions) ? source.conditions : [];
+	const seen = new Set<string>();
+	const conditions = conditionList
+		.map((entry) => normalizeSessionCombatCondition(entry))
+		.filter((entry): entry is SessionCombatCondition => entry !== null)
+		.filter((entry) => {
+			const key = entry.name.toLowerCase();
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		})
+		.slice(0, 24);
+	return {
+		id,
+		name,
+		kind,
+		initiative,
+		currentHp,
+		maxHp,
+		tempHp,
+		conditions,
+		linkedObjectId: toOptionalTrimmedString(source.linkedObjectId) as VaultObjectId | undefined,
+		linkedObjectType:
+			source.linkedObjectType === 'stat_block' || source.linkedObjectType === 'character'
+				? source.linkedObjectType
+				: undefined,
+		linkedObjectName: toOptionalTrimmedString(source.linkedObjectName),
+	};
 }
 
 function normalizeRollDetail(value: unknown): SessionRollDetail | null {
@@ -181,11 +298,35 @@ export function normalizeSessionState(value: unknown): SessionState {
 			const sessionBoardId = toOptionalTrimmedString(session.sessionBoardId);
 			const startedAt = toOptionalTrimmedString(session.startedAt);
 			if (sessionBoardId && startedAt) {
+				const combatants = Array.isArray(session.combatants)
+					? session.combatants
+							.map((entry) => normalizeSessionCombatantState(entry))
+							.filter((entry): entry is SessionCombatantState => entry !== null)
+							.slice(0, 200)
+					: [];
+				const currentRoundRaw = toNullableInt(session.currentRound);
+				const currentRound = Math.max(1, currentRoundRaw ?? 1);
+				const activeCombatantIndexRaw = toNullableInt(session.activeCombatantIndex);
+				const activeCombatantIndex =
+					combatants.length === 0
+						? 0
+						: Math.max(0, Math.min(combatants.length - 1, activeCombatantIndexRaw ?? 0));
+				const selectedCombatantIdRaw = toOptionalTrimmedString(session.selectedCombatantId) ?? null;
+				const selectedCombatantId =
+					selectedCombatantIdRaw &&
+					combatants.some((combatant) => combatant.id === selectedCombatantIdRaw)
+						? selectedCombatantIdRaw
+						: null;
 				activeSession = {
 					sessionBoardId,
 					startedAt,
 					sceneId: toOptionalTrimmedString(session.sceneId) ?? null,
-					combatActive: session.combatActive === true,
+					combatActive: combatants.length > 0 && session.combatActive === true,
+					combatants,
+					currentRound,
+					activeCombatantIndex,
+					selectedCombatantId,
+					referenceObjectId: toOptionalTrimmedString(session.referenceObjectId) ?? null,
 				};
 			}
 		}

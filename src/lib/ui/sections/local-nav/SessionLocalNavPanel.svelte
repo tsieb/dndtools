@@ -15,7 +15,6 @@
 	import SessionDiceBar from '$lib/ui/dice/SessionDiceBar.svelte';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import type { RollableTableEntry } from '$lib/domain/rollable-tables.js';
-	import type { SessionBoardCombatTile } from '$lib/types/session-board.js';
 
 	interface Props {
 		ondice: () => void;
@@ -37,20 +36,13 @@
 	let includeRollLog = $state(true);
 	let latestTableResultById = $state<Record<string, string>>({});
 	let now = $state(Date.now());
-	const activeCombatTile = $derived.by<SessionBoardCombatTile | null>(() => {
-		if (!activeBoard) return null;
-		const tile = activeBoard.tiles.find((entry) => entry.type === 'combat');
-		return tile && tile.type === 'combat' ? tile : null;
-	});
 	const initiativeSummary = $derived.by(() => {
-		const combat = activeCombatTile?.combat;
-		if (!combat) return null;
-		const activeCombatant =
-			combat.combatants.find((entry) => entry.id === combat.activeCombatantId) ?? null;
+		if (!activeSession?.combatActive || activeSession.combatants.length === 0) return null;
+		const activeCombatant = activeSession.combatants[activeSession.activeCombatantIndex] ?? null;
 		return {
-			round: combat.round,
+			round: activeSession.currentRound,
 			activeCombatantName: activeCombatant?.name ?? null,
-			combatantCount: combat.combatants.length,
+			combatantCount: activeSession.combatants.length,
 		};
 	});
 	$effect(() => {

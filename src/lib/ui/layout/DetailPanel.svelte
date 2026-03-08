@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { mapsState } from '$lib/state/maps.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { objectsState } from '$lib/state/objects.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
 	import { createNoteId } from '$lib/types/note.js';
@@ -76,6 +77,14 @@
 			typeCounts: Object.entries(typeCounts).sort(([left], [right]) => left.localeCompare(right)),
 		};
 	});
+	const sessionCombatReference = $derived.by(() => {
+		const referenceId = sessionModeState.combatReferenceObjectId;
+		if (!referenceId) return null;
+		return objectsState.objectById[referenceId] ?? null;
+	});
+	const sessionCombatReferenceStatBlock = $derived.by(() =>
+		sessionCombatReference?.type === 'stat_block' ? sessionCombatReference : null,
+	);
 
 	let now = $state(Date.now());
 
@@ -114,9 +123,20 @@
 		void sessionBoardsState.loadAll();
 	});
 
+	$effect(() => {
+		if (context !== 'session') return;
+		if (!sessionModeState.combatReferenceObjectId) return;
+		if (objectsState.loading || objectsState.objects.length > 0) return;
+		void objectsState.loadAll();
+	});
+
 	function openDiceTray(): void {
 		if (typeof window === 'undefined') return;
 		window.dispatchEvent(new CustomEvent('dndtools:open-dice-tray'));
+	}
+
+	function clearSessionCombatReference(): void {
+		void sessionModeState.setCombatReferenceObjectId(null);
 	}
 </script>
 
@@ -216,6 +236,30 @@
 					</p>
 				{/if}
 			</section>
+
+			{#if sessionCombatReferenceStatBlock}
+				<section class="rounded-md border border-border bg-surface p-3">
+					<div class="mb-2 flex items-center justify-between gap-2">
+						<p class="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+							Combat Stat Block
+						</p>
+						<button
+							type="button"
+							class="rounded-md border border-border px-2.5 py-1 text-xs text-ink-muted hover:bg-surface-alt"
+							onclick={clearSessionCombatReference}
+						>
+							Clear
+						</button>
+					</div>
+					<StatBlockView object={sessionCombatReferenceStatBlock} compact collapsibleSections />
+				</section>
+			{:else if sessionCombatReference}
+				<section class="rounded-md border border-border bg-surface p-3">
+					<p class="text-xs text-ink-muted">
+						Selected combat reference is not a stat block object.
+					</p>
+				</section>
+			{/if}
 
 			{#if sessionModeState.isActive}
 				<SessionDiceBar compact source="tray" oncustom={openDiceTray} />

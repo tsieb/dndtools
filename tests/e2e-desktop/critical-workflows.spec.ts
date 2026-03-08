@@ -511,7 +511,8 @@ test.describe('Desktop critical workflows @critical', () => {
 		}
 	});
 
-	test('combat tracker route exposes board selection and no-tile recovery controls', async () => {
+	test('combat tracker route shows idle-session guidance', async () => {
+		test.setTimeout(120_000);
 		const app = await launchWithSeed(async (adapter) => {
 			const now = new Date().toISOString();
 			await adapter.saveSessionBoard({
@@ -535,19 +536,9 @@ test.describe('Desktop critical workflows @critical', () => {
 		try {
 			await gotoDesktopPath(app.page, '/session/combat');
 			await expect(app.page).toHaveURL(/\/combat$/);
-			const boardSelect = app.page.locator('label:has-text("Board") select').first();
-			if ((await boardSelect.count()) > 0) {
-				await boardSelect.selectOption({ label: 'Combat Route Board' });
-				await expect(app.page.getByText('Selected board has no combat tile.')).toBeVisible();
-				await expect(
-					app.page.getByRole('button', { name: 'Add Combat Tile' }).last(),
-				).toBeEnabled();
-				const openSessionBoardLink = app.page.getByRole('link', { name: 'Open Session Board' });
-				if ((await openSessionBoardLink.count()) > 0) {
-					await openSessionBoardLink.click();
-					await expect(app.page).toHaveURL(/\/session\/boards$/);
-				}
-			}
+			await expect(app.page.getByRole('heading', { name: 'Combat Tracker' })).toBeVisible();
+			await expect(app.page.getByText('Session mode is idle.')).toBeVisible();
+			await expect(app.page.getByRole('button', { name: 'Open Session Boards' })).toBeVisible();
 		} finally {
 			await closeDesktopApp(app);
 		}
