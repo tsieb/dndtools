@@ -172,6 +172,46 @@ elevation level.
 
 ---
 
+## Epic 15.5 — Density and Reading Width Tokens
+
+Density and reading-width preferences are applied at the document root and consumed
+as component-level tokens.
+
+### Root data attributes
+
+- `html[data-density="standard" | "compact"]`
+- `html[data-note-reading-width="comfortable" | "wide" | "full"]`
+
+### Density tokens
+
+| Token                         | Standard | Compact | Use                             |
+| ----------------------------- | -------- | ------- | ------------------------------- |
+| `--density-nav-item-height-*` | 36px     | 28px    | shared nav/list controls        |
+| `--density-card-padding-*`    | 16px     | 12px    | card-like surfaces              |
+| `--density-list-gap-*`        | 4px      | 2px     | stacked list spacing            |
+| `--component-card-padding`    | 16px     | 12px    | consumed by `Card` + `NoteCard` |
+| `--component-list-gap`        | 4px      | 2px     | consumed by `.density-list`     |
+
+### Sidebar density contract
+
+- Primary section rail items use `--sidebar-primary-nav-height` (`48px`).
+- Folder-tree rows use `--sidebar-tree-item-height` (`32px`).
+- Tag pills use `--sidebar-tag-pill-height` (`24px`).
+- Open Thread rows use `--sidebar-open-thread-height` (`32px`).
+
+### Reading width token
+
+- `--component-note-reading-width` resolves by preset:
+  - `comfortable` → `68ch`
+  - `wide` → `90ch`
+  - `full` → `none`
+
+Prose surfaces (`NoteViewer`, `NoteHeader`, editor preview/body containers) consume
+`max-width: var(--component-note-reading-width)` so the preference applies in both
+viewer and editor mode.
+
+---
+
 ## Token Compliance Lint
 
 `pnpm lint:tokens` (wired into `pnpm lint` / `pnpm check`) enforces:

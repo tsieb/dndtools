@@ -319,6 +319,8 @@ describe('AC3 — Enum values / whitelists are enforced', () => {
 	describe('appSettingsKeySchema', () => {
 		const validKeys = [
 			'theme',
+			'uiDensity',
+			'noteReadingWidth',
 			'sidebarOpen',
 			'sidebarWidth',
 			'focusReading',

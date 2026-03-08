@@ -61,6 +61,7 @@ import { DND_TEMPLATES, GLOBAL_TEMPLATE_IDS } from '../src/lib/domain/templates.
 import { REUSABLE_SNIPPETS } from '../src/lib/domain/snippets.js';
 import { normalizeWorldCalendar } from '../src/lib/domain/world-calendar.js';
 import { normalizeThemeSetting } from '../src/lib/domain/theme.js';
+import { normalizeNoteReadingWidth, normalizeUiDensity } from '../src/lib/domain/appearance.js';
 import { normalizeSyncConflictStrategy, normalizeSyncEngineState } from '../src/lib/domain/sync.js';
 import { normalizeDiceMacros } from '../src/lib/domain/dice.js';
 import {
@@ -415,6 +416,12 @@ function normalizeSettingValue<K extends keyof AppSettings>(
 ): AppSettings[K] {
 	if (key === 'theme') {
 		return normalizeThemeSetting(value) as AppSettings[K];
+	}
+	if (key === 'uiDensity') {
+		return normalizeUiDensity(value) as AppSettings[K];
+	}
+	if (key === 'noteReadingWidth') {
+		return normalizeNoteReadingWidth(value) as AppSettings[K];
 	}
 	if (key === 'mcpPolicySettings') {
 		return normalizeMcpPolicySettings(value) as AppSettings[K];

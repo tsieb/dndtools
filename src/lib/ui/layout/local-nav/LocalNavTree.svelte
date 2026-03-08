@@ -157,7 +157,13 @@
 	}
 </script>
 
-<div role="tree" aria-label={ariaLabel} onfocus={handleTreeFocus} tabindex="-1" class="space-y-0.5">
+<div
+	role="tree"
+	aria-label={ariaLabel}
+	onfocus={handleTreeFocus}
+	tabindex="-1"
+	class="density-list"
+>
 	{#if entries.length === 0}
 		<button
 			type="button"
@@ -165,7 +171,7 @@
 			role="treeitem"
 			aria-level={1}
 			aria-selected="false"
-			class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-xs text-ink-faint disabled:cursor-default"
+			class="sidebar-tree-item w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-xs text-ink-faint disabled:cursor-default"
 		>
 			{emptyLabel}
 		</button>
@@ -173,7 +179,7 @@
 		{#each entries as entry, index (entry.id)}
 			<button
 				type="button"
-				class="flex w-full items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-left text-xs transition-[transform,colors] active:scale-[0.97] active:brightness-95 {activeId ===
+				class="sidebar-tree-item flex w-full items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-left text-xs transition-[transform,colors] active:scale-[0.97] active:brightness-95 {activeId ===
 				entry.id
 					? 'border-accent bg-accent-subtle/70 text-accent'
 					: 'border-transparent text-ink-muted hover:bg-bg hover:text-ink'} {entry.dimmed

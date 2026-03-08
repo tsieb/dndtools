@@ -49,7 +49,7 @@
 		{:else}
 			{#if pinnedEntities.length > 0}
 				<p class="px-2.5 pb-1 text-xs uppercase tracking-wider text-ink-faint">Pinned</p>
-				<div class="space-y-0.5 pb-2">
+				<div class="density-list pb-2">
 					{#each pinnedEntities as note (note.id)}
 						<button
 							type="button"
@@ -64,7 +64,7 @@
 			{/if}
 			{#if entities.length > 0}
 				<p class="px-2.5 pb-1 text-xs uppercase tracking-wider text-ink-faint">Recently Updated</p>
-				<div class="space-y-0.5">
+				<div class="density-list">
 					{#each entities as note (note.id)}
 						<button
 							type="button"
@@ -90,11 +90,11 @@
 		{#if openThreads.quests.length === 0 && openThreads.npcs.length === 0}
 			<p class="px-2.5 py-1.5 text-xs text-ink-faint">No open threads</p>
 		{:else}
-			<div class="space-y-0.5 pt-2">
+			<div class="density-list pt-2">
 				{#each [...openThreads.quests.slice(0, 4), ...openThreads.npcs.slice(0, 4)] as thread (`${thread.objectId}`)}
 					<button
 						type="button"
-						class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg hover:text-ink"
+						class="sidebar-open-thread-item w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg hover:text-ink"
 						onclick={() => navigateToNote(thread.noteId)}
 						title={thread.title}
 					>
@@ -113,7 +113,7 @@
 		{#if openThreads.timelineEvents.length === 0}
 			<p class="px-2.5 py-1.5 text-xs text-ink-faint">No pending timeline events</p>
 		{:else}
-			<div class="space-y-0.5">
+			<div class="density-list">
 				{#each openThreads.timelineEvents.slice(0, 10) as event (event.objectId)}
 					<button
 						type="button"

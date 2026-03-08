@@ -134,6 +134,20 @@
 	--component-nav-item-px: var(--space-3); /* 12px horizontal padding */
 	--component-nav-item-py: var(--space-1\.5); /* 6px vertical padding */
 	--component-card-padding: var(--space-4); /* 16px card padding */
+	--component-list-gap: var(--space-1); /* 4px list gap */
+	--component-note-reading-width: 68ch; /* comfortable default */
+
+	--density-nav-item-height-standard: 2.25rem; /* 36px */
+	--density-nav-item-height-compact: 1.75rem; /* 28px */
+	--density-card-padding-standard: var(--space-4); /* 16px */
+	--density-card-padding-compact: var(--space-3); /* 12px */
+	--density-list-gap-standard: var(--space-1); /* 4px */
+	--density-list-gap-compact: var(--space-0\.5); /* 2px */
+
+	--sidebar-primary-nav-height: 3rem; /* 48px */
+	--sidebar-tree-item-height: 2rem; /* 32px */
+	--sidebar-tag-pill-height: 1.5rem; /* 24px */
+	--sidebar-open-thread-height: 2rem; /* 32px */
 
 	/* ===== S15.1.4: Easing Tokens ===== */
 	--easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
@@ -141,6 +155,30 @@
 	--easing-accelerate: cubic-bezier(0.4, 0, 1, 1); /* elements leaving screen */
 
 	--dndtools-keyboard-inset: 0px;
+}
+
+html[data-density='compact'] {
+	--component-nav-item-py: var(--space-1);
+	--component-card-padding: var(--density-card-padding-compact);
+	--component-list-gap: var(--density-list-gap-compact);
+}
+
+html[data-density='standard'] {
+	--component-nav-item-py: var(--space-1\.5);
+	--component-card-padding: var(--density-card-padding-standard);
+	--component-list-gap: var(--density-list-gap-standard);
+}
+
+html[data-note-reading-width='comfortable'] {
+	--component-note-reading-width: 68ch;
+}
+
+html[data-note-reading-width='wide'] {
+	--component-note-reading-width: 90ch;
+}
+
+html[data-note-reading-width='full'] {
+	--component-note-reading-width: none;
 }
 
 /* ===== Theme preset semantic token overrides ===== */
@@ -286,6 +324,7 @@ html.theme-dungeon .app-main::before {
 	--primary-nav-active: 0;
 	/* S15.1.3: component spacing tokens govern structural padding in expanded/medium layouts */
 	padding: var(--component-nav-item-py) var(--component-nav-item-px);
+	min-height: var(--sidebar-primary-nav-height);
 	color: color-mix(in srgb, var(--color-ink-muted) 92%, transparent);
 	border-left: 2px solid transparent;
 	transition:
@@ -297,6 +336,7 @@ html.theme-dungeon .app-main::before {
 /* Compact bottom-nav overrides the component token padding */
 [data-mode='compact'] .primary-nav-item {
 	padding: 0.25rem;
+	min-height: var(--sidebar-primary-nav-height);
 }
 
 .primary-nav-item .primary-nav-icon {
@@ -338,6 +378,35 @@ html.theme-dungeon .app-main::before {
 	border-top-color: var(--color-accent);
 	color: var(--color-accent);
 	background: color-mix(in srgb, var(--color-accent-subtle) 75%, transparent);
+}
+
+.density-nav-item {
+	min-height: var(--density-nav-item-height-standard);
+}
+
+html[data-density='compact'] .density-nav-item {
+	min-height: var(--density-nav-item-height-compact);
+}
+
+.density-list {
+	display: grid;
+	gap: var(--component-list-gap);
+}
+
+.density-card {
+	padding: var(--component-card-padding);
+}
+
+.sidebar-tree-item {
+	min-height: var(--sidebar-tree-item-height);
+}
+
+.sidebar-tag-pill {
+	min-height: var(--sidebar-tag-pill-height);
+}
+
+.sidebar-open-thread-item {
+	min-height: var(--sidebar-open-thread-height);
 }
 
 /* ===== Animations ===== */

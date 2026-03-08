@@ -432,6 +432,18 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
   - Refined `PlayerCharacterSheet.svelte` into a two-column, session-readable viewer (with compact mode for detail panel).
   - Added dramatic dice-result chip treatments (nat 20 shimmer, nat 1 pulse, reduced-motion fallback) in `DiceTrayPanel.svelte` + `src/app.css`.
   - Updated token architecture reference `docs/architecture/DESIGN_TOKENS.md` for preset-class based theme overrides.
+- **Epic 15.5** — Density, Readability, and Content Width:
+  - Added global appearance preferences `uiDensity` and `noteReadingWidth` to `AppSettings` with adapter-level normalization (`indexeddb`, `capacitor`, `mcp`), wired into UI state, and surfaced in Settings → Appearance.
+  - Root layout now applies `data-density` and `data-note-reading-width` on `<html>`; `src/app.css` maps these to density tokens and prose width tokens (`68ch`, `90ch`, `full`).
+  - Refined note readability and list information scent:
+    - prose viewer/editor containers now consume `max-width: var(--component-note-reading-width)`
+    - note cards now show note-type icon, stronger title hierarchy, folder breadcrumb, relative modified date, two-tag pills, and two-line excerpt.
+  - Applied sidebar density contract tokens:
+    - primary rail nav item height 48px
+    - folder-tree items 32px
+    - tag pills 24px
+    - Open Threads rows 32px
+  - Extended IPC setting validation to include new settings keys (`uiDensity`, `noteReadingWidth`) and updated IPC security regression coverage.
 
 ## What Not To Do
 

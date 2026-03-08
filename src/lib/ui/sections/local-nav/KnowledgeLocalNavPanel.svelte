@@ -428,7 +428,7 @@
 						{#each modeScopedTagCounts.slice(0, 18) as tag (tag.name)}
 							<button
 								type="button"
-								class="rounded-full bg-accent-subtle px-2 py-0.5 text-xs text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-accent/20"
+								class="sidebar-tag-pill inline-flex items-center rounded-full bg-accent-subtle px-2 py-0.5 text-xs text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-accent/20"
 								onclick={() =>
 									navigateToPath(
 										`${resolve('/knowledge/notes')}?tag=${encodeURIComponent(tag.name)}`,
@@ -445,7 +445,7 @@
 	{:else if knowledgeMode === 'recent'}
 		<div id={recentPanelId} role="tabpanel" aria-labelledby="knowledge-tab-recent" class="pb-2">
 			<CollapsibleLocalNavSection section="knowledge" sectionId="recent-history" title="Recent">
-				<div class="space-y-0.5">
+				<div class="density-list">
 					{#if recentItems.length === 0}
 						<p class="px-2.5 py-1.5 text-xs text-ink-faint">No visit history yet</p>
 					{:else}
@@ -476,7 +476,7 @@
 				sectionId="recent-updated"
 				title="Recently Updated"
 			>
-				<div class="space-y-0.5">
+				<div class="density-list">
 					{#if recentNotes.length === 0}
 						<p class="px-2.5 py-1.5 text-xs text-ink-faint">No recently updated notes</p>
 					{:else}
@@ -499,7 +499,7 @@
 	{:else}
 		<div id={savedPanelId} role="tabpanel" aria-labelledby="knowledge-tab-saved" class="pb-2">
 			<CollapsibleLocalNavSection section="knowledge" sectionId="pinned-notes" title="Pinned Notes">
-				<div class="space-y-0.5">
+				<div class="density-list">
 					{#if pinnedNotes.length === 0}
 						<p class="px-2.5 py-1.5 text-xs text-ink-faint">
 							Pin notes to keep them in quick reach

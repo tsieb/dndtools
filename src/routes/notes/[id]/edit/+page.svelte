@@ -260,7 +260,11 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if note && !playerModeState.enabled}
-	<div class={compactEditorLayout ? 'h-full p-3' : 'mx-auto max-w-[1200px] p-6'}>
+	<div
+		class={compactEditorLayout
+			? 'h-full p-3'
+			: 'mx-auto w-full max-w-[var(--component-note-reading-width)] p-6'}
+	>
 		<h1 class="sr-only">Edit {note.title}</h1>
 		<div class="mb-4 flex items-center {compactEditorLayout ? 'justify-end' : 'justify-between'}">
 			{#if !compactEditorLayout}

@@ -17,6 +17,9 @@ export interface EditorSettings {
 	toolbarDensity: 'compact' | 'comfortable';
 }
 
+export type UiDensityMode = 'standard' | 'compact';
+export type NoteReadingWidthMode = 'comfortable' | 'wide' | 'full';
+
 export interface SortSettings {
 	field: 'title' | 'updatedAt' | 'createdAt';
 	direction: 'asc' | 'desc';
@@ -68,6 +71,8 @@ export interface McpPolicySettings {
 
 export interface AppSettings {
 	theme: ThemeSetting;
+	uiDensity: UiDensityMode;
+	noteReadingWidth: NoteReadingWidthMode;
 	sidebarOpen: boolean;
 	sidebarWidth: number;
 	focusReading: boolean;
@@ -97,6 +102,8 @@ export interface SettingRecord {
 
 export const DEFAULT_SETTINGS: AppSettings = {
 	theme: 'system',
+	uiDensity: 'standard',
+	noteReadingWidth: 'comfortable',
 	sidebarOpen: true,
 	sidebarWidth: 240,
 	focusReading: false,

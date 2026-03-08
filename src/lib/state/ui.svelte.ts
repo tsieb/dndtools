@@ -7,9 +7,13 @@ import {
 	type ThemePreset,
 	type ThemeSetting,
 } from '$lib/domain/theme.js';
+import { normalizeNoteReadingWidth, normalizeUiDensity } from '$lib/domain/appearance.js';
+import type { NoteReadingWidthMode, UiDensityMode } from '$lib/types/settings.js';
 
 class UIState {
 	theme = $state<ThemeSetting>('system');
+	uiDensity = $state<UiDensityMode>('standard');
+	noteReadingWidth = $state<NoteReadingWidthMode>('comfortable');
 	sidebarOpen = $state(true);
 	sidebarWidth = $state(240);
 	focusReading = $state(false);
@@ -22,6 +26,8 @@ class UIState {
 		const storedTheme = normalizeThemeSetting(await storage.getSetting('theme'));
 		this.theme =
 			storedTheme === 'light' ? 'parchment' : storedTheme === 'dark' ? 'tavern' : storedTheme;
+		this.uiDensity = normalizeUiDensity(await storage.getSetting('uiDensity'));
+		this.noteReadingWidth = normalizeNoteReadingWidth(await storage.getSetting('noteReadingWidth'));
 		this.sidebarOpen = await storage.getSetting('sidebarOpen');
 		this.sidebarWidth = await storage.getSetting('sidebarWidth');
 		this.focusReading = await storage.getSetting('focusReading');
@@ -30,6 +36,16 @@ class UIState {
 	async setTheme(theme: ThemeSetting): Promise<void> {
 		this.theme = theme;
 		await getStorage().setSetting('theme', theme);
+	}
+
+	async setUiDensity(value: UiDensityMode): Promise<void> {
+		this.uiDensity = normalizeUiDensity(value);
+		await getStorage().setSetting('uiDensity', this.uiDensity);
+	}
+
+	async setNoteReadingWidth(value: NoteReadingWidthMode): Promise<void> {
+		this.noteReadingWidth = normalizeNoteReadingWidth(value);
+		await getStorage().setSetting('noteReadingWidth', this.noteReadingWidth);
 	}
 
 	toggleSidebar(): void {

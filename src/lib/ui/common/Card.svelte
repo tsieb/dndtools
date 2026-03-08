@@ -33,7 +33,7 @@
 	const paddingClass: Record<string, string> = {
 		none: '',
 		sm: 'p-3',
-		md: 'p-4',
+		md: 'density-card',
 		lg: 'p-6',
 	};
 

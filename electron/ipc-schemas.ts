@@ -505,6 +505,8 @@ export const sessionBoardSchema = z.object({
  */
 export const appSettingsKeySchema = z.enum([
 	'theme',
+	'uiDensity',
+	'noteReadingWidth',
 	'sidebarOpen',
 	'sidebarWidth',
 	'focusReading',
@@ -770,6 +772,8 @@ export const sessionStateSchema = z
  */
 export const settingValueSchemas: Record<string, z.ZodTypeAny> = {
 	theme: z.enum(['system', 'parchment', 'tavern', 'scholar', 'dungeon', 'light', 'dark']),
+	uiDensity: z.enum(['standard', 'compact']),
+	noteReadingWidth: z.enum(['comfortable', 'wide', 'full']),
 	sidebarOpen: z.boolean(),
 	sidebarWidth: z.number().int().min(160).max(600),
 	focusReading: z.boolean(),

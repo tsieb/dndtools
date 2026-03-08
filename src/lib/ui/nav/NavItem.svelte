@@ -20,7 +20,7 @@
 	const indent = $derived(depth > 0 ? `padding-left: calc(${depth} * 1rem + 0.625rem)` : '');
 
 	const baseClass =
-		'group flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-[transform,colors] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent';
+		'nav-item density-nav-item group flex w-full items-center gap-2 rounded-md px-2.5 text-sm font-medium transition-[transform,colors] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent';
 	const activeClass = 'bg-accent-subtle text-accent';
 	const inactiveClass = 'text-ink-muted hover:bg-surface-alt hover:text-ink';
 </script>

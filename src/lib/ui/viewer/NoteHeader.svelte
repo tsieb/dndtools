@@ -104,7 +104,7 @@
 	}
 </script>
 
-<div class="max-w-content mx-auto mb-6">
+<div class="mx-auto mb-6 w-full max-w-[var(--component-note-reading-width)]">
 	<div class="flex items-start justify-between gap-4">
 		<div class="min-w-0 flex-1">
 			<h1 class="text-2xl font-bold text-ink break-words" style="font-family: var(--font-serif)">

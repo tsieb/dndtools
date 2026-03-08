@@ -78,8 +78,8 @@
 				aria-label={item.label}
 				title={iconOnly ? item.label : undefined}
 				class="primary-nav-item {compact
-					? 'flex min-h-12 flex-col items-center justify-center rounded-md text-2xs font-medium'
-					: 'flex min-h-11 items-center rounded-lg text-sm font-medium'}"
+					? 'flex flex-col items-center justify-center rounded-md text-2xs font-medium'
+					: 'flex items-center rounded-lg text-sm font-medium'}"
 				data-active={active ? 'true' : 'false'}
 				style="--primary-nav-active: {active ? 1 : 0}"
 				onclick={(event) => handleSectionClick(event, item.id, active)}

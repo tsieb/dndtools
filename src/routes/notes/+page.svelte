@@ -422,7 +422,7 @@
 						<span class="text-xs font-semibold uppercase tracking-wider text-ink-faint">Pinned</span
 						>
 					</div>
-					<div class="grid gap-3 {mediumSplitActive ? '' : 'sm:grid-cols-2'}">
+					<div class="density-list {mediumSplitActive ? '' : 'sm:grid-cols-2'}">
 						{#each pinnedNotes as note (note.id)}
 							<NoteCard
 								{note}
@@ -437,9 +437,9 @@
 			{/if}
 
 			{#if showListSkeleton}
-				<div class="grid gap-3 {mediumSplitActive ? '' : 'sm:grid-cols-2'}">
+				<div class="density-list {mediumSplitActive ? '' : 'sm:grid-cols-2'}">
 					{#each Array(8) as _, i (`skeleton-${i}`)}
-						<div class="rounded-lg border border-border/60 bg-surface p-4">
+						<div class="density-card rounded-lg border border-border/60 bg-surface">
 							<div class="mb-3 h-5 w-2/3 animate-pulse rounded bg-border/50"></div>
 							<div class="mb-2 h-3 w-full animate-pulse rounded bg-border/50"></div>
 							<div class="mb-3 h-3 w-4/5 animate-pulse rounded bg-border/50"></div>
@@ -451,7 +451,7 @@
 					{/each}
 				</div>
 			{:else if filteredNotes.length > 0}
-				<div class="grid gap-3 {mediumSplitActive ? '' : 'sm:grid-cols-2'}">
+				<div class="density-list {mediumSplitActive ? '' : 'sm:grid-cols-2'}">
 					{#each filteredNotes as note (note.id)}
 						<NoteCard
 							{note}

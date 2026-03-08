@@ -3,6 +3,7 @@
 	import type { Note, NoteId } from '$lib/types/note.js';
 	import { formatRelativeDate } from '$lib/utils/date.js';
 	import Icon from '$lib/ui/common/Icon.svelte';
+	import type { IconName } from '$lib/ui/common/Icon.svelte';
 
 	interface Props {
 		note: Note;
@@ -44,14 +45,31 @@
 			.trim(),
 	);
 
-	let filePath = $derived(
-		note.filePath ??
-			(note.folder === '/'
-				? `${note.title}.md`
-				: `${note.folder.replace(/^\//, '')}/${note.title}.md`),
-	);
-
 	let wordCount = $derived(note.content.trim().split(/\s+/).filter(Boolean).length);
+	let noteType = $derived.by(() => {
+		const typed =
+			typeof note.frontmatter.type === 'string' ? note.frontmatter.type.toLowerCase() : '';
+		if (typed) return typed;
+		if (note.tags.some((tag) => tag.toLowerCase() === 'character')) return 'character';
+		if (note.tags.some((tag) => tag.toLowerCase() === 'location')) return 'location';
+		if (note.tags.some((tag) => tag.toLowerCase() === 'session')) return 'session';
+		if (note.tags.some((tag) => tag.toLowerCase() === 'combat')) return 'combat';
+		return 'note';
+	});
+	let noteTypeIcon = $derived.by<IconName>(() => {
+		if (noteType === 'character') return 'star';
+		if (noteType === 'location') return 'map';
+		if (noteType === 'session') return 'clock';
+		if (noteType === 'combat') return 'triangle-alert';
+		return 'file-text';
+	});
+	let noteTypeLabel = $derived.by(() => {
+		if (noteType === 'character') return 'Character';
+		if (noteType === 'location') return 'Location';
+		if (noteType === 'session') return 'Session';
+		if (noteType === 'combat') return 'Combat';
+		return 'Note';
+	});
 
 	const cardTransformStyle = $derived.by(
 		() => `transform: translateX(${Math.round(dragOffset)}px);`,
@@ -207,7 +225,7 @@
 
 	<!-- Card face: uses Card surface tokens (bg-surface, border-border, rounded-lg, shadow) -->
 	<button
-		class="note-card-foreground group relative z-10 w-full rounded-lg border border-border bg-surface p-4 pr-11 text-left shadow-sm transition-[border,box-shadow,transform] hover:border-accent/40 hover:shadow-md"
+		class="note-card-foreground group relative z-10 w-full rounded-lg border border-border bg-surface density-card pr-11 text-left shadow-sm transition-[border,box-shadow,transform] hover:border-accent/40 hover:shadow-md"
 		style={cardTransformStyle}
 		onclick={activateCard}
 		onkeydown={handleCardKeydown}
@@ -217,8 +235,12 @@
 		ontouchend={handleTouchEnd}
 		ontouchcancel={handleTouchCancel}
 	>
-		<div class="flex items-start justify-between gap-2">
-			<h3 class="font-medium text-ink transition-colors group-hover:text-accent">
+		<div class="flex items-center gap-2 text-xs text-ink-muted">
+			<Icon name={noteTypeIcon} size="xs" />
+			<span>{noteTypeLabel}</span>
+		</div>
+		<div class="mt-1.5 flex items-start justify-between gap-2">
+			<h3 class="text-base font-semibold text-ink transition-colors group-hover:text-accent">
 				{#if note.pinned}
 					<span class="mr-1 inline-block -mt-0.5 text-accent">
 						<Icon name="pin" size="xs" />
@@ -227,27 +249,30 @@
 				{note.title}
 			</h3>
 		</div>
+		<p class="mt-1 text-xs text-ink-muted">
+			{note.folder === '/' ? 'Root' : note.folder.replace(/^\//, '').replace(/\//g, ' / ')}
+		</p>
 		{#if preview}
 			<p class="mt-1.5 line-clamp-2 text-xs leading-relaxed text-ink-muted">
 				{preview}
 			</p>
 		{/if}
 		<div class="mt-2 flex items-center gap-2 text-xs text-ink-faint">
-			<span class="truncate font-mono">{filePath}</span>
-			<span aria-hidden="true">&middot;</span>
 			<span>{formatRelativeDate(note.updatedAt)}</span>
 			<span aria-hidden="true">&middot;</span>
 			<span>{wordCount} words</span>
 		</div>
 		{#if note.tags.length > 0}
 			<div class="mt-2 flex flex-wrap gap-1">
-				{#each note.tags.slice(0, 4) as tag (tag)}
-					<span class="rounded-md bg-accent-subtle px-1.5 py-0.5 text-xs text-accent">
+				{#each note.tags.slice(0, 2) as tag (tag)}
+					<span
+						class="sidebar-tag-pill inline-flex items-center rounded-md bg-accent-subtle px-1.5 py-0.5 text-xs text-accent"
+					>
 						{tag}
 					</span>
 				{/each}
-				{#if note.tags.length > 4}
-					<span class="text-xs text-ink-faint">+{note.tags.length - 4}</span>
+				{#if note.tags.length > 2}
+					<span class="text-xs text-ink-faint">+{note.tags.length - 2}</span>
 				{/if}
 			</div>
 		{/if}

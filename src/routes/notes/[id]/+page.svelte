@@ -222,7 +222,7 @@
 
 {#if note}
 	<div class="p-6">
-		<div class="mx-auto mb-3 flex max-w-content justify-end">
+		<div class="mx-auto mb-3 flex w-full max-w-[var(--component-note-reading-width)] justify-end">
 			<button
 				type="button"
 				class="rounded-md px-2.5 py-1 text-xs text-ink-muted hover:bg-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
@@ -240,7 +240,9 @@
 			ondelete={() => (showDeleteConfirm = true)}
 		/>
 		{#if frontmatterMapPlacement}
-			<div class="max-w-content mx-auto mb-4 rounded-lg border border-border bg-surface p-3">
+			<div
+				class="mx-auto mb-4 w-full max-w-[var(--component-note-reading-width)] rounded-lg border border-border bg-surface p-3"
+			>
 				<div class="mb-2 flex items-center justify-between gap-2">
 					<p class="text-xs font-semibold text-ink">Map Minimap</p>
 					<a
@@ -269,7 +271,9 @@
 		{/if}
 		<TableOfContents content={note.content} />
 		{#if !playerModeState.enabled}
-			<div class="max-w-content mx-auto mb-4 rounded-lg border border-border bg-surface p-3">
+			<div
+				class="mx-auto mb-4 w-full max-w-[var(--component-note-reading-width)] rounded-lg border border-border bg-surface p-3"
+			>
 				<div class="flex items-center gap-2">
 					<input
 						type="text"

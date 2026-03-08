@@ -158,6 +158,8 @@
 		root.classList.remove('theme-parchment', 'theme-tavern', 'theme-scholar', 'theme-dungeon');
 		root.classList.add(`theme-${ui.resolvedThemePreset}`);
 		root.classList.toggle('dark', ui.resolvedTheme === 'dark');
+		root.dataset.density = ui.uiDensity;
+		root.dataset.noteReadingWidth = ui.noteReadingWidth;
 	});
 
 	$effect(() => {

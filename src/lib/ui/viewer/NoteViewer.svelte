@@ -476,7 +476,11 @@
 	});
 </script>
 
-<div class="markdown-content max-w-content mx-auto" role="document" bind:this={contentEl}>
+<div
+	class="markdown-content mx-auto w-full max-w-[var(--component-note-reading-width)]"
+	role="document"
+	bind:this={contentEl}
+>
 	<!-- Content is sanitized by renderMarkdown before injecting HTML. -->
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 	{@html html}

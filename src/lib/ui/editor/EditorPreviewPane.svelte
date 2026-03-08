@@ -69,7 +69,10 @@
 	class="h-full overflow-auto rounded-lg border border-border bg-surface p-4"
 	aria-label="Markdown preview"
 >
-	<div class="markdown-content max-w-none" role="document">
+	<div
+		class="markdown-content mx-auto w-full max-w-[var(--component-note-reading-width)]"
+		role="document"
+	>
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html html}
 	</div>

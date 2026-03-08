@@ -8,6 +8,7 @@ import { DND_TEMPLATES } from '$lib/domain/templates.js';
 import { normalizeSyncConflictStrategy, normalizeSyncEngineState } from '$lib/domain/sync.js';
 import { normalizeWorldCalendar } from '$lib/domain/world-calendar.js';
 import { normalizeThemeSetting } from '$lib/domain/theme.js';
+import { normalizeNoteReadingWidth, normalizeUiDensity } from '$lib/domain/appearance.js';
 import {
 	normalizeMobileVaultRoot,
 	resolveConfiguredMobileVaultRoot,
@@ -104,6 +105,8 @@ function normalizeSettings(raw: unknown): AppSettings {
 		...base,
 		...source,
 		theme: normalizeThemeSetting(source.theme),
+		uiDensity: normalizeUiDensity(source.uiDensity),
+		noteReadingWidth: normalizeNoteReadingWidth(source.noteReadingWidth),
 		editor: {
 			...base.editor,
 			...(source.editor ?? {}),
