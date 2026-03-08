@@ -29,6 +29,7 @@ const CALLOUT_ICONS: Record<string, string> = {
 	dm: '\uD83C\uDFB2',
 	player: '\uD83D\uDDE1\uFE0F',
 	lore: '\uD83D\uDCDC',
+	secret: '\uD83D\uDD12',
 	quest: '\u2694\uFE0F',
 	npc: '\uD83D\uDC64',
 	location: '\uD83C\uDFF0',

@@ -13,6 +13,7 @@
 	} from '$lib/domain/map-pois.js';
 	import NoteViewer from '$lib/ui/viewer/NoteViewer.svelte';
 	import PlayerCharacterSheet from '$lib/ui/player/PlayerCharacterSheet.svelte';
+	import StatBlockView from '$lib/ui/viewer/StatBlockView.svelte';
 	import ObjectRelationshipPanel from '$lib/ui/viewer/ObjectRelationshipPanel.svelte';
 	import NoteHeader from '$lib/ui/viewer/NoteHeader.svelte';
 	import BacklinksPanel from '$lib/ui/viewer/BacklinksPanel.svelte';
@@ -80,6 +81,12 @@
 		if (!playerModeState.enabled || !note || note.visibility !== 'shared') return null;
 		const object = noteToVaultObject(note);
 		if (!object || object.type !== 'character') return null;
+		return object;
+	});
+	let statBlockObject = $derived.by(() => {
+		if (!note) return null;
+		const object = noteToVaultObject(note);
+		if (!object || object.type !== 'stat_block') return null;
 		return object;
 	});
 
@@ -296,6 +303,8 @@
 			<div class="min-w-0">
 				{#if playerCharacterObject}
 					<PlayerCharacterSheet object={playerCharacterObject} />
+				{:else if statBlockObject}
+					<StatBlockView object={statBlockObject} />
 				{:else}
 					<NoteViewer {note} />
 				{/if}

@@ -7,6 +7,7 @@ import { REUSABLE_SNIPPETS } from '$lib/domain/snippets.js';
 import { DND_TEMPLATES } from '$lib/domain/templates.js';
 import { normalizeSyncConflictStrategy, normalizeSyncEngineState } from '$lib/domain/sync.js';
 import { normalizeWorldCalendar } from '$lib/domain/world-calendar.js';
+import { normalizeThemeSetting } from '$lib/domain/theme.js';
 import {
 	normalizeMobileVaultRoot,
 	resolveConfiguredMobileVaultRoot,
@@ -102,6 +103,7 @@ function normalizeSettings(raw: unknown): AppSettings {
 	return {
 		...base,
 		...source,
+		theme: normalizeThemeSetting(source.theme),
 		editor: {
 			...base.editor,
 			...(source.editor ?? {}),

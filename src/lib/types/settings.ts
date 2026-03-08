@@ -1,5 +1,6 @@
 import type { WorldCalendar } from './world-calendar.js';
 import type { SessionBoardTemplate } from './session-board.js';
+import type { ThemeSetting } from '$lib/domain/theme.js';
 import {
 	createDefaultSyncEngineState,
 	type SyncConflictStrategy,
@@ -66,7 +67,7 @@ export interface McpPolicySettings {
 }
 
 export interface AppSettings {
-	theme: 'light' | 'dark' | 'system';
+	theme: ThemeSetting;
 	sidebarOpen: boolean;
 	sidebarWidth: number;
 	focusReading: boolean;

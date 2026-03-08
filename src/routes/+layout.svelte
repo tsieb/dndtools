@@ -154,7 +154,10 @@
 
 	$effect(() => {
 		if (typeof document === 'undefined') return;
-		document.documentElement.classList.toggle('dark', ui.resolvedTheme === 'dark');
+		const root = document.documentElement;
+		root.classList.remove('theme-parchment', 'theme-tavern', 'theme-scholar', 'theme-dungeon');
+		root.classList.add(`theme-${ui.resolvedThemePreset}`);
+		root.classList.toggle('dark', ui.resolvedTheme === 'dark');
 	});
 
 	$effect(() => {
@@ -451,11 +454,6 @@
 		handoutCreatorOpen = true;
 	}
 
-	async function toggleDarkThemeMode(): Promise<void> {
-		const next = ui.resolvedTheme === 'dark' ? 'light' : 'dark';
-		await ui.setTheme(next);
-	}
-
 	async function handleDesktopVaultPicker(): Promise<void> {
 		if (typeof window === 'undefined' || !window.dndtoolsDesktop) return;
 		const result = await pickDesktopVaultDirectory();
@@ -506,7 +504,7 @@
 			return;
 		}
 		if (command === 'toggle-dark-mode') {
-			await toggleDarkThemeMode();
+			await ui.setTheme(ui.resolvedTheme === 'dark' ? 'parchment' : 'tavern');
 			return;
 		}
 		if (command === 'start-session') {
@@ -656,9 +654,6 @@
 			if (!detailPanelAvailable) return;
 			event.preventDefault();
 			desktopShellState.toggleDetailPanel();
-		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'l') {
-			event.preventDefault();
-			void toggleDarkThemeMode();
 		} else if (mod && event.shiftKey && event.key.toLowerCase() === 's') {
 			if (playerModeState.enabled) return;
 			event.preventDefault();

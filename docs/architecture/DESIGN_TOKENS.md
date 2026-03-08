@@ -13,7 +13,7 @@ elevation — are expressed as CSS custom properties defined in `src/app.css`.
 Raw Palette tokens   (hex values, named after their visual identity)
         │
         └─► Semantic tokens  (purpose-named, light defaults in @theme,
-                               dark overrides in html.dark { })
+                               preset overrides in html.theme-* { })
                     │
                     └─► Component tokens  (built on space/semantic scale,
                                            e.g. --component-nav-item-px)
@@ -21,8 +21,8 @@ Raw Palette tokens   (hex values, named after their visual identity)
 
 Components **must** reference semantic tokens. They must **not** reference raw
 palette tokens or Tailwind color names. The `dark:` Tailwind prefix is abolished
-from structural and component styling — dark mode is handled by the semantic
-token override in `html.dark { }`.
+from structural and component styling — preset mode is handled by semantic
+token overrides in `html.theme-* { }`.
 
 The only permitted `dark:` usage is for content-specific status-indicator colors
 (e.g. `dark:text-emerald-300` for difficulty levels, `dark:text-amber-400` for
@@ -32,8 +32,12 @@ warnings) that intentionally use different color shades for legibility in each m
 
 ## S15.1.1 — Semantic Color Tokens
 
-Defined in `src/app.css` `@theme` block (light defaults) and overridden in
-`html.dark { }`:
+Defined in `src/app.css` `@theme` block (Parchment defaults) and overridden by
+theme preset classes:
+
+- `html.theme-tavern` (dark default)
+- `html.theme-scholar` (light high-contrast)
+- `html.theme-dungeon` (dark high-contrast)
 
 | Token                       | Light value | Dark value | Role                                      |
 | --------------------------- | ----------- | ---------- | ----------------------------------------- |
@@ -174,7 +178,7 @@ elevation level.
 
 1. **No arbitrary pixel font sizes** — `text-[Npx]` is banned; use the scale.
 2. **No structural `dark:` prefixes** — `dark:bg-surface`, `dark:text-ink` etc.
-   are banned; dark mode is handled by `html.dark { }` in `app.css`.
+   are banned; theme presets are handled by `html.theme-* { }` in `app.css`.
 
 Permitted `dark:` patterns (status-indicator colours for legibility):
 `dark:text-emerald-*`, `dark:bg-amber-*`, `dark:text-rose-*`, etc.

@@ -85,8 +85,10 @@
 		<div class="rounded-lg border border-border bg-surface divide-y divide-border">
 			<div class="flex items-center justify-between p-4">
 				<div>
-					<p class="text-sm font-medium text-ink">Theme</p>
-					<p class="text-xs text-ink-muted mt-0.5">Choose light, dark, or follow system</p>
+					<p class="text-sm font-medium text-ink">Theme Preset</p>
+					<p class="text-xs text-ink-muted mt-0.5">
+						Parchment, Tavern, Scholar, Dungeon, or Auto (system light/dark)
+					</p>
 				</div>
 				<ThemeToggle />
 			</div>
@@ -261,7 +263,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each [['Ctrl+N', 'Create new note'], ['Ctrl+O', 'Open vault folder'], ['Ctrl+P', 'Command palette'], ['Ctrl+D', 'Open dice tray'], ['Ctrl+Shift+C', 'Open combat tracker'], ['Ctrl+Shift+S', 'Open session boards'], ['Ctrl+Shift+E', 'Export markdown archive'], ['Ctrl+Shift+L', 'Toggle dark mode'], ['Ctrl+/', 'Open keyboard shortcuts'], ['Ctrl+Shift+Space', 'Quick reference HUD'], ['Ctrl+B', 'Toggle local navigation / Bold (in editor)'], ['Ctrl+Shift+R', 'Toggle contextual detail panel'], ['F11', 'Toggle Zen mode'], ['Ctrl+Shift+F', 'Global search'], ['Ctrl+S', 'Save note (in editor)'], ['Ctrl+I', 'Italic (in editor)'], ['Ctrl+E', 'Inline code (in editor)'], ['Ctrl+K', 'Insert link (in editor)'], ['Ctrl+Z', 'Undo (in editor)'], ['Ctrl+Shift+Z', 'Redo (in editor)']] as [shortcut, action] (shortcut)}
+					{#each [['Ctrl+N', 'Create new note'], ['Ctrl+O', 'Open vault folder'], ['Ctrl+P', 'Command palette'], ['Ctrl+D', 'Open dice tray'], ['Ctrl+Shift+C', 'Open combat tracker'], ['Ctrl+Shift+S', 'Open session boards'], ['Ctrl+Shift+E', 'Export markdown archive'], ['Ctrl+/', 'Open keyboard shortcuts'], ['Ctrl+Shift+Space', 'Quick reference HUD'], ['Ctrl+B', 'Toggle local navigation / Bold (in editor)'], ['Ctrl+Shift+R', 'Toggle contextual detail panel'], ['F11', 'Toggle Zen mode'], ['Ctrl+Shift+F', 'Global search'], ['Ctrl+S', 'Save note (in editor)'], ['Ctrl+I', 'Italic (in editor)'], ['Ctrl+E', 'Inline code (in editor)'], ['Ctrl+K', 'Insert link (in editor)'], ['Ctrl+Z', 'Undo (in editor)'], ['Ctrl+Shift+Z', 'Redo (in editor)']] as [shortcut, action] (shortcut)}
 						<tr class="border-b border-border last:border-0">
 							<td class="px-4 py-2.5">
 								<kbd

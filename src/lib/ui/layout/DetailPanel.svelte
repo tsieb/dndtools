@@ -10,6 +10,8 @@
 	import type { DetailPanelContext } from '$lib/domain/detail-panel-context.js';
 	import BacklinksPanel from '$lib/ui/viewer/BacklinksPanel.svelte';
 	import CrossSectionLinksPanel from '$lib/ui/viewer/CrossSectionLinksPanel.svelte';
+	import PlayerCharacterSheet from '$lib/ui/player/PlayerCharacterSheet.svelte';
+	import StatBlockView from '$lib/ui/viewer/StatBlockView.svelte';
 
 	interface Props {
 		context: DetailPanelContext;
@@ -100,6 +102,11 @@
 				{/if}
 			</div>
 			<div class="space-y-3">
+				{#if noteObject?.type === 'stat_block'}
+					<StatBlockView object={noteObject} compact />
+				{:else if noteObject?.type === 'character'}
+					<PlayerCharacterSheet object={noteObject} compact />
+				{/if}
 				<CrossSectionLinksPanel {note} {mapPlacements} />
 				<BacklinksPanel noteId={note.id} />
 			</div>

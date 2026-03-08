@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { ui } from '$lib/state/ui.svelte.js';
+	import type { ThemeSetting } from '$lib/domain/theme.js';
 
-	type ThemeValue = 'light' | 'system' | 'dark';
+	type ThemeValue = ThemeSetting;
 
 	const themes = [
-		{ value: 'light' as ThemeValue, label: 'Light', title: 'Use light theme' },
-		{ value: 'system' as ThemeValue, label: 'Auto', title: 'Match system theme' },
-		{ value: 'dark' as ThemeValue, label: 'Dark', title: 'Use dark theme' },
+		{ value: 'system' as ThemeValue, label: 'Auto', title: 'Match system (Parchment/Tavern)' },
+		{ value: 'parchment' as ThemeValue, label: 'Parchment', title: 'Warm parchment light theme' },
+		{ value: 'tavern' as ThemeValue, label: 'Tavern', title: 'Warm tavern dark theme' },
+		{ value: 'scholar' as ThemeValue, label: 'Scholar', title: 'Cool high-contrast light theme' },
+		{ value: 'dungeon' as ThemeValue, label: 'Dungeon', title: 'High-contrast dark theme' },
 	] as const;
 
 	function focusThemeOption(theme: ThemeValue): void {
@@ -59,9 +62,9 @@
 </script>
 
 <div
-	class="flex rounded-md border border-border overflow-hidden"
+	class="grid grid-cols-5 rounded-md border border-border overflow-hidden"
 	role="radiogroup"
-	aria-label="Theme"
+	aria-label="Theme preset"
 >
 	{#each themes as theme (theme.value)}
 		<button

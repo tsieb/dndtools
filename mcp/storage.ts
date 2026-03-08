@@ -60,6 +60,7 @@ import { withMcpChangePreview } from '../src/lib/domain/mcp-change-preview.js';
 import { DND_TEMPLATES, GLOBAL_TEMPLATE_IDS } from '../src/lib/domain/templates.js';
 import { REUSABLE_SNIPPETS } from '../src/lib/domain/snippets.js';
 import { normalizeWorldCalendar } from '../src/lib/domain/world-calendar.js';
+import { normalizeThemeSetting } from '../src/lib/domain/theme.js';
 import { normalizeSyncConflictStrategy, normalizeSyncEngineState } from '../src/lib/domain/sync.js';
 import { normalizeDiceMacros } from '../src/lib/domain/dice.js';
 import {
@@ -412,6 +413,9 @@ function normalizeSettingValue<K extends keyof AppSettings>(
 	key: K,
 	value: unknown,
 ): AppSettings[K] {
+	if (key === 'theme') {
+		return normalizeThemeSetting(value) as AppSettings[K];
+	}
 	if (key === 'mcpPolicySettings') {
 		return normalizeMcpPolicySettings(value) as AppSettings[K];
 	}

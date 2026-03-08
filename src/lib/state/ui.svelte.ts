@@ -1,28 +1,33 @@
 import { getStorage } from '$lib/platform/storage/index.js';
+import {
+	normalizeThemeSetting,
+	resolveThemeFamily,
+	resolveThemePreset,
+	type ThemeFamily,
+	type ThemePreset,
+	type ThemeSetting,
+} from '$lib/domain/theme.js';
 
 class UIState {
-	theme = $state<'light' | 'dark' | 'system'>('system');
+	theme = $state<ThemeSetting>('system');
 	sidebarOpen = $state(true);
 	sidebarWidth = $state(240);
 	focusReading = $state(false);
 
-	resolvedTheme = $derived<'light' | 'dark'>(
-		this.theme === 'system'
-			? typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-				? 'dark'
-				: 'light'
-			: this.theme,
-	);
+	resolvedTheme = $derived<ThemeFamily>(resolveThemeFamily(this.theme));
+	resolvedThemePreset = $derived<ThemePreset>(resolveThemePreset(this.theme));
 
 	async loadFromStorage(): Promise<void> {
 		const storage = getStorage();
-		this.theme = await storage.getSetting('theme');
+		const storedTheme = normalizeThemeSetting(await storage.getSetting('theme'));
+		this.theme =
+			storedTheme === 'light' ? 'parchment' : storedTheme === 'dark' ? 'tavern' : storedTheme;
 		this.sidebarOpen = await storage.getSetting('sidebarOpen');
 		this.sidebarWidth = await storage.getSetting('sidebarWidth');
 		this.focusReading = await storage.getSetting('focusReading');
 	}
 
-	async setTheme(theme: 'light' | 'dark' | 'system'): Promise<void> {
+	async setTheme(theme: ThemeSetting): Promise<void> {
 		this.theme = theme;
 		await getStorage().setSetting('theme', theme);
 	}

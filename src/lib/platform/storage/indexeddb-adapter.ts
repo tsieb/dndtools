@@ -7,6 +7,7 @@ import { REUSABLE_SNIPPETS } from '$lib/domain/snippets.js';
 import { DND_TEMPLATES } from '$lib/domain/templates.js';
 import { normalizeSyncConflictStrategy, normalizeSyncEngineState } from '$lib/domain/sync.js';
 import { normalizeWorldCalendar } from '$lib/domain/world-calendar.js';
+import { normalizeThemeSetting } from '$lib/domain/theme.js';
 import {
 	createNoteId,
 	type FolderId,
@@ -183,6 +184,8 @@ function normalizeSettingValue<K extends keyof AppSettings>(
 	}
 
 	switch (key) {
+		case 'theme':
+			return normalizeThemeSetting(value) as AppSettings[K];
 		case 'syncConflictStrategy':
 			return normalizeSyncConflictStrategy(value) as AppSettings[K];
 		case 'syncEngineState':
