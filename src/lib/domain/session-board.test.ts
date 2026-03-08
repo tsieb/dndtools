@@ -3,8 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
 	BUILT_IN_SESSION_BOARD_TEMPLATES,
 	DEFAULT_SESSION_CONTEXT,
+	createDefaultSessionBoardScene,
 	createDefaultTimerState,
 	normalizeBoardTemplatesSetting,
+	normalizeSessionBoardHandoutHistory,
+	normalizeSessionBoardScenes,
 	normalizeSessionContextState,
 	normalizeSessionBoardTile,
 } from './session-board.js';
@@ -193,5 +196,63 @@ describe('session-board domain', () => {
 
 	it('falls back to default context state for invalid input', () => {
 		expect(normalizeSessionContextState(null)).toEqual(DEFAULT_SESSION_CONTEXT);
+	});
+
+	it('normalizes scene payloads and guarantees an active scene', () => {
+		const normalized = normalizeSessionBoardScenes(
+			[
+				{
+					id: 'scene-2',
+					title: 'Market Chase',
+					description: 'A running chase through crowded stalls.',
+					referenceNoteIds: ['note-a', 'note-a', 'note-b'],
+					threadNoteIds: ['quest-1'],
+				},
+			],
+			'missing-scene-id',
+			'Session Board',
+		);
+		expect(normalized.scenes).toHaveLength(1);
+		expect(normalized.scenes[0]?.title).toBe('Market Chase');
+		expect(normalized.scenes[0]?.referenceNoteIds).toEqual(['note-a', 'note-b']);
+		expect(normalized.activeSceneId).toBe('scene-2');
+
+		const fallback = normalizeSessionBoardScenes([], null, 'Board');
+		expect(fallback.scenes).toHaveLength(1);
+		expect(fallback.scenes[0]?.title).toContain('Board');
+		expect(fallback.activeSceneId).toBe(fallback.scenes[0]?.id ?? null);
+
+		const created = createDefaultSessionBoardScene('Custom Opening', '2026-03-08T00:00:00.000Z');
+		expect(created.title).toBe('Custom Opening');
+		expect(created.entityNoteIds).toEqual([]);
+	});
+
+	it('normalizes handout delivery history entries', () => {
+		const normalized = normalizeSessionBoardHandoutHistory([
+			{
+				id: 'delivery-1',
+				handoutId: 'handout-1',
+				title: 'Duke Letter',
+				sourceKind: 'note',
+				deliveredAt: '2026-03-08T09:12:00.000Z',
+			},
+			{
+				id: 'delivery-2',
+				handoutId: 'handout-2',
+				title: 'City Map',
+				sourceKind: 'map_region',
+				deliveredAt: '2026-03-08T10:12:00.000Z',
+			},
+			{
+				id: '',
+				handoutId: '',
+				title: '',
+				deliveredAt: '',
+			},
+		]);
+		expect(normalized).toHaveLength(2);
+		expect(normalized[0]?.id).toBe('delivery-2');
+		expect(normalized[0]?.sourceKind).toBe('map_region');
+		expect(normalized[1]?.sourceKind).toBe('note');
 	});
 });

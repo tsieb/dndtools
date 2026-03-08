@@ -26,6 +26,11 @@
 	const mostRecentBoard = $derived(sessionBoardsState.boards[0] ?? null);
 	const isSessionActive = $derived(sessionModeState.isActive);
 	const activeSession = $derived(sessionModeState.activeSession);
+	const activeSceneTitle = $derived.by(() => {
+		if (!activeBoard || !activeSession?.sceneId) return null;
+		const scene = activeBoard.scenes?.find((entry) => entry.id === activeSession.sceneId);
+		return scene?.title ?? null;
+	});
 	let showStartDialog = $state(false);
 	let showEndConfirm = $state(false);
 	let showSummaryDialog = $state(false);
@@ -110,7 +115,7 @@
 			sessionBoardsState.setActiveBoard(mostRecentBoard.id);
 			await sessionModeState.startSession({
 				sessionBoardId: mostRecentBoard.id,
-				sceneId: mostRecentBoard.id,
+				sceneId: mostRecentBoard.activeSceneId ?? null,
 			});
 			showStartDialog = false;
 			openSessionBoard();
@@ -119,7 +124,7 @@
 		const board = await sessionBoardsState.createBoard(newSessionName);
 		await sessionModeState.startSession({
 			sessionBoardId: board.id,
-			sceneId: board.id,
+			sceneId: board.activeSceneId ?? null,
 		});
 		showStartDialog = false;
 		openSessionBoard();
@@ -238,7 +243,7 @@
 						<p class="font-semibold text-ink">{activeBoard.name}</p>
 						<p class="mt-1 text-ink-muted">Session active for {elapsedSessionText}</p>
 						<p class="text-ink-faint">
-							Scene: {activeSession?.sceneId ? activeSession.sceneId : activeBoard.name}
+							Scene: {activeSceneTitle ?? activeBoard.name}
 						</p>
 					</div>
 					<button

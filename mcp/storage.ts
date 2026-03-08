@@ -67,7 +67,9 @@ import { normalizeDiceMacros } from '../src/lib/domain/dice.js';
 import {
 	DEFAULT_SESSION_CONTEXT,
 	normalizeBoardTemplatesSetting,
+	normalizeSessionBoardHandoutHistory,
 	normalizeSessionBoardLayout,
+	normalizeSessionBoardScenes,
 	normalizeSessionContextState,
 	normalizeSessionBoardStyle,
 	normalizeSessionBoardTile,
@@ -513,6 +515,11 @@ function normalizeSessionBoardRecord(
 		typeof value.updatedAt === 'string' && value.updatedAt.trim().length > 0
 			? value.updatedAt
 			: createdAt;
+	const sceneNormalization = normalizeSessionBoardScenes(
+		Array.isArray(value.scenes) ? value.scenes : undefined,
+		typeof value.activeSceneId === 'string' ? value.activeSceneId : undefined,
+		typeof value.name === 'string' ? value.name : 'Session Board',
+	);
 
 	const board: SessionBoard = {
 		id,
@@ -528,6 +535,11 @@ function normalizeSessionBoardRecord(
 		),
 		sessionContext: normalizeSessionContextState(
 			isRecord(value.sessionContext) ? value.sessionContext : DEFAULT_SESSION_CONTEXT,
+		),
+		scenes: sceneNormalization.scenes,
+		activeSceneId: sceneNormalization.activeSceneId,
+		handoutHistory: normalizeSessionBoardHandoutHistory(
+			Array.isArray(value.handoutHistory) ? value.handoutHistory : undefined,
 		),
 		createdAt,
 		updatedAt,
@@ -2123,6 +2135,11 @@ export class FileSystemAdapter implements StorageAdapter {
 			const sessionContext = normalizeSessionContextState(
 				board.sessionContext ?? DEFAULT_SESSION_CONTEXT,
 			);
+			const sceneNormalization = normalizeSessionBoardScenes(
+				board.scenes,
+				board.activeSceneId,
+				board.name,
+			);
 
 			this.sessionBoards.boards[board.id] = {
 				id: createSessionBoardId(String(board.id)),
@@ -2132,6 +2149,9 @@ export class FileSystemAdapter implements StorageAdapter {
 				layout,
 				style: normalizeSessionBoardStyle(board.style),
 				sessionContext,
+				scenes: sceneNormalization.scenes,
+				activeSceneId: sceneNormalization.activeSceneId,
+				handoutHistory: normalizeSessionBoardHandoutHistory(board.handoutHistory),
 				createdAt,
 				updatedAt: board.updatedAt || timestamp,
 			};

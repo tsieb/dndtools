@@ -356,6 +356,31 @@ export interface SessionContextState {
 	items: SessionContextItem[];
 }
 
+export interface SessionBoardScene {
+	id: string;
+	title: string;
+	description: string;
+	descriptionNoteId?: NoteId;
+	imagePath?: string;
+	entityNoteIds: NoteId[];
+	referenceNoteIds: NoteId[];
+	threadNoteIds: NoteId[];
+	weather?: string;
+	timeOfDay?: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export type SessionBoardHandoutSourceKind = 'handout' | 'note' | 'image' | 'map_region';
+
+export interface SessionBoardHandoutHistoryEntry {
+	id: string;
+	handoutId: string;
+	title: string;
+	sourceKind: SessionBoardHandoutSourceKind;
+	deliveredAt: string;
+}
+
 export interface SessionBoardTemplate {
 	id: string;
 	name: string;
@@ -376,6 +401,9 @@ export interface SessionBoard {
 	layout?: SessionBoardLayout;
 	style?: SessionBoardStyle;
 	sessionContext?: SessionContextState;
+	scenes?: SessionBoardScene[];
+	activeSceneId?: string | null;
+	handoutHistory?: SessionBoardHandoutHistoryEntry[];
 	createdAt: string;
 	updatedAt: string;
 }

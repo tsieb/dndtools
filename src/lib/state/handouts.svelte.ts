@@ -1,6 +1,7 @@
 import { getStorage } from '$lib/platform/storage/index.js';
 import { nowISO } from '$lib/utils/date.js';
 import { generateVaultObjectId } from '$lib/utils/id.js';
+import { deepClone } from '$lib/utils/clone.js';
 import { playerModeState } from '$lib/state/player-mode.svelte.js';
 import { reportRuntimeError } from '$lib/runtime/diagnostics.js';
 import { normalizeHandoutData, summarizeVaultObject } from '$lib/domain/objects.js';
@@ -279,7 +280,7 @@ class HandoutsState {
 			handout.summary = summarizeVaultObject(handout);
 		}
 
-		await getStorage().saveObject(handout);
+		await getStorage().saveObject(deepClone(handout));
 		const persisted = asHandoutObject(await getStorage().getObject(handout.id)) ?? handout;
 		this.upsertHandout(persisted);
 		return persisted;
@@ -294,7 +295,7 @@ class HandoutsState {
 			updatedAt: nowISO(),
 		};
 		normalized.summary = normalized.summary.trim() || summarizeVaultObject(normalized);
-		await getStorage().saveObject(normalized);
+		await getStorage().saveObject(deepClone(normalized));
 		const persisted = asHandoutObject(await getStorage().getObject(normalized.id)) ?? normalized;
 		this.upsertHandout(persisted);
 		return persisted;
@@ -323,7 +324,7 @@ class HandoutsState {
 			updatedAt: deliveredAt,
 		};
 		next.summary = summarizeVaultObject(next);
-		await getStorage().saveObject(next);
+		await getStorage().saveObject(deepClone(next));
 		const persisted = asHandoutObject(await getStorage().getObject(next.id)) ?? next;
 		this.upsertHandout(persisted);
 
@@ -361,7 +362,7 @@ class HandoutsState {
 			updatedAt: revealedAt,
 		};
 		next.summary = summarizeVaultObject(next);
-		await getStorage().saveObject(next);
+		await getStorage().saveObject(deepClone(next));
 		const persisted = asHandoutObject(await getStorage().getObject(next.id)) ?? next;
 		this.upsertHandout(persisted);
 

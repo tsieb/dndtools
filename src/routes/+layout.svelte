@@ -325,7 +325,8 @@
 		const boardId = page.url.searchParams.get('board');
 		if (!boardId) return;
 		sessionBoardsState.setActiveBoard(createSessionBoardId(boardId));
-		void sessionModeState.setSceneId(boardId);
+		const board = sessionBoardsState.boards.find((entry) => String(entry.id) === boardId);
+		void sessionModeState.setSceneId(board?.activeSceneId ?? null);
 	});
 
 	$effect(() => {

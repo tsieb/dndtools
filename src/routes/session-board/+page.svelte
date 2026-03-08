@@ -9,6 +9,7 @@
 	import GeneratorTile from '$lib/ui/board/GeneratorTile.svelte';
 	import HandoutLibraryTile from '$lib/ui/board/HandoutLibraryTile.svelte';
 	import WorldCalendarReference from '$lib/ui/calendar/WorldCalendarReference.svelte';
+	import SessionMissionControl from '$lib/ui/session/SessionMissionControl.svelte';
 	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
 	import { DEFAULT_SESSION_BOARD_LAYOUT } from '$lib/domain/session-board.js';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
@@ -89,6 +90,12 @@
 		  };
 
 	let activeBoard = $derived(sessionBoardsState.activeBoard);
+	let isBoardSessionActive = $derived.by(
+		() =>
+			sessionModeState.isActive &&
+			!!activeBoard &&
+			sessionModeState.activeSession?.sessionBoardId === String(activeBoard.id),
+	);
 	let activeNotesById = $derived(notesState.activeNoteById);
 	let boardTemplates = $derived(sessionBoardsState.templates);
 	let layout = $derived.by(() => ({
@@ -230,7 +237,15 @@
 
 	$effect(() => {
 		if (!activeBoard || !sessionModeState.isActive) return;
-		void sessionModeState.setSceneId(activeBoard.id);
+		if (sessionModeState.activeSession?.sessionBoardId !== String(activeBoard.id)) return;
+		void sessionModeState.setSceneId(activeBoard.activeSceneId ?? null);
+	});
+
+	$effect(() => {
+		if (!isBoardSessionActive) return;
+		if (mode === 'edit') {
+			mode = 'view';
+		}
 	});
 
 	$effect(() => {
@@ -562,11 +577,11 @@
 <div class="h-full min-h-0 box-border overflow-hidden p-4">
 	<h1 class="sr-only">Session Board</h1>
 	<div
-		class="grid h-full min-h-0 gap-4 overflow-hidden {mode === 'edit'
+		class="grid h-full min-h-0 gap-4 overflow-hidden {mode === 'edit' && !isBoardSessionActive
 			? 'xl:grid-cols-[330px_minmax(0,1fr)]'
 			: 'grid-cols-1'}"
 	>
-		{#if mode === 'edit'}
+		{#if mode === 'edit' && !isBoardSessionActive}
 			<aside
 				class="h-full min-h-0 rounded-xl border border-border-strong/60 bg-surface/98 shadow-sm overflow-hidden flex flex-col"
 			>
@@ -888,51 +903,61 @@
 								{/each}
 							</select>
 						{/if}
-						<div class="flex items-center gap-1">
-							<button
-								class="px-3 py-1.5 text-xs rounded border transition-colors {mode === 'view'
-									? 'bg-accent text-white border-transparent'
-									: 'border-border hover:bg-surface-alt'}"
-								onclick={() => (mode = 'view')}>View</button
+						{#if isBoardSessionActive}
+							<span
+								class="rounded-full border border-accent/45 bg-accent-subtle px-2.5 py-1 text-xs font-semibold text-accent"
 							>
-							<button
-								class="px-3 py-1.5 text-xs rounded border transition-colors {mode === 'edit'
-									? 'bg-accent text-white border-transparent'
-									: 'border-border hover:bg-surface-alt'}"
-								onclick={() => (mode = 'edit')}>Edit</button
-							>
-						</div>
+								Session Active
+							</span>
+						{:else}
+							<div class="flex items-center gap-1">
+								<button
+									class="px-3 py-1.5 text-xs rounded border transition-colors {mode === 'view'
+										? 'bg-accent text-white border-transparent'
+										: 'border-border hover:bg-surface-alt'}"
+									onclick={() => (mode = 'view')}>View</button
+								>
+								<button
+									class="px-3 py-1.5 text-xs rounded border transition-colors {mode === 'edit'
+										? 'bg-accent text-white border-transparent'
+										: 'border-border hover:bg-surface-alt'}"
+									onclick={() => (mode = 'edit')}>Edit</button
+								>
+							</div>
+						{/if}
 						{#if mode === 'edit'}
 							<span class="text-xs text-ink-muted hidden lg:inline"
 								>Edit mode: drag, resize, style, and position tiles.</span
 							>
 						{/if}
 
-						<div
-							class="ml-auto flex items-center gap-1 rounded-md border border-border bg-surface-alt/80 px-1.5 py-1"
-						>
-							<button
-								class="h-7 w-7 rounded border border-border text-sm hover:bg-surface transition-colors"
-								onclick={() => setZoom(zoom - 0.12)}
-								aria-label="Zoom out">-</button
+						{#if mode === 'edit'}
+							<div
+								class="ml-auto flex items-center gap-1 rounded-md border border-border bg-surface-alt/80 px-1.5 py-1"
 							>
-							<div class="min-w-14 text-center text-xs font-semibold text-ink">
-								{zoomPercent}%
+								<button
+									class="h-7 w-7 rounded border border-border text-sm hover:bg-surface transition-colors"
+									onclick={() => setZoom(zoom - 0.12)}
+									aria-label="Zoom out">-</button
+								>
+								<div class="min-w-14 text-center text-xs font-semibold text-ink">
+									{zoomPercent}%
+								</div>
+								<button
+									class="h-7 w-7 rounded border border-border text-sm hover:bg-surface transition-colors"
+									onclick={() => setZoom(zoom + 0.12)}
+									aria-label="Zoom in">+</button
+								>
+								<button
+									class="h-7 px-2 rounded border border-border text-xs hover:bg-surface transition-colors"
+									onclick={() => setZoom(DEFAULT_ZOOM)}>100%</button
+								>
+								<button
+									class="h-7 px-2 rounded border border-border text-xs hover:bg-surface transition-colors"
+									onclick={fitCanvasToViewport}>Fit</button
+								>
 							</div>
-							<button
-								class="h-7 w-7 rounded border border-border text-sm hover:bg-surface transition-colors"
-								onclick={() => setZoom(zoom + 0.12)}
-								aria-label="Zoom in">+</button
-							>
-							<button
-								class="h-7 px-2 rounded border border-border text-xs hover:bg-surface transition-colors"
-								onclick={() => setZoom(DEFAULT_ZOOM)}>100%</button
-							>
-							<button
-								class="h-7 px-2 rounded border border-border text-xs hover:bg-surface transition-colors"
-								onclick={fitCanvasToViewport}>Fit</button
-							>
-						</div>
+						{/if}
 					</div>
 
 					{#if mode === 'edit'}
@@ -1202,7 +1227,13 @@
 					{/if}
 				</div>
 
-				{#if renderedTiles.length === 0}
+				{#if mode === 'view'}
+					<SessionMissionControl
+						board={activeBoard}
+						active={isBoardSessionActive}
+						onrequestedit={() => (mode = 'edit')}
+					/>
+				{:else if renderedTiles.length === 0}
 					<div class="h-full flex items-center justify-center text-sm text-ink-muted">
 						{mode === 'edit'
 							? 'Add notes from the left panel to populate this board.'
@@ -1257,7 +1288,7 @@
 														{note}
 														selected={mode === 'edit' && selectedTileId === tile.id}
 														editable={mode === 'edit'}
-														scrollable={mode === 'view' || selectedTileId === tile.id}
+														scrollable={selectedTileId === tile.id}
 														tintColor={activeBoard.style?.sectionTintColor ?? '#7c3aed'}
 														tintOpacity={activeBoard.style?.sectionTintOpacity ?? 0}
 														onopen={() => (overlayNoteId = note.id)}

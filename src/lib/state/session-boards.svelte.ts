@@ -2,11 +2,14 @@ import { nanoid } from 'nanoid';
 import { getStorage } from '$lib/platform/storage/index.js';
 import { nowISO } from '$lib/utils/date.js';
 import { generateSessionBoardId } from '$lib/utils/id.js';
-import type { NoteId } from '$lib/types/note.js';
+import { deepClone } from '$lib/utils/clone.js';
+import { createNoteId, type NoteId } from '$lib/types/note.js';
 import type {
 	RelatedNoteSuggestion,
 	SessionBoard,
+	SessionBoardHandoutHistoryEntry,
 	SessionBoardId,
+	SessionBoardScene,
 	SessionBoardTemplate,
 	SessionBoardTile,
 } from '$lib/types/session-board.js';
@@ -14,8 +17,11 @@ import {
 	DEFAULT_SESSION_CONTEXT,
 	DEFAULT_SESSION_BOARD_LAYOUT,
 	cloneTemplateForBoard,
+	createDefaultSessionBoardScene,
 	normalizeBoardTemplatesSetting,
+	normalizeSessionBoardHandoutHistory,
 	normalizeSessionBoardLayout,
+	normalizeSessionBoardScenes,
 	normalizeSessionContextState,
 	normalizeSessionBoardStyle,
 	normalizeSessionBoardTile,
@@ -84,6 +90,11 @@ function normalizeBoard(board: SessionBoard, updates?: Partial<SessionBoard>): S
 	const nextTiles = (updates?.tiles ?? board.tiles).map((tile) =>
 		normalizeSessionBoardTile(tile, layout.columns),
 	);
+	const sceneNormalization = normalizeSessionBoardScenes(
+		updates?.scenes ?? board.scenes,
+		updates?.activeSceneId ?? board.activeSceneId,
+		updates?.name ?? board.name,
+	);
 	return {
 		...board,
 		...updates,
@@ -95,6 +106,11 @@ function normalizeBoard(board: SessionBoard, updates?: Partial<SessionBoard>): S
 			updates?.sessionContext ?? board.sessionContext ?? DEFAULT_SESSION_CONTEXT,
 		),
 		tiles: nextTiles,
+		scenes: sceneNormalization.scenes,
+		activeSceneId: sceneNormalization.activeSceneId,
+		handoutHistory: normalizeSessionBoardHandoutHistory(
+			updates?.handoutHistory ?? board.handoutHistory,
+		),
 	};
 }
 
@@ -240,6 +256,10 @@ class SessionBoardsState {
 	async createBoard(name: string, description = '', templateId?: string): Promise<SessionBoard> {
 		const now = nowISO();
 		const template = templateId ? (this.templateById.get(templateId) ?? null) : null;
+		const scene = createDefaultSessionBoardScene(
+			`${name.trim() || 'Session Board'} Opening Scene`,
+			now,
+		);
 		const board: SessionBoard = {
 			id: generateSessionBoardId(),
 			name: name.trim() || 'Session Board',
@@ -250,6 +270,9 @@ class SessionBoardsState {
 				: { ...DEFAULT_SESSION_BOARD_LAYOUT },
 			style: normalizeSessionBoardStyle(template?.style),
 			sessionContext: { collapsed: false, items: [] },
+			scenes: [scene],
+			activeSceneId: scene.id,
+			handoutHistory: [],
 			createdAt: now,
 			updatedAt: now,
 		};
@@ -314,10 +337,145 @@ class SessionBoardsState {
 			description: updates.description?.trim() ?? current.description,
 			updatedAt: nowISO(),
 		};
-		await getStorage().saveSessionBoard(updated);
+		await getStorage().saveSessionBoard(deepClone(updated));
 		this.boards = this.boards
 			.map((board) => (board.id === id ? updated : board))
 			.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+	}
+
+	async addScene(boardId: SessionBoardId, title?: string): Promise<SessionBoardScene | null> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return null;
+		const nextScene = createDefaultSessionBoardScene(
+			title?.trim() || `Scene ${(board.scenes?.length ?? 0) + 1}`,
+			nowISO(),
+		);
+		await this.updateBoard(boardId, {
+			scenes: [...(board.scenes ?? []), nextScene],
+			activeSceneId: nextScene.id,
+		});
+		return nextScene;
+	}
+
+	async removeScene(boardId: SessionBoardId, sceneId: string): Promise<void> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return;
+		const scenes = (board.scenes ?? []).filter((scene) => scene.id !== sceneId);
+		if (scenes.length === 0) {
+			const fallback = createDefaultSessionBoardScene(`${board.name} Opening Scene`, nowISO());
+			await this.updateBoard(boardId, {
+				scenes: [fallback],
+				activeSceneId: fallback.id,
+			});
+			return;
+		}
+		const activeSceneId = scenes.some((scene) => scene.id === board.activeSceneId)
+			? board.activeSceneId
+			: scenes[0]!.id;
+		await this.updateBoard(boardId, {
+			scenes,
+			activeSceneId,
+		});
+	}
+
+	async setActiveScene(boardId: SessionBoardId, sceneId: string): Promise<void> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return;
+		const normalizedId = sceneId.trim();
+		if (!normalizedId) return;
+		if (!(board.scenes ?? []).some((scene) => scene.id === normalizedId)) return;
+		await this.updateBoard(boardId, {
+			activeSceneId: normalizedId,
+		});
+	}
+
+	async advanceScene(boardId: SessionBoardId): Promise<SessionBoardScene | null> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return null;
+		const scenes = board.scenes ?? [];
+		if (scenes.length === 0) return null;
+		const currentIndex = Math.max(
+			0,
+			scenes.findIndex((scene) => scene.id === board.activeSceneId),
+		);
+		const next = scenes[(currentIndex + 1) % scenes.length] ?? null;
+		if (!next) return null;
+		await this.updateBoard(boardId, {
+			activeSceneId: next.id,
+		});
+		return next;
+	}
+
+	async updateScene(
+		boardId: SessionBoardId,
+		sceneId: string,
+		updates: Partial<Omit<SessionBoardScene, 'id' | 'createdAt' | 'updatedAt'>>,
+	): Promise<void> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return;
+		const normalizedSceneId = sceneId.trim();
+		if (!normalizedSceneId) return;
+		const toNoteIds = (values: SessionBoardScene['entityNoteIds'] | undefined) => {
+			const next: NoteId[] = [];
+			for (const raw of values ?? []) {
+				const id = String(raw).trim();
+				if (!id || next.some((entry) => String(entry) === id)) continue;
+				next.push(createNoteId(id));
+				if (next.length >= 16) break;
+			}
+			return next;
+		};
+		const timestamp = nowISO();
+		const nextScenes = (board.scenes ?? []).map((scene) => {
+			if (scene.id !== normalizedSceneId) return scene;
+			return {
+				...scene,
+				title: updates.title?.trim() || scene.title,
+				description: updates.description ?? scene.description,
+				descriptionNoteId:
+					updates.descriptionNoteId !== undefined
+						? String(updates.descriptionNoteId).trim()
+							? createNoteId(String(updates.descriptionNoteId).trim())
+							: undefined
+						: scene.descriptionNoteId,
+				imagePath:
+					updates.imagePath !== undefined
+						? updates.imagePath?.trim() || undefined
+						: scene.imagePath,
+				entityNoteIds:
+					updates.entityNoteIds !== undefined
+						? toNoteIds(updates.entityNoteIds)
+						: scene.entityNoteIds,
+				referenceNoteIds:
+					updates.referenceNoteIds !== undefined
+						? toNoteIds(updates.referenceNoteIds)
+						: scene.referenceNoteIds,
+				threadNoteIds:
+					updates.threadNoteIds !== undefined
+						? toNoteIds(updates.threadNoteIds)
+						: scene.threadNoteIds,
+				weather: updates.weather !== undefined ? updates.weather.trim() : scene.weather,
+				timeOfDay: updates.timeOfDay !== undefined ? updates.timeOfDay.trim() : scene.timeOfDay,
+				updatedAt: timestamp,
+			};
+		});
+		await this.updateBoard(boardId, {
+			scenes: nextScenes,
+		});
+	}
+
+	async recordHandoutDelivery(
+		boardId: SessionBoardId,
+		entry: SessionBoardHandoutHistoryEntry,
+	): Promise<void> {
+		const board = this.boards.find((candidate) => candidate.id === boardId);
+		if (!board) return;
+		const nextHistory = [entry, ...(board.handoutHistory ?? [])]
+			.sort((a, b) => b.deliveredAt.localeCompare(a.deliveredAt))
+			.slice(0, 120);
+		await this.updateBoard(boardId, {
+			handoutHistory: nextHistory,
+		});
 	}
 
 	async deleteBoard(id: SessionBoardId): Promise<void> {

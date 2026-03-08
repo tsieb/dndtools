@@ -267,7 +267,7 @@ test.describe('Desktop critical workflows @critical', () => {
 			});
 		});
 		try {
-			await gotoDesktopPath(app.page, '/session/boards');
+			await gotoDesktopPath(app.page, '/session/boards?board=board-mission');
 			await app.page.getByRole('button', { name: 'Edit' }).first().click();
 
 			const addNotesSection = app.page
@@ -329,6 +329,73 @@ test.describe('Desktop critical workflows @critical', () => {
 					return boards.some((entry) => entry.id === 'board-template-seed');
 				})
 				.toBe(true);
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('session mission control supports scene timeline and handout delivery', async () => {
+		const app = await launchWithSeed(async (adapter) => {
+			await adapter.saveNote(
+				buildNote(
+					'note-handout-seed',
+					'Town Broadsheet',
+					'# Town Broadsheet\n\nA public announcement for all players.',
+				) as never,
+			);
+			const seeded = await adapter.getNote('note-handout-seed' as never);
+			if (!seeded) throw new Error('Failed to seed handout note');
+			await adapter.saveNote({
+				...seeded,
+				tags: ['handout', 'player-facing'],
+				updatedAt: new Date(Date.now() + 2_000).toISOString(),
+			} as never);
+			const now = new Date().toISOString();
+			await adapter.saveSessionBoard({
+				id: 'board-mission' as never,
+				name: 'Mission Control Board',
+				description: 'Board seeded for mission control coverage',
+				tiles: [],
+				createdAt: now,
+				updatedAt: now,
+			});
+		});
+		try {
+			await gotoDesktopPath(app.page, '/session/boards?board=board-mission');
+			await app.page
+				.getByLabel('Select active session board')
+				.selectOption({ label: 'Mission Control Board' });
+			await expect(app.page.getByPlaceholder('New scene title')).toBeVisible();
+
+			await app.page.getByPlaceholder('New scene title').fill('Chasing Goras');
+			await app.page.getByRole('button', { name: 'Add Scene' }).click();
+			await expect(app.page.getByRole('button', { name: 'Chasing Goras' })).toBeVisible();
+
+			await app.page.getByRole('button', { name: 'Deliver Handout to Players' }).click();
+			await app.page.getByRole('button', { name: 'Town Broadsheet' }).first().click();
+			await expect(app.page.getByText('Player Preview')).toBeVisible();
+			await app.page.getByRole('button', { name: 'Confirm and Deliver' }).click();
+			await expect(app.page.getByRole('dialog', { name: 'Player Preview' })).toBeHidden({
+				timeout: 20_000,
+			});
+			await expect
+				.poll(
+					async () => {
+						const objects =
+							(await app.page.evaluate(async () => window.dndtoolsDesktop?.getAllObjects())) ?? [];
+						return objects.some(
+							(entry) =>
+								entry.type === 'handout' &&
+								entry.name === 'Town Broadsheet' &&
+								entry.data?.delivered === true,
+						);
+					},
+					{ timeout: 20_000, intervals: [250, 500, 1_000] },
+				)
+				.toBe(true);
+
+			await gotoDesktopPath(app.page, '/player');
+			await expect(app.page).toHaveURL(/\/player$/);
 		} finally {
 			await closeDesktopApp(app);
 		}

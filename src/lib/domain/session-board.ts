@@ -2,8 +2,10 @@ import type {
 	SessionContextCategory,
 	SessionContextItem,
 	SessionContextState,
+	SessionBoardHandoutHistoryEntry,
 	SessionBoardLayout,
 	SessionBoardPreviewDepth,
+	SessionBoardScene,
 	SessionBoardStyle,
 	SessionBoardTemplate,
 	SessionBoardTile,
@@ -33,6 +35,9 @@ const MAX_TILE_SCALE = 2.5;
 const MIN_PREVIEW_LINES = 1;
 const MAX_PREVIEW_LINES = 40;
 const MAX_SESSION_CONTEXT_ITEMS = 24;
+const MAX_SCENES = 40;
+const MAX_SCENE_NOTE_LINKS = 16;
+const MAX_SCENE_HISTORY_ITEMS = 120;
 
 export const DEFAULT_SESSION_BOARD_LAYOUT: SessionBoardLayout = {
 	columns: 12,
@@ -206,6 +211,135 @@ export function normalizeSessionContextState(value: unknown): SessionContextStat
 		collapsed: value.collapsed === true,
 		items,
 	};
+}
+
+function normalizeNoteIdList(
+	value: unknown,
+	limit = MAX_SCENE_NOTE_LINKS,
+): ReturnType<typeof createNoteId>[] {
+	if (!Array.isArray(value)) return [];
+	const unique = new Set<string>();
+	for (const entry of value) {
+		if (typeof entry !== 'string') continue;
+		const trimmed = entry.trim();
+		if (!trimmed) continue;
+		unique.add(trimmed);
+		if (unique.size >= limit) break;
+	}
+	return [...unique].map((entry) => createNoteId(entry));
+}
+
+export function createDefaultSessionBoardScene(
+	title = 'Opening Scene',
+	now = new Date().toISOString(),
+): SessionBoardScene {
+	return {
+		id: `scene-${Math.random().toString(36).slice(2, 10)}`,
+		title: title.trim() || 'Opening Scene',
+		description: '',
+		entityNoteIds: [],
+		referenceNoteIds: [],
+		threadNoteIds: [],
+		weather: '',
+		timeOfDay: '',
+		createdAt: now,
+		updatedAt: now,
+	};
+}
+
+function normalizeSessionBoardScene(value: unknown, index: number): SessionBoardScene | null {
+	if (!isRecord(value)) return null;
+	const idRaw = typeof value.id === 'string' ? value.id.trim() : '';
+	const id = idRaw || `scene-${index + 1}`;
+	const title =
+		typeof value.title === 'string' && value.title.trim().length > 0
+			? value.title.trim()
+			: `Scene ${index + 1}`;
+	const description = typeof value.description === 'string' ? value.description : '';
+	const descriptionNoteIdRaw =
+		typeof value.descriptionNoteId === 'string' ? value.descriptionNoteId.trim() : '';
+	const imagePathRaw = typeof value.imagePath === 'string' ? value.imagePath.trim() : '';
+	const createdAt =
+		typeof value.createdAt === 'string' && value.createdAt.trim().length > 0
+			? value.createdAt
+			: new Date().toISOString();
+	const updatedAt =
+		typeof value.updatedAt === 'string' && value.updatedAt.trim().length > 0
+			? value.updatedAt
+			: createdAt;
+	return {
+		id,
+		title,
+		description,
+		descriptionNoteId: descriptionNoteIdRaw ? createNoteId(descriptionNoteIdRaw) : undefined,
+		imagePath: imagePathRaw || undefined,
+		entityNoteIds: normalizeNoteIdList(value.entityNoteIds),
+		referenceNoteIds: normalizeNoteIdList(value.referenceNoteIds),
+		threadNoteIds: normalizeNoteIdList(value.threadNoteIds),
+		weather: typeof value.weather === 'string' ? value.weather.trim() : '',
+		timeOfDay: typeof value.timeOfDay === 'string' ? value.timeOfDay.trim() : '',
+		createdAt,
+		updatedAt,
+	};
+}
+
+export function normalizeSessionBoardScenes(
+	scenesValue: unknown,
+	activeSceneIdValue: unknown,
+	boardName = 'Session Board',
+): {
+	scenes: SessionBoardScene[];
+	activeSceneId: string | null;
+} {
+	const rawScenes = Array.isArray(scenesValue) ? scenesValue : [];
+	const normalizedScenes = rawScenes
+		.map((entry, index) => normalizeSessionBoardScene(entry, index))
+		.filter((entry): entry is SessionBoardScene => !!entry)
+		.slice(0, MAX_SCENES);
+	const scenes =
+		normalizedScenes.length > 0
+			? normalizedScenes
+			: [createDefaultSessionBoardScene(`${boardName} Opening Scene`)];
+	const activeSceneIdRaw = typeof activeSceneIdValue === 'string' ? activeSceneIdValue.trim() : '';
+	const activeSceneId =
+		activeSceneIdRaw && scenes.some((scene) => scene.id === activeSceneIdRaw)
+			? activeSceneIdRaw
+			: (scenes[0]?.id ?? null);
+	return {
+		scenes,
+		activeSceneId,
+	};
+}
+
+export function normalizeSessionBoardHandoutHistory(
+	value: unknown,
+): SessionBoardHandoutHistoryEntry[] {
+	if (!Array.isArray(value)) return [];
+	const normalized: SessionBoardHandoutHistoryEntry[] = [];
+	for (const entry of value) {
+		if (!isRecord(entry)) continue;
+		const id = typeof entry.id === 'string' ? entry.id.trim() : '';
+		const handoutId = typeof entry.handoutId === 'string' ? entry.handoutId.trim() : '';
+		const title = typeof entry.title === 'string' ? entry.title.trim() : '';
+		const deliveredAt = typeof entry.deliveredAt === 'string' ? entry.deliveredAt.trim() : '';
+		if (!id || !handoutId || !title || !deliveredAt) continue;
+		const sourceKind: SessionBoardHandoutHistoryEntry['sourceKind'] =
+			entry.sourceKind === 'note' ||
+			entry.sourceKind === 'image' ||
+			entry.sourceKind === 'map_region'
+				? entry.sourceKind
+				: 'handout';
+		normalized.push({
+			id,
+			handoutId,
+			title,
+			sourceKind,
+			deliveredAt,
+		});
+	}
+	return normalized
+		.sort((a, b) => b.deliveredAt.localeCompare(a.deliveredAt))
+		.slice(0, MAX_SCENE_HISTORY_ITEMS);
 }
 
 export function normalizeSessionBoardTile(tile: SessionBoardTile, columns = 12): SessionBoardTile {
