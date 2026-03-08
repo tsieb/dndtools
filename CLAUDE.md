@@ -233,6 +233,25 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
     - `src/lib/types/session-state.test.ts`
     - `tests/e2e-desktop/critical-workflows.spec.ts`
 
+- **Epic 16.4** — Session Board: Mission Control Redesign:
+  - Added first-class board scene + handout history contracts in `src/lib/types/session-board.ts`:
+    - `scenes[]`, `activeSceneId`
+    - `handoutHistory[]` entries with source kind and delivery timestamp
+  - Added board scene/history normalization in `src/lib/domain/session-board.ts` and wired persistence
+    through session board state + filesystem storage (`src/lib/state/session-boards.svelte.ts`, `mcp/storage.ts`).
+  - Updated session routing/local-nav integration to track active scene by `activeSceneId`:
+    - `src/lib/ui/sections/local-nav/SessionLocalNavPanel.svelte`
+    - `src/routes/+layout.svelte`
+  - Added mission control UI in `src/lib/ui/session/SessionMissionControl.svelte`:
+    - zoned layout (active scene, references, status, quick actions)
+    - scene timeline and prep-mode scene editor
+    - first-class handout delivery with player preview and board delivery history logging
+  - Updated `src/routes/session-board/+page.svelte` to use Mission Control in view mode and keep tile
+    customization in edit mode.
+  - Added/updated tests:
+    - `src/lib/domain/session-board.test.ts`
+    - `tests/e2e-desktop/critical-workflows.spec.ts`
+
 - **Epic 1.3** Ã¢â‚¬â€ Integrity Verification & Self-Repair (commit `115d933`):
   - `NoteIntegrityIssueStatus` extended with `'orphan_entry'`
   - `vaultHealthState` singleton in `src/lib/state/vaultHealth.svelte.ts`

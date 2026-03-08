@@ -49,6 +49,12 @@ Board model includes:
 - tile kinds (`note`, `calendar`, `timer`, `combat`, `encounter`, `dice`, `generator`, `handouts`)
 - per-tile style overrides
 - board-level layout/style settings
+- scene timeline state (`scenes[]`, `activeSceneId`) where each scene stores:
+  - title + inline description
+  - optional linked description note (`descriptionNoteId`) and optional image path (`imagePath`)
+  - linked note ids for entities, references, and open-thread notes
+  - optional environment details (`weather`, `timeOfDay`)
+- handout delivery audit (`handoutHistory[]`) with `handoutId`, `title`, `sourceKind`, and `deliveredAt`
 
 Combat tile state (`type: combat`) includes:
 
