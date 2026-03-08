@@ -14,6 +14,7 @@
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
+	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
 	import type { NoteId } from '$lib/types/note.js';
 	import type {
 		SessionBoard,
@@ -225,6 +226,11 @@
 
 	$effect(() => {
 		if (mode === 'view') selectedTileId = null;
+	});
+
+	$effect(() => {
+		if (!activeBoard || !sessionModeState.isActive) return;
+		void sessionModeState.setSceneId(activeBoard.id);
 	});
 
 	$effect(() => {

@@ -7,6 +7,8 @@
 	} from '$lib/state/navigation.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
+	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
+	import ConfirmDialog from '$lib/ui/common/ConfirmDialog.svelte';
 	import PrimaryNavIcon from './PrimaryNavIcon.svelte';
 
 	interface Props {
@@ -33,6 +35,7 @@
 	const compact = $derived(mode === 'compact');
 	const iconOnly = $derived(mode === 'expanded' || mode === 'medium');
 	const isVertical = $derived(!compact);
+	let showEndSessionConfirm = $state(false);
 	const shellStyle = $derived.by(() => {
 		const width = isVertical ? 'var(--layout-rail-width)' : '100%';
 		return compact
@@ -48,6 +51,11 @@
 			return;
 		}
 		onmediumsectionnavigate?.();
+	}
+
+	async function endSession(): Promise<void> {
+		showEndSessionConfirm = false;
+		await sessionModeState.endSession();
 	}
 </script>
 
@@ -72,28 +80,53 @@
 	>
 		{#each items as item (item.id)}
 			{@const active = navigationState.activeSection === item.id}
-			<a
-				href={item.href}
-				aria-current={active ? 'page' : undefined}
-				aria-label={item.label}
-				title={iconOnly ? item.label : undefined}
-				class="primary-nav-item {compact
-					? 'flex flex-col items-center justify-center rounded-md text-2xs font-medium'
-					: 'flex items-center rounded-lg text-sm font-medium'}"
-				data-active={active ? 'true' : 'false'}
-				style="--primary-nav-active: {active ? 1 : 0}"
-				onclick={(event) => handleSectionClick(event, item.id, active)}
-			>
-				<span class="primary-nav-icon flex h-8 w-8 items-center justify-center rounded-md">
-					<PrimaryNavIcon section={item.id} sizeClass="h-5 w-5" />
-				</span>
-				{#if !iconOnly}
-					<span class="{compact ? 'mt-0.5' : 'ml-2.5'} truncate">{item.label}</span>
+			<div class={compact ? '' : 'space-y-1'}>
+				<a
+					href={item.href}
+					aria-current={active ? 'page' : undefined}
+					aria-label={item.label}
+					title={iconOnly ? item.label : undefined}
+					class="primary-nav-item {compact
+						? 'flex flex-col items-center justify-center rounded-md text-2xs font-medium'
+						: 'flex items-center rounded-lg text-sm font-medium'}"
+					data-active={active ? 'true' : 'false'}
+					style="--primary-nav-active: {active ? 1 : 0}"
+					onclick={(event) => handleSectionClick(event, item.id, active)}
+				>
+					<span
+						class="primary-nav-icon relative flex h-8 w-8 items-center justify-center rounded-md"
+					>
+						<PrimaryNavIcon section={item.id} sizeClass="h-5 w-5" />
+						{#if item.id === 'session' && sessionModeState.isActive}
+							<span class="session-active-ring" aria-hidden="true"></span>
+						{/if}
+					</span>
+					{#if !iconOnly}
+						<span class="{compact ? 'mt-0.5' : 'ml-2.5'} truncate">{item.label}</span>
+					{/if}
+					{#if compact}
+						<span class="sr-only">{item.label}</span>
+					{/if}
+				</a>
+				{#if item.id === 'session' && sessionModeState.isActive}
+					<button
+						type="button"
+						class="w-full rounded-md border border-border px-2 py-1 text-2xs text-ink-muted hover:bg-bg"
+						onclick={() => (showEndSessionConfirm = true)}
+					>
+						End Session
+					</button>
 				{/if}
-				{#if compact}
-					<span class="sr-only">{item.label}</span>
-				{/if}
-			</a>
+			</div>
 		{/each}
 	</nav>
 </aside>
+
+<ConfirmDialog
+	open={showEndSessionConfirm}
+	title="End Session"
+	message="End this session? You'll be asked to capture key developments."
+	confirmText="End Session"
+	onconfirm={() => void endSession()}
+	oncancel={() => (showEndSessionConfirm = false)}
+/>

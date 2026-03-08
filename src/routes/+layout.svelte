@@ -25,6 +25,7 @@
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import { inputModalityState } from '$lib/state/input-modality.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
+	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
 	import { syncState } from '$lib/state/sync.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 	import { pwaState } from '$lib/state/pwa.svelte.js';
@@ -141,6 +142,10 @@
 	});
 
 	$effect(() => {
+		void sessionModeState.load();
+	});
+
+	$effect(() => {
 		if (runtimeState.ready) {
 			void vaultHealthState.refresh();
 			if (!templateLibraryState.loaded && !templateLibraryState.loading) {
@@ -220,6 +225,15 @@
 		};
 		window.addEventListener('dndtools:open-handout-creator', handleOpen);
 		return () => window.removeEventListener('dndtools:open-handout-creator', handleOpen);
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const handleOpenDiceTray = (): void => {
+			diceTrayOpen = true;
+		};
+		window.addEventListener('dndtools:open-dice-tray', handleOpenDiceTray);
+		return () => window.removeEventListener('dndtools:open-dice-tray', handleOpenDiceTray);
 	});
 
 	$effect(() => {
@@ -311,6 +325,21 @@
 		const boardId = page.url.searchParams.get('board');
 		if (!boardId) return;
 		sessionBoardsState.setActiveBoard(createSessionBoardId(boardId));
+		void sessionModeState.setSceneId(boardId);
+	});
+
+	$effect(() => {
+		const activeSession = sessionModeState.activeSession;
+		if (!activeSession) return;
+		if (sessionBoardsState.loading) return;
+		const boardId = createSessionBoardId(activeSession.sessionBoardId);
+		if (sessionBoardsState.boards.length === 0) {
+			void sessionBoardsState.loadAll();
+			return;
+		}
+		if (sessionBoardsState.boards.some((board) => board.id === boardId)) {
+			sessionBoardsState.setActiveBoard(boardId);
+		}
 	});
 
 	$effect(() => {
@@ -705,7 +734,6 @@
 				onclose={() => (quickSwitcherOpen = false)}
 				onnewnote={handleNewNote}
 				oncreatehandout={handleCreateHandout}
-				onopendicetray={() => (diceTrayOpen = true)}
 				onopengenerator={() => (generatorOpen = true)}
 				ontemplate={openTemplateDialog}
 				oncreatefromtemplate={(templateId: string) => void handleCreateFromTemplateId(templateId)}

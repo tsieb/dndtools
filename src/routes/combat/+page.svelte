@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import CombatTrackerTile from '$lib/ui/board/CombatTrackerTile.svelte';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
+	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
 	import type { SessionBoardCombatTile, SessionBoardId } from '$lib/types/session-board.js';
 
 	let selectedBoardId = $state<SessionBoardId | null>(null);
@@ -190,6 +191,7 @@
 							void sessionBoardsState.updateTile(selectedBoard.id, selectedCombatTile.id, {
 								combat,
 							});
+							void sessionModeState.setCombatActive(combat.combatants.length > 0);
 						}}
 					/>
 				</div>

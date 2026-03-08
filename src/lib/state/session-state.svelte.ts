@@ -3,6 +3,9 @@ import {
 	DEFAULT_SESSION_STATE,
 	normalizeSessionState,
 	type SessionPartyLocation,
+	type SessionMode,
+	type ActiveSessionState,
+	type SessionRollHistoryEntry,
 	type SessionState,
 } from '$lib/types/session-state.js';
 
@@ -13,6 +16,10 @@ class SessionStateStore {
 	error = $state<string | null>(null);
 
 	partyLocation = $derived(this.state.partyLocation);
+	mode = $derived(this.state.mode);
+	activeSession = $derived(this.state.activeSession);
+	sessionRollHistory = $derived(this.state.sessionRollHistory);
+	pinnedRollableTableIds = $derived(this.state.pinnedRollableTableIds);
 
 	async load(): Promise<void> {
 		if (this.loading) return;
@@ -44,7 +51,7 @@ class SessionStateStore {
 
 	async setPartyLocation(location: SessionPartyLocation | null): Promise<void> {
 		await this.save({
-			version: 1,
+			...this.state,
 			partyLocation: location
 				? {
 						...location,
@@ -52,6 +59,65 @@ class SessionStateStore {
 						updatedAt: location.updatedAt,
 					}
 				: null,
+		});
+	}
+
+	async setSessionMode(
+		mode: SessionMode,
+		session: ActiveSessionState | null,
+		options?: {
+			resetRollHistory?: boolean;
+		},
+	): Promise<void> {
+		const shouldResetRollHistory = options?.resetRollHistory === true || mode !== 'active';
+		await this.save({
+			...this.state,
+			mode: session ? mode : 'idle',
+			activeSession: mode === 'active' ? session : null,
+			sessionRollHistory: shouldResetRollHistory ? [] : this.state.sessionRollHistory,
+		});
+	}
+
+	async appendSessionRoll(entry: SessionRollHistoryEntry): Promise<void> {
+		if (this.state.mode !== 'active' || !this.state.activeSession) return;
+		await this.save({
+			...this.state,
+			sessionRollHistory: [entry, ...this.state.sessionRollHistory]
+				.sort((left, right) => right.at.localeCompare(left.at))
+				.slice(0, 300),
+		});
+	}
+
+	async renameSessionRollEntry(entryId: string, label: string | null): Promise<void> {
+		const normalizedId = entryId.trim();
+		if (!normalizedId) return;
+		const normalizedLabel = label?.trim() || null;
+		const nextHistory = this.state.sessionRollHistory.map((entry) =>
+			entry.id === normalizedId ? { ...entry, label: normalizedLabel } : entry,
+		);
+		await this.save({
+			...this.state,
+			sessionRollHistory: nextHistory,
+		});
+	}
+
+	async clearSessionRollHistory(): Promise<void> {
+		if (this.state.sessionRollHistory.length === 0) return;
+		await this.save({
+			...this.state,
+			sessionRollHistory: [],
+		});
+	}
+
+	async togglePinnedRollableTable(tableId: string): Promise<void> {
+		const normalized = tableId.trim();
+		if (!normalized) return;
+		const next = this.state.pinnedRollableTableIds.includes(normalized)
+			? this.state.pinnedRollableTableIds.filter((entry) => entry !== normalized)
+			: [...this.state.pinnedRollableTableIds, normalized];
+		await this.save({
+			...this.state,
+			pinnedRollableTableIds: next,
 		});
 	}
 }

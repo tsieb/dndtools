@@ -6,6 +6,7 @@
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import { navigationState, type PrimarySection } from '$lib/state/navigation.svelte.js';
 	import { desktopShellState } from '$lib/state/desktop-shell.svelte.js';
+	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
 	import { detailPanelContextFromUrl } from '$lib/domain/detail-panel-context.js';
 	import DesktopTitlebar from './DesktopTitlebar.svelte';
 	import TopBar from './TopBar.svelte';
@@ -41,6 +42,31 @@
 	let panelResizeStartX = $state(0);
 	let panelResizeStartWidth = $state(0);
 	let panelResizeSection = $state<PrimarySection>('knowledge');
+	let lastSessionActive = $state(false);
+	let compactBarNow = $state(Date.now());
+
+	$effect(() => {
+		if (!sessionModeState.isActive || !layoutState.isCompact) return;
+		const id = setInterval(() => {
+			compactBarNow = Date.now();
+		}, 1000);
+		return () => clearInterval(id);
+	});
+
+	const compactSessionBarText = $derived.by(() => {
+		const startedAt = sessionModeState.activeSession?.startedAt;
+		if (!startedAt) return 'Session active';
+		const startedMs = Date.parse(startedAt);
+		if (!Number.isFinite(startedMs)) return 'Session active';
+		const totalSeconds = Math.floor(Math.max(0, compactBarNow - startedMs) / 1000);
+		const hours = Math.floor(totalSeconds / 3600);
+		const minutes = Math.floor((totalSeconds % 3600) / 60);
+		const seconds = totalSeconds % 60;
+		if (hours > 0) {
+			return `Session — ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+		}
+		return `Session — ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+	});
 
 	$effect(() => {
 		desktopShellState.ensureHydrated();
@@ -202,6 +228,14 @@
 			window.removeEventListener('pointerup', handlePointerEnd);
 			window.removeEventListener('pointercancel', handlePointerEnd);
 		};
+	});
+
+	$effect(() => {
+		const isActive = sessionModeState.isActive;
+		if (isActive && !lastSessionActive && layoutState.isExpanded && detailPanelAvailable) {
+			desktopShellState.setDetailPanelOpen(true);
+		}
+		lastSessionActive = isActive;
 	});
 
 	const primaryNavMode = $derived.by<'expanded' | 'medium' | 'compact'>(() => {
@@ -450,7 +484,9 @@
 					!ui.focusReading &&
 					!compactEditorMode &&
 					!mobileKeyboardState.keyboardOpen
-						? 'pb-[calc(var(--layout-bottomnav-height)+env(safe-area-inset-bottom)+0.75rem)]'
+						? `pb-[calc(var(--layout-bottomnav-height)+env(safe-area-inset-bottom)+${
+								sessionModeState.isActive ? '1.75rem' : '0.75rem'
+							})]`
 						: ''}"
 					ontouchstart={handleMainTouchStart}
 					ontouchmove={handleMainTouchMove}
@@ -546,10 +582,20 @@
 	{/if}
 
 	{#if layoutState.isCompact && !ui.focusReading && !compactEditorMode && !ui.sidebarOpen && !mobileKeyboardState.keyboardOpen}
+		{#if sessionModeState.isActive}
+			<div
+				class="fixed inset-x-0 z-30 h-4 border-t border-border bg-accent-subtle text-center text-2xs font-medium text-accent"
+				style="bottom: calc(var(--layout-bottomnav-height) + env(safe-area-inset-bottom));"
+			>
+				{compactSessionBarText}
+			</div>
+		{/if}
 		<button
 			type="button"
 			class="compact-browse-pill fixed left-1/2 z-30 -translate-x-1/2 rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm font-medium text-ink shadow-lg transition-[transform,colors] active:scale-[0.97] active:brightness-95"
-			style="bottom: calc(var(--layout-bottomnav-height) + env(safe-area-inset-bottom) + 0.5rem);"
+			style="bottom: calc(var(--layout-bottomnav-height) + env(safe-area-inset-bottom) + {sessionModeState.isActive
+				? '1.5rem'
+				: '0.5rem'});"
 			onclick={openCompactSheet}
 			aria-haspopup="dialog"
 			aria-expanded={ui.sidebarOpen}
