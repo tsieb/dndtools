@@ -7,6 +7,7 @@ describe('DND_VAULT_TEMPLATES', () => {
 			'campaign-starter',
 			'one-shot',
 			'player-journal',
+			'worldbuilding-starter',
 		]);
 	});
 
