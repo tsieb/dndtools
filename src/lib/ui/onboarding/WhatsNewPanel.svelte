@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
+	import { base } from '$app/paths';
 	import { getWhatsNewReleaseForVersion } from '$lib/domain/whats-new.js';
 	import Button from '$lib/ui/common/Button.svelte';
 
@@ -14,7 +14,7 @@
 
 	function toHref(value: string): string {
 		if (value.startsWith('/')) {
-			return resolve(value);
+			return `${base}${value}`;
 		}
 		return value;
 	}
