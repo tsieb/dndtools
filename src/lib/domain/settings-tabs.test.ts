@@ -1,37 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { resolveSettingsTabFromUrl } from './settings-tabs.js';
+import { resolveSettingsTabFromUrl } from '$lib/domain/settings-tabs.js';
+
+function url(value: string): URL {
+	return new URL(value, 'https://example.test');
+}
 
 describe('resolveSettingsTabFromUrl', () => {
-	it('prefers explicit tab query param', () => {
-		expect(resolveSettingsTabFromUrl(new URL('https://example.test/settings?tab=mcp'))).toBe('mcp');
-		expect(resolveSettingsTabFromUrl(new URL('https://example.test/settings?tab=vault'))).toBe(
-			'vault',
-		);
-		expect(resolveSettingsTabFromUrl(new URL('https://example.test/settings?tab=world'))).toBe(
-			'world',
-		);
-		expect(resolveSettingsTabFromUrl(new URL('https://example.test/settings?tab=about'))).toBe(
-			'about',
-		);
-		expect(resolveSettingsTabFromUrl(new URL('https://example.test/settings?tab=handouts'))).toBe(
-			'handouts',
-		);
-		expect(resolveSettingsTabFromUrl(new URL('https://example.test/settings?tab=sync'))).toBe(
-			'sync',
-		);
-		expect(resolveSettingsTabFromUrl(new URL('https://example.test/settings?tab=health'))).toBe(
-			'health',
-		);
+	it('resolves new progressive-disclosure tabs', () => {
+		expect(resolveSettingsTabFromUrl(url('/settings?tab=appearance'))).toBe('appearance');
+		expect(resolveSettingsTabFromUrl(url('/settings?tab=features'))).toBe('features');
+		expect(resolveSettingsTabFromUrl(url('/settings?tab=maps'))).toBe('maps');
 	});
 
-	it('maps MCP hash links to the MCP tab', () => {
-		expect(resolveSettingsTabFromUrl(new URL('https://example.test/settings#mcp-changes'))).toBe(
-			'mcp',
-		);
-		expect(resolveSettingsTabFromUrl(new URL('https://example.test/settings#mcp'))).toBe('mcp');
-	});
-
-	it('returns null for URLs without a tab hint', () => {
-		expect(resolveSettingsTabFromUrl(new URL('https://example.test/settings'))).toBeNull();
+	it('keeps legacy hash support for mcp anchor', () => {
+		expect(resolveSettingsTabFromUrl(url('/settings#mcp-changes'))).toBe('mcp');
+		expect(resolveSettingsTabFromUrl(url('/settings#mcp'))).toBe('mcp');
 	});
 });

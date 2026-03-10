@@ -195,6 +195,34 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
   - Added/updated tests:
     - `tests/e2e/search.spec.ts` for empty-result search actions
 
+- **Epic 17.2** — Progressive Disclosure System:
+  - Added feature-tier reference registry in `docs/reference/FEATURE_TIERS.md` for Core, Intermediate, and Advanced surfaces.
+  - Added configurable maturity thresholds in `src/lib/domain/maturity-thresholds.ts` and disclosure logic in
+    `src/lib/domain/vault-maturity.ts`, with renderer maturity state in
+    `src/lib/state/vault-maturity.svelte.ts`.
+  - Applied maturity-based disclosure to navigation and local panels:
+    - Knowledge tags and collections unlocks in `src/lib/ui/sections/local-nav/KnowledgeLocalNavPanel.svelte`
+    - graph reveal behavior in local navigation, mobile nav, and quick switcher
+    - session prominence badge in `src/lib/ui/layout/PrimaryNav.svelte` and
+      `src/lib/ui/layout/MobileBottomNav.svelte`
+    - campaign entity-list reveal behavior in `src/lib/ui/sections/local-nav/CampaignLocalNavPanel.svelte`
+  - Added advanced-feature opt-in settings and persistence:
+    - `featureSettings` contract in `src/lib/types/settings.ts`
+    - renderer state in `src/lib/state/feature-settings.svelte.ts`
+    - Settings -> Features UI in `src/lib/ui/settings/FeaturesSettingsTab.svelte`
+    - MCP opt-in acknowledgement flow before enabling staged review
+    - contextual Object Notes enable prompt when NPC signal threshold is reached
+  - Restructured Settings progressive disclosure in `src/routes/settings/+page.svelte`:
+    - Always visible group: General, Appearance, Vault
+    - Features group: Features, World Calendar, conditional Maps, MCP
+    - Advanced group collapsed by default: System Health, Sync, Handouts
+    - About section moved to bottom
+  - Updated storage/security contracts for new `featureSettings` key:
+    - adapters: `src/lib/platform/storage/indexeddb-adapter.ts`, `src/lib/platform/storage/capacitor-adapter.ts`, `mcp/storage.ts`
+    - IPC schema whitelist/value validation in `electron/ipc-schemas.ts`
+    - IPC key whitelist tests in `electron/ipc-security.test.ts`
+  - Added maturity-domain tests in `src/lib/domain/vault-maturity.test.ts`.
+
 - **Epic 16.1** — Session Mode as Application-Level State:
   - Added application-level session mode state in `src/lib/state/session-mode.svelte.ts`
   - Extended persisted session schema (`src/lib/types/session-state.ts`) with:

@@ -4,6 +4,9 @@
 	import HandoutLibraryPanel from '$lib/ui/handouts/HandoutLibraryPanel.svelte';
 	import SyncSettingsPanel from '$lib/ui/settings/SyncSettingsPanel.svelte';
 	import GeneralSettingsTab from '$lib/ui/settings/GeneralSettingsTab.svelte';
+	import AppearanceSettingsTab from '$lib/ui/settings/AppearanceSettingsTab.svelte';
+	import FeaturesSettingsTab from '$lib/ui/settings/FeaturesSettingsTab.svelte';
+	import MapsSettingsTab from '$lib/ui/settings/MapsSettingsTab.svelte';
 	import AboutTab from '$lib/ui/settings/AboutTab.svelte';
 	import WorldCalendarTab from '$lib/ui/settings/WorldCalendarTab.svelte';
 	import VaultSettingsTab from '$lib/ui/settings/VaultSettingsTab.svelte';
@@ -12,6 +15,8 @@
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
+	import { featureSettingsState } from '$lib/state/feature-settings.svelte.js';
+	import { vaultMaturityState } from '$lib/state/vault-maturity.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import { searchService } from '$lib/domain/search.js';
 	import { resolveSettingsTabFromUrl, type SettingsTabId } from '$lib/domain/settings-tabs.js';
@@ -32,6 +37,7 @@
 	type SettingsTab = {
 		id: SettingsTabId;
 		label: string;
+		group: 'always' | 'features' | 'advanced' | 'about';
 	};
 
 	type BrowserModeGap = {
@@ -49,19 +55,34 @@
 	let rebuildingIndex = $state(false);
 	let exportingDiagnostics = $state(false);
 	let activeTab = $state<SettingsTabId>('general');
+	let advancedGroupExpanded = $state(false);
 
 	const settingsTabs: readonly SettingsTab[] = [
-		{ id: 'general', label: 'General' },
-		{ id: 'about', label: 'About' },
-		{ id: 'world', label: 'World' },
-		{ id: 'vault', label: 'Vault' },
-		{ id: 'sync', label: 'Sync' },
-		{ id: 'handouts', label: 'Handouts' },
-		{ id: 'mcp', label: 'MCP' },
-		{ id: 'health', label: 'System Health' },
+		{ id: 'general', label: 'General', group: 'always' },
+		{ id: 'appearance', label: 'Appearance', group: 'always' },
+		{ id: 'vault', label: 'Vault', group: 'always' },
+		{ id: 'features', label: 'Features', group: 'features' },
+		{ id: 'world', label: 'World Calendar', group: 'features' },
+		{ id: 'maps', label: 'Maps', group: 'features' },
+		{ id: 'mcp', label: 'MCP', group: 'features' },
+		{ id: 'health', label: 'System Health', group: 'advanced' },
+		{ id: 'sync', label: 'Sync', group: 'advanced' },
+		{ id: 'handouts', label: 'Handouts', group: 'advanced' },
+		{ id: 'about', label: 'About', group: 'about' },
 	] as const;
 
-	const visibleTabs = $derived(settingsTabs);
+	const visibleTabs = $derived.by(() =>
+		settingsTabs.filter((tab) => {
+			if (tab.id === 'maps') {
+				return vaultMaturityState.signals.mapCount === 0;
+			}
+			return true;
+		}),
+	);
+	const alwaysTabs = $derived(visibleTabs.filter((tab) => tab.group === 'always'));
+	const featureTabs = $derived(visibleTabs.filter((tab) => tab.group === 'features'));
+	const advancedTabs = $derived(visibleTabs.filter((tab) => tab.group === 'advanced'));
+	const aboutTab = $derived(visibleTabs.find((tab) => tab.group === 'about') ?? null);
 	const isBrowserMode = $derived.by(() => !hasDesktopBridge());
 	const webNotificationsSupported = $derived.by(
 		() => typeof window !== 'undefined' && 'Notification' in window,
@@ -97,6 +118,9 @@
 		if (hasDesktopBridge()) {
 			void refreshDesktopState();
 		}
+		if (!featureSettingsState.loaded && !featureSettingsState.loading) {
+			void featureSettingsState.loadFromStorage();
+		}
 		void mcpChangesState.refresh();
 	});
 
@@ -113,6 +137,13 @@
 		}
 	});
 
+	$effect(() => {
+		const active = visibleTabs.find((tab) => tab.id === activeTab);
+		if (active?.group === 'advanced' && !advancedGroupExpanded) {
+			advancedGroupExpanded = true;
+		}
+	});
+
 	function focusTabButton(tabId: SettingsTabId): void {
 		if (typeof document === 'undefined') return;
 		document.getElementById(`settings-tab-${tabId}`)?.focus();
@@ -124,6 +155,12 @@
 		if (focus) {
 			queueMicrotask(() => focusTabButton(tabId));
 		}
+	}
+
+	function tabButtonClass(tabId: SettingsTabId): string {
+		return activeTab === tabId
+			? 'border-accent bg-accent-subtle text-accent'
+			: 'border-border text-ink-muted hover:bg-surface-alt hover:text-ink';
 	}
 
 	function handleTabKeydown(event: KeyboardEvent, currentTabId: SettingsTabId): void {
@@ -287,94 +324,191 @@
 <div class="p-6 max-w-content mx-auto">
 	<h1 class="text-2xl font-bold text-ink mb-6" style="font-family: var(--font-serif)">Settings</h1>
 
-	<div class="mb-6 border-b border-border">
-		<div
-			class="flex flex-wrap gap-2 -mb-px"
-			role="tablist"
-			aria-label="Settings sections"
-			aria-orientation="horizontal"
-		>
-			{#each visibleTabs as tab (tab.id)}
-				<button
-					type="button"
-					role="tab"
-					id={`settings-tab-${tab.id}`}
-					aria-selected={activeTab === tab.id}
-					aria-controls={`settings-panel-${tab.id}`}
-					tabindex={activeTab === tab.id ? 0 : -1}
-					title={`Open ${tab.label} settings`}
-					onclick={() => activateTab(tab.id)}
-					onkeydown={(event) => handleTabKeydown(event, tab.id)}
-					class={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
-						activeTab === tab.id
-							? 'border-accent text-accent'
-							: 'border-transparent text-ink-muted hover:border-border hover:text-ink'
-					}`}
+	<div class="grid gap-6 lg:grid-cols-[15rem,1fr]">
+		<aside class="h-fit rounded-lg border border-border bg-surface">
+			<div class="space-y-4 p-3">
+				<section>
+					<p class="mb-2 px-2 text-2xs font-semibold uppercase tracking-wider text-ink-faint">
+						Always visible
+					</p>
+					<div role="tablist" aria-label="Settings always visible tabs" class="space-y-1">
+						{#each alwaysTabs as tab (tab.id)}
+							<button
+								type="button"
+								role="tab"
+								id={`settings-tab-${tab.id}`}
+								aria-selected={activeTab === tab.id}
+								aria-controls={`settings-panel-${tab.id}`}
+								tabindex={activeTab === tab.id ? 0 : -1}
+								title={`Open ${tab.label} settings`}
+								onclick={() => activateTab(tab.id)}
+								onkeydown={(event) => handleTabKeydown(event, tab.id)}
+								class="w-full rounded-md border px-2.5 py-2 text-left text-sm font-medium transition-colors {tabButtonClass(
+									tab.id,
+								)}"
+							>
+								{tab.label}
+							</button>
+						{/each}
+					</div>
+				</section>
+
+				<section>
+					<p class="mb-2 px-2 text-2xs font-semibold uppercase tracking-wider text-ink-faint">
+						Features
+					</p>
+					<div role="tablist" aria-label="Settings feature tabs" class="space-y-1">
+						{#each featureTabs as tab (tab.id)}
+							<button
+								type="button"
+								role="tab"
+								id={`settings-tab-${tab.id}`}
+								aria-selected={activeTab === tab.id}
+								aria-controls={`settings-panel-${tab.id}`}
+								tabindex={activeTab === tab.id ? 0 : -1}
+								title={`Open ${tab.label} settings`}
+								onclick={() => activateTab(tab.id)}
+								onkeydown={(event) => handleTabKeydown(event, tab.id)}
+								class="w-full rounded-md border px-2.5 py-2 text-left text-sm font-medium transition-colors {tabButtonClass(
+									tab.id,
+								)}"
+							>
+								{tab.label}
+							</button>
+						{/each}
+					</div>
+				</section>
+
+				<section>
+					<button
+						type="button"
+						class="flex w-full items-center justify-between rounded-md border border-border px-2.5 py-2 text-left text-sm font-medium text-ink-muted hover:bg-surface-alt"
+						onclick={() => (advancedGroupExpanded = !advancedGroupExpanded)}
+						aria-expanded={advancedGroupExpanded}
+						aria-controls="settings-advanced-group"
+					>
+						<span>Advanced</span>
+						<span class="text-2xs">{advancedGroupExpanded ? 'Hide' : 'Show'}</span>
+					</button>
+					{#if advancedGroupExpanded}
+						<div
+							id="settings-advanced-group"
+							role="tablist"
+							aria-label="Settings advanced tabs"
+							class="mt-2 space-y-1"
+						>
+							{#each advancedTabs as tab (tab.id)}
+								<button
+									type="button"
+									role="tab"
+									id={`settings-tab-${tab.id}`}
+									aria-selected={activeTab === tab.id}
+									aria-controls={`settings-panel-${tab.id}`}
+									tabindex={activeTab === tab.id ? 0 : -1}
+									title={`Open ${tab.label} settings`}
+									onclick={() => activateTab(tab.id)}
+									onkeydown={(event) => handleTabKeydown(event, tab.id)}
+									class="w-full rounded-md border px-2.5 py-2 text-left text-sm font-medium transition-colors {tabButtonClass(
+										tab.id,
+									)}"
+								>
+									{tab.label}
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</section>
+			</div>
+
+			{#if aboutTab}
+				<div class="border-t border-border p-3">
+					<button
+						type="button"
+						role="tab"
+						id={`settings-tab-${aboutTab.id}`}
+						aria-selected={activeTab === aboutTab.id}
+						aria-controls={`settings-panel-${aboutTab.id}`}
+						tabindex={activeTab === aboutTab.id ? 0 : -1}
+						title={`Open ${aboutTab.label} settings`}
+						onclick={() => activateTab(aboutTab.id)}
+						onkeydown={(event) => handleTabKeydown(event, aboutTab.id)}
+						class="w-full rounded-md border px-2.5 py-2 text-left text-sm font-medium transition-colors {tabButtonClass(
+							aboutTab.id,
+						)}"
+					>
+						{aboutTab.label}
+					</button>
+				</div>
+			{/if}
+		</aside>
+
+		<div>
+			{#if activeTab === 'general'}
+				<GeneralSettingsTab />
+			{:else if activeTab === 'appearance'}
+				<AppearanceSettingsTab />
+			{:else if activeTab === 'features'}
+				<FeaturesSettingsTab />
+			{:else if activeTab === 'about'}
+				<AboutTab
+					{updateStatus}
+					{isBrowserMode}
+					{browserModeGaps}
+					{webNotificationsSupported}
+					onupdatestatus={(status) => {
+						updateStatus = status;
+					}}
+				/>
+			{:else if activeTab === 'world'}
+				<WorldCalendarTab />
+			{:else if activeTab === 'maps'}
+				<MapsSettingsTab />
+			{:else if activeTab === 'vault'}
+				<VaultSettingsTab
+					{desktopVaultDir}
+					{refreshingDesktopState}
+					{rebuildingIndex}
+					onrefreshdesktopstate={refreshDesktopState}
+					onrebuildindex={handleRebuildIndex}
+				/>
+			{:else if activeTab === 'sync'}
+				<div
+					role="tabpanel"
+					id="settings-panel-sync"
+					aria-labelledby="settings-tab-sync"
+					class="space-y-8"
 				>
-					{tab.label}
-				</button>
-			{/each}
+					<SyncSettingsPanel onrefreshlocal={refreshRendererAfterSyncChange} />
+				</div>
+			{:else if activeTab === 'handouts'}
+				<div
+					role="tabpanel"
+					id="settings-panel-handouts"
+					aria-labelledby="settings-tab-handouts"
+					class="space-y-8"
+				>
+					<HandoutLibraryPanel />
+				</div>
+			{:else if activeTab === 'mcp'}
+				<McpSettingsTab
+					{mcpStatus}
+					{restartingMcp}
+					onrestartmcp={handleRestartMcpSidecar}
+					onrefreshdesktopstate={refreshDesktopState}
+				/>
+			{:else if activeTab === 'health'}
+				<SystemHealthTab
+					{systemHealth}
+					{refreshingDesktopState}
+					{rebuildingIndex}
+					{restartingMcp}
+					{exportingDiagnostics}
+					onrefreshdesktopstate={refreshDesktopState}
+					onrebuildindex={handleRebuildIndex}
+					onrestartmcp={handleRestartMcpSidecar}
+					onexportdiagnostics={handleExportDiagnostics}
+				/>
+			{/if}
 		</div>
 	</div>
-
-	{#if activeTab === 'general'}
-		<GeneralSettingsTab />
-	{:else if activeTab === 'about'}
-		<AboutTab
-			{updateStatus}
-			{isBrowserMode}
-			{browserModeGaps}
-			{webNotificationsSupported}
-			onupdatestatus={(status) => {
-				updateStatus = status;
-			}}
-		/>
-	{:else if activeTab === 'world'}
-		<WorldCalendarTab />
-	{:else if activeTab === 'vault'}
-		<VaultSettingsTab
-			{desktopVaultDir}
-			{refreshingDesktopState}
-			{rebuildingIndex}
-			onrefreshdesktopstate={refreshDesktopState}
-			onrebuildindex={handleRebuildIndex}
-		/>
-	{:else if activeTab === 'sync'}
-		<div
-			role="tabpanel"
-			id="settings-panel-sync"
-			aria-labelledby="settings-tab-sync"
-			class="space-y-8"
-		>
-			<SyncSettingsPanel onrefreshlocal={refreshRendererAfterSyncChange} />
-		</div>
-	{:else if activeTab === 'handouts'}
-		<div
-			role="tabpanel"
-			id="settings-panel-handouts"
-			aria-labelledby="settings-tab-handouts"
-			class="space-y-8"
-		>
-			<HandoutLibraryPanel />
-		</div>
-	{:else if activeTab === 'mcp'}
-		<McpSettingsTab
-			{mcpStatus}
-			{restartingMcp}
-			onrestartmcp={handleRestartMcpSidecar}
-			onrefreshdesktopstate={refreshDesktopState}
-		/>
-	{:else if activeTab === 'health'}
-		<SystemHealthTab
-			{systemHealth}
-			{refreshingDesktopState}
-			{rebuildingIndex}
-			{restartingMcp}
-			{exportingDiagnostics}
-			onrefreshdesktopstate={refreshDesktopState}
-			onrebuildindex={handleRebuildIndex}
-			onrestartmcp={handleRestartMcpSidecar}
-			onexportdiagnostics={handleExportDiagnostics}
-		/>
-	{/if}
 </div>
