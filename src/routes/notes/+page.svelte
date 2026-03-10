@@ -15,6 +15,7 @@
 	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { mapsState } from '$lib/state/maps.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { onboardingState } from '$lib/state/onboarding.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
 	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
@@ -171,6 +172,7 @@
 				sessionNumber: context.sessionNumber + 1,
 			});
 		}
+		await onboardingState.completeMilestone('first_template');
 		goto(resolve(`/knowledge/notes/${note.id}/edit`));
 	}
 

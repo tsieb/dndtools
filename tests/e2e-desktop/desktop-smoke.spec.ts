@@ -28,9 +28,17 @@ test.describe('Desktop smoke', () => {
 		try {
 			const window = await electronApp.firstWindow();
 			await window.waitForLoadState('domcontentloaded');
-			await expect(window.locator('header').first()).toBeVisible({
-				timeout: 15_000,
-			});
+			const setupWizardHeading = window.getByRole('heading', { name: 'Welcome to DND Tools' });
+			const wizardVisible = await setupWizardHeading
+				.isVisible({ timeout: 3_000 })
+				.catch(() => false);
+			if (wizardVisible) {
+				await expect(setupWizardHeading).toBeVisible({ timeout: 15_000 });
+			} else {
+				await expect(window.locator('header').first()).toBeVisible({
+					timeout: 15_000,
+				});
+			}
 		} finally {
 			await electronApp.close();
 			await fs.rm(vaultDir, { recursive: true, force: true });

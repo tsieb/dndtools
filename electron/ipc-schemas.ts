@@ -890,11 +890,23 @@ export const settingValueSchemas: Record<string, z.ZodTypeAny> = {
 		)
 		.max(500),
 	onboarding: z.object({
-		dismissed: z.boolean(),
-		completedSteps: z
-			.array(z.enum(['create_first_note', 'add_link', 'add_tag', 'use_search', 'open_settings']))
-			.max(50),
-		dismissedTips: z.array(z.enum(['wikilinks', 'backlinks', 'object_embeds'])).max(50),
+		onboardingComplete: z.boolean().nullable(),
+		onboardingPhase: z.enum(['not_started', 'started', 'completed']),
+		vaultName: z.string().max(MAX_STRING_LENGTH),
+		milestones: z
+			.object({
+				vault_created: z.boolean(),
+				first_note: z.boolean(),
+				first_link: z.boolean(),
+				first_tag: z.boolean(),
+				first_template: z.boolean(),
+				first_search: z.boolean(),
+				first_session: z.boolean(),
+			})
+			.strict(),
+		shownPrompts: z.array(z.enum(['first_note_link_hint', 'second_note_link_hint'])).max(20),
+		dismissedPrompts: z.array(z.enum(['first_note_link_hint', 'second_note_link_hint'])).max(20),
+		lastSeenWhatsNewVersion: z.string().max(MAX_STRING_LENGTH).nullable(),
 	}),
 	templateContext: z.object({
 		campaignName: z.string().max(MAX_STRING_LENGTH),

@@ -32,6 +32,7 @@ import type {
 import {
 	DEFAULT_SETTINGS,
 	normalizeFeatureSettings,
+	normalizeOnboardingSettings,
 	normalizeSeenSpotlights,
 	type AppSettings,
 } from '$lib/types/settings.js';
@@ -120,16 +121,7 @@ function normalizeSettings(raw: unknown): AppSettings {
 			...base.defaultSort,
 			...(source.defaultSort ?? {}),
 		},
-		onboarding: {
-			...base.onboarding,
-			...(source.onboarding ?? {}),
-			completedSteps: Array.isArray(source.onboarding?.completedSteps)
-				? source.onboarding.completedSteps
-				: base.onboarding.completedSteps,
-			dismissedTips: Array.isArray(source.onboarding?.dismissedTips)
-				? source.onboarding.dismissedTips
-				: base.onboarding.dismissedTips,
-		},
+		onboarding: normalizeOnboardingSettings(source.onboarding),
 		templateContext: {
 			...base.templateContext,
 			...(source.templateContext ?? {}),

@@ -28,6 +28,7 @@ import type {
 import {
 	DEFAULT_SETTINGS,
 	normalizeFeatureSettings,
+	normalizeOnboardingSettings,
 	normalizeSeenSpotlights,
 	type AppSettings,
 } from '$lib/types/settings.js';
@@ -204,6 +205,8 @@ function normalizeSettingValue<K extends keyof AppSettings>(
 			return normalizeWorldCalendar(value ?? fallback) as AppSettings[K];
 		case 'featureSettings':
 			return normalizeFeatureSettings(value) as AppSettings[K];
+		case 'onboarding':
+			return normalizeOnboardingSettings(value) as AppSettings[K];
 		case 'seenSpotlights':
 			return normalizeSeenSpotlights(value) as AppSettings[K];
 		default:

@@ -1,84 +1,128 @@
-import type { OnboardingStepId, OnboardingTipId } from '$lib/types/settings.js';
+import {
+	ONBOARDING_MILESTONE_IDS,
+	type OnboardingGuidedPromptId,
+	type OnboardingMilestoneId,
+	type OnboardingSettings,
+} from '$lib/types/settings.js';
 
-export interface OnboardingStepDefinition {
-	id: OnboardingStepId;
+export interface OnboardingMilestoneDefinition {
+	id: OnboardingMilestoneId;
 	label: string;
 	description: string;
+	firstActionHint: string;
 }
 
-export interface OnboardingTipDefinition {
-	id: OnboardingTipId;
-	title: string;
-	description: string;
+export interface OnboardingGuidedPromptDefinition {
+	id: OnboardingGuidedPromptId;
+	message: string;
 }
 
-export const ONBOARDING_STEPS: readonly OnboardingStepDefinition[] = [
+export const ONBOARDING_MILESTONES: readonly OnboardingMilestoneDefinition[] = [
 	{
-		id: 'create_first_note',
-		label: 'Create your first note',
-		description: 'Start with one idea, then expand your world from there.',
+		id: 'vault_created',
+		label: 'Vault created',
+		description: 'You started your campaign vault.',
+		firstActionHint: 'Open your vault and choose a starting note.',
 	},
 	{
-		id: 'add_link',
-		label: 'Create a wikilink',
-		description: 'Connect related notes with [[links]] to build campaign context.',
+		id: 'first_note',
+		label: 'First note',
+		description: 'You created your first note.',
+		firstActionHint: 'Create a note from Knowledge > Notes.',
 	},
 	{
-		id: 'add_tag',
-		label: 'Tag a note',
-		description: 'Use tags to group notes for quick filtering during sessions.',
+		id: 'first_link',
+		label: 'First wikilink',
+		description: 'You connected notes with a wikilink.',
+		firstActionHint: 'Type [[Another Note]] in your note body.',
 	},
 	{
-		id: 'use_search',
-		label: 'Try global search',
-		description: 'Use fast search to find details under table-time pressure.',
+		id: 'first_tag',
+		label: 'First tag',
+		description: 'You tagged a note for quick filtering.',
+		firstActionHint: 'Add a #tag in note frontmatter or content.',
 	},
 	{
-		id: 'open_settings',
-		label: 'Open settings',
-		description: 'Customize behavior and review vault integrity in one place.',
+		id: 'first_template',
+		label: 'First template',
+		description: 'You created a note from a template.',
+		firstActionHint: 'Use New Note > template option.',
 	},
-] as const;
+	{
+		id: 'first_search',
+		label: 'First search',
+		description: 'You searched your vault.',
+		firstActionHint: 'Open Knowledge > Search and run a query.',
+	},
+	{
+		id: 'first_session',
+		label: 'First session',
+		description: 'You started a live session.',
+		firstActionHint: 'Open Session Boards and start a session.',
+	},
+];
 
-export const ONBOARDING_TIPS: readonly OnboardingTipDefinition[] = [
+export const ONBOARDING_GUIDED_PROMPTS: readonly OnboardingGuidedPromptDefinition[] = [
 	{
-		id: 'wikilinks',
-		title: 'Why wikilinks matter',
-		description: 'Wikilinks turn isolated notes into a navigable campaign web.',
+		id: 'first_note_link_hint',
+		message: 'Try linking to another note with [[double brackets]].',
 	},
 	{
-		id: 'backlinks',
-		title: 'Why backlinks matter',
-		description: 'Backlinks reveal every note that references your current note.',
+		id: 'second_note_link_hint',
+		message: 'Try linking this note to your second note using [[double brackets]].',
 	},
-	{
-		id: 'object_embeds',
-		title: 'Why object embeds matter',
-		description: 'Embeds keep stat blocks and reusable snippets consistent everywhere.',
-	},
-] as const;
+];
 
-function dedupe<T extends string>(values: readonly T[]): T[] {
-	return Array.from(new Set(values));
+export function createEmptyOnboardingMilestones(): Record<OnboardingMilestoneId, boolean> {
+	return {
+		vault_created: false,
+		first_note: false,
+		first_link: false,
+		first_tag: false,
+		first_template: false,
+		first_search: false,
+		first_session: false,
+	};
 }
 
-export function completeOnboardingStep(
-	completedSteps: readonly OnboardingStepId[],
-	step: OnboardingStepId,
-): OnboardingStepId[] {
-	return dedupe([...completedSteps, step]);
+export function completeOnboardingMilestone(
+	current: Record<OnboardingMilestoneId, boolean>,
+	milestoneId: OnboardingMilestoneId,
+): Record<OnboardingMilestoneId, boolean> {
+	if (current[milestoneId]) return current;
+	return {
+		...current,
+		[milestoneId]: true,
+	};
 }
 
-export function dismissOnboardingTip(
-	dismissedTips: readonly OnboardingTipId[],
-	tip: OnboardingTipId,
-): OnboardingTipId[] {
-	return dedupe([...dismissedTips, tip]);
-}
-
-export function isOnboardingStepComplete(
-	completedSteps: readonly OnboardingStepId[],
-	step: OnboardingStepId,
+export function isOnboardingMilestoneComplete(
+	current: Record<OnboardingMilestoneId, boolean>,
+	milestoneId: OnboardingMilestoneId,
 ): boolean {
-	return completedSteps.includes(step);
+	return current[milestoneId];
+}
+
+export function countCompletedOnboardingMilestones(
+	current: Record<OnboardingMilestoneId, boolean>,
+): number {
+	return ONBOARDING_MILESTONE_IDS.reduce(
+		(count, milestoneId) => count + (current[milestoneId] ? 1 : 0),
+		0,
+	);
+}
+
+export function shouldShowOnboardingWizard(
+	onboarding: OnboardingSettings,
+	activeNoteCount: number,
+): boolean {
+	if (activeNoteCount > 0) return false;
+	if (onboarding.onboardingComplete !== null) return false;
+	return onboarding.onboardingPhase === 'not_started';
+}
+
+export function nextOnboardingMilestone(
+	current: Record<OnboardingMilestoneId, boolean>,
+): OnboardingMilestoneDefinition | null {
+	return ONBOARDING_MILESTONES.find((milestone) => !current[milestone.id]) ?? null;
 }

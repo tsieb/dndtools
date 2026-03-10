@@ -17,6 +17,7 @@
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { isVaultObjectNote } from '$lib/domain/object-notes.js';
 	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
+	import { vaultMaturityState } from '$lib/state/vault-maturity.svelte.js';
 	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
@@ -37,8 +38,10 @@
 	import InstallPromptBanner from '$lib/ui/pwa/InstallPromptBanner.svelte';
 	import KeyboardShortcutsOverlay from '$lib/ui/layout/KeyboardShortcutsOverlay.svelte';
 	import FeatureSpotlight from '$lib/ui/common/FeatureSpotlight.svelte';
+	import SetupWizard from '$lib/ui/onboarding/SetupWizard.svelte';
 	import { registerSW } from 'virtual:pwa-register';
 	import {
+		getDesktopBackendInfo,
 		onDesktopAppMenuCommand,
 		onDesktopNavigateRequest,
 		onDesktopVaultFileSync,
@@ -53,6 +56,7 @@
 		renderNoteTemplate,
 		toNewNoteOverrides,
 	} from '$lib/domain/template-automation.js';
+	import { getVaultTemplateById } from '$lib/domain/vault-templates.js';
 	import { ADVANCED_FEATURE_IDS, type AppSettings } from '$lib/types/settings.js';
 	import { createSessionBoardId } from '$lib/types/session-board.js';
 	import {
@@ -77,8 +81,13 @@
 	let lastAnnouncedRoute = $state<string | null>(null);
 	let previousAdvancedFeatureSnapshot = $state<Record<string, boolean> | null>(null);
 	let runtimeBootstrapRequested = false;
+	let setupWizardSubmitting = $state(false);
+	let suggestedVaultName = $state('My Campaign');
 	let activeTemplateFolder = $derived.by(
 		() => templateDialogFolderOverride ?? page.url.searchParams.get('folder'),
+	);
+	let showSetupWizard = $derived(
+		runtimeState.ready && onboardingState.shouldShowSetupWizard(notesState.activeNotes.length),
 	);
 
 	function canonicalizeLegacyPath(url: URL): string | null {
@@ -155,6 +164,20 @@
 			'',
 			window.location.href,
 		);
+	}
+
+	function suggestVaultNameFromPath(vaultDir: string): string | null {
+		const trimmed = vaultDir.trim();
+		if (!trimmed) return null;
+		const segments = trimmed.split(/[\\/]+/).filter((segment) => segment.length > 0);
+		const base = segments.at(-1)?.trim() ?? '';
+		if (!base) return null;
+		if (/^(vault|dndtools|untitled)$/i.test(base)) return null;
+		if (/^[a-f0-9-]{12,}$/i.test(base)) return null;
+		const normalized = base.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+		if (!/[a-z]/i.test(normalized)) return null;
+		if (normalized.length > 80) return null;
+		return normalized.replace(/\b\w/g, (match) => match.toUpperCase());
 	}
 
 	$effect(() => {
@@ -283,6 +306,43 @@
 	});
 
 	$effect(() => {
+		const configuredName = onboardingState.vaultName.trim();
+		if (configuredName) {
+			suggestedVaultName = configuredName;
+			return;
+		}
+		if (!runtimeState.ready || typeof window === 'undefined' || !window.dndtoolsDesktop) return;
+		let stale = false;
+		void getDesktopBackendInfo()
+			.then((info) => {
+				if (stale) return;
+				const suggested = suggestVaultNameFromPath(info.vaultDir);
+				if (!suggested) return;
+				suggestedVaultName = suggested;
+			})
+			.catch(() => undefined);
+		return () => {
+			stale = true;
+		};
+	});
+
+	$effect(() => {
+		if (!runtimeState.ready) return;
+		if (onboardingState.shouldShowSetupWizard(notesState.activeNotes.length)) return;
+		void onboardingState.markVaultOpened(suggestedVaultName);
+	});
+
+	$effect(() => {
+		if (!runtimeState.ready) return;
+		const { noteCount, linkCount, tagCount } = vaultMaturityState.signals;
+		void onboardingState.syncSignalMilestones({
+			noteCount,
+			linkCount,
+			tagCount,
+		});
+	});
+
+	$effect(() => {
 		const canonical = canonicalizeLegacyPath(page.url);
 		if (!canonical) return;
 		const current = `${page.url.pathname}${page.url.search}`;
@@ -292,11 +352,14 @@
 
 	$effect(() => {
 		const routeId = page.route.id;
-		if (routeId === '/knowledge/search') {
-			void onboardingState.completeStep('use_search');
-		} else if (routeId === '/settings') {
-			void onboardingState.completeStep('open_settings');
+		if (routeId === '/knowledge/search' || routeId === '/search') {
+			void onboardingState.completeMilestone('first_search');
 		}
+	});
+
+	$effect(() => {
+		if (!sessionModeState.isActive) return;
+		void onboardingState.completeMilestone('first_session');
 	});
 
 	afterNavigate(({ to }) => {
@@ -452,6 +515,7 @@
 				sessionNumber: context.sessionNumber + 1,
 			});
 		}
+		await onboardingState.completeMilestone('first_template');
 		goto(resolve(`/knowledge/notes/${note.id}/edit`));
 	}
 
@@ -509,6 +573,38 @@
 
 	function handleRetryInit(): void {
 		void runtimeState.initialize();
+	}
+
+	async function handleSetupWizardFinish(input: {
+		vaultName: string;
+		starter: 'empty-vault' | 'campaign-starter' | 'worldbuilding-starter';
+		skipped: boolean;
+	}): Promise<void> {
+		if (setupWizardSubmitting) return;
+		setupWizardSubmitting = true;
+		try {
+			await onboardingState.beginFromWizard(input.vaultName);
+			if (!input.skipped && input.starter !== 'empty-vault') {
+				const template = getVaultTemplateById(input.starter);
+				if (template) {
+					for (const note of template.notes) {
+						await notesState.createNote({
+							title: note.title,
+							content: note.content,
+							folder: note.folder,
+							tags: [...note.tags],
+						});
+					}
+					await onboardingState.completeMilestone('first_template');
+				}
+			}
+			await searchService.buildIndex(notesState.notes);
+			goto(resolve('/knowledge'));
+		} catch (error) {
+			toastState.error(`Failed to finish setup wizard: ${String(error)}`);
+		} finally {
+			setupWizardSubmitting = false;
+		}
 	}
 
 	async function handleSetPlayerMode(enabled: boolean): Promise<void> {
@@ -577,6 +673,7 @@
 			searchService.buildIndex(notesState.notes),
 			mcpChangesState.refresh(),
 			vaultHealthState.refresh(),
+			onboardingState.loadFromStorage(),
 		]);
 		navigationState.reset(resolve('/knowledge/notes'), { label: 'All Notes' });
 		goto(resolve('/knowledge/notes'));
@@ -812,7 +909,17 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-{#if runtimeState.ready}
+{#if runtimeState.ready && showSetupWizard}
+	<div class="flex h-screen items-center justify-center bg-bg">
+		<SetupWizard
+			{suggestedVaultName}
+			loading={setupWizardSubmitting}
+			onfinish={(input) => void handleSetupWizardFinish(input)}
+		/>
+	</div>
+	<Toast />
+	<LiveAnnouncer />
+{:else if runtimeState.ready}
 	<AppShell
 		onnewnote={handleNewNote}
 		onsearch={() => (quickSwitcherOpen = true)}

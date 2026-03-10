@@ -25,10 +25,15 @@ test.describe('Note CRUD', () => {
 	});
 
 	test('views a note from notes list', async ({ page }) => {
+		await startNewNote(page);
+		await page.getByPlaceholder('Note title...').fill('E2E View Target');
+		await page.getByRole('button', { name: 'Done' }).click();
+		await expect(page).toHaveURL(/\/notes\/[^/]+$/);
+
 		await page.goto('/knowledge/notes');
 		const firstCard = page
 			.locator('button')
-			.filter({ hasText: /Welcome to DND Tools/i })
+			.filter({ hasText: /E2E View Target/i })
 			.first();
 		await expect(firstCard).toBeVisible();
 		await firstCard.click();

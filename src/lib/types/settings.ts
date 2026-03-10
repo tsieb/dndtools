@@ -33,19 +33,42 @@ export interface SavedSearch {
 	updatedAt: string;
 }
 
-export type OnboardingStepId =
-	| 'create_first_note'
-	| 'add_link'
-	| 'add_tag'
-	| 'use_search'
-	| 'open_settings';
+export type OnboardingPhase = 'not_started' | 'started' | 'completed';
 
-export type OnboardingTipId = 'wikilinks' | 'backlinks' | 'object_embeds';
+export type OnboardingMilestoneId =
+	| 'vault_created'
+	| 'first_note'
+	| 'first_link'
+	| 'first_tag'
+	| 'first_template'
+	| 'first_search'
+	| 'first_session';
+
+export const ONBOARDING_MILESTONE_IDS: readonly OnboardingMilestoneId[] = [
+	'vault_created',
+	'first_note',
+	'first_link',
+	'first_tag',
+	'first_template',
+	'first_search',
+	'first_session',
+];
+
+export type OnboardingGuidedPromptId = 'first_note_link_hint' | 'second_note_link_hint';
+
+export const ONBOARDING_GUIDED_PROMPT_IDS: readonly OnboardingGuidedPromptId[] = [
+	'first_note_link_hint',
+	'second_note_link_hint',
+];
 
 export interface OnboardingSettings {
-	dismissed: boolean;
-	completedSteps: OnboardingStepId[];
-	dismissedTips: OnboardingTipId[];
+	onboardingComplete: boolean | null;
+	onboardingPhase: OnboardingPhase;
+	vaultName: string;
+	milestones: Record<OnboardingMilestoneId, boolean>;
+	shownPrompts: OnboardingGuidedPromptId[];
+	dismissedPrompts: OnboardingGuidedPromptId[];
+	lastSeenWhatsNewVersion: string | null;
 }
 
 export interface TemplateContextSettings {
@@ -131,6 +154,117 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function isAdvancedFeatureId(value: string): value is AdvancedFeatureId {
 	return ADVANCED_FEATURE_IDS.includes(value as AdvancedFeatureId);
+}
+
+function defaultOnboardingMilestones(): Record<OnboardingMilestoneId, boolean> {
+	return {
+		vault_created: false,
+		first_note: false,
+		first_link: false,
+		first_tag: false,
+		first_template: false,
+		first_search: false,
+		first_session: false,
+	};
+}
+
+function normalizeOnboardingPhase(raw: unknown): OnboardingPhase {
+	return raw === 'started' || raw === 'completed' ? raw : 'not_started';
+}
+
+function isOnboardingGuidedPromptId(value: string): value is OnboardingGuidedPromptId {
+	return ONBOARDING_GUIDED_PROMPT_IDS.includes(value as OnboardingGuidedPromptId);
+}
+
+function normalizeOnboardingPromptList(raw: unknown): OnboardingGuidedPromptId[] {
+	if (!Array.isArray(raw)) return [];
+	const deduped = new Set<OnboardingGuidedPromptId>();
+	for (const value of raw) {
+		if (typeof value !== 'string' || !isOnboardingGuidedPromptId(value)) continue;
+		deduped.add(value);
+	}
+	return [...deduped];
+}
+
+function normalizeOnboardingMilestones(raw: unknown): Record<OnboardingMilestoneId, boolean> {
+	const milestones = defaultOnboardingMilestones();
+	if (!isRecord(raw)) return milestones;
+	for (const milestoneId of ONBOARDING_MILESTONE_IDS) {
+		if (typeof raw[milestoneId] === 'boolean') {
+			milestones[milestoneId] = raw[milestoneId];
+		}
+	}
+	return milestones;
+}
+
+export function normalizeOnboardingSettings(raw: unknown): OnboardingSettings {
+	const defaults: OnboardingSettings = {
+		onboardingComplete: null,
+		onboardingPhase: 'not_started',
+		vaultName: '',
+		milestones: defaultOnboardingMilestones(),
+		shownPrompts: [],
+		dismissedPrompts: [],
+		lastSeenWhatsNewVersion: null,
+	};
+
+	if (!isRecord(raw)) {
+		return defaults;
+	}
+
+	const milestones = normalizeOnboardingMilestones(raw.milestones);
+	const legacyStepToMilestone: Partial<Record<string, OnboardingMilestoneId>> = {
+		create_first_note: 'first_note',
+		add_link: 'first_link',
+		add_tag: 'first_tag',
+		use_search: 'first_search',
+	};
+	if (Array.isArray(raw.completedSteps)) {
+		for (const step of raw.completedSteps) {
+			if (typeof step !== 'string') continue;
+			const mapped = legacyStepToMilestone[step];
+			if (!mapped) continue;
+			milestones[mapped] = true;
+		}
+	}
+
+	const shownPrompts = normalizeOnboardingPromptList(raw.shownPrompts);
+	const dismissedPrompts = normalizeOnboardingPromptList(raw.dismissedPrompts);
+
+	let onboardingPhase = normalizeOnboardingPhase(raw.onboardingPhase);
+	let onboardingComplete: boolean | null =
+		typeof raw.onboardingComplete === 'boolean'
+			? raw.onboardingComplete
+			: defaults.onboardingComplete;
+
+	const hasAnyMilestone = ONBOARDING_MILESTONE_IDS.some((milestoneId) => milestones[milestoneId]);
+	const hasLegacyState = Array.isArray(raw.completedSteps) || raw.dismissed === true;
+	if (
+		onboardingPhase === 'not_started' &&
+		(hasAnyMilestone || hasLegacyState || shownPrompts.length > 0 || dismissedPrompts.length > 0)
+	) {
+		onboardingPhase = 'started';
+	}
+
+	if (onboardingPhase === 'completed') {
+		onboardingComplete = true;
+	} else if (onboardingPhase !== 'not_started' && onboardingComplete === null) {
+		onboardingComplete = false;
+	}
+
+	return {
+		onboardingComplete,
+		onboardingPhase,
+		vaultName: typeof raw.vaultName === 'string' ? raw.vaultName.trim() : defaults.vaultName,
+		milestones,
+		shownPrompts,
+		dismissedPrompts,
+		lastSeenWhatsNewVersion:
+			typeof raw.lastSeenWhatsNewVersion === 'string' &&
+			raw.lastSeenWhatsNewVersion.trim().length > 0
+				? raw.lastSeenWhatsNewVersion.trim()
+				: defaults.lastSeenWhatsNewVersion,
+	};
 }
 
 function defaultAdvancedFeatureSettings(): AdvancedFeatureSettings {
@@ -236,9 +370,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
 	},
 	savedSearches: [],
 	onboarding: {
-		dismissed: false,
-		completedSteps: [],
-		dismissedTips: [],
+		onboardingComplete: null,
+		onboardingPhase: 'not_started',
+		vaultName: '',
+		milestones: defaultOnboardingMilestones(),
+		shownPrompts: [],
+		dismissedPrompts: [],
+		lastSeenWhatsNewVersion: null,
 	},
 	templateContext: {
 		campaignName: '',

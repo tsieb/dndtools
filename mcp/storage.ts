@@ -45,6 +45,7 @@ import { createSessionBoardId } from '../src/lib/types/session-board.js';
 import {
 	DEFAULT_SETTINGS,
 	normalizeFeatureSettings,
+	normalizeOnboardingSettings,
 	normalizeSeenSpotlights,
 } from '../src/lib/types/settings.js';
 import { slugify } from '../src/lib/utils/slug.js';
@@ -434,6 +435,9 @@ function normalizeSettingValue<K extends keyof AppSettings>(
 	}
 	if (key === 'featureSettings') {
 		return normalizeFeatureSettings(value) as AppSettings[K];
+	}
+	if (key === 'onboarding') {
+		return normalizeOnboardingSettings(value) as AppSettings[K];
 	}
 	if (key === 'seenSpotlights') {
 		return normalizeSeenSpotlights(value) as AppSettings[K];

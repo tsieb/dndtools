@@ -2,8 +2,10 @@
 	import { tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { getWhatsNewReleaseForVersion } from '$lib/domain/whats-new.js';
 	import { navigationState, type PrimarySection } from '$lib/state/navigation.svelte.js';
 	import { onboardingState } from '$lib/state/onboarding.svelte.js';
+	import packageJson from '../../../../package.json';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { desktopShellState } from '$lib/state/desktop-shell.svelte.js';
@@ -40,10 +42,21 @@
 	let scrollContainerEl = $state<HTMLElement | null>(null);
 	let lastScrollSection = $state<PrimarySection | null>(null);
 	const sidebarWidth = $derived(desktopShellState.getLocalPanelWidth(activeSection));
+	const hasWhatsNewRelease = $derived(!!getWhatsNewReleaseForVersion(packageJson.version));
+	const showWhatsNewBadge = $derived(
+		hasWhatsNewRelease && onboardingState.hasUnseenWhatsNew(packageJson.version),
+	);
 
 	function openGettingStarted(): void {
-		void onboardingState.reopenChecklist();
-		goto(resolve('/knowledge'));
+		goto(`${resolve('/knowledge')}?panel=getting-started`);
+		if (layoutState.isCompact) {
+			ui.sidebarOpen = false;
+		}
+	}
+
+	function openWhatsNew(): void {
+		void onboardingState.markWhatsNewSeen(packageJson.version);
+		goto(`${resolve('/knowledge')}?panel=whats-new`);
 		if (layoutState.isCompact) {
 			ui.sidebarOpen = false;
 		}
@@ -159,6 +172,18 @@
 		<Button variant="ghost" size="sm" onclick={openGettingStarted} class="w-full justify-start">
 			Getting started
 		</Button>
+		{#if hasWhatsNewRelease}
+			<Button variant="ghost" size="sm" onclick={openWhatsNew} class="w-full justify-between">
+				<span>What's new</span>
+				{#if showWhatsNewBadge}
+					<span
+						class="inline-flex items-center rounded-full bg-accent-subtle px-1.5 py-0.5 text-2xs font-semibold text-accent"
+					>
+						New
+					</span>
+				{/if}
+			</Button>
+		{/if}
 		<Button variant="ghost" size="sm" onclick={reportBug} class="w-full justify-start">
 			Report a bug
 		</Button>

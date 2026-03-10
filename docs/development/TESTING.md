@@ -101,21 +101,21 @@ Desktop E2E prerequisite:
 
 Runner: Playwright (`playwright.desktop.config.ts`). Merge-blocking policy: desktop critical E2E enforced in CI (`.github/workflows/ci.yml` job: `desktop-e2e-critical`) and PR workflow (`.github/workflows/e2e.yml`).
 
-| Route               | Covered workflows                                                               | Test evidence                                                                                                |
-| ------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `/`                 | Vault opens, app shell renders, first-run onboarding checklist is actionable    | `desktop-smoke.spec.ts`, `critical-workflows.spec.ts` ("vault opens and first-run onboarding is actionable") |
-| `/notes`            | Notes listing and note-entry navigation                                         | `critical-workflows.spec.ts` ("note CRUD workflow", "wikilink navigation and search workflows")              |
-| `/notes/[id]`       | Note viewer rendering and wikilink navigation                                   | `critical-workflows.spec.ts` ("wikilink navigation and search workflows")                                    |
-| `/notes/[id]/edit`  | Note create/update flow, object creation/embed flow                             | `critical-workflows.spec.ts` ("note CRUD workflow", "object creation workflow")                              |
-| `/search`           | Search query execution and result rendering                                     | `critical-workflows.spec.ts` ("wikilink navigation and search workflows")                                    |
-| `/graph`            | Link graph filtering, isolation toggle, node selection, and note drill-in       | `critical-workflows.spec.ts` ("graph route filters linked notes and opens selected nodes")                   |
-| `/timeline`         | Chronological world/session timeline rendering with arc and participant filters | `critical-workflows.spec.ts` ("timeline route shows world events and linked session logs with filters")      |
-| `/maps`             | Map library filtering and map detail control loading                            | `critical-workflows.spec.ts` ("maps route filters map library and loads map detail controls")                |
-| `/combat`           | Combat board selection and no-tile recovery controls                            | `critical-workflows.spec.ts` ("combat tracker route exposes board selection and no-tile recovery controls")  |
-| `/settings?tab=mcp` | MCP pending-change review and approval lifecycle                                | `critical-workflows.spec.ts` ("MCP pending review approves staged changes from settings")                    |
-| `/session-board`    | Session board creation and note-tile management                                 | `critical-workflows.spec.ts` ("session board management creates board and attaches notes")                   |
-| `/encounter/new`    | Encounter builder canonical route availability in desktop shell                 | `critical-workflows.spec.ts` ("encounter builder canonical route resolves in desktop shell")                 |
-| `/player`           | Player-safe note visibility filtering, search, and exit workflow                | `critical-workflows.spec.ts` ("player view shows only shared/public notes and supports exit flow")           |
+| Route               | Covered workflows                                                               | Test evidence                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `/`                 | Vault opens, setup wizard appears for empty vaults, and onboarding can continue | `desktop-smoke.spec.ts`, `critical-workflows.spec.ts` ("vault opens and setup wizard is actionable")        |
+| `/notes`            | Notes listing and note-entry navigation                                         | `critical-workflows.spec.ts` ("note CRUD workflow", "wikilink navigation and search workflows")             |
+| `/notes/[id]`       | Note viewer rendering and wikilink navigation                                   | `critical-workflows.spec.ts` ("wikilink navigation and search workflows")                                   |
+| `/notes/[id]/edit`  | Note create/update flow, object creation/embed flow                             | `critical-workflows.spec.ts` ("note CRUD workflow", "object creation workflow")                             |
+| `/search`           | Search query execution and result rendering                                     | `critical-workflows.spec.ts` ("wikilink navigation and search workflows")                                   |
+| `/graph`            | Link graph filtering, isolation toggle, node selection, and note drill-in       | `critical-workflows.spec.ts` ("graph route filters linked notes and opens selected nodes")                  |
+| `/timeline`         | Chronological world/session timeline rendering with arc and participant filters | `critical-workflows.spec.ts` ("timeline route shows world events and linked session logs with filters")     |
+| `/maps`             | Map library filtering and map detail control loading                            | `critical-workflows.spec.ts` ("maps route filters map library and loads map detail controls")               |
+| `/combat`           | Combat board selection and no-tile recovery controls                            | `critical-workflows.spec.ts` ("combat tracker route exposes board selection and no-tile recovery controls") |
+| `/settings?tab=mcp` | MCP pending-change review and approval lifecycle                                | `critical-workflows.spec.ts` ("MCP pending review approves staged changes from settings")                   |
+| `/session-board`    | Session board creation and note-tile management                                 | `critical-workflows.spec.ts` ("session board management creates board and attaches notes")                  |
+| `/encounter/new`    | Encounter builder canonical route availability in desktop shell                 | `critical-workflows.spec.ts` ("encounter builder canonical route resolves in desktop shell")                |
+| `/player`           | Player-safe note visibility filtering, search, and exit workflow                | `critical-workflows.spec.ts` ("player view shows only shared/public notes and supports exit flow")          |
 
 ### 3.3 Performance Regression
 

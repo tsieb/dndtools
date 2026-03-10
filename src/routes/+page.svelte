@@ -2,13 +2,17 @@
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { vaultState } from '$lib/state/vault.svelte.js';
 	import { linksState } from '$lib/state/links.svelte.js';
+	import { onboardingState } from '$lib/state/onboarding.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
-	import FirstRunChecklist from '$lib/ui/onboarding/FirstRunChecklist.svelte';
+	import GettingStartedPanel from '$lib/ui/onboarding/GettingStartedPanel.svelte';
+	import WhatsNewPanel from '$lib/ui/onboarding/WhatsNewPanel.svelte';
 	import NoteCard from '$lib/ui/common/NoteCard.svelte';
 	import Button from '$lib/ui/common/Button.svelte';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import packageJson from '../../package.json';
 
 	let modeScopedActiveNotes = $derived.by(() =>
 		playerModeState.enabled
@@ -43,15 +47,38 @@
 		}
 		return count;
 	});
+	let helpPanel = $derived(page.url.searchParams.get('panel'));
+	let showGettingStarted = $derived(helpPanel === 'getting-started');
+	let showWhatsNew = $derived(helpPanel === 'whats-new');
+
+	$effect(() => {
+		if (!showWhatsNew) return;
+		void onboardingState.markWhatsNewSeen(packageJson.version);
+	});
 
 	async function handleNewNote(): Promise<void> {
 		const note = await notesState.createNote();
 		goto(resolve(`/knowledge/notes/${note.id}/edit`));
 	}
+
+	function closeHelpPanel(): void {
+		const nextUrl = new URL(page.url);
+		nextUrl.searchParams.delete('panel');
+		goto(`${nextUrl.pathname}${nextUrl.search}`, {
+			replaceState: true,
+			keepFocus: true,
+			noScroll: true,
+		});
+	}
 </script>
 
 <div class="p-6 max-w-content mx-auto">
-	<FirstRunChecklist />
+	{#if showGettingStarted}
+		<GettingStartedPanel onclose={closeHelpPanel} />
+	{/if}
+	{#if showWhatsNew}
+		<WhatsNewPanel version={packageJson.version} onclose={closeHelpPanel} />
+	{/if}
 
 	{#if modeScopedActiveNotes.length === 0}
 		<div class="text-center py-16">

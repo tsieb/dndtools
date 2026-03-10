@@ -14,6 +14,10 @@ export interface DesktopAppHandle {
 	vaultDir: string;
 }
 
+export interface LaunchDesktopAppOptions {
+	autoCompleteWizard?: boolean;
+}
+
 function launchEnvironment(): Record<string, string> {
 	const env: Record<string, string> = {};
 	for (const [key, value] of Object.entries(process.env)) {
@@ -30,7 +34,17 @@ export async function createTempVaultDir(prefix: string): Promise<string> {
 	return fs.mkdtemp(path.join(os.tmpdir(), prefix));
 }
 
-export async function launchDesktopApp(vaultDir: string): Promise<DesktopAppHandle> {
+async function completeSetupWizard(page: Page): Promise<void> {
+	await page.getByRole('button', { name: 'Next' }).click();
+	await page.getByRole('button', { name: 'Next' }).click();
+	await page.getByRole('button', { name: 'Open DND Tools' }).click();
+}
+
+export async function launchDesktopApp(
+	vaultDir: string,
+	options: LaunchDesktopAppOptions = {},
+): Promise<DesktopAppHandle> {
+	const autoCompleteWizard = options.autoCompleteWizard ?? true;
 	const windowTimeoutMs = Number(process.env.DNDTOOLS_E2E_WINDOW_TIMEOUT_MS ?? '300000');
 	const shellReadyTimeoutMs = Number(process.env.DNDTOOLS_E2E_SHELL_READY_TIMEOUT_MS ?? '60000');
 	const appMain = path.join(process.cwd(), 'electron', 'dist', 'main.cjs');
@@ -55,6 +69,19 @@ export async function launchDesktopApp(vaultDir: string): Promise<DesktopAppHand
 			if (ready) {
 				page = candidate;
 				return { electronApp, page, vaultDir };
+			}
+			const wizardVisible = await candidate
+				.getByRole('heading', { name: 'Welcome to DND Tools' })
+				.isVisible({ timeout: 1_000 })
+				.catch(() => false);
+			if (wizardVisible) {
+				page = candidate;
+				if (!autoCompleteWizard) {
+					return { electronApp, page, vaultDir };
+				}
+				await completeSetupWizard(candidate);
+				await expect(candidate.locator('header').first()).toBeVisible({ timeout: 20_000 });
+				return { electronApp, page: candidate, vaultDir };
 			}
 		}
 		await electronApp

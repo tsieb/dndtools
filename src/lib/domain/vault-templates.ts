@@ -9,7 +9,7 @@ export interface VaultTemplateNote {
 }
 
 export interface VaultTemplate {
-	id: 'campaign-starter' | 'one-shot' | 'player-journal';
+	id: 'campaign-starter' | 'worldbuilding-starter' | 'one-shot' | 'player-journal';
 	name: string;
 	description: string;
 	notes: VaultTemplateNote[];
@@ -85,6 +85,102 @@ Opening session notes.
 - [[Campaign Overview]]
 - [[Starter Town]]
 - [[Patron NPC]]
+`,
+			),
+		],
+	},
+	{
+		id: 'worldbuilding-starter',
+		name: 'Worldbuilding Starter',
+		description: 'A connected world scaffold with factions, mythology, and timeline hooks.',
+		notes: [
+			note(
+				'World Overview',
+				'/world',
+				['world', 'overview'],
+				`# World Overview
+
+## Core Premise
+Describe the big idea shaping this setting.
+
+## Start Here
+- [[Major Factions]]
+- [[Creation Myth]]
+- [[Geography Overview]]
+`,
+			),
+			note(
+				'Major Factions',
+				'/world/factions',
+				['faction', 'world'],
+				`# Major Factions
+
+## Powers in Motion
+- [[Imperial Court]]
+- [[Free Cities Consortium]]
+- [[Ashen Cabal]]
+
+## Related
+- [[World Overview]]
+`,
+			),
+			note(
+				'Creation Myth',
+				'/world/lore',
+				['lore', 'myth'],
+				`# Creation Myth
+
+## Origin Story
+Summarize the myth your cultures tell about the world's beginning.
+
+## Contradictions
+- Which parts are disputed?
+- Which faiths disagree?
+`,
+			),
+			note(
+				'Geography Overview',
+				'/world/locations',
+				['location', 'geography'],
+				`# Geography Overview
+
+## Key Regions
+- [[Northreach Wilds]]
+- [[Glasswater Coast]]
+- [[Emberfall Basin]]
+
+## Travel Notes
+How long does it take to cross major routes?
+`,
+			),
+			note(
+				'Timeline Stub',
+				'/world/history',
+				['timeline', 'history'],
+				`# Timeline Stub
+
+## Major Eras
+- Founding Age
+- Crown Wars
+- Current Era
+
+## Link to Sessions
+Reference future logs such as [[Session 01 - Arrival]].
+`,
+			),
+			note(
+				'Session 01 - Arrival',
+				'/sessions',
+				['session'],
+				`# Session 01 - Arrival
+
+## Opening Scene
+Where and how the party enters the world.
+
+## Connected Notes
+- [[World Overview]]
+- [[Geography Overview]]
+- [[Major Factions]]
 `,
 			),
 		],

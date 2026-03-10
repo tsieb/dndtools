@@ -46,9 +46,10 @@ Verified from code:
 - Backlinks panel in note view.
 - Session-mode focus reading toggle with minimal chrome.
 - Related note quick-jump panel (tags, backlinks, object references).
-- Guided first-run onboarding checklist with dismiss/revisit controls.
-- Contextual onboarding tips for wikilinks, backlinks, and object embeds.
-- First-run shortcuts for sample vault starters and Obsidian import preview.
+- First-run setup wizard with vault naming and starter-preset selection.
+- Milestone-based Getting Started help panel (optional, non-blocking).
+- Contextual first-link guidance callouts in the note editor.
+- Help menu What's New panel with version-keyed update highlights.
 - Settings tabs including MCP pending changes (desktop mode).
 - Skip link and focus-visible styling.
 - Reduced motion media query handling.

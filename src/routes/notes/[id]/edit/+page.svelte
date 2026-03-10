@@ -8,6 +8,7 @@
 	import type { TimelineEventObject } from '$lib/types/object.js';
 	import { noteToVaultObject } from '$lib/domain/object-notes.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
+	import { onboardingState } from '$lib/state/onboarding.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { editorState } from '$lib/state/editor.svelte.js';
 	import { editorPreferencesState } from '$lib/state/editor-preferences.svelte.js';
@@ -40,6 +41,7 @@
 	import ObjectStructuredEditor from '$lib/ui/editor/ObjectStructuredEditor.svelte';
 	import UnresolvedLinksPanel from '$lib/ui/editor/UnresolvedLinksPanel.svelte';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
+	import type { OnboardingGuidedPromptId } from '$lib/types/settings.js';
 
 	const EditorPromise = import('$lib/ui/editor/CodeMirrorEditor.svelte');
 	type TimelineEventCandidate = { note: Note; object: TimelineEventObject };
@@ -99,6 +101,42 @@
 	);
 	let compactEditorLayout = $derived(layoutState.isCompact);
 	let dockEditorToolbar = $derived(layoutState.isCompact && mobileKeyboardState.keyboardOpen);
+	let activeGuidedPromptId = $state<OnboardingGuidedPromptId | null>(null);
+	let orderedActiveNotes = $derived.by(() =>
+		[...notesState.activeNotes].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+	);
+	let firstCreatedNote = $derived(orderedActiveNotes[0] ?? null);
+	let secondCreatedNote = $derived(orderedActiveNotes[1] ?? null);
+	let suggestedPromptId = $derived.by<OnboardingGuidedPromptId | null>(() => {
+		if (!note) return null;
+		if (!onboardingState.hasMilestone('first_note')) return null;
+		if (onboardingState.hasMilestone('first_link')) return null;
+
+		if (
+			orderedActiveNotes.length >= 2 &&
+			firstCreatedNote &&
+			secondCreatedNote &&
+			firstCreatedNote.id === note.id &&
+			onboardingState.canTriggerGuidedPrompt('second_note_link_hint')
+		) {
+			return 'second_note_link_hint';
+		}
+
+		if (onboardingState.canTriggerGuidedPrompt('first_note_link_hint')) {
+			return 'first_note_link_hint';
+		}
+
+		return null;
+	});
+	let guidedPromptMessage = $derived.by(() => {
+		if (activeGuidedPromptId === 'second_note_link_hint' && secondCreatedNote) {
+			return `Try linking to [[${secondCreatedNote.title}]] with [[double brackets]].`;
+		}
+		if (activeGuidedPromptId === 'first_note_link_hint') {
+			return 'Try linking to another note with [[double brackets]].';
+		}
+		return '';
+	});
 
 	$effect(() => {
 		if (note && editorState.noteId !== note.id) {
@@ -145,6 +183,22 @@
 		return () => window.removeEventListener('dndtools:editor-done-request', handleDoneRequest);
 	});
 
+	$effect(() => {
+		const nextPromptId = suggestedPromptId;
+		if (activeGuidedPromptId === nextPromptId) return;
+		activeGuidedPromptId = nextPromptId;
+		if (!nextPromptId) return;
+		void onboardingState.markGuidedPromptShown(nextPromptId);
+	});
+
+	$effect(() => {
+		if (!activeGuidedPromptId) return;
+		if (!editorState.dirty) return;
+		const promptId = activeGuidedPromptId;
+		activeGuidedPromptId = null;
+		void onboardingState.dismissGuidedPrompt(promptId);
+	});
+
 	function handleKeydown(event: KeyboardEvent): void {
 		const mod = event.ctrlKey || event.metaKey;
 		if (mod && event.key === 's') {
@@ -173,6 +227,13 @@
 
 	function handleViewReady(view: EditorView): void {
 		editorView = view;
+	}
+
+	function dismissGuidedPrompt(): void {
+		if (!activeGuidedPromptId) return;
+		const promptId = activeGuidedPromptId;
+		activeGuidedPromptId = null;
+		void onboardingState.dismissGuidedPrompt(promptId);
 	}
 
 	function handleMetadataApply(updates: Record<string, unknown>): void {
@@ -293,6 +354,21 @@
 			class="mb-4 w-full border-none bg-transparent text-2xl font-bold text-ink outline-none placeholder:text-ink-faint"
 			placeholder="Note title..."
 		/>
+
+		{#if activeGuidedPromptId && guidedPromptMessage}
+			<section class="mb-4 rounded-lg border border-accent/40 bg-accent-subtle/35 px-3 py-2.5">
+				<div class="flex items-start justify-between gap-3">
+					<p class="text-sm text-ink">{guidedPromptMessage}</p>
+					<button
+						type="button"
+						class="shrink-0 rounded px-1.5 py-0.5 text-xs text-ink-muted hover:bg-accent-subtle"
+						onclick={dismissGuidedPrompt}
+					>
+						Dismiss
+					</button>
+				</div>
+			</section>
+		{/if}
 
 		<section class="mb-3 rounded-lg border border-border bg-surface p-3">
 			<h2 class="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint">

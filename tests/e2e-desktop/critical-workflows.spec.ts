@@ -1,6 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 import { FileSystemAdapter } from '../../mcp/storage.js';
-import { createTempVaultDir, launchDesktopApp, closeDesktopApp } from './helpers/desktop-app.js';
+import {
+	createTempVaultDir,
+	launchDesktopApp,
+	closeDesktopApp,
+	type LaunchDesktopAppOptions,
+} from './helpers/desktop-app.js';
 
 function buildNote(id: string, title: string, content: string): Record<string, unknown> {
 	const now = new Date().toISOString();
@@ -65,6 +70,7 @@ function buildMapObject(id: string, name: string, areaNoteId: string): Record<st
 
 async function launchWithSeed(
 	seed?: (adapter: FileSystemAdapter) => Promise<void>,
+	options: LaunchDesktopAppOptions = {},
 ): Promise<Awaited<ReturnType<typeof launchDesktopApp>>> {
 	const vaultDir = await createTempVaultDir('dndtools-e2e-vault-');
 	if (seed) {
@@ -76,7 +82,7 @@ async function launchWithSeed(
 			await adapter.close();
 		}
 	}
-	return launchDesktopApp(vaultDir);
+	return launchDesktopApp(vaultDir, options);
 }
 
 async function gotoDesktopPath(page: Page, route: string): Promise<void> {
@@ -84,7 +90,20 @@ async function gotoDesktopPath(page: Page, route: string): Promise<void> {
 	await page.goto(`${origin}${route}`);
 }
 
+async function completeSetupWizardIfVisible(page: Page): Promise<void> {
+	const heading = page.getByRole('heading', { name: 'Welcome to DND Tools' });
+	const wizardVisible = await heading.isVisible({ timeout: 3_000 }).catch(() => false);
+	if (!wizardVisible) return;
+	await page.getByRole('button', { name: 'Next' }).click();
+	await page.getByRole('button', { name: 'Next' }).click();
+	await page.getByRole('button', { name: 'Open DND Tools' }).click();
+	await expect(
+		page.getByRole('heading', { name: /Your Vault|Welcome, Dungeon Master/ }),
+	).toBeVisible();
+}
+
 async function startNewNote(page: Page): Promise<void> {
+	await completeSetupWizardIfVisible(page);
 	await gotoDesktopPath(page, '/knowledge/notes');
 	await page.keyboard.press('Control+N');
 	if (/\/notes\/[^/]+\/edit$/.test(page.url())) {
@@ -143,14 +162,15 @@ async function openEndSessionWorkflow(page: Page): Promise<void> {
 }
 
 test.describe('Desktop critical workflows @critical', () => {
-	test('vault opens and first-run onboarding is actionable', async () => {
-		const app = await launchWithSeed();
+	test('vault opens and setup wizard is actionable', async () => {
+		const app = await launchWithSeed(undefined, { autoCompleteWizard: false });
 		try {
-			await expect(app.page.getByRole('heading', { name: 'First-run Checklist' })).toBeVisible();
-			const searchStep = app.page.locator('li').filter({ hasText: 'Try global search' });
-			await searchStep.getByRole('button', { name: 'Open' }).click();
-			await expect(app.page).toHaveURL(/\/search$/);
-			await expect(app.page.getByRole('heading', { name: 'Search & Discovery' })).toBeVisible();
+			await expect(app.page.getByRole('heading', { name: 'Welcome to DND Tools' })).toBeVisible();
+			await app.page.getByRole('button', { name: 'Next' }).click();
+			await app.page.getByRole('button', { name: 'Campaign starter' }).click();
+			await app.page.getByRole('button', { name: 'Next' }).click();
+			await app.page.getByRole('button', { name: 'Open DND Tools' }).click();
+			await expect(app.page.getByRole('heading', { name: 'Your Vault' })).toBeVisible();
 		} finally {
 			await closeDesktopApp(app);
 		}

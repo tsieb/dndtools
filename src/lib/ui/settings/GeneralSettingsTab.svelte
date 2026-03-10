@@ -4,7 +4,7 @@
 	import ThemeToggle from '$lib/ui/common/ThemeToggle.svelte';
 	import { editorPreferencesState } from '$lib/state/editor-preferences.svelte.js';
 	import { onboardingState } from '$lib/state/onboarding.svelte.js';
-	import { ONBOARDING_STEPS } from '$lib/domain/onboarding.js';
+	import { ONBOARDING_MILESTONES } from '$lib/domain/onboarding.js';
 	import { KEYBOARD_SHORTCUT_REGISTRY } from '$lib/domain/keyboard-shortcuts.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
@@ -241,15 +241,12 @@
 		<h2 class="text-lg font-semibold text-ink mb-4">Onboarding</h2>
 		<div class="rounded-lg border border-border bg-surface p-4">
 			<p class="text-sm text-ink font-medium">
-				Checklist progress: {onboardingState.completedCount}/{ONBOARDING_STEPS.length}
+				Milestone progress: {onboardingState.completedCount}/{ONBOARDING_MILESTONES.length}
 			</p>
 			<p class="text-xs text-ink-muted mt-1">
-				Use these controls to reopen or reset first-run guidance.
+				Phase: {onboardingState.onboardingPhase}
 			</p>
 			<div class="mt-3 flex items-center gap-2">
-				<Button variant="secondary" size="sm" onclick={() => onboardingState.reopenChecklist()}>
-					Reopen Checklist
-				</Button>
 				<Button variant="ghost" size="sm" onclick={() => onboardingState.reset()}>
 					Reset Onboarding
 				</Button>

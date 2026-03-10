@@ -171,6 +171,29 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 17.4** — First-Run Onboarding Reimagined:
+  - Replaced checklist-style onboarding with a persisted state machine in
+    `src/lib/state/onboarding.svelte.ts` and new onboarding domain contracts in
+    `src/lib/domain/onboarding.ts`.
+  - Added first-run setup wizard `src/lib/ui/onboarding/SetupWizard.svelte` and gated app-shell
+    rendering in `src/routes/+layout.svelte` so empty first-run vaults start in guided setup.
+  - Added starter vault support for worldbuilding in `src/lib/domain/vault-templates.ts` and
+    wired template-backed setup completion flow.
+  - Added guided first-action wikilink prompts in `src/routes/notes/[id]/edit/+page.svelte`
+    with one-time trigger/dismiss behavior persisted in onboarding settings.
+  - Added optional help surfaces:
+    - `src/lib/ui/onboarding/GettingStartedPanel.svelte` (milestone discovery summary)
+    - `src/lib/ui/onboarding/WhatsNewPanel.svelte` (version-keyed update list)
+    - Help menu integration + unread badge updates in `src/lib/ui/layout/Sidebar.svelte`
+  - Added changelog parsing support in `src/lib/domain/whats-new.ts` and project changelog source
+    `CHANGELOG.md`.
+  - Updated onboarding tests/docs:
+    - `src/lib/domain/onboarding.test.ts`
+    - `src/lib/types/settings.test.ts`
+    - `tests/e2e-desktop/critical-workflows.spec.ts`
+    - `docs/development/TESTING.md`
+    - `docs/development/UX_GUIDELINES.md`
+
 - **Epic 17.3** — Contextual Help Architecture:
   - Added reusable contextual help primitive `src/lib/ui/common/HelpTip.svelte`:
     - 16px `?` trigger (`aria-label="Help"`) with `aria-expanded`/`aria-controls`

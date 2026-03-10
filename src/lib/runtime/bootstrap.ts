@@ -3,7 +3,6 @@ import { ui } from '$lib/state/ui.svelte.js';
 import { onboardingState } from '$lib/state/onboarding.svelte.js';
 import { notesState } from '$lib/state/notes.svelte.js';
 import { searchService } from '$lib/domain/search.js';
-import { createWelcomeNote } from '$lib/domain/welcome-note.js';
 import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 import { searchState } from '$lib/state/search.svelte.js';
@@ -66,10 +65,6 @@ export async function bootstrapApplication(): Promise<void> {
 		]);
 
 		await notesState.loadAll();
-		if (notesState.notes.length === 0) {
-			await createWelcomeNote();
-			await notesState.loadAll();
-		}
 
 		await Promise.all([
 			searchService.buildIndex(notesState.notes),
