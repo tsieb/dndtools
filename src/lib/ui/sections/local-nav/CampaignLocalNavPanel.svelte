@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import CollapsibleLocalNavSection from '$lib/ui/layout/local-nav/CollapsibleLocalNavSection.svelte';
@@ -16,6 +17,9 @@
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import { buildOpenThreadsReport } from '$lib/domain/open-threads.js';
 	import EmptyState from '$lib/ui/common/EmptyState.svelte';
+	import { vaultMaturityState } from '$lib/state/vault-maturity.svelte.js';
+	import { featureSettingsState } from '$lib/state/feature-settings.svelte.js';
+	import { reportRuntimeError } from '$lib/runtime/diagnostics.js';
 
 	const modeScopedNotes = $derived.by(() =>
 		playerModeState.enabled
@@ -39,6 +43,26 @@
 	const openThreads = $derived.by(() =>
 		buildOpenThreadsReport(modeScopedNotes, worldCalendarState.calendar),
 	);
+	const objectNotesEnabled = $derived(featureSettingsState.isAdvancedEnabled('object_notes'));
+	const revealEntityList = $derived(
+		vaultMaturityState.disclosure.revealCampaignEntityList || objectNotesEnabled,
+	);
+	const npcCandidateCount = $derived.by(
+		() =>
+			modeScopedNotes.filter((note) => note.tags.some((tag) => tag.toLowerCase() === 'npc')).length,
+	);
+	const showObjectNotesPrompt = $derived.by(
+		() =>
+			!objectNotesEnabled &&
+			npcCandidateCount >= 5 &&
+			!featureSettingsState.isPromptDismissed('object-notes-npc-threshold'),
+	);
+
+	onMount(() => {
+		if (!featureSettingsState.loaded && !featureSettingsState.loading) {
+			void featureSettingsState.loadFromStorage();
+		}
+	});
 
 	function navigateToNote(id: string): void {
 		goto(resolve(`/knowledge/notes/${id}`));
@@ -73,11 +97,75 @@
 			'Object notes are structured entries for NPCs, factions, quests, and other campaign entities.',
 		);
 	}
+
+	async function enableObjectNotesFromPrompt(): Promise<void> {
+		try {
+			await featureSettingsState.setAdvancedEnabled('object_notes', true);
+			toastState.success('Enabled Object Notes.');
+		} catch (error) {
+			void reportRuntimeError({
+				category: 'storage',
+				code: 'CAMPAIGN_ENABLE_OBJECT_NOTES_FAILED',
+				error,
+				context: { route: '/campaign' },
+			});
+			toastState.error('Failed to enable Object Notes.');
+		}
+	}
+
+	async function dismissObjectNotesPrompt(): Promise<void> {
+		try {
+			await featureSettingsState.dismissPrompt('object-notes-npc-threshold');
+		} catch (error) {
+			void reportRuntimeError({
+				category: 'storage',
+				code: 'CAMPAIGN_DISMISS_OBJECT_NOTES_PROMPT_FAILED',
+				error,
+				context: { route: '/campaign' },
+			});
+		}
+	}
 </script>
 
 <nav class="space-y-2 pb-2" aria-label="Local navigation: Campaign panel">
+	{#if showObjectNotesPrompt}
+		<div class="mx-2 rounded-md border border-accent/45 bg-accent-subtle/35 p-2.5 text-xs text-ink">
+			<p class="font-medium">You have {npcCandidateCount} NPC notes.</p>
+			<p class="mt-1 text-ink-muted">
+				Try Object Notes for structured entity management across your campaign.
+			</p>
+			<div class="mt-2 flex items-center gap-2">
+				<button
+					type="button"
+					class="rounded border border-accent/40 bg-surface px-2 py-1 text-2xs font-medium text-accent hover:bg-accent-subtle"
+					onclick={() => void enableObjectNotesFromPrompt()}
+				>
+					Enable Object Notes
+				</button>
+				<button
+					type="button"
+					class="rounded border border-border bg-surface px-2 py-1 text-2xs text-ink-muted hover:bg-bg"
+					onclick={() => void dismissObjectNotesPrompt()}
+				>
+					Dismiss
+				</button>
+			</div>
+		</div>
+	{/if}
+
 	<CollapsibleLocalNavSection section="campaign" sectionId="entities" title="Entities">
-		{#if pinnedEntities.length === 0 && entities.length === 0}
+		{#if !revealEntityList}
+			<div class="rounded-md border border-border bg-surface p-2 text-xs text-ink-muted">
+				Entity lists unlock after your first object note.
+			</div>
+			<button
+				type="button"
+				class="mt-2 w-full rounded-md border border-border px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg"
+				onclick={() => void createNpcEntity()}
+			>
+				Create an NPC
+			</button>
+		{:else if pinnedEntities.length === 0 && entities.length === 0}
 			<EmptyState
 				class="min-h-0 px-0 py-1"
 				illustration="campaign"

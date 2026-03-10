@@ -214,6 +214,24 @@ Conflict records carry explicit three-way snapshots:
 - local
 - remote
 
+### 1.12 Feature Settings (Progressive Disclosure)
+
+Progressive-disclosure preferences are persisted in app settings under `featureSettings`:
+
+- `advanced`: per-feature booleans for advanced capability enablement
+  - `mcp_staged_review`
+  - `object_notes`
+  - `encounter_builder`
+  - `knowledge_graph`
+  - `timeline`
+  - `handout_delivery`
+  - `custom_templates`
+  - `theme_presets`
+  - `random_tables`
+  - `inline_dice_rolls`
+- `mcpAccessAcknowledged`: explicit acknowledgement gate for MCP staged-review enablement
+- `dismissedPrompts[]`: vault-scoped contextual prompt dismissal memory
+
 ## 2. Storage Adapter Contract
 
 Required interface is defined in `src/lib/types/storage.ts` and includes:

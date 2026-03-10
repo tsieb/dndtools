@@ -29,7 +29,11 @@ import type {
 	VaultObjectId,
 	VaultObjectType,
 } from '$lib/types/object.js';
-import { DEFAULT_SETTINGS, type AppSettings } from '$lib/types/settings.js';
+import {
+	DEFAULT_SETTINGS,
+	normalizeFeatureSettings,
+	type AppSettings,
+} from '$lib/types/settings.js';
 import {
 	createSessionBoardId,
 	type RelatedNoteSuggestion,
@@ -143,6 +147,7 @@ function normalizeSettings(raw: unknown): AppSettings {
 					? source.mcpPolicySettings.perAgent
 					: base.mcpPolicySettings.perAgent,
 		},
+		featureSettings: normalizeFeatureSettings(source.featureSettings),
 		syncConflictStrategy: normalizeSyncConflictStrategy(source.syncConflictStrategy),
 		syncEngineState: normalizeSyncEngineState(source.syncEngineState),
 		savedSearches: Array.isArray(source.savedSearches) ? source.savedSearches : base.savedSearches,

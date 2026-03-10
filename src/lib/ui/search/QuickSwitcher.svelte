@@ -15,6 +15,8 @@
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { templateLibraryState } from '$lib/state/template-library.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
+	import { featureSettingsState } from '$lib/state/feature-settings.svelte.js';
+	import { vaultMaturityState } from '$lib/state/vault-maturity.svelte.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import type { Note, NoteId } from '$lib/types/note.js';
 	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
@@ -221,6 +223,23 @@
 
 	const scopeLabel = $derived(describeSearchScope(noteScope));
 	const notesModeActive = $derived(mode === 'notes' || mode === 'tags');
+	const visibleSectionDestinations = $derived.by(() =>
+		SECTION_DESTINATIONS.filter((entry) => {
+			if (entry.id === 'knowledge-graph') {
+				return (
+					vaultMaturityState.disclosure.revealKnowledgeGraphLink ||
+					featureSettingsState.isAdvancedEnabled('knowledge_graph')
+				);
+			}
+			if (entry.id === 'session-encounter') {
+				return featureSettingsState.isAdvancedEnabled('encounter_builder');
+			}
+			if (entry.id === 'campaign-timeline') {
+				return featureSettingsState.isAdvancedEnabled('timeline');
+			}
+			return true;
+		}),
+	);
 
 	$effect(() => {
 		if (noteScope.kind === 'folder' && !currentFolderScopeValue) {
@@ -525,8 +544,8 @@
 		const normalized = modeQuery.toLowerCase();
 		const filtered =
 			normalized.length === 0
-				? SECTION_DESTINATIONS
-				: SECTION_DESTINATIONS.filter((entry) => {
+				? visibleSectionDestinations
+				: visibleSectionDestinations.filter((entry) => {
 						const haystack =
 							`${entry.title} ${entry.description} ${entry.keywords} ${entry.path}`.toLowerCase();
 						return haystack.includes(normalized);

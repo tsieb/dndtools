@@ -523,6 +523,7 @@ export const appSettingsKeySchema = z.enum([
 	'templateContext',
 	'diceMacros',
 	'mcpPolicySettings',
+	'featureSettings',
 	'syncConflictStrategy',
 	'syncEngineState',
 	'worldCalendar',
@@ -911,6 +912,24 @@ export const settingValueSchemas: Record<string, z.ZodTypeAny> = {
 		)
 		.max(200),
 	mcpPolicySettings: mcpPolicySettingsSchema,
+	featureSettings: z.object({
+		advanced: z
+			.object({
+				mcp_staged_review: z.boolean(),
+				object_notes: z.boolean(),
+				encounter_builder: z.boolean(),
+				knowledge_graph: z.boolean(),
+				timeline: z.boolean(),
+				handout_delivery: z.boolean(),
+				custom_templates: z.boolean(),
+				theme_presets: z.boolean(),
+				random_tables: z.boolean(),
+				inline_dice_rolls: z.boolean(),
+			})
+			.strict(),
+		mcpAccessAcknowledged: z.boolean(),
+		dismissedPrompts: z.array(z.string().max(MAX_STRING_LENGTH)).max(200),
+	}),
 	syncConflictStrategy: syncConflictStrategySchema,
 	syncEngineState: syncEngineStateSchema,
 	worldCalendar: z.object({

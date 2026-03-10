@@ -16,6 +16,8 @@
 	import type { RecentNavigationItem } from '$lib/state/navigation.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { layoutState } from '$lib/state/layout.svelte.js';
+	import { vaultMaturityState } from '$lib/state/vault-maturity.svelte.js';
+	import { featureSettingsState } from '$lib/state/feature-settings.svelte.js';
 	import { showDesktopNativeContextMenu } from '$lib/platform/desktop/bridge.js';
 
 	type KnowledgeMode = 'browse' | 'recent' | 'saved';
@@ -177,6 +179,14 @@
 		}));
 		return [...saved, ...smart].slice(0, 16);
 	});
+	const revealTagsSection = $derived(vaultMaturityState.disclosure.revealKnowledgeTags);
+	const revealCollectionsSection = $derived(
+		vaultMaturityState.disclosure.revealKnowledgeCollections,
+	);
+	const revealGraphLink = $derived(
+		vaultMaturityState.disclosure.revealKnowledgeGraphLink ||
+			featureSettingsState.isAdvancedEnabled('knowledge_graph'),
+	);
 
 	const activeFolderId = $derived.by(() => {
 		const folder = routeParts.searchParams.get('folder');
@@ -415,32 +425,48 @@
 				{/if}
 			</CollapsibleLocalNavSection>
 
-			<CollapsibleLocalNavSection
-				section="knowledge"
-				sectionId="tags"
-				title="Tags"
-				defaultCollapsed={true}
-			>
-				{#if modeScopedTagCounts.length === 0}
-					<p class="px-2.5 py-1.5 text-xs text-ink-faint">No tags yet</p>
-				{:else}
-					<div class="flex flex-wrap gap-1 px-2.5">
-						{#each modeScopedTagCounts.slice(0, 18) as tag (tag.name)}
-							<button
-								type="button"
-								class="sidebar-tag-pill inline-flex items-center rounded-full bg-accent-subtle px-2 py-0.5 text-xs text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-accent/20"
-								onclick={() =>
-									navigateToPath(
-										`${resolve('/knowledge/notes')}?tag=${encodeURIComponent(tag.name)}`,
-									)}
-							>
-								{tag.name}
-								<span class="ml-0.5 opacity-60">{tag.count}</span>
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</CollapsibleLocalNavSection>
+			{#if revealTagsSection}
+				<CollapsibleLocalNavSection
+					section="knowledge"
+					sectionId="tags"
+					title="Tags"
+					defaultCollapsed={true}
+				>
+					{#if modeScopedTagCounts.length === 0}
+						<p class="px-2.5 py-1.5 text-xs text-ink-faint">No tags yet</p>
+					{:else}
+						<div class="flex flex-wrap gap-1 px-2.5">
+							{#each modeScopedTagCounts.slice(0, 18) as tag (tag.name)}
+								<button
+									type="button"
+									class="sidebar-tag-pill inline-flex items-center rounded-full bg-accent-subtle px-2 py-0.5 text-xs text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-accent/20"
+									onclick={() =>
+										navigateToPath(
+											`${resolve('/knowledge/notes')}?tag=${encodeURIComponent(tag.name)}`,
+										)}
+								>
+									{tag.name}
+									<span class="ml-0.5 opacity-60">{tag.count}</span>
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</CollapsibleLocalNavSection>
+			{:else}
+				<p class="px-2.5 py-1.5 text-xs text-ink-faint">Tags unlock after you create 5 notes.</p>
+			{/if}
+
+			{#if revealGraphLink}
+				<div class="px-2.5 pt-2">
+					<button
+						type="button"
+						class="w-full rounded-md border border-border px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg hover:text-ink"
+						onclick={() => navigateToPath(resolve('/knowledge/graph'))}
+					>
+						Open Knowledge Graph
+					</button>
+				</div>
+			{/if}
 		</div>
 	{:else if knowledgeMode === 'recent'}
 		<div id={recentPanelId} role="tabpanel" aria-labelledby="knowledge-tab-recent" class="pb-2">
@@ -521,36 +547,42 @@
 				</div>
 			</CollapsibleLocalNavSection>
 
-			<CollapsibleLocalNavSection
-				section="knowledge"
-				sectionId="collections"
-				title="Collections"
-				defaultCollapsed={true}
-			>
-				{#if collectionPills.length === 0}
-					<p class="px-2.5 py-1.5 text-xs text-ink-faint">Save searches to create collections</p>
-				{:else}
-					<div class="flex flex-wrap gap-1.5 px-2.5">
-						{#each collectionPills as collection (collection.id)}
-							<button
-								type="button"
-								class="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-surface px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:border-accent hover:text-ink"
-								onclick={() => openCollection(collection.query)}
-								title={collection.query}
-							>
-								<span class="text-2xs" aria-hidden="true"
-									>{collection.isSmart ? '\u2726' : '\u25CF'}</span
+			{#if revealCollectionsSection}
+				<CollapsibleLocalNavSection
+					section="knowledge"
+					sectionId="collections"
+					title="Collections"
+					defaultCollapsed={true}
+				>
+					{#if collectionPills.length === 0}
+						<p class="px-2.5 py-1.5 text-xs text-ink-faint">Save searches to create collections</p>
+					{:else}
+						<div class="flex flex-wrap gap-1.5 px-2.5">
+							{#each collectionPills as collection (collection.id)}
+								<button
+									type="button"
+									class="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-surface px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:border-accent hover:text-ink"
+									onclick={() => openCollection(collection.query)}
+									title={collection.query}
 								>
-								<span class="truncate">{collection.name}</span>
-								<span
-									class="rounded-full bg-surface-alt px-1 py-0.5 text-2xs uppercase text-ink-faint"
-									>{collection.scope}</span
-								>
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</CollapsibleLocalNavSection>
+									<span class="text-2xs" aria-hidden="true"
+										>{collection.isSmart ? '\u2726' : '\u25CF'}</span
+									>
+									<span class="truncate">{collection.name}</span>
+									<span
+										class="rounded-full bg-surface-alt px-1 py-0.5 text-2xs uppercase text-ink-faint"
+										>{collection.scope}</span
+									>
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</CollapsibleLocalNavSection>
+			{:else}
+				<p class="px-2.5 py-1.5 text-xs text-ink-faint">
+					Collections unlock after you create 10 notes.
+				</p>
+			{/if}
 		</div>
 	{/if}
 </nav>

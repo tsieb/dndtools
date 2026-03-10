@@ -6,6 +6,7 @@
 	import { navigationState } from '$lib/state/navigation.svelte.js';
 	import { inputModalityState } from '$lib/state/input-modality.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
+	import { featureSettingsState } from '$lib/state/feature-settings.svelte.js';
 	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
 	import Icon from '$lib/ui/common/Icon.svelte';
 
@@ -58,6 +59,7 @@
 		if (pathname === '/player') return 'Player Screen';
 		return navigationState.currentEntry?.label ?? pathname;
 	});
+	const mcpReviewEnabled = $derived(featureSettingsState.isAdvancedEnabled('mcp_staged_review'));
 	const showKeyboardHints = $derived(!layoutState.isMedium || inputModalityState.keyboardDetected);
 
 	$effect(() => {
@@ -252,21 +254,23 @@
 					</a>
 				{/if}
 
-				<a
-					href={`${resolve('/settings')}?tab=mcp#mcp-changes`}
-					class="relative rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
-					aria-label="Pending MCP changes"
-					title="Review pending MCP changes"
-				>
-					<Icon name="file-text" size="md" />
-					{#if mcpChangesState.count > 0}
-						<span
-							class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full bg-warning px-1 text-center text-2xs leading-4 text-white"
-						>
-							{mcpChangesState.count}
-						</span>
-					{/if}
-				</a>
+				{#if mcpReviewEnabled}
+					<a
+						href={`${resolve('/settings')}?tab=mcp#mcp-changes`}
+						class="relative rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
+						aria-label="Pending MCP changes"
+						title="Review pending MCP changes"
+					>
+						<Icon name="file-text" size="md" />
+						{#if mcpChangesState.count > 0}
+							<span
+								class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full bg-warning px-1 text-center text-2xs leading-4 text-white"
+							>
+								{mcpChangesState.count}
+							</span>
+						{/if}
+					</a>
+				{/if}
 			</div>
 		{/if}
 	</div>

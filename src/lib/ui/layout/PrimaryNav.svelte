@@ -8,6 +8,7 @@
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
+	import { vaultMaturityState } from '$lib/state/vault-maturity.svelte.js';
 	import SessionEndWorkflowDialog from '$lib/ui/session/SessionEndWorkflowDialog.svelte';
 	import PrimaryNavIcon from './PrimaryNavIcon.svelte';
 
@@ -36,6 +37,12 @@
 	const iconOnly = $derived(mode === 'expanded' || mode === 'medium');
 	const isVertical = $derived(!compact);
 	const activeSessionBoardId = $derived(sessionModeState.activeSession?.sessionBoardId ?? null);
+	const sessionNavPromoted = $derived(vaultMaturityState.disclosure.promoteSessionSection);
+	const sessionCountBadge = $derived.by(() => {
+		const count = vaultMaturityState.signals.sessionCount;
+		if (count <= 0) return '';
+		return count > 9 ? '9+' : String(count);
+	});
 	let showEndSessionFlow = $state(false);
 	const shellStyle = $derived.by(() => {
 		const width = isVertical ? 'var(--layout-rail-width)' : '100%';
@@ -93,6 +100,13 @@
 						class="primary-nav-icon relative flex h-8 w-8 items-center justify-center rounded-md"
 					>
 						<PrimaryNavIcon section={item.id} sizeClass="h-5 w-5" />
+						{#if item.id === 'session' && sessionNavPromoted && sessionCountBadge}
+							<span
+								class="absolute -right-1 -top-1 min-w-4 rounded-full border border-surface bg-accent px-1 text-center text-2xs font-semibold leading-4 text-white"
+							>
+								{sessionCountBadge}
+							</span>
+						{/if}
 						{#if item.id === 'session' && sessionModeState.isActive}
 							<span class="session-active-ring" aria-hidden="true"></span>
 						{/if}

@@ -25,7 +25,11 @@ import type {
 	VaultObjectId,
 	VaultObjectType,
 } from '$lib/types/object.js';
-import { DEFAULT_SETTINGS, type AppSettings } from '$lib/types/settings.js';
+import {
+	DEFAULT_SETTINGS,
+	normalizeFeatureSettings,
+	type AppSettings,
+} from '$lib/types/settings.js';
 import {
 	createSessionBoardId,
 	type RelatedNoteSuggestion,
@@ -197,6 +201,8 @@ function normalizeSettingValue<K extends keyof AppSettings>(
 			return normalizeSyncEngineState(value) as AppSettings[K];
 		case 'worldCalendar':
 			return normalizeWorldCalendar(value ?? fallback) as AppSettings[K];
+		case 'featureSettings':
+			return normalizeFeatureSettings(value) as AppSettings[K];
 		default:
 			return deepCopy(value) as AppSettings[K];
 	}

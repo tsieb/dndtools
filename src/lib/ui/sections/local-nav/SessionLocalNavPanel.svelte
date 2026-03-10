@@ -15,6 +15,7 @@
 	import SessionDiceBar from '$lib/ui/dice/SessionDiceBar.svelte';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import EmptyState from '$lib/ui/common/EmptyState.svelte';
+	import { featureSettingsState } from '$lib/state/feature-settings.svelte.js';
 	import type { RollableTableEntry } from '$lib/domain/rollable-tables.js';
 
 	interface Props {
@@ -71,6 +72,7 @@
 		return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 	});
 	const pinnedTableIds = $derived(sessionModeState.pinnedRollableTableIds);
+	const randomTablesEnabled = $derived(featureSettingsState.isAdvancedEnabled('random_tables'));
 	const rollableTables = $derived.by(() => listRollableTables(notesState.activeNotes));
 	const pinnedRollableTables = $derived.by(() =>
 		rollableTables.filter((table) => pinnedTableIds.includes(table.id)),
@@ -88,6 +90,13 @@
 	$effect(() => {
 		if (!sessionModeState.loaded) {
 			void sessionModeState.load();
+		}
+	});
+
+	$effect(() => {
+		if (randomTablesEnabled) return;
+		if (sessionTab !== 'controls') {
+			sessionTab = 'controls';
 		}
 	});
 
@@ -209,7 +218,9 @@ tags: [session, table]
 	{:else}
 		<div class="px-3 pt-2">
 			<div
-				class="grid grid-cols-2 gap-1 rounded-md border border-border bg-surface p-1"
+				class="grid gap-1 rounded-md border border-border bg-surface p-1 {randomTablesEnabled
+					? 'grid-cols-2'
+					: 'grid-cols-1'}"
 				role="tablist"
 				aria-label="Session panel views"
 			>
@@ -224,17 +235,19 @@ tags: [session, table]
 				>
 					Controls
 				</button>
-				<button
-					type="button"
-					class="rounded px-2 py-1 text-xs font-medium transition-colors {sessionTab === 'tables'
-						? 'bg-accent-subtle text-accent'
-						: 'text-ink-muted hover:bg-surface-alt'}"
-					role="tab"
-					aria-selected={sessionTab === 'tables'}
-					onclick={() => (sessionTab = 'tables')}
-				>
-					Tables
-				</button>
+				{#if randomTablesEnabled}
+					<button
+						type="button"
+						class="rounded px-2 py-1 text-xs font-medium transition-colors {sessionTab === 'tables'
+							? 'bg-accent-subtle text-accent'
+							: 'text-ink-muted hover:bg-surface-alt'}"
+						role="tab"
+						aria-selected={sessionTab === 'tables'}
+						onclick={() => (sessionTab = 'tables')}
+					>
+						Tables
+					</button>
+				{/if}
 			</div>
 		</div>
 
@@ -327,7 +340,7 @@ tags: [session, table]
 					<p class="px-2.5 py-1.5 text-xs text-ink-faint">No active combat encounter</p>
 				{/if}
 			</CollapsibleLocalNavSection>
-		{:else}
+		{:else if randomTablesEnabled}
 			<section class="mx-2 rounded-md border border-border bg-surface p-2.5">
 				<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
 					Rollable Tables
@@ -432,6 +445,10 @@ tags: [session, table]
 						{/each}
 					</div>
 				{/if}
+			</section>
+		{:else}
+			<section class="mx-2 rounded-md border border-border bg-surface p-2.5 text-xs text-ink-muted">
+				Enable Random Tables in Settings -> Features to unlock table rolls here.
 			</section>
 		{/if}
 	{/if}

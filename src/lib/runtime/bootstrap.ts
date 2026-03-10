@@ -9,6 +9,7 @@ import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 import { searchState } from '$lib/state/search.svelte.js';
 import { editorPreferencesState } from '$lib/state/editor-preferences.svelte.js';
 import { playerModeState } from '$lib/state/player-mode.svelte.js';
+import { featureSettingsState } from '$lib/state/feature-settings.svelte.js';
 import { markSubsystemSuccess, reportRuntimeError } from '$lib/runtime/diagnostics.js';
 import { toastState } from '$lib/state/toast.svelte.js';
 import {
@@ -61,6 +62,7 @@ export async function bootstrapApplication(): Promise<void> {
 			editorPreferencesState.load(),
 			onboardingState.loadFromStorage(),
 			playerModeState.loadFromStorage(),
+			featureSettingsState.loadFromStorage(),
 		]);
 
 		await notesState.loadAll();

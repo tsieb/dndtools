@@ -69,6 +69,100 @@ export interface McpPolicySettings {
 	perAgent: Record<string, McpPolicyPresetId>;
 }
 
+export type AdvancedFeatureId =
+	| 'mcp_staged_review'
+	| 'object_notes'
+	| 'encounter_builder'
+	| 'knowledge_graph'
+	| 'timeline'
+	| 'handout_delivery'
+	| 'custom_templates'
+	| 'theme_presets'
+	| 'random_tables'
+	| 'inline_dice_rolls';
+
+export const ADVANCED_FEATURE_IDS: readonly AdvancedFeatureId[] = [
+	'mcp_staged_review',
+	'object_notes',
+	'encounter_builder',
+	'knowledge_graph',
+	'timeline',
+	'handout_delivery',
+	'custom_templates',
+	'theme_presets',
+	'random_tables',
+	'inline_dice_rolls',
+];
+
+export interface AdvancedFeatureSettings {
+	mcp_staged_review: boolean;
+	object_notes: boolean;
+	encounter_builder: boolean;
+	knowledge_graph: boolean;
+	timeline: boolean;
+	handout_delivery: boolean;
+	custom_templates: boolean;
+	theme_presets: boolean;
+	random_tables: boolean;
+	inline_dice_rolls: boolean;
+}
+
+export interface FeatureSettings {
+	advanced: AdvancedFeatureSettings;
+	mcpAccessAcknowledged: boolean;
+	dismissedPrompts: string[];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function isAdvancedFeatureId(value: string): value is AdvancedFeatureId {
+	return ADVANCED_FEATURE_IDS.includes(value as AdvancedFeatureId);
+}
+
+function defaultAdvancedFeatureSettings(): AdvancedFeatureSettings {
+	return {
+		mcp_staged_review: false,
+		object_notes: false,
+		encounter_builder: false,
+		knowledge_graph: false,
+		timeline: false,
+		handout_delivery: false,
+		custom_templates: false,
+		theme_presets: false,
+		random_tables: false,
+		inline_dice_rolls: false,
+	};
+}
+
+export function normalizeFeatureSettings(raw: unknown): FeatureSettings {
+	const defaults: FeatureSettings = {
+		advanced: defaultAdvancedFeatureSettings(),
+		mcpAccessAcknowledged: false,
+		dismissedPrompts: [],
+	};
+	if (!isRecord(raw)) return defaults;
+	const rawAdvanced = isRecord(raw.advanced) ? raw.advanced : {};
+	const advanced = { ...defaults.advanced };
+	for (const id of ADVANCED_FEATURE_IDS) {
+		if (typeof rawAdvanced[id] === 'boolean') {
+			advanced[id] = rawAdvanced[id];
+		}
+	}
+	const dismissedPrompts = Array.isArray(raw.dismissedPrompts)
+		? raw.dismissedPrompts.filter((entry): entry is string => typeof entry === 'string')
+		: defaults.dismissedPrompts;
+	return {
+		advanced,
+		mcpAccessAcknowledged:
+			typeof raw.mcpAccessAcknowledged === 'boolean'
+				? raw.mcpAccessAcknowledged
+				: defaults.mcpAccessAcknowledged,
+		dismissedPrompts,
+	};
+}
+
 export interface AppSettings {
 	theme: ThemeSetting;
 	uiDensity: UiDensityMode;
@@ -89,6 +183,7 @@ export interface AppSettings {
 	templateContext: TemplateContextSettings;
 	diceMacros: DiceMacro[];
 	mcpPolicySettings: McpPolicySettings;
+	featureSettings: FeatureSettings;
 	syncConflictStrategy: SyncConflictStrategy;
 	syncEngineState: SyncEngineState;
 	worldCalendar: WorldCalendar;
@@ -141,6 +236,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
 	mcpPolicySettings: {
 		defaultPresetId: 'strict_review',
 		perAgent: {},
+	},
+	featureSettings: {
+		advanced: defaultAdvancedFeatureSettings(),
+		mcpAccessAcknowledged: false,
+		dismissedPrompts: [],
 	},
 	syncConflictStrategy: 'manual',
 	syncEngineState: createDefaultSyncEngineState(),
