@@ -171,6 +171,35 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 17.3** — Contextual Help Architecture:
+  - Added reusable contextual help primitive `src/lib/ui/common/HelpTip.svelte`:
+    - 16px `?` trigger (`aria-label="Help"`) with `aria-expanded`/`aria-controls`
+    - focus-trapped contextual dialog popover with close control and optional learn-more link
+  - Placed initial HelpTips in required UX surfaces:
+    - MCP staged review counter in `src/lib/ui/layout/TopBar.svelte`
+    - World Calendar toggle in `src/lib/ui/calendar/WorldCalendarReference.svelte` (used by `src/routes/session-board/+page.svelte`)
+    - Object Notes concept in `src/lib/ui/sections/local-nav/CampaignLocalNavPanel.svelte`
+    - advanced search operators in `src/lib/ui/search/QuickSwitcher.svelte`
+  - Added central shortcut registry in `src/lib/domain/keyboard-shortcuts.ts` and migrated global shortcut matching in `src/routes/+layout.svelte` to use it.
+  - Rebuilt keyboard shortcuts overlay in `src/lib/ui/layout/KeyboardShortcutsOverlay.svelte`:
+    - sectioned list (Navigation, Notes, Session, Dice, Editor, System)
+    - searchable filter input
+    - `<kbd>` rendering for shortcut keys
+    - open via `?` (outside text inputs) and Help menu entry
+  - Added consistent Help footer section in `src/lib/ui/layout/Sidebar.svelte`:
+    - Keyboard shortcuts, Getting started, Report a bug, About DND Tools
+    - replaced prior Onboarding footer entry with Getting started wording/behavior
+  - Added spotlight system for advanced features:
+    - spotlight definitions in `src/lib/domain/feature-spotlights.ts`
+    - per-vault spotlight state/queue in `src/lib/state/feature-spotlights.svelte.ts`
+    - overlay renderer in `src/lib/ui/common/FeatureSpotlight.svelte`
+    - route-idle queue/show wiring in `src/routes/+layout.svelte`
+    - persisted vault preference key `seenSpotlights` added to settings/storage + IPC schema/security whitelist.
+  - Added/updated tests:
+    - `src/lib/domain/keyboard-shortcuts.test.ts`
+    - `src/lib/state/feature-spotlights.svelte.test.ts`
+    - `tests/e2e/navigation.spec.ts`
+
 - **Epic 17.1** — Empty States as Teaching Moments:
   - Added reusable empty-state UI primitive in `src/lib/ui/common/EmptyState.svelte` with:
     - consistent illustration system (`illustration` keys + optional custom illustration snippet)

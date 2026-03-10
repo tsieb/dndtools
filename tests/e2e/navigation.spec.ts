@@ -275,6 +275,41 @@ test.describe('Navigation', () => {
 		await expect(shortcutsOverlay).toBeHidden();
 	});
 
+	test('question-mark key opens keyboard shortcut overlay outside text inputs', async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 1280, height: 900 });
+		await page.goto('/knowledge/notes');
+		await page.keyboard.press('Shift+Slash');
+		await expect(page.getByRole('dialog', { name: 'Keyboard shortcut overlay' })).toBeVisible();
+	});
+
+	test('question-mark key does not open shortcut overlay while typing in text input', async ({
+		page,
+	}) => {
+		await page.goto('/knowledge/search');
+		await page.getByPlaceholder('Search notes...').click();
+		await page.keyboard.press('Shift+Slash');
+		await expect(page.getByRole('dialog', { name: 'Keyboard shortcut overlay' })).toBeHidden();
+	});
+
+	test('sidebar help menu opens keyboard shortcut overlay and supports filtering', async ({
+		page,
+	}) => {
+		await page.goto('/knowledge/notes');
+		const keyboardShortcutsButton = page.getByRole('button', { name: 'Keyboard shortcuts' });
+		if (!(await keyboardShortcutsButton.isVisible().catch(() => false))) {
+			await page.getByRole('button', { name: 'Toggle local navigation' }).click();
+		}
+		await keyboardShortcutsButton.click();
+
+		const shortcutsOverlay = page.getByRole('dialog', { name: 'Keyboard shortcut overlay' });
+		await expect(shortcutsOverlay).toBeVisible();
+		await shortcutsOverlay.getByPlaceholder('Search shortcuts').fill('combat');
+		await expect(shortcutsOverlay.getByText('Open combat tracker')).toBeVisible();
+		await expect(shortcutsOverlay.getByText('Open command palette')).toBeHidden();
+	});
+
 	test('keyboard shortcut Ctrl+P opens command palette', async ({ page }) => {
 		await page.keyboard.press('Control+p');
 		await expect(page.getByRole('dialog', { name: /command palette/i })).toBeVisible({

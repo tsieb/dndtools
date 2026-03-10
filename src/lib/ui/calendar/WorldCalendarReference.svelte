@@ -12,6 +12,7 @@
 	} from '$lib/domain/world-calendar-events.js';
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import { resolve } from '$app/paths';
+	import HelpTip from '$lib/ui/common/HelpTip.svelte';
 
 	interface Props {
 		notes: Note[];
@@ -76,16 +77,22 @@
 		<h2 class="text-xs font-semibold uppercase tracking-wider text-ink-faint">
 			{title}
 		</h2>
-		{#if collapsible}
-			<button
-				type="button"
-				class="text-xs px-2 py-0.5 rounded border border-border hover:bg-surface-alt"
-				onclick={() => (manualCollapsed = !manualCollapsed)}
-				aria-expanded={!collapsed}
-			>
-				{collapsed ? 'Open' : 'Collapse'}
-			</button>
-		{/if}
+		<div class="flex items-center gap-1.5" data-help-target="world-calendar-toggle">
+			{#if collapsible}
+				<button
+					type="button"
+					class="text-xs px-2 py-0.5 rounded border border-border hover:bg-surface-alt"
+					onclick={() => (manualCollapsed = !manualCollapsed)}
+					aria-expanded={!collapsed}
+				>
+					{collapsed ? 'Open' : 'Collapse'}
+				</button>
+			{/if}
+			<HelpTip
+				headline="World Calendar"
+				body="Use this toggle to collapse or expand the calendar panel while running a session. The panel keeps your in-world date, moon phases, and timeline events close without taking over your board."
+			/>
+		</div>
 	</div>
 
 	{#if !collapsed}

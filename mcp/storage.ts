@@ -42,7 +42,11 @@ import {
 	normalizeContentVisibility,
 } from '../src/lib/types/visibility.js';
 import { createSessionBoardId } from '../src/lib/types/session-board.js';
-import { DEFAULT_SETTINGS, normalizeFeatureSettings } from '../src/lib/types/settings.js';
+import {
+	DEFAULT_SETTINGS,
+	normalizeFeatureSettings,
+	normalizeSeenSpotlights,
+} from '../src/lib/types/settings.js';
 import { slugify } from '../src/lib/utils/slug.js';
 import { nowISO } from '../src/lib/utils/date.js';
 import { buildRelatedNoteSuggestions } from '../src/lib/domain/related-note-suggestions.js';
@@ -430,6 +434,9 @@ function normalizeSettingValue<K extends keyof AppSettings>(
 	}
 	if (key === 'featureSettings') {
 		return normalizeFeatureSettings(value) as AppSettings[K];
+	}
+	if (key === 'seenSpotlights') {
+		return normalizeSeenSpotlights(value) as AppSettings[K];
 	}
 	if (key === 'boardTemplates') {
 		return normalizeBoardTemplatesSetting(value) as AppSettings[K];

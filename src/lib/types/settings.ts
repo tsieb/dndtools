@@ -113,6 +113,18 @@ export interface FeatureSettings {
 	dismissedPrompts: string[];
 }
 
+export function normalizeSeenSpotlights(raw: unknown): string[] {
+	if (!Array.isArray(raw)) return [];
+	const deduped = new Set<string>();
+	for (const entry of raw) {
+		if (typeof entry !== 'string') continue;
+		const normalized = entry.trim();
+		if (!normalized) continue;
+		deduped.add(normalized);
+	}
+	return [...deduped];
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -184,6 +196,7 @@ export interface AppSettings {
 	diceMacros: DiceMacro[];
 	mcpPolicySettings: McpPolicySettings;
 	featureSettings: FeatureSettings;
+	seenSpotlights: string[];
 	syncConflictStrategy: SyncConflictStrategy;
 	syncEngineState: SyncEngineState;
 	worldCalendar: WorldCalendar;
@@ -242,6 +255,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 		mcpAccessAcknowledged: false,
 		dismissedPrompts: [],
 	},
+	seenSpotlights: [],
 	syncConflictStrategy: 'manual',
 	syncEngineState: createDefaultSyncEngineState(),
 	boardTemplates: [],

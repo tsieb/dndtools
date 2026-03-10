@@ -1537,6 +1537,7 @@
 														<WorldCalendarReference
 															notes={notesState.activeNotes}
 															title="Calendar Reference"
+															collapsible={true}
 														/>
 													</div>
 												{/if}

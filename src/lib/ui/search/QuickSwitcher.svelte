@@ -20,6 +20,7 @@
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import type { Note, NoteId } from '$lib/types/note.js';
 	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
+	import HelpTip from '$lib/ui/common/HelpTip.svelte';
 
 	interface Props {
 		open: boolean;
@@ -721,6 +722,10 @@
 				/>
 				<div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
 					<span class="rounded-md bg-surface-alt px-2 py-1 text-ink-muted">{modeLabel}</span>
+					<HelpTip
+						headline="Advanced search operators"
+						body="Use > for commands, # for tag filtering, and / for section navigation. Leave the query unprefixed to search notes directly. These operators help you stay in flow without leaving the palette."
+					/>
 					{#if notesModeActive}
 						<span class="rounded-md border border-border px-2 py-1 text-ink-muted"
 							>{scopeLabel}</span

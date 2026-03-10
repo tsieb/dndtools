@@ -20,6 +20,7 @@
 	import { vaultMaturityState } from '$lib/state/vault-maturity.svelte.js';
 	import { featureSettingsState } from '$lib/state/feature-settings.svelte.js';
 	import { reportRuntimeError } from '$lib/runtime/diagnostics.js';
+	import HelpTip from '$lib/ui/common/HelpTip.svelte';
 
 	const modeScopedNotes = $derived.by(() =>
 		playerModeState.enabled
@@ -154,6 +155,18 @@
 	{/if}
 
 	<CollapsibleLocalNavSection section="campaign" sectionId="entities" title="Entities">
+		<div
+			class="mb-1 flex items-center justify-between px-2.5"
+			data-help-target="object-notes-concept"
+		>
+			<p class="text-2xs uppercase tracking-wider text-ink-faint">Object Notes</p>
+			<HelpTip
+				headline="Object Notes"
+				body="Object Notes are structured entries for NPCs, factions, quests, and other campaign entities. They help you keep related details linked together and make session prep bundles more reliable."
+				learnMoreHref={resolve('/settings') + '?tab=features'}
+				learnMoreLabel="Feature settings"
+			/>
+		</div>
 		{#if !revealEntityList}
 			<div class="rounded-md border border-border bg-surface p-2 text-xs text-ink-muted">
 				Entity lists unlock after your first object note.

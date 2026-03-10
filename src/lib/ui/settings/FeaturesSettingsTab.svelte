@@ -156,7 +156,7 @@
 		</p>
 		<div class="rounded-lg border border-border bg-surface divide-y divide-border">
 			{#each ADVANCED_FEATURES as feature (feature.id)}
-				<div class="p-4">
+				<div class="p-4" data-feature-toggle-id={feature.id}>
 					<div class="flex items-start justify-between gap-3">
 						<div>
 							<p class="text-sm font-medium text-ink">{feature.label}</p>

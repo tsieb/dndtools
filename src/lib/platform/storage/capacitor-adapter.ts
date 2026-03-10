@@ -32,6 +32,7 @@ import type {
 import {
 	DEFAULT_SETTINGS,
 	normalizeFeatureSettings,
+	normalizeSeenSpotlights,
 	type AppSettings,
 } from '$lib/types/settings.js';
 import {
@@ -148,6 +149,7 @@ function normalizeSettings(raw: unknown): AppSettings {
 					: base.mcpPolicySettings.perAgent,
 		},
 		featureSettings: normalizeFeatureSettings(source.featureSettings),
+		seenSpotlights: normalizeSeenSpotlights(source.seenSpotlights),
 		syncConflictStrategy: normalizeSyncConflictStrategy(source.syncConflictStrategy),
 		syncEngineState: normalizeSyncEngineState(source.syncEngineState),
 		savedSearches: Array.isArray(source.savedSearches) ? source.savedSearches : base.savedSearches,

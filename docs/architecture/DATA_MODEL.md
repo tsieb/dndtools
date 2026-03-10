@@ -232,6 +232,15 @@ Progressive-disclosure preferences are persisted in app settings under `featureS
 - `mcpAccessAcknowledged`: explicit acknowledgement gate for MCP staged-review enablement
 - `dismissedPrompts[]`: vault-scoped contextual prompt dismissal memory
 
+### 1.13 Help Spotlight State
+
+Contextual-help spotlight dismissal memory is persisted in app settings under
+`seenSpotlights: string[]`.
+
+- each value is a stable spotlight id (`feature-spotlight:<advanced-feature-id>`)
+- scoped per vault via `.vault/settings.json`
+- once seen, the spotlight will not be shown again for that vault
+
 ## 2. Storage Adapter Contract
 
 Required interface is defined in `src/lib/types/storage.ts` and includes:

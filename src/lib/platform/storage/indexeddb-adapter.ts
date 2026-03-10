@@ -28,6 +28,7 @@ import type {
 import {
 	DEFAULT_SETTINGS,
 	normalizeFeatureSettings,
+	normalizeSeenSpotlights,
 	type AppSettings,
 } from '$lib/types/settings.js';
 import {
@@ -203,6 +204,8 @@ function normalizeSettingValue<K extends keyof AppSettings>(
 			return normalizeWorldCalendar(value ?? fallback) as AppSettings[K];
 		case 'featureSettings':
 			return normalizeFeatureSettings(value) as AppSettings[K];
+		case 'seenSpotlights':
+			return normalizeSeenSpotlights(value) as AppSettings[K];
 		default:
 			return deepCopy(value) as AppSettings[K];
 	}

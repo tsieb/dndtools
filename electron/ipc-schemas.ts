@@ -524,6 +524,7 @@ export const appSettingsKeySchema = z.enum([
 	'diceMacros',
 	'mcpPolicySettings',
 	'featureSettings',
+	'seenSpotlights',
 	'syncConflictStrategy',
 	'syncEngineState',
 	'worldCalendar',
@@ -930,6 +931,7 @@ export const settingValueSchemas: Record<string, z.ZodTypeAny> = {
 		mcpAccessAcknowledged: z.boolean(),
 		dismissedPrompts: z.array(z.string().max(MAX_STRING_LENGTH)).max(200),
 	}),
+	seenSpotlights: z.array(z.string().max(MAX_STRING_LENGTH)).max(500),
 	syncConflictStrategy: syncConflictStrategySchema,
 	syncEngineState: syncEngineStateSchema,
 	worldCalendar: z.object({

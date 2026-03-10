@@ -23,6 +23,7 @@
 		ondice: () => void;
 		ontemplate: (folderOverride?: string) => void;
 		onsetplayermode: (enabled: boolean) => void;
+		onopenkeyboardshortcuts: () => void;
 		presentation?: 'sidebar' | 'sheet' | 'overlay';
 	}
 
@@ -31,6 +32,7 @@
 		ondice,
 		ontemplate: _ontemplate,
 		onsetplayermode,
+		onopenkeyboardshortcuts,
 		presentation = 'sidebar',
 	}: Props = $props();
 
@@ -39,9 +41,28 @@
 	let lastScrollSection = $state<PrimarySection | null>(null);
 	const sidebarWidth = $derived(desktopShellState.getLocalPanelWidth(activeSection));
 
-	function reopenOnboarding(): void {
+	function openGettingStarted(): void {
 		void onboardingState.reopenChecklist();
 		goto(resolve('/knowledge'));
+		if (layoutState.isCompact) {
+			ui.sidebarOpen = false;
+		}
+	}
+
+	function openAbout(): void {
+		goto(`${resolve('/settings')}?tab=about`);
+		if (layoutState.isCompact) {
+			ui.sidebarOpen = false;
+		}
+	}
+
+	function reportBug(): void {
+		if (typeof window === 'undefined') return;
+		window.open('https://github.com/anthropics/dndtools/issues', '_blank', 'noopener,noreferrer');
+	}
+
+	function openKeyboardShortcuts(): void {
+		onopenkeyboardshortcuts();
 		if (layoutState.isCompact) {
 			ui.sidebarOpen = false;
 		}
@@ -131,18 +152,25 @@
 	</div>
 
 	<div class="border-t border-border px-3 py-2 flex flex-col gap-1.5">
-		<Toggle
-			checked={playerModeState.enabled}
-			label="Player Mode"
-			onchange={(enabled) => onsetplayermode(enabled)}
-		/>
-		<Button
-			variant="ghost"
-			size="sm"
-			onclick={reopenOnboarding}
-			class="w-full justify-start text-ink-faint"
-		>
-			Onboarding
+		<p class="px-1 text-2xs font-semibold uppercase tracking-wider text-ink-faint">Help</p>
+		<Button variant="ghost" size="sm" onclick={openKeyboardShortcuts} class="w-full justify-start">
+			Keyboard shortcuts
 		</Button>
+		<Button variant="ghost" size="sm" onclick={openGettingStarted} class="w-full justify-start">
+			Getting started
+		</Button>
+		<Button variant="ghost" size="sm" onclick={reportBug} class="w-full justify-start">
+			Report a bug
+		</Button>
+		<Button variant="ghost" size="sm" onclick={openAbout} class="w-full justify-start">
+			About DND Tools
+		</Button>
+		<div class="pt-1">
+			<Toggle
+				checked={playerModeState.enabled}
+				label="Player Mode"
+				onchange={(enabled) => onsetplayermode(enabled)}
+			/>
+		</div>
 	</div>
 </aside>

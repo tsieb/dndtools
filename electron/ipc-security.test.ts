@@ -338,6 +338,7 @@ describe('AC3 — Enum values / whitelists are enforced', () => {
 			'diceMacros',
 			'mcpPolicySettings',
 			'featureSettings',
+			'seenSpotlights',
 			'syncConflictStrategy',
 			'syncEngineState',
 			'worldCalendar',

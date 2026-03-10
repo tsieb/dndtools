@@ -9,6 +9,7 @@
 	import { featureSettingsState } from '$lib/state/feature-settings.svelte.js';
 	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
 	import Icon from '$lib/ui/common/Icon.svelte';
+	import HelpTip from '$lib/ui/common/HelpTip.svelte';
 
 	interface Props {
 		onsearch: () => void;
@@ -255,21 +256,29 @@
 				{/if}
 
 				{#if mcpReviewEnabled}
-					<a
-						href={`${resolve('/settings')}?tab=mcp#mcp-changes`}
-						class="relative rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
-						aria-label="Pending MCP changes"
-						title="Review pending MCP changes"
-					>
-						<Icon name="file-text" size="md" />
-						{#if mcpChangesState.count > 0}
-							<span
-								class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full bg-warning px-1 text-center text-2xs leading-4 text-white"
-							>
-								{mcpChangesState.count}
-							</span>
-						{/if}
-					</a>
+					<div class="flex items-center gap-1" data-help-target="mcp-staged-review-counter">
+						<a
+							href={`${resolve('/settings')}?tab=mcp#mcp-changes`}
+							class="relative rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
+							aria-label="Pending MCP changes"
+							title="Review pending MCP changes"
+						>
+							<Icon name="file-text" size="md" />
+							{#if mcpChangesState.count > 0}
+								<span
+									class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full bg-warning px-1 text-center text-2xs leading-4 text-white"
+								>
+									{mcpChangesState.count}
+								</span>
+							{/if}
+						</a>
+						<HelpTip
+							headline="MCP staged review"
+							body="This counter shows AI-proposed vault changes waiting for your review. Keep staged review enabled when you want full control over edits before they are applied. Open it to approve or reject each proposed change."
+							learnMoreHref={resolve('/settings') + '?tab=mcp#mcp-changes'}
+							learnMoreLabel="Open MCP review"
+						/>
+					</div>
 				{/if}
 			</div>
 		{/if}

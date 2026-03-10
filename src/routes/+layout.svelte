@@ -28,12 +28,15 @@
 	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
 	import { syncState } from '$lib/state/sync.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
+	import { featureSettingsState } from '$lib/state/feature-settings.svelte.js';
 	import { pwaState } from '$lib/state/pwa.svelte.js';
+	import { featureSpotlightsState } from '$lib/state/feature-spotlights.svelte.js';
 	import { isDetailPanelAvailable } from '$lib/domain/detail-panel-context.js';
 	import { searchService } from '$lib/domain/search.js';
 	import LiveAnnouncer from '$lib/ui/a11y/LiveAnnouncer.svelte';
 	import InstallPromptBanner from '$lib/ui/pwa/InstallPromptBanner.svelte';
 	import KeyboardShortcutsOverlay from '$lib/ui/layout/KeyboardShortcutsOverlay.svelte';
+	import FeatureSpotlight from '$lib/ui/common/FeatureSpotlight.svelte';
 	import { registerSW } from 'virtual:pwa-register';
 	import {
 		onDesktopAppMenuCommand,
@@ -50,8 +53,12 @@
 		renderNoteTemplate,
 		toNewNoteOverrides,
 	} from '$lib/domain/template-automation.js';
-	import type { AppSettings } from '$lib/types/settings.js';
+	import { ADVANCED_FEATURE_IDS, type AppSettings } from '$lib/types/settings.js';
 	import { createSessionBoardId } from '$lib/types/session-board.js';
+	import {
+		matchGlobalKeyboardShortcut,
+		type KeyboardShortcutId,
+	} from '$lib/domain/keyboard-shortcuts.js';
 	import type { NoteTemplate } from '$lib/types/template-library.js';
 	import type { WorldCalendar } from '$lib/types/world-calendar.js';
 
@@ -68,6 +75,7 @@
 	let templateDialogFolderOverride = $state<string | null>(null);
 	let templateDialogCandidates = $state<readonly NoteTemplate[] | null>(null);
 	let lastAnnouncedRoute = $state<string | null>(null);
+	let previousAdvancedFeatureSnapshot = $state<Record<string, boolean> | null>(null);
 	let runtimeBootstrapRequested = false;
 	let activeTemplateFolder = $derived.by(
 		() => templateDialogFolderOverride ?? page.url.searchParams.get('folder'),
@@ -115,6 +123,21 @@
 		return pathname;
 	}
 
+	function isTopLevelRoute(pathname: string): boolean {
+		return (
+			pathname === '/knowledge' ||
+			pathname === '/knowledge/notes' ||
+			pathname === '/knowledge/search' ||
+			pathname === '/knowledge/graph' ||
+			pathname === '/atlas/maps' ||
+			pathname === '/session/boards' ||
+			pathname === '/session/encounter/new' ||
+			pathname === '/session/combat' ||
+			pathname === '/campaign/timeline' ||
+			pathname === '/settings'
+		);
+	}
+
 	function setBrowserHistoryLabel(label: string): void {
 		if (typeof window === 'undefined') return;
 		const normalized = label.trim();
@@ -155,6 +178,29 @@
 				void worldCalendarState.load();
 			}
 		}
+	});
+
+	$effect(() => {
+		if (!runtimeState.ready) return;
+		if (!featureSpotlightsState.loaded && !featureSpotlightsState.loading) {
+			void featureSpotlightsState.loadFromStorage();
+		}
+	});
+
+	$effect(() => {
+		if (!featureSettingsState.loaded || !featureSpotlightsState.loaded) return;
+		const current = featureSettingsState.settings.advanced;
+		const previous = previousAdvancedFeatureSnapshot;
+		if (!previous) {
+			previousAdvancedFeatureSnapshot = { ...current };
+			return;
+		}
+		for (const featureId of ADVANCED_FEATURE_IDS) {
+			if (!previous[featureId] && current[featureId]) {
+				featureSpotlightsState.queueForFeature(featureId);
+			}
+		}
+		previousAdvancedFeatureSnapshot = { ...current };
 	});
 
 	$effect(() => {
@@ -260,6 +306,7 @@
 		const targetUrl = canonicalPath ? new URL(canonicalPath, next.origin) : next;
 		const pathWithSearch = `${targetUrl.pathname}${targetUrl.search}`;
 		navigationState.setActiveRoute(pathWithSearch);
+		queueSpotlightsForRoute(targetUrl.pathname);
 		const noteMatch = targetUrl.pathname.match(/^\/knowledge\/notes\/([^/]+)(?:\/(edit))?$/);
 		if (noteMatch) {
 			const noteId = createNoteId(decodeURIComponent(noteMatch[1] ?? ''));
@@ -486,6 +533,37 @@
 		handoutCreatorOpen = true;
 	}
 
+	function handleOpenKeyboardShortcuts(): void {
+		keyboardShortcutOverlayOpen = true;
+	}
+
+	function findSpotlightSelector(selectors: readonly string[]): string | null {
+		if (typeof document === 'undefined') return null;
+		for (const selector of selectors) {
+			const target = document.querySelector<HTMLElement>(selector);
+			if (!target) continue;
+			const rect = target.getBoundingClientRect();
+			if (rect.width <= 0 || rect.height <= 0) continue;
+			return selector;
+		}
+		return null;
+	}
+
+	function queueSpotlightsForRoute(pathname: string): void {
+		if (!featureSettingsState.loaded || !featureSpotlightsState.loaded) return;
+		featureSpotlightsState.queueForEncounter(pathname, (featureId) =>
+			featureSettingsState.isAdvancedEnabled(featureId),
+		);
+		if (!isTopLevelRoute(pathname)) return;
+		setTimeout(() => {
+			featureSpotlightsState.showNext(findSpotlightSelector);
+		}, 0);
+	}
+
+	async function handleDismissFeatureSpotlight(): Promise<void> {
+		await featureSpotlightsState.dismissActive();
+	}
+
 	async function handleDesktopVaultPicker(): Promise<void> {
 		if (typeof window === 'undefined' || !window.dndtoolsDesktop) return;
 		const result = await pickDesktopVaultDirectory();
@@ -554,7 +632,7 @@
 			return;
 		}
 		if (command === 'open-shortcuts') {
-			goto(`${resolve('/settings')}?tab=general`);
+			keyboardShortcutOverlayOpen = true;
 			return;
 		}
 		if (command === 'open-about') {
@@ -604,12 +682,9 @@
 
 	function handleKeydown(event: KeyboardEvent): void {
 		inputModalityState.observeKeyboardEvent(event);
-		const mod = event.ctrlKey || event.metaKey;
 		const target = event.target as HTMLElement;
 		const isInEditor = target.closest('.cm-editor') !== null;
 		const isTextEntry = isTextEntryTarget(target);
-		const mediumKeyboardDiscoverabilityEnabled =
-			!layoutState.isMedium || inputModalityState.keyboardDetected;
 		const compactEditorRoute = /^\/knowledge\/notes\/[^/]+\/edit$/.test(page.url.pathname);
 		const detailPanelAvailable =
 			layoutState.isExpanded &&
@@ -624,82 +699,103 @@
 			return;
 		}
 
-		const questionMarkPressed = event.key === '?' || (event.code === 'Slash' && event.shiftKey);
-		if (
-			questionMarkPressed &&
-			!mod &&
-			layoutState.isMedium &&
-			mediumKeyboardDiscoverabilityEnabled &&
-			!isTextEntry
-		) {
-			event.preventDefault();
-			keyboardShortcutOverlayOpen = true;
-			return;
-		}
+		const shortcut = matchGlobalKeyboardShortcut({
+			event,
+			isTextEntry,
+			isInEditor,
+			layoutTier: layoutState.tier,
+			detailPanelAvailable,
+		});
+		if (!shortcut) return;
 
-		if (event.key === 'F11' && layoutState.isExpanded) {
-			event.preventDefault();
-			desktopShellState.setZenMode(!desktopShellState.zenMode);
-			return;
-		}
-
-		if (mod && event.key === 'p') {
-			event.preventDefault();
-			quickSwitcherOpen = true;
-		} else if (mod && event.shiftKey && event.code === 'Space') {
-			event.preventDefault();
-			quickReferenceOverlayOpen = !quickReferenceOverlayOpen;
-		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'b') {
-			event.preventDefault();
-			sessionQuickPanelOpen = !sessionQuickPanelOpen;
-		} else if (mod && event.key.toLowerCase() === 'd') {
-			event.preventDefault();
-			diceTrayOpen = !diceTrayOpen;
-		} else if (mod && event.key.toLowerCase() === 'g') {
-			event.preventDefault();
-			if (!playerModeState.enabled) {
-				generatorOpen = !generatorOpen;
-			}
-		} else if (mod && event.key === 'n') {
-			event.preventDefault();
-			if (!playerModeState.enabled) {
-				void handleNewNote();
-			}
-		} else if (mod && event.key.toLowerCase() === 'o') {
-			event.preventDefault();
-			void handleDesktopVaultPicker();
-		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'e') {
-			event.preventDefault();
-			void handleDesktopMarkdownExport();
-		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'h') {
-			event.preventDefault();
-			handleCreateHandout();
-		} else if (mod && event.key === 'b' && !isInEditor) {
-			event.preventDefault();
-			if (layoutState.isExpanded) {
-				if (desktopShellState.zenMode) return;
-				desktopShellState.toggleLocalPanelCollapsed();
-			} else {
-				ui.toggleSidebar();
-			}
-		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'r' && !isInEditor) {
-			if (!detailPanelAvailable) return;
-			event.preventDefault();
-			desktopShellState.toggleDetailPanel();
-		} else if (mod && event.shiftKey && event.key.toLowerCase() === 's') {
+		const requireDmMode = (
+			shortcutId: KeyboardShortcutId,
+			handler: () => void | Promise<void>,
+		): void => {
 			if (playerModeState.enabled) return;
 			event.preventDefault();
-			goto(resolve('/session/boards'));
-		} else if (mod && event.shiftKey && event.key.toLowerCase() === 'c') {
-			if (playerModeState.enabled) return;
-			event.preventDefault();
-			goto(resolve('/session/combat'));
-		} else if (mod && event.key === '/') {
-			event.preventDefault();
-			goto(`${resolve('/settings')}?tab=general`);
-		} else if (mod && event.shiftKey && event.key === 'F') {
-			event.preventDefault();
-			goto(resolve('/knowledge/search'));
+			void handler();
+		};
+
+		switch (shortcut) {
+			case 'open_shortcuts_overlay':
+				event.preventDefault();
+				keyboardShortcutOverlayOpen = true;
+				return;
+			case 'toggle_zen_mode':
+				event.preventDefault();
+				desktopShellState.setZenMode(!desktopShellState.zenMode);
+				return;
+			case 'open_command_palette':
+				event.preventDefault();
+				quickSwitcherOpen = true;
+				return;
+			case 'toggle_quick_reference_overlay':
+				event.preventDefault();
+				quickReferenceOverlayOpen = !quickReferenceOverlayOpen;
+				return;
+			case 'toggle_session_quick_panel':
+				event.preventDefault();
+				sessionQuickPanelOpen = !sessionQuickPanelOpen;
+				return;
+			case 'toggle_dice_tray':
+				event.preventDefault();
+				diceTrayOpen = !diceTrayOpen;
+				return;
+			case 'toggle_generator_panel':
+				requireDmMode(shortcut, () => {
+					generatorOpen = !generatorOpen;
+				});
+				return;
+			case 'create_note':
+				requireDmMode(shortcut, () => handleNewNote());
+				return;
+			case 'open_vault_folder':
+				event.preventDefault();
+				void handleDesktopVaultPicker();
+				return;
+			case 'export_markdown_archive':
+				event.preventDefault();
+				void handleDesktopMarkdownExport();
+				return;
+			case 'create_handout':
+				event.preventDefault();
+				handleCreateHandout();
+				return;
+			case 'toggle_local_navigation':
+				event.preventDefault();
+				if (layoutState.isExpanded) {
+					if (desktopShellState.zenMode) return;
+					desktopShellState.toggleLocalPanelCollapsed();
+				} else {
+					ui.toggleSidebar();
+				}
+				return;
+			case 'toggle_detail_panel':
+				if (!detailPanelAvailable) return;
+				event.preventDefault();
+				desktopShellState.toggleDetailPanel();
+				return;
+			case 'open_session_boards':
+				if (playerModeState.enabled) return;
+				event.preventDefault();
+				goto(resolve('/session/boards'));
+				return;
+			case 'open_combat_tracker':
+				if (playerModeState.enabled) return;
+				event.preventDefault();
+				goto(resolve('/session/combat'));
+				return;
+			case 'open_shortcuts_settings':
+				event.preventDefault();
+				goto(`${resolve('/settings')}?tab=general`);
+				return;
+			case 'open_global_search':
+				event.preventDefault();
+				goto(resolve('/knowledge/search'));
+				return;
+			default:
+				return;
 		}
 	}
 </script>
@@ -723,6 +819,7 @@
 		ondice={() => (diceTrayOpen = true)}
 		ontemplate={openTemplateDialog}
 		onsetplayermode={handleSetPlayerMode}
+		onopenkeyboardshortcuts={handleOpenKeyboardShortcuts}
 	>
 		{@render children()}
 	</AppShell>
@@ -822,6 +919,10 @@
 	<KeyboardShortcutsOverlay
 		open={keyboardShortcutOverlayOpen}
 		onclose={() => (keyboardShortcutOverlayOpen = false)}
+	/>
+	<FeatureSpotlight
+		spotlight={featureSpotlightsState.active}
+		ondismiss={() => void handleDismissFeatureSpotlight()}
 	/>
 	<InstallPromptBanner />
 	<Toast />

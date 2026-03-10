@@ -22,10 +22,19 @@
 		ondice: () => void;
 		ontemplate: (folderOverride?: string) => void;
 		onsetplayermode: (enabled: boolean) => void;
+		onopenkeyboardshortcuts: () => void;
 		children: Snippet;
 	}
 
-	let { onnewnote, onsearch, ondice, ontemplate, onsetplayermode, children }: Props = $props();
+	let {
+		onnewnote,
+		onsearch,
+		ondice,
+		ontemplate,
+		onsetplayermode,
+		onopenkeyboardshortcuts,
+		children,
+	}: Props = $props();
 
 	let lastLayoutTier = $state<'compact' | 'medium' | 'expanded' | null>(null);
 	let sheetHistoryPushed = $state(false);
@@ -459,7 +468,7 @@
 
 			<div class="relative flex min-h-0 flex-1 overflow-hidden">
 				{#if showInlineSidebar}
-					<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} />
+					<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} {onopenkeyboardshortcuts} />
 					{#if layoutState.isExpanded}
 						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -543,7 +552,14 @@
 							aria-modal="true"
 							aria-label="Local navigation overlay"
 						>
-							<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} presentation="overlay" />
+							<Sidebar
+								{onnewnote}
+								{ondice}
+								{ontemplate}
+								{onsetplayermode}
+								{onopenkeyboardshortcuts}
+								presentation="overlay"
+							/>
 						</div>
 					</div>
 				{/if}
@@ -576,7 +592,14 @@
 				<div class="flex justify-center pb-1 pt-2">
 					<div class="h-1.5 w-12 rounded-full bg-border"></div>
 				</div>
-				<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} presentation="sheet" />
+				<Sidebar
+					{onnewnote}
+					{ondice}
+					{ontemplate}
+					{onsetplayermode}
+					{onopenkeyboardshortcuts}
+					presentation="sheet"
+				/>
 			</div>
 		</div>
 	{/if}

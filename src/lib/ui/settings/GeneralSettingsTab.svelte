@@ -5,6 +5,7 @@
 	import { editorPreferencesState } from '$lib/state/editor-preferences.svelte.js';
 	import { onboardingState } from '$lib/state/onboarding.svelte.js';
 	import { ONBOARDING_STEPS } from '$lib/domain/onboarding.js';
+	import { KEYBOARD_SHORTCUT_REGISTRY } from '$lib/domain/keyboard-shortcuts.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import { settingsStorageState } from '$lib/state/settings-storage.svelte.js';
 	import { reportRuntimeError } from '$lib/runtime/diagnostics.js';
@@ -16,6 +17,13 @@
 	let savingTemplateContext = $state(false);
 
 	let editorSettings = $derived(editorPreferencesState.settings);
+	const shortcutRows = $derived(
+		KEYBOARD_SHORTCUT_REGISTRY.map((entry) => ({
+			shortcut: entry.shortcut,
+			action: entry.label,
+			id: entry.id,
+		})),
+	);
 
 	onMount(() => {
 		void loadTemplateContextSettings();
@@ -317,15 +325,15 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each [['Ctrl+N', 'Create new note'], ['Ctrl+O', 'Open vault folder'], ['Ctrl+P', 'Command palette'], ['Ctrl+D', 'Open dice tray'], ['Ctrl+Shift+C', 'Open combat tracker'], ['Ctrl+Shift+S', 'Open session boards'], ['Ctrl+Shift+E', 'Export markdown archive'], ['Ctrl+/', 'Open keyboard shortcuts'], ['Ctrl+Shift+Space', 'Quick reference HUD'], ['Ctrl+B', 'Toggle local navigation / Bold (in editor)'], ['Ctrl+Shift+R', 'Toggle contextual detail panel'], ['F11', 'Toggle Zen mode'], ['Ctrl+Shift+F', 'Global search'], ['Ctrl+S', 'Save note (in editor)'], ['Ctrl+I', 'Italic (in editor)'], ['Ctrl+E', 'Inline code (in editor)'], ['Ctrl+K', 'Insert link (in editor)'], ['Ctrl+Z', 'Undo (in editor)'], ['Ctrl+Shift+Z', 'Redo (in editor)']] as [shortcut, action] (shortcut)}
+					{#each shortcutRows as row (`${row.id}-${row.shortcut}`)}
 						<tr class="border-b border-border last:border-0">
 							<td class="px-4 py-2.5">
 								<kbd
 									class="font-mono text-xs px-1.5 py-0.5 rounded bg-surface-alt border border-border text-accent"
-									>{shortcut}</kbd
+									>{row.shortcut}</kbd
 								>
 							</td>
-							<td class="px-4 py-2.5 text-ink">{action}</td>
+							<td class="px-4 py-2.5 text-ink">{row.action}</td>
 						</tr>
 					{/each}
 				</tbody>
