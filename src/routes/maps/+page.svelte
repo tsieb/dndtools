@@ -90,6 +90,7 @@
 		SessionBoardId,
 	} from '$lib/types/session-board.js';
 	import CombatTrackerTile from '$lib/ui/board/CombatTrackerTile.svelte';
+	import EmptyState from '$lib/ui/common/EmptyState.svelte';
 	import MapCanvasViewer from '$lib/ui/maps/MapCanvasViewer.svelte';
 	import QuickReferenceSplitView from '$lib/ui/search/QuickReferenceSplitView.svelte';
 	import Modal from '$lib/ui/common/Modal.svelte';
@@ -796,6 +797,12 @@
 		} finally {
 			importing = false;
 		}
+	}
+
+	function learnAboutAtlasSystem(): void {
+		toastState.info(
+			'Atlas maps let you pin notes to geography, connect linked locations, and reveal regions to players.',
+		);
 	}
 
 	function handleGridChange(next: {
@@ -2375,11 +2382,21 @@
 			{#if loading}
 				<p class="mt-2 text-sm text-ink-muted">Loading maps...</p>
 			{:else if filteredMaps.length === 0}
-				<p class="mt-2 text-sm text-ink-muted">
-					{maps.length === 0
-						? 'No maps in the vault yet. Import your first map image.'
-						: 'No maps match the active filters.'}
-				</p>
+				{#if maps.length === 0}
+					<EmptyState
+						class="min-h-0 px-0 py-4"
+						illustration="atlas"
+						headline="No maps yet"
+						body="Maps let you place notes on visual geography - pin NPCs to locations, reveal regions to players."
+						primaryAction={{ label: 'Add your first map', onclick: handleImportMap }}
+						secondaryAction={{
+							label: 'Learn about the Atlas system',
+							onclick: learnAboutAtlasSystem,
+						}}
+					/>
+				{:else}
+					<p class="mt-2 text-sm text-ink-muted">No maps match the active filters.</p>
+				{/if}
 			{:else}
 				<ul class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
 					{#each filteredMaps as map (map.id)}

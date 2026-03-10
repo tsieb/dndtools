@@ -7,6 +7,7 @@
 	import { linksState } from '$lib/state/links.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import Button from '$lib/ui/common/Button.svelte';
+	import EmptyState from '$lib/ui/common/EmptyState.svelte';
 	import type { Note } from '$lib/types/note.js';
 
 	interface GraphNode extends Note {
@@ -150,6 +151,13 @@
 			edges.push({ sourceId, targetId, count });
 		}
 		return edges.sort((a, b) => b.count - a.count);
+	});
+	let totalResolvedLinkCount = $derived.by(() => {
+		let total = 0;
+		for (const count of edgeWeights.values()) {
+			total += count;
+		}
+		return total;
 	});
 
 	let folderCenters = $derived.by(() => {
@@ -303,6 +311,23 @@
 		void goto(resolve(`/knowledge/notes/${id}`));
 	}
 
+	function openWritingGuide(): void {
+		const guide = allActiveNotes.find((note) => {
+			const title = note.title.toLowerCase();
+			if (title.includes('welcome') || title.includes('writing guide')) return true;
+			return note.tags.some((tag) => {
+				const normalized = tag.trim().toLowerCase();
+				return normalized === 'welcome' || normalized === 'tutorial';
+			});
+		});
+		if (guide) {
+			openNote(String(guide.id));
+			return;
+		}
+		const notesPath = resolve('/knowledge/notes');
+		void goto(`${notesPath}?create=${encodeURIComponent('Writing Guide')}`);
+	}
+
 	function previewText(content: string): string {
 		const collapsed = content.replace(/\s+/g, ' ').trim();
 		if (collapsed.length <= 220) return collapsed || 'No preview content.';
@@ -380,9 +405,19 @@
 				<span>{Math.round(qualityReport.totals.crossFolderLinkDensity * 100)}% cross-folder</span>
 			</div>
 			{#if graphNodes.length === 0}
-				<p class="text-sm text-ink-muted">
-					No nodes match the active folder/tag/isolation filters.
-				</p>
+				{#if totalResolvedLinkCount === 0}
+					<EmptyState
+						class="min-h-0 px-0 py-3"
+						illustration="graph"
+						headline="Your knowledge web is empty"
+						body="The graph appears once your notes link to each other using [[wikilinks]]."
+						primaryAction={{ label: 'Open the writing guide', onclick: openWritingGuide }}
+					/>
+				{:else}
+					<p class="text-sm text-ink-muted">
+						No nodes match the active folder/tag/isolation filters.
+					</p>
+				{/if}
 			{:else}
 				<div class="overflow-x-auto">
 					<svg

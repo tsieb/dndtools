@@ -26,6 +26,7 @@
 	import NoteCard from '$lib/ui/common/NoteCard.svelte';
 	import TemplateDialog from '$lib/ui/common/TemplateDialog.svelte';
 	import Button from '$lib/ui/common/Button.svelte';
+	import EmptyState from '$lib/ui/common/EmptyState.svelte';
 	import NoteViewer from '$lib/ui/viewer/NoteViewer.svelte';
 	import Icon from '$lib/ui/common/Icon.svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
@@ -115,6 +116,15 @@
 
 	let totalCount = $derived(pinnedNotes.length + filteredNotes.length);
 	let showListSkeleton = $derived(notesState.loading && notesState.notes.length === 0);
+	let noNotesInVault = $derived(modeScopedNotes.length === 0);
+	let showEmptyFolderState = $derived(
+		!!folderFilter &&
+			!tagFilter &&
+			!mapFilter &&
+			!normalizedQuery &&
+			!showListSkeleton &&
+			totalCount === 0,
+	);
 	let mapFilterLabel = $derived.by(() => {
 		if (!mapFilter) return null;
 		return mapsState.mapById[mapFilter]?.name ?? mapFilter;
@@ -197,6 +207,21 @@
 			template,
 			folderOverride ?? normalizeFolderContext(folderFilter) ?? undefined,
 		);
+	}
+
+	function openTemplateExplorer(): void {
+		if (templateLibraryState.templates.length === 0) {
+			toastState.info('No templates are currently available.');
+			return;
+		}
+		templateCandidates = [...templateLibraryState.templates];
+		templateDialogOpen = true;
+	}
+
+	async function moveNotesToCurrentFolder(): Promise<void> {
+		if (!folderFilter) return;
+		await goto(resolve('/knowledge/notes'));
+		toastState.info(`Use a note menu action to move notes into "${folderFilter}".`);
 	}
 
 	$effect(() => {
@@ -463,10 +488,30 @@
 					{/each}
 				</div>
 			{:else if totalCount === 0}
-				<div class="py-16 text-center">
-					<p class="mb-4 text-ink-muted">No notes yet.</p>
-					<Button variant="primary" onclick={handleNewNote}>Create your first note</Button>
-				</div>
+				{#if noNotesInVault}
+					<EmptyState
+						illustration="knowledge-empty"
+						headline="Your world begins here"
+						body="Notes are where your campaign lives - locations, NPCs, lore, and history all start as notes."
+						primaryAction={{ label: 'Create your first note', onclick: handleNewNote }}
+						secondaryAction={{ label: 'Explore templates', onclick: openTemplateExplorer }}
+					/>
+				{:else if showEmptyFolderState && folderFilter}
+					<EmptyState
+						illustration="knowledge-folder"
+						headline="This folder is empty"
+						body={`Folder path: ${folderFilter}`}
+						primaryAction={{ label: 'Create a note here', onclick: handleNewNote }}
+						secondaryAction={{ label: 'Move notes here', onclick: moveNotesToCurrentFolder }}
+					/>
+				{:else}
+					<div class="py-16 text-center">
+						<p class="mb-2 text-ink-muted">No notes match your current filters.</p>
+						<a href={resolve('/knowledge/notes')} class="text-sm text-accent hover:underline">
+							Clear filters
+						</a>
+					</div>
+				{/if}
 			{:else}
 				<div class="py-16 text-center">
 					<p class="mb-2 text-ink-muted">No notes match your current filters.</p>

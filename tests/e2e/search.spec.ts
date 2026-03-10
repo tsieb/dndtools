@@ -35,10 +35,24 @@ test.describe('Search', () => {
 		// Should show results or "no results" depending on data
 		const hasResults = await page.locator('text=/score\\s+[0-9]/i').count();
 		const hasNoResults = await page
-			.getByText(/no results/i)
+			.getByText(/no notes match/i)
 			.isVisible()
 			.catch(() => false);
 		expect(hasResults > 0 || hasNoResults).toBeTruthy();
+	});
+
+	test('search empty-result state offers create and clear actions', async ({ page }) => {
+		await page.goto('/knowledge/search');
+		const input = page.getByPlaceholder('Search notes...');
+		await input.fill('zzzzzzzzzzzzzzzzzzzz');
+		await page.waitForTimeout(400);
+
+		await expect(page.getByRole('heading', { name: /No notes match/i })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Create a note about this' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Clear search' })).toBeVisible();
+
+		await page.getByRole('button', { name: 'Clear search' }).click();
+		await expect(page.getByText(/Type to search across all notes/i)).toBeVisible();
 	});
 
 	test('search shows empty state when no query', async ({ page }) => {

@@ -14,6 +14,7 @@
 	import { listRollableTables, rollRollableTable } from '$lib/domain/rollable-tables.js';
 	import SessionDiceBar from '$lib/ui/dice/SessionDiceBar.svelte';
 	import { toastState } from '$lib/state/toast.svelte.js';
+	import EmptyState from '$lib/ui/common/EmptyState.svelte';
 	import type { RollableTableEntry } from '$lib/domain/rollable-tables.js';
 
 	interface Props {
@@ -101,6 +102,13 @@
 		closeOnMobile();
 	}
 
+	function learnAboutSessionBoards(): void {
+		toastState.info(
+			'Session boards combine scenes, references, initiative, and handouts in one view.',
+		);
+		openSessionBoard();
+	}
+
 	function promptStartSession(): void {
 		startMode = mostRecentBoard ? 'continue' : 'new';
 		newSessionName = mostRecentBoard?.name ?? 'Session Board';
@@ -157,6 +165,35 @@
 
 	async function togglePinnedTable(tableId: string): Promise<void> {
 		await sessionModeState.togglePinnedRollableTable(tableId);
+	}
+
+	async function openRollableTableExample(): Promise<void> {
+		if (rollableTables.length > 0) {
+			openSourceNote(rollableTables[0]!);
+			return;
+		}
+		const note = await notesState.createNote({
+			title: 'Rollable Table Example',
+			tags: ['session', 'table'],
+			content: `---
+rollable: true
+tags: [session, table]
+---
+
+# Tavern Rumors
+
+| d6 | Rumor |
+| --- | --- |
+| 1 | A caravan vanished on the old road. |
+| 2 | The miller pays in silver for fresh wolf pelts. |
+| 3 | A ghostly lantern appears near the bridge at dusk. |
+| 4 | The mayor is hiring discreet troubleshooters. |
+| 5 | Someone mapped secret tunnels under the chapel. |
+| 6 | A noble family heirloom is hidden in the watchtower. |
+`,
+		});
+		await goto(resolve(`/knowledge/notes/${note.id}`));
+		closeOnMobile();
 	}
 </script>
 
@@ -232,6 +269,30 @@
 							Scene: {activeBoard.name} | Tiles: {activeBoard.tiles.length}
 						</p>
 					</div>
+				{:else if sessionBoardsState.boards.length === 0 && !isSessionActive}
+					<EmptyState
+						class="min-h-0 px-0 py-1"
+						illustration="session"
+						headline="Your sessions start here"
+						body="Session boards are your live-play command center - scenes, NPCs, initiative, and handouts in one view."
+						primaryAction={{ label: 'Start a session', onclick: promptStartSession }}
+						secondaryAction={{
+							label: 'Learn about session boards',
+							onclick: learnAboutSessionBoards,
+						}}
+					/>
+				{:else if sessionBoardsState.boards.length === 0}
+					<EmptyState
+						class="min-h-0 px-0 py-1"
+						illustration="session"
+						headline="Your sessions start here"
+						body="Create a session board to begin organizing live-play controls."
+						primaryAction={{ label: 'Start a session', onclick: promptStartSession }}
+						secondaryAction={{
+							label: 'Learn about session boards',
+							onclick: learnAboutSessionBoards,
+						}}
+					/>
 				{:else}
 					<div class="space-y-2">
 						<button
@@ -316,11 +377,16 @@
 					</div>
 				{/if}
 
-				{#if unpinnedRollableTables.length === 0}
-					<p class="text-xs text-ink-faint">
-						No rollable markdown tables found. Tag a note with `rollable: true` or use category
-						headings: Encounters, Loot, Names, Weather, Events.
-					</p>
+				{#if rollableTables.length === 0}
+					<EmptyState
+						class="min-h-0 px-0 py-1"
+						illustration="session-tables"
+						headline="No rollable tables yet"
+						body="Tag any markdown table with `rollable: true` in its frontmatter to add it here."
+						primaryAction={{ label: 'Open example note', onclick: openRollableTableExample }}
+					/>
+				{:else if unpinnedRollableTables.length === 0}
+					<p class="text-xs text-ink-faint">All discovered tables are pinned above.</p>
 				{:else}
 					<div class="space-y-1.5">
 						{#each unpinnedRollableTables as table (table.id)}

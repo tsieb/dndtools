@@ -171,6 +171,30 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 17.1** — Empty States as Teaching Moments:
+  - Added reusable empty-state UI primitive in `src/lib/ui/common/EmptyState.svelte` with:
+    - consistent illustration system (`illustration` keys + optional custom illustration snippet)
+    - required headline + optional body
+    - primary action + optional secondary ghost action
+    - accessible status semantics (`role="status"` + container `aria-label`)
+  - Reworked Knowledge empty states:
+    - empty vault and empty folder states in `src/routes/notes/+page.svelte`
+    - empty search result teaching state (including related tag suggestions) in
+      `src/routes/search/+page.svelte`
+  - Added Session empty-state coverage:
+    - no-session-board teaching states in `src/lib/ui/sections/local-nav/SessionLocalNavPanel.svelte`
+      and `src/routes/session-board/+page.svelte`
+    - no-combat-active state in `src/routes/combat/+page.svelte`
+    - no-rollable-tables state with example-note flow in
+      `src/lib/ui/sections/local-nav/SessionLocalNavPanel.svelte`
+  - Added Atlas / Campaign / Graph / Timeline empty states:
+    - atlas no-maps state in `src/routes/maps/+page.svelte`
+    - campaign no-entities state in `src/lib/ui/sections/local-nav/CampaignLocalNavPanel.svelte`
+    - graph no-links teaching state in `src/routes/graph/+page.svelte`
+    - timeline no-events-detected state in `src/routes/timeline/+page.svelte`
+  - Added/updated tests:
+    - `tests/e2e/search.spec.ts` for empty-result search actions
+
 - **Epic 16.1** — Session Mode as Application-Level State:
   - Added application-level session mode state in `src/lib/state/session-mode.svelte.ts`
   - Extended persisted session schema (`src/lib/types/session-state.ts`) with:

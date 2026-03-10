@@ -11,6 +11,7 @@
 	import WorldCalendarReference from '$lib/ui/calendar/WorldCalendarReference.svelte';
 	import SessionMissionControl from '$lib/ui/session/SessionMissionControl.svelte';
 	import SessionPrepPanel from '$lib/ui/session/SessionPrepPanel.svelte';
+	import EmptyState from '$lib/ui/common/EmptyState.svelte';
 	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
 	import { DEFAULT_SESSION_BOARD_LAYOUT } from '$lib/domain/session-board.js';
 	import {
@@ -21,6 +22,7 @@
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
+	import { toastState } from '$lib/state/toast.svelte.js';
 	import type { NoteId } from '$lib/types/note.js';
 	import type {
 		SessionBoard,
@@ -446,6 +448,27 @@
 		newBoardDescription = '';
 		createTemplateId = '';
 	}
+
+	async function startSessionFromEmptyState(): Promise<void> {
+		const board =
+			activeBoard ??
+			sessionBoardsState.boards[0] ??
+			(await sessionBoardsState.createBoard('Session Board'));
+		sessionBoardsState.setActiveBoard(board.id);
+		await sessionModeState.startSession({
+			sessionBoardId: board.id,
+			sceneId: board.activeSceneId ?? null,
+		});
+		mode = 'view';
+	}
+
+	function learnAboutSessionBoardsFromEmptyState(): void {
+		mode = 'edit';
+		toastState.info(
+			'Session boards organize scenes, references, initiative, and handouts for live play.',
+		);
+	}
+
 	async function saveBoard(): Promise<void> {
 		if (!activeBoard) return;
 		await sessionBoardsState.updateBoard(activeBoard.id, {
@@ -674,7 +697,17 @@
 						<h2 class="text-sm font-semibold text-ink mb-2">Boards</h2>
 						<div class="space-y-1 max-h-56 overflow-y-auto pr-1">
 							{#if sessionBoardsState.boards.length === 0}
-								<p class="text-xs text-ink-faint">No boards yet.</p>
+								<EmptyState
+									class="min-h-0 px-0 py-1"
+									illustration="session"
+									headline="Your sessions start here"
+									body="Create a session board to begin organizing live-play controls."
+									primaryAction={{ label: 'Start a session', onclick: startSessionFromEmptyState }}
+									secondaryAction={{
+										label: 'Learn about session boards',
+										onclick: learnAboutSessionBoardsFromEmptyState,
+									}}
+								/>
 							{:else}
 								{#each sessionBoardsState.boards as board (board.id)}
 									<button
@@ -892,20 +925,44 @@
 			class="h-full min-h-0 rounded-xl border border-border-strong/60 bg-surface/95 shadow-sm overflow-hidden flex flex-col"
 		>
 			{#if !activeBoard}
-				<div class="h-full flex items-center justify-center text-center px-6">
-					<div class="max-w-md">
-						<p class="text-base font-semibold text-ink">Create or select a board to begin.</p>
-						<p class="text-sm text-ink-muted mt-1">
-							Session boards are designed for quick reference during sessions.
-						</p>
-						{#if mode === 'view'}
-							<button
-								class="mt-3 px-3 py-1.5 rounded-md text-sm border border-border hover:bg-surface-alt transition-colors"
-								onclick={() => (mode = 'edit')}>Enter Edit Mode</button
-							>
-						{/if}
+				{#if sessionBoardsState.boards.length === 0 && !sessionModeState.isActive}
+					<EmptyState
+						illustration="session"
+						headline="Your sessions start here"
+						body="Session boards are your live-play command center - scenes, NPCs, initiative, and handouts in one view."
+						primaryAction={{ label: 'Start a session', onclick: startSessionFromEmptyState }}
+						secondaryAction={{
+							label: 'Learn about session boards',
+							onclick: learnAboutSessionBoardsFromEmptyState,
+						}}
+					/>
+				{:else if sessionBoardsState.boards.length === 0}
+					<EmptyState
+						illustration="session"
+						headline="Your sessions start here"
+						body="Create a session board to begin organizing live-play controls."
+						primaryAction={{ label: 'Start a session', onclick: startSessionFromEmptyState }}
+						secondaryAction={{
+							label: 'Learn about session boards',
+							onclick: learnAboutSessionBoardsFromEmptyState,
+						}}
+					/>
+				{:else}
+					<div class="h-full flex items-center justify-center text-center px-6">
+						<div class="max-w-md">
+							<p class="text-base font-semibold text-ink">Create or select a board to begin.</p>
+							<p class="text-sm text-ink-muted mt-1">
+								Session boards are designed for quick reference during sessions.
+							</p>
+							{#if mode === 'view'}
+								<button
+									class="mt-3 px-3 py-1.5 rounded-md text-sm border border-border hover:bg-surface-alt transition-colors"
+									onclick={() => (mode = 'edit')}>Enter Edit Mode</button
+								>
+							{/if}
+						</div>
 					</div>
-				</div>
+				{/if}
 			{:else}
 				<div
 					class="shrink-0 border-b border-border bg-surface/97 backdrop-blur px-3 py-3 {mode ===

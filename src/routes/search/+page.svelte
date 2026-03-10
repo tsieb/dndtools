@@ -20,9 +20,11 @@
 	import { a11yAnnouncerState } from '$lib/state/a11y-announcer.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
+	import { createFolderId } from '$lib/types/note.js';
 	import type { Note } from '$lib/types/note.js';
 	import type { NoteId } from '$lib/types/note.js';
 	import { formatRelativeDate } from '$lib/utils/date.js';
+	import EmptyState from '$lib/ui/common/EmptyState.svelte';
 	import Icon from '$lib/ui/common/Icon.svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
@@ -172,6 +174,23 @@
 		if (typeof value !== 'string') return null;
 		const normalized = value.trim().toLowerCase();
 		return normalized.length > 0 ? normalized : null;
+	}
+
+	function topVaultTags(notes: Note[]): Array<{ tag: string; count: number }> {
+		const counts: Record<string, number> = {};
+		for (const note of notes) {
+			for (const rawTag of note.tags) {
+				const tag = rawTag.trim().toLowerCase();
+				if (!tag) continue;
+				counts[tag] = (counts[tag] ?? 0) + 1;
+			}
+		}
+		return Object.entries(counts)
+			.map(([tag, count]) => ({ tag, count: count ?? 0 }))
+			.sort((a, b) => {
+				if (a.count !== b.count) return b.count - a.count;
+				return a.tag.localeCompare(b.tag);
+			});
 	}
 
 	function isSemanticOnly(id: NoteId): boolean {
@@ -442,6 +461,25 @@
 		goto(target);
 	}
 
+	async function createNoteAboutQuery(): Promise<void> {
+		const title = query.trim();
+		if (!title) return;
+		const folder =
+			searchScope.kind === 'folder' && searchScope.value
+				? createFolderId(searchScope.value)
+				: undefined;
+		const note = await notesState.createNote({
+			title,
+			...(folder ? { folder } : {}),
+		});
+		await goto(resolve(`/knowledge/notes/${note.id}/edit`));
+	}
+
+	function clearSearchQuery(): void {
+		applyQuery('', { syncUrl: true, clearFacets: true });
+		clearFacetFilters();
+	}
+
 	async function saveCurrentSearch(): Promise<void> {
 		if (!query.trim()) return;
 		saving = true;
@@ -557,6 +595,20 @@
 
 	function escapeRegex(value: string): string {
 		return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	}
+
+	let relatedTagSuggestions = $derived.by(() => {
+		const normalized = query.trim().toLowerCase();
+		if (!normalized) return [] as string[];
+		const rankedTags = topVaultTags(visibleNotes);
+		if (rankedTags.length === 0) return [] as string[];
+		const matching = rankedTags.filter((entry) => entry.tag.includes(normalized));
+		const source = matching.length > 0 ? matching : rankedTags;
+		return source.slice(0, 6).map((entry) => entry.tag);
+	});
+
+	function applyTagSuggestion(tag: string): void {
+		applyQuery(`tag:${tag}`, { syncUrl: true, clearFacets: true });
 	}
 
 	let filteredResults = $derived.by(() => {
@@ -1245,12 +1297,29 @@
 						{/each}
 					</div>
 				{:else if !searching}
-					<div class="mt-10 text-center">
-						<p class="text-ink-muted">No results for "{query}"</p>
-						<p class="text-sm text-ink-faint mt-1">
-							Try adjusting scope, operators, facet filters, or spelling.
-						</p>
-					</div>
+					<EmptyState
+						illustration="knowledge-search"
+						headline={`No notes match "${query}"`}
+						primaryAction={{ label: 'Create a note about this', onclick: createNoteAboutQuery }}
+						secondaryAction={{ label: 'Clear search', onclick: clearSearchQuery }}
+					>
+						{#if relatedTagSuggestions.length > 0}
+							<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+								Related tags
+							</p>
+							<div class="flex flex-wrap items-center justify-center gap-1.5">
+								{#each relatedTagSuggestions as tag (tag)}
+									<button
+										type="button"
+										class="rounded border border-border px-2 py-0.5 text-xs text-ink-muted hover:bg-surface-alt hover:text-ink"
+										onclick={() => applyTagSuggestion(tag)}
+									>
+										#{tag}
+									</button>
+								{/each}
+							</div>
+						{/if}
+					</EmptyState>
 				{/if}
 			</section>
 		</div>

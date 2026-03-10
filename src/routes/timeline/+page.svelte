@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { SvelteMap } from 'svelte/reactivity';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
+	import EmptyState from '$lib/ui/common/EmptyState.svelte';
 	import {
 		buildCampaignTimeline,
 		type CampaignTimelineEntry,
@@ -92,6 +94,23 @@
 		selectedParticipant = '';
 		pendingOnly = false;
 	}
+
+	async function addDateToNote(): Promise<void> {
+		const dateIso = new Date().toISOString().slice(0, 10);
+		const note = await notesState.createNote({
+			title: 'Timeline Event',
+			tags: ['timeline'],
+			content: `---
+date: ${dateIso}
+---
+
+# Timeline Event
+
+Describe what happened and why it matters.
+`,
+		});
+		await goto(resolve(`/knowledge/notes/${note.id}/edit`));
+	}
 </script>
 
 <div class="mx-auto max-w-[1200px] p-6">
@@ -155,9 +174,18 @@
 	</div>
 
 	{#if groupedEntries.length === 0}
-		<div class="rounded-lg border border-border bg-surface p-6 text-sm text-ink-muted">
-			No timeline entries match the active filters.
-		</div>
+		{#if allEntries.length === 0}
+			<EmptyState
+				illustration="timeline"
+				headline="No timeline events detected"
+				body="Timeline events are auto-extracted from notes with date frontmatter. Tag a note with a `date:` field to get started."
+				primaryAction={{ label: 'Add a date to a note', onclick: addDateToNote }}
+			/>
+		{:else}
+			<div class="rounded-lg border border-border bg-surface p-6 text-sm text-ink-muted">
+				No timeline entries match the active filters.
+			</div>
+		{/if}
 	{:else}
 		<div class="space-y-4">
 			{#each groupedEntries as group (group.dayOffset)}

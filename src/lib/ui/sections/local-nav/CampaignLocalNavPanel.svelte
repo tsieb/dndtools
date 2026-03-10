@@ -4,12 +4,18 @@
 	import CollapsibleLocalNavSection from '$lib/ui/layout/local-nav/CollapsibleLocalNavSection.svelte';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
+	import { toastState } from '$lib/state/toast.svelte.js';
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { layoutState } from '$lib/state/layout.svelte.js';
-	import { isVaultObjectNote } from '$lib/domain/object-notes.js';
+	import { isVaultObjectNote, vaultObjectToNote } from '$lib/domain/object-notes.js';
+	import { normalizeNpcData } from '$lib/domain/objects.js';
+	import { DEFAULT_CONTENT_VISIBILITY } from '$lib/types/visibility.js';
+	import { generateVaultObjectId } from '$lib/utils/id.js';
+	import { nowISO } from '$lib/utils/date.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import { buildOpenThreadsReport } from '$lib/domain/open-threads.js';
+	import EmptyState from '$lib/ui/common/EmptyState.svelte';
 
 	const modeScopedNotes = $derived.by(() =>
 		playerModeState.enabled
@@ -40,12 +46,46 @@
 			ui.sidebarOpen = false;
 		}
 	}
+
+	async function createNpcEntity(): Promise<void> {
+		const now = nowISO();
+		const note = vaultObjectToNote({
+			id: generateVaultObjectId(),
+			type: 'npc',
+			name: 'New NPC',
+			summary: '',
+			tags: ['npc'],
+			visibility: DEFAULT_CONTENT_VISIBILITY,
+			relationships: [],
+			createdAt: now,
+			updatedAt: now,
+			data: normalizeNpcData({}),
+		});
+		const created = await notesState.createNote(note);
+		goto(resolve(`/knowledge/notes/${created.id}/edit`));
+		if (layoutState.isCompact) {
+			ui.sidebarOpen = false;
+		}
+	}
+
+	function explainObjectNotes(): void {
+		toastState.info(
+			'Object notes are structured entries for NPCs, factions, quests, and other campaign entities.',
+		);
+	}
 </script>
 
 <nav class="space-y-2 pb-2" aria-label="Local navigation: Campaign panel">
 	<CollapsibleLocalNavSection section="campaign" sectionId="entities" title="Entities">
 		{#if pinnedEntities.length === 0 && entities.length === 0}
-			<p class="px-2.5 py-1.5 text-xs text-ink-faint">No campaign entities yet</p>
+			<EmptyState
+				class="min-h-0 px-0 py-1"
+				illustration="campaign"
+				headline="No campaign entities yet"
+				body="Object notes give structure to NPCs, factions, and quests - they connect across your vault and power the AI context bundles."
+				primaryAction={{ label: 'Create an NPC', onclick: createNpcEntity }}
+				secondaryAction={{ label: 'What are object notes?', onclick: explainObjectNotes }}
+			/>
 		{:else}
 			{#if pinnedEntities.length > 0}
 				<p class="px-2.5 pb-1 text-xs uppercase tracking-wider text-ink-faint">Pinned</p>

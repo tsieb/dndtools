@@ -22,6 +22,7 @@
 		SessionCombatantState,
 		SessionConditionName,
 	} from '$lib/types/session-state.js';
+	import EmptyState from '$lib/ui/common/EmptyState.svelte';
 	import Icon from '$lib/ui/common/Icon.svelte';
 	import StatBlockView from '$lib/ui/viewer/StatBlockView.svelte';
 
@@ -442,6 +443,10 @@
 	function openSessionBoards(): void {
 		void goto(resolve('/session/boards'));
 	}
+
+	function openAddCombatants(): void {
+		showAdd = true;
+	}
 	function handleTrackerKeydown(event: KeyboardEvent): void {
 		if (isTextEntryTarget(event.target)) return;
 		const key = event.key.toLowerCase();
@@ -608,9 +613,13 @@
 					{/if}
 					<div class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
 						{#if sortedCombatants.length === 0}
-							<p class="rounded-md border border-dashed border-border p-4 text-xs text-ink-muted">
-								No combatants yet.
-							</p>
+							<EmptyState
+								class="min-h-0 px-0 py-2"
+								illustration="session-combat"
+								headline="No combat active"
+								body="Add combatants to start tracking initiative."
+								primaryAction={{ label: 'Add combatants', onclick: openAddCombatants }}
+							/>
 						{:else}
 							{#each sortedCombatants as combatant (combatant.id)}
 								<article
