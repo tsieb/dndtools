@@ -4,7 +4,7 @@
 	import { resolve } from '$app/paths';
 	import CollapsibleLocalNavSection from '$lib/ui/layout/local-nav/CollapsibleLocalNavSection.svelte';
 	import Dialog from '$lib/ui/common/Dialog.svelte';
-	import ConfirmDialog from '$lib/ui/common/ConfirmDialog.svelte';
+	import SessionEndWorkflowDialog from '$lib/ui/session/SessionEndWorkflowDialog.svelte';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
@@ -32,13 +32,10 @@
 		return scene?.title ?? null;
 	});
 	let showStartDialog = $state(false);
-	let showEndConfirm = $state(false);
-	let showSummaryDialog = $state(false);
+	let showEndSessionFlow = $state(false);
 	let startMode = $state<'continue' | 'new'>('continue');
 	let sessionTab = $state<'controls' | 'tables'>('controls');
 	let newSessionName = $state('Session Board');
-	let summaryNotes = $state('');
-	let includeRollLog = $state(true);
 	let latestTableResultById = $state<Record<string, string>>({});
 	let now = $state(Date.now());
 	const initiativeSummary = $derived.by(() => {
@@ -130,41 +127,9 @@
 		openSessionBoard();
 	}
 
-	function promptEndSession(): void {
-		showEndConfirm = true;
-	}
-
-	async function confirmEndSession(): Promise<void> {
-		showEndConfirm = false;
-		showSummaryDialog = true;
-	}
-
-	async function finalizeEndSession(): Promise<void> {
-		showSummaryDialog = false;
-		summaryNotes = '';
-		includeRollLog = true;
-		await sessionModeState.endSession();
-	}
-
 	function openDiceTray(): void {
 		ondice();
 		closeOnMobile();
-	}
-
-	const summaryExportText = $derived.by(() => {
-		const base = summaryNotes.trim();
-		const rollLog = includeRollLog ? sessionModeState.formatRollHistoryForSummary() : '';
-		if (!base && !rollLog) return '';
-		if (!base) return rollLog;
-		if (!rollLog) return base;
-		return `${base}\n\n${rollLog}`;
-	});
-
-	async function copySummaryExport(): Promise<void> {
-		if (typeof navigator === 'undefined' || !navigator.clipboard) return;
-		const text = summaryExportText;
-		if (!text) return;
-		await navigator.clipboard.writeText(text);
 	}
 
 	function openSourceNote(table: RollableTableEntry): void {
@@ -256,7 +221,7 @@
 					<button
 						type="button"
 						class="mt-2 w-full rounded-md border border-border px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg"
-						onclick={promptEndSession}
+						onclick={() => (showEndSessionFlow = true)}
 					>
 						End Session
 					</button>
@@ -468,60 +433,8 @@
 	</div>
 </Dialog>
 
-<ConfirmDialog
-	open={showEndConfirm}
-	title="End Session"
-	message="End this session? You'll be asked to capture key developments."
-	confirmText="Continue"
-	onconfirm={() => void confirmEndSession()}
-	oncancel={() => (showEndConfirm = false)}
+<SessionEndWorkflowDialog
+	open={showEndSessionFlow}
+	sessionboardid={activeSession?.sessionBoardId ?? activeBoard?.id ?? null}
+	onclose={() => (showEndSessionFlow = false)}
 />
-
-<Dialog
-	open={showSummaryDialog}
-	title="Session Summary"
-	maxWidth="sm"
-	onclose={() => (showSummaryDialog = false)}
->
-	<div class="space-y-3 text-sm text-ink">
-		<p class="text-ink-muted">Capture key developments before ending this session.</p>
-		<textarea
-			class="h-28 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
-			bind:value={summaryNotes}
-			placeholder="Session recap notes"
-		></textarea>
-		<label class="flex items-center gap-2 text-xs text-ink-muted">
-			<input type="checkbox" bind:checked={includeRollLog} />
-			Include roll log in export
-		</label>
-		{#if includeRollLog && sessionModeState.rollHistory.length > 0}
-			<div class="rounded border border-border/70 bg-surface-alt/45 p-2 text-xs text-ink-muted">
-				<p class="font-medium text-ink">Roll log preview included in export.</p>
-				<p class="mt-1 text-2xs text-ink-faint">
-					{sessionModeState.rollHistory.length} roll entries
-				</p>
-			</div>
-		{/if}
-		<div class="flex justify-end gap-2">
-			<button
-				class="rounded border border-border px-3 py-1.5 text-xs"
-				onclick={() => void copySummaryExport()}
-				disabled={!summaryExportText}
-			>
-				Copy Export
-			</button>
-			<button
-				class="rounded border border-border px-3 py-1.5 text-xs"
-				onclick={() => (showSummaryDialog = false)}
-			>
-				Cancel
-			</button>
-			<button
-				class="rounded bg-accent px-3 py-1.5 text-xs text-white"
-				onclick={() => void finalizeEndSession()}
-			>
-				End Session
-			</button>
-		</div>
-	</div>
-</Dialog>

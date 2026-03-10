@@ -10,8 +10,13 @@
 	import HandoutLibraryTile from '$lib/ui/board/HandoutLibraryTile.svelte';
 	import WorldCalendarReference from '$lib/ui/calendar/WorldCalendarReference.svelte';
 	import SessionMissionControl from '$lib/ui/session/SessionMissionControl.svelte';
+	import SessionPrepPanel from '$lib/ui/session/SessionPrepPanel.svelte';
 	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
 	import { DEFAULT_SESSION_BOARD_LAYOUT } from '$lib/domain/session-board.js';
+	import {
+		loadSessionPrepViewModel,
+		type SessionPrepViewModel,
+	} from '$lib/domain/session-prep-workflow.js';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
@@ -71,6 +76,10 @@
 	let zoom = $state(DEFAULT_ZOOM);
 	let lastBoardId = $state<string | null>(null);
 	let suggestionKey = $state('');
+	let sessionPrep = $state<SessionPrepViewModel | null>(null);
+	let sessionPrepLoading = $state(false);
+	let sessionPrepError = $state<string | null>(null);
+	let lastSessionPrepKey = $state('');
 
 	type RenderedTileEntry =
 		| { tile: SessionBoardTile; kind: 'calendar'; x: number; y: number }
@@ -236,8 +245,25 @@
 	});
 
 	$effect(() => {
+		const boardId = activeBoard ? String(activeBoard.id) : null;
+		const nextKey = `${mode}|${sessionModeState.mode}|${boardId ?? 'none'}|${notesState.activeNotes.length}|${activeBoard?.handoutHistory?.length ?? 0}`;
+		if (mode !== 'view' || sessionModeState.mode !== 'idle') {
+			lastSessionPrepKey = '';
+			sessionPrep = null;
+			sessionPrepError = null;
+			sessionPrepLoading = false;
+			return;
+		}
+		if (nextKey === lastSessionPrepKey) return;
+		lastSessionPrepKey = nextKey;
+		void refreshSessionPrep(boardId);
+	});
+
+	$effect(() => {
 		if (!activeBoard || !sessionModeState.isActive) return;
 		if (sessionModeState.activeSession?.sessionBoardId !== String(activeBoard.id)) return;
+		const nextSceneId = activeBoard.activeSceneId ?? null;
+		if ((sessionModeState.activeSession?.sceneId ?? null) === nextSceneId) return;
 		void sessionModeState.setSceneId(activeBoard.activeSceneId ?? null);
 	});
 
@@ -551,6 +577,23 @@
 		const boardId = (event.currentTarget as HTMLSelectElement).value;
 		if (!boardId) return;
 		sessionBoardsState.setActiveBoard(boardId as SessionBoard['id']);
+	}
+
+	async function refreshSessionPrep(boardId: string | null): Promise<void> {
+		if (mode !== 'view' || sessionModeState.mode !== 'idle') return;
+		sessionPrepLoading = true;
+		sessionPrepError = null;
+		try {
+			sessionPrep = await loadSessionPrepViewModel({ boardId });
+		} catch (error) {
+			sessionPrepError = String(error);
+		} finally {
+			sessionPrepLoading = false;
+		}
+	}
+
+	function openSessionPrepNote(noteId: string): void {
+		void goto(resolve(`/knowledge/notes/${noteId}`), { state: { label: 'Session prep' } });
 	}
 
 	function onNumberChange(event: Event, fallback: number, cb: (v: number) => void): void {
@@ -959,6 +1002,19 @@
 							</div>
 						{/if}
 					</div>
+
+					{#if mode === 'view' && sessionModeState.mode === 'idle'}
+						<div class="mt-3">
+							<SessionPrepPanel
+								prep={sessionPrep}
+								loading={sessionPrepLoading}
+								error={sessionPrepError}
+								onopennote={openSessionPrepNote}
+								onrefresh={() =>
+									void refreshSessionPrep(activeBoard ? String(activeBoard.id) : null)}
+							/>
+						</div>
+					{/if}
 
 					{#if mode === 'edit'}
 						<details class="rounded-md border border-border bg-surface-alt/60 p-2.5">

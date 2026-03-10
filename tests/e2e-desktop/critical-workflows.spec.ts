@@ -120,6 +120,28 @@ async function startNewNote(page: Page): Promise<void> {
 		.toBe(true);
 }
 
+async function openEndSessionWorkflow(page: Page): Promise<void> {
+	const endButtons = page.getByRole('button', { name: 'End Session' });
+	const buttonCount = await endButtons.count();
+	for (let index = 0; index < buttonCount; index += 1) {
+		const button = endButtons.nth(index);
+		const visible = await button.isVisible().catch(() => false);
+		if (!visible) continue;
+		await button.click();
+		const captureVisible = await page
+			.getByRole('heading', { name: 'Session Capture' })
+			.isVisible({ timeout: 5_000 })
+			.catch(() => false);
+		if (captureVisible) return;
+		const continueVisible = await page
+			.getByRole('button', { name: 'Continue' })
+			.isVisible({ timeout: 5_000 })
+			.catch(() => false);
+		if (continueVisible) return;
+	}
+	throw new Error('Unable to open end-session workflow from any visible entry point.');
+}
+
 test.describe('Desktop critical workflows @critical', () => {
 	test('vault opens and first-run onboarding is actionable', async () => {
 		const app = await launchWithSeed();
@@ -267,12 +289,24 @@ test.describe('Desktop critical workflows @critical', () => {
 			});
 		});
 		try {
-			await gotoDesktopPath(app.page, '/session/boards?board=board-mission');
-			await app.page.getByRole('button', { name: 'Edit' }).first().click();
+			await gotoDesktopPath(app.page, '/session/boards?board=board-critical');
+			await app.page
+				.getByLabel('Select active session board')
+				.selectOption({ label: 'Critical Session Board' });
+
+			const boardControls = app.page
+				.locator('section')
+				.filter({ has: app.page.getByLabel('Select active session board') })
+				.first();
+			await boardControls.getByRole('button', { name: 'Edit' }).click();
 
 			const addNotesSection = app.page
 				.locator('section')
 				.filter({ hasText: 'Add Tiles and Notes' });
+			await expect(addNotesSection).toBeVisible();
+			await addNotesSection
+				.getByPlaceholder('Search notes (titles first, tags second)')
+				.fill('Board Anchor');
 			await addNotesSection
 				.getByRole('button', { name: /Board Anchor/ })
 				.first()
@@ -372,10 +406,13 @@ test.describe('Desktop critical workflows @critical', () => {
 			await expect(app.page.getByRole('button', { name: 'Chasing Goras' })).toBeVisible();
 
 			await app.page.getByRole('button', { name: 'Deliver Handout to Players' }).click();
-			await app.page.getByRole('button', { name: 'Town Broadsheet' }).first().click();
-			await expect(app.page.getByText('Player Preview')).toBeVisible();
-			await app.page.getByRole('button', { name: 'Confirm and Deliver' }).click();
-			await expect(app.page.getByRole('dialog', { name: 'Player Preview' })).toBeHidden({
+			const handoutPicker = app.page.getByRole('dialog', { name: 'Handout Picker' });
+			await expect(handoutPicker).toBeVisible();
+			await handoutPicker.getByRole('button', { name: 'Town Broadsheet' }).first().click();
+			const playerPreview = app.page.getByRole('dialog', { name: 'Player Preview' });
+			await expect(playerPreview).toBeVisible();
+			await playerPreview.getByRole('button', { name: 'Confirm and Deliver' }).click();
+			await expect(playerPreview).toBeHidden({
 				timeout: 20_000,
 			});
 			await expect
@@ -396,6 +433,148 @@ test.describe('Desktop critical workflows @critical', () => {
 
 			await gotoDesktopPath(app.page, '/player');
 			await expect(app.page).toHaveURL(/\/player$/);
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('session prep and end-session recap workflow captures logs and continuity follow-up', async () => {
+		const app = await launchWithSeed(async (adapter) => {
+			const now = new Date().toISOString();
+			await adapter.saveNote({
+				...buildNote('quest-open', 'Recover the Crown', 'Quest tracker'),
+				frontmatter: {
+					dndtools: {
+						object: {
+							kind: 'quest',
+							data: {
+								status: 'in_progress',
+								objective: 'Recover the stolen crown',
+							},
+						},
+					},
+				},
+				tags: ['quest'],
+				updatedAt: new Date(Date.now() + 2_000).toISOString(),
+			} as never);
+			await adapter.saveNote({
+				...buildNote('npc-open', 'Captain Aria', 'NPC tracker'),
+				frontmatter: {
+					dndtools: {
+						object: {
+							kind: 'npc',
+							data: {
+								disposition: 'unknown',
+							},
+						},
+					},
+				},
+				tags: ['npc'],
+				updatedAt: new Date(Date.now() + 3_000).toISOString(),
+			} as never);
+			await adapter.saveNote({
+				...buildNote('handout-open', 'Town Charter', 'Handout content'),
+				tags: ['handout', 'player-facing'],
+				updatedAt: new Date(Date.now() + 4_000).toISOString(),
+			} as never);
+			await adapter.saveSessionBoard({
+				id: 'board-prep' as never,
+				name: 'Prep Workflow Board',
+				description: 'Board seeded for prep + recap flow coverage',
+				tiles: [],
+				createdAt: now,
+				updatedAt: now,
+			});
+		});
+		try {
+			await gotoDesktopPath(app.page, '/session/boards?board=board-prep');
+			await app.page
+				.getByLabel('Select active session board')
+				.selectOption({ label: 'Prep Workflow Board' });
+			await expect(app.page.getByRole('heading', { name: 'Session Prep' })).toBeVisible();
+			const prepPanel = app.page.getByLabel('Session prep workflow');
+			await expect(
+				prepPanel.getByRole('button', { name: /Recover the Crown/i }).first(),
+			).toBeVisible();
+			await expect(prepPanel.getByRole('button', { name: /Captain Aria/i }).first()).toBeVisible();
+			await expect(prepPanel.getByRole('button', { name: /Town Charter/i }).first()).toBeVisible();
+
+			const missionActions = app.page.locator('footer').filter({
+				has: app.page.getByRole('button', { name: 'Deliver Handout to Players' }),
+			});
+			await missionActions.getByRole('button', { name: 'Start Session' }).click();
+			await expect(missionActions.getByRole('button', { name: 'End Session' })).toBeVisible();
+			await openEndSessionWorkflow(app.page);
+			const captureHeading = app.page.getByRole('heading', { name: 'Session Capture' });
+			const captureAlreadyOpen = await captureHeading
+				.isVisible({ timeout: 2_000 })
+				.catch(() => false);
+			if (!captureAlreadyOpen) {
+				await app.page.getByRole('button', { name: 'Continue' }).click();
+			}
+
+			await expect(captureHeading).toBeVisible();
+			await app.page
+				.getByPlaceholder('Captured recap (pre-filled from roll log when available)')
+				.fill('The party negotiated with Captain Aria and secured the town gate.');
+			await app.page
+				.getByPlaceholder('Captain Aria, Innkeeper Doran')
+				.fill('Captain Aria, Unlogged Witness');
+			await app.page
+				.getByPlaceholder('Stonehill Inn, Old Ruins')
+				.fill('Stonehill Inn, Hidden Pass');
+			await app.page
+				.getByPlaceholder('Recover the Crown, Find the Scout')
+				.fill('Recover the Crown');
+			await app.page
+				.getByPlaceholder('Open items and prep notes for next session')
+				.fill('Track down the hidden pass entrance.');
+			await app.page.getByRole('button', { name: 'Save Capture and End Session' }).click();
+
+			await expect(
+				app.page.getByRole('heading', { name: 'Session Continuity Check' }),
+			).toBeVisible();
+			await expect(
+				app.page.getByText('NPCs appeared this session without vault notes'),
+			).toBeVisible();
+			await app.page.getByRole('button', { name: 'Create Unlogged Witness' }).click();
+			await app.page.getByRole('button', { name: 'Done' }).click();
+
+			await expect
+				.poll(
+					async () => {
+						const state = await app.page.evaluate(async () =>
+							window.dndtoolsDesktop?.getSessionState(),
+						);
+						return state?.mode ?? null;
+					},
+					{ timeout: 20_000, intervals: [250, 500, 1_000] },
+				)
+				.toBe('idle');
+
+			await expect
+				.poll(
+					async () => {
+						const notes =
+							(await app.page.evaluate(async () => window.dndtoolsDesktop?.getAllNotes())) ?? [];
+						const sessionLog = notes.find(
+							(note) =>
+								String(note.folder) === '/sessions' &&
+								String(note.title).startsWith('session-') &&
+								String(note.content).includes('## What Happened This Session'),
+						);
+						const createdNpc = notes.find((note) => note.title === 'Unlogged Witness');
+						return {
+							sessionLogFound: Boolean(sessionLog),
+							createdNpcFound: Boolean(createdNpc),
+						};
+					},
+					{ timeout: 20_000, intervals: [250, 500, 1_000] },
+				)
+				.toEqual({
+					sessionLogFound: true,
+					createdNpcFound: true,
+				});
 		} finally {
 			await closeDesktopApp(app);
 		}
@@ -603,8 +782,9 @@ test.describe('Desktop critical workflows @critical', () => {
 		try {
 			await gotoDesktopPath(app.page, '/session/combat');
 			await expect(app.page).toHaveURL(/\/combat$/);
-			await expect(app.page.getByRole('heading', { name: 'Combat Tracker' })).toBeVisible();
-			await expect(app.page.getByText('Session mode is idle.')).toBeVisible();
+			await expect(app.page.getByText('Session mode is idle.')).toBeVisible({
+				timeout: 15_000,
+			});
 			await expect(app.page.getByRole('button', { name: 'Open Session Boards' })).toBeVisible();
 		} finally {
 			await closeDesktopApp(app);

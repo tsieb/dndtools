@@ -252,6 +252,28 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
     - `src/lib/domain/session-board.test.ts`
     - `tests/e2e-desktop/critical-workflows.spec.ts`
 
+- **Epic 16.5** — Session Prep and Recap Workflow:
+  - Added session prep/recap continuity domain workflow in `src/lib/domain/session-prep-workflow.ts`:
+    - prep view model hydration from existing MCP bundles (`get_session_prep_bundle`, `get_open_threads`, `get_recap_generation_bundle`)
+    - continuity summary hydration from `get_continuity_check_bundle`
+    - structured capture helpers (`parseTagEntryInput`, `buildSessionLogNoteContent`)
+  - Added idle-mode Session Prep UI in `src/lib/ui/session/SessionPrepPanel.svelte` and integrated it below board selection in `src/routes/session-board/+page.svelte`.
+  - Added unified end-session capture + continuity flow dialog in `src/lib/ui/session/SessionEndWorkflowDialog.svelte`:
+    - confirmation step
+    - structured session capture
+    - session log note creation in `/sessions/session-{date}.md`
+    - continuity follow-up quick-create actions for missing NPC/location notes
+  - Replaced legacy end-session entry points with the unified flow in:
+    - `src/lib/ui/layout/PrimaryNav.svelte`
+    - `src/lib/ui/sections/local-nav/SessionLocalNavPanel.svelte`
+    - `src/lib/ui/session/SessionMissionControl.svelte`
+  - Hardened session scene persistence to avoid no-op scene write loops in:
+    - `src/lib/state/session-mode.svelte.ts`
+    - `src/routes/session-board/+page.svelte`
+  - Added/updated tests:
+    - `src/lib/domain/session-prep-workflow.test.ts`
+    - `tests/e2e-desktop/critical-workflows.spec.ts`
+
 - **Epic 1.3** Ã¢â‚¬â€ Integrity Verification & Self-Repair (commit `115d933`):
   - `NoteIntegrityIssueStatus` extended with `'orphan_entry'`
   - `vaultHealthState` singleton in `src/lib/state/vaultHealth.svelte.ts`

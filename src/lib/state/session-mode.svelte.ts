@@ -99,9 +99,11 @@ class SessionModeState {
 	async setSceneId(sceneId: string | null): Promise<void> {
 		const activeSession = this.activeSession;
 		if (!activeSession) return;
+		const nextSceneId = sceneId?.trim() || null;
+		if ((activeSession.sceneId ?? null) === nextSceneId) return;
 		await sessionState.setSessionMode('active', {
 			...activeSession,
-			sceneId: sceneId?.trim() || null,
+			sceneId: nextSceneId,
 		});
 	}
 

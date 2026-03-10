@@ -8,7 +8,7 @@
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
-	import ConfirmDialog from '$lib/ui/common/ConfirmDialog.svelte';
+	import SessionEndWorkflowDialog from '$lib/ui/session/SessionEndWorkflowDialog.svelte';
 	import PrimaryNavIcon from './PrimaryNavIcon.svelte';
 
 	interface Props {
@@ -35,7 +35,8 @@
 	const compact = $derived(mode === 'compact');
 	const iconOnly = $derived(mode === 'expanded' || mode === 'medium');
 	const isVertical = $derived(!compact);
-	let showEndSessionConfirm = $state(false);
+	const activeSessionBoardId = $derived(sessionModeState.activeSession?.sessionBoardId ?? null);
+	let showEndSessionFlow = $state(false);
 	const shellStyle = $derived.by(() => {
 		const width = isVertical ? 'var(--layout-rail-width)' : '100%';
 		return compact
@@ -51,11 +52,6 @@
 			return;
 		}
 		onmediumsectionnavigate?.();
-	}
-
-	async function endSession(): Promise<void> {
-		showEndSessionConfirm = false;
-		await sessionModeState.endSession();
 	}
 </script>
 
@@ -112,7 +108,7 @@
 					<button
 						type="button"
 						class="w-full rounded-md border border-border px-2 py-1 text-2xs text-ink-muted hover:bg-bg"
-						onclick={() => (showEndSessionConfirm = true)}
+						onclick={() => (showEndSessionFlow = true)}
 					>
 						End Session
 					</button>
@@ -122,11 +118,8 @@
 	</nav>
 </aside>
 
-<ConfirmDialog
-	open={showEndSessionConfirm}
-	title="End Session"
-	message="End this session? You'll be asked to capture key developments."
-	confirmText="End Session"
-	onconfirm={() => void endSession()}
-	oncancel={() => (showEndSessionConfirm = false)}
+<SessionEndWorkflowDialog
+	open={showEndSessionFlow}
+	sessionboardid={activeSessionBoardId}
+	onclose={() => (showEndSessionFlow = false)}
 />

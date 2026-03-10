@@ -16,6 +16,7 @@
 	import type { SessionBoard, SessionBoardHandoutSourceKind } from '$lib/types/session-board.js';
 	import { nowISO } from '$lib/utils/date.js';
 	import Dialog from '$lib/ui/common/Dialog.svelte';
+	import SessionEndWorkflowDialog from '$lib/ui/session/SessionEndWorkflowDialog.svelte';
 
 	interface Props {
 		board: SessionBoard;
@@ -36,7 +37,7 @@
 
 	let showHandoutPicker = $state(false);
 	let showHandoutPreview = $state(false);
-	let showEndSessionConfirm = $state(false);
+	let showEndSessionFlow = $state(false);
 	let handoutQuery = $state('');
 	let selectedCandidate = $state<PickerCandidate | null>(null);
 	let delivering = $state(false);
@@ -273,11 +274,6 @@
 			sessionBoardId: board.id,
 			sceneId: board.activeSceneId ?? null,
 		});
-	}
-
-	async function confirmEndSession(): Promise<void> {
-		showEndSessionConfirm = false;
-		await sessionModeState.endSession();
 	}
 
 	function openCandidatePreview(candidate: PickerCandidate): void {
@@ -772,7 +768,7 @@
 				<button
 					type="button"
 					class="rounded border border-error/40 px-3 py-1.5 text-xs text-error hover:bg-error/5"
-					onclick={() => (showEndSessionConfirm = true)}
+					onclick={() => (showEndSessionFlow = true)}
 				>
 					End Session
 				</button>
@@ -867,29 +863,8 @@
 	{/if}
 </Dialog>
 
-<Dialog
-	open={showEndSessionConfirm}
-	title="End Session"
-	maxWidth="sm"
-	onclose={() => (showEndSessionConfirm = false)}
->
-	<div class="space-y-3">
-		<p class="text-sm text-ink-muted">End this session from Mission Control?</p>
-		<div class="flex justify-end gap-2">
-			<button
-				type="button"
-				class="rounded border border-border px-3 py-1.5 text-xs hover:bg-surface-alt"
-				onclick={() => (showEndSessionConfirm = false)}
-			>
-				Cancel
-			</button>
-			<button
-				type="button"
-				class="rounded bg-accent px-3 py-1.5 text-xs text-white hover:bg-accent-hover"
-				onclick={() => void confirmEndSession()}
-			>
-				End Session
-			</button>
-		</div>
-	</div>
-</Dialog>
+<SessionEndWorkflowDialog
+	open={showEndSessionFlow}
+	sessionboardid={board.id}
+	onclose={() => (showEndSessionFlow = false)}
+/>
