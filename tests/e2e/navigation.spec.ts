@@ -186,15 +186,15 @@ test.describe('Navigation', () => {
 		await localNav.getByRole('tab', { name: 'Browse' }).click();
 		await expect(localNav.getByRole('tree', { name: 'Knowledge folder tree' })).toBeVisible();
 
-		const tagsToggle = localNav.getByRole('button', { name: 'Tags' });
-		await tagsToggle.click();
-		await expect(tagsToggle).toHaveAttribute('aria-expanded', 'true');
+		const folderTreeToggle = localNav.getByRole('button', { name: 'Folder Tree' });
+		await folderTreeToggle.click();
+		await expect(folderTreeToggle).toHaveAttribute('aria-expanded', 'false');
 
 		await page.reload();
-		const tagsAfterReload = page
+		const folderTreeAfterReload = page
 			.getByRole('navigation', { name: 'Local navigation: Knowledge panel' })
-			.getByRole('button', { name: 'Tags' });
-		await expect(tagsAfterReload).toHaveAttribute('aria-expanded', 'true');
+			.getByRole('button', { name: 'Folder Tree' });
+		await expect(folderTreeAfterReload).toHaveAttribute('aria-expanded', 'false');
 	});
 
 	test('settings section has no local panel content', async ({ page }) => {
