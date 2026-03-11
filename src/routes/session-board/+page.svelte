@@ -12,7 +12,7 @@
 	import SessionMissionControl from '$lib/ui/session/SessionMissionControl.svelte';
 	import SessionPrepPanel from '$lib/ui/session/SessionPrepPanel.svelte';
 	import EmptyState from '$lib/ui/common/EmptyState.svelte';
-	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
+	import { focusTrap } from '$lib/actions/focus-trap.js';
 	import { DEFAULT_SESSION_BOARD_LAYOUT } from '$lib/domain/session-board.js';
 	import {
 		loadSessionPrepViewModel,

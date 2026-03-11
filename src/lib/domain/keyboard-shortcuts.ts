@@ -17,6 +17,9 @@ export type KeyboardShortcutId =
 	| 'toggle_session_quick_panel'
 	| 'toggle_dice_tray'
 	| 'toggle_generator_panel'
+	| 'combat_next_turn'
+	| 'combat_quick_damage'
+	| 'combat_quick_heal'
 	| 'create_handout'
 	| 'toggle_local_navigation'
 	| 'toggle_detail_panel'
@@ -129,6 +132,30 @@ export const KEYBOARD_SHORTCUT_REGISTRY: readonly KeyboardShortcutDefinition[] =
 		label: 'Toggle generator panel',
 		shortcut: 'Ctrl+G',
 		keywords: 'generator random tables',
+		scope: 'global',
+	},
+	{
+		id: 'combat_next_turn',
+		section: 'Session',
+		label: 'Advance combat turn',
+		shortcut: 'N',
+		keywords: 'combat turn next',
+		scope: 'global',
+	},
+	{
+		id: 'combat_quick_damage',
+		section: 'Session',
+		label: 'Open quick damage',
+		shortcut: 'D',
+		keywords: 'combat quick damage',
+		scope: 'global',
+	},
+	{
+		id: 'combat_quick_heal',
+		section: 'Session',
+		label: 'Open quick heal',
+		shortcut: 'H',
+		keywords: 'combat quick heal',
 		scope: 'global',
 	},
 	{
@@ -251,6 +278,7 @@ export interface KeyboardShortcutMatchContext {
 	isInEditor: boolean;
 	layoutTier: 'compact' | 'medium' | 'expanded';
 	detailPanelAvailable: boolean;
+	combatTrackerActive: boolean;
 }
 
 function hasPrimaryModifier(event: KeyboardEvent): boolean {
@@ -268,7 +296,8 @@ function isQuestionMarkPress(event: KeyboardEvent): boolean {
 export function matchGlobalKeyboardShortcut(
 	context: KeyboardShortcutMatchContext,
 ): KeyboardShortcutId | null {
-	const { event, isTextEntry, isInEditor, layoutTier, detailPanelAvailable } = context;
+	const { event, isTextEntry, isInEditor, layoutTier, detailPanelAvailable, combatTrackerActive } =
+		context;
 	const withModifier = hasPrimaryModifier(event);
 	const lower = keyLower(event);
 
@@ -278,6 +307,12 @@ export function matchGlobalKeyboardShortcut(
 
 	if (event.key === 'F11' && layoutTier === 'expanded') {
 		return 'toggle_zen_mode';
+	}
+
+	if (!withModifier && !isTextEntry && combatTrackerActive) {
+		if (lower === 'n') return 'combat_next_turn';
+		if (lower === 'd') return 'combat_quick_damage';
+		if (lower === 'h') return 'combat_quick_heal';
 	}
 
 	if (!withModifier) {

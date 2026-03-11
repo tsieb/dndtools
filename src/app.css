@@ -549,11 +549,32 @@ html[data-density='compact'] .density-nav-item {
 }
 
 /* ===== Focus styles for accessibility ===== */
-:focus-visible {
-	outline: 3px solid var(--color-focus-ring);
+*:focus-visible {
+	outline: 2px solid var(--color-focus-ring);
 	outline-offset: 2px;
-	border-radius: 4px;
-	box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-bg) 95%, transparent);
+}
+
+*:focus:not(:focus-visible) {
+	outline: none;
+}
+
+/* Keep focused targets clear of sticky chrome during keyboard navigation. */
+:where(
+	h1,
+	[tabindex],
+	a[href],
+	button,
+	input,
+	select,
+	textarea,
+	[role='button'],
+	[role='option'],
+	[role='tab']
+) {
+	scroll-margin-top: calc(
+		var(--layout-topbar-height) + var(--layout-desktop-titlebar-height) + 1rem
+	);
+	scroll-margin-bottom: calc(var(--layout-bottomnav-height) + env(safe-area-inset-bottom) + 1rem);
 }
 
 /* ===== Interaction affordances ===== */

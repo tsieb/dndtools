@@ -14,7 +14,7 @@
 	import Sidebar from './Sidebar.svelte';
 	import DetailPanel from './DetailPanel.svelte';
 	import LocationBar from '$lib/ui/navigation/LocationBar.svelte';
-	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
+	import { focusTrap } from '$lib/actions/focus-trap.js';
 
 	interface Props {
 		onnewnote: () => void;

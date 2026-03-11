@@ -74,6 +74,7 @@
 
 	let query = $state('');
 	let response = $state<SearchQueryResult | null>(null);
+	let resultFocusId = $state<string | null>(null);
 	let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 	let searching = $state(false);
 	let inputRef: HTMLInputElement | undefined = $state();
@@ -480,6 +481,59 @@
 		clearFacetFilters();
 	}
 
+	function focusResultCard(resultId: string): void {
+		if (typeof document === 'undefined') return;
+		const element = document.getElementById(`search-result-option-${resultId}`);
+		if (!(element instanceof HTMLElement)) return;
+		element.focus();
+	}
+
+	function moveResultFocus(mode: 'next' | 'previous' | 'first' | 'last'): void {
+		if (visibleResultIds.length === 0) return;
+		if (mode === 'first') {
+			resultFocusId = visibleResultIds[0] ?? null;
+			if (resultFocusId) focusResultCard(resultFocusId);
+			return;
+		}
+		if (mode === 'last') {
+			resultFocusId = visibleResultIds.at(-1) ?? null;
+			if (resultFocusId) focusResultCard(resultFocusId);
+			return;
+		}
+		const currentIndex = Math.max(
+			0,
+			visibleResultIds.indexOf(resultFocusId ?? visibleResultIds[0]!),
+		);
+		const nextIndex =
+			mode === 'next'
+				? (currentIndex + 1) % visibleResultIds.length
+				: (currentIndex - 1 + visibleResultIds.length) % visibleResultIds.length;
+		resultFocusId = visibleResultIds[nextIndex] ?? null;
+		if (resultFocusId) focusResultCard(resultFocusId);
+	}
+
+	function handleResultListKeydown(event: KeyboardEvent): void {
+		if (event.key === 'ArrowDown') {
+			event.preventDefault();
+			moveResultFocus('next');
+			return;
+		}
+		if (event.key === 'ArrowUp') {
+			event.preventDefault();
+			moveResultFocus('previous');
+			return;
+		}
+		if (event.key === 'Home') {
+			event.preventDefault();
+			moveResultFocus('first');
+			return;
+		}
+		if (event.key === 'End') {
+			event.preventDefault();
+			moveResultFocus('last');
+		}
+	}
+
 	async function saveCurrentSearch(): Promise<void> {
 		if (!query.trim()) return;
 		saving = true;
@@ -656,6 +710,21 @@
 		if (shouldGroupBySection) return groupedBySection;
 		if (filteredResults.length === 0) return [];
 		return [{ id: 'results', label: 'Results', results: filteredResults }];
+	});
+	let visibleResultIds = $derived.by(() => {
+		const ids: string[] = [];
+		for (const group of resultGroups) {
+			if (shouldGroupBySection && (collapsedSectionGroups[group.id] ?? false)) continue;
+			for (const result of group.results) {
+				ids.push(String(result.id));
+			}
+		}
+		return ids;
+	});
+	$effect(() => {
+		if (!resultFocusId || !visibleResultIds.includes(resultFocusId)) {
+			resultFocusId = visibleResultIds[0] ?? null;
+		}
 	});
 
 	function toggleSectionGroup(groupId: string): void {
@@ -1200,7 +1269,15 @@
 				{/if}
 
 				{#if filteredResults.length > 0}
-					<div class="space-y-4">
+					<div
+						class="space-y-4"
+						role="listbox"
+						aria-label="Search results"
+						aria-activedescendant={resultFocusId
+							? `search-result-option-${resultFocusId}`
+							: undefined}
+						onkeydown={handleResultListKeydown}
+					>
 						{#each resultGroups as group (group.id)}
 							<div class="space-y-3">
 								{#if shouldGroupBySection}
@@ -1224,9 +1301,14 @@
 											<div class="flex items-start justify-between gap-2">
 												<div>
 													<button
+														id={`search-result-option-${result.id}`}
 														type="button"
+														role="option"
+														tabindex={resultFocusId === String(result.id) ? 0 : -1}
+														aria-selected={resultFocusId === String(result.id)}
 														class="font-semibold text-ink hover:text-accent"
 														onclick={() => openResult(result)}
+														onfocus={() => (resultFocusId = String(result.id))}
 													>
 														{#each titleSegments(result.title) as segment, index (`${result.id}-segment-${index}`)}
 															<span

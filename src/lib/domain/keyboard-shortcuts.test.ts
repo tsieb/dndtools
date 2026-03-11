@@ -38,6 +38,7 @@ describe('matchGlobalKeyboardShortcut', () => {
 			isInEditor: false,
 			layoutTier: 'expanded',
 			detailPanelAvailable: false,
+			combatTrackerActive: false,
 		});
 		expect(shortcut).toBe('open_shortcuts_overlay');
 
@@ -47,6 +48,7 @@ describe('matchGlobalKeyboardShortcut', () => {
 			isInEditor: false,
 			layoutTier: 'expanded',
 			detailPanelAvailable: false,
+			combatTrackerActive: false,
 		});
 		expect(blocked).toBeNull();
 	});
@@ -59,6 +61,7 @@ describe('matchGlobalKeyboardShortcut', () => {
 				isInEditor: false,
 				layoutTier: 'expanded',
 				detailPanelAvailable: false,
+				combatTrackerActive: false,
 			}),
 		).toBe('open_command_palette');
 
@@ -69,6 +72,7 @@ describe('matchGlobalKeyboardShortcut', () => {
 				isInEditor: false,
 				layoutTier: 'expanded',
 				detailPanelAvailable: false,
+				combatTrackerActive: false,
 			}),
 		).toBe('toggle_quick_reference_overlay');
 
@@ -79,6 +83,7 @@ describe('matchGlobalKeyboardShortcut', () => {
 				isInEditor: false,
 				layoutTier: 'expanded',
 				detailPanelAvailable: false,
+				combatTrackerActive: false,
 			}),
 		).toBe('toggle_session_quick_panel');
 	});
@@ -90,6 +95,7 @@ describe('matchGlobalKeyboardShortcut', () => {
 			isInEditor: true,
 			layoutTier: 'expanded',
 			detailPanelAvailable: false,
+			combatTrackerActive: false,
 		});
 		expect(shortcut).toBeNull();
 	});
@@ -101,6 +107,7 @@ describe('matchGlobalKeyboardShortcut', () => {
 			isInEditor: false,
 			layoutTier: 'expanded',
 			detailPanelAvailable: false,
+			combatTrackerActive: false,
 		});
 		expect(blocked).toBeNull();
 
@@ -110,6 +117,7 @@ describe('matchGlobalKeyboardShortcut', () => {
 			isInEditor: false,
 			layoutTier: 'expanded',
 			detailPanelAvailable: true,
+			combatTrackerActive: false,
 		});
 		expect(allowed).toBe('toggle_detail_panel');
 	});
@@ -121,6 +129,7 @@ describe('matchGlobalKeyboardShortcut', () => {
 			isInEditor: false,
 			layoutTier: 'expanded',
 			detailPanelAvailable: false,
+			combatTrackerActive: false,
 		});
 		expect(expanded).toBe('toggle_zen_mode');
 
@@ -130,7 +139,40 @@ describe('matchGlobalKeyboardShortcut', () => {
 			isInEditor: false,
 			layoutTier: 'compact',
 			detailPanelAvailable: false,
+			combatTrackerActive: false,
 		});
 		expect(compact).toBeNull();
+	});
+
+	it('enables single-key combat shortcuts only while combat tracker is active', () => {
+		const nextTurn = matchGlobalKeyboardShortcut({
+			event: createKeyboardEvent('n'),
+			isTextEntry: false,
+			isInEditor: false,
+			layoutTier: 'expanded',
+			detailPanelAvailable: false,
+			combatTrackerActive: true,
+		});
+		expect(nextTurn).toBe('combat_next_turn');
+
+		const quickDamage = matchGlobalKeyboardShortcut({
+			event: createKeyboardEvent('d'),
+			isTextEntry: false,
+			isInEditor: false,
+			layoutTier: 'expanded',
+			detailPanelAvailable: false,
+			combatTrackerActive: true,
+		});
+		expect(quickDamage).toBe('combat_quick_damage');
+
+		const blockedOutsideCombat = matchGlobalKeyboardShortcut({
+			event: createKeyboardEvent('h'),
+			isTextEntry: false,
+			isInEditor: false,
+			layoutTier: 'expanded',
+			detailPanelAvailable: false,
+			combatTrackerActive: false,
+		});
+		expect(blockedOutsideCombat).toBeNull();
 	});
 });

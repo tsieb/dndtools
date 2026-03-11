@@ -11,7 +11,7 @@
 	} from '$lib/domain/quick-reference.js';
 	import SessionContextPanel from '$lib/ui/session/SessionContextPanel.svelte';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
-	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
+	import { focusTrap } from '$lib/actions/focus-trap.js';
 
 	interface Props {
 		open: boolean;

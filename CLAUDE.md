@@ -171,6 +171,32 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 18.2** - Focus Management and Keyboard Navigation:
+  - Added shared focus-trap action in `src/lib/actions/focus-trap.ts` with:
+    - initial focus placement, tab/shift+tab loop containment, escape callback support
+    - trigger-focus restoration on close (with explicit return-target override support)
+  - Migrated overlay/dialog focus trapping to the new action path across shared UI surfaces.
+  - Added route-transition focus restoration in `src/routes/+layout.svelte`:
+    - after navigation, focus now moves to page `<h1>` (fallback: `#main-content`).
+  - Added global keyboard shortcut manager in
+    `src/lib/domain/keyboard-shortcut-manager.ts` and routed keyboard dispatch through it
+    in `src/routes/+layout.svelte`.
+  - Extended keyboard shortcut registry with combat single-key shortcuts:
+    - `n` next turn, `d` quick damage, `h` quick heal (active only in combat tracker context).
+  - Removed ad-hoc combat `window.keydown` handling from `src/routes/combat/+page.svelte`
+    and replaced it with managed shortcut dispatch events.
+  - Implemented arrow-key listbox navigation (roving tabindex + `aria-activedescendant`) in:
+    - command palette results (`src/lib/ui/search/QuickSwitcher.svelte`)
+    - notes list (`src/routes/notes/+page.svelte` + `src/lib/ui/common/NoteCard.svelte`)
+    - search results (`src/routes/search/+page.svelte`)
+    - combat initiative list (`src/routes/combat/+page.svelte`)
+  - Added focus-visibility and focus-obscuration CSS guardrails in `src/app.css`:
+    - global `*:focus-visible` outline, suppression for non-keyboard focus,
+    - top/bottom `scroll-margin` offsets for sticky chrome.
+  - Added tests:
+    - `src/lib/actions/focus-trap.test.ts`
+    - updated `src/lib/domain/keyboard-shortcuts.test.ts` for combat shortcut gating.
+
 - **Epic 18.1** — Semantic HTML and ARIA Landmark Architecture:
   - Added a global skip link in `src/routes/+layout.svelte` targeting
     `#main-content`, with visible-on-focus styling in `src/app.css`.

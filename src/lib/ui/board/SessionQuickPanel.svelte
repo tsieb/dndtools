@@ -9,7 +9,7 @@
 	import { normalizeSessionBoardTimerState } from '$lib/domain/session-board.js';
 	import type { RollableTableEntry } from '$lib/domain/rollable-tables.js';
 	import type { SessionBoardTile } from '$lib/types/session-board.js';
-	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
+	import { focusTrap } from '$lib/actions/focus-trap.js';
 
 	interface Props {
 		open: boolean;

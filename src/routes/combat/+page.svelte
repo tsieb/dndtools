@@ -25,6 +25,7 @@
 	import EmptyState from '$lib/ui/common/EmptyState.svelte';
 	import Icon from '$lib/ui/common/Icon.svelte';
 	import StatBlockView from '$lib/ui/viewer/StatBlockView.svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	const CONDITIONS: readonly SessionConditionName[] = [
 		'Blinded',
@@ -70,6 +71,8 @@
 	} | null>(null);
 	let holdTimer: ReturnType<typeof setTimeout> | null = null;
 	let undoTimer: ReturnType<typeof setTimeout> | null = null;
+	let initiativeFocusId = $state<string | null>(null);
+	const initiativeOptionRefs = new SvelteMap<string, HTMLButtonElement>();
 
 	const activeSession = $derived(sessionModeState.activeSession);
 	const combatants = $derived(activeSession?.combatants ?? []);
@@ -134,13 +137,20 @@
 		}
 	});
 	$effect(() => {
-		if (typeof window === 'undefined' || !sessionModeState.isActive) return;
-		const onKeydown = (event: KeyboardEvent): void => {
-			handleTrackerKeydown(event);
+		if (!initiativeFocusId || !sortedCombatants.some((entry) => entry.id === initiativeFocusId)) {
+			initiativeFocusId = selectedCombatant?.id ?? sortedCombatants[0]?.id ?? null;
+		}
+	});
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const onShortcut = (event: Event): void => {
+			const detail = (event as CustomEvent<{ action?: string }>).detail;
+			if (!detail?.action || !sessionModeState.isActive) return;
+			handleCombatShortcutAction(detail.action);
 		};
-		window.addEventListener('keydown', onKeydown);
+		window.addEventListener('dndtools:combat-shortcut', onShortcut);
 		return () => {
-			window.removeEventListener('keydown', onKeydown);
+			window.removeEventListener('dndtools:combat-shortcut', onShortcut);
 		};
 	});
 	$effect(() => () => {
@@ -177,11 +187,6 @@
 	function hasStatBlockReference(combatant: SessionCombatantState): boolean {
 		const id = combatant.linkedObjectId ? String(combatant.linkedObjectId) : '';
 		return id ? asStatBlockObject(linkedObjects[id]) !== null : false;
-	}
-	function isTextEntryTarget(target: EventTarget | null): boolean {
-		return target instanceof HTMLElement
-			? target.closest('input,textarea,select,[contenteditable="true"]') !== null
-			: false;
 	}
 	function setUndoState(input: {
 		combatantId: string;
@@ -447,30 +452,87 @@
 	function openAddCombatants(): void {
 		showAdd = true;
 	}
-	function handleTrackerKeydown(event: KeyboardEvent): void {
-		if (isTextEntryTarget(event.target)) return;
-		const key = event.key.toLowerCase();
-		if (key === 'n') {
+	function initiativeOption(node: HTMLButtonElement, combatantId: string) {
+		initiativeOptionRefs.set(combatantId, node);
+		return {
+			update(nextId: string): void {
+				if (nextId === combatantId) return;
+				initiativeOptionRefs.delete(combatantId);
+				combatantId = nextId;
+				initiativeOptionRefs.set(combatantId, node);
+			},
+			destroy(): void {
+				initiativeOptionRefs.delete(combatantId);
+			},
+		};
+	}
+	function moveInitiativeFocus(mode: 'next' | 'previous' | 'first' | 'last'): void {
+		if (sortedCombatants.length === 0) return;
+		if (mode === 'first') {
+			const firstId = sortedCombatants[0]?.id;
+			if (!firstId) return;
+			initiativeFocusId = firstId;
+			initiativeOptionRefs.get(firstId)?.focus();
+			return;
+		}
+		if (mode === 'last') {
+			const lastId = sortedCombatants.at(-1)?.id;
+			if (!lastId) return;
+			initiativeFocusId = lastId;
+			initiativeOptionRefs.get(lastId)?.focus();
+			return;
+		}
+		const currentIndex = Math.max(
+			0,
+			sortedCombatants.findIndex((entry) => entry.id === initiativeFocusId),
+		);
+		const nextIndex =
+			mode === 'next'
+				? (currentIndex + 1) % sortedCombatants.length
+				: (currentIndex - 1 + sortedCombatants.length) % sortedCombatants.length;
+		const nextId = sortedCombatants[nextIndex]?.id;
+		if (!nextId) return;
+		initiativeFocusId = nextId;
+		initiativeOptionRefs.get(nextId)?.focus();
+	}
+	function handleInitiativeListKeydown(event: KeyboardEvent): void {
+		if (event.key === 'ArrowDown') {
 			event.preventDefault();
+			moveInitiativeFocus('next');
+			return;
+		}
+		if (event.key === 'ArrowUp') {
+			event.preventDefault();
+			moveInitiativeFocus('previous');
+			return;
+		}
+		if (event.key === 'Home') {
+			event.preventDefault();
+			moveInitiativeFocus('first');
+			return;
+		}
+		if (event.key === 'End') {
+			event.preventDefault();
+			moveInitiativeFocus('last');
+			return;
+		}
+		if (event.key === 'Enter' && initiativeFocusId) {
+			event.preventDefault();
+			void setSelectedCombatant(initiativeFocusId);
+		}
+	}
+	function handleCombatShortcutAction(action: string): void {
+		if (action === 'next-turn') {
 			void advanceTurn();
-		} else if (key === 'd' && selectedCombatant) {
-			event.preventDefault();
+			return;
+		}
+		if (!selectedCombatant) return;
+		if (action === 'quick-damage') {
 			openQuickAdjust(selectedCombatant.id, 'damage');
-		} else if (key === 'h' && selectedCombatant) {
-			event.preventDefault();
+			return;
+		}
+		if (action === 'quick-heal') {
 			openQuickAdjust(selectedCombatant.id, 'heal');
-		} else if (quickOpen && key >= '0' && key <= '9') {
-			event.preventDefault();
-			appendQuickDigit(key);
-		} else if (quickOpen && key === 'backspace') {
-			event.preventDefault();
-			backspaceQuick();
-		} else if (quickOpen && key === 'enter') {
-			event.preventDefault();
-			void applyQuickAdjust();
-		} else if (quickOpen && key === 'escape') {
-			event.preventDefault();
-			closeQuickAdjust();
 		}
 	}
 </script>
@@ -611,7 +673,15 @@
 							>
 						</div>
 					{/if}
-					<div class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+					<div
+						class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1"
+						role="listbox"
+						aria-label="Initiative order"
+						aria-activedescendant={initiativeFocusId
+							? `combatant-option-${initiativeFocusId}`
+							: undefined}
+						onkeydown={handleInitiativeListKeydown}
+					>
 						{#if sortedCombatants.length === 0}
 							<EmptyState
 								class="min-h-0 px-0 py-2"
@@ -629,9 +699,15 @@
 								>
 									<div class="flex items-start gap-2">
 										<button
+											id={`combatant-option-${combatant.id}`}
+											use:initiativeOption={combatant.id}
+											role="option"
+											tabindex={initiativeFocusId === combatant.id ? 0 : -1}
+											aria-selected={initiativeFocusId === combatant.id}
 											type="button"
 											class="min-h-11 min-w-0 flex-1 rounded-md px-2 text-left hover:bg-surface-alt/45"
 											onclick={() => void setSelectedCombatant(combatant.id)}
+											onfocus={() => (initiativeFocusId = combatant.id)}
 											onpointerdown={(event) => startHpHold(event, combatant.id)}
 											onpointerup={cancelHpHold}
 											onpointercancel={cancelHpHold}
