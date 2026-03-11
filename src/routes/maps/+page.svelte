@@ -95,13 +95,20 @@
 	} from '$lib/types/session-board.js';
 	import CombatTrackerTile from '$lib/ui/board/CombatTrackerTile.svelte';
 	import Button from '$lib/ui/common/Button.svelte';
+	import Card from '$lib/ui/common/Card.svelte';
+	import Checkbox from '$lib/ui/common/Checkbox.svelte';
 	import Dialog from '$lib/ui/common/Dialog.svelte';
 	import EmptyState from '$lib/ui/common/EmptyState.svelte';
-	import Icon from '$lib/ui/common/Icon.svelte';
+	import Icon, { type IconName } from '$lib/ui/common/Icon.svelte';
+	import Input from '$lib/ui/common/Input.svelte';
+	import Popover from '$lib/ui/common/Popover.svelte';
+	import Select from '$lib/ui/common/Select.svelte';
 	import Sheet from '$lib/ui/common/Sheet.svelte';
 	import Toggle from '$lib/ui/common/Toggle.svelte';
 	import Tooltip from '$lib/ui/common/Tooltip.svelte';
-	import MapCanvasViewer from '$lib/ui/maps/MapCanvasViewer.svelte';
+	import MapCanvasViewer, {
+		type MapViewerPoiHoverPayload,
+	} from '$lib/ui/maps/MapCanvasViewer.svelte';
 	import QuickReferenceSplitView from '$lib/ui/search/QuickReferenceSplitView.svelte';
 	import Modal from '$lib/ui/common/Modal.svelte';
 	import NoteViewer from '$lib/ui/viewer/NoteViewer.svelte';
@@ -145,6 +152,47 @@
 	];
 	const MAP_FOG_CHANNEL = 'dndtools.map-fog.v1';
 	const MAP_PARTY_LOCATION_CHANNEL = 'dndtools.map-party-location.v1';
+	const NOTE_CREATION_TYPE_OPTIONS = [
+		{
+			value: 'location',
+			label: 'Location',
+			description: 'Places, landmarks, and map-aware details.',
+			icon: 'map' as const,
+			tags: ['location'],
+			folder: '/locations',
+			template: (title: string): string =>
+				`# ${title}\n\n## Description\n\n## Notable features\n\n## NPCs and factions\n`,
+		},
+		{
+			value: 'npc',
+			label: 'NPC',
+			description: 'Quick character profile for session use.',
+			icon: 'book' as const,
+			tags: ['npc'],
+			folder: '/npcs',
+			template: (title: string): string =>
+				`# ${title}\n\n## Role\n\n## Appearance\n\n## Personality\n`,
+		},
+		{
+			value: 'faction',
+			label: 'Faction',
+			description: 'Group motives, allies, and rivals.',
+			icon: 'flag' as const,
+			tags: ['faction'],
+			folder: '/factions',
+			template: (title: string): string =>
+				`# ${title}\n\n## Goals\n\n## Members\n\n## Relationships\n`,
+		},
+		{
+			value: 'plain',
+			label: 'Plain note',
+			description: 'Blank note with only the title heading.',
+			icon: 'file-text' as const,
+			tags: [],
+			folder: '/notes',
+			template: (title: string): string => `# ${title}\n\n`,
+		},
+	] as const;
 
 	let mapAssetUrls = $state<Record<string, string | null>>({});
 	let importing = $state(false);
@@ -185,10 +233,24 @@
 	let previewPlayerLayers = $state(false);
 	let activeLayerFilter = $state<'all' | string>('all');
 	let selectedPoiId = $state<string | null>(null);
+	let selectedPoiSheetOpen = $state(false);
 	let newPoiLayerId = $state(DEFAULT_MAP_LAYER_ID);
 	let draftLayers = $state<MapAnnotationLayerData[]>([]);
 	let draftPois = $state<MapPoiData[]>([]);
-	let poiHover = $state<{ id: string | null; clientX: number; clientY: number } | null>(null);
+	let poiHover = $state<MapViewerPoiHoverPayload | null>(null);
+	let poiHoverDelayTimer = $state<number | null>(null);
+	let poiHoverOpen = $state(false);
+	let lastTouchPlacementAt = $state(0);
+	let touchPlacementHintVisible = $state(false);
+	let linkNoteDialogOpen = $state(false);
+	let linkNoteSearch = $state('');
+	let createNoteDialogOpen = $state(false);
+	let createNotePoiId = $state<string | null>(null);
+	let createNoteTitle = $state('');
+	let createNoteType = $state<(typeof NOTE_CREATION_TYPE_OPTIONS)[number]['value']>('location');
+	let createNoteUseTemplate = $state(true);
+	let savingNoteFromPoi = $state(false);
+	let selectedPoiNoteSearch = $state('');
 	let splitPaneNoteId = $state<string | null>(null);
 	let modalNoteId = $state<string | null>(null);
 	let draftInitialViewport = $state<MapViewportData | null>(null);
@@ -341,11 +403,6 @@
 			a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }),
 		),
 	);
-	const objectOptions = $derived.by(() =>
-		Object.values(vaultObjectsById).sort((a, b) =>
-			a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-		),
-	);
 	const layerById = $derived.by(() => {
 		const index: Record<string, MapAnnotationLayerData> = {};
 		for (const layer of draftLayers) {
@@ -441,6 +498,26 @@
 		return fromMap;
 	});
 	const selectedPoi = $derived.by(() => draftPois.find((poi) => poi.id === selectedPoiId) ?? null);
+	const selectedPoiLayer = $derived.by(() =>
+		selectedPoi?.layerId ? (layerById[selectedPoi.layerId] ?? null) : null,
+	);
+	const selectedPoiLinkedNote = $derived.by(() => {
+		const linkedNoteId = selectedPoi ? resolveLinkedNoteIdForPoi(selectedPoi) : null;
+		return linkedNoteId ? (noteById[linkedNoteId] ?? null) : null;
+	});
+	const selectedPoiLinkedPreview = $derived.by(() =>
+		selectedPoiLinkedNote ? extractNotePreviewLines(selectedPoiLinkedNote.content, 5) : [],
+	);
+	const selectedPoiCategoryLabel = $derived.by(
+		() =>
+			POI_CATEGORY_OPTIONS.find((entry) => entry.value === (selectedPoi?.category ?? 'landmark'))
+				?.label ?? 'Landmark',
+	);
+	const selectedPoiPositionLabel = $derived.by(() =>
+		selectedPoi
+			? `${Math.round(selectedPoi.x * 100)}% x ${Math.round(selectedPoi.y * 100)}%`
+			: null,
+	);
 	const hoveredPoi = $derived.by(() => {
 		const hover = poiHover;
 		if (!hover?.id) return null;
@@ -457,6 +534,24 @@
 		if (hoveredPoiLinkedObject) return objectPreviewLines(hoveredPoiLinkedObject);
 		return [];
 	});
+	const hoveredPoiCategoryLabel = $derived.by(
+		() =>
+			POI_CATEGORY_OPTIONS.find((entry) => entry.value === (hoveredPoi?.category ?? 'landmark'))
+				?.label ?? 'Landmark',
+	);
+	const filteredLinkNoteOptions = $derived.by(() => {
+		const queryValue = linkNoteSearch.trim().toLowerCase();
+		if (!queryValue) return noteOptions.slice(0, 20);
+		return noteOptions.filter((note) => note.title.toLowerCase().includes(queryValue)).slice(0, 20);
+	});
+	const selectedPoiLinkSearchResults = $derived.by(() => {
+		const queryValue = selectedPoiNoteSearch.trim().toLowerCase();
+		if (!queryValue) return noteOptions.slice(0, 8);
+		return noteOptions.filter((note) => note.title.toLowerCase().includes(queryValue)).slice(0, 8);
+	});
+	const createNoteDraftPoi = $derived.by(() =>
+		createNotePoiId ? (draftPois.find((poi) => poi.id === createNotePoiId) ?? null) : null,
+	);
 	const splitPaneNote = $derived.by(() =>
 		splitPaneNoteId ? (noteById[splitPaneNoteId] ?? null) : null,
 	);
@@ -803,7 +898,11 @@
 		}));
 		newPoiLayerId = fallbackLayerId;
 		selectedPoiId = null;
-		poiHover = null;
+		selectedPoiSheetOpen = false;
+		closePoiHoverPopover();
+		closeLinkNoteDialog();
+		closeCreateNoteDialog();
+		selectedPoiNoteSearch = '';
 		splitPaneNoteId = null;
 		modalNoteId = null;
 		draftInitialViewport = map.data.initialViewport
@@ -1083,6 +1182,8 @@
 		ctrlKey: boolean;
 		metaKey: boolean;
 		shiftKey: boolean;
+		pointerType: string;
+		eventTime: number;
 	}): void {
 		mapContextMenu = null;
 		if (isFogEditingContextReady()) return;
@@ -1127,6 +1228,10 @@
 		}
 
 		if (!editPoiMode || !selectedMap) return;
+		if (payload.pointerType === 'touch') {
+			if (payload.eventTime - lastTouchPlacementAt < 300) return;
+			lastTouchPlacementAt = payload.eventTime;
+		}
 		const layerId = draftLayers.some((layer) => layer.id === newPoiLayerId)
 			? newPoiLayerId
 			: (draftLayers[0]?.id ?? DEFAULT_MAP_LAYER_ID);
@@ -1140,6 +1245,9 @@
 		};
 		draftPois = [...draftPois, nextPoi];
 		selectedPoiId = nextPoi.id;
+		if (!layoutState.isExpanded) {
+			selectedPoiSheetOpen = true;
+		}
 		markDirty();
 	}
 
@@ -1150,13 +1258,46 @@
 		markDirty();
 	}
 
-	function handlePoiHover(payload: { id: string | null; clientX: number; clientY: number }): void {
-		poiHover = payload.id ? payload : null;
+	function clearPoiHoverDelay(): void {
+		if (poiHoverDelayTimer === null || typeof window === 'undefined') return;
+		window.clearTimeout(poiHoverDelayTimer);
+		poiHoverDelayTimer = null;
+	}
+
+	function handlePoiHover(payload: MapViewerPoiHoverPayload): void {
+		clearPoiHoverDelay();
+		if (!payload.id || !payload.anchor) {
+			poiHover = null;
+			poiHoverOpen = false;
+			return;
+		}
+		poiHover = payload;
+		poiHoverDelayTimer =
+			typeof window === 'undefined'
+				? null
+				: window.setTimeout(() => {
+						poiHoverOpen = true;
+						poiHoverDelayTimer = null;
+					}, 100);
+	}
+
+	function closePoiHoverPopover(): void {
+		clearPoiHoverDelay();
+		poiHoverOpen = false;
+		poiHover = null;
+	}
+
+	function handleInputModalityTouch(): void {
+		touchPlacementHintVisible = true;
 	}
 
 	function handlePoiClick(payload: { id: string; ctrlKey: boolean; metaKey: boolean }): void {
 		mapContextMenu = null;
+		closePoiHoverPopover();
 		selectedPoiId = payload.id;
+		if (!layoutState.isExpanded) {
+			selectedPoiSheetOpen = true;
+		}
 		const poi = draftPois.find((entry) => entry.id === payload.id);
 		if (!poi) return;
 		const childMapId = mapLinkedFromPoi(poi);
@@ -1173,23 +1314,65 @@
 		splitPaneNoteId = noteId;
 	}
 
-	async function handleCreateNoteFromPoi(poiId: string): Promise<void> {
-		if (!selectedMap) return;
+	function openLinkNoteDialog(poiId: string): void {
+		selectedPoiId = poiId;
+		linkNoteSearch = '';
+		linkNoteDialogOpen = true;
+	}
+
+	function closeLinkNoteDialog(): void {
+		linkNoteDialogOpen = false;
+		linkNoteSearch = '';
+	}
+
+	function linkPoiToNote(poiId: string, noteId: string): void {
+		draftPois = draftPois.map((entry) =>
+			entry.id === poiId ? { ...entry, linkedNoteId: noteId, linkedObjectId: undefined } : entry,
+		);
+		selectedPoiId = poiId;
+		markDirty();
+		closeLinkNoteDialog();
+	}
+
+	function openCreateNoteDialog(poiId: string): void {
 		const poi = draftPois.find((entry) => entry.id === poiId);
 		if (!poi) return;
+		selectedPoiId = poi.id;
+		createNotePoiId = poi.id;
+		createNoteTitle = poi.label.trim() || 'Map Location';
+		createNoteType = 'location';
+		createNoteUseTemplate = true;
+		createNoteDialogOpen = true;
+	}
+
+	function closeCreateNoteDialog(): void {
+		createNoteDialogOpen = false;
+		createNotePoiId = null;
+		createNoteTitle = '';
+		createNoteType = 'location';
+		createNoteUseTemplate = true;
+		savingNoteFromPoi = false;
+	}
+
+	async function handleCreateNoteFromPoi(): Promise<void> {
+		if (!selectedMap || !createNoteDraftPoi) return;
+		const poi = createNoteDraftPoi;
+		savingNoteFromPoi = true;
 		const existingTitles = new Set(notesState.activeNotes.map((note) => note.title.toLowerCase()));
-		const baseTitle = poi.label.trim() || 'Map Location';
+		const baseTitle = createNoteTitle.trim() || poi.label.trim() || 'Map Location';
 		let title = baseTitle;
 		let suffix = 2;
 		while (existingTitles.has(title.toLowerCase())) {
 			title = `${baseTitle} ${suffix++}`;
 		}
+		const typeMeta = NOTE_CREATION_TYPE_OPTIONS.find((entry) => entry.value === createNoteType);
+		const content = createNoteUseTemplate && typeMeta ? typeMeta.template(title) : `# ${title}\n\n`;
 		const next = await notesState.createNote({
 			title,
-			folder: createFolderId('/locations'),
-			tags: ['location'],
+			folder: createFolderId(typeMeta?.folder ?? '/notes'),
+			tags: [...(typeMeta?.tags ?? [])],
 			frontmatter: {
-				type: 'location',
+				type: createNoteType === 'plain' ? 'note' : createNoteType,
 				mapId: String(selectedMap.id),
 				mapPoi: poi.id,
 				mapPosition: {
@@ -1198,26 +1381,58 @@
 					poiId: poi.id,
 				},
 			},
-			content: `# ${title}\n\nLinked from map "${selectedMap.name}" (${poi.label}).`,
+			content,
 		});
 		draftPois = draftPois.map((entry) =>
 			entry.id === poi.id ? { ...entry, linkedNoteId: String(next.id) } : entry,
 		);
 		selectedPoiId = poi.id;
 		markDirty();
-		toastState.success('Created note from POI.');
+		toastState.success('Created and linked note.');
 		splitPaneNoteId = String(next.id);
+		closeCreateNoteDialog();
 	}
 
 	function handleDeletePoi(poiId: string): void {
 		draftPois = draftPois.filter((poi) => poi.id !== poiId);
 		if (selectedPoiId === poiId) selectedPoiId = null;
+		if (selectedPoiId === null) {
+			selectedPoiSheetOpen = false;
+		}
 		markDirty();
 	}
 
 	function updatePoi(poiId: string, updater: (poi: MapPoiData) => MapPoiData): void {
 		draftPois = draftPois.map((poi) => (poi.id === poiId ? updater(poi) : poi));
 		markDirty();
+	}
+
+	function noteFolderBreadcrumb(note: Note): string {
+		const folder = String(note.folder || '/');
+		const segments = folder
+			.split('/')
+			.map((segment) => segment.trim())
+			.filter(Boolean);
+		return segments.length === 0 ? 'Vault root' : segments.join(' / ');
+	}
+
+	function resolvePoiCategoryIcon(category: MapPoiCategory): IconName {
+		switch (category) {
+			case 'city':
+				return 'map';
+			case 'dungeon':
+				return 'hexagon';
+			case 'landmark':
+				return 'pin';
+			case 'structure':
+				return 'square';
+			case 'secret':
+				return 'star';
+			case 'encounter':
+				return 'flag';
+			default:
+				return 'map';
+		}
 	}
 
 	function selectedPoiCategory(value: string): MapPoiCategory {
@@ -2378,6 +2593,16 @@
 	});
 
 	$effect(() => {
+		if (!editPoiMode) return;
+		if (selectedPoiId && draftPois.some((poi) => poi.id === selectedPoiId)) return;
+		const firstPoiId = draftPois[0]?.id ?? null;
+		selectedPoiId = firstPoiId;
+		if (firstPoiId && !layoutState.isExpanded) {
+			selectedPoiSheetOpen = true;
+		}
+	});
+
+	$effect(() => {
 		if (typeof window === 'undefined') return;
 		const onWindowKeyDown = (event: KeyboardEvent): void => {
 			if (isTextEntryTarget(event.target)) return;
@@ -2771,7 +2996,13 @@
 						<div class="flex min-w-0 items-center gap-2">
 							<Icon name={activeModeMeta.icon} size="md" />
 							<p class="truncate font-semibold">{activeModeMeta.label}</p>
-							<p class="truncate text-amber-800/90">{mapViewerModeHint(activeMode)}</p>
+							<p class="truncate text-amber-800/90">
+								{mapViewerModeHint(
+									activeMode,
+								)}{#if activeMode === 'poi_edit' && touchPlacementHintVisible}
+									. Tap to place
+								{/if}
+							</p>
 						</div>
 						<div class="flex items-center gap-1">
 							{#if modeToolsInSheet}
@@ -2832,37 +3063,51 @@
 						onmappointerdown={handleMapPointerDown}
 						onmappointermove={handleMapPointerMove}
 						onmappointerup={handleMapPointerUp}
+						oninputmodalitytouch={handleInputModalityTouch}
 						onmapcontextmenu={handleMapContextMenu}
 					/>
 				{/key}
-				{#if poiHover && hoveredPoi}
-					<div
-						class="fixed z-40 w-72 rounded-md border border-border bg-surface-elevated px-3 py-2 text-xs shadow-lg"
-						style={`left:${poiHover.clientX + 10}px;top:${poiHover.clientY + 10}px;`}
-						role="status"
-						aria-live="polite"
-					>
-						<p class="font-semibold text-ink">{hoveredPoi.label}</p>
-						<p class="mt-0.5 text-xs text-ink-faint">
-							{hoveredPoi.category}
-						</p>
-						{#if hoveredPreviewLines.length > 0}
-							<div class="mt-2 space-y-1">
-								{#each hoveredPreviewLines as line, index (`${hoveredPoi.id}-${index}`)}
-									<p class="line-clamp-1 text-ink-muted">{line}</p>
-								{/each}
+				<Popover
+					open={poiHoverOpen && !!poiHover?.anchor && !!hoveredPoi}
+					anchor={poiHover?.anchor ?? null}
+					onclose={closePoiHoverPopover}
+					class="w-72 p-3 text-xs"
+				>
+					{#if hoveredPoi}
+						<div class="space-y-2">
+							<div class="flex items-start justify-between gap-2">
+								<p class="text-sm font-semibold text-ink">{hoveredPoi.label}</p>
+								<span
+									class="inline-flex items-center gap-1 rounded-full border border-border bg-surface px-2 py-0.5 text-2xs text-ink-muted"
+								>
+									<Icon name={resolvePoiCategoryIcon(hoveredPoi.category)} size="xs" />
+									{hoveredPoiCategoryLabel}
+								</span>
 							</div>
-						{:else}
-							<button
-								type="button"
-								class="mt-2 rounded border border-border px-2 py-1 text-xs text-accent hover:bg-accent-subtle"
-								onclick={() => void handleCreateNoteFromPoi(hoveredPoi.id)}
-							>
-								Create note from pin
-							</button>
-						{/if}
-					</div>
-				{/if}
+							{#if hoveredPreviewLines.length > 0}
+								<div class="space-y-1">
+									{#each hoveredPreviewLines as line, index (`${hoveredPoi.id}-${index}`)}
+										<p class="line-clamp-2 text-ink-muted">{line}</p>
+									{/each}
+								</div>
+							{:else}
+								<p class="text-ink-faint">No linked note preview.</p>
+							{/if}
+							{#if hoveredPoiLinkedNote}
+								<button
+									type="button"
+									class="rounded border border-border px-2 py-1 text-xs text-accent hover:bg-accent-subtle"
+									onclick={() => {
+										splitPaneNoteId = String(hoveredPoiLinkedNote.id);
+										closePoiHoverPopover();
+									}}
+								>
+									View note
+								</button>
+							{/if}
+						</div>
+					{/if}
+				</Popover>
 				{#if mapContextMenu}
 					{@const contextMenu = mapContextMenu}
 					<div
@@ -3572,101 +3817,152 @@
 							{/if}
 						</div>
 						<div class="rounded border border-border p-2">
-							<h3 class="text-xs font-semibold text-ink">Selected Pin</h3>
+							<h3 class="text-xs font-semibold text-ink">Selected POI</h3>
 							{#if selectedPoi}
-								<div class="mt-2 space-y-2">
-									<label class="block text-xs text-ink-muted">
-										Label
-										<input
-											type="text"
-											value={selectedPoi.label}
-											oninput={(event) =>
-												updatePoi(selectedPoi.id, (poi) => ({
-													...poi,
-													label: (event.currentTarget as HTMLInputElement).value,
-												}))}
-											class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
-										/>
-									</label>
-									<div class="grid grid-cols-2 gap-2">
-										<label class="text-xs text-ink-muted">
-											Category
-											<select
-												value={selectedPoi.category}
-												onchange={(event) =>
-													updatePoi(selectedPoi.id, (poi) => ({
-														...poi,
-														category: selectedPoiCategory(
-															(event.currentTarget as HTMLSelectElement).value,
-														),
-													}))}
-												class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
-											>
-												{#each POI_CATEGORY_OPTIONS as option (option.value)}
-													<option value={option.value}>{option.label}</option>
-												{/each}
-											</select>
-										</label>
-										<label class="text-xs text-ink-muted">
-											Layer
-											<select
-												value={selectedPoi.layerId ?? ''}
-												onchange={(event) =>
-													updatePoi(selectedPoi.id, (poi) => ({
-														...poi,
-														layerId: (event.currentTarget as HTMLSelectElement).value || undefined,
-													}))}
-												class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
-											>
-												{#each draftLayers as layer (layer.id)}
-													<option value={layer.id}>{layer.name}</option>
-												{/each}
-											</select>
-										</label>
+								<div class="mt-2 space-y-3">
+									<h2 class="text-base font-semibold text-ink">{selectedPoi.label}</h2>
+									<div
+										class="inline-flex items-center gap-1 rounded-full border border-border bg-surface-alt px-2 py-1 text-xs text-ink-muted"
+									>
+										<Icon name={resolvePoiCategoryIcon(selectedPoi.category)} size="xs" />
+										{selectedPoiCategoryLabel}
 									</div>
-									<label class="block text-xs text-ink-muted">
-										Linked note
-										<select
-											value={selectedPoi.linkedNoteId ?? ''}
-											onchange={(event) =>
-												updatePoi(selectedPoi.id, (poi) => ({
-													...poi,
-													linkedNoteId:
-														(event.currentTarget as HTMLSelectElement).value || undefined,
-												}))}
-											class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
-										>
-											<option value="">None</option>
-											{#each noteOptions as note (note.id)}
-												<option value={String(note.id)}>{note.title}</option>
-											{/each}
-										</select>
-									</label>
-									<label class="block text-xs text-ink-muted">
-										Linked object
-										<select
-											value={selectedPoi.linkedObjectId ?? ''}
-											onchange={(event) =>
-												updatePoi(selectedPoi.id, (poi) => ({
-													...poi,
-													linkedObjectId:
-														(event.currentTarget as HTMLSelectElement).value || undefined,
-												}))}
-											class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
-										>
-											<option value="">None</option>
-											{#each objectOptions as object (object.id)}
-												<option value={String(object.id)}>{object.name} ({object.type})</option>
-											{/each}
-										</select>
-									</label>
-									<p class="text-xs text-ink-faint">
-										Position: {selectedPoi.x.toFixed(3)}, {selectedPoi.y.toFixed(3)}
+									<p class="text-xs text-ink-muted">
+										Layer: {selectedPoiLayer?.name ?? 'Unassigned'}
 									</p>
+									{#if editPoiMode}
+										<Input
+											label="Label"
+											value={selectedPoi.label}
+											onchange={(event) =>
+												updatePoi(selectedPoi.id, (poi) => ({
+													...poi,
+													label: event.currentTarget.value,
+												}))}
+										/>
+										<Select
+											label="Category"
+											value={selectedPoi.category}
+											options={POI_CATEGORY_OPTIONS.map((entry) => ({
+												value: entry.value,
+												label: entry.label,
+											}))}
+											onchange={(event) =>
+												updatePoi(selectedPoi.id, (poi) => ({
+													...poi,
+													category: selectedPoiCategory(event.currentTarget.value),
+												}))}
+										/>
+										<Select
+											label="Layer"
+											value={selectedPoi.layerId ?? ''}
+											options={draftLayers.map((layer) => ({ value: layer.id, label: layer.name }))}
+											onchange={(event) =>
+												updatePoi(selectedPoi.id, (poi) => ({
+													...poi,
+													layerId: event.currentTarget.value || undefined,
+												}))}
+										/>
+										<div class="space-y-1">
+											<Input
+												label="Linked note"
+												value={selectedPoiNoteSearch}
+												placeholder="Search notes..."
+												oninput={(event) => {
+													selectedPoiNoteSearch = event.currentTarget.value;
+												}}
+											/>
+											{#if selectedPoiLinkSearchResults.length > 0}
+												<div
+													class="max-h-28 space-y-1 overflow-auto rounded border border-border bg-surface-alt p-1"
+												>
+													{#each selectedPoiLinkSearchResults as note (note.id)}
+														<button
+															type="button"
+															class="w-full rounded px-2 py-1 text-left text-xs text-ink hover:bg-surface"
+															onclick={() => {
+																linkPoiToNote(selectedPoi.id, String(note.id));
+																selectedPoiNoteSearch = note.title;
+															}}
+														>
+															{note.title}
+														</button>
+													{/each}
+												</div>
+											{/if}
+											<div class="flex items-center gap-2">
+												<Button
+													size="sm"
+													variant="secondary"
+													onclick={() => {
+														selectedPoiNoteSearch = '';
+													}}
+												>
+													Clear
+												</Button>
+												<Button size="sm" variant="primary" onclick={markDirty}>Save</Button>
+											</div>
+										</div>
+									{/if}
+									<div class="rounded border border-border bg-surface-alt p-2">
+										<p class="text-xs font-semibold text-ink">Linked content</p>
+										{#if selectedPoiLinkedNote}
+											<p class="mt-1 text-sm text-ink">{selectedPoiLinkedNote.title}</p>
+											<p class="text-xs text-ink-faint">
+												{noteFolderBreadcrumb(selectedPoiLinkedNote)}
+											</p>
+											<div class="mt-2 space-y-1">
+												{#each selectedPoiLinkedPreview as line, index (`selected-poi-preview-${index}`)}
+													<p class="line-clamp-1 text-xs text-ink-muted">{line}</p>
+												{/each}
+											</div>
+											<div class="mt-2 flex flex-wrap gap-1.5">
+												<Button
+													size="sm"
+													variant="primary"
+													onclick={() => {
+														splitPaneNoteId = String(selectedPoiLinkedNote.id);
+													}}
+												>
+													Read note
+												</Button>
+												<Button
+													size="sm"
+													variant="ghost"
+													onclick={() => {
+														modalNoteId = String(selectedPoiLinkedNote.id);
+													}}
+												>
+													Open in new pane
+												</Button>
+											</div>
+										{:else}
+											<p class="mt-1 text-xs text-ink-muted">No note linked.</p>
+											<div class="mt-2 flex flex-wrap gap-1.5">
+												<Button
+													size="sm"
+													variant="secondary"
+													onclick={() => openLinkNoteDialog(selectedPoi.id)}
+												>
+													Link existing note
+												</Button>
+												<Button
+													size="sm"
+													variant="primary"
+													onclick={() => openCreateNoteDialog(selectedPoi.id)}
+												>
+													Create note here
+												</Button>
+											</div>
+										{/if}
+									</div>
+									{#if selectedPoiPositionLabel}
+										<p class="text-xs text-ink-faint">Position: {selectedPoiPositionLabel}</p>
+									{/if}
 									<div class="flex flex-wrap gap-1.5">
-										<button
-											type="button"
-											class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
+										<Button
+											size="sm"
+											variant="ghost"
 											onclick={() =>
 												void handleMarkPartyLocation({
 													x: selectedPoi.x,
@@ -3676,38 +3972,18 @@
 												})}
 										>
 											Mark party here
-										</button>
-										{#if resolveLinkedNoteIdForPoi(selectedPoi)}
-											<button
-												type="button"
-												class="rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
-												onclick={() =>
-													void goto(
-														resolve(`/knowledge/notes/${resolveLinkedNoteIdForPoi(selectedPoi)}`),
-													)}
-											>
-												Open linked note
-											</button>
-										{:else}
-											<button
-												type="button"
-												class="rounded border border-border px-2 py-1 text-xs text-accent hover:bg-accent-subtle"
-												onclick={() => void handleCreateNoteFromPoi(selectedPoi.id)}
-											>
-												Create note
-											</button>
-										{/if}
-										<button
-											type="button"
-											class="rounded border border-border px-2 py-1 text-xs text-error hover:bg-error/10"
+										</Button>
+										<Button
+											size="sm"
+											variant="danger"
 											onclick={() => handleDeletePoi(selectedPoi.id)}
 										>
 											Delete pin
-										</button>
+										</Button>
 									</div>
 								</div>
 							{:else}
-								<p class="mt-2 text-xs text-ink-muted">Select a pin to edit links and metadata.</p>
+								<p class="mt-2 text-xs text-ink-muted">Select a pin to inspect POI details.</p>
 							{/if}
 						</div>
 						{#if combatModeEnabled && selectedCombat}
@@ -3796,6 +4072,78 @@
 				</div>
 			</Sheet>
 		{/if}
+		{#if !layoutState.isExpanded}
+			<Sheet
+				open={selectedPoiSheetOpen && !!selectedPoi}
+				title="POI details"
+				onclose={() => {
+					selectedPoiSheetOpen = false;
+				}}
+			>
+				{#if selectedPoi}
+					<div class="space-y-3 text-sm text-ink">
+						<h2 class="text-base font-semibold">{selectedPoi.label}</h2>
+						<p
+							class="inline-flex items-center gap-1 rounded-full border border-border bg-surface-alt px-2 py-1 text-xs text-ink-muted"
+						>
+							<Icon name={resolvePoiCategoryIcon(selectedPoi.category)} size="xs" />
+							{selectedPoiCategoryLabel}
+						</p>
+						<p class="text-xs text-ink-muted">Layer: {selectedPoiLayer?.name ?? 'Unassigned'}</p>
+						{#if selectedPoiLinkedNote}
+							<p class="text-sm">{selectedPoiLinkedNote.title}</p>
+							<p class="text-xs text-ink-faint">{noteFolderBreadcrumb(selectedPoiLinkedNote)}</p>
+							<div class="space-y-1">
+								{#each selectedPoiLinkedPreview as line, index (`sheet-poi-preview-${index}`)}
+									<p class="line-clamp-1 text-xs text-ink-muted">{line}</p>
+								{/each}
+							</div>
+							<div class="flex flex-wrap gap-2">
+								<Button
+									size="sm"
+									variant="primary"
+									onclick={() => {
+										splitPaneNoteId = String(selectedPoiLinkedNote.id);
+									}}
+								>
+									Read note
+								</Button>
+								<Button
+									size="sm"
+									variant="ghost"
+									onclick={() => {
+										modalNoteId = String(selectedPoiLinkedNote.id);
+									}}
+								>
+									Open in new pane
+								</Button>
+							</div>
+						{:else}
+							<p class="text-xs text-ink-muted">No note linked.</p>
+							<div class="flex flex-wrap gap-2">
+								<Button
+									size="sm"
+									variant="secondary"
+									onclick={() => openLinkNoteDialog(selectedPoi.id)}
+								>
+									Link existing note
+								</Button>
+								<Button
+									size="sm"
+									variant="primary"
+									onclick={() => openCreateNoteDialog(selectedPoi.id)}
+								>
+									Create note here
+								</Button>
+							</div>
+						{/if}
+						{#if selectedPoiPositionLabel}
+							<p class="text-xs text-ink-faint">Position: {selectedPoiPositionLabel}</p>
+						{/if}
+					</div>
+				{/if}
+			</Sheet>
+		{/if}
 	{/if}
 </div>
 
@@ -3813,6 +4161,98 @@
 		<p class="text-sm text-ink-muted">Linked note unavailable.</p>
 	{/if}
 </Modal>
+
+<Dialog
+	open={linkNoteDialogOpen && !!selectedPoi}
+	title="Link existing note"
+	onclose={closeLinkNoteDialog}
+>
+	<div class="space-y-3">
+		<Input
+			label="Search notes"
+			value={linkNoteSearch}
+			placeholder="Type to filter notes..."
+			oninput={(event) => {
+				linkNoteSearch = event.currentTarget.value;
+			}}
+		/>
+		{#if filteredLinkNoteOptions.length > 0}
+			<div class="max-h-64 space-y-1 overflow-auto rounded border border-border bg-surface-alt p-1">
+				{#each filteredLinkNoteOptions as note (note.id)}
+					<button
+						type="button"
+						class="w-full rounded px-2 py-1.5 text-left text-sm text-ink hover:bg-surface"
+						onclick={() => {
+							if (!selectedPoi) return;
+							linkPoiToNote(selectedPoi.id, String(note.id));
+						}}
+					>
+						{note.title}
+					</button>
+				{/each}
+			</div>
+		{:else}
+			<p class="text-sm text-ink-muted">No notes match this search.</p>
+		{/if}
+	</div>
+</Dialog>
+
+<Dialog
+	open={createNoteDialogOpen && !!createNoteDraftPoi}
+	title="Create and link note"
+	onclose={closeCreateNoteDialog}
+>
+	<div class="space-y-4">
+		<Input
+			label="Title"
+			value={createNoteTitle}
+			oninput={(event) => {
+				createNoteTitle = event.currentTarget.value;
+			}}
+		/>
+		<div>
+			<p class="mb-2 text-sm font-medium text-ink">Note type</p>
+			<div class="grid gap-2 sm:grid-cols-2">
+				{#each NOTE_CREATION_TYPE_OPTIONS as option (option.value)}
+					<Card
+						interactive
+						padding="sm"
+						class={createNoteType === option.value ? 'border-accent bg-accent-subtle/20' : ''}
+						onclick={() => {
+							createNoteType = option.value;
+						}}
+					>
+						<div class="flex items-start gap-2">
+							<Icon name={option.icon} size="sm" />
+							<div>
+								<p class="text-sm font-semibold text-ink">{option.label}</p>
+								<p class="text-xs text-ink-muted">{option.description}</p>
+							</div>
+						</div>
+					</Card>
+				{/each}
+			</div>
+		</div>
+		<Checkbox
+			label="Start with template content"
+			checked={createNoteUseTemplate}
+			onchange={(checked) => {
+				createNoteUseTemplate = checked;
+			}}
+		/>
+		<div class="flex items-center justify-end gap-2">
+			<Button size="sm" variant="ghost" onclick={closeCreateNoteDialog}>Cancel</Button>
+			<Button
+				size="sm"
+				variant="primary"
+				disabled={!createNoteDraftPoi || savingNoteFromPoi}
+				onclick={() => void handleCreateNoteFromPoi()}
+			>
+				{savingNoteFromPoi ? 'Creating...' : 'Create and Link'}
+			</Button>
+		</div>
+	</div>
+</Dialog>
 
 <Dialog
 	open={modeTransitionDialogOpen}

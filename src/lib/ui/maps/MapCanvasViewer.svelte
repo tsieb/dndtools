@@ -77,6 +77,11 @@
 		altKey: boolean;
 	}
 
+	export interface MapViewerPoiHoverPayload {
+		id: string | null;
+		anchor: HTMLElement | null;
+	}
+
 	interface Props {
 		src: string | null;
 		alt?: string;
@@ -116,15 +121,18 @@
 			ctrlKey: boolean;
 			metaKey: boolean;
 			shiftKey: boolean;
+			pointerType: string;
+			eventTime: number;
 		}) => void;
 		onpoiclick?: (payload: { id: string; ctrlKey: boolean; metaKey: boolean }) => void;
 		onpoimove?: (payload: { id: string; x: number; y: number }) => void;
-		onpoihover?: (payload: { id: string | null; clientX: number; clientY: number }) => void;
+		onpoihover?: (payload: MapViewerPoiHoverPayload) => void;
 		oncombattokenclick?: (payload: { id: string; ctrlKey: boolean; metaKey: boolean }) => void;
 		oncombattokendrop?: (payload: { id: string; cellX: number; cellY: number }) => void;
 		onmappointerdown?: (payload: MapViewerPointerPayload) => void;
 		onmappointermove?: (payload: MapViewerPointerPayload) => void;
 		onmappointerup?: (payload: MapViewerPointerPayload) => void;
+		oninputmodalitytouch?: () => void;
 		onmapcontextmenu?: (payload: {
 			x: number;
 			y: number;
@@ -174,6 +182,7 @@
 		onmappointerdown,
 		onmappointermove,
 		onmappointerup,
+		oninputmodalitytouch,
 		onmapcontextmenu,
 	}: Props = $props();
 
@@ -194,8 +203,13 @@
 		ctrlKey: boolean;
 		metaKey: boolean;
 		shiftKey: boolean;
+		pointerType: string;
+		eventTime: number;
 		moved: boolean;
 	} | null = null;
+	let pointerLocal = $state<{ x: number; y: number } | null>(null);
+	let previousPoiIds = $state(new Set<string>());
+	const animatingPoiIds = new SvelteMap<string, boolean>();
 
 	let drawQueued = false;
 	const activePointers = new SvelteMap<number, { x: number; y: number }>();
@@ -350,6 +364,59 @@
 		const imageY = (localY - viewport.panY) / zoom;
 		return imagePointToGridCell(imageX, imageY);
 	}
+
+	function imagePointToNearestGridCell(imageX: number, imageY: number): MapViewerGridCell | null {
+		if (!workingGrid) return null;
+		if (workingGrid.type === 'square') {
+			const size = Math.max(1, workingGrid.cellSize);
+			const cellX = Math.round((imageX - workingGrid.originX) / size - 0.5);
+			const cellY = Math.round((imageY - workingGrid.originY) / size - 0.5);
+			return { x: cellX, y: cellY };
+		}
+		return imagePointToGridCell(imageX, imageY);
+	}
+
+	function localPointToNearestGridCell(localX: number, localY: number): MapViewerGridCell | null {
+		if (!image || !workingGrid) return null;
+		const zoom = Math.max(MIN_ZOOM, viewport.zoom);
+		const imageX = (localX - viewport.panX) / zoom;
+		const imageY = (localY - viewport.panY) / zoom;
+		return imagePointToNearestGridCell(imageX, imageY);
+	}
+
+	function clamp01(value: number): number {
+		return Math.min(1, Math.max(0, value));
+	}
+
+	const visiblePois = $derived.by(() => pois.filter((poi) => !poi.hidden));
+
+	const poiScreenPositions = $derived.by(() =>
+		visiblePois
+			.map((poi) => {
+				const point = mapFractionToLocalPoint(poi.x, poi.y);
+				return point ? { poi, point } : null;
+			})
+			.filter((entry): entry is { poi: MapViewerPoi; point: { x: number; y: number } } => !!entry),
+	);
+
+	const ghostPlacement = $derived.by(() => {
+		if (!poiEditable || !pointerLocal || !image) return null;
+		const snappedCell = workingGrid
+			? localPointToNearestGridCell(pointerLocal.x, pointerLocal.y)
+			: null;
+		if (snappedCell) {
+			const imagePoint = gridCellToImagePoint(snappedCell);
+			if (!imagePoint) return null;
+			return {
+				x: clamp01(imagePoint.x / image.width),
+				y: clamp01(imagePoint.y / image.height),
+				snappedCell,
+			};
+		}
+		const fractional = localPointToMapFraction(pointerLocal.x, pointerLocal.y);
+		if (!fractional) return null;
+		return { x: fractional.x, y: fractional.y, snappedCell: null };
+	});
 
 	function gridCellToImagePoint(cell: MapViewerGridCell): { x: number; y: number } | null {
 		if (!workingGrid) return null;
@@ -837,6 +904,14 @@
 		}
 
 		drawGrid(ctx, cssWidth, cssHeight);
+		if (ghostPlacement?.snappedCell) {
+			drawGridCellOverlay(
+				ctx,
+				[ghostPlacement.snappedCell],
+				'rgba(14, 116, 144, 0.18)',
+				'rgba(14, 116, 144, 0.85)',
+			);
+		}
 		drawRoutes(ctx);
 		drawPartyMarker(ctx);
 		drawGridCellOverlay(
@@ -903,6 +978,10 @@
 		const rect = viewportEl.getBoundingClientRect();
 		const localX = event.clientX - rect.left;
 		const localY = event.clientY - rect.top;
+		pointerLocal = { x: localX, y: localY };
+		if (event.pointerType === 'touch') {
+			oninputmodalitytouch?.();
+		}
 		emitMapPointerCallback(event, onmappointerdown);
 		activePointers.set(event.pointerId, { x: localX, y: localY });
 		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
@@ -913,6 +992,8 @@
 			ctrlKey: event.ctrlKey,
 			metaKey: event.metaKey,
 			shiftKey: event.shiftKey,
+			pointerType: event.pointerType,
+			eventTime: event.timeStamp,
 			moved: false,
 		};
 
@@ -941,6 +1022,7 @@
 		const rect = viewportEl.getBoundingClientRect();
 		const localX = event.clientX - rect.left;
 		const localY = event.clientY - rect.top;
+		pointerLocal = { x: localX, y: localY };
 		emitMapPointerCallback(event, onmappointermove);
 		if (
 			clickCandidate &&
@@ -1049,12 +1131,15 @@
 				const localY = event.clientY - rect.top;
 				const fractions = localPointToMapFraction(localX, localY);
 				if (fractions) {
+					const placement = poiEditable && ghostPlacement ? ghostPlacement : fractions;
 					onmapclick?.({
-						x: fractions.x,
-						y: fractions.y,
+						x: placement.x,
+						y: placement.y,
 						ctrlKey: clickCandidate.ctrlKey,
 						metaKey: clickCandidate.metaKey,
 						shiftKey: clickCandidate.shiftKey,
+						pointerType: clickCandidate.pointerType,
+						eventTime: clickCandidate.eventTime,
 					});
 				}
 			}
@@ -1075,6 +1160,10 @@
 		pointerHint = '';
 	}
 
+	function onPointerLeave(): void {
+		pointerLocal = null;
+	}
+
 	function handlePoiPointerDown(event: PointerEvent, poiId: string): void {
 		event.stopPropagation();
 		if (!poiEditable) return;
@@ -1092,15 +1181,11 @@
 		};
 	}
 
-	function emitPoiHover(poiId: string | null, event: MouseEvent | FocusEvent): void {
+	function emitPoiHover(poiId: string | null, anchor: HTMLElement | null): void {
 		if (!onpoihover) return;
-		const target = event.currentTarget as HTMLElement | null;
-		if (!target) return;
-		const rect = target.getBoundingClientRect();
 		onpoihover({
 			id: poiId,
-			clientX: rect.left + rect.width / 2,
-			clientY: rect.top,
+			anchor,
 		});
 	}
 
@@ -1300,6 +1385,20 @@
 	$effect(() => {
 		queueDraw();
 	});
+
+	$effect(() => {
+		const currentIds = new Set(visiblePois.map((poi) => poi.id));
+		if (poiEditable && !prefersReducedMotion()) {
+			for (const id of currentIds) {
+				if (previousPoiIds.has(id)) continue;
+				animatingPoiIds.set(id, true);
+				window.setTimeout(() => {
+					animatingPoiIds.delete(id);
+				}, 150);
+			}
+		}
+		previousPoiIds = currentIds;
+	});
 </script>
 
 <div class="flex h-full min-h-[340px] flex-col rounded-lg border border-border bg-surface">
@@ -1339,7 +1438,9 @@
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<div
 		bind:this={viewportEl}
-		class="relative h-full min-h-[260px] flex-1 overflow-hidden bg-parchment/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+		class="relative h-full min-h-[260px] flex-1 overflow-hidden bg-parchment/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent {poiEditable
+			? 'cursor-crosshair'
+			: ''}"
 		tabindex="0"
 		role="application"
 		aria-label={alt}
@@ -1350,29 +1451,52 @@
 		onpointerup={onPointerUp}
 		onpointercancel={onPointerUp}
 		onlostpointercapture={onPointerUp}
+		onpointerleave={onPointerLeave}
 		oncontextmenu={onContextMenu}
 	>
 		<canvas bind:this={canvasEl} class="absolute inset-0 h-full w-full"></canvas>
-		{#if image && pois.length > 0}
+		{#if image && poiEditable && ghostPlacement}
+			{@const ghostPoint = mapFractionToLocalPoint(ghostPlacement.x, ghostPlacement.y)}
+			{#if ghostPoint}
+				<div
+					class="pointer-events-none absolute -translate-x-1/2 -translate-y-full text-ink-muted/60"
+					style={`left:${ghostPoint.x}px;top:${ghostPoint.y}px;`}
+					aria-hidden="true"
+				>
+					<svg
+						viewBox="0 0 24 24"
+						class="h-7 w-7 drop-shadow-sm"
+						fill="currentColor"
+						stroke="currentColor"
+						stroke-width="1.5"
+					>
+						<path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"></path>
+						<circle cx="12" cy="10" r="2.5" fill="white"></circle>
+					</svg>
+				</div>
+			{/if}
+		{/if}
+		{#if image && poiScreenPositions.length > 0}
 			<div class="pointer-events-none absolute inset-0">
-				{#each pois.filter((poi) => !poi.hidden) as poi (poi.id)}
-					{@const point = mapFractionToLocalPoint(poi.x, poi.y)}
-					{#if point}
-						<button
-							type="button"
-							class="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/90 text-white shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
-							style={`left:${point.x}px;top:${point.y}px;background:${poiThemeColor(poi.colorTheme)};width:24px;height:24px;`}
-							aria-label={`${poi.label} (${poi.category})`}
-							onpointerdown={(event) => handlePoiPointerDown(event, poi.id)}
-							onclick={(event) => handlePoiClick(event, poi.id)}
-							onmouseenter={(event) => emitPoiHover(poi.id, event)}
-							onmouseleave={(event) => emitPoiHover(null, event)}
-							onfocus={(event) => emitPoiHover(poi.id, event)}
-							onblur={(event) => emitPoiHover(null, event)}
-						>
-							<span class="text-xs leading-none">{POI_CATEGORY_ICON[poi.category]}</span>
-						</button>
-					{/if}
+				{#each poiScreenPositions as entry (entry.poi.id)}
+					<button
+						type="button"
+						class="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/90 text-white shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 {animatingPoiIds.has(
+							entry.poi.id,
+						)
+							? 'map-poi-pin-pop'
+							: ''}"
+						style={`left:${entry.point.x}px;top:${entry.point.y}px;background:${poiThemeColor(entry.poi.colorTheme)};width:24px;height:24px;`}
+						aria-label={`${entry.poi.label} (${entry.poi.category})`}
+						onpointerdown={(event) => handlePoiPointerDown(event, entry.poi.id)}
+						onclick={(event) => handlePoiClick(event, entry.poi.id)}
+						onmouseenter={(event) => emitPoiHover(entry.poi.id, event.currentTarget as HTMLElement)}
+						onmouseleave={(event) => emitPoiHover(null, event.currentTarget as HTMLElement)}
+						onfocus={(event) => emitPoiHover(entry.poi.id, event.currentTarget as HTMLElement)}
+						onblur={(event) => emitPoiHover(null, event.currentTarget as HTMLElement)}
+					>
+						<span class="text-xs leading-none">{POI_CATEGORY_ICON[entry.poi.category]}</span>
+					</button>
 				{/each}
 			</div>
 		{/if}
@@ -1438,3 +1562,21 @@
 		{/if}
 	</div>
 </div>
+
+<style>
+	@media (prefers-reduced-motion: no-preference) {
+		.map-poi-pin-pop {
+			animation: map-poi-pin-pop 150ms ease-out;
+		}
+	}
+
+	@keyframes map-poi-pin-pop {
+		from {
+			transform: translate(-50%, -50%) scale(0);
+		}
+
+		to {
+			transform: translate(-50%, -50%) scale(1);
+		}
+	}
+</style>
