@@ -10,6 +10,7 @@
 	import { sessionState } from '$lib/state/session-state.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import { layoutState } from '$lib/state/layout.svelte.js';
+	import { MapUndoStack } from '$lib/state/map-undo-stack.svelte.js';
 	import {
 		importDesktopMapFromDialog,
 		resolveDesktopMapAssetUrl,
@@ -108,6 +109,7 @@
 	import Tooltip from '$lib/ui/common/Tooltip.svelte';
 	import MapCanvasViewer, {
 		type MapViewerPoiHoverPayload,
+		type MapViewerRouteWaypointMovePayload,
 	} from '$lib/ui/maps/MapCanvasViewer.svelte';
 	import QuickReferenceSplitView from '$lib/ui/search/QuickReferenceSplitView.svelte';
 	import Modal from '$lib/ui/common/Modal.svelte';
@@ -193,6 +195,24 @@
 			template: (title: string): string => `# ${title}\n\n`,
 		},
 	] as const;
+
+	interface MapEditSnapshot {
+		draftLayers: MapAnnotationLayerData[];
+		draftPois: MapPoiData[];
+		draftRoutes: MapRouteData[];
+		draftGridType: 'square' | 'hex';
+		draftGridVisible: boolean;
+		draftGridCellSize: string;
+		draftGridOriginX: string;
+		draftGridOriginY: string;
+		runtimeShowGrid: boolean;
+		selectedRouteId: string | null;
+		newPoiLayerId: string;
+		activeLayerFilter: 'all' | string;
+		fogState: MapFogState | null;
+	}
+
+	const mapUndoStack = new MapUndoStack<MapEditSnapshot>(50);
 
 	let mapAssetUrls = $state<Record<string, string | null>>({});
 	let importing = $state(false);
@@ -302,6 +322,16 @@
 	let selectedRouteId = $state<string | null>(null);
 	let newRouteName = $state('New Route');
 	let newRouteStyle = $state<MapRouteStyle>('straight');
+	let routeDraftWaypoints = $state<MapFogPoint[]>([]);
+	let routeDraftCursor = $state<MapFogPoint | null>(null);
+	let pendingPoiMoveUndo = $state<{ poiId: string; before: MapEditSnapshot } | null>(null);
+	let pendingRouteWaypointMoveUndo = $state<MapEditSnapshot | null>(null);
+	let pendingGridUndoBefore = $state<MapEditSnapshot | null>(null);
+	let pendingFogUndoBefore = $state<MapEditSnapshot | null>(null);
+	let layerRenameId = $state<string | null>(null);
+	let layerRenameDraft = $state('');
+	let layerMenuOpenId = $state<string | null>(null);
+	let confirmClearFogDialogOpen = $state(false);
 	let mapContextMenu = $state<{ clientX: number; clientY: number; x: number; y: number } | null>(
 		null,
 	);
@@ -322,7 +352,13 @@
 	);
 	const modeToolsInSheet = $derived(!layoutState.isExpanded && activeMode !== 'view');
 	const hasInProgressModeWork = $derived.by(
-		() => fogPainting || terrainPainting || !!templateDragOriginCell || !!mapContextMenu,
+		() =>
+			fogPainting ||
+			terrainPainting ||
+			!!templateDragOriginCell ||
+			!!mapContextMenu ||
+			routeDraftWaypoints.length > 0 ||
+			fogLassoPoints.length > 0,
 	);
 
 	const locationNotes = $derived.by(() =>
@@ -751,6 +787,112 @@
 		dirty = true;
 	}
 
+	function cloneDraftLayers(layers: readonly MapAnnotationLayerData[]): MapAnnotationLayerData[] {
+		return layers.map((layer) => ({ ...layer }));
+	}
+
+	function cloneDraftPois(pois: readonly MapPoiData[]): MapPoiData[] {
+		return pois.map((poi) => ({ ...poi }));
+	}
+
+	function cloneDraftRoutes(routes: readonly MapRouteData[]): MapRouteData[] {
+		return routes.map((route) => ({
+			...route,
+			waypoints: route.waypoints.map((waypoint) => ({ ...waypoint })),
+		}));
+	}
+
+	function cloneFogState(state: MapFogState | null): MapFogState | null {
+		if (!state) return null;
+		return {
+			...state,
+			polygons: state.polygons.map((polygon) => ({
+				...polygon,
+				points: polygon.points.map((point) => ({ ...point })),
+			})),
+		};
+	}
+
+	function mapEditSnapshot(): MapEditSnapshot {
+		return {
+			draftLayers: cloneDraftLayers(draftLayers),
+			draftPois: cloneDraftPois(draftPois),
+			draftRoutes: cloneDraftRoutes(draftRoutes),
+			draftGridType,
+			draftGridVisible,
+			draftGridCellSize,
+			draftGridOriginX,
+			draftGridOriginY,
+			runtimeShowGrid,
+			selectedRouteId,
+			newPoiLayerId,
+			activeLayerFilter,
+			fogState: cloneFogState(combatMapState.fogState ?? null),
+		};
+	}
+
+	function snapshotChanged(before: MapEditSnapshot, after: MapEditSnapshot): boolean {
+		return JSON.stringify(before) !== JSON.stringify(after);
+	}
+
+	function applyMapEditSnapshot(snapshot: MapEditSnapshot): void {
+		draftLayers = cloneDraftLayers(snapshot.draftLayers);
+		draftPois = cloneDraftPois(snapshot.draftPois);
+		draftRoutes = cloneDraftRoutes(snapshot.draftRoutes);
+		draftGridType = snapshot.draftGridType;
+		draftGridVisible = snapshot.draftGridVisible;
+		draftGridCellSize = snapshot.draftGridCellSize;
+		draftGridOriginX = snapshot.draftGridOriginX;
+		draftGridOriginY = snapshot.draftGridOriginY;
+		runtimeShowGrid = snapshot.runtimeShowGrid;
+		selectedRouteId = snapshot.selectedRouteId;
+		newPoiLayerId = snapshot.newPoiLayerId;
+		activeLayerFilter = snapshot.activeLayerFilter;
+		if (selectedCombat) {
+			const nextMapState = {
+				...combatMapState,
+				fogState: cloneFogState(snapshot.fogState) ?? undefined,
+			};
+			queueCombatPersist({
+				...selectedCombat,
+				mapState: nextMapState,
+			});
+		}
+		dirty = true;
+	}
+
+	function withUndo(label: string, operation: () => void): void {
+		const before = mapEditSnapshot();
+		operation();
+		const after = mapEditSnapshot();
+		if (!snapshotChanged(before, after)) return;
+		mapUndoStack.record({
+			label,
+			before,
+			after,
+		});
+	}
+
+	function undoMapEdit(): void {
+		const entry = mapUndoStack.undo();
+		if (!entry) {
+			toastState.info('Nothing to undo.');
+			return;
+		}
+		applyMapEditSnapshot(entry.snapshot);
+		toastState.info(`Undone: ${entry.label}`);
+	}
+
+	function redoMapEdit(): void {
+		const entry = mapUndoStack.redo();
+		if (!entry) {
+			toastState.info('Nothing to redo.');
+			return;
+		}
+		applyMapEditSnapshot(entry.snapshot);
+		toastState.info(`Redone: ${entry.label}`);
+	}
+
 	function generateMapAnnotationId(prefix: 'poi' | 'layer'): string {
 		const random =
 			typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -763,6 +905,23 @@
 		return LAYER_THEME_OPTIONS.some((entry) => entry.value === value)
 			? (value as MapAnnotationLayerColorTheme)
 			: 'amber';
+	}
+
+	function layerThemeSwatch(theme: MapAnnotationLayerColorTheme): string {
+		switch (theme) {
+			case 'emerald':
+				return '#047857';
+			case 'azure':
+				return '#0c4a6e';
+			case 'rose':
+				return '#9f1239';
+			case 'violet':
+				return '#5b21b6';
+			case 'slate':
+				return '#334155';
+			default:
+				return '#9a3412';
+		}
 	}
 
 	function resolveLinkedNoteIdForPoi(poi: MapPoiData): string | null {
@@ -799,6 +958,12 @@
 		fogDragStart = null;
 		fogDragCurrent = null;
 		fogLassoPoints = [];
+		routeDraftWaypoints = [];
+		routeDraftCursor = null;
+		pendingFogUndoBefore = null;
+		pendingPoiMoveUndo = null;
+		pendingRouteWaypointMoveUndo = null;
+		pendingGridUndoBefore = null;
 		toolsSheetOpen = false;
 	}
 
@@ -917,6 +1082,13 @@
 			waypoints: route.waypoints.map((waypoint) => ({ ...waypoint })),
 		}));
 		selectedRouteId = draftRoutes[0]?.id ?? null;
+		routeDraftWaypoints = [];
+		routeDraftCursor = null;
+		layerRenameId = null;
+		layerRenameDraft = '';
+		layerMenuOpenId = null;
+		confirmClearFogDialogOpen = false;
+		mapUndoStack.clear();
 		dirty = false;
 		viewerKey += 1;
 	}
@@ -1021,6 +1193,9 @@
 		originY: number;
 		cellSize: number;
 	}): void {
+		if (!pendingGridUndoBefore) {
+			pendingGridUndoBefore = mapEditSnapshot();
+		}
 		draftGridType = next.type;
 		draftGridVisible = next.visible;
 		draftGridCellSize = String(next.cellSize);
@@ -1119,18 +1294,22 @@
 
 	function handleAddLayer(): void {
 		const id = generateMapAnnotationId('layer');
-		draftLayers = [
-			...draftLayers,
-			{
-				id,
-				name: `Layer ${draftLayers.length + 1}`,
-				colorTheme: 'amber',
-				visible: true,
-				playerVisible: false,
-			},
-		];
-		newPoiLayerId = id;
-		markDirty();
+		withUndo('Layer added', () => {
+			draftLayers = [
+				...draftLayers,
+				{
+					id,
+					name: 'New Layer',
+					colorTheme: 'amber',
+					visible: true,
+					playerVisible: false,
+				},
+			];
+			newPoiLayerId = id;
+			layerRenameId = id;
+			layerRenameDraft = 'New Layer';
+			markDirty();
+		});
 	}
 
 	function handleDeleteLayer(layerId: string): void {
@@ -1140,22 +1319,91 @@
 		}
 		const fallback = draftLayers.find((layer) => layer.id !== layerId)?.id;
 		if (!fallback) return;
-		draftLayers = draftLayers.filter((layer) => layer.id !== layerId);
-		draftPois = draftPois.map((poi) =>
-			poi.layerId === layerId ? { ...poi, layerId: fallback } : poi,
-		);
-		if (selectedPoi?.layerId === layerId && selectedPoiId) {
+		withUndo('Layer deleted', () => {
+			draftLayers = draftLayers.filter((layer) => layer.id !== layerId);
 			draftPois = draftPois.map((poi) =>
-				poi.id === selectedPoiId ? { ...poi, layerId: fallback } : poi,
+				poi.layerId === layerId ? { ...poi, layerId: fallback } : poi,
 			);
-		}
-		if (newPoiLayerId === layerId) {
-			newPoiLayerId = fallback;
-		}
-		if (activeLayerFilter === layerId) {
-			activeLayerFilter = 'all';
-		}
-		markDirty();
+			if (selectedPoi?.layerId === layerId && selectedPoiId) {
+				draftPois = draftPois.map((poi) =>
+					poi.id === selectedPoiId ? { ...poi, layerId: fallback } : poi,
+				);
+			}
+			if (newPoiLayerId === layerId) {
+				newPoiLayerId = fallback;
+			}
+			if (activeLayerFilter === layerId) {
+				activeLayerFilter = 'all';
+			}
+			markDirty();
+		});
+	}
+
+	function toggleLayerVisibility(layerId: string): void {
+		withUndo('Layer visibility toggled', () => {
+			updateLayer(layerId, (entry) => ({
+				...entry,
+				visible: !entry.visible,
+			}));
+		});
+	}
+
+	function toggleLayerPlayerVisibility(layerId: string): void {
+		withUndo('Layer player visibility toggled', () => {
+			updateLayer(layerId, (entry) => ({
+				...entry,
+				playerVisible: !entry.playerVisible,
+			}));
+		});
+	}
+
+	function moveLayer(layerId: string, direction: 'up' | 'down'): void {
+		const index = draftLayers.findIndex((entry) => entry.id === layerId);
+		if (index === -1) return;
+		const target = direction === 'up' ? index - 1 : index + 1;
+		if (target < 0 || target >= draftLayers.length) return;
+		withUndo('Layer order changed', () => {
+			const reordered = [...draftLayers];
+			const [entry] = reordered.splice(index, 1);
+			if (!entry) return;
+			reordered.splice(target, 0, entry);
+			draftLayers = reordered;
+			markDirty();
+		});
+	}
+
+	function startLayerRename(layerId: string, currentName: string): void {
+		layerRenameId = layerId;
+		layerRenameDraft = currentName;
+		layerMenuOpenId = null;
+	}
+
+	function commitLayerRename(layerId: string): void {
+		const trimmed = layerRenameDraft.trim();
+		layerRenameId = null;
+		if (!trimmed) return;
+		withUndo('Layer renamed', () => {
+			updateLayer(layerId, (entry) => ({
+				...entry,
+				name: trimmed,
+			}));
+		});
+	}
+
+	function duplicateLayer(layerId: string): void {
+		const source = draftLayers.find((entry) => entry.id === layerId);
+		if (!source) return;
+		withUndo('Layer duplicated', () => {
+			const duplicatedId = generateMapAnnotationId('layer');
+			const nextLayer: MapAnnotationLayerData = {
+				...source,
+				id: duplicatedId,
+				name: `${source.name} Copy`,
+			};
+			draftLayers = [...draftLayers, nextLayer];
+			newPoiLayerId = duplicatedId;
+			markDirty();
+		});
 	}
 
 	function mapFractionToGridCell(x: number, y: number): GridCell | null {
@@ -1186,24 +1434,17 @@
 		eventTime: number;
 	}): void {
 		mapContextMenu = null;
-		if (isFogEditingContextReady()) return;
-		if (routeEditMode) {
-			if (!selectedRoute) {
-				const routeId = generateMapAnnotationId('layer').replace('layer-', 'route-');
-				upsertRoute({
-					id: routeId,
-					name: newRouteName.trim() || `Route ${draftRoutes.length + 1}`,
-					style: newRouteStyle,
-					waypoints: [{ x: payload.x, y: payload.y }],
-				});
-				return;
+		if (isFogEditingContextReady()) {
+			if (fogTool === 'polygon') {
+				if (!pendingFogUndoBefore) {
+					pendingFogUndoBefore = mapEditSnapshot();
+				}
+				fogLassoPoints = [...fogLassoPoints, { x: payload.x, y: payload.y }];
 			}
-			const updated: MapRouteData = {
-				...selectedRoute,
-				style: selectedRoute.style ?? newRouteStyle,
-				waypoints: [...selectedRoute.waypoints, { x: payload.x, y: payload.y }],
-			};
-			upsertRoute(updated);
+			return;
+		}
+		if (routeEditMode) {
+			routeDraftWaypoints = [...routeDraftWaypoints, { x: payload.x, y: payload.y }];
 			return;
 		}
 		if (combatModeEnabled && selectedCombat && selectedMap?.data.grid) {
@@ -1243,15 +1484,33 @@
 			y: payload.y,
 			layerId,
 		};
-		draftPois = [...draftPois, nextPoi];
-		selectedPoiId = nextPoi.id;
-		if (!layoutState.isExpanded) {
-			selectedPoiSheetOpen = true;
+		withUndo('POI placed', () => {
+			draftPois = [...draftPois, nextPoi];
+			selectedPoiId = nextPoi.id;
+			if (!layoutState.isExpanded) {
+				selectedPoiSheetOpen = true;
+			}
+			markDirty();
+		});
+	}
+
+	function handleMapDoubleClick(): void {
+		if (routeEditMode) {
+			finalizeRouteDraft();
+			return;
 		}
-		markDirty();
+		if (isFogEditingContextReady() && fogTool === 'polygon') {
+			finalizeFogPolygonLasso();
+		}
 	}
 
 	function handlePoiMove(payload: { id: string; x: number; y: number }): void {
+		if (!pendingPoiMoveUndo) {
+			pendingPoiMoveUndo = {
+				poiId: payload.id,
+				before: mapEditSnapshot(),
+			};
+		}
 		draftPois = draftPois.map((poi) =>
 			poi.id === payload.id ? { ...poi, x: payload.x, y: payload.y } : poi,
 		);
@@ -1394,12 +1653,14 @@
 	}
 
 	function handleDeletePoi(poiId: string): void {
-		draftPois = draftPois.filter((poi) => poi.id !== poiId);
-		if (selectedPoiId === poiId) selectedPoiId = null;
-		if (selectedPoiId === null) {
-			selectedPoiSheetOpen = false;
-		}
-		markDirty();
+		withUndo('POI deleted', () => {
+			draftPois = draftPois.filter((poi) => poi.id !== poiId);
+			if (selectedPoiId === poiId) selectedPoiId = null;
+			if (selectedPoiId === null) {
+				selectedPoiSheetOpen = false;
+			}
+			markDirty();
+		});
 	}
 
 	function updatePoi(poiId: string, updater: (poi: MapPoiData) => MapPoiData): void {
@@ -1466,6 +1727,92 @@
 		markDirty();
 	}
 
+	function selectRoute(routeId: string): void {
+		selectedRouteId = routeId;
+		const route = routeById[routeId];
+		if (route) {
+			newRouteName = route.name;
+			newRouteStyle = route.style;
+		}
+	}
+
+	function finalizeRouteDraft(): void {
+		if (!routeEditMode || routeDraftWaypoints.length < 2) return;
+		withUndo('Route finalized', () => {
+			if (!selectedRoute) {
+				const routeId = generateMapAnnotationId('layer').replace('layer-', 'route-');
+				upsertRoute({
+					id: routeId,
+					name: newRouteName.trim() || `Route ${draftRoutes.length + 1}`,
+					style: newRouteStyle,
+					waypoints: routeDraftWaypoints.map((point) => ({ ...point })),
+				});
+			} else {
+				upsertRoute({
+					...selectedRoute,
+					style: selectedRoute.style ?? newRouteStyle,
+					waypoints: [
+						...selectedRoute.waypoints,
+						...routeDraftWaypoints.map((point) => ({ ...point })),
+					],
+				});
+			}
+			routeDraftWaypoints = [];
+			routeDraftCursor = null;
+		});
+	}
+
+	function cancelRouteDraft(): void {
+		routeDraftWaypoints = [];
+		routeDraftCursor = null;
+	}
+
+	function handleRouteClick(payload: { routeId: string }): void {
+		selectRoute(payload.routeId);
+		cancelRouteDraft();
+	}
+
+	function handleRouteWaypointMove(payload: MapViewerRouteWaypointMovePayload): void {
+		if (!pendingRouteWaypointMoveUndo) {
+			pendingRouteWaypointMoveUndo = mapEditSnapshot();
+		}
+		draftRoutes = draftRoutes.map((route) => {
+			if (route.id !== payload.routeId) return route;
+			const waypoints = route.waypoints.map((waypoint, index) =>
+				index === payload.waypointIndex ? { x: payload.x, y: payload.y } : waypoint,
+			);
+			return {
+				...route,
+				waypoints,
+			};
+		});
+		markDirty();
+	}
+
+	function handleRouteWaypointDelete(payload: { routeId: string; waypointIndex: number }): void {
+		withUndo('Route waypoint deleted', () => {
+			draftRoutes = draftRoutes.map((route) => {
+				if (route.id !== payload.routeId) return route;
+				return {
+					...route,
+					waypoints: route.waypoints.filter((_, index) => index !== payload.waypointIndex),
+				};
+			});
+			markDirty();
+		});
+	}
+
+	function applySelectedRouteMetadata(): void {
+		if (!selectedRoute) return;
+		withUndo('Route updated', () => {
+			upsertRoute({
+				...selectedRoute,
+				name: newRouteName.trim() || selectedRoute.name,
+				style: newRouteStyle,
+			});
+		});
+	}
+
 	function handleCreateRoute(): void {
 		const routeId = generateMapAnnotationId('layer').replace('layer-', 'route-');
 		const route: MapRouteData = {
@@ -1474,23 +1821,29 @@
 			style: newRouteStyle,
 			waypoints: [],
 		};
-		upsertRoute(route);
+		withUndo('Route created', () => {
+			upsertRoute(route);
+		});
 		requestMapMode('route_edit');
 	}
 
 	function handleDeleteRoute(routeId: string): void {
-		draftRoutes = draftRoutes.filter((route) => route.id !== routeId);
-		if (selectedRouteId === routeId) {
-			selectedRouteId = draftRoutes[0]?.id ?? null;
-		}
-		markDirty();
+		withUndo('Route deleted', () => {
+			draftRoutes = draftRoutes.filter((route) => route.id !== routeId);
+			if (selectedRouteId === routeId) {
+				selectedRouteId = draftRoutes[0]?.id ?? null;
+			}
+			markDirty();
+		});
 	}
 
 	function handleClearRouteWaypoints(routeId: string): void {
-		draftRoutes = draftRoutes.map((route) =>
-			route.id === routeId ? { ...route, waypoints: [] } : route,
-		);
-		markDirty();
+		withUndo('Route waypoints cleared', () => {
+			draftRoutes = draftRoutes.map((route) =>
+				route.id === routeId ? { ...route, waypoints: [] } : route,
+			);
+			markDirty();
+		});
 	}
 
 	async function handleMarkPartyLocation(location: {
@@ -1764,6 +2117,10 @@
 			fogState: nextFogState,
 			issuedAt: updatedAt,
 		});
+	}
+
+	function requestClearFogOperations(): void {
+		confirmClearFogDialogOpen = true;
 	}
 
 	function isFogMessageInScope(message: {
@@ -2142,8 +2499,35 @@
 		applyFogPolygonOperation(operation);
 	}
 
+	function finalizeFogPolygonLasso(): void {
+		if (!isFogEditingContextReady() || fogTool !== 'polygon') return;
+		if (fogLassoPoints.length < 3) return;
+		const before = pendingFogUndoBefore ?? mapEditSnapshot();
+		commitFogPolygon('polygon', fogLassoPoints);
+		const after = mapEditSnapshot();
+		if (snapshotChanged(before, after)) {
+			mapUndoStack.record({
+				label: 'Fog stroke',
+				before,
+				after,
+			});
+		}
+		pendingFogUndoBefore = null;
+		fogLassoPoints = [];
+		fogDragCurrent = null;
+	}
+
+	function cancelFogPolygonLasso(): void {
+		fogLassoPoints = [];
+		fogDragCurrent = null;
+		pendingFogUndoBefore = null;
+	}
+
 	function handleFogPointerDown(point: MapFogPoint): void {
 		if (!isFogEditingContextReady()) return;
+		if (fogTool !== 'polygon' && !pendingFogUndoBefore) {
+			pendingFogUndoBefore = mapEditSnapshot();
+		}
 		if (fogTool === 'circle') {
 			fogPainting = true;
 			fogDragCurrent = point;
@@ -2156,12 +2540,16 @@
 			fogDragCurrent = point;
 			return;
 		}
-		fogPainting = true;
-		fogLassoPoints = [point];
+		fogDragCurrent = point;
 	}
 
 	function handleFogPointerMove(point: MapFogPoint): void {
-		if (!isFogEditingContextReady() || !fogPainting) return;
+		if (!isFogEditingContextReady()) return;
+		if (fogTool === 'polygon') {
+			fogDragCurrent = point;
+			return;
+		}
+		if (!fogPainting) return;
 		if (fogTool === 'circle') {
 			const previous = fogDragCurrent;
 			fogDragCurrent = point;
@@ -2177,7 +2565,6 @@
 			fogDragCurrent = point;
 			return;
 		}
-		fogLassoPoints = [...fogLassoPoints, point];
 	}
 
 	function handleFogPointerUp(point: MapFogPoint): void {
@@ -2186,13 +2573,11 @@
 			const polygon = polygonFromRectangle(fogDragStart, point);
 			commitFogPolygon('rectangle', polygon);
 		}
-		if (fogTool === 'polygon' && fogLassoPoints.length > 2) {
-			commitFogPolygon('polygon', [...fogLassoPoints, point]);
-		}
 		fogPainting = false;
 		fogDragStart = null;
-		fogDragCurrent = null;
-		fogLassoPoints = [];
+		if (fogTool !== 'polygon') {
+			fogDragCurrent = null;
+		}
 	}
 
 	function handleMapPointerDown(payload: {
@@ -2240,6 +2625,11 @@
 			handleFogPointerMove({ x: payload.x, y: payload.y });
 			return;
 		}
+		if (routeEditMode) {
+			routeDraftCursor = { x: payload.x, y: payload.y };
+		} else if (routeDraftCursor) {
+			routeDraftCursor = null;
+		}
 		if (!combatModeEnabled || payload.cellX === null || payload.cellY === null) return;
 		const cell = { x: payload.cellX, y: payload.cellY };
 		if (templatePlacementMode && templateDragOriginCell) {
@@ -2265,6 +2655,17 @@
 	}): void {
 		if (isFogEditingContextReady()) {
 			handleFogPointerUp({ x: payload.x, y: payload.y });
+			if (fogTool !== 'polygon' && pendingFogUndoBefore) {
+				const after = mapEditSnapshot();
+				if (snapshotChanged(pendingFogUndoBefore, after)) {
+					mapUndoStack.record({
+						label: 'Fog stroke',
+						before: pendingFogUndoBefore,
+						after,
+					});
+				}
+				pendingFogUndoBefore = null;
+			}
 			return;
 		}
 		if (templatePlacementMode && templateDragOriginCell) {
@@ -2272,6 +2673,39 @@
 				templatePreviewTargetCell = { x: payload.cellX, y: payload.cellY };
 			}
 			finalizeTemplateDrag();
+		}
+		if (pendingPoiMoveUndo) {
+			const after = mapEditSnapshot();
+			if (snapshotChanged(pendingPoiMoveUndo.before, after)) {
+				mapUndoStack.record({
+					label: 'POI moved',
+					before: pendingPoiMoveUndo.before,
+					after,
+				});
+			}
+			pendingPoiMoveUndo = null;
+		}
+		if (pendingRouteWaypointMoveUndo) {
+			const after = mapEditSnapshot();
+			if (snapshotChanged(pendingRouteWaypointMoveUndo, after)) {
+				mapUndoStack.record({
+					label: 'Route waypoint moved',
+					before: pendingRouteWaypointMoveUndo,
+					after,
+				});
+			}
+			pendingRouteWaypointMoveUndo = null;
+		}
+		if (pendingGridUndoBefore) {
+			const after = mapEditSnapshot();
+			if (snapshotChanged(pendingGridUndoBefore, after)) {
+				mapUndoStack.record({
+					label: 'Grid aligned',
+					before: pendingGridUndoBefore,
+					after,
+				});
+			}
+			pendingGridUndoBefore = null;
 		}
 		terrainPainting = false;
 	}
@@ -2601,6 +3035,43 @@
 			selectedPoiSheetOpen = true;
 		}
 	});
+	const routeDraftDistanceLabel = $derived.by(() => {
+		if (!selectedMap || routeDraftWaypoints.length < 2) return null;
+		const summary = summarizeRouteDistance(
+			{
+				style: newRouteStyle,
+				waypoints: routeDraftWaypoints,
+			},
+			{
+				width: draftImageSize?.width ?? selectedMap.data.width,
+				height: draftImageSize?.height ?? selectedMap.data.height,
+				grid: gridDraft,
+				scale: draftScaleEnabled
+					? {
+							unitsPerGridSquare: Number.parseFloat(draftScaleUnits) || 5,
+							unitLabel: draftScaleUnitLabel,
+						}
+					: undefined,
+			},
+		);
+		const pieces: string[] = [];
+		if (summary.gridSquares !== null) pieces.push(`${summary.gridSquares.toFixed(2)} sq`);
+		if (summary.scaledDistance !== null && summary.unitLabel) {
+			pieces.push(formatScaledDistance(summary.scaledDistance, summary.unitLabel));
+		}
+		return pieces.join(' | ') || null;
+	});
+
+	$effect(() => {
+		if (!selectedRoute) return;
+		newRouteName = selectedRoute.name;
+		newRouteStyle = selectedRoute.style;
+	});
+
+	$effect(() => {
+		if (viewerMode) return;
+		mapUndoStack.clear();
+	});
 
 	$effect(() => {
 		if (typeof window === 'undefined') return;
@@ -2611,18 +3082,44 @@
 				if (event.ctrlKey || event.metaKey) {
 					if (!event.shiftKey && lowerKey === 'z') {
 						event.preventDefault();
-						toastState.info('Undo for map edits arrives with Epic 19.4.');
+						undoMapEdit();
 						return;
 					}
 					if (event.shiftKey && lowerKey === 'z') {
 						event.preventDefault();
-						toastState.info('Redo for map edits arrives with Epic 19.4.');
+						redoMapEdit();
+						return;
+					}
+				}
+				if (event.key === 'Enter') {
+					if (routeEditMode && routeDraftWaypoints.length > 1) {
+						event.preventDefault();
+						finalizeRouteDraft();
+						return;
+					}
+					if (fogEditingEnabled && fogTool === 'polygon' && fogLassoPoints.length > 2) {
+						event.preventDefault();
+						finalizeFogPolygonLasso();
 						return;
 					}
 				}
 				if (event.key === 'Escape') {
 					if (mapContextMenu) {
 						mapContextMenu = null;
+						return;
+					}
+					if (layerMenuOpenId) {
+						layerMenuOpenId = null;
+						return;
+					}
+					if (routeEditMode && routeDraftWaypoints.length > 0) {
+						event.preventDefault();
+						cancelRouteDraft();
+						return;
+					}
+					if (fogEditingEnabled && fogTool === 'polygon' && fogLassoPoints.length > 0) {
+						event.preventDefault();
+						cancelFogPolygonLasso();
 						return;
 					}
 					if (activeMode !== 'view') {
@@ -2706,6 +3203,7 @@
 		};
 		const onWindowPointerDown = (): void => {
 			if (mapContextMenu) mapContextMenu = null;
+			if (layerMenuOpenId) layerMenuOpenId = null;
 		};
 		window.addEventListener('keydown', onWindowKeyDown);
 		window.addEventListener('pointerdown', onWindowPointerDown);
@@ -3001,6 +3499,8 @@
 									activeMode,
 								)}{#if activeMode === 'poi_edit' && touchPlacementHintVisible}
 									. Tap to place
+								{:else if activeMode === 'fog_paint' && fogTool === 'polygon' && fogLassoPoints.length > 0}
+									. {fogLassoPoints.length} vertex{fogLassoPoints.length === 1 ? '' : 'es'}
 								{/if}
 							</p>
 						</div>
@@ -3039,11 +3539,19 @@
 						templateOverlays={combatModeEnabled ? combinedTemplateOverlays : []}
 						routes={draftRoutes}
 						activeRouteId={selectedRouteId}
+						routeEditable={routeEditMode}
+						{routeDraftWaypoints}
+						{routeDraftCursor}
 						{partyMarker}
 						fogEnabled={!!selectedCombatTile ||
 							playerModeState.enabled ||
 							!!selectedMap.data.lastSessionFog}
 						fogState={effectiveFogState}
+						fogDraftShape={fogEditingEnabled ? fogTool : null}
+						fogDraftCursor={fogEditingEnabled ? fogDragCurrent : null}
+						fogDraftStart={fogEditingEnabled ? fogDragStart : null}
+						fogDraftPoints={fogEditingEnabled ? fogLassoPoints : []}
+						fogDraftRadius={fogBrushRadius}
 						fogFeatherPx={5}
 						fogPlayerEnforced={playerModeState.enabled}
 						fogAnimationOperation={playerModeState.enabled ? fogAnimationOperation : null}
@@ -3055,6 +3563,10 @@
 						onviewportchange={handleViewportChange}
 						onimageinfo={handleImageInfo}
 						onmapclick={handleMapClick}
+						onmapdoubleclick={handleMapDoubleClick}
+						onrouteclick={handleRouteClick}
+						onroutewaypointmove={handleRouteWaypointMove}
+						onroutewaypointdelete={handleRouteWaypointDelete}
 						onpoimove={handlePoiMove}
 						onpoiclick={handlePoiClick}
 						onpoihover={handlePoiHover}
@@ -3193,28 +3705,28 @@
 								</div>
 							{:else if activeMode === 'fog_paint'}
 								<div class="mt-2 space-y-2">
-									<label class="block text-xs text-ink-muted">
-										Brush
-										<select
-											class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
-											bind:value={fogTool}
-										>
-											{#each FOG_TOOL_OPTIONS as option (option.value)}
-												<option value={option.value}>{option.label}</option>
-											{/each}
-										</select>
-									</label>
-									<label class="block text-xs text-ink-muted">
-										Mode
-										<select
-											class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
-											bind:value={fogMode}
-										>
-											{#each FOG_MODE_OPTIONS as option (option.value)}
-												<option value={option.value}>{option.label}</option>
-											{/each}
-										</select>
-									</label>
+									<p class="text-xs font-medium text-ink">Brush type</p>
+									<div class="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Fog brush type">
+										{#each FOG_TOOL_OPTIONS as option (option.value)}
+											<button
+												type="button"
+												role="radio"
+												aria-checked={fogTool === option.value}
+												class="inline-flex h-10 items-center justify-center rounded border text-xs {fogTool ===
+												option.value
+													? 'border-accent bg-accent-subtle/30 text-ink'
+													: 'border-border text-ink-muted hover:bg-surface-alt'}"
+												onclick={() => {
+													fogTool = option.value;
+													if (option.value !== 'polygon') {
+														cancelFogPolygonLasso();
+													}
+												}}
+											>
+												{option.label}
+											</button>
+										{/each}
+									</div>
 									<label class="block text-xs text-ink-muted">
 										Brush radius {Math.round(fogBrushRadius * 100)}%
 										<input
@@ -3227,6 +3739,12 @@
 											disabled={fogTool !== 'circle'}
 										/>
 									</label>
+									{#if fogTool === 'polygon' && fogLassoPoints.length > 0}
+										<p class="text-xs text-ink-faint">
+											{fogLassoPoints.length} vertex{fogLassoPoints.length === 1 ? '' : 'es'}.
+											Double-click or Enter to close.
+										</p>
+									{/if}
 									<div class="grid grid-cols-3 gap-1.5">
 										<button
 											type="button"
@@ -3261,11 +3779,11 @@
 										></button>
 									</div>
 									<Toggle
-										label={fogMode === 'reveal' ? 'Reveal mode' : 'Re-fog mode'}
+										label={fogMode === 'reveal' ? 'Reveal mode (eye)' : 'Re-fog mode (eye-off)'}
 										checked={fogMode === 'reveal'}
 										onchange={(checked) => (fogMode = checked ? 'reveal' : 'refog')}
 									/>
-									<Button variant="danger" size="sm" onclick={clearFogOperations}
+									<Button variant="danger" size="sm" onclick={requestClearFogOperations}
 										>Clear all fog</Button
 									>
 								</div>
@@ -3277,6 +3795,7 @@
 											type="text"
 											class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
 											bind:value={newRouteName}
+											onblur={applySelectedRouteMetadata}
 										/>
 									</label>
 									<label class="block text-xs text-ink-muted">
@@ -3284,6 +3803,7 @@
 										<select
 											class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
 											bind:value={newRouteStyle}
+											onchange={applySelectedRouteMetadata}
 										>
 											<option value="straight">Straight</option>
 											<option value="curved">Curved</option>
@@ -3292,6 +3812,35 @@
 									<Button size="sm" variant="secondary" onclick={handleCreateRoute}
 										>New route</Button
 									>
+									{#if routeDraftWaypoints.length > 0}
+										<p class="text-xs text-ink-faint">
+											{routeDraftWaypoints.length} waypoint{routeDraftWaypoints.length === 1
+												? ''
+												: 's'} in progress.
+										</p>
+										{#if routeDraftDistanceLabel}
+											<p class="text-xs text-ink-faint">
+												Draft distance: {routeDraftDistanceLabel}
+											</p>
+										{/if}
+										<div class="flex items-center gap-2">
+											<Button size="sm" variant="primary" onclick={finalizeRouteDraft}
+												>Finalize route</Button
+											>
+											<Button size="sm" variant="ghost" onclick={cancelRouteDraft}
+												>Cancel draft</Button
+											>
+										</div>
+									{/if}
+									{#if selectedRoute}
+										<Button
+											size="sm"
+											variant="danger"
+											onclick={() => handleDeleteRoute(selectedRoute.id)}
+										>
+											Delete route
+										</Button>
+									{/if}
 								</div>
 							{:else if activeMode === 'grid_align'}
 								<div class="mt-2 space-y-2">
@@ -3389,37 +3938,132 @@
 							{:else if activeMode === 'layer_manage'}
 								<div class="mt-2 space-y-2">
 									{#each draftLayers as layer (layer.id)}
-										<div class="rounded border border-border bg-surface px-2 py-1.5 text-xs">
-											<div class="flex items-center justify-between gap-2">
-												<p class="truncate font-medium text-ink">{layer.name}</p>
-												<div class="flex items-center gap-1">
+										<div
+											class="rounded border border-border bg-surface px-2 py-1.5 text-xs {newPoiLayerId ===
+											layer.id
+												? 'border-l-4 border-l-accent'
+												: ''}"
+											onclick={() => {
+												newPoiLayerId = layer.id;
+											}}
+										>
+											<div class="relative flex items-center gap-2">
+												<button
+													type="button"
+													class="inline-flex h-8 w-8 items-center justify-center rounded border border-border text-ink-muted hover:bg-surface-alt"
+													aria-label={`Toggle ${layer.name} visibility`}
+													onclick={(event) => {
+														event.stopPropagation();
+														toggleLayerVisibility(layer.id);
+													}}
+												>
+													<Icon name={layer.visible ? 'eye' : 'eye-off'} size="xs" />
+												</button>
+												<span
+													class="inline-block h-4 w-4 rounded border border-border"
+													style={`background:${layerThemeSwatch(layer.colorTheme)};`}
+													aria-hidden="true"
+												></span>
+												{#if layerRenameId === layer.id}
+													<input
+														class="min-w-0 flex-1 rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
+														bind:value={layerRenameDraft}
+														onkeydown={(event) => {
+															if (event.key === 'Enter') {
+																commitLayerRename(layer.id);
+															}
+														}}
+														onblur={() => commitLayerRename(layer.id)}
+														autofocus
+													/>
+												{:else}
 													<button
 														type="button"
-														class="rounded border border-border px-1.5 py-0.5 text-ink-muted hover:bg-surface-alt"
-														onclick={() =>
-															updateLayer(layer.id, (entry) => ({
-																...entry,
-																visible: !entry.visible,
-															}))}
+														class="min-w-0 flex-1 truncate text-left font-medium text-ink"
+														onclick={(event) => {
+															event.stopPropagation();
+															startLayerRename(layer.id, layer.name);
+														}}
 													>
-														{layer.visible ? 'Hide' : 'Show'}
+														{layer.name}
 													</button>
-													<button
-														type="button"
-														class="rounded border border-border px-1.5 py-0.5 text-ink-muted hover:bg-surface-alt"
-														onclick={() =>
-															updateLayer(layer.id, (entry) => ({
-																...entry,
-																playerVisible: !entry.playerVisible,
-															}))}
+												{/if}
+												<button
+													type="button"
+													class="inline-flex h-8 w-8 items-center justify-center rounded border border-border text-ink-muted hover:bg-surface-alt"
+													aria-label={layer.playerVisible
+														? 'Players can see this layer'
+														: 'Players cannot see this layer'}
+													onclick={(event) => {
+														event.stopPropagation();
+														toggleLayerPlayerVisibility(layer.id);
+													}}
+												>
+													<Icon
+														name="book"
+														size="xs"
+														class={layer.playerVisible ? 'text-accent' : 'text-ink-faint'}
+													/>
+												</button>
+												<button
+													type="button"
+													class="inline-flex h-8 w-8 items-center justify-center rounded border border-border text-ink-muted hover:bg-surface-alt"
+													aria-label={`Layer actions for ${layer.name}`}
+													onclick={(event) => {
+														event.stopPropagation();
+														layerMenuOpenId = layerMenuOpenId === layer.id ? null : layer.id;
+													}}
+												>
+													...
+												</button>
+												{#if layerMenuOpenId === layer.id}
+													<div
+														class="absolute right-0 top-9 z-20 w-40 space-y-1 rounded border border-border bg-surface-elevated p-1.5 shadow-lg"
+														onpointerdown={(event) => event.stopPropagation()}
 													>
-														Player
-													</button>
-												</div>
+														<button
+															type="button"
+															class="block w-full rounded px-2 py-1 text-left hover:bg-surface-alt"
+															onclick={() => startLayerRename(layer.id, layer.name)}
+														>
+															Rename
+														</button>
+														<button
+															type="button"
+															class="block w-full rounded px-2 py-1 text-left hover:bg-surface-alt"
+															onclick={() => duplicateLayer(layer.id)}
+														>
+															Duplicate
+														</button>
+														<button
+															type="button"
+															class="block w-full rounded px-2 py-1 text-left hover:bg-surface-alt"
+															onclick={() => moveLayer(layer.id, 'up')}
+														>
+															Move up
+														</button>
+														<button
+															type="button"
+															class="block w-full rounded px-2 py-1 text-left hover:bg-surface-alt"
+															onclick={() => moveLayer(layer.id, 'down')}
+														>
+															Move down
+														</button>
+														<button
+															type="button"
+															class="block w-full rounded px-2 py-1 text-left text-error hover:bg-error/10"
+															onclick={() => handleDeleteLayer(layer.id)}
+														>
+															Delete
+														</button>
+													</div>
+												{/if}
 											</div>
 										</div>
 									{/each}
-									<Button size="sm" variant="secondary" onclick={handleAddLayer}>Add layer</Button>
+									<Button size="sm" variant="secondary" class="w-full" onclick={handleAddLayer}
+										>Add layer</Button
+									>
 								</div>
 							{/if}
 						</section>
@@ -3672,11 +4316,15 @@
 												<input
 													type="checkbox"
 													checked={layer.visible}
-													onchange={(event) =>
-														updateLayer(layer.id, (entry) => ({
-															...entry,
-															visible: (event.currentTarget as HTMLInputElement).checked,
-														}))}
+													onchange={(event) => {
+														const checked = (event.currentTarget as HTMLInputElement).checked;
+														withUndo('Layer visibility toggled', () => {
+															updateLayer(layer.id, (entry) => ({
+																...entry,
+																visible: checked,
+															}));
+														});
+													}}
 												/>
 												Visible
 											</label>
@@ -3684,11 +4332,15 @@
 												<input
 													type="checkbox"
 													checked={layer.playerVisible}
-													onchange={(event) =>
-														updateLayer(layer.id, (entry) => ({
-															...entry,
-															playerVisible: (event.currentTarget as HTMLInputElement).checked,
-														}))}
+													onchange={(event) => {
+														const checked = (event.currentTarget as HTMLInputElement).checked;
+														withUndo('Layer player visibility toggled', () => {
+															updateLayer(layer.id, (entry) => ({
+																...entry,
+																playerVisible: checked,
+															}));
+														});
+													}}
 												/>
 												Player Visible
 											</label>
@@ -3762,7 +4414,7 @@
 											<button
 												type="button"
 												class="w-full text-left text-xs font-medium text-ink"
-												onclick={() => (selectedRouteId = entry.route.id)}
+												onclick={() => selectRoute(entry.route.id)}
 											>
 												{entry.route.name}
 											</button>
@@ -4059,7 +4711,9 @@
 								{/each}
 							</select>
 						</label>
-						<Button variant="danger" size="sm" onclick={clearFogOperations}>Clear all fog</Button>
+						<Button variant="danger" size="sm" onclick={requestClearFogOperations}
+							>Clear all fog</Button
+						>
 					{:else if activeMode === 'route_edit'}
 						<Button size="sm" variant="secondary" onclick={handleCreateRoute}>Create route</Button>
 					{:else if activeMode === 'combat'}
@@ -4266,5 +4920,30 @@
 	<div class="mt-4 flex items-center justify-end gap-2">
 		<Button size="sm" variant="ghost" onclick={cancelModeTransition}>Stay in current mode</Button>
 		<Button size="sm" variant="primary" onclick={confirmModeTransition}>Discard and switch</Button>
+	</div>
+</Dialog>
+
+<Dialog
+	open={confirmClearFogDialogOpen}
+	title="Remove all fog from this map?"
+	onclose={() => {
+		confirmClearFogDialogOpen = false;
+	}}
+>
+	<p class="text-sm text-ink-muted">This cannot be undone.</p>
+	<div class="mt-4 flex items-center justify-end gap-2">
+		<Button size="sm" variant="ghost" onclick={() => (confirmClearFogDialogOpen = false)}>
+			Cancel
+		</Button>
+		<Button
+			size="sm"
+			variant="danger"
+			onclick={() => {
+				confirmClearFogDialogOpen = false;
+				clearFogOperations();
+			}}
+		>
+			Clear fog
+		</Button>
 	</div>
 </Dialog>
