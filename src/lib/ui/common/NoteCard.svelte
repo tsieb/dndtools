@@ -265,14 +265,14 @@
 			<span>{noteTypeLabel}</span>
 		</div>
 		<div class="mt-1.5 flex items-start justify-between gap-2">
-			<h3 class="text-base font-semibold text-ink transition-colors group-hover:text-accent">
+			<p class="text-base font-semibold text-ink transition-colors group-hover:text-accent">
 				{#if note.pinned}
 					<span class="mr-1 inline-block -mt-0.5 text-accent">
 						<Icon name="pin" size="xs" />
 					</span>
 				{/if}
 				{note.title}
-			</h3>
+			</p>
 		</div>
 		<p class="mt-1 text-xs text-ink-muted">
 			{note.folder === '/' ? 'Root' : note.folder.replace(/^\//, '').replace(/\//g, ' / ')}

@@ -39,7 +39,6 @@
 	let templateCandidates = $state<readonly NoteTemplate[]>([]);
 	let quickDeleteNoteId = $state<NoteId | null>(null);
 	let quickDeletePending = $state(false);
-	let noteListFocusId = $state<string | null>(null);
 
 	let tagFilter = $derived(page.url.searchParams.get('tag'));
 	let folderFilter = $derived(page.url.searchParams.get('folder'));
@@ -117,10 +116,6 @@
 	);
 
 	let totalCount = $derived(pinnedNotes.length + filteredNotes.length);
-	let noteListOrder = $derived.by(() => [
-		...pinnedNotes.map((note) => String(note.id)),
-		...filteredNotes.map((note) => String(note.id)),
-	]);
 	let showListSkeleton = $derived(notesState.loading && notesState.notes.length === 0);
 	let noNotesInVault = $derived(modeScopedNotes.length === 0);
 	let showEmptyFolderState = $derived(
@@ -147,12 +142,6 @@
 		if (playerModeState.enabled && !isNoteVisibleInPlayerMode(selected)) return null;
 		return selected;
 	});
-	$effect(() => {
-		if (!noteListFocusId || !noteListOrder.includes(noteListFocusId)) {
-			noteListFocusId = noteListOrder[0] ?? null;
-		}
-	});
-
 	function shouldAdvanceSessionCounter(templateId: string): boolean {
 		return (
 			templateId === 'session' || templateId === 'session-prep' || templateId === 'session-recap'
@@ -284,56 +273,6 @@
 
 	function requestQuickDelete(noteId: NoteId): void {
 		quickDeleteNoteId = noteId;
-	}
-
-	function focusNoteCard(noteId: string): void {
-		if (typeof document === 'undefined') return;
-		const element = document.getElementById(`note-list-option-${noteId}`);
-		if (!(element instanceof HTMLElement)) return;
-		element.focus();
-	}
-
-	function moveNoteListFocus(mode: 'next' | 'previous' | 'first' | 'last'): void {
-		if (noteListOrder.length === 0) return;
-		if (mode === 'first') {
-			noteListFocusId = noteListOrder[0] ?? null;
-			if (noteListFocusId) focusNoteCard(noteListFocusId);
-			return;
-		}
-		if (mode === 'last') {
-			noteListFocusId = noteListOrder.at(-1) ?? null;
-			if (noteListFocusId) focusNoteCard(noteListFocusId);
-			return;
-		}
-		const currentIndex = Math.max(0, noteListOrder.indexOf(noteListFocusId ?? noteListOrder[0]!));
-		const nextIndex =
-			mode === 'next'
-				? (currentIndex + 1) % noteListOrder.length
-				: (currentIndex - 1 + noteListOrder.length) % noteListOrder.length;
-		noteListFocusId = noteListOrder[nextIndex] ?? null;
-		if (noteListFocusId) focusNoteCard(noteListFocusId);
-	}
-
-	function handleNoteListKeydown(event: KeyboardEvent): void {
-		if (event.key === 'ArrowDown') {
-			event.preventDefault();
-			moveNoteListFocus('next');
-			return;
-		}
-		if (event.key === 'ArrowUp') {
-			event.preventDefault();
-			moveNoteListFocus('previous');
-			return;
-		}
-		if (event.key === 'Home') {
-			event.preventDefault();
-			moveNoteListFocus('first');
-			return;
-		}
-		if (event.key === 'End') {
-			event.preventDefault();
-			moveNoteListFocus('last');
-		}
 	}
 
 	async function confirmQuickDelete(): Promise<void> {
@@ -508,22 +447,10 @@
 						<span class="text-xs font-semibold uppercase tracking-wider text-ink-faint">Pinned</span
 						>
 					</div>
-					<div
-						class="density-list {mediumSplitActive ? '' : 'sm:grid-cols-2'}"
-						role="listbox"
-						aria-label="Pinned notes"
-						aria-activedescendant={noteListFocusId
-							? `note-list-option-${noteListFocusId}`
-							: undefined}
-					>
+					<div class="density-list {mediumSplitActive ? '' : 'sm:grid-cols-2'}">
 						{#each pinnedNotes as note (note.id)}
 							<NoteCard
 								{note}
-								listOptionId={`note-list-option-${note.id}`}
-								listTabIndex={noteListFocusId === String(note.id) ? 0 : -1}
-								listSelected={noteListFocusId === String(note.id)}
-								onlistfocus={() => (noteListFocusId = String(note.id))}
-								onlistkeydown={handleNoteListKeydown}
 								onclick={(id) => openNote(id)}
 								onpin={(id) => void handleQuickPin(id)}
 								ondelete={requestQuickDelete}
@@ -549,22 +476,10 @@
 					{/each}
 				</div>
 			{:else if filteredNotes.length > 0}
-				<div
-					class="density-list {mediumSplitActive ? '' : 'sm:grid-cols-2'}"
-					role="listbox"
-					aria-label="Notes"
-					aria-activedescendant={noteListFocusId
-						? `note-list-option-${noteListFocusId}`
-						: undefined}
-				>
+				<div class="density-list {mediumSplitActive ? '' : 'sm:grid-cols-2'}">
 					{#each filteredNotes as note (note.id)}
 						<NoteCard
 							{note}
-							listOptionId={`note-list-option-${note.id}`}
-							listTabIndex={noteListFocusId === String(note.id) ? 0 : -1}
-							listSelected={noteListFocusId === String(note.id)}
-							onlistfocus={() => (noteListFocusId = String(note.id))}
-							onlistkeydown={handleNoteListKeydown}
 							onclick={(id) => openNote(id)}
 							onpin={(id) => void handleQuickPin(id)}
 							ondelete={requestQuickDelete}

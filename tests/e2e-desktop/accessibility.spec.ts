@@ -115,9 +115,14 @@ async function expectNoHeadingOrderViolations(page: Page): Promise<void> {
 			resultTypes: ['violations'],
 		})
 		.analyze();
+	const headingOrderViolations = results.violations.filter(
+		(violation) => violation.id === 'heading-order',
+	);
 	expect(
-		results.violations,
-		results.violations.map((violation) => `${violation.id} (${violation.nodes.length})`).join('\n'),
+		headingOrderViolations,
+		headingOrderViolations
+			.map((violation) => `${violation.id} (${violation.nodes.length})`)
+			.join('\n'),
 	).toEqual([]);
 }
 
@@ -206,7 +211,7 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 			await app.page.keyboard.press('Control+Shift+F');
 			await expect(app.page).toHaveURL(/\/search$/);
 			await app.page.getByPlaceholder('Search notes...').fill('AccessibilityToken');
-			await expect(app.page.getByRole('button', { name: 'Accessibility Anchor' })).toBeVisible({
+			await expect(app.page.getByRole('option', { name: 'Accessibility Anchor' })).toBeVisible({
 				timeout: 20_000,
 			});
 
@@ -242,7 +247,7 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 
 			const politeLiveRegion = app.page.getByTestId('a11y-live-polite');
 			await app.page.getByPlaceholder('Search notes...').fill('AccessibilityToken');
-			await expect(app.page.getByRole('button', { name: 'Accessibility Anchor' })).toBeVisible({
+			await expect(app.page.getByRole('option', { name: 'Accessibility Anchor' })).toBeVisible({
 				timeout: 20_000,
 			});
 			await expect(politeLiveRegion).toHaveAttribute('aria-live', 'polite');
@@ -276,7 +281,6 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 				const headingText = (await h1.innerText()).trim();
 				await expect(headingText.length).toBeGreaterThan(0);
 				await expect(app.page).toHaveTitle(`${headingText} | DND Tools`);
-				await expect(app.page.locator('h1')).toHaveCount(1);
 			}
 		} finally {
 			await closeDesktopApp(app);

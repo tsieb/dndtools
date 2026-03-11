@@ -200,7 +200,7 @@ test.describe('Desktop critical workflows @critical', () => {
 			}, createdId);
 			expect(updatedContent).toContain('Added via CRUD flow');
 
-			await app.page.getByTitle('Delete note').click();
+			await app.page.getByRole('button', { name: 'Delete note' }).click();
 			await expect(app.page.getByText('Are you sure you want to delete')).toBeVisible();
 			await app.page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
 			await expect(app.page).toHaveURL(/\/notes$/);
@@ -231,7 +231,7 @@ test.describe('Desktop critical workflows @critical', () => {
 
 			await gotoDesktopPath(app.page, '/knowledge/search');
 			await app.page.getByPlaceholder('Search notes...').fill('ArcaneSigilToken');
-			await expect(app.page.getByRole('button', { name: 'Beta Node' })).toBeVisible();
+			await expect(app.page.getByRole('option', { name: 'Beta Node' })).toBeVisible();
 		} finally {
 			await closeDesktopApp(app);
 		}
@@ -322,7 +322,8 @@ test.describe('Desktop critical workflows @critical', () => {
 
 			const addNotesSection = app.page
 				.locator('section')
-				.filter({ hasText: 'Add Tiles and Notes' });
+				.filter({ has: app.page.getByPlaceholder('Search notes (titles first, tags second)') })
+				.first();
 			await expect(addNotesSection).toBeVisible();
 			await addNotesSection
 				.getByPlaceholder('Search notes (titles first, tags second)')
