@@ -5,7 +5,12 @@
 		MapRouteStyle,
 		MapViewportData,
 	} from '$lib/types/object.js';
-	import type { MapFogPolygonOperation, MapFogState } from '$lib/types/map-fog.js';
+	import type {
+		MapFogBrushShape,
+		MapFogPoint,
+		MapFogPolygonOperation,
+		MapFogState,
+	} from '$lib/types/map-fog.js';
 	import { revealBoundsFromFogState, splitFogPolygonsByMode } from '$lib/domain/map-fog.js';
 	import { ui } from '$lib/state/ui.svelte.js';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -58,6 +63,13 @@
 		waypoints: readonly MapViewerRouteWaypoint[];
 	}
 
+	export interface MapViewerRouteWaypointMovePayload {
+		routeId: string;
+		waypointIndex: number;
+		x: number;
+		y: number;
+	}
+
 	export interface MapViewerPartyMarker {
 		x: number;
 		y: number;
@@ -99,9 +111,17 @@
 		templateOverlays?: readonly MapViewerTemplateOverlay[];
 		routes?: readonly MapViewerRoute[];
 		activeRouteId?: string | null;
+		routeEditable?: boolean;
+		routeDraftWaypoints?: readonly MapViewerRouteWaypoint[];
+		routeDraftCursor?: MapViewerRouteWaypoint | null;
 		partyMarker?: MapViewerPartyMarker | null;
 		fogEnabled?: boolean;
 		fogState?: MapFogState | null;
+		fogDraftShape?: MapFogBrushShape | null;
+		fogDraftCursor?: MapFogPoint | null;
+		fogDraftStart?: MapFogPoint | null;
+		fogDraftPoints?: readonly MapFogPoint[];
+		fogDraftRadius?: number;
 		fogFeatherPx?: number;
 		fogPlayerEnforced?: boolean;
 		fogAnimationOperation?: MapFogPolygonOperation | null;
@@ -132,6 +152,10 @@
 		onmappointerdown?: (payload: MapViewerPointerPayload) => void;
 		onmappointermove?: (payload: MapViewerPointerPayload) => void;
 		onmappointerup?: (payload: MapViewerPointerPayload) => void;
+		onmapdoubleclick?: (payload: { x: number; y: number }) => void;
+		onrouteclick?: (payload: { routeId: string }) => void;
+		onroutewaypointmove?: (payload: MapViewerRouteWaypointMovePayload) => void;
+		onroutewaypointdelete?: (payload: { routeId: string; waypointIndex: number }) => void;
 		oninputmodalitytouch?: () => void;
 		onmapcontextmenu?: (payload: {
 			x: number;
@@ -160,9 +184,17 @@
 		templateOverlays = [],
 		routes = [],
 		activeRouteId = null,
+		routeEditable = false,
+		routeDraftWaypoints = [],
+		routeDraftCursor = null,
 		partyMarker = null,
 		fogEnabled = false,
 		fogState = null,
+		fogDraftShape = null,
+		fogDraftCursor = null,
+		fogDraftStart = null,
+		fogDraftPoints = [],
+		fogDraftRadius = 0.06,
 		fogFeatherPx = 5,
 		fogPlayerEnforced = false,
 		fogAnimationOperation = null,
@@ -182,6 +214,10 @@
 		onmappointerdown,
 		onmappointermove,
 		onmappointerup,
+		onmapdoubleclick,
+		onrouteclick,
+		onroutewaypointmove,
+		onroutewaypointdelete,
 		oninputmodalitytouch,
 		onmapcontextmenu,
 	}: Props = $props();
@@ -233,6 +269,14 @@
 	let poiDrag: {
 		pointerId: number;
 		poiId: string;
+		startX: number;
+		startY: number;
+		moved: boolean;
+	} | null = null;
+	let routeWaypointDrag: {
+		pointerId: number;
+		routeId: string;
+		waypointIndex: number;
 		startX: number;
 		startY: number;
 		moved: boolean;
@@ -389,6 +433,29 @@
 	}
 
 	const visiblePois = $derived.by(() => pois.filter((poi) => !poi.hidden));
+	const activeRoute = $derived.by(() =>
+		activeRouteId ? (routes.find((route) => route.id === activeRouteId) ?? null) : null,
+	);
+	const activeRouteWaypointScreenPositions = $derived.by(() => {
+		if (!routeEditable || !activeRoute || !image)
+			return [] as Array<{
+				waypointIndex: number;
+				x: number;
+				y: number;
+			}>;
+		return activeRoute.waypoints
+			.map((waypoint, waypointIndex) => {
+				const point = mapFractionToLocalPoint(waypoint.x, waypoint.y);
+				return point
+					? {
+							waypointIndex,
+							x: point.x,
+							y: point.y,
+						}
+					: null;
+			})
+			.filter((entry): entry is { waypointIndex: number; x: number; y: number } => !!entry);
+	});
 
 	const poiScreenPositions = $derived.by(() =>
 		visiblePois
@@ -782,7 +849,7 @@
 	}
 
 	function drawRoutes(ctx: CanvasRenderingContext2D): void {
-		if (!image || routes.length === 0) return;
+		if (!image) return;
 		const zoom = Math.max(MIN_ZOOM, viewport.zoom);
 		for (const route of routes) {
 			if (!route.waypoints || route.waypoints.length < 2) continue;
@@ -834,6 +901,160 @@
 			}
 			ctx.restore();
 		}
+		if (routeDraftWaypoints.length > 0) {
+			ctx.save();
+			ctx.lineWidth = 2;
+			ctx.strokeStyle = 'rgba(22, 101, 52, 0.9)';
+			ctx.setLineDash([8, 6]);
+			ctx.beginPath();
+			const first = routeDraftWaypoints[0];
+			if (!first) {
+				ctx.restore();
+				return;
+			}
+			ctx.moveTo(
+				viewport.panX + first.x * image.width * zoom,
+				viewport.panY + first.y * image.height * zoom,
+			);
+			for (const waypoint of routeDraftWaypoints.slice(1)) {
+				ctx.lineTo(
+					viewport.panX + waypoint.x * image.width * zoom,
+					viewport.panY + waypoint.y * image.height * zoom,
+				);
+			}
+			if (routeDraftCursor) {
+				ctx.lineTo(
+					viewport.panX + routeDraftCursor.x * image.width * zoom,
+					viewport.panY + routeDraftCursor.y * image.height * zoom,
+				);
+			}
+			ctx.stroke();
+			ctx.setLineDash([]);
+			for (const waypoint of routeDraftWaypoints) {
+				ctx.beginPath();
+				ctx.fillStyle = 'rgba(22, 101, 52, 1)';
+				ctx.arc(
+					viewport.panX + waypoint.x * image.width * zoom,
+					viewport.panY + waypoint.y * image.height * zoom,
+					4,
+					0,
+					Math.PI * 2,
+				);
+				ctx.fill();
+			}
+			ctx.restore();
+		}
+	}
+
+	function drawFogDraftPreview(ctx: CanvasRenderingContext2D): void {
+		const currentImage = image;
+		if (!currentImage || !fogDraftShape || !fogDraftCursor) return;
+		const zoom = Math.max(MIN_ZOOM, viewport.zoom);
+		const toLocal = (point: MapFogPoint): { x: number; y: number } => ({
+			x: viewport.panX + point.x * currentImage.width * zoom,
+			y: viewport.panY + point.y * currentImage.height * zoom,
+		});
+		ctx.save();
+		ctx.strokeStyle = 'rgba(30, 64, 175, 0.9)';
+		ctx.fillStyle = 'rgba(59, 130, 246, 0.22)';
+		ctx.lineWidth = 2;
+		if (fogDraftShape === 'circle') {
+			const center = toLocal(fogDraftCursor);
+			const radiusPx = Math.max(2, fogDraftRadius * currentImage.width * zoom);
+			ctx.beginPath();
+			ctx.arc(center.x, center.y, radiusPx, 0, Math.PI * 2);
+			ctx.fill();
+			ctx.stroke();
+			ctx.restore();
+			return;
+		}
+		if (fogDraftShape === 'rectangle' && fogDraftStart) {
+			const start = toLocal(fogDraftStart);
+			const end = toLocal(fogDraftCursor);
+			ctx.beginPath();
+			ctx.rect(start.x, start.y, end.x - start.x, end.y - start.y);
+			ctx.fill();
+			ctx.stroke();
+			ctx.restore();
+			return;
+		}
+		if (fogDraftShape === 'polygon' && fogDraftPoints.length > 0) {
+			const first = fogDraftPoints[0];
+			if (!first) {
+				ctx.restore();
+				return;
+			}
+			const firstLocal = toLocal(first);
+			ctx.beginPath();
+			ctx.moveTo(firstLocal.x, firstLocal.y);
+			for (const point of fogDraftPoints.slice(1)) {
+				const local = toLocal(point);
+				ctx.lineTo(local.x, local.y);
+			}
+			const cursorLocal = toLocal(fogDraftCursor);
+			ctx.setLineDash([8, 6]);
+			ctx.lineTo(cursorLocal.x, cursorLocal.y);
+			ctx.stroke();
+			ctx.setLineDash([6, 5]);
+			const lastPoint = fogDraftPoints[fogDraftPoints.length - 1];
+			if (lastPoint) {
+				const lastLocal = toLocal(lastPoint);
+				ctx.beginPath();
+				ctx.moveTo(lastLocal.x, lastLocal.y);
+				ctx.lineTo(cursorLocal.x, cursorLocal.y);
+				ctx.stroke();
+			}
+			ctx.setLineDash([]);
+		}
+		ctx.restore();
+	}
+
+	function distancePointToSegment(
+		pointX: number,
+		pointY: number,
+		startX: number,
+		startY: number,
+		endX: number,
+		endY: number,
+	): number {
+		const dx = endX - startX;
+		const dy = endY - startY;
+		if (dx === 0 && dy === 0) {
+			return Math.hypot(pointX - startX, pointY - startY);
+		}
+		const t = Math.max(
+			0,
+			Math.min(1, ((pointX - startX) * dx + (pointY - startY) * dy) / (dx * dx + dy * dy)),
+		);
+		const projectionX = startX + t * dx;
+		const projectionY = startY + t * dy;
+		return Math.hypot(pointX - projectionX, pointY - projectionY);
+	}
+
+	function findRouteAtLocalPoint(localX: number, localY: number): string | null {
+		if (!routeEditable || !image || routes.length === 0) return null;
+		const zoom = Math.max(MIN_ZOOM, viewport.zoom);
+		const hitThreshold = 10;
+		for (const route of routes) {
+			if (!route.waypoints || route.waypoints.length < 2) continue;
+			for (let index = 0; index < route.waypoints.length - 1; index += 1) {
+				const start = route.waypoints[index];
+				const end = route.waypoints[index + 1];
+				if (!start || !end) continue;
+				const distance = distancePointToSegment(
+					localX,
+					localY,
+					viewport.panX + start.x * image.width * zoom,
+					viewport.panY + start.y * image.height * zoom,
+					viewport.panX + end.x * image.width * zoom,
+					viewport.panY + end.y * image.height * zoom,
+				);
+				if (distance <= hitThreshold) {
+					return route.id;
+				}
+			}
+		}
+		return null;
 	}
 
 	function drawPartyMarker(ctx: CanvasRenderingContext2D): void {
@@ -930,6 +1151,7 @@
 				overlay.stroke ?? 'rgba(220, 38, 38, 0.75)',
 			);
 		}
+		drawFogDraftPreview(ctx);
 		drawFogOverlay(ctx);
 	}
 
@@ -1035,6 +1257,25 @@
 		if (activePointers.has(event.pointerId)) {
 			activePointers.set(event.pointerId, { x: localX, y: localY });
 		}
+		if (routeWaypointDrag && routeWaypointDrag.pointerId === event.pointerId) {
+			if (
+				Math.hypot(localX - routeWaypointDrag.startX, localY - routeWaypointDrag.startY) >
+				POI_CLICK_DRAG_THRESHOLD
+			) {
+				routeWaypointDrag = { ...routeWaypointDrag, moved: true };
+			}
+			const fractions = localPointToMapFraction(localX, localY);
+			if (fractions) {
+				onroutewaypointmove?.({
+					routeId: routeWaypointDrag.routeId,
+					waypointIndex: routeWaypointDrag.waypointIndex,
+					x: fractions.x,
+					y: fractions.y,
+				});
+				pointerHint = 'Moving waypoint';
+			}
+			return;
+		}
 
 		if (combatTokenDrag && combatTokenDrag.pointerId === event.pointerId) {
 			if (
@@ -1101,6 +1342,9 @@
 
 	function onPointerUp(event: PointerEvent): void {
 		emitMapPointerCallback(event, onmappointerup);
+		if (routeWaypointDrag?.pointerId === event.pointerId) {
+			routeWaypointDrag = null;
+		}
 		if (combatTokenDrag?.pointerId === event.pointerId) {
 			if (viewportEl && combatTokenDrag.moved) {
 				const rect = viewportEl.getBoundingClientRect();
@@ -1131,16 +1375,26 @@
 				const localY = event.clientY - rect.top;
 				const fractions = localPointToMapFraction(localX, localY);
 				if (fractions) {
-					const placement = poiEditable && ghostPlacement ? ghostPlacement : fractions;
-					onmapclick?.({
-						x: placement.x,
-						y: placement.y,
-						ctrlKey: clickCandidate.ctrlKey,
-						metaKey: clickCandidate.metaKey,
-						shiftKey: clickCandidate.shiftKey,
-						pointerType: clickCandidate.pointerType,
-						eventTime: clickCandidate.eventTime,
-					});
+					let routeSelected = false;
+					if (routeEditable) {
+						const routeHit = findRouteAtLocalPoint(localX, localY);
+						if (routeHit) {
+							onrouteclick?.({ routeId: routeHit });
+							routeSelected = true;
+						}
+					}
+					if (!routeSelected) {
+						const placement = poiEditable && ghostPlacement ? ghostPlacement : fractions;
+						onmapclick?.({
+							x: placement.x,
+							y: placement.y,
+							ctrlKey: clickCandidate.ctrlKey,
+							metaKey: clickCandidate.metaKey,
+							shiftKey: clickCandidate.shiftKey,
+							pointerType: clickCandidate.pointerType,
+							eventTime: clickCandidate.eventTime,
+						});
+					}
 				}
 			}
 		}
@@ -1162,6 +1416,49 @@
 
 	function onPointerLeave(): void {
 		pointerLocal = null;
+	}
+
+	function onDblClick(event: MouseEvent): void {
+		if (!viewportEl || !onmapdoubleclick) return;
+		const rect = viewportEl.getBoundingClientRect();
+		const localX = event.clientX - rect.left;
+		const localY = event.clientY - rect.top;
+		const fractions = localPointToMapFraction(localX, localY);
+		if (!fractions) return;
+		onmapdoubleclick({ x: fractions.x, y: fractions.y });
+	}
+
+	function handleRouteWaypointPointerDown(
+		event: PointerEvent,
+		routeId: string,
+		waypointIndex: number,
+	): void {
+		event.stopPropagation();
+		if (!routeEditable || !viewportEl) return;
+		const rect = viewportEl.getBoundingClientRect();
+		const localX = event.clientX - rect.left;
+		const localY = event.clientY - rect.top;
+		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+		routeWaypointDrag = {
+			pointerId: event.pointerId,
+			routeId,
+			waypointIndex,
+			startX: localX,
+			startY: localY,
+			moved: false,
+		};
+	}
+
+	function handleRouteWaypointDeleteClick(
+		event: MouseEvent,
+		routeId: string,
+		waypointIndex: number,
+	): void {
+		event.stopPropagation();
+		onroutewaypointdelete?.({
+			routeId,
+			waypointIndex,
+		});
 	}
 
 	function handlePoiPointerDown(event: PointerEvent, poiId: string): void {
@@ -1452,6 +1749,7 @@
 		onpointercancel={onPointerUp}
 		onlostpointercapture={onPointerUp}
 		onpointerleave={onPointerLeave}
+		ondblclick={onDblClick}
 		oncontextmenu={onContextMenu}
 	>
 		<canvas bind:this={canvasEl} class="absolute inset-0 h-full w-full"></canvas>
@@ -1497,6 +1795,33 @@
 					>
 						<span class="text-xs leading-none">{POI_CATEGORY_ICON[entry.poi.category]}</span>
 					</button>
+				{/each}
+			</div>
+		{/if}
+		{#if image && routeEditable && activeRoute && activeRouteWaypointScreenPositions.length > 0}
+			<div class="pointer-events-none absolute inset-0">
+				{#each activeRouteWaypointScreenPositions as waypoint (waypoint.waypointIndex)}
+					<div
+						class="group pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2"
+						style={`left:${waypoint.x}px;top:${waypoint.y}px;`}
+					>
+						<button
+							type="button"
+							class="h-5 w-5 rounded-full border-2 border-white bg-emerald-700 shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+							aria-label={`Route waypoint ${waypoint.waypointIndex + 1}`}
+							onpointerdown={(event) =>
+								handleRouteWaypointPointerDown(event, activeRoute.id, waypoint.waypointIndex)}
+						></button>
+						<button
+							type="button"
+							class="absolute left-1/2 top-6 h-8 w-8 -translate-x-1/2 rounded-full border border-border bg-surface text-xs text-error opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+							aria-label="Delete waypoint"
+							onclick={(event) =>
+								handleRouteWaypointDeleteClick(event, activeRoute.id, waypoint.waypointIndex)}
+						>
+							x
+						</button>
+					</div>
 				{/each}
 			</div>
 		{/if}

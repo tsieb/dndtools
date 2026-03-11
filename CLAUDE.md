@@ -171,6 +171,25 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 19.4** - Editing Tool Ergonomics: Undo, Fog, Routes, and Layers:
+  - Added map editing undo/redo stack in `src/lib/state/map-undo-stack.svelte.ts` and integrated it in `src/routes/maps/+page.svelte`:
+    - undo/redo now applies to POI placement/deletion/move, fog paint strokes, route finalize/delete/waypoint edits, layer visibility/player visibility/order/name/duplicate/delete operations, and grid alignment drags.
+    - map route keyboard handlers now execute `Ctrl+Z` / `Ctrl+Shift+Z` with toasts (`Undone: ...` / `Redone: ...`) instead of placeholder messaging.
+    - undo stack now clears when leaving the map viewer route or loading a different map draft.
+  - Upgraded fog paint ergonomics:
+    - brush type controls now render as larger radio-style tool buttons in the contextual `fog_paint` panel.
+    - polygon fog mode now supports click-to-place vertices, mode-strip vertex count feedback, Enter/double-click finalize, and Escape cancel.
+    - added live fog draft previews in `src/lib/ui/maps/MapCanvasViewer.svelte` for circle radius, rectangle extents, and polygon/lasso lines.
+    - added explicit confirmation dialog for `Clear all fog` with irreversible warning copy.
+  - Upgraded route-edit ergonomics:
+    - added explicit draft waypoint workflow in `src/routes/maps/+page.svelte` (click to add waypoints, dashed preview, Enter/double-click finalize, Escape cancel).
+    - added interactive selected-route waypoint handles in `src/lib/ui/maps/MapCanvasViewer.svelte` with drag-to-move and per-waypoint delete affordances.
+    - added route line hit-selection and live draft distance readout in route-edit tools.
+  - Reworked `layer_manage` contextual panel into first-class layer controls:
+    - row-level visibility toggle, color swatch, inline rename, player-visibility toggle, row activation for default POI layer, and action menu (`Rename`, `Duplicate`, `Delete`, `Move up`, `Move down`).
+    - `Add layer` now creates `New Layer` and immediately enters inline rename mode.
+  - Added unit coverage for the undo stack in `src/lib/state/map-undo-stack.svelte.test.ts`.
+
 - **Epic 19.3** - POI UX: Creation Workflow, Preview Quality & Linking:
   - Added POI placement affordances in `src/lib/ui/maps/MapCanvasViewer.svelte`:
     - `poi_edit` mode now uses a crosshair cursor with a semi-transparent ghost pin that follows the pointer.
