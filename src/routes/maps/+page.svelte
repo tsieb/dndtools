@@ -275,6 +275,15 @@
 			areaLabelByNoteId,
 		),
 	);
+	const requestedMapId = $derived.by(() => {
+		const queryMapId = page.url.searchParams.get('map')?.trim() ?? '';
+		if (queryMapId) return queryMapId;
+		const routeMatch = page.url.pathname.match(/^\/atlas\/maps\/([^/]+)$/);
+		const routeMapId = routeMatch?.[1]?.trim() ?? '';
+		if (routeMapId) return decodeURIComponent(routeMapId);
+		return null;
+	});
+	const viewerMode = $derived.by(() => /^\/atlas\/maps\/[^/]+$/.test(page.url.pathname));
 
 	const selectedMap = $derived.by(
 		() => filteredMaps.find((entry) => String(entry.id) === selectedMapId) ?? null,
@@ -374,8 +383,7 @@
 		}),
 	);
 	const queryPlacementPoi = $derived.by(() => {
-		const queryMapId = page.url.searchParams.get('map');
-		if (!queryMapId || !selectedMap || String(selectedMap.id) !== queryMapId) return null;
+		if (!requestedMapId || !selectedMap || String(selectedMap.id) !== requestedMapId) return null;
 		const rawX = page.url.searchParams.get('x');
 		const rawY = page.url.searchParams.get('y');
 		if (!rawX || !rawY) return null;
@@ -1120,7 +1128,7 @@
 		if (!mapId) return;
 		if (!maps.some((entry) => String(entry.id) === mapId)) return;
 		selectedMapId = mapId;
-		void goto(`${resolve('/atlas/maps')}?map=${encodeURIComponent(mapId)}`, {
+		void goto(resolve(`/atlas/maps/${encodeURIComponent(mapId)}`), {
 			replaceState: true,
 			noScroll: true,
 		});
@@ -2200,6 +2208,12 @@
 	});
 
 	$effect(() => {
+		if (viewerMode) {
+			const forcedId = requestedMapId?.trim() ?? '';
+			selectedMapId =
+				forcedId && maps.some((entry) => String(entry.id) === forcedId) ? forcedId : null;
+			return;
+		}
 		if (playerModeState.enabled) {
 			const partyMapId = partyLocation?.mapId ?? null;
 			if (partyMapId && maps.some((entry) => String(entry.id) === partyMapId)) {
@@ -2211,9 +2225,8 @@
 				selectedMapId = playerMapId;
 				return;
 			}
-			const queryMapId = page.url.searchParams.get('map');
-			if (queryMapId && maps.some((entry) => String(entry.id) === queryMapId)) {
-				selectedMapId = queryMapId;
+			if (requestedMapId && maps.some((entry) => String(entry.id) === requestedMapId)) {
+				selectedMapId = requestedMapId;
 				return;
 			}
 			selectedMapId = null;
@@ -2234,15 +2247,15 @@
 	});
 
 	$effect(() => {
+		if (viewerMode) return;
 		if (playerModeState.enabled) return;
-		const queryMapId = page.url.searchParams.get('map');
-		if (!queryMapId) return;
-		if (selectedMapId === queryMapId) return;
-		if (!maps.some((entry) => String(entry.id) === queryMapId)) return;
+		if (!requestedMapId) return;
+		if (selectedMapId === requestedMapId) return;
+		if (!maps.some((entry) => String(entry.id) === requestedMapId)) return;
 		query = '';
 		selectedTag = '';
 		selectedAreaNoteId = '';
-		selectedMapId = queryMapId;
+		selectedMapId = requestedMapId;
 	});
 
 	$effect(() => {
@@ -2259,9 +2272,8 @@
 
 	$effect(() => {
 		if (!selectedMap) return;
-		const queryMapId = page.url.searchParams.get('map');
 		const queryPoiId = page.url.searchParams.get('poi');
-		if (queryMapId !== String(selectedMap.id) || !queryPoiId) return;
+		if (requestedMapId !== String(selectedMap.id) || !queryPoiId) return;
 		if (!draftPois.some((poi) => poi.id === queryPoiId)) return;
 		selectedPoiId = queryPoiId;
 	});
@@ -2301,32 +2313,34 @@
 </script>
 
 <div class="mx-auto max-w-[1400px] p-6">
-	<header class="mb-5 flex flex-wrap items-start justify-between gap-3">
-		<div>
-			<h1 class="text-2xl font-bold text-ink" style="font-family: var(--font-serif)">
-				Map Library
-			</h1>
-			<p class="mt-1 text-sm text-ink-muted">
-				{#if playerModeState.enabled}
-					Player map view with fog-of-war enforcement
-				{:else}
-					{filteredMaps.length} of {maps.length} map{maps.length === 1 ? '' : 's'}
-				{/if}
-			</p>
-		</div>
-		{#if !playerModeState.enabled}
-			<button
-				type="button"
-				class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 transition-[transform,colors] active:scale-[0.97] active:brightness-95"
-				onclick={() => void handleImportMap()}
-				disabled={!desktopAvailable || importing}
-			>
-				{importing ? 'Importing...' : 'Import Map'}
-			</button>
-		{/if}
-	</header>
+	{#if !viewerMode}
+		<header class="mb-5 flex flex-wrap items-start justify-between gap-3">
+			<div>
+				<h1 class="text-2xl font-bold text-ink" style="font-family: var(--font-serif)">
+					Map Library
+				</h1>
+				<p class="mt-1 text-sm text-ink-muted">
+					{#if playerModeState.enabled}
+						Player map view with fog-of-war enforcement
+					{:else}
+						{filteredMaps.length} of {maps.length} map{maps.length === 1 ? '' : 's'}
+					{/if}
+				</p>
+			</div>
+			{#if !playerModeState.enabled}
+				<button
+					type="button"
+					class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 transition-[transform,colors] active:scale-[0.97] active:brightness-95"
+					onclick={() => void handleImportMap()}
+					disabled={!desktopAvailable || importing}
+				>
+					{importing ? 'Importing...' : 'Import Map'}
+				</button>
+			{/if}
+		</header>
+	{/if}
 
-	{#if !playerModeState.enabled}
+	{#if !playerModeState.enabled && !viewerMode}
 		<section class="mb-4 grid gap-2 rounded-lg border border-border bg-surface p-3 md:grid-cols-4">
 			<input
 				type="text"
@@ -2375,7 +2389,7 @@
 		</div>
 	{/if}
 
-	{#if !playerModeState.enabled}
+	{#if !playerModeState.enabled && !viewerMode}
 		<section class="rounded-lg border border-border bg-surface p-4">
 			<h2 class="text-sm font-semibold text-ink">Library</h2>
 			{#if loading}
@@ -2444,6 +2458,18 @@
 					{/each}
 				</ul>
 			{/if}
+		</section>
+	{/if}
+
+	{#if viewerMode && !loading && !selectedMap}
+		<section class="rounded-lg border border-border bg-surface p-4">
+			<EmptyState
+				class="min-h-0 px-0 py-4"
+				illustration="atlas"
+				headline="Map not found"
+				body="This map could not be found. It may have been deleted or moved."
+				primaryAction={{ label: 'Back to maps', onclick: () => goto(resolve('/atlas/maps')) }}
+			/>
 		</section>
 	{/if}
 

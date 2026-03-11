@@ -1,6 +1,7 @@
 export type DetailPanelContext = 'note' | 'map' | 'session' | null;
 
 const NOTE_DETAIL_PATH_PATTERN = /^\/knowledge\/notes\/[^/]+$/;
+const MAP_DETAIL_PATH_PATTERN = /^\/atlas\/maps\/[^/]+$/;
 
 export function detailPanelContextFromPath(
 	pathname: string,
@@ -8,6 +9,12 @@ export function detailPanelContextFromPath(
 ): DetailPanelContext {
 	if (NOTE_DETAIL_PATH_PATTERN.test(pathname)) {
 		return 'note';
+	}
+	if (MAP_DETAIL_PATH_PATTERN.test(pathname)) {
+		return 'map';
+	}
+	if (pathname === '/atlas/maps' && searchParams.get('previewMap')?.trim()) {
+		return 'map';
 	}
 	if (pathname === '/atlas/maps' && searchParams.get('map')?.trim()) {
 		return 'map';

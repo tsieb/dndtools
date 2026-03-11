@@ -48,7 +48,13 @@
 
 	const mapId = $derived.by(() => {
 		if (context !== 'map') return '';
-		return page.url.searchParams.get('map')?.trim() ?? '';
+		const routeMatch = page.url.pathname.match(/^\/atlas\/maps\/([^/]+)$/);
+		if (routeMatch?.[1]) return decodeURIComponent(routeMatch[1]).trim();
+		return (
+			page.url.searchParams.get('previewMap')?.trim() ??
+			page.url.searchParams.get('map')?.trim() ??
+			''
+		);
 	});
 
 	const selectedMap = $derived.by(() => {
