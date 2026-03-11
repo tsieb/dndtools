@@ -9,6 +9,7 @@
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { sessionState } from '$lib/state/session-state.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
+	import { layoutState } from '$lib/state/layout.svelte.js';
 	import {
 		importDesktopMapFromDialog,
 		resolveDesktopMapAssetUrl,
@@ -41,19 +42,16 @@
 		hpBarToneForCombatant,
 		movementSquaresForCombatant,
 		normalizeTemplateInput,
-		rangeProfileForCombatant,
 		reachableCells,
 		type GridCell,
 	} from '$lib/domain/combat-map.js';
 	import {
 		appendFogPolygonOperation,
-		countFogPolygonsByMode,
 		createDefaultMapFogState,
 		normalizeMapFogState,
 		normalizeLassoPoints,
 		polygonFromCircle,
 		polygonFromRectangle,
-		revealBoundsFromFogState,
 	} from '$lib/domain/map-fog.js';
 	import { noteToVaultObject } from '$lib/domain/object-notes.js';
 	import { createDefaultCombatMapState, normalizeCombatState } from '$lib/domain/combat-tracker.js';
@@ -66,6 +64,12 @@
 	import { generateVaultObjectId } from '$lib/utils/id.js';
 	import { nowISO } from '$lib/utils/date.js';
 	import { createFolderId, createNoteId, type Note } from '$lib/types/note.js';
+	import {
+		MAP_VIEWER_MODES,
+		mapViewerModeHint,
+		mapViewerModeLabel,
+		type MapViewerMode,
+	} from '$lib/types/map-viewer.js';
 	import type {
 		MapAnnotationLayerColorTheme,
 		MapAnnotationLayerData,
@@ -90,7 +94,13 @@
 		SessionBoardId,
 	} from '$lib/types/session-board.js';
 	import CombatTrackerTile from '$lib/ui/board/CombatTrackerTile.svelte';
+	import Button from '$lib/ui/common/Button.svelte';
+	import Dialog from '$lib/ui/common/Dialog.svelte';
 	import EmptyState from '$lib/ui/common/EmptyState.svelte';
+	import Icon from '$lib/ui/common/Icon.svelte';
+	import Sheet from '$lib/ui/common/Sheet.svelte';
+	import Toggle from '$lib/ui/common/Toggle.svelte';
+	import Tooltip from '$lib/ui/common/Tooltip.svelte';
 	import MapCanvasViewer from '$lib/ui/maps/MapCanvasViewer.svelte';
 	import QuickReferenceSplitView from '$lib/ui/search/QuickReferenceSplitView.svelte';
 	import Modal from '$lib/ui/common/Modal.svelte';
@@ -163,8 +173,15 @@
 	let draftGridOriginY = $state('0');
 	let draftGridVisible = $state(true);
 	let runtimeShowGrid = $state(true);
-	let editGridHandles = $state(false);
-	let editPoiMode = $state(false);
+	let activeMode = $state<MapViewerMode>('view');
+	let toolsSheetOpen = $state(false);
+	let pendingModeTransition = $state<MapViewerMode | null>(null);
+	let modeTransitionDialogOpen = $state(false);
+	let mapViewerShortcutSequence = $state(0);
+	let mapViewerShortcutCommand = $state<{
+		id: number;
+		action: 'zoom_fit' | 'zoom_100' | 'zoom_in' | 'zoom_out';
+	} | null>(null);
 	let previewPlayerLayers = $state(false);
 	let activeLayerFilter = $state<'all' | string>('all');
 	let selectedPoiId = $state<string | null>(null);
@@ -182,7 +199,6 @@
 	let dirty = $state(false);
 	let draftSourceKey = $state<string | null>(null);
 	let reportedLoadError = $state<string | null>(null);
-	let combatModeEnabled = $state(false);
 	let selectedBoardId = $state<SessionBoardId | null>(null);
 	let selectedCombatTileId = $state<string | null>(null);
 	let terrainPaintMode = $state(false);
@@ -199,7 +215,6 @@
 	let lastCombatMapSyncKey = $state<string | null>(null);
 	let savingCombatMap = $state(false);
 	let combatPersistQueue: Promise<void> = Promise.resolve();
-	let fogEditingEnabled = $state(false);
 	let fogTool = $state<MapFogBrushShape>('circle');
 	let fogMode = $state<MapFogOperationMode>('reveal');
 	let fogBrushRadius = $state(0.06);
@@ -222,7 +237,6 @@
 	let remoteFogScopeKey = $state<string | null>(null);
 	let lastFogSnapshotRequestKey = $state<string | null>(null);
 	let lastFogMapLinkKey = $state<string | null>(null);
-	let routeEditMode = $state(false);
 	let selectedRouteId = $state<string | null>(null);
 	let newRouteName = $state('New Route');
 	let newRouteStyle = $state<MapRouteStyle>('straight');
@@ -233,6 +247,20 @@
 
 	const desktopAvailable = $derived(
 		typeof window !== 'undefined' && typeof window.dndtoolsDesktop !== 'undefined',
+	);
+	const editGridHandles = $derived(activeMode === 'grid_align');
+	const editPoiMode = $derived(activeMode === 'poi_edit');
+	const routeEditMode = $derived(activeMode === 'route_edit');
+	const combatModeEnabled = $derived(activeMode === 'combat');
+	const fogEditingEnabled = $derived(activeMode === 'fog_paint');
+	const activeModeMeta = $derived.by(() =>
+		activeMode === 'view'
+			? null
+			: (MAP_VIEWER_MODES.find((entry) => entry.id === activeMode) ?? null),
+	);
+	const modeToolsInSheet = $derived(!layoutState.isExpanded && activeMode !== 'view');
+	const hasInProgressModeWork = $derived.by(
+		() => fogPainting || terrainPainting || !!templateDragOriginCell || !!mapContextMenu,
 	);
 
 	const locationNotes = $derived.by(() =>
@@ -502,8 +530,6 @@
 				? persistedFogFallback
 				: activeFogState,
 	);
-	const fogPolygonCounts = $derived.by(() => countFogPolygonsByMode(effectiveFogState));
-	const fogRevealBounds = $derived.by(() => revealBoundsFromFogState(effectiveFogState));
 	const activeCombatant = $derived.by(
 		() =>
 			selectedCombat?.combatants.find((entry) => entry.id === selectedCombat.activeCombatantId) ??
@@ -522,14 +548,6 @@
 					Math.max(1, Number.parseFloat(draftScaleUnits) || 5),
 				)
 			: 0,
-	);
-	const selectedRangeProfile = $derived.by(() =>
-		activeCombatant
-			? rangeProfileForCombatant(
-					activeCombatant,
-					Math.max(1, Number.parseFloat(draftScaleUnits) || 5),
-				)
-			: null,
 	);
 	const blockedCellKeys = $derived.by(() => {
 		const blocked: string[] = [];
@@ -664,6 +682,89 @@
 		return areaLabelByNoteId[id] ?? id;
 	}
 
+	function modeBlockedReason(mode: MapViewerMode): string | null {
+		if (mode === 'combat') {
+			if (!selectedMap?.data.grid) return 'Combat mode requires a grid-enabled map.';
+			if (!selectedCombatTile) return 'Combat mode requires an active combat tile.';
+		}
+		if (mode === 'fog_paint' && !selectedCombatTile) {
+			return 'Fog paint mode requires an active combat tile.';
+		}
+		return null;
+	}
+
+	function clearModeSubState(): void {
+		terrainPaintMode = false;
+		terrainEraseMode = false;
+		terrainPainting = false;
+		templatePlacementMode = false;
+		templateDragOriginCell = null;
+		templatePreviewTargetCell = null;
+		fogPainting = false;
+		fogDragStart = null;
+		fogDragCurrent = null;
+		fogLassoPoints = [];
+		toolsSheetOpen = false;
+	}
+
+	function setMapMode(nextMode: MapViewerMode, options?: { force?: boolean }): void {
+		if (nextMode === activeMode) return;
+		if (!options?.force) {
+			const blockedReason = modeBlockedReason(nextMode);
+			if (blockedReason) {
+				toastState.info(blockedReason);
+				return;
+			}
+		}
+		activeMode = nextMode;
+		clearModeSubState();
+	}
+
+	function requestMapMode(nextMode: MapViewerMode): void {
+		if (nextMode === activeMode) {
+			if (nextMode !== 'view') {
+				setMapMode('view');
+			}
+			return;
+		}
+		if (hasInProgressModeWork) {
+			pendingModeTransition = nextMode;
+			modeTransitionDialogOpen = true;
+			return;
+		}
+		setMapMode(nextMode);
+	}
+
+	function confirmModeTransition(): void {
+		const nextMode = pendingModeTransition;
+		pendingModeTransition = null;
+		modeTransitionDialogOpen = false;
+		if (!nextMode) return;
+		setMapMode(nextMode, { force: true });
+	}
+
+	function cancelModeTransition(): void {
+		pendingModeTransition = null;
+		modeTransitionDialogOpen = false;
+	}
+
+	function isTextEntryTarget(target: EventTarget | null): boolean {
+		return (
+			target instanceof HTMLElement &&
+			(target.tagName === 'INPUT' ||
+				target.tagName === 'TEXTAREA' ||
+				target.tagName === 'SELECT' ||
+				target.isContentEditable)
+		);
+	}
+
+	function enqueueMapViewerShortcut(
+		action: 'zoom_fit' | 'zoom_100' | 'zoom_in' | 'zoom_out',
+	): void {
+		mapViewerShortcutSequence += 1;
+		mapViewerShortcutCommand = { id: mapViewerShortcutSequence, action };
+	}
+
 	function resetDraftFromSelectedMap(map: MapObject): void {
 		draftName = map.name;
 		draftTags = map.tags.join(', ');
@@ -679,8 +780,10 @@
 		draftGridOriginY = map.data.grid?.originY ? String(map.data.grid.originY) : '0';
 		draftGridVisible = map.data.grid?.visible ?? true;
 		runtimeShowGrid = draftGridVisible;
-		editGridHandles = false;
-		editPoiMode = false;
+		activeMode = 'view';
+		toolsSheetOpen = false;
+		modeTransitionDialogOpen = false;
+		pendingModeTransition = null;
 		previewPlayerLayers = false;
 		activeLayerFilter = 'all';
 		const baseLayers =
@@ -715,7 +818,6 @@
 			waypoints: route.waypoints.map((waypoint) => ({ ...waypoint })),
 		}));
 		selectedRouteId = draftRoutes[0]?.id ?? null;
-		routeEditMode = false;
 		dirty = false;
 		viewerKey += 1;
 	}
@@ -1158,7 +1260,7 @@
 			waypoints: [],
 		};
 		upsertRoute(route);
-		routeEditMode = true;
+		requestMapMode('route_edit');
 	}
 
 	function handleDeleteRoute(routeId: string): void {
@@ -2142,10 +2244,7 @@
 
 	$effect(() => {
 		if (!playerModeState.enabled) return;
-		fogEditingEnabled = false;
-		editPoiMode = false;
-		routeEditMode = false;
-		editGridHandles = false;
+		setMapMode('view', { force: true });
 		terrainPaintMode = false;
 		templatePlacementMode = false;
 		mapContextMenu = null;
@@ -2281,18 +2380,98 @@
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 		const onWindowKeyDown = (event: KeyboardEvent): void => {
-			if (event.key !== 'Escape') return;
-			if (
-				event.target instanceof HTMLElement &&
-				(event.target.tagName === 'INPUT' ||
-					event.target.tagName === 'TEXTAREA' ||
-					event.target.tagName === 'SELECT' ||
-					event.target.isContentEditable)
-			) {
-				return;
+			if (isTextEntryTarget(event.target)) return;
+			const lowerKey = event.key.toLowerCase();
+			if (viewerMode && !playerModeState.enabled && selectedMap) {
+				if (event.ctrlKey || event.metaKey) {
+					if (!event.shiftKey && lowerKey === 'z') {
+						event.preventDefault();
+						toastState.info('Undo for map edits arrives with Epic 19.4.');
+						return;
+					}
+					if (event.shiftKey && lowerKey === 'z') {
+						event.preventDefault();
+						toastState.info('Redo for map edits arrives with Epic 19.4.');
+						return;
+					}
+				}
+				if (event.key === 'Escape') {
+					if (mapContextMenu) {
+						mapContextMenu = null;
+						return;
+					}
+					if (activeMode !== 'view') {
+						event.preventDefault();
+						requestMapMode('view');
+						return;
+					}
+					if (selectedMap.data.parentMapId) {
+						event.preventDefault();
+						selectMapById(selectedMap.data.parentMapId);
+					}
+					return;
+				}
+				if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+					if (lowerKey === 'v') {
+						event.preventDefault();
+						requestMapMode('view');
+						return;
+					}
+					if (lowerKey === 'p') {
+						event.preventDefault();
+						requestMapMode('poi_edit');
+						return;
+					}
+					if (lowerKey === 'f') {
+						event.preventDefault();
+						requestMapMode('fog_paint');
+						return;
+					}
+					if (lowerKey === 'r') {
+						event.preventDefault();
+						requestMapMode('route_edit');
+						return;
+					}
+					if (lowerKey === 'g') {
+						event.preventDefault();
+						requestMapMode('grid_align');
+						return;
+					}
+					if (lowerKey === 'c') {
+						event.preventDefault();
+						requestMapMode('combat');
+						return;
+					}
+					if (event.key === '0') {
+						event.preventDefault();
+						enqueueMapViewerShortcut('zoom_fit');
+						return;
+					}
+					if (event.key === '1') {
+						event.preventDefault();
+						enqueueMapViewerShortcut('zoom_100');
+						return;
+					}
+					if (event.key === '+' || event.key === '=') {
+						event.preventDefault();
+						enqueueMapViewerShortcut('zoom_in');
+						return;
+					}
+					if (event.key === '-' || event.key === '_') {
+						event.preventDefault();
+						enqueueMapViewerShortcut('zoom_out');
+						return;
+					}
+				}
 			}
+			if (event.key !== 'Escape') return;
 			if (mapContextMenu) {
 				mapContextMenu = null;
+				return;
+			}
+			if (activeMode !== 'view') {
+				event.preventDefault();
+				requestMapMode('view');
 				return;
 			}
 			if (selectedMap?.data.parentMapId) {
@@ -2505,316 +2684,106 @@
 				{/if}
 				<div class="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
 					{#if !playerModeState.enabled}
-						<div class="flex flex-wrap items-center gap-2">
-							<button
-								type="button"
-								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt"
-								onclick={() => {
-									runtimeShowGrid = !runtimeShowGrid;
-								}}
-							>
-								{runtimeShowGrid ? 'Hide Grid Overlay' : 'Show Grid Overlay'}
-							</button>
-							<button
-								type="button"
-								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt"
-								onclick={() => {
-									editGridHandles = !editGridHandles;
-									runtimeShowGrid = true;
-								}}
-							>
-								{editGridHandles ? 'Stop Grid Alignment' : 'Align Grid'}
-							</button>
-							<button
-								type="button"
-								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt"
-								onclick={() => {
-									editPoiMode = !editPoiMode;
-								}}
-							>
-								{editPoiMode ? 'Stop POI Placement' : 'Edit POIs'}
-							</button>
-							<button
-								type="button"
-								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt"
-								onclick={() => {
-									routeEditMode = !routeEditMode;
-								}}
-							>
-								{routeEditMode ? 'Stop Route Editing' : 'Edit Travel Routes'}
-							</button>
-							<button
-								type="button"
-								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt disabled:opacity-55"
-								disabled={!selectedMap.data.grid || !selectedCombatTile}
-								onclick={() => {
-									combatModeEnabled = !combatModeEnabled;
-									editPoiMode = combatModeEnabled ? false : editPoiMode;
-								}}
-							>
-								{combatModeEnabled ? 'Exit Combat Mode' : 'Combat Mode'}
-							</button>
-							<button
-								type="button"
-								class="rounded border border-border px-2 py-1 text-ink-muted hover:bg-surface-alt disabled:opacity-55"
-								disabled={!selectedCombatTile}
-								onclick={() => {
-									fogEditingEnabled = !fogEditingEnabled;
-									combatModeEnabled = false;
-								}}
-							>
-								{fogEditingEnabled ? 'Stop Fog Tools' : 'Fog of War Tools'}
-							</button>
-							<label class="flex items-center gap-1.5 rounded border border-border px-2 py-1">
-								<input type="checkbox" bind:checked={previewPlayerLayers} />
-								Player layer preview
-							</label>
-							<select
-								bind:value={activeLayerFilter}
-								class="rounded border border-border bg-surface-alt px-2 py-1 text-xs text-ink"
-								aria-label="Filter visible pins by layer"
-							>
-								<option value="all">All layers</option>
-								{#each draftLayers as layer (layer.id)}
-									<option value={layer.id}>{layer.name}</option>
-								{/each}
-							</select>
+						<div
+							class="flex w-full flex-wrap items-center justify-between gap-2 rounded border border-border/70 bg-surface-alt/70 px-2 py-1.5"
+						>
+							<div class="flex flex-wrap items-center gap-1.5">
+								<div
+									class="flex flex-wrap items-center gap-1"
+									role="radiogroup"
+									aria-label="Map mode switcher"
+								>
+									{#each MAP_VIEWER_MODES as mode (mode.id)}
+										<Tooltip text={`${mode.label} (${mode.shortcut})`}>
+											<button
+												type="button"
+												role="radio"
+												aria-checked={activeMode === mode.id}
+												class="inline-flex h-8 items-center gap-1 rounded border px-2 text-xs transition-colors {activeMode ===
+												mode.id
+													? 'border-accent bg-accent-subtle text-accent'
+													: 'border-border text-ink-muted hover:bg-surface'}"
+												onclick={() => requestMapMode(mode.id)}
+											>
+												<Icon name={mode.icon} size="sm" />
+												<span>{mode.shortcut}</span>
+											</button>
+										</Tooltip>
+									{/each}
+								</div>
+								<span aria-hidden="true" class="mx-1 h-5 w-px bg-border"></span>
+								<Button
+									size="sm"
+									variant="ghost"
+									onclick={() => enqueueMapViewerShortcut('zoom_fit')}
+									title="Zoom to fit (0)"
+								>
+									Fit
+								</Button>
+								<Button
+									size="sm"
+									variant="ghost"
+									onclick={() => enqueueMapViewerShortcut('zoom_100')}
+									title="Zoom to 100% (1)"
+								>
+									100%
+								</Button>
+								<label class="flex items-center gap-1.5 rounded border border-border px-2 py-1">
+									<input type="checkbox" bind:checked={runtimeShowGrid} />
+									Grid
+								</label>
+								<label class="flex items-center gap-1.5 rounded border border-border px-2 py-1">
+									<input type="checkbox" bind:checked={previewPlayerLayers} />
+									Player preview
+								</label>
+							</div>
+							<div class="flex flex-wrap items-center gap-2">
+								<select
+									bind:value={activeLayerFilter}
+									class="rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
+									aria-label="Filter visible pins by layer"
+								>
+									<option value="all">All layers</option>
+									{#each draftLayers as layer (layer.id)}
+										<option value={layer.id}>{layer.name}</option>
+									{/each}
+								</select>
+								{#if partyLocation}
+									<p class="text-ink-faint">
+										Party {partyLocation.x.toFixed(3)}, {partyLocation.y.toFixed(3)}
+									</p>
+								{/if}
+								{#if scaleLabel}
+									<p class="font-medium text-ink-muted">{scaleLabel}</p>
+								{/if}
+							</div>
 						</div>
 					{:else}
 						<p class="text-ink-muted">Player view: unrevealed map areas remain hidden.</p>
 					{/if}
-					{#if partyLocation}
-						<p class="text-ink-faint">
-							Party at {partyLocation.x.toFixed(3)}, {partyLocation.y.toFixed(3)}
-						</p>
-					{/if}
-					{#if scaleLabel}
-						<p class="font-medium text-ink-muted">{scaleLabel}</p>
-					{/if}
 				</div>
-				{#if selectedCombatTile}
+				{#if activeModeMeta}
 					<div
-						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-xs"
+						class="mb-2 flex h-9 items-center justify-between gap-2 rounded border border-amber-300 bg-amber-100/80 px-2 text-xs text-amber-900"
+						role="status"
+						aria-live="polite"
 					>
-						<label class="text-ink-muted">
-							Board
-							<select
-								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 text-xs"
-								bind:value={selectedBoardId}
-							>
-								{#each boards as board (board.id)}
-									<option value={board.id}>{board.name}</option>
-								{/each}
-							</select>
-						</label>
-						<label class="text-ink-muted">
-							Combat Tile
-							<select
-								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5 text-xs"
-								bind:value={selectedCombatTileId}
-							>
-								{#each combatTiles as tile (tile.id)}
-									<option value={tile.id}>{tile.id}</option>
-								{/each}
-							</select>
-						</label>
-						{#if !playerModeState.enabled}
-							<label class="text-ink-muted">
-								Tool
-								<select
-									class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5"
-									bind:value={fogTool}
-									disabled={!fogEditingEnabled}
-								>
-									{#each FOG_TOOL_OPTIONS as option (option.value)}
-										<option value={option.value}>{option.label}</option>
-									{/each}
-								</select>
-							</label>
-							<label class="text-ink-muted">
-								Mode
-								<select
-									class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5"
-									bind:value={fogMode}
-									disabled={!fogEditingEnabled}
-								>
-									{#each FOG_MODE_OPTIONS as option (option.value)}
-										<option value={option.value}>{option.label}</option>
-									{/each}
-								</select>
-							</label>
-							<label class="text-ink-muted">
-								Brush Radius
-								<input
-									type="range"
-									min="0.01"
-									max="0.2"
-									step="0.005"
-									bind:value={fogBrushRadius}
-									disabled={!fogEditingEnabled || fogTool !== 'circle'}
-								/>
-							</label>
-							<label class="text-ink-muted">
-								Fog Color
-								<select
-									class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5"
-									bind:value={fogColorTheme}
-									onchange={() => setFogConfig({ colorTheme: fogColorTheme })}
-								>
-									<option value="smoky_gray">Smoky Gray</option>
-									<option value="black">Black</option>
-								</select>
-							</label>
-							<label class="inline-flex items-center gap-1 text-ink-muted">
-								<input
-									type="checkbox"
-									bind:checked={fogFreeExplore}
-									onchange={() => setFogConfig({ freeExplore: fogFreeExplore })}
-								/>
-								Player free explore
-							</label>
-							<button
-								type="button"
-								class="rounded border border-border px-2 py-0.5 text-ink-muted hover:bg-surface-alt"
-								onclick={clearFogOperations}
-							>
-								Clear Fog Ops
-							</button>
-						{:else}
-							<span class="text-ink-muted">
-								Free explore: {effectiveFogState.freeExplore ? 'enabled' : 'disabled'}
-							</span>
-							<span class="text-ink-faint">
-								Revealed zones: {fogPolygonCounts.reveal}
-							</span>
-							{#if fogRevealBounds}
-								<span class="text-ink-faint">
-									Reveal bounds: {(fogRevealBounds.maxX - fogRevealBounds.minX).toFixed(2)} x
-									{(fogRevealBounds.maxY - fogRevealBounds.minY).toFixed(2)}
-								</span>
-							{/if}
-						{/if}
-					</div>
-				{/if}
-				{#if combatModeEnabled}
-					<div
-						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-xs"
-					>
-						<span class="text-ink-muted">
-							{mapLinkedToEncounterLocation
-								? 'Map is linked to the encounter location.'
-								: 'Map is not linked to the active encounter location.'}
-						</span>
-						{#if activeCombatant}
-							<span class="rounded bg-surface-alt px-1.5 py-0.5 text-ink">
-								Move {movementBudgetSquares} sq
-							</span>
-							{#if selectedRangeProfile}
-								<span class="rounded bg-surface-alt px-1.5 py-0.5 text-ink">
-									Range {selectedRangeProfile.squares} sq ({selectedRangeProfile.label})
-								</span>
-							{/if}
-						{/if}
-					</div>
-					<div
-						class="mb-2 flex flex-wrap items-center gap-2 rounded border border-border/70 px-2 py-2 text-xs"
-					>
-						<label class="inline-flex items-center gap-1 text-ink-muted">
-							<input type="checkbox" bind:checked={terrainPaintMode} />
-							Paint Difficult Terrain
-						</label>
-						<label class="inline-flex items-center gap-1 text-ink-muted">
-							<input type="checkbox" bind:checked={terrainEraseMode} disabled={!terrainPaintMode} />
-							Erase mode
-						</label>
-						<label class="inline-flex items-center gap-1 text-ink-muted">
-							<input type="checkbox" bind:checked={templatePlacementMode} />
-							Template Drag Placement
-						</label>
-						<label class="text-ink-muted">
-							Template
-							<select
-								class="ml-1 rounded border border-border bg-surface-alt px-1.5 py-0.5"
-								bind:value={templateShape}
-							>
-								{#each TEMPLATE_SHAPE_OPTIONS as option (option.value)}
-									<option value={option.value}>{option.label}</option>
-								{/each}
-							</select>
-						</label>
-						<label class="text-ink-muted">
-							Radius
-							<input
-								type="number"
-								min="1"
-								max="30"
-								class="ml-1 w-14 rounded border border-border bg-surface-alt px-1.5 py-0.5"
-								bind:value={templateRadiusSquares}
-								disabled={templateShape === 'line'}
-							/>
-						</label>
-						<label class="text-ink-muted">
-							Line L
-							<input
-								type="number"
-								min="1"
-								max="60"
-								class="ml-1 w-14 rounded border border-border bg-surface-alt px-1.5 py-0.5"
-								bind:value={templateLineLengthSquares}
-								disabled={templateShape !== 'line'}
-							/>
-						</label>
-						<label class="text-ink-muted">
-							Line W
-							<input
-								type="number"
-								min="1"
-								max="10"
-								class="ml-1 w-14 rounded border border-border bg-surface-alt px-1.5 py-0.5"
-								bind:value={templateLineWidthSquares}
-								disabled={templateShape !== 'line'}
-							/>
-						</label>
-						<button
-							type="button"
-							class="rounded border border-border px-2 py-0.5 text-ink-muted hover:bg-surface-alt"
-							onclick={clearAllTemplates}
-							disabled={combatMapState.templates.length === 0}
-						>
-							Clear Templates
-						</button>
-						{#if savingCombatMap}
-							<span class="text-ink-faint">Saving combat map...</span>
-						{/if}
-					</div>
-					{#if combatMapState.templates.length > 0}
-						<div class="mb-2 flex flex-wrap items-center gap-1">
-							{#each combatMapState.templates as template (template.id)}
-								<button
-									type="button"
-									class="rounded border border-border px-2 py-0.5 text-xs text-ink-muted hover:bg-surface-alt"
-									onclick={() => removeTemplate(template.id)}
-								>
-									{template.shape} @{template.originX},{template.originY} x
-								</button>
-							{/each}
+						<div class="flex min-w-0 items-center gap-2">
+							<Icon name={activeModeMeta.icon} size="md" />
+							<p class="truncate font-semibold">{activeModeMeta.label}</p>
+							<p class="truncate text-amber-800/90">{mapViewerModeHint(activeMode)}</p>
 						</div>
-					{/if}
-				{/if}
-				{#if editPoiMode}
-					<p class="mb-2 text-xs text-ink-faint">
-						Click the map to place a pin. Drag pins to reposition. Click a pin to edit details.
-					</p>
-				{/if}
-				{#if routeEditMode}
-					<p class="mb-2 text-xs text-ink-faint">
-						Route edit mode: click the map to add waypoints to the selected route.
-					</p>
-				{/if}
-				{#if fogEditingEnabled}
-					<p class="mb-2 text-xs text-ink-faint">
-						Fog tools active. Paint reveal or re-fog shapes directly on the map.
-					</p>
+						<div class="flex items-center gap-1">
+							{#if modeToolsInSheet}
+								<Button size="sm" variant="secondary" onclick={() => (toolsSheetOpen = true)}>
+									Tools
+								</Button>
+							{/if}
+							<Button size="sm" variant="ghost" onclick={() => requestMapMode('view')}>
+								Exit {mapViewerModeLabel(activeMode)}
+							</Button>
+						</div>
+					</div>
 				{/if}
 				{#if selectedMap.data.parentMapId}
 					<p class="mb-2 text-xs text-ink-faint">Press Escape to navigate up to parent map.</p>
@@ -2850,6 +2819,7 @@
 						fogAnimationDurationMs={800}
 						navigationLocked={fogEditingEnabled}
 						initialViewport={draftInitialViewport ?? undefined}
+						shortcutCommand={mapViewerShortcutCommand}
 						ongridchange={handleGridChange}
 						onviewportchange={handleViewportChange}
 						onimageinfo={handleImageInfo}
@@ -2921,6 +2891,294 @@
 
 			{#if !playerModeState.enabled}
 				<aside class="rounded-lg border border-border bg-surface p-3">
+					{#if activeMode !== 'view'}
+						<section class="mb-3 rounded border border-border/80 bg-surface-alt p-2.5">
+							<h2 class="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+								Mode Tools
+							</h2>
+							{#if activeMode === 'poi_edit'}
+								<div class="mt-2 space-y-2">
+									<label class="block text-xs text-ink-muted">
+										Category
+										<select
+											class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
+											value={selectedPoi?.category ?? 'landmark'}
+											onchange={(event) => {
+												const value = (event.currentTarget as HTMLSelectElement).value;
+												if (!selectedPoi) return;
+												updatePoi(selectedPoi.id, (poi) => ({
+													...poi,
+													category: selectedPoiCategory(value),
+												}));
+											}}
+										>
+											{#each POI_CATEGORY_OPTIONS as option (option.value)}
+												<option value={option.value}>{option.label}</option>
+											{/each}
+										</select>
+									</label>
+									<label class="block text-xs text-ink-muted">
+										Layer
+										<select
+											class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
+											bind:value={newPoiLayerId}
+										>
+											{#each draftLayers as layer (layer.id)}
+												<option value={layer.id}>{layer.name}</option>
+											{/each}
+										</select>
+									</label>
+									<label class="block text-xs text-ink-muted">
+										Linked note
+										<select
+											class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
+											value={selectedPoi?.linkedNoteId ?? ''}
+											onchange={(event) => {
+												const value = (event.currentTarget as HTMLSelectElement).value || undefined;
+												if (!selectedPoi) return;
+												updatePoi(selectedPoi.id, (poi) => ({ ...poi, linkedNoteId: value }));
+											}}
+										>
+											<option value="">None</option>
+											{#each noteOptions as note (note.id)}
+												<option value={String(note.id)}>{note.title}</option>
+											{/each}
+										</select>
+									</label>
+								</div>
+							{:else if activeMode === 'fog_paint'}
+								<div class="mt-2 space-y-2">
+									<label class="block text-xs text-ink-muted">
+										Brush
+										<select
+											class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
+											bind:value={fogTool}
+										>
+											{#each FOG_TOOL_OPTIONS as option (option.value)}
+												<option value={option.value}>{option.label}</option>
+											{/each}
+										</select>
+									</label>
+									<label class="block text-xs text-ink-muted">
+										Mode
+										<select
+											class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
+											bind:value={fogMode}
+										>
+											{#each FOG_MODE_OPTIONS as option (option.value)}
+												<option value={option.value}>{option.label}</option>
+											{/each}
+										</select>
+									</label>
+									<label class="block text-xs text-ink-muted">
+										Brush radius {Math.round(fogBrushRadius * 100)}%
+										<input
+											type="range"
+											min="0.02"
+											max="0.25"
+											step="0.01"
+											class="mt-1 w-full"
+											bind:value={fogBrushRadius}
+											disabled={fogTool !== 'circle'}
+										/>
+									</label>
+									<div class="grid grid-cols-3 gap-1.5">
+										<button
+											type="button"
+											class="h-7 rounded border {fogColorTheme === 'smoky_gray'
+												? 'border-accent'
+												: 'border-border'} bg-slate-500/70"
+											onclick={() => {
+												fogColorTheme = 'smoky_gray';
+												setFogConfig({ colorTheme: fogColorTheme });
+											}}
+											aria-label="Set fog color smoky gray"
+										></button>
+										<button
+											type="button"
+											class="h-7 rounded border {fogColorTheme === 'black'
+												? 'border-accent'
+												: 'border-border'} bg-slate-900"
+											onclick={() => {
+												fogColorTheme = 'black';
+												setFogConfig({ colorTheme: fogColorTheme });
+											}}
+											aria-label="Set fog color black"
+										></button>
+										<button
+											type="button"
+											class="h-7 rounded border border-border bg-stone-700"
+											onclick={() => {
+												fogColorTheme = 'smoky_gray';
+												setFogConfig({ colorTheme: fogColorTheme });
+											}}
+											aria-label="Set fog color stone"
+										></button>
+									</div>
+									<Toggle
+										label={fogMode === 'reveal' ? 'Reveal mode' : 'Re-fog mode'}
+										checked={fogMode === 'reveal'}
+										onchange={(checked) => (fogMode = checked ? 'reveal' : 'refog')}
+									/>
+									<Button variant="danger" size="sm" onclick={clearFogOperations}
+										>Clear all fog</Button
+									>
+								</div>
+							{:else if activeMode === 'route_edit'}
+								<div class="mt-2 space-y-2">
+									<label class="block text-xs text-ink-muted">
+										Route name
+										<input
+											type="text"
+											class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
+											bind:value={newRouteName}
+										/>
+									</label>
+									<label class="block text-xs text-ink-muted">
+										Route style
+										<select
+											class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
+											bind:value={newRouteStyle}
+										>
+											<option value="straight">Straight</option>
+											<option value="curved">Curved</option>
+										</select>
+									</label>
+									<Button size="sm" variant="secondary" onclick={handleCreateRoute}
+										>New route</Button
+									>
+								</div>
+							{:else if activeMode === 'grid_align'}
+								<div class="mt-2 space-y-2">
+									<label class="block text-xs text-ink-muted">
+										Cell size (px)
+										<input
+											type="number"
+											min="4"
+											step="1"
+											bind:value={draftGridCellSize}
+											oninput={markDirty}
+											class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
+										/>
+									</label>
+									<label class="block text-xs text-ink-muted">
+										Grid type
+										<select
+											bind:value={draftGridType}
+											onchange={markDirty}
+											class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
+										>
+											<option value="square">Square</option>
+											<option value="hex">Hex</option>
+										</select>
+									</label>
+									<p class="text-xs text-ink-faint">
+										Origin: {draftGridOriginX}, {draftGridOriginY}
+									</p>
+								</div>
+							{:else if activeMode === 'combat'}
+								<div class="mt-2 space-y-2">
+									<label class="block text-xs text-ink-muted">
+										Template shape
+										<select
+											class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
+											bind:value={templateShape}
+										>
+											{#each TEMPLATE_SHAPE_OPTIONS as option (option.value)}
+												<option value={option.value}>{option.label}</option>
+											{/each}
+										</select>
+									</label>
+									<div class="grid grid-cols-2 gap-2">
+										<label class="text-xs text-ink-muted">
+											Size
+											<input
+												type="number"
+												min="1"
+												max="30"
+												class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
+												bind:value={templateRadiusSquares}
+											/>
+										</label>
+										<label class="text-xs text-ink-muted">
+											Line
+											<input
+												type="number"
+												min="1"
+												max="60"
+												class="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-ink"
+												bind:value={templateLineLengthSquares}
+											/>
+										</label>
+									</div>
+									<Toggle label="Terrain paint mode" bind:checked={terrainPaintMode} />
+									{#if combatMapState.templates.length > 0}
+										<div class="space-y-1 rounded border border-border bg-surface px-2 py-1.5">
+											<p class="text-xs font-medium text-ink">Active templates</p>
+											{#each combatMapState.templates as template (template.id)}
+												<button
+													type="button"
+													class="block w-full rounded border border-border px-2 py-1 text-left text-xs text-ink-muted hover:bg-surface-alt"
+													onclick={() => removeTemplate(template.id)}
+												>
+													Remove {template.shape} @{template.originX},{template.originY}
+												</button>
+											{/each}
+										</div>
+									{/if}
+									<Button
+										variant="danger"
+										size="sm"
+										onclick={clearAllTemplates}
+										disabled={combatMapState.templates.length === 0}
+									>
+										Clear templates
+									</Button>
+									{#if savingCombatMap}
+										<p class="text-xs text-ink-faint">Saving combat map...</p>
+									{/if}
+									<Button variant="danger" size="sm" onclick={() => requestMapMode('view')}>
+										End combat
+									</Button>
+								</div>
+							{:else if activeMode === 'layer_manage'}
+								<div class="mt-2 space-y-2">
+									{#each draftLayers as layer (layer.id)}
+										<div class="rounded border border-border bg-surface px-2 py-1.5 text-xs">
+											<div class="flex items-center justify-between gap-2">
+												<p class="truncate font-medium text-ink">{layer.name}</p>
+												<div class="flex items-center gap-1">
+													<button
+														type="button"
+														class="rounded border border-border px-1.5 py-0.5 text-ink-muted hover:bg-surface-alt"
+														onclick={() =>
+															updateLayer(layer.id, (entry) => ({
+																...entry,
+																visible: !entry.visible,
+															}))}
+													>
+														{layer.visible ? 'Hide' : 'Show'}
+													</button>
+													<button
+														type="button"
+														class="rounded border border-border px-1.5 py-0.5 text-ink-muted hover:bg-surface-alt"
+														onclick={() =>
+															updateLayer(layer.id, (entry) => ({
+																...entry,
+																playerVisible: !entry.playerVisible,
+															}))}
+													>
+														Player
+													</button>
+												</div>
+											</div>
+										</div>
+									{/each}
+									<Button size="sm" variant="secondary" onclick={handleAddLayer}>Add layer</Button>
+								</div>
+							{/if}
+						</section>
+					{/if}
 					{#if combatModeEnabled}
 						<div class="mb-3 space-y-2">
 							<h2 class="text-sm font-semibold text-ink">Combat Tracker Sync</h2>
@@ -3493,6 +3751,51 @@
 				</aside>
 			{/if}
 		</section>
+		{#if modeToolsInSheet}
+			<Sheet
+				open={toolsSheetOpen}
+				title={`${mapViewerModeLabel(activeMode)} tools`}
+				onclose={() => (toolsSheetOpen = false)}
+			>
+				<div class="space-y-3 text-sm text-ink">
+					<p class="text-xs text-ink-muted">{mapViewerModeHint(activeMode)}</p>
+					{#if activeMode === 'poi_edit'}
+						<label class="block text-xs text-ink-muted">
+							New pin layer
+							<select
+								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
+								bind:value={newPoiLayerId}
+							>
+								{#each draftLayers as layer (layer.id)}
+									<option value={layer.id}>{layer.name}</option>
+								{/each}
+							</select>
+						</label>
+					{:else if activeMode === 'fog_paint'}
+						<label class="block text-xs text-ink-muted">
+							Fog mode
+							<select
+								class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
+								bind:value={fogMode}
+							>
+								{#each FOG_MODE_OPTIONS as option (option.value)}
+									<option value={option.value}>{option.label}</option>
+								{/each}
+							</select>
+						</label>
+						<Button variant="danger" size="sm" onclick={clearFogOperations}>Clear all fog</Button>
+					{:else if activeMode === 'route_edit'}
+						<Button size="sm" variant="secondary" onclick={handleCreateRoute}>Create route</Button>
+					{:else if activeMode === 'combat'}
+						<Toggle label="Terrain paint mode" bind:checked={terrainPaintMode} />
+					{:else if activeMode === 'layer_manage'}
+						<Button size="sm" variant="secondary" onclick={handleAddLayer}>Add layer</Button>
+					{/if}
+					<Button variant="ghost" size="sm" onclick={() => requestMapMode('view')}>Exit mode</Button
+					>
+				</div>
+			</Sheet>
+		{/if}
 	{/if}
 </div>
 
@@ -3510,3 +3813,18 @@
 		<p class="text-sm text-ink-muted">Linked note unavailable.</p>
 	{/if}
 </Modal>
+
+<Dialog
+	open={modeTransitionDialogOpen}
+	title="Discard active mode interaction?"
+	onclose={cancelModeTransition}
+>
+	<p class="text-sm text-ink-muted">
+		You have in-progress map interaction state. Switching modes now will discard the active
+		interaction.
+	</p>
+	<div class="mt-4 flex items-center justify-end gap-2">
+		<Button size="sm" variant="ghost" onclick={cancelModeTransition}>Stay in current mode</Button>
+		<Button size="sm" variant="primary" onclick={confirmModeTransition}>Discard and switch</Button>
+	</div>
+</Dialog>

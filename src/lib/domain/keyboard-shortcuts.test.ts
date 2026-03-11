@@ -28,6 +28,18 @@ describe('keyboard shortcut registry', () => {
 		expect(scopes.has('global')).toBe(true);
 		expect(scopes.has('editor')).toBe(true);
 	});
+
+	it('registers map viewer mode and zoom shortcuts', () => {
+		const ids = new Set(KEYBOARD_SHORTCUT_REGISTRY.map((entry) => entry.id));
+		expect(ids.has('map_mode_view')).toBe(true);
+		expect(ids.has('map_mode_poi_edit')).toBe(true);
+		expect(ids.has('map_mode_fog_paint')).toBe(true);
+		expect(ids.has('map_mode_route_edit')).toBe(true);
+		expect(ids.has('map_mode_grid_align')).toBe(true);
+		expect(ids.has('map_mode_combat')).toBe(true);
+		expect(ids.has('map_zoom_fit')).toBe(true);
+		expect(ids.has('map_zoom_100')).toBe(true);
+	});
 });
 
 describe('matchGlobalKeyboardShortcut', () => {
