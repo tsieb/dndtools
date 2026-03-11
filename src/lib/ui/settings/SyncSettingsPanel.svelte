@@ -190,7 +190,7 @@
 										? 'bg-surface-alt'
 										: ''}"
 									onclick={() => (selectedConflictId = conflict.id)}
-									title={conflict.title}
+									aria-label={conflict.title}
 								>
 									<p class="text-sm font-medium text-ink truncate">
 										{conflict.title}

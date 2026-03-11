@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import Icon from './Icon.svelte';
 	import type { IconName } from './Icon.svelte';
+	import Tooltip from './Tooltip.svelte';
 
 	interface Props {
 		variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'link';
@@ -66,43 +67,86 @@
 	};
 </script>
 
-<button
-	{type}
-	disabled={isDisabled}
-	{title}
-	aria-label={ariaLabel ?? title}
-	aria-busy={loading || undefined}
-	aria-pressed={ariaPressed}
-	class="{baseClasses} {sizeClasses[size]} {variantClasses[variant]} {extraClass ?? ''}"
-	{onclick}
->
-	{#if loading}
-		<span
-			class="pointer-events-none absolute inset-0 flex items-center justify-center"
-			aria-hidden="true"
+{#if title}
+	<Tooltip text={title} disabled={isDisabled}>
+		<button
+			{type}
+			disabled={isDisabled}
+			aria-label={ariaLabel ?? title}
+			aria-busy={loading || undefined}
+			aria-pressed={ariaPressed}
+			class="{baseClasses} {sizeClasses[size]} {variantClasses[variant]} {extraClass ?? ''}"
+			{onclick}
 		>
+			{#if loading}
+				<span
+					class="pointer-events-none absolute inset-0 flex items-center justify-center"
+					aria-hidden="true"
+				>
+					<span
+						class="inline-block rounded-full border-current border-r-transparent animate-spin motion-reduce:animate-none motion-reduce:opacity-80 {spinnerClasses[
+							size
+						]}"
+					></span>
+				</span>
+			{/if}
 			<span
-				class="inline-block rounded-full border-current border-r-transparent animate-spin motion-reduce:animate-none motion-reduce:opacity-80 {spinnerClasses[
-					size
-				]}"
-			></span>
-		</span>
-	{/if}
-	<span
-		class="inline-flex items-center {size === 'sm'
-			? 'gap-1'
-			: size === 'lg'
-				? 'gap-2'
-				: 'gap-1.5'} {loading ? 'invisible' : ''}"
+				class="inline-flex items-center {size === 'sm'
+					? 'gap-1'
+					: size === 'lg'
+						? 'gap-2'
+						: 'gap-1.5'} {loading ? 'invisible' : ''}"
+			>
+				{#if icon}
+					<Icon name={icon} size={iconSize[size]} />
+				{/if}
+				{#if children}
+					{@render children()}
+				{/if}
+				{#if trailingIcon}
+					<Icon name={trailingIcon} size={iconSize[size]} />
+				{/if}
+			</span>
+		</button>
+	</Tooltip>
+{:else}
+	<button
+		{type}
+		disabled={isDisabled}
+		aria-label={ariaLabel}
+		aria-busy={loading || undefined}
+		aria-pressed={ariaPressed}
+		class="{baseClasses} {sizeClasses[size]} {variantClasses[variant]} {extraClass ?? ''}"
+		{onclick}
 	>
-		{#if icon}
-			<Icon name={icon} size={iconSize[size]} />
+		{#if loading}
+			<span
+				class="pointer-events-none absolute inset-0 flex items-center justify-center"
+				aria-hidden="true"
+			>
+				<span
+					class="inline-block rounded-full border-current border-r-transparent animate-spin motion-reduce:animate-none motion-reduce:opacity-80 {spinnerClasses[
+						size
+					]}"
+				></span>
+			</span>
 		{/if}
-		{#if children}
-			{@render children()}
-		{/if}
-		{#if trailingIcon}
-			<Icon name={trailingIcon} size={iconSize[size]} />
-		{/if}
-	</span>
-</button>
+		<span
+			class="inline-flex items-center {size === 'sm'
+				? 'gap-1'
+				: size === 'lg'
+					? 'gap-2'
+					: 'gap-1.5'} {loading ? 'invisible' : ''}"
+		>
+			{#if icon}
+				<Icon name={icon} size={iconSize[size]} />
+			{/if}
+			{#if children}
+				{@render children()}
+			{/if}
+			{#if trailingIcon}
+				<Icon name={trailingIcon} size={iconSize[size]} />
+			{/if}
+		</span>
+	</button>
+{/if}

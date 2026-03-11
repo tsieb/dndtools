@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import type { Note } from '$lib/types/note.js';
 	import type { MapPlacementLink } from '$lib/domain/map-pois.js';
-	import { formatRelativeDate, formatDate } from '$lib/utils/date.js';
+	import { formatRelativeDate } from '$lib/utils/date.js';
 	import { formatWorldDate, parseWorldDateInput } from '$lib/domain/world-calendar.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { worldCalendarState } from '$lib/state/world-calendar.svelte.js';
@@ -117,12 +117,12 @@
 					{filePath}
 				</span>
 				<span aria-hidden="true">&middot;</span>
-				<span title={formatDate(note.updatedAt)}>Edited {formatRelativeDate(note.updatedAt)}</span>
+				<span>Edited {formatRelativeDate(note.updatedAt)}</span>
 				<span aria-hidden="true">&middot;</span>
-				<span title={formatDate(note.createdAt)}>Created {formatRelativeDate(note.createdAt)}</span>
+				<span>Created {formatRelativeDate(note.createdAt)}</span>
 				{#if inWorldDate}
 					<span aria-hidden="true">&middot;</span>
-					<span title={inWorldDate.long}>In-world {inWorldDate.short}</span>
+					<span>In-world {inWorldDate.short}</span>
 				{/if}
 			</div>
 			{#if primaryMapPlacement}
@@ -156,7 +156,6 @@
 						? 'text-accent bg-accent-subtle'
 						: 'text-ink-muted hover:bg-surface-alt'}"
 					onclick={handlePin}
-					title={note.pinned ? 'Unpin note' : 'Pin note'}
 					aria-label={note.pinned ? 'Unpin note' : 'Pin note'}
 					disabled={pinning}
 				>
@@ -167,7 +166,6 @@
 				type="button"
 				class="p-1.5 rounded-md text-ink-muted hover:bg-surface-alt transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 				onclick={handleExport}
-				title="Export as .md"
 				aria-label="Export note"
 			>
 				<Icon name="download" size="xs" />

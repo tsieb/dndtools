@@ -483,7 +483,7 @@
 									? 'border-accent bg-accent-subtle/70 text-accent'
 									: ''}"
 								onclick={() => navigateToPath(item.path)}
-								title={item.title}
+								aria-label={item.title}
 							>
 								<span
 									class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border text-2xs font-semibold text-ink-faint"
@@ -513,7 +513,7 @@
 									note.id,
 								)}"
 								onclick={() => navigateToNote(note.id)}
-								title={note.title}
+								aria-label={note.title}
 							>
 								<span class="truncate">{note.title}</span>
 							</button>
@@ -538,7 +538,7 @@
 									note.id,
 								)}"
 								onclick={() => navigateToNote(note.id)}
-								title={note.title}
+								aria-label={note.title}
 							>
 								<span class="truncate">{note.title}</span>
 							</button>
@@ -563,7 +563,7 @@
 									type="button"
 									class="touch-target-inline inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-surface px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:border-accent hover:text-ink"
 									onclick={() => openCollection(collection.query)}
-									title={collection.query}
+									aria-label={collection.query}
 								>
 									<span class="text-2xs" aria-hidden="true"
 										>{collection.isSmart ? '\u2726' : '\u25CF'}</span

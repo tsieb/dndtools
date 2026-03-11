@@ -520,7 +520,6 @@
 								type="button"
 								class="h-full w-3 shrink-0 cursor-col-resize bg-border/65 transition-colors hover:bg-accent/70 focus:bg-accent/70"
 								aria-label="Resize local navigation panel"
-								title="Drag to resize. Click to cycle narrow/default/wide. Arrow keys adjust by ten pixels."
 								onpointerdown={handlePanelResizePointerDown}
 								onkeydown={handlePanelResizeKeydown}
 								onclick={handlePanelResizeCycleClick}
@@ -554,7 +553,6 @@
 									class="pointer-events-auto rounded-md border border-border bg-surface/92 px-2.5 py-1 text-xs font-medium text-ink shadow-sm transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 									onclick={exitZenMode}
 									aria-label="Exit zen mode"
-									title="Exit zen mode (F11)"
 								>
 									Exit Zen
 								</button>

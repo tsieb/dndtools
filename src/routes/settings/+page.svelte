@@ -340,7 +340,6 @@
 								aria-selected={activeTab === tab.id}
 								aria-controls={`settings-panel-${tab.id}`}
 								tabindex={activeTab === tab.id ? 0 : -1}
-								title={`Open ${tab.label} settings`}
 								onclick={() => activateTab(tab.id)}
 								onkeydown={(event) => handleTabKeydown(event, tab.id)}
 								class="w-full rounded-md border px-2.5 py-2 text-left text-sm font-medium transition-colors {tabButtonClass(
@@ -366,7 +365,6 @@
 								aria-selected={activeTab === tab.id}
 								aria-controls={`settings-panel-${tab.id}`}
 								tabindex={activeTab === tab.id ? 0 : -1}
-								title={`Open ${tab.label} settings`}
 								onclick={() => activateTab(tab.id)}
 								onkeydown={(event) => handleTabKeydown(event, tab.id)}
 								class="w-full rounded-md border px-2.5 py-2 text-left text-sm font-medium transition-colors {tabButtonClass(
@@ -405,7 +403,6 @@
 									aria-selected={activeTab === tab.id}
 									aria-controls={`settings-panel-${tab.id}`}
 									tabindex={activeTab === tab.id ? 0 : -1}
-									title={`Open ${tab.label} settings`}
 									onclick={() => activateTab(tab.id)}
 									onkeydown={(event) => handleTabKeydown(event, tab.id)}
 									class="w-full rounded-md border px-2.5 py-2 text-left text-sm font-medium transition-colors {tabButtonClass(
@@ -430,7 +427,6 @@
 							aria-selected={activeTab === aboutTab.id}
 							aria-controls={`settings-panel-${aboutTab.id}`}
 							tabindex={activeTab === aboutTab.id ? 0 : -1}
-							title={`Open ${aboutTab.label} settings`}
 							onclick={() => activateTab(aboutTab.id)}
 							onkeydown={(event) => handleTabKeydown(event, aboutTab.id)}
 							class="w-full rounded-md border px-2.5 py-2 text-left text-sm font-medium transition-colors {tabButtonClass(

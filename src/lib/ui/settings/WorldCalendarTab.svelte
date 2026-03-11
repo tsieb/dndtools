@@ -384,7 +384,7 @@
 									min="1"
 									max="100000"
 									value={rule.interval}
-									title="Year interval"
+									aria-label="Year interval"
 									onchange={(event) =>
 										updateLeapRule(ruleIndex, {
 											interval: Number((event.currentTarget as HTMLInputElement).value),
@@ -396,7 +396,7 @@
 									min="0"
 									max={Math.max(0, worldCalendar.months.length - 1)}
 									value={rule.monthIndex}
-									title="Target month index"
+									aria-label="Target month index"
 									onchange={(event) =>
 										updateLeapRule(ruleIndex, {
 											monthIndex: Number((event.currentTarget as HTMLInputElement).value),
@@ -408,7 +408,7 @@
 									min="-30"
 									max="30"
 									value={rule.dayDelta}
-									title="Day delta"
+									aria-label="Day delta"
 									onchange={(event) =>
 										updateLeapRule(ruleIndex, {
 											dayDelta: Number((event.currentTarget as HTMLInputElement).value),

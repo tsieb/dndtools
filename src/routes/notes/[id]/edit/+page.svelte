@@ -337,7 +337,6 @@
 			<div class="flex items-center gap-2">
 				<button
 					class="rounded-md px-3 py-1.5 text-sm text-ink-muted transition-colors hover:bg-surface-alt"
-					title="Save (Ctrl+S)"
 					onclick={() => {
 						void editorState.save().then(() => toastState.success('Note saved'));
 					}}

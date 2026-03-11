@@ -56,7 +56,6 @@
 				class="touch-target flex items-center justify-center rounded text-ink-muted transition-colors hover:bg-border/70"
 				onclick={onMinimize}
 				aria-label="Minimize window"
-				title="Minimize"
 			>
 				<Icon name="minus" size="xs" />
 			</button>
@@ -65,7 +64,6 @@
 				class="touch-target flex items-center justify-center rounded text-ink-muted transition-colors hover:bg-border/70"
 				onclick={onToggleMaximize}
 				aria-label={isMaximized ? 'Restore window' : 'Maximize window'}
-				title={isMaximized ? 'Restore' : 'Maximize'}
 			>
 				<Icon name="square" size="xs" />
 			</button>
@@ -74,7 +72,6 @@
 				class="touch-target flex items-center justify-center rounded text-ink-muted transition-colors hover:bg-red-600 hover:text-white"
 				onclick={onClose}
 				aria-label="Close window"
-				title="Close"
 			>
 				<Icon name="x" size="xs" />
 			</button>

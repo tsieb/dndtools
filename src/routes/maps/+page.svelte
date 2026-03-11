@@ -2320,7 +2320,6 @@
 				class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 				onclick={() => void handleImportMap()}
 				disabled={!desktopAvailable || importing}
-				title={desktopAvailable ? 'Import a map image into the vault' : 'Desktop mode required'}
 			>
 				{importing ? 'Importing...' : 'Import Map'}
 			</button>
@@ -3453,7 +3452,6 @@
 							class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 							disabled={!dirty || saving}
 							onclick={() => void handleSave()}
-							title={saving ? 'Saving map...' : 'Save map changes'}
 						>
 							{saving ? 'Saving...' : 'Save Map'}
 						</button>
@@ -3462,7 +3460,6 @@
 							class="rounded-md border border-border px-3 py-1.5 text-xs text-ink-muted hover:bg-surface-alt disabled:cursor-not-allowed disabled:opacity-60 transition-[transform,colors] active:scale-[0.97] active:brightness-95"
 							disabled={!dirty || saving}
 							onclick={discardDraft}
-							title="Discard unsaved changes"
 						>
 							Discard
 						</button>

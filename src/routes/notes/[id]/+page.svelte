@@ -292,7 +292,6 @@
 						class="px-2.5 py-1.5 text-xs rounded-md bg-accent-subtle text-accent hover:bg-accent/20 transition-[transform,colors] active:scale-[0.97] active:brightness-95 disabled:opacity-60 disabled:cursor-not-allowed"
 						onclick={handleQuickAdd}
 						disabled={quickAdding}
-						title={quickAdding ? 'Adding to note...' : 'Add bullet to note'}
 					>
 						{quickAdding ? 'Adding...' : 'Add'}
 					</button>

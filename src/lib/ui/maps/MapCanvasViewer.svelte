@@ -1338,7 +1338,6 @@
 							class="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/90 text-white shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
 							style={`left:${point.x}px;top:${point.y}px;background:${poiThemeColor(poi.colorTheme)};width:24px;height:24px;`}
 							aria-label={`${poi.label} (${poi.category})`}
-							title={poi.label}
 							onpointerdown={(event) => handlePoiPointerDown(event, poi.id)}
 							onclick={(event) => handlePoiClick(event, poi.id)}
 							onmouseenter={(event) => emitPoiHover(poi.id, event)}
@@ -1365,7 +1364,6 @@
 								: 'z-20'}"
 							style={`left:${point.x}px;top:${point.y}px;`}
 							aria-label={token.label}
-							title={token.label}
 							onpointerdown={(event) => handleCombatTokenPointerDown(event, token.id)}
 							onclick={(event) => handleCombatTokenClick(event, token.id)}
 						>

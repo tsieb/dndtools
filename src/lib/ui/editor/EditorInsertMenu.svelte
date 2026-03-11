@@ -300,7 +300,6 @@
 				}
 			}}
 			disabled={!editorView}
-			title="Open /snippets library"
 		>
 			/snippets
 		</button>

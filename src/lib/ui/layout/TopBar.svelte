@@ -4,7 +4,6 @@
 	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { playerModeState } from '$lib/state/player-mode.svelte.js';
 	import { navigationState } from '$lib/state/navigation.svelte.js';
-	import { inputModalityState } from '$lib/state/input-modality.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 	import { featureSettingsState } from '$lib/state/feature-settings.svelte.js';
 	import { syncState } from '$lib/state/sync.svelte.js';
@@ -64,7 +63,6 @@
 		return navigationState.currentEntry?.label ?? pathname;
 	});
 	const mcpReviewEnabled = $derived(featureSettingsState.isAdvancedEnabled('mcp_staged_review'));
-	const showKeyboardHints = $derived(!layoutState.isMedium || inputModalityState.keyboardDetected);
 	const syncIndicator = $derived(syncState.indicator);
 	const syncLabel = $derived.by(() => syncIndicatorLabel(syncIndicator));
 
@@ -121,7 +119,6 @@
 						class="touch-target rounded-md text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 						onclick={requestCompactEditorBack}
 						aria-label="Done editing"
-						title="Done"
 					>
 						<Icon name="chevron-left" size="sm" />
 					</button>
@@ -134,7 +131,6 @@
 					class="touch-target rounded-md text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 					onclick={onsearch}
 					aria-label="Open command palette"
-					title="Open command palette (Ctrl+P)"
 				>
 					<Icon name="search" size="sm" />
 				</button>
@@ -145,7 +141,6 @@
 					aria-label="More actions"
 					aria-haspopup="menu"
 					aria-expanded={overflowOpen}
-					title="More actions"
 				>
 					<Icon name="ellipsis" size="sm" />
 				</button>
@@ -193,7 +188,6 @@
 					class="desktop-no-drag touch-target rounded-md text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 					onclick={ontogglelocalpanel}
 					aria-label="Toggle local navigation"
-					title={showKeyboardHints ? 'Toggle local navigation (Ctrl+B)' : 'Toggle local navigation'}
 				>
 					<Icon name="menu" size="md" />
 				</button>
@@ -205,9 +199,6 @@
 						disabled={!detailpanelavailable}
 						aria-pressed={detailpanelopen}
 						aria-label="Toggle contextual detail panel"
-						title={detailpanelavailable
-							? 'Toggle contextual detail panel (Ctrl+Shift+R)'
-							: 'No contextual detail panel for this view'}
 					>
 						<Icon name="panel-left" size="sm" />
 					</button>
@@ -217,9 +208,6 @@
 					onclick={() => window.history.back()}
 					disabled={!navigationState.canGoBack}
 					aria-label="Go back"
-					title={navigationState.canGoBack && navigationState.backEntry
-						? `Back to ${navigationState.backEntry.label}`
-						: 'No previous location'}
 				>
 					<Icon name="chevron-left" size="sm" />
 				</button>
@@ -228,9 +216,6 @@
 					onclick={() => window.history.forward()}
 					disabled={!navigationState.canGoForward}
 					aria-label="Go forward"
-					title={navigationState.canGoForward && navigationState.forwardEntry
-						? `Forward to ${navigationState.forwardEntry.label}`
-						: 'No forward location'}
 				>
 					<Icon name="chevron-right" size="sm" />
 				</button>
@@ -244,7 +229,6 @@
 					class="touch-target-inline flex items-center gap-2 rounded-md bg-surface-alt px-2.5 py-1.5 text-sm text-ink-faint transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-border"
 					onclick={onsearch}
 					aria-label="Open command palette"
-					title={showKeyboardHints ? 'Open command palette (Ctrl+P)' : 'Open command palette'}
 				>
 					<Icon name="search" size="xs" />
 					<span class="hidden sm:inline">Command</span>
@@ -254,7 +238,6 @@
 					href={`${resolve('/settings')}?tab=sync`}
 					class="touch-target-inline flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 					aria-label={`Sync status: ${syncLabel}`}
-					title="Open sync settings"
 				>
 					<span
 						class="h-2.5 w-2.5 rounded-full {syncIndicator === 'online'
@@ -291,7 +274,6 @@
 									? 'text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20'
 									: 'text-ink-muted hover:bg-surface-alt'}"
 							aria-label={`Vault integrity ${vaultHealthState.severity}: ${vaultHealthState.issueCount} issue${vaultHealthState.issueCount === 1 ? '' : 's'}`}
-							title="Open vault health report"
 						>
 							<Icon
 								name={vaultHealthState.severity === 'critical' ? 'octagon-alert' : 'triangle-alert'}
@@ -328,7 +310,6 @@
 							href={`${resolve('/settings')}?tab=mcp#mcp-changes`}
 							class="touch-target relative rounded-md text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 							aria-label="Pending MCP changes"
-							title="Review pending MCP changes"
 						>
 							<Icon name="file-text" size="md" />
 							{#if mcpChangesState.count > 0}

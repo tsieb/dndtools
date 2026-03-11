@@ -477,7 +477,7 @@
 			{/if}
 		</div>
 
-		<aside class="rounded-lg border border-border bg-surface p-4">
+		<section class="rounded-lg border border-border bg-surface p-4" aria-live="polite">
 			{#if !selectedNode}
 				<p class="text-sm text-ink-muted">Select a node to inspect it.</p>
 			{:else}
@@ -549,6 +549,6 @@
 					</div>
 				</div>
 			{/if}
-		</aside>
+		</section>
 	</section>
 </div>

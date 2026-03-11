@@ -196,7 +196,7 @@
 							type="button"
 							class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg"
 							onclick={() => navigateToNote(note.id)}
-							title={note.title}
+							aria-label={note.title}
 						>
 							<span class="truncate">{note.title}</span>
 						</button>
@@ -211,7 +211,7 @@
 							type="button"
 							class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg"
 							onclick={() => navigateToNote(note.id)}
-							title={note.title}
+							aria-label={note.title}
 						>
 							<span class="truncate">{note.title}</span>
 						</button>
@@ -237,7 +237,7 @@
 						type="button"
 						class="sidebar-open-thread-item w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg hover:text-ink"
 						onclick={() => navigateToNote(thread.noteId)}
-						title={thread.title}
+						aria-label={thread.title}
 					>
 						<span class="truncate">{thread.title}</span>
 					</button>
@@ -260,7 +260,7 @@
 						type="button"
 						class="w-full rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg hover:text-ink"
 						onclick={() => navigateToNote(event.noteId)}
-						title={event.title}
+						aria-label={event.title}
 					>
 						<div class="truncate">{event.title}</div>
 						{#if event.dateShort}

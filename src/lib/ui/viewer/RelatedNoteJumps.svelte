@@ -66,7 +66,7 @@
 						<button
 							class="px-2 py-1 rounded-md text-xs bg-accent-subtle text-accent hover:bg-accent/20 transition-colors"
 							onclick={() => openNote(jump.noteId)}
-							title={jump.reason}
+							aria-label={jump.reason}
 						>
 							{jump.title}
 						</button>
@@ -83,7 +83,7 @@
 						<button
 							class="px-2 py-1 rounded-md text-xs bg-surface-alt text-ink-muted hover:text-ink transition-colors"
 							onclick={() => openNote(jump.noteId)}
-							title={jump.reason}
+							aria-label={jump.reason}
 						>
 							{jump.title}
 						</button>
@@ -100,7 +100,7 @@
 						<button
 							class="px-2 py-1 rounded-md text-xs bg-surface-alt text-ink-muted hover:text-ink transition-colors"
 							onclick={() => openNote(jump.noteId)}
-							title={jump.reason}
+							aria-label={jump.reason}
 						>
 							{jump.title}
 						</button>

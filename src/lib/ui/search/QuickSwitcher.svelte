@@ -818,7 +818,7 @@
 								onclick={() => !item.disabled && void item.run()}
 								onfocus={() => (selectedIndex = i)}
 								disabled={item.disabled}
-								title={item.title}
+								aria-label={item.title}
 							>
 								<span class="block truncate text-sm font-medium text-ink">
 									{item.title}

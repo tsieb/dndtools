@@ -108,7 +108,6 @@
 	tabindex="0"
 	aria-label={`Session board tile: ${note.title}`}
 	aria-pressed={selected}
-	title={selected ? `Selected tile: ${note.title}` : `Select tile: ${note.title}`}
 	data-board-tile="true"
 	onclick={(event) => {
 		const target = event.target as HTMLElement;
@@ -142,7 +141,6 @@
 			type="button"
 			class="text-left truncate flex-1 font-medium text-sm text-ink hover:text-accent transition-colors"
 			onclick={onopen}
-			title="Open enlarged view"
 			aria-label={`Open enlarged view for ${note.title}`}
 		>
 			{note.title}
@@ -151,7 +149,6 @@
 			type="button"
 			class="rounded px-1.5 py-0.5 text-xs text-accent underline underline-offset-2 hover:text-accent-hover"
 			onclick={handleViewInKnowledge}
-			title="View this source note in Knowledge"
 			aria-label={`View ${note.title} in Knowledge`}
 		>
 			View in Knowledge

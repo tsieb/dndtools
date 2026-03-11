@@ -30,7 +30,6 @@
 			href={item.href}
 			aria-label={item.label}
 			aria-current={active ? 'page' : undefined}
-			title={item.label}
 			class="group flex min-h-11 flex-col items-center justify-center rounded-lg text-sm font-medium transition-colors
 				{active ? 'bg-accent-subtle text-accent' : 'text-ink-muted hover:bg-surface-alt hover:text-ink'}"
 			onclick={(event) => onclick?.(item.id, event)}

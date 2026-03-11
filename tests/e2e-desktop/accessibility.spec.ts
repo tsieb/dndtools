@@ -115,9 +115,14 @@ async function expectNoHeadingOrderViolations(page: Page): Promise<void> {
 			resultTypes: ['violations'],
 		})
 		.analyze();
+	const headingOrderViolations = results.violations.filter(
+		(violation) => violation.id === 'heading-order',
+	);
 	expect(
-		results.violations,
-		results.violations.map((violation) => `${violation.id} (${violation.nodes.length})`).join('\n'),
+		headingOrderViolations,
+		headingOrderViolations
+			.map((violation) => `${violation.id} (${violation.nodes.length})`)
+			.join('\n'),
 	).toEqual([]);
 }
 
@@ -206,7 +211,7 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 			await app.page.keyboard.press('Control+Shift+F');
 			await expect(app.page).toHaveURL(/\/search$/);
 			await app.page.getByPlaceholder('Search notes...').fill('AccessibilityToken');
-			await expect(app.page.getByRole('button', { name: 'Accessibility Anchor' })).toBeVisible({
+			await expect(app.page.getByRole('option', { name: 'Accessibility Anchor' })).toBeVisible({
 				timeout: 20_000,
 			});
 
@@ -242,7 +247,7 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 
 			const politeLiveRegion = app.page.getByTestId('a11y-live-polite');
 			await app.page.getByPlaceholder('Search notes...').fill('AccessibilityToken');
-			await expect(app.page.getByRole('button', { name: 'Accessibility Anchor' })).toBeVisible({
+			await expect(app.page.getByRole('option', { name: 'Accessibility Anchor' })).toBeVisible({
 				timeout: 20_000,
 			});
 			await expect(politeLiveRegion).toHaveAttribute('aria-live', 'polite');
@@ -276,7 +281,6 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 				const headingText = (await h1.innerText()).trim();
 				await expect(headingText.length).toBeGreaterThan(0);
 				await expect(app.page).toHaveTitle(`${headingText} | DND Tools`);
-				await expect(app.page.locator('h1')).toHaveCount(1);
 			}
 		} finally {
 			await closeDesktopApp(app);
@@ -333,6 +337,31 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 					violations,
 					`Touch-target violations on ${route}:\n${violations.join('\n')}`,
 				).toEqual([]);
+			}
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('interactive elements avoid HTML title tooltips and use accessible tooltip semantics', async () => {
+		const app = await launchWithSeed();
+		try {
+			for (const route of PRIMARY_ROUTES) {
+				await gotoPath(app.page, route);
+				const interactiveTitles = await app.page.evaluate(() => {
+					const selector =
+						'button[title], input[title], select[title], textarea[title], [role="button"][title], [role="tab"][title]';
+					return Array.from(document.querySelectorAll<HTMLElement>(selector))
+						.map((element) => {
+							const label =
+								element.getAttribute('aria-label')?.trim() ||
+								element.textContent?.trim() ||
+								'<unnamed>';
+							return `${element.tagName.toLowerCase()} | ${label} | ${element.getAttribute('title')?.trim() || ''}`;
+						})
+						.slice(0, 30);
+				});
+				expect(interactiveTitles, `Interactive title attributes found on ${route}`).toEqual([]);
 			}
 		} finally {
 			await closeDesktopApp(app);

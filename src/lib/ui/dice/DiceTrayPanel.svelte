@@ -154,7 +154,7 @@
 				<button
 					type="button"
 					class="rounded border border-border/70 bg-surface-alt/70 px-2 py-1 text-xs text-ink hover:bg-surface transition-colors"
-					title={macro.expression}
+					aria-label={`${macro.label}: ${macro.expression}`}
 					onclick={() => rollMacro(macro)}
 				>
 					{macro.label}
