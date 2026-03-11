@@ -1,6 +1,11 @@
 import AxeBuilder from '@axe-core/playwright';
 import { test, expect, type Page } from '@playwright/test';
 import { FileSystemAdapter } from '../../mcp/storage.js';
+import {
+	assertAxePolicy,
+	createAxePolicyReporter,
+	runAxePolicyScan,
+} from '../accessibility/axe-policy.js';
 import { createTempVaultDir, launchDesktopApp, closeDesktopApp } from './helpers/desktop-app.js';
 
 function buildNote(
@@ -63,6 +68,14 @@ async function launchWithSeed(): Promise<Awaited<ReturnType<typeof launchDesktop
 				},
 			}) as never,
 		);
+		await adapter.saveNote(
+			buildNote(
+				'a11y-lore-note',
+				'Landsmeet Chronicle',
+				'# Landsmeet Chronicle\n\nLore traversal anchor.',
+				{ folder: '/Lore/Kingdoms' },
+			) as never,
+		);
 
 		const now = new Date().toISOString();
 		await adapter.saveSessionBoard({
@@ -79,32 +92,13 @@ async function launchWithSeed(): Promise<Awaited<ReturnType<typeof launchDesktop
 	return launchDesktopApp(vaultDir);
 }
 
+const axeReporter = createAxePolicyReporter();
+
 async function gotoPath(page: Page, path: string): Promise<void> {
 	const origin = new URL(page.url()).origin;
 	await page.goto(`${origin}${path}`);
 	await expect(page.locator('main')).toBeVisible();
 	await page.waitForTimeout(150);
-}
-
-async function expectNoSeriousOrCriticalAxeViolations(page: Page): Promise<void> {
-	const results = await new AxeBuilder({ page })
-		.setLegacyMode(true)
-		.options({
-			resultTypes: ['violations'],
-		})
-		.analyze();
-	const violations = results.violations.filter((violation) =>
-		['critical', 'serious'].includes(violation.impact ?? ''),
-	);
-	expect(
-		violations,
-		violations
-			.map(
-				(violation) =>
-					`${violation.impact ?? 'unknown'}: ${violation.id} (${violation.nodes.length})`,
-			)
-			.join('\n'),
-	).toEqual([]);
 }
 
 async function expectNoHeadingOrderViolations(page: Page): Promise<void> {
@@ -178,9 +172,133 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 		try {
 			for (const route of PRIMARY_ROUTES) {
 				await gotoPath(app.page, route);
-				await expectNoSeriousOrCriticalAxeViolations(app.page);
+				const scan = await runAxePolicyScan(
+					app.page,
+					`Desktop accessibility compliance @a11y > route scan > ${route}`,
+				);
+				expect(scan).not.toBeNull();
+				if (scan) {
+					assertAxePolicy(scan);
+					axeReporter.record(scan);
+				}
 				await expectNoHeadingOrderViolations(app.page);
 			}
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('keyboard-only: open a note from the knowledge list and return to list', async () => {
+		const app = await launchWithSeed();
+		try {
+			await gotoPath(app.page, '/knowledge/notes');
+
+			await app.page
+				.getByRole('button', { name: /Accessibility Anchor/i })
+				.first()
+				.focus();
+			await app.page.keyboard.press('Enter');
+			await expect(app.page).toHaveURL(/\/notes\/a11y-note$/);
+
+			const backButton = app.page.getByRole('button', { name: 'Go back' });
+			await backButton.focus();
+			await app.page.keyboard.press('Enter');
+			await expect(app.page).toHaveURL(/\/knowledge\/notes$/);
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('keyboard-only: command palette search navigates to note and returns to prior view', async () => {
+		const app = await launchWithSeed();
+		try {
+			await gotoPath(app.page, '/knowledge/notes');
+			await app.page.keyboard.press('Control+P');
+			const dialog = app.page.getByRole('dialog', { name: /command palette/i });
+			await expect(dialog).toBeVisible();
+			const queryInput = dialog.getByRole('combobox', { name: /command palette query/i });
+			await queryInput.fill('Accessibility Link Target');
+			const targetOption = dialog
+				.getByRole('option', { name: 'Accessibility Link Target' })
+				.first();
+			await expect(targetOption).toBeVisible();
+			await targetOption.focus();
+			await app.page.keyboard.press('Enter');
+			await expect(app.page).toHaveURL(/\/notes\/a11y-link-target$/);
+
+			const backButton = app.page.getByRole('button', { name: 'Go back' });
+			await backButton.focus();
+			await app.page.keyboard.press('Enter');
+			await expect(app.page).toHaveURL(/\/knowledge\/notes$/);
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('keyboard-only: open dialog, tab through controls, escape closes, and focus returns', async () => {
+		const app = await launchWithSeed();
+		try {
+			await gotoPath(app.page, '/knowledge/notes');
+			const trigger = app.page.getByRole('button', { name: /Open command palette/i }).first();
+			await trigger.focus();
+			await app.page.keyboard.press('Enter');
+			const dialog = app.page.getByRole('dialog', { name: /command palette/i });
+			await expect(dialog).toBeVisible();
+			await app.page.keyboard.press('Tab');
+			await app.page.keyboard.press('Tab');
+			await app.page.keyboard.press('Escape');
+			await expect(dialog).toBeHidden();
+			await expect(trigger).toBeFocused();
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('keyboard-only: folder tree supports arrow expand/select/collapse flow', async () => {
+		const app = await launchWithSeed();
+		try {
+			await gotoPath(app.page, '/knowledge/notes');
+			const localNav = app.page.getByRole('navigation', { name: 'Knowledge navigation' });
+			await expect(localNav).toBeVisible();
+			const browseTab = localNav.getByRole('tab', { name: 'Browse' });
+			await browseTab.focus();
+			await app.page.keyboard.press('Enter');
+			const folderTreeToggle = localNav.getByRole('button', { name: 'Folder Tree' });
+			const expanded = await folderTreeToggle.getAttribute('aria-expanded');
+			if (expanded !== 'true') {
+				await folderTreeToggle.focus();
+				await app.page.keyboard.press('Enter');
+			}
+			const tree = localNav.getByRole('tree', { name: 'Knowledge folder tree' });
+			await expect(tree).toBeVisible();
+
+			const firstTreeItem = tree.getByRole('treeitem').first();
+			await firstTreeItem.focus();
+			await app.page.keyboard.press('ArrowRight');
+			await app.page.keyboard.press('ArrowDown');
+			await app.page.keyboard.press('Enter');
+			await expect(app.page).toHaveURL(/\/knowledge\/notes(\?|$)/);
+			await firstTreeItem.focus();
+			await app.page.keyboard.press('ArrowLeft');
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('keyboard-only: dice tray opens with shortcut, rolls a die via keyboard, and closes', async () => {
+		const app = await launchWithSeed();
+		try {
+			await gotoPath(app.page, '/knowledge/notes');
+			await app.page.keyboard.press('Control+D');
+			const diceTray = app.page.getByRole('dialog', { name: /dice tray/i });
+			await expect(diceTray).toBeVisible();
+			await app.page.keyboard.press('Tab');
+			await app.page.keyboard.press('Tab');
+			await app.page.keyboard.press('Tab');
+			await app.page.keyboard.press('Enter');
+			await expect(app.page.getByText(/rolled|result|history/i).first()).toBeVisible();
+			await app.page.keyboard.press('Escape');
+			await expect(diceTray).toBeHidden();
 		} finally {
 			await closeDesktopApp(app);
 		}
@@ -366,5 +484,11 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 		} finally {
 			await closeDesktopApp(app);
 		}
+	});
+
+	test.afterAll(async () => {
+		const reportPath = process.env.A11Y_REPORT_PATH;
+		if (!reportPath) return;
+		await axeReporter.write(reportPath);
 	});
 });

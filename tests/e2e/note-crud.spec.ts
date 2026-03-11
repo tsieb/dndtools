@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './a11y-fixture.js';
 import { waitForAppReady } from './helpers.js';
 
 async function startNewNote(page: Page): Promise<void> {

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './a11y-fixture.js';
 import { waitForAppReady } from './helpers.js';
 
 test.describe('Mobile navigation and keyboard adaptation', () => {
