@@ -873,6 +873,7 @@ test.describe('Desktop critical workflows @critical', () => {
 			await app.page.getByLabel('Search maps').fill('Frontier');
 			await app.page.getByLabel('Filter maps by tag').selectOption({ label: '#travel' });
 			await app.page.getByRole('button', { name: /Frontier Atlas/ }).click();
+			await expect(app.page).toHaveURL(/\/atlas\/maps\/map-critical-route$/);
 
 			await expect(app.page.getByText('Layer System')).toBeVisible();
 			await expect(app.page.getByRole('heading', { name: 'Travel Routes' })).toBeVisible();

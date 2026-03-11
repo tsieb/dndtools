@@ -84,7 +84,7 @@ describe('navigationState', () => {
 			recentKind: 'note',
 			recentItemId: 'note-1',
 		});
-		navigationState.record('/atlas/maps?map=map-7', {
+		navigationState.record('/atlas/maps/map-7', {
 			label: 'Map map-7',
 			recentKind: 'map',
 			recentItemId: 'map-7',
