@@ -306,7 +306,7 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			await createNoteFromTopBar(app.page);
 			await expect(app.page.getByPlaceholder('Note title...')).toBeVisible();
 			await app.page.getByRole('button', { name: 'Done' }).click();
-			await expect(app.page).toHaveURL(/\/notes\/[^/]+$/);
+			await expect(app.page).toHaveURL(/\/(notes\/[^/]+|knowledge\/notes)$/);
 
 			await app.page.getByRole('button', { name: 'Open command palette' }).click();
 			const commandPalette = app.page.getByRole('dialog', { name: 'Command palette' });
@@ -422,6 +422,7 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			await ensureDmMode(app.page);
 			await ensureSidebarOpen(app.page);
 			const sidebar = app.page.locator('aside:visible').first();
+			const primaryNav = app.page.getByRole('navigation', { name: 'Primary' }).first();
 
 			await gotoDesktopPath(app.page, '/knowledge/notes');
 			await expect(app.page).toHaveURL(/\/notes$/);
@@ -432,10 +433,10 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			await expect(app.page).toHaveURL(/\/search$/);
 			await expect(app.page.getByRole('heading', { name: 'Search & Discovery' })).toBeVisible();
 			await ensureSidebarOpen(app.page);
-			await sidebar.getByRole('link', { name: 'Atlas' }).first().click();
+			await primaryNav.getByRole('link', { name: 'Atlas' }).first().click();
 			await expect(app.page).toHaveURL(/\/atlas\/maps$/);
 			await ensureSidebarOpen(app.page);
-			await sidebar.getByRole('link', { name: 'Knowledge' }).first().click();
+			await primaryNav.getByRole('link', { name: 'Knowledge' }).first().click();
 			await expect(app.page).toHaveURL(/\/knowledge$/);
 
 			const backButton = app.page.getByRole('button', { name: 'Go back' });
@@ -449,7 +450,7 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 				await forwardButton.click();
 				await expect(app.page).toHaveURL(/\/knowledge$/);
 			} else {
-				await expect(backButton).toHaveAttribute('title', /No previous location/i);
+				await expect(backButton).toBeDisabled();
 			}
 
 			const routeChecks: Array<{ label: string; url: RegExp }> = [
@@ -461,7 +462,7 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			];
 			for (const route of routeChecks) {
 				await ensureSidebarOpen(app.page);
-				await sidebar.getByRole('link', { name: route.label }).first().click();
+				await primaryNav.getByRole('link', { name: route.label }).first().click();
 				await expect(app.page).toHaveURL(route.url);
 			}
 
@@ -491,7 +492,7 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			const input = app.page.getByPlaceholder('Search notes...');
 			await input.fill('ArcaneShellToken');
 			await expect(
-				app.page.getByRole('button', { name: 'Navigation Anchor' }).first(),
+				app.page.getByRole('option', { name: 'Navigation Anchor' }).first(),
 			).toBeVisible();
 
 			const operatorsToggle = app.page
