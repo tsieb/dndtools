@@ -171,6 +171,31 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 18.5** - Automated Accessibility Testing Pipeline:
+  - Added shared axe policy enforcement for Playwright route tests in `tests/accessibility/axe-policy.ts` with
+    severity handling:
+    - `critical` violations block test/CI
+    - `serious` violations emit warnings and are tracked via `tests/accessibility/known-violations.json`
+    - `moderate`/`minor` violations are logged for follow-up visibility
+    - known-violation target-resolution dates are enforced and fail when expired.
+  - Wired browser Playwright suites to run policy scans after each passing test via
+    `tests/e2e/a11y-fixture.ts` and updated route specs to use the fixture.
+  - Expanded dedicated keyboard-only accessibility coverage in
+    `tests/e2e-desktop/accessibility.spec.ts` for:
+    - knowledge navigation + note open/return flow
+    - command palette keyboard navigation flow
+    - dialog tab/escape focus-return flow
+    - folder-tree arrow-key expand/select/collapse flow
+    - dice tray keyboard-only roll/close flow.
+  - Added manual screen-reader QA release checklist in `docs/development/ACCESSIBILITY_QA.md` for:
+    - VoiceOver + Safari (macOS)
+    - NVDA + Chrome (Windows)
+    - TalkBack + Chrome (Android).
+  - Added accessibility CI reporting in `.github/workflows/ci.yml`:
+    - preview-build Playwright accessibility run with structured report output
+    - formatted summary artifact (`tmp/accessibility/*`)
+    - PR comment updates via marker-based comment refresh.
+
 - **Epic 18.4** - Pointer Accessibility and Alternative Interactions:
   - Completed touch-target remediations across dense controls to satisfy minimum pointer target sizing for
     desktop and touch contexts.
