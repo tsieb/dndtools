@@ -171,6 +171,24 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 19.3** - POI UX: Creation Workflow, Preview Quality & Linking:
+  - Added POI placement affordances in `src/lib/ui/maps/MapCanvasViewer.svelte`:
+    - `poi_edit` mode now uses a crosshair cursor with a semi-transparent ghost pin that follows the pointer.
+    - Ghost placement snaps to nearest grid cell center when grid data is present and highlights the snapped cell.
+    - New POI pins animate in with a 150ms scale-in transition, respecting reduced-motion preferences.
+    - Touch modality is surfaced to the map route via callback for mode-strip hinting, and map click payloads now include pointer metadata.
+  - Replaced manual POI hover tooltip with `Popover`-anchored interaction in `src/routes/maps/+page.svelte`:
+    - Hover/focus now opens a delayed (100ms) anchored popover with POI title, category chip/icon, and linked preview content.
+    - Popover dismissal is routed through the shared `Popover` close semantics (leave/escape/click-outside).
+  - Reworked POI detail presentation in right-panel and compact sheet surfaces:
+    - Selected POI now renders semantic heading, category/layer context, linked content actions (`Read note`, `Open in new pane`), and fractional position labels.
+    - Compact/medium layouts now surface selected POI details in a dismissible bottom `Sheet`.
+    - `poi_edit` mode exposes inline-edit controls for label/category/layer with searchable note-link input and explicit save affordance.
+  - Added guided note-linking flows from POI details:
+    - `Link existing note` dialog with search/filter list.
+    - `Create note here` dialog with pre-filled title, note-type card selection (`Location`, `NPC`, `Faction`, `Plain note`), optional template seed toggle, and `Create and Link` action.
+    - Note creation now links back to POI frontmatter metadata and opens the resulting note in split view.
+
 - **Epic 19.2** - Map Viewer Mode Architecture: State Machine Replacing Boolean Flags:
   - Introduced a typed map viewer mode model in `src/lib/types/map-viewer.ts`:
     - Added `MapViewerMode` union and canonical mode metadata (`MAP_VIEWER_MODES`) for labels, hints, icons, and shortcuts.
