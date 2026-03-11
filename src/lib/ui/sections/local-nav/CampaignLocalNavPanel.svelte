@@ -128,7 +128,7 @@
 	}
 </script>
 
-<nav class="space-y-2 pb-2" aria-label="Local navigation: Campaign panel">
+<nav class="space-y-2 pb-2" aria-label="Campaign navigation">
 	{#if showObjectNotesPrompt}
 		<div class="mx-2 rounded-md border border-accent/45 bg-accent-subtle/35 p-2.5 text-xs text-ink">
 			<p class="font-medium">You have {npcCandidateCount} NPC notes.</p>

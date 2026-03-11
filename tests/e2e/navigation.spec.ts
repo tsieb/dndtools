@@ -7,9 +7,7 @@ test.describe('Navigation', () => {
 	});
 
 	test('home page loads with app title', async ({ page }) => {
-		await expect(
-			page.getByRole('navigation', { name: 'Global navigation: Primary sections' }),
-		).toBeVisible();
+		await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
 	});
 
 	test('navigates to notes page', async ({ page }) => {
@@ -68,7 +66,7 @@ test.describe('Navigation', () => {
 	}) => {
 		await page.setViewportSize({ width: 1280, height: 900 });
 		await page.goto('/knowledge/notes');
-		const localNav = page.getByRole('navigation', { name: 'Local navigation: Knowledge panel' });
+		const localNav = page.getByRole('navigation', { name: 'Knowledge navigation' });
 		await expect(localNav).toBeVisible();
 
 		await page.keyboard.press('Control+b');
@@ -104,7 +102,7 @@ test.describe('Navigation', () => {
 	test('expanded local panel resize handle supports keyboard resizing', async ({ page }) => {
 		await page.setViewportSize({ width: 1280, height: 900 });
 		await page.goto('/knowledge/notes');
-		const localNav = page.getByRole('navigation', { name: 'Local navigation: Knowledge panel' });
+		const localNav = page.getByRole('navigation', { name: 'Knowledge navigation' });
 		const sidebar = localNav.locator('xpath=ancestor::aside[1]');
 		const resizeHandle = page.getByRole('separator', { name: 'Resize local navigation panel' });
 
@@ -140,7 +138,7 @@ test.describe('Navigation', () => {
 	test('breadcrumb uses semantic structure with aria-current marker', async ({ page }) => {
 		await page.goto('/knowledge/search');
 		await expect(page.getByRole('heading', { name: 'Search & Discovery' })).toBeVisible();
-		const breadcrumb = page.getByRole('navigation', { name: 'Contextual navigation: Breadcrumb' });
+		const breadcrumb = page.getByRole('navigation', { name: 'Breadcrumb' });
 		await expect(breadcrumb).toBeVisible();
 		await expect(breadcrumb.locator('ol')).toBeVisible();
 		await expect(breadcrumb.locator('[aria-current="page"]')).toContainText('Search');
@@ -170,7 +168,7 @@ test.describe('Navigation', () => {
 		await expect(
 			page.getByRole('heading', { name: /All Notes|Player Notes|Notes tagged/i }),
 		).toBeVisible();
-		const localNav = page.getByRole('navigation', { name: 'Local navigation: Knowledge panel' });
+		const localNav = page.getByRole('navigation', { name: 'Knowledge navigation' });
 		if (!(await localNav.isVisible().catch(() => false))) {
 			await page.getByRole('button', { name: 'Toggle local navigation' }).click();
 		}
@@ -192,7 +190,7 @@ test.describe('Navigation', () => {
 
 		await page.reload();
 		const folderTreeAfterReload = page
-			.getByRole('navigation', { name: 'Local navigation: Knowledge panel' })
+			.getByRole('navigation', { name: 'Knowledge navigation' })
 			.getByRole('button', { name: 'Folder Tree' });
 		await expect(folderTreeAfterReload).toHaveAttribute('aria-expanded', 'false');
 	});
@@ -200,7 +198,7 @@ test.describe('Navigation', () => {
 	test('settings section has no local panel content', async ({ page }) => {
 		await page.goto('/settings');
 		await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
-		const localNav = page.getByRole('navigation', { name: 'Local navigation: Settings panel' });
+		const localNav = page.getByRole('navigation', { name: 'Settings navigation' });
 		if (!(await localNav.isVisible().catch(() => false))) {
 			await page.getByRole('button', { name: 'Toggle local navigation' }).click();
 		}
@@ -237,7 +235,7 @@ test.describe('Navigation', () => {
 		await expect(mediumOverlay).toBeHidden();
 
 		const primaryNav = page.getByRole('navigation', {
-			name: 'Global navigation: Primary sections',
+			name: 'Primary',
 		});
 		await primaryNav.getByRole('link', { name: 'Knowledge' }).click();
 		await expect(mediumOverlay).toBeVisible();

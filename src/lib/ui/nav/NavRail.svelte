@@ -20,7 +20,8 @@
 
 <nav
 	class="flex h-full flex-col gap-1 px-2 py-3"
-	aria-label="Global navigation: Primary sections"
+	role="navigation"
+	aria-label="Primary"
 	style="width: var(--layout-rail-width);"
 >
 	{#each items as item (item.id)}

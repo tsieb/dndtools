@@ -59,6 +59,18 @@
 	let objectCache: { index: ObjectIndex; loadedAt: number } | null = null;
 	let objectCachePromise: Promise<ObjectIndex> | null = null;
 
+	function demoteHeadingLevels(markup: string): string {
+		return markup.replace(
+			/<(\/?)h([1-6])([^>]*)>/g,
+			(_, closing: string, level: string, rest: string) => {
+				const parsed = Number.parseInt(level, 10);
+				if (!Number.isFinite(parsed)) return `<${closing}h${level}${rest}>`;
+				const shifted = Math.min(6, parsed + 1);
+				return `<${closing}h${shifted}${rest}>`;
+			},
+		);
+	}
+
 	function createObjectIndex(objects: VaultObject[]): ObjectIndex {
 		const byKey = new SvelteMap<string, VaultObject>();
 		const byId = new SvelteMap<string, VaultObject>();
@@ -193,7 +205,7 @@
 			});
 
 			if (!cancelled) {
-				html = result;
+				html = demoteHeadingLevels(result);
 			}
 		};
 

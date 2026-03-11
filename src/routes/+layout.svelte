@@ -63,6 +63,7 @@
 		matchGlobalKeyboardShortcut,
 		type KeyboardShortcutId,
 	} from '$lib/domain/keyboard-shortcuts.js';
+	import type { SyncIndicatorState } from '$lib/types/sync.js';
 	import type { NoteTemplate } from '$lib/types/template-library.js';
 	import type { WorldCalendar } from '$lib/types/world-calendar.js';
 
@@ -79,7 +80,16 @@
 	let templateDialogFolderOverride = $state<string | null>(null);
 	let templateDialogCandidates = $state<readonly NoteTemplate[] | null>(null);
 	let lastAnnouncedRoute = $state<string | null>(null);
-	let previousAdvancedFeatureSnapshot: Record<string, boolean> | null = null;
+	let lastSyncIndicator = $state<SyncIndicatorState | null>(null);
+	let lastVaultHealthSnapshot = $state<string | null>(null);
+	let lastMcpChangeCount = $state<number | null>(null);
+	let lastSessionModeActive = $state<boolean | null>(null);
+	let syncStatusAnnouncement = $state('');
+	let vaultHealthAnnouncement = $state('');
+	let vaultHealthAnnouncementRole = $state<'status' | 'alert'>('status');
+	let mcpChangesAnnouncement = $state('');
+	let sessionModeAnnouncement = $state('');
+	let previousAdvancedFeatureSnapshot = $state<Record<string, boolean> | null>(null);
 	let runtimeBootstrapRequested = false;
 	let setupWizardSubmitting = $state(false);
 	let suggestedVaultName = $state('My Campaign');
@@ -89,6 +99,14 @@
 	let showSetupWizard = $derived(
 		runtimeState.ready && onboardingState.shouldShowSetupWizard(notesState.activeNotes.length),
 	);
+	let pageHeading = $derived.by(() => {
+		if (runtimeState.ready && showSetupWizard) return 'Welcome to DND Tools';
+		return routeHeading(page.url);
+	});
+	let documentTitle = $derived.by(() => {
+		const heading = pageHeading.trim();
+		return heading.length > 0 ? `${heading} | DND Tools` : 'DND Tools';
+	});
 
 	function canonicalizeLegacyPath(url: URL): string | null {
 		const { pathname, search } = url;
@@ -110,26 +128,43 @@
 		return null;
 	}
 
-	function routeLabel(url: URL): string {
-		const { pathname, searchParams } = url;
-		if (pathname === '/knowledge') return 'Knowledge';
+	function routeHeading(url: URL): string {
+		const canonicalPath = canonicalizeLegacyPath(url);
+		const canonicalUrl = canonicalPath ? new URL(canonicalPath, url.origin) : url;
+		const { pathname, searchParams } = canonicalUrl;
+		const noteMatch = pathname.match(/^\/knowledge\/notes\/([^/]+)(?:\/(edit))?$/);
+		if (noteMatch) {
+			const noteId = createNoteId(decodeURIComponent(noteMatch[1] ?? ''));
+			const note = notesState.getNoteById(noteId);
+			const title = note?.title ?? `Note ${noteId}`;
+			return noteMatch[2] === 'edit' ? `Edit ${title}` : title;
+		}
+		if (pathname === '/knowledge') {
+			if (playerModeState.enabled) return 'Player Screen';
+			return notesState.activeNotes.length === 0 ? 'Welcome, Dungeon Master' : 'Your Vault';
+		}
 		if (pathname === '/knowledge/notes') {
 			const tag = searchParams.get('tag');
-			const folder = searchParams.get('folder');
-			if (tag) return `Notes #${tag}`;
-			if (folder) return `Notes ${folder}`;
-			return 'All Notes';
+			if (tag) return `Notes tagged "${tag}"`;
+			return playerModeState.enabled ? 'Player Notes' : 'All Notes';
 		}
-		if (pathname === '/knowledge/search') return 'Search';
-		if (pathname === '/knowledge/graph') return 'Graph';
-		if (pathname === '/atlas/maps') return 'Maps';
-		if (pathname === '/campaign/timeline') return 'Timeline';
+		if (pathname === '/knowledge/search') return 'Search & Discovery';
+		if (pathname === '/knowledge/graph') return 'Link Graph';
+		if (pathname === '/atlas/maps') return 'Map Library';
+		if (pathname === '/campaign/timeline') return 'Campaign Timeline';
 		if (pathname === '/session/boards') return 'Session Board';
 		if (pathname === '/session/encounter/new') return 'Encounter Builder';
 		if (pathname === '/session/combat') return 'Combat Tracker';
 		if (pathname === '/settings') return 'Settings';
 		if (pathname === '/player') return 'Player Screen';
 		return pathname;
+	}
+
+	function syncIndicatorLabel(indicator: SyncIndicatorState): string {
+		if (indicator === 'online') return 'Online';
+		if (indicator === 'offline') return 'Offline';
+		if (indicator === 'syncing') return 'Syncing';
+		return 'Sync Error';
 	}
 
 	function isTopLevelRoute(pathname: string): boolean {
@@ -218,11 +253,16 @@
 			previousAdvancedFeatureSnapshot = { ...current };
 			return;
 		}
+		let changed = false;
 		for (const featureId of ADVANCED_FEATURE_IDS) {
+			if (previous[featureId] !== current[featureId]) {
+				changed = true;
+			}
 			if (!previous[featureId] && current[featureId]) {
 				featureSpotlightsState.queueForFeature(featureId);
 			}
 		}
+		if (!changed) return;
 		previousAdvancedFeatureSnapshot = { ...current };
 	});
 
@@ -403,7 +443,7 @@
 			}
 		}
 
-		const label = routeLabel(targetUrl);
+		const label = routeHeading(targetUrl);
 		navigationState.record(pathWithSearch, { label });
 		setBrowserHistoryLabel(label);
 	});
@@ -457,7 +497,70 @@
 		const routeKey = `${page.url.pathname}${page.url.search}`;
 		if (routeKey === lastAnnouncedRoute) return;
 		lastAnnouncedRoute = routeKey;
-		a11yAnnouncerState.announceAssertive(`${routeLabel(page.url)} view loaded.`);
+		a11yAnnouncerState.announceAssertive(`${routeHeading(page.url)} view loaded.`);
+	});
+
+	$effect(() => {
+		const indicator = syncState.indicator;
+		if (lastSyncIndicator === null) {
+			lastSyncIndicator = indicator;
+			return;
+		}
+		if (indicator === lastSyncIndicator) return;
+		lastSyncIndicator = indicator;
+		syncStatusAnnouncement = `Sync status ${syncIndicatorLabel(indicator)}.`;
+	});
+
+	$effect(() => {
+		const severity = vaultHealthState.severity;
+		const issueCount = vaultHealthState.issueCount;
+		const snapshot = `${severity}:${issueCount}`;
+		if (lastVaultHealthSnapshot === null) {
+			lastVaultHealthSnapshot = snapshot;
+			return;
+		}
+		if (snapshot === lastVaultHealthSnapshot) return;
+		lastVaultHealthSnapshot = snapshot;
+		if (severity === 'critical') {
+			vaultHealthAnnouncementRole = 'alert';
+			vaultHealthAnnouncement = `Vault health critical: ${issueCount} issue${issueCount === 1 ? '' : 's'} detected.`;
+			return;
+		}
+		vaultHealthAnnouncementRole = 'status';
+		if (severity === 'warning') {
+			vaultHealthAnnouncement = `Vault health warning: ${issueCount} issue${issueCount === 1 ? '' : 's'} detected.`;
+			return;
+		}
+		if (severity === 'info') {
+			vaultHealthAnnouncement = `Vault health update: ${issueCount} issue${issueCount === 1 ? '' : 's'} detected.`;
+			return;
+		}
+		vaultHealthAnnouncement = 'Vault health is clear.';
+	});
+
+	$effect(() => {
+		const count = mcpChangesState.count;
+		if (lastMcpChangeCount === null) {
+			lastMcpChangeCount = count;
+			return;
+		}
+		if (count === lastMcpChangeCount) return;
+		lastMcpChangeCount = count;
+		mcpChangesAnnouncement =
+			count === 0
+				? 'No pending MCP changes.'
+				: `${count} pending MCP change${count === 1 ? '' : 's'}.`;
+	});
+
+	$effect(() => {
+		const active = sessionModeState.isActive;
+		if (lastSessionModeActive === null) {
+			lastSessionModeActive = active;
+			return;
+		}
+		if (active === lastSessionModeActive) return;
+		lastSessionModeActive = active;
+		sessionModeAnnouncement = active ? 'Session mode active.' : 'Session mode inactive.';
 	});
 
 	$effect(() => {
@@ -898,7 +1001,7 @@
 </script>
 
 <svelte:head>
-	<title>DND Tools</title>
+	<title>{documentTitle}</title>
 	<meta
 		name="description"
 		content="D&D campaign note-taking app with wikilinks and bidirectional linking"
@@ -908,6 +1011,10 @@
 </svelte:head>
 
 <svelte:window onkeydown={handleKeydown} />
+
+{#if runtimeState.ready && !showSetupWizard}
+	<a class="skip-link" href="#main-content">Skip to main content</a>
+{/if}
 
 {#if runtimeState.ready && showSetupWizard}
 	<div class="flex h-screen items-center justify-center bg-bg">
@@ -930,6 +1037,42 @@
 	>
 		{@render children()}
 	</AppShell>
+	<div
+		class="sr-only"
+		role="status"
+		aria-live="polite"
+		aria-atomic="true"
+		data-testid="sync-status-announcer"
+	>
+		{syncStatusAnnouncement}
+	</div>
+	<div
+		class="sr-only"
+		role={vaultHealthAnnouncementRole}
+		aria-live={vaultHealthAnnouncementRole === 'alert' ? 'assertive' : 'polite'}
+		aria-atomic="true"
+		data-testid="vault-health-announcer"
+	>
+		{vaultHealthAnnouncement}
+	</div>
+	<div
+		class="sr-only"
+		role="status"
+		aria-live="polite"
+		aria-atomic="true"
+		data-testid="mcp-changes-announcer"
+	>
+		{mcpChangesAnnouncement}
+	</div>
+	<div
+		class="sr-only"
+		role="status"
+		aria-live="polite"
+		aria-atomic="true"
+		data-testid="session-mode-announcer"
+	>
+		{sessionModeAnnouncement}
+	</div>
 	{#if quickSwitcherOpen}
 		{#await import('$lib/ui/search/QuickSwitcher.svelte')}
 			<div class="hidden" aria-hidden="true"></div>

@@ -335,7 +335,7 @@
 	const savedPanelId = 'knowledge-panel-saved';
 </script>
 
-<nav class="space-y-2" aria-label="Local navigation: Knowledge panel">
+<nav class="space-y-2" aria-label="Knowledge navigation">
 	<div class="px-3 pt-2">
 		<div
 			class="grid grid-cols-3 gap-1 rounded-md border border-border bg-surface p-1"

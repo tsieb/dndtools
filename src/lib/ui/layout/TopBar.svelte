@@ -7,9 +7,12 @@
 	import { inputModalityState } from '$lib/state/input-modality.svelte.js';
 	import { mcpChangesState } from '$lib/state/mcp-changes.svelte.js';
 	import { featureSettingsState } from '$lib/state/feature-settings.svelte.js';
+	import { syncState } from '$lib/state/sync.svelte.js';
+	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
 	import { vaultHealthState } from '$lib/state/vaultHealth.svelte.js';
 	import Icon from '$lib/ui/common/Icon.svelte';
 	import HelpTip from '$lib/ui/common/HelpTip.svelte';
+	import type { SyncIndicatorState } from '$lib/types/sync.js';
 
 	interface Props {
 		onsearch: () => void;
@@ -62,6 +65,8 @@
 	});
 	const mcpReviewEnabled = $derived(featureSettingsState.isAdvancedEnabled('mcp_staged_review'));
 	const showKeyboardHints = $derived(!layoutState.isMedium || inputModalityState.keyboardDetected);
+	const syncIndicator = $derived(syncState.indicator);
+	const syncLabel = $derived.by(() => syncIndicatorLabel(syncIndicator));
 
 	$effect(() => {
 		if (layoutState.isCompact) return;
@@ -95,10 +100,18 @@
 		if (typeof window === 'undefined') return;
 		window.dispatchEvent(new CustomEvent('dndtools:editor-done-request'));
 	}
+
+	function syncIndicatorLabel(indicator: SyncIndicatorState): string {
+		if (indicator === 'online') return 'Online';
+		if (indicator === 'offline') return 'Offline';
+		if (indicator === 'syncing') return 'Syncing';
+		return 'Sync Error';
+	}
 </script>
 
 <header
 	class="h-[var(--layout-topbar-height)] shrink-0 border-b border-border bg-surface/88 px-3 backdrop-blur-md"
+	role="banner"
 >
 	<div class="flex h-full items-center justify-between gap-2">
 		{#if layoutState.isCompact}
@@ -151,6 +164,14 @@
 							onclick={() => (overflowOpen = false)}
 						>
 							Settings
+						</a>
+						<a
+							href={`${resolve('/settings')}?tab=sync`}
+							class="mt-1 block rounded px-2 py-1.5 text-sm text-ink-muted hover:bg-surface-alt"
+							role="menuitem"
+							onclick={() => (overflowOpen = false)}
+						>
+							Sync: {syncLabel}
 						</a>
 						<button
 							type="button"
@@ -229,30 +250,73 @@
 					<span class="hidden sm:inline">Command</span>
 				</button>
 
-				{#if vaultHealthState.severity !== 'none'}
-					<a
-						href={`${resolve('/settings')}?tab=vault`}
-						class="relative rounded-md p-1.5 transition-[transform,colors] active:scale-[0.97] active:brightness-95 {vaultHealthState.severity ===
-						'critical'
-							? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20'
-							: vaultHealthState.severity === 'warning'
-								? 'text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20'
-								: 'text-ink-muted hover:bg-surface-alt'}"
-						aria-label="Vault integrity issues detected"
-						title="Open vault health report"
+				<a
+					href={`${resolve('/settings')}?tab=sync`}
+					class="flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
+					aria-label={`Sync status: ${syncLabel}`}
+					title="Open sync settings"
+				>
+					<span
+						class="h-2.5 w-2.5 rounded-full {syncIndicator === 'online'
+							? 'bg-emerald-500'
+							: syncIndicator === 'syncing'
+								? 'bg-amber-500'
+								: syncIndicator === 'offline'
+									? 'bg-ink-faint'
+									: 'bg-red-500'}"
+						aria-hidden="true"
+					></span>
+					<span>{syncLabel}</span>
+				</a>
+
+				{#if sessionModeState.isActive}
+					<span
+						class="rounded-full border border-accent/45 bg-accent-subtle px-2.5 py-1 text-xs font-medium text-accent"
+						role="status"
+						aria-live="polite"
+						aria-atomic="true"
 					>
-						<Icon name="triangle-alert" size="md" />
-						<span
-							class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full px-1 text-center text-2xs leading-4 text-white {vaultHealthState.severity ===
+						Session active
+					</span>
+				{/if}
+
+				{#if vaultHealthState.severity !== 'none'}
+					<div class="relative">
+						<a
+							href={`${resolve('/settings')}?tab=vault`}
+							class="relative rounded-md p-1.5 transition-[transform,colors] active:scale-[0.97] active:brightness-95 {vaultHealthState.severity ===
 							'critical'
-								? 'bg-red-600'
+								? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20'
 								: vaultHealthState.severity === 'warning'
-									? 'bg-amber-500'
-									: 'bg-ink-muted'}"
+									? 'text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20'
+									: 'text-ink-muted hover:bg-surface-alt'}"
+							aria-label="Vault integrity issues detected"
+							title="Open vault health report"
 						>
-							{vaultHealthState.issueCount}
+							<Icon name="triangle-alert" size="md" />
+							<span
+								class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full px-1 text-center text-2xs leading-4 text-white {vaultHealthState.severity ===
+								'critical'
+									? 'bg-red-600'
+									: vaultHealthState.severity === 'warning'
+										? 'bg-amber-500'
+										: 'bg-ink-muted'}"
+							>
+								{vaultHealthState.issueCount}
+							</span>
+						</a>
+						<span
+							class="sr-only"
+							role={vaultHealthState.severity === 'critical' ? 'alert' : 'status'}
+							aria-live={vaultHealthState.severity === 'critical' ? 'assertive' : 'polite'}
+							aria-atomic="true"
+						>
+							Vault health {vaultHealthState.severity}: {vaultHealthState.issueCount} issue{vaultHealthState.issueCount ===
+							1
+								? ''
+								: 's'}
 						</span>
-					</a>
+					</div>
 				{/if}
 
 				{#if mcpReviewEnabled}
@@ -278,6 +342,9 @@
 							learnMoreHref={resolve('/settings') + '?tab=mcp#mcp-changes'}
 							learnMoreLabel="Open MCP review"
 						/>
+						<span class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+							{mcpChangesState.count} pending MCP change{mcpChangesState.count === 1 ? '' : 's'}
+						</span>
 					</div>
 				{/if}
 			</div>

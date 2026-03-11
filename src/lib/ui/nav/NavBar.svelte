@@ -21,7 +21,8 @@
 <nav
 	class="grid w-full gap-1 px-2"
 	style="grid-template-columns: repeat({items.length}, 1fr);"
-	aria-label="Global navigation: Primary sections"
+	role="navigation"
+	aria-label="Primary"
 >
 	{#each items as item (item.id)}
 		{@const active = activeId === item.id}

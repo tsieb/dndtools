@@ -164,7 +164,7 @@
 		</div>
 	</div>
 
-	<div class="border-t border-border px-3 py-2 flex flex-col gap-1.5">
+	<footer class="border-t border-border px-3 py-2 flex flex-col gap-1.5">
 		<p class="px-1 text-2xs font-semibold uppercase tracking-wider text-ink-faint">Help</p>
 		<Button variant="ghost" size="sm" onclick={openKeyboardShortcuts} class="w-full justify-start">
 			Keyboard shortcuts
@@ -197,5 +197,5 @@
 				onchange={(enabled) => onsetplayermode(enabled)}
 			/>
 		</div>
-	</div>
+	</footer>
 </aside>

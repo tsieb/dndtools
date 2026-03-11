@@ -103,7 +103,7 @@
 	}
 </script>
 
-<nav class="space-y-2 pb-2" aria-label="Local navigation: Atlas panel">
+<nav class="space-y-2 pb-2" aria-label="Atlas navigation">
 	<CollapsibleLocalNavSection section="atlas" sectionId="map-hierarchy" title="Map Hierarchy">
 		<LocalNavTree
 			ariaLabel="Atlas map hierarchy"

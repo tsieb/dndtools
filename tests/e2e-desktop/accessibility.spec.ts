@@ -107,6 +107,20 @@ async function expectNoSeriousOrCriticalAxeViolations(page: Page): Promise<void>
 	).toEqual([]);
 }
 
+async function expectNoHeadingOrderViolations(page: Page): Promise<void> {
+	const results = await new AxeBuilder({ page })
+		.setLegacyMode(true)
+		.withRules(['heading-order'])
+		.options({
+			resultTypes: ['violations'],
+		})
+		.analyze();
+	expect(
+		results.violations,
+		results.violations.map((violation) => `${violation.id} (${violation.nodes.length})`).join('\n'),
+	).toEqual([]);
+}
+
 const PRIMARY_ROUTES: string[] = [
 	'/',
 	'/knowledge/notes',
@@ -123,12 +137,44 @@ const PRIMARY_ROUTES: string[] = [
 ];
 
 test.describe('Desktop accessibility compliance @critical @a11y', () => {
+	test('shell exposes skip link and required landmark regions', async () => {
+		const app = await launchWithSeed();
+		try {
+			await gotoPath(app.page, '/knowledge/notes');
+			const shellLandmarks = await app.page.evaluate(() => ({
+				hasSkipLink: !!document.querySelector('a.skip-link[href="#main-content"]'),
+				hasBanner: !!document.querySelector('header[role="banner"]'),
+				hasPrimaryNav: !!document.querySelector('nav[aria-label="Primary"]'),
+				hasKnowledgeNav: !!document.querySelector('nav[aria-label="Knowledge navigation"]'),
+				hasMain: !!document.querySelector('main#main-content'),
+				hasFooter: !!document.querySelector('footer'),
+			}));
+			expect(shellLandmarks).toEqual({
+				hasSkipLink: true,
+				hasBanner: true,
+				hasPrimaryNav: true,
+				hasKnowledgeNav: true,
+				hasMain: true,
+				hasFooter: true,
+			});
+
+			await gotoPath(app.page, '/knowledge/search');
+			await expect(app.page.getByRole('navigation', { name: 'Breadcrumb' })).toBeVisible();
+
+			await gotoPath(app.page, '/session/boards');
+			await expect(app.page.getByRole('region', { name: 'Session board' })).toBeVisible();
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
 	test('axe scan passes with no serious or critical violations on all primary routes', async () => {
 		const app = await launchWithSeed();
 		try {
 			for (const route of PRIMARY_ROUTES) {
 				await gotoPath(app.page, route);
 				await expectNoSeriousOrCriticalAxeViolations(app.page);
+				await expectNoHeadingOrderViolations(app.page);
 			}
 		} finally {
 			await closeDesktopApp(app);
@@ -186,12 +232,12 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 		const app = await launchWithSeed();
 		try {
 			await expect(app.page.getByTestId('a11y-live-assertive')).toContainText(
-				/(Home|Knowledge) view loaded\./,
+				/(Welcome, Dungeon Master|Your Vault|Player Screen|All Notes) view loaded\./,
 			);
 
 			await gotoPath(app.page, '/knowledge/search');
 			await expect(app.page.getByTestId('a11y-live-assertive')).toContainText(
-				'Search view loaded.',
+				'Search & Discovery view loaded.',
 			);
 
 			const politeLiveRegion = app.page.getByTestId('a11y-live-polite');
@@ -225,8 +271,12 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 
 			for (const check of headingChecks) {
 				await gotoPath(app.page, check.path);
-				const h1 = app.page.getByRole('heading', { level: 1, name: check.expectedHeading });
-				await expect(h1.first()).toBeVisible();
+				const h1 = app.page.getByRole('heading', { level: 1, name: check.expectedHeading }).first();
+				await expect(h1).toHaveCount(1);
+				const headingText = (await h1.innerText()).trim();
+				await expect(headingText.length).toBeGreaterThan(0);
+				await expect(app.page).toHaveTitle(`${headingText} | DND Tools`);
+				await expect(app.page.locator('h1')).toHaveCount(1);
 			}
 		} finally {
 			await closeDesktopApp(app);

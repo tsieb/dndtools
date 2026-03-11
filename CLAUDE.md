@@ -171,6 +171,36 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 18.1** — Semantic HTML and ARIA Landmark Architecture:
+  - Added a global skip link in `src/routes/+layout.svelte` targeting
+    `#main-content`, with visible-on-focus styling in `src/app.css`.
+  - Standardized landmark structure:
+    - primary navigation labeled `Primary` in `src/lib/ui/layout/PrimaryNav.svelte`,
+      `src/lib/ui/layout/MobileBottomNav.svelte`, `src/lib/ui/nav/NavBar.svelte`,
+      and `src/lib/ui/nav/NavRail.svelte`
+    - section-local navigation labels updated to `"<Section> navigation"` across
+      `src/lib/ui/sections/local-nav/*.svelte`
+    - top bar promoted to banner landmark (`src/lib/ui/layout/TopBar.svelte`)
+    - sidebar help area moved to semantic `<footer>` (`src/lib/ui/layout/Sidebar.svelte`)
+    - session board route wrapped in named section landmark
+      (`src/routes/session-board/+page.svelte`)
+  - Implemented tree-pattern keyboard semantics and collapsible `aria-expanded`
+    behavior in `src/lib/ui/layout/local-nav/LocalNavTree.svelte`.
+  - Updated breadcrumb semantics to `aria-label="Breadcrumb"` in
+    `src/lib/ui/navigation/Breadcrumb.svelte`.
+  - Enforced heading/title parity in `src/routes/+layout.svelte` by deriving
+    route-matched document titles from active page headings and normalizing to
+    `"<h1> | DND Tools"`.
+  - Added status announcements for sync, vault health, MCP change count, and
+    session mode transitions:
+    - live status regions in `src/routes/+layout.svelte`
+    - visible sync label indicator in `src/lib/ui/layout/TopBar.svelte`
+  - Expanded accessibility verification:
+    - landmark and heading-order checks in `tests/e2e-desktop/accessibility.spec.ts`
+    - updated navigation semantics assertions in `tests/e2e/navigation.spec.ts` and
+      `tests/e2e/mobile-ui.spec.ts`
+    - documented heading hierarchy contract in `docs/development/ACCESSIBILITY.md`
+
 - **Epic 17.4** — First-Run Onboarding Reimagined:
   - Replaced checklist-style onboarding with a persisted state machine in
     `src/lib/state/onboarding.svelte.ts` and new onboarding domain contracts in

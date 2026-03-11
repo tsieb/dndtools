@@ -48,18 +48,18 @@ No unclassified navigation element is allowed.
 
 ## 3. Accessibility And Labeling Contract
 
-All nav-like elements must declare their layer in `aria-label`:
+All navigation landmarks must use stable, concise labels:
 
-- `<nav aria-label="Global navigation: Primary sections">`
-- `<nav aria-label="Local navigation: Knowledge panel">`
-- `<nav aria-label="Contextual navigation: Breadcrumb">`
-- `<div role="navigation" aria-label="Local navigation: Session tools">`
+- Primary section navigation: `<nav role="navigation" aria-label="Primary">`
+- Section-local navigation: `<nav aria-label="<Section> navigation">`
+- Breadcrumb navigation: `<nav aria-label="Breadcrumb">`
 
 Acceptance criteria:
 
 1. Any `<nav>` without `aria-label` fails lint.
 2. Any `role="navigation"` without `aria-label` fails lint.
-3. Any nav-like `aria-label` that does not include `Global navigation`, `Local navigation`, or `Contextual navigation` fails lint.
+3. Primary section navigation must use `aria-label="Primary"`.
+4. Breadcrumb navigation must use `aria-label="Breadcrumb"`.
 
 ## 4. Testable Rules
 

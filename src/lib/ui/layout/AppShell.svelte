@@ -438,11 +438,11 @@
 	}
 </script>
 
-<a href="#main-content" class="skip-nav">Skip to content</a>
-
 <div class="flex h-screen flex-col overflow-hidden">
 	{#if desktopBridgeAvailable}
-		<DesktopTitlebar />
+		<section aria-label="Window controls">
+			<DesktopTitlebar />
+		</section>
 	{/if}
 
 	<div class="flex min-h-0 flex-1 overflow-hidden">
@@ -470,20 +470,22 @@
 				{#if showInlineSidebar}
 					<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} {onopenkeyboardshortcuts} />
 					{#if layoutState.isExpanded}
-						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-						<div
-							class="w-1.5 shrink-0 cursor-col-resize bg-border/65 transition-colors hover:bg-accent/70 focus:bg-accent/70"
-							role="separator"
-							aria-label="Resize local navigation panel"
-							aria-orientation="vertical"
-							aria-valuemin="200"
-							aria-valuemax="320"
-							aria-valuenow={activePanelWidth}
-							tabindex="0"
-							onpointerdown={handlePanelResizePointerDown}
-							onkeydown={handlePanelResizeKeydown}
-						></div>
+						<section class="shrink-0" aria-label="Local navigation resize control">
+							<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+							<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+							<div
+								class="w-1.5 shrink-0 cursor-col-resize bg-border/65 transition-colors hover:bg-accent/70 focus:bg-accent/70"
+								role="separator"
+								aria-label="Resize local navigation panel"
+								aria-orientation="vertical"
+								aria-valuemin="200"
+								aria-valuemax="320"
+								aria-valuenow={activePanelWidth}
+								tabindex="0"
+								onpointerdown={handlePanelResizePointerDown}
+								onkeydown={handlePanelResizeKeydown}
+							></div>
+						</section>
 					{/if}
 				{/if}
 

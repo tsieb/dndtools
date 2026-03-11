@@ -92,7 +92,7 @@
 			Library
 		</button>
 	</div>
-	<nav class={navGridClass} aria-label="Global navigation, Mobile primary sections">
+	<nav class={navGridClass} role="navigation" aria-label="Primary">
 		{#each navItems as item (item.id)}
 			<a
 				href={item.href}

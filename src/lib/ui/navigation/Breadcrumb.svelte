@@ -46,7 +46,7 @@
 	}
 </script>
 
-<nav aria-label="Contextual navigation: Breadcrumb" class={className}>
+<nav aria-label="Breadcrumb" class={className}>
 	<ol class="flex min-w-0 flex-wrap items-center gap-1 text-xs">
 		{#if !shouldCollapse}
 			{#each normalizedItems as item, index (itemKey(item, index))}

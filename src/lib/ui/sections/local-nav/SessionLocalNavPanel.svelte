@@ -206,7 +206,7 @@ tags: [session, table]
 	}
 </script>
 
-<nav class="space-y-2 pb-2" aria-label="Local navigation: Session panel">
+<nav class="space-y-2 pb-2" aria-label="Session navigation">
 	{#if playerModeState.enabled}
 		<div class="px-3 pt-2">
 			<p

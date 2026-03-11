@@ -62,7 +62,7 @@
 	}
 </script>
 
-<aside
+<div
 	class="primary-nav-shell {compact ? 'mobile-bottom-nav' : ''} {isVertical
 		? 'h-full border-r border-border'
 		: 'fixed inset-x-0 bottom-0 z-30 border-t border-border'} {compact
@@ -79,7 +79,7 @@
 		class={compact
 			? 'mx-auto grid w-full max-w-[560px] grid-cols-5 gap-1 px-2'
 			: 'flex h-full flex-col gap-1 px-2 py-3'}
-		aria-label="Global navigation: Primary sections"
+		aria-label="Primary"
 	>
 		{#each items as item (item.id)}
 			{@const active = navigationState.activeSection === item.id}
@@ -130,7 +130,7 @@
 			</div>
 		{/each}
 	</nav>
-</aside>
+</div>
 
 <SessionEndWorkflowDialog
 	open={showEndSessionFlow}

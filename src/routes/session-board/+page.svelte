@@ -640,7 +640,7 @@
 	});
 </script>
 
-<div class="h-full min-h-0 box-border overflow-hidden p-4">
+<section aria-label="Session board" class="h-full min-h-0 box-border overflow-hidden p-4">
 	<h1 class="sr-only">Session Board</h1>
 	<div
 		class="grid h-full min-h-0 gap-4 overflow-hidden {mode === 'edit' && !isBoardSessionActive
@@ -652,9 +652,9 @@
 				class="h-full min-h-0 rounded-xl border border-border-strong/60 bg-surface/98 shadow-sm overflow-hidden flex flex-col"
 			>
 				<div class="px-4 py-3 border-b border-border">
-					<h1 class="text-xl font-bold text-ink" style="font-family: var(--font-serif)">
+					<h2 class="text-xl font-bold text-ink" style="font-family: var(--font-serif)">
 						Session Board
-					</h1>
+					</h2>
 					<p class="text-xs text-ink-muted mt-1">
 						Keep your most useful session notes in one quickly readable workspace.
 					</p>
@@ -1552,7 +1552,7 @@
 			{/if}
 		</section>
 	</div>
-</div>
+</section>
 
 {#if overlayNote}
 	<div

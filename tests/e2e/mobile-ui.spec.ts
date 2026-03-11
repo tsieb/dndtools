@@ -13,9 +13,7 @@ test.describe('Mobile navigation and keyboard adaptation', () => {
 	});
 
 	test('renders bottom navigation and opens library sheet', async ({ page }) => {
-		const mobileNav = page.getByRole('navigation', {
-			name: 'Global navigation: Primary sections',
-		});
+		const mobileNav = page.getByRole('navigation', { name: 'Primary' });
 		await expect(mobileNav).toBeVisible({ timeout: 15_000 });
 
 		await mobileNav.getByRole('link', { name: 'Settings' }).click();

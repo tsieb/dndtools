@@ -12,7 +12,8 @@ const TARGET_DIR = join(ROOT, 'src');
 const NAV_TAG_RE = /<nav\b[\s\S]*?>/gi;
 const ROLE_NAV_RE = /<(?!nav\b)[^>]*\brole\s*=\s*["']navigation["'][^>]*>/gi;
 const ARIA_LABEL_RE = /\baria-label\s*=\s*(?:"([^"]*)"|'([^']*)'|{`([^`]*)`})/i;
-const LAYER_LABEL_RE = /\b(global|local|contextual)\s+navigation\b/i;
+const LEGACY_LAYER_LABEL_RE = /\b(global|local|contextual)\s+navigation\b/i;
+const LOCAL_NAV_SUFFIX_RE = /\bnavigation$/i;
 
 function collectSvelteFiles(dir: string, files: string[] = []): string[] {
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -45,18 +46,21 @@ function lintTag(tag: string, file: string, source: string, startIndex: number):
 		return {
 			file,
 			line,
-			message:
-				'Navigation element is missing aria-label. Include layer prefix: Global navigation, Local navigation, or Contextual navigation.',
+			message: 'Navigation element is missing aria-label.',
 		};
 	}
 
 	const label = (aria[1] ?? aria[2] ?? aria[3] ?? '').trim();
-	if (!LAYER_LABEL_RE.test(label)) {
+	const isPrimary = label === 'Primary';
+	const isBreadcrumb = label === 'Breadcrumb';
+	const isLegacy = LEGACY_LAYER_LABEL_RE.test(label);
+	const isSectionNavigation = LOCAL_NAV_SUFFIX_RE.test(label);
+	if (!isPrimary && !isBreadcrumb && !isLegacy && !isSectionNavigation) {
 		return {
 			file,
 			line,
 			message:
-				'Navigation aria-label must include layer prefix: Global navigation, Local navigation, or Contextual navigation.',
+				'Navigation aria-label must be one of: "Primary", "Breadcrumb", "<Section> navigation", or a legacy layer-prefixed label.',
 		};
 	}
 

@@ -1,6 +1,6 @@
 # Accessibility Compliance Register (WCAG 2.1 AA)
 
-Last updated: 2026-03-04  
+Last updated: 2026-03-10  
 Epic: 6.4 Accessibility Compliance Program  
 Owner: UI Platform (A11y)  
 Scope: Desktop routes and primary DM workflows
@@ -113,3 +113,15 @@ Update this register for every release:
 3. Add new gaps with WCAG criterion, severity, owner, and remediation plan.
 4. Close fixed gaps with commit/test evidence.
 5. Record update date at top of this file.
+
+## 8) Heading Hierarchy Contract
+
+- Every route renders exactly one `<h1>`.
+- `src/routes/+layout.svelte` sets `<svelte:head><title>...</title></svelte:head>` to match the
+  active route `<h1>` (`<h1 text> | DND Tools`).
+- Use `<h2>` for major sections and `<h3>` for subsections within an `<h2>`. Do not skip heading
+  levels.
+- Do not use headings for visual emphasis only. Use `<strong>`, `<em>`, or styled `<p>/<span>`
+  elements when content is not a true section heading.
+- CI enforcement: `tests/e2e-desktop/accessibility.spec.ts` runs an axe `heading-order` check on
+  all primary routes.
