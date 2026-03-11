@@ -338,4 +338,29 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 			await closeDesktopApp(app);
 		}
 	});
+
+	test('interactive elements avoid HTML title tooltips and use accessible tooltip semantics', async () => {
+		const app = await launchWithSeed();
+		try {
+			for (const route of PRIMARY_ROUTES) {
+				await gotoPath(app.page, route);
+				const interactiveTitles = await app.page.evaluate(() => {
+					const selector =
+						'button[title], input[title], select[title], textarea[title], [role="button"][title], [role="tab"][title]';
+					return Array.from(document.querySelectorAll<HTMLElement>(selector))
+						.map((element) => {
+							const label =
+								element.getAttribute('aria-label')?.trim() ||
+								element.textContent?.trim() ||
+								'<unnamed>';
+							return `${element.tagName.toLowerCase()} | ${label} | ${element.getAttribute('title')?.trim() || ''}`;
+						})
+						.slice(0, 30);
+				});
+				expect(interactiveTitles, `Interactive title attributes found on ${route}`).toEqual([]);
+			}
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
 });

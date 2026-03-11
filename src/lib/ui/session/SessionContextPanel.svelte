@@ -192,7 +192,7 @@
 											type="button"
 											class="flex-1 truncate text-left text-xs text-ink hover:underline"
 											onclick={() => note && openNote(note.id)}
-											title={note?.title ?? String(item.noteId)}
+											aria-label={note?.title ?? String(item.noteId)}
 										>
 											{note?.title ?? `Missing note (${item.noteId})`}
 										</button>
@@ -259,7 +259,7 @@
 								type="button"
 								class="w-full rounded border border-border/70 px-2 py-1 text-left text-xs text-ink hover:bg-surface-alt transition-colors truncate"
 								onclick={() => void pinCandidate(candidate.id)}
-								title={candidate.title}
+								aria-label={candidate.title}
 							>
 								{candidate.title}
 							</button>

@@ -88,7 +88,6 @@
 					href={item.href}
 					aria-current={active ? 'page' : undefined}
 					aria-label={item.label}
-					title={iconOnly ? item.label : undefined}
 					class="primary-nav-item {compact
 						? 'flex flex-col items-center justify-center rounded-md text-2xs font-medium'
 						: 'flex items-center rounded-lg text-sm font-medium'}"

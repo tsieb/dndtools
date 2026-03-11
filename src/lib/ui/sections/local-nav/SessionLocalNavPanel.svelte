@@ -356,7 +356,7 @@ tags: [session, table]
 										type="button"
 										class="min-w-0 flex-1 truncate text-left text-xs font-medium text-ink hover:underline"
 										onclick={() => openSourceNote(table)}
-										title={`Open ${table.sourceNoteTitle}`}
+										aria-label={`Open ${table.sourceNoteTitle}`}
 									>
 										{table.tableName}
 									</button>
@@ -410,7 +410,7 @@ tags: [session, table]
 											type="button"
 											class="max-w-full truncate text-left text-xs font-medium text-ink hover:underline"
 											onclick={() => openSourceNote(table)}
-											title={`Open ${table.sourceNoteTitle}`}
+											aria-label={`Open ${table.sourceNoteTitle}`}
 										>
 											{table.tableName}
 										</button>

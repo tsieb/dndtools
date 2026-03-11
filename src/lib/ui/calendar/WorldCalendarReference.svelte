@@ -158,7 +158,7 @@
 											? 'border-emerald-300 dark:border-emerald-700 text-ink'
 											: 'border-border text-ink hover:bg-surface-alt'}"
 									onclick={() => (selectedDayOffset = cell.dayOffset)}
-									title={formatWorldDate(worldCalendarState.calendar, cell.dayOffset, 'long')}
+									aria-label={formatWorldDate(worldCalendarState.calendar, cell.dayOffset, 'long')}
 								>
 									<span>{cell.dayOfMonth}</span>
 									{#if cell.eventCount > 0}

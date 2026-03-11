@@ -263,7 +263,7 @@
 				oncontextmenu={(event) => handleTreeItemContextMenu(entry, event)}
 				onkeydown={(event) => handleTreeItemKeydown(event, index, entry)}
 				use:registerItem={entry.id}
-				title={entry.label}
+				aria-label={entry.label}
 			>
 				<span class="truncate">{entry.label}</span>
 				{#if typeof entry.count === 'number'}

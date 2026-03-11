@@ -748,7 +748,7 @@
 												{#each combatant.conditions as condition (condition.name)}
 													<span
 														class="rounded border border-border px-1.5 py-0.5 text-2xs text-ink-muted"
-														title={condition.roundsRemaining
+														aria-label={condition.roundsRemaining
 															? `${condition.name} (${condition.roundsRemaining} rounds)`
 															: `${condition.name} (until removed)`}
 														>{conditionTag(condition.name)}</span

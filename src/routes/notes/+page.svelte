@@ -450,7 +450,6 @@
 					<button
 						class="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 						onclick={() => (sortDir = sortDir === 'asc' ? 'desc' : 'asc')}
-						title="Toggle sort direction"
 						aria-label="Sort {sortDir === 'asc' ? 'descending' : 'ascending'}"
 					>
 						{sortDir === 'asc' ? '\u2191' : '\u2193'}

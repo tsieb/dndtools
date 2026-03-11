@@ -41,7 +41,7 @@
 			onclick={() => (expanded = !expanded)}
 			aria-expanded={expanded}
 			aria-controls="toc-list"
-			title={expanded ? 'Collapse table of contents' : 'Expand table of contents'}
+			aria-label={expanded ? 'Collapse table of contents' : 'Expand table of contents'}
 		>
 			<span>{expanded ? '\u25BC' : '\u25B6'}</span>
 			Contents

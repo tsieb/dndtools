@@ -78,7 +78,7 @@
 					</summary>
 					<ul class="px-3 pb-3 space-y-0.5 mt-1 max-h-40 overflow-y-auto">
 						{#each report.changedFiles as filePath (filePath)}
-							<li class="text-xs font-mono text-ink-faint truncate" title={filePath}>
+							<li class="text-xs font-mono text-ink-faint truncate" aria-label={filePath}>
 								{filePath}
 							</li>
 						{/each}

@@ -113,7 +113,6 @@
 			type="button"
 			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted hover:bg-accent-subtle hover:text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
 				''}"
-			title={act.title}
 			aria-label={act.title}
 			onclick={() => handleAction(act.action)}
 			disabled={!editorView}
@@ -130,7 +129,6 @@
 			type="button"
 			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted hover:bg-accent-subtle hover:text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
 				''}"
-			title={act.title}
 			aria-label={act.title}
 			onclick={() => handleAction(act.action)}
 			disabled={!editorView}
@@ -147,7 +145,6 @@
 			type="button"
 			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted hover:bg-accent-subtle hover:text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
 				''}"
-			title={act.title}
 			aria-label={act.title}
 			onclick={() => handleAction(act.action)}
 			disabled={!editorView}
@@ -164,7 +161,6 @@
 			type="button"
 			class="{buttonSizeClass} flex items-center justify-center rounded text-ink-muted hover:bg-accent-subtle hover:text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 {act.class ??
 				''}"
-			title={act.title}
 			aria-label={act.title}
 			onclick={() => handleAction(act.action)}
 			disabled={!editorView}
@@ -178,7 +174,6 @@
 		<button
 			type="button"
 			class="{buttonSizeClass} flex items-center justify-center rounded text-2xs font-semibold uppercase tracking-wide text-ink-muted hover:bg-accent-subtle hover:text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95"
-			title="Toggle Zen mode (F11)"
 			aria-label="Toggle zen mode"
 			aria-pressed={desktopShellState.zenMode}
 			onclick={toggleZenMode}

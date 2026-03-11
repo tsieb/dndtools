@@ -75,7 +75,6 @@
 			role="radio"
 			aria-checked={ui.theme === theme.value}
 			tabindex={ui.theme === theme.value ? 0 : -1}
-			title={theme.title}
 			onclick={() => setTheme(theme.value)}
 			onkeydown={(event) => handleThemeKeydown(event, theme.value)}
 		>

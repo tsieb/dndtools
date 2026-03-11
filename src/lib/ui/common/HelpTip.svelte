@@ -89,7 +89,6 @@
 		aria-haspopup="dialog"
 		aria-expanded={open}
 		aria-controls={popoverId}
-		title={ariaLabel}
 		onclick={toggle}
 	>
 		?

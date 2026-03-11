@@ -73,7 +73,6 @@
 				class="session-die-button rounded-md border border-border bg-surface-alt/60 px-1 py-1 text-2xs font-semibold text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:border-accent/50 hover:bg-accent-subtle/45 hover:text-ink"
 				onclick={() => rollSessionDie(die.expression)}
 				aria-label={`Roll ${die.label}`}
-				title={`Roll ${die.label}`}
 			>
 				<img src={die.iconPath} alt="" class="mx-auto h-4 w-4" />
 				<span class="mt-0.5 block text-2xs leading-none">{die.label}</span>

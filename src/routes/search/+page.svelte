@@ -888,7 +888,6 @@
 				onclick={saveCurrentSearch}
 				disabled={saving}
 				aria-label="Save current search to collections"
-				title="Save current search"
 			>
 				{saving ? 'Saving' : 'Save'}
 			</button>
@@ -1049,7 +1048,7 @@
 										type="button"
 										onclick={() => applyQuery(saved.query, { syncUrl: true, clearFacets: true })}
 										class="flex-1 min-w-0 text-left px-2 py-1 rounded-md bg-surface-alt text-xs text-ink hover:border-accent border border-transparent"
-										title={saved.query}
+										aria-label={saved.query}
 									>
 										<div class="truncate">{saved.name}</div>
 									</button>
@@ -1186,7 +1185,7 @@
 										{#each liveDateFacets as facet (facet.id)}
 											<button
 												type="button"
-												title={facet.description}
+												aria-label={facet.description}
 												onclick={() => toggleFilter('date', facet.id)}
 												class="px-2 py-1 rounded-md text-xs border {selectedDatePresets.includes(
 													facet.id,

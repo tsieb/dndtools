@@ -78,7 +78,7 @@
 									type="button"
 									class="max-w-full truncate text-left text-xs font-medium text-ink hover:underline"
 									onclick={() => beginRename(entry)}
-									title="Click to rename roll"
+									aria-label="Rename roll"
 								>
 									{entry.label ?? entry.expression}
 								</button>

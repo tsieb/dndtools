@@ -383,7 +383,10 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			if (await interactiveBoardButton.isVisible().catch(() => false)) {
 				await interactiveBoardButton.click();
 			}
-			const moveTileDownButton = app.page.getByRole('button', { name: 'Move tile down' }).first();
+			const moveTileDownButton = app.page
+				.getByRole('button', { name: 'Move tile down' })
+				.locator(':not([disabled])')
+				.first();
 			if ((await moveTileDownButton.count()) > 0) {
 				await expect(moveTileDownButton).toBeVisible();
 				const beforeRows = await readSessionBoardTileRows(app.vaultDir, 'board-interactive');
@@ -393,7 +396,9 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 					.not.toEqual(beforeRows);
 			}
 
-			const moveAlphaDownButton = app.page.getByRole('button', { name: 'Move Alpha down' });
+			const moveAlphaDownButton = app.page
+				.getByRole('button', { name: 'Move Alpha down' })
+				.locator(':not([disabled])');
 			if ((await moveAlphaDownButton.count()) > 0) {
 				const firstCombatantBefore = await app.page
 					.locator('li[draggable] input[type="text"]')

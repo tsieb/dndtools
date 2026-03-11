@@ -813,7 +813,6 @@
 				type="button"
 				class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
 				onclick={moveToNextTurn}
-				title="Advance turn (n)"
 			>
 				Next Turn
 			</button>
@@ -824,7 +823,6 @@
 					addPanelOpen = !addPanelOpen;
 					if (addPanelOpen) requestAnimationFrame(() => addNameInput?.focus());
 				}}
-				title="Add combatant (a)"
 			>
 				Add
 			</button>
@@ -959,7 +957,7 @@
 							<button
 								type="button"
 								class="h-7 w-7 rounded border border-border text-xs hover:bg-surface"
-								title="Set active"
+								aria-label={`Set ${combatant.name} active`}
 								onclick={() => persist(startCombatantTurn(combat, combatant.id))}
 							>
 								{combat.activeCombatantId === combatant.id ? '>' : ''}
