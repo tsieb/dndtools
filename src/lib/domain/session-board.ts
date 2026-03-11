@@ -413,6 +413,18 @@ export function normalizeSessionBoardTile(tile: SessionBoardTile, columns = 12):
 	};
 }
 
+export function moveSessionBoardTileByRow(
+	tiles: readonly SessionBoardTile[],
+	tileId: string,
+	deltaRows: number,
+): SessionBoardTile[] {
+	if (!Number.isFinite(deltaRows) || deltaRows === 0) return [...tiles];
+	const tile = tiles.find((entry) => entry.id === tileId);
+	if (!tile) return [...tiles];
+	const nextY = clampInt(tile.y + deltaRows, 0, MAX_GRID_ROWS);
+	return tiles.map((entry) => (entry.id === tileId ? { ...entry, y: nextY } : entry));
+}
+
 function normalizeTemplate(
 	template: SessionBoardTemplate,
 	defaultBuiltIn: boolean,

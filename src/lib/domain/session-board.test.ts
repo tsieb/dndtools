@@ -5,6 +5,7 @@ import {
 	DEFAULT_SESSION_CONTEXT,
 	createDefaultSessionBoardScene,
 	createDefaultTimerState,
+	moveSessionBoardTileByRow,
 	normalizeBoardTemplatesSetting,
 	normalizeSessionBoardHandoutHistory,
 	normalizeSessionBoardScenes,
@@ -254,5 +255,21 @@ describe('session-board domain', () => {
 		expect(normalized[0]?.id).toBe('delivery-2');
 		expect(normalized[0]?.sourceKind).toBe('map_region');
 		expect(normalized[1]?.sourceKind).toBe('note');
+	});
+
+	it('moves session board tiles up and down by row with bounds clamping', () => {
+		const tiles = [
+			{ id: 'tile-a', type: 'note', x: 0, y: 3, w: 4, h: 3 },
+			{ id: 'tile-b', type: 'timer', x: 4, y: 0, w: 4, h: 3 },
+		] as const;
+
+		const movedDown = moveSessionBoardTileByRow(tiles, 'tile-a', 2);
+		expect(movedDown.find((tile) => tile.id === 'tile-a')?.y).toBe(5);
+
+		const movedUp = moveSessionBoardTileByRow(movedDown, 'tile-a', -9);
+		expect(movedUp.find((tile) => tile.id === 'tile-a')?.y).toBe(0);
+
+		const unchanged = moveSessionBoardTileByRow(tiles, 'missing-tile', 1);
+		expect(unchanged).toEqual(tiles);
 	});
 });

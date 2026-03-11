@@ -6,6 +6,7 @@ import {
 	buildEncounterRewardSummary,
 	createDefaultCombatState,
 	getLinkedCombatantDefaults,
+	moveTieCombatantByDirection,
 	normalizeCombatState,
 	recordCombatNotableRoll,
 	reorderTieCombatants,
@@ -95,6 +96,9 @@ describe('combat-tracker domain', () => {
 		const reordered = reorderTieCombatants(combatants, 'b', 'a');
 		expect(reordered?.map((combatant) => combatant.id)).toEqual(['b', 'a', 'c']);
 		expect(reorderTieCombatants(combatants, 'c', 'a')).toBeNull();
+		const movedDown = moveTieCombatantByDirection(combatants, 'a', 'down');
+		expect(movedDown?.map((combatant) => combatant.id)).toEqual(['b', 'a', 'c']);
+		expect(moveTieCombatantByDirection(combatants, 'c', 'up')).toBeNull();
 	});
 
 	it('advances turns while skipping delayed combatants and increments round on wrap', () => {
