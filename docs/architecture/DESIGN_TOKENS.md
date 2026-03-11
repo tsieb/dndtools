@@ -38,6 +38,7 @@ theme preset classes:
 - `html.theme-tavern` (dark default)
 - `html.theme-scholar` (light high-contrast)
 - `html.theme-dungeon` (dark high-contrast)
+- `html.theme-high-contrast` (WCAG AAA-first accessibility mode; system/manual)
 
 | Token                       | Light value | Dark value | Role                                      |
 | --------------------------- | ----------- | ---------- | ----------------------------------------- |
@@ -144,6 +145,8 @@ Because these are in `@theme`, components use them as Tailwind utilities:
 `transition-[colors] duration-fast`. The `@media (prefers-reduced-motion: reduce)`
 block sets all three duration tokens to `0ms` in `:root`, globally collapsing
 CSS transitions regardless of how they are applied.
+The manual override path (`html.reduce-motion`) applies the same collapse behavior
+when the user selects reduced motion in Settings.
 
 ### Easing tokens
 

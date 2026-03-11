@@ -7,6 +7,7 @@
 	} from '$lib/types/object.js';
 	import type { MapFogPolygonOperation, MapFogState } from '$lib/types/map-fog.js';
 	import { revealBoundsFromFogState, splitFogPolygonsByMode } from '$lib/domain/map-fog.js';
+	import { ui } from '$lib/state/ui.svelte.js';
 	import { SvelteMap } from 'svelte/reactivity';
 
 	export interface MapViewerGridCell {
@@ -249,8 +250,7 @@
 	}
 
 	function prefersReducedMotion(): boolean {
-		if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-		return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		return ui.resolvedReducedMotion;
 	}
 
 	function resolveFogExplorationBounds(): {

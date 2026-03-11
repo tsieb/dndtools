@@ -245,6 +245,50 @@ html.theme-dungeon {
 	--color-accent-foreground: #001018;
 }
 
+html.theme-high-contrast {
+	--color-bg: #000000;
+	--color-surface: #000000;
+	--color-surface-elevated: #000000;
+	--color-surface-alt: #111111;
+	--color-border: #ffffff;
+	--color-border-strong: #ffffff;
+	--color-ink: #ffffff;
+	--color-ink-muted: #f5f5f5;
+	--color-ink-faint: #ebebeb;
+	--color-accent: #00ffff;
+	--color-accent-hover: #7fffff;
+	--color-accent-subtle: #002525;
+	--color-success: #7dff7d;
+	--color-warning: #ffd966;
+	--color-error: #ff8a8a;
+	--color-error-hover: #ffb3b3;
+	--color-focus-ring: #ffff00;
+	--color-accent-foreground: #000000;
+}
+
+@media (forced-colors: active) {
+	html.theme-high-contrast {
+		--color-bg: Canvas;
+		--color-surface: Canvas;
+		--color-surface-elevated: Canvas;
+		--color-surface-alt: Canvas;
+		--color-border: CanvasText;
+		--color-border-strong: CanvasText;
+		--color-ink: CanvasText;
+		--color-ink-muted: CanvasText;
+		--color-ink-faint: CanvasText;
+		--color-accent: LinkText;
+		--color-accent-hover: LinkText;
+		--color-accent-subtle: Canvas;
+		--color-focus-ring: Highlight;
+		--color-success: CanvasText;
+		--color-warning: CanvasText;
+		--color-error: CanvasText;
+		--color-error-hover: CanvasText;
+		--color-accent-foreground: Canvas;
+	}
+}
+
 /* ===== Base styles ===== */
 
 html {
@@ -283,6 +327,10 @@ html.theme-dungeon body {
 	color: var(--color-ink);
 }
 
+html.theme-high-contrast body {
+	background: var(--color-bg);
+}
+
 /* Custom desktop titlebar drag regions for frameless Electron window */
 .desktop-drag {
 	-webkit-app-region: drag;
@@ -316,6 +364,10 @@ html.theme-dungeon .app-main::before {
 	background:
 		linear-gradient(120deg, rgba(212, 167, 106, 0.08), transparent 35%),
 		linear-gradient(300deg, rgba(224, 190, 133, 0.04), transparent 45%);
+}
+
+html.theme-high-contrast .app-main::before {
+	background: none;
 }
 
 /* ===== Primary Nav Item (semantic tokens; no dark: duplication) ===== */
@@ -548,10 +600,42 @@ html[data-density='compact'] .density-nav-item {
 	}
 }
 
+html.reduce-motion {
+	--duration-fast: 0ms;
+	--duration-medium: 0ms;
+	--duration-slow: 0ms;
+}
+
+html.reduce-motion:focus-within {
+	scroll-behavior: auto;
+}
+
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+	animation-duration: 0.01ms !important;
+	animation-iteration-count: 1 !important;
+	transition-duration: 0.01ms !important;
+}
+
+html.reduce-motion .loading-spinner-delayed {
+	animation: reveal-after-delay 300ms linear forwards;
+}
+
+html.reduce-motion .detail-panel-enter,
+html.reduce-motion .session-active-ring {
+	animation: none;
+}
+
 /* ===== Focus styles for accessibility ===== */
 *:focus-visible {
 	outline: 2px solid var(--color-focus-ring);
 	outline-offset: 2px;
+}
+
+html.theme-high-contrast *:focus-visible {
+	outline-width: 3px;
+	outline-offset: 3px;
 }
 
 *:focus:not(:focus-visible) {
@@ -1491,6 +1575,43 @@ html.theme-dungeon .handout-preview {
 		animation: none;
 		border-width: 2px;
 	}
+}
+
+html.reduce-motion .dice-result-chip[data-result-kind='nat20'],
+html.reduce-motion .dice-result-chip[data-result-kind='nat1'] {
+	animation: none;
+	border-width: 2px;
+}
+
+html.theme-high-contrast
+	:where(
+		button,
+		[role='button'],
+		[role='tab'],
+		[role='radio'],
+		[role='menuitem'],
+		input,
+		select,
+		textarea,
+		a[href]
+	) {
+	border-width: 2px;
+}
+
+html.theme-high-contrast .text-ink-muted,
+html.theme-high-contrast .text-ink-faint {
+	opacity: 1 !important;
+}
+
+html.theme-high-contrast .handout-effect--parchment {
+	background-image: none !important;
+}
+
+html.theme-high-contrast .handout-effect--torn_edge::before,
+html.theme-high-contrast .handout-effect--blood_stain::after,
+html.theme-high-contrast .handout-effect--ink_blot::before {
+	background: none !important;
+	box-shadow: none !important;
 }
 
 /* ===== Skip navigation link ===== */

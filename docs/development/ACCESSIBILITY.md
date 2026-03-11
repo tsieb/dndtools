@@ -1,6 +1,6 @@
 # Accessibility Compliance Register (WCAG 2.1 AA)
 
-Last updated: 2026-03-10  
+Last updated: 2026-03-11  
 Epic: 6.4 Accessibility Compliance Program  
 Owner: UI Platform (A11y)  
 Scope: Desktop routes and primary DM workflows
@@ -66,6 +66,7 @@ Status scale: `open`, `fixed`
 | A11Y-008 | 2.5.5 Target Size                  | major    | S6.4.5        | Interactive controls below 44x44 touch target baseline.                                         | UI Platform | fixed  | `src/lib/ui/common/Button.svelte`, `src/app.css`, touch-target CI check in `tests/e2e-desktop/accessibility.spec.ts`                                                             |
 | A11Y-009 | 2.3.3 Animation from Interactions  | minor    | S6.4.5        | Motion behavior not consistently reduced when user prefers reduced motion.                      | UI Platform | fixed  | `src/app.css` (`@media (prefers-reduced-motion: reduce)` coverage), route checks + manual review                                                                                 |
 | A11Y-010 | 4.1.2 Name, Role, Value            | major    | S6.4.3        | Timeline event link `<select>` in note editor lacked explicit accessible name.                  | UI Platform | fixed  | `src/routes/notes/[id]/edit/+page.svelte` (`aria-label`)                                                                                                                         |
+| A11Y-011 | 2.3.3 / 1.4.3 / 1.4.11             | major    | S18.3.x       | Motion override, high-contrast mode, and token contrast coverage were incomplete.               | UI Platform | fixed  | `src/lib/ui/settings/AppearanceSettingsTab.svelte`, `src/routes/+layout.svelte`, `src/app.css`, `src/lib/domain/contrast-audit.test.ts`                                          |
 
 Open gaps: none.
 

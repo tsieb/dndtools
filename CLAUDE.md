@@ -171,6 +171,34 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 18.3** - Sensory and Motion Accessibility:
+  - Added vault-scoped appearance accessibility preferences:
+    - `reduceMotion` (`system` | `reduce` | `no-preference`)
+    - `highContrast` (`system` | `high` | `standard`)
+    - wired through renderer state (`src/lib/state/ui.svelte.ts`), settings UI
+      (`src/lib/ui/settings/AppearanceSettingsTab.svelte`, `src/lib/ui/settings/GeneralSettingsTab.svelte`),
+      storage adapters (`src/lib/platform/storage/indexeddb-adapter.ts`,
+      `src/lib/platform/storage/capacitor-adapter.ts`, `mcp/storage.ts`), and IPC schema/security validation
+      (`electron/ipc-schemas.ts`, `electron/ipc-security.test.ts`).
+  - Added manual reduced-motion runtime behavior in addition to OS preference:
+    - root `html.reduce-motion` class application in `src/routes/+layout.svelte`
+    - global reduced-motion class overrides in `src/app.css`
+    - JS motion guard updates in `src/lib/ui/maps/MapCanvasViewer.svelte` and compact sheet drag behavior in
+      `src/lib/ui/layout/AppShell.svelte`.
+  - Added high-contrast theme mode:
+    - root `html.theme-high-contrast` class application in `src/routes/+layout.svelte`
+    - high-contrast semantic token overrides and focus/border/decorative-effect adjustments in `src/app.css`
+      (including forced-colors-safe token fallback).
+  - Completed color-independence remediations for required status surfaces:
+    - vault health severity now uses shape distinction (warning triangle vs critical octagon) in
+      `src/lib/ui/layout/TopBar.svelte` and `src/lib/ui/common/Icon.svelte`
+    - note-list active state now uses accent border + background fill in `src/lib/ui/common/NoteCard.svelte`
+    - combat HP bars now use ratio-based green/yellow/red tones alongside numeric HP in
+      `src/routes/combat/+page.svelte`.
+  - Added contrast enforcement test coverage:
+    - `src/lib/domain/contrast-audit.test.ts` validates required token contrast pairs across
+      Parchment, Tavern, Scholar, Dungeon, and High Contrast modes.
+
 - **Epic 18.2** - Focus Management and Keyboard Navigation:
   - Added shared focus-trap action in `src/lib/actions/focus-trap.ts` with:
     - initial focus placement, tab/shift+tab loop containment, escape callback support

@@ -282,9 +282,17 @@
 	$effect(() => {
 		if (typeof document === 'undefined') return;
 		const root = document.documentElement;
-		root.classList.remove('theme-parchment', 'theme-tavern', 'theme-scholar', 'theme-dungeon');
+		root.classList.remove(
+			'theme-parchment',
+			'theme-tavern',
+			'theme-scholar',
+			'theme-dungeon',
+			'theme-high-contrast',
+		);
 		root.classList.add(`theme-${ui.resolvedThemePreset}`);
+		root.classList.toggle('theme-high-contrast', ui.resolvedHighContrast);
 		root.classList.toggle('dark', ui.resolvedTheme === 'dark');
+		root.classList.toggle('reduce-motion', ui.resolvedReducedMotion);
 		root.dataset.density = ui.uiDensity;
 		root.dataset.noteReadingWidth = ui.noteReadingWidth;
 	});
