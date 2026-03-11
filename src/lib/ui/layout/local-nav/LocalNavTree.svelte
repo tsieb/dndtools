@@ -14,6 +14,7 @@
 		emptyLabel: string;
 		entries: readonly LocalNavTreeEntry[];
 		activeId?: string | null;
+		highlightQuery?: string;
 		onselect: (entry: LocalNavTreeEntry) => void;
 		oncontextrequest?: (entry: LocalNavTreeEntry, event: MouseEvent) => void;
 	}
@@ -23,6 +24,7 @@
 		emptyLabel,
 		entries,
 		activeId = null,
+		highlightQuery = '',
 		onselect,
 		oncontextrequest,
 	}: Props = $props();
@@ -227,6 +229,23 @@
 		event.preventDefault();
 		oncontextrequest(entry, event);
 	}
+
+	function highlightedLabelParts(label: string): Array<{ text: string; match: boolean }> {
+		const query = highlightQuery.trim();
+		if (!query) return [{ text: label, match: false }];
+		const lowerLabel = label.toLowerCase();
+		const lowerQuery = query.toLowerCase();
+		const index = lowerLabel.indexOf(lowerQuery);
+		if (index < 0) return [{ text: label, match: false }];
+		const start = label.slice(0, index);
+		const match = label.slice(index, index + query.length);
+		const end = label.slice(index + query.length);
+		const parts: Array<{ text: string; match: boolean }> = [];
+		if (start) parts.push({ text: start, match: false });
+		parts.push({ text: match, match: true });
+		if (end) parts.push({ text: end, match: false });
+		return parts;
+	}
 </script>
 
 <div role="tree" aria-label={ariaLabel} onfocus={handleTreeFocus} tabindex="0" class="density-list">
@@ -265,7 +284,15 @@
 				use:registerItem={entry.id}
 				aria-label={entry.label}
 			>
-				<span class="truncate">{entry.label}</span>
+				<span class="truncate">
+					{#each highlightedLabelParts(entry.label) as part, partIndex (`${entry.id}-${partIndex}`)}
+						{#if part.match}
+							<mark class="rounded bg-accent-subtle px-0.5 text-inherit">{part.text}</mark>
+						{:else}
+							{part.text}
+						{/if}
+					{/each}
+				</span>
 				{#if typeof entry.count === 'number'}
 					<span class="ml-auto text-xs text-ink-faint">({entry.count})</span>
 				{/if}
