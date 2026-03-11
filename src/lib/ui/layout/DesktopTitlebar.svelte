@@ -50,10 +50,10 @@
 >
 	<div class="desktop-no-drag min-w-0 px-1 text-xs text-ink-faint">DND Tools</div>
 	{#if !isMac}
-		<div class="desktop-no-drag ml-auto flex items-center">
+		<div class="desktop-no-drag ml-auto flex items-center gap-1.5 py-1">
 			<button
 				type="button"
-				class="flex h-6 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:bg-border/70"
+				class="touch-target flex items-center justify-center rounded text-ink-muted transition-colors hover:bg-border/70"
 				onclick={onMinimize}
 				aria-label="Minimize window"
 				title="Minimize"
@@ -62,7 +62,7 @@
 			</button>
 			<button
 				type="button"
-				class="flex h-6 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:bg-border/70"
+				class="touch-target flex items-center justify-center rounded text-ink-muted transition-colors hover:bg-border/70"
 				onclick={onToggleMaximize}
 				aria-label={isMaximized ? 'Restore window' : 'Maximize window'}
 				title={isMaximized ? 'Restore' : 'Maximize'}
@@ -71,7 +71,7 @@
 			</button>
 			<button
 				type="button"
-				class="flex h-6 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:bg-red-600 hover:text-white"
+				class="touch-target flex items-center justify-center rounded text-ink-muted transition-colors hover:bg-red-600 hover:text-white"
 				onclick={onClose}
 				aria-label="Close window"
 				title="Close"

@@ -138,16 +138,17 @@
 	--component-note-reading-width: 68ch; /* comfortable default */
 
 	--density-nav-item-height-standard: 2.25rem; /* 36px */
-	--density-nav-item-height-compact: 1.75rem; /* 28px */
+	--density-nav-item-height-compact: 2.75rem; /* 44px */
 	--density-card-padding-standard: var(--space-4); /* 16px */
 	--density-card-padding-compact: var(--space-3); /* 12px */
 	--density-list-gap-standard: var(--space-1); /* 4px */
 	--density-list-gap-compact: var(--space-0\.5); /* 2px */
 
 	--sidebar-primary-nav-height: 3rem; /* 48px */
-	--sidebar-tree-item-height: 2rem; /* 32px */
+	--sidebar-tree-item-height: 2.25rem; /* 36px */
 	--sidebar-tag-pill-height: 1.5rem; /* 24px */
-	--sidebar-open-thread-height: 2rem; /* 32px */
+	--sidebar-open-thread-height: 2.25rem; /* 36px */
+	--touch-target-primary: 2.75rem; /* 44px */
 
 	/* ===== S15.1.4: Easing Tokens ===== */
 	--easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
@@ -467,6 +468,23 @@ html[data-density='compact'] .density-nav-item {
 
 .sidebar-open-thread-item {
 	min-height: var(--sidebar-open-thread-height);
+}
+
+.touch-target {
+	min-width: var(--touch-target-primary);
+	min-height: var(--touch-target-primary);
+}
+
+.touch-target-inline {
+	min-height: var(--touch-target-primary);
+}
+
+@media (max-width: 639px) {
+	.sidebar-tree-item,
+	.sidebar-open-thread-item,
+	.density-nav-item {
+		min-height: var(--touch-target-primary);
+	}
 }
 
 /* ===== Animations ===== */
