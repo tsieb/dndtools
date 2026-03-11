@@ -171,6 +171,29 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 19.2** - Map Viewer Mode Architecture: State Machine Replacing Boolean Flags:
+  - Introduced a typed map viewer mode model in `src/lib/types/map-viewer.ts`:
+    - Added `MapViewerMode` union and canonical mode metadata (`MAP_VIEWER_MODES`) for labels, hints, icons, and shortcuts.
+    - Added helpers for mode labels/hints to keep renderer mode UI consistent.
+  - Replaced independent map mode toggles in `src/routes/maps/+page.svelte` with single-state mode transitions:
+    - Added `activeMode` and transition helpers (`requestMapMode`, `setMapMode`) to enforce one active mode at a time.
+    - Added mode transition confirmation dialog for in-progress interactions.
+    - Escape now exits active mode back to `view` before hierarchical map navigation.
+  - Reduced map toolbar to mode-switch + global controls:
+    - Added accessible mode switcher (`role="radiogroup"` / `role="radio"`) with shortcut-aware tooltips.
+    - Added persistent global controls for fit/100% zoom, grid visibility, and player preview.
+    - Added live mode indicator strip (`role="status"` + `aria-live="polite"`) with contextual hints and explicit exit action.
+  - Added contextual mode tool surfaces:
+    - Added per-mode tools panel in the viewer detail column for POI, fog, routes, grid alignment, combat, and layer management.
+    - Added compact/medium mode tools sheet entry point from the mode indicator strip.
+  - Added map-mode keyboard shortcut registration and route-scoped behavior:
+    - Registered map mode and zoom shortcuts in `src/lib/domain/keyboard-shortcuts.ts`.
+    - Added route-scoped map keyboard handling (`v/p/f/r/g/c`, `Escape`, `0/1/+/-`, `Ctrl+Z`, `Ctrl+Shift+Z`) in `src/routes/maps/+page.svelte`.
+    - Added shortcut bridge support in `src/lib/ui/maps/MapCanvasViewer.svelte` for programmatic zoom commands.
+  - Updated regression coverage:
+    - `src/lib/domain/keyboard-shortcuts.test.ts`
+    - `tests/e2e-desktop/critical-workflows.spec.ts`.
+
 - **Epic 19.1** - Map Library UX: Visual Discovery and Organization:
   - Split Atlas maps into dedicated route surfaces:
     - `src/routes/atlas/maps/+page.svelte` now hosts the map library gallery and filter workflow.

@@ -877,8 +877,8 @@ test.describe('Desktop critical workflows @critical', () => {
 
 			await expect(app.page.getByText('Layer System')).toBeVisible();
 			await expect(app.page.getByRole('heading', { name: 'Travel Routes' })).toBeVisible();
-			await expect(app.page.getByRole('button', { name: 'Edit POIs' })).toBeVisible();
-			await expect(app.page.getByRole('button', { name: 'Edit Travel Routes' })).toBeVisible();
+			await expect(app.page.getByRole('radiogroup', { name: 'Map mode switcher' })).toBeVisible();
+			await expect(app.page.getByRole('radio')).toHaveCount(6);
 		} finally {
 			await closeDesktopApp(app);
 		}

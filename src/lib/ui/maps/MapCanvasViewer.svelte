@@ -103,6 +103,10 @@
 		fogAnimationDurationMs?: number;
 		navigationLocked?: boolean;
 		initialViewport?: MapViewportData;
+		shortcutCommand?: {
+			id: number;
+			action: 'zoom_fit' | 'zoom_100' | 'zoom_in' | 'zoom_out';
+		} | null;
 		ongridchange?: (grid: MapGridData) => void;
 		onviewportchange?: (viewport: MapViewportData) => void;
 		onimageinfo?: (info: { width: number; height: number }) => void;
@@ -157,6 +161,7 @@
 		fogAnimationDurationMs = 800,
 		navigationLocked = false,
 		initialViewport = undefined,
+		shortcutCommand = null,
 		ongridchange,
 		onviewportchange,
 		onimageinfo,
@@ -232,6 +237,7 @@
 		durationMs: number;
 	} | null = null;
 	let lastFogAnimationId = $state<string | null>(null);
+	let lastShortcutCommandId = $state<number | null>(null);
 
 	const MIN_ZOOM = 0.05;
 	const MAX_ZOOM = 12;
@@ -1231,6 +1237,25 @@
 		viewport = clamped;
 		onviewportchange?.(viewport);
 		queueDraw();
+	});
+
+	$effect(() => {
+		if (!shortcutCommand || !viewportEl || !image) return;
+		if (lastShortcutCommandId === shortcutCommand.id) return;
+		lastShortcutCommandId = shortcutCommand.id;
+		if (shortcutCommand.action === 'zoom_fit') {
+			fitToScreen();
+			return;
+		}
+		if (shortcutCommand.action === 'zoom_100') {
+			setZoomPreset('100');
+			return;
+		}
+		if (shortcutCommand.action === 'zoom_in') {
+			setZoomAt(viewport.zoom * 1.1, viewportEl.clientWidth / 2, viewportEl.clientHeight / 2);
+			return;
+		}
+		setZoomAt(viewport.zoom / 1.1, viewportEl.clientWidth / 2, viewportEl.clientHeight / 2);
 	});
 
 	$effect(() => {

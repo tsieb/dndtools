@@ -1,5 +1,6 @@
 export type KeyboardShortcutSection =
 	| 'Navigation'
+	| 'Maps'
 	| 'Notes'
 	| 'Session'
 	| 'Dice'
@@ -10,6 +11,18 @@ export type KeyboardShortcutId =
 	| 'open_command_palette'
 	| 'open_global_search'
 	| 'toggle_quick_reference_overlay'
+	| 'map_mode_view'
+	| 'map_mode_poi_edit'
+	| 'map_mode_fog_paint'
+	| 'map_mode_route_edit'
+	| 'map_mode_grid_align'
+	| 'map_mode_combat'
+	| 'map_zoom_fit'
+	| 'map_zoom_100'
+	| 'map_zoom_in'
+	| 'map_zoom_out'
+	| 'map_undo'
+	| 'map_redo'
 	| 'create_note'
 	| 'open_vault_folder'
 	| 'open_session_boards'
@@ -46,6 +59,7 @@ export interface KeyboardShortcutDefinition {
 
 export const KEYBOARD_SHORTCUT_SECTION_ORDER: readonly KeyboardShortcutSection[] = [
 	'Navigation',
+	'Maps',
 	'Notes',
 	'Session',
 	'Dice',
@@ -76,6 +90,102 @@ export const KEYBOARD_SHORTCUT_REGISTRY: readonly KeyboardShortcutDefinition[] =
 		label: 'Toggle quick reference overlay',
 		shortcut: 'Ctrl+Shift+Space',
 		keywords: 'quick reference overlay',
+		scope: 'global',
+	},
+	{
+		id: 'map_mode_view',
+		section: 'Maps',
+		label: 'Map mode: view',
+		shortcut: 'V',
+		keywords: 'map mode view',
+		scope: 'global',
+	},
+	{
+		id: 'map_mode_poi_edit',
+		section: 'Maps',
+		label: 'Map mode: POI edit',
+		shortcut: 'P',
+		keywords: 'map mode poi',
+		scope: 'global',
+	},
+	{
+		id: 'map_mode_fog_paint',
+		section: 'Maps',
+		label: 'Map mode: fog paint',
+		shortcut: 'F',
+		keywords: 'map mode fog',
+		scope: 'global',
+	},
+	{
+		id: 'map_mode_route_edit',
+		section: 'Maps',
+		label: 'Map mode: route edit',
+		shortcut: 'R',
+		keywords: 'map mode route',
+		scope: 'global',
+	},
+	{
+		id: 'map_mode_grid_align',
+		section: 'Maps',
+		label: 'Map mode: grid align',
+		shortcut: 'G',
+		keywords: 'map mode grid',
+		scope: 'global',
+	},
+	{
+		id: 'map_mode_combat',
+		section: 'Maps',
+		label: 'Map mode: combat',
+		shortcut: 'C',
+		keywords: 'map mode combat',
+		scope: 'global',
+	},
+	{
+		id: 'map_zoom_fit',
+		section: 'Maps',
+		label: 'Map zoom to fit',
+		shortcut: '0',
+		keywords: 'map zoom fit',
+		scope: 'global',
+	},
+	{
+		id: 'map_zoom_100',
+		section: 'Maps',
+		label: 'Map zoom to 100%',
+		shortcut: '1',
+		keywords: 'map zoom 100',
+		scope: 'global',
+	},
+	{
+		id: 'map_zoom_in',
+		section: 'Maps',
+		label: 'Map zoom in',
+		shortcut: '+',
+		keywords: 'map zoom in',
+		scope: 'global',
+	},
+	{
+		id: 'map_zoom_out',
+		section: 'Maps',
+		label: 'Map zoom out',
+		shortcut: '-',
+		keywords: 'map zoom out',
+		scope: 'global',
+	},
+	{
+		id: 'map_undo',
+		section: 'Maps',
+		label: 'Map undo',
+		shortcut: 'Ctrl+Z',
+		keywords: 'map undo',
+		scope: 'global',
+	},
+	{
+		id: 'map_redo',
+		section: 'Maps',
+		label: 'Map redo',
+		shortcut: 'Ctrl+Shift+Z',
+		keywords: 'map redo',
 		scope: 'global',
 	},
 	{
