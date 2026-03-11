@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SvelteSet } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import CollapsibleLocalNavSection from '$lib/ui/layout/local-nav/CollapsibleLocalNavSection.svelte';
@@ -21,6 +22,8 @@
 		hasChildren: boolean;
 		dimmed: boolean;
 	}
+
+	let filterQuery = $state('');
 
 	const activeRoute = $derived(navigationState.activeRoute);
 	const routeParts = $derived.by(() => {
@@ -51,6 +54,12 @@
 				noteIdsByMap[mapId] = bucket;
 			}
 		}
+
+		const byId: Record<string, (typeof hierarchy)[number]> = {};
+		for (const entry of hierarchy) {
+			byId[entry.mapId] = entry;
+		}
+
 		const base = hierarchy.map((entry) => {
 			const noteIds: string[] = [];
 			for (const scopedMapId of mapDescendantIds(entry.mapId, mapsState.maps)) {
@@ -65,15 +74,32 @@
 				label: entry.name,
 				depth: entry.depth,
 				count: noteIds.length,
-				path: `${resolve('/atlas/maps')}?map=${encodeURIComponent(entry.mapId)}`,
+				path: resolve(`/atlas/maps/${encodeURIComponent(entry.mapId)}`),
 				hasChildren: false,
 				dimmed: noteIds.length === 0,
 			};
 		});
-		return withChildren(base).slice(0, 120);
+
+		const query = filterQuery.trim().toLowerCase();
+		if (!query) return withChildren(base).slice(0, 120);
+
+		const includedMapIds = new SvelteSet<string>();
+		for (const entry of hierarchy) {
+			if (!entry.name.toLowerCase().includes(query)) continue;
+			let cursor: string | null = entry.mapId;
+			while (cursor) {
+				includedMapIds.add(cursor);
+				cursor = byId[cursor]?.parentMapId ?? null;
+			}
+		}
+
+		const filtered = base.filter((entry) => includedMapIds.has(entry.id.replace('map:', '')));
+		return withChildren(filtered).slice(0, 120);
 	});
 
 	const activeMapId = $derived.by(() => {
+		const routeMatch = routeParts.path.match(/^\/atlas\/maps\/([^/]+)$/);
+		if (routeMatch?.[1]) return `map:${decodeURIComponent(routeMatch[1])}`;
 		const mapId = routeParts.searchParams.get('map');
 		return mapId ? `map:${mapId}` : null;
 	});
@@ -105,11 +131,23 @@
 
 <nav class="space-y-2 pb-2" aria-label="Atlas navigation">
 	<CollapsibleLocalNavSection section="atlas" sectionId="map-hierarchy" title="Map Hierarchy">
+		<div class="mb-2 px-1">
+			<label class="sr-only" for="atlas-map-tree-filter">Filter maps</label>
+			<input
+				id="atlas-map-tree-filter"
+				type="text"
+				placeholder="Filter maps"
+				aria-label="Filter maps"
+				bind:value={filterQuery}
+				class="w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-xs text-ink"
+			/>
+		</div>
 		<LocalNavTree
 			ariaLabel="Atlas map hierarchy"
-			emptyLabel="No map hierarchy yet"
+			emptyLabel={filterQuery.trim() ? 'No matching maps' : 'No map hierarchy yet'}
 			entries={mapTreeNodes}
-			activeId={routeParts.path === '/atlas/maps' ? activeMapId : null}
+			activeId={activeMapId}
+			highlightQuery={filterQuery}
 			onselect={(entry) => navigateToPath(entry.path)}
 		/>
 	</CollapsibleLocalNavSection>

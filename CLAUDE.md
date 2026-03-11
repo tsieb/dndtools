@@ -171,6 +171,31 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 19.1** - Map Library UX: Visual Discovery and Organization:
+  - Split Atlas maps into dedicated route surfaces:
+    - `src/routes/atlas/maps/+page.svelte` now hosts the map library gallery and filter workflow.
+    - `src/routes/atlas/maps/[id]/+page.svelte` now hosts the map viewer via route-addressable map IDs.
+    - Added viewer breadcrumb load contract in `src/routes/atlas/maps/[id]/+page.ts` and retained library breadcrumb contract in `src/routes/atlas/maps/+page.ts`.
+  - Implemented map library onboarding and filtered-empty UX:
+    - zero-map empty state with headline/body/action copy and Atlas visual treatment in `src/routes/atlas/maps/+page.svelte`
+    - filtered-empty state with `Clear filter` action in the same route.
+  - Rebuilt library cards as a thumbnail-first gallery:
+    - card-based map tiles with 16:9 thumbnail presentation, lazy-load shimmer, map metadata chips (POI/layer counts), and party-location badge marker
+    - keyboard navigation support for card grid traversal and open/preview actions.
+  - Updated Atlas local navigation tree for map hierarchy workflows:
+    - filter input added to `src/lib/ui/sections/local-nav/AtlasLocalNavPanel.svelte`
+    - non-matching branch collapse behavior and route-targeted map node navigation to `/atlas/maps/[id]`
+    - query highlight rendering support added in `src/lib/ui/layout/local-nav/LocalNavTree.svelte`.
+  - Updated detail-panel map context routing:
+    - map detail context now resolves for `/atlas/maps/[id]` and library preview targets
+      via `src/lib/domain/detail-panel-context.ts`
+    - detail panel map resolution updated in `src/lib/ui/layout/DetailPanel.svelte`
+    - navigation/title labeling for map routes updated in `src/routes/+layout.svelte`.
+  - Updated regression coverage:
+    - `src/lib/domain/detail-panel-context.test.ts`
+    - `src/lib/state/navigation.svelte.test.ts`
+    - `tests/e2e-desktop/critical-workflows.spec.ts`.
+
 - **Epic 18.5** - Automated Accessibility Testing Pipeline:
   - Added shared axe policy enforcement for Playwright route tests in `tests/accessibility/axe-policy.ts` with
     severity handling:

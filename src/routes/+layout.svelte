@@ -149,6 +149,8 @@
 		if (pathname === '/knowledge/search') return 'Search & Discovery';
 		if (pathname === '/knowledge/graph') return 'Link Graph';
 		if (pathname === '/atlas/maps') return 'Map Library';
+		const atlasMapMatch = pathname.match(/^\/atlas\/maps\/([^/]+)$/);
+		if (atlasMapMatch?.[1]) return `Map ${decodeURIComponent(atlasMapMatch[1])}`;
 		if (pathname === '/campaign/timeline') return 'Campaign Timeline';
 		if (pathname === '/session/boards') return 'Session Board';
 		if (pathname === '/session/encounter/new') return 'Encounter Builder';
@@ -451,18 +453,22 @@
 			return;
 		}
 
-		if (targetUrl.pathname === '/atlas/maps') {
-			const mapId = targetUrl.searchParams.get('map')?.trim() ?? '';
-			if (mapId) {
-				const label = `Map ${mapId}`;
-				navigationState.record(pathWithSearch, {
-					label,
-					recentKind: 'map',
-					recentItemId: mapId,
-				});
-				setBrowserHistoryLabel(label);
-				return;
-			}
+		const atlasMapMatch = targetUrl.pathname.match(/^\/atlas\/maps\/([^/]+)$/);
+		const previewMapId = targetUrl.searchParams.get('previewMap')?.trim() ?? '';
+		const mapId =
+			(atlasMapMatch?.[1] ? decodeURIComponent(atlasMapMatch[1]) : '') ||
+			previewMapId ||
+			targetUrl.searchParams.get('map')?.trim() ||
+			'';
+		if (mapId) {
+			const label = `Map ${mapId}`;
+			navigationState.record(pathWithSearch, {
+				label,
+				recentKind: 'map',
+				recentItemId: mapId,
+			});
+			setBrowserHistoryLabel(label);
+			return;
 		}
 
 		const label = routeHeading(targetUrl);

@@ -11,9 +11,11 @@ describe('detailPanelContextFromUrl', () => {
 		expect(detailPanelContextFromUrl(url('/knowledge/notes/note-1/edit'))).toBeNull();
 	});
 
-	it('returns map context only when a map query target is present', () => {
+	it('returns map context for map detail routes and library previews', () => {
 		expect(detailPanelContextFromUrl(url('/atlas/maps'))).toBeNull();
 		expect(detailPanelContextFromUrl(url('/atlas/maps?map=map-1'))).toBe('map');
+		expect(detailPanelContextFromUrl(url('/atlas/maps?previewMap=map-1'))).toBe('map');
+		expect(detailPanelContextFromUrl(url('/atlas/maps/map-1'))).toBe('map');
 	});
 
 	it('returns session context for session routes', () => {
