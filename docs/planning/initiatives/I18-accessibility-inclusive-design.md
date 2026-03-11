@@ -2,6 +2,11 @@
 
 ## Status: PLANNED
 
+## Notated Changes (2026-03-10)
+
+- Accessibility remediation update: fixed `Settings` tab semantics by ensuring the About tab is contained in a proper `tablist`, removing a critical `aria-required-parent` violation.
+- Accessibility remediation update: added explicit accessible names to unlabeled Settings appearance `<select>` controls (`UI density`, `Note reading width`) to resolve critical `select-name` violations in CI axe scans.
+
 **Outcome:** DND Tools meets WCAG 2.2 Level AA. Every primary workflow is completable
 by keyboard alone. Screen readers can navigate all primary sections, read notes, and
 use the command palette. Focus is always visible and never obscured. Colors communicate

@@ -422,22 +422,24 @@
 
 			{#if aboutTab}
 				<div class="border-t border-border p-3">
-					<button
-						type="button"
-						role="tab"
-						id={`settings-tab-${aboutTab.id}`}
-						aria-selected={activeTab === aboutTab.id}
-						aria-controls={`settings-panel-${aboutTab.id}`}
-						tabindex={activeTab === aboutTab.id ? 0 : -1}
-						title={`Open ${aboutTab.label} settings`}
-						onclick={() => activateTab(aboutTab.id)}
-						onkeydown={(event) => handleTabKeydown(event, aboutTab.id)}
-						class="w-full rounded-md border px-2.5 py-2 text-left text-sm font-medium transition-colors {tabButtonClass(
-							aboutTab.id,
-						)}"
-					>
-						{aboutTab.label}
-					</button>
+					<div role="tablist" aria-label="Settings about tabs">
+						<button
+							type="button"
+							role="tab"
+							id={`settings-tab-${aboutTab.id}`}
+							aria-selected={activeTab === aboutTab.id}
+							aria-controls={`settings-panel-${aboutTab.id}`}
+							tabindex={activeTab === aboutTab.id ? 0 : -1}
+							title={`Open ${aboutTab.label} settings`}
+							onclick={() => activateTab(aboutTab.id)}
+							onkeydown={(event) => handleTabKeydown(event, aboutTab.id)}
+							class="w-full rounded-md border px-2.5 py-2 text-left text-sm font-medium transition-colors {tabButtonClass(
+								aboutTab.id,
+							)}"
+						>
+							{aboutTab.label}
+						</button>
+					</div>
 				</div>
 			{/if}
 		</aside>

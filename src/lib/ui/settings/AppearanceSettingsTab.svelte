@@ -44,6 +44,7 @@
 				</div>
 				<select
 					class="rounded-md border border-border bg-surface-alt px-2.5 py-1.5 text-sm text-ink"
+					aria-label="UI density"
 					value={ui.uiDensity}
 					onchange={(event) =>
 						updateAppearanceSettings({
@@ -61,6 +62,7 @@
 				</div>
 				<select
 					class="rounded-md border border-border bg-surface-alt px-2.5 py-1.5 text-sm text-ink"
+					aria-label="Note reading width"
 					value={ui.noteReadingWidth}
 					onchange={(event) =>
 						updateAppearanceSettings({

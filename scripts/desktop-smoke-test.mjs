@@ -30,8 +30,12 @@ async function run() {
 		ELECTRON_ENABLE_LOGGING: '1',
 	};
 	delete env.ELECTRON_RUN_AS_NODE;
+	const launchArgs = [mainEntry, `--vault=${vaultDir}`];
+	if (process.env.CI && process.platform === 'linux') {
+		launchArgs.push('--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage');
+	}
 
-	const child = spawn(electronBinary, [mainEntry, `--vault=${vaultDir}`], {
+	const child = spawn(electronBinary, launchArgs, {
 		env,
 		stdio: ['ignore', 'pipe', 'pipe'],
 	});

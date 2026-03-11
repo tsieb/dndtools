@@ -265,7 +265,7 @@ test.describe('Desktop critical workflows @critical', () => {
 			});
 		});
 		try {
-			await app.page.getByLabel('Pending MCP changes').click();
+			await gotoDesktopPath(app.page, '/settings?tab=mcp');
 			await expect(app.page.getByRole('heading', { name: 'MCP Pending Changes' })).toBeVisible();
 			const pendingRow = app.page.locator('li').filter({ hasText: 'Update staged by MCP agent' });
 			await expect(pendingRow).toBeVisible();

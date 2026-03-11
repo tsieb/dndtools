@@ -79,7 +79,7 @@
 	let templateDialogFolderOverride = $state<string | null>(null);
 	let templateDialogCandidates = $state<readonly NoteTemplate[] | null>(null);
 	let lastAnnouncedRoute = $state<string | null>(null);
-	let previousAdvancedFeatureSnapshot = $state<Record<string, boolean> | null>(null);
+	let previousAdvancedFeatureSnapshot: Record<string, boolean> | null = null;
 	let runtimeBootstrapRequested = false;
 	let setupWizardSubmitting = $state(false);
 	let suggestedVaultName = $state('My Campaign');

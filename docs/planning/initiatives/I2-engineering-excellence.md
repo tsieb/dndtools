@@ -2,6 +2,14 @@
 
 ## Status: COMPLETED
 
+## Notated Changes (2026-03-10)
+
+- CI hardening update: fixed `release-please.yml` condition evaluation so the workflow no longer fails at parse-time when secrets are referenced in branch pushes.
+- CI stability update: strengthened desktop test bootstrap logic to always detect/resolve first-run wizard gating before e2e, performance, and memory suites proceed.
+- CI platform update: added Linux CI smoke-launch flags (`--no-sandbox`, `--disable-setuid-sandbox`, `--disable-dev-shm-usage`) to prevent Electron sandbox bootstrap failures on hosted runners.
+- Docs gate update: docs validation now treats generated build output paths (`build/`, `.svelte-kit/`, `mcp/dist/`) as allowed references without requiring them to exist in a clean checkout.
+- Runtime stability update: resolved a Svelte reactivity feedback loop in `src/routes/+layout.svelte` (`effect_update_depth_exceeded`) by removing reactive writes to the previous-feature snapshot tracker.
+
 **Outcome:** Every change to DND Tools is gated by automated quality checks. The
 codebase has a complete test pyramid, architectural decisions are recorded and reasoned,
 and the developer experience makes correct behavior the path of least resistance.

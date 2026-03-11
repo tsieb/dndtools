@@ -1,47 +1,23 @@
-import fs from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
-import { test, expect, _electron as electron } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { createTempVaultDir, launchDesktopApp, closeDesktopApp } from './helpers/desktop-app.js';
 
 test.describe('Desktop smoke', () => {
 	test('launches built desktop app and renders shell', async () => {
-		const vaultDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dndtools-e2e-vault-'));
-		const appMain = path.join(process.cwd(), 'electron', 'dist', 'main.cjs');
-		const launchEnv: Record<string, string> = {};
-		for (const [key, value] of Object.entries(process.env)) {
-			if (typeof value === 'string') {
-				launchEnv[key] = value;
-			}
-		}
-		launchEnv.ELECTRON_ENABLE_LOGGING = '0';
-		delete launchEnv.ELECTRON_RUN_AS_NODE;
-		const launchArgs = [appMain, `--vault=${vaultDir}`];
-		if (process.env.CI) {
-			launchArgs.push('--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage');
-		}
-
-		const electronApp = await electron.launch({
-			args: launchArgs,
-			env: launchEnv,
-		});
-
+		const vaultDir = await createTempVaultDir('dndtools-e2e-vault-');
+		const app = await launchDesktopApp(vaultDir, { autoCompleteWizard: false });
 		try {
-			const window = await electronApp.firstWindow();
-			await window.waitForLoadState('domcontentloaded');
-			const setupWizardHeading = window.getByRole('heading', { name: 'Welcome to DND Tools' });
-			const wizardVisible = await setupWizardHeading
-				.isVisible({ timeout: 3_000 })
-				.catch(() => false);
-			if (wizardVisible) {
-				await expect(setupWizardHeading).toBeVisible({ timeout: 15_000 });
-			} else {
-				await expect(window.locator('header').first()).toBeVisible({
-					timeout: 15_000,
-				});
-			}
+			const wizardHeading = app.page.getByRole('heading', { name: 'Welcome to DND Tools' });
+			const shellHeader = app.page.locator('header').first();
+			await expect
+				.poll(
+					async () =>
+						(await wizardHeading.isVisible().catch(() => false)) ||
+						(await shellHeader.isVisible().catch(() => false)),
+					{ timeout: 20_000, intervals: [250, 500, 1_000] },
+				)
+				.toBe(true);
 		} finally {
-			await electronApp.close();
-			await fs.rm(vaultDir, { recursive: true, force: true });
+			await closeDesktopApp(app);
 		}
 	});
 });

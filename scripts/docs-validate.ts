@@ -33,6 +33,7 @@ const rootFileAllowlist = new Set([
 	'CHANGELOG.md',
 	'CODEOWNERS',
 ]);
+const generatedPathPrefixes = ['build/', '.svelte-kit/', 'mcp/dist/'];
 
 const fileExtensionPattern =
 	/\.(md|ts|tsx|js|cjs|mjs|json|yml|yaml|svelte|css|html|txt|png|jpg|jpeg|svg|ico)$/i;
@@ -77,6 +78,18 @@ function isLikelyLocalPath(token: string): boolean {
 		return false;
 	}
 	return repoRelative.endsWith('/') || fileExtensionPattern.test(repoRelative);
+}
+
+function isGeneratedPathReference(token: string): boolean {
+	const normalized = token
+		.trim()
+		.replace(/[),.;:]+$/, '')
+		.replace(/\\/g, '/')
+		.split('#')[0]
+		.split('?')[0];
+	if (!normalized) return false;
+	const repoRelative = normalized.startsWith('/') ? normalized.slice(1) : normalized;
+	return generatedPathPrefixes.some((prefix) => repoRelative.startsWith(prefix));
 }
 
 function resolveCandidatePath(docPath: string, token: string): string {
@@ -220,6 +233,7 @@ async function validateDocs(): Promise<ValidationIssue[]> {
 		const candidates = extractPathCandidates(content);
 		for (const candidate of candidates) {
 			if (!isLikelyLocalPath(candidate.token)) continue;
+			if (isGeneratedPathReference(candidate.token)) continue;
 			const resolvedPath = resolveCandidatePath(markdownFile, candidate.token);
 			try {
 				await fs.access(resolvedPath);

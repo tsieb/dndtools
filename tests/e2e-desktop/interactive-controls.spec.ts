@@ -431,7 +431,7 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 						expect(app.page.getByRole('heading', { name: 'Updates' }).first()).toBeVisible(),
 				},
 				{
-					name: 'World',
+					name: 'World Calendar',
 					assert: () =>
 						expect(app.page.getByRole('heading', { name: 'In-World Date' }).first()).toBeVisible(),
 				},
@@ -469,7 +469,25 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 						).toBeVisible(),
 				},
 			];
+
+			const ensureTabVisible = async (name: string): Promise<void> => {
+				const tab = app.page.getByRole('tab', { name });
+				const visible = await tab
+					.first()
+					.isVisible()
+					.catch(() => false);
+				if (visible) return;
+				const advancedToggle = app.page.getByRole('button', { name: /Advanced/i }).first();
+				await expect(advancedToggle).toBeVisible();
+				const expanded = await advancedToggle.getAttribute('aria-expanded');
+				if (expanded !== 'true') {
+					await advancedToggle.click();
+				}
+				await expect(tab.first()).toBeVisible();
+			};
+
 			for (const tab of tabChecks) {
+				await ensureTabVisible(tab.name);
 				await app.page.getByRole('tab', { name: tab.name }).click();
 				await expect(app.page.getByRole('tab', { name: tab.name })).toHaveAttribute(
 					'aria-selected',

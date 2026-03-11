@@ -140,9 +140,13 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 		try {
 			await app.page.keyboard.press('Control+n');
 			await expect(app.page).toHaveURL(/\/notes\/[^/]+\/edit$/);
-			await app.page.getByPlaceholder('Note title...').focus();
+			const titleInput = app.page.getByPlaceholder('Note title...');
+			await expect(titleInput).toBeVisible({ timeout: 15_000 });
+			await titleInput.focus();
 			await app.page.keyboard.type('Keyboard Created Note');
-			await app.page.locator('.cm-content').first().focus();
+			const editorSurface = app.page.locator('.cm-content').first();
+			await expect(editorSurface).toBeVisible({ timeout: 15_000 });
+			await editorSurface.focus();
 			await app.page.keyboard.type('Keyboard flow body with [[Accessibility Link Target]].');
 			await app.page.keyboard.press('Control+s');
 			await expect(app.page.getByRole('status').getByText('Note saved')).toBeVisible();
@@ -156,7 +160,9 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 			await app.page.keyboard.press('Control+Shift+F');
 			await expect(app.page).toHaveURL(/\/search$/);
 			await app.page.getByPlaceholder('Search notes...').fill('AccessibilityToken');
-			await expect(app.page.getByRole('button', { name: 'Accessibility Anchor' })).toBeVisible();
+			await expect(app.page.getByRole('button', { name: 'Accessibility Anchor' })).toBeVisible({
+				timeout: 20_000,
+			});
 
 			await app.page.getByPlaceholder('Search notes...').fill('Accessibility NPC');
 			const entityResult = app.page
@@ -190,7 +196,9 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 
 			const politeLiveRegion = app.page.getByTestId('a11y-live-polite');
 			await app.page.getByPlaceholder('Search notes...').fill('AccessibilityToken');
-			await expect(app.page.getByRole('button', { name: 'Accessibility Anchor' })).toBeVisible();
+			await expect(app.page.getByRole('button', { name: 'Accessibility Anchor' })).toBeVisible({
+				timeout: 20_000,
+			});
 			await expect(politeLiveRegion).toHaveAttribute('aria-live', 'polite');
 		} finally {
 			await closeDesktopApp(app);

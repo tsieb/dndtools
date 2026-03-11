@@ -61,15 +61,6 @@ export async function launchDesktopApp(
 	const deadline = Date.now() + shellReadyTimeoutMs;
 	while (Date.now() < deadline) {
 		for (const candidate of electronApp.windows()) {
-			const ready = await candidate
-				.locator('header')
-				.first()
-				.isVisible({ timeout: 1_000 })
-				.catch(() => false);
-			if (ready) {
-				page = candidate;
-				return { electronApp, page, vaultDir };
-			}
 			const wizardVisible = await candidate
 				.getByRole('heading', { name: 'Welcome to DND Tools' })
 				.isVisible({ timeout: 1_000 })
@@ -80,8 +71,20 @@ export async function launchDesktopApp(
 					return { electronApp, page, vaultDir };
 				}
 				await completeSetupWizard(candidate);
+				await expect(candidate.getByRole('heading', { name: 'Welcome to DND Tools' })).toBeHidden({
+					timeout: 20_000,
+				});
 				await expect(candidate.locator('header').first()).toBeVisible({ timeout: 20_000 });
 				return { electronApp, page: candidate, vaultDir };
+			}
+			const ready = await candidate
+				.locator('header')
+				.first()
+				.isVisible({ timeout: 1_000 })
+				.catch(() => false);
+			if (ready) {
+				page = candidate;
+				return { electronApp, page, vaultDir };
 			}
 		}
 		await electronApp

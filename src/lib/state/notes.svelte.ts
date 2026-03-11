@@ -210,13 +210,31 @@ class NotesState {
 		return this.activeNoteById.get(id) ?? null;
 	}
 
+	private snapshotUnsavedDraftNotes(): Note[] {
+		return this.notes.filter(
+			(note) => this.draftNoteIds.has(note.id) && !note.deleted && !hasMeaningfulNoteContent(note),
+		);
+	}
+
 	async loadAll(): Promise<void> {
 		this.loading = true;
 		this.error = null;
 		try {
+			const draftSnapshot = this.snapshotUnsavedDraftNotes();
 			const storage = getStorage();
-			this.notes = await storage.getAllNotes({ includeDeleted: true });
+			const persistedNotes = await storage.getAllNotes({ includeDeleted: true });
+			const persistedIds = new Set(persistedNotes.map((note) => String(note.id)));
+			const mergedNotes = [...persistedNotes];
+			for (const draft of draftSnapshot) {
+				if (persistedIds.has(String(draft.id))) continue;
+				mergedNotes.push(draft);
+			}
+			this.notes = mergedNotes;
 			this.draftNoteIds.clear();
+			for (const draft of draftSnapshot) {
+				if (persistedIds.has(String(draft.id))) continue;
+				this.draftNoteIds.add(draft.id);
+			}
 			await this.syncLinksFromStorageSnapshot();
 		} catch (e) {
 			this.error = String(e);
