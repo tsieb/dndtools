@@ -61,7 +61,7 @@
 					{:else}
 						<a
 							href={item.href}
-							class="truncate rounded px-1 text-ink-muted transition-colors hover:bg-surface-alt hover:text-ink"
+							class="touch-target-inline inline-flex items-center truncate rounded px-2 text-ink-muted transition-colors hover:bg-surface-alt hover:text-ink"
 						>
 							{item.label}
 						</a>
@@ -73,7 +73,7 @@
 				{#if firstItem.href}
 					<a
 						href={firstItem.href}
-						class="truncate rounded px-1 text-ink-muted transition-colors hover:bg-surface-alt hover:text-ink"
+						class="touch-target-inline inline-flex items-center truncate rounded px-2 text-ink-muted transition-colors hover:bg-surface-alt hover:text-ink"
 					>
 						{firstItem.label}
 					</a>
@@ -87,7 +87,7 @@
 				<span class="text-ink-faint" aria-hidden="true">/</span>
 				<details class="group relative">
 					<summary
-						class="list-none cursor-pointer rounded px-1 text-ink-muted hover:bg-surface-alt hover:text-ink"
+						class="touch-target-inline list-none cursor-pointer rounded px-2 text-ink-muted hover:bg-surface-alt hover:text-ink"
 						aria-label="Show full breadcrumb path"
 					>
 						...

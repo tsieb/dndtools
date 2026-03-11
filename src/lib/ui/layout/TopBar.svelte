@@ -118,7 +118,7 @@
 			<div class="min-w-0 flex flex-1 items-center gap-1.5">
 				{#if compactEditorMode}
 					<button
-						class="rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
+						class="touch-target rounded-md text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 						onclick={requestCompactEditorBack}
 						aria-label="Done editing"
 						title="Done"
@@ -131,7 +131,7 @@
 
 			<div class="relative ml-2 flex items-center gap-1.5">
 				<button
-					class="rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
+					class="touch-target rounded-md text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 					onclick={onsearch}
 					aria-label="Open command palette"
 					title="Open command palette (Ctrl+P)"
@@ -140,7 +140,7 @@
 				</button>
 				<button
 					bind:this={overflowButtonEl}
-					class="rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
+					class="touch-target rounded-md text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 					onclick={() => (overflowOpen = !overflowOpen)}
 					aria-label="More actions"
 					aria-haspopup="menu"
@@ -190,7 +190,7 @@
 		{:else}
 			<div class="flex min-w-0 items-center gap-1.5">
 				<button
-					class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
+					class="desktop-no-drag touch-target rounded-md text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 					onclick={ontogglelocalpanel}
 					aria-label="Toggle local navigation"
 					title={showKeyboardHints ? 'Toggle local navigation (Ctrl+B)' : 'Toggle local navigation'}
@@ -200,7 +200,7 @@
 				{#if layoutState.isExpanded}
 					<button
 						type="button"
-						class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent"
+						class="desktop-no-drag touch-target rounded-md text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent"
 						onclick={ontoggledetailpanel}
 						disabled={!detailpanelavailable}
 						aria-pressed={detailpanelopen}
@@ -213,7 +213,7 @@
 					</button>
 				{/if}
 				<button
-					class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent"
+					class="desktop-no-drag touch-target rounded-md text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent"
 					onclick={() => window.history.back()}
 					disabled={!navigationState.canGoBack}
 					aria-label="Go back"
@@ -224,7 +224,7 @@
 					<Icon name="chevron-left" size="sm" />
 				</button>
 				<button
-					class="desktop-no-drag rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent"
+					class="desktop-no-drag touch-target rounded-md text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt disabled:opacity-40 disabled:hover:bg-transparent"
 					onclick={() => window.history.forward()}
 					disabled={!navigationState.canGoForward}
 					aria-label="Go forward"
@@ -241,7 +241,7 @@
 
 			<div class="desktop-no-drag ml-2 flex items-center gap-1.5">
 				<button
-					class="flex items-center gap-2 rounded-md bg-surface-alt px-2.5 py-1.5 text-sm text-ink-faint transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-border"
+					class="touch-target-inline flex items-center gap-2 rounded-md bg-surface-alt px-2.5 py-1.5 text-sm text-ink-faint transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-border"
 					onclick={onsearch}
 					aria-label="Open command palette"
 					title={showKeyboardHints ? 'Open command palette (Ctrl+P)' : 'Open command palette'}
@@ -252,7 +252,7 @@
 
 				<a
 					href={`${resolve('/settings')}?tab=sync`}
-					class="flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
+					class="touch-target-inline flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 					aria-label={`Sync status: ${syncLabel}`}
 					title="Open sync settings"
 				>
@@ -284,7 +284,7 @@
 					<div class="relative">
 						<a
 							href={`${resolve('/settings')}?tab=vault`}
-							class="relative rounded-md p-1.5 transition-[transform,colors] active:scale-[0.97] active:brightness-95 {vaultHealthState.severity ===
+							class="touch-target relative rounded-md transition-[transform,colors] active:scale-[0.97] active:brightness-95 {vaultHealthState.severity ===
 							'critical'
 								? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20'
 								: vaultHealthState.severity === 'warning'
@@ -326,7 +326,7 @@
 					<div class="flex items-center gap-1" data-help-target="mcp-staged-review-counter">
 						<a
 							href={`${resolve('/settings')}?tab=mcp#mcp-changes`}
-							class="relative rounded-md p-1.5 text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
+							class="touch-target relative rounded-md text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 							aria-label="Pending MCP changes"
 							title="Review pending MCP changes"
 						>

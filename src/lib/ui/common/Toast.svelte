@@ -50,7 +50,7 @@
 				</span>
 				<span class="flex-1">{toast.message}</span>
 				<button
-					class="ml-1 flex shrink-0 items-center rounded p-0.5 opacity-70 transition-[transform,opacity] hover:opacity-100 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-current"
+					class="touch-target ml-1 flex shrink-0 items-center justify-center rounded opacity-70 transition-[transform,opacity] hover:opacity-100 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-current"
 					onclick={() => toastState.remove(toast.id)}
 					aria-label="Dismiss notification"
 				>

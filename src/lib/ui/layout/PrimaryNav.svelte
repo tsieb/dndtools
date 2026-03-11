@@ -121,7 +121,7 @@
 				{#if item.id === 'session' && sessionModeState.isActive}
 					<button
 						type="button"
-						class="w-full rounded-md border border-border px-2 py-1 text-2xs text-ink-muted hover:bg-bg"
+						class="touch-target-inline w-full rounded-md border border-border px-2 py-1 text-2xs text-ink-muted hover:bg-bg"
 						onclick={() => (showEndSessionFlow = true)}
 					>
 						End Session

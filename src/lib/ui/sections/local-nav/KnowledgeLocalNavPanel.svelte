@@ -345,7 +345,7 @@
 			<button
 				id="knowledge-tab-browse"
 				type="button"
-				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors {tabClass(
+				class="touch-target-inline flex items-center justify-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors {tabClass(
 					'browse',
 				)}"
 				role="tab"
@@ -360,7 +360,7 @@
 			<button
 				id="knowledge-tab-recent"
 				type="button"
-				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors {tabClass(
+				class="touch-target-inline flex items-center justify-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors {tabClass(
 					'recent',
 				)}"
 				role="tab"
@@ -375,7 +375,7 @@
 			<button
 				id="knowledge-tab-saved"
 				type="button"
-				class="flex items-center justify-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors {tabClass(
+				class="touch-target-inline flex items-center justify-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors {tabClass(
 					'saved',
 				)}"
 				role="tab"
@@ -399,7 +399,7 @@
 					</p>
 					<button
 						type="button"
-						class="rounded border border-border px-1.5 py-0.5 text-2xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
+						class="touch-target-inline rounded border border-border px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-surface-alt"
 						onclick={() => (treeMode = treeMode === 'folder' ? 'map' : 'folder')}
 					>
 						{treeMode === 'folder' ? 'Map view' : 'Folder view'}
@@ -439,7 +439,7 @@
 							{#each modeScopedTagCounts.slice(0, 18) as tag (tag.name)}
 								<button
 									type="button"
-									class="sidebar-tag-pill inline-flex items-center rounded-full bg-accent-subtle px-2 py-0.5 text-xs text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-accent/20"
+									class="sidebar-tag-pill inline-flex items-center rounded-full bg-accent-subtle px-2 py-1 text-xs text-accent transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-accent/20"
 									onclick={() =>
 										navigateToPath(
 											`${resolve('/knowledge/notes')}?tag=${encodeURIComponent(tag.name)}`,
@@ -460,7 +460,7 @@
 				<div class="px-2.5 pt-2">
 					<button
 						type="button"
-						class="w-full rounded-md border border-border px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg hover:text-ink"
+						class="density-nav-item w-full rounded-md border border-border px-2.5 py-1.5 text-left text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg hover:text-ink"
 						onclick={() => navigateToPath(resolve('/knowledge/graph'))}
 					>
 						Open Knowledge Graph
@@ -478,7 +478,7 @@
 						{#each recentItems as item (item.id)}
 							<button
 								type="button"
-								class="flex w-full items-center gap-2 rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg {activeRoute ===
+								class="density-nav-item flex w-full items-center gap-2 rounded-md border-l-2 border-transparent px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg {activeRoute ===
 								item.path
 									? 'border-accent bg-accent-subtle/70 text-accent'
 									: ''}"
@@ -509,7 +509,7 @@
 						{#each recentNotes as note (note.id)}
 							<button
 								type="button"
-								class="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg {noteButtonClass(
+								class="density-nav-item w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg {noteButtonClass(
 									note.id,
 								)}"
 								onclick={() => navigateToNote(note.id)}
@@ -534,7 +534,7 @@
 						{#each pinnedNotes as note (note.id)}
 							<button
 								type="button"
-								class="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg {noteButtonClass(
+								class="density-nav-item w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ink transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:bg-bg {noteButtonClass(
 									note.id,
 								)}"
 								onclick={() => navigateToNote(note.id)}
@@ -561,7 +561,7 @@
 							{#each collectionPills as collection (collection.id)}
 								<button
 									type="button"
-									class="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-surface px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:border-accent hover:text-ink"
+									class="touch-target-inline inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-surface px-2 py-1 text-xs text-ink-muted transition-[transform,colors] active:scale-[0.97] active:brightness-95 hover:border-accent hover:text-ink"
 									onclick={() => openCollection(collection.query)}
 									title={collection.query}
 								>
