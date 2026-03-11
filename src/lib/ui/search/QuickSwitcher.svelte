@@ -19,8 +19,9 @@
 	import { vaultMaturityState } from '$lib/state/vault-maturity.svelte.js';
 	import { isNoteVisibleInPlayerMode } from '$lib/domain/visibility.js';
 	import type { Note, NoteId } from '$lib/types/note.js';
-	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
+	import { focusTrap } from '$lib/actions/focus-trap.js';
 	import HelpTip from '$lib/ui/common/HelpTip.svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
 		open: boolean;
@@ -163,6 +164,7 @@
 	let inputRef: HTMLInputElement | undefined = $state();
 	let returnFocusTarget: HTMLElement | null = $state(null);
 	let noteScope = $state<SearchScope>({ ...DEFAULT_SEARCH_SCOPE });
+	const optionRefs = new SvelteMap<number, HTMLButtonElement>();
 
 	let modeScopedNotes = $derived.by(() =>
 		playerModeState.enabled
@@ -645,6 +647,26 @@
 		return start;
 	}
 
+	function optionRef(node: HTMLButtonElement, index: number) {
+		optionRefs.set(index, node);
+		return {
+			update(nextIndex: number): void {
+				if (nextIndex === index) return;
+				optionRefs.delete(index);
+				index = nextIndex;
+				optionRefs.set(index, node);
+			},
+			destroy(): void {
+				optionRefs.delete(index);
+			},
+		};
+	}
+
+	function focusSelectedOption(): void {
+		if (items.length === 0) return;
+		optionRefs.get(selectedIndex)?.focus();
+	}
+
 	function handleKeydown(event: KeyboardEvent): void {
 		if (event.key === 'Escape') {
 			event.preventDefault();
@@ -660,12 +682,32 @@
 		if (event.key === 'ArrowDown') {
 			event.preventDefault();
 			selectedIndex = findNextIndex(selectedIndex, 1);
+			focusSelectedOption();
 			return;
 		}
 
 		if (event.key === 'ArrowUp') {
 			event.preventDefault();
 			selectedIndex = findNextIndex(selectedIndex, -1);
+			focusSelectedOption();
+			return;
+		}
+
+		if (event.key === 'Home') {
+			event.preventDefault();
+			selectedIndex = firstEnabledIndex();
+			focusSelectedOption();
+			return;
+		}
+
+		if (event.key === 'End') {
+			event.preventDefault();
+			let index = Math.max(0, items.length - 1);
+			while (index > 0 && items[index]?.disabled) {
+				index -= 1;
+			}
+			selectedIndex = index;
+			focusSelectedOption();
 			return;
 		}
 
@@ -697,7 +739,7 @@
 		role="dialog"
 		aria-modal="true"
 		aria-label="Command palette"
-		use:focusTrap
+		use:focusTrap={{ onEscape: closePalette }}
 		onclick={handleBackdrop}
 		onkeydown={handleKeydown}
 		tabindex="-1"
@@ -765,13 +807,16 @@
 						{/if}
 						<li role="option" aria-selected={i === selectedIndex} id={`command-palette-item-${i}`}>
 							<button
+								use:optionRef={i}
 								type="button"
 								data-command-palette-option="true"
+								tabindex={i === selectedIndex ? 0 : -1}
 								class="w-full px-3 py-2 text-left transition-colors disabled:opacity-50 {i ===
 								selectedIndex
 									? 'bg-accent-subtle'
 									: 'hover:bg-surface-alt'}"
 								onclick={() => !item.disabled && void item.run()}
+								onfocus={() => (selectedIndex = i)}
 								disabled={item.disabled}
 								title={item.title}
 							>

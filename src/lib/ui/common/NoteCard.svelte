@@ -11,6 +11,11 @@
 		onpin?: (id: NoteId) => void;
 		ondelete?: (id: NoteId) => void;
 		oncontextrequest?: (id: NoteId, event: MouseEvent) => void;
+		listOptionId?: string;
+		listTabIndex?: number;
+		listSelected?: boolean;
+		onlistfocus?: () => void;
+		onlistkeydown?: (event: KeyboardEvent) => void;
 	}
 
 	const SWIPE_ACTION_WIDTH = 112;
@@ -18,7 +23,18 @@
 	const LONG_PRESS_MS = 450;
 	const LONG_PRESS_MOVE_CANCEL_PX = 12;
 
-	let { note, onclick, onpin, ondelete, oncontextrequest }: Props = $props();
+	let {
+		note,
+		onclick,
+		onpin,
+		ondelete,
+		oncontextrequest,
+		listOptionId = undefined,
+		listTabIndex = undefined,
+		listSelected = undefined,
+		onlistfocus = undefined,
+		onlistkeydown = undefined,
+	}: Props = $props();
 
 	let cardRoot = $state<HTMLElement | null>(null);
 	let actionsOpen = $state(false);
@@ -163,6 +179,8 @@
 	}
 
 	function handleCardKeydown(event: KeyboardEvent): void {
+		onlistkeydown?.(event);
+		if (event.defaultPrevented) return;
 		if (event.key !== 'Enter' && event.key !== ' ') return;
 		event.preventDefault();
 		activateCard();
@@ -225,10 +243,15 @@
 
 	<!-- Card face: uses Card surface tokens (bg-surface, border-border, rounded-lg, shadow) -->
 	<button
+		id={listOptionId}
+		role={listOptionId ? 'option' : undefined}
+		tabindex={listTabIndex}
+		aria-selected={listSelected}
 		class="note-card-foreground group relative z-10 w-full rounded-lg border border-border bg-surface density-card pr-11 text-left shadow-sm transition-[border,box-shadow,transform] hover:border-accent/40 hover:shadow-md"
 		style={cardTransformStyle}
 		onclick={activateCard}
 		onkeydown={handleCardKeydown}
+		onfocus={() => onlistfocus?.()}
 		oncontextmenu={handleContextMenu}
 		ontouchstart={handleTouchStart}
 		ontouchmove={handleTouchMove}
