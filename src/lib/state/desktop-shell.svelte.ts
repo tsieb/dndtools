@@ -14,11 +14,40 @@ const SECTION_IDS: readonly PrimarySection[] = [
 export const DEFAULT_LOCAL_PANEL_WIDTH = 240;
 export const MIN_LOCAL_PANEL_WIDTH = 200;
 export const MAX_LOCAL_PANEL_WIDTH = 320;
+export const LOCAL_PANEL_WIDTH_PRESETS: readonly number[] = [
+	MIN_LOCAL_PANEL_WIDTH,
+	DEFAULT_LOCAL_PANEL_WIDTH,
+	MAX_LOCAL_PANEL_WIDTH,
+];
 
 function clampLocalPanelWidth(rawWidth: number): number {
 	if (!Number.isFinite(rawWidth)) return DEFAULT_LOCAL_PANEL_WIDTH;
 	const rounded = Math.round(rawWidth);
 	return Math.min(MAX_LOCAL_PANEL_WIDTH, Math.max(MIN_LOCAL_PANEL_WIDTH, rounded));
+}
+
+export function cycleLocalPanelWidthPreset(
+	currentWidth: number,
+	direction: 'next' | 'previous' = 'next',
+): number {
+	const current = clampLocalPanelWidth(currentWidth);
+	const currentIndex = LOCAL_PANEL_WIDTH_PRESETS.findIndex((width) => width === current);
+	if (currentIndex >= 0) {
+		const delta = direction === 'next' ? 1 : -1;
+		const wrappedIndex =
+			(currentIndex + delta + LOCAL_PANEL_WIDTH_PRESETS.length) % LOCAL_PANEL_WIDTH_PRESETS.length;
+		return LOCAL_PANEL_WIDTH_PRESETS[wrappedIndex]!;
+	}
+
+	if (direction === 'next') {
+		return (
+			LOCAL_PANEL_WIDTH_PRESETS.find((width) => width > current) ?? LOCAL_PANEL_WIDTH_PRESETS[0]!
+		);
+	}
+	return (
+		[...LOCAL_PANEL_WIDTH_PRESETS].reverse().find((width) => width < current) ??
+		LOCAL_PANEL_WIDTH_PRESETS[LOCAL_PANEL_WIDTH_PRESETS.length - 1]!
+	);
 }
 
 function widthStorageKey(section: PrimarySection): string {

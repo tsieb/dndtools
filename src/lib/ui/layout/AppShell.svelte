@@ -5,7 +5,13 @@
 	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { mobileKeyboardState } from '$lib/state/mobile-keyboard.svelte.js';
 	import { navigationState, type PrimarySection } from '$lib/state/navigation.svelte.js';
-	import { desktopShellState } from '$lib/state/desktop-shell.svelte.js';
+	import {
+		DEFAULT_LOCAL_PANEL_WIDTH,
+		MAX_LOCAL_PANEL_WIDTH,
+		MIN_LOCAL_PANEL_WIDTH,
+		cycleLocalPanelWidthPreset,
+		desktopShellState,
+	} from '$lib/state/desktop-shell.svelte.js';
 	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
 	import { detailPanelContextFromUrl } from '$lib/domain/detail-panel-context.js';
 	import DesktopTitlebar from './DesktopTitlebar.svelte';
@@ -51,6 +57,7 @@
 	let panelResizeStartX = $state(0);
 	let panelResizeStartWidth = $state(0);
 	let panelResizeSection = $state<PrimarySection>('knowledge');
+	let panelResizeDraggedRecently = $state(false);
 	let lastSessionActive = $state(false);
 	let compactBarNow = $state(Date.now());
 
@@ -224,6 +231,7 @@
 		const handlePointerMove = (event: PointerEvent): void => {
 			if (!layoutState.isExpanded || zenModeActive) return;
 			const delta = event.clientX - panelResizeStartX;
+			if (Math.abs(delta) >= 3) panelResizeDraggedRecently = true;
 			desktopShellState.setLocalPanelWidth(panelResizeSection, panelResizeStartWidth + delta);
 		};
 		const handlePointerEnd = (): void => {
@@ -322,6 +330,7 @@
 	function handlePanelResizePointerDown(event: PointerEvent): void {
 		if (!layoutState.isExpanded || zenModeActive || desktopShellState.localPanelCollapsed) return;
 		panelResizeActive = true;
+		panelResizeDraggedRecently = false;
 		panelResizeStartX = event.clientX;
 		panelResizeStartWidth = activePanelWidth;
 		panelResizeSection = activeSection;
@@ -331,12 +340,47 @@
 		}
 	}
 
+	function cycleLocalPanelWidth(direction: 'next' | 'previous'): void {
+		if (!layoutState.isExpanded || zenModeActive || desktopShellState.localPanelCollapsed) return;
+		const nextWidth = cycleLocalPanelWidthPreset(activePanelWidth, direction);
+		desktopShellState.setLocalPanelWidth(activeSection, nextWidth);
+	}
+
+	function handlePanelResizeCycleClick(): void {
+		if (panelResizeDraggedRecently) {
+			panelResizeDraggedRecently = false;
+			return;
+		}
+		cycleLocalPanelWidth('next');
+	}
+
 	function handlePanelResizeKeydown(event: KeyboardEvent): void {
 		if (!layoutState.isExpanded || zenModeActive || desktopShellState.localPanelCollapsed) return;
-		if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-		event.preventDefault();
-		const delta = event.key === 'ArrowLeft' ? -10 : 10;
-		desktopShellState.setLocalPanelWidth(activeSection, activePanelWidth + delta);
+		if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+			event.preventDefault();
+			const delta = event.key === 'ArrowLeft' ? -10 : 10;
+			desktopShellState.setLocalPanelWidth(activeSection, activePanelWidth + delta);
+			return;
+		}
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			cycleLocalPanelWidth('next');
+			return;
+		}
+		if (event.key === 'Home') {
+			event.preventDefault();
+			desktopShellState.setLocalPanelWidth(activeSection, MIN_LOCAL_PANEL_WIDTH);
+			return;
+		}
+		if (event.key === 'End') {
+			event.preventDefault();
+			desktopShellState.setLocalPanelWidth(activeSection, MAX_LOCAL_PANEL_WIDTH);
+			return;
+		}
+		if (event.key === '0') {
+			event.preventDefault();
+			desktopShellState.setLocalPanelWidth(activeSection, DEFAULT_LOCAL_PANEL_WIDTH);
+		}
 	}
 
 	function handleMainTouchStart(event: TouchEvent): void {
@@ -472,20 +516,15 @@
 					<Sidebar {onnewnote} {ondice} {ontemplate} {onsetplayermode} {onopenkeyboardshortcuts} />
 					{#if layoutState.isExpanded}
 						<section class="shrink-0" aria-label="Local navigation resize control">
-							<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-							<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-							<div
-								class="w-1.5 shrink-0 cursor-col-resize bg-border/65 transition-colors hover:bg-accent/70 focus:bg-accent/70"
-								role="separator"
+							<button
+								type="button"
+								class="h-full w-3 shrink-0 cursor-col-resize bg-border/65 transition-colors hover:bg-accent/70 focus:bg-accent/70"
 								aria-label="Resize local navigation panel"
-								aria-orientation="vertical"
-								aria-valuemin="200"
-								aria-valuemax="320"
-								aria-valuenow={activePanelWidth}
-								tabindex="0"
+								title="Drag to resize. Click to cycle narrow/default/wide. Arrow keys adjust by ten pixels."
 								onpointerdown={handlePanelResizePointerDown}
 								onkeydown={handlePanelResizeKeydown}
-							></div>
+								onclick={handlePanelResizeCycleClick}
+							></button>
 						</section>
 					{/if}
 				{/if}

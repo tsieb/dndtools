@@ -13,7 +13,10 @@
 	import SessionPrepPanel from '$lib/ui/session/SessionPrepPanel.svelte';
 	import EmptyState from '$lib/ui/common/EmptyState.svelte';
 	import { focusTrap } from '$lib/actions/focus-trap.js';
-	import { DEFAULT_SESSION_BOARD_LAYOUT } from '$lib/domain/session-board.js';
+	import {
+		DEFAULT_SESSION_BOARD_LAYOUT,
+		moveSessionBoardTileByRow,
+	} from '$lib/domain/session-board.js';
 	import {
 		loadSessionPrepViewModel,
 		type SessionPrepViewModel,
@@ -546,6 +549,14 @@
 	async function updateSelected(updates: Partial<SessionBoardTile>): Promise<void> {
 		if (!activeBoard || !selectedTileId) return;
 		await sessionBoardsState.updateTile(activeBoard.id, selectedTileId, updates);
+	}
+
+	function moveTileByRow(tileId: string, deltaRows: number): void {
+		if (!activeBoard) return;
+		const movedTiles = moveSessionBoardTileByRow(activeBoard.tiles, tileId, deltaRows);
+		const movedTile = movedTiles.find((entry) => entry.id === tileId);
+		if (!movedTile) return;
+		void sessionBoardsState.updateTile(activeBoard.id, tileId, { y: movedTile.y });
 	}
 
 	function startTileDrag(
@@ -1394,6 +1405,30 @@
 										{#each renderedTiles as entry (entry.tile.id)}
 											{@const tile = entry.tile}
 											<div class="absolute" style={tileStyle(tile, entry.x, entry.y)}>
+												{#if mode === 'edit'}
+													<div class="pointer-events-none absolute right-2 top-2 z-30">
+														<div
+															class="pointer-events-auto flex items-center gap-1 rounded-md border border-border bg-surface/95 p-1 shadow-sm"
+														>
+															<button
+																type="button"
+																class="touch-target rounded border border-border px-2 text-xs text-ink-muted hover:bg-surface-alt"
+																aria-label="Move tile up"
+																onclick={() => moveTileByRow(tile.id, -1)}
+															>
+																Up
+															</button>
+															<button
+																type="button"
+																class="touch-target rounded border border-border px-2 text-xs text-ink-muted hover:bg-surface-alt"
+																aria-label="Move tile down"
+																onclick={() => moveTileByRow(tile.id, 1)}
+															>
+																Down
+															</button>
+														</div>
+													</div>
+												{/if}
 												{#if entry.kind === 'note' && entry.note}
 													{@const note = entry.note}
 													<SessionBoardTileCard

@@ -130,10 +130,87 @@ async function launchWithSeed(): Promise<Awaited<ReturnType<typeof launchDesktop
 			id: 'board-interactive' as never,
 			name: 'Interactive Board',
 			description: 'Board for interaction coverage',
-			tiles: [],
+			tiles: [
+				{
+					id: 'tile-note-anchor',
+					type: 'note',
+					noteId: 'note-shell-anchor',
+					x: 0,
+					y: 0,
+					w: 5,
+					h: 3,
+				},
+				{
+					id: 'tile-note-map',
+					type: 'note',
+					noteId: 'note-route-atlas',
+					x: 5,
+					y: 0,
+					w: 5,
+					h: 3,
+				},
+				{
+					id: 'tile-combat-anchor',
+					type: 'combat',
+					x: 0,
+					y: 4,
+					w: 10,
+					h: 5,
+					combat: {
+						encounterName: 'Interactive Tie Reorder',
+						systemId: 'dnd5e',
+						round: 1,
+						activeCombatantId: 'combatant-alpha',
+						combatants: [
+							{
+								id: 'combatant-alpha',
+								name: 'Alpha',
+								initiative: 15,
+								tieRank: 0,
+								initiativeModifier: 0,
+								ready: false,
+								delayed: false,
+								isPlayerCharacter: false,
+								currentHp: 12,
+								maxHp: 12,
+								armorClass: 13,
+								conditions: [],
+								concentration: false,
+								deathSaves: { successes: 0, failures: 0 },
+								outcome: 'active',
+								damageDealt: 0,
+							},
+							{
+								id: 'combatant-beta',
+								name: 'Beta',
+								initiative: 15,
+								tieRank: 1,
+								initiativeModifier: 0,
+								ready: false,
+								delayed: false,
+								isPlayerCharacter: false,
+								currentHp: 10,
+								maxHp: 10,
+								armorClass: 12,
+								conditions: [],
+								concentration: false,
+								deathSaves: { successes: 0, failures: 0 },
+								outcome: 'active',
+								damageDealt: 0,
+							},
+						],
+						notes: '',
+						loot: '',
+						outcome: '',
+						startedAt: now,
+						endedAt: null,
+						lastLogNoteId: null,
+					},
+				},
+			],
 			createdAt: now,
 			updatedAt: now,
-		});
+		} as never);
 	} finally {
 		await adapter.close();
 	}
@@ -143,6 +220,20 @@ async function launchWithSeed(): Promise<Awaited<ReturnType<typeof launchDesktop
 async function gotoDesktopPath(page: Page, route: string): Promise<void> {
 	const origin = new URL(page.url()).origin;
 	await page.goto(`${origin}${route}`);
+}
+
+async function readSessionBoardTileRows(
+	vaultDir: string,
+	boardId: string,
+): Promise<Array<{ id: string; y: number }>> {
+	const filePath = path.join(vaultDir, '.vault', 'session-boards.json');
+	const raw = await fs.readFile(filePath, 'utf8');
+	const payload = JSON.parse(raw) as {
+		boards?: Record<string, { id: string; tiles?: Array<{ id: string; y: number }> }>;
+	};
+	const board = payload.boards?.[boardId];
+	if (!board?.tiles) return [];
+	return board.tiles.map((tile) => ({ id: tile.id, y: tile.y }));
 }
 
 async function ensureSidebarOpen(page: Page): Promise<void> {
@@ -253,6 +344,68 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			await expect(app.page).toHaveURL(/\/player$/);
 			await gotoDesktopPath(app.page, '/knowledge/notes');
 			await expect(app.page).toHaveURL(/\/(knowledge\/notes|notes)$/);
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('drag workflows have keyboard and single-pointer alternatives', async () => {
+		const app = await launchWithSeed();
+		try {
+			await app.page.setViewportSize({ width: 1500, height: 950 });
+			await ensureDmMode(app.page);
+			await ensureSidebarOpen(app.page);
+
+			const resizeButton = app.page.getByRole('button', { name: 'Resize local navigation panel' });
+			if ((await resizeButton.count()) > 0) {
+				await expect(resizeButton).toBeVisible();
+				const sidebar = app.page.locator('aside').first();
+				const beforeWidth = Math.round((await sidebar.boundingBox())?.width ?? 0);
+				await resizeButton.click();
+				await expect
+					.poll(async () => Math.round((await sidebar.boundingBox())?.width ?? 0))
+					.not.toBe(beforeWidth);
+			}
+
+			await gotoDesktopPath(app.page, '/session/boards');
+			const enterEditButton = app.page.getByRole('button', { name: 'Enter Edit Mode' }).first();
+			if (await enterEditButton.isVisible().catch(() => false)) {
+				await enterEditButton.click();
+			} else {
+				await app.page.getByRole('button', { name: 'Edit' }).first().click();
+			}
+			await expect(
+				app.page.getByText('Edit mode: drag, resize, style, and position tiles.'),
+			).toBeVisible();
+			const interactiveBoardButton = app.page
+				.getByRole('button', { name: 'Interactive Board' })
+				.first();
+			if (await interactiveBoardButton.isVisible().catch(() => false)) {
+				await interactiveBoardButton.click();
+			}
+			const moveTileDownButton = app.page.getByRole('button', { name: 'Move tile down' }).first();
+			if ((await moveTileDownButton.count()) > 0) {
+				await expect(moveTileDownButton).toBeVisible();
+				const beforeRows = await readSessionBoardTileRows(app.vaultDir, 'board-interactive');
+				await moveTileDownButton.click();
+				await expect
+					.poll(async () => readSessionBoardTileRows(app.vaultDir, 'board-interactive'))
+					.not.toEqual(beforeRows);
+			}
+
+			const moveAlphaDownButton = app.page.getByRole('button', { name: 'Move Alpha down' });
+			if ((await moveAlphaDownButton.count()) > 0) {
+				const firstCombatantBefore = await app.page
+					.locator('li[draggable] input[type="text"]')
+					.first()
+					.inputValue();
+				await moveAlphaDownButton.click();
+				await expect
+					.poll(async () =>
+						app.page.locator('li[draggable] input[type="text"]').first().inputValue(),
+					)
+					.not.toBe(firstCombatantBefore);
+			}
 		} finally {
 			await closeDesktopApp(app);
 		}

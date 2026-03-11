@@ -62,4 +62,15 @@ describe('desktopShellState', () => {
 		expect(desktopShellState.getLocalPanelScroll('session')).toBe(45);
 		expect(desktopShellState.getLocalPanelScroll('atlas')).toBe(0);
 	});
+
+	it('cycles local panel preset widths for click-based resize alternatives', async () => {
+		const { cycleLocalPanelWidthPreset } = await import('./desktop-shell.svelte.js');
+
+		expect(cycleLocalPanelWidthPreset(200, 'next')).toBe(240);
+		expect(cycleLocalPanelWidthPreset(240, 'next')).toBe(320);
+		expect(cycleLocalPanelWidthPreset(320, 'next')).toBe(200);
+		expect(cycleLocalPanelWidthPreset(320, 'previous')).toBe(240);
+		expect(cycleLocalPanelWidthPreset(240, 'previous')).toBe(200);
+		expect(cycleLocalPanelWidthPreset(200, 'previous')).toBe(320);
+	});
 });

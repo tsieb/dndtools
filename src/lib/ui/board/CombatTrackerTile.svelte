@@ -14,6 +14,7 @@
 		conditionCatalogForSystem,
 		createDefaultCombatState,
 		getLinkedCombatantDefaults,
+		moveTieCombatantByDirection,
 		normalizeCombatState,
 		recordCombatNotableRoll,
 		reorderTieCombatants,
@@ -377,6 +378,19 @@
 			toastState.info('Tie reorder only works for combatants with matching initiative.');
 			return;
 		}
+		persist({
+			...combat,
+			combatants: reordered,
+		});
+	}
+
+	function canMoveTieByDirection(combatantId: string, direction: 'up' | 'down'): boolean {
+		return moveTieCombatantByDirection(combatants, combatantId, direction) !== null;
+	}
+
+	function moveTieByDirection(combatantId: string, direction: 'up' | 'down'): void {
+		const reordered = moveTieCombatantByDirection(combatants, combatantId, direction);
+		if (!reordered) return;
 		persist({
 			...combat,
 			combatants: reordered,
@@ -1006,6 +1020,26 @@
 							>
 								x
 							</button>
+							<div class="flex flex-col gap-0.5">
+								<button
+									type="button"
+									class="h-7 w-8 rounded border border-border text-2xs text-ink-muted hover:bg-surface disabled:opacity-35"
+									aria-label={`Move ${combatant.name} up`}
+									disabled={!canMoveTieByDirection(combatant.id, 'up')}
+									onclick={() => moveTieByDirection(combatant.id, 'up')}
+								>
+									Up
+								</button>
+								<button
+									type="button"
+									class="h-7 w-8 rounded border border-border text-2xs text-ink-muted hover:bg-surface disabled:opacity-35"
+									aria-label={`Move ${combatant.name} down`}
+									disabled={!canMoveTieByDirection(combatant.id, 'down')}
+									onclick={() => moveTieByDirection(combatant.id, 'down')}
+								>
+									Down
+								</button>
+							</div>
 						</div>
 
 						<div class="mt-2 grid gap-2 md:grid-cols-[auto_auto_auto_auto_auto_1fr] items-center">

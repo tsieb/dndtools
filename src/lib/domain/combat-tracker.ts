@@ -728,6 +728,25 @@ export function reorderTieCombatants(
 	);
 }
 
+export function moveTieCombatantByDirection(
+	combatants: SessionBoardCombatant[],
+	combatantId: string,
+	direction: 'up' | 'down',
+): SessionBoardCombatant[] | null {
+	const combatant = combatants.find((entry) => entry.id === combatantId);
+	if (!combatant) return null;
+	const tieGroup = sortCombatantsForInitiative(
+		combatants.filter((entry) => entry.initiative === combatant.initiative),
+	);
+	const index = tieGroup.findIndex((entry) => entry.id === combatantId);
+	if (index < 0) return null;
+	const targetIndex = direction === 'up' ? index - 1 : index + 1;
+	if (targetIndex < 0 || targetIndex >= tieGroup.length) return null;
+	const target = tieGroup[targetIndex];
+	if (!target) return null;
+	return reorderTieCombatants(combatants, combatantId, target.id);
+}
+
 function isTurnEligible(combatant: SessionBoardCombatant): boolean {
 	return !combatant.delayed || combatant.ready;
 }
