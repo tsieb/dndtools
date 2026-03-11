@@ -171,6 +171,17 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 18.4** - Pointer Accessibility and Alternative Interactions:
+  - Completed touch-target remediations across dense controls to satisfy minimum pointer target sizing for
+    desktop and touch contexts.
+  - Added keyboard and single-pointer alternatives for drag-dependent workflows in board, resize, and layout
+    interactions so core tasks are operable without drag gestures.
+  - Replaced interactive native `title` tooltips with accessible tooltip/label patterns, including shared tooltip
+    behavior upgrades for focus and touch, and removed direct `title` usage on interactive controls.
+  - Added regression coverage in desktop e2e tests for:
+    - drag workflow alternatives (`tests/e2e-desktop/interactive-controls.spec.ts`)
+    - interactive control tooltip accessibility semantics (`tests/e2e-desktop/accessibility.spec.ts`).
+
 - **Epic 18.3** - Sensory and Motion Accessibility:
   - Added vault-scoped appearance accessibility preferences:
     - `reduceMotion` (`system` | `reduce` | `no-preference`)
