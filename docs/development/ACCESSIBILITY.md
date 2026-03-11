@@ -8,8 +8,14 @@ Scope: Desktop routes and primary DM workflows
 ## 1) Audit Method
 
 - Automated route scan: `@axe-core/playwright` on all primary routes.
+- Automated policy scan in Playwright route tests (`tests/e2e/*.spec.ts`) with severity handling:
+  - `critical`: blocking
+  - `serious`: warning + tracked in `tests/accessibility/known-violations.json`
+  - `moderate`/`minor`: logged for follow-up
+  - known-violation target resolution dates are enforced in CI
 - Automated workflow checks: keyboard-only, live announcements, heading hierarchy, and touch targets.
 - Manual workflow audit: top 10 highest-impact flows reviewed against keyboard and semantic behavior.
+- Manual screen-reader release checklist: `docs/development/ACCESSIBILITY_QA.md`
 
 Automated evidence source:
 
@@ -72,9 +78,11 @@ Open gaps: none.
 
 ## 5) CI Enforcement
 
-- Accessibility CI job added: `desktop-e2e-accessibility`.
+- Accessibility CI jobs:
+  - `preview-e2e-accessibility` (Playwright against preview build with axe policy report artifact and PR comment)
+  - `desktop-e2e-accessibility` (desktop workflow validation)
 - Merge gate blocks on failures of:
-  - axe severe violations (`critical`, `serious`)
+  - axe policy blocking violations (`critical`, known-violation expiry)
   - keyboard workflow regression
   - heading hierarchy regression
   - touch-target minimum regression
@@ -109,8 +117,8 @@ Workflow files:
 
 Update this register for every release:
 
-1. Re-run `pnpm test:e2e:desktop:a11y`.
-2. Re-run a manual pass of the top 10 workflows.
+1. Re-run `pnpm test:e2e` and `pnpm test:e2e:desktop:a11y`.
+2. Execute `docs/development/ACCESSIBILITY_QA.md` in all required screen-reader environments.
 3. Add new gaps with WCAG criterion, severity, owner, and remediation plan.
 4. Close fixed gaps with commit/test evidence.
 5. Record update date at top of this file.

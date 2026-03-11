@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './a11y-fixture.js';
 import { waitForAppReady } from './helpers.js';
 
 test.describe('Search', () => {
