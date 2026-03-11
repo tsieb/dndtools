@@ -59,10 +59,8 @@
 	import { getVaultTemplateById } from '$lib/domain/vault-templates.js';
 	import { ADVANCED_FEATURE_IDS, type AppSettings } from '$lib/types/settings.js';
 	import { createSessionBoardId } from '$lib/types/session-board.js';
-	import {
-		matchGlobalKeyboardShortcut,
-		type KeyboardShortcutId,
-	} from '$lib/domain/keyboard-shortcuts.js';
+	import { type KeyboardShortcutId } from '$lib/domain/keyboard-shortcuts.js';
+	import { KeyboardShortcutManager } from '$lib/domain/keyboard-shortcut-manager.js';
 	import type { SyncIndicatorState } from '$lib/types/sync.js';
 	import type { NoteTemplate } from '$lib/types/template-library.js';
 	import type { WorldCalendar } from '$lib/types/world-calendar.js';
@@ -213,6 +211,21 @@
 		if (!/[a-z]/i.test(normalized)) return null;
 		if (normalized.length > 80) return null;
 		return normalized.replace(/\b\w/g, (match) => match.toUpperCase());
+	}
+
+	function focusRouteLandmark(): void {
+		if (typeof document === 'undefined') return;
+		window.requestAnimationFrame(() => {
+			const main = document.getElementById('main-content');
+			if (!(main instanceof HTMLElement)) return;
+			const heading = main.querySelector('h1');
+			const target = heading instanceof HTMLElement ? heading : main;
+			if (!target.hasAttribute('tabindex')) {
+				target.setAttribute('tabindex', '-1');
+			}
+			target.focus({ preventScroll: true });
+			target.scrollIntoView({ block: 'start', inline: 'nearest' });
+		});
 	}
 
 	$effect(() => {
@@ -410,6 +423,7 @@
 		const pathWithSearch = `${targetUrl.pathname}${targetUrl.search}`;
 		navigationState.setActiveRoute(pathWithSearch);
 		queueSpotlightsForRoute(targetUrl.pathname);
+		focusRouteLandmark();
 		const noteMatch = targetUrl.pathname.match(/^\/knowledge\/notes\/([^/]+)(?:\/(edit))?$/);
 		if (noteMatch) {
 			const noteId = createNoteId(decodeURIComponent(noteMatch[1] ?? ''));
@@ -880,33 +894,24 @@
 		);
 	}
 
-	function handleKeydown(event: KeyboardEvent): void {
-		inputModalityState.observeKeyboardEvent(event);
-		const target = event.target as HTMLElement;
-		const isInEditor = target.closest('.cm-editor') !== null;
-		const isTextEntry = isTextEntryTarget(target);
+	function detailPanelShortcutAvailable(): boolean {
 		const compactEditorRoute = /^\/knowledge\/notes\/[^/]+\/edit$/.test(page.url.pathname);
-		const detailPanelAvailable =
+		return (
 			layoutState.isExpanded &&
 			!ui.focusReading &&
 			!compactEditorRoute &&
 			!desktopShellState.zenMode &&
-			isDetailPanelAvailable(page.url);
+			isDetailPanelAvailable(page.url)
+		);
+	}
 
-		if (keyboardShortcutOverlayOpen && event.key === 'Escape') {
-			event.preventDefault();
-			keyboardShortcutOverlayOpen = false;
-			return;
-		}
+	function dispatchCombatShortcut(action: 'next-turn' | 'quick-damage' | 'quick-heal'): void {
+		if (typeof window === 'undefined') return;
+		window.dispatchEvent(new CustomEvent('dndtools:combat-shortcut', { detail: { action } }));
+	}
 
-		const shortcut = matchGlobalKeyboardShortcut({
-			event,
-			isTextEntry,
-			isInEditor,
-			layoutTier: layoutState.tier,
-			detailPanelAvailable,
-		});
-		if (!shortcut) return;
+	function dispatchKeyboardShortcut(shortcut: KeyboardShortcutId, event: KeyboardEvent): void {
+		const detailPanelAvailable = detailPanelShortcutAvailable();
 
 		const requireDmMode = (
 			shortcutId: KeyboardShortcutId,
@@ -946,6 +951,18 @@
 				requireDmMode(shortcut, () => {
 					generatorOpen = !generatorOpen;
 				});
+				return;
+			case 'combat_next_turn':
+				event.preventDefault();
+				dispatchCombatShortcut('next-turn');
+				return;
+			case 'combat_quick_damage':
+				event.preventDefault();
+				dispatchCombatShortcut('quick-damage');
+				return;
+			case 'combat_quick_heal':
+				event.preventDefault();
+				dispatchCombatShortcut('quick-heal');
 				return;
 			case 'create_note':
 				requireDmMode(shortcut, () => handleNewNote());
@@ -998,6 +1015,36 @@
 				return;
 		}
 	}
+
+	function handleWindowKeydown(event: KeyboardEvent): void {
+		inputModalityState.observeKeyboardEvent(event);
+		if (keyboardShortcutOverlayOpen && event.key === 'Escape') {
+			event.preventDefault();
+			keyboardShortcutOverlayOpen = false;
+		}
+	}
+
+	$effect(() => {
+		if (typeof document === 'undefined') return;
+		const manager = new KeyboardShortcutManager({
+			getContext: (event) => {
+				const target = event.target as HTMLElement;
+				return {
+					event,
+					isTextEntry: isTextEntryTarget(target),
+					isInEditor: target?.closest('.cm-editor') !== null,
+					layoutTier: layoutState.tier,
+					detailPanelAvailable: detailPanelShortcutAvailable(),
+					combatTrackerActive: page.url.pathname === '/session/combat' && sessionModeState.isActive,
+				};
+			},
+			onShortcut: (shortcut, event) => {
+				dispatchKeyboardShortcut(shortcut, event);
+			},
+		});
+		manager.start();
+		return () => manager.stop();
+	});
 </script>
 
 <svelte:head>
@@ -1010,7 +1057,7 @@
 	<meta name="theme-color" content="#1f2937" />
 </svelte:head>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleWindowKeydown} />
 
 {#if runtimeState.ready && !showSetupWizard}
 	<a class="skip-link" href="#main-content">Skip to main content</a>

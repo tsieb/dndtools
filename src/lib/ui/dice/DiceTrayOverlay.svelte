@@ -1,6 +1,6 @@
 <script lang="ts">
 	import DiceTrayPanel from '$lib/ui/dice/DiceTrayPanel.svelte';
-	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
+	import { focusTrap } from '$lib/actions/focus-trap.js';
 
 	interface Props {
 		open: boolean;
@@ -12,13 +12,6 @@
 	function handleBackdrop(event: MouseEvent): void {
 		if (event.target === event.currentTarget) onclose();
 	}
-
-	function handleKeydown(event: KeyboardEvent): void {
-		if (event.key === 'Escape') {
-			event.preventDefault();
-			onclose();
-		}
-	}
 </script>
 
 {#if open}
@@ -27,9 +20,8 @@
 		role="dialog"
 		aria-modal="true"
 		aria-label="Dice tray"
-		use:focusTrap
+		use:focusTrap={{ onEscape: onclose }}
 		onclick={handleBackdrop}
-		onkeydown={handleKeydown}
 		tabindex="-1"
 	>
 		<section

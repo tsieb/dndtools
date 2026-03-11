@@ -1,6 +1,6 @@
 <script lang="ts">
 	import GeneratorPanel from '$lib/ui/generator/GeneratorPanel.svelte';
-	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
+	import { focusTrap } from '$lib/actions/focus-trap.js';
 
 	interface Props {
 		open: boolean;

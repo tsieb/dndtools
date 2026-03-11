@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
+	import { focusTrap } from '$lib/actions/focus-trap.js';
 	import Button from './Button.svelte';
 
 	interface Props {
@@ -28,12 +28,6 @@
 		xl: 'max-w-xl',
 	};
 
-	function handleKeydown(event: KeyboardEvent): void {
-		if (event.key === 'Escape') {
-			onclose();
-		}
-	}
-
 	function handleBackdropClick(event: MouseEvent): void {
 		if (event.target === event.currentTarget) {
 			onclose();
@@ -49,8 +43,7 @@
 		aria-labelledby={titleId}
 		aria-label={!titleId ? 'Dialog' : undefined}
 		tabindex="-1"
-		use:focusTrap
-		onkeydown={handleKeydown}
+		use:focusTrap={{ onEscape: onclose }}
 		onclick={handleBackdropClick}
 	>
 		<div

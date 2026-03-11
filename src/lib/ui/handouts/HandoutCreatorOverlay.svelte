@@ -13,7 +13,7 @@
 	import { normalizeHandoutData } from '$lib/domain/objects.js';
 	import { handoutsState } from '$lib/state/handouts.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
-	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
+	import { focusTrap } from '$lib/actions/focus-trap.js';
 
 	interface Props {
 		open: boolean;

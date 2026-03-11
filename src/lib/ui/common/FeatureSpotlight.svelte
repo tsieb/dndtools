@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { focusTrap } from '$lib/ui/a11y/focus-trap.js';
+	import { focusTrap } from '$lib/actions/focus-trap.js';
 	import type { ActiveFeatureSpotlight } from '$lib/state/feature-spotlights.svelte.js';
 
 	interface Props {
