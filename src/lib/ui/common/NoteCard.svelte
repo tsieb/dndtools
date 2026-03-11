@@ -247,7 +247,9 @@
 		role={listOptionId ? 'option' : undefined}
 		tabindex={listTabIndex}
 		aria-selected={listSelected}
-		class="note-card-foreground group relative z-10 w-full rounded-lg border border-border bg-surface density-card pr-11 text-left shadow-sm transition-[border,box-shadow,transform] hover:border-accent/40 hover:shadow-md"
+		class="note-card-foreground group relative z-10 w-full rounded-lg border density-card pr-11 text-left shadow-sm transition-[border,box-shadow,transform] hover:border-accent/40 hover:shadow-md {listSelected
+			? 'border-accent bg-accent-subtle/45 shadow-md'
+			: 'border-border bg-surface'}"
 		style={cardTransformStyle}
 		onclick={activateCard}
 		onkeydown={handleCardKeydown}

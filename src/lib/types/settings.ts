@@ -19,6 +19,8 @@ export interface EditorSettings {
 
 export type UiDensityMode = 'standard' | 'compact';
 export type NoteReadingWidthMode = 'comfortable' | 'wide' | 'full';
+export type ReduceMotionMode = 'system' | 'reduce' | 'no-preference';
+export type HighContrastMode = 'system' | 'high' | 'standard';
 
 export interface SortSettings {
 	field: 'title' | 'updatedAt' | 'createdAt';
@@ -313,6 +315,8 @@ export interface AppSettings {
 	theme: ThemeSetting;
 	uiDensity: UiDensityMode;
 	noteReadingWidth: NoteReadingWidthMode;
+	reduceMotion: ReduceMotionMode;
+	highContrast: HighContrastMode;
 	sidebarOpen: boolean;
 	sidebarWidth: number;
 	focusReading: boolean;
@@ -346,6 +350,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
 	theme: 'system',
 	uiDensity: 'standard',
 	noteReadingWidth: 'comfortable',
+	reduceMotion: 'system',
+	highContrast: 'system',
 	sidebarOpen: true,
 	sidebarWidth: 240,
 	focusReading: false,

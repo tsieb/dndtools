@@ -174,6 +174,12 @@
 	function hpPercent(combatant: SessionCombatantState): number {
 		return combatant.maxHp <= 0 ? 0 : Math.round((combatant.currentHp / combatant.maxHp) * 100);
 	}
+	function hpToneClass(combatant: SessionCombatantState): string {
+		const ratio = combatant.maxHp <= 0 ? 0 : combatant.currentHp / combatant.maxHp;
+		if (ratio <= 0.25) return 'bg-red-500';
+		if (ratio <= 0.6) return 'bg-amber-500';
+		return 'bg-emerald-500';
+	}
 	function conditionTag(name: SessionConditionName): string {
 		return name.slice(0, 3).toUpperCase();
 	}
@@ -734,7 +740,7 @@
 											</div>
 											<div class="mt-1 h-2 rounded-full bg-surface-alt/70">
 												<div
-													class="h-full rounded-full bg-accent"
+													class="h-full rounded-full {hpToneClass(combatant)}"
 													style={`width:${Math.max(0, Math.min(100, hpPercent(combatant)))}%`}
 												></div>
 											</div>
@@ -814,7 +820,7 @@
 								</p>
 								<div class="mt-1 h-2 rounded-full bg-surface-alt/70">
 									<div
-										class="h-full rounded-full bg-accent"
+										class="h-full rounded-full {hpToneClass(selectedCombatant)}"
 										style={`width:${Math.max(0, Math.min(100, hpPercent(selectedCombatant)))}%`}
 									></div>
 								</div>

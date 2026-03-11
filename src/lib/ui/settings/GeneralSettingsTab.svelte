@@ -85,12 +85,20 @@
 	async function updateAppearanceSettings(updates: {
 		uiDensity?: 'standard' | 'compact';
 		noteReadingWidth?: 'comfortable' | 'wide' | 'full';
+		reduceMotion?: 'system' | 'reduce' | 'no-preference';
+		highContrast?: 'system' | 'high' | 'standard';
 	}): Promise<void> {
 		if (updates.uiDensity) {
 			await ui.setUiDensity(updates.uiDensity);
 		}
 		if (updates.noteReadingWidth) {
 			await ui.setNoteReadingWidth(updates.noteReadingWidth);
+		}
+		if (updates.reduceMotion) {
+			await ui.setReduceMotion(updates.reduceMotion);
+		}
+		if (updates.highContrast) {
+			await ui.setHighContrast(updates.highContrast);
 		}
 		toastState.success('Appearance preferences updated');
 	}
@@ -154,6 +162,54 @@
 					<option value="comfortable">Comfortable (68ch)</option>
 					<option value="wide">Wide (90ch)</option>
 					<option value="full">Full Width</option>
+				</select>
+			</div>
+			<div class="flex items-center justify-between gap-4 p-4">
+				<div>
+					<p class="text-sm font-medium text-ink">Reduce Motion</p>
+					<p class="text-xs text-ink-muted mt-0.5">
+						Reduce animation and transition movement for vestibular accessibility.
+					</p>
+				</div>
+				<select
+					class="rounded-md border border-border bg-surface-alt px-2.5 py-1.5 text-sm text-ink"
+					aria-label="Reduce motion preference"
+					value={ui.reduceMotion}
+					onchange={(event) =>
+						updateAppearanceSettings({
+							reduceMotion: (event.currentTarget as HTMLSelectElement).value as
+								| 'system'
+								| 'reduce'
+								| 'no-preference',
+						})}
+				>
+					<option value="system">Match System</option>
+					<option value="reduce">Always Reduce</option>
+					<option value="no-preference">Never Reduce</option>
+				</select>
+			</div>
+			<div class="flex items-center justify-between gap-4 p-4">
+				<div>
+					<p class="text-sm font-medium text-ink">High Contrast</p>
+					<p class="text-xs text-ink-muted mt-0.5">
+						Increase contrast and focus visibility for text and controls.
+					</p>
+				</div>
+				<select
+					class="rounded-md border border-border bg-surface-alt px-2.5 py-1.5 text-sm text-ink"
+					aria-label="High contrast preference"
+					value={ui.highContrast}
+					onchange={(event) =>
+						updateAppearanceSettings({
+							highContrast: (event.currentTarget as HTMLSelectElement).value as
+								| 'system'
+								| 'high'
+								| 'standard',
+						})}
+				>
+					<option value="system">Match System</option>
+					<option value="high">Always High</option>
+					<option value="standard">Standard Contrast</option>
 				</select>
 			</div>
 		</div>

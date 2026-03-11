@@ -22,6 +22,7 @@
 	import MapIcon from 'lucide-svelte/icons/map';
 	import Menu from 'lucide-svelte/icons/menu';
 	import Minus from 'lucide-svelte/icons/minus';
+	import OctagonAlert from 'lucide-svelte/icons/octagon-alert';
 	import PanelLeft from 'lucide-svelte/icons/panel-left';
 	import Pin from 'lucide-svelte/icons/pin';
 	import Plus from 'lucide-svelte/icons/plus';
@@ -69,6 +70,7 @@
 		'file-text': FileText,
 		info: Info,
 		loader: LoaderCircle,
+		'octagon-alert': OctagonAlert,
 		'triangle-alert': TriangleAlert,
 		// Domain: browse
 		clock: Clock,

@@ -404,6 +404,7 @@
 	}
 
 	function handleSheetTouchStart(event: TouchEvent): void {
+		if (ui.resolvedReducedMotion) return;
 		const touch = event.changedTouches[0];
 		if (!touch) return;
 		sheetDragStartY = touch.clientY;

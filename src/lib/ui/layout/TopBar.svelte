@@ -290,10 +290,13 @@
 								: vaultHealthState.severity === 'warning'
 									? 'text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20'
 									: 'text-ink-muted hover:bg-surface-alt'}"
-							aria-label="Vault integrity issues detected"
+							aria-label={`Vault integrity ${vaultHealthState.severity}: ${vaultHealthState.issueCount} issue${vaultHealthState.issueCount === 1 ? '' : 's'}`}
 							title="Open vault health report"
 						>
-							<Icon name="triangle-alert" size="md" />
+							<Icon
+								name={vaultHealthState.severity === 'critical' ? 'octagon-alert' : 'triangle-alert'}
+								size="md"
+							/>
 							<span
 								class="absolute -right-1 -top-1 h-4 min-w-4 rounded-full px-1 text-center text-2xs leading-4 text-white {vaultHealthState.severity ===
 								'critical'

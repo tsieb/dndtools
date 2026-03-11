@@ -321,6 +321,8 @@ describe('AC3 — Enum values / whitelists are enforced', () => {
 			'theme',
 			'uiDensity',
 			'noteReadingWidth',
+			'reduceMotion',
+			'highContrast',
 			'sidebarOpen',
 			'sidebarWidth',
 			'focusReading',

@@ -8,7 +8,12 @@ import { DND_TEMPLATES } from '$lib/domain/templates.js';
 import { normalizeSyncConflictStrategy, normalizeSyncEngineState } from '$lib/domain/sync.js';
 import { normalizeWorldCalendar } from '$lib/domain/world-calendar.js';
 import { normalizeThemeSetting } from '$lib/domain/theme.js';
-import { normalizeNoteReadingWidth, normalizeUiDensity } from '$lib/domain/appearance.js';
+import {
+	normalizeHighContrast,
+	normalizeNoteReadingWidth,
+	normalizeReduceMotion,
+	normalizeUiDensity,
+} from '$lib/domain/appearance.js';
 import {
 	createNoteId,
 	type FolderId,
@@ -197,6 +202,10 @@ function normalizeSettingValue<K extends keyof AppSettings>(
 			return normalizeUiDensity(value) as AppSettings[K];
 		case 'noteReadingWidth':
 			return normalizeNoteReadingWidth(value) as AppSettings[K];
+		case 'reduceMotion':
+			return normalizeReduceMotion(value) as AppSettings[K];
+		case 'highContrast':
+			return normalizeHighContrast(value) as AppSettings[K];
 		case 'syncConflictStrategy':
 			return normalizeSyncConflictStrategy(value) as AppSettings[K];
 		case 'syncEngineState':
