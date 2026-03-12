@@ -381,6 +381,98 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 				await app.page.keyboard.press('Enter');
 			}
 
+			const boardCanvas = app.page.getByRole('application', { name: 'Session board canvas' });
+			await boardCanvas.focus();
+			await expect(boardCanvas).toBeFocused();
+
+			const fitButton = app.page.getByRole('button', { name: 'Fit', exact: true });
+			const comfortableButton = app.page.getByRole('button', {
+				name: 'Comfortable',
+				exact: true,
+			});
+			const detailButton = app.page.getByRole('button', { name: 'Detail', exact: true });
+			await app.page.keyboard.press('1');
+			await expect(comfortableButton).toHaveAttribute('aria-pressed', 'true');
+			await app.page.keyboard.press('2');
+			await expect(detailButton).toHaveAttribute('aria-pressed', 'true');
+			await app.page.keyboard.press('-');
+			await expect(comfortableButton).toHaveAttribute('aria-pressed', 'true');
+			await app.page.keyboard.press('=');
+			await expect(detailButton).toHaveAttribute('aria-pressed', 'true');
+			await app.page.keyboard.press('0');
+			await expect(fitButton).toHaveAttribute('aria-pressed', 'true');
+
+			const noteAnchorTile = app.page
+				.getByRole('button', { name: 'Session board tile: Navigation Anchor' })
+				.first();
+			const activeTileLabel = async () =>
+				app.page.evaluate(
+					() => (document.activeElement as HTMLElement | null)?.getAttribute('aria-label') ?? null,
+				);
+			await app.page.keyboard.press('Tab');
+			const firstFocusedTileLabel = await activeTileLabel();
+			expect(firstFocusedTileLabel).toContain('tile');
+			await app.page.keyboard.press('Tab');
+			const secondFocusedTileLabel = await activeTileLabel();
+			expect(secondFocusedTileLabel).toContain('tile');
+			expect(secondFocusedTileLabel).not.toBe(firstFocusedTileLabel);
+			await app.page.keyboard.press('Tab');
+			const thirdFocusedTileLabel = await activeTileLabel();
+			expect(thirdFocusedTileLabel).toContain('tile');
+			expect(thirdFocusedTileLabel).not.toBe(secondFocusedTileLabel);
+			await app.page.keyboard.press('Shift+Tab');
+			await expect.poll(activeTileLabel).toBe(secondFocusedTileLabel);
+
+			await noteAnchorTile.focus();
+			await app.page.keyboard.press('Enter');
+
+			const noteAnchorXBefore = await app.page.evaluate(async () => {
+				const boards = (await window.dndtoolsDesktop?.getSessionBoards()) ?? [];
+				const board = boards.find((entry) => entry.id === 'board-interactive');
+				return board?.tiles.find((tile) => tile.id === 'tile-note-anchor')?.x ?? null;
+			});
+			expect(noteAnchorXBefore).not.toBeNull();
+			await noteAnchorTile.focus();
+			await app.page.keyboard.press('Space');
+			await app.page.keyboard.press('ArrowRight');
+			await app.page.keyboard.press('Enter');
+			await expect
+				.poll(async () => {
+					const boards =
+						(await app.page.evaluate(async () => window.dndtoolsDesktop?.getSessionBoards())) ?? [];
+					const board = boards.find((entry) => entry.id === 'board-interactive');
+					return board?.tiles.find((tile) => tile.id === 'tile-note-anchor')?.x ?? null;
+				})
+				.toBe((noteAnchorXBefore ?? 0) + 1);
+
+			await noteAnchorTile.focus();
+			await app.page.keyboard.press('Space');
+			for (let index = 0; index < 18; index += 1) {
+				await app.page.keyboard.press('ArrowRight');
+			}
+			await expect(
+				app.page.getByText('Some tiles extend beyond the visible board width.'),
+			).toBeVisible();
+			await app.page.keyboard.press('Escape');
+			const fixLayoutButton = app.page.getByRole('button', { name: 'Fix layout' });
+			if (await fixLayoutButton.isVisible().catch(() => false)) {
+				await fixLayoutButton.click();
+			}
+
+			await noteAnchorTile.focus();
+			await app.page.keyboard.press('Delete');
+			const removeTileDialog = app.page.getByRole('dialog', { name: 'Remove tile?' });
+			await expect(removeTileDialog).toBeVisible();
+			await removeTileDialog.getByRole('button', { name: 'Cancel' }).click();
+			await expect(removeTileDialog).toHaveCount(0);
+
+			await boardCanvas.focus();
+			await app.page.keyboard.press('a');
+			const addTileSheet = app.page.getByRole('dialog', { name: 'Add tile' });
+			await expect(addTileSheet).toBeVisible();
+			await app.page.keyboard.press('Escape');
+			await expect(addTileSheet).toHaveCount(0);
+
 			const moveAlphaDownButton = app.page
 				.getByRole('button', { name: 'Move Alpha down' })
 				.locator(':not([disabled])');

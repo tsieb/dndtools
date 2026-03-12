@@ -171,6 +171,27 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 20.2** - Board Interaction Model: Fit-First, Scroll-Natural, Keyboard-Operable:
+  - Replaced freeform board zoom with three intentional presets in `src/routes/session-board/+page.svelte`:
+    - `Fit` (minimum 0.5, computed from viewport/canvas), `Comfortable` (1x), and `Detail` (1.5x).
+    - Added keyboard shortcuts `0/1/2` for direct preset selection and `+/-` cycling.
+    - Replaced slider-style controls with explicit toolbar Buttons (`Fit`, `Comfortable`, `Detail`).
+  - Updated board navigation interactions to a scroll-first model:
+    - Removed wheel-based zoom behavior from canvas scroll.
+    - Restricted pointer pan behavior to middle-mouse drag, while standard scrolling handles board navigation.
+  - Added keyboard-first tile navigation and movement support:
+    - Tile focus order now follows reading order (`y`, then `x`).
+    - Added tile-level keyboard actions: `Enter` to enter interactive content, `Space` to enter move mode, arrow keys to move by grid unit, `Enter` to commit, and `Escape` to cancel.
+    - Added edit-mode keyboard shortcuts: `a` opens Add Tile sheet and `Delete` opens tile removal confirmation.
+    - Added assertive movement announcements for screen readers ("Tile at column X, row Y").
+  - Added board overflow correction UX:
+    - Out-of-bounds placement snaps back to valid columns and triggers a 150ms red flash correction indicator (motion-aware).
+    - Added dismissible overflow information banner with `Fix layout` action.
+    - Added greedy tile repack helper `repackSessionBoardTiles(...)` in `src/lib/domain/session-board.ts`.
+  - Updated regression coverage:
+    - `src/lib/domain/session-board.test.ts`
+    - `tests/e2e-desktop/interactive-controls.spec.ts`
+
 - **Epic 20.1** - Tile Type Visual Identity System:
   - Added semantic board tile accent tokens in `src/app.css` (`--color-tile-note`, `--color-tile-combat`, `--color-tile-encounter`, `--color-tile-dice`, `--color-tile-generator`, `--color-tile-handouts`, `--color-tile-timer`, `--color-tile-calendar`, `--color-tile-map`) with dark-theme overrides.
   - Added central tile metadata source of truth in `src/lib/domain/session-board.ts`:

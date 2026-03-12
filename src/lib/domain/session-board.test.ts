@@ -12,6 +12,7 @@ import {
 	normalizeSessionBoardScenes,
 	normalizeSessionContextState,
 	normalizeSessionBoardTile,
+	repackSessionBoardTiles,
 } from './session-board.js';
 
 describe('session-board domain', () => {
@@ -308,5 +309,31 @@ describe('session-board domain', () => {
 
 		const unchanged = moveSessionBoardTileByRow(tiles, 'missing-tile', 1);
 		expect(unchanged).toEqual(tiles);
+	});
+
+	it('re-packs tiles into valid board columns without overlap', () => {
+		const source = [
+			{ id: 'tile-a', type: 'note', x: 10, y: 0, w: 4, h: 2 },
+			{ id: 'tile-b', type: 'timer', x: 0, y: 0, w: 4, h: 2 },
+			{ id: 'tile-c', type: 'dice', x: 8, y: 1, w: 4, h: 2 },
+		] as const;
+
+		const repacked = repackSessionBoardTiles(source, 10);
+		expect(repacked).toHaveLength(3);
+		for (const tile of repacked) {
+			expect(tile.x).toBeGreaterThanOrEqual(0);
+			expect(tile.x + tile.w).toBeLessThanOrEqual(10);
+		}
+		for (let i = 0; i < repacked.length; i += 1) {
+			const a = repacked[i]!;
+			for (let j = i + 1; j < repacked.length; j += 1) {
+				const b = repacked[j]!;
+				const overlaps = a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+				expect(overlaps).toBe(false);
+			}
+		}
+		expect(repacked.map((tile) => tile.id)).toEqual(
+			expect.arrayContaining(['tile-a', 'tile-b', 'tile-c']),
+		);
 	});
 });

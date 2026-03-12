@@ -38,6 +38,7 @@
 	}: Props = $props();
 	let html = $state('');
 	let contentEl = $state<HTMLDivElement | null>(null);
+	let tileEl = $state<HTMLDivElement | null>(null);
 	let depth = $derived.by(() => normalizePreviewDepth(tile.previewDepth));
 	const tileMeta = TILE_TYPE_METADATA.note;
 
@@ -87,6 +88,17 @@
 		});
 	}
 
+	function focusFirstInteractiveElement(): void {
+		const root = tileEl;
+		if (!root) return;
+		const firstTarget = root.querySelector<HTMLElement>(
+			'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+		);
+		if (!firstTarget) return;
+		if (firstTarget === root) return;
+		firstTarget.focus();
+	}
+
 	$effect(() => {
 		if (!contentEl) return;
 		const element = contentEl;
@@ -113,15 +125,24 @@
 	aria-label={`Session board tile: ${note.title}`}
 	aria-pressed={selected}
 	data-board-tile="true"
+	bind:this={tileEl}
 	onclick={(event) => {
 		const target = event.target as HTMLElement;
 		if (target.closest('a,button,input,textarea,select,label')) return;
 		onselect();
 	}}
 	onkeydown={(event) => {
-		if (event.key === 'Enter' || event.key === ' ') {
+		if (event.key === ' ' || event.key === 'Space') {
 			event.preventDefault();
 			onselect();
+			return;
+		}
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			onselect();
+			requestAnimationFrame(() => {
+				focusFirstInteractiveElement();
+			});
 		}
 	}}
 	onpointerdown={(event) => {

@@ -496,6 +496,60 @@ export function moveSessionBoardTileByRow(
 	return tiles.map((entry) => (entry.id === tileId ? { ...entry, y: nextY } : entry));
 }
 
+function tilesOverlap(a: SessionBoardTile, b: SessionBoardTile): boolean {
+	return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function findNextPackPosition(
+	placedTiles: readonly SessionBoardTile[],
+	w: number,
+	h: number,
+	columns: number,
+): { x: number; y: number } {
+	for (let y = 0; y <= MAX_GRID_ROWS; y += 1) {
+		for (let x = 0; x <= columns - w; x += 1) {
+			const probe: SessionBoardTile = {
+				id: '__probe__',
+				type: 'note',
+				x,
+				y,
+				w,
+				h,
+			};
+			if (!placedTiles.some((placedTile) => tilesOverlap(probe, placedTile))) {
+				return { x, y };
+			}
+		}
+	}
+	const fallbackY = Math.max(0, ...placedTiles.map((tile) => tile.y + tile.h));
+	return { x: 0, y: fallbackY };
+}
+
+export function repackSessionBoardTiles(
+	tiles: readonly SessionBoardTile[],
+	columns: number,
+): SessionBoardTile[] {
+	const normalizedColumns = clampInt(columns, MIN_COLUMNS, MAX_COLUMNS);
+	const orderedTiles = [...tiles]
+		.map((tile) => normalizeSessionBoardTile(tile, normalizedColumns))
+		.sort((a, b) => a.y - b.y || a.x - b.x || a.id.localeCompare(b.id));
+	const placedTiles: SessionBoardTile[] = [];
+	for (const tile of orderedTiles) {
+		const position = findNextPackPosition(placedTiles, tile.w, tile.h, normalizedColumns);
+		placedTiles.push(
+			normalizeSessionBoardTile(
+				{
+					...tile,
+					x: position.x,
+					y: position.y,
+				},
+				normalizedColumns,
+			),
+		);
+	}
+	return placedTiles;
+}
+
 function normalizeTemplate(
 	template: SessionBoardTemplate,
 	defaultBuiltIn: boolean,

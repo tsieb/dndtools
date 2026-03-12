@@ -13,14 +13,16 @@
 	import SessionMissionControl from '$lib/ui/session/SessionMissionControl.svelte';
 	import SessionPrepPanel from '$lib/ui/session/SessionPrepPanel.svelte';
 	import EmptyState from '$lib/ui/common/EmptyState.svelte';
+	import Button from '$lib/ui/common/Button.svelte';
 	import Icon from '$lib/ui/common/Icon.svelte';
 	import Popover from '$lib/ui/common/Popover.svelte';
+	import Sheet from '$lib/ui/common/Sheet.svelte';
 	import ConfirmDialog from '$lib/ui/common/ConfirmDialog.svelte';
 	import { focusTrap } from '$lib/actions/focus-trap.js';
 	import {
 		DEFAULT_SESSION_BOARD_LAYOUT,
 		TILE_TYPE_METADATA,
-		moveSessionBoardTileByRow,
+		repackSessionBoardTiles,
 		resolveSessionBoardTileType,
 	} from '$lib/domain/session-board.js';
 	import {
@@ -48,9 +50,10 @@
 
 	const DEFAULT_LAYOUT = DEFAULT_SESSION_BOARD_LAYOUT;
 	const CELL_WIDTH = 160;
-	const MIN_ZOOM = 0.2;
-	const MAX_ZOOM = 4;
-	const DEFAULT_ZOOM = 1;
+	type BoardZoomPreset = 'fit' | 'comfortable' | 'detail';
+	const BOARD_ZOOM_PRESET_ORDER: readonly BoardZoomPreset[] = ['fit', 'comfortable', 'detail'];
+	const MIN_FIT_ZOOM = 0.5;
+	const FIT_PADDING_PX = 48;
 	const TILE_SIZE_PRESETS: ReadonlyArray<{ label: string; w: number; h: number }> = [
 		{ label: 'Small', w: 2, h: 1 },
 		{ label: 'Medium', w: 3, h: 2 },
@@ -87,10 +90,10 @@
 		startY: number;
 		scrollLeft: number;
 		scrollTop: number;
-		button: number;
 		moved: boolean;
 	} | null>(null);
-	let zoom = $state(DEFAULT_ZOOM);
+	let zoomPreset = $state<BoardZoomPreset>('fit');
+	let viewportSize = $state<{ width: number; height: number }>({ width: 0, height: 0 });
 	let lastBoardId = $state<string | null>(null);
 	let suggestionKey = $state('');
 	let sessionPrep = $state<SessionPrepViewModel | null>(null);
@@ -114,6 +117,16 @@
 	let removeConfirmTileId = $state<string | null>(null);
 	let noteAssignTileId = $state<string | null>(null);
 	let noteAssignQuery = $state('');
+	let tileCreationSheetOpen = $state(false);
+	let keyboardFocusedTileId = $state<string | null>(null);
+	let keyboardMoveTileId = $state<string | null>(null);
+	let keyboardMoveOrigin = $state<{ x: number; y: number } | null>(null);
+	let keyboardMoveAnnouncement = $state('');
+	let overflowFlashTileIds = $state<Record<string, true>>({});
+	let overflowCorrectionCount = $state(0);
+	let overflowBannerDismissedBoardVersion = $state<string | null>(null);
+	let lastOverflowBoardVersion = $state<string | null>(null);
+	let overflowFlashTimers = $state<Record<string, number>>({});
 
 	type RenderedTileEntry =
 		| { tile: SessionBoardTile; kind: 'calendar'; x: number; y: number }
@@ -166,6 +179,32 @@
 			: null,
 	);
 	let overlayNote = $derived(overlayNoteId ? (activeNotesById.get(overlayNoteId) ?? null) : null);
+	let tileFocusOrder = $derived.by(() =>
+		renderedTiles
+			.map((entry) => entry.tile.id)
+			.filter((id, index, values) => values.indexOf(id) === index),
+	);
+	let boardEditVersion = $derived.by(() =>
+		activeBoard ? `${activeBoard.id}:${activeBoard.updatedAt}` : null,
+	);
+	let hasColumnOverflow = $derived.by(() =>
+		(activeBoard?.tiles ?? []).some((tile) => tile.x + tile.w > layout.columns),
+	);
+	let showOverflowBanner = $derived.by(
+		() =>
+			mode === 'edit' &&
+			(hasColumnOverflow || overflowCorrectionCount > 0) &&
+			boardEditVersion !== overflowBannerDismissedBoardVersion,
+	);
+	let zoom = $derived.by(() => {
+		if (zoomPreset === 'comfortable') return 1;
+		if (zoomPreset === 'detail') return 1.5;
+		const fitX = (viewportSize.width - FIT_PADDING_PX) / Math.max(1, canvas.width);
+		const fitY = (viewportSize.height - FIT_PADDING_PX) / Math.max(1, canvas.height);
+		const fit = Math.min(1, fitX, fitY);
+		if (!Number.isFinite(fit)) return 1;
+		return Math.max(MIN_FIT_ZOOM, fit);
+	});
 	let zoomPercent = $derived(Math.round(zoom * 100));
 
 	let availableNotes = $derived.by(() => {
@@ -252,7 +291,7 @@
 			}
 			entries.push({ tile, kind: 'note', note, x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
 		}
-		return entries;
+		return entries.sort((a, b) => a.y - b.y || a.x - b.x || a.tile.id.localeCompare(b.tile.id));
 	});
 
 	let canvas = $derived.by(() => {
@@ -273,6 +312,12 @@
 			selectedTileId = null;
 			lastBoardId = null;
 			suggestionKey = '';
+			keyboardFocusedTileId = null;
+			keyboardMoveTileId = null;
+			keyboardMoveOrigin = null;
+			overflowCorrectionCount = 0;
+			overflowBannerDismissedBoardVersion = null;
+			lastOverflowBoardVersion = null;
 			return;
 		}
 		if (activeBoard.id !== lastBoardId) {
@@ -288,8 +333,21 @@
 			removeConfirmTileId = null;
 			noteAssignTileId = null;
 			draftPositions = {};
-			zoom = DEFAULT_ZOOM;
+			zoomPreset = 'fit';
+			keyboardFocusedTileId = null;
+			keyboardMoveTileId = null;
+			keyboardMoveOrigin = null;
+			keyboardMoveAnnouncement = '';
+			overflowFlashTileIds = {};
+			overflowCorrectionCount = 0;
+			overflowBannerDismissedBoardVersion = null;
+			lastOverflowBoardVersion = null;
 			lastBoardId = activeBoard.id;
+			requestAnimationFrame(() => {
+				if (!boardViewportEl) return;
+				boardViewportEl.scrollLeft = 0;
+				boardViewportEl.scrollTop = 0;
+			});
 		}
 		if (selectedTileId && !activeBoard.tiles.some((tile) => tile.id === selectedTileId)) {
 			selectedTileId = null;
@@ -309,6 +367,10 @@
 		resizeDraftSize = null;
 		removeConfirmTileId = null;
 		noteAssignTileId = null;
+		keyboardMoveTileId = null;
+		keyboardMoveOrigin = null;
+		keyboardMoveAnnouncement = '';
+		tileCreationSheetOpen = false;
 	});
 
 	$effect(() => {
@@ -339,6 +401,30 @@
 		if (mode === 'edit') {
 			mode = 'view';
 		}
+	});
+
+	$effect(() => {
+		if (!boardViewportEl) return;
+		const viewportEl = boardViewportEl;
+		const syncViewportSize = (): void => {
+			viewportSize = {
+				width: viewportEl.clientWidth,
+				height: viewportEl.clientHeight,
+			};
+		};
+		syncViewportSize();
+		const observer = new ResizeObserver(() => {
+			syncViewportSize();
+		});
+		observer.observe(viewportEl);
+		return () => observer.disconnect();
+	});
+
+	$effect(() => {
+		if (boardEditVersion === lastOverflowBoardVersion) return;
+		overflowCorrectionCount = 0;
+		overflowBannerDismissedBoardVersion = null;
+		lastOverflowBoardVersion = boardEditVersion;
 	});
 
 	$effect(() => {
@@ -376,10 +462,13 @@
 				const tile = activeBoard.tiles.find((t) => t.id === activeDrag.tileId);
 				if (!tile) return;
 				const w = Math.max(2, Math.min(layout.columns, tile.w));
+				const attemptedX = activeDrag.originX + dx;
+				const clampedX = Math.max(0, Math.min(layout.columns - w, attemptedX));
+				if (clampedX !== attemptedX) triggerOverflowFlash(activeDrag.tileId);
 				draftPositions = {
 					...draftPositions,
 					[activeDrag.tileId]: {
-						x: Math.max(0, Math.min(layout.columns - w, activeDrag.originX + dx)),
+						x: clampedX,
 						y: Math.max(0, activeDrag.originY + dy),
 					},
 				};
@@ -483,68 +572,37 @@
 		return '';
 	}
 
-	function clampZoom(value: number): number {
-		return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
-	}
-
-	function setZoom(nextZoom: number, anchor?: { clientX: number; clientY: number }): void {
-		const clamped = clampZoom(nextZoom);
-		if (clamped === zoom) return;
+	function applyZoomPreset(nextPreset: BoardZoomPreset): void {
+		if (zoomPreset === nextPreset) return;
 		if (!boardViewportEl) {
-			zoom = clamped;
+			zoomPreset = nextPreset;
 			return;
 		}
-
 		const viewport = boardViewportEl;
-		const rect = viewport.getBoundingClientRect();
-		const anchorX = anchor?.clientX ?? rect.left + viewport.clientWidth / 2;
-		const anchorY = anchor?.clientY ?? rect.top + viewport.clientHeight / 2;
-		const originX = anchorX - rect.left + viewport.scrollLeft;
-		const originY = anchorY - rect.top + viewport.scrollTop;
-		const boardX = originX / zoom;
-		const boardY = originY / zoom;
-
-		zoom = clamped;
-
+		const previousZoom = zoom;
+		const centerX = viewport.scrollLeft + viewport.clientWidth / 2;
+		const centerY = viewport.scrollTop + viewport.clientHeight / 2;
+		zoomPreset = nextPreset;
 		requestAnimationFrame(() => {
 			if (!boardViewportEl) return;
-			boardViewportEl.scrollLeft = boardX * clamped - (anchorX - rect.left);
-			boardViewportEl.scrollTop = boardY * clamped - (anchorY - rect.top);
+			if (nextPreset === 'fit') {
+				boardViewportEl.scrollLeft = 0;
+				boardViewportEl.scrollTop = 0;
+				return;
+			}
+			const boardCenterX = centerX / Math.max(0.0001, previousZoom);
+			const boardCenterY = centerY / Math.max(0.0001, previousZoom);
+			boardViewportEl.scrollLeft = boardCenterX * zoom - boardViewportEl.clientWidth / 2;
+			boardViewportEl.scrollTop = boardCenterY * zoom - boardViewportEl.clientHeight / 2;
 		});
 	}
 
-	function fitCanvasToViewport(): void {
-		if (!boardViewportEl) return;
-		const fitX = (boardViewportEl.clientWidth - 48) / Math.max(1, canvas.width);
-		const fitY = (boardViewportEl.clientHeight - 48) / Math.max(1, canvas.height);
-		setZoom(Math.min(1, fitX, fitY));
-		boardViewportEl.scrollLeft = 0;
-		boardViewportEl.scrollTop = 0;
-	}
-
-	function handleViewportWheel(event: WheelEvent): void {
-		if (!(event.ctrlKey || event.metaKey)) return;
-		event.preventDefault();
-		const factor = Math.exp(-event.deltaY * 0.0022);
-		setZoom(zoom * factor, { clientX: event.clientX, clientY: event.clientY });
-	}
-
-	function handleViewportKeydown(event: KeyboardEvent): void {
-		if (!(event.ctrlKey || event.metaKey)) return;
-		if (event.key === '=' || event.key === '+') {
-			event.preventDefault();
-			setZoom(zoom + 0.1);
-			return;
-		}
-		if (event.key === '-' || event.key === '_') {
-			event.preventDefault();
-			setZoom(zoom - 0.1);
-			return;
-		}
-		if (event.key === '0') {
-			event.preventDefault();
-			setZoom(DEFAULT_ZOOM);
-		}
+	function cycleZoomPreset(direction: -1 | 1): void {
+		const currentIndex = BOARD_ZOOM_PRESET_ORDER.indexOf(zoomPreset);
+		const nextIndex =
+			(currentIndex + direction + BOARD_ZOOM_PRESET_ORDER.length) % BOARD_ZOOM_PRESET_ORDER.length;
+		const nextPreset = BOARD_ZOOM_PRESET_ORDER[nextIndex] ?? 'fit';
+		applyZoomPreset(nextPreset);
 	}
 
 	async function createBoard(): Promise<void> {
@@ -651,18 +709,22 @@
 		if (!activeBoard) return;
 		await sessionBoardsState.removeTile(activeBoard.id, tileId);
 		if (selectedTileId === tileId) selectedTileId = null;
+		if (keyboardFocusedTileId === tileId) keyboardFocusedTileId = null;
+		if (keyboardMoveTileId === tileId) {
+			keyboardMoveTileId = null;
+			keyboardMoveOrigin = null;
+			keyboardMoveAnnouncement = '';
+		}
 	}
 	async function updateSelected(updates: Partial<SessionBoardTile>): Promise<void> {
 		if (!activeBoard || !selectedTileId) return;
+		const currentTile = activeBoard.tiles.find((tile) => tile.id === selectedTileId);
+		if (currentTile) {
+			const attemptedX = updates.x ?? currentTile.x;
+			const attemptedW = updates.w ?? currentTile.w;
+			if (attemptedX + attemptedW > layout.columns) triggerOverflowFlash(currentTile.id);
+		}
 		await sessionBoardsState.updateTile(activeBoard.id, selectedTileId, updates);
-	}
-
-	function moveTileByRow(tileId: string, deltaRows: number): void {
-		if (!activeBoard) return;
-		const movedTiles = moveSessionBoardTileByRow(activeBoard.tiles, tileId, deltaRows);
-		const movedTile = movedTiles.find((entry) => entry.id === tileId);
-		if (!movedTile) return;
-		void sessionBoardsState.updateTile(activeBoard.id, tileId, { y: movedTile.y });
 	}
 
 	function tileLabel(tile: SessionBoardTile): string {
@@ -677,6 +739,292 @@
 	function tileAccentStyle(tile: SessionBoardTile): string {
 		const tileType = resolveSessionBoardTileType(tile);
 		return `--tile-accent: var(${TILE_TYPE_METADATA[tileType].colorToken}); border-color: var(--tile-accent);`;
+	}
+
+	function prefersReducedMotion(): boolean {
+		return (
+			typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+		);
+	}
+
+	function clearDraftPosition(tileId: string): void {
+		const next = { ...draftPositions };
+		delete next[tileId];
+		draftPositions = next;
+	}
+
+	function triggerOverflowFlash(tileId: string): void {
+		overflowCorrectionCount += 1;
+		if (prefersReducedMotion()) return;
+		overflowFlashTileIds = { ...overflowFlashTileIds, [tileId]: true };
+		const existingTimer = overflowFlashTimers[tileId];
+		if (existingTimer) window.clearTimeout(existingTimer);
+		const timer = window.setTimeout(() => {
+			const next = { ...overflowFlashTileIds };
+			delete next[tileId];
+			overflowFlashTileIds = next;
+			const nextTimers = { ...overflowFlashTimers };
+			delete nextTimers[tileId];
+			overflowFlashTimers = nextTimers;
+		}, 150);
+		overflowFlashTimers = {
+			...overflowFlashTimers,
+			[tileId]: timer,
+		};
+	}
+
+	function resolveTileIdFromNode(node: EventTarget | null): string | null {
+		const element = node instanceof HTMLElement ? node : null;
+		return element?.closest<HTMLElement>('[data-board-tile-id]')?.dataset.boardTileId ?? null;
+	}
+
+	function isTextInputTarget(node: EventTarget | null): boolean {
+		const element = node instanceof HTMLElement ? node : null;
+		if (!element) return false;
+		if (element.isContentEditable) return true;
+		return !!element.closest('input,textarea,select,[contenteditable="true"]');
+	}
+
+	function getBoardTileElement(tileId: string): HTMLElement | null {
+		const selector = `[data-board-tile-id="${tileId}"] [data-board-tile="true"]`;
+		return boardViewportEl?.querySelector<HTMLElement>(selector) ?? null;
+	}
+
+	function focusBoardTile(tileId: string): void {
+		const tileEl = getBoardTileElement(tileId);
+		if (!tileEl) return;
+		tileEl.focus();
+		keyboardFocusedTileId = tileId;
+		selectedTileId = tileId;
+	}
+
+	function focusRelativeTile(direction: -1 | 1, fromTileId: string | null): void {
+		if (tileFocusOrder.length === 0) return;
+		const currentIndex = fromTileId ? tileFocusOrder.indexOf(fromTileId) : -1;
+		const nextIndex =
+			currentIndex < 0
+				? direction > 0
+					? 0
+					: tileFocusOrder.length - 1
+				: (currentIndex + direction + tileFocusOrder.length) % tileFocusOrder.length;
+		const nextTileId = tileFocusOrder[nextIndex];
+		if (!nextTileId) return;
+		focusBoardTile(nextTileId);
+	}
+
+	function focusTileInteractiveContent(tileId: string): void {
+		const tileElement = getBoardTileElement(tileId);
+		if (!tileElement) return;
+		const focusTargets = [
+			...tileElement.querySelectorAll<HTMLElement>(
+				'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+			),
+		].filter((element) => element !== tileElement);
+		const firstTarget = focusTargets[0];
+		if (!firstTarget) return;
+		firstTarget.focus();
+	}
+
+	function startKeyboardTileMove(tileId: string): void {
+		if (!activeBoard || mode !== 'edit') return;
+		const tile = activeBoard.tiles.find((entry) => entry.id === tileId);
+		if (!tile) return;
+		const position = draftPositions[tileId] ?? { x: tile.x, y: tile.y };
+		keyboardMoveTileId = tileId;
+		keyboardMoveOrigin = { x: position.x, y: position.y };
+		draftPositions = {
+			...draftPositions,
+			[tileId]: position,
+		};
+		keyboardMoveAnnouncement = `Tile at column ${position.x + 1}, row ${position.y + 1}`;
+	}
+
+	function moveKeyboardTile(tileId: string, dx: number, dy: number): void {
+		if (!activeBoard) return;
+		const tile = activeBoard.tiles.find((entry) => entry.id === tileId);
+		if (!tile) return;
+		const position = draftPositions[tileId] ?? { x: tile.x, y: tile.y };
+		const attemptedX = position.x + dx;
+		const maxX = Math.max(0, layout.columns - tile.w);
+		const nextX = Math.max(0, Math.min(maxX, attemptedX));
+		if (attemptedX !== nextX) triggerOverflowFlash(tile.id);
+		const nextY = Math.max(0, position.y + dy);
+		draftPositions = {
+			...draftPositions,
+			[tileId]: { x: nextX, y: nextY },
+		};
+		keyboardMoveAnnouncement = `Tile at column ${nextX + 1}, row ${nextY + 1}`;
+	}
+
+	function commitKeyboardTileMove(): void {
+		if (!activeBoard || !keyboardMoveTileId || !keyboardMoveOrigin) return;
+		const tile = activeBoard.tiles.find((entry) => entry.id === keyboardMoveTileId);
+		const position = draftPositions[keyboardMoveTileId];
+		if (tile && position && (tile.x !== position.x || tile.y !== position.y)) {
+			void sessionBoardsState.updateTile(activeBoard.id, keyboardMoveTileId, position);
+		}
+		clearDraftPosition(keyboardMoveTileId);
+		keyboardMoveTileId = null;
+		keyboardMoveOrigin = null;
+	}
+
+	function cancelKeyboardTileMove(): void {
+		if (!keyboardMoveTileId || !keyboardMoveOrigin) {
+			keyboardMoveTileId = null;
+			keyboardMoveOrigin = null;
+			return;
+		}
+		const tileId = keyboardMoveTileId;
+		draftPositions = {
+			...draftPositions,
+			[tileId]: keyboardMoveOrigin,
+		};
+		clearDraftPosition(tileId);
+		keyboardMoveTileId = null;
+		keyboardMoveOrigin = null;
+		keyboardMoveAnnouncement = '';
+	}
+
+	function openTileCreationSheet(): void {
+		if (!activeBoard || mode !== 'edit') return;
+		tileCreationSheetOpen = true;
+	}
+
+	async function addTileFromSheet(
+		type: 'calendar' | 'timer' | 'combat' | 'encounter' | 'dice' | 'generator' | 'handouts',
+	): Promise<void> {
+		if (!activeBoard || mode !== 'edit') return;
+		if (type === 'calendar') await addCalendarTile();
+		else if (type === 'timer') await addTimerTile();
+		else if (type === 'combat') await addCombatTile();
+		else if (type === 'encounter') await addEncounterTile();
+		else if (type === 'dice') await addDiceTile();
+		else if (type === 'generator') await addGeneratorTile();
+		else await addHandoutTile();
+		tileCreationSheetOpen = false;
+	}
+
+	async function fixOverflowLayout(): Promise<void> {
+		if (!activeBoard) return;
+		const repacked = repackSessionBoardTiles(activeBoard.tiles, layout.columns);
+		await sessionBoardsState.updateBoard(activeBoard.id, { tiles: repacked });
+		overflowCorrectionCount = 0;
+	}
+
+	function handleViewportFocusIn(event: FocusEvent): void {
+		const tileId = resolveTileIdFromNode(event.target);
+		if (tileId) keyboardFocusedTileId = tileId;
+	}
+
+	function handleViewportKeydown(event: KeyboardEvent): void {
+		if (isTextInputTarget(event.target)) return;
+		const eventTarget = event.target instanceof HTMLElement ? event.target : null;
+		const activeElement = document.activeElement as HTMLElement | null;
+		const keyTarget = eventTarget ?? activeElement;
+		const focusedTileId =
+			resolveTileIdFromNode(keyTarget) ??
+			resolveTileIdFromNode(activeElement) ??
+			keyboardFocusedTileId;
+		const isTileRootFocused = !!keyTarget?.matches('[data-board-tile="true"]');
+		const isViewportFocused = keyTarget === boardViewportEl || activeElement === boardViewportEl;
+
+		if (event.key === '+' || event.key === '=') {
+			event.preventDefault();
+			cycleZoomPreset(1);
+			return;
+		}
+		if (event.key === '-' || event.key === '_') {
+			event.preventDefault();
+			cycleZoomPreset(-1);
+			return;
+		}
+		if (event.key === '0') {
+			event.preventDefault();
+			applyZoomPreset('fit');
+			return;
+		}
+		if (event.key === '1') {
+			event.preventDefault();
+			applyZoomPreset('comfortable');
+			return;
+		}
+		if (event.key === '2') {
+			event.preventDefault();
+			applyZoomPreset('detail');
+			return;
+		}
+
+		if (event.key === 'Tab' && (isViewportFocused || isTileRootFocused)) {
+			event.preventDefault();
+			focusRelativeTile(event.shiftKey ? -1 : 1, focusedTileId);
+			return;
+		}
+
+		if (keyboardMoveTileId) {
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				cancelKeyboardTileMove();
+				return;
+			}
+			if (event.key === 'Enter') {
+				event.preventDefault();
+				commitKeyboardTileMove();
+				return;
+			}
+			if (event.key === 'ArrowLeft') {
+				event.preventDefault();
+				moveKeyboardTile(keyboardMoveTileId, -1, 0);
+				return;
+			}
+			if (event.key === 'ArrowRight') {
+				event.preventDefault();
+				moveKeyboardTile(keyboardMoveTileId, 1, 0);
+				return;
+			}
+			if (event.key === 'ArrowUp') {
+				event.preventDefault();
+				moveKeyboardTile(keyboardMoveTileId, 0, -1);
+				return;
+			}
+			if (event.key === 'ArrowDown') {
+				event.preventDefault();
+				moveKeyboardTile(keyboardMoveTileId, 0, 1);
+				return;
+			}
+		}
+
+		if ((event.key === 'a' || event.key === 'A') && mode === 'edit') {
+			if (isViewportFocused || isTileRootFocused) {
+				event.preventDefault();
+				openTileCreationSheet();
+			}
+			return;
+		}
+
+		if (event.key === 'Delete' && mode === 'edit' && focusedTileId) {
+			if (isViewportFocused || isTileRootFocused) {
+				event.preventDefault();
+				removeConfirmTileId = focusedTileId;
+			}
+			return;
+		}
+
+		if (
+			(event.key === ' ' || event.key === 'Space' || event.key === 'Spacebar') &&
+			mode === 'edit' &&
+			focusedTileId
+		) {
+			if (isTileRootFocused) {
+				event.preventDefault();
+				startKeyboardTileMove(focusedTileId);
+			}
+			return;
+		}
+
+		if (event.key === 'Enter' && focusedTileId && isTileRootFocused) {
+			event.preventDefault();
+			focusTileInteractiveContent(focusedTileId);
+		}
 	}
 
 	function openTileMenu(tileId: string, buttonEl: HTMLElement | null): void {
@@ -827,11 +1175,9 @@
 	}
 
 	function startPan(event: PointerEvent): void {
-		if (!boardViewportEl || (event.button !== 0 && event.button !== 2)) return;
-		const target = event.target as HTMLElement;
-		const isTileTarget = target.closest('[data-board-tile="true"]');
-		if (event.button === 0 && isTileTarget) return;
-		if (event.button === 0) selectedTileId = null;
+		if (!boardViewportEl) return;
+		const isMiddleMouse = event.pointerType === 'mouse' && event.button === 1;
+		if (!isMiddleMouse) return;
 		event.preventDefault();
 		pan = {
 			pointerId: event.pointerId,
@@ -839,15 +1185,8 @@
 			startY: event.clientY,
 			scrollLeft: boardViewportEl.scrollLeft,
 			scrollTop: boardViewportEl.scrollTop,
-			button: event.button,
 			moved: false,
 		};
-	}
-
-	function handleViewportContextMenu(event: MouseEvent): void {
-		if (pan?.button === 2 || event.button === 2) {
-			event.preventDefault();
-		}
 	}
 
 	function handleBoardSelectChange(event: Event): void {
@@ -940,6 +1279,15 @@
 		}
 		window.addEventListener('keydown', onKeydown);
 		return () => window.removeEventListener('keydown', onKeydown);
+	});
+
+	$effect(() => {
+		return () => {
+			for (const timer of Object.values(overflowFlashTimers)) {
+				window.clearTimeout(timer);
+			}
+			overflowFlashTimers = {};
+		};
 	});
 </script>
 
@@ -1212,10 +1560,11 @@
 						<section class="rounded-lg border border-border bg-surface p-3">
 							<h2 class="text-sm font-semibold text-ink mb-2">Interaction</h2>
 							<ul class="space-y-1 text-xs text-ink-muted">
-								<li>Left drag empty canvas to pan quickly.</li>
-								<li>Right drag anywhere to pan without selecting.</li>
+								<li>Scroll vertically and horizontally to navigate the board.</li>
+								<li>Middle-mouse drag pans the board without selecting tiles.</li>
 								<li>
-									Use <span class="font-mono">Ctrl/Cmd + scroll</span> or zoom buttons to scale the board.
+									Use <span class="font-mono">0 / 1 / 2</span> or
+									<span class="font-mono">+ / -</span> for zoom presets.
 								</li>
 							</ul>
 						</section>
@@ -1335,33 +1684,67 @@
 						{/if}
 
 						{#if mode === 'edit'}
-							<div
-								class="ml-auto flex items-center gap-1 rounded-md border border-border bg-surface-alt/80 px-1.5 py-1"
-							>
-								<button
-									class="h-7 w-7 rounded border border-border text-sm hover:bg-surface transition-colors"
-									onclick={() => setZoom(zoom - 0.12)}
-									aria-label="Zoom out">-</button
+							<div class="ml-auto flex items-center gap-2">
+								<Button size="sm" variant="secondary" icon="plus" onclick={openTileCreationSheet}
+									>Add tile</Button
 								>
-								<div class="min-w-14 text-center text-xs font-semibold text-ink">
-									{zoomPercent}%
+								<div
+									class="flex items-center gap-1 rounded-md border border-border bg-surface-alt/80 p-1"
+								>
+									<Button
+										size="sm"
+										variant={zoomPreset === 'fit' ? 'primary' : 'ghost'}
+										onclick={() => applyZoomPreset('fit')}
+										ariaPressed={zoomPreset === 'fit'}
+									>
+										Fit
+									</Button>
+									<Button
+										size="sm"
+										variant={zoomPreset === 'comfortable' ? 'primary' : 'ghost'}
+										onclick={() => applyZoomPreset('comfortable')}
+										ariaPressed={zoomPreset === 'comfortable'}
+									>
+										Comfortable
+									</Button>
+									<Button
+										size="sm"
+										variant={zoomPreset === 'detail' ? 'primary' : 'ghost'}
+										onclick={() => applyZoomPreset('detail')}
+										ariaPressed={zoomPreset === 'detail'}
+									>
+										Detail
+									</Button>
 								</div>
-								<button
-									class="h-7 w-7 rounded border border-border text-sm hover:bg-surface transition-colors"
-									onclick={() => setZoom(zoom + 0.12)}
-									aria-label="Zoom in">+</button
-								>
-								<button
-									class="h-7 px-2 rounded border border-border text-xs hover:bg-surface transition-colors"
-									onclick={() => setZoom(DEFAULT_ZOOM)}>100%</button
-								>
-								<button
-									class="h-7 px-2 rounded border border-border text-xs hover:bg-surface transition-colors"
-									onclick={fitCanvasToViewport}>Fit</button
+								<span class="min-w-12 text-right text-xs font-semibold text-ink"
+									>{zoomPercent}%</span
 								>
 							</div>
 						{/if}
 					</div>
+
+					{#if showOverflowBanner}
+						<div
+							class="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-amber-600/35 bg-amber-500/10 px-3 py-2 text-xs text-ink"
+						>
+							<span>
+								Some tiles extend beyond the visible board width. Drag them back or reduce their
+								width.
+							</span>
+							<Button size="sm" variant="secondary" onclick={() => void fixOverflowLayout()}
+								>Fix layout</Button
+							>
+							<Button
+								size="sm"
+								variant="ghost"
+								icon="x"
+								ariaLabel="Dismiss overflow warning"
+								onclick={() => {
+									overflowBannerDismissedBoardVersion = boardEditVersion;
+								}}
+							/>
+						</div>
+					{/if}
 
 					{#if mode === 'view' && sessionModeState.mode === 'idle'}
 						<div class="mt-3">
@@ -1649,19 +2032,18 @@
 								<div
 									class="px-3 py-2 border-b border-border/80 text-xs text-ink-muted flex items-center justify-between gap-2"
 								>
-									<span>Left drag empty space or right drag anywhere to pan.</span>
-									<span class="hidden md:inline">Ctrl/Cmd + scroll to zoom.</span>
+									<span>Scroll to navigate. Middle-mouse drag pans quickly.</span>
+									<span class="hidden md:inline">Use 0/1/2 or +/- for zoom presets.</span>
 								</div>
 							{/if}
 							<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 							<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 							<div
-								class="relative flex-1 min-h-0 overflow-auto cursor-grab active:cursor-grabbing"
+								class="relative flex-1 min-h-0 overflow-auto"
 								role="application"
 								aria-label="Session board canvas"
 								onpointerdown={startPan}
-								oncontextmenu={handleViewportContextMenu}
-								onwheel={handleViewportWheel}
+								onfocusin={handleViewportFocusIn}
 								onkeydown={handleViewportKeydown}
 								bind:this={boardViewportEl}
 								tabindex="0"
@@ -1681,7 +2063,22 @@
 										></div>
 										{#each renderedTiles as entry (entry.tile.id)}
 											{@const tile = entry.tile}
-											<div class="absolute group" style={tileStyle(tile, entry.x, entry.y)}>
+											<div
+												class="absolute group"
+												style={tileStyle(tile, entry.x, entry.y)}
+												data-board-tile-id={tile.id}
+											>
+												{#if keyboardFocusedTileId === tile.id}
+													<div
+														class="pointer-events-none absolute inset-0 z-40 rounded-lg border-2"
+														style="border-color: var(--color-focus-ring);"
+													></div>
+												{/if}
+												{#if overflowFlashTileIds[tile.id]}
+													<div
+														class="pointer-events-none absolute inset-0 z-40 rounded-lg border-2 border-error"
+													></div>
+												{/if}
 												{#if mode === 'edit'}
 													<div class="pointer-events-none absolute right-2 top-2 z-40">
 														<button
@@ -1811,7 +2208,24 @@
 													<div
 														class="relative h-full rounded-lg border border-dashed border-border bg-surface/90 flex flex-col"
 														style="--tile-accent: var({TILE_TYPE_METADATA.note.colorToken});"
+														role="button"
+														tabindex="0"
+														aria-label={`Session board tile: ${tileLabel(tile)}`}
+														aria-pressed={mode === 'edit' && selectedTileId === tile.id}
 														data-board-tile="true"
+														onfocus={() => {
+															keyboardFocusedTileId = tile.id;
+														}}
+														onclick={(event) => {
+															const target = event.target as HTMLElement;
+															if (target.closest('a,button,input,textarea,select,label')) return;
+															if (mode === 'edit') selectedTileId = tile.id;
+														}}
+														onkeydown={(event) => {
+															if (event.key !== 'Enter' && event.key !== ' ') return;
+															event.preventDefault();
+															if (mode === 'edit') selectedTileId = tile.id;
+														}}
 													>
 														{#if mode === 'edit'}
 															<button
@@ -1852,7 +2266,24 @@
 													<div
 														class="relative h-full rounded-lg border border-border bg-surface flex flex-col"
 														style="--tile-accent: var({TILE_TYPE_METADATA.calendar.colorToken});"
+														role="button"
+														tabindex="0"
+														aria-label={`Session board tile: ${tileLabel(tile)}`}
+														aria-pressed={mode === 'edit' && selectedTileId === tile.id}
 														data-board-tile="true"
+														onfocus={() => {
+															keyboardFocusedTileId = tile.id;
+														}}
+														onclick={(event) => {
+															const target = event.target as HTMLElement;
+															if (target.closest('a,button,input,textarea,select,label')) return;
+															if (mode === 'edit') selectedTileId = tile.id;
+														}}
+														onkeydown={(event) => {
+															if (event.key !== 'Enter' && event.key !== ' ') return;
+															event.preventDefault();
+															if (mode === 'edit') selectedTileId = tile.id;
+														}}
 													>
 														{#if mode === 'edit'}
 															<button
@@ -1902,6 +2333,62 @@
 	</div>
 </section>
 
+<Sheet
+	open={tileCreationSheetOpen}
+	title="Add tile"
+	onclose={() => (tileCreationSheetOpen = false)}
+>
+	<div class="space-y-3">
+		<p class="text-xs text-ink-muted">
+			Create a new tile and place it at the next open board position.
+		</p>
+		<div class="grid gap-2 sm:grid-cols-2">
+			<Button
+				variant="secondary"
+				size="sm"
+				icon="calendar"
+				onclick={() => void addTileFromSheet('calendar')}>Calendar</Button
+			>
+			<Button
+				variant="secondary"
+				size="sm"
+				icon="clock"
+				onclick={() => void addTileFromSheet('timer')}>Timer</Button
+			>
+			<Button
+				variant="secondary"
+				size="sm"
+				icon="swords"
+				onclick={() => void addTileFromSheet('combat')}>Combat tracker</Button
+			>
+			<Button
+				variant="secondary"
+				size="sm"
+				icon="shield"
+				onclick={() => void addTileFromSheet('encounter')}>Encounter builder</Button
+			>
+			<Button
+				variant="secondary"
+				size="sm"
+				icon="dice-5"
+				onclick={() => void addTileFromSheet('dice')}>Dice tray</Button
+			>
+			<Button
+				variant="secondary"
+				size="sm"
+				icon="wand-2"
+				onclick={() => void addTileFromSheet('generator')}>Generator</Button
+			>
+			<Button
+				variant="secondary"
+				size="sm"
+				icon="file-text"
+				onclick={() => void addTileFromSheet('handouts')}>Handouts</Button
+			>
+		</div>
+	</div>
+</Sheet>
+
 {#if tileMenuTile && tileMenuButtonEl}
 	<Popover open={true} onclose={closeTileMenu} anchor={tileMenuButtonEl} class="min-w-64 p-1">
 		<ul
@@ -1916,7 +2403,7 @@
 					role="menuitem"
 					class="w-full rounded px-2 py-1.5 text-left text-xs text-ink hover:bg-surface-alt"
 					onclick={() => {
-						moveTileByRow(tileMenuTile.id, 1);
+						startKeyboardTileMove(tileMenuTile.id);
 						closeTileMenu();
 					}}
 				>
@@ -2120,6 +2607,7 @@
 {/if}
 
 <div class="sr-only" aria-live="polite">{resizeAnnouncement}</div>
+<div class="sr-only" aria-live="assertive">{keyboardMoveAnnouncement}</div>
 
 {#if overlayNote}
 	<div
