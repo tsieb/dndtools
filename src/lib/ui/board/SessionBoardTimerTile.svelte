@@ -2,7 +2,9 @@
 	import {
 		createDefaultTimerState,
 		normalizeSessionBoardTimerState,
+		TILE_TYPE_METADATA,
 	} from '$lib/domain/session-board.js';
+	import Icon from '$lib/ui/common/Icon.svelte';
 	import type { SessionBoardTimerState, SessionBoardTimerTile } from '$lib/types/session-board.js';
 
 	interface Props {
@@ -27,6 +29,7 @@
 	let timer = $derived.by(() =>
 		normalizeSessionBoardTimerState(tile.timer ?? createDefaultTimerState()),
 	);
+	const tileMeta = TILE_TYPE_METADATA.timer;
 	let elapsedMs = $derived.by(() => {
 		if (!timer.running || timer.startedAtMs === null) return timer.accumulatedMs;
 		return timer.accumulatedMs + Math.max(0, nowMs - timer.startedAtMs);
@@ -137,6 +140,7 @@
 	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-fast cursor-pointer hover:shadow-md {selected
 		? 'border-border ring-2 ring-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
 		: 'border-border'}"
+	style="--tile-accent: var({tileMeta.colorToken});"
 	role="button"
 	tabindex="0"
 	aria-label="Session timer tile"
@@ -161,8 +165,12 @@
 		if (editable) ondragstart(event);
 	}}
 >
-	<header class="px-3 py-2 border-b border-border flex items-center gap-2">
-		<div class="font-medium text-sm text-ink flex-1">Session Timer</div>
+	<header
+		class="h-8 border-b border-border border-l-4 px-2.5 pr-3 flex items-center gap-2"
+		style="border-left-color: var(--tile-accent);"
+	>
+		<Icon name={tileMeta.iconName} size="sm" color="var(--tile-accent)" />
+		<div class="font-semibold text-sm text-ink flex-1">{tileMeta.label}</div>
 		<span class="text-2xs px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
 			{timer.mode === 'countdown' ? 'Countdown' : 'Elapsed'}
 		</span>

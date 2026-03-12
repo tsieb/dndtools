@@ -2,6 +2,7 @@
 	import { nanoid } from 'nanoid';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import Icon from '$lib/ui/common/Icon.svelte';
 	import { nowISO } from '$lib/utils/date.js';
 	import { createFolderId, createNoteId } from '$lib/types/note.js';
 	import { getStorage } from '$lib/platform/storage/index.js';
@@ -28,6 +29,7 @@
 		buildLegendaryActionsFromStatBlock,
 	} from '$lib/domain/encounter-builder.js';
 	import { buildRandomTableIndex, rollRandomTable } from '$lib/domain/random-tables.js';
+	import { TILE_TYPE_METADATA } from '$lib/domain/session-board.js';
 	import { getSessionTimelineEventId, isSessionNote } from '$lib/domain/session-timeline.js';
 	import { reportRuntimeError } from '$lib/runtime/diagnostics.js';
 	import { normalizeMapData, summarizeVaultObject } from '$lib/domain/objects.js';
@@ -58,6 +60,7 @@
 		onupdate,
 		ondragstart = () => undefined,
 	}: Props = $props();
+	const tileMeta = TILE_TYPE_METADATA.combat;
 
 	let addNameInput = $state<HTMLInputElement | null>(null);
 	let addObjectQuery = $state('');
@@ -786,6 +789,7 @@
 	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-fast cursor-pointer hover:shadow-md {selected
 		? 'border-border ring-2 ring-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
 		: 'border-border'}"
+	style="--tile-accent: var({tileMeta.colorToken});"
 	role="button"
 	tabindex="0"
 	aria-label={standalone ? 'Combat tracker' : 'Combat tracker tile'}
@@ -799,8 +803,13 @@
 	}}
 	onpointerdown={handlePointerDown}
 >
-	<header class="px-3 py-2 border-b border-border">
+	<header
+		class="px-2.5 py-2 border-b border-border border-l-4"
+		style="border-left-color: var(--tile-accent);"
+	>
 		<div class="flex items-center gap-2">
+			<Icon name={tileMeta.iconName} size="sm" color="var(--tile-accent)" />
+			<div class="text-sm font-semibold text-ink">{tileMeta.label}</div>
 			<input
 				type="text"
 				value={combat.encounterName}

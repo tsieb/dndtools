@@ -4,11 +4,13 @@
 	import Bookmark from 'lucide-svelte/icons/bookmark';
 	import Check from 'lucide-svelte/icons/check';
 	import CheckCircle from 'lucide-svelte/icons/check-circle';
+	import Calendar from 'lucide-svelte/icons/calendar';
 	import ChevronDown from 'lucide-svelte/icons/chevron-down';
 	import ChevronLeft from 'lucide-svelte/icons/chevron-left';
 	import ChevronRight from 'lucide-svelte/icons/chevron-right';
 	import Clock from 'lucide-svelte/icons/clock';
 	import Copy from 'lucide-svelte/icons/copy';
+	import Dice5 from 'lucide-svelte/icons/dice-5';
 	import Download from 'lucide-svelte/icons/download';
 	import Ellipsis from 'lucide-svelte/icons/ellipsis';
 	import Eye from 'lucide-svelte/icons/eye';
@@ -27,11 +29,15 @@
 	import Pin from 'lucide-svelte/icons/pin';
 	import Plus from 'lucide-svelte/icons/plus';
 	import Search from 'lucide-svelte/icons/search';
+	import Shield from 'lucide-svelte/icons/shield';
 	import Settings from 'lucide-svelte/icons/settings';
+	import Scroll from 'lucide-svelte/icons/scroll';
 	import Square from 'lucide-svelte/icons/square';
 	import Star from 'lucide-svelte/icons/star';
+	import Swords from 'lucide-svelte/icons/swords';
 	import Trash2 from 'lucide-svelte/icons/trash-2';
 	import TriangleAlert from 'lucide-svelte/icons/triangle-alert';
+	import Wand2 from 'lucide-svelte/icons/wand-2';
 	import XIcon from 'lucide-svelte/icons/x';
 
 	/** Canonical icon name to Lucide component mapping. Only icons used in the application are
@@ -43,6 +49,7 @@
 		'chevron-down': ChevronDown,
 		'chevron-left': ChevronLeft,
 		'chevron-right': ChevronRight,
+		calendar: Calendar,
 		flag: Flag,
 		hexagon: Hexagon,
 		map: MapIcon,
@@ -52,6 +59,7 @@
 		// Domain: actions
 		check: Check,
 		copy: Copy,
+		'dice-5': Dice5,
 		download: Download,
 		ellipsis: Ellipsis,
 		eye: Eye,
@@ -60,9 +68,13 @@
 		pin: Pin,
 		plus: Plus,
 		search: Search,
+		shield: Shield,
+		scroll: Scroll,
 		square: Square,
 		star: Star,
+		swords: Swords,
 		trash: Trash2,
+		'wand-2': Wand2,
 		x: XIcon,
 		// Domain: status
 		'alert-circle': AlertCircle,

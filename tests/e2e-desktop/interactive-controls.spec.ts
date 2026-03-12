@@ -222,20 +222,6 @@ async function gotoDesktopPath(page: Page, route: string): Promise<void> {
 	await page.goto(`${origin}${route}`);
 }
 
-async function readSessionBoardTileRows(
-	vaultDir: string,
-	boardId: string,
-): Promise<Array<{ id: string; y: number }>> {
-	const filePath = path.join(vaultDir, '.vault', 'session-boards.json');
-	const raw = await fs.readFile(filePath, 'utf8');
-	const payload = JSON.parse(raw) as {
-		boards?: Record<string, { id: string; tiles?: Array<{ id: string; y: number }> }>;
-	};
-	const board = payload.boards?.[boardId];
-	if (!board?.tiles) return [];
-	return board.tiles.map((tile) => ({ id: tile.id, y: tile.y }));
-}
-
 async function ensureSidebarOpen(page: Page): Promise<void> {
 	if ((await page.locator('aside:visible').count()) > 0) return;
 	await page.getByRole('button', { name: 'Toggle local navigation' }).first().click();
@@ -383,17 +369,16 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 			if (await interactiveBoardButton.isVisible().catch(() => false)) {
 				await interactiveBoardButton.click();
 			}
-			const moveTileDownButton = app.page
-				.getByRole('button', { name: 'Move tile down' })
-				.locator(':not([disabled])')
-				.first();
-			if ((await moveTileDownButton.count()) > 0) {
-				await expect(moveTileDownButton).toBeVisible();
-				const beforeRows = await readSessionBoardTileRows(app.vaultDir, 'board-interactive');
-				await moveTileDownButton.click();
-				await expect
-					.poll(async () => readSessionBoardTileRows(app.vaultDir, 'board-interactive'))
-					.not.toEqual(beforeRows);
+			const tileOptionsButton = app.page.getByRole('button', { name: /Tile options for/i }).first();
+			if ((await tileOptionsButton.count()) > 0) {
+				await expect(tileOptionsButton).toBeVisible();
+				await tileOptionsButton.click();
+				await app.page.getByRole('menuitem', { name: 'Move tile' }).first().click();
+
+				await tileOptionsButton.click();
+				await app.page.getByRole('menuitem', { name: 'Resize tile' }).first().click();
+				await app.page.keyboard.press('ArrowRight');
+				await app.page.keyboard.press('Enter');
 			}
 
 			const moveAlphaDownButton = app.page

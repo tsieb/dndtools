@@ -171,6 +171,22 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 20.1** - Tile Type Visual Identity System:
+  - Added semantic board tile accent tokens in `src/app.css` (`--color-tile-note`, `--color-tile-combat`, `--color-tile-encounter`, `--color-tile-dice`, `--color-tile-generator`, `--color-tile-handouts`, `--color-tile-timer`, `--color-tile-calendar`, `--color-tile-map`) with dark-theme overrides.
+  - Added central tile metadata source of truth in `src/lib/domain/session-board.ts`:
+    - `TILE_TYPE_METADATA` now defines per-type icon + semantic token mapping.
+    - note tile depth now enforces minimum heights (`title` 1 row, `summary` 2 rows, `full` 3 rows) during normalization.
+  - Updated session board tile surfaces to expose visual type identity:
+    - note, timer, combat, encounter, dice, generator, handouts, and calendar tile headers now show type icon + accent treatment.
+    - note tiles now show `T/S/F` depth chip in edit mode only.
+  - Added tile action menu + resize interactions in `src/routes/session-board/+page.svelte`:
+    - per-tile `...` menu with duplicate/remove and note/combat-specific actions.
+    - note depth radio controls in menu (`Title only`, `Summary`, `Full`).
+    - resize handle with click-to-cycle presets (2x1, 3x2, 4x3), keyboard resize mode from menu, and `aria-live` size announcements.
+  - Updated regression coverage:
+    - `src/lib/domain/session-board.test.ts`
+    - `tests/e2e-desktop/interactive-controls.spec.ts`
+
 - **Epic 19.5** - Map Canvas Accessibility and Mobile Experience:
   - Added keyboard-accessible POI pin navigation and actions in `src/lib/ui/maps/MapCanvasViewer.svelte`:
     - POI overlay buttons now expose screen-reader labels with category and linked-note context.

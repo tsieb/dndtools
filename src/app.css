@@ -59,6 +59,16 @@
 	--color-focus-ring: #8b4513;
 	/* Foreground on accent: white on dark-brown (light), near-black on gold (dark) */
 	--color-accent-foreground: #ffffff;
+	/* Session Board tile semantic accents (Epic 20.1) */
+	--color-tile-note: var(--color-surface);
+	--color-tile-combat: #be123c;
+	--color-tile-encounter: #b45309;
+	--color-tile-dice: #4338ca;
+	--color-tile-generator: #047857;
+	--color-tile-handouts: #be185d;
+	--color-tile-timer: #475569;
+	--color-tile-calendar: #0f766e;
+	--color-tile-map: #78350f;
 
 	/* ===== Typography Scale ===== */
 	/* S15.1.2: strict scale; overrides Tailwind defaults for consistency */
@@ -202,6 +212,15 @@ html.theme-tavern {
 	--color-error-hover: #f47171;
 	--color-focus-ring: #d4a76a;
 	--color-accent-foreground: #1a1410;
+	--color-tile-note: var(--color-surface);
+	--color-tile-combat: #881337;
+	--color-tile-encounter: #78350f;
+	--color-tile-dice: #312e81;
+	--color-tile-generator: #064e3b;
+	--color-tile-handouts: #881337;
+	--color-tile-timer: #1e293b;
+	--color-tile-calendar: #134e4a;
+	--color-tile-map: #451a03;
 }
 
 html.theme-scholar {
@@ -244,6 +263,15 @@ html.theme-dungeon {
 	--color-error-hover: #dc2626;
 	--color-focus-ring: #00d2ff;
 	--color-accent-foreground: #001018;
+	--color-tile-note: var(--color-surface);
+	--color-tile-combat: #881337;
+	--color-tile-encounter: #78350f;
+	--color-tile-dice: #312e81;
+	--color-tile-generator: #064e3b;
+	--color-tile-handouts: #881337;
+	--color-tile-timer: #1e293b;
+	--color-tile-calendar: #134e4a;
+	--color-tile-map: #451a03;
 }
 
 html.theme-high-contrast {
@@ -265,6 +293,15 @@ html.theme-high-contrast {
 	--color-error-hover: #ffb3b3;
 	--color-focus-ring: #ffff00;
 	--color-accent-foreground: #000000;
+	--color-tile-note: var(--color-surface);
+	--color-tile-combat: #ffffff;
+	--color-tile-encounter: #ffffff;
+	--color-tile-dice: #ffffff;
+	--color-tile-generator: #ffffff;
+	--color-tile-handouts: #ffffff;
+	--color-tile-timer: #ffffff;
+	--color-tile-calendar: #ffffff;
+	--color-tile-map: #ffffff;
 }
 
 @media (forced-colors: active) {
