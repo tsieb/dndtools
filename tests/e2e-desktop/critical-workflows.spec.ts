@@ -60,7 +60,25 @@ function buildMapObject(id: string, name: string, areaNoteId: string): Record<st
 					colorTheme: 'amber',
 				},
 			],
-			pois: [],
+			pois: [
+				{
+					id: 'poi-south-gate',
+					label: 'South Gate',
+					category: 'landmark',
+					x: 0.22,
+					y: 0.63,
+					layerId: 'layer-default',
+					linkedNoteId: areaNoteId,
+				},
+				{
+					id: 'poi-river-ford',
+					label: 'River Ford',
+					category: 'encounter',
+					x: 0.67,
+					y: 0.42,
+					layerId: 'layer-default',
+				},
+			],
 			routes: [],
 		},
 		createdAt: now,
@@ -879,6 +897,8 @@ test.describe('Desktop critical workflows @critical', () => {
 			await expect(app.page.getByRole('heading', { name: 'Travel Routes' })).toBeVisible();
 			await expect(app.page.getByRole('radiogroup', { name: 'Map mode switcher' })).toBeVisible();
 			await expect(app.page.getByRole('radio')).toHaveCount(6);
+			await expect(app.page.getByRole('application', { name: /interactive map/i })).toBeVisible();
+			await expect(app.page.getByRole('button', { name: 'List view' })).toBeVisible();
 		} finally {
 			await closeDesktopApp(app);
 		}
