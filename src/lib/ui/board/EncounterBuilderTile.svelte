@@ -2,6 +2,8 @@
 	import { nanoid } from 'nanoid';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import Icon from '$lib/ui/common/Icon.svelte';
+	import { TILE_TYPE_METADATA } from '$lib/domain/session-board.js';
 	import { getStorage } from '$lib/platform/storage/index.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
@@ -47,6 +49,7 @@
 		onupdate,
 		ondragstart = () => undefined,
 	}: Props = $props();
+	const tileMeta = TILE_TYPE_METADATA.encounter;
 
 	let loading = $state(false);
 	let loadError = $state<string | null>(null);
@@ -390,6 +393,7 @@
 	class="relative rounded-lg border bg-surface/95 shadow-sm backdrop-blur-sm flex flex-col h-full transition-[box-shadow,transform] duration-fast cursor-pointer hover:shadow-md {selected
 		? 'border-border ring-2 ring-accent/45 shadow-[0_0_0_1px_rgba(255,255,255,0.65)_inset,0_12px_24px_-16px_rgba(0,0,0,0.65)]'
 		: 'border-border'}"
+	style="--tile-accent: var({tileMeta.colorToken});"
 	role="button"
 	tabindex="0"
 	aria-label={standalone ? 'Encounter builder' : 'Encounter builder tile'}
@@ -403,8 +407,13 @@
 	}}
 	onpointerdown={handlePointerDown}
 >
-	<header class="px-3 py-2 border-b border-border space-y-1">
+	<header
+		class="px-2.5 py-2 border-b border-border border-l-4 space-y-1"
+		style="border-left-color: var(--tile-accent);"
+	>
 		<div class="flex items-center gap-2">
+			<Icon name={tileMeta.iconName} size="sm" color="var(--tile-accent)" />
+			<div class="text-sm font-semibold text-ink">{tileMeta.label}</div>
 			<input
 				type="text"
 				value={encounter.encounterName}

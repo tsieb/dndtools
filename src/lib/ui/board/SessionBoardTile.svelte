@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import Icon from '$lib/ui/common/Icon.svelte';
+	import { TILE_TYPE_METADATA } from '$lib/domain/session-board.js';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
-	import { normalizePreviewDepth, normalizePreviewLineCount } from '$lib/domain/session-board.js';
+	import { normalizePreviewDepth } from '$lib/domain/session-board.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import type { Note } from '$lib/types/note.js';
 	import type { SessionBoardTile } from '$lib/types/session-board.js';
@@ -13,6 +15,7 @@
 		selected?: boolean;
 		editable?: boolean;
 		scrollable?: boolean;
+		showDepthBadge?: boolean;
 		tintColor?: string;
 		tintOpacity?: number;
 		onopen: () => void;
@@ -26,6 +29,7 @@
 		selected = false,
 		editable = false,
 		scrollable = false,
+		showDepthBadge = false,
 		tintColor = '#7c3aed',
 		tintOpacity = 0,
 		onopen,
@@ -35,12 +39,12 @@
 	let html = $state('');
 	let contentEl = $state<HTMLDivElement | null>(null);
 	let depth = $derived.by(() => normalizePreviewDepth(tile.previewDepth));
-	let previewLines = $derived.by(() => normalizePreviewLineCount(tile.previewLineCount));
+	const tileMeta = TILE_TYPE_METADATA.note;
 
 	function buildPreviewContent(noteContent: string): string {
 		if (depth === 'title') return '';
 		if (depth === 'full') return noteContent;
-		const lines = noteContent.split(/\r?\n/).slice(0, previewLines);
+		const lines = noteContent.split(/\r?\n/).slice(0, 5);
 		return lines.join('\n').trim();
 	}
 
@@ -103,7 +107,7 @@
 		: ''}; border-radius: {tile.style?.borderRadius !== undefined
 		? `${tile.style.borderRadius}px`
 		: ''}; opacity: {tile.style?.opacity ?? 1}; transform-origin: top left; transform: scale({tile
-		.style?.scale ?? 1});"
+		.style?.scale ?? 1}); --tile-accent: var({tileMeta.colorToken});"
 	role="button"
 	tabindex="0"
 	aria-label={`Session board tile: ${note.title}`}
@@ -136,10 +140,15 @@
 			style="background-color: {tintColor}; opacity: {Math.max(0, Math.min(0.75, tintOpacity))};"
 		></div>
 	{/if}
-	<header class="px-3 py-2 border-b border-border flex items-center gap-2">
+	<header
+		class="h-8 border-b border-border border-l-4 px-2.5 pr-3 flex items-center gap-2"
+		style="border-left-color: var(--tile-accent);"
+	>
+		<Icon name={tileMeta.iconName} size="sm" class="shrink-0" color="var(--tile-accent)" />
+		<span class="text-sm font-semibold text-ink truncate">{tileMeta.label}</span>
 		<button
 			type="button"
-			class="text-left truncate flex-1 font-medium text-sm text-ink hover:text-accent transition-colors"
+			class="text-left truncate flex-1 text-sm text-ink hover:text-accent transition-colors"
 			onclick={onopen}
 			aria-label={`Open enlarged view for ${note.title}`}
 		>
@@ -158,9 +167,11 @@
 				Drag to move
 			</span>
 		{/if}
-		<span class="text-2xs px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
-			{depth === 'title' ? 'Title' : depth === 'summary' ? `${previewLines} lines` : 'Full'}
-		</span>
+		{#if showDepthBadge}
+			<span class="text-2xs px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
+				{depth === 'title' ? 'T' : depth === 'summary' ? 'S' : 'F'}
+			</span>
+		{/if}
 	</header>
 	<div class="relative p-3 flex-1 min-h-0 {scrollable ? 'overflow-y-auto' : 'overflow-hidden'}">
 		{#if depth === 'title'}

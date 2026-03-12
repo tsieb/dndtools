@@ -9,9 +9,11 @@ import type {
 	SessionBoardStyle,
 	SessionBoardTemplate,
 	SessionBoardTile,
+	SessionBoardTileType,
 	SessionBoardTileStyle,
 	SessionBoardTimerState,
 } from '../types/session-board.js';
+import type { IconName } from '../ui/common/Icon.svelte';
 import { createNoteId } from '../types/note.js';
 import { createDefaultCombatState, normalizeCombatState } from './combat-tracker.js';
 import { createDefaultEncounterState, normalizeEncounterState } from './encounter-builder.js';
@@ -27,7 +29,7 @@ const MIN_GAP = 0;
 const MAX_GAP = 28;
 const MIN_TILE_WIDTH = 2;
 const MAX_TILE_HEIGHT = 8;
-const MIN_TILE_HEIGHT = 2;
+const MIN_TILE_HEIGHT = 1;
 const MIN_TILE_OPACITY = 0.2;
 const MAX_TILE_OPACITY = 1;
 const MIN_TILE_SCALE = 0.5;
@@ -38,6 +40,71 @@ const MAX_SESSION_CONTEXT_ITEMS = 24;
 const MAX_SCENES = 40;
 const MAX_SCENE_NOTE_LINKS = 16;
 const MAX_SCENE_HISTORY_ITEMS = 120;
+const NOTE_DEPTH_MIN_HEIGHT: Record<SessionBoardPreviewDepth, number> = {
+	title: 1,
+	summary: 2,
+	full: 3,
+};
+
+export type SessionBoardVisualTileType = SessionBoardTileType | 'map';
+
+export interface SessionBoardTileMetadata {
+	label: string;
+	colorToken: string;
+	iconName: IconName;
+}
+
+export const TILE_TYPE_METADATA: Record<SessionBoardVisualTileType, SessionBoardTileMetadata> = {
+	note: {
+		label: 'Note',
+		colorToken: '--color-tile-note',
+		iconName: 'scroll',
+	},
+	combat: {
+		label: 'Combat',
+		colorToken: '--color-tile-combat',
+		iconName: 'swords',
+	},
+	encounter: {
+		label: 'Encounter',
+		colorToken: '--color-tile-encounter',
+		iconName: 'shield',
+	},
+	dice: {
+		label: 'Dice',
+		colorToken: '--color-tile-dice',
+		iconName: 'dice-5',
+	},
+	generator: {
+		label: 'Generator',
+		colorToken: '--color-tile-generator',
+		iconName: 'wand-2',
+	},
+	handouts: {
+		label: 'Handouts',
+		colorToken: '--color-tile-handouts',
+		iconName: 'file-text',
+	},
+	timer: {
+		label: 'Timer',
+		colorToken: '--color-tile-timer',
+		iconName: 'clock',
+	},
+	calendar: {
+		label: 'Calendar',
+		colorToken: '--color-tile-calendar',
+		iconName: 'calendar',
+	},
+	map: {
+		label: 'Map',
+		colorToken: '--color-tile-map',
+		iconName: 'map',
+	},
+};
+
+export function resolveSessionBoardTileType(tile: SessionBoardTile): SessionBoardTileType {
+	return tile.type ?? 'note';
+}
 
 export const DEFAULT_SESSION_BOARD_LAYOUT: SessionBoardLayout = {
 	columns: 12,
@@ -47,7 +114,7 @@ export const DEFAULT_SESSION_BOARD_LAYOUT: SessionBoardLayout = {
 };
 
 export const DEFAULT_NOTE_PREVIEW_DEPTH: SessionBoardPreviewDepth = 'summary';
-export const DEFAULT_NOTE_PREVIEW_LINES = 8;
+export const DEFAULT_NOTE_PREVIEW_LINES = 5;
 export const DEFAULT_TIMER_COUNTDOWN_MS = 60 * 60 * 1000;
 export const DEFAULT_SESSION_CONTEXT: SessionContextState = {
 	collapsed: false,
@@ -345,7 +412,7 @@ export function normalizeSessionBoardHandoutHistory(
 export function normalizeSessionBoardTile(tile: SessionBoardTile, columns = 12): SessionBoardTile {
 	const clampedColumns = clampInt(columns, MIN_COLUMNS, MAX_COLUMNS);
 	const w = clampInt(tile.w, MIN_TILE_WIDTH, clampedColumns);
-	const h = clampInt(tile.h, MIN_TILE_HEIGHT, MAX_TILE_HEIGHT);
+	const baseH = clampInt(tile.h, MIN_TILE_HEIGHT, MAX_TILE_HEIGHT);
 	const x = clampInt(tile.x, 0, clampedColumns - w);
 	const y = clampInt(tile.y, 0, MAX_GRID_ROWS);
 	const common = {
@@ -353,7 +420,7 @@ export function normalizeSessionBoardTile(tile: SessionBoardTile, columns = 12):
 		x,
 		y,
 		w,
-		h,
+		h: baseH,
 		style: normalizeSessionBoardTileStyle(tile.style),
 	};
 
@@ -404,11 +471,15 @@ export function normalizeSessionBoardTile(tile: SessionBoardTile, columns = 12):
 	}
 	const noteId =
 		typeof tile.noteId === 'string' && tile.noteId.trim().length > 0 ? tile.noteId : undefined;
+	const previewDepth = normalizePreviewDepth(tile.previewDepth);
+	const minHeight = NOTE_DEPTH_MIN_HEIGHT[previewDepth];
+	const h = clampInt(tile.h, minHeight, MAX_TILE_HEIGHT);
 	return {
 		...common,
+		h,
 		type: 'note',
 		noteId,
-		previewDepth: normalizePreviewDepth(tile.previewDepth),
+		previewDepth,
 		previewLineCount: normalizePreviewLineCount(tile.previewLineCount),
 	};
 }

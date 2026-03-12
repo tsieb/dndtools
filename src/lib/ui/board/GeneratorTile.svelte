@@ -1,5 +1,7 @@
 <script lang="ts">
 	import GeneratorPanel from '$lib/ui/generator/GeneratorPanel.svelte';
+	import Icon from '$lib/ui/common/Icon.svelte';
+	import { TILE_TYPE_METADATA } from '$lib/domain/session-board.js';
 	import type { SessionBoardTile } from '$lib/types/session-board.js';
 
 	interface Props {
@@ -11,6 +13,7 @@
 	}
 
 	let { tile, selected = false, editable = false, onselect, ondragstart }: Props = $props();
+	const tileMeta = TILE_TYPE_METADATA.generator;
 </script>
 
 <div
@@ -23,7 +26,7 @@
 		: ''}; border-radius: {tile.style?.borderRadius !== undefined
 		? `${tile.style.borderRadius}px`
 		: ''}; opacity: {tile.style?.opacity ?? 1}; transform-origin: top left; transform: scale({tile
-		.style?.scale ?? 1});"
+		.style?.scale ?? 1}); --tile-accent: var({tileMeta.colorToken});"
 	role="button"
 	tabindex="0"
 	aria-label="Session generator tile"
@@ -48,8 +51,12 @@
 		if (editable) ondragstart(event);
 	}}
 >
-	<header class="px-3 py-2 border-b border-border flex items-center gap-2">
-		<div class="font-medium text-sm text-ink flex-1">Generator</div>
+	<header
+		class="h-8 border-b border-border border-l-4 px-2.5 pr-3 flex items-center gap-2"
+		style="border-left-color: var(--tile-accent);"
+	>
+		<Icon name={tileMeta.iconName} size="sm" color="var(--tile-accent)" />
+		<div class="font-semibold text-sm text-ink flex-1">{tileMeta.label}</div>
 		<span class="text-2xs px-1.5 py-0.5 rounded border border-border/70 text-ink-faint">
 			Ctrl+G
 		</span>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { nanoid } from 'nanoid';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import SessionBoardTileCard from '$lib/ui/board/SessionBoardTile.svelte';
@@ -12,15 +13,21 @@
 	import SessionMissionControl from '$lib/ui/session/SessionMissionControl.svelte';
 	import SessionPrepPanel from '$lib/ui/session/SessionPrepPanel.svelte';
 	import EmptyState from '$lib/ui/common/EmptyState.svelte';
+	import Icon from '$lib/ui/common/Icon.svelte';
+	import Popover from '$lib/ui/common/Popover.svelte';
+	import ConfirmDialog from '$lib/ui/common/ConfirmDialog.svelte';
 	import { focusTrap } from '$lib/actions/focus-trap.js';
 	import {
 		DEFAULT_SESSION_BOARD_LAYOUT,
+		TILE_TYPE_METADATA,
 		moveSessionBoardTileByRow,
+		resolveSessionBoardTileType,
 	} from '$lib/domain/session-board.js';
 	import {
 		loadSessionPrepViewModel,
 		type SessionPrepViewModel,
 	} from '$lib/domain/session-prep-workflow.js';
+	import { createDefaultCombatState } from '$lib/domain/combat-tracker.js';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
@@ -44,6 +51,11 @@
 	const MIN_ZOOM = 0.2;
 	const MAX_ZOOM = 4;
 	const DEFAULT_ZOOM = 1;
+	const TILE_SIZE_PRESETS: ReadonlyArray<{ label: string; w: number; h: number }> = [
+		{ label: 'Small', w: 2, h: 1 },
+		{ label: 'Medium', w: 3, h: 2 },
+		{ label: 'Large', w: 4, h: 3 },
+	];
 
 	let newBoardName = $state('Session Board');
 	let newBoardDescription = $state('');
@@ -85,6 +97,23 @@
 	let sessionPrepLoading = $state(false);
 	let sessionPrepError = $state<string | null>(null);
 	let lastSessionPrepKey = $state('');
+	let tileMenuTileId = $state<string | null>(null);
+	let tileMenuButtonEl = $state<HTMLElement | null>(null);
+	let resizeModeTileId = $state<string | null>(null);
+	let resizeDraftSize = $state<{ w: number; h: number } | null>(null);
+	let resizeAnnouncement = $state('');
+	let resizeDrag = $state<{
+		tileId: string;
+		pointerId: number;
+		startX: number;
+		startY: number;
+		startW: number;
+		startH: number;
+		dragged: boolean;
+	} | null>(null);
+	let removeConfirmTileId = $state<string | null>(null);
+	let noteAssignTileId = $state<string | null>(null);
+	let noteAssignQuery = $state('');
 
 	type RenderedTileEntry =
 		| { tile: SessionBoardTile; kind: 'calendar'; x: number; y: number }
@@ -126,6 +155,16 @@
 			? (selectedTile as SessionBoardNoteTile)
 			: null,
 	);
+	let tileMenuTile = $derived.by(() =>
+		tileMenuTileId
+			? (activeBoard?.tiles.find((entry) => entry.id === tileMenuTileId) ?? null)
+			: null,
+	);
+	let noteAssignTile = $derived.by(() =>
+		noteAssignTileId
+			? (activeBoard?.tiles.find((entry) => entry.id === noteAssignTileId) ?? null)
+			: null,
+	);
 	let overlayNote = $derived(overlayNoteId ? (activeNotesById.get(overlayNoteId) ?? null) : null);
 	let zoomPercent = $derived(Math.round(zoom * 100));
 
@@ -155,6 +194,18 @@
 			.sort((a, b) => b.score - a.score || b.note.updatedAt.localeCompare(a.note.updatedAt))
 			.slice(0, 40)
 			.map((e) => e.note);
+	});
+
+	let noteAssignOptions = $derived.by(() => {
+		const q = noteAssignQuery.trim().toLowerCase();
+		const base = notesState.activeNotes;
+		if (!q) return base.slice(0, 60);
+		return base
+			.filter((note) => {
+				if (note.title.toLowerCase().includes(q)) return true;
+				return note.tags.some((tag) => tag.toLowerCase().includes(q));
+			})
+			.slice(0, 60);
 	});
 
 	let renderedTiles = $derived.by(() => {
@@ -231,6 +282,11 @@
 			saveTemplateDescription = activeBoard.description;
 			applyTemplateId = '';
 			selectedTileId = null;
+			tileMenuTileId = null;
+			resizeModeTileId = null;
+			resizeDraftSize = null;
+			removeConfirmTileId = null;
+			noteAssignTileId = null;
 			draftPositions = {};
 			zoom = DEFAULT_ZOOM;
 			lastBoardId = activeBoard.id;
@@ -246,7 +302,13 @@
 	});
 
 	$effect(() => {
-		if (mode === 'view') selectedTileId = null;
+		if (mode !== 'view') return;
+		selectedTileId = null;
+		tileMenuTileId = null;
+		resizeModeTileId = null;
+		resizeDraftSize = null;
+		removeConfirmTileId = null;
+		noteAssignTileId = null;
 	});
 
 	$effect(() => {
@@ -301,7 +363,7 @@
 	});
 
 	$effect(() => {
-		if (!drag && !pan) return;
+		if (!drag && !pan && !resizeDrag) return;
 		function move(event: PointerEvent): void {
 			if (drag && activeBoard && event.pointerId === drag.pointerId) {
 				const activeDrag = drag;
@@ -333,6 +395,24 @@
 					pan = { ...pan, moved: true };
 				}
 			}
+			if (resizeDrag && activeBoard && event.pointerId === resizeDrag.pointerId) {
+				const activeResize = resizeDrag;
+				const dx = Math.round(
+					(event.clientX - activeResize.startX) / ((CELL_WIDTH + layout.gap) * zoom),
+				);
+				const dy = Math.round(
+					(event.clientY - activeResize.startY) / ((layout.rowHeight + layout.gap) * zoom),
+				);
+				const tile = activeBoard.tiles.find((entry) => entry.id === activeResize.tileId);
+				if (!tile) return;
+				const nextW = Math.max(2, Math.min(layout.columns, activeResize.startW + dx));
+				const nextH = Math.max(1, Math.min(8, activeResize.startH + dy));
+				const clampedW = Math.min(nextW, layout.columns - tile.x);
+				resizeDraftSize = { w: clampedW, h: nextH };
+				if (!activeResize.dragged && (Math.abs(dx) > 0 || Math.abs(dy) > 0)) {
+					resizeDrag = { ...activeResize, dragged: true };
+				}
+			}
 		}
 		function up(event: PointerEvent): void {
 			if (drag && activeBoard && event.pointerId === drag.pointerId) {
@@ -348,6 +428,26 @@
 				drag = null;
 			}
 			if (pan && event.pointerId === pan.pointerId) pan = null;
+			if (resizeDrag && activeBoard && event.pointerId === resizeDrag.pointerId) {
+				const activeResize = resizeDrag;
+				const tile = activeBoard.tiles.find((entry) => entry.id === activeResize.tileId);
+				const draft = resizeDraftSize;
+				if (tile && draft && (tile.w !== draft.w || tile.h !== draft.h)) {
+					void sessionBoardsState.updateTile(activeBoard.id, tile.id, { w: draft.w, h: draft.h });
+				}
+				if (!activeResize.dragged && tile) {
+					const presetIndex = TILE_SIZE_PRESETS.findIndex(
+						(entry) => entry.w === tile.w && entry.h === tile.h,
+					);
+					const nextPreset = TILE_SIZE_PRESETS[(presetIndex + 1) % TILE_SIZE_PRESETS.length]!;
+					void sessionBoardsState.updateTile(activeBoard.id, tile.id, {
+						w: Math.min(nextPreset.w, Math.max(2, layout.columns - tile.x)),
+						h: Math.max(1, nextPreset.h),
+					});
+				}
+				resizeDrag = null;
+				resizeDraftSize = null;
+			}
 		}
 		window.addEventListener('pointermove', move);
 		window.addEventListener('pointerup', up);
@@ -360,10 +460,16 @@
 	});
 
 	function tileStyle(tile: SessionBoardTile, x: number, y: number): string {
+		const sizeOverride =
+			(resizeModeTileId === tile.id || resizeDrag?.tileId === tile.id) && resizeDraftSize
+				? resizeDraftSize
+				: null;
+		const widthUnits = sizeOverride?.w ?? tile.w;
+		const heightUnits = sizeOverride?.h ?? tile.h;
 		const left = x * (CELL_WIDTH + layout.gap);
 		const top = y * (layout.rowHeight + layout.gap);
-		const width = tile.w * CELL_WIDTH + Math.max(0, tile.w - 1) * layout.gap;
-		const height = tile.h * layout.rowHeight + Math.max(0, tile.h - 1) * layout.gap;
+		const width = widthUnits * CELL_WIDTH + Math.max(0, widthUnits - 1) * layout.gap;
+		const height = heightUnits * layout.rowHeight + Math.max(0, heightUnits - 1) * layout.gap;
 		return `left:${left}px;top:${top}px;width:${width}px;height:${height}px;min-height:0;`;
 	}
 
@@ -559,6 +665,143 @@
 		void sessionBoardsState.updateTile(activeBoard.id, tileId, { y: movedTile.y });
 	}
 
+	function tileLabel(tile: SessionBoardTile): string {
+		const tileType = resolveSessionBoardTileType(tile);
+		if (tileType === 'note' && tile.noteId) {
+			const note = activeNotesById.get(tile.noteId);
+			if (note) return note.title;
+		}
+		return TILE_TYPE_METADATA[tileType].label;
+	}
+
+	function tileAccentStyle(tile: SessionBoardTile): string {
+		const tileType = resolveSessionBoardTileType(tile);
+		return `--tile-accent: var(${TILE_TYPE_METADATA[tileType].colorToken}); border-color: var(--tile-accent);`;
+	}
+
+	function openTileMenu(tileId: string, buttonEl: HTMLElement | null): void {
+		selectedTileId = tileId;
+		tileMenuTileId = tileId;
+		tileMenuButtonEl = buttonEl;
+	}
+
+	function closeTileMenu(): void {
+		tileMenuTileId = null;
+	}
+
+	function duplicateTile(tileId: string): void {
+		if (!activeBoard) return;
+		const tile = activeBoard.tiles.find((entry) => entry.id === tileId);
+		if (!tile) return;
+		const nextTile: SessionBoardTile = {
+			...tile,
+			id: nanoid(10),
+			x: Math.min(Math.max(0, tile.x + 1), Math.max(0, layout.columns - tile.w)),
+			y: Math.max(0, tile.y + 1),
+		};
+		void sessionBoardsState.updateBoard(activeBoard.id, {
+			tiles: [...activeBoard.tiles, nextTile],
+		});
+		selectedTileId = nextTile.id;
+	}
+
+	function openResizeMode(tileId: string): void {
+		if (!activeBoard) return;
+		const tile = activeBoard.tiles.find((entry) => entry.id === tileId);
+		if (!tile) return;
+		resizeModeTileId = tileId;
+		resizeDraftSize = { w: tile.w, h: tile.h };
+		resizeAnnouncement = `Tile size: ${tile.w} wide, ${tile.h} tall.`;
+		closeTileMenu();
+	}
+
+	function applyResize(tileId: string, width: number, height: number): void {
+		if (!activeBoard) return;
+		const tile = activeBoard.tiles.find((entry) => entry.id === tileId);
+		if (!tile) return;
+		const nextWidth = Math.min(layout.columns - tile.x, Math.max(2, width));
+		const nextHeight = Math.max(1, Math.min(8, height));
+		resizeDraftSize = { w: nextWidth, h: nextHeight };
+		resizeAnnouncement = `Tile size: ${nextWidth} wide, ${nextHeight} tall.`;
+	}
+
+	function saveResizeMode(): void {
+		if (!activeBoard || !resizeModeTileId || !resizeDraftSize) return;
+		void sessionBoardsState.updateTile(activeBoard.id, resizeModeTileId, {
+			w: resizeDraftSize.w,
+			h: resizeDraftSize.h,
+		});
+		resizeModeTileId = null;
+		resizeDraftSize = null;
+	}
+
+	function cancelResizeMode(): void {
+		resizeModeTileId = null;
+		resizeDraftSize = null;
+	}
+
+	function startResizeDrag(tileId: string, event: PointerEvent): void {
+		if (mode !== 'edit' || !activeBoard || event.button !== 0) return;
+		const tile = activeBoard.tiles.find((entry) => entry.id === tileId);
+		if (!tile) return;
+		event.preventDefault();
+		event.stopPropagation();
+		selectedTileId = tileId;
+		resizeDrag = {
+			tileId,
+			pointerId: event.pointerId,
+			startX: event.clientX,
+			startY: event.clientY,
+			startW: tile.w,
+			startH: tile.h,
+			dragged: false,
+		};
+		resizeDraftSize = { w: tile.w, h: tile.h };
+	}
+
+	function assignNoteToTile(tileId: string, noteId: NoteId): void {
+		if (!activeBoard) return;
+		void sessionBoardsState.updateTile(activeBoard.id, tileId, { noteId });
+		noteAssignTileId = null;
+		noteAssignQuery = '';
+	}
+
+	function clearTileNote(tileId: string): void {
+		if (!activeBoard) return;
+		void sessionBoardsState.updateTile(activeBoard.id, tileId, { noteId: undefined });
+	}
+
+	function setTileDepth(tileId: string, previewDepth: 'title' | 'summary' | 'full'): void {
+		if (!activeBoard) return;
+		void sessionBoardsState.updateTile(activeBoard.id, tileId, { previewDepth });
+		closeTileMenu();
+	}
+
+	function handleTileMenuKeydown(event: KeyboardEvent): void {
+		const menu = event.currentTarget as HTMLElement | null;
+		if (!menu) return;
+		const menuItems = [...menu.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]')];
+		if (menuItems.length === 0) return;
+		const currentIndex = menuItems.findIndex((item) => item === document.activeElement);
+		if (event.key === 'ArrowDown') {
+			event.preventDefault();
+			const next = menuItems[(currentIndex + 1 + menuItems.length) % menuItems.length]!;
+			next.focus();
+			return;
+		}
+		if (event.key === 'ArrowUp') {
+			event.preventDefault();
+			const next = menuItems[(currentIndex - 1 + menuItems.length) % menuItems.length]!;
+			next.focus();
+			return;
+		}
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			closeTileMenu();
+			tileMenuButtonEl?.focus();
+		}
+	}
+
 	function startTileDrag(
 		tileId: string,
 		event: PointerEvent,
@@ -648,6 +891,55 @@
 		if (!overlayContentEl) return;
 		overlayContentEl.addEventListener('click', handleOverlayClick);
 		return () => overlayContentEl?.removeEventListener('click', handleOverlayClick);
+	});
+
+	$effect(() => {
+		if (!tileMenuTileId) return;
+		requestAnimationFrame(() => {
+			const firstItem = document.querySelector<HTMLButtonElement>('button[role="menuitem"]');
+			firstItem?.focus();
+		});
+	});
+
+	$effect(() => {
+		if (!resizeModeTileId) return;
+		function onKeydown(event: KeyboardEvent): void {
+			if (!activeBoard || !resizeModeTileId) return;
+			const tile = activeBoard.tiles.find((entry) => entry.id === resizeModeTileId);
+			if (!tile) return;
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				cancelResizeMode();
+				return;
+			}
+			if (event.key === 'Enter') {
+				event.preventDefault();
+				saveResizeMode();
+				return;
+			}
+			const source = resizeDraftSize ?? { w: tile.w, h: tile.h };
+			if (event.key === 'ArrowLeft') {
+				event.preventDefault();
+				applyResize(tile.id, source.w - 1, source.h);
+				return;
+			}
+			if (event.key === 'ArrowRight') {
+				event.preventDefault();
+				applyResize(tile.id, source.w + 1, source.h);
+				return;
+			}
+			if (event.key === 'ArrowUp') {
+				event.preventDefault();
+				applyResize(tile.id, source.w, source.h - 1);
+				return;
+			}
+			if (event.key === 'ArrowDown') {
+				event.preventDefault();
+				applyResize(tile.id, source.w, source.h + 1);
+			}
+		}
+		window.addEventListener('keydown', onKeydown);
+		return () => window.removeEventListener('keydown', onKeydown);
 	});
 </script>
 
@@ -1231,7 +1523,7 @@
 											<label class="text-xs"
 												>H<input
 													type="number"
-													min="2"
+													min="1"
 													max="8"
 													value={selectedTile.h}
 													onchange={(e) =>
@@ -1255,21 +1547,6 @@
 															>Summary</option
 														><option value="full">Full</option></select
 													></label
-												>
-												<label class="text-xs"
-													>Summary Lines<input
-														type="number"
-														min="1"
-														max="40"
-														value={selectedNoteTile.previewLineCount ?? 8}
-														onchange={(e) =>
-															onNumberChange(
-																e,
-																selectedNoteTile.previewLineCount ?? 8,
-																(v) => void updateSelected({ previewLineCount: v }),
-															)}
-														class="mt-1 w-full px-2 py-1 rounded border border-border"
-													/></label
 												>
 											{/if}
 											<label class="text-xs"
@@ -1404,30 +1681,35 @@
 										></div>
 										{#each renderedTiles as entry (entry.tile.id)}
 											{@const tile = entry.tile}
-											<div class="absolute" style={tileStyle(tile, entry.x, entry.y)}>
+											<div class="absolute group" style={tileStyle(tile, entry.x, entry.y)}>
 												{#if mode === 'edit'}
-													<div class="pointer-events-none absolute right-2 top-2 z-30">
-														<div
-															class="pointer-events-auto flex items-center gap-1 rounded-md border border-border bg-surface/95 p-1 shadow-sm"
+													<div class="pointer-events-none absolute right-2 top-2 z-40">
+														<button
+															type="button"
+															class="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-surface/95 text-ink-muted shadow-sm transition-opacity hover:bg-surface-alt md:opacity-0 md:group-hover:opacity-100"
+															aria-label={`Tile options for ${tileLabel(tile)}`}
+															aria-haspopup="menu"
+															aria-expanded={tileMenuTileId === tile.id}
+															onclick={(event) =>
+																openTileMenu(tile.id, event.currentTarget as HTMLElement)}
 														>
-															<button
-																type="button"
-																class="touch-target rounded border border-border px-2 text-xs text-ink-muted hover:bg-surface-alt"
-																aria-label="Move tile up"
-																onclick={() => moveTileByRow(tile.id, -1)}
-															>
-																Up
-															</button>
-															<button
-																type="button"
-																class="touch-target rounded border border-border px-2 text-xs text-ink-muted hover:bg-surface-alt"
-																aria-label="Move tile down"
-																onclick={() => moveTileByRow(tile.id, 1)}
-															>
-																Down
-															</button>
-														</div>
+															<Icon name="ellipsis" size="sm" />
+														</button>
 													</div>
+													<button
+														type="button"
+														class="absolute bottom-2 right-2 z-40 inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface/95 text-ink-faint shadow-sm hover:bg-surface-alt"
+														aria-label={`Resize ${tileLabel(tile)}`}
+														onpointerdown={(event) => startResizeDrag(tile.id, event)}
+													>
+														<Icon name="x" size="sm" />
+													</button>
+												{/if}
+												{#if resizeModeTileId === tile.id}
+													<div
+														class="pointer-events-none absolute inset-0 z-30 rounded-lg border-2 border-dashed"
+														style={tileAccentStyle(tile)}
+													></div>
 												{/if}
 												{#if entry.kind === 'note' && entry.note}
 													{@const note = entry.note}
@@ -1436,6 +1718,7 @@
 														{note}
 														selected={mode === 'edit' && selectedTileId === tile.id}
 														editable={mode === 'edit'}
+														showDepthBadge={mode === 'edit'}
 														scrollable={selectedTileId === tile.id}
 														tintColor={activeBoard.style?.sectionTintColor ?? '#7c3aed'}
 														tintOpacity={activeBoard.style?.sectionTintOpacity ?? 0}
@@ -1526,7 +1809,8 @@
 													/>
 												{:else if entry.kind === 'note_slot'}
 													<div
-														class="relative h-full rounded-lg border border-dashed border-border bg-surface/90 p-3"
+														class="relative h-full rounded-lg border border-dashed border-border bg-surface/90 flex flex-col"
+														style="--tile-accent: var({TILE_TYPE_METADATA.note.colorToken});"
 														data-board-tile="true"
 													>
 														{#if mode === 'edit'}
@@ -1542,8 +1826,21 @@
 																}}
 															></button>
 														{/if}
+														<header
+															class="h-8 border-b border-border border-l-4 px-2.5 pr-3 flex items-center gap-2"
+															style="border-left-color: var(--tile-accent);"
+														>
+															<Icon
+																name={TILE_TYPE_METADATA.note.iconName}
+																size="sm"
+																color="var(--tile-accent)"
+															/>
+															<div class="font-semibold text-sm text-ink">
+																{TILE_TYPE_METADATA.note.label}
+															</div>
+														</header>
 														<div
-															class="relative z-20 h-full flex flex-col justify-center gap-2 text-center"
+															class="relative z-20 h-full flex flex-col justify-center gap-2 text-center p-3"
 														>
 															<div class="text-xs font-semibold text-ink">Empty note slot</div>
 															<div class="text-xs text-ink-muted">
@@ -1553,7 +1850,8 @@
 													</div>
 												{:else}
 													<div
-														class="relative h-full rounded-lg border border-border bg-surface p-2"
+														class="relative h-full rounded-lg border border-border bg-surface flex flex-col"
+														style="--tile-accent: var({TILE_TYPE_METADATA.calendar.colorToken});"
 														data-board-tile="true"
 													>
 														{#if mode === 'edit'}
@@ -1569,11 +1867,26 @@
 																}}
 															></button>
 														{/if}
-														<WorldCalendarReference
-															notes={notesState.activeNotes}
-															title="Calendar Reference"
-															collapsible={true}
-														/>
+														<header
+															class="h-8 border-b border-border border-l-4 px-2.5 pr-3 flex items-center gap-2"
+															style="border-left-color: var(--tile-accent);"
+														>
+															<Icon
+																name={TILE_TYPE_METADATA.calendar.iconName}
+																size="sm"
+																color="var(--tile-accent)"
+															/>
+															<div class="font-semibold text-sm text-ink">
+																{TILE_TYPE_METADATA.calendar.label}
+															</div>
+														</header>
+														<div class="flex-1 min-h-0 p-2">
+															<WorldCalendarReference
+																notes={notesState.activeNotes}
+																title="Calendar Reference"
+																collapsible={true}
+															/>
+														</div>
 													</div>
 												{/if}
 											</div>
@@ -1588,6 +1901,225 @@
 		</section>
 	</div>
 </section>
+
+{#if tileMenuTile && tileMenuButtonEl}
+	<Popover open={true} onclose={closeTileMenu} anchor={tileMenuButtonEl} class="min-w-64 p-1">
+		<ul
+			role="menu"
+			aria-label={`Tile options for ${tileLabel(tileMenuTile)}`}
+			class="space-y-1"
+			onkeydown={handleTileMenuKeydown}
+		>
+			<li role="none">
+				<button
+					type="button"
+					role="menuitem"
+					class="w-full rounded px-2 py-1.5 text-left text-xs text-ink hover:bg-surface-alt"
+					onclick={() => {
+						moveTileByRow(tileMenuTile.id, 1);
+						closeTileMenu();
+					}}
+				>
+					Move tile
+				</button>
+			</li>
+			<li role="none">
+				<button
+					type="button"
+					role="menuitem"
+					class="w-full rounded px-2 py-1.5 text-left text-xs text-ink hover:bg-surface-alt"
+					onclick={() => openResizeMode(tileMenuTile.id)}
+				>
+					Resize tile
+				</button>
+			</li>
+			<li role="none">
+				<button
+					type="button"
+					role="menuitem"
+					class="w-full rounded px-2 py-1.5 text-left text-xs text-ink hover:bg-surface-alt"
+					onclick={() => {
+						duplicateTile(tileMenuTile.id);
+						closeTileMenu();
+					}}
+				>
+					Duplicate tile
+				</button>
+			</li>
+			<li role="none">
+				<button
+					type="button"
+					role="menuitem"
+					class="w-full rounded px-2 py-1.5 text-left text-xs text-error hover:bg-error/10"
+					onclick={() => {
+						removeConfirmTileId = tileMenuTile.id;
+						closeTileMenu();
+					}}
+				>
+					Remove tile
+				</button>
+			</li>
+			{#if resolveSessionBoardTileType(tileMenuTile) === 'note'}
+				<li role="none"><div class="my-1 border-t border-border/70"></div></li>
+				<li role="none">
+					<button
+						type="button"
+						role="menuitem"
+						class="w-full rounded px-2 py-1.5 text-left text-xs text-ink hover:bg-surface-alt"
+						onclick={() => {
+							if (tileMenuTile.noteId)
+								void goto(resolve(`/knowledge/notes/${tileMenuTile.noteId}`), {
+									state: { label: tileLabel(tileMenuTile) },
+								});
+							closeTileMenu();
+						}}
+					>
+						Open note
+					</button>
+				</li>
+				<li role="none">
+					<button
+						type="button"
+						role="menuitem"
+						class="w-full rounded px-2 py-1.5 text-left text-xs text-ink hover:bg-surface-alt"
+						onclick={() => {
+							noteAssignTileId = tileMenuTile.id;
+							noteAssignQuery = '';
+							closeTileMenu();
+						}}
+					>
+						Change note
+					</button>
+				</li>
+				<li role="none" class="px-2 py-1 text-2xs font-semibold text-ink-faint">Content depth</li>
+				<li role="none" class="space-y-1 px-2 pb-1">
+					{#each [{ key: 'title', label: 'Title only' }, { key: 'summary', label: 'Summary' }, { key: 'full', label: 'Full' }] as depthOption (depthOption.key)}
+						<label class="flex items-center gap-2 text-xs text-ink">
+							<input
+								type="radio"
+								name={`tile-depth-${tileMenuTile.id}`}
+								checked={(tileMenuTile.previewDepth ?? 'summary') === depthOption.key}
+								onchange={() =>
+									setTileDepth(tileMenuTile.id, depthOption.key as 'title' | 'summary' | 'full')}
+							/>
+							<span>{depthOption.label}</span>
+						</label>
+					{/each}
+				</li>
+			{/if}
+			{#if resolveSessionBoardTileType(tileMenuTile) === 'combat'}
+				<li role="none"><div class="my-1 border-t border-border/70"></div></li>
+				<li role="none">
+					<button
+						type="button"
+						role="menuitem"
+						class="w-full rounded px-2 py-1.5 text-left text-xs text-ink hover:bg-surface-alt"
+						onclick={() => {
+							if (!activeBoard) return;
+							void sessionBoardsState.updateTile(activeBoard.id, tileMenuTile.id, {
+								combat: createDefaultCombatState(),
+							});
+							closeTileMenu();
+						}}
+					>
+						Reset combat
+					</button>
+				</li>
+				<li role="none">
+					<button
+						type="button"
+						role="menuitem"
+						class="w-full rounded px-2 py-1.5 text-left text-xs text-ink hover:bg-surface-alt"
+						onclick={() => {
+							toastState.info('Encounter log export is available inside the combat tile.');
+							closeTileMenu();
+						}}
+					>
+						Export encounter log
+					</button>
+				</li>
+			{/if}
+		</ul>
+	</Popover>
+{/if}
+
+<ConfirmDialog
+	open={!!removeConfirmTileId}
+	title="Remove tile?"
+	message="This tile will be removed from the board."
+	confirmText="Remove tile"
+	oncancel={() => (removeConfirmTileId = null)}
+	onconfirm={() => {
+		if (!removeConfirmTileId) return;
+		void removeTile(removeConfirmTileId);
+		removeConfirmTileId = null;
+	}}
+/>
+
+{#if noteAssignTile}
+	<div class="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-4">
+		<div
+			class="w-full max-w-2xl max-h-[80vh] rounded-lg border border-border bg-surface-elevated shadow-lg flex flex-col"
+			role="dialog"
+			aria-modal="true"
+			aria-label="Change note"
+			use:focusTrap
+		>
+			<div class="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
+				<h2 class="text-sm font-semibold text-ink">Choose note</h2>
+				<button
+					type="button"
+					class="rounded border border-border px-2 py-1 text-xs hover:bg-surface-alt"
+					onclick={() => {
+						noteAssignTileId = null;
+						noteAssignQuery = '';
+					}}
+				>
+					Close
+				</button>
+			</div>
+			<div class="p-3 space-y-2 overflow-hidden flex-1 min-h-0">
+				<input
+					type="text"
+					bind:value={noteAssignQuery}
+					class="w-full rounded border border-border bg-surface px-2.5 py-1.5 text-sm"
+					placeholder="Search notes"
+				/>
+				<div class="min-h-0 flex-1 overflow-y-auto rounded border border-border/70 p-1 space-y-1">
+					{#if noteAssignOptions.length === 0}
+						<div class="px-2 py-2 text-xs text-ink-faint">No matching notes.</div>
+					{:else}
+						{#each noteAssignOptions as note (note.id)}
+							<button
+								type="button"
+								class="w-full rounded border border-transparent px-2 py-1.5 text-left text-sm hover:border-border hover:bg-surface-alt"
+								onclick={() => assignNoteToTile(noteAssignTile.id, note.id)}
+							>
+								<div class="truncate text-ink">{note.title}</div>
+								{#if note.tags.length > 0}
+									<div class="truncate text-2xs text-ink-faint">
+										#{note.tags.slice(0, 3).join(' #')}
+									</div>
+								{/if}
+							</button>
+						{/each}
+					{/if}
+				</div>
+				{#if resolveSessionBoardTileType(noteAssignTile) === 'note' && noteAssignTile.noteId}
+					<button
+						type="button"
+						class="self-start rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
+						onclick={() => clearTileNote(noteAssignTile.id)}
+					>
+						Clear assigned note
+					</button>
+				{/if}
+			</div>
+		</div>
+	</div>
+{/if}
+
+<div class="sr-only" aria-live="polite">{resizeAnnouncement}</div>
 
 {#if overlayNote}
 	<div

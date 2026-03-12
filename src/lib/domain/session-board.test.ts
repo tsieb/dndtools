@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	BUILT_IN_SESSION_BOARD_TEMPLATES,
 	DEFAULT_SESSION_CONTEXT,
+	TILE_TYPE_METADATA,
 	createDefaultSessionBoardScene,
 	createDefaultTimerState,
 	moveSessionBoardTileByRow,
@@ -19,6 +20,12 @@ describe('session-board domain', () => {
 		expect(BUILT_IN_SESSION_BOARD_TEMPLATES.map((template) => template.name)).toEqual(
 			expect.arrayContaining(['Combat Scene', 'NPC Encounter', 'Exploration', 'Town Visit']),
 		);
+	});
+
+	it('defines semantic metadata for all session board tile visuals', () => {
+		expect(TILE_TYPE_METADATA.note.iconName).toBe('scroll');
+		expect(TILE_TYPE_METADATA.combat.colorToken).toBe('--color-tile-combat');
+		expect(TILE_TYPE_METADATA.map.iconName).toBe('map');
 	});
 
 	it('merges custom templates with built-ins when normalizing settings', () => {
@@ -55,6 +62,36 @@ describe('session-board domain', () => {
 		if ((normalizedNote.type ?? 'note') === 'note') {
 			expect(normalizedNote.previewLineCount).toBe(40);
 		}
+		const titleDepthNote = normalizeSessionBoardTile({
+			id: 'note-title-depth',
+			type: 'note',
+			x: 0,
+			y: 0,
+			w: 4,
+			h: 0,
+			previewDepth: 'title',
+		});
+		const summaryDepthNote = normalizeSessionBoardTile({
+			id: 'note-summary-depth',
+			type: 'note',
+			x: 0,
+			y: 0,
+			w: 4,
+			h: 1,
+			previewDepth: 'summary',
+		});
+		const fullDepthNote = normalizeSessionBoardTile({
+			id: 'note-full-depth',
+			type: 'note',
+			x: 0,
+			y: 0,
+			w: 4,
+			h: 2,
+			previewDepth: 'full',
+		});
+		expect(titleDepthNote.h).toBe(1);
+		expect(summaryDepthNote.h).toBe(2);
+		expect(fullDepthNote.h).toBe(3);
 
 		const normalizedTimer = normalizeSessionBoardTile({
 			id: 'timer-tile',
