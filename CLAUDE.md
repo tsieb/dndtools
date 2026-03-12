@@ -171,6 +171,25 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 19.5** - Map Canvas Accessibility and Mobile Experience:
+  - Added keyboard-accessible POI pin navigation and actions in `src/lib/ui/maps/MapCanvasViewer.svelte`:
+    - POI overlay buttons now expose screen-reader labels with category and linked-note context.
+    - Arrow keys move focus to nearest cardinal POI, Home/End jump within layer insertion order, Enter selects POIs, and Delete in `poi_edit` requests deletion.
+    - Focus styling now uses a dedicated 2px ring aligned with `--color-focus-ring`.
+  - Added ARIA map-structure and list-view accessibility path in `src/routes/maps/+page.svelte`:
+    - map canvas now receives dynamic interactive-map labeling with POI/layer counts.
+    - live polite announcements added for POI placement, fog reveal/re-fog strokes, and route saves.
+    - added hidden POI inventory list and a toolbar `List view` toggle that renders an accessible POI table with per-row `Navigate to POI` actions.
+  - Added compact touch-optimized map interactions:
+    - touch pan inertia with tap-to-stop behavior, pinch zoom floor at fit-to-screen and max at 400%, and double-tap toggle between fit and 200%.
+    - long-press touch context actions for view/fog modes with compact-sheet presentation.
+    - touch fog brush defaults to larger compact radius and supports on-canvas drag resizing via brush-edge handle.
+  - Added compact mode-toolbar ergonomics:
+    - desktop/expanded top toolbar hides on compact layouts.
+    - compact now uses a thumb-reachable bottom horizontal mode strip with 44px buttons plus `...` overflow controls sheet.
+    - mode indicator collapses to a compact tappable chip that opens mode tools.
+  - Updated regression coverage in `tests/e2e-desktop/critical-workflows.spec.ts` for POI keyboard navigation, interactive-map ARIA presence, and list-view toggle flows.
+
 - **Epic 19.4** - Editing Tool Ergonomics: Undo, Fog, Routes, and Layers:
   - Added map editing undo/redo stack in `src/lib/state/map-undo-stack.svelte.ts` and integrated it in `src/routes/maps/+page.svelte`:
     - undo/redo now applies to POI placement/deletion/move, fog paint strokes, route finalize/delete/waypoint edits, layer visibility/player visibility/order/name/duplicate/delete operations, and grid alignment drags.
