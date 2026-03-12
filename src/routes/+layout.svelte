@@ -879,6 +879,18 @@
 		);
 	}
 
+	function handleBoardPaletteCommand(
+		command:
+			| 'add_note_tile'
+			| 'add_combat_tile'
+			| 'add_dice_tile'
+			| 'add_timer_tile'
+			| 'add_map_tile',
+	): void {
+		if (typeof window === 'undefined') return;
+		window.dispatchEvent(new CustomEvent('dndtools:board-command', { detail: { command } }));
+	}
+
 	$effect(() => {
 		if (typeof window === 'undefined' || !window.dndtoolsDesktop) return;
 		return onDesktopAppMenuCommand((command) => {
@@ -1149,6 +1161,7 @@
 				onsessionrecap={() => void handleSessionRecapScaffold()}
 				onopensplitview={(noteId: string) => (quickReferenceSplitNoteId = noteId)}
 				ontoggleplayermode={handleTogglePlayerMode}
+				onboardcommand={handleBoardPaletteCommand}
 			/>
 		{/await}
 	{/if}

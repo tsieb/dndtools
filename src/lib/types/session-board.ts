@@ -17,9 +17,11 @@ export type SessionBoardTileType =
 	| 'encounter'
 	| 'dice'
 	| 'generator'
-	| 'handouts';
+	| 'handouts'
+	| 'map';
 export type SessionBoardPreviewDepth = 'title' | 'summary' | 'full';
 export type SessionBoardTimerMode = 'elapsed' | 'countdown';
+export type SessionBoardMapInitialZoom = 'fit' | 'comfortable' | 'detail';
 export type CombatantOutcome = 'active' | 'fell' | 'fled';
 export type CombatMapTemplateShape = 'sphere' | 'cone' | 'line' | 'cube';
 export type CombatMapHistoryKind = 'movement' | 'status' | 'terrain' | 'template' | 'sync' | 'fog';
@@ -299,6 +301,9 @@ export interface SessionBoardTile {
 	noteId?: NoteId;
 	previewDepth?: SessionBoardPreviewDepth;
 	previewLineCount?: number;
+	mapId?: string;
+	initialZoom?: SessionBoardMapInitialZoom;
+	combatOverlay?: boolean;
 	timer?: SessionBoardTimerState;
 	combat?: SessionBoardCombatState;
 	encounter?: SessionBoardEncounterState;
@@ -321,6 +326,7 @@ export type SessionBoardEncounterTile = SessionBoardTile;
 export type SessionBoardDiceTile = SessionBoardTile;
 export type SessionBoardGeneratorTile = SessionBoardTile;
 export type SessionBoardHandoutTile = SessionBoardTile;
+export type SessionBoardMapTile = SessionBoardTile;
 
 export interface SessionBoardTileStyle {
 	backgroundColor?: string;

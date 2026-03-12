@@ -171,6 +171,27 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 20.3** - Tile Creation Flow: Visual Gallery and Live Preview:
+  - Replaced Add Tile actions with a visual gallery Sheet in `src/routes/session-board/+page.svelte`:
+    - Gallery now renders tile types as Card surfaces with semantic accent, icon, label, and one-line capability description.
+    - Selecting a gallery card creates the tile at the next available position, closes the Sheet, and moves focus to the new tile.
+    - Added map tile option to the gallery and board type system.
+  - Reworked unassigned note tile UX into explicit empty-state + assignment dialog:
+    - Note slots now render `EmptyState` with `Assign a note` messaging and `Choose note` action.
+    - Added note assignment dialog with search, note metadata, and inline content preview lines.
+    - Tile/menu flows now route through a shared note assignment dialog open/close contract.
+  - Added board-scoped command palette tile creation commands:
+    - `>board` commands now include `Add note tile`, `Add combat tracker`, `Add dice tray`, `Add timer`, and `Add map tile` when on `/session/boards`.
+    - Commands dispatch board command events and session board route handles creation, entering edit mode automatically when needed.
+  - Added `map` session board tile model and rendering:
+    - Extended `SessionBoardTileType` + normalization/state adapters for `map` with `mapId`, `initialZoom`, and `combatOverlay`.
+    - Map tiles render `MapCanvasViewer` inside the board tile surface with map-selection empty state and map picker dialog.
+    - Map tile action menu now includes `Change map` and `Toggle combat overlay`.
+    - Combat overlay mode projects combat map tokens, templates, and terrain from matching board combat map state onto the map tile.
+  - Updated regression coverage:
+    - `src/lib/domain/session-board.test.ts`
+    - `tests/e2e-desktop/interactive-controls.spec.ts`
+
 - **Epic 20.2** - Board Interaction Model: Fit-First, Scroll-Natural, Keyboard-Operable:
   - Replaced freeform board zoom with three intentional presets in `src/routes/session-board/+page.svelte`:
     - `Fit` (minimum 0.5, computed from viewport/canvas), `Comfortable` (1x), and `Detail` (1.5x).

@@ -36,7 +36,16 @@ const MAX_GRID_ROWS = 200;
 
 function getTileType(
 	tile: SessionBoardTile,
-): 'note' | 'calendar' | 'timer' | 'combat' | 'encounter' | 'dice' | 'generator' | 'handouts' {
+):
+	| 'note'
+	| 'calendar'
+	| 'timer'
+	| 'combat'
+	| 'encounter'
+	| 'dice'
+	| 'generator'
+	| 'handouts'
+	| 'map' {
 	switch (tile.type) {
 		case 'calendar':
 		case 'combat':
@@ -44,6 +53,7 @@ function getTileType(
 		case 'dice':
 		case 'generator':
 		case 'handouts':
+		case 'map':
 		case 'timer':
 		case 'note':
 			return tile.type;
@@ -168,6 +178,15 @@ function cloneBoardTileForTemplate(tile: SessionBoardTile): SessionBoardTile {
 		return {
 			...tile,
 			type: 'handouts',
+		};
+	}
+	if (type === 'map') {
+		return {
+			...tile,
+			type: 'map',
+			mapId: undefined,
+			initialZoom: 'fit',
+			combatOverlay: false,
 		};
 	}
 	return {
@@ -519,11 +538,35 @@ class SessionBoardsState {
 		});
 	}
 
-	async addCalendarTile(boardId: SessionBoardId): Promise<void> {
+	async addNoteTile(boardId: SessionBoardId): Promise<string | null> {
 		const board = this.boards.find((entry) => entry.id === boardId);
-		if (!board) return;
+		if (!board) return null;
+		const position = findNextOpenPosition(
+			board.tiles,
+			DEFAULT_TILE_W,
+			DEFAULT_TILE_H,
+			board.layout?.columns ?? GRID_COLUMNS,
+		);
+		const tileId = nanoid(10);
+		const tile: SessionBoardTile = {
+			id: tileId,
+			type: 'note',
+			x: position.x,
+			y: position.y,
+			w: DEFAULT_TILE_W,
+			h: DEFAULT_TILE_H,
+		};
+		await this.updateBoard(boardId, {
+			tiles: [...board.tiles, tile],
+		});
+		return tileId;
+	}
+
+	async addCalendarTile(boardId: SessionBoardId): Promise<string | null> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return null;
 		const existingCalendar = board.tiles.find((tile) => tile.type === 'calendar');
-		if (existingCalendar) return;
+		if (existingCalendar) return null;
 
 		const position = findNextOpenPosition(
 			board.tiles,
@@ -531,8 +574,9 @@ class SessionBoardsState {
 			DEFAULT_TILE_H,
 			board.layout?.columns ?? GRID_COLUMNS,
 		);
+		const tileId = nanoid(10);
 		const tile: SessionBoardTile = {
-			id: nanoid(10),
+			id: tileId,
 			type: 'calendar',
 			x: position.x,
 			y: position.y,
@@ -542,19 +586,21 @@ class SessionBoardsState {
 		await this.updateBoard(boardId, {
 			tiles: [...board.tiles, tile],
 		});
+		return tileId;
 	}
 
-	async addTimerTile(boardId: SessionBoardId): Promise<void> {
+	async addTimerTile(boardId: SessionBoardId): Promise<string | null> {
 		const board = this.boards.find((entry) => entry.id === boardId);
-		if (!board) return;
+		if (!board) return null;
 		const position = findNextOpenPosition(
 			board.tiles,
 			DEFAULT_TILE_W,
 			DEFAULT_TILE_H,
 			board.layout?.columns ?? GRID_COLUMNS,
 		);
+		const tileId = nanoid(10);
 		const tile: SessionBoardTile = {
-			id: nanoid(10),
+			id: tileId,
 			type: 'timer',
 			x: position.x,
 			y: position.y,
@@ -564,14 +610,16 @@ class SessionBoardsState {
 		await this.updateBoard(boardId, {
 			tiles: [...board.tiles, tile],
 		});
+		return tileId;
 	}
 
-	async addDiceTile(boardId: SessionBoardId): Promise<void> {
+	async addDiceTile(boardId: SessionBoardId): Promise<string | null> {
 		const board = this.boards.find((entry) => entry.id === boardId);
-		if (!board) return;
+		if (!board) return null;
 		const position = findNextOpenPosition(board.tiles, 5, 4, board.layout?.columns ?? GRID_COLUMNS);
+		const tileId = nanoid(10);
 		const tile: SessionBoardTile = {
-			id: nanoid(10),
+			id: tileId,
 			type: 'dice',
 			x: position.x,
 			y: position.y,
@@ -581,14 +629,16 @@ class SessionBoardsState {
 		await this.updateBoard(boardId, {
 			tiles: [...board.tiles, tile],
 		});
+		return tileId;
 	}
 
-	async addGeneratorTile(boardId: SessionBoardId): Promise<void> {
+	async addGeneratorTile(boardId: SessionBoardId): Promise<string | null> {
 		const board = this.boards.find((entry) => entry.id === boardId);
-		if (!board) return;
+		if (!board) return null;
 		const position = findNextOpenPosition(board.tiles, 6, 5, board.layout?.columns ?? GRID_COLUMNS);
+		const tileId = nanoid(10);
 		const tile: SessionBoardTile = {
-			id: nanoid(10),
+			id: tileId,
 			type: 'generator',
 			x: position.x,
 			y: position.y,
@@ -598,14 +648,16 @@ class SessionBoardsState {
 		await this.updateBoard(boardId, {
 			tiles: [...board.tiles, tile],
 		});
+		return tileId;
 	}
 
-	async addCombatTile(boardId: SessionBoardId): Promise<void> {
+	async addCombatTile(boardId: SessionBoardId): Promise<string | null> {
 		const board = this.boards.find((entry) => entry.id === boardId);
-		if (!board) return;
+		if (!board) return null;
 		const position = findNextOpenPosition(board.tiles, 6, 4, board.layout?.columns ?? GRID_COLUMNS);
+		const tileId = nanoid(10);
 		const tile: SessionBoardTile = {
-			id: nanoid(10),
+			id: tileId,
 			type: 'combat',
 			combat: createDefaultCombatState(),
 			x: position.x,
@@ -616,14 +668,16 @@ class SessionBoardsState {
 		await this.updateBoard(boardId, {
 			tiles: [...board.tiles, tile],
 		});
+		return tileId;
 	}
 
-	async addEncounterTile(boardId: SessionBoardId): Promise<void> {
+	async addEncounterTile(boardId: SessionBoardId): Promise<string | null> {
 		const board = this.boards.find((entry) => entry.id === boardId);
-		if (!board) return;
+		if (!board) return null;
 		const position = findNextOpenPosition(board.tiles, 6, 5, board.layout?.columns ?? GRID_COLUMNS);
+		const tileId = nanoid(10);
 		const tile: SessionBoardTile = {
-			id: nanoid(10),
+			id: tileId,
 			type: 'encounter',
 			encounter: createDefaultEncounterState(),
 			x: position.x,
@@ -634,14 +688,16 @@ class SessionBoardsState {
 		await this.updateBoard(boardId, {
 			tiles: [...board.tiles, tile],
 		});
+		return tileId;
 	}
 
-	async addHandoutTile(boardId: SessionBoardId): Promise<void> {
+	async addHandoutTile(boardId: SessionBoardId): Promise<string | null> {
 		const board = this.boards.find((entry) => entry.id === boardId);
-		if (!board) return;
+		if (!board) return null;
 		const position = findNextOpenPosition(board.tiles, 6, 4, board.layout?.columns ?? GRID_COLUMNS);
+		const tileId = nanoid(10);
 		const tile: SessionBoardTile = {
-			id: nanoid(10),
+			id: tileId,
 			type: 'handouts',
 			x: position.x,
 			y: position.y,
@@ -651,6 +707,29 @@ class SessionBoardsState {
 		await this.updateBoard(boardId, {
 			tiles: [...board.tiles, tile],
 		});
+		return tileId;
+	}
+
+	async addMapTile(boardId: SessionBoardId, mapId?: string): Promise<string | null> {
+		const board = this.boards.find((entry) => entry.id === boardId);
+		if (!board) return null;
+		const position = findNextOpenPosition(board.tiles, 6, 4, board.layout?.columns ?? GRID_COLUMNS);
+		const tileId = nanoid(10);
+		const tile: SessionBoardTile = {
+			id: tileId,
+			type: 'map',
+			mapId: mapId?.trim() || undefined,
+			initialZoom: 'fit',
+			combatOverlay: false,
+			x: position.x,
+			y: position.y,
+			w: 6,
+			h: 4,
+		};
+		await this.updateBoard(boardId, {
+			tiles: [...board.tiles, tile],
+		});
+		return tileId;
 	}
 
 	async removeTile(boardId: SessionBoardId, tileId: string): Promise<void> {

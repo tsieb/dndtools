@@ -46,8 +46,9 @@ Board model includes:
 
 - board metadata (`name`, `description`)
 - tile layout (`x,y,w,h`)
-- tile kinds (`note`, `calendar`, `timer`, `combat`, `encounter`, `dice`, `generator`, `handouts`)
+- tile kinds (`note`, `calendar`, `timer`, `combat`, `encounter`, `dice`, `generator`, `handouts`, `map`)
 - per-tile style overrides
+- map tile metadata (`mapId`, `initialZoom`, `combatOverlay`) for embedding Atlas maps in board context
 - board-level layout/style settings
 - scene timeline state (`scenes[]`, `activeSceneId`) where each scene stores:
   - title + inline description

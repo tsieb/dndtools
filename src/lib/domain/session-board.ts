@@ -4,6 +4,7 @@ import type {
 	SessionContextState,
 	SessionBoardHandoutHistoryEntry,
 	SessionBoardLayout,
+	SessionBoardMapInitialZoom,
 	SessionBoardPreviewDepth,
 	SessionBoardScene,
 	SessionBoardStyle,
@@ -46,7 +47,9 @@ const NOTE_DEPTH_MIN_HEIGHT: Record<SessionBoardPreviewDepth, number> = {
 	full: 3,
 };
 
-export type SessionBoardVisualTileType = SessionBoardTileType | 'map';
+const DEFAULT_MAP_INITIAL_ZOOM: SessionBoardMapInitialZoom = 'fit';
+
+export type SessionBoardVisualTileType = SessionBoardTileType;
 
 export interface SessionBoardTileMetadata {
 	label: string;
@@ -104,6 +107,12 @@ export const TILE_TYPE_METADATA: Record<SessionBoardVisualTileType, SessionBoard
 
 export function resolveSessionBoardTileType(tile: SessionBoardTile): SessionBoardTileType {
 	return tile.type ?? 'note';
+}
+
+function normalizeMapInitialZoom(value: unknown): SessionBoardMapInitialZoom {
+	return value === 'comfortable' || value === 'detail' || value === 'fit'
+		? value
+		: DEFAULT_MAP_INITIAL_ZOOM;
 }
 
 export const DEFAULT_SESSION_BOARD_LAYOUT: SessionBoardLayout = {
@@ -467,6 +476,16 @@ export function normalizeSessionBoardTile(tile: SessionBoardTile, columns = 12):
 		return {
 			...common,
 			type: 'handouts',
+		};
+	}
+	if (tile.type === 'map') {
+		const mapId = typeof tile.mapId === 'string' && tile.mapId.trim().length > 0 ? tile.mapId : '';
+		return {
+			...common,
+			type: 'map',
+			mapId: mapId || undefined,
+			initialZoom: normalizeMapInitialZoom(tile.initialZoom),
+			combatOverlay: tile.combatOverlay === true,
 		};
 	}
 	const noteId =

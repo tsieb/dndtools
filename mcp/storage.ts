@@ -501,10 +501,19 @@ function normalizeSessionBoardRecord(
 					rawTile.type === 'encounter' ||
 					rawTile.type === 'dice' ||
 					rawTile.type === 'generator' ||
-					rawTile.type === 'handouts'
+					rawTile.type === 'handouts' ||
+					rawTile.type === 'map'
 						? rawTile.type
 						: undefined,
 				noteId,
+				mapId: typeof rawTile.mapId === 'string' ? rawTile.mapId : undefined,
+				initialZoom:
+					rawTile.initialZoom === 'fit' ||
+					rawTile.initialZoom === 'comfortable' ||
+					rawTile.initialZoom === 'detail'
+						? rawTile.initialZoom
+						: undefined,
+				combatOverlay: rawTile.combatOverlay === true,
 				x: typeof rawTile.x === 'number' ? rawTile.x : 0,
 				y: typeof rawTile.y === 'number' ? rawTile.y : 0,
 				w: typeof rawTile.w === 'number' ? rawTile.w : 4,

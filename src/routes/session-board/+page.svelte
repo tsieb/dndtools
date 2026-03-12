@@ -12,13 +12,18 @@
 	import WorldCalendarReference from '$lib/ui/calendar/WorldCalendarReference.svelte';
 	import SessionMissionControl from '$lib/ui/session/SessionMissionControl.svelte';
 	import SessionPrepPanel from '$lib/ui/session/SessionPrepPanel.svelte';
+	import MapCanvasViewer from '$lib/ui/maps/MapCanvasViewer.svelte';
 	import EmptyState from '$lib/ui/common/EmptyState.svelte';
+	import Card from '$lib/ui/common/Card.svelte';
 	import Button from '$lib/ui/common/Button.svelte';
+	import Dialog from '$lib/ui/common/Dialog.svelte';
 	import Icon from '$lib/ui/common/Icon.svelte';
+	import ListItem from '$lib/ui/common/ListItem.svelte';
 	import Popover from '$lib/ui/common/Popover.svelte';
 	import Sheet from '$lib/ui/common/Sheet.svelte';
 	import ConfirmDialog from '$lib/ui/common/ConfirmDialog.svelte';
 	import { focusTrap } from '$lib/actions/focus-trap.js';
+	import { resolveDesktopMapAssetUrl } from '$lib/platform/desktop/bridge.js';
 	import {
 		DEFAULT_SESSION_BOARD_LAYOUT,
 		TILE_TYPE_METADATA,
@@ -29,13 +34,16 @@
 		loadSessionPrepViewModel,
 		type SessionPrepViewModel,
 	} from '$lib/domain/session-prep-workflow.js';
+	import { cellsForTemplate } from '$lib/domain/combat-map.js';
 	import { createDefaultCombatState } from '$lib/domain/combat-tracker.js';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
+	import { mapsState } from '$lib/state/maps.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import type { NoteId } from '$lib/types/note.js';
+	import type { MapObject } from '$lib/types/object.js';
 	import type {
 		SessionBoard,
 		SessionBoardNoteTile,
@@ -44,6 +52,7 @@
 		SessionBoardDiceTile as SessionBoardDiceTileModel,
 		SessionBoardGeneratorTile as SessionBoardGeneratorTileModel,
 		SessionBoardHandoutTile as SessionBoardHandoutTileModel,
+		SessionBoardMapTile as SessionBoardMapTileModel,
 		SessionBoardTile,
 		SessionBoardTimerTile as SessionBoardTimerTileModel,
 	} from '$lib/types/session-board.js';
@@ -58,6 +67,67 @@
 		{ label: 'Small', w: 2, h: 1 },
 		{ label: 'Medium', w: 3, h: 2 },
 		{ label: 'Large', w: 4, h: 3 },
+	];
+	type AddableTileType =
+		| 'note'
+		| 'calendar'
+		| 'timer'
+		| 'combat'
+		| 'encounter'
+		| 'dice'
+		| 'generator'
+		| 'handouts'
+		| 'map';
+	const TILE_TYPE_GALLERY: ReadonlyArray<{
+		type: AddableTileType;
+		title: string;
+		description: string;
+	}> = [
+		{
+			type: 'note',
+			title: 'Note',
+			description: 'Display any vault note with live content preview.',
+		},
+		{
+			type: 'combat',
+			title: 'Combat tracker',
+			description: 'Track initiative, HP, and conditions in real time.',
+		},
+		{
+			type: 'encounter',
+			title: 'Encounter builder',
+			description: 'Build and balance encounters with CR math.',
+		},
+		{
+			type: 'dice',
+			title: 'Dice tray',
+			description: 'Roll dice expressions and review session roll history.',
+		},
+		{
+			type: 'generator',
+			title: 'Generator',
+			description: 'Roll random tables and generate NPCs with campaign context.',
+		},
+		{
+			type: 'handouts',
+			title: 'Handouts',
+			description: 'Browse and deliver vault handouts to players.',
+		},
+		{
+			type: 'timer',
+			title: 'Timer',
+			description: 'Track session time, countdown timers, and lap marks.',
+		},
+		{
+			type: 'calendar',
+			title: 'Calendar',
+			description: 'Reference the world calendar for the current in-game date.',
+		},
+		{
+			type: 'map',
+			title: 'Map',
+			description: 'Display an interactive vault map, including the combat grid.',
+		},
 	];
 
 	let newBoardName = $state('Session Board');
@@ -117,6 +187,11 @@
 	let removeConfirmTileId = $state<string | null>(null);
 	let noteAssignTileId = $state<string | null>(null);
 	let noteAssignQuery = $state('');
+	let noteAssignInputEl = $state<HTMLInputElement | null>(null);
+	let mapAssignTileId = $state<string | null>(null);
+	let mapAssignQuery = $state('');
+	let mapAssignInputEl = $state<HTMLInputElement | null>(null);
+	let mapAssetUrls = $state<Record<string, string | null>>({});
 	let tileCreationSheetOpen = $state(false);
 	let keyboardFocusedTileId = $state<string | null>(null);
 	let keyboardMoveTileId = $state<string | null>(null);
@@ -136,6 +211,7 @@
 		| { tile: SessionBoardDiceTileModel; kind: 'dice'; x: number; y: number }
 		| { tile: SessionBoardGeneratorTileModel; kind: 'generator'; x: number; y: number }
 		| { tile: SessionBoardHandoutTileModel; kind: 'handouts'; x: number; y: number }
+		| { tile: SessionBoardMapTileModel; kind: 'map'; x: number; y: number }
 		| { tile: SessionBoardNoteTile; kind: 'note_slot'; x: number; y: number }
 		| {
 				tile: SessionBoardNoteTile;
@@ -176,6 +252,11 @@
 	let noteAssignTile = $derived.by(() =>
 		noteAssignTileId
 			? (activeBoard?.tiles.find((entry) => entry.id === noteAssignTileId) ?? null)
+			: null,
+	);
+	let mapAssignTile = $derived.by(() =>
+		mapAssignTileId
+			? (activeBoard?.tiles.find((entry) => entry.id === mapAssignTileId) ?? null)
 			: null,
 	);
 	let overlayNote = $derived(overlayNoteId ? (activeNotesById.get(overlayNoteId) ?? null) : null);
@@ -247,6 +328,28 @@
 			.slice(0, 60);
 	});
 
+	let mapObjects = $derived.by(() =>
+		mapsState.maps.filter((entry): entry is MapObject => entry.type === 'map'),
+	);
+	let mapById = $derived.by(() => {
+		const index: Record<string, MapObject> = {};
+		for (const map of mapObjects) {
+			index[String(map.id)] = map;
+		}
+		return index;
+	});
+	let mapAssignOptions = $derived.by(() => {
+		const q = mapAssignQuery.trim().toLowerCase();
+		if (!q) return mapObjects.slice(0, 60);
+		return mapObjects
+			.filter((map) => {
+				if (map.name.toLowerCase().includes(q)) return true;
+				if (map.summary.toLowerCase().includes(q)) return true;
+				return map.tags.some((tag) => tag.toLowerCase().includes(q));
+			})
+			.slice(0, 60);
+	});
+
 	let renderedTiles = $derived.by(() => {
 		if (!activeBoard) return [] as RenderedTileEntry[];
 		const entries: RenderedTileEntry[] = [];
@@ -280,6 +383,10 @@
 				entries.push({ tile, kind: 'handouts', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
 				continue;
 			}
+			if (tile.type === 'map') {
+				entries.push({ tile, kind: 'map', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
+				continue;
+			}
 			if (!tile.noteId) {
 				entries.push({ tile, kind: 'note_slot', x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
 				continue;
@@ -308,6 +415,31 @@
 	});
 
 	$effect(() => {
+		if (!mapsState.loaded && !mapsState.loading) void mapsState.loadAll();
+	});
+
+	$effect(() => {
+		let stale = false;
+		void (async () => {
+			const entries = await Promise.all(
+				mapObjects.map(async (map) => {
+					const filePath = map.data.filePath?.trim() ?? '';
+					if (!filePath) return [String(map.id), null] as const;
+					if (typeof window !== 'undefined' && window.dndtoolsDesktop) {
+						return [String(map.id), await resolveDesktopMapAssetUrl(filePath)] as const;
+					}
+					return [String(map.id), filePath] as const;
+				}),
+			);
+			if (stale) return;
+			mapAssetUrls = Object.fromEntries(entries);
+		})();
+		return () => {
+			stale = true;
+		};
+	});
+
+	$effect(() => {
 		if (!activeBoard) {
 			selectedTileId = null;
 			lastBoardId = null;
@@ -332,6 +464,8 @@
 			resizeDraftSize = null;
 			removeConfirmTileId = null;
 			noteAssignTileId = null;
+			mapAssignTileId = null;
+			mapAssignQuery = '';
 			draftPositions = {};
 			zoomPreset = 'fit';
 			keyboardFocusedTileId = null;
@@ -367,6 +501,8 @@
 		resizeDraftSize = null;
 		removeConfirmTileId = null;
 		noteAssignTileId = null;
+		mapAssignTileId = null;
+		mapAssignQuery = '';
 		keyboardMoveTileId = null;
 		keyboardMoveOrigin = null;
 		keyboardMoveAnnouncement = '';
@@ -446,6 +582,20 @@
 		return () => {
 			stale = true;
 		};
+	});
+
+	$effect(() => {
+		if (!noteAssignTileId) return;
+		requestAnimationFrame(() => {
+			noteAssignInputEl?.focus();
+		});
+	});
+
+	$effect(() => {
+		if (!mapAssignTileId) return;
+		requestAnimationFrame(() => {
+			mapAssignInputEl?.focus();
+		});
 	});
 
 	$effect(() => {
@@ -733,12 +883,68 @@
 			const note = activeNotesById.get(tile.noteId);
 			if (note) return note.title;
 		}
+		if (tileType === 'map' && tile.mapId) {
+			const map = mapById[tile.mapId];
+			if (map) return map.name;
+		}
 		return TILE_TYPE_METADATA[tileType].label;
 	}
 
 	function tileAccentStyle(tile: SessionBoardTile): string {
 		const tileType = resolveSessionBoardTileType(tile);
 		return `--tile-accent: var(${TILE_TYPE_METADATA[tileType].colorToken}); border-color: var(--tile-accent);`;
+	}
+
+	function initialsFromName(value: string): string {
+		const parts = value
+			.trim()
+			.split(/\s+/)
+			.filter((entry) => entry.length > 0)
+			.slice(0, 2);
+		if (parts.length === 0) return '?';
+		return parts.map((entry) => entry[0]?.toUpperCase() ?? '').join('');
+	}
+
+	function getCombatStateForMap(mapId: string) {
+		const combatTile = activeBoard?.tiles.find(
+			(entry) => entry.type === 'combat' && entry.combat?.mapState?.mapId === mapId,
+		);
+		return combatTile?.combat ?? null;
+	}
+
+	function mapTileCombatTokens(mapId: string, enabled: boolean) {
+		if (!enabled) return [];
+		const combatState = getCombatStateForMap(mapId);
+		if (!combatState) return [];
+		return combatState.mapState.tokens.map((token) => {
+			const combatant = combatState.combatants.find((entry) => entry.id === token.combatantId);
+			const label = combatant?.name ?? token.initials ?? 'Combatant';
+			return {
+				id: token.combatantId,
+				label,
+				cellX: token.x,
+				cellY: token.y,
+				initials: token.initials ?? initialsFromName(label),
+				imageUrl: token.imageUrl,
+			};
+		});
+	}
+
+	function mapTileTemplateOverlays(mapId: string, enabled: boolean) {
+		if (!enabled) return [];
+		const combatState = getCombatStateForMap(mapId);
+		if (!combatState) return [];
+		const gridType = mapById[mapId]?.data.grid?.type ?? 'square';
+		return combatState.mapState.templates.map((template) => ({
+			id: template.id,
+			cells: cellsForTemplate(template, gridType),
+		}));
+	}
+
+	function mapTileTerrainCells(mapId: string, enabled: boolean) {
+		if (!enabled) return [];
+		const combatState = getCombatStateForMap(mapId);
+		return combatState?.mapState.difficultTerrain ?? [];
 	}
 
 	function prefersReducedMotion(): boolean {
@@ -890,18 +1096,32 @@
 		tileCreationSheetOpen = true;
 	}
 
-	async function addTileFromSheet(
-		type: 'calendar' | 'timer' | 'combat' | 'encounter' | 'dice' | 'generator' | 'handouts',
-	): Promise<void> {
+	async function addTileFromSheet(type: AddableTileType): Promise<void> {
 		if (!activeBoard || mode !== 'edit') return;
-		if (type === 'calendar') await addCalendarTile();
-		else if (type === 'timer') await addTimerTile();
-		else if (type === 'combat') await addCombatTile();
-		else if (type === 'encounter') await addEncounterTile();
-		else if (type === 'dice') await addDiceTile();
-		else if (type === 'generator') await addGeneratorTile();
-		else await addHandoutTile();
+		let nextTileId: string | null = null;
+		if (type === 'note') nextTileId = await sessionBoardsState.addNoteTile(activeBoard.id);
+		else if (type === 'calendar')
+			nextTileId = await sessionBoardsState.addCalendarTile(activeBoard.id);
+		else if (type === 'timer') nextTileId = await sessionBoardsState.addTimerTile(activeBoard.id);
+		else if (type === 'combat') nextTileId = await sessionBoardsState.addCombatTile(activeBoard.id);
+		else if (type === 'encounter')
+			nextTileId = await sessionBoardsState.addEncounterTile(activeBoard.id);
+		else if (type === 'dice') nextTileId = await sessionBoardsState.addDiceTile(activeBoard.id);
+		else if (type === 'generator')
+			nextTileId = await sessionBoardsState.addGeneratorTile(activeBoard.id);
+		else if (type === 'map') nextTileId = await sessionBoardsState.addMapTile(activeBoard.id);
+		else nextTileId = await sessionBoardsState.addHandoutTile(activeBoard.id);
 		tileCreationSheetOpen = false;
+		if (!nextTileId) return;
+		requestAnimationFrame(() => {
+			focusBoardTile(nextTileId);
+		});
+		if (type === 'note') {
+			openNoteAssignDialog(nextTileId);
+		}
+		if (type === 'map') {
+			openMapAssignDialog(nextTileId);
+		}
 	}
 
 	async function fixOverflowLayout(): Promise<void> {
@@ -1110,8 +1330,7 @@
 	function assignNoteToTile(tileId: string, noteId: NoteId): void {
 		if (!activeBoard) return;
 		void sessionBoardsState.updateTile(activeBoard.id, tileId, { noteId });
-		noteAssignTileId = null;
-		noteAssignQuery = '';
+		closeNoteAssignDialog();
 	}
 
 	function clearTileNote(tileId: string): void {
@@ -1149,6 +1368,76 @@
 			tileMenuButtonEl?.focus();
 		}
 	}
+
+	function openNoteAssignDialog(tileId: string): void {
+		noteAssignTileId = tileId;
+		noteAssignQuery = '';
+	}
+
+	function closeNoteAssignDialog(): void {
+		noteAssignTileId = null;
+		noteAssignQuery = '';
+	}
+
+	function openMapAssignDialog(tileId: string): void {
+		mapAssignTileId = tileId;
+		mapAssignQuery = '';
+	}
+
+	function closeMapAssignDialog(): void {
+		mapAssignTileId = null;
+		mapAssignQuery = '';
+	}
+
+	function assignMapToTile(tileId: string, mapId: string): void {
+		if (!activeBoard) return;
+		void sessionBoardsState.updateTile(activeBoard.id, tileId, { mapId });
+		closeMapAssignDialog();
+	}
+
+	type BoardPaletteCommand =
+		| 'add_note_tile'
+		| 'add_combat_tile'
+		| 'add_dice_tile'
+		| 'add_timer_tile'
+		| 'add_map_tile';
+
+	async function runBoardPaletteCommand(command: BoardPaletteCommand): Promise<void> {
+		if (!activeBoard) return;
+		if (mode !== 'edit') mode = 'edit';
+		let tileId: string | null = null;
+		if (command === 'add_note_tile') {
+			tileId = await sessionBoardsState.addNoteTile(activeBoard.id);
+			if (tileId) openNoteAssignDialog(tileId);
+		} else if (command === 'add_combat_tile') {
+			tileId = await sessionBoardsState.addCombatTile(activeBoard.id);
+		} else if (command === 'add_dice_tile') {
+			tileId = await sessionBoardsState.addDiceTile(activeBoard.id);
+		} else if (command === 'add_timer_tile') {
+			tileId = await sessionBoardsState.addTimerTile(activeBoard.id);
+		} else if (command === 'add_map_tile') {
+			tileId = await sessionBoardsState.addMapTile(activeBoard.id);
+			if (tileId) openMapAssignDialog(tileId);
+		}
+		if (!tileId) return;
+		requestAnimationFrame(() => {
+			focusBoardTile(tileId as string);
+		});
+	}
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		const listener = (event: Event): void => {
+			const customEvent = event as CustomEvent<{ command?: BoardPaletteCommand }>;
+			const command = customEvent.detail?.command;
+			if (!command) return;
+			void runBoardPaletteCommand(command);
+		};
+		window.addEventListener('dndtools:board-command', listener);
+		return () => {
+			window.removeEventListener('dndtools:board-command', listener);
+		};
+	});
 
 	function startTileDrag(
 		tileId: string,
@@ -2204,6 +2493,105 @@
 														}}
 														ondragstart={(event) => startTileDrag(tile.id, event)}
 													/>
+												{:else if entry.kind === 'map'}
+													<div
+														class="relative h-full rounded-lg border border-border bg-surface flex flex-col"
+														style="--tile-accent: var({TILE_TYPE_METADATA.map.colorToken});"
+														role="button"
+														tabindex="0"
+														aria-label={`Session board tile: ${tileLabel(tile)}`}
+														aria-pressed={mode === 'edit' && selectedTileId === tile.id}
+														data-board-tile="true"
+														onfocus={() => {
+															keyboardFocusedTileId = tile.id;
+														}}
+														onclick={(event) => {
+															const target = event.target as HTMLElement;
+															if (target.closest('a,button,input,textarea,select,label')) return;
+															if (mode === 'edit') {
+																selectedTileId = tile.id;
+																openNoteAssignDialog(tile.id);
+															}
+														}}
+														onkeydown={(event) => {
+															if (event.key !== 'Enter' && event.key !== ' ') return;
+															event.preventDefault();
+															if (mode === 'edit') {
+																selectedTileId = tile.id;
+																openNoteAssignDialog(tile.id);
+															}
+														}}
+													>
+														{#if mode === 'edit'}
+															<button
+																type="button"
+																class="absolute inset-0 z-10 cursor-move bg-transparent"
+																aria-label="Drag map tile"
+																onpointerdown={(event) => {
+																	selectedTileId = tile.id;
+																	startTileDrag(tile.id, event, {
+																		ignoreInteractiveTarget: true,
+																	});
+																}}
+															></button>
+														{/if}
+														<header
+															class="h-8 border-b border-border border-l-4 px-2.5 pr-3 flex items-center gap-2"
+															style="border-left-color: var(--tile-accent);"
+														>
+															<Icon
+																name={TILE_TYPE_METADATA.map.iconName}
+																size="sm"
+																color="var(--tile-accent)"
+															/>
+															<div class="font-semibold text-sm text-ink">
+																{TILE_TYPE_METADATA.map.label}
+															</div>
+															{#if entry.tile.combatOverlay}
+																<span
+																	class="ml-auto text-2xs rounded border border-border/70 px-1.5 py-0.5 text-ink-faint"
+																>
+																	Combat overlay
+																</span>
+															{/if}
+														</header>
+														<div class="flex-1 min-h-0 p-2">
+															{#if entry.tile.mapId && mapById[entry.tile.mapId]}
+																{@const linkedMap = mapById[entry.tile.mapId]}
+																{#if linkedMap}
+																	<MapCanvasViewer
+																		src={mapAssetUrls[String(linkedMap.id)] ?? null}
+																		alt={linkedMap.name}
+																		ariaLabel={`Session board map tile: ${linkedMap.name}`}
+																		grid={linkedMap.data.grid}
+																		showGrid={true}
+																		combatTokens={mapTileCombatTokens(
+																			String(linkedMap.id),
+																			entry.tile.combatOverlay === true,
+																		)}
+																		difficultTerrainCells={mapTileTerrainCells(
+																			String(linkedMap.id),
+																			entry.tile.combatOverlay === true,
+																		)}
+																		templateOverlays={mapTileTemplateOverlays(
+																			String(linkedMap.id),
+																			entry.tile.combatOverlay === true,
+																		)}
+																	/>
+																{/if}
+															{:else}
+																<EmptyState
+																	illustration="session"
+																	headline="No map selected"
+																	body="Choose a vault map to display it in your board."
+																	primaryAction={{
+																		label: 'Choose map',
+																		onclick: () => openMapAssignDialog(tile.id),
+																	}}
+																/>
+															{/if}
+														</div>
+													</div>
 												{:else if entry.kind === 'note_slot'}
 													<div
 														class="relative h-full rounded-lg border border-dashed border-border bg-surface/90 flex flex-col"
@@ -2219,12 +2607,18 @@
 														onclick={(event) => {
 															const target = event.target as HTMLElement;
 															if (target.closest('a,button,input,textarea,select,label')) return;
-															if (mode === 'edit') selectedTileId = tile.id;
+															if (mode === 'edit') {
+																selectedTileId = tile.id;
+																openNoteAssignDialog(tile.id);
+															}
 														}}
 														onkeydown={(event) => {
 															if (event.key !== 'Enter' && event.key !== ' ') return;
 															event.preventDefault();
-															if (mode === 'edit') selectedTileId = tile.id;
+															if (mode === 'edit') {
+																selectedTileId = tile.id;
+																openNoteAssignDialog(tile.id);
+															}
 														}}
 													>
 														{#if mode === 'edit'}
@@ -2256,10 +2650,15 @@
 														<div
 															class="relative z-20 h-full flex flex-col justify-center gap-2 text-center p-3"
 														>
-															<div class="text-xs font-semibold text-ink">Empty note slot</div>
-															<div class="text-xs text-ink-muted">
-																Use Add Notes to assign a note to this tile.
-															</div>
+															<EmptyState
+																illustration="knowledge-empty"
+																headline="Assign a note"
+																body="Choose a note to display in this tile."
+																primaryAction={{
+																	label: 'Choose note',
+																	onclick: () => openNoteAssignDialog(tile.id),
+																}}
+															/>
 														</div>
 													</div>
 												{:else}
@@ -2340,51 +2739,29 @@
 >
 	<div class="space-y-3">
 		<p class="text-xs text-ink-muted">
-			Create a new tile and place it at the next open board position.
+			Select a tile type to add it to the next open board position.
 		</p>
 		<div class="grid gap-2 sm:grid-cols-2">
-			<Button
-				variant="secondary"
-				size="sm"
-				icon="calendar"
-				onclick={() => void addTileFromSheet('calendar')}>Calendar</Button
-			>
-			<Button
-				variant="secondary"
-				size="sm"
-				icon="clock"
-				onclick={() => void addTileFromSheet('timer')}>Timer</Button
-			>
-			<Button
-				variant="secondary"
-				size="sm"
-				icon="swords"
-				onclick={() => void addTileFromSheet('combat')}>Combat tracker</Button
-			>
-			<Button
-				variant="secondary"
-				size="sm"
-				icon="shield"
-				onclick={() => void addTileFromSheet('encounter')}>Encounter builder</Button
-			>
-			<Button
-				variant="secondary"
-				size="sm"
-				icon="dice-5"
-				onclick={() => void addTileFromSheet('dice')}>Dice tray</Button
-			>
-			<Button
-				variant="secondary"
-				size="sm"
-				icon="wand-2"
-				onclick={() => void addTileFromSheet('generator')}>Generator</Button
-			>
-			<Button
-				variant="secondary"
-				size="sm"
-				icon="file-text"
-				onclick={() => void addTileFromSheet('handouts')}>Handouts</Button
-			>
+			{#each TILE_TYPE_GALLERY as option (option.type)}
+				{@const tileMeta = TILE_TYPE_METADATA[option.type]}
+				<Card
+					interactive
+					padding="sm"
+					onclick={() => void addTileFromSheet(option.type)}
+					class="h-full"
+				>
+					<div
+						class="flex items-start gap-2 border-l-4 pl-2"
+						style={`border-left-color: var(${tileMeta.colorToken});`}
+					>
+						<Icon name={tileMeta.iconName} size="lg" color={`var(${tileMeta.colorToken})`} />
+						<div class="min-w-0">
+							<p class="text-base font-semibold text-ink">{option.title}</p>
+							<p class="line-clamp-2 text-xs text-ink-muted">{option.description}</p>
+						</div>
+					</div>
+				</Card>
+			{/each}
 		</div>
 	</div>
 </Sheet>
@@ -2470,8 +2847,7 @@
 						role="menuitem"
 						class="w-full rounded px-2 py-1.5 text-left text-xs text-ink hover:bg-surface-alt"
 						onclick={() => {
-							noteAssignTileId = tileMenuTile.id;
-							noteAssignQuery = '';
+							openNoteAssignDialog(tileMenuTile.id);
 							closeTileMenu();
 						}}
 					>
@@ -2526,6 +2902,38 @@
 					</button>
 				</li>
 			{/if}
+			{#if resolveSessionBoardTileType(tileMenuTile) === 'map'}
+				<li role="none"><div class="my-1 border-t border-border/70"></div></li>
+				<li role="none">
+					<button
+						type="button"
+						role="menuitem"
+						class="w-full rounded px-2 py-1.5 text-left text-xs text-ink hover:bg-surface-alt"
+						onclick={() => {
+							openMapAssignDialog(tileMenuTile.id);
+							closeTileMenu();
+						}}
+					>
+						Change map
+					</button>
+				</li>
+				<li role="none">
+					<button
+						type="button"
+						role="menuitem"
+						class="w-full rounded px-2 py-1.5 text-left text-xs text-ink hover:bg-surface-alt"
+						onclick={() => {
+							if (!activeBoard) return;
+							void sessionBoardsState.updateTile(activeBoard.id, tileMenuTile.id, {
+								combatOverlay: !tileMenuTile.combatOverlay,
+							});
+							closeTileMenu();
+						}}
+					>
+						Toggle combat overlay
+					</button>
+				</li>
+			{/if}
 		</ul>
 	</Popover>
 {/if}
@@ -2543,68 +2951,76 @@
 	}}
 />
 
-{#if noteAssignTile}
-	<div class="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-4">
-		<div
-			class="w-full max-w-2xl max-h-[80vh] rounded-lg border border-border bg-surface-elevated shadow-lg flex flex-col"
-			role="dialog"
-			aria-modal="true"
-			aria-label="Change note"
-			use:focusTrap
-		>
-			<div class="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
-				<h2 class="text-sm font-semibold text-ink">Choose note</h2>
-				<button
-					type="button"
-					class="rounded border border-border px-2 py-1 text-xs hover:bg-surface-alt"
-					onclick={() => {
-						noteAssignTileId = null;
-						noteAssignQuery = '';
-					}}
-				>
-					Close
-				</button>
+<Dialog open={!!noteAssignTile} title="Choose note" maxWidth="xl" onclose={closeNoteAssignDialog}>
+	{#if noteAssignTile}
+		<div class="space-y-2">
+			<input
+				type="search"
+				bind:value={noteAssignQuery}
+				bind:this={noteAssignInputEl}
+				class="w-full rounded border border-border bg-surface px-2.5 py-1.5 text-sm"
+				placeholder="Search notes"
+			/>
+			<div class="max-h-[26rem] overflow-y-auto rounded border border-border/70 p-1">
+				{#if noteAssignOptions.length === 0}
+					<div class="px-2 py-2 text-xs text-ink-faint">No matching notes.</div>
+				{:else}
+					{#each noteAssignOptions as note (note.id)}
+						<ListItem
+							title={note.title}
+							subtitle={`${note.filePath ?? String(note.folder)}${
+								note.tags.length > 0 ? ` | #${note.tags.slice(0, 2).join(' #')}` : ''
+							}`}
+							onclick={() => assignNoteToTile(noteAssignTile.id, note.id)}
+						/>
+						<div class="px-3 pb-2 text-xs text-ink-faint">
+							{note.content
+								.split(/\r?\n/)
+								.map((line) => line.trim())
+								.filter((line) => line.length > 0)
+								.slice(0, 3)
+								.join(' ')}
+						</div>
+					{/each}
+				{/if}
 			</div>
-			<div class="p-3 space-y-2 overflow-hidden flex-1 min-h-0">
-				<input
-					type="text"
-					bind:value={noteAssignQuery}
-					class="w-full rounded border border-border bg-surface px-2.5 py-1.5 text-sm"
-					placeholder="Search notes"
-				/>
-				<div class="min-h-0 flex-1 overflow-y-auto rounded border border-border/70 p-1 space-y-1">
-					{#if noteAssignOptions.length === 0}
-						<div class="px-2 py-2 text-xs text-ink-faint">No matching notes.</div>
-					{:else}
-						{#each noteAssignOptions as note (note.id)}
-							<button
-								type="button"
-								class="w-full rounded border border-transparent px-2 py-1.5 text-left text-sm hover:border-border hover:bg-surface-alt"
-								onclick={() => assignNoteToTile(noteAssignTile.id, note.id)}
-							>
-								<div class="truncate text-ink">{note.title}</div>
-								{#if note.tags.length > 0}
-									<div class="truncate text-2xs text-ink-faint">
-										#{note.tags.slice(0, 3).join(' #')}
-									</div>
-								{/if}
-							</button>
-						{/each}
-					{/if}
-				</div>
-				{#if resolveSessionBoardTileType(noteAssignTile) === 'note' && noteAssignTile.noteId}
-					<button
-						type="button"
-						class="self-start rounded border border-border px-2 py-1 text-xs text-ink-muted hover:bg-surface-alt"
-						onclick={() => clearTileNote(noteAssignTile.id)}
-					>
-						Clear assigned note
-					</button>
+			{#if resolveSessionBoardTileType(noteAssignTile) === 'note' && noteAssignTile.noteId}
+				<Button size="sm" variant="ghost" onclick={() => clearTileNote(noteAssignTile.id)}>
+					Clear assigned note
+				</Button>
+			{/if}
+		</div>
+	{/if}
+</Dialog>
+
+<Dialog open={!!mapAssignTile} title="Choose map" maxWidth="lg" onclose={closeMapAssignDialog}>
+	{#if mapAssignTile}
+		<div class="space-y-2">
+			<input
+				type="search"
+				bind:value={mapAssignQuery}
+				bind:this={mapAssignInputEl}
+				class="w-full rounded border border-border bg-surface px-2.5 py-1.5 text-sm"
+				placeholder="Search maps"
+			/>
+			<div class="max-h-[24rem] overflow-y-auto rounded border border-border/70 p-1">
+				{#if mapAssignOptions.length === 0}
+					<div class="px-2 py-2 text-xs text-ink-faint">No matching maps.</div>
+				{:else}
+					{#each mapAssignOptions as map (map.id)}
+						<ListItem
+							title={map.name}
+							subtitle={`${map.summary || 'No description'}${
+								map.tags.length > 0 ? ` | #${map.tags.slice(0, 2).join(' #')}` : ''
+							}`}
+							onclick={() => assignMapToTile(mapAssignTile.id, String(map.id))}
+						/>
+					{/each}
 				{/if}
 			</div>
 		</div>
-	</div>
-{/if}
+	{/if}
+</Dialog>
 
 <div class="sr-only" aria-live="polite">{resizeAnnouncement}</div>
 <div class="sr-only" aria-live="assertive">{keyboardMoveAnnouncement}</div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { searchService } from '$lib/domain/search.js';
@@ -34,6 +35,14 @@
 		onsessionrecap: () => void;
 		onopensplitview: (noteId: NoteId) => void;
 		ontoggleplayermode: () => void;
+		onboardcommand?: (
+			command:
+				| 'add_note_tile'
+				| 'add_combat_tile'
+				| 'add_dice_tile'
+				| 'add_timer_tile'
+				| 'add_map_tile',
+		) => void;
 	}
 
 	type PaletteMode = 'notes' | 'commands' | 'tags' | 'sections';
@@ -155,6 +164,7 @@
 		onsessionrecap,
 		onopensplitview,
 		ontoggleplayermode,
+		onboardcommand,
 	}: Props = $props();
 
 	let query = $state('');
@@ -242,6 +252,9 @@
 			}
 			return true;
 		}),
+	);
+	const boardCommandContextActive = $derived.by(
+		() => page.url.pathname === '/session/boards' || page.url.pathname === '/session-board',
 	);
 
 	$effect(() => {
@@ -528,6 +541,71 @@
 					}
 				},
 			});
+		}
+
+		if (boardCommandContextActive && onboardcommand) {
+			items.push(
+				{
+					id: 'command-board-add-note-tile',
+					group: 'Commands',
+					title: 'Add note tile',
+					subtitle: 'Board command: open note assignment',
+					keywords: 'board add tile note session',
+					disabled: playerModeState.enabled,
+					run: () => {
+						closePalette();
+						onboardcommand('add_note_tile');
+					},
+				},
+				{
+					id: 'command-board-add-combat-tile',
+					group: 'Commands',
+					title: 'Add combat tracker',
+					subtitle: 'Board command: add combat tracker tile',
+					keywords: 'board add tile combat tracker session',
+					disabled: playerModeState.enabled,
+					run: () => {
+						closePalette();
+						onboardcommand('add_combat_tile');
+					},
+				},
+				{
+					id: 'command-board-add-dice-tile',
+					group: 'Commands',
+					title: 'Add dice tray',
+					subtitle: 'Board command: add dice tray tile',
+					keywords: 'board add tile dice tray session',
+					disabled: playerModeState.enabled,
+					run: () => {
+						closePalette();
+						onboardcommand('add_dice_tile');
+					},
+				},
+				{
+					id: 'command-board-add-timer-tile',
+					group: 'Commands',
+					title: 'Add timer',
+					subtitle: 'Board command: add timer tile',
+					keywords: 'board add tile timer session',
+					disabled: playerModeState.enabled,
+					run: () => {
+						closePalette();
+						onboardcommand('add_timer_tile');
+					},
+				},
+				{
+					id: 'command-board-add-map-tile',
+					group: 'Commands',
+					title: 'Add map tile',
+					subtitle: 'Board command: open map picker',
+					keywords: 'board add tile map session atlas',
+					disabled: playerModeState.enabled,
+					run: () => {
+						closePalette();
+						onboardcommand('add_map_tile');
+					},
+				},
+			);
 		}
 
 		if (mode !== 'commands') {

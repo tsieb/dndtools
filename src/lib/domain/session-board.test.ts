@@ -173,6 +173,24 @@ describe('session-board domain', () => {
 		});
 		expect(normalizedHandouts.type).toBe('handouts');
 
+		const normalizedMap = normalizeSessionBoardTile({
+			id: 'map-tile',
+			type: 'map',
+			mapId: 'map-shell',
+			initialZoom: 'detail',
+			combatOverlay: true,
+			x: 0,
+			y: 0,
+			w: 6,
+			h: 4,
+		});
+		expect(normalizedMap.type).toBe('map');
+		if (normalizedMap.type === 'map') {
+			expect(normalizedMap.mapId).toBe('map-shell');
+			expect(normalizedMap.initialZoom).toBe('detail');
+			expect(normalizedMap.combatOverlay).toBe(true);
+		}
+
 		const normalizedEncounter = normalizeSessionBoardTile({
 			id: 'encounter-tile',
 			type: 'encounter',
