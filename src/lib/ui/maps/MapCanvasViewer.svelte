@@ -26,6 +26,9 @@
 		category: MapPoiCategory;
 		x: number;
 		y: number;
+		layerId?: string;
+		layerName?: string;
+		linkedNoteTitle?: string | null;
 		colorTheme?: string;
 		hidden?: boolean;
 	}
@@ -97,11 +100,15 @@
 	interface Props {
 		src: string | null;
 		alt?: string;
+		ariaLabel?: string;
+		ariaLive?: 'off' | 'polite' | 'assertive';
+		liveMessage?: string;
 		grid?: MapGridData;
 		showGrid?: boolean;
 		editableGrid?: boolean;
 		pois?: readonly MapViewerPoi[];
 		poiEditable?: boolean;
+		poiKeyboardNavigable?: boolean;
 		combatTokens?: readonly MapViewerCombatToken[];
 		activeCombatTokenId?: string | null;
 		combatTokenEditable?: boolean;
@@ -145,6 +152,7 @@
 			eventTime: number;
 		}) => void;
 		onpoiclick?: (payload: { id: string; ctrlKey: boolean; metaKey: boolean }) => void;
+		onpoidelete?: (payload: { id: string }) => void;
 		onpoimove?: (payload: { id: string; x: number; y: number }) => void;
 		onpoihover?: (payload: MapViewerPoiHoverPayload) => void;
 		oncombattokenclick?: (payload: { id: string; ctrlKey: boolean; metaKey: boolean }) => void;
@@ -157,6 +165,7 @@
 		onroutewaypointmove?: (payload: MapViewerRouteWaypointMovePayload) => void;
 		onroutewaypointdelete?: (payload: { routeId: string; waypointIndex: number }) => void;
 		oninputmodalitytouch?: () => void;
+		onfogbrushradiuschange?: (radius: number) => void;
 		onmapcontextmenu?: (payload: {
 			x: number;
 			y: number;
@@ -164,17 +173,22 @@
 			cellY: number | null;
 			clientX: number;
 			clientY: number;
+			source: 'contextmenu' | 'longpress';
 		}) => void;
 	}
 
 	let {
 		src,
 		alt = 'Map asset',
+		ariaLabel = alt,
+		ariaLive = 'polite',
+		liveMessage = '',
 		grid = undefined,
 		showGrid = true,
 		editableGrid = false,
 		pois = [],
 		poiEditable = false,
+		poiKeyboardNavigable = false,
 		combatTokens = [],
 		activeCombatTokenId = null,
 		combatTokenEditable = false,
@@ -207,6 +221,7 @@
 		onimageinfo,
 		onmapclick,
 		onpoiclick,
+		onpoidelete,
 		onpoimove,
 		onpoihover,
 		oncombattokenclick,
@@ -219,6 +234,7 @@
 		onroutewaypointmove,
 		onroutewaypointdelete,
 		oninputmodalitytouch,
+		onfogbrushradiuschange,
 		onmapcontextmenu,
 	}: Props = $props();
 
@@ -249,12 +265,18 @@
 
 	let drawQueued = false;
 	const activePointers = new SvelteMap<number, { x: number; y: number }>();
+	const poiButtonEls = new SvelteMap<string, HTMLButtonElement>();
 	let panDrag: {
 		pointerId: number;
 		startX: number;
 		startY: number;
 		startPanX: number;
 		startPanY: number;
+		lastX: number;
+		lastY: number;
+		lastAt: number;
+		vx: number;
+		vy: number;
 	} | null = null;
 	let pinchGesture: {
 		startDistance: number;
@@ -296,10 +318,37 @@
 	} | null = null;
 	let lastFogAnimationId = $state<string | null>(null);
 	let lastShortcutCommandId = $state<number | null>(null);
+	let inertiaAnimationFrame = 0;
+	let inertiaState: {
+		startedAt: number;
+		startPanX: number;
+		startPanY: number;
+		vx: number;
+		vy: number;
+	} | null = null;
+	let touchLastTap: {
+		at: number;
+		x: number;
+		y: number;
+	} | null = null;
+	let longPressTimer = 0;
+	let longPressPointerId: number | null = null;
+	let longPressTriggered = false;
+	let fogBrushResizeDrag: {
+		pointerId: number;
+		center: MapFogPoint;
+	} | null = null;
 
 	const MIN_ZOOM = 0.05;
-	const MAX_ZOOM = 12;
+	const MAX_ZOOM = 4;
 	const POI_CLICK_DRAG_THRESHOLD = 4;
+	const TOUCH_DOUBLE_TAP_MS = 320;
+	const TOUCH_DOUBLE_TAP_DISTANCE_PX = 22;
+	const TOUCH_LONG_PRESS_MS = 300;
+	const TOUCH_LONG_PRESS_MOVE_PX = 10;
+	const PAN_INERTIA_DURATION_MS = 300;
+	const FOG_BRUSH_MIN = 0.02;
+	const FOG_BRUSH_MAX = 0.25;
 	const POI_CATEGORY_ICON: Record<MapPoiCategory, string> = {
 		city: '\u25CF',
 		dungeon: '\u25A0',
@@ -313,8 +362,31 @@
 		return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
 	}
 
+	function stopInertia(): void {
+		if (inertiaAnimationFrame) {
+			cancelAnimationFrame(inertiaAnimationFrame);
+			inertiaAnimationFrame = 0;
+		}
+		inertiaState = null;
+	}
+
+	function clearLongPressTimer(): void {
+		if (!longPressTimer) return;
+		window.clearTimeout(longPressTimer);
+		longPressTimer = 0;
+	}
+
 	function prefersReducedMotion(): boolean {
 		return ui.resolvedReducedMotion;
+	}
+
+	function fitZoomLevel(): number {
+		if (!viewportEl || !image) return 1;
+		const fit = Math.min(
+			viewportEl.clientWidth / Math.max(1, image.width),
+			viewportEl.clientHeight / Math.max(1, image.height),
+		);
+		return clampZoom(fit);
 	}
 
 	function resolveFogExplorationBounds(): {
@@ -370,6 +442,73 @@
 			x: viewport.panX + x * image.width * zoom,
 			y: viewport.panY + y * image.height * zoom,
 		};
+	}
+
+	function resolvePoiAriaLabel(poi: MapViewerPoi): string {
+		const linkedNote = poi.linkedNoteTitle?.trim() || 'no note linked';
+		return `${poi.label}: ${poi.category}, linked to ${linkedNote}`;
+	}
+
+	function registerPoiButton(
+		node: HTMLButtonElement,
+		poiId: string,
+	): { update: (id: string) => void; destroy: () => void } {
+		let currentId = poiId;
+		poiButtonEls.set(currentId, node);
+		return {
+			update(nextId: string): void {
+				if (nextId === currentId) return;
+				poiButtonEls.delete(currentId);
+				currentId = nextId;
+				poiButtonEls.set(currentId, node);
+			},
+			destroy(): void {
+				poiButtonEls.delete(currentId);
+			},
+		};
+	}
+
+	function focusPoiButton(poiId: string): void {
+		poiButtonEls.get(poiId)?.focus();
+	}
+
+	function handlePoiKeyboardMove(
+		currentId: string,
+		direction: 'left' | 'right' | 'up' | 'down',
+	): void {
+		const current = poiScreenPositions.find((entry) => entry.poi.id === currentId);
+		if (!current) return;
+		let best: { poiId: string; distance: number } | null = null;
+		for (const entry of poiScreenPositions) {
+			if (entry.poi.id === currentId) continue;
+			const dx = entry.point.x - current.point.x;
+			const dy = entry.point.y - current.point.y;
+			const inDirection =
+				direction === 'left'
+					? dx < 0
+					: direction === 'right'
+						? dx > 0
+						: direction === 'up'
+							? dy < 0
+							: dy > 0;
+			if (!inDirection) continue;
+			const distance = Math.hypot(dx, dy);
+			if (!best || distance < best.distance) {
+				best = { poiId: entry.poi.id, distance };
+			}
+		}
+		if (best) {
+			focusPoiButton(best.poiId);
+		}
+	}
+
+	function handlePoiHomeEnd(currentId: string, toEnd: boolean): void {
+		const currentPoi = visiblePois.find((poi) => poi.id === currentId);
+		if (!currentPoi) return;
+		const layerPois = visiblePois.filter((poi) => poi.layerId === currentPoi.layerId);
+		if (layerPois.length === 0) return;
+		const target = toEnd ? layerPois[layerPois.length - 1] : layerPois[0];
+		if (target) focusPoiButton(target.id);
 	}
 
 	function localPointToMapFraction(
@@ -1171,6 +1310,7 @@
 			cellY: cell?.y ?? null,
 			clientX: event.clientX,
 			clientY: event.clientY,
+			source: 'contextmenu',
 		});
 	}
 
@@ -1196,6 +1336,7 @@
 
 	function onPointerDown(event: PointerEvent): void {
 		if (!viewportEl) return;
+		stopInertia();
 		viewportEl.focus();
 		const rect = viewportEl.getBoundingClientRect();
 		const localX = event.clientX - rect.left;
@@ -1218,6 +1359,31 @@
 			eventTime: event.timeStamp,
 			moved: false,
 		};
+		longPressTriggered = false;
+		if (event.pointerType === 'touch' && onmapcontextmenu) {
+			clearLongPressTimer();
+			longPressPointerId = event.pointerId;
+			const pointerClientX = event.clientX;
+			const pointerClientY = event.clientY;
+			const startLocalX = localX;
+			const startLocalY = localY;
+			longPressTimer = window.setTimeout(() => {
+				if (!viewportEl || longPressPointerId !== event.pointerId) return;
+				const fractions = localPointToMapFraction(startLocalX, startLocalY);
+				if (!fractions) return;
+				const cell = localPointToGridCell(startLocalX, startLocalY);
+				longPressTriggered = true;
+				onmapcontextmenu({
+					x: fractions.x,
+					y: fractions.y,
+					cellX: cell?.x ?? null,
+					cellY: cell?.y ?? null,
+					clientX: pointerClientX,
+					clientY: pointerClientY,
+					source: 'longpress',
+				});
+			}, TOUCH_LONG_PRESS_MS);
+		}
 
 		const handle = resolveHandleAtPoint(localX, localY);
 		if (handle) {
@@ -1234,6 +1400,11 @@
 				startY: localY,
 				startPanX: viewport.panX,
 				startPanY: viewport.panY,
+				lastX: localX,
+				lastY: localY,
+				lastAt: event.timeStamp,
+				vx: 0,
+				vy: 0,
 			};
 			pointerHint = 'Panning map';
 		}
@@ -1254,8 +1425,27 @@
 		) {
 			clickCandidate = { ...clickCandidate, moved: true };
 		}
+		if (
+			event.pointerType === 'touch' &&
+			longPressPointerId === event.pointerId &&
+			Math.hypot(
+				localX - (clickCandidate?.startX ?? localX),
+				localY - (clickCandidate?.startY ?? localY),
+			) > TOUCH_LONG_PRESS_MOVE_PX
+		) {
+			clearLongPressTimer();
+		}
 		if (activePointers.has(event.pointerId)) {
 			activePointers.set(event.pointerId, { x: localX, y: localY });
+		}
+		if (fogBrushResizeDrag && fogBrushResizeDrag.pointerId === event.pointerId) {
+			const point = localPointToMapFraction(localX, localY);
+			if (!point) return;
+			const dx = point.x - fogBrushResizeDrag.center.x;
+			const dy = point.y - fogBrushResizeDrag.center.y;
+			const nextRadius = Math.max(FOG_BRUSH_MIN, Math.min(FOG_BRUSH_MAX, Math.hypot(dx, dy)));
+			onfogbrushradiuschange?.(nextRadius);
+			return;
 		}
 		if (routeWaypointDrag && routeWaypointDrag.pointerId === event.pointerId) {
 			if (
@@ -1325,13 +1515,25 @@
 				return;
 			}
 			const ratio = distance / Math.max(1, pinchGesture.startDistance);
-			setZoomAt(pinchGesture.startZoom * ratio, anchorX, anchorY);
+			const fitZoom = fitZoomLevel();
+			setZoomAt(Math.max(fitZoom, pinchGesture.startZoom * ratio), anchorX, anchorY);
 			return;
 		}
 
 		if (panDrag && panDrag.pointerId === event.pointerId) {
 			if (navigationLocked) return;
 			if (isFogExplorationBlocked()) return;
+			const dt = Math.max(1, event.timeStamp - panDrag.lastAt);
+			const vx = (localX - panDrag.lastX) / dt;
+			const vy = (localY - panDrag.lastY) / dt;
+			panDrag = {
+				...panDrag,
+				lastX: localX,
+				lastY: localY,
+				lastAt: event.timeStamp,
+				vx,
+				vy,
+			};
 			setViewport({
 				zoom: viewport.zoom,
 				panX: panDrag.startPanX + (localX - panDrag.startX),
@@ -1341,6 +1543,8 @@
 	}
 
 	function onPointerUp(event: PointerEvent): void {
+		clearLongPressTimer();
+		longPressPointerId = null;
 		emitMapPointerCallback(event, onmappointerup);
 		if (routeWaypointDrag?.pointerId === event.pointerId) {
 			routeWaypointDrag = null;
@@ -1375,6 +1579,29 @@
 				const localY = event.clientY - rect.top;
 				const fractions = localPointToMapFraction(localX, localY);
 				if (fractions) {
+					if (event.pointerType === 'touch' && !longPressTriggered) {
+						const lastTap = touchLastTap;
+						const now = event.timeStamp;
+						const isDoubleTap =
+							!!lastTap &&
+							now - lastTap.at <= TOUCH_DOUBLE_TAP_MS &&
+							Math.hypot(localX - lastTap.x, localY - lastTap.y) <= TOUCH_DOUBLE_TAP_DISTANCE_PX;
+						if (isDoubleTap && viewportEl) {
+							const fitZoom = fitZoomLevel();
+							const nextZoom = viewport.zoom >= 1.9 ? fitZoom : 2;
+							setZoomAt(nextZoom, localX, localY);
+							touchLastTap = null;
+							clickCandidate = null;
+							longPressTriggered = false;
+							return;
+						}
+						touchLastTap = { at: now, x: localX, y: localY };
+					}
+					if (longPressTriggered) {
+						clickCandidate = null;
+						longPressTriggered = false;
+						return;
+					}
 					let routeSelected = false;
 					if (routeEditable) {
 						const routeHit = findRouteAtLocalPoint(localX, localY);
@@ -1403,6 +1630,42 @@
 		}
 		activePointers.delete(event.pointerId);
 		if (panDrag?.pointerId === event.pointerId) {
+			if (
+				event.pointerType === 'touch' &&
+				!navigationLocked &&
+				activePointers.size === 0 &&
+				Math.hypot(panDrag.vx, panDrag.vy) > 0.08
+			) {
+				const start = {
+					startedAt: event.timeStamp,
+					startPanX: viewport.panX,
+					startPanY: viewport.panY,
+					vx: panDrag.vx * 1000,
+					vy: panDrag.vy * 1000,
+				};
+				inertiaState = start;
+				const run = (now: number): void => {
+					if (!inertiaState || !viewportEl) return;
+					const elapsed = Math.min(PAN_INERTIA_DURATION_MS, now - inertiaState.startedAt);
+					const progress = elapsed / PAN_INERTIA_DURATION_MS;
+					const eased = 1 - Math.pow(1 - progress, 2);
+					setViewport({
+						zoom: viewport.zoom,
+						panX:
+							inertiaState.startPanX +
+							inertiaState.vx * 0.001 * eased * PAN_INERTIA_DURATION_MS * 0.5,
+						panY:
+							inertiaState.startPanY +
+							inertiaState.vy * 0.001 * eased * PAN_INERTIA_DURATION_MS * 0.5,
+					});
+					if (elapsed >= PAN_INERTIA_DURATION_MS) {
+						stopInertia();
+						return;
+					}
+					inertiaAnimationFrame = requestAnimationFrame(run);
+				};
+				inertiaAnimationFrame = requestAnimationFrame(run);
+			}
 			panDrag = null;
 		}
 		if (gridDrag?.pointerId === event.pointerId) {
@@ -1411,11 +1674,17 @@
 		if (activePointers.size < 2) {
 			pinchGesture = null;
 		}
+		if (fogBrushResizeDrag?.pointerId === event.pointerId) {
+			fogBrushResizeDrag = null;
+		}
 		pointerHint = '';
+		longPressTriggered = false;
 	}
 
 	function onPointerLeave(): void {
 		pointerLocal = null;
+		clearLongPressTimer();
+		longPressPointerId = null;
 	}
 
 	function onDblClick(event: MouseEvent): void {
@@ -1493,6 +1762,65 @@
 			return;
 		}
 		onpoiclick?.({ id: poiId, ctrlKey: event.ctrlKey, metaKey: event.metaKey });
+	}
+
+	function handlePoiKeyDown(event: KeyboardEvent, poiId: string): void {
+		if (event.key === 'ArrowLeft') {
+			event.preventDefault();
+			event.stopPropagation();
+			handlePoiKeyboardMove(poiId, 'left');
+			return;
+		}
+		if (event.key === 'ArrowRight') {
+			event.preventDefault();
+			event.stopPropagation();
+			handlePoiKeyboardMove(poiId, 'right');
+			return;
+		}
+		if (event.key === 'ArrowUp') {
+			event.preventDefault();
+			event.stopPropagation();
+			handlePoiKeyboardMove(poiId, 'up');
+			return;
+		}
+		if (event.key === 'ArrowDown') {
+			event.preventDefault();
+			event.stopPropagation();
+			handlePoiKeyboardMove(poiId, 'down');
+			return;
+		}
+		if (event.key === 'Home') {
+			event.preventDefault();
+			event.stopPropagation();
+			handlePoiHomeEnd(poiId, false);
+			return;
+		}
+		if (event.key === 'End') {
+			event.preventDefault();
+			event.stopPropagation();
+			handlePoiHomeEnd(poiId, true);
+			return;
+		}
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			event.stopPropagation();
+			onpoiclick?.({ id: poiId, ctrlKey: event.ctrlKey, metaKey: event.metaKey });
+			return;
+		}
+		if (event.key === 'Delete' && poiEditable) {
+			event.preventDefault();
+			event.stopPropagation();
+			onpoidelete?.({ id: poiId });
+		}
+	}
+
+	function handleFogResizePointerDown(event: PointerEvent, center: MapFogPoint): void {
+		event.stopPropagation();
+		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+		fogBrushResizeDrag = {
+			pointerId: event.pointerId,
+			center,
+		};
 	}
 
 	function handleCombatTokenPointerDown(event: PointerEvent, tokenId: string): void {
@@ -1696,6 +2024,13 @@
 		}
 		previousPoiIds = currentIds;
 	});
+
+	$effect(() => {
+		return () => {
+			stopInertia();
+			clearLongPressTimer();
+		};
+	});
 </script>
 
 <div class="flex h-full min-h-[340px] flex-col rounded-lg border border-border bg-surface">
@@ -1740,7 +2075,8 @@
 			: ''}"
 		tabindex="0"
 		role="application"
-		aria-label={alt}
+		aria-label={ariaLabel}
+		aria-live={ariaLive}
 		onwheel={onWheel}
 		onkeydown={onKeyDown}
 		onpointerdown={onPointerDown}
@@ -1752,6 +2088,7 @@
 		ondblclick={onDblClick}
 		oncontextmenu={onContextMenu}
 	>
+		<div class="sr-only" aria-live="polite">{liveMessage}</div>
 		<canvas bind:this={canvasEl} class="absolute inset-0 h-full w-full"></canvas>
 		{#if image && poiEditable && ghostPlacement}
 			{@const ghostPoint = mapFractionToLocalPoint(ghostPlacement.x, ghostPlacement.y)}
@@ -1779,15 +2116,18 @@
 				{#each poiScreenPositions as entry (entry.poi.id)}
 					<button
 						type="button"
-						class="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/90 text-white shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 {animatingPoiIds.has(
+						use:registerPoiButton={entry.poi.id}
+						class="map-poi-pin pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/90 text-white shadow-md focus:outline-none {animatingPoiIds.has(
 							entry.poi.id,
 						)
 							? 'map-poi-pin-pop'
 							: ''}"
 						style={`left:${entry.point.x}px;top:${entry.point.y}px;background:${poiThemeColor(entry.poi.colorTheme)};width:24px;height:24px;`}
-						aria-label={`${entry.poi.label} (${entry.poi.category})`}
+						aria-label={resolvePoiAriaLabel(entry.poi)}
+						tabindex={poiKeyboardNavigable ? 0 : -1}
 						onpointerdown={(event) => handlePoiPointerDown(event, entry.poi.id)}
 						onclick={(event) => handlePoiClick(event, entry.poi.id)}
+						onkeydown={(event) => handlePoiKeyDown(event, entry.poi.id)}
 						onmouseenter={(event) => emitPoiHover(entry.poi.id, event.currentTarget as HTMLElement)}
 						onmouseleave={(event) => emitPoiHover(null, event.currentTarget as HTMLElement)}
 						onfocus={(event) => emitPoiHover(entry.poi.id, event.currentTarget as HTMLElement)}
@@ -1797,6 +2137,24 @@
 					</button>
 				{/each}
 			</div>
+		{/if}
+		{#if image && fogEnabled && fogDraftShape === 'circle' && fogDraftCursor}
+			{@const fogCenterLocal = mapFractionToLocalPoint(fogDraftCursor.x, fogDraftCursor.y)}
+			{#if fogCenterLocal}
+				<div
+					class="pointer-events-none absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-surface/90 shadow"
+					style={`left:${fogCenterLocal.x + fogDraftRadius * Math.max(1, image.width) * viewport.zoom}px;top:${fogCenterLocal.y}px;`}
+				>
+					<button
+						type="button"
+						class="pointer-events-auto h-full w-full rounded-full text-2xs text-ink"
+						aria-label="Resize fog brush"
+						onpointerdown={(event) => handleFogResizePointerDown(event, fogDraftCursor)}
+					>
+						↔
+					</button>
+				</div>
+			{/if}
 		{/if}
 		{#if image && routeEditable && activeRoute && activeRouteWaypointScreenPositions.length > 0}
 			<div class="pointer-events-none absolute inset-0">
@@ -1889,6 +2247,12 @@
 </div>
 
 <style>
+	.map-poi-pin:focus-visible {
+		box-shadow:
+			0 0 0 2px var(--color-focus-ring),
+			0 0 0 4px color-mix(in srgb, var(--color-focus-ring) 20%, transparent);
+	}
+
 	@media (prefers-reduced-motion: no-preference) {
 		.map-poi-pin-pop {
 			animation: map-poi-pin-pop 150ms ease-out;

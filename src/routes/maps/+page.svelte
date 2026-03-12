@@ -332,9 +332,16 @@
 	let layerRenameDraft = $state('');
 	let layerMenuOpenId = $state<string | null>(null);
 	let confirmClearFogDialogOpen = $state(false);
-	let mapContextMenu = $state<{ clientX: number; clientY: number; x: number; y: number } | null>(
-		null,
-	);
+	let mapContextMenu = $state<{
+		clientX: number;
+		clientY: number;
+		x: number;
+		y: number;
+		source: 'contextmenu' | 'longpress';
+	} | null>(null);
+	let mapListView = $state(false);
+	let mapLiveAnnouncement = $state('');
+	let mapMobileControlsSheetOpen = $state(false);
 	let lastPartyLocationBroadcastKey = $state<string | null>(null);
 
 	const desktopAvailable = $derived(
@@ -517,22 +524,51 @@
 			category: 'landmark' as const,
 			x: Math.min(1, Math.max(0, x)),
 			y: Math.min(1, Math.max(0, y)),
+			layerId: undefined,
+			layerName: 'Linked',
+			linkedNoteTitle: null,
 			colorTheme: 'violet' as const,
 		};
 	});
 	const viewerPois = $derived.by(() => {
 		if (playerModeState.enabled) return [];
-		const fromMap = filteredDraftPois.map((poi) => ({
-			id: poi.id,
-			label: poi.label,
-			category: poi.category,
-			x: poi.x,
-			y: poi.y,
-			colorTheme: poi.layerId ? layerById[poi.layerId]?.colorTheme : undefined,
-		}));
+		const fromMap = filteredDraftPois.map((poi) => {
+			const linkedNoteId = resolveLinkedNoteIdForPoi(poi);
+			return {
+				id: poi.id,
+				label: poi.label,
+				category: poi.category,
+				x: poi.x,
+				y: poi.y,
+				layerId: poi.layerId,
+				layerName: poi.layerId ? (layerById[poi.layerId]?.name ?? 'Unassigned') : 'Unassigned',
+				linkedNoteTitle: linkedNoteId ? (noteById[String(linkedNoteId)]?.title ?? null) : null,
+				colorTheme: poi.layerId ? layerById[poi.layerId]?.colorTheme : undefined,
+			};
+		});
 		if (queryPlacementPoi) fromMap.push(queryPlacementPoi);
 		return fromMap;
 	});
+	const mapCanvasAriaLabel = $derived.by(() => {
+		if (!selectedMap) return 'Interactive map.';
+		return `${selectedMap.name} - interactive map. ${viewerPois.length} points of interest in ${draftLayers.length} layers.`;
+	});
+	const poiInventory = $derived.by(() =>
+		filteredDraftPois.map((poi) => {
+			const linkedId = resolveLinkedNoteIdForPoi(poi);
+			return {
+				id: poi.id,
+				name: poi.label,
+				category: poi.category,
+				layer: poi.layerId ? (layerById[poi.layerId]?.name ?? 'Unassigned') : 'Unassigned',
+				linkedNote: linkedId
+					? (noteById[String(linkedId)]?.title ?? 'No linked note')
+					: 'No linked note',
+				x: poi.x,
+				y: poi.y,
+			};
+		}),
+	);
 	const selectedPoi = $derived.by(() => draftPois.find((poi) => poi.id === selectedPoiId) ?? null);
 	const selectedPoiLayer = $derived.by(() =>
 		selectedPoi?.layerId ? (layerById[selectedPoi.layerId] ?? null) : null,
@@ -1490,6 +1526,7 @@
 			if (!layoutState.isExpanded) {
 				selectedPoiSheetOpen = true;
 			}
+			announceMapOperation(`POI '${nextPoi.label}' placed`);
 			markDirty();
 		});
 	}
@@ -1548,6 +1585,14 @@
 
 	function handleInputModalityTouch(): void {
 		touchPlacementHintVisible = true;
+		if (
+			layoutState.isCompact &&
+			fogEditingEnabled &&
+			fogTool === 'circle' &&
+			fogBrushRadius < 0.15
+		) {
+			fogBrushRadius = 0.15;
+		}
 	}
 
 	function handlePoiClick(payload: { id: string; ctrlKey: boolean; metaKey: boolean }): void {
@@ -1663,6 +1708,44 @@
 		});
 	}
 
+	function announceMapOperation(message: string): void {
+		mapLiveAnnouncement = '';
+		if (typeof window === 'undefined') {
+			mapLiveAnnouncement = message;
+			return;
+		}
+		window.requestAnimationFrame(() => {
+			mapLiveAnnouncement = message;
+		});
+	}
+
+	function handlePoiDeleteRequest(payload: { id: string }): void {
+		const poi = draftPois.find((entry) => entry.id === payload.id);
+		if (!poi) return;
+		const linkedNoteId = resolveLinkedNoteIdForPoi(poi);
+		if (linkedNoteId) {
+			const linkedNoteTitle = noteById[String(linkedNoteId)]?.title ?? 'linked note';
+			if (
+				typeof window !== 'undefined' &&
+				!window.confirm(`Delete '${poi.label}'? It is linked to '${linkedNoteTitle}'.`)
+			) {
+				return;
+			}
+		}
+		handleDeletePoi(payload.id);
+		if (!linkedNoteId) {
+			toastState.info('POI deleted. Use Ctrl+Shift+Z to undo.');
+		}
+	}
+
+	function handleNavigateToPoi(poiId: string): void {
+		selectedPoiId = poiId;
+		mapListView = false;
+		if (!layoutState.isExpanded) {
+			selectedPoiSheetOpen = true;
+		}
+	}
+
 	function updatePoi(poiId: string, updater: (poi: MapPoiData) => MapPoiData): void {
 		draftPois = draftPois.map((poi) => (poi.id === poiId ? updater(poi) : poi));
 		markDirty();
@@ -1732,22 +1815,24 @@
 		const route = routeById[routeId];
 		if (route) {
 			newRouteName = route.name;
-			newRouteStyle = route.style;
 		}
 	}
 
 	function finalizeRouteDraft(): void {
 		if (!routeEditMode || routeDraftWaypoints.length < 2) return;
 		withUndo('Route finalized', () => {
+			let savedRouteName: string;
 			if (!selectedRoute) {
 				const routeId = generateMapAnnotationId('layer').replace('layer-', 'route-');
+				savedRouteName = newRouteName.trim() || `Route ${draftRoutes.length + 1}`;
 				upsertRoute({
 					id: routeId,
-					name: newRouteName.trim() || `Route ${draftRoutes.length + 1}`,
+					name: savedRouteName,
 					style: newRouteStyle,
 					waypoints: routeDraftWaypoints.map((point) => ({ ...point })),
 				});
 			} else {
+				savedRouteName = selectedRoute.name;
 				upsertRoute({
 					...selectedRoute,
 					style: selectedRoute.style ?? newRouteStyle,
@@ -1759,6 +1844,7 @@
 			}
 			routeDraftWaypoints = [];
 			routeDraftCursor = null;
+			announceMapOperation(`Route '${savedRouteName}' saved`);
 		});
 	}
 
@@ -2511,6 +2597,9 @@
 				before,
 				after,
 			});
+			announceMapOperation(
+				fogMode === 'reveal' ? 'Fog revealed in region' : 'Fog restored in region',
+			);
 		}
 		pendingFogUndoBefore = null;
 		fogLassoPoints = [];
@@ -2663,6 +2752,9 @@
 						before: pendingFogUndoBefore,
 						after,
 					});
+					announceMapOperation(
+						fogMode === 'reveal' ? 'Fog revealed in region' : 'Fog restored in region',
+					);
 				}
 				pendingFogUndoBefore = null;
 			}
@@ -2717,6 +2809,7 @@
 		cellY: number | null;
 		clientX: number;
 		clientY: number;
+		source: 'contextmenu' | 'longpress';
 	}): void {
 		if (playerModeState.enabled || !selectedMap) return;
 		mapContextMenu = {
@@ -2724,7 +2817,53 @@
 			clientY: payload.clientY,
 			x: payload.x,
 			y: payload.y,
+			source: payload.source,
 		};
+	}
+
+	function placePoiAtPoint(x: number, y: number): void {
+		if (!selectedMap) return;
+		const layerId = draftLayers.some((layer) => layer.id === newPoiLayerId)
+			? newPoiLayerId
+			: (draftLayers[0]?.id ?? DEFAULT_MAP_LAYER_ID);
+		const nextPoi: MapPoiData = {
+			id: generateMapAnnotationId('poi'),
+			label: `POI ${draftPois.length + 1}`,
+			category: 'landmark',
+			x,
+			y,
+			layerId,
+		};
+		withUndo('POI placed', () => {
+			draftPois = [...draftPois, nextPoi];
+			selectedPoiId = nextPoi.id;
+			if (!layoutState.isExpanded) selectedPoiSheetOpen = true;
+			announceMapOperation(`POI '${nextPoi.label}' placed`);
+			markDirty();
+		});
+	}
+
+	function applyFogTap(mode: MapFogOperationMode, x: number, y: number): void {
+		if (!isFogEditingContextReady()) return;
+		const previousMode = fogMode;
+		fogMode = mode;
+		handleFogPointerDown({ x, y });
+		handleFogPointerUp({ x, y });
+		if (pendingFogUndoBefore) {
+			const after = mapEditSnapshot();
+			if (snapshotChanged(pendingFogUndoBefore, after)) {
+				mapUndoStack.record({
+					label: 'Fog stroke',
+					before: pendingFogUndoBefore,
+					after,
+				});
+				announceMapOperation(
+					mode === 'reveal' ? 'Fog revealed in region' : 'Fog restored in region',
+				);
+			}
+			pendingFogUndoBefore = null;
+		}
+		fogMode = previousMode;
 	}
 
 	$effect(() => {
@@ -3408,7 +3547,9 @@
 				<div class="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
 					{#if !playerModeState.enabled}
 						<div
-							class="flex w-full flex-wrap items-center justify-between gap-2 rounded border border-border/70 bg-surface-alt/70 px-2 py-1.5"
+							class={layoutState.isCompact
+								? 'hidden'
+								: 'flex w-full flex-wrap items-center justify-between gap-2 rounded border border-border/70 bg-surface-alt/70 px-2 py-1.5'}
 						>
 							<div class="flex flex-wrap items-center gap-1.5">
 								<div
@@ -3471,6 +3612,13 @@
 										<option value={layer.id}>{layer.name}</option>
 									{/each}
 								</select>
+								<Button
+									size="sm"
+									variant={mapListView ? 'primary' : 'ghost'}
+									onclick={() => (mapListView = !mapListView)}
+								>
+									{mapListView ? 'Canvas view' : 'List view'}
+								</Button>
 								{#if partyLocation}
 									<p class="text-ink-faint">
 										Party {partyLocation.x.toFixed(3)}, {partyLocation.y.toFixed(3)}
@@ -3486,99 +3634,154 @@
 					{/if}
 				</div>
 				{#if activeModeMeta}
-					<div
-						class="mb-2 flex h-9 items-center justify-between gap-2 rounded border border-amber-300 bg-amber-100/80 px-2 text-xs text-amber-900"
-						role="status"
-						aria-live="polite"
-					>
-						<div class="flex min-w-0 items-center gap-2">
-							<Icon name={activeModeMeta.icon} size="md" />
-							<p class="truncate font-semibold">{activeModeMeta.label}</p>
-							<p class="truncate text-amber-800/90">
-								{mapViewerModeHint(
-									activeMode,
-								)}{#if activeMode === 'poi_edit' && touchPlacementHintVisible}
-									. Tap to place
-								{:else if activeMode === 'fog_paint' && fogTool === 'polygon' && fogLassoPoints.length > 0}
-									. {fogLassoPoints.length} vertex{fogLassoPoints.length === 1 ? '' : 'es'}
+					{#if layoutState.isCompact}
+						<div class="mx-auto mb-2" role="status" aria-live="polite">
+							<button
+								type="button"
+								class="inline-flex h-9 items-center gap-2 rounded-full border border-amber-300 bg-amber-100/90 px-3 text-xs font-medium text-amber-900"
+								onclick={() => (toolsSheetOpen = true)}
+							>
+								<Icon name={activeModeMeta.icon} size="sm" />
+								<span>{activeModeMeta.label} - tap for tools</span>
+							</button>
+						</div>
+					{:else}
+						<div
+							class="mb-2 flex h-9 items-center justify-between gap-2 rounded border border-amber-300 bg-amber-100/80 px-2 text-xs text-amber-900"
+							role="status"
+							aria-live="polite"
+						>
+							<div class="flex min-w-0 items-center gap-2">
+								<Icon name={activeModeMeta.icon} size="md" />
+								<p class="truncate font-semibold">{activeModeMeta.label}</p>
+								<p class="truncate text-amber-800/90">
+									{mapViewerModeHint(
+										activeMode,
+									)}{#if activeMode === 'poi_edit' && touchPlacementHintVisible}
+										. Tap to place
+									{:else if activeMode === 'fog_paint' && fogTool === 'polygon' && fogLassoPoints.length > 0}
+										. {fogLassoPoints.length} vertex{fogLassoPoints.length === 1 ? '' : 'es'}
+									{/if}
+								</p>
+							</div>
+							<div class="flex items-center gap-1">
+								{#if modeToolsInSheet}
+									<Button size="sm" variant="secondary" onclick={() => (toolsSheetOpen = true)}>
+										Tools
+									</Button>
 								{/if}
-							</p>
-						</div>
-						<div class="flex items-center gap-1">
-							{#if modeToolsInSheet}
-								<Button size="sm" variant="secondary" onclick={() => (toolsSheetOpen = true)}>
-									Tools
+								<Button size="sm" variant="ghost" onclick={() => requestMapMode('view')}>
+									Exit {mapViewerModeLabel(activeMode)}
 								</Button>
-							{/if}
-							<Button size="sm" variant="ghost" onclick={() => requestMapMode('view')}>
-								Exit {mapViewerModeLabel(activeMode)}
-							</Button>
+							</div>
 						</div>
-					</div>
+					{/if}
 				{/if}
 				{#if selectedMap.data.parentMapId}
 					<p class="mb-2 text-xs text-ink-faint">Press Escape to navigate up to parent map.</p>
 				{/if}
-				{#key `${selectedMap.id}:${viewerKey}`}
-					<MapCanvasViewer
-						src={selectedMapAssetUrl}
-						alt={`${selectedMap.name} viewer`}
-						grid={gridDraft}
-						showGrid={runtimeShowGrid}
-						editableGrid={editGridHandles}
-						pois={viewerPois}
-						poiEditable={editPoiMode}
-						combatTokens={combatModeEnabled ? combatViewerTokens : []}
-						activeCombatTokenId={combatModeEnabled
-							? (selectedCombatToken?.combatantId ?? selectedCombat?.activeCombatantId ?? null)
-							: null}
-						combatTokenEditable={combatModeEnabled}
-						movementRangeCells={combatModeEnabled ? movementRangeCells : []}
-						pathCells={combatModeEnabled ? pathPreviewCells : []}
-						difficultTerrainCells={combatModeEnabled ? combatMapState.difficultTerrain : []}
-						templateOverlays={combatModeEnabled ? combinedTemplateOverlays : []}
-						routes={draftRoutes}
-						activeRouteId={selectedRouteId}
-						routeEditable={routeEditMode}
-						{routeDraftWaypoints}
-						{routeDraftCursor}
-						{partyMarker}
-						fogEnabled={!!selectedCombatTile ||
-							playerModeState.enabled ||
-							!!selectedMap.data.lastSessionFog}
-						fogState={effectiveFogState}
-						fogDraftShape={fogEditingEnabled ? fogTool : null}
-						fogDraftCursor={fogEditingEnabled ? fogDragCurrent : null}
-						fogDraftStart={fogEditingEnabled ? fogDragStart : null}
-						fogDraftPoints={fogEditingEnabled ? fogLassoPoints : []}
-						fogDraftRadius={fogBrushRadius}
-						fogFeatherPx={5}
-						fogPlayerEnforced={playerModeState.enabled}
-						fogAnimationOperation={playerModeState.enabled ? fogAnimationOperation : null}
-						fogAnimationDurationMs={800}
-						navigationLocked={fogEditingEnabled}
-						initialViewport={draftInitialViewport ?? undefined}
-						shortcutCommand={mapViewerShortcutCommand}
-						ongridchange={handleGridChange}
-						onviewportchange={handleViewportChange}
-						onimageinfo={handleImageInfo}
-						onmapclick={handleMapClick}
-						onmapdoubleclick={handleMapDoubleClick}
-						onrouteclick={handleRouteClick}
-						onroutewaypointmove={handleRouteWaypointMove}
-						onroutewaypointdelete={handleRouteWaypointDelete}
-						onpoimove={handlePoiMove}
-						onpoiclick={handlePoiClick}
-						onpoihover={handlePoiHover}
-						oncombattokenclick={handleCombatTokenClick}
-						oncombattokendrop={handleCombatTokenDrop}
-						onmappointerdown={handleMapPointerDown}
-						onmappointermove={handleMapPointerMove}
-						onmappointerup={handleMapPointerUp}
-						oninputmodalitytouch={handleInputModalityTouch}
-						onmapcontextmenu={handleMapContextMenu}
-					/>
-				{/key}
+				<div class="sr-only" aria-live="polite">{mapLiveAnnouncement}</div>
+				<ul aria-label="Points of interest" class="sr-only">
+					{#each poiInventory as poi (poi.id)}
+						<li>{poi.name}, {poi.category}, layer {poi.layer}, linked note: {poi.linkedNote}</li>
+					{/each}
+				</ul>
+				{#if mapListView}
+					<div class="overflow-auto rounded border border-border">
+						<table class="min-w-full text-left text-xs">
+							<thead class="bg-surface-alt">
+								<tr>
+									<th class="px-2 py-1.5">Name</th>
+									<th class="px-2 py-1.5">Category</th>
+									<th class="px-2 py-1.5">Layer</th>
+									<th class="px-2 py-1.5">Linked Note</th>
+									<th class="px-2 py-1.5">Action</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each poiInventory as poi (poi.id)}
+									<tr class="border-t border-border">
+										<td class="px-2 py-1.5">{poi.name}</td>
+										<td class="px-2 py-1.5">{poi.category}</td>
+										<td class="px-2 py-1.5">{poi.layer}</td>
+										<td class="px-2 py-1.5">{poi.linkedNote}</td>
+										<td class="px-2 py-1.5">
+											<Button size="sm" variant="ghost" onclick={() => handleNavigateToPoi(poi.id)}
+												>Navigate to POI</Button
+											>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				{:else}
+					{#key `${selectedMap.id}:${viewerKey}`}
+						<MapCanvasViewer
+							src={selectedMapAssetUrl}
+							alt={`${selectedMap.name} viewer`}
+							ariaLabel={mapCanvasAriaLabel}
+							liveMessage={mapLiveAnnouncement}
+							grid={gridDraft}
+							showGrid={runtimeShowGrid}
+							editableGrid={editGridHandles}
+							pois={viewerPois}
+							poiEditable={editPoiMode}
+							poiKeyboardNavigable={activeMode === 'view'}
+							combatTokens={combatModeEnabled ? combatViewerTokens : []}
+							activeCombatTokenId={combatModeEnabled
+								? (selectedCombatToken?.combatantId ?? selectedCombat?.activeCombatantId ?? null)
+								: null}
+							combatTokenEditable={combatModeEnabled}
+							movementRangeCells={combatModeEnabled ? movementRangeCells : []}
+							pathCells={combatModeEnabled ? pathPreviewCells : []}
+							difficultTerrainCells={combatModeEnabled ? combatMapState.difficultTerrain : []}
+							templateOverlays={combatModeEnabled ? combinedTemplateOverlays : []}
+							routes={draftRoutes}
+							activeRouteId={selectedRouteId}
+							routeEditable={routeEditMode}
+							{routeDraftWaypoints}
+							{routeDraftCursor}
+							{partyMarker}
+							fogEnabled={!!selectedCombatTile ||
+								playerModeState.enabled ||
+								!!selectedMap.data.lastSessionFog}
+							fogState={effectiveFogState}
+							fogDraftShape={fogEditingEnabled ? fogTool : null}
+							fogDraftCursor={fogEditingEnabled ? fogDragCurrent : null}
+							fogDraftStart={fogEditingEnabled ? fogDragStart : null}
+							fogDraftPoints={fogEditingEnabled ? fogLassoPoints : []}
+							fogDraftRadius={fogBrushRadius}
+							fogFeatherPx={5}
+							fogPlayerEnforced={playerModeState.enabled}
+							fogAnimationOperation={playerModeState.enabled ? fogAnimationOperation : null}
+							fogAnimationDurationMs={800}
+							navigationLocked={fogEditingEnabled}
+							initialViewport={draftInitialViewport ?? undefined}
+							shortcutCommand={mapViewerShortcutCommand}
+							ongridchange={handleGridChange}
+							onviewportchange={handleViewportChange}
+							onimageinfo={handleImageInfo}
+							onmapclick={handleMapClick}
+							onmapdoubleclick={handleMapDoubleClick}
+							onrouteclick={handleRouteClick}
+							onroutewaypointmove={handleRouteWaypointMove}
+							onroutewaypointdelete={handleRouteWaypointDelete}
+							onpoimove={handlePoiMove}
+							onpoiclick={handlePoiClick}
+							onpoidelete={handlePoiDeleteRequest}
+							onpoihover={handlePoiHover}
+							oncombattokenclick={handleCombatTokenClick}
+							oncombattokendrop={handleCombatTokenDrop}
+							onmappointerdown={handleMapPointerDown}
+							onmappointermove={handleMapPointerMove}
+							onmappointerup={handleMapPointerUp}
+							oninputmodalitytouch={handleInputModalityTouch}
+							onfogbrushradiuschange={(radius) => (fogBrushRadius = radius)}
+							onmapcontextmenu={handleMapContextMenu}
+						/>
+					{/key}
+				{/if}
 				<Popover
 					open={poiHoverOpen && !!poiHover?.anchor && !!hoveredPoi}
 					anchor={poiHover?.anchor ?? null}
@@ -3622,25 +3825,185 @@
 				</Popover>
 				{#if mapContextMenu}
 					{@const contextMenu = mapContextMenu}
-					<div
-						class="fixed z-40 min-w-40 rounded-md border border-border bg-surface-elevated p-1 shadow-lg"
-						style={`left:${contextMenu.clientX}px;top:${contextMenu.clientY}px;`}
-						role="menu"
-						aria-label="Map context menu"
-						tabindex="-1"
-						onpointerdown={(event) => event.stopPropagation()}
-					>
+					{#if layoutState.isCompact && contextMenu.source === 'longpress'}
+						<Sheet
+							open={true}
+							title="Map actions"
+							onclose={() => {
+								mapContextMenu = null;
+							}}
+						>
+							<div class="space-y-2">
+								{#if activeMode === 'view'}
+									<Button
+										size="sm"
+										variant="secondary"
+										onclick={() => {
+											placePoiAtPoint(contextMenu.x, contextMenu.y);
+											mapContextMenu = null;
+										}}
+									>
+										Place POI here
+									</Button>
+									<Button
+										size="sm"
+										variant="secondary"
+										onclick={() => {
+											void handleMarkPartyLocation({
+												x: contextMenu.x,
+												y: contextMenu.y,
+												source: 'point',
+											});
+											mapContextMenu = null;
+										}}
+									>
+										Mark party here
+									</Button>
+									<Button
+										size="sm"
+										variant="ghost"
+										onclick={() => {
+											enqueueMapViewerShortcut('zoom_fit');
+											mapContextMenu = null;
+										}}
+									>
+										Reset view
+									</Button>
+								{:else if activeMode === 'fog_paint'}
+									<Button
+										size="sm"
+										variant="secondary"
+										onclick={() => {
+											applyFogTap('reveal', contextMenu.x, contextMenu.y);
+											mapContextMenu = null;
+										}}
+									>
+										Reveal this area
+									</Button>
+									<Button
+										size="sm"
+										variant="secondary"
+										onclick={() => {
+											applyFogTap('refog', contextMenu.x, contextMenu.y);
+											mapContextMenu = null;
+										}}
+									>
+										Re-fog this area
+									</Button>
+								{/if}
+							</div>
+						</Sheet>
+					{:else}
+						<div
+							class="fixed z-40 min-w-40 rounded-md border border-border bg-surface-elevated p-1 shadow-lg"
+							style={`left:${contextMenu.clientX}px;top:${contextMenu.clientY}px;`}
+							role="menu"
+							aria-label="Map context menu"
+							tabindex="-1"
+							onpointerdown={(event) => event.stopPropagation()}
+						>
+							{#if activeMode === 'view'}
+								<button
+									type="button"
+									class="w-full rounded px-2 py-1 text-left text-xs text-ink hover:bg-surface-alt"
+									onclick={() => {
+										placePoiAtPoint(contextMenu.x, contextMenu.y);
+										mapContextMenu = null;
+									}}
+								>
+									Place POI here
+								</button>
+								<button
+									type="button"
+									class="w-full rounded px-2 py-1 text-left text-xs text-ink hover:bg-surface-alt"
+									onclick={() => {
+										void handleMarkPartyLocation({
+											x: contextMenu.x,
+											y: contextMenu.y,
+											source: 'point',
+										});
+										mapContextMenu = null;
+									}}
+								>
+									Mark party here
+								</button>
+								<button
+									type="button"
+									class="w-full rounded px-2 py-1 text-left text-xs text-ink hover:bg-surface-alt"
+									onclick={() => {
+										enqueueMapViewerShortcut('zoom_fit');
+										mapContextMenu = null;
+									}}
+								>
+									Reset view
+								</button>
+							{:else if activeMode === 'fog_paint'}
+								<button
+									type="button"
+									class="w-full rounded px-2 py-1 text-left text-xs text-ink hover:bg-surface-alt"
+									onclick={() => {
+										applyFogTap('reveal', contextMenu.x, contextMenu.y);
+										mapContextMenu = null;
+									}}
+								>
+									Reveal this area
+								</button>
+								<button
+									type="button"
+									class="w-full rounded px-2 py-1 text-left text-xs text-ink hover:bg-surface-alt"
+									onclick={() => {
+										applyFogTap('refog', contextMenu.x, contextMenu.y);
+										mapContextMenu = null;
+									}}
+								>
+									Re-fog this area
+								</button>
+							{:else}
+								<button
+									type="button"
+									class="w-full rounded px-2 py-1 text-left text-xs text-ink hover:bg-surface-alt"
+									onclick={() =>
+										void handleMarkPartyLocation({
+											x: contextMenu.x,
+											y: contextMenu.y,
+											source: 'point',
+										})}
+								>
+									Mark party here
+								</button>
+							{/if}
+						</div>
+					{/if}
+				{/if}
+				{#if !playerModeState.enabled && layoutState.isCompact}
+					<div class="pointer-events-none absolute inset-x-2 bottom-2 z-30 flex items-center gap-2">
+						<div
+							class="pointer-events-auto flex h-11 flex-1 items-center gap-1 overflow-x-auto rounded-full border border-border bg-surface/95 px-2"
+							role="radiogroup"
+							aria-label="Map mode switcher"
+						>
+							{#each MAP_VIEWER_MODES as mode (mode.id)}
+								<button
+									type="button"
+									role="radio"
+									aria-checked={activeMode === mode.id}
+									class="inline-flex h-11 min-w-11 items-center justify-center rounded-full border px-3 text-xs {activeMode ===
+									mode.id
+										? 'border-accent bg-accent-subtle text-accent'
+										: 'border-border text-ink-muted'}"
+									onclick={() => requestMapMode(mode.id)}
+								>
+									<Icon name={mode.icon} size="sm" />
+								</button>
+							{/each}
+						</div>
 						<button
 							type="button"
-							class="w-full rounded px-2 py-1 text-left text-xs text-ink hover:bg-surface-alt"
-							onclick={() =>
-								void handleMarkPartyLocation({
-									x: contextMenu.x,
-									y: contextMenu.y,
-									source: 'point',
-								})}
+							class="pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-surface text-ink"
+							aria-label="Map controls"
+							onclick={() => (mapMobileControlsSheetOpen = true)}
 						>
-							Mark party here
+							...
 						</button>
 					</div>
 				{/if}
@@ -4628,7 +4991,7 @@
 										<Button
 											size="sm"
 											variant="danger"
-											onclick={() => handleDeletePoi(selectedPoi.id)}
+											onclick={() => handlePoiDeleteRequest({ id: selectedPoi.id })}
 										>
 											Delete pin
 										</Button>
@@ -4723,6 +5086,47 @@
 					{/if}
 					<Button variant="ghost" size="sm" onclick={() => requestMapMode('view')}>Exit mode</Button
 					>
+				</div>
+			</Sheet>
+		{/if}
+		{#if layoutState.isCompact}
+			<Sheet
+				open={mapMobileControlsSheetOpen}
+				title="Map controls"
+				onclose={() => (mapMobileControlsSheetOpen = false)}
+			>
+				<div class="space-y-3 text-sm text-ink">
+					<div class="flex flex-wrap gap-2">
+						<Button size="sm" variant="ghost" onclick={() => enqueueMapViewerShortcut('zoom_fit')}>
+							Fit
+						</Button>
+						<Button size="sm" variant="ghost" onclick={() => enqueueMapViewerShortcut('zoom_100')}>
+							100%
+						</Button>
+						<Button size="sm" variant="ghost" onclick={() => (mapListView = !mapListView)}>
+							{mapListView ? 'Canvas view' : 'List view'}
+						</Button>
+					</div>
+					<label class="flex items-center gap-2">
+						<input type="checkbox" bind:checked={runtimeShowGrid} />
+						Show grid
+					</label>
+					<label class="flex items-center gap-2">
+						<input type="checkbox" bind:checked={previewPlayerLayers} />
+						Player preview
+					</label>
+					<label class="block text-xs text-ink-muted">
+						Layer filter
+						<select
+							bind:value={activeLayerFilter}
+							class="mt-1 w-full rounded border border-border bg-surface-alt px-2 py-1.5 text-sm text-ink"
+						>
+							<option value="all">All layers</option>
+							{#each draftLayers as layer (layer.id)}
+								<option value={layer.id}>{layer.name}</option>
+							{/each}
+						</select>
+					</label>
 				</div>
 			</Sheet>
 		{/if}
