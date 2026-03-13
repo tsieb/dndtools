@@ -101,7 +101,7 @@ describe('runtime boundary lint rules — MCP filesystem boundary', () => {
 			const content = readFileSync(file, 'utf-8');
 			const lines = content.split('\n');
 			for (let i = 0; i < lines.length; i++) {
-				if (FS_IMPORT_RE.test(lines[i])) {
+				if (FS_IMPORT_RE.test(lines[i]!)) {
 					violations.push(`${rel}:${i + 1}`);
 				}
 			}
