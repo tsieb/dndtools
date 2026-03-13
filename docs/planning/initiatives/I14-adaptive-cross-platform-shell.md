@@ -1,6 +1,6 @@
 # Initiative 14 — Adaptive Cross-Platform Shell
 
-## Status: PLANNED
+## Status: COMPLETED
 
 **Outcome:** The application feels genuinely native on every platform it runs on. On
 mobile, navigation is thumb-reachable and the editor does not fight the software

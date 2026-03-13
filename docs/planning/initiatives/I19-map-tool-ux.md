@@ -1,6 +1,6 @@
 # Initiative 19 — Map Tool UX: Modal Clarity, Ergonomics & Accessible Exploration
 
-## Status: PLANNED
+## Status: COMPLETED
 
 **Outcome:** The map viewer is the most spatial, powerful, and fluid tool in the
 application. A new DM can import a map, place a POI, and link it to a note in under

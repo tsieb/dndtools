@@ -1,5 +1,7 @@
 # Initiative 12 — Community & Content Ecosystem
 
+## Status: DEFERRED
+
 **Outcome:** DND Tools is a platform. DMs can publish campaign modules, share custom
 content, discover community-created templates and scene packages, and collectively
 grow a library of high-quality reusable content. The community makes every DM's vault

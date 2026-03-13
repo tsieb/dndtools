@@ -1,6 +1,6 @@
 # Initiative 16 — Session-Time UX Reimagined
 
-## Status: PLANNED
+## Status: COMPLETED
 
 **Outcome:** Running a live session with DND Tools is fast, tactile, and never breaks
 immersion. The DM can roll dice, track initiative, reference a stat block, and deliver

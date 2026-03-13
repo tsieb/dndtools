@@ -1,6 +1,6 @@
 # Initiative 9 — Maps & Spatial Intelligence
 
-## Status: In progress
+## Status: COMPLETED
 
 **Outcome:** DND Tools has first-class, interactive map support. DMs manage world
 maps, dungeon maps, and city maps with linked notes. Combat happens on a grid with

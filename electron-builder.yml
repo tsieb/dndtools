@@ -34,11 +34,12 @@ fileAssociations:
     role: Editor
 
 win:
+  icon: build/app-icon.ico
   target:
     - target: nsis
       arch:
         - x64
-  signAndEditExecutable: true
+  signAndEditExecutable: false
 
 nsis:
   differentialPackage: true

@@ -1,0 +1,30 @@
+{
+	"version": 1,
+	"generatedAt": "2026-03-13T03:42:48.926Z",
+	"stages": [
+		{
+			"name": "build",
+			"command": "pnpm build",
+			"samplesMs": [86360, 62105, 51234],
+			"p50Ms": 62105
+		},
+		{
+			"name": "mcp:build",
+			"command": "pnpm mcp:build",
+			"samplesMs": [10589, 12298, 12664],
+			"p50Ms": 12298
+		},
+		{
+			"name": "desktop:build",
+			"command": "pnpm desktop:build",
+			"samplesMs": [68381, 67725, 78430],
+			"p50Ms": 68381
+		},
+		{
+			"name": "desktop:package:dir",
+			"command": "pnpm exec electron-builder --config electron-builder.yml --dir --publish never",
+			"samplesMs": [21638, 16296, 16799],
+			"p50Ms": 16799
+		}
+	]
+}

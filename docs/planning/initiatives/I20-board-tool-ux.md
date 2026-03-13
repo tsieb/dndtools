@@ -1,6 +1,6 @@
 # Initiative 20 — Board Tool UX: Tile Interaction Design, Mobile Board & Map Integration
 
-## Status: PLANNED
+## Status: COMPLETED
 
 **Outcome:** The session board is a mission control surface that works equally well in
 prep mode at a desk and in active-session mode at the table. Individual tiles are

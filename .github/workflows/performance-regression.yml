@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PERF_BENCHMARK: '1'
-      PERF_RESULTS_PATH: tmp/performance/latest-performance-results.json
+      PERF_RESULTS_PATH: tmp/metrics/latest/performance-baseline.json
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,10 +48,10 @@ jobs:
         run: pnpm desktop:build
 
       - name: Run desktop performance benchmarks
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm test:e2e:desktop:perf
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm desktop:test:perf
 
       - name: Compare against baseline
-        run: pnpm tsx scripts/compare-performance-baseline.ts --baseline tests/perf/performance-baseline.json --current "$PERF_RESULTS_PATH" --threshold 0.2
+        run: pnpm metrics:compare -- --only performance --baselineDir tests/perf --currentDir tmp/metrics/latest --enforceRegression
 
       - name: Upload benchmark metrics
         if: always()

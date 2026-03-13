@@ -1,5 +1,7 @@
 # Initiative 10 — Player Character Suite
 
+## Status: NOT STARTED
+
 **Outcome:** Players have a complete, first-class character management experience.
 Every mechanical element of a D&D 5e character is tracked, managed, and accessible
 from any device. The player character suite works offline, syncs seamlessly when

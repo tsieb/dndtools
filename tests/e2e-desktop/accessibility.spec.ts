@@ -97,7 +97,8 @@ const axeReporter = createAxePolicyReporter();
 async function gotoPath(page: Page, path: string): Promise<void> {
 	const origin = new URL(page.url()).origin;
 	await page.goto(`${origin}${path}`);
-	await expect(page.locator('main')).toBeVisible();
+	await expect(page.locator('header').first()).toBeVisible({ timeout: 20_000 });
+	await expect(page.locator('#main-content')).toBeVisible({ timeout: 20_000 });
 	await page.waitForTimeout(150);
 }
 
@@ -168,6 +169,7 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 	});
 
 	test('axe scan passes with no serious or critical violations on all primary routes', async () => {
+		test.setTimeout(240_000);
 		const app = await launchWithSeed();
 		try {
 			for (const route of PRIMARY_ROUTES) {

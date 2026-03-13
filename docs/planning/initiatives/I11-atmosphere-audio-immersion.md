@@ -1,5 +1,7 @@
 # Initiative 11 — Atmosphere, Audio & Immersive Scene Management
 
+## Status: NOT STARTED
+
 **Outcome:** DND Tools creates a multi-sensory session experience. The DM can set
 the mood with ambient audio, display scene images on a secondary screen or TV,
 and trigger atmospheric cues tied to the evolving narrative. The app becomes the

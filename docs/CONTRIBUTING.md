@@ -19,7 +19,7 @@ git clone <repo-url>
 cd dndtools
 pnpm install
 pnpm dev          # Start SvelteKit dev server (browser mode)
-pnpm desktop:start  # Start Electron desktop app
+pnpm desktop:run  # Start Electron desktop app
 ```
 
 ## 3. What to Read First
@@ -65,12 +65,13 @@ pnpm desktop:start  # Start Electron desktop app
 
 ## 4. Development Workflow
 
-All story-level work goes on a branch:
+All feature work follows the initiative/epic branch model:
 
 ```bash
 git checkout master
-git checkout -b story/<epic-id>-<story-id>-<slug>
-# example: story/1.5-s1.5.2-system-health-page
+git pull
+git checkout -b initiative/<id>-<slug>
+git checkout -b story/<epic-id>-<slug>
 ```
 
 Pre-commit hook runs automatically: `pnpm lint && pnpm format:check`
@@ -119,7 +120,7 @@ Before opening a PR:
 
 1. Keep route components thin — business logic goes in service files under `src/lib/domain/` or state stores.
 2. Add/adjust E2E tests for critical paths.
-3. Run `pnpm test:e2e:desktop:critical` to confirm no regressions.
+3. Run `pnpm desktop:test:critical` to confirm no regressions.
 4. Update `docs/development/UX_GUIDELINES.md` if new UX patterns are introduced.
 
 ## 8. Getting Help

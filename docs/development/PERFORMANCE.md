@@ -1,6 +1,6 @@
 # Performance Engineering
 
-This document defines the operational performance program delivered for Epic 2.5.
+This document defines the committed runtime budgets plus the baseline-capture workflow used to track regressions over time.
 
 ## 1. Hard Budgets
 
@@ -10,85 +10,72 @@ Canonical budget registry:
 
 Budgeted operations:
 
-- `cold_start` (`<= 3000ms`)
-- `vault_open` (`<= 2000ms`)
-- `note_open` (`<= 200ms`)
-- `search_response` (`<= 150ms`)
-- `note_save` (`<= 100ms`)
-- `graph_rebuild_incremental` (`<= 50ms`)
-- `mcp_bundle_call` (`<= 800ms`)
+- `cold_start` <= `3000ms`
+- `vault_open` <= `2000ms`
+- `note_open` <= `200ms`
+- `search_response` <= `150ms`
+- `note_save` <= `100ms`
+- `graph_rebuild_incremental` <= `50ms`
+- `mcp_bundle_call` <= `800ms`
 
-Regression threshold policy:
+Initial client bundle goal:
 
-- CI fails if benchmark result exceeds baseline by more than 20%.
-- CI also fails if any operation exceeds its regression threshold (`target * 1.2`).
+- initial-route JavaScript <= `100KB` gzipped
 
-## 2. Telemetry and System Health
+## 2. Baseline Artifacts
+
+Committed baselines live in `tests/perf/`:
+
+- `bundle-baseline.json`
+- `build-baseline.json`
+- `test-baseline.json`
+- `performance-baseline.json`
+
+Use `pnpm metrics:capture -- --profile baseline --writeBaseline` to refresh the
+merge-blocking baseline set intentionally. Add `--includeExtendedTests` when you also
+want to time the non-gating browser and extended desktop suites.
+
+## 3. Tooling
+
+- capture: `pnpm metrics:capture`
+  This captures the suites enforced by the `master` quality gate by default. Use
+  `pnpm metrics:capture -- --includeExtendedTests` for a broader audit snapshot.
+- compare: `pnpm metrics:compare`
+- legacy perf-only compare alias: `pnpm perf:compare`
+- scheduled benchmark workflow: `.github/workflows/performance-regression.yml`
+
+The compare step is merge-blocking on `master` PRs when:
+
+- a timing baseline regresses materially
+- initial-route gzip exceeds the bundle budget
+- a runtime metric exceeds its regression threshold
+
+## 4. Build Pipeline Expectations
+
+The desktop build now runs renderer and MCP builds in parallel before Electron bundling.
+
+Expected healthy ordering:
+
+- `build` should be the slowest renderer-facing stage
+- `mcp:build` should stay materially below renderer build time
+- `desktop:build` should remain well below the sum of `build + mcp:build` because of parallelism
+- `desktop:package` / `desktop:package:dir` are expected to be the slowest overall stages
+
+Authoritative current timings should be read from `tests/perf/build-baseline.json`.
+
+## 5. Runtime Telemetry
 
 Runtime telemetry sources:
 
-- Renderer operations report through `recordDiagnosticsPerformance` IPC.
-- Electron main process reports vault-open telemetry directly.
-- MCP bundle calls persist telemetry to `.vault/mcp-performance.json`, ingested by main diagnostics.
+- renderer operations report through diagnostics IPC
+- Electron main reports vault-open telemetry
+- desktop benchmark runs emit machine-readable snapshots to `tmp/metrics/` or `tmp/performance/`
 
-System Health performance view (`Settings -> System Health -> Performance`) includes:
+## 6. Mitigation Playbook
 
-- Per-operation summary with sample count and P50/P95/P99.
-- Budget-aware highlighting when percentile samples exceed target.
-- Slowest recent operation timeline grouped by operation type.
+When a metric regresses:
 
-## 3. Benchmark Suite
-
-Benchmark test:
-
-- `tests/e2e-desktop/performance.spec.ts` (`@perf`)
-
-Dataset coverage:
-
-- `notes_1000` fixture vault
-- `notes_5000` fixture vault
-
-Benchmark artifact:
-
-- Current run output: `tmp/performance/latest-performance-results.json`
-- Committed baseline: `tests/perf/performance-baseline.json`
-- Baseline updates are intentional, reviewer-visible changes and must be explicitly approved in PR review.
-
-Comparison script:
-
-- `scripts/compare-performance-baseline.ts`
-
-Workflow:
-
-- `.github/workflows/performance-regression.yml`
-
-## 4. Memory Profiling Program
-
-Nightly memory profile:
-
-- Test: `tests/e2e-desktop/memory.spec.ts` (`@memory`)
-- Workflow: `.github/workflows/memory-profile.yml`
-- Budget: heap growth `< 20MB` after fixed interaction script:
-  - open 50 notes
-  - run 20 searches
-  - save 10 notes
-
-Local memory investigation:
-
-- `pnpm memory:profile`
-- Script: `scripts/memory-profile.ts`
-
-## 5. Mitigation Playbook
-
-When an operation regresses:
-
-1. Inspect System Health performance timeline and identify offending operation + source.
-2. Compare current benchmark artifact against baseline to isolate dataset-specific degradation.
-3. Apply targeted mitigation:
-   - `cold_start` / `vault_open`: reduce synchronous bootstrap work, defer non-critical initialization.
-   - `note_open`: minimize route-level rendering and heavy derived computations.
-   - `search_response`: trim query-time work and reduce result shaping overhead.
-   - `note_save`: avoid extra write-path serialization and non-essential post-save sync.
-   - `graph_rebuild_incremental`: keep updates scoped to changed note edges only.
-   - `mcp_bundle_call`: reduce repeated scans by reusing derived vault intelligence.
-4. Re-run `pnpm test:e2e:desktop:perf` and `pnpm perf:compare` before merge.
+1. Capture fresh metrics with `pnpm metrics:capture -- --profile ci --outputDir tmp/metrics/latest`.
+2. Compare against committed baselines with `pnpm metrics:compare`.
+3. Identify whether the regression is in bundle size, build duration, suite duration, or runtime telemetry.
+4. Apply targeted fixes and re-run the affected category before updating baselines.

@@ -1,5 +1,7 @@
 # Initiative 7 — Collaborative Infrastructure
 
+## Status: DEFERRED
+
 **Outcome:** Groups of DMs and players can share a live session from any device. The
 DM controls what content is visible, and that content appears in real time for players.
 This works over the internet via AWS or over LAN via direct P2P — with no required

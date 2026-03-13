@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "generatedAt": "2026-03-13T05:35:58.703Z",
+  "suites": [
+    {
+      "name": "test",
+      "command": "pnpm test",
+      "samplesMs": [
+        177715,
+        119441,
+        102766
+      ],
+      "p50Ms": 119441
+    },
+    {
+      "name": "test:smoke",
+      "command": "pnpm test:smoke",
+      "samplesMs": [
+        67644,
+        62254,
+        59830
+      ],
+      "p50Ms": 62254
+    },
+    {
+      "name": "desktop:test:critical",
+      "command": "pnpm desktop:test:critical",
+      "samplesMs": [
+        211256,
+        223078,
+        224165
+      ],
+      "p50Ms": 223078
+    },
+    {
+      "name": "desktop:test:a11y",
+      "command": "pnpm desktop:test:a11y",
+      "samplesMs": [
+        187862,
+        190855,
+        191843
+      ],
+      "p50Ms": 190855
+    }
+  ]
+}

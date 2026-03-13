@@ -1,35 +1,42 @@
-## Story Reference
+## Tier
 
-Epic: <!-- e.g., Epic 2.1 -->
-Story: <!-- e.g., S2.1.1 — Core CI workflow -->
+- [ ] Epic PR targeting `initiative/*`
+- [ ] Initiative PR targeting `master`
+
+## Reference
+
+Epic / Initiative:
+Story / Scope:
 
 ---
 
 ## Summary
 
-<!-- 2–4 sentences: what changed and why -->
+<!-- 2-4 sentences: what changed and why -->
 
 ---
 
-## Validation Checklist
+## Epic PR Checklist
 
-- [ ] `pnpm check` passes (lint + typecheck + unit tests)
-- [ ] `pnpm format:check` passes
-- [ ] `pnpm test:e2e` passes (if `src/`, `electron/`, or `mcp/` changed)
-- [ ] `pnpm desktop:build` succeeds (if `electron/` or `mcp/` changed)
-- [ ] No new `any` types introduced
-- [ ] No runtime boundary violations (no Node APIs in renderer, no Svelte imports in MCP)
+- [ ] `pnpm test:smoke` passes
+- [ ] Story or epic acceptance criteria are met
+- [ ] New behavior has regression coverage at the correct layer
+- [ ] Only initiative-scope files are included
 
----
+## Initiative PR Checklist
+
+- [ ] `pnpm audit:full` passes or the equivalent CI jobs are green
+- [ ] `quality` CI status is green
+- [ ] Performance baselines are unchanged or intentionally updated
+- [ ] Docs are updated for workflow, contract, or architecture changes
+- [ ] No known regressions remain
 
 ## Documentation Updated
 
-- [ ] Docs updated for any changed contracts, types, or user-visible behavior
-- [ ] Any `TODO(APP)` annotations include reason and target files
-- [ ] Long-lived `// TODO(APP)` deferments are linked to `DEBT.md` entries (required after one quarter)
+- [ ] Relevant docs updated
+- [ ] Any `TODO(APP)` annotations include required metadata
+- [ ] Any long-lived deferments are linked in `DEBT.md`
 
----
+## Follow-up
 
-## Known Gaps / Follow-up
-
-<!-- List any deferred items with reason, or write "None" -->
+<!-- List deferred work or write "None" -->

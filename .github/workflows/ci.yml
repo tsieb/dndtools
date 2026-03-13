@@ -3,13 +3,14 @@ name: CI
 on:
   push:
     branches:
-      - main
       - master
   pull_request:
+    branches:
+      - master
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: full-ci-${{ github.workflow }}-${{ github.event.pull_request.base.ref || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -17,42 +18,8 @@ permissions:
   pull-requests: write
 
 jobs:
-  quality-matrix:
-    name: quality-matrix (node-${{ matrix.node-version }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-      matrix:
-        node-version: [22]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Unit tests
-        run: pnpm test
-
-  check-script-contract:
-    name: check-script-contract
+  quality-core:
+    name: quality-core
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -72,8 +39,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate check script contract
-        run: pnpm check
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
 
   docs-validation:
     name: docs-validation
@@ -131,11 +107,8 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Build desktop bundles
-        run: pnpm desktop:build
-
-      - name: Run desktop critical e2e suite
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm test:e2e:desktop:critical
+      - name: Run desktop critical E2E suite
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm desktop:test:critical
 
       - name: Upload Playwright report
         if: always()
@@ -146,7 +119,7 @@ jobs:
           if-no-files-found: ignore
 
   desktop-e2e-accessibility:
-    name: preview-e2e-accessibility
+    name: desktop-e2e-accessibility
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -177,50 +150,78 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run preview accessibility e2e suite
-        env:
-          A11Y_REPORT_PATH: tmp/accessibility/a11y-report.json
-        run: pnpm test:e2e
+      - name: Run desktop accessibility E2E suite
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm desktop:test:a11y
 
-      - name: Build accessibility summary
-        if: always()
-        run: |
-          pnpm exec tsx scripts/accessibility-report.ts \
-            --input tmp/accessibility/a11y-report.json \
-            --baseline tests/accessibility/a11y-baseline.json \
-            --output tmp/accessibility/a11y-summary.md \
-            --json tmp/accessibility/a11y-summary.json
-
-      - name: Upload accessibility Playwright report
+      - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-preview-a11y
+          name: playwright-report-desktop-a11y
           path: playwright-report/
           if-no-files-found: ignore
 
-      - name: Upload accessibility summary artifact
+  metrics-report:
+    name: metrics-report
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Capture current metrics
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm metrics:capture -- --profile ci --outputDir tmp/metrics/latest
+
+      - name: Compare metrics against baselines
+        run: pnpm metrics:compare -- --baselineDir tests/perf --currentDir tmp/metrics/latest --markdown tmp/metrics/latest/metrics-summary.md --json tmp/metrics/latest/metrics-summary.json --enforceRegression
+
+      - name: Upload metrics artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: accessibility-report-summary
-          path: tmp/accessibility/
-          if-no-files-found: ignore
+          name: metrics-report
+          path: tmp/metrics/latest/
+          if-no-files-found: warn
 
-      - name: Comment accessibility summary on PR
-        if: always() && github.event_name == 'pull_request'
+      - name: Comment metrics summary on PR
+        if: always()
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const summaryPath = 'tmp/accessibility/a11y-summary.md';
+            const summaryPath = 'tmp/metrics/latest/metrics-summary.md';
             if (!fs.existsSync(summaryPath)) {
-              core.warning(`Accessibility summary not found at ${summaryPath}`);
+              core.warning(`Metrics summary not found at ${summaryPath}`);
               return;
             }
             const body = fs.readFileSync(summaryPath, 'utf8').trim();
             const issueNumber = context.issue.number;
-            const marker = '<!-- dndtools-a11y-report -->';
+            const marker = '<!-- dndtools-metrics-report -->';
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -247,25 +248,21 @@ jobs:
     name: quality
     if: ${{ always() }}
     needs:
-      - quality-matrix
+      - quality-core
       - docs-validation
-      - check-script-contract
       - desktop-e2e-critical
       - desktop-e2e-accessibility
+      - metrics-report
     runs-on: ubuntu-latest
     steps:
-      - name: Enforce matrix success
+      - name: Enforce required job success
         run: |
-          if [ "${{ needs.quality-matrix.result }}" != "success" ]; then
-            echo "quality-matrix did not succeed (result: ${{ needs.quality-matrix.result }})." >&2
+          if [ "${{ needs.quality-core.result }}" != "success" ]; then
+            echo "quality-core did not succeed (result: ${{ needs.quality-core.result }})." >&2
             exit 1
           fi
           if [ "${{ needs.docs-validation.result }}" != "success" ]; then
             echo "docs-validation did not succeed (result: ${{ needs.docs-validation.result }})." >&2
-            exit 1
-          fi
-          if [ "${{ needs.check-script-contract.result }}" != "success" ]; then
-            echo "check-script-contract did not succeed (result: ${{ needs.check-script-contract.result }})." >&2
             exit 1
           fi
           if [ "${{ needs.desktop-e2e-critical.result }}" != "success" ]; then
@@ -274,5 +271,9 @@ jobs:
           fi
           if [ "${{ needs.desktop-e2e-accessibility.result }}" != "success" ]; then
             echo "desktop-e2e-accessibility did not succeed (result: ${{ needs.desktop-e2e-accessibility.result }})." >&2
+            exit 1
+          fi
+          if [ "${{ needs.metrics-report.result }}" != "success" ] && [ "${{ needs.metrics-report.result }}" != "skipped" ]; then
+            echo "metrics-report did not succeed (result: ${{ needs.metrics-report.result }})." >&2
             exit 1
           fi

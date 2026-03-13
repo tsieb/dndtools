@@ -1,6 +1,6 @@
 # Initiative 13 — Information Architecture & Navigation System Overhaul
 
-## Status: PLANNED
+## Status: COMPLETED
 
 **Outcome:** Every user — from first-timer to veteran DM — can find what they need in
 under two seconds, understands where they are in the application at a glance, and never

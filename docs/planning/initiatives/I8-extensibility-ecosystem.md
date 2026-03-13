@@ -1,5 +1,7 @@
 # Initiative 8 — Extensibility & Ecosystem
 
+## Status: NOT STARTED
+
 **Outcome:** DND Tools is a platform, not just an application. Campaign systems,
 content types, and integrations are modular. A plugin author can add a new object type,
 a toolbar action, or a content source without modifying core code. The community can

@@ -1,6 +1,6 @@
 # Initiative 17 — Learnability, Progressive Disclosure & Help Systems
 
-## Status: PLANNED
+## Status: COMPLETED
 
 **Outcome:** A new user opens DND Tools for the first time and reaches genuine utility
 — a vault with meaningful content connected by working links — within their first 30

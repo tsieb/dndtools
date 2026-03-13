@@ -47,7 +47,7 @@ jobs:
         run: pnpm desktop:build
 
       - name: Run memory profile suite
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm test:e2e:desktop:memory
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm desktop:test:memory
 
       - name: Upload Playwright report
         if: always()

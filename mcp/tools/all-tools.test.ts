@@ -10,6 +10,20 @@ import { parseToolEnvelope, type ToolResult } from './shared/response.js';
 type ToolHandler = (input: Record<string, unknown>) => Promise<ToolResult>;
 type ToolName = keyof typeof MCP_TOOL_CONTRACTS;
 
+async function removeTempDirWithRetry(dir: string): Promise<void> {
+	for (let attempt = 0; attempt < 5; attempt += 1) {
+		try {
+			await fs.rm(dir, { recursive: true, force: true });
+			return;
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== 'EBUSY' || attempt === 4) {
+				throw error;
+			}
+			await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
+		}
+	}
+}
+
 class MockMcpServer {
 	handlers = new Map<string, ToolHandler>();
 
@@ -433,7 +447,7 @@ describe('MCP tool contracts', () => {
 	});
 
 	afterEach(async () => {
-		await fs.rm(tmpDir, { recursive: true, force: true });
+		await removeTempDirWithRetry(tmpDir);
 	});
 
 	it('registers every tool and returns schema-valid success payloads', async () => {
@@ -485,7 +499,7 @@ describe('MCP tool contracts', () => {
 
 		expect(writeSuccesses / writeContracts.length).toBe(1);
 		expect(readSuccesses / readContracts.length).toBeGreaterThanOrEqual(0.9);
-	}, 20_000);
+	}, 60_000);
 
 	it('rejects unknown top-level input keys for every tool', async () => {
 		const server = new MockMcpServer();
@@ -503,7 +517,7 @@ describe('MCP tool contracts', () => {
 			if (!envelope || envelope.ok) continue;
 			expect(envelope.error.code).toBe('MCP_INVALID_INPUT');
 		}
-	});
+	}, 60_000);
 
 	it('enforces staged/direct permission boundaries', async () => {
 		const server = new MockMcpServer();

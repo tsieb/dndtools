@@ -389,11 +389,20 @@ test.describe('Desktop critical workflows @critical', () => {
 				.getByRole('button', { name: /Template Seed Board/ })
 				.first()
 				.click();
-			const templatesSection = app.page.locator('section').filter({ hasText: 'Board Templates' });
-			await templatesSection.getByLabel('Apply template').selectOption({ label: 'Combat Scene' });
-			await templatesSection
-				.getByRole('button', { name: 'Apply Template To Current Board' })
-				.click();
+			await app.page.keyboard.press('Control+P');
+			const commandPalette = app.page.getByRole('dialog', { name: 'Command palette' });
+			await expect(commandPalette).toBeVisible();
+			const paletteQuery = commandPalette.getByRole('combobox', {
+				name: /command palette query/i,
+			});
+			await paletteQuery.fill('>board apply template');
+			await paletteQuery.press('Enter');
+			const templateDialog = app.page.getByRole('dialog', { name: 'Apply board template' });
+			await expect(templateDialog).toBeVisible();
+			await templateDialog.getByText('Combat Scene').first().click();
+			if (await templateDialog.isVisible().catch(() => false)) {
+				await app.page.keyboard.press('Escape');
+			}
 			await expect(app.page.getByRole('heading', { name: 'Session Board' }).first()).toBeVisible();
 			await expect
 				.poll(async () => {
