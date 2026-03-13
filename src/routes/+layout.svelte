@@ -885,7 +885,8 @@
 			| 'add_combat_tile'
 			| 'add_dice_tile'
 			| 'add_timer_tile'
-			| 'add_map_tile',
+			| 'add_map_tile'
+			| 'apply_template',
 	): void {
 		if (typeof window === 'undefined') return;
 		window.dispatchEvent(new CustomEvent('dndtools:board-command', { detail: { command } }));

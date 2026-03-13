@@ -171,6 +171,29 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 
 ## Completed Epics
 
+- **Epic 20.5** - Board Empty States, Progressive Disclosure and Performance:
+  - Added board-level empty states in `src/routes/session-board/+page.svelte`:
+    - Boards with zero tiles now render `EmptyState` with `session-board-empty` illustration, primary `Add your first tile`, and first-time-only `Apply a template`.
+    - Returning empty boards (after prior tile use) now show only the primary action with concise copy.
+    - Compact layout now renders the empty state as a full-width stacked panel item.
+  - Added board layout quality indicator + issue popover:
+    - Introduced `detectSessionBoardLayoutIssues(...)` in `src/lib/domain/session-board.ts` for overlap/overflow detection.
+    - Board toolbar now shows a `layout-dashboard` quality control (shape + color state) after 60s in edit mode or immediately at 6+ tiles.
+    - Popover lists concrete issues with per-issue `Select` actions for quick correction focus.
+  - Converted board templates to progressive-disclosure entry points:
+    - Removed always-visible template controls from the board side panel.
+    - Added `Start from template` in the Add Tile sheet header when the board has zero tiles.
+    - Added `>board Apply template` command palette action via `src/lib/ui/search/QuickSwitcher.svelte`.
+    - Added template picker dialog with card presentation and miniature tile-layout previews.
+  - Added full-depth note tile virtualization for large notes in `src/lib/ui/board/SessionBoardTile.svelte`:
+    - Full-depth notes over 200 lines now virtualize render content using top/bottom `IntersectionObserver` sentinels with spacer blocks.
+    - Added initial shimmer placeholder and 150ms fade-in for large-note first render.
+    - Notes at or under 200 lines continue rendering without virtualization overhead.
+  - Updated regression coverage:
+    - `src/lib/domain/session-board.test.ts`
+    - `src/lib/ui/board/session-board-note-virtualization.test.ts`
+    - `tests/e2e-desktop/interactive-controls.spec.ts`
+
 - **Epic 20.3** - Tile Creation Flow: Visual Gallery and Live Preview:
   - Replaced Add Tile actions with a visual gallery Sheet in `src/routes/session-board/+page.svelte`:
     - Gallery now renders tile types as Card surfaces with semantic accent, icon, label, and one-line capability description.

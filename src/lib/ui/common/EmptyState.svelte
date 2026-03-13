@@ -7,6 +7,7 @@
 		| 'knowledge-folder'
 		| 'knowledge-search'
 		| 'session'
+		| 'session-board-empty'
 		| 'session-combat'
 		| 'session-tables'
 		| 'atlas'
@@ -123,6 +124,21 @@
 						<path d="M10 24h44M22 8v8M42 8v8"></path>
 						<circle cx="32" cy="38" r="6"></circle>
 						<path d="M32 34v4l3 2"></path>
+					</svg>
+				{:else if illustration === 'session-board-empty'}
+					<svg
+						viewBox="0 0 64 64"
+						class="h-14 w-14"
+						fill="none"
+						stroke="currentColor"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						aria-hidden="true"
+					>
+						<rect x="9" y="10" width="46" height="44" rx="6"></rect>
+						<path d="M9 23h46M24 10v44M39 10v44"></path>
+						<path d="M20 31h8M20 39h8M44 31h8M44 39h8"></path>
 					</svg>
 				{:else if illustration === 'session-combat'}
 					<svg

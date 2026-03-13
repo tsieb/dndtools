@@ -27,6 +27,7 @@
 	import {
 		DEFAULT_SESSION_BOARD_LAYOUT,
 		TILE_TYPE_METADATA,
+		detectSessionBoardLayoutIssues,
 		repackSessionBoardTiles,
 		resolveSessionBoardTileType,
 	} from '$lib/domain/session-board.js';
@@ -35,15 +36,18 @@
 		type SessionPrepViewModel,
 	} from '$lib/domain/session-prep-workflow.js';
 	import { cellsForTemplate } from '$lib/domain/combat-map.js';
-	import { createDefaultCombatState } from '$lib/domain/combat-tracker.js';
+	import { advanceCombatTurn, createDefaultCombatState } from '$lib/domain/combat-tracker.js';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
+	import { diceState } from '$lib/state/dice.svelte.js';
+	import { handoutsState } from '$lib/state/handouts.svelte.js';
+	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { mapsState } from '$lib/state/maps.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { sessionBoardsState } from '$lib/state/session-boards.svelte.js';
 	import { sessionModeState } from '$lib/state/session-mode.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
 	import type { NoteId } from '$lib/types/note.js';
-	import type { MapObject } from '$lib/types/object.js';
+	import type { HandoutObject, MapObject } from '$lib/types/object.js';
 	import type {
 		SessionBoard,
 		SessionBoardNoteTile,
@@ -132,13 +136,9 @@
 
 	let newBoardName = $state('Session Board');
 	let newBoardDescription = $state('');
-	let createTemplateId = $state('');
 	let noteQuery = $state('');
 	let boardNameDraft = $state('');
 	let boardDescriptionDraft = $state('');
-	let applyTemplateId = $state('');
-	let saveTemplateName = $state('');
-	let saveTemplateDescription = $state('');
 	let mode = $state<'view' | 'edit'>('view');
 	let selectedTileId = $state<string | null>(null);
 	let overlayNoteId = $state<NoteId | null>(null);
@@ -202,6 +202,19 @@
 	let overflowBannerDismissedBoardVersion = $state<string | null>(null);
 	let lastOverflowBoardVersion = $state<string | null>(null);
 	let overflowFlashTimers = $state<Record<string, number>>({});
+	let compactTileExpanded = $state<Record<string, true>>({});
+	let compactExpandedSessionKey = $state<string | null>(null);
+	let compactFullscreenTileId = $state<string | null>(null);
+	let compactHandoutSheetOpen = $state(false);
+	let compactHandoutQuery = $state('');
+	let compactDeliveringHandoutId = $state<string | null>(null);
+	let templatePickerOpen = $state(false);
+	let templatePickerContext = $state<'empty_state' | 'gallery' | 'command' | null>(null);
+	let layoutQualityButtonEl = $state<HTMLElement | null>(null);
+	let layoutQualityPopoverOpen = $state(false);
+	let layoutQualityClockMs = $state(Date.now());
+	let editModeEnteredAtMs = $state<number | null>(null);
+	let boardKnownAsPopulated = $state(false);
 
 	type RenderedTileEntry =
 		| { tile: SessionBoardTile; kind: 'calendar'; x: number; y: number }
@@ -222,11 +235,15 @@
 		  };
 
 	let activeBoard = $derived(sessionBoardsState.activeBoard);
+	let compactLayout = $derived(layoutState.isCompact);
 	let isBoardSessionActive = $derived.by(
 		() =>
 			sessionModeState.isActive &&
 			!!activeBoard &&
 			sessionModeState.activeSession?.sessionBoardId === String(activeBoard.id),
+	);
+	let compactQuickActionsVisible = $derived.by(
+		() => compactLayout && sessionModeState.mode === 'active',
 	);
 	let activeNotesById = $derived(notesState.activeNoteById);
 	let boardTemplates = $derived(sessionBoardsState.templates);
@@ -271,6 +288,41 @@
 	let hasColumnOverflow = $derived.by(() =>
 		(activeBoard?.tiles ?? []).some((tile) => tile.x + tile.w > layout.columns),
 	);
+	let layoutIssues = $derived.by(() => {
+		const board = activeBoard;
+		if (!board) return [] as Array<{ id: string; message: string; tileId: string }>;
+		return detectSessionBoardLayoutIssues(board.tiles, layout.columns).map((issue, index) => {
+			const tile = board.tiles.find((entry) => entry.id === issue.tileId);
+			const tileName = tile ? tileLabel(tile) : issue.tileId;
+			if (issue.kind === 'overflow') {
+				return {
+					id: `layout-overflow-${issue.tileId}-${index}`,
+					message: `Tile '${tileName}' extends beyond column limit`,
+					tileId: issue.tileId,
+				};
+			}
+			const otherTile = issue.otherTileId
+				? board.tiles.find((entry) => entry.id === issue.otherTileId)
+				: null;
+			const otherName = otherTile ? tileLabel(otherTile) : (issue.otherTileId ?? 'unknown tile');
+			return {
+				id: `layout-overlap-${issue.tileId}-${issue.otherTileId ?? 'unknown'}-${index}`,
+				message: `Tile '${tileName}' overlaps Tile '${otherName}'`,
+				tileId: issue.tileId,
+			};
+		});
+	});
+	let layoutQualityStatus = $derived.by(() =>
+		layoutIssues.length > 0 ? 'Needs attention' : 'Good',
+	);
+	let layoutQualityEligible = $derived.by(() => {
+		if (mode !== 'edit' || !activeBoard) return false;
+		if (activeBoard.tiles.length >= 6) return true;
+		if (editModeEnteredAtMs === null) return false;
+		return layoutQualityClockMs - editModeEnteredAtMs >= 60_000;
+	});
+	let isBoardEmpty = $derived.by(() => (activeBoard?.tiles.length ?? 0) === 0);
+	let showBoardFirstEmptyState = $derived.by(() => isBoardEmpty && !boardKnownAsPopulated);
 	let showOverflowBanner = $derived.by(
 		() =>
 			mode === 'edit' &&
@@ -349,6 +401,14 @@
 			})
 			.slice(0, 60);
 	});
+	let compactHandoutOptions = $derived.by(() => {
+		const normalized = compactHandoutQuery.trim().toLowerCase();
+		const all = handoutsState.sortedHandouts.slice(0, 120);
+		if (!normalized) return all;
+		return all.filter((entry) =>
+			`${entry.name} ${entry.summary} ${entry.tags.join(' ')}`.toLowerCase().includes(normalized),
+		);
+	});
 
 	let renderedTiles = $derived.by(() => {
 		if (!activeBoard) return [] as RenderedTileEntry[];
@@ -398,7 +458,11 @@
 			}
 			entries.push({ tile, kind: 'note', note, x: draft?.x ?? tile.x, y: draft?.y ?? tile.y });
 		}
-		return entries.sort((a, b) => a.y - b.y || a.x - b.x || a.tile.id.localeCompare(b.tile.id));
+		const sorted = entries.sort(
+			(a, b) => a.y - b.y || a.x - b.x || a.tile.id.localeCompare(b.tile.id),
+		);
+		if (!compactLayout) return sorted;
+		return sorted.map((entry, index) => ({ ...entry, x: 0, y: index }));
 	});
 
 	let canvas = $derived.by(() => {
@@ -450,14 +514,14 @@
 			overflowCorrectionCount = 0;
 			overflowBannerDismissedBoardVersion = null;
 			lastOverflowBoardVersion = null;
+			compactTileExpanded = {};
+			compactExpandedSessionKey = null;
+			compactFullscreenTileId = null;
 			return;
 		}
 		if (activeBoard.id !== lastBoardId) {
 			boardNameDraft = activeBoard.name;
 			boardDescriptionDraft = activeBoard.description;
-			saveTemplateName = `${activeBoard.name} Layout`;
-			saveTemplateDescription = activeBoard.description;
-			applyTemplateId = '';
 			selectedTileId = null;
 			tileMenuTileId = null;
 			resizeModeTileId = null;
@@ -476,6 +540,10 @@
 			overflowCorrectionCount = 0;
 			overflowBannerDismissedBoardVersion = null;
 			lastOverflowBoardVersion = null;
+			compactFullscreenTileId = null;
+			templatePickerOpen = false;
+			templatePickerContext = null;
+			layoutQualityPopoverOpen = false;
 			lastBoardId = activeBoard.id;
 			requestAnimationFrame(() => {
 				if (!boardViewportEl) return;
@@ -483,6 +551,8 @@
 				boardViewportEl.scrollTop = 0;
 			});
 		}
+		loadCompactPanelState(String(activeBoard.id));
+		loadBoardKnownAsPopulated(String(activeBoard.id));
 		if (selectedTileId && !activeBoard.tiles.some((tile) => tile.id === selectedTileId)) {
 			selectedTileId = null;
 		}
@@ -507,6 +577,31 @@
 		keyboardMoveOrigin = null;
 		keyboardMoveAnnouncement = '';
 		tileCreationSheetOpen = false;
+	});
+
+	$effect(() => {
+		if (mode !== 'edit' || !activeBoard) {
+			editModeEnteredAtMs = null;
+			return;
+		}
+		editModeEnteredAtMs = Date.now();
+		layoutQualityClockMs = Date.now();
+		const timer = window.setInterval(() => {
+			layoutQualityClockMs = Date.now();
+		}, 1000);
+		return () => window.clearInterval(timer);
+	});
+
+	$effect(() => {
+		if (!activeBoard || activeBoard.tiles.length === 0) return;
+		if (boardKnownAsPopulated) return;
+		boardKnownAsPopulated = true;
+		persistBoardKnownAsPopulated(String(activeBoard.id));
+	});
+
+	$effect(() => {
+		if (layoutQualityEligible) return;
+		layoutQualityPopoverOpen = false;
 	});
 
 	$effect(() => {
@@ -722,6 +817,159 @@
 		return '';
 	}
 
+	function compactPanelSessionKey(boardId: string): string {
+		const sessionToken =
+			sessionModeState.activeSession?.sessionBoardId === boardId
+				? (sessionModeState.activeSession?.startedAt ?? 'active')
+				: 'idle';
+		return `dndtools:session-board:compact-expanded:${boardId}:${sessionToken}`;
+	}
+
+	function boardPopulatedKey(boardId: string): string {
+		return `dndtools:session-board:had-tiles:${boardId}`;
+	}
+
+	function loadBoardKnownAsPopulated(boardId: string): void {
+		if (typeof window === 'undefined') {
+			boardKnownAsPopulated = false;
+			return;
+		}
+		boardKnownAsPopulated = window.localStorage.getItem(boardPopulatedKey(boardId)) === '1';
+	}
+
+	function persistBoardKnownAsPopulated(boardId: string): void {
+		if (typeof window === 'undefined') return;
+		window.localStorage.setItem(boardPopulatedKey(boardId), '1');
+	}
+
+	function loadCompactPanelState(boardId: string): void {
+		if (typeof window === 'undefined') return;
+		const key = compactPanelSessionKey(boardId);
+		if (compactExpandedSessionKey === key) return;
+		compactExpandedSessionKey = key;
+		try {
+			const raw = window.sessionStorage.getItem(key);
+			if (!raw) {
+				compactTileExpanded = {};
+				return;
+			}
+			const parsed = JSON.parse(raw) as Record<string, boolean>;
+			const next: Record<string, true> = {};
+			for (const [tileId, expanded] of Object.entries(parsed)) {
+				if (expanded) next[tileId] = true;
+			}
+			compactTileExpanded = next;
+		} catch {
+			compactTileExpanded = {};
+		}
+	}
+
+	function persistCompactPanelState(): void {
+		if (typeof window === 'undefined' || !compactExpandedSessionKey) return;
+		window.sessionStorage.setItem(compactExpandedSessionKey, JSON.stringify(compactTileExpanded));
+	}
+
+	function compactTileIsExpanded(tileId: string): boolean {
+		return compactTileExpanded[tileId] !== undefined;
+	}
+
+	function toggleCompactTile(tileId: string): void {
+		if (compactTileIsExpanded(tileId)) {
+			const next = { ...compactTileExpanded };
+			delete next[tileId];
+			compactTileExpanded = next;
+		} else {
+			compactTileExpanded = { ...compactTileExpanded, [tileId]: true };
+		}
+		persistCompactPanelState();
+	}
+
+	function openCompactFullscreen(tileId: string): void {
+		compactFullscreenTileId = tileId;
+	}
+
+	function closeCompactFullscreen(): void {
+		compactFullscreenTileId = null;
+	}
+
+	function openTemplatePicker(context: 'empty_state' | 'gallery' | 'command'): void {
+		if (!activeBoard) return;
+		templatePickerContext = context;
+		templatePickerOpen = true;
+	}
+
+	function closeTemplatePicker(): void {
+		templatePickerOpen = false;
+		templatePickerContext = null;
+	}
+
+	async function applyTemplateFromDialog(templateId: string): Promise<void> {
+		if (!activeBoard || !templateId) return;
+		await sessionBoardsState.applyTemplateToBoard(activeBoard.id, templateId);
+		closeTemplatePicker();
+	}
+
+	function layoutTemplatePreviewStyle(template: (typeof boardTemplates)[number]): string {
+		const columns = Math.max(8, template.layout?.columns ?? DEFAULT_LAYOUT.columns);
+		const rows = Math.max(
+			4,
+			...template.tiles.map((tile) => tile.y + tile.h),
+			template.layout?.minRows ?? DEFAULT_LAYOUT.minRows,
+		);
+		return `--template-columns:${columns}; --template-rows:${rows};`;
+	}
+
+	function rollCompactQuickDie(expression: '1d6' | '1d20'): void {
+		const rolled = diceState.roll(expression, 'tray');
+		if (!rolled.ok) {
+			toastState.error(rolled.error);
+			return;
+		}
+		toastState.success(`${expression.toUpperCase()} -> ${rolled.entry.totalText}`);
+	}
+
+	async function advanceCompactCombatTurn(): Promise<void> {
+		if (!activeBoard) return;
+		const combatEntry = activeBoard.tiles.find(
+			(entry): entry is SessionBoardCombatTileModel => entry.type === 'combat' && !!entry.combat,
+		);
+		if (!combatEntry) {
+			toastState.info('Add a combat tracker tile to advance turns.');
+			return;
+		}
+		await sessionBoardsState.updateTile(activeBoard.id, combatEntry.id, {
+			combat: advanceCombatTurn(combatEntry.combat ?? createDefaultCombatState()),
+		});
+	}
+
+	$effect(() => {
+		if (!compactHandoutSheetOpen) return;
+		void handoutsState.ensureLoaded();
+	});
+
+	async function deliverCompactHandout(handout: HandoutObject): Promise<void> {
+		if (!activeBoard || compactDeliveringHandoutId) return;
+		compactDeliveringHandoutId = String(handout.id);
+		try {
+			const delivered = await handoutsState.deliverHandout(String(handout.id));
+			if (!delivered) {
+				toastState.error('Handout could not be delivered.');
+				return;
+			}
+			await sessionBoardsState.recordHandoutDelivery(activeBoard.id, {
+				id: nanoid(10),
+				handoutId: String(handout.id),
+				title: handout.data.title || handout.name,
+				sourceKind: 'handout',
+				deliveredAt: delivered.deliveredAt,
+			});
+			compactHandoutSheetOpen = false;
+			toastState.success('Handout delivered to Player Screen.');
+		} finally {
+			compactDeliveringHandoutId = null;
+		}
+	}
+
 	function applyZoomPreset(nextPreset: BoardZoomPreset): void {
 		if (zoomPreset === nextPreset) return;
 		if (!boardViewportEl) {
@@ -756,14 +1004,9 @@
 	}
 
 	async function createBoard(): Promise<void> {
-		await sessionBoardsState.createBoard(
-			newBoardName,
-			newBoardDescription,
-			createTemplateId || undefined,
-		);
+		await sessionBoardsState.createBoard(newBoardName, newBoardDescription);
 		newBoardName = 'Session Board';
 		newBoardDescription = '';
-		createTemplateId = '';
 	}
 
 	async function startSessionFromEmptyState(): Promise<void> {
@@ -837,23 +1080,9 @@
 		if (!activeBoard) return;
 		await sessionBoardsState.addHandoutTile(activeBoard.id);
 	}
-	async function applyTemplate(): Promise<void> {
-		if (!activeBoard || !applyTemplateId) return;
-		await sessionBoardsState.applyTemplateToBoard(activeBoard.id, applyTemplateId);
-	}
-	async function saveCurrentLayoutAsTemplate(): Promise<void> {
-		if (!activeBoard) return;
-		await sessionBoardsState.saveTemplateFromBoard(
-			activeBoard.id,
-			saveTemplateName,
-			saveTemplateDescription,
-		);
-	}
 	async function deleteTemplate(templateId: string): Promise<void> {
 		if (!templateId) return;
 		await sessionBoardsState.deleteTemplate(templateId);
-		if (createTemplateId === templateId) createTemplateId = '';
-		if (applyTemplateId === templateId) applyTemplateId = '';
 	}
 	async function removeTile(tileId: string): Promise<void> {
 		if (!activeBoard) return;
@@ -1092,8 +1321,17 @@
 	}
 
 	function openTileCreationSheet(): void {
-		if (!activeBoard || mode !== 'edit') return;
+		if (!activeBoard) return;
+		if (mode !== 'edit') mode = 'edit';
 		tileCreationSheetOpen = true;
+	}
+
+	function openLayoutIssue(issueTileId: string): void {
+		selectedTileId = issueTileId;
+		layoutQualityPopoverOpen = false;
+		requestAnimationFrame(() => {
+			focusBoardTile(issueTileId);
+		});
 	}
 
 	async function addTileFromSheet(type: AddableTileType): Promise<void> {
@@ -1400,7 +1638,8 @@
 		| 'add_combat_tile'
 		| 'add_dice_tile'
 		| 'add_timer_tile'
-		| 'add_map_tile';
+		| 'add_map_tile'
+		| 'apply_template';
 
 	async function runBoardPaletteCommand(command: BoardPaletteCommand): Promise<void> {
 		if (!activeBoard) return;
@@ -1418,6 +1657,9 @@
 		} else if (command === 'add_map_tile') {
 			tileId = await sessionBoardsState.addMapTile(activeBoard.id);
 			if (tileId) openMapAssignDialog(tileId);
+		} else if (command === 'apply_template') {
+			openTemplatePicker('command');
+			return;
 		}
 		if (!tileId) return;
 		requestAnimationFrame(() => {
@@ -1615,18 +1857,6 @@
 							class="w-full mb-2 px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
 							placeholder="Short purpose"
 						></textarea>
-						<label class="block text-xs text-ink-muted mb-2">
-							Template
-							<select
-								bind:value={createTemplateId}
-								class="mt-1 w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
-							>
-								<option value="">Blank board</option>
-								{#each boardTemplates as template (template.id)}
-									<option value={template.id}>{template.name}</option>
-								{/each}
-							</select>
-						</label>
 						<button
 							class="w-full px-3 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-white text-sm transition-colors"
 							onclick={createBoard}>Create Session Board</button
@@ -1660,82 +1890,6 @@
 										<div class="truncate">{board.name}</div>
 										<div class="text-xs opacity-70">{board.tiles.length} tiles</div>
 									</button>
-								{/each}
-							{/if}
-						</div>
-					</section>
-
-					<section class="rounded-lg border border-border bg-surface p-3 space-y-2">
-						<h2 class="text-sm font-semibold text-ink">Board Templates</h2>
-						<p class="text-xs text-ink-muted">
-							Use built-in layouts for common scenes or save your own reusable board setup.
-						</p>
-						{#if activeBoard}
-							<label class="block text-xs text-ink-muted">
-								Apply template
-								<select
-									bind:value={applyTemplateId}
-									class="mt-1 w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
-								>
-									<option value="">Select template</option>
-									{#each boardTemplates as template (template.id)}
-										<option value={template.id}>{template.name}</option>
-									{/each}
-								</select>
-							</label>
-							<button
-								class="w-full px-2.5 py-1.5 rounded-md border border-border text-xs hover:bg-surface-alt transition-colors disabled:opacity-60"
-								onclick={applyTemplate}
-								disabled={!applyTemplateId}
-							>
-								Apply Template To Current Board
-							</button>
-
-							<div class="pt-2 border-t border-border/70 space-y-2">
-								<input
-									type="text"
-									bind:value={saveTemplateName}
-									class="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
-									placeholder="Template name"
-								/>
-								<textarea
-									bind:value={saveTemplateDescription}
-									rows="2"
-									class="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-alt text-sm"
-									placeholder="Template description"
-								></textarea>
-								<button
-									class="w-full px-2.5 py-1.5 rounded-md border border-border text-xs hover:bg-surface-alt transition-colors"
-									onclick={saveCurrentLayoutAsTemplate}
-								>
-									Save Current Layout As Template
-								</button>
-							</div>
-						{/if}
-
-						<div class="max-h-36 overflow-y-auto pr-1 space-y-1">
-							{#if boardTemplates.length === 0}
-								<p class="text-xs text-ink-faint">No templates available.</p>
-							{:else}
-								{#each boardTemplates as template (template.id)}
-									<div class="rounded border border-border/60 px-2 py-1.5">
-										<div class="flex items-center justify-between gap-2">
-											<div class="truncate text-xs font-medium text-ink">
-												{template.name}
-											</div>
-											{#if !template.builtIn}
-												<button
-													class="text-xs px-1.5 py-0.5 rounded border border-error/40 text-error hover:bg-error/5 transition-colors"
-													onclick={() => void deleteTemplate(template.id)}
-												>
-													Delete
-												</button>
-											{/if}
-										</div>
-										<div class="text-xs text-ink-faint truncate">
-											{template.description || `${template.tiles.length} tiles`}
-										</div>
-									</div>
 								{/each}
 							{/if}
 						</div>
@@ -1977,37 +2131,63 @@
 								<Button size="sm" variant="secondary" icon="plus" onclick={openTileCreationSheet}
 									>Add tile</Button
 								>
-								<div
-									class="flex items-center gap-1 rounded-md border border-border bg-surface-alt/80 p-1"
-								>
-									<Button
-										size="sm"
-										variant={zoomPreset === 'fit' ? 'primary' : 'ghost'}
-										onclick={() => applyZoomPreset('fit')}
-										ariaPressed={zoomPreset === 'fit'}
+								{#if !compactLayout}
+									<div
+										class="flex items-center gap-1 rounded-md border border-border bg-surface-alt/80 p-1"
 									>
-										Fit
-									</Button>
-									<Button
-										size="sm"
-										variant={zoomPreset === 'comfortable' ? 'primary' : 'ghost'}
-										onclick={() => applyZoomPreset('comfortable')}
-										ariaPressed={zoomPreset === 'comfortable'}
+										<Button
+											size="sm"
+											variant={zoomPreset === 'fit' ? 'primary' : 'ghost'}
+											onclick={() => applyZoomPreset('fit')}
+											ariaPressed={zoomPreset === 'fit'}
+										>
+											Fit
+										</Button>
+										<Button
+											size="sm"
+											variant={zoomPreset === 'comfortable' ? 'primary' : 'ghost'}
+											onclick={() => applyZoomPreset('comfortable')}
+											ariaPressed={zoomPreset === 'comfortable'}
+										>
+											Comfortable
+										</Button>
+										<Button
+											size="sm"
+											variant={zoomPreset === 'detail' ? 'primary' : 'ghost'}
+											onclick={() => applyZoomPreset('detail')}
+											ariaPressed={zoomPreset === 'detail'}
+										>
+											Detail
+										</Button>
+									</div>
+									<span class="min-w-12 text-right text-xs font-semibold text-ink"
+										>{zoomPercent}%</span
 									>
-										Comfortable
-									</Button>
-									<Button
-										size="sm"
-										variant={zoomPreset === 'detail' ? 'primary' : 'ghost'}
-										onclick={() => applyZoomPreset('detail')}
-										ariaPressed={zoomPreset === 'detail'}
+								{/if}
+								{#if layoutQualityEligible}
+									<button
+										type="button"
+										class="inline-flex h-9 items-center gap-1 rounded-md border border-border bg-surface-alt/80 px-2 text-xs text-ink hover:bg-surface"
+										aria-label={`Board layout quality: ${layoutQualityStatus}`}
+										aria-expanded={layoutQualityPopoverOpen}
+										aria-haspopup="dialog"
+										onclick={() => (layoutQualityPopoverOpen = !layoutQualityPopoverOpen)}
+										bind:this={layoutQualityButtonEl}
 									>
-										Detail
-									</Button>
-								</div>
-								<span class="min-w-12 text-right text-xs font-semibold text-ink"
-									>{zoomPercent}%</span
-								>
+										<Icon name="layout-dashboard" size="sm" />
+										<Icon
+											name={layoutIssues.length === 0 ? 'check-circle' : 'triangle-alert'}
+											size="sm"
+											color={layoutIssues.length === 0 ? '#0f766e' : '#b45309'}
+										/>
+										<span
+											class="h-2 w-2 rounded-full {layoutIssues.length === 0
+												? 'bg-emerald-600'
+												: 'bg-amber-600'}"
+											aria-hidden="true"
+										></span>
+									</button>
+								{/if}
 							</div>
 						{/if}
 					</div>
@@ -2300,18 +2480,292 @@
 					{/if}
 				</div>
 
-				{#if mode === 'view'}
+				{#if compactLayout}
+					{#if renderedTiles.length === 0}
+						<div class="flex-1 min-h-0 overflow-y-auto p-2">
+							<EmptyState
+								class="min-h-0 w-full rounded-lg border border-border bg-surface px-3 py-6"
+								illustration="session-board-empty"
+								headline="Your mission control is empty"
+								body={showBoardFirstEmptyState
+									? 'Add tiles to build your session reference center - notes, combat tracker, dice, maps, and handouts all in one view.'
+									: undefined}
+								primaryAction={{ label: 'Add your first tile', onclick: openTileCreationSheet }}
+								secondaryAction={showBoardFirstEmptyState
+									? {
+											label: 'Apply a template',
+											onclick: () => openTemplatePicker('empty_state'),
+										}
+									: undefined}
+							/>
+						</div>
+					{:else}
+						<div class="flex-1 min-h-0 overflow-y-auto p-2">
+							<div
+								class="rounded-lg border border-border/70 bg-surface-alt/70 p-2 space-y-2"
+								style={patternStyle(activeBoard)}
+							>
+								{#each renderedTiles as entry (entry.tile.id)}
+									{@const tile = entry.tile}
+									{@const tileType = resolveSessionBoardTileType(tile)}
+									{@const tileMeta = TILE_TYPE_METADATA[tileType]}
+									<div
+										class="rounded-lg border border-border bg-surface overflow-hidden transition-all duration-200 {compactFullscreenTileId ===
+										tile.id
+											? 'fixed inset-x-0 top-0 z-50 rounded-none border-0 shadow-2xl'
+											: ''}"
+										style={compactFullscreenTileId === tile.id
+											? 'bottom: calc(var(--layout-bottomnav-height) + env(safe-area-inset-bottom)); transition-duration: var(--duration-medium); transition-timing-function: var(--easing-standard);'
+											: ''}
+									>
+										<div class="h-12 px-3 border-b border-border flex items-center gap-2">
+											<Icon
+												name={tileMeta.iconName}
+												size="sm"
+												color={`var(${tileMeta.colorToken})`}
+											/>
+											<div class="min-w-0 flex-1">
+												<p class="truncate text-sm font-semibold text-ink">{tileLabel(tile)}</p>
+											</div>
+											<button
+												type="button"
+												class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-ink-muted hover:bg-surface-alt"
+												aria-label={compactFullscreenTileId === tile.id
+													? `Minimize ${tileLabel(tile)}`
+													: `Expand ${tileLabel(tile)} to full screen`}
+												onclick={() =>
+													compactFullscreenTileId === tile.id
+														? closeCompactFullscreen()
+														: openCompactFullscreen(tile.id)}
+											>
+												<Icon
+													name={compactFullscreenTileId === tile.id ? 'x' : 'square'}
+													size="sm"
+												/>
+											</button>
+											<button
+												type="button"
+												class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-ink-muted hover:bg-surface-alt"
+												aria-label={compactTileIsExpanded(tile.id)
+													? `Collapse ${tileLabel(tile)}`
+													: `Expand ${tileLabel(tile)}`}
+												onclick={() => toggleCompactTile(tile.id)}
+											>
+												<Icon
+													name="chevron-down"
+													size="sm"
+													class={compactTileIsExpanded(tile.id)
+														? 'rotate-180 transition-transform'
+														: 'transition-transform'}
+												/>
+											</button>
+										</div>
+										{#if compactTileIsExpanded(tile.id)}
+											<div class="min-h-[12rem] max-h-[70vh] overflow-y-auto p-2">
+												{#if entry.kind === 'note' && entry.note}
+													<SessionBoardTileCard
+														{tile}
+														note={entry.note}
+														selected={mode === 'edit' && selectedTileId === tile.id}
+														editable={false}
+														showDepthBadge={false}
+														scrollable={true}
+														tintColor={activeBoard.style?.sectionTintColor ?? '#7c3aed'}
+														tintOpacity={activeBoard.style?.sectionTintOpacity ?? 0}
+														onopen={() => (overlayNoteId = entry.note.id)}
+														onselect={() => (overlayNoteId = entry.note.id)}
+														ondragstart={() => undefined}
+													/>
+												{:else if entry.kind === 'timer'}
+													<SessionBoardTimerTile
+														tile={entry.tile}
+														selected={false}
+														editable={false}
+														onselect={() => undefined}
+														onupdate={(timer) => {
+															if (!activeBoard) return;
+															void sessionBoardsState.updateTile(activeBoard.id, tile.id, {
+																timer,
+															});
+														}}
+														ondragstart={() => undefined}
+													/>
+												{:else if entry.kind === 'combat'}
+													<CombatTrackerTile
+														tile={entry.tile}
+														selected={false}
+														editable={mode === 'edit'}
+														onselect={() => undefined}
+														onupdate={(combat) => {
+															if (!activeBoard) return;
+															void sessionBoardsState.updateTile(activeBoard.id, tile.id, {
+																combat,
+															});
+														}}
+													/>
+												{:else if entry.kind === 'encounter'}
+													<EncounterBuilderTile
+														tile={entry.tile}
+														selected={false}
+														editable={false}
+														onselect={() => undefined}
+														onupdate={(encounter) => {
+															if (!activeBoard) return;
+															void sessionBoardsState.updateTile(activeBoard.id, tile.id, {
+																encounter,
+															});
+														}}
+													/>
+												{:else if entry.kind === 'dice'}
+													<DiceTrayTile
+														tile={entry.tile}
+														selected={false}
+														editable={false}
+														onselect={() => undefined}
+														ondragstart={() => undefined}
+													/>
+												{:else if entry.kind === 'generator'}
+													<GeneratorTile
+														tile={entry.tile}
+														selected={false}
+														editable={false}
+														onselect={() => undefined}
+														ondragstart={() => undefined}
+													/>
+												{:else if entry.kind === 'handouts'}
+													<HandoutLibraryTile
+														tile={entry.tile}
+														selected={false}
+														editable={false}
+														onselect={() => undefined}
+														ondragstart={() => undefined}
+													/>
+												{:else if entry.kind === 'map'}
+													{#if entry.tile.mapId && mapById[entry.tile.mapId]}
+														{@const linkedMap = mapById[entry.tile.mapId]}
+														{#if linkedMap}
+															<MapCanvasViewer
+																src={mapAssetUrls[String(linkedMap.id)] ?? null}
+																alt={linkedMap.name}
+																ariaLabel={`Session board map tile: ${linkedMap.name}`}
+																grid={linkedMap.data.grid}
+																showGrid={true}
+																combatTokens={mapTileCombatTokens(
+																	String(linkedMap.id),
+																	entry.tile.combatOverlay === true,
+																)}
+																difficultTerrainCells={mapTileTerrainCells(
+																	String(linkedMap.id),
+																	entry.tile.combatOverlay === true,
+																)}
+																templateOverlays={mapTileTemplateOverlays(
+																	String(linkedMap.id),
+																	entry.tile.combatOverlay === true,
+																)}
+															/>
+														{/if}
+													{:else}
+														<EmptyState
+															illustration="session"
+															headline="No map selected"
+															body="Choose a vault map to display it in your board."
+															primaryAction={{
+																label: 'Choose map',
+																onclick: () => openMapAssignDialog(tile.id),
+															}}
+														/>
+													{/if}
+												{:else if entry.kind === 'note_slot'}
+													<EmptyState
+														illustration="knowledge-empty"
+														headline="Assign a note"
+														body="Choose a note to display in this tile."
+														primaryAction={{
+															label: 'Choose note',
+															onclick: () => openNoteAssignDialog(tile.id),
+														}}
+													/>
+												{:else}
+													<WorldCalendarReference
+														notes={notesState.activeNotes}
+														title="Calendar Reference"
+														collapsible={true}
+													/>
+												{/if}
+											</div>
+										{/if}
+									</div>
+								{/each}
+							</div>
+							{#if compactQuickActionsVisible}
+								<div
+									class="sticky z-30 mt-3 rounded-lg border border-border bg-surface/95 p-2 backdrop-blur"
+									style="bottom: calc(var(--layout-bottomnav-height) + env(safe-area-inset-bottom));"
+									role="toolbar"
+									aria-label="Session quick actions"
+								>
+									<div class="flex items-center gap-2">
+										<button
+											type="button"
+											class="h-10 w-10 rounded-md border border-border bg-surface-alt text-ink hover:bg-surface"
+											aria-label="Roll d6"
+											onclick={() => rollCompactQuickDie('1d6')}
+										>
+											<img src="/icons/dice/d6.svg" alt="" class="mx-auto h-5 w-5" />
+										</button>
+										<button
+											type="button"
+											class="h-10 w-10 rounded-md border border-border bg-surface-alt text-ink hover:bg-surface"
+											aria-label="Roll d20"
+											onclick={() => rollCompactQuickDie('1d20')}
+										>
+											<img src="/icons/dice/d20.svg" alt="" class="mx-auto h-5 w-5" />
+										</button>
+										{#if sessionModeState.activeSession?.combatActive === true}
+											<button
+												type="button"
+												class="h-10 rounded-md px-3 text-sm font-semibold text-white"
+												style="background-color: var(--color-tile-combat);"
+												aria-label="Advance to next combat turn"
+												onclick={() => void advanceCompactCombatTurn()}
+											>
+												Next turn
+											</button>
+										{/if}
+										<button
+											type="button"
+											class="ml-auto h-10 w-10 rounded-md border border-border bg-surface-alt text-ink hover:bg-surface"
+											aria-label="Deliver handout"
+											onclick={() => (compactHandoutSheetOpen = true)}
+										>
+											<Icon name="file-text" size="sm" />
+										</button>
+									</div>
+								</div>
+							{/if}
+						</div>
+					{/if}
+				{:else if mode === 'view'}
 					<SessionMissionControl
 						board={activeBoard}
 						active={isBoardSessionActive}
 						onrequestedit={() => (mode = 'edit')}
 					/>
 				{:else if renderedTiles.length === 0}
-					<div class="h-full flex items-center justify-center text-sm text-ink-muted">
-						{mode === 'edit'
-							? 'Add notes from the left panel to populate this board.'
-							: 'This board has no tiles yet.'}
-					</div>
+					<EmptyState
+						illustration="session-board-empty"
+						headline="Your mission control is empty"
+						body={showBoardFirstEmptyState
+							? 'Add tiles to build your session reference center - notes, combat tracker, dice, maps, and handouts all in one view.'
+							: undefined}
+						primaryAction={{ label: 'Add your first tile', onclick: openTileCreationSheet }}
+						secondaryAction={showBoardFirstEmptyState
+							? {
+									label: 'Apply a template',
+									onclick: () => openTemplatePicker('empty_state'),
+								}
+							: undefined}
+					/>
 				{:else}
 					<div class="flex-1 min-h-0 p-3">
 						<div
@@ -2738,6 +3192,15 @@
 	onclose={() => (tileCreationSheetOpen = false)}
 >
 	<div class="space-y-3">
+		{#if activeBoard && activeBoard.tiles.length === 0}
+			<button
+				type="button"
+				class="w-full rounded-md border border-border bg-surface px-3 py-2 text-left text-sm font-semibold text-ink hover:bg-surface-alt"
+				onclick={() => openTemplatePicker('gallery')}
+			>
+				Start from template
+			</button>
+		{/if}
 		<p class="text-xs text-ink-muted">
 			Select a tile type to add it to the next open board position.
 		</p>
@@ -2765,6 +3228,37 @@
 		</div>
 	</div>
 </Sheet>
+
+{#if layoutQualityPopoverOpen && layoutQualityButtonEl}
+	<Popover
+		open={true}
+		onclose={() => (layoutQualityPopoverOpen = false)}
+		anchor={layoutQualityButtonEl}
+		class="min-w-72 p-2"
+	>
+		<div class="space-y-2">
+			<p class="text-xs font-semibold text-ink">Board layout quality: {layoutQualityStatus}</p>
+			{#if layoutIssues.length === 0}
+				<p class="text-xs text-ink-muted">No overlap or overflow issues detected.</p>
+			{:else}
+				<ul class="space-y-1">
+					{#each layoutIssues as issue (issue.id)}
+						<li class="rounded border border-border/70 bg-surface px-2 py-1.5">
+							<p class="text-xs text-ink">{issue.message}</p>
+							<button
+								type="button"
+								class="mt-1 text-2xs text-accent underline underline-offset-2"
+								onclick={() => openLayoutIssue(issue.tileId)}
+							>
+								Select
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+	</Popover>
+{/if}
 
 {#if tileMenuTile && tileMenuButtonEl}
 	<Popover open={true} onclose={closeTileMenu} anchor={tileMenuButtonEl} class="min-w-64 p-1">
@@ -2951,6 +3445,67 @@
 	}}
 />
 
+<Dialog
+	open={templatePickerOpen}
+	title="Apply board template"
+	maxWidth="xl"
+	onclose={closeTemplatePicker}
+>
+	{#if activeBoard}
+		<div class="space-y-3">
+			<p class="text-xs text-ink-muted">
+				{templatePickerContext === 'empty_state'
+					? 'Choose a template to quickly scaffold your first board.'
+					: 'Choose a template to replace this board layout.'}
+			</p>
+			<div class="grid gap-2 sm:grid-cols-2">
+				{#each boardTemplates as template (template.id)}
+					<Card
+						interactive
+						padding="sm"
+						class="h-full"
+						onclick={() => void applyTemplateFromDialog(template.id)}
+					>
+						<div class="space-y-2">
+							<div class="flex items-start justify-between gap-2">
+								<div>
+									<p class="text-sm font-semibold text-ink">{template.name}</p>
+									<p class="text-xs text-ink-muted">
+										{template.description || `${template.tiles.length} tiles`}
+									</p>
+								</div>
+								{#if !template.builtIn}
+									<button
+										type="button"
+										class="rounded border border-error/40 px-1.5 py-0.5 text-2xs text-error hover:bg-error/5"
+										onclick={(event) => {
+											event.stopPropagation();
+											void deleteTemplate(template.id);
+										}}
+									>
+										Delete
+									</button>
+								{/if}
+							</div>
+							<div
+								class="relative h-24 rounded border border-border/70 bg-surface-alt overflow-hidden"
+								style={layoutTemplatePreviewStyle(template)}
+							>
+								{#each template.tiles as previewTile (previewTile.id)}
+									<div
+										class="absolute rounded-sm border border-accent/35 bg-accent-subtle"
+										style="left:calc({previewTile.x} / var(--template-columns) * 100%); top:calc({previewTile.y} / var(--template-rows) * 100%); width:calc({previewTile.w} / var(--template-columns) * 100%); height:calc({previewTile.h} / var(--template-rows) * 100%);"
+									></div>
+								{/each}
+							</div>
+						</div>
+					</Card>
+				{/each}
+			</div>
+		</div>
+	{/if}
+</Dialog>
+
 <Dialog open={!!noteAssignTile} title="Choose note" maxWidth="xl" onclose={closeNoteAssignDialog}>
 	{#if noteAssignTile}
 		<div class="space-y-2">
@@ -3021,6 +3576,50 @@
 		</div>
 	{/if}
 </Dialog>
+
+<Sheet
+	open={compactHandoutSheetOpen}
+	title="Deliver handout"
+	onclose={() => {
+		if (compactDeliveringHandoutId) return;
+		compactHandoutSheetOpen = false;
+	}}
+>
+	<div class="space-y-2">
+		<input
+			type="search"
+			bind:value={compactHandoutQuery}
+			class="w-full rounded border border-border bg-surface px-2.5 py-1.5 text-sm"
+			placeholder="Search handouts"
+		/>
+		<div class="max-h-[24rem] overflow-y-auto rounded border border-border/70 p-1">
+			{#if compactHandoutOptions.length === 0}
+				<div class="px-2 py-2 text-xs text-ink-faint">No matching handouts.</div>
+			{:else}
+				{#each compactHandoutOptions as handout (handout.id)}
+					<button
+						type="button"
+						class="w-full rounded border border-border/70 px-2.5 py-2 text-left hover:bg-surface-alt disabled:opacity-60"
+						disabled={compactDeliveringHandoutId !== null}
+						onclick={() => void deliverCompactHandout(handout)}
+					>
+						<div class="flex items-center justify-between gap-2">
+							<p class="truncate text-sm font-semibold text-ink">
+								{handout.data.title || handout.name}
+							</p>
+							<span class="text-2xs text-ink-faint">
+								{handout.data.delivered ? 'Redeliver' : 'Deliver'}
+							</span>
+						</div>
+						<p class="truncate text-xs text-ink-faint">
+							{handout.summary || 'Handout library item'}
+						</p>
+					</button>
+				{/each}
+			{/if}
+		</div>
+	</div>
+</Sheet>
 
 <div class="sr-only" aria-live="polite">{resizeAnnouncement}</div>
 <div class="sr-only" aria-live="assertive">{keyboardMoveAnnouncement}</div>

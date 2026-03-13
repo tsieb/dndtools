@@ -57,6 +57,14 @@ export interface SessionBoardTileMetadata {
 	iconName: IconName;
 }
 
+export type SessionBoardLayoutIssueKind = 'overflow' | 'overlap';
+
+export interface SessionBoardLayoutIssue {
+	kind: SessionBoardLayoutIssueKind;
+	tileId: string;
+	otherTileId?: string;
+}
+
 export const TILE_TYPE_METADATA: Record<SessionBoardVisualTileType, SessionBoardTileMetadata> = {
 	note: {
 		label: 'Note',
@@ -567,6 +575,47 @@ export function repackSessionBoardTiles(
 		);
 	}
 	return placedTiles;
+}
+
+export function detectSessionBoardLayoutIssues(
+	tiles: readonly SessionBoardTile[],
+	columns: number,
+): SessionBoardLayoutIssue[] {
+	const normalizedColumns = clampInt(columns, MIN_COLUMNS, MAX_COLUMNS);
+	const normalizedTiles = tiles.map((tile) => {
+		const normalized = normalizeSessionBoardTile(tile, normalizedColumns);
+		const rawX = Number.isFinite(tile.x) ? Math.round(tile.x) : normalized.x;
+		const rawY = Number.isFinite(tile.y) ? Math.round(tile.y) : normalized.y;
+		return {
+			...normalized,
+			x: rawX,
+			y: rawY,
+		};
+	});
+	const issues: SessionBoardLayoutIssue[] = [];
+	for (const tile of normalizedTiles) {
+		if (tile.x < 0 || tile.x + tile.w > normalizedColumns) {
+			issues.push({
+				kind: 'overflow',
+				tileId: tile.id,
+			});
+		}
+	}
+	for (let index = 0; index < normalizedTiles.length; index += 1) {
+		const left = normalizedTiles[index];
+		if (!left) continue;
+		for (let compareIndex = index + 1; compareIndex < normalizedTiles.length; compareIndex += 1) {
+			const right = normalizedTiles[compareIndex];
+			if (!right) continue;
+			if (!tilesOverlap(left, right)) continue;
+			issues.push({
+				kind: 'overlap',
+				tileId: left.id,
+				otherTileId: right.id,
+			});
+		}
+	}
+	return issues;
 }
 
 function normalizeTemplate(

@@ -41,7 +41,8 @@
 				| 'add_combat_tile'
 				| 'add_dice_tile'
 				| 'add_timer_tile'
-				| 'add_map_tile',
+				| 'add_map_tile'
+				| 'apply_template',
 		) => void;
 	}
 
@@ -603,6 +604,18 @@
 					run: () => {
 						closePalette();
 						onboardcommand('add_map_tile');
+					},
+				},
+				{
+					id: 'command-board-apply-template',
+					group: 'Commands',
+					title: 'Apply template',
+					subtitle: 'Board command: open template picker',
+					keywords: 'board apply template session layout',
+					disabled: playerModeState.enabled,
+					run: () => {
+						closePalette();
+						onboardcommand('apply_template');
 					},
 				},
 			);

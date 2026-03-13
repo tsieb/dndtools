@@ -4,6 +4,7 @@
 	import Icon from '$lib/ui/common/Icon.svelte';
 	import { TILE_TYPE_METADATA } from '$lib/domain/session-board.js';
 	import { renderMarkdown } from '$lib/markdown/pipeline.js';
+	import { shouldVirtualizeFullDepthNote } from '$lib/ui/board/session-board-note-virtualization.js';
 	import { normalizePreviewDepth } from '$lib/domain/session-board.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import type { Note } from '$lib/types/note.js';
@@ -38,9 +39,34 @@
 	}: Props = $props();
 	let html = $state('');
 	let contentEl = $state<HTMLDivElement | null>(null);
+	let scrollEl = $state<HTMLDivElement | null>(null);
+	let topSentinelEl = $state<HTMLDivElement | null>(null);
+	let bottomSentinelEl = $state<HTMLDivElement | null>(null);
 	let tileEl = $state<HTMLDivElement | null>(null);
+	let virtualStartLine = $state(0);
+	let lastVirtualKey = $state('');
+	let largeNoteInitialResolved = $state(false);
+	let largeNoteLoading = $state(false);
+	let markdownVisible = $state(true);
 	let depth = $derived.by(() => normalizePreviewDepth(tile.previewDepth));
 	const tileMeta = TILE_TYPE_METADATA.note;
+	const VIRTUAL_WINDOW_LINES = 140;
+	const VIRTUAL_STEP_LINES = 60;
+	const APPROX_LINE_HEIGHT_PX = 24;
+	let fullDepthLines = $derived.by(() => note.content.split(/\r?\n/));
+	let fullDepthIsLarge = $derived.by(() =>
+		shouldVirtualizeFullDepthNote(depth, fullDepthLines.length),
+	);
+	let virtualEndLine = $derived.by(() =>
+		Math.min(fullDepthLines.length, virtualStartLine + VIRTUAL_WINDOW_LINES),
+	);
+	let virtualContent = $derived.by(() =>
+		fullDepthLines.slice(virtualStartLine, virtualEndLine).join('\n').trim(),
+	);
+	let virtualTopSpacerPx = $derived.by(() => virtualStartLine * APPROX_LINE_HEIGHT_PX);
+	let virtualBottomSpacerPx = $derived.by(
+		() => Math.max(0, fullDepthLines.length - virtualEndLine) * APPROX_LINE_HEIGHT_PX,
+	);
 
 	function buildPreviewContent(noteContent: string): string {
 		if (depth === 'title') return '';
@@ -50,10 +76,26 @@
 	}
 
 	$effect(() => {
-		const previewContent = buildPreviewContent(note.content);
+		const nextKey = `${note.id}:${depth}`;
+		if (nextKey !== lastVirtualKey) {
+			lastVirtualKey = nextKey;
+			virtualStartLine = 0;
+			largeNoteInitialResolved = false;
+		}
+	});
+
+	$effect(() => {
+		const previewContent = fullDepthIsLarge ? virtualContent : buildPreviewContent(note.content);
 		if (!previewContent) {
 			html = '';
+			largeNoteLoading = false;
+			markdownVisible = true;
 			return;
+		}
+		const showInitialShimmer = fullDepthIsLarge && !largeNoteInitialResolved;
+		largeNoteLoading = showInitialShimmer;
+		if (showInitialShimmer) {
+			markdownVisible = false;
 		}
 		let stale = false;
 		void renderMarkdown(previewContent, {
@@ -64,11 +106,45 @@
 					: { href: `/knowledge/notes?create=${encodeURIComponent(title)}`, exists: false };
 			},
 		}).then((result) => {
-			if (!stale) html = result;
+			if (stale) return;
+			html = result;
+			largeNoteLoading = false;
+			largeNoteInitialResolved = true;
+			requestAnimationFrame(() => {
+				if (!stale) markdownVisible = true;
+			});
 		});
 		return () => {
 			stale = true;
 		};
+	});
+
+	$effect(() => {
+		if (!fullDepthIsLarge || !scrollEl || !topSentinelEl || !bottomSentinelEl) return;
+		if (typeof IntersectionObserver === 'undefined') return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (!entry.isIntersecting) continue;
+					if (entry.target === topSentinelEl && virtualStartLine > 0) {
+						virtualStartLine = Math.max(0, virtualStartLine - VIRTUAL_STEP_LINES);
+						continue;
+					}
+					if (entry.target !== bottomSentinelEl) continue;
+					if (virtualEndLine >= fullDepthLines.length) continue;
+					const maxStart = Math.max(0, fullDepthLines.length - VIRTUAL_WINDOW_LINES);
+					virtualStartLine = Math.min(maxStart, virtualStartLine + VIRTUAL_STEP_LINES);
+				}
+			},
+			{
+				root: scrollEl,
+				rootMargin: '160px 0px 160px 0px',
+				threshold: 0,
+			},
+		);
+		observer.observe(topSentinelEl);
+		observer.observe(bottomSentinelEl);
+		return () => observer.disconnect();
 	});
 
 	function handleMarkdownClick(event: MouseEvent): void {
@@ -194,17 +270,40 @@
 			</span>
 		{/if}
 	</header>
-	<div class="relative p-3 flex-1 min-h-0 {scrollable ? 'overflow-y-auto' : 'overflow-hidden'}">
+	<div
+		class="relative p-3 flex-1 min-h-0 {scrollable ? 'overflow-y-auto' : 'overflow-hidden'}"
+		bind:this={scrollEl}
+	>
 		{#if depth === 'title'}
 			<div class="h-full flex items-center justify-center text-xs text-ink-muted">
 				Title-only preview enabled
 			</div>
 		{:else}
-			<div class="markdown-content text-sm leading-relaxed" role="document" bind:this={contentEl}>
+			{#if fullDepthIsLarge}
+				<div
+					class="pointer-events-none absolute inset-3 rounded-md bg-surface-alt/70 animate-pulse {largeNoteLoading
+						? 'opacity-100'
+						: 'opacity-0'} transition-opacity duration-150"
+					aria-hidden="true"
+				></div>
+				<div bind:this={topSentinelEl} class="h-px w-full" aria-hidden="true"></div>
+				<div style={`height:${virtualTopSpacerPx}px;`} aria-hidden="true"></div>
+			{/if}
+			<div
+				class="markdown-content text-sm leading-relaxed transition-opacity duration-150 {markdownVisible
+					? 'opacity-100'
+					: 'opacity-0'}"
+				role="document"
+				bind:this={contentEl}
+			>
 				<!-- Content is sanitized by renderMarkdown before injecting HTML. -->
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 				{@html html}
 			</div>
+			{#if fullDepthIsLarge}
+				<div style={`height:${virtualBottomSpacerPx}px;`} aria-hidden="true"></div>
+				<div bind:this={bottomSentinelEl} class="h-px w-full" aria-hidden="true"></div>
+			{/if}
 		{/if}
 		{#if editable && !scrollable}
 			<div

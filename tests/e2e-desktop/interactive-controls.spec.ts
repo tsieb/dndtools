@@ -211,6 +211,29 @@ async function launchWithSeed(): Promise<Awaited<ReturnType<typeof launchDesktop
 			createdAt: now,
 			updatedAt: now,
 		} as never);
+		await adapter.saveSessionBoard({
+			id: 'board-empty' as never,
+			name: 'Empty Board',
+			description: 'Board seeded without tiles',
+			tiles: [],
+			createdAt: now,
+			updatedAt: now,
+		} as never);
+		await adapter.saveSessionBoard({
+			id: 'board-layout-issues' as never,
+			name: 'Layout Issues Board',
+			description: 'Board seeded with overlap and overflow issues',
+			tiles: [
+				{ id: 'layout-a', type: 'note', x: 0, y: 0, w: 5, h: 3, noteId: 'note-shell-anchor' },
+				{ id: 'layout-b', type: 'timer', x: 3, y: 1, w: 4, h: 3 },
+				{ id: 'layout-c', type: 'dice', x: 9, y: 0, w: 4, h: 3 },
+				{ id: 'layout-d', type: 'combat', x: 0, y: 4, w: 4, h: 3 },
+				{ id: 'layout-e', type: 'generator', x: 4, y: 4, w: 4, h: 3 },
+				{ id: 'layout-f', type: 'handouts', x: 8, y: 4, w: 4, h: 3 },
+			],
+			createdAt: now,
+			updatedAt: now,
+		} as never);
 	} finally {
 		await adapter.close();
 	}
@@ -532,6 +555,64 @@ test.describe('Desktop interactive controls coverage @critical', () => {
 					)
 					.not.toBe(firstCombatantBefore);
 			}
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('board empty-state template flows and layout quality indicator are actionable', async () => {
+		const app = await launchWithSeed();
+		try {
+			await app.page.setViewportSize({ width: 1500, height: 950 });
+			await ensureDmMode(app.page);
+			await gotoDesktopPath(app.page, '/session/boards');
+			const enterEditButton = app.page.getByRole('button', { name: 'Enter Edit Mode' }).first();
+			if (await enterEditButton.isVisible().catch(() => false)) {
+				await enterEditButton.click();
+			} else {
+				await app.page.getByRole('button', { name: 'Edit' }).first().click();
+			}
+
+			await app.page.getByRole('button', { name: 'Empty Board' }).click();
+			await expect(app.page.getByText('Your mission control is empty')).toBeVisible();
+			await app.page.getByRole('button', { name: 'Apply a template' }).click();
+			const templateDialog = app.page.getByRole('dialog', { name: 'Apply board template' });
+			await expect(templateDialog).toBeVisible();
+			await expect(templateDialog.getByText('Combat Scene')).toBeVisible();
+			await app.page.keyboard.press('Escape');
+			await expect(templateDialog).toHaveCount(0);
+
+			await app.page.getByRole('button', { name: 'Add your first tile' }).click();
+			const addTileDialog = app.page.getByRole('dialog', { name: 'Add tile' });
+			await expect(addTileDialog).toBeVisible();
+			await expect(
+				addTileDialog.getByRole('button', { name: 'Start from template' }),
+			).toBeVisible();
+			await app.page.keyboard.press('Escape');
+			await expect(addTileDialog).toHaveCount(0);
+
+			await app.page.keyboard.press('Control+P');
+			const commandPalette = app.page.getByRole('dialog', { name: 'Command palette' });
+			await expect(commandPalette).toBeVisible();
+			const paletteQuery = commandPalette.getByRole('combobox', { name: /command palette query/i });
+			await paletteQuery.fill('>board apply template');
+			await paletteQuery.press('Enter');
+			const commandTemplateDialog = app.page.getByRole('dialog', { name: 'Apply board template' });
+			await expect(commandTemplateDialog).toBeVisible();
+			await commandTemplateDialog.getByRole('button', { name: 'Close dialog' }).click();
+			await expect(commandTemplateDialog).toHaveCount(0);
+
+			await app.page.getByRole('button', { name: 'Layout Issues Board' }).click();
+			const layoutQualityButton = app.page.getByRole('button', {
+				name: /Board layout quality: Needs attention/i,
+			});
+			await expect(layoutQualityButton).toBeVisible();
+			await layoutQualityButton.click();
+			const overlapIssue = app.page.getByText(/overlaps Tile/i).first();
+			await expect(overlapIssue).toBeVisible();
+			const selectIssueButton = app.page.getByRole('button', { name: 'Select' }).first();
+			await expect(selectIssueButton).toBeVisible();
+			await selectIssueButton.click();
 		} finally {
 			await closeDesktopApp(app);
 		}

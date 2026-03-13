@@ -7,6 +7,7 @@ import {
 	createDefaultSessionBoardScene,
 	createDefaultTimerState,
 	moveSessionBoardTileByRow,
+	detectSessionBoardLayoutIssues,
 	normalizeBoardTemplatesSetting,
 	normalizeSessionBoardHandoutHistory,
 	normalizeSessionBoardScenes,
@@ -352,6 +353,23 @@ describe('session-board domain', () => {
 		}
 		expect(repacked.map((tile) => tile.id)).toEqual(
 			expect.arrayContaining(['tile-a', 'tile-b', 'tile-c']),
+		);
+	});
+
+	it('detects overflow and overlap layout issues', () => {
+		const issues = detectSessionBoardLayoutIssues(
+			[
+				{ id: 'tile-overflow', type: 'note', x: 10, y: 0, w: 4, h: 2 },
+				{ id: 'tile-a', type: 'note', x: 0, y: 0, w: 4, h: 3 },
+				{ id: 'tile-b', type: 'timer', x: 2, y: 1, w: 4, h: 3 },
+			],
+			12,
+		);
+		expect(issues).toEqual(
+			expect.arrayContaining([
+				{ kind: 'overflow', tileId: 'tile-overflow' },
+				{ kind: 'overlap', tileId: 'tile-a', otherTileId: 'tile-b' },
+			]),
 		);
 	});
 });

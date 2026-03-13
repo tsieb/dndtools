@@ -20,6 +20,7 @@
 	import Hexagon from 'lucide-svelte/icons/hexagon';
 	import Info from 'lucide-svelte/icons/info';
 	import List from 'lucide-svelte/icons/list';
+	import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
 	import LoaderCircle from 'lucide-svelte/icons/loader-circle';
 	import MapIcon from 'lucide-svelte/icons/map';
 	import Menu from 'lucide-svelte/icons/menu';
@@ -52,6 +53,7 @@
 		calendar: Calendar,
 		flag: Flag,
 		hexagon: Hexagon,
+		'layout-dashboard': LayoutDashboard,
 		map: MapIcon,
 		menu: Menu,
 		'panel-left': PanelLeft,

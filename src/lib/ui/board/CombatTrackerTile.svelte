@@ -6,8 +6,11 @@
 	import { nowISO } from '$lib/utils/date.js';
 	import { createFolderId, createNoteId } from '$lib/types/note.js';
 	import { getStorage } from '$lib/platform/storage/index.js';
+	import { layoutState } from '$lib/state/layout.svelte.js';
 	import { notesState } from '$lib/state/notes.svelte.js';
 	import { toastState } from '$lib/state/toast.svelte.js';
+	import Sheet from '$lib/ui/common/Sheet.svelte';
+	import Tooltip from '$lib/ui/common/Tooltip.svelte';
 	import {
 		advanceCombatTurn,
 		buildEncounterLogDraft,
@@ -75,9 +78,15 @@
 	let objectLoadError = $state<string | null>(null);
 	let linkedObjects = $state<VaultObject[]>([]);
 	let draggingCombatantId = $state<string | null>(null);
+	let hpSheetCombatantId = $state<string | null>(null);
+	let hpSheetAdjustment = $state('5');
+	let swipeOpenCombatantId = $state<string | null>(null);
+	let swipeStartX = $state<number | null>(null);
+	let swipePointerId = $state<number | null>(null);
 
 	let combat = $derived.by(() => normalizeCombatState(tile.combat ?? createDefaultCombatState()));
 	let combatants = $derived.by(() => sortCombatantsForInitiative(combat.combatants));
+	let compactLayout = $derived(layoutState.isCompact);
 	let conditionCatalog = $derived.by(() => conditionCatalogForSystem(combat.systemId));
 	let legendaryTrackers = $derived.by(() => combat.legendaryTrackers);
 	let lairTracker = $derived.by(() => combat.lairTracker);
@@ -101,6 +110,9 @@
 			})
 			.slice(0, 80);
 	});
+	let hpSheetCombatant = $derived.by(
+		() => combatants.find((combatant) => combatant.id === hpSheetCombatantId) ?? null,
+	);
 
 	$effect(() => {
 		let cancelled = false;
@@ -783,6 +795,49 @@
 			};
 		});
 	}
+
+	function openHpSheet(combatantId: string): void {
+		hpSheetCombatantId = combatantId;
+		hpSheetAdjustment = '5';
+	}
+
+	function closeHpSheet(): void {
+		hpSheetCombatantId = null;
+	}
+
+	function applyHpSheet(mode: 'damage' | 'heal' | 'temp'): void {
+		if (!hpSheetCombatant) return;
+		const amount = Math.max(0, Number.parseInt(hpSheetAdjustment, 10) || 0);
+		if (amount <= 0) return;
+		if (mode === 'temp') {
+			toastState.info('Temporary HP tracking is available in full combat view.');
+			closeHpSheet();
+			return;
+		}
+		adjustHp(hpSheetCombatant.id, mode === 'damage' ? -amount : amount);
+		closeHpSheet();
+	}
+
+	function handleCombatantSwipeStart(event: PointerEvent): void {
+		if (!compactLayout || event.pointerType !== 'touch') return;
+		swipePointerId = event.pointerId;
+		swipeStartX = event.clientX;
+	}
+
+	function handleCombatantSwipeEnd(event: PointerEvent, combatantId: string): void {
+		if (!compactLayout || event.pointerType !== 'touch') return;
+		if (swipePointerId !== event.pointerId || swipeStartX === null) return;
+		const delta = event.clientX - swipeStartX;
+		swipePointerId = null;
+		swipeStartX = null;
+		if (delta <= -36) {
+			swipeOpenCombatantId = combatantId;
+			return;
+		}
+		if (delta >= 20) {
+			swipeOpenCombatantId = null;
+		}
+	}
 </script>
 
 <div
@@ -807,20 +862,24 @@
 		class="px-2.5 py-2 border-b border-border border-l-4"
 		style="border-left-color: var(--tile-accent);"
 	>
-		<div class="flex items-center gap-2">
+		<div class="flex items-center gap-2 {compactLayout ? 'flex-wrap' : ''}">
 			<Icon name={tileMeta.iconName} size="sm" color="var(--tile-accent)" />
 			<div class="text-sm font-semibold text-ink">{tileMeta.label}</div>
 			<input
 				type="text"
 				value={combat.encounterName}
 				onchange={(event) => setEncounterName((event.currentTarget as HTMLInputElement).value)}
-				class="min-w-0 flex-1 px-2 py-1 rounded border border-border bg-surface text-sm"
+				class="min-w-0 flex-1 px-2 py-1 rounded border border-border bg-surface text-sm {compactLayout
+					? 'basis-full order-last'
+					: ''}"
 				placeholder="Encounter name"
 				aria-label="Encounter name"
 			/>
 			<button
 				type="button"
-				class="px-2.5 py-1 rounded border border-border text-xs hover:bg-surface-alt transition-colors"
+				class="rounded border border-border text-xs hover:bg-surface-alt transition-colors {compactLayout
+					? 'h-12 px-3'
+					: 'px-2.5 py-1'}"
 				onclick={moveToNextTurn}
 			>
 				Next Turn
@@ -951,7 +1010,9 @@
 			<ul class="space-y-2">
 				{#each combatants as combatant (combatant.id)}
 					<li
-						class="rounded border border-border/70 p-2 {combat.activeCombatantId === combatant.id
+						class="rounded border border-border/70 p-2 {compactLayout
+							? 'min-h-14'
+							: ''} {combat.activeCombatantId === combatant.id
 							? 'bg-accent-subtle/70'
 							: 'bg-surface-alt/40'}"
 						draggable={combatant.initiative !== null}
@@ -961,6 +1022,12 @@
 						}}
 						ondrop={(event) => handleTieDrop(event, combatant.id)}
 						ondragend={() => (draggingCombatantId = null)}
+						onpointerdown={handleCombatantSwipeStart}
+						onpointerup={(event) => handleCombatantSwipeEnd(event, combatant.id)}
+						onpointercancel={() => {
+							swipePointerId = null;
+							swipeStartX = null;
+						}}
 					>
 						<div class="flex items-center gap-2">
 							<button
@@ -1048,6 +1115,31 @@
 								</button>
 							</div>
 						</div>
+						{#if compactLayout && swipeOpenCombatantId === combatant.id}
+							<div class="mt-2 flex items-center gap-2">
+								<button
+									type="button"
+									class="h-10 rounded border border-border px-3 text-xs text-ink hover:bg-surface"
+									onclick={() => adjustHp(combatant.id, -5)}
+								>
+									Damage
+								</button>
+								<button
+									type="button"
+									class="h-10 rounded border border-border px-3 text-xs text-ink hover:bg-surface"
+									onclick={() => adjustHp(combatant.id, 5)}
+								>
+									Heal
+								</button>
+								<button
+									type="button"
+									class="ml-auto h-10 rounded border border-error/40 px-3 text-xs text-error hover:bg-error/5"
+									onclick={() => removeCombatant(combatant.id)}
+								>
+									Remove
+								</button>
+							</div>
+						{/if}
 
 						<div class="mt-2 grid gap-2 md:grid-cols-[auto_auto_auto_auto_auto_1fr] items-center">
 							<div class="flex items-center gap-1">
@@ -1080,32 +1172,43 @@
 									+5
 								</button>
 							</div>
-							<label class="text-xs flex items-center gap-1">
-								HP
-								<input
-									type="number"
-									value={combatant.currentHp ?? ''}
-									class="h-7 w-16 rounded border border-border bg-surface px-2 text-sm"
-									onchange={(event) =>
-										handleHpInput(
-											combatant.id,
-											'currentHp',
-											(event.currentTarget as HTMLInputElement).value,
-										)}
-								/>
-								/
-								<input
-									type="number"
-									value={combatant.maxHp ?? ''}
-									class="h-7 w-16 rounded border border-border bg-surface px-2 text-sm"
-									onchange={(event) =>
-										handleHpInput(
-											combatant.id,
-											'maxHp',
-											(event.currentTarget as HTMLInputElement).value,
-										)}
-								/>
-							</label>
+							{#if compactLayout}
+								<button
+									type="button"
+									class="h-10 rounded border border-border px-3 text-xs text-ink hover:bg-surface"
+									aria-label={`Adjust HP for ${combatant.name}: ${combatant.currentHp ?? '?'} / ${combatant.maxHp ?? '?'}`}
+									onclick={() => openHpSheet(combatant.id)}
+								>
+									HP {combatant.currentHp ?? '?'} / {combatant.maxHp ?? '?'}
+								</button>
+							{:else}
+								<label class="text-xs flex items-center gap-1">
+									HP
+									<input
+										type="number"
+										value={combatant.currentHp ?? ''}
+										class="h-7 w-16 rounded border border-border bg-surface px-2 text-sm"
+										onchange={(event) =>
+											handleHpInput(
+												combatant.id,
+												'currentHp',
+												(event.currentTarget as HTMLInputElement).value,
+											)}
+									/>
+									/
+									<input
+										type="number"
+										value={combatant.maxHp ?? ''}
+										class="h-7 w-16 rounded border border-border bg-surface px-2 text-sm"
+										onchange={(event) =>
+											handleHpInput(
+												combatant.id,
+												'maxHp',
+												(event.currentTarget as HTMLInputElement).value,
+											)}
+									/>
+								</label>
+							{/if}
 							<label class="text-xs flex items-center gap-1">
 								AC
 								<input
@@ -1195,17 +1298,22 @@
 
 						<div class="mt-2 flex flex-wrap gap-1">
 							{#each conditionCatalog as condition (condition)}
-								<button
-									type="button"
-									class="px-2 py-0.5 rounded-full border text-2xs transition-colors {combatant.conditions.some(
-										(entry) => entry.toLowerCase() === condition.toLowerCase(),
-									)
-										? 'border-accent/50 bg-accent-subtle text-accent'
-										: 'border-border/70 text-ink-muted hover:bg-surface'}"
-									onclick={() => toggleCondition(combatant.id, condition)}
-								>
-									{condition}
-								</button>
+								<Tooltip text={`${condition} (Duration: not tracked)`}>
+									<button
+										type="button"
+										class="rounded-full border text-2xs transition-colors {compactLayout
+											? 'h-8 w-8 px-0'
+											: 'px-2 py-0.5'} {combatant.conditions.some(
+											(entry) => entry.toLowerCase() === condition.toLowerCase(),
+										)
+											? 'border-accent/50 bg-accent-subtle text-accent'
+											: 'border-border/70 text-ink-muted hover:bg-surface'}"
+										onclick={() => toggleCondition(combatant.id, condition)}
+										aria-label={`${condition} condition`}
+									>
+										{compactLayout ? condition.slice(0, 2).toUpperCase() : condition}
+									</button>
+								</Tooltip>
 							{/each}
 						</div>
 
@@ -1586,4 +1694,80 @@
 			{/if}
 		</div>
 	</footer>
+	{#if compactLayout}
+		<div class="border-t border-border/70 bg-surface px-2.5 py-2">
+			<button
+				type="button"
+				class="h-12 w-full rounded-md border border-border bg-accent text-sm font-semibold text-white hover:bg-accent-hover"
+				onclick={moveToNextTurn}
+			>
+				Next Turn
+			</button>
+		</div>
+	{/if}
 </div>
+
+<Sheet open={!!hpSheetCombatant} title="Adjust HP" onclose={closeHpSheet}>
+	{#if hpSheetCombatant}
+		<div class="space-y-3">
+			<p class="text-sm text-ink">
+				{hpSheetCombatant.name}: {hpSheetCombatant.currentHp ?? '?'} / {hpSheetCombatant.maxHp ??
+					'?'}
+			</p>
+			<input
+				type="number"
+				inputmode="numeric"
+				min="1"
+				bind:value={hpSheetAdjustment}
+				class="h-14 w-full rounded border border-border bg-surface px-3 text-xl font-semibold"
+				aria-label="HP adjustment amount"
+			/>
+			<div class="grid grid-cols-3 gap-2">
+				<button
+					type="button"
+					class="h-14 rounded border border-border text-lg font-semibold hover:bg-surface-alt"
+					onclick={() => (hpSheetAdjustment = '1')}
+				>
+					1
+				</button>
+				<button
+					type="button"
+					class="h-14 rounded border border-border text-lg font-semibold hover:bg-surface-alt"
+					onclick={() => (hpSheetAdjustment = '5')}
+				>
+					5
+				</button>
+				<button
+					type="button"
+					class="h-14 rounded border border-border text-lg font-semibold hover:bg-surface-alt"
+					onclick={() => (hpSheetAdjustment = '10')}
+				>
+					10
+				</button>
+			</div>
+			<div class="grid grid-cols-3 gap-2">
+				<button
+					type="button"
+					class="h-14 rounded border border-error/40 text-sm font-semibold text-error hover:bg-error/5"
+					onclick={() => applyHpSheet('damage')}
+				>
+					Damage
+				</button>
+				<button
+					type="button"
+					class="h-14 rounded border border-emerald-500/40 text-sm font-semibold text-emerald-700 hover:bg-emerald-500/10"
+					onclick={() => applyHpSheet('heal')}
+				>
+					Heal
+				</button>
+				<button
+					type="button"
+					class="h-14 rounded border border-border text-sm font-semibold text-ink hover:bg-surface-alt"
+					onclick={() => applyHpSheet('temp')}
+				>
+					Temp HP
+				</button>
+			</div>
+		</div>
+	{/if}
+</Sheet>
