@@ -194,7 +194,7 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 - **I18 — Accessibility & Inclusive Design**: Complete. Semantic HTML/landmarks, focus management, sensory/motion accessibility, pointer accessibility, and automated accessibility testing pipeline all shipped (Epics 18.1–18.5).
 - **I19 — Map Tool UX**: Complete. Map library UX, mode state machine, POI creation/preview/linking, editing tool ergonomics (undo, fog, routes, layers), and canvas accessibility/mobile experience all shipped (Epics 19.1–19.5).
 - **I20 — Board Tool UX**: Complete. Tile visual identity, board interaction model, tile creation flow, board empty states/progressive disclosure, and note tile virtualization all shipped (Epics 20.1–20.5).
-- **I21 — Codebase Realignment & Quality Audit**: In Progress. Phase A complete (CI restructuring, build script audit, metrics baseline — Epics 21.1–21.3). Phases B–D not started (file size enforcement, bundle optimization, data exposure audit, UX consistency audit — Epics 21.4–21.8).
+- **I21 — Codebase Realignment & Quality Audit**: In Progress. Phase A complete (CI restructuring, build script audit, metrics baseline — Epics 21.1–21.3). Phase B partially complete: Epic 21.4 (project organization & goal alignment audit) shipped — compliance matrix, route/IA audit, file structure audit, feature tier audit, exit criteria verification for I1–I20, and known gaps reconciliation documented in `docs/audits/21.4-project-organization-goal-alignment.md` with prioritized remediation backlog. Remaining: Epics 21.5–21.8 (module boundary audit, standards compliance, file decomposition, bundle optimization).
 
 ## What Not To Do
 
@@ -214,7 +214,11 @@ Architecture Decisions: `docs/adr/README.md` Ã¢â‚¬â€ ADR index (ADR-0
 - CI tiering is in place via `.github/workflows/ci-smoke.yml` and `.github/workflows/ci.yml`, but cross-platform merge-blocking quality gates are still limited to the dedicated desktop build matrix and release workflows.
 - MCP tool-level test coverage is incomplete — many tools rely only on `all-tools.test.ts` contract tests; dedicated per-tool unit/integration tests are sparse.
 - Epic 1.4 (IPC Hardening) is substantially complete: explicit named channels, Zod schema validation, `SECURITY.md` threat model, and IPC security regression tests are all in place. One residual gap: `dndtools:storage:clear-changelog` handler does not use `parseIpcArg()` validation.
-- Atomic filesystem writes are implemented in `mcp/safe-write.ts` and `mcp/storage.ts`; write-journal recovery runs at startup. This is substantially complete.
+
+### Route & Organization
+
+- 10 legacy non-section routes (`/combat/`, `/graph/`, `/notes/`, `/search/`, `/maps/`, `/timeline/`, `/session-board/`, `/encounter/new`, `/notes/[id]`, `/notes/[id]/edit`) exist as full duplicate implementations instead of the `goto()` redirects required by the IA contract in `docs/architecture/INFORMATION_ARCHITECTURE.md`. These double the maintenance surface and risk behavior drift.
+- `docs/reference/PROJECT_STRUCTURE.md` does not document `src/lib/ui/` subdirectories, `scripts/`, or MCP tool sub-domains (`dice/`, `random/`).
 
 ### Codex Automated Review — Unresolved Issues (22 findings across 13 PRs)
 
