@@ -100,6 +100,11 @@ export interface MigrationCheckpointEntry {
 	fileCount: number;
 }
 
+export interface ImportedVaultAsset {
+	absolutePath: string;
+	relativePath: string;
+}
+
 async function countFiles(dir: string): Promise<number> {
 	let count = 0;
 	const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -119,6 +124,11 @@ function toTitleCaseFromSlug(value: string): string {
 		.filter((segment) => segment.length > 0)
 		.map((segment) => segment[0]!.toUpperCase() + segment.slice(1))
 		.join(' ');
+}
+
+function isPathInsideRoot(rootDir: string, candidatePath: string): boolean {
+	const relative = path.relative(rootDir, candidatePath);
+	return relative.length === 0 || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 function ensureLeadingSlash(value: string): string {
@@ -749,6 +759,59 @@ export class FileSystemAdapter implements StorageAdapter {
 
 	getVaultDir(): string {
 		return this.vaultDir;
+	}
+
+	async importAssetFile(options: {
+		sourcePath: string;
+		targetFolder: string;
+		suggestedName?: string;
+		moveFile?: boolean;
+		overwrite?: boolean;
+	}): Promise<ImportedVaultAsset> {
+		const sourceAbs = path.resolve(options.sourcePath);
+		const stats = await fs.stat(sourceAbs);
+		if (!stats.isFile()) {
+			throw new Error('Source path is not a file.');
+		}
+
+		const parsed = path.parse(sourceAbs);
+		const slugBase = slugify(options.suggestedName?.trim() || parsed.name) || 'asset';
+		const normalizedFolder = options.targetFolder
+			.trim()
+			.replace(/^\/+/, '')
+			.replace(/\\/g, '/');
+		const targetDir = path.resolve(this.vaultDir, normalizedFolder);
+		if (!isPathInsideRoot(this.vaultDir, targetDir)) {
+			throw new Error('Target asset folder escapes the vault root.');
+		}
+		await fs.mkdir(targetDir, { recursive: true });
+
+		let filename = `${slugBase}${parsed.ext.toLowerCase()}`;
+		let destinationAbs = path.join(targetDir, filename);
+		if (!options.overwrite) {
+			let counter = 2;
+			while (true) {
+				try {
+					await fs.access(destinationAbs);
+					filename = `${slugBase}-${counter}${parsed.ext.toLowerCase()}`;
+					destinationAbs = path.join(targetDir, filename);
+					counter += 1;
+				} catch {
+					break;
+				}
+			}
+		}
+
+		if (options.moveFile) {
+			await fs.rename(sourceAbs, destinationAbs);
+		} else {
+			await fs.copyFile(sourceAbs, destinationAbs);
+		}
+
+		return {
+			absolutePath: destinationAbs,
+			relativePath: path.relative(this.vaultDir, destinationAbs).replace(/\\/g, '/'),
+		};
 	}
 
 	// --- Paths ---

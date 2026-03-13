@@ -557,7 +557,7 @@
 	}
 
 	async function handleExportAll(): Promise<void> {
-		const payload = buildNotesExportPayload(notesState.activeNotes);
+		const payload = await buildNotesExportPayload(notesState.activeNotes);
 		if (!payload) {
 			toastState.error('No notes available to export.');
 			return;
@@ -568,11 +568,16 @@
 					suggestedName: payload.filename,
 					content: payload.content,
 					mimeType: payload.mimeType,
-					description: payload.mimeType === 'application/json' ? 'JSON export' : 'Markdown export',
-					extensions: payload.mimeType === 'application/json' ? ['.json'] : ['.md', '.markdown'],
+					description: payload.mimeType === 'application/zip' ? 'Markdown archive' : 'Markdown export',
+					extensions:
+						payload.mimeType === 'application/zip' ? ['.zip'] : ['.md', '.markdown'],
 				});
 				if (saved) {
-					toastState.success(`Exported ${vaultState.noteCount} notes`);
+					const warningSuffix =
+						payload.validation && payload.validation.issues.length > 0
+							? ` (${payload.validation.issues.length} validation warnings)`
+							: '';
+					toastState.success(`Exported ${vaultState.noteCount} notes${warningSuffix}`);
 				}
 				return;
 			} catch (error) {
@@ -586,8 +591,12 @@
 				return;
 			}
 		}
-		exportAllNotes();
-		toastState.success(`Exported ${vaultState.noteCount} notes`);
+		await exportAllNotes();
+		const warningSuffix =
+			payload.validation && payload.validation.issues.length > 0
+				? ` (${payload.validation.issues.length} validation warnings)`
+				: '';
+		toastState.success(`Exported ${vaultState.noteCount} notes${warningSuffix}`);
 	}
 
 	function stopImportPolling(): void {

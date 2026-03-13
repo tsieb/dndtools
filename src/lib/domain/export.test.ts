@@ -1,13 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+	buildNotesExportPayload,
 	buildObsidianImportPreview,
 	bundleToMarkdownFiles,
+	exportAllNotes,
+	exportNote,
 	folderFromRelativePath,
 	noteToMarkdown,
 	parseMarkdownFile,
 	parseJsonBundle,
 } from './export.js';
 import { createNoteId, createFolderId, type Note } from '$lib/types/note.js';
+import { notesState } from '$lib/state/notes.svelte.js';
 
 function createNote(overrides: Partial<Note> = {}): Note {
 	const now = new Date().toISOString();
@@ -136,6 +140,94 @@ describe('parseJsonBundle', () => {
 		});
 		const result = parseJsonBundle(bundle);
 		expect(result[0]?.tags).toEqual([]);
+	});
+});
+
+describe('buildNotesExportPayload', () => {
+	it('returns null for empty exports', async () => {
+		await expect(buildNotesExportPayload([])).resolves.toBeNull();
+	});
+
+	it('returns a portable markdown zip with validation report for multi-note exports', async () => {
+		const payload = await buildNotesExportPayload([
+			createNote({
+				id: createNoteId('alpha'),
+				title: 'Alpha Note',
+				content: 'Link to [[Missing Note]]',
+				folder: createFolderId('/campaign'),
+			}),
+			createNote({
+				id: createNoteId('beta'),
+				title: 'Beta Note',
+				content: '# Beta',
+				folder: createFolderId('/campaign'),
+			}),
+		]);
+
+		expect(payload).not.toBeNull();
+		expect(payload?.mimeType).toBe('application/zip');
+		expect(payload?.filename).toBe('dndtools-markdown-export.zip');
+		expect(payload?.profile).toBe('portable_markdown_zip');
+		expect(payload?.validation?.unresolvedLinks).toBe(1);
+		expect(payload?.content).toBeInstanceOf(Uint8Array);
+		expect((payload?.content as Uint8Array).byteLength).toBeGreaterThan(0);
+	});
+
+	it('returns a markdown file for single-note exports', async () => {
+		const payload = await buildNotesExportPayload([createNote({ title: 'Solo Export' })]);
+		expect(payload?.mimeType).toBe('text/markdown');
+		expect(payload?.filename).toBe('solo-export.md');
+		expect(payload?.profile).toBe('single_markdown');
+	});
+});
+
+describe('browser exports', () => {
+	const originalCreateObjectURL = URL.createObjectURL;
+	const originalRevokeObjectURL = URL.revokeObjectURL;
+
+	beforeEach(() => {
+		URL.createObjectURL = vi.fn(() => 'blob:test') as typeof URL.createObjectURL;
+		URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL;
+	});
+
+	it('exports a single note as markdown', () => {
+		const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+		exportNote(createNote({ title: 'Solo Note' }));
+
+		expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+		expect(click).toHaveBeenCalledTimes(1);
+		expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test');
+		click.mockRestore();
+	});
+
+	it('exports all active notes as an archive when multiple notes exist', async () => {
+		const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+		notesState.notes = [
+			createNote({ id: createNoteId('one'), title: 'First Note' }),
+			createNote({ id: createNoteId('two'), title: 'Second Note', content: '[[Missing]]' }),
+		];
+
+		await exportAllNotes();
+
+		expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+		expect(click).toHaveBeenCalledTimes(1);
+		expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test');
+		click.mockRestore();
+	});
+
+	it('skips browser download when there are no active notes', async () => {
+		notesState.notes = [];
+
+		await exportAllNotes();
+
+		expect(URL.createObjectURL).not.toHaveBeenCalled();
+	});
+
+	afterEach(() => {
+		notesState.notes = [];
+		URL.createObjectURL = originalCreateObjectURL;
+		URL.revokeObjectURL = originalRevokeObjectURL;
 	});
 });
 

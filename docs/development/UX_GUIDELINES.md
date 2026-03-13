@@ -131,3 +131,4 @@ Import/export preview UX with conflict reporting is now available in Settings:
 - Obsidian source analyzer reports severity-tagged issues before import.
 - Conflict policy selection (`skip` / `overwrite` / `merge`) is explicit before starting import.
 - Large imports expose background progress and resumable checkpoint controls.
+- Markdown archive export now emits a portable `.zip` plus `validation-report.json` so unresolved links are surfaced before restore/import on another device.

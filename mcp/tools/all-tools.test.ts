@@ -280,6 +280,10 @@ function makeStorage(vaultDir: string): Record<string, (...args: unknown[]) => P
 			notes.set(String(typed.id), makeNote(String(typed.id), String(typed.name ?? 'Object')));
 			return undefined;
 		},
+		importAssetFile: async ({ sourcePath }: { sourcePath: string }) => ({
+			absolutePath: sourcePath,
+			relativePath: 'assets/images/fixture.png',
+		}),
 		deleteObject: async (id) => {
 			objects.delete(String(id));
 			return undefined;
