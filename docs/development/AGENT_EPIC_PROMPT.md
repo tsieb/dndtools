@@ -1,134 +1,171 @@
 # Agent Prompt: Complete Epic X.X
 
-You are an expert software engineer completing a specific epic for the DND Tools project. Think deeply before acting. Prioritize correctness, architecture integrity, and long-term maintainability over speed.
+Expert software engineer completing an epic for DND Tools. Prioritize correctness and architecture integrity. Minimize token waste — be direct in plans, commits, and output.
 
 ---
 
-## 1. Orient Before You Act
+## 1. Read First
 
-**Read these files first — do not skip:**
+**Always read — no exceptions:**
 
-- `CLAUDE.md` — authoritative architecture, boundaries, coding standards, and what not to do
-- `docs/planning/initiatives/README.md` — guiding principles and vision
-- `docs/planning/initiatives/` — find the initiative file containing Epic **X.X** (e.g., `I3-*.md`)
-- `docs/architecture/ARCHITECTURE.md` and `DATA_MODEL.md` if your work touches storage or system boundaries
+1. `CLAUDE.md` — architecture boundaries, coding standards, prohibited patterns
+2. The initiative file containing your epic (in `docs/planning/initiatives/I*-*.md`)
+3. Every story under your epic in that file
 
-Within the epic file, locate Epic X.X and read every story under it. Understand the full scope before writing any code.
+**Read when your epic touches the domain:**
 
----
-
-## 2. Plan Before Implementing
-
-Decompose the epic into a concrete task list from its stories. For each story:
-
-- Identify what files are affected — read them before modifying
-- Identify runtime boundary crossings (renderer ↔ main ↔ MCP)
-- Note any storage contract changes (require adapter + migration updates)
-- Note any IPC additions (require schema + security validation)
-
-Do not start implementing until you understand the full scope.
+| Domain                     | Read                                                 |
+| -------------------------- | ---------------------------------------------------- |
+| Storage, system boundaries | `docs/architecture/ARCHITECTURE.md`, `DATA_MODEL.md` |
+| UI styling                 | `docs/architecture/DESIGN_TOKENS.md`                 |
+| Performance-sensitive code | `docs/development/PERFORMANCE.md`                    |
+| Accessibility              | `docs/development/ACCESSIBILITY.md`                  |
+| Test patterns              | `docs/development/TESTING.md`                        |
 
 ---
 
-## 3. Branch Setup
+## 2. Plan
+
+Before writing code, decompose the epic into tasks from its stories. For each story:
+
+- List affected files — **read each one before modifying it**
+- Flag boundary crossings: renderer ↔ Electron main ↔ MCP
+- Flag storage contract changes → both adapters + migration required
+- Flag IPC additions → Zod schema in `electron/ipc-schemas.ts` + security test required
+
+---
+
+## 3. Branch
+
+**Two models exist.** Determine which applies:
 
 ```bash
+# A) Epic within an initiative — branch from the initiative branch
+git checkout initiative/<id>-<slug> && git pull
+git checkout -b story/<epic-id>-<slug>
+# PR targets the initiative branch → runs smoke CI only
+
+# B) Standalone epic — branch from master
 git checkout master && git pull
-git checkout -b story/<epic-id>-<story-id>-<slug>
+git checkout -b story/<epic-id>-<slug>
+# PR targets master → runs full quality CI
 ```
 
-Use one branch per story when stories are independent. Merge sequentially if they have dependencies.
+One branch per epic. See `docs/development/GIT_WORKFLOW.md` for the full branch model.
 
 ---
 
-## 4. Implementation Standards
+## 4. Implementation
 
-**Architecture rules (non-negotiable):**
+### Architecture Rules (non-negotiable)
 
-- Renderer must not use Node APIs — all data access goes through `StorageAdapter`
-- New IPC channels require Zod schema validation in `electron/ipc-schemas.ts`
-- MCP tools live under `mcp/tools/`, grouped by domain directories and registered in `mcp/tools/index.ts`
-- Storage contract changes require both adapters updated: `src/lib/platform/storage/indexeddb-adapter.ts` and `mcp/storage.ts`
-- All markdown rendering goes through the unified pipeline — never manual string parsing
-- State in renderer uses Svelte 5 runes classes in `src/lib/state/*.svelte.ts`
+These are the hard boundaries. `CLAUDE.md` is the full reference.
 
-**Code quality:**
+- **Renderer isolation:** No Node APIs. All data access through `StorageAdapter`.
+- **IPC safety:** Every new channel needs a Zod schema in `electron/ipc-schemas.ts`.
+- **MCP structure:** Tools in `mcp/tools/<domain>/`, registered in `mcp/tools/index.ts`.
+- **Storage parity:** Contract changes update both `indexeddb-adapter.ts` and `mcp/storage.ts`.
+- **Markdown pipeline:** All rendering through unified/remark/rehype. No manual parsing.
+- **State management:** Svelte 5 runes classes in `src/lib/state/*.svelte.ts`.
 
-- Strict TypeScript — no `any`, no type assertions without justification
-- Single-purpose modules, minimal surface area
-- No speculative abstractions — solve the problem at hand
-- No backwards-compatibility shims for code only you changed
-- Do not add error handling, validation, or features beyond what the story requires
+### Code Quality
+
+- **Strict TypeScript.** No `any`. No unjustified type assertions.
+- **No file over 500 lines.** Extract co-located modules, child components, or domain helpers to stay under. This is lint-enforced.
+- **Single-purpose modules.** Minimal surface area.
+- **Nothing speculative.** No abstractions, error handling, validation, or features beyond what the story requires.
+
+### Performance
+
+Do not regress these — they are CI-enforced:
+
+- **Bundle:** < 100KB gzipped initial JS. Lazy-load heavy modules (CodeMirror, graph, map canvas, encounter builder). Do not add weight to the critical path.
+- **Runtime:** 7 budgets defined in `src/lib/types/diagnostics.ts` (cold start ≤ 3s, note open ≤ 200ms, search ≤ 150ms, etc.). See `docs/development/PERFORMANCE.md`.
+- **Reactivity:** Prefer `$derived` over reactive chains that cause intermediate re-renders.
+
+### Styling
+
+Use semantic design tokens from `src/app.css`. See `docs/architecture/DESIGN_TOKENS.md`.
+
+- **No raw color values** in components.
+- **No structural `dark:` Tailwind prefixes** — theme presets handle dark mode via token overrides.
+- **No arbitrary font sizes** (`text-[14px]`) — use the typography scale (`--text-sm`, etc.).
 
 ---
 
-## 5. Testing Requirements
+## 5. Testing
 
-Every behavioral change requires tests. Match test type to scope:
+Every behavioral change needs a test. Match type to scope:
 
-| Change type                | Required tests                                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------------------------------ |
-| MCP tool (new or modified) | Unit tests: success, validation failure, edge cases in files like `mcp/tools/notes/note-tools.test.ts` |
-| Storage / data contract    | Unit tests for both adapters; migration test if schema changes                                         |
-| IPC channel                | Security regression test in `ipc-security.test.ts`                                                     |
-| UI behavior                | E2E test in `tests/e2e/` or `tests/e2e-desktop/` covering the critical path                            |
-| Renderer service/state     | Vitest unit tests                                                                                      |
+| Change                  | Test                                                     |
+| ----------------------- | -------------------------------------------------------- |
+| MCP tool                | Unit: success, validation failure, edge case             |
+| Storage / data contract | Unit for both adapters; migration test if schema changes |
+| IPC channel             | Security regression in `ipc-security.test.ts`            |
+| UI behavior             | E2E in `tests/e2e/` or `tests/e2e-desktop/`              |
+| Domain logic / state    | Vitest unit tests                                        |
 
-Run before every commit:
+### Automatic Gates
+
+Git hooks run these — you do not need to invoke them manually:
+
+- **Pre-commit:** `pnpm lint && pnpm format:check`
+- **Pre-push:** `pnpm check` (lint + typecheck + unit tests)
+
+If a hook fails, fix the issue. Never use `--no-verify`.
+
+### Manual Pre-PR Checks
+
+Run only for the domains your epic touched:
 
 ```bash
-pnpm format          # enforce prettier (CI will reject failures)
-pnpm check           # lint + typecheck + unit tests
-```
-
-Run before opening a PR:
-
-```bash
-pnpm test:e2e        # if UI behavior changed
-pnpm desktop:build   # if electron/main or IPC changed
-pnpm mcp:build       # if MCP tools/resources changed
+pnpm test:e2e        # UI behavior changes
+pnpm desktop:build   # Electron / IPC changes
+pnpm mcp:build       # MCP tool / resource changes
 ```
 
 ---
 
-## 6. Documentation Requirements
+## 6. Documentation
 
-Update docs alongside code — not after. Required updates:
+Update alongside code — not after. Only when applicable:
 
-- `docs/architecture/ARCHITECTURE.md` or `DATA_MODEL.md` — if system structure changed
-- `docs/reference/AGENTIC_NOTES_WORKFLOW.md` — if MCP tool contracts changed
-- `CLAUDE.md` "Completed Epics" section — add the epic when all stories are done
-- `docs/adr/` — add an ADR if a significant architectural decision was made
+- `ARCHITECTURE.md` or `DATA_MODEL.md` — structural changes
+- `AGENTIC_NOTES_WORKFLOW.md` — MCP tool contract changes
+- `CLAUDE.md` "Completed Epics" — add a concise epic summary when done
+- `docs/adr/` — new ADR for significant architectural decisions
 
-Do not claim docs are current without verifying the actual files.
+Verify the actual files before claiming they are current.
 
 ---
 
 ## 7. Commit and PR
 
-Commit format: `<type>(<scope>): <imperative summary>`
-Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
-Scopes: `mcp`, `renderer`, `electron`, `storage`, `ui`, `ci`
+**Commit format:** `<type>(<scope>): <imperative summary>`
 
-Commit at logical checkpoints — one story or one cohesive behavior per commit. Do not batch the entire epic into one commit.
+- Types: `feat` `fix` `refactor` `test` `docs` `chore`
+- Scopes: `mcp` `renderer` `electron` `storage` `ui` `ci`
+
+Commit at story boundaries or cohesive behavior checkpoints. Do not batch an entire epic into one commit.
 
 ```bash
 gh pr create \
-  --title "<type>(<scope>): <summary> [Epic X.X / SX.X.X]" \
-  --base master \
-  --body "Closes Epic X.X stories: ..."
+  --title "<type>(<scope>): <summary> [Epic X.X]" \
+  --base <initiative-branch-or-master> \
+  --body "Epic X.X — <one-line summary>"
 gh pr merge --auto --squash
 ```
 
-CI must be green before merging. Never bypass pre-commit or pre-push hooks.
+You may merge your own PRs when CI is green. No human approval required.
 
 ---
 
-## 8. Definition of Done
+## 8. Done When
 
-- [ ] All stories in the epic are implemented
-- [ ] All required tests written and passing (`pnpm check`)
-- [ ] E2E / build validation run where applicable
-- [ ] Docs updated to reflect behavior changes
+- [ ] All stories implemented
+- [ ] Tests passing (`pnpm check` green)
+- [ ] No source file exceeds 500 lines
+- [ ] Pre-PR checks run for affected domains
+- [ ] Docs updated where applicable
 - [ ] `CLAUDE.md` "Completed Epics" updated
-- [ ] PR merged to master with green CI
+- [ ] PR opened against correct base branch, CI green
