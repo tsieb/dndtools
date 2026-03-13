@@ -44,7 +44,11 @@ function resolveInternalImport(fromFile: string, specifier: string): string | nu
 
 	if (specifier.startsWith('$lib/')) {
 		candidates.push(path.join(repoRoot, 'src', 'lib', specifier.slice('$lib/'.length)));
-	} else if (specifier.startsWith('../src/') || specifier.startsWith('./') || specifier.startsWith('../')) {
+	} else if (
+		specifier.startsWith('../src/') ||
+		specifier.startsWith('./') ||
+		specifier.startsWith('../')
+	) {
 		candidates.push(path.resolve(path.dirname(normalizedFrom), specifier));
 	} else {
 		return null;
@@ -115,7 +119,9 @@ describe('repo boundary audit', () => {
 	it('keeps MCP tool handlers off direct filesystem imports', () => {
 		const violations = listFiles('mcp/tools')
 			.filter((file) => !file.includes('/shared/') && !file.endsWith('.test.ts'))
-			.filter((file) => /\bfrom ['"]node:fs(?:\/promises)?['"]|\bfrom ['"]fs['"]/.test(readFile(file)));
+			.filter((file) =>
+				/\bfrom ['"]node:fs(?:\/promises)?['"]|\bfrom ['"]fs['"]/.test(readFile(file)),
+			);
 
 		expect(violations).toEqual([]);
 	});

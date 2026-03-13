@@ -776,10 +776,7 @@ export class FileSystemAdapter implements StorageAdapter {
 
 		const parsed = path.parse(sourceAbs);
 		const slugBase = slugify(options.suggestedName?.trim() || parsed.name) || 'asset';
-		const normalizedFolder = options.targetFolder
-			.trim()
-			.replace(/^\/+/, '')
-			.replace(/\\/g, '/');
+		const normalizedFolder = options.targetFolder.trim().replace(/^\/+/, '').replace(/\\/g, '/');
 		const targetDir = path.resolve(this.vaultDir, normalizedFolder);
 		if (!isPathInsideRoot(this.vaultDir, targetDir)) {
 			throw new Error('Target asset folder escapes the vault root.');

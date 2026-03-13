@@ -18,9 +18,9 @@ Each debt item must include:
 
 ## Active Debt Items
 
-| ID              | Severity | Impact                                                                                                                 | Owner    | Resolution Window       | Targets                                                                           | Status   |
-| --------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------- | --------------------------------------------------------------------------------- | -------- |
-| `DEBT-2026-002` | high     | Desktop distribution trust posture is weaker without automated installer signing/notarization.                         | `@trent` | 2026-Q3 (by 2026-09-30) | `.github/workflows/release-assets.yml`, `electron-builder.yml`, `docs/RELEASE.md` | resolved |
+| ID              | Severity | Impact                                                                                         | Owner    | Resolution Window       | Targets                                                                           | Status   |
+| --------------- | -------- | ---------------------------------------------------------------------------------------------- | -------- | ----------------------- | --------------------------------------------------------------------------------- | -------- |
+| `DEBT-2026-002` | high     | Desktop distribution trust posture is weaker without automated installer signing/notarization. | `@trent` | 2026-Q3 (by 2026-09-30) | `.github/workflows/release-assets.yml`, `electron-builder.yml`, `docs/RELEASE.md` | resolved |
 
 ## Usage Notes
 

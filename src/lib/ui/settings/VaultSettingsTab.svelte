@@ -568,9 +568,9 @@
 					suggestedName: payload.filename,
 					content: payload.content,
 					mimeType: payload.mimeType,
-					description: payload.mimeType === 'application/zip' ? 'Markdown archive' : 'Markdown export',
-					extensions:
-						payload.mimeType === 'application/zip' ? ['.zip'] : ['.md', '.markdown'],
+					description:
+						payload.mimeType === 'application/zip' ? 'Markdown archive' : 'Markdown export',
+					extensions: payload.mimeType === 'application/zip' ? ['.zip'] : ['.md', '.markdown'],
 				});
 				if (saved) {
 					const warningSuffix =
