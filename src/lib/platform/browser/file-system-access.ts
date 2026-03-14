@@ -3,7 +3,7 @@ interface FileSystemFileHandleLike {
 }
 
 interface FileSystemWritableFileStreamLike {
-	write(data: string | Blob): Promise<void>;
+	write(data: string | Blob | Uint8Array): Promise<void>;
 	close(): Promise<void>;
 }
 
@@ -31,7 +31,7 @@ interface FilePickerWindow extends Window {
 
 export interface SaveTextFileRequest {
 	suggestedName: string;
-	content: string;
+	content: string | Blob | Uint8Array;
 	mimeType: string;
 	description: string;
 	extensions: string[];

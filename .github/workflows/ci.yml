@@ -51,6 +51,9 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: Export regression coverage thresholds
+        run: pnpm test:coverage
+
   docs-validation:
     name: docs-validation
     runs-on: ubuntu-latest

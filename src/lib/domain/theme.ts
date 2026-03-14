@@ -1,6 +1,5 @@
-export type ThemePreset = 'parchment' | 'tavern' | 'scholar' | 'dungeon';
-export type ThemeSetting = ThemePreset | 'system' | 'light' | 'dark';
-export type ThemeFamily = 'light' | 'dark';
+import type { ThemeFamily, ThemePreset, ThemeSetting } from '$lib/types/theme.js';
+export type { ThemeFamily, ThemePreset, ThemeSetting } from '$lib/types/theme.js';
 
 function systemPrefersDark(): boolean {
 	if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {

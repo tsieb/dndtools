@@ -18,12 +18,9 @@ Each debt item must include:
 
 ## Active Debt Items
 
-| ID              | Severity | Impact                                                                                                                 | Owner    | Resolution Window       | Targets                                                                           | Status   |
-| --------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------- | --------------------------------------------------------------------------------- | -------- |
-| `DEBT-2026-001` | high     | Regressions can ship in low-coverage renderer routes because coverage thresholds are not enforced in CI.               | `@trent` | 2026-Q2 (by 2026-06-30) | `vite.config.ts`, `.github/workflows/ci.yml`, `tests/**/*`                        | open     |
-| `DEBT-2026-002` | high     | Desktop distribution trust posture is weaker without automated installer signing/notarization.                         | `@trent` | 2026-Q3 (by 2026-09-30) | `.github/workflows/release-assets.yml`, `electron-builder.yml`, `docs/RELEASE.md` | resolved |
-| `DEBT-2026-003` | medium   | Accessibility regressions may escape when key flows are not automatically audited in E2E.                              | `@trent` | 2026-Q2 (by 2026-06-30) | `tests/e2e*`, `docs/UX_GUIDELINES.md`, accessibility assertions                   | open     |
-| `DEBT-2026-004` | medium   | Export interoperability remains limited while JSON-only export lacks a markdown archive profile and validation report. | `@trent` | 2026-Q3 (by 2026-09-30) | `src/lib/domain/export.ts`, `src/routes/settings/+page.svelte`                    | open     |
+| ID              | Severity | Impact                                                                                         | Owner    | Resolution Window       | Targets                                                                           | Status   |
+| --------------- | -------- | ---------------------------------------------------------------------------------------------- | -------- | ----------------------- | --------------------------------------------------------------------------------- | -------- |
+| `DEBT-2026-002` | high     | Desktop distribution trust posture is weaker without automated installer signing/notarization. | `@trent` | 2026-Q3 (by 2026-09-30) | `.github/workflows/release-assets.yml`, `electron-builder.yml`, `docs/RELEASE.md` | resolved |
 
 ## Usage Notes
 
