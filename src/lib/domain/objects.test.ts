@@ -133,6 +133,19 @@ describe('normalizeMapData', () => {
 		expect(normalized.lastSessionFog?.sourceBoardId).toBe('board-1');
 	});
 
+	it('produces undefined initialViewport when none is stored (fit-to-screen on load)', () => {
+		const normalized = normalizeMapData({ filePath: '.vault/assets/maps/new.png' });
+		expect(normalized.initialViewport).toBeUndefined();
+	});
+
+	it('preserves a stored initialViewport with clamped values', () => {
+		const normalized = normalizeMapData({
+			filePath: '.vault/assets/maps/saved.png',
+			initialViewport: { zoom: 2, panX: 100, panY: -50 },
+		});
+		expect(normalized.initialViewport).toEqual({ zoom: 2, panX: 100, panY: -50 });
+	});
+
 	it('normalizes map parent linkage and travel routes', () => {
 		const normalized = normalizeMapData({
 			filePath: '.vault/assets/maps/world.png',

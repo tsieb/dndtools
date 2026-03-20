@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises';
+import nodePath from 'node:path';
 import { test, expect, type Page } from '@playwright/test';
 import { FileSystemAdapter } from '../../mcp/storage.js';
 import {
@@ -908,6 +910,74 @@ test.describe('Desktop critical workflows @critical', () => {
 			await expect(app.page.getByRole('radio')).toHaveCount(6);
 			await expect(app.page.getByRole('application', { name: /interactive map/i })).toBeVisible();
 			await expect(app.page.getByRole('button', { name: 'List view' })).toBeVisible();
+		} finally {
+			await closeDesktopApp(app);
+		}
+	});
+
+	test('map import: image loads via HTTP asset server and page stays navigable', async () => {
+		const vaultDir = await createTempVaultDir('dndtools-e2e-map-asset-');
+		// Write a minimal valid 1x1 PNG so the vault asset server has a real file to serve.
+		const mapsDir = nodePath.join(vaultDir, '.vault', 'assets', 'maps');
+		await fs.mkdir(mapsDir, { recursive: true });
+		const minimalPng = Buffer.from(
+			'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAABjkB6wAAAABJRU5ErkJggg==',
+			'base64',
+		);
+		await fs.writeFile(nodePath.join(mapsDir, 'test-map.png'), minimalPng);
+
+		const now = new Date().toISOString();
+		const adapter = new FileSystemAdapter(vaultDir);
+		await adapter.initialize();
+		try {
+			await adapter.saveObject({
+				id: 'map-asset-server-test',
+				type: 'map',
+				name: 'Asset Server Test Map',
+				summary: 'Map for HTTP asset server test.',
+				tags: ['map'],
+				visibility: 'dm_only',
+				relationships: [],
+				data: {
+					filePath: '.vault/assets/maps/test-map.png',
+					layers: [
+						{
+							id: 'layer-default',
+							name: 'Default',
+							visible: true,
+							playerVisible: true,
+							colorTheme: 'amber',
+						},
+					],
+					pois: [],
+					routes: [],
+				},
+				createdAt: now,
+				updatedAt: now,
+			} as never);
+		} finally {
+			await adapter.close();
+		}
+
+		const app = await launchDesktopApp(vaultDir);
+		try {
+			await gotoDesktopPath(app.page, '/atlas/maps');
+			await expect(app.page).toHaveURL(/\/maps$/);
+			await app.page.getByRole('button', { name: /Asset Server Test Map/ }).click();
+			await expect(app.page).toHaveURL(/\/atlas\/maps\/map-asset-server-test$/);
+
+			// Map canvas must be visible — a frozen page would fail here.
+			await expect(app.page.getByRole('application', { name: /interactive map/i })).toBeVisible();
+			// Verify no image-load error is shown.
+			await expect(app.page.getByText('Unable to load map image')).toHaveCount(0);
+
+			// Navigate away — a page frozen by the reactive loop would timeout here.
+			await gotoDesktopPath(app.page, '/knowledge/notes');
+			await expect(app.page).toHaveURL(/\/notes$/);
+
+			// Navigate back to confirm the freeze doesn't recur on re-entry.
+			await gotoDesktopPath(app.page, '/atlas/maps');
+			await expect(app.page).toHaveURL(/\/maps$/);
 		} finally {
 			await closeDesktopApp(app);
 		}

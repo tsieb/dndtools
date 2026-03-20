@@ -1106,9 +1106,7 @@
 		selectedPoiNoteSearch = '';
 		splitPaneNoteId = null;
 		modalNoteId = null;
-		draftInitialViewport = map.data.initialViewport
-			? { ...map.data.initialViewport }
-			: { zoom: 1, panX: 0, panY: 0 };
+		draftInitialViewport = map.data.initialViewport ? { ...map.data.initialViewport } : null;
 		draftImageSize =
 			map.data.width && map.data.height ? { width: map.data.width, height: map.data.height } : null;
 		draftParentMapId = map.data.parentMapId ?? '';
@@ -1188,11 +1186,6 @@
 						originX: 0,
 						originY: 0,
 						cellSize: 70,
-					},
-					initialViewport: {
-						zoom: 1,
-						panX: 0,
-						panY: 0,
 					},
 				}),
 			};
