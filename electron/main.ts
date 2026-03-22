@@ -90,6 +90,8 @@ import {
 let storage: FileSystemAdapter | null = null;
 let vaultDir = '';
 let staticServer: http.Server | null = null;
+let vaultAssetServer: http.Server | null = null;
+let vaultAssetPort: number | null = null;
 const mcpSidecar = new McpSidecar();
 const diagnostics = new DiagnosticsTracker();
 const smokeTestMode = process.env.DNDTOOLS_SMOKE_TEST === '1';
@@ -562,6 +564,59 @@ async function startStaticServer(rootDir: string): Promise<string> {
 	}
 
 	return `http://127.0.0.1:${address.port}`;
+}
+
+async function ensureVaultAssetServer(): Promise<void> {
+	if (vaultAssetServer) return;
+	vaultAssetServer = http.createServer(async (req, res) => {
+		const currentVaultDir = vaultDir;
+		if (!currentVaultDir) {
+			res.statusCode = 503;
+			res.end('Vault not open');
+			return;
+		}
+		const urlPath = req.url ? decodeURIComponent(req.url.split('?')[0] ?? '/') : '/';
+		const filePart = urlPath.replace(/^\/+/, '');
+		if (!filePart.startsWith('maps/')) {
+			res.statusCode = 403;
+			res.end('Forbidden');
+			return;
+		}
+		const relativePath = `.vault/assets/${filePart}`;
+		const absolutePath = path.join(currentVaultDir, relativePath);
+		try {
+			ensurePathInsideVault(currentVaultDir, absolutePath);
+			const stat = await fs.stat(absolutePath);
+			if (!stat.isFile()) {
+				res.statusCode = 404;
+				res.end('Not found');
+				return;
+			}
+			const ext = path.extname(absolutePath).toLowerCase();
+			res.statusCode = 200;
+			res.setHeader('Content-Type', CONTENT_TYPES[ext] ?? 'application/octet-stream');
+			res.setHeader('Cache-Control', 'max-age=31536000, immutable');
+			res.setHeader('Access-Control-Allow-Origin', '*');
+			res.end(await fs.readFile(absolutePath));
+		} catch {
+			res.statusCode = 404;
+			res.end('Not found');
+		}
+	});
+	await new Promise<void>((resolve, reject) => {
+		vaultAssetServer!.once('error', reject);
+		vaultAssetServer!.listen(0, '127.0.0.1', () => resolve());
+	});
+	const address = vaultAssetServer.address();
+	if (address && typeof address === 'object') {
+		vaultAssetPort = address.port;
+	}
+}
+
+function getVaultAssetUrl(relativePath: string): string | null {
+	if (!vaultAssetPort) return null;
+	const assetSubpath = relativePath.replace(/^\.vault\/assets\//, '');
+	return `http://127.0.0.1:${vaultAssetPort}/${encodeURIComponent(assetSubpath).replace(/%2F/g, '/')}`;
 }
 
 async function setVaultDirectory(nextVaultDir: string): Promise<void> {
@@ -1666,7 +1721,8 @@ ipcMain.handle('dndtools:maps:resolve-asset-url', async (_event, rawRelativePath
 		if (!stat.isFile()) {
 			return null;
 		}
-		return pathToFileURL(absolutePath).toString();
+		await ensureVaultAssetServer();
+		return getVaultAssetUrl(normalizedRelativePath);
 	} catch {
 		return null;
 	}
@@ -2194,6 +2250,10 @@ app.on('before-quit', (event) => {
 			staticServer.close();
 			staticServer = null;
 		}
+		if (vaultAssetServer) {
+			vaultAssetServer.close();
+			vaultAssetServer = null;
+		}
 		return;
 	}
 
@@ -2219,6 +2279,10 @@ app.on('before-quit', (event) => {
 			if (staticServer) {
 				staticServer.close();
 				staticServer = null;
+			}
+			if (vaultAssetServer) {
+				vaultAssetServer.close();
+				vaultAssetServer = null;
 			}
 			app.quit();
 		}

@@ -1909,11 +1909,15 @@
 
 	$effect(() => {
 		if (!initialViewport) return;
-		setViewport({
-			zoom: initialViewport.zoom,
+		// Apply directly without calling onviewportchange — doing so would propagate back to
+		// the parent's draftInitialViewport (new object each time), which would change this
+		// prop again and cause an infinite reactive loop.
+		viewport = clampViewportToFog({
+			zoom: clampZoom(initialViewport.zoom),
 			panX: initialViewport.panX,
 			panY: initialViewport.panY,
 		});
+		queueDraw();
 	});
 
 	$effect(() => {
