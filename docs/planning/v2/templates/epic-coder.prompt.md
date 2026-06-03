@@ -10,6 +10,8 @@ Read these files before editing:
 
 - `docs/development/V2_AGENTIC_IMPLEMENTATION.md`
 - `docs/adr/014-v2-stack-and-subproject-boundary.md`
+- `docs/planning/v2/workpack-state.yaml`
+- `docs/planning/v2/status.yaml`
 - `docs/remake-review/00-vision-brief.md`
 - `docs/remake-review/08-glossary.md`
 - `docs/remake-review/09-architecture-contracts.md`
@@ -36,9 +38,31 @@ Expected affected areas:
 
 {{EXPECTED_AREAS}}
 
+## Source Of Truth
+
+Requirements are the product source of truth. Mutable epic state lives only in
+`docs/planning/v2/workpack-state.yaml`. The files `docs/planning/v2/status.yaml`,
+`docs/planning/v2/requirements-index.yaml`, `docs/planning/v2/initiative-map.yaml`,
+`docs/planning/v2/parallel-batches.yaml`, and `docs/planning/v2/epics/*.yaml` are generated.
+
+Do not hand-edit generated planning files to change approval, active, complete, or deferred state.
+Use the workpack commands so all relevant locations update together.
+
 ## Stories And Tasks
 
 {{STORY_SUMMARY}}
+
+## Quality Bar
+
+{{QUALITY_BAR}}
+
+## Git Workflow
+
+{{GIT_WORKFLOW}}
+
+## Status Automation
+
+{{STATUS_AUTOMATION}}
 
 ## Stop Conditions
 
@@ -60,4 +84,8 @@ Before final response, report:
 - tests run
 - requirement IDs covered
 - demo path or demo notes
+- quality review summary across correctness, architecture, tests, accessibility, performance,
+  security, permissions, persistence, sync/offline, UX, maintainability, and docs
+- status command run
+- git branch, commit or PR, and final `git status --short` output
 - known gaps or deferred items

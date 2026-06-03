@@ -6,9 +6,11 @@ import YAML from 'yaml';
 import { describe, expect, it } from 'vitest';
 import {
 	buildEpicPackets,
+	findNextEpic,
 	generateWorkpack,
 	parseRequirementPackage,
 	renderPrompt,
+	updateEpicStatus,
 	validateWorkpack,
 	type EpicPacket,
 } from '../../scripts/v2-workpack';
@@ -47,6 +49,28 @@ Capability tree:
 	return root;
 }
 
+function writeCompletionEvidence(root: string, epicId: string): string {
+	const relativePath = `docs/planning/v2/epics/${epicId}.completion.md`;
+	const fullPath = path.join(root, relativePath);
+	fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+	fs.writeFileSync(
+		fullPath,
+		`# ${epicId} Completion Evidence
+
+Workpack status: \`complete\`.
+
+## Git Slate
+
+\`\`\`
+git status --short
+# no output
+\`\`\`
+`,
+		'utf-8',
+	);
+	return relativePath;
+}
+
 describe('v2 workpack tooling', () => {
 	it('parses requirement records and capability branches from domain markdown', async () => {
 		const root = makeFixtureRoot();
@@ -82,6 +106,102 @@ describe('v2 workpack tooling', () => {
 		await generateWorkpack(root);
 
 		await expect(validateWorkpack(root)).resolves.toEqual([]);
+	});
+
+	it('creates mutable workpack state as the status source of truth', async () => {
+		const root = makeFixtureRoot();
+		await generateWorkpack(root);
+
+		const statePath = path.join(root, 'docs', 'planning', 'v2', 'workpack-state.yaml');
+		const state = YAML.parse(fs.readFileSync(statePath, 'utf-8')) as {
+			defaults: { status: string; approved: boolean };
+		};
+
+		expect(state.defaults).toEqual({ status: 'proposed', approved: false });
+	});
+
+	it('applies mutable workpack state to generated epics and metrics', async () => {
+		const root = makeFixtureRoot();
+		const evidenceFile = writeCompletionEvidence(root, 'CANVAS-scene-state');
+		const statePath = path.join(root, 'docs', 'planning', 'v2', 'workpack-state.yaml');
+		fs.mkdirSync(path.dirname(statePath), { recursive: true });
+		fs.writeFileSync(
+			statePath,
+			YAML.stringify({
+				schemaVersion: 1,
+				sourceOfTruth: {
+					purpose: 'Fixture state',
+					generatedFiles: ['docs/planning/v2/status.yaml'],
+				},
+				defaults: { status: 'approved', approved: true },
+				stackDecision: {
+					requiredAdr: 'docs/adr/014-v2-stack-and-subproject-boundary.md',
+					status: 'accepted',
+					blocksImplementation: false,
+				},
+				epics: [
+					{
+						id: 'CANVAS-scene-state',
+						status: 'complete',
+						approved: true,
+						completionEvidenceFile: evidenceFile,
+					},
+				],
+			}),
+			'utf-8',
+		);
+
+		const { epics } = await generateWorkpack(root);
+		const status = YAML.parse(
+			fs.readFileSync(path.join(root, 'docs', 'planning', 'v2', 'status.yaml'), 'utf-8'),
+		) as { summary: { complete: number }; metrics: { epicCompletionPercent: number } };
+
+		expect(epics[0]?.status).toBe('complete');
+		expect(epics[0]?.completionEvidenceFile).toBe(evidenceFile);
+		expect(status.summary.complete).toBe(1);
+		expect(status.metrics.epicCompletionPercent).toBe(100);
+		await expect(validateWorkpack(root)).resolves.toEqual([]);
+	});
+
+	it('updates status programmatically and regenerates derived files', async () => {
+		const root = makeFixtureRoot();
+		await generateWorkpack(root);
+		const evidenceFile = writeCompletionEvidence(root, 'CANVAS-scene-state');
+
+		const { epic } = await updateEpicStatus(root, 'CANVAS-scene-state', 'complete', {
+			evidenceFile,
+		});
+
+		const regenerated = YAML.parse(
+			fs.readFileSync(
+				path.join(root, 'docs', 'planning', 'v2', 'epics', 'CANVAS-scene-state.yaml'),
+				'utf-8',
+			),
+		) as EpicPacket;
+
+		expect(epic.status).toBe('complete');
+		expect(regenerated.status).toBe('complete');
+		expect(regenerated.completionEvidenceFile).toBe(evidenceFile);
+		await expect(validateWorkpack(root)).resolves.toEqual([]);
+	});
+
+	it('selects the next approved epic deterministically', async () => {
+		const root = makeFixtureRoot();
+		const evidenceFile = writeCompletionEvidence(root, 'CANVAS-scene-state');
+		const { epics } = await generateWorkpack(root);
+		const approved = {
+			...(epics[0] as EpicPacket),
+			status: 'approved',
+			approved: true,
+		} satisfies EpicPacket;
+		const complete = {
+			...approved,
+			status: 'complete',
+			completionEvidenceFile: evidenceFile,
+		} satisfies EpicPacket;
+
+		expect(findNextEpic([approved])?.id).toBe('CANVAS-scene-state');
+		expect(findNextEpic([complete])).toBeNull();
 	});
 
 	it('rejects prompt generation for unapproved epics', async () => {
