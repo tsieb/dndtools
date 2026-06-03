@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { SceneRuntime, defaultEnvironment } from '$lib/canvas-runtime/runtime.svelte';
 	import { provideRuntime } from '$lib/state/runtime-context';
+	import { PlatformProfileStore, provideProfile } from '$lib/platform/platform-profile.svelte';
 	import './styles.css';
 
 	const { children } = $props();
@@ -12,8 +13,12 @@
 	});
 	provideRuntime(runtime);
 
+	const profile = new PlatformProfileStore();
+	provideProfile(profile);
+
 	onMount(() => {
 		void runtime.load();
+		return profile.init();
 	});
 </script>
 
@@ -21,7 +26,8 @@
 	<h1>DND Tools v2</h1>
 	<p class="tagline">Scene-first command platform — local prototype</p>
 	<nav>
-		<a href="./" data-testid="nav-scenes">Scenes</a>
+		<a href="./" data-testid="nav-command-center">Command Center</a>
+		<a href="scenes/" data-testid="nav-scenes">Scenes</a>
 	</nav>
 </header>
 

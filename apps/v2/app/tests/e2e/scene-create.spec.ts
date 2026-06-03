@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/');
+		await page.goto('/scenes/');
 		// Wait for runtime to finish loading
 		await page.getByTestId('scene-name').waitFor({ state: 'visible' });
 		// Reset local IndexedDB so each run starts from a known empty vault.

@@ -202,3 +202,41 @@ select {
 	font-size: 0.75rem;
 	padding: 0.25rem 0.5rem;
 }
+
+.command-center {
+	display: grid;
+	gap: 1.5rem;
+}
+
+.cc-header .row-actions {
+	margin-top: 0.5rem;
+}
+
+.cc-tablist {
+	display: flex;
+	gap: 0.4rem;
+	flex-wrap: wrap;
+	margin-bottom: 0.75rem;
+}
+
+.cc-tablist button {
+	padding: 0.35rem 0.7rem;
+	border: 1px solid var(--border);
+	background: var(--card);
+	border-radius: 0.4rem;
+	cursor: pointer;
+}
+
+.cc-tablist button.selected {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
+.cc-panel {
+	display: grid;
+	gap: 0.5rem;
+	padding: 0.9rem 1rem;
+	border: 1px solid var(--border);
+	background: var(--card);
+	border-radius: 0.5rem;
+}

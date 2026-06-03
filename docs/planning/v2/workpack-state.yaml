@@ -23,3 +23,6 @@ epics:
   - id: CANVAS-widget-lifecycle
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CANVAS-widget-lifecycle.completion.md
+  - id: CMD-home-scene
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CMD-home-scene.completion.md

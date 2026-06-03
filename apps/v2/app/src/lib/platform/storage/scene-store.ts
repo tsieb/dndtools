@@ -1,11 +1,13 @@
 import Dexie, { type Table } from 'dexie';
 import {
+	EMPTY_COMMAND_CENTER_STATE,
 	EMPTY_PERMISSION_STATE,
 	EMPTY_SCENE_STATE,
 	EMPTY_SESSION_STATE,
 	EMPTY_WIDGET_PACKAGE_STATE,
 	createOperationLog,
 	mergeSystemWidgetPackages,
+	type CommandCenterState,
 	type CoreStateSlice,
 	type PermissionState,
 	type SceneState,
@@ -20,6 +22,7 @@ const SCENE_STATE_KEY = 'scene-state';
 const PERMISSION_STATE_KEY = 'permission-state';
 const SESSION_STATE_KEY = 'session-state';
 const WIDGET_PACKAGE_STATE_KEY = 'widget-package-state';
+const COMMAND_CENTER_STATE_KEY = 'command-center-state';
 
 interface DocumentRecord {
 	key: string;
@@ -61,9 +64,10 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		database.documents.get(PERMISSION_STATE_KEY),
 		database.operations.orderBy('sequence').toArray(),
 	]);
-	const [sessionDoc, widgetPackageDoc] = await Promise.all([
+	const [sessionDoc, widgetPackageDoc, commandCenterDoc] = await Promise.all([
 		database.documents.get(SESSION_STATE_KEY),
 		database.documents.get(WIDGET_PACKAGE_STATE_KEY),
+		database.documents.get(COMMAND_CENTER_STATE_KEY),
 	]);
 	const scenes = (sceneDoc?.doc as SceneState | undefined) ?? {
 		scenes: {},
@@ -84,8 +88,13 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 			schemaVersion: EMPTY_WIDGET_PACKAGE_STATE.schemaVersion,
 		},
 	);
+	const commandCenter = (commandCenterDoc?.doc as CommandCenterState | undefined) ?? {
+		homeSceneId: EMPTY_COMMAND_CENTER_STATE.homeSceneId,
+		presets: {},
+		schemaVersion: EMPTY_COMMAND_CENTER_STATE.schemaVersion,
+	};
 	const sync = createOperationLog(operationRecords.map((r) => r.op));
-	return { scenes, permissions, session, widgets, sync };
+	return { scenes, permissions, session, widgets, commandCenter, sync };
 }
 
 async function persistSceneState(scenes: SceneState): Promise<void> {
@@ -102,6 +111,10 @@ async function persistSessionState(session: SessionState): Promise<void> {
 
 async function persistWidgetPackageState(widgets: WidgetPackageState): Promise<void> {
 	await db().documents.put({ key: WIDGET_PACKAGE_STATE_KEY, doc: widgets });
+}
+
+async function persistCommandCenterState(commandCenter: CommandCenterState): Promise<void> {
+	await db().documents.put({ key: COMMAND_CENTER_STATE_KEY, doc: commandCenter });
 }
 
 export async function appendOperations(operations: SyncOperation[]): Promise<void> {
@@ -134,7 +147,8 @@ export async function persistFullState(
 		sliceChanged(previous.scenes, next.scenes) ||
 		sliceChanged(previous.permissions, next.permissions) ||
 		sliceChanged(previous.session, next.session) ||
-		sliceChanged(previous.widgets, next.widgets);
+		sliceChanged(previous.widgets, next.widgets) ||
+		sliceChanged(previous.commandCenter, next.commandCenter);
 	if (durableStateChanged && newOperations.length === 0) {
 		throw new Error('Durable state changed without an accepted Processing Core operation.');
 	}
@@ -143,6 +157,7 @@ export async function persistFullState(
 		persistPermissionState(next.permissions),
 		persistSessionState(next.session),
 		persistWidgetPackageState(next.widgets),
+		persistCommandCenterState(next.commandCenter),
 		appendOperations(newOperations),
 	]);
 }
@@ -167,4 +182,5 @@ export const __testing = {
 	PERMISSION_STATE_KEY,
 	SESSION_STATE_KEY,
 	WIDGET_PACKAGE_STATE_KEY,
+	COMMAND_CENTER_STATE_KEY,
 };

@@ -19,6 +19,11 @@ import {
 } from './widget';
 import { handleDispatchWidgetCommand } from './widget-command';
 import {
+	handleApplyCommandCenterPreset,
+	handleEnsureCommandCenterHome,
+	handleSaveCommandCenterPreset,
+} from './command-center';
+import {
 	handleDisableWidgetPackage,
 	handleEnableWidgetPackage,
 	handleInstallWidgetPackage,
@@ -78,6 +83,12 @@ export function dispatchCommand(
 				command.payload,
 				command.idempotencyKey,
 			);
+		case 'command-center.ensure-home':
+			return handleEnsureCommandCenterHome(state, env, command.actorId, command.payload);
+		case 'command-center.save-preset':
+			return handleSaveCommandCenterPreset(state, env, command.actorId, command.payload);
+		case 'command-center.apply-preset':
+			return handleApplyCommandCenterPreset(state, env, command.actorId, command.payload);
 	}
 }
 

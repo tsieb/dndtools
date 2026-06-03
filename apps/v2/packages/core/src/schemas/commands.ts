@@ -199,3 +199,22 @@ export const dispatchWidgetCommandInputSchema = z
 		expectedRevision: z.number().int().nonnegative(),
 	})
 	.strict();
+
+export const ensureCommandCenterHomeInputSchema = z
+	.object({
+		name: z.string().min(1).optional(),
+	})
+	.strict()
+	.default({});
+
+export const saveCommandCenterPresetInputSchema = z
+	.object({
+		name: z.string().min(1, 'Preset name is required'),
+	})
+	.strict();
+
+export const applyCommandCenterPresetInputSchema = z
+	.object({
+		presetId: idSchema,
+	})
+	.strict();

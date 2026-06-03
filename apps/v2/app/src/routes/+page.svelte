@@ -1,274 +1,276 @@
 <script lang="ts">
 	import {
-		exportWidgetPackage,
-		listScenesForActor,
-		type WidgetHostPermission,
-		type WidgetPackageDefinition,
-		type WidgetPackageRecord,
+		DEFAULT_COMMAND_CENTER_TOOLS,
+		getSceneForActor,
+		type WidgetBindingPayload,
 	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
+	import { useProfile } from '$lib/platform/platform-profile.svelte';
 
 	const runtime = useRuntime();
+	const profile = useProfile();
 
-	const sampleNetworkPackage: WidgetPackageDefinition = {
-		id: 'workspace.weather-panel',
-		version: '1.0.0',
-		displayName: 'Weather Panel',
-		widgets: [
-			{
-				type: 'weather-panel',
-				version: '1.0.0',
-				displayName: 'Weather Panel',
-				author: 'workspace',
-				supportedProfiles: ['desktop', 'tablet', 'mobile', 'web'],
-				defaultSize: { width: 260, height: 160 },
-				minSize: { width: 180, height: 120 },
-				resizePolicy: 'free',
-				requiredBindings: [],
-				optionalBindings: [],
-				configurationSchema: { type: 'object', additionalProperties: true },
-				runtimeStateSchema: { type: 'object', additionalProperties: true },
-				capabilitySets: ['manager', 'operator', 'viewer'],
-				commands: [],
-				events: [],
-				hostPermissions: ['network'],
-			},
-		],
-		migrations: [],
-		assets: [{ path: 'widgets/weather-panel/icon.png' }],
-		portabilityWarnings: [],
-	};
-
-	let name = $state('');
-	let description = $state('');
-	let visibility = $state<'dm-only' | 'shared' | 'player-visible'>('dm-only');
-	let tagsRaw = $state('');
-	let submitting = $state(false);
-	let lastCreatedId = $state<string | null>(null);
-	let exportedPackage = $state<string | null>(null);
-
-	const scenes = $derived(
-		listScenesForActor(runtime.state.scenes, runtime.state.permissions, runtime.defaultActorId),
-	);
-	const packages = $derived(
-		Object.values(runtime.state.widgets.packages).sort((a, b) =>
-			a.package.displayName.localeCompare(b.package.displayName),
-		),
-	);
-
-	function requestedPermissions(record: WidgetPackageRecord): WidgetHostPermission[] {
-		return Array.from(new Set(record.package.widgets.flatMap((widget) => widget.hostPermissions)));
+	const TOOL_LABELS = new Map(DEFAULT_COMMAND_CENTER_TOOLS.map((t) => [t.type, t.label]));
+	function toolLabel(type: string): string {
+		return TOOL_LABELS.get(type) ?? type;
 	}
 
-	async function submit(event: SubmitEvent) {
-		event.preventDefault();
-		if (!name.trim() || submitting) return;
-		submitting = true;
-		const result = await runtime.dispatch({
-			type: 'scene.create',
+	let ensuring = $state(false);
+	let presetName = $state('');
+	let selectedWidgetId = $state<string | null>(null);
+	let lastRestore = $state<{ restored: number; missing: string[] } | null>(null);
+
+	const homeSceneId = $derived(runtime.state.commandCenter.homeSceneId);
+	const summary = $derived(
+		homeSceneId
+			? getSceneForActor(
+					runtime.state.scenes,
+					runtime.state.permissions,
+					runtime.defaultActorId,
+					homeSceneId,
+					{ widgetPackages: runtime.state.widgets },
+				)
+			: null,
+	);
+	const presets = $derived(
+		Object.values(runtime.state.commandCenter.presets).sort((a, b) => a.name.localeCompare(b.name)),
+	);
+
+	type LiveWidget = Extract<WidgetBindingPayload, { kind: 'available' | 'degraded' }>;
+	const liveWidgets = $derived<LiveWidget[]>(
+		summary && !('kind' in summary)
+			? summary.widgets.filter(
+					(w): w is LiveWidget => w.kind === 'available' || w.kind === 'degraded',
+				)
+			: [],
+	);
+
+	// The Command Center is the application home Scene. Create the default from the
+	// system template the first time the home surface loads (CMD-001).
+	$effect(() => {
+		if (!runtime.loaded || ensuring) return;
+		const missingHome = !homeSceneId;
+		const danglingHome =
+			!!homeSceneId && !!summary && 'kind' in summary && summary.reason === 'scene-not-found';
+		if (!missingHome && !danglingHome) return;
+		ensuring = true;
+		void runtime
+			.dispatch({
+				type: 'command-center.ensure-home',
+				actorId: runtime.defaultActorId,
+				payload: {},
+			})
+			.finally(() => {
+				ensuring = false;
+			});
+	});
+
+	// Keep a valid focused panel selection for the compact profile.
+	$effect(() => {
+		const ids = liveWidgets.map((w) => w.widget.id);
+		if (ids.length === 0) {
+			selectedWidgetId = null;
+		} else if (!selectedWidgetId || !ids.includes(selectedWidgetId)) {
+			selectedWidgetId = ids[0] ?? null;
+		}
+	});
+
+	async function moveWidget(id: string, deltaX: number, deltaY: number) {
+		if (!homeSceneId) return;
+		const target = liveWidgets.find((w) => w.widget.id === id);
+		if (!target) return;
+		await runtime.dispatch({
+			type: 'scene.move-widget',
 			actorId: runtime.defaultActorId,
 			payload: {
-				name: name.trim(),
-				description: description.trim(),
-				visibility,
-				tags: tagsRaw
-					.split(',')
-					.map((t) => t.trim())
-					.filter(Boolean),
+				sceneId: homeSceneId,
+				widgetInstanceId: id,
+				x: target.widget.layout.x + deltaX,
+				y: target.widget.layout.y + deltaY,
 			},
 		});
-		submitting = false;
-		if (result.status === 'accepted') {
-			const created = result.events.find((e) => e.kind === 'scene.created');
-			if (created && created.kind === 'scene.created') lastCreatedId = created.sceneId;
-			name = '';
-			description = '';
-			tagsRaw = '';
-			visibility = 'dm-only';
-		}
 	}
 
-	async function installSamplePackage() {
+	async function savePreset(event: SubmitEvent) {
+		event.preventDefault();
+		if (!presetName.trim()) return;
 		const result = await runtime.dispatch({
-			type: 'widget.package.install',
+			type: 'command-center.save-preset',
 			actorId: runtime.defaultActorId,
-			payload: { package: sampleNetworkPackage },
+			payload: { name: presetName.trim() },
 		});
-		if (result.status === 'accepted') exportedPackage = null;
+		if (result.status === 'accepted') presetName = '';
 	}
 
-	async function enablePackage(packageId: string) {
-		await runtime.dispatch({
-			type: 'widget.package.enable',
+	async function applyPreset(presetId: string) {
+		const result = await runtime.dispatch({
+			type: 'command-center.apply-preset',
 			actorId: runtime.defaultActorId,
-			payload: { packageId },
+			payload: { presetId },
 		});
-	}
-
-	async function disablePackage(packageId: string) {
-		await runtime.dispatch({
-			type: 'widget.package.disable',
-			actorId: runtime.defaultActorId,
-			payload: { packageId, reason: 'Disabled from widget package review.' },
-		});
-	}
-
-	async function removePackage(packageId: string) {
-		await runtime.dispatch({
-			type: 'widget.package.remove',
-			actorId: runtime.defaultActorId,
-			payload: { packageId },
-		});
-	}
-
-	function exportPackage(packageId: string) {
-		const exported = exportWidgetPackage(
-			runtime.state.widgets,
-			{ ids: () => crypto.randomUUID() },
-			packageId,
-		);
-		exportedPackage = JSON.stringify(exported, null, 2);
+		if (result.status === 'accepted') {
+			const event = result.events.find((e) => e.kind === 'command-center.preset-restored');
+			if (event && event.kind === 'command-center.preset-restored') {
+				lastRestore = { restored: event.restoredWidgetCount, missing: event.missingWidgetTypes };
+			}
+		}
 	}
 </script>
 
-<section>
-	<h2>Create a Scene</h2>
-	<form class="form" onsubmit={submit} aria-label="Create Scene">
-		<label>
-			<span>Name</span>
-			<input name="name" data-testid="scene-name" required bind:value={name} autocomplete="off" />
-		</label>
-		<label>
-			<span>Description</span>
-			<textarea name="description" data-testid="scene-description" bind:value={description} rows="2"
-			></textarea>
-		</label>
-		<label>
-			<span>Tags (comma separated)</span>
-			<input
-				name="tags"
-				data-testid="scene-tags"
-				bind:value={tagsRaw}
-				placeholder="prep, dungeon"
-			/>
-		</label>
-		<label>
-			<span>Visibility</span>
-			<select name="visibility" data-testid="scene-visibility" bind:value={visibility}>
-				<option value="dm-only">DM only</option>
-				<option value="shared">Shared</option>
-				<option value="player-visible">Player visible</option>
-			</select>
-		</label>
-		<button class="button" type="submit" data-testid="scene-create" disabled={submitting}>
-			Create Scene
-		</button>
-	</form>
-	{#if lastCreatedId}
-		<p class="meta" data-testid="last-created">Created: {lastCreatedId}</p>
-	{/if}
-</section>
-
-<section>
-	<h2>Widget Packages</h2>
-	<div class="toolbar">
-		<button
-			class="button secondary"
-			type="button"
-			data-testid="install-weather-package"
-			disabled={!!runtime.state.widgets.packages[sampleNetworkPackage.id]}
-			onclick={installSamplePackage}
-		>
-			Install Weather Panel
-		</button>
-	</div>
-	<div class="package-list" data-testid="widget-package-list">
-		{#each packages as record (record.package.id)}
-			<article class="package-row" data-testid={`package-${record.package.id}`}>
-				<div>
-					<strong>{record.package.displayName}</strong>
-					<span class="meta"> v{record.package.version}</span>
-					<div class="meta">
-						{record.enabled ? 'enabled' : 'disabled'} • trust {record.trust.state}
-						{#if record.removedAt}
-							• removed{/if}
-					</div>
-					{#if requestedPermissions(record).length > 0}
-						<ul class="permission-list" data-testid={`permissions-${record.package.id}`}>
-							{#each requestedPermissions(record) as permission}
-								<li>
-									{permission}: {record.trust.hostPermissions[permission]}
-								</li>
-							{/each}
-						</ul>
-					{/if}
-					{#if record.migrationStatus.state !== 'none'}
-						<div class="meta">migration {record.migrationStatus.state}</div>
-					{/if}
-				</div>
-				<div class="row-actions">
-					<button
-						type="button"
-						data-testid={`enable-package-${record.package.id}`}
-						disabled={record.enabled || !!record.removedAt}
-						onclick={() => enablePackage(record.package.id)}
-					>
-						Enable
-					</button>
-					<button
-						type="button"
-						data-testid={`disable-package-${record.package.id}`}
-						disabled={!record.enabled || record.package.id.startsWith('system.')}
-						onclick={() => disablePackage(record.package.id)}
-					>
-						Disable
-					</button>
-					<button
-						type="button"
-						data-testid={`remove-package-${record.package.id}`}
-						disabled={!!record.removedAt || record.package.id.startsWith('system.')}
-						onclick={() => removePackage(record.package.id)}
-					>
-						Remove
-					</button>
-					<button
-						type="button"
-						data-testid={`export-package-${record.package.id}`}
-						disabled={!!record.removedAt}
-						onclick={() => exportPackage(record.package.id)}
-					>
-						Export
-					</button>
-				</div>
-			</article>
-		{/each}
-	</div>
-	{#if exportedPackage}
-		<pre class="export-preview" data-testid="package-export">{exportedPackage}</pre>
-	{/if}
-</section>
-
-<section>
-	<h2>Scenes</h2>
-	<p class="meta">{scenes.length} scene{scenes.length === 1 ? '' : 's'} in this vault</p>
-	<ul class="scene-list" data-testid="scene-list">
-		{#each scenes as scene (scene.id)}
-			<li class="scene-card" data-testid={`scene-card-${scene.id}`}>
-				<div>
-					<a href={`scene/${scene.id}/`} data-testid={`scene-link-${scene.id}`}>
-						<strong>{scene.name}</strong>
-					</a>
-					<div class="meta">
-						visibility {scene.visibility} • updated {scene.updatedAt}
-					</div>
-					{#if scene.isTemplate}
-						<div class="meta">template</div>
-					{/if}
-				</div>
-			</li>
-		{/each}
-		{#if scenes.length === 0}
-			<li class="meta" data-testid="scene-list-empty">No scenes yet — create one above.</li>
+<section class="command-center" data-testid="command-center" aria-label="Command Center">
+	<header class="cc-header">
+		<h2>Command Center</h2>
+		<p class="meta">
+			Your home Scene for active session management.
+			<span data-testid="cc-profile">profile: {profile.viewportClass}</span>
+		</p>
+		{#if homeSceneId}
+			<div class="row-actions">
+				<a class="button secondary" href={`scene/${homeSceneId}/`} data-testid="cc-open-editor">
+					Open in Scene editor
+				</a>
+			</div>
 		{/if}
-	</ul>
+	</header>
+
+	{#if !summary}
+		<p class="loading" role="status" data-testid="cc-preparing">Preparing your Command Center…</p>
+	{:else if 'kind' in summary}
+		<p class="error" role="alert" data-testid="cc-denied">
+			Command Center unavailable: {summary.reason}
+		</p>
+	{:else}
+		<section aria-label="DM tools">
+			<h3>Tools</h3>
+			{#if profile.isCompact}
+				<!-- Slim profile: one focused work surface at a time (Contract 1). -->
+				<div class="cc-tablist" role="tablist" data-testid="cc-tablist">
+					{#each liveWidgets as payload (payload.widget.id)}
+						<button
+							type="button"
+							role="tab"
+							aria-selected={selectedWidgetId === payload.widget.id}
+							data-testid={`cc-tab-${payload.widget.type}`}
+							class:selected={selectedWidgetId === payload.widget.id}
+							onclick={() => (selectedWidgetId = payload.widget.id)}
+						>
+							{toolLabel(payload.widget.type)}
+						</button>
+					{/each}
+				</div>
+				{#each liveWidgets as payload (payload.widget.id)}
+					{#if selectedWidgetId === payload.widget.id}
+						{@const w = payload.widget}
+						<article class="cc-panel" data-testid="cc-panel" aria-label={toolLabel(w.type)}>
+							<strong>{toolLabel(w.type)}</strong>
+							<div class="layout" data-testid={`cc-widget-pos-${w.id}`}>
+								x {w.layout.x.toFixed(0)} • y {w.layout.y.toFixed(0)}
+							</div>
+							<div class="row-actions">
+								<button
+									type="button"
+									aria-label="Move tool left"
+									onclick={() => moveWidget(w.id, -20, 0)}>←</button
+								>
+								<button
+									type="button"
+									aria-label="Move tool right"
+									onclick={() => moveWidget(w.id, 20, 0)}>→</button
+								>
+							</div>
+						</article>
+					{/if}
+				{/each}
+			{:else}
+				<div class="widget-grid" data-testid="cc-widget-grid">
+					{#each liveWidgets as payload (payload.widget.id)}
+						{@const w = payload.widget}
+						<article class="widget-row" data-testid={`cc-widget-${w.type}`}>
+							<div>
+								<strong>{toolLabel(w.type)}</strong>
+								<div class="layout" data-testid={`cc-widget-pos-${w.id}`}>
+									x {w.layout.x.toFixed(0)} • y {w.layout.y.toFixed(0)} • z {w.layout.z}
+								</div>
+							</div>
+							<div class="row-actions">
+								<button
+									type="button"
+									aria-label="Move tool left"
+									onclick={() => moveWidget(w.id, -20, 0)}>←</button
+								>
+								<button
+									type="button"
+									aria-label="Move tool right"
+									onclick={() => moveWidget(w.id, 20, 0)}>→</button
+								>
+								<button
+									type="button"
+									aria-label="Move tool up"
+									onclick={() => moveWidget(w.id, 0, -20)}>↑</button
+								>
+								<button
+									type="button"
+									aria-label="Move tool down"
+									onclick={() => moveWidget(w.id, 0, 20)}>↓</button
+								>
+							</div>
+						</article>
+					{/each}
+					{#if liveWidgets.length === 0}
+						<p class="meta">No tools on this Command Center yet.</p>
+					{/if}
+				</div>
+			{/if}
+		</section>
+
+		<section aria-label="Command Center presets">
+			<h3>Presets</h3>
+			<form class="form" onsubmit={savePreset} aria-label="Save Command Center preset">
+				<label>
+					<span>Preset name</span>
+					<input data-testid="cc-preset-name" bind:value={presetName} autocomplete="off" />
+				</label>
+				<button
+					class="button"
+					type="submit"
+					data-testid="cc-save-preset"
+					disabled={!presetName.trim()}
+				>
+					Save preset
+				</button>
+			</form>
+			<ul class="scene-list" data-testid="cc-preset-list">
+				{#each presets as preset (preset.id)}
+					<li class="scene-card" data-testid={`cc-preset-${preset.id}`}>
+						<div>
+							<strong>{preset.name}</strong>
+							<div class="meta">{preset.widgets.length} widgets • saved {preset.createdAt}</div>
+						</div>
+						<div class="row-actions">
+							<button
+								type="button"
+								data-testid={`cc-apply-${preset.id}`}
+								onclick={() => applyPreset(preset.id)}
+							>
+								Apply
+							</button>
+						</div>
+					</li>
+				{/each}
+				{#if presets.length === 0}
+					<li class="meta" data-testid="cc-preset-empty">No presets saved yet.</li>
+				{/if}
+			</ul>
+			{#if lastRestore}
+				<p class="meta" role="status" data-testid="cc-restore-status">
+					Restored {lastRestore.restored} widget{lastRestore.restored === 1 ? '' : 's'}.
+					{#if lastRestore.missing.length > 0}
+						<span data-testid="cc-missing-widgets">
+							Missing widget types skipped: {lastRestore.missing.join(', ')}.
+						</span>
+					{/if}
+				</p>
+			{/if}
+		</section>
+	{/if}
 </section>

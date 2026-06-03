@@ -1,4 +1,5 @@
 import {
+	EMPTY_COMMAND_CENTER_STATE,
 	EMPTY_PERMISSION_STATE,
 	EMPTY_SCENE_STATE,
 	EMPTY_SESSION_STATE,
@@ -51,6 +52,11 @@ export class SceneRuntime {
 		},
 		session: { timers: {}, schemaVersion: EMPTY_SESSION_STATE.schemaVersion },
 		widgets: createSystemWidgetPackages(),
+		commandCenter: {
+			homeSceneId: EMPTY_COMMAND_CENTER_STATE.homeSceneId,
+			presets: {},
+			schemaVersion: EMPTY_COMMAND_CENTER_STATE.schemaVersion,
+		},
 		sync: createOperationLog(),
 	});
 	#options: RuntimeOptions;

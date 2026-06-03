@@ -40,6 +40,20 @@ export type { SessionState, SessionTimer } from './state/session-state';
 export { EMPTY_SESSION_STATE, SESSION_STATE_SCHEMA_VERSION } from './state/session-state';
 
 export type {
+	CommandCenterPreset,
+	CommandCenterPresetSection,
+	CommandCenterPresetWidget,
+	CommandCenterState,
+} from './state/command-center-state';
+export {
+	COMMAND_CENTER_STATE_SCHEMA_VERSION,
+	DEFAULT_COMMAND_CENTER_NAME,
+	DEFAULT_COMMAND_CENTER_TOOLS,
+	EMPTY_COMMAND_CENTER_STATE,
+	buildDefaultCommandCenterScene,
+} from './state/command-center-state';
+
+export type {
 	PlatformProfileId,
 	WidgetBindingDefinition,
 	WidgetCommandDescriptor,
@@ -102,12 +116,14 @@ export { dispatchCommand } from './commands/dispatch';
 
 export {
 	addWidgetInputSchema,
+	applyCommandCenterPresetInputSchema,
 	createSceneInputSchema,
 	destroyWidgetInputSchema,
 	disableWidgetPackageInputSchema,
 	dockWidgetInputSchema,
 	dispatchWidgetCommandInputSchema,
 	enableWidgetPackageInputSchema,
+	ensureCommandCenterHomeInputSchema,
 	groupWidgetsInputSchema,
 	installWidgetPackageInputSchema,
 	instantiateSceneTemplateInputSchema,
@@ -117,6 +133,7 @@ export {
 	pinWidgetInputSchema,
 	removeWidgetPackageInputSchema,
 	resizeWidgetInputSchema,
+	saveCommandCenterPresetInputSchema,
 	saveSceneTemplateInputSchema,
 	setSceneSectionsInputSchema,
 	updateSceneMetadataInputSchema,

@@ -1,5 +1,6 @@
 import type { ActorId, OperationId, SceneId } from '../state/ids';
 import type { Clock, IdGenerator } from '../state/ids';
+import type { CommandCenterState } from '../state/command-center-state';
 import type { PermissionState } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
 import type { SessionState } from '../state/session-state';
@@ -11,6 +12,7 @@ export interface CoreStateSlice {
 	permissions: PermissionState;
 	session: SessionState;
 	widgets: WidgetPackageState;
+	commandCenter: CommandCenterState;
 	sync: OperationLog;
 }
 
@@ -51,6 +53,24 @@ export type CoreCommand =
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
+	  }
+	| {
+			type: 'command-center.ensure-home';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'command-center.save-preset';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'command-center.apply-preset';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
 	  };
 
 export type CoreEvent =
@@ -83,7 +103,23 @@ export type CoreEvent =
 	| { kind: 'widget.package-disabled'; packageId: string; actorId: ActorId }
 	| { kind: 'widget.package-removed'; packageId: string; actorId: ActorId }
 	| { kind: 'widget.package-upgraded'; packageId: string; actorId: ActorId }
-	| { kind: 'session.timer-started'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId };
+	| { kind: 'session.timer-started'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId }
+	| { kind: 'command-center.home-created'; sceneId: SceneId; actorId: ActorId }
+	| { kind: 'command-center.home-ready'; sceneId: SceneId; actorId: ActorId }
+	| {
+			kind: 'command-center.preset-saved';
+			presetId: string;
+			sceneId: SceneId;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'command-center.preset-restored';
+			presetId: string;
+			sceneId: SceneId;
+			actorId: ActorId;
+			restoredWidgetCount: number;
+			missingWidgetTypes: string[];
+	  };
 
 export type RejectionCode =
 	| 'unknown-actor'
@@ -98,7 +134,9 @@ export type RejectionCode =
 	| 'invalid-state'
 	| 'revision-conflict'
 	| 'hidden-target'
-	| 'template-source-not-template';
+	| 'template-source-not-template'
+	| 'command-center-not-configured'
+	| 'preset-not-found';
 
 export interface CommandRejection {
 	code: RejectionCode;

@@ -1,6 +1,7 @@
 import type { Clock, IdGenerator } from '../state/ids';
 import type { Actor, PermissionState } from '../state/permission-state';
 import { PERMISSION_STATE_SCHEMA_VERSION } from '../state/permission-state';
+import { EMPTY_COMMAND_CENTER_STATE } from '../state/command-center-state';
 import { EMPTY_SCENE_STATE } from '../state/scene-state';
 import { EMPTY_SESSION_STATE } from '../state/session-state';
 import { createSystemWidgetPackages } from '../state/widget-package-state';
@@ -65,6 +66,11 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
 		},
 		widgets: createSystemWidgetPackages(),
+		commandCenter: {
+			homeSceneId: EMPTY_COMMAND_CENTER_STATE.homeSceneId,
+			presets: { ...EMPTY_COMMAND_CENTER_STATE.presets },
+			schemaVersion: EMPTY_COMMAND_CENTER_STATE.schemaVersion,
+		},
 		sync: createOperationLog(),
 	};
 }

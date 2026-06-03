@@ -109,7 +109,7 @@
 {:else}
 	<section class="scene-editor" data-testid="scene-editor">
 		<header>
-			<a href="../../" data-testid="back-to-scenes">← Back</a>
+			<a href="../../scenes/" data-testid="back-to-scenes">← Back</a>
 			<h2 data-testid="scene-name">{summary.name}</h2>
 			<p class="meta">
 				visibility {summary.visibility} • rev {summary.ownership.revision} •
