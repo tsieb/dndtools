@@ -7,6 +7,7 @@ import {
 	widgetBindingSchema,
 	widgetDockSchema,
 } from './scene';
+import { widgetPackageDefinitionSchema } from './widget-package';
 
 const idSchema = z.string().min(1);
 
@@ -85,6 +86,7 @@ export const addWidgetInputSchema = z
 					})
 					.strict(),
 				configuration: z.record(z.string(), z.unknown()).default({}),
+				localState: z.record(z.string(), z.unknown()).default({}),
 				binding: z.union([z.literal(null), widgetBindingSchema]).default(null),
 				sectionId: idSchema.optional(),
 			})
@@ -154,5 +156,46 @@ export const moveGroupInputSchema = z
 		groupId: idSchema,
 		deltaX: z.number().finite(),
 		deltaY: z.number().finite(),
+	})
+	.strict();
+
+export const installWidgetPackageInputSchema = z
+	.object({
+		package: widgetPackageDefinitionSchema,
+	})
+	.strict();
+
+export const enableWidgetPackageInputSchema = z
+	.object({
+		packageId: idSchema,
+	})
+	.strict();
+
+export const disableWidgetPackageInputSchema = z
+	.object({
+		packageId: idSchema,
+		reason: z.string().min(1).default('Disabled by widget manager.'),
+	})
+	.strict();
+
+export const removeWidgetPackageInputSchema = z
+	.object({
+		packageId: idSchema,
+	})
+	.strict();
+
+export const upgradeWidgetPackageInputSchema = z
+	.object({
+		package: widgetPackageDefinitionSchema,
+	})
+	.strict();
+
+export const dispatchWidgetCommandInputSchema = z
+	.object({
+		sceneId: idSchema,
+		widgetInstanceId: idSchema,
+		commandType: z.string().min(1),
+		payload: z.record(z.string(), z.unknown()).default({}),
+		expectedRevision: z.number().int().nonnegative(),
 	})
 	.strict();

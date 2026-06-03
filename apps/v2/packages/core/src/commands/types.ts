@@ -2,11 +2,15 @@ import type { ActorId, OperationId, SceneId } from '../state/ids';
 import type { Clock, IdGenerator } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
+import type { SessionState } from '../state/session-state';
+import type { WidgetPackageState } from '../state/widget-package-state';
 import type { OperationLog, SyncOperation } from '../sync/operation-log';
 
 export interface CoreStateSlice {
 	scenes: SceneState;
 	permissions: PermissionState;
+	session: SessionState;
+	widgets: WidgetPackageState;
 	sync: OperationLog;
 }
 
@@ -36,26 +40,64 @@ export type CoreCommand =
 	| { type: 'scene.move-group'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.dock-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.pin-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'scene.destroy-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'scene.destroy-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'widget.package.install'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'widget.package.enable'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'widget.package.disable'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'widget.package.remove'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'widget.package.upgrade'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'widget.dispatch-command';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
 	| { kind: 'scene.metadata-changed'; sceneId: SceneId; actorId: ActorId; paths: string[] }
 	| { kind: 'scene.sections-changed'; sceneId: SceneId; actorId: ActorId }
 	| { kind: 'scene.widget-added'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId }
-	| { kind: 'scene.widget-layout-changed'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId; field: 'position' | 'size' | 'z' | 'dock' | 'pin' | 'group' }
+	| {
+			kind: 'scene.widget-layout-changed';
+			sceneId: SceneId;
+			widgetInstanceId: string;
+			actorId: ActorId;
+			field: 'position' | 'size' | 'z' | 'dock' | 'pin' | 'group';
+	  }
 	| { kind: 'scene.widget-destroyed'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId }
-	| { kind: 'scene.template-saved'; templateSceneId: SceneId; sourceSceneId: SceneId; actorId: ActorId }
-	| { kind: 'scene.template-instantiated'; templateSceneId: SceneId; newSceneId: SceneId; actorId: ActorId };
+	| {
+			kind: 'scene.template-saved';
+			templateSceneId: SceneId;
+			sourceSceneId: SceneId;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'scene.template-instantiated';
+			templateSceneId: SceneId;
+			newSceneId: SceneId;
+			actorId: ActorId;
+	  }
+	| { kind: 'widget.package-installed'; packageId: string; actorId: ActorId }
+	| { kind: 'widget.package-enabled'; packageId: string; actorId: ActorId }
+	| { kind: 'widget.package-disabled'; packageId: string; actorId: ActorId }
+	| { kind: 'widget.package-removed'; packageId: string; actorId: ActorId }
+	| { kind: 'widget.package-upgraded'; packageId: string; actorId: ActorId }
+	| { kind: 'session.timer-started'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId };
 
 export type RejectionCode =
 	| 'unknown-actor'
 	| 'actor-not-authorized'
 	| 'scene-not-found'
 	| 'widget-not-found'
+	| 'package-not-found'
+	| 'package-disabled'
+	| 'command-not-declared'
 	| 'invalid-payload'
 	| 'idempotency-replay'
 	| 'invalid-state'
+	| 'revision-conflict'
+	| 'hidden-target'
 	| 'template-source-not-template';
 
 export interface CommandRejection {

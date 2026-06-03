@@ -2,7 +2,9 @@ import type { Clock, IdGenerator } from '../state/ids';
 import type { Actor, PermissionState } from '../state/permission-state';
 import { PERMISSION_STATE_SCHEMA_VERSION } from '../state/permission-state';
 import { EMPTY_SCENE_STATE } from '../state/scene-state';
-import { EMPTY_OPERATION_LOG } from '../sync/operation-log';
+import { EMPTY_SESSION_STATE } from '../state/session-state';
+import { createSystemWidgetPackages } from '../state/widget-package-state';
+import { createOperationLog } from '../sync/operation-log';
 import type { CoreEnvironment, CoreStateSlice } from '../commands/types';
 
 export function sequentialIds(prefix = 'id'): IdGenerator {
@@ -53,8 +55,16 @@ export function buildPermissionState(...actors: Actor[]): PermissionState {
 
 export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 	return {
-		scenes: { scenes: { ...EMPTY_SCENE_STATE.scenes }, schemaVersion: EMPTY_SCENE_STATE.schemaVersion },
+		scenes: {
+			scenes: { ...EMPTY_SCENE_STATE.scenes },
+			schemaVersion: EMPTY_SCENE_STATE.schemaVersion,
+		},
 		permissions: buildPermissionState(...actors),
-		sync: { operations: [...EMPTY_OPERATION_LOG.operations] },
+		session: {
+			timers: { ...EMPTY_SESSION_STATE.timers },
+			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
+		},
+		widgets: createSystemWidgetPackages(),
+		sync: createOperationLog(),
 	};
 }

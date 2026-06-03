@@ -105,8 +105,7 @@ export function handleUpdateSceneMetadata(
 				? { ...scene.visualSettings, ...parsed.data.visualSettings }
 				: scene.visualSettings,
 			sharingTargets: parsed.data.sharingTargets ?? scene.sharingTargets,
-			playerViewAssignments:
-				parsed.data.playerViewAssignments ?? scene.playerViewAssignments,
+			playerViewAssignments: parsed.data.playerViewAssignments ?? scene.playerViewAssignments,
 		},
 		env,
 	);
@@ -117,10 +116,7 @@ export function handleUpdateSceneMetadata(
 		changedPaths.push(key);
 	}
 	if (changedPaths.length === 0) {
-		return reject(
-			{ code: 'invalid-payload', message: 'No metadata fields were supplied.' },
-			state,
-		);
+		return reject({ code: 'invalid-payload', message: 'No metadata fields were supplied.' }, state);
 	}
 
 	const nextSceneState = withScene(state.scenes, scene.id, () => nextScene);
@@ -227,6 +223,10 @@ export function handleSaveSceneTemplate(
 			id: env.ids(),
 			layout: { ...widget.layout, groupId: null },
 			configuration: { ...widget.configuration },
+			localState: { ...widget.localState },
+			// A template captures widget structure, not transient disabled placeholders;
+			// instances start live and re-derive disabled state from current package status.
+			disabled: null,
 		};
 		widgetMap.set(widget.id, cloned);
 		return cloned;
@@ -319,7 +319,11 @@ export function handleInstantiateSceneTemplate(
 			id: env.ids(),
 			layout: { ...widget.layout, groupId: null },
 			configuration: { ...widget.configuration },
+			localState: { ...widget.localState },
 			binding: widget.binding ? { ...widget.binding } : null,
+			// Instantiated widgets start live; disabled state is re-derived from the
+			// current package status rather than copied from the template snapshot.
+			disabled: null,
 		};
 		widgetMap.set(widget.id, cloned);
 		return cloned;

@@ -1,6 +1,6 @@
 schemaVersion: 1
 id: MAP-interaction-safety
-title: 'MAP: Interaction safety'
+title: "MAP: Interaction safety"
 status: approved
 approved: true
 domain: MAP
@@ -11,8 +11,8 @@ requirementIds:
   - MAP-015
 excludedRequirementIds: []
 architectureContracts:
-  - 'Contract 1: Processing / Display Decoupling'
-  - 'Contract 4: Scene and Widget Contract'
+  - "Contract 1: Processing / Display Decoupling"
+  - "Contract 4: Scene and Widget Contract"
 expectedAffectedAreas:
   - apps/v2
   - docs/planning/v2
@@ -52,11 +52,56 @@ stories:
       - id: MAP-015-S01-T04
         title: Record demo notes and traceability evidence for MAP-015
         kind: demo
+qualityBar:
+  - "Correctness: every mapped acceptance criterion is implemented or explicitly
+    deferred with reviewer-visible evidence."
+  - "Architecture integrity: changes obey ADR-014, the architecture contracts,
+    package boundaries, and no-v1-runtime-import rules."
+  - "Traceability: requirement IDs are tied to code, tests, demo notes, and any
+    documentation changes."
+  - "Test depth: unit, integration, e2e, boundary, accessibility, performance,
+    security, permission, sync, and migration coverage are chosen according to
+    risk."
+  - "User experience: visible flows are complete, accessible, responsive,
+    resilient to empty/error/loading states, and consistent with the design
+    system."
+  - "Data safety: persistence, offline behavior, sync assumptions, conflict
+    handling, actor filtering, and privacy boundaries fail closed."
+  - "Maintainability: modules remain cohesive, typed, readable, locally scoped,
+    and free of speculative abstractions or unrelated refactors."
+  - "Operational quality: diagnostics, metrics, docs, generated files, and
+    handoff evidence are current before completion."
+gitWorkflow:
+  - Start from a clean working tree. Run `git status --short` before editing and
+    stop if unrelated changes overlap this epic.
+  - Use one branch per epic from the correct base branch, and keep all commits
+    scoped to the assigned epic.
+  - Never reset, overwrite, or reformat unrelated user changes. Work around
+    existing dirty files unless they block the epic.
+  - Commit the code, docs, tests, generated workpack updates, and completion
+    evidence needed for the epic before handoff.
+  - "Leave a clean slate when the epic is complete: no untracked files, no
+    unstaged edits, and no stale generated planning diffs caused by the epic."
+statusAutomation:
+  - Do not hand-edit generated epic packets, `status.yaml`,
+    `requirements-index.yaml`, `initiative-map.yaml`, or `parallel-batches.yaml`
+    for status changes.
+  - Use `pnpm v2:workpack:set-status -- --epic MAP-interaction-safety --status
+    active` when implementation starts.
+  - Create `docs/planning/v2/epics/MAP-interaction-safety.completion.md` with
+    demo, tests, traceability, gaps, and git evidence before marking complete.
+  - Use `pnpm v2:workpack:complete -- --epic MAP-interaction-safety` to update
+    `workpack-state.yaml` and regenerate all derived planning files together.
+  - Run `pnpm v2:workpack:validate` after any status or generation command;
+    validation fails if generated files drift from the source of truth.
 testPlan:
   - Run unit tests for domain reducers, command validators, and data transforms
     touched by this epic.
   - Run UI or integration checks for any visible prototype behavior touched by
     this epic.
+  - Run domain-specific quality gates for accessibility, performance, security,
+    permissions, sync/offline behavior, migrations, and docs when those areas
+    are touched.
   - Run `pnpm v2:workpack:validate` before handoff.
 demoNotesTemplate:
   - Describe the user-visible path demonstrated.
@@ -69,8 +114,19 @@ stopConditions:
   - Stop if hidden visibility, permission, sync, or persistence behavior is
     ambiguous.
   - Stop if the generated workpack no longer validates.
+  - Stop if `git status --short` shows unrelated changes that overlap the files
+    this epic needs.
 completionEvidence:
   - Targeted tests pass.
   - Traceability from requirement IDs to implementation and tests is documented.
   - Demo notes are filled in for visible behavior.
-  - Workpack status is updated after completion.
+  - Quality review covers correctness, architecture, security, permissions,
+    accessibility, performance, persistence, sync/offline assumptions,
+    maintainability, UX polish, and documentation.
+  - Completion evidence file records demo path, tests run, changed files,
+    requirement coverage, known gaps, git branch, commit or PR, and final `git
+    status --short` output.
+  - Workpack status is updated with the programmatic complete command after
+    completion evidence exists.
+  - The epic leaves a clean git slate with no untracked or unstaged files caused
+    by the work.

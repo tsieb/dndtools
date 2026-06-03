@@ -23,23 +23,17 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 		await page.getByTestId('scene-create').click();
 
 		await expect(page.getByTestId('last-created')).toBeVisible();
-		await expect(
-			page.getByTestId('scene-list').getByText('Goblin Ambush'),
-		).toBeVisible();
+		await expect(page.getByTestId('scene-list').getByText('Goblin Ambush')).toBeVisible();
 
 		await page.reload();
 		await page.getByTestId('scene-list').waitFor({ state: 'visible' });
-		await expect(
-			page.getByTestId('scene-list').getByText('Goblin Ambush'),
-		).toBeVisible();
+		await expect(page.getByTestId('scene-list').getByText('Goblin Ambush')).toBeVisible();
 	});
 
 	test('Adding a widget on a Scene persists across reload', async ({ page }) => {
 		await page.getByTestId('scene-name').fill('Combat Board');
 		await page.getByTestId('scene-create').click();
-		const sceneLink = page
-			.getByTestId('scene-list')
-			.getByRole('link', { name: 'Combat Board' });
+		const sceneLink = page.getByTestId('scene-list').getByRole('link', { name: 'Combat Board' });
 		await expect(sceneLink).toBeVisible();
 		await sceneLink.click();
 
@@ -56,5 +50,47 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 		await page.goto(url);
 		await page.getByTestId('scene-editor').waitFor({ state: 'visible' });
 		await expect(widgetGrid.getByText('initiative-tracker')).toBeVisible();
+	});
+
+	test('Widget package review, degraded host permissions, and disabled placeholders are visible', async ({
+		page,
+	}) => {
+		await page.getByTestId('install-weather-package').click();
+		await expect(page.getByTestId('package-workspace.weather-panel')).toBeVisible();
+		await expect(page.getByTestId('permissions-workspace.weather-panel')).toContainText(
+			'network: denied',
+		);
+		await page.getByTestId('enable-package-workspace.weather-panel').click();
+		await expect(page.getByTestId('package-workspace.weather-panel')).toContainText('enabled');
+		await page.getByTestId('export-package-workspace.weather-panel').click();
+		await expect(page.getByTestId('package-export')).toContainText('workspace.weather-panel');
+
+		await page.getByTestId('scene-name').fill('Weather Scene');
+		await page.getByTestId('scene-create').click();
+		await page.getByTestId('scene-list').getByRole('link', { name: 'Weather Scene' }).click();
+		await page.getByTestId('widget-type').fill('weather-panel');
+		await page.getByTestId('widget-version').fill('1.0.0');
+		await page.getByTestId('widget-add').click();
+		const weatherWidget = page.getByTestId('widget-grid').getByText('weather-panel');
+		await expect(weatherWidget).toBeVisible();
+		await expect(page.getByTestId('widget-grid')).toContainText('degraded: network unavailable');
+
+		await page.getByTestId('back-to-scenes').click();
+		await page.getByTestId('remove-package-workspace.weather-panel').click();
+		await page.getByTestId('scene-list').getByRole('link', { name: 'Weather Scene' }).click();
+		await expect(page.getByTestId('widget-grid')).toContainText('disabled: Package was removed');
+	});
+
+	test('Timer widget dispatches its declared command through the core', async ({ page }) => {
+		await page.getByTestId('scene-name').fill('Timer Scene');
+		await page.getByTestId('scene-create').click();
+		await page.getByTestId('scene-list').getByRole('link', { name: 'Timer Scene' }).click();
+		await page.getByTestId('widget-type').fill('timer');
+		await page.getByTestId('widget-version').fill('1.0.0');
+		await page.getByTestId('widget-add').click();
+		const timerArticle = page.getByTestId('widget-grid').getByText('timer');
+		await expect(timerArticle).toBeVisible();
+		await page.getByTestId('widget-grid').getByRole('button', { name: 'Start' }).click();
+		await expect(page.getByTestId('widget-grid')).toContainText('timer running');
 	});
 });

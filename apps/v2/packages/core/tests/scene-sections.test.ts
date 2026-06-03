@@ -20,7 +20,7 @@ function setup() {
 	if (!sceneId) throw new Error('no id');
 	let cur = created.nextState;
 	const widgetIds: string[] = [];
-	for (const type of ['handout-a', 'handout-b', 'handout-c']) {
+	for (const type of ['note', 'map', 'dice']) {
 		const out = dispatchCommand(cur, env, {
 			type: 'scene.add-widget',
 			actorId: DM_ACTOR.id,

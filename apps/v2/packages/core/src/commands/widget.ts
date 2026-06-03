@@ -9,7 +9,16 @@ import {
 	pinWidgetInputSchema,
 	resizeWidgetInputSchema,
 } from '../schemas/commands';
-import type { WidgetInstance, WidgetLayout, Scene, SectionLayoutRegion } from '../state/scene-state';
+import type {
+	WidgetInstance,
+	WidgetLayout,
+	Scene,
+	SectionLayoutRegion,
+} from '../state/scene-state';
+import {
+	findPackageRecordForWidgetType,
+	findWidgetDefinition,
+} from '../state/widget-package-state';
 import type { CommandResult, CoreEnvironment, CoreStateSlice } from './types';
 import {
 	appendOperationDraft,
@@ -21,10 +30,14 @@ import {
 	requireActor,
 	requireDm,
 	requireScene,
+	validateObjectAgainstSchema,
 	withScene,
 } from './helpers';
 
-function widgetLayoutFromAdd(input: { x: number; y: number; w: number; h: number }, z: number): WidgetLayout {
+function widgetLayoutFromAdd(
+	input: { x: number; y: number; w: number; h: number },
+	z: number,
+): WidgetLayout {
 	return {
 		x: input.x,
 		y: input.y,
@@ -60,13 +73,71 @@ export function handleAddWidget(
 	const scene = requireScene(state, parsed.data.sceneId);
 	if ('code' in scene) return reject(scene, state);
 
+	const packageRecord = findPackageRecordForWidgetType(state.widgets, parsed.data.widget.type);
+	if (!packageRecord || packageRecord.removedAt) {
+		return reject(
+			{
+				code: 'package-not-found',
+				message: `No installed package declares widget type ${parsed.data.widget.type}.`,
+			},
+			state,
+		);
+	}
+	if (!packageRecord.enabled) {
+		return reject(
+			{
+				code: 'package-disabled',
+				message: `Widget package ${packageRecord.package.id} is disabled.`,
+			},
+			state,
+		);
+	}
+	const definition = findWidgetDefinition(state.widgets, parsed.data.widget.type);
+	if (!definition) {
+		return reject(
+			{
+				code: 'package-not-found',
+				message: `Widget definition ${parsed.data.widget.type} is not available.`,
+			},
+			state,
+		);
+	}
+	if (parsed.data.widget.version !== definition.version) {
+		return reject(
+			{
+				code: 'invalid-payload',
+				message: `Widget ${parsed.data.widget.type} must be created at definition version ${definition.version}.`,
+			},
+			state,
+		);
+	}
+	const configIssues = validateObjectAgainstSchema(
+		definition.configurationSchema,
+		parsed.data.widget.configuration,
+	);
+	if (configIssues.length > 0) {
+		return reject(
+			{
+				code: 'invalid-payload',
+				message: 'Widget configuration failed schema validation.',
+				issues: configIssues.map((issue) => ({
+					path: `widget.configuration.${issue.path}`,
+					message: issue.message,
+				})),
+			},
+			state,
+		);
+	}
+
 	const widget: WidgetInstance = {
 		id: env.ids(),
 		type: parsed.data.widget.type,
 		version: parsed.data.widget.version,
 		layout: widgetLayoutFromAdd(parsed.data.widget.layout, nextZ(scene)),
 		configuration: parsed.data.widget.configuration,
+		localState: parsed.data.widget.localState,
 		binding: parsed.data.widget.binding,
+		disabled: null,
 	};
 
 	let nextSections: SectionLayoutRegion[] = scene.sections;
@@ -313,9 +384,7 @@ export function handleGroupWidgets(
 	const groupId = env.ids();
 	const targetIds = new Set(parsed.data.widgetInstanceIds);
 	const newWidgets = scene.widgets.map((widget) =>
-		targetIds.has(widget.id)
-			? { ...widget, layout: { ...widget.layout, groupId } }
-			: widget,
+		targetIds.has(widget.id) ? { ...widget, layout: { ...widget.layout, groupId } } : widget,
 	);
 	const nextScene = bumpRevision({ ...scene, widgets: newWidgets }, env);
 	const nextSceneState = withScene(state.scenes, scene.id, () => nextScene);

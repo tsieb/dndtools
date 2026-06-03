@@ -6,6 +6,10 @@ import type { ActorId } from '../state/ids';
 import { appendOperation, type OperationLog, type SyncOperation } from '../sync/operation-log';
 import { SCENE_STATE_SCHEMA_VERSION, SCENE_SCHEMA_VERSION } from '../state/scene-state';
 import { SYNC_OPERATION_SCHEMA_VERSION } from '../sync/operation-log';
+import type { WidgetDataSchema, WidgetPackageState } from '../state/widget-package-state';
+import type { SessionState } from '../state/session-state';
+import { SESSION_STATE_SCHEMA_VERSION } from '../state/session-state';
+import { WIDGET_PACKAGE_STATE_SCHEMA_VERSION } from '../state/widget-package-state';
 
 export function reject(rejection: CommandRejection, state: CoreStateSlice) {
 	return { status: 'rejected' as const, rejection, nextState: state };
@@ -45,9 +49,7 @@ export function requireScene(state: CoreStateSlice, sceneId: string): Scene | Co
 export function parseInput<TSchema extends ZodType>(
 	schema: TSchema,
 	raw: unknown,
-):
-	| { ok: true; data: ReturnType<TSchema['parse']> }
-	| { ok: false; rejection: CommandRejection } {
+): { ok: true; data: ReturnType<TSchema['parse']> } | { ok: false; rejection: CommandRejection } {
 	const result = schema.safeParse(raw);
 	if (result.success) {
 		return { ok: true, data: result.data as ReturnType<TSchema['parse']> };
@@ -67,7 +69,11 @@ export function parseInput<TSchema extends ZodType>(
 	};
 }
 
-export function withScene(state: SceneState, sceneId: string, updater: (scene: Scene) => Scene): SceneState {
+export function withScene(
+	state: SceneState,
+	sceneId: string,
+	updater: (scene: Scene) => Scene,
+): SceneState {
 	const previous = state.scenes[sceneId];
 	if (!previous) return state;
 	const nextScene = updater(previous);
@@ -97,6 +103,20 @@ export function replaceWidget(scene: Scene, widget: WidgetInstance): Scene {
 		...scene,
 		widgets: scene.widgets.map((w) => (w.id === widget.id ? widget : w)),
 	};
+}
+
+export function withWidgetPackageState(
+	state: WidgetPackageState,
+	updater: (packages: WidgetPackageState) => WidgetPackageState,
+): WidgetPackageState {
+	return updater(state);
+}
+
+export function withSessionState(
+	state: SessionState,
+	updater: (session: SessionState) => SessionState,
+): SessionState {
+	return updater(state);
 }
 
 export interface OperationDraft {
@@ -135,8 +155,53 @@ export function appendOperationDraft(
 	return { log: appendOperation(log, op), op };
 }
 
+export function validateObjectAgainstSchema(
+	schema: WidgetDataSchema,
+	value: Record<string, unknown>,
+): Array<{ path: string; message: string }> {
+	const issues: Array<{ path: string; message: string }> = [];
+	for (const required of schema.required ?? []) {
+		if (!(required in value)) {
+			issues.push({ path: required, message: 'Required field is missing.' });
+		}
+	}
+	for (const [key, raw] of Object.entries(value)) {
+		const declared = schema.properties?.[key];
+		if (!declared) {
+			if (schema.additionalProperties === false) {
+				issues.push({ path: key, message: 'Field is not declared by the schema.' });
+			}
+			continue;
+		}
+		if (declared.type === 'array') {
+			if (!Array.isArray(raw)) issues.push({ path: key, message: 'Expected array.' });
+			continue;
+		}
+		if (declared.type === 'object') {
+			if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+				issues.push({ path: key, message: 'Expected object.' });
+			}
+			continue;
+		}
+		if (typeof raw !== declared.type) {
+			issues.push({ path: key, message: `Expected ${declared.type}.` });
+		}
+	}
+	return issues;
+}
+
 export function ensureSceneState(state: SceneState | undefined): SceneState {
 	return state ?? { scenes: {}, schemaVersion: SCENE_STATE_SCHEMA_VERSION };
+}
+
+export function ensureSessionState(state: SessionState | undefined): SessionState {
+	return state ?? { timers: {}, schemaVersion: SESSION_STATE_SCHEMA_VERSION };
+}
+
+export function ensureWidgetPackageState(
+	state: WidgetPackageState | undefined,
+): WidgetPackageState {
+	return state ?? { packages: {}, schemaVersion: WIDGET_PACKAGE_STATE_SCHEMA_VERSION };
 }
 
 export const SCENE_VERSION_CONSTANTS = {

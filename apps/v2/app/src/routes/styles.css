@@ -1,22 +1,22 @@
 :root {
 	color-scheme: light dark;
-	--bg: #faf6ec;
-	--fg: #1f2937;
-	--accent: #6b3f1d;
-	--muted: #6b7280;
+	--bg: #f7f8f5;
+	--fg: #202124;
+	--accent: #2f6f73;
+	--muted: #5f6670;
 	--card: #ffffff;
-	--border: #d6c9a9;
+	--border: #cfd5d2;
 	--danger: #b91c1c;
 }
 
 @media (prefers-color-scheme: dark) {
 	:root {
-		--bg: #161310;
-		--fg: #f6ecd6;
-		--accent: #f5b97b;
-		--muted: #b8a98d;
-		--card: #221d18;
-		--border: #4a3f2c;
+		--bg: #171918;
+		--fg: #f2f5f0;
+		--accent: #70c5ba;
+		--muted: #aeb8b1;
+		--card: #222826;
+		--border: #3d4945;
 	}
 }
 
@@ -124,7 +124,8 @@ select {
 	gap: 0.75rem;
 }
 
-.scene-list .scene-card {
+.scene-list .scene-card,
+.package-row {
 	display: flex;
 	justify-content: space-between;
 	gap: 1rem;
@@ -134,9 +135,36 @@ select {
 	border-radius: 0.5rem;
 }
 
-.scene-card .meta {
+.scene-card .meta,
+.package-row .meta {
 	color: var(--muted);
 	font-size: 0.85rem;
+}
+
+.toolbar {
+	margin: 0.5rem 0 0.75rem;
+}
+
+.package-list {
+	display: grid;
+	gap: 0.75rem;
+}
+
+.permission-list {
+	margin: 0.35rem 0 0;
+	padding-left: 1.2rem;
+	color: var(--muted);
+	font-size: 0.85rem;
+}
+
+.export-preview {
+	margin-top: 0.75rem;
+	padding: 0.75rem;
+	overflow: auto;
+	border: 1px solid var(--border);
+	border-radius: 0.5rem;
+	background: var(--card);
+	font-size: 0.8rem;
 }
 
 .scene-editor {

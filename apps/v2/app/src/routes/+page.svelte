@@ -1,8 +1,43 @@
 <script lang="ts">
-	import { listScenesForActor } from '@dndtools/v2-core';
+	import {
+		exportWidgetPackage,
+		listScenesForActor,
+		type WidgetHostPermission,
+		type WidgetPackageDefinition,
+		type WidgetPackageRecord,
+	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 
 	const runtime = useRuntime();
+
+	const sampleNetworkPackage: WidgetPackageDefinition = {
+		id: 'workspace.weather-panel',
+		version: '1.0.0',
+		displayName: 'Weather Panel',
+		widgets: [
+			{
+				type: 'weather-panel',
+				version: '1.0.0',
+				displayName: 'Weather Panel',
+				author: 'workspace',
+				supportedProfiles: ['desktop', 'tablet', 'mobile', 'web'],
+				defaultSize: { width: 260, height: 160 },
+				minSize: { width: 180, height: 120 },
+				resizePolicy: 'free',
+				requiredBindings: [],
+				optionalBindings: [],
+				configurationSchema: { type: 'object', additionalProperties: true },
+				runtimeStateSchema: { type: 'object', additionalProperties: true },
+				capabilitySets: ['manager', 'operator', 'viewer'],
+				commands: [],
+				events: [],
+				hostPermissions: ['network'],
+			},
+		],
+		migrations: [],
+		assets: [{ path: 'widgets/weather-panel/icon.png' }],
+		portabilityWarnings: [],
+	};
 
 	let name = $state('');
 	let description = $state('');
@@ -10,10 +45,20 @@
 	let tagsRaw = $state('');
 	let submitting = $state(false);
 	let lastCreatedId = $state<string | null>(null);
+	let exportedPackage = $state<string | null>(null);
 
 	const scenes = $derived(
 		listScenesForActor(runtime.state.scenes, runtime.state.permissions, runtime.defaultActorId),
 	);
+	const packages = $derived(
+		Object.values(runtime.state.widgets.packages).sort((a, b) =>
+			a.package.displayName.localeCompare(b.package.displayName),
+		),
+	);
+
+	function requestedPermissions(record: WidgetPackageRecord): WidgetHostPermission[] {
+		return Array.from(new Set(record.package.widgets.flatMap((widget) => widget.hostPermissions)));
+	}
 
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
@@ -42,6 +87,48 @@
 			visibility = 'dm-only';
 		}
 	}
+
+	async function installSamplePackage() {
+		const result = await runtime.dispatch({
+			type: 'widget.package.install',
+			actorId: runtime.defaultActorId,
+			payload: { package: sampleNetworkPackage },
+		});
+		if (result.status === 'accepted') exportedPackage = null;
+	}
+
+	async function enablePackage(packageId: string) {
+		await runtime.dispatch({
+			type: 'widget.package.enable',
+			actorId: runtime.defaultActorId,
+			payload: { packageId },
+		});
+	}
+
+	async function disablePackage(packageId: string) {
+		await runtime.dispatch({
+			type: 'widget.package.disable',
+			actorId: runtime.defaultActorId,
+			payload: { packageId, reason: 'Disabled from widget package review.' },
+		});
+	}
+
+	async function removePackage(packageId: string) {
+		await runtime.dispatch({
+			type: 'widget.package.remove',
+			actorId: runtime.defaultActorId,
+			payload: { packageId },
+		});
+	}
+
+	function exportPackage(packageId: string) {
+		const exported = exportWidgetPackage(
+			runtime.state.widgets,
+			{ ids: () => crypto.randomUUID() },
+			packageId,
+		);
+		exportedPackage = JSON.stringify(exported, null, 2);
+	}
 </script>
 
 <section>
@@ -49,21 +136,11 @@
 	<form class="form" onsubmit={submit} aria-label="Create Scene">
 		<label>
 			<span>Name</span>
-			<input
-				name="name"
-				data-testid="scene-name"
-				required
-				bind:value={name}
-				autocomplete="off"
-			/>
+			<input name="name" data-testid="scene-name" required bind:value={name} autocomplete="off" />
 		</label>
 		<label>
 			<span>Description</span>
-			<textarea
-				name="description"
-				data-testid="scene-description"
-				bind:value={description}
-				rows="2"
+			<textarea name="description" data-testid="scene-description" bind:value={description} rows="2"
 			></textarea>
 		</label>
 		<label>
@@ -89,6 +166,85 @@
 	</form>
 	{#if lastCreatedId}
 		<p class="meta" data-testid="last-created">Created: {lastCreatedId}</p>
+	{/if}
+</section>
+
+<section>
+	<h2>Widget Packages</h2>
+	<div class="toolbar">
+		<button
+			class="button secondary"
+			type="button"
+			data-testid="install-weather-package"
+			disabled={!!runtime.state.widgets.packages[sampleNetworkPackage.id]}
+			onclick={installSamplePackage}
+		>
+			Install Weather Panel
+		</button>
+	</div>
+	<div class="package-list" data-testid="widget-package-list">
+		{#each packages as record (record.package.id)}
+			<article class="package-row" data-testid={`package-${record.package.id}`}>
+				<div>
+					<strong>{record.package.displayName}</strong>
+					<span class="meta"> v{record.package.version}</span>
+					<div class="meta">
+						{record.enabled ? 'enabled' : 'disabled'} • trust {record.trust.state}
+						{#if record.removedAt}
+							• removed{/if}
+					</div>
+					{#if requestedPermissions(record).length > 0}
+						<ul class="permission-list" data-testid={`permissions-${record.package.id}`}>
+							{#each requestedPermissions(record) as permission}
+								<li>
+									{permission}: {record.trust.hostPermissions[permission]}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					{#if record.migrationStatus.state !== 'none'}
+						<div class="meta">migration {record.migrationStatus.state}</div>
+					{/if}
+				</div>
+				<div class="row-actions">
+					<button
+						type="button"
+						data-testid={`enable-package-${record.package.id}`}
+						disabled={record.enabled || !!record.removedAt}
+						onclick={() => enablePackage(record.package.id)}
+					>
+						Enable
+					</button>
+					<button
+						type="button"
+						data-testid={`disable-package-${record.package.id}`}
+						disabled={!record.enabled || record.package.id.startsWith('system.')}
+						onclick={() => disablePackage(record.package.id)}
+					>
+						Disable
+					</button>
+					<button
+						type="button"
+						data-testid={`remove-package-${record.package.id}`}
+						disabled={!!record.removedAt || record.package.id.startsWith('system.')}
+						onclick={() => removePackage(record.package.id)}
+					>
+						Remove
+					</button>
+					<button
+						type="button"
+						data-testid={`export-package-${record.package.id}`}
+						disabled={!!record.removedAt}
+						onclick={() => exportPackage(record.package.id)}
+					>
+						Export
+					</button>
+				</div>
+			</article>
+		{/each}
+	</div>
+	{#if exportedPackage}
+		<pre class="export-preview" data-testid="package-export">{exportedPackage}</pre>
 	{/if}
 </section>
 

@@ -1,7 +1,10 @@
 import {
-	EMPTY_OPERATION_LOG,
 	EMPTY_PERMISSION_STATE,
 	EMPTY_SCENE_STATE,
+	EMPTY_SESSION_STATE,
+	createOperationLog,
+	createSystemWidgetPackages,
+	mergeSystemWidgetPackages,
 	PERMISSION_STATE_SCHEMA_VERSION,
 	dispatchCommand,
 	type ActorId,
@@ -46,7 +49,9 @@ export class SceneRuntime {
 			grants: [],
 			schemaVersion: EMPTY_PERMISSION_STATE.schemaVersion,
 		},
-		sync: { operations: [...EMPTY_OPERATION_LOG.operations] },
+		session: { timers: {}, schemaVersion: EMPTY_SESSION_STATE.schemaVersion },
+		widgets: createSystemWidgetPackages(),
+		sync: createOperationLog(),
 	});
 	#options: RuntimeOptions;
 	#loaded = $state(false);
@@ -80,13 +85,14 @@ export class SceneRuntime {
 
 	#ensureDefaultActor(slice: CoreStateSlice): CoreStateSlice {
 		const id = this.#options.defaultActorId;
-		if (slice.permissions.actors[id]) return slice;
+		const withDefaultWidgets = { ...slice, widgets: mergeSystemWidgetPackages(slice.widgets) };
+		if (withDefaultWidgets.permissions.actors[id]) return withDefaultWidgets;
 		return {
-			...slice,
+			...withDefaultWidgets,
 			permissions: {
-				...slice.permissions,
+				...withDefaultWidgets.permissions,
 				actors: {
-					...slice.permissions.actors,
+					...withDefaultWidgets.permissions.actors,
 					[id]: { id, role: 'dm', displayName: 'Default DM' },
 				},
 				schemaVersion: PERMISSION_STATE_SCHEMA_VERSION,
@@ -98,7 +104,9 @@ export class SceneRuntime {
 		const before = this.#state;
 		// $state values are Proxies; the reducer must run against a plain snapshot so it
 		// can return plain objects suitable for both reassignment and structured cloning.
-		const plainBefore = $state.snapshot(before) as CoreStateSlice;
+		// structuredClone preserves the sync log's idempotencyKeys Set at runtime, but
+		// Svelte's Snapshot type widens Set to {}, so bridge through unknown.
+		const plainBefore = $state.snapshot(before) as unknown as CoreStateSlice;
 		const result = dispatchCommand(plainBefore, this.#options.env, command);
 		if (result.status === 'accepted') {
 			this.#state = result.nextState;

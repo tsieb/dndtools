@@ -1,15 +1,28 @@
 import type { ActorId, SceneId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
-import type {
-	Scene,
-	SceneState,
-	SectionLayoutRegion,
-	WidgetInstance,
-} from '../state/scene-state';
+import type { Scene, SceneState, SectionLayoutRegion, WidgetInstance } from '../state/scene-state';
 import { evaluateSceneVisibility } from '../permissions/visibility';
+import {
+	findPackageRecordForWidgetType,
+	SYSTEM_WIDGET_PACKAGE_STATE,
+	type WidgetHostPermission,
+	type WidgetPackageState,
+} from '../state/widget-package-state';
 
 export type WidgetBindingPayload =
 	| { kind: 'available'; widget: WidgetInstance }
+	| {
+			kind: 'degraded';
+			widget: WidgetInstance;
+			unavailableHostPermissions: WidgetHostPermission[];
+	  }
+	| {
+			kind: 'disabled';
+			widgetInstanceId: string;
+			type: string;
+			reason: string;
+			packageId: string | null;
+	  }
 	| { kind: 'hidden'; widgetInstanceId: string; type: string }
 	| { kind: 'missing'; widgetInstanceId: string; type: string };
 
@@ -63,10 +76,7 @@ export function listScenesForActor(
 	return out;
 }
 
-function isMissingBinding(
-	widget: WidgetInstance,
-	knownEntityIds: ReadonlySet<string>,
-): boolean {
+function isMissingBinding(widget: WidgetInstance, knownEntityIds: ReadonlySet<string>): boolean {
 	if (!widget.binding) return false;
 	return !knownEntityIds.has(widget.binding.source.entityId);
 }
@@ -81,13 +91,31 @@ export const PERMISSIVE_RESOLVER: BindingResolver = {
 	isHiddenForActor: () => false,
 };
 
+export interface SceneQueryOptions {
+	bindingResolver?: BindingResolver;
+	widgetPackages?: WidgetPackageState;
+}
+
+function normalizeOptions(
+	options: BindingResolver | SceneQueryOptions,
+): Required<SceneQueryOptions> {
+	if ('knownEntityIds' in options) {
+		return { bindingResolver: options, widgetPackages: SYSTEM_WIDGET_PACKAGE_STATE };
+	}
+	return {
+		bindingResolver: options.bindingResolver ?? PERMISSIVE_RESOLVER,
+		widgetPackages: options.widgetPackages ?? SYSTEM_WIDGET_PACKAGE_STATE,
+	};
+}
+
 export function getSceneForActor(
 	state: SceneState,
 	permission: PermissionState,
 	actorId: ActorId,
 	sceneId: SceneId,
-	resolver: BindingResolver = PERMISSIVE_RESOLVER,
+	options: BindingResolver | SceneQueryOptions = {},
 ): SceneSummary | { kind: 'denied'; reason: string } {
+	const { bindingResolver: resolver, widgetPackages } = normalizeOptions(options);
 	const actor = permission.actors[actorId];
 	if (!actor) return { kind: 'denied', reason: 'unknown-actor' };
 	const scene = state.scenes[sceneId];
@@ -115,6 +143,37 @@ export function getSceneForActor(
 			: scene.widgets.filter((w) => deliverableWidgetIds.has(w.id));
 
 	for (const widget of widgetSourcePool) {
+		if (widget.disabled) {
+			widgets.push({
+				kind: 'disabled',
+				widgetInstanceId: widget.id,
+				type: widget.type,
+				reason: widget.disabled.message,
+				packageId: widget.disabled.packageId,
+			});
+			continue;
+		}
+		const packageRecord = findPackageRecordForWidgetType(widgetPackages, widget.type);
+		if (!packageRecord || packageRecord.removedAt) {
+			widgets.push({
+				kind: 'disabled',
+				widgetInstanceId: widget.id,
+				type: widget.type,
+				reason: 'Widget package is not installed.',
+				packageId: packageRecord?.package.id ?? null,
+			});
+			continue;
+		}
+		if (!packageRecord.enabled) {
+			widgets.push({
+				kind: 'disabled',
+				widgetInstanceId: widget.id,
+				type: widget.type,
+				reason: `Widget package ${packageRecord.package.displayName} is disabled.`,
+				packageId: packageRecord.package.id,
+			});
+			continue;
+		}
 		const known =
 			resolver.knownEntityIds.size === 0 ||
 			(widget.binding ? resolver.knownEntityIds.has(widget.binding.source.entityId) : true);
@@ -124,6 +183,15 @@ export function getSceneForActor(
 		}
 		if (resolver.isHiddenForActor(widget, actorId)) {
 			widgets.push({ kind: 'hidden', widgetInstanceId: widget.id, type: widget.type });
+			continue;
+		}
+		const unavailableHostPermissions = packageRecord.package.widgets
+			.find((definition) => definition.type === widget.type)
+			?.hostPermissions.filter(
+				(permission) => packageRecord.trust.hostPermissions[permission] !== 'approved',
+			);
+		if (unavailableHostPermissions && unavailableHostPermissions.length > 0) {
+			widgets.push({ kind: 'degraded', widget, unavailableHostPermissions });
 			continue;
 		}
 		widgets.push({ kind: 'available', widget });

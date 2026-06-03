@@ -7,7 +7,10 @@ const isoTimestamp = z.string().min(1);
 
 export const sceneVisibilitySchema = z.enum(['dm-only', 'shared', 'player-visible']);
 export const sceneBackgroundSchema = z.enum(['paper', 'parchment', 'dark', 'grid']);
-export const widgetDockSchema = z.union([z.literal(null), z.enum(['left', 'right', 'top', 'bottom'])]);
+export const widgetDockSchema = z.union([
+	z.literal(null),
+	z.enum(['left', 'right', 'top', 'bottom']),
+]);
 
 export const widgetBindingSchema = z
 	.object({
@@ -37,6 +40,17 @@ export const widgetLayoutSchema = z
 	})
 	.strict();
 
+export const widgetDisabledStateSchema = z
+	.object({
+		reason: z.enum(['package-disabled', 'package-removed', 'migration-failed']),
+		packageId: z.union([z.literal(null), idSchema]),
+		diagnosticId: z.union([z.literal(null), idSchema]),
+		message: z.string().min(1),
+		previousVersion: z.union([z.literal(null), z.string().min(1)]),
+		disabledAt: isoTimestamp,
+	})
+	.strict();
+
 export const widgetInstanceSchema = z
 	.object({
 		id: idSchema,
@@ -44,7 +58,9 @@ export const widgetInstanceSchema = z
 		version: z.string().min(1),
 		layout: widgetLayoutSchema,
 		configuration: z.record(z.string(), z.unknown()),
+		localState: z.record(z.string(), z.unknown()),
 		binding: z.union([z.literal(null), widgetBindingSchema]),
+		disabled: z.union([z.literal(null), widgetDisabledStateSchema]),
 	})
 	.strict();
 

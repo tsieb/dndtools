@@ -24,6 +24,7 @@ export type {
 	SceneVisualSettings,
 	SectionLayoutRegion,
 	WidgetBinding,
+	WidgetDisabledState,
 	WidgetDock,
 	WidgetInstance,
 	WidgetLayout,
@@ -34,6 +35,39 @@ export {
 	SCENE_STATE_SCHEMA_VERSION,
 	isWidgetInGroup,
 } from './state/scene-state';
+
+export type { SessionState, SessionTimer } from './state/session-state';
+export { EMPTY_SESSION_STATE, SESSION_STATE_SCHEMA_VERSION } from './state/session-state';
+
+export type {
+	PlatformProfileId,
+	WidgetBindingDefinition,
+	WidgetCommandDescriptor,
+	WidgetDataSchema,
+	WidgetDefinition,
+	WidgetDiagnostic,
+	WidgetEventDescriptor,
+	WidgetHostPermission,
+	WidgetHostPermissionDecision,
+	WidgetMigration,
+	WidgetPackageAsset,
+	WidgetPackageDefinition,
+	WidgetPackageMigrationStatus,
+	WidgetPackageRecord,
+	WidgetPackageState,
+	WidgetPackageTrustReview,
+	WidgetPackageTrustState,
+} from './state/widget-package-state';
+export {
+	ALL_HOST_PERMISSIONS,
+	EMPTY_WIDGET_PACKAGE_STATE,
+	SYSTEM_WIDGET_PACKAGE_STATE,
+	WIDGET_PACKAGE_STATE_SCHEMA_VERSION,
+	createSystemWidgetPackages,
+	findPackageRecordForWidgetType,
+	findWidgetDefinition,
+	mergeSystemWidgetPackages,
+} from './state/widget-package-state';
 
 export type {
 	ActorId,
@@ -52,6 +86,7 @@ export {
 	EMPTY_OPERATION_LOG,
 	SYNC_OPERATION_SCHEMA_VERSION,
 	appendOperation,
+	createOperationLog,
 } from './sync/operation-log';
 
 export type {
@@ -69,33 +104,33 @@ export {
 	addWidgetInputSchema,
 	createSceneInputSchema,
 	destroyWidgetInputSchema,
+	disableWidgetPackageInputSchema,
 	dockWidgetInputSchema,
+	dispatchWidgetCommandInputSchema,
+	enableWidgetPackageInputSchema,
 	groupWidgetsInputSchema,
+	installWidgetPackageInputSchema,
 	instantiateSceneTemplateInputSchema,
 	layerWidgetInputSchema,
 	moveGroupInputSchema,
 	moveWidgetInputSchema,
 	pinWidgetInputSchema,
+	removeWidgetPackageInputSchema,
 	resizeWidgetInputSchema,
 	saveSceneTemplateInputSchema,
 	setSceneSectionsInputSchema,
 	updateSceneMetadataInputSchema,
+	upgradeWidgetPackageInputSchema,
 } from './schemas/commands';
 
-export {
-	sceneSchema,
-	sceneStateSchema,
-} from './schemas/scene';
+export { sceneSchema, sceneStateSchema } from './schemas/scene';
 
 export {
 	actorCanAuthorScene,
 	actorCanCoEditScene,
 	hasGrantedCapability,
 } from './permissions/grants';
-export {
-	canActorSeeScene,
-	evaluateSceneVisibility,
-} from './permissions/visibility';
+export { canActorSeeScene, evaluateSceneVisibility } from './permissions/visibility';
 export type { SceneVisibilityResult } from './permissions/visibility';
 
 export type {
@@ -104,8 +139,7 @@ export type {
 	SceneSummary,
 	WidgetBindingPayload,
 } from './queries/scene';
-export {
-	PERMISSIVE_RESOLVER,
-	getSceneForActor,
-	listScenesForActor,
-} from './queries/scene';
+export { PERMISSIVE_RESOLVER, getSceneForActor, listScenesForActor } from './queries/scene';
+
+export type { WidgetPackageExport } from './commands/widget-package';
+export { exportWidgetPackage } from './commands/widget-package';

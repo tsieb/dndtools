@@ -56,7 +56,18 @@ export interface WidgetInstance {
 	version: string;
 	layout: WidgetLayout;
 	configuration: Record<string, unknown>;
+	localState: Record<string, unknown>;
 	binding: WidgetBinding | null;
+	disabled: WidgetDisabledState | null;
+}
+
+export interface WidgetDisabledState {
+	reason: 'package-disabled' | 'package-removed' | 'migration-failed';
+	packageId: string | null;
+	diagnosticId: string | null;
+	message: string;
+	previousVersion: string | null;
+	disabledAt: string;
 }
 
 export interface PlayerViewAssignment {

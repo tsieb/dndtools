@@ -1,4 +1,13 @@
 schemaVersion: 1
+sourceOfTruth:
+  requirements: docs/remake-review/requirements/
+  mutableState: docs/planning/v2/workpack-state.yaml
+  generatedFiles:
+    - docs/planning/v2/requirements-index.yaml
+    - docs/planning/v2/initiative-map.yaml
+    - docs/planning/v2/status.yaml
+    - docs/planning/v2/parallel-batches.yaml
+    - docs/planning/v2/epics/*.yaml
 stackDecision:
   requiredAdr: docs/adr/014-v2-stack-and-subproject-boundary.md
   status: accepted
@@ -6,10 +15,196 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 88
+  approved: 86
   active: 0
-  complete: 0
+  complete: 2
   deferred: 0
+metrics:
+  epicCompletionPercent: 2.3
+  requirementCompletionPercent: 4.7
+  totalRequirements: 234
+  completedRequirements: 11
+  deferredRequirements: 0
+  remainingEpics: 86
+  promptableEpics: 86
+  blockedByDependencies: 0
+  completionEvidenceFiles: 2
+  domains:
+    - domain: AUDIO
+      totalEpics: 5
+      complete: 0
+      active: 0
+      approved: 5
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: CANVAS
+      totalEpics: 5
+      complete: 2
+      active: 0
+      approved: 3
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 40
+      requirementCompletionPercent: 61.1
+    - domain: CHAR
+      totalEpics: 6
+      complete: 0
+      active: 0
+      approved: 6
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: CMD
+      totalEpics: 4
+      complete: 0
+      active: 0
+      approved: 4
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: COLLAB
+      totalEpics: 5
+      complete: 0
+      active: 0
+      approved: 5
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: CON
+      totalEpics: 3
+      complete: 0
+      active: 0
+      approved: 3
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: CONTENT
+      totalEpics: 7
+      complete: 0
+      active: 0
+      approved: 7
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: GRAPH
+      totalEpics: 5
+      complete: 0
+      active: 0
+      approved: 5
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: MAP
+      totalEpics: 6
+      complete: 0
+      active: 0
+      approved: 6
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: MCP
+      totalEpics: 5
+      complete: 0
+      active: 0
+      approved: 5
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: NAV
+      totalEpics: 5
+      complete: 0
+      active: 0
+      approved: 5
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: PERF
+      totalEpics: 4
+      complete: 0
+      active: 0
+      approved: 4
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: PERM
+      totalEpics: 4
+      complete: 0
+      active: 0
+      approved: 4
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: PLAT
+      totalEpics: 4
+      complete: 0
+      active: 0
+      approved: 4
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: SEC
+      totalEpics: 4
+      complete: 0
+      active: 0
+      approved: 4
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: SES
+      totalEpics: 5
+      complete: 0
+      active: 0
+      approved: 5
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: SRCH
+      totalEpics: 6
+      complete: 0
+      active: 0
+      approved: 6
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - domain: SYNC
+      totalEpics: 5
+      complete: 0
+      active: 0
+      approved: 5
+      proposed: 0
+      deferred: 0
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+nextEpic:
+  id: AUDIO-assets-licensing-and-source-scope
+  title: "AUDIO: Assets, licensing, and source scope"
+  status: approved
+  requirementIds:
+    - AUDIO-004
+    - AUDIO-009
+    - AUDIO-010
+    - AUDIO-011
+  promptCommand: pnpm v2:prompt -- --epic AUDIO-assets-licensing-and-source-scope
+  nextPromptCommand: pnpm v2:prompt -- --next
+  statusCommand: pnpm v2:workpack:set-status -- --epic
+    AUDIO-assets-licensing-and-source-scope --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -59,7 +254,7 @@ epics:
       - CANVAS-007
       - CANVAS-015
   - id: CANVAS-scene-state
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CANVAS-001
@@ -67,6 +262,7 @@ epics:
       - CANVAS-004
       - CANVAS-013
       - CANVAS-018
+    completionEvidenceFile: docs/planning/v2/epics/CANVAS-scene-state.completion.md
   - id: CANVAS-widget-data-safety
     status: approved
     approved: true
@@ -74,7 +270,7 @@ epics:
       - CANVAS-009
       - CANVAS-010
   - id: CANVAS-widget-lifecycle
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CANVAS-002
@@ -83,6 +279,7 @@ epics:
       - CANVAS-011
       - CANVAS-014
       - CANVAS-017
+    completionEvidenceFile: docs/planning/v2/epics/CANVAS-widget-lifecycle.completion.md
   - id: CHAR-character-creation-and-drafts
     status: approved
     approved: true

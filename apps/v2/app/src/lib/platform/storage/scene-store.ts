@@ -1,19 +1,25 @@
 import Dexie, { type Table } from 'dexie';
 import {
-	EMPTY_OPERATION_LOG,
 	EMPTY_PERMISSION_STATE,
 	EMPTY_SCENE_STATE,
+	EMPTY_SESSION_STATE,
+	EMPTY_WIDGET_PACKAGE_STATE,
+	createOperationLog,
+	mergeSystemWidgetPackages,
 	type CoreStateSlice,
-	type OperationLog,
 	type PermissionState,
 	type SceneState,
+	type SessionState,
 	type SyncOperation,
+	type WidgetPackageState,
 } from '@dndtools/v2-core';
 
 const DB_NAME = 'dndtools-v2';
 const DB_VERSION = 1;
 const SCENE_STATE_KEY = 'scene-state';
 const PERMISSION_STATE_KEY = 'permission-state';
+const SESSION_STATE_KEY = 'session-state';
+const WIDGET_PACKAGE_STATE_KEY = 'widget-package-state';
 
 interface DocumentRecord {
 	key: string;
@@ -55,28 +61,47 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		database.documents.get(PERMISSION_STATE_KEY),
 		database.operations.orderBy('sequence').toArray(),
 	]);
+	const [sessionDoc, widgetPackageDoc] = await Promise.all([
+		database.documents.get(SESSION_STATE_KEY),
+		database.documents.get(WIDGET_PACKAGE_STATE_KEY),
+	]);
 	const scenes = (sceneDoc?.doc as SceneState | undefined) ?? {
 		scenes: {},
 		schemaVersion: EMPTY_SCENE_STATE.schemaVersion,
 	};
-	const permissions =
-		(permissionDoc?.doc as PermissionState | undefined) ?? {
-			actors: {},
-			grants: [],
-			schemaVersion: EMPTY_PERMISSION_STATE.schemaVersion,
-		};
-	const sync: OperationLog = {
-		operations: operationRecords.map((r) => r.op),
+	const permissions = (permissionDoc?.doc as PermissionState | undefined) ?? {
+		actors: {},
+		grants: [],
+		schemaVersion: EMPTY_PERMISSION_STATE.schemaVersion,
 	};
-	return { scenes, permissions, sync };
+	const session = (sessionDoc?.doc as SessionState | undefined) ?? {
+		timers: {},
+		schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
+	};
+	const widgets = mergeSystemWidgetPackages(
+		(widgetPackageDoc?.doc as WidgetPackageState | undefined) ?? {
+			packages: {},
+			schemaVersion: EMPTY_WIDGET_PACKAGE_STATE.schemaVersion,
+		},
+	);
+	const sync = createOperationLog(operationRecords.map((r) => r.op));
+	return { scenes, permissions, session, widgets, sync };
 }
 
-export async function persistSceneState(scenes: SceneState): Promise<void> {
+async function persistSceneState(scenes: SceneState): Promise<void> {
 	await db().documents.put({ key: SCENE_STATE_KEY, doc: scenes });
 }
 
-export async function persistPermissionState(permissions: PermissionState): Promise<void> {
+async function persistPermissionState(permissions: PermissionState): Promise<void> {
 	await db().documents.put({ key: PERMISSION_STATE_KEY, doc: permissions });
+}
+
+async function persistSessionState(session: SessionState): Promise<void> {
+	await db().documents.put({ key: SESSION_STATE_KEY, doc: session });
+}
+
+async function persistWidgetPackageState(widgets: WidgetPackageState): Promise<void> {
+	await db().documents.put({ key: WIDGET_PACKAGE_STATE_KEY, doc: widgets });
 }
 
 export async function appendOperations(operations: SyncOperation[]): Promise<void> {
@@ -91,14 +116,33 @@ export async function appendOperations(operations: SyncOperation[]): Promise<voi
 	await database.operations.bulkPut(records);
 }
 
+// Reducers are immutable, so an unchanged slice keeps its reference and the cheap
+// identity check short-circuits on the dispatch hot path. Only when a reference
+// differs (a real mutation, or independently-constructed states during seeding) do
+// we fall back to a structural compare to confirm the content actually changed.
+function sliceChanged(previous: unknown, next: unknown): boolean {
+	if (previous === next) return false;
+	return JSON.stringify(previous) !== JSON.stringify(next);
+}
+
 export async function persistFullState(
 	previous: CoreStateSlice,
 	next: CoreStateSlice,
 ): Promise<void> {
 	const newOperations = next.sync.operations.slice(previous.sync.operations.length);
+	const durableStateChanged =
+		sliceChanged(previous.scenes, next.scenes) ||
+		sliceChanged(previous.permissions, next.permissions) ||
+		sliceChanged(previous.session, next.session) ||
+		sliceChanged(previous.widgets, next.widgets);
+	if (durableStateChanged && newOperations.length === 0) {
+		throw new Error('Durable state changed without an accepted Processing Core operation.');
+	}
 	await Promise.all([
 		persistSceneState(next.scenes),
 		persistPermissionState(next.permissions),
+		persistSessionState(next.session),
+		persistWidgetPackageState(next.widgets),
 		appendOperations(newOperations),
 	]);
 }
@@ -121,4 +165,6 @@ export const __testing = {
 	DB_NAME,
 	SCENE_STATE_KEY,
 	PERMISSION_STATE_KEY,
+	SESSION_STATE_KEY,
+	WIDGET_PACKAGE_STATE_KEY,
 };

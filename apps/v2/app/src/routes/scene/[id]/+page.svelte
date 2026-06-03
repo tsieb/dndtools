@@ -12,6 +12,7 @@
 			runtime.state.permissions,
 			runtime.defaultActorId,
 			sceneId,
+			{ widgetPackages: runtime.state.widgets },
 		),
 	);
 
@@ -43,9 +44,10 @@
 	async function moveWidget(id: string, deltaX: number, deltaY: number) {
 		if ('kind' in summary) return;
 		const widget = summary.widgets.find(
-			(payload) => payload.kind === 'available' && payload.widget.id === id,
+			(payload) =>
+				(payload.kind === 'available' || payload.kind === 'degraded') && payload.widget.id === id,
 		);
-		if (!widget || widget.kind !== 'available') return;
+		if (!widget || (widget.kind !== 'available' && widget.kind !== 'degraded')) return;
 		await runtime.dispatch({
 			type: 'scene.move-widget',
 			actorId: runtime.defaultActorId,
@@ -71,6 +73,22 @@
 			type: 'scene.pin-widget',
 			actorId: runtime.defaultActorId,
 			payload: { sceneId, widgetInstanceId: id, pinned },
+		});
+	}
+
+	async function startTimer(id: string) {
+		if ('kind' in summary) return;
+		await runtime.dispatch({
+			type: 'widget.dispatch-command',
+			actorId: runtime.defaultActorId,
+			idempotencyKey: `timer-start-${id}-${Date.now()}`,
+			payload: {
+				sceneId,
+				widgetInstanceId: id,
+				commandType: 'timer.start',
+				payload: { durationSeconds: 60 },
+				expectedRevision: summary.ownership.revision,
+			},
 		});
 	}
 
@@ -138,17 +156,25 @@
 		<section>
 			<h3>Widgets</h3>
 			<div class="widget-grid" data-testid="widget-grid">
-				{#each summary.widgets as payload (payload.kind === 'available' ? payload.widget.id : payload.widgetInstanceId)}
-					{#if payload.kind === 'available'}
+				{#each summary.widgets as payload (payload.kind === 'available' || payload.kind === 'degraded' ? payload.widget.id : payload.widgetInstanceId)}
+					{#if payload.kind === 'available' || payload.kind === 'degraded'}
 						{@const w = payload.widget}
+						{@const timer = runtime.state.session.timers[w.id]}
 						<article class="widget-row" data-testid={`widget-${w.id}`}>
 							<div>
 								<strong>{w.type}</strong> <span class="meta">v{w.version}</span>
+								{#if payload.kind === 'degraded'}
+									<div class="layout" data-testid={`degraded-${w.id}`}>
+										degraded: {payload.unavailableHostPermissions.join(', ')} unavailable
+									</div>
+								{/if}
 								<div class="layout">
-									x {w.layout.x.toFixed(0)} • y {w.layout.y.toFixed(0)} • w {w.layout.w.toFixed(
-										0,
-									)} • h {w.layout.h.toFixed(0)} • z {w.layout.z}
+									x {w.layout.x.toFixed(0)} • y {w.layout.y.toFixed(0)} • w {w.layout.w.toFixed(0)} •
+									h {w.layout.h.toFixed(0)} • z {w.layout.z}
 									{#if w.layout.pinned}• pinned{/if}
+									{#if timer}
+										• timer {timer.status}
+									{/if}
 								</div>
 							</div>
 							<div class="row-actions">
@@ -180,16 +206,38 @@
 								>
 									↓
 								</button>
-								<button
-									type="button"
-									onclick={() => togglePinned(w.id, !w.layout.pinned)}
-								>
+								<button type="button" onclick={() => togglePinned(w.id, !w.layout.pinned)}>
 									{w.layout.pinned ? 'Unpin' : 'Pin'}
 								</button>
+								{#if w.type === 'timer'}
+									<button
+										type="button"
+										data-testid={`start-timer-${w.id}`}
+										onclick={() => startTimer(w.id)}
+									>
+										Start
+									</button>
+								{/if}
 								<button
 									type="button"
 									onclick={() => destroyWidget(w.id)}
 									data-testid={`destroy-${w.id}`}
+								>
+									Remove
+								</button>
+							</div>
+						</article>
+					{:else if payload.kind === 'disabled'}
+						<article class="widget-row" data-testid={`disabled-${payload.widgetInstanceId}`}>
+							<div>
+								<strong>{payload.type}</strong>
+								<div class="layout">disabled: {payload.reason}</div>
+							</div>
+							<div class="row-actions">
+								<button
+									type="button"
+									onclick={() => destroyWidget(payload.widgetInstanceId)}
+									data-testid={`destroy-${payload.widgetInstanceId}`}
 								>
 									Remove
 								</button>

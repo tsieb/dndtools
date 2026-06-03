@@ -17,6 +17,14 @@ import {
 	handlePinWidget,
 	handleResizeWidget,
 } from './widget';
+import { handleDispatchWidgetCommand } from './widget-command';
+import {
+	handleDisableWidgetPackage,
+	handleEnableWidgetPackage,
+	handleInstallWidgetPackage,
+	handleRemoveWidgetPackage,
+	handleUpgradeWidgetPackage,
+} from './widget-package';
 
 export function dispatchCommand(
 	state: CoreStateSlice,
@@ -52,6 +60,24 @@ export function dispatchCommand(
 			return handlePinWidget(state, env, command.actorId, command.payload);
 		case 'scene.destroy-widget':
 			return handleDestroyWidget(state, env, command.actorId, command.payload);
+		case 'widget.package.install':
+			return handleInstallWidgetPackage(state, env, command.actorId, command.payload);
+		case 'widget.package.enable':
+			return handleEnableWidgetPackage(state, env, command.actorId, command.payload);
+		case 'widget.package.disable':
+			return handleDisableWidgetPackage(state, env, command.actorId, command.payload);
+		case 'widget.package.remove':
+			return handleRemoveWidgetPackage(state, env, command.actorId, command.payload);
+		case 'widget.package.upgrade':
+			return handleUpgradeWidgetPackage(state, env, command.actorId, command.payload);
+		case 'widget.dispatch-command':
+			return handleDispatchWidgetCommand(
+				state,
+				env,
+				command.actorId,
+				command.payload,
+				command.idempotencyKey,
+			);
 	}
 }
 

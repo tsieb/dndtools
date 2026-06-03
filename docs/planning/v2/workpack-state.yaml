@@ -1,0 +1,25 @@
+schemaVersion: 1
+sourceOfTruth:
+  purpose: Mutable source of truth for v2 epic approval and completion state.
+    Generated planning files are derived from requirements plus this file.
+  generatedFiles:
+    - docs/planning/v2/requirements-index.yaml
+    - docs/planning/v2/initiative-map.yaml
+    - docs/planning/v2/status.yaml
+    - docs/planning/v2/parallel-batches.yaml
+    - docs/planning/v2/epics/*.yaml
+defaults:
+  status: approved
+  approved: true
+stackDecision:
+  requiredAdr: docs/adr/014-v2-stack-and-subproject-boundary.md
+  status: accepted
+  blocksImplementation: false
+epics:
+  - id: CANVAS-scene-state
+    status: complete
+    approved: true
+    completionEvidenceFile: docs/planning/v2/epics/CANVAS-scene-state.completion.md
+  - id: CANVAS-widget-lifecycle
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CANVAS-widget-lifecycle.completion.md

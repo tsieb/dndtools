@@ -1,0 +1,267 @@
+import type { ActorId } from './ids';
+import type { WidgetCapabilitySet } from './permission-state';
+
+export const WIDGET_PACKAGE_STATE_SCHEMA_VERSION = 1 as const;
+
+export type PlatformProfileId = 'desktop' | 'tablet' | 'mobile' | 'web';
+
+export type WidgetHostPermission =
+	| 'filesystem'
+	| 'clipboard'
+	| 'network'
+	| 'source-adapter'
+	| 'asset'
+	| 'external-link';
+
+export type WidgetPackageTrustState = 'trusted' | 'unreviewed' | 'denied';
+export type WidgetHostPermissionDecision = 'approved' | 'denied';
+
+export type WidgetSchemaFieldType = 'string' | 'number' | 'boolean' | 'object' | 'array';
+
+export interface WidgetDataSchema {
+	type: 'object';
+	required?: string[];
+	properties?: Record<string, { type: WidgetSchemaFieldType }>;
+	additionalProperties?: boolean;
+}
+
+export interface WidgetBindingDefinition {
+	id: string;
+	label: string;
+	entityTypes: string[];
+	mode: 'read' | 'operate' | 'manage' | 'observe';
+	requiredCapability: WidgetCapabilitySet;
+}
+
+export interface WidgetCommandDescriptor {
+	type: string;
+	displayName: string;
+	requiredCapability: WidgetCapabilitySet;
+	payloadSchema: WidgetDataSchema;
+	writesTo: 'scene' | 'session' | 'entity';
+	targetBindingId?: string;
+}
+
+export interface WidgetEventDescriptor {
+	type: string;
+	category: 'entity.changed' | 'scene.changed' | 'session.changed' | 'permission.changed';
+}
+
+export interface WidgetPackageAsset {
+	path: string;
+	sha256?: string;
+}
+
+export interface WidgetDefinition {
+	type: string;
+	version: string;
+	displayName: string;
+	author: 'system' | 'user' | 'workspace' | string;
+	supportedProfiles: PlatformProfileId[];
+	defaultSize: { width: number; height: number };
+	minSize: { width: number; height: number };
+	resizePolicy: 'fixed' | 'axis-locked' | 'free';
+	requiredBindings: WidgetBindingDefinition[];
+	optionalBindings: WidgetBindingDefinition[];
+	configurationSchema: WidgetDataSchema;
+	runtimeStateSchema?: WidgetDataSchema;
+	localStateSchema?: WidgetDataSchema;
+	automationSchema?: WidgetDataSchema;
+	capabilitySets: WidgetCapabilitySet[];
+	commands: WidgetCommandDescriptor[];
+	events: WidgetEventDescriptor[];
+	hostPermissions: WidgetHostPermission[];
+}
+
+export interface WidgetMigration {
+	widgetType: string;
+	fromVersion: string;
+	toVersion: string;
+	renameConfigurationKeys?: Record<string, string>;
+	setConfigurationDefaults?: Record<string, unknown>;
+	failWithDiagnostic?: string;
+}
+
+export interface WidgetPackageDefinition {
+	id: string;
+	version: string;
+	displayName: string;
+	widgets: WidgetDefinition[];
+	migrations: WidgetMigration[];
+	assets: WidgetPackageAsset[];
+	portabilityWarnings: string[];
+}
+
+export interface WidgetDiagnostic {
+	id: string;
+	code: string;
+	message: string;
+	severity: 'error' | 'warning' | 'info';
+}
+
+export interface WidgetPackageTrustReview {
+	state: WidgetPackageTrustState;
+	hostPermissions: Record<WidgetHostPermission, WidgetHostPermissionDecision>;
+	reviewedBy: ActorId | null;
+	reviewedAt: string | null;
+}
+
+export interface WidgetPackageMigrationStatus {
+	state: 'none' | 'migrated' | 'failed';
+	fromVersion: string | null;
+	toVersion: string | null;
+	diagnostics: WidgetDiagnostic[];
+}
+
+export interface WidgetPackageRecord {
+	package: WidgetPackageDefinition;
+	trust: WidgetPackageTrustReview;
+	enabled: boolean;
+	removedAt: string | null;
+	installedAt: string;
+	updatedAt: string;
+	revision: number;
+	migrationStatus: WidgetPackageMigrationStatus;
+	diagnostics: WidgetDiagnostic[];
+}
+
+export interface WidgetPackageState {
+	packages: Record<string, WidgetPackageRecord>;
+	schemaVersion: typeof WIDGET_PACKAGE_STATE_SCHEMA_VERSION;
+}
+
+export const ALL_HOST_PERMISSIONS: WidgetHostPermission[] = [
+	'filesystem',
+	'clipboard',
+	'network',
+	'source-adapter',
+	'asset',
+	'external-link',
+];
+
+export const EMPTY_WIDGET_PACKAGE_STATE: WidgetPackageState = Object.freeze({
+	packages: {},
+	schemaVersion: WIDGET_PACKAGE_STATE_SCHEMA_VERSION,
+});
+
+const EMPTY_OBJECT_SCHEMA: WidgetDataSchema = Object.freeze({
+	type: 'object',
+	additionalProperties: true,
+});
+
+function systemWidget(type: string, displayName: string): WidgetDefinition {
+	return {
+		type,
+		version: '1.0.0',
+		displayName,
+		author: 'system',
+		supportedProfiles: ['desktop', 'tablet', 'mobile', 'web'],
+		defaultSize: { width: 240, height: 160 },
+		minSize: { width: 120, height: 80 },
+		resizePolicy: 'free',
+		requiredBindings: [],
+		optionalBindings: [],
+		configurationSchema: EMPTY_OBJECT_SCHEMA,
+		capabilitySets: ['manager', 'operator', 'viewer'],
+		commands: [],
+		events: [],
+		hostPermissions: [],
+	};
+}
+
+export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): WidgetPackageState {
+	const timerWidget: WidgetDefinition = {
+		...systemWidget('timer', 'Timer'),
+		commands: [
+			{
+				type: 'timer.start',
+				displayName: 'Start timer',
+				requiredCapability: 'operator',
+				payloadSchema: {
+					type: 'object',
+					required: ['durationSeconds'],
+					properties: { durationSeconds: { type: 'number' } },
+					additionalProperties: false,
+				},
+				writesTo: 'session',
+			},
+		],
+		events: [{ type: 'timer.started', category: 'session.changed' }],
+	};
+	const packages: WidgetPackageDefinition[] = [
+		{
+			id: 'system.scene-widgets',
+			version: '1.0.0',
+			displayName: 'System Scene Widgets',
+			widgets: [
+				systemWidget('note', 'Note'),
+				systemWidget('map', 'Map'),
+				systemWidget('character', 'Character'),
+				systemWidget('dice', 'Dice'),
+				systemWidget('initiative-tracker', 'Initiative Tracker'),
+				timerWidget,
+			],
+			migrations: [],
+			assets: [],
+			portabilityWarnings: [],
+		},
+	];
+	return {
+		schemaVersion: WIDGET_PACKAGE_STATE_SCHEMA_VERSION,
+		packages: Object.fromEntries(
+			packages.map((definition) => [
+				definition.id,
+				{
+					package: definition,
+					trust: {
+						state: 'trusted',
+						hostPermissions: Object.fromEntries(
+							ALL_HOST_PERMISSIONS.map((permission) => [permission, 'denied']),
+						) as Record<WidgetHostPermission, WidgetHostPermissionDecision>,
+						reviewedBy: 'system',
+						reviewedAt: now,
+					},
+					enabled: true,
+					removedAt: null,
+					installedAt: now,
+					updatedAt: now,
+					revision: 1,
+					migrationStatus: {
+						state: 'none',
+						fromVersion: null,
+						toVersion: null,
+						diagnostics: [],
+					},
+					diagnostics: [],
+				} satisfies WidgetPackageRecord,
+			]),
+		),
+	};
+}
+
+export const SYSTEM_WIDGET_PACKAGE_STATE = createSystemWidgetPackages();
+
+export function mergeSystemWidgetPackages(state: WidgetPackageState): WidgetPackageState {
+	return {
+		schemaVersion: WIDGET_PACKAGE_STATE_SCHEMA_VERSION,
+		packages: { ...SYSTEM_WIDGET_PACKAGE_STATE.packages, ...state.packages },
+	};
+}
+
+export function findPackageRecordForWidgetType(
+	state: WidgetPackageState,
+	widgetType: string,
+): WidgetPackageRecord | undefined {
+	return Object.values(state.packages).find((record) =>
+		record.package.widgets.some((definition) => definition.type === widgetType),
+	);
+}
+
+export function findWidgetDefinition(
+	state: WidgetPackageState,
+	widgetType: string,
+): WidgetDefinition | undefined {
+	return findPackageRecordForWidgetType(state, widgetType)?.package.widgets.find(
+		(definition) => definition.type === widgetType,
+	);
+}

@@ -12,11 +12,7 @@ import {
 	type CoreStateSlice,
 	type PermissionState,
 } from '@dndtools/v2-core';
-import {
-	DM_ACTOR,
-	buildInitialState,
-	makeEnvironment,
-} from '@dndtools/v2-core/testing';
+import { DM_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/v2-core/testing';
 
 let env: CoreEnvironment;
 let state: CoreStateSlice;
@@ -81,5 +77,56 @@ describe('Dexie scene store round-trip (CANVAS-001 restart persistence)', () => 
 		// PermissionState type is exported and usable
 		const _typed: PermissionState | null = null;
 		expect(_typed).toBeNull();
+	});
+
+	it('rejects durable Scene writes that bypass the command operation log', async () => {
+		const created = dispatchCommand(state, env, {
+			type: 'scene.create',
+			actorId: DM_ACTOR.id,
+			payload: { name: 'Commanded Scene' },
+		});
+		expect(created.status).toBe('accepted');
+		if (created.status !== 'accepted') return;
+		const sceneId = Object.keys(created.nextState.scenes.scenes)[0];
+		if (!sceneId) throw new Error('missing scene');
+		await persistFullState(state, created.nextState);
+
+		const bypassed: CoreStateSlice = {
+			...created.nextState,
+			scenes: {
+				...created.nextState.scenes,
+				scenes: {
+					...created.nextState.scenes.scenes,
+					[sceneId]: {
+						...created.nextState.scenes.scenes[sceneId]!,
+						widgets: [
+							{
+								id: 'bypassed-widget',
+								type: 'map',
+								version: '1.0.0',
+								layout: {
+									x: 0,
+									y: 0,
+									w: 100,
+									h: 100,
+									z: 1,
+									groupId: null,
+									dock: null,
+									pinned: false,
+									focusOrder: null,
+								},
+								configuration: {},
+								localState: {},
+								binding: null,
+								disabled: null,
+							},
+						],
+					},
+				},
+			},
+		};
+		await expect(persistFullState(created.nextState, bypassed)).rejects.toThrow(
+			/Durable state changed without an accepted Processing Core operation/,
+		);
 	});
 });
