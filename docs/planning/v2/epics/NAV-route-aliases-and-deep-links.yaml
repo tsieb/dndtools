@@ -1,0 +1,128 @@
+schemaVersion: 1
+id: NAV-route-aliases-and-deep-links
+title: 'NAV: Route aliases and deep links'
+status: proposed
+approved: false
+domain: NAV
+capabilityBranch: Route aliases and deep links
+objective: Deliver the route aliases and deep links capability branch for NAV,
+  traced to the included v2 requirements.
+requirementIds:
+  - NAV-002
+  - NAV-004
+  - NAV-005
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - navigation model
+  - route shell
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/nav/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: NAV-002-S01
+    title: The system shall generate or validate legacy route aliases from a route
+      alias table, preserving search parameters and hashes by default
+    requirementIds:
+      - NAV-002
+    acceptanceCriteria:
+      - Given a legacy map URL includes `?poi=abc&x=1&y=2`, when redirected,
+        then all search parameters are preserved.
+      - Given a full duplicate legacy implementation exists instead of a
+        redirect stub, when route audit runs, then the gate fails.
+    tasks:
+      - id: NAV-002-S01-T01
+        title: Confirm architecture and interface shape for NAV-002
+        kind: design
+      - id: NAV-002-S01-T02
+        title: Implement the smallest behavior that satisfies NAV-002
+        kind: implementation
+      - id: NAV-002-S01-T03
+        title: Add automated coverage for NAV-002 acceptance criteria
+        kind: test
+      - id: NAV-002-S01-T04
+        title: Record demo notes and traceability evidence for NAV-002
+        kind: demo
+  - id: NAV-004-S02
+    title: Navigation focus restoration shall preserve browser back/forward
+      behavior, hash anchors, scroll position, route landmarks, and deep-link
+      semantics
+    requirementIds:
+      - NAV-004
+    acceptanceCriteria:
+      - Given a URL with a heading hash, when navigation completes, then the
+        heading scroll target remains active instead of unconditional landmark
+        focus.
+      - Given a normal route transition without hash, when completed, then the
+        route landmark receives appropriate focus and live announcement.
+    tasks:
+      - id: NAV-004-S02-T01
+        title: Confirm architecture and interface shape for NAV-004
+        kind: design
+      - id: NAV-004-S02-T02
+        title: Implement the smallest behavior that satisfies NAV-004
+        kind: implementation
+      - id: NAV-004-S02-T03
+        title: Add automated coverage for NAV-004 acceptance criteria
+        kind: test
+      - id: NAV-004-S02-T04
+        title: Record demo notes and traceability evidence for NAV-004
+        kind: demo
+  - id: NAV-005-S03
+    title: A user shall be able to open map, Scene, note, object, character, and
+      search result deep links that restore the intended selected entity,
+      viewport, tab, or section when authorized
+    requirementIds:
+      - NAV-005
+    acceptanceCriteria:
+      - Given a deep link targets a visible POI, when opened, then the map
+        viewport focuses the POI.
+      - Given the target is hidden from a player, when opened, then the app
+        shows a generic unavailable state without revealing the hidden target.
+      - Given the target has not been cached locally, when opened offline, then
+        the app reports unavailable content while preserving non-sensitive route
+        state.
+    tasks:
+      - id: NAV-005-S03-T01
+        title: Confirm architecture and interface shape for NAV-005
+        kind: design
+      - id: NAV-005-S03-T02
+        title: Implement the smallest behavior that satisfies NAV-005
+        kind: implementation
+      - id: NAV-005-S03-T03
+        title: Add automated coverage for NAV-005 acceptance criteria
+        kind: test
+      - id: NAV-005-S03-T04
+        title: Record demo notes and traceability evidence for NAV-005
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

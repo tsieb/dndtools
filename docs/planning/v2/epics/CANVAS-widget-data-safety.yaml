@@ -1,0 +1,106 @@
+schemaVersion: 1
+id: CANVAS-widget-data-safety
+title: 'CANVAS: Widget data safety'
+status: proposed
+approved: false
+domain: CANVAS
+capabilityBranch: Widget data safety
+objective: Deliver the widget data safety capability branch for CANVAS, traced
+  to the included v2 requirements.
+requirementIds:
+  - CANVAS-009
+  - CANVAS-010
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - scene core
+  - widget host
+  - scene UI
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/canvas/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CANVAS-009-S01
+    title: A widget shall be able to read app data only through actor-scoped
+      bindings resolved by the Processing Core, with missing, hidden, deleted,
+      and conflicted bindings represented as explicit widget states
+    requirementIds:
+      - CANVAS-009
+    acceptanceCriteria:
+      - Given a widget binding targets hidden data in a player context, when the
+        widget renders, then it receives `hidden` state instead of the hidden
+        value.
+      - Given a widget binding targets an entity with an unresolved conflict,
+        when the widget renders, then it receives `conflicted` state and does
+        not silently choose one version.
+    tasks:
+      - id: CANVAS-009-S01-T01
+        title: Confirm architecture and interface shape for CANVAS-009
+        kind: design
+      - id: CANVAS-009-S01-T02
+        title: Implement the smallest behavior that satisfies CANVAS-009
+        kind: implementation
+      - id: CANVAS-009-S01-T03
+        title: Add automated coverage for CANVAS-009 acceptance criteria
+        kind: test
+      - id: CANVAS-009-S01-T04
+        title: Record demo notes and traceability evidence for CANVAS-009
+        kind: demo
+  - id: CANVAS-010-S02
+    title: A widget shall be able to dispatch declared commands for durable changes,
+      and the Processing Core shall validate actor, visibility, permission,
+      schema, revision, and sync constraints before accepting them
+    requirementIds:
+      - CANVAS-010
+    acceptanceCriteria:
+      - Given a timer widget with an `operator` command, when an authorized
+        player starts the timer, then the command is accepted and session timer
+        state changes.
+      - Given a custom widget submits a command for a hidden entity path, when
+        the core validates it, then the command is rejected before mutation.
+    tasks:
+      - id: CANVAS-010-S02-T01
+        title: Confirm architecture and interface shape for CANVAS-010
+        kind: design
+      - id: CANVAS-010-S02-T02
+        title: Implement the smallest behavior that satisfies CANVAS-010
+        kind: implementation
+      - id: CANVAS-010-S02-T03
+        title: Add automated coverage for CANVAS-010 acceptance criteria
+        kind: test
+      - id: CANVAS-010-S02-T04
+        title: Record demo notes and traceability evidence for CANVAS-010
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

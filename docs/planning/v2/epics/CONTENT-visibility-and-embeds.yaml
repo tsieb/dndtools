@@ -1,0 +1,110 @@
+schemaVersion: 1
+id: CONTENT-visibility-and-embeds
+title: 'CONTENT: Visibility and embeds'
+status: proposed
+approved: false
+domain: CONTENT
+capabilityBranch: Visibility and embeds
+objective: Deliver the visibility and embeds capability branch for CONTENT,
+  traced to the included v2 requirements.
+requirementIds:
+  - CONTENT-009
+  - CONTENT-010
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - content model
+  - editor integration
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/content/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CONTENT-009-S01
+    title: The DM shall be able to author visibility at entity, section, and field
+      granularity for notes and structured objects, with defaults set to
+      `dm-only`
+    requirementIds:
+      - CONTENT-009
+    acceptanceCriteria:
+      - Given a note with a `player-visible` entity default and one `dm-only`
+        section, when a player reads it, then the section is omitted.
+      - Given no visibility metadata exists, when a non-DM queries the note,
+        then it is treated as `dm-only`.
+      - Given a note section is `shared` with Player A through a viewer-capable
+        grant, when Player A and Player B query the note, then only Player A
+        receives that section.
+      - Given a player has a write grant on a hidden section, when consistency
+        checks run, then the DM sees a visibility/permission consistency error
+        and the player still cannot read or write that section.
+    tasks:
+      - id: CONTENT-009-S01-T01
+        title: Confirm architecture and interface shape for CONTENT-009
+        kind: design
+      - id: CONTENT-009-S01-T02
+        title: Implement the smallest behavior that satisfies CONTENT-009
+        kind: implementation
+      - id: CONTENT-009-S01-T03
+        title: Add automated coverage for CONTENT-009 acceptance criteria
+        kind: test
+      - id: CONTENT-009-S01-T04
+        title: Record demo notes and traceability evidence for CONTENT-009
+        kind: demo
+  - id: CONTENT-010-S02
+    title: An authorized editor shall be able to embed object cards, note sections,
+      and entity render blocks in note content, and add entity-backed widgets to
+      Scenes, without cloning target entity data into the embedding source
+    requirementIds:
+      - CONTENT-010
+    acceptanceCriteria:
+      - Given a note embeds a character card, when the character changes, then
+        the rendered embed reflects the current visible character data.
+      - Given the target entity is hidden from the actor, when the embed
+        renders, then it shows a non-leaking hidden or unavailable placeholder.
+      - Given a note references a Scene widget instance, when validation runs,
+        then the note stores only a link or embed reference and does not persist
+        a widget instance outside a Scene.
+    tasks:
+      - id: CONTENT-010-S02-T01
+        title: Confirm architecture and interface shape for CONTENT-010
+        kind: design
+      - id: CONTENT-010-S02-T02
+        title: Implement the smallest behavior that satisfies CONTENT-010
+        kind: implementation
+      - id: CONTENT-010-S02-T03
+        title: Add automated coverage for CONTENT-010 acceptance criteria
+        kind: test
+      - id: CONTENT-010-S02-T04
+        title: Record demo notes and traceability evidence for CONTENT-010
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

@@ -1,0 +1,111 @@
+schemaVersion: 1
+id: SYNC-conflict-lifecycle
+title: 'SYNC: Conflict lifecycle'
+status: proposed
+approved: false
+domain: SYNC
+capabilityBranch: Conflict lifecycle
+objective: Deliver the conflict lifecycle capability branch for SYNC, traced to
+  the included v2 requirements.
+requirementIds:
+  - SYNC-006
+  - SYNC-013
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 2: Cloud Sync & Offline Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - sync engine
+  - source adapters
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/sync/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: SYNC-006-S01
+    title: The system shall detect, persist, display, and resolve conflicts as
+      durable records without blocking unrelated entities
+    requirementIds:
+      - SYNC-006
+    acceptanceCriteria:
+      - Given two users edit the same scalar field concurrently, when sync
+        reconciles, then a conflict record captures ancestor, local, remote,
+        reason, and revisions.
+      - Given an unrelated note has no conflict, when another entity is
+        conflicted, then the unrelated note can still sync and render.
+      - Given an entity has an unresolved conflict, when publishing to non-DM
+        viewers would expose an ambiguous revision, then that conflicted
+        revision is blocked or represented as `conflicted` until resolved.
+      - Given the DM resolves a conflict, when the resolution command is
+        accepted, then a new revision records selected values, resolver, source
+        revisions, and audit history.
+    tasks:
+      - id: SYNC-006-S01-T01
+        title: Confirm architecture and interface shape for SYNC-006
+        kind: design
+      - id: SYNC-006-S01-T02
+        title: Implement the smallest behavior that satisfies SYNC-006
+        kind: implementation
+      - id: SYNC-006-S01-T03
+        title: Add automated coverage for SYNC-006 acceptance criteria
+        kind: test
+      - id: SYNC-006-S01-T04
+        title: Record demo notes and traceability evidence for SYNC-006
+        kind: demo
+  - id: SYNC-013-S02
+    title: Conflict resolution shall be a DM-authorized administrative command with
+      explicit selected values, source revisions, optional notes, audit history,
+      and a resulting non-conflicted revision
+    requirementIds:
+      - SYNC-013
+    acceptanceCriteria:
+      - Given a conflict exists on a character field, when a non-DM attempts to
+        resolve it, then the resolution command is rejected and the conflict
+        remains available for DM resolution.
+      - Given the DM resolves a conflict while offline, when sync resumes, then
+        the resolution operation is replayed idempotently and the conflict
+        record is marked resolved.
+      - Given a character owner has a conflict on a player-authored field, when
+        they view the character, then the conflicted field is represented as
+        conflicted and any proposed value change is recorded as a normal edit
+        rather than a conflict-resolution command.
+    tasks:
+      - id: SYNC-013-S02-T01
+        title: Confirm architecture and interface shape for SYNC-013
+        kind: design
+      - id: SYNC-013-S02-T02
+        title: Implement the smallest behavior that satisfies SYNC-013
+        kind: implementation
+      - id: SYNC-013-S02-T03
+        title: Add automated coverage for SYNC-013 acceptance criteria
+        kind: test
+      - id: SYNC-013-S02-T04
+        title: Record demo notes and traceability evidence for SYNC-013
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

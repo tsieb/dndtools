@@ -1,0 +1,105 @@
+schemaVersion: 1
+id: NAV-home-and-canonical-sections
+title: 'NAV: Home and canonical sections'
+status: proposed
+approved: false
+domain: NAV
+capabilityBranch: Home and canonical sections
+objective: Deliver the home and canonical sections capability branch for NAV,
+  traced to the included v2 requirements.
+requirementIds:
+  - NAV-001
+  - NAV-009
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - navigation model
+  - route shell
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/nav/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: NAV-001-S01
+    title: The application shall use the Command Center as home and maintain
+      canonical section-rooted navigation for approved Navigation Sections such
+      as Knowledge, Atlas, Session, Campaign, Characters, Audio, MCP, and
+      Settings
+    requirementIds:
+      - NAV-001
+    acceptanceCriteria:
+      - Given the app opens with a vault, when routing completes, then the home
+        surface is Command Center.
+      - Given a user navigates by primary nav, when a section opens, then route,
+        landmark, and title reflect the canonical section.
+      - Given a player or observer navigates by primary nav, when sections are
+        filtered, then DM-only sections and actions are absent or disabled with
+        non-leaking reasons.
+    tasks:
+      - id: NAV-001-S01-T01
+        title: Confirm architecture and interface shape for NAV-001
+        kind: design
+      - id: NAV-001-S01-T02
+        title: Implement the smallest behavior that satisfies NAV-001
+        kind: implementation
+      - id: NAV-001-S01-T03
+        title: Add automated coverage for NAV-001 acceptance criteria
+        kind: test
+      - id: NAV-001-S01-T04
+        title: Record demo notes and traceability evidence for NAV-001
+        kind: demo
+  - id: NAV-009-S02
+    title: The approved top-level Navigation Section registry shall define owner,
+      route root, player/observer availability, aliases, landmarks, local
+      navigation contract, and release status for each section
+    requirementIds:
+      - NAV-009
+    acceptanceCriteria:
+      - Given a new top-level section is proposed, when IA review runs, then
+        owner, route root, aliases, actor availability, and local navigation
+        contract are required.
+      - Given a section is DM-only, when a player or observer receives
+        navigation data, then that section is absent or represented only by an
+        allowed placeholder.
+    tasks:
+      - id: NAV-009-S02-T01
+        title: Confirm architecture and interface shape for NAV-009
+        kind: design
+      - id: NAV-009-S02-T02
+        title: Implement the smallest behavior that satisfies NAV-009
+        kind: implementation
+      - id: NAV-009-S02-T03
+        title: Add automated coverage for NAV-009 acceptance criteria
+        kind: test
+      - id: NAV-009-S02-T04
+        title: Record demo notes and traceability evidence for NAV-009
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

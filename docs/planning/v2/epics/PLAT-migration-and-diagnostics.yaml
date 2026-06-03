@@ -1,0 +1,134 @@
+schemaVersion: 1
+id: PLAT-migration-and-diagnostics
+title: 'PLAT: Migration and diagnostics'
+status: proposed
+approved: false
+domain: PLAT
+capabilityBranch: Migration and diagnostics
+objective: Deliver the migration and diagnostics capability branch for PLAT,
+  traced to the included v2 requirements.
+requirementIds:
+  - PLAT-008
+  - PLAT-009
+  - PLAT-017
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - platform services
+  - runtime shell
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/plat/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: PLAT-008-S01
+    title: The system shall provide migration, integrity verification, safety
+      snapshots, write-ahead recovery, and dry-run upgrade checks for vault
+      schema and durable state documents
+    requirementIds:
+      - PLAT-008
+    acceptanceCriteria:
+      - Given a vault needs migration, when dry-run runs, then the user receives
+        required changes and blocking issues before mutation.
+      - Given migration fails mid-write, when the app restarts, then write-ahead
+        recovery or rollback restores a consistent state.
+    tasks:
+      - id: PLAT-008-S01-T01
+        title: Confirm architecture and interface shape for PLAT-008
+        kind: design
+      - id: PLAT-008-S01-T02
+        title: Implement the smallest behavior that satisfies PLAT-008
+        kind: implementation
+      - id: PLAT-008-S01-T03
+        title: Add automated coverage for PLAT-008 acceptance criteria
+        kind: test
+      - id: PLAT-008-S01-T04
+        title: Record demo notes and traceability evidence for PLAT-008
+        kind: demo
+  - id: PLAT-009-S02
+    title: The DM or platform administrator shall be able to view system health,
+      diagnostics, sync/source status, platform capability status, and
+      exportable support bundles without leaking secrets by default
+    requirementIds:
+      - PLAT-009
+    acceptanceCriteria:
+      - Given a sync source fails, when system health opens, then source status
+        and remediation are shown.
+      - Given diagnostics are exported, when the bundle is generated, then
+        secrets and raw absolute paths are redacted unless explicitly included
+        by the user.
+      - Given a player or observer requests an exportable support bundle, when
+        permissions are evaluated, then export is denied unless an explicit
+        DM/admin diagnostic grant exists.
+    tasks:
+      - id: PLAT-009-S02-T01
+        title: Confirm architecture and interface shape for PLAT-009
+        kind: design
+      - id: PLAT-009-S02-T02
+        title: Implement the smallest behavior that satisfies PLAT-009
+        kind: implementation
+      - id: PLAT-009-S02-T03
+        title: Add automated coverage for PLAT-009 acceptance criteria
+        kind: test
+      - id: PLAT-009-S02-T04
+        title: Record demo notes and traceability evidence for PLAT-009
+        kind: demo
+  - id: PLAT-017-S03
+    title: Participants shall be able to view non-leaking connection, sync, platform
+      capability, and session delivery status relevant to their own session
+      without receiving DM/admin diagnostics or support bundles
+    requirementIds:
+      - PLAT-017
+    acceptanceCriteria:
+      - Given a player is disconnected or stale, when they open participant
+        status, then they see reconnecting, offline, stale, or unavailable state
+        without hidden entity names, source paths, or DM diagnostics.
+      - Given a handout, Scene projection, or sync source is unavailable to a
+        participant, when status renders, then the reason is generic and
+        action-oriented without revealing whether hidden content exists.
+      - Given the DM exports diagnostics, when participant-safe status data is
+        included, then it excludes secrets, raw paths, hidden titles, and
+        private player content by default.
+    tasks:
+      - id: PLAT-017-S03-T01
+        title: Confirm architecture and interface shape for PLAT-017
+        kind: design
+      - id: PLAT-017-S03-T02
+        title: Implement the smallest behavior that satisfies PLAT-017
+        kind: implementation
+      - id: PLAT-017-S03-T03
+        title: Add automated coverage for PLAT-017 acceptance criteria
+        kind: test
+      - id: PLAT-017-S03-T04
+        title: Record demo notes and traceability evidence for PLAT-017
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

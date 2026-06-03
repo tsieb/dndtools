@@ -1,0 +1,103 @@
+schemaVersion: 1
+id: SRCH-result-opening-and-deterministic-diagnostics
+title: 'SRCH: Result opening and deterministic diagnostics'
+status: proposed
+approved: false
+domain: SRCH
+capabilityBranch: Result opening and deterministic diagnostics
+objective: Deliver the result opening and deterministic diagnostics capability
+  branch for SRCH, traced to the included v2 requirements.
+requirementIds:
+  - SRCH-007
+  - SRCH-008
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - search index
+  - quick switcher
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/srch/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: SRCH-007-S01
+    title: A user shall be able to open search results into the correct route,
+      Scene, map viewport, note heading, or object view while preserving browser
+      history and search parameters
+    requirementIds:
+      - SRCH-007
+    acceptanceCriteria:
+      - Given a search result links to a POI with `x`, `y`, and `poi`
+        parameters, when opened, then the map viewport focuses the POI and
+        preserves parameters through redirects.
+      - Given a note heading result opens, when navigation completes, then hash
+        navigation and scroll semantics are preserved.
+    tasks:
+      - id: SRCH-007-S01-T01
+        title: Confirm architecture and interface shape for SRCH-007
+        kind: design
+      - id: SRCH-007-S01-T02
+        title: Implement the smallest behavior that satisfies SRCH-007
+        kind: implementation
+      - id: SRCH-007-S01-T03
+        title: Add automated coverage for SRCH-007 acceptance criteria
+        kind: test
+      - id: SRCH-007-S01-T04
+        title: Record demo notes and traceability evidence for SRCH-007
+        kind: demo
+  - id: SRCH-008-S02
+    title: Search indexes shall normalize unstable IDs and source-specific metadata
+      so test artifacts, saved searches, and diagnostics remain deterministic
+      across fresh vault fixtures
+    requirementIds:
+      - SRCH-008
+    acceptanceCriteria:
+      - Given a fresh fixture vault is generated twice, when search diagnostics
+        are produced, then volatile IDs do not create unrelated fingerprint
+        churn.
+      - Given a saved search is exported/imported, when it runs in the new
+        vault, then stable criteria are preserved or explicit remapping
+        diagnostics appear.
+    tasks:
+      - id: SRCH-008-S02-T01
+        title: Confirm architecture and interface shape for SRCH-008
+        kind: design
+      - id: SRCH-008-S02-T02
+        title: Implement the smallest behavior that satisfies SRCH-008
+        kind: implementation
+      - id: SRCH-008-S02-T03
+        title: Add automated coverage for SRCH-008 acceptance criteria
+        kind: test
+      - id: SRCH-008-S02-T04
+        title: Record demo notes and traceability evidence for SRCH-008
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

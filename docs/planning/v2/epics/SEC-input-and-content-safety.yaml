@@ -1,0 +1,129 @@
+schemaVersion: 1
+id: SEC-input-and-content-safety
+title: 'SEC: Input and content safety'
+status: proposed
+approved: false
+domain: SEC
+capabilityBranch: Input and content safety
+objective: Deliver the input and content safety capability branch for SEC,
+  traced to the included v2 requirements.
+requirementIds:
+  - SEC-002
+  - SEC-003
+  - SEC-006
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - security boundary
+  - threat controls
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/sec/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: SEC-002-S01
+    title: All path-like inputs shall be validated against traversal, null bytes,
+      control characters, excessive length, unsupported schemes, and vault
+      containment before any read or write
+    requirementIds:
+      - SEC-002
+    acceptanceCriteria:
+      - Given `../` appears in a note id or folder input, when validated, then
+        the request is rejected before storage access.
+      - Given a resolved path escapes the vault root, when storage containment
+        checks run, then the operation is rejected even if earlier validation
+        missed it.
+    tasks:
+      - id: SEC-002-S01-T01
+        title: Confirm architecture and interface shape for SEC-002
+        kind: design
+      - id: SEC-002-S01-T02
+        title: Implement the smallest behavior that satisfies SEC-002
+        kind: implementation
+      - id: SEC-002-S01-T03
+        title: Add automated coverage for SEC-002 acceptance criteria
+        kind: test
+      - id: SEC-002-S01-T04
+        title: Record demo notes and traceability evidence for SEC-002
+        kind: demo
+  - id: SEC-003-S02
+    title: Rendered markdown, embeds, object cards, custom widget content, and
+      imported source content shall be sanitized or sandboxed before entering
+      the renderer DOM
+    requirementIds:
+      - SEC-003
+    acceptanceCriteria:
+      - Given a note contains `<script>` or `javascript:` URL content, when
+        rendered, then unsafe content is removed or neutralized.
+      - Given a custom widget renders user-authored markup, when mounted, then
+        it runs under the widget host constraints rather than unrestricted DOM
+        mutation privileges.
+    tasks:
+      - id: SEC-003-S02-T01
+        title: Confirm architecture and interface shape for SEC-003
+        kind: design
+      - id: SEC-003-S02-T02
+        title: Implement the smallest behavior that satisfies SEC-003
+        kind: implementation
+      - id: SEC-003-S02-T03
+        title: Add automated coverage for SEC-003 acceptance criteria
+        kind: test
+      - id: SEC-003-S02-T04
+        title: Record demo notes and traceability evidence for SEC-003
+        kind: demo
+  - id: SEC-006-S03
+    title: Input payloads crossing IPC, sync, widget host, MCP, import, and cloud
+      boundaries shall have explicit size limits, schema validation, enum
+      allowlists, and structured rejection errors
+    requirementIds:
+      - SEC-006
+    acceptanceCriteria:
+      - Given an import contains more entries than the configured maximum, when
+        validation runs, then the import is rejected before allocation-heavy
+        processing.
+      - Given an enum field contains an unknown value, when parsed, then
+        structured rejection identifies the field path.
+    tasks:
+      - id: SEC-006-S03-T01
+        title: Confirm architecture and interface shape for SEC-006
+        kind: design
+      - id: SEC-006-S03-T02
+        title: Implement the smallest behavior that satisfies SEC-006
+        kind: implementation
+      - id: SEC-006-S03-T03
+        title: Add automated coverage for SEC-006 acceptance criteria
+        kind: test
+      - id: SEC-006-S03-T04
+        title: Record demo notes and traceability evidence for SEC-006
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

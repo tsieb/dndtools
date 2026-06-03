@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { validateWorkpack } from './v2-workpack.js';
 
 interface ValidationIssue {
 	file: string;
@@ -13,6 +14,7 @@ const schemaDocPath = path.join(docsRoot, 'operations', 'SCHEMA_MIGRATIONS.md');
 const migrationsSourcePath = path.join(repoRoot, 'mcp', 'migrations.ts');
 const pathPrefixAllowlist = [
 	'.github/',
+	'apps/',
 	'docs/',
 	'src/',
 	'mcp/',
@@ -27,13 +29,22 @@ const rootFileAllowlist = new Set([
 	'tsconfig.json',
 	'vite.config.ts',
 	'playwright.config.ts',
-	'playwright.desktop.config.ts',
-	'CLAUDE.md',
 	'README.md',
 	'CHANGELOG.md',
-	'CODEOWNERS',
+	'pnpm-workspace.yaml',
 ]);
-const generatedPathPrefixes = ['build/', '.svelte-kit/', 'mcp/dist/'];
+const generatedPathPrefixes = ['apps/v2/', 'build/', '.svelte-kit/', 'mcp/dist/'];
+const pathValidatedDocs = [
+	'docs/adr/README.md',
+	'docs/adr/014-v2-stack-and-subproject-boundary.md',
+	'docs/development/V2_AGENTIC_IMPLEMENTATION.md',
+	'docs/planning/v2/',
+	'docs/remake-review/00-vision-brief.md',
+	'docs/remake-review/08-glossary.md',
+	'docs/remake-review/09-architecture-contracts.md',
+	'docs/remake-review/10-requirements.md',
+	'docs/remake-review/requirements/',
+];
 
 const fileExtensionPattern =
 	/\.(md|ts|tsx|js|cjs|mjs|json|yml|yaml|svelte|css|html|txt|png|jpg|jpeg|svg|ico)$/i;
@@ -107,6 +118,13 @@ function resolveCandidatePath(docPath: string, token: string): string {
 		return path.resolve(repoRoot, `.${normalized}`);
 	}
 	return path.resolve(repoRoot, normalized);
+}
+
+function shouldValidatePathReferences(markdownFile: string): boolean {
+	const repoRelative = path.relative(repoRoot, markdownFile).replace(/\\/g, '/');
+	return pathValidatedDocs.some((entry) =>
+		entry.endsWith('/') ? repoRelative.startsWith(entry) : repoRelative === entry,
+	);
 }
 
 function extractPathCandidates(markdown: string): Array<{ token: string; line: number }> {
@@ -225,8 +243,9 @@ async function validateDocs(): Promise<ValidationIssue[]> {
 		const content = await fs.readFile(markdownFile, 'utf-8');
 		issues.push(...validateTodoFields(content, markdownFile));
 
-		// Initiative files are intentionally aspirational and reference future files by design.
-		if (markdownFile.includes(path.join('planning', 'initiatives'))) {
+		// Historical/audit docs intentionally preserve old path references. The V2 control-plane
+		// docs remain path-validated so implementation agents do not follow stale files.
+		if (!shouldValidatePathReferences(markdownFile)) {
 			continue;
 		}
 
@@ -262,6 +281,25 @@ async function validateDocs(): Promise<ValidationIssue[]> {
 				message: `Schema version mismatch for "${key}": docs=${docVersions[key]} source=${sourceVersions[key]}`,
 			});
 		}
+	}
+
+	let hasV2Workpack = false;
+	try {
+		await fs.access(path.join(docsRoot, 'planning', 'v2', 'requirements-index.yaml'));
+		hasV2Workpack = true;
+	} catch {
+		// The v2 workpack is optional until generated. Once present, docs validation enforces it.
+	}
+
+	if (hasV2Workpack) {
+		const workpackIssues = await validateWorkpack(repoRoot);
+		issues.push(
+			...workpackIssues.map((issue) => ({
+				file: issue.file,
+				line: 1,
+				message: issue.message,
+			})),
+		);
 	}
 
 	return issues;

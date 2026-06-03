@@ -1,0 +1,154 @@
+schemaVersion: 1
+id: MCP-semantic-bundles-and-ai-boundaries
+title: 'MCP: Semantic bundles and AI boundaries'
+status: proposed
+approved: false
+domain: MCP
+capabilityBranch: Semantic bundles and AI boundaries
+objective: Deliver the semantic bundles and ai boundaries capability branch for
+  MCP, traced to the included v2 requirements.
+requirementIds:
+  - MCP-006
+  - MCP-007
+  - MCP-008
+  - MCP-013
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - agent tool interface
+  - policy layer
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/mcp/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: MCP-006-S01
+    title: MCP semantic bundle tools shall pre-process vault data into bounded,
+      source-cited context packages for session prep, recap, continuity, open
+      threads, coverage gaps, and campaign health
+    requirementIds:
+      - MCP-006
+    acceptanceCriteria:
+      - Given a session prep bundle request, when generated, then output
+        includes bounded source references and excludes hidden
+        player-inaccessible content unless DM-scoped.
+      - Given the vault exceeds context limits, when bundled, then semantic
+        compression chooses summaries rather than raw full-vault content.
+    tasks:
+      - id: MCP-006-S01-T01
+        title: Confirm architecture and interface shape for MCP-006
+        kind: design
+      - id: MCP-006-S01-T02
+        title: Implement the smallest behavior that satisfies MCP-006
+        kind: implementation
+      - id: MCP-006-S01-T03
+        title: Add automated coverage for MCP-006 acceptance criteria
+        kind: test
+      - id: MCP-006-S01-T04
+        title: Record demo notes and traceability evidence for MCP-006
+        kind: demo
+  - id: MCP-007-S02
+    title: AI agents shall be limited to creative text assistance, narrative
+      suggestions, named entity extraction, and explanation over deterministic
+      findings; they shall not own graph intelligence, relationship scoring,
+      sync conflict resolution, or permission decisions
+    requirementIds:
+      - MCP-007
+    acceptanceCriteria:
+      - Given AI is disabled, when graph relationship scoring runs, then
+        deterministic scores are still produced.
+      - Given an AI suggests a permission or conflict resolution, when applied,
+        then a human/Core command must validate and accept it before state
+        changes.
+    tasks:
+      - id: MCP-007-S02-T01
+        title: Confirm architecture and interface shape for MCP-007
+        kind: design
+      - id: MCP-007-S02-T02
+        title: Implement the smallest behavior that satisfies MCP-007
+        kind: implementation
+      - id: MCP-007-S02-T03
+        title: Add automated coverage for MCP-007 acceptance criteria
+        kind: test
+      - id: MCP-007-S02-T04
+        title: Record demo notes and traceability evidence for MCP-007
+        kind: demo
+  - id: MCP-008-S03
+    title: Local AI integrations shall be optional and capability-detected, with
+      deterministic non-AI fallbacks for every Must-have workflow
+    requirementIds:
+      - MCP-008
+    acceptanceCriteria:
+      - Given no local model runtime is installed, when a session recap is
+        requested, then deterministic recap scaffolding still works.
+      - Given a local model is available, when enabled, then the app reports
+        model capability and failure state without blocking non-AI features.
+    tasks:
+      - id: MCP-008-S03-T01
+        title: Confirm architecture and interface shape for MCP-008
+        kind: design
+      - id: MCP-008-S03-T02
+        title: Implement the smallest behavior that satisfies MCP-008
+        kind: implementation
+      - id: MCP-008-S03-T03
+        title: Add automated coverage for MCP-008 acceptance criteria
+        kind: test
+      - id: MCP-008-S03-T04
+        title: Record demo notes and traceability evidence for MCP-008
+        kind: demo
+  - id: MCP-013-S04
+    title: MCP bundle tools shall include calendar/custom-time context for prep,
+      recap, continuity, and campaign health when visible source data contains
+      dates or timeline relationships
+    requirementIds:
+      - MCP-013
+    acceptanceCriteria:
+      - Given a DM requests a session recap bundle, when calendar-linked events
+        exist, then visible custom dates and source citations are included.
+      - Given a player-scoped bundle is ever supported, when hidden dated events
+        exist, then those events and revealing aggregate counts are omitted or
+        generalized.
+    tasks:
+      - id: MCP-013-S04-T01
+        title: Confirm architecture and interface shape for MCP-013
+        kind: design
+      - id: MCP-013-S04-T02
+        title: Implement the smallest behavior that satisfies MCP-013
+        kind: implementation
+      - id: MCP-013-S04-T03
+        title: Add automated coverage for MCP-013 acceptance criteria
+        kind: test
+      - id: MCP-013-S04-T04
+        title: Record demo notes and traceability evidence for MCP-013
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

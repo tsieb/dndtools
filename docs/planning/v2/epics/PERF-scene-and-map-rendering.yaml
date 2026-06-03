@@ -1,0 +1,100 @@
+schemaVersion: 1
+id: PERF-scene-and-map-rendering
+title: 'PERF: Scene and map rendering'
+status: proposed
+approved: false
+domain: PERF
+capabilityBranch: Scene and map rendering
+objective: Deliver the scene and map rendering capability branch for PERF,
+  traced to the included v2 requirements.
+requirementIds:
+  - PERF-002
+  - PERF-003
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - performance budgets
+  - measurement
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/perf/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: PERF-002-S01
+    title: Scene rendering shall support large Scenes through virtualization,
+      incremental widget updates, bounded subscriptions, and backpressure for
+      high-frequency events
+    requirementIds:
+      - PERF-002
+    acceptanceCriteria:
+      - Given a Scene contains many widgets, when opened, then offscreen or
+        collapsed widgets do not force full rendering work.
+      - Given high-frequency events arrive, when widgets subscribe, then
+        declared debounce/backpressure policy prevents render starvation.
+    tasks:
+      - id: PERF-002-S01-T01
+        title: Confirm architecture and interface shape for PERF-002
+        kind: design
+      - id: PERF-002-S01-T02
+        title: Implement the smallest behavior that satisfies PERF-002
+        kind: implementation
+      - id: PERF-002-S01-T03
+        title: Add automated coverage for PERF-002 acceptance criteria
+        kind: test
+      - id: PERF-002-S01-T04
+        title: Record demo notes and traceability evidence for PERF-002
+        kind: demo
+  - id: PERF-003-S02
+    title: Map rendering shall meet explicit budgets for pan, zoom, layer
+      compositing, fog operations, POI overlays, and nested-map transitions on
+      desktop and slim profiles
+    requirementIds:
+      - PERF-003
+    acceptanceCriteria:
+      - Given a map with multiple visible layers and POIs, when panning and
+        zooming, then measured frame budget remains within the defined target.
+      - Given a fog operation affects a region, when committed, then only
+        affected render regions update where the renderer supports it.
+    tasks:
+      - id: PERF-003-S02-T01
+        title: Confirm architecture and interface shape for PERF-003
+        kind: design
+      - id: PERF-003-S02-T02
+        title: Implement the smallest behavior that satisfies PERF-003
+        kind: implementation
+      - id: PERF-003-S02-T03
+        title: Add automated coverage for PERF-003 acceptance criteria
+        kind: test
+      - id: PERF-003-S02-T04
+        title: Record demo notes and traceability evidence for PERF-003
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

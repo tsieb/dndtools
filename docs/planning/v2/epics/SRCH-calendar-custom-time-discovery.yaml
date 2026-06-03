@@ -1,0 +1,74 @@
+schemaVersion: 1
+id: SRCH-calendar-custom-time-discovery
+title: 'SRCH: Calendar/custom-time discovery'
+status: proposed
+approved: false
+domain: SRCH
+capabilityBranch: Calendar/custom-time discovery
+objective: Deliver the calendar/custom-time discovery capability branch for
+  SRCH, traced to the included v2 requirements.
+requirementIds:
+  - SRCH-010
+excludedRequirementIds: []
+architectureContracts: []
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - search index
+  - quick switcher
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/srch/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: SRCH-010-S01
+    title: A user shall be able to search and filter visible content by campaign
+      calendar dates, custom-time ranges, timeline events, and session
+      chronology
+    requirementIds:
+      - SRCH-010
+    acceptanceCriteria:
+      - Given a visible event has a custom date, when the user filters by that
+        date range, then the event appears with stable date formatting.
+      - Given hidden events fall in the same range, when a player searches the
+        range, then hidden events and counts that reveal them are omitted or
+        generalized.
+    tasks:
+      - id: SRCH-010-S01-T01
+        title: Confirm architecture and interface shape for SRCH-010
+        kind: design
+      - id: SRCH-010-S01-T02
+        title: Implement the smallest behavior that satisfies SRCH-010
+        kind: implementation
+      - id: SRCH-010-S01-T03
+        title: Add automated coverage for SRCH-010 acceptance criteria
+        kind: test
+      - id: SRCH-010-S01-T04
+        title: Record demo notes and traceability evidence for SRCH-010
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

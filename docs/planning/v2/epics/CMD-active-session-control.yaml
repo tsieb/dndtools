@@ -1,0 +1,108 @@
+schemaVersion: 1
+id: CMD-active-session-control
+title: 'CMD: Active session control'
+status: proposed
+approved: false
+domain: CMD
+capabilityBranch: Active session control
+objective: Deliver the active session control capability branch for CMD, traced
+  to the included v2 requirements.
+requirementIds:
+  - CMD-003
+  - CMD-006
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - command center
+  - session shell
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/cmd/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CMD-003-S01
+    title: The DM shall be able to embed the active map or map region in the Command
+      Center and change the active map during a session with player-safe
+      projection controls
+    requirementIds:
+      - CMD-003
+    acceptanceCriteria:
+      - Given two maps in the vault, when the DM changes the active map widget
+        binding, then the Command Center displays the new map and session state
+        records the active map.
+      - Given the map contains DM-only layers, when the DM projects it to
+        players, then projected views receive only visible layers.
+    tasks:
+      - id: CMD-003-S01-T01
+        title: Confirm architecture and interface shape for CMD-003
+        kind: design
+      - id: CMD-003-S01-T02
+        title: Implement the smallest behavior that satisfies CMD-003
+        kind: implementation
+      - id: CMD-003-S01-T03
+        title: Add automated coverage for CMD-003 acceptance criteria
+        kind: test
+      - id: CMD-003-S01-T04
+        title: Record demo notes and traceability evidence for CMD-003
+        kind: demo
+  - id: CMD-006-S02
+    title: The DM shall be able to switch between idle, prep, active, paused,
+      ending, recap, and archived session workflows from the Command Center
+      while preserving application-level Session State
+    requirementIds:
+      - CMD-006
+    acceptanceCriteria:
+      - Given a session is active, when the DM navigates away and returns to the
+        Command Center, then combat, dice history, timers, and active Scene
+        remain intact.
+      - Given the DM ends a session, when recap starts, then session state is
+        archived or reset according to the end-session workflow.
+      - Given the DM pauses a session, when remote participants reconnect, then
+        they receive a paused/degraded status and no new live session commands
+        execute until resume.
+      - Given prep or recap is open without an active live session, when
+        session-owned widgets render, then they show draft or archived state
+        rather than mutating active Session State.
+    tasks:
+      - id: CMD-006-S02-T01
+        title: Confirm architecture and interface shape for CMD-006
+        kind: design
+      - id: CMD-006-S02-T02
+        title: Implement the smallest behavior that satisfies CMD-006
+        kind: implementation
+      - id: CMD-006-S02-T03
+        title: Add automated coverage for CMD-006 acceptance criteria
+        kind: test
+      - id: CMD-006-S02-T04
+        title: Record demo notes and traceability evidence for CMD-006
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

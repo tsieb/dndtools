@@ -1,0 +1,130 @@
+schemaVersion: 1
+id: CON-security-and-source-of-truth-constraints
+title: 'CON: Security and source-of-truth constraints'
+status: proposed
+approved: false
+domain: CON
+capabilityBranch: Security and source-of-truth constraints
+objective: Deliver the security and source-of-truth constraints capability
+  branch for CON, traced to the included v2 requirements.
+requirementIds:
+  - CON-001
+  - CON-002
+  - CON-005
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - governance constraints
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/con/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CON-001-S01
+    title: The system must never rely on GUI hiding as the authoritative enforcement
+      mechanism for visibility, permissions, sync filtering, or security
+      decisions
+    requirementIds:
+      - CON-001
+    acceptanceCriteria:
+      - Given a player query is made for hidden data, when data leaves the
+        storage/query layer, then hidden data is already absent.
+      - Given a UI component accidentally renders every field it receives, when
+        player data is supplied, then no DM-only field is present to leak.
+    tasks:
+      - id: CON-001-S01-T01
+        title: Confirm architecture and interface shape for CON-001
+        kind: design
+      - id: CON-001-S01-T02
+        title: Implement the smallest behavior that satisfies CON-001
+        kind: implementation
+      - id: CON-001-S01-T03
+        title: Add automated coverage for CON-001 acceptance criteria
+        kind: test
+      - id: CON-001-S01-T04
+        title: Record demo notes and traceability evidence for CON-001
+        kind: demo
+  - id: CON-002-S02
+    title: The system must never make MCP, AI, cloud sync, or network access
+      required for core local vault ownership, editing, search, maps,
+      characters, Scenes, dice, combat, or session continuity
+    requirementIds:
+      - CON-002
+    acceptanceCriteria:
+      - Given all network and MCP integrations are disabled, when the user opens
+        a cached vault, then core local workflows remain usable.
+      - Given AI services fail, when deterministic features run, then they
+        continue without AI.
+      - Given multi-user delivery is unavailable, when a local vault workflow
+        runs, then the local source of truth remains usable and remote delivery
+        is reported as unavailable rather than required.
+    tasks:
+      - id: CON-002-S02-T01
+        title: Confirm architecture and interface shape for CON-002
+        kind: design
+      - id: CON-002-S02-T02
+        title: Implement the smallest behavior that satisfies CON-002
+        kind: implementation
+      - id: CON-002-S02-T03
+        title: Add automated coverage for CON-002 acceptance criteria
+        kind: test
+      - id: CON-002-S02-T04
+        title: Record demo notes and traceability evidence for CON-002
+        kind: demo
+  - id: CON-005-S03
+    title: The system must never treat cloud storage, external sources, generated
+      snapshots, player-device caches, or widget-local state as the sole source
+      of truth for core vault content
+    requirementIds:
+      - CON-005
+    acceptanceCriteria:
+      - Given cloud storage is unavailable, when local authoritative content
+        exists, then the vault remains usable and can queue operations.
+      - Given a widget persists local state, when inspected, then canonical
+        entity data still resides in the owning entity/session/map state
+        document.
+    tasks:
+      - id: CON-005-S03-T01
+        title: Confirm architecture and interface shape for CON-005
+        kind: design
+      - id: CON-005-S03-T02
+        title: Implement the smallest behavior that satisfies CON-005
+        kind: implementation
+      - id: CON-005-S03-T03
+        title: Add automated coverage for CON-005 acceptance criteria
+        kind: test
+      - id: CON-005-S03-T04
+        title: Record demo notes and traceability evidence for CON-005
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

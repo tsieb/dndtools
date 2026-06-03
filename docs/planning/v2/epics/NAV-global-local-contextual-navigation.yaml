@@ -1,0 +1,75 @@
+schemaVersion: 1
+id: NAV-global-local-contextual-navigation
+title: 'NAV: Global/local/contextual navigation'
+status: proposed
+approved: false
+domain: NAV
+capabilityBranch: Global/local/contextual navigation
+objective: Deliver the global/local/contextual navigation capability branch for
+  NAV, traced to the included v2 requirements.
+requirementIds:
+  - NAV-003
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 2: Cloud Sync & Offline Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - navigation model
+  - route shell
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/nav/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: NAV-003-S01
+    title: A user shall be able to navigate using global navigation, local section
+      navigation, contextual navigation, breadcrumbs, backlinks, pinned/recent
+      items, and command palette without redundant conflicting route state
+    requirementIds:
+      - NAV-003
+    acceptanceCriteria:
+      - Given a note is open, when backlinks or breadcrumbs are used, then
+        navigation updates route and history coherently.
+      - Given mobile profile is active, when local nav is opened, then it
+        appears as an accessible drawer/sheet and does not trap focus after
+        closing.
+    tasks:
+      - id: NAV-003-S01-T01
+        title: Confirm architecture and interface shape for NAV-003
+        kind: design
+      - id: NAV-003-S01-T02
+        title: Implement the smallest behavior that satisfies NAV-003
+        kind: implementation
+      - id: NAV-003-S01-T03
+        title: Add automated coverage for NAV-003 acceptance criteria
+        kind: test
+      - id: NAV-003-S01-T04
+        title: Record demo notes and traceability evidence for NAV-003
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

@@ -1,0 +1,75 @@
+schemaVersion: 1
+id: CHAR-widget-data-exposure
+title: 'CHAR: Widget data exposure'
+status: proposed
+approved: false
+domain: CHAR
+capabilityBranch: Widget data exposure
+objective: Deliver the widget data exposure capability branch for CHAR, traced
+  to the included v2 requirements.
+requirementIds:
+  - CHAR-006
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - character model
+  - character UI
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/char/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CHAR-006-S01
+    title: A widget shall be able to bind to a character's structured data exposure
+      API for HP, resources, conditions, spell slots, abilities, skills,
+      equipment, and visible notes
+    requirementIds:
+      - CHAR-006
+    acceptanceCriteria:
+      - Given a combat widget binds to character HP, when HP changes through a
+        command, then the widget receives updated actor-scoped HP state.
+      - Given a widget binds to a hidden character field in a player context,
+        when binding resolves, then the hidden field is omitted.
+    tasks:
+      - id: CHAR-006-S01-T01
+        title: Confirm architecture and interface shape for CHAR-006
+        kind: design
+      - id: CHAR-006-S01-T02
+        title: Implement the smallest behavior that satisfies CHAR-006
+        kind: implementation
+      - id: CHAR-006-S01-T03
+        title: Add automated coverage for CHAR-006 acceptance criteria
+        kind: test
+      - id: CHAR-006-S01-T04
+        title: Record demo notes and traceability evidence for CHAR-006
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

@@ -1,0 +1,100 @@
+schemaVersion: 1
+id: CANVAS-layout-accessibility
+title: 'CANVAS: Layout accessibility'
+status: proposed
+approved: false
+domain: CANVAS
+capabilityBranch: Layout accessibility
+objective: Deliver the layout accessibility capability branch for CANVAS, traced
+  to the included v2 requirements.
+requirementIds:
+  - CANVAS-012
+  - CANVAS-016
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - scene core
+  - widget host
+  - scene UI
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/canvas/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CANVAS-012-S01
+    title: A keyboard or touch user shall be able to perform every Must-have Scene
+      and widget layout operation without relying on drag-only or hover-only
+      controls
+    requirementIds:
+      - CANVAS-012
+    acceptanceCriteria:
+      - Given keyboard-only input, when the user selects a widget, then they can
+        move and resize it through focusable controls or command menus.
+      - Given a touch device, when the user opens widget actions, then all
+        commands remain reachable without hover.
+    tasks:
+      - id: CANVAS-012-S01-T01
+        title: Confirm architecture and interface shape for CANVAS-012
+        kind: design
+      - id: CANVAS-012-S01-T02
+        title: Implement the smallest behavior that satisfies CANVAS-012
+        kind: implementation
+      - id: CANVAS-012-S01-T03
+        title: Add automated coverage for CANVAS-012 acceptance criteria
+        kind: test
+      - id: CANVAS-012-S01-T04
+        title: Record demo notes and traceability evidence for CANVAS-012
+        kind: demo
+  - id: CANVAS-016-S02
+    title: Scene focus order shall follow z-order, grouping, dock/pin state, and
+      explicit widget focus metadata rather than DOM insertion order
+    requirementIds:
+      - CANVAS-016
+    acceptanceCriteria:
+      - Given a Scene contains grouped and layered widgets, when keyboard
+        traversal starts, then focus follows the declared Scene focus order.
+      - Given a widget is pinned or docked, when the layout changes, then focus
+        order updates predictably and no widget control becomes unreachable.
+    tasks:
+      - id: CANVAS-016-S02-T01
+        title: Confirm architecture and interface shape for CANVAS-016
+        kind: design
+      - id: CANVAS-016-S02-T02
+        title: Implement the smallest behavior that satisfies CANVAS-016
+        kind: implementation
+      - id: CANVAS-016-S02-T03
+        title: Add automated coverage for CANVAS-016 acceptance criteria
+        kind: test
+      - id: CANVAS-016-S02-T04
+        title: Record demo notes and traceability evidence for CANVAS-016
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

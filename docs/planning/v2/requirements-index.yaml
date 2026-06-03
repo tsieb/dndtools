@@ -1,0 +1,1463 @@
+schemaVersion: 1
+generatedFrom: docs/remake-review/requirements
+totalRequirements: 234
+domains:
+  - domain: CANVAS
+    count: 18
+    requirements:
+      - id: CANVAS-001
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 11
+        capabilityBranches:
+          - Scene state
+      - id: CANVAS-002
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 21
+        capabilityBranches:
+          - Widget lifecycle
+      - id: CANVAS-003
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 30
+        capabilityBranches:
+          - Scene state
+      - id: CANVAS-004
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 41
+        capabilityBranches:
+          - Scene state
+      - id: CANVAS-005
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 50
+        capabilityBranches:
+          - Player view and projection
+      - id: CANVAS-006
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 61
+        capabilityBranches:
+          - Player view and projection
+      - id: CANVAS-007
+        priority: Should-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 71
+        capabilityBranches:
+          - Player view and projection
+      - id: CANVAS-008
+        priority: Should-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 81
+        capabilityBranches:
+          - Widget lifecycle
+      - id: CANVAS-009
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 91
+        capabilityBranches:
+          - Widget data safety
+      - id: CANVAS-010
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 100
+        capabilityBranches:
+          - Widget lifecycle
+          - Widget data safety
+      - id: CANVAS-011
+        priority: Should-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 109
+        capabilityBranches:
+          - Widget lifecycle
+      - id: CANVAS-012
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 118
+        capabilityBranches:
+          - Layout accessibility
+      - id: CANVAS-013
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 127
+        capabilityBranches:
+          - Scene state
+      - id: CANVAS-014
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 136
+        capabilityBranches:
+          - Widget lifecycle
+      - id: CANVAS-015
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 145
+        capabilityBranches:
+          - Player view and projection
+      - id: CANVAS-016
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 154
+        capabilityBranches:
+          - Layout accessibility
+      - id: CANVAS-017
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 163
+        capabilityBranches:
+          - Widget lifecycle
+      - id: CANVAS-018
+        priority: Must-have
+        file: docs/remake-review/requirements/01-canvas-scene-widgets.md
+        line: 174
+        capabilityBranches:
+          - Scene state
+  - domain: CMD
+    count: 8
+    requirements:
+      - id: CMD-001
+        priority: Must-have
+        file: docs/remake-review/requirements/02-command-center.md
+        line: 10
+        capabilityBranches:
+          - Home scene
+      - id: CMD-002
+        priority: Must-have
+        file: docs/remake-review/requirements/02-command-center.md
+        line: 19
+        capabilityBranches:
+          - Home scene
+      - id: CMD-003
+        priority: Must-have
+        file: docs/remake-review/requirements/02-command-center.md
+        line: 28
+        capabilityBranches:
+          - Active session control
+      - id: CMD-004
+        priority: Must-have
+        file: docs/remake-review/requirements/02-command-center.md
+        line: 37
+        capabilityBranches:
+          - Player view control
+      - id: CMD-005
+        priority: Must-have
+        file: docs/remake-review/requirements/02-command-center.md
+        line: 46
+        capabilityBranches:
+          - Widget library and actions
+      - id: CMD-006
+        priority: Must-have
+        file: docs/remake-review/requirements/02-command-center.md
+        line: 55
+        capabilityBranches:
+          - Active session control
+      - id: CMD-007
+        priority: Should-have
+        file: docs/remake-review/requirements/02-command-center.md
+        line: 66
+        capabilityBranches:
+          - Home scene
+      - id: CMD-008
+        priority: Should-have
+        file: docs/remake-review/requirements/02-command-center.md
+        line: 75
+        capabilityBranches:
+          - Widget library and actions
+  - domain: MAP
+    count: 20
+    requirements:
+      - id: MAP-001
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 12
+        capabilityBranches:
+          - Map entity and assets
+      - id: MAP-002
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 21
+        capabilityBranches:
+          - Map entity and assets
+      - id: MAP-003
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 32
+        capabilityBranches:
+          - Map editing and generation
+      - id: MAP-004
+        priority: Should-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 42
+        capabilityBranches:
+          - Map editing and generation
+      - id: MAP-005
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 51
+        capabilityBranches:
+          - Layers and visibility
+      - id: MAP-006
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 60
+        capabilityBranches:
+          - Layers and visibility
+      - id: MAP-007
+        priority: Should-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 71
+        capabilityBranches:
+          - Layers and visibility
+      - id: MAP-008
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 80
+        capabilityBranches:
+          - Nesting and spatial transitions
+      - id: MAP-009
+        priority: Should-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 89
+        capabilityBranches:
+          - Nesting and spatial transitions
+      - id: MAP-010
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 98
+        capabilityBranches:
+          - POIs, routes, fog, and combat overlays
+      - id: MAP-011
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 107
+        capabilityBranches:
+          - POIs, routes, fog, and combat overlays
+      - id: MAP-012
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 118
+        capabilityBranches:
+          - POIs, routes, fog, and combat overlays
+      - id: MAP-013
+        priority: Should-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 127
+        capabilityBranches:
+          - POIs, routes, fog, and combat overlays
+      - id: MAP-014
+        priority: Should-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 136
+        capabilityBranches:
+          - POIs, routes, fog, and combat overlays
+      - id: MAP-015
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 145
+        capabilityBranches:
+          - Interaction safety
+      - id: MAP-016
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 154
+        capabilityBranches:
+          - Layers and visibility
+      - id: MAP-017
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 164
+        capabilityBranches:
+          - Nesting and spatial transitions
+      - id: MAP-018
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 174
+        capabilityBranches:
+          - POIs, routes, fog, and combat overlays
+      - id: MAP-019
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 183
+        capabilityBranches:
+          - POIs, routes, fog, and combat overlays
+      - id: MAP-020
+        priority: Must-have
+        file: docs/remake-review/requirements/03-maps.md
+        line: 194
+        capabilityBranches:
+          - Map entity and assets
+  - domain: CHAR
+    count: 16
+    requirements:
+      - id: CHAR-001
+        priority: Must-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 12
+        capabilityBranches:
+          - Character creation and drafts
+      - id: CHAR-002
+        priority: Must-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 21
+        capabilityBranches:
+          - Character creation and drafts
+      - id: CHAR-003
+        priority: Must-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 32
+        capabilityBranches:
+          - Ownership and permission grants
+      - id: CHAR-004
+        priority: Should-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 41
+        capabilityBranches:
+          - Collaboration and DM edits
+      - id: CHAR-005
+        priority: Must-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 50
+        capabilityBranches:
+          - Collaboration and DM edits
+      - id: CHAR-006
+        priority: Must-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 60
+        capabilityBranches:
+          - Widget data exposure
+      - id: CHAR-007
+        priority: Must-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 69
+        capabilityBranches:
+          - Combat, resources, and advancement
+      - id: CHAR-008
+        priority: Must-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 78
+        capabilityBranches:
+          - Combat, resources, and advancement
+      - id: CHAR-009
+        priority: Should-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 87
+        capabilityBranches:
+          - Combat, resources, and advancement
+      - id: CHAR-010
+        priority: Must-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 97
+        capabilityBranches:
+          - Ownership and permission grants
+      - id: CHAR-011
+        priority: Should-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 106
+        capabilityBranches:
+          - Party and player records
+      - id: CHAR-012
+        priority: Nice-to-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 115
+        capabilityBranches:
+          - Party and player records
+      - id: CHAR-013
+        priority: Must-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 125
+        capabilityBranches:
+          - Character creation and drafts
+      - id: CHAR-014
+        priority: Must-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 134
+        capabilityBranches:
+          - Collaboration and DM edits
+      - id: CHAR-015
+        priority: Must-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 143
+        capabilityBranches:
+          - Party and player records
+      - id: CHAR-016
+        priority: Must-have
+        file: docs/remake-review/requirements/04-characters.md
+        line: 152
+        capabilityBranches:
+          - Party and player records
+  - domain: SES
+    count: 12
+    requirements:
+      - id: SES-001
+        priority: Must-have
+        file: docs/remake-review/requirements/05-sessions.md
+        line: 11
+        capabilityBranches:
+          - Session lifecycle
+      - id: SES-002
+        priority: Must-have
+        file: docs/remake-review/requirements/05-sessions.md
+        line: 21
+        capabilityBranches:
+          - Combat
+      - id: SES-003
+        priority: Must-have
+        file: docs/remake-review/requirements/05-sessions.md
+        line: 33
+        capabilityBranches:
+          - Dice and tables
+      - id: SES-004
+        priority: Must-have
+        file: docs/remake-review/requirements/05-sessions.md
+        line: 44
+        capabilityBranches:
+          - Handouts and tools
+      - id: SES-005
+        priority: Must-have
+        file: docs/remake-review/requirements/05-sessions.md
+        line: 53
+        capabilityBranches:
+          - Handouts and tools
+      - id: SES-006
+        priority: Should-have
+        file: docs/remake-review/requirements/05-sessions.md
+        line: 62
+        capabilityBranches:
+          - Combat
+      - id: SES-007
+        priority: Should-have
+        file: docs/remake-review/requirements/05-sessions.md
+        line: 71
+        capabilityBranches:
+          - Handouts and tools
+      - id: SES-008
+        priority: Should-have
+        file: docs/remake-review/requirements/05-sessions.md
+        line: 80
+        capabilityBranches:
+          - Dice and tables
+      - id: SES-009
+        priority: Should-have
+        file: docs/remake-review/requirements/05-sessions.md
+        line: 89
+        capabilityBranches:
+          - Prep, recap, and calendar continuity
+      - id: SES-010
+        priority: Must-have
+        file: docs/remake-review/requirements/05-sessions.md
+        line: 98
+        capabilityBranches:
+          - Session lifecycle
+      - id: SES-011
+        priority: Must-have
+        file: docs/remake-review/requirements/05-sessions.md
+        line: 107
+        capabilityBranches:
+          - Session lifecycle
+      - id: SES-012
+        priority: Should-have
+        file: docs/remake-review/requirements/05-sessions.md
+        line: 116
+        capabilityBranches:
+          - Prep, recap, and calendar continuity
+  - domain: CONTENT
+    count: 13
+    requirements:
+      - id: CONTENT-001
+        priority: Must-have
+        file: docs/remake-review/requirements/06-content.md
+        line: 13
+        capabilityBranches:
+          - Notes and editor
+      - id: CONTENT-002
+        priority: Must-have
+        file: docs/remake-review/requirements/06-content.md
+        line: 25
+        capabilityBranches:
+          - Notes and editor
+      - id: CONTENT-003
+        priority: Should-have
+        file: docs/remake-review/requirements/06-content.md
+        line: 34
+        capabilityBranches:
+          - Templates and snippets
+      - id: CONTENT-004
+        priority: Should-have
+        file: docs/remake-review/requirements/06-content.md
+        line: 43
+        capabilityBranches:
+          - Templates and snippets
+      - id: CONTENT-005
+        priority: Must-have
+        file: docs/remake-review/requirements/06-content.md
+        line: 52
+        capabilityBranches:
+          - Structured objects and wikilinks
+      - id: CONTENT-006
+        priority: Must-have
+        file: docs/remake-review/requirements/06-content.md
+        line: 61
+        capabilityBranches:
+          - Structured objects and wikilinks
+      - id: CONTENT-007
+        priority: Should-have
+        file: docs/remake-review/requirements/06-content.md
+        line: 71
+        capabilityBranches:
+          - Import/export
+      - id: CONTENT-008
+        priority: Should-have
+        file: docs/remake-review/requirements/06-content.md
+        line: 80
+        capabilityBranches:
+          - Import/export
+      - id: CONTENT-009
+        priority: Must-have
+        file: docs/remake-review/requirements/06-content.md
+        line: 89
+        capabilityBranches:
+          - Visibility and embeds
+      - id: CONTENT-010
+        priority: Must-have
+        file: docs/remake-review/requirements/06-content.md
+        line: 100
+        capabilityBranches:
+          - Visibility and embeds
+      - id: CONTENT-011
+        priority: Should-have
+        file: docs/remake-review/requirements/06-content.md
+        line: 110
+        capabilityBranches:
+          - Calendar/custom time content
+      - id: CONTENT-012
+        priority: Must-have
+        file: docs/remake-review/requirements/06-content.md
+        line: 119
+        capabilityBranches:
+          - Source-specific constraints
+      - id: CONTENT-013
+        priority: Must-have
+        file: docs/remake-review/requirements/06-content.md
+        line: 129
+        capabilityBranches:
+          - Structured objects and wikilinks
+  - domain: GRAPH
+    count: 10
+    requirements:
+      - id: GRAPH-001
+        priority: Must-have
+        file: docs/remake-review/requirements/07-graph.md
+        line: 11
+        capabilityBranches:
+          - Source indexing
+      - id: GRAPH-002
+        priority: Must-have
+        file: docs/remake-review/requirements/07-graph.md
+        line: 21
+        capabilityBranches:
+          - Backlinks and navigation relationships
+      - id: GRAPH-003
+        priority: Should-have
+        file: docs/remake-review/requirements/07-graph.md
+        line: 30
+        capabilityBranches:
+          - Deterministic quality intelligence
+      - id: GRAPH-004
+        priority: Should-have
+        file: docs/remake-review/requirements/07-graph.md
+        line: 40
+        capabilityBranches:
+          - Visualization
+      - id: GRAPH-005
+        priority: Must-have
+        file: docs/remake-review/requirements/07-graph.md
+        line: 49
+        capabilityBranches:
+          - Incremental APIs
+      - id: GRAPH-006
+        priority: Must-have
+        file: docs/remake-review/requirements/07-graph.md
+        line: 58
+        capabilityBranches:
+          - Incremental APIs
+      - id: GRAPH-007
+        priority: Should-have
+        file: docs/remake-review/requirements/07-graph.md
+        line: 67
+        capabilityBranches:
+          - Deterministic quality intelligence
+      - id: GRAPH-008
+        priority: Must-have
+        file: docs/remake-review/requirements/07-graph.md
+        line: 78
+        capabilityBranches:
+          - Source indexing
+      - id: GRAPH-009
+        priority: Should-have
+        file: docs/remake-review/requirements/07-graph.md
+        line: 88
+        capabilityBranches:
+          - Deterministic quality intelligence
+      - id: GRAPH-010
+        priority: Must-have
+        file: docs/remake-review/requirements/07-graph.md
+        line: 97
+        capabilityBranches:
+          - Deterministic quality intelligence
+  - domain: SRCH
+    count: 11
+    requirements:
+      - id: SRCH-001
+        priority: Must-have
+        file: docs/remake-review/requirements/08-search.md
+        line: 12
+        capabilityBranches:
+          - Local indexes and freshness
+      - id: SRCH-002
+        priority: Must-have
+        file: docs/remake-review/requirements/08-search.md
+        line: 22
+        capabilityBranches:
+          - Quick switcher and command discovery
+      - id: SRCH-003
+        priority: Should-have
+        file: docs/remake-review/requirements/08-search.md
+        line: 32
+        capabilityBranches:
+          - Filters and saved searches
+      - id: SRCH-004
+        priority: Should-have
+        file: docs/remake-review/requirements/08-search.md
+        line: 43
+        capabilityBranches:
+          - Filters and saved searches
+      - id: SRCH-005
+        priority: Must-have
+        file: docs/remake-review/requirements/08-search.md
+        line: 52
+        capabilityBranches:
+          - Ranking and result context
+      - id: SRCH-006
+        priority: Must-have
+        file: docs/remake-review/requirements/08-search.md
+        line: 63
+        capabilityBranches:
+          - Ranking and result context
+      - id: SRCH-007
+        priority: Must-have
+        file: docs/remake-review/requirements/08-search.md
+        line: 73
+        capabilityBranches:
+          - Result opening and deterministic diagnostics
+      - id: SRCH-008
+        priority: Should-have
+        file: docs/remake-review/requirements/08-search.md
+        line: 82
+        capabilityBranches:
+          - Result opening and deterministic diagnostics
+      - id: SRCH-009
+        priority: Must-have
+        file: docs/remake-review/requirements/08-search.md
+        line: 91
+        capabilityBranches:
+          - Local indexes and freshness
+      - id: SRCH-010
+        priority: Should-have
+        file: docs/remake-review/requirements/08-search.md
+        line: 100
+        capabilityBranches:
+          - Calendar/custom-time discovery
+      - id: SRCH-011
+        priority: Should-have
+        file: docs/remake-review/requirements/08-search.md
+        line: 109
+        capabilityBranches:
+          - Ranking and result context
+  - domain: SYNC
+    count: 17
+    requirements:
+      - id: SYNC-001
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 11
+        capabilityBranches:
+          - Local-first operation model
+      - id: SYNC-002
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 21
+        capabilityBranches:
+          - Local-first operation model
+      - id: SYNC-003
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 32
+        capabilityBranches:
+          - Source adapters
+      - id: SYNC-004
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 42
+        capabilityBranches:
+          - Source adapters
+      - id: SYNC-005
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 52
+        capabilityBranches:
+          - Source adapters
+      - id: SYNC-006
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 63
+        capabilityBranches:
+          - Conflict lifecycle
+      - id: SYNC-007
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 74
+        capabilityBranches:
+          - Cloud/device-local storage
+      - id: SYNC-008
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 83
+        capabilityBranches:
+          - Cloud/device-local storage
+      - id: SYNC-009
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 92
+        capabilityBranches:
+          - Asset sync and status
+      - id: SYNC-010
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 101
+        capabilityBranches:
+          - Asset sync and status
+      - id: SYNC-011
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 110
+        capabilityBranches:
+          - Local-first operation model
+      - id: SYNC-012
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 119
+        capabilityBranches:
+          - Source adapters
+      - id: SYNC-013
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 129
+        capabilityBranches:
+          - Conflict lifecycle
+      - id: SYNC-014
+        priority: Should-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 139
+        capabilityBranches:
+          - Asset sync and status
+      - id: SYNC-015
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 148
+        capabilityBranches:
+          - Source adapters
+      - id: SYNC-016
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 158
+        capabilityBranches:
+          - Source adapters
+      - id: SYNC-017
+        priority: Must-have
+        file: docs/remake-review/requirements/09-sync.md
+        line: 169
+        capabilityBranches:
+          - Cloud/device-local storage
+  - domain: COLLAB
+    count: 14
+    requirements:
+      - id: COLLAB-001
+        priority: Must-have
+        file: docs/remake-review/requirements/10-collaboration.md
+        line: 11
+        capabilityBranches:
+          - Join, reconnect, and identity
+      - id: COLLAB-002
+        priority: Must-have
+        file: docs/remake-review/requirements/10-collaboration.md
+        line: 21
+        capabilityBranches:
+          - Join, reconnect, and identity
+      - id: COLLAB-003
+        priority: Must-have
+        file: docs/remake-review/requirements/10-collaboration.md
+        line: 31
+        capabilityBranches:
+          - Live session state and presence
+      - id: COLLAB-004
+        priority: Must-have
+        file: docs/remake-review/requirements/10-collaboration.md
+        line: 42
+        capabilityBranches:
+          - Live session state and presence
+      - id: COLLAB-005
+        priority: Must-have
+        file: docs/remake-review/requirements/10-collaboration.md
+        line: 51
+        capabilityBranches:
+          - Player views and observer access
+      - id: COLLAB-006
+        priority: Must-have
+        file: docs/remake-review/requirements/10-collaboration.md
+        line: 60
+        capabilityBranches:
+          - Combat and handouts
+      - id: COLLAB-007
+        priority: Must-have
+        file: docs/remake-review/requirements/10-collaboration.md
+        line: 70
+        capabilityBranches:
+          - Combat and handouts
+      - id: COLLAB-008
+        priority: Must-have
+        file: docs/remake-review/requirements/10-collaboration.md
+        line: 80
+        capabilityBranches:
+          - Authority, filtering, and cache privacy
+      - id: COLLAB-009
+        priority: Must-have
+        file: docs/remake-review/requirements/10-collaboration.md
+        line: 89
+        capabilityBranches:
+          - Authority, filtering, and cache privacy
+      - id: COLLAB-010
+        priority: Must-have
+        file: docs/remake-review/requirements/10-collaboration.md
+        line: 98
+        capabilityBranches:
+          - Authority, filtering, and cache privacy
+      - id: COLLAB-011
+        priority: Must-have
+        file: docs/remake-review/requirements/10-collaboration.md
+        line: 109
+        capabilityBranches:
+          - Player views and observer access
+      - id: COLLAB-012
+        priority: Should-have
+        file: docs/remake-review/requirements/10-collaboration.md
+        line: 118
+        capabilityBranches:
+          - Combat and handouts
+      - id: COLLAB-013
+        priority: Must-have
+        file: docs/remake-review/requirements/10-collaboration.md
+        line: 128
+        capabilityBranches:
+          - Join, reconnect, and identity
+      - id: COLLAB-014
+        priority: Must-have
+        file: docs/remake-review/requirements/10-collaboration.md
+        line: 138
+        capabilityBranches:
+          - Authority, filtering, and cache privacy
+  - domain: PERM
+    count: 14
+    requirements:
+      - id: PERM-001
+        priority: Must-have
+        file: docs/remake-review/requirements/11-permissions.md
+        line: 10
+        capabilityBranches:
+          - Base roles and observer limits
+      - id: PERM-002
+        priority: Must-have
+        file: docs/remake-review/requirements/11-permissions.md
+        line: 19
+        capabilityBranches:
+          - Visibility
+      - id: PERM-003
+        priority: Must-have
+        file: docs/remake-review/requirements/11-permissions.md
+        line: 30
+        capabilityBranches:
+          - Visibility
+      - id: PERM-004
+        priority: Must-have
+        file: docs/remake-review/requirements/11-permissions.md
+        line: 39
+        capabilityBranches:
+          - Grants and capability sets
+      - id: PERM-005
+        priority: Must-have
+        file: docs/remake-review/requirements/11-permissions.md
+        line: 49
+        capabilityBranches:
+          - Grants and capability sets
+      - id: PERM-006
+        priority: Must-have
+        file: docs/remake-review/requirements/11-permissions.md
+        line: 58
+        capabilityBranches:
+          - Grants and capability sets
+      - id: PERM-007
+        priority: Must-have
+        file: docs/remake-review/requirements/11-permissions.md
+        line: 67
+        capabilityBranches:
+          - Consistency, cache invalidation, and audit
+      - id: PERM-008
+        priority: Must-have
+        file: docs/remake-review/requirements/11-permissions.md
+        line: 76
+        capabilityBranches:
+          - Grants and capability sets
+      - id: PERM-009
+        priority: Must-have
+        file: docs/remake-review/requirements/11-permissions.md
+        line: 85
+        capabilityBranches:
+          - Consistency, cache invalidation, and audit
+      - id: PERM-010
+        priority: Must-have
+        file: docs/remake-review/requirements/11-permissions.md
+        line: 94
+        capabilityBranches:
+          - Consistency, cache invalidation, and audit
+      - id: PERM-011
+        priority: Must-have
+        file: docs/remake-review/requirements/11-permissions.md
+        line: 103
+        capabilityBranches:
+          - Base roles and observer limits
+      - id: PERM-012
+        priority: Must-have
+        file: docs/remake-review/requirements/11-permissions.md
+        line: 112
+        capabilityBranches:
+          - Visibility
+      - id: PERM-013
+        priority: Must-have
+        file: docs/remake-review/requirements/11-permissions.md
+        line: 121
+        capabilityBranches:
+          - Grants and capability sets
+      - id: PERM-014
+        priority: Must-have
+        file: docs/remake-review/requirements/11-permissions.md
+        line: 130
+        capabilityBranches:
+          - Consistency, cache invalidation, and audit
+  - domain: AUDIO
+    count: 13
+    requirements:
+      - id: AUDIO-001
+        priority: Should-have
+        file: docs/remake-review/requirements/12-audio.md
+        line: 11
+        capabilityBranches:
+          - Scene/map audio association
+      - id: AUDIO-002
+        priority: Should-have
+        file: docs/remake-review/requirements/12-audio.md
+        line: 20
+        capabilityBranches:
+          - Playback and session state
+      - id: AUDIO-003
+        priority: Should-have
+        file: docs/remake-review/requirements/12-audio.md
+        line: 30
+        capabilityBranches:
+          - Playback and session state
+      - id: AUDIO-004
+        priority: Nice-to-have
+        file: docs/remake-review/requirements/12-audio.md
+        line: 40
+        capabilityBranches:
+          - Assets, licensing, and source scope
+      - id: AUDIO-005
+        priority: Nice-to-have
+        file: docs/remake-review/requirements/12-audio.md
+        line: 49
+        capabilityBranches:
+          - Automation
+      - id: AUDIO-006
+        priority: Should-have
+        file: docs/remake-review/requirements/12-audio.md
+        line: 58
+        capabilityBranches:
+          - Platform and player degradation
+      - id: AUDIO-007
+        priority: Must-have
+        file: docs/remake-review/requirements/12-audio.md
+        line: 67
+        capabilityBranches:
+          - Platform and player degradation
+      - id: AUDIO-008
+        priority: Must-have
+        file: docs/remake-review/requirements/12-audio.md
+        line: 77
+        capabilityBranches:
+          - Platform and player degradation
+      - id: AUDIO-009
+        priority: Should-have
+        file: docs/remake-review/requirements/12-audio.md
+        line: 87
+        capabilityBranches:
+          - Assets, licensing, and source scope
+      - id: AUDIO-010
+        priority: Should-have
+        file: docs/remake-review/requirements/12-audio.md
+        line: 96
+        capabilityBranches:
+          - Assets, licensing, and source scope
+      - id: AUDIO-011
+        priority: Nice-to-have
+        file: docs/remake-review/requirements/12-audio.md
+        line: 106
+        capabilityBranches:
+          - Assets, licensing, and source scope
+      - id: AUDIO-012
+        priority: Should-have
+        file: docs/remake-review/requirements/12-audio.md
+        line: 115
+        capabilityBranches:
+          - Platform and player degradation
+      - id: AUDIO-013
+        priority: Should-have
+        file: docs/remake-review/requirements/12-audio.md
+        line: 124
+        capabilityBranches:
+          - Platform and player degradation
+  - domain: MCP
+    count: 13
+    requirements:
+      - id: MCP-001
+        priority: Must-have
+        file: docs/remake-review/requirements/13-mcp-ai.md
+        line: 11
+        capabilityBranches:
+          - Optionality and baseline tools
+      - id: MCP-002
+        priority: Must-have
+        file: docs/remake-review/requirements/13-mcp-ai.md
+        line: 20
+        capabilityBranches:
+          - Optionality and baseline tools
+      - id: MCP-003
+        priority: Must-have
+        file: docs/remake-review/requirements/13-mcp-ai.md
+        line: 31
+        capabilityBranches:
+          - Identity, policy, and staged writes
+      - id: MCP-004
+        priority: Must-have
+        file: docs/remake-review/requirements/13-mcp-ai.md
+        line: 42
+        capabilityBranches:
+          - Core enforcement and tests
+      - id: MCP-005
+        priority: Must-have
+        file: docs/remake-review/requirements/13-mcp-ai.md
+        line: 51
+        capabilityBranches:
+          - Core enforcement and tests
+      - id: MCP-006
+        priority: Must-have
+        file: docs/remake-review/requirements/13-mcp-ai.md
+        line: 60
+        capabilityBranches:
+          - Semantic bundles and AI boundaries
+      - id: MCP-007
+        priority: Must-have
+        file: docs/remake-review/requirements/13-mcp-ai.md
+        line: 69
+        capabilityBranches:
+          - Semantic bundles and AI boundaries
+      - id: MCP-008
+        priority: Should-have
+        file: docs/remake-review/requirements/13-mcp-ai.md
+        line: 78
+        capabilityBranches:
+          - Semantic bundles and AI boundaries
+      - id: MCP-009
+        priority: Should-have
+        file: docs/remake-review/requirements/13-mcp-ai.md
+        line: 87
+        capabilityBranches:
+          - Identity, policy, and staged writes
+      - id: MCP-010
+        priority: Should-have
+        file: docs/remake-review/requirements/13-mcp-ai.md
+        line: 98
+        capabilityBranches:
+          - Response contracts
+      - id: MCP-011
+        priority: Must-have
+        file: docs/remake-review/requirements/13-mcp-ai.md
+        line: 107
+        capabilityBranches:
+          - Identity, policy, and staged writes
+      - id: MCP-012
+        priority: Must-have
+        file: docs/remake-review/requirements/13-mcp-ai.md
+        line: 116
+        capabilityBranches:
+          - Core enforcement and tests
+      - id: MCP-013
+        priority: Should-have
+        file: docs/remake-review/requirements/13-mcp-ai.md
+        line: 125
+        capabilityBranches:
+          - Semantic bundles and AI boundaries
+  - domain: PLAT
+    count: 18
+    requirements:
+      - id: PLAT-001
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 10
+        capabilityBranches:
+          - Platform profiles and shells
+      - id: PLAT-002
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 19
+        capabilityBranches:
+          - Platform profiles and shells
+      - id: PLAT-003
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 29
+        capabilityBranches:
+          - Platform profiles and shells
+      - id: PLAT-004
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 38
+        capabilityBranches:
+          - Platform profiles and shells
+      - id: PLAT-005
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 50
+        capabilityBranches:
+          - Platform profiles and shells
+      - id: PLAT-006
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 59
+        capabilityBranches:
+          - Persistence and boundaries
+      - id: PLAT-007
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 68
+        capabilityBranches:
+          - Persistence and boundaries
+      - id: PLAT-008
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 77
+        capabilityBranches:
+          - Migration and diagnostics
+      - id: PLAT-009
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 86
+        capabilityBranches:
+          - Migration and diagnostics
+      - id: PLAT-010
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 96
+        capabilityBranches:
+          - Quality gates and onboarding
+      - id: PLAT-011
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 107
+        capabilityBranches:
+          - Persistence and boundaries
+      - id: PLAT-012
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 116
+        capabilityBranches:
+          - Persistence and boundaries
+      - id: PLAT-013
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 125
+        capabilityBranches:
+          - Quality gates and onboarding
+      - id: PLAT-014
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 134
+        capabilityBranches:
+          - Quality gates and onboarding
+      - id: PLAT-015
+        priority: Should-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 143
+        capabilityBranches:
+          - Quality gates and onboarding
+      - id: PLAT-016
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 153
+        capabilityBranches:
+          - Platform profiles and shells
+      - id: PLAT-017
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 165
+        capabilityBranches:
+          - Migration and diagnostics
+      - id: PLAT-018
+        priority: Must-have
+        file: docs/remake-review/requirements/14-platform.md
+        line: 175
+        capabilityBranches:
+          - Persistence and boundaries
+  - domain: NAV
+    count: 10
+    requirements:
+      - id: NAV-001
+        priority: Must-have
+        file: docs/remake-review/requirements/15-navigation.md
+        line: 11
+        capabilityBranches:
+          - Home and canonical sections
+      - id: NAV-002
+        priority: Must-have
+        file: docs/remake-review/requirements/15-navigation.md
+        line: 21
+        capabilityBranches:
+          - Route aliases and deep links
+      - id: NAV-003
+        priority: Must-have
+        file: docs/remake-review/requirements/15-navigation.md
+        line: 30
+        capabilityBranches:
+          - Global/local/contextual navigation
+      - id: NAV-004
+        priority: Must-have
+        file: docs/remake-review/requirements/15-navigation.md
+        line: 39
+        capabilityBranches:
+          - Route aliases and deep links
+      - id: NAV-005
+        priority: Must-have
+        file: docs/remake-review/requirements/15-navigation.md
+        line: 48
+        capabilityBranches:
+          - Route aliases and deep links
+      - id: NAV-006
+        priority: Must-have
+        file: docs/remake-review/requirements/15-navigation.md
+        line: 58
+        capabilityBranches:
+          - IA validation and accessibility semantics
+      - id: NAV-007
+        priority: Must-have
+        file: docs/remake-review/requirements/15-navigation.md
+        line: 67
+        capabilityBranches:
+          - IA validation and accessibility semantics
+      - id: NAV-008
+        priority: Must-have
+        file: docs/remake-review/requirements/15-navigation.md
+        line: 76
+        capabilityBranches:
+          - Command palette and actor filtering
+      - id: NAV-009
+        priority: Must-have
+        file: docs/remake-review/requirements/15-navigation.md
+        line: 86
+        capabilityBranches:
+          - Home and canonical sections
+      - id: NAV-010
+        priority: Must-have
+        file: docs/remake-review/requirements/15-navigation.md
+        line: 95
+        capabilityBranches:
+          - Command palette and actor filtering
+  - domain: SEC
+    count: 12
+    requirements:
+      - id: SEC-001
+        priority: Must-have
+        file: docs/remake-review/requirements/17-security.md
+        line: 10
+        capabilityBranches:
+          - Renderer and platform isolation
+      - id: SEC-002
+        priority: Must-have
+        file: docs/remake-review/requirements/17-security.md
+        line: 20
+        capabilityBranches:
+          - Input and content safety
+      - id: SEC-003
+        priority: Must-have
+        file: docs/remake-review/requirements/17-security.md
+        line: 29
+        capabilityBranches:
+          - Input and content safety
+      - id: SEC-004
+        priority: Must-have
+        file: docs/remake-review/requirements/17-security.md
+        line: 38
+        capabilityBranches:
+          - Secrets and cloud collaboration
+      - id: SEC-005
+        priority: Must-have
+        file: docs/remake-review/requirements/17-security.md
+        line: 47
+        capabilityBranches:
+          - Secrets and cloud collaboration
+      - id: SEC-006
+        priority: Must-have
+        file: docs/remake-review/requirements/17-security.md
+        line: 59
+        capabilityBranches:
+          - Input and content safety
+      - id: SEC-007
+        priority: Must-have
+        file: docs/remake-review/requirements/17-security.md
+        line: 68
+        capabilityBranches:
+          - Renderer and platform isolation
+      - id: SEC-008
+        priority: Must-have
+        file: docs/remake-review/requirements/17-security.md
+        line: 78
+        capabilityBranches:
+          - Regression gates and stream privacy
+      - id: SEC-009
+        priority: Must-have
+        file: docs/remake-review/requirements/17-security.md
+        line: 87
+        capabilityBranches:
+          - Secrets and cloud collaboration
+      - id: SEC-010
+        priority: Must-have
+        file: docs/remake-review/requirements/17-security.md
+        line: 98
+        capabilityBranches:
+          - Regression gates and stream privacy
+      - id: SEC-011
+        priority: Must-have
+        file: docs/remake-review/requirements/17-security.md
+        line: 107
+        capabilityBranches:
+          - Regression gates and stream privacy
+      - id: SEC-012
+        priority: Must-have
+        file: docs/remake-review/requirements/17-security.md
+        line: 118
+        capabilityBranches:
+          - Secrets and cloud collaboration
+  - domain: PERF
+    count: 9
+    requirements:
+      - id: PERF-001
+        priority: Must-have
+        file: docs/remake-review/requirements/18-performance.md
+        line: 10
+        capabilityBranches:
+          - Budget ownership and measurement
+      - id: PERF-002
+        priority: Must-have
+        file: docs/remake-review/requirements/18-performance.md
+        line: 20
+        capabilityBranches:
+          - Scene and map rendering
+      - id: PERF-003
+        priority: Must-have
+        file: docs/remake-review/requirements/18-performance.md
+        line: 29
+        capabilityBranches:
+          - Scene and map rendering
+      - id: PERF-004
+        priority: Must-have
+        file: docs/remake-review/requirements/18-performance.md
+        line: 38
+        capabilityBranches:
+          - Search, graph, and sync responsiveness
+      - id: PERF-005
+        priority: Should-have
+        file: docs/remake-review/requirements/18-performance.md
+        line: 47
+        capabilityBranches:
+          - Bundles, memory, and AI/MCP isolation
+      - id: PERF-006
+        priority: Should-have
+        file: docs/remake-review/requirements/18-performance.md
+        line: 56
+        capabilityBranches:
+          - Bundles, memory, and AI/MCP isolation
+      - id: PERF-007
+        priority: Must-have
+        file: docs/remake-review/requirements/18-performance.md
+        line: 66
+        capabilityBranches:
+          - Budget ownership and measurement
+      - id: PERF-008
+        priority: Must-have
+        file: docs/remake-review/requirements/18-performance.md
+        line: 89
+        capabilityBranches:
+          - Search, graph, and sync responsiveness
+      - id: PERF-009
+        priority: Must-have
+        file: docs/remake-review/requirements/18-performance.md
+        line: 98
+        capabilityBranches:
+          - Bundles, memory, and AI/MCP isolation
+  - domain: CON
+    count: 6
+    requirements:
+      - id: CON-001
+        priority: Must-have
+        file: docs/remake-review/requirements/19-constraints.md
+        line: 9
+        capabilityBranches:
+          - Security and source-of-truth constraints
+      - id: CON-002
+        priority: Must-have
+        file: docs/remake-review/requirements/19-constraints.md
+        line: 18
+        capabilityBranches:
+          - Security and source-of-truth constraints
+      - id: CON-003
+        priority: Must-have
+        file: docs/remake-review/requirements/19-constraints.md
+        line: 28
+        capabilityBranches:
+          - Scope constraints
+      - id: CON-004
+        priority: Must-have
+        file: docs/remake-review/requirements/19-constraints.md
+        line: 38
+        capabilityBranches:
+          - Permission sustainability constraints
+      - id: CON-005
+        priority: Must-have
+        file: docs/remake-review/requirements/19-constraints.md
+        line: 47
+        capabilityBranches:
+          - Security and source-of-truth constraints
+      - id: CON-006
+        priority: Must-have
+        file: docs/remake-review/requirements/19-constraints.md
+        line: 56
+        capabilityBranches:
+          - Scope constraints

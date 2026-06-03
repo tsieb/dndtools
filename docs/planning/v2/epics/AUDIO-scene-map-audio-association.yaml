@@ -1,0 +1,74 @@
+schemaVersion: 1
+id: AUDIO-scene-map-audio-association
+title: 'AUDIO: Scene/map audio association'
+status: proposed
+approved: false
+domain: AUDIO
+capabilityBranch: Scene/map audio association
+objective: Deliver the scene/map audio association capability branch for AUDIO,
+  traced to the included v2 requirements.
+requirementIds:
+  - AUDIO-001
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - audio model
+  - playback surface
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/audio/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: AUDIO-001-S01
+    title: The DM shall be able to associate ambient audio, playlists, and
+      atmosphere presets with a Scene, map, or map layer
+    requirementIds:
+      - AUDIO-001
+    acceptanceCriteria:
+      - Given a Scene has an audio preset, when the DM activates the Scene, then
+        the preset is available to the audio widget.
+      - Given an audio asset is missing on a device, when playback is requested,
+        then the UI shows a missing asset state.
+    tasks:
+      - id: AUDIO-001-S01-T01
+        title: Confirm architecture and interface shape for AUDIO-001
+        kind: design
+      - id: AUDIO-001-S01-T02
+        title: Implement the smallest behavior that satisfies AUDIO-001
+        kind: implementation
+      - id: AUDIO-001-S01-T03
+        title: Add automated coverage for AUDIO-001 acceptance criteria
+        kind: test
+      - id: AUDIO-001-S01-T04
+        title: Record demo notes and traceability evidence for AUDIO-001
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

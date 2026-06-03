@@ -1,0 +1,107 @@
+schemaVersion: 1
+id: SES-combat
+title: 'SES: Combat'
+status: proposed
+approved: false
+domain: SES
+capabilityBranch: Combat
+objective: Deliver the combat capability branch for SES, traced to the included
+  v2 requirements.
+requirementIds:
+  - SES-002
+  - SES-006
+excludedRequirementIds: []
+architectureContracts: []
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - session state
+  - live tools
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/ses/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: SES-002-S01
+    title: The DM shall be able to run combat with initiative order, rounds, turns,
+      HP, conditions, concentration, death saves, stat-block previews, and
+      encounter log creation
+    requirementIds:
+      - SES-002
+    acceptanceCriteria:
+      - Given combatants are added, when the DM advances turns, then initiative
+        order and round state persist.
+      - Given a player has `combat-participant` for a character, when they
+        update that character's HP, then shared combat state updates.
+      - Given two combatants tie initiative, when combat starts, then tie-break
+        behavior is deterministic and recorded in combat state.
+      - Given a hidden combatant has a stat-block preview, when a player or
+        observer views combat, then hidden stat data and identity are omitted or
+        replaced by a DM-approved placeholder.
+      - Given combat ends, when encounter log creation runs, then turns, rounds,
+        visible rolls, HP/status changes, and DM notes are persisted according
+        to visibility.
+    tasks:
+      - id: SES-002-S01-T01
+        title: Confirm architecture and interface shape for SES-002
+        kind: design
+      - id: SES-002-S01-T02
+        title: Implement the smallest behavior that satisfies SES-002
+        kind: implementation
+      - id: SES-002-S01-T03
+        title: Add automated coverage for SES-002 acceptance criteria
+        kind: test
+      - id: SES-002-S01-T04
+        title: Record demo notes and traceability evidence for SES-002
+        kind: demo
+  - id: SES-006-S02
+    title: The DM shall be able to build encounters with combatant selection,
+      challenge guidance, terrain notes, legendary/lair actions, loot, and
+      generated session log links
+    requirementIds:
+      - SES-006
+    acceptanceCriteria:
+      - Given selected monsters and party level, when the DM builds an
+        encounter, then challenge guidance and combatants are saved with the
+        encounter object.
+      - Given the encounter is started, when combat begins, then combatants and
+        terrain notes flow into session combat state.
+    tasks:
+      - id: SES-006-S02-T01
+        title: Confirm architecture and interface shape for SES-006
+        kind: design
+      - id: SES-006-S02-T02
+        title: Implement the smallest behavior that satisfies SES-006
+        kind: implementation
+      - id: SES-006-S02-T03
+        title: Add automated coverage for SES-006 acceptance criteria
+        kind: test
+      - id: SES-006-S02-T04
+        title: Record demo notes and traceability evidence for SES-006
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

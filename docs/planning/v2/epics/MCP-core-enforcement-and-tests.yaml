@@ -1,0 +1,128 @@
+schemaVersion: 1
+id: MCP-core-enforcement-and-tests
+title: 'MCP: Core enforcement and tests'
+status: proposed
+approved: false
+domain: MCP
+capabilityBranch: Core enforcement and tests
+objective: Deliver the core enforcement and tests capability branch for MCP,
+  traced to the included v2 requirements.
+requirementIds:
+  - MCP-004
+  - MCP-005
+  - MCP-012
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - agent tool interface
+  - policy layer
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/mcp/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: MCP-004-S01
+    title: MCP read and write tools shall use Processing Core queries and commands
+      so visibility, permission, schema, revision, and sync policies are
+      enforced centrally
+    requirementIds:
+      - MCP-004
+    acceptanceCriteria:
+      - Given an MCP tool reads character data, when the actor is not DM, then
+        hidden fields are omitted by the data layer.
+      - Given an MCP write command fails schema validation, when submitted, then
+        no staged or direct durable mutation is accepted.
+    tasks:
+      - id: MCP-004-S01-T01
+        title: Confirm architecture and interface shape for MCP-004
+        kind: design
+      - id: MCP-004-S01-T02
+        title: Implement the smallest behavior that satisfies MCP-004
+        kind: implementation
+      - id: MCP-004-S01-T03
+        title: Add automated coverage for MCP-004 acceptance criteria
+        kind: test
+      - id: MCP-004-S01-T04
+        title: Record demo notes and traceability evidence for MCP-004
+        kind: demo
+  - id: MCP-005-S02
+    title: Every write-capable MCP tool and every baseline read/report tool shall
+      have dedicated behavior tests for schema validation, actor policy,
+      visibility filtering, idempotency where applicable, staged preview, direct
+      mode where applicable, and failure handling
+    requirementIds:
+      - MCP-005
+    acceptanceCriteria:
+      - Given a new write-capable MCP tool or baseline read/report tool is added
+        without dedicated tests, when CI runs, then the merge gate fails.
+      - Given a tool receives invalid input, when tested, then the expected
+        structured error is asserted.
+    tasks:
+      - id: MCP-005-S02-T01
+        title: Confirm architecture and interface shape for MCP-005
+        kind: design
+      - id: MCP-005-S02-T02
+        title: Implement the smallest behavior that satisfies MCP-005
+        kind: implementation
+      - id: MCP-005-S02-T03
+        title: Add automated coverage for MCP-005 acceptance criteria
+        kind: test
+      - id: MCP-005-S02-T04
+        title: Record demo notes and traceability evidence for MCP-005
+        kind: demo
+  - id: MCP-012-S03
+    title: MCP filesystem and platform-service exceptions shall be explicitly
+      allowlisted, linted, and covered by regression tests rather than inferred
+      from broad runtime access
+    requirementIds:
+      - MCP-012
+    acceptanceCriteria:
+      - Given an MCP tool imports filesystem APIs outside the allowlist, when
+        boundary lint runs, then the gate fails.
+      - Given an allowlisted MCP filesystem operation runs, when tested, then
+        containment, size limits, schema validation, and audit behavior are
+        asserted.
+    tasks:
+      - id: MCP-012-S03-T01
+        title: Confirm architecture and interface shape for MCP-012
+        kind: design
+      - id: MCP-012-S03-T02
+        title: Implement the smallest behavior that satisfies MCP-012
+        kind: implementation
+      - id: MCP-012-S03-T03
+        title: Add automated coverage for MCP-012 acceptance criteria
+        kind: test
+      - id: MCP-012-S03-T04
+        title: Record demo notes and traceability evidence for MCP-012
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

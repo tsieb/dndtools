@@ -1,0 +1,134 @@
+schemaVersion: 1
+id: CHAR-character-creation-and-drafts
+title: 'CHAR: Character creation and drafts'
+status: proposed
+approved: false
+domain: CHAR
+capabilityBranch: Character creation and drafts
+objective: Deliver the character creation and drafts capability branch for CHAR,
+  traced to the included v2 requirements.
+requirementIds:
+  - CHAR-001
+  - CHAR-002
+  - CHAR-013
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - character model
+  - character UI
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/char/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CHAR-001-S01
+    title: The DM shall be able to quick-create an NPC, monster, or sidekick
+      character with simplified stat fields, combat fields, visibility defaults,
+      and widget-bindable data
+    requirementIds:
+      - CHAR-001
+    acceptanceCriteria:
+      - Given the DM creates an NPC with name, AC, HP, and attacks, when saved,
+        then a character object exists with widget bindings for combat state.
+      - Given visibility is omitted, when the NPC is created, then DM-only
+        fields are not included in player character queries.
+    tasks:
+      - id: CHAR-001-S01-T01
+        title: Confirm architecture and interface shape for CHAR-001
+        kind: design
+      - id: CHAR-001-S01-T02
+        title: Implement the smallest behavior that satisfies CHAR-001
+        kind: implementation
+      - id: CHAR-001-S01-T03
+        title: Add automated coverage for CHAR-001 acceptance criteria
+        kind: test
+      - id: CHAR-001-S01-T04
+        title: Record demo notes and traceability evidence for CHAR-001
+        kind: demo
+  - id: CHAR-002-S02
+    title: A player with a character draft ownership assignment shall be able to
+      create a PC through a guided structured flow with rules, options,
+      validation, and resumable progress
+    requirementIds:
+      - CHAR-002
+    acceptanceCriteria:
+      - Given a player owns a character draft, when they complete required
+        creation steps, then validation passes and the character becomes usable
+        in session widgets.
+      - Given the player closes the app mid-flow, when they reopen the
+        character, then completed steps and unresolved validation issues are
+        restored.
+      - Given the draft has not been finalized, when another player requests it
+        without a grant, then no draft fields are returned.
+      - Given the draft is created, when inspected by id, then it is a
+        pre-finalization character entity with draft state rather than an
+        unrelated permission-grant entity.
+    tasks:
+      - id: CHAR-002-S02-T01
+        title: Confirm architecture and interface shape for CHAR-002
+        kind: design
+      - id: CHAR-002-S02-T02
+        title: Implement the smallest behavior that satisfies CHAR-002
+        kind: implementation
+      - id: CHAR-002-S02-T03
+        title: Add automated coverage for CHAR-002 acceptance criteria
+        kind: test
+      - id: CHAR-002-S02-T04
+        title: Record demo notes and traceability evidence for CHAR-002
+        kind: demo
+  - id: CHAR-013-S03
+    title: The DM shall be able to create, assign, transfer, or revoke a character
+      draft ownership assignment before the character is finalized, with exactly
+      one draft owner at a time
+    requirementIds:
+      - CHAR-013
+    acceptanceCriteria:
+      - Given the DM creates a PC draft for Player A, when Player A opens
+        character creation, then the draft behaves as an owned draft even before
+        the finalized character entity exists.
+      - Given the DM transfers the draft to Player B, when Player A next syncs,
+        then Player A can no longer edit the draft and Player B can resume it.
+    tasks:
+      - id: CHAR-013-S03-T01
+        title: Confirm architecture and interface shape for CHAR-013
+        kind: design
+      - id: CHAR-013-S03-T02
+        title: Implement the smallest behavior that satisfies CHAR-013
+        kind: implementation
+      - id: CHAR-013-S03-T03
+        title: Add automated coverage for CHAR-013 acceptance criteria
+        kind: test
+      - id: CHAR-013-S03-T04
+        title: Record demo notes and traceability evidence for CHAR-013
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

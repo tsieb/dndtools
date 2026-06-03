@@ -1,0 +1,140 @@
+schemaVersion: 1
+id: COLLAB-combat-and-handouts
+title: 'COLLAB: Combat and handouts'
+status: proposed
+approved: false
+domain: COLLAB
+capabilityBranch: Combat and handouts
+objective: Deliver the combat and handouts capability branch for COLLAB, traced
+  to the included v2 requirements.
+requirementIds:
+  - COLLAB-006
+  - COLLAB-007
+  - COLLAB-012
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - collaboration transport
+  - participant state
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/collab/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: COLLAB-006-S01
+    title: Participants shall be able to view shared combat state according to role
+      and grants, including current turn, visible combatants, HP/status
+      summaries, and permitted interaction controls
+    requirementIds:
+      - COLLAB-006
+    acceptanceCriteria:
+      - Given a player can see their character in combat, when combat state
+        updates, then visible turn and status data refresh.
+      - Given a hidden enemy is in initiative, when a player views combat, then
+        the hidden combatant is omitted or represented only by DM-approved
+        placeholder.
+      - Given cached session combat is available offline, when remote delivery
+        is unavailable, then the participant can view cached visible state
+        marked stale and cannot submit commands requiring live authority.
+    tasks:
+      - id: COLLAB-006-S01-T01
+        title: Confirm architecture and interface shape for COLLAB-006
+        kind: design
+      - id: COLLAB-006-S01-T02
+        title: Implement the smallest behavior that satisfies COLLAB-006
+        kind: implementation
+      - id: COLLAB-006-S01-T03
+        title: Add automated coverage for COLLAB-006 acceptance criteria
+        kind: test
+      - id: COLLAB-006-S01-T04
+        title: Record demo notes and traceability evidence for COLLAB-006
+        kind: demo
+  - id: COLLAB-007-S02
+    title: The DM shall be able to deliver handouts, images, notes, map fragments,
+      ciphers, and rumors to selected players with delivery acknowledgement and
+      revocation state
+    requirementIds:
+      - COLLAB-007
+    acceptanceCriteria:
+      - Given a player is online, when a handout is delivered, then the DM sees
+        delivered/opened status when supported.
+      - Given the DM revokes a handout, when the player next syncs, then the
+        handout widget is removed unless persistent access was explicitly
+        granted.
+      - Given delivery and revocation operations are both queued while the
+        player is offline, when the player reconnects, then replay order and
+        final visibility determine whether the handout is delivered, removed, or
+        retained by persistent grant.
+    tasks:
+      - id: COLLAB-007-S02-T01
+        title: Confirm architecture and interface shape for COLLAB-007
+        kind: design
+      - id: COLLAB-007-S02-T02
+        title: Implement the smallest behavior that satisfies COLLAB-007
+        kind: implementation
+      - id: COLLAB-007-S02-T03
+        title: Add automated coverage for COLLAB-007 acceptance criteria
+        kind: test
+      - id: COLLAB-007-S02-T04
+        title: Record demo notes and traceability evidence for COLLAB-007
+        kind: demo
+  - id: COLLAB-012-S03
+    title: The DM shall be able to create Player Groups for projection and handout
+      delivery targets, with group membership changes affecting delivery only
+      and not granting visibility or write permissions by themselves
+    requirementIds:
+      - COLLAB-012
+    acceptanceCriteria:
+      - Given a handout is delivered to a Player Group, when membership is
+        evaluated, then only current group members receive the delivery
+        operation.
+      - Given a player is added to a Player Group after a prior handout
+        delivery, when no persistent access grant exists, then the prior handout
+        is not automatically delivered.
+      - Given the DM edits Player Groups offline, when remote delivery resumes,
+        then group membership changes are applied before later queued deliveries
+        that depend on them.
+    tasks:
+      - id: COLLAB-012-S03-T01
+        title: Confirm architecture and interface shape for COLLAB-012
+        kind: design
+      - id: COLLAB-012-S03-T02
+        title: Implement the smallest behavior that satisfies COLLAB-012
+        kind: implementation
+      - id: COLLAB-012-S03-T03
+        title: Add automated coverage for COLLAB-012 acceptance criteria
+        kind: test
+      - id: COLLAB-012-S03-T04
+        title: Record demo notes and traceability evidence for COLLAB-012
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

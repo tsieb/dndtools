@@ -1,0 +1,139 @@
+schemaVersion: 1
+id: MCP-identity-policy-and-staged-writes
+title: 'MCP: Identity, policy, and staged writes'
+status: proposed
+approved: false
+domain: MCP
+capabilityBranch: Identity, policy, and staged writes
+objective: Deliver the identity, policy, and staged writes capability branch for
+  MCP, traced to the included v2 requirements.
+requirementIds:
+  - MCP-003
+  - MCP-009
+  - MCP-011
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - agent tool interface
+  - policy layer
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/mcp/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: MCP-003-S01
+    title: MCP write tools shall default to `strict_review` staged human review and
+      require explicit `trusted_direct` mode configuration before writing
+      durable vault state directly
+    requirementIds:
+      - MCP-003
+    acceptanceCriteria:
+      - Given `strict_review` mode, when an MCP tool creates a note, then a
+        staged change appears for human approval instead of an immediate write.
+      - Given `trusted_direct` mode is enabled, when an MCP write occurs, then
+        the mode and agent identity are included in audit history.
+      - Given `balanced` mode batches staged low-risk changes, when approval is
+        requested, then the user can approve or reject the batch before durable
+        writes occur.
+      - Given an MCP write targets an object, Scene widget, map asset, session
+        state, or character field, when `strict_review` mode is active, then the
+        operation is staged or rejected according to declared tool capability
+        rather than writing directly by default.
+    tasks:
+      - id: MCP-003-S01-T01
+        title: Confirm architecture and interface shape for MCP-003
+        kind: design
+      - id: MCP-003-S01-T02
+        title: Implement the smallest behavior that satisfies MCP-003
+        kind: implementation
+      - id: MCP-003-S01-T03
+        title: Add automated coverage for MCP-003 acceptance criteria
+        kind: test
+      - id: MCP-003-S01-T04
+        title: Record demo notes and traceability evidence for MCP-003
+        kind: demo
+  - id: MCP-009-S02
+    title: The DM shall be able to configure per-agent MCP policy modes of
+      `disabled`, `strict_review`, `balanced`, and `trusted_direct`, plus tool
+      allowlists and audit visibility
+    requirementIds:
+      - MCP-009
+    acceptanceCriteria:
+      - Given a new agent connects, when no policy exists, then it defaults to
+        `strict_review` or `disabled` according to vault settings.
+      - Given the DM changes an agent policy, when the agent invokes a tool,
+        then the new policy is enforced immediately.
+      - Given policy mode is `disabled`, when the agent invokes any tool, then
+        the call returns disabled status before core queries run.
+      - Given policy mode is `trusted_direct`, when a direct write is allowed by
+        tool allowlist, then Processing Core validation and audit still run
+        before mutation.
+    tasks:
+      - id: MCP-009-S02-T01
+        title: Confirm architecture and interface shape for MCP-009
+        kind: design
+      - id: MCP-009-S02-T02
+        title: Implement the smallest behavior that satisfies MCP-009
+        kind: implementation
+      - id: MCP-009-S02-T03
+        title: Add automated coverage for MCP-009 acceptance criteria
+        kind: test
+      - id: MCP-009-S02-T04
+        title: Record demo notes and traceability evidence for MCP-009
+        kind: demo
+  - id: MCP-011-S03
+    title: Each MCP agent connection shall map to an authenticated vault actor,
+      session role, policy profile, and audit identity before any tool can read
+      or stage data
+    requirementIds:
+      - MCP-011
+    acceptanceCriteria:
+      - Given an agent connects without a valid actor mapping, when it invokes
+        any tool, then the tool call is rejected before core queries run.
+      - Given a DM-scoped agent stages a write, when audit history is inspected,
+        then agent id, actor id, policy mode, tool id, and staged/direct mode
+        are recorded.
+    tasks:
+      - id: MCP-011-S03-T01
+        title: Confirm architecture and interface shape for MCP-011
+        kind: design
+      - id: MCP-011-S03-T02
+        title: Implement the smallest behavior that satisfies MCP-011
+        kind: implementation
+      - id: MCP-011-S03-T03
+        title: Add automated coverage for MCP-011 acceptance criteria
+        kind: test
+      - id: MCP-011-S03-T04
+        title: Record demo notes and traceability evidence for MCP-011
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

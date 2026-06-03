@@ -1,0 +1,137 @@
+schemaVersion: 1
+id: PERM-visibility
+title: 'PERM: Visibility'
+status: proposed
+approved: false
+domain: PERM
+capabilityBranch: Visibility
+objective: Deliver the visibility capability branch for PERM, traced to the
+  included v2 requirements.
+requirementIds:
+  - PERM-002
+  - PERM-003
+  - PERM-012
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - permission core
+  - visibility filtering
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/perm/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: PERM-002-S01
+    title: The DM shall be able to set content visibility to `dm-only`,
+      `player-visible`, or `shared`, with `shared` meaning delivery only through
+      Player View assignment, handout delivery, or viewer-capable grant, and
+      with visibility evaluated before any non-DM query, subscription, sync
+      stream, MCP response, or widget binding
+    requirementIds:
+      - PERM-002
+    acceptanceCriteria:
+      - Given a note is `dm-only`, when a player query requests it by id, then
+        the data layer returns no content.
+      - Given a widget binding targets `shared` content without a viewer-capable
+        grant or assignment, when resolved, then the binding returns
+        hidden/unavailable state.
+      - Given content is `player-visible`, when any authenticated player queries
+        it, then it is visible unless a more specific section, field, role, or
+        revocation rule narrows access.
+      - Given content is `shared` with Player A through a handout delivery, when
+        Player B queries it without a separate assignment or grant, then Player
+        B receives hidden/unavailable state.
+    tasks:
+      - id: PERM-002-S01-T01
+        title: Confirm architecture and interface shape for PERM-002
+        kind: design
+      - id: PERM-002-S01-T02
+        title: Implement the smallest behavior that satisfies PERM-002
+        kind: implementation
+      - id: PERM-002-S01-T03
+        title: Add automated coverage for PERM-002 acceptance criteria
+        kind: test
+      - id: PERM-002-S01-T04
+        title: Record demo notes and traceability evidence for PERM-002
+        kind: demo
+  - id: PERM-003-S02
+    title: The DM shall be able to author visibility at entity, section, and field
+      granularity, with more specific metadata overriding less specific metadata
+    requirementIds:
+      - PERM-003
+    acceptanceCriteria:
+      - Given an entity is `player-visible` and one field is `dm-only`, when a
+        player reads it, then the entity is visible but the field is omitted.
+      - Given section and field metadata conflict, when evaluated, then field
+        visibility takes precedence.
+    tasks:
+      - id: PERM-003-S02-T01
+        title: Confirm architecture and interface shape for PERM-003
+        kind: design
+      - id: PERM-003-S02-T02
+        title: Implement the smallest behavior that satisfies PERM-003
+        kind: implementation
+      - id: PERM-003-S02-T03
+        title: Add automated coverage for PERM-003 acceptance criteria
+        kind: test
+      - id: PERM-003-S02-T04
+        title: Record demo notes and traceability evidence for PERM-003
+        kind: demo
+  - id: PERM-012-S03
+    title: The DM shall be able to revoke or change visibility at entity, section,
+      and field granularity, with affected subscriptions, sync streams, cached
+      data, and widget bindings invalidated according to policy
+    requirementIds:
+      - PERM-012
+    acceptanceCriteria:
+      - Given a note section changes from `player-visible` to `dm-only`, when a
+        player next queries or syncs, then the section is absent and affected
+        cached bindings are invalidated.
+      - Given a visibility revocation occurs while a player is offline, when
+        reconnecting, then visibility is re-evaluated before catch-up operations
+        are delivered.
+    tasks:
+      - id: PERM-012-S03-T01
+        title: Confirm architecture and interface shape for PERM-012
+        kind: design
+      - id: PERM-012-S03-T02
+        title: Implement the smallest behavior that satisfies PERM-012
+        kind: implementation
+      - id: PERM-012-S03-T03
+        title: Add automated coverage for PERM-012 acceptance criteria
+        kind: test
+      - id: PERM-012-S03-T04
+        title: Record demo notes and traceability evidence for PERM-012
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

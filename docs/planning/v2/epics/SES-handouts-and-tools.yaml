@@ -1,0 +1,127 @@
+schemaVersion: 1
+id: SES-handouts-and-tools
+title: 'SES: Handouts and tools'
+status: proposed
+approved: false
+domain: SES
+capabilityBranch: Handouts and tools
+objective: Deliver the handouts and tools capability branch for SES, traced to
+  the included v2 requirements.
+requirementIds:
+  - SES-004
+  - SES-005
+  - SES-007
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - session state
+  - live tools
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/ses/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: SES-004-S01
+    title: The DM shall be able to deliver handouts as Scene widgets to selected
+      players or groups with delivery history, visibility enforcement, and
+      optional reveal behavior
+    requirementIds:
+      - SES-004
+    acceptanceCriteria:
+      - Given a handout is `shared` to Player A, when the DM delivers it, then
+        Player A receives a handout widget and Player B does not.
+      - Given a handout contains a hidden section, when delivered, then the
+        player's payload excludes that section.
+    tasks:
+      - id: SES-004-S01-T01
+        title: Confirm architecture and interface shape for SES-004
+        kind: design
+      - id: SES-004-S01-T02
+        title: Implement the smallest behavior that satisfies SES-004
+        kind: implementation
+      - id: SES-004-S01-T03
+        title: Add automated coverage for SES-004 acceptance criteria
+        kind: test
+      - id: SES-004-S01-T04
+        title: Record demo notes and traceability evidence for SES-004
+        kind: demo
+  - id: SES-005-S02
+    title: A participant with a timer or tool widget `operator` grant shall be able
+      to start, pause, resume, reset, advance, roll, draw, or operate the tool
+      without configuring it
+    requirementIds:
+      - SES-005
+    acceptanceCriteria:
+      - Given a player has `operator` on a timer widget, when they pause it,
+        then session timer state changes.
+      - Given the same player attempts to change timer configuration, when they
+        submit the command, then it is rejected.
+    tasks:
+      - id: SES-005-S02-T01
+        title: Confirm architecture and interface shape for SES-005
+        kind: design
+      - id: SES-005-S02-T02
+        title: Implement the smallest behavior that satisfies SES-005
+        kind: implementation
+      - id: SES-005-S02-T03
+        title: Add automated coverage for SES-005 acceptance criteria
+        kind: test
+      - id: SES-005-S02-T04
+        title: Record demo notes and traceability evidence for SES-005
+        kind: demo
+  - id: SES-007-S03
+    title: The DM shall be able to create, pin, and use quick-reference panels for
+      visible notes, stat blocks, rules snippets, open threads, and session
+      context
+    requirementIds:
+      - SES-007
+    acceptanceCriteria:
+      - Given a note is pinned to quick reference, when the DM changes routes,
+        then the quick reference remains available.
+      - Given a pinned note is deleted, when quick reference opens, then it
+        shows a missing reference state without crashing.
+    tasks:
+      - id: SES-007-S03-T01
+        title: Confirm architecture and interface shape for SES-007
+        kind: design
+      - id: SES-007-S03-T02
+        title: Implement the smallest behavior that satisfies SES-007
+        kind: implementation
+      - id: SES-007-S03-T03
+        title: Add automated coverage for SES-007 acceptance criteria
+        kind: test
+      - id: SES-007-S03-T04
+        title: Record demo notes and traceability evidence for SES-007
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

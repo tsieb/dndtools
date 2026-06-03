@@ -1,0 +1,131 @@
+schemaVersion: 1
+id: MAP-nesting-and-spatial-transitions
+title: 'MAP: Nesting and spatial transitions'
+status: proposed
+approved: false
+domain: MAP
+capabilityBranch: Nesting and spatial transitions
+objective: Deliver the nesting and spatial transitions capability branch for
+  MAP, traced to the included v2 requirements.
+requirementIds:
+  - MAP-008
+  - MAP-009
+  - MAP-017
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - map model
+  - map renderer
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/map/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: MAP-008-S01
+    title: The DM shall be able to embed one map inside another at configured
+      position, scale, rotation, and transition behavior while preserving each
+      map's independent layers and permissions
+    requirementIds:
+      - MAP-008
+    acceptanceCriteria:
+      - Given a city map nested inside a region map, when the DM opens the
+        region map, then the nested map appears at its configured spatial
+        transform.
+      - Given the city map has DM-only layers, when a player zooms into the
+        nested map, then those layers remain unavailable.
+    tasks:
+      - id: MAP-008-S01-T01
+        title: Confirm architecture and interface shape for MAP-008
+        kind: design
+      - id: MAP-008-S01-T02
+        title: Implement the smallest behavior that satisfies MAP-008
+        kind: implementation
+      - id: MAP-008-S01-T03
+        title: Add automated coverage for MAP-008 acceptance criteria
+        kind: test
+      - id: MAP-008-S01-T04
+        title: Record demo notes and traceability evidence for MAP-008
+        kind: demo
+  - id: MAP-009-S02
+    title: A participant viewing a nested map shall be able to smoothly scroll or
+      zoom between parent and child maps within the limits of their visible map
+      data
+    requirementIds:
+      - MAP-009
+    acceptanceCriteria:
+      - Given a visible nested map relationship, when the user zooms past the
+        configured threshold, then the viewport transitions to the child map.
+      - Given the child map is not visible to the participant, when the
+        threshold is reached, then the transition is blocked without revealing
+        the child map name or content unless separately visible.
+    tasks:
+      - id: MAP-009-S02-T01
+        title: Confirm architecture and interface shape for MAP-009
+        kind: design
+      - id: MAP-009-S02-T02
+        title: Implement the smallest behavior that satisfies MAP-009
+        kind: implementation
+      - id: MAP-009-S02-T03
+        title: Add automated coverage for MAP-009 acceptance criteria
+        kind: test
+      - id: MAP-009-S02-T04
+        title: Record demo notes and traceability evidence for MAP-009
+        kind: demo
+  - id: MAP-017-S03
+    title: Nested map relationships shall prevent cycles, preserve coordinate
+      transforms across the configured supported depth, and surface broken
+      child-map links without leaking hidden child names or content
+    requirementIds:
+      - MAP-017
+    acceptanceCriteria:
+      - Given a map is already an ancestor of a candidate child, when the DM
+        attempts to nest the ancestor under the child, then the command is
+        rejected as a cycle.
+      - Given a user transitions world to region to city to building, when every
+        child is visible, then coordinates and scale transforms resolve
+        deterministically at each level.
+      - Given a child map is deleted or hidden from the participant, when the
+        parent renders, then the nested area shows a missing or unavailable
+        state without revealing hidden metadata.
+    tasks:
+      - id: MAP-017-S03-T01
+        title: Confirm architecture and interface shape for MAP-017
+        kind: design
+      - id: MAP-017-S03-T02
+        title: Implement the smallest behavior that satisfies MAP-017
+        kind: implementation
+      - id: MAP-017-S03-T03
+        title: Add automated coverage for MAP-017 acceptance criteria
+        kind: test
+      - id: MAP-017-S03-T04
+        title: Record demo notes and traceability evidence for MAP-017
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

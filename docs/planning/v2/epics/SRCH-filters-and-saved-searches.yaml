@@ -1,0 +1,105 @@
+schemaVersion: 1
+id: SRCH-filters-and-saved-searches
+title: 'SRCH: Filters and saved searches'
+status: proposed
+approved: false
+domain: SRCH
+capabilityBranch: Filters and saved searches
+objective: Deliver the filters and saved searches capability branch for SRCH,
+  traced to the included v2 requirements.
+requirementIds:
+  - SRCH-003
+  - SRCH-004
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - search index
+  - quick switcher
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/srch/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: SRCH-003-S01
+    title: A user shall be able to filter search by source, content type, tag,
+      folder, date, visibility-safe relationship, and saved search definition
+    requirementIds:
+      - SRCH-003
+    acceptanceCriteria:
+      - Given a saved search filters map POIs by tag, when opened, then only
+        visible matching POIs appear.
+      - Given a source is unavailable, when a saved search references it, then
+        cached results are marked stale or unavailable without failing the whole
+        search.
+      - Given the user combines source, folder, tag, content type, date range,
+        and relationship filters, when search runs, then all facets are applied
+        together and the result metadata lists the active filters.
+      - Given a relationship filter would match hidden related content, when a
+        player searches, then hidden relationships do not appear as results,
+        facets, hints, or revealing counts.
+    tasks:
+      - id: SRCH-003-S01-T01
+        title: Confirm architecture and interface shape for SRCH-003
+        kind: design
+      - id: SRCH-003-S01-T02
+        title: Implement the smallest behavior that satisfies SRCH-003
+        kind: implementation
+      - id: SRCH-003-S01-T03
+        title: Add automated coverage for SRCH-003 acceptance criteria
+        kind: test
+      - id: SRCH-003-S01-T04
+        title: Record demo notes and traceability evidence for SRCH-003
+        kind: demo
+  - id: SRCH-004-S02
+    title: The DM shall be able to create, edit, pin, and delete saved searches for
+      recurring campaign workflows without exposing hidden criteria to players
+    requirementIds:
+      - SRCH-004
+    acceptanceCriteria:
+      - Given the DM pins a saved search to the Command Center, when the Command
+        Center loads, then the saved search widget shows current results.
+      - Given a saved search includes DM-only criteria, when a player views
+        shared navigation, then the saved search is absent unless explicitly
+        visible.
+    tasks:
+      - id: SRCH-004-S02-T01
+        title: Confirm architecture and interface shape for SRCH-004
+        kind: design
+      - id: SRCH-004-S02-T02
+        title: Implement the smallest behavior that satisfies SRCH-004
+        kind: implementation
+      - id: SRCH-004-S02-T03
+        title: Add automated coverage for SRCH-004 acceptance criteria
+        kind: test
+      - id: SRCH-004-S02-T04
+        title: Record demo notes and traceability evidence for SRCH-004
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

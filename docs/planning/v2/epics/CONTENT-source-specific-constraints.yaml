@@ -1,0 +1,79 @@
+schemaVersion: 1
+id: CONTENT-source-specific-constraints
+title: 'CONTENT: Source-specific constraints'
+status: proposed
+approved: false
+domain: CONTENT
+capabilityBranch: Source-specific constraints
+objective: Deliver the source-specific constraints capability branch for
+  CONTENT, traced to the included v2 requirements.
+requirementIds:
+  - CONTENT-012
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 2: Cloud Sync & Offline Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - content model
+  - editor integration
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/content/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CONTENT-012-S01
+    title: Source-specific note constraints for local markdown, Obsidian, and Google
+      Docs shall be visible before writes that could lose formatting,
+      properties, links, or unsupported embedded structures
+    requirementIds:
+      - CONTENT-012
+    acceptanceCriteria:
+      - Given an editor writes content that Google Docs cannot round-trip
+        exactly, when save is requested, then the adapter reports
+        formatting-loss risk before destructive write-back.
+      - Given an Obsidian note has user-authored frontmatter, when DND Tools
+        metadata is updated, then user properties remain intact and DND Tools
+        metadata remains namespaced.
+      - Given source-local capabilities are unavailable on the current platform,
+        when a write is requested, then the source adapter reports unsupported
+        status without losing local draft content.
+    tasks:
+      - id: CONTENT-012-S01-T01
+        title: Confirm architecture and interface shape for CONTENT-012
+        kind: design
+      - id: CONTENT-012-S01-T02
+        title: Implement the smallest behavior that satisfies CONTENT-012
+        kind: implementation
+      - id: CONTENT-012-S01-T03
+        title: Add automated coverage for CONTENT-012 acceptance criteria
+        kind: test
+      - id: CONTENT-012-S01-T04
+        title: Record demo notes and traceability evidence for CONTENT-012
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

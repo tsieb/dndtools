@@ -1,0 +1,600 @@
+schemaVersion: 1
+stackDecision:
+  requiredAdr: docs/adr/014-v2-stack-and-subproject-boundary.md
+  status: proposed
+  blocksImplementation: true
+summary:
+  totalEpics: 88
+  proposed: 88
+  approved: 0
+  active: 0
+  complete: 0
+  deferred: 0
+epics:
+  - id: AUDIO-assets-licensing-and-source-scope
+    status: proposed
+    approved: false
+    requirementIds:
+      - AUDIO-004
+      - AUDIO-009
+      - AUDIO-010
+      - AUDIO-011
+  - id: AUDIO-automation
+    status: proposed
+    approved: false
+    requirementIds:
+      - AUDIO-005
+  - id: AUDIO-platform-and-player-degradation
+    status: proposed
+    approved: false
+    requirementIds:
+      - AUDIO-006
+      - AUDIO-007
+      - AUDIO-008
+      - AUDIO-012
+      - AUDIO-013
+  - id: AUDIO-playback-and-session-state
+    status: proposed
+    approved: false
+    requirementIds:
+      - AUDIO-002
+      - AUDIO-003
+  - id: AUDIO-scene-map-audio-association
+    status: proposed
+    approved: false
+    requirementIds:
+      - AUDIO-001
+  - id: CANVAS-layout-accessibility
+    status: proposed
+    approved: false
+    requirementIds:
+      - CANVAS-012
+      - CANVAS-016
+  - id: CANVAS-player-view-and-projection
+    status: proposed
+    approved: false
+    requirementIds:
+      - CANVAS-005
+      - CANVAS-006
+      - CANVAS-007
+      - CANVAS-015
+  - id: CANVAS-scene-state
+    status: proposed
+    approved: false
+    requirementIds:
+      - CANVAS-001
+      - CANVAS-003
+      - CANVAS-004
+      - CANVAS-013
+      - CANVAS-018
+  - id: CANVAS-widget-data-safety
+    status: proposed
+    approved: false
+    requirementIds:
+      - CANVAS-009
+      - CANVAS-010
+  - id: CANVAS-widget-lifecycle
+    status: proposed
+    approved: false
+    requirementIds:
+      - CANVAS-002
+      - CANVAS-008
+      - CANVAS-010
+      - CANVAS-011
+      - CANVAS-014
+      - CANVAS-017
+  - id: CHAR-character-creation-and-drafts
+    status: proposed
+    approved: false
+    requirementIds:
+      - CHAR-001
+      - CHAR-002
+      - CHAR-013
+  - id: CHAR-collaboration-and-dm-edits
+    status: proposed
+    approved: false
+    requirementIds:
+      - CHAR-004
+      - CHAR-005
+      - CHAR-014
+  - id: CHAR-combat-resources-and-advancement
+    status: proposed
+    approved: false
+    requirementIds:
+      - CHAR-007
+      - CHAR-008
+      - CHAR-009
+  - id: CHAR-ownership-and-permission-grants
+    status: proposed
+    approved: false
+    requirementIds:
+      - CHAR-003
+      - CHAR-010
+  - id: CHAR-party-and-player-records
+    status: proposed
+    approved: false
+    requirementIds:
+      - CHAR-011
+      - CHAR-012
+      - CHAR-015
+      - CHAR-016
+  - id: CHAR-widget-data-exposure
+    status: proposed
+    approved: false
+    requirementIds:
+      - CHAR-006
+  - id: CMD-active-session-control
+    status: proposed
+    approved: false
+    requirementIds:
+      - CMD-003
+      - CMD-006
+  - id: CMD-home-scene
+    status: proposed
+    approved: false
+    requirementIds:
+      - CMD-001
+      - CMD-002
+      - CMD-007
+  - id: CMD-player-view-control
+    status: proposed
+    approved: false
+    requirementIds:
+      - CMD-004
+  - id: CMD-widget-library-and-actions
+    status: proposed
+    approved: false
+    requirementIds:
+      - CMD-005
+      - CMD-008
+  - id: COLLAB-authority-filtering-and-cache-privacy
+    status: proposed
+    approved: false
+    requirementIds:
+      - COLLAB-008
+      - COLLAB-009
+      - COLLAB-010
+      - COLLAB-014
+  - id: COLLAB-combat-and-handouts
+    status: proposed
+    approved: false
+    requirementIds:
+      - COLLAB-006
+      - COLLAB-007
+      - COLLAB-012
+  - id: COLLAB-join-reconnect-and-identity
+    status: proposed
+    approved: false
+    requirementIds:
+      - COLLAB-001
+      - COLLAB-002
+      - COLLAB-013
+  - id: COLLAB-live-session-state-and-presence
+    status: proposed
+    approved: false
+    requirementIds:
+      - COLLAB-003
+      - COLLAB-004
+  - id: COLLAB-player-views-and-observer-access
+    status: proposed
+    approved: false
+    requirementIds:
+      - COLLAB-005
+      - COLLAB-011
+  - id: CON-permission-sustainability-constraints
+    status: proposed
+    approved: false
+    requirementIds:
+      - CON-004
+  - id: CON-scope-constraints
+    status: proposed
+    approved: false
+    requirementIds:
+      - CON-003
+      - CON-006
+  - id: CON-security-and-source-of-truth-constraints
+    status: proposed
+    approved: false
+    requirementIds:
+      - CON-001
+      - CON-002
+      - CON-005
+  - id: CONTENT-calendar-custom-time-content
+    status: proposed
+    approved: false
+    requirementIds:
+      - CONTENT-011
+  - id: CONTENT-import-export
+    status: proposed
+    approved: false
+    requirementIds:
+      - CONTENT-007
+      - CONTENT-008
+  - id: CONTENT-notes-and-editor
+    status: proposed
+    approved: false
+    requirementIds:
+      - CONTENT-001
+      - CONTENT-002
+  - id: CONTENT-source-specific-constraints
+    status: proposed
+    approved: false
+    requirementIds:
+      - CONTENT-012
+  - id: CONTENT-structured-objects-and-wikilinks
+    status: proposed
+    approved: false
+    requirementIds:
+      - CONTENT-005
+      - CONTENT-006
+      - CONTENT-013
+  - id: CONTENT-templates-and-snippets
+    status: proposed
+    approved: false
+    requirementIds:
+      - CONTENT-003
+      - CONTENT-004
+  - id: CONTENT-visibility-and-embeds
+    status: proposed
+    approved: false
+    requirementIds:
+      - CONTENT-009
+      - CONTENT-010
+  - id: GRAPH-backlinks-and-navigation-relationships
+    status: proposed
+    approved: false
+    requirementIds:
+      - GRAPH-002
+  - id: GRAPH-deterministic-quality-intelligence
+    status: proposed
+    approved: false
+    requirementIds:
+      - GRAPH-003
+      - GRAPH-007
+      - GRAPH-009
+      - GRAPH-010
+  - id: GRAPH-incremental-apis
+    status: proposed
+    approved: false
+    requirementIds:
+      - GRAPH-005
+      - GRAPH-006
+  - id: GRAPH-source-indexing
+    status: proposed
+    approved: false
+    requirementIds:
+      - GRAPH-001
+      - GRAPH-008
+  - id: GRAPH-visualization
+    status: proposed
+    approved: false
+    requirementIds:
+      - GRAPH-004
+  - id: MAP-interaction-safety
+    status: proposed
+    approved: false
+    requirementIds:
+      - MAP-015
+  - id: MAP-layers-and-visibility
+    status: proposed
+    approved: false
+    requirementIds:
+      - MAP-005
+      - MAP-006
+      - MAP-007
+      - MAP-016
+  - id: MAP-map-editing-and-generation
+    status: proposed
+    approved: false
+    requirementIds:
+      - MAP-003
+      - MAP-004
+  - id: MAP-map-entity-and-assets
+    status: proposed
+    approved: false
+    requirementIds:
+      - MAP-001
+      - MAP-002
+      - MAP-020
+  - id: MAP-nesting-and-spatial-transitions
+    status: proposed
+    approved: false
+    requirementIds:
+      - MAP-008
+      - MAP-009
+      - MAP-017
+  - id: MAP-pois-routes-fog-and-combat-overlays
+    status: proposed
+    approved: false
+    requirementIds:
+      - MAP-010
+      - MAP-011
+      - MAP-012
+      - MAP-013
+      - MAP-014
+      - MAP-018
+      - MAP-019
+  - id: MCP-core-enforcement-and-tests
+    status: proposed
+    approved: false
+    requirementIds:
+      - MCP-004
+      - MCP-005
+      - MCP-012
+  - id: MCP-identity-policy-and-staged-writes
+    status: proposed
+    approved: false
+    requirementIds:
+      - MCP-003
+      - MCP-009
+      - MCP-011
+  - id: MCP-optionality-and-baseline-tools
+    status: proposed
+    approved: false
+    requirementIds:
+      - MCP-001
+      - MCP-002
+  - id: MCP-response-contracts
+    status: proposed
+    approved: false
+    requirementIds:
+      - MCP-010
+  - id: MCP-semantic-bundles-and-ai-boundaries
+    status: proposed
+    approved: false
+    requirementIds:
+      - MCP-006
+      - MCP-007
+      - MCP-008
+      - MCP-013
+  - id: NAV-command-palette-and-actor-filtering
+    status: proposed
+    approved: false
+    requirementIds:
+      - NAV-008
+      - NAV-010
+  - id: NAV-global-local-contextual-navigation
+    status: proposed
+    approved: false
+    requirementIds:
+      - NAV-003
+  - id: NAV-home-and-canonical-sections
+    status: proposed
+    approved: false
+    requirementIds:
+      - NAV-001
+      - NAV-009
+  - id: NAV-ia-validation-and-accessibility-semantics
+    status: proposed
+    approved: false
+    requirementIds:
+      - NAV-006
+      - NAV-007
+  - id: NAV-route-aliases-and-deep-links
+    status: proposed
+    approved: false
+    requirementIds:
+      - NAV-002
+      - NAV-004
+      - NAV-005
+  - id: PERF-budget-ownership-and-measurement
+    status: proposed
+    approved: false
+    requirementIds:
+      - PERF-001
+      - PERF-007
+  - id: PERF-bundles-memory-and-ai-mcp-isolation
+    status: proposed
+    approved: false
+    requirementIds:
+      - PERF-005
+      - PERF-006
+      - PERF-009
+  - id: PERF-scene-and-map-rendering
+    status: proposed
+    approved: false
+    requirementIds:
+      - PERF-002
+      - PERF-003
+  - id: PERF-search-graph-and-sync-responsiveness
+    status: proposed
+    approved: false
+    requirementIds:
+      - PERF-004
+      - PERF-008
+  - id: PERM-base-roles-and-observer-limits
+    status: proposed
+    approved: false
+    requirementIds:
+      - PERM-001
+      - PERM-011
+  - id: PERM-consistency-cache-invalidation-and-audit
+    status: proposed
+    approved: false
+    requirementIds:
+      - PERM-007
+      - PERM-009
+      - PERM-010
+      - PERM-014
+  - id: PERM-grants-and-capability-sets
+    status: proposed
+    approved: false
+    requirementIds:
+      - PERM-004
+      - PERM-005
+      - PERM-006
+      - PERM-008
+      - PERM-013
+  - id: PERM-visibility
+    status: proposed
+    approved: false
+    requirementIds:
+      - PERM-002
+      - PERM-003
+      - PERM-012
+  - id: PLAT-migration-and-diagnostics
+    status: proposed
+    approved: false
+    requirementIds:
+      - PLAT-008
+      - PLAT-009
+      - PLAT-017
+  - id: PLAT-persistence-and-boundaries
+    status: proposed
+    approved: false
+    requirementIds:
+      - PLAT-006
+      - PLAT-007
+      - PLAT-011
+      - PLAT-012
+      - PLAT-018
+  - id: PLAT-platform-profiles-and-shells
+    status: proposed
+    approved: false
+    requirementIds:
+      - PLAT-001
+      - PLAT-002
+      - PLAT-003
+      - PLAT-004
+      - PLAT-005
+      - PLAT-016
+  - id: PLAT-quality-gates-and-onboarding
+    status: proposed
+    approved: false
+    requirementIds:
+      - PLAT-010
+      - PLAT-013
+      - PLAT-014
+      - PLAT-015
+  - id: SEC-input-and-content-safety
+    status: proposed
+    approved: false
+    requirementIds:
+      - SEC-002
+      - SEC-003
+      - SEC-006
+  - id: SEC-regression-gates-and-stream-privacy
+    status: proposed
+    approved: false
+    requirementIds:
+      - SEC-008
+      - SEC-010
+      - SEC-011
+  - id: SEC-renderer-and-platform-isolation
+    status: proposed
+    approved: false
+    requirementIds:
+      - SEC-001
+      - SEC-007
+  - id: SEC-secrets-and-cloud-collaboration
+    status: proposed
+    approved: false
+    requirementIds:
+      - SEC-004
+      - SEC-005
+      - SEC-009
+      - SEC-012
+  - id: SES-combat
+    status: proposed
+    approved: false
+    requirementIds:
+      - SES-002
+      - SES-006
+  - id: SES-dice-and-tables
+    status: proposed
+    approved: false
+    requirementIds:
+      - SES-003
+      - SES-008
+  - id: SES-handouts-and-tools
+    status: proposed
+    approved: false
+    requirementIds:
+      - SES-004
+      - SES-005
+      - SES-007
+  - id: SES-prep-recap-and-calendar-continuity
+    status: proposed
+    approved: false
+    requirementIds:
+      - SES-009
+      - SES-012
+  - id: SES-session-lifecycle
+    status: proposed
+    approved: false
+    requirementIds:
+      - SES-001
+      - SES-010
+      - SES-011
+  - id: SRCH-calendar-custom-time-discovery
+    status: proposed
+    approved: false
+    requirementIds:
+      - SRCH-010
+  - id: SRCH-filters-and-saved-searches
+    status: proposed
+    approved: false
+    requirementIds:
+      - SRCH-003
+      - SRCH-004
+  - id: SRCH-local-indexes-and-freshness
+    status: proposed
+    approved: false
+    requirementIds:
+      - SRCH-001
+      - SRCH-009
+  - id: SRCH-quick-switcher-and-command-discovery
+    status: proposed
+    approved: false
+    requirementIds:
+      - SRCH-002
+  - id: SRCH-ranking-and-result-context
+    status: proposed
+    approved: false
+    requirementIds:
+      - SRCH-005
+      - SRCH-006
+      - SRCH-011
+  - id: SRCH-result-opening-and-deterministic-diagnostics
+    status: proposed
+    approved: false
+    requirementIds:
+      - SRCH-007
+      - SRCH-008
+  - id: SYNC-asset-sync-and-status
+    status: proposed
+    approved: false
+    requirementIds:
+      - SYNC-009
+      - SYNC-010
+      - SYNC-014
+  - id: SYNC-cloud-device-local-storage
+    status: proposed
+    approved: false
+    requirementIds:
+      - SYNC-007
+      - SYNC-008
+      - SYNC-017
+  - id: SYNC-conflict-lifecycle
+    status: proposed
+    approved: false
+    requirementIds:
+      - SYNC-006
+      - SYNC-013
+  - id: SYNC-local-first-operation-model
+    status: proposed
+    approved: false
+    requirementIds:
+      - SYNC-001
+      - SYNC-002
+      - SYNC-011
+  - id: SYNC-source-adapters
+    status: proposed
+    approved: false
+    requirementIds:
+      - SYNC-003
+      - SYNC-004
+      - SYNC-005
+      - SYNC-012
+      - SYNC-015
+      - SYNC-016

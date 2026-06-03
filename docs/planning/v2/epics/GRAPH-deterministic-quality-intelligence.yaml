@@ -1,0 +1,171 @@
+schemaVersion: 1
+id: GRAPH-deterministic-quality-intelligence
+title: 'GRAPH: Deterministic quality intelligence'
+status: proposed
+approved: false
+domain: GRAPH
+capabilityBranch: Deterministic quality intelligence
+objective: Deliver the deterministic quality intelligence capability branch for
+  GRAPH, traced to the included v2 requirements.
+requirementIds:
+  - GRAPH-003
+  - GRAPH-007
+  - GRAPH-009
+  - GRAPH-010
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - graph index
+  - relationship intelligence
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/graph/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: GRAPH-003-S01
+    title: The Graph Engine shall detect unresolved links, aliases, duplicate
+      titles, orphan notes, hub notes, and relationship-quality issues through
+      deterministic algorithms
+    requirementIds:
+      - GRAPH-003
+    acceptanceCriteria:
+      - Given an unresolved wikilink, when graph analysis runs, then it reports
+        a repair candidate without requiring AI.
+      - Given two notes share an alias, when indexing completes, then
+        disambiguation is surfaced to the DM or editor.
+      - Given relationship-quality scoring runs, when findings are produced,
+        then each score includes deterministic inputs, threshold version, source
+        references, and no AI-only rationale.
+    tasks:
+      - id: GRAPH-003-S01-T01
+        title: Confirm architecture and interface shape for GRAPH-003
+        kind: design
+      - id: GRAPH-003-S01-T02
+        title: Implement the smallest behavior that satisfies GRAPH-003
+        kind: implementation
+      - id: GRAPH-003-S01-T03
+        title: Add automated coverage for GRAPH-003 acceptance criteria
+        kind: test
+      - id: GRAPH-003-S01-T04
+        title: Record demo notes and traceability evidence for GRAPH-003
+        kind: demo
+  - id: GRAPH-007-S02
+    title: The DM shall be able to run graph health and coverage reports for stale
+      notes, missing links, content gaps, and open threads with deterministic
+      scoring and optional AI explanation
+    requirementIds:
+      - GRAPH-007
+    acceptanceCriteria:
+      - Given AI is disabled, when the DM runs coverage gaps, then deterministic
+        scores and source references are produced.
+      - Given AI is enabled, when narrative explanation is requested, then the
+        deterministic findings remain the source of truth.
+      - Given a report includes hidden nodes, when generated for a player-scoped
+        surface, then hidden nodes, snippets, and aggregate counts that would
+        reveal hidden content are omitted or generalized.
+      - Given no AI runtime is available offline, when health reports run, then
+        deterministic reports still complete.
+    tasks:
+      - id: GRAPH-007-S02-T01
+        title: Confirm architecture and interface shape for GRAPH-007
+        kind: design
+      - id: GRAPH-007-S02-T02
+        title: Implement the smallest behavior that satisfies GRAPH-007
+        kind: implementation
+      - id: GRAPH-007-S02-T03
+        title: Add automated coverage for GRAPH-007 acceptance criteria
+        kind: test
+      - id: GRAPH-007-S02-T04
+        title: Record demo notes and traceability evidence for GRAPH-007
+        kind: demo
+  - id: GRAPH-009-S03
+    title: The Graph Engine shall index calendar/custom-time references and expose
+      them to navigation, search, session prep/recap, and MCP bundle tools
+      through the same visibility-filtered graph API
+    requirementIds:
+      - GRAPH-009
+    acceptanceCriteria:
+      - Given session notes, timeline events, and handouts contain custom dates,
+        when graph indexing runs, then visible date relationships are queryable
+        through the graph API.
+      - Given a player cannot see a calendar-linked event, when they query
+        related events, then the hidden event and its relationship edge are
+        absent.
+    tasks:
+      - id: GRAPH-009-S03-T01
+        title: Confirm architecture and interface shape for GRAPH-009
+        kind: design
+      - id: GRAPH-009-S03-T02
+        title: Implement the smallest behavior that satisfies GRAPH-009
+        kind: implementation
+      - id: GRAPH-009-S03-T03
+        title: Add automated coverage for GRAPH-009 acceptance criteria
+        kind: test
+      - id: GRAPH-009-S03-T04
+        title: Record demo notes and traceability evidence for GRAPH-009
+        kind: demo
+  - id: GRAPH-010-S04
+    title: An authorized editor shall be able to repair dead links, bulk-preview
+      link repairs, and disambiguate link-picker suggestions only within content
+      sections or sources covered by their capability grants, without exposing
+      hidden targets
+    requirementIds:
+      - GRAPH-010
+    acceptanceCriteria:
+      - Given an unresolved wikilink has candidate targets, when the link picker
+        opens for a player, then only visible candidate targets and
+        non-revealing labels appear.
+      - Given the DM bulk-repairs dead links, when preview opens, then each
+        proposed rewrite, affected source, ambiguity, and unsupported source
+        limitation is listed before writes.
+      - Given a repair target is ambiguous, when the editor selects one
+        candidate, then only that link changes and graph/search indexes update
+        incrementally.
+      - Given a hidden note title would be a good repair suggestion, when
+        suggestions are generated for a non-DM actor, then the hidden title, id,
+        and counts are omitted.
+      - Given a player has `section-editor` on one note section, when they
+        attempt a bulk repair that rewrites another section or source document,
+        then the repair command is rejected before mutation.
+    tasks:
+      - id: GRAPH-010-S04-T01
+        title: Confirm architecture and interface shape for GRAPH-010
+        kind: design
+      - id: GRAPH-010-S04-T02
+        title: Implement the smallest behavior that satisfies GRAPH-010
+        kind: implementation
+      - id: GRAPH-010-S04-T03
+        title: Add automated coverage for GRAPH-010 acceptance criteria
+        kind: test
+      - id: GRAPH-010-S04-T04
+        title: Record demo notes and traceability evidence for GRAPH-010
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

@@ -1,0 +1,163 @@
+schemaVersion: 1
+id: MAP-layers-and-visibility
+title: 'MAP: Layers and visibility'
+status: proposed
+approved: false
+domain: MAP
+capabilityBranch: Layers and visibility
+objective: Deliver the layers and visibility capability branch for MAP, traced
+  to the included v2 requirements.
+requirementIds:
+  - MAP-005
+  - MAP-006
+  - MAP-007
+  - MAP-016
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - map model
+  - map renderer
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/map/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: MAP-005-S01
+    title: The DM shall be able to create, rename, reorder, duplicate, lock, and
+      delete named map layers with type, opacity, visibility, tags, and query
+      metadata
+    requirementIds:
+      - MAP-005
+    acceptanceCriteria:
+      - Given a map with three layers, when the DM reorders Layer C above Layer
+        A, then layer order persists and render order changes accordingly.
+      - Given a locked layer, when a non-DM or unauthorized command tries to
+        edit it, then the operation is rejected.
+    tasks:
+      - id: MAP-005-S01-T01
+        title: Confirm architecture and interface shape for MAP-005
+        kind: design
+      - id: MAP-005-S01-T02
+        title: Implement the smallest behavior that satisfies MAP-005
+        kind: implementation
+      - id: MAP-005-S01-T03
+        title: Add automated coverage for MAP-005 acceptance criteria
+        kind: test
+      - id: MAP-005-S01-T04
+        title: Record demo notes and traceability evidence for MAP-005
+        kind: demo
+  - id: MAP-006-S02
+    title: The DM shall be able to toggle a layer's player visibility independently
+      from its DM visibility and opacity without affecting other layers
+    requirementIds:
+      - MAP-006
+    acceptanceCriteria:
+      - Given a map with Layer A, B, and C, when the DM makes Layer B
+        `player-visible`, then player map queries include Layer B and leave A/C
+        unchanged.
+      - Given Layer B remains `dm-only`, when a player opens a projected map
+        widget, then Layer B data is absent from the response.
+      - Given Layer B is included in Player A's Player View assignment only,
+        when Player A and Player B query the same map, then only Player A
+        receives Layer B.
+      - Given an observer views the map, when shared or character-linked layers
+        exist, then only observer-visible layers are returned and no write
+        controls are available.
+    tasks:
+      - id: MAP-006-S02-T01
+        title: Confirm architecture and interface shape for MAP-006
+        kind: design
+      - id: MAP-006-S02-T02
+        title: Implement the smallest behavior that satisfies MAP-006
+        kind: implementation
+      - id: MAP-006-S02-T03
+        title: Add automated coverage for MAP-006 acceptance criteria
+        kind: test
+      - id: MAP-006-S02-T04
+        title: Record demo notes and traceability evidence for MAP-006
+        kind: demo
+  - id: MAP-007-S03
+    title: The DM shall be able to tag and query map layers by type and metadata,
+      such as POI layers for a region, without reading hidden layer data into
+      player contexts
+    requirementIds:
+      - MAP-007
+    acceptanceCriteria:
+      - Given layers tagged `region:northern-coast`, when the DM filters by that
+        tag, then matching layers are returned.
+      - Given a player runs the same visible-layer query, when hidden layers
+        match the tag, then hidden matches are omitted rather than redacted in
+        the UI.
+    tasks:
+      - id: MAP-007-S03-T01
+        title: Confirm architecture and interface shape for MAP-007
+        kind: design
+      - id: MAP-007-S03-T02
+        title: Implement the smallest behavior that satisfies MAP-007
+        kind: implementation
+      - id: MAP-007-S03-T03
+        title: Add automated coverage for MAP-007 acceptance criteria
+        kind: test
+      - id: MAP-007-S03-T04
+        title: Record demo notes and traceability evidence for MAP-007
+        kind: demo
+  - id: MAP-016-S04
+    title: The DM shall be able to validate map-layer visibility consistency across
+      map, layer, POI, route, fog, token, and nested-map data before projecting
+      a map to players or observers
+    requirementIds:
+      - MAP-016
+    acceptanceCriteria:
+      - Given a visible route references a hidden POI, when projection
+        validation runs, then projection is blocked until the route is hidden,
+        the POI is revealed, or the route reference is removed.
+      - Given a hidden token appears on a player-visible combat overlay, when
+        the map is projected, then the token data is omitted from player
+        payloads and the projection is blocked if omission would make the
+        visible overlay misleading.
+      - Given a hidden token is safely omitted from a DM-only overlay, when
+        validation runs, then the DM receives a non-blocking warning and
+        projection of unrelated visible data may continue.
+    tasks:
+      - id: MAP-016-S04-T01
+        title: Confirm architecture and interface shape for MAP-016
+        kind: design
+      - id: MAP-016-S04-T02
+        title: Implement the smallest behavior that satisfies MAP-016
+        kind: implementation
+      - id: MAP-016-S04-T03
+        title: Add automated coverage for MAP-016 acceptance criteria
+        kind: test
+      - id: MAP-016-S04-T04
+        title: Record demo notes and traceability evidence for MAP-016
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

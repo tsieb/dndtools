@@ -1,0 +1,107 @@
+schemaVersion: 1
+id: MCP-optionality-and-baseline-tools
+title: 'MCP: Optionality and baseline tools'
+status: proposed
+approved: false
+domain: MCP
+capabilityBranch: Optionality and baseline tools
+objective: Deliver the optionality and baseline tools capability branch for MCP,
+  traced to the included v2 requirements.
+requirementIds:
+  - MCP-001
+  - MCP-002
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - agent tool interface
+  - policy layer
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/mcp/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: MCP-001-S01
+    title: The DM shall be able to disable MCP completely without losing core app
+      functionality for notes, maps, Scenes, characters, sessions, sync, search,
+      or graph operations
+    requirementIds:
+      - MCP-001
+    acceptanceCriteria:
+      - Given MCP is disabled, when the DM edits notes and runs a session, then
+        core workflows continue without MCP processes.
+      - Given an MCP-only command is requested while disabled, when invoked,
+        then it returns disabled status without affecting core state.
+    tasks:
+      - id: MCP-001-S01-T01
+        title: Confirm architecture and interface shape for MCP-001
+        kind: design
+      - id: MCP-001-S01-T02
+        title: Implement the smallest behavior that satisfies MCP-001
+        kind: implementation
+      - id: MCP-001-S01-T03
+        title: Add automated coverage for MCP-001 acceptance criteria
+        kind: test
+      - id: MCP-001-S01-T04
+        title: Record demo notes and traceability evidence for MCP-001
+        kind: demo
+  - id: MCP-002-S02
+    title: The MCP layer shall ship baseline read tools for vault summary, note
+      read/list/search, graph context, character query, dice roll, and session
+      prep bundles
+    requirementIds:
+      - MCP-002
+    acceptanceCriteria:
+      - Given MCP is enabled for the DM, when an agent requests a vault summary,
+        then the tool returns structured context from core indexes.
+      - Given a player-scoped MCP context is ever supported, when used, then
+        tool responses are visibility-filtered before output.
+      - Given baseline MCP tools are disabled by policy, when the app core runs,
+        then notes, maps, Scenes, characters, sessions, sync, search, and graph
+        remain usable through non-MCP UI and core commands.
+      - Given MCP is disabled, when navigation and command surfaces render, then
+        MCP sections, agent commands, and tool-only actions are absent or
+        disabled with a non-leaking disabled status.
+    tasks:
+      - id: MCP-002-S02-T01
+        title: Confirm architecture and interface shape for MCP-002
+        kind: design
+      - id: MCP-002-S02-T02
+        title: Implement the smallest behavior that satisfies MCP-002
+        kind: implementation
+      - id: MCP-002-S02-T03
+        title: Add automated coverage for MCP-002 acceptance criteria
+        kind: test
+      - id: MCP-002-S02-T04
+        title: Record demo notes and traceability evidence for MCP-002
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

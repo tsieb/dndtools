@@ -1,0 +1,99 @@
+schemaVersion: 1
+id: CHAR-ownership-and-permission-grants
+title: 'CHAR: Ownership and permission grants'
+status: proposed
+approved: false
+domain: CHAR
+capabilityBranch: Ownership and permission grants
+objective: Deliver the ownership and permission grants capability branch for
+  CHAR, traced to the included v2 requirements.
+requirementIds:
+  - CHAR-003
+  - CHAR-010
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - character model
+  - character UI
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/char/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CHAR-003-S01
+    title: The DM shall be able to assign exactly one `owner` capability set to a
+      player for a character while retaining full DM administrative rights
+    requirementIds:
+      - CHAR-003
+    acceptanceCriteria:
+      - Given a character has no owner, when the DM grants `owner` to a player,
+        then the player receives owner-inherited permissions.
+      - Given a character already has an owner, when the DM grants `owner` to a
+        second player, then the command is rejected unless ownership transfer
+        semantics are explicitly invoked.
+    tasks:
+      - id: CHAR-003-S01-T01
+        title: Confirm architecture and interface shape for CHAR-003
+        kind: design
+      - id: CHAR-003-S01-T02
+        title: Implement the smallest behavior that satisfies CHAR-003
+        kind: implementation
+      - id: CHAR-003-S01-T03
+        title: Add automated coverage for CHAR-003 acceptance criteria
+        kind: test
+      - id: CHAR-003-S01-T04
+        title: Record demo notes and traceability evidence for CHAR-003
+        kind: demo
+  - id: CHAR-010-S02
+    title: A player with `backstory-editor` or `owner` shall be able to edit
+      character backstory, personality, relationships, goals, bonds, flaws,
+      history, and player notes without gaining access to DM-only fields
+    requirementIds:
+      - CHAR-010
+    acceptanceCriteria:
+      - Given a player has `backstory-editor`, when they edit a relationship
+        section, then the command is accepted.
+      - Given the same player requests `dmNotes`, when the character query
+        resolves, then `dmNotes` is absent.
+    tasks:
+      - id: CHAR-010-S02-T01
+        title: Confirm architecture and interface shape for CHAR-010
+        kind: design
+      - id: CHAR-010-S02-T02
+        title: Implement the smallest behavior that satisfies CHAR-010
+        kind: implementation
+      - id: CHAR-010-S02-T03
+        title: Add automated coverage for CHAR-010 acceptance criteria
+        kind: test
+      - id: CHAR-010-S02-T04
+        title: Record demo notes and traceability evidence for CHAR-010
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

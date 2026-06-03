@@ -1,0 +1,182 @@
+schemaVersion: 1
+id: AUDIO-platform-and-player-degradation
+title: 'AUDIO: Platform and player degradation'
+status: proposed
+approved: false
+domain: AUDIO
+capabilityBranch: Platform and player degradation
+objective: Deliver the platform and player degradation capability branch for
+  AUDIO, traced to the included v2 requirements.
+requirementIds:
+  - AUDIO-006
+  - AUDIO-007
+  - AUDIO-008
+  - AUDIO-012
+  - AUDIO-013
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - audio model
+  - playback surface
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/audio/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: AUDIO-006-S01
+    title: Audio features shall degrade gracefully on platforms that lack audio
+      permissions, background playback, output routing, or required local assets
+    requirementIds:
+      - AUDIO-006
+    acceptanceCriteria:
+      - Given a mobile browser blocks background playback, when audio sync state
+        changes, then the app shows a degraded status rather than retrying
+        indefinitely.
+      - Given a participant cannot play an audio asset, when the DM inspects
+        session status, then the participant's audio delivery state is visible
+        without exposing device secrets.
+    tasks:
+      - id: AUDIO-006-S01-T01
+        title: Confirm architecture and interface shape for AUDIO-006
+        kind: design
+      - id: AUDIO-006-S01-T02
+        title: Implement the smallest behavior that satisfies AUDIO-006
+        kind: implementation
+      - id: AUDIO-006-S01-T03
+        title: Add automated coverage for AUDIO-006 acceptance criteria
+        kind: test
+      - id: AUDIO-006-S01-T04
+        title: Record demo notes and traceability evidence for AUDIO-006
+        kind: demo
+  - id: AUDIO-007-S02
+    title: Any release that enables audio shall allow participants to control
+      device-local audio consent, mute, output, and volume preferences without
+      changing DM-authored session audio state
+    requirementIds:
+      - AUDIO-007
+    acceptanceCriteria:
+      - Given a participant declines audio playback, when the DM starts a track,
+        then the participant device remains silent and reports consent-blocked
+        status.
+      - Given a participant changes local volume, when sync state is inspected,
+        then authoritative session volume is unchanged.
+    tasks:
+      - id: AUDIO-007-S02-T01
+        title: Confirm architecture and interface shape for AUDIO-007
+        kind: design
+      - id: AUDIO-007-S02-T02
+        title: Implement the smallest behavior that satisfies AUDIO-007
+        kind: implementation
+      - id: AUDIO-007-S02-T03
+        title: Add automated coverage for AUDIO-007 acceptance criteria
+        kind: test
+      - id: AUDIO-007-S02-T04
+        title: Record demo notes and traceability evidence for AUDIO-007
+        kind: demo
+  - id: AUDIO-008-S03
+    title: Any release that enables audio shall make audio visualizers, transitions,
+      and state announcements respect reduced motion, live announcement, and
+      non-color accessibility requirements
+    requirementIds:
+      - AUDIO-008
+    acceptanceCriteria:
+      - Given reduced motion is active, when audio crossfade or visualizer
+        effects would animate, then the effects are reduced or disabled
+        according to the resolved motion state.
+      - Given playback state changes, when announced to assistive technology,
+        then announcements are concise and not repeated for high-frequency
+        progress updates.
+    tasks:
+      - id: AUDIO-008-S03-T01
+        title: Confirm architecture and interface shape for AUDIO-008
+        kind: design
+      - id: AUDIO-008-S03-T02
+        title: Implement the smallest behavior that satisfies AUDIO-008
+        kind: implementation
+      - id: AUDIO-008-S03-T03
+        title: Add automated coverage for AUDIO-008 acceptance criteria
+        kind: test
+      - id: AUDIO-008-S03-T04
+        title: Record demo notes and traceability evidence for AUDIO-008
+        kind: demo
+  - id: AUDIO-012-S04
+    title: Audio output routing shall use platform-declared capabilities and fall
+      back to default output or unavailable-routing status when routing is
+      unsupported
+    requirementIds:
+      - AUDIO-012
+    acceptanceCriteria:
+      - Given output routing is unsupported on a platform, when playback starts,
+        then the app uses default output or reports unavailable routing without
+        failing session audio state.
+      - Given a participant changes device-local output routing where supported,
+        when session audio state syncs, then the route choice remains
+        device-local and does not mutate DM-authored playback state.
+    tasks:
+      - id: AUDIO-012-S04-T01
+        title: Confirm architecture and interface shape for AUDIO-012
+        kind: design
+      - id: AUDIO-012-S04-T02
+        title: Implement the smallest behavior that satisfies AUDIO-012
+        kind: implementation
+      - id: AUDIO-012-S04-T03
+        title: Add automated coverage for AUDIO-012 acceptance criteria
+        kind: test
+      - id: AUDIO-012-S04-T04
+        title: Record demo notes and traceability evidence for AUDIO-012
+        kind: demo
+  - id: AUDIO-013-S05
+    title: Audio playback shall enforce performance-safe failure modes so repeated
+      failures or excessive resource use degrade audio without blocking other
+      session commands
+    requirementIds:
+      - AUDIO-013
+    acceptanceCriteria:
+      - Given playback repeatedly fails or consumes excessive resources, when
+        safety limits trigger, then the track is stopped or degraded and the DM
+        sees diagnostics without blocking other session commands.
+      - Given audio is degraded by safety limits, when the DM advances combat,
+        rolls dice, or projects a handout, then those session commands remain
+        within their configured responsiveness budgets.
+    tasks:
+      - id: AUDIO-013-S05-T01
+        title: Confirm architecture and interface shape for AUDIO-013
+        kind: design
+      - id: AUDIO-013-S05-T02
+        title: Implement the smallest behavior that satisfies AUDIO-013
+        kind: implementation
+      - id: AUDIO-013-S05-T03
+        title: Add automated coverage for AUDIO-013 acceptance criteria
+        kind: test
+      - id: AUDIO-013-S05-T04
+        title: Record demo notes and traceability evidence for AUDIO-013
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

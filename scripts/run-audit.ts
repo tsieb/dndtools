@@ -22,8 +22,7 @@ const PROFILE_STEPS: Record<AuditProfile, AuditStep[]> = {
 		{ name: 'typecheck', command: getPnpmCommand(), args: ['typecheck'] },
 		{ name: 'unit-tests', command: getPnpmCommand(), args: ['test'] },
 		{ name: 'docs-validation', command: getPnpmCommand(), args: ['docs:validate'] },
-		{ name: 'desktop-critical', command: getPnpmCommand(), args: ['desktop:test:critical'] },
-		{ name: 'desktop-a11y', command: getPnpmCommand(), args: ['desktop:test:a11y'] },
+		{ name: 'browser-e2e', command: getPnpmCommand(), args: ['test:e2e'] },
 	],
 };
 

@@ -1,0 +1,156 @@
+schemaVersion: 1
+id: AUDIO-assets-licensing-and-source-scope
+title: 'AUDIO: Assets, licensing, and source scope'
+status: proposed
+approved: false
+domain: AUDIO
+capabilityBranch: Assets, licensing, and source scope
+objective: Deliver the assets, licensing, and source scope capability branch for
+  AUDIO, traced to the included v2 requirements.
+requirementIds:
+  - AUDIO-004
+  - AUDIO-009
+  - AUDIO-010
+  - AUDIO-011
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - audio model
+  - playback surface
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/audio/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: AUDIO-004-S01
+    title: The DM shall be able to import and manage local audio assets with
+      metadata, licensing notes, tags, and source references
+    requirementIds:
+      - AUDIO-004
+    acceptanceCriteria:
+      - Given an audio file is imported, when metadata is saved, then tags,
+        license note, source, and asset hash are recorded.
+      - Given licensing metadata is missing, when the DM prepares export, then
+        the asset is flagged for review.
+    tasks:
+      - id: AUDIO-004-S01-T01
+        title: Confirm architecture and interface shape for AUDIO-004
+        kind: design
+      - id: AUDIO-004-S01-T02
+        title: Implement the smallest behavior that satisfies AUDIO-004
+        kind: implementation
+      - id: AUDIO-004-S01-T03
+        title: Add automated coverage for AUDIO-004 acceptance criteria
+        kind: test
+      - id: AUDIO-004-S01-T04
+        title: Record demo notes and traceability evidence for AUDIO-004
+        kind: demo
+  - id: AUDIO-009-S02
+    title: The DM shall be able to configure only declared audio source types, with
+      unsupported providers blocked before playback or package import
+    requirementIds:
+      - AUDIO-009
+    acceptanceCriteria:
+      - Given an audio source is configured, when release review runs, then it
+        is classified as local file, bundled preset, web stream, or unsupported
+        with licensing and cache behavior recorded.
+      - Given an unsupported audio provider is selected, when configuration is
+        saved, then the source is rejected with an unsupported-source diagnostic
+        and no playback state is created.
+    tasks:
+      - id: AUDIO-009-S02-T01
+        title: Confirm architecture and interface shape for AUDIO-009
+        kind: design
+      - id: AUDIO-009-S02-T02
+        title: Implement the smallest behavior that satisfies AUDIO-009
+        kind: implementation
+      - id: AUDIO-009-S02-T03
+        title: Add automated coverage for AUDIO-009 acceptance criteria
+        kind: test
+      - id: AUDIO-009-S02-T04
+        title: Record demo notes and traceability evidence for AUDIO-009
+        kind: demo
+  - id: AUDIO-010-S03
+    title: Audio cache and offline behavior shall be declared per source type before
+      audio playback is enabled for that source
+    requirementIds:
+      - AUDIO-010
+    acceptanceCriteria:
+      - Given a local file source is configured, when the app is offline, then
+        playback uses local asset availability and reports missing assets
+        without network retry loops.
+      - Given a web stream source is configured, when the app is offline, then
+        the source reports unavailable unless an explicitly cached asset exists.
+      - Given an audio cache is evicted, when playback is requested, then the
+        app reports missing cached audio and preserves session state without
+        substituting another track.
+    tasks:
+      - id: AUDIO-010-S03-T01
+        title: Confirm architecture and interface shape for AUDIO-010
+        kind: design
+      - id: AUDIO-010-S03-T02
+        title: Implement the smallest behavior that satisfies AUDIO-010
+        kind: implementation
+      - id: AUDIO-010-S03-T03
+        title: Add automated coverage for AUDIO-010 acceptance criteria
+        kind: test
+      - id: AUDIO-010-S03-T04
+        title: Record demo notes and traceability evidence for AUDIO-010
+        kind: demo
+  - id: AUDIO-011-S04
+    title: The DM shall be able to import and export Scene audio package references
+      only when required assets, licensing metadata, and unsupported stream
+      behavior are validated before commit
+    requirementIds:
+      - AUDIO-011
+    acceptanceCriteria:
+      - Given a Scene package includes audio presets, when imported or exported,
+        then missing assets, licensing metadata, unsupported streams, and
+        device-local output routes are reported before commit.
+      - Given a package export includes local audio assets, when validation
+        runs, then each included asset has source, license metadata, content
+        hash, and portability status.
+    tasks:
+      - id: AUDIO-011-S04-T01
+        title: Confirm architecture and interface shape for AUDIO-011
+        kind: design
+      - id: AUDIO-011-S04-T02
+        title: Implement the smallest behavior that satisfies AUDIO-011
+        kind: implementation
+      - id: AUDIO-011-S04-T03
+        title: Add automated coverage for AUDIO-011 acceptance criteria
+        kind: test
+      - id: AUDIO-011-S04-T04
+        title: Record demo notes and traceability evidence for AUDIO-011
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

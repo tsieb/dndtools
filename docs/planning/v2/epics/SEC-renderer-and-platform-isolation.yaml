@@ -1,0 +1,109 @@
+schemaVersion: 1
+id: SEC-renderer-and-platform-isolation
+title: 'SEC: Renderer and platform isolation'
+status: proposed
+approved: false
+domain: SEC
+capabilityBranch: Renderer and platform isolation
+objective: Deliver the renderer and platform isolation capability branch for
+  SEC, traced to the included v2 requirements.
+requirementIds:
+  - SEC-001
+  - SEC-007
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - security boundary
+  - threat controls
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/sec/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: SEC-001-S01
+    title: The renderer shall remain sandboxed and unable to access Node APIs,
+      filesystem APIs, arbitrary IPC, cloud credentials, or MCP sidecar
+      internals directly
+    requirementIds:
+      - SEC-001
+    acceptanceCriteria:
+      - Given renderer code attempts to import filesystem APIs, when lint/build
+        runs, then the boundary violation fails.
+      - Given a compromised renderer attempts arbitrary IPC invocation, when
+        executed, then no generic invoke channel exists.
+      - Given the desktop shell creates renderer windows, when release security
+        checks inspect configuration, then `contextIsolation` is true,
+        `nodeIntegration` is false, `sandbox` is true, and preload exposes only
+        explicit named APIs.
+    tasks:
+      - id: SEC-001-S01-T01
+        title: Confirm architecture and interface shape for SEC-001
+        kind: design
+      - id: SEC-001-S01-T02
+        title: Implement the smallest behavior that satisfies SEC-001
+        kind: implementation
+      - id: SEC-001-S01-T03
+        title: Add automated coverage for SEC-001 acceptance criteria
+        kind: test
+      - id: SEC-001-S01-T04
+        title: Record demo notes and traceability evidence for SEC-001
+        kind: demo
+  - id: SEC-007-S02
+    title: Custom widget code shall run in a constrained host API with declared host
+      permissions and no direct access to storage adapters, IPC, cloud clients,
+      auth tokens, platform bridges, raw vault files, or hidden actor data
+    requirementIds:
+      - SEC-007
+    acceptanceCriteria:
+      - Given a custom widget requests clipboard access without declaring
+        permission, when run, then clipboard API is unavailable.
+      - Given a custom widget attempts to read raw vault files, when executed,
+        then the host rejects access and isolates the widget failure.
+      - Given a custom widget requests network access, when host permission is
+        not approved for the specific destination class, then outbound network
+        APIs are unavailable and the attempt is audited.
+    tasks:
+      - id: SEC-007-S02-T01
+        title: Confirm architecture and interface shape for SEC-007
+        kind: design
+      - id: SEC-007-S02-T02
+        title: Implement the smallest behavior that satisfies SEC-007
+        kind: implementation
+      - id: SEC-007-S02-T03
+        title: Add automated coverage for SEC-007 acceptance criteria
+        kind: test
+      - id: SEC-007-S02-T04
+        title: Record demo notes and traceability evidence for SEC-007
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

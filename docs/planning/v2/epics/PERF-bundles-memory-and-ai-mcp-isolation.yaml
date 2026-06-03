@@ -1,0 +1,132 @@
+schemaVersion: 1
+id: PERF-bundles-memory-and-ai-mcp-isolation
+title: 'PERF: Bundles, memory, and AI/MCP isolation'
+status: proposed
+approved: false
+domain: PERF
+capabilityBranch: Bundles, memory, and AI/MCP isolation
+objective: Deliver the bundles, memory, and ai/mcp isolation capability branch
+  for PERF, traced to the included v2 requirements.
+requirementIds:
+  - PERF-005
+  - PERF-006
+  - PERF-009
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - performance budgets
+  - measurement
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/perf/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: PERF-005-S01
+    title: Platform builds shall enforce bundle, memory, and startup budgets with
+      path-aware gates and avoid shipping disabled or out-of-scope systems in
+      core bundles
+    requirementIds:
+      - PERF-005
+    acceptanceCriteria:
+      - Given a feature is disabled by tier or platform, when bundles are
+        analyzed, then unnecessary code is lazy-loaded or excluded where
+        feasible.
+      - Given memory profiling exceeds budget, when diagnostics run, then major
+        retained object categories are reported.
+    tasks:
+      - id: PERF-005-S01-T01
+        title: Confirm architecture and interface shape for PERF-005
+        kind: design
+      - id: PERF-005-S01-T02
+        title: Implement the smallest behavior that satisfies PERF-005
+        kind: implementation
+      - id: PERF-005-S01-T03
+        title: Add automated coverage for PERF-005 acceptance criteria
+        kind: test
+      - id: PERF-005-S01-T04
+        title: Record demo notes and traceability evidence for PERF-005
+        kind: demo
+  - id: PERF-006-S02
+    title: AI and MCP processing shall not block deterministic UI, graph, search,
+      sync, or session commands and shall use bounded context, cancellation, and
+      progress reporting
+    requirementIds:
+      - PERF-006
+    acceptanceCriteria:
+      - Given an AI bundle generation is running, when the DM rolls dice or
+        advances combat, then session commands remain responsive.
+      - Given an AI/MCP task exceeds limits, when cancelled, then partial output
+        is discarded or clearly marked partial.
+      - Given AI is unavailable offline, when deterministic UI, graph, search,
+        sync, or session commands run, then they remain within their configured
+        budgets without waiting on AI.
+    tasks:
+      - id: PERF-006-S02-T01
+        title: Confirm architecture and interface shape for PERF-006
+        kind: design
+      - id: PERF-006-S02-T02
+        title: Implement the smallest behavior that satisfies PERF-006
+        kind: implementation
+      - id: PERF-006-S02-T03
+        title: Add automated coverage for PERF-006 acceptance criteria
+        kind: test
+      - id: PERF-006-S02-T04
+        title: Record demo notes and traceability evidence for PERF-006
+        kind: demo
+  - id: PERF-009-S03
+    title: Performance diagnostics shall be privacy-preserving and shall not include
+      hidden player-inaccessible content, raw paths, secrets, or full note
+      bodies by default
+    requirementIds:
+      - PERF-009
+    acceptanceCriteria:
+      - Given performance traces are exported, when inspected, then raw content,
+        secrets, hidden titles, and absolute paths are absent unless explicitly
+        included by the DM.
+      - Given local UX diagnostics measure task success or time-to-first-value,
+        when stored, then data remains local unless the user explicitly exports
+        it.
+    tasks:
+      - id: PERF-009-S03-T01
+        title: Confirm architecture and interface shape for PERF-009
+        kind: design
+      - id: PERF-009-S03-T02
+        title: Implement the smallest behavior that satisfies PERF-009
+        kind: implementation
+      - id: PERF-009-S03-T03
+        title: Add automated coverage for PERF-009 acceptance criteria
+        kind: test
+      - id: PERF-009-S03-T04
+        title: Record demo notes and traceability evidence for PERF-009
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

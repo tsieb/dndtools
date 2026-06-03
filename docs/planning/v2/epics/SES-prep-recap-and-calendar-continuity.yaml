@@ -1,0 +1,100 @@
+schemaVersion: 1
+id: SES-prep-recap-and-calendar-continuity
+title: 'SES: Prep, recap, and calendar continuity'
+status: proposed
+approved: false
+domain: SES
+capabilityBranch: Prep, recap, and calendar continuity
+objective: Deliver the prep, recap, and calendar continuity capability branch
+  for SES, traced to the included v2 requirements.
+requirementIds:
+  - SES-009
+  - SES-012
+excludedRequirementIds: []
+architectureContracts: []
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - session state
+  - live tools
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/ses/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: SES-009-S01
+    title: The DM shall be able to run pre-session prep and post-session recap
+      workflows that gather unresolved threads, recent changes, handout
+      outcomes, combat summaries, and continuity prompts
+    requirementIds:
+      - SES-009
+    acceptanceCriteria:
+      - Given an upcoming session, when the DM opens prep, then relevant open
+        threads and session assets are gathered from local indexes.
+      - Given a session ends, when recap runs, then a recap draft can be created
+        without requiring AI services.
+    tasks:
+      - id: SES-009-S01-T01
+        title: Confirm architecture and interface shape for SES-009
+        kind: design
+      - id: SES-009-S01-T02
+        title: Implement the smallest behavior that satisfies SES-009
+        kind: implementation
+      - id: SES-009-S01-T03
+        title: Add automated coverage for SES-009 acceptance criteria
+        kind: test
+      - id: SES-009-S01-T04
+        title: Record demo notes and traceability evidence for SES-009
+        kind: demo
+  - id: SES-012-S02
+    title: The DM shall be able to maintain campaign calendar and custom-time state,
+      link dates to notes, sessions, maps, events, and handouts, and include
+      calendar context in prep and recap workflows
+    requirementIds:
+      - SES-012
+    acceptanceCriteria:
+      - Given a campaign uses a custom calendar, when the DM records a session
+        date, then the date is stored in campaign calendar terms and can also be
+        rendered in a stable canonical format.
+      - Given prep or recap gathers continuity prompts, when calendar events and
+        moon/reference panels are relevant, then visible source links are
+        included without requiring AI.
+    tasks:
+      - id: SES-012-S02-T01
+        title: Confirm architecture and interface shape for SES-012
+        kind: design
+      - id: SES-012-S02-T02
+        title: Implement the smallest behavior that satisfies SES-012
+        kind: implementation
+      - id: SES-012-S02-T03
+        title: Add automated coverage for SES-012 acceptance criteria
+        kind: test
+      - id: SES-012-S02-T04
+        title: Record demo notes and traceability evidence for SES-012
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

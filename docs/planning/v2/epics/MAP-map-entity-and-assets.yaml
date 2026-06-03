@@ -1,0 +1,139 @@
+schemaVersion: 1
+id: MAP-map-entity-and-assets
+title: 'MAP: Map entity and assets'
+status: proposed
+approved: false
+domain: MAP
+capabilityBranch: Map entity and assets
+objective: Deliver the map entity and assets capability branch for MAP, traced
+  to the included v2 requirements.
+requirementIds:
+  - MAP-001
+  - MAP-002
+  - MAP-020
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - map model
+  - map renderer
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/map/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: MAP-001-S01
+    title: The DM shall be able to create a map entity with name, scale, projection
+      metadata, default visibility, and initial layer set
+    requirementIds:
+      - MAP-001
+    acceptanceCriteria:
+      - Given the DM creates a map with no network, when the command is
+        accepted, then a note-backed map object and `MapState` record are
+        persisted.
+      - Given default visibility is omitted, when the map is created, then it
+        defaults to `dm-only`.
+    tasks:
+      - id: MAP-001-S01-T01
+        title: Confirm architecture and interface shape for MAP-001
+        kind: design
+      - id: MAP-001-S01-T02
+        title: Implement the smallest behavior that satisfies MAP-001
+        kind: implementation
+      - id: MAP-001-S01-T03
+        title: Add automated coverage for MAP-001 acceptance criteria
+        kind: test
+      - id: MAP-001-S01-T04
+        title: Record demo notes and traceability evidence for MAP-001
+        kind: demo
+  - id: MAP-002-S02
+    title: The DM shall be able to import image files and SVG as map assets with
+      asset metadata and content-addressed storage, while external scene formats
+      require a declared adapter before use
+    requirementIds:
+      - MAP-002
+    acceptanceCriteria:
+      - Given an image file is imported, when import completes, then the map
+        asset has dimensions, checksum, source metadata, and a map entity link.
+      - Given an imported file exceeds configured size limits, when import
+        starts, then it is rejected with an actionable diagnostic before storage
+        mutation.
+      - Given a declared external scene-format adapter imports a file, when
+        required dimensions, grid, background image, walls, lights, notes, or
+        other adapter-declared elements cannot be mapped, then the import
+        preview lists supported mappings and unsupported elements before any
+        write.
+      - Given another external map format is selected, when no adapter is
+        declared, then import fails with an unsupported-format diagnostic and no
+        partial map entity is created.
+    tasks:
+      - id: MAP-002-S02-T01
+        title: Confirm architecture and interface shape for MAP-002
+        kind: design
+      - id: MAP-002-S02-T02
+        title: Implement the smallest behavior that satisfies MAP-002
+        kind: implementation
+      - id: MAP-002-S02-T03
+        title: Add automated coverage for MAP-002 acceptance criteria
+        kind: test
+      - id: MAP-002-S02-T04
+        title: Record demo notes and traceability evidence for MAP-002
+        kind: demo
+  - id: MAP-020-S03
+    title: Map import shall provide a preview, adapter capability summary,
+      unsupported-element diagnostics, and rollback behavior before committing
+      external map assets or generated `MapState`
+    requirementIds:
+      - MAP-020
+    acceptanceCriteria:
+      - Given an import file contains layers, walls, notes, grid data, and image
+        assets, when preview runs, then each element is classified as
+        importable, lossy, unsupported, or blocked.
+      - Given the DM cancels an import from preview, when storage is inspected,
+        then no map entity, asset record, or partial layer remains.
+      - Given import fails after staging assets, when rollback runs, then
+        temporary assets are removed or marked orphaned for safe cleanup without
+        affecting existing maps.
+    tasks:
+      - id: MAP-020-S03-T01
+        title: Confirm architecture and interface shape for MAP-020
+        kind: design
+      - id: MAP-020-S03-T02
+        title: Implement the smallest behavior that satisfies MAP-020
+        kind: implementation
+      - id: MAP-020-S03-T03
+        title: Add automated coverage for MAP-020 acceptance criteria
+        kind: test
+      - id: MAP-020-S03-T04
+        title: Record demo notes and traceability evidence for MAP-020
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

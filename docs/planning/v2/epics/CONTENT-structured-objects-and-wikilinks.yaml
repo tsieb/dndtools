@@ -1,0 +1,139 @@
+schemaVersion: 1
+id: CONTENT-structured-objects-and-wikilinks
+title: 'CONTENT: Structured objects and wikilinks'
+status: proposed
+approved: false
+domain: CONTENT
+capabilityBranch: Structured objects and wikilinks
+objective: Deliver the structured objects and wikilinks capability branch for
+  CONTENT, traced to the included v2 requirements.
+requirementIds:
+  - CONTENT-005
+  - CONTENT-006
+  - CONTENT-013
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - content model
+  - editor integration
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/content/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CONTENT-005-S01
+    title: The DM shall be able to create and edit structured Vault Objects as
+      note-backed records with schema-validated frontmatter and markdown body
+      synchronization
+    requirementIds:
+      - CONTENT-005
+    acceptanceCriteria:
+      - Given a stat block object is edited, when saved, then frontmatter and
+        object projection validate against the object schema.
+      - Given object validation fails, when save is attempted, then no invalid
+        object revision is committed.
+    tasks:
+      - id: CONTENT-005-S01-T01
+        title: Confirm architecture and interface shape for CONTENT-005
+        kind: design
+      - id: CONTENT-005-S01-T02
+        title: Implement the smallest behavior that satisfies CONTENT-005
+        kind: implementation
+      - id: CONTENT-005-S01-T03
+        title: Add automated coverage for CONTENT-005 acceptance criteria
+        kind: test
+      - id: CONTENT-005-S01-T04
+        title: Record demo notes and traceability evidence for CONTENT-005
+        kind: demo
+  - id: CONTENT-006-S02
+    title: An authorized editor shall be able to create, resolve, rename, and repair
+      wikilinks across local, Obsidian, and Google Docs sourced notes while
+      preserving source conventions
+    requirementIds:
+      - CONTENT-006
+    acceptanceCriteria:
+      - Given a note contains `[[Location#Section]]`, when indexed, then the
+        graph resolves the target note and section where available.
+      - Given a Google Docs source cannot preserve a wikilink exactly, when
+        syncing, then the adapter records the mapping limitation and avoids
+        destructive rewrite.
+      - Given the linked source is unavailable and not cached, when repair is
+        requested offline, then the editor sees a source-unavailable diagnostic
+        rather than a destructive rewrite.
+    tasks:
+      - id: CONTENT-006-S02-T01
+        title: Confirm architecture and interface shape for CONTENT-006
+        kind: design
+      - id: CONTENT-006-S02-T02
+        title: Implement the smallest behavior that satisfies CONTENT-006
+        kind: implementation
+      - id: CONTENT-006-S02-T03
+        title: Add automated coverage for CONTENT-006 acceptance criteria
+        kind: test
+      - id: CONTENT-006-S02-T04
+        title: Record demo notes and traceability evidence for CONTENT-006
+        kind: demo
+  - id: CONTENT-013-S03
+    title: The core Vault Object schema set shall cover initial v2 subtypes for
+      note, character, map, handout, calendar event, timeline event, dice table,
+      encounter, audio preset, and widget package references while keeping Scene
+      state in `SceneState`
+    requirementIds:
+      - CONTENT-013
+    acceptanceCriteria:
+      - Given a core object subtype is created or imported, when validation
+        runs, then subtype schema, required fields, visibility defaults, source
+        metadata, and revision metadata are enforced.
+      - Given an unknown object subtype is encountered, when parsing source
+        content, then it is preserved as unsupported/opaque content or rejected
+        with a structured diagnostic rather than partially interpreted.
+      - Given object cards or widgets render a subtype for a player, when
+        actor-filtered projection runs, then hidden fields, hidden
+        relationships, and revealing schema metadata are omitted.
+      - Given a Scene is saved, when object schema validation runs, then the
+        Scene is validated through `SceneState` rules rather than treated as a
+        note-backed Vault Object subtype.
+    tasks:
+      - id: CONTENT-013-S03-T01
+        title: Confirm architecture and interface shape for CONTENT-013
+        kind: design
+      - id: CONTENT-013-S03-T02
+        title: Implement the smallest behavior that satisfies CONTENT-013
+        kind: implementation
+      - id: CONTENT-013-S03-T03
+        title: Add automated coverage for CONTENT-013 acceptance criteria
+        kind: test
+      - id: CONTENT-013-S03-T04
+        title: Record demo notes and traceability evidence for CONTENT-013
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

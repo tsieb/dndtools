@@ -1,0 +1,101 @@
+schemaVersion: 1
+id: GRAPH-incremental-apis
+title: 'GRAPH: Incremental APIs'
+status: proposed
+approved: false
+domain: GRAPH
+capabilityBranch: Incremental APIs
+objective: Deliver the incremental apis capability branch for GRAPH, traced to
+  the included v2 requirements.
+requirementIds:
+  - GRAPH-005
+  - GRAPH-006
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - graph index
+  - relationship intelligence
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/graph/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: GRAPH-005-S01
+    title: The Graph Engine shall update incrementally after accepted note, object,
+      map, POI, and sync operations without requiring full-vault reindexing for
+      every change
+    requirementIds:
+      - GRAPH-005
+    acceptanceCriteria:
+      - Given one note changes, when indexing runs, then only affected graph
+        nodes/edges and dependent indexes update.
+      - Given an incremental update fails, when diagnostics are raised, then the
+        stale index state is marked and a repair/reindex command is available.
+    tasks:
+      - id: GRAPH-005-S01-T01
+        title: Confirm architecture and interface shape for GRAPH-005
+        kind: design
+      - id: GRAPH-005-S01-T02
+        title: Implement the smallest behavior that satisfies GRAPH-005
+        kind: implementation
+      - id: GRAPH-005-S01-T03
+        title: Add automated coverage for GRAPH-005 acceptance criteria
+        kind: test
+      - id: GRAPH-005-S01-T04
+        title: Record demo notes and traceability evidence for GRAPH-005
+        kind: demo
+  - id: GRAPH-006-S02
+    title: The Graph Engine shall expose source-agnostic query APIs to navigation,
+      search, widgets, and MCP tools without those consumers parsing raw
+      markdown independently
+    requirementIds:
+      - GRAPH-006
+    acceptanceCriteria:
+      - Given an MCP tool requests backlinks, when the query executes, then it
+        uses the graph API rather than reading files ad hoc.
+      - Given a widget requests related notes, when the actor is a player, then
+        the graph API returns only visible relationships.
+    tasks:
+      - id: GRAPH-006-S02-T01
+        title: Confirm architecture and interface shape for GRAPH-006
+        kind: design
+      - id: GRAPH-006-S02-T02
+        title: Implement the smallest behavior that satisfies GRAPH-006
+        kind: implementation
+      - id: GRAPH-006-S02-T03
+        title: Add automated coverage for GRAPH-006 acceptance criteria
+        kind: test
+      - id: GRAPH-006-S02-T04
+        title: Record demo notes and traceability evidence for GRAPH-006
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

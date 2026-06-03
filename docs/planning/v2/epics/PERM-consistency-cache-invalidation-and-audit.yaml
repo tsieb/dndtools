@@ -1,0 +1,155 @@
+schemaVersion: 1
+id: PERM-consistency-cache-invalidation-and-audit
+title: 'PERM: Consistency, cache invalidation, and audit'
+status: proposed
+approved: false
+domain: PERM
+capabilityBranch: Consistency, cache invalidation, and audit
+objective: Deliver the consistency, cache invalidation, and audit capability
+  branch for PERM, traced to the included v2 requirements.
+requirementIds:
+  - PERM-007
+  - PERM-009
+  - PERM-010
+  - PERM-014
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - permission core
+  - visibility filtering
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/perm/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: PERM-007-S01
+    title: The system shall surface consistency errors for invalid permission
+      states, including write grants on non-visible content, unknown capability
+      sets, deleted entities, multiple character owners, observer write grants,
+      and hidden widget bindings in player views
+    requirementIds:
+      - PERM-007
+    acceptanceCriteria:
+      - Given a player has a write grant on a `dm-only` note, when consistency
+        checks run, then the DM sees an error.
+      - Given a player-view Scene contains a widget bound to hidden data, when
+        validated, then the invalid player-view assignment is reported.
+    tasks:
+      - id: PERM-007-S01-T01
+        title: Confirm architecture and interface shape for PERM-007
+        kind: design
+      - id: PERM-007-S01-T02
+        title: Implement the smallest behavior that satisfies PERM-007
+        kind: implementation
+      - id: PERM-007-S01-T03
+        title: Add automated coverage for PERM-007 acceptance criteria
+        kind: test
+      - id: PERM-007-S01-T04
+        title: Record demo notes and traceability evidence for PERM-007
+        kind: demo
+  - id: PERM-009-S02
+    title: The system shall invalidate affected participant capability caches
+      immediately when grants, visibility, roles, ownership, or capability
+      schema versions change
+    requirementIds:
+      - PERM-009
+    acceptanceCriteria:
+      - Given a DM revokes a player's widget operator grant, when the revocation
+        is accepted, then the player's next command using that grant is
+        rejected.
+      - Given the player is offline during revocation, when reconnecting, then
+        role and grants are re-evaluated before catch-up operations are
+        delivered.
+    tasks:
+      - id: PERM-009-S02-T01
+        title: Confirm architecture and interface shape for PERM-009
+        kind: design
+      - id: PERM-009-S02-T02
+        title: Implement the smallest behavior that satisfies PERM-009
+        kind: implementation
+      - id: PERM-009-S02-T03
+        title: Add automated coverage for PERM-009 acceptance criteria
+        kind: test
+      - id: PERM-009-S02-T04
+        title: Record demo notes and traceability evidence for PERM-009
+        kind: demo
+  - id: PERM-010-S03
+    title: The system shall audit denied access attempts that cross a trust boundary
+      without exposing hidden content in the denial message
+    requirementIds:
+      - PERM-010
+    acceptanceCriteria:
+      - Given a player requests a hidden note by id, when denied, then an audit
+        event records actor, target reference, and reason category.
+      - Given the denial is displayed to the player, when shown, then it does
+        not reveal the hidden note title or content unless already visible.
+    tasks:
+      - id: PERM-010-S03-T01
+        title: Confirm architecture and interface shape for PERM-010
+        kind: design
+      - id: PERM-010-S03-T02
+        title: Implement the smallest behavior that satisfies PERM-010
+        kind: implementation
+      - id: PERM-010-S03-T03
+        title: Add automated coverage for PERM-010 acceptance criteria
+        kind: test
+      - id: PERM-010-S03-T04
+        title: Record demo notes and traceability evidence for PERM-010
+        kind: demo
+  - id: PERM-014-S04
+    title: Permission, visibility, and role audits shall produce actionable DM
+      diagnostics without exposing hidden entity titles, field values, or
+      player-only shared content to unauthorized actors
+    requirementIds:
+      - PERM-014
+    acceptanceCriteria:
+      - Given consistency checks find a write grant on hidden content, when the
+        DM opens diagnostics, then the affected entity reference, grant, and
+        remediation action are visible to the DM.
+      - Given the same diagnostic is visible to a player through command denial,
+        when displayed, then it contains only a generic unavailable or
+        unauthorized reason.
+    tasks:
+      - id: PERM-014-S04-T01
+        title: Confirm architecture and interface shape for PERM-014
+        kind: design
+      - id: PERM-014-S04-T02
+        title: Implement the smallest behavior that satisfies PERM-014
+        kind: implementation
+      - id: PERM-014-S04-T03
+        title: Add automated coverage for PERM-014 acceptance criteria
+        kind: test
+      - id: PERM-014-S04-T04
+        title: Record demo notes and traceability evidence for PERM-014
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

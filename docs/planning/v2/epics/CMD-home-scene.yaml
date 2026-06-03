@@ -1,0 +1,124 @@
+schemaVersion: 1
+id: CMD-home-scene
+title: 'CMD: Home scene'
+status: proposed
+approved: false
+domain: CMD
+capabilityBranch: Home scene
+objective: Deliver the home scene capability branch for CMD, traced to the
+  included v2 requirements.
+requirementIds:
+  - CMD-001
+  - CMD-002
+  - CMD-007
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - command center
+  - session shell
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/cmd/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CMD-001-S01
+    title: The DM shall be able to use the Command Center as the application home
+      Scene, replacing the notes list as the default landing surface
+    requirementIds:
+      - CMD-001
+    acceptanceCriteria:
+      - Given the DM opens the app after vault selection, when the home route
+        loads, then the Command Center Scene is displayed.
+      - Given no Command Center has been configured, when the app starts, then a
+        default Command Center Scene is created from a system template.
+    tasks:
+      - id: CMD-001-S01-T01
+        title: Confirm architecture and interface shape for CMD-001
+        kind: design
+      - id: CMD-001-S01-T02
+        title: Implement the smallest behavior that satisfies CMD-001
+        kind: implementation
+      - id: CMD-001-S01-T03
+        title: Add automated coverage for CMD-001 acceptance criteria
+        kind: test
+      - id: CMD-001-S01-T04
+        title: Record demo notes and traceability evidence for CMD-001
+        kind: demo
+  - id: CMD-002-S02
+    title: The DM shall be able to arrange initiative, dice, timers, audio, quick
+      reference, and prep tools as widgets in the Command Center without fixed
+      layout constraints
+    requirementIds:
+      - CMD-002
+    acceptanceCriteria:
+      - Given the default Command Center, when the DM rearranges dice and combat
+        widgets, then the layout persists across restart.
+      - Given a mobile profile, when the same Command Center opens, then tools
+        are available through focused panels without changing the underlying
+        Scene state.
+    tasks:
+      - id: CMD-002-S02-T01
+        title: Confirm architecture and interface shape for CMD-002
+        kind: design
+      - id: CMD-002-S02-T02
+        title: Implement the smallest behavior that satisfies CMD-002
+        kind: implementation
+      - id: CMD-002-S02-T03
+        title: Add automated coverage for CMD-002 acceptance criteria
+        kind: test
+      - id: CMD-002-S02-T04
+        title: Record demo notes and traceability evidence for CMD-002
+        kind: demo
+  - id: CMD-007-S03
+    title: The DM shall be able to save Command Center configurations as named
+      presets and restore a preset without overwriting unrelated Scenes
+    requirementIds:
+      - CMD-007
+    acceptanceCriteria:
+      - Given multiple Command Center presets, when the DM applies one, then
+        only the Command Center Scene layout and widget configuration change.
+      - Given a preset references a deleted widget type, when restored, then the
+        system reports the missing widget and restores all valid widgets.
+    tasks:
+      - id: CMD-007-S03-T01
+        title: Confirm architecture and interface shape for CMD-007
+        kind: design
+      - id: CMD-007-S03-T02
+        title: Implement the smallest behavior that satisfies CMD-007
+        kind: implementation
+      - id: CMD-007-S03-T03
+        title: Add automated coverage for CMD-007 acceptance criteria
+        kind: test
+      - id: CMD-007-S03-T04
+        title: Record demo notes and traceability evidence for CMD-007
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

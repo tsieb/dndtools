@@ -1,0 +1,103 @@
+schemaVersion: 1
+id: SES-dice-and-tables
+title: 'SES: Dice and tables'
+status: proposed
+approved: false
+domain: SES
+capabilityBranch: Dice and tables
+objective: Deliver the dice and tables capability branch for SES, traced to the
+  included v2 requirements.
+requirementIds:
+  - SES-003
+  - SES-008
+excludedRequirementIds: []
+architectureContracts: []
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - session state
+  - live tools
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/ses/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: SES-003-S01
+    title: A participant shall be able to roll dice expressions, macros, inline
+      rolls, and rollable tables through shared dice commands with deterministic
+      parsing and session roll history
+    requirementIds:
+      - SES-003
+    acceptanceCriteria:
+      - Given a valid expression `2d20kh1+5`, when rolled, then the parser
+        records dice, kept values, modifier, total, actor, and timestamp.
+      - Given an invalid expression, when submitted, then no roll is recorded
+        and a validation message is returned.
+      - Given a roll is marked private or DM-only, when player roll history is
+        queried, then the hidden expression, values, total, and reason are
+        omitted.
+      - Given a roll is shared with selected players or a Player Group, when
+        history syncs, then only those participants receive the roll record.
+    tasks:
+      - id: SES-003-S01-T01
+        title: Confirm architecture and interface shape for SES-003
+        kind: design
+      - id: SES-003-S01-T02
+        title: Implement the smallest behavior that satisfies SES-003
+        kind: implementation
+      - id: SES-003-S01-T03
+        title: Add automated coverage for SES-003 acceptance criteria
+        kind: test
+      - id: SES-003-S01-T04
+        title: Record demo notes and traceability evidence for SES-003
+        kind: demo
+  - id: SES-008-S02
+    title: The DM shall be able to use random tables and contextual generators as
+      session assets, with generated results attributed and optionally appended
+      to session notes
+    requirementIds:
+      - SES-008
+    acceptanceCriteria:
+      - Given a rollable table, when the DM draws a result, then the roll and
+        selected row are recorded in session history.
+      - Given the DM appends a generated result to a note, when the write is
+        accepted, then note history records the actor and source.
+    tasks:
+      - id: SES-008-S02-T01
+        title: Confirm architecture and interface shape for SES-008
+        kind: design
+      - id: SES-008-S02-T02
+        title: Implement the smallest behavior that satisfies SES-008
+        kind: implementation
+      - id: SES-008-S02-T03
+        title: Add automated coverage for SES-008 acceptance criteria
+        kind: test
+      - id: SES-008-S02-T04
+        title: Record demo notes and traceability evidence for SES-008
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

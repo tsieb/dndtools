@@ -1,0 +1,130 @@
+schemaVersion: 1
+id: CHAR-collaboration-and-dm-edits
+title: 'CHAR: Collaboration and DM edits'
+status: proposed
+approved: false
+domain: CHAR
+capabilityBranch: Collaboration and DM edits
+objective: Deliver the collaboration and dm edits capability branch for CHAR,
+  traced to the included v2 requirements.
+requirementIds:
+  - CHAR-004
+  - CHAR-005
+  - CHAR-014
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - character model
+  - character UI
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/char/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CHAR-004-S01
+    title: The DM and a character owner shall be able to collaborate on a character
+      at the same time, with accepted operations merged by field or surfaced as
+      conflicts for same-path edits
+    requirementIds:
+      - CHAR-004
+    acceptanceCriteria:
+      - Given the DM edits a DM-only note field while the owner edits backstory,
+        when sync reconciles, then both changes persist.
+      - Given both edit the same scalar field concurrently, when sync
+        reconciles, then a conflict record is created for DM resolution.
+    tasks:
+      - id: CHAR-004-S01-T01
+        title: Confirm architecture and interface shape for CHAR-004
+        kind: design
+      - id: CHAR-004-S01-T02
+        title: Implement the smallest behavior that satisfies CHAR-004
+        kind: implementation
+      - id: CHAR-004-S01-T03
+        title: Add automated coverage for CHAR-004 acceptance criteria
+        kind: test
+      - id: CHAR-004-S01-T04
+        title: Record demo notes and traceability evidence for CHAR-004
+        kind: demo
+  - id: CHAR-005-S02
+    title: The DM shall be able to edit any character field through validated
+      commands, with DM edits visibly attributed in history without creating a
+      separate hidden override value layer
+    requirementIds:
+      - CHAR-005
+    acceptanceCriteria:
+      - Given the DM changes a player's character HP, when the command is
+        accepted, then the character revision records DM actor attribution.
+      - Given a player reads their character, when a DM-only field was edited by
+        the DM, then hidden content remains omitted.
+      - Given the DM changes a player-visible field on an owned character, when
+        the owner views current character state, then the field is visually
+        flagged as DM-authored without creating a parallel override value.
+    tasks:
+      - id: CHAR-005-S02-T01
+        title: Confirm architecture and interface shape for CHAR-005
+        kind: design
+      - id: CHAR-005-S02-T02
+        title: Implement the smallest behavior that satisfies CHAR-005
+        kind: implementation
+      - id: CHAR-005-S02-T03
+        title: Add automated coverage for CHAR-005 acceptance criteria
+        kind: test
+      - id: CHAR-005-S02-T04
+        title: Record demo notes and traceability evidence for CHAR-005
+        kind: demo
+  - id: CHAR-014-S03
+    title: Collaborative character views shall distinguish current DM-authored
+      player-visible edits, player-authored edits, and unresolved conflicts
+      without exposing DM-only fields
+    requirementIds:
+      - CHAR-014
+    acceptanceCriteria:
+      - Given a DM edits a visible character field during collaboration, when
+        the owner views that field, then the current value shows DM attribution
+        and history access.
+      - Given a DM edits a `dm-only` field, when the owner views the same
+        character, then no label, placeholder, or history entry reveals the
+        hidden field's existence unless policy explicitly exposes it.
+    tasks:
+      - id: CHAR-014-S03-T01
+        title: Confirm architecture and interface shape for CHAR-014
+        kind: design
+      - id: CHAR-014-S03-T02
+        title: Implement the smallest behavior that satisfies CHAR-014
+        kind: implementation
+      - id: CHAR-014-S03-T03
+        title: Add automated coverage for CHAR-014 acceptance criteria
+        kind: test
+      - id: CHAR-014-S03-T04
+        title: Record demo notes and traceability evidence for CHAR-014
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

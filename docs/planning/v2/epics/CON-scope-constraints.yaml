@@ -1,0 +1,106 @@
+schemaVersion: 1
+id: CON-scope-constraints
+title: 'CON: Scope constraints'
+status: proposed
+approved: false
+domain: CON
+capabilityBranch: Scope constraints
+objective: Deliver the scope constraints capability branch for CON, traced to
+  the included v2 requirements.
+requirementIds:
+  - CON-003
+  - CON-006
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 2: Cloud Sync & Offline Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - governance constraints
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/con/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CON-003-S01
+    title: The system must never introduce community marketplace, public campaign
+      directory, plugin ecosystem, third-party compendium integration, i18n, or
+      public wiki features into the v2 core requirements without an explicit
+      scope revision
+    requirementIds:
+      - CON-003
+    acceptanceCriteria:
+      - Given a proposed requirement adds marketplace or public directory
+        behavior, when scope review runs, then it is rejected or moved to future
+        scope.
+      - Given extension seams are implemented, when reviewed, then they support
+        internal system/user widgets only and do not imply public plugin APIs.
+      - Given a user-authored widget package is created, when reviewed against
+        scope, then it remains vault-local or workspace-local and does not imply
+        a public marketplace, SDK compatibility guarantee, or third-party
+        distribution channel.
+    tasks:
+      - id: CON-003-S01-T01
+        title: Confirm architecture and interface shape for CON-003
+        kind: design
+      - id: CON-003-S01-T02
+        title: Implement the smallest behavior that satisfies CON-003
+        kind: implementation
+      - id: CON-003-S01-T03
+        title: Add automated coverage for CON-003 acceptance criteria
+        kind: test
+      - id: CON-003-S01-T04
+        title: Record demo notes and traceability evidence for CON-003
+        kind: demo
+  - id: CON-006-S02
+    title: The system must never add a new top-level platform, source, AI provider,
+      public extension surface, or cloud backend assumption without an explicit
+      architecture-contract and requirements revision
+    requirementIds:
+      - CON-006
+    acceptanceCriteria:
+      - Given a proposal introduces a new cloud backend or AI provider
+        assumption, when scope review runs, then the proposal is blocked until
+        contracts and requirements are updated.
+      - Given a proposal expands user-authored widgets into a public plugin
+        ecosystem, when reviewed, then it is rejected or moved to future scope
+        through explicit revision.
+    tasks:
+      - id: CON-006-S02-T01
+        title: Confirm architecture and interface shape for CON-006
+        kind: design
+      - id: CON-006-S02-T02
+        title: Implement the smallest behavior that satisfies CON-006
+        kind: implementation
+      - id: CON-006-S02-T03
+        title: Add automated coverage for CON-006 acceptance criteria
+        kind: test
+      - id: CON-006-S02-T04
+        title: Record demo notes and traceability evidence for CON-006
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

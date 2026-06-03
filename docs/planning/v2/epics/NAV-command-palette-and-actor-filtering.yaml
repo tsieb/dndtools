@@ -1,0 +1,105 @@
+schemaVersion: 1
+id: NAV-command-palette-and-actor-filtering
+title: 'NAV: Command palette and actor filtering'
+status: proposed
+approved: false
+domain: NAV
+capabilityBranch: Command palette and actor filtering
+objective: Deliver the command palette and actor filtering capability branch for
+  NAV, traced to the included v2 requirements.
+requirementIds:
+  - NAV-008
+  - NAV-010
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - navigation model
+  - route shell
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/nav/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: NAV-008-S01
+    title: The command palette or equivalent command menu shall provide action,
+      navigation, settings, note, Scene, map, and widget commands filtered by
+      actor visibility and permission on every supported platform profile
+    requirementIds:
+      - NAV-008
+    acceptanceCriteria:
+      - Given a player opens the command palette, when searching commands, then
+        DM-only actions are absent.
+      - Given a visible command is disabled by current state, when shown, then
+        it has an accessible disabled reason.
+      - Given a mobile profile cannot show a desktop command palette layout,
+        when a Must-have command is needed, then the equivalent command menu
+        exposes the same Processing Core command and filtering result.
+    tasks:
+      - id: NAV-008-S01-T01
+        title: Confirm architecture and interface shape for NAV-008
+        kind: design
+      - id: NAV-008-S01-T02
+        title: Implement the smallest behavior that satisfies NAV-008
+        kind: implementation
+      - id: NAV-008-S01-T03
+        title: Add automated coverage for NAV-008 acceptance criteria
+        kind: test
+      - id: NAV-008-S01-T04
+        title: Record demo notes and traceability evidence for NAV-008
+        kind: demo
+  - id: NAV-010-S02
+    title: Navigation and command surfaces shall use the same actor-filtered command
+      availability API as widgets and visible controls
+    requirementIds:
+      - NAV-010
+    acceptanceCriteria:
+      - Given a command is unavailable because of missing visibility, when shown
+        in navigation or command palette, then it is hidden or disabled without
+        revealing the hidden target.
+      - Given a command is available through both a visible button and command
+        palette, when invoked from either surface, then the same Processing Core
+        command type and validation path are used.
+    tasks:
+      - id: NAV-010-S02-T01
+        title: Confirm architecture and interface shape for NAV-010
+        kind: design
+      - id: NAV-010-S02-T02
+        title: Implement the smallest behavior that satisfies NAV-010
+        kind: implementation
+      - id: NAV-010-S02-T03
+        title: Add automated coverage for NAV-010 acceptance criteria
+        kind: test
+      - id: NAV-010-S02-T04
+        title: Record demo notes and traceability evidence for NAV-010
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

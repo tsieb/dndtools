@@ -1,0 +1,73 @@
+schemaVersion: 1
+id: CMD-player-view-control
+title: 'CMD: Player view control'
+status: proposed
+approved: false
+domain: CMD
+capabilityBranch: Player view control
+objective: Deliver the player view control capability branch for CMD, traced to
+  the included v2 requirements.
+requirementIds:
+  - CMD-004
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - command center
+  - session shell
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/cmd/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CMD-004-S01
+    title: The DM shall be able to inspect and change each participant's Player View
+      assignment from a Command Center controller
+    requirementIds:
+      - CMD-004
+    acceptanceCriteria:
+      - Given three connected players, when the DM assigns different Scene views
+        to two players, then each receives only their assigned view.
+      - Given a player disconnects, when the DM changes their assignment, then
+        the assignment is saved and delivered on reconnect.
+    tasks:
+      - id: CMD-004-S01-T01
+        title: Confirm architecture and interface shape for CMD-004
+        kind: design
+      - id: CMD-004-S01-T02
+        title: Implement the smallest behavior that satisfies CMD-004
+        kind: implementation
+      - id: CMD-004-S01-T03
+        title: Add automated coverage for CMD-004 acceptance criteria
+        kind: test
+      - id: CMD-004-S01-T04
+        title: Record demo notes and traceability evidence for CMD-004
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

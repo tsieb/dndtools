@@ -1,0 +1,109 @@
+schemaVersion: 1
+id: COLLAB-live-session-state-and-presence
+title: 'COLLAB: Live session state and presence'
+status: proposed
+approved: false
+domain: COLLAB
+capabilityBranch: Live session state and presence
+objective: Deliver the live session state and presence capability branch for
+  COLLAB, traced to the included v2 requirements.
+requirementIds:
+  - COLLAB-003
+  - COLLAB-004
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - collaboration transport
+  - participant state
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/collab/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: COLLAB-003-S01
+    title: Participants shall be able to share real-time or near-real-time session
+      state for active scenes, combat, dice, timers, handouts, and visible map
+      updates
+    requirementIds:
+      - COLLAB-003
+    acceptanceCriteria:
+      - Given a connected player has a projected combat Scene, when the DM
+        advances initiative, then the player's visible combat widget updates
+        near-real-time.
+      - Given network latency delays delivery, when updates are pending, then UI
+        state indicates stale or reconnecting status.
+      - Given an accepted session operation is delivered out of order, when
+        dependencies are missing, then the client defers applying it until
+        dependencies arrive or reports stale state.
+      - Given the product latency budget is configured, when near-real-time
+        session updates are measured, then p95 delivery and stale-state
+        thresholds are reported against that budget.
+    tasks:
+      - id: COLLAB-003-S01-T01
+        title: Confirm architecture and interface shape for COLLAB-003
+        kind: design
+      - id: COLLAB-003-S01-T02
+        title: Implement the smallest behavior that satisfies COLLAB-003
+        kind: implementation
+      - id: COLLAB-003-S01-T03
+        title: Add automated coverage for COLLAB-003 acceptance criteria
+        kind: test
+      - id: COLLAB-003-S01-T04
+        title: Record demo notes and traceability evidence for COLLAB-003
+        kind: demo
+  - id: COLLAB-004-S02
+    title: The system shall provide ephemeral presence for online status, cursors,
+      selections, and device availability without requiring presence to persist
+      or merge for offline correctness
+    requirementIds:
+      - COLLAB-004
+    acceptanceCriteria:
+      - Given two participants are online, when one moves a visible cursor, then
+        presence updates can appear to authorized viewers.
+      - Given all participants go offline and reconnect later, when session
+        state restores, then durable state is intact but old presence is not
+        replayed as authoritative history.
+    tasks:
+      - id: COLLAB-004-S02-T01
+        title: Confirm architecture and interface shape for COLLAB-004
+        kind: design
+      - id: COLLAB-004-S02-T02
+        title: Implement the smallest behavior that satisfies COLLAB-004
+        kind: implementation
+      - id: COLLAB-004-S02-T03
+        title: Add automated coverage for COLLAB-004 acceptance criteria
+        kind: test
+      - id: COLLAB-004-S02-T04
+        title: Record demo notes and traceability evidence for COLLAB-004
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

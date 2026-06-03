@@ -1,0 +1,164 @@
+schemaVersion: 1
+id: PLAT-quality-gates-and-onboarding
+title: 'PLAT: Quality gates and onboarding'
+status: proposed
+approved: false
+domain: PLAT
+capabilityBranch: Quality gates and onboarding
+objective: Deliver the quality gates and onboarding capability branch for PLAT,
+  traced to the included v2 requirements.
+requirementIds:
+  - PLAT-010
+  - PLAT-013
+  - PLAT-014
+  - PLAT-015
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - platform services
+  - runtime shell
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/plat/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: PLAT-010-S01
+    title: Release and platform quality gates shall be tiered, high-value, owned,
+      and bounded by configured time budgets that preserve developer feedback
+      without allowing platform-critical regressions
+    requirementIds:
+      - PLAT-010
+    acceptanceCriteria:
+      - Given a change affects platform code, when CI runs, then the relevant
+        platform smoke or release gate is selected by path/tier rules.
+      - Given a gate exists, when reviewed, then it has an owner, reason, and
+        user-facing defect class it protects.
+      - Given the smoke path runs on supported CI hardware, when measured, then
+        it completes under the configured target of three minutes or records an
+        explicit scope exception.
+      - Given a gate has not caught or prevented a user-facing defect class for
+        the configured review window, when quality review runs, then the gate is
+        removed, narrowed, or re-justified.
+    tasks:
+      - id: PLAT-010-S01-T01
+        title: Confirm architecture and interface shape for PLAT-010
+        kind: design
+      - id: PLAT-010-S01-T02
+        title: Implement the smallest behavior that satisfies PLAT-010
+        kind: implementation
+      - id: PLAT-010-S01-T03
+        title: Add automated coverage for PLAT-010 acceptance criteria
+        kind: test
+      - id: PLAT-010-S01-T04
+        title: Record demo notes and traceability evidence for PLAT-010
+        kind: demo
+  - id: PLAT-013-S02
+    title: Fresh-vault onboarding, feature-tier visibility, maturity gates, help
+      surfaces, and first-run Command Center setup shall be covered by
+      fixture-driven acceptance tests
+    requirementIds:
+      - PLAT-013
+    acceptanceCriteria:
+      - Given a fresh vault fixture, when first-run onboarding completes, then
+        the Command Center, core navigation, and feature-tier state match
+        expected defaults.
+      - Given core/intermediate/advanced feature gates are configured, when
+        fixture tests run, then each tier shows and hides the correct
+        capabilities without manual verification.
+    tasks:
+      - id: PLAT-013-S02-T01
+        title: Confirm architecture and interface shape for PLAT-013
+        kind: design
+      - id: PLAT-013-S02-T02
+        title: Implement the smallest behavior that satisfies PLAT-013
+        kind: implementation
+      - id: PLAT-013-S02-T03
+        title: Add automated coverage for PLAT-013 acceptance criteria
+        kind: test
+      - id: PLAT-013-S02-T04
+        title: Record demo notes and traceability evidence for PLAT-013
+        kind: demo
+  - id: PLAT-014-S03
+    title: Platform support status for desktop, web/PWA, Android, tablet, and mobile
+      profiles shall be declared before release with explicit parity,
+      degradation, and unsupported-feature lists
+    requirementIds:
+      - PLAT-014
+    acceptanceCriteria:
+      - Given a Must-have command is unsupported on a platform profile, when
+        release review runs, then the release is blocked unless the requirement
+        explicitly allows that exception.
+      - Given a platform degrades a feature, when the user opens capability
+        status, then the reason and available fallback are visible.
+    tasks:
+      - id: PLAT-014-S03-T01
+        title: Confirm architecture and interface shape for PLAT-014
+        kind: design
+      - id: PLAT-014-S03-T02
+        title: Implement the smallest behavior that satisfies PLAT-014
+        kind: implementation
+      - id: PLAT-014-S03-T03
+        title: Add automated coverage for PLAT-014 acceptance criteria
+        kind: test
+      - id: PLAT-014-S03-T04
+        title: Record demo notes and traceability evidence for PLAT-014
+        kind: demo
+  - id: PLAT-015-S04
+    title: Engineering release notes, structure inventories, and defect-count
+      summaries shall be generated or validated from structured sources rather
+      than hand-synchronized markdown counts
+    requirementIds:
+      - PLAT-015
+    acceptanceCriteria:
+      - Given the defect register changes, when documentation validation runs,
+        then summary counts match structured finding data.
+      - Given repository structure changes, when docs validation runs, then
+        stale generated structure references are reported.
+      - Given `10-requirements.md` contains a Count Audit table, when docs
+        validation runs, then counts are recomputed from requirement headings
+        and the table fails validation if hand-synchronized values drift.
+    tasks:
+      - id: PLAT-015-S04-T01
+        title: Confirm architecture and interface shape for PLAT-015
+        kind: design
+      - id: PLAT-015-S04-T02
+        title: Implement the smallest behavior that satisfies PLAT-015
+        kind: implementation
+      - id: PLAT-015-S04-T03
+        title: Add automated coverage for PLAT-015 acceptance criteria
+        kind: test
+      - id: PLAT-015-S04-T04
+        title: Record demo notes and traceability evidence for PLAT-015
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

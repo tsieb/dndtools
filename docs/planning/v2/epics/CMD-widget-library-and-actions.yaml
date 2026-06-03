@@ -1,0 +1,102 @@
+schemaVersion: 1
+id: CMD-widget-library-and-actions
+title: 'CMD: Widget library and actions'
+status: proposed
+approved: false
+domain: CMD
+capabilityBranch: Widget library and actions
+objective: Deliver the widget library and actions capability branch for CMD,
+  traced to the included v2 requirements.
+requirementIds:
+  - CMD-005
+  - CMD-008
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - command center
+  - session shell
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/cmd/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CMD-005-S01
+    title: The DM shall be able to search, preview, and add available widget types
+      from a quick-access widget library in the Command Center
+    requirementIds:
+      - CMD-005
+    acceptanceCriteria:
+      - Given installed system widgets, when the DM opens the widget library and
+        filters by "dice", then matching widgets appear with names and required
+        bindings.
+      - Given a widget is unsupported on the current platform profile, when
+        listed, then it is marked unavailable with the reason and cannot be
+        added.
+    tasks:
+      - id: CMD-005-S01-T01
+        title: Confirm architecture and interface shape for CMD-005
+        kind: design
+      - id: CMD-005-S01-T02
+        title: Implement the smallest behavior that satisfies CMD-005
+        kind: implementation
+      - id: CMD-005-S01-T03
+        title: Add automated coverage for CMD-005 acceptance criteria
+        kind: test
+      - id: CMD-005-S01-T04
+        title: Record demo notes and traceability evidence for CMD-005
+        kind: demo
+  - id: CMD-008-S02
+    title: The DM shall be able to invoke Command Center actions through the global
+      command palette with the same Processing Core commands used by visible
+      controls
+    requirementIds:
+      - CMD-008
+    acceptanceCriteria:
+      - Given the command palette is open, when the DM runs "Start session",
+        then the same session-start command is dispatched as the visible button.
+      - Given a command is unavailable due to missing permissions or invalid
+        state, when searched, then it is hidden or shown disabled with a
+        non-leaking reason.
+    tasks:
+      - id: CMD-008-S02-T01
+        title: Confirm architecture and interface shape for CMD-008
+        kind: design
+      - id: CMD-008-S02-T02
+        title: Implement the smallest behavior that satisfies CMD-008
+        kind: implementation
+      - id: CMD-008-S02-T03
+        title: Add automated coverage for CMD-008 acceptance criteria
+        kind: test
+      - id: CMD-008-S02-T04
+        title: Record demo notes and traceability evidence for CMD-008
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

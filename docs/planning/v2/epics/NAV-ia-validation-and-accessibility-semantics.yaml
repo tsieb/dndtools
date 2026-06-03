@@ -1,0 +1,97 @@
+schemaVersion: 1
+id: NAV-ia-validation-and-accessibility-semantics
+title: 'NAV: IA validation and accessibility semantics'
+status: proposed
+approved: false
+domain: NAV
+capabilityBranch: IA validation and accessibility semantics
+objective: Deliver the ia validation and accessibility semantics capability
+  branch for NAV, traced to the included v2 requirements.
+requirementIds:
+  - NAV-006
+  - NAV-007
+excludedRequirementIds: []
+architectureContracts: []
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - navigation model
+  - route shell
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/nav/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: NAV-006-S01
+    title: Navigation architecture shall be validated before route scaffolding using
+      IA review, route audits, and user-task-oriented checks
+    requirementIds:
+      - NAV-006
+    acceptanceCriteria:
+      - Given a new top-level section is proposed, when architecture review
+        runs, then it includes task fit, route ownership, aliases, and local nav
+        contract.
+      - Given a route is added without IA metadata, when route audit runs, then
+        the gate fails.
+    tasks:
+      - id: NAV-006-S01-T01
+        title: Confirm architecture and interface shape for NAV-006
+        kind: design
+      - id: NAV-006-S01-T02
+        title: Implement the smallest behavior that satisfies NAV-006
+        kind: implementation
+      - id: NAV-006-S01-T03
+        title: Add automated coverage for NAV-006 acceptance criteria
+        kind: test
+      - id: NAV-006-S01-T04
+        title: Record demo notes and traceability evidence for NAV-006
+        kind: demo
+  - id: NAV-007-S02
+    title: Navigation components shall expose stable page titles, exactly one
+      route-level `h1`, semantic landmarks, and live route announcements
+    requirementIds:
+      - NAV-007
+    acceptanceCriteria:
+      - Given any primary route, when accessibility tests run, then exactly one
+        `h1` exists and page title matches route context.
+      - Given route changes, when completed, then a live announcement
+        communicates the new route.
+    tasks:
+      - id: NAV-007-S02-T01
+        title: Confirm architecture and interface shape for NAV-007
+        kind: design
+      - id: NAV-007-S02-T02
+        title: Implement the smallest behavior that satisfies NAV-007
+        kind: implementation
+      - id: NAV-007-S02-T03
+        title: Add automated coverage for NAV-007 acceptance criteria
+        kind: test
+      - id: NAV-007-S02-T04
+        title: Record demo notes and traceability evidence for NAV-007
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

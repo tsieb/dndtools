@@ -1,0 +1,14 @@
+packages:
+  - .
+  - apps/v2/app
+  - apps/v2/packages/*
+
+allowBuilds:
+  electron: false
+  esbuild: true
+
+onlyBuiltDependencies:
+  - esbuild
+
+ignoredBuiltDependencies:
+  - electron

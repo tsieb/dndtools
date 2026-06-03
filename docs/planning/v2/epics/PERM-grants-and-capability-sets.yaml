@@ -1,0 +1,178 @@
+schemaVersion: 1
+id: PERM-grants-and-capability-sets
+title: 'PERM: Grants and capability sets'
+status: proposed
+approved: false
+domain: PERM
+capabilityBranch: Grants and capability sets
+objective: Deliver the grants and capability sets capability branch for PERM,
+  traced to the included v2 requirements.
+requirementIds:
+  - PERM-004
+  - PERM-005
+  - PERM-006
+  - PERM-008
+  - PERM-013
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - permission core
+  - visibility filtering
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/perm/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: PERM-004-S01
+    title: The DM shall be able to grant one named capability set to one player on
+      one entity through a grant record containing entity id, entity type,
+      player id, capability set, author, timestamps, and optional expiry
+    requirementIds:
+      - PERM-004
+    acceptanceCriteria:
+      - Given the DM grants `section-editor` on a note section, when the player
+        edits that section, then the command is accepted.
+      - Given the grant expires, when the player attempts another edit, then the
+        command is rejected.
+      - Given the DM revokes the grant, when the player submits a cached edit
+        command, then the command is rejected and the player's capability cache
+        is invalidated.
+    tasks:
+      - id: PERM-004-S01-T01
+        title: Confirm architecture and interface shape for PERM-004
+        kind: design
+      - id: PERM-004-S01-T02
+        title: Implement the smallest behavior that satisfies PERM-004
+        kind: implementation
+      - id: PERM-004-S01-T03
+        title: Add automated coverage for PERM-004 acceptance criteria
+        kind: test
+      - id: PERM-004-S01-T04
+        title: Record demo notes and traceability evidence for PERM-004
+        kind: demo
+  - id: PERM-005-S02
+    title: Capability sets shall be defined per entity type in the system schema,
+      not freely authored per entity instance or configured as raw field lists
+    requirementIds:
+      - PERM-005
+    acceptanceCriteria:
+      - Given the DM opens grant UI for a character, when assigning permissions,
+        then named sets such as `owner`, `combat-participant`,
+        `backstory-editor`, and `viewer` are shown.
+      - Given a custom raw field checklist grant is submitted, when validated,
+        then the command is rejected.
+    tasks:
+      - id: PERM-005-S02-T01
+        title: Confirm architecture and interface shape for PERM-005
+        kind: design
+      - id: PERM-005-S02-T02
+        title: Implement the smallest behavior that satisfies PERM-005
+        kind: implementation
+      - id: PERM-005-S02-T03
+        title: Add automated coverage for PERM-005 acceptance criteria
+        kind: test
+      - id: PERM-005-S02-T04
+        title: Record demo notes and traceability evidence for PERM-005
+        kind: demo
+  - id: PERM-006-S03
+    title: The system shall apply capability-set inheritance rules when computing a
+      player's effective permission surface
+    requirementIds:
+      - PERM-006
+    acceptanceCriteria:
+      - Given a player has `owner` on a character, when effective permissions
+        are computed, then `combat-participant`, `backstory-editor`, and
+        `viewer` permissions are included.
+      - Given a player has `viewer` only, when they attempt a write, then no
+        inherited write permissions are present.
+    tasks:
+      - id: PERM-006-S03-T01
+        title: Confirm architecture and interface shape for PERM-006
+        kind: design
+      - id: PERM-006-S03-T02
+        title: Implement the smallest behavior that satisfies PERM-006
+        kind: implementation
+      - id: PERM-006-S03-T03
+        title: Add automated coverage for PERM-006 acceptance criteria
+        kind: test
+      - id: PERM-006-S03-T04
+        title: Record demo notes and traceability evidence for PERM-006
+        kind: demo
+  - id: PERM-008-S04
+    title: The DM's grant UI shall present named capability sets with explanations
+      and effective permission preview, not raw field checkboxes or hidden
+      policy details
+    requirementIds:
+      - PERM-008
+    acceptanceCriteria:
+      - Given the DM selects `combat-participant`, when preview opens, then
+        writable combat fields and excluded non-combat fields are summarized.
+      - Given a capability set is unavailable for an entity type, when granting,
+        then it is not offered.
+    tasks:
+      - id: PERM-008-S04-T01
+        title: Confirm architecture and interface shape for PERM-008
+        kind: design
+      - id: PERM-008-S04-T02
+        title: Implement the smallest behavior that satisfies PERM-008
+        kind: implementation
+      - id: PERM-008-S04-T03
+        title: Add automated coverage for PERM-008 acceptance criteria
+        kind: test
+      - id: PERM-008-S04-T04
+        title: Record demo notes and traceability evidence for PERM-008
+        kind: demo
+  - id: PERM-013-S05
+    title: The DM shall be able to transfer character ownership and other singular
+      capability assignments through explicit transfer commands that revoke the
+      previous singular grant atomically
+    requirementIds:
+      - PERM-013
+    acceptanceCriteria:
+      - Given Character A is owned by Player A, when the DM transfers ownership
+        to Player B, then Player A's `owner` grant is revoked and Player B's
+        `owner` grant is created in one accepted command.
+      - Given the transfer would leave two owners, when validation runs, then
+        the command is rejected.
+    tasks:
+      - id: PERM-013-S05-T01
+        title: Confirm architecture and interface shape for PERM-013
+        kind: design
+      - id: PERM-013-S05-T02
+        title: Implement the smallest behavior that satisfies PERM-013
+        kind: implementation
+      - id: PERM-013-S05-T03
+        title: Add automated coverage for PERM-013 acceptance criteria
+        kind: test
+      - id: PERM-013-S05-T04
+        title: Record demo notes and traceability evidence for PERM-013
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

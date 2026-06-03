@@ -1,0 +1,183 @@
+schemaVersion: 1
+id: PLAT-persistence-and-boundaries
+title: 'PLAT: Persistence and boundaries'
+status: proposed
+approved: false
+domain: PLAT
+capabilityBranch: Persistence and boundaries
+objective: Deliver the persistence and boundaries capability branch for PLAT,
+  traced to the included v2 requirements.
+requirementIds:
+  - PLAT-006
+  - PLAT-007
+  - PLAT-011
+  - PLAT-012
+  - PLAT-018
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 1: Processing / Display Decoupling'
+  - 'Contract 2: Cloud Sync & Offline Model'
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+  - 'Contract 4: Scene and Widget Contract'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - platform services
+  - runtime shell
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/plat/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: PLAT-006-S01
+    title: All persistence shall route through typed storage adapters or sync source
+      adapters, never direct filesystem, IndexedDB, cloud, or native bridge
+      calls from GUI components
+    requirementIds:
+      - PLAT-006
+    acceptanceCriteria:
+      - Given a GUI component needs to save a note, when implemented, then it
+        dispatches a core command rather than calling storage directly.
+      - Given boundary lint runs, when a component imports filesystem or
+        IndexedDB primitives directly, then the gate fails.
+    tasks:
+      - id: PLAT-006-S01-T01
+        title: Confirm architecture and interface shape for PLAT-006
+        kind: design
+      - id: PLAT-006-S01-T02
+        title: Implement the smallest behavior that satisfies PLAT-006
+        kind: implementation
+      - id: PLAT-006-S01-T03
+        title: Add automated coverage for PLAT-006 acceptance criteria
+        kind: test
+      - id: PLAT-006-S01-T04
+        title: Record demo notes and traceability evidence for PLAT-006
+        kind: demo
+  - id: PLAT-007-S02
+    title: Every IPC or platform-service boundary shall require named methods,
+      runtime schemas, payload size limits, enum allowlists, and structured
+      error handling
+    requirementIds:
+      - PLAT-007
+    acceptanceCriteria:
+      - Given a new IPC handler is registered without schema validation, when
+        tests or lint run, then the gate fails.
+      - Given an oversized payload crosses IPC, when parsed, then it is rejected
+        before business logic runs.
+    tasks:
+      - id: PLAT-007-S02-T01
+        title: Confirm architecture and interface shape for PLAT-007
+        kind: design
+      - id: PLAT-007-S02-T02
+        title: Implement the smallest behavior that satisfies PLAT-007
+        kind: implementation
+      - id: PLAT-007-S02-T03
+        title: Add automated coverage for PLAT-007 acceptance criteria
+        kind: test
+      - id: PLAT-007-S02-T04
+        title: Record demo notes and traceability evidence for PLAT-007
+        kind: demo
+  - id: PLAT-011-S03
+    title: Type-only contracts, runtime constructors, defaults, validators, and
+      cross-boundary helpers shall live in separate modules with import rules
+      enforced by lint and tests
+    requirementIds:
+      - PLAT-011
+    acceptanceCriteria:
+      - Given a module under a type-only contract path exports runtime values,
+        when boundary lint runs, then the gate fails.
+      - Given runtime validators are needed across Electron, MCP, and renderer
+        code, when imported, then they come from approved runtime modules rather
+        than type-only paths.
+    tasks:
+      - id: PLAT-011-S03-T01
+        title: Confirm architecture and interface shape for PLAT-011
+        kind: design
+      - id: PLAT-011-S03-T02
+        title: Implement the smallest behavior that satisfies PLAT-011
+        kind: implementation
+      - id: PLAT-011-S03-T03
+        title: Add automated coverage for PLAT-011 acceptance criteria
+        kind: test
+      - id: PLAT-011-S03-T04
+        title: Record demo notes and traceability evidence for PLAT-011
+        kind: demo
+  - id: PLAT-012-S04
+    title: Direct platform or filesystem access exceptions shall be explicit,
+      scoped, owned, linted, and regression-tested
+    requirementIds:
+      - PLAT-012
+    acceptanceCriteria:
+      - Given code imports a platform primitive outside approved services or
+        exception allowlists, when lint runs, then the gate fails.
+      - Given an exception is approved, when reviewed, then it has owner,
+        rationale, allowed paths, tests, and removal criteria.
+    tasks:
+      - id: PLAT-012-S04-T01
+        title: Confirm architecture and interface shape for PLAT-012
+        kind: design
+      - id: PLAT-012-S04-T02
+        title: Implement the smallest behavior that satisfies PLAT-012
+        kind: implementation
+      - id: PLAT-012-S04-T03
+        title: Add automated coverage for PLAT-012 acceptance criteria
+        kind: test
+      - id: PLAT-012-S04-T04
+        title: Record demo notes and traceability evidence for PLAT-012
+        kind: demo
+  - id: PLAT-018-S05
+    title: User-visible durable commands across notes, maps, Scenes, widgets,
+      sessions, permissions, and sync shall expose standard pending, success,
+      failure, retry, cancellation, and undo/recovery states where the command
+      contract supports them
+    requirementIds:
+      - PLAT-018
+    acceptanceCriteria:
+      - Given a durable command fails after user input is accepted, when the
+        command result returns, then pending state clears, no partial UI success
+        is shown, and retry or recovery guidance is available.
+      - Given a map, content, or session command supports undo, when undo is
+        invoked, then the recorded inverse or committed before state is applied
+        through the Processing Core command model.
+      - Given a command is cancelled before commit, when state is inspected,
+        then no durable operation is appended and any temporary UI state is
+        discarded or marked draft-only.
+    tasks:
+      - id: PLAT-018-S05-T01
+        title: Confirm architecture and interface shape for PLAT-018
+        kind: design
+      - id: PLAT-018-S05-T02
+        title: Implement the smallest behavior that satisfies PLAT-018
+        kind: implementation
+      - id: PLAT-018-S05-T03
+        title: Add automated coverage for PLAT-018 acceptance criteria
+        kind: test
+      - id: PLAT-018-S05-T04
+        title: Record demo notes and traceability evidence for PLAT-018
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

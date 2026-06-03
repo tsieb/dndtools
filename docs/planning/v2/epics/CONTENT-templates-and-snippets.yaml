@@ -1,0 +1,99 @@
+schemaVersion: 1
+id: CONTENT-templates-and-snippets
+title: 'CONTENT: Templates and snippets'
+status: proposed
+approved: false
+domain: CONTENT
+capabilityBranch: Templates and snippets
+objective: Deliver the templates and snippets capability branch for CONTENT,
+  traced to the included v2 requirements.
+requirementIds:
+  - CONTENT-003
+  - CONTENT-004
+excludedRequirementIds: []
+architectureContracts:
+  - 'Contract 3: Role, Visibility & Permission Grant Model'
+expectedAffectedAreas:
+  - apps/v2
+  - docs/planning/v2
+  - content model
+  - editor integration
+dependencies: []
+parallelSafety:
+  fileOwnership:
+    - apps/v2/content/
+    - docs/planning/v2/
+  requiresInterfaceContract: true
+  notes: Parallel execution requires explicit interface contracts and
+    non-overlapping generated file ownership.
+stories:
+  - id: CONTENT-003-S01
+    title: An authorized editor shall be able to create content from templates with
+      variables, starter presets, and validation before writing generated
+      content
+    requirementIds:
+      - CONTENT-003
+    acceptanceCriteria:
+      - Given a template with required variables, when the user omits one, then
+        creation is blocked with a validation message.
+      - Given a template writes a note in player-visible space, when created,
+        then visibility metadata is explicitly set or defaults to `dm-only`.
+    tasks:
+      - id: CONTENT-003-S01-T01
+        title: Confirm architecture and interface shape for CONTENT-003
+        kind: design
+      - id: CONTENT-003-S01-T02
+        title: Implement the smallest behavior that satisfies CONTENT-003
+        kind: implementation
+      - id: CONTENT-003-S01-T03
+        title: Add automated coverage for CONTENT-003 acceptance criteria
+        kind: test
+      - id: CONTENT-003-S01-T04
+        title: Record demo notes and traceability evidence for CONTENT-003
+        kind: demo
+  - id: CONTENT-004-S02
+    title: An authorized editor shall be able to insert, manage, and reuse snippets
+      without snippets bypassing note validation, visibility metadata, or
+      markdown sanitization
+    requirementIds:
+      - CONTENT-004
+    acceptanceCriteria:
+      - Given a snippet contains markdown, when inserted, then it is saved as
+        note content and rendered through the unified markdown pipeline.
+      - Given a snippet contains disallowed raw HTML or script-like content,
+        when rendered, then sanitization removes unsafe output.
+    tasks:
+      - id: CONTENT-004-S02-T01
+        title: Confirm architecture and interface shape for CONTENT-004
+        kind: design
+      - id: CONTENT-004-S02-T02
+        title: Implement the smallest behavior that satisfies CONTENT-004
+        kind: implementation
+      - id: CONTENT-004-S02-T03
+        title: Add automated coverage for CONTENT-004 acceptance criteria
+        kind: test
+      - id: CONTENT-004-S02-T04
+        title: Record demo notes and traceability evidence for CONTENT-004
+        kind: demo
+testPlan:
+  - Run unit tests for domain reducers, command validators, and data transforms
+    touched by this epic.
+  - Run UI or integration checks for any visible prototype behavior touched by
+    this epic.
+  - Run `pnpm v2:workpack:validate` before handoff.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated.
+  - List the requirement IDs exercised by the demo.
+  - Record any gaps intentionally deferred out of this epic.
+stopConditions:
+  - Stop if the v2 stack ADR is missing or contradicts the implementation
+    approach.
+  - Stop if implementing the epic requires runtime imports from v1 app code.
+  - Stop if hidden visibility, permission, sync, or persistence behavior is
+    ambiguous.
+  - Stop if the generated workpack no longer validates.
+completionEvidence:
+  - Targeted tests pass.
+  - Traceability from requirement IDs to implementation and tests is documented.
+  - Demo notes are filled in for visible behavior.
+  - Workpack status is updated after completion.

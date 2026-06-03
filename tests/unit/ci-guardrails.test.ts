@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 const repoRoot = process.cwd();
 
 describe('CI guardrails', () => {
-	it('keeps coverage enforcement wired through package scripts and CI', () => {
+	it('keeps V2 planning validation wired through package scripts and CI', () => {
 		const packageJson = JSON.parse(
 			fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf-8'),
 		) as { scripts?: Record<string, string> };
@@ -15,11 +15,11 @@ describe('CI guardrails', () => {
 			'utf-8',
 		);
 
-		expect(packageJson.scripts?.['test:coverage']).toContain(
-			'src/lib/domain/export.test.ts --coverage.enabled true --coverage.include src/lib/domain/export.ts',
+		expect(packageJson.scripts?.['v2:workpack:validate']).toBe(
+			'tsx scripts/v2-workpack.ts validate',
 		);
-		expect(packageJson.scripts?.lint).toContain('pnpm audit:repo');
-		expect(ciWorkflow).toContain('run: pnpm test');
-		expect(ciWorkflow).toContain('run: pnpm test:coverage');
+		expect(packageJson.scripts?.['docs:validate']).toBe('tsx scripts/docs-validate.ts');
+		expect(ciWorkflow).toContain('run: pnpm v2:workpack:validate');
+		expect(ciWorkflow).toContain('run: pnpm docs:validate');
 	});
 });
