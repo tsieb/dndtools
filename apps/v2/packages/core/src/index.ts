@@ -153,10 +153,29 @@ export type { SceneVisibilityResult } from './permissions/visibility';
 export type {
 	BindingResolver,
 	SceneListEntry,
+	SceneQueryOptions,
 	SceneSummary,
 	WidgetBindingPayload,
 } from './queries/scene';
 export { PERMISSIVE_RESOLVER, getSceneForActor, listScenesForActor } from './queries/scene';
+
+export type {
+	CommandBindingBlock,
+	EntityBindingRecord,
+	EntityVisibility,
+	HiddenBindingReason,
+	ResolveBindingOptions,
+	WidgetBindingResolution,
+	WidgetBindingState,
+	WidgetDataEnvironment,
+} from './queries/binding';
+export {
+	EMPTY_WIDGET_DATA_ENVIRONMENT,
+	WIDGET_DATA_ENVIRONMENT_SCHEMA_VERSION,
+	commandBindingBlock,
+	entityBindingKey,
+	resolveWidgetBinding,
+} from './queries/binding';
 
 export type { WidgetPackageExport } from './commands/widget-package';
 export { exportWidgetPackage } from './commands/widget-package';

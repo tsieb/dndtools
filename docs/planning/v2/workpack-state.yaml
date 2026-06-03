@@ -20,6 +20,9 @@ epics:
     status: complete
     approved: true
     completionEvidenceFile: docs/planning/v2/epics/CANVAS-scene-state.completion.md
+  - id: CANVAS-widget-data-safety
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CANVAS-widget-data-safety.completion.md
   - id: CANVAS-widget-lifecycle
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CANVAS-widget-lifecycle.completion.md

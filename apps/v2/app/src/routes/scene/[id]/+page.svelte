@@ -1,18 +1,20 @@
 <script lang="ts">
-	import { getSceneForActor } from '@dndtools/v2-core';
+	import { EMPTY_WIDGET_DATA_ENVIRONMENT, getSceneForActor } from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 
 	const { data } = $props();
 	const runtime = useRuntime();
 
 	const sceneId = $derived(data.id);
+	// Resolve widget bindings through the Processing Core data layer (CANVAS-009)
+	// so hidden, conflicted, missing, and unbound states are surfaced explicitly.
 	const summary = $derived(
 		getSceneForActor(
 			runtime.state.scenes,
 			runtime.state.permissions,
 			runtime.defaultActorId,
 			sceneId,
-			{ widgetPackages: runtime.state.widgets },
+			{ widgetPackages: runtime.state.widgets, dataEnvironment: EMPTY_WIDGET_DATA_ENVIRONMENT },
 		),
 	);
 
@@ -22,9 +24,23 @@
 	let widgetY = $state(40);
 	let widgetW = $state(240);
 	let widgetH = $state(160);
+	let bindEntityType = $state('');
+	let bindEntityId = $state('');
+	let bindSelector = $state('');
 
 	async function addWidget(event: SubmitEvent) {
 		event.preventDefault();
+		const entityType = bindEntityType.trim();
+		const entityId = bindEntityId.trim();
+		const selector = bindSelector.trim();
+		const binding =
+			entityType && entityId
+				? {
+						source: { entityType, entityId, ...(selector ? { selector } : {}) },
+						mode: 'read' as const,
+						requiredCapability: 'viewer' as const,
+					}
+				: null;
 		await runtime.dispatch({
 			type: 'scene.add-widget',
 			actorId: runtime.defaultActorId,
@@ -35,7 +51,7 @@
 					version: widgetVersion,
 					layout: { x: widgetX, y: widgetY, w: widgetW, h: widgetH },
 					configuration: {},
-					binding: null,
+					binding,
 				},
 			},
 		});
@@ -149,6 +165,18 @@
 					<span>h</span>
 					<input type="number" min="1" bind:value={widgetH} data-testid="widget-h" />
 				</label>
+				<label>
+					<span>Bind entity type</span>
+					<input bind:value={bindEntityType} data-testid="bind-entity-type" autocomplete="off" />
+				</label>
+				<label>
+					<span>Bind entity id</span>
+					<input bind:value={bindEntityId} data-testid="bind-entity-id" autocomplete="off" />
+				</label>
+				<label>
+					<span>Bind selector</span>
+					<input bind:value={bindSelector} data-testid="bind-selector" autocomplete="off" />
+				</label>
 				<button class="button" type="submit" data-testid="widget-add">Add widget</button>
 			</form>
 		</section>
@@ -248,6 +276,20 @@
 							<div>
 								<strong>{payload.type}</strong>
 								<div class="layout">binding missing</div>
+							</div>
+						</article>
+					{:else if payload.kind === 'conflicted'}
+						<article class="widget-row" data-testid={`conflicted-${payload.widgetInstanceId}`}>
+							<div>
+								<strong>{payload.type}</strong>
+								<div class="layout">binding conflicted: {payload.conflictPaths.join(', ')}</div>
+							</div>
+						</article>
+					{:else if payload.kind === 'unbound'}
+						<article class="widget-row" data-testid={`unbound-${payload.widgetInstanceId}`}>
+							<div>
+								<strong>{payload.type}</strong>
+								<div class="layout">needs a data source</div>
 							</div>
 						</article>
 					{:else}

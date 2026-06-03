@@ -8,6 +8,11 @@ import {
 	type WidgetHostPermission,
 	type WidgetPackageState,
 } from '../state/widget-package-state';
+import {
+	resolveWidgetBinding,
+	type HiddenBindingReason,
+	type WidgetDataEnvironment,
+} from './binding';
 
 export type WidgetBindingPayload =
 	| { kind: 'available'; widget: WidgetInstance }
@@ -23,7 +28,9 @@ export type WidgetBindingPayload =
 			reason: string;
 			packageId: string | null;
 	  }
-	| { kind: 'hidden'; widgetInstanceId: string; type: string }
+	| { kind: 'hidden'; widgetInstanceId: string; type: string; reason?: HiddenBindingReason }
+	| { kind: 'conflicted'; widgetInstanceId: string; type: string; conflictPaths: string[] }
+	| { kind: 'unbound'; widgetInstanceId: string; type: string }
 	| { kind: 'missing'; widgetInstanceId: string; type: string };
 
 export interface SceneListEntry {
@@ -76,11 +83,6 @@ export function listScenesForActor(
 	return out;
 }
 
-function isMissingBinding(widget: WidgetInstance, knownEntityIds: ReadonlySet<string>): boolean {
-	if (!widget.binding) return false;
-	return !knownEntityIds.has(widget.binding.source.entityId);
-}
-
 export interface BindingResolver {
 	knownEntityIds: ReadonlySet<string>;
 	isHiddenForActor: (widget: WidgetInstance, actorId: ActorId) => boolean;
@@ -94,17 +96,33 @@ export const PERMISSIVE_RESOLVER: BindingResolver = {
 export interface SceneQueryOptions {
 	bindingResolver?: BindingResolver;
 	widgetPackages?: WidgetPackageState;
+	/**
+	 * When supplied, the Processing Core resolves widget bindings per actor against
+	 * this data view (CANVAS-009), producing explicit `hidden`, `conflicted`,
+	 * `missing`, and `unbound` states. Without it, the legacy `bindingResolver` path
+	 * is used.
+	 */
+	dataEnvironment?: WidgetDataEnvironment;
 }
 
-function normalizeOptions(
-	options: BindingResolver | SceneQueryOptions,
-): Required<SceneQueryOptions> {
+interface NormalizedOptions {
+	bindingResolver: BindingResolver;
+	widgetPackages: WidgetPackageState;
+	dataEnvironment: WidgetDataEnvironment | null;
+}
+
+function normalizeOptions(options: BindingResolver | SceneQueryOptions): NormalizedOptions {
 	if ('knownEntityIds' in options) {
-		return { bindingResolver: options, widgetPackages: SYSTEM_WIDGET_PACKAGE_STATE };
+		return {
+			bindingResolver: options,
+			widgetPackages: SYSTEM_WIDGET_PACKAGE_STATE,
+			dataEnvironment: null,
+		};
 	}
 	return {
 		bindingResolver: options.bindingResolver ?? PERMISSIVE_RESOLVER,
 		widgetPackages: options.widgetPackages ?? SYSTEM_WIDGET_PACKAGE_STATE,
+		dataEnvironment: options.dataEnvironment ?? null,
 	};
 }
 
@@ -115,7 +133,7 @@ export function getSceneForActor(
 	sceneId: SceneId,
 	options: BindingResolver | SceneQueryOptions = {},
 ): SceneSummary | { kind: 'denied'; reason: string } {
-	const { bindingResolver: resolver, widgetPackages } = normalizeOptions(options);
+	const { bindingResolver: resolver, widgetPackages, dataEnvironment } = normalizeOptions(options);
 	const actor = permission.actors[actorId];
 	if (!actor) return { kind: 'denied', reason: 'unknown-actor' };
 	const scene = state.scenes[sceneId];
@@ -174,22 +192,58 @@ export function getSceneForActor(
 			});
 			continue;
 		}
-		const known =
-			resolver.knownEntityIds.size === 0 ||
-			(widget.binding ? resolver.knownEntityIds.has(widget.binding.source.entityId) : true);
-		if (widget.binding && !known) {
-			widgets.push({ kind: 'missing', widgetInstanceId: widget.id, type: widget.type });
-			continue;
+		const definition = packageRecord.package.widgets.find(
+			(candidate) => candidate.type === widget.type,
+		);
+		if (dataEnvironment) {
+			// Processing Core owns actor-scoped binding resolution (CANVAS-009): the
+			// data layer decides hidden/conflicted/missing/unbound before any value is
+			// returned to the GUI, rather than trusting a caller-supplied predicate.
+			const resolution = resolveWidgetBinding(widget.binding, actor, dataEnvironment, {
+				bindingRequired: (definition?.requiredBindings.length ?? 0) > 0,
+			});
+			if (resolution.state === 'unbound') {
+				widgets.push({ kind: 'unbound', widgetInstanceId: widget.id, type: widget.type });
+				continue;
+			}
+			if (resolution.state === 'missing') {
+				widgets.push({ kind: 'missing', widgetInstanceId: widget.id, type: widget.type });
+				continue;
+			}
+			if (resolution.state === 'hidden') {
+				widgets.push({
+					kind: 'hidden',
+					widgetInstanceId: widget.id,
+					type: widget.type,
+					reason: resolution.reason,
+				});
+				continue;
+			}
+			if (resolution.state === 'conflicted') {
+				widgets.push({
+					kind: 'conflicted',
+					widgetInstanceId: widget.id,
+					type: widget.type,
+					conflictPaths: resolution.conflictPaths,
+				});
+				continue;
+			}
+		} else {
+			const known =
+				resolver.knownEntityIds.size === 0 ||
+				(widget.binding ? resolver.knownEntityIds.has(widget.binding.source.entityId) : true);
+			if (widget.binding && !known) {
+				widgets.push({ kind: 'missing', widgetInstanceId: widget.id, type: widget.type });
+				continue;
+			}
+			if (resolver.isHiddenForActor(widget, actorId)) {
+				widgets.push({ kind: 'hidden', widgetInstanceId: widget.id, type: widget.type });
+				continue;
+			}
 		}
-		if (resolver.isHiddenForActor(widget, actorId)) {
-			widgets.push({ kind: 'hidden', widgetInstanceId: widget.id, type: widget.type });
-			continue;
-		}
-		const unavailableHostPermissions = packageRecord.package.widgets
-			.find((definition) => definition.type === widget.type)
-			?.hostPermissions.filter(
-				(permission) => packageRecord.trust.hostPermissions[permission] !== 'approved',
-			);
+		const unavailableHostPermissions = definition?.hostPermissions.filter(
+			(permission) => packageRecord.trust.hostPermissions[permission] !== 'approved',
+		);
 		if (unavailableHostPermissions && unavailableHostPermissions.length > 0) {
 			widgets.push({ kind: 'degraded', widget, unavailableHostPermissions });
 			continue;
@@ -201,8 +255,6 @@ export function getSceneForActor(
 		sectionScope === null
 			? scene.sections
 			: scene.sections.filter((s) => sectionScope.includes(s.id));
-
-	void isMissingBinding;
 
 	return {
 		id: scene.id,

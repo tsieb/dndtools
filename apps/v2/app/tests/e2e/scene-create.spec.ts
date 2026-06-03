@@ -81,6 +81,32 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 		await expect(page.getByTestId('widget-grid')).toContainText('disabled: Package was removed');
 	});
 
+	test('Widget bindings resolve to explicit conflicted and missing states (CANVAS-009)', async ({
+		page,
+	}) => {
+		await page.getByTestId('scene-name').fill('Binding Scene');
+		await page.getByTestId('scene-create').click();
+		await page.getByTestId('scene-list').getByRole('link', { name: 'Binding Scene' }).click();
+		await page.getByTestId('scene-editor').waitFor({ state: 'visible' });
+
+		// A binding to an entity with an unresolved conflict renders the conflicted state
+		// and never silently resolves to one version.
+		await page.getByTestId('widget-type').fill('character');
+		await page.getByTestId('bind-entity-type').fill('character');
+		await page.getByTestId('bind-entity-id').fill('pc-1');
+		await page.getByTestId('bind-selector').fill('conflicted:hp');
+		await page.getByTestId('widget-add').click();
+		await expect(page.getByTestId('widget-grid')).toContainText('binding conflicted: hp');
+
+		// A binding to a deleted target renders the missing state without leaking content.
+		await page.getByTestId('widget-type').fill('note');
+		await page.getByTestId('bind-entity-type').fill('note');
+		await page.getByTestId('bind-entity-id').fill('ghost');
+		await page.getByTestId('bind-selector').fill('missing:ghost');
+		await page.getByTestId('widget-add').click();
+		await expect(page.getByTestId('widget-grid')).toContainText('binding missing');
+	});
+
 	test('Timer widget dispatches its declared command through the core', async ({ page }) => {
 		await page.getByTestId('scene-name').fill('Timer Scene');
 		await page.getByTestId('scene-create').click();

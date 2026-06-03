@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CANVAS-widget-data-safety
 title: "CANVAS: Widget data safety"
-status: approved
+status: complete
 approved: true
 domain: CANVAS
 capabilityBranch: Widget data safety
@@ -161,3 +161,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/CANVAS-widget-data-safety.completion.md

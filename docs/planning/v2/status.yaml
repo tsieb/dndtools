@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 85
+  approved: 84
   active: 0
-  complete: 3
+  complete: 4
   deferred: 0
 metrics:
-  epicCompletionPercent: 3.4
-  requirementCompletionPercent: 6
+  epicCompletionPercent: 4.5
+  requirementCompletionPercent: 6.4
   totalRequirements: 234
-  completedRequirements: 14
+  completedRequirements: 15
   deferredRequirements: 0
-  remainingEpics: 85
-  promptableEpics: 85
+  remainingEpics: 84
+  promptableEpics: 84
   blockedByDependencies: 0
-  completionEvidenceFiles: 3
+  completionEvidenceFiles: 4
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -41,13 +41,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: CANVAS
       totalEpics: 5
-      complete: 2
+      complete: 3
       active: 0
-      approved: 3
+      approved: 2
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 40
-      requirementCompletionPercent: 61.1
+      epicCompletionPercent: 60
+      requirementCompletionPercent: 66.7
     - domain: CHAR
       totalEpics: 6
       complete: 0
@@ -264,11 +264,12 @@ epics:
       - CANVAS-018
     completionEvidenceFile: docs/planning/v2/epics/CANVAS-scene-state.completion.md
   - id: CANVAS-widget-data-safety
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CANVAS-009
       - CANVAS-010
+    completionEvidenceFile: docs/planning/v2/epics/CANVAS-widget-data-safety.completion.md
   - id: CANVAS-widget-lifecycle
     status: complete
     approved: true

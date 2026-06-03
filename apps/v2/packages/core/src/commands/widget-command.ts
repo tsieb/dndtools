@@ -1,6 +1,7 @@
 import { dispatchWidgetCommandInputSchema } from '../schemas/commands';
 import { hasGrantedCapability } from '../permissions/grants';
 import { evaluateSceneVisibility } from '../permissions/visibility';
+import { commandBindingBlock } from '../queries/binding';
 import {
 	findWidgetDefinition,
 	findPackageRecordForWidgetType,
@@ -101,14 +102,12 @@ export function handleDispatchWidgetCommand(
 			state,
 		);
 	}
-	if (widget.binding && widget.binding.source.selector?.startsWith('hidden:')) {
-		return reject(
-			{
-				code: 'hidden-target',
-				message: 'Widget command targets a hidden binding path.',
-			},
-			state,
-		);
+	// Durable commands must not write through a hidden or conflicted binding. This
+	// fails closed for every actor, including the DM, who must reveal or resolve the
+	// target through an explicit command rather than silently overwriting a version.
+	const bindingBlock = commandBindingBlock(widget.binding);
+	if (bindingBlock) {
+		return reject({ code: bindingBlock.code, message: bindingBlock.message }, state);
 	}
 	const packageRecord = findPackageRecordForWidgetType(state.widgets, widget.type);
 	if (!packageRecord || packageRecord.removedAt) {

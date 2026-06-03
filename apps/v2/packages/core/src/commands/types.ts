@@ -134,6 +134,7 @@ export type RejectionCode =
 	| 'invalid-state'
 	| 'revision-conflict'
 	| 'hidden-target'
+	| 'conflicted-target'
 	| 'template-source-not-template'
 	| 'command-center-not-configured'
 	| 'preset-not-found';
