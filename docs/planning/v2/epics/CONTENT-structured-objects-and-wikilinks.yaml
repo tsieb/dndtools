@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CONTENT-structured-objects-and-wikilinks
 title: 'CONTENT: Structured objects and wikilinks'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CONTENT
 capabilityBranch: Structured objects and wikilinks
 objective: Deliver the structured objects and wikilinks capability branch for

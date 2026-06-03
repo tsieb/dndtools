@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: PLAT-quality-gates-and-onboarding
 title: 'PLAT: Quality gates and onboarding'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: PLAT
 capabilityBranch: Quality gates and onboarding
 objective: Deliver the quality gates and onboarding capability branch for PLAT,

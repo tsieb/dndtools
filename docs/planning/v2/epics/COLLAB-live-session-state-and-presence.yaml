@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: COLLAB-live-session-state-and-presence
 title: 'COLLAB: Live session state and presence'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: COLLAB
 capabilityBranch: Live session state and presence
 objective: Deliver the live session state and presence capability branch for

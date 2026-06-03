@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: PERF-search-graph-and-sync-responsiveness
 title: 'PERF: Search, graph, and sync responsiveness'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: PERF
 capabilityBranch: Search, graph, and sync responsiveness
 objective: Deliver the search, graph, and sync responsiveness capability branch

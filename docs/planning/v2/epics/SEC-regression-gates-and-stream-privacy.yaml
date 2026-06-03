@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SEC-regression-gates-and-stream-privacy
 title: 'SEC: Regression gates and stream privacy'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SEC
 capabilityBranch: Regression gates and stream privacy
 objective: Deliver the regression gates and stream privacy capability branch for

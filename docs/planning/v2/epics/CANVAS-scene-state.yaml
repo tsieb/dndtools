@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CANVAS-scene-state
 title: 'CANVAS: Scene state'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CANVAS
 capabilityBranch: Scene state
 objective: Deliver the scene state capability branch for CANVAS, traced to the

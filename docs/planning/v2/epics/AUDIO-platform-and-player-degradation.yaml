@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: AUDIO-platform-and-player-degradation
 title: 'AUDIO: Platform and player degradation'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: AUDIO
 capabilityBranch: Platform and player degradation
 objective: Deliver the platform and player degradation capability branch for

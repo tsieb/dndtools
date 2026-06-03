@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CHAR-character-creation-and-drafts
 title: 'CHAR: Character creation and drafts'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CHAR
 capabilityBranch: Character creation and drafts
 objective: Deliver the character creation and drafts capability branch for CHAR,

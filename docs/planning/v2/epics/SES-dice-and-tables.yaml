@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SES-dice-and-tables
 title: 'SES: Dice and tables'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SES
 capabilityBranch: Dice and tables
 objective: Deliver the dice and tables capability branch for SES, traced to the

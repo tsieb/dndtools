@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: NAV-command-palette-and-actor-filtering
 title: 'NAV: Command palette and actor filtering'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: NAV
 capabilityBranch: Command palette and actor filtering
 objective: Deliver the command palette and actor filtering capability branch for

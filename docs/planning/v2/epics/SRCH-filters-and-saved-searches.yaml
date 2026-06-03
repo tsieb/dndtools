@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SRCH-filters-and-saved-searches
 title: 'SRCH: Filters and saved searches'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SRCH
 capabilityBranch: Filters and saved searches
 objective: Deliver the filters and saved searches capability branch for SRCH,

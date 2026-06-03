@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SYNC-conflict-lifecycle
 title: 'SYNC: Conflict lifecycle'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SYNC
 capabilityBranch: Conflict lifecycle
 objective: Deliver the conflict lifecycle capability branch for SYNC, traced to

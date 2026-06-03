@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: COLLAB-authority-filtering-and-cache-privacy
 title: 'COLLAB: Authority, filtering, and cache privacy'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: COLLAB
 capabilityBranch: Authority, filtering, and cache privacy
 objective: Deliver the authority, filtering, and cache privacy capability branch

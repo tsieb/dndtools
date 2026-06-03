@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SRCH-calendar-custom-time-discovery
 title: 'SRCH: Calendar/custom-time discovery'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SRCH
 capabilityBranch: Calendar/custom-time discovery
 objective: Deliver the calendar/custom-time discovery capability branch for

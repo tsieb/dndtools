@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: GRAPH-visualization
 title: 'GRAPH: Visualization'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: GRAPH
 capabilityBranch: Visualization
 objective: Deliver the visualization capability branch for GRAPH, traced to the

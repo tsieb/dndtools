@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: NAV-home-and-canonical-sections
 title: 'NAV: Home and canonical sections'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: NAV
 capabilityBranch: Home and canonical sections
 objective: Deliver the home and canonical sections capability branch for NAV,

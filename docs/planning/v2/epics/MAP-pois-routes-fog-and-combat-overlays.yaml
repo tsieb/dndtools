@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: MAP-pois-routes-fog-and-combat-overlays
 title: 'MAP: POIs, routes, fog, and combat overlays'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: MAP
 capabilityBranch: POIs, routes, fog, and combat overlays
 objective: Deliver the pois, routes, fog, and combat overlays capability branch

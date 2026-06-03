@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SYNC-asset-sync-and-status
 title: 'SYNC: Asset sync and status'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SYNC
 capabilityBranch: Asset sync and status
 objective: Deliver the asset sync and status capability branch for SYNC, traced

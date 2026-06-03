@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CONTENT-import-export
 title: 'CONTENT: Import/export'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CONTENT
 capabilityBranch: Import/export
 objective: Deliver the import/export capability branch for CONTENT, traced to

@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: PERF-budget-ownership-and-measurement
 title: 'PERF: Budget ownership and measurement'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: PERF
 capabilityBranch: Budget ownership and measurement
 objective: Deliver the budget ownership and measurement capability branch for

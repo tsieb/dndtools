@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CMD-active-session-control
 title: 'CMD: Active session control'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CMD
 capabilityBranch: Active session control
 objective: Deliver the active session control capability branch for CMD, traced

@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CHAR-ownership-and-permission-grants
 title: 'CHAR: Ownership and permission grants'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CHAR
 capabilityBranch: Ownership and permission grants
 objective: Deliver the ownership and permission grants capability branch for

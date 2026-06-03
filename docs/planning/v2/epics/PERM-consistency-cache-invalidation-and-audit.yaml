@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: PERM-consistency-cache-invalidation-and-audit
 title: 'PERM: Consistency, cache invalidation, and audit'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: PERM
 capabilityBranch: Consistency, cache invalidation, and audit
 objective: Deliver the consistency, cache invalidation, and audit capability

@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CONTENT-visibility-and-embeds
 title: 'CONTENT: Visibility and embeds'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CONTENT
 capabilityBranch: Visibility and embeds
 objective: Deliver the visibility and embeds capability branch for CONTENT,

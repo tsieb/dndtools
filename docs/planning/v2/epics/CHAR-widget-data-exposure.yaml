@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CHAR-widget-data-exposure
 title: 'CHAR: Widget data exposure'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CHAR
 capabilityBranch: Widget data exposure
 objective: Deliver the widget data exposure capability branch for CHAR, traced

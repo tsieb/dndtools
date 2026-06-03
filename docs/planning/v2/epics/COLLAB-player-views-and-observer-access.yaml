@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: COLLAB-player-views-and-observer-access
 title: 'COLLAB: Player views and observer access'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: COLLAB
 capabilityBranch: Player views and observer access
 objective: Deliver the player views and observer access capability branch for

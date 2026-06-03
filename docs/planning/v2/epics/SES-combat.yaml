@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SES-combat
 title: 'SES: Combat'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SES
 capabilityBranch: Combat
 objective: Deliver the combat capability branch for SES, traced to the included

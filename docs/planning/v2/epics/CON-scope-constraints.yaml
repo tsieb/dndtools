@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CON-scope-constraints
 title: 'CON: Scope constraints'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CON
 capabilityBranch: Scope constraints
 objective: Deliver the scope constraints capability branch for CON, traced to

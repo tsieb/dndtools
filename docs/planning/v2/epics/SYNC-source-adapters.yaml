@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SYNC-source-adapters
 title: 'SYNC: Source adapters'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SYNC
 capabilityBranch: Source adapters
 objective: Deliver the source adapters capability branch for SYNC, traced to the

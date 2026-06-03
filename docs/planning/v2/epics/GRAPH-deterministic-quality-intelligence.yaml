@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: GRAPH-deterministic-quality-intelligence
 title: 'GRAPH: Deterministic quality intelligence'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: GRAPH
 capabilityBranch: Deterministic quality intelligence
 objective: Deliver the deterministic quality intelligence capability branch for

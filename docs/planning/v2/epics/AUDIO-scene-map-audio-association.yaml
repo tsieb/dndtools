@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: AUDIO-scene-map-audio-association
 title: 'AUDIO: Scene/map audio association'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: AUDIO
 capabilityBranch: Scene/map audio association
 objective: Deliver the scene/map audio association capability branch for AUDIO,

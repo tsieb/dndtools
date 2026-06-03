@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: PERM-visibility
 title: 'PERM: Visibility'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: PERM
 capabilityBranch: Visibility
 objective: Deliver the visibility capability branch for PERM, traced to the

@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: GRAPH-backlinks-and-navigation-relationships
 title: 'GRAPH: Backlinks and navigation relationships'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: GRAPH
 capabilityBranch: Backlinks and navigation relationships
 objective: Deliver the backlinks and navigation relationships capability branch

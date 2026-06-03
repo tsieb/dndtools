@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CONTENT-notes-and-editor
 title: 'CONTENT: Notes and editor'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CONTENT
 capabilityBranch: Notes and editor
 objective: Deliver the notes and editor capability branch for CONTENT, traced to

@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: COLLAB-join-reconnect-and-identity
 title: 'COLLAB: Join, reconnect, and identity'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: COLLAB
 capabilityBranch: Join, reconnect, and identity
 objective: Deliver the join, reconnect, and identity capability branch for

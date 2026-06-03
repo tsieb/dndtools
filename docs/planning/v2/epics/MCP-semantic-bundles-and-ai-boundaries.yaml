@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: MCP-semantic-bundles-and-ai-boundaries
 title: 'MCP: Semantic bundles and AI boundaries'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: MCP
 capabilityBranch: Semantic bundles and AI boundaries
 objective: Deliver the semantic bundles and ai boundaries capability branch for

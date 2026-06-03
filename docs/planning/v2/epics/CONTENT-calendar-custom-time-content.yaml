@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CONTENT-calendar-custom-time-content
 title: 'CONTENT: Calendar/custom time content'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CONTENT
 capabilityBranch: Calendar/custom time content
 objective: Deliver the calendar/custom time content capability branch for

@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SRCH-local-indexes-and-freshness
 title: 'SRCH: Local indexes and freshness'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SRCH
 capabilityBranch: Local indexes and freshness
 objective: Deliver the local indexes and freshness capability branch for SRCH,

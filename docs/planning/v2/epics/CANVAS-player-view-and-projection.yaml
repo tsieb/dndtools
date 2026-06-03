@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CANVAS-player-view-and-projection
 title: 'CANVAS: Player view and projection'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CANVAS
 capabilityBranch: Player view and projection
 objective: Deliver the player view and projection capability branch for CANVAS,

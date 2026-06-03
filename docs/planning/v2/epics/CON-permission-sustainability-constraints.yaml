@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CON-permission-sustainability-constraints
 title: 'CON: Permission sustainability constraints'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CON
 capabilityBranch: Permission sustainability constraints
 objective: Deliver the permission sustainability constraints capability branch

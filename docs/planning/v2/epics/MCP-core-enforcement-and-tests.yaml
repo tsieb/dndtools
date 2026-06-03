@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: MCP-core-enforcement-and-tests
 title: 'MCP: Core enforcement and tests'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: MCP
 capabilityBranch: Core enforcement and tests
 objective: Deliver the core enforcement and tests capability branch for MCP,

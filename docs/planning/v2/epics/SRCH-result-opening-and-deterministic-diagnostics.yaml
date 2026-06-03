@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SRCH-result-opening-and-deterministic-diagnostics
 title: 'SRCH: Result opening and deterministic diagnostics'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SRCH
 capabilityBranch: Result opening and deterministic diagnostics
 objective: Deliver the result opening and deterministic diagnostics capability

@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CON-security-and-source-of-truth-constraints
 title: 'CON: Security and source-of-truth constraints'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CON
 capabilityBranch: Security and source-of-truth constraints
 objective: Deliver the security and source-of-truth constraints capability

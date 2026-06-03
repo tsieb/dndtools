@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: MAP-map-editing-and-generation
 title: 'MAP: Map editing and generation'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: MAP
 capabilityBranch: Map editing and generation
 objective: Deliver the map editing and generation capability branch for MAP,

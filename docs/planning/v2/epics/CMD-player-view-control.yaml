@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CMD-player-view-control
 title: 'CMD: Player view control'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CMD
 capabilityBranch: Player view control
 objective: Deliver the player view control capability branch for CMD, traced to

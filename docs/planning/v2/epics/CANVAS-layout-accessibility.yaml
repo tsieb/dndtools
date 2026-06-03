@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CANVAS-layout-accessibility
 title: 'CANVAS: Layout accessibility'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CANVAS
 capabilityBranch: Layout accessibility
 objective: Deliver the layout accessibility capability branch for CANVAS, traced

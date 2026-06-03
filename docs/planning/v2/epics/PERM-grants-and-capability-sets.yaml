@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: PERM-grants-and-capability-sets
 title: 'PERM: Grants and capability sets'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: PERM
 capabilityBranch: Grants and capability sets
 objective: Deliver the grants and capability sets capability branch for PERM,

@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CHAR-party-and-player-records
 title: 'CHAR: Party and player records'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CHAR
 capabilityBranch: Party and player records
 objective: Deliver the party and player records capability branch for CHAR,

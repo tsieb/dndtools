@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: AUDIO-playback-and-session-state
 title: 'AUDIO: Playback and session state'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: AUDIO
 capabilityBranch: Playback and session state
 objective: Deliver the playback and session state capability branch for AUDIO,

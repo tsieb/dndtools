@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SES-handouts-and-tools
 title: 'SES: Handouts and tools'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SES
 capabilityBranch: Handouts and tools
 objective: Deliver the handouts and tools capability branch for SES, traced to

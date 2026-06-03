@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: GRAPH-source-indexing
 title: 'GRAPH: Source indexing'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: GRAPH
 capabilityBranch: Source indexing
 objective: Deliver the source indexing capability branch for GRAPH, traced to

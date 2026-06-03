@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: MAP-nesting-and-spatial-transitions
 title: 'MAP: Nesting and spatial transitions'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: MAP
 capabilityBranch: Nesting and spatial transitions
 objective: Deliver the nesting and spatial transitions capability branch for

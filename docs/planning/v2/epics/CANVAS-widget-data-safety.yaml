@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CANVAS-widget-data-safety
 title: 'CANVAS: Widget data safety'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CANVAS
 capabilityBranch: Widget data safety
 objective: Deliver the widget data safety capability branch for CANVAS, traced

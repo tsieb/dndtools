@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SRCH-quick-switcher-and-command-discovery
 title: 'SRCH: Quick switcher and command discovery'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SRCH
 capabilityBranch: Quick switcher and command discovery
 objective: Deliver the quick switcher and command discovery capability branch

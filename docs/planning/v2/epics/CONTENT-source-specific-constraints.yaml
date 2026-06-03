@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CONTENT-source-specific-constraints
 title: 'CONTENT: Source-specific constraints'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CONTENT
 capabilityBranch: Source-specific constraints
 objective: Deliver the source-specific constraints capability branch for

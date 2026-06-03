@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SES-session-lifecycle
 title: 'SES: Session lifecycle'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SES
 capabilityBranch: Session lifecycle
 objective: Deliver the session lifecycle capability branch for SES, traced to

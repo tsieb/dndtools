@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: MCP-response-contracts
 title: 'MCP: Response contracts'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: MCP
 capabilityBranch: Response contracts
 objective: Deliver the response contracts capability branch for MCP, traced to

@@ -1,0 +1,176 @@
+:root {
+	color-scheme: light dark;
+	--bg: #faf6ec;
+	--fg: #1f2937;
+	--accent: #6b3f1d;
+	--muted: #6b7280;
+	--card: #ffffff;
+	--border: #d6c9a9;
+	--danger: #b91c1c;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #161310;
+		--fg: #f6ecd6;
+		--accent: #f5b97b;
+		--muted: #b8a98d;
+		--card: #221d18;
+		--border: #4a3f2c;
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	font-family:
+		system-ui,
+		-apple-system,
+		'Segoe UI',
+		sans-serif;
+	background: var(--bg);
+	color: var(--fg);
+}
+
+.app-header {
+	padding: 1rem 2rem 0.5rem;
+	border-bottom: 1px solid var(--border);
+}
+
+.app-header h1 {
+	margin: 0 0 0.25rem;
+	font-size: 1.25rem;
+}
+
+.app-header .tagline {
+	margin: 0 0 0.5rem;
+	color: var(--muted);
+	font-size: 0.875rem;
+}
+
+.app-header nav a {
+	color: var(--accent);
+	text-decoration: none;
+	margin-right: 1rem;
+}
+
+.app-main {
+	padding: 1.5rem 2rem;
+	max-width: 1100px;
+	margin: 0 auto;
+}
+
+.loading {
+	color: var(--muted);
+}
+
+.error {
+	margin-top: 1rem;
+	padding: 0.75rem;
+	border: 1px solid var(--danger);
+	background: rgba(185, 28, 28, 0.06);
+	color: var(--danger);
+	border-radius: 0.5rem;
+}
+
+button,
+input,
+textarea,
+select {
+	font: inherit;
+	color: inherit;
+}
+
+.button {
+	cursor: pointer;
+	background: var(--accent);
+	color: var(--bg);
+	border: 1px solid var(--accent);
+	padding: 0.5rem 1rem;
+	border-radius: 0.4rem;
+}
+
+.button.secondary {
+	background: transparent;
+	color: var(--accent);
+}
+
+.form {
+	display: grid;
+	gap: 0.75rem;
+	max-width: 480px;
+	margin-bottom: 2rem;
+}
+
+.form label {
+	display: grid;
+	gap: 0.25rem;
+}
+
+.form input,
+.form textarea,
+.form select {
+	padding: 0.4rem 0.6rem;
+	background: var(--card);
+	border: 1px solid var(--border);
+	border-radius: 0.35rem;
+}
+
+.scene-list {
+	display: grid;
+	gap: 0.75rem;
+}
+
+.scene-list .scene-card {
+	display: flex;
+	justify-content: space-between;
+	gap: 1rem;
+	border: 1px solid var(--border);
+	background: var(--card);
+	padding: 0.75rem 1rem;
+	border-radius: 0.5rem;
+}
+
+.scene-card .meta {
+	color: var(--muted);
+	font-size: 0.85rem;
+}
+
+.scene-editor {
+	display: grid;
+	gap: 1.5rem;
+}
+
+.widget-grid {
+	display: grid;
+	gap: 0.75rem;
+}
+
+.widget-row {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 0.5rem;
+	padding: 0.6rem 0.9rem;
+	border: 1px solid var(--border);
+	background: var(--card);
+	border-radius: 0.5rem;
+}
+
+.widget-row .layout {
+	color: var(--muted);
+	font-size: 0.85rem;
+}
+
+.row-actions {
+	display: flex;
+	gap: 0.4rem;
+	flex-wrap: wrap;
+}
+
+.row-actions button {
+	font-size: 0.75rem;
+	padding: 0.25rem 0.5rem;
+}

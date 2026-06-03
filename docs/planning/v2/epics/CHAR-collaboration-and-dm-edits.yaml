@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CHAR-collaboration-and-dm-edits
 title: 'CHAR: Collaboration and DM edits'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CHAR
 capabilityBranch: Collaboration and DM edits
 objective: Deliver the collaboration and dm edits capability branch for CHAR,

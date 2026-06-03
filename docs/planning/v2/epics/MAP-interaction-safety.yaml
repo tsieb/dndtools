@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: MAP-interaction-safety
 title: 'MAP: Interaction safety'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: MAP
 capabilityBranch: Interaction safety
 objective: Deliver the interaction safety capability branch for MAP, traced to

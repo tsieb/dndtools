@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SEC-input-and-content-safety
 title: 'SEC: Input and content safety'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SEC
 capabilityBranch: Input and content safety
 objective: Deliver the input and content safety capability branch for SEC,

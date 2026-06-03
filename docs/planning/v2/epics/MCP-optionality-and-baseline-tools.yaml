@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: MCP-optionality-and-baseline-tools
 title: 'MCP: Optionality and baseline tools'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: MCP
 capabilityBranch: Optionality and baseline tools
 objective: Deliver the optionality and baseline tools capability branch for MCP,

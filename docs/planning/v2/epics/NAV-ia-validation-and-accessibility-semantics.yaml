@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: NAV-ia-validation-and-accessibility-semantics
 title: 'NAV: IA validation and accessibility semantics'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: NAV
 capabilityBranch: IA validation and accessibility semantics
 objective: Deliver the ia validation and accessibility semantics capability

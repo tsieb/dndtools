@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SES-prep-recap-and-calendar-continuity
 title: 'SES: Prep, recap, and calendar continuity'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SES
 capabilityBranch: Prep, recap, and calendar continuity
 objective: Deliver the prep, recap, and calendar continuity capability branch

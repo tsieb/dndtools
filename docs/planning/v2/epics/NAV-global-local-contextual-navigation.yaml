@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: NAV-global-local-contextual-navigation
 title: 'NAV: Global/local/contextual navigation'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: NAV
 capabilityBranch: Global/local/contextual navigation
 objective: Deliver the global/local/contextual navigation capability branch for

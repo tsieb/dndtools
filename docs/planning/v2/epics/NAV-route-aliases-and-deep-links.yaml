@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: NAV-route-aliases-and-deep-links
 title: 'NAV: Route aliases and deep links'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: NAV
 capabilityBranch: Route aliases and deep links
 objective: Deliver the route aliases and deep links capability branch for NAV,

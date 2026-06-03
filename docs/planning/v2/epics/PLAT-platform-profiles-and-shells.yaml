@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: PLAT-platform-profiles-and-shells
 title: 'PLAT: Platform profiles and shells'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: PLAT
 capabilityBranch: Platform profiles and shells
 objective: Deliver the platform profiles and shells capability branch for PLAT,

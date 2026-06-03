@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: AUDIO-automation
 title: 'AUDIO: Automation'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: AUDIO
 capabilityBranch: Automation
 objective: Deliver the automation capability branch for AUDIO, traced to the

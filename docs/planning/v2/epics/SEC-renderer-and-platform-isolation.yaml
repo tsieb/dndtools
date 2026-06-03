@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SEC-renderer-and-platform-isolation
 title: 'SEC: Renderer and platform isolation'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SEC
 capabilityBranch: Renderer and platform isolation
 objective: Deliver the renderer and platform isolation capability branch for

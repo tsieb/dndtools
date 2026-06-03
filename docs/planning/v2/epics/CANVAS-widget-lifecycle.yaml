@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CANVAS-widget-lifecycle
 title: 'CANVAS: Widget lifecycle'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CANVAS
 capabilityBranch: Widget lifecycle
 objective: Deliver the widget lifecycle capability branch for CANVAS, traced to

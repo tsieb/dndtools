@@ -1,0 +1,36 @@
+import type { Actor, PermissionState } from '../state/permission-state';
+import type { Scene } from '../state/scene-state';
+import type { ActorId } from '../state/ids';
+
+export type SceneVisibilityResult =
+	| { kind: 'visible'; assignedSectionIds: string[] | null }
+	| { kind: 'hidden'; reason: 'dm-only' | 'not-shared' | 'unknown-actor' };
+
+export function evaluateSceneVisibility(
+	scene: Scene,
+	actor: Actor | undefined,
+): SceneVisibilityResult {
+	if (!actor) return { kind: 'hidden', reason: 'unknown-actor' };
+	if (actor.role === 'dm') return { kind: 'visible', assignedSectionIds: null };
+	if (scene.visibility === 'dm-only') return { kind: 'hidden', reason: 'dm-only' };
+
+	const assignment = scene.playerViewAssignments.find((a) => a.playerActorId === actor.id);
+	if (scene.visibility === 'player-visible') {
+		return { kind: 'visible', assignedSectionIds: assignment?.sectionIds ?? null };
+	}
+
+	const hasSharingTarget = scene.sharingTargets.includes(actor.id);
+	if (assignment || hasSharingTarget) {
+		return { kind: 'visible', assignedSectionIds: assignment?.sectionIds ?? null };
+	}
+	return { kind: 'hidden', reason: 'not-shared' };
+}
+
+export function canActorSeeScene(
+	scene: Scene,
+	permission: PermissionState,
+	actorId: ActorId,
+): boolean {
+	const actor = permission.actors[actorId];
+	return evaluateSceneVisibility(scene, actor).kind === 'visible';
+}

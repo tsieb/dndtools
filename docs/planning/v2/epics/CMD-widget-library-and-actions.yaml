@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: CMD-widget-library-and-actions
 title: 'CMD: Widget library and actions'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: CMD
 capabilityBranch: Widget library and actions
 objective: Deliver the widget library and actions capability branch for CMD,

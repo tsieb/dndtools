@@ -1,8 +1,8 @@
 schemaVersion: 1
 id: SYNC-cloud-device-local-storage
 title: 'SYNC: Cloud/device-local storage'
-status: proposed
-approved: false
+status: approved
+approved: true
 domain: SYNC
 capabilityBranch: Cloud/device-local storage
 objective: Deliver the cloud/device-local storage capability branch for SYNC,
