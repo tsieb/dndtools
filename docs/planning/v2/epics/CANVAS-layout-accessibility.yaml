@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CANVAS-layout-accessibility
 title: "CANVAS: Layout accessibility"
-status: approved
+status: complete
 approved: true
 domain: CANVAS
 capabilityBranch: Layout accessibility
@@ -156,3 +156,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/CANVAS-layout-accessibility.completion.md

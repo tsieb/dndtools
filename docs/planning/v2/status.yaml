@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 84
+  approved: 83
   active: 0
-  complete: 4
+  complete: 5
   deferred: 0
 metrics:
-  epicCompletionPercent: 4.5
-  requirementCompletionPercent: 6.4
+  epicCompletionPercent: 5.7
+  requirementCompletionPercent: 7.3
   totalRequirements: 234
-  completedRequirements: 15
+  completedRequirements: 17
   deferredRequirements: 0
-  remainingEpics: 84
-  promptableEpics: 84
+  remainingEpics: 83
+  promptableEpics: 83
   blockedByDependencies: 0
-  completionEvidenceFiles: 4
+  completionEvidenceFiles: 5
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -41,13 +41,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: CANVAS
       totalEpics: 5
-      complete: 3
+      complete: 4
       active: 0
-      approved: 2
+      approved: 1
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 60
-      requirementCompletionPercent: 66.7
+      epicCompletionPercent: 80
+      requirementCompletionPercent: 77.8
     - domain: CHAR
       totalEpics: 6
       complete: 0
@@ -240,11 +240,12 @@ epics:
     requirementIds:
       - AUDIO-001
   - id: CANVAS-layout-accessibility
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CANVAS-012
       - CANVAS-016
+    completionEvidenceFile: docs/planning/v2/epics/CANVAS-layout-accessibility.completion.md
   - id: CANVAS-player-view-and-projection
     status: approved
     approved: true

@@ -1,5 +1,13 @@
 <script lang="ts">
-	import { EMPTY_WIDGET_DATA_ENVIRONMENT, getSceneForActor } from '@dndtools/v2-core';
+	import {
+		EMPTY_WIDGET_DATA_ENVIRONMENT,
+		getSceneForActor,
+		listWidgetLayoutCommands,
+		resolveLayoutCommandPayload,
+		type SceneLayoutCommand,
+		type WidgetBindingPayload,
+		type WidgetInstance,
+	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 
 	const { data } = $props();
@@ -18,6 +26,11 @@
 		),
 	);
 
+	// Raw Scene for actor-scoped layout command descriptors (CANVAS-012). The GUI may
+	// know which command descriptors are available for visible controls (Contract 1);
+	// it never mutates layout directly.
+	const rawScene = $derived(runtime.state.scenes.scenes[sceneId]);
+
 	let widgetType = $state('note');
 	let widgetVersion = $state('1.0.0');
 	let widgetX = $state(40);
@@ -27,6 +40,72 @@
 	let bindEntityType = $state('');
 	let bindEntityId = $state('');
 	let bindSelector = $state('');
+
+	// Widgets selected for a grouping operation (keyboard/touch reachable, no drag).
+	let selectedForGroup = $state<Set<string>>(new Set());
+
+	// Render widgets in declared focus-traversal order (CANVAS-016) so DOM tab order
+	// follows z-order/grouping/dock/pin/explicit metadata rather than insertion order.
+	const orderedWidgets = $derived.by(() => {
+		if ('kind' in summary) return [] as Array<{ tabIndex: number; payload: WidgetBindingPayload }>;
+		const byId = new Map<string, WidgetBindingPayload>();
+		for (const payload of summary.widgets) {
+			const id =
+				payload.kind === 'available' || payload.kind === 'degraded'
+					? payload.widget.id
+					: payload.widgetInstanceId;
+			byId.set(id, payload);
+		}
+		const out: Array<{ tabIndex: number; payload: WidgetBindingPayload }> = [];
+		for (const entry of summary.focusOrder) {
+			const payload = byId.get(entry.widgetInstanceId);
+			if (payload) out.push({ tabIndex: entry.tabIndex, payload });
+		}
+		return out;
+	});
+
+	function widgetAccessibleName(widget: WidgetInstance): string {
+		const boundTo = widget.binding ? ` bound to ${widget.binding.source.entityId}` : '';
+		return `${widget.type} widget${boundTo}`;
+	}
+
+	function layoutCommandsFor(widget: WidgetInstance): SceneLayoutCommand[] {
+		if (!rawScene) return [];
+		return listWidgetLayoutCommands(
+			rawScene,
+			widget,
+			runtime.state.permissions,
+			runtime.defaultActorId,
+		);
+	}
+
+	async function runLayoutCommand(command: SceneLayoutCommand, widget: WidgetInstance) {
+		if (!rawScene) return;
+		const resolved = resolveLayoutCommandPayload(command, rawScene, widget);
+		if (!resolved) return;
+		await runtime.dispatch({
+			type: resolved.type,
+			actorId: runtime.defaultActorId,
+			payload: resolved.payload,
+		});
+	}
+
+	function toggleGroupSelection(id: string, checked: boolean) {
+		const next = new Set(selectedForGroup);
+		if (checked) next.add(id);
+		else next.delete(id);
+		selectedForGroup = next;
+	}
+
+	async function groupSelected() {
+		if (selectedForGroup.size < 2) return;
+		await runtime.dispatch({
+			type: 'scene.group-widgets',
+			actorId: runtime.defaultActorId,
+			payload: { sceneId, widgetInstanceIds: [...selectedForGroup] },
+		});
+		selectedForGroup = new Set();
+	}
 
 	async function addWidget(event: SubmitEvent) {
 		event.preventDefault();
@@ -57,38 +136,11 @@
 		});
 	}
 
-	async function moveWidget(id: string, deltaX: number, deltaY: number) {
-		if ('kind' in summary) return;
-		const widget = summary.widgets.find(
-			(payload) =>
-				(payload.kind === 'available' || payload.kind === 'degraded') && payload.widget.id === id,
-		);
-		if (!widget || (widget.kind !== 'available' && widget.kind !== 'degraded')) return;
-		await runtime.dispatch({
-			type: 'scene.move-widget',
-			actorId: runtime.defaultActorId,
-			payload: {
-				sceneId,
-				widgetInstanceId: id,
-				x: widget.widget.layout.x + deltaX,
-				y: widget.widget.layout.y + deltaY,
-			},
-		});
-	}
-
 	async function destroyWidget(id: string) {
 		await runtime.dispatch({
 			type: 'scene.destroy-widget',
 			actorId: runtime.defaultActorId,
 			payload: { sceneId, widgetInstanceId: id },
-		});
-	}
-
-	async function togglePinned(id: string, pinned: boolean) {
-		await runtime.dispatch({
-			type: 'scene.pin-widget',
-			actorId: runtime.defaultActorId,
-			payload: { sceneId, widgetInstanceId: id, pinned },
 		});
 	}
 
@@ -182,15 +234,39 @@
 		</section>
 
 		<section>
-			<h3>Widgets</h3>
+			<div class="widgets-head">
+				<h3>Widgets</h3>
+				<button
+					type="button"
+					class="button secondary"
+					data-testid="group-selected"
+					disabled={selectedForGroup.size < 2}
+					onclick={groupSelected}
+				>
+					Group selected ({selectedForGroup.size})
+				</button>
+			</div>
+			<p class="meta">Tab order follows the declared Scene focus order.</p>
 			<div class="widget-grid" data-testid="widget-grid">
-				{#each summary.widgets as payload (payload.kind === 'available' || payload.kind === 'degraded' ? payload.widget.id : payload.widgetInstanceId)}
+				{#each orderedWidgets as { tabIndex, payload } (payload.kind === 'available' || payload.kind === 'degraded' ? payload.widget.id : payload.widgetInstanceId)}
 					{#if payload.kind === 'available' || payload.kind === 'degraded'}
 						{@const w = payload.widget}
 						{@const timer = runtime.state.session.timers[w.id]}
-						<article class="widget-row" data-testid={`widget-${w.id}`}>
+						<article
+							class="widget-row"
+							data-testid={`widget-${w.id}`}
+							data-focus-index={tabIndex}
+						>
 							<div>
-								<strong>{w.type}</strong> <span class="meta">v{w.version}</span>
+								<label class="select-widget">
+									<input
+										type="checkbox"
+										data-testid={`select-${w.id}`}
+										checked={selectedForGroup.has(w.id)}
+										onchange={(e) => toggleGroupSelection(w.id, e.currentTarget.checked)}
+									/>
+									<span><strong>{w.type}</strong> <span class="meta">v{w.version}</span></span>
+								</label>
 								{#if payload.kind === 'degraded'}
 									<div class="layout" data-testid={`degraded-${w.id}`}>
 										degraded: {payload.unavailableHostPermissions.join(', ')} unavailable
@@ -199,44 +275,33 @@
 								<div class="layout">
 									x {w.layout.x.toFixed(0)} • y {w.layout.y.toFixed(0)} • w {w.layout.w.toFixed(0)} •
 									h {w.layout.h.toFixed(0)} • z {w.layout.z}
+									{#if w.layout.dock}• docked {w.layout.dock}{/if}
 									{#if w.layout.pinned}• pinned{/if}
+									{#if w.layout.groupId}• grouped{/if}
+									{#if w.layout.focusOrder !== null}• focus {w.layout.focusOrder}{/if}
 									{#if timer}
 										• timer {timer.status}
 									{/if}
 								</div>
 							</div>
-							<div class="row-actions">
-								<button
-									type="button"
-									onclick={() => moveWidget(w.id, -20, 0)}
-									aria-label="Move widget left"
-								>
-									←
-								</button>
-								<button
-									type="button"
-									onclick={() => moveWidget(w.id, 20, 0)}
-									aria-label="Move widget right"
-								>
-									→
-								</button>
-								<button
-									type="button"
-									onclick={() => moveWidget(w.id, 0, -20)}
-									aria-label="Move widget up"
-								>
-									↑
-								</button>
-								<button
-									type="button"
-									onclick={() => moveWidget(w.id, 0, 20)}
-									aria-label="Move widget down"
-								>
-									↓
-								</button>
-								<button type="button" onclick={() => togglePinned(w.id, !w.layout.pinned)}>
-									{w.layout.pinned ? 'Unpin' : 'Pin'}
-								</button>
+							<div
+								class="row-actions"
+								role="toolbar"
+								aria-label={`Layout controls for ${widgetAccessibleName(w)}`}
+								data-testid={`layout-toolbar-${w.id}`}
+							>
+								{#each layoutCommandsFor(w) as command (command.id)}
+									{#if command.targets === 'self'}
+										<button
+											type="button"
+											data-testid={`layout-${command.id}-${w.id}`}
+											aria-label={`${command.label} — ${widgetAccessibleName(w)}`}
+											onclick={() => runLayoutCommand(command, w)}
+										>
+											{command.label}
+										</button>
+									{/if}
+								{/each}
 								{#if w.type === 'timer'}
 									<button
 										type="button"
@@ -246,17 +311,14 @@
 										Start
 									</button>
 								{/if}
-								<button
-									type="button"
-									onclick={() => destroyWidget(w.id)}
-									data-testid={`destroy-${w.id}`}
-								>
-									Remove
-								</button>
 							</div>
 						</article>
 					{:else if payload.kind === 'disabled'}
-						<article class="widget-row" data-testid={`disabled-${payload.widgetInstanceId}`}>
+						<article
+							class="widget-row"
+							data-testid={`disabled-${payload.widgetInstanceId}`}
+							data-focus-index={tabIndex}
+						>
 							<div>
 								<strong>{payload.type}</strong>
 								<div class="layout">disabled: {payload.reason}</div>
@@ -272,28 +334,44 @@
 							</div>
 						</article>
 					{:else if payload.kind === 'missing'}
-						<article class="widget-row" data-testid={`missing-${payload.widgetInstanceId}`}>
+						<article
+							class="widget-row"
+							data-testid={`missing-${payload.widgetInstanceId}`}
+							data-focus-index={tabIndex}
+						>
 							<div>
 								<strong>{payload.type}</strong>
 								<div class="layout">binding missing</div>
 							</div>
 						</article>
 					{:else if payload.kind === 'conflicted'}
-						<article class="widget-row" data-testid={`conflicted-${payload.widgetInstanceId}`}>
+						<article
+							class="widget-row"
+							data-testid={`conflicted-${payload.widgetInstanceId}`}
+							data-focus-index={tabIndex}
+						>
 							<div>
 								<strong>{payload.type}</strong>
 								<div class="layout">binding conflicted: {payload.conflictPaths.join(', ')}</div>
 							</div>
 						</article>
 					{:else if payload.kind === 'unbound'}
-						<article class="widget-row" data-testid={`unbound-${payload.widgetInstanceId}`}>
+						<article
+							class="widget-row"
+							data-testid={`unbound-${payload.widgetInstanceId}`}
+							data-focus-index={tabIndex}
+						>
 							<div>
 								<strong>{payload.type}</strong>
 								<div class="layout">needs a data source</div>
 							</div>
 						</article>
 					{:else}
-						<article class="widget-row" data-testid={`hidden-${payload.widgetInstanceId}`}>
+						<article
+							class="widget-row"
+							data-testid={`hidden-${payload.widgetInstanceId}`}
+							data-focus-index={tabIndex}
+						>
 							<div>
 								<strong>{payload.type}</strong>
 								<div class="layout">hidden in this view</div>

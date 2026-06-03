@@ -42,6 +42,7 @@ export type CoreCommand =
 	| { type: 'scene.move-group'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.dock-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.pin-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene.set-focus-order'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.destroy-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'widget.package.install'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'widget.package.enable'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -83,7 +84,7 @@ export type CoreEvent =
 			sceneId: SceneId;
 			widgetInstanceId: string;
 			actorId: ActorId;
-			field: 'position' | 'size' | 'z' | 'dock' | 'pin' | 'group';
+			field: 'position' | 'size' | 'z' | 'dock' | 'pin' | 'group' | 'focusOrder';
 	  }
 	| { kind: 'scene.widget-destroyed'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId }
 	| {

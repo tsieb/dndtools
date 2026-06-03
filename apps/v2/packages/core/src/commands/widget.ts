@@ -8,6 +8,7 @@ import {
 	moveWidgetInputSchema,
 	pinWidgetInputSchema,
 	resizeWidgetInputSchema,
+	setWidgetFocusOrderInputSchema,
 } from '../schemas/commands';
 import type {
 	WidgetInstance,
@@ -188,7 +189,7 @@ export function handleAddWidget(
 	};
 }
 
-type LayoutFieldKind = 'position' | 'size' | 'z' | 'dock' | 'pin' | 'group';
+type LayoutFieldKind = 'position' | 'size' | 'z' | 'dock' | 'pin' | 'group' | 'focusOrder';
 
 function mutateWidgetLayout(
 	state: CoreStateSlice,
@@ -352,6 +353,27 @@ export function handlePinWidget(
 		(layout) => ({ ...layout, pinned: parsed.data.pinned }),
 		{ pinned: parsed.data.pinned },
 		'scene.pin-widget',
+	);
+}
+
+export function handleSetWidgetFocusOrder(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const parsed = parseInput(setWidgetFocusOrderInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	return mutateWidgetLayout(
+		state,
+		env,
+		actorId,
+		parsed.data.sceneId,
+		parsed.data.widgetInstanceId,
+		'focusOrder',
+		(layout) => ({ ...layout, focusOrder: parsed.data.focusOrder }),
+		{ focusOrder: parsed.data.focusOrder },
+		'scene.set-focus-order',
 	);
 }
 

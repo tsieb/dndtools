@@ -16,6 +16,7 @@ import {
 	handleMoveWidget,
 	handlePinWidget,
 	handleResizeWidget,
+	handleSetWidgetFocusOrder,
 } from './widget';
 import { handleDispatchWidgetCommand } from './widget-command';
 import {
@@ -63,6 +64,8 @@ export function dispatchCommand(
 			return handleDockWidget(state, env, command.actorId, command.payload);
 		case 'scene.pin-widget':
 			return handlePinWidget(state, env, command.actorId, command.payload);
+		case 'scene.set-focus-order':
+			return handleSetWidgetFocusOrder(state, env, command.actorId, command.payload);
 		case 'scene.destroy-widget':
 			return handleDestroyWidget(state, env, command.actorId, command.payload);
 		case 'widget.package.install':

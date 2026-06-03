@@ -13,6 +13,7 @@ import {
 	type HiddenBindingReason,
 	type WidgetDataEnvironment,
 } from './binding';
+import { computeWidgetFocusOrder, type SceneFocusEntry } from './focus-order';
 
 export type WidgetBindingPayload =
 	| { kind: 'available'; widget: WidgetInstance }
@@ -52,6 +53,12 @@ export interface SceneSummary {
 	ownership: Scene['ownership'];
 	sections: SectionLayoutRegion[];
 	widgets: WidgetBindingPayload[];
+	/**
+	 * Deterministic keyboard focus traversal order for the widgets delivered to this
+	 * actor (CANVAS-016). Covers every delivered widget instance, including those that
+	 * resolve to placeholder states, so no widget control becomes unreachable.
+	 */
+	focusOrder: SceneFocusEntry[];
 	templateMeta: Scene['templateMeta'];
 	assignedSectionIds: SectionId[] | null;
 }
@@ -266,6 +273,10 @@ export function getSceneForActor(
 		ownership: scene.ownership,
 		sections,
 		widgets,
+		// Focus order is computed over the delivered widget instances so the traversal
+		// covers exactly what this actor receives (player-view filtered) and reflects
+		// declared z-order/group/dock/pin/focus metadata, not DOM insertion order.
+		focusOrder: computeWidgetFocusOrder(widgetSourcePool),
 		templateMeta: scene.templateMeta,
 		assignedSectionIds: sectionScope,
 	};

@@ -143,6 +143,14 @@ export const pinWidgetInputSchema = z
 	})
 	.strict();
 
+export const setWidgetFocusOrderInputSchema = z
+	.object({
+		sceneId: idSchema,
+		widgetInstanceId: idSchema,
+		focusOrder: z.union([z.literal(null), z.number().int().nonnegative()]),
+	})
+	.strict();
+
 export const destroyWidgetInputSchema = z
 	.object({
 		sceneId: idSchema,

@@ -172,9 +172,27 @@ select {
 	gap: 1.5rem;
 }
 
+.widgets-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	flex-wrap: wrap;
+}
+
 .widget-grid {
 	display: grid;
 	gap: 0.75rem;
+}
+
+.select-widget {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+}
+
+.row-actions[role='toolbar'] {
+	align-items: flex-start;
 }
 
 .widget-row {

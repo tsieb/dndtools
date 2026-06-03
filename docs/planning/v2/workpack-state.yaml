@@ -16,6 +16,9 @@ stackDecision:
   status: accepted
   blocksImplementation: false
 epics:
+  - id: CANVAS-layout-accessibility
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CANVAS-layout-accessibility.completion.md
   - id: CANVAS-scene-state
     status: complete
     approved: true

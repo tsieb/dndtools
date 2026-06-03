@@ -136,6 +136,7 @@ export {
 	saveCommandCenterPresetInputSchema,
 	saveSceneTemplateInputSchema,
 	setSceneSectionsInputSchema,
+	setWidgetFocusOrderInputSchema,
 	updateSceneMetadataInputSchema,
 	upgradeWidgetPackageInputSchema,
 } from './schemas/commands';
@@ -158,6 +159,24 @@ export type {
 	WidgetBindingPayload,
 } from './queries/scene';
 export { PERMISSIVE_RESOLVER, getSceneForActor, listScenesForActor } from './queries/scene';
+
+export type { FocusOrderInput, SceneFocusEntry, WidgetFocusTier } from './queries/focus-order';
+export { computeSceneFocusOrder, computeWidgetFocusOrder } from './queries/focus-order';
+
+export type {
+	LayoutStep,
+	ResolvedLayoutCommand,
+	SceneLayoutCommand,
+	SceneLayoutCommandGroup,
+	SceneLayoutCommandId,
+	SceneLayoutCommandType,
+} from './queries/layout-commands';
+export {
+	DEFAULT_LAYOUT_STEP,
+	MIN_WIDGET_EXTENT,
+	listWidgetLayoutCommands,
+	resolveLayoutCommandPayload,
+} from './queries/layout-commands';
 
 export type {
 	CommandBindingBlock,
