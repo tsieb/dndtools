@@ -196,5 +196,32 @@ export {
 	resolveWidgetBinding,
 } from './queries/binding';
 
+export type {
+	ResolvedAddWidgetCommand,
+	WidgetLibraryAvailability,
+	WidgetLibraryBinding,
+	WidgetLibraryEntry,
+	WidgetLibraryQuery,
+} from './queries/widget-library';
+export {
+	DEFAULT_LIBRARY_WIDGET_POSITION,
+	listWidgetLibrary,
+	resolveAddWidgetCommand,
+} from './queries/widget-library';
+
+export type {
+	CommandAction,
+	CommandActionAvailability,
+	CommandActionContext,
+	CommandActionGroup,
+	CommandActionInput,
+	CommandActionStateView,
+} from './queries/command-actions';
+export {
+	listCommandActions,
+	resolveCommandAction,
+	searchCommandActions,
+} from './queries/command-actions';
+
 export type { WidgetPackageExport } from './commands/widget-package';
 export { exportWidgetPackage } from './commands/widget-package';

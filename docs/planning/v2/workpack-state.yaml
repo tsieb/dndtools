@@ -32,3 +32,6 @@ epics:
   - id: CMD-home-scene
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CMD-home-scene.completion.md
+  - id: CMD-widget-library-and-actions
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CMD-widget-library-and-actions.completion.md

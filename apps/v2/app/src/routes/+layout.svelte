@@ -3,6 +3,7 @@
 	import { SceneRuntime, defaultEnvironment } from '$lib/canvas-runtime/runtime.svelte';
 	import { provideRuntime } from '$lib/state/runtime-context';
 	import { PlatformProfileStore, provideProfile } from '$lib/platform/platform-profile.svelte';
+	import CommandPalette from '$lib/gui/CommandPalette.svelte';
 	import './styles.css';
 
 	const { children } = $props();
@@ -28,6 +29,7 @@
 	<nav>
 		<a href="./" data-testid="nav-command-center">Command Center</a>
 		<a href="scenes/" data-testid="nav-scenes">Scenes</a>
+		<CommandPalette />
 	</nav>
 </header>
 

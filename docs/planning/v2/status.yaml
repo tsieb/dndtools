@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 83
+  approved: 82
   active: 0
-  complete: 5
+  complete: 6
   deferred: 0
 metrics:
-  epicCompletionPercent: 5.7
-  requirementCompletionPercent: 7.3
+  epicCompletionPercent: 6.8
+  requirementCompletionPercent: 8.1
   totalRequirements: 234
-  completedRequirements: 17
+  completedRequirements: 19
   deferredRequirements: 0
-  remainingEpics: 83
-  promptableEpics: 83
+  remainingEpics: 82
+  promptableEpics: 82
   blockedByDependencies: 0
-  completionEvidenceFiles: 5
+  completionEvidenceFiles: 6
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -59,13 +59,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: CMD
       totalEpics: 4
-      complete: 1
+      complete: 2
       active: 0
-      approved: 3
+      approved: 2
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 25
-      requirementCompletionPercent: 37.5
+      epicCompletionPercent: 50
+      requirementCompletionPercent: 62.5
     - domain: COLLAB
       totalEpics: 5
       complete: 0
@@ -342,11 +342,12 @@ epics:
     requirementIds:
       - CMD-004
   - id: CMD-widget-library-and-actions
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CMD-005
       - CMD-008
+    completionEvidenceFile: docs/planning/v2/epics/CMD-widget-library-and-actions.completion.md
   - id: COLLAB-authority-filtering-and-cache-privacy
     status: approved
     approved: true

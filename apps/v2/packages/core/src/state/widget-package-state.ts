@@ -169,6 +169,30 @@ function systemWidget(type: string, displayName: string): WidgetDefinition {
 	};
 }
 
+/**
+ * An entity-backed system widget declares the one data binding it needs to render
+ * (Contract 4: Widget Data Contract). The widget library surfaces these required
+ * bindings so the DM can see what a widget needs before adding it (CMD-005).
+ */
+function entityBackedWidget(
+	type: string,
+	displayName: string,
+	binding: { id: string; label: string; entityType: string },
+): WidgetDefinition {
+	return {
+		...systemWidget(type, displayName),
+		requiredBindings: [
+			{
+				id: binding.id,
+				label: binding.label,
+				entityTypes: [binding.entityType],
+				mode: 'read',
+				requiredCapability: 'viewer',
+			},
+		],
+	};
+}
+
 export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): WidgetPackageState {
 	const timerWidget: WidgetDefinition = {
 		...systemWidget('timer', 'Timer'),
@@ -194,9 +218,15 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 			version: '1.0.0',
 			displayName: 'System Scene Widgets',
 			widgets: [
+				// `note` stays binding-free: a note widget may render an ad-hoc/quick note,
+				// and only binds a stored note on demand.
 				systemWidget('note', 'Note'),
-				systemWidget('map', 'Map'),
-				systemWidget('character', 'Character'),
+				entityBackedWidget('map', 'Map', { id: 'map', label: 'Map', entityType: 'map' }),
+				entityBackedWidget('character', 'Character', {
+					id: 'character',
+					label: 'Character',
+					entityType: 'character',
+				}),
 				systemWidget('dice', 'Dice'),
 				systemWidget('initiative-tracker', 'Initiative Tracker'),
 				timerWidget,

@@ -2,7 +2,10 @@
 	import {
 		DEFAULT_COMMAND_CENTER_TOOLS,
 		getSceneForActor,
+		listWidgetLibrary,
+		resolveAddWidgetCommand,
 		type WidgetBindingPayload,
+		type WidgetLibraryEntry,
 	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
@@ -19,6 +22,7 @@
 	let presetName = $state('');
 	let selectedWidgetId = $state<string | null>(null);
 	let lastRestore = $state<{ restored: number; missing: string[] } | null>(null);
+	let librarySearch = $state('');
 
 	const homeSceneId = $derived(runtime.state.commandCenter.homeSceneId);
 	const summary = $derived(
@@ -34,6 +38,17 @@
 	);
 	const presets = $derived(
 		Object.values(runtime.state.commandCenter.presets).sort((a, b) => a.name.localeCompare(b.name)),
+	);
+
+	// Quick-access widget library (CMD-005): the Processing Core decides which widget
+	// types exist, their required bindings, and whether each runs on the active
+	// platform profile. The GUI only renders entries and dispatches the resolved
+	// scene.add-widget command.
+	const library = $derived<WidgetLibraryEntry[]>(
+		listWidgetLibrary(runtime.state.widgets, runtime.state.permissions, runtime.defaultActorId, {
+			profileId: profile.profileId,
+			filter: librarySearch,
+		}),
 	);
 
 	type LiveWidget = Extract<WidgetBindingPayload, { kind: 'available' | 'degraded' }>;
@@ -114,6 +129,20 @@
 				lastRestore = { restored: event.restoredWidgetCount, missing: event.missingWidgetTypes };
 			}
 		}
+	}
+
+	// Add an available library widget to the Command Center. resolveAddWidgetCommand
+	// returns null for any widget that is unsupported on the current profile, so an
+	// unavailable widget can never be added (CMD-005 AC2).
+	async function addFromLibrary(entry: WidgetLibraryEntry) {
+		if (!homeSceneId) return;
+		const command = resolveAddWidgetCommand(entry, homeSceneId);
+		if (!command) return;
+		await runtime.dispatch({
+			type: command.type,
+			actorId: runtime.defaultActorId,
+			payload: command.payload,
+		});
 	}
 </script>
 
@@ -271,6 +300,56 @@
 					{/if}
 				</p>
 			{/if}
+		</section>
+
+		<section aria-label="Widget library">
+			<h3>Widget library</h3>
+			<p class="meta">Search available widget types and add them to the Command Center.</p>
+			<label class="library-search">
+				<span class="visually-hidden">Search widgets</span>
+				<input
+					data-testid="cc-library-search"
+					bind:value={librarySearch}
+					placeholder="Search widgets (e.g. dice)"
+					autocomplete="off"
+				/>
+			</label>
+			<ul class="library-list" data-testid="cc-library-list">
+				{#each library as entry (entry.type)}
+					{@const isAvailable = entry.availability.available}
+					<li class="library-row" data-testid={`cc-library-${entry.type}`}>
+						<div>
+							<strong>{entry.displayName}</strong>
+							<span class="meta"> v{entry.version}</span>
+							{#if entry.requiredBindings.length > 0}
+								<div class="meta" data-testid={`cc-library-bindings-${entry.type}`}>
+									requires: {entry.requiredBindings.map((b) => b.label).join(', ')}
+								</div>
+							{:else}
+								<div class="meta">no required bindings</div>
+							{/if}
+							{#if !isAvailable && entry.availability.available === false}
+								<div class="meta unavailable" data-testid={`cc-library-reason-${entry.type}`}>
+									{entry.availability.reason}
+								</div>
+							{/if}
+						</div>
+						<div class="row-actions">
+							<button
+								type="button"
+								data-testid={`cc-library-add-${entry.type}`}
+								disabled={!isAvailable}
+								onclick={() => addFromLibrary(entry)}
+							>
+								Add
+							</button>
+						</div>
+					</li>
+				{/each}
+				{#if library.length === 0}
+					<li class="meta" data-testid="cc-library-empty">No widgets match “{librarySearch}”.</li>
+				{/if}
+			</ul>
 		</section>
 	{/if}
 </section>

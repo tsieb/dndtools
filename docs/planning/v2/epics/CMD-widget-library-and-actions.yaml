@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CMD-widget-library-and-actions
 title: "CMD: Widget library and actions"
-status: approved
+status: complete
 approved: true
 domain: CMD
 capabilityBranch: Widget library and actions
@@ -158,3 +158,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/CMD-widget-library-and-actions.completion.md
