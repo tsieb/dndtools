@@ -195,7 +195,11 @@ export function ensureSceneState(state: SceneState | undefined): SceneState {
 }
 
 export function ensureSessionState(state: SessionState | undefined): SessionState {
-	return state ?? { timers: {}, schemaVersion: SESSION_STATE_SCHEMA_VERSION };
+	return {
+		timers: state?.timers ?? {},
+		playerViewAssignments: state?.playerViewAssignments ?? {},
+		schemaVersion: SESSION_STATE_SCHEMA_VERSION,
+	};
 }
 
 export function ensureWidgetPackageState(

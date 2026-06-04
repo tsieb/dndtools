@@ -36,7 +36,14 @@ export {
 	isWidgetInGroup,
 } from './state/scene-state';
 
-export type { SessionState, SessionTimer } from './state/session-state';
+export type {
+	PlayerViewDeliveryStatus,
+	PlayerViewProjectionKind,
+	PlayerViewProjectionTarget,
+	SessionPlayerViewAssignment,
+	SessionState,
+	SessionTimer,
+} from './state/session-state';
 export { EMPTY_SESSION_STATE, SESSION_STATE_SCHEMA_VERSION } from './state/session-state';
 
 export type {
@@ -119,6 +126,7 @@ export {
 	applyCommandCenterPresetInputSchema,
 	createSceneInputSchema,
 	destroyWidgetInputSchema,
+	configureWidgetInputSchema,
 	disableWidgetPackageInputSchema,
 	dockWidgetInputSchema,
 	dispatchWidgetCommandInputSchema,
@@ -131,7 +139,9 @@ export {
 	moveGroupInputSchema,
 	moveWidgetInputSchema,
 	pinWidgetInputSchema,
+	projectPlayerViewInputSchema,
 	removeWidgetPackageInputSchema,
+	revokePlayerViewInputSchema,
 	resizeWidgetInputSchema,
 	saveCommandCenterPresetInputSchema,
 	saveSceneTemplateInputSchema,
@@ -156,9 +166,16 @@ export type {
 	SceneListEntry,
 	SceneQueryOptions,
 	SceneSummary,
+	PlayerViewQueryResult,
+	PlayerViewSummary,
 	WidgetBindingPayload,
 } from './queries/scene';
-export { PERMISSIVE_RESOLVER, getSceneForActor, listScenesForActor } from './queries/scene';
+export {
+	PERMISSIVE_RESOLVER,
+	getPlayerViewForActor,
+	getSceneForActor,
+	listScenesForActor,
+} from './queries/scene';
 
 export type { FocusOrderInput, SceneFocusEntry, WidgetFocusTier } from './queries/focus-order';
 export { computeSceneFocusOrder, computeWidgetFocusOrder } from './queries/focus-order';
@@ -216,6 +233,7 @@ export type {
 	CommandActionGroup,
 	CommandActionInput,
 	CommandActionStateView,
+	ResolvedCommandAction,
 } from './queries/command-actions';
 export {
 	listCommandActions,

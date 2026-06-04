@@ -15,10 +15,37 @@ stackDecision:
   requiredAdr: docs/adr/014-v2-stack-and-subproject-boundary.md
   status: accepted
   blocksImplementation: false
+precedence:
+  domains:
+    - CANVAS
+    - CMD
+    - NAV
+    - PLAT
+    - PERM
+    - MAP
+    - CHAR
+    - CONTENT
+    - SES
+    - SYNC
+    - COLLAB
+    - SRCH
+    - GRAPH
+    - AUDIO
+    - MCP
+    - SEC
+    - PERF
+    - CON
+  epics:
+    - CANVAS-player-view-and-projection
+    - CMD-active-session-control
+    - CMD-player-view-control
 epics:
   - id: CANVAS-layout-accessibility
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CANVAS-layout-accessibility.completion.md
+  - id: CANVAS-player-view-and-projection
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CANVAS-player-view-and-projection.completion.md
   - id: CANVAS-scene-state
     status: complete
     approved: true

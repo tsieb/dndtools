@@ -44,6 +44,7 @@ export type CoreCommand =
 	| { type: 'scene.pin-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.set-focus-order'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.destroy-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene.configure-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'widget.package.install'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'widget.package.enable'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'widget.package.disable'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -72,6 +73,18 @@ export type CoreCommand =
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.project-player-view';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.revoke-player-view';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
 	  };
 
 export type CoreEvent =
@@ -87,6 +100,12 @@ export type CoreEvent =
 			field: 'position' | 'size' | 'z' | 'dock' | 'pin' | 'group' | 'focusOrder';
 	  }
 	| { kind: 'scene.widget-destroyed'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId }
+	| {
+			kind: 'scene.widget-configured';
+			sceneId: SceneId;
+			widgetInstanceId: string;
+			actorId: ActorId;
+	  }
 	| {
 			kind: 'scene.template-saved';
 			templateSceneId: SceneId;
@@ -120,6 +139,21 @@ export type CoreEvent =
 			actorId: ActorId;
 			restoredWidgetCount: number;
 			missingWidgetTypes: string[];
+	  }
+	| {
+			kind: 'session.player-view-projected';
+			assignmentId: string;
+			sceneId: SceneId;
+			playerActorId: ActorId;
+			actorId: ActorId;
+			deliveryStatus: 'delivered' | 'queued';
+	  }
+	| {
+			kind: 'session.player-view-revoked';
+			assignmentId: string;
+			sceneId: SceneId;
+			playerActorId: ActorId;
+			actorId: ActorId;
 	  };
 
 export type RejectionCode =

@@ -8,6 +8,7 @@ import {
 } from './scene-meta';
 import {
 	handleAddWidget,
+	handleConfigureWidget,
 	handleDestroyWidget,
 	handleDockWidget,
 	handleGroupWidgets,
@@ -24,6 +25,7 @@ import {
 	handleEnsureCommandCenterHome,
 	handleSaveCommandCenterPreset,
 } from './command-center';
+import { handleProjectPlayerView, handleRevokePlayerView } from './player-view';
 import {
 	handleDisableWidgetPackage,
 	handleEnableWidgetPackage,
@@ -68,6 +70,8 @@ export function dispatchCommand(
 			return handleSetWidgetFocusOrder(state, env, command.actorId, command.payload);
 		case 'scene.destroy-widget':
 			return handleDestroyWidget(state, env, command.actorId, command.payload);
+		case 'scene.configure-widget':
+			return handleConfigureWidget(state, env, command.actorId, command.payload);
 		case 'widget.package.install':
 			return handleInstallWidgetPackage(state, env, command.actorId, command.payload);
 		case 'widget.package.enable':
@@ -92,6 +96,10 @@ export function dispatchCommand(
 			return handleSaveCommandCenterPreset(state, env, command.actorId, command.payload);
 		case 'command-center.apply-preset':
 			return handleApplyCommandCenterPreset(state, env, command.actorId, command.payload);
+		case 'session.project-player-view':
+			return handleProjectPlayerView(state, env, command.actorId, command.payload);
+		case 'session.revoke-player-view':
+			return handleRevokePlayerView(state, env, command.actorId, command.payload);
 	}
 }
 

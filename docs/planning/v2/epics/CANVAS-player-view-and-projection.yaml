@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CANVAS-player-view-and-projection
 title: "CANVAS: Player view and projection"
-status: approved
+status: complete
 approved: true
 domain: CANVAS
 capabilityBranch: Player view and projection
@@ -229,3 +229,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/CANVAS-player-view-and-projection.completion.md

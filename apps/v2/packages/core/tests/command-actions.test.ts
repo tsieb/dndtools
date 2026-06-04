@@ -1,15 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import { dispatchCommand } from '../src/commands/dispatch';
-import type { CommandResult, CoreCommand, CoreEnvironment, CoreStateSlice } from '../src/commands/types';
+import type {
+	CommandResult,
+	CoreCommand,
+	CoreEnvironment,
+	CoreStateSlice,
+} from '../src/commands/types';
 import {
 	listCommandActions,
 	resolveCommandAction,
 	searchCommandActions,
 } from '../src/queries/command-actions';
 import { resolveAddWidgetCommand, listWidgetLibrary } from '../src/queries/widget-library';
-import { DM_ACTOR, PLAYER_ACTOR, buildInitialState, makeEnvironment } from '../src/testing/fixtures';
+import {
+	DM_ACTOR,
+	PLAYER_ACTOR,
+	buildInitialState,
+	makeEnvironment,
+} from '../src/testing/fixtures';
 
-function dispatch(state: CoreStateSlice, env: CoreEnvironment, command: CoreCommand): CommandResult {
+function dispatch(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	command: CoreCommand,
+): CommandResult {
 	return dispatchCommand(state, env, command);
 }
 
@@ -33,7 +47,11 @@ function withConfiguredHome(): {
 			payload: {},
 		}),
 	);
-	return { env, state: created.nextState, homeSceneId: created.nextState.commandCenter.homeSceneId! };
+	return {
+		env,
+		state: created.nextState,
+		homeSceneId: created.nextState.commandCenter.homeSceneId!,
+	};
 }
 
 describe('CMD-008 command palette actions', () => {
@@ -89,9 +107,14 @@ describe('CMD-008 command palette actions', () => {
 		});
 
 		// Add-widget: palette payload equals the library Add button's resolved command.
-		const diceEntry = listWidgetLibrary(saved.nextState.widgets, saved.nextState.permissions, DM_ACTOR.id, {
-			profileId: 'desktop',
-		}).find((e) => e.type === 'dice')!;
+		const diceEntry = listWidgetLibrary(
+			saved.nextState.widgets,
+			saved.nextState.permissions,
+			DM_ACTOR.id,
+			{
+				profileId: 'desktop',
+			},
+		).find((e) => e.type === 'dice')!;
 		const addDice = actions.find((a) => a.id === 'cc.widget.add:dice')!;
 		expect(resolveCommandAction(addDice)).toEqual(resolveAddWidgetCommand(diceEntry, homeSceneId));
 	});
@@ -110,11 +133,7 @@ describe('CMD-008 command palette actions', () => {
 		const apply = actions.find((a) => a.id === `cc.preset.apply:${presetId}`)!;
 		const command = resolveCommandAction(apply)!;
 
-		const result = dispatch(saved.nextState, env, {
-			type: command.type,
-			actorId: DM_ACTOR.id,
-			payload: command.payload,
-		});
+		const result = dispatch(saved.nextState, env, { ...command, actorId: DM_ACTOR.id });
 		expect(result.status).toBe('accepted');
 		if (result.status !== 'accepted') return;
 		expect(result.events.some((e) => e.kind === 'command-center.preset-restored')).toBe(true);
@@ -125,7 +144,10 @@ describe('CMD-008 command palette actions', () => {
 		const actions = listCommandActions(state, DM_ACTOR.id, { profileId: 'desktop' });
 
 		const save = actions.find((a) => a.id === 'cc.preset.save')!;
-		expect(save.availability).toEqual({ status: 'unavailable', reason: 'Set up the Command Center first.' });
+		expect(save.availability).toEqual({
+			status: 'unavailable',
+			reason: 'Set up the Command Center first.',
+		});
 		// A disabled action can never be dispatched.
 		expect(resolveCommandAction(save, { name: 'whatever' })).toBeNull();
 

@@ -80,8 +80,10 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	};
 	const session = (sessionDoc?.doc as SessionState | undefined) ?? {
 		timers: {},
+		playerViewAssignments: {},
 		schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
 	};
+	session.playerViewAssignments ??= {};
 	const widgets = mergeSystemWidgetPackages(
 		(widgetPackageDoc?.doc as WidgetPackageState | undefined) ?? {
 			packages: {},

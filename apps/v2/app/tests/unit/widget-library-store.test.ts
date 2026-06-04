@@ -87,13 +87,7 @@ describe('Widget library + command palette persistence (CMD-005/CMD-008)', () =>
 			(a) => a.id === 'cc.preset.save',
 		)!;
 		const command = resolveCommandAction(saveAction, { name: 'Palette Board' })!;
-		const saved = accept(
-			dispatchCommand(state, env, {
-				type: command.type,
-				actorId: DM_ACTOR.id,
-				payload: command.payload,
-			}),
-		);
+		const saved = accept(dispatchCommand(state, env, { ...command, actorId: DM_ACTOR.id }));
 		await persistFullState(state, saved.nextState);
 		await __testing.closeDb();
 

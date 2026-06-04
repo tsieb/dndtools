@@ -49,6 +49,12 @@ export interface CommandAction {
 	input: CommandActionInput | null;
 }
 
+export type ResolvedCommandAction = CoreCommand extends infer T
+	? T extends CoreCommand
+		? Omit<T, 'actorId' | 'idempotencyKey'>
+		: never
+	: never;
+
 /** The state slices the catalog reads. `CoreStateSlice` satisfies this structurally. */
 export interface CommandActionStateView {
 	scenes: SceneState;
@@ -72,10 +78,7 @@ function unavailable(reason: string): CommandActionAvailability {
 	return { status: 'unavailable', reason };
 }
 
-function addWidgetAction(
-	entry: WidgetLibraryEntry,
-	homeSceneId: string | null,
-): CommandAction {
+function addWidgetAction(entry: WidgetLibraryEntry, homeSceneId: string | null): CommandAction {
 	const resolved = homeSceneId ? resolveAddWidgetCommand(entry, homeSceneId) : null;
 	let availability: CommandActionAvailability;
 	if (!homeSceneId) {
@@ -171,7 +174,7 @@ export function listCommandActions(
 export function resolveCommandAction(
 	action: CommandAction,
 	input: Record<string, string> = {},
-): { type: CoreCommand['type']; payload: Record<string, unknown> } | null {
+): ResolvedCommandAction | null {
 	if (action.availability.status !== 'available') return null;
 	let payload = { ...action.payload };
 	if (action.input) {
@@ -179,7 +182,7 @@ export function resolveCommandAction(
 		if (!value) return null;
 		payload = { ...payload, [action.input.field]: value };
 	}
-	return { type: action.commandType, payload };
+	return { type: action.commandType, payload } as ResolvedCommandAction;
 }
 
 /** Filter actions by a case-insensitive query over titles and keywords. */

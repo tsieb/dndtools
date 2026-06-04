@@ -13,7 +13,6 @@ import {
 	type CoreCommand,
 	type CoreEnvironment,
 	type CoreStateSlice,
-	type SceneId,
 } from '@dndtools/v2-core';
 import { loadCoreState, persistFullState } from '../platform/storage/scene-store';
 
@@ -50,7 +49,11 @@ export class SceneRuntime {
 			grants: [],
 			schemaVersion: EMPTY_PERMISSION_STATE.schemaVersion,
 		},
-		session: { timers: {}, schemaVersion: EMPTY_SESSION_STATE.schemaVersion },
+		session: {
+			timers: {},
+			playerViewAssignments: {},
+			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
+		},
 		widgets: createSystemWidgetPackages(),
 		commandCenter: {
 			homeSceneId: EMPTY_COMMAND_CENTER_STATE.homeSceneId,
@@ -92,15 +95,30 @@ export class SceneRuntime {
 	#ensureDefaultActor(slice: CoreStateSlice): CoreStateSlice {
 		const id = this.#options.defaultActorId;
 		const withDefaultWidgets = { ...slice, widgets: mergeSystemWidgetPackages(slice.widgets) };
-		if (withDefaultWidgets.permissions.actors[id]) return withDefaultWidgets;
+		const actors = withDefaultWidgets.permissions.actors;
+		const nextActors = {
+			...actors,
+			...(actors[id] ? {} : { [id]: { id, role: 'dm' as const, displayName: 'Default DM' } }),
+			...(actors['actor-player']
+				? {}
+				: {
+						'actor-player': {
+							id: 'actor-player',
+							role: 'player' as const,
+							displayName: 'Demo Player',
+						},
+					}),
+		};
+		const session = {
+			...withDefaultWidgets.session,
+			playerViewAssignments: withDefaultWidgets.session.playerViewAssignments ?? {},
+		};
 		return {
 			...withDefaultWidgets,
+			session,
 			permissions: {
 				...withDefaultWidgets.permissions,
-				actors: {
-					...withDefaultWidgets.permissions.actors,
-					[id]: { id, role: 'dm', displayName: 'Default DM' },
-				},
+				actors: nextActors,
 				schemaVersion: PERMISSION_STATE_SCHEMA_VERSION,
 			},
 		};

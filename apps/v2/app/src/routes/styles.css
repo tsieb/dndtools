@@ -221,6 +221,24 @@ select {
 	padding: 0.25rem 0.5rem;
 }
 
+.projection-form {
+	max-width: 640px;
+}
+
+.player-view-preview {
+	display: grid;
+	gap: 0.4rem;
+	padding: 0.6rem 0.9rem;
+	border: 1px solid var(--border);
+	background: var(--card);
+	border-radius: 0.5rem;
+}
+
+.player-view-preview ul {
+	margin: 0;
+	padding-left: 1.1rem;
+}
+
 .command-center {
 	display: grid;
 	gap: 1.5rem;

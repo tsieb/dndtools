@@ -61,13 +61,12 @@
 	});
 
 	async function run(action: CommandAction) {
-		const command = resolveCommandAction(action, action.input ? { [action.input.field]: inputs[action.id] ?? '' } : {});
+		const command = resolveCommandAction(
+			action,
+			action.input ? { [action.input.field]: inputs[action.id] ?? '' } : {},
+		);
 		if (!command) return;
-		const result = await runtime.dispatch({
-			type: command.type,
-			actorId: runtime.defaultActorId,
-			payload: command.payload,
-		});
+		const result = await runtime.dispatch({ ...command, actorId: runtime.defaultActorId });
 		if (result.status === 'accepted') {
 			status = `Ran: ${action.title}`;
 			if (action.input) inputs = { ...inputs, [action.id]: '' };
@@ -95,13 +94,7 @@
 	     also handled globally, so the keyboard dismissal path never depends on pointer. -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div
-		class="palette-backdrop"
-		data-testid="command-palette-backdrop"
-		onclick={hide}
-	>
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="palette-backdrop" data-testid="command-palette-backdrop" onclick={hide}>
 		<div
 			class="palette"
 			role="dialog"

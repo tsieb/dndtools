@@ -1,6 +1,12 @@
 import type { ActorId, SceneId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
 import type { Scene, SceneState, SectionLayoutRegion, WidgetInstance } from '../state/scene-state';
+import type {
+	PlayerViewDeliveryStatus,
+	PlayerViewProjectionTarget,
+	SessionPlayerViewAssignment,
+	SessionState,
+} from '../state/session-state';
 import { evaluateSceneVisibility } from '../permissions/visibility';
 import {
 	findPackageRecordForWidgetType,
@@ -63,6 +69,21 @@ export interface SceneSummary {
 	assignedSectionIds: SectionId[] | null;
 }
 
+export interface PlayerViewSummary extends SceneSummary {
+	kind: 'assigned';
+	playerActorId: ActorId;
+	assignmentId: string;
+	projectionKind: PlayerViewProjectionTarget['kind'];
+	deliveryStatus: PlayerViewDeliveryStatus;
+	deliveryReason: SessionPlayerViewAssignment['deliveryReason'];
+	projectedWidgetInstanceIds: string[] | null;
+}
+
+export type PlayerViewQueryResult =
+	| PlayerViewSummary
+	| { kind: 'unassigned'; playerActorId: ActorId }
+	| { kind: 'denied'; reason: string };
+
 type SectionId = string;
 
 export function listScenesForActor(
@@ -74,7 +95,7 @@ export function listScenesForActor(
 	if (!actor) return [];
 	const out: SceneListEntry[] = [];
 	for (const scene of Object.values(state.scenes)) {
-		const evaluation = evaluateSceneVisibility(scene, actor);
+		const evaluation = evaluateSceneVisibility(scene, actor, permission);
 		if (evaluation.kind !== 'visible') continue;
 		if (scene.templateMeta.isTemplate && actor.role !== 'dm') continue;
 		out.push({
@@ -110,12 +131,18 @@ export interface SceneQueryOptions {
 	 * is used.
 	 */
 	dataEnvironment?: WidgetDataEnvironment;
+	projectionScope?: {
+		sectionIds: SectionId[] | null;
+		widgetInstanceIds: string[] | null;
+		allowSceneVisibility: boolean;
+	};
 }
 
 interface NormalizedOptions {
 	bindingResolver: BindingResolver;
 	widgetPackages: WidgetPackageState;
 	dataEnvironment: WidgetDataEnvironment | null;
+	projectionScope: NonNullable<SceneQueryOptions['projectionScope']> | null;
 }
 
 function normalizeOptions(options: BindingResolver | SceneQueryOptions): NormalizedOptions {
@@ -124,12 +151,14 @@ function normalizeOptions(options: BindingResolver | SceneQueryOptions): Normali
 			bindingResolver: options,
 			widgetPackages: SYSTEM_WIDGET_PACKAGE_STATE,
 			dataEnvironment: null,
+			projectionScope: null,
 		};
 	}
 	return {
 		bindingResolver: options.bindingResolver ?? PERMISSIVE_RESOLVER,
 		widgetPackages: options.widgetPackages ?? SYSTEM_WIDGET_PACKAGE_STATE,
 		dataEnvironment: options.dataEnvironment ?? null,
+		projectionScope: options.projectionScope ?? null,
 	};
 }
 
@@ -140,13 +169,20 @@ export function getSceneForActor(
 	sceneId: SceneId,
 	options: BindingResolver | SceneQueryOptions = {},
 ): SceneSummary | { kind: 'denied'; reason: string } {
-	const { bindingResolver: resolver, widgetPackages, dataEnvironment } = normalizeOptions(options);
+	const {
+		bindingResolver: resolver,
+		widgetPackages,
+		dataEnvironment,
+		projectionScope,
+	} = normalizeOptions(options);
 	const actor = permission.actors[actorId];
 	if (!actor) return { kind: 'denied', reason: 'unknown-actor' };
 	const scene = state.scenes[sceneId];
 	if (!scene) return { kind: 'denied', reason: 'scene-not-found' };
 
-	const evaluation = evaluateSceneVisibility(scene, actor);
+	const evaluation = projectionScope?.allowSceneVisibility
+		? ({ kind: 'visible', assignedSectionIds: projectionScope.sectionIds } as const)
+		: evaluateSceneVisibility(scene, actor, permission);
 	if (evaluation.kind !== 'visible') {
 		return { kind: 'denied', reason: evaluation.reason };
 	}
@@ -162,10 +198,14 @@ export function getSceneForActor(
 				);
 
 	const widgets: WidgetBindingPayload[] = [];
-	const widgetSourcePool =
-		deliverableWidgetIds === null
-			? scene.widgets
-			: scene.widgets.filter((w) => deliverableWidgetIds.has(w.id));
+	const projectionWidgetIds = projectionScope?.widgetInstanceIds
+		? new Set(projectionScope.widgetInstanceIds)
+		: null;
+	const widgetSourcePool = scene.widgets.filter((widget) => {
+		if (deliverableWidgetIds !== null && !deliverableWidgetIds.has(widget.id)) return false;
+		if (projectionWidgetIds !== null && !projectionWidgetIds.has(widget.id)) return false;
+		return true;
+	});
 
 	for (const widget of widgetSourcePool) {
 		if (widget.disabled) {
@@ -279,5 +319,38 @@ export function getSceneForActor(
 		focusOrder: computeWidgetFocusOrder(widgetSourcePool),
 		templateMeta: scene.templateMeta,
 		assignedSectionIds: sectionScope,
+	};
+}
+
+export function getPlayerViewForActor(
+	scenes: SceneState,
+	permission: PermissionState,
+	session: SessionState,
+	actorId: ActorId,
+	options: Omit<SceneQueryOptions, 'projectionScope'> = {},
+): PlayerViewQueryResult {
+	const actor = permission.actors[actorId];
+	if (!actor) return { kind: 'denied', reason: 'unknown-actor' };
+	const assignment = session.playerViewAssignments[actorId];
+	if (!assignment) return { kind: 'unassigned', playerActorId: actorId };
+
+	const summary = getSceneForActor(scenes, permission, actorId, assignment.target.sceneId, {
+		...options,
+		projectionScope: {
+			sectionIds: assignment.target.sectionIds,
+			widgetInstanceIds: assignment.target.widgetInstanceIds,
+			allowSceneVisibility: true,
+		},
+	});
+	if ('kind' in summary) return summary;
+	return {
+		...summary,
+		kind: 'assigned',
+		playerActorId: actorId,
+		assignmentId: assignment.id,
+		projectionKind: assignment.target.kind,
+		deliveryStatus: assignment.deliveryStatus,
+		deliveryReason: assignment.deliveryReason,
+		projectedWidgetInstanceIds: assignment.target.widgetInstanceIds,
 	};
 }

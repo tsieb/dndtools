@@ -1,9 +1,12 @@
 <script lang="ts">
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import {
 		EMPTY_WIDGET_DATA_ENVIRONMENT,
+		getPlayerViewForActor,
 		getSceneForActor,
 		listWidgetLayoutCommands,
 		resolveLayoutCommandPayload,
+		type PlayerViewProjectionKind,
 		type SceneLayoutCommand,
 		type WidgetBindingPayload,
 		type WidgetInstance,
@@ -40,15 +43,26 @@
 	let bindEntityType = $state('');
 	let bindEntityId = $state('');
 	let bindSelector = $state('');
+	let playerPreviewId = $state('actor-player');
+	let projectionKind = $state<PlayerViewProjectionKind>('scene');
 
 	// Widgets selected for a grouping operation (keyboard/touch reachable, no drag).
-	let selectedForGroup = $state<Set<string>>(new Set());
+	const selectedForGroup = new SvelteSet<string>();
+	const playerView = $derived(
+		getPlayerViewForActor(
+			runtime.state.scenes,
+			runtime.state.permissions,
+			runtime.state.session,
+			playerPreviewId,
+			{ widgetPackages: runtime.state.widgets, dataEnvironment: EMPTY_WIDGET_DATA_ENVIRONMENT },
+		),
+	);
 
 	// Render widgets in declared focus-traversal order (CANVAS-016) so DOM tab order
 	// follows z-order/grouping/dock/pin/explicit metadata rather than insertion order.
 	const orderedWidgets = $derived.by(() => {
 		if ('kind' in summary) return [] as Array<{ tabIndex: number; payload: WidgetBindingPayload }>;
-		const byId = new Map<string, WidgetBindingPayload>();
+		const byId = new SvelteMap<string, WidgetBindingPayload>();
 		for (const payload of summary.widgets) {
 			const id =
 				payload.kind === 'available' || payload.kind === 'degraded'
@@ -91,10 +105,8 @@
 	}
 
 	function toggleGroupSelection(id: string, checked: boolean) {
-		const next = new Set(selectedForGroup);
-		if (checked) next.add(id);
-		else next.delete(id);
-		selectedForGroup = next;
+		if (checked) selectedForGroup.add(id);
+		else selectedForGroup.delete(id);
 	}
 
 	async function groupSelected() {
@@ -104,7 +116,39 @@
 			actorId: runtime.defaultActorId,
 			payload: { sceneId, widgetInstanceIds: [...selectedForGroup] },
 		});
-		selectedForGroup = new Set();
+		selectedForGroup.clear();
+	}
+
+	async function projectPlayerView(connectionState: 'connected' | 'offline') {
+		const selectedIds = [...selectedForGroup];
+		const widgetInstanceIds = projectionKind === 'scene' ? null : selectedIds;
+		if (projectionKind !== 'scene' && selectedIds.length === 0) return;
+		await runtime.dispatch({
+			type: 'session.project-player-view',
+			actorId: runtime.defaultActorId,
+			payload: {
+				playerActorIds: [playerPreviewId],
+				connectionState,
+				target: {
+					kind: projectionKind,
+					sceneId,
+					sectionIds: null,
+					widgetInstanceIds,
+					displayState:
+						projectionKind === 'display-state' ? { mode: 'spotlight', source: 'scene-ui' } : null,
+					mapRegion:
+						projectionKind === 'map-region' ? { mapId: 'demo-map', regionId: 'demo-region' } : null,
+				},
+			},
+		});
+	}
+
+	async function revokePlayerView() {
+		await runtime.dispatch({
+			type: 'session.revoke-player-view',
+			actorId: runtime.defaultActorId,
+			payload: { playerActorIds: [playerPreviewId] },
+		});
 	}
 
 	async function addWidget(event: SubmitEvent) {
@@ -252,11 +296,7 @@
 					{#if payload.kind === 'available' || payload.kind === 'degraded'}
 						{@const w = payload.widget}
 						{@const timer = runtime.state.session.timers[w.id]}
-						<article
-							class="widget-row"
-							data-testid={`widget-${w.id}`}
-							data-focus-index={tabIndex}
-						>
+						<article class="widget-row" data-testid={`widget-${w.id}`} data-focus-index={tabIndex}>
 							<div>
 								<label class="select-widget">
 									<input
@@ -383,6 +423,73 @@
 					<p class="meta">No widgets yet — add one above.</p>
 				{/if}
 			</div>
+		</section>
+
+		<section>
+			<h3>Player View</h3>
+			<div class="form projection-form" aria-label="Project Player View">
+				<label>
+					<span>Player</span>
+					<input bind:value={playerPreviewId} data-testid="projection-player" autocomplete="off" />
+				</label>
+				<label>
+					<span>Target</span>
+					<select bind:value={projectionKind} data-testid="projection-kind">
+						<option value="scene">Scene</option>
+						<option value="widget-subset">Widget subset</option>
+						<option value="handout">Handout</option>
+						<option value="map-region">Map region</option>
+						<option value="display-state">Display state</option>
+					</select>
+				</label>
+				<div class="row-actions">
+					<button
+						type="button"
+						data-testid="project-player-view"
+						onclick={() => projectPlayerView('connected')}
+						disabled={projectionKind !== 'scene' && selectedForGroup.size === 0}
+					>
+						Project
+					</button>
+					<button
+						type="button"
+						data-testid="queue-player-view"
+						onclick={() => projectPlayerView('offline')}
+						disabled={projectionKind !== 'scene' && selectedForGroup.size === 0}
+					>
+						Queue
+					</button>
+					<button type="button" data-testid="revoke-player-view" onclick={revokePlayerView}>
+						Revoke
+					</button>
+				</div>
+			</div>
+			{#if playerView.kind === 'unassigned'}
+				<p class="meta" data-testid="player-view-empty">No active Player View.</p>
+			{:else if playerView.kind === 'denied'}
+				<p class="error" role="alert" data-testid="player-view-denied">
+					Player View unavailable: {playerView.reason}
+				</p>
+			{:else}
+				<div class="player-view-preview" data-testid="player-view-preview">
+					<div class="meta">
+						{playerView.projectionKind} • {playerView.deliveryStatus}
+						{#if playerView.deliveryReason === 'offline'}• offline{/if}
+						• {playerView.widgets.length} widget{playerView.widgets.length === 1 ? '' : 's'}
+					</div>
+					<ul>
+						{#each playerView.widgets as payload (payload.kind === 'available' || payload.kind === 'degraded' ? payload.widget.id : payload.widgetInstanceId)}
+							<li data-testid={`player-view-${payload.kind}`}>
+								{#if payload.kind === 'available' || payload.kind === 'degraded'}
+									{payload.widget.type}
+								{:else}
+									{payload.type}: {payload.kind}
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
 		</section>
 	</section>
 {/if}

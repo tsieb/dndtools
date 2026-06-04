@@ -19,6 +19,28 @@ import {
 	validateObjectAgainstSchema,
 } from './helpers';
 
+function projectedAssignmentIncludesWidget(
+	state: CoreStateSlice,
+	actorId: string,
+	sceneId: string,
+	widgetInstanceId: string,
+): boolean {
+	const assignment = state.session.playerViewAssignments[actorId];
+	if (!assignment || assignment.target.sceneId !== sceneId) return false;
+	if (
+		assignment.target.widgetInstanceIds &&
+		!assignment.target.widgetInstanceIds.includes(widgetInstanceId)
+	) {
+		return false;
+	}
+	if (!assignment.target.sectionIds) return true;
+	const scene = state.scenes.scenes[sceneId];
+	if (!scene) return false;
+	return scene.sections
+		.filter((section) => assignment.target.sectionIds?.includes(section.id))
+		.some((section) => section.widgetInstanceIds.includes(widgetInstanceId));
+}
+
 function actorCanUseWidgetCommand(
 	state: CoreStateSlice,
 	actor: NonNullable<ReturnType<typeof requireActor>>,
@@ -64,16 +86,6 @@ export function handleDispatchWidgetCommand(
 	}
 	const scene = requireScene(state, parsed.data.sceneId);
 	if ('code' in scene) return reject(scene, state);
-	const visibility = evaluateSceneVisibility(scene, actor);
-	if (visibility.kind !== 'visible') {
-		return reject(
-			{
-				code: 'hidden-target',
-				message: `Scene ${scene.id} is not visible to actor ${actor.id}.`,
-			},
-			state,
-		);
-	}
 	if (parsed.data.expectedRevision !== scene.ownership.revision) {
 		return reject(
 			{
@@ -89,6 +101,19 @@ export function handleDispatchWidgetCommand(
 			{
 				code: 'widget-not-found',
 				message: `Widget ${parsed.data.widgetInstanceId} not found on Scene ${scene.id}.`,
+			},
+			state,
+		);
+	}
+	const visibility = evaluateSceneVisibility(scene, actor, state.permissions);
+	if (
+		visibility.kind !== 'visible' &&
+		!projectedAssignmentIncludesWidget(state, actor.id, scene.id, widget.id)
+	) {
+		return reject(
+			{
+				code: 'hidden-target',
+				message: `Scene ${scene.id} is not visible to actor ${actor.id}.`,
 			},
 			state,
 		);

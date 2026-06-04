@@ -63,6 +63,7 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 		permissions: buildPermissionState(...actors),
 		session: {
 			timers: { ...EMPTY_SESSION_STATE.timers },
+			playerViewAssignments: { ...EMPTY_SESSION_STATE.playerViewAssignments },
 			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
 		},
 		widgets: createSystemWidgetPackages(),

@@ -1,5 +1,6 @@
 import {
 	addWidgetInputSchema,
+	configureWidgetInputSchema,
 	destroyWidgetInputSchema,
 	dockWidgetInputSchema,
 	groupWidgetsInputSchema,
@@ -10,11 +11,15 @@ import {
 	resizeWidgetInputSchema,
 	setWidgetFocusOrderInputSchema,
 } from '../schemas/commands';
+import { actorCanCoEditScene, hasGrantedCapability } from '../permissions/grants';
+import { evaluateSceneVisibility } from '../permissions/visibility';
+import type { Actor } from '../state/permission-state';
 import type {
 	WidgetInstance,
 	WidgetLayout,
 	Scene,
 	SectionLayoutRegion,
+	WidgetBinding,
 } from '../state/scene-state';
 import {
 	findPackageRecordForWidgetType,
@@ -29,7 +34,6 @@ import {
 	reject,
 	replaceWidget,
 	requireActor,
-	requireDm,
 	requireScene,
 	validateObjectAgainstSchema,
 	withScene,
@@ -57,6 +61,66 @@ function nextZ(scene: Scene): number {
 	return Math.max(...scene.widgets.map((w) => w.layout.z)) + 1;
 }
 
+function requireSceneCoEditor(
+	state: CoreStateSlice,
+	actor: Actor,
+	scene: Scene,
+): ReturnType<typeof reject>['rejection'] | null {
+	if (actor.role === 'dm') return null;
+	if (!actorCanCoEditScene(state.permissions, actor.id, scene.id)) {
+		return {
+			code: 'actor-not-authorized',
+			message: `Actor ${actor.id} lacks co-editor for Scene ${scene.id}.`,
+		};
+	}
+	const visibility = evaluateSceneVisibility(scene, actor, state.permissions);
+	if (visibility.kind !== 'visible') {
+		return {
+			code: 'hidden-target',
+			message: `Scene ${scene.id} is not visible to actor ${actor.id}.`,
+		};
+	}
+	return null;
+}
+
+function requireWidgetManager(
+	state: CoreStateSlice,
+	actor: Actor,
+	widget: WidgetInstance,
+): ReturnType<typeof reject>['rejection'] | null {
+	if (actor.role === 'dm') return null;
+	if (hasGrantedCapability(state.permissions, actor, 'widget', widget.id, 'manager')) {
+		return null;
+	}
+	return {
+		code: 'actor-not-authorized',
+		message: `Actor ${actor.id} lacks manager for widget ${widget.id}.`,
+	};
+}
+
+function requireBindingCapability(
+	state: CoreStateSlice,
+	actor: Actor,
+	binding: WidgetBinding | null,
+): ReturnType<typeof reject>['rejection'] | null {
+	if (!binding || actor.role === 'dm') return null;
+	if (
+		hasGrantedCapability(
+			state.permissions,
+			actor,
+			binding.source.entityType,
+			binding.source.entityId,
+			binding.requiredCapability,
+		)
+	) {
+		return null;
+	}
+	return {
+		code: 'actor-not-authorized',
+		message: `Actor ${actor.id} lacks ${binding.requiredCapability} for ${binding.source.entityType} ${binding.source.entityId}.`,
+	};
+}
+
 export function handleAddWidget(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
@@ -65,14 +129,14 @@ export function handleAddWidget(
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
-	const dmCheck = requireDm(actor);
-	if (dmCheck) return reject(dmCheck, state);
 
 	const parsed = parseInput(addWidgetInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
 
 	const scene = requireScene(state, parsed.data.sceneId);
 	if ('code' in scene) return reject(scene, state);
+	const sceneEditCheck = requireSceneCoEditor(state, actor, scene);
+	if (sceneEditCheck) return reject(sceneEditCheck, state);
 
 	const packageRecord = findPackageRecordForWidgetType(state.widgets, parsed.data.widget.type);
 	if (!packageRecord || packageRecord.removedAt) {
@@ -129,6 +193,8 @@ export function handleAddWidget(
 			state,
 		);
 	}
+	const bindingCheck = requireBindingCapability(state, actor, parsed.data.widget.binding);
+	if (bindingCheck) return reject(bindingCheck, state);
 
 	const widget: WidgetInstance = {
 		id: env.ids(),
@@ -204,11 +270,11 @@ function mutateWidgetLayout(
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
-	const dmCheck = requireDm(actor);
-	if (dmCheck) return reject(dmCheck, state);
 
 	const scene = requireScene(state, sceneId);
 	if ('code' in scene) return reject(scene, state);
+	const sceneEditCheck = requireSceneCoEditor(state, actor, scene);
+	if (sceneEditCheck) return reject(sceneEditCheck, state);
 	const widget = findWidget(scene, widgetInstanceId);
 	if (!widget) {
 		return reject(
@@ -385,14 +451,14 @@ export function handleGroupWidgets(
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
-	const dmCheck = requireDm(actor);
-	if (dmCheck) return reject(dmCheck, state);
 
 	const parsed = parseInput(groupWidgetsInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
 
 	const scene = requireScene(state, parsed.data.sceneId);
 	if ('code' in scene) return reject(scene, state);
+	const sceneEditCheck = requireSceneCoEditor(state, actor, scene);
+	if (sceneEditCheck) return reject(sceneEditCheck, state);
 
 	for (const id of parsed.data.widgetInstanceIds) {
 		if (!findWidget(scene, id)) {
@@ -443,14 +509,14 @@ export function handleMoveGroup(
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
-	const dmCheck = requireDm(actor);
-	if (dmCheck) return reject(dmCheck, state);
 
 	const parsed = parseInput(moveGroupInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
 
 	const scene = requireScene(state, parsed.data.sceneId);
 	if ('code' in scene) return reject(scene, state);
+	const sceneEditCheck = requireSceneCoEditor(state, actor, scene);
+	if (sceneEditCheck) return reject(sceneEditCheck, state);
 
 	const matched = scene.widgets.filter((w) => w.layout.groupId === parsed.data.groupId);
 	if (matched.length === 0) {
@@ -507,14 +573,14 @@ export function handleDestroyWidget(
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
-	const dmCheck = requireDm(actor);
-	if (dmCheck) return reject(dmCheck, state);
 
 	const parsed = parseInput(destroyWidgetInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
 
 	const scene = requireScene(state, parsed.data.sceneId);
 	if ('code' in scene) return reject(scene, state);
+	const sceneEditCheck = requireSceneCoEditor(state, actor, scene);
+	if (sceneEditCheck) return reject(sceneEditCheck, state);
 
 	const widget = findWidget(scene, parsed.data.widgetInstanceId);
 	if (!widget) {
@@ -556,6 +622,105 @@ export function handleDestroyWidget(
 		events: [
 			{
 				kind: 'scene.widget-destroyed',
+				sceneId: scene.id,
+				widgetInstanceId: widget.id,
+				actorId: actor.id,
+			},
+		],
+		operationIds: [op.id],
+	};
+}
+
+export function handleConfigureWidget(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+
+	const parsed = parseInput(configureWidgetInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const scene = requireScene(state, parsed.data.sceneId);
+	if ('code' in scene) return reject(scene, state);
+	const sceneEditCheck = requireSceneCoEditor(state, actor, scene);
+	if (sceneEditCheck) return reject(sceneEditCheck, state);
+
+	const widget = findWidget(scene, parsed.data.widgetInstanceId);
+	if (!widget) {
+		return reject(
+			{
+				code: 'widget-not-found',
+				message: `Widget ${parsed.data.widgetInstanceId} not found on Scene ${scene.id}.`,
+			},
+			state,
+		);
+	}
+	const managerCheck = requireWidgetManager(state, actor, widget);
+	if (managerCheck) return reject(managerCheck, state);
+
+	const definition = findWidgetDefinition(state.widgets, widget.type);
+	if (!definition) {
+		return reject(
+			{
+				code: 'package-not-found',
+				message: `Widget definition ${widget.type} is not available.`,
+			},
+			state,
+		);
+	}
+
+	const nextConfiguration = parsed.data.configuration ?? widget.configuration;
+	const configIssues = validateObjectAgainstSchema(
+		definition.configurationSchema,
+		nextConfiguration,
+	);
+	if (configIssues.length > 0) {
+		return reject(
+			{
+				code: 'invalid-payload',
+				message: 'Widget configuration failed schema validation.',
+				issues: configIssues.map((issue) => ({
+					path: `configuration.${issue.path}`,
+					message: issue.message,
+				})),
+			},
+			state,
+		);
+	}
+
+	const nextBinding = parsed.data.binding === undefined ? widget.binding : parsed.data.binding;
+	const bindingCheck = requireBindingCapability(state, actor, nextBinding);
+	if (bindingCheck) return reject(bindingCheck, state);
+
+	const nextWidget: WidgetInstance = {
+		...widget,
+		configuration: nextConfiguration,
+		binding: nextBinding,
+	};
+	const nextScene = bumpRevision(replaceWidget(scene, nextWidget), env);
+	const nextSceneState = withScene(state.scenes, scene.id, () => nextScene);
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'scene',
+		entityId: scene.id,
+		opType: 'scene.configure-widget',
+		path: `widgets/${widget.id}`,
+		value: {
+			configuration: nextConfiguration,
+			binding: nextBinding,
+		},
+		beforeRevision: scene.ownership.revision,
+		afterRevision: nextScene.ownership.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, scenes: nextSceneState, sync: nextLog },
+		events: [
+			{
+				kind: 'scene.widget-configured',
 				sceneId: scene.id,
 				widgetInstanceId: widget.id,
 				actorId: actor.id,
