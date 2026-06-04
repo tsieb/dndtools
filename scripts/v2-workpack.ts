@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -87,6 +88,13 @@ export interface EpicStateOverride {
 	notes?: string;
 }
 
+export interface WorkpackPrecedence {
+	/** Domains in natural build order. Earlier domains are picked first. */
+	domains: string[];
+	/** Optional explicit epic ordering that jumps the queue ahead of domain order. */
+	epics: string[];
+}
+
 export interface WorkpackState {
 	schemaVersion: 1;
 	sourceOfTruth: {
@@ -98,6 +106,7 @@ export interface WorkpackState {
 		approved: boolean;
 	};
 	stackDecision: StackDecisionState;
+	precedence?: WorkpackPrecedence;
 	epics: EpicStateOverride[];
 }
 
@@ -193,6 +202,12 @@ const workpackStateSchema: z.ZodType<WorkpackState> = z.object({
 		status: z.enum(['proposed', 'accepted']),
 		blocksImplementation: z.boolean(),
 	}),
+	precedence: z
+		.object({
+			domains: z.array(z.string().min(1)),
+			epics: z.array(z.string().min(1)),
+		})
+		.optional(),
 	epics: z.array(
 		z.object({
 			id: z.string().min(1),
@@ -631,7 +646,19 @@ function completionPercent(done: number, total: number): number {
 	return Number(((done / total) * 100).toFixed(1));
 }
 
-export function findNextEpic(epics: EpicPacket[]): EpicPacket | null {
+// Compare two keys by their position in an ordering map. Unlisted keys sort last,
+// and two unlisted keys tie (avoids the Infinity - Infinity = NaN comparator trap).
+function compareByOrder(order: Map<string, number>, left: string, right: string): number {
+	const leftIndex = order.get(left) ?? Number.POSITIVE_INFINITY;
+	const rightIndex = order.get(right) ?? Number.POSITIVE_INFINITY;
+	if (leftIndex === rightIndex) return 0;
+	return leftIndex < rightIndex ? -1 : 1;
+}
+
+export function findNextEpic(
+	epics: EpicPacket[],
+	precedence?: WorkpackPrecedence,
+): EpicPacket | null {
 	const completeIds = new Set(
 		epics.filter((epic) => epic.status === 'complete').map((epic) => epic.id),
 	);
@@ -639,12 +666,20 @@ export function findNextEpic(epics: EpicPacket[]): EpicPacket | null {
 		active: 0,
 		approved: 1,
 	};
+	// Soft ordering layers on top of the hard `dependencies` gate: an explicit
+	// epic list wins, then domain build order, then a stable alphabetical fallback.
+	const epicOrder = new Map((precedence?.epics ?? []).map((id, index) => [id, index]));
+	const domainOrder = new Map((precedence?.domains ?? []).map((domain, index) => [domain, index]));
 	const candidates = epics
 		.filter((epic) => epic.approved && (epic.status === 'active' || epic.status === 'approved'))
 		.filter((epic) => epic.dependencies.every((dependency) => completeIds.has(dependency)))
 		.sort((left, right) => {
 			const statusRank = (candidateRank[left.status] ?? 99) - (candidateRank[right.status] ?? 99);
 			if (statusRank !== 0) return statusRank;
+			const epicRank = compareByOrder(epicOrder, left.id, right.id);
+			if (epicRank !== 0) return epicRank;
+			const domainRank = compareByOrder(domainOrder, left.domain, right.domain);
+			if (domainRank !== 0) return domainRank;
 			return left.id.localeCompare(right.id);
 		});
 	return candidates[0] ?? null;
@@ -759,7 +794,7 @@ function statusDocument(
 	epics: EpicPacket[],
 	state: WorkpackState,
 ): string {
-	const nextEpic = findNextEpic(epics);
+	const nextEpic = findNextEpic(epics, state.precedence);
 	return YAML.stringify({
 		schemaVersion: 1,
 		sourceOfTruth: {
@@ -810,7 +845,7 @@ async function deleteStaleGeneratedEpicFiles(
 	outputEpicsDir: string,
 	expectedEpicIds: Set<string>,
 ): Promise<void> {
-	let entries: string[] = [];
+	let entries: string[];
 	try {
 		entries = await fs.readdir(outputEpicsDir);
 	} catch {
@@ -1181,6 +1216,26 @@ export async function validateWorkpack(root = repoRoot): Promise<WorkpackValidat
 		}
 	}
 
+	if (state?.precedence) {
+		const knownDomains = new Set(baseEpics.map((epic) => epic.domain));
+		for (const domain of state.precedence.domains) {
+			if (!knownDomains.has(domain)) {
+				issues.push({
+					file: `docs/planning/v2/${workpackStateFileName}`,
+					message: `Precedence references unknown domain: ${domain}`,
+				});
+			}
+		}
+		for (const epicId of state.precedence.epics) {
+			if (!expectedEpicIds.has(epicId)) {
+				issues.push({
+					file: `docs/planning/v2/${workpackStateFileName}`,
+					message: `Precedence references unknown epic id: ${epicId}`,
+				});
+			}
+		}
+	}
+
 	issues.push(...detectDependencyCycles(effectiveEpics));
 	if (state) {
 		issues.push(...(await validateGeneratedFiles(root, pack, effectiveEpics, effectiveState)));
@@ -1364,8 +1419,8 @@ async function runStatus(): Promise<void> {
 }
 
 async function runNext(): Promise<void> {
-	const { pack, epics } = await loadEffectiveWorkpack();
-	const nextEpic = findNextEpic(epics);
+	const { pack, epics, state } = await loadEffectiveWorkpack();
+	const nextEpic = findNextEpic(epics, state.precedence);
 	console.log(
 		YAML.stringify({
 			nextEpic: nextEpicStatusBlock(nextEpic),
@@ -1380,6 +1435,36 @@ function getFlagValue(args: string[], flag: string): string | undefined {
 	return args[index + 1];
 }
 
+// Best-effort clipboard tools by platform. The first one that exists and exits
+// cleanly wins; missing tools are skipped so prompt generation never fails just
+// because no clipboard utility is installed.
+function clipboardCandidates(): Array<{ cmd: string; args: string[] }> {
+	if (process.platform === 'darwin') return [{ cmd: 'pbcopy', args: [] }];
+	if (process.platform === 'win32') return [{ cmd: 'clip', args: [] }];
+	const wayland = { cmd: 'wl-copy', args: [] };
+	const x11 = [
+		{ cmd: 'xclip', args: ['-selection', 'clipboard'] },
+		{ cmd: 'xsel', args: ['--clipboard', '--input'] },
+	];
+	return process.env.WAYLAND_DISPLAY ? [wayland, ...x11] : [...x11, wayland];
+}
+
+async function copyToClipboard(text: string): Promise<string | null> {
+	for (const candidate of clipboardCandidates()) {
+		const copied = await new Promise<boolean>((resolve) => {
+			const child = spawn(candidate.cmd, candidate.args, {
+				stdio: ['pipe', 'ignore', 'ignore'],
+			});
+			child.on('error', () => resolve(false));
+			child.on('close', (code) => resolve(code === 0));
+			child.stdin.on('error', () => resolve(false));
+			child.stdin.end(text);
+		});
+		if (copied) return candidate.cmd;
+	}
+	return null;
+}
+
 async function runPrompt(args: string[]): Promise<void> {
 	const epicId = getFlagValue(args, '--epic');
 	const useNext = args.includes('--next');
@@ -1387,14 +1472,31 @@ async function runPrompt(args: string[]): Promise<void> {
 		throw new Error('Usage: pnpm v2:prompt -- --epic <epic-id> or pnpm v2:prompt -- --next');
 	}
 	await assertWorkpackValid();
-	const epic = useNext
-		? findNextEpic((await loadEffectiveWorkpack()).epics)
-		: await loadEpicById(epicId as string);
+	let epic: EpicPacket | null;
+	if (useNext) {
+		const { epics, state } = await loadEffectiveWorkpack();
+		epic = findNextEpic(epics, state.precedence);
+	} else {
+		epic = await loadEpicById(epicId as string);
+	}
 	if (!epic) {
 		throw new Error('No approved or active epic is ready for prompt generation.');
 	}
 	const template = await fs.readFile(path.join(templatesDir, 'epic-coder.prompt.md'), 'utf-8');
-	console.log(renderPrompt(epic, template));
+	const rendered = renderPrompt(epic, template);
+	console.log(rendered);
+	// Copy the prompt to the clipboard by default so the next epic is one paste
+	// away. Diagnostics go to stderr to keep stdout pipe-clean. Opt out with --no-copy.
+	if (!args.includes('--no-copy')) {
+		const tool = await copyToClipboard(rendered);
+		if (tool) {
+			console.error(`📋 Copied ${epic.id} prompt to clipboard via ${tool}.`);
+		} else {
+			console.error(
+				'Clipboard copy skipped: no wl-copy/xclip/xsel/pbcopy found. Pass --no-copy to silence.',
+			);
+		}
+	}
 }
 
 function parseEpicStatus(value: string | undefined): EpicStatus {

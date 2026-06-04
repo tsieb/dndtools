@@ -82,13 +82,23 @@ describe('CANVAS-012: every Must-have layout op has a pointer-free command path'
 		expect(commands.every((c) => c.pointerFree)).toBe(true);
 
 		const groups = new Set(commands.map((c) => c.group));
-		for (const required of ['move', 'size', 'layer', 'dock', 'pin', 'group', 'focus', 'lifecycle']) {
+		for (const required of [
+			'move',
+			'size',
+			'layer',
+			'dock',
+			'pin',
+			'group',
+			'focus',
+			'lifecycle',
+		]) {
 			expect(groups).toContain(required);
 		}
 	});
 
 	it('resolves each self command to a payload that the core accepts (no pointer needed)', () => {
-		let { state, env, sceneId, widgetId } = setup();
+		const { env, sceneId, widgetId, state: initialState } = setup();
+		let state = initialState;
 		const selfCommandIds = [
 			'move-left',
 			'move-right',
@@ -139,7 +149,13 @@ describe('CANVAS-012: every Must-have layout op has a pointer-free command path'
 		const scene = getScene(state, sceneId);
 		const tiny: WidgetInstance = {
 			...getWidget(scene, scene.widgets[0]!.id),
-			layout: { ...scene.widgets[0]!.layout, x: 5, y: 5, w: MIN_WIDGET_EXTENT, h: MIN_WIDGET_EXTENT },
+			layout: {
+				...scene.widgets[0]!.layout,
+				x: 5,
+				y: 5,
+				w: MIN_WIDGET_EXTENT,
+				h: MIN_WIDGET_EXTENT,
+			},
 		};
 		const commands = listWidgetLayoutCommands(scene, tiny, state.permissions, DM_ACTOR.id);
 		const shrinkW = commands.find((c) => c.id === 'shrink-width')!;
@@ -167,9 +183,18 @@ describe('CANVAS-012: every Must-have layout op has a pointer-free command path'
 		// Pin, dock, and set a focus order, then the inverse toggles appear.
 		let next = state;
 		for (const command of [
-			{ type: 'scene.pin-widget' as const, payload: { sceneId, widgetInstanceId: widgetId, pinned: true } },
-			{ type: 'scene.dock-widget' as const, payload: { sceneId, widgetInstanceId: widgetId, dock: 'top' } },
-			{ type: 'scene.set-focus-order' as const, payload: { sceneId, widgetInstanceId: widgetId, focusOrder: 3 } },
+			{
+				type: 'scene.pin-widget' as const,
+				payload: { sceneId, widgetInstanceId: widgetId, pinned: true },
+			},
+			{
+				type: 'scene.dock-widget' as const,
+				payload: { sceneId, widgetInstanceId: widgetId, dock: 'top' },
+			},
+			{
+				type: 'scene.set-focus-order' as const,
+				payload: { sceneId, widgetInstanceId: widgetId, focusOrder: 3 },
+			},
 		]) {
 			const out = dispatchCommand(next, env, { actorId: DM_ACTOR.id, ...command });
 			expect(out.status).toBe('accepted');

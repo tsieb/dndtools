@@ -4,15 +4,15 @@ This is the verified stack in the repository today.
 
 ## Runtime
 
-- Electron 37 (`electron/` desktop shell)
+- Electron 42 (`electron/` desktop shell)
 - Capacitor 8 (`android/` native shell, shared renderer bundle)
 - SvelteKit 2 + Svelte 5 (`src/` renderer)
 - Node.js for MCP sidecar (`mcp/`)
 
 ## Build and Tooling
 
-- TypeScript 5 (strict)
-- Vite 7
+- TypeScript 6 (strict)
+- Vite 8
 - tsup (MCP and Electron bundling)
 - Gradle 8 + Android SDK (Android APK builds)
 - ESLint 10 flat config
@@ -23,7 +23,7 @@ This is the verified stack in the repository today.
 
 - Tailwind CSS 4 (via `@tailwindcss/vite`)
 - custom theme tokens in `src/app.css`
-- `lucide-svelte` for icon assets (plus inline SVG usage)
+- `@lucide/svelte` for icon assets (plus inline SVG usage)
 
 ## Data and Persistence
 

@@ -195,7 +195,7 @@
 					</div>
 					{#if requestedPermissions(record).length > 0}
 						<ul class="permission-list" data-testid={`permissions-${record.package.id}`}>
-							{#each requestedPermissions(record) as permission}
+							{#each requestedPermissions(record) as permission (permission)}
 								<li>
 									{permission}: {record.trust.hostPermissions[permission]}
 								</li>

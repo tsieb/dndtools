@@ -24,7 +24,6 @@ import {
 	reject,
 	requireActor,
 	requireDm,
-	requireScene,
 	withScene,
 } from './helpers';
 import type { CommandResult, CoreEnvironment, CoreStateSlice } from './types';
