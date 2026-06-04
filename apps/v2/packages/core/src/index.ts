@@ -262,6 +262,27 @@ export {
 } from './queries/command-actions';
 
 export type {
+	NavigationAudience,
+	NavigationCategory,
+	NavigationSection,
+	NavigationSectionDef,
+} from './queries/navigation';
+export { NAVIGATION_SECTIONS, listNavigationSections } from './queries/navigation';
+
+export type {
+	CommandCategory,
+	PaletteCommand,
+	PaletteCoreCommand,
+	PaletteNavigationCommand,
+	ResolvedPaletteCommand,
+} from './queries/command-availability';
+export {
+	listPaletteCommands,
+	resolvePaletteCommand,
+	searchPaletteCommands,
+} from './queries/command-availability';
+
+export type {
 	ActiveMapLayerView,
 	ActiveMapQueryResult,
 	ActiveMapView,

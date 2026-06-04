@@ -103,9 +103,12 @@
 	);
 
 	// The Command Center is the application home Scene. Create the default from the
-	// system template the first time the home surface loads (CMD-001).
+	// system template the first time the home surface loads (CMD-001). Only the DM may
+	// author it, so when viewing as a player/observer ("view as") this stays inert
+	// rather than dispatching a command the core would reject.
 	$effect(() => {
 		if (!runtime.loaded || ensuring) return;
+		if (runtime.state.permissions.actors[runtime.defaultActorId]?.role !== 'dm') return;
 		const missingHome = !homeSceneId;
 		const danglingHome =
 			!!homeSceneId && !!summary && 'kind' in summary && summary.reason === 'scene-not-found';

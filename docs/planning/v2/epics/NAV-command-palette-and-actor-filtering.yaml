@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: NAV-command-palette-and-actor-filtering
 title: "NAV: Command palette and actor filtering"
-status: approved
+status: complete
 approved: true
 domain: NAV
 capabilityBranch: Command palette and actor filtering
@@ -163,3 +163,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/NAV-command-palette-and-actor-filtering.completion.md

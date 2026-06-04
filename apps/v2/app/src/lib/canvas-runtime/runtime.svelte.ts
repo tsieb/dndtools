@@ -87,9 +87,15 @@ export class SceneRuntime {
 	#options: RuntimeOptions;
 	#loaded = $state(false);
 	#lastError = $state<string | null>(null);
+	// The actor whose actor-filtered view the GUI is currently rendering. Choosing
+	// whose view to render is a GUI concern (Contract 1); the Processing Core still
+	// enforces every visibility and permission check. Defaults to the session DM and
+	// can be switched ("view as") to demonstrate actor filtering (NAV-008/NAV-010).
+	#activeActorId = $state<ActorId>('');
 
 	constructor(options: RuntimeOptions) {
 		this.#options = options;
+		this.#activeActorId = options.defaultActorId;
 	}
 
 	get state(): CoreStateSlice {
@@ -104,8 +110,27 @@ export class SceneRuntime {
 		return this.#lastError;
 	}
 
+	/** The actor whose filtered view is currently rendered. Existing call sites read
+	 *  this; it now tracks the active "view as" actor rather than a fixed default. */
 	get defaultActorId(): ActorId {
-		return this.#options.defaultActorId;
+		return this.#activeActorId;
+	}
+
+	get activeActorId(): ActorId {
+		return this.#activeActorId;
+	}
+
+	/** Actors available to view the app as, sorted DM-first then by name. */
+	get actors(): Actor[] {
+		return Object.values(this.#state.permissions.actors).sort((a, b) => {
+			if (a.role !== b.role) return a.role === 'dm' ? -1 : b.role === 'dm' ? 1 : 0;
+			return a.displayName.localeCompare(b.displayName);
+		});
+	}
+
+	/** Switch the actor whose filtered view the GUI renders. Ignores unknown actors. */
+	setActiveActor(actorId: ActorId): void {
+		if (this.#state.permissions.actors[actorId]) this.#activeActorId = actorId;
 	}
 
 	async load(): Promise<void> {
