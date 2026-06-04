@@ -8,12 +8,24 @@ import {
 import {
 	createDemoMapState,
 	dispatchCommand,
+	type Actor,
 	type CommandResult,
 	type CoreEnvironment,
 } from '@dndtools/v2-core';
-import { DM_ACTOR, buildInitialState, makeEnvironment } from '@dndtools/v2-core/testing';
+import {
+	DM_ACTOR,
+	PLAYER_ACTOR,
+	buildInitialState,
+	makeEnvironment,
+} from '@dndtools/v2-core/testing';
 
 let env: CoreEnvironment;
+
+const PLAYER_TWO: Actor = {
+	id: 'actor-player-2',
+	role: 'player',
+	displayName: 'Second Player',
+};
 
 function accept(result: CommandResult): Extract<CommandResult, { status: 'accepted' }> {
 	if (result.status !== 'accepted') throw new Error(`rejected: ${result.rejection.message}`);
@@ -224,6 +236,96 @@ describe('Command Center storage round-trip', () => {
 			reloaded.scenes.scenes[homeSceneId]?.widgets.find((widget) => widget.type === 'map')?.binding,
 		).toMatchObject({
 			source: { entityId: 'map-ruined-keep' },
+		});
+	});
+
+	it('persists Player View assignments for connected and disconnected participants (CMD-004)', async () => {
+		await resetCoreStorage();
+		let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR, PLAYER_TWO);
+		await persistFullState(state, state);
+
+		const firstScene = accept(
+			dispatchCommand(state, env, {
+				type: 'scene.create',
+				actorId: DM_ACTOR.id,
+				payload: { name: 'Player One View' },
+			}),
+		);
+		await persistFullState(state, firstScene.nextState);
+		state = firstScene.nextState;
+		const firstCreated = firstScene.events.find((event) => event.kind === 'scene.created');
+		if (!firstCreated || firstCreated.kind !== 'scene.created') {
+			throw new Error('missing first Scene id');
+		}
+		const firstSceneId = firstCreated.sceneId;
+
+		const secondScene = accept(
+			dispatchCommand(state, env, {
+				type: 'scene.create',
+				actorId: DM_ACTOR.id,
+				payload: { name: 'Offline View' },
+			}),
+		);
+		await persistFullState(state, secondScene.nextState);
+		state = secondScene.nextState;
+		const secondCreated = secondScene.events.find((event) => event.kind === 'scene.created');
+		if (!secondCreated || secondCreated.kind !== 'scene.created') {
+			throw new Error('missing second Scene id');
+		}
+		const secondSceneId = secondCreated.sceneId;
+
+		const delivered = accept(
+			dispatchCommand(state, env, {
+				type: 'session.project-player-view',
+				actorId: DM_ACTOR.id,
+				payload: {
+					playerActorIds: [PLAYER_ACTOR.id],
+					connectionState: 'connected',
+					target: {
+						kind: 'scene',
+						sceneId: firstSceneId,
+						sectionIds: null,
+						widgetInstanceIds: null,
+						displayState: null,
+						mapRegion: null,
+					},
+				},
+			}),
+		);
+		await persistFullState(state, delivered.nextState);
+		state = delivered.nextState;
+
+		const queued = accept(
+			dispatchCommand(state, env, {
+				type: 'session.project-player-view',
+				actorId: DM_ACTOR.id,
+				payload: {
+					playerActorIds: [PLAYER_TWO.id],
+					connectionState: 'offline',
+					target: {
+						kind: 'scene',
+						sceneId: secondSceneId,
+						sectionIds: null,
+						widgetInstanceIds: null,
+						displayState: null,
+						mapRegion: null,
+					},
+				},
+			}),
+		);
+		await persistFullState(state, queued.nextState);
+		await __testing.closeDb();
+
+		const reloaded = await loadCoreState();
+		expect(reloaded.session.playerViewAssignments[PLAYER_ACTOR.id]).toMatchObject({
+			deliveryStatus: 'delivered',
+			deliveryReason: 'connected',
+			target: { sceneId: firstSceneId },
+		});
+		expect(reloaded.session.playerViewAssignments[PLAYER_TWO.id]).toMatchObject({
+			deliveryStatus: 'queued',
+			deliveryReason: 'offline',
+			target: { sceneId: secondSceneId },
 		});
 	});
 });

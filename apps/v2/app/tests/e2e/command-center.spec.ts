@@ -1,4 +1,21 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function createNamedScene(page: Page, name: string) {
+	await page.getByTestId('scene-name').fill(name);
+	await expect(page.getByTestId('scene-create')).toBeEnabled();
+	await page.getByTestId('scene-create').click();
+	await expect(page.getByTestId('scene-list').getByRole('link', { name })).toBeVisible();
+}
+
+async function selectPlayerViewScene(page: Page, actorId: string, sceneName: string) {
+	const select = page.getByTestId(`cc-player-view-scene-${actorId}`);
+	const value = await select
+		.locator('option', { hasText: sceneName })
+		.first()
+		.getAttribute('value');
+	expect(value).not.toBeNull();
+	await select.selectOption(value!);
+}
 
 test.describe('CMD-001/002/007 Command Center home Scene', () => {
 	test.beforeEach(async ({ page }) => {
@@ -126,5 +143,75 @@ test.describe('CMD-001/002/007 Command Center home Scene', () => {
 		await expect(page.getByTestId('session-workflow-status')).toContainText('recap');
 		await expect(page.getByTestId('session-recap-archive')).toBeVisible();
 		await expect(page.getByTestId('cc-active-map-empty')).toBeVisible();
+	});
+
+	test('Player View controller assigns connected and disconnected participants (CMD-004)', async ({
+		page,
+	}) => {
+		await page.getByTestId('nav-scenes').click();
+		await createNamedScene(page, 'Player One View');
+
+		await page.getByTestId('nav-command-center').click();
+		await page.getByTestId('cc-player-view-controller').waitFor({ state: 'visible' });
+		await expect(page.getByTestId('cc-player-view-row-actor-player')).toContainText(
+			'No assignment',
+		);
+		await expect(page.getByTestId('cc-player-view-row-actor-player-2')).toContainText(
+			'No assignment',
+		);
+		await expect(page.getByTestId('cc-player-view-row-actor-player-3')).toContainText(
+			'No assignment',
+		);
+
+		await selectPlayerViewScene(page, 'actor-player', 'Player One View');
+		await page.getByTestId('cc-player-view-deliver-actor-player').click();
+		await expect(page.getByTestId('cc-player-view-assignment-actor-player')).toContainText(
+			'Player One View',
+		);
+		await expect(page.getByTestId('cc-player-view-assignment-actor-player')).toContainText(
+			'delivered',
+		);
+
+		await selectPlayerViewScene(page, 'actor-player-2', 'Command Center');
+		await page.getByTestId('cc-player-view-deliver-actor-player-2').click();
+		await expect(page.getByTestId('cc-player-view-assignment-actor-player-2')).toContainText(
+			'Command Center',
+		);
+		await expect(page.getByTestId('cc-player-view-assignment-actor-player-2')).toContainText(
+			'delivered',
+		);
+
+		await selectPlayerViewScene(page, 'actor-player-3', 'Command Center');
+		await page.getByTestId('cc-player-view-queue-actor-player-3').click();
+		await expect(page.getByTestId('cc-player-view-status')).toContainText('queued');
+		await expect(page.getByTestId('cc-player-view-assignment-actor-player-3')).toContainText(
+			'Command Center',
+		);
+		await expect(page.getByTestId('cc-player-view-assignment-actor-player-3')).toContainText(
+			'queued',
+		);
+		await expect(page.getByTestId('cc-player-view-assignment-actor-player-3')).toContainText(
+			'offline',
+		);
+
+		await page.reload();
+		await page.getByTestId('cc-player-view-controller').waitFor({ state: 'visible' });
+		await expect(page.getByTestId('cc-player-view-assignment-actor-player')).toContainText(
+			'Player One View',
+		);
+		await expect(page.getByTestId('cc-player-view-assignment-actor-player-2')).toContainText(
+			'Command Center',
+		);
+		await expect(page.getByTestId('cc-player-view-assignment-actor-player-3')).toContainText(
+			'queued',
+		);
+
+		await page.getByTestId('cc-player-view-deliver-actor-player-3').click();
+		await expect(page.getByTestId('cc-player-view-assignment-actor-player-3')).toContainText(
+			'delivered',
+		);
+		await expect(page.getByTestId('cc-player-view-assignment-actor-player-3')).not.toContainText(
+			'offline',
+		);
 	});
 });

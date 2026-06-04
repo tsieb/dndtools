@@ -274,5 +274,13 @@ export {
 	getSessionWidgetMode,
 } from './queries/session-control';
 
+export type {
+	PlayerViewControllerAssignment,
+	PlayerViewControllerParticipant,
+	PlayerViewControllerQueryResult,
+	PlayerViewControllerSceneOption,
+} from './queries/player-view-control';
+export { getPlayerViewController } from './queries/player-view-control';
+
 export type { WidgetPackageExport } from './commands/widget-package';
 export { exportWidgetPackage } from './commands/widget-package';

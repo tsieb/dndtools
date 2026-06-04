@@ -11,6 +11,7 @@ import {
 	PERMISSION_STATE_SCHEMA_VERSION,
 	dispatchCommand,
 	type ActorId,
+	type Actor,
 	type CommandResult,
 	type CoreCommand,
 	type CoreEnvironment,
@@ -22,6 +23,12 @@ interface RuntimeOptions {
 	env: CoreEnvironment;
 	defaultActorId: ActorId;
 }
+
+const DEFAULT_DEMO_PARTICIPANTS: Actor[] = [
+	{ id: 'actor-player', role: 'player', displayName: 'Demo Player' },
+	{ id: 'actor-player-2', role: 'player', displayName: 'Demo Player 2' },
+	{ id: 'actor-player-3', role: 'player', displayName: 'Demo Player 3' },
+];
 
 function browserIdGenerator(): string {
 	if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -115,19 +122,13 @@ export class SceneRuntime {
 			widgets: mergeSystemWidgetPackages(slice.widgets),
 		};
 		const actors = withDefaultWidgets.permissions.actors;
-		const nextActors = {
+		const nextActors: CoreStateSlice['permissions']['actors'] = {
 			...actors,
 			...(actors[id] ? {} : { [id]: { id, role: 'dm' as const, displayName: 'Default DM' } }),
-			...(actors['actor-player']
-				? {}
-				: {
-						'actor-player': {
-							id: 'actor-player',
-							role: 'player' as const,
-							displayName: 'Demo Player',
-						},
-					}),
 		};
+		for (const participant of DEFAULT_DEMO_PARTICIPANTS) {
+			nextActors[participant.id] ??= participant;
+		}
 		const session = {
 			...withDefaultWidgets.session,
 			workflow: withDefaultWidgets.session.workflow ?? EMPTY_SESSION_STATE.workflow,

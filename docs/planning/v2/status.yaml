@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 80
+  approved: 79
   active: 0
-  complete: 8
+  complete: 9
   deferred: 0
 metrics:
-  epicCompletionPercent: 9.1
-  requirementCompletionPercent: 10.7
+  epicCompletionPercent: 10.2
+  requirementCompletionPercent: 11.1
   totalRequirements: 234
-  completedRequirements: 25
+  completedRequirements: 26
   deferredRequirements: 0
-  remainingEpics: 80
-  promptableEpics: 80
+  remainingEpics: 79
+  promptableEpics: 79
   blockedByDependencies: 0
-  completionEvidenceFiles: 8
+  completionEvidenceFiles: 9
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -59,13 +59,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: CMD
       totalEpics: 4
-      complete: 3
+      complete: 4
       active: 0
-      approved: 1
+      approved: 0
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 75
-      requirementCompletionPercent: 87.5
+      epicCompletionPercent: 100
+      requirementCompletionPercent: 100
     - domain: COLLAB
       totalEpics: 5
       complete: 0
@@ -193,14 +193,16 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: CMD-player-view-control
-  title: "CMD: Player view control"
+  id: NAV-command-palette-and-actor-filtering
+  title: "NAV: Command palette and actor filtering"
   status: approved
   requirementIds:
-    - CMD-004
-  promptCommand: pnpm v2:prompt -- --epic CMD-player-view-control
+    - NAV-008
+    - NAV-010
+  promptCommand: pnpm v2:prompt -- --epic NAV-command-palette-and-actor-filtering
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic CMD-player-view-control --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic
+    NAV-command-palette-and-actor-filtering --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -335,10 +337,11 @@ epics:
       - CMD-007
     completionEvidenceFile: docs/planning/v2/epics/CMD-home-scene.completion.md
   - id: CMD-player-view-control
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CMD-004
+    completionEvidenceFile: docs/planning/v2/epics/CMD-player-view-control.completion.md
   - id: CMD-widget-library-and-actions
     status: complete
     approved: true

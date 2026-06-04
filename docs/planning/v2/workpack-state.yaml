@@ -62,6 +62,9 @@ epics:
   - id: CMD-home-scene
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CMD-home-scene.completion.md
+  - id: CMD-player-view-control
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CMD-player-view-control.completion.md
   - id: CMD-widget-library-and-actions
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CMD-widget-library-and-actions.completion.md
