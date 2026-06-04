@@ -8,8 +8,10 @@ import { SCENE_STATE_SCHEMA_VERSION, SCENE_SCHEMA_VERSION } from '../state/scene
 import { SYNC_OPERATION_SCHEMA_VERSION } from '../sync/operation-log';
 import type { WidgetDataSchema, WidgetPackageState } from '../state/widget-package-state';
 import type { SessionState } from '../state/session-state';
-import { SESSION_STATE_SCHEMA_VERSION } from '../state/session-state';
+import { EMPTY_SESSION_COMBAT_STATE, SESSION_STATE_SCHEMA_VERSION } from '../state/session-state';
 import { WIDGET_PACKAGE_STATE_SCHEMA_VERSION } from '../state/widget-package-state';
+import type { MapState } from '../state/map-state';
+import { MAP_STATE_SCHEMA_VERSION } from '../state/map-state';
 
 export function reject(rejection: CommandRejection, state: CoreStateSlice) {
 	return { status: 'rejected' as const, rejection, nextState: state };
@@ -196,10 +198,23 @@ export function ensureSceneState(state: SceneState | undefined): SceneState {
 
 export function ensureSessionState(state: SessionState | undefined): SessionState {
 	return {
+		workflow: state?.workflow ?? 'idle',
+		workflowRevision: state?.workflowRevision ?? 0,
+		activeSceneId: state?.activeSceneId ?? null,
+		activeMap: state?.activeMap ?? null,
+		combat: state?.combat ?? { ...EMPTY_SESSION_COMBAT_STATE },
+		diceHistory: state?.diceHistory ?? [],
 		timers: state?.timers ?? {},
 		playerViewAssignments: state?.playerViewAssignments ?? {},
+		activeMapProjections: state?.activeMapProjections ?? {},
+		recapArchiveId: state?.recapArchiveId ?? null,
+		archives: state?.archives ?? {},
 		schemaVersion: SESSION_STATE_SCHEMA_VERSION,
 	};
+}
+
+export function ensureMapState(state: MapState | undefined): MapState {
+	return state ?? { maps: {}, schemaVersion: MAP_STATE_SCHEMA_VERSION };
 }
 
 export function ensureWidgetPackageState(

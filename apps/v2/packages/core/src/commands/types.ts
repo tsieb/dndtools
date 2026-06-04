@@ -1,14 +1,16 @@
 import type { ActorId, OperationId, SceneId } from '../state/ids';
 import type { Clock, IdGenerator } from '../state/ids';
 import type { CommandCenterState } from '../state/command-center-state';
+import type { MapState } from '../state/map-state';
 import type { PermissionState } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
-import type { SessionState } from '../state/session-state';
+import type { SessionWorkflowState, SessionState } from '../state/session-state';
 import type { WidgetPackageState } from '../state/widget-package-state';
 import type { OperationLog, SyncOperation } from '../sync/operation-log';
 
 export interface CoreStateSlice {
 	scenes: SceneState;
+	maps: MapState;
 	permissions: PermissionState;
 	session: SessionState;
 	widgets: WidgetPackageState;
@@ -85,6 +87,16 @@ export type CoreCommand =
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
+	  }
+	| { type: 'session.set-workflow'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.update-combat'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.record-dice'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.set-active-map'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'session.project-active-map';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
 	  };
 
 export type CoreEvent =
@@ -154,6 +166,34 @@ export type CoreEvent =
 			sceneId: SceneId;
 			playerActorId: ActorId;
 			actorId: ActorId;
+	  }
+	| {
+			kind: 'session.workflow-changed';
+			actorId: ActorId;
+			from: SessionWorkflowState;
+			to: SessionWorkflowState;
+			activeSceneId: SceneId | null;
+			recapArchiveId: string | null;
+	  }
+	| { kind: 'session.archived'; actorId: ActorId; archiveId: string }
+	| { kind: 'session.combat-updated'; actorId: ActorId; revision: number }
+	| { kind: 'session.dice-recorded'; actorId: ActorId; rollId: string }
+	| {
+			kind: 'session.active-map-changed';
+			actorId: ActorId;
+			sceneId: SceneId;
+			widgetInstanceId: string;
+			mapId: string;
+			regionId: string | null;
+	  }
+	| {
+			kind: 'session.active-map-projected';
+			actorId: ActorId;
+			playerActorId: ActorId;
+			projectionId: string;
+			mapId: string;
+			regionId: string | null;
+			deliveryStatus: 'delivered' | 'queued';
 	  };
 
 export type RejectionCode =
@@ -167,6 +207,7 @@ export type RejectionCode =
 	| 'invalid-payload'
 	| 'idempotency-replay'
 	| 'invalid-state'
+	| 'map-not-found'
 	| 'revision-conflict'
 	| 'hidden-target'
 	| 'conflicted-target'

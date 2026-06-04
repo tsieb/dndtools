@@ -186,6 +186,15 @@ export function handleDispatchWidgetCommand(
 			state,
 		);
 	}
+	if (descriptor.writesTo === 'session' && state.session.workflow !== 'active') {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: `Session widget commands require an active workflow; current workflow is ${state.session.workflow}.`,
+			},
+			state,
+		);
+	}
 	if (parsed.data.commandType !== 'timer.start') {
 		return reject(
 			{

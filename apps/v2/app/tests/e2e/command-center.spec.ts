@@ -92,4 +92,39 @@ test.describe('CMD-001/002/007 Command Center home Scene', () => {
 		await page.getByTestId('cc-tab-prep').click();
 		await expect(panel).toContainText('Prep');
 	});
+
+	test('active map and workflow controls preserve player-safe Session State (CMD-003/CMD-006)', async ({
+		page,
+	}) => {
+		await page.getByTestId('session-workflow-active').click();
+		await expect(page.getByTestId('session-workflow-status')).toContainText('active');
+
+		await page.getByTestId('cc-active-map-select').selectOption({ label: 'Ruined Keep' });
+		await page.getByTestId('cc-active-region-select').selectOption({ label: 'Ground Floor' });
+		await page.getByTestId('cc-active-map-bind').click();
+		await expect(page.getByTestId('cc-active-map-preview')).toContainText('Ruined Keep');
+		await expect(page.getByTestId('cc-active-map-preview')).toContainText('Secret Ambush');
+
+		await page.getByTestId('cc-active-map-project').click();
+		await expect(page.getByTestId('cc-player-map-preview')).toContainText('delivered');
+		await expect(page.getByTestId('cc-player-map-preview')).toContainText('Rooms');
+		await expect(page.getByTestId('cc-player-map-preview')).toContainText('Fog of War');
+		await expect(page.getByTestId('cc-player-map-preview')).not.toContainText('Secret Ambush');
+
+		await page.getByTestId('nav-scenes').click();
+		await page.getByTestId('scene-name').waitFor({ state: 'visible' });
+		await page.getByTestId('nav-command-center').click();
+		await expect(page.getByTestId('session-workflow-status')).toContainText('active');
+		await expect(page.getByTestId('cc-active-map-preview')).toContainText('Ruined Keep');
+
+		await page.getByTestId('session-workflow-paused').click();
+		await expect(page.getByTestId('session-player-status')).toContainText('paused-degraded');
+		await expect(page.getByTestId('cc-active-map-project')).toBeDisabled();
+
+		await page.getByTestId('session-workflow-ending').click();
+		await page.getByTestId('session-workflow-recap').click();
+		await expect(page.getByTestId('session-workflow-status')).toContainText('recap');
+		await expect(page.getByTestId('session-recap-archive')).toBeVisible();
+		await expect(page.getByTestId('cc-active-map-empty')).toBeVisible();
+	});
 });

@@ -61,14 +61,15 @@ export const DEFAULT_COMMAND_CENTER_NAME = 'Command Center';
 
 /**
  * The DM tools the default Command Center system template lays out as widgets.
- * Mirrors the Vision "DM tools panel" enumeration (initiative, dice, timers,
- * audio, reference) plus prep tooling (CMD-002).
+ * Mirrors the Vision Command Center surface: active map embed, DM tools panel
+ * (initiative, dice, timers, audio, reference), plus prep tooling (CMD-002/CMD-003).
  */
 export const DEFAULT_COMMAND_CENTER_TOOLS: ReadonlyArray<{
 	type: string;
 	version: string;
 	label: string;
 }> = Object.freeze([
+	{ type: 'map', version: '1.0.0', label: 'Active Map' },
 	{ type: 'initiative-tracker', version: '1.0.0', label: 'Initiative' },
 	{ type: 'dice', version: '1.0.0', label: 'Dice' },
 	{ type: 'timer', version: '1.0.0', label: 'Timers' },

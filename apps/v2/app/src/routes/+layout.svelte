@@ -27,8 +27,8 @@
 	<h1>DND Tools v2</h1>
 	<p class="tagline">Scene-first command platform — local prototype</p>
 	<nav>
-		<a href="./" data-testid="nav-command-center">Command Center</a>
-		<a href="scenes/" data-testid="nav-scenes">Scenes</a>
+		<a href="/" data-testid="nav-command-center">Command Center</a>
+		<a href="/scenes/" data-testid="nav-scenes">Scenes</a>
 		<CommandPalette />
 	</nav>
 </header>

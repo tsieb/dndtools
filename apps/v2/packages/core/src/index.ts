@@ -37,14 +37,29 @@ export {
 } from './state/scene-state';
 
 export type {
+	ActiveMapDeliveryStatus,
 	PlayerViewDeliveryStatus,
 	PlayerViewProjectionKind,
 	PlayerViewProjectionTarget,
+	SessionActiveMapProjection,
+	SessionActiveMapSelection,
+	SessionArchiveSnapshot,
+	SessionCombatState,
+	SessionDiceRoll,
 	SessionPlayerViewAssignment,
 	SessionState,
 	SessionTimer,
+	SessionWorkflowState,
 } from './state/session-state';
-export { EMPTY_SESSION_STATE, SESSION_STATE_SCHEMA_VERSION } from './state/session-state';
+export {
+	EMPTY_SESSION_COMBAT_STATE,
+	EMPTY_SESSION_STATE,
+	SESSION_STATE_SCHEMA_VERSION,
+	SESSION_WORKFLOW_STATES,
+} from './state/session-state';
+
+export type { MapEntity, MapLayer, MapLayerCategory, MapRegion, MapState } from './state/map-state';
+export { EMPTY_MAP_STATE, MAP_STATE_SCHEMA_VERSION, createDemoMapState } from './state/map-state';
 
 export type {
 	CommandCenterPreset,
@@ -140,13 +155,18 @@ export {
 	moveWidgetInputSchema,
 	pinWidgetInputSchema,
 	projectPlayerViewInputSchema,
+	projectActiveMapInputSchema,
 	removeWidgetPackageInputSchema,
+	recordSessionDiceInputSchema,
 	revokePlayerViewInputSchema,
 	resizeWidgetInputSchema,
 	saveCommandCenterPresetInputSchema,
 	saveSceneTemplateInputSchema,
+	setActiveMapInputSchema,
 	setSceneSectionsInputSchema,
+	setSessionWorkflowInputSchema,
 	setWidgetFocusOrderInputSchema,
+	updateSessionCombatInputSchema,
 	updateSceneMetadataInputSchema,
 	upgradeWidgetPackageInputSchema,
 } from './schemas/commands';
@@ -240,6 +260,19 @@ export {
 	resolveCommandAction,
 	searchCommandActions,
 } from './queries/command-actions';
+
+export type {
+	ActiveMapLayerView,
+	ActiveMapQueryResult,
+	ActiveMapView,
+	SessionParticipantStatus,
+	SessionWidgetMode,
+} from './queries/session-control';
+export {
+	getActiveMapViewForActor,
+	getSessionParticipantStatus,
+	getSessionWidgetMode,
+} from './queries/session-control';
 
 export type { WidgetPackageExport } from './commands/widget-package';
 export { exportWidgetPackage } from './commands/widget-package';

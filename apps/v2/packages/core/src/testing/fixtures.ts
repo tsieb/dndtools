@@ -2,6 +2,7 @@ import type { Clock, IdGenerator } from '../state/ids';
 import type { Actor, PermissionState } from '../state/permission-state';
 import { PERMISSION_STATE_SCHEMA_VERSION } from '../state/permission-state';
 import { EMPTY_COMMAND_CENTER_STATE } from '../state/command-center-state';
+import { EMPTY_MAP_STATE } from '../state/map-state';
 import { EMPTY_SCENE_STATE } from '../state/scene-state';
 import { EMPTY_SESSION_STATE } from '../state/session-state';
 import { createSystemWidgetPackages } from '../state/widget-package-state';
@@ -60,10 +61,26 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			scenes: { ...EMPTY_SCENE_STATE.scenes },
 			schemaVersion: EMPTY_SCENE_STATE.schemaVersion,
 		},
+		maps: {
+			maps: { ...EMPTY_MAP_STATE.maps },
+			schemaVersion: EMPTY_MAP_STATE.schemaVersion,
+		},
 		permissions: buildPermissionState(...actors),
 		session: {
+			workflow: EMPTY_SESSION_STATE.workflow,
+			workflowRevision: EMPTY_SESSION_STATE.workflowRevision,
+			activeSceneId: EMPTY_SESSION_STATE.activeSceneId,
+			activeMap: EMPTY_SESSION_STATE.activeMap,
+			combat: {
+				...EMPTY_SESSION_STATE.combat,
+				combatantIds: [...EMPTY_SESSION_STATE.combat.combatantIds],
+			},
+			diceHistory: [...EMPTY_SESSION_STATE.diceHistory],
 			timers: { ...EMPTY_SESSION_STATE.timers },
 			playerViewAssignments: { ...EMPTY_SESSION_STATE.playerViewAssignments },
+			activeMapProjections: { ...EMPTY_SESSION_STATE.activeMapProjections },
+			recapArchiveId: EMPTY_SESSION_STATE.recapArchiveId,
+			archives: { ...EMPTY_SESSION_STATE.archives },
 			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
 		},
 		widgets: createSystemWidgetPackages(),

@@ -1,9 +1,11 @@
 import {
 	EMPTY_COMMAND_CENTER_STATE,
+	EMPTY_MAP_STATE,
 	EMPTY_PERMISSION_STATE,
 	EMPTY_SCENE_STATE,
 	EMPTY_SESSION_STATE,
 	createOperationLog,
+	createDemoMapState,
 	createSystemWidgetPackages,
 	mergeSystemWidgetPackages,
 	PERMISSION_STATE_SCHEMA_VERSION,
@@ -44,14 +46,27 @@ export function defaultEnvironment(): CoreEnvironment {
 export class SceneRuntime {
 	#state = $state<CoreStateSlice>({
 		scenes: { scenes: {}, schemaVersion: EMPTY_SCENE_STATE.schemaVersion },
+		maps: { maps: { ...EMPTY_MAP_STATE.maps }, schemaVersion: EMPTY_MAP_STATE.schemaVersion },
 		permissions: {
 			actors: {},
 			grants: [],
 			schemaVersion: EMPTY_PERMISSION_STATE.schemaVersion,
 		},
 		session: {
+			workflow: EMPTY_SESSION_STATE.workflow,
+			workflowRevision: EMPTY_SESSION_STATE.workflowRevision,
+			activeSceneId: EMPTY_SESSION_STATE.activeSceneId,
+			activeMap: EMPTY_SESSION_STATE.activeMap,
+			combat: {
+				...EMPTY_SESSION_STATE.combat,
+				combatantIds: [...EMPTY_SESSION_STATE.combat.combatantIds],
+			},
+			diceHistory: [...EMPTY_SESSION_STATE.diceHistory],
 			timers: {},
 			playerViewAssignments: {},
+			activeMapProjections: {},
+			recapArchiveId: null,
+			archives: {},
 			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
 		},
 		widgets: createSystemWidgetPackages(),
@@ -94,7 +109,11 @@ export class SceneRuntime {
 
 	#ensureDefaultActor(slice: CoreStateSlice): CoreStateSlice {
 		const id = this.#options.defaultActorId;
-		const withDefaultWidgets = { ...slice, widgets: mergeSystemWidgetPackages(slice.widgets) };
+		const withDefaultWidgets = {
+			...slice,
+			maps: Object.keys(slice.maps.maps).length > 0 ? slice.maps : createDemoMapState(),
+			widgets: mergeSystemWidgetPackages(slice.widgets),
+		};
 		const actors = withDefaultWidgets.permissions.actors;
 		const nextActors = {
 			...actors,
@@ -111,7 +130,21 @@ export class SceneRuntime {
 		};
 		const session = {
 			...withDefaultWidgets.session,
+			workflow: withDefaultWidgets.session.workflow ?? EMPTY_SESSION_STATE.workflow,
+			workflowRevision:
+				withDefaultWidgets.session.workflowRevision ?? EMPTY_SESSION_STATE.workflowRevision,
+			activeSceneId: withDefaultWidgets.session.activeSceneId ?? null,
+			activeMap: withDefaultWidgets.session.activeMap ?? null,
+			combat: withDefaultWidgets.session.combat ?? {
+				...EMPTY_SESSION_STATE.combat,
+				combatantIds: [...EMPTY_SESSION_STATE.combat.combatantIds],
+			},
+			diceHistory: withDefaultWidgets.session.diceHistory ?? [],
+			timers: withDefaultWidgets.session.timers ?? {},
 			playerViewAssignments: withDefaultWidgets.session.playerViewAssignments ?? {},
+			activeMapProjections: withDefaultWidgets.session.activeMapProjections ?? {},
+			recapArchiveId: withDefaultWidgets.session.recapArchiveId ?? null,
+			archives: withDefaultWidgets.session.archives ?? {},
 		};
 		return {
 			...withDefaultWidgets,

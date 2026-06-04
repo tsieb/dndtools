@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CMD-active-session-control
 title: "CMD: Active session control"
-status: approved
+status: complete
 approved: true
 domain: CMD
 capabilityBranch: Active session control
@@ -164,3 +164,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/CMD-active-session-control.completion.md

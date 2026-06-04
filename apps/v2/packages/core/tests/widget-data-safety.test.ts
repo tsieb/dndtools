@@ -19,7 +19,10 @@ import {
 	type WidgetPackageDefinition,
 } from '../src';
 
-function envWith(records: EntityBindingRecord[], knownEntityKeys?: string[]): WidgetDataEnvironment {
+function envWith(
+	records: EntityBindingRecord[],
+	knownEntityKeys?: string[],
+): WidgetDataEnvironment {
 	const entities: Record<string, EntityBindingRecord> = {};
 	for (const record of records) {
 		entities[entityBindingKey(record.entityType, record.entityId)] = record;
@@ -83,12 +86,18 @@ describe('CANVAS-009: resolveWidgetBinding resolves states at the data layer', (
 			{ entityType: 'character', entityId: 'npc-1', visibility: 'dm-only', value: { hp: 12 } },
 		]);
 		const b = binding('character', 'npc-1');
-		expect(resolveWidgetBinding(b, PLAYER_ACTOR, env)).toEqual({ state: 'hidden', reason: 'dm-only' });
+		expect(resolveWidgetBinding(b, PLAYER_ACTOR, env)).toEqual({
+			state: 'hidden',
+			reason: 'dm-only',
+		});
 		expect(resolveWidgetBinding(b, OBSERVER_ACTOR, env)).toEqual({
 			state: 'hidden',
 			reason: 'dm-only',
 		});
-		expect(resolveWidgetBinding(b, DM_ACTOR, env)).toEqual({ state: 'available', value: { hp: 12 } });
+		expect(resolveWidgetBinding(b, DM_ACTOR, env)).toEqual({
+			state: 'available',
+			value: { hp: 12 },
+		});
 	});
 
 	it('treats a shared entity as visible only to explicitly shared players', () => {
@@ -166,7 +175,10 @@ describe('CANVAS-009: resolveWidgetBinding resolves states at the data layer', (
 		]);
 		const b = binding('character', 'npc-2');
 		// Player only learns it is hidden; the DM sees the conflict to resolve it.
-		expect(resolveWidgetBinding(b, PLAYER_ACTOR, env)).toEqual({ state: 'hidden', reason: 'dm-only' });
+		expect(resolveWidgetBinding(b, PLAYER_ACTOR, env)).toEqual({
+			state: 'hidden',
+			reason: 'dm-only',
+		});
 		expect(resolveWidgetBinding(b, DM_ACTOR, env)).toEqual({
 			state: 'conflicted',
 			conflictPaths: ['(entity)'],
@@ -175,7 +187,9 @@ describe('CANVAS-009: resolveWidgetBinding resolves states at the data layer', (
 
 	it('marks a binding missing when its target is not among known entity keys', () => {
 		const env = envWith([], [entityBindingKey('map', 'map-1')]);
-		expect(resolveWidgetBinding(binding('map', 'gone'), DM_ACTOR, env)).toEqual({ state: 'missing' });
+		expect(resolveWidgetBinding(binding('map', 'gone'), DM_ACTOR, env)).toEqual({
+			state: 'missing',
+		});
 		expect(resolveWidgetBinding(binding('map', 'map-1'), DM_ACTOR, env)).toEqual({
 			state: 'available',
 			value: null,
@@ -199,7 +213,12 @@ describe('CANVAS-009: getSceneForActor renders explicit binding states', () => {
 			binding('note', 'dm-secret'),
 		);
 		const dataEnvironment = envWith([
-			{ entityType: 'note', entityId: 'dm-secret', visibility: 'dm-only', value: { body: 'top secret' } },
+			{
+				entityType: 'note',
+				entityId: 'dm-secret',
+				visibility: 'dm-only',
+				value: { body: 'top secret' },
+			},
 		]);
 		const summary = getSceneForActor(
 			withWidget.scenes,
@@ -209,7 +228,12 @@ describe('CANVAS-009: getSceneForActor renders explicit binding states', () => {
 			{ widgetPackages: withWidget.widgets, dataEnvironment },
 		);
 		if (!('widgets' in summary)) throw new Error('player denied scene');
-		expect(summary.widgets[0]).toEqual({ kind: 'hidden', widgetInstanceId: widgetId, type: 'note', reason: 'dm-only' });
+		expect(summary.widgets[0]).toEqual({
+			kind: 'hidden',
+			widgetInstanceId: widgetId,
+			type: 'note',
+			reason: 'dm-only',
+		});
 		// The hidden value must not be present anywhere in the player payload.
 		expect(JSON.stringify(summary)).not.toContain('top secret');
 
@@ -317,12 +341,22 @@ describe('CANVAS-009: getSceneForActor renders explicit binding states', () => {
 		if (enabled.status !== 'accepted') throw new Error('enable failed');
 		const { state, sceneId } = createScene(enabled.nextState, env, 'dm-only');
 		const { state: withWidget, widgetId } = addBoundWidget(state, env, sceneId, 'char-panel', null);
-		const summary = getSceneForActor(withWidget.scenes, withWidget.permissions, DM_ACTOR.id, sceneId, {
-			widgetPackages: withWidget.widgets,
-			dataEnvironment: envWith([]),
-		});
+		const summary = getSceneForActor(
+			withWidget.scenes,
+			withWidget.permissions,
+			DM_ACTOR.id,
+			sceneId,
+			{
+				widgetPackages: withWidget.widgets,
+				dataEnvironment: envWith([]),
+			},
+		);
 		if (!('widgets' in summary)) throw new Error('dm denied scene');
-		expect(summary.widgets[0]).toEqual({ kind: 'unbound', widgetInstanceId: widgetId, type: 'char-panel' });
+		expect(summary.widgets[0]).toEqual({
+			kind: 'unbound',
+			widgetInstanceId: widgetId,
+			type: 'char-panel',
+		});
 	});
 });
 
@@ -348,6 +382,20 @@ function grantOperator(state: CoreStateSlice, widgetId: string): CoreStateSlice 
 	};
 }
 
+function startSession(
+	state: CoreStateSlice,
+	env: ReturnType<typeof makeEnvironment>,
+	sceneId: string,
+) {
+	const result = dispatchCommand(state, env, {
+		type: 'session.set-workflow',
+		actorId: DM_ACTOR.id,
+		payload: { workflow: 'active', activeSceneId: sceneId },
+	});
+	if (result.status !== 'accepted') throw new Error('session start failed');
+	return result.nextState;
+}
+
 describe('CANVAS-010: the Processing Core validates widget commands before mutation', () => {
 	it('AC1: an authorized player operator can start a timer and session state changes', () => {
 		const env = makeEnvironment();
@@ -357,7 +405,7 @@ describe('CANVAS-010: the Processing Core validates widget commands before mutat
 			'player-visible',
 		);
 		const { state: withTimer, widgetId } = addBoundWidget(state, env, sceneId, 'timer', null);
-		const granted = grantOperator(withTimer, widgetId);
+		const granted = grantOperator(startSession(withTimer, env, sceneId), widgetId);
 		const expectedRevision = granted.scenes.scenes[sceneId]?.ownership.revision;
 		const started = dispatchCommand(granted, env, {
 			type: 'widget.dispatch-command',

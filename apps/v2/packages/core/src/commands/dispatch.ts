@@ -27,6 +27,13 @@ import {
 } from './command-center';
 import { handleProjectPlayerView, handleRevokePlayerView } from './player-view';
 import {
+	handleProjectActiveMap,
+	handleRecordSessionDice,
+	handleSetActiveMap,
+	handleSetSessionWorkflow,
+	handleUpdateSessionCombat,
+} from './session-control';
+import {
 	handleDisableWidgetPackage,
 	handleEnableWidgetPackage,
 	handleInstallWidgetPackage,
@@ -100,6 +107,16 @@ export function dispatchCommand(
 			return handleProjectPlayerView(state, env, command.actorId, command.payload);
 		case 'session.revoke-player-view':
 			return handleRevokePlayerView(state, env, command.actorId, command.payload);
+		case 'session.set-workflow':
+			return handleSetSessionWorkflow(state, env, command.actorId, command.payload);
+		case 'session.update-combat':
+			return handleUpdateSessionCombat(state, env, command.actorId, command.payload);
+		case 'session.record-dice':
+			return handleRecordSessionDice(state, env, command.actorId, command.payload);
+		case 'session.set-active-map':
+			return handleSetActiveMap(state, env, command.actorId, command.payload);
+		case 'session.project-active-map':
+			return handleProjectActiveMap(state, env, command.actorId, command.payload);
 	}
 }
 

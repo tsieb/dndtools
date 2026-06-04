@@ -1,9 +1,15 @@
 <script lang="ts">
 	import {
 		DEFAULT_COMMAND_CENTER_TOOLS,
+		SESSION_WORKFLOW_STATES,
+		getActiveMapViewForActor,
 		getSceneForActor,
+		getSessionParticipantStatus,
+		getSessionWidgetMode,
 		listWidgetLibrary,
 		resolveAddWidgetCommand,
+		type MapEntity,
+		type SessionWorkflowState,
 		type WidgetBindingPayload,
 		type WidgetLibraryEntry,
 	} from '@dndtools/v2-core';
@@ -23,6 +29,9 @@
 	let selectedWidgetId = $state<string | null>(null);
 	let lastRestore = $state<{ restored: number; missing: string[] } | null>(null);
 	let librarySearch = $state('');
+	let selectedMapId = $state('');
+	let selectedRegionId = $state<string | null>(null);
+	let activeMapStatus = $state<string | null>(null);
 
 	const homeSceneId = $derived(runtime.state.commandCenter.homeSceneId);
 	const summary = $derived(
@@ -38,6 +47,30 @@
 	);
 	const presets = $derived(
 		Object.values(runtime.state.commandCenter.presets).sort((a, b) => a.name.localeCompare(b.name)),
+	);
+	const maps = $derived<MapEntity[]>(
+		Object.values(runtime.state.maps.maps).sort((a, b) => a.name.localeCompare(b.name)),
+	);
+	const selectedMap = $derived(maps.find((map) => map.id === selectedMapId) ?? maps[0] ?? null);
+	const activeMap = $derived(
+		getActiveMapViewForActor(
+			runtime.state.maps,
+			runtime.state.permissions,
+			runtime.state.session,
+			runtime.defaultActorId,
+		),
+	);
+	const playerActiveMap = $derived(
+		getActiveMapViewForActor(
+			runtime.state.maps,
+			runtime.state.permissions,
+			runtime.state.session,
+			'actor-player',
+		),
+	);
+	const sessionMode = $derived(getSessionWidgetMode(runtime.state.session));
+	const playerSessionStatus = $derived(
+		getSessionParticipantStatus(runtime.state.session, runtime.state.permissions, 'actor-player'),
 	);
 
 	// Quick-access widget library (CMD-005): the Processing Core decides which widget
@@ -90,6 +123,19 @@
 		}
 	});
 
+	$effect(() => {
+		if (maps.length === 0) {
+			selectedMapId = '';
+			selectedRegionId = null;
+			return;
+		}
+		if (!selectedMapId || !maps.some((map) => map.id === selectedMapId)) {
+			const first = maps[0]!;
+			selectedMapId = first.id;
+			selectedRegionId = first.defaultRegionId;
+		}
+	});
+
 	async function moveWidget(id: string, deltaX: number, deltaY: number) {
 		if (!homeSceneId) return;
 		const target = liveWidgets.find((w) => w.widget.id === id);
@@ -131,6 +177,54 @@
 		}
 	}
 
+	function selectMap(mapId: string) {
+		selectedMapId = mapId;
+		const nextMap = maps.find((map) => map.id === mapId) ?? null;
+		selectedRegionId = nextMap?.defaultRegionId ?? null;
+	}
+
+	async function setWorkflow(workflow: SessionWorkflowState) {
+		const payload: { workflow: SessionWorkflowState; activeSceneId?: string | null } = { workflow };
+		if (
+			workflow === 'active' ||
+			workflow === 'prep' ||
+			workflow === 'paused' ||
+			workflow === 'ending'
+		) {
+			payload.activeSceneId = runtime.state.session.activeSceneId ?? homeSceneId;
+		}
+		await runtime.dispatch({
+			type: 'session.set-workflow',
+			actorId: runtime.defaultActorId,
+			payload,
+		});
+	}
+
+	async function bindActiveMap() {
+		if (!selectedMapId) return;
+		const result = await runtime.dispatch({
+			type: 'session.set-active-map',
+			actorId: runtime.defaultActorId,
+			payload: { mapId: selectedMapId, regionId: selectedRegionId },
+		});
+		activeMapStatus =
+			result.status === 'accepted' ? 'Active map updated.' : result.rejection.message;
+	}
+
+	async function projectActiveMap(connectionState: 'connected' | 'offline') {
+		const result = await runtime.dispatch({
+			type: 'session.project-active-map',
+			actorId: runtime.defaultActorId,
+			payload: { playerActorIds: ['actor-player'], connectionState },
+		});
+		activeMapStatus =
+			result.status === 'accepted'
+				? connectionState === 'offline'
+					? 'Projection queued.'
+					: 'Projection delivered.'
+				: result.rejection.message;
+	}
+
 	// Add an available library widget to the Command Center. resolveAddWidgetCommand
 	// returns null for any widget that is unsupported on the current profile, so an
 	// unavailable widget can never be added (CMD-005 AC2).
@@ -169,6 +263,147 @@
 			Command Center unavailable: {summary.reason}
 		</p>
 	{:else}
+		<section aria-label="Session workflow" data-testid="session-workflow">
+			<h3>Session workflow</h3>
+			<div class="workflow-strip" role="toolbar" aria-label="Session workflow states">
+				{#each SESSION_WORKFLOW_STATES as workflow}
+					<button
+						type="button"
+						data-testid={`session-workflow-${workflow}`}
+						aria-pressed={runtime.state.session.workflow === workflow}
+						class:selected={runtime.state.session.workflow === workflow}
+						onclick={() => setWorkflow(workflow)}
+					>
+						{workflow}
+					</button>
+				{/each}
+			</div>
+			<p class="meta" data-testid="session-workflow-status">
+				{runtime.state.session.workflow} • {sessionMode.mode} • {sessionMode.status}
+				{#if runtime.state.session.activeSceneId}
+					• Scene {runtime.state.session.activeSceneId}
+				{/if}
+			</p>
+			<p class="meta" data-testid="session-player-status">
+				Demo Player: {playerSessionStatus.connection}
+			</p>
+			{#if sessionMode.recapArchiveId}
+				<p class="meta" data-testid="session-recap-archive">
+					Archive {sessionMode.recapArchiveId} •
+					{runtime.state.session.archives[sessionMode.recapArchiveId]?.diceHistory.length ?? 0}
+					rolls
+				</p>
+			{/if}
+		</section>
+
+		<section aria-label="Active map" data-testid="cc-active-map">
+			<h3>Active map</h3>
+			<div class="active-map-controls">
+				<label>
+					<span>Map</span>
+					<select
+						data-testid="cc-active-map-select"
+						value={selectedMapId}
+						onchange={(event) => selectMap(event.currentTarget.value)}
+					>
+						{#each maps as map (map.id)}
+							<option value={map.id}>{map.name}</option>
+						{/each}
+					</select>
+				</label>
+				<label>
+					<span>Region</span>
+					<select
+						data-testid="cc-active-region-select"
+						value={selectedRegionId ?? ''}
+						onchange={(event) => {
+							selectedRegionId = event.currentTarget.value || null;
+						}}
+					>
+						<option value="">Whole map</option>
+						{#if selectedMap}
+							{#each selectedMap.regions as region (region.id)}
+								<option value={region.id}>{region.name}</option>
+							{/each}
+						{/if}
+					</select>
+				</label>
+				<button
+					class="button"
+					type="button"
+					data-testid="cc-active-map-bind"
+					disabled={!selectedMapId}
+					onclick={bindActiveMap}
+				>
+					Set active map
+				</button>
+				<button
+					type="button"
+					data-testid="cc-active-map-project"
+					disabled={activeMap.kind !== 'available' || runtime.state.session.workflow !== 'active'}
+					onclick={() => projectActiveMap('connected')}
+				>
+					Project
+				</button>
+				<button
+					type="button"
+					data-testid="cc-active-map-queue"
+					disabled={activeMap.kind !== 'available' || runtime.state.session.workflow !== 'active'}
+					onclick={() => projectActiveMap('offline')}
+				>
+					Queue
+				</button>
+			</div>
+			{#if activeMap.kind === 'available'}
+				<div class="active-map-preview" data-testid="cc-active-map-preview">
+					<strong>{activeMap.name}</strong>
+					<span class="meta">
+						{activeMap.regionName ?? 'Whole map'} • {activeMap.layers.length} layer{activeMap.layers
+							.length === 1
+							? ''
+							: 's'}
+						{#if activeMap.hiddenLayerCount > 0}
+							• {activeMap.hiddenLayerCount} hidden
+						{/if}
+					</span>
+					<ul>
+						{#each activeMap.layers as layer (layer.id)}
+							<li>{layer.name}</li>
+						{/each}
+					</ul>
+				</div>
+			{:else if activeMap.kind === 'missing'}
+				<p class="error" role="alert" data-testid="cc-active-map-missing">
+					Active map missing: {activeMap.mapId}
+				</p>
+			{:else}
+				<p class="meta" data-testid="cc-active-map-empty">No active map selected.</p>
+			{/if}
+			{#if playerActiveMap.kind === 'available'}
+				<div class="active-map-preview" data-testid="cc-player-map-preview">
+					<strong>Demo Player</strong>
+					<span class="meta">
+						{playerActiveMap.deliveryStatus} • {playerActiveMap.regionName ?? 'Whole map'} •
+						{playerActiveMap.layers.length} visible layer{playerActiveMap.layers.length === 1
+							? ''
+							: 's'}
+					</span>
+					<ul>
+						{#each playerActiveMap.layers as layer (layer.id)}
+							<li>{layer.name}</li>
+						{/each}
+					</ul>
+				</div>
+			{:else}
+				<p class="meta" data-testid="cc-player-map-empty">
+					Demo Player has no active map projection.
+				</p>
+			{/if}
+			{#if activeMapStatus}
+				<p class="meta" role="status" data-testid="cc-active-map-status">{activeMapStatus}</p>
+			{/if}
+		</section>
+
 		<section aria-label="DM tools">
 			<h3>Tools</h3>
 			{#if profile.isCompact}

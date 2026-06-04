@@ -96,6 +96,20 @@ function addWidget(
 	return { state: added.nextState, widgetId: event.widgetInstanceId };
 }
 
+function startSession(
+	state: CoreStateSlice,
+	env: ReturnType<typeof makeEnvironment>,
+	sceneId: string,
+) {
+	const started = dispatchCommand(state, env, {
+		type: 'session.set-workflow',
+		actorId: DM_ACTOR.id,
+		payload: { workflow: 'active', activeSceneId: sceneId },
+	});
+	if (started.status !== 'accepted') throw new Error('session start failed');
+	return started.nextState;
+}
+
 describe('CANVAS-002: widget creation is a core command', () => {
 	it('adds a map widget with layout, configuration, binding placeholder, and sync operation', () => {
 		const { env, state, sceneId } = createScene(buildInitialState(DM_ACTOR));
@@ -275,10 +289,11 @@ describe('CANVAS-010: declared widget command dispatch', () => {
 	it('allows an authorized player to start a timer through the declared command', () => {
 		const { env, state, sceneId } = createScene();
 		const { state: withTimer, widgetId } = addWidget(state, env, sceneId, 'timer');
+		const active = startSession(withTimer, env, sceneId);
 		const granted: CoreStateSlice = {
-			...withTimer,
+			...active,
 			permissions: {
-				...withTimer.permissions,
+				...active.permissions,
 				grants: [
 					{
 						id: 'grant-1',
@@ -322,7 +337,8 @@ describe('CANVAS-010: declared widget command dispatch', () => {
 	it('treats a repeated idempotency key as an idempotent success, not a rejection', () => {
 		const { env, state, sceneId } = createScene();
 		const { state: withTimer, widgetId } = addWidget(state, env, sceneId, 'timer');
-		const sceneRevision = withTimer.scenes.scenes[sceneId]?.ownership.revision;
+		const active = startSession(withTimer, env, sceneId);
+		const sceneRevision = active.scenes.scenes[sceneId]?.ownership.revision;
 		const command = {
 			type: 'widget.dispatch-command' as const,
 			actorId: DM_ACTOR.id,
@@ -335,7 +351,7 @@ describe('CANVAS-010: declared widget command dispatch', () => {
 				expectedRevision: sceneRevision,
 			},
 		};
-		const first = dispatchCommand(withTimer, env, command);
+		const first = dispatchCommand(active, env, command);
 		if (first.status !== 'accepted') throw new Error('first dispatch failed');
 		const firstOpId = first.nextState.sync.operations.at(-1)?.id;
 

@@ -265,3 +265,41 @@ export const revokePlayerViewInputSchema = z
 		playerActorIds: z.array(idSchema).min(1),
 	})
 	.strict();
+
+export const setSessionWorkflowInputSchema = z
+	.object({
+		workflow: z.enum(['idle', 'prep', 'active', 'paused', 'ending', 'recap', 'archived']),
+		activeSceneId: z.union([z.literal(null), idSchema]).optional(),
+	})
+	.strict();
+
+export const updateSessionCombatInputSchema = z
+	.object({
+		encounterId: z.union([z.literal(null), idSchema]).default(null),
+		round: z.number().int().nonnegative().default(0),
+		turn: z.number().int().nonnegative().default(0),
+		combatantIds: z.array(idSchema).default([]),
+	})
+	.strict();
+
+export const recordSessionDiceInputSchema = z
+	.object({
+		expression: z.string().min(1),
+		total: z.number().finite(),
+	})
+	.strict();
+
+export const setActiveMapInputSchema = z
+	.object({
+		mapId: idSchema,
+		regionId: z.union([z.literal(null), idSchema]).default(null),
+		widgetInstanceId: idSchema.optional(),
+	})
+	.strict();
+
+export const projectActiveMapInputSchema = z
+	.object({
+		playerActorIds: z.array(idSchema).min(1),
+		connectionState: z.enum(['connected', 'offline']).default('connected'),
+	})
+	.strict();

@@ -1,14 +1,17 @@
 import Dexie, { type Table } from 'dexie';
 import {
 	EMPTY_COMMAND_CENTER_STATE,
+	EMPTY_MAP_STATE,
 	EMPTY_PERMISSION_STATE,
 	EMPTY_SCENE_STATE,
 	EMPTY_SESSION_STATE,
 	EMPTY_WIDGET_PACKAGE_STATE,
 	createOperationLog,
+	createDemoMapState,
 	mergeSystemWidgetPackages,
 	type CommandCenterState,
 	type CoreStateSlice,
+	type MapState,
 	type PermissionState,
 	type SceneState,
 	type SessionState,
@@ -19,6 +22,7 @@ import {
 const DB_NAME = 'dndtools-v2';
 const DB_VERSION = 1;
 const SCENE_STATE_KEY = 'scene-state';
+const MAP_STATE_KEY = 'map-state';
 const PERMISSION_STATE_KEY = 'permission-state';
 const SESSION_STATE_KEY = 'session-state';
 const WIDGET_PACKAGE_STATE_KEY = 'widget-package-state';
@@ -64,7 +68,8 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		database.documents.get(PERMISSION_STATE_KEY),
 		database.operations.orderBy('sequence').toArray(),
 	]);
-	const [sessionDoc, widgetPackageDoc, commandCenterDoc] = await Promise.all([
+	const [mapDoc, sessionDoc, widgetPackageDoc, commandCenterDoc] = await Promise.all([
+		database.documents.get(MAP_STATE_KEY),
 		database.documents.get(SESSION_STATE_KEY),
 		database.documents.get(WIDGET_PACKAGE_STATE_KEY),
 		database.documents.get(COMMAND_CENTER_STATE_KEY),
@@ -73,17 +78,39 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		scenes: {},
 		schemaVersion: EMPTY_SCENE_STATE.schemaVersion,
 	};
+	const maps = (mapDoc?.doc as MapState | undefined) ?? createDemoMapState();
+	maps.maps ??= { ...EMPTY_MAP_STATE.maps };
 	const permissions = (permissionDoc?.doc as PermissionState | undefined) ?? {
 		actors: {},
 		grants: [],
 		schemaVersion: EMPTY_PERMISSION_STATE.schemaVersion,
 	};
 	const session = (sessionDoc?.doc as SessionState | undefined) ?? {
+		workflow: EMPTY_SESSION_STATE.workflow,
+		workflowRevision: EMPTY_SESSION_STATE.workflowRevision,
+		activeSceneId: EMPTY_SESSION_STATE.activeSceneId,
+		activeMap: EMPTY_SESSION_STATE.activeMap,
+		combat: { ...EMPTY_SESSION_STATE.combat },
+		diceHistory: [...EMPTY_SESSION_STATE.diceHistory],
 		timers: {},
 		playerViewAssignments: {},
+		activeMapProjections: {},
+		recapArchiveId: null,
+		archives: {},
 		schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
 	};
+	session.workflow ??= EMPTY_SESSION_STATE.workflow;
+	session.workflowRevision ??= EMPTY_SESSION_STATE.workflowRevision;
+	session.activeSceneId ??= EMPTY_SESSION_STATE.activeSceneId;
+	session.activeMap ??= EMPTY_SESSION_STATE.activeMap;
+	session.combat ??= { ...EMPTY_SESSION_STATE.combat };
+	session.combat.combatantIds ??= [];
+	session.diceHistory ??= [];
+	session.timers ??= {};
 	session.playerViewAssignments ??= {};
+	session.activeMapProjections ??= {};
+	session.recapArchiveId ??= null;
+	session.archives ??= {};
 	const widgets = mergeSystemWidgetPackages(
 		(widgetPackageDoc?.doc as WidgetPackageState | undefined) ?? {
 			packages: {},
@@ -96,11 +123,15 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		schemaVersion: EMPTY_COMMAND_CENTER_STATE.schemaVersion,
 	};
 	const sync = createOperationLog(operationRecords.map((r) => r.op));
-	return { scenes, permissions, session, widgets, commandCenter, sync };
+	return { scenes, maps, permissions, session, widgets, commandCenter, sync };
 }
 
 async function persistSceneState(scenes: SceneState): Promise<void> {
 	await db().documents.put({ key: SCENE_STATE_KEY, doc: scenes });
+}
+
+async function persistMapState(maps: MapState): Promise<void> {
+	await db().documents.put({ key: MAP_STATE_KEY, doc: maps });
 }
 
 async function persistPermissionState(permissions: PermissionState): Promise<void> {
@@ -147,6 +178,7 @@ export async function persistFullState(
 	const newOperations = next.sync.operations.slice(previous.sync.operations.length);
 	const durableStateChanged =
 		sliceChanged(previous.scenes, next.scenes) ||
+		sliceChanged(previous.maps, next.maps) ||
 		sliceChanged(previous.permissions, next.permissions) ||
 		sliceChanged(previous.session, next.session) ||
 		sliceChanged(previous.widgets, next.widgets) ||
@@ -156,6 +188,7 @@ export async function persistFullState(
 	}
 	await Promise.all([
 		persistSceneState(next.scenes),
+		persistMapState(next.maps),
 		persistPermissionState(next.permissions),
 		persistSessionState(next.session),
 		persistWidgetPackageState(next.widgets),
@@ -181,6 +214,7 @@ export const __testing = {
 	},
 	DB_NAME,
 	SCENE_STATE_KEY,
+	MAP_STATE_KEY,
 	PERMISSION_STATE_KEY,
 	SESSION_STATE_KEY,
 	WIDGET_PACKAGE_STATE_KEY,
