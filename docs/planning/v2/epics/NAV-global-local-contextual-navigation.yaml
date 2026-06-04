@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: NAV-global-local-contextual-navigation
 title: "NAV: Global/local/contextual navigation"
-status: approved
+status: complete
 approved: true
 domain: NAV
 capabilityBranch: Global/local/contextual navigation
@@ -133,3 +133,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/NAV-global-local-contextual-navigation.completion.md

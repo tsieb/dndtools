@@ -82,6 +82,160 @@ body {
 	margin: 0 auto;
 }
 
+/* Contextual navigation subheader (NAV-003): breadcrumbs, local section nav,
+   backlinks/related, and pinned/recent — all derived from the single current route. */
+.nav-subheader {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 1.5rem;
+	padding: 0.5rem 2rem;
+	border-bottom: 1px solid var(--border);
+	font-size: 0.85rem;
+}
+
+.nav-subheader nav {
+	min-width: 0;
+}
+
+.breadcrumbs ol {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.35rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.breadcrumbs li:not(:first-child)::before {
+	content: '/';
+	margin-right: 0.35rem;
+	color: var(--muted);
+}
+
+.breadcrumbs a {
+	color: var(--accent);
+	text-decoration: none;
+}
+
+.breadcrumbs [aria-current='page'] {
+	color: var(--muted);
+	font-weight: 600;
+}
+
+.local-nav-list {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.25rem 0.75rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.local-nav-list a {
+	color: var(--accent);
+	text-decoration: none;
+}
+
+.local-nav-list a[aria-current='page'] {
+	color: var(--fg);
+	font-weight: 600;
+}
+
+.local-nav-trigger,
+.quick-pin-toggle {
+	cursor: pointer;
+	background: transparent;
+	color: var(--accent);
+	border: 1px solid var(--accent);
+	padding: 0.2rem 0.6rem;
+	border-radius: 0.4rem;
+	font-size: 0.8rem;
+}
+
+/* Compact profile: local section nav becomes a drawer/sheet (NAV-003 AC2). */
+.local-nav-backdrop {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.35);
+	display: flex;
+	justify-content: flex-start;
+	z-index: 60;
+}
+
+.local-nav-sheet {
+	width: min(320px, 86vw);
+	height: 100%;
+	overflow: auto;
+	background: var(--card);
+	border-right: 1px solid var(--border);
+	padding: 1rem;
+	box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+	display: grid;
+	gap: 0.75rem;
+	align-content: start;
+}
+
+.local-nav-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+}
+
+.local-nav-sheet .local-nav-list {
+	display: grid;
+	gap: 0.5rem;
+}
+
+.contextual-nav,
+.quick-access {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.35rem 1rem;
+}
+
+.contextual-group,
+.quick-group {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	min-width: 0;
+}
+
+.contextual-group ul,
+.quick-group ul {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem 0.6rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.contextual-group a,
+.quick-group a {
+	color: var(--accent);
+	text-decoration: none;
+}
+
+.contextual-label,
+.quick-label {
+	color: var(--muted);
+	text-transform: uppercase;
+	font-size: 0.7rem;
+	letter-spacing: 0.04em;
+}
+
+.contextual-reason {
+	color: var(--muted);
+	font-size: 0.72rem;
+	margin-left: 0.3rem;
+}
+
 .loading {
 	color: var(--muted);
 }

@@ -1,10 +1,24 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { listNavigationSections } from '@dndtools/v2-core';
+	import { onMount, untrack } from 'svelte';
+	import { page } from '$app/state';
+	import {
+		listNavigationSections,
+		listReachableDestinations,
+		resolveNavigationView,
+	} from '@dndtools/v2-core';
 	import { SceneRuntime, defaultEnvironment } from '$lib/canvas-runtime/runtime.svelte';
 	import { provideRuntime } from '$lib/state/runtime-context';
 	import { PlatformProfileStore, provideProfile } from '$lib/platform/platform-profile.svelte';
+	import {
+		NavigationHistoryStore,
+		provideNavigationHistory,
+	} from '$lib/platform/navigation-history.svelte';
+	import { locationFromPath } from '$lib/state/navigation-location';
 	import CommandPalette from '$lib/gui/CommandPalette.svelte';
+	import Breadcrumbs from '$lib/gui/Breadcrumbs.svelte';
+	import LocalNav from '$lib/gui/LocalNav.svelte';
+	import ContextualNav from '$lib/gui/ContextualNav.svelte';
+	import QuickAccess from '$lib/gui/QuickAccess.svelte';
 	import './styles.css';
 
 	const { children } = $props();
@@ -18,6 +32,9 @@
 	const profile = new PlatformProfileStore();
 	provideProfile(profile);
 
+	const history = new NavigationHistoryStore();
+	provideNavigationHistory(history);
+
 	onMount(() => {
 		void runtime.load();
 		return profile.init();
@@ -28,6 +45,40 @@
 	// players/observers rather than disabled, so navigation never leaks a hidden
 	// section (NAV-010 AC1).
 	const sections = $derived(listNavigationSections(runtime.state.permissions, runtime.activeActorId));
+
+	// Contextual navigation (NAV-003): the route is the single source of truth. The
+	// whole navigation view — breadcrumbs, local section nav, contextual links — is
+	// derived once from the current route's location, so no surface holds conflicting
+	// route state. Following any breadcrumb/backlink is an ordinary route change that
+	// updates browser history coherently (NAV-003 AC1).
+	const location = $derived(locationFromPath(page.url.pathname));
+	const navView = $derived(resolveNavigationView(runtime.state, runtime.activeActorId, location));
+	const reachable = $derived(listReachableDestinations(runtime.state, runtime.activeActorId));
+	const currentEntry = $derived.by(() => {
+		const crumb = navView.breadcrumbs.at(-1);
+		return crumb ? { route: crumb.route, title: crumb.title } : null;
+	});
+	const showSubheader = $derived(
+		navView.breadcrumbs.length > 1 ||
+			navView.localItems.length > 0 ||
+			navView.backlinks.length > 0 ||
+			navView.related.length > 0 ||
+			history.pinned.length > 0 ||
+			history.recent.length > 0,
+	);
+
+	// Record the current reachable destination as a recent visit (device-local only).
+	// `untrack` keeps the store write out of this effect's dependency set, and the
+	// route guard records at most once per route change.
+	let lastRecordedRoute = '';
+	$effect(() => {
+		if (!runtime.loaded) return;
+		const entry = currentEntry;
+		if (!entry || entry.route === lastRecordedRoute) return;
+		if (!reachable.some((destination) => destination.route === entry.route)) return;
+		lastRecordedRoute = entry.route;
+		untrack(() => history.recordVisit(entry));
+	});
 </script>
 
 <header class="app-header">
@@ -52,6 +103,18 @@
 		</label>
 	</nav>
 </header>
+
+{#if showSubheader}
+	<div class="nav-subheader" data-testid="nav-subheader">
+		<Breadcrumbs crumbs={navView.breadcrumbs} />
+		<LocalNav
+			label={`${navView.section?.title ?? 'Section'} navigation`}
+			items={navView.localItems}
+		/>
+		<ContextualNav backlinks={navView.backlinks} related={navView.related} />
+		<QuickAccess {reachable} current={currentEntry} />
+	</div>
+{/if}
 
 <main class="app-main">
 	{#if !runtime.loaded}

@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 78
+  approved: 77
   active: 0
-  complete: 10
+  complete: 11
   deferred: 0
 metrics:
-  epicCompletionPercent: 11.4
-  requirementCompletionPercent: 12
+  epicCompletionPercent: 12.5
+  requirementCompletionPercent: 12.4
   totalRequirements: 234
-  completedRequirements: 28
+  completedRequirements: 29
   deferredRequirements: 0
-  remainingEpics: 78
-  promptableEpics: 78
+  remainingEpics: 77
+  promptableEpics: 77
   blockedByDependencies: 0
-  completionEvidenceFiles: 10
+  completionEvidenceFiles: 11
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -122,13 +122,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: NAV
       totalEpics: 5
-      complete: 1
+      complete: 2
       active: 0
-      approved: 4
+      approved: 3
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 20
-      requirementCompletionPercent: 20
+      epicCompletionPercent: 40
+      requirementCompletionPercent: 30
     - domain: PERF
       totalEpics: 4
       complete: 0
@@ -193,15 +193,16 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: NAV-global-local-contextual-navigation
-  title: "NAV: Global/local/contextual navigation"
+  id: NAV-home-and-canonical-sections
+  title: "NAV: Home and canonical sections"
   status: approved
   requirementIds:
-    - NAV-003
-  promptCommand: pnpm v2:prompt -- --epic NAV-global-local-contextual-navigation
+    - NAV-001
+    - NAV-009
+  promptCommand: pnpm v2:prompt -- --epic NAV-home-and-canonical-sections
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    NAV-global-local-contextual-navigation --status active
+    NAV-home-and-canonical-sections --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -556,10 +557,11 @@ epics:
       - NAV-010
     completionEvidenceFile: docs/planning/v2/epics/NAV-command-palette-and-actor-filtering.completion.md
   - id: NAV-global-local-contextual-navigation
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - NAV-003
+    completionEvidenceFile: docs/planning/v2/epics/NAV-global-local-contextual-navigation.completion.md
   - id: NAV-home-and-canonical-sections
     status: approved
     approved: true

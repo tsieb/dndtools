@@ -270,6 +270,19 @@ export type {
 export { NAVIGATION_SECTIONS, listNavigationSections } from './queries/navigation';
 
 export type {
+	ContextualLink,
+	ContextualLinkKind,
+	NavigationCrumb,
+	NavigationDestination,
+	NavigationEntityType,
+	NavigationItem,
+	NavigationLocation,
+	NavigationStateView,
+	NavigationView,
+} from './queries/navigation-view';
+export { listReachableDestinations, resolveNavigationView } from './queries/navigation-view';
+
+export type {
 	CommandCategory,
 	PaletteCommand,
 	PaletteCoreCommand,
