@@ -21,8 +21,6 @@ Verify:
 - status was updated programmatically, not by independently editing generated YAML
 - completion evidence includes demo notes, tests, traceability, known gaps, and final
   `git status --short` evidence
-- the epic was developed on its own `epic/<epic-id>` branch, merged back into the main v2 branch
-  `v2-clean-slate`, and that branch was pushed
 - the branch leaves no untracked or unstaged epic work
 
 Return findings first, ordered by severity, with file and line references. If there are no
