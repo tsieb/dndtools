@@ -1,6 +1,7 @@
 import { dispatchWidgetCommandInputSchema } from '../schemas/commands';
 import { hasGrantedCapability } from '../permissions/grants';
 import { evaluateSceneVisibility } from '../permissions/visibility';
+import { commandBindingBlock } from '../queries/binding';
 import {
 	findWidgetDefinition,
 	findPackageRecordForWidgetType,
@@ -17,6 +18,28 @@ import {
 	requireScene,
 	validateObjectAgainstSchema,
 } from './helpers';
+
+function projectedAssignmentIncludesWidget(
+	state: CoreStateSlice,
+	actorId: string,
+	sceneId: string,
+	widgetInstanceId: string,
+): boolean {
+	const assignment = state.session.playerViewAssignments[actorId];
+	if (!assignment || assignment.target.sceneId !== sceneId) return false;
+	if (
+		assignment.target.widgetInstanceIds &&
+		!assignment.target.widgetInstanceIds.includes(widgetInstanceId)
+	) {
+		return false;
+	}
+	if (!assignment.target.sectionIds) return true;
+	const scene = state.scenes.scenes[sceneId];
+	if (!scene) return false;
+	return scene.sections
+		.filter((section) => assignment.target.sectionIds?.includes(section.id))
+		.some((section) => section.widgetInstanceIds.includes(widgetInstanceId));
+}
 
 function actorCanUseWidgetCommand(
 	state: CoreStateSlice,
@@ -63,16 +86,6 @@ export function handleDispatchWidgetCommand(
 	}
 	const scene = requireScene(state, parsed.data.sceneId);
 	if ('code' in scene) return reject(scene, state);
-	const visibility = evaluateSceneVisibility(scene, actor);
-	if (visibility.kind !== 'visible') {
-		return reject(
-			{
-				code: 'hidden-target',
-				message: `Scene ${scene.id} is not visible to actor ${actor.id}.`,
-			},
-			state,
-		);
-	}
 	if (parsed.data.expectedRevision !== scene.ownership.revision) {
 		return reject(
 			{
@@ -92,6 +105,19 @@ export function handleDispatchWidgetCommand(
 			state,
 		);
 	}
+	const visibility = evaluateSceneVisibility(scene, actor, state.permissions);
+	if (
+		visibility.kind !== 'visible' &&
+		!projectedAssignmentIncludesWidget(state, actor.id, scene.id, widget.id)
+	) {
+		return reject(
+			{
+				code: 'hidden-target',
+				message: `Scene ${scene.id} is not visible to actor ${actor.id}.`,
+			},
+			state,
+		);
+	}
 	if (widget.disabled) {
 		return reject(
 			{
@@ -101,14 +127,12 @@ export function handleDispatchWidgetCommand(
 			state,
 		);
 	}
-	if (widget.binding && widget.binding.source.selector?.startsWith('hidden:')) {
-		return reject(
-			{
-				code: 'hidden-target',
-				message: 'Widget command targets a hidden binding path.',
-			},
-			state,
-		);
+	// Durable commands must not write through a hidden or conflicted binding. This
+	// fails closed for every actor, including the DM, who must reveal or resolve the
+	// target through an explicit command rather than silently overwriting a version.
+	const bindingBlock = commandBindingBlock(widget.binding);
+	if (bindingBlock) {
+		return reject({ code: bindingBlock.code, message: bindingBlock.message }, state);
 	}
 	const packageRecord = findPackageRecordForWidgetType(state.widgets, widget.type);
 	if (!packageRecord || packageRecord.removedAt) {
@@ -158,6 +182,15 @@ export function handleDispatchWidgetCommand(
 				code: 'invalid-payload',
 				message: 'Widget command payload failed schema validation.',
 				issues,
+			},
+			state,
+		);
+	}
+	if (descriptor.writesTo === 'session' && state.session.workflow !== 'active') {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: `Session widget commands require an active workflow; current workflow is ${state.session.workflow}.`,
 			},
 			state,
 		);

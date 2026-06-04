@@ -1,8 +1,8 @@
-import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
+import { auditImportCycles } from '../../scripts/import-cycle-audit';
 
 const repoRoot = process.cwd();
 const configPath = path.join(repoRoot, 'eslint.config.js');
@@ -115,12 +115,7 @@ describe('runtime boundary lint rules — circular dependencies', () => {
 	it.each(['src/', 'electron/', 'mcp/'])(
 		'%s has no circular imports',
 		(dir) => {
-			const output = execSync(`npx madge --circular --extensions ts,js --json ${dir}`, {
-				encoding: 'utf-8',
-				timeout: 120_000,
-			});
-			const cycles: string[][] = JSON.parse(output);
-			expect(cycles).toEqual([]);
+			expect(auditImportCycles(repoRoot, dir).cycles).toEqual([]);
 		},
 		120_000,
 	);

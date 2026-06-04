@@ -153,8 +153,8 @@ export default ts.config(
 	{
 		ignores: [
 			'**/dist/',
-			'.svelte-kit/',
-			'build/',
+			'**/.svelte-kit/',
+			'**/build/',
 			'dist/',
 			'node_modules/',
 			'mcp/dist/',

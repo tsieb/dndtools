@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 86
+  approved: 78
   active: 0
-  complete: 2
+  complete: 10
   deferred: 0
 metrics:
-  epicCompletionPercent: 2.3
-  requirementCompletionPercent: 4.7
+  epicCompletionPercent: 11.4
+  requirementCompletionPercent: 12
   totalRequirements: 234
-  completedRequirements: 11
+  completedRequirements: 28
   deferredRequirements: 0
-  remainingEpics: 86
-  promptableEpics: 86
+  remainingEpics: 78
+  promptableEpics: 78
   blockedByDependencies: 0
-  completionEvidenceFiles: 2
+  completionEvidenceFiles: 10
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -41,13 +41,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: CANVAS
       totalEpics: 5
-      complete: 2
+      complete: 5
       active: 0
-      approved: 3
+      approved: 0
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 40
-      requirementCompletionPercent: 61.1
+      epicCompletionPercent: 100
+      requirementCompletionPercent: 100
     - domain: CHAR
       totalEpics: 6
       complete: 0
@@ -59,13 +59,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: CMD
       totalEpics: 4
-      complete: 0
+      complete: 4
       active: 0
-      approved: 4
+      approved: 0
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 0
-      requirementCompletionPercent: 0
+      epicCompletionPercent: 100
+      requirementCompletionPercent: 100
     - domain: COLLAB
       totalEpics: 5
       complete: 0
@@ -122,13 +122,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: NAV
       totalEpics: 5
-      complete: 0
+      complete: 1
       active: 0
-      approved: 5
+      approved: 4
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 0
-      requirementCompletionPercent: 0
+      epicCompletionPercent: 20
+      requirementCompletionPercent: 20
     - domain: PERF
       totalEpics: 4
       complete: 0
@@ -193,18 +193,15 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: AUDIO-assets-licensing-and-source-scope
-  title: "AUDIO: Assets, licensing, and source scope"
+  id: NAV-global-local-contextual-navigation
+  title: "NAV: Global/local/contextual navigation"
   status: approved
   requirementIds:
-    - AUDIO-004
-    - AUDIO-009
-    - AUDIO-010
-    - AUDIO-011
-  promptCommand: pnpm v2:prompt -- --epic AUDIO-assets-licensing-and-source-scope
+    - NAV-003
+  promptCommand: pnpm v2:prompt -- --epic NAV-global-local-contextual-navigation
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    AUDIO-assets-licensing-and-source-scope --status active
+    NAV-global-local-contextual-navigation --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -240,19 +237,21 @@ epics:
     requirementIds:
       - AUDIO-001
   - id: CANVAS-layout-accessibility
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CANVAS-012
       - CANVAS-016
+    completionEvidenceFile: docs/planning/v2/epics/CANVAS-layout-accessibility.completion.md
   - id: CANVAS-player-view-and-projection
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CANVAS-005
       - CANVAS-006
       - CANVAS-007
       - CANVAS-015
+    completionEvidenceFile: docs/planning/v2/epics/CANVAS-player-view-and-projection.completion.md
   - id: CANVAS-scene-state
     status: complete
     approved: true
@@ -264,11 +263,12 @@ epics:
       - CANVAS-018
     completionEvidenceFile: docs/planning/v2/epics/CANVAS-scene-state.completion.md
   - id: CANVAS-widget-data-safety
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CANVAS-009
       - CANVAS-010
+    completionEvidenceFile: docs/planning/v2/epics/CANVAS-widget-data-safety.completion.md
   - id: CANVAS-widget-lifecycle
     status: complete
     approved: true
@@ -321,29 +321,33 @@ epics:
     requirementIds:
       - CHAR-006
   - id: CMD-active-session-control
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CMD-003
       - CMD-006
+    completionEvidenceFile: docs/planning/v2/epics/CMD-active-session-control.completion.md
   - id: CMD-home-scene
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CMD-001
       - CMD-002
       - CMD-007
+    completionEvidenceFile: docs/planning/v2/epics/CMD-home-scene.completion.md
   - id: CMD-player-view-control
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CMD-004
+    completionEvidenceFile: docs/planning/v2/epics/CMD-player-view-control.completion.md
   - id: CMD-widget-library-and-actions
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CMD-005
       - CMD-008
+    completionEvidenceFile: docs/planning/v2/epics/CMD-widget-library-and-actions.completion.md
   - id: COLLAB-authority-filtering-and-cache-privacy
     status: approved
     approved: true
@@ -545,11 +549,12 @@ epics:
       - MCP-008
       - MCP-013
   - id: NAV-command-palette-and-actor-filtering
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - NAV-008
       - NAV-010
+    completionEvidenceFile: docs/planning/v2/epics/NAV-command-palette-and-actor-filtering.completion.md
   - id: NAV-global-local-contextual-navigation
     status: approved
     approved: true

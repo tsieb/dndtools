@@ -1,16 +1,20 @@
 import type { ActorId, OperationId, SceneId } from '../state/ids';
 import type { Clock, IdGenerator } from '../state/ids';
+import type { CommandCenterState } from '../state/command-center-state';
+import type { MapState } from '../state/map-state';
 import type { PermissionState } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
-import type { SessionState } from '../state/session-state';
+import type { SessionWorkflowState, SessionState } from '../state/session-state';
 import type { WidgetPackageState } from '../state/widget-package-state';
 import type { OperationLog, SyncOperation } from '../sync/operation-log';
 
 export interface CoreStateSlice {
 	scenes: SceneState;
+	maps: MapState;
 	permissions: PermissionState;
 	session: SessionState;
 	widgets: WidgetPackageState;
+	commandCenter: CommandCenterState;
 	sync: OperationLog;
 }
 
@@ -40,7 +44,9 @@ export type CoreCommand =
 	| { type: 'scene.move-group'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.dock-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.pin-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene.set-focus-order'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.destroy-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene.configure-widget'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'widget.package.install'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'widget.package.enable'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'widget.package.disable'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -48,6 +54,46 @@ export type CoreCommand =
 	| { type: 'widget.package.upgrade'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| {
 			type: 'widget.dispatch-command';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'command-center.ensure-home';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'command-center.save-preset';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'command-center.apply-preset';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.project-player-view';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.revoke-player-view';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| { type: 'session.set-workflow'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.update-combat'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.record-dice'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.set-active-map'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'session.project-active-map';
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
@@ -63,9 +109,15 @@ export type CoreEvent =
 			sceneId: SceneId;
 			widgetInstanceId: string;
 			actorId: ActorId;
-			field: 'position' | 'size' | 'z' | 'dock' | 'pin' | 'group';
+			field: 'position' | 'size' | 'z' | 'dock' | 'pin' | 'group' | 'focusOrder';
 	  }
 	| { kind: 'scene.widget-destroyed'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId }
+	| {
+			kind: 'scene.widget-configured';
+			sceneId: SceneId;
+			widgetInstanceId: string;
+			actorId: ActorId;
+	  }
 	| {
 			kind: 'scene.template-saved';
 			templateSceneId: SceneId;
@@ -83,7 +135,66 @@ export type CoreEvent =
 	| { kind: 'widget.package-disabled'; packageId: string; actorId: ActorId }
 	| { kind: 'widget.package-removed'; packageId: string; actorId: ActorId }
 	| { kind: 'widget.package-upgraded'; packageId: string; actorId: ActorId }
-	| { kind: 'session.timer-started'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId };
+	| { kind: 'session.timer-started'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId }
+	| { kind: 'command-center.home-created'; sceneId: SceneId; actorId: ActorId }
+	| { kind: 'command-center.home-ready'; sceneId: SceneId; actorId: ActorId }
+	| {
+			kind: 'command-center.preset-saved';
+			presetId: string;
+			sceneId: SceneId;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'command-center.preset-restored';
+			presetId: string;
+			sceneId: SceneId;
+			actorId: ActorId;
+			restoredWidgetCount: number;
+			missingWidgetTypes: string[];
+	  }
+	| {
+			kind: 'session.player-view-projected';
+			assignmentId: string;
+			sceneId: SceneId;
+			playerActorId: ActorId;
+			actorId: ActorId;
+			deliveryStatus: 'delivered' | 'queued';
+	  }
+	| {
+			kind: 'session.player-view-revoked';
+			assignmentId: string;
+			sceneId: SceneId;
+			playerActorId: ActorId;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'session.workflow-changed';
+			actorId: ActorId;
+			from: SessionWorkflowState;
+			to: SessionWorkflowState;
+			activeSceneId: SceneId | null;
+			recapArchiveId: string | null;
+	  }
+	| { kind: 'session.archived'; actorId: ActorId; archiveId: string }
+	| { kind: 'session.combat-updated'; actorId: ActorId; revision: number }
+	| { kind: 'session.dice-recorded'; actorId: ActorId; rollId: string }
+	| {
+			kind: 'session.active-map-changed';
+			actorId: ActorId;
+			sceneId: SceneId;
+			widgetInstanceId: string;
+			mapId: string;
+			regionId: string | null;
+	  }
+	| {
+			kind: 'session.active-map-projected';
+			actorId: ActorId;
+			playerActorId: ActorId;
+			projectionId: string;
+			mapId: string;
+			regionId: string | null;
+			deliveryStatus: 'delivered' | 'queued';
+	  };
 
 export type RejectionCode =
 	| 'unknown-actor'
@@ -96,9 +207,13 @@ export type RejectionCode =
 	| 'invalid-payload'
 	| 'idempotency-replay'
 	| 'invalid-state'
+	| 'map-not-found'
 	| 'revision-conflict'
 	| 'hidden-target'
-	| 'template-source-not-template';
+	| 'conflicted-target'
+	| 'template-source-not-template'
+	| 'command-center-not-configured'
+	| 'preset-not-found';
 
 export interface CommandRejection {
 	code: RejectionCode;

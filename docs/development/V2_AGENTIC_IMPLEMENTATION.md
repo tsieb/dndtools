@@ -123,15 +123,21 @@ Each epic must be completed to a high-quality standard across all relevant facet
 
 ## Git Slate
 
-Each epic should use one branch and leave a clean slate when complete:
+Each epic gets its own branch off the main v2 branch `v2-clean-slate`, merges back into it on
+completion, and leaves a clean slate:
 
 - Start with `git status --short`.
+- Branch the epic off the main v2 branch:
+  `git checkout v2-clean-slate && git pull && git checkout -b epic/<epic-id>`.
 - Do not overwrite unrelated user changes.
 - Commit all code, docs, tests, completion evidence, and generated workpack updates that belong to
   the epic.
 - Do not use `--no-verify`.
+- On completion, merge the epic branch back into the main v2 branch and push the result:
+  `git checkout v2-clean-slate && git pull && git merge --no-ff epic/<epic-id> && git push origin v2-clean-slate`.
 - Final completion evidence must include the final `git status --short` output.
-- The final handoff must report branch, commit or PR, tests, status command, and known gaps.
+- The final handoff must report branch, the merge into `v2-clean-slate` and its push, commit or PR,
+  tests, status command, and known gaps.
 
 ## Programmatic Verification
 

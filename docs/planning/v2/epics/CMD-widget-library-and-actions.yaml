@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CMD-widget-library-and-actions
 title: "CMD: Widget library and actions"
-status: approved
+status: complete
 approved: true
 domain: CMD
 capabilityBranch: Widget library and actions
@@ -100,12 +100,17 @@ qualityBar:
 gitWorkflow:
   - Start from a clean working tree. Run `git status --short` before editing and
     stop if unrelated changes overlap this epic.
-  - Use one branch per epic from the correct base branch, and keep all commits
-    scoped to the assigned epic.
+  - "Create a fresh branch for this epic off the main v2 branch
+    `v2-clean-slate`: `git checkout v2-clean-slate && git pull && git checkout
+    -b epic/CMD-widget-library-and-actions`. Keep all commits scoped to the
+    assigned epic."
   - Never reset, overwrite, or reformat unrelated user changes. Work around
     existing dirty files unless they block the epic.
   - Commit the code, docs, tests, generated workpack updates, and completion
     evidence needed for the epic before handoff.
+  - "On completion, merge the epic branch back into the main v2 branch and push
+    the result: `git checkout v2-clean-slate && git pull && git merge --no-ff
+    epic/CMD-widget-library-and-actions && git push origin v2-clean-slate`."
   - "Leave a clean slate when the epic is complete: no untracked files, no
     unstaged edits, and no stale generated planning diffs caused by the epic."
 statusAutomation:
@@ -158,3 +163,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/CMD-widget-library-and-actions.completion.md

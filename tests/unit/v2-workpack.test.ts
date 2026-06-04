@@ -230,4 +230,44 @@ describe('v2 workpack tooling', () => {
 		const parsedYaml = YAML.parse(YAML.stringify(approvedEpic)) as EpicPacket;
 		expect(parsedYaml.id).toBe(approvedEpic.id);
 	});
+
+	it('orders dependency-ready epics by precedence: explicit epics, then domains', async () => {
+		const root = makeFixtureRoot();
+		const { epics } = await generateWorkpack(root);
+		const base = {
+			...(epics[0] as EpicPacket),
+			status: 'approved' as const,
+			approved: true,
+			dependencies: [],
+		};
+		const make = (id: string, domain: string): EpicPacket => ({ ...base, id, domain });
+		const pool = [make('AUDIO-x', 'AUDIO'), make('CANVAS-y', 'CANVAS'), make('CMD-z', 'CMD')];
+
+		// No precedence falls back to a stable alphabetical pick.
+		expect(findNextEpic(pool)?.id).toBe('AUDIO-x');
+		// Domain order takes precedence over alphabetical.
+		expect(findNextEpic(pool, { domains: ['CANVAS', 'CMD', 'AUDIO'], epics: [] })?.id).toBe(
+			'CANVAS-y',
+		);
+		// An explicit epic jumps the queue ahead of domain order.
+		expect(
+			findNextEpic(pool, { domains: ['CANVAS', 'CMD', 'AUDIO'], epics: ['AUDIO-x'] })?.id,
+		).toBe('AUDIO-x');
+	});
+
+	it('flags precedence that references unknown domains or epics', async () => {
+		const root = makeFixtureRoot();
+		await generateWorkpack(root);
+		const statePath = path.join(root, 'docs', 'planning', 'v2', 'workpack-state.yaml');
+		const state = YAML.parse(fs.readFileSync(statePath, 'utf-8')) as Record<string, unknown>;
+		state.precedence = {
+			domains: ['CANVAS', 'BOGUS'],
+			epics: ['CANVAS-scene-state', 'NOPE-epic'],
+		};
+		fs.writeFileSync(statePath, YAML.stringify(state), 'utf-8');
+
+		const messages = (await validateWorkpack(root)).map((issue) => issue.message);
+		expect(messages).toContain('Precedence references unknown domain: BOGUS');
+		expect(messages).toContain('Precedence references unknown epic id: NOPE-epic');
+	});
 });

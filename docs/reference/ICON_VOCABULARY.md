@@ -1,7 +1,7 @@
 # Icon Vocabulary
 
 This document defines the canonical icon for every domain concept in the application.
-All icons are sourced from [Lucide Icons](https://lucide.dev/) via the `lucide-svelte` package
+All icons are sourced from [Lucide Icons](https://lucide.dev/) via the `@lucide/svelte` package
 and rendered through `src/lib/ui/common/Icon.svelte`.
 
 ## Usage
@@ -100,7 +100,7 @@ They are not part of the domain vocabulary and must not be used for other purpos
 
 ## Constraints
 
-1. **Single source of truth** — All icons come from `lucide-svelte` via the `Icon` component.
+1. **Single source of truth** — All icons come from `@lucide/svelte` via the `Icon` component.
    No inline SVG markup in component files.
 2. **Registered icons only** — The `Icon` component's lookup table (`ICON_MAP` in
    `src/lib/ui/common/Icon.svelte`) is the authoritative registry. Adding a new icon
@@ -120,7 +120,7 @@ They are not part of the domain vocabulary and must not be used for other purpos
 1. Confirm the Lucide icon name at [lucide.dev/icons](https://lucide.dev/icons).
 2. Add the import to `src/lib/ui/common/Icon.svelte` using the individual icon path:
    ```ts
-   import NewIcon from 'lucide-svelte/icons/new-icon-name';
+   import NewIcon from '@lucide/svelte/icons/new-icon-name';
    ```
 3. Add the entry to `ICON_MAP` in `Icon.svelte`.
 4. Export the updated `IconName` type (union is derived automatically via `satisfies`).

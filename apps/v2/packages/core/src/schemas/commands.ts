@@ -143,12 +143,32 @@ export const pinWidgetInputSchema = z
 	})
 	.strict();
 
+export const setWidgetFocusOrderInputSchema = z
+	.object({
+		sceneId: idSchema,
+		widgetInstanceId: idSchema,
+		focusOrder: z.union([z.literal(null), z.number().int().nonnegative()]),
+	})
+	.strict();
+
 export const destroyWidgetInputSchema = z
 	.object({
 		sceneId: idSchema,
 		widgetInstanceId: idSchema,
 	})
 	.strict();
+
+export const configureWidgetInputSchema = z
+	.object({
+		sceneId: idSchema,
+		widgetInstanceId: idSchema,
+		configuration: z.record(z.string(), z.unknown()).optional(),
+		binding: z.union([z.literal(null), widgetBindingSchema]).optional(),
+	})
+	.strict()
+	.refine((value) => value.configuration !== undefined || value.binding !== undefined, {
+		message: 'Configuration or binding is required.',
+	});
 
 export const moveGroupInputSchema = z
 	.object({
@@ -197,5 +217,89 @@ export const dispatchWidgetCommandInputSchema = z
 		commandType: z.string().min(1),
 		payload: z.record(z.string(), z.unknown()).default({}),
 		expectedRevision: z.number().int().nonnegative(),
+	})
+	.strict();
+
+export const ensureCommandCenterHomeInputSchema = z
+	.object({
+		name: z.string().min(1).optional(),
+	})
+	.strict()
+	.default({});
+
+export const saveCommandCenterPresetInputSchema = z
+	.object({
+		name: z.string().min(1, 'Preset name is required'),
+	})
+	.strict();
+
+export const applyCommandCenterPresetInputSchema = z
+	.object({
+		presetId: idSchema,
+	})
+	.strict();
+
+const projectionTargetSchema = z
+	.object({
+		kind: z.enum(['scene', 'widget-subset', 'handout', 'map-region', 'display-state']),
+		sceneId: idSchema,
+		sectionIds: z.union([z.literal(null), z.array(idSchema).min(1)]).default(null),
+		widgetInstanceIds: z.union([z.literal(null), z.array(idSchema).min(1)]).default(null),
+		displayState: z.union([z.literal(null), z.record(z.string(), z.unknown())]).default(null),
+		mapRegion: z
+			.union([z.literal(null), z.object({ mapId: idSchema, regionId: idSchema }).strict()])
+			.default(null),
+	})
+	.strict();
+
+export const projectPlayerViewInputSchema = z
+	.object({
+		playerActorIds: z.array(idSchema).min(1),
+		target: projectionTargetSchema,
+		connectionState: z.enum(['connected', 'offline']).default('connected'),
+	})
+	.strict();
+
+export const revokePlayerViewInputSchema = z
+	.object({
+		playerActorIds: z.array(idSchema).min(1),
+	})
+	.strict();
+
+export const setSessionWorkflowInputSchema = z
+	.object({
+		workflow: z.enum(['idle', 'prep', 'active', 'paused', 'ending', 'recap', 'archived']),
+		activeSceneId: z.union([z.literal(null), idSchema]).optional(),
+	})
+	.strict();
+
+export const updateSessionCombatInputSchema = z
+	.object({
+		encounterId: z.union([z.literal(null), idSchema]).default(null),
+		round: z.number().int().nonnegative().default(0),
+		turn: z.number().int().nonnegative().default(0),
+		combatantIds: z.array(idSchema).default([]),
+	})
+	.strict();
+
+export const recordSessionDiceInputSchema = z
+	.object({
+		expression: z.string().min(1),
+		total: z.number().finite(),
+	})
+	.strict();
+
+export const setActiveMapInputSchema = z
+	.object({
+		mapId: idSchema,
+		regionId: z.union([z.literal(null), idSchema]).default(null),
+		widgetInstanceId: idSchema.optional(),
+	})
+	.strict();
+
+export const projectActiveMapInputSchema = z
+	.object({
+		playerActorIds: z.array(idSchema).min(1),
+		connectionState: z.enum(['connected', 'offline']).default('connected'),
 	})
 	.strict();

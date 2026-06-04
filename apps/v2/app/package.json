@@ -14,19 +14,19 @@
 	},
 	"dependencies": {
 		"@dndtools/v2-core": "workspace:*",
-		"dexie": "^4.2.1"
+		"dexie": "^4.4.3"
 	},
 	"devDependencies": {
-		"@playwright/test": "^1.58.2",
+		"@playwright/test": "^1.60.0",
 		"@sveltejs/adapter-static": "^3.0.10",
-		"@sveltejs/kit": "^2.50.2",
-		"@sveltejs/vite-plugin-svelte": "^6.2.4",
-		"fake-indexeddb": "^6.2.2",
-		"jsdom": "^28.0.0",
-		"svelte": "^5.49.2",
-		"svelte-check": "^4.3.6",
-		"typescript": "^5.9.3",
-		"vite": "^7.3.1",
-		"vitest": "^4.0.18"
+		"@sveltejs/kit": "^2.62.0",
+		"@sveltejs/vite-plugin-svelte": "^7.1.2",
+		"fake-indexeddb": "^6.2.5",
+		"jsdom": "^29.1.1",
+		"svelte": "^5.56.1",
+		"svelte-check": "^4.5.0",
+		"typescript": "^6.0.3",
+		"vite": "^8.0.16",
+		"vitest": "^4.1.8"
 	}
 }

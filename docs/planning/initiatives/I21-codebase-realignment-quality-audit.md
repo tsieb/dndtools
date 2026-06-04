@@ -244,8 +244,8 @@ remediation backlog for any gaps.
 
 - **S21.5.4 — Circular dependency detection**
   Run a circular dependency analysis across `src/`, `electron/`, and `mcp/`. Document
-  and resolve any cycles found. Add `madge` or equivalent to the lint pipeline to
-  prevent future circular imports.
+  and resolve any cycles found. Add the repo-owned import-cycle checker to the lint
+  pipeline to prevent future circular imports.
 
 - **S21.5.5 — Dependency inventory and health check**
   Audit `package.json` dependencies. Identify unused dependencies (via `depcheck` or
@@ -540,7 +540,7 @@ and build pipeline runs at least 20% faster than the Phase A baseline.
 
 - **S21.11.2 — Tree-shaking verification**
   Audit imports for barrel-file re-exports and side-effect imports that prevent tree
-  shaking. Check `lucide-svelte` imports (tree-shakeable?), `unified`/`remark`/`rehype`
+  shaking. Check `@lucide/svelte` imports (tree-shakeable?), `unified`/`remark`/`rehype`
   pipeline imports, `dexie` imports, `codemirror` imports. Fix any imports that pull in
   unnecessary code.
 

@@ -87,5 +87,6 @@ Before final response, report:
 - quality review summary across correctness, architecture, tests, accessibility, performance,
   security, permissions, persistence, sync/offline, UX, maintainability, and docs
 - status command run
-- git branch, commit or PR, and final `git status --short` output
+- git branch, the merge into `v2-clean-slate` and its push, commit or PR, and final
+  `git status --short` output
 - known gaps or deferred items

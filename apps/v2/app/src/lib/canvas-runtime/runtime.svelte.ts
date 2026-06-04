@@ -1,18 +1,21 @@
 import {
+	EMPTY_COMMAND_CENTER_STATE,
+	EMPTY_MAP_STATE,
 	EMPTY_PERMISSION_STATE,
 	EMPTY_SCENE_STATE,
 	EMPTY_SESSION_STATE,
 	createOperationLog,
+	createDemoMapState,
 	createSystemWidgetPackages,
 	mergeSystemWidgetPackages,
 	PERMISSION_STATE_SCHEMA_VERSION,
 	dispatchCommand,
 	type ActorId,
+	type Actor,
 	type CommandResult,
 	type CoreCommand,
 	type CoreEnvironment,
 	type CoreStateSlice,
-	type SceneId,
 } from '@dndtools/v2-core';
 import { loadCoreState, persistFullState } from '../platform/storage/scene-store';
 
@@ -20,6 +23,12 @@ interface RuntimeOptions {
 	env: CoreEnvironment;
 	defaultActorId: ActorId;
 }
+
+const DEFAULT_DEMO_PARTICIPANTS: Actor[] = [
+	{ id: 'actor-player', role: 'player', displayName: 'Demo Player' },
+	{ id: 'actor-player-2', role: 'player', displayName: 'Demo Player 2' },
+	{ id: 'actor-player-3', role: 'player', displayName: 'Demo Player 3' },
+];
 
 function browserIdGenerator(): string {
 	if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -44,21 +53,49 @@ export function defaultEnvironment(): CoreEnvironment {
 export class SceneRuntime {
 	#state = $state<CoreStateSlice>({
 		scenes: { scenes: {}, schemaVersion: EMPTY_SCENE_STATE.schemaVersion },
+		maps: { maps: { ...EMPTY_MAP_STATE.maps }, schemaVersion: EMPTY_MAP_STATE.schemaVersion },
 		permissions: {
 			actors: {},
 			grants: [],
 			schemaVersion: EMPTY_PERMISSION_STATE.schemaVersion,
 		},
-		session: { timers: {}, schemaVersion: EMPTY_SESSION_STATE.schemaVersion },
+		session: {
+			workflow: EMPTY_SESSION_STATE.workflow,
+			workflowRevision: EMPTY_SESSION_STATE.workflowRevision,
+			activeSceneId: EMPTY_SESSION_STATE.activeSceneId,
+			activeMap: EMPTY_SESSION_STATE.activeMap,
+			combat: {
+				...EMPTY_SESSION_STATE.combat,
+				combatantIds: [...EMPTY_SESSION_STATE.combat.combatantIds],
+			},
+			diceHistory: [...EMPTY_SESSION_STATE.diceHistory],
+			timers: {},
+			playerViewAssignments: {},
+			activeMapProjections: {},
+			recapArchiveId: null,
+			archives: {},
+			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
+		},
 		widgets: createSystemWidgetPackages(),
+		commandCenter: {
+			homeSceneId: EMPTY_COMMAND_CENTER_STATE.homeSceneId,
+			presets: {},
+			schemaVersion: EMPTY_COMMAND_CENTER_STATE.schemaVersion,
+		},
 		sync: createOperationLog(),
 	});
 	#options: RuntimeOptions;
 	#loaded = $state(false);
 	#lastError = $state<string | null>(null);
+	// The actor whose actor-filtered view the GUI is currently rendering. Choosing
+	// whose view to render is a GUI concern (Contract 1); the Processing Core still
+	// enforces every visibility and permission check. Defaults to the session DM and
+	// can be switched ("view as") to demonstrate actor filtering (NAV-008/NAV-010).
+	#activeActorId = $state<ActorId>('');
 
 	constructor(options: RuntimeOptions) {
 		this.#options = options;
+		this.#activeActorId = options.defaultActorId;
 	}
 
 	get state(): CoreStateSlice {
@@ -73,8 +110,27 @@ export class SceneRuntime {
 		return this.#lastError;
 	}
 
+	/** The actor whose filtered view is currently rendered. Existing call sites read
+	 *  this; it now tracks the active "view as" actor rather than a fixed default. */
 	get defaultActorId(): ActorId {
-		return this.#options.defaultActorId;
+		return this.#activeActorId;
+	}
+
+	get activeActorId(): ActorId {
+		return this.#activeActorId;
+	}
+
+	/** Actors available to view the app as, sorted DM-first then by name. */
+	get actors(): Actor[] {
+		return Object.values(this.#state.permissions.actors).sort((a, b) => {
+			if (a.role !== b.role) return a.role === 'dm' ? -1 : b.role === 'dm' ? 1 : 0;
+			return a.displayName.localeCompare(b.displayName);
+		});
+	}
+
+	/** Switch the actor whose filtered view the GUI renders. Ignores unknown actors. */
+	setActiveActor(actorId: ActorId): void {
+		if (this.#state.permissions.actors[actorId]) this.#activeActorId = actorId;
 	}
 
 	async load(): Promise<void> {
@@ -85,16 +141,43 @@ export class SceneRuntime {
 
 	#ensureDefaultActor(slice: CoreStateSlice): CoreStateSlice {
 		const id = this.#options.defaultActorId;
-		const withDefaultWidgets = { ...slice, widgets: mergeSystemWidgetPackages(slice.widgets) };
-		if (withDefaultWidgets.permissions.actors[id]) return withDefaultWidgets;
+		const withDefaultWidgets = {
+			...slice,
+			maps: Object.keys(slice.maps.maps).length > 0 ? slice.maps : createDemoMapState(),
+			widgets: mergeSystemWidgetPackages(slice.widgets),
+		};
+		const actors = withDefaultWidgets.permissions.actors;
+		const nextActors: CoreStateSlice['permissions']['actors'] = {
+			...actors,
+			...(actors[id] ? {} : { [id]: { id, role: 'dm' as const, displayName: 'Default DM' } }),
+		};
+		for (const participant of DEFAULT_DEMO_PARTICIPANTS) {
+			nextActors[participant.id] ??= participant;
+		}
+		const session = {
+			...withDefaultWidgets.session,
+			workflow: withDefaultWidgets.session.workflow ?? EMPTY_SESSION_STATE.workflow,
+			workflowRevision:
+				withDefaultWidgets.session.workflowRevision ?? EMPTY_SESSION_STATE.workflowRevision,
+			activeSceneId: withDefaultWidgets.session.activeSceneId ?? null,
+			activeMap: withDefaultWidgets.session.activeMap ?? null,
+			combat: withDefaultWidgets.session.combat ?? {
+				...EMPTY_SESSION_STATE.combat,
+				combatantIds: [...EMPTY_SESSION_STATE.combat.combatantIds],
+			},
+			diceHistory: withDefaultWidgets.session.diceHistory ?? [],
+			timers: withDefaultWidgets.session.timers ?? {},
+			playerViewAssignments: withDefaultWidgets.session.playerViewAssignments ?? {},
+			activeMapProjections: withDefaultWidgets.session.activeMapProjections ?? {},
+			recapArchiveId: withDefaultWidgets.session.recapArchiveId ?? null,
+			archives: withDefaultWidgets.session.archives ?? {},
+		};
 		return {
 			...withDefaultWidgets,
+			session,
 			permissions: {
 				...withDefaultWidgets.permissions,
-				actors: {
-					...withDefaultWidgets.permissions.actors,
-					[id]: { id, role: 'dm', displayName: 'Default DM' },
-				},
+				actors: nextActors,
 				schemaVersion: PERMISSION_STATE_SCHEMA_VERSION,
 			},
 		};

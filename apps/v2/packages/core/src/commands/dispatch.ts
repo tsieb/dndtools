@@ -8,6 +8,7 @@ import {
 } from './scene-meta';
 import {
 	handleAddWidget,
+	handleConfigureWidget,
 	handleDestroyWidget,
 	handleDockWidget,
 	handleGroupWidgets,
@@ -16,8 +17,22 @@ import {
 	handleMoveWidget,
 	handlePinWidget,
 	handleResizeWidget,
+	handleSetWidgetFocusOrder,
 } from './widget';
 import { handleDispatchWidgetCommand } from './widget-command';
+import {
+	handleApplyCommandCenterPreset,
+	handleEnsureCommandCenterHome,
+	handleSaveCommandCenterPreset,
+} from './command-center';
+import { handleProjectPlayerView, handleRevokePlayerView } from './player-view';
+import {
+	handleProjectActiveMap,
+	handleRecordSessionDice,
+	handleSetActiveMap,
+	handleSetSessionWorkflow,
+	handleUpdateSessionCombat,
+} from './session-control';
 import {
 	handleDisableWidgetPackage,
 	handleEnableWidgetPackage,
@@ -58,8 +73,12 @@ export function dispatchCommand(
 			return handleDockWidget(state, env, command.actorId, command.payload);
 		case 'scene.pin-widget':
 			return handlePinWidget(state, env, command.actorId, command.payload);
+		case 'scene.set-focus-order':
+			return handleSetWidgetFocusOrder(state, env, command.actorId, command.payload);
 		case 'scene.destroy-widget':
 			return handleDestroyWidget(state, env, command.actorId, command.payload);
+		case 'scene.configure-widget':
+			return handleConfigureWidget(state, env, command.actorId, command.payload);
 		case 'widget.package.install':
 			return handleInstallWidgetPackage(state, env, command.actorId, command.payload);
 		case 'widget.package.enable':
@@ -78,6 +97,26 @@ export function dispatchCommand(
 				command.payload,
 				command.idempotencyKey,
 			);
+		case 'command-center.ensure-home':
+			return handleEnsureCommandCenterHome(state, env, command.actorId, command.payload);
+		case 'command-center.save-preset':
+			return handleSaveCommandCenterPreset(state, env, command.actorId, command.payload);
+		case 'command-center.apply-preset':
+			return handleApplyCommandCenterPreset(state, env, command.actorId, command.payload);
+		case 'session.project-player-view':
+			return handleProjectPlayerView(state, env, command.actorId, command.payload);
+		case 'session.revoke-player-view':
+			return handleRevokePlayerView(state, env, command.actorId, command.payload);
+		case 'session.set-workflow':
+			return handleSetSessionWorkflow(state, env, command.actorId, command.payload);
+		case 'session.update-combat':
+			return handleUpdateSessionCombat(state, env, command.actorId, command.payload);
+		case 'session.record-dice':
+			return handleRecordSessionDice(state, env, command.actorId, command.payload);
+		case 'session.set-active-map':
+			return handleSetActiveMap(state, env, command.actorId, command.payload);
+		case 'session.project-active-map':
+			return handleProjectActiveMap(state, env, command.actorId, command.payload);
 	}
 }
 
