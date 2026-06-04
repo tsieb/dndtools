@@ -407,12 +407,13 @@ function qualityBar(): string[] {
 	];
 }
 
-function gitWorkflow(): string[] {
+function gitWorkflow(epicId: string): string[] {
 	return [
 		'Start from a clean working tree. Run `git status --short` before editing and stop if unrelated changes overlap this epic.',
-		'Use one branch per epic from the correct base branch, and keep all commits scoped to the assigned epic.',
+		`Create a fresh branch for this epic off the main v2 branch \`v2-clean-slate\`: \`git checkout v2-clean-slate && git pull && git checkout -b epic/${epicId}\`. Keep all commits scoped to the assigned epic.`,
 		'Never reset, overwrite, or reformat unrelated user changes. Work around existing dirty files unless they block the epic.',
 		'Commit the code, docs, tests, generated workpack updates, and completion evidence needed for the epic before handoff.',
+		`On completion, merge the epic branch back into the main v2 branch and push the result: \`git checkout v2-clean-slate && git pull && git merge --no-ff epic/${epicId} && git push origin v2-clean-slate\`.`,
 		'Leave a clean slate when the epic is complete: no untracked files, no unstaged edits, and no stale generated planning diffs caused by the epic.',
 	];
 }
@@ -495,7 +496,7 @@ export function buildEpicPackets(pack: RequirementPackage): EpicPacket[] {
 			},
 			stories: branchRequirements.map((requirement, index) => createStory(requirement, index)),
 			qualityBar: qualityBar(),
-			gitWorkflow: gitWorkflow(),
+			gitWorkflow: gitWorkflow(id),
 			statusAutomation: epicStatusAutomation,
 			testPlan: [
 				'Run unit tests for domain reducers, command validators, and data transforms touched by this epic.',
