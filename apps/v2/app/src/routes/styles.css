@@ -304,6 +304,17 @@ select {
 	color: inherit;
 }
 
+/* Keep form controls within their column: a control sized to its content (e.g. a
+   `<select>` whose widest option is a long operation id) must never exceed the
+   container width, or on a narrow (mobile) viewport it pushes the document wider
+   than the layout viewport. That horizontal overflow shifts the centered `.app-main`
+   column and makes hit-testing controls below it unreliable. */
+input,
+textarea,
+select {
+	max-width: 100%;
+}
+
 .button {
 	cursor: pointer;
 	background: var(--accent);
