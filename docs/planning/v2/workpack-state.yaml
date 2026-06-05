@@ -101,6 +101,9 @@ epics:
   - id: CONTENT-structured-objects-and-wikilinks
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CONTENT-structured-objects-and-wikilinks.completion.md
+  - id: CONTENT-templates-and-snippets
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CONTENT-templates-and-snippets.completion.md
   - id: MAP-interaction-safety
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MAP-interaction-safety.completion.md

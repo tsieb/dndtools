@@ -1389,6 +1389,49 @@ export {
 	validateMarkdownDraft,
 } from './state/content-editor';
 
+// CONTENT-003: pure, deterministic CONTENT TEMPLATES — variable substitution, starter presets, and
+// VALIDATE-BEFORE-WRITE of the generated content through the EXISTING markdown/object validators (no
+// parallel validation path). A missing required variable or invalid generated content is rejected fail
+// closed; visibility fails closed to dm-only so a template can never silently widen visibility.
+export type {
+	ContentTemplate,
+	ContentTemplateKind,
+	ContentTemplatePresetSummary,
+	ContentTemplateVariable,
+	TemplateRenderIssue,
+	TemplateRenderResult,
+} from './state/content-templates';
+export {
+	CONTENT_TEMPLATE_KINDS,
+	CONTENT_TEMPLATE_PRESETS,
+	CONTENT_TEMPLATE_SCHEMA_VERSION,
+	contentTemplatePreset,
+	listContentTemplatePresets,
+	renderTemplate,
+	templatePlaceholders,
+} from './state/content-templates';
+
+// CONTENT-004: reusable SNIPPETS that CANNOT BYPASS validation, sanitization, or visibility. Inserting a
+// snippet produces note text that funnels through the SAME validator (`validateMarkdownDraft`) and the SAME
+// safe block-model renderer (`renderMarkdownPreview`, which never emits raw HTML) as hand-typed content,
+// and a snippet inherits — never widens — the host note's visibility (all fail closed).
+export type {
+	ContentSnippet,
+	ContentSnippetSummary,
+	SnippetInsertionResult,
+	SnippetInsertPosition,
+} from './state/content-snippets';
+export {
+	CONTENT_SNIPPET_LIBRARY,
+	CONTENT_SNIPPET_SCHEMA_VERSION,
+	contentSnippet,
+	inheritedSnippetVisibility,
+	insertSnippet,
+	listContentSnippets,
+	previewInsertedSnippet,
+	snippetCanInsertIntoVisibility,
+} from './state/content-snippets';
+
 // CONTENT-011: THE single actor-filtered CONTENT read model. Per-item visibility decided BEFORE any
 // content is returned to ANY surface (note/graph/search/recap), with STABLE formatted dates. A hidden
 // dated item is OMITTED ENTIRELY from calendar/timeline views (AC2). Deterministic ordering by date.
@@ -1779,8 +1822,10 @@ export {
 	commitContentImportInputSchema,
 	createCharacterDraftInputSchema,
 	createContentItemInputSchema,
+	createFromTemplateInputSchema,
 	defineCalendarInputSchema,
 	exportContentInputSchema,
+	insertSnippetInputSchema,
 	editCharacterFieldInputSchema,
 	finalizeCharacterDraftInputSchema,
 	openAdvancementInputSchema,

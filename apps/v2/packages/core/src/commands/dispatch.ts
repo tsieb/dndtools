@@ -127,6 +127,7 @@ import {
 	handleRepairWikilink,
 	handleUpdateVaultObject,
 } from './vault-object';
+import { handleCreateFromTemplate, handleInsertSnippet } from './content-templates';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 
 export function dispatchCommand(
@@ -365,6 +366,10 @@ export function dispatchCommand(
 			return handleRenameWikilinkTarget(state, env, command.actorId, command.payload);
 		case 'content.repair-wikilink':
 			return handleRepairWikilink(state, env, command.actorId, command.payload);
+		case 'content.create-from-template':
+			return handleCreateFromTemplate(state, env, command.actorId, command.payload);
+		case 'content.insert-snippet':
+			return handleInsertSnippet(state, env, command.actorId, command.payload);
 	}
 }
 

@@ -322,7 +322,15 @@ export type CoreCommand =
 	// Docs). FAIL-CLOSED: a write that would lose/downgrade detected structures is rejected unless the
 	// payload carries the matching acknowledgment token (the pre-write constraint check surfaces exactly
 	// what is lost). The local draft is never mutated by a rejected write.
-	| { type: 'content.write-to-source'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'content.write-to-source'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CONTENT-003: create a note/object FROM A STARTER PRESET with variables. The generated content is
+	// validated through the EXISTING pipeline BEFORE the write; a missing required variable or invalid
+	// generated content is rejected fail-closed. Visibility fails closed to dm-only (no silent widening).
+	| { type: 'content.create-from-template'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CONTENT-004: insert a SNIPPET into an existing note. The result funnels through the SAME
+	// validation + sanitization (render) + visibility pipeline as hand-typed content — a snippet cannot
+	// skip validation, smuggle unsanitized markdown, or widen the note's visibility (all fail-closed).
+	| { type: 'content.insert-snippet'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -781,7 +789,21 @@ export type RejectionCode =
 	// destructive offline rewrite), or the chosen fix does not resolve to a visible, available target.
 	| 'wikilink-source-unavailable'
 	| 'wikilink-fix-unresolved'
-	| 'wikilink-target-unchanged';
+	| 'wikilink-target-unchanged'
+	// CONTENT-003 — the named template starter preset does not exist.
+	| 'template-not-found'
+	// CONTENT-003 — a template could not produce valid content: a required variable is missing, or the
+	// generated content failed the EXISTING markdown/object validation. Fail closed: nothing is written.
+	// The per-issue findings ride the `issues` list for the authoring UI.
+	| 'template-render-invalid'
+	// CONTENT-004 — the named snippet does not exist.
+	| 'snippet-not-found'
+	// CONTENT-004 — inserting the snippet would make the note invalid (the resulting text failed the SAME
+	// validator hand-typed content passes). Fail closed: the snippet gets no free pass; nothing is inserted.
+	| 'snippet-content-invalid'
+	// CONTENT-004 — a snippet attempted to WIDEN the host note's visibility. Fail closed: a snippet inherits
+	// the note's visibility and can never raise its audience.
+	| 'snippet-widens-visibility';
 
 export interface CommandRejection {
 	code: RejectionCode;

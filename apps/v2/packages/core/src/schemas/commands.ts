@@ -1427,3 +1427,36 @@ export const writeContentToSourceInputSchema = z
 		acknowledgmentToken: z.string().min(1).nullish(),
 	})
 	.strict();
+
+// --- CONTENT-003 — create content from a TEMPLATE (variables, starter presets, validate-before-write) ---
+
+// CONTENT-003 — create a note/object FROM A STARTER PRESET (DM-only authoring). The preset is rendered with
+// the supplied variables and the GENERATED content is validated through the EXISTING pipeline BEFORE the
+// write; a missing required variable or invalid generated content is rejected fail-closed (no write).
+// `variables` maps declared variable names → string values. `visibility` is optional and fails closed to
+// `dm-only`; a template can never silently widen visibility.
+export const createFromTemplateInputSchema = z
+	.object({
+		presetId: z.string().min(1, 'A template preset id is required'),
+		variables: z.record(z.string(), z.string()).default({}),
+		visibility: contentVisibilitySchema.optional(),
+		sharedWith: z.array(idSchema).default([]),
+	})
+	.strict();
+
+// --- CONTENT-004 — insert a SNIPPET into a note (no bypass of validation/visibility/sanitization) ---
+
+const snippetInsertPositionSchema = z.enum(['before', 'after', 'at-caret']);
+
+// CONTENT-004 — insert a built-in snippet into an existing note (authorized editor). The snippet body is
+// inserted into the note's body and the RESULT is validated through the EXISTING validator before the
+// write; an invalid result is rejected fail-closed. The snippet carries NO visibility — the note's
+// visibility is preserved (a snippet can never widen it). `caret` is the optional insertion offset.
+export const insertSnippetInputSchema = z
+	.object({
+		itemId: idSchema,
+		snippetId: z.string().min(1, 'A snippet id is required'),
+		position: snippetInsertPositionSchema.default('after'),
+		caret: z.number().int().min(0).optional(),
+	})
+	.strict();
