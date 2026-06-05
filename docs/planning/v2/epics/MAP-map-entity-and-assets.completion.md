@@ -17,16 +17,19 @@ Architecture: hashing/validation/staging are pure, deterministic Processing-Core
 ## Files changed
 
 New (core):
+
 - `apps/v2/packages/core/src/state/map-assets.ts` — content-addressed `MapAsset`, deterministic `hashAssetBytes` (FNV-1a 64-bit), native MIME table, fail-closed `buildMapAsset`.
 - `apps/v2/packages/core/src/state/map-import.ts` — typed adapter registry (`createMapImportAdapterRegistry`), read-only `previewMapImport` (capability summary + element diagnostics), pure transactional `stageMapImport`.
 - `apps/v2/packages/core/src/commands/map-entity.ts` — `handleCreateMap` (MAP-001), `handleImportMapAsset` (MAP-002), `handleCommitMapImport` (MAP-020).
 - `apps/v2/packages/core/tests/map-entity-and-assets.test.ts` — unit coverage.
 
 New (app):
+
 - `apps/v2/app/src/lib/gui/MapAuthoringPanel.svelte` — DM-only create-map form + safe-import preview/diagnostics/rollback surface.
 - `apps/v2/app/tests/e2e/map-entity-and-assets.spec.ts` — Playwright e2e (both projects).
 
 Modified (core):
+
 - `state/map-state.ts` — added `MapScale`, `MapProjection`, `MapEntity.scale/projection/assetIds`, `MapState.assets`, `normalizeMapEntity`, `DEFAULT_MAP_PROJECTION`, `SUPPORTED_MAP_PROJECTIONS`; updated demo seed.
 - `schemas/commands.ts` — `createMapInputSchema`, `importMapAssetInputSchema`, `commitMapImportInputSchema` (fail-closed scale/projection refines, byte payload schema, adapter-format gating).
 - `commands/types.ts` — three new `CoreCommand` types, two new `CoreEvent`s, optional `CoreEnvironment.mapImportAdapters`.
@@ -34,23 +37,25 @@ Modified (core):
 - `commands/helpers.ts` — `ensureMapState` now seeds `assets`.
 - `index.ts` — public exports for the new asset/import/state surface and schemas.
 - `testing/fixtures.ts` — `makeEnvironment` passes through `mapImportAdapters`; initial state seeds `assets`.
-- `tests/map-projection-consistency.test.ts` — uses `normalizeMapEntity` for the new required fields.
+- `apps/v2/packages/core/tests/map-projection-consistency.test.ts` — uses `normalizeMapEntity` for the new required fields.
 
 Modified (app):
+
 - `canvas-runtime/runtime.svelte.ts` — declared the prototype `vtt-scene` adapter, exposed `runtime.mapImportAdapters`, seeded `assets` in initial state, wired adapters into the env.
 - `platform/storage/scene-store.ts` — defaults `assets` for pre-MAP-002 persisted map docs (backward compatible).
 - `routes/atlas/+page.svelte` — mounts the DM-only authoring panel.
 
 Modified (planning, via workpack commands only):
+
 - `docs/planning/v2/workpack-state.yaml`, `status.yaml`, `epics/MAP-map-entity-and-assets.yaml` (generated).
 
 ## Traceability (requirement → code → tests)
 
-| Requirement | Code | Tests |
-| --- | --- | --- |
-| MAP-001 (create map entity; default visibility fail-closed; validate inputs) | `commands/map-entity.ts#handleCreateMap`, `schemas/commands.ts#createMapInputSchema`, `state/map-state.ts` (`MapScale`/`MapProjection`/`normalizeMapEntity`) | unit `map-entity-and-assets.test.ts` "MAP-001 map.create" (AC1 record persisted; AC2 dm-only default; bad scale/projection rejected byte-identical; non-DM rejected); e2e "MAP-001 create a map entity" (dm-only default + reload persistence + DM-only panel) |
-| MAP-002 (content-addressed import + adapter gating) | `state/map-assets.ts`, `state/map-import.ts` (registry), `commands/map-entity.ts#handleImportMapAsset` | unit "MAP-002 content-addressed asset hashing" + "MAP-002 map.import-asset / adapter gating" (AC1 dimensions/checksum/source/link; dedupe; AC2 oversized rejected pre-mutation; AC4 undeclared external rejected fail-closed; non-native MIME rejected); e2e "MAP-002 content-addressed import + adapter gating" |
-| MAP-020 (preview + capability summary + diagnostics + rollback) | `state/map-import.ts` (`previewMapImport`/`stageMapImport`), `commands/map-entity.ts#handleCommitMapImport` | unit "MAP-020 preview + diagnostics + rollback" (AC1 classify each element; preview pure/non-mutating; AC2 cancel = byte-identical rollback; AC3 commit writes + reports dropped; all-unsupported rejected; duplicate-format registry throws); e2e "MAP-020 safe import: preview + diagnostics + rollback" |
+| Requirement                                                                  | Code                                                                                                                                                         | Tests                                                                                                                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MAP-001 (create map entity; default visibility fail-closed; validate inputs) | `commands/map-entity.ts#handleCreateMap`, `schemas/commands.ts#createMapInputSchema`, `state/map-state.ts` (`MapScale`/`MapProjection`/`normalizeMapEntity`) | unit `map-entity-and-assets.test.ts` "MAP-001 map.create" (AC1 record persisted; AC2 dm-only default; bad scale/projection rejected byte-identical; non-DM rejected); e2e "MAP-001 create a map entity" (dm-only default + reload persistence + DM-only panel)                                                   |
+| MAP-002 (content-addressed import + adapter gating)                          | `state/map-assets.ts`, `state/map-import.ts` (registry), `commands/map-entity.ts#handleImportMapAsset`                                                       | unit "MAP-002 content-addressed asset hashing" + "MAP-002 map.import-asset / adapter gating" (AC1 dimensions/checksum/source/link; dedupe; AC2 oversized rejected pre-mutation; AC4 undeclared external rejected fail-closed; non-native MIME rejected); e2e "MAP-002 content-addressed import + adapter gating" |
+| MAP-020 (preview + capability summary + diagnostics + rollback)              | `state/map-import.ts` (`previewMapImport`/`stageMapImport`), `commands/map-entity.ts#handleCommitMapImport`                                                  | unit "MAP-020 preview + diagnostics + rollback" (AC1 classify each element; preview pure/non-mutating; AC2 cancel = byte-identical rollback; AC3 commit writes + reports dropped; all-unsupported rejected; duplicate-format registry throws); e2e "MAP-020 safe import: preview + diagnostics + rollback"       |
 
 ## Demo path
 

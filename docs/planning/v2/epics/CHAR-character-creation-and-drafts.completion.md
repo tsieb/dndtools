@@ -16,11 +16,11 @@ switch between the DM and the demo players.
 
 1. **CHAR-001 — DM quick-create (dm-only default, bindable).** As the DM, in "Quick-create a character",
    enter a name/HP/AC and submit. The NPC appears in the roster. It defaults to **DM-only** visibility:
-   switch "View as" to *Demo Player* and the NPC is **omitted** from the roster entirely (not redacted).
+   switch "View as" to _Demo Player_ and the NPC is **omitted** from the roster entirely (not redacted).
 2. **CHAR-013 — draft ownership (exactly one owner, atomic transfer).** As the DM, in "Character drafts",
-   create a draft for *Demo Player*. Pick a transfer target (*Demo Player 2*) and press **Transfer**: the
-   prior owner is atomically replaced, leaving exactly one owner. "View as" *Demo Player* now shows the
-   "ask your DM" empty state (can no longer edit); *Demo Player 2* can resume it.
+   create a draft for _Demo Player_. Pick a transfer target (_Demo Player 2_) and press **Transfer**: the
+   prior owner is atomically replaced, leaving exactly one owner. "View as" _Demo Player_ now shows the
+   "ask your DM" empty state (can no longer edit); _Demo Player 2_ can resume it.
 3. **CHAR-002 — guided, resumable PC creation (owner-only).** As the owning player, work the guided flow
    (Identity → Ability scores point-buy → Class). Save a step, reload the app — the completed step and any
    unresolved validation issues are restored. A non-owner player sees no draft fields. Complete every valid
@@ -28,11 +28,11 @@ switch between the DM and the demo players.
 
 ## Requirement traceability
 
-| Requirement | Implementation | Tests |
-| --- | --- | --- |
-| CHAR-001 — DM quick-create (simplified stats, combat, visibility defaults, widget-bindable) | `state/character-state.ts` (`buildQuickCreatedCharacter`, fail-closed `dm-only` default), `commands/character.ts` (`handleQuickCreateCharacter`, `handleSetCharacterCombat`), `queries/character-bindings.ts` (bridge to the existing `resolveWidgetBinding`), `queries/character-query.ts` (actor-filtered, fail-closed), GUI `CharacterQuickCreate.svelte` + `CharacterRoster.svelte` | core `character-creation-and-drafts.test.ts` (quick-create bindable AC1; dm-only omitted-from-player AC2; field-hidden; non-DM reject); e2e `character-creation-and-drafts.spec.ts` (NPC dm-only not visible to player) |
+| Requirement                                                                                  | Implementation                                                                                                                                                                                                                                                                                                                                                                                                 | Tests                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CHAR-001 — DM quick-create (simplified stats, combat, visibility defaults, widget-bindable)  | `state/character-state.ts` (`buildQuickCreatedCharacter`, fail-closed `dm-only` default), `commands/character.ts` (`handleQuickCreateCharacter`, `handleSetCharacterCombat`), `queries/character-bindings.ts` (bridge to the existing `resolveWidgetBinding`), `queries/character-query.ts` (actor-filtered, fail-closed), GUI `CharacterQuickCreate.svelte` + `CharacterRoster.svelte`                        | core `character-creation-and-drafts.test.ts` (quick-create bindable AC1; dm-only omitted-from-player AC2; field-hidden; non-DM reject); e2e `character-creation-and-drafts.spec.ts` (NPC dm-only not visible to player)                                                                                            |
 | CHAR-002 — guided structured PC creation (rules, options, validation, resumable; owner-only) | `state/character-draft-flow.ts` (pure steps/options/validation incl. point-buy budget, `computeDraftCompleteness`), `state/character-state.ts` (`applyDraftStep`, resumable progress), `commands/character.ts` (`handleUpdateCharacterDraftStep`, `handleFinalizeCharacterDraft`, owner-only fail-closed), `queries/character-query.ts` (`getDraftForActor` non-owner → null), GUI `CharacterDraftFlow.svelte` | core test (per-step + point-budget validation; non-owner/observer rejected AC3; resume round-trip AC2; finalize gated on validity AC1; draft is a character entity not a grant AC4; owner-visible finalized PC); e2e (resume round-trip, non-owner cannot edit, finalize into roster, over-budget blocks finalize) |
-| CHAR-013 — draft ownership: create/assign/transfer/revoke, exactly one owner | `state/character-state.ts` (`CharacterDraft.ownerActorId` singular field; `transferDraftOwnership` atomic reassignment — same singular-ownership invariant as PERM-013), `commands/character.ts` (`handleCreateCharacterDraft`/`handleTransferCharacterDraft`/`handleRevokeCharacterDraft`, DM-only), GUI `CharacterDraftManager.svelte` | core test (one owner on create AC1; atomic transfer leaves one owner + prior owner cannot edit AC2; reducer never zero/two owners; non-DM/unknown-draft rejects; revoke); e2e (transfer leaves exactly one owner) |
+| CHAR-013 — draft ownership: create/assign/transfer/revoke, exactly one owner                 | `state/character-state.ts` (`CharacterDraft.ownerActorId` singular field; `transferDraftOwnership` atomic reassignment — same singular-ownership invariant as PERM-013), `commands/character.ts` (`handleCreateCharacterDraft`/`handleTransferCharacterDraft`/`handleRevokeCharacterDraft`, DM-only), GUI `CharacterDraftManager.svelte`                                                                       | core test (one owner on create AC1; atomic transfer leaves one owner + prior owner cannot edit AC2; reducer never zero/two owners; non-DM/unknown-draft rejects; revoke); e2e (transfer leaves exactly one owner)                                                                                                  |
 
 ## Architecture / reuse
 
@@ -95,7 +95,7 @@ switch between the DM and the demo players.
 ## Files changed
 
 New (core): `state/character-state.ts`, `state/character-draft-flow.ts`, `commands/character.ts`,
-`queries/character-bindings.ts`, `queries/character-query.ts`, `tests/character-creation-and-drafts.test.ts`.
+`queries/character-bindings.ts`, `queries/character-query.ts`, `apps/v2/packages/core/tests/character-creation-and-drafts.test.ts`.
 Modified (core): `commands/types.ts`, `commands/dispatch.ts`, `commands/helpers.ts`, `schemas/commands.ts`,
 `schemas/platform-service.ts`, `migration/schema-versions.ts`, `queries/navigation-sections.ts`,
 `testing/fixtures.ts`, `index.ts`; updated tests `command-availability.test.ts`,
@@ -104,7 +104,7 @@ Modified (core): `commands/types.ts`, `commands/dispatch.ts`, `commands/helpers.
 New (app): `routes/characters/+page.svelte` + `+page.ts`, `routes/party/+page.ts`, `routes/pcs/+page.ts`,
 `lib/gui/CharacterQuickCreate.svelte`, `lib/gui/CharacterDraftManager.svelte`,
 `lib/gui/CharacterDraftFlow.svelte`, `lib/gui/CharacterRoster.svelte`,
-`tests/e2e/character-creation-and-drafts.spec.ts`.
+`apps/v2/app/tests/e2e/character-creation-and-drafts.spec.ts`.
 Modified (app): `lib/canvas-runtime/runtime.svelte.ts`, `lib/platform/storage/scene-store.ts`,
 `lib/platform/diagnostics-context.ts`; updated test `tests/unit/route-audit.test.ts`.
 
