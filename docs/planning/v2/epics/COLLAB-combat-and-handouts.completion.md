@@ -236,10 +236,13 @@ Requirement IDs exercised by the demo: COLLAB-006, COLLAB-007, COLLAB-012.
 ## Git evidence
 
 - Branch: `epic/COLLAB-combat-and-handouts`
-- Commit (feat): TO_BE_FILLED_BY_FOLLOWUP
+- Commit (feat): `efd08a449ae510bc65a72febce63c38027bd7a78`
 
 ### `git status --short` (after the feat commit)
 
 ```
-TO_BE_FILLED_BY_FOLLOWUP
 ```
+
+(Empty — clean working tree after the `feat(v2): complete COLLAB-combat-and-handouts epic` commit. This
+`docs(v2): record commit SHA` follow-up writes the SHA into the evidence and is itself the only
+remaining change.)
