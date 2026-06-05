@@ -2443,6 +2443,77 @@ export {
 	previewBulkLinkRepairForActor,
 } from './queries/graph-link-repair-query';
 
+// GRAPH-005: the PURE DETERMINISTIC INCREMENTAL GRAPH-INDEX engine — it builds the link graph (nodes + edges)
+// over node records, APPLIES a single accepted change INCREMENTALLY (only the affected nodes/edges + the
+// dependent backlink index update), computes the DELTA between two snapshots, and tracks per-graph FRESHNESS
+// reusing the SRCH index-cursor convention WHOLESALE (same cursor shape + fresh/partial/stale/unknown
+// statuses + fail-closed rule). Incremental updates CONVERGE to the full recompute (graphsEqual / diff prove
+// it). A failed incremental update marks the graph stale and requires a repair/REINDEX (AC2, fail closed).
+export type {
+	GraphChange,
+	GraphEdge,
+	GraphEdgeDelta,
+	GraphIndex,
+	GraphIndexDelta,
+	GraphIndexState,
+	GraphNode,
+	GraphNodeDelta,
+	GraphNodeKind,
+	GraphNodeRecord,
+	GraphRepairSignal,
+} from './state/graph-index';
+export {
+	GRAPH_INDEX_SCHEMA_VERSION,
+	GRAPH_NODE_KINDS,
+	applyGraphChange,
+	backlinksOf,
+	buildGraphIndex,
+	buildGraphIndexState,
+	diffGraphIndex,
+	emptyGraphIndex,
+	emptyGraphIndexState,
+	forwardLinksOf,
+	graphFreshnessStatus,
+	graphRepairSignal,
+	graphsEqual,
+	markGraphStale,
+	outboundTargetsFromBody,
+	publishGraphFreshness,
+	setGraphAvailability,
+} from './state/graph-index';
+// GRAPH-005: the ACTOR-FILTERED incremental graph-index surface. Builds the actor's visible graph over the
+// SAME content/map actor-filtered reads (no second relationship source), maintains it incrementally after an
+// accepted note/object/map/POI/sync change (the change carries only a visible record, so it can never surface
+// a hidden node/edge — fail closed), and exposes the backlink/forward reverse index, freshness, and the
+// repair/REINDEX signal. Unknown actor ⇒ empty graph (fail closed).
+export {
+	applyGraphChangeForActor,
+	getGraphBacklinksForActor,
+	getGraphForwardLinksForActor,
+	getGraphIndexForActor,
+	getGraphIndexStateForActor,
+	getGraphRepairSignalForActor,
+	graphRemoveChange,
+	graphUpsertChangeForContent,
+	markGraphStaleForActor,
+	setGraphAvailabilityForActor,
+} from './queries/graph-index-query';
+
+// GRAPH-006: the SOURCE-AGNOSTIC graph query API — the SINGLE actor-filtered entry point navigation, search,
+// widgets, and MCP tools use to read the graph (backlinks, related notes, cross-source link resolution)
+// WITHOUT any consumer parsing raw markdown. A thin façade COMPOSING the GRAPH-002 navigable relationships +
+// the GRAPH-005 structural index + the CONTENT-006 source-agnostic resolution. Actor-filtered + fail-closed:
+// a player (or a player-scoped widget/MCP request) receives ONLY visible relationships (AC2); an MCP backlink
+// request goes through this API rather than reading files ad hoc (AC1). The consumer kind is audit-only and
+// never widens visibility.
+export type { GraphConsumer, GraphRelationshipsResult } from './queries/graph-api';
+export {
+	getGraphBacklinks,
+	getGraphRelatedNotes,
+	getGraphRelationships,
+	resolveGraphLink,
+} from './queries/graph-api';
+
 // CHAR-002: the guided, structured PC-creation flow — step definitions, options, per-step validation
 // (rules incl. the ability point-buy budget), and the resumable completeness report. Pure policy.
 export type {

@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 24
-  active: 0
+  approved: 23
+  active: 1
   complete: 64
   deferred: 0
 metrics:
@@ -96,8 +96,8 @@ metrics:
     - domain: GRAPH
       totalEpics: 5
       complete: 2
-      active: 0
-      approved: 3
+      active: 1
+      approved: 2
       proposed: 0
       deferred: 0
       epicCompletionPercent: 40
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: GRAPH-incremental-apis
   title: "GRAPH: Incremental APIs"
-  status: approved
+  status: active
   requirementIds:
     - GRAPH-005
     - GRAPH-006
@@ -475,7 +475,7 @@ epics:
       - GRAPH-010
     completionEvidenceFile: docs/planning/v2/epics/GRAPH-deterministic-quality-intelligence.completion.md
   - id: GRAPH-incremental-apis
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - GRAPH-005

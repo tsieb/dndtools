@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: GRAPH-incremental-apis
 title: "GRAPH: Incremental APIs"
-status: approved
+status: active
 approved: true
 domain: GRAPH
 capabilityBranch: Incremental APIs
