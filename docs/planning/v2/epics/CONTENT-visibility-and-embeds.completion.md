@@ -222,8 +222,9 @@ Requirement IDs exercised by the demo: CONTENT-009, CONTENT-010.
 
 - Branch: `epic/CONTENT-visibility-and-embeds` (created from `epic/CONTENT-templates-and-snippets`
   HEAD `d156955`, per the chained-epic workflow — NOT from master).
-- Commit: recorded in the follow-up docs commit after this evidence file is committed.
-- Final `git status --short`: clean (recorded below after the final commit).
+- Implementation commit: `f6c56f450c7754d3da38d5ec6d2c4e01d677e0ea`. This evidence-SHA record is a
+  small follow-up docs commit on top of it.
+- Final `git status --short`: clean (verified after the follow-up commit).
 
 ```
 (clean)
