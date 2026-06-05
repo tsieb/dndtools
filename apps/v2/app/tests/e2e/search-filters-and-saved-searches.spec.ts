@@ -119,6 +119,58 @@ test.describe('SRCH-003/004 filters and saved searches', () => {
 		await expect(page.getByTestId('saved-searches').getByText('DM relic tracker')).toHaveCount(0);
 	});
 
+	test('SRCH-005 AC1 / SRCH-006 AC1: a title match ranks above a body-only match, each with a visible snippet', async ({
+		page,
+	}) => {
+		// "Dragon Cult" matches on TITLE; "Harbor Watch" matches only in its BODY. Deterministic ranking must
+		// place the title match first, and each body match shows a visible snippet for fast disambiguation.
+		await createNote(page, 'Dragon Cult', 'player-visible', 'A secretive order of dragon worshippers.');
+		await createNote(page, 'Harbor Watch', 'player-visible', 'A dragon was sighted off the coast.');
+
+		await page.getByTestId('search-query').fill('dragon');
+		await page.getByTestId('search-type-note').check();
+
+		const results = page.getByTestId('search-results');
+		// SRCH-005 AC1 — the title match ("Dragon Cult") renders BEFORE the body-only match ("Harbor Watch").
+		const titles = results.locator('li strong');
+		await expect(titles.first()).toHaveText(/Dragon Cult/);
+		await expect(results.getByText('Harbor Watch')).toBeVisible();
+		const order = await titles.allTextContents();
+		expect(order.findIndex((t) => /Dragon Cult/.test(t))).toBeLessThan(
+			order.findIndex((t) => /Harbor Watch/.test(t)),
+		);
+
+		// SRCH-006 AC1 — the body-only match shows a visible snippet around the query.
+		const harborSnippet = page.locator('[data-testid^="search-snippet-note-"]', {
+			hasText: 'sighted',
+		});
+		await expect(harborSnippet.first()).toBeVisible();
+	});
+
+	test('SRCH-006 AC3: a visible backlink hint renders only for the linking note the actor can see', async ({
+		page,
+	}) => {
+		// A target note linked from a player-visible note AND a dm-only note. The DM sees both backlinks; the
+		// player sees only the player-visible backlink, and the dm-only note title never leaks.
+		await createNote(page, 'Castle Keep', 'player-visible', 'A looming fortress on the cliff.');
+		await createNote(page, 'Village Road', 'player-visible', 'The road climbs to [[Castle Keep]].');
+		await createNote(page, 'Secret Siege Plan', 'dm-only', 'Breach [[Castle Keep]] at dawn.');
+
+		await page.getByTestId('search-query').fill('Castle Keep');
+		await page.getByTestId('search-type-note').check();
+
+		// The DM sees BOTH backlinks listed on the Castle Keep result.
+		const dmBacklinks = page.locator('[data-testid^="search-backlinks-note-"]', { hasText: 'Village Road' });
+		await expect(dmBacklinks.first()).toContainText('Village Road');
+		await expect(dmBacklinks.first()).toContainText('Secret Siege Plan');
+
+		// As a player: only the player-visible backlink appears; the dm-only linking note never leaks.
+		await page.getByTestId('view-as-select').selectOption('actor-player');
+		const playerBacklinks = page.locator('[data-testid^="search-backlinks-note-"]', { hasText: 'Village Road' });
+		await expect(playerBacklinks.first()).toContainText('Village Road');
+		await expect(page.getByTestId('saved-searches').getByText('Secret Siege Plan')).toHaveCount(0);
+	});
+
 	test('SRCH-004 AC1: the DM can pin/unpin a saved search', async ({ page }) => {
 		await createNote(page, 'Thread A', 'player-visible', 'an open plot thread');
 

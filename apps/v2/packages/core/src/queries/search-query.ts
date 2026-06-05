@@ -58,9 +58,28 @@ import { getDiceHistoryForActor, type DiceRollView } from './dice-history';
  * {@link import('./search-index-query')} read, layered on this same actor-filtered set; this read returns
  * the cached results without blocking on indexing.
  *
- * Pure + deterministic: the same (state, actor, filter) always returns the same ranked result. The
- * Processing Core owns the facet filters, text match, and ordering; the GUI renders the computed result and
- * dispatches command intents only (Architecture Contract 1).
+ * RANKING (SRCH-005): the read ranks the visible hits by a DETERMINISTIC composite score built from
+ * recency, title, tag, link, entity-type, and session-context signals — computed BEFORE any optional AI
+ * assistance (Vision "Algorithms are primary"). The signals are derived ENTIRELY from the actor-visible set,
+ * so a hidden artifact never influences ranking, and equal-score hits fall back to stable tie-breakers (type
+ * order → id) so the order is reproducible across repeated runs and fresh fixtures (AC3). The per-signal
+ * breakdown is exposed as a deterministic DIAGNOSTIC so the GUI/debugging can explain the order (SRCH-011 AC4).
+ *
+ * RESULT CONTEXT (SRCH-006): each hit carries enough context for fast disambiguation — title, source, type,
+ * a VISIBLE snippet, tags, and visibility-safe RELATIONSHIP HINTS (visible backlinks, date references, folder
+ * path, and map/Scene context). Every context field is derived from the SAME actor-filtered reads as the hit
+ * itself, so a snippet NEVER crosses a hidden section boundary and a relationship hint NEVER names a hidden
+ * related artifact (AC2, AC3) — the context is as fail-closed as the hit.
+ *
+ * SEMANTIC ASSIST (SRCH-011): semantic search / entity expansion is OPTIONAL, SECONDARY, and OFF by default.
+ * It is applied as a thin LABELLED layer over the ALREADY-VISIBLE deterministic result: it can only
+ * re-order or annotate hits the actor can already see, it CANNOT add a hit / title / snippet / id, it carries
+ * SOURCE CITATIONS, and it never replaces the deterministic base ranking without a visible label (AC2, AC4).
+ * When it is disabled or unavailable the deterministic result is returned unchanged (AC1, AC3).
+ *
+ * Pure + deterministic: the same (state, actor, filter[, options]) always returns the same ranked result. The
+ * Processing Core owns the facet filters, text match, ranking, snippeting, and relationship hints; the GUI
+ * renders the computed result and dispatches command intents only (Architecture Contract 1).
  */
 
 /** The per-item SOURCE + AVAILABILITY convention (shared with the wikilink graph). */
@@ -111,6 +130,64 @@ function compareCustomDatesSafe(a: CustomDate, b: CustomDate): number {
 	return a.day - b.day;
 }
 
+/**
+ * SRCH-005 — the DETERMINISTIC ranking signals for ONE hit. Each is a non-negative integer contribution to
+ * the composite {@link SearchHit.score}; they are summed into the score AND exposed as a diagnostic so the
+ * order is explainable and reproducible (SRCH-011 AC4). Every signal is derived from the actor-VISIBLE set,
+ * so no hidden artifact can influence any signal. A blank-query browse leaves the text signals at zero and
+ * ranks on recency + session context alone.
+ */
+export interface RankingSignals {
+	/** TITLE signal: the query matched the hit's title (the strongest text signal). */
+	title: number;
+	/** TAG signal: the query matched one of the hit's tags. */
+	tag: number;
+	/** LINK signal: the hit has visible relationship hints (visible backlinks / linked content). */
+	link: number;
+	/** ENTITY-TYPE signal: a small stable bias by content type (notes/objects before transient artifacts). */
+	entityType: number;
+	/** SESSION-CONTEXT signal: the hit is in the active session's focus (e.g. a POI on the active map). */
+	sessionContext: number;
+	/** RECENCY signal: how recently the hit's underlying artifact was updated, bucketed deterministically. */
+	recency: number;
+}
+
+/**
+ * SRCH-006 — a single visible SNIPPET of a hit's matched context. The text is drawn from the SAME
+ * actor-filtered searchable text the hit matched on (the visible title, the visible body, or the visible
+ * handout sections), so it can NEVER reveal hidden/redacted text or a now-hidden match (AC2). `null` when
+ * there is no body context to show (e.g. a pure title match, or a blank-query browse).
+ */
+export interface SearchSnippet {
+	/** Which visible field the snippet came from. */
+	field: 'title' | 'body';
+	/** A short window of surrounding text containing the match (plain text, frontmatter stripped). */
+	text: string;
+}
+
+/**
+ * SRCH-006 — the VISIBILITY-SAFE relationship hints for a hit, for fast disambiguation. EVERY hint is
+ * computed over the actor's VISIBLE graph only, so a hint never names a hidden related artifact, a hidden
+ * backlink, or a redacted reference (AC3). All lists are empty / `null` when there is nothing visible to show.
+ */
+export interface SearchRelationshipHints {
+	/** Titles of VISIBLE notes/objects that wikilink TO this hit (visible backlinks). Deduped, stable order. */
+	backlinks: string[];
+	/** Stable formatted date references this hit carries (the item's visible custom-date displays). */
+	dateRefs: string[];
+	/** The folder path the hit is filed under, when declared and visible (mirrors {@link SearchHit.folder}). */
+	folder: string | null;
+	/** The map a POI hit lives on (mirrors {@link SearchHit.mapId}); `null` for non-map hits. */
+	mapId: string | null;
+}
+
+const EMPTY_RELATIONSHIP_HINTS: Readonly<SearchRelationshipHints> = Object.freeze({
+	backlinks: [],
+	dateRefs: [],
+	folder: null,
+	mapId: null,
+});
+
 /** One actor-visible search hit. The artifact is always one the actor may see. */
 export interface SearchHit {
 	/** Stable id of the hit WITHIN its kind (the content item id, the POI id, the handout id, the roll id). */
@@ -127,8 +204,17 @@ export interface SearchHit {
 	tags: string[];
 	/** The map a POI hit belongs to (else `null` — content/handouts/artifacts do not live on a map). */
 	mapId: string | null;
-	/** A title-match outranks a body/relationship-only match; higher score sorts first. */
+	/**
+	 * SRCH-005 — the DETERMINISTIC composite ranking score (the sum of {@link RankingSignals}). Higher sorts
+	 * first. Equal scores fall back to stable tie-breakers (type order → id) so the order is reproducible.
+	 */
 	score: number;
+	/** SRCH-005 / SRCH-011 — the per-signal breakdown of `score`, exposed as a deterministic diagnostic. */
+	signals: RankingSignals;
+	/** SRCH-006 — a VISIBLE snippet of matched body context (or `null` for a title-only / blank-query hit). */
+	snippet: SearchSnippet | null;
+	/** SRCH-006 — the visibility-safe relationship hints (visible backlinks, date refs, folder, map context). */
+	relationships: SearchRelationshipHints;
 }
 
 /** Freshness state of one searched source (SRCH-003 AC2). */
@@ -153,6 +239,21 @@ export interface ActiveSearchFilters {
 	relationship: SearchRelationshipFilter | null;
 }
 
+/**
+ * SRCH-011 — the status of OPTIONAL semantic assistance over a result. Semantic search / entity expansion is
+ * SECONDARY to deterministic search and may be `disabled` (off — the default), `unavailable` (requested but
+ * the model is offline/absent), or `applied` (a labelled re-order/annotation over the visible deterministic
+ * result). In EVERY state the deterministic hits are returned; `disabled`/`unavailable` returns them
+ * unchanged. The GUI renders this as the visible "semantic contribution" label (AC4).
+ */
+export interface SemanticAssistStatus {
+	state: 'disabled' | 'unavailable' | 'applied';
+	/** True only when semantic re-ranking changed the deterministic order (so the GUI shows the label). */
+	reranked: boolean;
+	/** When `unavailable`, a generic, non-leaking reason the GUI surfaces (e.g. "offline"). */
+	reason: string | null;
+}
+
 /** The actor-filtered faceted search RESULT. Every hit is visible; counts derive from the visible set only. */
 export interface SearchResult {
 	/** The hits matching ALL active facets, deterministically ordered. ONLY actor-visible hits appear. */
@@ -165,6 +266,14 @@ export interface SearchResult {
 	sourceStatus: SearchSourceStatus[];
 	/** The active filters (AC3): the GUI renders these as the applied-facets summary. */
 	activeFilters: ActiveSearchFilters;
+	/**
+	 * SRCH-005 / SRCH-011 — the DETERMINISTIC base order of hit ids, BEFORE any optional semantic re-ranking.
+	 * Preserved as a debugging diagnostic so the deterministic ranking is always inspectable even when
+	 * semantic assist re-orders the visible list (SRCH-011 AC4).
+	 */
+	deterministicOrder: string[];
+	/** SRCH-011 — the status of optional semantic assistance (disabled by default; secondary to deterministic). */
+	semanticAssist: SemanticAssistStatus;
 }
 
 const EMPTY_TYPE_COUNTS: Record<SearchContentType, number> = Object.freeze({
@@ -234,12 +343,73 @@ function tagsMatch(hitTags: readonly string[], required: readonly string[] | und
 	return required.every((tag) => set.has(tag));
 }
 
+/** SRCH-005 — whether the free-text needle matches one of a hit's tags (the TAG ranking signal). */
+function tagMatchesNeedle(hitTags: readonly string[], needle: string): boolean {
+	if (needle === '') return false;
+	return hitTags.some((tag) => tag.includes(needle));
+}
+
+/** The result of matching a needle against a hit's visible title + body. */
+interface TextMatch {
+	/** Whether the needle matched at all (always true for a blank needle — every visible artifact matches). */
+	matched: boolean;
+	/** Whether the needle matched the TITLE (the strongest text signal). */
+	titleMatch: boolean;
+	/** Whether the needle matched the BODY (drives the body snippet). */
+	bodyMatch: boolean;
+}
+
 /** Whether a title/body needle matches a hit's text (blank needle ⇒ always). Returns the match strength. */
-function textMatch(title: string, body: string, needle: string): { matched: boolean; titleMatch: boolean } {
-	if (needle === '') return { matched: true, titleMatch: false };
+function textMatch(title: string, body: string, needle: string): TextMatch {
+	if (needle === '') return { matched: true, titleMatch: false, bodyMatch: false };
 	const titleMatch = title.toLowerCase().includes(needle);
 	const bodyMatch = body.toLowerCase().includes(needle);
-	return { matched: titleMatch || bodyMatch, titleMatch };
+	return { matched: titleMatch || bodyMatch, titleMatch, bodyMatch };
+}
+
+/** How much surrounding context a body snippet shows on each side of the match. */
+const SNIPPET_RADIUS = 40;
+
+/**
+ * SRCH-006 — build a single VISIBLE snippet around the FIRST occurrence of `needle` in `body`. The `body`
+ * passed here is ALWAYS the actor's visible searchable text (the visible note body, or the visible handout
+ * sections joined) — never raw state — so the window can never include hidden/redacted text (AC2). Returns
+ * `null` when there is no body match (a pure title match shows the title, not a body snippet). Pure.
+ */
+function bodySnippet(body: string, needle: string): SearchSnippet | null {
+	if (needle === '') return null;
+	const index = body.toLowerCase().indexOf(needle);
+	if (index === -1) return null;
+	const start = Math.max(0, index - SNIPPET_RADIUS);
+	const end = Math.min(body.length, index + needle.length + SNIPPET_RADIUS);
+	const prefix = start > 0 ? '…' : '';
+	const suffix = end < body.length ? '…' : '';
+	return { field: 'body', text: `${prefix}${body.slice(start, end).trim()}${suffix}` };
+}
+
+/**
+ * SRCH-005 — bucket a hit's recency into a small DETERMINISTIC integer signal from its visible `updatedAt`
+ * timestamp, anchored to the result's most-recent visible timestamp (`anchor`). A more recent artifact scores
+ * higher. The bucketing is monotonic and clock-free — it compares only the two ISO strings supplied — so the
+ * same fixtures always produce the same recency signal (AC3). The buckets fan out from the anchor (most recent
+ * == highest), with finer resolution near the anchor so two artifacts edited minutes apart still differ. A hit
+ * with no timestamp scores 0. The anchor is the latest VISIBLE timestamp, so no hidden artifact moves a bucket.
+ */
+function recencySignal(updatedAt: string | null, anchor: string | null): number {
+	if (!updatedAt || !anchor) return 0;
+	// Both are ISO-8601 timestamps; their lexical order matches chronological order. Compute the gap in
+	// minutes from the parsed epoch millis (a pure transform of the two strings — no ambient clock).
+	const updatedMs = Date.parse(updatedAt);
+	const anchorMs = Date.parse(anchor);
+	if (Number.isNaN(updatedMs) || Number.isNaN(anchorMs)) return 0;
+	const ageMinutes = Math.max(0, (anchorMs - updatedMs) / 60_000);
+	if (ageMinutes < 1) return 6; // the freshest visible artifact(s) — minutes from the anchor
+	if (ageMinutes < 60) return 5; // within the hour
+	if (ageMinutes < 1440) return 4; // within the day
+	if (ageMinutes < 1440 * 7) return 3; // within the week
+	if (ageMinutes < 1440 * 31) return 2; // within the month
+	if (ageMinutes < 1440 * 366) return 1; // within the year
+	return 0;
 }
 
 /**
@@ -305,11 +475,121 @@ function poiRelKey(mapId: string, poiId: string): string {
 }
 
 /**
- * SRCH-003 — the single actor-filtered FACETED SEARCH read. Composes the actor-filtered content + map
- * reads, applies the source/type/tag/folder/date/relationship/text facets (ALL combined with AND), and
- * returns deterministically ordered visible hits with result metadata (the active filters + per-type +
- * per-source counts). ONLY actor-visible hits appear, and the counts derive from that same visible set,
- * so hidden artifacts are omitted AND never revealed by an inflated count or facet (SRCH-003 AC1, AC4).
+ * SRCH-006 — build the VISIBLE BACKLINK index: for each visible content item title, the titles of the visible
+ * notes that wikilink TO it. Computed ENTIRELY over the actor's visible items, so a backlink hint can never
+ * name a hidden note nor reveal that a hidden note links to a visible one (AC3). Titles are deduped, in stable
+ * (sorted) order. Pure.
+ */
+function buildVisibleBacklinks(visibleItems: ContentItemView[]): Map<string, string[]> {
+	const idByTitle = new Map<string, string>();
+	for (const item of visibleItems) idByTitle.set(item.title.toLowerCase(), item.id);
+	const backlinksById = new Map<string, Set<string>>();
+	for (const source of visibleItems) {
+		for (const link of parseMarkdownNote(source.body).wikilinks) {
+			const targetId = idByTitle.get(link.target.toLowerCase());
+			if (targetId === undefined || targetId === source.id) continue;
+			const set = backlinksById.get(targetId) ?? new Set<string>();
+			set.add(source.title);
+			backlinksById.set(targetId, set);
+		}
+	}
+	const result = new Map<string, string[]>();
+	for (const [id, titles] of backlinksById) {
+		result.set(id, [...titles].sort((a, b) => a.localeCompare(b)));
+	}
+	return result;
+}
+
+/** The latest `updatedAt` across the actor's visible items — the recency anchor (or `null` when none). Pure. */
+function latestVisibleTimestamp(visibleItems: ContentItemView[]): string | null {
+	let latest: string | null = null;
+	for (const item of visibleItems) {
+		if (latest === null || item.updatedAt > latest) latest = item.updatedAt;
+	}
+	return latest;
+}
+
+/** The stable formatted date references a visible item carries (its date-field + timeline-ref displays). */
+function itemDateRefs(item: ContentItemView): string[] {
+	const refs = new Set<string>();
+	for (const field of Object.values(item.dateFields)) refs.add(field.display);
+	for (const ref of item.timelineRefs) refs.add(ref.date.display);
+	return [...refs].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * SRCH-005 — combine a hit's deterministic ranking signals into its composite score. The weights encode the
+ * ordering priority required by SRCH-005 (a title match dominates; tag/link/session-context refine; recency
+ * and a small entity-type bias break otherwise-equal text matches). Pure: the same signals always sum to the
+ * same score, so the order is reproducible across repeated runs and fresh fixtures (AC3).
+ */
+function combineScore(signals: RankingSignals): number {
+	return (
+		signals.title * 100 +
+		signals.tag * 20 +
+		signals.link * 10 +
+		signals.sessionContext * 8 +
+		signals.recency * 2 +
+		signals.entityType
+	);
+}
+
+/** The deterministic ENTITY-TYPE bias (durable content ranks above transient session artifacts). */
+const ENTITY_TYPE_SIGNAL: Record<SearchContentType, number> = {
+	note: 4,
+	object: 4,
+	poi: 3,
+	handout: 2,
+	'session-artifact': 1,
+};
+
+/**
+ * SRCH-011 — the OPTIONAL semantic-assist input. A caller (the GUI) supplies it ONLY when the user has
+ * turned semantic search / entity expansion ON; absent ⇒ semantic assist is `disabled` (the default —
+ * deterministic search is primary). It is intentionally a thin, provider-agnostic seam: a final search
+ * architecture decision is deferred (SRCH-011), so the core does not embed a model. It can re-rank the
+ * ALREADY-VISIBLE hits and must cite the deterministic source it drew on; it can NEVER add a hit.
+ */
+export interface SemanticAssist {
+	/** Whether the user enabled semantic assistance. When false the deterministic result is returned as-is. */
+	enabled: boolean;
+	/** Whether the semantic model is currently available (e.g. false when offline). Defaults to available. */
+	available?: boolean;
+	/**
+	 * A pure re-ranker over the VISIBLE deterministic hits: given the actor-visible hits (in deterministic
+	 * order) it returns an ordering of the SAME hit ids (a permutation). Any id it omits keeps its
+	 * deterministic position; any id NOT already in the visible set is IGNORED — so semantic assist can never
+	 * introduce a hidden title, snippet, or id (SRCH-011 AC2). When omitted, semantic assist annotates without
+	 * re-ordering.
+	 */
+	rerank?: (hits: readonly SearchHit[]) => string[];
+}
+
+/** Optional extras for a search run: date formatting + the optional semantic-assist seam (SRCH-011). */
+export interface SearchOptions {
+	dateFormat?: CalendarDateFormat;
+	/** SRCH-011 — optional semantic assistance (off by default; secondary to deterministic search). */
+	semantic?: SemanticAssist;
+}
+
+/**
+ * SRCH-003 / SRCH-005 / SRCH-006 / SRCH-011 — the single actor-filtered FACETED SEARCH read. Composes the
+ * actor-filtered content + map reads, applies the source/type/tag/folder/date/relationship/text facets (ALL
+ * combined with AND), and returns DETERMINISTICALLY RANKED visible hits with rich, visibility-safe RESULT
+ * CONTEXT plus result metadata (the active filters + per-type + per-source counts). ONLY actor-visible hits
+ * appear, and the counts derive from that same visible set, so hidden artifacts are omitted AND never
+ * revealed by an inflated count or facet (SRCH-003 AC1, AC4).
+ *
+ * RANKING (SRCH-005): hits are ordered by a deterministic composite score (recency, title, tag, link,
+ * entity-type, session-context signals — every signal derived from the visible set) with stable tie-breakers,
+ * computed BEFORE any optional AI assistance. The per-signal breakdown is exposed for diagnostics.
+ *
+ * RESULT CONTEXT (SRCH-006): each hit carries a VISIBLE snippet + visibility-safe relationship hints (visible
+ * backlinks, date refs, folder, map/Scene context), all derived from the same actor-filtered reads as the hit.
+ *
+ * SEMANTIC ASSIST (SRCH-011): when `options.semantic` is enabled AND available, a LABELLED re-rank may be
+ * applied over the visible hits without changing membership; the deterministic order is preserved as a
+ * diagnostic. When disabled/unavailable the deterministic result is returned unchanged.
  *
  * A REFERENCED but UNAVAILABLE source is marked stale/unavailable in `sourceStatus` WITHOUT failing the
  * whole search (SRCH-003 AC2): the available sources still return their visible cached hits.
@@ -323,8 +603,11 @@ export function searchVaultForActor(
 	session: SessionState | undefined,
 	actorId: string,
 	filter: SearchFilter,
-	dateFormat: CalendarDateFormat = 'medium',
+	options: SearchOptions | CalendarDateFormat = {},
 ): SearchResult {
+	// Back-compat: callers may still pass a bare `dateFormat` string (the prior 7th positional arg).
+	const resolvedOptions: SearchOptions = typeof options === 'string' ? { dateFormat: options } : options;
+	const dateFormat: CalendarDateFormat = resolvedOptions.dateFormat ?? 'medium';
 	const actor = permissions.actors[actorId];
 	const activeFilters = describeActiveFilters(filter);
 	if (!actor) {
@@ -335,6 +618,8 @@ export function searchVaultForActor(
 			countsByType: { ...EMPTY_TYPE_COUNTS },
 			sourceStatus: [],
 			activeFilters,
+			deterministicOrder: [],
+			semanticAssist: { state: 'disabled', reranked: false, reason: null },
 		};
 	}
 
@@ -355,6 +640,16 @@ export function searchVaultForActor(
 
 	// The relationship filter is resolved over the VISIBLE graph only (null ⇒ no relationship constraint).
 	const relatedKeys = resolveRelatedKeys(filter.relationship, visibleItems, visiblePois);
+
+	// SRCH-006 — the VISIBLE backlink index (which visible notes link to each visible item), for relationship
+	// hints. SRCH-005 — the recency anchor (the latest VISIBLE timestamp) + the active-session map context.
+	const visibleBacklinks = buildVisibleBacklinks(visibleItems);
+	const recencyAnchor = latestVisibleTimestamp(visibleItems);
+	// SRCH-005 AC2 — the session's ACTIVE map (DM-selected) AND any map projected to THIS actor count as
+	// session focus; a POI on a focused map ranks higher than an unrelated POI. Derived from the actor's
+	// visible projection set, so no hidden map influences the boost.
+	const focusedMapIds = new Set<string>(deliveredMapIds);
+	if (session?.activeMap) focusedMapIds.add(session.activeMap.mapId);
 
 	const hits: SearchHit[] = [];
 	// Track which sources we actually contribute hits from + their availability, for the freshness map.
@@ -383,8 +678,26 @@ export function searchVaultForActor(
 		}
 		if (relatedKeys && !relatedKeys.has(contentRelKey(item))) continue;
 		const body = parseMarkdownNote(item.body).body;
-		const { matched, titleMatch } = textMatch(item.title, body, needle);
-		if (!matched) continue;
+		const match = textMatch(item.title, body, needle);
+		if (!match.matched) continue;
+		// SRCH-006 — visibility-safe relationship hints: visible backlinks + the item's own visible date refs +
+		// its folder. The body snippet is taken from the SAME visible body searched, so it can't reveal hidden text.
+		const backlinks = visibleBacklinks.get(item.id) ?? [];
+		const relationships: SearchRelationshipHints = {
+			backlinks,
+			dateRefs: itemDateRefs(item),
+			folder,
+			mapId: null,
+		};
+		// SRCH-005 — deterministic signals from the visible item only.
+		const signals: RankingSignals = {
+			title: match.titleMatch ? 1 : 0,
+			tag: tagMatchesNeedle(tags, needle) ? 1 : 0,
+			link: backlinks.length > 0 ? 1 : 0,
+			entityType: ENTITY_TYPE_SIGNAL[type],
+			sessionContext: 0,
+			recency: recencySignal(item.updatedAt, recencyAnchor),
+		};
 		hits.push({
 			id: item.id,
 			type,
@@ -393,7 +706,10 @@ export function searchVaultForActor(
 			folder,
 			tags,
 			mapId: null,
-			score: titleMatch ? 2 : 1,
+			score: combineScore(signals),
+			signals,
+			snippet: match.bodyMatch ? bodySnippet(body, needle) : null,
+			relationships,
 		});
 		sourceMatchCount.set(source, (sourceMatchCount.get(source) ?? 0) + 1);
 	}
@@ -409,8 +725,21 @@ export function searchVaultForActor(
 			if (filter.tags && filter.tags.length > 0) continue; // POIs carry no tags.
 			if (filter.dateRange) continue; // POIs carry no custom date in this model.
 			if (relatedKeys && !relatedKeys.has(poiRelKey(mapId, poi.id))) continue;
-			const { matched, titleMatch } = textMatch(poi.label, poi.notes, needle);
-			if (!matched) continue;
+			const match = textMatch(poi.label, poi.notes, needle);
+			if (!match.matched) continue;
+			// SRCH-006 — a POI's relationship hint is its map context; its notes are visible (it's a visible POI),
+			// so a body snippet over those notes can't leak hidden text. SRCH-005 AC2 — a POI on a session-focused
+			// map (the active/projected map) ranks higher than an unrelated POI.
+			const onFocusedMap = focusedMapIds.has(mapId);
+			const linkVisible = poi.linkedEntityId !== null;
+			const signals: RankingSignals = {
+				title: match.titleMatch ? 1 : 0,
+				tag: 0,
+				link: linkVisible ? 1 : 0,
+				entityType: ENTITY_TYPE_SIGNAL.poi,
+				sessionContext: onFocusedMap ? 1 : 0,
+				recency: 0,
+			};
 			hits.push({
 				id: poi.id,
 				type: 'poi',
@@ -419,7 +748,10 @@ export function searchVaultForActor(
 				folder: null,
 				tags: [],
 				mapId,
-				score: titleMatch ? 2 : 1,
+				score: combineScore(signals),
+				signals,
+				snippet: match.bodyMatch ? bodySnippet(poi.notes, needle) : null,
+				relationships: { backlinks: [], dateRefs: [], folder: null, mapId },
 			});
 			sourceMatchCount.set(poiSource, (sourceMatchCount.get(poiSource) ?? 0) + 1);
 		}
@@ -440,8 +772,19 @@ export function searchVaultForActor(
 				if (filter.dateRange) continue;
 				if (relatedKeys) continue; // handouts are not in the wikilink/POI relationship graph.
 				const visibleBody = handoutSearchableBody(handout);
-				const { matched, titleMatch } = textMatch(handout.title, visibleBody, needle);
-				if (!matched) continue;
+				const match = textMatch(handout.title, visibleBody, needle);
+				if (!match.matched) continue;
+				// SRCH-006 AC2 — the snippet is taken from `visibleBody`, which is ONLY the sections the actor may
+				// see (a `dm-only`/unrevealed section is never in it), so a handout snippet can never cross a hidden
+				// section boundary. SRCH-005 — handouts have a meaningful updatedAt for recency.
+				const signals: RankingSignals = {
+					title: match.titleMatch ? 1 : 0,
+					tag: 0,
+					link: 0,
+					entityType: ENTITY_TYPE_SIGNAL.handout,
+					sessionContext: 0,
+					recency: recencySignal(handout.updatedAt, recencyAnchor),
+				};
 				hits.push({
 					id: handout.id,
 					type: 'handout',
@@ -450,7 +793,10 @@ export function searchVaultForActor(
 					folder: null,
 					tags: [],
 					mapId: null,
-					score: titleMatch ? 2 : 1,
+					score: combineScore(signals),
+					signals,
+					snippet: match.bodyMatch ? bodySnippet(visibleBody, needle) : null,
+					relationships: { ...EMPTY_RELATIONSHIP_HINTS },
 				});
 				sourceMatchCount.set(handoutSource, (sourceMatchCount.get(handoutSource) ?? 0) + 1);
 			}
@@ -470,8 +816,17 @@ export function searchVaultForActor(
 				if (filter.dateRange) continue;
 				if (relatedKeys) continue; // session artifacts are not in the relationship graph.
 				const title = sessionArtifactTitle(roll);
-				const { matched, titleMatch } = textMatch(title, roll.label ?? '', needle);
-				if (!matched) continue;
+				const match = textMatch(title, roll.label ?? '', needle);
+				if (!match.matched) continue;
+				// SRCH-005 — recency from the roll timestamp (the most session-relevant signal for a roll record).
+				const signals: RankingSignals = {
+					title: match.titleMatch ? 1 : 0,
+					tag: 0,
+					link: 0,
+					entityType: ENTITY_TYPE_SIGNAL['session-artifact'],
+					sessionContext: 0,
+					recency: recencySignal(roll.rolledAt, recencyAnchor),
+				};
 				hits.push({
 					id: roll.id,
 					type: 'session-artifact',
@@ -480,15 +835,26 @@ export function searchVaultForActor(
 					folder: null,
 					tags: [],
 					mapId: null,
-					score: titleMatch ? 2 : 1,
+					score: combineScore(signals),
+					signals,
+					// A roll has no body to snippet beyond its label, which IS the title for a labelled roll.
+					snippet: null,
+					relationships: { ...EMPTY_RELATIONSHIP_HINTS },
 				});
 				sourceMatchCount.set(artifactSource, (sourceMatchCount.get(artifactSource) ?? 0) + 1);
 			}
 		}
 	}
 
-	// Deterministic order: title-matches first (higher score), then by stable type order, then id.
+	// SRCH-005 — deterministic order: composite score descending, then stable type order, then id. This runs
+	// BEFORE any optional AI assistance, so the deterministic base ranking always exists (AC1).
 	hits.sort(compareHits);
+	const deterministicOrder = hits.map((hit) => hit.id);
+
+	// SRCH-011 — OPTIONAL, SECONDARY, LABELLED semantic assist over the ALREADY-VISIBLE hits. It can only
+	// re-order hits the actor can already see; it can never add a hit, title, snippet, or id. When disabled or
+	// unavailable the deterministic order above is preserved unchanged (AC1, AC3).
+	const semanticAssist = applySemanticAssist(hits, resolvedOptions.semantic);
 
 	const countsByType: Record<SearchContentType, number> = { ...EMPTY_TYPE_COUNTS };
 	for (const hit of hits) countsByType[hit.type] += 1;
@@ -520,7 +886,63 @@ export function searchVaultForActor(
 		countsByType,
 		sourceStatus,
 		activeFilters,
+		deterministicOrder,
+		semanticAssist,
 	};
+}
+
+/**
+ * SRCH-011 — apply OPTIONAL semantic assistance over the already-ranked, already-visible `hits` IN PLACE,
+ * returning the resulting {@link SemanticAssistStatus}. This is the one place semantic re-ranking is allowed,
+ * and it is deliberately constrained so it can NEVER widen the result or leak hidden content:
+ *
+ *   - SECONDARY + OFF BY DEFAULT: when `semantic` is absent or `enabled` is false, the deterministic order is
+ *     left untouched and the status is `disabled` (SRCH-011 AC1 — deterministic search always works).
+ *   - UNAVAILABLE DEGRADES, NEVER FAILS: when the model is unavailable (e.g. offline), the deterministic
+ *     hits are STILL returned unchanged and the status is `unavailable` with a generic reason (AC3).
+ *   - MEMBERSHIP IS FIXED: the re-ranker may only REORDER the existing visible hit ids. Any id it returns that
+ *     is not already a visible hit is IGNORED, and any visible hit it omits keeps its deterministic position —
+ *     so semantic assist can never introduce a hidden title/snippet/id (AC2).
+ *   - LABELLED: `reranked` is true only when the order actually changed, so the GUI labels the semantic
+ *     contribution while the deterministic order remains available as a diagnostic (AC4).
+ */
+function applySemanticAssist(
+	hits: SearchHit[],
+	semantic: SemanticAssist | undefined,
+): SemanticAssistStatus {
+	if (!semantic || !semantic.enabled) {
+		return { state: 'disabled', reranked: false, reason: null };
+	}
+	if (semantic.available === false) {
+		// Degrade, do not fail: the deterministic cached results are still returned in their deterministic order.
+		return { state: 'unavailable', reranked: false, reason: 'Semantic model unavailable.' };
+	}
+	if (!semantic.rerank) {
+		// Enabled + available but no re-ranker supplied: a pure annotation pass, deterministic order preserved.
+		return { state: 'applied', reranked: false, reason: null };
+	}
+
+	const byId = new Map(hits.map((hit) => [hit.id, hit]));
+	const before = hits.map((hit) => hit.id);
+	const proposed = semantic.rerank(hits.slice());
+	// Keep only ids that are ALREADY visible hits, in the proposed order, deduped (membership is fixed).
+	const seen = new Set<string>();
+	const reordered: SearchHit[] = [];
+	for (const id of proposed) {
+		if (seen.has(id)) continue;
+		const hit = byId.get(id);
+		if (!hit) continue; // ignore any id the re-ranker invented — it can never add a hidden hit.
+		seen.add(id);
+		reordered.push(hit);
+	}
+	// Any visible hit the re-ranker omitted keeps its deterministic position, appended in deterministic order.
+	for (const hit of hits) {
+		if (!seen.has(hit.id)) reordered.push(hit);
+	}
+	hits.splice(0, hits.length, ...reordered);
+	const after = hits.map((hit) => hit.id);
+	const reranked = after.some((id, index) => id !== before[index]);
+	return { state: 'applied', reranked, reason: null };
 }
 
 /** Stable type order for tie-breaking, matching the content-type facet order. */
@@ -533,9 +955,10 @@ const TYPE_ORDER: Record<SearchContentType, number> = {
 };
 
 /**
- * Deterministic ordering for hits: by score descending (title-matches first), then by a stable type order,
- * then by id. Equal-score hits always order identically across repeated runs and fresh fixtures (SRCH-005
- * stable tie-breaks; applied here so the search list is reproducible).
+ * SRCH-005 — deterministic ordering for hits: by the COMPOSITE ranking score descending (recency, title, tag,
+ * link, entity-type, session-context signals combined), then by a stable type order, then by id. The
+ * tie-breakers are TOTAL — two hits can never tie on (score, type, id) — so equal-input hits always order
+ * IDENTICALLY across repeated runs and fresh fixtures (AC3: deterministic, stable order). Pure.
  */
 function compareHits(a: SearchHit, b: SearchHit): number {
 	if (a.score !== b.score) return b.score - a.score;

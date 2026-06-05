@@ -2045,18 +2045,30 @@ export {
 	updateSavedSearch,
 } from './state/saved-search';
 
-// SRCH-003: THE single actor-filtered FACETED SEARCH read. Filters search by source, content type, tag,
-// folder, date, and a VISIBILITY-SAFE RELATIONSHIP (plus text), composing the actor-filtered content
-// (CONTENT-011) + map (MAP-018) reads — no second index. Counts derive from the visible set only, so a
-// hidden hit/facet/relationship match (or a count revealing one) never appears (AC1, AC4). A referenced
-// unavailable source is marked stale/unavailable WITHOUT failing the whole search (AC2). The result echoes
-// the active filters (AC3). Pure + deterministic; the GUI renders the computed result.
+// SRCH-003 / SRCH-005 / SRCH-006 / SRCH-011: THE single actor-filtered FACETED SEARCH read. Filters by
+// source, content type, tag, folder, date, and a VISIBILITY-SAFE RELATIONSHIP (plus text), composing the
+// actor-filtered content (CONTENT-011) + map (MAP-018) reads — no second index. SRCH-005: hits are ranked by
+// a DETERMINISTIC composite score (recency, title, tag, link, entity-type, session-context signals, every
+// signal from the visible set) with stable tie-breakers, BEFORE any optional AI assistance; the per-signal
+// breakdown is exposed for diagnostics. SRCH-006: each hit carries a VISIBLE snippet + visibility-safe
+// relationship hints (visible backlinks, date refs, folder, map context), so a snippet never crosses a hidden
+// section boundary and a hint never names a hidden artifact. SRCH-011: optional semantic assist is SECONDARY,
+// off by default, LABELLED, source-cited, can only re-order the already-visible hits (never add one), and
+// degrades to deterministic results when unavailable; the deterministic order is preserved as a diagnostic.
+// Counts derive from the visible set only (AC1, AC4); a referenced unavailable source is marked WITHOUT
+// failing the search (AC2); the active filters are echoed (AC3). Pure + deterministic; the GUI renders it.
 export type {
 	ActiveSearchFilters,
+	RankingSignals,
 	SearchHit,
+	SearchOptions,
+	SearchRelationshipHints,
 	SearchResult,
+	SearchSnippet as SearchHitSnippet,
 	SearchSourceFreshness,
 	SearchSourceStatus,
+	SemanticAssist,
+	SemanticAssistStatus,
 } from './queries/search-query';
 export { searchVaultForActor } from './queries/search-query';
 

@@ -206,6 +206,9 @@ epics:
   - id: SRCH-quick-switcher-and-command-discovery
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SRCH-quick-switcher-and-command-discovery.completion.md
+  - id: SRCH-ranking-and-result-context
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SRCH-ranking-and-result-context.completion.md
   - id: SYNC-asset-sync-and-status
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SYNC-asset-sync-and-status.completion.md

@@ -233,14 +233,56 @@
 		</ul>
 	{/if}
 
+	{#if result.semanticAssist.state !== 'disabled'}
+		<p class="meta" data-testid="search-semantic-status">
+			{#if result.semanticAssist.state === 'unavailable'}
+				Semantic search unavailable — showing deterministic results. {result.semanticAssist.reason}
+			{:else if result.semanticAssist.reranked}
+				Semantic ranking applied (deterministic order preserved for diagnostics).
+			{:else}
+				Semantic assist active (deterministic ranking unchanged).
+			{/if}
+		</p>
+	{/if}
+
 	{#if result.hits.length === 0}
 		<p class="meta" data-testid="search-empty">No visible results match your filter.</p>
 	{:else}
 		<ol class="result-list" data-testid="search-results">
 			{#each result.hits as hit (`${hit.type}:${hit.id}`)}
 				<li data-testid={`search-result-${hit.type}-${hit.id}`}>
-					<span class="meta">{typeLabels[hit.type]}</span>
+					<span class="meta">{typeLabels[hit.type]} · {sourceLabels[hit.source]}</span>
 					<strong> {hit.title}</strong>
+					{#if hit.snippet}
+						<span class="snippet meta" data-testid={`search-snippet-${hit.type}-${hit.id}`}>
+							{hit.snippet.text}
+						</span>
+					{/if}
+					{#if hit.tags.length > 0}
+						<span class="meta" data-testid={`search-tags-${hit.type}-${hit.id}`}>
+							{hit.tags.map((t) => `#${t}`).join(' ')}
+						</span>
+					{/if}
+					{#if hit.relationships.backlinks.length > 0}
+						<span class="meta" data-testid={`search-backlinks-${hit.type}-${hit.id}`}>
+							Linked from: {hit.relationships.backlinks.join(', ')}
+						</span>
+					{/if}
+					{#if hit.relationships.dateRefs.length > 0}
+						<span class="meta" data-testid={`search-dates-${hit.type}-${hit.id}`}>
+							Dates: {hit.relationships.dateRefs.join(', ')}
+						</span>
+					{/if}
+					{#if hit.relationships.folder}
+						<span class="meta" data-testid={`search-folder-${hit.type}-${hit.id}`}>
+							Folder: {hit.relationships.folder}
+						</span>
+					{/if}
+					{#if hit.relationships.mapId}
+						<span class="meta" data-testid={`search-map-${hit.type}-${hit.id}`}>
+							Map: {hit.relationships.mapId}
+						</span>
+					{/if}
 				</li>
 			{/each}
 		</ol>
@@ -330,6 +372,14 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1, 0.25rem);
+	}
+	.result-list li {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+	}
+	.snippet {
+		font-style: italic;
 	}
 	.save-form {
 		display: flex;

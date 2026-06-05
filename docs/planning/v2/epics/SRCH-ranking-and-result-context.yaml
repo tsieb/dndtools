@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: SRCH-ranking-and-result-context
 title: "SRCH: Ranking and result context"
-status: approved
+status: complete
 approved: true
 domain: SRCH
 capabilityBranch: Ranking and result context
@@ -197,3 +197,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/SRCH-ranking-and-result-context.completion.md

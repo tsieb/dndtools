@@ -136,9 +136,11 @@ function navigationEntryId(hit: SearchHit): string {
 
 /**
  * Project the actor-filtered search result into title-first navigation entries. The search read already
- * scored title-matches above body-only matches and ordered hits deterministically (title score → stable
- * type order → id); this preserves that order and caps the list. NO re-filtering — every hit is already
- * visible.
+ * ranked the hits deterministically (composite score → stable type order → id); this preserves that order
+ * and caps the list. The entry's own switcher score is TITLE-FIRST (a title-matching hit scores 2, a
+ * body/relationship-only hit 1) so navigation and command entries share the same title-first scale —
+ * derived from the hit's TITLE signal (SRCH-005), not its composite score. NO re-filtering — every hit is
+ * already visible.
  */
 function navigationEntries(result: SearchResult, limit: number): QuickSwitcherNavigationEntry[] {
 	const entries: QuickSwitcherNavigationEntry[] = [];
@@ -150,7 +152,7 @@ function navigationEntries(result: SearchResult, limit: number): QuickSwitcherNa
 			title: hit.title,
 			contentType: hit.type,
 			route: routeForHit(hit),
-			score: hit.score >= TITLE_MATCH_SCORE ? TITLE_MATCH_SCORE : 1,
+			score: hit.signals.title > 0 ? TITLE_MATCH_SCORE : 1,
 		});
 	}
 	return entries;
