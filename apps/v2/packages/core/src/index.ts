@@ -517,6 +517,7 @@ export {
 	renameMapLayerInputSchema,
 	reorderMapLayerInputSchema,
 	recordSessionDiceInputSchema,
+	recoverSessionInputSchema,
 	removeMapEmbedInputSchema,
 	revokeGrantInputSchema,
 	revokePlayerViewInputSchema,
@@ -2155,3 +2156,21 @@ export {
 	markUndone,
 	recoveryAction,
 } from './lifecycle/command-lifecycle';
+
+// SES-011: the SESSION WORKFLOW STATE MACHINE — the 7-state transition table + per-state command
+// availability. Pure Processing-Core policy; the GUI renders the computed availability and the
+// command guards enforce the authoritative gate (`active` remains the only live-session state).
+export type {
+	SessionCommandAvailability,
+	SessionLifecycleIntent,
+} from './lifecycle/session-workflow';
+export {
+	SESSION_COMMAND_AVAILABILITY,
+	SESSION_INTENT_TARGET,
+	SESSION_WORKFLOW_TRANSITIONS,
+	allowedTransitionsFrom,
+	availableSessionCommands,
+	isLifecycleIntentAllowed,
+	isSessionCommandAvailable,
+	isTransitionAllowed,
+} from './lifecycle/session-workflow';

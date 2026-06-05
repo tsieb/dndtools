@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: SES-session-lifecycle
 title: "SES: Session lifecycle"
-status: approved
+status: complete
 approved: true
 domain: SES
 capabilityBranch: Session lifecycle
@@ -187,3 +187,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/SES-session-lifecycle.completion.md

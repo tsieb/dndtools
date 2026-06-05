@@ -1,6 +1,7 @@
 import {
 	projectActiveMapInputSchema,
 	recordSessionDiceInputSchema,
+	recoverSessionInputSchema,
 	setActiveMapInputSchema,
 	setSessionWorkflowInputSchema,
 } from '../schemas/commands';
@@ -8,7 +9,10 @@ import type { MapEntity } from '../state/map-state';
 import {
 	type ActiveMapDeliveryStatus,
 	type SessionArchiveSnapshot,
+	type SessionState,
+	type SessionWorkflowState,
 } from '../state/session-state';
+import { isTransitionAllowed } from '../lifecycle/session-workflow';
 import {
 	EMPTY_SESSION_COMBAT_STATE,
 	ensureSessionCombatState,
@@ -140,6 +144,143 @@ function archiveCurrentSession(
 	};
 }
 
+/**
+ * SES-001 RECOVER — restore the live Session State fields from a durable archive snapshot. This is the
+ * lifecycle counterpart of ARCHIVE: archive snapshots the live state and clears it; recover replays a
+ * snapshot back into the live fields and moves the workflow into `recap` review (a recovered session is
+ * read-only inputs until the DM explicitly re-opens it — SES-011 AC2). Reusing the same snapshot shape
+ * the migration write-ahead/safety-snapshot recovery uses: the archive IS the rollback target.
+ */
+function restoreLiveFieldsFromArchive(
+	session: SessionState,
+	archive: SessionArchiveSnapshot,
+): SessionState {
+	return {
+		...session,
+		activeSceneId: archive.activeSceneId,
+		activeMap: archive.activeMap ? { ...archive.activeMap } : null,
+		combat: ensureSessionCombatState(archive.combat),
+		diceHistory: archive.diceHistory.map((roll) => ({ ...roll })),
+		timers: Object.fromEntries(
+			Object.entries(archive.timers).map(([id, timer]) => [id, { ...timer }]),
+		),
+		playerViewAssignments: Object.fromEntries(
+			Object.entries(archive.playerViewAssignments).map(([id, assignment]) => [
+				id,
+				{ ...assignment, target: { ...assignment.target } },
+			]),
+		),
+		activeMapProjections: Object.fromEntries(
+			Object.entries(archive.activeMapProjections).map(([id, projection]) => [
+				id,
+				{ ...projection },
+			]),
+		),
+		handouts: Object.fromEntries(
+			Object.entries(archive.handouts).map(([id, handout]) => [
+				id,
+				{
+					...handout,
+					sections: handout.sections.map((section) => ({ ...section })),
+					revealedSectionIds: [...handout.revealedSectionIds],
+					recipientActorIds: [...handout.recipientActorIds],
+					deliveries: handout.deliveries.map((delivery) => ({ ...delivery })),
+				},
+			]),
+		),
+		quickReferencePanels: Object.fromEntries(
+			Object.entries(archive.quickReferencePanels).map(([id, panel]) => [id, { ...panel }]),
+		),
+	};
+}
+
+export function handleRecoverSession(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(recoverSessionInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const previousWorkflow = state.session.workflow;
+	const targetWorkflow: SessionWorkflowState = 'recap';
+	// SES-011 — recover restores into `recap` review; only allowed from a non-live workflow that can
+	// transition to recap (archived / recap / active / paused / ending). Fail-closed otherwise.
+	if (!isTransitionAllowed(previousWorkflow, targetWorkflow)) {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: `Session cannot be recovered from ${previousWorkflow}.`,
+			},
+			state,
+		);
+	}
+
+	const archiveId = parsed.data.archiveId ?? state.session.recapArchiveId;
+	if (!archiveId) {
+		return reject(
+			{ code: 'invalid-state', message: 'No archived session is available to recover.' },
+			state,
+		);
+	}
+	const archive = state.session.archives[archiveId];
+	if (!archive) {
+		return reject(
+			{ code: 'invalid-state', message: `Archived session ${archiveId} does not exist.` },
+			state,
+		);
+	}
+
+	const restored = restoreLiveFieldsFromArchive(state.session, archive);
+	const nextSession: SessionState = {
+		...restored,
+		workflow: targetWorkflow,
+		workflowRevision: state.session.workflowRevision + 1,
+		recapArchiveId: archiveId,
+	};
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'session',
+		entityId: SESSION_ENTITY_ID,
+		opType: 'session.recover',
+		path: 'workflow',
+		value: {
+			from: previousWorkflow,
+			to: targetWorkflow,
+			archiveId,
+			activeSceneId: nextSession.activeSceneId,
+		},
+		beforeRevision: state.session.workflowRevision,
+		afterRevision: nextSession.workflowRevision,
+		dependencies: [`session-archive:${archiveId}`],
+	});
+
+	const events: CoreEvent[] = [
+		{ kind: 'session.recovered', actorId: actor.id, archiveId },
+		{
+			kind: 'session.workflow-changed',
+			actorId: actor.id,
+			from: previousWorkflow,
+			to: targetWorkflow,
+			activeSceneId: nextSession.activeSceneId,
+			recapArchiveId: nextSession.recapArchiveId,
+		},
+	];
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, session: nextSession, sync: nextLog },
+		events,
+		operationIds: [op.id],
+	};
+}
+
 export function handleSetSessionWorkflow(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
@@ -156,6 +297,18 @@ export function handleSetSessionWorkflow(
 
 	const targetWorkflow = parsed.data.workflow;
 	const previousWorkflow = state.session.workflow;
+	// SES-011 — validate the requested transition against the explicit transition table. A disallowed
+	// transition (e.g. `idle → paused`, or a stale player UI driving an out-of-order move) is rejected
+	// fail-closed with a non-leaking invalid-state result; the durable state is never advanced.
+	if (!isTransitionAllowed(previousWorkflow, targetWorkflow)) {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: `Session workflow cannot move from ${previousWorkflow} to ${targetWorkflow}.`,
+			},
+			state,
+		);
+	}
 	const requestedSceneId =
 		parsed.data.activeSceneId !== undefined
 			? parsed.data.activeSceneId

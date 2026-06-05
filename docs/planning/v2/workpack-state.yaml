@@ -176,3 +176,6 @@ epics:
   - id: SES-prep-recap-and-calendar-continuity
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SES-prep-recap-and-calendar-continuity.completion.md
+  - id: SES-session-lifecycle
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SES-session-lifecycle.completion.md

@@ -7,6 +7,7 @@
 		getSceneForActor,
 		getSessionParticipantStatus,
 		getSessionWidgetMode,
+		isTransitionAllowed,
 		listWidgetLibrary,
 		resolveAddWidgetCommand,
 		resolveOnboarding,
@@ -225,6 +226,16 @@
 		});
 	}
 
+	// SES-001 — RECOVER an archived session back into recap review. The button is shown only when an
+	// archive exists; the Processing Core fails closed if recovery is not allowed from the current state.
+	async function recoverSession() {
+		await runtime.dispatch({
+			type: 'session.recover',
+			actorId: runtime.defaultActorId,
+			payload: {},
+		});
+	}
+
 	async function bindActiveMap() {
 		if (!selectedMapId) return;
 		const result = await runtime.dispatch({
@@ -349,11 +360,16 @@
 			<h2>Session workflow</h2>
 			<div class="workflow-strip" role="toolbar" aria-label="Session workflow states">
 				{#each SESSION_WORKFLOW_STATES as workflow (workflow)}
+					{@const allowed = isTransitionAllowed(runtime.state.session.workflow, workflow)}
 					<button
 						type="button"
 						data-testid={`session-workflow-${workflow}`}
 						aria-pressed={runtime.state.session.workflow === workflow}
 						class:selected={runtime.state.session.workflow === workflow}
+						disabled={!allowed}
+						title={allowed
+							? `Move session to ${workflow}`
+							: `Cannot move from ${runtime.state.session.workflow} to ${workflow}`}
 						onclick={() => setWorkflow(workflow)}
 					>
 						{workflow}
@@ -375,6 +391,15 @@
 					{runtime.state.session.archives[sessionMode.recapArchiveId]?.diceHistory.length ?? 0}
 					rolls
 				</p>
+				<button
+					type="button"
+					class="secondary"
+					data-testid="session-recover"
+					disabled={!isTransitionAllowed(runtime.state.session.workflow, 'recap')}
+					onclick={() => recoverSession()}
+				>
+					Recover archived session
+				</button>
 			{/if}
 		</section>
 

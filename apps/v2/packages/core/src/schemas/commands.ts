@@ -280,6 +280,15 @@ export const recordSessionDiceInputSchema = z
 	})
 	.strict();
 
+// SES-001 — recover an archived Session State back into recap review. `archiveId` is optional: absent
+// recovers the session's current `recapArchiveId` (the most recent archive). The reducer fails closed
+// when no archive is available or the id is unknown.
+export const recoverSessionInputSchema = z
+	.object({
+		archiveId: idSchema.optional(),
+	})
+	.strict();
+
 // SES-003 — roll a dice expression / macro / inline roll through the shared dice command. The OUTCOME is
 // computed ONCE in the Processing Core from a recorded seed (never supplied by the GUI), so it is
 // reproducible. An optional explicit `seed` makes a roll deterministic for tests/replay; absent ⇒ the

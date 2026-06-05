@@ -145,6 +145,42 @@ test.describe('CMD-001/002/007 Command Center home Scene', () => {
 		await expect(page.getByTestId('cc-active-map-empty')).toBeVisible();
 	});
 
+	test('formalized workflow state machine disables disallowed transitions (SES-011)', async ({
+		page,
+	}) => {
+		// From idle, `paused` and `ending` are NOT reachable in one step (fail-closed transition table),
+		// so their workflow buttons are disabled; `active` and `prep` ARE reachable, so they are enabled.
+		await expect(page.getByTestId('session-workflow-status')).toContainText('idle');
+		await expect(page.getByTestId('session-workflow-paused')).toBeDisabled();
+		await expect(page.getByTestId('session-workflow-ending')).toBeDisabled();
+		await expect(page.getByTestId('session-workflow-active')).toBeEnabled();
+		await expect(page.getByTestId('session-workflow-prep')).toBeEnabled();
+
+		// Start the session: idle -> active. Now `paused` and `ending` become reachable, and `prep` does
+		// not (active cannot go back to prep).
+		await page.getByTestId('session-workflow-active').click();
+		await expect(page.getByTestId('session-workflow-status')).toContainText('active');
+		await expect(page.getByTestId('session-workflow-paused')).toBeEnabled();
+		await expect(page.getByTestId('session-workflow-ending')).toBeEnabled();
+		await expect(page.getByTestId('session-workflow-prep')).toBeDisabled();
+	});
+
+	test('archived session can be recovered into recap review (SES-001)', async ({ page }) => {
+		await page.getByTestId('session-workflow-active').click();
+		await expect(page.getByTestId('session-workflow-status')).toContainText('active');
+		// active -> recap (archives live state), then recap -> archived (durable archive).
+		await page.getByTestId('session-workflow-recap').click();
+		await expect(page.getByTestId('session-workflow-status')).toContainText('recap');
+		await expect(page.getByTestId('session-recap-archive')).toBeVisible();
+		await page.getByTestId('session-workflow-archived').click();
+		await expect(page.getByTestId('session-workflow-status')).toContainText('archived');
+
+		// Recover restores the archived session back into recap review.
+		await page.getByTestId('session-recover').click();
+		await expect(page.getByTestId('session-workflow-status')).toContainText('recap');
+		await expect(page.getByTestId('session-recap-archive')).toBeVisible();
+	});
+
 	test('Player View controller assigns connected and disconnected participants (CMD-004)', async ({
 		page,
 	}) => {

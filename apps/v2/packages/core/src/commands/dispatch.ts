@@ -37,6 +37,7 @@ import { handleGrantCapabilitySet, handleRevokeGrant, handleTransferOwnership } 
 import {
 	handleProjectActiveMap,
 	handleRecordSessionDice,
+	handleRecoverSession,
 	handleSetActiveMap,
 	handleSetSessionWorkflow,
 } from './session-control';
@@ -218,6 +219,8 @@ export function dispatchCommand(
 			return handleRevokePlayerView(state, env, command.actorId, command.payload);
 		case 'session.set-workflow':
 			return handleSetSessionWorkflow(state, env, command.actorId, command.payload);
+		case 'session.recover':
+			return handleRecoverSession(state, env, command.actorId, command.payload);
 		case 'session.record-dice':
 			return handleRecordSessionDice(state, env, command.actorId, command.payload);
 		case 'dice.roll':

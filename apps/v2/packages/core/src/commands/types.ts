@@ -114,6 +114,10 @@ export type CoreCommand =
 			idempotencyKey?: string;
 	  }
 	| { type: 'session.set-workflow'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// SES-001: RECOVER an archived Session State back into recap review (the restore counterpart of the
+	// recap/archive snapshot). DM-only; validated against the SES-011 transition table; fails closed when
+	// no archive is available.
+	| { type: 'session.recover'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.record-dice'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// SES-003: roll a dice expression / macro / inline roll through the shared dice command. The OUTCOME
 	// is computed once in the Processing Core from a recorded seed (reproducible); malformed expressions
@@ -537,6 +541,8 @@ export type CoreEvent =
 			recapArchiveId: string | null;
 	  }
 	| { kind: 'session.archived'; actorId: ActorId; archiveId: string }
+	// SES-001 — a durable archive was recovered back into recap review. Carries the archive id restored.
+	| { kind: 'session.recovered'; actorId: ActorId; archiveId: string }
 	| { kind: 'session.dice-recorded'; actorId: ActorId; rollId: string }
 	// SES-003 / SES-008 — a deterministic, recorded roll (expression/macro/inline/table) was added to the
 	// durable session roll history. Carries the source kind + visibility so subscribers can react without
