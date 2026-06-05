@@ -261,3 +261,74 @@ describe('PLAT-012: exception manifest integrity', () => {
 		}
 	});
 });
+
+describe('MCP-012: MCP modules touch no filesystem API outside the allowlist', () => {
+	// MCP-012 AC1: an MCP tool that imports a filesystem API (outside the declared, gated allowlist)
+	// fails the boundary-lint gate. Each fixture plants the violation in an MCP core module.
+	it('flags an MCP module that imports node:fs directly', () => {
+		const roots = makeFixture(
+			{
+				'apps/v2/packages/core/src/mcp/bad-tool.ts':
+					"import fs from 'node:fs';\nexport function read() {\n  return fs.readFileSync('x');\n}\n",
+			},
+			[],
+		);
+		const violations = collectViolations(roots);
+		expect(violations.some((v) => /imports a filesystem API.*MCP-012/.test(v.message))).toBe(true);
+	});
+
+	it("flags an MCP module that imports the bare 'fs' / 'path' modules", () => {
+		for (const spec of ['fs', 'path']) {
+			const roots = makeFixture(
+				{
+					'apps/v2/packages/core/src/mcp/bad-import.ts': `import x from '${spec}';\nexport const y = x;\n`,
+				},
+				[],
+			);
+			const violations = collectViolations(roots);
+			expect(
+				violations.some((v) => /imports a filesystem API.*MCP-012/.test(v.message)),
+				`expected an MCP-012 violation for bare '${spec}' import`,
+			).toBe(true);
+		}
+	});
+
+	it('flags an MCP module that calls a filesystem primitive directly', () => {
+		const roots = makeFixture(
+			{
+				'apps/v2/packages/core/src/mcp/sneaky.ts':
+					'export function dump() {\n  return readFileSync("/etc/passwd");\n}\n',
+			},
+			[],
+		);
+		const violations = collectViolations(roots);
+		expect(violations.some((v) => /calls a filesystem API directly.*MCP-012/.test(v.message))).toBe(
+			true,
+		);
+	});
+
+	it('flags an MCP module that reaches a Node process global', () => {
+		const roots = makeFixture(
+			{
+				'apps/v2/packages/core/src/mcp/leaky.ts':
+					'export const home = process.env.HOME;\n',
+			},
+			[],
+		);
+		const violations = collectViolations(roots);
+		expect(violations.some((v) => /reaches a Node process global.*MCP-012/.test(v.message))).toBe(
+			true,
+		);
+	});
+
+	it('does not flag a pure-policy MCP module (the real allowlist + dispatch are clean)', () => {
+		const roots = makeFixture(
+			{
+				'apps/v2/packages/core/src/mcp/pure.ts':
+					"import { z } from 'zod';\n// reads through fs-allowlist only — never node:fs\nexport const schema = z.object({});\n",
+			},
+			[],
+		);
+		expect(collectViolations(roots)).toEqual([]);
+	});
+});

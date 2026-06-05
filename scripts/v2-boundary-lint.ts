@@ -118,6 +118,23 @@ const PLATFORM_PRIMITIVE_RULES: PrimitiveRule[] = [
 	},
 ];
 
+// MCP-012: the MCP tool/policy layer under core (`src/mcp/`) must touch NO filesystem or
+// platform-service primitive directly. The few narrow filesystem operations the future MCP
+// sidecar may perform are DECLARED in the MCP filesystem exception allowlist
+// (`src/mcp/fs-allowlist.ts`) and gated fail-closed there — they are never reached by ad hoc
+// `fs`/`node:`/`path`/`os` imports or `fs.*` calls inside MCP modules. This rule fails the
+// gate when an MCP module imports a filesystem API outside the allowlist (MCP-012 AC1),
+// "rather than inferred from broad runtime access" (Known Defect AUDIT-21.5-MCP-FS-EXCEPTIONS).
+const MCP_DIR_NAME = 'mcp';
+// Filesystem / platform-service import specifiers an MCP module must never import directly.
+const MCP_FORBIDDEN_FS_IMPORT_PREFIXES = ['fs', 'node:fs', 'node:', 'path', 'os'];
+// Direct filesystem / platform-service primitive ACCESS (call sites) forbidden inside MCP modules.
+const MCP_FS_PRIMITIVE_RULES: PrimitiveRule[] = [
+	{ id: 'fs', pattern: /\b(?:fs|fsp|fsPromises)\.\w+\s*\(/, message: 'calls a node:fs filesystem API directly' },
+	{ id: 'readFileSync', pattern: /\b(?:readFileSync|writeFileSync|readFile|writeFile|openSync|mkdirSync|rmSync|unlinkSync)\s*\(/, message: 'calls a filesystem API directly' },
+	{ id: 'process', pattern: /\bprocess\.(?:cwd|env|chdir)\b/, message: 'reaches a Node process global directly' },
+];
+
 // PLAT-011: files under the contracts dir (or matching the contract suffix) are type-only.
 // They must not export runtime values.
 const CONTRACT_DIR_NAME = 'contracts';
@@ -284,6 +301,55 @@ function isContractModule(file: string, coreRoot: string): boolean {
 	return rel.startsWith(`src/${CONTRACT_DIR_NAME}/`) || file.endsWith(CONTRACT_SUFFIX);
 }
 
+function isMcpModule(file: string, coreRoot: string): boolean {
+	const rel = path.relative(coreRoot, file).split(path.sep).join('/');
+	return rel.startsWith(`src/${MCP_DIR_NAME}/`);
+}
+
+/**
+ * MCP-012: an MCP core module must not import a filesystem/platform-service API or call a
+ * filesystem primitive directly. Filesystem access is allowed only through the DECLARED MCP
+ * filesystem exception allowlist (gated fail-closed in `src/mcp/fs-allowlist.ts`), never ad
+ * hoc. Flags forbidden `fs`/`node:`/`path`/`os` imports and direct `fs.*`/readFile/etc. calls.
+ */
+function scanMcpFilesystem(file: string, repoRoot: string, violations: Violation[]): void {
+	const source = fs.readFileSync(file, 'utf8');
+	const relFile = path.relative(repoRoot, file).split(path.sep).join('/');
+
+	// 1. No filesystem/platform-service IMPORTS outside the allowlist.
+	const patterns = [IMPORT_PATTERN, SIDE_EFFECT_PATTERN, DYNAMIC_IMPORT_PATTERN];
+	for (const pattern of patterns) {
+		pattern.lastIndex = 0;
+		let match: RegExpExecArray | null;
+		while ((match = pattern.exec(source))) {
+			const spec = match[1];
+			if (!spec) continue;
+			if (checkImport(spec, MCP_FORBIDDEN_FS_IMPORT_PREFIXES)) {
+				violations.push({
+					file: relFile,
+					line: lineOf(source, match.index),
+					message: `MCP module imports a filesystem API "${spec}" outside the allowlist (MCP-012). Declare and gate it through src/mcp/fs-allowlist.ts.`,
+				});
+			}
+		}
+	}
+
+	// 2. No direct filesystem-primitive CALL SITES inside an MCP module.
+	source.split('\n').forEach((rawLine, index) => {
+		const line = codeOnly(rawLine);
+		for (const rule of MCP_FS_PRIMITIVE_RULES) {
+			rule.pattern.lastIndex = 0;
+			if (rule.pattern.test(line)) {
+				violations.push({
+					file: relFile,
+					line: index + 1,
+					message: `MCP module ${rule.message} (MCP-012). Route filesystem access through the declared MCP filesystem exception allowlist.`,
+				});
+			}
+		}
+	});
+}
+
 function isGuiOrRouteFile(file: string, svelteAppRoot: string): boolean {
 	const rel = path.relative(svelteAppRoot, file).split(path.sep).join('/');
 	if (rel.startsWith('src/lib/gui/')) return true;
@@ -314,9 +380,13 @@ export function collectViolations(roots: BoundaryLintRoots): Violation[] {
 	}
 
 	// PLAT-011: type-only contract modules export no runtime values.
+	// MCP-012: MCP modules touch no filesystem/platform-service primitive outside the allowlist.
 	for (const file of walk(path.join(coreRoot, 'src'))) {
 		if (isContractModule(file, coreRoot)) {
 			scanTypeOnlyModule(file, repoRoot, violations);
+		}
+		if (isMcpModule(file, coreRoot)) {
+			scanMcpFilesystem(file, repoRoot, violations);
 		}
 	}
 

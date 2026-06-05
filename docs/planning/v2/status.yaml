@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 16
-  active: 0
+  approved: 15
+  active: 1
   complete: 72
   deferred: 0
 metrics:
@@ -114,8 +114,8 @@ metrics:
     - domain: MCP
       totalEpics: 5
       complete: 0
-      active: 0
-      approved: 5
+      active: 1
+      approved: 4
       proposed: 0
       deferred: 0
       epicCompletionPercent: 0
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: MCP-core-enforcement-and-tests
   title: "MCP: Core enforcement and tests"
-  status: approved
+  status: active
   requirementIds:
     - MCP-004
     - MCP-005
@@ -552,7 +552,7 @@ epics:
       - MAP-019
     completionEvidenceFile: docs/planning/v2/epics/MAP-pois-routes-fog-and-combat-overlays.completion.md
   - id: MCP-core-enforcement-and-tests
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - MCP-004

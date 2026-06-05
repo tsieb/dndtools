@@ -3570,3 +3570,58 @@ export type {
 	SessionAudioView,
 } from './queries/session-audio-query';
 export { getSessionAudioView } from './queries/session-audio-query';
+
+// MCP-004 / MCP-005 — the FAIL-CLOSED MCP TOOL POLICY LAYER. An MCP agent acts through a SCOPED vault
+// actor and is filtered + permission-gated EXACTLY like a human actor: every READ tool composes an
+// existing actor-filtered query (visibility/redaction enforced by the data layer before the agent sees
+// anything), and every WRITE tool dispatches an existing authorized command (inheriting validation,
+// authority checks, op-logging, and visibility). The tool REGISTRY is the closed allowlist of what an
+// agent can do; the DISPATCHER enforces, in order and fail closed, unknown tool / unknown-or-under-
+// scoped actor / schema-invalid input → deny, then routes. There is no privileged MCP side-channel.
+export type {
+	McpBaselineToolId,
+	McpBoundCommandType,
+	McpToolDefinition,
+	McpToolKind,
+	McpToolRegistry,
+	McpWriteRisk,
+} from './mcp/tool-registry';
+export {
+	MCP_BASELINE_TOOL_IDS,
+	createBaselineMcpToolRegistry,
+	createMcpToolRegistry,
+	mcpEmptyInputSchema,
+	mcpEntityIdInputSchema,
+	mcpGraphContextInputSchema,
+	mcpNoteCreateInputSchema,
+	mcpNoteSearchInputSchema,
+} from './mcp/tool-registry';
+export type {
+	McpDenyReason,
+	McpToolInvocation,
+	McpToolResult,
+} from './mcp/tool-dispatch';
+export { invokeMcpTool } from './mcp/tool-dispatch';
+
+// MCP-012 — the EXPLICIT, FAIL-CLOSED MCP FILESYSTEM / PLATFORM-SERVICE EXCEPTION ALLOWLIST. The few
+// narrow filesystem operations the future MCP sidecar may perform are DECLARED (not inferred from broad
+// runtime access): every exception is contained to a root, size-bounded, schema-validated, and audited.
+// `gateMcpFsOperation` certifies an op is safe BEFORE any I/O; an op outside the allowlist, an oversized
+// payload, a schema-invalid request, or a path that escapes the containment root all fail closed.
+export type {
+	McpFsDenyReason,
+	McpFsExceptionDefinition,
+	McpFsExceptionRegistry,
+	McpFsGateResult,
+	McpFsOperationId,
+	McpFsRequest,
+} from './mcp/fs-allowlist';
+export {
+	DEFAULT_MCP_STAGED_PREVIEW_MAX_BYTES,
+	MCP_FS_OPERATION_IDS,
+	createBaselineMcpFsExceptionRegistry,
+	createMcpFsExceptionRegistry,
+	gateMcpFsOperation,
+	isMcpFsOperationId,
+	isPathContained,
+} from './mcp/fs-allowlist';
