@@ -108,6 +108,17 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 	});
 
 	test('Timer widget dispatches its declared command through the core', async ({ page }) => {
+		// A session timer is session state, and the core only accepts a session-writing
+		// widget command (`timer.start`, writesTo: 'session') while the session workflow is
+		// active (CMD-active-session-control). Session state is application-level, so
+		// activate the session on the Command Center first; it persists across navigation.
+		await page.goto('/');
+		await page.getByTestId('command-center').waitFor({ state: 'visible' });
+		await page.getByTestId('session-workflow-active').click();
+		await expect(page.getByTestId('session-workflow-status')).toContainText('active');
+
+		await page.goto('/scenes/');
+		await page.getByTestId('scene-name').waitFor({ state: 'visible' });
 		await page.getByTestId('scene-name').fill('Timer Scene');
 		await page.getByTestId('scene-create').click();
 		await page.getByTestId('scene-list').getByRole('link', { name: 'Timer Scene' }).click();
