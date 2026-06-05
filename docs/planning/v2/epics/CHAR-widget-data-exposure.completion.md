@@ -176,6 +176,6 @@ DM-only value in BOTH its namespaced and flat-key forms.
 
 - Branch: `epic/CHAR-widget-data-exposure` (created from the prior epic HEAD
   `761246862929f367eae6653da20adc0546c1e1b1` — `epic/CHAR-party-and-player-records`, not master).
-- Commit: recorded by the completion commit (`feat(v2): complete CHAR-widget-data-exposure epic`); a
-  follow-up docs commit records the exact SHA.
+- Commit: `31db9b0` (`feat(v2): complete CHAR-widget-data-exposure epic`). This follow-up docs commit
+  records the exact SHA.
 - Final `git status --short`: clean (empty) after the completion commit.
