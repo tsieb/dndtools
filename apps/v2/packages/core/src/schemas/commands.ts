@@ -1118,3 +1118,88 @@ export const cancelAdvancementInputSchema = z
 		characterId: idSchema,
 	})
 	.strict();
+
+// --- CHAR-011 — party records (marching order + party inventory) --------------------------------
+
+const journalEntryKindSchema = z.enum([
+	'bookmark',
+	'npc-impression',
+	'personal-quest',
+	'session-highlight',
+	'note',
+]);
+
+// CHAR-011 — set the party marching order (an ordered list of character ids). DM-only authoring.
+export const setMarchingOrderInputSchema = z
+	.object({
+		order: z.array(idSchema),
+	})
+	.strict();
+
+// CHAR-011 — add/update a party-inventory item. DM-only. Visibility fails closed to `dm-only`.
+export const upsertPartyInventoryItemInputSchema = z
+	.object({
+		id: idSchema.optional(),
+		name: z.string().min(1, 'Item name is required'),
+		detail: z.string().default(''),
+		visibility: characterVisibilitySchema.default('dm-only'),
+		sharedWith: z.array(idSchema).default([]),
+	})
+	.strict();
+
+// CHAR-011 — remove a party-inventory item. DM-only.
+export const removePartyInventoryItemInputSchema = z
+	.object({
+		itemId: idSchema,
+	})
+	.strict();
+
+// --- CHAR-012 / CHAR-016 — character journal ----------------------------------------------------
+
+// CHAR-012 — add a journal entry to a character's journal (owner or DM). Visibility fails closed to
+// `shared`-to-owner when omitted (CHAR-016 AC1); the body is optional (a bookmark may be title-only).
+export const addJournalEntryInputSchema = z
+	.object({
+		characterId: idSchema,
+		kind: journalEntryKindSchema,
+		title: z.string().min(1, 'A journal entry title is required'),
+		body: z.string().default(''),
+		visibility: characterVisibilitySchema.optional(),
+		sharedWith: z.array(idSchema).default([]),
+	})
+	.strict();
+
+// CHAR-012 — update a journal entry's content (owner or DM). Visibility is changed separately.
+export const updateJournalEntryInputSchema = z
+	.object({
+		characterId: idSchema,
+		entryId: idSchema,
+		title: z.string().min(1).optional(),
+		body: z.string().optional(),
+		kind: journalEntryKindSchema.optional(),
+	})
+	.strict()
+	.refine(
+		(value) =>
+			value.title !== undefined || value.body !== undefined || value.kind !== undefined,
+		{ message: 'Provide at least one journal field to update.' },
+	);
+
+// CHAR-016 — change a journal entry's per-entry visibility (owner or DM). The explicit visibility
+// change is the cross-surface invalidation trigger.
+export const setJournalEntryVisibilityInputSchema = z
+	.object({
+		characterId: idSchema,
+		entryId: idSchema,
+		visibility: characterVisibilitySchema,
+		sharedWith: z.array(idSchema).optional(),
+	})
+	.strict();
+
+// CHAR-012 — remove a journal entry (owner or DM).
+export const removeJournalEntryInputSchema = z
+	.object({
+		characterId: idSchema,
+		entryId: idSchema,
+	})
+	.strict();

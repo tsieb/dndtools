@@ -97,6 +97,17 @@ import {
 	handleSetAdvancementChoices,
 	handleSetCharacterXp,
 } from './character-advancement';
+import {
+	handleRemovePartyInventoryItem,
+	handleSetMarchingOrder,
+	handleUpsertPartyInventoryItem,
+} from './character-party';
+import {
+	handleAddJournalEntry,
+	handleRemoveJournalEntry,
+	handleSetJournalEntryVisibility,
+	handleUpdateJournalEntry,
+} from './character-journal';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 
 export function dispatchCommand(
@@ -295,6 +306,20 @@ export function dispatchCommand(
 			return handleCommitAdvancement(state, env, command.actorId, command.payload);
 		case 'character.cancel-advancement':
 			return handleCancelAdvancement(state, env, command.actorId, command.payload);
+		case 'character.set-marching-order':
+			return handleSetMarchingOrder(state, env, command.actorId, command.payload);
+		case 'character.upsert-party-inventory-item':
+			return handleUpsertPartyInventoryItem(state, env, command.actorId, command.payload);
+		case 'character.remove-party-inventory-item':
+			return handleRemovePartyInventoryItem(state, env, command.actorId, command.payload);
+		case 'character.add-journal-entry':
+			return handleAddJournalEntry(state, env, command.actorId, command.payload);
+		case 'character.update-journal-entry':
+			return handleUpdateJournalEntry(state, env, command.actorId, command.payload);
+		case 'character.set-journal-entry-visibility':
+			return handleSetJournalEntryVisibility(state, env, command.actorId, command.payload);
+		case 'character.remove-journal-entry':
+			return handleRemoveJournalEntry(state, env, command.actorId, command.payload);
 	}
 }
 

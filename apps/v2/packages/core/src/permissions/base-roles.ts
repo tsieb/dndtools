@@ -226,7 +226,13 @@ export function computeBasePermissionFloor(role: ActorRole): BasePermissionFloor
 const READ_ONLY_CAPABILITY_SETS: ReadonlySet<string> = new Set<CapabilitySet>(['viewer']);
 
 /** Entity types that carry character data and must never reach an Observer. */
-const CHARACTER_ENTITY_TYPES: ReadonlySet<string> = new Set(['character', 'character-field']);
+const CHARACTER_ENTITY_TYPES: ReadonlySet<string> = new Set([
+	'character',
+	'character-field',
+	// CHAR-012 / CHAR-015 — a character journal carries character data, so an observer grant on it is
+	// dropped at the role ceiling (defense-in-depth behind the query-layer observer denial).
+	'character-journal',
+]);
 
 /** True when a capability set authorizes any write/operate action (i.e. is not read-only). */
 export function isWriteCapableCapabilitySet(capabilitySet: CapabilitySet): boolean {

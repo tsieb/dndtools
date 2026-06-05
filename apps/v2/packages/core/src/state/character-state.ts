@@ -3,6 +3,8 @@ import type { VisibilityLevel } from '../permissions/visibility-filter';
 import { DEFAULT_VISIBILITY, normalizeVisibilityLevel } from '../permissions/visibility-filter';
 import type { CharacterCollaboration } from './character-collaboration';
 import type { CharacterResources } from './character-resources';
+import type { CharacterJournalState } from './character-journal';
+import { EMPTY_CHARACTER_JOURNAL_STATE, ensureCharacterJournalState } from './character-journal';
 
 /**
  * CHAR-001 / CHAR-002 / CHAR-013 — the FOUNDATIONAL character state model.
@@ -170,24 +172,145 @@ export interface CharacterDraft {
 	schemaVersion: typeof CHARACTER_STATE_SCHEMA_VERSION;
 }
 
+/**
+ * CHAR-011 — durable PARTY-RECORD state: the party's marching order (an ordered list of character
+ * ids) and party inventory (shared items, each with its OWN canonical visibility). It is party-scoped
+ * (not per-character), so it lives alongside `characters`/`drafts` on the slice. The actor-filtered
+ * party-overview query (`queries/party-overview.ts`) is the only sanctioned read path; marching-order
+ * positions reference only characters the viewer may see, and inventory items are visibility-filtered.
+ */
+export interface PartyInventoryItem {
+	id: string;
+	name: string;
+	/** Free-form quantity/detail text for the prototype (e.g. "3 torches", "Bag of Holding"). */
+	detail: string;
+	/** Per-item canonical visibility (Contract 3 Axis 1). Fails closed to `dm-only`. */
+	visibility: VisibilityLevel;
+	/** Actor ids a `shared` item is explicitly delivered to. Ignored for other levels. */
+	sharedWith: ActorId[];
+	revision: number;
+}
+
+export interface PartyRecord {
+	/** Ordered character ids defining the marching order. May include `dm-only` characters. */
+	marchingOrder: string[];
+	/** The shared party inventory, each item independently visibility-filtered. */
+	inventory: PartyInventoryItem[];
+	revision: number;
+}
+
+export const EMPTY_PARTY_RECORD: PartyRecord = Object.freeze({
+	marchingOrder: [],
+	inventory: [],
+	revision: 0,
+});
+
 export interface CharacterState {
 	characters: Record<string, Character>;
 	drafts: Record<string, CharacterDraft>;
+	/**
+	 * CHAR-011 — party-scoped marching order + party inventory. Optional so a slice persisted before
+	 * this CHAR epic hydrates safely (absent ⇒ empty party record).
+	 */
+	party?: PartyRecord;
+	/**
+	 * CHAR-012 / CHAR-016 — per-character journals keyed by character id. Optional so a slice persisted
+	 * before this CHAR epic hydrates safely (absent ⇒ empty journals). The actor-filtered journal query
+	 * is the only sanctioned read path; the data layer enforces per-entry visibility.
+	 */
+	journals?: CharacterJournalState;
 	schemaVersion: typeof CHARACTER_STATE_SCHEMA_VERSION;
 }
 
 export const EMPTY_CHARACTER_STATE: CharacterState = Object.freeze({
 	characters: {},
 	drafts: {},
+	party: { ...EMPTY_PARTY_RECORD },
+	journals: { ...EMPTY_CHARACTER_JOURNAL_STATE },
 	schemaVersion: CHARACTER_STATE_SCHEMA_VERSION,
 });
+
+/** Read the journals slice off the character state, hydrating a safe empty default. Pure. */
+export function journalsOf(state: CharacterState): CharacterJournalState {
+	return ensureCharacterJournalState(state.journals);
+}
+
+/** Read the party record off the slice, hydrating a safe empty default. Pure. */
+export function partyRecordOf(state: CharacterState): PartyRecord {
+	return state.party
+		? {
+				marchingOrder: [...state.party.marchingOrder],
+				inventory: state.party.inventory.map((item) => ({ ...item, sharedWith: [...item.sharedWith] })),
+				revision: state.party.revision,
+			}
+		: { ...EMPTY_PARTY_RECORD };
+}
 
 /** Tolerantly hydrate a possibly-undefined/partial persisted character slice (safe defaults). */
 export function ensureCharacterState(state: CharacterState | undefined): CharacterState {
 	return {
 		characters: state?.characters ?? {},
 		drafts: state?.drafts ?? {},
+		party: state?.party ?? { ...EMPTY_PARTY_RECORD },
+		journals: ensureCharacterJournalState(state?.journals),
 		schemaVersion: CHARACTER_STATE_SCHEMA_VERSION,
+	};
+}
+
+/** Set the party's marching order (an ordered list of character ids), bumping the revision. Pure. */
+export function setMarchingOrder(state: CharacterState, order: string[]): CharacterState {
+	const party = partyRecordOf(state);
+	return {
+		...state,
+		party: { ...party, marchingOrder: [...order], revision: party.revision + 1 },
+	};
+}
+
+export interface UpsertPartyInventoryInput {
+	id?: string;
+	name: string;
+	detail?: string;
+	visibility?: VisibilityLevel;
+	sharedWith?: ActorId[];
+}
+
+/**
+ * Add or update a party-inventory item (CHAR-011). Visibility fails closed to `dm-only` when omitted.
+ * Pure: returns a new state. `idFor` supplies a new id when the input has none (a new item).
+ */
+export function upsertPartyInventoryItem(
+	state: CharacterState,
+	input: UpsertPartyInventoryInput,
+	idFor: () => string,
+): CharacterState {
+	const party = partyRecordOf(state);
+	const id = input.id ?? idFor();
+	const existing = party.inventory.find((item) => item.id === id);
+	const item: PartyInventoryItem = {
+		id,
+		name: input.name,
+		detail: input.detail ?? existing?.detail ?? '',
+		visibility: normalizeVisibilityLevel(input.visibility ?? existing?.visibility ?? DEFAULT_VISIBILITY),
+		sharedWith: [...new Set(input.sharedWith ?? existing?.sharedWith ?? [])],
+		revision: (existing?.revision ?? 0) + 1,
+	};
+	const inventory = existing
+		? party.inventory.map((i) => (i.id === id ? item : i))
+		: [...party.inventory, item];
+	return { ...state, party: { ...party, inventory, revision: party.revision + 1 } };
+}
+
+/** Remove a party-inventory item. Pure: no-op when absent. */
+export function removePartyInventoryItem(state: CharacterState, itemId: string): CharacterState {
+	const party = partyRecordOf(state);
+	if (!party.inventory.some((item) => item.id === itemId)) return state;
+	return {
+		...state,
+		party: {
+			...party,
+			inventory: party.inventory.filter((item) => item.id !== itemId),
+			revision: party.revision + 1,
+		},
 	};
 }
 

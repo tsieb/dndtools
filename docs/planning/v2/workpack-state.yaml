@@ -68,6 +68,9 @@ epics:
   - id: CHAR-ownership-and-permission-grants
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CHAR-ownership-and-permission-grants.completion.md
+  - id: CHAR-party-and-player-records
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CHAR-party-and-player-records.completion.md
   - id: CMD-active-session-control
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CMD-active-session-control.completion.md

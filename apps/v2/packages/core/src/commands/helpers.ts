@@ -13,7 +13,7 @@ import { WIDGET_PACKAGE_STATE_SCHEMA_VERSION } from '../state/widget-package-sta
 import type { MapState } from '../state/map-state';
 import { MAP_STATE_SCHEMA_VERSION } from '../state/map-state';
 import type { CharacterState } from '../state/character-state';
-import { CHARACTER_STATE_SCHEMA_VERSION } from '../state/character-state';
+import { ensureCharacterState } from '../state/character-state';
 
 export function reject(rejection: CommandRejection, state: CoreStateSlice) {
 	return { status: 'rejected' as const, rejection, nextState: state };
@@ -226,11 +226,7 @@ export function ensureWidgetPackageState(
 }
 
 export function ensureCharacterStateSlice(state: CharacterState | undefined): CharacterState {
-	return {
-		characters: state?.characters ?? {},
-		drafts: state?.drafts ?? {},
-		schemaVersion: CHARACTER_STATE_SCHEMA_VERSION,
-	};
+	return ensureCharacterState(state);
 }
 
 export const SCENE_VERSION_CONSTANTS = {

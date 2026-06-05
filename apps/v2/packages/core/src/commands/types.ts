@@ -246,6 +246,41 @@ export type CoreCommand =
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
+	  }
+	// CHAR-011: party-record authoring (marching order + party inventory) — DM-only.
+	| { type: 'character.set-marching-order'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'character.upsert-party-inventory-item';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'character.remove-party-inventory-item';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	// CHAR-012 / CHAR-016: character journal — owner/DM author; per-entry visibility; a visibility
+	// change is the cross-surface invalidation trigger.
+	| { type: 'character.add-journal-entry'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'character.update-journal-entry';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'character.set-journal-entry-visibility';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'character.remove-journal-entry';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
 	  };
 
 export type CoreEvent =
@@ -536,6 +571,24 @@ export type CoreEvent =
 			characterId: string;
 			toLevel: number;
 			revision: number;
+			actorId: ActorId;
+	  }
+	// CHAR-011 — the party record (marching order / inventory) changed.
+	| {
+			kind: 'character.party-changed';
+			revision: number;
+			actorId: ActorId;
+	  }
+	// CHAR-012 / CHAR-016 — a journal entry was added/updated/visibility-changed/removed. Carries the
+	// owner id and the DATA-LAYER invalidation audience (the actors whose cached journal views must be
+	// re-evaluated before new content is delivered — CHAR-016 AC2). `*` means "all players".
+	| {
+			kind: 'character.journal-changed';
+			characterId: string;
+			entryId: string;
+			visibility: string;
+			ownerActorId: ActorId | null;
+			invalidatedActorIds: ActorId[];
 			actorId: ActorId;
 	  };
 

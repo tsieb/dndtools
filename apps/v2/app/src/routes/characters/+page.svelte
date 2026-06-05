@@ -8,6 +8,8 @@
 	import CharacterCollaboration from '$lib/gui/CharacterCollaboration.svelte';
 	import CharacterCombatResources from '$lib/gui/CharacterCombatResources.svelte';
 	import CharacterAdvancement from '$lib/gui/CharacterAdvancement.svelte';
+	import PartyOverview from '$lib/gui/PartyOverview.svelte';
+	import CharacterJournal from '$lib/gui/CharacterJournal.svelte';
 
 	// CHAR-001 / CHAR-002 / CHAR-013: the Characters section. Which surfaces appear is an ergonomic
 	// role hint (the DM authoring tools for the DM; the guided creation flow for a player who owns a
@@ -38,6 +40,11 @@
 
 	<CharacterRoster />
 
+	<!-- CHAR-011: the actor-filtered party overview (HP/status/resource summaries, marching order, party
+	     inventory). The DM and players see only what their role/visibility/grants permit; an observer
+	     receives an empty overview (CHAR-015). The core's single party-view query enforces all filtering. -->
+	<PartyOverview />
+
 	<!-- CHAR-004 / CHAR-005 / CHAR-014: collaborative editing is available to the DM and to players who
 	     own a character. Observers see nothing (the core's actor-filtered view returns no characters). -->
 	{#if activeRole === 'dm' || activeRole === 'player'}
@@ -49,6 +56,11 @@
 		<!-- CHAR-009: level-up / advancement with staged validation before finalization (owner-only). -->
 		<CharacterAdvancement />
 	{/if}
+
+	<!-- CHAR-012 / CHAR-016 / CHAR-015: the character journal — owner-scoped, per-entry visibility,
+	     other-player filtering, data-layer cross-surface invalidation on visibility change. Rendered for
+	     every role: an observer receives an empty surface (no characters, no entries), proving non-leak. -->
+	<CharacterJournal />
 
 	{#if activeRole === 'dm'}
 		<CharacterQuickCreate />

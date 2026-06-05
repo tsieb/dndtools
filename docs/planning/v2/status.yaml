@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 56
+  approved: 55
   active: 0
-  complete: 32
+  complete: 33
   deferred: 0
 metrics:
-  epicCompletionPercent: 36.4
-  requirementCompletionPercent: 42.3
+  epicCompletionPercent: 37.5
+  requirementCompletionPercent: 44
   totalRequirements: 234
-  completedRequirements: 99
+  completedRequirements: 103
   deferredRequirements: 0
-  remainingEpics: 56
-  promptableEpics: 56
+  remainingEpics: 55
+  promptableEpics: 55
   blockedByDependencies: 0
-  completionEvidenceFiles: 32
+  completionEvidenceFiles: 33
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -50,13 +50,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: CHAR
       totalEpics: 6
-      complete: 4
+      complete: 5
       active: 0
-      approved: 2
+      approved: 1
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 66.7
-      requirementCompletionPercent: 68.8
+      epicCompletionPercent: 83.3
+      requirementCompletionPercent: 93.8
     - domain: CMD
       totalEpics: 4
       complete: 4
@@ -193,18 +193,15 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: CHAR-party-and-player-records
-  title: "CHAR: Party and player records"
+  id: CHAR-widget-data-exposure
+  title: "CHAR: Widget data exposure"
   status: approved
   requirementIds:
-    - CHAR-011
-    - CHAR-012
-    - CHAR-015
-    - CHAR-016
-  promptCommand: pnpm v2:prompt -- --epic CHAR-party-and-player-records
+    - CHAR-006
+  promptCommand: pnpm v2:prompt -- --epic CHAR-widget-data-exposure
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic
-    CHAR-party-and-player-records --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic CHAR-widget-data-exposure
+    --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -315,13 +312,14 @@ epics:
       - CHAR-010
     completionEvidenceFile: docs/planning/v2/epics/CHAR-ownership-and-permission-grants.completion.md
   - id: CHAR-party-and-player-records
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CHAR-011
       - CHAR-012
       - CHAR-015
       - CHAR-016
+    completionEvidenceFile: docs/planning/v2/epics/CHAR-party-and-player-records.completion.md
   - id: CHAR-widget-data-exposure
     status: approved
     approved: true

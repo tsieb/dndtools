@@ -1235,7 +1235,10 @@ export type {
 	CreateDraftInput,
 	DraftTransferError,
 	DraftTransferResult,
+	PartyInventoryItem,
+	PartyRecord,
 	QuickCreateCharacterInput,
+	UpsertPartyInventoryInput,
 } from './state/character-state';
 export {
 	CHARACTER_DRAFT_ENTITY_TYPE,
@@ -1243,17 +1246,72 @@ export {
 	CHARACTER_STATE_SCHEMA_VERSION,
 	EMPTY_CHARACTER_STATE,
 	EMPTY_COMBAT_STATE,
+	EMPTY_PARTY_RECORD,
 	applyDraftStep,
 	buildCharacterDraft,
 	buildQuickCreatedCharacter,
 	draftStepValues,
 	ensureCharacterState,
 	isDraftOwner,
+	journalsOf,
+	partyRecordOf,
 	removeDraft,
+	removePartyInventoryItem,
+	setMarchingOrder,
 	transferDraftOwnership,
 	upsertCharacter,
 	upsertDraft,
+	upsertPartyInventoryItem,
 } from './state/character-state';
+
+// CHAR-012 / CHAR-016: the durable CHARACTER JOURNAL model — per-character entries (bookmarks, NPC
+// impressions, personal quests, session highlights) each carrying their OWN canonical visibility.
+// A new entry fails closed to `shared`-to-owner (owner-readable, DM-auditable, NOT player-visible).
+export type {
+	AddJournalEntryInput,
+	CharacterJournal,
+	CharacterJournalEntry,
+	CharacterJournalState,
+	JournalEntryKind,
+	JournalEntryMeta,
+	UpdateJournalEntryPatch,
+} from './state/character-journal';
+export {
+	CHARACTER_JOURNAL_ENTITY_TYPE,
+	CHARACTER_JOURNAL_SCHEMA_VERSION,
+	EMPTY_CHARACTER_JOURNAL_STATE,
+	JOURNAL_ENTRY_KINDS,
+	addJournalEntry,
+	buildJournalEntry,
+	ensureCharacterJournalState,
+	journalForCharacter,
+	removeJournalEntry,
+	setJournalEntryVisibility,
+	updateJournalEntry,
+} from './state/character-journal';
+
+// CHAR-011 / CHAR-015: THE single actor-filtered PARTY-OVERVIEW read model (MAP-018 pattern) — visible
+// HP/status/resource summaries, marching order, and party inventory, filtered per viewer. Observer
+// gets an EMPTY overview (PERM-011 ceiling). Search/widgets/MCP all consume this, never raw state.
+export type {
+	PartyHiddenCounts,
+	PartyInventoryView,
+	PartyMemberSummary,
+	PartyOverview,
+} from './queries/party-overview';
+export { getPartyOverviewForActor } from './queries/party-overview';
+
+// CHAR-012 / CHAR-015 / CHAR-016: THE single actor-filtered CHARACTER-JOURNAL read model. Observer
+// denied wholesale (PERM-011); per-entry visibility with DM/owner access and OTHER-PLAYER filtering;
+// a hidden entry is omitted entirely (no title/snippet/id/count/edge). Search/widgets/MCP consume this.
+export type {
+	CharacterJournalView,
+	JournalEntryView,
+} from './queries/character-journal-query';
+export {
+	actorCanAuthorJournal,
+	getCharacterJournalForActor,
+} from './queries/character-journal-query';
 
 // CHAR-002: the guided, structured PC-creation flow — step definitions, options, per-step validation
 // (rules incl. the ability point-buy budget), and the resumable completeness report. Pure policy.
@@ -1424,6 +1482,7 @@ export {
 } from './state/character-advancement';
 
 export {
+	addJournalEntryInputSchema,
 	cancelAdvancementInputSchema,
 	commitAdvancementInputSchema,
 	createCharacterDraftInputSchema,
@@ -1431,6 +1490,8 @@ export {
 	finalizeCharacterDraftInputSchema,
 	openAdvancementInputSchema,
 	quickCreateCharacterInputSchema,
+	removeJournalEntryInputSchema,
+	removePartyInventoryItemInputSchema,
 	resolveCharacterConflictInputSchema,
 	restCharacterInputSchema,
 	revokeCharacterDraftInputSchema,
@@ -1439,10 +1500,14 @@ export {
 	setCharacterSpellInputSchema,
 	setCharacterXpInputSchema,
 	setClassResourceInputSchema,
+	setJournalEntryVisibilityInputSchema,
+	setMarchingOrderInputSchema,
 	setSpellSlotsInputSchema,
 	transferCharacterDraftInputSchema,
 	updateCharacterDraftStepInputSchema,
 	updateCombatResourceInputSchema,
+	updateJournalEntryInputSchema,
+	upsertPartyInventoryItemInputSchema,
 } from './schemas/commands';
 
 // PLAT-018: durable command lifecycle states.
