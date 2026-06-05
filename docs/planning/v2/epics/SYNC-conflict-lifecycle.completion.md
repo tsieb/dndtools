@@ -195,11 +195,11 @@ Modified:
 ## Git
 
 - Branch: `epic/SYNC-conflict-lifecycle` (from `epic/SYNC-cloud-device-local-storage` HEAD `e4845da`).
-- Commit SHA: recorded in the follow-up docs commit (see repo log).
-- Final `git status --short`: clean (see below).
+- Epic commit SHA: `1d404be257e8e87ac30b555c71a7c43917e73688` (this docs SHA-record commit follows it).
+- Final `git status --short`: clean (empty output) after the docs SHA-record commit below.
 
 ```
-(clean — recorded after the final commit)
+(clean — no untracked or unstaged files caused by this epic)
 ```
 
 ## Status command
