@@ -178,15 +178,12 @@ Requirement IDs exercised: CONTENT-001, CONTENT-002.
 ## Git
 
 - Branch: `epic/CONTENT-notes-and-editor` (from `epic/CONTENT-import-export` HEAD `ecc4a7e`).
-- Commit: recorded in the follow-up docs commit referenced in the handoff.
+- Implementation commit: `35f928b` (`feat(v2): complete CONTENT-notes-and-editor epic`) — all code,
+  tests, GUI, and the workpack `complete` regeneration (epic packets, `status.yaml`, `workpack-state.yaml`).
+- This SHA-recording docs commit follows it so the tree is a clean slate.
 
-Final `git status --short` (after the implementation commit; before the SHA-recording docs commit):
+Final `git status --short` after both commits:
 
 ```
- M docs/planning/v2/epics/CONTENT-notes-and-editor.yaml
- M docs/planning/v2/status.yaml
- M docs/planning/v2/workpack-state.yaml
+(clean — no untracked or unstaged files)
 ```
-
-(The three files above are the workpack `complete` regeneration, committed in the final docs commit so
-the tree is a clean slate.)
