@@ -16,29 +16,29 @@ summary:
   totalEpics: 88
   proposed: 0
   approved: 18
-  active: 1
-  complete: 69
+  active: 0
+  complete: 70
   deferred: 0
 metrics:
-  epicCompletionPercent: 78.4
-  requirementCompletionPercent: 79.5
+  epicCompletionPercent: 79.5
+  requirementCompletionPercent: 81.6
   totalRequirements: 234
-  completedRequirements: 186
+  completedRequirements: 191
   deferredRequirements: 0
-  remainingEpics: 19
-  promptableEpics: 19
+  remainingEpics: 18
+  promptableEpics: 18
   blockedByDependencies: 0
-  completionEvidenceFiles: 69
+  completionEvidenceFiles: 70
   domains:
     - domain: AUDIO
       totalEpics: 5
-      complete: 2
-      active: 1
+      complete: 3
+      active: 0
       approved: 2
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 40
-      requirementCompletionPercent: 38.5
+      epicCompletionPercent: 60
+      requirementCompletionPercent: 76.9
     - domain: CANVAS
       totalEpics: 5
       complete: 5
@@ -193,19 +193,16 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: AUDIO-platform-and-player-degradation
-  title: "AUDIO: Platform and player degradation"
-  status: active
+  id: AUDIO-playback-and-session-state
+  title: "AUDIO: Playback and session state"
+  status: approved
   requirementIds:
-    - AUDIO-006
-    - AUDIO-007
-    - AUDIO-008
-    - AUDIO-012
-    - AUDIO-013
-  promptCommand: pnpm v2:prompt -- --epic AUDIO-platform-and-player-degradation
+    - AUDIO-002
+    - AUDIO-003
+  promptCommand: pnpm v2:prompt -- --epic AUDIO-playback-and-session-state
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    AUDIO-platform-and-player-degradation --status active
+    AUDIO-playback-and-session-state --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: complete
@@ -223,7 +220,7 @@ epics:
       - AUDIO-005
     completionEvidenceFile: docs/planning/v2/epics/AUDIO-automation.completion.md
   - id: AUDIO-platform-and-player-degradation
-    status: active
+    status: complete
     approved: true
     requirementIds:
       - AUDIO-006
@@ -231,6 +228,7 @@ epics:
       - AUDIO-008
       - AUDIO-012
       - AUDIO-013
+    completionEvidenceFile: docs/planning/v2/epics/AUDIO-platform-and-player-degradation.completion.md
   - id: AUDIO-playback-and-session-state
     status: approved
     approved: true

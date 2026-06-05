@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: AUDIO-platform-and-player-degradation
 title: "AUDIO: Platform and player degradation"
-status: active
+status: complete
 approved: true
 domain: AUDIO
 capabilityBranch: Platform and player degradation
@@ -240,3 +240,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/AUDIO-platform-and-player-degradation.completion.md
