@@ -1,7 +1,15 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('CANVAS-005/CANVAS-015 Player View projection panel', () => {
-	test.beforeEach(async ({ page }) => {
+	test.beforeEach(async ({ page }, testInfo) => {
+		// This flow selects a widget from the dense grid (the per-widget selection checkbox) to
+		// project it — the desktop affordance. On the compact profile PLAT-003 renders a focused
+		// view instead of the grid, so the grid-based selection used here does not apply; the
+		// compact Scene-operation flow is covered in platform-profiles.spec.ts.
+		test.skip(
+			testInfo.project.name === 'mobile-chromium',
+			'dense-grid widget selection is desktop-only; compact focused-view is covered in platform-profiles.spec.ts',
+		);
 		await page.goto('/scenes/');
 		await page.getByTestId('scene-name').waitFor({ state: 'visible' });
 		await page.evaluate(async () => {

@@ -2,7 +2,16 @@ import { expect, test } from '@playwright/test';
 
 // CANVAS-012 + CANVAS-016: keyboard/touch layout operations and declared focus order.
 test.describe('Scene layout accessibility', () => {
-	test.beforeEach(async ({ page }) => {
+	test.beforeEach(async ({ page }, testInfo) => {
+		// These specs drive the dense widget grid — the per-widget layout toolbar (move/resize/
+		// dock/pin), z-order focus traversal, and multi-select grouping. That is the desktop
+		// affordance: PLAT-003 replaces the grid with a one-at-a-time focused view on the compact
+		// profile (widget-grid renders count 0, and multi-select grouping is not expressible there).
+		// The compact Scene-operation flow is covered in platform-profiles.spec.ts.
+		test.skip(
+			testInfo.project.name === 'mobile-chromium',
+			'dense-grid layout is desktop-only; compact focused-view is covered in platform-profiles.spec.ts',
+		);
 		await page.goto('/scenes/');
 		await page.getByTestId('scene-name').waitFor({ state: 'visible' });
 		await page.evaluate(async () => {
@@ -77,9 +86,9 @@ test.describe('Scene layout accessibility', () => {
 		}
 		// A plain tap (click) performs the operation.
 		await toolbar.getByRole('button', { name: 'Move down — note widget' }).click();
-		await expect(page.getByTestId('widget-grid').locator('[data-testid^="widget-"]').first()).toContainText(
-			'y 60',
-		);
+		await expect(
+			page.getByTestId('widget-grid').locator('[data-testid^="widget-"]').first(),
+		).toContainText('y 60');
 	});
 
 	test('CANVAS-016: focus order follows z-order rather than insertion order', async ({ page }) => {

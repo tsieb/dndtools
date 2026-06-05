@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
 
+// The widget-grid surface these tests assert against is the desktop affordance. On the compact
+// (mobile) profile PLAT-003 replaces it with an add-widget drawer + one-at-a-time focused view
+// (widget-grid renders count 0), so these grid assertions do not apply there; the compact Scene
+// add/operate flow is covered in platform-profiles.spec.ts. Scene creation + persistence and the
+// PLAT-018 lifecycle test below are profile-agnostic and stay on every project.
+const DESKTOP_GRID_ONLY =
+	'widget-grid is the desktop affordance; the compact add-widget drawer + focused view is covered in platform-profiles.spec.ts';
+
 test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/scenes/');
@@ -42,7 +50,8 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 		await expect(page.getByTestId('scene-list').getByText('Lifecycle Scene')).toBeVisible();
 	});
 
-	test('Adding a widget on a Scene persists across reload', async ({ page }) => {
+	test('Adding a widget on a Scene persists across reload', async ({ page }, testInfo) => {
+		test.skip(testInfo.project.name === 'mobile-chromium', DESKTOP_GRID_ONLY);
 		await page.getByTestId('scene-name').fill('Combat Board');
 		await page.getByTestId('scene-create').click();
 		const sceneLink = page.getByTestId('scene-list').getByRole('link', { name: 'Combat Board' });
@@ -66,7 +75,8 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 
 	test('Widget package review, degraded host permissions, and disabled placeholders are visible', async ({
 		page,
-	}) => {
+	}, testInfo) => {
+		test.skip(testInfo.project.name === 'mobile-chromium', DESKTOP_GRID_ONLY);
 		await page.getByTestId('install-weather-package').click();
 		await expect(page.getByTestId('package-workspace.weather-panel')).toBeVisible();
 		await expect(page.getByTestId('permissions-workspace.weather-panel')).toContainText(
@@ -95,7 +105,8 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 
 	test('Widget bindings resolve to explicit conflicted and missing states (CANVAS-009)', async ({
 		page,
-	}) => {
+	}, testInfo) => {
+		test.skip(testInfo.project.name === 'mobile-chromium', DESKTOP_GRID_ONLY);
 		await page.getByTestId('scene-name').fill('Binding Scene');
 		await page.getByTestId('scene-create').click();
 		await page.getByTestId('scene-list').getByRole('link', { name: 'Binding Scene' }).click();
@@ -119,7 +130,10 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 		await expect(page.getByTestId('widget-grid')).toContainText('binding missing');
 	});
 
-	test('Timer widget dispatches its declared command through the core', async ({ page }) => {
+	test('Timer widget dispatches its declared command through the core', async ({
+		page,
+	}, testInfo) => {
+		test.skip(testInfo.project.name === 'mobile-chromium', DESKTOP_GRID_ONLY);
 		// A session timer is session state, and the core only accepts a session-writing
 		// widget command (`timer.start`, writesTo: 'session') while the session workflow is
 		// active (CMD-active-session-control). Session state is application-level, so
