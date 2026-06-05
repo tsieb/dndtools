@@ -63,6 +63,7 @@ function library(): AudioState {
 		assets: { [CLEARED_ASSET.id]: CLEARED_ASSET, [FLAGGED_ASSET.id]: FLAGGED_ASSET },
 		sources: { [source.id]: source },
 		automationRules: {},
+		associations: {},
 		schemaVersion: 1,
 	};
 }

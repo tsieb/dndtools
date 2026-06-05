@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: AUDIO-scene-map-audio-association
 title: "AUDIO: Scene/map audio association"
-status: approved
+status: complete
 approved: true
 domain: AUDIO
 capabilityBranch: Scene/map audio association
@@ -131,3 +131,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/AUDIO-scene-map-audio-association.completion.md

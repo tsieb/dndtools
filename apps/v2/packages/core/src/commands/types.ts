@@ -453,6 +453,11 @@ export type CoreCommand =
 	// command; the license/scope/offline gate is RESOLVED at trigger time (fail closed), never bypassed.
 	| { type: 'audio.configure-automation'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'audio.delete-automation'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// AUDIO-001: associate (create/update) / disassociate a SCENE / MAP / MAP-LAYER audio cue (DM-only). A
+	// Scene "has an audio preset" via a durable association; on activation the core resolves which cues are
+	// available to the audio widget, composing the existing source/license/offline gates (fail closed).
+	| { type: 'audio.associate-scene'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'audio.disassociate-scene'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// AUDIO-002 / AUDIO-003: the DM controls SESSION-OWNED playback — play (or crossfade into) a track,
 	// pause/resume, stop (the only thing that clears the track), set the authoritative session volume, and
 	// project the active track to players (an offline participant is QUEUED, never blocking local playback).
@@ -1076,6 +1081,19 @@ export type CoreEvent =
 	  }
 	// AUDIO-005 — an atmosphere automation rule was deleted.
 	| { kind: 'audio.automation-deleted'; ruleId: string; actorId: ActorId }
+	// AUDIO-001 — a scene/map/layer audio association was created/updated. Carries the association id + the
+	// target binding (kind/id/layer) + the cue refs (the audit), never player-facing content. The association
+	// is a dormant definition until the target is activated; creating it creates NO playback state.
+	| {
+			kind: 'audio.association-changed';
+			associationId: string;
+			targetKind: 'scene' | 'map' | 'map-layer';
+			targetId: string;
+			layerId: string | null;
+			actorId: ActorId;
+	  }
+	// AUDIO-001 — a scene/map/layer audio association was removed.
+	| { kind: 'audio.association-removed'; associationId: string; actorId: ActorId }
 	// AUDIO-002 / AUDIO-003 — the SESSION-OWNED currently-playing audio changed (played / paused / resumed /
 	// stopped / volume / crossfade). Carries the resulting status + the track reference (source/asset id) +
 	// whether it was a crossfade — never asset bytes, never a player's device-local preference. A `stopped`
@@ -1216,6 +1234,12 @@ export type RejectionCode =
 	| 'invalid-audio-automation'
 	// AUDIO-005 — a delete/update targeted an automation rule id not in the library (fail closed).
 	| 'audio-automation-not-found'
+	// AUDIO-001 — a scene/map/layer audio association is invalid (undeclared target, a map-layer association
+	// missing/with a stray layer id, or a local/bundled cue missing its required asset). Distinct from the
+	// dangling-reference reject so the authoring UI can guide.
+	| 'invalid-audio-association'
+	// AUDIO-001 — a disassociate/update targeted an association id not in the library (fail closed).
+	| 'audio-association-not-found'
 	// AUDIO-002 / AUDIO-003 — session playback rejections, all fail-closed so the playback path can never
 	// sneak an out-of-scope / unlicensed / offline track into session audio.
 	// The play target source id is not configured.

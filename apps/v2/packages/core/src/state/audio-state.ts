@@ -1,5 +1,11 @@
 import { cloneAudioAsset, isAudioLicenseKind, type AudioAsset } from './audio-asset';
 import {
+	cloneAudioAssociation,
+	isAudioAssociationTargetKind,
+	isAudioPresetKind,
+	type AudioAssociation,
+} from './audio-association';
+import {
 	cloneAudioAutomationRule,
 	isAudioAutomationAction,
 	isAudioAutomationTriggerKind,
@@ -8,16 +14,17 @@ import {
 import type { AudioCacheBehavior, AudioSource } from './audio-source';
 
 /**
- * AUDIO-004 / AUDIO-005 / AUDIO-009 / AUDIO-010 — the durable AUDIO VaultState slice: the local audio
- * ASSET LIBRARY (content-addressed records with license/tags/source), the declared audio SOURCE registry,
- * and the DM-authored AUTOMATION RULES (AUDIO-005).
+ * AUDIO-001 / AUDIO-004 / AUDIO-005 / AUDIO-009 / AUDIO-010 — the durable AUDIO VaultState slice: the local
+ * audio ASSET LIBRARY (content-addressed records with license/tags/source), the declared audio SOURCE
+ * registry, the DM-authored AUTOMATION RULES (AUDIO-005), and the DM-authored SCENE/MAP/LAYER AUDIO
+ * ASSOCIATIONS (AUDIO-001).
  *
  * This is a bounded state document modeled exactly like the other vault slices (`maps`, `characters`,
  * `encounters`): a record map keyed by id plus a schema version, with a fail-closed `ensure` hydration
- * helper so a vault persisted before this slice existed restores to a safe empty library without a
+ * helper so a vault persisted before a given field existed restores to a safe empty default without a
  * destructive migration. Playback state is NOT here — currently-playing audio is SessionState (Contract 4
  * Widget State Ownership) and is owned by the AUDIO playback epic; this slice owns the durable LIBRARY,
- * SOURCE CONFIG, and AUTOMATION RULE definitions only.
+ * SOURCE CONFIG, AUTOMATION RULE, and ASSOCIATION definitions only.
  */
 
 export const AUDIO_STATE_SCHEMA_VERSION = 1 as const;
@@ -29,6 +36,8 @@ export interface AudioState {
 	sources: Record<string, AudioSource>;
 	/** The DM-authored atmosphere automation rules, keyed by rule id (AUDIO-005). DM-only config. */
 	automationRules: Record<string, AudioAutomationRule>;
+	/** The DM-authored scene/map/layer audio associations, keyed by association id (AUDIO-001). DM-only. */
+	associations: Record<string, AudioAssociation>;
 	schemaVersion: typeof AUDIO_STATE_SCHEMA_VERSION;
 }
 
@@ -36,6 +45,7 @@ export const EMPTY_AUDIO_STATE: AudioState = Object.freeze({
 	assets: {},
 	sources: {},
 	automationRules: {},
+	associations: {},
 	schemaVersion: AUDIO_STATE_SCHEMA_VERSION,
 });
 
@@ -95,8 +105,33 @@ function ensureAudioAutomationRule(rule: AudioAutomationRule): AudioAutomationRu
 }
 
 /**
+ * Hydrate a persisted association fail-closed: re-clone, and DROP a record whose target kind is no longer
+ * declared (an undeclared target could never resolve, so a corrupt record is omitted rather than restored
+ * into an un-resolvable state). A map-layer record missing its layer id, or a non-map-layer record carrying
+ * a stray layer id, is corrected to the safe shape (layer id only on map-layer). Returns null when dropped.
+ */
+function ensureAudioAssociation(association: AudioAssociation): AudioAssociation | null {
+	if (!isAudioAssociationTargetKind(association.targetKind)) {
+		return null;
+	}
+	const cloned = cloneAudioAssociation(association);
+	const layerId = cloned.targetKind === 'map-layer' ? (cloned.layerId ?? null) : null;
+	// A map-layer record persisted without a layer id can never match its exact layer; drop it fail-closed.
+	if (cloned.targetKind === 'map-layer' && layerId === null) {
+		return null;
+	}
+	return {
+		...cloned,
+		presetKind: isAudioPresetKind(cloned.presetKind) ? cloned.presetKind : 'ambient',
+		layerId,
+		assetId: cloned.assetId ?? null,
+	};
+}
+
+/**
  * A possibly-partial persisted audio slice. A vault persisted before a given field existed (e.g. before
- * AUDIO-005 added `automationRules`) round-trips through this hydrator, so every field is optional here.
+ * AUDIO-005 added `automationRules`, or before AUDIO-001 added `associations`) round-trips through this
+ * hydrator, so every field is optional here.
  */
 export type PersistedAudioState = Partial<AudioState>;
 
@@ -115,7 +150,18 @@ export function ensureAudioState(state: PersistedAudioState | undefined): AudioS
 		const ensured = ensureAudioAutomationRule(rule as AudioAutomationRule);
 		if (ensured) automationRules[id] = ensured;
 	}
-	return { assets, sources, automationRules, schemaVersion: AUDIO_STATE_SCHEMA_VERSION };
+	const associations: Record<string, AudioAssociation> = {};
+	for (const [id, association] of Object.entries(state?.associations ?? {})) {
+		const ensured = ensureAudioAssociation(association as AudioAssociation);
+		if (ensured) associations[id] = ensured;
+	}
+	return {
+		assets,
+		sources,
+		automationRules,
+		associations,
+		schemaVersion: AUDIO_STATE_SCHEMA_VERSION,
+	};
 }
 
 /** Look up an audio asset by id, or undefined. Pure. */
@@ -134,4 +180,12 @@ export function audioAutomationRuleById(
 	ruleId: string,
 ): AudioAutomationRule | undefined {
 	return state.automationRules[ruleId];
+}
+
+/** Look up an audio association by id, or undefined. Pure. */
+export function audioAssociationById(
+	state: AudioState,
+	associationId: string,
+): AudioAssociation | undefined {
+	return state.associations[associationId];
 }

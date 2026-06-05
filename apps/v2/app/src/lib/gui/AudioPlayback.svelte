@@ -3,6 +3,7 @@
 		getSessionAudioView,
 		listAudioAssetsForActor,
 		listAudioSourceClassificationsForActor,
+		resolveActivatedSceneAudioForActor,
 		resolveAudioMotionState,
 		type AudioParticipantDeviceInput,
 		type AudioConsentState,
@@ -44,6 +45,11 @@
 		listAudioAssetsForActor(runtime.state.audio, runtime.state.permissions, runtime.activeActorId),
 	);
 
+	// AUDIO-001: the active Scene id (the activation target). A Scene "has an audio preset" via a durable
+	// association; on activation the core resolves which cues are available to THIS audio widget. When no
+	// Scene is active there is nothing to resolve.
+	const activeSceneId = $derived(runtime.state.session.activeSceneId);
+
 	const recipients = $derived(runtime.actors.filter((a) => a.role !== 'dm'));
 
 	// Device-local participant preferences (AUDIO-007). UI-only state: these never enter session state.
@@ -60,6 +66,30 @@
 	// AUDIO-010 inputs for the active participant's device. Defaults assume the asset is locally present.
 	let assetLocallyAvailable = $state(true);
 	let online = $state(true);
+
+	// AUDIO-001 AC1/AC2: the resolved presets available to the audio widget for the active Scene. Each preset
+	// carries its computed device availability (available / missing-asset / unavailable / license-blocked /
+	// source-unsupported) composed from the existing AUDIO-009/004/010 gates. A missing-on-device asset
+	// surfaces the MISSING-ASSET state (AC2) without a network retry. `assetLocallyAvailable`/`online` reuse
+	// the same device toggles the participant view uses so the offline path is demonstrable.
+	const scenePresets = $derived(
+		isDm && activeSceneId
+			? (resolveActivatedSceneAudioForActor(
+					runtime.state.audio,
+					runtime.state.permissions,
+					runtime.activeActorId,
+					{
+						targetKind: 'scene',
+						targetId: activeSceneId,
+						layerId: null,
+						online,
+						assetLocallyAvailable,
+						assetCached: false,
+						cacheEvicted: false,
+					},
+				) ?? [])
+			: [],
+	);
 
 	// AUDIO-008 — the resolved motion state for the (reduced) crossfade/visualizer effect. The platform layer
 	// owns the `prefers-reduced-motion` probe (Contract 1 / PLAT-006); the core maps it. Fails closed to
@@ -146,6 +176,58 @@
 				assetId: selectedAssetId || null,
 				volume: dmVolume,
 				crossfadeSeconds: Number(crossfadeSeconds) || 0,
+			},
+		});
+	}
+
+	// AUDIO-001: associate the currently-selected source/asset with the active Scene as a durable preset. The
+	// core validates the source/asset references and the target fail-closed; the GUI only dispatches the
+	// intent. The resolved presets list re-derives automatically, making the cue available to this widget (AC1).
+	let presetLabel = $state('');
+	async function associatePreset(): Promise<void> {
+		if (!activeSceneId) {
+			error = 'Activate a Scene before associating a preset with it.';
+			return;
+		}
+		if (!selectedSourceId) {
+			error = 'Select an audio source to associate with the Scene.';
+			return;
+		}
+		const associated = await dispatch({
+			type: 'audio.associate-scene',
+			actorId: runtime.activeActorId,
+			payload: {
+				targetKind: 'scene',
+				targetId: activeSceneId,
+				sourceId: selectedSourceId,
+				assetId: selectedAssetId || null,
+				label: presetLabel.trim() || undefined,
+			},
+		});
+		if (associated) presetLabel = '';
+	}
+
+	async function removeAssociation(associationId: string): Promise<void> {
+		await dispatch({
+			type: 'audio.disassociate-scene',
+			actorId: runtime.activeActorId,
+			payload: { associationId },
+		});
+	}
+
+	// AUDIO-001 AC1: play a resolved Scene preset through the EXISTING session-audio playback command (there
+	// is no second playback path). Only a `playable` preset reaches here; a non-available one renders its
+	// missing-asset / blocked state instead of a play affordance (AC2).
+	async function playPreset(preset: (typeof scenePresets)[number]): Promise<void> {
+		await dispatch({
+			type: 'session.audio.play',
+			actorId: runtime.activeActorId,
+			payload: {
+				sourceId: preset.sourceId,
+				assetId: preset.assetId,
+				volume: dmVolume,
+				assetLocallyAvailable,
+				online,
 			},
 		});
 	}
@@ -340,6 +422,94 @@
 			/>
 		</form>
 
+		<!-- AUDIO-001 — SCENE AUDIO PRESETS. A Scene "has an audio preset" via a durable association; when the
+		     Scene is the active session Scene, the core resolves which presets are AVAILABLE to this widget
+		     (AC1). A missing-on-device asset shows the MISSING-ASSET state instead of a play affordance (AC2).
+		     The cue is DM-only config; the read model returns nothing for a player. -->
+		<section class="scene-presets" data-testid="audio-scene-presets" aria-label="Scene audio presets">
+			<h3>Scene presets</h3>
+			{#if !activeSceneId}
+				<p class="meta" data-testid="audio-presets-no-scene">
+					Activate a Scene to associate and resolve its audio presets.
+				</p>
+			{:else}
+				<form
+					class="associate-form"
+					data-testid="audio-associate-form"
+					onsubmit={(event) => {
+						event.preventDefault();
+						void associatePreset();
+					}}
+				>
+					<label for="audio-preset-label">Preset label (optional)</label>
+					<input
+						id="audio-preset-label"
+						type="text"
+						data-testid="audio-preset-label"
+						bind:value={presetLabel}
+						placeholder="e.g. Tavern ambience"
+					/>
+					<button type="submit" data-testid="audio-associate-button" disabled={!selectedSourceId}>
+						Associate selected source with this Scene
+					</button>
+				</form>
+
+				{#if scenePresets.length === 0}
+					<p class="meta" data-testid="audio-presets-empty">
+						This Scene has no audio presets yet.
+					</p>
+				{:else}
+					<ul class="preset-list" data-testid="audio-preset-list">
+						{#each scenePresets as preset (preset.associationId)}
+							<li data-testid={`audio-preset-${preset.associationId}`}>
+								<span class="preset-label">{preset.label}</span>
+								<span class="preset-kind">({preset.presetKind})</span>
+								{#if preset.playable}
+									<button
+										type="button"
+										data-testid={`audio-preset-play-${preset.associationId}`}
+										onclick={() => void playPreset(preset)}
+										disabled={!sessionActive}
+									>
+										Play
+									</button>
+								{:else if preset.availability === 'missing-asset'}
+									<span class="preset-missing" data-testid={`audio-preset-missing-${preset.associationId}`}>
+										Missing asset on this device
+									</span>
+								{:else}
+									<span
+										class="preset-blocked"
+										data-testid={`audio-preset-blocked-${preset.associationId}`}
+									>
+										{preset.message}
+									</span>
+								{/if}
+								<button
+									type="button"
+									data-testid={`audio-preset-remove-${preset.associationId}`}
+									onclick={() => void removeAssociation(preset.associationId)}
+								>
+									Remove
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+
+				<!-- A device toggle so the MISSING-ASSET path (AUDIO-001 AC2) is demonstrable: dropping local
+				     availability re-resolves the presets to the missing-asset state with no network retry. -->
+				<label class="device-pref">
+					<input
+						type="checkbox"
+						data-testid="audio-preset-asset-available"
+						bind:checked={assetLocallyAvailable}
+					/>
+					Asset available on this device
+				</label>
+			{/if}
+		</section>
+
 		<fieldset class="project" data-testid="audio-project">
 			<legend>Project to players</legend>
 			{#each recipients as recipient (recipient.id)}
@@ -485,9 +655,27 @@
 		margin-bottom: var(--space-2, 0.5rem);
 	}
 	.delivery-roster ul,
-	.delivery-queue ul {
+	.delivery-queue ul,
+	.preset-list {
 		list-style: none;
 		padding: 0;
+	}
+	.scene-presets,
+	.associate-form {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1, 0.25rem);
+		margin-bottom: var(--space-2, 0.5rem);
+	}
+	.preset-list li {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-1, 0.25rem);
+		align-items: center;
+	}
+	.preset-missing,
+	.preset-blocked {
+		color: var(--color-danger, #b00020);
 	}
 	/* AUDIO-008 — reduced-motion: the crossfade indicator never animates when motion is reduced. */
 	.reduced-motion {

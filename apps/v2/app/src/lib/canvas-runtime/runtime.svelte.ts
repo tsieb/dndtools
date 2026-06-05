@@ -153,6 +153,7 @@ export class SceneRuntime {
 			assets: { ...EMPTY_AUDIO_STATE.assets },
 			sources: { ...EMPTY_AUDIO_STATE.sources },
 			automationRules: { ...EMPTY_AUDIO_STATE.automationRules },
+			associations: { ...EMPTY_AUDIO_STATE.associations },
 			schemaVersion: EMPTY_AUDIO_STATE.schemaVersion,
 		},
 		sync: createOperationLog(),

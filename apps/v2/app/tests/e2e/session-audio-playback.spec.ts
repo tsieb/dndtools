@@ -188,4 +188,58 @@ test.describe('AUDIO session playback and session state', () => {
 		// Local playback is unaffected by the queued (undelivered) projection.
 		await expect(page.getByTestId('audio-track-status')).toContainText('playing');
 	});
+
+	// AUDIO-001 — SCENE AUDIO ASSOCIATION. The DM associates an audio preset with the active Scene; on
+	// activation the core resolves it AVAILABLE to the audio widget (AC1). A missing-on-device asset surfaces
+	// the MISSING-ASSET state (AC2). The cue is DM-only config; a player never sees the preset section.
+	test('AUDIO-001: the DM associates a Scene preset that is available to play (AC1) and shows missing-asset when absent (AC2)', async ({
+		page,
+	}) => {
+		await startActiveSession(page);
+		await gotoSession(page);
+
+		// Configure a demo source + asset and SELECT it (without starting playback), so there is a live cue to
+		// associate. `configureDemoSource` selects the imported asset for us.
+		await page.getByTestId('audio-configure-demo').click();
+		await expect(page.getByTestId('audio-error')).toHaveCount(0);
+		await expect(page.getByTestId('audio-source-select').locator('option')).toHaveCount(2);
+
+		// The active Scene has no presets yet.
+		await expect(page.getByTestId('audio-presets-empty')).toBeVisible();
+
+		// Associate the selected source/asset with the active Scene.
+		await page.getByTestId('audio-preset-label').fill('Tavern ambience');
+		await page.getByTestId('audio-associate-button').click();
+		await expect(page.getByTestId('audio-error')).toHaveCount(0);
+
+		// AC1 — the preset is now AVAILABLE to the audio widget with a Play affordance.
+		await expect(page.getByTestId('audio-preset-list')).toBeVisible();
+		const playPreset = page.getByTestId(/^audio-preset-play-/);
+		await expect(playPreset).toBeVisible();
+
+		// Playing the preset drives the EXISTING session-audio playback (no second playback path).
+		await playPreset.click();
+		await expect(page.getByTestId('audio-error')).toHaveCount(0);
+		await expect(page.getByTestId('audio-track-status')).toContainText('playing');
+
+		// AC2 — dropping local availability re-resolves the preset to the MISSING-ASSET state (no retry).
+		await page.getByTestId('audio-preset-asset-available').uncheck();
+		await expect(page.getByTestId(/^audio-preset-missing-/)).toBeVisible();
+		await expect(page.getByTestId(/^audio-preset-play-/)).toHaveCount(0);
+	});
+
+	test('AUDIO-001: a player never sees the DM-only Scene preset section', async ({ page }) => {
+		await startActiveSession(page);
+		await gotoSession(page);
+		await page.getByTestId('audio-configure-demo').click();
+		await expect(page.getByTestId('audio-error')).toHaveCount(0);
+		await page.getByTestId('audio-associate-button').click();
+		await expect(page.getByTestId('audio-error')).toHaveCount(0);
+		await expect(page.getByTestId('audio-scene-presets')).toBeVisible();
+
+		// View as a player: the DM-only preset section is not rendered (it lives in the DM-only block).
+		await page.getByTestId('view-as-select').selectOption('actor-player');
+		await expect(page.getByTestId('audio-participant')).toBeVisible();
+		await expect(page.getByTestId('audio-scene-presets')).toHaveCount(0);
+	});
 });

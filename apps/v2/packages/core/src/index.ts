@@ -3373,10 +3373,49 @@ export {
 	AUDIO_STATE_SCHEMA_VERSION,
 	EMPTY_AUDIO_STATE,
 	audioAssetById,
+	audioAssociationById,
 	audioAutomationRuleById,
 	audioSourceById,
 	ensureAudioState,
 } from './state/audio-state';
+
+// AUDIO-001 — SCENE / MAP / MAP-LAYER AUDIO ASSOCIATION: a DM-authored binding of an ambient track,
+// playlist, or atmosphere preset to a Scene, map, or single map layer. On activation the deterministic
+// resolver computes which cues are AVAILABLE to the audio widget, COMPOSING the EXISTING source (AUDIO-009),
+// license (AUDIO-004), and offline (AUDIO-010) gates: a missing-on-device asset surfaces the MISSING-ASSET
+// state (AUDIO-001 AC2), an unlicensed/out-of-scope cue is blocked (no silent playback). DM-only config;
+// the GUI dispatches the EXISTING `session.audio.play` command for a cleared preset (no second playback path).
+export type {
+	AudioAssociation,
+	AudioAssociationActivation,
+	AudioAssociationRejectionReason,
+	AudioAssociationResult,
+	AudioAssociationTargetKind,
+	AudioPresetAvailability,
+	AudioPresetKind,
+	BuildAudioAssociationInput,
+	ResolvedAudioPreset,
+} from './state/audio-association';
+export {
+	AUDIO_ASSOCIATION_ENTITY_TYPE,
+	AUDIO_ASSOCIATION_SCHEMA_VERSION,
+	AUDIO_ASSOCIATION_TARGET_KINDS,
+	AUDIO_PRESET_KINDS,
+	buildAudioAssociation,
+	cloneAudioAssociation,
+	isAudioAssociationTargetKind,
+	isAudioPresetKind,
+	resolveAudioAssociations,
+} from './state/audio-association';
+
+// AUDIO-001 — THE actor-filtered association read model. The DM lists the configured associations and, on a
+// Scene/map/layer activation, resolves the presets available to the audio widget (each with its computed
+// device availability); a non-DM gets EMPTY (associations are DM-only — fail closed, no leak).
+export type { AudioAssociationView } from './queries/audio-association-query';
+export {
+	listAudioAssociationsForActor,
+	resolveActivatedSceneAudioForActor,
+} from './queries/audio-association-query';
 
 // AUDIO-005 — ATMOSPHERE AUTOMATION: rule/trigger-driven audio behavior. The DM maps a session event
 // (combat start / map reveal / Scene activation / handout delivery) to a declared audio command. The

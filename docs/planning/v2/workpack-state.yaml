@@ -52,6 +52,9 @@ epics:
   - id: AUDIO-playback-and-session-state
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/AUDIO-playback-and-session-state.completion.md
+  - id: AUDIO-scene-map-audio-association
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/AUDIO-scene-map-audio-association.completion.md
   - id: CANVAS-layout-accessibility
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CANVAS-layout-accessibility.completion.md

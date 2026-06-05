@@ -2104,6 +2104,30 @@ export const deleteAudioAutomationInputSchema = z
 	})
 	.strict();
 
+// AUDIO-001 — ASSOCIATE (create or update) a SCENE / MAP / MAP-LAYER audio cue (DM-only). The target kind +
+// preset kind are CLOSED enums; the referenced source/asset must exist in the library (fail closed in the
+// handler). A `map-layer` association MUST carry a `layerId`; a scene/map association must NOT (validated in
+// the handler). A local/bundled cue requires an asset; a web-stream cue may omit it (the stream is the track).
+export const associateSceneAudioInputSchema = z
+	.object({
+		associationId: idSchema.optional(),
+		label: z.string().optional(),
+		presetKind: z.enum(['ambient', 'playlist', 'preset']).optional(),
+		targetKind: z.enum(['scene', 'map', 'map-layer']),
+		targetId: idSchema,
+		layerId: z.union([z.literal(null), z.string().min(1)]).optional(),
+		sourceId: idSchema,
+		assetId: z.union([z.literal(null), idSchema]).optional(),
+	})
+	.strict();
+
+// AUDIO-001 — DISASSOCIATE (remove) an audio association by id (DM-only). Fail closed: a missing id is rejected.
+export const disassociateSceneAudioInputSchema = z
+	.object({
+		associationId: idSchema,
+	})
+	.strict();
+
 // AUDIO-002 / AUDIO-003 — PLAY (or crossfade into) a track on the SESSION-OWNED audio playback state
 // (DM-only). The source/asset is validated through the existing AUDIO-009/010/004 gates in the handler; an
 // out-of-scope/offline/unlicensed track is rejected and NO playback state is created (fail closed). The

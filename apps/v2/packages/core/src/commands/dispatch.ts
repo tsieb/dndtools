@@ -176,6 +176,10 @@ import {
 	handleDeleteAudioAutomation,
 } from './audio-automation';
 import {
+	handleAssociateSceneAudio,
+	handleDisassociateSceneAudio,
+} from './audio-association';
+import {
 	handlePauseSessionAudio,
 	handlePlaySessionAudio,
 	handleProjectSessionAudio,
@@ -512,6 +516,10 @@ export function dispatchCommand(
 			return handleConfigureAudioAutomation(state, env, command.actorId, command.payload);
 		case 'audio.delete-automation':
 			return handleDeleteAudioAutomation(state, env, command.actorId, command.payload);
+		case 'audio.associate-scene':
+			return handleAssociateSceneAudio(state, env, command.actorId, command.payload);
+		case 'audio.disassociate-scene':
+			return handleDisassociateSceneAudio(state, env, command.actorId, command.payload);
 		case 'session.audio.play':
 			return handlePlaySessionAudio(state, env, command.actorId, command.payload);
 		case 'session.audio.pause':
