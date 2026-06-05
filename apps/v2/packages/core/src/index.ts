@@ -2299,6 +2299,31 @@ export {
 	resolveWikilinkForActor,
 } from './queries/wikilink-graph';
 
+// GRAPH-002: the PURE NOTE-RELATIONSHIP engine — BACKLINKS, CROSS-SECTION links, and RELATED-NOTE jumps with
+// context snippets, computed deterministically from explicit note records. Built on the SAME actor-filtered
+// link graph the CONTENT/SRCH surfaces use (no second relationship source); the actor-filtered query layer
+// feeds it only the notes + visible sections the actor may see, so a backlink/jump/snippet can never name or
+// quote a hidden note/section.
+export type {
+	CrossSectionResolution,
+	NoteBacklink,
+	NoteRelationshipRecord,
+	NoteRelationships,
+	RelatedNoteJump,
+} from './state/note-relationships';
+export {
+	NOTE_RELATIONSHIPS_SCHEMA_VERSION,
+	computeNoteRelationships,
+	noteSectionAnchors,
+} from './state/note-relationships';
+
+// GRAPH-002: the ACTOR-FILTERED note-relationship surface. Composes the single visibility-and-tombstone
+// content read so a hidden/deleted backlink SOURCE is absent (AC2), redacts context snippets by SECTION
+// visibility (a partially-hidden source note surfaces its backlink WITHOUT a possibly-leaking quote), and
+// FAILS CLOSED at the target (relationships of a note the actor cannot see return the generic empty set,
+// indistinguishable from "no relationships" — a stale link to a now-hidden target degrades gracefully).
+export { getNoteRelationshipsForActor } from './queries/note-relationships';
+
 // CHAR-002: the guided, structured PC-creation flow — step definitions, options, per-step validation
 // (rules incl. the ability point-buy budget), and the resumable completeness report. Pure policy.
 export type {

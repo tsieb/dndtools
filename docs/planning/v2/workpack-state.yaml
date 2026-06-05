@@ -122,6 +122,9 @@ epics:
   - id: CONTENT-visibility-and-embeds
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CONTENT-visibility-and-embeds.completion.md
+  - id: GRAPH-backlinks-and-navigation-relationships
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/GRAPH-backlinks-and-navigation-relationships.completion.md
   - id: MAP-interaction-safety
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MAP-interaction-safety.completion.md

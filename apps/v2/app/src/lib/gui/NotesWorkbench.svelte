@@ -5,6 +5,7 @@
 		activeWikilinkQuery,
 		canRetry,
 		getDeletedContentItemsForActor,
+		getNoteRelationshipsForActor,
 		recoveryAction,
 		renderMarkdownPreview,
 		searchContentForActor,
@@ -55,6 +56,34 @@
 		draftTitle = title;
 		draftBody = body;
 		editorError = null;
+	}
+
+	// GRAPH-002 — BACKLINKS, CROSS-SECTION links, and RELATED-NOTE jumps for the open note, ACTOR-FILTERED.
+	// Computed in the Processing Core over the actor's VISIBLE link graph: a hidden/deleted backlink source is
+	// absent (never redacted), snippets are suppressed for partially-hidden sources, and the relationships of a
+	// note the actor cannot see come back empty (fail closed). The GUI renders the computed model and navigates
+	// by re-selecting the related note through the SAME actor-filtered read (Architecture Contract 1).
+	const relationships = $derived(
+		selectedId
+			? getNoteRelationshipsForActor(
+					runtime.state.content,
+					runtime.state.permissions,
+					runtime.activeActorId,
+					selectedId,
+				)
+			: null,
+	);
+
+	// Open a backlink source / related note: re-resolve it through the actor-filtered content read so a note the
+	// running actor may no longer see is simply never opened (fail closed; a stale jump degrades gracefully).
+	function openRelated(id: string): void {
+		const item = searchContentForActor(
+			runtime.state.content,
+			runtime.state.permissions,
+			runtime.activeActorId,
+			'',
+		).find((hit) => hit.item.id === id && hit.item.kind === 'note')?.item;
+		if (item) openNote(item.id, item.title, item.body);
 	}
 
 	// SRCH-007 AC2 — open a note SELECTED BY a deep link / search-result open: `/knowledge/?note=<id>#<anchor>`.
@@ -356,6 +385,67 @@
 					<p class="meta" data-testid="preview-tags">Tags: {preview.tags.join(', ')}</p>
 				{/if}
 			</div>
+		</section>
+	{/if}
+
+	<!-- GRAPH-002: backlinks, cross-section links, and related-note jumps for the open note. Rendered for ANY
+	     actor who can open a visible note (the panel itself is read-only navigation), so a player inspecting a
+	     visible note can jump through its visible relationships. Every entry is actor-filtered in the core. -->
+	{#if selected && relationships}
+		<section class="scene-card" data-testid="note-relationships" aria-label="Note relationships">
+			<h3>Relationships</h3>
+
+			<h4>Backlinks</h4>
+			{#if relationships.backlinks.length === 0}
+				<p class="meta" data-testid="note-backlinks-empty">No notes link to this one.</p>
+			{:else}
+				<ul class="scene-list" data-testid="note-backlinks">
+					{#each relationships.backlinks as backlink (backlink.sourceId)}
+						<li class="scene-card" data-testid={`note-backlink-${backlink.sourceId}`}>
+							<button
+								type="button"
+								data-testid={`note-backlink-open-${backlink.sourceId}`}
+								onclick={() => openRelated(backlink.sourceId)}
+							>
+								{backlink.sourceTitle}
+							</button>
+							{#if backlink.crossSection.status === 'resolved'}
+								<span class="meta" data-testid={`note-backlink-section-${backlink.sourceId}`}>
+									→ #{backlink.crossSection.label}
+								</span>
+							{:else if backlink.crossSection.status === 'section-missing'}
+								<span class="meta" data-testid={`note-backlink-section-missing-${backlink.sourceId}`}>
+									→ #{backlink.crossSection.label} (section not found)
+								</span>
+							{/if}
+							{#if backlink.snippet}
+								<div class="meta" data-testid={`note-backlink-snippet-${backlink.sourceId}`}>
+									{backlink.snippet}
+								</div>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+
+			<h4>Related notes</h4>
+			{#if relationships.related.length === 0}
+				<p class="meta" data-testid="note-related-empty">This note links to no other visible notes.</p>
+			{:else}
+				<ul class="scene-list" data-testid="note-related">
+					{#each relationships.related as jump (jump.relatedId)}
+						<li data-testid={`note-related-${jump.relatedId}`}>
+							<button
+								type="button"
+								data-testid={`note-related-open-${jump.relatedId}`}
+								onclick={() => openRelated(jump.relatedId)}
+							>
+								{jump.relatedTitle}
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 		</section>
 	{/if}
 
