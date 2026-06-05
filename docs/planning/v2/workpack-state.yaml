@@ -173,3 +173,6 @@ epics:
   - id: SES-handouts-and-tools
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SES-handouts-and-tools.completion.md
+  - id: SES-prep-recap-and-calendar-continuity
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SES-prep-recap-and-calendar-continuity.completion.md

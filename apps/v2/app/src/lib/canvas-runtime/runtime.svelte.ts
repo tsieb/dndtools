@@ -7,6 +7,7 @@ import {
 	EMPTY_SESSION_STATE,
 	EMPTY_VAULT_CONTENT_STATE,
 	EMPTY_ENCOUNTER_STATE,
+	ensureCalendarContinuityState,
 	ensureEncounterState,
 	ensureSessionCombatState,
 	createCommandLifecycle,
@@ -114,6 +115,7 @@ export class SceneRuntime {
 			activeMapProjections: {},
 			handouts: {},
 			quickReferencePanels: {},
+			calendarContinuity: { ...EMPTY_SESSION_STATE.calendarContinuity },
 			recapArchiveId: null,
 			archives: {},
 			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
@@ -251,6 +253,9 @@ export class SceneRuntime {
 			activeMapProjections: withDefaultWidgets.session.activeMapProjections ?? {},
 			handouts: withDefaultWidgets.session.handouts ?? {},
 			quickReferencePanels: withDefaultWidgets.session.quickReferencePanels ?? {},
+			calendarContinuity: ensureCalendarContinuityState(
+				withDefaultWidgets.session.calendarContinuity,
+			),
 			recapArchiveId: withDefaultWidgets.session.recapArchiveId ?? null,
 			archives: withDefaultWidgets.session.archives ?? {},
 		};

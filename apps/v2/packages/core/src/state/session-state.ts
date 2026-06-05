@@ -5,8 +5,18 @@ import {
 } from './combat-tracker';
 import type { ActorRole } from './permission-state';
 import type { EvaluatedTerm } from './dice';
+import {
+	EMPTY_CALENDAR_CONTINUITY_STATE,
+	type CalendarContinuityState,
+} from './calendar-continuity';
 
 export const SESSION_STATE_SCHEMA_VERSION = 1 as const;
+
+// SES-012 — the durable CAMPAIGN CALENDAR CONTINUITY slice (current campaign date + dated links by
+// reference) lives ON the session document but is CAMPAIGN-level: it is never reset between sessions.
+// Re-exported here so existing session-state importers keep their import site.
+export type { CalendarContinuityState, CalendarLink } from './calendar-continuity';
+export { EMPTY_CALENDAR_CONTINUITY_STATE } from './calendar-continuity';
 
 // SES-002 — the full combat-tracker state now lives in `combat-tracker.ts` (initiative order, rounds,
 // turns, per-combatant resources, stat-block previews, encounter log). Re-exported here so existing
@@ -284,6 +294,11 @@ export interface SessionState {
 	handouts: Record<string, SessionHandout>;
 	/** SES-007 — durable pinned quick-reference panels keyed by panel id. */
 	quickReferencePanels: Record<string, QuickReferencePanel>;
+	/**
+	 * SES-012 — durable CAMPAIGN calendar continuity (current campaign date + dated links by reference).
+	 * Campaign-level: this is NOT reset when the session workflow transitions (unlike the live fields).
+	 */
+	calendarContinuity: CalendarContinuityState;
 	recapArchiveId: string | null;
 	archives: Record<string, SessionArchiveSnapshot>;
 	schemaVersion: typeof SESSION_STATE_SCHEMA_VERSION;
@@ -301,6 +316,7 @@ export const EMPTY_SESSION_STATE: SessionState = Object.freeze({
 	activeMapProjections: {},
 	handouts: {},
 	quickReferencePanels: {},
+	calendarContinuity: EMPTY_CALENDAR_CONTINUITY_STATE,
 	recapArchiveId: null,
 	archives: {},
 	schemaVersion: SESSION_STATE_SCHEMA_VERSION,

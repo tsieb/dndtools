@@ -9,6 +9,7 @@ import { SYNC_OPERATION_SCHEMA_VERSION } from '../sync/operation-log';
 import type { WidgetDataSchema, WidgetPackageState } from '../state/widget-package-state';
 import type { SessionState } from '../state/session-state';
 import { SESSION_STATE_SCHEMA_VERSION } from '../state/session-state';
+import { ensureCalendarContinuityState } from '../state/calendar-continuity';
 import { ensureSessionCombatState } from '../state/combat-tracker';
 import type { EncounterState } from '../state/encounter';
 import { ensureEncounterState } from '../state/encounter';
@@ -218,6 +219,9 @@ export function ensureSessionState(state: SessionState | undefined): SessionStat
 		// these slices existed restores with no handouts and no pinned panels (never undefined).
 		handouts: state?.handouts ?? {},
 		quickReferencePanels: state?.quickReferencePanels ?? {},
+		// SES-012 — hydrate campaign calendar continuity fail-closed: a session document persisted before
+		// this slice restores with no current date and no links (never undefined).
+		calendarContinuity: ensureCalendarContinuityState(state?.calendarContinuity),
 		recapArchiveId: state?.recapArchiveId ?? null,
 		archives: state?.archives ?? {},
 		schemaVersion: SESSION_STATE_SCHEMA_VERSION,

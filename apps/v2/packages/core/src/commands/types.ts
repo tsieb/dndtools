@@ -152,6 +152,16 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// SES-012: campaign calendar continuity — set the current campaign date (validated against its custom
+	// calendar) and LINK / UNLINK a date to a note/session/map/event/handout BY REFERENCE (DM-only).
+	| { type: 'session.set-campaign-date'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.link-calendar-date'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'session.unlink-calendar-date';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| { type: 'session.set-active-map'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| {
 			type: 'session.project-active-map';
@@ -473,6 +483,20 @@ export type CoreEvent =
 	  }
 	// SES-007 — a quick-reference panel was unpinned.
 	| { kind: 'session.quick-reference-unpinned'; panelId: string; actorId: ActorId }
+	// SES-012 — the campaign current date was set (in custom-calendar terms). Carries the calendar id
+	// only (never a formatted string — the display is derived at read time).
+	| { kind: 'session.campaign-date-set'; calendarId: string; actorId: ActorId }
+	// SES-012 — a calendar date was LINKED to a target BY REFERENCE. Carries the reference (kind + target
+	// id), never the target's content.
+	| {
+			kind: 'session.calendar-date-linked';
+			linkId: string;
+			linkKind: 'note' | 'session' | 'map' | 'event' | 'handout';
+			targetId: string | null;
+			actorId: ActorId;
+	  }
+	// SES-012 — a calendar link was removed.
+	| { kind: 'session.calendar-date-unlinked'; linkId: string; actorId: ActorId }
 	| { kind: 'command-center.home-created'; sceneId: SceneId; actorId: ActorId }
 	| { kind: 'command-center.home-ready'; sceneId: SceneId; actorId: ActorId }
 	| {

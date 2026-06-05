@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: SES-prep-recap-and-calendar-continuity
 title: "SES: Prep, recap, and calendar continuity"
-status: approved
+status: complete
 approved: true
 domain: SES
 capabilityBranch: Prep, recap, and calendar continuity
@@ -158,3 +158,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/SES-prep-recap-and-calendar-continuity.completion.md

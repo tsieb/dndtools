@@ -65,6 +65,25 @@ export {
 	SESSION_WORKFLOW_STATES,
 } from './state/session-state';
 
+// SES-012 — durable CAMPAIGN CALENDAR CONTINUITY state: the current campaign date + dated LINKS by
+// reference (note/session/map/event/handout). Campaign-level, never reset between sessions. Date math +
+// formatting are owned by `state/calendar.ts` (CONTENT-011); this stores only the date + references.
+export type {
+	CalendarContinuityState,
+	CalendarLink,
+	CalendarLinkTargetKind,
+} from './state/calendar-continuity';
+export {
+	CALENDAR_CONTINUITY_SCHEMA_VERSION,
+	CALENDAR_LINK_TARGET_KINDS,
+	EMPTY_CALENDAR_CONTINUITY_STATE,
+	addCalendarLink,
+	calendarLinkById,
+	ensureCalendarContinuityState,
+	removeCalendarLink,
+	setCampaignDate,
+} from './state/calendar-continuity';
+
 export type {
 	MapEntity,
 	MapFeature,
@@ -1007,6 +1026,38 @@ export {
 	getQuickReferencePanelsForActor,
 	resolveQuickReferencePanelForActor,
 } from './queries/quick-reference-query';
+
+// SES-012 — THE single actor-filtered CAMPAIGN CALENDAR CONTINUITY read model. The current campaign date
+// + dated LINKS resolved BY REFERENCE through the existing actor-filtered reads: a hidden/deleted target
+// degrades to an `unavailable` link (no leak, no clone). `getCalendarContextForActor` partitions links
+// into past/upcoming relative to the current date — the calendar context fed to the prep/recap digest.
+export type {
+	CalendarContextView,
+	CalendarContinuityView,
+	CalendarLinkView,
+	ContinuityDateView,
+} from './queries/calendar-continuity-query';
+export {
+	getCalendarContextForActor,
+	getCalendarContinuityForActor,
+	resolveCalendarLinkForActor,
+} from './queries/calendar-continuity-query';
+
+// SES-009 — the pre-session PREP / post-session RECAP digest, computed as a PURE DERIVATION over the
+// existing durable sources (open threads SES-007, recent changes op-log, handout outcomes SES-004, combat
+// summaries SES-002, calendar context SES-012) + deterministically synthesized continuity prompts (no AI).
+// DM-FACING: a non-DM receives an EMPTY digest (fail closed, hard no-leak). Nothing is copied — it is
+// COMPUTED. In `recap`, combat/handout sources derive from the archive snapshot of the just-ended session.
+export type {
+	DigestCombatSummary,
+	DigestContinuityPrompt,
+	DigestHandoutOutcome,
+	DigestMode,
+	DigestRecentChange,
+	DigestThread,
+	PrepRecapDigest,
+} from './queries/prep-recap-digest';
+export { DEFAULT_RECENT_CHANGE_LIMIT, getPrepRecapDigest } from './queries/prep-recap-digest';
 
 export type { WidgetPackageExport } from './commands/widget-package';
 export { exportWidgetPackage } from './commands/widget-package';
@@ -2074,6 +2125,13 @@ export {
 	appendRollToNoteInputSchema,
 	rollDiceInputSchema,
 	rollTableInputSchema,
+} from './schemas/commands';
+
+// SES-012 — campaign calendar continuity command input schemas.
+export {
+	linkCalendarDateInputSchema,
+	setCampaignDateInputSchema,
+	unlinkCalendarDateInputSchema,
 } from './schemas/commands';
 
 // PLAT-018: durable command lifecycle states.

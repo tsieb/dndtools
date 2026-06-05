@@ -12,6 +12,7 @@ import {
 	createOperationLog,
 	createDemoMapState,
 	createStoragePlatformServiceRegistry,
+	ensureCalendarContinuityState,
 	ensureEncounterState,
 	ensureSessionCombatState,
 	mergeSystemWidgetPackages,
@@ -199,6 +200,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		activeMapProjections: {},
 		handouts: {},
 		quickReferencePanels: {},
+		calendarContinuity: { ...EMPTY_SESSION_STATE.calendarContinuity },
 		recapArchiveId: null,
 		archives: {},
 		schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
@@ -218,6 +220,9 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	// no pinned panels (fail closed, never undefined).
 	session.handouts ??= {};
 	session.quickReferencePanels ??= {};
+	// SES-012 — a session document persisted before campaign calendar continuity restores with no current
+	// date and no links (fail closed, never undefined).
+	session.calendarContinuity = ensureCalendarContinuityState(session.calendarContinuity);
 	session.recapArchiveId ??= null;
 	session.archives ??= {};
 	const widgets = mergeSystemWidgetPackages(

@@ -1792,3 +1792,39 @@ export const updateEncounterInputSchema = z
 			.optional(),
 	})
 	.strict();
+
+// --- SES-012 — campaign calendar continuity ------------------------------------------------------
+
+// SES-012 — set the CAMPAIGN CURRENT DATE in campaign-calendar terms. The date is validated against its
+// referenced calendar definition at dispatch (it must be a real date in that calendar); the canonical
+// stable rendering is derived by the CONTENT-011 formatter at read time (never stored as a string).
+export const setCampaignDateInputSchema = z
+	.object({
+		date: customDateSchema,
+	})
+	.strict();
+
+// SES-012 — kind of entity a calendar link references. Each resolves through the matching actor-filtered
+// read at link-resolution time (a hidden/deleted target degrades to unavailable — no leak).
+const calendarLinkKindSchema = z.enum(['note', 'session', 'map', 'event', 'handout']);
+
+// SES-012 — LINK a campaign date to a target (note/session/map/event/handout) BY REFERENCE (DM-only). The
+// link stores ONLY the reference (kind + target id) + the anchoring date + a label — never a content copy.
+// A `session`/`event` link MAY omit `targetId` (a bare dated marker). The date is validated against its
+// calendar at dispatch.
+export const linkCalendarDateInputSchema = z
+	.object({
+		kind: calendarLinkKindSchema,
+		label: z.string().min(1, 'A calendar link needs a label.'),
+		date: customDateSchema,
+		/** The referenced target id. `note`/`map`/`event`/`handout` require it; `session`/`event` may omit. */
+		targetId: z.union([z.literal(null), idSchema]).default(null),
+	})
+	.strict();
+
+// SES-012 — remove a calendar link by id (DM-only).
+export const unlinkCalendarDateInputSchema = z
+	.object({
+		linkId: idSchema,
+	})
+	.strict();

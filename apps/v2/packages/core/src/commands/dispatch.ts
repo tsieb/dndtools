@@ -28,6 +28,11 @@ import {
 import { handleProjectPlayerView, handleRevokePlayerView } from './player-view';
 import { handleDeliverHandout, handleRevealHandoutSection } from './handout';
 import { handlePinQuickReference, handleUnpinQuickReference } from './quick-reference';
+import {
+	handleLinkCalendarDate,
+	handleSetCampaignDate,
+	handleUnlinkCalendarDate,
+} from './calendar-continuity';
 import { handleGrantCapabilitySet, handleRevokeGrant, handleTransferOwnership } from './grant';
 import {
 	handleProjectActiveMap,
@@ -241,6 +246,12 @@ export function dispatchCommand(
 			return handlePinQuickReference(state, env, command.actorId, command.payload);
 		case 'session.unpin-quick-reference':
 			return handleUnpinQuickReference(state, env, command.actorId, command.payload);
+		case 'session.set-campaign-date':
+			return handleSetCampaignDate(state, env, command.actorId, command.payload);
+		case 'session.link-calendar-date':
+			return handleLinkCalendarDate(state, env, command.actorId, command.payload);
+		case 'session.unlink-calendar-date':
+			return handleUnlinkCalendarDate(state, env, command.actorId, command.payload);
 		case 'session.set-active-map':
 			return handleSetActiveMap(state, env, command.actorId, command.payload);
 		case 'session.project-active-map':

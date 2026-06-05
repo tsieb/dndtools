@@ -5,7 +5,14 @@
 	import HandoutDelivery from '$lib/gui/HandoutDelivery.svelte';
 	import LiveTools from '$lib/gui/LiveTools.svelte';
 	import QuickReference from '$lib/gui/QuickReference.svelte';
+	import PrepRecap from '$lib/gui/PrepRecap.svelte';
 
+	// SES-009 / SES-012: the Session section's PREP / RECAP + CAMPAIGN CALENDAR CONTINUITY surface. The DM
+	// maintains the campaign calendar + current date and LINKS dates to notes (by reference; a hidden/
+	// deleted target degrades — no leak), then runs the PREP (forward) / RECAP (backward) workflows that
+	// GATHER unresolved threads, recent changes, handout outcomes, combat summaries, and continuity prompts
+	// as a PURE DERIVATION over the existing sources — no AI. The digest is DM-only (a non-DM sees nothing).
+	//
 	// SES-002 / SES-006: the Session section's combat surface. The DM BUILDS encounters (combatant
 	// selection + deterministic challenge guidance + terrain notes) and RUNS combat (initiative order,
 	// rounds, turns, per-combatant HP/conditions/death-saves/concentration, stat-block previews, and a
@@ -33,6 +40,7 @@
 	<HandoutDelivery />
 	<LiveTools />
 	<QuickReference />
+	<PrepRecap />
 </section>
 
 <style>

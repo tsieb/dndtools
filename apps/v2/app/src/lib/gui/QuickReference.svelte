@@ -30,7 +30,9 @@
 	);
 
 	let error = $state<string | null>(null);
-	let pinKind = $state<'note' | 'session-context'>('note');
+	// `open-thread` is included because UNRESOLVED THREADS are the prep/recap digest source (SES-009): the
+	// DM pins a note as an open thread, which the prep digest gathers. It references a note by id.
+	let pinKind = $state<'note' | 'open-thread' | 'session-context'>('note');
 	let pinTarget = $state('');
 	let pinLabel = $state('');
 
@@ -45,7 +47,7 @@
 	}
 
 	async function pin(): Promise<void> {
-		if (pinKind === 'note' && !pinTarget) {
+		if (pinKind !== 'session-context' && !pinTarget) {
 			error = 'Select a note to pin.';
 			return;
 		}
@@ -92,9 +94,10 @@
 			<label for="qr-kind">Pin</label>
 			<select id="qr-kind" data-testid="qr-kind-select" bind:value={pinKind}>
 				<option value="note">Note</option>
+				<option value="open-thread">Open thread</option>
 				<option value="session-context">Session context</option>
 			</select>
-			{#if pinKind === 'note'}
+			{#if pinKind !== 'session-context'}
 				<select data-testid="qr-target-select" bind:value={pinTarget}>
 					<option value="">Select a note…</option>
 					{#each notes as note (note.id)}
