@@ -1358,6 +1358,30 @@ export {
 	characterBindingRecord,
 } from './queries/character-bindings';
 
+// CHAR-006: the STABLE, STRUCTURED, ENUMERABLE character data-exposure CONTRACT a widget binds to —
+// the comprehensive field-group surface (HP, resources, conditions, spell slots, abilities, skills,
+// equipment, visible notes) plus the actor-filtered resolver wrapper that fails closed on an
+// unknown/unsupported selector. Built ON the existing binding record + resolver; no parallel system.
+export type {
+	CharacterExposureFieldGroup,
+	CharacterExposurePath,
+	ExposedClassResource,
+	ExposedSpellSlotLevel,
+} from './queries/character-exposure';
+export {
+	BACKSTORY_DATA_KEY,
+	CHARACTER_EXPOSURE_PATHS,
+	EQUIPMENT_DATA_KEY,
+	SKILLS_DATA_KEY,
+	SUPPORTED_EXPOSURE_SELECTORS,
+	VISIBLE_NOTES_DATA_KEY,
+	characterExposureValue,
+	characterHiddenSelectors,
+	exposurePathsForGroup,
+	isSupportedExposureSelector,
+	resolveCharacterExposure,
+} from './queries/character-exposure';
+
 // CHAR-004 / CHAR-005 — COLLABORATIVE field edits: per-field MERGE (different paths both apply) vs
 // same-path CONFLICT (concurrent same-path edits surface a durable, DM-resolvable conflict, never
 // silent last-write-wins), with ATTRIBUTION on ONE canonical value (no hidden DM override layer). Pure

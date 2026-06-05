@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 55
+  approved: 54
   active: 0
-  complete: 33
+  complete: 34
   deferred: 0
 metrics:
-  epicCompletionPercent: 37.5
-  requirementCompletionPercent: 44
+  epicCompletionPercent: 38.6
+  requirementCompletionPercent: 44.4
   totalRequirements: 234
-  completedRequirements: 103
+  completedRequirements: 104
   deferredRequirements: 0
-  remainingEpics: 55
-  promptableEpics: 55
+  remainingEpics: 54
+  promptableEpics: 54
   blockedByDependencies: 0
-  completionEvidenceFiles: 33
+  completionEvidenceFiles: 34
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -50,13 +50,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: CHAR
       totalEpics: 6
-      complete: 5
+      complete: 6
       active: 0
-      approved: 1
+      approved: 0
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 83.3
-      requirementCompletionPercent: 93.8
+      epicCompletionPercent: 100
+      requirementCompletionPercent: 100
     - domain: CMD
       totalEpics: 4
       complete: 4
@@ -193,15 +193,15 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: CHAR-widget-data-exposure
-  title: "CHAR: Widget data exposure"
+  id: CONTENT-calendar-custom-time-content
+  title: "CONTENT: Calendar/custom time content"
   status: approved
   requirementIds:
-    - CHAR-006
-  promptCommand: pnpm v2:prompt -- --epic CHAR-widget-data-exposure
+    - CONTENT-011
+  promptCommand: pnpm v2:prompt -- --epic CONTENT-calendar-custom-time-content
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic CHAR-widget-data-exposure
-    --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic
+    CONTENT-calendar-custom-time-content --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -321,10 +321,11 @@ epics:
       - CHAR-016
     completionEvidenceFile: docs/planning/v2/epics/CHAR-party-and-player-records.completion.md
   - id: CHAR-widget-data-exposure
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CHAR-006
+    completionEvidenceFile: docs/planning/v2/epics/CHAR-widget-data-exposure.completion.md
   - id: CMD-active-session-control
     status: complete
     approved: true

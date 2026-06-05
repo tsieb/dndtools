@@ -1,6 +1,7 @@
 import type { Character, CharacterState } from '../state/character-state';
 import { CHARACTER_ENTITY_TYPE } from '../state/character-state';
 import { ensureCollaboration, unresolvedConflictPaths } from '../state/character-collaboration';
+import { characterExposureValue, characterHiddenSelectors } from './character-exposure';
 import {
 	EMPTY_WIDGET_DATA_ENVIRONMENT,
 	entityBindingKey,
@@ -9,7 +10,7 @@ import {
 } from './binding';
 
 /**
- * CHAR-001 — make a character's fields WIDGET-BINDABLE through the EXISTING binding model.
+ * CHAR-001 / CHAR-006 — make a character's fields WIDGET-BINDABLE through the EXISTING binding model.
  *
  * Rather than inventing a second binding mechanism, this bridge projects each character into the
  * Processing Core's {@link WidgetDataEnvironment} (an {@link EntityBindingRecord} per character). A
@@ -18,32 +19,17 @@ import {
  * fail-closed states (Contract 4 Widget Data Contract) — including redacting the character's DM-only
  * fields for non-DM actors. The widget layer needs no character-specific code.
  *
+ * The bindable value + hidden-selector expansion come from the CHAR-006 STRUCTURED EXPOSURE CONTRACT
+ * (`character-exposure.ts`), so the comprehensive field-group surface (HP, resources, conditions,
+ * spell slots, abilities, skills, equipment, visible notes) is the single source — there is no
+ * parallel binding value. `resolveCharacterExposure` adds the contract's fail-closed unknown-path
+ * check on top of this same record.
+ *
  * Pure data transform (Contract 1): no GUI, no storage. The character's `visibility` becomes the
  * record's entity visibility (so a `dm-only` NPC resolves to `hidden` for players), and the
  * character's `dmOnlyFields` become the record's `hiddenSelectors` (so a hidden field is omitted/
  * `field-hidden` for non-DM actors even on a visible character).
  */
-
-/** The flat, bindable value map for a character: the combat fields plus declared sheet data. */
-function characterBindableValue(character: Character): Record<string, unknown> {
-	return {
-		name: character.name,
-		kind: character.kind,
-		// Combat fields are addressable both flat (`hp`) and namespaced (`combat.hp`) so a widget can
-		// bind to whichever selector shape it declares.
-		hp: character.combat.hp,
-		maxHp: character.combat.maxHp,
-		tempHp: character.combat.tempHp,
-		ac: character.combat.ac,
-		conditions: [...character.combat.conditions],
-		'combat.hp': character.combat.hp,
-		'combat.maxHp': character.combat.maxHp,
-		'combat.tempHp': character.combat.tempHp,
-		'combat.ac': character.combat.ac,
-		'combat.conditions': [...character.combat.conditions],
-		...character.data,
-	};
-}
 
 /** Project ONE character into a binding record the existing resolver understands. */
 export function characterBindingRecord(character: Character): EntityBindingRecord {
@@ -58,10 +44,11 @@ export function characterBindingRecord(character: Character): EntityBindingRecor
 		// A `shared` character is delivered to its explicit recipients (e.g. the owner of a finalized PC).
 		sharedWith: [...character.sharedWith],
 		// `dm-only` fields stay hidden even when the character itself is visible: the resolver omits
-		// them for non-DM actors (Contract 3 field-level visibility / CHAR-001 AC2).
-		hiddenSelectors: [...character.dmOnlyFields],
+		// them for non-DM actors (Contract 3 field-level visibility / CHAR-001 AC2). Expanded so both
+		// the `data.<key>`/`combat.<key>` and flat-key forms of a declared field are redacted.
+		hiddenSelectors: characterHiddenSelectors(character),
 		...(conflictPaths.length > 0 ? { conflict: { paths: [...conflictPaths] } } : {}),
-		value: characterBindableValue(character),
+		value: characterExposureValue(character),
 	};
 }
 

@@ -10,6 +10,7 @@
 	import CharacterAdvancement from '$lib/gui/CharacterAdvancement.svelte';
 	import PartyOverview from '$lib/gui/PartyOverview.svelte';
 	import CharacterJournal from '$lib/gui/CharacterJournal.svelte';
+	import CharacterDataExposure from '$lib/gui/CharacterDataExposure.svelte';
 
 	// CHAR-001 / CHAR-002 / CHAR-013: the Characters section. Which surfaces appear is an ergonomic
 	// role hint (the DM authoring tools for the DM; the guided creation flow for a player who owns a
@@ -44,6 +45,12 @@
 	     inventory). The DM and players see only what their role/visibility/grants permit; an observer
 	     receives an empty overview (CHAR-015). The core's single party-view query enforces all filtering. -->
 	<PartyOverview />
+
+	<!-- CHAR-006: the structured, stable character data-exposure API a widget binds to. Rendered for
+	     every role so the actor-filtered, fail-closed resolution is visible: a player/observer bound to a
+	     DM-only or hidden field sees the explicit hidden state, never the value. The core resolver
+	     enforces all filtering and the unknown-path fail-closed contract (Contract 4). -->
+	<CharacterDataExposure />
 
 	<!-- CHAR-004 / CHAR-005 / CHAR-014: collaborative editing is available to the DM and to players who
 	     own a character. Observers see nothing (the core's actor-filtered view returns no characters). -->

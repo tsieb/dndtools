@@ -71,6 +71,9 @@ epics:
   - id: CHAR-party-and-player-records
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CHAR-party-and-player-records.completion.md
+  - id: CHAR-widget-data-exposure
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CHAR-widget-data-exposure.completion.md
   - id: CMD-active-session-control
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CMD-active-session-control.completion.md
