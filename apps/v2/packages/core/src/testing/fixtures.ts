@@ -83,6 +83,8 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			timers: { ...EMPTY_SESSION_STATE.timers },
 			playerViewAssignments: { ...EMPTY_SESSION_STATE.playerViewAssignments },
 			activeMapProjections: { ...EMPTY_SESSION_STATE.activeMapProjections },
+			handouts: { ...EMPTY_SESSION_STATE.handouts },
+			quickReferencePanels: { ...EMPTY_SESSION_STATE.quickReferencePanels },
 			recapArchiveId: EMPTY_SESSION_STATE.recapArchiveId,
 			archives: { ...EMPTY_SESSION_STATE.archives },
 			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,

@@ -112,6 +112,8 @@ export class SceneRuntime {
 			timers: {},
 			playerViewAssignments: {},
 			activeMapProjections: {},
+			handouts: {},
+			quickReferencePanels: {},
 			recapArchiveId: null,
 			archives: {},
 			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
@@ -247,6 +249,8 @@ export class SceneRuntime {
 			timers: withDefaultWidgets.session.timers ?? {},
 			playerViewAssignments: withDefaultWidgets.session.playerViewAssignments ?? {},
 			activeMapProjections: withDefaultWidgets.session.activeMapProjections ?? {},
+			handouts: withDefaultWidgets.session.handouts ?? {},
+			quickReferencePanels: withDefaultWidgets.session.quickReferencePanels ?? {},
 			recapArchiveId: withDefaultWidgets.session.recapArchiveId ?? null,
 			archives: withDefaultWidgets.session.archives ?? {},
 		};

@@ -197,6 +197,8 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		timers: {},
 		playerViewAssignments: {},
 		activeMapProjections: {},
+		handouts: {},
+		quickReferencePanels: {},
 		recapArchiveId: null,
 		archives: {},
 		schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
@@ -212,6 +214,10 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	session.timers ??= {};
 	session.playerViewAssignments ??= {};
 	session.activeMapProjections ??= {};
+	// SES-004 / SES-007 — a session document persisted before these slices restores with no handouts and
+	// no pinned panels (fail closed, never undefined).
+	session.handouts ??= {};
+	session.quickReferencePanels ??= {};
 	session.recapArchiveId ??= null;
 	session.archives ??= {};
 	const widgets = mergeSystemWidgetPackages(

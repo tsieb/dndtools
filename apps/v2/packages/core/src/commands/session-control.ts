@@ -59,6 +59,11 @@ function resetLiveSessionFields(session: CoreStateSlice['session']): CoreStateSl
 		timers: {},
 		playerViewAssignments: {},
 		activeMapProjections: {},
+		// SES-004 / SES-007 — handouts (with their delivery history) and pinned quick-reference panels are
+		// live session state; clearing them when the session resets prevents stale handouts/pins carrying
+		// into the next session. They are preserved in the archive snapshot below for recap.
+		handouts: {},
+		quickReferencePanels: {},
 	};
 }
 
@@ -105,6 +110,23 @@ function archiveCurrentSession(
 				id,
 				{ ...projection },
 			]),
+		),
+		// SES-004 / SES-007 — snapshot handouts (with delivery history + reveal state) and pinned panels so
+		// the recap workflow can review what was delivered. Deep-cloned so the archive is immutable.
+		handouts: Object.fromEntries(
+			Object.entries(session.handouts).map(([id, handout]) => [
+				id,
+				{
+					...handout,
+					sections: handout.sections.map((section) => ({ ...section })),
+					revealedSectionIds: [...handout.revealedSectionIds],
+					recipientActorIds: [...handout.recipientActorIds],
+					deliveries: handout.deliveries.map((delivery) => ({ ...delivery })),
+				},
+			]),
+		),
+		quickReferencePanels: Object.fromEntries(
+			Object.entries(session.quickReferencePanels).map(([id, panel]) => [id, { ...panel }]),
 		),
 	};
 

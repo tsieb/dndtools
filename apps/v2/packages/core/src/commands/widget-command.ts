@@ -1,22 +1,26 @@
 import { dispatchWidgetCommandInputSchema } from '../schemas/commands';
-import { hasGrantedCapability } from '../permissions/grants';
+import { decideWidgetCommandAuthority } from '../permissions/widget-operator-authority';
 import { evaluateSceneVisibility } from '../permissions/visibility';
 import { commandBindingBlock } from '../queries/binding';
 import {
 	findWidgetDefinition,
 	findPackageRecordForWidgetType,
 } from '../state/widget-package-state';
-import type { WidgetCommandDescriptor } from '../state/widget-package-state';
+import type { SessionTimer } from '../state/session-state';
+import type { Scene } from '../state/scene-state';
 import { findOperationByIdempotencyKey } from '../sync/operation-log';
-import type { CommandResult, CoreEnvironment, CoreStateSlice } from './types';
+import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import {
 	appendOperationDraft,
+	bumpRevision,
 	findWidget,
 	parseInput,
 	reject,
+	replaceWidget,
 	requireActor,
 	requireScene,
 	validateObjectAgainstSchema,
+	withScene,
 } from './helpers';
 
 function projectedAssignmentIncludesWidget(
@@ -39,23 +43,6 @@ function projectedAssignmentIncludesWidget(
 	return scene.sections
 		.filter((section) => assignment.target.sectionIds?.includes(section.id))
 		.some((section) => section.widgetInstanceIds.includes(widgetInstanceId));
-}
-
-function actorCanUseWidgetCommand(
-	state: CoreStateSlice,
-	actor: NonNullable<ReturnType<typeof requireActor>>,
-	widgetInstanceId: string,
-	descriptor: WidgetCommandDescriptor,
-): boolean {
-	if ('code' in actor) return false;
-	if (actor.role === 'dm') return true;
-	return hasGrantedCapability(
-		state.permissions,
-		actor,
-		'widget',
-		widgetInstanceId,
-		descriptor.requiredCapability,
-	);
 }
 
 export function handleDispatchWidgetCommand(
@@ -166,14 +153,15 @@ export function handleDispatchWidgetCommand(
 			state,
 		);
 	}
-	if (!actorCanUseWidgetCommand(state, actor, widget.id, descriptor)) {
-		return reject(
-			{
-				code: 'actor-not-authorized',
-				message: `Actor ${actor.id} lacks ${descriptor.requiredCapability} for widget ${widget.id}.`,
-			},
-			state,
-		);
+	// SES-005 — OPERATE-vs-CONFIGURE authority. The policy fails closed BOTH ways: a non-operator cannot
+	// operate, and an actor holding only `operator` cannot reach a configure/define command.
+	const authority = decideWidgetCommandAuthority(state.permissions, actor, widget.id, descriptor);
+	if (!authority.authorized) {
+		const message =
+			authority.reason === 'operator-cannot-configure'
+				? `Actor ${actor.id} holds operator on widget ${widget.id} but configuring it requires manager.`
+				: `Actor ${actor.id} is not authorized to ${authority.kind} widget ${widget.id}.`;
+		return reject({ code: 'actor-not-authorized', message }, state);
 	}
 	const issues = validateObjectAgainstSchema(descriptor.payloadSchema, parsed.data.payload);
 	if (issues.length > 0) {
@@ -195,17 +183,195 @@ export function handleDispatchWidgetCommand(
 			state,
 		);
 	}
-	if (parsed.data.commandType !== 'timer.start') {
-		return reject(
-			{
-				code: 'command-not-declared',
-				message: `Command ${parsed.data.commandType} has no reducer in this slice.`,
-			},
-			state,
-		);
+	// SES-005 — the timer/tool reducer. start/pause/resume/reset/advance are OPERATE actions that mutate
+	// the durable SESSION timer state; set-duration is a CONFIGURE action that mutates the scene widget's
+	// configuration (NOT the live timer). Anything else has no reducer here.
+	if (parsed.data.commandType === 'timer.set-duration') {
+		return reduceTimerConfigure(state, env, actor.id, scene, widget.id, parsed.data, idempotencyKey);
+	}
+	if (TIMER_OPERATE_COMMANDS.includes(parsed.data.commandType)) {
+		return reduceTimerOperate(state, env, actor.id, scene, widget.id, parsed.data, idempotencyKey);
+	}
+	return reject(
+		{
+			code: 'command-not-declared',
+			message: `Command ${parsed.data.commandType} has no reducer in this slice.`,
+		},
+		state,
+	);
+}
+
+const TIMER_OPERATE_COMMANDS: readonly string[] = Object.freeze([
+	'timer.start',
+	'timer.pause',
+	'timer.resume',
+	'timer.reset',
+	'timer.advance',
+]);
+
+type DispatchData = ReturnType<typeof dispatchWidgetCommandInputSchema['parse']>;
+
+/**
+ * SES-005 OPERATE — drive the session timer's runtime: start/pause/resume/reset/advance. Each action
+ * mutates the durable session timer document only (never the widget configuration). Reset/advance/pause/
+ * resume on a never-started timer initialize a stopped timer at zero so an operator's first action is
+ * still well-defined. Returns a deterministic next timer + an op-log entry (Contract 2).
+ */
+function reduceTimerOperate(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	scene: Scene,
+	widgetInstanceId: string,
+	data: DispatchData,
+	idempotencyKey: string,
+): CommandResult {
+	const previous: SessionTimer | undefined = state.session.timers[widgetInstanceId];
+	const baseDuration = previous?.durationSeconds ?? 0;
+	const now = env.clock();
+	let next: SessionTimer;
+	let event: CoreEvent;
+
+	switch (data.commandType) {
+		case 'timer.start': {
+			const duration = data.payload.durationSeconds;
+			if (typeof duration !== 'number') {
+				return reject(
+					{
+						code: 'invalid-payload',
+						message: 'Timer duration must be numeric.',
+						issues: [{ path: 'durationSeconds', message: 'Expected number.' }],
+					},
+					state,
+				);
+			}
+			next = {
+				id: previous?.id ?? env.ids(),
+				sceneId: scene.id,
+				widgetInstanceId,
+				status: 'running',
+				durationSeconds: duration,
+				startedAt: now,
+				revision: (previous?.revision ?? 0) + 1,
+			};
+			event = {
+				kind: 'session.timer-started',
+				sceneId: scene.id,
+				widgetInstanceId,
+				actorId,
+			};
+			break;
+		}
+		case 'timer.pause':
+			next = makeTimer(previous, scene.id, widgetInstanceId, env, {
+				status: 'paused',
+				durationSeconds: baseDuration,
+				startedAt: previous?.startedAt ?? null,
+			});
+			event = { kind: 'session.timer-operated', sceneId: scene.id, widgetInstanceId, actorId, operation: 'pause' };
+			break;
+		case 'timer.resume':
+			next = makeTimer(previous, scene.id, widgetInstanceId, env, {
+				status: 'running',
+				durationSeconds: baseDuration,
+				startedAt: now,
+			});
+			event = { kind: 'session.timer-operated', sceneId: scene.id, widgetInstanceId, actorId, operation: 'resume' };
+			break;
+		case 'timer.reset':
+			next = makeTimer(previous, scene.id, widgetInstanceId, env, {
+				status: 'idle',
+				durationSeconds: baseDuration,
+				startedAt: null,
+			});
+			event = { kind: 'session.timer-operated', sceneId: scene.id, widgetInstanceId, actorId, operation: 'reset' };
+			break;
+		case 'timer.advance': {
+			const delta = data.payload.deltaSeconds;
+			if (typeof delta !== 'number') {
+				return reject(
+					{
+						code: 'invalid-payload',
+						message: 'Timer advance delta must be numeric.',
+						issues: [{ path: 'deltaSeconds', message: 'Expected number.' }],
+					},
+					state,
+				);
+			}
+			next = makeTimer(previous, scene.id, widgetInstanceId, env, {
+				status: previous?.status ?? 'idle',
+				durationSeconds: Math.max(0, baseDuration + delta),
+				startedAt: previous?.startedAt ?? null,
+			});
+			event = { kind: 'session.timer-operated', sceneId: scene.id, widgetInstanceId, actorId, operation: 'advance' };
+			break;
+		}
+		default:
+			return reject(
+				{ code: 'command-not-declared', message: `No timer operate reducer for ${data.commandType}.` },
+				state,
+			);
 	}
 
-	const duration = parsed.data.payload.durationSeconds;
+	const nextSession = {
+		...state.session,
+		timers: { ...state.session.timers, [widgetInstanceId]: next },
+	};
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actorId, {
+		entityType: 'session',
+		entityId: 'session-default',
+		opType: 'widget.dispatch-command',
+		path: `timers/${widgetInstanceId}`,
+		value: {
+			widgetInstanceId,
+			commandType: data.commandType,
+			payload: data.payload,
+			idempotencyKey,
+		},
+		beforeRevision: previous?.revision ?? 0,
+		afterRevision: next.revision,
+		dependencies: [`scene:${scene.id}@${scene.ownership.revision}`],
+	});
+	return {
+		status: 'accepted',
+		nextState: { ...state, session: nextSession, sync: nextLog },
+		events: [event],
+		operationIds: [op.id],
+	};
+}
+
+function makeTimer(
+	previous: SessionTimer | undefined,
+	sceneId: string,
+	widgetInstanceId: string,
+	env: CoreEnvironment,
+	patch: Pick<SessionTimer, 'status' | 'durationSeconds' | 'startedAt'>,
+): SessionTimer {
+	return {
+		id: previous?.id ?? env.ids(),
+		sceneId,
+		widgetInstanceId,
+		revision: (previous?.revision ?? 0) + 1,
+		...patch,
+	};
+}
+
+/**
+ * SES-005 CONFIGURE — change the timer widget's configured default duration. This mutates the SCENE
+ * widget's configuration (durable scene state), NOT the live session timer. Only a `manager`/DM reaches
+ * here (the authority check above already blocked an operator). Bumps the scene revision so the change
+ * syncs.
+ */
+function reduceTimerConfigure(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	scene: Scene,
+	widgetInstanceId: string,
+	data: DispatchData,
+	idempotencyKey: string,
+): CommandResult {
+	const duration = data.payload.durationSeconds;
 	if (typeof duration !== 'number') {
 		return reject(
 			{
@@ -216,45 +382,28 @@ export function handleDispatchWidgetCommand(
 			state,
 		);
 	}
-	const previousTimer = state.session.timers[widget.id];
-	const nextTimer = {
-		id: previousTimer?.id ?? env.ids(),
-		sceneId: scene.id,
-		widgetInstanceId: widget.id,
-		status: 'running' as const,
-		durationSeconds: duration,
-		startedAt: env.clock(),
-		revision: (previousTimer?.revision ?? 0) + 1,
+	const sceneEntity = state.scenes.scenes[scene.id]!;
+	const widget = findWidget(sceneEntity, widgetInstanceId)!;
+	const configuredWidget = {
+		...widget,
+		configuration: { ...widget.configuration, durationSeconds: duration },
 	};
-	const nextSession = {
-		...state.session,
-		timers: { ...state.session.timers, [widget.id]: nextTimer },
-	};
-	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
-		entityType: 'session',
-		entityId: 'session-default',
+	const updatedScene = bumpRevision(replaceWidget(sceneEntity, configuredWidget), env);
+	const nextScenes = withScene(state.scenes, scene.id, () => updatedScene);
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actorId, {
+		entityType: 'scene',
+		entityId: scene.id,
 		opType: 'widget.dispatch-command',
-		path: `timers/${widget.id}`,
-		value: {
-			widgetInstanceId: widget.id,
-			commandType: parsed.data.commandType,
-			payload: parsed.data.payload,
-			idempotencyKey,
-		},
-		beforeRevision: previousTimer?.revision ?? 0,
-		afterRevision: nextTimer.revision,
-		dependencies: [`scene:${scene.id}@${scene.ownership.revision}`],
+		path: `widgets/${widgetInstanceId}/configuration/durationSeconds`,
+		value: { widgetInstanceId, commandType: data.commandType, durationSeconds: duration, idempotencyKey },
+		beforeRevision: sceneEntity.ownership.revision,
+		afterRevision: updatedScene.ownership.revision,
 	});
 	return {
 		status: 'accepted',
-		nextState: { ...state, session: nextSession, sync: nextLog },
+		nextState: { ...state, scenes: nextScenes, sync: nextLog },
 		events: [
-			{
-				kind: 'session.timer-started',
-				sceneId: scene.id,
-				widgetInstanceId: widget.id,
-				actorId: actor.id,
-			},
+			{ kind: 'scene.widget-configured', sceneId: scene.id, widgetInstanceId, actorId },
 		],
 		operationIds: [op.id],
 	};

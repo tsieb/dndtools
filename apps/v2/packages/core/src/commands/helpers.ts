@@ -214,6 +214,10 @@ export function ensureSessionState(state: SessionState | undefined): SessionStat
 		timers: state?.timers ?? {},
 		playerViewAssignments: state?.playerViewAssignments ?? {},
 		activeMapProjections: state?.activeMapProjections ?? {},
+		// SES-004 / SES-007 — hydrate new durable fields fail-closed: a session document persisted before
+		// these slices existed restores with no handouts and no pinned panels (never undefined).
+		handouts: state?.handouts ?? {},
+		quickReferencePanels: state?.quickReferencePanels ?? {},
 		recapArchiveId: state?.recapArchiveId ?? null,
 		archives: state?.archives ?? {},
 		schemaVersion: SESSION_STATE_SCHEMA_VERSION,

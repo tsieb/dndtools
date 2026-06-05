@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: SES-handouts-and-tools
 title: "SES: Handouts and tools"
-status: approved
+status: complete
 approved: true
 domain: SES
 capabilityBranch: Handouts and tools
@@ -181,3 +181,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/SES-handouts-and-tools.completion.md

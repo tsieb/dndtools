@@ -170,3 +170,6 @@ epics:
   - id: SES-dice-and-tables
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SES-dice-and-tables.completion.md
+  - id: SES-handouts-and-tools
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SES-handouts-and-tools.completion.md

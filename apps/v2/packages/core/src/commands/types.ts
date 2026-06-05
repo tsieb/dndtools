@@ -134,6 +134,24 @@ export type CoreCommand =
 	// terrain notes, legendary/lair actions, loot, and generated session-log links (by reference).
 	| { type: 'encounter.build'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'encounter.update'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// SES-004: deliver a handout as a Scene widget to selected recipients (DM-only, active-session-gated),
+	// with delivery history + visibility enforcement (non-recipients receive nothing) + optional reveal.
+	| { type: 'session.deliver-handout'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'session.reveal-handout-section';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	// SES-007: pin / unpin a quick-reference panel (DM-only). Panels reference content BY REFERENCE; the
+	// actor-filtered read resolves each against the live target (a hidden/deleted target degrades, no leak).
+	| { type: 'session.pin-quick-reference'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'session.unpin-quick-reference';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| { type: 'session.set-active-map'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| {
 			type: 'session.project-active-map';
@@ -416,6 +434,45 @@ export type CoreEvent =
 	| { kind: 'widget.package-removed'; packageId: string; actorId: ActorId }
 	| { kind: 'widget.package-upgraded'; packageId: string; actorId: ActorId }
 	| { kind: 'session.timer-started'; sceneId: SceneId; widgetInstanceId: string; actorId: ActorId }
+	// SES-005 — an OPERATE action (pause/resume/reset/advance) was applied to a session timer by an
+	// authorized operator/manager/DM. Carries the operation verb for the live tool surface.
+	| {
+			kind: 'session.timer-operated';
+			sceneId: SceneId;
+			widgetInstanceId: string;
+			actorId: ActorId;
+			operation: 'pause' | 'resume' | 'reset' | 'advance';
+	  }
+	// SES-004 — a handout was delivered as a Scene widget to selected recipients. Carries the recipients
+	// THIS delivery targeted + the delivery status (the audit), never recipient-facing content.
+	| {
+			kind: 'session.handout-delivered';
+			handoutId: string;
+			sceneId: SceneId;
+			widgetInstanceId: string;
+			recipientActorIds: ActorId[];
+			deliveryStatus: 'delivered' | 'queued';
+			actorId: ActorId;
+	  }
+	// SES-004 — a handout section was revealed/concealed to recipients (progressive reveal).
+	| {
+			kind: 'session.handout-revealed';
+			handoutId: string;
+			sectionId: string;
+			revealed: boolean;
+			actorId: ActorId;
+	  }
+	// SES-007 — a quick-reference panel was pinned. `kind_` is the panel kind (the `kind` key is the event
+	// discriminant). Carries the REFERENCE (kind + target id), never the target's content.
+	| {
+			kind: 'session.quick-reference-pinned';
+			panelId: string;
+			kind_: 'note' | 'stat-block' | 'rules-snippet' | 'open-thread' | 'session-context';
+			targetId: string | null;
+			actorId: ActorId;
+	  }
+	// SES-007 — a quick-reference panel was unpinned.
+	| { kind: 'session.quick-reference-unpinned'; panelId: string; actorId: ActorId }
 	| { kind: 'command-center.home-created'; sceneId: SceneId; actorId: ActorId }
 	| { kind: 'command-center.home-ready'; sceneId: SceneId; actorId: ActorId }
 	| {

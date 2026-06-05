@@ -40,13 +40,19 @@ export type {
 	ActiveMapDeliveryStatus,
 	DiceRollSourceKind,
 	DiceRollVisibility,
+	HandoutDeliveryRecord,
+	HandoutSection,
+	HandoutSectionVisibility,
 	PlayerViewDeliveryStatus,
 	PlayerViewProjectionKind,
 	PlayerViewProjectionTarget,
+	QuickReferencePanel,
+	QuickReferenceTargetKind,
 	SessionActiveMapProjection,
 	SessionActiveMapSelection,
 	SessionArchiveSnapshot,
 	SessionDiceRoll,
+	SessionHandout,
 	SessionPlayerViewAssignment,
 	SessionState,
 	SessionTimer,
@@ -479,6 +485,10 @@ export {
 	instantiateSceneTemplateInputSchema,
 	layerWidgetInputSchema,
 	lockMapLayerInputSchema,
+	deliverHandoutInputSchema,
+	revealHandoutSectionInputSchema,
+	pinQuickReferenceInputSchema,
+	unpinQuickReferenceInputSchema,
 	moveGroupInputSchema,
 	moveWidgetInputSchema,
 	pinWidgetInputSchema,
@@ -954,6 +964,49 @@ export type {
 	PlayerViewControllerSceneOption,
 } from './queries/player-view-control';
 export { getPlayerViewController } from './queries/player-view-control';
+
+// SES-005 — the OPERATE-vs-CONFIGURE widget authority policy (Contract 3 Timer/Tool + Widget capability
+// sets). An `operator` grant authorizes runtime OPERATE actions (start/pause/resume/reset/advance/roll/
+// draw) WITHOUT authorizing CONFIGURE/DEFINE actions; configure requires `manager`. Fail closed both ways.
+export type {
+	WidgetCommandAuthorityDecision,
+	WidgetCommandKind,
+} from './permissions/widget-operator-authority';
+export {
+	CONFIGURE_ACTION_VERBS,
+	OPERATE_ACTION_VERBS,
+	classifyWidgetCommand,
+	decideWidgetCommandAuthority,
+	requiredCapabilityForWidgetCommand,
+} from './permissions/widget-operator-authority';
+
+// SES-004 — THE single actor-filtered HANDOUT read model. A NON-RECIPIENT receives `{ kind:
+// 'unavailable' }` with NO content (the non-leak guarantee); a recipient/DM sees only the sections they
+// may see, with progressive reveal folded into the PERM visibility-filter. The delivery history is DM-only.
+export type {
+	HandoutDeliveryView,
+	HandoutQueryResult,
+	HandoutSectionView,
+	HandoutUnavailable,
+	HandoutView,
+} from './queries/handout-query';
+export {
+	getHandoutDeliveryHistory,
+	getHandoutForActor,
+	getHandoutsForActor,
+} from './queries/handout-query';
+
+// SES-007 — THE single actor-filtered QUICK-REFERENCE read model. DM-only (a non-DM gets an empty list).
+// Each pinned panel resolves its reference against the LIVE actor-filtered target; a hidden/deleted target
+// degrades to an `unavailable` panel (no crash, no leak). Durable pin state survives route changes.
+export type {
+	QuickReferenceContent,
+	QuickReferencePanelView,
+} from './queries/quick-reference-query';
+export {
+	getQuickReferencePanelsForActor,
+	resolveQuickReferencePanelForActor,
+} from './queries/quick-reference-query';
 
 export type { WidgetPackageExport } from './commands/widget-package';
 export { exportWidgetPackage } from './commands/widget-package';

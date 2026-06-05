@@ -26,6 +26,8 @@ import {
 	handleSaveCommandCenterPreset,
 } from './command-center';
 import { handleProjectPlayerView, handleRevokePlayerView } from './player-view';
+import { handleDeliverHandout, handleRevealHandoutSection } from './handout';
+import { handlePinQuickReference, handleUnpinQuickReference } from './quick-reference';
 import { handleGrantCapabilitySet, handleRevokeGrant, handleTransferOwnership } from './grant';
 import {
 	handleProjectActiveMap,
@@ -231,6 +233,14 @@ export function dispatchCommand(
 			return handleBuildEncounter(state, env, command.actorId, command.payload);
 		case 'encounter.update':
 			return handleUpdateEncounter(state, env, command.actorId, command.payload);
+		case 'session.deliver-handout':
+			return handleDeliverHandout(state, env, command.actorId, command.payload);
+		case 'session.reveal-handout-section':
+			return handleRevealHandoutSection(state, env, command.actorId, command.payload);
+		case 'session.pin-quick-reference':
+			return handlePinQuickReference(state, env, command.actorId, command.payload);
+		case 'session.unpin-quick-reference':
+			return handleUnpinQuickReference(state, env, command.actorId, command.payload);
 		case 'session.set-active-map':
 			return handleSetActiveMap(state, env, command.actorId, command.payload);
 		case 'session.project-active-map':

@@ -327,6 +327,72 @@ export const appendRollToNoteInputSchema = z
 	})
 	.strict();
 
+// SES-004 — HANDOUT delivery. The DM authors a handout (title + ordered sections, each with its own
+// visibility) and DELIVERS it as a Scene widget to SELECTED recipients (players/observers). The reducer
+// is DM-only + active-session-gated; visibility is enforced at read time so non-recipients receive
+// nothing. `revealedSectionIds` drives optional/progressive reveal.
+const handoutSectionVisibilitySchema = z.enum(['shared', 'player-visible', 'dm-only']);
+
+const handoutSectionInputSchema = z
+	.object({
+		id: idSchema.optional(),
+		heading: z.string().min(1, 'A handout section needs a heading.'),
+		body: z.string().default(''),
+		visibility: handoutSectionVisibilitySchema.default('shared'),
+	})
+	.strict();
+
+export const deliverHandoutInputSchema = z
+	.object({
+		/** Reuse an existing handout by id (re-deliver / add recipients), or omit to create a new one. */
+		handoutId: idSchema.optional(),
+		title: z.string().min(1, 'A handout needs a title.'),
+		sections: z.array(handoutSectionInputSchema).min(1, 'A handout needs at least one section.'),
+		/** The Scene the handout widget is delivered onto. */
+		sceneId: idSchema,
+		/** The recipients (players/observers). Each receives a handout widget; non-recipients do not. */
+		recipientActorIds: z.array(idSchema).min(1, 'Select at least one recipient.'),
+		/** Section ids revealed at delivery time (progressive reveal). Default: none revealed yet. */
+		revealedSectionIds: z.array(idSchema).default([]),
+		connectionState: z.enum(['connected', 'offline']).default('connected'),
+	})
+	.strict();
+
+export const revealHandoutSectionInputSchema = z
+	.object({
+		handoutId: idSchema,
+		sectionId: idSchema,
+		/** true ⇒ reveal the section to recipients; false ⇒ re-conceal it (progressive reveal). */
+		revealed: z.boolean().default(true),
+	})
+	.strict();
+
+// SES-007 — QUICK-REFERENCE panels. The DM PINS content BY REFERENCE (note / stat block / rules snippet /
+// open thread / session context). DM-only. Durable pin state survives route changes; a pinned target that
+// becomes hidden/deleted degrades to an unavailable state at read time (no leak).
+const quickReferenceKindSchema = z.enum([
+	'note',
+	'stat-block',
+	'rules-snippet',
+	'open-thread',
+	'session-context',
+]);
+
+export const pinQuickReferenceInputSchema = z
+	.object({
+		kind: quickReferenceKindSchema,
+		label: z.string().min(1, 'A quick-reference panel needs a label.'),
+		/** The referenced target id. `session-context` panels carry a null target. */
+		targetId: z.union([z.literal(null), idSchema]).default(null),
+	})
+	.strict();
+
+export const unpinQuickReferenceInputSchema = z
+	.object({
+		panelId: idSchema,
+	})
+	.strict();
+
 export const setActiveMapInputSchema = z
 	.object({
 		mapId: idSchema,

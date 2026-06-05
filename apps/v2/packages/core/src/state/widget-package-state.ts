@@ -194,6 +194,26 @@ function entityBackedWidget(
 }
 
 export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): WidgetPackageState {
+	// SES-005 — the timer/tool widget's runtime action surface. start/pause/resume/reset/advance are
+	// OPERATE actions (require `operator`); set-duration CONFIGURES the timer (requires `manager`). An
+	// `operator` grant authorizes every operate action WITHOUT authorizing configure (fail closed).
+	const operateDurationPayload: WidgetDataSchema = {
+		type: 'object',
+		required: ['durationSeconds'],
+		properties: { durationSeconds: { type: 'number' } },
+		additionalProperties: false,
+	};
+	const operateNoPayload: WidgetDataSchema = {
+		type: 'object',
+		properties: {},
+		additionalProperties: false,
+	};
+	const advancePayload: WidgetDataSchema = {
+		type: 'object',
+		required: ['deltaSeconds'],
+		properties: { deltaSeconds: { type: 'number' } },
+		additionalProperties: false,
+	};
 	const timerWidget: WidgetDefinition = {
 		...systemWidget('timer', 'Timer'),
 		commands: [
@@ -201,13 +221,45 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 				type: 'timer.start',
 				displayName: 'Start timer',
 				requiredCapability: 'operator',
-				payloadSchema: {
-					type: 'object',
-					required: ['durationSeconds'],
-					properties: { durationSeconds: { type: 'number' } },
-					additionalProperties: false,
-				},
+				payloadSchema: operateDurationPayload,
 				writesTo: 'session',
+			},
+			{
+				type: 'timer.pause',
+				displayName: 'Pause timer',
+				requiredCapability: 'operator',
+				payloadSchema: operateNoPayload,
+				writesTo: 'session',
+			},
+			{
+				type: 'timer.resume',
+				displayName: 'Resume timer',
+				requiredCapability: 'operator',
+				payloadSchema: operateNoPayload,
+				writesTo: 'session',
+			},
+			{
+				type: 'timer.reset',
+				displayName: 'Reset timer',
+				requiredCapability: 'operator',
+				payloadSchema: operateNoPayload,
+				writesTo: 'session',
+			},
+			{
+				type: 'timer.advance',
+				displayName: 'Advance timer',
+				requiredCapability: 'operator',
+				payloadSchema: advancePayload,
+				writesTo: 'session',
+			},
+			{
+				// CONFIGURE: change the timer's default duration. Requires `manager` — an `operator` is
+				// blocked from this command (SES-005 AC2), proving operate-allowed / configure-denied.
+				type: 'timer.set-duration',
+				displayName: 'Configure timer duration',
+				requiredCapability: 'manager',
+				payloadSchema: operateDurationPayload,
+				writesTo: 'scene',
 			},
 		],
 		events: [{ type: 'timer.started', category: 'session.changed' }],
@@ -231,6 +283,10 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 				systemWidget('initiative-tracker', 'Initiative Tracker'),
 				timerWidget,
 				systemWidget('audio', 'Audio'),
+				// SES-004 — a handout is delivered as a Scene widget. It references the handout BY ID through
+				// its configuration (never a content clone — Contract 4 embed/projection). Binding-free; the
+				// actor-filtered handout read decides which sections each recipient may see.
+				systemWidget('handout', 'Handout'),
 				systemWidget('quick-reference', 'Quick Reference'),
 				systemWidget('prep', 'Prep'),
 			],

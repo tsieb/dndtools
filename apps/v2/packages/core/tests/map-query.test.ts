@@ -203,6 +203,8 @@ function EMPTY_SESSION(): SessionState {
 		timers: {},
 		playerViewAssignments: {},
 		activeMapProjections: {},
+		handouts: {},
+		quickReferencePanels: {},
 		recapArchiveId: null,
 		archives: {},
 		schemaVersion: 1,

@@ -166,6 +166,94 @@ export interface SessionPlayerViewAssignment {
 	revision: number;
 }
 
+/**
+ * SES-004 — ONE durable HANDOUT delivered as a Scene widget. A handout carries a title and an ordered
+ * list of SECTIONS, each with its OWN visibility (`shared` by default — delivered only to selected
+ * recipients) so a single handout can hold both always-on and progressively-revealed content. The
+ * `revealedSectionIds` set drives OPTIONAL REVEAL: a `shared` section is withheld from recipients until
+ * the DM reveals it (progressive), while a `player-visible` section is shown to recipients immediately
+ * (explicit/whole-handout reveal). Delivery to a recipient is recorded in {@link HandoutDeliveryRecord}.
+ *
+ * Visibility ENFORCEMENT is delegated to the PERM visibility-filter at read time (the recipient set is
+ * reduced to `sharedWith` membership), so NON-recipients never receive any section. The Scene widget
+ * the handout is delivered through references the handout BY ID (Contract 4 embed/projection) — the
+ * widget never clones handout content.
+ */
+export type HandoutSectionVisibility = 'shared' | 'player-visible' | 'dm-only';
+
+export interface HandoutSection {
+	id: string;
+	heading: string;
+	body: string;
+	/**
+	 * The section's own visibility. `shared` ⇒ delivered only to selected recipients (and only once
+	 * revealed, for progressive reveal). `player-visible` ⇒ shown to recipients without a reveal step.
+	 * `dm-only` ⇒ never delivered to any recipient (DM eyes only). Fails closed to `dm-only` on hydrate.
+	 */
+	visibility: HandoutSectionVisibility;
+}
+
+/** A durable record that a handout was delivered to ONE recipient at a point in time (SES-004 history). */
+export interface HandoutDeliveryRecord {
+	id: string;
+	recipientActorId: ActorId;
+	deliveredBy: ActorId;
+	deliveredAt: string;
+	deliveryStatus: PlayerViewDeliveryStatus;
+	deliveryReason: 'connected' | 'offline';
+	/** The Scene this handout was delivered onto as a widget. */
+	sceneId: SceneId;
+	/** The handout widget instance created/reused for this delivery. */
+	widgetInstanceId: WidgetInstanceId;
+}
+
+export interface SessionHandout {
+	id: string;
+	title: string;
+	sections: HandoutSection[];
+	/** Section ids whose `shared` content has been REVEALED to recipients (progressive reveal). */
+	revealedSectionIds: string[];
+	/** The recipients this handout is currently delivered to (drives the visibility-filter `sharedWith`). */
+	recipientActorIds: ActorId[];
+	/** The durable delivery history: every delivery to every recipient, oldest first (SES-004). */
+	deliveries: HandoutDeliveryRecord[];
+	createdBy: ActorId;
+	createdAt: string;
+	updatedAt: string;
+	revision: number;
+}
+
+/**
+ * SES-007 — the kind of content a quick-reference panel PINS, BY REFERENCE. Each kind resolves through
+ * the matching actor-filtered query at read time, so a pinned panel shows only content the viewer may
+ * see and degrades to an unavailable state when its target is hidden/deleted (no leak).
+ */
+export type QuickReferenceTargetKind =
+	| 'note'
+	| 'stat-block'
+	| 'rules-snippet'
+	| 'open-thread'
+	| 'session-context';
+
+/** A durable PINNED quick-reference panel (SES-007). References its content by id — never a content copy. */
+export interface QuickReferencePanel {
+	id: string;
+	kind: QuickReferenceTargetKind;
+	/** A short DM-authored label shown on the pinned panel (does not leak target content). */
+	label: string;
+	/**
+	 * The referenced target's id. For `note`/`stat-block`/`open-thread` this is a content-item id; for
+	 * `stat-block` bound to a character it is a character id; `session-context` panels carry a null
+	 * target (they render live session context, not a referenced entity).
+	 */
+	targetId: string | null;
+	/** Pin ORDER (ascending). Stable across route changes (durable pin state — SES-007 AC1). */
+	order: number;
+	createdBy: ActorId;
+	createdAt: string;
+	revision: number;
+}
+
 export interface SessionArchiveSnapshot {
 	id: string;
 	archivedBy: ActorId;
@@ -178,6 +266,8 @@ export interface SessionArchiveSnapshot {
 	timers: Record<WidgetInstanceId, SessionTimer>;
 	playerViewAssignments: Record<ActorId, SessionPlayerViewAssignment>;
 	activeMapProjections: Record<ActorId, SessionActiveMapProjection>;
+	handouts: Record<string, SessionHandout>;
+	quickReferencePanels: Record<string, QuickReferencePanel>;
 }
 
 export interface SessionState {
@@ -190,6 +280,10 @@ export interface SessionState {
 	timers: Record<WidgetInstanceId, SessionTimer>;
 	playerViewAssignments: Record<ActorId, SessionPlayerViewAssignment>;
 	activeMapProjections: Record<ActorId, SessionActiveMapProjection>;
+	/** SES-004 — durable handouts keyed by handout id (delivery, history, reveal state). */
+	handouts: Record<string, SessionHandout>;
+	/** SES-007 — durable pinned quick-reference panels keyed by panel id. */
+	quickReferencePanels: Record<string, QuickReferencePanel>;
 	recapArchiveId: string | null;
 	archives: Record<string, SessionArchiveSnapshot>;
 	schemaVersion: typeof SESSION_STATE_SCHEMA_VERSION;
@@ -205,6 +299,8 @@ export const EMPTY_SESSION_STATE: SessionState = Object.freeze({
 	timers: {},
 	playerViewAssignments: {},
 	activeMapProjections: {},
+	handouts: {},
+	quickReferencePanels: {},
 	recapArchiveId: null,
 	archives: {},
 	schemaVersion: SESSION_STATE_SCHEMA_VERSION,

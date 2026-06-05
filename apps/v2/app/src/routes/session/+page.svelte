@@ -2,6 +2,9 @@
 	import CombatTracker from '$lib/gui/CombatTracker.svelte';
 	import EncounterBuilder from '$lib/gui/EncounterBuilder.svelte';
 	import DiceTools from '$lib/gui/DiceTools.svelte';
+	import HandoutDelivery from '$lib/gui/HandoutDelivery.svelte';
+	import LiveTools from '$lib/gui/LiveTools.svelte';
+	import QuickReference from '$lib/gui/QuickReference.svelte';
 
 	// SES-002 / SES-006: the Session section's combat surface. The DM BUILDS encounters (combatant
 	// selection + deterministic challenge guidance + terrain notes) and RUNS combat (initiative order,
@@ -27,6 +30,9 @@
 	<EncounterBuilder />
 	<CombatTracker />
 	<DiceTools />
+	<HandoutDelivery />
+	<LiveTools />
+	<QuickReference />
 </section>
 
 <style>
