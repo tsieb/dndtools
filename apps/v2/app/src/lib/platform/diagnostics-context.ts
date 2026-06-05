@@ -43,6 +43,7 @@ function persistedVersions(state: CoreStateSlice): PersistedDocumentVersion[] {
 		session: state.session.schemaVersion ?? null,
 		widgets: state.widgets.schemaVersion ?? null,
 		commandCenter: state.commandCenter.schemaVersion ?? null,
+		characters: state.characters.schemaVersion ?? null,
 	};
 	return DURABLE_STATE_DOCUMENT_IDS.map((documentId) => ({
 		documentId,

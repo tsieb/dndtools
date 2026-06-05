@@ -1,5 +1,6 @@
 import type { ActorId, OperationId, SceneId } from '../state/ids';
 import type { Clock, IdGenerator } from '../state/ids';
+import type { CharacterState } from '../state/character-state';
 import type { CommandCenterState } from '../state/command-center-state';
 import type { MapState } from '../state/map-state';
 import type { MapLayerMutationKind } from '../state/map-layers';
@@ -17,6 +18,7 @@ export interface CoreStateSlice {
 	session: SessionState;
 	widgets: WidgetPackageState;
 	commandCenter: CommandCenterState;
+	characters: CharacterState;
 	sync: OperationLog;
 }
 
@@ -169,7 +171,33 @@ export type CoreCommand =
 	| { type: 'map.delete-token'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// MAP-014: explicit combat overlay mode + prerequisite-gated configuration.
 	| { type: 'map.set-overlay-mode'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'map.configure-overlay'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'map.configure-overlay'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CHAR-001: DM quick-create of an NPC/monster/sidekick (simplified, dm-only default, bindable).
+	| { type: 'character.quick-create'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CHAR-013: draft ownership lifecycle (create/assign, atomic transfer, revoke) — exactly one owner.
+	| { type: 'character.create-draft'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'character.transfer-draft';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| { type: 'character.revoke-draft'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CHAR-002: the draft owner saves a guided-flow step and finalizes a valid draft (resumable).
+	| {
+			type: 'character.update-draft-step';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'character.finalize-draft';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	// CHAR-001 foundation: set a character's combat field so a bound widget refreshes.
+	| { type: 'character.set-combat'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -357,6 +385,53 @@ export type CoreEvent =
 			mode: string;
 			mutation: 'set-mode' | 'configure';
 			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.created';
+			characterId: string;
+			kindOfCharacter: string;
+			visibility: string;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.combat-changed';
+			characterId: string;
+			revision: number;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.draft-created';
+			draftId: string;
+			ownerActorId: ActorId;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.draft-transferred';
+			draftId: string;
+			fromOwnerActorId: ActorId;
+			toOwnerActorId: ActorId;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.draft-revoked';
+			draftId: string;
+			ownerActorId: ActorId;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.draft-step-updated';
+			draftId: string;
+			stepId: string;
+			revision: number;
+			stepValid: boolean;
+			readyToFinalize: boolean;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.draft-finalized';
+			draftId: string;
+			characterId: string;
+			actorId: ActorId;
 	  };
 
 export type RejectionCode =
@@ -384,7 +459,17 @@ export type RejectionCode =
 	// MAP-014 — a combat overlay mode whose declared prerequisite visual state is unmet is blocked with
 	// this code (fail-closed, even against a forced transition). MAP-019 — a non-DM moving a token they
 	// do not control is rejected with `actor-not-authorized`.
-	| 'overlay-prerequisite-unmet';
+	| 'overlay-prerequisite-unmet'
+	// CHAR — a draft target does not exist.
+	| 'draft-not-found'
+	// CHAR-002 — the actor is not the single draft owner, so the edit fails closed (non-owner reject).
+	| 'not-draft-owner'
+	// CHAR-002 — finalize attempted on a draft that has not passed validation.
+	| 'draft-incomplete'
+	// CHAR — the draft has already been finalized and is read-only.
+	| 'draft-finalized'
+	// CHAR — a character target does not exist.
+	| 'character-not-found';
 
 export interface CommandRejection {
 	code: RejectionCode;

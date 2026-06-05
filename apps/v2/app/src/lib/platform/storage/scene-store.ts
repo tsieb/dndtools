@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 import {
 	DURABLE_STATE_DOCUMENT_IDS,
+	EMPTY_CHARACTER_STATE,
 	EMPTY_COMMAND_CENTER_STATE,
 	EMPTY_MAP_STATE,
 	EMPTY_PERMISSION_STATE,
@@ -13,6 +14,7 @@ import {
 	mergeSystemWidgetPackages,
 	recoverFromJournal,
 	validatePlatformRequest,
+	type CharacterState,
 	type CommandCenterState,
 	type CoreStateSlice,
 	type DurableStateDocumentId,
@@ -36,6 +38,7 @@ const PERMISSION_STATE_KEY = 'permission-state';
 const SESSION_STATE_KEY = 'session-state';
 const WIDGET_PACKAGE_STATE_KEY = 'widget-package-state';
 const COMMAND_CENTER_STATE_KEY = 'command-center-state';
+const CHARACTER_STATE_KEY = 'character-state';
 const MIGRATION_JOURNAL_KEY = 'migration-journal';
 
 // Maps a durable document id to its persisted document key, so a write-ahead snapshot
@@ -47,6 +50,7 @@ const DOCUMENT_KEY_BY_ID: Record<DurableStateDocumentId, string> = {
 	session: SESSION_STATE_KEY,
 	widgets: WIDGET_PACKAGE_STATE_KEY,
 	commandCenter: COMMAND_CENTER_STATE_KEY,
+	characters: CHARACTER_STATE_KEY,
 };
 
 interface DocumentRecord {
@@ -143,11 +147,12 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		database.documents.get(PERMISSION_STATE_KEY),
 		database.operations.orderBy('sequence').toArray(),
 	]);
-	const [mapDoc, sessionDoc, widgetPackageDoc, commandCenterDoc] = await Promise.all([
+	const [mapDoc, sessionDoc, widgetPackageDoc, commandCenterDoc, characterDoc] = await Promise.all([
 		database.documents.get(MAP_STATE_KEY),
 		database.documents.get(SESSION_STATE_KEY),
 		database.documents.get(WIDGET_PACKAGE_STATE_KEY),
 		database.documents.get(COMMAND_CENTER_STATE_KEY),
+		database.documents.get(CHARACTER_STATE_KEY),
 	]);
 	const scenes = (sceneDoc?.doc as SceneState | undefined) ?? {
 		scenes: {},
@@ -200,8 +205,18 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		presets: {},
 		schemaVersion: EMPTY_COMMAND_CENTER_STATE.schemaVersion,
 	};
+	// CHAR-001/002: the durable character slice. A vault persisted before this slice existed has no
+	// character document; default it so older prototype vaults stay readable without a destructive
+	// migration (safe-default hydration).
+	const characters = (characterDoc?.doc as CharacterState | undefined) ?? {
+		characters: {},
+		drafts: {},
+		schemaVersion: EMPTY_CHARACTER_STATE.schemaVersion,
+	};
+	characters.characters ??= {};
+	characters.drafts ??= {};
 	const sync = createOperationLog(operationRecords.map((r) => r.op));
-	return { scenes, maps, permissions, session, widgets, commandCenter, sync };
+	return { scenes, maps, permissions, session, widgets, commandCenter, characters, sync };
 }
 
 async function persistSceneState(scenes: SceneState): Promise<void> {
@@ -226,6 +241,10 @@ async function persistWidgetPackageState(widgets: WidgetPackageState): Promise<v
 
 async function persistCommandCenterState(commandCenter: CommandCenterState): Promise<void> {
 	await db().documents.put({ key: COMMAND_CENTER_STATE_KEY, doc: commandCenter });
+}
+
+async function persistCharacterState(characters: CharacterState): Promise<void> {
+	await db().documents.put({ key: CHARACTER_STATE_KEY, doc: characters });
 }
 
 export async function appendOperations(operations: SyncOperation[]): Promise<void> {
@@ -290,7 +309,8 @@ export async function persistFullState(
 		sliceChanged(previous.permissions, next.permissions) ||
 		sliceChanged(previous.session, next.session) ||
 		sliceChanged(previous.widgets, next.widgets) ||
-		sliceChanged(previous.commandCenter, next.commandCenter);
+		sliceChanged(previous.commandCenter, next.commandCenter) ||
+		sliceChanged(previous.characters, next.characters);
 	if (durableStateChanged && newOperations.length === 0) {
 		throw new Error('Durable state changed without an accepted Processing Core operation.');
 	}
@@ -301,6 +321,7 @@ export async function persistFullState(
 		persistSessionState(next.session),
 		persistWidgetPackageState(next.widgets),
 		persistCommandCenterState(next.commandCenter),
+		persistCharacterState(next.characters),
 		appendOperations(newOperations),
 	]);
 }
@@ -349,6 +370,7 @@ export const __testing = {
 	SESSION_STATE_KEY,
 	WIDGET_PACKAGE_STATE_KEY,
 	COMMAND_CENTER_STATE_KEY,
+	CHARACTER_STATE_KEY,
 	MIGRATION_JOURNAL_KEY,
 	DOCUMENT_KEY_BY_ID,
 };

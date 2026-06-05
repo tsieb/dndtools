@@ -72,6 +72,15 @@ import {
 	handleUpdateMapRoute,
 	handleUpdateMapToken,
 } from './map-annotations';
+import {
+	handleCreateCharacterDraft,
+	handleFinalizeCharacterDraft,
+	handleQuickCreateCharacter,
+	handleRevokeCharacterDraft,
+	handleSetCharacterCombat,
+	handleTransferCharacterDraft,
+	handleUpdateCharacterDraftStep,
+} from './character';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 
 export function dispatchCommand(
@@ -232,6 +241,20 @@ export function dispatchCommand(
 			return handleSetMapOverlayMode(state, env, command.actorId, command.payload);
 		case 'map.configure-overlay':
 			return handleConfigureMapOverlay(state, env, command.actorId, command.payload);
+		case 'character.quick-create':
+			return handleQuickCreateCharacter(state, env, command.actorId, command.payload);
+		case 'character.set-combat':
+			return handleSetCharacterCombat(state, env, command.actorId, command.payload);
+		case 'character.create-draft':
+			return handleCreateCharacterDraft(state, env, command.actorId, command.payload);
+		case 'character.transfer-draft':
+			return handleTransferCharacterDraft(state, env, command.actorId, command.payload);
+		case 'character.revoke-draft':
+			return handleRevokeCharacterDraft(state, env, command.actorId, command.payload);
+		case 'character.update-draft-step':
+			return handleUpdateCharacterDraftStep(state, env, command.actorId, command.payload);
+		case 'character.finalize-draft':
+			return handleFinalizeCharacterDraft(state, env, command.actorId, command.payload);
 	}
 }
 

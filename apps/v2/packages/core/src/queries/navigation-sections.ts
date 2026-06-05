@@ -15,8 +15,8 @@ import type { ActorRole } from '../state/permission-state';
  *
  * Runtime vs. canonical:
  * - The canonical registry below names every approved section, including ones the
- *   prototype has not yet built (Knowledge, Atlas, Session, Campaign, Characters,
- *   Audio, MCP). Those carry `releaseStatus: 'planned'`.
+ *   prototype has not yet built (Knowledge, Session, Campaign, Audio, MCP). Those
+ *   carry `releaseStatus: 'planned'`. Characters is released (CHAR creation + drafts).
  * - Only `released` sections are reachable at runtime. The runtime navigation view
  *   ({@link ../queries/navigation.listNavigationSections}) filters to released *and*
  *   actor-available sections, so the primary nav never renders a dead link to an
@@ -128,10 +128,10 @@ export interface CanonicalNavigationSection {
  * Order is the canonical IA order: the Command Center home, the Scenes authoring
  * surface, then the approved content/play sections (Knowledge, Atlas, Session,
  * Campaign, Characters, Audio, MCP), and finally Settings. The released subset —
- * Command Center, Scenes, Atlas, Settings — is what the prototype renders today; the
- * rest are declared as approved IA with `releaseStatus: 'planned'`. Atlas is released
- * as the map deep-link landing surface (NAV-005); its authoring/local-nav UI is still
- * owned by the MAP feature epics.
+ * Command Center, Scenes, Atlas, Characters, Settings — is what the prototype renders
+ * today; the rest are declared as approved IA with `releaseStatus: 'planned'`. Atlas is
+ * released as the map deep-link landing surface (NAV-005); its authoring/local-nav UI is
+ * still owned by the MAP feature epics. Characters is released by the CHAR creation epic.
  */
 export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[] = Object.freeze([
 	{
@@ -265,7 +265,7 @@ export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[
 			description:
 				'The party roster; a player sees their owned character plus shared party records.',
 		},
-		releaseStatus: 'planned',
+		releaseStatus: 'released',
 		keywords: ['characters', 'party', 'pcs', 'roster', 'sheet'],
 		category: 'navigation',
 		home: false,

@@ -1209,6 +1209,97 @@ export {
 	visibleFeatures,
 } from './state/onboarding';
 
+// CHAR-001 / CHAR-002 / CHAR-013: the foundational character state model — finalized characters
+// (DM quick-create + finalized PCs) and pre-finalization drafts with EXACTLY ONE owner. Pure
+// reducers: quick-create (dm-only visibility default fails closed), draft create/step/finalize, and
+// the ATOMIC draft-ownership transfer (the same singular-ownership invariant as PERM-013).
+export type {
+	AbilityScores,
+	Character,
+	CharacterAttack,
+	CharacterCombatState,
+	CharacterDraft,
+	CharacterDraftStepProgress,
+	CharacterKind,
+	CharacterState,
+	CreateDraftInput,
+	DraftTransferError,
+	DraftTransferResult,
+	QuickCreateCharacterInput,
+} from './state/character-state';
+export {
+	CHARACTER_DRAFT_ENTITY_TYPE,
+	CHARACTER_ENTITY_TYPE,
+	CHARACTER_STATE_SCHEMA_VERSION,
+	EMPTY_CHARACTER_STATE,
+	EMPTY_COMBAT_STATE,
+	applyDraftStep,
+	buildCharacterDraft,
+	buildQuickCreatedCharacter,
+	draftStepValues,
+	ensureCharacterState,
+	isDraftOwner,
+	removeDraft,
+	transferDraftOwnership,
+	upsertCharacter,
+	upsertDraft,
+} from './state/character-state';
+
+// CHAR-002: the guided, structured PC-creation flow — step definitions, options, per-step validation
+// (rules incl. the ability point-buy budget), and the resumable completeness report. Pure policy.
+export type {
+	AbilityId,
+	CharacterDraftStepId,
+	DraftCompleteness,
+	DraftStepDefinition,
+	DraftStepField,
+	DraftStepOption,
+	DraftStepValidation,
+	DraftValidationIssue,
+} from './state/character-draft-flow';
+export {
+	ABILITY_IDS,
+	ABILITY_MAX,
+	ABILITY_MIN,
+	ABILITY_POINT_BUDGET,
+	DRAFT_BACKGROUND_OPTIONS,
+	DRAFT_CLASS_OPTIONS,
+	DRAFT_STEPS,
+	computeDraftCompleteness,
+	getDraftStep,
+	pointBuyCost,
+	validateDraftStep,
+} from './state/character-draft-flow';
+
+// CHAR-001: the actor-filtered character read model — fail-closed visibility before any non-DM read
+// (a dm-only NPC is OMITTED, not redacted; a non-owner gets NO draft fields). Search/roster/widget/MCP
+// all consume this rather than raw CharacterState.
+export type { CharacterDraftView, CharacterView } from './queries/character-query';
+export {
+	getCharacterForActor,
+	getDraftForActor,
+	listCharactersForActor,
+	listDraftsForActor,
+} from './queries/character-query';
+
+// CHAR-001: bridge a character's fields into the EXISTING widget binding model so a Scene widget can
+// bind to e.g. `character:<id>` / selector `combat.hp` and reuse the same resolver + hidden/conflicted/
+// missing fail-closed states (Contract 4).
+export {
+	buildCharacterDataEnvironment,
+	characterBindingRecord,
+} from './queries/character-bindings';
+
+export {
+	createCharacterDraftInputSchema,
+	finalizeCharacterDraftInputSchema,
+	quickCreateCharacterInputSchema,
+	revokeCharacterDraftInputSchema,
+	setCharacterCombatInputSchema,
+	transferCharacterDraftInputSchema,
+	updateCharacterDraftStepInputSchema,
+} from './schemas/commands';
+
 // PLAT-018: durable command lifecycle states.
 export type {
 	CommandLifecycleState,

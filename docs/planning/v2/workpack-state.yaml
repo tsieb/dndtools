@@ -56,6 +56,9 @@ epics:
   - id: CANVAS-widget-lifecycle
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CANVAS-widget-lifecycle.completion.md
+  - id: CHAR-character-creation-and-drafts
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CHAR-character-creation-and-drafts.completion.md
   - id: CMD-active-session-control
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CMD-active-session-control.completion.md

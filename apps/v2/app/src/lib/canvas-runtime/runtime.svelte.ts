@@ -1,4 +1,5 @@
 import {
+	EMPTY_CHARACTER_STATE,
 	EMPTY_COMMAND_CENTER_STATE,
 	EMPTY_MAP_STATE,
 	EMPTY_PERMISSION_STATE,
@@ -119,6 +120,11 @@ export class SceneRuntime {
 			homeSceneId: EMPTY_COMMAND_CENTER_STATE.homeSceneId,
 			presets: {},
 			schemaVersion: EMPTY_COMMAND_CENTER_STATE.schemaVersion,
+		},
+		characters: {
+			characters: { ...EMPTY_CHARACTER_STATE.characters },
+			drafts: { ...EMPTY_CHARACTER_STATE.drafts },
+			schemaVersion: EMPTY_CHARACTER_STATE.schemaVersion,
 		},
 		sync: createOperationLog(),
 	});

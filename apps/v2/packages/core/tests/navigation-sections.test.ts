@@ -234,10 +234,10 @@ describe('NAV-001 released runtime navigation surfaces only built sections', () 
 
 	it('lists only the released sections in the primary nav, never planned routes', () => {
 		const ids = listNavigationSections(permission, DM_ACTOR.id).map((s) => s.id);
-		// Atlas is now released as the map deep-link surface (NAV-005), in canonical order.
-		expect(ids).toEqual(['command-center', 'scenes', 'atlas', 'settings']);
+		// Atlas (NAV-005) and Characters (CHAR creation epic) are released, in canonical order.
+		expect(ids).toEqual(['command-center', 'scenes', 'atlas', 'characters', 'settings']);
 		// Planned sections are canonical IA but must not appear as runtime nav links.
-		for (const planned of ['knowledge', 'session', 'campaign', 'characters', 'audio', 'mcp']) {
+		for (const planned of ['knowledge', 'session', 'campaign', 'audio', 'mcp']) {
 			expect(ids).not.toContain(planned);
 		}
 	});

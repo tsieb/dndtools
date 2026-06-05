@@ -52,7 +52,7 @@ function section(overrides: Partial<CanonicalNavigationSection> = {}): Canonical
  * The app's route-audit gate (tests/unit/route-audit.test.ts) derives this set from the
  * filesystem; here it is stated explicitly so the audit semantics are unit-tested too.
  */
-const SCAFFOLDED_ROUTES = ['/', '/atlas', '/scene', '/scenes', '/settings'];
+const SCAFFOLDED_ROUTES = ['/', '/atlas', '/characters', '/scene', '/scenes', '/settings'];
 
 describe('NAV-006 IA-review includes task fit (AC1)', () => {
 	it('the shipped registry passes the IA-review validator', () => {
@@ -146,7 +146,7 @@ describe('NAV-006 route audit (AC2)', () => {
 	it('normalizes trailing slashes when matching scaffolded routes to IA owners', () => {
 		expect(
 			auditNavigationRoutes({
-				scaffoldedRoutes: ['/', '/atlas/', '/scene/', '/scenes/', '/settings/'],
+				scaffoldedRoutes: ['/', '/atlas/', '/characters/', '/scene/', '/scenes/', '/settings/'],
 			}),
 		).toEqual([]);
 	});

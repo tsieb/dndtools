@@ -826,3 +826,115 @@ export const transferOwnershipInputSchema = z
 		expiresAt: z.union([z.literal(null), z.string().min(1)]).default(null),
 	})
 	.strict();
+
+// --- CHAR-001 / CHAR-002 / CHAR-013 — character command input schemas ---------------------------
+
+const characterVisibilitySchema = z.enum(['dm-only', 'player-visible', 'shared']);
+
+const abilityScoresSchema = z
+	.object({
+		str: z.number().int().optional(),
+		dex: z.number().int().optional(),
+		con: z.number().int().optional(),
+		int: z.number().int().optional(),
+		wis: z.number().int().optional(),
+		cha: z.number().int().optional(),
+	})
+	.strict();
+
+const characterAttackInputSchema = z
+	.object({
+		id: idSchema.optional(),
+		name: z.string().min(1, 'Attack name is required'),
+		detail: z.string().default(''),
+	})
+	.strict();
+
+const characterCombatInputSchema = z
+	.object({
+		hp: z.number().int().optional(),
+		maxHp: z.number().int().optional(),
+		tempHp: z.number().int().nonnegative().optional(),
+		ac: z.number().int().optional(),
+		conditions: z.array(z.string().min(1)).optional(),
+	})
+	.strict();
+
+// CHAR-001 — DM quick-create of an NPC/monster/sidekick with simplified stat + combat fields. The
+// `kind` enum excludes `pc` (a PC is created through the guided draft flow, not quick-create).
+// VISIBILITY DEFAULTS FAIL CLOSED to `dm-only` when omitted.
+export const quickCreateCharacterInputSchema = z
+	.object({
+		kind: z.enum(['npc', 'monster', 'sidekick']),
+		name: z.string().min(1, 'Character name is required'),
+		visibility: characterVisibilitySchema.default('dm-only'),
+		abilityScores: abilityScoresSchema.default({}),
+		attacks: z.array(characterAttackInputSchema).default([]),
+		combat: characterCombatInputSchema.default({}),
+		data: z.record(z.string(), z.unknown()).default({}),
+		dmOnlyFields: z.array(z.string().min(1)).default([]),
+	})
+	.strict();
+
+// CHAR-013 — the DM creates a PC draft assigned to exactly one owner.
+export const createCharacterDraftInputSchema = z
+	.object({
+		ownerActorId: idSchema,
+		name: z.string().default(''),
+		visibility: characterVisibilitySchema.default('dm-only'),
+	})
+	.strict();
+
+// CHAR-013 — atomically transfer a draft to a new single owner (revokes the prior owner in one step).
+export const transferCharacterDraftInputSchema = z
+	.object({
+		draftId: idSchema,
+		toOwnerActorId: idSchema,
+	})
+	.strict();
+
+// CHAR-013 — revoke (delete) an unfinalized draft.
+export const revokeCharacterDraftInputSchema = z
+	.object({
+		draftId: idSchema,
+	})
+	.strict();
+
+// CHAR-002 — the draft owner saves one guided-flow step. `expectedRevision` guards a stale resume.
+export const updateCharacterDraftStepInputSchema = z
+	.object({
+		draftId: idSchema,
+		stepId: z.string().min(1),
+		values: z.record(z.string(), z.unknown()).default({}),
+		expectedRevision: z.number().int().nonnegative().optional(),
+	})
+	.strict();
+
+// CHAR-002 — the draft owner finalizes a fully-valid draft into a usable character.
+export const finalizeCharacterDraftInputSchema = z
+	.object({
+		draftId: idSchema,
+	})
+	.strict();
+
+// CHAR-001 / CHAR-007 (foundation) — set a character's combat field through a validated command so a
+// bound widget refreshes. Restricted to the combat surface; deeper sheet edits land in later epics.
+export const setCharacterCombatInputSchema = z
+	.object({
+		characterId: idSchema,
+		hp: z.number().int().optional(),
+		maxHp: z.number().int().optional(),
+		tempHp: z.number().int().nonnegative().optional(),
+		ac: z.number().int().optional(),
+		conditions: z.array(z.string().min(1)).optional(),
+	})
+	.strict()
+	.refine(
+		(value) =>
+			value.hp !== undefined ||
+			value.maxHp !== undefined ||
+			value.tempHp !== undefined ||
+			value.ac !== undefined ||
+			value.conditions !== undefined,
+		{ message: 'Provide at least one combat field to update.' },
+	);

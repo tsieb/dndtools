@@ -1,3 +1,4 @@
+import { CHARACTER_STATE_SCHEMA_VERSION } from '../state/character-state';
 import { COMMAND_CENTER_STATE_SCHEMA_VERSION } from '../state/command-center-state';
 import { MAP_STATE_SCHEMA_VERSION } from '../state/map-state';
 import { PERMISSION_STATE_SCHEMA_VERSION } from '../state/permission-state';
@@ -16,7 +17,8 @@ export type DurableStateDocumentId =
 	| 'permissions'
 	| 'session'
 	| 'widgets'
-	| 'commandCenter';
+	| 'commandCenter'
+	| 'characters';
 
 export const DURABLE_STATE_DOCUMENT_IDS: readonly DurableStateDocumentId[] = Object.freeze([
 	'scenes',
@@ -25,6 +27,7 @@ export const DURABLE_STATE_DOCUMENT_IDS: readonly DurableStateDocumentId[] = Obj
 	'session',
 	'widgets',
 	'commandCenter',
+	'characters',
 ]);
 
 /**
@@ -41,6 +44,7 @@ export const TARGET_SCHEMA_VERSIONS: Readonly<Record<DurableStateDocumentId, num
 		session: SESSION_STATE_SCHEMA_VERSION,
 		widgets: WIDGET_PACKAGE_STATE_SCHEMA_VERSION,
 		commandCenter: COMMAND_CENTER_STATE_SCHEMA_VERSION,
+		characters: CHARACTER_STATE_SCHEMA_VERSION,
 	});
 
 export function targetSchemaVersion(documentId: DurableStateDocumentId): number {

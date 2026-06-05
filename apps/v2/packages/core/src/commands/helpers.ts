@@ -12,6 +12,8 @@ import { EMPTY_SESSION_COMBAT_STATE, SESSION_STATE_SCHEMA_VERSION } from '../sta
 import { WIDGET_PACKAGE_STATE_SCHEMA_VERSION } from '../state/widget-package-state';
 import type { MapState } from '../state/map-state';
 import { MAP_STATE_SCHEMA_VERSION } from '../state/map-state';
+import type { CharacterState } from '../state/character-state';
+import { CHARACTER_STATE_SCHEMA_VERSION } from '../state/character-state';
 
 export function reject(rejection: CommandRejection, state: CoreStateSlice) {
 	return { status: 'rejected' as const, rejection, nextState: state };
@@ -221,6 +223,14 @@ export function ensureWidgetPackageState(
 	state: WidgetPackageState | undefined,
 ): WidgetPackageState {
 	return state ?? { packages: {}, schemaVersion: WIDGET_PACKAGE_STATE_SCHEMA_VERSION };
+}
+
+export function ensureCharacterStateSlice(state: CharacterState | undefined): CharacterState {
+	return {
+		characters: state?.characters ?? {},
+		drafts: state?.drafts ?? {},
+		schemaVersion: CHARACTER_STATE_SCHEMA_VERSION,
+	};
 }
 
 export const SCENE_VERSION_CONSTANTS = {
