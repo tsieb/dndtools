@@ -209,7 +209,7 @@ workpack validates; and the working tree showed no unrelated overlapping changes
 
 Branch: `epic/SRCH-quick-switcher-and-command-discovery` (chained off the prior epic tip
 `epic/SRCH-local-indexes-and-freshness` @ `27e1d2e`, per the v2 epic-branching convention — NOT from master).
-Commit SHA (feat): `__FEAT_SHA__` (`feat(v2): complete SRCH-quick-switcher-and-command-discovery epic`).
+Commit SHA (feat): `e755ccf` (`feat(v2): complete SRCH-quick-switcher-and-command-discovery epic`).
 The completion-evidence SHA is recorded by the follow-up `docs(v2): record commit SHA …` commit.
 
 ### Final `git status --short`
