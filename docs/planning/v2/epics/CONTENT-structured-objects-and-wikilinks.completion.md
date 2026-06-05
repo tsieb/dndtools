@@ -243,9 +243,9 @@ Modified:
 
 - Branch: `epic/CONTENT-structured-objects-and-wikilinks` (created from
   `epic/CONTENT-source-specific-constraints` HEAD `fd171cf`).
-- Commit: recorded in the follow-up docs commit after `pnpm v2:workpack:complete`.
-- Final `git status --short`: clean (recorded below).
+- Implementation commit: `4e74979c03122ca5789bbb6634ba2ca7cd52ff2f`. This docs commit records the SHA.
+- Final `git status --short`: clean (no untracked or unstaged files), confirmed below.
 
 ```
-(clean — to be confirmed after the final commit)
+(clean)
 ```
