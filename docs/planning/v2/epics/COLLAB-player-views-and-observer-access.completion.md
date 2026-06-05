@@ -213,10 +213,13 @@ Added:
 
 Branch: `epic/COLLAB-player-views-and-observer-access` (chained off the prior epic HEAD
 `COLLAB-live-session-state-and-presence` @ 9084735, per the v2 epic-branching convention).
-Commit SHA (feat): _recorded in the follow-up `docs(v2): record commit SHA …` commit._
+Commit SHA (feat): `34c8246` (`feat(v2): complete COLLAB-player-views-and-observer-access epic`).
+The completion-evidence SHA is recorded by this follow-up `docs(v2): record commit SHA …` commit.
 
 ### Final `git status --short`
 
+After the completion `feat` commit and this SHA follow-up, the working tree is clean:
+
 ```
-(to be captured after the completion commit; see the follow-up SHA commit)
+(empty — clean working tree)
 ```
