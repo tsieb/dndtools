@@ -183,8 +183,8 @@ traceability, this file) are complete.
 ## Git evidence
 
 - Branch: `epic/GRAPH-deterministic-quality-intelligence` (chained off the prior epic tip `785e3cd`).
-- Commit SHA (feature + tests + completion evidence + regenerated workpack): `__PENDING__`
-  The follow-up `docs(v2): record commit SHA ...` commit writes that SHA into this evidence file.
+- Commit SHA (feature + tests + completion evidence + regenerated workpack): `0de43db`
+  This `docs(v2): record commit SHA ...` follow-up writes that SHA into this evidence file.
 
 ### `git status --short` (after the feature commit; before this SHA-recording commit)
 
