@@ -33,6 +33,10 @@ const DEFAULT_DEMO_PARTICIPANTS: Actor[] = [
 	{ id: 'actor-player', role: 'player', displayName: 'Demo Player' },
 	{ id: 'actor-player-2', role: 'player', displayName: 'Demo Player 2' },
 	{ id: 'actor-player-3', role: 'player', displayName: 'Demo Player 3' },
+	// PERM-011: a demo Observer so the read-only, no-character-data surface is reachable
+	// from the "view as" control. The Processing Core caps this participant to the observer
+	// ceiling regardless of any grant.
+	{ id: 'actor-observer', role: 'observer', displayName: 'Demo Observer' },
 ];
 
 function browserIdGenerator(): string {

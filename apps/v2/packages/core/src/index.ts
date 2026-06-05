@@ -181,6 +181,48 @@ export {
 export { canActorSeeScene, evaluateSceneVisibility } from './permissions/visibility';
 export type { SceneVisibilityResult } from './permissions/visibility';
 
+// PERM-001 / PERM-011: base-role floor + observer ceiling. Pure Processing-Core permission
+// policy (Contract 3, Base Roles). The base role floor is computed first and caps the participant;
+// grants are additive only within the role ceiling and are dropped when they would exceed it, so
+// no grant record can ever elevate an Observer above a read-only, no-character surface.
+export type {
+	BasePermissionFloor,
+	BaseRoleResolution,
+	BaseRoleResolutionReason,
+	DroppedGrant,
+	DroppedGrantReason,
+	EffectivePermissions,
+	PermissionAction,
+	RoleAssignmentRecord,
+} from './permissions/base-roles';
+export {
+	LEAST_PRIVILEGED_ROLE,
+	computeBasePermissionFloor,
+	computeEffectivePermissions,
+	computeEffectivePermissionsForActor,
+	isCharacterEntityType,
+	isWriteCapableCapabilitySet,
+	resolveBaseRole,
+	roleRecordsForActor,
+} from './permissions/base-roles';
+
+// PERM-011 / PERM-007 (PERM-001 side): DM-facing permission consistency audit and the
+// fail-closed character-data read guard. A dropped observer write/character grant is surfaced to
+// the DM as a consistency error; an Observer requesting character data always receives nothing.
+export type {
+	CharacterReadDecision,
+	PermissionConsistencyProblem,
+	PermissionConsistencyProblemKind,
+	PermissionConsistencyReport,
+	PermissionConsistencySeverity,
+} from './permissions/consistency';
+export {
+	auditActorGrantConsistency,
+	auditPermissionConsistency,
+	decideCharacterDataRead,
+	readCharacterDataForActor,
+} from './permissions/consistency';
+
 export type {
 	BindingResolver,
 	SceneListEntry,

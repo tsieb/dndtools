@@ -10,6 +10,7 @@
 	import { buildDiagnosticsContext } from '$lib/platform/diagnostics-context';
 	import DiagnosticsPanel from '$lib/gui/DiagnosticsPanel.svelte';
 	import ParticipantStatusPanel from '$lib/gui/ParticipantStatusPanel.svelte';
+	import PermissionSummary from '$lib/gui/PermissionSummary.svelte';
 	import CapabilityStatus from '$lib/gui/CapabilityStatus.svelte';
 	import SupportMatrix from '$lib/gui/SupportMatrix.svelte';
 	import SupportStatus from '$lib/gui/SupportStatus.svelte';
@@ -77,6 +78,13 @@
 	{:else if activeRole === 'player' || activeRole === 'observer'}
 		<ParticipantStatusPanel context={diagnosticsContext} input={participantInput} />
 	{/if}
+
+	<!-- PERM-001 / PERM-011: the effective permission surface the Processing Core computes
+	     for the active actor (base role floor + observer ceiling, grants capped to the
+	     ceiling), plus the DM-only consistency audit. The GUI renders the computed set; it
+	     never computes or overrides permissions. An Observer is always read-only with no
+	     character data here, and dropped observer grants surface to the DM as errors. -->
+	<PermissionSummary />
 
 	<section aria-label="Platform profile">
 		<h2>Platform profile</h2>
