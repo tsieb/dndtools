@@ -12,6 +12,7 @@
 	import ParticipantStatusPanel from '$lib/gui/ParticipantStatusPanel.svelte';
 	import SyncStatusPanel from '$lib/gui/SyncStatusPanel.svelte';
 	import CloudStorageClassificationPanel from '$lib/gui/CloudStorageClassificationPanel.svelte';
+	import SourceAdaptersPanel from '$lib/gui/SourceAdaptersPanel.svelte';
 	import PermissionSummary from '$lib/gui/PermissionSummary.svelte';
 	import GrantManager from '$lib/gui/GrantManager.svelte';
 	import CapabilityStatus from '$lib/gui/CapabilityStatus.svelte';
@@ -95,6 +96,13 @@
 	     Processing Core owns the classification and the fail-closed gate; this surface renders the
 	     computed model and never reads raw storage or flips any flag. -->
 	<CloudStorageClassificationPanel />
+
+	<!-- SYNC-003 / SYNC-004 / SYNC-005 / SYNC-015 / SYNC-016: the source-adapter inspection surface.
+	     Every source (local vault, Obsidian, Google Docs, future) plugs in behind one adapter contract
+	     and transforms content ↔ canonical sync operations; the Processing Core owns the declared
+	     capability metadata, the explicit sync states, and the fail-closed preflight. This surface
+	     renders the computed registry and never reaches storage or network (live transports deferred). -->
+	<SourceAdaptersPanel />
 
 	<!-- PERM-001 / PERM-011: the effective permission surface the Processing Core computes
 	     for the active actor (base role floor + observer ceiling, grants capped to the

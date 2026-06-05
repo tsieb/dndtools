@@ -191,3 +191,6 @@ epics:
   - id: SYNC-local-first-operation-model
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SYNC-local-first-operation-model.completion.md
+  - id: SYNC-source-adapters
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SYNC-source-adapters.completion.md

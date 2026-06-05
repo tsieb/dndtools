@@ -605,6 +605,138 @@ export {
 	isCloudSyncEnabled,
 } from './sync/cloud-sync-gate';
 
+// SYNC-003 / SYNC-015: the SOURCE ADAPTER interface + CAPABILITY-METADATA + FAIL-CLOSED model. An adapter
+// transforms external source content ↔ canonical SyncOperations at the boundary; it declares typed
+// capability metadata (supported schema/source versions, auth modes, entity types, transform fidelity) and
+// every fail-closed dimension rejects with an explicit reason before any mutation. `assertAdapterEmits
+// CanonicalOperations` is the SYNC-003 proof: an adapter plugs in WITHOUT a new command/reducer because it
+// emits the SAME canonical op shape every in-process command satisfies. Pure; the transport is injected.
+export type {
+	AdapterTransformContext,
+	AuthorizationInput,
+	AuthorizationOutcome,
+	CapabilityCheckResult,
+	CapabilityRejectionReason,
+	ExternalMutation,
+	SourceAdapterCapability,
+	SyncSourceAdapter,
+	SyncSourceAuthMode,
+	SyncSourceKind,
+	SyncSourceLifecycleState,
+	SyncTransformDirection,
+} from './sync/source-adapters';
+export {
+	ADAPTER_CANONICAL_SCHEMA_VERSION,
+	SOURCE_ADAPTER_SCHEMA_VERSION,
+	SYNC_SOURCE_LIFECYCLE_STATES,
+	adapterEmitsCanonicalOperations,
+	assertAdapterEmitsCanonicalOperations,
+	buildCanonicalOperation,
+	checkAuthModeSupported,
+	checkEntityTypeSupported,
+	checkSchemaVersionSupported,
+	checkSourceVersionSupported,
+	checkTransformFidelity,
+	deriveAuthorizationState,
+} from './sync/source-adapters';
+
+// SYNC-003 / ADR-014: the IN-MEMORY / FAKE transport the adapters read/write through. The live
+// filesystem/Obsidian/Drive transports are deferred; this is the deterministic, plain-data store the
+// adapters are exercised over. A real transport later implements the same shapes with no adapter change.
+export type {
+	FakeDriveChange,
+	FakeDriveFile,
+	FakeDriveTransport,
+	FakeVaultFile,
+	FakeVaultTransport,
+} from './sync/source-transport';
+export {
+	createFakeDriveTransport,
+	createFakeVaultTransport,
+	deleteVaultFile,
+	readDriveChanges,
+	readDriveFile,
+	readVaultFile,
+	writeDriveFile,
+	writeVaultFile,
+} from './sync/source-transport';
+
+// SYNC-004 / SYNC-012: the OBSIDIAN adapter logic. Reuses `markdown.ts`; a parse → canonical → serialize
+// round-trip preserves YAML properties, tags, aliases, [[wikilinks]], markdown links, headings, and
+// user-authored frontmatter, and ISOLATES DND Tools metadata under the `dndtools.*` namespace so it never
+// collides with user frontmatter. The fake vault transport is injected.
+export type {
+	ObsidianCanonicalNote,
+	ParsedHeading,
+	ParsedMarkdownLink,
+} from './sync/obsidian-adapter';
+export {
+	OBSIDIAN_ADAPTER_CAPABILITY,
+	OBSIDIAN_SOURCE_KIND,
+	canonicalNoteToObsidianFile,
+	createObsidianAdapter,
+	extractHeadings,
+	extractMarkdownLinks,
+	obsidianEntityIdForPath,
+	obsidianFileToCanonicalNote,
+	obsidianPresentFeatures,
+	pullObsidianNote,
+	pushObsidianOperation,
+} from './sync/obsidian-adapter';
+
+// SYNC-005 / SYNC-012 / SYNC-016: the GOOGLE DOCS adapter logic over a FAKE Drive transport. Tracks Drive
+// file ids, change page tokens, and revision metadata; the import/export transforms report unsupported
+// formatting loss (reused from the content-constraint lossy descriptors); and authorization, rename,
+// deletion, offline queued edits, unsupported formatting, and conflict are handled as EXPLICIT typed sync
+// states (never silent failures). The incremental pull stores the next cursor for future sync.
+export type {
+	GoogleDocsCanonicalNote,
+	GoogleDocsConflict,
+	GoogleDocsFileState,
+	GoogleDocsImportTransform,
+	GoogleDocsPullResult,
+} from './sync/google-docs-adapter';
+export {
+	GOOGLE_DOCS_ADAPTER_CAPABILITY,
+	GOOGLE_DOCS_SOURCE_KIND,
+	canonicalNoteToGoogleDocsFile,
+	createGoogleDocsAdapter,
+	detectGoogleDocsConflict,
+	googleDocsEntityIdForFile,
+	googleDocsFileToCanonicalNote,
+	googleDocsPresentFeatures,
+	pullGoogleDocsChanges,
+	pushGoogleDocsOperation,
+} from './sync/google-docs-adapter';
+
+// SYNC-003 / SYNC-015 / SYNC-005 / SYNC-016: the SOURCE ADAPTER REGISTRY — the inspectable list of
+// declared adapter capabilities (local-vault baseline + Obsidian + Google Docs) + the fail-closed
+// registration/preflight surface. `preflightSourceAdapter` rejects an unsupported schema/source version,
+// auth mode, entity type, or lossy transform with an explicit reason BEFORE any mutation; an unknown kind
+// fails closed. `SourceCursorRecord` models the durable per-source change cursor a pull advances.
+export type {
+	CapabilityDescriptorProblem,
+	CapabilityDescriptorProblemKind,
+	SourceAdapterCapabilitySummary,
+	SourceAdapterPreflightRequest,
+	SourceAdapterPreflightResult,
+	SourceCursorRecord,
+} from './sync/source-adapter-registry';
+export {
+	LOCAL_VAULT_ADAPTER_CAPABILITY,
+	REGISTERED_SOURCE_KINDS,
+	SOURCE_ADAPTER_CAPABILITIES,
+	SOURCE_ADAPTER_REGISTRY_SCHEMA_VERSION,
+	advanceSourceCursor,
+	capabilityForSourceKind,
+	listSourceAdapterCapabilities,
+	listSourceAdapterCapabilitySummaries,
+	preflightSourceAdapter,
+	summarizeSourceAdapterCapability,
+	validateRegisteredSourceAdapters,
+	validateSourceAdapterCapability,
+} from './sync/source-adapter-registry';
+
 // SYNC-010: the computed SYNC STATUS model — pending outbound operations, inbound revisions, conflicts
 // (from conflict-shaped ops), source health (reuse PLAT diagnostics), and retry actions (reuse the
 // PLAT-018 lifecycle). A clean derived view over the op-log substrate, never raw storage. Pure
