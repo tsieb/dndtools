@@ -1504,6 +1504,82 @@ export {
 	summarizeContentSourceCapabilities,
 } from './state/content-constraints';
 
+// CONTENT-013: the core VAULT OBJECT SUBTYPE SCHEMA REGISTRY — a typed catalog over the note-backed object
+// substrate covering the ten initial v2 subtypes (note/character/map/handout/calendar-event/timeline-event/
+// dice-table/encounter/audio-preset/widget-package-ref). It REFERENCES the already-built character/map/
+// calendar models by entity type + schema version rather than re-modeling them, and NEVER registers a `scene`
+// subtype — a Scene stays in SceneState (Contract 4). Pure data + pure functions.
+export type {
+	VaultObjectFieldSchema,
+	VaultObjectFieldType,
+	VaultObjectModelReference,
+	VaultObjectSchema,
+	VaultObjectSchemaSummary,
+	VaultObjectSubtype,
+} from './state/vault-object-schema';
+export {
+	SCENE_ENTITY_TYPE,
+	VAULT_OBJECT_SCHEMAS,
+	VAULT_OBJECT_SCHEMA_REGISTRY_VERSION,
+	VAULT_OBJECT_SUBTYPES,
+	dmOnlyFieldKeys,
+	isSceneEntityType,
+	isVaultObjectSubtype,
+	listVaultObjectSchemas,
+	summarizeVaultObjectSchema,
+	vaultObjectSchema,
+} from './state/vault-object-schema';
+
+// CONTENT-005: STRUCTURED VAULT OBJECTS — note-backed records with SCHEMA-VALIDATED frontmatter (fail closed)
+// and deterministic frontmatter ↔ body SYNCHRONIZATION. A Vault Object is a `ContentItem` (`kind: 'object'`)
+// interpreted through a subtype schema; `syncObjectToNote`/`syncNoteToObject` keep the structured fields and
+// the markdown body in sync by one deterministic rule, and the actor-filtered projection omits DM-only fields.
+export type {
+	VaultObject,
+	VaultObjectValidationIssue,
+	VaultObjectValidationResult,
+} from './state/vault-object';
+export {
+	VAULT_OBJECT_SCHEMA_VERSION,
+	VAULT_OBJECT_SUBTYPE_KEY,
+	projectObjectFieldsForRole,
+	readObjectSubtype,
+	syncNoteToObject,
+	syncObjectToNote,
+	validateObjectFrontmatter,
+} from './state/vault-object';
+
+// CONTENT-006: the PURE WIKILINK LIFECYCLE engine — create / resolve / rename-propagation / repair, PRESERVING
+// per-source conventions (reuses the source constraint descriptors). All deterministic functions of explicit
+// inputs; the actor-filtered candidate index lives in the query layer so a target the editor cannot see is
+// never resolved, renamed, or suggested (fail closed; never a destructive offline rewrite — AC3).
+export type {
+	BrokenWikilink,
+	LinkRepairResult,
+	WikilinkResolution,
+	WikilinkTarget,
+} from './state/wikilink-graph';
+export {
+	WIKILINK_GRAPH_SCHEMA_VERSION,
+	applyLinkRepair,
+	createWikilink,
+	detectBrokenLinks,
+	renamePropagateInBody,
+	resolveWikilink,
+} from './state/wikilink-graph';
+
+// CONTENT-006: the ACTOR-FILTERED wikilink graph read/repair surface. Builds the candidate index from the
+// actor's visible content items, so resolve/rename-propagation/repair operate ONLY over targets the editor may
+// see. Pure + deterministic.
+export type { WikilinkRenamePropagation } from './queries/wikilink-graph';
+export {
+	applyLinkRepairForActor,
+	buildWikilinkCandidatesForActor,
+	detectBrokenLinksForActor,
+	propagateRenameForActor,
+	resolveWikilinkForActor,
+} from './queries/wikilink-graph';
+
 // CHAR-002: the guided, structured PC-creation flow — step definitions, options, per-step validation
 // (rules incl. the ability point-buy budget), and the resumable completeness report. Pure policy.
 export type {

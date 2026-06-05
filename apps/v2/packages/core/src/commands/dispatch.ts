@@ -121,6 +121,12 @@ import {
 	handleExportContent,
 	handleWriteContentToSource,
 } from './content-import-export';
+import {
+	handleCreateVaultObject,
+	handleRenameWikilinkTarget,
+	handleRepairWikilink,
+	handleUpdateVaultObject,
+} from './vault-object';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 
 export function dispatchCommand(
@@ -351,6 +357,14 @@ export function dispatchCommand(
 			return handleExportContent(state, env, command.actorId, command.payload);
 		case 'content.write-to-source':
 			return handleWriteContentToSource(state, env, command.actorId, command.payload);
+		case 'content.create-object':
+			return handleCreateVaultObject(state, env, command.actorId, command.payload);
+		case 'content.update-object':
+			return handleUpdateVaultObject(state, env, command.actorId, command.payload);
+		case 'content.rename-wikilink-target':
+			return handleRenameWikilinkTarget(state, env, command.actorId, command.payload);
+		case 'content.repair-wikilink':
+			return handleRepairWikilink(state, env, command.actorId, command.payload);
 	}
 }
 

@@ -301,6 +301,18 @@ export type CoreCommand =
 	| { type: 'content.remove-item'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// CONTENT-001: restore a soft-deleted content item (the inverse of remove-item).
 	| { type: 'content.restore-item'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CONTENT-005: create / update a structured Vault Object (note-backed record). The frontmatter `fields`
+	// are SCHEMA-VALIDATED against the subtype registry at dispatch; an invalid object is rejected fail-closed
+	// (no invalid revision committed). The frontmatter and markdown body stay in sync per the deterministic
+	// rule in `state/vault-object.ts`.
+	| { type: 'content.create-object'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'content.update-object'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CONTENT-006: RENAME a wikilink target (rename the note + propagate the rename to every referring link in
+	// the actor's visible notes) and REPAIR a broken wikilink (rewrite a broken target to a visible, available
+	// fix). Both are actor-filtered + fail-closed (never touch a hidden target; never a destructive offline
+	// rewrite).
+	| { type: 'content.rename-wikilink-target'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'content.repair-wikilink'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// CONTENT-007: commit a transactional, resumable import of a markdown archive / Obsidian vault
 	// (preview is pure/read-only; resume skips already-applied steps; no partial commit on rejection).
 	| { type: 'content.commit-import'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -656,6 +668,41 @@ export type CoreEvent =
 			export: ContentExport;
 			actorId: ActorId;
 	  }
+	// CONTENT-005 — a structured Vault Object was created/updated after passing subtype-schema validation.
+	// Carries the subtype + the DATA-LAYER invalidation audience (so the same cross-surface invalidation the
+	// content item commands use applies). A note-backed object reuses the `content.item-changed` envelope for
+	// the item lifecycle; this distinct event records the subtype for the object-aware surfaces.
+	| {
+			kind: 'content.object-changed';
+			itemId: string;
+			subtype: string;
+			mutation: 'create' | 'update';
+			visibility: string;
+			invalidatedActorIds: ActorId[];
+			actorId: ActorId;
+	  }
+	// CONTENT-006 — a wikilink target was renamed: the target note's title changed AND the rename propagated to
+	// referring links. Carries the renamed item, old/new titles, and the ids of the notes whose bodies were
+	// rewritten + total links rewritten, so the audit records exactly what propagated (deterministic).
+	| {
+			kind: 'content.wikilink-target-renamed';
+			itemId: string;
+			fromTitle: string;
+			toTitle: string;
+			rewrittenItemIds: string[];
+			linksRewritten: number;
+			actorId: ActorId;
+	  }
+	// CONTENT-006 — a broken wikilink was repaired in a note body: the broken target was rewritten to a chosen
+	// visible, available fix target. Carries the item + the broken/fix targets + how many links were rewritten.
+	| {
+			kind: 'content.wikilink-repaired';
+			itemId: string;
+			brokenTarget: string;
+			fixTarget: string;
+			linksRewritten: number;
+			actorId: ActorId;
+	  }
 	// CONTENT-012 — a note was written back to a target source after the lossy-detection check passed
 	// (either nothing was lost, or the human acknowledged exactly what was lost). Carries the source and
 	// the dropped/lossy feature lists so the write audit records what was downgraded — never silently lost.
@@ -723,7 +770,18 @@ export type RejectionCode =
 	// commits silently; the pre-write constraint check tells the human exactly what is lost.
 	| 'content-write-loss-unacknowledged'
 	// CONTENT-012 — the target source id is not a declared note source (fail closed to unsupported).
-	| 'content-source-unknown';
+	| 'content-source-unknown'
+	// CONTENT-005 — a structured Vault Object's frontmatter failed subtype-schema validation; the invalid
+	// object is rejected fail-closed (no invalid revision committed). Distinct so the authoring UI can surface
+	// the per-field issues. A Scene routed to the object validator is rejected with this code (Contract 4).
+	| 'object-schema-invalid'
+	// CONTENT-005 — the target content item exists but is not a structured object (its subtype is absent).
+	| 'not-a-vault-object'
+	// CONTENT-006 — a wikilink repair was refused fail-closed: the broken source is unavailable/uncached (no
+	// destructive offline rewrite), or the chosen fix does not resolve to a visible, available target.
+	| 'wikilink-source-unavailable'
+	| 'wikilink-fix-unresolved'
+	| 'wikilink-target-unchanged';
 
 export interface CommandRejection {
 	code: RejectionCode;

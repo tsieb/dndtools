@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 50
+  approved: 49
   active: 0
-  complete: 38
+  complete: 39
   deferred: 0
 metrics:
-  epicCompletionPercent: 43.2
-  requirementCompletionPercent: 47
+  epicCompletionPercent: 44.3
+  requirementCompletionPercent: 48.3
   totalRequirements: 234
-  completedRequirements: 110
+  completedRequirements: 113
   deferredRequirements: 0
-  remainingEpics: 50
-  promptableEpics: 50
+  remainingEpics: 49
+  promptableEpics: 49
   blockedByDependencies: 0
-  completionEvidenceFiles: 38
+  completionEvidenceFiles: 39
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -86,13 +86,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: CONTENT
       totalEpics: 7
-      complete: 4
+      complete: 5
       active: 0
-      approved: 3
+      approved: 2
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 57.1
-      requirementCompletionPercent: 46.2
+      epicCompletionPercent: 71.4
+      requirementCompletionPercent: 69.2
     - domain: GRAPH
       totalEpics: 5
       complete: 0
@@ -193,17 +193,16 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: CONTENT-structured-objects-and-wikilinks
-  title: "CONTENT: Structured objects and wikilinks"
+  id: CONTENT-templates-and-snippets
+  title: "CONTENT: Templates and snippets"
   status: approved
   requirementIds:
-    - CONTENT-005
-    - CONTENT-006
-    - CONTENT-013
-  promptCommand: pnpm v2:prompt -- --epic CONTENT-structured-objects-and-wikilinks
+    - CONTENT-003
+    - CONTENT-004
+  promptCommand: pnpm v2:prompt -- --epic CONTENT-templates-and-snippets
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    CONTENT-structured-objects-and-wikilinks --status active
+    CONTENT-templates-and-snippets --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -435,12 +434,13 @@ epics:
       - CONTENT-012
     completionEvidenceFile: docs/planning/v2/epics/CONTENT-source-specific-constraints.completion.md
   - id: CONTENT-structured-objects-and-wikilinks
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CONTENT-005
       - CONTENT-006
       - CONTENT-013
+    completionEvidenceFile: docs/planning/v2/epics/CONTENT-structured-objects-and-wikilinks.completion.md
   - id: CONTENT-templates-and-snippets
     status: approved
     approved: true

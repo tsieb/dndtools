@@ -1309,6 +1309,73 @@ export const restoreContentItemInputSchema = z
 	})
 	.strict();
 
+// --- CONTENT-005 — structured Vault Objects (note-backed, schema-validated frontmatter) ---------
+
+const vaultObjectSubtypeSchema = z.enum([
+	'note',
+	'character',
+	'map',
+	'handout',
+	'calendar-event',
+	'timeline-event',
+	'dice-table',
+	'encounter',
+	'audio-preset',
+	'widget-package-ref',
+]);
+
+// CONTENT-005 — create a structured Vault Object as a note-backed content item (DM-only authoring). The
+// frontmatter `fields` are validated against the subtype schema at dispatch (fail closed); the body is the
+// markdown prose. Visibility fails closed to the subtype default (dm-only) when omitted.
+export const createVaultObjectInputSchema = z
+	.object({
+		subtype: vaultObjectSubtypeSchema,
+		title: z.string().min(1, 'A title is required'),
+		fields: z.record(z.string(), z.unknown()).default({}),
+		body: z.string().default(''),
+		visibility: contentVisibilitySchema.optional(),
+		sharedWith: z.array(idSchema).default([]),
+	})
+	.strict();
+
+// CONTENT-005 — update a structured Vault Object's frontmatter fields and/or body (authorized editor). The
+// merged frontmatter is re-validated against the subtype schema at dispatch (fail closed: no invalid revision
+// is committed).
+export const updateVaultObjectInputSchema = z
+	.object({
+		itemId: idSchema,
+		title: z.string().min(1).optional(),
+		fields: z.record(z.string(), z.unknown()).optional(),
+		body: z.string().optional(),
+	})
+	.strict()
+	.refine(
+		(value) => value.title !== undefined || value.fields !== undefined || value.body !== undefined,
+		{ message: 'Provide at least one field to update.' },
+	);
+
+// --- CONTENT-006 — wikilink lifecycle (rename-propagation, repair) ------------------------------
+
+// CONTENT-006 — RENAME a wikilink target: rename the target note's title AND propagate the rename to every
+// referring link in the actor's visible notes (authorized editor). Old/new titles are required + distinct.
+export const renameWikilinkTargetInputSchema = z
+	.object({
+		itemId: idSchema,
+		newTitle: z.string().min(1, 'A new title is required'),
+	})
+	.strict();
+
+// CONTENT-006 — REPAIR a broken wikilink in a note body: rewrite a broken target to a chosen visible, available
+// fix target (authorized editor). Refused fail-closed when the broken source is unavailable or the fix does
+// not resolve.
+export const repairWikilinkInputSchema = z
+	.object({
+		itemId: idSchema,
+		brokenTarget: z.string().min(1, 'The broken target is required'),
+		fixTargetTitle: z.string().min(1, 'A fix target title is required'),
+	})
+	.strict();
+
 // --- CONTENT-007 / CONTENT-008 — import/export --------------------------------------------------
 
 const importSourceKindSchema = z.enum(['markdown-archive', 'obsidian-vault']);

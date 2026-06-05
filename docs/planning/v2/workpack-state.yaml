@@ -98,6 +98,9 @@ epics:
   - id: CONTENT-source-specific-constraints
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CONTENT-source-specific-constraints.completion.md
+  - id: CONTENT-structured-objects-and-wikilinks
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CONTENT-structured-objects-and-wikilinks.completion.md
   - id: MAP-interaction-safety
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MAP-interaction-safety.completion.md

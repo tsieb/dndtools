@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CONTENT-structured-objects-and-wikilinks
 title: "CONTENT: Structured objects and wikilinks"
-status: approved
+status: complete
 approved: true
 domain: CONTENT
 capabilityBranch: Structured objects and wikilinks
@@ -197,3 +197,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/CONTENT-structured-objects-and-wikilinks.completion.md
