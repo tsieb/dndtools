@@ -29,7 +29,11 @@ async function createNote(page: Page, title: string, visibility: string, body: s
 	await page.getByTestId('note-new-title').fill(title);
 	await page.getByTestId('note-new-visibility').selectOption(visibility);
 	await page.getByTestId('note-create').click();
-	await expect(page.getByTestId('notes-workbench').getByText(title, { exact: true })).toBeVisible();
+	// Creating dispatches asynchronously and only then repoints the editor at the NEW note. Wait for the
+	// editor itself to show this note (not merely its row in the list) before filling its body — otherwise
+	// the fill can race the editor switch and land on / be cleared by the previously-open note, leaving the
+	// new note with an empty body so a body-only search never matches it.
+	await expect(page.getByTestId('note-editor')).toContainText(`Editing: ${title}`);
 	// The newly created note opens in the editor; set its body (so body-only matching can be exercised)
 	// and persist it through the visible Save control.
 	await page.getByTestId('note-body').fill(body);
