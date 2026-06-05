@@ -49,6 +49,13 @@ const INHERITANCE_BY_ENTITY_TYPE: Record<string, Record<string, readonly Capabil
 			contributor: ['contributor', 'viewer'],
 			viewer: ['viewer'],
 		},
+		// CONTENT-011 — calendar-aware notes/structured objects reuse the note authoring graph: an
+		// authorized editor holds `section-editor` (full edit) or `contributor` (write); `viewer` reads.
+		'content-item': {
+			'section-editor': ['section-editor', 'contributor', 'viewer'],
+			contributor: ['contributor', 'viewer'],
+			viewer: ['viewer'],
+		},
 		'note-section': {
 			'section-editor': ['section-editor', 'contributor', 'viewer'],
 			contributor: ['contributor', 'viewer'],

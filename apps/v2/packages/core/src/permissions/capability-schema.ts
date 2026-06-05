@@ -33,6 +33,9 @@ export const CAPABILITY_SET_SCHEMA: Record<string, readonly CapabilitySet[]> = O
 	'character-field': ['owner', 'combat-participant', 'backstory-editor', 'viewer'],
 	note: ['section-editor', 'contributor', 'viewer'],
 	'note-section': ['section-editor', 'contributor', 'viewer'],
+	// CONTENT-011 — calendar-aware content items reuse the note authoring/viewing sets so a DM can
+	// grant a player authorized-editor (`section-editor`/`contributor`) or `viewer` access to an item.
+	'content-item': ['section-editor', 'contributor', 'viewer'],
 	widget: ['manager', 'operator', 'viewer'],
 	'timer-widget': ['operator', 'viewer'],
 	scene: ['co-editor', 'viewer'],

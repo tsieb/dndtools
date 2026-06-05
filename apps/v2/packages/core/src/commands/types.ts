@@ -9,6 +9,7 @@ import type { PermissionState } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
 import type { SessionWorkflowState, SessionState } from '../state/session-state';
 import type { WidgetPackageState } from '../state/widget-package-state';
+import type { VaultContentState } from '../state/content';
 import type { OperationLog, SyncOperation } from '../sync/operation-log';
 
 export interface CoreStateSlice {
@@ -19,6 +20,8 @@ export interface CoreStateSlice {
 	widgets: WidgetPackageState;
 	commandCenter: CommandCenterState;
 	characters: CharacterState;
+	/** CONTENT — calendar-aware notes/structured objects + the campaign calendar registry. */
+	content: VaultContentState;
 	sync: OperationLog;
 }
 
@@ -281,7 +284,19 @@ export type CoreCommand =
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
-	  };
+	  }
+	// CONTENT-011: campaign calendar registry + calendar-aware content items (notes/objects) with
+	// custom-date fields, timeline references, and per-item visibility. Authorized-editor only.
+	| { type: 'content.define-calendar'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'content.create-item'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'content.update-item'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'content.set-item-visibility';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| { type: 'content.remove-item'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -590,6 +605,19 @@ export type CoreEvent =
 			ownerActorId: ActorId | null;
 			invalidatedActorIds: ActorId[];
 			actorId: ActorId;
+	  }
+	// CONTENT-011 — a campaign calendar definition was registered/updated.
+	| { kind: 'content.calendar-defined'; calendarId: string; actorId: ActorId }
+	// CONTENT-011 — a content item was created/updated/visibility-changed/removed. Carries the new
+	// visibility and the DATA-LAYER invalidation audience (the actors whose cached content views must
+	// be re-evaluated before new content is delivered — CONTENT-011 AC2). `*` means "all players".
+	| {
+			kind: 'content.item-changed';
+			itemId: string;
+			mutation: 'create' | 'update' | 'set-visibility' | 'remove';
+			visibility: string;
+			invalidatedActorIds: ActorId[];
+			actorId: ActorId;
 	  };
 
 export type RejectionCode =
@@ -629,7 +657,14 @@ export type RejectionCode =
 	// CHAR — a character target does not exist.
 	| 'character-not-found'
 	// CHAR-004 — a conflict-resolution target does not exist.
-	| 'conflict-not-found';
+	| 'conflict-not-found'
+	// CONTENT-011 — a referenced campaign calendar definition does not exist (fail closed: a content
+	// item can never carry a date in an unknown calendar).
+	| 'calendar-not-found'
+	// CONTENT-011 — a content item target does not exist.
+	| 'content-item-not-found'
+	// CONTENT-011 — a custom-date field or timeline reference is not a valid date for its calendar.
+	| 'invalid-calendar-date';
 
 export interface CommandRejection {
 	code: RejectionCode;

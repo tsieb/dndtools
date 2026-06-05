@@ -14,6 +14,8 @@ import type { MapState } from '../state/map-state';
 import { MAP_STATE_SCHEMA_VERSION } from '../state/map-state';
 import type { CharacterState } from '../state/character-state';
 import { ensureCharacterState } from '../state/character-state';
+import type { VaultContentState } from '../state/content';
+import { ensureVaultContentState } from '../state/content';
 
 export function reject(rejection: CommandRejection, state: CoreStateSlice) {
 	return { status: 'rejected' as const, rejection, nextState: state };
@@ -227,6 +229,10 @@ export function ensureWidgetPackageState(
 
 export function ensureCharacterStateSlice(state: CharacterState | undefined): CharacterState {
 	return ensureCharacterState(state);
+}
+
+export function ensureContentStateSlice(state: VaultContentState | undefined): VaultContentState {
+	return ensureVaultContentState(state);
 }
 
 export const SCENE_VERSION_CONSTANTS = {

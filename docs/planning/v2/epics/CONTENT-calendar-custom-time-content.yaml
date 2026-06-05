@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CONTENT-calendar-custom-time-content
 title: "CONTENT: Calendar/custom time content"
-status: approved
+status: complete
 approved: true
 domain: CONTENT
 capabilityBranch: Calendar/custom time content
@@ -133,3 +133,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/CONTENT-calendar-custom-time-content.completion.md

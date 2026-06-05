@@ -7,6 +7,7 @@ import {
 	EMPTY_PERMISSION_STATE,
 	EMPTY_SCENE_STATE,
 	EMPTY_SESSION_STATE,
+	EMPTY_VAULT_CONTENT_STATE,
 	EMPTY_WIDGET_PACKAGE_STATE,
 	createOperationLog,
 	createDemoMapState,
@@ -27,6 +28,7 @@ import {
 	type SessionState,
 	type StoragePort,
 	type SyncOperation,
+	type VaultContentState,
 	type WidgetPackageState,
 } from '@dndtools/v2-core';
 
@@ -39,6 +41,7 @@ const SESSION_STATE_KEY = 'session-state';
 const WIDGET_PACKAGE_STATE_KEY = 'widget-package-state';
 const COMMAND_CENTER_STATE_KEY = 'command-center-state';
 const CHARACTER_STATE_KEY = 'character-state';
+const CONTENT_STATE_KEY = 'content-state';
 const MIGRATION_JOURNAL_KEY = 'migration-journal';
 
 // Maps a durable document id to its persisted document key, so a write-ahead snapshot
@@ -51,6 +54,7 @@ const DOCUMENT_KEY_BY_ID: Record<DurableStateDocumentId, string> = {
 	widgets: WIDGET_PACKAGE_STATE_KEY,
 	commandCenter: COMMAND_CENTER_STATE_KEY,
 	characters: CHARACTER_STATE_KEY,
+	content: CONTENT_STATE_KEY,
 };
 
 interface DocumentRecord {
@@ -147,13 +151,15 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		database.documents.get(PERMISSION_STATE_KEY),
 		database.operations.orderBy('sequence').toArray(),
 	]);
-	const [mapDoc, sessionDoc, widgetPackageDoc, commandCenterDoc, characterDoc] = await Promise.all([
-		database.documents.get(MAP_STATE_KEY),
-		database.documents.get(SESSION_STATE_KEY),
-		database.documents.get(WIDGET_PACKAGE_STATE_KEY),
-		database.documents.get(COMMAND_CENTER_STATE_KEY),
-		database.documents.get(CHARACTER_STATE_KEY),
-	]);
+	const [mapDoc, sessionDoc, widgetPackageDoc, commandCenterDoc, characterDoc, contentDoc] =
+		await Promise.all([
+			database.documents.get(MAP_STATE_KEY),
+			database.documents.get(SESSION_STATE_KEY),
+			database.documents.get(WIDGET_PACKAGE_STATE_KEY),
+			database.documents.get(COMMAND_CENTER_STATE_KEY),
+			database.documents.get(CHARACTER_STATE_KEY),
+			database.documents.get(CONTENT_STATE_KEY),
+		]);
 	const scenes = (sceneDoc?.doc as SceneState | undefined) ?? {
 		scenes: {},
 		schemaVersion: EMPTY_SCENE_STATE.schemaVersion,
@@ -215,8 +221,18 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	};
 	characters.characters ??= {};
 	characters.drafts ??= {};
+	// CONTENT-011: the durable content slice (calendar registry + calendar-aware items). A vault
+	// persisted before this slice existed has no content document; default it so older prototype
+	// vaults stay readable without a destructive migration (safe-default hydration).
+	const content = (contentDoc?.doc as VaultContentState | undefined) ?? {
+		calendars: {},
+		items: {},
+		schemaVersion: EMPTY_VAULT_CONTENT_STATE.schemaVersion,
+	};
+	content.calendars ??= {};
+	content.items ??= {};
 	const sync = createOperationLog(operationRecords.map((r) => r.op));
-	return { scenes, maps, permissions, session, widgets, commandCenter, characters, sync };
+	return { scenes, maps, permissions, session, widgets, commandCenter, characters, content, sync };
 }
 
 async function persistSceneState(scenes: SceneState): Promise<void> {
@@ -245,6 +261,10 @@ async function persistCommandCenterState(commandCenter: CommandCenterState): Pro
 
 async function persistCharacterState(characters: CharacterState): Promise<void> {
 	await db().documents.put({ key: CHARACTER_STATE_KEY, doc: characters });
+}
+
+async function persistContentState(content: VaultContentState): Promise<void> {
+	await db().documents.put({ key: CONTENT_STATE_KEY, doc: content });
 }
 
 export async function appendOperations(operations: SyncOperation[]): Promise<void> {
@@ -310,7 +330,8 @@ export async function persistFullState(
 		sliceChanged(previous.session, next.session) ||
 		sliceChanged(previous.widgets, next.widgets) ||
 		sliceChanged(previous.commandCenter, next.commandCenter) ||
-		sliceChanged(previous.characters, next.characters);
+		sliceChanged(previous.characters, next.characters) ||
+		sliceChanged(previous.content, next.content);
 	if (durableStateChanged && newOperations.length === 0) {
 		throw new Error('Durable state changed without an accepted Processing Core operation.');
 	}
@@ -322,6 +343,7 @@ export async function persistFullState(
 		persistWidgetPackageState(next.widgets),
 		persistCommandCenterState(next.commandCenter),
 		persistCharacterState(next.characters),
+		persistContentState(next.content),
 		appendOperations(newOperations),
 	]);
 }

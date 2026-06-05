@@ -56,6 +56,7 @@ export const persistFullStateRequestSchema = z
 				widgets: durableDocumentEnvelope,
 				commandCenter: durableDocumentEnvelope,
 				characters: durableDocumentEnvelope,
+				content: durableDocumentEnvelope,
 				sync: z.object({ operations: z.array(syncOperationSchema) }).loose(),
 			})
 			.loose(),
@@ -68,6 +69,7 @@ export const persistFullStateRequestSchema = z
 				widgets: durableDocumentEnvelope,
 				commandCenter: durableDocumentEnvelope,
 				characters: durableDocumentEnvelope,
+				content: durableDocumentEnvelope,
 				sync: z.object({ operations: z.array(syncOperationSchema) }).loose(),
 			})
 			.loose(),

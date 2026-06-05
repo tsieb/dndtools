@@ -5,6 +5,7 @@ import {
 	EMPTY_PERMISSION_STATE,
 	EMPTY_SCENE_STATE,
 	EMPTY_SESSION_STATE,
+	EMPTY_VAULT_CONTENT_STATE,
 	createCommandLifecycle,
 	createMapImportAdapterRegistry,
 	createOperationLog,
@@ -125,6 +126,11 @@ export class SceneRuntime {
 			characters: { ...EMPTY_CHARACTER_STATE.characters },
 			drafts: { ...EMPTY_CHARACTER_STATE.drafts },
 			schemaVersion: EMPTY_CHARACTER_STATE.schemaVersion,
+		},
+		content: {
+			calendars: { ...EMPTY_VAULT_CONTENT_STATE.calendars },
+			items: { ...EMPTY_VAULT_CONTENT_STATE.items },
+			schemaVersion: EMPTY_VAULT_CONTENT_STATE.schemaVersion,
 		},
 		sync: createOperationLog(),
 	});

@@ -3,6 +3,7 @@ import type { Actor, PermissionState } from '../state/permission-state';
 import { PERMISSION_STATE_SCHEMA_VERSION } from '../state/permission-state';
 import { EMPTY_CHARACTER_STATE } from '../state/character-state';
 import { EMPTY_COMMAND_CENTER_STATE } from '../state/command-center-state';
+import { EMPTY_VAULT_CONTENT_STATE } from '../state/content';
 import { EMPTY_MAP_STATE } from '../state/map-state';
 import { EMPTY_SCENE_STATE } from '../state/scene-state';
 import { EMPTY_SESSION_STATE } from '../state/session-state';
@@ -97,6 +98,11 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			characters: { ...EMPTY_CHARACTER_STATE.characters },
 			drafts: { ...EMPTY_CHARACTER_STATE.drafts },
 			schemaVersion: EMPTY_CHARACTER_STATE.schemaVersion,
+		},
+		content: {
+			calendars: { ...EMPTY_VAULT_CONTENT_STATE.calendars },
+			items: { ...EMPTY_VAULT_CONTENT_STATE.items },
+			schemaVersion: EMPTY_VAULT_CONTENT_STATE.schemaVersion,
 		},
 		sync: createOperationLog(),
 	};

@@ -1203,3 +1203,100 @@ export const removeJournalEntryInputSchema = z
 		entryId: idSchema,
 	})
 	.strict();
+
+// --- CONTENT-011 — calendar/custom-time content -------------------------------------------------
+
+const contentVisibilitySchema = z.enum(['dm-only', 'player-visible', 'shared']);
+const contentItemKindSchema = z.enum(['note', 'object']);
+
+// A custom-calendar date VALUE: 1-based month/day ordinals into a referenced calendar definition.
+// The calendar id must be non-empty; range/validity against the calendar is enforced in the command
+// layer (it has the definition). The year is any integer (pre-epoch years are allowed).
+const customDateSchema = z
+	.object({
+		calendarId: idSchema,
+		year: z.number().int(),
+		month: z.number().int().min(1),
+		day: z.number().int().min(1),
+	})
+	.strict();
+
+const calendarMonthSchema = z
+	.object({
+		id: idSchema,
+		name: z.string().min(1, 'A month name is required'),
+		days: z.number().int().min(1, 'A month must have at least one day'),
+	})
+	.strict();
+
+const timelineReferenceInputSchema = z
+	.object({
+		id: idSchema.optional(),
+		label: z.string().min(1, 'A timeline reference label is required'),
+		date: customDateSchema,
+		targetId: idSchema.optional(),
+	})
+	.strict();
+
+// CONTENT-011 — define (or replace) a campaign calendar definition (authorized editor only).
+export const defineCalendarInputSchema = z
+	.object({
+		id: idSchema,
+		name: z.string().min(1, 'A calendar name is required'),
+		months: z.array(calendarMonthSchema).min(1, 'A calendar requires at least one month'),
+		weekdays: z.array(z.string().min(1)).optional(),
+		epochLabel: z.string().optional(),
+	})
+	.strict();
+
+// CONTENT-011 — create a calendar-aware content item (note/object). Visibility fails closed to
+// `dm-only` when omitted; date fields/timeline refs are validated against their calendar at dispatch.
+export const createContentItemInputSchema = z
+	.object({
+		kind: contentItemKindSchema,
+		title: z.string().min(1, 'A content title is required'),
+		body: z.string().default(''),
+		fields: z.record(z.string(), z.unknown()).default({}),
+		dateFields: z.record(z.string(), customDateSchema).default({}),
+		timelineRefs: z.array(timelineReferenceInputSchema).default([]),
+		visibility: contentVisibilitySchema.optional(),
+		sharedWith: z.array(idSchema).default([]),
+	})
+	.strict();
+
+// CONTENT-011 — update a content item's content/fields/dates/timeline refs (authorized editor only).
+export const updateContentItemInputSchema = z
+	.object({
+		itemId: idSchema,
+		title: z.string().min(1).optional(),
+		body: z.string().optional(),
+		fields: z.record(z.string(), z.unknown()).optional(),
+		dateFields: z.record(z.string(), customDateSchema).optional(),
+		timelineRefs: z.array(timelineReferenceInputSchema).optional(),
+	})
+	.strict()
+	.refine(
+		(value) =>
+			value.title !== undefined ||
+			value.body !== undefined ||
+			value.fields !== undefined ||
+			value.dateFields !== undefined ||
+			value.timelineRefs !== undefined,
+		{ message: 'Provide at least one content field to update.' },
+	);
+
+// CONTENT-011 — change a content item's per-item visibility (the cross-surface invalidation trigger).
+export const setContentItemVisibilityInputSchema = z
+	.object({
+		itemId: idSchema,
+		visibility: contentVisibilitySchema,
+		sharedWith: z.array(idSchema).optional(),
+	})
+	.strict();
+
+// CONTENT-011 — remove a content item (authorized editor only).
+export const removeContentItemInputSchema = z
+	.object({
+		itemId: idSchema,
+	})
+	.strict();

@@ -1313,6 +1313,76 @@ export {
 	getCharacterJournalForActor,
 } from './queries/character-journal-query';
 
+// CONTENT-011: the CUSTOM (campaign) CALENDAR arithmetic + STABLE display formatting. Pure functions of
+// (calendar definition, date value, format spec) ONLY — no Date/Intl/locale/timezone, same determinism
+// discipline as the seeded PRNG. Custom months/day counts/epoch; day-of-year, comparison, month rollover.
+export type {
+	CalendarDateErrorCode,
+	CalendarDateFormat,
+	CalendarDateValidation,
+	CalendarDefinition,
+	CalendarMonth,
+	CustomDate,
+} from './state/calendar';
+export {
+	CALENDAR_SCHEMA_VERSION,
+	absoluteDayIndex,
+	addDays,
+	compareCustomDates,
+	createCalendarDefinition,
+	dayOfYear,
+	daysInMonth,
+	daysInYear,
+	formatCustomDate,
+	fromAbsoluteDayIndex,
+	isValidCustomDate,
+	validateCustomDate,
+	weekdayName,
+} from './state/calendar';
+
+// CONTENT-011: the durable VAULT CONTENT model — a campaign calendar registry + calendar-aware content
+// items (notes/structured objects) with custom-date fields, timeline references, and per-item
+// visibility. The first CONTENT slice; new items fail closed to `dm-only`. Pure data + pure reducers.
+export type {
+	ContentItem,
+	ContentItemKind,
+	ContentItemMeta,
+	CreateContentItemInput,
+	TimelineReference,
+	UpdateContentItemPatch,
+	VaultContentState,
+} from './state/content';
+export {
+	CONTENT_ITEM_ENTITY_TYPE,
+	CONTENT_ITEM_KINDS,
+	EMPTY_VAULT_CONTENT_STATE,
+	VAULT_CONTENT_SCHEMA_VERSION,
+	addContentItem,
+	buildContentItem,
+	calendarById,
+	contentItemById,
+	ensureVaultContentState,
+	removeContentItem,
+	setContentItemVisibility,
+	updateContentItem,
+	upsertCalendarDefinition,
+} from './state/content';
+
+// CONTENT-011: THE single actor-filtered CONTENT read model. Per-item visibility decided BEFORE any
+// content is returned to ANY surface (note/graph/search/recap), with STABLE formatted dates. A hidden
+// dated item is OMITTED ENTIRELY from calendar/timeline views (AC2). Deterministic ordering by date.
+export type {
+	CalendarEventView,
+	ContentItemView,
+	FormattedDateView,
+	TimelineReferenceView,
+} from './queries/content-query';
+export {
+	actorCanAuthorContent,
+	getCalendarTimelineForActor,
+	getContentItemsForActor,
+} from './queries/content-query';
+
 // CHAR-002: the guided, structured PC-creation flow — step definitions, options, per-step validation
 // (rules incl. the ability point-buy budget), and the resumable completeness report. Pure policy.
 export type {
@@ -1510,10 +1580,13 @@ export {
 	cancelAdvancementInputSchema,
 	commitAdvancementInputSchema,
 	createCharacterDraftInputSchema,
+	createContentItemInputSchema,
+	defineCalendarInputSchema,
 	editCharacterFieldInputSchema,
 	finalizeCharacterDraftInputSchema,
 	openAdvancementInputSchema,
 	quickCreateCharacterInputSchema,
+	removeContentItemInputSchema,
 	removeJournalEntryInputSchema,
 	removePartyInventoryItemInputSchema,
 	resolveCharacterConflictInputSchema,
@@ -1524,12 +1597,14 @@ export {
 	setCharacterSpellInputSchema,
 	setCharacterXpInputSchema,
 	setClassResourceInputSchema,
+	setContentItemVisibilityInputSchema,
 	setJournalEntryVisibilityInputSchema,
 	setMarchingOrderInputSchema,
 	setSpellSlotsInputSchema,
 	transferCharacterDraftInputSchema,
 	updateCharacterDraftStepInputSchema,
 	updateCombatResourceInputSchema,
+	updateContentItemInputSchema,
 	updateJournalEntryInputSchema,
 	upsertPartyInventoryItemInputSchema,
 } from './schemas/commands';

@@ -108,6 +108,13 @@ import {
 	handleSetJournalEntryVisibility,
 	handleUpdateJournalEntry,
 } from './character-journal';
+import {
+	handleCreateContentItem,
+	handleDefineCalendar,
+	handleRemoveContentItem,
+	handleSetContentItemVisibility,
+	handleUpdateContentItem,
+} from './content';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 
 export function dispatchCommand(
@@ -320,6 +327,16 @@ export function dispatchCommand(
 			return handleSetJournalEntryVisibility(state, env, command.actorId, command.payload);
 		case 'character.remove-journal-entry':
 			return handleRemoveJournalEntry(state, env, command.actorId, command.payload);
+		case 'content.define-calendar':
+			return handleDefineCalendar(state, env, command.actorId, command.payload);
+		case 'content.create-item':
+			return handleCreateContentItem(state, env, command.actorId, command.payload);
+		case 'content.update-item':
+			return handleUpdateContentItem(state, env, command.actorId, command.payload);
+		case 'content.set-item-visibility':
+			return handleSetContentItemVisibility(state, env, command.actorId, command.payload);
+		case 'content.remove-item':
+			return handleRemoveContentItem(state, env, command.actorId, command.payload);
 	}
 }
 

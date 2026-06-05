@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 54
+  approved: 53
   active: 0
-  complete: 34
+  complete: 35
   deferred: 0
 metrics:
-  epicCompletionPercent: 38.6
-  requirementCompletionPercent: 44.4
+  epicCompletionPercent: 39.8
+  requirementCompletionPercent: 44.9
   totalRequirements: 234
-  completedRequirements: 104
+  completedRequirements: 105
   deferredRequirements: 0
-  remainingEpics: 54
-  promptableEpics: 54
+  remainingEpics: 53
+  promptableEpics: 53
   blockedByDependencies: 0
-  completionEvidenceFiles: 34
+  completionEvidenceFiles: 35
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -86,13 +86,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: CONTENT
       totalEpics: 7
-      complete: 0
+      complete: 1
       active: 0
-      approved: 7
+      approved: 6
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 0
-      requirementCompletionPercent: 0
+      epicCompletionPercent: 14.3
+      requirementCompletionPercent: 7.7
     - domain: GRAPH
       totalEpics: 5
       complete: 0
@@ -193,15 +193,15 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: CONTENT-calendar-custom-time-content
-  title: "CONTENT: Calendar/custom time content"
+  id: CONTENT-import-export
+  title: "CONTENT: Import/export"
   status: approved
   requirementIds:
-    - CONTENT-011
-  promptCommand: pnpm v2:prompt -- --epic CONTENT-calendar-custom-time-content
+    - CONTENT-007
+    - CONTENT-008
+  promptCommand: pnpm v2:prompt -- --epic CONTENT-import-export
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic
-    CONTENT-calendar-custom-time-content --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic CONTENT-import-export --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -407,10 +407,11 @@ epics:
       - CON-002
       - CON-005
   - id: CONTENT-calendar-custom-time-content
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CONTENT-011
+    completionEvidenceFile: docs/planning/v2/epics/CONTENT-calendar-custom-time-content.completion.md
   - id: CONTENT-import-export
     status: approved
     approved: true
