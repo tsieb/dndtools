@@ -183,8 +183,8 @@ Requirement IDs exercised by the demo: SES-009, SES-012.
 Workpack status: `complete` (set via `pnpm v2:workpack:complete -- --epic SES-prep-recap-and-calendar-continuity`).
 
 - Branch: `epic/SES-prep-recap-and-calendar-continuity` (from `epic/SES-handouts-and-tools` HEAD `76ec924`).
-- Commit SHA: recorded in the follow-up docs commit.
-- Final `git status --short`: clean (recorded below at handoff).
+- Implementation commit SHA: `80b901ab72e1c3530dd9872fe921dcd0a420aaa9`.
+- Final `git status --short`: clean (after this docs commit recording the SHA).
 
 Final `git status --short` after the implementation commit:
 
