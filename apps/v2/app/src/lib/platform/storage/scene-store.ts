@@ -9,17 +9,21 @@ import {
 	EMPTY_WIDGET_PACKAGE_STATE,
 	createOperationLog,
 	createDemoMapState,
+	createStoragePlatformServiceRegistry,
 	mergeSystemWidgetPackages,
 	recoverFromJournal,
+	validatePlatformRequest,
 	type CommandCenterState,
 	type CoreStateSlice,
 	type DurableStateDocumentId,
 	type MapState,
 	type MigrationJournalEntry,
 	type PermissionState,
+	type PlatformServiceRegistry,
 	type RecoveryDecision,
 	type SceneState,
 	type SessionState,
+	type StoragePort,
 	type SyncOperation,
 	type WidgetPackageState,
 } from '@dndtools/v2-core';
@@ -242,10 +246,40 @@ function sliceChanged(previous: unknown, next: unknown): boolean {
 	return JSON.stringify(previous) !== JSON.stringify(next);
 }
 
+// PLAT-007: the storage adapter is a platform-service boundary (Contract 1). Every durable
+// write is validated against a named-method runtime schema with a payload size limit before
+// any business logic runs. Wiring the registry once keeps the allowlist authoritative.
+const platformRegistry: PlatformServiceRegistry = createStoragePlatformServiceRegistry();
+
+/** Structured error thrown when a platform-service request is rejected at the boundary. */
+export class PlatformBoundaryRejectionError extends Error {
+	readonly code: string;
+	readonly method: string;
+	constructor(code: string, method: string, message: string) {
+		super(message);
+		this.name = 'PlatformBoundaryRejectionError';
+		this.code = code;
+		this.method = method;
+	}
+}
+
 export async function persistFullState(
 	previous: CoreStateSlice,
 	next: CoreStateSlice,
 ): Promise<void> {
+	// Validate the request crossing the boundary first: unknown method, oversized, or
+	// malformed payloads fail closed before we touch IndexedDB (PLAT-007 AC1/AC2).
+	const validated = validatePlatformRequest(platformRegistry, 'storage.persistFullState', {
+		previous,
+		next,
+	});
+	if (!validated.ok) {
+		throw new PlatformBoundaryRejectionError(
+			validated.error.code,
+			validated.error.method,
+			validated.error.message,
+		);
+	}
 	const newOperations = next.sync.operations.slice(previous.sync.operations.length);
 	const durableStateChanged =
 		sliceChanged(previous.scenes, next.scenes) ||
@@ -276,6 +310,19 @@ export async function resetCoreStorage(): Promise<void> {
 		database.migrationJournal.clear(),
 	]);
 }
+
+/**
+ * The single durable-storage port the GUI/runtime is allowed to depend on (PLAT-006).
+ * GUI components dispatch core commands and the runtime calls these named methods; nothing
+ * outside this adapter touches Dexie/IndexedDB. The shape conforms to the type-only
+ * `StoragePort` contract (PLAT-011) so the dependency carries no runtime weight.
+ */
+export const storagePort: StoragePort = {
+	loadCoreState,
+	persistFullState,
+	recoverPendingMigration,
+	resetCoreStorage,
+};
 
 export const __testing = {
 	closeDb: async (): Promise<void> => {

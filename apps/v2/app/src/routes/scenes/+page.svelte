@@ -47,6 +47,14 @@
 	let lastCreatedId = $state<string | null>(null);
 	let exportedPackage = $state<string | null>(null);
 
+	// PLAT-018: the create button reflects the durable command lifecycle so a user sees a
+	// pending state, a confirmed success, or a failure with retry guidance — never a partial
+	// UI success. The lifecycle state itself is owned by the runtime/Processing Core.
+	const lifecycle = $derived(runtime.lastLifecycle);
+	const createLifecycle = $derived(
+		lifecycle && lifecycle.commandType === 'scene.create' ? lifecycle : null,
+	);
+
 	const scenes = $derived(
 		listScenesForActor(runtime.state.scenes, runtime.state.permissions, runtime.defaultActorId),
 	);
@@ -122,9 +130,11 @@
 	}
 
 	function exportPackage(packageId: string) {
+		// Id generation routes through the runtime's platform id generator, not a direct
+		// crypto call from this GUI component (PLAT-006).
 		const exported = exportWidgetPackage(
 			runtime.state.widgets,
-			{ ids: () => crypto.randomUUID() },
+			{ ids: () => runtime.newId() },
 			packageId,
 		);
 		exportedPackage = JSON.stringify(exported, null, 2);
@@ -161,9 +171,26 @@
 			</select>
 		</label>
 		<button class="button" type="submit" data-testid="scene-create" disabled={submitting}>
-			Create Scene
+			{submitting ? 'Saving…' : 'Create Scene'}
 		</button>
 	</form>
+	{#if createLifecycle}
+		<p
+			class="meta"
+			data-testid="create-lifecycle"
+			data-status={createLifecycle.status}
+			role={createLifecycle.status === 'failure' ? 'alert' : 'status'}
+			aria-live="polite"
+		>
+			{#if createLifecycle.status === 'pending'}
+				Saving Scene…
+			{:else if createLifecycle.status === 'success'}
+				Scene saved.
+			{:else if createLifecycle.status === 'failure'}
+				Could not save the Scene: {createLifecycle.error}. Fix the input and submit again to retry.
+			{/if}
+		</p>
+	{/if}
 	{#if lastCreatedId}
 		<p class="meta" data-testid="last-created">Created: {lastCreatedId}</p>
 	{/if}

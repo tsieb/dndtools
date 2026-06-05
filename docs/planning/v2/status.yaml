@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 73
+  approved: 72
   active: 0
-  complete: 15
+  complete: 16
   deferred: 0
 metrics:
-  epicCompletionPercent: 17
-  requirementCompletionPercent: 16.7
+  epicCompletionPercent: 18.2
+  requirementCompletionPercent: 18.8
   totalRequirements: 234
-  completedRequirements: 39
+  completedRequirements: 44
   deferredRequirements: 0
-  remainingEpics: 73
-  promptableEpics: 73
+  remainingEpics: 72
+  promptableEpics: 72
   blockedByDependencies: 0
-  completionEvidenceFiles: 15
+  completionEvidenceFiles: 16
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -149,13 +149,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: PLAT
       totalEpics: 4
-      complete: 1
+      complete: 2
       active: 0
-      approved: 3
+      approved: 2
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 25
-      requirementCompletionPercent: 16.7
+      epicCompletionPercent: 50
+      requirementCompletionPercent: 44.4
     - domain: SEC
       totalEpics: 4
       complete: 0
@@ -193,19 +193,20 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: PLAT-persistence-and-boundaries
-  title: "PLAT: Persistence and boundaries"
+  id: PLAT-platform-profiles-and-shells
+  title: "PLAT: Platform profiles and shells"
   status: approved
   requirementIds:
-    - PLAT-006
-    - PLAT-007
-    - PLAT-011
-    - PLAT-012
-    - PLAT-018
-  promptCommand: pnpm v2:prompt -- --epic PLAT-persistence-and-boundaries
+    - PLAT-001
+    - PLAT-002
+    - PLAT-003
+    - PLAT-004
+    - PLAT-005
+    - PLAT-016
+  promptCommand: pnpm v2:prompt -- --epic PLAT-platform-profiles-and-shells
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    PLAT-persistence-and-boundaries --status active
+    PLAT-platform-profiles-and-shells --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -651,7 +652,7 @@ epics:
       - PLAT-017
     completionEvidenceFile: docs/planning/v2/epics/PLAT-migration-and-diagnostics.completion.md
   - id: PLAT-persistence-and-boundaries
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - PLAT-006
@@ -659,6 +660,7 @@ epics:
       - PLAT-011
       - PLAT-012
       - PLAT-018
+    completionEvidenceFile: docs/planning/v2/epics/PLAT-persistence-and-boundaries.completion.md
   - id: PLAT-platform-profiles-and-shells
     status: approved
     approved: true

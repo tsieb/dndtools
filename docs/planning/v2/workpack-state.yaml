@@ -86,3 +86,6 @@ epics:
   - id: PLAT-migration-and-diagnostics
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PLAT-migration-and-diagnostics.completion.md
+  - id: PLAT-persistence-and-boundaries
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/PLAT-persistence-and-boundaries.completion.md

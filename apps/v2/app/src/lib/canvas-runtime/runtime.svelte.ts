@@ -4,14 +4,19 @@ import {
 	EMPTY_PERMISSION_STATE,
 	EMPTY_SCENE_STATE,
 	EMPTY_SESSION_STATE,
+	createCommandLifecycle,
 	createOperationLog,
 	createDemoMapState,
 	createSystemWidgetPackages,
 	mergeSystemWidgetPackages,
+	markFailure,
+	markPending,
+	markSuccess,
 	PERMISSION_STATE_SCHEMA_VERSION,
 	dispatchCommand,
 	type ActorId,
 	type Actor,
+	type CommandLifecycleState,
 	type CommandResult,
 	type CoreCommand,
 	type CoreEnvironment,
@@ -87,6 +92,10 @@ export class SceneRuntime {
 	#options: RuntimeOptions;
 	#loaded = $state(false);
 	#lastError = $state<string | null>(null);
+	// PLAT-018: the lifecycle state of the most recently dispatched durable command. The
+	// GUI renders pending/success/failure/retry/undo affordances from this rather than
+	// inventing per-call status flags.
+	#lastLifecycle = $state<CommandLifecycleState | null>(null);
 	// The actor whose actor-filtered view the GUI is currently rendering. Choosing
 	// whose view to render is a GUI concern (Contract 1); the Processing Core still
 	// enforces every visibility and permission check. Defaults to the session DM and
@@ -110,6 +119,11 @@ export class SceneRuntime {
 		return this.#lastError;
 	}
 
+	/** PLAT-018: lifecycle state of the most recently dispatched durable command. */
+	get lastLifecycle(): CommandLifecycleState | null {
+		return this.#lastLifecycle;
+	}
+
 	/** The actor whose filtered view is currently rendered. Existing call sites read
 	 *  this; it now tracks the active "view as" actor rather than a fixed default. */
 	get defaultActorId(): ActorId {
@@ -118,6 +132,15 @@ export class SceneRuntime {
 
 	get activeActorId(): ActorId {
 		return this.#activeActorId;
+	}
+
+	/**
+	 * Generate an id through the configured platform id generator. GUI components must use
+	 * this instead of reaching `crypto.randomUUID` directly, so id generation stays a
+	 * platform service behind the runtime boundary (PLAT-006).
+	 */
+	newId(): string {
+		return this.#options.env.ids();
 	}
 
 	/** Actors available to view the app as, sorted DM-first then by name. */
@@ -185,6 +208,10 @@ export class SceneRuntime {
 
 	async dispatch(command: CoreCommand): Promise<CommandResult> {
 		const before = this.#state;
+		// PLAT-018: the command enters the pending state before the durable write. No
+		// partial UI success is shown until the write actually commits (AC1).
+		let lifecycle = markPending(createCommandLifecycle(command.type));
+		this.#lastLifecycle = lifecycle;
 		// $state values are Proxies; the reducer must run against a plain snapshot so it
 		// can return plain objects suitable for both reassignment and structured cloning.
 		// structuredClone preserves the sync log's idempotencyKeys Set at runtime, but
@@ -196,14 +223,22 @@ export class SceneRuntime {
 			try {
 				await persistFullState(plainBefore, result.nextState);
 				this.#lastError = null;
+				lifecycle = markSuccess(lifecycle, result.operationIds);
 			} catch (error) {
-				this.#lastError = error instanceof Error ? error.message : String(error);
+				// Durable write failed after acceptance: roll back the in-memory state,
+				// clear pending, and surface retry/recovery guidance (PLAT-018 AC1).
+				const message = error instanceof Error ? error.message : String(error);
+				this.#lastError = message;
 				this.#state = before;
+				lifecycle = markFailure(lifecycle, message);
+				this.#lastLifecycle = lifecycle;
 				throw error;
 			}
 		} else {
 			this.#lastError = result.rejection.message;
+			lifecycle = markFailure(lifecycle, result.rejection.message);
 		}
+		this.#lastLifecycle = lifecycle;
 		return result;
 	}
 }

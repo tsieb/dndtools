@@ -6,6 +6,7 @@
 	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
+	import { isOnline, storageAvailable } from '$lib/platform/capabilities';
 	import { buildDiagnosticsContext } from '$lib/platform/diagnostics-context';
 	import DiagnosticsPanel from '$lib/gui/DiagnosticsPanel.svelte';
 	import ParticipantStatusPanel from '$lib/gui/ParticipantStatusPanel.svelte';
@@ -16,14 +17,14 @@
 	// Platform Services derive the diagnostics facts (Contract 1); the Processing Core
 	// assembles the actor-filtered views and the redacted support bundle. Online state
 	// and filesystem availability come from the platform profile, not feature logic.
-	const online = $derived(typeof navigator === 'undefined' ? true : navigator.onLine);
+	const online = $derived(isOnline());
 	const pendingOperations = $derived(runtime.state.sync.operations.length);
 	const diagnosticsContext = $derived(
 		buildDiagnosticsContext(runtime.state, {
 			appVersion: '0.2.0',
 			platformProfileId: profile.profileId,
 			online,
-			storageAvailable: typeof indexedDB !== 'undefined',
+			storageAvailable: storageAvailable(),
 			filesystemAvailable: false,
 			pendingOperations,
 			now: new Date().toISOString(),

@@ -30,6 +30,18 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 		await expect(page.getByTestId('scene-list').getByText('Goblin Ambush')).toBeVisible();
 	});
 
+	test('PLAT-018: the Scene create command shows a success lifecycle state', async ({ page }) => {
+		await page.getByTestId('scene-name').fill('Lifecycle Scene');
+		await page.getByTestId('scene-create').click();
+
+		// The durable command reports success only after the write commits; no partial
+		// success is shown before that.
+		const lifecycle = page.getByTestId('create-lifecycle');
+		await expect(lifecycle).toHaveAttribute('data-status', 'success');
+		await expect(lifecycle).toContainText('Scene saved.');
+		await expect(page.getByTestId('scene-list').getByText('Lifecycle Scene')).toBeVisible();
+	});
+
 	test('Adding a widget on a Scene persists across reload', async ({ page }) => {
 		await page.getByTestId('scene-name').fill('Combat Board');
 		await page.getByTestId('scene-create').click();

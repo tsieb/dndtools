@@ -1,0 +1,90 @@
+import { z } from 'zod';
+import {
+	createPlatformServiceRegistry,
+	type PlatformServiceRegistry,
+} from '../platform/service-boundary';
+
+/**
+ * PLAT-007 request schemas for the named storage platform-service methods.
+ *
+ * These describe only the shape of the request that crosses the boundary, not the durable
+ * domain reducers. Durable mutation semantics still live in the Processing Core command
+ * model (Contract 1 / Contract 4 non-negotiables). The boundary check guarantees the
+ * adapter never receives an unvalidated, oversized, or unknown-method request.
+ */
+
+const schemaVersionField = z.number().int().nonnegative();
+
+const durableDocumentEnvelope = z
+	.object({ schemaVersion: schemaVersionField })
+	.loose();
+
+/** A single durable operation-log entry, as appended by accepted commands. */
+const syncOperationSchema = z
+	.object({
+		id: z.string().min(1),
+		vaultId: z.string().min(1),
+		sourceId: z.string().min(1),
+		actorId: z.string().min(1),
+		entityType: z.string().min(1),
+		entityId: z.string().min(1),
+		opType: z.string().min(1),
+		dependencies: z.array(z.string()),
+		issuedAt: z.string().min(1),
+		schemaVersion: schemaVersionField,
+	})
+	.loose();
+
+/** loadCoreState, recoverPendingMigration, and resetCoreStorage take no caller payload. */
+export const loadCoreStateRequestSchema = z.undefined();
+export const recoverPendingMigrationRequestSchema = z.undefined();
+export const resetCoreStorageRequestSchema = z.undefined();
+
+/**
+ * persistFullState receives the previous and next durable state slices the runtime is
+ * about to write. The boundary only enforces structural shape and the size budget; the
+ * adapter still enforces the "no durable change without an accepted operation" invariant.
+ */
+export const persistFullStateRequestSchema = z
+	.object({
+		previous: z
+			.object({
+				scenes: durableDocumentEnvelope,
+				maps: durableDocumentEnvelope,
+				permissions: durableDocumentEnvelope,
+				session: durableDocumentEnvelope,
+				widgets: durableDocumentEnvelope,
+				commandCenter: durableDocumentEnvelope,
+				sync: z.object({ operations: z.array(syncOperationSchema) }).loose(),
+			})
+			.loose(),
+		next: z
+			.object({
+				scenes: durableDocumentEnvelope,
+				maps: durableDocumentEnvelope,
+				permissions: durableDocumentEnvelope,
+				session: durableDocumentEnvelope,
+				widgets: durableDocumentEnvelope,
+				commandCenter: durableDocumentEnvelope,
+				sync: z.object({ operations: z.array(syncOperationSchema) }).loose(),
+			})
+			.loose(),
+	})
+	.strict();
+
+/**
+ * The canonical registry for the storage platform-service boundary. Every storage method
+ * the runtime can call is wired here with a runtime schema, so no handler exists without
+ * validation (PLAT-007 AC1).
+ */
+export function createStoragePlatformServiceRegistry(): PlatformServiceRegistry {
+	return createPlatformServiceRegistry([
+		{ method: 'storage.loadCoreState', requestSchema: loadCoreStateRequestSchema },
+		{ method: 'storage.persistFullState', requestSchema: persistFullStateRequestSchema },
+		{
+			method: 'storage.recoverPendingMigration',
+			requestSchema: recoverPendingMigrationRequestSchema,
+		},
+		{ method: 'storage.resetCoreStorage', requestSchema: resetCoreStorageRequestSchema },
+	]);
+}

@@ -465,3 +465,58 @@ export {
 	toParticipantSafeSummary,
 	toSyncSourceStatusView,
 } from './diagnostics';
+
+// PLAT-007: platform-service boundary (named methods, runtime schemas, size limits,
+// enum allowlist, structured errors).
+export type {
+	PlatformBoundaryError,
+	PlatformBoundaryErrorCode,
+	PlatformBoundaryResult,
+	PlatformServiceMethod,
+	PlatformServiceMethodDefinition,
+	PlatformServiceRegistry,
+} from './platform/service-boundary';
+export {
+	DEFAULT_MAX_PAYLOAD_BYTES,
+	PLATFORM_SERVICE_METHODS,
+	createPlatformServiceRegistry,
+	isPlatformServiceMethod,
+	validatePlatformRequest,
+} from './platform/service-boundary';
+export {
+	createStoragePlatformServiceRegistry,
+	loadCoreStateRequestSchema,
+	persistFullStateRequestSchema,
+	recoverPendingMigrationRequestSchema,
+	resetCoreStorageRequestSchema,
+} from './schemas/platform-service';
+
+// PLAT-011: type-only cross-boundary contract (no runtime values may live here).
+export type {
+	PlatformBoundaryErrorShape,
+	PlatformBoundaryOutcome,
+	PlatformServiceMethodName,
+	StoragePort,
+} from './contracts/platform-boundary.contract';
+
+// PLAT-018: durable command lifecycle states.
+export type {
+	CommandLifecycleState,
+	CommandLifecycleStatus,
+	CommandRecoveryAction,
+} from './lifecycle/command-lifecycle';
+export {
+	UNDOABLE_COMMAND_TYPES,
+	canCancel,
+	canRetry,
+	canUndo,
+	createCommandLifecycle,
+	inverseCommandType,
+	isUndoableCommandType,
+	markCancelled,
+	markFailure,
+	markPending,
+	markSuccess,
+	markUndone,
+	recoveryAction,
+} from './lifecycle/command-lifecycle';
