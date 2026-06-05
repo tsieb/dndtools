@@ -1,7 +1,7 @@
 import type { ActorId } from './ids';
 import type { CalendarDefinition, CustomDate } from './calendar';
 import { CALENDAR_SCHEMA_VERSION } from './calendar';
-import type { VisibilityLevel } from '../permissions/visibility-filter';
+import type { EntityVisibilityMetadata, VisibilityLevel, VisibilityRule } from '../permissions/visibility-filter';
 import { normalizeVisibilityLevel } from '../permissions/visibility-filter';
 
 /**
@@ -53,6 +53,50 @@ export interface TimelineReference {
 	targetId?: string;
 }
 
+/**
+ * CONTENT-010 — what an embed targets inside its referenced content item. An embed renders the LIVE
+ * target through the actor-filtered query (never a copy), so the kind selects which projection of the
+ * target is rendered at the embed call site:
+ *
+ *   - `object-card`   — the target structured object's visible fields, as an inline card.
+ *   - `note-section`  — ONE named section of the target note's body (`sectionId` required).
+ *   - `render-block`  — the target's whole visible render (title + visible sections + visible fields).
+ */
+export type ContentEmbedKind = 'object-card' | 'note-section' | 'render-block';
+
+export const CONTENT_EMBED_KINDS: readonly ContentEmbedKind[] = [
+	'object-card',
+	'note-section',
+	'render-block',
+] as const;
+
+/**
+ * CONTENT-010 — a single embed placed in a HOST note's content: a TYPED REFERENCE to a target content
+ * item, NOT a copy of the target's data (Architecture Contract 4 "Embed, Link, and Project Rules":
+ * embedding does not clone target data; the source owns placement, the target entity owns its data).
+ *
+ * This mirrors the MAP-008 `MapEmbed` pattern (reference + which projection) one-for-one. The embed
+ * stores ONLY:
+ *   - `targetItemId` — the embedded item's id (resolved LIVE at read; the host stores no title/body/fields);
+ *   - `kind` — which projection of the target to render;
+ *   - `sectionId` — for `note-section`, which named section (else absent).
+ *
+ * Because the embed is resolved against the LIVE target through the actor-filtered query, it always
+ * reflects the target's CURRENT data AND the VIEWER's OWN permission to the TARGET (CONTENT-010 AC1).
+ * A viewer who cannot see the target gets the generic fail-closed "unavailable" placeholder with NO
+ * leak (CONTENT-010 AC2) — exactly the MAP-008 hidden-child → unavailable contract.
+ */
+export interface ContentEmbed {
+	/** Stable id of this embed relationship (a host may embed the same target more than once). */
+	id: string;
+	/** The embedded TARGET content item's id. Resolved live; the embed stores NO copy of its data. */
+	targetItemId: string;
+	/** Which projection of the target to render at this call site. */
+	kind: ContentEmbedKind;
+	/** For a `note-section` embed, the named section of the target to render. Absent otherwise. */
+	sectionId?: string;
+}
+
 /** One durable content item (note or structured object) with calendar-aware fields. */
 export interface ContentItem {
 	id: string;
@@ -65,10 +109,32 @@ export interface ContentItem {
 	dateFields: Record<string, CustomDate>;
 	/** Timeline references anchored by custom date (CONTENT-011 timeline references). */
 	timelineRefs: TimelineReference[];
-	/** Per-item canonical visibility (Contract 3 Axis 1). Fails closed to `dm-only`. */
+	/** Per-item canonical ENTITY-level visibility (Contract 3 Axis 1). Fails closed to `dm-only`. */
 	visibility: VisibilityLevel;
 	/** Actor ids a `shared` item is explicitly delivered to. Ignored for other levels. */
 	sharedWith: ActorId[];
+	/**
+	 * CONTENT-009 — SECTION-level visibility overrides keyed by section id. A section with no entry
+	 * inherits the entity default. More specific than the entity, less specific than a field
+	 * (field > section > entity precedence, PERM-003). Empty by default (everything inherits the entity).
+	 */
+	sectionVisibility: Record<string, VisibilityRule>;
+	/**
+	 * CONTENT-009 — FIELD-level visibility overrides keyed by field path (e.g. `fields.dmNotes`). The
+	 * MOST specific level; a field with no entry inherits its owning section (or the entity).
+	 */
+	fieldVisibility: Record<string, VisibilityRule>;
+	/**
+	 * CONTENT-009 — which section each field belongs to (field path → section id). Lets a hidden SECTION
+	 * hide the fields attributed to it even when the field carries no field-level rule of its own
+	 * (hidden-ancestor-wins). A field with no entry is attributed to the entity directly.
+	 */
+	fieldSections: Record<string, string>;
+	/**
+	 * CONTENT-010 — embeds placed in this HOST item's content: TYPED REFERENCES to other items, never
+	 * copies. Resolved live + actor-filtered at read (`queries/content-embed.ts`). Empty by default.
+	 */
+	embeds: ContentEmbed[];
 	/** The actor that authored the item (an authorized editor / the DM). */
 	authorActorId: ActorId;
 	createdAt: string;
@@ -103,8 +169,17 @@ export function ensureVaultContentState(
 ): VaultContentState {
 	const items: Record<string, ContentItem> = {};
 	for (const [id, item] of Object.entries(state?.items ?? {})) {
-		// Backfill the CONTENT-001 tombstone on records persisted before soft-delete existed.
-		items[id] = item.deletedAt === undefined ? { ...item, deletedAt: null } : item;
+		// Backfill fields added by later CONTENT slices on records persisted before they existed, so a
+		// record written before CONTENT-001 (tombstone) or CONTENT-009/010 (granular visibility + embeds)
+		// hydrates to a safe, fail-closed default rather than carrying `undefined` into the reducers/queries.
+		items[id] = {
+			...item,
+			deletedAt: item.deletedAt === undefined ? null : item.deletedAt,
+			sectionVisibility: item.sectionVisibility ?? {},
+			fieldVisibility: item.fieldVisibility ?? {},
+			fieldSections: item.fieldSections ?? {},
+			embeds: item.embeds ?? [],
+		};
 	}
 	return {
 		calendars: state?.calendars ?? {},
@@ -198,6 +273,13 @@ export function buildContentItem(input: CreateContentItemInput, meta: ContentIte
 		})),
 		visibility,
 		sharedWith,
+		// CONTENT-009 — a new item carries NO granular overrides, so every section/field inherits the
+		// entity default (which itself fails closed to `dm-only`). Granular rules are authored after creation.
+		sectionVisibility: {},
+		fieldVisibility: {},
+		fieldSections: {},
+		// CONTENT-010 — a new item embeds nothing; embeds are added explicitly after creation.
+		embeds: [],
 		authorActorId: meta.authorActorId,
 		createdAt: meta.now,
 		deletedAt: null,
@@ -326,4 +408,170 @@ export function removeContentItem(
 	const items = { ...state.items };
 	delete items[itemId];
 	return { ...state, items };
+}
+
+// --- CONTENT-009 — granular visibility (entity / section / field) --------------------------------
+
+/**
+ * CONTENT-009 — build the canonical {@link EntityVisibilityMetadata} for ONE content item, so the SAME
+ * PERM visibility-filter precedence engine (`permissions/visibility-filter.ts`, field > section > entity
+ * with hidden-ancestor-wins) decides what an actor may see. This is the bridge that applies PERM-002/003
+ * to notes/objects WITHOUT reinventing precedence: the item's entity-level `visibility`/`sharedWith`
+ * become the entity rule, and the per-item `sectionVisibility`/`fieldVisibility`/`fieldSections` become
+ * the section/field overrides. Pure. Fail closed: the entity rule defaults to `dm-only` via the item model.
+ */
+export function contentItemVisibilityMetadata(item: ContentItem): EntityVisibilityMetadata {
+	const entityRule: VisibilityRule =
+		item.visibility === 'shared'
+			? { level: 'shared', sharedWith: item.sharedWith }
+			: { level: item.visibility };
+	return {
+		entityType: CONTENT_ITEM_ENTITY_TYPE,
+		entityId: item.id,
+		entity: entityRule,
+		sections: item.sectionVisibility,
+		fields: item.fieldVisibility,
+		fieldSections: item.fieldSections,
+	};
+}
+
+/**
+ * CONTENT-009 — set ONE SECTION's visibility override (or clear it when `rule` is `null` so the section
+ * re-inherits the entity default). Bumps the revision so a stale cached view is detectable and the
+ * delivery audience re-resolves (mirrors {@link setContentItemVisibility}). Returns `null` when the item
+ * does not exist. Pure: returns a new state. `shared` keeps its explicit `sharedWith`; other levels drop it.
+ */
+export function setContentSectionVisibility(
+	state: VaultContentState,
+	itemId: string,
+	sectionId: string,
+	rule: VisibilityRule | null,
+	now: string,
+): VaultContentState | null {
+	const existing = state.items[itemId];
+	if (!existing) return null;
+	const sectionVisibility = { ...existing.sectionVisibility };
+	if (rule === null) {
+		delete sectionVisibility[sectionId];
+	} else {
+		sectionVisibility[sectionId] = normalizeRule(rule);
+	}
+	const next: ContentItem = {
+		...existing,
+		sectionVisibility,
+		updatedAt: now,
+		revision: existing.revision + 1,
+	};
+	return { ...state, items: { ...state.items, [itemId]: next } };
+}
+
+/**
+ * CONTENT-009 — set ONE FIELD's visibility override (or clear it when `rule` is `null`). When
+ * `sectionId` is supplied the field is attributed to that section (so a hidden section hides the field);
+ * passing `null` for `sectionId` clears any attribution. Bumps the revision. Returns `null` when the item
+ * does not exist. Pure.
+ */
+export function setContentFieldVisibility(
+	state: VaultContentState,
+	itemId: string,
+	fieldPath: string,
+	rule: VisibilityRule | null,
+	sectionId: string | null | undefined,
+	now: string,
+): VaultContentState | null {
+	const existing = state.items[itemId];
+	if (!existing) return null;
+	const fieldVisibility = { ...existing.fieldVisibility };
+	if (rule === null) {
+		delete fieldVisibility[fieldPath];
+	} else {
+		fieldVisibility[fieldPath] = normalizeRule(rule);
+	}
+	const fieldSections = { ...existing.fieldSections };
+	if (sectionId === null) {
+		delete fieldSections[fieldPath];
+	} else if (sectionId !== undefined) {
+		fieldSections[fieldPath] = sectionId;
+	}
+	const next: ContentItem = {
+		...existing,
+		fieldVisibility,
+		fieldSections,
+		updatedAt: now,
+		revision: existing.revision + 1,
+	};
+	return { ...state, items: { ...state.items, [itemId]: next } };
+}
+
+/** Normalize a visibility rule fail-closed: coerce the level, and only keep `sharedWith` for `shared`. */
+function normalizeRule(rule: VisibilityRule): VisibilityRule {
+	const level = normalizeVisibilityLevel(rule.level);
+	return level === 'shared'
+		? { level, sharedWith: [...new Set(rule.sharedWith ?? [])] }
+		: { level };
+}
+
+// --- CONTENT-010 — embeds (typed references, never copies) ---------------------------------------
+
+export interface AddContentEmbedInput {
+	id: string;
+	targetItemId: string;
+	kind: ContentEmbedKind;
+	sectionId?: string;
+}
+
+/**
+ * CONTENT-010 — add an embed REFERENCE to a host item. The embed stores ONLY the target id + projection
+ * (and a section id for a `note-section` embed) — NEVER the target's title/body/fields (Contract 4: an
+ * embed does not clone target data). Bumps the host revision. Returns `null` when the host does not exist.
+ * The caller (command layer) validates that the target exists and that a `note-section` embed names a
+ * section; this reducer only appends the validated reference. Pure.
+ */
+export function addContentEmbed(
+	state: VaultContentState,
+	hostItemId: string,
+	input: AddContentEmbedInput,
+	now: string,
+): VaultContentState | null {
+	const host = state.items[hostItemId];
+	if (!host) return null;
+	const embed: ContentEmbed = {
+		id: input.id,
+		targetItemId: input.targetItemId,
+		kind: input.kind,
+		...(input.kind === 'note-section' && input.sectionId !== undefined
+			? { sectionId: input.sectionId }
+			: {}),
+	};
+	const next: ContentItem = {
+		...host,
+		embeds: [...host.embeds, embed],
+		updatedAt: now,
+		revision: host.revision + 1,
+	};
+	return { ...state, items: { ...state.items, [hostItemId]: next } };
+}
+
+/**
+ * CONTENT-010 — remove an embed reference from a host by embed id. Removing an embed NEVER deletes the
+ * target item (Contract 4 / MAP-008: an embed owns only the placement; the target owns its data). Bumps
+ * the host revision. Returns `null` when the host does not exist, or `{ notFound: true }` when no embed
+ * with that id exists on the host. Pure.
+ */
+export function removeContentEmbed(
+	state: VaultContentState,
+	hostItemId: string,
+	embedId: string,
+	now: string,
+): VaultContentState | { notFound: true } | null {
+	const host = state.items[hostItemId];
+	if (!host) return null;
+	if (!host.embeds.some((embed) => embed.id === embedId)) return { notFound: true };
+	const next: ContentItem = {
+		...host,
+		embeds: host.embeds.filter((embed) => embed.id !== embedId),
+		updatedAt: now,
+		revision: host.revision + 1,
+	};
+	return { ...state, items: { ...state.items, [hostItemId]: next } };
 }

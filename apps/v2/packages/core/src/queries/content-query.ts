@@ -1,6 +1,6 @@
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { ContentItem, TimelineReference, VaultContentState } from '../state/content';
-import { CONTENT_ITEM_ENTITY_TYPE, isLiveContentItem } from '../state/content';
+import { CONTENT_ITEM_ENTITY_TYPE, contentItemVisibilityMetadata, isLiveContentItem } from '../state/content';
 import type {
 	CalendarDateFormat,
 	CalendarDefinition,
@@ -12,6 +12,7 @@ import {
 	formatCustomDate,
 } from '../state/calendar';
 import { hasGrantedCapability } from '../permissions/grants';
+import { filterEntityForActor } from '../permissions/visibility-filter';
 
 /**
  * CONTENT-011 — THE single actor-filtered CONTENT read model. The data layer decides per-item
@@ -252,4 +253,117 @@ export function getDeletedContentItemsForActor(
 			deletedAt: item.deletedAt,
 			revision: item.revision,
 		}));
+}
+
+/** The field path prefix that addresses a structured-object field in granular visibility metadata. */
+export const CONTENT_FIELD_PATH_PREFIX = 'fields.' as const;
+
+/** Build the field path for a structured field key (e.g. `dmNotes` → `fields.dmNotes`). */
+export function contentFieldPath(fieldKey: string): string {
+	return `${CONTENT_FIELD_PATH_PREFIX}${fieldKey}`;
+}
+
+/**
+ * CONTENT-009 — a content item projected to an actor at SECTION + FIELD granularity. This is the
+ * granular detail view: each section and structured field is decided by the SAME PERM visibility-filter
+ * precedence (field > section > entity, hidden-ancestor-wins), so a `player-visible` note with one
+ * `dm-only` section omits that section for a player while the DM sees everything (CONTENT-009 AC1).
+ * A hidden ENTITY yields `visible: false` and an EMPTY surface (no section ids, no field keys) —
+ * indistinguishable from not-found (fail closed).
+ */
+export interface ContentItemDetailView {
+	id: string;
+	kind: ContentItem['kind'];
+	title: string;
+	body: string;
+	/** Visibility level the actor sees for the ENTITY (the DM sees the authored level). */
+	visibility: ContentItem['visibility'];
+	/** True only when the entity itself is visible to the actor. When false, every list below is empty. */
+	visible: boolean;
+	/** Section ids the actor may see (subset of the item's declared sections), in declared order. */
+	visibleSectionIds: string[];
+	/** Structured-object fields the actor may see (field key → value). DM-only fields are omitted. */
+	visibleFields: Record<string, unknown>;
+	/** Section ids redacted from the actor (reported for the DM authoring view only). */
+	redactedSectionIds: string[];
+	/** Structured-object field keys redacted from the actor (reported for the DM authoring view only). */
+	redactedFieldKeys: string[];
+	revision: number;
+}
+
+/** Strip the `fields.` prefix from a granular field path back to its bare structured-field key. */
+function fieldKeyFromPath(path: string): string {
+	return path.startsWith(CONTENT_FIELD_PATH_PREFIX)
+		? path.slice(CONTENT_FIELD_PATH_PREFIX.length)
+		: path;
+}
+
+/**
+ * CONTENT-009 — THE granular actor-filtered detail read for ONE item. Reuses {@link filterEntityForActor}
+ * (the PERM-002/003 precedence engine) over the item's {@link contentItemVisibilityMetadata}: it never
+ * reinvents precedence. A tombstoned item, an unknown actor, or a hidden entity all yield a non-visible
+ * detail with an empty surface (fail closed). For the DM, every section/field is returned (no redaction).
+ *
+ * The structured fields are addressed as `fields.<key>` paths so the SAME field/section/entity precedence
+ * applies; the returned `visibleFields` are keyed by the bare field key for the GUI.
+ */
+export function getContentItemDetailForActor(
+	content: VaultContentState,
+	permissions: PermissionState,
+	actorId: string,
+	itemId: string,
+	declaredSectionIds: string[] = [],
+): ContentItemDetailView | { visible: false; reason: 'not-found' | 'hidden' } {
+	const actor = permissions.actors[actorId];
+	if (!actor) return { visible: false, reason: 'hidden' };
+	const item = content.items[itemId];
+	if (!item || !isLiveContentItem(item)) return { visible: false, reason: 'not-found' };
+
+	const meta = contentItemVisibilityMetadata(item);
+	const fieldPaths = Object.fromEntries(
+		Object.entries(item.fields).map(([key, value]) => [contentFieldPath(key), value]),
+	);
+	const filtered = filterEntityForActor(
+		meta,
+		{ sectionIds: declaredSectionIds, fields: fieldPaths },
+		actor,
+		permissions,
+	);
+	if (!filtered.visible) {
+		// Fail closed: a hidden entity exposes NOTHING — not its title, body, sections, or field keys.
+		return {
+			id: item.id,
+			kind: item.kind,
+			title: '',
+			body: '',
+			visibility: item.visibility,
+			visible: false,
+			visibleSectionIds: [],
+			visibleFields: {},
+			redactedSectionIds: [],
+			redactedFieldKeys: [],
+			revision: item.revision,
+		};
+	}
+
+	const visibleFields: Record<string, unknown> = {};
+	for (const [path, value] of Object.entries(filtered.visibleFields)) {
+		visibleFields[fieldKeyFromPath(path)] = value;
+	}
+	return {
+		id: item.id,
+		kind: item.kind,
+		title: item.title,
+		body: item.body,
+		visibility: item.visibility,
+		visible: true,
+		visibleSectionIds: filtered.visibleSectionIds,
+		visibleFields,
+		// The DM sees no redaction (the filter returns everything); a non-DM sees the redacted keys for
+		// authoring affordances ONLY when it is the DM — for a non-DM these stay empty so nothing leaks.
+		redactedSectionIds: actor.role === 'dm' ? filtered.redactedSectionIds : [],
+		redactedFieldKeys:
+			actor.role === 'dm' ? filtered.redactedFieldPaths.map(fieldKeyFromPath) : [],
+		revision: item.revision,
+	};
 }

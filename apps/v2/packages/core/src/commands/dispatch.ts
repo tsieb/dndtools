@@ -128,6 +128,12 @@ import {
 	handleUpdateVaultObject,
 } from './vault-object';
 import { handleCreateFromTemplate, handleInsertSnippet } from './content-templates';
+import {
+	handleAddContentEmbed,
+	handleRemoveContentEmbed,
+	handleSetContentFieldVisibility,
+	handleSetContentSectionVisibility,
+} from './content-visibility-embeds';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 
 export function dispatchCommand(
@@ -370,6 +376,14 @@ export function dispatchCommand(
 			return handleCreateFromTemplate(state, env, command.actorId, command.payload);
 		case 'content.insert-snippet':
 			return handleInsertSnippet(state, env, command.actorId, command.payload);
+		case 'content.set-section-visibility':
+			return handleSetContentSectionVisibility(state, env, command.actorId, command.payload);
+		case 'content.set-field-visibility':
+			return handleSetContentFieldVisibility(state, env, command.actorId, command.payload);
+		case 'content.add-embed':
+			return handleAddContentEmbed(state, env, command.actorId, command.payload);
+		case 'content.remove-embed':
+			return handleRemoveContentEmbed(state, env, command.actorId, command.payload);
 	}
 }
 

@@ -1344,6 +1344,9 @@ export {
 // items (notes/structured objects) with custom-date fields, timeline references, and per-item
 // visibility. The first CONTENT slice; new items fail closed to `dm-only`. Pure data + pure reducers.
 export type {
+	AddContentEmbedInput,
+	ContentEmbed,
+	ContentEmbedKind,
 	ContentItem,
 	ContentItemKind,
 	ContentItemMeta,
@@ -1353,24 +1356,57 @@ export type {
 	VaultContentState,
 } from './state/content';
 export {
+	CONTENT_EMBED_KINDS,
 	CONTENT_ITEM_ENTITY_TYPE,
 	CONTENT_ITEM_KINDS,
 	EMPTY_VAULT_CONTENT_STATE,
 	VAULT_CONTENT_SCHEMA_VERSION,
+	addContentEmbed,
 	addContentItem,
 	buildContentItem,
 	calendarById,
 	contentItemById,
+	contentItemVisibilityMetadata,
 	ensureVaultContentState,
 	isLiveContentItem,
 	liveContentItems,
+	removeContentEmbed,
 	removeContentItem,
 	restoreContentItem,
+	setContentFieldVisibility,
 	setContentItemVisibility,
+	setContentSectionVisibility,
 	softDeleteContentItem,
 	updateContentItem,
 	upsertCalendarDefinition,
 } from './state/content';
+
+// CONTENT-009: granular SECTION/FIELD visibility detail read + CONTENT-010: actor-filtered EMBED-by-
+// REFERENCE resolution + the content-item widget DATA ENVIRONMENT for entity-backed Scene widgets. The
+// detail read REUSES the PERM visibility-filter precedence (field>section>entity, hidden-ancestor-wins);
+// the embed resolver resolves each reference against the LIVE target so a viewer who cannot see the
+// target gets the generic fail-closed `unavailable` placeholder (no clone, no leak).
+export type {
+	ContentItemDetailView,
+} from './queries/content-query';
+export {
+	CONTENT_FIELD_PATH_PREFIX,
+	contentFieldPath,
+	getContentItemDetailForActor,
+} from './queries/content-query';
+export type {
+	ContentEmbedUnavailableReason,
+	ResolvedContentEmbed,
+	ResolvedNoteSectionEmbed,
+	ResolvedObjectCardEmbed,
+	ResolvedRenderBlockEmbed,
+	UnavailableEmbed,
+} from './queries/content-embed';
+export {
+	buildContentWidgetDataEnvironment,
+	resolveContentEmbedForActor,
+	resolveContentEmbedsForActor,
+} from './queries/content-embed';
 
 // CONTENT-002: pure, deterministic markdown EDITOR support — frontmatter/wikilink VALIDATION (fail
 // closed), a safe block-model PREVIEW (no raw HTML), and the active-wikilink-query caret helper. Reuses

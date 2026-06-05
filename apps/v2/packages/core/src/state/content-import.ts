@@ -319,6 +319,12 @@ function buildImportedItem(
 		// Visibility FAILS CLOSED to dm-only unless the file's namespaced dndtools.visibility says otherwise.
 		visibility: resolved.visibility,
 		sharedWith: [],
+		// CONTENT-009/010 — preserve any granular visibility + embeds on an overwrite (mirrors dateFields);
+		// a fresh import carries none (everything inherits the entity default; nothing is embedded yet).
+		sectionVisibility: existing && step.mode === 'overwrite' ? existing.sectionVisibility : {},
+		fieldVisibility: existing && step.mode === 'overwrite' ? existing.fieldVisibility : {},
+		fieldSections: existing && step.mode === 'overwrite' ? existing.fieldSections : {},
+		embeds: existing && step.mode === 'overwrite' ? existing.embeds : [],
 		authorActorId,
 		createdAt: existing && step.mode === 'overwrite' ? existing.createdAt : now,
 		// An import always yields a LIVE note: overwriting a tombstoned item at the same path restores it.

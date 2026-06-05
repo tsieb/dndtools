@@ -330,7 +330,27 @@ export type CoreCommand =
 	// CONTENT-004: insert a SNIPPET into an existing note. The result funnels through the SAME
 	// validation + sanitization (render) + visibility pipeline as hand-typed content — a snippet cannot
 	// skip validation, smuggle unsanitized markdown, or widen the note's visibility (all fail-closed).
-	| { type: 'content.insert-snippet'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'content.insert-snippet'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CONTENT-009: author SECTION- / FIELD-level visibility on a note/object (authorized editor). The
+	// entity-level default already exists; these add the narrower granularities. Read-time precedence
+	// (field > section > entity, hidden-ancestor-wins) is the REUSED PERM visibility-filter engine.
+	| {
+			type: 'content.set-section-visibility';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'content.set-field-visibility';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	// CONTENT-010: add / remove an EMBED REFERENCE in a host note (authorized editor). The host stores
+	// ONLY the target id + projection — never a copy of the target's data (Contract 4). The embedded
+	// content is resolved per-viewer at read against the LIVE target (fail-closed unavailable on no access).
+	| { type: 'content.add-embed'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'content.remove-embed'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -722,6 +742,17 @@ export type CoreEvent =
 			lossyFeatures: string[];
 			droppedFeatures: string[];
 			actorId: ActorId;
+	  }
+	// CONTENT-010 — an embed REFERENCE was added to / removed from a host note. Carries the host + the
+	// embed id + the TARGET id (the reference only — never the target's content), so the audit records
+	// exactly which reference changed without leaking the target's data.
+	| {
+			kind: 'content.embed-changed';
+			hostItemId: string;
+			embedId: string;
+			targetItemId: string;
+			mutation: 'add' | 'remove';
+			actorId: ActorId;
 	  };
 
 export type RejectionCode =
@@ -803,7 +834,10 @@ export type RejectionCode =
 	| 'snippet-content-invalid'
 	// CONTENT-004 — a snippet attempted to WIDEN the host note's visibility. Fail closed: a snippet inherits
 	// the note's visibility and can never raise its audience.
-	| 'snippet-widens-visibility';
+	| 'snippet-widens-visibility'
+	// CONTENT-010 — a remove-embed targeted an embed id that does not exist on the host (fail closed: the
+	// host content is never mutated). Distinct so the authoring UI can refresh its embed list.
+	| 'content-embed-not-found';
 
 export interface CommandRejection {
 	code: RejectionCode;

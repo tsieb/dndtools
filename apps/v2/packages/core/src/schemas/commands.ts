@@ -1309,6 +1309,68 @@ export const restoreContentItemInputSchema = z
 	})
 	.strict();
 
+// --- CONTENT-009 — granular visibility (section / field) -----------------------------------------
+
+// CONTENT-009 — a single visibility RULE: a level + (only for `shared`) the explicit delivery list. The
+// command/reducer coerce the level fail-closed and drop `sharedWith` for non-`shared` levels.
+const visibilityRuleSchema = z
+	.object({
+		level: contentVisibilitySchema,
+		sharedWith: z.array(idSchema).optional(),
+	})
+	.strict();
+
+// CONTENT-009 — set (or clear, when `rule` is null) ONE SECTION's visibility override on a content item
+// (authorized editor). Clearing re-inherits the entity default. `sectionId` names the section.
+export const setContentSectionVisibilityInputSchema = z
+	.object({
+		itemId: idSchema,
+		sectionId: idSchema,
+		rule: visibilityRuleSchema.nullable(),
+	})
+	.strict();
+
+// CONTENT-009 — set (or clear) ONE FIELD's visibility override on a content item (authorized editor).
+// `fieldKey` is the bare structured-field key (addressed as `fields.<key>` internally). `sectionId`
+// attributes the field to a section so a hidden section hides it (omit to leave attribution unchanged,
+// `null` to clear it).
+export const setContentFieldVisibilityInputSchema = z
+	.object({
+		itemId: idSchema,
+		fieldKey: z.string().min(1, 'A field key is required'),
+		rule: visibilityRuleSchema.nullable(),
+		sectionId: idSchema.nullable().optional(),
+	})
+	.strict();
+
+// --- CONTENT-010 — embeds (typed references, never copies) ---------------------------------------
+
+const contentEmbedKindSchema = z.enum(['object-card', 'note-section', 'render-block']);
+
+// CONTENT-010 — embed a TYPED REFERENCE to a target item in a host note (authorized editor). Stores only
+// the target id + projection; a `note-section` embed requires a `sectionId`. The host never clones the
+// target's data (validated by tests against the stored host content).
+export const addContentEmbedInputSchema = z
+	.object({
+		hostItemId: idSchema,
+		targetItemId: idSchema,
+		kind: contentEmbedKindSchema,
+		sectionId: idSchema.optional(),
+	})
+	.strict()
+	.refine((value) => value.kind !== 'note-section' || value.sectionId !== undefined, {
+		message: 'A note-section embed requires a sectionId.',
+		path: ['sectionId'],
+	});
+
+// CONTENT-010 — remove an embed reference from a host (authorized editor). Never deletes the target.
+export const removeContentEmbedInputSchema = z
+	.object({
+		hostItemId: idSchema,
+		embedId: idSchema,
+	})
+	.strict();
+
 // --- CONTENT-005 — structured Vault Objects (note-backed, schema-validated frontmatter) ---------
 
 const vaultObjectSubtypeSchema = z.enum([
