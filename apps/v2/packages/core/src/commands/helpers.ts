@@ -21,6 +21,8 @@ import type { CharacterState } from '../state/character-state';
 import { ensureCharacterState } from '../state/character-state';
 import type { VaultContentState } from '../state/content';
 import { ensureVaultContentState } from '../state/content';
+import type { AudioState } from '../state/audio-state';
+import { ensureAudioState } from '../state/audio-state';
 
 export function reject(rejection: CommandRejection, state: CoreStateSlice) {
 	return { status: 'rejected' as const, rejection, nextState: state };
@@ -275,6 +277,10 @@ export function ensureContentStateSlice(state: VaultContentState | undefined): V
 
 export function ensureEncounterStateSlice(state: EncounterState | undefined): EncounterState {
 	return ensureEncounterState(state);
+}
+
+export function ensureAudioStateSlice(state: AudioState | undefined): AudioState {
+	return ensureAudioState(state);
 }
 
 export const SCENE_VERSION_CONSTANTS = {

@@ -2003,3 +2003,79 @@ export const deleteSavedSearchInputSchema = z
 		searchId: idSchema,
 	})
 	.strict();
+
+// AUDIO-004 — license metadata for an imported/updated audio asset. The kind is a CLOSED enum (never free
+// text) so the licensing gate fails closed; the note/attribution are verbatim free text (preserved, never
+// fabricated). An omitted kind leaves the asset `unknown` (flagged for review).
+const audioLicenseSchema = z
+	.object({
+		kind: z
+			.enum(['unknown', 'owned', 'cc0', 'cc-by', 'royalty-free', 'licensed', 'restricted'])
+			.optional(),
+		licenseNote: z.string().optional(),
+		attribution: z.string().optional(),
+	})
+	.strict();
+
+// AUDIO-004 — IMPORT a local audio asset into the library. `bytes` are validated + content-hashed in the
+// handler; an empty/oversized/non-native-MIME file is rejected fail-closed before any write. The license
+// defaults to `unknown` (review gate armed) when omitted.
+export const importAudioAssetInputSchema = z
+	.object({
+		sourceId: idSchema,
+		bytes: importAssetBytesSchema,
+		mimeType: z.string().min(1),
+		fileName: z.string().min(1),
+		title: z.string().optional(),
+		license: audioLicenseSchema.optional(),
+		tags: z.array(z.string()).optional(),
+		maxBytes: z.number().int().positive().optional(),
+	})
+	.strict();
+
+// AUDIO-004 — UPDATE an existing asset's license/tags/title metadata (DM-only). Bytes/hash are immutable
+// (content-addressed); only the authored metadata changes. Every field is an optional patch.
+export const updateAudioAssetMetadataInputSchema = z
+	.object({
+		assetId: idSchema,
+		title: z.string().optional(),
+		license: audioLicenseSchema.optional(),
+		tags: z.array(z.string()).optional(),
+	})
+	.strict();
+
+// AUDIO-009 / AUDIO-010 — CONFIGURE (create or update) an audio source. An UNSUPPORTED type is rejected
+// fail-closed in the handler (no source record, no playback state). The cache behavior is the AUDIO-010
+// prerequisite: omitting it leaves playback DISABLED until declared.
+export const configureAudioSourceInputSchema = z
+	.object({
+		sourceId: idSchema.optional(),
+		type: z.string().min(1),
+		displayName: z.string().min(1),
+		url: z.union([z.literal(null), z.string().min(1)]).optional(),
+		cacheBehavior: z.enum(['local', 'cache-required', 'none', 'undeclared']).optional(),
+		licenseNote: z.string().optional(),
+	})
+	.strict();
+
+// AUDIO-011 — one Scene audio PRESET reference inside a package (a track by asset id and/or source id,
+// plus an optional pinned device-local output route). References only — never asset bytes (Contract 4).
+const audioPackagePresetSchema = z
+	.object({
+		id: idSchema,
+		label: z.string().min(1),
+		assetId: z.union([z.literal(null), idSchema]).default(null),
+		sourceId: z.union([z.literal(null), idSchema]).default(null),
+		outputRouteId: z.union([z.literal(null), z.string().min(1)]).default(null),
+	})
+	.strict();
+
+// AUDIO-011 — VALIDATE a Scene audio package for an import/export commit. The handler runs the fail-closed
+// validation; a package with any BLOCKING finding (missing asset/license, unsupported stream) is reported
+// and refused before commit.
+export const validateAudioPackageInputSchema = z
+	.object({
+		direction: z.enum(['import', 'export']),
+		presets: z.array(audioPackagePresetSchema),
+	})
+	.strict();

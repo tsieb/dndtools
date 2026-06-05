@@ -7,6 +7,7 @@ import {
 	EMPTY_SESSION_STATE,
 	EMPTY_VAULT_CONTENT_STATE,
 	EMPTY_ENCOUNTER_STATE,
+	EMPTY_AUDIO_STATE,
 	ensureCalendarContinuityState,
 	ensureEncounterState,
 	ensureSessionCombatState,
@@ -141,6 +142,11 @@ export class SceneRuntime {
 		encounters: {
 			encounters: { ...EMPTY_ENCOUNTER_STATE.encounters },
 			schemaVersion: EMPTY_ENCOUNTER_STATE.schemaVersion,
+		},
+		audio: {
+			assets: { ...EMPTY_AUDIO_STATE.assets },
+			sources: { ...EMPTY_AUDIO_STATE.sources },
+			schemaVersion: EMPTY_AUDIO_STATE.schemaVersion,
 		},
 		sync: createOperationLog(),
 	});

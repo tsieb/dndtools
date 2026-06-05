@@ -165,6 +165,12 @@ import {
 	handlePinSavedSearch,
 	handleUpdateSavedSearch,
 } from './saved-search';
+import {
+	handleConfigureAudioSource,
+	handleImportAudioAsset,
+	handleUpdateAudioAssetMetadata,
+	handleValidateAudioPackage,
+} from './audio';
 import { handleResolveVaultConflict } from './conflict-resolution';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 import { classifyObserverCommand } from '../collab/observer-access';
@@ -482,6 +488,14 @@ export function dispatchCommand(
 			return handlePinSavedSearch(state, env, command.actorId, command.payload);
 		case 'content.delete-saved-search':
 			return handleDeleteSavedSearch(state, env, command.actorId, command.payload);
+		case 'audio.import-asset':
+			return handleImportAudioAsset(state, env, command.actorId, command.payload);
+		case 'audio.update-asset-metadata':
+			return handleUpdateAudioAssetMetadata(state, env, command.actorId, command.payload);
+		case 'audio.configure-source':
+			return handleConfigureAudioSource(state, env, command.actorId, command.payload);
+		case 'audio.validate-package':
+			return handleValidateAudioPackage(state, env, command.actorId, command.payload);
 	}
 }
 

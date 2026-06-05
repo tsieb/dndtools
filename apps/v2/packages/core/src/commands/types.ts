@@ -15,6 +15,8 @@ import type {
 } from '../state/session-state';
 import type { WidgetPackageState } from '../state/widget-package-state';
 import type { VaultContentState } from '../state/content';
+import type { AudioState } from '../state/audio-state';
+import type { AudioPackageValidationReport } from '../state/audio-package';
 import type { EncounterState } from '../state/encounter';
 import type { EncounterDifficulty } from '../state/encounter';
 import type { ImportConflictPolicy, ImportSourceKind } from '../state/content-import';
@@ -33,6 +35,8 @@ export interface CoreStateSlice {
 	content: VaultContentState;
 	/** SES-006 — durable encounters (combatant selection, challenge guidance, terrain, loot, links). */
 	encounters: EncounterState;
+	/** AUDIO-004/009/010 — the durable audio asset library + declared audio source registry. */
+	audio: AudioState;
 	sync: OperationLog;
 }
 
@@ -428,7 +432,22 @@ export type CoreCommand =
 	| { type: 'content.create-saved-search'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'content.update-saved-search'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'content.pin-saved-search'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'content.delete-saved-search'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'content.delete-saved-search'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// AUDIO-004: import a local audio asset (content-addressed; license/tags/source/hash recorded) and
+	// update an existing asset's license/tags metadata. DM-only. An undeclared license stays flagged.
+	| { type: 'audio.import-asset'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'audio.update-asset-metadata';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	// AUDIO-009 / AUDIO-010: configure (create/update) a DECLARED audio source. An unsupported provider is
+	// rejected fail-closed (no source, no playback state). Cache/offline behavior is the playback prerequisite.
+	| { type: 'audio.configure-source'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// AUDIO-011: validate a Scene audio package for import/export. A blocking finding (missing asset/license,
+	// unsupported stream) reports BEFORE commit; the validation itself mutates no durable state.
+	| { type: 'audio.validate-package'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -990,6 +1009,44 @@ export type CoreEvent =
 			visibility: string;
 			pinned: boolean;
 			actorId: ActorId;
+	  }
+	// AUDIO-004 — a local audio asset was imported or its metadata updated. Carries the asset id + license
+	// kind + whether it is flagged for review (the audit), never the asset bytes. `deduped` ⇒ the bytes
+	// matched an existing asset (content-addressed dedupe); the metadata was still applied.
+	| {
+			kind: 'audio.asset-imported';
+			assetId: string;
+			licenseKind: string;
+			needsLicenseReview: boolean;
+			deduped: boolean;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'audio.asset-metadata-updated';
+			assetId: string;
+			licenseKind: string;
+			needsLicenseReview: boolean;
+			actorId: ActorId;
+	  }
+	// AUDIO-009 / AUDIO-010 — a declared audio source was configured. Carries the source id + classified
+	// type + cache behavior + whether playback is enabled (the AUDIO-010 prerequisite outcome).
+	| {
+			kind: 'audio.source-configured';
+			sourceId: string;
+			sourceType: string;
+			cacheBehavior: string;
+			playbackEnabled: boolean;
+			actorId: ActorId;
+	  }
+	// AUDIO-011 — a Scene audio package was validated. Carries the direction + whether it is committable +
+	// the blocking-finding count (the audit). The full report rides the event for the GUI. No durable mutation.
+	| {
+			kind: 'audio.package-validated';
+			direction: 'import' | 'export';
+			committable: boolean;
+			blockingCount: number;
+			report: AudioPackageValidationReport;
+			actorId: ActorId;
 	  };
 
 export type RejectionCode =
@@ -1090,7 +1147,22 @@ export type RejectionCode =
 	// SES-008 — an append-to-note targeted a roll id not present in the session roll history.
 	| 'roll-not-found'
 	// SRCH-004 — a saved-search target (update/pin/delete) does not exist (fail closed).
-	| 'saved-search-not-found';
+	| 'saved-search-not-found'
+	// AUDIO-004 — an imported audio file is empty, oversized, or a non-native MIME type (rejected before any
+	// write). Distinct so the import UI can explain exactly why the file was refused.
+	| 'invalid-audio-asset'
+	// AUDIO-004 — an update/package targeted an audio asset id not in the library (fail closed).
+	| 'audio-asset-not-found'
+	// AUDIO-009 — a configured audio source type is not a declared, supported provider (fail closed: no source
+	// record is created and NO playback state is produced — AUDIO-009 AC2).
+	| 'unsupported-audio-source'
+	// AUDIO-009 / AUDIO-010 — a source configuration is otherwise invalid (missing stream URL, or a cache
+	// behavior the type does not permit). Distinct from the unsupported-provider reject so the UI can guide.
+	| 'invalid-audio-source'
+	// AUDIO-011 — a Scene audio package failed pre-commit validation (missing assets/license metadata,
+	// unsupported streams). The blocking findings ride the rejection `issues` so nothing imports/exports
+	// silently (fail closed).
+	| 'audio-package-invalid';
 
 export interface CommandRejection {
 	code: RejectionCode;

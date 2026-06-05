@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 21
-  active: 0
+  approved: 20
+  active: 1
   complete: 67
   deferred: 0
 metrics:
@@ -33,8 +33,8 @@ metrics:
     - domain: AUDIO
       totalEpics: 5
       complete: 0
-      active: 0
-      approved: 5
+      active: 1
+      approved: 4
       proposed: 0
       deferred: 0
       epicCompletionPercent: 0
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: AUDIO-assets-licensing-and-source-scope
   title: "AUDIO: Assets, licensing, and source scope"
-  status: approved
+  status: active
   requirementIds:
     - AUDIO-004
     - AUDIO-009
@@ -207,7 +207,7 @@ nextEpic:
     AUDIO-assets-licensing-and-source-scope --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - AUDIO-004

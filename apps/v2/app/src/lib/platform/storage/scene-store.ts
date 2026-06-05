@@ -11,6 +11,7 @@ import {
 	createOperationLog,
 	createDemoMapState,
 	createStoragePlatformServiceRegistry,
+	ensureAudioState,
 	ensureCalendarContinuityState,
 	ensureEncounterState,
 	ensureSessionCombatState,
@@ -18,6 +19,7 @@ import {
 	mergeSystemWidgetPackages,
 	recoverFromJournal,
 	validatePlatformRequest,
+	type AudioState,
 	type CharacterState,
 	type CommandCenterState,
 	type CoreStateSlice,
@@ -47,6 +49,7 @@ const COMMAND_CENTER_STATE_KEY = 'command-center-state';
 const CHARACTER_STATE_KEY = 'character-state';
 const CONTENT_STATE_KEY = 'content-state';
 const ENCOUNTER_STATE_KEY = 'encounter-state';
+const AUDIO_STATE_KEY = 'audio-state';
 const MIGRATION_JOURNAL_KEY = 'migration-journal';
 
 // Maps a durable document id to its persisted document key, so a write-ahead snapshot
@@ -61,6 +64,7 @@ const DOCUMENT_KEY_BY_ID: Record<DurableStateDocumentId, string> = {
 	characters: CHARACTER_STATE_KEY,
 	content: CONTENT_STATE_KEY,
 	encounters: ENCOUNTER_STATE_KEY,
+	audio: AUDIO_STATE_KEY,
 };
 
 interface DocumentRecord {
@@ -165,6 +169,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		characterDoc,
 		contentDoc,
 		encounterDoc,
+		audioDoc,
 	] = await Promise.all([
 		database.documents.get(MAP_STATE_KEY),
 		database.documents.get(SESSION_STATE_KEY),
@@ -173,6 +178,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		database.documents.get(CHARACTER_STATE_KEY),
 		database.documents.get(CONTENT_STATE_KEY),
 		database.documents.get(ENCOUNTER_STATE_KEY),
+		database.documents.get(AUDIO_STATE_KEY),
 	]);
 	const scenes = (sceneDoc?.doc as SceneState | undefined) ?? {
 		scenes: {},
@@ -258,6 +264,12 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	// SES-006: the durable encounter slice. A vault persisted before this slice has no encounter
 	// document; default it so older prototype vaults stay readable (safe-default hydration).
 	const encounters = ensureEncounterState(encounterDoc?.doc as EncounterState | undefined);
+	// AUDIO-004/009/010: the durable audio slice (asset library + declared source registry). A vault
+	// persisted before this slice has no audio document; route it through `ensureAudioState` so older
+	// vaults stay readable without a destructive migration (safe-default, fail-closed hydration — an
+	// undeclared asset license stays `unknown` and a source with undeclared cache behavior stays
+	// playback-disabled).
+	const audio = ensureAudioState(audioDoc?.doc as AudioState | undefined);
 	const sync = createOperationLog(operationRecords.map((r) => r.op));
 	return {
 		scenes,
@@ -269,6 +281,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		characters,
 		content,
 		encounters,
+		audio,
 		sync,
 	};
 }
@@ -307,6 +320,10 @@ async function persistContentState(content: VaultContentState): Promise<void> {
 
 async function persistEncounterState(encounters: EncounterState): Promise<void> {
 	await db().documents.put({ key: ENCOUNTER_STATE_KEY, doc: encounters });
+}
+
+async function persistAudioState(audio: AudioState): Promise<void> {
+	await db().documents.put({ key: AUDIO_STATE_KEY, doc: audio });
 }
 
 export async function appendOperations(operations: SyncOperation[]): Promise<void> {
@@ -374,7 +391,8 @@ export async function persistFullState(
 		sliceChanged(previous.commandCenter, next.commandCenter) ||
 		sliceChanged(previous.characters, next.characters) ||
 		sliceChanged(previous.content, next.content) ||
-		sliceChanged(previous.encounters, next.encounters);
+		sliceChanged(previous.encounters, next.encounters) ||
+		sliceChanged(previous.audio, next.audio);
 	if (durableStateChanged && newOperations.length === 0) {
 		throw new Error('Durable state changed without an accepted Processing Core operation.');
 	}
@@ -388,6 +406,7 @@ export async function persistFullState(
 		persistCharacterState(next.characters),
 		persistContentState(next.content),
 		persistEncounterState(next.encounters),
+		persistAudioState(next.audio),
 		appendOperations(newOperations),
 	]);
 }

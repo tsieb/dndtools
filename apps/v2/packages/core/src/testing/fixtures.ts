@@ -9,6 +9,7 @@ import { EMPTY_SCENE_STATE } from '../state/scene-state';
 import { EMPTY_SESSION_STATE } from '../state/session-state';
 import { ensureSessionCombatState } from '../state/combat-tracker';
 import { EMPTY_ENCOUNTER_STATE } from '../state/encounter';
+import { EMPTY_AUDIO_STATE } from '../state/audio-state';
 import { createSystemWidgetPackages } from '../state/widget-package-state';
 import { createOperationLog } from '../sync/operation-log';
 import type { CoreEnvironment, CoreStateSlice } from '../commands/types';
@@ -111,6 +112,11 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 		encounters: {
 			encounters: { ...EMPTY_ENCOUNTER_STATE.encounters },
 			schemaVersion: EMPTY_ENCOUNTER_STATE.schemaVersion,
+		},
+		audio: {
+			assets: { ...EMPTY_AUDIO_STATE.assets },
+			sources: { ...EMPTY_AUDIO_STATE.sources },
+			schemaVersion: EMPTY_AUDIO_STATE.schemaVersion,
 		},
 		sync: createOperationLog(),
 	};

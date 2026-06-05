@@ -40,6 +40,8 @@ precedence:
     - CMD-active-session-control
     - CMD-player-view-control
 epics:
+  - id: AUDIO-assets-licensing-and-source-scope
+    status: active
   - id: CANVAS-layout-accessibility
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CANVAS-layout-accessibility.completion.md

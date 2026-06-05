@@ -907,6 +907,10 @@ export {
 	setWidgetFocusOrderInputSchema,
 	updateSceneMetadataInputSchema,
 	upgradeWidgetPackageInputSchema,
+	importAudioAssetInputSchema,
+	updateAudioAssetMetadataInputSchema,
+	configureAudioSourceInputSchema,
+	validateAudioPackageInputSchema,
 } from './schemas/commands';
 
 export { sceneSchema, sceneStateSchema } from './schemas/scene';
@@ -3287,3 +3291,115 @@ export {
 	percentile,
 	reportLatencyBudget,
 } from './collab/session-sync';
+
+// AUDIO-004 — content-addressed LOCAL AUDIO ASSET model with metadata, LICENSING notes, TAGS, and a
+// source reference. Composes the map-asset content-address algorithm (`hashAssetBytes`/`assetId`). The
+// license is a TYPED enum (never free text) so the review gate fails closed: `unknown` is the default for
+// an undeclared license and `assetNeedsLicenseReview` flags it BEFORE export. Free-text notes/attribution
+// are preserved verbatim (never fabricated). Pure data + pure functions; no DOM/storage/clock.
+export type {
+	AudioAsset,
+	AudioAssetValidationError,
+	AudioLicense,
+	AudioLicenseKind,
+	AudioLicenseReviewReason,
+	BuildAudioAssetInput,
+} from './state/audio-asset';
+export {
+	AUDIO_ASSET_ENTITY_TYPE,
+	AUDIO_ASSET_SCHEMA_VERSION,
+	AUDIO_LICENSE_KINDS,
+	DEFAULT_MAX_AUDIO_BYTES,
+	NATIVE_AUDIO_MIME_TYPES,
+	UNDECLARED_AUDIO_LICENSE,
+	assetNeedsLicenseReview,
+	buildAudioAsset,
+	buildAudioLicense,
+	cloneAudioAsset,
+	isAudioLicenseKind,
+	isNativeAudioMimeType,
+	licenseReviewReason,
+	normalizeAudioTags,
+} from './state/audio-asset';
+
+// AUDIO-009 / AUDIO-010 — the DECLARED AUDIO SOURCE TYPE registry + per-source CACHE/OFFLINE behavior.
+// Composes the source-capability-registry pattern: a frozen table of declared source-type descriptors,
+// resolving fail-closed to `unsupported` for an unknown provider (no playback state created — AUDIO-009
+// AC2). Cache/offline behavior is the AUDIO-010 prerequisite for enabling playback; offline availability
+// is resolved fail-closed with NO network retry and NO track substitution. Pure data + pure functions.
+export type {
+	AudioCacheBehavior,
+	AudioOfflineAvailability,
+	AudioPlaybackAvailability,
+	AudioPlaybackRequest,
+	AudioSource,
+	AudioSourceClassification,
+	AudioSourceConfigResult,
+	AudioSourceRejectionReason,
+	AudioSourceType,
+	AudioSourceTypeCapability,
+	ConfigureAudioSourceInput,
+} from './state/audio-source';
+export {
+	AUDIO_CACHE_BEHAVIORS,
+	AUDIO_SOURCE_ENTITY_TYPE,
+	AUDIO_SOURCE_SCHEMA_VERSION,
+	AUDIO_SOURCE_TYPE_CAPABILITIES,
+	BUNDLED_PRESET_SOURCE_CAPABILITY,
+	LOCAL_FILE_SOURCE_CAPABILITY,
+	REGISTERED_AUDIO_SOURCE_TYPES,
+	SUPPORTED_AUDIO_SOURCE_TYPES,
+	WEB_STREAM_SOURCE_CAPABILITY,
+	capabilityForAudioSourceType,
+	classifyAudioSource,
+	configureAudioSource,
+	isSupportedAudioSourceType,
+	listAudioSourceTypeCapabilities,
+	resolveAudioPlaybackAvailability,
+} from './state/audio-source';
+
+// AUDIO-004/009/010 — the durable AUDIO VaultState slice (asset library + declared source registry). A
+// bounded state document modeled like maps/encounters, with fail-closed hydration: an undeclared asset
+// license stays `unknown` and a source with undeclared cache behavior stays playback-disabled. Playback
+// state is NOT here — currently-playing audio is SessionState (Contract 4 Widget State Ownership).
+export type { AudioState } from './state/audio-state';
+export {
+	AUDIO_STATE_SCHEMA_VERSION,
+	EMPTY_AUDIO_STATE,
+	audioAssetById,
+	audioSourceById,
+	ensureAudioState,
+} from './state/audio-state';
+
+// AUDIO-011 — FAIL-CLOSED validation of a Scene AUDIO PACKAGE before import/export commit. Reports missing
+// assets, missing licensing metadata (reusing the AUDIO-004 review gate), unsupported streams (the
+// AUDIO-009 rule), and device-local output routes BEFORE commit; builds the per-asset portability manifest
+// (source + license + content hash + portability) the AUDIO-011 AC2 requires. `committable` is the
+// fail-closed commit gate (no blocking findings). Pure data + pure functions.
+export type {
+	AudioAssetPortability,
+	AudioPackageDirection,
+	AudioPackageFinding,
+	AudioPackageFindingKind,
+	AudioPackageFindingSeverity,
+	AudioPackageManifestEntry,
+	AudioPackagePreset,
+	AudioPackageValidationReport,
+	ValidateAudioPackageInput,
+} from './state/audio-package';
+export {
+	AUDIO_PACKAGE_SCHEMA_VERSION,
+	assetPortability,
+	validateAudioPackage,
+} from './state/audio-package';
+
+// AUDIO-004/009/010 — THE single actor-filtered AUDIO LIBRARY read model. The DM sees each asset with its
+// computed license-review flag and each source with its computed classification + offline availability; a
+// non-DM gets EMPTY lists (audio config is DM-only — fail closed, no leak).
+export type { AudioAssetView } from './queries/audio-library-query';
+export {
+	listAudioAssetsForActor,
+	listAudioAssetsNeedingReview,
+	listAudioSourceClassificationsForActor,
+	resolveAudioPlaybackForActor,
+} from './queries/audio-library-query';
