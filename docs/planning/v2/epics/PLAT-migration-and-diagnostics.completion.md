@@ -20,35 +20,35 @@ renders the returned, already-filtered models (Contract 1).
 
 Core (`@dndtools/v2-core`):
 
-- `src/migration/schema-versions.ts` — the six durable state documents (`scenes`, `maps`,
+- `apps/v2/packages/core/src/migration/schema-versions.ts` — the six durable state documents (`scenes`, `maps`,
   `permissions`, `session`, `widgets`, `commandCenter`) and their build-target schema versions,
   derived from each state module's `*_SCHEMA_VERSION`. The sync operation log carries its own
   per-operation version and is replayed, not migrated, so it is excluded.
-- `src/migration/dry-run.ts` (PLAT-008 AC1) — `planMigration(persistedVersions)` classifies each
+- `apps/v2/packages/core/src/migration/dry-run.ts` (PLAT-008 AC1) — `planMigration(persistedVersions)` classifies each
   document (`current` / `absent` / `needs-upgrade` / `unknown-version` / `future-version`) and
   returns the required changes **and** blocking issues before any mutation. Fails closed: a
   future-build version or an unreadable/below-minimum version is a **blocking issue with
   remediation**, never a silent upgrade (Contract 2 Sync Security rule 5).
-- `src/migration/integrity.ts` (PLAT-008) — `verifyIntegrity(records)` flags a partially written
+- `apps/v2/packages/core/src/migration/integrity.ts` (PLAT-008) — `verifyIntegrity(records)` flags a partially written
   (mid-write) vault, a missing schema version, or an unreadable payload. A fully fresh or fully
   present vault is consistent; a mix is the corruption state.
-- `src/migration/write-ahead.ts` (PLAT-008 AC2) — `beginMigration` captures a **safety snapshot**
+- `apps/v2/packages/core/src/migration/write-ahead.ts` (PLAT-008 AC2) — `beginMigration` captures a **safety snapshot**
   of the pre-migration documents and writes a write-ahead journal entry in phase `pending` before
   any mutation; `markCommitting`/`markCommitted` advance it. `recoverFromJournal(entry)` is the pure
   restart decision: `pending` → clear (nothing written), `committing` → **roll back to the snapshot**
   (a mid-write crash), `committed`/`rolled-back` → clear.
-- `src/diagnostics/redaction.ts` (PLAT-009 AC2 / PLAT-017 AC3) — `redactValue` recursively redacts
+- `apps/v2/packages/core/src/diagnostics/redaction.ts` (PLAT-009 AC2 / PLAT-017 AC3) — `redactValue` recursively redacts
   secret-named keys, absolute filesystem paths, file URLs, and bearer tokens by default;
   `includeSecrets` returns raw values only on explicit user opt-in. `containsSensitiveData` is the
   fail-closed assertion used in tests.
-- `src/diagnostics/health.ts` — shared diagnostics inputs and `deriveHealthLevel`
+- `apps/v2/packages/core/src/diagnostics/health.ts` — shared diagnostics inputs and `deriveHealthLevel`
   (`healthy`/`degraded`/`unhealthy`) plus per-source remediation.
-- `src/diagnostics/dm-diagnostics.ts` (PLAT-009) — `getDmDiagnostics` (system health, sync/source
+- `apps/v2/packages/core/src/diagnostics/dm-diagnostics.ts` (PLAT-009) — `getDmDiagnostics` (system health, sync/source
   status + remediation, capability status, schema/migration health) and `exportSupportBundle`
   (redacted by default; `includeSecrets` opt-in). Both fail closed: `actorCanViewDmDiagnostics`
   allows only the DM or an actor holding the explicit `diagnostics-admin` grant on the
   `diagnostics/system` entity; everyone else is `denied`.
-- `src/diagnostics/participant-status.ts` (PLAT-017) — `getParticipantStatus` returns a
+- `apps/v2/packages/core/src/diagnostics/participant-status.ts` (PLAT-017) — `getParticipantStatus` returns a
   participant-only view: connection (`live`/`reconnecting`/`offline`/`stale`/`unavailable`), sync,
   session delivery, and per-capability availability, each with a **generic, action-oriented**
   message. It drops every DM-facing capability detail and never includes a source id, path, hidden
@@ -57,21 +57,21 @@ Core (`@dndtools/v2-core`):
 
 App (`@dndtools/v2-app`):
 
-- `src/lib/platform/storage/scene-store.ts` — adds a Dexie `migrationJournal` table (DB version 2,
+- `apps/v2/app/src/lib/platform/storage/scene-store.ts` — adds a Dexie `migrationJournal` table (DB version 2,
   preserving v1 stores), `writeMigrationJournal`, and `recoverPendingMigration`, which applies the
   core's recovery decision to real storage: a `roll-back` restores every snapshot document, others
   clear the journal. `loadCoreState` runs recovery **before** trusting persisted documents (PLAT-008
   AC2). `resetCoreStorage` also clears the journal.
-- `src/lib/platform/diagnostics-context.ts` — derives the `DiagnosticsContextInput` from the runtime
+- `apps/v2/app/src/lib/platform/diagnostics-context.ts` — derives the `DiagnosticsContextInput` from the runtime
   slice + platform profile: the local-vault sync source, capability availability (local storage /
   filesystem / cloud-sync deferred), and schema health computed via the core migration planner so
   diagnostics and dry-run agree.
-- `src/lib/gui/DiagnosticsPanel.svelte` (PLAT-009) — DM-facing panel: health, sync/source status +
+- `apps/v2/app/src/lib/gui/DiagnosticsPanel.svelte` (PLAT-009) — DM-facing panel: health, sync/source status +
   remediation, capabilities, schema/migration, and a support-bundle export with an explicit
   "include raw secrets and paths" opt-in. Fails closed via `getDmDiagnostics`/`exportSupportBundle`.
-- `src/lib/gui/ParticipantStatusPanel.svelte` (PLAT-017) — participant-facing status panel; renders
+- `apps/v2/app/src/lib/gui/ParticipantStatusPanel.svelte` (PLAT-017) — participant-facing status panel; renders
   only the core's participant-safe view.
-- `src/routes/settings/+page.svelte` — mounts the DM panel for the DM and the participant panel for
+- `apps/v2/app/src/routes/settings/+page.svelte` — mounts the DM panel for the DM and the participant panel for
   players/observers on the PLAT-owned, all-roles `/settings` route. Rendering by role here is an
   ergonomic hint; the authoritative permission and redaction enforcement is in the core.
 

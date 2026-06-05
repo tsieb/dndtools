@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 71
+  approved: 70
   active: 0
-  complete: 17
+  complete: 18
   deferred: 0
 metrics:
-  epicCompletionPercent: 19.3
-  requirementCompletionPercent: 21.4
+  epicCompletionPercent: 20.5
+  requirementCompletionPercent: 23.1
   totalRequirements: 234
-  completedRequirements: 50
+  completedRequirements: 54
   deferredRequirements: 0
-  remainingEpics: 71
-  promptableEpics: 71
+  remainingEpics: 70
+  promptableEpics: 70
   blockedByDependencies: 0
-  completionEvidenceFiles: 17
+  completionEvidenceFiles: 18
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -149,13 +149,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: PLAT
       totalEpics: 4
-      complete: 3
+      complete: 4
       active: 0
-      approved: 1
+      approved: 0
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 75
-      requirementCompletionPercent: 77.8
+      epicCompletionPercent: 100
+      requirementCompletionPercent: 100
     - domain: SEC
       totalEpics: 4
       complete: 0
@@ -193,18 +193,16 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: PLAT-quality-gates-and-onboarding
-  title: "PLAT: Quality gates and onboarding"
+  id: PERM-base-roles-and-observer-limits
+  title: "PERM: Base roles and observer limits"
   status: approved
   requirementIds:
-    - PLAT-010
-    - PLAT-013
-    - PLAT-014
-    - PLAT-015
-  promptCommand: pnpm v2:prompt -- --epic PLAT-quality-gates-and-onboarding
+    - PERM-001
+    - PERM-011
+  promptCommand: pnpm v2:prompt -- --epic PERM-base-roles-and-observer-limits
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    PLAT-quality-gates-and-onboarding --status active
+    PERM-base-roles-and-observer-limits --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -671,13 +669,14 @@ epics:
       - PLAT-016
     completionEvidenceFile: docs/planning/v2/epics/PLAT-platform-profiles-and-shells.completion.md
   - id: PLAT-quality-gates-and-onboarding
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - PLAT-010
       - PLAT-013
       - PLAT-014
       - PLAT-015
+    completionEvidenceFile: docs/planning/v2/epics/PLAT-quality-gates-and-onboarding.completion.md
   - id: SEC-input-and-content-safety
     status: approved
     approved: true

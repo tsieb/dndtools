@@ -579,6 +579,72 @@ export type {
 	AndroidShareImportService,
 } from './contracts/android-shell.contract';
 
+// PLAT-014: declared cross-profile platform support-status artifact (parity / degradation /
+// unsupported per profile) + the release gate that blocks unsupported Must-have commands.
+export type {
+	CommandPriority,
+	CommandProfileStatus,
+	CommandSupportStatus,
+	PlatformSupportStatusArtifact,
+	ProfileSupport,
+	ProfileSupportSummary,
+	SupportStatusProblem,
+	SupportStatusProblemKind,
+} from './platform/support-status';
+export {
+	PLATFORM_SUPPORT_STATUS,
+	SUPPORT_STATUS_VERSION,
+	summarizeProfileSupport,
+	supportStatusServiceInconsistencies,
+	validateSupportStatus,
+} from './platform/support-status';
+
+// PLAT-010: the tiered, owned, time-bounded quality-gate registry + validators. The structured
+// source of truth the enforcing script (`scripts/quality-gates.ts`) fails closed against.
+export type {
+	DefectClass,
+	GateProblem,
+	GateProblemKind,
+	PathGlob,
+	QualityGate,
+	QualityGateTier,
+	QualityGateTierBudget,
+} from './platform/quality-gates';
+export {
+	QUALITY_GATE_BUDGETS,
+	QUALITY_GATE_REGISTRY_VERSION,
+	QUALITY_GATES,
+	REVIEW_WINDOW_DAYS,
+	SMOKE_TARGET_MS,
+	checkBudgets,
+	pathMatchesGlob,
+	selectGatesForPaths,
+	tierBudget,
+	validateGateRegistry,
+} from './platform/quality-gates';
+
+// PLAT-013: fresh-vault onboarding, feature-tier visibility, maturity gates, help surfaces, and
+// first-run Command Center setup — modeled in the core so the GUI renders from query results.
+export type {
+	FeatureGate,
+	FeatureTier,
+	FirstRunStep,
+	HelpSurface,
+	OnboardingStatus,
+	OnboardingView,
+} from './state/onboarding';
+export {
+	DEFAULT_FEATURE_TIER,
+	FEATURE_GATES,
+	FEATURE_TIERS,
+	HELP_SURFACES,
+	isFeatureVisible,
+	isFreshVault,
+	resolveOnboarding,
+	tierMeets,
+	visibleFeatures,
+} from './state/onboarding';
+
 // PLAT-018: durable command lifecycle states.
 export type {
 	CommandLifecycleState,

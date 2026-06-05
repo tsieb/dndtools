@@ -92,3 +92,6 @@ epics:
   - id: PLAT-platform-profiles-and-shells
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PLAT-platform-profiles-and-shells.completion.md
+  - id: PLAT-quality-gates-and-onboarding
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/PLAT-quality-gates-and-onboarding.completion.md

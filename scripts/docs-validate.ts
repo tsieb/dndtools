@@ -1,6 +1,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { validateWorkpack } from './v2-workpack.js';
+import {
+	auditCountTable,
+	auditDefectCounts,
+	auditStructureInventory,
+} from './lib/generated-doc-audit.js';
 
 interface ValidationIssue {
 	file: string;
@@ -12,6 +17,31 @@ const repoRoot = process.cwd();
 const docsRoot = path.join(repoRoot, 'docs');
 const schemaDocPath = path.join(docsRoot, 'operations', 'SCHEMA_MIGRATIONS.md');
 const migrationsSourcePath = path.join(repoRoot, 'mcp', 'migrations.ts');
+
+// PLAT-015 generated-from-structured-sources audits.
+const requirementsDocPath = path.join(docsRoot, 'remake-review', '10-requirements.md');
+const requirementsDir = path.join(docsRoot, 'remake-review', 'requirements');
+const defectRegisterPath = path.join(docsRoot, 'remake-review', '07-known-defects.md');
+const structureDocPath = path.join(docsRoot, 'reference', 'PROJECT_STRUCTURE.md');
+// Top-level entries that are generated, tooling, or otherwise intentionally undocumented in the
+// structure inventory. A real product directory missing from the inventory still fails closed.
+const structureIgnoredTopLevel = new Set([
+	'node_modules',
+	'build',
+	'.svelte-kit',
+	'.git',
+	'.github',
+	'.vscode',
+	'.idea',
+	'.claude',
+	'coverage',
+	'dist',
+	'tmp',
+	'test-results',
+	'playwright-report',
+	'apps',
+	'.husky',
+]);
 const pathPrefixAllowlist = [
 	'.github/',
 	'apps/',
@@ -235,6 +265,54 @@ function parseSchemaVersionsFromDocs(
 	return versions as Record<'notes' | 'objects' | 'metadata', number>;
 }
 
+/**
+ * PLAT-015: recompute high-churn markdown registers from structured sources and report drift so
+ * docs validation fails closed. Covers the requirement Count Audit table (AC3), the defect-count
+ * summary (AC1), and the top-level structure inventory (AC2).
+ */
+async function validateGeneratedDocAudits(): Promise<ValidationIssue[]> {
+	const issues: ValidationIssue[] = [];
+
+	// Count Audit: recompute per-domain counts from requirement headings.
+	const requirementsMarkdown = await fs.readFile(requirementsDocPath, 'utf-8');
+	const requirementEntries = await fs.readdir(requirementsDir, { withFileTypes: true });
+	const requirementFiles = await Promise.all(
+		requirementEntries
+			.filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.md'))
+			.map(async (entry) => ({
+				content: await fs.readFile(path.join(requirementsDir, entry.name), 'utf-8'),
+			})),
+	);
+	issues.push(
+		...auditCountTable(
+			'docs/remake-review/10-requirements.md',
+			requirementsMarkdown,
+			requirementFiles,
+		),
+	);
+
+	// Defect-count summary: recompute P1/P2/P3 + total from the register rows.
+	const defectMarkdown = await fs.readFile(defectRegisterPath, 'utf-8');
+	issues.push(...auditDefectCounts('docs/remake-review/07-known-defects.md', defectMarkdown));
+
+	// Structure inventory: compare documented top-level dirs against the real repo top level.
+	const structureMarkdown = await fs.readFile(structureDocPath, 'utf-8');
+	const topLevelEntries = await fs.readdir(repoRoot, { withFileTypes: true });
+	const actualTopLevelDirs = new Set(
+		topLevelEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name),
+	);
+	issues.push(
+		...auditStructureInventory(
+			'docs/reference/PROJECT_STRUCTURE.md',
+			structureMarkdown,
+			actualTopLevelDirs,
+			{ ignore: structureIgnoredTopLevel },
+		),
+	);
+
+	return issues;
+}
+
 async function validateDocs(): Promise<ValidationIssue[]> {
 	const issues: ValidationIssue[] = [];
 	const markdownFiles = await collectMarkdownFiles(docsRoot);
@@ -282,6 +360,8 @@ async function validateDocs(): Promise<ValidationIssue[]> {
 			});
 		}
 	}
+
+	issues.push(...(await validateGeneratedDocAudits()));
 
 	let hasV2Workpack = false;
 	try {

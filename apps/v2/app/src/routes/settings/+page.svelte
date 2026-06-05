@@ -12,6 +12,7 @@
 	import ParticipantStatusPanel from '$lib/gui/ParticipantStatusPanel.svelte';
 	import CapabilityStatus from '$lib/gui/CapabilityStatus.svelte';
 	import SupportMatrix from '$lib/gui/SupportMatrix.svelte';
+	import SupportStatus from '$lib/gui/SupportStatus.svelte';
 
 	const runtime = useRuntime();
 	const profile = useProfile();
@@ -91,6 +92,10 @@
 
 	<!-- PLAT-016: the published web/PWA cached read/write support matrix. -->
 	<SupportMatrix />
+
+	<!-- PLAT-014: the declared cross-profile command support status (parity / degradation /
+	     unsupported) for the active profile, with reasons and fallbacks. -->
+	<SupportStatus profileId={profile.profileId} />
 
 	<section aria-label="Active actor">
 		<h2>Viewing as</h2>

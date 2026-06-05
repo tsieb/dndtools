@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: PLAT-quality-gates-and-onboarding
 title: "PLAT: Quality gates and onboarding"
-status: approved
+status: complete
 approved: true
 domain: PLAT
 capabilityBranch: Quality gates and onboarding
@@ -221,3 +221,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/PLAT-quality-gates-and-onboarding.completion.md

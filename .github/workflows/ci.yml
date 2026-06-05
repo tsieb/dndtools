@@ -41,5 +41,8 @@ jobs:
       - name: Validate V2 workpack
         run: pnpm v2:workpack:validate
 
+      - name: Enforce tiered quality gates (PLAT-010)
+        run: pnpm v2:gates
+
       - name: Validate docs
         run: pnpm docs:validate

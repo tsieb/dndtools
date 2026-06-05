@@ -15,6 +15,7 @@
 		NavigationHistoryStore,
 		provideNavigationHistory,
 	} from '$lib/platform/navigation-history.svelte';
+	import { FeatureTierStore, provideFeatureTier } from '$lib/state/feature-tier.svelte';
 	import { locationFromPath } from '$lib/state/navigation-location';
 	import CommandPalette from '$lib/gui/CommandPalette.svelte';
 	import Breadcrumbs from '$lib/gui/Breadcrumbs.svelte';
@@ -36,6 +37,11 @@
 
 	const history = new NavigationHistoryStore();
 	provideNavigationHistory(history);
+
+	// PLAT-013: the active maturity / feature tier is a device-local display preference owned by
+	// the GUI (Contract 1). It drives progressive disclosure; the core decides what each tier shows.
+	const featureTier = new FeatureTierStore();
+	provideFeatureTier(featureTier);
 
 	onMount(() => {
 		void runtime.load();

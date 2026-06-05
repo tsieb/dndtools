@@ -9,6 +9,7 @@
 		getSessionWidgetMode,
 		listWidgetLibrary,
 		resolveAddWidgetCommand,
+		resolveOnboarding,
 		type MapEntity,
 		type SessionWorkflowState,
 		type WidgetBindingPayload,
@@ -16,9 +17,21 @@
 	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
+	import { useFeatureTier } from '$lib/state/feature-tier.svelte';
+	import FirstRun from '$lib/gui/FirstRun.svelte';
 
 	const runtime = useRuntime();
 	const profile = useProfile();
+	const featureTier = useFeatureTier();
+
+	// PLAT-013: the onboarding view is computed by the Processing Core from durable state + the
+	// active (device-local) feature tier. The GUI renders it; it never derives fresh-vault /
+	// tier-visibility itself (Contract 1). The active tier drives the progressive-disclosure
+	// feature list (and the advanced surfaces on Settings); the Must-have session-running tools
+	// below stay available on every tier (slim / Must-have contract).
+	const onboarding = $derived(
+		resolveOnboarding(runtime.state, runtime.defaultActorId, featureTier.tier),
+	);
 
 	const TOOL_LABELS = new Map(DEFAULT_COMMAND_CENTER_TOOLS.map((t) => [t.type, t.label]));
 	function toolLabel(type: string): string {
@@ -317,6 +330,13 @@
 			</div>
 		{/if}
 	</header>
+
+	<FirstRun
+		view={onboarding}
+		tiers={featureTier.tiers}
+		activeTier={featureTier.tier}
+		onSelectTier={(tier) => featureTier.setTier(tier)}
+	/>
 
 	{#if !summary}
 		<p class="loading" role="status" data-testid="cc-preparing">Preparing your Command Center…</p>
