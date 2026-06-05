@@ -208,11 +208,13 @@ Workpack status: `complete` (set via `pnpm v2:workpack:complete -- --epic SYNC-c
 
 - Branch: `epic/SYNC-cloud-device-local-storage` (created from `93eb411`, the HEAD of
   `epic/SYNC-asset-sync-and-status`; NOT from master).
-- Commit: see the commit recorded in the second docs commit below.
+- Epic commit: `5eb19867dd581044cd94cb6474050a8eb1e0a88b`
+  (`feat(v2): complete SYNC-cloud-device-local-storage epic`).
+- A small follow-up docs commit records this SHA in this completion file.
 - Stop conditions: none hit.
 
 ### Final `git status --short`
 
 ```
-(clean — recorded after the final commit; see handoff)
+(clean)
 ```
