@@ -155,7 +155,7 @@ working tree showed no unrelated overlapping changes.
 Branch: `epic/SRCH-calendar-custom-time-discovery` (chained off the prior epic tip
 `epic/COLLAB-player-views-and-observer-access` @ `e162589`, per the v2 epic-branching convention — NOT
 from master).
-Commit SHA (feat): `__FEAT_SHA__` (`feat(v2): complete SRCH-calendar-custom-time-discovery epic`).
+Commit SHA (feat): `9e1c097` (`feat(v2): complete SRCH-calendar-custom-time-discovery epic`).
 The completion-evidence SHA is recorded by a follow-up `docs(v2): record commit SHA …` commit.
 
 ### Final `git status --short`
