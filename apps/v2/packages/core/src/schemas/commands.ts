@@ -1061,6 +1061,24 @@ export const resolveCharacterConflictInputSchema = z
 	})
 	.strict();
 
+// SYNC-013 — the VAULT-WIDE, DM-authorized conflict resolution administrative command. It references
+// the durable conflict record (any entity type), the ACTUAL source revisions being resolved (a stale
+// pair is rejected fail-closed), an EXPLICIT selected value, and an OPTIONAL note. Resolution is itself
+// a validated command that records the selected value + audit and produces a non-conflicted revision
+// (Contract 2 Conflict Model rule 7). `selectedValue` accepts any JSON value: the conflicting payload
+// for any entity type (character field, note frontmatter, etc.) is entity-agnostic.
+export const resolveVaultConflictInputSchema = z
+	.object({
+		entityType: z.string().min(1),
+		entityId: idSchema,
+		conflictId: idSchema,
+		selectedValue: z.unknown(),
+		sourceLocalRevision: z.number().int().nonnegative(),
+		sourceRemoteRevision: z.number().int().nonnegative(),
+		notes: z.string().max(2000).optional(),
+	})
+	.strict();
+
 // CHAR-001 / CHAR-007 (foundation) — set a character's combat field through a validated command so a
 // bound widget refreshes. Restricted to the combat surface; deeper sheet edits land in later epics.
 export const setCharacterCombatInputSchema = z

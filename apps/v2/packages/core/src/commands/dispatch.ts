@@ -149,6 +149,7 @@ import {
 	handleSetContentFieldVisibility,
 	handleSetContentSectionVisibility,
 } from './content-visibility-embeds';
+import { handleResolveVaultConflict } from './conflict-resolution';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 
 export function dispatchCommand(
@@ -359,6 +360,8 @@ export function dispatchCommand(
 			return handleEditCharacterField(state, env, command.actorId, command.payload);
 		case 'character.resolve-conflict':
 			return handleResolveCharacterConflict(state, env, command.actorId, command.payload);
+		case 'conflict.resolve':
+			return handleResolveVaultConflict(state, env, command.actorId, command.payload);
 		case 'character.update-combat-resource':
 			return handleUpdateCombatResource(state, env, command.actorId, command.payload);
 		case 'character.set-spell-slots':

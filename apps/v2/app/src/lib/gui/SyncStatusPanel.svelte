@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		getConflictLifecycle,
 		getDmSyncLineage,
 		getSyncFreshness,
 		getSyncStatus,
@@ -36,6 +37,50 @@
 			pendingOperations: runtime.state.sync.operations.length,
 		}),
 	);
+
+	// SYNC-006 / SYNC-013: the actor-filtered conflict LIFECYCLE. The DM sees full records (diverging
+	// values + revisions + resolution audit) and may RESOLVE each via the DM-authorized
+	// `conflict.resolve` administrative command; a player/observer sees only structural entries and
+	// never the conflicting values. The Processing Core derives the records from the op-log substrate
+	// and enforces the actor filter + fail-closed resolution; this surface renders the computed model.
+	const conflictLifecycle = $derived(
+		getConflictLifecycle(runtime.state.permissions, runtime.activeActorId, {
+			operations: runtime.state.sync.operations,
+		}),
+	);
+
+	let conflictNotes = $state<Record<string, string>>({});
+	let conflictError = $state<string | null>(null);
+
+	async function resolveVaultConflict(
+		entityType: string,
+		entityId: string,
+		conflictId: string,
+		selectedValue: unknown,
+		sourceLocalRevision: number,
+		sourceRemoteRevision: number,
+	): Promise<void> {
+		conflictError = null;
+		const notes = conflictNotes[conflictId];
+		const result = await runtime.dispatch({
+			type: 'conflict.resolve',
+			actorId: runtime.activeActorId,
+			payload: {
+				entityType,
+				entityId,
+				conflictId,
+				selectedValue,
+				sourceLocalRevision,
+				sourceRemoteRevision,
+				...(notes && notes.length > 0 ? { notes } : {}),
+			},
+		});
+		if (result.status === 'rejected') {
+			conflictError = result.rejection.message;
+			return;
+		}
+		delete conflictNotes[conflictId];
+	}
 </script>
 
 {#if status.kind === 'sync-status'}
@@ -124,6 +169,117 @@
 			{/if}
 		</section>
 
+		<!-- SYNC-006 / SYNC-013: the conflict LIFECYCLE surface. Every role sees the structural entries +
+		     per-entity publication status; the DM additionally sees the diverging values and resolves each
+		     conflict with an explicit selected value + optional notes, producing a non-conflicted revision.
+		     Per-entity isolation: each entry names exactly one entity, so resolving one never affects
+		     another. Resolution is the DM-authorized `conflict.resolve` command (fail-closed for non-DM). -->
+		{#if conflictLifecycle.kind === 'conflict-lifecycle'}
+			<section aria-label="Conflict lifecycle" data-testid="conflict-lifecycle">
+				<h3>Conflict lifecycle</h3>
+				{#if conflictError}
+					<p class="meta" role="alert" data-testid="conflict-error">{conflictError}</p>
+				{/if}
+				{#if conflictLifecycle.entries.length === 0}
+					<p class="meta" data-testid="conflict-lifecycle-empty">
+						No conflicts. Unrelated entities edit and publish freely.
+					</p>
+				{:else}
+					<p class="meta" data-testid="conflict-lifecycle-summary">
+						<span data-testid="conflict-unresolved-count">{conflictLifecycle.unresolvedCount}</span>
+						unresolved • {conflictLifecycle.conflictedEntityKeys.length} entit{conflictLifecycle
+							.conflictedEntityKeys.length === 1
+							? 'y'
+							: 'ies'} affected
+					</p>
+					{#if conflictLifecycle.role === 'dm'}
+						<!-- DM detail: diverging values + DM-authorized resolution. -->
+						<ul class="scene-list" data-testid="conflict-lifecycle-dm">
+							{#each conflictLifecycle.dmDetail as detail (detail.conflictId)}
+								<li class="scene-card" data-testid={`conflict-dm-${detail.conflictId}`}>
+									<div>
+										<strong>{detail.entityType}</strong>
+										<div class="meta">
+											{detail.reason}{detail.path ? ` • ${detail.path}` : ''} • {detail.publication}
+										</div>
+										{#if detail.resolved}
+											<div class="meta" data-testid={`conflict-resolved-${detail.conflictId}`}>
+												resolved by {detail.resolution?.resolverActorId} • selected “{String(
+													detail.resolution?.selectedValue,
+												)}”{detail.resolution?.notes ? ` • ${detail.resolution.notes}` : ''}
+											</div>
+										{:else}
+											<label class="conflict-notes">
+												Resolution note (optional)
+												<input
+													type="text"
+													data-testid={`conflict-notes-${detail.conflictId}`}
+													bind:value={conflictNotes[detail.conflictId]}
+												/>
+											</label>
+											<div class="conflict-choices">
+												<button
+													type="button"
+													class="button secondary"
+													data-testid={`conflict-resolve-local-${detail.conflictId}`}
+													onclick={() =>
+														resolveVaultConflict(
+															detail.entityType,
+															detail.entityId,
+															detail.conflictId,
+															detail.local.value,
+															detail.local.revision,
+															detail.remote.revision,
+														)}>Keep “{String(detail.local.value)}”</button
+												>
+												<button
+													type="button"
+													class="button secondary"
+													data-testid={`conflict-resolve-remote-${detail.conflictId}`}
+													onclick={() =>
+														resolveVaultConflict(
+															detail.entityType,
+															detail.entityId,
+															detail.conflictId,
+															detail.remote.value,
+															detail.local.revision,
+															detail.remote.revision,
+														)}>Use “{String(detail.remote.value)}”</button
+												>
+											</div>
+										{/if}
+									</div>
+									<span class="meta" class:unavailable={!detail.resolved}>
+										{detail.resolved ? 'resolved' : 'unresolved'}
+									</span>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<!-- Non-DM: structural entries only (no conflicting values), awaiting DM resolution. -->
+						<ul class="scene-list" data-testid="conflict-lifecycle-structural">
+							{#each conflictLifecycle.entries as entry (entry.conflictId)}
+								<li class="scene-card" data-testid={`conflict-structural-${entry.conflictId}`}>
+									<div>
+										<strong>{entry.entityType}</strong>
+										<div class="meta">
+											{entry.reason}{entry.path ? ` • ${entry.path}` : ''} • {entry.publication}
+										</div>
+										{#if !entry.resolved}
+											<div class="meta">awaiting DM resolution</div>
+										{/if}
+									</div>
+									<span class="meta" class:unavailable={!entry.resolved}>
+										{entry.resolved ? 'resolved' : 'unresolved'}
+									</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				{/if}
+			</section>
+		{/if}
+
 		<section aria-label="Retry actions">
 			<h3>Recovery actions</h3>
 			<ul class="scene-list" data-testid="sync-retry-actions">
@@ -198,3 +354,18 @@
 		{/if}
 	</section>
 {/if}
+
+<style>
+	.conflict-notes {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		margin: 0.5rem 0;
+		font-weight: 600;
+	}
+	.conflict-choices {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+</style>

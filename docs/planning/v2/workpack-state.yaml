@@ -185,3 +185,6 @@ epics:
   - id: SYNC-cloud-device-local-storage
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SYNC-cloud-device-local-storage.completion.md
+  - id: SYNC-conflict-lifecycle
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SYNC-conflict-lifecycle.completion.md

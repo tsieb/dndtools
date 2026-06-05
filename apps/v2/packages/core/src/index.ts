@@ -579,6 +579,55 @@ export {
 	syncLineageIsStructuralOnly,
 } from './queries/sync-lineage';
 
+// SYNC-006 / SYNC-013: the VAULT-WIDE conflict LIFECYCLE. Generalizes the per-entity/per-path
+// character conflict handling into ONE durable, entity-agnostic conflict-record model derived from the
+// op-log substrate (DETECT → PERSIST → DISPLAY → RESOLVE). Per-entity ISOLATION is the load-bearing
+// guarantee: a conflict on entity A never blocks reads/writes/publication of unrelated entity B. The
+// DM-authorized resolution (`resolveVaultConflict`) takes explicit selected values + the actual source
+// revisions + optional notes, records audit, and produces a non-conflicted revision; it fails closed
+// on a stale/unknown/already-resolved conflict.
+export type {
+	EntityPublicationStatus,
+	ResolveVaultConflictError,
+	ResolveVaultConflictInput,
+	ResolveVaultConflictMeta,
+	ResolveVaultConflictResult,
+	VaultConflictReason,
+	VaultConflictRecord,
+	VaultConflictResolutionAudit,
+	VaultConflictSide,
+} from './state/conflict-lifecycle';
+export {
+	VAULT_CONFLICT_SCHEMA_VERSION,
+	conflictEntityKey,
+	conflictedEntityKeys,
+	deriveVaultConflicts,
+	entityIsEditableDespiteOtherConflicts,
+	isConflictDetectionOpType,
+	isConflictResolutionOpType,
+	isEntityConflicted,
+	publicationStatusForEntity,
+	resolveVaultConflict,
+	unresolvedConflicts,
+} from './state/conflict-lifecycle';
+
+// SYNC-006 / SYNC-013: the ACTOR-FILTERED conflict-lifecycle VIEW. The DM sees full records (diverging
+// values + the resolution audit); a non-DM sees only structural facts (entity/path/reason/status) —
+// never the conflicting values (`conflictLifecycleIsStructuralOnly` proves the non-leak). Reuses the
+// same op-log substrate the SYNC status surface reads.
+export type {
+	ConflictLifecycleDmDetailView,
+	ConflictLifecycleEntryView,
+	ConflictLifecycleInput,
+	ConflictLifecycleResult,
+	ConflictLifecycleView,
+} from './queries/conflict-lifecycle';
+export {
+	conflictLifecycleIsStructuralOnly,
+	entityPublicationStatus,
+	getConflictLifecycle,
+} from './queries/conflict-lifecycle';
+
 export type {
 	CommandRejection,
 	CommandResult,

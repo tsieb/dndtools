@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 40
+  approved: 39
   active: 0
-  complete: 48
+  complete: 49
   deferred: 0
 metrics:
-  epicCompletionPercent: 54.5
-  requirementCompletionPercent: 57.7
+  epicCompletionPercent: 55.7
+  requirementCompletionPercent: 58.5
   totalRequirements: 234
-  completedRequirements: 135
+  completedRequirements: 137
   deferredRequirements: 0
-  remainingEpics: 40
-  promptableEpics: 40
+  remainingEpics: 39
+  promptableEpics: 39
   blockedByDependencies: 0
-  completionEvidenceFiles: 48
+  completionEvidenceFiles: 49
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -185,23 +185,25 @@ metrics:
       requirementCompletionPercent: 0
     - domain: SYNC
       totalEpics: 5
-      complete: 2
+      complete: 3
       active: 0
-      approved: 3
+      approved: 2
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 40
-      requirementCompletionPercent: 35.3
+      epicCompletionPercent: 60
+      requirementCompletionPercent: 47.1
 nextEpic:
-  id: SYNC-conflict-lifecycle
-  title: "SYNC: Conflict lifecycle"
+  id: SYNC-local-first-operation-model
+  title: "SYNC: Local-first operation model"
   status: approved
   requirementIds:
-    - SYNC-006
-    - SYNC-013
-  promptCommand: pnpm v2:prompt -- --epic SYNC-conflict-lifecycle
+    - SYNC-001
+    - SYNC-002
+    - SYNC-011
+  promptCommand: pnpm v2:prompt -- --epic SYNC-local-first-operation-model
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic SYNC-conflict-lifecycle --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic
+    SYNC-local-first-operation-model --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -816,11 +818,12 @@ epics:
       - SYNC-017
     completionEvidenceFile: docs/planning/v2/epics/SYNC-cloud-device-local-storage.completion.md
   - id: SYNC-conflict-lifecycle
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - SYNC-006
       - SYNC-013
+    completionEvidenceFile: docs/planning/v2/epics/SYNC-conflict-lifecycle.completion.md
   - id: SYNC-local-first-operation-model
     status: approved
     approved: true

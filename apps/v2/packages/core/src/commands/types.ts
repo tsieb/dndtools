@@ -272,6 +272,10 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// SYNC-013: the DM-authorized, vault-wide conflict resolution administrative command. References the
+	// durable conflict record (any entity type) + the actual source revisions, takes an explicit
+	// selected value + optional notes, records audit, and produces a non-conflicted revision.
+	| { type: 'conflict.resolve'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// CHAR-007: update a combat resource (HP/temp-HP/conditions/death-saves/concentration/slots/class
 	// resources) DURING a session. Owner OR combat-participant; gated on the active-session workflow.
 	| {
@@ -778,6 +782,17 @@ export type CoreEvent =
 			characterId: string;
 			conflictId: string;
 			path: string;
+			revision: number;
+			actorId: ActorId;
+	  }
+	// SYNC-013 — the vault-wide, DM-authorized conflict resolution closed a durable conflict record and
+	// produced a non-conflicted revision. Entity-agnostic (carries the entity ref + conflict id), never
+	// the conflicting/selected value, so the event is non-leaking.
+	| {
+			kind: 'conflict.resolved';
+			entityType: string;
+			entityId: string;
+			conflictId: string;
 			revision: number;
 			actorId: ActorId;
 	  }

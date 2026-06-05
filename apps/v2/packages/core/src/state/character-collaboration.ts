@@ -84,10 +84,18 @@ export interface CharacterFieldConflict {
 	reason: 'same-scalar-path';
 	/** The common ancestor revision both edits diverged from. */
 	ancestorRevision: number;
-	/** The locally-accepted side (the value already on the canonical character). */
-	local: { value: CharacterFieldValue; authorActorId: ActorId; authorRole: ActorRole };
-	/** The concurrently-accepted side that could not be merged. */
-	remote: { value: CharacterFieldValue; authorActorId: ActorId; authorRole: ActorRole };
+	/**
+	 * The locally-accepted side (the value already on the canonical character). `revision` is the
+	 * path's current authorship revision — the diverging local revision the vault conflict lifecycle
+	 * (SYNC-006/013) references as a SOURCE REVISION when resolving.
+	 */
+	local: { value: CharacterFieldValue; revision: number; authorActorId: ActorId; authorRole: ActorRole };
+	/**
+	 * The concurrently-accepted side that could not be merged. `revision` is the revision this
+	 * concurrent edit WOULD have produced had it merged (ancestor + 1) — the diverging remote source
+	 * revision the vault conflict lifecycle references when resolving.
+	 */
+	remote: { value: CharacterFieldValue; revision: number; authorActorId: ActorId; authorRole: ActorRole };
 	detectedAt: string;
 	resolvedAt: string | null;
 	resolutionOperationId: string | null;
@@ -369,11 +377,16 @@ export function applyFieldEdit(
 			ancestorRevision: baseRevision,
 			local: {
 				value: currentValue,
+				// The diverging local revision is the path's current authorship revision.
+				revision: author.revision,
 				authorActorId: author.authorActorId,
 				authorRole: author.authorRole,
 			},
 			remote: {
 				value: input.value,
+				// The diverging remote revision is the revision this concurrent edit would have produced
+				// had it merged off its (stale) base — one past the base the editor built on.
+				revision: baseRevision + 1,
 				authorActorId: input.authorActorId,
 				authorRole: input.authorRole,
 			},
