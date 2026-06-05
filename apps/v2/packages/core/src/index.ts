@@ -1290,10 +1290,60 @@ export {
 	characterBindingRecord,
 } from './queries/character-bindings';
 
+// CHAR-004 / CHAR-005 — COLLABORATIVE field edits: per-field MERGE (different paths both apply) vs
+// same-path CONFLICT (concurrent same-path edits surface a durable, DM-resolvable conflict, never
+// silent last-write-wins), with ATTRIBUTION on ONE canonical value (no hidden DM override layer). Pure
+// deterministic reducers/validators the command handlers compose.
+export type {
+	ApplyFieldEditInput,
+	ApplyFieldEditMeta,
+	ApplyFieldEditResult,
+	CharacterCollaboration,
+	CharacterEdit,
+	CharacterFieldConflict,
+	CharacterFieldPath,
+	CharacterFieldValue,
+	ConflictResolutionChoice,
+	FieldAuthorship,
+	FieldEditError,
+	FieldEditValidation,
+	ResolveConflictError,
+	ResolveConflictResult,
+} from './state/character-collaboration';
+export {
+	CHARACTER_COLLABORATION_SCHEMA_VERSION,
+	EMPTY_CHARACTER_COLLABORATION,
+	applyFieldEdit,
+	collaborationFor,
+	ensureCollaboration,
+	hasUnresolvedConflict,
+	isDmOnlyFieldPath,
+	readFieldValue,
+	resolveFieldConflict,
+	unresolvedConflictForPath,
+	unresolvedConflictPaths,
+	validateFieldEdit,
+	writeFieldValue,
+} from './state/character-collaboration';
+
+// CHAR-014 — the actor-filtered COLLABORATIVE view: distinguishes DM-authored vs player-authored vs
+// conflicted fields, while a non-DM view never includes a DM-only field's value/path/author/history/
+// conflict (non-leak). The single sanctioned read path for the collaborative surface.
+export type {
+	CollaborativeCharacterView,
+	CollaborativeConflict,
+	CollaborativeField,
+	CollaborativeHistoryEntry,
+	FieldAuthorKind,
+} from './queries/character-collaboration';
+export { getCollaborativeCharacterView } from './queries/character-collaboration';
+
 export {
 	createCharacterDraftInputSchema,
+	editCharacterFieldInputSchema,
 	finalizeCharacterDraftInputSchema,
 	quickCreateCharacterInputSchema,
+	resolveCharacterConflictInputSchema,
 	revokeCharacterDraftInputSchema,
 	setCharacterCombatInputSchema,
 	transferCharacterDraftInputSchema,

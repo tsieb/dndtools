@@ -197,7 +197,17 @@ export type CoreCommand =
 			idempotencyKey?: string;
 	  }
 	// CHAR-001 foundation: set a character's combat field so a bound widget refreshes.
-	| { type: 'character.set-combat'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'character.set-combat'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CHAR-004 / CHAR-005: edit any character field (validated, attributed; same-path concurrent edits
+	// surface a conflict instead of silent last-write-wins).
+	| { type: 'character.edit-field'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CHAR-004: the DM resolves an unresolved same-path conflict by selecting the local/remote value.
+	| {
+			type: 'character.resolve-conflict';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -432,6 +442,29 @@ export type CoreEvent =
 			draftId: string;
 			characterId: string;
 			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.field-edited';
+			characterId: string;
+			path: string;
+			revision: number;
+			authorRole: 'dm' | 'player' | 'observer';
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.field-conflicted';
+			characterId: string;
+			conflictId: string;
+			path: string;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.conflict-resolved';
+			characterId: string;
+			conflictId: string;
+			path: string;
+			revision: number;
+			actorId: ActorId;
 	  };
 
 export type RejectionCode =
@@ -469,7 +502,9 @@ export type RejectionCode =
 	// CHAR — the draft has already been finalized and is read-only.
 	| 'draft-finalized'
 	// CHAR — a character target does not exist.
-	| 'character-not-found';
+	| 'character-not-found'
+	// CHAR-004 — a conflict-resolution target does not exist.
+	| 'conflict-not-found';
 
 export interface CommandRejection {
 	code: RejectionCode;

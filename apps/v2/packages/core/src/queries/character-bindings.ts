@@ -1,5 +1,6 @@
 import type { Character, CharacterState } from '../state/character-state';
 import { CHARACTER_ENTITY_TYPE } from '../state/character-state';
+import { ensureCollaboration, unresolvedConflictPaths } from '../state/character-collaboration';
 import {
 	EMPTY_WIDGET_DATA_ENVIRONMENT,
 	entityBindingKey,
@@ -46,6 +47,10 @@ function characterBindableValue(character: Character): Record<string, unknown> {
 
 /** Project ONE character into a binding record the existing resolver understands. */
 export function characterBindingRecord(character: Character): EntityBindingRecord {
+	// CHAR-004: a field path with an UNRESOLVED same-path conflict makes that path's binding resolve
+	// to the existing `conflicted` state (Contract 4) — so a widget bound to e.g. `combat.hp` never
+	// silently shows one side of an unresolved conflict; it must be resolved by the DM first.
+	const conflictPaths = unresolvedConflictPaths(ensureCollaboration(character.collaboration));
 	return {
 		entityType: CHARACTER_ENTITY_TYPE,
 		entityId: character.id,
@@ -55,6 +60,7 @@ export function characterBindingRecord(character: Character): EntityBindingRecor
 		// `dm-only` fields stay hidden even when the character itself is visible: the resolver omits
 		// them for non-DM actors (Contract 3 field-level visibility / CHAR-001 AC2).
 		hiddenSelectors: [...character.dmOnlyFields],
+		...(conflictPaths.length > 0 ? { conflict: { paths: [...conflictPaths] } } : {}),
 		value: characterBindableValue(character),
 	};
 }

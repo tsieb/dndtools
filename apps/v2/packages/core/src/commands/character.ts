@@ -1,7 +1,9 @@
 import {
 	createCharacterDraftInputSchema,
+	editCharacterFieldInputSchema,
 	finalizeCharacterDraftInputSchema,
 	quickCreateCharacterInputSchema,
+	resolveCharacterConflictInputSchema,
 	revokeCharacterDraftInputSchema,
 	setCharacterCombatInputSchema,
 	transferCharacterDraftInputSchema,
@@ -22,7 +24,14 @@ import {
 	type Character,
 	type CharacterDraft,
 } from '../state/character-state';
+import {
+	applyFieldEdit,
+	ensureCollaboration,
+	resolveFieldConflict,
+	validateFieldEdit,
+} from '../state/character-collaboration';
 import { computeDraftCompleteness, validateDraftStep } from '../state/character-draft-flow';
+import { hasGrantedCapability } from '../permissions/grants';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import {
 	appendOperationDraft,
@@ -574,6 +583,252 @@ export function handleFinalizeCharacterDraft(
 		nextState: { ...charactersWith(state, nextCharacters), sync: draftOp.log },
 		events,
 		operationIds: [draftOp.op.id],
+	};
+}
+
+// --- CHAR-004 / CHAR-005 — collaborative field edits (merge / conflict / attribution) -----------
+
+/**
+ * CHAR-005 — edit ANY character field through a VALIDATED command, attributed in history. CHAR-004 —
+ * a same-path concurrent edit (a stale `baseRevision` against a path another author changed) is
+ * surfaced as a CONFLICT instead of silent last-write-wins; edits to different paths always merge.
+ *
+ * Authority: the DM may edit any field (DM Authority — Contract 3); a character OWNER may edit a
+ * field they hold an `owner`/`backstory-editor`/`combat-participant`-implied capability on AND that
+ * is not DM-only. Fail-closed: a non-owner non-DM is rejected, an unknown/invalid path or value is
+ * rejected, a non-DM editing a DM-only field is rejected (and the rejection does not confirm the
+ * field's existence beyond the generic message). DM edits land on the SAME canonical value — there is
+ * NO separate hidden override layer (CHAR-005 / Contract 2 research conclusion).
+ */
+export function handleEditCharacterField(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+
+	const parsed = parseInput(editCharacterFieldInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const characters = ensureCharacterStateSlice(state.characters);
+	const existing = characters.characters[parsed.data.characterId];
+	if (!existing) {
+		return reject(
+			{ code: 'character-not-found', message: `Character ${parsed.data.characterId} does not exist.` },
+			state,
+		);
+	}
+
+	// Validate the field path + value fail-closed BEFORE any authority decision that could confirm
+	// the field, so an unknown/invalid edit is always rejected the same way.
+	const validation = validateFieldEdit(parsed.data.path, parsed.data.value);
+	if (!validation.ok) {
+		return reject({ code: 'invalid-payload', message: validation.message }, state);
+	}
+
+	// Authority. The DM may edit any field. A non-DM may only edit a field they own AND that is NOT
+	// DM-only (fail closed). The generic rejection does not reveal whether the DM-only field exists.
+	const isDm = actor.role === 'dm';
+	if (!isDm) {
+		const ownsCharacter = hasGrantedCapability(
+			state.permissions,
+			actor,
+			CHARACTER_ENTITY_TYPE,
+			existing.id,
+			'owner',
+		);
+		if (!ownsCharacter) {
+			return reject(
+				{ code: 'actor-not-authorized', message: 'You do not have permission to edit this character.' },
+				state,
+			);
+		}
+		if (existing.dmOnlyFields.includes(validation.path)) {
+			return reject(
+				{ code: 'actor-not-authorized', message: 'You do not have permission to edit this field.' },
+				state,
+			);
+		}
+	}
+
+	const collaboration = ensureCollaboration(existing.collaboration);
+	const now = env.clock();
+	const operationId = env.ids();
+	const result = applyFieldEdit(existing, collaboration, {
+		path: validation.path,
+		value: validation.value,
+		authorActorId: actor.id,
+		authorRole: actor.role,
+		baseRevision: parsed.data.baseRevision,
+	}, {
+		editId: env.ids(),
+		conflictId: env.ids(),
+		now,
+		operationId,
+	});
+
+	if (result.outcome === 'noop') {
+		// Idempotent no-op: the value already matches. Accept without a new revision/op so a repeated
+		// submit does not spuriously bump history; report no operations.
+		return {
+			status: 'accepted',
+			nextState: charactersWith(state, characters),
+			events: [],
+			operationIds: [],
+		};
+	}
+
+	const updatedCharacter: Character = {
+		...result.character,
+		collaboration: result.collaboration,
+	};
+	const nextCharacters = upsertCharacter(characters, updatedCharacter);
+
+	if (result.outcome === 'conflict') {
+		// CHAR-004 AC2 — a durable conflict op is recorded; the canonical value is UNCHANGED (the
+		// concurrent edit did not overwrite). The path is now blocked until the DM resolves it.
+		const op = appendOperationDraft(env, state.sync, actor.id, {
+			entityType: CHARACTER_ENTITY_TYPE,
+			entityId: updatedCharacter.id,
+			opType: 'character.field-conflict',
+			path: `characters/${updatedCharacter.id}/conflicts/${result.conflict.id}`,
+			value: result.conflict,
+			beforeRevision: existing.revision,
+			afterRevision: existing.revision,
+		});
+		const events: CoreEvent[] = [
+			{
+				kind: 'character.field-conflicted',
+				characterId: updatedCharacter.id,
+				conflictId: result.conflict.id,
+				path: result.conflict.path,
+				actorId: actor.id,
+			},
+		];
+		return {
+			status: 'accepted',
+			nextState: { ...charactersWith(state, nextCharacters), sync: op.log },
+			events,
+			operationIds: [op.op.id],
+		};
+	}
+
+	// Applied: one canonical value written + attributed (CHAR-005).
+	const op = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: CHARACTER_ENTITY_TYPE,
+		entityId: updatedCharacter.id,
+		opType: 'character.edit-field',
+		path: `characters/${updatedCharacter.id}/${result.edit.path}`,
+		value: {
+			path: result.edit.path,
+			value: result.edit.value,
+			authorActorId: result.edit.authorActorId,
+			authorRole: result.edit.authorRole,
+		},
+		beforeRevision: existing.revision,
+		afterRevision: updatedCharacter.revision,
+	});
+	const events: CoreEvent[] = [
+		{
+			kind: 'character.field-edited',
+			characterId: updatedCharacter.id,
+			path: result.edit.path,
+			revision: updatedCharacter.revision,
+			authorRole: result.edit.authorRole,
+			actorId: actor.id,
+		},
+	];
+	return {
+		status: 'accepted',
+		nextState: { ...charactersWith(state, nextCharacters), sync: op.log },
+		events,
+		operationIds: [op.op.id],
+	};
+}
+
+/**
+ * CHAR-004 — the DM resolves an unresolved same-path conflict by choosing the local or remote value.
+ * DM-only (Contract 3: conflict resolution is a DM authority). The chosen value becomes the single
+ * canonical value, attributed to the DM, and the conflict is marked resolved with its resolution op
+ * id (Contract 2 Conflict Model rule 7). Fail closed: an unknown/already-resolved conflict is rejected.
+ */
+export function handleResolveCharacterConflict(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(resolveCharacterConflictInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const characters = ensureCharacterStateSlice(state.characters);
+	const existing = characters.characters[parsed.data.characterId];
+	if (!existing) {
+		return reject(
+			{ code: 'character-not-found', message: `Character ${parsed.data.characterId} does not exist.` },
+			state,
+		);
+	}
+
+	const collaboration = ensureCollaboration(existing.collaboration);
+	const now = env.clock();
+	const operationId = env.ids();
+	const resolution = resolveFieldConflict(
+		existing,
+		collaboration,
+		parsed.data.conflictId,
+		parsed.data.choice,
+		actor.id,
+		actor.role,
+		{ editId: env.ids(), conflictId: env.ids(), now, operationId },
+	);
+	if (!resolution.ok) {
+		const code = resolution.error === 'conflict-not-found' ? 'conflict-not-found' : 'invalid-state';
+		return reject({ code, message: resolution.message }, state);
+	}
+
+	const updatedCharacter: Character = {
+		...resolution.character,
+		collaboration: resolution.collaboration,
+	};
+	const nextCharacters = upsertCharacter(characters, updatedCharacter);
+
+	const op = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: CHARACTER_ENTITY_TYPE,
+		entityId: updatedCharacter.id,
+		opType: 'character.resolve-conflict',
+		path: `characters/${updatedCharacter.id}/conflicts/${parsed.data.conflictId}`,
+		value: {
+			conflictId: parsed.data.conflictId,
+			choice: parsed.data.choice,
+			resolvedPath: resolution.resolvedPath,
+			value: resolution.edit.value,
+		},
+		beforeRevision: existing.revision,
+		afterRevision: updatedCharacter.revision,
+	});
+	const events: CoreEvent[] = [
+		{
+			kind: 'character.conflict-resolved',
+			characterId: updatedCharacter.id,
+			conflictId: parsed.data.conflictId,
+			path: resolution.resolvedPath,
+			revision: updatedCharacter.revision,
+			actorId: actor.id,
+		},
+	];
+	return {
+		status: 'accepted',
+		nextState: { ...charactersWith(state, nextCharacters), sync: op.log },
+		events,
+		operationIds: [op.op.id],
 	};
 }
 

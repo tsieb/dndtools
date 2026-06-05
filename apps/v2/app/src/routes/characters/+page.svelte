@@ -5,6 +5,7 @@
 	import CharacterDraftManager from '$lib/gui/CharacterDraftManager.svelte';
 	import CharacterDraftFlow from '$lib/gui/CharacterDraftFlow.svelte';
 	import CharacterRoster from '$lib/gui/CharacterRoster.svelte';
+	import CharacterCollaboration from '$lib/gui/CharacterCollaboration.svelte';
 
 	// CHAR-001 / CHAR-002 / CHAR-013: the Characters section. Which surfaces appear is an ergonomic
 	// role hint (the DM authoring tools for the DM; the guided creation flow for a player who owns a
@@ -34,6 +35,12 @@
 	</p>
 
 	<CharacterRoster />
+
+	<!-- CHAR-004 / CHAR-005 / CHAR-014: collaborative editing is available to the DM and to players who
+	     own a character. Observers see nothing (the core's actor-filtered view returns no characters). -->
+	{#if activeRole === 'dm' || activeRole === 'player'}
+		<CharacterCollaboration />
+	{/if}
 
 	{#if activeRole === 'dm'}
 		<CharacterQuickCreate />

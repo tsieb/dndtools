@@ -1,6 +1,7 @@
 import type { ActorId } from './ids';
 import type { VisibilityLevel } from '../permissions/visibility-filter';
 import { DEFAULT_VISIBILITY, normalizeVisibilityLevel } from '../permissions/visibility-filter';
+import type { CharacterCollaboration } from './character-collaboration';
 
 /**
  * CHAR-001 / CHAR-002 / CHAR-013 — the FOUNDATIONAL character state model.
@@ -110,6 +111,13 @@ export interface Character {
 	revision: number;
 	/** When a PC, the draft id it was finalized from; null for a DM quick-create. */
 	finalizedFromDraftId: string | null;
+	/**
+	 * CHAR-004 / CHAR-005 / CHAR-014 — collaborative-edit sidecar: per-field authorship, append-only
+	 * attributed edit history, and unresolved/resolved same-path conflicts. Optional so a character
+	 * persisted before this slice hydrates safely (absent ⇒ no collaboration metadata). It annotates
+	 * the SINGLE canonical `data`/`combat`/`name` values; it is NOT a second value layer.
+	 */
+	collaboration?: CharacterCollaboration;
 	schemaVersion: typeof CHARACTER_STATE_SCHEMA_VERSION;
 }
 

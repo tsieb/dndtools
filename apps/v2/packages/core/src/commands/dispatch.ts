@@ -74,8 +74,10 @@ import {
 } from './map-annotations';
 import {
 	handleCreateCharacterDraft,
+	handleEditCharacterField,
 	handleFinalizeCharacterDraft,
 	handleQuickCreateCharacter,
+	handleResolveCharacterConflict,
 	handleRevokeCharacterDraft,
 	handleSetCharacterCombat,
 	handleTransferCharacterDraft,
@@ -255,6 +257,10 @@ export function dispatchCommand(
 			return handleUpdateCharacterDraftStep(state, env, command.actorId, command.payload);
 		case 'character.finalize-draft':
 			return handleFinalizeCharacterDraft(state, env, command.actorId, command.payload);
+		case 'character.edit-field':
+			return handleEditCharacterField(state, env, command.actorId, command.payload);
+		case 'character.resolve-conflict':
+			return handleResolveCharacterConflict(state, env, command.actorId, command.payload);
 	}
 }
 

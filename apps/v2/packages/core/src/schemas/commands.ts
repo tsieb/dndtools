@@ -917,6 +917,37 @@ export const finalizeCharacterDraftInputSchema = z
 	})
 	.strict();
 
+// CHAR-004 / CHAR-005 — edit ANY single character field through a VALIDATED command, attributed in
+// history (CHAR-005). The path is a free string here (the reducer validates it against the known
+// editable-path set fail-closed); the value is constrained to the scalar/array shapes a field can
+// hold. `baseRevision` is the revision the editor read before editing: a stale base on a path another
+// author changed concurrently surfaces a same-path CONFLICT rather than silent overwrite (CHAR-004).
+export const editCharacterFieldInputSchema = z
+	.object({
+		characterId: idSchema,
+		path: z.string().min(1),
+		value: z.union([
+			z.string(),
+			z.number(),
+			z.boolean(),
+			z.null(),
+			z.array(z.string().min(1)),
+		]),
+		baseRevision: z.number().int().nonnegative().optional(),
+	})
+	.strict();
+
+// CHAR-004 — the DM resolves an unresolved same-path conflict by selecting the local or remote value.
+// Resolution is itself a validated command that records the chosen value and creates a new revision
+// (Contract 2 Conflict Model rule 7).
+export const resolveCharacterConflictInputSchema = z
+	.object({
+		characterId: idSchema,
+		conflictId: idSchema,
+		choice: z.enum(['local', 'remote']),
+	})
+	.strict();
+
 // CHAR-001 / CHAR-007 (foundation) — set a character's combat field through a validated command so a
 // bound widget refreshes. Restricted to the combat surface; deeper sheet edits land in later epics.
 export const setCharacterCombatInputSchema = z

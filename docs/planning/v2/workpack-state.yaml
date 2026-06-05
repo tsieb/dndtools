@@ -59,6 +59,9 @@ epics:
   - id: CHAR-character-creation-and-drafts
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CHAR-character-creation-and-drafts.completion.md
+  - id: CHAR-collaboration-and-dm-edits
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CHAR-collaboration-and-dm-edits.completion.md
   - id: CMD-active-session-control
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CMD-active-session-control.completion.md
