@@ -196,5 +196,5 @@ Workpack status: `complete` (set via `pnpm v2:workpack:complete -- --epic SES-ha
 ## Git Evidence
 
 - Branch: `epic/SES-handouts-and-tools` (from `efc9d2c`).
-- Commit SHA: recorded in the follow-up docs commit.
-- Final `git status --short`: clean (recorded after the commit below).
+- Commit SHA: `2ab98cd83733a67b1e7eaf2f4e7a0a98cf58a580` (epic work); this docs commit records the SHA.
+- Final `git status --short`: clean (empty) after this docs commit.
