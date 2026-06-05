@@ -192,8 +192,8 @@ Requirement IDs exercised by the demo: SES-001, SES-010, SES-011.
 Workpack status: `complete` (set via `pnpm v2:workpack:complete -- --epic SES-session-lifecycle`).
 
 - Branch: `epic/SES-session-lifecycle` (from `epic/SES-prep-recap-and-calendar-continuity` HEAD `a787520`).
-- Implementation commit SHA: recorded in the follow-up docs commit below.
-- Final `git status --short`: clean (after the docs commit recording the SHA).
+- Implementation commit SHA: `c00632260ed6ffc633824807f51c20ff534cf4a6`.
+- Final `git status --short`: clean (after this docs commit recording the SHA).
 
 Final `git status --short` after the implementation commit:
 
