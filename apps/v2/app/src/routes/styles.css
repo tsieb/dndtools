@@ -91,6 +91,44 @@ body {
 	margin: 0 auto;
 }
 
+/* NAV-004: the route landmark is a programmatic focus target on a normal route
+   transition. It is not an interactive control, so suppress the focus outline that
+   would otherwise flash on every navigation; heading anchors keep their own outline. */
+.app-main:focus {
+	outline: none;
+}
+
+/* NAV-004: keep a hash-anchored heading clear of the top edge when it is scrolled
+   into view via a deep link. */
+.app-main :is(h1, h2, h3, h4):target,
+.app-main :is(h1, h2, h3, h4):focus {
+	scroll-margin-top: 1.5rem;
+}
+
+/* Atlas map deep-link surface (NAV-005). */
+.atlas .map-viewport {
+	padding: 1rem;
+	border: 1px solid var(--border);
+	border-radius: 0.5rem;
+	margin-bottom: 1rem;
+}
+.atlas .unavailable {
+	padding: 1rem;
+	border: 1px solid var(--border);
+	border-radius: 0.5rem;
+	margin-bottom: 1rem;
+}
+.atlas .map-list {
+	list-style: none;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+.atlas .map-list .poi-link {
+	margin-left: 0.75rem;
+}
+
 /* Contextual navigation subheader (NAV-003): breadcrumbs, local section nav,
    backlinks/related, and pinned/recent — all derived from the single current route. */
 .nav-subheader {

@@ -317,6 +317,41 @@ export {
 } from './queries/navigation-view';
 
 export type {
+	AliasRouteDescriptor,
+	RouteAliasAuditInput,
+	RouteAliasRedirect,
+	RouteAliasRequest,
+	RouteAliasSearchParam,
+	RouteAliasStubProblem,
+	RouteAliasTableEntry,
+} from './queries/route-aliases';
+export {
+	auditRouteAliasStubs,
+	buildRouteAliasTable,
+	listAliasRoutes,
+	resolveRouteAlias,
+} from './queries/route-aliases';
+
+export type {
+	HeadingAnchorFocusTarget,
+	RouteFocusInput,
+	RouteFocusTarget,
+	RouteLandmarkFocusTarget,
+} from './queries/route-focus';
+export { resolveRouteFocus } from './queries/route-focus';
+
+export type {
+	DeepLinkEntityType,
+	DeepLinkResolution,
+	DeepLinkRestore,
+	DeepLinkStateView,
+	DeepLinkTarget,
+	DeepLinkUnavailable,
+	DeepLinkUnavailableReason,
+} from './queries/deep-links';
+export { DEEP_LINK_UNAVAILABLE_MESSAGE, resolveDeepLink } from './queries/deep-links';
+
+export type {
 	CommandCategory,
 	PaletteCommand,
 	PaletteCoreCommand,

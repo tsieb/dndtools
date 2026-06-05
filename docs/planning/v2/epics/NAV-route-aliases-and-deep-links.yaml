@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: NAV-route-aliases-and-deep-links
 title: "NAV: Route aliases and deep links"
-status: approved
+status: complete
 approved: true
 domain: NAV
 capabilityBranch: Route aliases and deep links
@@ -184,3 +184,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/NAV-route-aliases-and-deep-links.completion.md

@@ -63,7 +63,20 @@ function discoverScaffoldedRoutes(): string[] {
 describe('NAV-006 AC2 route audit gate', () => {
 	it('discovers the expected prototype route roots', () => {
 		const routes = discoverScaffoldedRoutes().sort();
-		expect(routes).toEqual(['/', '/scene', '/scenes', '/settings']);
+		// Canonical section routes plus the released-section legacy alias redirect stubs
+		// (NAV-002): /canvas→/scenes, /home→/, /map,/maps→/atlas, /preferences→/settings.
+		expect(routes).toEqual([
+			'/',
+			'/atlas',
+			'/canvas',
+			'/home',
+			'/map',
+			'/maps',
+			'/preferences',
+			'/scene',
+			'/scenes',
+			'/settings',
+		]);
 	});
 
 	it('every scaffolded route maps to canonical IA metadata (gate passes)', () => {

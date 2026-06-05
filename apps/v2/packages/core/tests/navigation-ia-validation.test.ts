@@ -52,7 +52,7 @@ function section(overrides: Partial<CanonicalNavigationSection> = {}): Canonical
  * The app's route-audit gate (tests/unit/route-audit.test.ts) derives this set from the
  * filesystem; here it is stated explicitly so the audit semantics are unit-tested too.
  */
-const SCAFFOLDED_ROUTES = ['/', '/scene', '/scenes', '/settings'];
+const SCAFFOLDED_ROUTES = ['/', '/atlas', '/scene', '/scenes', '/settings'];
 
 describe('NAV-006 IA-review includes task fit (AC1)', () => {
 	it('the shipped registry passes the IA-review validator', () => {
@@ -145,7 +145,9 @@ describe('NAV-006 route audit (AC2)', () => {
 
 	it('normalizes trailing slashes when matching scaffolded routes to IA owners', () => {
 		expect(
-			auditNavigationRoutes({ scaffoldedRoutes: ['/', '/scene/', '/scenes/', '/settings/'] }),
+			auditNavigationRoutes({
+				scaffoldedRoutes: ['/', '/atlas/', '/scene/', '/scenes/', '/settings/'],
+			}),
 		).toEqual([]);
 	});
 
@@ -170,11 +172,12 @@ describe('NAV-006 route audit (AC2)', () => {
 	});
 
 	it('does not require planned sections to have scaffolded routes', () => {
-		// Knowledge/Atlas/etc. are approved IA but not yet built; the audit must not demand
-		// their routes exist, only that scaffolded routes have IA owners.
+		// Knowledge/Session/etc. are approved IA but not yet built; the audit must not
+		// demand their routes exist, only that scaffolded routes have IA owners. (Atlas is
+		// now released for the map deep-link surface, so it is no longer in this set.)
 		const problems = auditNavigationRoutes({ scaffoldedRoutes: SCAFFOLDED_ROUTES });
 		expect(problems.some((p) => p.sectionId === 'knowledge')).toBe(false);
-		expect(problems.some((p) => p.sectionId === 'atlas')).toBe(false);
+		expect(problems.some((p) => p.sectionId === 'session')).toBe(false);
 	});
 
 	it('fails the route audit when the IA registry itself is invalid', () => {

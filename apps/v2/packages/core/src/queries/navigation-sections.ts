@@ -128,8 +128,10 @@ export interface CanonicalNavigationSection {
  * Order is the canonical IA order: the Command Center home, the Scenes authoring
  * surface, then the approved content/play sections (Knowledge, Atlas, Session,
  * Campaign, Characters, Audio, MCP), and finally Settings. The released subset —
- * Command Center, Scenes, Settings — is what the prototype renders today; the rest are
- * declared as approved IA with `releaseStatus: 'planned'`.
+ * Command Center, Scenes, Atlas, Settings — is what the prototype renders today; the
+ * rest are declared as approved IA with `releaseStatus: 'planned'`. Atlas is released
+ * as the map deep-link landing surface (NAV-005); its authoring/local-nav UI is still
+ * owned by the MAP feature epics.
  */
 export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[] = Object.freeze([
 	{
@@ -204,7 +206,7 @@ export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[
 			kind: 'map-list',
 			description: 'The map list and the open map’s layers, visibility-filtered per actor.',
 		},
-		releaseStatus: 'planned',
+		releaseStatus: 'released',
 		keywords: ['atlas', 'maps', 'map', 'world', 'regions'],
 		category: 'navigation',
 		home: false,

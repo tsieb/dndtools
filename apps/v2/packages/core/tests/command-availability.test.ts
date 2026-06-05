@@ -39,7 +39,12 @@ function accept(result: CommandResult): Extract<CommandResult, { status: 'accept
 
 /** A vault with the Command Center home configured plus a DM-only and a
  *  player-visible scene, so visibility filtering has something to filter. */
-function vaultWithScenes(): { env: CoreEnvironment; state: CoreStateSlice; dmSceneId: string; playerSceneId: string } {
+function vaultWithScenes(): {
+	env: CoreEnvironment;
+	state: CoreStateSlice;
+	dmSceneId: string;
+	playerSceneId: string;
+} {
 	const env = makeEnvironment();
 	let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
 	state = accept(
@@ -67,9 +72,11 @@ function vaultWithScenes(): { env: CoreEnvironment; state: CoreStateSlice; dmSce
 		}),
 	);
 	state = player.nextState;
-	const playerSceneId = (player.events.find((e) => e.kind === 'scene.created') as {
-		sceneId: string;
-	}).sceneId;
+	const playerSceneId = (
+		player.events.find((e) => e.kind === 'scene.created') as {
+			sceneId: string;
+		}
+	).sceneId;
 	return { env, state, dmSceneId, playerSceneId };
 }
 
@@ -80,7 +87,8 @@ describe('NAV-010 actor-filtered navigation availability', () => {
 	it('gives the DM every section', () => {
 		const state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
 		const ids = listNavigationSections(state.permissions, DM_ACTOR.id).map((s) => s.id);
-		expect(ids).toEqual(['command-center', 'scenes', 'settings']);
+		// Atlas is now released (the map deep-link surface, available to all roles).
+		expect(ids).toEqual(['command-center', 'scenes', 'atlas', 'settings']);
 	});
 
 	it('hides DM-only sections from players and observers without leaking them', () => {
@@ -89,10 +97,10 @@ describe('NAV-010 actor-filtered navigation availability', () => {
 		const observerIds = listNavigationSections(state.permissions, OBSERVER_ACTOR.id).map(
 			(s) => s.id,
 		);
-		// Command Center (home) and Settings are reachable; the DM-only Scenes authoring
-		// section is absent entirely (NAV-009 AC2, NAV-010 AC1).
-		expect(playerIds).toEqual(['command-center', 'settings']);
-		expect(observerIds).toEqual(['command-center', 'settings']);
+		// Command Center (home), the all-roles Atlas, and Settings are reachable; the
+		// DM-only Scenes authoring section is absent entirely (NAV-009 AC2, NAV-010 AC1).
+		expect(playerIds).toEqual(['command-center', 'atlas', 'settings']);
+		expect(observerIds).toEqual(['command-center', 'atlas', 'settings']);
 		expect(playerIds).not.toContain('scenes');
 	});
 

@@ -6,6 +6,7 @@
 		listReachableDestinations,
 		resolveNavigationView,
 		resolveRouteAccessibility,
+		resolveRouteFocus,
 	} from '@dndtools/v2-core';
 	import { SceneRuntime, defaultEnvironment } from '$lib/canvas-runtime/runtime.svelte';
 	import { provideRuntime } from '$lib/state/runtime-context';
@@ -69,17 +70,48 @@
 		document.title = routeA11y.documentTitle;
 	});
 
-	// NAV-007 AC2: announce a completed route change to assistive technology. The
-	// announcement only changes when the route does, so it does not fire on unrelated
-	// reactive updates. It is held one tick behind the polite live region's initial mount
-	// so screen readers register the change rather than the first paint.
+	// NAV-004 + NAV-007 AC2: restore focus and announce after a navigation completes.
+	// The Processing Core decides *what* receives focus (Contract 1): a URL with a heading
+	// hash keeps the heading scroll target active and suppresses the landmark announcement
+	// (NAV-004 AC1), while a normal transition focuses the route landmark and announces
+	// the route (NAV-004 AC2 / NAV-007 AC2). The GUI only applies the returned target.
 	let routeAnnouncement = $state('');
-	let lastAnnouncedHeading = '';
+	let landmarkEl = $state<HTMLElement | null>(null);
+	let lastFocusKey = '';
 	$effect(() => {
-		const next = routeA11y.announcement;
-		if (next === lastAnnouncedHeading) return;
-		lastAnnouncedHeading = next;
-		routeAnnouncement = next;
+		// Re-run on every route + hash change. Build a key so an unrelated reactive update
+		// (e.g. a "view as" switch on the same URL) does not re-steal focus or re-announce.
+		const path = page.url.pathname;
+		const hash = page.url.hash;
+		const announcement = routeA11y.announcement;
+		const focusKey = `${path}${hash}::${announcement}`;
+		if (focusKey === lastFocusKey) return;
+		lastFocusKey = focusKey;
+
+		const focus = resolveRouteFocus({ hash, isNavigation: true });
+		// Announce only when the core says to: a within-page heading jump does not
+		// re-announce the route landmark (NAV-004 AC1).
+		routeAnnouncement = focus.announceRoute ? announcement : '';
+
+		untrack(() => {
+			if (focus.kind === 'heading-anchor') {
+				// Preserve the heading scroll target: focus and scroll the heading the hash
+				// names instead of the landmark (NAV-004 AC1). The browser also handles the
+				// native hash scroll; this makes the target programmatically focused for
+				// keyboard/AT users without the landmark stealing it.
+				const target = document.getElementById(focus.anchorId);
+				if (target) {
+					if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+					target.focus({ preventScroll: false });
+					target.scrollIntoView();
+				}
+			} else if (landmarkEl) {
+				// Normal route transition: focus the route landmark (NAV-004 AC2). Scroll to
+				// the top so back/forward to a non-hash URL starts at the route's landmark.
+				landmarkEl.focus({ preventScroll: true });
+				window.scrollTo({ top: 0 });
+			}
+		});
 	});
 	const currentEntry = $derived.by(() => {
 		const crumb = navView.breadcrumbs.at(-1);
@@ -150,7 +182,9 @@
 </div>
 
 <main
+	bind:this={landmarkEl}
 	class="app-main"
+	tabindex="-1"
 	data-testid="route-landmark"
 	data-section-landmark={routeA11y.landmark}
 	aria-label={routeA11y.landmarkLabel}

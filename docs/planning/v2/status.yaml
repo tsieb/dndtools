@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 75
+  approved: 74
   active: 0
-  complete: 13
+  complete: 14
   deferred: 0
 metrics:
-  epicCompletionPercent: 14.8
-  requirementCompletionPercent: 14.1
+  epicCompletionPercent: 15.9
+  requirementCompletionPercent: 15.4
   totalRequirements: 234
-  completedRequirements: 33
+  completedRequirements: 36
   deferredRequirements: 0
-  remainingEpics: 75
-  promptableEpics: 75
+  remainingEpics: 74
+  promptableEpics: 74
   blockedByDependencies: 0
-  completionEvidenceFiles: 13
+  completionEvidenceFiles: 14
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -122,13 +122,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: NAV
       totalEpics: 5
-      complete: 4
+      complete: 5
       active: 0
-      approved: 1
+      approved: 0
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 80
-      requirementCompletionPercent: 70
+      epicCompletionPercent: 100
+      requirementCompletionPercent: 100
     - domain: PERF
       totalEpics: 4
       complete: 0
@@ -193,17 +193,17 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: NAV-route-aliases-and-deep-links
-  title: "NAV: Route aliases and deep links"
+  id: PLAT-migration-and-diagnostics
+  title: "PLAT: Migration and diagnostics"
   status: approved
   requirementIds:
-    - NAV-002
-    - NAV-004
-    - NAV-005
-  promptCommand: pnpm v2:prompt -- --epic NAV-route-aliases-and-deep-links
+    - PLAT-008
+    - PLAT-009
+    - PLAT-017
+  promptCommand: pnpm v2:prompt -- --epic PLAT-migration-and-diagnostics
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    NAV-route-aliases-and-deep-links --status active
+    PLAT-migration-and-diagnostics --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -578,12 +578,13 @@ epics:
       - NAV-007
     completionEvidenceFile: docs/planning/v2/epics/NAV-ia-validation-and-accessibility-semantics.completion.md
   - id: NAV-route-aliases-and-deep-links
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - NAV-002
       - NAV-004
       - NAV-005
+    completionEvidenceFile: docs/planning/v2/epics/NAV-route-aliases-and-deep-links.completion.md
   - id: PERF-budget-ownership-and-measurement
     status: approved
     approved: true

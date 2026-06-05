@@ -61,9 +61,9 @@ function audienceOf(availability: SectionActorAvailability): NavigationAudience 
 
 /**
  * The prototype's *released* top-level navigation sections, in canonical order:
- * Command Center (home), the DM-only Scenes authoring surface, and Settings. Derived
- * from the canonical registry so the released runtime nav and the approved IA can
- * never drift.
+ * Command Center (home), the DM-only Scenes authoring surface, the Atlas map deep-link
+ * surface, and Settings. Derived from the canonical registry so the released runtime
+ * nav and the approved IA can never drift.
  */
 export const NAVIGATION_SECTIONS: readonly NavigationSectionDef[] = Object.freeze(
 	CANONICAL_NAVIGATION_SECTIONS.filter((section) => section.releaseStatus === 'released').map(
