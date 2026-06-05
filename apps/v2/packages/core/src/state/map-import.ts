@@ -83,7 +83,9 @@ export function createMapImportAdapterRegistry(
 			throw new Error('Map import adapter descriptor is missing a formatId.');
 		}
 		if (byFormat.has(descriptor.formatId)) {
-			throw new Error(`Map import adapter for format "${descriptor.formatId}" is registered twice.`);
+			throw new Error(
+				`Map import adapter for format "${descriptor.formatId}" is registered twice.`,
+			);
 		}
 		byFormat.set(descriptor.formatId, descriptor);
 	}
@@ -390,9 +392,10 @@ export function stageMapImport(state: MapState, input: StageMapImportInput): Sta
 		const existing = state.maps[input.mapId]!;
 		mapId = existing.id;
 		mapCreated = false;
-		const assetIds = asset && !existing.assetIds.includes(asset.id)
-			? [...existing.assetIds, asset.id]
-			: existing.assetIds;
+		const assetIds =
+			asset && !existing.assetIds.includes(asset.id)
+				? [...existing.assetIds, asset.id]
+				: existing.assetIds;
 		const updated: MapEntity = {
 			...existing,
 			assetIds,
@@ -419,6 +422,8 @@ export function stageMapImport(state: MapState, input: StageMapImportInput): Sta
 			layers: [importedBaseLayer(input.importedBy, input.importedAt)],
 			regions: [],
 			assetIds: asset ? [asset.id] : [],
+			// MAP-008: a freshly imported map embeds nothing until the DM nests it.
+			embeds: [],
 			defaultRegionId: null,
 			updatedAt: input.importedAt,
 			revision: 1,

@@ -561,6 +561,57 @@ export const generateMapLayersInputSchema = z
 	})
 	.strict();
 
+// MAP-008 / MAP-017 — embed a child map inside a parent at a configured transform + transition.
+// The transform is validated fail-closed (finite position, positive scale, finite rotation) and the
+// threshold is bounded to (0, 1]. The CYCLE and MAX-DEPTH checks are graph-level and run in the
+// reducer (`state/map-nesting.ts`) against the whole map graph, not here. The embed stores ONLY the
+// child id — never the child's name/content — so the child's independent permission model is preserved.
+const mapEmbedTransformSchema = z
+	.object({
+		position: z.object({ x: z.number().finite(), y: z.number().finite() }).strict(),
+		// Positive scale keeps the child↔parent transform invertible (no degenerate footprint).
+		scale: z.number().finite().positive(),
+		rotationDegrees: z.number().finite().default(0),
+	})
+	.strict();
+
+const mapTransitionBehaviorSchema = z.enum(['zoom', 'instant', 'fade']);
+
+export const embedChildMapInputSchema = z
+	.object({
+		parentMapId: idSchema,
+		childMapId: idSchema,
+		transform: mapEmbedTransformSchema,
+		transitionBehavior: mapTransitionBehaviorSchema.default('zoom'),
+		// Defaulted in the handler when omitted; bounded to (0, 1] when present.
+		transitionThreshold: z.number().finite().gt(0).max(1).optional(),
+	})
+	.strict();
+
+export const updateMapEmbedInputSchema = z
+	.object({
+		parentMapId: idSchema,
+		embedId: idSchema,
+		transform: mapEmbedTransformSchema.optional(),
+		transitionBehavior: mapTransitionBehaviorSchema.optional(),
+		transitionThreshold: z.number().finite().gt(0).max(1).optional(),
+	})
+	.strict()
+	.refine(
+		(value) =>
+			value.transform !== undefined ||
+			value.transitionBehavior !== undefined ||
+			value.transitionThreshold !== undefined,
+		{ message: 'Provide at least one of transform, transitionBehavior, or transitionThreshold.' },
+	);
+
+export const removeMapEmbedInputSchema = z
+	.object({
+		parentMapId: idSchema,
+		embedId: idSchema,
+	})
+	.strict();
+
 // PERM-004: grant ONE named capability set to ONE player on ONE entity. The capability set is a
 // named string validated against the per-entity-type system schema in the reducer (PERM-005), NOT a
 // raw field list — the schema only constrains shape here. Expiry is optional ISO; absent ⇒ never

@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: MAP-nesting-and-spatial-transitions
 title: "MAP: Nesting and spatial transitions"
-status: approved
+status: complete
 approved: true
 domain: MAP
 capabilityBranch: Nesting and spatial transitions
@@ -189,3 +189,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/MAP-nesting-and-spatial-transitions.completion.md

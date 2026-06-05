@@ -70,6 +70,66 @@ export type {
 	MapScale,
 	MapState,
 } from './state/map-state';
+
+// MAP-008 / MAP-017: the durable map NESTING model — typed embed reference + 2D affine transform
+// math + graph integrity. An embed references the child BY ID (never a copy), so the child keeps its
+// own independent layers + visibility/permission model. Pure Processing-Core policy: cycle detection,
+// max-depth enforcement, ancestor/descendant walks, and transform composition/inversion are
+// deterministic functions; the GUI/renderer (deferred per ADR-014) consumes the computed model.
+export type {
+	AddEmbedRequest,
+	AffineMatrix,
+	MapEmbed,
+	MapEmbedTransform,
+	MapNestingError,
+	MapTransitionBehavior,
+	Point2D,
+	UpdateEmbedPatch,
+} from './state/map-nesting';
+export {
+	DEFAULT_TRANSITION_THRESHOLD,
+	IDENTITY_MATRIX,
+	MAX_NESTING_DEPTH,
+	SUPPORTED_TRANSITION_BEHAVIORS,
+	addEmbed,
+	ancestorMapIds,
+	applyMatrix,
+	composeChain,
+	composeMatrix,
+	depthFromRoot,
+	descendantMapIds,
+	directChildMapIds,
+	embedTransformToMatrix,
+	invertMatrix,
+	longestPathFromAnyRoot,
+	matrixDeterminant,
+	removeEmbed,
+	subtreeDepth,
+	updateEmbed,
+	validateAddEmbed,
+	validateEmbedTransform,
+	validateTransitionThreshold,
+} from './state/map-nesting';
+
+// MAP-009 / MAP-017: the LOGICAL parent↔child viewport-transition model + non-leaking child-embed
+// resolution. Visibility-filtered: a participant can only transition into a child they can see; a
+// hidden/deleted/missing child collapses to ONE generic `unavailable` (indistinguishable, no
+// name/content leak — same contract as the NAV deep-link resolver). Per ADR-014 this is the logical
+// model only (no animation); the GUI reflects the computed viewport.
+export type {
+	MapChildUnavailableReason,
+	MapTransition,
+	MapViewport,
+	ResolvedEmbed,
+} from './queries/map-transition';
+export {
+	FULL_MAP_VIEWPORT,
+	MAP_CHILD_UNAVAILABLE_MESSAGE,
+	computeTransitionIntoChild,
+	computeTransitionToParent,
+	projectPointThroughChain,
+	resolveEmbedsForActor,
+} from './queries/map-transition';
 export {
 	DEFAULT_MAP_PROJECTION,
 	EMPTY_MAP_STATE,
@@ -308,6 +368,7 @@ export {
 	dockWidgetInputSchema,
 	duplicateMapLayerInputSchema,
 	dispatchWidgetCommandInputSchema,
+	embedChildMapInputSchema,
 	editMapLayerInputSchema,
 	enableWidgetPackageInputSchema,
 	generateMapLayersInputSchema,
@@ -328,10 +389,12 @@ export {
 	renameMapLayerInputSchema,
 	reorderMapLayerInputSchema,
 	recordSessionDiceInputSchema,
+	removeMapEmbedInputSchema,
 	revokeGrantInputSchema,
 	revokePlayerViewInputSchema,
 	resizeWidgetInputSchema,
 	transferOwnershipInputSchema,
+	updateMapEmbedInputSchema,
 	saveCommandCenterPresetInputSchema,
 	saveSceneTemplateInputSchema,
 	setActiveMapInputSchema,

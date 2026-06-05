@@ -80,6 +80,9 @@ epics:
   - id: MAP-map-entity-and-assets
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MAP-map-entity-and-assets.completion.md
+  - id: MAP-nesting-and-spatial-transitions
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/MAP-nesting-and-spatial-transitions.completion.md
   - id: NAV-command-palette-and-actor-filtering
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/NAV-command-palette-and-actor-filtering.completion.md

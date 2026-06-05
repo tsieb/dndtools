@@ -55,6 +55,7 @@ import {
 } from './map-layer';
 import { handleEditMapLayer, handleGenerateMapLayers } from './map-editing';
 import { handleCommitMapImport, handleCreateMap, handleImportMapAsset } from './map-entity';
+import { handleEmbedChildMap, handleRemoveMapEmbed, handleUpdateMapEmbed } from './map-nesting';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 
 export function dispatchCommand(
@@ -181,6 +182,12 @@ export function dispatchCommand(
 				command.payload,
 				env.mapImportAdapters ?? EMPTY_MAP_IMPORT_ADAPTER_REGISTRY,
 			);
+		case 'map.embed-child':
+			return handleEmbedChildMap(state, env, command.actorId, command.payload);
+		case 'map.update-embed':
+			return handleUpdateMapEmbed(state, env, command.actorId, command.payload);
+		case 'map.remove-embed':
+			return handleRemoveMapEmbed(state, env, command.actorId, command.payload);
 	}
 }
 

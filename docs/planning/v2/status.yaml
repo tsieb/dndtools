@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 62
+  approved: 61
   active: 0
-  complete: 26
+  complete: 27
   deferred: 0
 metrics:
-  epicCompletionPercent: 29.5
-  requirementCompletionPercent: 33.3
+  epicCompletionPercent: 30.7
+  requirementCompletionPercent: 34.6
   totalRequirements: 234
-  completedRequirements: 78
+  completedRequirements: 81
   deferredRequirements: 0
-  remainingEpics: 62
-  promptableEpics: 62
+  remainingEpics: 61
+  promptableEpics: 61
   blockedByDependencies: 0
-  completionEvidenceFiles: 26
+  completionEvidenceFiles: 27
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -104,13 +104,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: MAP
       totalEpics: 6
-      complete: 4
+      complete: 5
       active: 0
-      approved: 2
+      approved: 1
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 66.7
-      requirementCompletionPercent: 50
+      epicCompletionPercent: 83.3
+      requirementCompletionPercent: 65
     - domain: MCP
       totalEpics: 5
       complete: 0
@@ -193,17 +193,21 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: MAP-nesting-and-spatial-transitions
-  title: "MAP: Nesting and spatial transitions"
+  id: MAP-pois-routes-fog-and-combat-overlays
+  title: "MAP: POIs, routes, fog, and combat overlays"
   status: approved
   requirementIds:
-    - MAP-008
-    - MAP-009
-    - MAP-017
-  promptCommand: pnpm v2:prompt -- --epic MAP-nesting-and-spatial-transitions
+    - MAP-010
+    - MAP-011
+    - MAP-012
+    - MAP-013
+    - MAP-014
+    - MAP-018
+    - MAP-019
+  promptCommand: pnpm v2:prompt -- --epic MAP-pois-routes-fog-and-combat-overlays
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    MAP-nesting-and-spatial-transitions --status active
+    MAP-pois-routes-fog-and-combat-overlays --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -504,12 +508,13 @@ epics:
       - MAP-020
     completionEvidenceFile: docs/planning/v2/epics/MAP-map-entity-and-assets.completion.md
   - id: MAP-nesting-and-spatial-transitions
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - MAP-008
       - MAP-009
       - MAP-017
+    completionEvidenceFile: docs/planning/v2/epics/MAP-nesting-and-spatial-transitions.completion.md
   - id: MAP-pois-routes-fog-and-combat-overlays
     status: approved
     approved: true

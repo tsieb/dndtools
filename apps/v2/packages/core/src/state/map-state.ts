@@ -1,5 +1,6 @@
 import type { SceneVisibility } from './scene-state';
 import type { MapAsset } from './map-assets';
+import type { MapEmbed } from './map-nesting';
 
 export const MAP_STATE_SCHEMA_VERSION = 1 as const;
 
@@ -145,6 +146,14 @@ export interface MapEntity {
 	 * so the SAME bytes referenced by two maps are a single deduplicated asset record.
 	 */
 	assetIds: string[];
+	/**
+	 * MAP-008 — child maps embedded in THIS map, each as a typed reference + transform (NOT a copy of
+	 * the child). The child entity is resolved live from `MapState.maps`, so the child keeps its own
+	 * independent layers and visibility/permission model (MAP-008 AC2). A missing/hidden child resolves
+	 * to a generic unavailable state at the query layer (MAP-017 AC3); the durable embed itself only
+	 * ever stores the child id, never the child's name or content. See `state/map-nesting.ts`.
+	 */
+	embeds: MapEmbed[];
 	defaultRegionId: string | null;
 	updatedAt: string;
 	revision: number;
@@ -178,8 +187,8 @@ export const EMPTY_MAP_STATE: MapState = Object.freeze({
  * are an empty list.
  */
 export function normalizeMapEntity(
-	map: Omit<MapEntity, 'scale' | 'projection' | 'assetIds'> &
-		Partial<Pick<MapEntity, 'scale' | 'projection' | 'assetIds'>>,
+	map: Omit<MapEntity, 'scale' | 'projection' | 'assetIds' | 'embeds'> &
+		Partial<Pick<MapEntity, 'scale' | 'projection' | 'assetIds' | 'embeds'>>,
 ): MapEntity {
 	return {
 		id: map.id,
@@ -191,6 +200,12 @@ export function normalizeMapEntity(
 		layers: map.layers,
 		regions: map.regions,
 		assetIds: [...(map.assetIds ?? [])],
+		// MAP-008: a pre-nesting persisted map has no embeds; default to an empty list (fail closed —
+		// no implicit child links) so older records stay readable without a destructive migration.
+		embeds: (map.embeds ?? []).map((embed) => ({
+			...embed,
+			transform: { ...embed.transform, position: { ...embed.transform.position } },
+		})),
 		defaultRegionId: map.defaultRegionId,
 		updatedAt: map.updatedAt,
 		revision: map.revision,
@@ -259,6 +274,19 @@ export function createDemoMapState(now = '2026-06-03T00:00:00.000Z'): MapState {
 			scale: { unitsPerMap: 120, unit: 'miles' },
 			projection: { kind: 'flat', rotationDegrees: 0 },
 			assetIds: [],
+			// MAP-008 / MAP-017: this player-visible region map embeds a DM-ONLY child (the hidden
+			// outpost) at a configured transform. The child keeps its own visibility, so a player sees
+			// only a generic "unavailable area" placeholder here while the DM sees the child name — a
+			// live proof of MAP-008 AC2 / MAP-017 AC3 (no hidden child name/content leaks to a player).
+			embeds: [
+				{
+					id: 'embed-hidden-outpost',
+					childMapId: 'map-hidden-outpost',
+					transform: { position: { x: 0.55, y: 0.22 }, scale: 0.25, rotationDegrees: 0 },
+					transitionBehavior: 'zoom',
+					transitionThreshold: 0.6,
+				},
+			],
 			defaultRegionId: 'region-north-road',
 			updatedAt: now,
 			revision: 1,
@@ -374,6 +402,44 @@ export function createDemoMapState(now = '2026-06-03T00:00:00.000Z'): MapState {
 						query: { type: 'poi' },
 					},
 					2,
+				),
+			],
+		}),
+		// MAP-008 / MAP-017: the DM-ONLY child embedded in the player-visible Western Reaches above. It
+		// keeps its OWN independent dm-only visibility and layers; a player can never read it through the
+		// parent (the nested area renders as a generic unavailable placeholder for them).
+		normalizeMapEntity({
+			id: 'map-hidden-outpost',
+			name: 'Hidden Outpost',
+			description: 'A secret staging camp the DM has not revealed to the party.',
+			visibility: 'dm-only',
+			scale: { unitsPerMap: 2, unit: 'miles' },
+			projection: { kind: 'flat', rotationDegrees: 0 },
+			assetIds: [],
+			embeds: [],
+			defaultRegionId: 'region-outpost-yard',
+			updatedAt: now,
+			revision: 1,
+			regions: [
+				{
+					id: 'region-outpost-yard',
+					name: 'Outpost Yard',
+					bounds: { x: 0.1, y: 0.1, w: 0.4, h: 0.4 },
+				},
+			],
+			layers: [
+				normalizeMapLayer(
+					{
+						id: 'layer-outpost-base',
+						name: 'Outpost Base',
+						category: 'base',
+						visibility: 'dm-only',
+						enabled: true,
+						opacity: 1,
+						tags: ['type:base'],
+						query: { type: 'base' },
+					},
+					0,
 				),
 			],
 		}),

@@ -144,7 +144,13 @@ export type CoreCommand =
 	// MAP-002: import a native image/SVG as a content-addressed map asset.
 	| { type: 'map.import-asset'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// MAP-020: commit a previewed import as a transaction (rollback-safe, no partial commit).
-	| { type: 'map.commit-import'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'map.commit-import'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-008 / MAP-017: embed a child map in a parent (cycle + depth fail-closed in the reducer).
+	| { type: 'map.embed-child'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-008: update an embed's transform / transition behavior / threshold.
+	| { type: 'map.update-embed'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-008: remove an embed (never deletes the child map).
+	| { type: 'map.remove-embed'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -279,6 +285,14 @@ export type CoreEvent =
 	  }
 	| { kind: 'map.created'; mapId: string; actorId: ActorId }
 	| {
+			kind: 'map.embed-changed';
+			parentMapId: string;
+			embedId: string;
+			childMapId: string;
+			mutation: 'embed' | 'update' | 'remove';
+			actorId: ActorId;
+	  }
+	| {
 			kind: 'map.import-committed';
 			mapId: string;
 			mapCreated: boolean;
@@ -305,7 +319,11 @@ export type RejectionCode =
 	| 'conflicted-target'
 	| 'template-source-not-template'
 	| 'command-center-not-configured'
-	| 'preset-not-found';
+	| 'preset-not-found'
+	// MAP-017 — nesting integrity rejections (cycle / depth bound), kept fail-closed and distinct so
+	// the DM authoring UI can explain exactly why an embed was refused.
+	| 'nesting-cycle'
+	| 'nesting-max-depth';
 
 export interface CommandRejection {
 	code: RejectionCode;

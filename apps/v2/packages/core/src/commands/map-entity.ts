@@ -111,6 +111,8 @@ export function handleCreateMap(
 		layers,
 		regions: [],
 		assetIds: [],
+		// MAP-008: a freshly created map embeds no child until the DM nests one (map.embed-child).
+		embeds: [],
 		defaultRegionId: null,
 		updatedAt: now,
 		revision: 1,
@@ -235,7 +237,14 @@ export function handleCommitMapImport(
 		return reject({ code: importRejectionCode(preview.reason), message: preview.message }, state);
 	}
 
-	return commitStagedImport(state, env, dm.actorId, preview, parsed.data.mapId, parsed.data.mapName);
+	return commitStagedImport(
+		state,
+		env,
+		dm.actorId,
+		preview,
+		parsed.data.mapId,
+		parsed.data.mapName,
+	);
 }
 
 /** Shared commit tail for both asset import and full import: stage, append the op, emit the event. */

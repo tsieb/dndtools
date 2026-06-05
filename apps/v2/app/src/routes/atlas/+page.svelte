@@ -4,6 +4,7 @@
 	import { useRuntime } from '$lib/state/runtime-context';
 	import MapPoiControl from '$lib/gui/MapPoiControl.svelte';
 	import MapLayerPanel from '$lib/gui/MapLayerPanel.svelte';
+	import MapNestedAreas from '$lib/gui/MapNestedAreas.svelte';
 	import MapAuthoringPanel from '$lib/gui/MapAuthoringPanel.svelte';
 
 	const runtime = useRuntime();
@@ -105,6 +106,12 @@
 				     axes; a player/observer sees only the layers visible to them (the panel renders
 				     from the actor-filtered layer query, so a dm-only layer never appears here). -->
 				<MapLayerPanel mapId={resolution.entityId} />
+
+				<!-- MAP-008 / MAP-009 / MAP-017: the nested-areas surface. A child map embedded in this
+				     one shows as a named, zoom-able area to actors who may see it, and as a single generic
+				     unavailable placeholder (no name/content leak) to actors who may not — so a DM-only
+				     child of a player-visible parent never leaks through nesting. -->
+				<MapNestedAreas mapId={resolution.entityId} />
 			</section>
 		{:else}
 			<!-- NAV-005 AC2/AC3: one generic, non-leaking unavailable state. It names no
