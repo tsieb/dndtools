@@ -92,6 +92,9 @@ epics:
   - id: COLLAB-combat-and-handouts
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/COLLAB-combat-and-handouts.completion.md
+  - id: COLLAB-join-reconnect-and-identity
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/COLLAB-join-reconnect-and-identity.completion.md
   - id: CONTENT-calendar-custom-time-content
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CONTENT-calendar-custom-time-content.completion.md

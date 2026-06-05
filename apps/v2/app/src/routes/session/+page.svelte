@@ -7,6 +7,7 @@
 	import LiveTools from '$lib/gui/LiveTools.svelte';
 	import QuickReference from '$lib/gui/QuickReference.svelte';
 	import PrepRecap from '$lib/gui/PrepRecap.svelte';
+	import ReconnectStatus from '$lib/gui/ReconnectStatus.svelte';
 
 	// SES-009 / SES-012: the Session section's PREP / RECAP + CAMPAIGN CALENDAR CONTINUITY surface. The DM
 	// maintains the campaign calendar + current date and LINKS dates to notes (by reference; a hidden/
@@ -32,6 +33,12 @@
 	// GROUPS) with per-recipient delivered/opened status and revocation; a recipient confirms receipt.
 	// PLAYER GROUPS are DELIVERY/PROJECTION TARGETS ONLY — membership grants no visibility or write
 	// permission (the Processing Core enforces this; the group surface is DM-only).
+	//
+	// COLLAB-002 / COLLAB-013: the participant RECONNECT + CATCH-UP surface. On reconnect (or a mobile
+	// device waking from sleep/backgrounding) the Processing Core re-evaluates the participant's CURRENT
+	// role/visibility/grants and computes the catch-up they may receive — in dependency order, never the
+	// cached one — and DISABLES durable actions until they are provably caught up. DM-only content never
+	// enters the participant's catch-up stream (filtered at the source). The panel is participant-only.
 </script>
 
 <section data-testid="session-view" aria-label="Session">
@@ -46,6 +53,7 @@
 	<DiceTools />
 	<PlayerGroups />
 	<HandoutDelivery />
+	<ReconnectStatus />
 	<LiveTools />
 	<QuickReference />
 	<PrepRecap />

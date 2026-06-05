@@ -2655,3 +2655,71 @@ export {
 	ensurePlayerGroups,
 	normalizeMembers,
 } from './state/player-group';
+
+// COLLAB-001 — the SESSION JOIN / IDENTITY policy. A DM-issued invitation / local pairing code
+// AUTHENTICATES a joiner as DM/Player/Observer; on success `joinSession` returns the filtered
+// `SessionJoinResult` (role, participant id, ACTIVE grants only, visible scenes, capability-schema version,
+// sync cursor). FAIL CLOSED: an expired/revoked/consumed credential discloses NO session state (only a
+// generic denial); a remote-only credential over an unreachable network degrades to a local-paired join
+// only when the credential is local-pairing-capable. Per ADR-014 the live invitation transport is deferred;
+// this is the policy the transport plugs into. Pure + deterministic.
+export type {
+	JoinChannel,
+	JoinCredentialKind,
+	JoinDenialReason,
+	JoinIdentityInput,
+	InvitationStatus,
+	SessionInvitation,
+	SessionJoinOutcome,
+	SessionJoinResult,
+} from './collab/session-join';
+export {
+	SESSION_INVITATION_SCHEMA_VERSION,
+	activeGrantsForParticipant,
+	ensureSessionInvitation,
+	isInvitationExpired,
+	joinSession,
+} from './collab/session-join';
+
+// COLLAB-002 — RECONNECT CATCH-UP policy. On reconnect a participant RE-EVALUATES role/visibility/grants
+// (against CURRENT permission state, never the cache) before receiving catch-up ops: `computeReconnectCatchUp`
+// filters the missed stream to NOW-visible, not-yet-applied ops (reusing the COLLAB-009 catch-up filter, so a
+// revoked-grant op and a now-hidden op are absent — AC1/AC2), then REVALIDATES the batch in dependency order
+// via the SYNC-011 replay validator and gates durable controls (`enabled`/`disabled-syncing`/`disabled-stale`)
+// so a now-unauthorized op never re-enables a control (AC3). `assertCatchUpRestoresNoRevokedAccess` is the
+// boundary leak guard; `appliedIdsBeforeCursor` expands a sync cursor to its applied-id set. Pure + fail closed.
+export type {
+	CatchUpControlState,
+	ReconnectCatchUpInput,
+	ReconnectCatchUpResult,
+	ReconnectReplayContextSource,
+} from './collab/reconnect-catchup';
+export {
+	appliedIdsBeforeCursor,
+	assertCatchUpRestoresNoRevokedAccess,
+	computeReconnectCatchUp,
+} from './collab/reconnect-catchup';
+
+// COLLAB-013 — MOBILE / RECONNECT CATCH-UP policy across sleep/backgrounding/intermittent connectivity.
+// `orderCatchUpByDependency` applies missed ops (Scene projection, handout delivery, grant revocation, combat)
+// in DEPENDENCY order, holding a missing/cyclic dependency fail-closed (AC1); `isCachedHandoutOpenable` makes a
+// revoked/sealed cached handout UNREADABLE before any stale UI can open it — sealing on local-TTL expiry even
+// OFFLINE (reusing the COLLAB-014 seal policy — AC2); `deriveCatchUpFailureState` / `catchUpPhase` turn a
+// mid-stream catch-up failure into stale/reconnecting UI state with durable commands DISABLED until caught up
+// (reusing the COLLAB-002 control gate — AC3). Per ADR-014 the live mobile transport is deferred; pure policy.
+export type {
+	CatchUpFailureState,
+	CatchUpOpKind,
+	CatchUpOrderProblem,
+	CatchUpOrderProblemKind,
+	CatchUpOrderResult,
+	CatchUpStreamPhase,
+	CatchUpUiStatus,
+} from './collab/mobile-catchup';
+export {
+	catchUpPhase,
+	classifyCatchUpOp,
+	deriveCatchUpFailureState,
+	isCachedHandoutOpenable,
+	orderCatchUpByDependency,
+} from './collab/mobile-catchup';

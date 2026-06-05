@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: COLLAB-join-reconnect-and-identity
 title: "COLLAB: Join, reconnect, and identity"
-status: approved
+status: complete
 approved: true
 domain: COLLAB
 capabilityBranch: Join, reconnect, and identity
@@ -195,3 +195,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/COLLAB-join-reconnect-and-identity.completion.md
