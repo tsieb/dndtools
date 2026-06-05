@@ -4,6 +4,7 @@ import { VAULT_CONTENT_SCHEMA_VERSION } from '../state/content';
 import { ENCOUNTER_SCHEMA_VERSION } from '../state/encounter';
 import { AUDIO_STATE_SCHEMA_VERSION } from '../state/audio-state';
 import { MAP_STATE_SCHEMA_VERSION } from '../state/map-state';
+import { MCP_POLICY_STATE_SCHEMA_VERSION } from '../state/mcp-policy';
 import { PERMISSION_STATE_SCHEMA_VERSION } from '../state/permission-state';
 import { SCENE_STATE_SCHEMA_VERSION } from '../state/scene-state';
 import { SESSION_STATE_SCHEMA_VERSION } from '../state/session-state';
@@ -24,7 +25,8 @@ export type DurableStateDocumentId =
 	| 'characters'
 	| 'content'
 	| 'encounters'
-	| 'audio';
+	| 'audio'
+	| 'mcp';
 
 export const DURABLE_STATE_DOCUMENT_IDS: readonly DurableStateDocumentId[] = Object.freeze([
 	'scenes',
@@ -37,6 +39,7 @@ export const DURABLE_STATE_DOCUMENT_IDS: readonly DurableStateDocumentId[] = Obj
 	'content',
 	'encounters',
 	'audio',
+	'mcp',
 ]);
 
 /**
@@ -57,6 +60,7 @@ export const TARGET_SCHEMA_VERSIONS: Readonly<Record<DurableStateDocumentId, num
 		content: VAULT_CONTENT_SCHEMA_VERSION,
 		encounters: ENCOUNTER_SCHEMA_VERSION,
 		audio: AUDIO_STATE_SCHEMA_VERSION,
+		mcp: MCP_POLICY_STATE_SCHEMA_VERSION,
 	});
 
 export function targetSchemaVersion(documentId: DurableStateDocumentId): number {

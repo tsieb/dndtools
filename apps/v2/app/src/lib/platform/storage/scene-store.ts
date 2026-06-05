@@ -14,6 +14,7 @@ import {
 	ensureAudioState,
 	ensureCalendarContinuityState,
 	ensureEncounterState,
+	ensureMcpPolicyState,
 	ensureSessionAudioState,
 	ensureSessionCombatState,
 	ensureVaultContentState,
@@ -27,6 +28,7 @@ import {
 	type DurableStateDocumentId,
 	type EncounterState,
 	type MapState,
+	type McpPolicyState,
 	type MigrationJournalEntry,
 	type PermissionState,
 	type PlatformServiceRegistry,
@@ -51,6 +53,7 @@ const CHARACTER_STATE_KEY = 'character-state';
 const CONTENT_STATE_KEY = 'content-state';
 const ENCOUNTER_STATE_KEY = 'encounter-state';
 const AUDIO_STATE_KEY = 'audio-state';
+const MCP_POLICY_STATE_KEY = 'mcp-policy-state';
 const MIGRATION_JOURNAL_KEY = 'migration-journal';
 
 // Maps a durable document id to its persisted document key, so a write-ahead snapshot
@@ -66,6 +69,7 @@ const DOCUMENT_KEY_BY_ID: Record<DurableStateDocumentId, string> = {
 	content: CONTENT_STATE_KEY,
 	encounters: ENCOUNTER_STATE_KEY,
 	audio: AUDIO_STATE_KEY,
+	mcp: MCP_POLICY_STATE_KEY,
 };
 
 interface DocumentRecord {
@@ -171,6 +175,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		contentDoc,
 		encounterDoc,
 		audioDoc,
+		mcpDoc,
 	] = await Promise.all([
 		database.documents.get(MAP_STATE_KEY),
 		database.documents.get(SESSION_STATE_KEY),
@@ -180,6 +185,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		database.documents.get(CONTENT_STATE_KEY),
 		database.documents.get(ENCOUNTER_STATE_KEY),
 		database.documents.get(AUDIO_STATE_KEY),
+		database.documents.get(MCP_POLICY_STATE_KEY),
 	]);
 	const scenes = (sceneDoc?.doc as SceneState | undefined) ?? {
 		scenes: {},
@@ -276,6 +282,11 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	// undeclared asset license stays `unknown` and a source with undeclared cache behavior stays
 	// playback-disabled).
 	const audio = ensureAudioState(audioDoc?.doc as AudioState | undefined);
+	// MCP-003/009/011: the durable MCP identity/policy/staged-writes slice. A vault persisted before this
+	// slice has no MCP document; route it through `ensureMcpPolicyState` so older vaults stay readable
+	// without a destructive migration (safe-default, fail-closed hydration — an unknown policy mode or
+	// proposal status collapses to the most restrictive, and the vault default stays `strict_review`).
+	const mcp = ensureMcpPolicyState(mcpDoc?.doc as McpPolicyState | undefined);
 	const sync = createOperationLog(operationRecords.map((r) => r.op));
 	return {
 		scenes,
@@ -288,6 +299,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		content,
 		encounters,
 		audio,
+		mcp,
 		sync,
 	};
 }
@@ -330,6 +342,10 @@ async function persistEncounterState(encounters: EncounterState): Promise<void> 
 
 async function persistAudioState(audio: AudioState): Promise<void> {
 	await db().documents.put({ key: AUDIO_STATE_KEY, doc: audio });
+}
+
+async function persistMcpPolicyState(mcp: McpPolicyState): Promise<void> {
+	await db().documents.put({ key: MCP_POLICY_STATE_KEY, doc: mcp });
 }
 
 export async function appendOperations(operations: SyncOperation[]): Promise<void> {
@@ -398,7 +414,8 @@ export async function persistFullState(
 		sliceChanged(previous.characters, next.characters) ||
 		sliceChanged(previous.content, next.content) ||
 		sliceChanged(previous.encounters, next.encounters) ||
-		sliceChanged(previous.audio, next.audio);
+		sliceChanged(previous.audio, next.audio) ||
+		sliceChanged(previous.mcp, next.mcp);
 	if (durableStateChanged && newOperations.length === 0) {
 		throw new Error('Durable state changed without an accepted Processing Core operation.');
 	}
@@ -413,6 +430,7 @@ export async function persistFullState(
 		persistContentState(next.content),
 		persistEncounterState(next.encounters),
 		persistAudioState(next.audio),
+		persistMcpPolicyState(next.mcp),
 		appendOperations(newOperations),
 	]);
 }

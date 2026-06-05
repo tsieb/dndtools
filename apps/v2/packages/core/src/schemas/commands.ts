@@ -2162,3 +2162,67 @@ export const projectSessionAudioInputSchema = z
 		connectionState: z.enum(['connected', 'offline']),
 	})
 	.strict();
+
+// ---------------------------------------------------------------------------------------------------
+// MCP-003 / MCP-009 / MCP-011 — MCP IDENTITY, POLICY, and STAGED-WRITE command inputs. Every one of these
+// is a DM-only administrative command; the handler re-checks DM authority. These schemas validate ONLY the
+// command input shape — the staged-write commit re-validates the underlying tool payload at approval time.
+// ---------------------------------------------------------------------------------------------------
+
+const mcpPolicyModeSchema = z.enum(['disabled', 'strict_review', 'balanced', 'trusted_direct']);
+
+// MCP-011 — bind an MCP agent CONNECTION to a SCOPED registered actor. The bound actor must exist (the
+// handler rejects an unknown actor fail-closed). A binding confers no capability; it only names whose
+// view the agent speaks as. The label is a DM-facing description.
+export const setMcpAgentBindingInputSchema = z
+	.object({
+		agentId: idSchema,
+		actorId: idSchema,
+		label: z.string().default(''),
+	})
+	.strict();
+
+// MCP-011 — remove an agent binding (the agent can no longer resolve to an actor, so every later tool call
+// is denied fail-closed). Any of the agent's still-pending proposals are expired by the handler.
+export const removeMcpAgentBindingInputSchema = z
+	.object({
+		agentId: idSchema,
+	})
+	.strict();
+
+// MCP-009 — configure a per-agent POLICY: the mode, the explicit tool allowlist (empty ⇒ deny all), and
+// whether the agent's writes appear in audit history. An unknown mode is rejected by the enum (fail closed).
+export const setMcpAgentPolicyInputSchema = z
+	.object({
+		agentId: idSchema,
+		mode: mcpPolicyModeSchema,
+		allowedToolIds: z.array(idSchema).default([]),
+		auditVisible: z.boolean().default(true),
+	})
+	.strict();
+
+// MCP-009 — set the vault-wide DEFAULT posture a never-configured agent inherits. Restricted to the two
+// SAFE defaults the requirement names (`strict_review` or `disabled`) — never `balanced`/`trusted_direct`.
+export const setMcpVaultDefaultInputSchema = z
+	.object({
+		mode: z.enum(['strict_review', 'disabled']),
+	})
+	.strict();
+
+// MCP-003 — approve a staged write proposal. The handler RE-VALIDATES authority + schema and commits the
+// captured command through the EXISTING authorized dispatch (a grant revoked since staging blocks it). An
+// optional idempotency key is forwarded to the dispatch (idempotent commit; a double-approve is rejected).
+export const approveMcpProposalInputSchema = z
+	.object({
+		proposalId: idSchema,
+		idempotencyKey: z.string().min(1).optional(),
+	})
+	.strict();
+
+// MCP-003 — reject a staged write proposal. No durable mutation occurs; the proposal becomes terminal so it
+// can never be approved later (fail closed).
+export const rejectMcpProposalInputSchema = z
+	.object({
+		proposalId: idSchema,
+	})
+	.strict();

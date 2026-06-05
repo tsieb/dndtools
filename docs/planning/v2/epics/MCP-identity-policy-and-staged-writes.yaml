@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: MCP-identity-policy-and-staged-writes
 title: "MCP: Identity, policy, and staged writes"
-status: approved
+status: active
 approved: true
 domain: MCP
 capabilityBranch: Identity, policy, and staged writes

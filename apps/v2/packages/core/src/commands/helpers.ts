@@ -24,6 +24,8 @@ import type { VaultContentState } from '../state/content';
 import { ensureVaultContentState } from '../state/content';
 import type { AudioState } from '../state/audio-state';
 import { ensureAudioState } from '../state/audio-state';
+import type { McpPolicyState } from '../state/mcp-policy';
+import { ensureMcpPolicyState } from '../state/mcp-policy';
 
 export function reject(rejection: CommandRejection, state: CoreStateSlice) {
 	return { status: 'rejected' as const, rejection, nextState: state };
@@ -286,6 +288,10 @@ export function ensureEncounterStateSlice(state: EncounterState | undefined): En
 
 export function ensureAudioStateSlice(state: AudioState | undefined): AudioState {
 	return ensureAudioState(state);
+}
+
+export function ensureMcpPolicyStateSlice(state: McpPolicyState | undefined): McpPolicyState {
+	return ensureMcpPolicyState(state);
 }
 
 export const SCENE_VERSION_CONSTANTS = {

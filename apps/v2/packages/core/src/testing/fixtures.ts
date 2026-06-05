@@ -10,6 +10,7 @@ import { EMPTY_SESSION_STATE } from '../state/session-state';
 import { ensureSessionCombatState } from '../state/combat-tracker';
 import { EMPTY_ENCOUNTER_STATE } from '../state/encounter';
 import { EMPTY_AUDIO_STATE } from '../state/audio-state';
+import { EMPTY_MCP_POLICY_STATE } from '../state/mcp-policy';
 import { createSystemWidgetPackages } from '../state/widget-package-state';
 import { createOperationLog } from '../sync/operation-log';
 import type { CoreEnvironment, CoreStateSlice } from '../commands/types';
@@ -124,6 +125,14 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			automationRules: { ...EMPTY_AUDIO_STATE.automationRules },
 			associations: { ...EMPTY_AUDIO_STATE.associations },
 			schemaVersion: EMPTY_AUDIO_STATE.schemaVersion,
+		},
+		mcp: {
+			bindings: { ...EMPTY_MCP_POLICY_STATE.bindings },
+			policies: { ...EMPTY_MCP_POLICY_STATE.policies },
+			proposals: { ...EMPTY_MCP_POLICY_STATE.proposals },
+			auditEntries: [...EMPTY_MCP_POLICY_STATE.auditEntries],
+			vaultDefaultMode: EMPTY_MCP_POLICY_STATE.vaultDefaultMode,
+			schemaVersion: EMPTY_MCP_POLICY_STATE.schemaVersion,
 		},
 		sync: createOperationLog(),
 	};

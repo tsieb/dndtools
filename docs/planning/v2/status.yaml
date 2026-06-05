@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 15
-  active: 0
+  approved: 14
+  active: 1
   complete: 73
   deferred: 0
 metrics:
@@ -114,8 +114,8 @@ metrics:
     - domain: MCP
       totalEpics: 5
       complete: 1
-      active: 0
-      approved: 4
+      active: 1
+      approved: 3
       proposed: 0
       deferred: 0
       epicCompletionPercent: 20
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: MCP-identity-policy-and-staged-writes
   title: "MCP: Identity, policy, and staged writes"
-  status: approved
+  status: active
   requirementIds:
     - MCP-003
     - MCP-009
@@ -560,7 +560,7 @@ epics:
       - MCP-012
     completionEvidenceFile: docs/planning/v2/epics/MCP-core-enforcement-and-tests.completion.md
   - id: MCP-identity-policy-and-staged-writes
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - MCP-003

@@ -3379,6 +3379,33 @@ export {
 	ensureAudioState,
 } from './state/audio-state';
 
+// MCP-003 / MCP-009 / MCP-011 — the durable MCP IDENTITY, POLICY, and STAGED-WRITES VaultState slice:
+// agent → scoped actor bindings (MCP-011), per-agent policy modes + tool allowlists + audit visibility
+// (MCP-009), pending staged proposals (MCP-003), the append-only write audit trail (MCP-011 AC2), and the
+// vault default posture. Fail-closed hydration: an unknown mode/status collapses to the most restrictive.
+export type {
+	McpAgentBinding,
+	McpAgentPolicy,
+	McpAuditEntry,
+	McpPolicyMode,
+	McpPolicyState,
+	McpProposalStatus,
+	McpStagedProposal,
+	McpVaultDefaultMode,
+	PersistedMcpPolicyState,
+} from './state/mcp-policy';
+export {
+	EMPTY_MCP_POLICY_STATE,
+	MCP_POLICY_ENTITY_TYPE,
+	MCP_POLICY_MODES,
+	MCP_POLICY_STATE_SCHEMA_VERSION,
+	ensureMcpPolicyState,
+	isMcpPolicyMode,
+	mcpBindingByAgentId,
+	mcpPolicyByAgentId,
+	mcpProposalById,
+} from './state/mcp-policy';
+
 // AUDIO-001 — SCENE / MAP / MAP-LAYER AUDIO ASSOCIATION: a DM-authored binding of an ambient track,
 // playlist, or atmosphere preset to a Scene, map, or single map layer. On activation the deterministic
 // resolver computes which cues are AVAILABLE to the audio widget, COMPOSING the EXISTING source (AUDIO-009),
@@ -3602,6 +3629,36 @@ export type {
 	McpToolResult,
 } from './mcp/tool-dispatch';
 export { invokeMcpTool } from './mcp/tool-dispatch';
+
+// MCP-011 — the FAIL-CLOSED agent-connection → scoped-vault-actor identity resolution. Before any tool can
+// read or stage data, an agent connection must resolve to an authenticated actor + role + policy + audit
+// identity; an unmapped agent or a binding to an unregistered actor is denied here, BEFORE any core query.
+export type {
+	McpIdentityDenyReason,
+	McpIdentityResolution,
+	McpResolvedIdentity,
+} from './mcp/identity';
+export { resolveAgentIdentity, resolvePolicyMode } from './mcp/identity';
+
+// MCP-009 / MCP-003 — the PURE POLICY DECISION composing the agent identity + the tool's declared write-risk
+// into a fail-closed verdict: disabled → deny everything; not allowlisted → deny; read → allow (filtered by
+// the data layer); write → STAGE (strict_review/balanced) or DIRECT (trusted_direct, allowlisted, still
+// validated + audited). It never confers authority — only stage vs direct vs deny.
+export type { McpPolicyDecision, McpPolicyDenyReason } from './mcp/policy';
+export { decidePolicy, isToolAllowlisted } from './mcp/policy';
+
+// MCP-003 / MCP-009 / MCP-011 — THE agent-facing entry point that composes identity + policy + staged-write
+// onto the prior epic's tool dispatch. Resolves the connection to a scoped actor, applies the policy mode +
+// allowlist, then routes: a read composes the actor-filtered query; a `trusted_direct` allowlisted write
+// dispatches the bound command (still validated + audited); any other write is captured as a PENDING
+// proposal a human must approve. Returns the result envelope + next state; never auto-commits a staged write.
+export type {
+	McpAgentDenyReason,
+	McpAgentInvocation,
+	McpAgentInvokeOutput,
+	McpAgentToolResult,
+} from './mcp/agent-dispatch';
+export { invokeMcpToolAsAgent } from './mcp/agent-dispatch';
 
 // MCP-012 — the EXPLICIT, FAIL-CLOSED MCP FILESYSTEM / PLATFORM-SERVICE EXCEPTION ALLOWLIST. The few
 // narrow filesystem operations the future MCP sidecar may perform are DECLARED (not inferred from broad

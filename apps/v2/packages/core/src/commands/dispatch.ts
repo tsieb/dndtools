@@ -188,6 +188,14 @@ import {
 	handleStopSessionAudio,
 } from './audio-playback';
 import { handleResolveVaultConflict } from './conflict-resolution';
+import {
+	handleApproveMcpProposal,
+	handleRejectMcpProposal,
+	handleRemoveMcpAgentBinding,
+	handleSetMcpAgentBinding,
+	handleSetMcpAgentPolicy,
+	handleSetMcpVaultDefault,
+} from './mcp-policy';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 import { classifyObserverCommand } from '../collab/observer-access';
 
@@ -532,6 +540,18 @@ export function dispatchCommand(
 			return handleSetSessionAudioVolume(state, env, command.actorId, command.payload);
 		case 'session.audio.project':
 			return handleProjectSessionAudio(state, env, command.actorId, command.payload);
+		case 'mcp.set-agent-binding':
+			return handleSetMcpAgentBinding(state, env, command.actorId, command.payload);
+		case 'mcp.remove-agent-binding':
+			return handleRemoveMcpAgentBinding(state, env, command.actorId, command.payload);
+		case 'mcp.set-agent-policy':
+			return handleSetMcpAgentPolicy(state, env, command.actorId, command.payload);
+		case 'mcp.set-vault-default':
+			return handleSetMcpVaultDefault(state, env, command.actorId, command.payload);
+		case 'mcp.approve-proposal':
+			return handleApproveMcpProposal(state, env, command.actorId, command.payload);
+		case 'mcp.reject-proposal':
+			return handleRejectMcpProposal(state, env, command.actorId, command.payload);
 	}
 }
 

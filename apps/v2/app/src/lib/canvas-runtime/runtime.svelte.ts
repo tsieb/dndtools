@@ -8,6 +8,7 @@ import {
 	EMPTY_VAULT_CONTENT_STATE,
 	EMPTY_ENCOUNTER_STATE,
 	EMPTY_AUDIO_STATE,
+	EMPTY_MCP_POLICY_STATE,
 	ensureCalendarContinuityState,
 	ensureEncounterState,
 	ensureSessionAudioState,
@@ -155,6 +156,14 @@ export class SceneRuntime {
 			automationRules: { ...EMPTY_AUDIO_STATE.automationRules },
 			associations: { ...EMPTY_AUDIO_STATE.associations },
 			schemaVersion: EMPTY_AUDIO_STATE.schemaVersion,
+		},
+		mcp: {
+			bindings: { ...EMPTY_MCP_POLICY_STATE.bindings },
+			policies: { ...EMPTY_MCP_POLICY_STATE.policies },
+			proposals: { ...EMPTY_MCP_POLICY_STATE.proposals },
+			auditEntries: [...EMPTY_MCP_POLICY_STATE.auditEntries],
+			vaultDefaultMode: EMPTY_MCP_POLICY_STATE.vaultDefaultMode,
+			schemaVersion: EMPTY_MCP_POLICY_STATE.schemaVersion,
 		},
 		sync: createOperationLog(),
 	});

@@ -21,6 +21,7 @@ import type { EncounterState } from '../state/encounter';
 import type { EncounterDifficulty } from '../state/encounter';
 import type { ImportConflictPolicy, ImportSourceKind } from '../state/content-import';
 import type { ContentExport, ContentExportMode } from '../state/content-export';
+import type { McpPolicyState } from '../state/mcp-policy';
 import type { OperationLog, SyncOperation } from '../sync/operation-log';
 
 export interface CoreStateSlice {
@@ -37,6 +38,12 @@ export interface CoreStateSlice {
 	encounters: EncounterState;
 	/** AUDIO-004/009/010 — the durable audio asset library + declared audio source registry. */
 	audio: AudioState;
+	/**
+	 * MCP-003 / MCP-009 / MCP-011 — the durable MCP identity, policy, and staged-writes slice: agent
+	 * connection → scoped actor bindings, per-agent policy modes + allowlists, pending staged proposals,
+	 * the write audit trail, and the vault default policy posture. Fail-closed to `strict_review`.
+	 */
+	mcp: McpPolicyState;
 	sync: OperationLog;
 }
 
@@ -467,7 +474,20 @@ export type CoreCommand =
 	| { type: 'session.audio.resume'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.audio.stop'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.audio.set-volume'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'session.audio.project'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'session.audio.project'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MCP-011: DM authors / removes an AGENT → SCOPED ACTOR binding. An agent can only ever speak as the
+	// bound actor (never widened). DM-only; the bound actor must be a registered participant (fail closed).
+	| { type: 'mcp.set-agent-binding'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'mcp.remove-agent-binding'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MCP-009: DM configures a per-agent POLICY (mode + tool allowlist + audit visibility) and the
+	// vault-wide DEFAULT posture a never-configured agent inherits. DM-only; an unknown mode is rejected.
+	| { type: 'mcp.set-agent-policy'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'mcp.set-vault-default'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MCP-003: DM APPROVES / REJECTS a staged write proposal. Approval RE-VALIDATES authority + schema and
+	// commits through the EXISTING authorized dispatch (a grant revoked since staging blocks the commit);
+	// a proposal never auto-commits and can never be committed twice (fail closed). DM-only.
+	| { type: 'mcp.approve-proposal'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'mcp.reject-proposal'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -1113,6 +1133,60 @@ export type CoreEvent =
 			actorId: ActorId;
 			playerActorId: ActorId;
 			deliveryStatus: 'delivered' | 'queued';
+	  }
+	// MCP-011 — an agent → scoped actor binding was set/removed. Carries the agent + bound actor id (the
+	// audit), never any capability data (a binding confers none). `removed` ⇒ the binding was deleted.
+	| {
+			kind: 'mcp.agent-binding-changed';
+			agentId: string;
+			boundActorId: ActorId | null;
+			mutation: 'set' | 'removed';
+			actorId: ActorId;
+	  }
+	// MCP-009 — a per-agent policy was configured. Carries the agent + the resolved mode + allowlist size +
+	// audit visibility (the audit), never tool internals. The new policy is enforced on the agent's NEXT call.
+	| {
+			kind: 'mcp.agent-policy-changed';
+			agentId: string;
+			mode: string;
+			allowedToolCount: number;
+			auditVisible: boolean;
+			actorId: ActorId;
+	  }
+	// MCP-009 — the vault-wide default policy posture changed (the mode a never-configured agent inherits).
+	| { kind: 'mcp.vault-default-changed'; mode: string; actorId: ActorId }
+	// MCP-003 — a staged write was captured as a pending proposal (never auto-committed). Carries the
+	// proposal id + agent + bound actor + tool + write risk + whether it is batchable (the audit metadata).
+	| {
+			kind: 'mcp.proposal-staged';
+			proposalId: string;
+			agentId: string;
+			boundActorId: ActorId;
+			toolId: string;
+			writeRisk: 'low-risk' | 'durable';
+			batchable: boolean;
+			actorId: ActorId;
+	  }
+	// MCP-003 — a staged proposal was APPROVED and committed through the existing authorized dispatch.
+	// Carries the proposal id + the committed command type + the underlying operation ids (the proof the
+	// commit went through op-logging), so the audit ties the approval to the real durable mutation.
+	| {
+			kind: 'mcp.proposal-approved';
+			proposalId: string;
+			agentId: string;
+			boundActorId: ActorId;
+			commandType: string;
+			committedOperationIds: OperationId[];
+			actorId: ActorId;
+	  }
+	// MCP-003 — a staged proposal was REJECTED (no durable mutation occurred). `expired` is recorded when a
+	// rejection cleared a proposal that could no longer commit (e.g. its actor was unbound).
+	| {
+			kind: 'mcp.proposal-rejected';
+			proposalId: string;
+			agentId: string;
+			reason: 'rejected' | 'expired';
+			actorId: ActorId;
 	  };
 
 export type RejectionCode =
@@ -1253,7 +1327,20 @@ export type RejectionCode =
 	// AUDIO-010 — the track is unavailable/missing/evicted on this device; playback is not started (no retry).
 	| 'audio-track-unavailable'
 	// AUDIO-002 — pause/stop/set-volume targeted a session with no active track (nothing to do, fail closed).
-	| 'audio-not-playing';
+	| 'audio-not-playing'
+	// MCP-011 — an agent binding targeted an actor that is not a registered participant (fail closed: an
+	// agent can never be bound to an actor that does not exist). Distinct so the DM authoring UI can guide.
+	| 'mcp-actor-not-registered'
+	// MCP-011 — a remove-binding / policy-set targeted an agent id that has no binding (fail closed).
+	| 'mcp-agent-not-bound'
+	// MCP-009 — a policy referenced an unknown policy mode (fail closed: an unknown mode is never accepted;
+	// it would otherwise have to collapse to a default and silently change the DM's intent).
+	| 'mcp-unknown-policy-mode'
+	// MCP-003 — an approve/reject targeted a proposal id that does not exist (fail closed).
+	| 'mcp-proposal-not-found'
+	// MCP-003 — an approve/reject targeted a proposal that is no longer pending (already approved/rejected/
+	// expired). Fail closed: a proposal can never be committed twice (replay/double-commit guard).
+	| 'mcp-proposal-not-pending';
 
 export interface CommandRejection {
 	code: RejectionCode;
