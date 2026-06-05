@@ -2514,6 +2514,52 @@ export {
 	resolveGraphLink,
 } from './queries/graph-api';
 
+// GRAPH-001 / GRAPH-008: the SOURCE-INDEXING engine — build the link graph FROM the content sources (local
+// files, Obsidian notes, Google Docs documents) ACROSS all configured sync sources, PRESERVE each node's
+// source-specific identifiers + revision metadata to reconcile it back to its source, and track PER-SOURCE
+// freshness so a not-cached/unavailable source marks the cached graph PARTIAL/STALE (cached metadata shown
+// stale, never silently recomputed) without blocking the cached relationships that DID index. Composes the
+// SAME GRAPH-005 structural engine + the SRCH freshness convention + the SYNC source taxonomy — one graph,
+// one source layer. Pure + deterministic (identical sources ⇒ identical indexes).
+export type {
+	ConfiguredGraphSource,
+	GraphSourceDiagnostic,
+	GraphSourceFreshness,
+	GraphSourceKind,
+	GraphSourceRef,
+	SourceGraphIndex,
+	SourceGraphNode,
+	SourceGraphNodeRecord,
+} from './state/graph-source-index';
+export {
+	GRAPH_SOURCE_INDEX_SCHEMA_VERSION,
+	GRAPH_SOURCE_KINDS,
+	buildSourceGraphIndex,
+	combineSourceStatuses,
+	configuredSourceFromRecords,
+	emptySourceGraphIndex,
+	isSourceGraphPartial,
+	publishSourceFreshness,
+	sourceFreshnessStatus,
+	sourceGraphDiagnostics,
+	sourceGraphNodes,
+	sourceRefForNode,
+	unknownGraphSourceRef,
+} from './state/graph-source-index';
+// GRAPH-001 / GRAPH-008: the ACTOR-FILTERED source-indexing surface. Builds the actor's visible source graph
+// over the SAME content/map actor-filtered reads (no second source layer), derives each node's provenance
+// from the source metadata the adapters/import already recorded (never overwriting user frontmatter), and
+// exposes the source-aware nodes, the per-node reconciliation ref, the stale/partial source diagnostics, and
+// the partial-graph signal. Unknown actor ⇒ empty index (fail closed).
+export type { SourceGraphAvailability } from './queries/graph-source-index-query';
+export {
+	getSourceGraphDiagnosticsForActor,
+	getSourceGraphIndexForActor,
+	getSourceGraphNodesForActor,
+	getSourceRefForActor,
+	isSourceGraphPartialForActor,
+} from './queries/graph-source-index-query';
+
 // CHAR-002: the guided, structured PC-creation flow — step definitions, options, per-step validation
 // (rules incl. the ability point-buy budget), and the resumable completeness report. Pure policy.
 export type {
