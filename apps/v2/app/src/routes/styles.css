@@ -783,3 +783,56 @@ select {
 		width: 100%;
 	}
 }
+
+/* PLAT-003: focused stacked widget view for compact (mobile) profiles. One work surface at a
+   time with prev/next, backed by the same Scene state. */
+.focused-view {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.focused-view-nav {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+}
+
+/* PLAT-003: the add-widget form rendered as a drawer on compact profiles. */
+.form.drawer {
+	border: 1px solid var(--border, #d0d0d8);
+	border-radius: 8px;
+	padding: 0.75rem;
+}
+
+/* PLAT-016: support matrix table + PLAT-004 capability status statuses. */
+.matrix-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.9rem;
+}
+
+.matrix-table th,
+.matrix-table td {
+	text-align: left;
+	padding: 0.4rem 0.6rem;
+	border-bottom: 1px solid var(--border, #e2e2ea);
+	vertical-align: top;
+}
+
+.matrix-table td[data-level='unsupported'],
+.matrix-table td[data-level='unavailable'] {
+	color: #9a3412;
+}
+
+.matrix-policy {
+	margin-top: 0.75rem;
+}
+
+.meta.unavailable,
+[data-status='unsupported'],
+[data-status='unavailable'] {
+	color: #9a3412;
+}
+

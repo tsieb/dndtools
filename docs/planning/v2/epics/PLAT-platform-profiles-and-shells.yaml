@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: PLAT-platform-profiles-and-shells
 title: "PLAT: Platform profiles and shells"
-status: approved
+status: complete
 approved: true
 domain: PLAT
 capabilityBranch: Platform profiles and shells
@@ -285,3 +285,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/PLAT-platform-profiles-and-shells.completion.md

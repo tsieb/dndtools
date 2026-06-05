@@ -89,3 +89,6 @@ epics:
   - id: PLAT-persistence-and-boundaries
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PLAT-persistence-and-boundaries.completion.md
+  - id: PLAT-platform-profiles-and-shells
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/PLAT-platform-profiles-and-shells.completion.md

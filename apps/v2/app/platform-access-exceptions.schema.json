@@ -39,7 +39,8 @@
                 "navigator",
                 "caches",
                 "electron",
-                "capacitor"
+                "capacitor",
+                "viewport-sniff"
               ]
             },
             "description": "Primitive ids this file is allowed to use directly."

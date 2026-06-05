@@ -95,6 +95,56 @@ describe('PLAT-006 / PLAT-012: GUI/platform primitive access is caught', () => {
 		expect(violations.some((v) => /Capacitor native bridge/.test(v.message))).toBe(true);
 	});
 
+	// PLAT-001 AC2: feature components must branch on the resolved platform profile, not raw
+	// viewport width. The lint forbids innerWidth/matchMedia/screen.* in GUI/route components.
+	it('flags a GUI component that branches on window.innerWidth', () => {
+		const roots = makeFixture(
+			{
+				'apps/v2/app/src/lib/gui/Layout.svelte':
+					"<script lang='ts'>\nconst compact = window.innerWidth < 720;\n</script>",
+			},
+			[],
+		);
+		const violations = collectViolations(roots);
+		expect(violations.some((v) => /sniffs the raw viewport.*PLAT-001/.test(v.message))).toBe(true);
+	});
+
+	it('flags a route component that uses matchMedia for layout', () => {
+		const roots = makeFixture(
+			{
+				'apps/v2/app/src/routes/scene/+page.svelte':
+					"<script lang='ts'>\nconst m = window.matchMedia('(max-width: 700px)').matches;\n</script>",
+			},
+			[],
+		);
+		const violations = collectViolations(roots);
+		expect(violations.some((v) => /sniffs the raw viewport.*PLAT-001/.test(v.message))).toBe(true);
+	});
+
+	it('allows the platform-layer probe to read the viewport behind its owned exception (PLAT-012)', () => {
+		const probe = 'apps/v2/app/src/lib/platform/capabilities.ts';
+		const exception = {
+			id: 'platform-capabilities-probe',
+			path: probe,
+			primitives: ['viewport-sniff'],
+			owner: 'PLAT',
+			rationale: 'The single owned place the raw viewport is read.',
+			removalCriteria: 'Reads stay confined to the platform layer.',
+		};
+		const roots = makeFixture(
+			{ [probe]: 'export const w = window.innerWidth;\n' },
+			[exception],
+		);
+		expect(collectViolations(roots)).toEqual([]);
+
+		// Without the exception the same probe fails closed.
+		const rootsNoException = makeFixture(
+			{ [probe]: 'export const w = window.innerWidth;\n' },
+			[],
+		);
+		expect(collectViolations(rootsNoException).length).toBeGreaterThan(0);
+	});
+
 	it('allows the same primitive only inside an allowlisted, owned exception path (PLAT-012)', () => {
 		const adapter = 'apps/v2/app/src/lib/platform/storage/scene-store.ts';
 		const exception = {

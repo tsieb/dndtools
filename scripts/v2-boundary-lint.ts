@@ -107,6 +107,15 @@ const PLATFORM_PRIMITIVE_RULES: PrimitiveRule[] = [
 		pattern: /\b(Capacitor|window\.Capacitor)\b/,
 		message: 'reaches the Capacitor native bridge directly',
 	},
+	{
+		// PLAT-001 AC2: feature components must branch on the resolved platform profile, not on
+		// raw viewport width. Reading innerWidth/innerHeight/matchMedia/screen.* in a GUI or
+		// route component is a violation; the platform layer probes once behind an exception.
+		id: 'viewport-sniff',
+		pattern: /\b(?:window\.)?(?:innerWidth|innerHeight|outerWidth|matchMedia)\b|\bscreen\.(?:width|height|availWidth)\b/,
+		message:
+			'sniffs the raw viewport (innerWidth/matchMedia/screen.*) instead of branching on the resolved platform profile (PLAT-001)',
+	},
 ];
 
 // PLAT-011: files under the contracts dir (or matching the contract suffix) are type-only.

@@ -12,9 +12,19 @@
 		type WidgetInstance,
 	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
+	import { useProfile } from '$lib/platform/platform-profile.svelte';
 
 	const { data } = $props();
 	const runtime = useRuntime();
+	const profile = useProfile();
+
+	// PLAT-003: on a compact (mobile) profile the dense widget grid and the persistent
+	// "Add widget" panel do not fit. The shell shows ONE focused widget at a time (a focused
+	// view) with prev/next, and the add-widget form collapses into a drawer — both backed by
+	// the SAME Scene state and dispatching the SAME commands. No alternate data model is
+	// created; only the presentation density changes (Contract 1 Slimmer Device Definition).
+	let focusedIndex = $state(0);
+	let addWidgetOpen = $state(false);
 
 	const sceneId = $derived(data.id);
 	// Resolve widget bindings through the Processing Core data layer (CANVAS-009)
@@ -77,6 +87,20 @@
 		}
 		return out;
 	});
+
+	// PLAT-003 focused view: the same ordered widgets, presented one at a time on compact
+	// profiles. The index is clamped to the current widget count so adds/removes stay valid.
+	const focusedWidget = $derived(
+		orderedWidgets.length === 0
+			? null
+			: orderedWidgets[Math.min(focusedIndex, orderedWidgets.length - 1)],
+	);
+	function focusPrev() {
+		focusedIndex = Math.max(0, Math.min(focusedIndex, orderedWidgets.length - 1) - 1);
+	}
+	function focusNext() {
+		focusedIndex = Math.min(orderedWidgets.length - 1, focusedIndex + 1);
+	}
 
 	function widgetAccessibleName(widget: WidgetInstance): string {
 		const boundTo = widget.binding ? ` bound to ${widget.binding.source.entityId}` : '';
@@ -164,7 +188,7 @@
 						requiredCapability: 'viewer' as const,
 					}
 				: null;
-		await runtime.dispatch({
+		const result = await runtime.dispatch({
 			type: 'scene.add-widget',
 			actorId: runtime.defaultActorId,
 			payload: {
@@ -178,6 +202,14 @@
 				},
 			},
 		});
+		// PLAT-003: close the compact add-widget drawer after a successful add and focus the
+		// newly added widget in the focused view (it is appended at the end of the order).
+		if (result.status === 'accepted') {
+			addWidgetOpen = false;
+			// Focus the newly added widget. It is appended at the end of the order; the focused
+			// view clamps the index to the current count, so a high value lands on the newest.
+			focusedIndex = Number.MAX_SAFE_INTEGER;
+		}
 	}
 
 	async function destroyWidget(id: string) {
@@ -234,9 +266,33 @@
 			</div>
 		</header>
 
-		<section>
-			<h2>Add widget</h2>
-			<form class="form" onsubmit={addWidget} aria-label="Add widget">
+		<section data-testid="add-widget-section">
+			<div class="widgets-head">
+				<h2 id="add-widget-heading">Add widget</h2>
+				{#if profile.isCompact}
+					<!-- PLAT-003 AC2: on compact there is no room for a persistent add panel, so the
+					     same add-widget command is reached through a drawer toggle. The form and its
+					     command are identical to the desktop panel. -->
+					<button
+						type="button"
+						class="button secondary"
+						data-testid="toggle-add-widget"
+						aria-expanded={addWidgetOpen}
+						aria-controls="add-widget-form"
+						onclick={() => (addWidgetOpen = !addWidgetOpen)}
+					>
+						{addWidgetOpen ? 'Close' : 'Add widget'}
+					</button>
+				{/if}
+			</div>
+			{#if !profile.isCompact || addWidgetOpen}
+				<form
+					id="add-widget-form"
+					class="form"
+					class:drawer={profile.isCompact}
+					onsubmit={addWidget}
+					aria-label="Add widget"
+				>
 				<label>
 					<span>Type</span>
 					<input bind:value={widgetType} data-testid="widget-type" required />
@@ -274,7 +330,8 @@
 					<input bind:value={bindSelector} data-testid="bind-selector" autocomplete="off" />
 				</label>
 				<button class="button" type="submit" data-testid="widget-add">Add widget</button>
-			</form>
+				</form>
+			{/if}
 		</section>
 
 		<section>
@@ -291,9 +348,12 @@
 				</button>
 			</div>
 			<p class="meta">Tab order follows the declared Scene focus order.</p>
-			<div class="widget-grid" data-testid="widget-grid">
-				{#each orderedWidgets as { tabIndex, payload } (payload.kind === 'available' || payload.kind === 'degraded' ? payload.widget.id : payload.widgetInstanceId)}
-					{#if payload.kind === 'available' || payload.kind === 'degraded'}
+
+			<!-- PLAT-003: the per-widget card is a single snippet rendered in BOTH the dense grid
+			     (expanded) and the focused stacked view (compact). Same Scene state, same commands,
+			     same widget identity — only the surrounding density changes. -->
+			{#snippet widgetCard(tabIndex: number, payload: WidgetBindingPayload)}
+				{#if payload.kind === 'available' || payload.kind === 'degraded'}
 						{@const w = payload.widget}
 						{@const timer = runtime.state.session.timers[w.id]}
 						<article class="widget-row" data-testid={`widget-${w.id}`} data-focus-index={tabIndex}>
@@ -418,11 +478,46 @@
 							</div>
 						</article>
 					{/if}
-				{/each}
-				{#if summary.widgets.length === 0}
-					<p class="meta">No widgets yet — add one above.</p>
-				{/if}
-			</div>
+			{/snippet}
+
+			{#if summary.widgets.length === 0}
+				<p class="meta" data-testid="widgets-empty">No widgets yet — add one above.</p>
+			{:else if profile.isCompact}
+				<!-- PLAT-003 AC1: compact profiles show ONE focused widget at a time (a focused
+				     view), navigated with prev/next, backed by the same ordered Scene state. -->
+				<div class="focused-view" data-testid="focused-widget-view">
+					<div class="focused-view-nav">
+						<button
+							type="button"
+							data-testid="focus-prev-widget"
+							disabled={focusedIndex <= 0}
+							onclick={focusPrev}
+						>
+							‹ Prev
+						</button>
+						<span class="meta" data-testid="focus-position">
+							{Math.min(focusedIndex, orderedWidgets.length - 1) + 1} of {orderedWidgets.length}
+						</span>
+						<button
+							type="button"
+							data-testid="focus-next-widget"
+							disabled={focusedIndex >= orderedWidgets.length - 1}
+							onclick={focusNext}
+						>
+							Next ›
+						</button>
+					</div>
+					{#if focusedWidget}
+						{@render widgetCard(focusedWidget.tabIndex, focusedWidget.payload)}
+					{/if}
+				</div>
+			{:else}
+				<div class="widget-grid" data-testid="widget-grid">
+					{#each orderedWidgets as { tabIndex, payload } (payload.kind === 'available' || payload.kind === 'degraded' ? payload.widget.id : payload.widgetInstanceId)}
+						{@render widgetCard(tabIndex, payload)}
+					{/each}
+				</div>
+			{/if}
 		</section>
 
 		<section>

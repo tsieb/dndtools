@@ -1,12 +1,14 @@
 /**
  * Platform capability probes (Contract 1: Platform Services own access to browser APIs).
  *
- * These functions read browser/native primitives (`indexedDB`, `navigator`) so that GUI
- * components never touch those primitives directly (PLAT-006). Feature components branch on
- * the returned capability facts, not on the raw globals. This module is an explicitly
- * owned, scoped platform-access surface (PLAT-012) and is allowlisted in the boundary
- * exception manifest.
+ * These functions read browser/native primitives (`indexedDB`, `navigator`, `window`) so that
+ * GUI components never touch those primitives directly (PLAT-006). Feature components branch on
+ * the returned capability facts / resolved platform profile, not on the raw globals or raw
+ * viewport width (PLAT-001 AC2). This module is an explicitly owned, scoped platform-access
+ * surface (PLAT-012) and is allowlisted in the boundary exception manifest.
  */
+
+import type { PlatformEnvironmentDescriptor, PlatformViewportClass } from '@dndtools/v2-core';
 
 /** Whether durable browser storage (IndexedDB) is reachable on this profile. */
 export function storageAvailable(): boolean {
@@ -16,4 +18,42 @@ export function storageAvailable(): boolean {
 /** Whether the device currently reports an online network connection. */
 export function isOnline(): boolean {
 	return typeof navigator === 'undefined' ? true : navigator.onLine;
+}
+
+// PLAT-001: the ONLY place a raw viewport width is read. The platform layer classifies it once
+// into a coarse class so the profile resolver and every feature component stay free of raw pixel
+// math. The boundary lint forbids `innerWidth` / `matchMedia` outside this owned probe.
+const COMPACT_MAX = 720;
+const EXPANDED_MIN = 1200;
+
+/** Classify a raw width into the coarse viewport class used by the profile descriptor. */
+export function classifyViewport(width: number): PlatformViewportClass {
+	if (width <= COMPACT_MAX) return 'compact';
+	if (width >= EXPANDED_MIN) return 'expanded';
+	return 'medium';
+}
+
+/**
+ * Probe the host environment once and build the capability/environment descriptor the shell
+ * hands to the core `selectPlatformProfile` resolver. This reads `window.innerWidth`,
+ * `matchMedia`, and `navigator` — the trusted platform-service boundary — so no feature
+ * component ever does (PLAT-001). On the server (SSR) it returns a stable expanded default.
+ */
+export function probeEnvironment(): PlatformEnvironmentDescriptor {
+	if (typeof window === 'undefined') {
+		return { viewportClass: 'expanded', hasTouch: false, hasFinePointer: true };
+	}
+	const viewportClass = classifyViewport(window.innerWidth);
+	const coarse =
+		typeof window.matchMedia === 'function' ? window.matchMedia('(pointer: coarse)').matches : false;
+	const fine =
+		typeof window.matchMedia === 'function' ? window.matchMedia('(pointer: fine)').matches : true;
+	return {
+		viewportClass,
+		hasTouch: coarse,
+		hasFinePointer: fine,
+		// The browser prototype is always the web shell. A native Electron/Capacitor host would
+		// inject its own declared shell here.
+		declaredShell: 'web',
+	};
 }

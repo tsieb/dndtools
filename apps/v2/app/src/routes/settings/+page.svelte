@@ -10,6 +10,8 @@
 	import { buildDiagnosticsContext } from '$lib/platform/diagnostics-context';
 	import DiagnosticsPanel from '$lib/gui/DiagnosticsPanel.svelte';
 	import ParticipantStatusPanel from '$lib/gui/ParticipantStatusPanel.svelte';
+	import CapabilityStatus from '$lib/gui/CapabilityStatus.svelte';
+	import SupportMatrix from '$lib/gui/SupportMatrix.svelte';
 
 	const runtime = useRuntime();
 	const profile = useProfile();
@@ -81,6 +83,14 @@
 			profile: {profile.profileId} • viewport: {profile.viewportClass}
 		</p>
 	</section>
+
+	<!-- PLAT-001 / PLAT-002 / PLAT-004 / PLAT-005: the resolved profile capability descriptor.
+	     Feature surfaces branch on these facts; native-only services show as
+	     unavailable/unsupported so degraded capability status is visible. -->
+	<CapabilityStatus profile={profile.profile} />
+
+	<!-- PLAT-016: the published web/PWA cached read/write support matrix. -->
+	<SupportMatrix />
 
 	<section aria-label="Active actor">
 		<h2>Viewing as</h2>

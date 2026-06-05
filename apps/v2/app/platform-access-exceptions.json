@@ -21,10 +21,10 @@
     {
       "id": "platform-capabilities-probe",
       "path": "apps/v2/app/src/lib/platform/capabilities.ts",
-      "primitives": ["indexedDB", "navigator"],
+      "primitives": ["indexedDB", "navigator", "viewport-sniff"],
       "owner": "PLAT (platform services)",
-      "rationale": "Capability probes that read indexedDB availability and navigator.onLine so GUI components branch on capability facts, not raw globals (Contract 1 Platform Profile Selection).",
-      "removalCriteria": "Fold into a richer PlatformProfile capability descriptor when one exists; the raw global reads must remain confined to the platform layer."
+      "rationale": "Capability/environment probes that read indexedDB availability, navigator.onLine, and the raw viewport (window.innerWidth + matchMedia pointer queries) ONCE so GUI components branch on the resolved platform profile / capability facts, not raw globals (PLAT-001 / Contract 1 Platform Profile Selection). This is the single owned place the raw viewport may be read; the boundary lint forbids viewport sniffing everywhere else.",
+      "removalCriteria": "The raw global/viewport reads must remain confined to this platform-layer probe. Remove only if profile resolution moves into a dedicated platform-profile service module that keeps the reads out of feature components."
     },
     {
       "id": "runtime-id-clock",

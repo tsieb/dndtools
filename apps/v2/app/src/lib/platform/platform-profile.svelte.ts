@@ -1,51 +1,69 @@
 import { getContext, setContext } from 'svelte';
-import type { PlatformProfileId } from '@dndtools/v2-core';
+import {
+	isCompactPresentation,
+	selectPlatformProfile,
+	type PlatformEnvironmentDescriptor,
+	type PlatformProfile,
+	type PlatformProfileId,
+	type PlatformServiceCapabilities,
+	type PlatformViewportClass,
+} from '@dndtools/v2-core';
+import { probeEnvironment } from './capabilities';
 
-export type ViewportClass = 'compact' | 'medium' | 'expanded';
-
-const COMPACT_MAX = 720;
-const EXPANDED_MIN = 1200;
-
-export function classifyViewport(width: number): ViewportClass {
-	if (width <= COMPACT_MAX) return 'compact';
-	if (width >= EXPANDED_MIN) return 'expanded';
-	return 'medium';
-}
-
-export function profileIdForViewport(viewport: ViewportClass): PlatformProfileId {
-	return viewport === 'compact' ? 'mobile' : 'desktop';
-}
+export type ViewportClass = PlatformViewportClass;
 
 /**
- * Reactive platform profile owned by the app shell. Feature components branch on
- * the profile's capabilities (compact vs expanded), never on raw `innerWidth`
- * (Contract 1, Platform Profile Selection).
+ * PLAT-001 (the spine): the reactive platform profile owned by the app shell.
+ *
+ * The shell probes the host ONCE through the platform layer ({@link probeEnvironment}) to build a
+ * capability/environment descriptor, then resolves the full {@link PlatformProfile} via the core
+ * `selectPlatformProfile`. Feature components branch on `profile.capabilities` / the resolved
+ * descriptor — never on raw `window.innerWidth` (Contract 1, Platform Profile Selection;
+ * PLAT-001 AC2). The boundary lint forbids raw viewport sniffing outside the platform layer, so
+ * this rule is mechanically enforced.
  */
 export class PlatformProfileStore {
-	#viewport = $state<ViewportClass>('expanded');
+	#profile = $state<PlatformProfile>(
+		selectPlatformProfile({ viewportClass: 'expanded', hasTouch: false, hasFinePointer: true }),
+	);
 
-	get viewportClass(): ViewportClass {
-		return this.#viewport;
+	/** The full resolved capability descriptor passed to GUI packages. */
+	get profile(): PlatformProfile {
+		return this.#profile;
 	}
 
 	get profileId(): PlatformProfileId {
-		return profileIdForViewport(this.#viewport);
+		return this.#profile.id;
 	}
 
-	/** Compact = one focused work surface at a time (slim device contract). */
+	get viewportClass(): ViewportClass {
+		return this.#profile.viewportClass;
+	}
+
+	/** The typed platform-service capability surface feature components branch on. */
+	get capabilities(): PlatformServiceCapabilities {
+		return this.#profile.capabilities;
+	}
+
+	/** Compact = one focused work surface at a time (slim device contract; PLAT-003). */
 	get isCompact(): boolean {
-		return this.#viewport === 'compact';
+		return isCompactPresentation(this.#profile);
 	}
 
-	set(viewport: ViewportClass): void {
-		this.#viewport = viewport;
+	/** Resolve and set the profile from an explicit environment descriptor (used by tests). */
+	resolve(env: PlatformEnvironmentDescriptor): void {
+		this.#profile = selectPlatformProfile(env);
 	}
 
-	/** Subscribe to viewport changes. Returns a cleanup function. */
+	/**
+	 * Subscribe to viewport changes through the platform probe. Returns a cleanup function. The
+	 * resize handler re-probes the environment (the only place width is read) and re-resolves the
+	 * profile; feature components react to the new descriptor.
+	 */
 	init(): () => void {
 		if (typeof window === 'undefined') return () => {};
 		const update = () => {
-			this.#viewport = classifyViewport(window.innerWidth);
+			this.#profile = selectPlatformProfile(probeEnvironment());
 		};
 		update();
 		window.addEventListener('resize', update);

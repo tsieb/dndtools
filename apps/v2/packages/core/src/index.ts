@@ -499,6 +499,86 @@ export type {
 	StoragePort,
 } from './contracts/platform-boundary.contract';
 
+// PLAT-001: platform profile capability descriptors + runtime profile selection. The shell
+// resolves a profile from an environment descriptor; feature components branch on the resolved
+// capabilities, never on raw viewport width.
+export type {
+	PlatformEnvironmentDescriptor,
+	PlatformInputModality,
+	PlatformProfile,
+	PlatformServiceAvailability,
+	PlatformServiceCapabilities,
+	PlatformStorageKind,
+	PlatformViewportClass,
+} from './platform/platform-profile';
+export {
+	PLATFORM_PROFILES,
+	hasService,
+	isCompactPresentation,
+	platformProfile,
+	selectPlatformProfile,
+	serviceAvailability,
+} from './platform/platform-profile';
+
+// PLAT-016: published web/PWA cached read/write support matrix (data artifact + fail-closed
+// capability resolution for unsupported features).
+export type {
+	AuthRequirement,
+	PlatformSupportMatrix,
+	SupportDomainEntry,
+	SupportDomainId,
+	SupportLevel,
+	UnsupportedFeatureEntry,
+	UnsupportedFeatureId,
+} from './platform/support-matrix';
+export {
+	SUPPORT_MATRIX_VERSION,
+	WEB_SUPPORT_MATRIX,
+	capabilityForFeature,
+	domainSupportLevel,
+	matrixServiceInconsistencies,
+	supportDomain,
+} from './platform/support-matrix';
+
+// PLAT-002: type-only desktop (Electron) shell platform-service contract (no native wiring in
+// the first slice; declared so feature components degrade against the capability descriptor).
+export type {
+	DesktopDialogService,
+	DesktopFileWatchService,
+	DesktopFilesystemService,
+	DesktopIpcRequest,
+	DesktopMcpSidecarService,
+	DesktopPlatformServices,
+	DesktopProtocolService,
+	DesktopUpdateService,
+	TitlebarControl,
+	TitlebarWindowState,
+} from './contracts/desktop-shell.contract';
+export type {
+	TitlebarAuditFailure,
+	TitlebarAuditFailureReason,
+	TitlebarAuditOptions,
+	TitlebarAuditResult,
+	TitlebarTargetMeasurement,
+} from './platform/titlebar';
+export {
+	DEFAULT_TITLEBAR_HEIGHT_PX,
+	TITLEBAR_CHROME_BASELINE_PX,
+	auditTitlebarTargets,
+	titlebarControlsForState,
+} from './platform/titlebar';
+
+// PLAT-005: type-only Android (Capacitor) shell platform-service contract (no native bridge in
+// the first slice; feature logic receives platform-service results, never raw native access).
+export type {
+	AndroidFileImportResult,
+	AndroidFilesystemService,
+	AndroidKeyboardInsets,
+	AndroidKeyboardService,
+	AndroidPlatformServices,
+	AndroidShareImportService,
+} from './contracts/android-shell.contract';
+
 // PLAT-018: durable command lifecycle states.
 export type {
 	CommandLifecycleState,
