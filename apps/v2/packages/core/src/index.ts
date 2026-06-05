@@ -223,6 +223,53 @@ export {
 export { canActorSeeScene, evaluateSceneVisibility } from './permissions/visibility';
 export type { SceneVisibilityResult } from './permissions/visibility';
 
+// PERM-002 / PERM-003: the visibility-filtering engine — the SECURITY KEYSTONE choke-point every
+// non-DM read path passes through. Three levels (`dm-only`/`player-visible`/`shared`, where
+// `shared` means delivery only through player-view assignment / handout delivery / viewer grant),
+// authorable at entity/section/field granularity with field>section>entity precedence and
+// hidden-ancestor-wins. Fail closed: absent/unknown visibility ⇒ `dm-only` (least visible).
+export type {
+	EntityVisibilityMetadata,
+	FilterableContent,
+	FilteredContent,
+	VisibilityDecision,
+	VisibilityDenialReason,
+	VisibilityLevel,
+	VisibilityRule,
+	VisibilityScope,
+	VisibilityTarget,
+} from './permissions/visibility-filter';
+export {
+	DEFAULT_VISIBILITY,
+	evaluateVisibility,
+	filterEntityForActor,
+	isEntityVisibleToActor,
+	normalizeVisibilityLevel,
+} from './permissions/visibility-filter';
+
+// PERM-012: visibility revoke/change + invalidation. Reuses the capability-cache fingerprint-diff
+// pattern (whose trigger list already names "visibility"): a per-actor visibility fingerprint folds
+// in every granular rule + the actor's effective access, so narrowing a section/field/entity
+// immediately invalidates exactly the affected actors' subscriptions, sync streams, cached data,
+// and widget bindings — and a stale cache never serves a now-hidden surface. The entity-level
+// bridge feeds the existing capability cache without duplicating it.
+export type {
+	VisibilityCache,
+	VisibilityCacheEntry,
+	VisibilityCacheInputs,
+	VisibilityInvalidationResult,
+	VisibilitySurfaceRef,
+} from './permissions/visibility-invalidation';
+export {
+	EMPTY_VISIBILITY_CACHE,
+	buildVisibilityCache,
+	computeActorVisibilityFingerprint,
+	computeVisibilityMetadataFingerprint,
+	invalidateVisibilityCache,
+	isVisibilityCacheEntryValid,
+	toConsistencyEntityRecords,
+} from './permissions/visibility-invalidation';
+
 // PERM-001 / PERM-011: base-role floor + observer ceiling. Pure Processing-Core permission
 // policy (Contract 3, Base Roles). The base role floor is computed first and caps the participant;
 // grants are additive only within the role ceiling and are dropped when they would exceed it, so

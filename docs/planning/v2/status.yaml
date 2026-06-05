@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 67
+  approved: 66
   active: 0
-  complete: 21
+  complete: 22
   deferred: 0
 metrics:
-  epicCompletionPercent: 23.9
-  requirementCompletionPercent: 27.8
+  epicCompletionPercent: 25
+  requirementCompletionPercent: 29.1
   totalRequirements: 234
-  completedRequirements: 65
+  completedRequirements: 68
   deferredRequirements: 0
-  remainingEpics: 67
-  promptableEpics: 67
+  remainingEpics: 66
+  promptableEpics: 66
   blockedByDependencies: 0
-  completionEvidenceFiles: 21
+  completionEvidenceFiles: 22
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -140,13 +140,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: PERM
       totalEpics: 4
-      complete: 3
+      complete: 4
       active: 0
-      approved: 1
+      approved: 0
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 75
-      requirementCompletionPercent: 78.6
+      epicCompletionPercent: 100
+      requirementCompletionPercent: 100
     - domain: PLAT
       totalEpics: 4
       complete: 4
@@ -193,16 +193,14 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: PERM-visibility
-  title: "PERM: Visibility"
+  id: MAP-interaction-safety
+  title: "MAP: Interaction safety"
   status: approved
   requirementIds:
-    - PERM-002
-    - PERM-003
-    - PERM-012
-  promptCommand: pnpm v2:prompt -- --epic PERM-visibility
+    - MAP-015
+  promptCommand: pnpm v2:prompt -- --epic MAP-interaction-safety
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic PERM-visibility --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic MAP-interaction-safety --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -636,12 +634,13 @@ epics:
       - PERM-013
     completionEvidenceFile: docs/planning/v2/epics/PERM-grants-and-capability-sets.completion.md
   - id: PERM-visibility
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - PERM-002
       - PERM-003
       - PERM-012
+    completionEvidenceFile: docs/planning/v2/epics/PERM-visibility.completion.md
   - id: PLAT-migration-and-diagnostics
     status: complete
     approved: true

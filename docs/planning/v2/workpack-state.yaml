@@ -92,6 +92,9 @@ epics:
   - id: PERM-grants-and-capability-sets
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PERM-grants-and-capability-sets.completion.md
+  - id: PERM-visibility
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/PERM-visibility.completion.md
   - id: PLAT-migration-and-diagnostics
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PLAT-migration-and-diagnostics.completion.md
