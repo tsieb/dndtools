@@ -226,7 +226,7 @@ Requirement IDs exercised by the demo: COLLAB-003, COLLAB-004.
 ## Git evidence
 
 - Branch: `epic/COLLAB-live-session-state-and-presence`
-- Commit (feat): _recorded in the follow-up `docs(v2): record commit SHA` commit._
+- Commit (feat): `e64b96af154649b37a5cbcec88bb0b5383747e39`
 
 ### `git status --short` (after the feat commit)
 
