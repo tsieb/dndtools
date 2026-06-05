@@ -171,5 +171,6 @@ Results:
 
 - Branch: `epic/CHAR-party-and-player-records` (created from the prior epic HEAD `9d0fd00`, not
   master).
-- Commit: recorded at handoff (see final report).
-- Final `git status --short`: clean (recorded in the final report after the completion commit).
+- Commit: `cfb7857` ("feat(v2): complete CHAR-party-and-player-records epic"). A follow-up commit
+  records this exact SHA in the evidence.
+- Final `git status --short`: clean (empty) after the completion commit.
