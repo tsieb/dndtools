@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: NAV-home-and-canonical-sections
 title: "NAV: Home and canonical sections"
-status: approved
+status: complete
 approved: true
 domain: NAV
 capabilityBranch: Home and canonical sections
@@ -161,3 +161,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/NAV-home-and-canonical-sections.completion.md

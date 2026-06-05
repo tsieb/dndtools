@@ -54,6 +54,14 @@
 	const location = $derived(locationFromPath(page.url.pathname));
 	const navView = $derived(resolveNavigationView(runtime.state, runtime.activeActorId, location));
 	const reachable = $derived(listReachableDestinations(runtime.state, runtime.activeActorId));
+
+	// NAV-001 AC2: opening a section makes route, landmark, and title reflect the
+	// canonical section. The active section comes from the same actor-filtered registry
+	// the primary nav uses, so a section the actor cannot reach yields none (fail closed).
+	const activeSection = $derived(navView.section);
+	$effect(() => {
+		document.title = activeSection ? `${activeSection.title} — DND Tools v2` : 'DND Tools v2';
+	});
 	const currentEntry = $derived.by(() => {
 		const crumb = navView.breadcrumbs.at(-1);
 		return crumb ? { route: crumb.route, title: crumb.title } : null;
@@ -116,7 +124,12 @@
 	</div>
 {/if}
 
-<main class="app-main">
+<main
+	class="app-main"
+	data-testid="route-landmark"
+	data-section-landmark={activeSection?.landmark ?? ''}
+	aria-label={activeSection ? `${activeSection.title} section` : undefined}
+>
 	{#if !runtime.loaded}
 		<p class="loading" role="status">Loading local Scene store…</p>
 	{:else}

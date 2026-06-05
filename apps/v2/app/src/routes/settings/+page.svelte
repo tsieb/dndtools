@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { listNavigationSections } from '@dndtools/v2-core';
+	import {
+		listNavigationRegistryForActor,
+		listNavigationSections,
+		type SectionActorAvailability,
+	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
 
@@ -12,6 +16,20 @@
 	// and palette use, so it reflects exactly what the active actor can reach.
 	const activeActor = $derived(runtime.state.permissions.actors[runtime.activeActorId] ?? null);
 	const sections = $derived(listNavigationSections(runtime.state.permissions, runtime.activeActorId));
+
+	// NAV-001 / NAV-009: the canonical top-level Navigation Section registry, filtered
+	// for the active actor. DM-only sections are absent for players/observers (NAV-009
+	// AC2). Planned sections appear as approved-but-unbuilt IA; only released sections
+	// are reachable. The whole list is derived from the Processing Core registry, never
+	// authored here.
+	const registry = $derived(
+		listNavigationRegistryForActor(runtime.state.permissions, runtime.activeActorId),
+	);
+
+	function availableRoles(availability: SectionActorAvailability): string {
+		const roles = (['dm', 'player', 'observer'] as const).filter((role) => availability[role]);
+		return roles.join(', ');
+	}
 </script>
 
 <section data-testid="settings-view" aria-label="Settings">
@@ -44,6 +62,37 @@
 				<li class="scene-card" data-testid={`settings-section-${section.id}`}>
 					<a href={section.route}><strong>{section.title}</strong></a>
 					<span class="meta"> {section.category}</span>
+				</li>
+			{/each}
+		</ul>
+	</section>
+
+	<section aria-label="Canonical navigation sections">
+		<h3>Canonical navigation sections</h3>
+		<p class="meta">
+			The approved top-level information architecture. Each section declares its owning domain,
+			route root, actor availability, and release status. DM-only sections never appear for players
+			or observers.
+		</p>
+		<ul class="scene-list" data-testid="settings-ia-registry">
+			{#each registry as entry (entry.id)}
+				<li class="scene-card" data-testid={`ia-section-${entry.id}`}>
+					<div>
+						<strong>{entry.title}</strong>
+						{#if entry.home}<span class="meta"> • home</span>{/if}
+						<div class="meta">
+							owner: {entry.owner} • root: <code>{entry.routeRoot}</code> •
+							for: {availableRoles(entry.availability)}
+						</div>
+						<div class="meta">local nav: {entry.localNav.description}</div>
+					</div>
+					<span
+						class="meta"
+						class:unavailable={!entry.reachable}
+						data-testid={`ia-status-${entry.id}`}
+					>
+						{entry.releaseStatus}{entry.reachable ? ' • reachable' : ''}
+					</span>
 				</li>
 			{/each}
 		</ul>

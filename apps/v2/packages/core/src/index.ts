@@ -264,10 +264,33 @@ export {
 export type {
 	NavigationAudience,
 	NavigationCategory,
+	NavigationRegistryEntry,
 	NavigationSection,
 	NavigationSectionDef,
 } from './queries/navigation';
-export { NAVIGATION_SECTIONS, listNavigationSections } from './queries/navigation';
+export {
+	NAVIGATION_SECTIONS,
+	listNavigationRegistryForActor,
+	listNavigationSections,
+} from './queries/navigation';
+
+export type {
+	CanonicalNavigationSection,
+	LocalNavigationContract,
+	LocalNavigationContractKind,
+	NavigationSectionProblem,
+	SectionActorAvailability,
+	SectionOwnerDomain,
+	SectionReleaseStatus,
+} from './queries/navigation-sections';
+export {
+	CANONICAL_NAVIGATION_SECTIONS,
+	findSectionByRoute,
+	getHomeSection,
+	isSectionAvailableForRole,
+	sectionRuntimeRoute,
+	validateNavigationSections,
+} from './queries/navigation-sections';
 
 export type {
 	ContextualLink,

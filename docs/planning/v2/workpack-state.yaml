@@ -74,3 +74,6 @@ epics:
   - id: NAV-global-local-contextual-navigation
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/NAV-global-local-contextual-navigation.completion.md
+  - id: NAV-home-and-canonical-sections
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/NAV-home-and-canonical-sections.completion.md
