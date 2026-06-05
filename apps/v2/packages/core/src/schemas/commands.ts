@@ -1343,3 +1343,20 @@ export const exportContentInputSchema = z
 		portableViewerActorId: z.string().default(''),
 	})
 	.strict();
+
+// --- CONTENT-012 — source-specific constraints (acknowledged write-back) ------------------------
+
+const contentSourceIdSchema = z.enum(['local-markdown', 'obsidian', 'google-docs']);
+
+// CONTENT-012 — write a note's content back to a target SOURCE (DM-only authoring). The Processing Core
+// re-runs the PURE constraint check from `noteText` + `source`; a write that would lose/downgrade
+// detected structures is rejected unless `acknowledgmentToken` EXACTLY matches the check's token (the
+// human acknowledged precisely this loss). `acknowledgmentToken` is omitted/null for a faithful write.
+export const writeContentToSourceInputSchema = z
+	.object({
+		itemId: idSchema,
+		source: contentSourceIdSchema,
+		noteText: z.string(),
+		acknowledgmentToken: z.string().min(1).nullish(),
+	})
+	.strict();

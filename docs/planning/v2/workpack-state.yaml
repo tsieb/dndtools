@@ -95,6 +95,9 @@ epics:
   - id: CONTENT-notes-and-editor
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CONTENT-notes-and-editor.completion.md
+  - id: CONTENT-source-specific-constraints
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CONTENT-source-specific-constraints.completion.md
   - id: MAP-interaction-safety
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MAP-interaction-safety.completion.md

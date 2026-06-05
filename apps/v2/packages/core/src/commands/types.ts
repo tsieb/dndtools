@@ -305,7 +305,12 @@ export type CoreCommand =
 	// (preview is pure/read-only; resume skips already-applied steps; no partial commit on rejection).
 	| { type: 'content.commit-import'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// CONTENT-008: export portable markdown + validation report (fail-closed visibility + redaction).
-	| { type: 'content.export'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'content.export'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CONTENT-012: write a note's content back to a target SOURCE (local markdown / Obsidian / Google
+	// Docs). FAIL-CLOSED: a write that would lose/downgrade detected structures is rejected unless the
+	// payload carries the matching acknowledgment token (the pre-write constraint check surfaces exactly
+	// what is lost). The local draft is never mutated by a rejected write.
+	| { type: 'content.write-to-source'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -650,6 +655,18 @@ export type CoreEvent =
 			clean: boolean;
 			export: ContentExport;
 			actorId: ActorId;
+	  }
+	// CONTENT-012 — a note was written back to a target source after the lossy-detection check passed
+	// (either nothing was lost, or the human acknowledged exactly what was lost). Carries the source and
+	// the dropped/lossy feature lists so the write audit records what was downgraded — never silently lost.
+	| {
+			kind: 'content.written-to-source';
+			itemId: string;
+			source: string;
+			lossy: boolean;
+			lossyFeatures: string[];
+			droppedFeatures: string[];
+			actorId: ActorId;
 	  };
 
 export type RejectionCode =
@@ -700,7 +717,13 @@ export type RejectionCode =
 	// CONTENT-001 — the target item is soft-deleted: it must be restored before it can be edited, and a
 	// live item cannot be restored. Distinct so the authoring UI can route the actor to the recycle bin.
 	| 'content-item-deleted'
-	| 'content-item-not-deleted';
+	| 'content-item-not-deleted'
+	// CONTENT-012 — a write to a target source would LOSE or DOWNGRADE detected structures and the caller
+	// did not acknowledge the specific loss (missing/stale token). Fail closed: the lossy write never
+	// commits silently; the pre-write constraint check tells the human exactly what is lost.
+	| 'content-write-loss-unacknowledged'
+	// CONTENT-012 — the target source id is not a declared note source (fail closed to unsupported).
+	| 'content-source-unknown';
 
 export interface CommandRejection {
 	code: RejectionCode;

@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CONTENT-source-specific-constraints
 title: "CONTENT: Source-specific constraints"
-status: approved
+status: complete
 approved: true
 domain: CONTENT
 capabilityBranch: Source-specific constraints
@@ -137,3 +137,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/CONTENT-source-specific-constraints.completion.md

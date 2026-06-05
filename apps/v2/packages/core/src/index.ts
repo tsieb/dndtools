@@ -1471,6 +1471,39 @@ export {
 	exportContent,
 } from './state/content-export';
 
+// CONTENT-012: SOURCE-SPECIFIC CONSTRAINTS — typed capability descriptors for the note sources
+// (local markdown / Obsidian / Google Docs) + a PURE pre-write constraint check. Given a note's detected
+// structures (via markdown.ts) and a target source, it reports BEFORE the write which formatting,
+// properties, links, or unsupported structures would be lost/downgraded. FAIL-CLOSED: a lossy write
+// requires an acknowledgment token (it never silently loses data); an unknown source/feature is
+// unsupported. Modeled on the platform capability descriptors + the MAP-020 pre-commit diagnostic; the
+// descriptors are the seam a future Obsidian/Google Docs transport plugs into (transports deferred per
+// ADR-014). The check is read-only — it never mutates the local draft.
+export type {
+	ContentConstraintCheck,
+	ContentConstraintDiagnostic,
+	ContentFeatureSupport,
+	ContentNoteFeature,
+	ContentSourceCapabilitySummary,
+	ContentSourceDescriptor,
+	ContentSourceId,
+	DetectedNoteStructures,
+} from './state/content-constraints';
+export {
+	CONTENT_CONSTRAINTS_SCHEMA_VERSION,
+	CONTENT_NOTE_FEATURES,
+	CONTENT_SOURCE_DESCRIPTORS,
+	CONTENT_SOURCE_IDS,
+	checkContentSourceConstraints,
+	checkDetectedStructuresAgainstSource,
+	contentSourceDescriptor,
+	detectNoteStructures,
+	featureSupportForSource,
+	isContentWriteAcknowledged,
+	listContentSourceCapabilities,
+	summarizeContentSourceCapabilities,
+} from './state/content-constraints';
+
 // CHAR-002: the guided, structured PC-creation flow — step definitions, options, per-step validation
 // (rules incl. the ability point-buy budget), and the resumable completeness report. Pure policy.
 export type {
@@ -1698,6 +1731,7 @@ export {
 	updateContentItemInputSchema,
 	updateJournalEntryInputSchema,
 	upsertPartyInventoryItemInputSchema,
+	writeContentToSourceInputSchema,
 } from './schemas/commands';
 
 // PLAT-018: durable command lifecycle states.

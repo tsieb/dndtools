@@ -1,9 +1,13 @@
 import {
 	commitContentImportInputSchema,
 	exportContentInputSchema,
+	writeContentToSourceInputSchema,
 } from '../schemas/commands';
 import {
 	CONTENT_ITEM_ENTITY_TYPE,
+	contentItemById,
+	isLiveContentItem,
+	type ContentItem,
 	type VaultContentState,
 } from '../state/content';
 import {
@@ -14,6 +18,11 @@ import {
 	type ImportSourceKind,
 } from '../state/content-import';
 import { exportContent, type ContentExport } from '../state/content-export';
+import {
+	checkContentSourceConstraints,
+	contentSourceDescriptor,
+	isContentWriteAcknowledged,
+} from '../state/content-constraints';
 import type { Actor } from '../state/permission-state';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import { appendOperationDraft, ensureContentStateSlice, parseInput, reject, requireActor } from './helpers';
@@ -191,6 +200,115 @@ export function handleExportContent(
 		omittedForVisibility: result.report.omittedForVisibility,
 		clean: result.report.clean,
 		export: result,
+		actorId: actor.id,
+	};
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, sync: draft.log },
+		events: [event],
+		operationIds: [draft.op.id],
+	};
+}
+
+// --- CONTENT-012 — acknowledged write-back to a target source (fail-closed lossy detection) -------
+
+/**
+ * CONTENT-012 — write a note's content back to a target SOURCE (local markdown / Obsidian / Google Docs)
+ * after the pre-write CONSTRAINT CHECK. This is the FAIL-CLOSED enforcement seam: the Processing Core
+ * re-runs the PURE check from the provided note text + source (a caller cannot bypass the gate by passing
+ * a fabricated check), and REJECTS a lossy/destructive write unless the payload carries the matching
+ * acknowledgment token. The local draft is NEVER mutated on rejection — the note text is the input, so a
+ * rejected/unsupported write leaves the draft content intact (CONTENT-012 AC3). One durable op records
+ * the source + exactly which features were dropped/downgraded, so a lossy write is AUDITED, never silently
+ * lost. The transports themselves remain deferred per ADR-014; this records the acknowledged write intent.
+ */
+export function handleWriteContentToSource(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const parsed = parseInput(writeContentToSourceInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	if (!actorMayAuthorVault(actor)) {
+		return reject(
+			{ code: 'actor-not-authorized', message: 'Only the DM may write content to a source.' },
+			state,
+		);
+	}
+
+	// Fail closed on an unknown source (never a permissive default).
+	if (contentSourceDescriptor(parsed.data.source) === null) {
+		return reject(
+			{
+				code: 'content-source-unknown',
+				message: `"${parsed.data.source}" is not a declared note source.`,
+			},
+			state,
+		);
+	}
+
+	const content = ensureContentStateSlice(state.content);
+	const existing: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
+	if (!existing) {
+		return reject(
+			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			state,
+		);
+	}
+	if (!isLiveContentItem(existing)) {
+		return reject(
+			{ code: 'content-item-deleted', message: 'Restore this item before writing it to a source.' },
+			state,
+		);
+	}
+
+	// Recompute the constraint check fail-closed. A lossy write requires the matching acknowledgment
+	// token; a missing/stale token rejects WITHOUT mutating durable state or the local draft.
+	const check = checkContentSourceConstraints(parsed.data.noteText, parsed.data.source);
+	if (
+		!isContentWriteAcknowledged(
+			parsed.data.noteText,
+			parsed.data.source,
+			parsed.data.acknowledgmentToken ?? null,
+		)
+	) {
+		return reject(
+			{
+				code: 'content-write-loss-unacknowledged',
+				message: `Writing to ${check.sourceDisplayName} would lose or downgrade ${
+					check.droppedFeatures.length + check.lossyFeatures.length
+				} note structure(s). Acknowledge the loss before writing.`,
+			},
+			state,
+		);
+	}
+
+	// The acknowledged (or faithful) write is recorded as a durable op. The transport itself is deferred
+	// per ADR-014; the op records the source + what was dropped/downgraded so the loss is audited.
+	const draft = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: CONTENT_ITEM_ENTITY_TYPE,
+		entityId: existing.id,
+		opType: 'content.write-to-source',
+		path: `content/items/${existing.id}`,
+		value: {
+			source: parsed.data.source,
+			lossy: check.lossy,
+			lossyFeatures: [...check.lossyFeatures],
+			droppedFeatures: [...check.droppedFeatures],
+		},
+	});
+
+	const event: CoreEvent = {
+		kind: 'content.written-to-source',
+		itemId: existing.id,
+		source: parsed.data.source,
+		lossy: check.lossy,
+		lossyFeatures: [...check.lossyFeatures],
+		droppedFeatures: [...check.droppedFeatures],
 		actorId: actor.id,
 	};
 
