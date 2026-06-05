@@ -1,12 +1,18 @@
 <script lang="ts">
-	import { getHandoutForActor, getHandoutDeliveryHistory } from '@dndtools/v2-core';
+	import {
+		getHandoutForActor,
+		getHandoutDeliveryHistory,
+		getHandoutStatusForDm,
+	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 
-	// SES-004: the DM delivers a HANDOUT as a Scene widget to SELECTED recipients with delivery history,
-	// visibility enforcement (non-recipients receive nothing), and optional/progressive reveal. The GUI
-	// only dispatches command intents and renders the actor-filtered handout read model — visibility and
-	// the non-recipient non-leak are enforced in the Processing Core (Contract 1 / Contract 3). The "view
-	// as" header control re-renders the read against another actor, proving a non-recipient sees nothing.
+	// SES-004 / COLLAB-007: the DM delivers a HANDOUT as a Scene widget to SELECTED recipients with delivery
+	// history, visibility enforcement (non-recipients receive nothing), optional/progressive reveal, delivery
+	// ACKNOWLEDGEMENT (the recipient confirms receipt), and REVOCATION (the DM revokes → the recipient is
+	// SEALED/unavailable unless persistent). The GUI only dispatches command intents and renders the
+	// actor-filtered handout read model — visibility, the non-recipient non-leak, and the revoke seal are
+	// enforced in the Processing Core (Contract 1 / Contract 3). The "view as" header control re-renders the
+	// read against another actor, proving a non-recipient (and a sealed recipient) sees nothing.
 	const runtime = useRuntime();
 
 	const actor = $derived(runtime.state.permissions.actors[runtime.activeActorId] ?? null);
@@ -16,6 +22,18 @@
 
 	// The recipients available to deliver to: every non-DM participant.
 	const recipients = $derived(runtime.actors.filter((a) => a.role !== 'dm'));
+	// COLLAB-012 — the DM-authored PLAYER GROUPS usable as delivery targets. Delivering to a group resolves
+	// to its CURRENT members in the Processing Core (delivery-only; membership confers no permission).
+	const groups = $derived(Object.values(runtime.state.session.playerGroups));
+
+	// A stable, lowercased slug of a group name for test/automation hooks (display uses the real name).
+	function slug(value: string): string {
+		return value
+			.trim()
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-+|-+$/g, '');
+	}
 
 	// Every handout the ACTIVE actor may see, resolved through the actor-filtered read.
 	const handoutIds = $derived(Object.keys(runtime.state.session.handouts));
@@ -27,12 +45,17 @@
 	const deliveryHistory = $derived(
 		getHandoutDeliveryHistory(runtime.state.session, runtime.state.permissions, runtime.activeActorId),
 	);
+	// COLLAB-007 — the DM-only per-recipient delivered/opened/revoked status surface.
+	const handoutStatus = $derived(
+		getHandoutStatusForDm(runtime.state.session, runtime.state.permissions, runtime.activeActorId),
+	);
 
 	let error = $state<string | null>(null);
 	let title = $state('The cryptic letter');
 	let openingBody = $state('You find a sealed letter on the dead courier.');
 	let cipherBody = $state('XJQ ZTP RVL — the cipher is unsolved.');
 	let selectedRecipients = $state<string[]>([]);
+	let selectedGroupIds = $state<string[]>([]);
 	let revealCipher = $state(false);
 
 	const OPENING_SECTION = 'handout-section-opening';
@@ -54,13 +77,19 @@
 			: [...selectedRecipients, id];
 	}
 
+	function toggleGroup(id: string): void {
+		selectedGroupIds = selectedGroupIds.includes(id)
+			? selectedGroupIds.filter((g) => g !== id)
+			: [...selectedGroupIds, id];
+	}
+
 	async function deliver(): Promise<void> {
 		if (!activeSceneId) {
 			error = 'No active Scene to deliver onto.';
 			return;
 		}
-		if (selectedRecipients.length === 0) {
-			error = 'Select at least one recipient.';
+		if (selectedRecipients.length === 0 && selectedGroupIds.length === 0) {
+			error = 'Select at least one recipient or player group.';
 			return;
 		}
 		await dispatch({
@@ -70,6 +99,7 @@
 				title: title.trim() || 'Handout',
 				sceneId: activeSceneId,
 				recipientActorIds: selectedRecipients,
+				groupIds: selectedGroupIds,
 				sections: [
 					{ id: OPENING_SECTION, heading: 'Opening', body: openingBody, visibility: 'player-visible' },
 					{ id: CIPHER_SECTION, heading: 'Cipher', body: cipherBody, visibility: 'shared' },
@@ -84,6 +114,24 @@
 			type: 'session.reveal-handout-section',
 			actorId: runtime.activeActorId,
 			payload: { handoutId, sectionId, revealed },
+		});
+	}
+
+	// COLLAB-007 — the RECIPIENT acknowledges receipt (the "opened" confirmation).
+	async function acknowledge(handoutId: string): Promise<void> {
+		await dispatch({
+			type: 'session.acknowledge-handout',
+			actorId: runtime.activeActorId,
+			payload: { handoutId },
+		});
+	}
+
+	// COLLAB-007 — the DM revokes a recipient (sealed/unavailable unless persistent).
+	async function revoke(handoutId: string, recipientActorId: string): Promise<void> {
+		await dispatch({
+			type: 'session.revoke-handout',
+			actorId: runtime.activeActorId,
+			payload: { handoutId, recipientActorIds: [recipientActorId] },
 		});
 	}
 </script>
@@ -135,6 +183,23 @@
 				{/each}
 			</fieldset>
 
+			{#if groups.length > 0}
+				<fieldset data-testid="handout-groups">
+					<legend>Player groups (delivery target)</legend>
+					{#each groups as group (group.id)}
+						<label class="recipient">
+							<input
+								type="checkbox"
+								data-testid={`handout-group-${slug(group.name)}`}
+								checked={selectedGroupIds.includes(group.id)}
+								onchange={() => toggleGroup(group.id)}
+							/>
+							{group.name} ({group.memberActorIds.length} member(s))
+						</label>
+					{/each}
+				</fieldset>
+			{/if}
+
 			<label class="reveal">
 				<input type="checkbox" data-testid="handout-reveal-cipher" bind:checked={revealCipher} />
 				Reveal the cipher section on delivery
@@ -159,6 +224,43 @@
 				</ul>
 			{/if}
 		</section>
+
+		<section class="handout-status" data-testid="handout-status" aria-label="Handout recipient status">
+			<h3>Recipient status</h3>
+			{#if handoutStatus.length === 0}
+				<p class="meta" data-testid="handout-status-empty">No handouts to track yet.</p>
+			{:else}
+				{#each handoutStatus as status (status.handoutId)}
+					<div data-testid={`handout-status-${status.handoutId}`}>
+						<strong>{status.title}</strong> <span class="meta">({status.handoutKind})</span>
+						<ul>
+							{#each status.recipients as recipient (recipient.recipientActorId)}
+								<li data-testid={`handout-status-row-${status.handoutId}-${recipient.recipientActorId}`}>
+									{recipient.recipientActorId}:
+									<span data-testid="handout-status-ack"
+										>{recipient.acknowledged ? 'opened' : 'delivered'}</span
+									>
+									{#if recipient.sealed}
+										<span class="meta" data-testid="handout-status-sealed">sealed</span>
+									{:else if recipient.persistent}
+										<span class="meta" data-testid="handout-status-persistent">persistent</span>
+									{/if}
+									{#if !recipient.revoked}
+										<button
+											type="button"
+											data-testid={`revoke-${status.handoutId}-${recipient.recipientActorId}`}
+											onclick={() => void revoke(status.handoutId, recipient.recipientActorId)}
+										>
+											Revoke
+										</button>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/each}
+			{/if}
+		</section>
 	{/if}
 
 	<section class="received" data-testid="handouts-received" aria-label="Received handouts">
@@ -171,6 +273,20 @@
 					{#if handout.kind === 'available'}
 						<li class="handout" data-testid={`handout-${handout.id}`}>
 							<h4 data-testid="handout-card-title">{handout.title}</h4>
+							<span class="meta" data-testid="handout-card-kind">{handout.handoutKind}</span>
+							{#if !isDm && handout.isRecipient}
+								{#if handout.acknowledged}
+									<span class="meta" data-testid={`handout-acknowledged-${handout.id}`}>Receipt confirmed</span>
+								{:else}
+									<button
+										type="button"
+										data-testid={`acknowledge-${handout.id}`}
+										onclick={() => void acknowledge(handout.id)}
+									>
+										Confirm receipt
+									</button>
+								{/if}
+							{/if}
 							{#each handout.sections as section (section.id)}
 								<div class="section" data-testid={`handout-section-${section.id}`}>
 									<strong>{section.heading}</strong>

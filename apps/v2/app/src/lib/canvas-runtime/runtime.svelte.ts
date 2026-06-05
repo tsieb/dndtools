@@ -115,6 +115,7 @@ export class SceneRuntime {
 			activeMapProjections: {},
 			handouts: {},
 			quickReferencePanels: {},
+			playerGroups: {},
 			calendarContinuity: { ...EMPTY_SESSION_STATE.calendarContinuity },
 			recapArchiveId: null,
 			archives: {},

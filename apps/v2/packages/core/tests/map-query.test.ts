@@ -206,6 +206,7 @@ function EMPTY_SESSION(): SessionState {
 		activeMapProjections: {},
 		handouts: {},
 		quickReferencePanels: {},
+		playerGroups: {},
 		calendarContinuity: EMPTY_CALENDAR_CONTINUITY_STATE,
 		recapArchiveId: null,
 		archives: {},

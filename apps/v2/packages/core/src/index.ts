@@ -40,7 +40,10 @@ export type {
 	ActiveMapDeliveryStatus,
 	DiceRollSourceKind,
 	DiceRollVisibility,
+	HandoutAcknowledgement,
 	HandoutDeliveryRecord,
+	HandoutKind,
+	HandoutRevocation,
 	HandoutSection,
 	HandoutSectionVisibility,
 	PlayerViewDeliveryStatus,
@@ -61,6 +64,7 @@ export type {
 export {
 	DICE_ROLL_VISIBILITIES,
 	EMPTY_SESSION_STATE,
+	HANDOUT_KINDS,
 	SESSION_STATE_SCHEMA_VERSION,
 	SESSION_WORKFLOW_STATES,
 } from './state/session-state';
@@ -861,8 +865,13 @@ export {
 	instantiateSceneTemplateInputSchema,
 	layerWidgetInputSchema,
 	lockMapLayerInputSchema,
+	acknowledgeHandoutInputSchema,
+	createPlayerGroupInputSchema,
+	deletePlayerGroupInputSchema,
 	deliverHandoutInputSchema,
 	revealHandoutSectionInputSchema,
+	revokeHandoutInputSchema,
+	updatePlayerGroupInputSchema,
 	pinQuickReferenceInputSchema,
 	unpinQuickReferenceInputSchema,
 	moveGroupInputSchema,
@@ -1357,20 +1366,27 @@ export {
 	requiredCapabilityForWidgetCommand,
 } from './permissions/widget-operator-authority';
 
-// SES-004 — THE single actor-filtered HANDOUT read model. A NON-RECIPIENT receives `{ kind:
-// 'unavailable' }` with NO content (the non-leak guarantee); a recipient/DM sees only the sections they
-// may see, with progressive reveal folded into the PERM visibility-filter. The delivery history is DM-only.
+// SES-004 / COLLAB-007 — THE single actor-filtered HANDOUT read model. A NON-RECIPIENT (or a REVOKED,
+// non-persistent recipient — SEALED) receives `{ kind: 'unavailable' }` with NO content (the non-leak
+// guarantee); a recipient/DM sees only the sections they may see, with progressive reveal folded into the
+// PERM visibility-filter. The view carries the handout kind + the recipient's acknowledged/persistent
+// state. The delivery history and the per-recipient delivered/opened/revoked status surface are DM-only.
 export type {
 	HandoutDeliveryView,
 	HandoutQueryResult,
+	HandoutRecipientStatus,
 	HandoutSectionView,
+	HandoutStatusView,
 	HandoutUnavailable,
 	HandoutView,
 } from './queries/handout-query';
 export {
 	getHandoutDeliveryHistory,
 	getHandoutForActor,
+	getHandoutStatusForDm,
 	getHandoutsForActor,
+	handoutRecipientPersistent,
+	handoutRecipientSealed,
 } from './queries/handout-query';
 
 // SES-007 — THE single actor-filtered QUICK-REFERENCE read model. DM-only (a non-DM gets an empty list).
@@ -2597,3 +2613,45 @@ export {
 	hasPersistentAccess,
 	isSealedCacheEntryUnreadable,
 } from './collab/cache-privacy';
+
+// COLLAB-006 — the SHARED COMBAT VIEW participants see ACCORDING TO ROLE AND GRANTS. Builds on the SES-002
+// actor-filtered tracker (hidden combatants omitted/placeholdered) and adds role/grant-gated PERMITTED
+// CONTROLS (fail closed, matching the combat command authority) + OFFLINE/STALE handling (a stale/cached
+// view disables every live-authority control). `filterCombatStreamForRecipient` filters combat ops at the
+// source so a participant never RECEIVES a hidden combatant's ops (filter-before-send, COLLAB-009 reused);
+// `assertCombatStreamCarriesNoHiddenCombatant` is the hard boundary leak guard. Pure + deterministic.
+export type {
+	CombatControlPermissions,
+	CombatViewLiveness,
+	SharedCombatView,
+} from './collab/combat-view';
+export {
+	assertCombatStreamCarriesNoHiddenCombatant,
+	combatantIdFromOpPath,
+	computeCombatControls,
+	filterCombatStreamForRecipient,
+	getSharedCombatView,
+} from './collab/combat-view';
+
+// COLLAB-012 — PLAYER GROUP resolution. A Player Group is a DELIVERY/PROJECTION TARGET ONLY: resolving a
+// delivery target through a group only EXPANDS the recipient list to current members; it confers NO
+// capability/visibility/write authority. `resolveDeliveryTarget` unions explicit recipients + group members
+// into individual deliverable recipients (fail closed: unknown group ⇒ no recipients; non-participant ⇒
+// skipped). `groupMembershipGrantsNoCapability` is the executable proof that membership grants nothing.
+export type { DeliveryTarget, ResolvedDeliveryTarget } from './collab/player-groups';
+export {
+	groupMembershipGrantsNoCapability,
+	groupsContainingActor,
+	resolveDeliveryTarget,
+} from './collab/player-groups';
+
+// COLLAB-012 — the durable PLAYER GROUP model (DM-authored delivery/projection target set). A group carries
+// NO permission data — it is a plain membership list, so membership can never be a permission backdoor.
+export type { PlayerGroup } from './state/player-group';
+export {
+	PLAYER_GROUP_ENTITY_TYPE,
+	PLAYER_GROUP_SCHEMA_VERSION,
+	clonePlayerGroup,
+	ensurePlayerGroups,
+	normalizeMembers,
+} from './state/player-group';

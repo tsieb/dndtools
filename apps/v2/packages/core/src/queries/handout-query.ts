@@ -1,6 +1,7 @@
 import type { Actor, PermissionState } from '../state/permission-state';
 import type {
 	HandoutDeliveryRecord,
+	HandoutKind,
 	HandoutSection,
 	SessionHandout,
 	SessionState,
@@ -25,6 +26,10 @@ import {
  *   - PROGRESSIVE REVEAL: a `shared` section is withheld from recipients until it is in
  *     `revealedSectionIds`. A `player-visible` section is shown without a reveal step. The DM always
  *     sees every section (and which are revealed).
+ *   - REVOCATION / SEALING (COLLAB-007): a recipient the DM has REVOKED — and who does NOT hold explicit
+ *     PERSISTENT access — is SEALED: the read returns `{ kind: 'unavailable' }` to them, exactly as if
+ *     they were never a recipient (reusing the COLLAB-010/014 seal disposition; no content, no leak). A
+ *     persistent recipient keeps the handout despite revocation. The DM always sees the handout.
  *
  * Pure + deterministic: a function of (session, permissions, actor[, handoutId]) only. No GUI, no storage.
  */
@@ -42,10 +47,19 @@ export interface HandoutSectionView {
 export interface HandoutView {
 	kind: 'available';
 	id: string;
+	/** COLLAB-007 — the handout content kind (handout/image/note/map-fragment/cipher/rumor). */
+	handoutKind: HandoutKind;
 	title: string;
 	sections: HandoutSectionView[];
 	/** Whether the viewer is a recipient of this handout (the DM is treated as always able to see it). */
 	isRecipient: boolean;
+	/** COLLAB-007 — whether THIS recipient has acknowledged receipt (always false for the DM). */
+	acknowledged: boolean;
+	/**
+	 * COLLAB-007 — whether the viewer holds PERSISTENT access (the handout survives revocation/session end).
+	 * True for the DM; for a recipient, true when they are in `persistentRecipientActorIds`.
+	 */
+	persistent: boolean;
 	updatedAt: string;
 	revision: number;
 }
@@ -103,6 +117,23 @@ function sectionVisible(
 	return evaluateVisibility(meta, { sectionId: section.id }, actor, permissions).visible;
 }
 
+/** Whether a recipient holds PERSISTENT access (the handout survives revocation). The DM always does. */
+export function handoutRecipientPersistent(handout: SessionHandout, actor: Actor): boolean {
+	if (actor.role === 'dm') return true;
+	return (handout.persistentRecipientActorIds ?? []).includes(actor.id);
+}
+
+/**
+ * COLLAB-007 — whether a recipient's access to a handout is SEALED (revoked and not persistent). A sealed
+ * recipient is treated exactly like a non-recipient by the actor-filtered read: the handout is unavailable
+ * to them with no content leak. The DM is never sealed; a persistent recipient is never sealed.
+ */
+export function handoutRecipientSealed(handout: SessionHandout, actor: Actor): boolean {
+	if (actor.role === 'dm') return false;
+	if (handoutRecipientPersistent(handout, actor)) return false;
+	return (handout.revocations ?? []).some((revocation) => revocation.recipientActorId === actor.id);
+}
+
 /**
  * SES-004 — project ONE handout for an actor. A non-recipient (or unknown actor, or hidden entity)
  * receives `{ kind: 'unavailable' }` with NO content. A recipient/DM receives the handout with only the
@@ -118,6 +149,10 @@ export function getHandoutForActor(
 	if (!actor) return { kind: 'unavailable' };
 	const handout = session.handouts[handoutId];
 	if (!handout) return { kind: 'unavailable' };
+
+	// COLLAB-007 — REVOCATION/SEAL gate first: a revoked, non-persistent recipient is sealed and receives
+	// NOTHING (indistinguishable from a non-recipient — no content, no leak).
+	if (handoutRecipientSealed(handout, actor)) return { kind: 'unavailable' };
 
 	const meta = handoutVisibilityMetadata(handout);
 	// Entity-level gate: a non-recipient (and any actor the entity rule denies) gets NOTHING.
@@ -135,12 +170,19 @@ export function getHandoutForActor(
 		});
 	}
 
+	const acknowledged =
+		actor.role !== 'dm' &&
+		(handout.acknowledgements ?? []).some((ack) => ack.recipientActorId === actor.id);
+
 	return {
 		kind: 'available',
 		id: handout.id,
+		handoutKind: handout.kind ?? 'handout',
 		title: handout.title,
 		sections,
 		isRecipient: actor.role === 'dm' || handout.recipientActorIds.includes(actor.id),
+		acknowledged,
+		persistent: handoutRecipientPersistent(handout, actor),
 		updatedAt: handout.updatedAt,
 		revision: handout.revision,
 	};
@@ -195,4 +237,77 @@ export function getHandoutDeliveryHistory(
 			? a.delivery.id.localeCompare(b.delivery.id)
 			: a.delivery.deliveredAt.localeCompare(b.delivery.deliveredAt),
 	);
+}
+
+/** COLLAB-007 — per-recipient delivery/ack/revocation status for the DM (delivered/opened/revoked). */
+export interface HandoutRecipientStatus {
+	recipientActorId: string;
+	/** Whether the recipient confirmed RECEIPT (the "opened" status, when supported — COLLAB-007 AC1). */
+	acknowledged: boolean;
+	acknowledgedAt: string | null;
+	/** Whether the DM has REVOKED this recipient's access. */
+	revoked: boolean;
+	revokedAt: string | null;
+	/** Whether this recipient holds PERSISTENT access (keeps the handout despite revocation/session end). */
+	persistent: boolean;
+	/** Whether the recipient's access is currently SEALED (revoked AND not persistent). */
+	sealed: boolean;
+}
+
+/** COLLAB-007 — the full DM status surface for one handout: kind, recipients, and their ack/revoke state. */
+export interface HandoutStatusView {
+	handoutId: string;
+	handoutKind: HandoutKind;
+	title: string;
+	recipients: HandoutRecipientStatus[];
+}
+
+/**
+ * COLLAB-007 — the DM-only HANDOUT STATUS surface: for each handout, the per-recipient delivered/opened
+ * (acknowledged)/revoked/sealed state (AC1 "the DM sees delivered/opened status"). A non-DM receives an
+ * EMPTY list (fail closed — this is a DM audit surface). Deterministic ordering (handout createdAt then id,
+ * recipient id).
+ */
+export function getHandoutStatusForDm(
+	session: SessionState,
+	permissions: PermissionState,
+	actorId: string,
+): HandoutStatusView[] {
+	const actor = permissions.actors[actorId];
+	if (!actor || actor.role !== 'dm') return [];
+	return Object.values(session.handouts)
+		.sort((a, b) =>
+			a.createdAt === b.createdAt ? a.id.localeCompare(b.id) : a.createdAt.localeCompare(b.createdAt),
+		)
+		.map((handout) => {
+			const ackByRecipient = new Map(
+				(handout.acknowledgements ?? []).map((ack) => [ack.recipientActorId, ack]),
+			);
+			const revokeByRecipient = new Map(
+				(handout.revocations ?? []).map((revocation) => [revocation.recipientActorId, revocation]),
+			);
+			const persistent = new Set(handout.persistentRecipientActorIds ?? []);
+			const recipients: HandoutRecipientStatus[] = [...handout.recipientActorIds]
+				.sort()
+				.map((recipientActorId) => {
+					const ack = ackByRecipient.get(recipientActorId);
+					const revocation = revokeByRecipient.get(recipientActorId);
+					const isPersistent = persistent.has(recipientActorId);
+					return {
+						recipientActorId,
+						acknowledged: !!ack,
+						acknowledgedAt: ack?.acknowledgedAt ?? null,
+						revoked: !!revocation,
+						revokedAt: revocation?.revokedAt ?? null,
+						persistent: isPersistent,
+						sealed: !!revocation && !isPersistent,
+					};
+				});
+			return {
+				handoutId: handout.id,
+				handoutKind: handout.kind ?? 'handout',
+				title: handout.title,
+				recipients,
+			};
+		});
 }

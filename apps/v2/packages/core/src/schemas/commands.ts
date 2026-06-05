@@ -254,7 +254,13 @@ const projectionTargetSchema = z
 
 export const projectPlayerViewInputSchema = z
 	.object({
-		playerActorIds: z.array(idSchema).min(1),
+		playerActorIds: z.array(idSchema).default([]),
+		/**
+		 * COLLAB-012 — Player Group ids to project to. Each group is resolved to its CURRENT members at
+		 * projection time (delivery-only; membership grants no permission). Resolved members are unioned with
+		 * `playerActorIds`. At least one explicit player OR group must resolve to a recipient.
+		 */
+		groupIds: z.array(idSchema).default([]),
 		target: projectionTargetSchema,
 		connectionState: z.enum(['connected', 'offline']).default('connected'),
 	})
@@ -263,6 +269,33 @@ export const projectPlayerViewInputSchema = z
 export const revokePlayerViewInputSchema = z
 	.object({
 		playerActorIds: z.array(idSchema).min(1),
+	})
+	.strict();
+
+// COLLAB-012 — PLAYER GROUP management (DM-only). A group is a DELIVERY/PROJECTION TARGET ONLY; membership
+// confers NO permission. Members must be registered participants (players/observers), never the DM.
+export const createPlayerGroupInputSchema = z
+	.object({
+		/** Reuse an existing group id (idempotent create), or omit to create a new one. */
+		groupId: idSchema.optional(),
+		name: z.string().min(1, 'A player group needs a name.'),
+		memberActorIds: z.array(idSchema).default([]),
+	})
+	.strict();
+
+export const updatePlayerGroupInputSchema = z
+	.object({
+		groupId: idSchema,
+		/** New name (optional — omit to leave unchanged). */
+		name: z.string().min(1).optional(),
+		/** The FULL replacement member set (optional — omit to leave membership unchanged). */
+		memberActorIds: z.array(idSchema).optional(),
+	})
+	.strict();
+
+export const deletePlayerGroupInputSchema = z
+	.object({
+		groupId: idSchema,
 	})
 	.strict();
 
@@ -351,16 +384,32 @@ const handoutSectionInputSchema = z
 	})
 	.strict();
 
+// COLLAB-007 — the content kind a handout carries (handout/image/note/map-fragment/cipher/rumor).
+const handoutKindSchema = z.enum(['handout', 'image', 'note', 'map-fragment', 'cipher', 'rumor']);
+
 export const deliverHandoutInputSchema = z
 	.object({
 		/** Reuse an existing handout by id (re-deliver / add recipients), or omit to create a new one. */
 		handoutId: idSchema.optional(),
+		/** COLLAB-007 — the content kind. Default `handout`. Descriptive; does not change delivery rules. */
+		kind: handoutKindSchema.default('handout'),
 		title: z.string().min(1, 'A handout needs a title.'),
 		sections: z.array(handoutSectionInputSchema).min(1, 'A handout needs at least one section.'),
 		/** The Scene the handout widget is delivered onto. */
 		sceneId: idSchema,
-		/** The recipients (players/observers). Each receives a handout widget; non-recipients do not. */
-		recipientActorIds: z.array(idSchema).min(1, 'Select at least one recipient.'),
+		/** Explicit recipients (players/observers). Each receives a handout widget; non-recipients do not. */
+		recipientActorIds: z.array(idSchema).default([]),
+		/**
+		 * COLLAB-012 — Player Group ids to deliver to. Each group is resolved to its CURRENT members at
+		 * delivery time (delivery-only; membership grants no permission). Resolved members are unioned with
+		 * the explicit recipients. At least one explicit recipient OR group must resolve to a recipient.
+		 */
+		groupIds: z.array(idSchema).default([]),
+		/**
+		 * COLLAB-007 — recipients granted PERSISTENT access (keep the handout despite revocation/session end).
+		 * Must be a subset of the resolved recipients. Default: none persistent (session-only).
+		 */
+		persistentRecipientActorIds: z.array(idSchema).default([]),
 		/** Section ids revealed at delivery time (progressive reveal). Default: none revealed yet. */
 		revealedSectionIds: z.array(idSchema).default([]),
 		connectionState: z.enum(['connected', 'offline']).default('connected'),
@@ -373,6 +422,24 @@ export const revealHandoutSectionInputSchema = z
 		sectionId: idSchema,
 		/** true ⇒ reveal the section to recipients; false ⇒ re-conceal it (progressive reveal). */
 		revealed: z.boolean().default(true),
+	})
+	.strict();
+
+// COLLAB-007 — the RECIPIENT acknowledges receipt of a handout (the "opened" confirmation). Only a current,
+// non-sealed recipient may acknowledge their OWN delivery.
+export const acknowledgeHandoutInputSchema = z
+	.object({
+		handoutId: idSchema,
+	})
+	.strict();
+
+// COLLAB-007 — the DM REVOKES a handout from selected recipients (sealed/unavailable unless persistent).
+export const revokeHandoutInputSchema = z
+	.object({
+		handoutId: idSchema,
+		/** Recipients to revoke. Default empty ⇒ revoke ALL non-persistent recipients. */
+		recipientActorIds: z.array(idSchema).default([]),
+		connectionState: z.enum(['connected', 'offline']).default('connected'),
 	})
 	.strict();
 

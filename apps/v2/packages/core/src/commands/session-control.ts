@@ -9,6 +9,7 @@ import type { MapEntity } from '../state/map-state';
 import {
 	type ActiveMapDeliveryStatus,
 	type SessionArchiveSnapshot,
+	type SessionHandout,
 	type SessionState,
 	type SessionWorkflowState,
 } from '../state/session-state';
@@ -38,6 +39,24 @@ import {
 } from './helpers';
 
 const SESSION_ENTITY_ID = 'session-default';
+
+/**
+ * Deep-clone a handout for an immutable archive/restore snapshot. Clones every durable list — sections,
+ * reveal/recipient sets, delivery history, and the COLLAB-007 acknowledgements/revocations/persistent
+ * sets — so the archive never shares mutable references with the live session.
+ */
+function cloneArchivedHandout(handout: SessionHandout): SessionHandout {
+	return {
+		...handout,
+		sections: handout.sections.map((section) => ({ ...section })),
+		revealedSectionIds: [...handout.revealedSectionIds],
+		recipientActorIds: [...handout.recipientActorIds],
+		persistentRecipientActorIds: [...(handout.persistentRecipientActorIds ?? [])],
+		deliveries: handout.deliveries.map((delivery) => ({ ...delivery })),
+		acknowledgements: (handout.acknowledgements ?? []).map((ack) => ({ ...ack })),
+		revocations: (handout.revocations ?? []).map((revocation) => ({ ...revocation })),
+	};
+}
 
 function homeSceneExists(state: CoreStateSlice): Scene | null {
 	const id = state.commandCenter.homeSceneId;
@@ -118,16 +137,7 @@ function archiveCurrentSession(
 		// SES-004 / SES-007 — snapshot handouts (with delivery history + reveal state) and pinned panels so
 		// the recap workflow can review what was delivered. Deep-cloned so the archive is immutable.
 		handouts: Object.fromEntries(
-			Object.entries(session.handouts).map(([id, handout]) => [
-				id,
-				{
-					...handout,
-					sections: handout.sections.map((section) => ({ ...section })),
-					revealedSectionIds: [...handout.revealedSectionIds],
-					recipientActorIds: [...handout.recipientActorIds],
-					deliveries: handout.deliveries.map((delivery) => ({ ...delivery })),
-				},
-			]),
+			Object.entries(session.handouts).map(([id, handout]) => [id, cloneArchivedHandout(handout)]),
 		),
 		quickReferencePanels: Object.fromEntries(
 			Object.entries(session.quickReferencePanels).map(([id, panel]) => [id, { ...panel }]),
@@ -177,16 +187,7 @@ function restoreLiveFieldsFromArchive(
 			]),
 		),
 		handouts: Object.fromEntries(
-			Object.entries(archive.handouts).map(([id, handout]) => [
-				id,
-				{
-					...handout,
-					sections: handout.sections.map((section) => ({ ...section })),
-					revealedSectionIds: [...handout.revealedSectionIds],
-					recipientActorIds: [...handout.recipientActorIds],
-					deliveries: handout.deliveries.map((delivery) => ({ ...delivery })),
-				},
-			]),
+			Object.entries(archive.handouts).map(([id, handout]) => [id, cloneArchivedHandout(handout)]),
 		),
 		quickReferencePanels: Object.fromEntries(
 			Object.entries(archive.quickReferencePanels).map(([id, panel]) => [id, { ...panel }]),

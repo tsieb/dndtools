@@ -89,6 +89,9 @@ epics:
   - id: COLLAB-authority-filtering-and-cache-privacy
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/COLLAB-authority-filtering-and-cache-privacy.completion.md
+  - id: COLLAB-combat-and-handouts
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/COLLAB-combat-and-handouts.completion.md
   - id: CONTENT-calendar-custom-time-content
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CONTENT-calendar-custom-time-content.completion.md

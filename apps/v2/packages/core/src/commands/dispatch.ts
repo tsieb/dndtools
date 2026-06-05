@@ -26,7 +26,17 @@ import {
 	handleSaveCommandCenterPreset,
 } from './command-center';
 import { handleProjectPlayerView, handleRevokePlayerView } from './player-view';
-import { handleDeliverHandout, handleRevealHandoutSection } from './handout';
+import {
+	handleAcknowledgeHandout,
+	handleDeliverHandout,
+	handleRevealHandoutSection,
+	handleRevokeHandout,
+} from './handout';
+import {
+	handleCreatePlayerGroup,
+	handleDeletePlayerGroup,
+	handleUpdatePlayerGroup,
+} from './player-group';
 import { handlePinQuickReference, handleUnpinQuickReference } from './quick-reference';
 import {
 	handleLinkCalendarDate,
@@ -246,6 +256,16 @@ export function dispatchCommand(
 			return handleDeliverHandout(state, env, command.actorId, command.payload);
 		case 'session.reveal-handout-section':
 			return handleRevealHandoutSection(state, env, command.actorId, command.payload);
+		case 'session.acknowledge-handout':
+			return handleAcknowledgeHandout(state, env, command.actorId, command.payload);
+		case 'session.revoke-handout':
+			return handleRevokeHandout(state, env, command.actorId, command.payload);
+		case 'session.create-player-group':
+			return handleCreatePlayerGroup(state, env, command.actorId, command.payload);
+		case 'session.update-player-group':
+			return handleUpdatePlayerGroup(state, env, command.actorId, command.payload);
+		case 'session.delete-player-group':
+			return handleDeletePlayerGroup(state, env, command.actorId, command.payload);
 		case 'session.pin-quick-reference':
 			return handlePinQuickReference(state, env, command.actorId, command.payload);
 		case 'session.unpin-quick-reference':

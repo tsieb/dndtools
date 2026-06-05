@@ -9,6 +9,17 @@ import {
 	EMPTY_CALENDAR_CONTINUITY_STATE,
 	type CalendarContinuityState,
 } from './calendar-continuity';
+import type { PlayerGroup } from './player-group';
+
+// COLLAB-012 — durable PLAYER GROUPS (DM-authored delivery/projection target sets) live on the session
+// document. Re-exported here so existing session-state importers keep their import site while the model
+// is owned by the player-group slice. A group carries NO permission data (delivery-targeting only).
+export type { PlayerGroup } from './player-group';
+export {
+	PLAYER_GROUP_ENTITY_TYPE,
+	PLAYER_GROUP_SCHEMA_VERSION,
+	ensurePlayerGroups,
+} from './player-group';
 
 export const SESSION_STATE_SCHEMA_VERSION = 1 as const;
 
@@ -177,6 +188,23 @@ export interface SessionPlayerViewAssignment {
 }
 
 /**
+ * COLLAB-007 — the KIND of content a handout carries. The DM can deliver handouts, IMAGES, NOTES, MAP
+ * FRAGMENTS, CIPHERS, and RUMORS (the requirement's explicit content kinds). The kind is descriptive
+ * metadata for the GUI/recipient surface; it does NOT change the delivery/visibility/revocation rules
+ * (every kind is delivered, acknowledged, and revoked the same way). Fails closed to `handout` on hydrate.
+ */
+export type HandoutKind = 'handout' | 'image' | 'note' | 'map-fragment' | 'cipher' | 'rumor';
+
+export const HANDOUT_KINDS: readonly HandoutKind[] = Object.freeze([
+	'handout',
+	'image',
+	'note',
+	'map-fragment',
+	'cipher',
+	'rumor',
+]);
+
+/**
  * SES-004 — ONE durable HANDOUT delivered as a Scene widget. A handout carries a title and an ordered
  * list of SECTIONS, each with its OWN visibility (`shared` by default — delivered only to selected
  * recipients) so a single handout can hold both always-on and progressively-revealed content. The
@@ -217,16 +245,51 @@ export interface HandoutDeliveryRecord {
 	widgetInstanceId: WidgetInstanceId;
 }
 
+/**
+ * COLLAB-007 — a durable DELIVERY ACKNOWLEDGEMENT: the recipient CONFIRMED RECEIPT of the handout. The
+ * DM uses this to see delivered/opened status. Recorded per recipient (latest acknowledgement wins on
+ * re-ack); carries only the recipient + time, never recipient-only content (no leak into the audit).
+ */
+export interface HandoutAcknowledgement {
+	recipientActorId: ActorId;
+	acknowledgedAt: string;
+}
+
+/**
+ * COLLAB-007 — a durable REVOCATION: the DM REVOKED this handout from ONE recipient. A revoked recipient's
+ * access is SEALED — the actor-filtered read returns the handout as unavailable (sealed) to them, exactly
+ * like a participant whose session cache was sealed (COLLAB-010/014, reused via the seal disposition).
+ * Revocation is honored UNLESS the recipient holds explicit PERSISTENT access (see
+ * {@link SessionHandout.persistentRecipientActorIds}).
+ */
+export interface HandoutRevocation {
+	recipientActorId: ActorId;
+	revokedBy: ActorId;
+	revokedAt: string;
+}
+
 export interface SessionHandout {
 	id: string;
+	/** COLLAB-007 — the content kind (handout/image/note/map-fragment/cipher/rumor). Descriptive only. */
+	kind: HandoutKind;
 	title: string;
 	sections: HandoutSection[];
 	/** Section ids whose `shared` content has been REVEALED to recipients (progressive reveal). */
 	revealedSectionIds: string[];
 	/** The recipients this handout is currently delivered to (drives the visibility-filter `sharedWith`). */
 	recipientActorIds: ActorId[];
+	/**
+	 * COLLAB-007 — recipients the DM granted PERSISTENT access to. A persistent recipient KEEPS the handout
+	 * even after revocation or session end (the COLLAB-010 persistent-grant exception, applied to handouts).
+	 * Revoking a persistent recipient is a no-op seal; the read still returns the content to them.
+	 */
+	persistentRecipientActorIds: ActorId[];
 	/** The durable delivery history: every delivery to every recipient, oldest first (SES-004). */
 	deliveries: HandoutDeliveryRecord[];
+	/** COLLAB-007 — delivery ACKNOWLEDGEMENTS, one per recipient (latest wins). */
+	acknowledgements: HandoutAcknowledgement[];
+	/** COLLAB-007 — REVOCATIONS, one per revoked recipient. A revoked, non-persistent recipient is sealed. */
+	revocations: HandoutRevocation[];
 	createdBy: ActorId;
 	createdAt: string;
 	updatedAt: string;
@@ -294,6 +357,8 @@ export interface SessionState {
 	handouts: Record<string, SessionHandout>;
 	/** SES-007 — durable pinned quick-reference panels keyed by panel id. */
 	quickReferencePanels: Record<string, QuickReferencePanel>;
+	/** COLLAB-012 — durable PLAYER GROUPS keyed by group id (DM delivery/projection targets; no permission). */
+	playerGroups: Record<string, PlayerGroup>;
 	/**
 	 * SES-012 — durable CAMPAIGN calendar continuity (current campaign date + dated links by reference).
 	 * Campaign-level: this is NOT reset when the session workflow transitions (unlike the live fields).
@@ -316,6 +381,7 @@ export const EMPTY_SESSION_STATE: SessionState = Object.freeze({
 	activeMapProjections: {},
 	handouts: {},
 	quickReferencePanels: {},
+	playerGroups: {},
 	calendarContinuity: EMPTY_CALENDAR_CONTINUITY_STATE,
 	recapArchiveId: null,
 	archives: {},

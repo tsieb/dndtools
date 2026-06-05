@@ -3,6 +3,7 @@
 	import EncounterBuilder from '$lib/gui/EncounterBuilder.svelte';
 	import DiceTools from '$lib/gui/DiceTools.svelte';
 	import HandoutDelivery from '$lib/gui/HandoutDelivery.svelte';
+	import PlayerGroups from '$lib/gui/PlayerGroups.svelte';
 	import LiveTools from '$lib/gui/LiveTools.svelte';
 	import QuickReference from '$lib/gui/QuickReference.svelte';
 	import PrepRecap from '$lib/gui/PrepRecap.svelte';
@@ -25,6 +26,12 @@
 	// recorded seed (reproducible), and roll visibility composes with PERM (a secret roll is filtered out
 	// of a player's history). Both surfaces are gated on the active session workflow and re-enforce
 	// authority in the Processing Core (fail-closed).
+	//
+	// SES-004 / COLLAB-007 / COLLAB-012: the Session section's HANDOUT + PLAYER GROUP surface. The DM
+	// delivers handouts/images/notes/map-fragments/ciphers/rumors to selected recipients (or PLAYER
+	// GROUPS) with per-recipient delivered/opened status and revocation; a recipient confirms receipt.
+	// PLAYER GROUPS are DELIVERY/PROJECTION TARGETS ONLY — membership grants no visibility or write
+	// permission (the Processing Core enforces this; the group surface is DM-only).
 </script>
 
 <section data-testid="session-view" aria-label="Session">
@@ -37,6 +44,7 @@
 	<EncounterBuilder />
 	<CombatTracker />
 	<DiceTools />
+	<PlayerGroups />
 	<HandoutDelivery />
 	<LiveTools />
 	<QuickReference />

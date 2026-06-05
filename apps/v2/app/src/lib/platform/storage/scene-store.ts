@@ -200,6 +200,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		activeMapProjections: {},
 		handouts: {},
 		quickReferencePanels: {},
+		playerGroups: {},
 		calendarContinuity: { ...EMPTY_SESSION_STATE.calendarContinuity },
 		recapArchiveId: null,
 		archives: {},
@@ -220,6 +221,8 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	// no pinned panels (fail closed, never undefined).
 	session.handouts ??= {};
 	session.quickReferencePanels ??= {};
+	// COLLAB-012 — a session document persisted before Player Groups restores with no groups (fail closed).
+	session.playerGroups ??= {};
 	// SES-012 — a session document persisted before campaign calendar continuity restores with no current
 	// date and no links (fail closed, never undefined).
 	session.calendarContinuity = ensureCalendarContinuityState(session.calendarContinuity);

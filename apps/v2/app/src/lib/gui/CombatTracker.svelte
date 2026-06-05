@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { getCombatTrackerForActor, listEncountersForActor } from '@dndtools/v2-core';
+	import { getSharedCombatView, listEncountersForActor } from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 
-	// SES-002: run combat. The DM rolls initiative, advances turns (wrapping to the next round), applies
-	// per-combatant HP / conditions / death saves / concentration, and ends combat (persisting the
-	// encounter log). Players/observers see the live tracker through the actor-filtered query: a hidden
-	// combatant's identity + stat data never reach them (the core decides visibility before render). Every
+	// SES-002 / COLLAB-006: run combat. The DM rolls initiative, advances turns (wrapping to the next
+	// round), applies per-combatant HP / conditions / death saves / concentration, and ends combat
+	// (persisting the encounter log). Participants see the SHARED combat view ACCORDING TO ROLE AND GRANTS
+	// (COLLAB-006): a hidden combatant's identity + stat data never reach them (the core decides visibility
+	// before render), and the PERMITTED CONTROLS are role/grant-gated, fail closed (`controls`). Every
 	// change dispatches a durable command; the GUI renders the computed model and never writes state
 	// directly (Contract 1). The core re-enforces session-active gating + DM/combat-participant authority.
 	const runtime = useRuntime();
@@ -14,9 +15,15 @@
 	const isDm = $derived(actor?.role === 'dm');
 	const sessionActive = $derived(runtime.state.session.workflow === 'active');
 
-	const view = $derived(
-		getCombatTrackerForActor(runtime.state.session.combat, runtime.state.permissions, runtime.activeActorId),
+	// COLLAB-006 — the shared combat view (tracker + role/grant-gated permitted controls + liveness). The
+	// view is `live` here (this client is connected to its own authoritative state); the `controls` model
+	// drives which actions render, so the GUI never offers an action the core would reject.
+	const shared = $derived(
+		getSharedCombatView(runtime.state.session.combat, runtime.state.permissions, runtime.activeActorId),
 	);
+	const view = $derived(shared.tracker);
+	const controls = $derived(shared.controls);
+	const editableCombatantIds = $derived(new Set(controls.editableCombatantIds));
 
 	// The DM's encounters (to start combat from one by reference). Empty for non-DM.
 	const encounters = $derived(
@@ -134,10 +141,12 @@
 			{#if isDm && view.hiddenCount > 0}
 				<span class="meta" data-testid="combat-hidden-count">{view.hiddenCount} hidden</span>
 			{/if}
-			{#if isDm}
+			{#if controls.canAdvanceTurn}
 				<button type="button" data-testid="advance-turn" onclick={() => void advanceTurn()}>
 					Next turn
 				</button>
+			{/if}
+			{#if controls.canEndCombat}
 				<button type="button" data-testid="end-combat" onclick={() => void endCombat()}>
 					End combat
 				</button>
@@ -167,7 +176,7 @@
 							<span class="ac">AC {combatant.statBlock.ac}</span>
 						{/if}
 
-						{#if isDm || !combatant.redacted}
+						{#if editableCombatantIds.has(combatant.id)}
 							<div class="combatant-controls">
 								<input
 									type="number"

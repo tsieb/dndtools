@@ -4,6 +4,7 @@ import type {
 	PlayerViewProjectionTarget,
 	SessionPlayerViewAssignment,
 } from '../state/session-state';
+import { resolveDeliveryTarget } from '../collab/player-groups';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import {
 	appendOperationDraft,
@@ -76,6 +77,28 @@ export function handleProjectPlayerView(
 		}
 	}
 
+	// COLLAB-012 — resolve explicit players + Player Group ids to individual recipients (delivery-only; a
+	// group expands the projection target list, it confers no permission). Unknown groups reject; an empty
+	// resolution rejects.
+	const resolved = resolveDeliveryTarget(
+		{ recipientActorIds: parsed.data.playerActorIds, groupIds: parsed.data.groupIds },
+		state.session.playerGroups,
+		state.permissions,
+	);
+	if (resolved.unknownGroupIds.length > 0) {
+		return reject(
+			{ code: 'invalid-payload', message: `Unknown player group(s): ${resolved.unknownGroupIds.join(', ')}.` },
+			state,
+		);
+	}
+	const projectionPlayerIds = resolved.recipientActorIds;
+	if (projectionPlayerIds.length === 0) {
+		return reject(
+			{ code: 'invalid-payload', message: 'Select at least one player or a non-empty player group.' },
+			state,
+		);
+	}
+
 	const target = parsed.data.target;
 	const targetCheck = validateProjectionTarget(state, target);
 	if (!targetCheck.ok) {
@@ -93,7 +116,7 @@ export function handleProjectPlayerView(
 	let nextLog = state.sync;
 	const operationIds: string[] = [];
 
-	for (const playerActorId of parsed.data.playerActorIds) {
+	for (const playerActorId of projectionPlayerIds) {
 		const previous = nextAssignments[playerActorId];
 		const assignment: SessionPlayerViewAssignment = {
 			id: previous?.id ?? env.ids(),

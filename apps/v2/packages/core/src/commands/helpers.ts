@@ -7,8 +7,9 @@ import { appendOperation, type OperationLog, type SyncOperation } from '../sync/
 import { SCENE_STATE_SCHEMA_VERSION, SCENE_SCHEMA_VERSION } from '../state/scene-state';
 import { SYNC_OPERATION_SCHEMA_VERSION } from '../sync/operation-log';
 import type { WidgetDataSchema, WidgetPackageState } from '../state/widget-package-state';
-import type { SessionState } from '../state/session-state';
+import type { SessionHandout, SessionState } from '../state/session-state';
 import { SESSION_STATE_SCHEMA_VERSION } from '../state/session-state';
+import { ensurePlayerGroups } from '../state/player-group';
 import { ensureCalendarContinuityState } from '../state/calendar-continuity';
 import { ensureSessionCombatState } from '../state/combat-tracker';
 import type { EncounterState } from '../state/encounter';
@@ -204,6 +205,27 @@ export function ensureSceneState(state: SceneState | undefined): SceneState {
 	return state ?? { scenes: {}, schemaVersion: SCENE_STATE_SCHEMA_VERSION };
 }
 
+/**
+ * Hydrate the durable handout map fail-closed. A handout persisted before COLLAB-007 gains its `kind`
+ * (default `handout`) and empty acknowledgement/revocation/persistent sets, so the actor-filtered read
+ * treats a legacy handout as never-acknowledged and never-revoked (the safe default).
+ */
+function ensureHandouts(
+	handouts: Record<string, SessionHandout> | undefined,
+): Record<string, SessionHandout> {
+	const result: Record<string, SessionHandout> = {};
+	for (const [id, handout] of Object.entries(handouts ?? {})) {
+		result[id] = {
+			...handout,
+			kind: handout.kind ?? 'handout',
+			persistentRecipientActorIds: handout.persistentRecipientActorIds ?? [],
+			acknowledgements: handout.acknowledgements ?? [],
+			revocations: handout.revocations ?? [],
+		};
+	}
+	return result;
+}
+
 export function ensureSessionState(state: SessionState | undefined): SessionState {
 	return {
 		workflow: state?.workflow ?? 'idle',
@@ -215,10 +237,15 @@ export function ensureSessionState(state: SessionState | undefined): SessionStat
 		timers: state?.timers ?? {},
 		playerViewAssignments: state?.playerViewAssignments ?? {},
 		activeMapProjections: state?.activeMapProjections ?? {},
-		// SES-004 / SES-007 — hydrate new durable fields fail-closed: a session document persisted before
-		// these slices existed restores with no handouts and no pinned panels (never undefined).
-		handouts: state?.handouts ?? {},
+		// SES-004 / SES-007 / COLLAB-007 — hydrate new durable fields fail-closed: a session document
+		// persisted before these slices existed restores with no handouts and no pinned panels (never
+		// undefined). Each handout is hydrated so a record persisted before COLLAB-007 gains its kind +
+		// acknowledgement/revocation/persistent fields (fail-closed defaults: no acks, no revocations).
+		handouts: ensureHandouts(state?.handouts),
 		quickReferencePanels: state?.quickReferencePanels ?? {},
+		// COLLAB-012 — hydrate player groups fail-closed: a session document persisted before this slice
+		// restores with no groups (never undefined). Groups carry no permission data.
+		playerGroups: ensurePlayerGroups(state?.playerGroups),
 		// SES-012 — hydrate campaign calendar continuity fail-closed: a session document persisted before
 		// this slice restores with no current date and no links (never undefined).
 		calendarContinuity: ensureCalendarContinuityState(state?.calendarContinuity),

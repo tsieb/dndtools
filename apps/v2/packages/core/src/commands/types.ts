@@ -147,6 +147,14 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// COLLAB-007: a recipient ACKNOWLEDGES receipt; the DM REVOKES a handout (sealed unless persistent).
+	| { type: 'session.acknowledge-handout'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.revoke-handout'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// COLLAB-012: DM PLAYER GROUP management — create / update / delete. Delivery/projection target only;
+	// membership grants NO permission. Resolved to individual recipients at delivery/projection time.
+	| { type: 'session.create-player-group'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.update-player-group'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.delete-player-group'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// SES-007: pin / unpin a quick-reference panel (DM-only). Panels reference content BY REFERENCE; the
 	// actor-filtered read resolves each against the live target (a hidden/deleted target degrades, no leak).
 	| { type: 'session.pin-quick-reference'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -480,6 +488,30 @@ export type CoreEvent =
 			revealed: boolean;
 			actorId: ActorId;
 	  }
+	// COLLAB-007 — a recipient ACKNOWLEDGED receipt of a handout (delivered/opened status).
+	| { kind: 'session.handout-acknowledged'; handoutId: string; actorId: ActorId }
+	// COLLAB-007 — the DM REVOKED a handout from recipients. Revoked, non-persistent recipients are sealed.
+	| {
+			kind: 'session.handout-revoked';
+			handoutId: string;
+			recipientActorIds: ActorId[];
+			deliveryStatus: 'delivered' | 'queued';
+			actorId: ActorId;
+	  }
+	// COLLAB-012 — a Player Group was created/updated/deleted (delivery target only; no permission change).
+	| {
+			kind: 'session.player-group-created';
+			groupId: string;
+			memberActorIds: ActorId[];
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'session.player-group-updated';
+			groupId: string;
+			memberActorIds: ActorId[];
+			actorId: ActorId;
+	  }
+	| { kind: 'session.player-group-deleted'; groupId: string; actorId: ActorId }
 	// SES-007 — a quick-reference panel was pinned. `kind_` is the panel kind (the `kind` key is the event
 	// discriminant). Carries the REFERENCE (kind + target id), never the target's content.
 	| {

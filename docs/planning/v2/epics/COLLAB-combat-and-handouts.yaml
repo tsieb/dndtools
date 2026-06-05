@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: COLLAB-combat-and-handouts
 title: "COLLAB: Combat and handouts"
-status: approved
+status: complete
 approved: true
 domain: COLLAB
 capabilityBranch: Combat and handouts
@@ -196,3 +196,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/COLLAB-combat-and-handouts.completion.md

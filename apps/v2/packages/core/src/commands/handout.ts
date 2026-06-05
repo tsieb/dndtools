@@ -1,6 +1,13 @@
-import { deliverHandoutInputSchema, revealHandoutSectionInputSchema } from '../schemas/commands';
+import {
+	acknowledgeHandoutInputSchema,
+	deliverHandoutInputSchema,
+	revealHandoutSectionInputSchema,
+	revokeHandoutInputSchema,
+} from '../schemas/commands';
 import type {
+	HandoutAcknowledgement,
 	HandoutDeliveryRecord,
+	HandoutRevocation,
 	HandoutSection,
 	PlayerViewDeliveryStatus,
 	SessionHandout,
@@ -11,6 +18,8 @@ import {
 	type WidgetInstance,
 	type WidgetLayout,
 } from '../state/scene-state';
+import { resolveDeliveryTarget } from '../collab/player-groups';
+import { handoutRecipientSealed } from '../queries/handout-query';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import {
 	appendOperationDraft,
@@ -146,8 +155,11 @@ export function handleDeliverHandout(
 	const sceneResult = requireScene(state, input.sceneId);
 	if ('code' in sceneResult) return reject(sceneResult, state);
 
-	// Every recipient must be a registered player/observer — never the DM, never an unknown actor (fail
-	// closed: an invalid recipient rejects the whole delivery so no partial, leaky delivery commits).
+	// COLLAB-012 — resolve explicit recipients + Player Group ids to the flat set of INDIVIDUAL recipients.
+	// Group resolution is delivery-only (it expands the recipient list; it confers no permission). An
+	// explicitly-named recipient that is the DM / unknown still rejects the whole delivery (fail closed);
+	// group members that are not deliverable are silently skipped by the resolver. The delivery is recorded
+	// against the resolved individual recipients, so a later membership change never retroactively delivers.
 	for (const recipientId of input.recipientActorIds) {
 		const recipient = state.permissions.actors[recipientId];
 		if (!recipient || recipient.role === 'dm') {
@@ -155,6 +167,40 @@ export function handleDeliverHandout(
 				{
 					code: 'invalid-payload',
 					message: `Handout recipient ${recipientId} must be a registered player or observer.`,
+				},
+				state,
+			);
+		}
+	}
+	const resolved = resolveDeliveryTarget(
+		{ recipientActorIds: input.recipientActorIds, groupIds: input.groupIds },
+		state.session.playerGroups,
+		state.permissions,
+	);
+	if (resolved.unknownGroupIds.length > 0) {
+		return reject(
+			{
+				code: 'invalid-payload',
+				message: `Unknown player group(s): ${resolved.unknownGroupIds.join(', ')}.`,
+			},
+			state,
+		);
+	}
+	const deliveryRecipientIds = resolved.recipientActorIds;
+	if (deliveryRecipientIds.length === 0) {
+		return reject(
+			{ code: 'invalid-payload', message: 'Select at least one recipient or a non-empty player group.' },
+			state,
+		);
+	}
+	// Persistent recipients must be a subset of the resolved recipients (fail closed: cannot grant
+	// persistence to a non-recipient).
+	for (const persistentId of input.persistentRecipientActorIds) {
+		if (!deliveryRecipientIds.includes(persistentId)) {
+			return reject(
+				{
+					code: 'invalid-payload',
+					message: `Persistent recipient ${persistentId} must be among the delivery recipients.`,
 				},
 				state,
 			);
@@ -180,11 +226,22 @@ export function handleDeliverHandout(
 		]),
 	];
 
-	// The recipient set is the UNION of any prior recipients and the new ones (a re-delivery adds to,
-	// never silently drops, the audience). Deduped.
+	// The recipient set is the UNION of any prior recipients and the resolved new ones (a re-delivery adds
+	// to, never silently drops, the audience). Deduped.
 	const recipientActorIds = [
-		...new Set([...(previous?.recipientActorIds ?? []), ...input.recipientActorIds]),
+		...new Set([...(previous?.recipientActorIds ?? []), ...deliveryRecipientIds]),
 	];
+	// Persistent recipients accumulate (a re-delivery can grant persistence; it never silently revokes it).
+	const persistentRecipientActorIds = [
+		...new Set([
+			...(previous?.persistentRecipientActorIds ?? []),
+			...input.persistentRecipientActorIds,
+		]),
+	];
+	// Re-delivering to a previously-revoked recipient CLEARS their revocation (they are a recipient again).
+	const revocations = (previous?.revocations ?? []).filter(
+		(revocation) => !deliveryRecipientIds.includes(revocation.recipientActorId),
+	);
 
 	// Ensure a handout widget exists on the scene (by reference).
 	const ensured = ensureHandoutWidget(sceneResult, env, handoutId);
@@ -197,8 +254,9 @@ export function handleDeliverHandout(
 	const deliveryStatus: PlayerViewDeliveryStatus =
 		input.connectionState === 'offline' ? 'queued' : 'delivered';
 
-	// Append ONE delivery record per recipient this delivery targets (history grows, never overwrites).
-	const newDeliveries: HandoutDeliveryRecord[] = input.recipientActorIds.map((recipientId) => ({
+	// Append ONE delivery record per RESOLVED recipient this delivery targets (history grows, never
+	// overwrites). Recipients resolved via a group are recorded as individual delivery records.
+	const newDeliveries: HandoutDeliveryRecord[] = deliveryRecipientIds.map((recipientId) => ({
 		id: env.ids(),
 		recipientActorId: recipientId,
 		deliveredBy: actor.id,
@@ -211,11 +269,15 @@ export function handleDeliverHandout(
 
 	const handout: SessionHandout = {
 		id: handoutId,
+		kind: input.kind,
 		title: input.title,
 		sections,
 		revealedSectionIds,
 		recipientActorIds,
+		persistentRecipientActorIds,
 		deliveries: [...(previous?.deliveries ?? []), ...newDeliveries],
+		acknowledgements: previous?.acknowledgements ?? [],
+		revocations,
 		createdBy: previous?.createdBy ?? actor.id,
 		createdAt: previous?.createdAt ?? now,
 		updatedAt: now,
@@ -251,7 +313,8 @@ export function handleDeliverHandout(
 		// content (no leak into the durable log beyond the handout the DM authored).
 		value: {
 			handoutId,
-			recipientActorIds: input.recipientActorIds,
+			kind: input.kind,
+			recipientActorIds: deliveryRecipientIds,
 			sceneId: sceneResult.id,
 			widgetInstanceId: ensured.widget.id,
 			deliveryStatus,
@@ -277,7 +340,7 @@ export function handleDeliverHandout(
 		handoutId,
 		sceneId: sceneResult.id,
 		widgetInstanceId: ensured.widget.id,
-		recipientActorIds: input.recipientActorIds,
+		recipientActorIds: deliveryRecipientIds,
 		deliveryStatus,
 		actorId: actor.id,
 	});
@@ -360,6 +423,174 @@ export function handleRevealHandoutSection(
 				handoutId: handout.id,
 				sectionId: input.sectionId,
 				revealed: input.revealed,
+				actorId: actor.id,
+			},
+		],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * COLLAB-007 — a RECIPIENT acknowledges RECEIPT of a handout (the delivered/opened confirmation). Only a
+ * current recipient may acknowledge their OWN handout, and only while their access is NOT sealed (a
+ * revoked, non-persistent recipient can no longer acknowledge — fail closed, no leak that the handout
+ * exists). Re-acknowledging refreshes the timestamp (idempotent latest-wins). The DM does not acknowledge.
+ */
+export function handleAcknowledgeHandout(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	if (actor.role === 'dm') {
+		return reject(
+			{ code: 'invalid-state', message: 'The DM does not acknowledge handout delivery.' },
+			state,
+		);
+	}
+
+	const parsed = parseInput(acknowledgeHandoutInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const input = parsed.data;
+
+	const handout = state.session.handouts[input.handoutId];
+	// Fail closed: a non-recipient (or sealed recipient) gets the SAME `not-found` as a missing handout, so
+	// acknowledgement cannot be used to probe a handout's existence.
+	if (
+		!handout ||
+		!handout.recipientActorIds.includes(actor.id) ||
+		handoutRecipientSealed(handout, actor)
+	) {
+		return reject(
+			{ code: 'content-item-not-found', message: `Handout ${input.handoutId} is not available to you.` },
+			state,
+		);
+	}
+
+	const now = env.clock();
+	const acknowledgements: HandoutAcknowledgement[] = [
+		...handout.acknowledgements.filter((ack) => ack.recipientActorId !== actor.id),
+		{ recipientActorId: actor.id, acknowledgedAt: now },
+	];
+	const nextHandout: SessionHandout = {
+		...handout,
+		acknowledgements,
+		updatedAt: now,
+		revision: handout.revision + 1,
+	};
+	const nextSession = {
+		...state.session,
+		handouts: { ...state.session.handouts, [handout.id]: nextHandout },
+	};
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'session',
+		entityId: SESSION_ENTITY_ID,
+		opType: 'session.acknowledge-handout',
+		path: `handouts/${handout.id}/acknowledgements/${actor.id}`,
+		value: { handoutId: handout.id, recipientActorId: actor.id },
+		beforeRevision: handout.revision,
+		afterRevision: nextHandout.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, session: nextSession, sync: nextLog },
+		events: [{ kind: 'session.handout-acknowledged', handoutId: handout.id, actorId: actor.id }],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * COLLAB-007 — the DM REVOKES a handout from recipients. A revoked recipient's access is SEALED: the
+ * actor-filtered read returns the handout as unavailable to them (reusing the COLLAB seal model) UNLESS
+ * they hold explicit PERSISTENT access (the COLLAB-010 persistent-grant exception). DM-only.
+ *
+ * An empty recipient list revokes ALL non-persistent recipients (revoke-the-whole-handout). Revoking a
+ * persistent recipient is recorded but does not seal them (their persistent grant overrides). The op
+ * carries only the revoked recipient ids (the audit) — never recipient-facing content.
+ */
+export function handleRevokeHandout(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(revokeHandoutInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const input = parsed.data;
+
+	const handout = state.session.handouts[input.handoutId];
+	if (!handout) {
+		return reject(
+			{ code: 'content-item-not-found', message: `Handout ${input.handoutId} does not exist.` },
+			state,
+		);
+	}
+
+	const persistent = new Set(handout.persistentRecipientActorIds);
+	// Target set: the explicit recipients (that are actually recipients of this handout), or — when empty —
+	// every current recipient. Persistent recipients can still be recorded as revoked; the read keeps their
+	// access (so a later persistence removal would re-seal cleanly).
+	const explicit = input.recipientActorIds.filter((id) => handout.recipientActorIds.includes(id));
+	const targets =
+		input.recipientActorIds.length === 0 ? [...handout.recipientActorIds] : explicit;
+	// Only record NEW revocations (idempotent: an already-revoked recipient is not duplicated).
+	const alreadyRevoked = new Set(handout.revocations.map((r) => r.recipientActorId));
+	const now = env.clock();
+	const newRevocations: HandoutRevocation[] = targets
+		.filter((id) => !alreadyRevoked.has(id))
+		.map((recipientActorId) => ({ recipientActorId, revokedBy: actor.id, revokedAt: now }));
+
+	if (newRevocations.length === 0) {
+		// No-op (every target already revoked / none valid): idempotent, no revision/op churn.
+		return { status: 'accepted', nextState: state, events: [], operationIds: [] };
+	}
+
+	const nextHandout: SessionHandout = {
+		...handout,
+		revocations: [...handout.revocations, ...newRevocations],
+		updatedAt: now,
+		revision: handout.revision + 1,
+	};
+	const nextSession = {
+		...state.session,
+		handouts: { ...state.session.handouts, [handout.id]: nextHandout },
+	};
+	const deliveryStatus: PlayerViewDeliveryStatus =
+		input.connectionState === 'offline' ? 'queued' : 'delivered';
+	const revokedIds = newRevocations.map((revocation) => revocation.recipientActorId);
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'session',
+		entityId: SESSION_ENTITY_ID,
+		opType: 'session.revoke-handout',
+		path: `handouts/${handout.id}/revocations`,
+		value: {
+			handoutId: handout.id,
+			recipientActorIds: revokedIds,
+			// Recipients whose persistent grant overrides the seal (recorded for the audit; still readable).
+			persistentOverrides: revokedIds.filter((id) => persistent.has(id)),
+			deliveryStatus,
+		},
+		beforeRevision: handout.revision,
+		afterRevision: nextHandout.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, session: nextSession, sync: nextLog },
+		events: [
+			{
+				kind: 'session.handout-revoked',
+				handoutId: handout.id,
+				recipientActorIds: revokedIds,
+				deliveryStatus,
 				actorId: actor.id,
 			},
 		],

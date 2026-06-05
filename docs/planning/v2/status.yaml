@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 36
+  approved: 35
   active: 0
-  complete: 52
+  complete: 53
   deferred: 0
 metrics:
-  epicCompletionPercent: 59.1
-  requirementCompletionPercent: 64.1
+  epicCompletionPercent: 60.2
+  requirementCompletionPercent: 65.4
   totalRequirements: 234
-  completedRequirements: 150
+  completedRequirements: 153
   deferredRequirements: 0
-  remainingEpics: 36
-  promptableEpics: 36
+  remainingEpics: 35
+  promptableEpics: 35
   blockedByDependencies: 0
-  completionEvidenceFiles: 52
+  completionEvidenceFiles: 53
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -68,13 +68,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: COLLAB
       totalEpics: 5
-      complete: 1
+      complete: 2
       active: 0
-      approved: 4
+      approved: 3
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 20
-      requirementCompletionPercent: 28.6
+      epicCompletionPercent: 40
+      requirementCompletionPercent: 50
     - domain: CON
       totalEpics: 3
       complete: 0
@@ -193,17 +193,17 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: COLLAB-combat-and-handouts
-  title: "COLLAB: Combat and handouts"
+  id: COLLAB-join-reconnect-and-identity
+  title: "COLLAB: Join, reconnect, and identity"
   status: approved
   requirementIds:
-    - COLLAB-006
-    - COLLAB-007
-    - COLLAB-012
-  promptCommand: pnpm v2:prompt -- --epic COLLAB-combat-and-handouts
+    - COLLAB-001
+    - COLLAB-002
+    - COLLAB-013
+  promptCommand: pnpm v2:prompt -- --epic COLLAB-join-reconnect-and-identity
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic COLLAB-combat-and-handouts
-    --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic
+    COLLAB-join-reconnect-and-identity --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -366,12 +366,13 @@ epics:
       - COLLAB-014
     completionEvidenceFile: docs/planning/v2/epics/COLLAB-authority-filtering-and-cache-privacy.completion.md
   - id: COLLAB-combat-and-handouts
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - COLLAB-006
       - COLLAB-007
       - COLLAB-012
+    completionEvidenceFile: docs/planning/v2/epics/COLLAB-combat-and-handouts.completion.md
   - id: COLLAB-join-reconnect-and-identity
     status: approved
     approved: true
