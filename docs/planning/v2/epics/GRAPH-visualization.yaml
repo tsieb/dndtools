@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: GRAPH-visualization
 title: "GRAPH: Visualization"
-status: approved
+status: active
 approved: true
 domain: GRAPH
 capabilityBranch: Visualization

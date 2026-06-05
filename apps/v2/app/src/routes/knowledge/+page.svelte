@@ -5,6 +5,7 @@
 	import CalendarContent from '$lib/gui/CalendarContent.svelte';
 	import CalendarDiscovery from '$lib/gui/CalendarDiscovery.svelte';
 	import SavedSearches from '$lib/gui/SavedSearches.svelte';
+	import GraphVisualization from '$lib/gui/GraphVisualization.svelte';
 	import ContentVisibilityEmbeds from '$lib/gui/ContentVisibilityEmbeds.svelte';
 	import ContentImportExport from '$lib/gui/ContentImportExport.svelte';
 	import ContentSourceConstraints from '$lib/gui/ContentSourceConstraints.svelte';
@@ -28,7 +29,10 @@
 	// SRCH-003/004 FILTERS + SAVED SEARCHES (filter search by source/content-type/tag/folder/date/relationship;
 	// the DM saves, pins, and deletes named searches; a dm-only saved search is absent for players and every
 	// saved search is re-evaluated LIVE so no stale result leaks a now-hidden item),
-	// import/export, and the SOURCE-SPECIFIC
+	// import/export, the GRAPH-004 graph VISUALIZATION (filter the actor's visible link graph by folder, tag,
+	// entity type, source, relationship type, and visibility-safe text; rendered as a keyboard/SR-accessible
+	// node-relationship table with a simplified compact-profile control surface — a player never sees a
+	// hidden node, edge, facet, or count), and the SOURCE-SPECIFIC
 	// CONSTRAINTS surface (CONTENT-012): a pre-write diagnostic of what a write to local markdown / Obsidian /
 	// Google Docs would lose or downgrade, gated fail-closed behind acknowledgment. Which authoring
 	// affordances appear is an ergonomic role hint; the AUTHORITATIVE permission and visibility enforcement
@@ -48,6 +52,7 @@
 	<CalendarContent />
 	<CalendarDiscovery />
 	<SavedSearches />
+	<GraphVisualization />
 	<ContentVisibilityEmbeds />
 	<ContentImportExport />
 	<ContentSourceConstraints />

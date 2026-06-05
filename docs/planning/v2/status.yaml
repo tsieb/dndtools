@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 22
-  active: 0
+  approved: 21
+  active: 1
   complete: 66
   deferred: 0
 metrics:
@@ -96,8 +96,8 @@ metrics:
     - domain: GRAPH
       totalEpics: 5
       complete: 4
-      active: 0
-      approved: 1
+      active: 1
+      approved: 0
       proposed: 0
       deferred: 0
       epicCompletionPercent: 80
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: GRAPH-visualization
   title: "GRAPH: Visualization"
-  status: approved
+  status: active
   requirementIds:
     - GRAPH-004
   promptCommand: pnpm v2:prompt -- --epic GRAPH-visualization
@@ -488,7 +488,7 @@ epics:
       - GRAPH-008
     completionEvidenceFile: docs/planning/v2/epics/GRAPH-source-indexing.completion.md
   - id: GRAPH-visualization
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - GRAPH-004

@@ -2560,6 +2560,26 @@ export {
 	isSourceGraphPartialForActor,
 } from './queries/graph-source-index-query';
 
+// GRAPH-004: the ACTOR-FILTERED graph-VISUALIZATION view model — the single computed model a graph
+// visualization renders. The user filters the visible link graph by FOLDER, TAG, ENTITY TYPE, SOURCE,
+// RELATIONSHIP TYPE, and visibility-safe SEARCH TEXT, and receives the matching VISIBLE nodes + the VISIBLE
+// edges between them, plus the filter FACETS derived from the visible graph only. It COMPOSES the GRAPH-001/008
+// source graph (no second graph) + the SAME folder/tag derivation as the SRCH filter surface, and fails
+// closed: a hidden node never becomes a node, edge endpoint, facet, or count. Unknown actor ⇒ empty model.
+export type {
+	GraphRelationshipKind,
+	GraphVisualization,
+	GraphVizEdge,
+	GraphVizFacets,
+	GraphVizFilter,
+	GraphVizNode,
+} from './queries/graph-visualization-query';
+export {
+	GRAPH_RELATIONSHIP_KINDS,
+	emptyGraphVisualization,
+	getGraphVisualizationForActor,
+} from './queries/graph-visualization-query';
+
 // CHAR-002: the guided, structured PC-creation flow — step definitions, options, per-step validation
 // (rules incl. the ability point-buy budget), and the resumable completeness report. Pure policy.
 export type {
