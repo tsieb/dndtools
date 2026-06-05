@@ -6,6 +6,7 @@ import type {
 	PermissionGrant,
 	PermissionState,
 } from '../state/permission-state';
+import { isGrantActive } from './grant-records';
 
 /**
  * PERM-001 / PERM-011 — base-role floor + observer ceiling computation.
@@ -249,6 +250,7 @@ export interface DroppedGrant {
 	entityId: PermissionGrant['entityId'];
 	playerActorId: ActorId;
 	capabilitySet: CapabilitySet;
+	expiresAt: PermissionGrant['expiresAt'];
 	reason: DroppedGrantReason;
 }
 
@@ -270,6 +272,12 @@ export interface EffectivePermissions {
 	effectiveGrants: PermissionGrant[];
 	/** Grants dropped because they would exceed the resolved role's ceiling. */
 	droppedGrants: DroppedGrant[];
+	/**
+	 * Grants excluded because they are EXPIRED relative to the evaluation clock (PERM-004). Expired
+	 * grants are inert and contribute nothing to the surface; they are reported separately from
+	 * ceiling drops so the cause is distinguishable.
+	 */
+	expiredGrants: PermissionGrant[];
 	/** True when role resolution had to normalize ambiguous/missing/invalid role state. */
 	roleNormalized: boolean;
 	roleResolutionReason: BaseRoleResolutionReason;
@@ -282,6 +290,7 @@ function dropGrant(grant: PermissionGrant, reason: DroppedGrantReason): DroppedG
 		entityId: grant.entityId,
 		playerActorId: grant.playerActorId,
 		capabilitySet: grant.capabilitySet,
+		expiresAt: grant.expiresAt ?? null,
 		reason,
 	};
 }
@@ -328,12 +337,14 @@ export function computeEffectivePermissions(
 	actorId: ActorId | null | undefined,
 	roleRecords: readonly RoleAssignmentRecord[],
 	grants: readonly PermissionGrant[],
+	now?: string,
 ): EffectivePermissions {
 	const resolution = resolveBaseRole(actorId, roleRecords);
 	const floor = computeBasePermissionFloor(resolution.role);
 
 	const effectiveGrants: PermissionGrant[] = [];
 	const droppedGrants: DroppedGrant[] = [];
+	const expiredGrants: PermissionGrant[] = [];
 
 	// An unauthenticated participant gets no grants at all — no anonymous role is inferred.
 	const candidateGrants = resolution.authenticated
@@ -341,6 +352,11 @@ export function computeEffectivePermissions(
 		: [];
 
 	for (const grant of candidateGrants) {
+		// Expired grants are inert (PERM-004): they confer nothing and never reach the ceiling check.
+		if (!isGrantActive(grant, now)) {
+			expiredGrants.push(grant);
+			continue;
+		}
 		const dropReason = grantSurvivesCeiling(floor, grant);
 		if (dropReason) {
 			droppedGrants.push(dropGrant(grant, dropReason));
@@ -373,6 +389,7 @@ export function computeEffectivePermissions(
 		readOnly: !canWrite,
 		effectiveGrants,
 		droppedGrants,
+		expiredGrants,
 		roleNormalized: resolution.normalized,
 		roleResolutionReason: resolution.reason,
 	};
@@ -385,10 +402,11 @@ export function computeEffectivePermissions(
 export function computeEffectivePermissionsForActor(
 	permissions: PermissionState,
 	actorId: ActorId | null | undefined,
+	now?: string,
 ): EffectivePermissions {
 	const records =
 		actorId !== null && actorId !== undefined && actorId !== ''
 			? roleRecordsForActor(permissions, actorId)
 			: [];
-	return computeEffectivePermissions(actorId ?? null, records, permissions.grants);
+	return computeEffectivePermissions(actorId ?? null, records, permissions.grants, now);
 }

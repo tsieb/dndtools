@@ -303,3 +303,36 @@ export const projectActiveMapInputSchema = z
 		connectionState: z.enum(['connected', 'offline']).default('connected'),
 	})
 	.strict();
+
+// PERM-004: grant ONE named capability set to ONE player on ONE entity. The capability set is a
+// named string validated against the per-entity-type system schema in the reducer (PERM-005), NOT a
+// raw field list — the schema only constrains shape here. Expiry is optional ISO; absent ⇒ never
+// expires. `idempotencyKey` lets a re-submitted grant command de-duplicate.
+export const grantCapabilitySetInputSchema = z
+	.object({
+		entityType: z.string().min(1),
+		entityId: idSchema,
+		playerActorId: idSchema,
+		capabilitySet: z.string().min(1),
+		expiresAt: z.union([z.literal(null), z.string().min(1)]).default(null),
+	})
+	.strict();
+
+// PERM-004: revoke a single grant by id.
+export const revokeGrantInputSchema = z
+	.object({
+		grantId: idSchema,
+	})
+	.strict();
+
+// PERM-013: transfer a SINGULAR capability assignment (e.g. character `owner`) to a new holder.
+// The reducer atomically revokes the prior holder's singular grant as it issues the new one.
+export const transferOwnershipInputSchema = z
+	.object({
+		entityType: z.string().min(1),
+		entityId: idSchema,
+		toPlayerActorId: idSchema,
+		capabilitySet: z.string().min(1).default('owner'),
+		expiresAt: z.union([z.literal(null), z.string().min(1)]).default(null),
+	})
+	.strict();

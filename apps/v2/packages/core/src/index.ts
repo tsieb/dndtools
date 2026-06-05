@@ -147,6 +147,7 @@ export {
 	dispatchWidgetCommandInputSchema,
 	enableWidgetPackageInputSchema,
 	ensureCommandCenterHomeInputSchema,
+	grantCapabilitySetInputSchema,
 	groupWidgetsInputSchema,
 	installWidgetPackageInputSchema,
 	instantiateSceneTemplateInputSchema,
@@ -158,8 +159,10 @@ export {
 	projectActiveMapInputSchema,
 	removeWidgetPackageInputSchema,
 	recordSessionDiceInputSchema,
+	revokeGrantInputSchema,
 	revokePlayerViewInputSchema,
 	resizeWidgetInputSchema,
+	transferOwnershipInputSchema,
 	saveCommandCenterPresetInputSchema,
 	saveSceneTemplateInputSchema,
 	setActiveMapInputSchema,
@@ -176,8 +179,47 @@ export { sceneSchema, sceneStateSchema } from './schemas/scene';
 export {
 	actorCanAuthorScene,
 	actorCanCoEditScene,
+	effectiveCapabilitySetsForActorOnEntity,
 	hasGrantedCapability,
 } from './permissions/grants';
+
+// PERM-004 / PERM-013: durable grant + transfer record primitives (validation, expiry, pure
+// grant-list reducers, and the atomic singular-capability transfer). The grant/transfer command
+// handlers compose these; storage is never touched here.
+export type {
+	GrantRecordInput,
+	GrantValidationError,
+	GrantValidationResult,
+	OwnershipTransferResult,
+	TransferValidationError,
+	TransferValidationResult,
+} from './permissions/grant-records';
+export {
+	buildGrantRecord,
+	computeOwnershipTransfer,
+	isGrantActive,
+	isGrantExpired,
+	revokeGrantById,
+	singularGrantsOnEntity,
+	upsertGrant,
+	validateGrantRecord,
+	validateOwnershipTransfer,
+} from './permissions/grant-records';
+
+// PERM-005 / PERM-006 / PERM-008: capability-set inheritance rules, human explanations, the
+// grantable-set list, and the effective-permission PREVIEW the DM grant UI renders. All computed
+// in core; capability sets remain schema-defined named options, never raw field lists.
+export type {
+	CapabilitySetDescriptor,
+	GrantEffectivePreview,
+} from './permissions/capability-sets';
+export {
+	capabilitySetGrants,
+	describeCapabilitySet,
+	inheritedCapabilitySets,
+	listGrantableCapabilitySets,
+	previewGrantEffect,
+} from './permissions/capability-sets';
 export { canActorSeeScene, evaluateSceneVisibility } from './permissions/visibility';
 export type { SceneVisibilityResult } from './permissions/visibility';
 

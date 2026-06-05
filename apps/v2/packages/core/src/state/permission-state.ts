@@ -20,8 +20,20 @@ export interface PermissionGrant {
 	entityId: string;
 	playerActorId: ActorId;
 	capabilitySet: CapabilitySet;
+	/** The DM (author) who created the grant. Grants are DM-authored only (Contract 3). */
 	createdBy: ActorId;
 	createdAt: string;
+	/**
+	 * Last time the grant record was authored/updated. Optional for backward compatibility with
+	 * grants persisted before PERM-004 added it; absent ⇒ treat as equal to `createdAt`.
+	 */
+	updatedAt?: string;
+	/**
+	 * Optional ISO expiry. When set and in the past relative to the evaluation clock, the grant is
+	 * inert: it confers no capabilities and is excluded from the effective surface (PERM-004).
+	 * Absent or `null` ⇒ the grant does not expire.
+	 */
+	expiresAt?: string | null;
 }
 
 export interface PermissionState {

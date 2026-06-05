@@ -97,6 +97,19 @@ export type CoreCommand =
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
+	  }
+	| {
+			type: 'permission.grant-capability-set';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| { type: 'permission.revoke-grant'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'permission.transfer-ownership';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
 	  };
 
 export type CoreEvent =
@@ -194,6 +207,34 @@ export type CoreEvent =
 			mapId: string;
 			regionId: string | null;
 			deliveryStatus: 'delivered' | 'queued';
+	  }
+	| {
+			kind: 'permission.grant-added';
+			grantId: string;
+			entityType: string;
+			entityId: string;
+			playerActorId: ActorId;
+			capabilitySet: string;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'permission.grant-revoked';
+			grantId: string;
+			entityType: string;
+			entityId: string;
+			playerActorId: ActorId;
+			capabilitySet: string;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'permission.ownership-transferred';
+			entityType: string;
+			entityId: string;
+			toPlayerActorId: ActorId;
+			newGrantId: string;
+			revokedGrantIds: string[];
+			capabilitySet: string;
+			actorId: ActorId;
 	  };
 
 export type RejectionCode =

@@ -89,6 +89,9 @@ epics:
   - id: PERM-consistency-cache-invalidation-and-audit
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PERM-consistency-cache-invalidation-and-audit.completion.md
+  - id: PERM-grants-and-capability-sets
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/PERM-grants-and-capability-sets.completion.md
   - id: PLAT-migration-and-diagnostics
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PLAT-migration-and-diagnostics.completion.md

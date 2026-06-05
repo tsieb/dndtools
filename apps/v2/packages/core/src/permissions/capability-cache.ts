@@ -104,18 +104,24 @@ export function computeCapabilityFingerprint(
 		entityType: string,
 		entityId: string,
 		capabilitySet: string,
-		dropped: boolean,
+		state: 'effective' | 'dropped' | 'expired',
+		expiresAt: string | null | undefined,
 	): string => {
 		const key = entityKey(entityType, entityId);
 		const visibility = visibilityByKey.get(key) ?? 'dm-only|';
-		return `${entityType}:${entityId}:${capabilitySet}:${dropped ? '1' : '0'}:${visibility}`;
+		// Include the raw expiry so editing a grant's expiry (PERM-004) re-fingerprints and
+		// invalidates the participant, even if the surviving/dropped classification is unchanged.
+		return `${entityType}:${entityId}:${capabilitySet}:${state}:${expiresAt ?? ''}:${visibility}`;
 	};
 	const grantFingerprints = [
 		...effective.effectiveGrants.map((grant) =>
-			fingerprintGrant(grant.entityType, grant.entityId, grant.capabilitySet, false),
+			fingerprintGrant(grant.entityType, grant.entityId, grant.capabilitySet, 'effective', grant.expiresAt),
 		),
 		...effective.droppedGrants.map((grant) =>
-			fingerprintGrant(grant.entityType, grant.entityId, grant.capabilitySet, true),
+			fingerprintGrant(grant.entityType, grant.entityId, grant.capabilitySet, 'dropped', grant.expiresAt),
+		),
+		...effective.expiredGrants.map((grant) =>
+			fingerprintGrant(grant.entityType, grant.entityId, grant.capabilitySet, 'expired', grant.expiresAt),
 		),
 	].sort();
 

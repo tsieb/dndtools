@@ -27,6 +27,11 @@ import {
 } from './command-center';
 import { handleProjectPlayerView, handleRevokePlayerView } from './player-view';
 import {
+	handleGrantCapabilitySet,
+	handleRevokeGrant,
+	handleTransferOwnership,
+} from './grant';
+import {
 	handleProjectActiveMap,
 	handleRecordSessionDice,
 	handleSetActiveMap,
@@ -117,6 +122,12 @@ export function dispatchCommand(
 			return handleSetActiveMap(state, env, command.actorId, command.payload);
 		case 'session.project-active-map':
 			return handleProjectActiveMap(state, env, command.actorId, command.payload);
+		case 'permission.grant-capability-set':
+			return handleGrantCapabilitySet(state, env, command.actorId, command.payload);
+		case 'permission.revoke-grant':
+			return handleRevokeGrant(state, env, command.actorId, command.payload);
+		case 'permission.transfer-ownership':
+			return handleTransferOwnership(state, env, command.actorId, command.payload);
 	}
 }
 

@@ -11,6 +11,7 @@
 	import DiagnosticsPanel from '$lib/gui/DiagnosticsPanel.svelte';
 	import ParticipantStatusPanel from '$lib/gui/ParticipantStatusPanel.svelte';
 	import PermissionSummary from '$lib/gui/PermissionSummary.svelte';
+	import GrantManager from '$lib/gui/GrantManager.svelte';
 	import CapabilityStatus from '$lib/gui/CapabilityStatus.svelte';
 	import SupportMatrix from '$lib/gui/SupportMatrix.svelte';
 	import SupportStatus from '$lib/gui/SupportStatus.svelte';
@@ -85,6 +86,14 @@
 	     never computes or overrides permissions. An Observer is always read-only with no
 	     character data here, and dropped observer grants surface to the DM as errors. -->
 	<PermissionSummary />
+
+	<!-- PERM-004 / PERM-005 / PERM-008 / PERM-013: the DM grant UI. DM-only — players/observers
+	     cannot author grants (Contract 3 Axis 2 rule 2). It presents NAMED capability sets with
+	     explanations and a core-computed effective-permission preview, dispatches durable grant /
+	     transfer / revoke commands, and never shows raw field checkboxes or writes state directly. -->
+	{#if activeRole === 'dm'}
+		<GrantManager />
+	{/if}
 
 	<section aria-label="Platform profile">
 		<h2>Platform profile</h2>
