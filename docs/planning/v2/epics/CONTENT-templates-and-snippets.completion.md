@@ -228,7 +228,7 @@ overlapping changes.
 
 Branch: `epic/CONTENT-templates-and-snippets` (created from `epic/CONTENT-structured-objects-and-wikilinks`
 HEAD `e149bd5`).
-Commit SHA: recorded in the follow-up docs commit after the implementation commit.
+Implementation commit SHA: `d7fa661` (this docs commit records the SHA on top of it).
 
 Final `git status --short` (clean slate):
 
