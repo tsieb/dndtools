@@ -179,3 +179,6 @@ epics:
   - id: SES-session-lifecycle
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SES-session-lifecycle.completion.md
+  - id: SYNC-asset-sync-and-status
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SYNC-asset-sync-and-status.completion.md

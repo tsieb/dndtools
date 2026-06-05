@@ -10,6 +10,7 @@
 	import { buildDiagnosticsContext } from '$lib/platform/diagnostics-context';
 	import DiagnosticsPanel from '$lib/gui/DiagnosticsPanel.svelte';
 	import ParticipantStatusPanel from '$lib/gui/ParticipantStatusPanel.svelte';
+	import SyncStatusPanel from '$lib/gui/SyncStatusPanel.svelte';
 	import PermissionSummary from '$lib/gui/PermissionSummary.svelte';
 	import GrantManager from '$lib/gui/GrantManager.svelte';
 	import CapabilityStatus from '$lib/gui/CapabilityStatus.svelte';
@@ -79,6 +80,13 @@
 	{:else if activeRole === 'player' || activeRole === 'observer'}
 		<ParticipantStatusPanel context={diagnosticsContext} input={participantInput} />
 	{/if}
+
+	<!-- SYNC-010 / SYNC-014: the computed sync-status surface. Every role can inspect pending
+	     outbound operations, conflicts, source health, and retry actions without raw storage
+	     knowledge; the lineage block is actor-filtered (DM sees structural version history, others
+	     see only non-leaking freshness). The Processing Core enforces both the derivation and the
+	     actor filter; this surface renders the computed model. -->
+	<SyncStatusPanel context={diagnosticsContext} />
 
 	<!-- PERM-001 / PERM-011: the effective permission surface the Processing Core computes
 	     for the active actor (base role floor + observer ceiling, grants capped to the

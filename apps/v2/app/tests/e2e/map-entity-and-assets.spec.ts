@@ -114,6 +114,28 @@ test.describe('MAP-002 content-addressed import + adapter gating', () => {
 		// No map or asset was created — the store is unchanged (rollback / no partial state).
 		await expect(await mapStoreCount(page)).toBe(before);
 	});
+
+	// SYNC-009 AC2: after a native image is imported, the map's referenced assets sync by content
+	// hash. On this single device the asset blob is resolved, so the asset-availability surface
+	// reports `available`. (The asset-missing/degraded path is proven by the core unit tests, which
+	// model an unresolved blob the GUI cannot manufacture on a single-device prototype.)
+	test('SYNC-009: an imported asset reports a content-addressed availability state', async ({
+		page,
+	}) => {
+		await openAtlas(page);
+
+		await page.getByTestId('import-asset-name').fill('battlemap.png');
+		await page.getByTestId('import-asset-mime').selectOption('image/png');
+		await page.getByTestId('import-preview-submit').click();
+		await expect(page.getByTestId('import-preview')).toBeVisible();
+		await page.getByTestId('import-commit').click();
+		await expect(page.getByTestId('import-preview')).toHaveCount(0);
+
+		// The availability section appears for the imported map and reports a resolved (available) state.
+		const availability = page.getByTestId('map-asset-availability');
+		await expect(availability).toBeVisible();
+		await expect(availability.getByText('available').first()).toBeVisible();
+	});
 });
 
 test.describe('MAP-020 safe import: preview + diagnostics + rollback', () => {

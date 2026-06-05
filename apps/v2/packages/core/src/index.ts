@@ -465,7 +465,68 @@ export {
 	SYNC_OPERATION_SCHEMA_VERSION,
 	appendOperation,
 	createOperationLog,
+	findOperationByIdempotencyKey,
+	hasIdempotencyKey,
 } from './sync/operation-log';
+
+// SYNC-009: large binary assets sync as CONTENT-ADDRESSED ASSET RECORDS (hash-as-id, reuse MAP-002)
+// plus METADATA OPERATIONS — the op-log carries the asset's metadata + content-hash reference, NEVER
+// the binary payload. `assertNoBinaryInOperationLog` is the fail-closed guard that proves the binding
+// rule. `deriveAssetAvailability` is the pure, content-addressed availability model the GUI renders
+// for the asset-missing/degraded state when a referenced blob has not synced to a device.
+export type {
+	AssetAvailabilityEntry,
+	AssetAvailabilityState,
+	BinaryPayloadFinding,
+	BinaryPayloadReason,
+	MapAssetAvailability,
+	MapAssetAvailabilityView,
+} from './sync/asset-sync';
+export {
+	MAX_OPERATION_VALUE_BYTES,
+	assertNoBinaryInOperationLog,
+	deriveAssetAvailability,
+	findBinaryPayloadsInOperations,
+	operationCarriesBinaryPayload,
+} from './sync/asset-sync';
+
+// SYNC-010: the computed SYNC STATUS model — pending outbound operations, inbound revisions, conflicts
+// (from conflict-shaped ops), source health (reuse PLAT diagnostics), and retry actions (reuse the
+// PLAT-018 lifecycle). A clean derived view over the op-log substrate, never raw storage. Pure
+// Processing-Core derivation; the GUI renders it and dispatches the named retry/resolve intents.
+export type {
+	ConflictStatusView,
+	InboundRevisionInput,
+	InboundRevisionView,
+	PendingOutboundOperation,
+	PendingOutboundSourceGroup,
+	SyncRetryAction,
+	SyncRetryActionView,
+	SyncStatusInput,
+	SyncStatusResult,
+	SyncStatusView,
+} from './queries/sync-status';
+export { getSyncStatus } from './queries/sync-status';
+
+// SYNC-014: actor-filtered sync lineage. A DM sees STRUCTURAL source version history, compacted
+// snapshot lineage, and recovery checkpoints (reusing the PLAT-migration safety-snapshot lineage); a
+// player/observer sees only a non-leaking freshness summary. The view is structural by construction
+// and never carries entity content/titles/values — `syncLineageIsStructuralOnly` proves the non-leak.
+export type {
+	DmSyncLineageView,
+	EntityVersionHistory,
+	SnapshotCheckpoint,
+	SyncFreshness,
+	SyncFreshnessSummary,
+	SyncLineageInput,
+	SyncLineageResult,
+} from './queries/sync-lineage';
+export {
+	actorCanViewSyncLineage,
+	getDmSyncLineage,
+	getSyncFreshness,
+	syncLineageIsStructuralOnly,
+} from './queries/sync-lineage';
 
 export type {
 	CommandRejection,

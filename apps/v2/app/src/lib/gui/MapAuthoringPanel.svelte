@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		deriveAssetAvailability,
 		previewMapImport,
 		type MapImportElementKind,
 		type MapImportPreview,
@@ -178,6 +179,24 @@
 
 	const importedMapCount = $derived(Object.keys(runtime.state.maps.maps).length);
 	const assetCount = $derived(Object.keys(runtime.state.maps.assets).length);
+
+	// SYNC-009 AC2: content-addressed asset availability. In the single-device prototype the device
+	// has resolved exactly the asset BLOBS whose records are in the store; the Processing Core derives
+	// the per-map availability model and the GUI renders an asset-missing/degraded state from it
+	// (never embedding bytes — only ids and availability flags). A map that references an asset whose
+	// blob has not synced to this device opens degraded rather than failing.
+	const resolvedBlobIds = $derived(new Set(Object.keys(runtime.state.maps.assets)));
+	const mapAvailability = $derived(
+		Object.values(runtime.state.maps.maps)
+			.filter((map) => map.assetIds.length > 0)
+			.map((map) =>
+				deriveAssetAvailability(
+					{ id: map.id, assetIds: map.assetIds },
+					runtime.state.maps.assets,
+					resolvedBlobIds,
+				),
+			),
+	);
 </script>
 
 {#if isDm}
@@ -188,6 +207,36 @@
 				? ''
 				: 's'} in the content-addressed store.
 		</p>
+
+		<!-- SYNC-009 AC2: asset availability. Each map's referenced assets sync by content hash; when a
+		     blob has not synced to this device the map opens in an asset-missing/degraded state. -->
+		{#if mapAvailability.length > 0}
+			<section aria-label="Asset availability" data-testid="map-asset-availability">
+				<h3>Asset availability</h3>
+				<ul class="scene-list">
+					{#each mapAvailability as availability (availability.mapId)}
+						<li class="scene-card" data-testid={`asset-availability-${availability.mapId}`}>
+							<div>
+								<strong>{runtime.state.maps.maps[availability.mapId]?.name ?? availability.mapId}</strong
+								>
+								{#if availability.message}
+									<div class="meta" data-testid={`asset-availability-message-${availability.mapId}`}>
+										{availability.message}
+									</div>
+								{/if}
+							</div>
+							<span
+								class="meta"
+								class:unavailable={availability.availability !== 'available'}
+								data-testid={`asset-availability-state-${availability.mapId}`}
+							>
+								{availability.availability}
+							</span>
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
 
 		<!-- MAP-001: create a map entity. -->
 		<form class="block" data-testid="create-map-form" onsubmit={createMap}>

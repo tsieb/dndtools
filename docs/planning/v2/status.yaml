@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 42
+  approved: 41
   active: 0
-  complete: 46
+  complete: 47
   deferred: 0
 metrics:
-  epicCompletionPercent: 52.3
-  requirementCompletionPercent: 55.1
+  epicCompletionPercent: 53.4
+  requirementCompletionPercent: 56.4
   totalRequirements: 234
-  completedRequirements: 129
+  completedRequirements: 132
   deferredRequirements: 0
-  remainingEpics: 42
-  promptableEpics: 42
+  remainingEpics: 41
+  promptableEpics: 41
   blockedByDependencies: 0
-  completionEvidenceFiles: 46
+  completionEvidenceFiles: 47
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -185,25 +185,25 @@ metrics:
       requirementCompletionPercent: 0
     - domain: SYNC
       totalEpics: 5
-      complete: 0
+      complete: 1
       active: 0
-      approved: 5
+      approved: 4
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 0
-      requirementCompletionPercent: 0
+      epicCompletionPercent: 20
+      requirementCompletionPercent: 17.6
 nextEpic:
-  id: SYNC-asset-sync-and-status
-  title: "SYNC: Asset sync and status"
+  id: SYNC-cloud-device-local-storage
+  title: "SYNC: Cloud/device-local storage"
   status: approved
   requirementIds:
-    - SYNC-009
-    - SYNC-010
-    - SYNC-014
-  promptCommand: pnpm v2:prompt -- --epic SYNC-asset-sync-and-status
+    - SYNC-007
+    - SYNC-008
+    - SYNC-017
+  promptCommand: pnpm v2:prompt -- --epic SYNC-cloud-device-local-storage
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic SYNC-asset-sync-and-status
-    --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic
+    SYNC-cloud-device-local-storage --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -802,12 +802,13 @@ epics:
       - SRCH-007
       - SRCH-008
   - id: SYNC-asset-sync-and-status
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - SYNC-009
       - SYNC-010
       - SYNC-014
+    completionEvidenceFile: docs/planning/v2/epics/SYNC-asset-sync-and-status.completion.md
   - id: SYNC-cloud-device-local-storage
     status: approved
     approved: true
