@@ -197,5 +197,6 @@ grants); the generated workpack validates; and the working tree showed no unrela
 
 - Branch: `epic/CONTENT-calendar-custom-time-content` (created from `epic/CHAR-widget-data-exposure` HEAD
   `2768033`, per the chained-epic workflow — NOT from master).
-- Commit: recorded in a follow-up docs commit (see below).
+- Commit: `ee9ea2b` (epic implementation + tests + docs + workpack completion); this SHA is recorded by
+  a small follow-up docs commit so the working tree stays a clean slate.
 - Final `git status --short`: clean (no untracked or unstaged files) after the epic commit(s).
