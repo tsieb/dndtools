@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: SRCH-local-indexes-and-freshness
 title: "SRCH: Local indexes and freshness"
-status: approved
+status: complete
 approved: true
 domain: SRCH
 capabilityBranch: Local indexes and freshness
@@ -159,3 +159,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/SRCH-local-indexes-and-freshness.completion.md

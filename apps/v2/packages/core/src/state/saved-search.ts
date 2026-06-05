@@ -41,10 +41,22 @@ export const SEARCH_SOURCE_IDS: readonly SearchSourceId[] = Object.freeze([
 	'google-docs',
 ]);
 
-/** The kind of searchable artifact a hit can be (the SRCH-003 "content type" facet). */
-export type SearchContentType = 'note' | 'object' | 'poi';
+/**
+ * The kind of searchable artifact a hit can be (the SRCH-003 "content type" facet, == the SRCH-001
+ * searchable DOMAINS). SRCH-001 requires full-text search over notes, objects, maps/POIs, HANDOUTS, and
+ * SESSION ARTIFACTS — so the domain set is the union of those: `note` / `object` / `poi` (the map domain) /
+ * `handout` / `session-artifact` (a recorded dice roll / session record). Each domain is drawn from its OWN
+ * actor-filtered read, so a hidden artifact in any domain is never a search candidate (SRCH-001 AC2).
+ */
+export type SearchContentType = 'note' | 'object' | 'poi' | 'handout' | 'session-artifact';
 
-export const SEARCH_CONTENT_TYPES: readonly SearchContentType[] = Object.freeze(['note', 'object', 'poi']);
+export const SEARCH_CONTENT_TYPES: readonly SearchContentType[] = Object.freeze([
+	'note',
+	'object',
+	'poi',
+	'handout',
+	'session-artifact',
+]);
 
 /** An INCLUSIVE custom-date range, expressed in a single calendar. Either bound may be open (`null`). */
 export interface SearchDateRange {

@@ -2046,6 +2046,40 @@ export type {
 } from './queries/search-query';
 export { searchVaultForActor } from './queries/search-query';
 
+// SRCH-009 / SRCH-001: the LOCAL SEARCH INDEX FRESHNESS model — the FOUNDATION the SRCH query surfaces
+// build on. It holds no content (rebuildable, device-local cache); it tracks per-DOMAIN index cursors so
+// the engine can PUBLISH freshness, the source cursor, and partial-result status WITHOUT blocking cached
+// results. Fail-closed: an unproven/unavailable domain is `stale`/`unknown`, never `fresh`. Pure reducers.
+export type {
+	SearchDomain,
+	SearchDomainFreshness,
+	SearchDomainFreshnessStatus,
+	SearchDomainIndex,
+	SearchIndexCursor,
+	SearchIndexState,
+} from './state/search-index';
+export {
+	EMPTY_INDEX_CURSOR,
+	EMPTY_SEARCH_INDEX,
+	SEARCH_DOMAINS,
+	SEARCH_INDEX_SCHEMA_VERSION,
+	catchUpDomainIndex,
+	createEmptySearchIndex,
+	domainFreshnessStatus,
+	ensureSearchIndex,
+	observeDomainSourceCursor,
+	publishDomainFreshness,
+	recordDomainMutation,
+	setDomainAvailability,
+} from './state/search-index';
+
+// SRCH-009: PUBLISH per-domain index freshness for an actor, layered on the SAME actor-filtered domain
+// reads as search. The source cursor is derived from the actor's VISIBLE artifacts only (no hidden artifact
+// influences the cursor/behind-by — no leak), compared to the local index's consumed cursor. Decoupled
+// from the cached results, so an incomplete index never blocks search (local-first). Fail-closed.
+export type { SearchIndexStatusView } from './queries/search-index-query';
+export { getSearchIndexStatus } from './queries/search-index-query';
+
 // SRCH-004: THE actor-filtered SAVED-SEARCH read. A `dm-only` saved search is OMITTED ENTIRELY from a
 // non-DM's list (AC2 — DM-only criteria never leak); every visible saved search is re-evaluated LIVE for
 // the running actor (no stale leak — SRCH-003 AC1/AC4). `getPinnedSavedSearchesForActor` feeds the Command

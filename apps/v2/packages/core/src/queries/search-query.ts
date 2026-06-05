@@ -20,19 +20,28 @@ import {
 } from '../state/saved-search';
 import { getContentItemsForActor, type ContentItemView } from './content-query';
 import { getMapViewForActor, deliveredMapIdsForActor, type MapPoiView } from './map-query';
+import { getHandoutsForActor, type HandoutView } from './handout-query';
+import { getDiceHistoryForActor, type DiceRollView } from './dice-history';
 
 /**
- * SRCH-003 — THE single actor-filtered FACETED SEARCH read. The user filters search by SOURCE, CONTENT
- * TYPE, TAG, FOLDER, DATE, and a VISIBILITY-SAFE RELATIONSHIP, plus free text, and the result metadata
- * lists the active filters (SRCH-003 AC3).
+ * SRCH-001 / SRCH-003 — THE single actor-filtered FULL-TEXT FACETED SEARCH read. The user performs full-text
+ * search over their VISIBLE notes, objects, maps/POIs, HANDOUTS, and SESSION ARTIFACTS from the LOCAL cached
+ * indexes (SRCH-001), filtered by SOURCE, CONTENT TYPE, TAG, FOLDER, DATE, and a VISIBILITY-SAFE
+ * RELATIONSHIP, plus free text, with the active filters echoed in the result metadata (SRCH-003 AC3).
  *
  * This is a pure DISCOVERY surface composed ENTIRELY from the EXISTING actor-filtered reads — it adds NO
- * second index and re-derives NO visibility policy:
+ * second index and re-derives NO visibility policy. The SRCH-001 searchable DOMAINS each come from their OWN
+ * single filtered read, so a hidden artifact in ANY domain is never even a candidate (SRCH-001 AC2):
  *
  *   - NOTES + STRUCTURED OBJECTS ← {@link getContentItemsForActor} (CONTENT-011). A `dm-only` note/object
  *     is ALREADY omitted there, so it can never surface here.
  *   - MAP POIs ← {@link getMapViewForActor} (MAP-018), the single filtered map model. A hidden POI / a POI
  *     on a hidden layer / a POI on a hidden map is ALREADY omitted there.
+ *   - HANDOUTS ← {@link getHandoutsForActor} (SES-004). A handout the actor is not a recipient of (or a
+ *     revoked, non-persistent recipient) is ALREADY omitted, and only the SECTIONS the actor may see are
+ *     present — so a player never matches a withheld/unrevealed handout section.
+ *   - SESSION ARTIFACTS (recorded dice rolls) ← {@link getDiceHistoryForActor} (SES-003). A `dm-only`
+ *     secret roll is ALREADY omitted for a non-DM, so its expression/label can never match for a player.
  *
  * Because EVERY candidate is drawn from an actor-filtered read, the data layer decided visibility BEFORE
  * search sees anything (Cross-Contract Non-Negotiable 2). The result — including its FACET COUNTS — is
@@ -44,6 +53,10 @@ import { getMapViewForActor, deliveredMapIdsForActor, type MapPoiView } from './
  * unavailable (e.g. an offline Obsidian/Drive vault), its results are marked STALE or UNAVAILABLE in the
  * per-source freshness map WITHOUT failing the whole search — the available sources still return their
  * visible cached results.
+ *
+ * INDEX FRESHNESS (SRCH-001 AC3 / SRCH-009): the per-DOMAIN index freshness is published by the dedicated
+ * {@link import('./search-index-query')} read, layered on this same actor-filtered set; this read returns
+ * the cached results without blocking on indexing.
  *
  * Pure + deterministic: the same (state, actor, filter) always returns the same ranked result. The
  * Processing Core owns the facet filters, text match, and ordering; the GUI renders the computed result and
@@ -100,9 +113,9 @@ function compareCustomDatesSafe(a: CustomDate, b: CustomDate): number {
 
 /** One actor-visible search hit. The artifact is always one the actor may see. */
 export interface SearchHit {
-	/** Stable id of the hit WITHIN its kind (the content item id, or the POI id). */
+	/** Stable id of the hit WITHIN its kind (the content item id, the POI id, the handout id, the roll id). */
 	id: string;
-	/** The content type of the hit (one of the SRCH-003 content-type facets). */
+	/** The content type of the hit (one of the SRCH-001/003 searchable domains). */
 	type: SearchContentType;
 	/** The visible title/label for the hit (already actor-safe at its source). */
 	title: string;
@@ -110,9 +123,9 @@ export interface SearchHit {
 	source: SearchSourceId;
 	/** The folder the hit is filed under, when declared (else `null`). */
 	folder: string | null;
-	/** The hit's tags (lowercased, deduped). For a POI this is empty. */
+	/** The hit's tags (lowercased, deduped). A POI/handout/session-artifact carries no tags (empty). */
 	tags: string[];
-	/** The map a POI hit belongs to (else `null` — content lives in the vault, not on a map). */
+	/** The map a POI hit belongs to (else `null` — content/handouts/artifacts do not live on a map). */
 	mapId: string | null;
 	/** A title-match outranks a body/relationship-only match; higher score sorts first. */
 	score: number;
@@ -158,6 +171,8 @@ const EMPTY_TYPE_COUNTS: Record<SearchContentType, number> = Object.freeze({
 	note: 0,
 	object: 0,
 	poi: 0,
+	handout: 0,
+	'session-artifact': 0,
 });
 
 /** Build the echoed active-filters metadata from a (normalized) filter. Pure. */
@@ -200,6 +215,16 @@ function dateInRange(
 	if (range.from && compareCustomDatesSafe(date, range.from) < 0) return false;
 	if (range.to && compareCustomDatesSafe(date, range.to) > 0) return false;
 	return true;
+}
+
+/** The actor-visible searchable body of a handout: its visible section headings + bodies, joined. */
+function handoutSearchableBody(handout: HandoutView): string {
+	return handout.sections.map((section) => `${section.heading} ${section.body}`).join(' ');
+}
+
+/** The searchable TITLE of a session-artifact (a recorded roll): its label, else its expression. */
+function sessionArtifactTitle(roll: DiceRollView): string {
+	return roll.label && roll.label.trim() !== '' ? roll.label : roll.expression;
 }
 
 /** Whether a hit's tags satisfy the (already-lowercased) required-tags facet (ALL must be present). */
@@ -400,6 +425,68 @@ export function searchVaultForActor(
 		}
 	}
 
+	// --- HANDOUT hits (SES-004 handouts live on the session/local source) ---
+	// Every candidate is drawn from the actor-filtered handout read, so a non-recipient's handout — and a
+	// withheld/unrevealed SECTION — is never even a candidate (SRCH-001 AC2). The searchable text is the
+	// title + only the sections the actor may see.
+	if (typeSet.has('handout')) {
+		const handoutSource: SearchSourceId = 'local-markdown';
+		noteSource(handoutSource);
+		if (!sourceSet || sourceSet.has(handoutSource)) {
+			for (const handout of session ? getHandoutsForActor(session, permissions, actorId) : []) {
+				// A handout carries no folder/tags/date — only a text/source/type facet can match/exclude it.
+				if (filter.folder) continue;
+				if (filter.tags && filter.tags.length > 0) continue;
+				if (filter.dateRange) continue;
+				if (relatedKeys) continue; // handouts are not in the wikilink/POI relationship graph.
+				const visibleBody = handoutSearchableBody(handout);
+				const { matched, titleMatch } = textMatch(handout.title, visibleBody, needle);
+				if (!matched) continue;
+				hits.push({
+					id: handout.id,
+					type: 'handout',
+					title: handout.title,
+					source: handoutSource,
+					folder: null,
+					tags: [],
+					mapId: null,
+					score: titleMatch ? 2 : 1,
+				});
+				sourceMatchCount.set(handoutSource, (sourceMatchCount.get(handoutSource) ?? 0) + 1);
+			}
+		}
+	}
+
+	// --- SESSION ARTIFACT hits (SES-003 recorded dice rolls; live on the session/local source) ---
+	// Drawn from the actor-filtered roll history, so a `dm-only` secret roll is never a candidate for a
+	// non-DM (SRCH-001 AC2). The searchable text is the visible expression + label.
+	if (typeSet.has('session-artifact')) {
+		const artifactSource: SearchSourceId = 'local-markdown';
+		noteSource(artifactSource);
+		if (!sourceSet || sourceSet.has(artifactSource)) {
+			for (const roll of session ? getDiceHistoryForActor(session, permissions, actorId).rolls : []) {
+				if (filter.folder) continue;
+				if (filter.tags && filter.tags.length > 0) continue;
+				if (filter.dateRange) continue;
+				if (relatedKeys) continue; // session artifacts are not in the relationship graph.
+				const title = sessionArtifactTitle(roll);
+				const { matched, titleMatch } = textMatch(title, roll.label ?? '', needle);
+				if (!matched) continue;
+				hits.push({
+					id: roll.id,
+					type: 'session-artifact',
+					title,
+					source: artifactSource,
+					folder: null,
+					tags: [],
+					mapId: null,
+					score: titleMatch ? 2 : 1,
+				});
+				sourceMatchCount.set(artifactSource, (sourceMatchCount.get(artifactSource) ?? 0) + 1);
+			}
+		}
+	}
+
 	// Deterministic order: title-matches first (higher score), then by stable type order, then id.
 	hits.sort(compareHits);
 
@@ -437,7 +524,13 @@ export function searchVaultForActor(
 }
 
 /** Stable type order for tie-breaking, matching the content-type facet order. */
-const TYPE_ORDER: Record<SearchContentType, number> = { note: 0, object: 1, poi: 2 };
+const TYPE_ORDER: Record<SearchContentType, number> = {
+	note: 0,
+	object: 1,
+	poi: 2,
+	handout: 3,
+	'session-artifact': 4,
+};
 
 /**
  * Deterministic ordering for hits: by score descending (title-matches first), then by a stable type order,

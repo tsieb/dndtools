@@ -200,6 +200,9 @@ epics:
   - id: SRCH-filters-and-saved-searches
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SRCH-filters-and-saved-searches.completion.md
+  - id: SRCH-local-indexes-and-freshness
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SRCH-local-indexes-and-freshness.completion.md
   - id: SYNC-asset-sync-and-status
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SYNC-asset-sync-and-status.completion.md

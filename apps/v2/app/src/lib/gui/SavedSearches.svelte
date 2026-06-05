@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {
 		getSavedSearchesForActor,
+		getSearchIndexStatus,
 		searchVaultForActor,
 		type SearchContentType,
 		type SearchFilter,
@@ -21,7 +22,7 @@
 	const isDm = $derived(actor?.role === 'dm');
 
 	const SOURCES: SearchSourceId[] = ['local-markdown', 'obsidian', 'google-docs'];
-	const TYPES: SearchContentType[] = ['note', 'object', 'poi'];
+	const TYPES: SearchContentType[] = ['note', 'object', 'poi', 'handout', 'session-artifact'];
 	const sourceLabels: Record<SearchSourceId, string> = {
 		'local-markdown': 'Local',
 		obsidian: 'Obsidian',
@@ -31,6 +32,8 @@
 		note: 'Note',
 		object: 'Object',
 		poi: 'Map POI',
+		handout: 'Handout',
+		'session-artifact': 'Session artifact',
 	};
 
 	// Ad-hoc filter (local UI state only). An empty filter matches all visible artifacts.
@@ -66,6 +69,20 @@
 			runtime.state.session,
 			runtime.activeActorId,
 			buildFilter(),
+		),
+	);
+
+	// SRCH-009: the per-DOMAIN search-index FRESHNESS for the running actor, derived from the SAME
+	// actor-filtered reads as search. With the local store as the index (no persisted snapshot here), every
+	// visible domain is fresh; this surface shows any `stale`/`partial` domain so the user knows when cached
+	// results may be behind a source that has advanced — WITHOUT blocking the results above.
+	const indexStatus = $derived(
+		getSearchIndexStatus(
+			runtime.state.content,
+			runtime.state.maps,
+			runtime.state.permissions,
+			runtime.state.session,
+			runtime.activeActorId,
 		),
 	);
 
@@ -196,6 +213,21 @@
 			{#each result.sourceStatus.filter((s) => s.freshness !== 'fresh') as status (status.source)}
 				<li data-testid={`search-source-status-${status.source}`}>
 					<span class="meta">{sourceLabels[status.source]}: {status.freshness}</span>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+
+	{#if indexStatus.anyStale}
+		<ul class="status-list" data-testid="search-index-freshness">
+			<li class="meta">
+				Some indexes may be behind. Showing cached results for: {indexStatus.staleDomains
+					.map((d) => typeLabels[d])
+					.join(', ')}.
+			</li>
+			{#each indexStatus.domains.filter((d) => d.status === 'stale' || d.status === 'partial') as domain (domain.domain)}
+				<li data-testid={`search-index-freshness-${domain.domain}`}>
+					<span class="meta">{typeLabels[domain.domain]}: {domain.status}</span>
 				</li>
 			{/each}
 		</ul>

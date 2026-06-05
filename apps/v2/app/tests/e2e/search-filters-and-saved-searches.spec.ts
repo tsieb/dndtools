@@ -70,6 +70,29 @@ test.describe('SRCH-003/004 filters and saved searches', () => {
 		await expect(page.getByTestId('search-results').getByText('A Note Item')).toBeVisible();
 	});
 
+	test('SRCH-001: the expanded searchable domains (handout, session artifact) are selectable facets', async ({
+		page,
+	}) => {
+		await createNote(page, 'Searchable Note', 'player-visible', 'plain body');
+
+		// SRCH-001 — the content-type facet exposes the full searchable DOMAIN set: note/object/POI plus the
+		// new HANDOUT and SESSION-ARTIFACT domains. Restricting to handouts/session-artifacts (which the demo
+		// vault has none of yet) yields an empty result WITHOUT failing the search (the note is excluded).
+		await expect(page.getByTestId('search-type-handout')).toBeVisible();
+		await expect(page.getByTestId('search-type-session-artifact')).toBeVisible();
+
+		await page.getByTestId('search-type-handout').check();
+		await page.getByTestId('search-type-session-artifact').check();
+		await expect(page.getByTestId('search-results').getByText('Searchable Note')).toHaveCount(0);
+		await expect(page.getByTestId('search-empty')).toBeVisible();
+
+		// Restoring the note facet brings the note back — the search never failed, only filtered.
+		await page.getByTestId('search-type-handout').uncheck();
+		await page.getByTestId('search-type-session-artifact').uncheck();
+		await page.getByTestId('search-type-note').check();
+		await expect(page.getByTestId('search-results').getByText('Searchable Note')).toBeVisible();
+	});
+
 	test('SRCH-004 AC2: a dm-only saved search is absent for the player; a player-visible one re-runs live', async ({
 		page,
 	}) => {
