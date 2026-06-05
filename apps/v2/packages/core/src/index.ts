@@ -867,11 +867,16 @@ export {
 	lockMapLayerInputSchema,
 	acknowledgeHandoutInputSchema,
 	createPlayerGroupInputSchema,
+	createSavedSearchInputSchema,
 	deletePlayerGroupInputSchema,
+	deleteSavedSearchInputSchema,
 	deliverHandoutInputSchema,
 	revealHandoutSectionInputSchema,
 	revokeHandoutInputSchema,
+	pinSavedSearchInputSchema,
+	searchFilterSchema,
 	updatePlayerGroupInputSchema,
+	updateSavedSearchInputSchema,
 	pinQuickReferenceInputSchema,
 	unpinQuickReferenceInputSchema,
 	moveGroupInputSchema,
@@ -1995,6 +2000,63 @@ export {
 	searchContentForActor,
 	suggestWikilinkTargetsForActor,
 } from './queries/content-search';
+
+// SRCH-003 / SRCH-004: the durable SAVED-SEARCH model + the shared SEARCH-FILTER definition. A saved
+// search stores ONLY its filter criteria + its own visibility + pin state — NEVER a cached result, so a
+// run always re-evaluates LIVE through the actor-filtered search (no stale result leaks a now-hidden item).
+// Saved searches fail closed to `dm-only`. Pure data + pure reducers; the command layer composes these.
+export type {
+	CreateSavedSearchInput,
+	SavedSearch,
+	SavedSearchMap,
+	SavedSearchMeta,
+	SearchContentType,
+	SearchDateRange,
+	SearchFilter,
+	SearchRelationshipFilter,
+	SearchSourceId,
+	UpdateSavedSearchPatch,
+} from './state/saved-search';
+export {
+	SAVED_SEARCH_ENTITY_TYPE,
+	SAVED_SEARCH_SCHEMA_VERSION,
+	SEARCH_CONTENT_TYPES,
+	SEARCH_SOURCE_IDS,
+	buildSavedSearch,
+	cloneSavedSearch,
+	ensureSavedSearches,
+	normalizeSearchFilter,
+	removeSavedSearch,
+	setSavedSearchPinned,
+	updateSavedSearch,
+} from './state/saved-search';
+
+// SRCH-003: THE single actor-filtered FACETED SEARCH read. Filters search by source, content type, tag,
+// folder, date, and a VISIBILITY-SAFE RELATIONSHIP (plus text), composing the actor-filtered content
+// (CONTENT-011) + map (MAP-018) reads — no second index. Counts derive from the visible set only, so a
+// hidden hit/facet/relationship match (or a count revealing one) never appears (AC1, AC4). A referenced
+// unavailable source is marked stale/unavailable WITHOUT failing the whole search (AC2). The result echoes
+// the active filters (AC3). Pure + deterministic; the GUI renders the computed result.
+export type {
+	ActiveSearchFilters,
+	SearchHit,
+	SearchResult,
+	SearchSourceFreshness,
+	SearchSourceStatus,
+} from './queries/search-query';
+export { searchVaultForActor } from './queries/search-query';
+
+// SRCH-004: THE actor-filtered SAVED-SEARCH read. A `dm-only` saved search is OMITTED ENTIRELY from a
+// non-DM's list (AC2 — DM-only criteria never leak); every visible saved search is re-evaluated LIVE for
+// the running actor (no stale leak — SRCH-003 AC1/AC4). `getPinnedSavedSearchesForActor` feeds the Command
+// Center widget (AC1). Pure + deterministic; the GUI renders the computed result + dispatches intents.
+export type { SavedSearchView } from './queries/saved-search-query';
+export {
+	actorCanAuthorSavedSearch,
+	getPinnedSavedSearchesForActor,
+	getSavedSearchesForActor,
+	runSavedSearchForActor,
+} from './queries/saved-search-query';
 
 // CONTENT-007 / CONTENT-008: pure, deterministic Obsidian-aware markdown parse/serialize — the
 // determinism keystone for import/export. Preserves frontmatter properties, aliases, tags, wikilinks.

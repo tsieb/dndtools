@@ -1922,3 +1922,84 @@ export const unlinkCalendarDateInputSchema = z
 		linkId: idSchema,
 	})
 	.strict();
+
+// --- SRCH-003 / SRCH-004 — search filters + saved searches ---------------------------------------
+
+// SRCH-003 — the searchable SOURCEs and CONTENT TYPEs (the facet enums). An unknown value in a list is
+// pruned by `normalizeSearchFilter` (the reducer never widens a search from a malformed facet list).
+const searchSourceSchema = z.enum(['local-markdown', 'obsidian', 'google-docs']);
+const searchContentTypeSchema = z.enum(['note', 'object', 'poi']);
+
+// SRCH-003 — the inclusive custom-date RANGE facet. Either bound may be open (`null`); both, when present,
+// are interpreted in `calendarId`. The bounds reuse the CONTENT-011 `customDateSchema` value shape.
+const searchDateRangeSchema = z
+	.object({
+		calendarId: idSchema,
+		from: z.union([z.literal(null), customDateSchema]).default(null),
+		to: z.union([z.literal(null), customDateSchema]).default(null),
+	})
+	.strict();
+
+// SRCH-003 — the VISIBILITY-SAFE RELATIONSHIP facet. Anchors results to artifacts related to one entity
+// (a content item or a POI). The relationship is resolved over the actor's VISIBLE graph only at read time.
+const searchRelationshipSchema = z
+	.object({
+		anchorKind: z.enum(['content', 'poi']),
+		anchorId: idSchema,
+	})
+	.strict();
+
+// SRCH-003 — the full FACETED SEARCH FILTER. EVERY facet is optional; an empty filter matches all visible
+// artifacts. The reducer normalizes this (trims/dedupes/prunes) into the canonical shape it persists/runs.
+export const searchFilterSchema = z
+	.object({
+		query: z.string().optional(),
+		sources: z.array(searchSourceSchema).optional(),
+		contentTypes: z.array(searchContentTypeSchema).optional(),
+		tags: z.array(z.string()).optional(),
+		folder: z.string().optional(),
+		dateRange: searchDateRangeSchema.optional(),
+		relationship: searchRelationshipSchema.optional(),
+	})
+	.strict();
+
+// SRCH-004 — CREATE a saved search (DM-only). Visibility fails closed to `dm-only` so DM-only criteria are
+// never exposed to players (SRCH-004 AC2). `searchId` is optional (idempotent create / reuse an id).
+export const createSavedSearchInputSchema = z
+	.object({
+		searchId: idSchema.optional(),
+		name: z.string().min(1, 'A saved search needs a name.'),
+		filter: searchFilterSchema.default({}),
+		visibility: contentVisibilitySchema.default('dm-only'),
+		sharedWith: z.array(idSchema).default([]),
+		pinned: z.boolean().default(false),
+	})
+	.strict();
+
+// SRCH-004 — UPDATE a saved search (DM-only). Every field is an optional patch; omit to leave unchanged.
+export const updateSavedSearchInputSchema = z
+	.object({
+		searchId: idSchema,
+		name: z.string().min(1).optional(),
+		filter: searchFilterSchema.optional(),
+		visibility: contentVisibilitySchema.optional(),
+		sharedWith: z.array(idSchema).optional(),
+		pinned: z.boolean().optional(),
+	})
+	.strict();
+
+// SRCH-004 — PIN / UNPIN a saved search to the Command Center (DM-only). A focused command so the pin
+// state is an explicit, auditable change (SRCH-004 AC1).
+export const pinSavedSearchInputSchema = z
+	.object({
+		searchId: idSchema,
+		pinned: z.boolean(),
+	})
+	.strict();
+
+// SRCH-004 — DELETE a saved search by id (DM-only).
+export const deleteSavedSearchInputSchema = z
+	.object({
+		searchId: idSchema,
+	})
+	.strict();

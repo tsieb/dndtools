@@ -421,7 +421,14 @@ export type CoreCommand =
 	// ONLY the target id + projection — never a copy of the target's data (Contract 4). The embedded
 	// content is resolved per-viewer at read against the LIVE target (fail-closed unavailable on no access).
 	| { type: 'content.add-embed'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'content.remove-embed'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'content.remove-embed'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// SRCH-004: DM-only SAVED SEARCH management — create / update / pin / delete. A saved search stores ONLY
+	// its filter criteria + visibility + pin state (never a cached result), is visibility-filtered like any
+	// entity (a dm-only saved search is absent for players), and is re-evaluated LIVE on every read.
+	| { type: 'content.create-saved-search'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'content.update-saved-search'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'content.pin-saved-search'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'content.delete-saved-search'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -972,6 +979,17 @@ export type CoreEvent =
 			targetItemId: string;
 			mutation: 'add' | 'remove';
 			actorId: ActorId;
+	  }
+	// SRCH-004 — a saved search was created/updated/pinned/deleted. Carries the saved search's id + its
+	// visibility + pin state (never the filter criteria values), so the audit records exactly what changed
+	// without leaking DM-only criteria. The read re-evaluates the filter LIVE; this is just the lifecycle.
+	| {
+			kind: 'content.saved-search-changed';
+			searchId: string;
+			mutation: 'create' | 'update' | 'pin' | 'delete';
+			visibility: string;
+			pinned: boolean;
+			actorId: ActorId;
 	  };
 
 export type RejectionCode =
@@ -1070,7 +1088,9 @@ export type RejectionCode =
 	// SES-008 — a `dice-table` object is missing/has an invalid dice expression or result rows.
 	| 'invalid-dice-table'
 	// SES-008 — an append-to-note targeted a roll id not present in the session roll history.
-	| 'roll-not-found';
+	| 'roll-not-found'
+	// SRCH-004 — a saved-search target (update/pin/delete) does not exist (fail closed).
+	| 'saved-search-not-found';
 
 export interface CommandRejection {
 	code: RejectionCode;

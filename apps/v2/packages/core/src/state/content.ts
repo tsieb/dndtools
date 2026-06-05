@@ -3,6 +3,7 @@ import type { CalendarDefinition, CustomDate } from './calendar';
 import { CALENDAR_SCHEMA_VERSION } from './calendar';
 import type { EntityVisibilityMetadata, VisibilityLevel, VisibilityRule } from '../permissions/visibility-filter';
 import { normalizeVisibilityLevel } from '../permissions/visibility-filter';
+import { ensureSavedSearches, type SavedSearchMap } from './saved-search';
 
 /**
  * CONTENT-011 — the durable VAULT CONTENT model: calendar-aware notes and structured objects.
@@ -150,16 +151,23 @@ export interface ContentItem {
 	revision: number;
 }
 
-/** The durable content slice: a calendar registry + content items, both keyed by id. */
+/** The durable content slice: a calendar registry + content items + saved searches, all keyed by id. */
 export interface VaultContentState {
 	calendars: Record<string, CalendarDefinition>;
 	items: Record<string, ContentItem>;
+	/**
+	 * SRCH-004 — durable DM-authored SAVED SEARCHES keyed by id. Each stores ONLY its filter criteria +
+	 * its own visibility + pin state — NEVER a cached result set, so a run always re-evaluates the filter
+	 * through the actor-filtered search (no stale result can leak a now-hidden item — SRCH-003 AC4).
+	 */
+	savedSearches: SavedSearchMap;
 	schemaVersion: typeof VAULT_CONTENT_SCHEMA_VERSION;
 }
 
 export const EMPTY_VAULT_CONTENT_STATE: VaultContentState = Object.freeze({
 	calendars: {},
 	items: {},
+	savedSearches: {},
 	schemaVersion: VAULT_CONTENT_SCHEMA_VERSION,
 });
 
@@ -184,6 +192,10 @@ export function ensureVaultContentState(
 	return {
 		calendars: state?.calendars ?? {},
 		items,
+		// SRCH-004 — hydrate saved searches fail-closed: a content document persisted before this slice
+		// existed restores with no saved searches (never undefined); a record with missing visibility
+		// hydrates to the `dm-only` safe default and its filter is re-normalized.
+		savedSearches: ensureSavedSearches(state?.savedSearches),
 		schemaVersion: VAULT_CONTENT_SCHEMA_VERSION,
 	};
 }

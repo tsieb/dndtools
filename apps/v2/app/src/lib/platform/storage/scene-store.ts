@@ -7,7 +7,6 @@ import {
 	EMPTY_PERMISSION_STATE,
 	EMPTY_SCENE_STATE,
 	EMPTY_SESSION_STATE,
-	EMPTY_VAULT_CONTENT_STATE,
 	EMPTY_WIDGET_PACKAGE_STATE,
 	createOperationLog,
 	createDemoMapState,
@@ -15,6 +14,7 @@ import {
 	ensureCalendarContinuityState,
 	ensureEncounterState,
 	ensureSessionCombatState,
+	ensureVaultContentState,
 	mergeSystemWidgetPackages,
 	recoverFromJournal,
 	validatePlatformRequest,
@@ -249,16 +249,12 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	};
 	characters.characters ??= {};
 	characters.drafts ??= {};
-	// CONTENT-011: the durable content slice (calendar registry + calendar-aware items). A vault
-	// persisted before this slice existed has no content document; default it so older prototype
-	// vaults stay readable without a destructive migration (safe-default hydration).
-	const content = (contentDoc?.doc as VaultContentState | undefined) ?? {
-		calendars: {},
-		items: {},
-		schemaVersion: EMPTY_VAULT_CONTENT_STATE.schemaVersion,
-	};
-	content.calendars ??= {};
-	content.items ??= {};
+	// CONTENT-011 / SRCH-004: the durable content slice (calendar registry + calendar-aware items +
+	// saved searches). A vault persisted before this slice existed has no content document; route it
+	// through `ensureVaultContentState` so older prototype vaults stay readable without a destructive
+	// migration (safe-default, fail-closed hydration — saved searches default to an empty map and any
+	// persisted saved search re-normalizes its filter and defaults its visibility to `dm-only`).
+	const content = ensureVaultContentState(contentDoc?.doc as VaultContentState | undefined);
 	// SES-006: the durable encounter slice. A vault persisted before this slice has no encounter
 	// document; default it so older prototype vaults stay readable (safe-default hydration).
 	const encounters = ensureEncounterState(encounterDoc?.doc as EncounterState | undefined);

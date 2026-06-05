@@ -135,6 +135,7 @@ export class SceneRuntime {
 		content: {
 			calendars: { ...EMPTY_VAULT_CONTENT_STATE.calendars },
 			items: { ...EMPTY_VAULT_CONTENT_STATE.items },
+			savedSearches: { ...EMPTY_VAULT_CONTENT_STATE.savedSearches },
 			schemaVersion: EMPTY_VAULT_CONTENT_STATE.schemaVersion,
 		},
 		encounters: {

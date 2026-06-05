@@ -159,6 +159,12 @@ import {
 	handleSetContentFieldVisibility,
 	handleSetContentSectionVisibility,
 } from './content-visibility-embeds';
+import {
+	handleCreateSavedSearch,
+	handleDeleteSavedSearch,
+	handlePinSavedSearch,
+	handleUpdateSavedSearch,
+} from './saved-search';
 import { handleResolveVaultConflict } from './conflict-resolution';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 import { classifyObserverCommand } from '../collab/observer-access';
@@ -468,6 +474,14 @@ export function dispatchCommand(
 			return handleAddContentEmbed(state, env, command.actorId, command.payload);
 		case 'content.remove-embed':
 			return handleRemoveContentEmbed(state, env, command.actorId, command.payload);
+		case 'content.create-saved-search':
+			return handleCreateSavedSearch(state, env, command.actorId, command.payload);
+		case 'content.update-saved-search':
+			return handleUpdateSavedSearch(state, env, command.actorId, command.payload);
+		case 'content.pin-saved-search':
+			return handlePinSavedSearch(state, env, command.actorId, command.payload);
+		case 'content.delete-saved-search':
+			return handleDeleteSavedSearch(state, env, command.actorId, command.payload);
 	}
 }
 

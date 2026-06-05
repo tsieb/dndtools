@@ -4,6 +4,7 @@
 	import TemplatesAndSnippets from '$lib/gui/TemplatesAndSnippets.svelte';
 	import CalendarContent from '$lib/gui/CalendarContent.svelte';
 	import CalendarDiscovery from '$lib/gui/CalendarDiscovery.svelte';
+	import SavedSearches from '$lib/gui/SavedSearches.svelte';
 	import ContentVisibilityEmbeds from '$lib/gui/ContentVisibilityEmbeds.svelte';
 	import ContentImportExport from '$lib/gui/ContentImportExport.svelte';
 	import ContentSourceConstraints from '$lib/gui/ContentSourceConstraints.svelte';
@@ -24,6 +25,9 @@
 	// It also surfaces calendar/custom-time content, SRCH-010 calendar/custom-time DISCOVERY (search and
 	// filter visible dated content by a custom-calendar date range + text, across notes, timeline links,
 	// and — for the DM only — session chronology; hidden events and revealing counts are omitted),
+	// SRCH-003/004 FILTERS + SAVED SEARCHES (filter search by source/content-type/tag/folder/date/relationship;
+	// the DM saves, pins, and deletes named searches; a dm-only saved search is absent for players and every
+	// saved search is re-evaluated LIVE so no stale result leaks a now-hidden item),
 	// import/export, and the SOURCE-SPECIFIC
 	// CONSTRAINTS surface (CONTENT-012): a pre-write diagnostic of what a write to local markdown / Obsidian /
 	// Google Docs would lose or downgrade, gated fail-closed behind acknowledgment. Which authoring
@@ -43,6 +47,7 @@
 	<TemplatesAndSnippets />
 	<CalendarContent />
 	<CalendarDiscovery />
+	<SavedSearches />
 	<ContentVisibilityEmbeds />
 	<ContentImportExport />
 	<ContentSourceConstraints />
