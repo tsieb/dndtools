@@ -213,8 +213,8 @@ validates; and the working tree showed no unrelated overlapping changes.
 Branch: `epic/SRCH-filters-and-saved-searches` (chained off the prior epic tip
 `epic/SRCH-calendar-custom-time-discovery` @ `2874d27`, per the v2 epic-branching convention — NOT from
 master).
-Commit SHA (feat): `__FEAT_SHA__` (`feat(v2): complete SRCH-filters-and-saved-searches epic`).
-The completion-evidence SHA is recorded by a follow-up `docs(v2): record commit SHA …` commit.
+Commit SHA (feat): `d088c18` (`feat(v2): complete SRCH-filters-and-saved-searches epic`).
+The completion-evidence SHA is recorded by this follow-up `docs(v2): record commit SHA …` commit.
 
 ### Final `git status --short`
 
