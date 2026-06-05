@@ -161,12 +161,26 @@ import {
 } from './content-visibility-embeds';
 import { handleResolveVaultConflict } from './conflict-resolution';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
+import { classifyObserverCommand } from '../collab/observer-access';
 
 export function dispatchCommand(
 	state: CoreStateSlice,
 	env: CoreEnvironment,
 	command: CoreCommand,
 ): CommandResult {
+	// COLLAB-011 AC2 — OBSERVER WRITE GATE (fail closed, BEFORE mutation). Every command in this surface is
+	// a durable mutation (commands are the only mutation interface — Contract 1 binding rule 1), and an
+	// observer is read-only with no write authority (Contract 3 Base Roles). So an observer may invoke NONE
+	// of them: classify the actor and REJECT every command type for an observer before any reducer runs.
+	// A non-observer passes through to the command's own reducer, which enforces that actor's authority.
+	const observerCheck = classifyObserverCommand(state.permissions, command.actorId, command.type);
+	if (!observerCheck.allowed) {
+		return {
+			status: 'rejected',
+			rejection: { code: 'actor-not-authorized', message: observerCheck.message },
+			nextState: state,
+		};
+	}
 	switch (command.type) {
 		case 'scene.create':
 			return handleCreateScene(state, env, command.actorId, command.payload);

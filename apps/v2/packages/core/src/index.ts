@@ -2656,6 +2656,48 @@ export {
 	normalizeMembers,
 } from './state/player-group';
 
+// COLLAB-005 — the DM controls DIFFERENT PLAYER VIEW assignments for DIFFERENT players during the SAME
+// session (Contract 4 Player View Rules). The COLLAB layer over the CANVAS player-view machinery:
+// `projectPlayerViews` resolves EACH connected, non-DM participant's OWN filtered player view (assigned
+// subset only, hidden bindings omitted) so different players receive different subsets at once (AC1);
+// `crossPlayerLeakedWidgetIds` is the executable proof a participant's delivered view never exceeds their
+// own assignment. `playerCanEditPlayerView` is the AC2 gate — a player may edit player-view widgets ONLY
+// with scene `co-editor` (the SAME `actorCanCoEditScene` rule the scene-edit reducers enforce). Pure.
+export type {
+	ExcludedParticipant,
+	ParticipantPlayerView,
+	PlayerViewExclusionReason,
+	PlayerViewProjectionSnapshot,
+} from './collab/player-views';
+export {
+	crossPlayerLeakedWidgetIds,
+	deliveredWidgetInstanceIds,
+	playerCanEditPlayerView,
+	projectPlayerViews,
+} from './collab/player-views';
+
+// COLLAB-011 — OBSERVER read-only access. Observers join as READ-ONLY participants with access ONLY to
+// explicitly shared Scenes/maps/placeholders, NO character data, and NO write controls (Contract 3 Base
+// Roles). The COLLAB layer composing the observer ceiling (`computeEffectivePermissions`), scene
+// visibility (`evaluateSceneVisibility`), and the character-data guard (`decideCharacterDataRead`):
+// `observerVisibleScenes` / `observerAccessSummary` compute the observer's visible scene list — excluding
+// dm-only content, private player views, and character sheets by construction (AC1). `classifyObserverCommand`
+// is the fail-closed write gate — an observer may invoke NO command (it is wired into `dispatchCommand`),
+// so any write-capable command an observer invokes is rejected BEFORE mutation (AC2). Pure + fail closed.
+export type {
+	ObserverAccessDenialReason,
+	ObserverAccessResult,
+	ObserverAccessSummary,
+	ObserverCommandClassification,
+	ObserverVisibleScene,
+} from './collab/observer-access';
+export {
+	classifyObserverCommand,
+	isObserverActor,
+	observerAccessSummary,
+	observerVisibleScenes,
+} from './collab/observer-access';
+
 // COLLAB-001 — the SESSION JOIN / IDENTITY policy. A DM-issued invitation / local pairing code
 // AUTHENTICATES a joiner as DM/Player/Observer; on success `joinSession` returns the filtered
 // `SessionJoinResult` (role, participant id, ACTIVE grants only, visible scenes, capability-schema version,

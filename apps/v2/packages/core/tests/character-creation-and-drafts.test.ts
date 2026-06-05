@@ -324,6 +324,14 @@ describe('CHAR-002 — guided PC creation (validation, resume, owner-only)', () 
 
 	it('a non-owner player and an observer cannot edit the draft (AC3 fail closed)', () => {
 		const { state, draftId } = seedDraft();
+		// A non-owner PLAYER is rejected by the draft-ownership check (`not-draft-owner`). An OBSERVER is
+		// rejected EARLIER by the COLLAB-011 read-only observer gate (`actor-not-authorized`): observers
+		// cannot invoke ANY write-capable command, so they never reach the ownership check. Either way the
+		// edit is rejected fail closed (AC3 preserved; the observer denial is strengthened, not weakened).
+		const expectedCode: Record<string, string> = {
+			[PLAYER_B.id]: 'not-draft-owner',
+			[OBSERVER_ACTOR.id]: 'actor-not-authorized',
+		};
 		for (const actor of [PLAYER_B, OBSERVER_ACTOR]) {
 			const result = dispatchCommand(state, makeEnvironment(), {
 				type: 'character.update-draft-step',
@@ -331,7 +339,7 @@ describe('CHAR-002 — guided PC creation (validation, resume, owner-only)', () 
 				payload: { draftId, stepId: 'identity', values: { name: 'X', background: 'sage' } },
 			});
 			expect(result.status).toBe('rejected');
-			if (result.status === 'rejected') expect(result.rejection.code).toBe('not-draft-owner');
+			if (result.status === 'rejected') expect(result.rejection.code).toBe(expectedCode[actor.id]);
 		}
 		// A non-owner also gets NO draft fields back (CHAR-002 AC3).
 		expect(getDraftForActor(state.characters, state.permissions, PLAYER_B.id, draftId)).toBeNull();

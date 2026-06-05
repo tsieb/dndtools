@@ -9,6 +9,7 @@
 	import PrepRecap from '$lib/gui/PrepRecap.svelte';
 	import ReconnectStatus from '$lib/gui/ReconnectStatus.svelte';
 	import LiveSessionStatus from '$lib/gui/LiveSessionStatus.svelte';
+	import PlayerViewAccess from '$lib/gui/PlayerViewAccess.svelte';
 
 	// SES-009 / SES-012: the Session section's PREP / RECAP + CAMPAIGN CALENDAR CONTINUITY surface. The DM
 	// maintains the campaign calendar + current date and LINKS dates to notes (by reference; a hidden/
@@ -46,6 +47,13 @@
 	// the participant's live/syncing/stale/reconnecting status (so a behind view is marked stale) and the
 	// ephemeral presence of co-participants, projected fail-closed by the Processing Core (a participant the
 	// viewer may not see is never listed; presence never persists or replays as history). Participant-only.
+	//
+	// COLLAB-005 / COLLAB-011: the participant PLAYER VIEW + OBSERVER ACCESS surface. The DM projects
+	// DIFFERENT player-view subsets to DIFFERENT players during one session; each participant sees ONLY
+	// their own assigned subset (actor-filtered in the Processing Core). Observers join as READ-ONLY
+	// participants with access only to explicitly shared scenes, no character data, and no write controls.
+	// The surface renders the participant's own filtered view + (for an observer) the read-only shared-scene
+	// list; observer write commands are rejected before mutation by the core. Participant-only.
 </script>
 
 <section data-testid="session-view" aria-label="Session">
@@ -60,6 +68,7 @@
 	<DiceTools />
 	<PlayerGroups />
 	<HandoutDelivery />
+	<PlayerViewAccess />
 	<LiveSessionStatus />
 	<ReconnectStatus />
 	<LiveTools />
