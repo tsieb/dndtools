@@ -41,7 +41,8 @@ precedence:
     - CMD-player-view-control
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
-    status: active
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/AUDIO-assets-licensing-and-source-scope.completion.md
   - id: CANVAS-layout-accessibility
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CANVAS-layout-accessibility.completion.md
