@@ -228,11 +228,12 @@ Workpack status: `complete` (set via `pnpm v2:workpack:complete -- --epic SYNC-s
 ## Git
 
 - Branch: `epic/SYNC-source-adapters` (created from the prior epic HEAD `57a099f`, NOT from master).
-- Commit: recorded in a follow-up docs commit after the implementation commit (SHA appended below).
-- Final `git status --short`: clean (recorded below).
+- Implementation commit: `60589b6297ce2f343da3f5edcf8e0edc58bd9df5` (code, tests, docs, generated workpack
+  updates). This completion-doc SHA-record is a follow-up docs commit.
+- Final `git status --short`: clean (recorded below, after the follow-up docs commit).
 
 ### Final `git status --short`
 
 ```
-(clean — recorded at handoff after the implementation + completion-doc commits)
+(clean)
 ```
