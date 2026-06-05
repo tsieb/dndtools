@@ -16,19 +16,19 @@ summary:
   totalEpics: 88
   proposed: 0
   approved: 15
-  active: 1
-  complete: 72
+  active: 0
+  complete: 73
   deferred: 0
 metrics:
-  epicCompletionPercent: 81.8
-  requirementCompletionPercent: 82.9
+  epicCompletionPercent: 83
+  requirementCompletionPercent: 84.2
   totalRequirements: 234
-  completedRequirements: 194
+  completedRequirements: 197
   deferredRequirements: 0
-  remainingEpics: 16
-  promptableEpics: 16
+  remainingEpics: 15
+  promptableEpics: 15
   blockedByDependencies: 0
-  completionEvidenceFiles: 72
+  completionEvidenceFiles: 73
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -113,13 +113,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: MCP
       totalEpics: 5
-      complete: 0
-      active: 1
+      complete: 1
+      active: 0
       approved: 4
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 0
-      requirementCompletionPercent: 0
+      epicCompletionPercent: 20
+      requirementCompletionPercent: 23.1
     - domain: NAV
       totalEpics: 5
       complete: 5
@@ -193,17 +193,17 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: MCP-core-enforcement-and-tests
-  title: "MCP: Core enforcement and tests"
-  status: active
+  id: MCP-identity-policy-and-staged-writes
+  title: "MCP: Identity, policy, and staged writes"
+  status: approved
   requirementIds:
-    - MCP-004
-    - MCP-005
-    - MCP-012
-  promptCommand: pnpm v2:prompt -- --epic MCP-core-enforcement-and-tests
+    - MCP-003
+    - MCP-009
+    - MCP-011
+  promptCommand: pnpm v2:prompt -- --epic MCP-identity-policy-and-staged-writes
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    MCP-core-enforcement-and-tests --status active
+    MCP-identity-policy-and-staged-writes --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: complete
@@ -552,12 +552,13 @@ epics:
       - MAP-019
     completionEvidenceFile: docs/planning/v2/epics/MAP-pois-routes-fog-and-combat-overlays.completion.md
   - id: MCP-core-enforcement-and-tests
-    status: active
+    status: complete
     approved: true
     requirementIds:
       - MCP-004
       - MCP-005
       - MCP-012
+    completionEvidenceFile: docs/planning/v2/epics/MCP-core-enforcement-and-tests.completion.md
   - id: MCP-identity-policy-and-staged-writes
     status: approved
     approved: true

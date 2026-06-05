@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: MCP-core-enforcement-and-tests
 title: "MCP: Core enforcement and tests"
-status: active
+status: complete
 approved: true
 domain: MCP
 capabilityBranch: Core enforcement and tests
@@ -184,3 +184,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/MCP-core-enforcement-and-tests.completion.md

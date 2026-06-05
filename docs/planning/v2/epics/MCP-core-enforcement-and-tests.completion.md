@@ -54,7 +54,7 @@ behavior is demonstrated programmatically:
 
 1. Build a vault with a `dm-only` NPC (with a `data.secretWeakness` dm-only field), a
    `player-visible` character (with a `data.dmSecret` dm-only field), a `dm-only` note, and a
-   `player-visible` note (see `tests/mcp-core-enforcement.test.ts` `seedVault`).
+   `player-visible` note (see `apps/v2/packages/core/tests/mcp-core-enforcement.test.ts` `seedVault`).
 2. `invokeMcpTool(state, env, createBaselineMcpToolRegistry(), { toolId: 'character.query', actorId:
    <player>, agentId, input: {} })` → the hidden NPC is **omitted entirely**, and the visible
    character's `dmSecret` field is **stripped** — by the data layer, identical to the player's own
@@ -75,8 +75,8 @@ behavior is demonstrated programmatically:
 
 | Acceptance criterion | Implementation | Tests |
 | --- | --- | --- |
-| AC1 — an MCP tool reads character data as a non-DM ⇒ hidden fields omitted by the data layer | `src/mcp/tool-dispatch.ts` `runReadTool` composes `listCharactersForActor` / `getContentItemDetailForActor` / `getContentItemsForActor` / `searchVaultForActor` / `getGraphRelationships`, passing the agent's `actorId` straight through | `tests/mcp-core-enforcement.test.ts` "MCP-004 AC1" (hidden NPC omitted; dm-only field stripped; DM sees it; tool == underlying query; dm-only note non-visible detail; vault.summary/note.list omit dm-only note) |
-| AC2 — an MCP write fails schema validation ⇒ no staged or direct durable mutation accepted | `src/mcp/tool-dispatch.ts` gate 3 (`parseToolInput`) denies before `dispatchCommand` is reached; `src/mcp/tool-registry.ts` per-tool Zod `inputSchema` | `tests/mcp-core-enforcement.test.ts` "MCP-004 AC2" (invalid input denied, no op appended, state unchanged; valid write appends a durable op and defaults visibility dm-only) |
+| AC1 — an MCP tool reads character data as a non-DM ⇒ hidden fields omitted by the data layer | `apps/v2/packages/core/src/mcp/tool-dispatch.ts` `runReadTool` composes `listCharactersForActor` / `getContentItemDetailForActor` / `getContentItemsForActor` / `searchVaultForActor` / `getGraphRelationships`, passing the agent's `actorId` straight through | `apps/v2/packages/core/tests/mcp-core-enforcement.test.ts` "MCP-004 AC1" (hidden NPC omitted; dm-only field stripped; DM sees it; tool == underlying query; dm-only note non-visible detail; vault.summary/note.list omit dm-only note) |
+| AC2 — an MCP write fails schema validation ⇒ no staged or direct durable mutation accepted | `apps/v2/packages/core/src/mcp/tool-dispatch.ts` gate 3 (`parseToolInput`) denies before `dispatchCommand` is reached; `apps/v2/packages/core/src/mcp/tool-registry.ts` per-tool Zod `inputSchema` | `apps/v2/packages/core/tests/mcp-core-enforcement.test.ts` "MCP-004 AC2" (invalid input denied, no op appended, state unchanged; valid write appends a durable op and defaults visibility dm-only) |
 | (security) privilege escalation blocked through the same dispatch | write tool → `dispatchCommand` (inherits authority/observer gate) | "privilege escalation is blocked" (player and observer writes rejected `actor-not-authorized`) |
 | (security) forged/under-scoped actor + unknown tool fail closed | gate 1 (unknown tool), gate 2 (unknown actor) | "forged / under-scoped actor and unknown tool fail closed" |
 
@@ -84,8 +84,8 @@ behavior is demonstrated programmatically:
 
 | Acceptance criterion | Implementation | Tests |
 | --- | --- | --- |
-| AC1 — a new tool added without dedicated tests ⇒ merge gate fails | `tests/mcp-tool-coverage.test.ts` COVERAGE MANIFEST cross-checked against the live `createBaselineMcpToolRegistry()` ids: a registered tool with no manifest row FAILS; a stale row FAILS; write tools must cover idempotency/staged-preview/direct-mode; reads must cover visibility/actor-policy | `tests/mcp-tool-coverage.test.ts` "MCP-005 AC1" describe block |
-| AC2 — a tool receives invalid input ⇒ expected structured error asserted | every manifest row exercises an invalid input and asserts the `invalid-input` denial envelope with per-field `issues` | `tests/mcp-tool-coverage.test.ts` "MCP-005 AC2" (one case per tool) + the valid-input end-to-end pass per tool |
+| AC1 — a new tool added without dedicated tests ⇒ merge gate fails | `apps/v2/packages/core/tests/mcp-tool-coverage.test.ts` COVERAGE MANIFEST cross-checked against the live `createBaselineMcpToolRegistry()` ids: a registered tool with no manifest row FAILS; a stale row FAILS; write tools must cover idempotency/staged-preview/direct-mode; reads must cover visibility/actor-policy | `apps/v2/packages/core/tests/mcp-tool-coverage.test.ts` "MCP-005 AC1" describe block |
+| AC2 — a tool receives invalid input ⇒ expected structured error asserted | every manifest row exercises an invalid input and asserts the `invalid-input` denial envelope with per-field `issues` | `apps/v2/packages/core/tests/mcp-tool-coverage.test.ts` "MCP-005 AC2" (one case per tool) + the valid-input end-to-end pass per tool |
 
 The 7 baseline tools (`vault.summary`, `note.read`, `note.list`, `note.search`, `graph.context`,
 `character.query`, `note.create`) each have a coverage row; the meta-test makes adding an untested
@@ -96,7 +96,7 @@ tool a red gate.
 | Acceptance criterion | Implementation | Tests |
 | --- | --- | --- |
 | AC1 — an MCP tool imports filesystem APIs outside the allowlist ⇒ boundary lint gate fails | `scripts/v2-boundary-lint.ts` `scanMcpFilesystem` (MCP-module fs-import + fs-primitive + process-global rules), wired into `collectViolations` | `apps/v2/app/tests/unit/boundary-lint.test.ts` "MCP-012" (node:fs import; bare `fs`/`path`; `readFileSync` call; `process.env`; clean pure-policy module passes) |
-| AC2 — an allowlisted MCP filesystem operation ⇒ containment, size limits, schema validation, audit asserted | `src/mcp/fs-allowlist.ts` `createBaselineMcpFsExceptionRegistry` + `gateMcpFsOperation` + `isPathContained` (pure traversal math) | `apps/v2/packages/core/tests/mcp-fs-allowlist.test.ts` (containment incl. `../`, absolute, drive, UNC, NUL, sibling-prefix; size limit; schema; audited=true; unknown-operation; construction fail-closed; determinism) |
+| AC2 — an allowlisted MCP filesystem operation ⇒ containment, size limits, schema validation, audit asserted | `apps/v2/packages/core/src/mcp/fs-allowlist.ts` `createBaselineMcpFsExceptionRegistry` + `gateMcpFsOperation` + `isPathContained` (pure traversal math) | `apps/v2/packages/core/tests/mcp-fs-allowlist.test.ts` (containment incl. `../`, absolute, drive, UNC, NUL, sibling-prefix; size limit; schema; audited=true; unknown-operation; construction fail-closed; determinism) |
 
 ## Adversarial / security tests (what each proves — all denied fail-closed)
 
