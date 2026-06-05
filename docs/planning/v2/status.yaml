@@ -16,19 +16,19 @@ summary:
   totalEpics: 88
   proposed: 0
   approved: 23
-  active: 1
-  complete: 64
+  active: 0
+  complete: 65
   deferred: 0
 metrics:
-  epicCompletionPercent: 72.7
-  requirementCompletionPercent: 75.2
+  epicCompletionPercent: 73.9
+  requirementCompletionPercent: 76.1
   totalRequirements: 234
-  completedRequirements: 176
+  completedRequirements: 178
   deferredRequirements: 0
-  remainingEpics: 24
-  promptableEpics: 24
+  remainingEpics: 23
+  promptableEpics: 23
   blockedByDependencies: 0
-  completionEvidenceFiles: 64
+  completionEvidenceFiles: 65
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -95,13 +95,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: GRAPH
       totalEpics: 5
-      complete: 2
-      active: 1
+      complete: 3
+      active: 0
       approved: 2
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 40
-      requirementCompletionPercent: 50
+      epicCompletionPercent: 60
+      requirementCompletionPercent: 70
     - domain: MAP
       totalEpics: 6
       complete: 6
@@ -193,15 +193,15 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: GRAPH-incremental-apis
-  title: "GRAPH: Incremental APIs"
-  status: active
+  id: GRAPH-source-indexing
+  title: "GRAPH: Source indexing"
+  status: approved
   requirementIds:
-    - GRAPH-005
-    - GRAPH-006
-  promptCommand: pnpm v2:prompt -- --epic GRAPH-incremental-apis
+    - GRAPH-001
+    - GRAPH-008
+  promptCommand: pnpm v2:prompt -- --epic GRAPH-source-indexing
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic GRAPH-incremental-apis --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic GRAPH-source-indexing --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -475,11 +475,12 @@ epics:
       - GRAPH-010
     completionEvidenceFile: docs/planning/v2/epics/GRAPH-deterministic-quality-intelligence.completion.md
   - id: GRAPH-incremental-apis
-    status: active
+    status: complete
     approved: true
     requirementIds:
       - GRAPH-005
       - GRAPH-006
+    completionEvidenceFile: docs/planning/v2/epics/GRAPH-incremental-apis.completion.md
   - id: GRAPH-source-indexing
     status: approved
     approved: true

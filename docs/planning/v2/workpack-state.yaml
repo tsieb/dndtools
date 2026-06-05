@@ -129,7 +129,8 @@ epics:
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/GRAPH-deterministic-quality-intelligence.completion.md
   - id: GRAPH-incremental-apis
-    status: active
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/GRAPH-incremental-apis.completion.md
   - id: MAP-interaction-safety
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MAP-interaction-safety.completion.md

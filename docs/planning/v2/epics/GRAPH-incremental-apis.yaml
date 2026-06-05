@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: GRAPH-incremental-apis
 title: "GRAPH: Incremental APIs"
-status: active
+status: complete
 approved: true
 domain: GRAPH
 capabilityBranch: Incremental APIs
@@ -155,3 +155,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/GRAPH-incremental-apis.completion.md
