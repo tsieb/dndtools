@@ -210,7 +210,7 @@ overlapping changes.
 
 Branch: `epic/SRCH-local-indexes-and-freshness` (chained off the prior epic tip
 `epic/SRCH-filters-and-saved-searches` @ `048ac3e`, per the v2 epic-branching convention — NOT from master).
-Commit SHA (feat): `<feat-sha>` (`feat(v2): complete SRCH-local-indexes-and-freshness epic`).
+Commit SHA (feat): `e002557` (`feat(v2): complete SRCH-local-indexes-and-freshness epic`).
 The completion-evidence SHA is recorded by the follow-up `docs(v2): record commit SHA …` commit.
 
 ### Final `git status --short`
