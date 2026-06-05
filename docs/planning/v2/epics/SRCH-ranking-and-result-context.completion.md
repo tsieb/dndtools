@@ -244,8 +244,8 @@ showed no unrelated overlapping changes.
 Branch: `epic/SRCH-ranking-and-result-context` (chained off the prior epic tip
 `epic/SRCH-quick-switcher-and-command-discovery` @ `4da92a5`, per the v2 epic-branching convention — NOT from
 master).
-Commit SHA (feat): `__FEAT_SHA__` (`feat(v2): complete SRCH-ranking-and-result-context epic`).
-The completion-evidence SHA is recorded by the follow-up `docs(v2): record commit SHA …` commit.
+Commit SHA (feat): `69147ab` (`feat(v2): complete SRCH-ranking-and-result-context epic`).
+The completion-evidence SHA is recorded by this follow-up `docs(v2): record commit SHA …` commit.
 
 ### Changed files (full repo-relative paths)
 
