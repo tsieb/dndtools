@@ -203,6 +203,9 @@ epics:
   - id: SRCH-local-indexes-and-freshness
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SRCH-local-indexes-and-freshness.completion.md
+  - id: SRCH-quick-switcher-and-command-discovery
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SRCH-quick-switcher-and-command-discovery.completion.md
   - id: SYNC-asset-sync-and-status
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SYNC-asset-sync-and-status.completion.md

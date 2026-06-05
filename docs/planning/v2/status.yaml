@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 29
+  approved: 28
   active: 0
-  complete: 59
+  complete: 60
   deferred: 0
 metrics:
-  epicCompletionPercent: 67
-  requirementCompletionPercent: 70.5
+  epicCompletionPercent: 68.2
+  requirementCompletionPercent: 70.9
   totalRequirements: 234
-  completedRequirements: 165
+  completedRequirements: 166
   deferredRequirements: 0
-  remainingEpics: 29
-  promptableEpics: 29
+  remainingEpics: 28
+  promptableEpics: 28
   blockedByDependencies: 0
-  completionEvidenceFiles: 59
+  completionEvidenceFiles: 60
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -176,13 +176,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: SRCH
       totalEpics: 6
-      complete: 3
+      complete: 4
       active: 0
-      approved: 3
+      approved: 2
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 50
-      requirementCompletionPercent: 45.5
+      epicCompletionPercent: 66.7
+      requirementCompletionPercent: 54.5
     - domain: SYNC
       totalEpics: 5
       complete: 5
@@ -193,15 +193,17 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: SRCH-quick-switcher-and-command-discovery
-  title: "SRCH: Quick switcher and command discovery"
+  id: SRCH-ranking-and-result-context
+  title: "SRCH: Ranking and result context"
   status: approved
   requirementIds:
-    - SRCH-002
-  promptCommand: pnpm v2:prompt -- --epic SRCH-quick-switcher-and-command-discovery
+    - SRCH-005
+    - SRCH-006
+    - SRCH-011
+  promptCommand: pnpm v2:prompt -- --epic SRCH-ranking-and-result-context
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    SRCH-quick-switcher-and-command-discovery --status active
+    SRCH-ranking-and-result-context --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -790,10 +792,11 @@ epics:
       - SRCH-009
     completionEvidenceFile: docs/planning/v2/epics/SRCH-local-indexes-and-freshness.completion.md
   - id: SRCH-quick-switcher-and-command-discovery
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - SRCH-002
+    completionEvidenceFile: docs/planning/v2/epics/SRCH-quick-switcher-and-command-discovery.completion.md
   - id: SRCH-ranking-and-result-context
     status: approved
     approved: true

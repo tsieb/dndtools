@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: SRCH-quick-switcher-and-command-discovery
 title: "SRCH: Quick switcher and command discovery"
-status: approved
+status: complete
 approved: true
 domain: SRCH
 capabilityBranch: Quick switcher and command discovery
@@ -133,3 +133,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/SRCH-quick-switcher-and-command-discovery.completion.md

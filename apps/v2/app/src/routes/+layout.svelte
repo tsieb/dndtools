@@ -18,6 +18,7 @@
 	import { FeatureTierStore, provideFeatureTier } from '$lib/state/feature-tier.svelte';
 	import { locationFromPath } from '$lib/state/navigation-location';
 	import CommandPalette from '$lib/gui/CommandPalette.svelte';
+	import QuickSwitcher from '$lib/gui/QuickSwitcher.svelte';
 	import Breadcrumbs from '$lib/gui/Breadcrumbs.svelte';
 	import LocalNav from '$lib/gui/LocalNav.svelte';
 	import ContextualNav from '$lib/gui/ContextualNav.svelte';
@@ -153,6 +154,7 @@
 		{#each sections as section (section.id)}
 			<a href={section.route} data-testid={`nav-${section.id}`}>{section.title}</a>
 		{/each}
+		<QuickSwitcher />
 		<CommandPalette />
 		<label class="view-as">
 			<span class="visually-hidden">View as</span>

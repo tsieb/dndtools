@@ -1336,6 +1336,20 @@ export {
 } from './queries/command-availability';
 
 export type {
+	QuickSwitcherCommandEntry,
+	QuickSwitcherEntry,
+	QuickSwitcherEntryKind,
+	QuickSwitcherNavigationEntry,
+	QuickSwitcherOptions,
+	QuickSwitcherStateView,
+	ResolvedQuickSwitcherEntry,
+} from './queries/quick-switcher-query';
+export {
+	buildQuickSwitcher,
+	resolveQuickSwitcherEntry,
+} from './queries/quick-switcher-query';
+
+export type {
 	ActiveMapLayerView,
 	ActiveMapQueryResult,
 	ActiveMapView,
