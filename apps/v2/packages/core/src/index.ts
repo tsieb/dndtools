@@ -2324,6 +2324,125 @@ export {
 // indistinguishable from "no relationships" — a stale link to a now-hidden target degrades gracefully).
 export { getNoteRelationshipsForActor } from './queries/note-relationships';
 
+// GRAPH-003: the PURE DETERMINISTIC GRAPH-QUALITY engine — UNRESOLVED links (+ deterministic repair
+// candidates), ALIAS / DUPLICATE-TITLE disambiguation, ORPHAN + HUB notes, and RELATIONSHIP-QUALITY scores
+// (each carrying deterministic inputs + a versioned threshold + source references, no AI). Built on the SAME
+// actor-filtered link graph + wikilink candidate index (no second relationship source); every finding is over
+// the visible graph only, so an unresolved link can never distinguish "hidden" from "missing".
+export type {
+	ConnectionBand,
+	DisambiguationGroup,
+	GraphQualityReport,
+	HubNote,
+	OrphanNote,
+	QualityNode,
+	RelationshipQualityScore,
+	UnresolvedLink,
+} from './state/graph-quality';
+export {
+	GRAPH_QUALITY_SCHEMA_VERSION,
+	GRAPH_QUALITY_THRESHOLD_VERSION,
+	QUALITY_THRESHOLDS,
+	buildQualityNode,
+	computeGraphQuality,
+} from './state/graph-quality';
+// GRAPH-003: the ACTOR-FILTERED graph-quality surface. Composes the visibility-and-tombstone content read +
+// the actor-filtered wikilink candidate index, so hidden notes are never analyzed nor revealed (a player's
+// report and the DM's differ only by which notes are visible). Unknown actor ⇒ empty report (fail closed).
+export { getGraphQualityForActor } from './queries/graph-quality-query';
+
+// GRAPH-007: the PURE DETERMINISTIC GRAPH HEALTH + COVERAGE engine — STALE notes, MISSING links, CONTENT
+// gaps, OPEN threads, and a 0–100 coverage grade, computed from the visible-graph quality report + staleness
+// signals. Optional narrative AI explanation is a thin labelled layer over the deterministic findings (the
+// findings stay the source of truth — AC2); the report needs no AI, so it completes offline (AC4).
+export type {
+	ContentGapFinding,
+	CoverageScore,
+	GraphHealthReport,
+	HealthAiExplainer,
+	HealthExplanation,
+	HealthExplanationStatus,
+	HealthNoteSignal,
+	MissingLinkFinding,
+	OpenThreadFinding,
+	StaleNoteFinding,
+	StalenessBand,
+} from './state/graph-health';
+export {
+	GRAPH_HEALTH_SCHEMA_VERSION,
+	GRAPH_HEALTH_THRESHOLD_VERSION,
+	HEALTH_THRESHOLDS,
+	computeGraphHealth,
+	explainGraphHealth,
+} from './state/graph-health';
+// GRAPH-007: the actor-filtered health surface. The FULL report is DM-only (a non-DM gets the empty report —
+// fail closed). The PLAYER-SCOPED summary computes over the actor's visible graph (no hidden node/snippet)
+// AND generalizes aggregate counts into coarse bands so a count can never betray hidden content (AC3).
+export type { CountBand, PlayerScopedHealthSummary } from './queries/graph-health-query';
+export {
+	getGraphHealthForDm,
+	getPlayerScopedHealthSummary,
+} from './queries/graph-health-query';
+
+// GRAPH-009: the PURE DETERMINISTIC CALENDAR / CUSTOM-TIME RELATIONSHIP engine — it indexes the date
+// references content carries and derives the date RELATIONSHIPS (same-date co-occurrence + timeline
+// references) exposed through the visibility-filtered graph API. Built on the SAME CONTENT-011 date reads
+// (no second calendar index); a hidden calendar-linked event AND its relationship edge are absent (AC2).
+export type {
+	DateEdgeKind,
+	DateGraphEdge,
+	DateGraphIndex,
+	DateGraphNode,
+	DateIndexEntry,
+	DateRefKind,
+	DateRelationships,
+} from './state/graph-dates';
+export {
+	DATE_REF_KINDS,
+	GRAPH_DATES_SCHEMA_VERSION,
+	buildDateGraphIndex,
+	relatedDatesForEntity,
+} from './state/graph-dates';
+// GRAPH-009: the actor-filtered calendar/custom-time GRAPH API. Composes getContentItemsForActor (date
+// fields + timeline refs, with hidden targets already nulled) + getCalendarContinuityForActor (timeline
+// links, edge only when the target resolved visible), so visible date relationships are queryable (AC1) and
+// hidden events + edges are absent (AC2). Unknown actor / hidden target ⇒ empty (fail closed).
+export {
+	getDateGraphIndexForActor,
+	getDateRelationshipsForActor,
+} from './queries/graph-dates-query';
+
+// GRAPH-010: the PURE DETERMINISTIC LINK-REPAIR + LINK-PICKER engine — a non-revealing link-picker
+// suggestion list, a bulk-repair PREVIEW (each rewrite + affected source + ambiguity + unsupported-source
+// limitation), and dead-link detection. Built on the SAME actor-filtered wikilink candidate index, so a
+// hidden note is never suggested / previewed / proposed (AC1, AC4). Reuses the CONTENT-006 resolution path.
+export type {
+	BulkRepairPreview,
+	BulkRepairPreviewRow,
+	DeadLinkOccurrence,
+	LinkPickerSuggestion,
+	RepairBlockReason,
+} from './state/graph-link-repair';
+export {
+	GRAPH_LINK_REPAIR_SCHEMA_VERSION,
+	buildBulkRepairPreview,
+	buildLinkPickerSuggestions,
+	deadLinksInBody,
+} from './state/graph-link-repair';
+// GRAPH-010: the actor-filtered + capability-scoped link-repair surface. The link picker offers only visible
+// candidates (AC1, AC4); the bulk preview scans only items the actor may EDIT (DM, or a section-editor grant);
+// a chosen repair is AUTHORIZED at the data layer before mutation, so a section-editor on one item can never
+// rewrite another item/source (AC5). The repair COMPUTES the body via the CONTENT-006 repair path (AC3).
+export type {
+	RepairAuthorizationRejection,
+	RepairAuthorizationResult,
+} from './queries/graph-link-repair-query';
+export {
+	authorizeLinkRepairForActor,
+	getLinkPickerSuggestionsForActor,
+	previewBulkLinkRepairForActor,
+} from './queries/graph-link-repair-query';
+
 // CHAR-002: the guided, structured PC-creation flow — step definitions, options, per-step validation
 // (rules incl. the ability point-buy budget), and the resumable completeness report. Pure policy.
 export type {

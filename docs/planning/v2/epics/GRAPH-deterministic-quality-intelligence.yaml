@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: GRAPH-deterministic-quality-intelligence
 title: "GRAPH: Deterministic quality intelligence"
-status: approved
+status: complete
 approved: true
 domain: GRAPH
 capabilityBranch: Deterministic quality intelligence
@@ -229,3 +229,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/GRAPH-deterministic-quality-intelligence.completion.md

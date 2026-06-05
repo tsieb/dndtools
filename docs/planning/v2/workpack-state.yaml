@@ -125,6 +125,9 @@ epics:
   - id: GRAPH-backlinks-and-navigation-relationships
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/GRAPH-backlinks-and-navigation-relationships.completion.md
+  - id: GRAPH-deterministic-quality-intelligence
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/GRAPH-deterministic-quality-intelligence.completion.md
   - id: MAP-interaction-safety
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MAP-interaction-safety.completion.md
