@@ -131,10 +131,13 @@ Modified:
 
 ## Git evidence
 
-Commit SHA: `__FEAT_SHA__` (recorded in the follow-up `docs(v2): record commit SHA …` commit).
+Commits:
+- `ad2c0be3c44607e7ca502b84c54fdf0722bafa39` — feat(v2): complete AUDIO-automation epic (code + tests + completion evidence)
+- `b1b507daa65a4dd09d5e9dd54196611996976920` — chore(v2): mark AUDIO-automation workpack complete (regenerated derived files)
+- recorded by this follow-up `docs(v2): record commit SHA …` commit
 
 Final `git status --short` (after the completion commits; clean slate):
 
 ```
-__FINAL_GIT_STATUS__
+(empty — clean working tree)
 ```
