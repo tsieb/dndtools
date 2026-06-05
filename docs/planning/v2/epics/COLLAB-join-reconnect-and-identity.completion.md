@@ -229,7 +229,7 @@ COLLAB-013.
 ## Git evidence
 
 - Branch: `epic/COLLAB-join-reconnect-and-identity`
-- Commit (feat): `__FEAT_COMMIT_SHA__`
+- Commit (feat): `a43819fa99d4d6fb51b3daba5d3b674746b2b423`
 
 ### `git status --short` (after the feat commit)
 
