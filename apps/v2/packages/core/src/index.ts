@@ -1417,6 +1417,26 @@ export {
 	resolveCalendarLinkForActor,
 } from './queries/calendar-continuity-query';
 
+// SRCH-010 — CALENDAR / CUSTOM-TIME DISCOVERY: search and filter VISIBLE content by campaign calendar
+// dates, custom-time RANGES, timeline EVENTS, and session CHRONOLOGY. A pure DISCOVERY surface composed
+// ENTIRELY from the EXISTING actor-filtered reads — the content timeline (CONTENT-011), campaign
+// continuity links (SES-012), and the DM-only session archives — so visibility is decided BEFORE
+// discovery sees anything. The range filter, text match, and ordering live in the Processing Core; the
+// counts are computed over the visible set only, so hidden events are omitted AND never revealed by an
+// inflated count (SRCH-010 AC2). Dates render through the CONTENT-011 formatter (AC1, stable formatting).
+export type {
+	CalendarDateRange,
+	CalendarDiscoveryEvent,
+	CalendarDiscoveryFilter,
+	CalendarDiscoveryResult,
+	CalendarEventSource,
+	DiscoveryDateView,
+} from './queries/calendar-discovery-query';
+export {
+	CALENDAR_EVENT_SOURCES,
+	searchCalendarTimeForActor,
+} from './queries/calendar-discovery-query';
+
 // SES-009 — the pre-session PREP / post-session RECAP digest, computed as a PURE DERIVATION over the
 // existing durable sources (open threads SES-007, recent changes op-log, handout outcomes SES-004, combat
 // summaries SES-002, calendar context SES-012) + deterministically synthesized continuity prompts (no AI).

@@ -3,6 +3,7 @@
 	import VaultObjects from '$lib/gui/VaultObjects.svelte';
 	import TemplatesAndSnippets from '$lib/gui/TemplatesAndSnippets.svelte';
 	import CalendarContent from '$lib/gui/CalendarContent.svelte';
+	import CalendarDiscovery from '$lib/gui/CalendarDiscovery.svelte';
 	import ContentVisibilityEmbeds from '$lib/gui/ContentVisibilityEmbeds.svelte';
 	import ContentImportExport from '$lib/gui/ContentImportExport.svelte';
 	import ContentSourceConstraints from '$lib/gui/ContentSourceConstraints.svelte';
@@ -20,7 +21,10 @@
 	// field>section>entity precedence) and CONTENT-010 EMBEDS BY REFERENCE (the DM embeds a reference to
 	// another item; the embed resolves the LIVE target through the actor-filtered query, so a player
 	// viewing a host that embeds a hidden target sees a non-leaking unavailable placeholder — no clone).
-	// It also surfaces calendar/custom-time content, import/export, and the SOURCE-SPECIFIC
+	// It also surfaces calendar/custom-time content, SRCH-010 calendar/custom-time DISCOVERY (search and
+	// filter visible dated content by a custom-calendar date range + text, across notes, timeline links,
+	// and — for the DM only — session chronology; hidden events and revealing counts are omitted),
+	// import/export, and the SOURCE-SPECIFIC
 	// CONSTRAINTS surface (CONTENT-012): a pre-write diagnostic of what a write to local markdown / Obsidian /
 	// Google Docs would lose or downgrade, gated fail-closed behind acknowledgment. Which authoring
 	// affordances appear is an ergonomic role hint; the AUTHORITATIVE permission and visibility enforcement
@@ -38,6 +42,7 @@
 	<VaultObjects />
 	<TemplatesAndSnippets />
 	<CalendarContent />
+	<CalendarDiscovery />
 	<ContentVisibilityEmbeds />
 	<ContentImportExport />
 	<ContentSourceConstraints />

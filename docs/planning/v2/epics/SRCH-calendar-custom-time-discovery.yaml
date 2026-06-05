@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: SRCH-calendar-custom-time-discovery
 title: "SRCH: Calendar/custom-time discovery"
-status: approved
+status: complete
 approved: true
 domain: SRCH
 capabilityBranch: Calendar/custom-time discovery
@@ -132,3 +132,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/SRCH-calendar-custom-time-discovery.completion.md
