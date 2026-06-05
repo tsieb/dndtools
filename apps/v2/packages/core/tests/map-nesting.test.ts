@@ -13,6 +13,7 @@ import {
 	embedTransformToMatrix,
 	invertMatrix,
 	longestPathFromAnyRoot,
+	normalizeMapEntity,
 	projectPointThroughChain,
 	removeEmbed,
 	resolveEmbedsForActor,
@@ -60,7 +61,7 @@ function makeMap(
 	embeds: MapEmbed[] = [],
 ): MapEntity {
 	mapSeq += 1;
-	return {
+	return normalizeMapEntity({
 		id,
 		name: `Map ${id}`,
 		description: '',
@@ -74,7 +75,7 @@ function makeMap(
 		defaultRegionId: null,
 		updatedAt: '2026-06-04T00:00:00.000Z',
 		revision: 1,
-	};
+	});
 }
 
 function embed(id: string, childMapId: string, transform?: Partial<MapEmbedTransform>): MapEmbed {

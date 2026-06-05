@@ -279,6 +279,104 @@ export {
 	getMapProjectionConsistencyForActor,
 } from './permissions/map-projection-consistency';
 
+// MAP-010 / MAP-011 / MAP-012 / MAP-013 / MAP-019: durable map ANNOTATION model (POIs, routes, fog,
+// tokens) + pure reducers. Every annotation lives on a layer, carries its OWN player-facing visibility
+// (independent of map/layer), and stores normalized coordinates so it survives scale/projection. The
+// reducers validate fail-closed (normalized bounds, non-empty label, ≥2-waypoint route, positive size).
+export type {
+	AppendFogOpInput,
+	CreatePoiInput,
+	CreateRouteInput,
+	CreateTokenInput,
+	MapAnnotationError,
+	MapAnnotationStamp,
+	MapFogOp,
+	MapFogOpKind,
+	MapPoi,
+	MapPoiCategory,
+	MapRoute,
+	MapRouteWaypoint,
+	MapToken,
+	MoveTokenInput,
+	NormalizedPoint,
+	RouteWaypointInput,
+	UpdatePoiPatch,
+	UpdateRoutePatch,
+	UpdateTokenPatch,
+} from './state/map-annotations';
+export {
+	MAP_POI_CATEGORIES,
+	appendFogOp,
+	createPoi,
+	createRoute,
+	createToken,
+	deletePoi,
+	deleteRoute,
+	deleteToken,
+	isNormalizedPoint,
+	isNormalizedRegion,
+	moveToken,
+	removeFogOp,
+	updatePoi,
+	updateRoute,
+	updateToken,
+} from './state/map-annotations';
+
+// MAP-013: pure, deterministic route distance + travel-time math, derived from waypoints + map scale
+// (+ optional speed); never stored on the route. Also the token range / AoE radius measurement.
+export type { RouteMeasurement, TravelSpeed } from './state/map-travel';
+export {
+	measureRange,
+	measureRoute,
+	normalizedPathLength,
+	normalizedSegmentLength,
+} from './state/map-travel';
+
+// MAP-014: combat overlay MODE config with DECLARED PREREQUISITE visual state. Entering a mode whose
+// prerequisite (e.g. a visible grid) is unmet is blocked with a reason unless auto-satisfied; the gate
+// is enforced fail-closed even against a forced transition.
+export type {
+	ConfigureOverlayError,
+	ConfigureOverlayPatch,
+	EnterModeInput,
+	MapOverlayMode,
+	MapOverlayModeError,
+	MapOverlayPrerequisite,
+	MapOverlaySettings,
+} from './state/map-overlay-modes';
+export {
+	DEFAULT_MAP_OVERLAY_SETTINGS,
+	MAP_OVERLAY_MODES,
+	MODE_PREREQUISITES,
+	configureOverlay,
+	enterOverlayMode,
+	normalizeOverlaySettings,
+} from './state/map-overlay-modes';
+
+// MAP-018: THE single actor-filtered map query model. Search, graph, widget, MCP, and deep-link
+// surfaces all consume this — never raw MapState — so a hidden POI/route/fog/token cannot leak through
+// one surface while blocked on another. POIs/routes/fog/tokens/overlay come back already filtered for
+// the actor (omitted, not redacted); the DM additionally gets hidden-count aggregates.
+export type {
+	MapFogView,
+	MapGraphEdge,
+	MapHiddenCounts,
+	MapLayerView,
+	MapPoiView,
+	MapQueryOptions,
+	MapRouteView,
+	MapSearchHit,
+	MapTokenView,
+	MapView,
+	MapViewResult,
+} from './queries/map-query';
+export {
+	deliveredMapIdsForActor,
+	getMapViewForActor,
+	mapGraphEdgesForActor,
+	searchMapsForActor,
+} from './queries/map-query';
+
 export type {
 	CommandCenterPreset,
 	CommandCenterPresetSection,

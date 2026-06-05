@@ -1,6 +1,8 @@
 import type { SceneVisibility } from './scene-state';
 import type { MapAsset } from './map-assets';
 import type { MapEmbed } from './map-nesting';
+import type { MapFogOp, MapPoi, MapRoute, MapToken } from './map-annotations';
+import { type MapOverlaySettings, normalizeOverlaySettings } from './map-overlay-modes';
 
 export const MAP_STATE_SCHEMA_VERSION = 1 as const;
 
@@ -154,6 +156,34 @@ export interface MapEntity {
 	 * ever stores the child id, never the child's name or content. See `state/map-nesting.ts`.
 	 */
 	embeds: MapEmbed[];
+	/**
+	 * MAP-010 / MAP-011 — points of interest on this map, each in NORMALIZED map space with its OWN
+	 * player-facing visibility (independent of the map and its layer). A `dm-only` POI is OMITTED from
+	 * every non-DM surface by the actor-filtered map query (`queries/map-query.ts`).
+	 */
+	pois: MapPoi[];
+	/**
+	 * MAP-013 — routes drawn across this map. Distance/travel-time are DERIVED from the waypoints +
+	 * scale, never stored. Each route carries its own player-facing visibility.
+	 */
+	routes: MapRoute[];
+	/**
+	 * MAP-012 — durable fog-of-war reveal/conceal operations, append-only and ordered by `sequence`
+	 * so the op-log replays deterministically and syncs to player map views. A concealed region never
+	 * appears in a player's actor-filtered query.
+	 */
+	fog: MapFogOp[];
+	/**
+	 * MAP-019 — combat tokens placed on this map, each with its own visibility and an optional
+	 * controlling player (who may move it beyond the DM). The actor-filtered query projects only the
+	 * tokens an actor may see.
+	 */
+	tokens: MapToken[];
+	/**
+	 * MAP-014 — combat overlay settings (mode + grid/token prerequisite visual state). Mutated only
+	 * through explicit mode commands whose prerequisite gate is enforced fail-closed.
+	 */
+	overlay: MapOverlaySettings;
 	defaultRegionId: string | null;
 	updatedAt: string;
 	revision: number;
@@ -187,8 +217,24 @@ export const EMPTY_MAP_STATE: MapState = Object.freeze({
  * are an empty list.
  */
 export function normalizeMapEntity(
-	map: Omit<MapEntity, 'scale' | 'projection' | 'assetIds' | 'embeds'> &
-		Partial<Pick<MapEntity, 'scale' | 'projection' | 'assetIds' | 'embeds'>>,
+	map: Omit<
+		MapEntity,
+		'scale' | 'projection' | 'assetIds' | 'embeds' | 'pois' | 'routes' | 'fog' | 'tokens' | 'overlay'
+	> &
+		Partial<
+			Pick<
+				MapEntity,
+				| 'scale'
+				| 'projection'
+				| 'assetIds'
+				| 'embeds'
+				| 'pois'
+				| 'routes'
+				| 'fog'
+				| 'tokens'
+				| 'overlay'
+			>
+		>,
 ): MapEntity {
 	return {
 		id: map.id,
@@ -206,6 +252,20 @@ export function normalizeMapEntity(
 			...embed,
 			transform: { ...embed.transform, position: { ...embed.transform.position } },
 		})),
+		// MAP-010/011/012/013/019: a pre-annotation persisted map has no POIs/routes/fog/tokens; default
+		// to empty lists (fail closed) and to the default overlay settings, so older records stay
+		// readable without a destructive migration.
+		pois: (map.pois ?? []).map((poi) => ({ ...poi, position: { ...poi.position } })),
+		routes: (map.routes ?? []).map((route) => ({
+			...route,
+			waypoints: route.waypoints.map((waypoint) => ({
+				...waypoint,
+				position: { ...waypoint.position },
+			})),
+		})),
+		fog: (map.fog ?? []).map((op) => ({ ...op, region: { ...op.region } })),
+		tokens: (map.tokens ?? []).map((token) => ({ ...token, position: { ...token.position } })),
+		overlay: normalizeOverlaySettings(map.overlay),
 		defaultRegionId: map.defaultRegionId,
 		updatedAt: map.updatedAt,
 		revision: map.revision,
@@ -290,6 +350,69 @@ export function createDemoMapState(now = '2026-06-03T00:00:00.000Z'): MapState {
 			defaultRegionId: 'region-north-road',
 			updatedAt: now,
 			revision: 1,
+			// MAP-010 / MAP-011 — POIs on a PLAYER-VISIBLE map, each with its OWN visibility. Harbor Town
+			// is player-visible (appears for everyone on its player-visible layer); the Smugglers' Cache
+			// is `dm-only`, so it must NEVER leak through any non-DM surface (list/search/widget/MCP/deep
+			// link) even though the map and its layer are visible — the live proof of MAP-011.
+			pois: [
+				{
+					id: 'poi-harbor-town',
+					layerId: 'layer-roads',
+					label: 'Harbor Town',
+					category: 'settlement',
+					position: { x: 0.62, y: 0.34 },
+					visibility: 'player-visible',
+					notes: 'A bustling trade port the party can reach by the coast road.',
+					linkedEntityType: 'note',
+					linkedEntityId: 'note-harbor-town',
+					revision: 1,
+					updatedBy: null,
+					updatedAt: now,
+				},
+				{
+					id: 'poi-smugglers-cache',
+					layerId: 'layer-hidden-camps',
+					label: "Smugglers' Cache",
+					category: 'hazard',
+					position: { x: 0.71, y: 0.41 },
+					visibility: 'dm-only',
+					notes: 'Hidden contraband stash guarded by the coast gang — secret until discovered.',
+					linkedEntityType: 'note',
+					linkedEntityId: 'note-smugglers-cache',
+					revision: 1,
+					updatedBy: null,
+					updatedAt: now,
+				},
+			],
+			// MAP-013 — a player-visible route along the north road, with two waypoints. Distance/travel
+			// time are derived from the map scale (120 miles per map width), never stored.
+			routes: [
+				{
+					id: 'route-north-road',
+					layerId: 'layer-roads',
+					label: 'North Road March',
+					visibility: 'player-visible',
+					waypoints: [
+						{
+							id: 'wp-start',
+							position: { x: 0.14, y: 0.2 },
+							linkedEntityType: null,
+							linkedEntityId: null,
+						},
+						{
+							id: 'wp-harbor',
+							position: { x: 0.62, y: 0.34 },
+							linkedEntityType: 'poi',
+							linkedEntityId: 'poi-harbor-town',
+						},
+					],
+					revision: 1,
+					updatedBy: null,
+					updatedAt: now,
+				},
+			],
+			fog: [],
+			tokens: [],
 			regions: [
 				{
 					id: 'region-north-road',
@@ -351,6 +474,82 @@ export function createDemoMapState(now = '2026-06-03T00:00:00.000Z'): MapState {
 			defaultRegionId: 'region-ground-floor',
 			updatedAt: now,
 			revision: 1,
+			// MAP-010/011 — POIs on the encounter map. The trap rune is dm-only on a dm-only layer.
+			pois: [
+				{
+					id: 'poi-altar',
+					layerId: 'layer-rooms',
+					label: 'Broken Altar',
+					category: 'landmark',
+					position: { x: 0.3, y: 0.28 },
+					visibility: 'shared',
+					notes: 'A cracked stone altar in the central hall.',
+					linkedEntityType: null,
+					linkedEntityId: null,
+					revision: 1,
+					updatedBy: null,
+					updatedAt: now,
+				},
+				{
+					id: 'poi-trap-rune',
+					layerId: 'layer-secret-ambush',
+					label: 'Glyph of Warding',
+					category: 'hazard',
+					position: { x: 0.66, y: 0.6 },
+					visibility: 'dm-only',
+					notes: 'A hidden explosive rune the party has not spotted.',
+					linkedEntityType: null,
+					linkedEntityId: null,
+					revision: 1,
+					updatedBy: null,
+					updatedAt: now,
+				},
+			],
+			routes: [],
+			// MAP-012 — a starting fog conceal over the secret cellar on the shared fog layer.
+			fog: [
+				{
+					id: 'fog-cellar-conceal',
+					layerId: 'layer-fog',
+					kind: 'conceal',
+					region: { x: 0.56, y: 0.5, w: 0.3, h: 0.28 },
+					visibility: 'shared',
+					sequence: 1,
+					revision: 1,
+					updatedBy: null,
+					updatedAt: now,
+				},
+			],
+			// MAP-019 — combat tokens. The hero token is player-visible and controlled by the demo player;
+			// the ambusher token is dm-only on a dm-only layer (must never leak to players).
+			tokens: [
+				{
+					id: 'token-hero',
+					layerId: 'layer-rooms',
+					label: 'Sir Caldwell',
+					linkedActorId: 'actor-player',
+					position: { x: 0.22, y: 0.24 },
+					size: 1,
+					visibility: 'shared',
+					controllerActorId: 'actor-player',
+					revision: 1,
+					updatedBy: null,
+					updatedAt: now,
+				},
+				{
+					id: 'token-ambusher',
+					layerId: 'layer-secret-ambush',
+					label: 'Cellar Ambusher',
+					linkedActorId: null,
+					position: { x: 0.68, y: 0.62 },
+					size: 1,
+					visibility: 'dm-only',
+					controllerActorId: null,
+					revision: 1,
+					updatedBy: null,
+					updatedAt: now,
+				},
+			],
 			regions: [
 				{
 					id: 'region-ground-floor',

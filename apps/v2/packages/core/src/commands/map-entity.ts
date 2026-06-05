@@ -4,7 +4,7 @@ import {
 	importMapAssetInputSchema,
 } from '../schemas/commands';
 import type { MapEntity, MapLayer, MapState } from '../state/map-state';
-import { normalizeMapLayer } from '../state/map-state';
+import { normalizeMapEntity, normalizeMapLayer } from '../state/map-state';
 import {
 	previewMapImport,
 	stageMapImport,
@@ -101,7 +101,10 @@ export function handleCreateMap(
 		),
 	);
 
-	const map: MapEntity = {
+	// `normalizeMapEntity` fills the MAP-010/011/012/013/019 annotation lists (empty) and the MAP-014
+	// overlay defaults, so a freshly created map starts with no POIs/routes/fog/tokens and the default
+	// overlay settings without the handler hand-rolling those fields.
+	const map: MapEntity = normalizeMapEntity({
 		id: mapId,
 		name: parsed.data.name,
 		description: parsed.data.description,
@@ -116,7 +119,7 @@ export function handleCreateMap(
 		defaultRegionId: null,
 		updatedAt: now,
 		revision: 1,
-	};
+	});
 
 	const nextMaps: MapState = { ...state.maps, maps: { ...state.maps.maps, [mapId]: map } };
 	const { log: nextLog, op } = appendOperationDraft(env, state.sync, dm.actorId, {

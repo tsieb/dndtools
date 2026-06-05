@@ -150,7 +150,26 @@ export type CoreCommand =
 	// MAP-008: update an embed's transform / transition behavior / threshold.
 	| { type: 'map.update-embed'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// MAP-008: remove an embed (never deletes the child map).
-	| { type: 'map.remove-embed'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'map.remove-embed'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-010 / MAP-011: create / update / delete a POI (normalized coords, independent visibility).
+	| { type: 'map.create-poi'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.update-poi'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.delete-poi'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-013: create / update / delete a route (waypoints; distance/time are derived, not stored).
+	| { type: 'map.create-route'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.update-route'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.delete-route'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-012: append / remove a durable fog reveal/conceal op (syncs to player views; queued offline).
+	| { type: 'map.append-fog'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.remove-fog'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-019: combat token lifecycle (create/move/update/delete). Move records distance from scale.
+	| { type: 'map.create-token'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.move-token'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.update-token'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.delete-token'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-014: explicit combat overlay mode + prerequisite-gated configuration.
+	| { type: 'map.set-overlay-mode'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.configure-overlay'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -300,6 +319,44 @@ export type CoreEvent =
 			assetDeduped: boolean;
 			droppedElementCount: number;
 			actorId: ActorId;
+	  }
+	| {
+			kind: 'map.poi-changed';
+			mapId: string;
+			poiId: string;
+			mutation: 'create' | 'update' | 'delete';
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'map.route-changed';
+			mapId: string;
+			routeId: string;
+			mutation: 'create' | 'update' | 'delete';
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'map.fog-changed';
+			mapId: string;
+			fogId: string;
+			mutation: 'reveal' | 'conceal' | 'remove';
+			deliveryStatus: 'delivered' | 'queued';
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'map.token-changed';
+			mapId: string;
+			tokenId: string;
+			mutation: 'create' | 'move' | 'update' | 'delete';
+			/** Real-world move distance from the map scale, when a move was committed (MAP-019 AC2). */
+			moveDistance: number | null;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'map.overlay-changed';
+			mapId: string;
+			mode: string;
+			mutation: 'set-mode' | 'configure';
+			actorId: ActorId;
 	  };
 
 export type RejectionCode =
@@ -323,7 +380,11 @@ export type RejectionCode =
 	// MAP-017 — nesting integrity rejections (cycle / depth bound), kept fail-closed and distinct so
 	// the DM authoring UI can explain exactly why an embed was refused.
 	| 'nesting-cycle'
-	| 'nesting-max-depth';
+	| 'nesting-max-depth'
+	// MAP-014 — a combat overlay mode whose declared prerequisite visual state is unmet is blocked with
+	// this code (fail-closed, even against a forced transition). MAP-019 — a non-DM moving a token they
+	// do not control is rejected with `actor-not-authorized`.
+	| 'overlay-prerequisite-unmet';
 
 export interface CommandRejection {
 	code: RejectionCode;

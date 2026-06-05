@@ -56,6 +56,22 @@ import {
 import { handleEditMapLayer, handleGenerateMapLayers } from './map-editing';
 import { handleCommitMapImport, handleCreateMap, handleImportMapAsset } from './map-entity';
 import { handleEmbedChildMap, handleRemoveMapEmbed, handleUpdateMapEmbed } from './map-nesting';
+import {
+	handleAppendMapFog,
+	handleConfigureMapOverlay,
+	handleCreateMapPoi,
+	handleCreateMapRoute,
+	handleCreateMapToken,
+	handleDeleteMapPoi,
+	handleDeleteMapRoute,
+	handleDeleteMapToken,
+	handleMoveMapToken,
+	handleRemoveMapFog,
+	handleSetMapOverlayMode,
+	handleUpdateMapPoi,
+	handleUpdateMapRoute,
+	handleUpdateMapToken,
+} from './map-annotations';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 
 export function dispatchCommand(
@@ -188,6 +204,34 @@ export function dispatchCommand(
 			return handleUpdateMapEmbed(state, env, command.actorId, command.payload);
 		case 'map.remove-embed':
 			return handleRemoveMapEmbed(state, env, command.actorId, command.payload);
+		case 'map.create-poi':
+			return handleCreateMapPoi(state, env, command.actorId, command.payload);
+		case 'map.update-poi':
+			return handleUpdateMapPoi(state, env, command.actorId, command.payload);
+		case 'map.delete-poi':
+			return handleDeleteMapPoi(state, env, command.actorId, command.payload);
+		case 'map.create-route':
+			return handleCreateMapRoute(state, env, command.actorId, command.payload);
+		case 'map.update-route':
+			return handleUpdateMapRoute(state, env, command.actorId, command.payload);
+		case 'map.delete-route':
+			return handleDeleteMapRoute(state, env, command.actorId, command.payload);
+		case 'map.append-fog':
+			return handleAppendMapFog(state, env, command.actorId, command.payload);
+		case 'map.remove-fog':
+			return handleRemoveMapFog(state, env, command.actorId, command.payload);
+		case 'map.create-token':
+			return handleCreateMapToken(state, env, command.actorId, command.payload);
+		case 'map.move-token':
+			return handleMoveMapToken(state, env, command.actorId, command.payload);
+		case 'map.update-token':
+			return handleUpdateMapToken(state, env, command.actorId, command.payload);
+		case 'map.delete-token':
+			return handleDeleteMapToken(state, env, command.actorId, command.payload);
+		case 'map.set-overlay-mode':
+			return handleSetMapOverlayMode(state, env, command.actorId, command.payload);
+		case 'map.configure-overlay':
+			return handleConfigureMapOverlay(state, env, command.actorId, command.payload);
 	}
 }
 

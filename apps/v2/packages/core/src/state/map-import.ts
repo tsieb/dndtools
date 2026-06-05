@@ -1,7 +1,7 @@
 import type { MapAsset } from './map-assets';
 import { buildMapAsset, nativeAssetKind, type AssetValidationError } from './map-assets';
 import type { MapEntity, MapLayer, MapState } from './map-state';
-import { normalizeMapLayer } from './map-state';
+import { normalizeMapEntity, normalizeMapLayer } from './map-state';
 
 /**
  * MAP-002 / MAP-020 — external map-format adapter registry + safe (transactional) import staging.
@@ -411,7 +411,9 @@ export function stageMapImport(state: MapState, input: StageMapImportInput): Sta
 			: `map-import-${(input.mapName ?? 'imported').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 		mapId = slug;
 		mapCreated = true;
-		const created: MapEntity = {
+		// `normalizeMapEntity` fills the annotation lists (empty) + overlay defaults so a freshly imported
+		// map starts with no POIs/routes/fog/tokens (MAP-010..019) without hand-rolling those fields.
+		const created: MapEntity = normalizeMapEntity({
 			id: mapId,
 			name: input.mapName ?? 'Imported Map',
 			description: 'Imported map.',
@@ -427,7 +429,7 @@ export function stageMapImport(state: MapState, input: StageMapImportInput): Sta
 			defaultRegionId: null,
 			updatedAt: input.importedAt,
 			revision: 1,
-		};
+		});
 		nextMaps = { ...state.maps, [mapId]: created };
 	}
 

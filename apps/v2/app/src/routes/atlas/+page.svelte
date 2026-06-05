@@ -6,6 +6,7 @@
 	import MapLayerPanel from '$lib/gui/MapLayerPanel.svelte';
 	import MapNestedAreas from '$lib/gui/MapNestedAreas.svelte';
 	import MapAuthoringPanel from '$lib/gui/MapAuthoringPanel.svelte';
+	import MapAnnotationsPanel from '$lib/gui/MapAnnotationsPanel.svelte';
 
 	const runtime = useRuntime();
 
@@ -106,6 +107,12 @@
 				     axes; a player/observer sees only the layers visible to them (the panel renders
 				     from the actor-filtered layer query, so a dm-only layer never appears here). -->
 				<MapLayerPanel mapId={resolution.entityId} />
+
+				<!-- MAP-010/011/012/013/014/018/019: the map annotations inspector (POIs, routes, fog,
+				     tokens, combat overlay modes). It renders ENTIRELY from the single actor-filtered map
+				     query, so a player/observer sees only the artifacts they may see — a dm-only POI,
+				     concealed fog, or hidden token never appears here, in the list, or in search. -->
+				<MapAnnotationsPanel mapId={resolution.entityId} />
 
 				<!-- MAP-008 / MAP-009 / MAP-017: the nested-areas surface. A child map embedded in this
 				     one shows as a named, zoom-able area to actors who may see it, and as a single generic

@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: MAP-pois-routes-fog-and-combat-overlays
 title: "MAP: POIs, routes, fog, and combat overlays"
-status: approved
+status: complete
 approved: true
 domain: MAP
 capabilityBranch: POIs, routes, fog, and combat overlays
@@ -299,3 +299,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/MAP-pois-routes-fog-and-combat-overlays.completion.md

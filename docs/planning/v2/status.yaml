@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 61
+  approved: 60
   active: 0
-  complete: 27
+  complete: 28
   deferred: 0
 metrics:
-  epicCompletionPercent: 30.7
-  requirementCompletionPercent: 34.6
+  epicCompletionPercent: 31.8
+  requirementCompletionPercent: 37.6
   totalRequirements: 234
-  completedRequirements: 81
+  completedRequirements: 88
   deferredRequirements: 0
-  remainingEpics: 61
-  promptableEpics: 61
+  remainingEpics: 60
+  promptableEpics: 60
   blockedByDependencies: 0
-  completionEvidenceFiles: 27
+  completionEvidenceFiles: 28
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -104,13 +104,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: MAP
       totalEpics: 6
-      complete: 5
+      complete: 6
       active: 0
-      approved: 1
+      approved: 0
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 83.3
-      requirementCompletionPercent: 65
+      epicCompletionPercent: 100
+      requirementCompletionPercent: 100
     - domain: MCP
       totalEpics: 5
       complete: 0
@@ -193,21 +193,17 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: MAP-pois-routes-fog-and-combat-overlays
-  title: "MAP: POIs, routes, fog, and combat overlays"
+  id: CHAR-character-creation-and-drafts
+  title: "CHAR: Character creation and drafts"
   status: approved
   requirementIds:
-    - MAP-010
-    - MAP-011
-    - MAP-012
-    - MAP-013
-    - MAP-014
-    - MAP-018
-    - MAP-019
-  promptCommand: pnpm v2:prompt -- --epic MAP-pois-routes-fog-and-combat-overlays
+    - CHAR-001
+    - CHAR-002
+    - CHAR-013
+  promptCommand: pnpm v2:prompt -- --epic CHAR-character-creation-and-drafts
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    MAP-pois-routes-fog-and-combat-overlays --status active
+    CHAR-character-creation-and-drafts --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -516,7 +512,7 @@ epics:
       - MAP-017
     completionEvidenceFile: docs/planning/v2/epics/MAP-nesting-and-spatial-transitions.completion.md
   - id: MAP-pois-routes-fog-and-combat-overlays
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - MAP-010
@@ -526,6 +522,7 @@ epics:
       - MAP-014
       - MAP-018
       - MAP-019
+    completionEvidenceFile: docs/planning/v2/epics/MAP-pois-routes-fog-and-combat-overlays.completion.md
   - id: MCP-core-enforcement-and-tests
     status: approved
     approved: true

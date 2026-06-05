@@ -626,6 +626,188 @@ export const grantCapabilitySetInputSchema = z
 	})
 	.strict();
 
+// MAP-010 / MAP-011 / MAP-013 / MAP-019 — durable map ANNOTATION commands. A normalized point is
+// strictly in [0,1] map space at the boundary, so an out-of-bounds annotation is rejected fail-closed
+// before any state mutation (it survives scale/projection — MAP-010 AC2). POI/route/token visibility
+// is the annotation's OWN player-facing level, independent of map/layer (MAP-011), defaulting closed
+// to `dm-only`.
+const normalizedPointSchema = z
+	.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
+	.strict();
+
+const normalizedRegionSchema = z
+	.object({
+		x: z.number().min(0).max(1),
+		y: z.number().min(0).max(1),
+		w: z.number().gt(0).max(1),
+		h: z.number().gt(0).max(1),
+	})
+	.strict();
+
+const mapPoiCategorySchema = z.enum([
+	'settlement',
+	'landmark',
+	'dungeon',
+	'quest',
+	'hazard',
+	'shop',
+	'npc',
+	'note',
+	'other',
+]);
+
+export const createMapPoiInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		label: z.string().min(1, 'POI label is required'),
+		category: mapPoiCategorySchema.default('other'),
+		position: normalizedPointSchema,
+		visibility: sceneVisibilitySchema.default('dm-only'),
+		notes: z.string().default(''),
+		linkedEntityType: z.union([z.literal(null), z.string().min(1)]).default(null),
+		linkedEntityId: z.union([z.literal(null), idSchema]).default(null),
+	})
+	.strict();
+
+export const updateMapPoiInputSchema = z
+	.object({
+		mapId: idSchema,
+		poiId: idSchema,
+		label: z.string().min(1).optional(),
+		category: mapPoiCategorySchema.optional(),
+		position: normalizedPointSchema.optional(),
+		visibility: sceneVisibilitySchema.optional(),
+		notes: z.string().optional(),
+		layerId: idSchema.optional(),
+		linkedEntityType: z.union([z.literal(null), z.string().min(1)]).optional(),
+		linkedEntityId: z.union([z.literal(null), idSchema]).optional(),
+	})
+	.strict();
+
+export const deleteMapPoiInputSchema = z
+	.object({ mapId: idSchema, poiId: idSchema })
+	.strict();
+
+const routeWaypointSchema = z
+	.object({
+		id: idSchema,
+		position: normalizedPointSchema,
+		linkedEntityType: z.union([z.literal(null), z.string().min(1)]).default(null),
+		linkedEntityId: z.union([z.literal(null), idSchema]).default(null),
+	})
+	.strict();
+
+export const createMapRouteInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		label: z.string().min(1, 'Route label is required'),
+		visibility: sceneVisibilitySchema.default('dm-only'),
+		waypoints: z.array(routeWaypointSchema).min(2, 'A route needs at least two waypoints'),
+	})
+	.strict();
+
+export const updateMapRouteInputSchema = z
+	.object({
+		mapId: idSchema,
+		routeId: idSchema,
+		label: z.string().min(1).optional(),
+		visibility: sceneVisibilitySchema.optional(),
+		waypoints: z.array(routeWaypointSchema).min(2).optional(),
+	})
+	.strict();
+
+export const deleteMapRouteInputSchema = z
+	.object({ mapId: idSchema, routeId: idSchema })
+	.strict();
+
+// MAP-012 — fog reveal/conceal is an APPEND-ONLY durable op (a later op overrides an earlier overlap),
+// so the op-log replays deterministically and syncs to player views. `connectionState` drives the
+// delivery status (queued when offline) exactly like active-map projection.
+export const appendMapFogInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		kind: z.enum(['reveal', 'conceal']),
+		region: normalizedRegionSchema,
+		visibility: sceneVisibilitySchema.default('shared'),
+		connectionState: z.enum(['connected', 'offline']).default('connected'),
+	})
+	.strict();
+
+export const removeMapFogInputSchema = z
+	.object({ mapId: idSchema, fogId: idSchema })
+	.strict();
+
+// MAP-019 — combat token lifecycle. A token records its linked actor, normalized position, size (grid
+// cells), visibility, and optional controlling player (who may move it beyond the DM — MAP-019 AC4).
+export const createMapTokenInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		label: z.string().min(1, 'Token label is required'),
+		linkedActorId: z.union([z.literal(null), idSchema]).default(null),
+		position: normalizedPointSchema,
+		size: z.number().gt(0).default(1),
+		visibility: sceneVisibilitySchema.default('dm-only'),
+		controllerActorId: z.union([z.literal(null), idSchema]).default(null),
+	})
+	.strict();
+
+export const moveMapTokenInputSchema = z
+	.object({
+		mapId: idSchema,
+		tokenId: idSchema,
+		position: normalizedPointSchema,
+	})
+	.strict();
+
+export const updateMapTokenInputSchema = z
+	.object({
+		mapId: idSchema,
+		tokenId: idSchema,
+		label: z.string().min(1).optional(),
+		visibility: sceneVisibilitySchema.optional(),
+		size: z.number().gt(0).optional(),
+		controllerActorId: z.union([z.literal(null), idSchema]).optional(),
+		linkedActorId: z.union([z.literal(null), idSchema]).optional(),
+	})
+	.strict();
+
+export const deleteMapTokenInputSchema = z
+	.object({ mapId: idSchema, tokenId: idSchema })
+	.strict();
+
+// MAP-014 — explicit combat overlay MODE commands with declared prerequisite gating. Entering a mode
+// whose prerequisite is unmet is blocked with a reason UNLESS `autoSatisfyPrerequisites` is set (then
+// the prerequisite visual state, e.g. grid visibility, is enabled). The gate is enforced fail-closed.
+export const setMapOverlayModeInputSchema = z
+	.object({
+		mapId: idSchema,
+		mode: z.enum(['none', 'grid-align', 'token', 'range', 'area-of-effect', 'combat']),
+		autoSatisfyPrerequisites: z.boolean().default(false),
+	})
+	.strict();
+
+export const configureMapOverlayInputSchema = z
+	.object({
+		mapId: idSchema,
+		gridVisible: z.boolean().optional(),
+		gridSize: z.number().int().gt(0).optional(),
+		tokensEnabled: z.boolean().optional(),
+		unitsPerCell: z.number().gt(0).optional(),
+	})
+	.strict()
+	.refine(
+		(value) =>
+			value.gridVisible !== undefined ||
+			value.gridSize !== undefined ||
+			value.tokensEnabled !== undefined ||
+			value.unitsPerCell !== undefined,
+		{ message: 'Provide at least one overlay setting to configure.' },
+	);
+
 // PERM-004: revoke a single grant by id.
 export const revokeGrantInputSchema = z
 	.object({
