@@ -224,7 +224,7 @@ overlapping changes.
 
 Branch: `epic/SRCH-result-opening-and-deterministic-diagnostics` (chained off the prior epic tip
 `epic/SRCH-ranking-and-result-context` @ `1c6b408`, per the v2 epic-branching convention — NOT from master).
-Commit SHA (feat): `__FEAT_SHA__` (`feat(v2): complete SRCH-result-opening-and-deterministic-diagnostics epic`).
+Commit SHA (feat): `c7b1e87` (`feat(v2): complete SRCH-result-opening-and-deterministic-diagnostics epic`).
 The completion-evidence SHA is recorded by the follow-up `docs(v2): record commit SHA …` commit.
 
 ### Changed files (full repo-relative paths)
