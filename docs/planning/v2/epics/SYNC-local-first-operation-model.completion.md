@@ -187,5 +187,5 @@ Workpack status: `complete` (set via `pnpm v2:workpack:complete -- --epic SYNC-l
 
 - Branch: `epic/SYNC-local-first-operation-model` (branched from `epic/SYNC-conflict-lifecycle` HEAD
   `4905a89`, the prior completed v2 epic — not master).
-- Commit SHA: recorded in the follow-up docs commit after this file is committed.
-- Final `git status --short`: clean (recorded after the final commit).
+- Commit SHA: `c91289e` (epic implementation + completion evidence); this docs commit records the SHA.
+- Final `git status --short`: clean.
