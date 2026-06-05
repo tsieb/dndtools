@@ -53,15 +53,18 @@ export const UNDOABLE_COMMAND_TYPES: Partial<Record<CoreCommand['type'], CoreCom
 	// Enabling/disabling a package are mutual inverses.
 	'widget.package.enable': 'widget.package.disable',
 	'widget.package.disable': 'widget.package.enable',
+	// MAP-003: a paint edit captures before+after content. Its inverse is the SAME set-content command
+	// with before/after swapped (built by `buildInverseMapEditCommand`), so undo restores the exact
+	// prior content. The forward and inverse share a command type because the operation is a content
+	// replacement, not a distinct destructive op.
+	'map.edit-layer': 'map.edit-layer',
 };
 
 export function isUndoableCommandType(type: CoreCommand['type']): boolean {
 	return type in UNDOABLE_COMMAND_TYPES;
 }
 
-export function inverseCommandType(
-	type: CoreCommand['type'],
-): CoreCommand['type'] | null {
+export function inverseCommandType(type: CoreCommand['type']): CoreCommand['type'] | null {
 	return UNDOABLE_COMMAND_TYPES[type] ?? null;
 }
 

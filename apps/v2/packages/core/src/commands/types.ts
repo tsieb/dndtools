@@ -126,7 +126,11 @@ export type CoreCommand =
 	  }
 	| { type: 'map.set-layer-enabled'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'map.set-layer-opacity'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'map.set-layer-tags'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'map.set-layer-tags'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-003: draw/paint edit (before+after content capture for undo and sync).
+	| { type: 'map.edit-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-004: deterministic procedural generation saved as editable map layers.
+	| { type: 'map.generate-layers'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }

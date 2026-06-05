@@ -26,11 +26,7 @@ import {
 	handleSaveCommandCenterPreset,
 } from './command-center';
 import { handleProjectPlayerView, handleRevokePlayerView } from './player-view';
-import {
-	handleGrantCapabilitySet,
-	handleRevokeGrant,
-	handleTransferOwnership,
-} from './grant';
+import { handleGrantCapabilitySet, handleRevokeGrant, handleTransferOwnership } from './grant';
 import {
 	handleProjectActiveMap,
 	handleRecordSessionDice,
@@ -57,6 +53,7 @@ import {
 	handleSetMapLayerTags,
 	handleSetMapLayerVisibility,
 } from './map-layer';
+import { handleEditMapLayer, handleGenerateMapLayers } from './map-editing';
 
 export function dispatchCommand(
 	state: CoreStateSlice,
@@ -160,6 +157,10 @@ export function dispatchCommand(
 			return handleSetMapLayerOpacity(state, env, command.actorId, command.payload);
 		case 'map.set-layer-tags':
 			return handleSetMapLayerTags(state, env, command.actorId, command.payload);
+		case 'map.edit-layer':
+			return handleEditMapLayer(state, env, command.actorId, command.payload);
+		case 'map.generate-layers':
+			return handleGenerateMapLayers(state, env, command.actorId, command.payload);
 	}
 }
 

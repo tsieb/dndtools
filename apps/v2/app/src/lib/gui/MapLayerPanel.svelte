@@ -2,6 +2,10 @@
 	import {
 		queryMapLayers,
 		auditMapProjectionConsistency,
+		buildInverseMapEditCommand,
+		layerContent,
+		type MapFeature,
+		type MapGenerationKind,
 		type MapLayerQueryEntry,
 		type SceneVisibility,
 	} from '@dndtools/v2-core';
@@ -121,6 +125,79 @@
 			payload: { mapId, layerId },
 		});
 	}
+
+	// MAP-003: the last committed paint edit's before/after, so the Undo control can dispatch the
+	// inverse (before/after swapped) to restore the exact prior content. GUI-local memory only — the
+	// authoritative undo target is the captured before-state carried in the command (Contract 1).
+	let lastEdit = $state<{ layerId: string; before: MapFeature[]; after: MapFeature[] } | null>(
+		null,
+	);
+
+	/**
+	 * MAP-003: paint a deterministic stroke onto a layer. The edit captures the layer's CURRENT content
+	 * as `before` and the appended stroke as `after`, so the committed command is both undoable and
+	 * sync-replayable. The GUI reads the before-base from the Processing Core query result (it never
+	 * reaches durable state).
+	 */
+	async function paint(layerId: string) {
+		const before = layerContent(runtime.state.maps.maps[mapId]!, layerId);
+		const stroke: MapFeature = {
+			id: runtime.newId(),
+			kind: 'stroke',
+			// A small deterministic mark; a real brush tool would supply pointer-traced points.
+			points: [
+				{ x: 0.4, y: 0.4 },
+				{ x: 0.6, y: 0.6 },
+			],
+			style: 'ink:black',
+		};
+		const after = [...before, stroke];
+		await dispatch({
+			type: 'map.edit-layer',
+			actorId: runtime.activeActorId,
+			payload: { mapId, layerId, before, after },
+		});
+		lastEdit = { layerId, before, after };
+	}
+
+	/** MAP-003: undo the last paint edit by dispatching its inverse (before/after swapped). */
+	async function undoLastEdit() {
+		if (!lastEdit) return;
+		const inverse = buildInverseMapEditCommand({
+			mapId,
+			layerId: lastEdit.layerId,
+			before: lastEdit.before,
+			after: lastEdit.after,
+		});
+		await dispatch({ type: 'map.edit-layer', actorId: runtime.activeActorId, payload: inverse });
+		lastEdit = null;
+	}
+
+	// MAP-004: explicit generation parameters. The DM picks a kind + seed; generation is deterministic
+	// (same seed ⇒ identical layers) and the result is saved as editable layers the DM can paint on.
+	let genKind = $state<MapGenerationKind>('dungeon');
+	let genSeed = $state('crypt-1');
+
+	async function generate(event: SubmitEvent) {
+		event.preventDefault();
+		const seed = genSeed.trim();
+		if (!seed) return;
+		await dispatch({
+			type: 'map.generate-layers',
+			actorId: runtime.activeActorId,
+			payload: {
+				mapId,
+				kind: genKind,
+				seed,
+				width: 8,
+				height: 8,
+				density: 0.5,
+				// Deterministic id prefix derived from the seed so a re-run reproduces stable ids; the
+				// `gen-` namespace keeps it from colliding with the seeded demo layers.
+				idPrefix: `gen-${genKind}-${seed}`,
+			},
+		});
+	}
 </script>
 
 <section class="layer-panel" data-testid="map-layer-panel" aria-label="Map layers">
@@ -151,6 +228,39 @@
 				Add layer
 			</button>
 		</form>
+
+		<!-- MAP-004: deterministic procedural generation from explicit parameters. The DM picks a kind
+		     and a seed; the result is saved as editable layers (the DM can then paint on them). The same
+		     seed + parameters reproduce the same layer set. -->
+		<form class="layer-generate" onsubmit={generate} aria-label="Generate map layers">
+			<label class="control">
+				<span class="visually-hidden">Generation kind</span>
+				<select data-testid="generate-kind" bind:value={genKind} disabled={busy}>
+					<option value="terrain">Terrain</option>
+					<option value="settlement">Settlement</option>
+					<option value="dungeon">Dungeon</option>
+				</select>
+			</label>
+			<label class="control">
+				<span class="visually-hidden">Generation seed</span>
+				<input type="text" data-testid="generate-seed" placeholder="Seed" bind:value={genSeed} />
+			</label>
+			<button type="submit" class="button" data-testid="generate-submit" disabled={busy}>
+				Generate
+			</button>
+		</form>
+
+		<!-- MAP-003: undo the last paint edit. The inverse command (captured before-state) restores the
+		     exact prior content. Disabled when there is nothing to undo. -->
+		<button
+			type="button"
+			class="button secondary"
+			data-testid="edit-undo"
+			disabled={busy || lastEdit === null}
+			onclick={undoLastEdit}
+		>
+			Undo last paint
+		</button>
 	{/if}
 
 	<ul class="layer-list" data-testid="layer-list">
@@ -168,6 +278,11 @@
 					{#if layer.locked}
 						<span class="layer-locked" data-testid={`layer-locked-${layer.layerId}`}>locked</span>
 					{/if}
+					<!-- MAP-003/MAP-004: the painted/generated content count for this layer. Read from the
+					     actor-filtered query, so a non-DM only ever sees counts for layers they may see. -->
+					<span class="layer-content" data-testid={`layer-content-count-${layer.layerId}`}>
+						{layer.content.length} mark{layer.content.length === 1 ? '' : 's'}
+					</span>
 				</div>
 
 				{#if isDm}
@@ -215,6 +330,15 @@
 						</label>
 
 						<div class="layer-actions">
+							<button
+								type="button"
+								class="button secondary"
+								data-testid={`layer-paint-${layer.layerId}`}
+								disabled={layer.locked || busy}
+								onclick={() => paint(layer.layerId)}
+							>
+								Paint
+							</button>
 							<button
 								type="button"
 								class="button secondary"
@@ -304,10 +428,19 @@
 		justify-content: space-between;
 		gap: 0.5rem;
 	}
-	.layer-create {
+	.layer-create,
+	.layer-generate {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.5rem;
 		margin: 0.5rem 0;
+	}
+	.layer-content {
+		font-size: 0.75rem;
+		padding: 0.1rem 0.4rem;
+		border-radius: 999px;
+		background: var(--card);
+		border: 1px solid var(--border);
 	}
 	.layer-list {
 		list-style: none;

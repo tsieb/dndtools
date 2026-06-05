@@ -74,6 +74,9 @@ epics:
   - id: MAP-layers-and-visibility
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MAP-layers-and-visibility.completion.md
+  - id: MAP-map-editing-and-generation
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/MAP-map-editing-and-generation.completion.md
   - id: NAV-command-palette-and-actor-filtering
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/NAV-command-palette-and-actor-filtering.completion.md

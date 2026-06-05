@@ -410,6 +410,48 @@ export const setMapLayerTagsInputSchema = z
 	})
 	.strict();
 
+// MAP-003 — a painted/generated feature in normalized (0..1) map space. The same shape the renderer
+// draws and the same shape carried in the durable op's before/after capture (so the op is replayable
+// on another device). Coordinates are bounded to normalized space at validation time.
+const mapFeatureSchema = z
+	.object({
+		id: idSchema,
+		kind: z.enum(['stroke', 'fill', 'marker', 'room', 'wall', 'road']),
+		points: z.array(z.object({ x: z.number().finite(), y: z.number().finite() }).strict()).min(1),
+		style: z.string().min(1),
+	})
+	.strict();
+
+// MAP-003 — a draw/paint edit. The command carries BOTH the BEFORE content (the optimistic-concurrency
+// base + undo target) AND the AFTER content (the new layer content). Capturing both makes the edit
+// undoable (the inverse swaps before/after) and sync-replayable (the op carries enough to apply/merge
+// on another device). `before` is required so undo can restore the exact prior state.
+export const editMapLayerInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		before: z.array(mapFeatureSchema),
+		after: z.array(mapFeatureSchema),
+	})
+	.strict();
+
+// MAP-004 — procedural generation from EXPLICIT parameters + an explicit seed. Generation is
+// deterministic: the same parameters (including `seed`) produce identical layers. `idPrefix` makes the
+// generated layer/feature ids reproducible too (no random/time ids). Dimensions are capped in the
+// reducer so generation stays bounded for the prototype.
+export const generateMapLayersInputSchema = z
+	.object({
+		mapId: idSchema,
+		kind: z.enum(['terrain', 'settlement', 'dungeon']),
+		seed: z.union([z.number().finite(), z.string().min(1)]),
+		width: z.number().int(),
+		height: z.number().int(),
+		density: z.number().min(0).max(1).default(0.5),
+		visibility: sceneVisibilitySchema.default('dm-only'),
+		idPrefix: z.string().min(1),
+	})
+	.strict();
+
 // PERM-004: grant ONE named capability set to ONE player on ONE entity. The capability set is a
 // named string validated against the per-entity-type system schema in the reducer (PERM-005), NOT a
 // raw field list — the schema only constrains shape here. Expiry is optional ISO; absent ⇒ never

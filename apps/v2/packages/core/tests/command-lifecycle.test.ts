@@ -106,6 +106,8 @@ describe('PLAT-018 AC2: undo only where the command contract supports it', () =>
 			'widget.package.remove',
 			'widget.package.enable',
 			'widget.package.disable',
+			// MAP-003: a paint edit's inverse is the same set-content command (before/after swapped).
+			'map.edit-layer',
 		]);
 		for (const [forward, inverse] of Object.entries(UNDOABLE_COMMAND_TYPES)) {
 			expect(knownTypes.has(forward)).toBe(true);
@@ -116,6 +118,14 @@ describe('PLAT-018 AC2: undo only where the command contract supports it', () =>
 	it('enable/disable package are mutual inverses', () => {
 		expect(inverseCommandType('widget.package.enable')).toBe('widget.package.disable');
 		expect(inverseCommandType('widget.package.disable')).toBe('widget.package.enable');
+	});
+
+	it('MAP-003: a paint edit is undoable and its inverse is the same set-content command type', () => {
+		expect(isUndoableCommandType('map.edit-layer')).toBe(true);
+		expect(inverseCommandType('map.edit-layer')).toBe('map.edit-layer');
+		const state = markSuccess(markPending(createCommandLifecycle('map.edit-layer')), ['op-edit']);
+		expect(canUndo(state)).toBe(true);
+		expect(recoveryAction(state)).toBe('undo');
 	});
 
 	it('cannot undo before commit (no operation ids)', () => {

@@ -1,4 +1,4 @@
-import type { MapEntity, MapLayer, MapLayerCategory } from './map-state';
+import type { MapEntity, MapFeature, MapLayer, MapLayerCategory } from './map-state';
 import type { SceneVisibility } from './scene-state';
 
 /**
@@ -25,7 +25,10 @@ export type MapLayerMutationKind =
 	| 'set-player-visibility'
 	| 'set-dm-enabled'
 	| 'set-opacity'
-	| 'set-tags';
+	| 'set-tags'
+	// MAP-003 / MAP-004: a paint edit (content replacement) and a procedural generation (new layers).
+	| 'edit'
+	| 'generate';
 
 /** A structured failure from a pure reducer; the command layer maps it to a `CommandRejection`. */
 export type MapLayerError =
@@ -71,6 +74,8 @@ export interface CreateLayerInput {
 	tags: string[];
 	query: Record<string, string>;
 	locked: boolean;
+	/** Initial painted/generated content (MAP-003/MAP-004). Empty for a plain new layer. */
+	content?: MapFeature[];
 	/** Insert position; appended to the end when omitted/out of range. */
 	atOrder?: number;
 }
@@ -102,6 +107,10 @@ export function createLayer(
 		tags: [...input.tags],
 		query: { ...input.query },
 		locked: input.locked,
+		content: (input.content ?? []).map((feature) => ({
+			...feature,
+			points: feature.points.map((point) => ({ ...point })),
+		})),
 		order: 0,
 		revision: 1,
 		updatedBy: stamp.actorId,
@@ -203,6 +212,10 @@ export function duplicateLayer(
 		name: `${source.name} (copy)`,
 		tags: [...source.tags],
 		query: { ...source.query },
+		content: source.content.map((feature) => ({
+			...feature,
+			points: feature.points.map((point) => ({ ...point })),
+		})),
 		locked: false,
 		order: 0,
 		revision: 1,

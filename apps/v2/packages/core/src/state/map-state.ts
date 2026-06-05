@@ -12,6 +12,29 @@ export type MapLayerCategory =
 	| 'player-overlay';
 
 /**
+ * MAP-003 / MAP-004 — a single piece of painted/generated layer content.
+ *
+ * A feature is the atomic unit of map editing: a brush stroke, a filled cell, a placed marker, or a
+ * generated room/wall/road segment. It is a PLAIN, SERIALIZABLE, DETERMINISTIC record (no functions,
+ * no ambient values) so two devices replaying the same edit/generate operation produce byte-identical
+ * content (Contract 2). Coordinates are normalized map space (0..1) like POIs, so a feature stays
+ * anchored regardless of render zoom.
+ *
+ * `id` is stable for the feature's lifetime — an edit that "moves" a feature replaces the whole
+ * content array (the command captures before+after), it does not mutate a feature in place. `kind`
+ * tells the renderer how to draw the geometry; `points` carries the geometry in normalized space.
+ */
+export interface MapFeature {
+	id: string;
+	kind: 'stroke' | 'fill' | 'marker' | 'room' | 'wall' | 'road';
+	/** Normalized (0..1) point list. A stroke/road/wall is a polyline; a fill/room is a rect's two
+	 *  corners; a marker is a single point. */
+	points: Array<{ x: number; y: number }>;
+	/** Stable style token (e.g. `terrain:forest`, `ink:black`). Presentation metadata, not geometry. */
+	style: string;
+}
+
+/**
  * MAP-005 / MAP-006 — a named, ordered map layer with INDEPENDENT visibility, DM-display, and
  * opacity axes plus tag/query metadata.
  *
@@ -48,6 +71,14 @@ export interface MapLayer {
 	query: Record<string, string>;
 	/** When true, the layer rejects mutation fail-closed until explicitly unlocked (MAP-005). */
 	locked: boolean;
+	/**
+	 * MAP-003 / MAP-004 — the painted/generated CONTENT of the layer, in render order. Empty for a
+	 * freshly created metadata-only layer; a paint edit (MAP-003) or a generation (MAP-004) fills it.
+	 * Because content lives ON the layer, a generated layer is immediately editable by the same paint
+	 * command, and a `dm-only` layer's content is filtered out of a non-DM read by the existing layer
+	 * query (a non-DM never receives a dm-only layer at all, so its content never leaks).
+	 */
+	content: MapFeature[];
 	/** Explicit render/list order; lower renders first. Reorder rewrites this (MAP-005). */
 	order: number;
 	/** Monotonic per-layer revision for conflict detection and auditability. */
@@ -91,6 +122,7 @@ export interface MapLayerDefaults {
 	tags?: string[];
 	query?: Record<string, string>;
 	locked?: boolean;
+	content?: MapFeature[];
 	order?: number;
 	revision?: number;
 	updatedBy?: string | null;
@@ -104,7 +136,10 @@ export interface MapLayerDefaults {
  * are empty). This keeps older persisted maps readable without a destructive migration.
  */
 export function normalizeMapLayer(
-	layer: Omit<MapLayer, 'tags' | 'query' | 'locked' | 'order' | 'revision' | 'updatedBy' | 'updatedAt'> &
+	layer: Omit<
+		MapLayer,
+		'tags' | 'query' | 'locked' | 'content' | 'order' | 'revision' | 'updatedBy' | 'updatedAt'
+	> &
 		MapLayerDefaults,
 	index = 0,
 ): MapLayer {
@@ -118,6 +153,10 @@ export function normalizeMapLayer(
 		tags: [...(layer.tags ?? [])],
 		query: { ...(layer.query ?? {}) },
 		locked: layer.locked ?? false,
+		content: (layer.content ?? []).map((feature) => ({
+			...feature,
+			points: feature.points.map((point) => ({ ...point })),
+		})),
 		order: layer.order ?? index,
 		revision: layer.revision ?? 1,
 		updatedBy: layer.updatedBy ?? null,

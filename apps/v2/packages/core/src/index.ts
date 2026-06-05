@@ -60,6 +60,7 @@ export {
 
 export type {
 	MapEntity,
+	MapFeature,
 	MapLayer,
 	MapLayerCategory,
 	MapLayerDefaults,
@@ -72,6 +73,32 @@ export {
 	createDemoMapState,
 	normalizeMapLayer,
 } from './state/map-state';
+
+// MAP-004: deterministic, seeded PRNG. The determinism anchor for procedural generation — no
+// Math.random/Date.now/ambient entropy, so the same seed yields the same stream on every device.
+export type { SeededRng } from './state/prng';
+export { createRng, normalizeSeed } from './state/prng';
+
+// MAP-003: pure draw/paint reducers. An edit replaces a layer's content, capturing before+after so it
+// is undoable (inverse swaps before/after) and sync-replayable (the op carries both). Fail-closed on a
+// locked layer, a stale before-base, or content outside normalized map space.
+export type { ApplyLayerEditInput, MapEditError, MapEditStamp } from './state/map-editing';
+export { applyLayerEdit, featuresEqual, layerContent } from './state/map-editing';
+
+// MAP-004: deterministic procedural generation of editable map layers from explicit params + seed.
+// Validates fail-closed first (no partial layers on rejection); same params ⇒ identical layers.
+export type {
+	GenerateMapLayersResult,
+	MapGenerationError,
+	MapGenerationKind,
+	MapGenerationParams,
+} from './state/map-generation';
+export {
+	MAX_GENERATION_DIMENSION,
+	MIN_GENERATION_DIMENSION,
+	generateMapLayers,
+	validateGenerationParams,
+} from './state/map-generation';
 
 // MAP-005 / MAP-006: pure layer reducers (create/rename/reorder/duplicate/lock/delete + the three
 // INDEPENDENT presentation axes: player-visibility, DM-display, opacity, plus tags). Locked layers
@@ -224,7 +251,9 @@ export {
 	dockWidgetInputSchema,
 	duplicateMapLayerInputSchema,
 	dispatchWidgetCommandInputSchema,
+	editMapLayerInputSchema,
 	enableWidgetPackageInputSchema,
+	generateMapLayersInputSchema,
 	ensureCommandCenterHomeInputSchema,
 	grantCapabilitySetInputSchema,
 	groupWidgetsInputSchema,
@@ -295,10 +324,7 @@ export {
 // PERM-005 / PERM-006 / PERM-008: capability-set inheritance rules, human explanations, the
 // grantable-set list, and the effective-permission PREVIEW the DM grant UI renders. All computed
 // in core; capability sets remain schema-defined named options, never raw field lists.
-export type {
-	CapabilitySetDescriptor,
-	GrantEffectivePreview,
-} from './permissions/capability-sets';
+export type { CapabilitySetDescriptor, GrantEffectivePreview } from './permissions/capability-sets';
 export {
 	capabilitySetGrants,
 	describeCapabilitySet,
@@ -702,6 +728,10 @@ export { getPlayerViewController } from './queries/player-view-control';
 
 export type { WidgetPackageExport } from './commands/widget-package';
 export { exportWidgetPackage } from './commands/widget-package';
+
+// MAP-003: build the inverse of a paint edit (before/after swapped) for the undo path. Pure — the
+// caller dispatches the returned `map.edit-layer` intent to restore the captured prior content.
+export { buildInverseMapEditCommand } from './commands/map-editing';
 
 export type {
 	BeginMigrationInput,

@@ -1,5 +1,5 @@
 import type { ActorId } from '../state/ids';
-import type { MapEntity, MapLayer, MapState } from '../state/map-state';
+import type { MapEntity, MapFeature, MapLayer, MapState } from '../state/map-state';
 import { sortedLayers } from '../state/map-layers';
 import type { EntityVisibilityMetadata } from '../permissions/visibility-filter';
 import type { VisibilitySurfaceRef } from '../permissions/visibility-invalidation';
@@ -37,6 +37,12 @@ export interface MapLayerQueryEntry {
 	query: Record<string, string>;
 	locked: boolean;
 	order: number;
+	/**
+	 * MAP-003 / MAP-004 — the layer's painted/generated content, in render order. Because this comes
+	 * from the actor-filtered query, a non-DM result only ever carries content for layers that actor
+	 * may see (a `dm-only` layer is omitted ENTIRELY, so its content never leaks — MAP-003 AC3).
+	 */
+	content: MapFeature[];
 }
 
 export interface MapLayerQueryResult {
@@ -79,7 +85,11 @@ function layerVisibleToActor(layer: MapLayer, actor: Actor, delivered: boolean):
 }
 
 function layerMatchesQuery(layer: MapLayer, query: MapLayerQuery): boolean {
-	if (query.categories && query.categories.length > 0 && !query.categories.includes(layer.category)) {
+	if (
+		query.categories &&
+		query.categories.length > 0 &&
+		!query.categories.includes(layer.category)
+	) {
 		return false;
 	}
 	if (query.tags) {
@@ -108,6 +118,10 @@ function toEntry(map: MapEntity, layer: MapLayer): MapLayerQueryEntry {
 		query: { ...layer.query },
 		locked: layer.locked,
 		order: layer.order,
+		content: layer.content.map((feature) => ({
+			...feature,
+			points: feature.points.map((point) => ({ ...point })),
+		})),
 	};
 }
 
