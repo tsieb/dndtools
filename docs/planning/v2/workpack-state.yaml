@@ -135,7 +135,8 @@ epics:
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/GRAPH-source-indexing.completion.md
   - id: GRAPH-visualization
-    status: active
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/GRAPH-visualization.completion.md
   - id: MAP-interaction-safety
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MAP-interaction-safety.completion.md

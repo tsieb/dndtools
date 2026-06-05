@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: GRAPH-visualization
 title: "GRAPH: Visualization"
-status: active
+status: complete
 approved: true
 domain: GRAPH
 capabilityBranch: Visualization
@@ -128,3 +128,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/GRAPH-visualization.completion.md
