@@ -220,7 +220,8 @@ COLLAB-authority-filtering-and-cache-privacy`).
 
 - Branch: `epic/COLLAB-authority-filtering-and-cache-privacy` (created from the prior epic HEAD
   `110f2b9`, not master).
-- Commit SHA: recorded in the follow-up docs commit on this branch (see git log).
+- Commit SHA: `548221d` (epic implementation + completion evidence), recorded by this follow-up docs
+  commit on the same branch.
 - Final `git status --short`:
 
 ```
