@@ -89,6 +89,9 @@ epics:
   - id: CONTENT-calendar-custom-time-content
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CONTENT-calendar-custom-time-content.completion.md
+  - id: CONTENT-import-export
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CONTENT-import-export.completion.md
   - id: MAP-interaction-safety
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MAP-interaction-safety.completion.md

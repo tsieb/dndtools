@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 53
+  approved: 52
   active: 0
-  complete: 35
+  complete: 36
   deferred: 0
 metrics:
-  epicCompletionPercent: 39.8
-  requirementCompletionPercent: 44.9
+  epicCompletionPercent: 40.9
+  requirementCompletionPercent: 45.7
   totalRequirements: 234
-  completedRequirements: 105
+  completedRequirements: 107
   deferredRequirements: 0
-  remainingEpics: 53
-  promptableEpics: 53
+  remainingEpics: 52
+  promptableEpics: 52
   blockedByDependencies: 0
-  completionEvidenceFiles: 35
+  completionEvidenceFiles: 36
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -86,13 +86,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: CONTENT
       totalEpics: 7
-      complete: 1
+      complete: 2
       active: 0
-      approved: 6
+      approved: 5
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 14.3
-      requirementCompletionPercent: 7.7
+      epicCompletionPercent: 28.6
+      requirementCompletionPercent: 23.1
     - domain: GRAPH
       totalEpics: 5
       complete: 0
@@ -193,15 +193,16 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: CONTENT-import-export
-  title: "CONTENT: Import/export"
+  id: CONTENT-notes-and-editor
+  title: "CONTENT: Notes and editor"
   status: approved
   requirementIds:
-    - CONTENT-007
-    - CONTENT-008
-  promptCommand: pnpm v2:prompt -- --epic CONTENT-import-export
+    - CONTENT-001
+    - CONTENT-002
+  promptCommand: pnpm v2:prompt -- --epic CONTENT-notes-and-editor
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic CONTENT-import-export --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic CONTENT-notes-and-editor
+    --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -413,11 +414,12 @@ epics:
       - CONTENT-011
     completionEvidenceFile: docs/planning/v2/epics/CONTENT-calendar-custom-time-content.completion.md
   - id: CONTENT-import-export
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CONTENT-007
       - CONTENT-008
+    completionEvidenceFile: docs/planning/v2/epics/CONTENT-import-export.completion.md
   - id: CONTENT-notes-and-editor
     status: approved
     approved: true

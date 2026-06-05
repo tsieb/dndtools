@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CalendarContent from '$lib/gui/CalendarContent.svelte';
+	import ContentImportExport from '$lib/gui/ContentImportExport.svelte';
 
 	// CONTENT-011: the Knowledge section. For this slice it surfaces the calendar/custom-time content
 	// capability — calendar-aware notes/objects with custom-date fields, timeline references, and stable
@@ -15,4 +16,5 @@
 	</p>
 
 	<CalendarContent />
+	<ContentImportExport />
 </section>

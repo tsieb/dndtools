@@ -10,6 +10,8 @@ import type { SceneState } from '../state/scene-state';
 import type { SessionWorkflowState, SessionState } from '../state/session-state';
 import type { WidgetPackageState } from '../state/widget-package-state';
 import type { VaultContentState } from '../state/content';
+import type { ImportConflictPolicy, ImportSourceKind } from '../state/content-import';
+import type { ContentExport, ContentExportMode } from '../state/content-export';
 import type { OperationLog, SyncOperation } from '../sync/operation-log';
 
 export interface CoreStateSlice {
@@ -296,7 +298,12 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
-	| { type: 'content.remove-item'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'content.remove-item'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CONTENT-007: commit a transactional, resumable import of a markdown archive / Obsidian vault
+	// (preview is pure/read-only; resume skips already-applied steps; no partial commit on rejection).
+	| { type: 'content.commit-import'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CONTENT-008: export portable markdown + validation report (fail-closed visibility + redaction).
+	| { type: 'content.export'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -617,6 +624,29 @@ export type CoreEvent =
 			mutation: 'create' | 'update' | 'set-visibility' | 'remove';
 			visibility: string;
 			invalidatedActorIds: ActorId[];
+			actorId: ActorId;
+	  }
+	// CONTENT-007 — a transactional import committed. Carries what was created/overwritten and which
+	// steps were APPLIED vs RESUMED-SKIPPED (already written by a prior partial run — AC2), for the audit.
+	| {
+			kind: 'content.import-committed';
+			sourceKind: ImportSourceKind;
+			policy: ImportConflictPolicy;
+			createdItemIds: string[];
+			overwrittenItemIds: string[];
+			appliedEntryIds: string[];
+			resumedSkippedEntryIds: string[];
+			actorId: ActorId;
+	  }
+	// CONTENT-008 — a portable-markdown export was produced (no durable content mutation). `clean` is the
+	// fail-closed self-check (no secret/path leaked); the full export payload rides the event for the GUI.
+	| {
+			kind: 'content.exported';
+			mode: ContentExportMode;
+			exportedItems: number;
+			omittedForVisibility: number;
+			clean: boolean;
+			export: ContentExport;
 			actorId: ActorId;
 	  };
 

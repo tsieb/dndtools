@@ -115,6 +115,7 @@ import {
 	handleSetContentItemVisibility,
 	handleUpdateContentItem,
 } from './content';
+import { handleCommitContentImport, handleExportContent } from './content-import-export';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 
 export function dispatchCommand(
@@ -337,6 +338,10 @@ export function dispatchCommand(
 			return handleSetContentItemVisibility(state, env, command.actorId, command.payload);
 		case 'content.remove-item':
 			return handleRemoveContentItem(state, env, command.actorId, command.payload);
+		case 'content.commit-import':
+			return handleCommitContentImport(state, env, command.actorId, command.payload);
+		case 'content.export':
+			return handleExportContent(state, env, command.actorId, command.payload);
 	}
 }
 

@@ -1383,6 +1383,58 @@ export {
 	getContentItemsForActor,
 } from './queries/content-query';
 
+// CONTENT-007 / CONTENT-008: pure, deterministic Obsidian-aware markdown parse/serialize — the
+// determinism keystone for import/export. Preserves frontmatter properties, aliases, tags, wikilinks.
+export type { ParsedMarkdownNote, ParsedWikilink } from './state/markdown';
+export {
+	MARKDOWN_PARSE_SCHEMA_VERSION,
+	extractWikilinks,
+	parseMarkdownNote,
+	serializeMarkdownNote,
+} from './state/markdown';
+
+// CONTENT-007: transactional, resumable import. Preview is pure/read-only; the plan is deterministic and
+// re-derivable on resume (already-applied steps are skipped — no double-write); applying is pure (a
+// discarded result leaves prior state byte-identical — no partial commit).
+export type {
+	AppliedImport,
+	ImportArchiveFile,
+	ImportConflictPolicy,
+	ImportFileAction,
+	ImportPlan,
+	ImportPlanStep,
+	ImportPreview,
+	ImportPreviewEntry,
+	ImportSourceKind,
+} from './state/content-import';
+export {
+	CONTENT_IMPORT_SCHEMA_VERSION,
+	DNDTOOLS_PROPERTY_NAMESPACE,
+	IMPORT_CONFLICT_POLICIES,
+	applyContentImport,
+	importEntryIdForPath,
+	importItemIdForPath,
+	planContentImport,
+	previewContentImport,
+} from './state/content-import';
+
+// CONTENT-008: fail-closed export. PORTABLE composes the visibility filter (no dm-only/hidden) + the
+// redaction scrub (no secrets/absolute paths). DM-BACKUP includes hidden content but STILL scrubs
+// secrets/paths. Every export carries a validation report with a clean self-check.
+export type {
+	ContentExport,
+	ContentExportMode,
+	ExportContentInput,
+	ExportedFile,
+	ExportValidationNote,
+	ExportValidationReport,
+} from './state/content-export';
+export {
+	CONTENT_EXPORT_MODES,
+	CONTENT_EXPORT_SCHEMA_VERSION,
+	exportContent,
+} from './state/content-export';
+
 // CHAR-002: the guided, structured PC-creation flow — step definitions, options, per-step validation
 // (rules incl. the ability point-buy budget), and the resumable completeness report. Pure policy.
 export type {
@@ -1579,9 +1631,11 @@ export {
 	addJournalEntryInputSchema,
 	cancelAdvancementInputSchema,
 	commitAdvancementInputSchema,
+	commitContentImportInputSchema,
 	createCharacterDraftInputSchema,
 	createContentItemInputSchema,
 	defineCalendarInputSchema,
+	exportContentInputSchema,
 	editCharacterFieldInputSchema,
 	finalizeCharacterDraftInputSchema,
 	openAdvancementInputSchema,

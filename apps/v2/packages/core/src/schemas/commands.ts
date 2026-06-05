@@ -1300,3 +1300,38 @@ export const removeContentItemInputSchema = z
 		itemId: idSchema,
 	})
 	.strict();
+
+// --- CONTENT-007 / CONTENT-008 — import/export --------------------------------------------------
+
+const importSourceKindSchema = z.enum(['markdown-archive', 'obsidian-vault']);
+const importConflictPolicySchema = z.enum(['skip', 'overwrite', 'keep-both']);
+const contentExportModeSchema = z.enum(['portable', 'dm-backup']);
+
+// One archive file: a relative path + its raw markdown TEXT (ADR-014: operate on provided text content,
+// no real filesystem picker). Both path and text are required; empty text is allowed (an empty note).
+const importArchiveFileSchema = z
+	.object({
+		path: z.string().min(1, 'An archive file path is required'),
+		text: z.string(),
+	})
+	.strict();
+
+// CONTENT-007 — commit a transactional, resumable import (DM-only). `appliedEntryIds` lets a RESUMED
+// import declare which steps a prior partial run already wrote, so they are not re-applied (AC2).
+export const commitContentImportInputSchema = z
+	.object({
+		sourceKind: importSourceKindSchema,
+		policy: importConflictPolicySchema,
+		files: z.array(importArchiveFileSchema).default([]),
+		appliedEntryIds: z.array(z.string().min(1)).default([]),
+	})
+	.strict();
+
+// CONTENT-008 — export portable markdown + validation report (DM-only). `portableViewerActorId` is the
+// representative player whose visibility the PORTABLE filter is evaluated against; ignored for dm-backup.
+export const exportContentInputSchema = z
+	.object({
+		mode: contentExportModeSchema,
+		portableViewerActorId: z.string().default(''),
+	})
+	.strict();
