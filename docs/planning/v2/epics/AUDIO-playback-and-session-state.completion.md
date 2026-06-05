@@ -6,6 +6,8 @@ Epic: AUDIO-playback-and-session-state — "AUDIO: Playback and session state"
 Requirements: AUDIO-002, AUDIO-003
 Git branch: `epic/AUDIO-playback-and-session-state` (created from the prior epic-chain tip
 `4ddd569`, the tip of `epic/AUDIO-platform-and-player-degradation`).
+Implementation commit (feature + tests + completion evidence): `57582f4`.
+Workpack-complete commit (regenerated derived planning files): `83b9867`.
 
 ## Summary
 
@@ -165,8 +167,11 @@ Modified:
 
 ## Final `git status --short`
 
-(Recorded after the feature commit; the working tree is clean at handoff after the workpack-complete and
-SHA-record follow-up commits. See the implementation commit for the exact tree.)
+After the feature commit (`57582f4`) and the workpack-complete commit (`83b9867`), the only remaining
+change is this SHA-record edit to the completion evidence; it is committed by the `docs(v2): record
+commit SHA …` follow-up, leaving the working tree clean (empty `git status --short`) at handoff.
+
+The implementation commit `57582f4` captured the full feature tree:
 
 ```
  M apps/v2/app/src/lib/canvas-runtime/runtime.svelte.ts
@@ -193,3 +198,5 @@ SHA-record follow-up commits. See the implementation commit for the exact tree.)
 ?? apps/v2/packages/core/tests/session-audio-playback.test.ts
 ?? docs/planning/v2/epics/AUDIO-playback-and-session-state.completion.md
 ```
+
+Final handoff state: `git status --short` is empty (clean working tree).
