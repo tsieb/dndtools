@@ -135,10 +135,12 @@ Modified:
 ## Git
 
 - Branch: `epic/AUDIO-scene-map-audio-association`
-- Commit SHA: _(recorded in the follow-up `docs(v2): record commit SHA …` commit)_
+- Feature commit SHA: `ac5af84f521e6bf7fec9bd29c0e87ada55b660f0`
+  (`feat(v2): complete AUDIO-scene-map-audio-association epic`)
+- This SHA is recorded by the follow-up `docs(v2): record commit SHA …` commit.
 
 ### Final `git status --short`
 
 ```
-(clean — see the recorded SHA commit; the working tree is empty after the completion + workpack-complete commits)
+(empty — clean working tree after the feature commit and the SHA-recording follow-up commit)
 ```
