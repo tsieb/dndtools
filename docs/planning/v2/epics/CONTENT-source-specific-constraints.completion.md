@@ -204,7 +204,8 @@ workpack validates.
 
 - Branch: `epic/CONTENT-source-specific-constraints` (created from `epic/CONTENT-notes-and-editor` HEAD
   `1e114b26273996b489bd26ade9d54364a9b60ea6`, not master).
-- Epic commit: recorded by a follow-up docs commit (see below).
+- Epic commit: `7fec40e5b8ba10974c98d8fc01dd601f35c1e4b7`. This SHA is recorded by this follow-up docs
+  commit.
 - Final `git status --short`: clean.
 
 ```
