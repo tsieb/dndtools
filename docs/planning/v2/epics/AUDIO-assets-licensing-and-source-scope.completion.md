@@ -165,10 +165,11 @@ Generated planning files (via `set-status` / `complete`):
 ## Git evidence
 
 Branch: `epic/AUDIO-assets-licensing-and-source-scope`
-Commit SHA (feat): `__FEAT_SHA__` (recorded in the follow-up `docs(v2): record commit SHA` commit)
+Commit SHA (feat): `3744fd915df28db11d63cbaf358db71ed0477ad6`
+Commit SHA (workpack complete): `4fb490a`
 
 Final `git status --short` (clean slate after the completion commits):
 
 ```
-__GIT_STATUS_SHORT__
+(empty — clean working tree)
 ```
