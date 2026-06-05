@@ -77,3 +77,6 @@ epics:
   - id: NAV-home-and-canonical-sections
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/NAV-home-and-canonical-sections.completion.md
+  - id: NAV-ia-validation-and-accessibility-semantics
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/NAV-ia-validation-and-accessibility-semantics.completion.md

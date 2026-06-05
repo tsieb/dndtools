@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: NAV-ia-validation-and-accessibility-semantics
 title: "NAV: IA validation and accessibility semantics"
-status: approved
+status: complete
 approved: true
 domain: NAV
 capabilityBranch: IA validation and accessibility semantics
@@ -155,3 +155,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/NAV-ia-validation-and-accessibility-semantics.completion.md

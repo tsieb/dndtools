@@ -15,7 +15,9 @@
 	// surface reads the same actor-filtered navigation availability the primary nav
 	// and palette use, so it reflects exactly what the active actor can reach.
 	const activeActor = $derived(runtime.state.permissions.actors[runtime.activeActorId] ?? null);
-	const sections = $derived(listNavigationSections(runtime.state.permissions, runtime.activeActorId));
+	const sections = $derived(
+		listNavigationSections(runtime.state.permissions, runtime.activeActorId),
+	);
 
 	// NAV-001 / NAV-009: the canonical top-level Navigation Section registry, filtered
 	// for the active actor. DM-only sections are absent for players/observers (NAV-009
@@ -33,18 +35,17 @@
 </script>
 
 <section data-testid="settings-view" aria-label="Settings">
-	<h2>Settings</h2>
 	<p class="meta">Device-local display preferences for this prototype. Nothing here is synced.</p>
 
 	<section aria-label="Platform profile">
-		<h3>Platform profile</h3>
+		<h2>Platform profile</h2>
 		<p class="meta" data-testid="settings-profile">
 			profile: {profile.profileId} • viewport: {profile.viewportClass}
 		</p>
 	</section>
 
 	<section aria-label="Active actor">
-		<h3>Viewing as</h3>
+		<h2>Viewing as</h2>
 		<p class="meta" data-testid="settings-active-actor">
 			{#if activeActor}
 				{activeActor.displayName} ({activeActor.role})
@@ -56,7 +57,7 @@
 	</section>
 
 	<section aria-label="Reachable sections">
-		<h3>Sections you can reach</h3>
+		<h2>Sections you can reach</h2>
 		<ul class="scene-list" data-testid="settings-sections">
 			{#each sections as section (section.id)}
 				<li class="scene-card" data-testid={`settings-section-${section.id}`}>
@@ -68,7 +69,7 @@
 	</section>
 
 	<section aria-label="Canonical navigation sections">
-		<h3>Canonical navigation sections</h3>
+		<h2>Canonical navigation sections</h2>
 		<p class="meta">
 			The approved top-level information architecture. Each section declares its owning domain,
 			route root, actor availability, and release status. DM-only sections never appear for players
@@ -81,9 +82,11 @@
 						<strong>{entry.title}</strong>
 						{#if entry.home}<span class="meta"> • home</span>{/if}
 						<div class="meta">
-							owner: {entry.owner} • root: <code>{entry.routeRoot}</code> •
-							for: {availableRoles(entry.availability)}
+							owner: {entry.owner} • root: <code>{entry.routeRoot}</code> • for: {availableRoles(
+								entry.availability,
+							)}
 						</div>
+						<div class="meta" data-testid={`ia-task-${entry.id}`}>serves: {entry.taskFit}</div>
 						<div class="meta">local nav: {entry.localNav.description}</div>
 					</div>
 					<span

@@ -222,7 +222,7 @@
 	<section class="scene-editor" data-testid="scene-editor">
 		<header>
 			<a href="../../scenes/" data-testid="back-to-scenes">← Back</a>
-			<h2 data-testid="scene-name">{summary.name}</h2>
+			<p class="scene-title" data-testid="scene-name">{summary.name}</p>
 			<p class="meta">
 				visibility {summary.visibility} • rev {summary.ownership.revision} •
 				{summary.widgets.length} widget{summary.widgets.length === 1 ? '' : 's'}
@@ -235,7 +235,7 @@
 		</header>
 
 		<section>
-			<h3>Add widget</h3>
+			<h2>Add widget</h2>
 			<form class="form" onsubmit={addWidget} aria-label="Add widget">
 				<label>
 					<span>Type</span>
@@ -279,7 +279,7 @@
 
 		<section>
 			<div class="widgets-head">
-				<h3>Widgets</h3>
+				<h2>Widgets</h2>
 				<button
 					type="button"
 					class="button secondary"
@@ -426,7 +426,7 @@
 		</section>
 
 		<section>
-			<h3>Player View</h3>
+			<h2>Player View</h2>
 			<div class="form projection-form" aria-label="Project Player View">
 				<label>
 					<span>Player</span>

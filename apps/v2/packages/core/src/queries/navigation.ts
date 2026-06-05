@@ -95,6 +95,8 @@ export interface NavigationRegistryEntry {
 	id: string;
 	title: string;
 	owner: SectionOwnerDomain;
+	/** The primary user task this section serves (NAV-006 task fit). */
+	taskFit: string;
 	routeRoot: string;
 	route: string;
 	availability: SectionActorAvailability;
@@ -164,6 +166,7 @@ function toRegistryEntry(
 		id: section.id,
 		title: section.title,
 		owner: section.owner,
+		taskFit: section.taskFit,
 		routeRoot: section.routeRoot,
 		route: sectionRuntimeRoute(section),
 		availability: section.availability,

@@ -88,8 +88,22 @@ export interface CanonicalNavigationSection {
 	title: string;
 	/** Owning product domain (NAV-009). */
 	owner: SectionOwnerDomain;
+	/**
+	 * The primary user task this section serves — the "task fit" an IA review must
+	 * record before a top-level section is approved (NAV-006 AC1, "user-task-oriented
+	 * checks"). A section that cannot name a distinct user task does not earn a
+	 * top-level slot.
+	 */
+	taskFit: string;
 	/** Canonical route root, e.g. `/atlas`. The home section's root is `/`. (NAV-009) */
 	routeRoot: string;
+	/**
+	 * Route roots for entity/detail pages this section owns, e.g. the Scenes section
+	 * owns `/scene` (the `/scene/[id]` editor) in addition to its `/scenes` root. The
+	 * route audit (NAV-006 AC2) treats these as IA-owned so a detail route is not
+	 * flagged as an orphan, and so route ownership is explicit IA metadata (NAV-006 AC1).
+	 */
+	entityRoutes: string[];
 	/** Per-role availability; DM-only sections set player/observer to false. (NAV-009) */
 	availability: SectionActorAvailability;
 	/** Legacy/alternate route roots that resolve to this section. (NAV-009; NAV-002) */
@@ -122,7 +136,10 @@ export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[
 		id: 'command-center',
 		title: 'Command Center',
 		owner: 'CMD',
+		taskFit:
+			'Run the live session from a configured home Scene: tools, active map, and player views.',
 		routeRoot: '/',
+		entityRoutes: [],
 		availability: { dm: true, player: true, observer: true },
 		aliases: ['/home'],
 		landmark: 'command-center',
@@ -139,7 +156,9 @@ export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[
 		id: 'scenes',
 		title: 'Scenes',
 		owner: 'CANVAS',
+		taskFit: 'Author, organize, and template the Scenes and widget packages the table uses.',
 		routeRoot: '/scenes',
+		entityRoutes: ['/scene'],
 		availability: { dm: true, player: false, observer: false },
 		aliases: ['/canvas'],
 		landmark: 'scenes',
@@ -156,7 +175,9 @@ export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[
 		id: 'knowledge',
 		title: 'Knowledge',
 		owner: 'CONTENT',
+		taskFit: 'Find, read, and edit campaign notes, lore, and linked content.',
 		routeRoot: '/knowledge',
+		entityRoutes: [],
 		availability: { dm: true, player: true, observer: false },
 		aliases: ['/notes', '/wiki', '/vault'],
 		landmark: 'knowledge',
@@ -173,7 +194,9 @@ export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[
 		id: 'atlas',
 		title: 'Atlas',
 		owner: 'MAP',
+		taskFit: 'Browse maps and their layers, and open map regions for play.',
 		routeRoot: '/atlas',
+		entityRoutes: [],
 		availability: { dm: true, player: true, observer: true },
 		aliases: ['/maps', '/map'],
 		landmark: 'atlas',
@@ -190,7 +213,9 @@ export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[
 		id: 'session',
 		title: 'Session',
 		owner: 'SES',
+		taskFit: 'Track the live session timeline, combat, and session tools.',
 		routeRoot: '/session',
+		entityRoutes: [],
 		availability: { dm: true, player: true, observer: true },
 		aliases: ['/sessions', '/play'],
 		landmark: 'session',
@@ -207,13 +232,16 @@ export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[
 		id: 'campaign',
 		title: 'Campaign',
 		owner: 'CONTENT',
+		taskFit: 'Review the campaign overview, calendar, and continuity.',
 		routeRoot: '/campaign',
+		entityRoutes: [],
 		availability: { dm: true, player: true, observer: false },
 		aliases: ['/world'],
 		landmark: 'campaign',
 		localNav: {
 			kind: 'campaign-overview',
-			description: 'The campaign overview, calendar, and continuity, visibility-filtered per actor.',
+			description:
+				'The campaign overview, calendar, and continuity, visibility-filtered per actor.',
 		},
 		releaseStatus: 'planned',
 		keywords: ['campaign', 'world', 'calendar', 'timeline'],
@@ -224,13 +252,16 @@ export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[
 		id: 'characters',
 		title: 'Characters',
 		owner: 'CHAR',
+		taskFit: 'Manage the party roster and character sheets.',
 		routeRoot: '/characters',
+		entityRoutes: [],
 		availability: { dm: true, player: true, observer: false },
 		aliases: ['/party', '/pcs'],
 		landmark: 'characters',
 		localNav: {
 			kind: 'character-roster',
-			description: 'The party roster; a player sees their owned character plus shared party records.',
+			description:
+				'The party roster; a player sees their owned character plus shared party records.',
 		},
 		releaseStatus: 'planned',
 		keywords: ['characters', 'party', 'pcs', 'roster', 'sheet'],
@@ -241,13 +272,16 @@ export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[
 		id: 'audio',
 		title: 'Audio',
 		owner: 'AUDIO',
+		taskFit: 'Curate ambient audio and drive playback for the table.',
 		routeRoot: '/audio',
+		entityRoutes: [],
 		availability: { dm: true, player: false, observer: false },
 		aliases: ['/sound', '/music'],
 		landmark: 'audio',
 		localNav: {
 			kind: 'audio-library',
-			description: 'The DM audio library and playlists. Player devices receive playback, not this control surface.',
+			description:
+				'The DM audio library and playlists. Player devices receive playback, not this control surface.',
 		},
 		releaseStatus: 'planned',
 		keywords: ['audio', 'sound', 'music', 'ambience', 'playlist'],
@@ -258,13 +292,16 @@ export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[
 		id: 'mcp',
 		title: 'MCP',
 		owner: 'MCP',
+		taskFit: 'Configure optional MCP agents, identities, and staged-write review.',
 		routeRoot: '/mcp',
+		entityRoutes: [],
 		availability: { dm: true, player: false, observer: false },
 		aliases: ['/ai', '/agents'],
 		landmark: 'mcp',
 		localNav: {
 			kind: 'agent-tools',
-			description: 'The optional MCP agent tools, identities, and staged-write review queue (DM-only).',
+			description:
+				'The optional MCP agent tools, identities, and staged-write review queue (DM-only).',
 		},
 		releaseStatus: 'planned',
 		keywords: ['mcp', 'ai', 'agents', 'tools', 'staged writes'],
@@ -275,13 +312,16 @@ export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[
 		id: 'settings',
 		title: 'Settings',
 		owner: 'PLAT',
+		taskFit: 'Adjust device-local display preferences and see reachable sections.',
 		routeRoot: '/settings',
+		entityRoutes: [],
 		availability: { dm: true, player: true, observer: true },
 		aliases: ['/preferences'],
 		landmark: 'settings',
 		localNav: {
 			kind: 'settings-categories',
-			description: 'Device-local settings categories: platform profile, viewing actor, and reachable sections.',
+			description:
+				'Device-local settings categories: platform profile, viewing actor, and reachable sections.',
 		},
 		releaseStatus: 'released',
 		keywords: ['settings', 'preferences', 'profile', 'view as'],
@@ -396,7 +436,20 @@ export function validateNavigationSections(
 			problems.push({ sectionId: id, field: 'title', message: 'title is required' });
 		}
 		if (!VALID_OWNERS.has(section.owner)) {
-			problems.push({ sectionId: id, field: 'owner', message: 'owner must be a known product domain' });
+			problems.push({
+				sectionId: id,
+				field: 'owner',
+				message: 'owner must be a known product domain',
+			});
+		}
+		// Task fit is the user-task-oriented check NAV-006 requires before a section
+		// earns a top-level slot: a section that cannot name a distinct user task fails.
+		if (!section.taskFit?.trim()) {
+			problems.push({
+				sectionId: id,
+				field: 'taskFit',
+				message: 'task fit is required: name the primary user task this section serves',
+			});
 		}
 		if (!section.routeRoot.startsWith('/')) {
 			problems.push({
@@ -405,8 +458,29 @@ export function validateNavigationSections(
 				message: 'route root is required and must start with "/"',
 			});
 		}
+		if (!Array.isArray(section.entityRoutes)) {
+			problems.push({
+				sectionId: id,
+				field: 'entityRoutes',
+				message: 'entity routes must be declared (may be empty)',
+			});
+		} else {
+			for (const entityRoute of section.entityRoutes) {
+				if (!entityRoute.startsWith('/')) {
+					problems.push({
+						sectionId: id,
+						field: 'entityRoutes',
+						message: `entity route "${entityRoute}" must start with "/"`,
+					});
+				}
+			}
+		}
 		if (!Array.isArray(section.aliases)) {
-			problems.push({ sectionId: id, field: 'aliases', message: 'aliases must be declared (may be empty)' });
+			problems.push({
+				sectionId: id,
+				field: 'aliases',
+				message: 'aliases must be declared (may be empty)',
+			});
 		} else {
 			for (const alias of section.aliases) {
 				if (!alias.startsWith('/')) {
@@ -475,8 +549,14 @@ export function validateNavigationSections(
 				seenLandmarks.set(section.landmark, section.id);
 			}
 		}
-		// A route root and every alias must resolve to exactly one section.
-		for (const path of [section.routeRoot, ...(section.aliases ?? [])]) {
+		// A route root, every alias, and every owned entity route must resolve to
+		// exactly one section, so the route audit can map each scaffolded route to a
+		// single IA owner (NAV-006).
+		for (const path of [
+			section.routeRoot,
+			...(section.entityRoutes ?? []),
+			...(section.aliases ?? []),
+		]) {
 			if (seenRoutePaths.has(path)) {
 				problems.push({
 					sectionId: id,
@@ -490,7 +570,9 @@ export function validateNavigationSections(
 
 		if (section.home) {
 			homeCount += 1;
-			if (!(section.availability.dm && section.availability.player && section.availability.observer)) {
+			if (
+				!(section.availability.dm && section.availability.player && section.availability.observer)
+			) {
 				problems.push({
 					sectionId: id,
 					field: 'home',
@@ -511,6 +593,130 @@ export function validateNavigationSections(
 			field: 'home',
 			message: `exactly one home section is required, found ${homeCount}`,
 		});
+	}
+
+	return problems;
+}
+
+/** Normalize a route path for audit comparison: strip trailing slashes, keep `/`. */
+function normalizeRoutePath(path: string): string {
+	return path.replace(/\/+$/, '') || '/';
+}
+
+/** A problem found by the route audit (NAV-006): which kind, which route/section, why. */
+export type RouteAuditProblemKind =
+	/** A scaffolded route has no canonical IA owner — NAV-006 AC2 fails closed. */
+	| 'unowned-route'
+	/** A released section declares a route root that is not scaffolded. */
+	| 'missing-section-route'
+	/** A released section declares an entity route that is not scaffolded. */
+	| 'missing-entity-route'
+	/** The IA registry itself failed the IA-review validator (NAV-006 AC1). */
+	| 'registry-invalid';
+
+export interface RouteAuditProblem {
+	kind: RouteAuditProblemKind;
+	/** The offending scaffolded route, when the problem concerns one. */
+	route?: string;
+	/** The section the problem concerns, when applicable. */
+	sectionId?: string;
+	message: string;
+}
+
+export interface RouteAuditInput {
+	/**
+	 * The top-level route roots discovered in the app's route tree (e.g. `/`, `/scene`,
+	 * `/scenes`, `/settings`). The GUI owns route-shape knowledge (Contract 1) and passes
+	 * the discovered roots in; this audit is a pure data check with no filesystem access.
+	 */
+	scaffoldedRoutes: readonly string[];
+}
+
+/**
+ * Audit the scaffolded routes against the canonical IA registry (NAV-006).
+ *
+ * This is the programmatic route-audit gate. It fails closed in three ways:
+ *
+ * 1. If the IA registry is itself malformed (a section missing task fit, route
+ *    ownership, aliases, or a local nav contract), every IA-review problem is reported
+ *    as a `registry-invalid` audit problem — you cannot audit routes against broken IA
+ *    (NAV-006 AC1).
+ * 2. If a scaffolded route has no canonical IA owner — its route root is not a section
+ *    root, an owned entity route, or a declared alias — it is reported as an
+ *    `unowned-route`. This is the "a route is added without IA metadata → the gate
+ *    fails" criterion (NAV-006 AC2).
+ * 3. If a *released* section declares a route root or entity route that is not
+ *    scaffolded, it is reported as `missing-section-route` / `missing-entity-route` so
+ *    the released IA and the route tree cannot silently diverge.
+ *
+ * Returns an empty array when the routes and IA agree. A non-empty result is the set of
+ * problems a route-audit CI gate must fail on.
+ */
+export function auditNavigationRoutes(
+	input: RouteAuditInput,
+	sections: readonly CanonicalNavigationSection[] = CANONICAL_NAVIGATION_SECTIONS,
+): RouteAuditProblem[] {
+	const problems: RouteAuditProblem[] = [];
+
+	// 1. A broken IA registry fails the route audit (NAV-006 AC1): routes cannot be
+	//    audited for ownership when the ownership metadata is itself invalid.
+	for (const registryProblem of validateNavigationSections(sections)) {
+		problems.push({
+			kind: 'registry-invalid',
+			sectionId: registryProblem.sectionId,
+			message: `IA registry invalid (${registryProblem.field}): ${registryProblem.message}`,
+		});
+	}
+
+	// Build the owned-route map: section root + owned entity routes + aliases all count
+	// as IA-owned route space.
+	const ownedRoutes = new Map<string, string>();
+	for (const section of sections) {
+		for (const path of [
+			section.routeRoot,
+			...(section.entityRoutes ?? []),
+			...(section.aliases ?? []),
+		]) {
+			if (typeof path === 'string' && path.startsWith('/')) {
+				ownedRoutes.set(normalizeRoutePath(path), section.id);
+			}
+		}
+	}
+
+	// 2. Every scaffolded route must have a canonical IA owner (NAV-006 AC2).
+	const scaffolded = new Set(input.scaffoldedRoutes.map(normalizeRoutePath));
+	for (const route of scaffolded) {
+		if (!ownedRoutes.has(route)) {
+			problems.push({
+				kind: 'unowned-route',
+				route,
+				message: `route "${route}" has no IA metadata: add it to the Navigation Section registry before scaffolding`,
+			});
+		}
+	}
+
+	// 3. Every released section's declared routes must actually be scaffolded.
+	for (const section of sections) {
+		if (section.releaseStatus !== 'released') continue;
+		const root = normalizeRoutePath(section.routeRoot);
+		if (!scaffolded.has(root)) {
+			problems.push({
+				kind: 'missing-section-route',
+				sectionId: section.id,
+				route: root,
+				message: `released section "${section.id}" has no scaffolded route for its root "${section.routeRoot}"`,
+			});
+		}
+		for (const entityRoute of section.entityRoutes ?? []) {
+			if (!scaffolded.has(normalizeRoutePath(entityRoute))) {
+				problems.push({
+					kind: 'missing-entity-route',
+					sectionId: section.id,
+					route: normalizeRoutePath(entityRoute),
+					message: `released section "${section.id}" declares entity route "${entityRoute}" but no route is scaffolded for it`,
+				});
+			}
+		}
 	}
 
 	return problems;

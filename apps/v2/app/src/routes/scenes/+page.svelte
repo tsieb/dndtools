@@ -249,7 +249,7 @@
 </section>
 
 <section>
-	<h2>Scenes</h2>
+	<h2>All Scenes</h2>
 	<p class="meta">{scenes.length} scene{scenes.length === 1 ? '' : 's'} in this vault</p>
 	<ul class="scene-list" data-testid="scene-list">
 		{#each scenes as scene (scene.id)}

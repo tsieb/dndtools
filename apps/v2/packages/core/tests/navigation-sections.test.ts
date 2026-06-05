@@ -8,11 +8,13 @@ import {
 	validateNavigationSections,
 	type CanonicalNavigationSection,
 } from '../src/queries/navigation-sections';
+import { listNavigationRegistryForActor, listNavigationSections } from '../src/queries/navigation';
 import {
-	listNavigationRegistryForActor,
-	listNavigationSections,
-} from '../src/queries/navigation';
-import { DM_ACTOR, OBSERVER_ACTOR, PLAYER_ACTOR, buildPermissionState } from '../src/testing/fixtures';
+	DM_ACTOR,
+	OBSERVER_ACTOR,
+	PLAYER_ACTOR,
+	buildPermissionState,
+} from '../src/testing/fixtures';
 
 /** A structurally valid section, used as the base for negative validator cases. */
 function section(overrides: Partial<CanonicalNavigationSection> = {}): CanonicalNavigationSection {
@@ -20,7 +22,9 @@ function section(overrides: Partial<CanonicalNavigationSection> = {}): Canonical
 		id: 'sample',
 		title: 'Sample',
 		owner: 'CONTENT',
+		taskFit: 'A sample user task.',
 		routeRoot: '/sample',
+		entityRoutes: [],
 		availability: { dm: true, player: true, observer: true },
 		aliases: [],
 		landmark: 'sample',
@@ -99,10 +103,7 @@ describe('NAV-009 IA-review validator', () => {
 			// @ts-expect-error intentionally invalid local nav for the IA gate
 			localNav: { kind: 'mystery', description: '' },
 		});
-		const problems = validateNavigationSections([
-			broken,
-			section({ home: true, id: 'home' }),
-		]);
+		const problems = validateNavigationSections([broken, section({ home: true, id: 'home' })]);
 		const fields = problems.filter((p) => p.sectionId === 'broken').map((p) => p.field);
 		expect(fields).toContain('routeRoot');
 		expect(fields).toContain('availability');
@@ -110,8 +111,13 @@ describe('NAV-009 IA-review validator', () => {
 	});
 
 	it('rejects a registry without exactly one home section', () => {
-		const none = validateNavigationSections([section({ id: 'a' }), section({ id: 'b', routeRoot: '/b' })]);
-		expect(none).toContainEqual(expect.objectContaining({ field: 'home', sectionId: '<registry>' }));
+		const none = validateNavigationSections([
+			section({ id: 'a' }),
+			section({ id: 'b', routeRoot: '/b' }),
+		]);
+		expect(none).toContainEqual(
+			expect.objectContaining({ field: 'home', sectionId: '<registry>' }),
+		);
 
 		const two = validateNavigationSections([
 			section({ id: 'a', home: true }),
@@ -122,11 +128,13 @@ describe('NAV-009 IA-review validator', () => {
 
 	it('requires the home section to be reachable by every role', () => {
 		const problems = validateNavigationSections([
-			section({ id: 'home', home: true, availability: { dm: true, player: false, observer: false } }),
+			section({
+				id: 'home',
+				home: true,
+				availability: { dm: true, player: false, observer: false },
+			}),
 		]);
-		expect(problems).toContainEqual(
-			expect.objectContaining({ sectionId: 'home', field: 'home' }),
-		);
+		expect(problems).toContainEqual(expect.objectContaining({ sectionId: 'home', field: 'home' }));
 	});
 
 	it('detects duplicate ids, duplicate route roots, and alias/route collisions', () => {
@@ -142,14 +150,18 @@ describe('NAV-009 IA-review validator', () => {
 			section({ id: 'b', routeRoot: '/same' }),
 			section({ id: 'home', routeRoot: '/h', home: true }),
 		]);
-		expect(dupRoute).toContainEqual(expect.objectContaining({ sectionId: 'b', field: 'routeRoot' }));
+		expect(dupRoute).toContainEqual(
+			expect.objectContaining({ sectionId: 'b', field: 'routeRoot' }),
+		);
 
 		const aliasClash = validateNavigationSections([
 			section({ id: 'a', routeRoot: '/a', aliases: ['/shared'] }),
 			section({ id: 'b', routeRoot: '/b', aliases: ['/shared'] }),
 			section({ id: 'home', routeRoot: '/h', home: true }),
 		]);
-		expect(aliasClash).toContainEqual(expect.objectContaining({ sectionId: 'b', field: 'aliases' }));
+		expect(aliasClash).toContainEqual(
+			expect.objectContaining({ sectionId: 'b', field: 'aliases' }),
+		);
 	});
 });
 
@@ -187,7 +199,9 @@ describe('NAV-009 AC2 actor-filtered registry view (no leaks)', () => {
 
 	it('omits DM-only sections from player and observer navigation data', () => {
 		const playerIds = listNavigationRegistryForActor(permission, PLAYER_ACTOR.id).map((e) => e.id);
-		const observerIds = listNavigationRegistryForActor(permission, OBSERVER_ACTOR.id).map((e) => e.id);
+		const observerIds = listNavigationRegistryForActor(permission, OBSERVER_ACTOR.id).map(
+			(e) => e.id,
+		);
 		// Scenes, Audio, and MCP are DM-only: absent for players and observers entirely.
 		for (const dmOnly of ['scenes', 'audio', 'mcp']) {
 			expect(playerIds).not.toContain(dmOnly);
@@ -222,7 +236,15 @@ describe('NAV-001 released runtime navigation surfaces only built sections', () 
 		const ids = listNavigationSections(permission, DM_ACTOR.id).map((s) => s.id);
 		expect(ids).toEqual(['command-center', 'scenes', 'settings']);
 		// Planned sections are canonical IA but must not appear as runtime nav links.
-		for (const planned of ['knowledge', 'atlas', 'session', 'campaign', 'characters', 'audio', 'mcp']) {
+		for (const planned of [
+			'knowledge',
+			'atlas',
+			'session',
+			'campaign',
+			'characters',
+			'audio',
+			'mcp',
+		]) {
 			expect(ids).not.toContain(planned);
 		}
 	});

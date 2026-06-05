@@ -244,9 +244,7 @@ export function resolveNavigationView(
 		}
 	}
 
-	backlinks.sort(
-		(a, b) => a.relation.localeCompare(b.relation) || a.title.localeCompare(b.title),
-	);
+	backlinks.sort((a, b) => a.relation.localeCompare(b.relation) || a.title.localeCompare(b.title));
 	related.sort((a, b) => a.title.localeCompare(b.title));
 
 	return { location, section, breadcrumbs, localItems, backlinks, related };
@@ -270,4 +268,66 @@ export function listReachableDestinations(
 		out.push({ route: sceneRoute(scene.id), title: scene.name });
 	}
 	return out;
+}
+
+/** The default application name used in document titles and the fallback heading. */
+export const DEFAULT_APP_NAME = 'DND Tools v2';
+
+export interface RouteAccessibilityOptions {
+	/** Application name appended to the document title and used as the fallback heading. */
+	appName?: string;
+}
+
+/**
+ * The accessible route semantics the GUI shell renders for one location (NAV-007):
+ * the single route-level `h1`, the stable document title, the route landmark and its
+ * label, and the live-region announcement for a completed route change. Deriving all
+ * four from one model keeps them consistent — the page title, heading, and announcement
+ * can never disagree about which route is active.
+ */
+export interface RouteAccessibility {
+	/** The text of the single route-level `<h1>` (NAV-007: exactly one `h1`). */
+	heading: string;
+	/** The `document.title`, reflecting route context (NAV-007: stable page titles). */
+	documentTitle: string;
+	/** The route landmark id for the `<main>` landmark, or `''` when none resolves. */
+	landmark: string;
+	/** The accessible label for the route landmark. */
+	landmarkLabel: string;
+	/** The live-region message announced when this route becomes active (NAV-007 AC2). */
+	announcement: string;
+}
+
+/**
+ * Derive the accessible route semantics for a resolved {@link NavigationView}
+ * (NAV-007). The heading and document title come from the deepest breadcrumb crumb —
+ * the open entity name when an entity is open, otherwise the section title — so the
+ * `h1` and page title always match the route context (NAV-007 AC1). The announcement
+ * names that same route so a completed navigation is communicated to assistive
+ * technology (NAV-007 AC2).
+ *
+ * Fail closed: when no crumb resolves (an unknown actor, or an entity hidden from the
+ * actor), the heading falls back to the application name and never leaks a hidden
+ * entity's title — the navigation view has already redacted it.
+ */
+export function resolveRouteAccessibility(
+	view: NavigationView,
+	options: RouteAccessibilityOptions = {},
+): RouteAccessibility {
+	const appName = options.appName ?? DEFAULT_APP_NAME;
+	// The deepest breadcrumb is the current location: the open entity if one is open
+	// and visible, otherwise the section. The navigation view has already dropped any
+	// crumb the actor may not see, so this never reveals hidden content.
+	const current = view.breadcrumbs.at(-1);
+	const heading = current?.title ?? appName;
+	const documentTitle = heading === appName ? appName : `${heading} — ${appName}`;
+	const landmark = view.section?.landmark ?? '';
+	const landmarkLabel = view.section ? `${view.section.title} section` : 'Main content';
+	return {
+		heading,
+		documentTitle,
+		landmark,
+		landmarkLabel,
+		announcement: heading,
+	};
 }

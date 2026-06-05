@@ -305,7 +305,6 @@
 
 <section class="command-center" data-testid="command-center" aria-label="Command Center">
 	<header class="cc-header">
-		<h2>Command Center</h2>
 		<p class="meta">
 			Your home Scene for active session management.
 			<span data-testid="cc-profile">profile: {profile.viewportClass}</span>
@@ -327,7 +326,7 @@
 		</p>
 	{:else}
 		<section aria-label="Session workflow" data-testid="session-workflow">
-			<h3>Session workflow</h3>
+			<h2>Session workflow</h2>
 			<div class="workflow-strip" role="toolbar" aria-label="Session workflow states">
 				{#each SESSION_WORKFLOW_STATES as workflow}
 					<button
@@ -360,7 +359,7 @@
 		</section>
 
 		<section aria-label="Active map" data-testid="cc-active-map">
-			<h3>Active map</h3>
+			<h2>Active map</h2>
 			<div class="active-map-controls">
 				<label>
 					<span>Map</span>
@@ -468,7 +467,7 @@
 		</section>
 
 		<section aria-label="Player View controller" data-testid="cc-player-view-controller">
-			<h3>Player views</h3>
+			<h2>Player views</h2>
 			{#if playerViewController.kind === 'denied'}
 				<p class="error" role="alert" data-testid="cc-player-view-denied">
 					Player View controller unavailable: {playerViewController.reason}
@@ -568,7 +567,7 @@
 		</section>
 
 		<section aria-label="DM tools">
-			<h3>Tools</h3>
+			<h2>Tools</h2>
 			{#if profile.isCompact}
 				<!-- Slim profile: one focused work surface at a time (Contract 1). -->
 				<div class="cc-tablist" role="tablist" data-testid="cc-tablist">
@@ -651,7 +650,7 @@
 		</section>
 
 		<section aria-label="Command Center presets">
-			<h3>Presets</h3>
+			<h2>Presets</h2>
 			<form class="form" onsubmit={savePreset} aria-label="Save Command Center preset">
 				<label>
 					<span>Preset name</span>
@@ -701,7 +700,7 @@
 		</section>
 
 		<section aria-label="Widget library">
-			<h3>Widget library</h3>
+			<h2>Widget library</h2>
 			<p class="meta">Search available widget types and add them to the Command Center.</p>
 			<label class="library-search">
 				<span class="visually-hidden">Search widgets</span>

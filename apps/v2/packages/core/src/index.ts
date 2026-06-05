@@ -279,12 +279,16 @@ export type {
 	LocalNavigationContract,
 	LocalNavigationContractKind,
 	NavigationSectionProblem,
+	RouteAuditInput,
+	RouteAuditProblem,
+	RouteAuditProblemKind,
 	SectionActorAvailability,
 	SectionOwnerDomain,
 	SectionReleaseStatus,
 } from './queries/navigation-sections';
 export {
 	CANONICAL_NAVIGATION_SECTIONS,
+	auditNavigationRoutes,
 	findSectionByRoute,
 	getHomeSection,
 	isSectionAvailableForRole,
@@ -302,8 +306,15 @@ export type {
 	NavigationLocation,
 	NavigationStateView,
 	NavigationView,
+	RouteAccessibility,
+	RouteAccessibilityOptions,
 } from './queries/navigation-view';
-export { listReachableDestinations, resolveNavigationView } from './queries/navigation-view';
+export {
+	DEFAULT_APP_NAME,
+	listReachableDestinations,
+	resolveNavigationView,
+	resolveRouteAccessibility,
+} from './queries/navigation-view';
 
 export type {
 	CommandCategory,

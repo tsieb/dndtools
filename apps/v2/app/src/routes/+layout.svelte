@@ -5,6 +5,7 @@
 		listNavigationSections,
 		listReachableDestinations,
 		resolveNavigationView,
+		resolveRouteAccessibility,
 	} from '@dndtools/v2-core';
 	import { SceneRuntime, defaultEnvironment } from '$lib/canvas-runtime/runtime.svelte';
 	import { provideRuntime } from '$lib/state/runtime-context';
@@ -44,7 +45,9 @@
 	// palette and visible controls use (NAV-010): DM-only sections are absent for
 	// players/observers rather than disabled, so navigation never leaks a hidden
 	// section (NAV-010 AC1).
-	const sections = $derived(listNavigationSections(runtime.state.permissions, runtime.activeActorId));
+	const sections = $derived(
+		listNavigationSections(runtime.state.permissions, runtime.activeActorId),
+	);
 
 	// Contextual navigation (NAV-003): the route is the single source of truth. The
 	// whole navigation view — breadcrumbs, local section nav, contextual links — is
@@ -55,12 +58,28 @@
 	const navView = $derived(resolveNavigationView(runtime.state, runtime.activeActorId, location));
 	const reachable = $derived(listReachableDestinations(runtime.state, runtime.activeActorId));
 
-	// NAV-001 AC2: opening a section makes route, landmark, and title reflect the
-	// canonical section. The active section comes from the same actor-filtered registry
-	// the primary nav uses, so a section the actor cannot reach yields none (fail closed).
-	const activeSection = $derived(navView.section);
+	// NAV-001 AC2 / NAV-007: the route's accessible semantics — the single route-level
+	// `h1`, the document title, the landmark, and the live route-change announcement —
+	// are all derived once from the navigation view, so the page title, heading, and
+	// announcement can never disagree about which route is active. Fail-closed: a section
+	// the actor cannot reach (or a hidden entity) yields the app-name fallback, never a
+	// leaked title.
+	const routeA11y = $derived(resolveRouteAccessibility(navView, { appName: 'DND Tools v2' }));
 	$effect(() => {
-		document.title = activeSection ? `${activeSection.title} — DND Tools v2` : 'DND Tools v2';
+		document.title = routeA11y.documentTitle;
+	});
+
+	// NAV-007 AC2: announce a completed route change to assistive technology. The
+	// announcement only changes when the route does, so it does not fire on unrelated
+	// reactive updates. It is held one tick behind the polite live region's initial mount
+	// so screen readers register the change rather than the first paint.
+	let routeAnnouncement = $state('');
+	let lastAnnouncedHeading = '';
+	$effect(() => {
+		const next = routeA11y.announcement;
+		if (next === lastAnnouncedHeading) return;
+		lastAnnouncedHeading = next;
+		routeAnnouncement = next;
 	});
 	const currentEntry = $derived.by(() => {
 		const crumb = navView.breadcrumbs.at(-1);
@@ -90,7 +109,7 @@
 </script>
 
 <header class="app-header">
-	<h1>DND Tools v2</h1>
+	<a class="brand" href="/" data-testid="app-brand">DND Tools v2</a>
 	<p class="tagline">Scene-first command platform — local prototype</p>
 	<nav aria-label="Primary">
 		{#each sections as section (section.id)}
@@ -124,12 +143,22 @@
 	</div>
 {/if}
 
+<!-- NAV-007 AC2: a single polite live region announces the route after a navigation
+     completes. It is always present so screen readers register text changes. -->
+<div class="visually-hidden" aria-live="polite" aria-atomic="true" data-testid="route-announcer">
+	{routeAnnouncement}
+</div>
+
 <main
 	class="app-main"
 	data-testid="route-landmark"
-	data-section-landmark={activeSection?.landmark ?? ''}
-	aria-label={activeSection ? `${activeSection.title} section` : undefined}
+	data-section-landmark={routeA11y.landmark}
+	aria-label={routeA11y.landmarkLabel}
 >
+	<!-- NAV-007 AC1: exactly one route-level `h1`, reflecting the active route context.
+	     The app shell owns it so every route has one and only one, derived from the
+	     navigation view rather than authored per page. -->
+	<h1 class="route-title" data-testid="route-title">{routeA11y.heading}</h1>
 	{#if !runtime.loaded}
 		<p class="loading" role="status">Loading local Scene store…</p>
 	{:else}
