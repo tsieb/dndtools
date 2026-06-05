@@ -19,6 +19,11 @@ import {
 	ensureSessionCombatState,
 } from '../state/combat-tracker';
 import {
+	EMPTY_SESSION_AUDIO_STATE,
+	cloneSessionAudioState,
+	ensureSessionAudioState,
+} from '../state/session-audio';
+import {
 	SCENE_SCHEMA_VERSION,
 	type Scene,
 	type WidgetBinding,
@@ -87,6 +92,9 @@ function resetLiveSessionFields(session: CoreStateSlice['session']): CoreStateSl
 		// into the next session. They are preserved in the archive snapshot below for recap.
 		handouts: {},
 		quickReferencePanels: {},
+		// AUDIO-002 / AUDIO-003 — the currently-playing audio is LIVE session state; resetting the session
+		// stops it (a new session starts silent). It is preserved in the archive snapshot below for recap.
+		audioPlayback: EMPTY_SESSION_AUDIO_STATE,
 	};
 }
 
@@ -142,6 +150,8 @@ function archiveCurrentSession(
 		quickReferencePanels: Object.fromEntries(
 			Object.entries(session.quickReferencePanels).map(([id, panel]) => [id, { ...panel }]),
 		),
+		// AUDIO-002 / AUDIO-003 — snapshot the currently-playing audio so recap can review what was playing.
+		audioPlayback: cloneSessionAudioState(ensureSessionAudioState(session.audioPlayback)),
 	};
 
 	return {
@@ -192,6 +202,9 @@ function restoreLiveFieldsFromArchive(
 		quickReferencePanels: Object.fromEntries(
 			Object.entries(archive.quickReferencePanels).map(([id, panel]) => [id, { ...panel }]),
 		),
+		// AUDIO-002 / AUDIO-003 — restore the snapshotted audio playback (fail-closed for an archive persisted
+		// before this slice existed: it restores to the stopped/silent state).
+		audioPlayback: cloneSessionAudioState(ensureSessionAudioState(archive.audioPlayback)),
 	};
 }
 

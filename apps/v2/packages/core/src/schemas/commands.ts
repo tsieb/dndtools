@@ -2103,3 +2103,38 @@ export const deleteAudioAutomationInputSchema = z
 		ruleId: idSchema,
 	})
 	.strict();
+
+// AUDIO-002 / AUDIO-003 — PLAY (or crossfade into) a track on the SESSION-OWNED audio playback state
+// (DM-only). The source/asset is validated through the existing AUDIO-009/010/004 gates in the handler; an
+// out-of-scope/offline/unlicensed track is rejected and NO playback state is created (fail closed). The
+// per-device availability inputs let the handler reuse the offline gate without any network I/O. The
+// authoritative session volume defaults to full; crossfade defaults to an immediate cut.
+export const playSessionAudioInputSchema = z
+	.object({
+		sourceId: idSchema,
+		assetId: z.union([z.literal(null), idSchema]).optional(),
+		volume: z.number().min(0).max(1).optional(),
+		crossfadeSeconds: z.number().min(0).optional(),
+		assetLocallyAvailable: z.boolean().optional(),
+		assetCached: z.boolean().optional(),
+		cacheEvicted: z.boolean().optional(),
+		online: z.boolean().optional(),
+	})
+	.strict();
+
+// AUDIO-002 — set the AUTHORITATIVE session volume (0..1) on the active track (DM-only). This is the SESSION
+// volume, never a participant's device-local volume (AUDIO-002 AC3). Fail closed: rejected when no track.
+export const setSessionAudioVolumeInputSchema = z
+	.object({
+		volume: z.number().min(0).max(1),
+	})
+	.strict();
+
+// AUDIO-002 / AUDIO-003 — project the session's active audio to players (DM-only). An offline participant's
+// projection is marked `queued` (undelivered) rather than blocking local playback (AUDIO-003 AC3).
+export const projectSessionAudioInputSchema = z
+	.object({
+		playerActorIds: z.array(idSchema),
+		connectionState: z.enum(['connected', 'offline']),
+	})
+	.strict();

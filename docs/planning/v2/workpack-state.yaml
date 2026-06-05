@@ -49,6 +49,8 @@ epics:
   - id: AUDIO-platform-and-player-degradation
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/AUDIO-platform-and-player-degradation.completion.md
+  - id: AUDIO-playback-and-session-state
+    status: active
   - id: CANVAS-layout-accessibility
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CANVAS-layout-accessibility.completion.md

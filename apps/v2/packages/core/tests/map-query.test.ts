@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	EMPTY_CALENDAR_CONTINUITY_STATE,
+	EMPTY_SESSION_AUDIO_STATE,
 	EMPTY_SESSION_COMBAT_STATE,
 	createDemoMapState,
 	deliveredMapIdsForActor,
@@ -206,6 +207,7 @@ function EMPTY_SESSION(): SessionState {
 		activeMapProjections: {},
 		handouts: {},
 		quickReferencePanels: {},
+		audioPlayback: EMPTY_SESSION_AUDIO_STATE,
 		playerGroups: {},
 		calendarContinuity: EMPTY_CALENDAR_CONTINUITY_STATE,
 		recapArchiveId: null,

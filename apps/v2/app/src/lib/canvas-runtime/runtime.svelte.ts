@@ -10,6 +10,7 @@ import {
 	EMPTY_AUDIO_STATE,
 	ensureCalendarContinuityState,
 	ensureEncounterState,
+	ensureSessionAudioState,
 	ensureSessionCombatState,
 	createCommandLifecycle,
 	createMapImportAdapterRegistry,
@@ -116,6 +117,11 @@ export class SceneRuntime {
 			activeMapProjections: {},
 			handouts: {},
 			quickReferencePanels: {},
+			audioPlayback: {
+				track: EMPTY_SESSION_STATE.audioPlayback.track,
+				deliveries: { ...EMPTY_SESSION_STATE.audioPlayback.deliveries },
+				schemaVersion: EMPTY_SESSION_STATE.audioPlayback.schemaVersion,
+			},
 			playerGroups: {},
 			calendarContinuity: { ...EMPTY_SESSION_STATE.calendarContinuity },
 			recapArchiveId: null,
@@ -262,6 +268,7 @@ export class SceneRuntime {
 			activeMapProjections: withDefaultWidgets.session.activeMapProjections ?? {},
 			handouts: withDefaultWidgets.session.handouts ?? {},
 			quickReferencePanels: withDefaultWidgets.session.quickReferencePanels ?? {},
+			audioPlayback: ensureSessionAudioState(withDefaultWidgets.session.audioPlayback),
 			calendarContinuity: ensureCalendarContinuityState(
 				withDefaultWidgets.session.calendarContinuity,
 			),

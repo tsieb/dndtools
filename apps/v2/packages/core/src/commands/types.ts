@@ -452,7 +452,17 @@ export type CoreCommand =
 	// session event (combat start / map reveal / scene activation / handout delivery) to a declared audio
 	// command; the license/scope/offline gate is RESOLVED at trigger time (fail closed), never bypassed.
 	| { type: 'audio.configure-automation'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'audio.delete-automation'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'audio.delete-automation'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// AUDIO-002 / AUDIO-003: the DM controls SESSION-OWNED playback — play (or crossfade into) a track,
+	// pause/resume, stop (the only thing that clears the track), set the authoritative session volume, and
+	// project the active track to players (an offline participant is QUEUED, never blocking local playback).
+	// The play/crossfade is validated through the existing AUDIO-009/010/004 gates (fail closed). DM-only.
+	| { type: 'session.audio.play'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.audio.pause'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.audio.resume'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.audio.stop'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.audio.set-volume'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'session.audio.project'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -1065,7 +1075,27 @@ export type CoreEvent =
 			actorId: ActorId;
 	  }
 	// AUDIO-005 — an atmosphere automation rule was deleted.
-	| { kind: 'audio.automation-deleted'; ruleId: string; actorId: ActorId };
+	| { kind: 'audio.automation-deleted'; ruleId: string; actorId: ActorId }
+	// AUDIO-002 / AUDIO-003 — the SESSION-OWNED currently-playing audio changed (played / paused / resumed /
+	// stopped / volume / crossfade). Carries the resulting status + the track reference (source/asset id) +
+	// whether it was a crossfade — never asset bytes, never a player's device-local preference. A `stopped`
+	// status means the track was cleared (the only thing that clears it — AUDIO-003 AC2).
+	| {
+			kind: 'session.audio-changed';
+			actorId: ActorId;
+			status: 'playing' | 'paused' | 'stopped';
+			sourceId: string;
+			assetId: string | null;
+			crossfade: boolean;
+	  }
+	// AUDIO-003 AC3 — the session's active audio was projected to a player. `queued` ⇒ the participant was
+	// unavailable (offline) and the projection is marked undelivered without blocking local playback.
+	| {
+			kind: 'session.audio-projected';
+			actorId: ActorId;
+			playerActorId: ActorId;
+			deliveryStatus: 'delivered' | 'queued';
+	  };
 
 export type RejectionCode =
 	| 'unknown-actor'
@@ -1185,7 +1215,21 @@ export type RejectionCode =
 	// its required local asset). Distinct from the dangling-reference reject so the authoring UI can guide.
 	| 'invalid-audio-automation'
 	// AUDIO-005 — a delete/update targeted an automation rule id not in the library (fail closed).
-	| 'audio-automation-not-found';
+	| 'audio-automation-not-found'
+	// AUDIO-002 / AUDIO-003 — session playback rejections, all fail-closed so the playback path can never
+	// sneak an out-of-scope / unlicensed / offline track into session audio.
+	// The play target source id is not configured.
+	| 'audio-source-not-found'
+	// AUDIO-010 — the source has no declared cache/offline behavior, so playback is disabled (prerequisite).
+	| 'audio-playback-disabled'
+	// AUDIO-002 — a local/bundled source play omitted its required local asset.
+	| 'audio-asset-required'
+	// AUDIO-004 — the play target asset is flagged for license review; playback is blocked (no silent bypass).
+	| 'audio-license-blocked'
+	// AUDIO-010 — the track is unavailable/missing/evicted on this device; playback is not started (no retry).
+	| 'audio-track-unavailable'
+	// AUDIO-002 — pause/stop/set-volume targeted a session with no active track (nothing to do, fail closed).
+	| 'audio-not-playing';
 
 export interface CommandRejection {
 	code: RejectionCode;

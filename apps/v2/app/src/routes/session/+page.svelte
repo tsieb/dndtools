@@ -3,6 +3,7 @@
 	import EncounterBuilder from '$lib/gui/EncounterBuilder.svelte';
 	import DiceTools from '$lib/gui/DiceTools.svelte';
 	import HandoutDelivery from '$lib/gui/HandoutDelivery.svelte';
+	import AudioPlayback from '$lib/gui/AudioPlayback.svelte';
 	import PlayerGroups from '$lib/gui/PlayerGroups.svelte';
 	import LiveTools from '$lib/gui/LiveTools.svelte';
 	import QuickReference from '$lib/gui/QuickReference.svelte';
@@ -68,6 +69,7 @@
 	<DiceTools />
 	<PlayerGroups />
 	<HandoutDelivery />
+	<AudioPlayback />
 	<PlayerViewAccess />
 	<LiveSessionStatus />
 	<ReconnectStatus />

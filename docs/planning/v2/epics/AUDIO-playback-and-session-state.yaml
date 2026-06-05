@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: AUDIO-playback-and-session-state
 title: "AUDIO: Playback and session state"
-status: approved
+status: active
 approved: true
 domain: AUDIO
 capabilityBranch: Playback and session state

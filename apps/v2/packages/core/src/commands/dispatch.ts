@@ -175,6 +175,14 @@ import {
 	handleConfigureAudioAutomation,
 	handleDeleteAudioAutomation,
 } from './audio-automation';
+import {
+	handlePauseSessionAudio,
+	handlePlaySessionAudio,
+	handleProjectSessionAudio,
+	handleResumeSessionAudio,
+	handleSetSessionAudioVolume,
+	handleStopSessionAudio,
+} from './audio-playback';
 import { handleResolveVaultConflict } from './conflict-resolution';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 import { classifyObserverCommand } from '../collab/observer-access';
@@ -504,6 +512,18 @@ export function dispatchCommand(
 			return handleConfigureAudioAutomation(state, env, command.actorId, command.payload);
 		case 'audio.delete-automation':
 			return handleDeleteAudioAutomation(state, env, command.actorId, command.payload);
+		case 'session.audio.play':
+			return handlePlaySessionAudio(state, env, command.actorId, command.payload);
+		case 'session.audio.pause':
+			return handlePauseSessionAudio(state, env, command.actorId, command.payload);
+		case 'session.audio.resume':
+			return handleResumeSessionAudio(state, env, command.actorId, command.payload);
+		case 'session.audio.stop':
+			return handleStopSessionAudio(state, env, command.actorId, command.payload);
+		case 'session.audio.set-volume':
+			return handleSetSessionAudioVolume(state, env, command.actorId, command.payload);
+		case 'session.audio.project':
+			return handleProjectSessionAudio(state, env, command.actorId, command.payload);
 	}
 }
 

@@ -20,6 +20,17 @@ export function isOnline(): boolean {
 	return typeof navigator === 'undefined' ? true : navigator.onLine;
 }
 
+/**
+ * AUDIO-008 — whether the device prefers REDUCED MOTION. This is the ONLY place this media query is read
+ * (the boundary forbids `matchMedia` outside this owned probe). Feature components pass the result to the
+ * core `resolveAudioMotionState` and never touch the media query themselves. Fail closed: on the server, or
+ * where `matchMedia` is unavailable, it reports `true` (the safer, less-animated default).
+ */
+export function prefersReducedMotion(): boolean {
+	if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
+	return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 // PLAT-001: the ONLY place a raw viewport width is read. The platform layer classifies it once
 // into a coarse class so the profile resolver and every feature component stay free of raw pixel
 // math. The boundary lint forbids `innerWidth` / `matchMedia` outside this owned probe.

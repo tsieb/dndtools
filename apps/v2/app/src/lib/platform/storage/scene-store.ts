@@ -14,6 +14,7 @@ import {
 	ensureAudioState,
 	ensureCalendarContinuityState,
 	ensureEncounterState,
+	ensureSessionAudioState,
 	ensureSessionCombatState,
 	ensureVaultContentState,
 	mergeSystemWidgetPackages,
@@ -206,6 +207,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		activeMapProjections: {},
 		handouts: {},
 		quickReferencePanels: {},
+		audioPlayback: ensureSessionAudioState(EMPTY_SESSION_STATE.audioPlayback),
 		playerGroups: {},
 		calendarContinuity: { ...EMPTY_SESSION_STATE.calendarContinuity },
 		recapArchiveId: null,
@@ -227,6 +229,10 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	// no pinned panels (fail closed, never undefined).
 	session.handouts ??= {};
 	session.quickReferencePanels ??= {};
+	// AUDIO-002 / AUDIO-003 — hydrate the session-owned audio playback slice fail-closed: a session document
+	// persisted before this slice restores to the stopped/silent state with no deliveries (an older vault
+	// never re-starts audio from a corrupt record).
+	session.audioPlayback = ensureSessionAudioState(session.audioPlayback);
 	// COLLAB-012 — a session document persisted before Player Groups restores with no groups (fail closed).
 	session.playerGroups ??= {};
 	// SES-012 — a session document persisted before campaign calendar continuity restores with no current

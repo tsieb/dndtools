@@ -9,6 +9,7 @@ import { SYNC_OPERATION_SCHEMA_VERSION } from '../sync/operation-log';
 import type { WidgetDataSchema, WidgetPackageState } from '../state/widget-package-state';
 import type { SessionHandout, SessionState } from '../state/session-state';
 import { SESSION_STATE_SCHEMA_VERSION } from '../state/session-state';
+import { ensureSessionAudioState } from '../state/session-audio';
 import { ensurePlayerGroups } from '../state/player-group';
 import { ensureCalendarContinuityState } from '../state/calendar-continuity';
 import { ensureSessionCombatState } from '../state/combat-tracker';
@@ -245,6 +246,10 @@ export function ensureSessionState(state: SessionState | undefined): SessionStat
 		// acknowledgement/revocation/persistent fields (fail-closed defaults: no acks, no revocations).
 		handouts: ensureHandouts(state?.handouts),
 		quickReferencePanels: state?.quickReferencePanels ?? {},
+		// AUDIO-002 / AUDIO-003 — hydrate the session-owned audio playback slice fail-closed: a session
+		// document persisted before this slice restores to the stopped/silent state with no deliveries (an
+		// older vault never re-starts audio from a corrupt record).
+		audioPlayback: ensureSessionAudioState(state?.audioPlayback),
 		// COLLAB-012 — hydrate player groups fail-closed: a session document persisted before this slice
 		// restores with no groups (never undefined). Groups carry no permission data.
 		playerGroups: ensurePlayerGroups(state?.playerGroups),

@@ -913,6 +913,9 @@ export {
 	validateAudioPackageInputSchema,
 	configureAudioAutomationInputSchema,
 	deleteAudioAutomationInputSchema,
+	playSessionAudioInputSchema,
+	setSessionAudioVolumeInputSchema,
+	projectSessionAudioInputSchema,
 } from './schemas/commands';
 
 export { sceneSchema, sceneStateSchema } from './schemas/scene';
@@ -3493,3 +3496,38 @@ export {
 	listAudioDeliveryForDm,
 	resolveAudioDeliveryForActor,
 } from './queries/audio-delivery-query';
+
+// AUDIO-002 / AUDIO-003 — the SESSION-OWNED currently-playing audio state (Contract 4 Widget State
+// Ownership). The DM controls playback (play/pause/stop/volume/crossfade) and projects the active track to
+// players (an offline participant is QUEUED — AUDIO-003 AC3); the slice is durable session state, syncs to
+// collaborators, and survives audio-widget removal (only a stop clears it — AUDIO-003 AC2).
+export type {
+	SessionAudioDelivery,
+	SessionAudioDeliveryStatus,
+	SessionAudioState,
+	SessionAudioStatus,
+	SessionAudioTrack,
+} from './state/session-audio';
+export {
+	EMPTY_SESSION_AUDIO_STATE,
+	SESSION_AUDIO_ENTITY_TYPE,
+	SESSION_AUDIO_SCHEMA_VERSION,
+	SESSION_AUDIO_STATUSES,
+	cloneSessionAudioState,
+	ensureSessionAudioState,
+	isSessionAudioPlaying,
+	isSessionAudioStatus,
+} from './state/session-audio';
+
+// AUDIO-002 / AUDIO-003 — THE actor-filtered SESSION AUDIO read model that COMPOSES every prior AUDIO model:
+// the DM sees the authoritative track + the per-participant delivery roster (AUDIO-006 AC2) + the offline
+// delivery queue (AUDIO-003 AC3); a participant sees ONLY the player-safe track + their OWN resolved
+// delivery/degradation decision (AUDIO-006/007/012/013). Fail closed: DM-only audio config never leaks.
+export type {
+	SessionAudioDeliveryView,
+	SessionAudioDmView,
+	SessionAudioParticipantView,
+	SessionAudioTrackView,
+	SessionAudioView,
+} from './queries/session-audio-query';
+export { getSessionAudioView } from './queries/session-audio-query';

@@ -10,6 +10,10 @@ import {
 	type CalendarContinuityState,
 } from './calendar-continuity';
 import type { PlayerGroup } from './player-group';
+import {
+	EMPTY_SESSION_AUDIO_STATE,
+	type SessionAudioState,
+} from './session-audio';
 
 // COLLAB-012 — durable PLAYER GROUPS (DM-authored delivery/projection target sets) live on the session
 // document. Re-exported here so existing session-state importers keep their import site while the model
@@ -34,6 +38,23 @@ export { EMPTY_CALENDAR_CONTINUITY_STATE } from './calendar-continuity';
 // session-state importers keep their import site while the model is owned by the SES combat slice.
 export type { SessionCombatState } from './combat-tracker';
 export { EMPTY_SESSION_COMBAT_STATE } from './combat-tracker';
+
+// AUDIO-002 / AUDIO-003 — the SESSION-OWNED currently-playing audio state (Contract 4 Widget State
+// Ownership: "Audio track currently playing — Session state"). It lives ON the session document so it is
+// durable, syncs as session state (not widget-private state), and survives audio-widget removal. The model
+// is owned by the session-audio slice; re-exported here so existing importers keep their import site.
+export type {
+	SessionAudioDelivery,
+	SessionAudioDeliveryStatus,
+	SessionAudioState,
+	SessionAudioStatus,
+	SessionAudioTrack,
+} from './session-audio';
+export {
+	EMPTY_SESSION_AUDIO_STATE,
+	SESSION_AUDIO_SCHEMA_VERSION,
+	ensureSessionAudioState,
+} from './session-audio';
 
 export type SessionWorkflowState =
 	| 'idle'
@@ -341,6 +362,8 @@ export interface SessionArchiveSnapshot {
 	activeMapProjections: Record<ActorId, SessionActiveMapProjection>;
 	handouts: Record<string, SessionHandout>;
 	quickReferencePanels: Record<string, QuickReferencePanel>;
+	/** AUDIO-002 / AUDIO-003 — the session-owned currently-playing audio state at archive time (back-compat optional). */
+	audioPlayback?: SessionAudioState;
 }
 
 export interface SessionState {
@@ -357,6 +380,12 @@ export interface SessionState {
 	handouts: Record<string, SessionHandout>;
 	/** SES-007 — durable pinned quick-reference panels keyed by panel id. */
 	quickReferencePanels: Record<string, QuickReferencePanel>;
+	/**
+	 * AUDIO-002 / AUDIO-003 — the SESSION-OWNED currently-playing audio state (the active track + per-player
+	 * delivery records). Session-owned, not widget-private: removing the audio widget never clears it; only a
+	 * stop command does. Syncs to collaborators as session state.
+	 */
+	audioPlayback: SessionAudioState;
 	/** COLLAB-012 — durable PLAYER GROUPS keyed by group id (DM delivery/projection targets; no permission). */
 	playerGroups: Record<string, PlayerGroup>;
 	/**
@@ -381,6 +410,7 @@ export const EMPTY_SESSION_STATE: SessionState = Object.freeze({
 	activeMapProjections: {},
 	handouts: {},
 	quickReferencePanels: {},
+	audioPlayback: EMPTY_SESSION_AUDIO_STATE,
 	playerGroups: {},
 	calendarContinuity: EMPTY_CALENDAR_CONTINUITY_STATE,
 	recapArchiveId: null,
