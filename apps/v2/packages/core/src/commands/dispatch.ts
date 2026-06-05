@@ -39,6 +39,7 @@ import {
 	handleEndCombat,
 	handleStartCombat,
 } from './combat';
+import { handleAppendRollToNote, handleRollDice, handleRollTable } from './dice';
 import { handleBuildEncounter, handleUpdateEncounter } from './encounter';
 import {
 	handleDisableWidgetPackage,
@@ -212,6 +213,12 @@ export function dispatchCommand(
 			return handleSetSessionWorkflow(state, env, command.actorId, command.payload);
 		case 'session.record-dice':
 			return handleRecordSessionDice(state, env, command.actorId, command.payload);
+		case 'dice.roll':
+			return handleRollDice(state, env, command.actorId, command.payload);
+		case 'dice.roll-table':
+			return handleRollTable(state, env, command.actorId, command.payload);
+		case 'dice.append-to-note':
+			return handleAppendRollToNote(state, env, command.actorId, command.payload);
 		case 'combat.start':
 			return handleStartCombat(state, env, command.actorId, command.payload);
 		case 'combat.advance-turn':

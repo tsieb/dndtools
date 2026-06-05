@@ -167,3 +167,6 @@ epics:
   - id: SES-combat
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SES-combat.completion.md
+  - id: SES-dice-and-tables
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SES-dice-and-tables.completion.md

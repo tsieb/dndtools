@@ -38,6 +38,8 @@ export {
 
 export type {
 	ActiveMapDeliveryStatus,
+	DiceRollSourceKind,
+	DiceRollVisibility,
 	PlayerViewDeliveryStatus,
 	PlayerViewProjectionKind,
 	PlayerViewProjectionTarget,
@@ -51,6 +53,7 @@ export type {
 	SessionWorkflowState,
 } from './state/session-state';
 export {
+	DICE_ROLL_VISIBILITIES,
 	EMPTY_SESSION_STATE,
 	SESSION_STATE_SCHEMA_VERSION,
 	SESSION_WORKFLOW_STATES,
@@ -1974,6 +1977,50 @@ export {
 	endCombatInputSchema,
 	startCombatInputSchema,
 	updateEncounterInputSchema,
+} from './schemas/commands';
+
+// SES-003 / SES-008 — the PURE deterministic dice engine: the expression PARSER (text → AST, malformed
+// rejected fail-closed), the recorded ROLL EVALUATOR (deterministic from a recorded seed; every die
+// recorded so the roll is reproducible), rollable-table resolution from a recorded draw, and macros.
+export type {
+	ConstantTerm,
+	DiceExpression,
+	DiceExpressionTerm,
+	DiceKeep,
+	DiceMacro,
+	DiceParseError,
+	DiceParseResult,
+	DiceRollResult,
+	DiceTerm,
+	EvaluatedConstantTerm,
+	EvaluatedDiceTerm,
+	EvaluatedTerm,
+	RolledDie,
+	TableDrawResult,
+} from './state/dice';
+export {
+	DICE_SCHEMA_VERSION,
+	MAX_DICE_COUNT,
+	MAX_DICE_SIDES,
+	MAX_EXPRESSION_LENGTH,
+	canonicalSource,
+	evaluateRoll,
+	parseDiceExpression,
+	resolveMacro,
+	resolveTableDraw,
+	rollExpression,
+} from './state/dice';
+
+// SES-003 / SES-008 — THE single actor-filtered session ROLL HISTORY read model. A secret/DM-only roll
+// is omitted from a player's history; a shared roll reaches only the listed participants; the DM sees all.
+export type { DiceHistoryView, DiceRollView } from './queries/dice-history';
+export { findRollById, getDiceHistoryForActor } from './queries/dice-history';
+
+// SES-003 / SES-008 — dice command input schemas.
+export {
+	appendRollToNoteInputSchema,
+	rollDiceInputSchema,
+	rollTableInputSchema,
 } from './schemas/commands';
 
 // PLAT-018: durable command lifecycle states.

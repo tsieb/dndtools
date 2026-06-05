@@ -280,6 +280,53 @@ export const recordSessionDiceInputSchema = z
 	})
 	.strict();
 
+// SES-003 — roll a dice expression / macro / inline roll through the shared dice command. The OUTCOME is
+// computed ONCE in the Processing Core from a recorded seed (never supplied by the GUI), so it is
+// reproducible. An optional explicit `seed` makes a roll deterministic for tests/replay; absent ⇒ the
+// command derives a seed from the env. Visibility composes with PERM (a `dm-only`/secret roll is never
+// exposed to players).
+const diceRollVisibilitySchema = z.enum(['session-visible', 'dm-only', 'shared']);
+
+export const rollDiceInputSchema = z
+	.object({
+		expression: z.string().min(1, 'A dice expression is required.'),
+		/** Resolve `expression` as a macro NAME against the supplied macros before parsing. */
+		macros: z
+			.array(z.object({ name: z.string().min(1), expression: z.string().min(1) }).strict())
+			.default([]),
+		/** Treat `expression` as a macro reference (`@name`) and resolve it before rolling. */
+		asMacro: z.boolean().default(false),
+		/** Mark this as an inline roll (embedded in text). Affects only the recorded source kind. */
+		inline: z.boolean().default(false),
+		visibility: diceRollVisibilitySchema.default('session-visible'),
+		sharedWith: z.array(idSchema).default([]),
+		label: z.string().max(120).optional(),
+		/** Optional explicit seed for deterministic/reproducible rolls (tests, replay). */
+		seed: z.union([z.number().finite(), z.string().min(1)]).optional(),
+	})
+	.strict();
+
+// SES-008 — draw a rollable table (a `dice-table` Vault Object) as a session asset. The draw is
+// deterministic from the recorded seed; the selected row is recorded in session history, attributed.
+export const rollTableInputSchema = z
+	.object({
+		tableItemId: idSchema,
+		visibility: diceRollVisibilitySchema.default('session-visible'),
+		sharedWith: z.array(idSchema).default([]),
+		label: z.string().max(120).optional(),
+		seed: z.union([z.number().finite(), z.string().min(1)]).optional(),
+	})
+	.strict();
+
+// SES-008 — append an already-recorded roll/table result to a note (by reference through the existing
+// content write path). Note history records the actor + source roll.
+export const appendRollToNoteInputSchema = z
+	.object({
+		rollId: idSchema,
+		itemId: idSchema,
+	})
+	.strict();
+
 export const setActiveMapInputSchema = z
 	.object({
 		mapId: idSchema,

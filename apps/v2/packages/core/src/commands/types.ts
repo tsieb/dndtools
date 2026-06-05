@@ -7,7 +7,12 @@ import type { MapLayerMutationKind } from '../state/map-layers';
 import type { MapImportAdapterRegistry } from '../state/map-import';
 import type { PermissionState } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
-import type { SessionWorkflowState, SessionState } from '../state/session-state';
+import type {
+	DiceRollSourceKind,
+	DiceRollVisibility,
+	SessionWorkflowState,
+	SessionState,
+} from '../state/session-state';
 import type { WidgetPackageState } from '../state/widget-package-state';
 import type { VaultContentState } from '../state/content';
 import type { EncounterState } from '../state/encounter';
@@ -110,6 +115,14 @@ export type CoreCommand =
 	  }
 	| { type: 'session.set-workflow'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.record-dice'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// SES-003: roll a dice expression / macro / inline roll through the shared dice command. The OUTCOME
+	// is computed once in the Processing Core from a recorded seed (reproducible); malformed expressions
+	// fail closed; visibility composes with PERM (a secret/DM-only roll is withheld from players).
+	| { type: 'dice.roll'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// SES-008: draw a rollable table (a declared `dice-table` Vault Object) deterministically; record the
+	// selected row, attributed. Append a recorded result to a note via the existing content write path.
+	| { type: 'dice.roll-table'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'dice.append-to-note'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// SES-002: run combat. Start (roll initiative), advance turn (wraps to next round), apply a
 	// per-combatant resource (HP/temp-HP/condition/death-save/concentration), and end (persist log).
 	// DM-run; resource application also accepts an authorized combat-participant. Active-session gated.
@@ -444,6 +457,17 @@ export type CoreEvent =
 	  }
 	| { kind: 'session.archived'; actorId: ActorId; archiveId: string }
 	| { kind: 'session.dice-recorded'; actorId: ActorId; rollId: string }
+	// SES-003 / SES-008 — a deterministic, recorded roll (expression/macro/inline/table) was added to the
+	// durable session roll history. Carries the source kind + visibility so subscribers can react without
+	// re-reading the (visibility-filtered) history.
+	| {
+			kind: 'session.roll-recorded';
+			actorId: ActorId;
+			rollId: string;
+			sourceKind: DiceRollSourceKind;
+			visibility: DiceRollVisibility;
+			total: number;
+	  }
 	// SES-002 — combat lifecycle + per-combatant resource events.
 	| {
 			kind: 'combat.started';
@@ -902,7 +926,17 @@ export type RejectionCode =
 	// SES-006 — an encounter target (start-combat link / update) does not exist (fail closed).
 	| 'encounter-not-found'
 	// SES-002 — a combatant referenced by an apply-resource command is not in the current combat.
-	| 'combatant-not-found';
+	| 'combatant-not-found'
+	// SES-003 — a dice expression failed the pure deterministic parser (malformed; never evaluated).
+	| 'invalid-dice-expression'
+	// SES-003 — a macro reference resolved to no defined macro (fail closed; no roll produced).
+	| 'unknown-macro'
+	// SES-008 — the target content item is not a `dice-table` Vault Object subtype.
+	| 'not-a-dice-table'
+	// SES-008 — a `dice-table` object is missing/has an invalid dice expression or result rows.
+	| 'invalid-dice-table'
+	// SES-008 — an append-to-note targeted a roll id not present in the session roll history.
+	| 'roll-not-found';
 
 export interface CommandRejection {
 	code: RejectionCode;
