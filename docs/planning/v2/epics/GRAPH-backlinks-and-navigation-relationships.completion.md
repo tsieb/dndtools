@@ -52,7 +52,7 @@ Requirement IDs exercised by the demo: GRAPH-002.
 | Acceptance criterion | Implementation | Tests |
 | --- | --- | --- |
 | Given a visible note has three backlinks, when the user opens backlinks, then visible backlinks and context snippets appear. | `computeNoteRelationships` (`apps/v2/packages/core/src/state/note-relationships.ts`); `getNoteRelationshipsForActor` (`apps/v2/packages/core/src/queries/note-relationships.ts`); GUI panel in `apps/v2/app/src/lib/gui/NotesWorkbench.svelte`. | `apps/v2/packages/core/tests/graph-backlinks-and-relationships.test.ts` ("surfaces THREE visible backlinks with snippets", "a player opening a visible note sees the visible backlinks and context snippets", pure-engine backlink + snippet cases); `apps/v2/app/tests/e2e/graph-backlinks-and-relationships.spec.ts` ("AC1: opening a note shows its visible backlinks with context snippets and a cross-section"). |
-| Given a backlink source is hidden, when a player opens backlinks, then that backlink is absent. | `buildRelationshipRecords` composes `getContentItemsForActor` (hidden/tombstoned sources never enter the set). | `tests/graph-backlinks-and-relationships.test.ts` ("a dm-only source ... is absent for a player; present for the DM", "a related-note jump never resolves to a hidden target"); e2e ("AC2: a player never sees a dm-only backlink source"). |
+| Given a backlink source is hidden, when a player opens backlinks, then that backlink is absent. | `buildRelationshipRecords` composes `getContentItemsForActor` (hidden/tombstoned sources never enter the set). | `apps/v2/packages/core/tests/graph-backlinks-and-relationships.test.ts` ("a dm-only source ... is absent for a player; present for the DM", "a related-note jump never resolves to a hidden target"); e2e ("AC2: a player never sees a dm-only backlink source"). |
 
 Story GRAPH-002-S01 ("inspect backlinks, cross-section links, and related-note jumps ... with snippets
 redacted according to visibility") tasks T01–T04: design (interface shape composing the existing graph) →
@@ -87,7 +87,7 @@ over existing state, so there are no persistence/migration/conflict implications
 ## Quality gates (all run; all green)
 
 - `pnpm --filter @dndtools/v2-core test` → 126 files, **1751 passed** (18 new in
-  `tests/graph-backlinks-and-relationships.test.ts`).
+  `apps/v2/packages/core/tests/graph-backlinks-and-relationships.test.ts`).
 - `pnpm v2:typecheck` (core `tsc --noEmit` + app `svelte-check`) → **0 errors, 0 warnings** (810 files).
 - `pnpm v2:lint` (boundary script) → **passed**.
 - `pnpm lint` (full eslint + nav-layer + token-compliance + repo-boundary audit) → **passed** (132 Svelte
@@ -126,11 +126,13 @@ over existing state, so there are no persistence/migration/conflict implications
 ## Git evidence
 
 - Branch: `epic/GRAPH-backlinks-and-navigation-relationships`
-- Commit SHA: see the follow-up `docs(v2): record commit SHA ...` commit (recorded after the feature commit).
+- Commit SHA (feature + tests + completion evidence + regenerated workpack): `53f1a62`
+  This `docs(v2): record commit SHA ...` follow-up writes that SHA into this evidence file.
 
-### `git status --short` (after the feature + workpack-complete commits)
+### `git status --short` (after the feature commit; before this SHA-recording commit)
 
 ```
+ M docs/planning/v2/epics/GRAPH-backlinks-and-navigation-relationships.completion.md
 ```
 
-(The working tree is clean — no untracked or unstaged files — after the two-commit completion sequence.)
+After this SHA-recording commit lands the working tree is clean — no untracked or unstaged files.
