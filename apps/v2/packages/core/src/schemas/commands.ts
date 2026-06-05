@@ -969,3 +969,152 @@ export const setCharacterCombatInputSchema = z
 			value.conditions !== undefined,
 		{ message: 'Provide at least one combat field to update.' },
 	);
+
+// --- CHAR-007 — session combat-resource updates (owner OR combat-participant; session-active) ----
+
+const restKindSchema = z.enum(['short', 'long']);
+const rechargeSchema = z.enum(['short', 'long', 'none']);
+
+// CHAR-007 — a single combat-resource update issued DURING A SESSION by a character owner or an
+// authorized combat participant. One discriminated payload per resource so each carries exactly the
+// fields it needs and the durable op records precisely what changed. Gated on the session workflow
+// being `active` and on owner/combat-participant authority in the handler (fail closed).
+export const updateCombatResourceInputSchema = z.discriminatedUnion('kind', [
+	z.object({ characterId: idSchema, kind: z.literal('hp'), delta: z.number().int() }).strict(),
+	z
+		.object({ characterId: idSchema, kind: z.literal('temp-hp'), value: z.number().int().nonnegative() })
+		.strict(),
+	z
+		.object({
+			characterId: idSchema,
+			kind: z.literal('condition'),
+			condition: z.string().min(1),
+			present: z.boolean(),
+		})
+		.strict(),
+	z
+		.object({
+			characterId: idSchema,
+			kind: z.literal('death-save'),
+			outcome: z.enum(['success', 'failure', 'reset']),
+		})
+		.strict(),
+	z
+		.object({
+			characterId: idSchema,
+			kind: z.literal('concentration'),
+			effect: z.union([z.literal(null), z.string().min(1)]),
+		})
+		.strict(),
+	z
+		.object({ characterId: idSchema, kind: z.literal('spell-slot'), level: z.number().int().min(0).max(9) })
+		.strict(),
+	z
+		.object({
+			characterId: idSchema,
+			kind: z.literal('class-resource'),
+			resourceId: idSchema,
+			amount: z.number().int().positive(),
+		})
+		.strict(),
+]);
+
+// --- CHAR-008 — owner-managed spell/resource structure + rest recovery ---------------------------
+
+// CHAR-008 — declare/update the max spell slots for a level (owner-only). `expended` is optional;
+// it is clamped into the new max in the reducer.
+export const setSpellSlotsInputSchema = z
+	.object({
+		characterId: idSchema,
+		level: z.number().int().min(0).max(9),
+		max: z.number().int().nonnegative(),
+		expended: z.number().int().nonnegative().optional(),
+	})
+	.strict();
+
+// CHAR-008 — declare/update a class resource and which rest restores it (owner-only).
+export const setClassResourceInputSchema = z
+	.object({
+		characterId: idSchema,
+		id: idSchema,
+		name: z.string().min(1),
+		max: z.number().int().nonnegative(),
+		recharge: rechargeSchema,
+		expended: z.number().int().nonnegative().optional(),
+	})
+	.strict();
+
+// CHAR-008 — add/update a known spell and its prepared flag (owner-only).
+export const setCharacterSpellInputSchema = z
+	.object({
+		characterId: idSchema,
+		id: idSchema,
+		name: z.string().min(1),
+		level: z.number().int().min(0).max(9),
+		prepared: z.boolean(),
+	})
+	.strict();
+
+// CHAR-008 — apply a SHORT or LONG rest; recovery is deterministic in the reducer (owner-only).
+export const restCharacterInputSchema = z
+	.object({
+		characterId: idSchema,
+		rest: restKindSchema,
+	})
+	.strict();
+
+// --- CHAR-009 — staged-then-commit level-up / advancement (owner-only) ---------------------------
+
+const advancementModeSchema = z.enum(['xp', 'milestone']);
+
+// CHAR-009 — adjust a character's XP total (owner-only). Drives XP-mode eligibility.
+export const setCharacterXpInputSchema = z
+	.object({
+		characterId: idSchema,
+		xp: z.number().int().nonnegative(),
+	})
+	.strict();
+
+// CHAR-009 — OPEN a staged advancement draft on a character (owner-only). Eligibility (XP threshold
+// or milestone) is checked fail-closed in the handler before the draft is opened.
+export const openAdvancementInputSchema = z
+	.object({
+		characterId: idSchema,
+		mode: advancementModeSchema,
+	})
+	.strict();
+
+// CHAR-009 — set the staged level-up choices on the in-progress draft (owner-only). Validation runs
+// against the merged draft; the character revision is NOT finalized here (staged-then-commit).
+export const setAdvancementChoicesInputSchema = z
+	.object({
+		characterId: idSchema,
+		className: z.string().min(1).optional(),
+		hitPointsGained: z.number().int().optional(),
+		subclass: z.string().min(1).optional(),
+		abilityOrFeat: z.string().min(1).optional(),
+	})
+	.strict()
+	.refine(
+		(value) =>
+			value.className !== undefined ||
+			value.hitPointsGained !== undefined ||
+			value.subclass !== undefined ||
+			value.abilityOrFeat !== undefined,
+		{ message: 'Provide at least one advancement choice.' },
+	);
+
+// CHAR-009 — COMMIT the staged advancement. Rejected fail-closed unless the draft passes validation;
+// an invalid/incomplete advancement does not partially mutate the character (no-partial-commit).
+export const commitAdvancementInputSchema = z
+	.object({
+		characterId: idSchema,
+	})
+	.strict();
+
+// CHAR-009 — CANCEL an in-progress advancement draft (owner-only), discarding the staged choices.
+export const cancelAdvancementInputSchema = z
+	.object({
+		characterId: idSchema,
+	})
+	.strict();

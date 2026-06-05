@@ -207,6 +207,45 @@ export type CoreCommand =
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
+	  }
+	// CHAR-007: update a combat resource (HP/temp-HP/conditions/death-saves/concentration/slots/class
+	// resources) DURING a session. Owner OR combat-participant; gated on the active-session workflow.
+	| {
+			type: 'character.update-combat-resource';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	// CHAR-008: owner-managed spell/slot/class-resource structure + deterministic rest recovery.
+	| { type: 'character.set-spell-slots'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'character.set-class-resource';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| { type: 'character.set-spell'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'character.rest'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CHAR-009: staged-then-commit level-up / advancement (XP or milestone), owner-only.
+	| { type: 'character.set-xp'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'character.open-advancement'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'character.set-advancement-choices';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'character.commit-advancement';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'character.cancel-advancement';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
 	  };
 
 export type CoreEvent =
@@ -463,6 +502,39 @@ export type CoreEvent =
 			characterId: string;
 			conflictId: string;
 			path: string;
+			revision: number;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.resource-changed';
+			characterId: string;
+			revision: number;
+			resourceKind: string;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.resources-managed';
+			characterId: string;
+			revision: number;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.rested';
+			characterId: string;
+			revision: number;
+			rest: 'short' | 'long';
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.advancement-changed';
+			characterId: string;
+			revision: number;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'character.advancement-finalized';
+			characterId: string;
+			toLevel: number;
 			revision: number;
 			actorId: ActorId;
 	  };

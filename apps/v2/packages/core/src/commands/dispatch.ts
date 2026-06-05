@@ -83,6 +83,20 @@ import {
 	handleTransferCharacterDraft,
 	handleUpdateCharacterDraftStep,
 } from './character';
+import {
+	handleRestCharacter,
+	handleSetCharacterSpell,
+	handleSetClassResource,
+	handleSetSpellSlots,
+	handleUpdateCombatResource,
+} from './character-resources';
+import {
+	handleCancelAdvancement,
+	handleCommitAdvancement,
+	handleOpenAdvancement,
+	handleSetAdvancementChoices,
+	handleSetCharacterXp,
+} from './character-advancement';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 
 export function dispatchCommand(
@@ -261,6 +275,26 @@ export function dispatchCommand(
 			return handleEditCharacterField(state, env, command.actorId, command.payload);
 		case 'character.resolve-conflict':
 			return handleResolveCharacterConflict(state, env, command.actorId, command.payload);
+		case 'character.update-combat-resource':
+			return handleUpdateCombatResource(state, env, command.actorId, command.payload);
+		case 'character.set-spell-slots':
+			return handleSetSpellSlots(state, env, command.actorId, command.payload);
+		case 'character.set-class-resource':
+			return handleSetClassResource(state, env, command.actorId, command.payload);
+		case 'character.set-spell':
+			return handleSetCharacterSpell(state, env, command.actorId, command.payload);
+		case 'character.rest':
+			return handleRestCharacter(state, env, command.actorId, command.payload);
+		case 'character.set-xp':
+			return handleSetCharacterXp(state, env, command.actorId, command.payload);
+		case 'character.open-advancement':
+			return handleOpenAdvancement(state, env, command.actorId, command.payload);
+		case 'character.set-advancement-choices':
+			return handleSetAdvancementChoices(state, env, command.actorId, command.payload);
+		case 'character.commit-advancement':
+			return handleCommitAdvancement(state, env, command.actorId, command.payload);
+		case 'character.cancel-advancement':
+			return handleCancelAdvancement(state, env, command.actorId, command.payload);
 	}
 }
 

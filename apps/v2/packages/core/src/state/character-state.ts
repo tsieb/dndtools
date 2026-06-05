@@ -2,6 +2,7 @@ import type { ActorId } from './ids';
 import type { VisibilityLevel } from '../permissions/visibility-filter';
 import { DEFAULT_VISIBILITY, normalizeVisibilityLevel } from '../permissions/visibility-filter';
 import type { CharacterCollaboration } from './character-collaboration';
+import type { CharacterResources } from './character-resources';
 
 /**
  * CHAR-001 / CHAR-002 / CHAR-013 — the FOUNDATIONAL character state model.
@@ -118,6 +119,13 @@ export interface Character {
 	 * the SINGLE canonical `data`/`combat`/`name` values; it is NOT a second value layer.
 	 */
 	collaboration?: CharacterCollaboration;
+	/**
+	 * CHAR-007 / CHAR-008 — structured combat-resource + spell/resource state (death saves,
+	 * concentration, spell slots, prepared spells, class resources, and expenditure history). Optional
+	 * so a character persisted before this slice hydrates safely (absent ⇒ empty resources). It EXTENDS
+	 * the model alongside the simplified `combat` quick-create surface; there is no parallel model.
+	 */
+	resources?: CharacterResources;
 	schemaVersion: typeof CHARACTER_STATE_SCHEMA_VERSION;
 }
 

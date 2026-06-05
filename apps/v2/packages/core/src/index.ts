@@ -1338,16 +1338,101 @@ export type {
 } from './queries/character-collaboration';
 export { getCollaborativeCharacterView } from './queries/character-collaboration';
 
+// CHAR-007 / CHAR-008 — the STRUCTURED combat-resource + spell/resource state and its pure
+// deterministic policy: HP/temp-HP/conditions/death-saves/concentration, spell-slot + class-resource
+// expenditure, owner-managed spell/slot/resource structure, deterministic short/long REST RECOVERY,
+// and the append-only EXPENDITURE history. Extends the character model; no parallel model.
+export type {
+	CharacterResources,
+	ClassResource,
+	ConcentrationState,
+	DeathSaveState,
+	PreparedSpell,
+	ResourceLedgerEntry,
+	ResourceUpdateError,
+	ResourceUpdateMeta,
+	ResourceUpdateResult,
+	RestKind,
+	SetClassResourceInput,
+	SetSpellInput,
+	SetSpellSlotsInput,
+	SpellSlotLevel,
+} from './state/character-resources';
 export {
+	CHARACTER_RESOURCES_SCHEMA_VERSION,
+	DEATH_SAVE_MAX,
+	EMPTY_CHARACTER_RESOURCES,
+	EMPTY_CONCENTRATION,
+	EMPTY_DEATH_SAVES,
+	applyHpDelta,
+	applyRest,
+	availableClassResource,
+	availableSlots,
+	ensureCharacterResources,
+	expendClassResource,
+	expendSpellSlot,
+	recordDeathSave,
+	resourcesOf,
+	setClassResource,
+	setCondition,
+	setConcentration,
+	setSpell,
+	setSpellSlots,
+	setTempHp,
+} from './state/character-resources';
+
+// CHAR-009 — level-up / ADVANCEMENT (XP or milestone) with VALIDATION before the revision is
+// FINALIZED, via the staged-then-commit pattern. The staged draft lives on the durable character so
+// it restores across restarts; commit is fail-closed on validation (no partial mutation). Pure policy.
+export type {
+	AdvancementChoices,
+	AdvancementDraft,
+	AdvancementError,
+	AdvancementIssue,
+	AdvancementMode,
+	AdvancementState,
+	AdvancementValidation,
+	CommitAdvancementResult,
+	EligibilityResult,
+} from './state/character-advancement';
+export {
+	CHARACTER_ADVANCEMENT_SCHEMA_VERSION,
+	MAX_CHARACTER_LEVEL,
+	XP_THRESHOLDS,
+	advancementDraftOf,
+	advancementStateOf,
+	buildAdvancementDraft,
+	characterLevel,
+	characterXp,
+	checkAdvancementEligibility,
+	clearAdvancementDraft,
+	commitAdvancement,
+	mergeAdvancementChoices,
+	validateAdvancement,
+	writeAdvancementDraft,
+	xpForLevel,
+} from './state/character-advancement';
+
+export {
+	cancelAdvancementInputSchema,
+	commitAdvancementInputSchema,
 	createCharacterDraftInputSchema,
 	editCharacterFieldInputSchema,
 	finalizeCharacterDraftInputSchema,
+	openAdvancementInputSchema,
 	quickCreateCharacterInputSchema,
 	resolveCharacterConflictInputSchema,
+	restCharacterInputSchema,
 	revokeCharacterDraftInputSchema,
+	setAdvancementChoicesInputSchema,
 	setCharacterCombatInputSchema,
+	setCharacterSpellInputSchema,
+	setCharacterXpInputSchema,
+	setClassResourceInputSchema,
+	setSpellSlotsInputSchema,
 	transferCharacterDraftInputSchema,
 	updateCharacterDraftStepInputSchema,
+	updateCombatResourceInputSchema,
 } from './schemas/commands';
 
 // PLAT-018: durable command lifecycle states.

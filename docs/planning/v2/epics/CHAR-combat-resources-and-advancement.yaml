@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CHAR-combat-resources-and-advancement
 title: "CHAR: Combat, resources, and advancement"
-status: approved
+status: complete
 approved: true
 domain: CHAR
 capabilityBranch: Combat, resources, and advancement
@@ -185,3 +185,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/CHAR-combat-resources-and-advancement.completion.md

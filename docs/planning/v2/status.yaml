@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 58
+  approved: 57
   active: 0
-  complete: 30
+  complete: 31
   deferred: 0
 metrics:
-  epicCompletionPercent: 34.1
-  requirementCompletionPercent: 40.2
+  epicCompletionPercent: 35.2
+  requirementCompletionPercent: 41.5
   totalRequirements: 234
-  completedRequirements: 94
+  completedRequirements: 97
   deferredRequirements: 0
-  remainingEpics: 58
-  promptableEpics: 58
+  remainingEpics: 57
+  promptableEpics: 57
   blockedByDependencies: 0
-  completionEvidenceFiles: 30
+  completionEvidenceFiles: 31
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -50,13 +50,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: CHAR
       totalEpics: 6
-      complete: 2
+      complete: 3
       active: 0
-      approved: 4
+      approved: 3
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 33.3
-      requirementCompletionPercent: 37.5
+      epicCompletionPercent: 50
+      requirementCompletionPercent: 56.3
     - domain: CMD
       totalEpics: 4
       complete: 4
@@ -193,17 +193,16 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: CHAR-combat-resources-and-advancement
-  title: "CHAR: Combat, resources, and advancement"
+  id: CHAR-ownership-and-permission-grants
+  title: "CHAR: Ownership and permission grants"
   status: approved
   requirementIds:
-    - CHAR-007
-    - CHAR-008
-    - CHAR-009
-  promptCommand: pnpm v2:prompt -- --epic CHAR-combat-resources-and-advancement
+    - CHAR-003
+    - CHAR-010
+  promptCommand: pnpm v2:prompt -- --epic CHAR-ownership-and-permission-grants
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    CHAR-combat-resources-and-advancement --status active
+    CHAR-ownership-and-permission-grants --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -299,12 +298,13 @@ epics:
       - CHAR-014
     completionEvidenceFile: docs/planning/v2/epics/CHAR-collaboration-and-dm-edits.completion.md
   - id: CHAR-combat-resources-and-advancement
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - CHAR-007
       - CHAR-008
       - CHAR-009
+    completionEvidenceFile: docs/planning/v2/epics/CHAR-combat-resources-and-advancement.completion.md
   - id: CHAR-ownership-and-permission-grants
     status: approved
     approved: true

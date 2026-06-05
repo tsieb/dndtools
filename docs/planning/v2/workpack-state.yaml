@@ -62,6 +62,9 @@ epics:
   - id: CHAR-collaboration-and-dm-edits
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CHAR-collaboration-and-dm-edits.completion.md
+  - id: CHAR-combat-resources-and-advancement
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CHAR-combat-resources-and-advancement.completion.md
   - id: CMD-active-session-control
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CMD-active-session-control.completion.md

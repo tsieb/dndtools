@@ -6,6 +6,8 @@
 	import CharacterDraftFlow from '$lib/gui/CharacterDraftFlow.svelte';
 	import CharacterRoster from '$lib/gui/CharacterRoster.svelte';
 	import CharacterCollaboration from '$lib/gui/CharacterCollaboration.svelte';
+	import CharacterCombatResources from '$lib/gui/CharacterCombatResources.svelte';
+	import CharacterAdvancement from '$lib/gui/CharacterAdvancement.svelte';
 
 	// CHAR-001 / CHAR-002 / CHAR-013: the Characters section. Which surfaces appear is an ergonomic
 	// role hint (the DM authoring tools for the DM; the guided creation flow for a player who owns a
@@ -40,6 +42,12 @@
 	     own a character. Observers see nothing (the core's actor-filtered view returns no characters). -->
 	{#if activeRole === 'dm' || activeRole === 'player'}
 		<CharacterCollaboration />
+		<!-- CHAR-007 / CHAR-008: combat resources + spell/resource state. Owners and combat participants
+		     update resources during a session; owners manage structure and rest recovery. The core gates
+		     session-active writes and owner-vs-combat-participant authority. -->
+		<CharacterCombatResources />
+		<!-- CHAR-009: level-up / advancement with staged validation before finalization (owner-only). -->
+		<CharacterAdvancement />
 	{/if}
 
 	{#if activeRole === 'dm'}
