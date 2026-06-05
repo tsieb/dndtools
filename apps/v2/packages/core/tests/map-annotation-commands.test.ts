@@ -93,7 +93,12 @@ describe('MAP-010 POI create/move/categorize/link is a durable DM command', () =
 			run(seeded(), {
 				type: 'map.create-poi',
 				actorId: PLAYER_ACTOR.id,
-				payload: { mapId: WESTERN, layerId: 'layer-terrain', label: 'X', position: { x: 0.1, y: 0.1 } },
+				payload: {
+					mapId: WESTERN,
+					layerId: 'layer-terrain',
+					label: 'X',
+					position: { x: 0.1, y: 0.1 },
+				},
 			}),
 		);
 		expect(result.rejection.code).toBe('actor-not-authorized');
@@ -146,7 +151,11 @@ describe('MAP-012 fog reveal/conceal is durable and syncs (queues offline)', () 
 			}),
 		);
 		expect(result.operationIds).toHaveLength(1);
-		expect(result.events[0]).toMatchObject({ kind: 'map.fog-changed', mutation: 'reveal', deliveryStatus: 'delivered' });
+		expect(result.events[0]).toMatchObject({
+			kind: 'map.fog-changed',
+			mutation: 'reveal',
+			deliveryStatus: 'delivered',
+		});
 		const map = result.nextState.maps.maps[KEEP]!;
 		expect(map.fog.some((op) => op.kind === 'reveal')).toBe(true);
 	});
@@ -189,7 +198,12 @@ describe('MAP-012 fog reveal/conceal is durable and syncs (queues offline)', () 
 				},
 			}),
 		);
-		const view = getMapViewForActor(result.nextState.maps, result.nextState.permissions, PLAYER_ACTOR.id, WESTERN);
+		const view = getMapViewForActor(
+			result.nextState.maps,
+			result.nextState.permissions,
+			PLAYER_ACTOR.id,
+			WESTERN,
+		);
 		if (view.kind !== 'available') throw new Error('unavailable');
 		expect(view.fog).toHaveLength(0);
 	});
@@ -213,9 +227,15 @@ describe('MAP-013 route is durable; distance/time are derived in the query', () 
 				},
 			}),
 		);
-		const view = getMapViewForActor(result.nextState.maps, result.nextState.permissions, DM_ACTOR.id, WESTERN, {
-			travelSpeed: { distancePerTime: 24, timeUnit: 'days' },
-		});
+		const view = getMapViewForActor(
+			result.nextState.maps,
+			result.nextState.permissions,
+			DM_ACTOR.id,
+			WESTERN,
+			{
+				travelSpeed: { distancePerTime: 24, timeUnit: 'days' },
+			},
+		);
 		if (view.kind !== 'available') throw new Error('unavailable');
 		const route = view.routes.find((r) => r.label === 'Patrol Loop')!;
 		// normalized 0.5 * 120 miles = 60 miles; / 24 = 2.5 days.
@@ -251,7 +271,7 @@ describe('MAP-014 overlay mode prerequisite gate is fail-closed', () => {
 	});
 
 	it('AC2: configuring grid off while in grid-align is blocked (no bypass)', () => {
-		let state = accept(
+		const state = accept(
 			run(seeded(), {
 				type: 'map.set-overlay-mode',
 				actorId: DM_ACTOR.id,

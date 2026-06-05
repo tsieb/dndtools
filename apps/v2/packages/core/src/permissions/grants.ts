@@ -1,10 +1,5 @@
 import type { ActorId } from '../state/ids';
-import type {
-	Actor,
-	CapabilitySet,
-	PermissionGrant,
-	PermissionState,
-} from '../state/permission-state';
+import type { Actor, CapabilitySet, PermissionState } from '../state/permission-state';
 import { capabilitySetGrants, inheritedCapabilitySets } from './capability-sets';
 import { isGrantActive } from './grant-records';
 

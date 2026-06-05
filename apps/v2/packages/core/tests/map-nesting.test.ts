@@ -54,13 +54,11 @@ function rejected(result: CommandResult): Extract<CommandResult, { status: 'reje
 	return result;
 }
 
-let mapSeq = 0;
 function makeMap(
 	id: string,
 	visibility: SceneVisibility = 'player-visible',
 	embeds: MapEmbed[] = [],
 ): MapEntity {
-	mapSeq += 1;
 	return normalizeMapEntity({
 		id,
 		name: `Map ${id}`,

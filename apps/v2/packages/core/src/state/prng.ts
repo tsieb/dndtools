@@ -33,7 +33,7 @@ export function normalizeSeed(seed: number | string): number {
 
 /** One step of mulberry32: given a 32-bit state, return `[value in [0,1), nextState]`. */
 function mulberry32(state: number): [number, number] {
-	let t = (state + 0x6d2b79f5) >>> 0;
+	const t = (state + 0x6d2b79f5) >>> 0;
 	let x = t;
 	x = Math.imul(x ^ (x >>> 15), x | 1);
 	x ^= x + Math.imul(x ^ (x >>> 7), x | 61);

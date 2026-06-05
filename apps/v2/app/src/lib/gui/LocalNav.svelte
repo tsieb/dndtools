@@ -82,7 +82,6 @@
 				<div class="local-nav-backdrop" data-testid="local-nav-backdrop" onclick={closeDrawer}>
 					<nav class="local-nav-drawer" aria-label={label} data-testid="local-nav-drawer">
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div
 							bind:this={drawerEl}
 							class="local-nav-sheet"

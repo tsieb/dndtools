@@ -348,7 +348,7 @@
 		<section aria-label="Session workflow" data-testid="session-workflow">
 			<h2>Session workflow</h2>
 			<div class="workflow-strip" role="toolbar" aria-label="Session workflow states">
-				{#each SESSION_WORKFLOW_STATES as workflow}
+				{#each SESSION_WORKFLOW_STATES as workflow (workflow)}
 					<button
 						type="button"
 						data-testid={`session-workflow-${workflow}`}

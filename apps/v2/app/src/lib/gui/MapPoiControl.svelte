@@ -8,6 +8,7 @@
 		type ControlInteractionState,
 		type MapRegion,
 	} from '@dndtools/v2-core';
+	import { SvelteMap } from 'svelte/reactivity';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
 
 	/**
@@ -45,7 +46,7 @@
 	let interaction = $state<ControlInteractionState>(CLOSED_CONTROL_INTERACTION);
 
 	// The trigger that opened the active control, so focus can be restored to it on dismiss.
-	const triggerEls = new Map<string, HTMLButtonElement>();
+	const triggerEls = new SvelteMap<string, HTMLButtonElement>();
 	let controlEl = $state<HTMLElement | null>(null);
 	let restoreFocusTo: HTMLElement | null = null;
 
@@ -179,7 +180,6 @@
 					     sheet on compact profiles; the engagement rules are identical (the core
 					     reducer is profile-agnostic). The internal pointer/hover/scroll/focus
 					     handlers forward intents that the core treats as non-dismissing. -->
-					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<div
 						bind:this={controlEl}
 						id={`poi-popover-${region.id}`}
@@ -226,8 +226,8 @@
 							</a>
 						</div>
 						<p class="meta">
-							Stays open while you interact — pointer moves, scrolling, and focusing an
-							action do not dismiss it.
+							Stays open while you interact — pointer moves, scrolling, and focusing an action do
+							not dismiss it.
 						</p>
 					</div>
 				{/if}
