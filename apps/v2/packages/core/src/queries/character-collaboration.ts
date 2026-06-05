@@ -9,6 +9,7 @@ import {
 	type CharacterFieldConflict,
 } from '../state/character-collaboration';
 import { hasGrantedCapability } from '../permissions/grants';
+import { BACKSTORY_EDITOR_DATA_KEYS } from '../permissions/character-field-authority';
 
 /**
  * CHAR-014 — the ACTOR-FILTERED collaborative character view. The collaborative surface must visibly
@@ -106,7 +107,13 @@ function fieldVisibleToActor(character: Character, actor: Actor, path: string): 
 	return !character.dmOnlyFields.includes(path);
 }
 
-/** The editable field paths a collaborative view exposes for a character, in stable order. */
+/**
+ * The editable field paths a collaborative view exposes for a character, in stable order. The
+ * NARRATIVE surface a `backstory-editor` may author (CHAR-010) is ALWAYS exposed — even when empty —
+ * so a backstory-editor/owner can fill in an as-yet-unauthored backstory/personality/etc. Any extra
+ * `data.*` keys already on the character are appended after, deduped. (Per-field actor visibility is
+ * still applied below, so a DM-only narrative key is never returned to a non-DM actor.)
+ */
 function collaborativeFieldPaths(character: Character): CharacterFieldPath[] {
 	const paths: CharacterFieldPath[] = [
 		'name',
@@ -116,8 +123,20 @@ function collaborativeFieldPaths(character: Character): CharacterFieldPath[] {
 		'combat.ac',
 		'combat.conditions',
 	];
+	const seen = new Set<string>(paths);
+	for (const key of BACKSTORY_EDITOR_DATA_KEYS) {
+		const path = `data.${key}`;
+		if (!seen.has(path)) {
+			seen.add(path);
+			paths.push(path as CharacterFieldPath);
+		}
+	}
 	for (const key of Object.keys(character.data)) {
-		paths.push(`data.${key}` as CharacterFieldPath);
+		const path = `data.${key}`;
+		if (!seen.has(path)) {
+			seen.add(path);
+			paths.push(path as CharacterFieldPath);
+		}
 	}
 	return paths;
 }

@@ -32,6 +32,7 @@ import {
 } from '../state/character-collaboration';
 import { computeDraftCompleteness, validateDraftStep } from '../state/character-draft-flow';
 import { hasGrantedCapability } from '../permissions/grants';
+import { requiredCapabilityForCharacterField } from '../permissions/character-field-authority';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import {
 	appendOperationDraft,
@@ -593,12 +594,22 @@ export function handleFinalizeCharacterDraft(
  * a same-path concurrent edit (a stale `baseRevision` against a path another author changed) is
  * surfaced as a CONFLICT instead of silent last-write-wins; edits to different paths always merge.
  *
- * Authority: the DM may edit any field (DM Authority — Contract 3); a character OWNER may edit a
- * field they hold an `owner`/`backstory-editor`/`combat-participant`-implied capability on AND that
- * is not DM-only. Fail-closed: a non-owner non-DM is rejected, an unknown/invalid path or value is
- * rejected, a non-DM editing a DM-only field is rejected (and the rejection does not confirm the
- * field's existence beyond the generic message). DM edits land on the SAME canonical value — there is
- * NO separate hidden override layer (CHAR-005 / Contract 2 research conclusion).
+ * Authority is FIELD-SCOPED by capability set (CHAR-010 / Architecture Contract 3 "Minimum Capability
+ * Sets"):
+ *   - The DM may edit any field (DM Authority — Contract 3). The DM role floor retains FULL character
+ *     authority regardless of any player grant: granting `owner` to a player does NOT remove the DM's
+ *     ability to edit everything, including after the grant (CHAR-003).
+ *   - A non-DM may edit a field ONLY IF (a) it is not DM-only AND (b) they hold the capability set the
+ *     field requires (`character-field-authority`): a narrative field needs `backstory-editor`, a
+ *     combat field needs `combat-participant`, identity/other fields need `owner`. `owner` inherits
+ *     all of these, so an owner can edit every player-authored field; a `backstory-editor` can edit
+ *     ONLY the narrative surface (CHAR-010) — a combat or identity field is rejected fail-closed.
+ *
+ * Fail-closed: an unknown/invalid path or value is rejected the same way for everyone BEFORE any
+ * authority decision (so a rejection never confirms a DM-only field's existence); a non-DM lacking the
+ * field's capability is rejected; a non-DM editing a DM-only field is rejected with the SAME generic
+ * message whether or not the field exists, so the DM-only field's existence is not probeable. DM edits
+ * land on the SAME canonical value — there is NO separate hidden override layer (Contract 2 research).
  */
 export function handleEditCharacterField(
 	state: CoreStateSlice,
@@ -628,24 +639,38 @@ export function handleEditCharacterField(
 		return reject({ code: 'invalid-payload', message: validation.message }, state);
 	}
 
-	// Authority. The DM may edit any field. A non-DM may only edit a field they own AND that is NOT
-	// DM-only (fail closed). The generic rejection does not reveal whether the DM-only field exists.
+	const now = env.clock();
+
+	// Authority. The DM may edit any field (DM Authority — Contract 3). The DM role FLOOR is
+	// unaffected by any player grant, so the DM still edits everything after granting `owner` to a
+	// player (CHAR-003). A non-DM may edit a field ONLY when it is not DM-only AND they hold the
+	// capability set that field requires (CHAR-010, field-scoped by `character-field-authority`).
 	const isDm = actor.role === 'dm';
 	if (!isDm) {
-		const ownsCharacter = hasGrantedCapability(
+		// A non-DM may never write a DM-only field. Checked FIRST and with the SAME generic message
+		// regardless of capability, so a backstory-editor probing a DM-only path cannot distinguish
+		// "DM-only" from "not allowed for my grant" — the field's DM-only status is not probeable.
+		if (existing.dmOnlyFields.includes(validation.path)) {
+			return reject(
+				{ code: 'actor-not-authorized', message: 'You do not have permission to edit this field.' },
+				state,
+			);
+		}
+		// Field-scoped capability: the narrowest set this field requires. `owner` inherits
+		// `backstory-editor` + `combat-participant`, so an owner satisfies every field; a
+		// backstory-editor satisfies only narrative fields (a combat/identity field fails closed).
+		// `now` is passed so an EXPIRED grant is inert (fail closed — PERM-004): an expired
+		// backstory-editor grant confers no narrative-edit authority.
+		const required = requiredCapabilityForCharacterField(validation.path);
+		const authorized = hasGrantedCapability(
 			state.permissions,
 			actor,
 			CHARACTER_ENTITY_TYPE,
 			existing.id,
-			'owner',
+			required,
+			now,
 		);
-		if (!ownsCharacter) {
-			return reject(
-				{ code: 'actor-not-authorized', message: 'You do not have permission to edit this character.' },
-				state,
-			);
-		}
-		if (existing.dmOnlyFields.includes(validation.path)) {
+		if (!authorized) {
 			return reject(
 				{ code: 'actor-not-authorized', message: 'You do not have permission to edit this field.' },
 				state,
@@ -654,7 +679,6 @@ export function handleEditCharacterField(
 	}
 
 	const collaboration = ensureCollaboration(existing.collaboration);
-	const now = env.clock();
 	const operationId = env.ids();
 	const result = applyFieldEdit(existing, collaboration, {
 		path: validation.path,

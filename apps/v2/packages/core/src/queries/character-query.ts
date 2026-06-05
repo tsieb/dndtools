@@ -55,12 +55,17 @@ function redactCharacter(character: Character, isDm: boolean): CharacterView {
 	const combat = { ...character.combat, conditions: [...character.combat.conditions] };
 	if (!isDm) {
 		for (const field of character.dmOnlyFields) {
-			delete (data as Record<string, unknown>)[field];
-			// A dm-only field may also name a combat selector (e.g. "combat.hp"); strip the suffix.
-			const combatKey = field.startsWith('combat.') ? field.slice('combat.'.length) : null;
-			if (combatKey && combatKey in combat) {
-				delete (combat as Record<string, unknown>)[combatKey];
+			// DM-only field paths follow the field-edit path convention: `data.<key>` for a structured
+			// sheet field, `combat.<key>` for a combat field, or a bare data key for legacy records.
+			// Strip the scope prefix so the correct key is removed from `data`/`combat` and the value
+			// never reaches a non-DM actor (Contract 3 field visibility / CHAR-010 non-leak).
+			if (field.startsWith('combat.')) {
+				const combatKey = field.slice('combat.'.length);
+				if (combatKey in combat) delete (combat as Record<string, unknown>)[combatKey];
+				continue;
 			}
+			const dataKey = field.startsWith('data.') ? field.slice('data.'.length) : field;
+			delete (data as Record<string, unknown>)[dataKey];
 		}
 	}
 	return {

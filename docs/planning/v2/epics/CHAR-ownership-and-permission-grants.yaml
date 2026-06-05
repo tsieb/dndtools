@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CHAR-ownership-and-permission-grants
 title: "CHAR: Ownership and permission grants"
-status: approved
+status: complete
 approved: true
 domain: CHAR
 capabilityBranch: Ownership and permission grants
@@ -157,3 +157,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/CHAR-ownership-and-permission-grants.completion.md

@@ -3,6 +3,8 @@
 		getCollaborativeCharacterView,
 		hasGrantedCapability,
 		listCharactersForActor,
+		requiredCapabilityForCharacterField,
+		type CapabilitySet,
 		type CollaborativeField,
 	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
@@ -156,30 +158,38 @@
 		if (result.status === 'rejected') error = result.rejection.message;
 	}
 
-	// DM-only setup helper: grant `owner` to a player so collaborative editing can be demonstrated.
+	// DM-only setup helper: grant a NAMED capability set to a player so collaborative editing can be
+	// demonstrated. The DM picks the player and the set (`owner` or the field-scoped `backstory-editor`);
+	// the grant is a durable DM-authored command (Contract 3 Axis 2). Granting does NOT touch the DM's
+	// own authority (CHAR-003 — the DM floor is unaffected by player grants).
 	let grantTarget = $state<Record<string, string>>({});
-	async function grantOwner(characterId: string): Promise<void> {
+	let grantSet = $state<Record<string, CapabilitySet>>({});
+	async function grantCapability(characterId: string): Promise<void> {
 		error = null;
 		const playerActorId = grantTarget[characterId];
 		if (!playerActorId) {
-			error = 'Choose a player to grant ownership to.';
+			error = 'Choose a player to grant a capability set to.';
 			return;
 		}
+		const capabilitySet: CapabilitySet = grantSet[characterId] ?? 'owner';
 		const result = await runtime.dispatch({
 			type: 'permission.grant-capability-set',
 			actorId: runtime.activeActorId,
-			payload: { entityType: 'character', entityId: characterId, playerActorId, capabilitySet: 'owner' },
+			payload: { entityType: 'character', entityId: characterId, playerActorId, capabilitySet },
 		});
 		if (result.status === 'rejected') error = result.rejection.message;
 	}
 
-	function canEditField(characterId: string): boolean {
+	// FIELD-SCOPED edit gate (CHAR-010). The DM may edit every field. A non-DM may edit a field only
+	// when they hold the capability set that field REQUIRES (narrative ⇒ backstory-editor, combat ⇒
+	// combat-participant, identity/other ⇒ owner). `owner` inherits all of these, so an owner can edit
+	// every player-authored field; a backstory-editor sees inputs ONLY on narrative fields. This is an
+	// ergonomic hint — the core re-validates authority (and DM-only) on dispatch regardless.
+	function canEditField(characterId: string, path: string): boolean {
 		if (!actor) return false;
 		if (isDm) return true;
-		// A player may edit only when they own the character. The field list the core returns already
-		// omits dm-only fields for a non-DM actor, so any field shown here is safe to offer for edit;
-		// the core re-validates authority on dispatch regardless of this ergonomic hint.
-		return hasGrantedCapability(runtime.state.permissions, actor, 'character', characterId, 'owner');
+		const required = requiredCapabilityForCharacterField(path);
+		return hasGrantedCapability(runtime.state.permissions, actor, 'character', characterId, required);
 	}
 </script>
 
@@ -211,7 +221,17 @@
 						{:else}
 							<div class="grant-owner">
 								<label>
-									Grant owner to
+									Grant
+									<select
+										data-testid={`collab-grant-set-${view.id}`}
+										bind:value={grantSet[view.id]}
+									>
+										<option value="owner" selected>Owner</option>
+										<option value="backstory-editor">Backstory Editor</option>
+									</select>
+								</label>
+								<label>
+									to
 									<select
 										data-testid={`collab-grant-target-${view.id}`}
 										bind:value={grantTarget[view.id]}
@@ -226,7 +246,7 @@
 									type="button"
 									class="button secondary"
 									data-testid={`collab-grant-${view.id}`}
-									onclick={() => grantOwner(view.id)}>Grant owner</button
+									onclick={() => grantCapability(view.id)}>Grant</button
 								>
 							</div>
 						{/if}
@@ -286,7 +306,7 @@
 									{#if Array.isArray(field.value)}
 										<span class="meta">{(field.value as string[]).join(', ') || '—'}</span>
 									{:else}
-										{#if canEditField(view.id)}
+										{#if canEditField(view.id, field.path)}
 											<input
 												data-testid={`collab-input-${view.id}-${field.path}`}
 												type={isNumericPath(field.path) ? 'number' : 'text'}
@@ -299,7 +319,7 @@
 										{/if}
 									{/if}
 								</label>
-								{#if canEditField(view.id) && !Array.isArray(field.value)}
+								{#if canEditField(view.id, field.path) && !Array.isArray(field.value)}
 									<button
 										type="button"
 										class="button secondary"
@@ -373,6 +393,16 @@
 		align-items: flex-end;
 		gap: 0.5rem;
 		margin: 0.5rem 0;
+		flex-wrap: wrap;
+	}
+	.grant-owner label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		font-weight: 600;
+	}
+	.grant-owner .button {
+		flex: 0 0 auto;
 	}
 	.badge {
 		font-size: 0.7rem;

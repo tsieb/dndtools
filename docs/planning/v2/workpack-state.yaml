@@ -65,6 +65,9 @@ epics:
   - id: CHAR-combat-resources-and-advancement
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CHAR-combat-resources-and-advancement.completion.md
+  - id: CHAR-ownership-and-permission-grants
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CHAR-ownership-and-permission-grants.completion.md
   - id: CMD-active-session-control
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CMD-active-session-control.completion.md

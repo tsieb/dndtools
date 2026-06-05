@@ -670,6 +670,16 @@ export {
 	singularOwnershipCapabilityFor,
 } from './permissions/capability-schema';
 
+// CHAR-010: FIELD-SCOPED character-edit authority (Contract 3 "Minimum Capability Sets"). Maps a
+// character field path to the MINIMUM capability set that may write it (narrative ⇒ backstory-editor,
+// combat ⇒ combat-participant, identity/other ⇒ owner). The field-edit command is driven by this so a
+// backstory-editor can edit ONLY the narrative surface, fail closed. Pure data + pure predicates.
+export {
+	BACKSTORY_EDITOR_DATA_KEYS,
+	isBackstoryEditorField,
+	requiredCapabilityForCharacterField,
+} from './permissions/character-field-authority';
+
 // PERM-009: deterministic, synchronous participant capability cache + invalidation. The cache is
 // keyed by a per-participant fingerprint of all inputs/versions that affect effective
 // capabilities; a change to any trigger (grants, visibility, roles, ownership, schema version)
