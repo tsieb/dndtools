@@ -13,6 +13,7 @@
 	import SyncStatusPanel from '$lib/gui/SyncStatusPanel.svelte';
 	import CloudStorageClassificationPanel from '$lib/gui/CloudStorageClassificationPanel.svelte';
 	import SourceAdaptersPanel from '$lib/gui/SourceAdaptersPanel.svelte';
+	import SessionPrivacyPanel from '$lib/gui/SessionPrivacyPanel.svelte';
 	import PermissionSummary from '$lib/gui/PermissionSummary.svelte';
 	import GrantManager from '$lib/gui/GrantManager.svelte';
 	import CapabilityStatus from '$lib/gui/CapabilityStatus.svelte';
@@ -103,6 +104,14 @@
 	     capability metadata, the explicit sync states, and the fail-closed preflight. This surface
 	     renders the computed registry and never reaches storage or network (live transports deferred). -->
 	<SourceAdaptersPanel />
+
+	<!-- COLLAB-008 / COLLAB-009 / COLLAB-010 / COLLAB-014: the session-privacy surface. Player/observer
+	     replication streams are filtered BEFORE data leaves the host (hidden content never enters the
+	     stream), concurrent session commands resolve with DM authority where policy grants it, and
+	     participant device caches are purged or sealed on leave unless a persistent grant exists (with
+	     offline-revocation sealing). The Processing Core owns every decision; this surface renders the
+	     computed models and reaches no storage or transport (live transport deferred per ADR-014). -->
+	<SessionPrivacyPanel />
 
 	<!-- PERM-001 / PERM-011: the effective permission surface the Processing Core computes
 	     for the active actor (base role floor + observer ceiling, grants capped to the

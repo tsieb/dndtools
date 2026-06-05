@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 37
+  approved: 36
   active: 0
-  complete: 51
+  complete: 52
   deferred: 0
 metrics:
-  epicCompletionPercent: 58
-  requirementCompletionPercent: 62.4
+  epicCompletionPercent: 59.1
+  requirementCompletionPercent: 64.1
   totalRequirements: 234
-  completedRequirements: 146
+  completedRequirements: 150
   deferredRequirements: 0
-  remainingEpics: 37
-  promptableEpics: 37
+  remainingEpics: 36
+  promptableEpics: 36
   blockedByDependencies: 0
-  completionEvidenceFiles: 51
+  completionEvidenceFiles: 52
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -68,13 +68,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: COLLAB
       totalEpics: 5
-      complete: 0
+      complete: 1
       active: 0
-      approved: 5
+      approved: 4
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 0
-      requirementCompletionPercent: 0
+      epicCompletionPercent: 20
+      requirementCompletionPercent: 28.6
     - domain: CON
       totalEpics: 3
       complete: 0
@@ -193,18 +193,17 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: COLLAB-authority-filtering-and-cache-privacy
-  title: "COLLAB: Authority, filtering, and cache privacy"
+  id: COLLAB-combat-and-handouts
+  title: "COLLAB: Combat and handouts"
   status: approved
   requirementIds:
-    - COLLAB-008
-    - COLLAB-009
-    - COLLAB-010
-    - COLLAB-014
-  promptCommand: pnpm v2:prompt -- --epic COLLAB-authority-filtering-and-cache-privacy
+    - COLLAB-006
+    - COLLAB-007
+    - COLLAB-012
+  promptCommand: pnpm v2:prompt -- --epic COLLAB-combat-and-handouts
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic
-    COLLAB-authority-filtering-and-cache-privacy --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic COLLAB-combat-and-handouts
+    --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -358,13 +357,14 @@ epics:
       - CMD-008
     completionEvidenceFile: docs/planning/v2/epics/CMD-widget-library-and-actions.completion.md
   - id: COLLAB-authority-filtering-and-cache-privacy
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - COLLAB-008
       - COLLAB-009
       - COLLAB-010
       - COLLAB-014
+    completionEvidenceFile: docs/planning/v2/epics/COLLAB-authority-filtering-and-cache-privacy.completion.md
   - id: COLLAB-combat-and-handouts
     status: approved
     approved: true

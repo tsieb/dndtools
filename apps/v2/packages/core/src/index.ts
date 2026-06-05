@@ -2531,3 +2531,69 @@ export {
 	isSessionCommandAvailable,
 	isTransitionAllowed,
 } from './lifecycle/session-workflow';
+
+// COLLAB-009 — FILTER-BEFORE-SEND replication-stream privacy (the keystone). Given the FULL op stream +
+// a recipient actor, emits ONLY the ops that actor may see, so a player's/observer's outbound stream
+// contains ZERO dm-only/hidden content — filtered AT THE SOURCE, before serialization, never hidden in
+// the UI. Reuses the PERM visibility-filter engine; fail-closed (absent metadata ⇒ dm-only; unknown
+// recipient ⇒ empty stream). `filterCatchUpStream` delivers only newly-authorized, not-yet-sent ops
+// (AC2). `assertStreamCarriesNoHiddenContent` is the boundary leak guard. Per ADR-014 the LIVE transport
+// is deferred; this is the policy a transport plugs into.
+export type {
+	ReplicationStreamResult,
+	ReplicationVisibilitySource,
+	ReplicationWithholdReason,
+	WithheldOperation,
+} from './collab/replication-filter';
+export {
+	assertStreamCarriesNoHiddenContent,
+	filterCatchUpStream,
+	filterReplicationStream,
+	isOperationVisibleToRecipient,
+} from './collab/replication-filter';
+
+// COLLAB-008 — AUTHORITATIVE session-command resolution. A VALID DM command SUPERSEDES concurrent non-DM
+// commands ON A FIELD WHERE SESSION POLICY GRANTS DM AUTHORITY (`dm-authoritative`); where policy does
+// NOT (`shared-merge`), normal rules apply (no DM override; concurrent same-field edits conflict). An
+// unauthorized non-DM command is REJECTED, not conflicted; a non-DM can NEVER override a DM (fail
+// closed). Reuses the PERM base-role authority + grant model. Pure + deterministic.
+export type {
+	RejectedSessionCommand,
+	SessionAuthorityOutcome,
+	SessionAuthorityResolution,
+	SessionFieldAuthority,
+	SessionFieldCommand,
+} from './collab/dm-authority';
+export {
+	DEFAULT_SESSION_FIELD_AUTHORITY,
+	resolveSessionFieldAuthority,
+} from './collab/dm-authority';
+
+// COLLAB-010 + COLLAB-014 — the EXPLICIT SESSION-CACHE PRIVACY POLICY. On leave/end, every session-only
+// cache entry WITHOUT a persistent grant is PURGED (online) or SEALED via session-key invalidation
+// (offline), so it becomes unreadable EVEN IF the participant is offline (the offline-revocation crux,
+// COLLAB-014 AC2). A persistent viewer grant RETAINS the entry (the COLLAB-010 exception, reusing the
+// PERM grant model). The computed `SessionCachePolicy` carries TTL + key invalidation + persistent-grant
+// exemptions; `isSealedCacheEntryUnreadable` evaluates local-TTL offline revocation;
+// `computeParticipantCachePrivacyStatus` marks an unconfirmed device `purge-unconfirmed` without leaking
+// device secrets. Per ADR-014 the real key custody / crypto is deferred; this is the policy + seam.
+export type {
+	CacheEntryDecision,
+	CacheEntryDisposition,
+	CachePrivacyInput,
+	CachePrivacyResult,
+	CachePurgeStatus,
+	ParticipantCacheEntry,
+	ParticipantCachePrivacyStatus,
+	SessionCacheLifecycle,
+	SessionCachePolicy,
+} from './collab/cache-privacy';
+export {
+	DEFAULT_SESSION_CACHE_TTL_MS,
+	SESSION_CACHE_POLICY_SCHEMA_VERSION,
+	computeParticipantCachePrivacyStatus,
+	decideCacheEntry,
+	evaluateCachePrivacy,
+	hasPersistentAccess,
+	isSealedCacheEntryUnreadable,
+} from './collab/cache-privacy';

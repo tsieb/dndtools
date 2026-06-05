@@ -86,6 +86,9 @@ epics:
   - id: CMD-widget-library-and-actions
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CMD-widget-library-and-actions.completion.md
+  - id: COLLAB-authority-filtering-and-cache-privacy
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/COLLAB-authority-filtering-and-cache-privacy.completion.md
   - id: CONTENT-calendar-custom-time-content
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CONTENT-calendar-custom-time-content.completion.md
