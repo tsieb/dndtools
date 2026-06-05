@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import {
+	DURABLE_STATE_DOCUMENT_IDS,
 	EMPTY_COMMAND_CENTER_STATE,
 	EMPTY_MAP_STATE,
 	EMPTY_PERMISSION_STATE,
@@ -9,10 +10,14 @@ import {
 	createOperationLog,
 	createDemoMapState,
 	mergeSystemWidgetPackages,
+	recoverFromJournal,
 	type CommandCenterState,
 	type CoreStateSlice,
+	type DurableStateDocumentId,
 	type MapState,
+	type MigrationJournalEntry,
 	type PermissionState,
+	type RecoveryDecision,
 	type SceneState,
 	type SessionState,
 	type SyncOperation,
@@ -20,13 +25,25 @@ import {
 } from '@dndtools/v2-core';
 
 const DB_NAME = 'dndtools-v2';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const SCENE_STATE_KEY = 'scene-state';
 const MAP_STATE_KEY = 'map-state';
 const PERMISSION_STATE_KEY = 'permission-state';
 const SESSION_STATE_KEY = 'session-state';
 const WIDGET_PACKAGE_STATE_KEY = 'widget-package-state';
 const COMMAND_CENTER_STATE_KEY = 'command-center-state';
+const MIGRATION_JOURNAL_KEY = 'migration-journal';
+
+// Maps a durable document id to its persisted document key, so a write-ahead snapshot
+// can be restored back into the exact records a migration would have rewritten.
+const DOCUMENT_KEY_BY_ID: Record<DurableStateDocumentId, string> = {
+	scenes: SCENE_STATE_KEY,
+	maps: MAP_STATE_KEY,
+	permissions: PERMISSION_STATE_KEY,
+	session: SESSION_STATE_KEY,
+	widgets: WIDGET_PACKAGE_STATE_KEY,
+	commandCenter: COMMAND_CENTER_STATE_KEY,
+};
 
 interface DocumentRecord {
 	key: string;
@@ -39,15 +56,28 @@ interface OperationRecord {
 	sequence: number;
 }
 
+interface MigrationJournalRecord {
+	key: string;
+	entry: MigrationJournalEntry;
+}
+
 class V2Database extends Dexie {
 	documents!: Table<DocumentRecord, string>;
 	operations!: Table<OperationRecord, string>;
+	migrationJournal!: Table<MigrationJournalRecord, string>;
 
 	constructor() {
 		super(DB_NAME);
+		// Version 1 shipped without the migration journal table; version 2 adds it. Dexie
+		// preserves the existing documents/operations stores across the upgrade.
+		this.version(1).stores({
+			documents: '&key',
+			operations: '&id, sequence',
+		});
 		this.version(DB_VERSION).stores({
 			documents: '&key',
 			operations: '&id, sequence',
+			migrationJournal: '&key',
 		});
 	}
 }
@@ -61,8 +91,49 @@ function db(): V2Database {
 	return dbInstance;
 }
 
+async function readMigrationJournal(): Promise<MigrationJournalEntry | null> {
+	const record = await db().migrationJournal.get(MIGRATION_JOURNAL_KEY);
+	return record?.entry ?? null;
+}
+
+export async function writeMigrationJournal(entry: MigrationJournalEntry): Promise<void> {
+	await db().migrationJournal.put({ key: MIGRATION_JOURNAL_KEY, entry });
+}
+
+async function clearMigrationJournal(): Promise<void> {
+	await db().migrationJournal.delete(MIGRATION_JOURNAL_KEY);
+}
+
+/**
+ * Apply the write-ahead recovery decision the Processing Core computed for the last
+ * migration journal (PLAT-008 AC2). A `roll-back` restores every document captured in
+ * the safety snapshot, so a migration that died mid-write leaves a consistent state on
+ * the next start; other phases clear the journal. The decision itself is pure core
+ * logic; this function only performs the storage writes it asks for.
+ */
+export async function recoverPendingMigration(): Promise<RecoveryDecision> {
+	const entry = await readMigrationJournal();
+	const decision = recoverFromJournal(entry);
+	if (decision.action === 'roll-back' && decision.snapshot) {
+		const writes = DURABLE_STATE_DOCUMENT_IDS.map((documentId) =>
+			db().documents.put({
+				key: DOCUMENT_KEY_BY_ID[documentId],
+				doc: decision.snapshot?.documents[documentId],
+			}),
+		);
+		await Promise.all(writes);
+		await clearMigrationJournal();
+	} else if (decision.action === 'clear-journal') {
+		await clearMigrationJournal();
+	}
+	return decision;
+}
+
 export async function loadCoreState(): Promise<CoreStateSlice> {
 	const database = db();
+	// Recover any migration that died mid-write before trusting persisted documents
+	// (PLAT-008 AC2). On a clean start this is a no-op.
+	await recoverPendingMigration();
 	const [sceneDoc, permissionDoc, operationRecords] = await Promise.all([
 		database.documents.get(SCENE_STATE_KEY),
 		database.documents.get(PERMISSION_STATE_KEY),
@@ -199,7 +270,11 @@ export async function persistFullState(
 
 export async function resetCoreStorage(): Promise<void> {
 	const database = db();
-	await Promise.all([database.documents.clear(), database.operations.clear()]);
+	await Promise.all([
+		database.documents.clear(),
+		database.operations.clear(),
+		database.migrationJournal.clear(),
+	]);
 }
 
 export const __testing = {
@@ -212,6 +287,11 @@ export const __testing = {
 	setDb: (mock: V2Database | null): void => {
 		dbInstance = mock;
 	},
+	// Test-only: write a raw persisted document, bypassing the command-operation guard, to
+	// simulate a corrupting mid-write before recovery runs.
+	putRawDocument: async (key: string, doc: unknown): Promise<void> => {
+		await db().documents.put({ key, doc });
+	},
 	DB_NAME,
 	SCENE_STATE_KEY,
 	MAP_STATE_KEY,
@@ -219,4 +299,6 @@ export const __testing = {
 	SESSION_STATE_KEY,
 	WIDGET_PACKAGE_STATE_KEY,
 	COMMAND_CENTER_STATE_KEY,
+	MIGRATION_JOURNAL_KEY,
+	DOCUMENT_KEY_BY_ID,
 };

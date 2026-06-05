@@ -83,3 +83,6 @@ epics:
   - id: NAV-route-aliases-and-deep-links
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/NAV-route-aliases-and-deep-links.completion.md
+  - id: PLAT-migration-and-diagnostics
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/PLAT-migration-and-diagnostics.completion.md

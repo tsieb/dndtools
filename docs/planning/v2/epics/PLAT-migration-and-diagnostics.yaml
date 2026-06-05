@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: PLAT-migration-and-diagnostics
 title: "PLAT: Migration and diagnostics"
-status: approved
+status: complete
 approved: true
 domain: PLAT
 capabilityBranch: Migration and diagnostics
@@ -190,3 +190,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/PLAT-migration-and-diagnostics.completion.md

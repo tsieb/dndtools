@@ -6,9 +6,36 @@
 	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
+	import { buildDiagnosticsContext } from '$lib/platform/diagnostics-context';
+	import DiagnosticsPanel from '$lib/gui/DiagnosticsPanel.svelte';
+	import ParticipantStatusPanel from '$lib/gui/ParticipantStatusPanel.svelte';
 
 	const runtime = useRuntime();
 	const profile = useProfile();
+
+	// Platform Services derive the diagnostics facts (Contract 1); the Processing Core
+	// assembles the actor-filtered views and the redacted support bundle. Online state
+	// and filesystem availability come from the platform profile, not feature logic.
+	const online = $derived(typeof navigator === 'undefined' ? true : navigator.onLine);
+	const pendingOperations = $derived(runtime.state.sync.operations.length);
+	const diagnosticsContext = $derived(
+		buildDiagnosticsContext(runtime.state, {
+			appVersion: '0.2.0',
+			platformProfileId: profile.profileId,
+			online,
+			storageAvailable: typeof indexedDB !== 'undefined',
+			filesystemAvailable: false,
+			pendingOperations,
+			now: new Date().toISOString(),
+		}),
+	);
+
+	// PLAT-017: participant inputs are the participant's OWN device facts only. They never
+	// include source ids/paths or hidden entity data.
+	const participantInput = $derived({ online, queuedOperations: 0 });
+	const activeRole = $derived(
+		runtime.state.permissions.actors[runtime.activeActorId]?.role ?? null,
+	);
 
 	// Local, device-scoped display preferences are GUI-owned state (Contract 1): the
 	// platform profile and the "view as" actor are not durable vault state. This
@@ -36,6 +63,16 @@
 
 <section data-testid="settings-view" aria-label="Settings">
 	<p class="meta">Device-local display preferences for this prototype. Nothing here is synced.</p>
+
+	<!-- PLAT-009 / PLAT-017: status surfaces. The DM/admin diagnostics panel fails closed
+	     for non-DM actors via the Processing Core; participants see only their own
+	     non-leaking session status. Rendering by role here is an ergonomic hint — the
+	     authoritative permission/redaction enforcement is in the core. -->
+	{#if activeRole === 'dm'}
+		<DiagnosticsPanel context={diagnosticsContext} />
+	{:else if activeRole === 'player' || activeRole === 'observer'}
+		<ParticipantStatusPanel context={diagnosticsContext} input={participantInput} />
+	{/if}
 
 	<section aria-label="Platform profile">
 		<h2>Platform profile</h2>
