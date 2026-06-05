@@ -911,6 +911,8 @@ export {
 	updateAudioAssetMetadataInputSchema,
 	configureAudioSourceInputSchema,
 	validateAudioPackageInputSchema,
+	configureAudioAutomationInputSchema,
+	deleteAudioAutomationInputSchema,
 } from './schemas/commands';
 
 export { sceneSchema, sceneStateSchema } from './schemas/scene';
@@ -3358,18 +3360,53 @@ export {
 	resolveAudioPlaybackAvailability,
 } from './state/audio-source';
 
-// AUDIO-004/009/010 — the durable AUDIO VaultState slice (asset library + declared source registry). A
-// bounded state document modeled like maps/encounters, with fail-closed hydration: an undeclared asset
-// license stays `unknown` and a source with undeclared cache behavior stays playback-disabled. Playback
-// state is NOT here — currently-playing audio is SessionState (Contract 4 Widget State Ownership).
+// AUDIO-004/005/009/010 — the durable AUDIO VaultState slice (asset library + declared source registry +
+// automation rules). A bounded state document modeled like maps/encounters, with fail-closed hydration: an
+// undeclared asset license stays `unknown`, a source with undeclared cache behavior stays playback-disabled,
+// and an automation rule with an undeclared trigger/action is dropped. Playback state is NOT here —
+// currently-playing audio is SessionState (Contract 4 Widget State Ownership).
 export type { AudioState } from './state/audio-state';
 export {
 	AUDIO_STATE_SCHEMA_VERSION,
 	EMPTY_AUDIO_STATE,
 	audioAssetById,
+	audioAutomationRuleById,
 	audioSourceById,
 	ensureAudioState,
 } from './state/audio-state';
+
+// AUDIO-005 — ATMOSPHERE AUTOMATION: rule/trigger-driven audio behavior. The DM maps a session event
+// (combat start / map reveal / Scene activation / handout delivery) to a declared audio command. The
+// deterministic resolver composes the EXISTING source (AUDIO-009), offline (AUDIO-010), and license
+// (AUDIO-004) gates: a blocked rule is a flagged NO-OP with a non-leaking diagnostic, never a silent
+// unlicensed/out-of-scope playback (AUDIO-005 AC2). Pure data + pure functions; the GUI dispatches the
+// resolved command request through the Processing Core.
+export type {
+	AudioAutomationAction,
+	AudioAutomationBlockReason,
+	AudioAutomationCommandRequest,
+	AudioAutomationOutcome,
+	AudioAutomationResolution,
+	AudioAutomationRule,
+	AudioAutomationRuleRejectionReason,
+	AudioAutomationRuleResult,
+	AudioAutomationTrigger,
+	AudioAutomationTriggerKind,
+	BuildAudioAutomationRuleInput,
+} from './state/audio-automation';
+export {
+	AUDIO_AUTOMATION_ACTIONS,
+	AUDIO_AUTOMATION_ENTITY_TYPE,
+	AUDIO_AUTOMATION_SCHEMA_VERSION,
+	AUDIO_AUTOMATION_TRIGGER_KINDS,
+	actionStartsPlayback,
+	buildAudioAutomationRule,
+	cloneAudioAutomationRule,
+	evaluateAudioAutomationRule,
+	isAudioAutomationAction,
+	isAudioAutomationTriggerKind,
+	resolveAudioAutomation,
+} from './state/audio-automation';
 
 // AUDIO-011 — FAIL-CLOSED validation of a Scene AUDIO PACKAGE before import/export commit. Reports missing
 // assets, missing licensing metadata (reusing the AUDIO-004 review gate), unsupported streams (the
@@ -3400,6 +3437,8 @@ export type { AudioAssetView } from './queries/audio-library-query';
 export {
 	listAudioAssetsForActor,
 	listAudioAssetsNeedingReview,
+	listAudioAutomationRulesForActor,
 	listAudioSourceClassificationsForActor,
+	resolveAudioAutomationForActor,
 	resolveAudioPlaybackForActor,
 } from './queries/audio-library-query';

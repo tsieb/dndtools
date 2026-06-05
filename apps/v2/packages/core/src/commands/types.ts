@@ -447,7 +447,12 @@ export type CoreCommand =
 	| { type: 'audio.configure-source'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// AUDIO-011: validate a Scene audio package for import/export. A blocking finding (missing asset/license,
 	// unsupported stream) reports BEFORE commit; the validation itself mutates no durable state.
-	| { type: 'audio.validate-package'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'audio.validate-package'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// AUDIO-005: configure (create/update) / delete an atmosphere AUTOMATION RULE (DM-only). The rule maps a
+	// session event (combat start / map reveal / scene activation / handout delivery) to a declared audio
+	// command; the license/scope/offline gate is RESOLVED at trigger time (fail closed), never bypassed.
+	| { type: 'audio.configure-automation'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'audio.delete-automation'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -1047,7 +1052,20 @@ export type CoreEvent =
 			blockingCount: number;
 			report: AudioPackageValidationReport;
 			actorId: ActorId;
-	  };
+	  }
+	// AUDIO-005 — an atmosphere automation rule was configured. Carries the rule id + trigger + action +
+	// enabled state (the audit), never player-facing content. The rule is a dormant definition until a
+	// trigger fires; configuring it creates NO playback state.
+	| {
+			kind: 'audio.automation-configured';
+			ruleId: string;
+			trigger: string;
+			action: string;
+			enabled: boolean;
+			actorId: ActorId;
+	  }
+	// AUDIO-005 — an atmosphere automation rule was deleted.
+	| { kind: 'audio.automation-deleted'; ruleId: string; actorId: ActorId };
 
 export type RejectionCode =
 	| 'unknown-actor'
@@ -1162,7 +1180,12 @@ export type RejectionCode =
 	// AUDIO-011 — a Scene audio package failed pre-commit validation (missing assets/license metadata,
 	// unsupported streams). The blocking findings ride the rejection `issues` so nothing imports/exports
 	// silently (fail closed).
-	| 'audio-package-invalid';
+	| 'audio-package-invalid'
+	// AUDIO-005 — an automation rule configuration is invalid (undeclared trigger/action, or a play missing
+	// its required local asset). Distinct from the dangling-reference reject so the authoring UI can guide.
+	| 'invalid-audio-automation'
+	// AUDIO-005 — a delete/update targeted an automation rule id not in the library (fail closed).
+	| 'audio-automation-not-found';
 
 export interface CommandRejection {
 	code: RejectionCode;

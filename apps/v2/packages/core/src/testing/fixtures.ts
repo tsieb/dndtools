@@ -116,6 +116,7 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 		audio: {
 			assets: { ...EMPTY_AUDIO_STATE.assets },
 			sources: { ...EMPTY_AUDIO_STATE.sources },
+			automationRules: { ...EMPTY_AUDIO_STATE.automationRules },
 			schemaVersion: EMPTY_AUDIO_STATE.schemaVersion,
 		},
 		sync: createOperationLog(),

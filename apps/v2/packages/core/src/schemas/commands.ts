@@ -2079,3 +2079,27 @@ export const validateAudioPackageInputSchema = z
 		presets: z.array(audioPackagePresetSchema),
 	})
 	.strict();
+
+// AUDIO-005 — CONFIGURE (create or update) an atmosphere AUTOMATION RULE (DM-only). The trigger + action
+// are CLOSED enums (an undeclared trigger/action is rejected fail-closed in the handler); the referenced
+// source/asset must exist in the library (fail closed). `triggerScopeId` null ⇒ fires for any occurrence
+// of the trigger kind; an asset is required for a local/bundled play (validated in the handler).
+export const configureAudioAutomationInputSchema = z
+	.object({
+		ruleId: idSchema.optional(),
+		label: z.string().optional(),
+		enabled: z.boolean().optional(),
+		trigger: z.enum(['combat-start', 'map-reveal', 'scene-activation', 'handout-delivery']),
+		triggerScopeId: z.union([z.literal(null), z.string().min(1)]).optional(),
+		action: z.enum(['play', 'crossfade', 'stop']),
+		sourceId: idSchema,
+		assetId: z.union([z.literal(null), idSchema]).optional(),
+	})
+	.strict();
+
+// AUDIO-005 — DELETE an automation rule by id (DM-only). Fail closed: a missing rule id is rejected.
+export const deleteAudioAutomationInputSchema = z
+	.object({
+		ruleId: idSchema,
+	})
+	.strict();

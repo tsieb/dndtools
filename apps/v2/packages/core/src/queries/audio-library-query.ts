@@ -12,19 +12,27 @@ import {
 	type AudioPlaybackAvailability,
 	type AudioSourceClassification,
 } from '../state/audio-source';
+import {
+	resolveAudioAutomation,
+	type AudioAutomationResolution,
+	type AudioAutomationRule,
+	type AudioAutomationTrigger,
+} from '../state/audio-automation';
 import type { AudioState } from '../state/audio-state';
 
 /**
- * AUDIO-004 / AUDIO-009 / AUDIO-010 — THE single actor-filtered AUDIO LIBRARY read model.
+ * AUDIO-004 / AUDIO-005 / AUDIO-009 / AUDIO-010 — THE single actor-filtered AUDIO LIBRARY read model.
  *
- * The audio asset library and the source registry are DM-authored configuration (AUDIO-004/009/011 are
- * Player-safe: dm-only). This is the only sanctioned read path: the data layer decides visibility BEFORE
- * returning anything (Architecture Contract 3), so a NON-DM viewer receives EMPTY lists — asset filenames,
- * license notes, stream URLs, and source config never leak.
+ * The audio asset library, the source registry, and the automation rules are DM-authored configuration
+ * (AUDIO-004/005/009/011 are Player-safe: dm-only). This is the only sanctioned read path: the data layer
+ * decides visibility BEFORE returning anything (Architecture Contract 3), so a NON-DM viewer receives EMPTY
+ * lists — asset filenames, license notes, stream URLs, source config, and automation triggers/cues never
+ * leak.
  *
- * The DM sees each asset with its computed license-review flag (AUDIO-004 AC2) and each source with its
- * computed classification (AUDIO-009) and offline availability (AUDIO-010). The review flag + classification
- * are RECOMPUTED here (not stored) so they always reflect the current license/cache declaration.
+ * The DM sees each asset with its computed license-review flag (AUDIO-004 AC2), each source with its
+ * computed classification (AUDIO-009) and offline availability (AUDIO-010), and each automation rule
+ * (AUDIO-005). The review flag + classification are RECOMPUTED here (not stored) so they always reflect the
+ * current license/cache declaration.
  *
  * Pure + deterministic. No GUI, no storage, no clock.
  */
@@ -145,4 +153,40 @@ export function resolveAudioPlaybackForActor(
 		cacheEvicted: request.cacheEvicted,
 		online: request.online,
 	});
+}
+
+/**
+ * AUDIO-005 — list the configured atmosphere AUTOMATION RULES for the actor. The DM gets every rule (stable
+ * id order); a non-DM actor gets an EMPTY list (automation config is DM-only — fail closed, so a hidden
+ * trigger or cue never leaks to a player). Rules carry only the DM-authored definition, never player content.
+ */
+export function listAudioAutomationRulesForActor(
+	state: AudioState,
+	permissions: PermissionState,
+	actorId: string,
+): AudioAutomationRule[] {
+	const actor = getActor(permissions, actorId);
+	if (actor?.role !== 'dm') return [];
+	return Object.values(state.automationRules)
+		.sort((a, b) => a.id.localeCompare(b.id))
+		.map((rule) => ({ ...rule }));
+}
+
+/**
+ * AUDIO-005 — resolve the automation OUTCOME of a fired session-event trigger for the DM. Returns `null`
+ * for a non-DM actor (automation is DM-only — fail closed; no automation is resolved for an actor who
+ * cannot see the config). The resolution is the deterministic set of requested audio commands + blocked
+ * diagnostics computed against the LIVE rules + library; it triggers no network retry and never substitutes
+ * a track. The GUI dispatches each `request` as a real audio command through the Processing Core (AC1); a
+ * blocked rule is a flagged no-op with a diagnostic (AC2 — no hidden bypass).
+ */
+export function resolveAudioAutomationForActor(
+	state: AudioState,
+	permissions: PermissionState,
+	actorId: string,
+	trigger: AudioAutomationTrigger,
+): AudioAutomationResolution | null {
+	const actor = getActor(permissions, actorId);
+	if (actor?.role !== 'dm') return null;
+	return resolveAudioAutomation(trigger, state.automationRules, state);
 }

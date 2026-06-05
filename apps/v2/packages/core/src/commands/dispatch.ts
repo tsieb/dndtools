@@ -171,6 +171,10 @@ import {
 	handleUpdateAudioAssetMetadata,
 	handleValidateAudioPackage,
 } from './audio';
+import {
+	handleConfigureAudioAutomation,
+	handleDeleteAudioAutomation,
+} from './audio-automation';
 import { handleResolveVaultConflict } from './conflict-resolution';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 import { classifyObserverCommand } from '../collab/observer-access';
@@ -496,6 +500,10 @@ export function dispatchCommand(
 			return handleConfigureAudioSource(state, env, command.actorId, command.payload);
 		case 'audio.validate-package':
 			return handleValidateAudioPackage(state, env, command.actorId, command.payload);
+		case 'audio.configure-automation':
+			return handleConfigureAudioAutomation(state, env, command.actorId, command.payload);
+		case 'audio.delete-automation':
+			return handleDeleteAudioAutomation(state, env, command.actorId, command.payload);
 	}
 }
 

@@ -1,16 +1,23 @@
 import { cloneAudioAsset, isAudioLicenseKind, type AudioAsset } from './audio-asset';
+import {
+	cloneAudioAutomationRule,
+	isAudioAutomationAction,
+	isAudioAutomationTriggerKind,
+	type AudioAutomationRule,
+} from './audio-automation';
 import type { AudioCacheBehavior, AudioSource } from './audio-source';
 
 /**
- * AUDIO-004 / AUDIO-009 / AUDIO-010 — the durable AUDIO VaultState slice: the local audio ASSET LIBRARY
- * (content-addressed records with license/tags/source) + the declared audio SOURCE registry.
+ * AUDIO-004 / AUDIO-005 / AUDIO-009 / AUDIO-010 — the durable AUDIO VaultState slice: the local audio
+ * ASSET LIBRARY (content-addressed records with license/tags/source), the declared audio SOURCE registry,
+ * and the DM-authored AUTOMATION RULES (AUDIO-005).
  *
  * This is a bounded state document modeled exactly like the other vault slices (`maps`, `characters`,
  * `encounters`): a record map keyed by id plus a schema version, with a fail-closed `ensure` hydration
  * helper so a vault persisted before this slice existed restores to a safe empty library without a
  * destructive migration. Playback state is NOT here — currently-playing audio is SessionState (Contract 4
- * Widget State Ownership) and is owned by the AUDIO playback epic; this slice owns the durable LIBRARY and
- * SOURCE CONFIG only.
+ * Widget State Ownership) and is owned by the AUDIO playback epic; this slice owns the durable LIBRARY,
+ * SOURCE CONFIG, and AUTOMATION RULE definitions only.
  */
 
 export const AUDIO_STATE_SCHEMA_VERSION = 1 as const;
@@ -20,12 +27,15 @@ export interface AudioState {
 	assets: Record<string, AudioAsset>;
 	/** The declared, configured audio sources, keyed by source id (AUDIO-009 / AUDIO-010). */
 	sources: Record<string, AudioSource>;
+	/** The DM-authored atmosphere automation rules, keyed by rule id (AUDIO-005). DM-only config. */
+	automationRules: Record<string, AudioAutomationRule>;
 	schemaVersion: typeof AUDIO_STATE_SCHEMA_VERSION;
 }
 
 export const EMPTY_AUDIO_STATE: AudioState = Object.freeze({
 	assets: {},
 	sources: {},
+	automationRules: {},
 	schemaVersion: AUDIO_STATE_SCHEMA_VERSION,
 });
 
@@ -66,8 +76,32 @@ function ensureAudioSource(source: AudioSource): AudioSource {
 	};
 }
 
+/**
+ * Hydrate a persisted automation rule fail-closed: re-clone, and DROP a rule whose trigger kind or action
+ * is no longer declared (an undeclared trigger/action could never resolve, so a corrupt record is omitted
+ * rather than restored into an un-evaluable armed state). Returns null when the record must be dropped.
+ */
+function ensureAudioAutomationRule(rule: AudioAutomationRule): AudioAutomationRule | null {
+	if (!isAudioAutomationTriggerKind(rule.trigger) || !isAudioAutomationAction(rule.action)) {
+		return null;
+	}
+	const cloned = cloneAudioAutomationRule(rule);
+	return {
+		...cloned,
+		enabled: Boolean(cloned.enabled),
+		triggerScopeId: cloned.triggerScopeId ?? null,
+		assetId: cloned.assetId ?? null,
+	};
+}
+
+/**
+ * A possibly-partial persisted audio slice. A vault persisted before a given field existed (e.g. before
+ * AUDIO-005 added `automationRules`) round-trips through this hydrator, so every field is optional here.
+ */
+export type PersistedAudioState = Partial<AudioState>;
+
 /** Tolerantly hydrate a possibly-undefined/partial persisted audio slice (safe, fail-closed defaults). */
-export function ensureAudioState(state: AudioState | undefined): AudioState {
+export function ensureAudioState(state: PersistedAudioState | undefined): AudioState {
 	const assets: Record<string, AudioAsset> = {};
 	for (const [id, asset] of Object.entries(state?.assets ?? {})) {
 		assets[id] = ensureAudioAsset(asset);
@@ -76,7 +110,12 @@ export function ensureAudioState(state: AudioState | undefined): AudioState {
 	for (const [id, source] of Object.entries(state?.sources ?? {})) {
 		sources[id] = ensureAudioSource(source as AudioSource);
 	}
-	return { assets, sources, schemaVersion: AUDIO_STATE_SCHEMA_VERSION };
+	const automationRules: Record<string, AudioAutomationRule> = {};
+	for (const [id, rule] of Object.entries(state?.automationRules ?? {})) {
+		const ensured = ensureAudioAutomationRule(rule as AudioAutomationRule);
+		if (ensured) automationRules[id] = ensured;
+	}
+	return { assets, sources, automationRules, schemaVersion: AUDIO_STATE_SCHEMA_VERSION };
 }
 
 /** Look up an audio asset by id, or undefined. Pure. */
@@ -87,4 +126,12 @@ export function audioAssetById(state: AudioState, assetId: string): AudioAsset |
 /** Look up a configured audio source by id, or undefined. Pure. */
 export function audioSourceById(state: AudioState, sourceId: string): AudioSource | undefined {
 	return state.sources[sourceId];
+}
+
+/** Look up an audio automation rule by id, or undefined. Pure. */
+export function audioAutomationRuleById(
+	state: AudioState,
+	ruleId: string,
+): AudioAutomationRule | undefined {
+	return state.automationRules[ruleId];
 }
