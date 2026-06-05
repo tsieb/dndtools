@@ -110,10 +110,13 @@ tag, and the dm-only demo POI `Smugglers' Cache` all vanish for the player).
 ## Git evidence
 
 - Branch: `epic/GRAPH-visualization` (chained off the prior epic tip `43d3a87`).
-- Commit SHA: (recorded in the follow-up `docs(v2): record commit SHA` commit).
+- Commits:
+  - `95ea768` — `feat(v2): complete GRAPH-visualization epic` (code, tests, completion evidence)
+  - `d94d217` — `docs(v2): mark GRAPH-visualization epic complete` (regenerated planning files + docs path fix)
+  - Final follow-up — `docs(v2): record commit SHA for GRAPH-visualization` (this SHA record)
 
-### `git status --short`
+### `git status --short` (final — clean)
 
 ```
-(clean — see the recorded final status in the SHA follow-up commit)
+(empty — clean working tree)
 ```
