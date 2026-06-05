@@ -210,8 +210,9 @@ generated workpack validates.
 
 - Branch: `epic/CONTENT-import-export` (created from `epic/CONTENT-calendar-custom-time-content` HEAD
   `4c6b2dfc09e99f12289e14793047dd77748ceb5f`, not master).
-- Commit: recorded in the follow-up docs commit.
-- Final `git status --short`: clean (recorded below after the final commit).
+- Epic commit: `ed037d99c49e043dfb20cc46ffdc504f26f2ab35`. This SHA is recorded by a follow-up docs
+  commit.
+- Final `git status --short`: clean.
 
 ```
 (clean)
