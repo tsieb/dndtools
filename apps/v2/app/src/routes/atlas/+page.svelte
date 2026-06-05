@@ -1,9 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { resolveDeepLink, type DeepLinkTarget } from '@dndtools/v2-core';
+	import { resolveDeepLink, type DeepLinkTarget, type MapRegion } from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
+	import MapPoiControl from '$lib/gui/MapPoiControl.svelte';
 
 	const runtime = useRuntime();
+
+	// MAP-015: a GUI-local viewport focus, set when a POI control's "Focus region" action is
+	// pressed. It is presentation-only (which region the viewport is centered on) — it never
+	// mutates durable state, so it stays in GUI memory (Contract 1, GUI Knowledge Limits).
+	let focusedRegionId = $state<string | null>(null);
 
 	// NAV-005: a map deep link carries the target map and an optional POI/region in the
 	// query string, e.g. `/atlas/?map=map-western-reaches&poi=region-coast`. The GUI owns
@@ -28,6 +34,19 @@
 	const resolution = $derived(
 		target ? resolveDeepLink(runtime.state, runtime.activeActorId, target) : null,
 	);
+
+	// The regions/POIs of the resolved map, for the interaction-safe POI control surface
+	// (MAP-015). Read straight from the actor-filtered resolution: the map only resolves to
+	// `restore` when the actor may see it, so no hidden map's POIs are ever exposed here.
+	const resolvedRegions = $derived.by<MapRegion[]>(() => {
+		if (!resolution || resolution.kind !== 'restore') return [];
+		const map = runtime.state.maps.maps[resolution.entityId];
+		return map ? map.regions : [];
+	});
+
+	function focusRegion(regionId: string) {
+		focusedRegionId = regionId;
+	}
 
 	// The actor-visible maps, for the Atlas landing and as deep-link entry points. Maps
 	// are filtered the same way the deep-link resolver filters them, so the list never
@@ -64,6 +83,20 @@
 						No specific POI requested — showing the map.
 					</p>
 				{/if}
+				{#if focusedRegionId}
+					<p class="meta" data-testid="viewport-focus">
+						Viewport centered on <strong>{focusedRegionId}</strong>.
+					</p>
+				{/if}
+
+				<!-- MAP-015: the POI interaction-safety surface. Pointer, touch, and keyboard
+				     all reach every action without hover; the control dismisses only on a
+				     genuine dismiss intent (the rules live in the Processing Core). -->
+				<MapPoiControl
+					mapId={resolution.entityId}
+					regions={resolvedRegions}
+					onfocusregion={focusRegion}
+				/>
 			</section>
 		{:else}
 			<!-- NAV-005 AC2/AC3: one generic, non-leaking unavailable state. It names no

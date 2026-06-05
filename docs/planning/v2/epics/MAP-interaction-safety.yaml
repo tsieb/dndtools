@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: MAP-interaction-safety
 title: "MAP: Interaction safety"
-status: approved
+status: complete
 approved: true
 domain: MAP
 capabilityBranch: Interaction safety
@@ -130,3 +130,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/MAP-interaction-safety.completion.md

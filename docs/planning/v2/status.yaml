@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 66
+  approved: 65
   active: 0
-  complete: 22
+  complete: 23
   deferred: 0
 metrics:
-  epicCompletionPercent: 25
-  requirementCompletionPercent: 29.1
+  epicCompletionPercent: 26.1
+  requirementCompletionPercent: 29.5
   totalRequirements: 234
-  completedRequirements: 68
+  completedRequirements: 69
   deferredRequirements: 0
-  remainingEpics: 66
-  promptableEpics: 66
+  remainingEpics: 65
+  promptableEpics: 65
   blockedByDependencies: 0
-  completionEvidenceFiles: 22
+  completionEvidenceFiles: 23
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -104,13 +104,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: MAP
       totalEpics: 6
-      complete: 0
+      complete: 1
       active: 0
-      approved: 6
+      approved: 5
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 0
-      requirementCompletionPercent: 0
+      epicCompletionPercent: 16.7
+      requirementCompletionPercent: 5
     - domain: MCP
       totalEpics: 5
       complete: 0
@@ -193,14 +193,18 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: MAP-interaction-safety
-  title: "MAP: Interaction safety"
+  id: MAP-layers-and-visibility
+  title: "MAP: Layers and visibility"
   status: approved
   requirementIds:
-    - MAP-015
-  promptCommand: pnpm v2:prompt -- --epic MAP-interaction-safety
+    - MAP-005
+    - MAP-006
+    - MAP-007
+    - MAP-016
+  promptCommand: pnpm v2:prompt -- --epic MAP-layers-and-visibility
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic MAP-interaction-safety --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic MAP-layers-and-visibility
+    --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -471,10 +475,11 @@ epics:
     requirementIds:
       - GRAPH-004
   - id: MAP-interaction-safety
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - MAP-015
+    completionEvidenceFile: docs/planning/v2/epics/MAP-interaction-safety.completion.md
   - id: MAP-layers-and-visibility
     status: approved
     approved: true

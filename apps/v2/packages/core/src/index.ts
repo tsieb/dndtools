@@ -548,6 +548,27 @@ export type {
 } from './queries/route-focus';
 export { resolveRouteFocus } from './queries/route-focus';
 
+// MAP-015: the map control interaction-safety state machine. A pure Processing-Core reducer
+// deciding whether the active POI popover / compact sheet / overlay / canvas control stays
+// engaged given a raw interaction intent. Internal pointermove/hover-out/scroll/child-focus
+// never dismiss; only explicit close, Escape, a true outside pointer, or selecting another POI
+// do. The GUI dispatches intents and applies the returned focus directive (Contract 1).
+export type {
+	ControlFocusDirective,
+	ControlId,
+	ControlInteractionEvent,
+	ControlInteractionPhase,
+	ControlInteractionReason,
+	ControlInteractionState,
+	ControlPresentation,
+} from './queries/control-interaction';
+export {
+	CLOSED_CONTROL_INTERACTION,
+	controlInteractionReducer,
+	isControlOpen,
+	reduceControlInteractions,
+} from './queries/control-interaction';
+
 export type {
 	DeepLinkEntityType,
 	DeepLinkResolution,
