@@ -37,7 +37,7 @@ pnpm --filter @dndtools/v2-core test -- mcp-identity-mapping mcp-policy-modes mc
   mcp-policy-commands mcp-policy-hydration
 ```
 
-Representative end-to-end flow (see `tests/mcp-staged-writes.test.ts`):
+Representative end-to-end flow (see `apps/v2/packages/core/tests/mcp-staged-writes.test.ts`):
 
 1. The DM binds an agent to a scoped actor (`mcp.set-agent-binding`) and sets its policy
    (`mcp.set-agent-policy`, mode `strict_review`, allowlist `['note.create']`).
@@ -56,26 +56,26 @@ Representative end-to-end flow (see `tests/mcp-staged-writes.test.ts`):
 
 | Acceptance criterion | Implementation | Tests |
 | --- | --- | --- |
-| `strict_review` → MCP note-create STAGES a change for approval, not an immediate write | `mcp/policy.ts` `decideWrite` (strict_review ⇒ stage); `mcp/agent-dispatch.ts` stage path; `state/mcp-policy.ts` `McpStagedProposal` | `mcp-staged-writes.test.ts` "AC1 — strict_review stages…", "approving the proposal commits…" |
-| `trusted_direct` write records mode + agent identity in audit | `mcp/agent-dispatch.ts` `recordDirectAudit`; `commands/mcp-policy.ts` audit on approve | `mcp-policy-modes.test.ts` "AC4 — trusted_direct write … audited" |
-| `balanced` batches low-risk staged changes for approve/reject before durable write | `mcp/policy.ts` `decideWrite` (balanced ⇒ stage, batchable=low-risk) | `mcp-staged-writes.test.ts` "AC3 — balanced … batchable" (durable + low-risk) |
-| `strict_review` write to object/widget/map/session/character is staged or rejected by declared tool capability, not written | `mcp/agent-dispatch.ts` routes ALL write tools through the stage decision (not just note-create); custom `character.hp.adjust` tool proves it generalizes | `mcp-staged-writes.test.ts` "AC4 — staged by declared capability"; revocation tests use a character-resource write tool |
+| `strict_review` → MCP note-create STAGES a change for approval, not an immediate write | `apps/v2/packages/core/src/mcp/policy.ts` `decideWrite` (strict_review ⇒ stage); `apps/v2/packages/core/src/mcp/agent-dispatch.ts` stage path; `state/mcp-policy.ts` `McpStagedProposal` | `mcp-staged-writes.test.ts` "AC1 — strict_review stages…", "approving the proposal commits…" |
+| `trusted_direct` write records mode + agent identity in audit | `apps/v2/packages/core/src/mcp/agent-dispatch.ts` `recordDirectAudit`; `commands/mcp-policy.ts` audit on approve | `mcp-policy-modes.test.ts` "AC4 — trusted_direct write … audited" |
+| `balanced` batches low-risk staged changes for approve/reject before durable write | `apps/v2/packages/core/src/mcp/policy.ts` `decideWrite` (balanced ⇒ stage, batchable=low-risk) | `mcp-staged-writes.test.ts` "AC3 — balanced … batchable" (durable + low-risk) |
+| `strict_review` write to object/widget/map/session/character is staged or rejected by declared tool capability, not written | `apps/v2/packages/core/src/mcp/agent-dispatch.ts` routes ALL write tools through the stage decision (not just note-create); custom `character.hp.adjust` tool proves it generalizes | `mcp-staged-writes.test.ts` "AC4 — staged by declared capability"; revocation tests use a character-resource write tool |
 
 ### MCP-009 — per-agent policy modes + allowlist + audit visibility
 
 | Acceptance criterion | Implementation | Tests |
 | --- | --- | --- |
-| New agent defaults to `strict_review` or `disabled` per vault setting | `state/mcp-policy.ts` `vaultDefaultMode` (default `strict_review`); `mcp/identity.ts` `resolvePolicyMode`; `commands/mcp-policy.ts` `handleSetMcpVaultDefault` | `mcp-policy-modes.test.ts` "AC1 — never-configured agent defaults…" |
+| New agent defaults to `strict_review` or `disabled` per vault setting | `state/mcp-policy.ts` `vaultDefaultMode` (default `strict_review`); `apps/v2/packages/core/src/mcp/identity.ts` `resolvePolicyMode`; `commands/mcp-policy.ts` `handleSetMcpVaultDefault` | `mcp-policy-modes.test.ts` "AC1 — never-configured agent defaults…" |
 | DM policy change enforced on the agent's next call | policy read live on each `invokeMcpToolAsAgent` (no caching) | `mcp-policy-modes.test.ts` "AC2 — policy change enforced next call" |
-| `disabled` returns disabled status BEFORE core queries run | `mcp/policy.ts` `decidePolicy` (disabled checked first) | `mcp-policy-modes.test.ts` "AC3 — disabled before core queries" |
-| `trusted_direct` direct write still runs Core validation + audit | `mcp/agent-dispatch.ts` direct path delegates to `invokeMcpTool` → `dispatchCommand`, then audits | `mcp-policy-modes.test.ts` "AC4 — trusted_direct … validation + audit" |
+| `disabled` returns disabled status BEFORE core queries run | `apps/v2/packages/core/src/mcp/policy.ts` `decidePolicy` (disabled checked first) | `mcp-policy-modes.test.ts` "AC3 — disabled before core queries" |
+| `trusted_direct` direct write still runs Core validation + audit | `apps/v2/packages/core/src/mcp/agent-dispatch.ts` direct path delegates to `invokeMcpTool` → `dispatchCommand`, then audits | `mcp-policy-modes.test.ts` "AC4 — trusted_direct … validation + audit" |
 
 ### MCP-011 — agent connection → authenticated actor/role/policy/audit identity
 
 | Acceptance criterion | Implementation | Tests |
 | --- | --- | --- |
-| Agent without a valid actor mapping → tool call rejected before core queries run | `mcp/identity.ts` `resolveAgentIdentity` (no-binding / unknown-actor); `mcp/agent-dispatch.ts` gate 1 | `mcp-identity-mapping.test.ts` "AC1 — unmapped agent", "binding to an unregistered actor" |
-| DM-scoped agent staging a write records agent id, actor id, policy mode, tool id, staged/direct mode | `state/mcp-policy.ts` `McpAuditEntry`; `mcp/agent-dispatch.ts` stage path; `commands/mcp-policy.ts` approve audit | `mcp-identity-mapping.test.ts` "AC2 — staged write records full audit identity" |
+| Agent without a valid actor mapping → tool call rejected before core queries run | `apps/v2/packages/core/src/mcp/identity.ts` `resolveAgentIdentity` (no-binding / unknown-actor); `apps/v2/packages/core/src/mcp/agent-dispatch.ts` gate 1 | `mcp-identity-mapping.test.ts` "AC1 — unmapped agent", "binding to an unregistered actor" |
+| DM-scoped agent staging a write records agent id, actor id, policy mode, tool id, staged/direct mode | `state/mcp-policy.ts` `McpAuditEntry`; `apps/v2/packages/core/src/mcp/agent-dispatch.ts` stage path; `commands/mcp-policy.ts` approve audit | `mcp-identity-mapping.test.ts` "AC2 — staged write records full audit identity" |
 
 ## Durable State, Persistence, and Migration
 
@@ -172,12 +172,13 @@ Added:
 ## Git
 
 - Branch: `epic/MCP-identity-policy-and-staged-writes`
-- Commit SHA: recorded in the follow-up `docs(v2): record commit SHA …` commit.
+- Feature + evidence commit: `af48fcaf3ca794df1445cdcbfa8f60d5f044aad9`
+- Workpack-complete (regenerated planning files) commit: `e84c9d67747dfe08718f4f8ddad48504fb3704a0`
+- This SHA-recording commit follows.
 
-### `git status --short` (after the feature/evidence commit + workpack complete)
+### `git status --short` (after the final commits)
 
 ```
-(clean — empty working tree after the final commits; see the SHA-recording commit)
 ```
 
-The final `git status --short` is empty (clean slate) after the completion commits.
+The final `git status --short` is empty — the working tree is a clean slate after the completion commits.
