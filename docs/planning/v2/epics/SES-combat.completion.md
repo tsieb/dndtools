@@ -261,8 +261,8 @@ Run `pnpm v2:dev` and open the app.
 ## Git evidence
 
 - Branch: `epic/SES-combat` (created from `epic/CONTENT-visibility-and-embeds` HEAD `5f41562`).
-- Commit SHA: recorded in the follow-up docs commit on this branch.
-- Final `git status --short`: clean (recorded below after the completion commit).
+- Implementation commit SHA: `0293929` (this docs SHA-record commit follows it).
+- Final `git status --short`: clean.
 
 ```
 (clean)
