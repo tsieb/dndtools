@@ -155,6 +155,9 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	};
 	const maps = (mapDoc?.doc as MapState | undefined) ?? createDemoMapState();
 	maps.maps ??= { ...EMPTY_MAP_STATE.maps };
+	// MAP-002: a map document persisted before the content-addressed asset store existed has no
+	// `assets` map; default it so older vaults stay readable without a destructive migration.
+	maps.assets ??= { ...EMPTY_MAP_STATE.assets };
 	const permissions = (permissionDoc?.doc as PermissionState | undefined) ?? {
 		actors: {},
 		grants: [],

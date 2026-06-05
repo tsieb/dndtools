@@ -64,15 +64,70 @@ export type {
 	MapLayer,
 	MapLayerCategory,
 	MapLayerDefaults,
+	MapProjection,
+	MapProjectionKind,
 	MapRegion,
+	MapScale,
 	MapState,
 } from './state/map-state';
 export {
+	DEFAULT_MAP_PROJECTION,
 	EMPTY_MAP_STATE,
 	MAP_STATE_SCHEMA_VERSION,
+	SUPPORTED_MAP_PROJECTIONS,
 	createDemoMapState,
+	normalizeMapEntity,
 	normalizeMapLayer,
 } from './state/map-state';
+
+// MAP-002: content-addressed map assets. The asset id IS the hash of its bytes (identical bytes dedupe
+// to one asset; the hash is the integrity check). Pure + deterministic (no DOM/crypto.subtle) so the
+// same bytes hash identically on every device. Size/MIME validated fail-closed before any mutation.
+export type {
+	AssetValidationError,
+	BuildAssetInput,
+	MapAsset,
+	MapAssetDimensions,
+	MapAssetKind,
+} from './state/map-assets';
+export {
+	ASSET_HASH_ALGORITHM,
+	DEFAULT_MAX_ASSET_BYTES,
+	MAP_ASSET_SCHEMA_VERSION,
+	NATIVE_ASSET_MIME_TYPES,
+	assetId,
+	buildMapAsset,
+	hashAssetBytes,
+	nativeAssetKind,
+} from './state/map-assets';
+
+// MAP-002 / MAP-020: external-format adapter registry (typed capability descriptor — external scene
+// formats require a DECLARED adapter, else import is rejected fail-closed) + the safe, transactional
+// import preview/staging. Preview is read-only and carries the capability summary + non-leaking
+// per-element diagnostics (importable/lossy/unsupported). Staging is a pure staged-then-commit reducer:
+// not adopting its result leaves the prior state byte-identical (rollback). No GUI reaches storage.
+export type {
+	MapImportAdapterCapabilitySummary,
+	MapImportAdapterDescriptor,
+	MapImportAdapterRegistry,
+	MapImportAssetInput,
+	MapImportElementDiagnostic,
+	MapImportElementKind,
+	MapImportElementSupport,
+	MapImportPreview,
+	MapImportRejectionReason,
+	MapImportRequest,
+	StagedMapImport,
+	StageMapImportInput,
+} from './state/map-import';
+export {
+	EMPTY_MAP_IMPORT_ADAPTER_REGISTRY,
+	MAP_IMPORT_SCHEMA_VERSION,
+	createMapImportAdapterRegistry,
+	previewMapImport,
+	stageMapImport,
+	summarizeAdapterCapabilities,
+} from './state/map-import';
 
 // MAP-004: deterministic, seeded PRNG. The determinism anchor for procedural generation — no
 // Math.random/Date.now/ambient entropy, so the same seed yields the same stream on every device.
@@ -245,6 +300,8 @@ export {
 	createSceneInputSchema,
 	destroyWidgetInputSchema,
 	configureWidgetInputSchema,
+	commitMapImportInputSchema,
+	createMapInputSchema,
 	createMapLayerInputSchema,
 	deleteMapLayerInputSchema,
 	disableWidgetPackageInputSchema,
@@ -256,6 +313,7 @@ export {
 	generateMapLayersInputSchema,
 	ensureCommandCenterHomeInputSchema,
 	grantCapabilitySetInputSchema,
+	importMapAssetInputSchema,
 	groupWidgetsInputSchema,
 	installWidgetPackageInputSchema,
 	instantiateSceneTemplateInputSchema,

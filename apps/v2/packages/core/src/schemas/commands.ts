@@ -336,6 +336,115 @@ export const createMapLayerInputSchema = z
 	})
 	.strict();
 
+// MAP-001 — create a map entity with name, scale, projection metadata, default visibility, and an
+// initial layer set. DEFAULT VISIBILITY FAILS CLOSED to `dm-only` when omitted. Inputs are validated
+// fail-closed: a non-positive/non-finite scale or an unknown projection is rejected by these refines
+// before any state mutation. The initial layer set may be empty in the payload — the handler seeds a
+// default base layer so a map always has at least one layer.
+const mapScaleSchema = z
+	.object({
+		unitsPerMap: z.number().finite().positive(),
+		unit: z.string().min(1, 'A scale unit label is required'),
+	})
+	.strict();
+
+const mapProjectionSchema = z
+	.object({
+		// The enum IS the fail-closed gate: any projection outside the supported set is rejected.
+		kind: z.enum(['flat', 'equirectangular', 'web-mercator']),
+		rotationDegrees: z.number().finite().default(0),
+	})
+	.strict();
+
+const initialMapLayerSchema = z
+	.object({
+		name: z.string().min(1, 'Layer name is required'),
+		category: mapLayerCategorySchema.default('base'),
+		// Each initial layer's player-facing visibility also fails closed to `dm-only` when omitted.
+		visibility: sceneVisibilitySchema.default('dm-only'),
+		enabled: z.boolean().default(true),
+		opacity: z.number().min(0).max(1).default(1),
+		tags: z.array(z.string().min(1)).default([]),
+		query: z.record(z.string().min(1), z.string()).default({}),
+	})
+	.strict();
+
+export const createMapInputSchema = z
+	.object({
+		name: z.string().min(1, 'Map name is required'),
+		description: z.string().default(''),
+		// MAP-001: default visibility FAILS CLOSED to `dm-only` when unspecified.
+		visibility: sceneVisibilitySchema.default('dm-only'),
+		scale: z.union([z.literal(null), mapScaleSchema]).default(null),
+		projection: mapProjectionSchema.default({ kind: 'flat' as const, rotationDegrees: 0 }),
+		// The initial layer set. Empty ⇒ the handler seeds a single default base layer.
+		initialLayers: z.array(initialMapLayerSchema).default([]),
+	})
+	.strict();
+
+// MAP-002 — a native map asset import (image/SVG). The bytes arrive as a number array (a serialized
+// Uint8Array) so the payload is JSON-validatable at the boundary; the handler hashes them into a
+// content-addressed asset id (identical bytes dedupe). Size/MIME are validated fail-closed in the
+// reducer BEFORE any storage mutation (MAP-002 AC2).
+const importAssetBytesSchema = z.array(z.number().int().min(0).max(255));
+
+const importAssetMetaSchema = z
+	.object({
+		mimeType: z.string().min(1),
+		fileName: z.string().min(1),
+		dimensions: z
+			.union([
+				z.literal(null),
+				z
+					.object({
+						width: z.number().int().positive(),
+						height: z.number().int().positive(),
+					})
+					.strict(),
+			])
+			.default(null),
+		maxBytes: z.number().int().positive().optional(),
+	})
+	.strict();
+
+export const importMapAssetInputSchema = z
+	.object({
+		mapId: idSchema,
+		bytes: importAssetBytesSchema,
+		asset: importAssetMetaSchema,
+	})
+	.strict();
+
+const importElementKindSchema = z.enum([
+	'dimensions',
+	'grid',
+	'background-image',
+	'walls',
+	'lights',
+	'notes',
+	'layers',
+	'tokens',
+]);
+
+// MAP-020 — commit a previewed import as a TRANSACTION. The payload re-runs preview + staging in the
+// handler; an external `formatId` with no declared adapter is rejected fail-closed and writes nothing
+// (no partial map). A native import carries asset bytes; an external import declares element kinds the
+// adapter classifies. `mapId` targets an existing map to attach assets to, or is absent to create a
+// fresh imported map.
+export const commitMapImportInputSchema = z
+	.object({
+		mapId: z.union([z.literal(null), idSchema]).default(null),
+		mapName: z.string().min(1).optional(),
+		formatId: z.union([z.literal(null), z.string().min(1)]).default(null),
+		bytes: z.union([z.literal(null), importAssetBytesSchema]).default(null),
+		asset: z.union([z.literal(null), importAssetMetaSchema]).default(null),
+		declaredElements: z.array(importElementKindSchema).default([]),
+	})
+	.strict()
+	.refine((value) => value.mapId !== null || value.mapName !== undefined, {
+		message: 'Provide an existing mapId to attach to, or a mapName to create an imported map.',
+	});
+
 export const renameMapLayerInputSchema = z
 	.object({
 		mapId: idSchema,

@@ -214,7 +214,7 @@ export function ensureSessionState(state: SessionState | undefined): SessionStat
 }
 
 export function ensureMapState(state: MapState | undefined): MapState {
-	return state ?? { maps: {}, schemaVersion: MAP_STATE_SCHEMA_VERSION };
+	return state ?? { maps: {}, assets: {}, schemaVersion: MAP_STATE_SCHEMA_VERSION };
 }
 
 export function ensureWidgetPackageState(

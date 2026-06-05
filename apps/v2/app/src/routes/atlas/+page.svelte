@@ -4,6 +4,7 @@
 	import { useRuntime } from '$lib/state/runtime-context';
 	import MapPoiControl from '$lib/gui/MapPoiControl.svelte';
 	import MapLayerPanel from '$lib/gui/MapLayerPanel.svelte';
+	import MapAuthoringPanel from '$lib/gui/MapAuthoringPanel.svelte';
 
 	const runtime = useRuntime();
 
@@ -114,6 +115,11 @@
 			</section>
 		{/if}
 	{/if}
+
+	<!-- MAP-001 / MAP-002 / MAP-020: the DM map authoring + safe import surface. Creating a map yields
+	     a default-dm-only map with its initial layers; importing previews diagnostics before commit and
+	     rolls back cleanly on cancel. DM-only (the panel renders nothing for a player/observer). -->
+	<MapAuthoringPanel />
 
 	<section aria-label="Maps">
 		<h2 id="maps">Maps</h2>

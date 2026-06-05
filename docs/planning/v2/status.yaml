@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 63
+  approved: 62
   active: 0
-  complete: 25
+  complete: 26
   deferred: 0
 metrics:
-  epicCompletionPercent: 28.4
-  requirementCompletionPercent: 32.1
+  epicCompletionPercent: 29.5
+  requirementCompletionPercent: 33.3
   totalRequirements: 234
-  completedRequirements: 75
+  completedRequirements: 78
   deferredRequirements: 0
-  remainingEpics: 63
-  promptableEpics: 63
+  remainingEpics: 62
+  promptableEpics: 62
   blockedByDependencies: 0
-  completionEvidenceFiles: 25
+  completionEvidenceFiles: 26
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -104,13 +104,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: MAP
       totalEpics: 6
-      complete: 3
+      complete: 4
       active: 0
-      approved: 3
+      approved: 2
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 50
-      requirementCompletionPercent: 35
+      epicCompletionPercent: 66.7
+      requirementCompletionPercent: 50
     - domain: MCP
       totalEpics: 5
       complete: 0
@@ -193,17 +193,17 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: MAP-map-entity-and-assets
-  title: "MAP: Map entity and assets"
+  id: MAP-nesting-and-spatial-transitions
+  title: "MAP: Nesting and spatial transitions"
   status: approved
   requirementIds:
-    - MAP-001
-    - MAP-002
-    - MAP-020
-  promptCommand: pnpm v2:prompt -- --epic MAP-map-entity-and-assets
+    - MAP-008
+    - MAP-009
+    - MAP-017
+  promptCommand: pnpm v2:prompt -- --epic MAP-nesting-and-spatial-transitions
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic MAP-map-entity-and-assets
-    --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic
+    MAP-nesting-and-spatial-transitions --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -496,12 +496,13 @@ epics:
       - MAP-004
     completionEvidenceFile: docs/planning/v2/epics/MAP-map-editing-and-generation.completion.md
   - id: MAP-map-entity-and-assets
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - MAP-001
       - MAP-002
       - MAP-020
+    completionEvidenceFile: docs/planning/v2/epics/MAP-map-entity-and-assets.completion.md
   - id: MAP-nesting-and-spatial-transitions
     status: approved
     approved: true

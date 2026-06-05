@@ -54,6 +54,8 @@ import {
 	handleSetMapLayerVisibility,
 } from './map-layer';
 import { handleEditMapLayer, handleGenerateMapLayers } from './map-editing';
+import { handleCommitMapImport, handleCreateMap, handleImportMapAsset } from './map-entity';
+import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
 
 export function dispatchCommand(
 	state: CoreStateSlice,
@@ -161,6 +163,24 @@ export function dispatchCommand(
 			return handleEditMapLayer(state, env, command.actorId, command.payload);
 		case 'map.generate-layers':
 			return handleGenerateMapLayers(state, env, command.actorId, command.payload);
+		case 'map.create':
+			return handleCreateMap(state, env, command.actorId, command.payload);
+		case 'map.import-asset':
+			return handleImportMapAsset(
+				state,
+				env,
+				command.actorId,
+				command.payload,
+				env.mapImportAdapters ?? EMPTY_MAP_IMPORT_ADAPTER_REGISTRY,
+			);
+		case 'map.commit-import':
+			return handleCommitMapImport(
+				state,
+				env,
+				command.actorId,
+				command.payload,
+				env.mapImportAdapters ?? EMPTY_MAP_IMPORT_ADAPTER_REGISTRY,
+			);
 	}
 }
 

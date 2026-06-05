@@ -5,6 +5,7 @@ import {
 	EMPTY_SCENE_STATE,
 	EMPTY_SESSION_STATE,
 	createCommandLifecycle,
+	createMapImportAdapterRegistry,
 	createOperationLog,
 	createDemoMapState,
 	createSystemWidgetPackages,
@@ -50,19 +51,47 @@ function browserClock(): string {
 	return new Date().toISOString();
 }
 
+/**
+ * MAP-002 / MAP-020 — the DECLARED external map-format import adapters for the prototype. One adapter
+ * (`vtt-scene`) is declared so the import flow can demonstrate a working adapter with a capability
+ * summary and unsupported-element diagnostics. Any OTHER external format is undeclared, so its import
+ * is rejected fail-closed (no silent best-effort) — exactly the MAP-002 gating contract.
+ */
+export const MAP_IMPORT_ADAPTERS = createMapImportAdapterRegistry([
+	{
+		formatId: 'vtt-scene',
+		displayName: 'Virtual Tabletop Scene',
+		version: '1.0.0',
+		elementSupport: {
+			dimensions: 'importable',
+			'background-image': 'importable',
+			grid: 'importable',
+			walls: 'lossy',
+			notes: 'lossy',
+			lights: 'unsupported',
+			tokens: 'unsupported',
+		},
+	},
+]);
+
 export function defaultEnvironment(): CoreEnvironment {
 	return {
 		vaultId: 'local-default',
 		sourceId: 'local-vault',
 		ids: browserIdGenerator,
 		clock: browserClock,
+		mapImportAdapters: MAP_IMPORT_ADAPTERS,
 	};
 }
 
 export class SceneRuntime {
 	#state = $state<CoreStateSlice>({
 		scenes: { scenes: {}, schemaVersion: EMPTY_SCENE_STATE.schemaVersion },
-		maps: { maps: { ...EMPTY_MAP_STATE.maps }, schemaVersion: EMPTY_MAP_STATE.schemaVersion },
+		maps: {
+			maps: { ...EMPTY_MAP_STATE.maps },
+			assets: { ...EMPTY_MAP_STATE.assets },
+			schemaVersion: EMPTY_MAP_STATE.schemaVersion,
+		},
 		permissions: {
 			actors: {},
 			grants: [],
@@ -113,6 +142,15 @@ export class SceneRuntime {
 
 	get state(): CoreStateSlice {
 		return this.#state;
+	}
+
+	/**
+	 * MAP-002 / MAP-020: the declared external-format import adapters, so the GUI can run the pure
+	 * import PREVIEW (capability summary + diagnostics) against the same registry the dispatch uses.
+	 * The GUI reads this descriptor; it never reaches storage (Contract 1).
+	 */
+	get mapImportAdapters() {
+		return this.#options.env.mapImportAdapters ?? MAP_IMPORT_ADAPTERS;
 	}
 
 	get loaded(): boolean {

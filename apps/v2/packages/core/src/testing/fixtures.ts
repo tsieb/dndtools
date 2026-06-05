@@ -32,6 +32,8 @@ export function makeEnvironment(overrides: Partial<CoreEnvironment> = {}): CoreE
 		sourceId: overrides.sourceId ?? 'local-vault',
 		ids: overrides.ids ?? sequentialIds(),
 		clock: overrides.clock ?? fixedClock(),
+		// MAP-002 / MAP-020: pass through declared import adapters when a test supplies them.
+		...(overrides.mapImportAdapters ? { mapImportAdapters: overrides.mapImportAdapters } : {}),
 	};
 }
 
@@ -63,6 +65,7 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 		},
 		maps: {
 			maps: { ...EMPTY_MAP_STATE.maps },
+			assets: { ...EMPTY_MAP_STATE.assets },
 			schemaVersion: EMPTY_MAP_STATE.schemaVersion,
 		},
 		permissions: buildPermissionState(...actors),

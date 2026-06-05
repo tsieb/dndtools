@@ -3,6 +3,7 @@ import type { Clock, IdGenerator } from '../state/ids';
 import type { CommandCenterState } from '../state/command-center-state';
 import type { MapState } from '../state/map-state';
 import type { MapLayerMutationKind } from '../state/map-layers';
+import type { MapImportAdapterRegistry } from '../state/map-import';
 import type { PermissionState } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
 import type { SessionWorkflowState, SessionState } from '../state/session-state';
@@ -24,6 +25,13 @@ export interface CoreEnvironment {
 	sourceId: string;
 	ids: IdGenerator;
 	clock: Clock;
+	/**
+	 * MAP-002 / MAP-020 — declared external-format import adapters. Optional; when absent NO external
+	 * scene format is declared, so every external import is rejected fail-closed (only native image/SVG
+	 * imports succeed). Modeled as a typed registry so a format can never be imported without a declared
+	 * adapter.
+	 */
+	mapImportAdapters?: MapImportAdapterRegistry;
 }
 
 export type CoreCommand =
@@ -130,7 +138,13 @@ export type CoreCommand =
 	// MAP-003: draw/paint edit (before+after content capture for undo and sync).
 	| { type: 'map.edit-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// MAP-004: deterministic procedural generation saved as editable map layers.
-	| { type: 'map.generate-layers'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
+	| { type: 'map.generate-layers'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-001: create a map entity (name, scale, projection, default visibility, initial layers).
+	| { type: 'map.create'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-002: import a native image/SVG as a content-addressed map asset.
+	| { type: 'map.import-asset'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MAP-020: commit a previewed import as a transaction (rollback-safe, no partial commit).
+	| { type: 'map.commit-import'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -261,6 +275,16 @@ export type CoreEvent =
 			mapId: string;
 			layerId: string;
 			mutation: MapLayerMutationKind;
+			actorId: ActorId;
+	  }
+	| { kind: 'map.created'; mapId: string; actorId: ActorId }
+	| {
+			kind: 'map.import-committed';
+			mapId: string;
+			mapCreated: boolean;
+			assetId: string | null;
+			assetDeduped: boolean;
+			droppedElementCount: number;
 			actorId: ActorId;
 	  };
 

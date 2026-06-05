@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: MAP-map-entity-and-assets
 title: "MAP: Map entity and assets"
-status: approved
+status: complete
 approved: true
 domain: MAP
 capabilityBranch: Map entity and assets
@@ -194,3 +194,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/MAP-map-entity-and-assets.completion.md

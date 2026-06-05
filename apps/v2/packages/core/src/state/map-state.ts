@@ -1,4 +1,5 @@
 import type { SceneVisibility } from './scene-state';
+import type { MapAsset } from './map-assets';
 
 export const MAP_STATE_SCHEMA_VERSION = 1 as const;
 
@@ -95,13 +96,55 @@ export interface MapRegion {
 	bounds: { x: number; y: number; w: number; h: number };
 }
 
+/**
+ * MAP-001 — physical scale of a map: how many real-world units one normalized unit (the full map
+ * width, 0..1) represents. Drives MAP-013 distance/travel-time math downstream. Validated fail-closed
+ * (positive, finite) at creation.
+ */
+export interface MapScale {
+	/** Real-world distance spanned by the full normalized width (0..1). */
+	unitsPerMap: number;
+	/** The unit label, e.g. `miles`, `feet`, `meters`. Free-form but required (non-empty). */
+	unit: string;
+}
+
+/**
+ * MAP-001 — projection metadata describing how normalized map space maps to a display surface. The
+ * prototype renders flat images, so the supported projections are deliberately small; an unknown
+ * projection is rejected fail-closed at creation rather than silently accepted.
+ */
+export type MapProjectionKind = 'flat' | 'equirectangular' | 'web-mercator';
+
+export interface MapProjection {
+	kind: MapProjectionKind;
+	/** Optional rotation in degrees applied to the projected surface (0 when unspecified). */
+	rotationDegrees: number;
+}
+
+/** The projection kinds the prototype understands. An import/create with any other kind fails closed. */
+export const SUPPORTED_MAP_PROJECTIONS: readonly MapProjectionKind[] = Object.freeze([
+	'flat',
+	'equirectangular',
+	'web-mercator',
+]);
+
 export interface MapEntity {
 	id: string;
 	name: string;
 	description: string;
 	visibility: SceneVisibility;
+	/** MAP-001 — physical scale; null when the DM did not specify one. */
+	scale: MapScale | null;
+	/** MAP-001 — projection metadata; defaults to a flat projection. */
+	projection: MapProjection;
 	layers: MapLayer[];
 	regions: MapRegion[];
+	/**
+	 * MAP-002 — content-addressed map asset ids referenced by this map (the background image/SVG and
+	 * any imported scene assets). The asset records live in `MapState.assets`, keyed by content hash,
+	 * so the SAME bytes referenced by two maps are a single deduplicated asset record.
+	 */
+	assetIds: string[];
 	defaultRegionId: string | null;
 	updatedAt: string;
 	revision: number;
@@ -109,13 +152,50 @@ export interface MapEntity {
 
 export interface MapState {
 	maps: Record<string, MapEntity>;
+	/**
+	 * MAP-002 — content-addressed asset records, keyed by the asset id (its content hash). Identical
+	 * bytes dedupe to one entry here regardless of how many maps reference them.
+	 */
+	assets: Record<string, MapAsset>;
 	schemaVersion: typeof MAP_STATE_SCHEMA_VERSION;
 }
 
+export const DEFAULT_MAP_PROJECTION: MapProjection = Object.freeze({
+	kind: 'flat',
+	rotationDegrees: 0,
+});
+
 export const EMPTY_MAP_STATE: MapState = Object.freeze({
 	maps: {},
+	assets: {},
 	schemaVersion: MAP_STATE_SCHEMA_VERSION,
 });
+
+/**
+ * Normalize a partial/legacy {@link MapEntity} into a complete record, filling the MAP-001/MAP-002
+ * fields with safe defaults so a pre-MAP-001 persisted map stays readable without a destructive
+ * migration. Fail-closed: a missing projection is `flat`, a missing scale is `null`, missing assets
+ * are an empty list.
+ */
+export function normalizeMapEntity(
+	map: Omit<MapEntity, 'scale' | 'projection' | 'assetIds'> &
+		Partial<Pick<MapEntity, 'scale' | 'projection' | 'assetIds'>>,
+): MapEntity {
+	return {
+		id: map.id,
+		name: map.name,
+		description: map.description,
+		visibility: map.visibility,
+		scale: map.scale ?? null,
+		projection: map.projection ?? { ...DEFAULT_MAP_PROJECTION },
+		layers: map.layers,
+		regions: map.regions,
+		assetIds: [...(map.assetIds ?? [])],
+		defaultRegionId: map.defaultRegionId,
+		updatedAt: map.updatedAt,
+		revision: map.revision,
+	};
+}
 
 /** The values a freshly authored or migrated layer fills in for the MAP-005 metadata fields. */
 export interface MapLayerDefaults {
@@ -171,11 +251,14 @@ export function normalizeMapLayer(
  */
 export function createDemoMapState(now = '2026-06-03T00:00:00.000Z'): MapState {
 	const maps: MapEntity[] = [
-		{
+		normalizeMapEntity({
 			id: 'map-western-reaches',
 			name: 'Western Reaches',
 			description: 'Regional travel map for the current campaign arc.',
 			visibility: 'player-visible',
+			scale: { unitsPerMap: 120, unit: 'miles' },
+			projection: { kind: 'flat', rotationDegrees: 0 },
+			assetIds: [],
 			defaultRegionId: 'region-north-road',
 			updatedAt: now,
 			revision: 1,
@@ -228,12 +311,15 @@ export function createDemoMapState(now = '2026-06-03T00:00:00.000Z'): MapState {
 					2,
 				),
 			],
-		},
-		{
+		}),
+		normalizeMapEntity({
 			id: 'map-ruined-keep',
 			name: 'Ruined Keep',
 			description: 'Encounter map with a player-safe ground floor region.',
 			visibility: 'shared',
+			scale: { unitsPerMap: 200, unit: 'feet' },
+			projection: { kind: 'flat', rotationDegrees: 0 },
+			assetIds: [],
 			defaultRegionId: 'region-ground-floor',
 			updatedAt: now,
 			revision: 1,
@@ -290,11 +376,12 @@ export function createDemoMapState(now = '2026-06-03T00:00:00.000Z'): MapState {
 					2,
 				),
 			],
-		},
+		}),
 	];
 
 	return {
 		schemaVersion: MAP_STATE_SCHEMA_VERSION,
+		assets: {},
 		maps: Object.fromEntries(maps.map((map) => [map.id, map])),
 	};
 }

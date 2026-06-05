@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	auditMapProjectionConsistency,
 	getMapProjectionConsistencyForActor,
+	normalizeMapEntity,
 	normalizeMapLayer,
 	type MapEntity,
 	type MapLayer,
@@ -20,7 +21,7 @@ function layer(id: string, visibility: MapLayer['visibility']): MapLayer {
 }
 
 function mapWith(layers: MapLayer[]): MapEntity {
-	return {
+	return normalizeMapEntity({
 		id: 'map-1',
 		name: 'Map One',
 		description: '',
@@ -30,7 +31,7 @@ function mapWith(layers: MapLayer[]): MapEntity {
 		defaultRegionId: null,
 		updatedAt: null as never,
 		revision: 1,
-	} as MapEntity;
+	});
 }
 
 describe('MAP-016 pre-projection visibility consistency', () => {
