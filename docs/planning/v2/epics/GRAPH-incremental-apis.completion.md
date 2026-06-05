@@ -187,11 +187,12 @@ The fastest reviewer path is the test suite:
 ## Git evidence
 
 - Branch: `epic/GRAPH-incremental-apis`
-- Commit SHA: _(recorded in the follow-up `docs(v2): record commit SHA` commit)_
+- Feat commit SHA: `7f99fe512845ce8f1f1de4cb1c819fff3d4e6d31`
+- Workpack-complete commit SHA: `c996f4e`
+- SHA-recording follow-up commit: this commit (`docs(v2): record commit SHA ...`).
 
-Final `git status --short` (after the feat commit + workpack:complete commit, before the SHA
-follow-up):
+Final `git status --short` (after the SHA-recording commit — clean slate):
 
 ```
-(clean — see the SHA-recording follow-up commit for the post-completion clean slate)
+(empty)
 ```
