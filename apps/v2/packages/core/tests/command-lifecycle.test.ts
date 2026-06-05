@@ -108,6 +108,9 @@ describe('PLAT-018 AC2: undo only where the command contract supports it', () =>
 			'widget.package.disable',
 			// MAP-003: a paint edit's inverse is the same set-content command (before/after swapped).
 			'map.edit-layer',
+			// CONTENT-001: a soft-delete's inverse is restoring the same item.
+			'content.remove-item',
+			'content.restore-item',
 		]);
 		for (const [forward, inverse] of Object.entries(UNDOABLE_COMMAND_TYPES)) {
 			expect(knownTypes.has(forward)).toBe(true);

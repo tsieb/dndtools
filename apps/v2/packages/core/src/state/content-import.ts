@@ -321,6 +321,8 @@ function buildImportedItem(
 		sharedWith: [],
 		authorActorId,
 		createdAt: existing && step.mode === 'overwrite' ? existing.createdAt : now,
+		// An import always yields a LIVE note: overwriting a tombstoned item at the same path restores it.
+		deletedAt: null,
 		updatedAt: now,
 		revision: existing && step.mode === 'overwrite' ? existing.revision + 1 : 1,
 	};

@@ -51,6 +51,7 @@ function vaultWithMixedVisibility(): VaultContentState {
 		sharedWith,
 		authorActorId: DM_ACTOR.id,
 		createdAt: now,
+		deletedAt: null,
 		updatedAt: now,
 		revision: 1,
 	});

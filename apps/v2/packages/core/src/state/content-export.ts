@@ -149,7 +149,11 @@ function selectExportItems(
 	mode: ContentExportMode,
 	portableViewerActorId: string,
 ): { items: ContentItem[]; omittedForVisibility: number } {
-	const all = Object.values(state.items).sort((a, b) => a.id.localeCompare(b.id));
+	// CONTENT-001: soft-deleted (tombstoned) items are never exported in either mode — a deleted note is
+	// not part of the vault's content until it is restored.
+	const all = Object.values(state.items)
+		.filter((item) => item.deletedAt === null)
+		.sort((a, b) => a.id.localeCompare(b.id));
 	if (mode === 'dm-backup') {
 		return { items: all, omittedForVisibility: 0 };
 	}
@@ -182,7 +186,8 @@ export function exportContent(
 	permissions: PermissionState,
 	input: ExportContentInput,
 ): ContentExport {
-	const all = Object.values(state.items);
+	// CONTENT-001: tombstoned items are not part of the exportable vault total.
+	const all = Object.values(state.items).filter((item) => item.deletedAt === null);
 	const { items, omittedForVisibility } = selectExportItems(
 		state,
 		permissions,

@@ -112,6 +112,7 @@ import {
 	handleCreateContentItem,
 	handleDefineCalendar,
 	handleRemoveContentItem,
+	handleRestoreContentItem,
 	handleSetContentItemVisibility,
 	handleUpdateContentItem,
 } from './content';
@@ -338,6 +339,8 @@ export function dispatchCommand(
 			return handleSetContentItemVisibility(state, env, command.actorId, command.payload);
 		case 'content.remove-item':
 			return handleRemoveContentItem(state, env, command.actorId, command.payload);
+		case 'content.restore-item':
+			return handleRestoreContentItem(state, env, command.actorId, command.payload);
 		case 'content.commit-import':
 			return handleCommitContentImport(state, env, command.actorId, command.payload);
 		case 'content.export':

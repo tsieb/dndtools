@@ -92,6 +92,9 @@ epics:
   - id: CONTENT-import-export
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CONTENT-import-export.completion.md
+  - id: CONTENT-notes-and-editor
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CONTENT-notes-and-editor.completion.md
   - id: MAP-interaction-safety
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MAP-interaction-safety.completion.md

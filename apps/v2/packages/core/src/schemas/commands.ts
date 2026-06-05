@@ -1294,8 +1294,16 @@ export const setContentItemVisibilityInputSchema = z
 	})
 	.strict();
 
-// CONTENT-011 — remove a content item (authorized editor only).
+// CONTENT-011 — remove a content item (authorized editor only). Soft-delete: the item is tombstoned
+// and recoverable via `content.restore-item`, not purged.
 export const removeContentItemInputSchema = z
+	.object({
+		itemId: idSchema,
+	})
+	.strict();
+
+// CONTENT-001 — restore a soft-deleted content item (authorized editor only).
+export const restoreContentItemInputSchema = z
 	.object({
 		itemId: idSchema,
 	})

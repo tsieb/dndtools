@@ -72,6 +72,13 @@ export interface ContentItem {
 	/** The actor that authored the item (an authorized editor / the DM). */
 	authorActorId: ActorId;
 	createdAt: string;
+	/**
+	 * CONTENT-001 — the SOFT-DELETE tombstone. `null` for a live item; an ISO timestamp once the item is
+	 * soft-deleted. A tombstoned item is RECOVERABLE (a `content.restore-item` clears it), is OMITTED from
+	 * every actor-filtered read (search/calendar/list), and never re-exposes its prior content. Defaults
+	 * to `null` so a record persisted before CONTENT-001 hydrates as live.
+	 */
+	deletedAt: string | null;
 	updatedAt: string;
 	/** Optimistic-concurrency revision, bumped on every accepted mutation of this item. */
 	revision: number;
@@ -94,11 +101,28 @@ export const EMPTY_VAULT_CONTENT_STATE: VaultContentState = Object.freeze({
 export function ensureVaultContentState(
 	state: VaultContentState | undefined,
 ): VaultContentState {
+	const items: Record<string, ContentItem> = {};
+	for (const [id, item] of Object.entries(state?.items ?? {})) {
+		// Backfill the CONTENT-001 tombstone on records persisted before soft-delete existed.
+		items[id] = item.deletedAt === undefined ? { ...item, deletedAt: null } : item;
+	}
 	return {
 		calendars: state?.calendars ?? {},
-		items: state?.items ?? {},
+		items,
 		schemaVersion: VAULT_CONTENT_SCHEMA_VERSION,
 	};
+}
+
+/** Whether an item is live (not soft-deleted). The single tombstone predicate the reads share. */
+export function isLiveContentItem(item: ContentItem): boolean {
+	return item.deletedAt === null;
+}
+
+/** The LIVE content items (tombstoned items omitted), in stable id order. Pure. */
+export function liveContentItems(state: VaultContentState): ContentItem[] {
+	return Object.values(state.items)
+		.filter(isLiveContentItem)
+		.sort((a, b) => a.id.localeCompare(b.id));
 }
 
 /** The calendar definition with this id, or `undefined`. Pure. */
@@ -176,6 +200,7 @@ export function buildContentItem(input: CreateContentItemInput, meta: ContentIte
 		sharedWith,
 		authorActorId: meta.authorActorId,
 		createdAt: meta.now,
+		deletedAt: null,
 		updatedAt: meta.now,
 		revision: 1,
 	};
@@ -250,7 +275,49 @@ export function setContentItemVisibility(
 	return { ...state, items: { ...state.items, [itemId]: next } };
 }
 
-/** Remove a content item. Returns `null` when it does not exist. Pure. */
+/**
+ * SOFT-DELETE a content item (CONTENT-001): stamp its tombstone + bump its revision, keeping the record
+ * recoverable. A no-op (returns the same value reference is fine) if it is already tombstoned. Returns
+ * `null` when the item does not exist. Pure.
+ */
+export function softDeleteContentItem(
+	state: VaultContentState,
+	itemId: string,
+	now: string,
+): VaultContentState | null {
+	const existing = state.items[itemId];
+	if (!existing) return null;
+	const next: ContentItem = {
+		...existing,
+		deletedAt: now,
+		updatedAt: now,
+		revision: existing.revision + 1,
+	};
+	return { ...state, items: { ...state.items, [itemId]: next } };
+}
+
+/**
+ * RESTORE a soft-deleted content item (CONTENT-001): clear its tombstone + bump its revision. The
+ * restored revision carries the item's existing content verbatim — it never re-exposes a different prior
+ * revision. Returns `null` when the item does not exist. Pure.
+ */
+export function restoreContentItem(
+	state: VaultContentState,
+	itemId: string,
+	now: string,
+): VaultContentState | null {
+	const existing = state.items[itemId];
+	if (!existing) return null;
+	const next: ContentItem = {
+		...existing,
+		deletedAt: null,
+		updatedAt: now,
+		revision: existing.revision + 1,
+	};
+	return { ...state, items: { ...state.items, [itemId]: next } };
+}
+
+/** HARD-remove a content item (purge — no tombstone). Returns `null` when it does not exist. Pure. */
 export function removeContentItem(
 	state: VaultContentState,
 	itemId: string,

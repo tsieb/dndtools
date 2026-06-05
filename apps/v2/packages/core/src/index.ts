@@ -1362,11 +1362,32 @@ export {
 	calendarById,
 	contentItemById,
 	ensureVaultContentState,
+	isLiveContentItem,
+	liveContentItems,
 	removeContentItem,
+	restoreContentItem,
 	setContentItemVisibility,
+	softDeleteContentItem,
 	updateContentItem,
 	upsertCalendarDefinition,
 } from './state/content';
+
+// CONTENT-002: pure, deterministic markdown EDITOR support — frontmatter/wikilink VALIDATION (fail
+// closed), a safe block-model PREVIEW (no raw HTML), and the active-wikilink-query caret helper. Reuses
+// the markdown parser; the GUI renders the computed result and dispatches command intents (Contract 1).
+export type {
+	MarkdownPreview,
+	MarkdownValidationIssue,
+	MarkdownValidationResult,
+	PreviewBlock,
+	ValidationSeverity,
+} from './state/content-editor';
+export {
+	CONTENT_EDITOR_SCHEMA_VERSION,
+	activeWikilinkQuery,
+	renderMarkdownPreview,
+	validateMarkdownDraft,
+} from './state/content-editor';
 
 // CONTENT-011: THE single actor-filtered CONTENT read model. Per-item visibility decided BEFORE any
 // content is returned to ANY surface (note/graph/search/recap), with STABLE formatted dates. A hidden
@@ -1374,6 +1395,7 @@ export {
 export type {
 	CalendarEventView,
 	ContentItemView,
+	DeletedContentItemView,
 	FormattedDateView,
 	TimelineReferenceView,
 } from './queries/content-query';
@@ -1381,7 +1403,21 @@ export {
 	actorCanAuthorContent,
 	getCalendarTimelineForActor,
 	getContentItemsForActor,
+	getDeletedContentItemsForActor,
 } from './queries/content-query';
+
+// CONTENT-001 / CONTENT-002: the actor-filtered NOTE SEARCH + the actor-filtered WIKILINK suggestion
+// source. Both compose `getContentItemsForActor`, so a hit/snippet/suggestion can NEVER name a note the
+// actor cannot see (no separate index to leak hidden content). Pure + deterministic ranking.
+export type {
+	ContentSearchHit,
+	SearchSnippet,
+	WikilinkSuggestion,
+} from './queries/content-search';
+export {
+	searchContentForActor,
+	suggestWikilinkTargetsForActor,
+} from './queries/content-search';
 
 // CONTENT-007 / CONTENT-008: pure, deterministic Obsidian-aware markdown parse/serialize — the
 // determinism keystone for import/export. Preserves frontmatter properties, aliases, tags, wikilinks.
@@ -1645,6 +1681,7 @@ export {
 	removePartyInventoryItemInputSchema,
 	resolveCharacterConflictInputSchema,
 	restCharacterInputSchema,
+	restoreContentItemInputSchema,
 	revokeCharacterDraftInputSchema,
 	setAdvancementChoicesInputSchema,
 	setCharacterCombatInputSchema,

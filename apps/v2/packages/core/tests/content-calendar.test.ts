@@ -412,7 +412,7 @@ describe('CONTENT-011: visibility change is the cross-surface invalidation trigg
 });
 
 describe('CONTENT-011: removal', () => {
-	it('the DM removes an item and a durable op is appended', () => {
+	it('the DM removes an item (soft-delete) and a durable op is appended', () => {
 		const env = makeEnvironment();
 		let state = withCalendar(base(), env);
 		state = accepted(
@@ -420,7 +420,12 @@ describe('CONTENT-011: removal', () => {
 		).nextState;
 		const itemId = Object.values(state.content.items)[0]!.id;
 		const result = accepted(dispatchCommand(state, env, cmd('content.remove-item', { itemId })));
-		expect(result.nextState.content.items[itemId]).toBeUndefined();
+		// CONTENT-001: remove is a recoverable SOFT-DELETE — the record is tombstoned, not purged, and is
+		// omitted from the actor-filtered read.
+		expect(result.nextState.content.items[itemId]?.deletedAt).not.toBeNull();
+		expect(
+			getContentItemsForActor(result.nextState.content, result.nextState.permissions, DM_ACTOR.id),
+		).toHaveLength(0);
 		expect(result.nextState.sync.operations.at(-1)!.opType).toBe('content.remove-item');
 	});
 

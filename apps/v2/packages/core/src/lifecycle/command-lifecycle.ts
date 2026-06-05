@@ -58,6 +58,9 @@ export const UNDOABLE_COMMAND_TYPES: Partial<Record<CoreCommand['type'], CoreCom
 	// prior content. The forward and inverse share a command type because the operation is a content
 	// replacement, not a distinct destructive op.
 	'map.edit-layer': 'map.edit-layer',
+	// CONTENT-001: a soft-delete is undone by restoring the same item. The tombstone keeps the record, so
+	// restore returns the exact prior content (no hidden prior revision re-exposed).
+	'content.remove-item': 'content.restore-item',
 };
 
 export function isUndoableCommandType(type: CoreCommand['type']): boolean {

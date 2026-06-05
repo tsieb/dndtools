@@ -1,6 +1,6 @@
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { ContentItem, TimelineReference, VaultContentState } from '../state/content';
-import { CONTENT_ITEM_ENTITY_TYPE } from '../state/content';
+import { CONTENT_ITEM_ENTITY_TYPE, isLiveContentItem } from '../state/content';
 import type {
 	CalendarDateFormat,
 	CalendarDefinition,
@@ -66,12 +66,18 @@ export interface ContentItemView {
 	revision: number;
 }
 
-/** Whether ONE item is visible to an actor (the per-item visibility check). Fail closed otherwise. */
+/**
+ * Whether ONE item is visible to an actor (the per-item visibility check) AND live. Fail closed
+ * otherwise. A SOFT-DELETED (tombstoned) item is omitted from EVERY actor-filtered read — even the DM's
+ * — so a deleted note never appears in a list/calendar/search result until it is restored (CONTENT-001
+ * AC2/AC4). The DM reaches tombstoned items only through the explicit recycle-bin query.
+ */
 function itemVisibleToActor(
 	item: ContentItem,
 	actor: Actor,
 	permissions: PermissionState,
 ): boolean {
+	if (!isLiveContentItem(item)) return false;
 	if (actor.role === 'dm') return true;
 	if (item.visibility === 'dm-only') return false;
 	if (item.visibility === 'player-visible') return actor.role === 'player' || actor.role === 'observer';
@@ -212,4 +218,38 @@ export function getCalendarTimelineForActor(
 export function actorCanAuthorContent(permissions: PermissionState, actorId: string): boolean {
 	const actor = permissions.actors[actorId];
 	return !!actor && actor.role === 'dm';
+}
+
+/** A soft-deleted item as projected to the DM recycle bin: just enough to identify and restore it. */
+export interface DeletedContentItemView {
+	id: string;
+	kind: ContentItem['kind'];
+	title: string;
+	deletedAt: string;
+	revision: number;
+}
+
+/**
+ * CONTENT-001 — the DM-only RECYCLE BIN: the soft-deleted items, so a deleted note can be RESTORED. This
+ * is a DM authoring surface (Contract 3 DM authority), so a non-DM actor receives an EMPTY list (fail
+ * closed): a player must never learn that a hidden note ever existed, let alone be able to restore it.
+ * Ordered by deletion time then id for a deterministic, stable bin. Pure.
+ */
+export function getDeletedContentItemsForActor(
+	content: VaultContentState,
+	permissions: PermissionState,
+	actorId: string,
+): DeletedContentItemView[] {
+	const actor = permissions.actors[actorId];
+	if (!actor || actor.role !== 'dm') return [];
+	return Object.values(content.items)
+		.filter((item): item is ContentItem & { deletedAt: string } => item.deletedAt !== null)
+		.sort((a, b) => (a.deletedAt === b.deletedAt ? a.id.localeCompare(b.id) : a.deletedAt.localeCompare(b.deletedAt)))
+		.map((item) => ({
+			id: item.id,
+			kind: item.kind,
+			title: item.title,
+			deletedAt: item.deletedAt,
+			revision: item.revision,
+		}));
 }

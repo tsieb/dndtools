@@ -2,6 +2,7 @@ import {
 	createContentItemInputSchema,
 	defineCalendarInputSchema,
 	removeContentItemInputSchema,
+	restoreContentItemInputSchema,
 	setContentItemVisibilityInputSchema,
 	updateContentItemInputSchema,
 } from '../schemas/commands';
@@ -11,8 +12,10 @@ import {
 	buildContentItem,
 	calendarById,
 	contentItemById,
-	removeContentItem,
+	isLiveContentItem,
+	restoreContentItem,
 	setContentItemVisibility,
+	softDeleteContentItem,
 	updateContentItem,
 	upsertCalendarDefinition,
 	type ContentItem,
@@ -37,9 +40,13 @@ import { appendOperationDraft, ensureContentStateSlice, parseInput, reject, requ
  *   - Defining a campaign calendar and CREATING a new content item are VAULT-LEVEL authoring acts with
  *     no pre-existing entity to grant against, so they are DM-only (mirrors `actorCanAuthorScene`). An
  *     unauthorized actor is rejected `actor-not-authorized`.
- *   - Editing/visibility-changing/removing an EXISTING item additionally allows a player who holds a
- *     write-capable grant (`section-editor`/`contributor`) on that `content-item` entity — an
+ *   - Editing/visibility-changing/removing/restoring an EXISTING item additionally allows a player who
+ *     holds a write-capable grant (`section-editor`/`contributor`) on that `content-item` entity — an
  *     "authorized editor". An observer never qualifies; a player with no grant is rejected.
+ *
+ * DELETE is RECOVERABLE (CONTENT-001): `content.remove-item` SOFT-DELETES (tombstones) an item, leaving
+ * it out of every actor-filtered read but restorable via `content.restore-item`. Editing or
+ * visibility-changing a tombstoned item is rejected (`content-item-deleted`) until it is restored.
  *
  * DATA SAFETY: every custom-date field and timeline reference is validated against its referenced
  * calendar definition BEFORE the item is committed (`invalid-calendar-date` / `calendar-not-found`),
@@ -84,7 +91,7 @@ function deliveryAudience(visibility: string, sharedWith: readonly string[]): st
 
 function itemChangedEvent(
 	itemId: string,
-	mutation: 'create' | 'update' | 'set-visibility' | 'remove',
+	mutation: 'create' | 'update' | 'set-visibility' | 'remove' | 'restore',
 	visibility: string,
 	invalidatedActorIds: string[],
 	actorId: string,
@@ -276,6 +283,12 @@ export function handleUpdateContentItem(
 			state,
 		);
 	}
+	if (!isLiveContentItem(existing)) {
+		return reject(
+			{ code: 'content-item-deleted', message: 'Restore this item before editing it.' },
+			state,
+		);
+	}
 
 	const dateError = validateItemDates(
 		content,
@@ -365,6 +378,12 @@ export function handleSetContentItemVisibility(
 			state,
 		);
 	}
+	if (!isLiveContentItem(before)) {
+		return reject(
+			{ code: 'content-item-deleted', message: 'Restore this item before changing its visibility.' },
+			state,
+		);
+	}
 
 	const nextContent = setContentItemVisibility(
 		content,
@@ -408,7 +427,7 @@ export function handleSetContentItemVisibility(
 	};
 }
 
-// --- CONTENT-011 — remove a content item (authorized editor) -------------------------------------
+// --- CONTENT-001 — soft-delete a content item (authorized editor; recoverable) ------------------
 
 export function handleRemoveContentItem(
 	state: CoreStateSlice,
@@ -435,21 +454,31 @@ export function handleRemoveContentItem(
 			state,
 		);
 	}
+	if (!isLiveContentItem(before)) {
+		return reject(
+			{ code: 'content-item-deleted', message: `Content item ${parsed.data.itemId} is already deleted.` },
+			state,
+		);
+	}
 
-	const nextContent = removeContentItem(content, parsed.data.itemId);
+	// SOFT-DELETE (CONTENT-001): tombstone the item rather than purge it, so it can be restored. The
+	// item leaves every actor-filtered read immediately, so its delivery audience is invalidated.
+	const nextContent = softDeleteContentItem(content, parsed.data.itemId, env.clock());
 	if (!nextContent) {
 		return reject(
 			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
 			state,
 		);
 	}
+	const updated = contentItemById(nextContent, parsed.data.itemId)!;
 	const draft = appendOperationDraft(env, state.sync, actor.id, {
 		entityType: CONTENT_ITEM_ENTITY_TYPE,
 		entityId: parsed.data.itemId,
 		opType: 'content.remove-item',
 		path: `content/items/${parsed.data.itemId}`,
-		value: { itemId: parsed.data.itemId },
+		value: { itemId: parsed.data.itemId, softDelete: true },
 		beforeRevision: before.revision,
+		afterRevision: updated.revision,
 	});
 
 	return {
@@ -461,6 +490,76 @@ export function handleRemoveContentItem(
 				'remove',
 				before.visibility,
 				deliveryAudience(before.visibility, before.sharedWith),
+				actor.id,
+			),
+		],
+		operationIds: [draft.op.id],
+	};
+}
+
+// --- CONTENT-001 — restore a soft-deleted content item (authorized editor) ----------------------
+
+export function handleRestoreContentItem(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const parsed = parseInput(restoreContentItemInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+
+	const content = ensureContentStateSlice(state.content);
+	const before: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
+	if (!before) {
+		return reject(
+			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			state,
+		);
+	}
+	if (!actorMayEditItem(state, actor, parsed.data.itemId)) {
+		return reject(
+			{ code: 'actor-not-authorized', message: 'You are not an authorized editor of this item.' },
+			state,
+		);
+	}
+	if (isLiveContentItem(before)) {
+		return reject(
+			{ code: 'content-item-not-deleted', message: `Content item ${parsed.data.itemId} is not deleted.` },
+			state,
+		);
+	}
+
+	const nextContent = restoreContentItem(content, parsed.data.itemId, env.clock());
+	if (!nextContent) {
+		return reject(
+			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
+			state,
+		);
+	}
+	const updated = contentItemById(nextContent, parsed.data.itemId)!;
+	const draft = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: CONTENT_ITEM_ENTITY_TYPE,
+		entityId: updated.id,
+		opType: 'content.restore-item',
+		path: `content/items/${updated.id}`,
+		value: { itemId: updated.id },
+		beforeRevision: before.revision,
+		afterRevision: updated.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...contentWith(state, nextContent), sync: draft.log },
+		events: [
+			itemChangedEvent(
+				updated.id,
+				'restore',
+				// The restored item re-enters its OWN visibility's delivery audience (the prior content's
+				// visibility is preserved — no hidden prior revision is re-exposed, CONTENT-001 AC4).
+				updated.visibility,
+				deliveryAudience(updated.visibility, updated.sharedWith),
 				actor.id,
 			),
 		],

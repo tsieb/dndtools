@@ -299,6 +299,8 @@ export type CoreCommand =
 			idempotencyKey?: string;
 	  }
 	| { type: 'content.remove-item'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// CONTENT-001: restore a soft-deleted content item (the inverse of remove-item).
+	| { type: 'content.restore-item'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// CONTENT-007: commit a transactional, resumable import of a markdown archive / Obsidian vault
 	// (preview is pure/read-only; resume skips already-applied steps; no partial commit on rejection).
 	| { type: 'content.commit-import'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -621,7 +623,7 @@ export type CoreEvent =
 	| {
 			kind: 'content.item-changed';
 			itemId: string;
-			mutation: 'create' | 'update' | 'set-visibility' | 'remove';
+			mutation: 'create' | 'update' | 'set-visibility' | 'remove' | 'restore';
 			visibility: string;
 			invalidatedActorIds: ActorId[];
 			actorId: ActorId;
@@ -694,7 +696,11 @@ export type RejectionCode =
 	// CONTENT-011 — a content item target does not exist.
 	| 'content-item-not-found'
 	// CONTENT-011 — a custom-date field or timeline reference is not a valid date for its calendar.
-	| 'invalid-calendar-date';
+	| 'invalid-calendar-date'
+	// CONTENT-001 — the target item is soft-deleted: it must be restored before it can be edited, and a
+	// live item cannot be restored. Distinct so the authoring UI can route the actor to the recycle bin.
+	| 'content-item-deleted'
+	| 'content-item-not-deleted';
 
 export interface CommandRejection {
 	code: RejectionCode;
