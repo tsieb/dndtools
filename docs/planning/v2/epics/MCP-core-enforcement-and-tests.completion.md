@@ -178,10 +178,14 @@ Modified:
 
 - Branch: `epic/MCP-core-enforcement-and-tests`
 - Base tip: `2cb4459`
-- Commit SHA: _recorded in the follow-up `docs(v2): record commit SHA` commit._
+- Implementation commit SHA: `f7ca8615301f31cd92aff9bfa860e49f835b7b38`
+  (`feat(v2): complete MCP-core-enforcement-and-tests epic`)
+- Workpack-complete commit SHA: `aee19fd2447d287204decd543e683594790a58db`
+  (`chore(v2): mark MCP-core-enforcement-and-tests workpack complete`)
 
 ## Final `git status --short`
 
+After the SHA-recording commit, the working tree is clean (empty `git status --short` output):
+
 ```
-<recorded after the completion + workpack-complete commits; clean working tree>
 ```
