@@ -2723,3 +2723,82 @@ export {
 	isCachedHandoutOpenable,
 	orderCatchUpByDependency,
 } from './collab/mobile-catchup';
+
+// COLLAB-004 — the EPHEMERAL `PresenceState` document (Contract 1's seventh, non-durable state document;
+// Contract 2 "Presence | Ephemeral broadcast, no durable merge"). Online status, cursor/selection hints,
+// and device availability for currently-connected participants. A fully-replaceable per-actor snapshot —
+// no revision/dependency/base/idempotency — because presence must never persist, merge, or replay. The
+// empty state IS the offline state; an `offline` broadcast removes an entry. Never enters the op log.
+export type {
+	PresenceCursor,
+	PresenceDeviceKind,
+	PresenceEntry,
+	PresenceOnlineStatus,
+	PresenceSelection,
+	PresenceState,
+} from './state/presence-state';
+export {
+	EMPTY_PRESENCE_STATE,
+	PRESENCE_DEVICE_KINDS,
+	PRESENCE_ONLINE_STATUSES,
+	PRESENCE_STATE_SCHEMA_VERSION,
+	applyPresenceBroadcast,
+	buildPresenceEntry,
+	ensurePresenceState,
+	normalizeDeviceKind,
+	normalizeOnlineStatus,
+	removePresence,
+} from './state/presence-state';
+
+// COLLAB-004 — EPHEMERAL PRESENCE policy. `projectPresenceForViewer` / `projectSessionPresence` project
+// the live presence to a viewer FAIL CLOSED: a participant the viewer may not see is OMITTED entirely (not
+// merely hidden), and a cursor/selection hint scoped to a scene the viewer cannot see is STRIPPED, so
+// presence never leaks a hidden participant or a hidden scene/widget. An unknown viewer sees nothing; the
+// viewer always sees their own presence. `restorePresenceOnReconnect` always returns the EMPTY presence
+// (old presence is NEVER replayed as authoritative history — AC2); `assertNoPresenceInOperationLog` proves
+// no presence op is durable. Per ADR-014 the live awareness/cursor transport is deferred; pure + fail closed.
+export type {
+	ParticipantVisibilitySource,
+	PresenceProjection,
+	PresenceSceneVisibilitySource,
+	PresenceWithholdReason,
+	ProjectPresenceOptions,
+	ProjectedPresenceEntry,
+	WithheldPresence,
+} from './collab/presence';
+export {
+	PRESENCE_ENTITY_TYPE,
+	assertNoPresenceInOperationLog,
+	assertPresenceProjectionIsClean,
+	projectPresenceForViewer,
+	projectSessionPresence,
+	restorePresenceOnReconnect,
+} from './collab/presence';
+
+// COLLAB-003 — NEAR-REAL-TIME LIVE SESSION STATE sharing (active scenes, combat, dice, timers, handouts,
+// visible map updates). `deliverableSessionUpdates` builds the ordered batch a connected participant may
+// RECEIVE, filtered through the COLLAB-009 replication filter so a hidden op NEVER enters their stream
+// (filter-before-send, AC1). `deriveLiveSessionStatus` computes live/syncing/stale/reconnecting from the
+// pending-update + connection state, fail closed (AC2). `bufferOutOfOrderUpdate` / `drainApplicableUpdates`
+// apply session ops IN dependency order — an op delivered before its dependencies is HELD, never applied
+// out of order (AC3). `reportLatencyBudget` reports measured p95 delivery + stale-threshold breaches
+// against the configured product budget (AC4). Per ADR-014 the live push transport is deferred; pure policy.
+export type {
+	DrainResult,
+	LatencyBudgetReport,
+	LiveSessionStatus,
+	LiveSessionStatusInput,
+	LiveSessionStatusResult,
+	SessionLatencyBudget,
+} from './collab/session-sync';
+export {
+	DEFAULT_SESSION_LATENCY_BUDGET,
+	LIVE_SESSION_ENTITY_TYPES,
+	bufferOutOfOrderUpdate,
+	deliverableSessionUpdates,
+	deriveLiveSessionStatus,
+	drainApplicableUpdates,
+	isLiveSessionUpdate,
+	percentile,
+	reportLatencyBudget,
+} from './collab/session-sync';

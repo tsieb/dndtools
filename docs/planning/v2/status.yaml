@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 34
+  approved: 33
   active: 0
-  complete: 54
+  complete: 55
   deferred: 0
 metrics:
-  epicCompletionPercent: 61.4
-  requirementCompletionPercent: 66.7
+  epicCompletionPercent: 62.5
+  requirementCompletionPercent: 67.5
   totalRequirements: 234
-  completedRequirements: 156
+  completedRequirements: 158
   deferredRequirements: 0
-  remainingEpics: 34
-  promptableEpics: 34
+  remainingEpics: 33
+  promptableEpics: 33
   blockedByDependencies: 0
-  completionEvidenceFiles: 54
+  completionEvidenceFiles: 55
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -68,13 +68,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: COLLAB
       totalEpics: 5
-      complete: 3
+      complete: 4
       active: 0
-      approved: 2
+      approved: 1
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 60
-      requirementCompletionPercent: 71.4
+      epicCompletionPercent: 80
+      requirementCompletionPercent: 85.7
     - domain: CON
       totalEpics: 3
       complete: 0
@@ -193,16 +193,16 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: COLLAB-live-session-state-and-presence
-  title: "COLLAB: Live session state and presence"
+  id: COLLAB-player-views-and-observer-access
+  title: "COLLAB: Player views and observer access"
   status: approved
   requirementIds:
-    - COLLAB-003
-    - COLLAB-004
-  promptCommand: pnpm v2:prompt -- --epic COLLAB-live-session-state-and-presence
+    - COLLAB-005
+    - COLLAB-011
+  promptCommand: pnpm v2:prompt -- --epic COLLAB-player-views-and-observer-access
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    COLLAB-live-session-state-and-presence --status active
+    COLLAB-player-views-and-observer-access --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -381,11 +381,12 @@ epics:
       - COLLAB-013
     completionEvidenceFile: docs/planning/v2/epics/COLLAB-join-reconnect-and-identity.completion.md
   - id: COLLAB-live-session-state-and-presence
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - COLLAB-003
       - COLLAB-004
+    completionEvidenceFile: docs/planning/v2/epics/COLLAB-live-session-state-and-presence.completion.md
   - id: COLLAB-player-views-and-observer-access
     status: approved
     approved: true

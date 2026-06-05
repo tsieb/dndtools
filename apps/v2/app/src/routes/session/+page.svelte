@@ -8,6 +8,7 @@
 	import QuickReference from '$lib/gui/QuickReference.svelte';
 	import PrepRecap from '$lib/gui/PrepRecap.svelte';
 	import ReconnectStatus from '$lib/gui/ReconnectStatus.svelte';
+	import LiveSessionStatus from '$lib/gui/LiveSessionStatus.svelte';
 
 	// SES-009 / SES-012: the Session section's PREP / RECAP + CAMPAIGN CALENDAR CONTINUITY surface. The DM
 	// maintains the campaign calendar + current date and LINKS dates to notes (by reference; a hidden/
@@ -39,6 +40,12 @@
 	// role/visibility/grants and computes the catch-up they may receive — in dependency order, never the
 	// cached one — and DISABLES durable actions until they are provably caught up. DM-only content never
 	// enters the participant's catch-up stream (filtered at the source). The panel is participant-only.
+	//
+	// COLLAB-003 / COLLAB-004: the participant LIVE SESSION STATE + PRESENCE surface. Live session updates
+	// (combat, dice, timers, handouts, visible map updates) are shared near-real-time; the surface shows
+	// the participant's live/syncing/stale/reconnecting status (so a behind view is marked stale) and the
+	// ephemeral presence of co-participants, projected fail-closed by the Processing Core (a participant the
+	// viewer may not see is never listed; presence never persists or replays as history). Participant-only.
 </script>
 
 <section data-testid="session-view" aria-label="Session">
@@ -53,6 +60,7 @@
 	<DiceTools />
 	<PlayerGroups />
 	<HandoutDelivery />
+	<LiveSessionStatus />
 	<ReconnectStatus />
 	<LiveTools />
 	<QuickReference />

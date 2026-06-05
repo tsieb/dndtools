@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: COLLAB-live-session-state-and-presence
 title: "COLLAB: Live session state and presence"
-status: approved
+status: complete
 approved: true
 domain: COLLAB
 capabilityBranch: Live session state and presence
@@ -167,3 +167,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/COLLAB-live-session-state-and-presence.completion.md
