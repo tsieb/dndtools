@@ -85,7 +85,7 @@ describe('PLAT-018 AC2: undo only where the command contract supports it', () =>
 		for (const type of [
 			'session.record-dice',
 			'session.set-workflow',
-			'session.update-combat',
+			'combat.advance-turn',
 			'scene.set-sections',
 		] as const) {
 			expect(isUndoableCommandType(type)).toBe(false);

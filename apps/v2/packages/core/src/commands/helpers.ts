@@ -8,7 +8,10 @@ import { SCENE_STATE_SCHEMA_VERSION, SCENE_SCHEMA_VERSION } from '../state/scene
 import { SYNC_OPERATION_SCHEMA_VERSION } from '../sync/operation-log';
 import type { WidgetDataSchema, WidgetPackageState } from '../state/widget-package-state';
 import type { SessionState } from '../state/session-state';
-import { EMPTY_SESSION_COMBAT_STATE, SESSION_STATE_SCHEMA_VERSION } from '../state/session-state';
+import { SESSION_STATE_SCHEMA_VERSION } from '../state/session-state';
+import { ensureSessionCombatState } from '../state/combat-tracker';
+import type { EncounterState } from '../state/encounter';
+import { ensureEncounterState } from '../state/encounter';
 import { WIDGET_PACKAGE_STATE_SCHEMA_VERSION } from '../state/widget-package-state';
 import type { MapState } from '../state/map-state';
 import { MAP_STATE_SCHEMA_VERSION } from '../state/map-state';
@@ -206,7 +209,7 @@ export function ensureSessionState(state: SessionState | undefined): SessionStat
 		workflowRevision: state?.workflowRevision ?? 0,
 		activeSceneId: state?.activeSceneId ?? null,
 		activeMap: state?.activeMap ?? null,
-		combat: state?.combat ?? { ...EMPTY_SESSION_COMBAT_STATE },
+		combat: ensureSessionCombatState(state?.combat),
 		diceHistory: state?.diceHistory ?? [],
 		timers: state?.timers ?? {},
 		playerViewAssignments: state?.playerViewAssignments ?? {},
@@ -233,6 +236,10 @@ export function ensureCharacterStateSlice(state: CharacterState | undefined): Ch
 
 export function ensureContentStateSlice(state: VaultContentState | undefined): VaultContentState {
 	return ensureVaultContentState(state);
+}
+
+export function ensureEncounterStateSlice(state: EncounterState | undefined): EncounterState {
+	return ensureEncounterState(state);
 }
 
 export const SCENE_VERSION_CONSTANTS = {

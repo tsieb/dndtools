@@ -44,7 +44,8 @@ describe('NAV-002 alias table is derived from the canonical registry', () => {
 	it('lists only released-destination alias routes by default', () => {
 		const routes = listAliasRoutes();
 		// Released sections in the prototype: command-center (/home), scenes (/canvas),
-		// atlas (/maps,/map), characters (/party,/pcs), settings (/preferences).
+		// atlas (/maps,/map), session (/sessions,/play), characters (/party,/pcs),
+		// settings (/preferences).
 		expect(routes).toEqual([
 			'/canvas',
 			'/home',
@@ -52,7 +53,9 @@ describe('NAV-002 alias table is derived from the canonical registry', () => {
 			'/maps',
 			'/party',
 			'/pcs',
+			'/play',
 			'/preferences',
+			'/sessions',
 		]);
 	});
 

@@ -65,8 +65,9 @@ describe('NAV-006 AC2 route audit gate', () => {
 		const routes = discoverScaffoldedRoutes().sort();
 		// Canonical section routes plus the released-section legacy alias redirect stubs
 		// (NAV-002): /canvas→/scenes, /home→/, /map,/maps→/atlas, /party,/pcs→/characters,
-		// /preferences→/settings. `/knowledge` is the canonical CONTENT section root (a `planned`
-		// IA section), scaffolded for the CONTENT-011 calendar/custom-time slice.
+		// /play,/sessions→/session, /preferences→/settings. `/knowledge` is the canonical CONTENT
+		// section root (a `planned` IA section), scaffolded for the CONTENT-011 calendar/custom-time
+		// slice. `/session` is the SES Session section root (released by the SES combat slice).
 		expect(routes).toEqual([
 			'/',
 			'/atlas',
@@ -78,9 +79,12 @@ describe('NAV-006 AC2 route audit gate', () => {
 			'/maps',
 			'/party',
 			'/pcs',
+			'/play',
 			'/preferences',
 			'/scene',
 			'/scenes',
+			'/session',
+			'/sessions',
 			'/settings',
 		]);
 	});

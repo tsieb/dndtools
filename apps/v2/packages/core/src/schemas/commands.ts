@@ -273,15 +273,6 @@ export const setSessionWorkflowInputSchema = z
 	})
 	.strict();
 
-export const updateSessionCombatInputSchema = z
-	.object({
-		encounterId: z.union([z.literal(null), idSchema]).default(null),
-		round: z.number().int().nonnegative().default(0),
-		turn: z.number().int().nonnegative().default(0),
-		combatantIds: z.array(idSchema).default([]),
-	})
-	.strict();
-
 export const recordSessionDiceInputSchema = z
 	.object({
 		expression: z.string().min(1),
@@ -1520,5 +1511,171 @@ export const insertSnippetInputSchema = z
 		snippetId: z.string().min(1, 'A snippet id is required'),
 		position: snippetInsertPositionSchema.default('after'),
 		caret: z.number().int().min(0).optional(),
+	})
+	.strict();
+
+// --- SES-002 — RUN COMBAT (initiative / rounds / turns / per-combatant resources / encounter log) ---
+
+const combatantKindSchema = z.enum(['character', 'npc', 'monster']);
+
+// SES-002 — one combatant row when starting combat (DM-run). For a character combatant the resources
+// seed from the character's current combat block; `maxHp`/`ac`/`initiative` seed otherwise.
+const startCombatantSchema = z
+	.object({
+		id: idSchema.optional(),
+		kind: combatantKindSchema,
+		name: z.string().min(1, 'A combatant name is required'),
+		characterId: z.union([z.literal(null), idSchema]).optional(),
+		ac: z.number().int().nonnegative().default(10),
+		initiative: z.number().int().default(0),
+		maxHp: z.number().int().nonnegative().default(0),
+		hidden: z.boolean().default(false),
+		placeholder: z.union([z.literal(null), z.string().min(1)]).optional(),
+		notes: z.string().default(''),
+	})
+	.strict();
+
+// SES-002 — start combat (roll initiative). Either an `encounterId` (SES-006 link by reference, whose
+// combatant selection seeds the order) or an explicit `combatants` list, or both (the list overrides).
+export const startCombatInputSchema = z
+	.object({
+		encounterId: z.union([z.literal(null), idSchema]).optional(),
+		combatants: z.array(startCombatantSchema).default([]),
+	})
+	.strict();
+
+// SES-002 — advance to the next turn (wraps to the next round). No payload fields needed.
+export const advanceCombatTurnInputSchema = z.object({}).strict();
+
+// SES-002 — apply a per-combatant resource DURING combat. Owner/combat-participant authority + the
+// active-session gate are enforced in the handler (fail closed). Reuses the CHAR-007 resource kinds.
+export const applyCombatResourceInputSchema = z.discriminatedUnion('kind', [
+	z.object({ combatantId: idSchema, kind: z.literal('hp'), delta: z.number().int() }).strict(),
+	z
+		.object({ combatantId: idSchema, kind: z.literal('temp-hp'), value: z.number().int().nonnegative() })
+		.strict(),
+	z
+		.object({
+			combatantId: idSchema,
+			kind: z.literal('condition'),
+			condition: z.string().min(1),
+			present: z.boolean(),
+		})
+		.strict(),
+	z
+		.object({
+			combatantId: idSchema,
+			kind: z.literal('death-save'),
+			outcome: z.enum(['success', 'failure', 'reset']),
+		})
+		.strict(),
+	z
+		.object({
+			combatantId: idSchema,
+			kind: z.literal('concentration'),
+			effect: z.union([z.literal(null), z.string().min(1)]),
+		})
+		.strict(),
+]);
+
+// SES-002 — end combat, persisting the durable encounter log. Optional closing note.
+export const endCombatInputSchema = z
+	.object({
+		note: z.string().optional(),
+	})
+	.strict();
+
+// --- SES-006 — BUILD ENCOUNTERS (combatant selection / challenge guidance / terrain / loot / links) ---
+
+const encounterCombatantSelectionSchema = z
+	.object({
+		id: idSchema.optional(),
+		kind: combatantKindSchema,
+		name: z.string().min(1, 'A combatant name is required'),
+		characterId: z.union([z.literal(null), idSchema]).optional(),
+		challengeRating: z.number().nonnegative().default(0),
+		quantity: z.number().int().positive().default(1),
+		maxHp: z.number().int().nonnegative().default(0),
+		ac: z.number().int().nonnegative().default(10),
+		initiative: z.number().int().default(0),
+		hidden: z.boolean().default(false),
+	})
+	.strict();
+
+const partyContextSchema = z
+	.object({
+		size: z.number().int().positive().default(4),
+		averageLevel: z.number().int().min(1).max(20).default(1),
+	})
+	.strict();
+
+const encounterSpecialActionSchema = z
+	.object({
+		id: idSchema.optional(),
+		kind: z.enum(['legendary', 'lair']),
+		name: z.string().min(1),
+		detail: z.string().default(''),
+	})
+	.strict();
+
+const encounterLootItemSchema = z
+	.object({
+		id: idSchema.optional(),
+		name: z.string().min(1),
+		detail: z.string().default(''),
+	})
+	.strict();
+
+const sessionLogLinkSchema = z
+	.object({
+		id: idSchema.optional(),
+		kind: z.enum(['note', 'encounter-log', 'session-log']),
+		targetId: idSchema,
+		label: z.string().default(''),
+	})
+	.strict();
+
+// SES-006 — build a durable encounter (DM-only). Combatant selection + party context drive the
+// deterministic challenge guidance; session-log links are references (target ids only).
+export const buildEncounterInputSchema = z
+	.object({
+		title: z.string().min(1, 'An encounter title is required'),
+		combatants: z.array(encounterCombatantSelectionSchema).default([]),
+		party: partyContextSchema.optional(),
+		terrainNotes: z.string().default(''),
+		specialActions: z.array(encounterSpecialActionSchema).default([]),
+		loot: z.array(encounterLootItemSchema).default([]),
+		sessionLogLinks: z.array(sessionLogLinkSchema).default([]),
+	})
+	.strict();
+
+// SES-006 — update an existing encounter (DM-only). All build facets are optional patches.
+export const updateEncounterInputSchema = z
+	.object({
+		encounterId: idSchema,
+		title: z.string().min(1).optional(),
+		combatants: z
+			.array(
+				encounterCombatantSelectionSchema.extend({
+					id: idSchema,
+					challengeRating: z.number().nonnegative(),
+					quantity: z.number().int().positive(),
+					maxHp: z.number().int().nonnegative(),
+					ac: z.number().int().nonnegative(),
+					initiative: z.number().int(),
+					characterId: z.union([z.literal(null), idSchema]),
+					hidden: z.boolean(),
+				}),
+			)
+			.optional(),
+		party: partyContextSchema.optional(),
+		terrainNotes: z.string().optional(),
+		specialActions: z
+			.array(encounterSpecialActionSchema.extend({ id: idSchema, detail: z.string() }))
+			.optional(),
+		loot: z.array(encounterLootItemSchema.extend({ id: idSchema, detail: z.string() })).optional(),
+		sessionLogLinks: z
+			.array(sessionLogLinkSchema.extend({ id: idSchema, label: z.string() }))
+			.optional(),
 	})
 	.strict();

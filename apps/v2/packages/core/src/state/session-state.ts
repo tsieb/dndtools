@@ -1,6 +1,16 @@
 import type { ActorId, SceneId, SectionId, WidgetInstanceId } from './ids';
+import {
+	EMPTY_SESSION_COMBAT_STATE as EMPTY_COMBAT_TRACKER_STATE,
+	type SessionCombatState,
+} from './combat-tracker';
 
 export const SESSION_STATE_SCHEMA_VERSION = 1 as const;
+
+// SES-002 — the full combat-tracker state now lives in `combat-tracker.ts` (initiative order, rounds,
+// turns, per-combatant resources, stat-block previews, encounter log). Re-exported here so existing
+// session-state importers keep their import site while the model is owned by the SES combat slice.
+export type { SessionCombatState } from './combat-tracker';
+export { EMPTY_SESSION_COMBAT_STATE } from './combat-tracker';
 
 export type SessionWorkflowState =
 	| 'idle'
@@ -28,14 +38,6 @@ export interface SessionTimer {
 	status: 'idle' | 'running' | 'paused';
 	durationSeconds: number;
 	startedAt: string | null;
-	revision: number;
-}
-
-export interface SessionCombatState {
-	encounterId: string | null;
-	round: number;
-	turn: number;
-	combatantIds: string[];
 	revision: number;
 }
 
@@ -131,20 +133,12 @@ export interface SessionState {
 	schemaVersion: typeof SESSION_STATE_SCHEMA_VERSION;
 }
 
-export const EMPTY_SESSION_COMBAT_STATE: SessionCombatState = Object.freeze({
-	encounterId: null,
-	round: 0,
-	turn: 0,
-	combatantIds: [],
-	revision: 0,
-});
-
 export const EMPTY_SESSION_STATE: SessionState = Object.freeze({
 	workflow: 'idle',
 	workflowRevision: 0,
 	activeSceneId: null,
 	activeMap: null,
-	combat: EMPTY_SESSION_COMBAT_STATE,
+	combat: EMPTY_COMBAT_TRACKER_STATE,
 	diceHistory: [],
 	timers: {},
 	playerViewAssignments: {},

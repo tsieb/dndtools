@@ -7,6 +7,8 @@ import { EMPTY_VAULT_CONTENT_STATE } from '../state/content';
 import { EMPTY_MAP_STATE } from '../state/map-state';
 import { EMPTY_SCENE_STATE } from '../state/scene-state';
 import { EMPTY_SESSION_STATE } from '../state/session-state';
+import { ensureSessionCombatState } from '../state/combat-tracker';
+import { EMPTY_ENCOUNTER_STATE } from '../state/encounter';
 import { createSystemWidgetPackages } from '../state/widget-package-state';
 import { createOperationLog } from '../sync/operation-log';
 import type { CoreEnvironment, CoreStateSlice } from '../commands/types';
@@ -76,10 +78,7 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			workflowRevision: EMPTY_SESSION_STATE.workflowRevision,
 			activeSceneId: EMPTY_SESSION_STATE.activeSceneId,
 			activeMap: EMPTY_SESSION_STATE.activeMap,
-			combat: {
-				...EMPTY_SESSION_STATE.combat,
-				combatantIds: [...EMPTY_SESSION_STATE.combat.combatantIds],
-			},
+			combat: ensureSessionCombatState(EMPTY_SESSION_STATE.combat),
 			diceHistory: [...EMPTY_SESSION_STATE.diceHistory],
 			timers: { ...EMPTY_SESSION_STATE.timers },
 			playerViewAssignments: { ...EMPTY_SESSION_STATE.playerViewAssignments },
@@ -103,6 +102,10 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			calendars: { ...EMPTY_VAULT_CONTENT_STATE.calendars },
 			items: { ...EMPTY_VAULT_CONTENT_STATE.items },
 			schemaVersion: EMPTY_VAULT_CONTENT_STATE.schemaVersion,
+		},
+		encounters: {
+			encounters: { ...EMPTY_ENCOUNTER_STATE.encounters },
+			schemaVersion: EMPTY_ENCOUNTER_STATE.schemaVersion,
 		},
 		sync: createOperationLog(),
 	};

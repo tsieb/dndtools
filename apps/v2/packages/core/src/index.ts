@@ -44,7 +44,6 @@ export type {
 	SessionActiveMapProjection,
 	SessionActiveMapSelection,
 	SessionArchiveSnapshot,
-	SessionCombatState,
 	SessionDiceRoll,
 	SessionPlayerViewAssignment,
 	SessionState,
@@ -52,7 +51,6 @@ export type {
 	SessionWorkflowState,
 } from './state/session-state';
 export {
-	EMPTY_SESSION_COMBAT_STATE,
 	EMPTY_SESSION_STATE,
 	SESSION_STATE_SCHEMA_VERSION,
 	SESSION_WORKFLOW_STATES,
@@ -503,7 +501,6 @@ export {
 	setSceneSectionsInputSchema,
 	setSessionWorkflowInputSchema,
 	setWidgetFocusOrderInputSchema,
-	updateSessionCombatInputSchema,
 	updateSceneMetadataInputSchema,
 	upgradeWidgetPackageInputSchema,
 } from './schemas/commands';
@@ -1889,6 +1886,94 @@ export {
 	updateJournalEntryInputSchema,
 	upsertPartyInventoryItemInputSchema,
 	writeContentToSourceInputSchema,
+} from './schemas/commands';
+
+// SES-002 — the DURABLE COMBAT TRACKER model + the PURE deterministic turn/round state machine
+// (initiative order with a deterministic stable tie-break, advance-turn that wraps to the next round,
+// per-combatant HP/conditions/concentration/death-saves reusing the CHAR-007 resource shapes,
+// stat-block previews, and a durable encounter log). Pure data + pure reducers; no GUI/storage/clock.
+export type {
+	Combatant,
+	CombatantKind,
+	CombatantResources,
+	CombatantStatBlock,
+	CombatAdvance,
+	CombatLogEntry,
+	CombatStatus,
+	SessionCombatState,
+} from './state/combat-tracker';
+export {
+	COMBATANT_KINDS,
+	COMBAT_ENTITY_TYPE,
+	COMBAT_TRACKER_SCHEMA_VERSION,
+	EMPTY_COMBATANT_RESOURCES,
+	EMPTY_SESSION_COMBAT_STATE,
+	activeCombatant,
+	advanceTurn,
+	cloneCombatant,
+	cloneResources,
+	ensureSessionCombatState,
+	orderInitiative,
+} from './state/combat-tracker';
+
+// SES-002 — THE single actor-filtered combat tracker read model. Hidden combatants are omitted (or
+// replaced by a DM-approved placeholder with stat data withheld) for non-DM viewers; the DM sees all.
+export type {
+	CombatantResourcesView,
+	CombatantStatBlockView,
+	CombatantView,
+	CombatLogEntryView,
+	CombatTrackerView,
+} from './queries/combat-tracker-view';
+export { HIDDEN_COMBATANT_NAME, getCombatTrackerForActor } from './queries/combat-tracker-view';
+
+// SES-006 — the DURABLE ENCOUNTER model + the PURE deterministic challenge-guidance calculator
+// (CR/difficulty from combatant selection + party). Consistent with the `encounter` Vault Object
+// subtype; session-log links are references (target ids), never clones. Pure data + pure reducers.
+export type {
+	BuildEncounterInput,
+	Encounter,
+	EncounterChallenge,
+	EncounterCombatantSelection,
+	EncounterDifficulty,
+	EncounterLootItem,
+	EncounterMeta,
+	EncounterSpecialAction,
+	EncounterState,
+	PartyContext,
+	SessionLogLink,
+	UpdateEncounterPatch,
+} from './state/encounter';
+export {
+	ENCOUNTER_DIFFICULTIES,
+	ENCOUNTER_ENTITY_TYPE,
+	ENCOUNTER_SCHEMA_VERSION,
+	EMPTY_ENCOUNTER_STATE,
+	buildEncounter,
+	challengePointsForCr,
+	cloneEncounter,
+	computeEncounterChallenge,
+	encounterById,
+	encounterObjectFrontmatter,
+	ensureEncounterState,
+	partyDeadlyThreshold,
+	updateEncounter,
+	upsertEncounter,
+} from './state/encounter';
+
+// SES-006 — THE single actor-filtered encounter read model. The DM sees every encounter with its
+// recomputed challenge guidance; a non-DM actor gets an EMPTY list (DM prep, fail closed, no leak).
+export type { EncounterView } from './queries/encounter-query';
+export { getEncounterForActor, listEncountersForActor } from './queries/encounter-query';
+
+// SES-002 / SES-006 — combat + encounter command input schemas.
+export {
+	advanceCombatTurnInputSchema,
+	applyCombatResourceInputSchema,
+	buildEncounterInputSchema,
+	endCombatInputSchema,
+	startCombatInputSchema,
+	updateEncounterInputSchema,
 } from './schemas/commands';
 
 // PLAT-018: durable command lifecycle states.

@@ -6,6 +6,9 @@ import {
 	EMPTY_SCENE_STATE,
 	EMPTY_SESSION_STATE,
 	EMPTY_VAULT_CONTENT_STATE,
+	EMPTY_ENCOUNTER_STATE,
+	ensureEncounterState,
+	ensureSessionCombatState,
 	createCommandLifecycle,
 	createMapImportAdapterRegistry,
 	createOperationLog,
@@ -104,10 +107,7 @@ export class SceneRuntime {
 			workflowRevision: EMPTY_SESSION_STATE.workflowRevision,
 			activeSceneId: EMPTY_SESSION_STATE.activeSceneId,
 			activeMap: EMPTY_SESSION_STATE.activeMap,
-			combat: {
-				...EMPTY_SESSION_STATE.combat,
-				combatantIds: [...EMPTY_SESSION_STATE.combat.combatantIds],
-			},
+			combat: ensureSessionCombatState(EMPTY_SESSION_STATE.combat),
 			diceHistory: [...EMPTY_SESSION_STATE.diceHistory],
 			timers: {},
 			playerViewAssignments: {},
@@ -131,6 +131,10 @@ export class SceneRuntime {
 			calendars: { ...EMPTY_VAULT_CONTENT_STATE.calendars },
 			items: { ...EMPTY_VAULT_CONTENT_STATE.items },
 			schemaVersion: EMPTY_VAULT_CONTENT_STATE.schemaVersion,
+		},
+		encounters: {
+			encounters: { ...EMPTY_ENCOUNTER_STATE.encounters },
+			schemaVersion: EMPTY_ENCOUNTER_STATE.schemaVersion,
 		},
 		sync: createOperationLog(),
 	});
@@ -238,10 +242,7 @@ export class SceneRuntime {
 				withDefaultWidgets.session.workflowRevision ?? EMPTY_SESSION_STATE.workflowRevision,
 			activeSceneId: withDefaultWidgets.session.activeSceneId ?? null,
 			activeMap: withDefaultWidgets.session.activeMap ?? null,
-			combat: withDefaultWidgets.session.combat ?? {
-				...EMPTY_SESSION_STATE.combat,
-				combatantIds: [...EMPTY_SESSION_STATE.combat.combatantIds],
-			},
+			combat: ensureSessionCombatState(withDefaultWidgets.session.combat),
 			diceHistory: withDefaultWidgets.session.diceHistory ?? [],
 			timers: withDefaultWidgets.session.timers ?? {},
 			playerViewAssignments: withDefaultWidgets.session.playerViewAssignments ?? {},
@@ -252,6 +253,7 @@ export class SceneRuntime {
 		return {
 			...withDefaultWidgets,
 			session,
+			encounters: ensureEncounterState(withDefaultWidgets.encounters),
 			permissions: {
 				...withDefaultWidgets.permissions,
 				actors: nextActors,

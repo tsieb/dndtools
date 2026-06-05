@@ -209,12 +209,22 @@ describe('CMD-006 session workflow control', () => {
 		const env = makeEnvironment();
 		const { state, homeSceneId } = ensureHome(withMaps(), env);
 		let current = startActive(state, env, homeSceneId);
+		// SES-002: run combat through the combat tracker (start initiative + advance turns), then verify
+		// the live combat state survives pause/resume navigation.
 		current = accept(
 			dispatch(current, env, {
-				type: 'session.update-combat',
+				type: 'combat.start',
 				actorId: DM_ACTOR.id,
-				payload: { encounterId: 'enc-1', round: 3, turn: 2, combatantIds: ['pc-1', 'goblin-1'] },
+				payload: {
+					combatants: [
+						{ kind: 'monster', name: 'Goblin', initiative: 15, maxHp: 7 },
+						{ kind: 'monster', name: 'Bandit', initiative: 12, maxHp: 11 },
+					],
+				},
 			}),
+		).nextState;
+		current = accept(
+			dispatch(current, env, { type: 'combat.advance-turn', actorId: DM_ACTOR.id, payload: {} }),
 		).nextState;
 		current = accept(
 			dispatch(current, env, {
@@ -250,7 +260,7 @@ describe('CMD-006 session workflow control', () => {
 			}),
 		).nextState;
 		expect(paused.session.activeSceneId).toBe(homeSceneId);
-		expect(paused.session.combat).toMatchObject({ encounterId: 'enc-1', round: 3, turn: 2 });
+		expect(paused.session.combat).toMatchObject({ status: 'running', round: 1, turn: 1 });
 		expect(paused.session.diceHistory).toHaveLength(1);
 		expect(paused.session.timers[timer.id]).toMatchObject({ durationSeconds: 600 });
 		expect(

@@ -12,6 +12,8 @@ import {
 	createOperationLog,
 	createDemoMapState,
 	createStoragePlatformServiceRegistry,
+	ensureEncounterState,
+	ensureSessionCombatState,
 	mergeSystemWidgetPackages,
 	recoverFromJournal,
 	validatePlatformRequest,
@@ -19,6 +21,7 @@ import {
 	type CommandCenterState,
 	type CoreStateSlice,
 	type DurableStateDocumentId,
+	type EncounterState,
 	type MapState,
 	type MigrationJournalEntry,
 	type PermissionState,
@@ -42,6 +45,7 @@ const WIDGET_PACKAGE_STATE_KEY = 'widget-package-state';
 const COMMAND_CENTER_STATE_KEY = 'command-center-state';
 const CHARACTER_STATE_KEY = 'character-state';
 const CONTENT_STATE_KEY = 'content-state';
+const ENCOUNTER_STATE_KEY = 'encounter-state';
 const MIGRATION_JOURNAL_KEY = 'migration-journal';
 
 // Maps a durable document id to its persisted document key, so a write-ahead snapshot
@@ -55,6 +59,7 @@ const DOCUMENT_KEY_BY_ID: Record<DurableStateDocumentId, string> = {
 	commandCenter: COMMAND_CENTER_STATE_KEY,
 	characters: CHARACTER_STATE_KEY,
 	content: CONTENT_STATE_KEY,
+	encounters: ENCOUNTER_STATE_KEY,
 };
 
 interface DocumentRecord {
@@ -151,15 +156,23 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		database.documents.get(PERMISSION_STATE_KEY),
 		database.operations.orderBy('sequence').toArray(),
 	]);
-	const [mapDoc, sessionDoc, widgetPackageDoc, commandCenterDoc, characterDoc, contentDoc] =
-		await Promise.all([
-			database.documents.get(MAP_STATE_KEY),
-			database.documents.get(SESSION_STATE_KEY),
-			database.documents.get(WIDGET_PACKAGE_STATE_KEY),
-			database.documents.get(COMMAND_CENTER_STATE_KEY),
-			database.documents.get(CHARACTER_STATE_KEY),
-			database.documents.get(CONTENT_STATE_KEY),
-		]);
+	const [
+		mapDoc,
+		sessionDoc,
+		widgetPackageDoc,
+		commandCenterDoc,
+		characterDoc,
+		contentDoc,
+		encounterDoc,
+	] = await Promise.all([
+		database.documents.get(MAP_STATE_KEY),
+		database.documents.get(SESSION_STATE_KEY),
+		database.documents.get(WIDGET_PACKAGE_STATE_KEY),
+		database.documents.get(COMMAND_CENTER_STATE_KEY),
+		database.documents.get(CHARACTER_STATE_KEY),
+		database.documents.get(CONTENT_STATE_KEY),
+		database.documents.get(ENCOUNTER_STATE_KEY),
+	]);
 	const scenes = (sceneDoc?.doc as SceneState | undefined) ?? {
 		scenes: {},
 		schemaVersion: EMPTY_SCENE_STATE.schemaVersion,
@@ -179,7 +192,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		workflowRevision: EMPTY_SESSION_STATE.workflowRevision,
 		activeSceneId: EMPTY_SESSION_STATE.activeSceneId,
 		activeMap: EMPTY_SESSION_STATE.activeMap,
-		combat: { ...EMPTY_SESSION_STATE.combat },
+		combat: ensureSessionCombatState(EMPTY_SESSION_STATE.combat),
 		diceHistory: [...EMPTY_SESSION_STATE.diceHistory],
 		timers: {},
 		playerViewAssignments: {},
@@ -192,8 +205,9 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	session.workflowRevision ??= EMPTY_SESSION_STATE.workflowRevision;
 	session.activeSceneId ??= EMPTY_SESSION_STATE.activeSceneId;
 	session.activeMap ??= EMPTY_SESSION_STATE.activeMap;
-	session.combat ??= { ...EMPTY_SESSION_STATE.combat };
-	session.combat.combatantIds ??= [];
+	// SES-002: hydrate the combat-tracker slice fail-closed; a vault persisted before this slice (or
+	// with the old minimal combat placeholder) hydrates to a safe empty tracker.
+	session.combat = ensureSessionCombatState(session.combat);
 	session.diceHistory ??= [];
 	session.timers ??= {};
 	session.playerViewAssignments ??= {};
@@ -231,8 +245,22 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	};
 	content.calendars ??= {};
 	content.items ??= {};
+	// SES-006: the durable encounter slice. A vault persisted before this slice has no encounter
+	// document; default it so older prototype vaults stay readable (safe-default hydration).
+	const encounters = ensureEncounterState(encounterDoc?.doc as EncounterState | undefined);
 	const sync = createOperationLog(operationRecords.map((r) => r.op));
-	return { scenes, maps, permissions, session, widgets, commandCenter, characters, content, sync };
+	return {
+		scenes,
+		maps,
+		permissions,
+		session,
+		widgets,
+		commandCenter,
+		characters,
+		content,
+		encounters,
+		sync,
+	};
 }
 
 async function persistSceneState(scenes: SceneState): Promise<void> {
@@ -265,6 +293,10 @@ async function persistCharacterState(characters: CharacterState): Promise<void> 
 
 async function persistContentState(content: VaultContentState): Promise<void> {
 	await db().documents.put({ key: CONTENT_STATE_KEY, doc: content });
+}
+
+async function persistEncounterState(encounters: EncounterState): Promise<void> {
+	await db().documents.put({ key: ENCOUNTER_STATE_KEY, doc: encounters });
 }
 
 export async function appendOperations(operations: SyncOperation[]): Promise<void> {
@@ -331,7 +363,8 @@ export async function persistFullState(
 		sliceChanged(previous.widgets, next.widgets) ||
 		sliceChanged(previous.commandCenter, next.commandCenter) ||
 		sliceChanged(previous.characters, next.characters) ||
-		sliceChanged(previous.content, next.content);
+		sliceChanged(previous.content, next.content) ||
+		sliceChanged(previous.encounters, next.encounters);
 	if (durableStateChanged && newOperations.length === 0) {
 		throw new Error('Durable state changed without an accepted Processing Core operation.');
 	}
@@ -344,6 +377,7 @@ export async function persistFullState(
 		persistCommandCenterState(next.commandCenter),
 		persistCharacterState(next.characters),
 		persistContentState(next.content),
+		persistEncounterState(next.encounters),
 		appendOperations(newOperations),
 	]);
 }

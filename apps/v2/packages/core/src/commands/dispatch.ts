@@ -32,8 +32,14 @@ import {
 	handleRecordSessionDice,
 	handleSetActiveMap,
 	handleSetSessionWorkflow,
-	handleUpdateSessionCombat,
 } from './session-control';
+import {
+	handleAdvanceCombatTurn,
+	handleApplyCombatResource,
+	handleEndCombat,
+	handleStartCombat,
+} from './combat';
+import { handleBuildEncounter, handleUpdateEncounter } from './encounter';
 import {
 	handleDisableWidgetPackage,
 	handleEnableWidgetPackage,
@@ -204,10 +210,20 @@ export function dispatchCommand(
 			return handleRevokePlayerView(state, env, command.actorId, command.payload);
 		case 'session.set-workflow':
 			return handleSetSessionWorkflow(state, env, command.actorId, command.payload);
-		case 'session.update-combat':
-			return handleUpdateSessionCombat(state, env, command.actorId, command.payload);
 		case 'session.record-dice':
 			return handleRecordSessionDice(state, env, command.actorId, command.payload);
+		case 'combat.start':
+			return handleStartCombat(state, env, command.actorId, command.payload);
+		case 'combat.advance-turn':
+			return handleAdvanceCombatTurn(state, env, command.actorId, command.payload);
+		case 'combat.apply-resource':
+			return handleApplyCombatResource(state, env, command.actorId, command.payload);
+		case 'combat.end':
+			return handleEndCombat(state, env, command.actorId, command.payload);
+		case 'encounter.build':
+			return handleBuildEncounter(state, env, command.actorId, command.payload);
+		case 'encounter.update':
+			return handleUpdateEncounter(state, env, command.actorId, command.payload);
 		case 'session.set-active-map':
 			return handleSetActiveMap(state, env, command.actorId, command.payload);
 		case 'session.project-active-map':

@@ -187,9 +187,11 @@ describe('Command Center storage round-trip', () => {
 
 		const combat = accept(
 			dispatchCommand(state, env, {
-				type: 'session.update-combat',
+				type: 'combat.start',
 				actorId: DM_ACTOR.id,
-				payload: { encounterId: 'enc-store', round: 2, turn: 1, combatantIds: ['pc-1'] },
+				payload: {
+					combatants: [{ kind: 'monster', name: 'Skeleton', initiative: 11, maxHp: 13 }],
+				},
 			}),
 		);
 		await persistFullState(state, combat.nextState);
@@ -229,7 +231,8 @@ describe('Command Center storage round-trip', () => {
 			mapId: 'map-ruined-keep',
 			regionId: 'region-ground-floor',
 		});
-		expect(reloaded.session.combat).toMatchObject({ encounterId: 'enc-store', round: 2 });
+		expect(reloaded.session.combat).toMatchObject({ status: 'running', round: 1 });
+		expect(Object.keys(reloaded.session.combat.combatants)).toHaveLength(1);
 		expect(reloaded.session.diceHistory).toHaveLength(1);
 		expect(reloaded.session.timers[timer.id]).toMatchObject({ durationSeconds: 300 });
 		expect(

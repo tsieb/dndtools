@@ -225,7 +225,9 @@ export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[
 			kind: 'session-timeline',
 			description: 'The session timeline and live session tools for the current workflow state.',
 		},
-		releaseStatus: 'planned',
+		// SES-002 / SES-006 — released by the SES combat slice: the Session section now scaffolds its
+		// combat surface (build encounters + run combat). Its full timeline/session tooling is later SES work.
+		releaseStatus: 'released',
 		keywords: ['session', 'sessions', 'play', 'combat', 'recap'],
 		category: 'navigation',
 		home: false,

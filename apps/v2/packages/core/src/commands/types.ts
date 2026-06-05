@@ -10,6 +10,8 @@ import type { SceneState } from '../state/scene-state';
 import type { SessionWorkflowState, SessionState } from '../state/session-state';
 import type { WidgetPackageState } from '../state/widget-package-state';
 import type { VaultContentState } from '../state/content';
+import type { EncounterState } from '../state/encounter';
+import type { EncounterDifficulty } from '../state/encounter';
 import type { ImportConflictPolicy, ImportSourceKind } from '../state/content-import';
 import type { ContentExport, ContentExportMode } from '../state/content-export';
 import type { OperationLog, SyncOperation } from '../sync/operation-log';
@@ -24,6 +26,8 @@ export interface CoreStateSlice {
 	characters: CharacterState;
 	/** CONTENT — calendar-aware notes/structured objects + the campaign calendar registry. */
 	content: VaultContentState;
+	/** SES-006 — durable encounters (combatant selection, challenge guidance, terrain, loot, links). */
+	encounters: EncounterState;
 	sync: OperationLog;
 }
 
@@ -105,8 +109,18 @@ export type CoreCommand =
 			idempotencyKey?: string;
 	  }
 	| { type: 'session.set-workflow'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
-	| { type: 'session.update-combat'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.record-dice'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// SES-002: run combat. Start (roll initiative), advance turn (wraps to next round), apply a
+	// per-combatant resource (HP/temp-HP/condition/death-save/concentration), and end (persist log).
+	// DM-run; resource application also accepts an authorized combat-participant. Active-session gated.
+	| { type: 'combat.start'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'combat.advance-turn'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'combat.apply-resource'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'combat.end'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// SES-006: build / update a durable encounter (DM-only) — combatant selection, challenge guidance,
+	// terrain notes, legendary/lair actions, loot, and generated session-log links (by reference).
+	| { type: 'encounter.build'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'encounter.update'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.set-active-map'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| {
 			type: 'session.project-active-map';
@@ -429,8 +443,55 @@ export type CoreEvent =
 			recapArchiveId: string | null;
 	  }
 	| { kind: 'session.archived'; actorId: ActorId; archiveId: string }
-	| { kind: 'session.combat-updated'; actorId: ActorId; revision: number }
 	| { kind: 'session.dice-recorded'; actorId: ActorId; rollId: string }
+	// SES-002 — combat lifecycle + per-combatant resource events.
+	| {
+			kind: 'combat.started';
+			actorId: ActorId;
+			encounterId: string | null;
+			combatantCount: number;
+			revision: number;
+	  }
+	| {
+			kind: 'combat.turn-advanced';
+			actorId: ActorId;
+			round: number;
+			turn: number;
+			wrappedRound: boolean;
+			activeCombatantId: string | null;
+			revision: number;
+	  }
+	| {
+			kind: 'combat.resource-applied';
+			actorId: ActorId;
+			combatantId: string;
+			resourceKind: string;
+			revision: number;
+	  }
+	| {
+			kind: 'combat.ended';
+			actorId: ActorId;
+			encounterId: string | null;
+			logEntries: number;
+			revision: number;
+	  }
+	// SES-006 — encounter build/update events. Carry the computed challenge guidance for the GUI.
+	| {
+			kind: 'encounter.built';
+			encounterId: string;
+			difficulty: EncounterDifficulty;
+			encounterPoints: number;
+			combatantCount: number;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'encounter.updated';
+			encounterId: string;
+			difficulty: EncounterDifficulty;
+			encounterPoints: number;
+			combatantCount: number;
+			actorId: ActorId;
+	  }
 	| {
 			kind: 'session.active-map-changed';
 			actorId: ActorId;
@@ -837,7 +898,11 @@ export type RejectionCode =
 	| 'snippet-widens-visibility'
 	// CONTENT-010 — a remove-embed targeted an embed id that does not exist on the host (fail closed: the
 	// host content is never mutated). Distinct so the authoring UI can refresh its embed list.
-	| 'content-embed-not-found';
+	| 'content-embed-not-found'
+	// SES-006 — an encounter target (start-combat link / update) does not exist (fail closed).
+	| 'encounter-not-found'
+	// SES-002 — a combatant referenced by an apply-resource command is not in the current combat.
+	| 'combatant-not-found';
 
 export interface CommandRejection {
 	code: RejectionCode;

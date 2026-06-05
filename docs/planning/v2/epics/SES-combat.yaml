@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: SES-combat
 title: "SES: Combat"
-status: approved
+status: complete
 approved: true
 domain: SES
 capabilityBranch: Combat
@@ -161,3 +161,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/SES-combat.completion.md

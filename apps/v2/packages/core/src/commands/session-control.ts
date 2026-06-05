@@ -3,14 +3,16 @@ import {
 	recordSessionDiceInputSchema,
 	setActiveMapInputSchema,
 	setSessionWorkflowInputSchema,
-	updateSessionCombatInputSchema,
 } from '../schemas/commands';
 import type { MapEntity } from '../state/map-state';
 import {
-	EMPTY_SESSION_COMBAT_STATE,
 	type ActiveMapDeliveryStatus,
 	type SessionArchiveSnapshot,
 } from '../state/session-state';
+import {
+	EMPTY_SESSION_COMBAT_STATE,
+	ensureSessionCombatState,
+} from '../state/combat-tracker';
 import {
 	SCENE_SCHEMA_VERSION,
 	type Scene,
@@ -74,7 +76,7 @@ function archiveCurrentSession(
 		workflowBeforeArchive,
 		activeSceneId: session.activeSceneId,
 		activeMap: session.activeMap,
-		combat: { ...session.combat, combatantIds: [...session.combat.combatantIds] },
+		combat: ensureSessionCombatState(session.combat),
 		diceHistory: session.diceHistory.map((roll) => ({ ...roll })),
 		timers: Object.fromEntries(
 			Object.entries(session.timers).map(([id, timer]) => [id, { ...timer }]),
@@ -210,52 +212,6 @@ export function handleSetSessionWorkflow(
 		status: 'accepted',
 		nextState: { ...state, session: nextSession, sync: nextLog },
 		events,
-		operationIds: [op.id],
-	};
-}
-
-export function handleUpdateSessionCombat(
-	state: CoreStateSlice,
-	env: CoreEnvironment,
-	actorId: string,
-	rawPayload: unknown,
-): CommandResult {
-	const actor = requireActor(state, actorId);
-	if ('code' in actor) return reject(actor, state);
-	const dmCheck = requireDm(actor);
-	if (dmCheck) return reject(dmCheck, state);
-	if (state.session.workflow !== 'active') {
-		return reject(
-			{
-				code: 'invalid-state',
-				message: 'Combat updates require an active Session workflow.',
-			},
-			state,
-		);
-	}
-
-	const parsed = parseInput(updateSessionCombatInputSchema, rawPayload);
-	if (!parsed.ok) return reject(parsed.rejection, state);
-
-	const nextCombat = {
-		...parsed.data,
-		revision: state.session.combat.revision + 1,
-	};
-	const nextSession = { ...state.session, combat: nextCombat };
-	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
-		entityType: 'session',
-		entityId: SESSION_ENTITY_ID,
-		opType: 'session.update-combat',
-		path: 'combat',
-		value: nextCombat,
-		beforeRevision: state.session.combat.revision,
-		afterRevision: nextCombat.revision,
-	});
-
-	return {
-		status: 'accepted',
-		nextState: { ...state, session: nextSession, sync: nextLog },
-		events: [{ kind: 'session.combat-updated', actorId: actor.id, revision: nextCombat.revision }],
 		operationIds: [op.id],
 	};
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	EMPTY_SESSION_COMBAT_STATE,
 	createDemoMapState,
 	deliveredMapIdsForActor,
 	getMapViewForActor,
@@ -197,7 +198,7 @@ function EMPTY_SESSION(): SessionState {
 		workflowRevision: 1,
 		activeSceneId: null,
 		activeMap: null,
-		combat: { encounterId: null, round: 0, turn: 0, combatantIds: [], revision: 0 },
+		combat: EMPTY_SESSION_COMBAT_STATE,
 		diceHistory: [],
 		timers: {},
 		playerViewAssignments: {},

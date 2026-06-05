@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 47
+  approved: 46
   active: 0
-  complete: 41
+  complete: 42
   deferred: 0
 metrics:
-  epicCompletionPercent: 46.6
-  requirementCompletionPercent: 50
+  epicCompletionPercent: 47.7
+  requirementCompletionPercent: 50.9
   totalRequirements: 234
-  completedRequirements: 117
+  completedRequirements: 119
   deferredRequirements: 0
-  remainingEpics: 47
-  promptableEpics: 47
+  remainingEpics: 46
+  promptableEpics: 46
   blockedByDependencies: 0
-  completionEvidenceFiles: 41
+  completionEvidenceFiles: 42
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -167,13 +167,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: SES
       totalEpics: 5
-      complete: 0
+      complete: 1
       active: 0
-      approved: 5
+      approved: 4
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 0
-      requirementCompletionPercent: 0
+      epicCompletionPercent: 20
+      requirementCompletionPercent: 16.7
     - domain: SRCH
       totalEpics: 6
       complete: 0
@@ -193,15 +193,15 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: SES-combat
-  title: "SES: Combat"
+  id: SES-dice-and-tables
+  title: "SES: Dice and tables"
   status: approved
   requirementIds:
-    - SES-002
-    - SES-006
-  promptCommand: pnpm v2:prompt -- --epic SES-combat
+    - SES-003
+    - SES-008
+  promptCommand: pnpm v2:prompt -- --epic SES-dice-and-tables
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic SES-combat --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic SES-dice-and-tables --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -728,11 +728,12 @@ epics:
       - SEC-009
       - SEC-012
   - id: SES-combat
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - SES-002
       - SES-006
+    completionEvidenceFile: docs/planning/v2/epics/SES-combat.completion.md
   - id: SES-dice-and-tables
     status: approved
     approved: true

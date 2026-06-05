@@ -28,7 +28,7 @@ function permissions(): PermissionState {
 function session(overrides: Partial<SessionState> = {}): SessionState {
 	return {
 		...EMPTY_SESSION_STATE,
-		combat: { ...EMPTY_SESSION_STATE.combat, combatantIds: [] },
+		combat: { ...EMPTY_SESSION_STATE.combat },
 		diceHistory: [],
 		timers: {},
 		playerViewAssignments: {},
