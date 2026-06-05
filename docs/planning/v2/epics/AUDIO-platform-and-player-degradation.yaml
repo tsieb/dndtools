@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: AUDIO-platform-and-player-degradation
 title: "AUDIO: Platform and player degradation"
-status: approved
+status: active
 approved: true
 domain: AUDIO
 capabilityBranch: Platform and player degradation

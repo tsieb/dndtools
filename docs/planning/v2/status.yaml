@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 19
-  active: 0
+  approved: 18
+  active: 1
   complete: 69
   deferred: 0
 metrics:
@@ -33,8 +33,8 @@ metrics:
     - domain: AUDIO
       totalEpics: 5
       complete: 2
-      active: 0
-      approved: 3
+      active: 1
+      approved: 2
       proposed: 0
       deferred: 0
       epicCompletionPercent: 40
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: AUDIO-platform-and-player-degradation
   title: "AUDIO: Platform and player degradation"
-  status: approved
+  status: active
   requirementIds:
     - AUDIO-006
     - AUDIO-007
@@ -223,7 +223,7 @@ epics:
       - AUDIO-005
     completionEvidenceFile: docs/planning/v2/epics/AUDIO-automation.completion.md
   - id: AUDIO-platform-and-player-degradation
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - AUDIO-006

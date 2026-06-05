@@ -3442,3 +3442,54 @@ export {
 	resolveAudioAutomationForActor,
 	resolveAudioPlaybackForActor,
 } from './queries/audio-library-query';
+
+// AUDIO-006/007/008/012/013 — the PLATFORM + PLAYER DEGRADATION policy. Composes the AUDIO-004 license +
+// AUDIO-009/010 offline gates and adds the PLATFORM (autoplay/consent/background/routing) and PLAYER
+// (consent/mute/volume/safety) axes into ONE deterministic per-participant delivery decision. Fail closed:
+// when consent is absent, the platform can't play, the track is offline/unlicensed/out-of-scope, or
+// capability is unknown → a clearly-signalled non-playing state (never autoplay where forbidden, never an
+// indefinite retry). Device-local preferences never mutate DM-authored session audio state. Pure +
+// deterministic (no DOM, navigator, clock, or network) — identical inputs ⇒ identical decisions.
+export type {
+	AudioAnnounceableChange,
+	AudioConsentState,
+	AudioDeliveryDecision,
+	AudioDeliveryDisposition,
+	AudioDeliveryRequest,
+	AudioMotionState,
+	AudioOutputRouting,
+	AudioParticipantPreferences,
+	AudioPlatformCapability,
+	AudioSafetyState,
+} from './state/audio-degradation';
+export {
+	AUDIO_CONSENT_STATES,
+	AUDIO_DEGRADATION_SCHEMA_VERSION,
+	DEFAULT_AUDIO_FAILURE_LIMIT,
+	DEFAULT_AUDIO_PARTICIPANT_PREFERENCES,
+	DEFAULT_AUDIO_SAFETY_STATE,
+	UNKNOWN_AUDIO_PLATFORM_CAPABILITY,
+	isAudioConsentState,
+	isAudioSounding,
+	normalizeAudioParticipantPreferences,
+	normalizeAudioPlatformCapability,
+	normalizeAudioSafetyState,
+	resolveAudioDelivery,
+	resolveAudioMotionState,
+	resolveAudioOutputRouting,
+	shouldAnnounceAudioChange,
+} from './state/audio-degradation';
+
+// AUDIO-006/007/012/013 — the ACTOR-FILTERED audio-delivery read model. The DM inspecting session status
+// sees every participant's NON-LEAKING delivery state (a participant who can't play audio is visible —
+// AUDIO-006 AC2 — without exposing device secrets); a participant sees only their OWN resolved decision. A
+// non-DM gets an empty roster (the DM session-status surface is DM-only — fail closed, no leak).
+export type {
+	AudioActiveTrack,
+	AudioParticipantDeliveryView,
+	AudioParticipantDeviceInput,
+} from './queries/audio-delivery-query';
+export {
+	listAudioDeliveryForDm,
+	resolveAudioDeliveryForActor,
+} from './queries/audio-delivery-query';
