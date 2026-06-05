@@ -156,6 +156,8 @@ Requirement IDs exercised by the demo: SYNC-009, SYNC-010, SYNC-014.
 - Branch: `epic/SYNC-asset-sync-and-status` (created from the prior epic HEAD
   `45f7288fa567ccd2c8acd9234b4e3730ce47bf17`, NOT master).
 - Stop conditions: none hit.
-- Commit SHA and final `git status --short`: recorded in the follow-up docs commit on this branch.
+- Epic implementation commit: `4065831` (`feat(v2): complete SYNC-asset-sync-and-status epic`).
+- Final `git status --short`: clean (no untracked, unstaged, or stale generated planning diffs) after
+  this docs commit.
 
 Workpack status: `complete` (set via `pnpm v2:workpack:complete -- --epic SYNC-asset-sync-and-status`).
