@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: AUDIO-playback-and-session-state
 title: "AUDIO: Playback and session state"
-status: active
+status: complete
 approved: true
 domain: AUDIO
 capabilityBranch: Playback and session state
@@ -164,3 +164,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/AUDIO-playback-and-session-state.completion.md
