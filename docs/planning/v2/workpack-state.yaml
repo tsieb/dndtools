@@ -132,7 +132,8 @@ epics:
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/GRAPH-incremental-apis.completion.md
   - id: GRAPH-source-indexing
-    status: active
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/GRAPH-source-indexing.completion.md
   - id: MAP-interaction-safety
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MAP-interaction-safety.completion.md

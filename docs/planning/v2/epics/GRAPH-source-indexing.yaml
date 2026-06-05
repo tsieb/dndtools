@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: GRAPH-source-indexing
 title: "GRAPH: Source indexing"
-status: active
+status: complete
 approved: true
 domain: GRAPH
 capabilityBranch: Source indexing
@@ -159,3 +159,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/GRAPH-source-indexing.completion.md
