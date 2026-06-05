@@ -188,3 +188,6 @@ epics:
   - id: SYNC-conflict-lifecycle
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SYNC-conflict-lifecycle.completion.md
+  - id: SYNC-local-first-operation-model
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SYNC-local-first-operation-model.completion.md

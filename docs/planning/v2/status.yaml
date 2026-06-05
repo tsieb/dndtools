@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 39
+  approved: 38
   active: 0
-  complete: 49
+  complete: 50
   deferred: 0
 metrics:
-  epicCompletionPercent: 55.7
-  requirementCompletionPercent: 58.5
+  epicCompletionPercent: 56.8
+  requirementCompletionPercent: 59.8
   totalRequirements: 234
-  completedRequirements: 137
+  completedRequirements: 140
   deferredRequirements: 0
-  remainingEpics: 39
-  promptableEpics: 39
+  remainingEpics: 38
+  promptableEpics: 38
   blockedByDependencies: 0
-  completionEvidenceFiles: 49
+  completionEvidenceFiles: 50
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -185,25 +185,27 @@ metrics:
       requirementCompletionPercent: 0
     - domain: SYNC
       totalEpics: 5
-      complete: 3
+      complete: 4
       active: 0
-      approved: 2
+      approved: 1
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 60
-      requirementCompletionPercent: 47.1
+      epicCompletionPercent: 80
+      requirementCompletionPercent: 64.7
 nextEpic:
-  id: SYNC-local-first-operation-model
-  title: "SYNC: Local-first operation model"
+  id: SYNC-source-adapters
+  title: "SYNC: Source adapters"
   status: approved
   requirementIds:
-    - SYNC-001
-    - SYNC-002
-    - SYNC-011
-  promptCommand: pnpm v2:prompt -- --epic SYNC-local-first-operation-model
+    - SYNC-003
+    - SYNC-004
+    - SYNC-005
+    - SYNC-012
+    - SYNC-015
+    - SYNC-016
+  promptCommand: pnpm v2:prompt -- --epic SYNC-source-adapters
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic
-    SYNC-local-first-operation-model --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic SYNC-source-adapters --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -825,12 +827,13 @@ epics:
       - SYNC-013
     completionEvidenceFile: docs/planning/v2/epics/SYNC-conflict-lifecycle.completion.md
   - id: SYNC-local-first-operation-model
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - SYNC-001
       - SYNC-002
       - SYNC-011
+    completionEvidenceFile: docs/planning/v2/epics/SYNC-local-first-operation-model.completion.md
   - id: SYNC-source-adapters
     status: approved
     approved: true

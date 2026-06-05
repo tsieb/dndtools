@@ -469,6 +469,70 @@ export {
 	hasIdempotencyKey,
 } from './sync/operation-log';
 
+// SYNC-002: the CANONICAL operation shape + IDEMPOTENCY model. Formalizes Contract 2's Sync Unit:
+// every durable op is entity-scoped (actor/target/path), carries explicit dependencies + revisions +
+// issue time, and is idempotent by op id (re-applying an id is a no-op). `validateSyncOperationShape`
+// is the pure structural conformance check (fails closed if a required field is missing/malformed);
+// `assertDurableOperationConforms` is the guard the cross-command conformance test asserts against.
+export type {
+	OperationConformanceProblem,
+	OperationConformanceProblemKind,
+	OperationConformanceResult,
+	RequiredOperationField,
+	ApplyOperationIdempotentResult,
+} from './sync/operation-model';
+export {
+	REQUIRED_OPERATION_FIELDS,
+	appliedOperationIdsOf,
+	applyOperationIdempotent,
+	assertDurableOperationConforms,
+	dedupeOperationsById,
+	isConformantSyncOperation,
+	isOperationApplied,
+	validateSyncOperationShape,
+} from './sync/operation-model';
+
+// SYNC-011: fail-closed REPLAY VALIDATION for queued/remote ops. BEFORE applying an op, validates (in
+// order) shape, schema-version compatibility, dependencies satisfied, target existence, actor
+// authority, visibility, and write permission — reusing the PERM visibility-filter + grant model and
+// the migration fail-closed-on-future-version stance. A valid op accepts; an unsatisfied dependency
+// DEFERS; any other failure REJECTS (the op is not applied). This is a replay-time guard for the
+// future transport; it does NOT touch the in-process dispatch path (which already validates).
+export type {
+	ReplayBatchEntry,
+	ReplayBatchResult,
+	ReplayRejectionReason,
+	ReplayValidationContext,
+	ReplayValidationOutcome,
+	ReplayValidationResult,
+} from './sync/replay-validation';
+export { validateReplayBatch, validateReplayOperation } from './sync/replay-validation';
+
+// SYNC-001: the LOCAL-FIRST invariant model. Declares the core workflows that must stay usable offline
+// for content already on the device, computes per-workflow offline availability (content never synced
+// to a device reports `unavailable` rather than blocking the whole vault), derives the collaboration-
+// unavailable-offline + queued-local-ops status, and proves the offline path carries no network handle
+// (`assertNoNetworkDependency`). Pure Processing-Core policy; by construction it performs no network I/O.
+export type {
+	LocalFirstStatus,
+	LocalFirstStatusInput,
+	LocalFirstWorkflow,
+	LocalFirstWorkflowInput,
+	NetworkDependencyFinding,
+	NetworkDependencyReason,
+	WorkflowAvailability,
+	WorkflowAvailabilityState,
+} from './sync/local-first';
+export {
+	LOCAL_FIRST_WORKFLOWS,
+	assertNoNetworkDependency,
+	deriveLocalFirstStatus,
+	evaluateWorkflowAvailability,
+	findNetworkDependencies,
+	hasNoNetworkDependency,
+	isLocalFirstWorkflow,
+} from './sync/local-first';
+
 // SYNC-009: large binary assets sync as CONTENT-ADDRESSED ASSET RECORDS (hash-as-id, reuse MAP-002)
 // plus METADATA OPERATIONS — the op-log carries the asset's metadata + content-hash reference, NEVER
 // the binary payload. `assertNoBinaryInOperationLog` is the fail-closed guard that proves the binding
