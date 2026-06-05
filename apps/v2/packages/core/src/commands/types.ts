@@ -2,6 +2,7 @@ import type { ActorId, OperationId, SceneId } from '../state/ids';
 import type { Clock, IdGenerator } from '../state/ids';
 import type { CommandCenterState } from '../state/command-center-state';
 import type { MapState } from '../state/map-state';
+import type { MapLayerMutationKind } from '../state/map-layers';
 import type { PermissionState } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
 import type { SessionWorkflowState, SessionState } from '../state/session-state';
@@ -110,7 +111,22 @@ export type CoreCommand =
 			actorId: ActorId;
 			payload: unknown;
 			idempotencyKey?: string;
-	  };
+	  }
+	| { type: 'map.create-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.rename-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.reorder-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.duplicate-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.lock-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.delete-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'map.set-layer-visibility';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| { type: 'map.set-layer-enabled'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.set-layer-opacity'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'map.set-layer-tags'; actorId: ActorId; payload: unknown; idempotencyKey?: string };
 
 export type CoreEvent =
 	| { kind: 'scene.created'; sceneId: SceneId; actorId: ActorId }
@@ -234,6 +250,13 @@ export type CoreEvent =
 			newGrantId: string;
 			revokedGrantIds: string[];
 			capabilitySet: string;
+			actorId: ActorId;
+	  }
+	| {
+			kind: 'map.layer-changed';
+			mapId: string;
+			layerId: string;
+			mutation: MapLayerMutationKind;
 			actorId: ActorId;
 	  };
 

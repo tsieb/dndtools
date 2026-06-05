@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: MAP-layers-and-visibility
 title: "MAP: Layers and visibility"
-status: approved
+status: complete
 approved: true
 domain: MAP
 capabilityBranch: Layers and visibility
@@ -218,3 +218,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/MAP-layers-and-visibility.completion.md

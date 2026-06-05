@@ -58,8 +58,84 @@ export {
 	SESSION_WORKFLOW_STATES,
 } from './state/session-state';
 
-export type { MapEntity, MapLayer, MapLayerCategory, MapRegion, MapState } from './state/map-state';
-export { EMPTY_MAP_STATE, MAP_STATE_SCHEMA_VERSION, createDemoMapState } from './state/map-state';
+export type {
+	MapEntity,
+	MapLayer,
+	MapLayerCategory,
+	MapLayerDefaults,
+	MapRegion,
+	MapState,
+} from './state/map-state';
+export {
+	EMPTY_MAP_STATE,
+	MAP_STATE_SCHEMA_VERSION,
+	createDemoMapState,
+	normalizeMapLayer,
+} from './state/map-state';
+
+// MAP-005 / MAP-006: pure layer reducers (create/rename/reorder/duplicate/lock/delete + the three
+// INDEPENDENT presentation axes: player-visibility, DM-display, opacity, plus tags). Locked layers
+// reject mutation fail-closed; `order` stays dense; each mutated layer is revision-stamped. The
+// command handlers compose these; storage is never touched here.
+export type {
+	CreateLayerInput,
+	MapLayerError,
+	MapLayerMutationKind,
+	MapLayerStamp,
+} from './state/map-layers';
+export {
+	createLayer,
+	deleteLayer,
+	duplicateLayer,
+	findLayer,
+	renameLayer,
+	reorderLayer,
+	setLayerDmEnabled,
+	setLayerLock,
+	setLayerOpacity,
+	setLayerPlayerVisibility,
+	setLayerTags,
+	sortedLayers,
+} from './state/map-layers';
+
+// MAP-007: tag / metadata layer query — visibility-filtered and FAIL-CLOSED. A non-DM result omits
+// (never redacts) hidden matches and exposes no hidden count; the DM result reports the
+// player-hidden match count. `mapLayerConsistencyRecords` bridges layer visibility/order/opacity
+// into the existing capability-cache + visibility-cache invalidation (Contract 3 Session Join rule 4).
+export type {
+	MapLayerQuery,
+	MapLayerQueryEntry,
+	MapLayerQueryOptions,
+	MapLayerQueryResult,
+} from './queries/map-layer-query';
+export {
+	mapLayerVisibilityMetadata,
+	mapLayerVisibilitySurfaces,
+	queryMapLayers,
+} from './queries/map-layer-query';
+
+// MAP-016: pre-projection map-layer visibility consistency audit. DM-facing and NON-LEAKING (entity
+// references + generic remediation only). Blocks projection on errors (visible route → hidden POI;
+// visible overlay omits a required token; visible nested-link → hidden map); warns on safely-omitted
+// hidden content. Follows the `consistency.ts` audit pattern.
+export type {
+	MapFogRecord,
+	MapNestedLink,
+	MapPoiRecord,
+	MapProjectionConsistencyReport,
+	MapProjectionElementKind,
+	MapProjectionInput,
+	MapProjectionProblem,
+	MapProjectionProblemKind,
+	MapProjectionSeverity,
+	MapRouteRecord,
+	MapTokenRecord,
+} from './permissions/map-projection-consistency';
+export {
+	actorCanViewMapProjectionConsistency,
+	auditMapProjectionConsistency,
+	getMapProjectionConsistencyForActor,
+} from './permissions/map-projection-consistency';
 
 export type {
 	CommandCenterPreset,
@@ -142,8 +218,11 @@ export {
 	createSceneInputSchema,
 	destroyWidgetInputSchema,
 	configureWidgetInputSchema,
+	createMapLayerInputSchema,
+	deleteMapLayerInputSchema,
 	disableWidgetPackageInputSchema,
 	dockWidgetInputSchema,
+	duplicateMapLayerInputSchema,
 	dispatchWidgetCommandInputSchema,
 	enableWidgetPackageInputSchema,
 	ensureCommandCenterHomeInputSchema,
@@ -152,12 +231,15 @@ export {
 	installWidgetPackageInputSchema,
 	instantiateSceneTemplateInputSchema,
 	layerWidgetInputSchema,
+	lockMapLayerInputSchema,
 	moveGroupInputSchema,
 	moveWidgetInputSchema,
 	pinWidgetInputSchema,
 	projectPlayerViewInputSchema,
 	projectActiveMapInputSchema,
 	removeWidgetPackageInputSchema,
+	renameMapLayerInputSchema,
+	reorderMapLayerInputSchema,
 	recordSessionDiceInputSchema,
 	revokeGrantInputSchema,
 	revokePlayerViewInputSchema,
@@ -166,6 +248,10 @@ export {
 	saveCommandCenterPresetInputSchema,
 	saveSceneTemplateInputSchema,
 	setActiveMapInputSchema,
+	setMapLayerEnabledInputSchema,
+	setMapLayerOpacityInputSchema,
+	setMapLayerTagsInputSchema,
+	setMapLayerVisibilityInputSchema,
 	setSceneSectionsInputSchema,
 	setSessionWorkflowInputSchema,
 	setWidgetFocusOrderInputSchema,

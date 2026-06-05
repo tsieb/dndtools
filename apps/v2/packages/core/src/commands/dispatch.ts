@@ -45,6 +45,18 @@ import {
 	handleRemoveWidgetPackage,
 	handleUpgradeWidgetPackage,
 } from './widget-package';
+import {
+	handleCreateMapLayer,
+	handleDeleteMapLayer,
+	handleDuplicateMapLayer,
+	handleLockMapLayer,
+	handleRenameMapLayer,
+	handleReorderMapLayer,
+	handleSetMapLayerEnabled,
+	handleSetMapLayerOpacity,
+	handleSetMapLayerTags,
+	handleSetMapLayerVisibility,
+} from './map-layer';
 
 export function dispatchCommand(
 	state: CoreStateSlice,
@@ -128,6 +140,26 @@ export function dispatchCommand(
 			return handleRevokeGrant(state, env, command.actorId, command.payload);
 		case 'permission.transfer-ownership':
 			return handleTransferOwnership(state, env, command.actorId, command.payload);
+		case 'map.create-layer':
+			return handleCreateMapLayer(state, env, command.actorId, command.payload);
+		case 'map.rename-layer':
+			return handleRenameMapLayer(state, env, command.actorId, command.payload);
+		case 'map.reorder-layer':
+			return handleReorderMapLayer(state, env, command.actorId, command.payload);
+		case 'map.duplicate-layer':
+			return handleDuplicateMapLayer(state, env, command.actorId, command.payload);
+		case 'map.lock-layer':
+			return handleLockMapLayer(state, env, command.actorId, command.payload);
+		case 'map.delete-layer':
+			return handleDeleteMapLayer(state, env, command.actorId, command.payload);
+		case 'map.set-layer-visibility':
+			return handleSetMapLayerVisibility(state, env, command.actorId, command.payload);
+		case 'map.set-layer-enabled':
+			return handleSetMapLayerEnabled(state, env, command.actorId, command.payload);
+		case 'map.set-layer-opacity':
+			return handleSetMapLayerOpacity(state, env, command.actorId, command.payload);
+		case 'map.set-layer-tags':
+			return handleSetMapLayerTags(state, env, command.actorId, command.payload);
 	}
 }
 

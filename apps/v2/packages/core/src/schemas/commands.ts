@@ -304,6 +304,112 @@ export const projectActiveMapInputSchema = z
 	})
 	.strict();
 
+// MAP-005 / MAP-006 / MAP-007: durable map-layer mutations. Every layer mutation is a DM-only
+// Processing-Core command appended through the storage adapter + command lifecycle (no GUI reaches
+// storage directly). The layer category and player-facing visibility reuse the shared map/scene
+// enums so the layer query and projection consistency audit speak the same vocabulary.
+const mapLayerCategorySchema = z.enum([
+	'base',
+	'terrain',
+	'roads',
+	'poi',
+	'fog',
+	'dm-annotations',
+	'player-overlay',
+]);
+
+export const createMapLayerInputSchema = z
+	.object({
+		mapId: idSchema,
+		name: z.string().min(1, 'Layer name is required'),
+		category: mapLayerCategorySchema.default('dm-annotations'),
+		// `visibility` is the PLAYER-FACING visibility level (MAP-006). Defaults to `dm-only`
+		// (fail closed): a freshly created layer is hidden from players until explicitly revealed.
+		visibility: sceneVisibilitySchema.default('dm-only'),
+		// `enabled` is the DM-display toggle, independent of visibility/opacity (MAP-006).
+		enabled: z.boolean().default(true),
+		opacity: z.number().min(0).max(1).default(1),
+		tags: z.array(z.string().min(1)).default([]),
+		query: z.record(z.string().min(1), z.string()).default({}),
+		locked: z.boolean().default(false),
+		atOrder: z.number().int().nonnegative().optional(),
+	})
+	.strict();
+
+export const renameMapLayerInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		name: z.string().min(1, 'Layer name is required'),
+	})
+	.strict();
+
+export const reorderMapLayerInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		toOrder: z.number().int().nonnegative(),
+	})
+	.strict();
+
+export const duplicateMapLayerInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+	})
+	.strict();
+
+export const lockMapLayerInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		locked: z.boolean(),
+	})
+	.strict();
+
+export const deleteMapLayerInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+	})
+	.strict();
+
+// MAP-006: each presentation axis is its own command so toggling one never touches the others and
+// the durable operation/path records exactly which axis changed.
+export const setMapLayerVisibilityInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		visibility: sceneVisibilitySchema,
+	})
+	.strict();
+
+export const setMapLayerEnabledInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		enabled: z.boolean(),
+	})
+	.strict();
+
+export const setMapLayerOpacityInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		opacity: z.number().min(0).max(1),
+	})
+	.strict();
+
+// MAP-007: tag/query metadata is editable as a unit so the layer query reads consistent facets.
+export const setMapLayerTagsInputSchema = z
+	.object({
+		mapId: idSchema,
+		layerId: idSchema,
+		tags: z.array(z.string().min(1)).default([]),
+		query: z.record(z.string().min(1), z.string()).default({}),
+	})
+	.strict();
+
 // PERM-004: grant ONE named capability set to ONE player on ONE entity. The capability set is a
 // named string validated against the per-entity-type system schema in the reducer (PERM-005), NOT a
 // raw field list — the schema only constrains shape here. Expiry is optional ISO; absent ⇒ never

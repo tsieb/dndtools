@@ -3,6 +3,7 @@
 	import { resolveDeepLink, type DeepLinkTarget, type MapRegion } from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 	import MapPoiControl from '$lib/gui/MapPoiControl.svelte';
+	import MapLayerPanel from '$lib/gui/MapLayerPanel.svelte';
 
 	const runtime = useRuntime();
 
@@ -97,6 +98,12 @@
 					regions={resolvedRegions}
 					onfocusregion={focusRegion}
 				/>
+
+				<!-- MAP-005/006/007/016: the layer-management surface for the resolved map. The DM
+				     authors layers and toggles their independent player-visibility/DM-display/opacity
+				     axes; a player/observer sees only the layers visible to them (the panel renders
+				     from the actor-filtered layer query, so a dm-only layer never appears here). -->
+				<MapLayerPanel mapId={resolution.entityId} />
 			</section>
 		{:else}
 			<!-- NAV-005 AC2/AC3: one generic, non-leaking unavailable state. It names no
