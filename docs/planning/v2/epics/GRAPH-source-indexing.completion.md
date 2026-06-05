@@ -225,8 +225,8 @@ The fastest reviewer path is the test suite:
 ## Git evidence
 
 - Branch: `epic/GRAPH-source-indexing`
-- Feat commit SHA: `__FEAT_SHA__` (recorded by the follow-up `docs(v2): record commit SHA …` commit).
-- Workpack-complete commit SHA: `__COMPLETE_SHA__`
+- Feat commit SHA: `9399a4177e47dd8070342a9f3f918c4d42c8e1c8`
+- Workpack-complete commit SHA: `07cc789497009d4ba9e756b27d8fe2dabdc937e4`
 - SHA-recording follow-up commit: this commit (`docs(v2): record commit SHA …`).
 
 Final `git status --short` (after the SHA-recording commit — clean slate):
