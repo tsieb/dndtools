@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: PERM-consistency-cache-invalidation-and-audit
 title: "PERM: Consistency, cache invalidation, and audit"
-status: approved
+status: complete
 approved: true
 domain: PERM
 capabilityBranch: Consistency, cache invalidation, and audit
@@ -213,3 +213,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/PERM-consistency-cache-invalidation-and-audit.completion.md

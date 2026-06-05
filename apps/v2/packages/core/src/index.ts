@@ -223,6 +223,83 @@ export {
 	readCharacterDataForActor,
 } from './permissions/consistency';
 
+// PERM-007: entity-scoped permission consistency audit (Contract 3 Consistency Requirements).
+// Detects write grants on hidden content, unknown capability sets, grants on deleted entities,
+// multiple character owners, observer write grants, and hidden widget bindings in player views.
+// Pure and non-leaking: problems carry only entity references, grants, and generic remediation.
+export type {
+	ConsistencyEntityRecord,
+	ConsistencyEntityVisibility,
+	EntityConsistencyInput,
+	EntityConsistencyProblem,
+	EntityConsistencyProblemKind,
+	EntityConsistencyReport,
+	PlayerViewWidgetBinding,
+} from './permissions/consistency';
+export { auditEntityPermissionConsistency } from './permissions/consistency';
+
+// PERM-007 / PERM-009: the system-defined capability-set schema per entity type (Contract 3
+// Minimum Capability Sets) and its version. Unknown-capability detection and the cache-invalidating
+// schema version both derive from here.
+export {
+	CAPABILITY_SCHEMA_VERSION,
+	CAPABILITY_SET_SCHEMA,
+	SINGULAR_OWNERSHIP_CAPABILITY,
+	hasCapabilitySchemaForEntityType,
+	isKnownCapabilitySet,
+	singularOwnershipCapabilityFor,
+} from './permissions/capability-schema';
+
+// PERM-009: deterministic, synchronous participant capability cache + invalidation. The cache is
+// keyed by a per-participant fingerprint of all inputs/versions that affect effective
+// capabilities; a change to any trigger (grants, visibility, roles, ownership, schema version)
+// invalidates exactly the affected participants. Fail-closed: schema-version changes invalidate
+// everyone. No timers/background system — invalidation is synchronous on the triggering change.
+export type {
+	CapabilityCache,
+	CapabilityCacheEntry,
+	CapabilityCacheInputs,
+	CapabilityCacheTrigger,
+	InvalidationResult,
+} from './permissions/capability-cache';
+export {
+	EMPTY_CAPABILITY_CACHE,
+	buildCapabilityCache,
+	computeCapabilityFingerprint,
+	invalidateCapabilityCache,
+	isCapabilityCacheEntryValid,
+} from './permissions/capability-cache';
+
+// PERM-010: denial audit for denied cross-trust-boundary access. The public denial and the audit
+// record never leak hidden content; a hidden-existence denial is indistinguishable from not-found.
+export type {
+	AccessAuditResult,
+	AccessDenialAuditRecord,
+	AccessDenialPublicResult,
+	AccessDenialReason,
+	AccessKind,
+	AccessRequest,
+	AuditAccessOptions,
+	PublicDenialReason,
+} from './permissions/access-audit';
+export { auditAccessAttempt } from './permissions/access-audit';
+
+// PERM-014: actionable DM permission/visibility/role diagnostics with an actor-scoped projection.
+// The DM sees actionable references + remediation; non-DM/unauthorized actors see only a generic
+// reason. Leak-proof by construction — diagnostics carry no titles or field values.
+export type {
+	ActorPermissionDiagnosticsView,
+	DmPermissionDiagnostic,
+	DmPermissionDiagnosticsView,
+	PermissionDiagnosticsInput,
+	PermissionDiagnosticsResult,
+} from './permissions/permission-diagnostics';
+export {
+	actorCanViewPermissionDiagnostics,
+	getPermissionDiagnostics,
+	getPermissionDiagnosticsForDm,
+} from './permissions/permission-diagnostics';
+
 export type {
 	BindingResolver,
 	SceneListEntry,

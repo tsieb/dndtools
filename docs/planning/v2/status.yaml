@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 69
+  approved: 68
   active: 0
-  complete: 19
+  complete: 20
   deferred: 0
 metrics:
-  epicCompletionPercent: 21.6
-  requirementCompletionPercent: 23.9
+  epicCompletionPercent: 22.7
+  requirementCompletionPercent: 25.6
   totalRequirements: 234
-  completedRequirements: 56
+  completedRequirements: 60
   deferredRequirements: 0
-  remainingEpics: 69
-  promptableEpics: 69
+  remainingEpics: 68
+  promptableEpics: 68
   blockedByDependencies: 0
-  completionEvidenceFiles: 19
+  completionEvidenceFiles: 20
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -140,13 +140,13 @@ metrics:
       requirementCompletionPercent: 0
     - domain: PERM
       totalEpics: 4
-      complete: 1
+      complete: 2
       active: 0
-      approved: 3
+      approved: 2
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 25
-      requirementCompletionPercent: 14.3
+      epicCompletionPercent: 50
+      requirementCompletionPercent: 42.9
     - domain: PLAT
       totalEpics: 4
       complete: 4
@@ -193,18 +193,19 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 0
 nextEpic:
-  id: PERM-consistency-cache-invalidation-and-audit
-  title: "PERM: Consistency, cache invalidation, and audit"
+  id: PERM-grants-and-capability-sets
+  title: "PERM: Grants and capability sets"
   status: approved
   requirementIds:
-    - PERM-007
-    - PERM-009
-    - PERM-010
-    - PERM-014
-  promptCommand: pnpm v2:prompt -- --epic PERM-consistency-cache-invalidation-and-audit
+    - PERM-004
+    - PERM-005
+    - PERM-006
+    - PERM-008
+    - PERM-013
+  promptCommand: pnpm v2:prompt -- --epic PERM-grants-and-capability-sets
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    PERM-consistency-cache-invalidation-and-audit --status active
+    PERM-grants-and-capability-sets --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -619,13 +620,14 @@ epics:
       - PERM-011
     completionEvidenceFile: docs/planning/v2/epics/PERM-base-roles-and-observer-limits.completion.md
   - id: PERM-consistency-cache-invalidation-and-audit
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - PERM-007
       - PERM-009
       - PERM-010
       - PERM-014
+    completionEvidenceFile: docs/planning/v2/epics/PERM-consistency-cache-invalidation-and-audit.completion.md
   - id: PERM-grants-and-capability-sets
     status: approved
     approved: true
