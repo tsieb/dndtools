@@ -15,20 +15,20 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 41
+  approved: 40
   active: 0
-  complete: 47
+  complete: 48
   deferred: 0
 metrics:
-  epicCompletionPercent: 53.4
-  requirementCompletionPercent: 56.4
+  epicCompletionPercent: 54.5
+  requirementCompletionPercent: 57.7
   totalRequirements: 234
-  completedRequirements: 132
+  completedRequirements: 135
   deferredRequirements: 0
-  remainingEpics: 41
-  promptableEpics: 41
+  remainingEpics: 40
+  promptableEpics: 40
   blockedByDependencies: 0
-  completionEvidenceFiles: 47
+  completionEvidenceFiles: 48
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -185,25 +185,23 @@ metrics:
       requirementCompletionPercent: 0
     - domain: SYNC
       totalEpics: 5
-      complete: 1
+      complete: 2
       active: 0
-      approved: 4
+      approved: 3
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 20
-      requirementCompletionPercent: 17.6
+      epicCompletionPercent: 40
+      requirementCompletionPercent: 35.3
 nextEpic:
-  id: SYNC-cloud-device-local-storage
-  title: "SYNC: Cloud/device-local storage"
+  id: SYNC-conflict-lifecycle
+  title: "SYNC: Conflict lifecycle"
   status: approved
   requirementIds:
-    - SYNC-007
-    - SYNC-008
-    - SYNC-017
-  promptCommand: pnpm v2:prompt -- --epic SYNC-cloud-device-local-storage
+    - SYNC-006
+    - SYNC-013
+  promptCommand: pnpm v2:prompt -- --epic SYNC-conflict-lifecycle
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic
-    SYNC-cloud-device-local-storage --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic SYNC-conflict-lifecycle --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: approved
@@ -810,12 +808,13 @@ epics:
       - SYNC-014
     completionEvidenceFile: docs/planning/v2/epics/SYNC-asset-sync-and-status.completion.md
   - id: SYNC-cloud-device-local-storage
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - SYNC-007
       - SYNC-008
       - SYNC-017
+    completionEvidenceFile: docs/planning/v2/epics/SYNC-cloud-device-local-storage.completion.md
   - id: SYNC-conflict-lifecycle
     status: approved
     approved: true

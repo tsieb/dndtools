@@ -490,6 +490,57 @@ export {
 	operationCarriesBinaryPayload,
 } from './sync/asset-sync';
 
+// SYNC-007 / SYNC-008: the TYPED, FAIL-CLOSED data-classification registry. Every storage category is
+// declared `cloud-syncable` (only eligible when cloud sync is ENABLED for the vault) or `device-local`
+// (never leaves the device unless the user explicitly exports). Fails closed: unknown category ⇒
+// device-local; cloud-disabled ⇒ nothing eligible for cloud. The cloud-payload leak guard reuses the
+// diagnostics redaction guard to prove a generated payload carries no raw paths/auth tokens.
+export type {
+	ClassifiedStorageRecord,
+	CloudPayloadLeakFinding,
+	CloudPayloadLeakReason,
+	CloudPayloadRecord,
+	StorageClassification,
+	StorageClassificationPlan,
+	StorageDataCategory,
+} from './sync/storage-classification';
+export {
+	CLOUD_SYNCABLE_CATEGORIES,
+	DEVICE_LOCAL_CATEGORIES,
+	FAIL_CLOSED_CLASSIFICATION,
+	STORAGE_CLASSIFICATION_REGISTRY,
+	assertCloudPayloadIsClean,
+	classifyStorageCategory,
+	declaredClassification,
+	eligibleCloudCategories,
+	findCloudPayloadLeaks,
+	isCloudEligible,
+	isKnownStorageCategory,
+	partitionStorageRecords,
+} from './sync/storage-classification';
+
+// SYNC-017: the ENCRYPTION-PREREQUISITE cloud-sync enablement gate. Default OFF, fail-closed. Cloud
+// sync CANNOT be enabled until the release-approved encryption, key custody, rotation, and recovery
+// model is satisfied. Per ADR-014 the real crypto is deferred, so the prerequisites are declared-unmet
+// by default and the gate blocks enablement — this is the seam a future crypto ADR plugs into.
+export type {
+	CloudSyncGateInput,
+	CloudSyncGateResult,
+	CloudSyncPrerequisiteId,
+	CloudSyncPrerequisiteStatus,
+	CloudSyncSecurityModel,
+	RecoveryDeclaration,
+} from './sync/cloud-sync-gate';
+export {
+	CLOUD_SYNC_PREREQUISITE_IDS,
+	CLOUD_SYNC_PREREQUISITE_LABELS,
+	UNMET_CLOUD_SYNC_SECURITY_MODEL,
+	canEnableCloudSync,
+	evaluateCloudSyncGate,
+	evaluateCloudSyncPrerequisites,
+	isCloudSyncEnabled,
+} from './sync/cloud-sync-gate';
+
 // SYNC-010: the computed SYNC STATUS model — pending outbound operations, inbound revisions, conflicts
 // (from conflict-shaped ops), source health (reuse PLAT diagnostics), and retry actions (reuse the
 // PLAT-018 lifecycle). A clean derived view over the op-log substrate, never raw storage. Pure

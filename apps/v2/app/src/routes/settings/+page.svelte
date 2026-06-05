@@ -11,6 +11,7 @@
 	import DiagnosticsPanel from '$lib/gui/DiagnosticsPanel.svelte';
 	import ParticipantStatusPanel from '$lib/gui/ParticipantStatusPanel.svelte';
 	import SyncStatusPanel from '$lib/gui/SyncStatusPanel.svelte';
+	import CloudStorageClassificationPanel from '$lib/gui/CloudStorageClassificationPanel.svelte';
 	import PermissionSummary from '$lib/gui/PermissionSummary.svelte';
 	import GrantManager from '$lib/gui/GrantManager.svelte';
 	import CapabilityStatus from '$lib/gui/CapabilityStatus.svelte';
@@ -87,6 +88,13 @@
 	     see only non-leaking freshness). The Processing Core enforces both the derivation and the
 	     actor filter; this surface renders the computed model. -->
 	<SyncStatusPanel context={diagnosticsContext} />
+
+	<!-- SYNC-007 / SYNC-008 / SYNC-017: the cloud/device-local storage classification + enablement
+	     gate. Every role can inspect what is eligible to sync to the cloud (only when enabled) and what
+	     always stays device-local, plus the encryption/key prerequisites that gate cloud sync. The
+	     Processing Core owns the classification and the fail-closed gate; this surface renders the
+	     computed model and never reads raw storage or flips any flag. -->
+	<CloudStorageClassificationPanel />
 
 	<!-- PERM-001 / PERM-011: the effective permission surface the Processing Core computes
 	     for the active actor (base role floor + observer ceiling, grants capped to the

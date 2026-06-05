@@ -182,3 +182,6 @@ epics:
   - id: SYNC-asset-sync-and-status
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SYNC-asset-sync-and-status.completion.md
+  - id: SYNC-cloud-device-local-storage
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SYNC-cloud-device-local-storage.completion.md
