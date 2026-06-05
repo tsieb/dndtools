@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: AUDIO-automation
 title: "AUDIO: Automation"
-status: active
+status: complete
 approved: true
 domain: AUDIO
 capabilityBranch: Automation
@@ -129,3 +129,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/AUDIO-automation.completion.md

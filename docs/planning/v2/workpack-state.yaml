@@ -44,7 +44,8 @@ epics:
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/AUDIO-assets-licensing-and-source-scope.completion.md
   - id: AUDIO-automation
-    status: active
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/AUDIO-automation.completion.md
   - id: CANVAS-layout-accessibility
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CANVAS-layout-accessibility.completion.md

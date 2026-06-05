@@ -16,29 +16,29 @@ summary:
   totalEpics: 88
   proposed: 0
   approved: 19
-  active: 1
-  complete: 68
+  active: 0
+  complete: 69
   deferred: 0
 metrics:
-  epicCompletionPercent: 77.3
-  requirementCompletionPercent: 79.1
+  epicCompletionPercent: 78.4
+  requirementCompletionPercent: 79.5
   totalRequirements: 234
-  completedRequirements: 185
+  completedRequirements: 186
   deferredRequirements: 0
-  remainingEpics: 20
-  promptableEpics: 20
+  remainingEpics: 19
+  promptableEpics: 19
   blockedByDependencies: 0
-  completionEvidenceFiles: 68
+  completionEvidenceFiles: 69
   domains:
     - domain: AUDIO
       totalEpics: 5
-      complete: 1
-      active: 1
+      complete: 2
+      active: 0
       approved: 3
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 20
-      requirementCompletionPercent: 30.8
+      epicCompletionPercent: 40
+      requirementCompletionPercent: 38.5
     - domain: CANVAS
       totalEpics: 5
       complete: 5
@@ -193,14 +193,19 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: AUDIO-automation
-  title: "AUDIO: Automation"
-  status: active
+  id: AUDIO-platform-and-player-degradation
+  title: "AUDIO: Platform and player degradation"
+  status: approved
   requirementIds:
-    - AUDIO-005
-  promptCommand: pnpm v2:prompt -- --epic AUDIO-automation
+    - AUDIO-006
+    - AUDIO-007
+    - AUDIO-008
+    - AUDIO-012
+    - AUDIO-013
+  promptCommand: pnpm v2:prompt -- --epic AUDIO-platform-and-player-degradation
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic AUDIO-automation --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic
+    AUDIO-platform-and-player-degradation --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: complete
@@ -212,10 +217,11 @@ epics:
       - AUDIO-011
     completionEvidenceFile: docs/planning/v2/epics/AUDIO-assets-licensing-and-source-scope.completion.md
   - id: AUDIO-automation
-    status: active
+    status: complete
     approved: true
     requirementIds:
       - AUDIO-005
+    completionEvidenceFile: docs/planning/v2/epics/AUDIO-automation.completion.md
   - id: AUDIO-platform-and-player-degradation
     status: approved
     approved: true
