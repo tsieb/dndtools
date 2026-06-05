@@ -187,9 +187,9 @@ Modified:
 ## Git evidence
 
 Commits:
-- `feat(v2): complete AUDIO-platform-and-player-degradation epic` — code + tests + completion evidence
-- `chore(v2): mark AUDIO-platform-and-player-degradation workpack complete` — regenerated derived files
-- `docs(v2): record commit SHA …` — this follow-up
+- `e56a4ee` — feat(v2): complete AUDIO-platform-and-player-degradation epic (code + tests + completion evidence)
+- `d27d7dc` — chore(v2): mark AUDIO-platform-and-player-degradation workpack complete (regenerated derived files)
+- recorded by this follow-up `docs(v2): record commit SHA in AUDIO-platform-and-player-degradation completion evidence` commit
 
 Final `git status --short` (after the completion commits; clean slate):
 
