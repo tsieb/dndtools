@@ -1,10 +1,14 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import {
+		diagnoseSearchResult,
 		getSavedSearchesForActor,
 		getSearchIndexStatus,
+		resolveSearchResultOpen,
 		searchVaultForActor,
 		type SearchContentType,
 		type SearchFilter,
+		type SearchHit,
 		type SearchSourceId,
 	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
@@ -101,6 +105,50 @@
 	let error = $state<string | null>(null);
 	let saveName = $state('My search');
 	let saveVisibility = $state<'dm-only' | 'player-visible'>('dm-only');
+
+	// SRCH-008 — the DETERMINISTIC, id-normalized diagnostic fingerprint of the current result. Derived from
+	// the SAME actor-filtered result, so it summarizes only visible hits (never a hidden hit/key/count). Shown
+	// so a user/reviewer can inspect the ranking + a stable fingerprint that does not churn across fresh
+	// fixtures (volatile ids are normalized to content-derived keys).
+	const diagnostics = $derived(diagnoseSearchResult(result));
+	let showDiagnostics = $state(false);
+
+	// SRCH-007 — OPEN a chosen result into the right route/viewport/heading. The core re-checks visibility at
+	// open time and maps the hit to a deep-link resolution; this GUI builds the URL (preserving the map/poi
+	// params + x/y viewport focus, or the note heading hash) and navigates — it re-derives no visibility
+	// (Architecture Contract 1). A now-hidden/now-deleted target resolves to `unavailable` and we surface that
+	// generic message rather than opening anything (fail closed).
+	async function openHit(hit: SearchHit): Promise<void> {
+		error = null;
+		const resolution = resolveSearchResultOpen(runtime.state, runtime.activeActorId, {
+			type: hit.type,
+			id: hit.id,
+			mapId: hit.mapId,
+		});
+		if (resolution.kind === 'unavailable') {
+			error = resolution.message;
+			return;
+		}
+		// SRCH-007 AC1 — a map/POI target preserves the map+poi params AND carries the viewport x/y focus.
+		if (resolution.type === 'poi' && resolution.viewport) {
+			const parts = [
+				`map=${encodeURIComponent(resolution.viewport.mapId)}`,
+				`x=${resolution.viewport.x}`,
+				`y=${resolution.viewport.y}`,
+			];
+			if (resolution.selectionId) parts.push(`poi=${encodeURIComponent(resolution.selectionId)}`);
+			await goto(`${resolution.route}?${parts.join('&')}`);
+			return;
+		}
+		// SRCH-007 AC2 — a note/object target selects the note WITHIN the Knowledge section (carried as the
+		// `note` param) and preserves the heading hash + scroll anchor when one resolved.
+		if (resolution.type === 'note' || resolution.type === 'object') {
+			const hash = resolution.hashAnchor ? `#${resolution.hashAnchor}` : '';
+			await goto(`${resolution.route}?note=${encodeURIComponent(resolution.entityId)}${hash}`);
+			return;
+		}
+		await goto(resolution.route);
+	}
 
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
 		error = null;
@@ -252,7 +300,14 @@
 			{#each result.hits as hit (`${hit.type}:${hit.id}`)}
 				<li data-testid={`search-result-${hit.type}-${hit.id}`}>
 					<span class="meta">{typeLabels[hit.type]} · {sourceLabels[hit.source]}</span>
-					<strong> {hit.title}</strong>
+					<button
+						type="button"
+						class="open-result"
+						data-testid={`search-open-${hit.type}-${hit.id}`}
+						onclick={() => void openHit(hit)}
+					>
+						<strong>{hit.title}</strong>
+					</button>
 					{#if hit.snippet}
 						<span class="snippet meta" data-testid={`search-snippet-${hit.type}-${hit.id}`}>
 							{hit.snippet.text}
@@ -286,6 +341,31 @@
 				</li>
 			{/each}
 		</ol>
+
+		<!-- SRCH-008 — the DETERMINISTIC, id-normalized diagnostics for the current result. The fingerprint is
+		     stable across fresh fixtures (volatile ids normalized to content-derived keys), and it summarizes
+		     only the actor-visible hits — never a hidden hit, key, or count. -->
+		<details class="diagnostics" data-testid="search-diagnostics">
+			<summary
+				data-testid="search-diagnostics-toggle"
+				onclick={() => (showDiagnostics = !showDiagnostics)}
+			>
+				Search diagnostics
+			</summary>
+			<p class="meta" data-testid="search-diagnostics-fingerprint">
+				Fingerprint: <code>{diagnostics.fingerprint}</code>
+			</p>
+			<ol class="diag-list">
+				{#each diagnostics.hits as row (row.key)}
+					<li data-testid={`search-diagnostic-${row.rank}`}>
+						<span class="meta">
+							#{row.rank} · {row.key} · score {row.score}
+							(title {row.signals.title}, recency {row.signals.recency}, link {row.signals.link})
+						</span>
+					</li>
+				{/each}
+			</ol>
+		</details>
 	{/if}
 
 	{#if isDm}
@@ -380,6 +460,25 @@
 	}
 	.snippet {
 		font-style: italic;
+	}
+	.open-result {
+		font: inherit;
+		font-weight: 600;
+		text-align: left;
+		padding: 0;
+		border: none;
+		background: none;
+		color: var(--color-link, #2563eb);
+		cursor: pointer;
+		text-decoration: underline;
+	}
+	.diagnostics {
+		margin-top: var(--space-2, 0.5rem);
+	}
+	.diag-list {
+		list-style: none;
+		padding: 0;
+		margin: var(--space-1, 0.25rem) 0 0;
 	}
 	.save-form {
 		display: flex;

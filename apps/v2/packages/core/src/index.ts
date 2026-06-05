@@ -1319,8 +1319,26 @@ export type {
 	DeepLinkTarget,
 	DeepLinkUnavailable,
 	DeepLinkUnavailableReason,
+	DeepLinkViewportFocus,
 } from './queries/deep-links';
 export { DEEP_LINK_UNAVAILABLE_MESSAGE, resolveDeepLink } from './queries/deep-links';
+
+// SRCH-007 — open a chosen search result into the right route/viewport/heading (re-checks visibility).
+export type { SearchResultOpenTarget } from './queries/result-open';
+export { resolveSearchResultOpen } from './queries/result-open';
+
+// SRCH-008 — deterministic, id-normalized search diagnostics + saved-search portability remapping.
+export type {
+	SavedSearchPortabilityDiagnostics,
+	SavedSearchRemapping,
+	SearchDiagnosticHit,
+	SearchResultDiagnostics,
+} from './queries/search-diagnostics';
+export {
+	SEARCH_DIAGNOSTICS_SCHEMA_VERSION,
+	diagnoseSavedSearchPortability,
+	diagnoseSearchResult,
+} from './queries/search-diagnostics';
 
 export type {
 	CommandCategory,
@@ -2120,12 +2138,14 @@ export {
 
 // CONTENT-007 / CONTENT-008: pure, deterministic Obsidian-aware markdown parse/serialize — the
 // determinism keystone for import/export. Preserves frontmatter properties, aliases, tags, wikilinks.
-export type { ParsedMarkdownNote, ParsedWikilink } from './state/markdown';
+export type { HeadingAnchor, ParsedMarkdownNote, ParsedWikilink } from './state/markdown';
 export {
 	MARKDOWN_PARSE_SCHEMA_VERSION,
 	extractWikilinks,
+	headingAnchors,
 	parseMarkdownNote,
 	serializeMarkdownNote,
+	slugifyHeading,
 } from './state/markdown';
 
 // CONTENT-007: transactional, resumable import. Preview is pure/read-only; the plan is deterministic and

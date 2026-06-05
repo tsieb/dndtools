@@ -15,20 +15,48 @@
 	// mutates durable state, so it stays in GUI memory (Contract 1, GUI Knowledge Limits).
 	let focusedRegionId = $state<string | null>(null);
 
-	// NAV-005: a map deep link carries the target map and an optional POI/region in the
-	// query string, e.g. `/atlas/?map=map-western-reaches&poi=region-coast`. The GUI owns
-	// parsing the URL into a DeepLinkTarget (route-shape knowledge — Contract 1); the
-	// Processing Core resolves it, evaluating visibility before any selection is exposed.
+	// NAV-005 / SRCH-007: a map deep link carries the target map and an optional POI/region in the
+	// query string, e.g. `/atlas/?map=map-western-reaches&poi=region-coast`. A SEARCH-OPENED POI deep
+	// link additionally carries `x`/`y` viewport-focus coordinates (SRCH-007 AC1), e.g.
+	// `/atlas/?map=...&poi=poi-harbor-town&x=0.62&y=0.34`. The GUI owns parsing the URL into a
+	// DeepLinkTarget (route-shape knowledge — Contract 1); the Processing Core resolves it, evaluating
+	// visibility before any selection is exposed. We resolve the `poi` selection as a POI first (the
+	// search-opened case) and fall back to a region (the original NAV-005 case), so both link shapes work.
 	const target = $derived.by<DeepLinkTarget | null>(() => {
 		const mapId = page.url.searchParams.get('map');
 		if (!mapId) return null;
-		const poi = page.url.searchParams.get('poi');
+		const poi = page.url.searchParams.get('poi') ?? undefined;
+		// A POI deep link addresses `<map>#<poi>` and focuses the POI's coordinate; when the selection is a
+		// region id it falls through to a region focus. Try the POI resolution first and, if it is
+		// unavailable purely because the selection is a region (not a POI), fall back to the map target.
+		const poiResolution = poi
+			? resolveDeepLink(runtime.state, runtime.activeActorId, {
+					type: 'poi',
+					entityId: mapId,
+					selectionId: poi,
+					sectionId: 'atlas',
+				})
+			: null;
+		if (poiResolution && poiResolution.kind === 'restore') {
+			return { type: 'poi', entityId: mapId, selectionId: poi, sectionId: 'atlas' };
+		}
 		return {
 			type: 'map',
 			entityId: mapId,
-			selectionId: poi ?? undefined,
+			selectionId: poi,
 			sectionId: 'atlas',
 		};
+	});
+
+	// SRCH-007 AC1 — the viewport-focus coordinates carried by a search-opened POI deep link. Preserved
+	// through resolution so the viewport centers on the focused POI; presentation-only (Contract 1).
+	const viewportParams = $derived.by<{ x: number; y: number } | null>(() => {
+		const x = page.url.searchParams.get('x');
+		const y = page.url.searchParams.get('y');
+		if (x === null || y === null) return null;
+		const px = Number(x);
+		const py = Number(y);
+		return Number.isFinite(px) && Number.isFinite(py) ? { x: px, y: py } : null;
 	});
 
 	// Resolve the deep link for the active actor. A hidden target resolves to a single
@@ -85,6 +113,17 @@
 				{:else}
 					<p class="meta" data-testid="map-poi-none">
 						No specific POI requested — showing the map.
+					</p>
+				{/if}
+				<!-- SRCH-007 AC1 — the viewport focus coordinate. Prefer the resolver-computed POI coordinate,
+				     then the x/y params carried in the URL; both center the viewport on the search-opened POI. -->
+				{#if resolution.viewport}
+					<p class="meta" data-testid="viewport-coords">
+						Viewport centered at ({resolution.viewport.x.toFixed(2)}, {resolution.viewport.y.toFixed(2)}).
+					</p>
+				{:else if viewportParams}
+					<p class="meta" data-testid="viewport-coords">
+						Viewport centered at ({viewportParams.x.toFixed(2)}, {viewportParams.y.toFixed(2)}).
 					</p>
 				{/if}
 				{#if focusedRegionId}

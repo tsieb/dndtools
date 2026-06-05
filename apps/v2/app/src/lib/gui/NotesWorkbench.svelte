@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import {
 		actorCanAuthorContent,
 		activeWikilinkQuery,
@@ -55,6 +56,24 @@
 		draftBody = body;
 		editorError = null;
 	}
+
+	// SRCH-007 AC2 — open a note SELECTED BY a deep link / search-result open: `/knowledge/?note=<id>#<anchor>`.
+	// The note id is the in-section selection; the core already re-checked visibility before producing the
+	// link, but we re-resolve through the SAME actor-filtered read here too, so a note the running actor may
+	// not see is simply never selected (fail closed). The heading hash is left to the browser to scroll to.
+	let lastOpenedFromUrl = $state<string | null>(null);
+	$effect(() => {
+		const requested = page.url.searchParams.get('note');
+		if (!requested || requested === lastOpenedFromUrl) return;
+		const item = searchContentForActor(
+			runtime.state.content,
+			runtime.state.permissions,
+			runtime.activeActorId,
+			'',
+		).find((hit) => hit.item.id === requested && hit.item.kind === 'note')?.item;
+		lastOpenedFromUrl = requested;
+		if (item) openNote(item.id, item.title, item.body);
+	});
 
 	// --- Validation + preview (pure, deterministic) ---------------------------------------------------
 	const validation = $derived(validateMarkdownDraft(draftBody));

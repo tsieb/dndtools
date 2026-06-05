@@ -209,6 +209,9 @@ epics:
   - id: SRCH-ranking-and-result-context
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SRCH-ranking-and-result-context.completion.md
+  - id: SRCH-result-opening-and-deterministic-diagnostics
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SRCH-result-opening-and-deterministic-diagnostics.completion.md
   - id: SYNC-asset-sync-and-status
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SYNC-asset-sync-and-status.completion.md

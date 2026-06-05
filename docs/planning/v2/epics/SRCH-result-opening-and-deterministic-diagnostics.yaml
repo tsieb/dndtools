@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: SRCH-result-opening-and-deterministic-diagnostics
 title: "SRCH: Result opening and deterministic diagnostics"
-status: approved
+status: complete
 approved: true
 domain: SRCH
 capabilityBranch: Result opening and deterministic diagnostics
@@ -161,3 +161,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/SRCH-result-opening-and-deterministic-diagnostics.completion.md

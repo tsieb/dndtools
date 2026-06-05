@@ -157,6 +157,71 @@ function extractInlineTags(body: string): string[] {
 	return tags;
 }
 
+/**
+ * A parsed Markdown heading and its deterministic, URL-safe anchor slug. The anchor is what a note
+ * deep link / search-result heading hash navigates to (SRCH-007 AC2): `/knowledge/<id>/#<anchor>`.
+ */
+export interface HeadingAnchor {
+	/** The heading depth (1..6 == `#`..`######`). */
+	level: number;
+	/** The heading text as authored (trimmed, with the `#` markers stripped). */
+	text: string;
+	/** The deterministic slug used as the hash anchor (lowercased, spaces→`-`, punctuation dropped). */
+	anchor: string;
+}
+
+// A Markdown ATX heading line: 1..6 leading `#`, a required space, then the heading text.
+const HEADING_PATTERN = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
+
+/**
+ * Build a deterministic, URL-safe ANCHOR SLUG for a heading text (SRCH-007 AC2). Lowercases, replaces
+ * runs of whitespace with a single `-`, drops characters that are not `[a-z0-9-]`, and collapses/strips
+ * stray dashes. This is a PURE transform of the text — the same heading always yields the same anchor,
+ * so a heading deep link is stable across fresh fixtures (SRCH-008). Returns `''` for an empty heading.
+ */
+export function slugifyHeading(text: string): string {
+	return text
+		.trim()
+		.toLowerCase()
+		.replace(/\s+/g, '-')
+		.replace(/[^a-z0-9-]/g, '')
+		.replace(/-+/g, '-')
+		.replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Extract the ATX HEADINGS from a note body, in document order, each with its deterministic anchor slug
+ * (SRCH-007 AC2 hash/scroll target). Duplicate anchors are DISAMBIGUATED deterministically by appending
+ * `-2`, `-3`, … (the GitHub/Obsidian convention) so two headings with the same text still address
+ * distinct anchors. Pure: a function of the body text only — no clock, no locale — so the anchor set is
+ * stable across fresh fixtures (SRCH-008). Fenced code blocks are skipped so a `#` inside a code fence is
+ * never mistaken for a heading.
+ */
+export function headingAnchors(body: string): HeadingAnchor[] {
+	const anchors: HeadingAnchor[] = [];
+	const seen = new Map<string, number>();
+	let inFence = false;
+	for (const rawLine of body.split(/\r?\n/)) {
+		const line = rawLine.trimEnd();
+		if (/^\s*(```|~~~)/.test(line)) {
+			inFence = !inFence;
+			continue;
+		}
+		if (inFence) continue;
+		const match = HEADING_PATTERN.exec(line);
+		if (!match) continue;
+		const level = match[1]!.length;
+		const text = match[2]!.trim();
+		const base = slugifyHeading(text);
+		if (base === '') continue;
+		const count = seen.get(base) ?? 0;
+		seen.set(base, count + 1);
+		const anchor = count === 0 ? base : `${base}-${count + 1}`;
+		anchors.push({ level, text, anchor });
+	}
+	return anchors;
+}
+
 /** Extract Obsidian `[[wikilinks]]` from a body, in document order (duplicates preserved). */
 export function extractWikilinks(body: string): ParsedWikilink[] {
 	const links: ParsedWikilink[] = [];
