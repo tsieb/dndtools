@@ -168,8 +168,8 @@ Generated planning files (workpack commands; not hand-edited):
 
 - Branch: `epic/SEC-regression-gates-and-stream-privacy`
 - Base/chained off: `2b18cbc`
-- Implementation commit SHA: `__IMPL_SHA__` (`feat(v2): complete SEC-regression-gates-and-stream-privacy epic`)
-- Workpack-complete commit SHA: `__COMPLETE_SHA__` (`docs(v2): mark SEC-regression-gates-and-stream-privacy complete`)
+- Implementation commit SHA: `1de06cb70a625158f90000072491a646337c5dba` (`feat(v2): complete SEC-regression-gates-and-stream-privacy epic`)
+- Workpack-complete commit SHA: `7084221448b05bf87cefa2ddeea56aa7a7184c6a` (`docs(v2): mark SEC-regression-gates-and-stream-privacy complete`)
 
 ### Final `git status --short`
 
