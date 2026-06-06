@@ -170,12 +170,16 @@ re-baselining provisional targets into measured baselines.
 ## Git evidence
 
 - Branch: `epic/PERF-budget-ownership-and-measurement` (from the v2 epic-chain tip `414d4cf`).
-- Commit SHA: recorded in the follow-up `docs(v2): record commit SHA` commit.
+- Commits:
+  - feature + tests + completion evidence: `8847566` (`feat(v2): complete
+    PERF-budget-ownership-and-measurement epic`).
+  - regenerated derived planning files after `v2:workpack:complete`: `09125b0` (`docs(v2): mark
+    PERF-budget-ownership-and-measurement complete`).
+  - this SHA-record follow-up: `e906645` (`docs(v2): record commit SHAs ...`), the HEAD of this branch.
 
 Workpack status: `complete`
 
-Final `git status --short` (recorded at handoff after the completion commit + workpack:complete +
-SHA-record commit; the tree is clean):
+Final `git status --short` (clean tree at handoff after all three commits):
 
 ```
 ```
