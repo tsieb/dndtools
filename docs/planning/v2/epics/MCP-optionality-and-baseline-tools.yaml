@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: MCP-optionality-and-baseline-tools
 title: "MCP: Optionality and baseline tools"
-status: active
+status: complete
 approved: true
 domain: MCP
 capabilityBranch: Optionality and baseline tools
@@ -165,3 +165,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/MCP-optionality-and-baseline-tools.completion.md
