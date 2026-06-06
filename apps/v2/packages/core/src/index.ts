@@ -2207,6 +2207,66 @@ export {
 	validateImportLimits,
 } from './security/payload-limits';
 
+// SEC-008 — THE SECURITY REGRESSION-GATE REGISTRY. The declared catalogue of security-critical boundaries
+// (IPC validation, storage containment, markdown sanitization, widget host permission denial, sync stream
+// filtering, MCP staged write enforcement, cloud join authorization), each naming its guard surface + the
+// dedicated test that proves it. The coverage meta-test drives this so a boundary added without tests fails
+// CLOSED (SEC-008 AC1). It indexes existing enforcement; it never re-implements a boundary.
+export type {
+	SecurityBoundaryDefinition,
+	SecurityBoundaryId,
+	SecurityBoundaryRegistryProblem,
+} from './security/regression-gates';
+export {
+	SECURITY_BOUNDARIES,
+	SECURITY_BOUNDARY_IDS,
+	findSecurityBoundary,
+	validateSecurityBoundaryRegistry,
+} from './security/regression-gates';
+
+// SEC-010 — STREAM-PRIVACY PROOF + COVERAGE HARNESS. The shared, fail-closed proof that a player/observer
+// replication stream (or any `*ForActor` projection) carries NO hidden value/title/id/edge/snippet/count,
+// plus the replication-surface coverage enumeration so a new query surface is included in the filtering
+// tests before release (SEC-010 AC2). Composes the existing filters; it is the adversarial PROOF on top.
+export type {
+	ReplicationSurfaceDomain,
+	StreamPrivacyLeak,
+	StreamPrivacyNeedle,
+	StreamPrivacyNeedleKind,
+} from './collab/stream-privacy';
+export {
+	REPLICATION_SURFACE_DOMAINS,
+	assertViewCarriesNoHiddenContent,
+	findStreamPrivacyLeaks,
+	isReplicationSurfaceDomain,
+	uncoveredReplicationSurfaceDomains,
+} from './collab/stream-privacy';
+
+// SEC-011 — WIDGET HOST NETWORK + EXFILTRATION CONTROLS. The pure, fail-closed policy constraining widget
+// OUTBOUND requests (blocks/redacts hidden actor data, raw vault content, tokens, diagnostics, absolute
+// paths; denies + audits an unapproved destination class), proving widget-local storage is never canonical,
+// and isolating a crashed/policy-violating widget. Composes the host-permission model + the redaction guard.
+export type {
+	ExfiltrationClass,
+	WidgetDestinationClass,
+	WidgetIsolationReason,
+	WidgetIsolationResult,
+	WidgetNetworkGrant,
+	WidgetOutboundAudit,
+	WidgetOutboundDecision,
+	WidgetOutboundRequest,
+	WidgetOutboundResult,
+	WidgetPersistedStateEntry,
+	WidgetStateOwnership,
+	WidgetStateOwnershipProblem,
+} from './security/widget-exfiltration';
+export {
+	WIDGET_DESTINATION_CLASSES,
+	evaluateWidgetOutboundRequest,
+	evaluateWidgetStateOwnership,
+	isolateWidgetFailure,
+} from './security/widget-exfiltration';
+
 // CONTENT-007: transactional, resumable import. Preview is pure/read-only; the plan is deterministic and
 // re-derivable on resume (already-applied steps are skipped — no double-write); applying is pure (a
 // discarded result leaves prior state byte-identical — no partial commit).
