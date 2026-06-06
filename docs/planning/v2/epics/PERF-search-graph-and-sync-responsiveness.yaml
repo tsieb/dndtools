@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: PERF-search-graph-and-sync-responsiveness
 title: "PERF: Search, graph, and sync responsiveness"
-status: active
+status: complete
 approved: true
 domain: PERF
 capabilityBranch: Search, graph, and sync responsiveness
@@ -157,3 +157,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/PERF-search-graph-and-sync-responsiveness.completion.md
