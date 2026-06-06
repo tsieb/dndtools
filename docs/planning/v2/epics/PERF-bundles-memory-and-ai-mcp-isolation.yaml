@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: PERF-bundles-memory-and-ai-mcp-isolation
 title: "PERF: Bundles, memory, and AI/MCP isolation"
-status: active
+status: complete
 approved: true
 domain: PERF
 capabilityBranch: Bundles, memory, and AI/MCP isolation
@@ -190,3 +190,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/PERF-bundles-memory-and-ai-mcp-isolation.completion.md

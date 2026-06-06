@@ -16,19 +16,19 @@ summary:
   totalEpics: 88
   proposed: 0
   approved: 5
-  active: 1
-  complete: 82
+  active: 0
+  complete: 83
   deferred: 0
 metrics:
-  epicCompletionPercent: 93.2
-  requirementCompletionPercent: 94.4
+  epicCompletionPercent: 94.3
+  requirementCompletionPercent: 95.7
   totalRequirements: 234
-  completedRequirements: 221
+  completedRequirements: 224
   deferredRequirements: 0
-  remainingEpics: 6
-  promptableEpics: 6
+  remainingEpics: 5
+  promptableEpics: 5
   blockedByDependencies: 0
-  completionEvidenceFiles: 82
+  completionEvidenceFiles: 83
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -131,13 +131,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: PERF
       totalEpics: 4
-      complete: 1
-      active: 1
+      complete: 2
+      active: 0
       approved: 2
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 25
-      requirementCompletionPercent: 22.2
+      epicCompletionPercent: 50
+      requirementCompletionPercent: 55.6
     - domain: PERM
       totalEpics: 4
       complete: 4
@@ -193,17 +193,16 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: PERF-bundles-memory-and-ai-mcp-isolation
-  title: "PERF: Bundles, memory, and AI/MCP isolation"
-  status: active
+  id: PERF-scene-and-map-rendering
+  title: "PERF: Scene and map rendering"
+  status: approved
   requirementIds:
-    - PERF-005
-    - PERF-006
-    - PERF-009
-  promptCommand: pnpm v2:prompt -- --epic PERF-bundles-memory-and-ai-mcp-isolation
+    - PERF-002
+    - PERF-003
+  promptCommand: pnpm v2:prompt -- --epic PERF-scene-and-map-rendering
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    PERF-bundles-memory-and-ai-mcp-isolation --status active
+    PERF-scene-and-map-rendering --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: complete
@@ -632,12 +631,13 @@ epics:
       - PERF-007
     completionEvidenceFile: docs/planning/v2/epics/PERF-budget-ownership-and-measurement.completion.md
   - id: PERF-bundles-memory-and-ai-mcp-isolation
-    status: active
+    status: complete
     approved: true
     requirementIds:
       - PERF-005
       - PERF-006
       - PERF-009
+    completionEvidenceFile: docs/planning/v2/epics/PERF-bundles-memory-and-ai-mcp-isolation.completion.md
   - id: PERF-scene-and-map-rendering
     status: approved
     approved: true
