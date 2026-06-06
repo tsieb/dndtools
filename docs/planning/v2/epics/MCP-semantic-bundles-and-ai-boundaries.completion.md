@@ -163,9 +163,12 @@ Added:
 
 - Branch: `epic/MCP-semantic-bundles-and-ai-boundaries`
 - Base/prior tip: `885f1fd`
-- Final commit SHA: recorded in the follow-up `docs(v2): record commit SHA` commit.
+- Implementation commit (code + tests + evidence): `fb5f802`
+- Mark-complete commit (regenerated planning files): `27585f8`
+- SHA-record commit: the follow-up `docs(v2): record commit SHA` commit (this edit).
 
 Final `git status --short` (clean slate after the completion commits):
 
 ```
+(empty — clean working tree)
 ```
