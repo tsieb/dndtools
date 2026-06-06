@@ -9,11 +9,12 @@ import {
 	type GateProblem,
 } from '../apps/v2/packages/core/src/platform/quality-gates.ts';
 import { validateSupportStatus } from '../apps/v2/packages/core/src/platform/support-status.ts';
+import { auditCapabilitySetGovernance } from '../apps/v2/packages/core/src/con/capability-set-sustainability.ts';
 
 /**
- * PLAT-010 + PLAT-014 enforcement: validate the DECLARED quality-gate registry and the platform
- * support-status artifact (the single sources of truth in `@dndtools/v2-core`) against the actual
- * repository and fail CLOSED.
+ * PLAT-010 + PLAT-014 + CON-004 enforcement: validate the DECLARED quality-gate registry, the platform
+ * support-status artifact, and the permission-sustainability constraint (the single sources of truth in
+ * `@dndtools/v2-core`) against the actual repository and fail CLOSED.
  *
  * This does NOT rewrite the test runner. It cross-checks that:
  *
@@ -26,6 +27,11 @@ import { validateSupportStatus } from '../apps/v2/packages/core/src/platform/sup
  *   - (PLAT-014 release gate) no Must-have command is unsupported on a platform profile without
  *     an explicitly allowed exception, and every degraded/unsupported entry declares a reason +
  *     fallback. This is the "release is blocked" check from PLAT-014 AC1.
+ *   - (CON-004 permission-sustainability gate) the capability-set schema stays bounded and governed:
+ *     every grantable permission grouping is a named, schema-defined, documented capability set, and no
+ *     entity type exceeds the declared per-type cap. An ungoverned/undocumented set or an over-cap
+ *     entity type fails the gate, so the named-capability-set model can never silently drift into an
+ *     unmanageable per-instance field-list surface.
  *
  * Exit code 1 on any problem so the gate fails closed in CI and pre-push.
  */
@@ -74,6 +80,14 @@ export function runQualityGateCheck(
 				gateId: `support-status:${problem.commandId}${problem.profileId ? `/${problem.profileId}` : ''}`,
 				kind: 'support-status-violation',
 				message: problem.message,
+			}),
+		),
+		// CON-004 permission-sustainability gate: the capability-set model must stay bounded + governed.
+		...auditCapabilitySetGovernance().map(
+			(problem): GateProblem => ({
+				gateId: `con-004:${problem.entityType}${problem.capabilitySet ? `/${problem.capabilitySet}` : ''}`,
+				kind: 'permission-sustainability-violation',
+				message: `[CON-004] ${problem.message}`,
 			}),
 		),
 	];

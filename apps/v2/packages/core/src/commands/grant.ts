@@ -15,21 +15,39 @@ import {
 } from '../permissions/grant-records';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import { appendOperationDraft, parseInput, reject, requireActor, requireDm } from './helpers';
+import { findRawFieldListGrant } from '../con/capability-set-sustainability';
 
 /**
- * PERM-004 / PERM-013 — durable grant + transfer commands (Architecture Contract 3, Axis 2).
+ * PERM-004 / PERM-013 / CON-004 — durable grant + transfer commands (Architecture Contract 3, Axis 2).
  *
  * Grants are DM-authored only and additive over base role. Each mutation:
  *
  *   1. requires the actor be the DM (fail closed for player/observer authors),
- *   2. validates the grant against the per-entity-type capability schema (PERM-005),
- *   3. mutates the durable PermissionState grant list through a PURE reducer, and
- *   4. appends a durable `permission.*` sync operation so the write is replayable and persisted via
+ *   2. REJECTS a per-instance RAW FIELD-LIST grant before anything else (CON-004 AC1) — the only
+ *      permission selector is a single named `capabilitySet`, never a list/map of fields,
+ *   3. validates the grant against the per-entity-type capability schema (PERM-005),
+ *   4. mutates the durable PermissionState grant list through a PURE reducer, and
+ *   5. appends a durable `permission.*` sync operation so the write is replayable and persisted via
  *      the storage adapter — never written to storage directly (Contract 1 / PLAT-006).
  *
  * Transfer is ATOMIC: the prior singular holder's grant is revoked as the new holder's grant is
  * issued, in one accepted command, so there is never a window with zero or two owners (PERM-013).
  */
+
+/**
+ * CON-004 AC1 — reject a per-instance raw field-list grant fail-closed BEFORE schema parsing. The
+ * grant model is a NAMED-capability-set model; a field-list-shaped payload (or a non-name
+ * `capabilitySet`) is the drift CON-004 forbids, so it is rejected with a CON-004 reason rather than
+ * letting a generic schema error obscure why. Returns a rejection result, or `null` to proceed.
+ */
+function rejectRawFieldListGrant(
+	state: CoreStateSlice,
+	rawPayload: unknown,
+): CommandResult | null {
+	const finding = findRawFieldListGrant(rawPayload);
+	if (finding) return reject({ code: 'invalid-payload', message: finding.message }, state);
+	return null;
+}
 
 function permissionWith(
 	permissions: PermissionState,
@@ -48,6 +66,10 @@ export function handleGrantCapabilitySet(
 	if ('code' in actor) return reject(actor, state);
 	const dmCheck = requireDm(actor);
 	if (dmCheck) return reject(dmCheck, state);
+
+	// CON-004 AC1 — a per-instance raw field-list grant is rejected before schema validation.
+	const rawFieldListRejection = rejectRawFieldListGrant(state, rawPayload);
+	if (rawFieldListRejection) return rawFieldListRejection;
 
 	const parsed = parseInput(grantCapabilitySetInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
@@ -174,6 +196,10 @@ export function handleTransferOwnership(
 	if ('code' in actor) return reject(actor, state);
 	const dmCheck = requireDm(actor);
 	if (dmCheck) return reject(dmCheck, state);
+
+	// CON-004 AC1 — a per-instance raw field-list grant is rejected before schema validation.
+	const rawFieldListRejection = rejectRawFieldListGrant(state, rawPayload);
+	if (rawFieldListRejection) return rawFieldListRejection;
 
 	const parsed = parseInput(transferOwnershipInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);

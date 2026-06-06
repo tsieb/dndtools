@@ -256,7 +256,10 @@ export type GateProblemKind =
 	| 'invalid-review-date'
 	// PLAT-014 release block surfaced through the same gate runner (a Must-have command
 	// unsupported on a profile without an allowed exception, or a missing reason/fallback).
-	| 'support-status-violation';
+	| 'support-status-violation'
+	// CON-004 permission-sustainability block surfaced through the same gate runner (the
+	// capability-set model drifted past its bound or offered an ungoverned/undocumented set).
+	| 'permission-sustainability-violation';
 
 export interface GateProblem {
 	readonly gateId: string;

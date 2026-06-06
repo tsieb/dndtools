@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CON-permission-sustainability-constraints
 title: "CON: Permission sustainability constraints"
-status: approved
+status: active
 approved: true
 domain: CON
 capabilityBranch: Permission sustainability constraints

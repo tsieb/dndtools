@@ -2441,6 +2441,29 @@ export {
 	validateSecurityBoundaryRegistry,
 } from './security/regression-gates';
 
+// CON-004 — THE PERMISSION-SUSTAINABILITY CONSTRAINT GATE. The declared invariant that keeps the
+// permission/grant model bounded and comprehensible: capability sets stay SCHEMA-DEFINED NAMED options,
+// never per-instance raw field lists (Cross-Contract Non-Negotiable 9). `findRawFieldListGrant` is the
+// fail-closed AC1 detector the grant command boundary composes; `auditCapabilitySetGovernance` is the
+// AC2 + sustainability governance audit (every grouping is a named, governed set; the model stays under
+// a declared per-entity-type cap). It COMPOSES the capability-set schema/descriptors; it never
+// re-implements the grant model. Mirrors the SEC-008/PERF-001 registry-gate pattern.
+export type {
+	CapabilitySetGovernanceProblem,
+	CapabilitySetGovernanceSummary,
+	RawFieldListGrantFinding,
+} from './con/capability-set-sustainability';
+export {
+	CAPABILITY_SET_SUSTAINABILITY_VERSION,
+	MAX_CAPABILITY_SETS_PER_ENTITY_TYPE,
+	RAW_FIELD_LIST_SIGNAL_KEYS,
+	auditCapabilitySetGovernance,
+	findRawFieldListGrant,
+	isGovernedCapabilitySet,
+	isRawFieldListGrant,
+	summarizeCapabilitySetGovernance,
+} from './con/capability-set-sustainability';
+
 // SEC-010 — STREAM-PRIVACY PROOF + COVERAGE HARNESS. The shared, fail-closed proof that a player/observer
 // replication stream (or any `*ForActor` projection) carries NO hidden value/title/id/edge/snippet/count,
 // plus the replication-surface coverage enumeration so a new query surface is included in the filtering
