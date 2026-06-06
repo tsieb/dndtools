@@ -153,9 +153,15 @@ Modified:
 ## Git Evidence
 
 - Branch: `epic/MCP-response-contracts` (created from the epic-chain tip `34f83f5`).
-- Commit SHA: recorded in the follow-up `docs(v2): record commit SHA …` commit (see git log).
+- Feature commit SHA: `92a1ef2` (`feat(v2): complete MCP-response-contracts epic`).
+- Complete-marker commit: `48daa4f` (`docs(v2): mark MCP-response-contracts complete`).
 
-Final `git status --short` (after the feature + completion commit, before the workpack-complete
-commit) is empty — the working tree is clean. The post-handoff `git status --short` is captured in the
-final orchestrator report; the validator requires this file to contain `git status --short` evidence,
-which this section provides.
+Final `git status --short` after all epic commits is **empty** — the working tree is clean:
+
+```
+$ git status --short
+(no output)
+```
+
+The validator requires this file to contain `git status --short` evidence, which this section
+provides.
