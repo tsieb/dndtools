@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: MCP-response-contracts
 title: "MCP: Response contracts"
-status: active
+status: complete
 approved: true
 domain: MCP
 capabilityBranch: Response contracts
@@ -127,3 +127,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/MCP-response-contracts.completion.md

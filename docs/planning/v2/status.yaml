@@ -16,19 +16,19 @@ summary:
   totalEpics: 88
   proposed: 0
   approved: 12
-  active: 1
-  complete: 75
+  active: 0
+  complete: 76
   deferred: 0
 metrics:
-  epicCompletionPercent: 85.2
-  requirementCompletionPercent: 86.3
+  epicCompletionPercent: 86.4
+  requirementCompletionPercent: 86.8
   totalRequirements: 234
-  completedRequirements: 202
+  completedRequirements: 203
   deferredRequirements: 0
-  remainingEpics: 13
-  promptableEpics: 13
+  remainingEpics: 12
+  promptableEpics: 12
   blockedByDependencies: 0
-  completionEvidenceFiles: 75
+  completionEvidenceFiles: 76
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -113,13 +113,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: MCP
       totalEpics: 5
-      complete: 3
-      active: 1
+      complete: 4
+      active: 0
       approved: 1
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 60
-      requirementCompletionPercent: 61.5
+      epicCompletionPercent: 80
+      requirementCompletionPercent: 69.2
     - domain: NAV
       totalEpics: 5
       complete: 5
@@ -193,14 +193,18 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: MCP-response-contracts
-  title: "MCP: Response contracts"
-  status: active
+  id: MCP-semantic-bundles-and-ai-boundaries
+  title: "MCP: Semantic bundles and AI boundaries"
+  status: approved
   requirementIds:
-    - MCP-010
-  promptCommand: pnpm v2:prompt -- --epic MCP-response-contracts
+    - MCP-006
+    - MCP-007
+    - MCP-008
+    - MCP-013
+  promptCommand: pnpm v2:prompt -- --epic MCP-semantic-bundles-and-ai-boundaries
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic MCP-response-contracts --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic
+    MCP-semantic-bundles-and-ai-boundaries --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: complete
@@ -572,10 +576,11 @@ epics:
       - MCP-002
     completionEvidenceFile: docs/planning/v2/epics/MCP-optionality-and-baseline-tools.completion.md
   - id: MCP-response-contracts
-    status: active
+    status: complete
     approved: true
     requirementIds:
       - MCP-010
+    completionEvidenceFile: docs/planning/v2/epics/MCP-response-contracts.completion.md
   - id: MCP-semantic-bundles-and-ai-boundaries
     status: approved
     approved: true
