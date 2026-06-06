@@ -224,9 +224,10 @@ Modified:
 
 - Branch: `epic/SEC-secrets-and-cloud-collaboration`
 - Base tip: `dfe0240`
-- Implementation commit SHA: see the follow-up `docs(v2): record commit SHA ...` commit.
+- Implementation commit SHA: `da25dd9` (`feat(v2): complete SEC-secrets-and-cloud-collaboration epic`)
+- Mark-complete commit SHA: `4ba6615` (`docs(v2): mark SEC-secrets-and-cloud-collaboration complete`)
 
-### `git status --short` (after completion, clean slate expected)
+### `git status --short` (after completion — clean slate)
 
 ```
 (empty — clean working tree after the completion commits)
