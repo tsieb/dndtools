@@ -23,6 +23,8 @@ import {
 	contentSourceDescriptor,
 	isContentWriteAcknowledged,
 } from '../state/content-constraints';
+import { validatePathInput } from '../security/path-safety';
+import { validateImportLimits } from '../security/payload-limits';
 import type { Actor } from '../state/permission-state';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import { appendOperationDraft, ensureContentStateSlice, parseInput, reject, requireActor } from './helpers';
@@ -82,6 +84,46 @@ export function handleCommitContentImport(
 		path: file.path,
 		text: file.text,
 	}));
+
+	// SEC-006 — bound the archive (entry count + per-file + total size) BEFORE the allocation-heavy
+	// parse/plan/apply runs (AC1). Fail closed: an oversized import is rejected without being materialized.
+	const limits = validateImportLimits(files);
+	if (!limits.ok) {
+		return reject(
+			{
+				code: 'payload-too-large',
+				message: limits.rejection.message,
+				issues: [{ path: limits.rejection.path, message: limits.rejection.message }],
+			},
+			state,
+		);
+	}
+
+	// SEC-002 — validate EVERY archive path against traversal/null bytes/control chars/length/scheme/
+	// absolute paths BEFORE any read or write (AC1). A single unsafe path rejects the WHOLE import fail
+	// closed (an import is transactional — no partial commit), so a `../` or NUL-byte path never reaches
+	// the id derivation or storage. Every offending path is reported on the rejection `issues`.
+	const pathIssues: Array<{ path: string; message: string }> = [];
+	for (let i = 0; i < files.length; i += 1) {
+		const result = validatePathInput(files[i]!.path);
+		if (!result.ok) {
+			pathIssues.push({
+				path: `files[${i}].path`,
+				message: `"${files[i]!.path}": ${result.rejection.message}`,
+			});
+		}
+	}
+	if (pathIssues.length > 0) {
+		return reject(
+			{
+				code: 'unsafe-path-input',
+				message: `Import rejected: ${pathIssues.length} archive path(s) failed the path-safety check.`,
+				issues: pathIssues,
+			},
+			state,
+		);
+	}
+
 	const plan = planContentImport(
 		content,
 		files,

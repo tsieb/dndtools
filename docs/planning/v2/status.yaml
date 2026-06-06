@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 11
-  active: 0
+  approved: 10
+  active: 1
   complete: 77
   deferred: 0
 metrics:
@@ -159,8 +159,8 @@ metrics:
     - domain: SEC
       totalEpics: 4
       complete: 0
-      active: 0
-      approved: 4
+      active: 1
+      approved: 3
       proposed: 0
       deferred: 0
       epicCompletionPercent: 0
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: SEC-input-and-content-safety
   title: "SEC: Input and content safety"
-  status: approved
+  status: active
   requirementIds:
     - SEC-002
     - SEC-003
@@ -722,7 +722,7 @@ epics:
       - PLAT-015
     completionEvidenceFile: docs/planning/v2/epics/PLAT-quality-gates-and-onboarding.completion.md
   - id: SEC-input-and-content-safety
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - SEC-002

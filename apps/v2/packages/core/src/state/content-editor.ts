@@ -1,4 +1,5 @@
 import { extractWikilinks, parseMarkdownNote, type ParsedWikilink } from './markdown';
+import { sanitizeMarkdownContent } from '../security/content-safety';
 
 /**
  * CONTENT-002 — PURE, DETERMINISTIC markdown editor support: VALIDATION, PREVIEW, and the WIKILINK
@@ -131,7 +132,7 @@ export type PreviewBlock =
 
 /** The computed preview of a markdown draft: its parsed body blocks, tags, and wikilinks. */
 export interface MarkdownPreview {
-	/** The body with any frontmatter block removed. */
+	/** The SANITIZED body with any frontmatter block removed (SEC-003: HTML stripped, unsafe URLs neutralized). */
 	body: string;
 	blocks: PreviewBlock[];
 	tags: string[];
@@ -143,15 +144,20 @@ const HEADING_PATTERN = /^(#{1,6})\s+(.*)$/;
 const LIST_ITEM_PATTERN = /^[-*]\s+(.*)$/;
 
 /**
- * Render a deterministic PREVIEW model of a markdown draft (CONTENT-002 preview). Reuses
- * {@link parseMarkdownNote} to strip frontmatter and surface tags/wikilinks, then segments the body into
- * a small, safe block model (headings, list items, paragraphs). It never emits raw HTML — the GUI maps
- * the block model to elements, so script/HTML injection cannot reach the rendered preview. Pure.
+ * Render a deterministic PREVIEW model of a markdown draft (CONTENT-002 preview / SEC-003 content safety).
+ * Reuses {@link parseMarkdownNote} to strip frontmatter and surface tags/wikilinks, then SANITIZES the body
+ * ({@link sanitizeMarkdownContent}: raw HTML/script stripped, dangerous-scheme links neutralized) and
+ * segments the result into a small, safe block model (headings, list items, paragraphs). Two layers of
+ * defence: the renderer never emits raw HTML AND the content is sanitized first, so script/HTML injection
+ * and `javascript:`/`data:` URLs cannot reach the rendered preview (SEC-003 AC1). Pure + deterministic.
  */
 export function renderMarkdownPreview(text: string): MarkdownPreview {
 	const parsed = parseMarkdownNote(text);
+	// SEC-003 — neutralize unsafe content BEFORE block segmentation. The sanitized body is what the block
+	// model carries, so every rendered block is already safe regardless of how the GUI binds it.
+	const safeBody = sanitizeMarkdownContent(parsed.body);
 	const blocks: PreviewBlock[] = [];
-	for (const rawLine of parsed.body.split(/\r?\n/)) {
+	for (const rawLine of safeBody.split(/\r?\n/)) {
 		const line = rawLine.trim();
 		if (line === '') continue;
 		const heading = HEADING_PATTERN.exec(line);
@@ -167,7 +173,9 @@ export function renderMarkdownPreview(text: string): MarkdownPreview {
 		blocks.push({ kind: 'paragraph', text: line });
 	}
 	return {
-		body: parsed.body,
+		// SEC-003 — the preview `body` is the SANITIZED body, so a caller that reads it (or renders it) sees
+		// the neutralized content, never the raw injection payload.
+		body: safeBody,
 		blocks,
 		tags: parsed.tags,
 		wikilinks: parsed.wikilinks,

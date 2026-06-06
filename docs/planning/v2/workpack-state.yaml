@@ -224,6 +224,8 @@ epics:
   - id: PLAT-quality-gates-and-onboarding
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PLAT-quality-gates-and-onboarding.completion.md
+  - id: SEC-input-and-content-safety
+    status: active
   - id: SES-combat
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SES-combat.completion.md

@@ -3,6 +3,7 @@ import type { ContentItem, VaultContentState } from './content';
 import { CONTENT_ITEM_ENTITY_TYPE } from './content';
 import { parseMarkdownNote, type ParsedMarkdownNote } from './markdown';
 import { normalizeVisibilityLevel, type VisibilityLevel } from '../permissions/visibility-filter';
+import { sanitizeMarkdownContent } from '../security/content-safety';
 
 /**
  * CONTENT-007 — TRANSACTIONAL import of local MARKDOWN archives and OBSIDIAN vault content.
@@ -312,7 +313,10 @@ function buildImportedItem(
 		id: step.itemId,
 		kind: 'note',
 		title: resolved.title,
-		body: resolved.parsed.body,
+		// SEC-003 — SANITIZE imported source content at the trust boundary so the durable item is safe at
+		// rest: a `<script>` / `javascript:` URL smuggled in via an Obsidian/markdown archive is neutralized
+		// before it becomes a content item that flows to every read surface. Idempotent + visibility-preserving.
+		body: sanitizeMarkdownContent(resolved.parsed.body),
 		fields,
 		dateFields: existing && step.mode === 'overwrite' ? existing.dateFields : {},
 		timelineRefs: existing && step.mode === 'overwrite' ? existing.timelineRefs : [],

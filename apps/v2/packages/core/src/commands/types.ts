@@ -1347,7 +1347,16 @@ export type RejectionCode =
 	| 'mcp-proposal-not-found'
 	// MCP-003 — an approve/reject targeted a proposal that is no longer pending (already approved/rejected/
 	// expired). Fail closed: a proposal can never be committed twice (replay/double-commit guard).
-	| 'mcp-proposal-not-pending';
+	| 'mcp-proposal-not-pending'
+	// SEC-002 — a path-like input (an import archive path, a note/object id, a folder name) failed the
+	// path-safety gate: a `..` traversal segment, a NUL byte / control character, an unsupported scheme, an
+	// absolute path, an excessive length, or a resolved path that escaped the vault root. Fail closed: the
+	// request is rejected BEFORE any storage access. The per-input findings ride the rejection `issues`.
+	| 'unsafe-path-input'
+	// SEC-006 — an input payload crossing a trust boundary breached an explicit SIZE/COUNT ceiling (too many
+	// import entries, a single oversized file, an oversized total, or an oversized body). Fail closed: the
+	// payload is rejected BEFORE allocation-heavy processing. The breached path/limit rides `issues`.
+	| 'payload-too-large';
 
 export interface CommandRejection {
 	code: RejectionCode;

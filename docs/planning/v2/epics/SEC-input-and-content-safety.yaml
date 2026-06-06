@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: SEC-input-and-content-safety
 title: "SEC: Input and content safety"
-status: approved
+status: active
 approved: true
 domain: SEC
 capabilityBranch: Input and content safety

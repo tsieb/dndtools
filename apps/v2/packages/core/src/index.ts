@@ -2157,6 +2157,56 @@ export {
 	slugifyHeading,
 } from './state/markdown';
 
+// SEC-002 — PATH-LIKE INPUT SAFETY. The pure, fail-closed validator every path-like input (an import
+// archive path, a note/object id, a folder name) passes BEFORE any read/write: traversal, NUL bytes,
+// control characters, length, unsupported schemes, absolute paths — plus the defence-in-depth vault
+// CONTAINMENT resolver that rejects an escape even if earlier validation missed it (SEC-002 AC2).
+export type { PathRejection, PathRejectionReason, PathValidationResult } from './security/path-safety';
+export {
+	MAX_PATH_LENGTH,
+	MAX_PATH_SEGMENT_LENGTH,
+	PATH_SAFETY_SCHEMA_VERSION,
+	isSafePathInput,
+	resolveWithinVaultRoot,
+	validateIdInput,
+	validatePathInput,
+} from './security/path-safety';
+
+// SEC-003 — CONTENT SAFETY. The pure sanitizer untrusted markdown/embeds/object cards/imported source
+// content pass through before entering the renderer DOM: raw HTML/script stripped to inert text and
+// dangerous URL schemes (`javascript:`/`data:`/`vbscript:`/`file:`) neutralized, while legitimate
+// content (valid markdown, safe links, wikilinks) is preserved. Composed by the markdown render path.
+export {
+	CONTENT_SAFETY_SCHEMA_VERSION,
+	NEUTRALIZED_URL,
+	isSafeMarkdownContent,
+	isSafeUrl,
+	neutralizeMarkdownLinks,
+	safeUrl,
+	sanitizeMarkdownContent,
+	stripRawHtml,
+} from './security/content-safety';
+
+// SEC-006 — BOUNDARY PAYLOAD LIMITS. Explicit size/count ceilings (enforced BEFORE allocation-heavy
+// processing) layered on top of Zod's schema validation + enum allowlists + field-path rejections, so an
+// oversized import/body crossing a trust boundary is rejected cheaply with a STRUCTURED error.
+export type {
+	BoundedImportFile,
+	PayloadLimitReason,
+	PayloadLimitRejection,
+	PayloadLimitResult,
+} from './security/payload-limits';
+export {
+	MAX_CONTENT_BODY_BYTES,
+	MAX_IMPORT_ENTRIES,
+	MAX_IMPORT_FILE_BYTES,
+	MAX_IMPORT_TOTAL_BYTES,
+	PAYLOAD_LIMITS_SCHEMA_VERSION,
+	byteLength,
+	validateBodyLimit,
+	validateImportLimits,
+} from './security/payload-limits';
+
 // CONTENT-007: transactional, resumable import. Preview is pure/read-only; the plan is deterministic and
 // re-derivable on resume (already-applied steps are skipped — no double-write); applying is pure (a
 // discarded result leaves prior state byte-identical — no partial commit).
