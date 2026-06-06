@@ -2316,6 +2316,117 @@ export {
 	resolveHostCapability,
 } from './security/widget-host-api';
 
+// SEC-004 — THE SECRET-CUSTODY POLICY. Auth/refresh/session/cloud/MCP secrets live in the OS/platform
+// credential store (or fail-closed encrypted-device-local) and NEVER cross a durable/outbound channel
+// (vault/export/op-log/sync/player-stream/diagnostics/log/error) in plaintext. Composes the diagnostics
+// redaction guard + the SYNC storage-classification registry; `assertNoSecretLeak` is the boundary guard.
+export type {
+	SecretChannel,
+	SecretCustodyStatus,
+	SecretKind,
+	SecretLeakFinding,
+	SecretStorageLocation,
+} from './security/secret-custody';
+export {
+	SECRET_CHANNELS,
+	SECRET_CUSTODY_SCHEMA_VERSION,
+	SECRET_KINDS,
+	SECRET_KIND_LABELS,
+	assertNoSecretLeak,
+	assertSecretCategoryIsDeviceLocal,
+	describeSecretCustody,
+	findSecretLeak,
+	requiredSecretLocation,
+	scrubForChannel,
+	storageCategoryForSecret,
+} from './security/secret-custody';
+
+// SEC-005 — THE CLOUD-COLLABORATION SECURITY BOUNDARY. The fail-closed, pre-payload policy a cloud transport
+// plugs into: rate-limited joins that do not leak session existence (AC2), participant-revocation denial +
+// queued-op admissibility (AC5), and the cloud-side request gate — tenant/session/stream isolation (AC3),
+// fail-closed unsupported-payload-version parsing (AC1), and nonce-replay rejection/idempotency (AC4).
+// Composes the COLLAB join policy + the SYNC replay validator; every decision precedes payload generation.
+export type {
+	CloudJoinDenialReason,
+	CloudJoinGateInput,
+	CloudJoinGateOutcome,
+	CloudRequestContext,
+	CloudRequestOutcome,
+	CloudRequestRejectionReason,
+	JoinAttemptRecord,
+	JoinRateLimitConfig,
+	JoinRateLimitDecision,
+	ParticipantRevocation,
+	ParticipantRevocationState,
+} from './security/cloud-boundary';
+export {
+	CLOUD_BOUNDARY_SCHEMA_VERSION,
+	DEFAULT_JOIN_RATE_LIMIT,
+	authorizeCloudRequest,
+	evaluateCloudJoinGate,
+	evaluateJoinRateLimit,
+	isQueuedOpAdmissibleAfterRevocation,
+	recordFailedJoinAttempt,
+} from './security/cloud-boundary';
+
+// SEC-009 — THE CLOUD SECURITY MODEL DECISION RECORD + RELEASE GATE. The machine-checkable mirror of the
+// prose decision record (encryption responsibilities, key custody, server trust boundaries, credential
+// rotation, recovery tradeoffs); the fail-closed release gate that BLOCKS cloud release until a complete,
+// approved record + the SYNC-017 prerequisites are satisfied (AC3); and the server-visibility classifier
+// proving an E2EE claim (the server sees ONLY the allowed metadata, never hidden content — AC4).
+export type {
+	AllowedServerMetadataClass,
+	CloudReleaseGateResult,
+	CloudSecurityDecisionRecord,
+	CloudSecurityRecordProblem,
+	CloudSecurityRecordProblemKind,
+	EncryptionResponsibility,
+	KeyCustodian,
+	ServerVisibilityViolation,
+	ServerVisibilityViolationReason,
+	ServerVisibleField,
+} from './security/cloud-security-model';
+export {
+	ALLOWED_SERVER_METADATA_CLASSES,
+	CLOUD_SECURITY_MODEL_SCHEMA_VERSION,
+	UNDECLARED_CLOUD_SECURITY_DECISION_RECORD,
+	assertServerSeesOnlyAllowedMetadata,
+	canReleaseCloud,
+	evaluateCloudReleaseGate,
+	findServerVisibilityViolations,
+	validateCloudSecurityRecord,
+} from './security/cloud-security-model';
+
+// SEC-012 — CLOUD KEY CUSTODY / ROTATION / REVOCATION / RECOVERY, ENFORCED BY TESTS. The deterministic
+// logical key-epoch model (no cipher, per ADR-014): rotation on revocation locks a removed participant out
+// of the new content epoch (AC1); recovery restores ONLY the approved scope, never another vault/tenant/
+// participant stream (AC2); and a compromised cloud store exposes ONLY ciphertext + documented metadata
+// classes (AC3). Composes the SEC-009 trust-boundary metadata + the redaction guard.
+export type {
+	CloudStoredArtifact,
+	CloudStoredDataClass,
+	KeyRotationResult,
+	ParticipantKeyHolding,
+	RecoverableItem,
+	RecoveryScope,
+	RecoveryScopeResult,
+	RecoveryScopeViolation,
+	RecoveryScopeViolationReason,
+	TrustBoundaryExposure,
+	TrustBoundaryViolationReason,
+} from './security/key-custody';
+export {
+	KEY_CUSTODY_SCHEMA_VERSION,
+	assertCompromiseMatchesTrustBoundary,
+	assertRecoveryWithinScope,
+	assertRevokedCannotDecryptNewEpoch,
+	canDecryptEpoch,
+	evaluateServerTrustBoundary,
+	keyMaterialStaysDeviceLocal,
+	partitionRecoveryScope,
+	rotateKeyOnRevocation,
+} from './security/key-custody';
+
 // CONTENT-007: transactional, resumable import. Preview is pure/read-only; the plan is deterministic and
 // re-derivable on resume (already-applied steps are skipped — no double-write); applying is pure (a
 // discarded result leaves prior state byte-identical — no partial commit).

@@ -41,15 +41,19 @@ describe('SEC-008 AC1 — the regression-gate registry is internally consistent 
 		expect(problems, `registry problems: ${problems.map((p) => p.message).join('; ')}`).toEqual([]);
 	});
 
-	it('declares the SEC-008 boundaries plus the SEC-001/SEC-007 renderer/platform-isolation boundaries', () => {
+	it('declares the SEC-008 boundaries plus the SEC-001/SEC-007 isolation + SEC-004/005/009/012 secrets/cloud boundaries', () => {
 		expect([...SECURITY_BOUNDARY_IDS].sort()).toEqual(
 			(
 				[
+					'cloud-collaboration-boundary',
 					'cloud-join-authorization',
+					'cloud-key-custody',
+					'cloud-security-model-gate',
 					'ipc-payload-validation',
 					'markdown-sanitization',
 					'mcp-staged-write-enforcement',
 					'renderer-isolation',
+					'secret-custody',
 					'storage-path-containment',
 					'sync-stream-filtering',
 					'widget-host-api-constraint',

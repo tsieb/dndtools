@@ -233,6 +233,8 @@ epics:
   - id: SEC-renderer-and-platform-isolation
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SEC-renderer-and-platform-isolation.completion.md
+  - id: SEC-secrets-and-cloud-collaboration
+    status: active
   - id: SES-combat
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SES-combat.completion.md

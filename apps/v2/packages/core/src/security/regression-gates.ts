@@ -22,6 +22,17 @@
  *   constrained widget host API (capabilities gated by declared host permissions; forbidden platform
  *   surfaces never grantable). They are security-critical boundaries; SEC-008 AC1 keeps them covered.
  *
+ * It also carries the four SECRETS / CLOUD-COLLABORATION boundaries SEC-004, SEC-005, SEC-009, and SEC-012
+ * add, so the secrets/cloud-security policy this epic delivers can never silently lose its tests either:
+ *   secret custody (auth/refresh/session/cloud/MCP secrets never cross a durable/outbound channel in
+ *   plaintext), the cloud-collaboration boundary (rate-limited non-disclosing joins + revocation +
+ *   tenant/session/stream isolation + fail-closed payload-version parsing + replay rejection, all BEFORE
+ *   payload generation), the cloud security model + release gate (cloud release blocked without an approved
+ *   decision record; an E2EE claim exposes only allowed metadata server-side), and cloud key custody
+ *   (rotation on revocation locks out a removed participant; recovery restores only the approved scope; a
+ *   compromised store exposes only ciphertext + documented metadata). They are security-critical boundaries;
+ *   SEC-008 AC1 keeps them covered.
+ *
  * Pure data + pure predicates — no DOM/storage/clock/entropy/network.
  */
 
@@ -35,7 +46,11 @@ export type SecurityBoundaryId =
 	| 'mcp-staged-write-enforcement'
 	| 'cloud-join-authorization'
 	| 'renderer-isolation'
-	| 'widget-host-api-constraint';
+	| 'widget-host-api-constraint'
+	| 'secret-custody'
+	| 'cloud-collaboration-boundary'
+	| 'cloud-security-model-gate'
+	| 'cloud-key-custody';
 
 /**
  * One declared security boundary. `guardSurface` names the core export(s) that ENFORCE the boundary;
@@ -132,6 +147,38 @@ export const SECURITY_BOUNDARIES: readonly SecurityBoundaryDefinition[] = Object
 		guardSurface: 'resolveHostCapability, requestRawVaultFileAccess, requestWidgetNetwork',
 		coverageTest: 'apps/v2/packages/core/tests/security-widget-host-api.test.ts',
 		requirementIds: ['SEC-007', 'SEC-008'],
+	},
+	{
+		id: 'secret-custody',
+		invariant:
+			'Auth/refresh/session/cloud/MCP secrets are device-local credential-store material and NEVER cross a durable/outbound channel (vault markdown, export package, operation log, sync stream, player stream, diagnostics, log, or error message) in plaintext; a planted secret is detected and blocked fail-closed by the boundary guard that reuses the diagnostics redaction scrubber.',
+		guardSurface: 'assertNoSecretLeak, findSecretLeak, assertSecretCategoryIsDeviceLocal',
+		coverageTest: 'apps/v2/packages/core/tests/security-secret-custody.test.ts',
+		requirementIds: ['SEC-004', 'SEC-008'],
+	},
+	{
+		id: 'cloud-collaboration-boundary',
+		invariant:
+			'A cloud-collaboration request is decided fail-closed BEFORE any payload is generated: repeated invalid joins are rate-limited without leaking session existence; a revoked participant is denied and their queued ops at/after the revocation are rejected; a cross-tenant/session/stream request is denied; an unsupported payload version fails closed with an upgrade-required diagnostic; and a replayed nonce is rejected/ignored idempotently.',
+		guardSurface: 'evaluateCloudJoinGate, authorizeCloudRequest, evaluateJoinRateLimit, isQueuedOpAdmissibleAfterRevocation',
+		coverageTest: 'apps/v2/packages/core/tests/security-cloud-boundary.test.ts',
+		requirementIds: ['SEC-005', 'SEC-008'],
+	},
+	{
+		id: 'cloud-security-model-gate',
+		invariant:
+			'Cloud sync/collaboration release is BLOCKED until a complete, approved cloud security decision record (encryption responsibilities, key custody, server trust boundary, credential rotation, recovery tradeoffs) AND the SYNC-017 prerequisites are satisfied; under an end-to-end-encryption claim, server-side code paths see ONLY the explicitly allowed metadata classes — never hidden content.',
+		guardSurface: 'evaluateCloudReleaseGate, validateCloudSecurityRecord, assertServerSeesOnlyAllowedMetadata',
+		coverageTest: 'apps/v2/packages/core/tests/security-cloud-security-model.test.ts',
+		requirementIds: ['SEC-009', 'SEC-008'],
+	},
+	{
+		id: 'cloud-key-custody',
+		invariant:
+			'Cloud key custody is enforced fail-closed: rotating the key on a participant revocation locks the removed participant out of the new content epoch (their credentials cannot decrypt newly delivered/synced content); a recovery flow restores ONLY the approved scope and never another vault/tenant/participant stream; and a compromised cloud store exposes ONLY ciphertext plus the documented metadata classes.',
+		guardSurface: 'assertRevokedCannotDecryptNewEpoch, assertRecoveryWithinScope, assertCompromiseMatchesTrustBoundary',
+		coverageTest: 'apps/v2/packages/core/tests/security-key-custody.test.ts',
+		requirementIds: ['SEC-012', 'SEC-008'],
 	},
 ] as const);
 

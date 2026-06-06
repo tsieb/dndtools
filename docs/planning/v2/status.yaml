@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 8
-  active: 0
+  approved: 7
+  active: 1
   complete: 80
   deferred: 0
 metrics:
@@ -159,8 +159,8 @@ metrics:
     - domain: SEC
       totalEpics: 4
       complete: 3
-      active: 0
-      approved: 1
+      active: 1
+      approved: 0
       proposed: 0
       deferred: 0
       epicCompletionPercent: 75
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: SEC-secrets-and-cloud-collaboration
   title: "SEC: Secrets and cloud collaboration"
-  status: approved
+  status: active
   requirementIds:
     - SEC-004
     - SEC-005
@@ -746,7 +746,7 @@ epics:
       - SEC-007
     completionEvidenceFile: docs/planning/v2/epics/SEC-renderer-and-platform-isolation.completion.md
   - id: SEC-secrets-and-cloud-collaboration
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - SEC-004
