@@ -16,19 +16,19 @@ summary:
   totalEpics: 88
   proposed: 0
   approved: 2
-  active: 1
-  complete: 85
+  active: 0
+  complete: 86
   deferred: 0
 metrics:
-  epicCompletionPercent: 96.6
-  requirementCompletionPercent: 97.4
+  epicCompletionPercent: 97.7
+  requirementCompletionPercent: 97.9
   totalRequirements: 234
-  completedRequirements: 228
+  completedRequirements: 229
   deferredRequirements: 0
-  remainingEpics: 3
-  promptableEpics: 3
+  remainingEpics: 2
+  promptableEpics: 2
   blockedByDependencies: 0
-  completionEvidenceFiles: 85
+  completionEvidenceFiles: 86
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -77,13 +77,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: CON
       totalEpics: 3
-      complete: 0
-      active: 1
+      complete: 1
+      active: 0
       approved: 2
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 0
-      requirementCompletionPercent: 0
+      epicCompletionPercent: 33.3
+      requirementCompletionPercent: 16.7
     - domain: CONTENT
       totalEpics: 7
       complete: 7
@@ -193,15 +193,15 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: CON-permission-sustainability-constraints
-  title: "CON: Permission sustainability constraints"
-  status: active
+  id: CON-scope-constraints
+  title: "CON: Scope constraints"
+  status: approved
   requirementIds:
-    - CON-004
-  promptCommand: pnpm v2:prompt -- --epic CON-permission-sustainability-constraints
+    - CON-003
+    - CON-006
+  promptCommand: pnpm v2:prompt -- --epic CON-scope-constraints
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic
-    CON-permission-sustainability-constraints --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic CON-scope-constraints --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: complete
@@ -399,10 +399,11 @@ epics:
       - COLLAB-011
     completionEvidenceFile: docs/planning/v2/epics/COLLAB-player-views-and-observer-access.completion.md
   - id: CON-permission-sustainability-constraints
-    status: active
+    status: complete
     approved: true
     requirementIds:
       - CON-004
+    completionEvidenceFile: docs/planning/v2/epics/CON-permission-sustainability-constraints.completion.md
   - id: CON-scope-constraints
     status: approved
     approved: true

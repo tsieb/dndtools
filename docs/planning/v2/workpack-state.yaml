@@ -117,7 +117,8 @@ epics:
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/COLLAB-player-views-and-observer-access.completion.md
   - id: CON-permission-sustainability-constraints
-    status: active
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CON-permission-sustainability-constraints.completion.md
   - id: CONTENT-calendar-custom-time-content
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CONTENT-calendar-custom-time-content.completion.md
