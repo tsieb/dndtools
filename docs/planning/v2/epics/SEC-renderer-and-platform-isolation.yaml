@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: SEC-renderer-and-platform-isolation
 title: "SEC: Renderer and platform isolation"
-status: approved
+status: active
 approved: true
 domain: SEC
 capabilityBranch: Renderer and platform isolation

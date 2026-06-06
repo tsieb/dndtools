@@ -2267,6 +2267,55 @@ export {
 	isolateWidgetFailure,
 } from './security/widget-exfiltration';
 
+// SEC-001 — RENDERER ISOLATION. The pure, fail-closed policy that declares the forbidden renderer import
+// surfaces (the single source of truth the boundary-lint enforces; AC1), proves the renderer is exposed
+// ONLY the named, allowlisted platform-service methods with no generic invoke channel (AC2), and validates
+// a desktop renderer-window security configuration (`contextIsolation`/`nodeIntegration`/`sandbox`/preload
+// named-APIs-only) so a release security check can reject a misconfigured shell fail-closed (AC3). Composes
+// the platform-service allowlist; it never re-implements the boundary, it gates the configuration of it.
+export type {
+	RendererChannelSurface,
+	RendererChannelViolation,
+	RendererChannelViolationKind,
+	RendererWindowSecurityConfig,
+	RendererWindowViolation,
+	RendererWindowViolationCode,
+} from './security/renderer-isolation';
+export {
+	FORBIDDEN_RENDERER_IMPORT_PREFIXES,
+	RENDERER_ISOLATION_SCHEMA_VERSION,
+	SECURE_RENDERER_WINDOW_CONFIG,
+	auditRendererChannelSurface,
+	isForbiddenRendererImport,
+	isRendererWindowSecure,
+	validateRendererWindowSecurity,
+} from './security/renderer-isolation';
+
+// SEC-007 — CONSTRAINED WIDGET HOST API. The pure, fail-closed policy deciding which host-API capabilities
+// are available to custom widget code given its declared/approved host permissions: a clipboard request
+// without the permission is unavailable (AC1); a raw-vault-file read is rejected and isolates the widget
+// failure (AC2); a network request to an unapproved destination class is unavailable + audited (AC3). The
+// storage-adapter/IPC/cloud-client/auth-token/platform-bridge/raw-vault-file/hidden-actor-data surfaces are
+// ALWAYS forbidden. Composes the host-permission catalogue, the outbound gate, and the isolation primitive.
+export type {
+	HostCapabilityAudit,
+	HostCapabilityDecision,
+	HostCapabilityGrant,
+	HostCapabilityResult,
+	RawVaultFileAccessResult,
+	WidgetHostCapability,
+} from './security/widget-host-api';
+export {
+	FORBIDDEN_HOST_CAPABILITIES,
+	PERMISSION_GATED_CAPABILITIES,
+	WIDGET_HOST_API_SCHEMA_VERSION,
+	isHostCapabilityAvailable,
+	requestRawVaultFileAccess,
+	requestWidgetNetwork,
+	requiredPermissionFor,
+	resolveHostCapability,
+} from './security/widget-host-api';
+
 // CONTENT-007: transactional, resumable import. Preview is pure/read-only; the plan is deterministic and
 // re-derivable on resume (already-applied steps are skipped — no double-write); applying is pure (a
 // discarded result leaves prior state byte-identical — no partial commit).

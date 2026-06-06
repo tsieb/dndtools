@@ -12,9 +12,15 @@
  * cloud-join authorization gate, the widget host-permission denial). This module is the INDEX + the proof
  * that none of them can silently lose its tests.
  *
- * The seven boundaries are exactly the ones SEC-008's statement enumerates:
+ * The boundaries SEC-008's statement enumerates are all here:
  *   IPC validation, storage containment, markdown sanitization, widget host permission denial,
  *   sync stream filtering, MCP staged write enforcement, and cloud join authorization.
+ *
+ * The registry also carries the two RENDERER/PLATFORM-ISOLATION boundaries SEC-001 and SEC-007 add, so
+ * their new isolation invariants can never silently lose their tests either:
+ *   renderer isolation (no Node/filesystem/IPC/cloud reach + hardened renderer-window config) and the
+ *   constrained widget host API (capabilities gated by declared host permissions; forbidden platform
+ *   surfaces never grantable). They are security-critical boundaries; SEC-008 AC1 keeps them covered.
  *
  * Pure data + pure predicates — no DOM/storage/clock/entropy/network.
  */
@@ -27,7 +33,9 @@ export type SecurityBoundaryId =
 	| 'widget-host-permission-denial'
 	| 'sync-stream-filtering'
 	| 'mcp-staged-write-enforcement'
-	| 'cloud-join-authorization';
+	| 'cloud-join-authorization'
+	| 'renderer-isolation'
+	| 'widget-host-api-constraint';
 
 /**
  * One declared security boundary. `guardSurface` names the core export(s) that ENFORCE the boundary;
@@ -107,6 +115,23 @@ export const SECURITY_BOUNDARIES: readonly SecurityBoundaryDefinition[] = Object
 		guardSurface: 'joinSession / evaluateCloudSyncGate (session-join + cloud-enablement authority)',
 		coverageTest: 'apps/v2/packages/core/tests/collab-session-join.test.ts',
 		requirementIds: ['SEC-005', 'COLLAB-001', 'SEC-008'],
+	},
+	{
+		id: 'renderer-isolation',
+		invariant:
+			'The renderer/Processing-Core reaches no Node/filesystem/Electron/MCP/cloud API directly (forbidden imports fail the boundary lint); the renderer is exposed ONLY named allowlisted platform-service methods with no generic invoke channel; and a desktop renderer window is rejected unless contextIsolation/sandbox are true, nodeIntegration is false, and the preload exposes only explicit named APIs.',
+		guardSurface:
+			'isForbiddenRendererImport, auditRendererChannelSurface, validateRendererWindowSecurity',
+		coverageTest: 'apps/v2/packages/core/tests/security-renderer-isolation.test.ts',
+		requirementIds: ['SEC-001', 'SEC-008'],
+	},
+	{
+		id: 'widget-host-api-constraint',
+		invariant:
+			'Custom widget code is exposed a constrained host API: a permission-gated capability (clipboard/network/asset/external-link/source-adapter/filesystem) is unavailable unless the declared host permission is approved, and the storage-adapter/IPC/cloud-client/auth-token/platform-bridge/raw-vault-file/hidden-actor-data surfaces are NEVER grantable; a raw-vault-file read is rejected and the widget failure is isolated.',
+		guardSurface: 'resolveHostCapability, requestRawVaultFileAccess, requestWidgetNetwork',
+		coverageTest: 'apps/v2/packages/core/tests/security-widget-host-api.test.ts',
+		requirementIds: ['SEC-007', 'SEC-008'],
 	},
 ] as const);
 

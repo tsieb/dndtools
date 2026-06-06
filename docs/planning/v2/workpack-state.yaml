@@ -230,6 +230,8 @@ epics:
   - id: SEC-regression-gates-and-stream-privacy
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SEC-regression-gates-and-stream-privacy.completion.md
+  - id: SEC-renderer-and-platform-isolation
+    status: active
   - id: SES-combat
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SES-combat.completion.md
