@@ -89,6 +89,15 @@ export const MCP_BASELINE_TOOL_IDS = [
 	'character.query',
 	'dice.roll',
 	'session.prep',
+	// SEMANTIC BUNDLE read tools (MCP-006 / MCP-013): bounded, source-cited, calendar-aware context packages
+	// for prep, recap, continuity, open threads, coverage gaps, and campaign health. Each composes the
+	// EXISTING actor-filtered deterministic reads (it adds NO new mutation or visibility path).
+	'bundle.session-prep',
+	'bundle.session-recap',
+	'bundle.continuity',
+	'bundle.open-threads',
+	'bundle.coverage-gaps',
+	'bundle.campaign-health',
 	// A representative WRITE tool whose enforcement this branch proves end-to-end (the staged note
 	// create — Glossary "Staged Write" / MCP-004 AC2). It dispatches the existing content-create command.
 	'note.create',
@@ -183,6 +192,21 @@ export const mcpSessionPrepInputSchema = z
 	.strict();
 
 /**
+ * The semantic-bundle tool input (MCP-006 / MCP-013). It carries an EXPLICIT `referenceInstant` (the "now"
+ * the campaign-health staleness is measured against — the Processing Core reads no ambient clock) plus an
+ * optional bounded item budget (the semantic-compression budget — MCP-006 AC2). The bundle KIND is fixed by
+ * the tool id (one tool per kind), so it is not an accepted argument — an agent cannot widen the bundle by
+ * input. The optional AI capability/annotator are NOT accepted here: AI is the GUI/sidecar's optional seam,
+ * never something an agent toggles, so a bundle requested through MCP is always the DETERMINISTIC bundle.
+ */
+export const mcpBundleInputSchema = z
+	.object({
+		referenceInstant: nonEmpty,
+		itemBudget: z.number().int().positive().max(100).optional(),
+	})
+	.strict();
+
+/**
  * The note-create WRITE tool input. This mirrors the MINIMUM the `content.create-item` command
  * needs; the command still re-validates the full payload (and an MCP author can never widen
  * visibility — the command defaults visibility fail-closed to `dm-only`). The visibility is NOT an
@@ -263,6 +287,51 @@ export function createBaselineMcpToolRegistry(): McpToolRegistry {
 			queryId: 'session.prep-digest',
 			inputSchema: mcpSessionPrepInputSchema,
 			title: 'Session prep bundle',
+		},
+		// SEMANTIC BUNDLE read tools (MCP-006 / MCP-013). Each routes to the SAME bundle assembler keyed by
+		// kind; every bundle composes the existing actor-filtered deterministic reads and is DM-gated/fail
+		// closed inside the composed query (a non-DM agent receives the generalized, finding-free bundle).
+		{
+			id: 'bundle.session-prep',
+			kind: 'read',
+			queryId: 'bundle.session-prep',
+			inputSchema: mcpBundleInputSchema,
+			title: 'Session prep semantic bundle',
+		},
+		{
+			id: 'bundle.session-recap',
+			kind: 'read',
+			queryId: 'bundle.session-recap',
+			inputSchema: mcpBundleInputSchema,
+			title: 'Session recap semantic bundle',
+		},
+		{
+			id: 'bundle.continuity',
+			kind: 'read',
+			queryId: 'bundle.continuity',
+			inputSchema: mcpBundleInputSchema,
+			title: 'Continuity semantic bundle',
+		},
+		{
+			id: 'bundle.open-threads',
+			kind: 'read',
+			queryId: 'bundle.open-threads',
+			inputSchema: mcpBundleInputSchema,
+			title: 'Open threads semantic bundle',
+		},
+		{
+			id: 'bundle.coverage-gaps',
+			kind: 'read',
+			queryId: 'bundle.coverage-gaps',
+			inputSchema: mcpBundleInputSchema,
+			title: 'Coverage gaps semantic bundle',
+		},
+		{
+			id: 'bundle.campaign-health',
+			kind: 'read',
+			queryId: 'bundle.campaign-health',
+			inputSchema: mcpBundleInputSchema,
+			title: 'Campaign health semantic bundle',
 		},
 		{
 			id: 'note.create',

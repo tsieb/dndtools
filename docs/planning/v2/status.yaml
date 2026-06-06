@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 12
-  active: 0
+  approved: 11
+  active: 1
   complete: 76
   deferred: 0
 metrics:
@@ -114,8 +114,8 @@ metrics:
     - domain: MCP
       totalEpics: 5
       complete: 4
-      active: 0
-      approved: 1
+      active: 1
+      approved: 0
       proposed: 0
       deferred: 0
       epicCompletionPercent: 80
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: MCP-semantic-bundles-and-ai-boundaries
   title: "MCP: Semantic bundles and AI boundaries"
-  status: approved
+  status: active
   requirementIds:
     - MCP-006
     - MCP-007
@@ -582,7 +582,7 @@ epics:
       - MCP-010
     completionEvidenceFile: docs/planning/v2/epics/MCP-response-contracts.completion.md
   - id: MCP-semantic-bundles-and-ai-boundaries
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - MCP-006

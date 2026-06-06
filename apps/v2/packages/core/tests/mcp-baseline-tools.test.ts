@@ -62,6 +62,13 @@ describe('MCP-002 — the baseline tool set includes dice.roll and session.prep'
 				'character.query',
 				'dice.roll',
 				'session.prep',
+				// MCP-006 / MCP-013 — the semantic bundle read tools added by this branch.
+				'bundle.session-prep',
+				'bundle.session-recap',
+				'bundle.continuity',
+				'bundle.open-threads',
+				'bundle.coverage-gaps',
+				'bundle.campaign-health',
 				'note.create',
 			].sort(),
 		);

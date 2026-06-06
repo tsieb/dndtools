@@ -3620,6 +3620,7 @@ export {
 	MCP_BASELINE_TOOL_IDS,
 	createBaselineMcpToolRegistry,
 	createMcpToolRegistry,
+	mcpBundleInputSchema,
 	mcpDiceRollInputSchema,
 	mcpEmptyInputSchema,
 	mcpEntityIdInputSchema,
@@ -3694,6 +3695,60 @@ export {
 	toMcpAgentResponseEnvelope,
 	toMcpResponseEnvelope,
 } from './mcp/response-contract';
+
+// MCP-007 / MCP-008 — THE AI-BOUNDARY CONTRACT: the architectural rule, as enforceable Processing-Core code,
+// that AI is OPTIONAL and ANNOTATIVE — never load-bearing, never authoritative, never a mutation path, and
+// never a visibility bypass. It FORMALIZES the established `SemanticAssist` / `HealthAiExplainer` pattern
+// into one reusable contract: a capability-detected (MCP-008) optional annotator confined to the permitted
+// annotative roles (MCP-007: creative text / narrative suggestion / named-entity extraction / explanation),
+// producing a LABELLED, NON-AUTHORITATIVE, SEPARATED annotation that is dropped fail-closed when AI is
+// off/absent/unavailable — so the deterministic content always stands alone and no AI call is load-bearing.
+export type {
+	AiAnnotation,
+	AiAnnotationResult,
+	AiAnnotationStatus,
+	AiAnnotativeRole,
+	AiAnnotator,
+	AiCapability,
+	AiCapabilityState,
+	AiForbiddenRole,
+} from './mcp/ai-boundary';
+export {
+	AI_ABSENT_CAPABILITY,
+	AI_ANNOTATIVE_ROLES,
+	AI_FORBIDDEN_ROLES,
+	applyAiAnnotation,
+	isAiAnnotativeRole,
+	isAiCapabilityRunnable,
+	isAiForbiddenRole,
+} from './mcp/ai-boundary';
+
+// MCP-006 / MCP-013 — THE SEMANTIC BUNDLE TOOLS: bounded, source-cited, CALENDAR-aware context packages for
+// session prep, recap, continuity, open threads, coverage gaps, and campaign health, COMPOSED entirely from
+// the existing deterministic, actor-filtered reads (the prep/recap digest, graph health/coverage, and the
+// SES-012/GRAPH-009 calendar reads). A bundle adds no new index or mutation/visibility path: a `dm-only`
+// source can never enter it, and a NON-DM actor gets a generalized, finding-free, exact-date-free bundle
+// (MCP-006 AC1 / MCP-013 AC2). Semantic compression bounds each section to an explicit budget, choosing
+// summaries over raw full-vault content (MCP-006 AC2). The optional AI annotation rides the AI-boundary
+// contract above, held SEPARATE and dropped fail-closed — the deterministic bundle is complete with AI off.
+export type {
+	BundleAiStatus,
+	BundleCalendarContext,
+	BundleCitation,
+	BundleCompression,
+	BundleContent,
+	BundleCountBand,
+	BundleDatedEvent,
+	SemanticBundle,
+	SemanticBundleInputs,
+	SemanticBundleKind,
+	SemanticBundleOptions,
+} from './mcp/semantic-bundles';
+export {
+	DEFAULT_BUNDLE_ITEM_BUDGET,
+	SEMANTIC_BUNDLE_KINDS,
+	buildSemanticBundle,
+} from './mcp/semantic-bundles';
 
 // MCP-012 — the EXPLICIT, FAIL-CLOSED MCP FILESYSTEM / PLATFORM-SERVICE EXCEPTION ALLOWLIST. The few
 // narrow filesystem operations the future MCP sidecar may perform are DECLARED (not inferred from broad

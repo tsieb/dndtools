@@ -34,6 +34,13 @@ const VALID_INPUT: Record<string, unknown> = {
 	'character.query': {},
 	'dice.roll': { expression: '2d20kh1+5', seed: 7 },
 	'session.prep': { mode: 'prep' },
+	// MCP-006 / MCP-013 — the semantic bundle read tools (the bundle kind is fixed by the tool id).
+	'bundle.session-prep': { referenceInstant: '2026-06-05T00:00:00.000Z' },
+	'bundle.session-recap': { referenceInstant: '2026-06-05T00:00:00.000Z' },
+	'bundle.continuity': { referenceInstant: '2026-06-05T00:00:00.000Z' },
+	'bundle.open-threads': { referenceInstant: '2026-06-05T00:00:00.000Z' },
+	'bundle.coverage-gaps': { referenceInstant: '2026-06-05T00:00:00.000Z' },
+	'bundle.campaign-health': { referenceInstant: '2026-06-05T00:00:00.000Z' },
 	'note.create': { title: 'Drafted', body: 'by the agent' },
 };
 
@@ -47,6 +54,12 @@ const INVALID_INPUT: Record<string, unknown> = {
 	'character.query': { roster: 'all' },
 	'dice.roll': { expression: '2d20' },
 	'session.prep': { mode: 'forecast' },
+	'bundle.session-prep': {}, // missing required referenceInstant
+	'bundle.session-recap': { referenceInstant: '2026-06-05T00:00:00.000Z', itemBudget: -1 },
+	'bundle.continuity': { referenceInstant: '' },
+	'bundle.open-threads': { referenceInstant: '2026-06-05T00:00:00.000Z', extra: true },
+	'bundle.coverage-gaps': {}, // missing required referenceInstant
+	'bundle.campaign-health': { referenceInstant: 123 },
 	'note.create': { title: '' },
 };
 

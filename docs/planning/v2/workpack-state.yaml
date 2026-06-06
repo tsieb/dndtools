@@ -182,6 +182,8 @@ epics:
   - id: MCP-response-contracts
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MCP-response-contracts.completion.md
+  - id: MCP-semantic-bundles-and-ai-boundaries
+    status: active
   - id: NAV-command-palette-and-actor-filtering
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/NAV-command-palette-and-actor-filtering.completion.md

@@ -8,6 +8,10 @@ import { searchVaultForActor } from '../queries/search-query';
 import { getGraphRelationships } from '../queries/graph-api';
 import { getPrepRecapDigest } from '../queries/prep-recap-digest';
 import { rollExpression } from '../state/dice';
+import {
+	buildSemanticBundle,
+	type SemanticBundleKind,
+} from './semantic-bundles';
 
 /**
  * MCP-004 / MCP-011 (composition seam) — the SINGLE, FAIL-CLOSED ENTRY POINT for every MCP tool call.
@@ -201,6 +205,37 @@ function runReadTool(
 				state.sync,
 				actorId,
 				mode,
+			);
+		}
+		case 'bundle.session-prep':
+		case 'bundle.session-recap':
+		case 'bundle.continuity':
+		case 'bundle.open-threads':
+		case 'bundle.coverage-gaps':
+		case 'bundle.campaign-health': {
+			// SEMANTIC BUNDLES (MCP-006 / MCP-013) — the bounded, source-cited, calendar-aware context package.
+			// Composed from the SAME actor-filtered deterministic reads, so a non-DM agent receives the
+			// generalized, finding-free bundle (MCP-006 AC1 / MCP-013 AC2). An agent requests only the
+			// DETERMINISTIC bundle: AI is the GUI/sidecar's optional seam, never an agent-toggled argument, so
+			// no AI capability/annotator is forwarded here and no AI call is ever load-bearing for a tool read.
+			const { referenceInstant, itemBudget } = input as {
+				referenceInstant: string;
+				itemBudget?: number;
+			};
+			// The bundle kind is the queryId suffix (`bundle.<kind>`); the registry guarantees a known suffix.
+			const kind = tool.queryId.slice('bundle.'.length) as SemanticBundleKind;
+			return buildSemanticBundle(
+				{
+					session: state.session,
+					content: state.content,
+					maps: state.maps,
+					characters: state.characters,
+					permissions: state.permissions,
+					sync: state.sync,
+					actorId,
+				},
+				kind,
+				{ referenceInstant, ...(itemBudget !== undefined ? { itemBudget } : {}) },
 			);
 		}
 		default:

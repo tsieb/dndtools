@@ -118,6 +118,51 @@ const MCP_TOOL_COVERAGE: McpToolCoverageRow[] = [
 		invalidInput: { mode: 'forecast' }, // not a declared digest mode
 		validInput: { mode: 'prep' },
 	},
+	// SEMANTIC BUNDLE read tools (MCP-006 / MCP-013). Each is a report tool, so it covers schema + actor
+	// policy + visibility filtering + failure handling. The invalid input drops the REQUIRED
+	// `referenceInstant`; the valid input supplies it (the bundle kind is fixed by the tool id).
+	{
+		toolId: 'bundle.session-prep',
+		kind: 'read',
+		behaviors: ['schema-validation', 'actor-policy', 'visibility-filtering', 'failure-handling'],
+		invalidInput: {}, // missing required referenceInstant
+		validInput: { referenceInstant: '2026-06-05T00:00:00.000Z' },
+	},
+	{
+		toolId: 'bundle.session-recap',
+		kind: 'read',
+		behaviors: ['schema-validation', 'actor-policy', 'visibility-filtering', 'failure-handling'],
+		invalidInput: { referenceInstant: '2026-06-05T00:00:00.000Z', itemBudget: -1 }, // budget must be positive
+		validInput: { referenceInstant: '2026-06-05T00:00:00.000Z' },
+	},
+	{
+		toolId: 'bundle.continuity',
+		kind: 'read',
+		behaviors: ['schema-validation', 'actor-policy', 'visibility-filtering', 'failure-handling'],
+		invalidInput: { referenceInstant: '' }, // empty reference instant
+		validInput: { referenceInstant: '2026-06-05T00:00:00.000Z' },
+	},
+	{
+		toolId: 'bundle.open-threads',
+		kind: 'read',
+		behaviors: ['schema-validation', 'actor-policy', 'visibility-filtering', 'failure-handling'],
+		invalidInput: { referenceInstant: '2026-06-05T00:00:00.000Z', extra: true }, // strict rejects extras
+		validInput: { referenceInstant: '2026-06-05T00:00:00.000Z' },
+	},
+	{
+		toolId: 'bundle.coverage-gaps',
+		kind: 'read',
+		behaviors: ['schema-validation', 'actor-policy', 'visibility-filtering', 'failure-handling'],
+		invalidInput: {}, // missing required referenceInstant
+		validInput: { referenceInstant: '2026-06-05T00:00:00.000Z' },
+	},
+	{
+		toolId: 'bundle.campaign-health',
+		kind: 'read',
+		behaviors: ['schema-validation', 'actor-policy', 'visibility-filtering', 'failure-handling'],
+		invalidInput: { referenceInstant: 123 }, // must be a string
+		validInput: { referenceInstant: '2026-06-05T00:00:00.000Z' },
+	},
 	{
 		toolId: 'note.create',
 		kind: 'write',
