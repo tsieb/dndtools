@@ -2498,6 +2498,90 @@ export {
 	summarizeScopeBoundary,
 } from './con/scope-constraints';
 
+// CON-001 — THE "GUI HIDING IS NEVER AUTHORITATIVE" CONSTRAINT GATE. The declared invariant that the
+// data/storage/query layer — never the GUI — is the authoritative enforcement point for visibility,
+// permission, sync-filtering, and security decisions (Contract 3; Defects `CODEX-PR5-DM-NOTES-LEAK`,
+// `CODEX-PR17-POI-VISIBILITY-LEAK`). `projectEntityForActor` is the sanctioned non-DM read (hidden data is
+// OMITTED at the source — AC1); `assertProjectionHasNoDmOnlyField` proves the GUI-bound payload carries no
+// DM-only field to leak even if a component renders everything (AC2); `auditGuiHidingReliance` proves every
+// non-DM delivery surface enforces at the data layer (none `gui-only`). It COMPOSES the existing visibility
+// filter + SEC-010 stream-privacy scan; it never re-implements them. Mirrors the SEC-008/CON-003/004/006
+// registry-gate pattern, wired into `scripts/quality-gates.ts` (`pnpm v2:gates`).
+export type {
+	EnforcementPoint,
+	GuiHidingConstraintSummary,
+	GuiHidingProblem,
+	NonDmDeliverySurface,
+} from './con/gui-hiding-not-authoritative';
+export {
+	GUI_HIDING_CONSTRAINT_VERSION,
+	NON_DM_DELIVERY_SURFACES,
+	assertProjectionHasNoDmOnlyField,
+	auditGuiHidingReliance,
+	findDmOnlyFieldLeaks,
+	projectEntityForActor,
+	summarizeGuiHidingConstraint,
+} from './con/gui-hiding-not-authoritative';
+
+// CON-002 — THE "NETWORK / MCP / AI / CLOUD IS NEVER REQUIRED" CONSTRAINT GATE. The declared invariant that
+// no external dependency may be REQUIRED for core local workflows (Contract 2 Local-First Invariant;
+// Cross-Contract Non-Negotiables 3/6/7). `evaluateWorkflowsUnderOutage` proves every core workflow stays
+// usable with everything external disabled (AC1); `annotationDegradesWithoutAi` proves AI degrades to the
+// deterministic path (AC2); `assertExternalDependencyOptional` proves no network handle is required;
+// `auditExternalDependencyRequirement` proves every external dependency class is supplementary, never
+// required. It COMPOSES the SYNC-001 local-first model + the MCP AI-boundary seam; it never re-implements
+// them. Mirrors the SEC-008/CON-003/004/006 registry-gate pattern, wired into `scripts/quality-gates.ts`.
+export type {
+	DependencyPosture,
+	ExternalDependencyClass,
+	ExternalDependencyProblem,
+	ExternalOutageProfile,
+	NetworkNotRequiredSummary,
+	WorkflowOutageResult,
+} from './con/network-not-required';
+export {
+	EXTERNAL_DEPENDENCY_CLASSES,
+	EXTERNAL_DEPENDENCY_POSTURE,
+	NETWORK_NOT_REQUIRED_VERSION,
+	TOTAL_OUTAGE_PROFILE,
+	annotationDegradesWithoutAi,
+	assertExternalDependencyOptional,
+	auditExternalDependencyRequirement,
+	evaluateWorkflowsUnderOutage,
+	summarizeNetworkNotRequired,
+} from './con/network-not-required';
+
+// CON-005 — THE SOURCE-OF-TRUTH CONSTRAINT GATE. The declared invariant that the LOCAL vault / owning
+// durable state document is the authoritative copy of core vault content; cloud storage, external sources,
+// generated snapshots, player-device caches, and widget-local state may never be the SOLE source of truth
+// (Contract 2 Cloud Storage Model; Contract 4 Widget State Ownership; Cross-Contract Non-Negotiable 5).
+// `vaultUsableWithoutCloud` proves the vault stays usable + can queue ops with cloud off (AC1);
+// `findWidgetLocalSourceOfTruthViolation` proves widget-local state never holds canonical entity data (AC2);
+// `auditSourceOfTruthOwnership` proves every core content class is owned by a durable-local state document.
+// It COMPOSES the SYNC-007/008 storage-classification policy + the Contract 1/4 ownership tables; it never
+// re-implements them. Mirrors the SEC-008/CON-003/004/006 registry-gate pattern, wired into `pnpm v2:gates`.
+export type {
+	AuthoritativeOwner,
+	CoreContentOwnership,
+	NonAuthoritativeStoreClass,
+	SourceOfTruthProblem,
+	SourceOfTruthSummary,
+	WidgetSourceOfTruthFinding,
+	WidgetSourceOfTruthReason,
+} from './con/source-of-truth';
+export {
+	AUTHORITATIVE_OWNERS,
+	CANONICAL_FIELD_SIGNAL_KEYS,
+	CORE_CONTENT_OWNERSHIP,
+	NON_AUTHORITATIVE_STORE_CLASSES,
+	SOURCE_OF_TRUTH_VERSION,
+	auditSourceOfTruthOwnership,
+	findWidgetLocalSourceOfTruthViolation,
+	isWidgetLocalSourceOfTruth,
+	summarizeSourceOfTruth,
+	vaultUsableWithoutCloud,
+} from './con/source-of-truth';
+
 // SEC-010 — STREAM-PRIVACY PROOF + COVERAGE HARNESS. The shared, fail-closed proof that a player/observer
 // replication stream (or any `*ForActor` projection) carries NO hidden value/title/id/edge/snippet/count,
 // plus the replication-surface coverage enumeration so a new query surface is included in the filtering

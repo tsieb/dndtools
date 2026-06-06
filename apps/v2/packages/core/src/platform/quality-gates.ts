@@ -263,7 +263,12 @@ export type GateProblemKind =
 	// CON-003 / CON-006 scope-boundary block surfaced through the same gate runner (a live registry
 	// grew a new top-level platform/source/host-permission surface or an out-of-scope widget
 	// distribution channel without an explicit scope/contract revision).
-	| 'scope-constraint-violation';
+	| 'scope-constraint-violation'
+	// CON-001 / CON-002 / CON-005 security + source-of-truth block surfaced through the same gate
+	// runner (a non-DM delivery surface started relying on GUI hiding; an external dependency became
+	// required for a core workflow; or a derived/remote/cache/widget store became the sole source of
+	// truth for core vault content).
+	| 'security-source-of-truth-violation';
 
 export interface GateProblem {
 	readonly gateId: string;

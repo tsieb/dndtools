@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CON-security-and-source-of-truth-constraints
 title: "CON: Security and source-of-truth constraints"
-status: approved
+status: active
 approved: true
 domain: CON
 capabilityBranch: Security and source-of-truth constraints

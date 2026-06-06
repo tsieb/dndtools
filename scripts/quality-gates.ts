@@ -11,12 +11,15 @@ import {
 import { validateSupportStatus } from '../apps/v2/packages/core/src/platform/support-status.ts';
 import { auditCapabilitySetGovernance } from '../apps/v2/packages/core/src/con/capability-set-sustainability.ts';
 import { auditScopeBoundary } from '../apps/v2/packages/core/src/con/scope-constraints.ts';
+import { auditGuiHidingReliance } from '../apps/v2/packages/core/src/con/gui-hiding-not-authoritative.ts';
+import { auditExternalDependencyRequirement } from '../apps/v2/packages/core/src/con/network-not-required.ts';
+import { auditSourceOfTruthOwnership } from '../apps/v2/packages/core/src/con/source-of-truth.ts';
 
 /**
- * PLAT-010 + PLAT-014 + CON-004 + CON-003/CON-006 enforcement: validate the DECLARED quality-gate registry,
- * the platform support-status artifact, the permission-sustainability constraint, and the scope-boundary
- * constraint (the single sources of truth in `@dndtools/v2-core`) against the actual repository and fail
- * CLOSED.
+ * PLAT-010 + PLAT-014 + CON-004 + CON-003/CON-006 + CON-001/CON-002/CON-005 enforcement: validate the
+ * DECLARED quality-gate registry, the platform support-status artifact, the permission-sustainability
+ * constraint, the scope-boundary constraint, and the security + source-of-truth constraints (the single
+ * sources of truth in `@dndtools/v2-core`) against the actual repository and fail CLOSED.
  *
  * This does NOT rewrite the test runner. It cross-checks that:
  *
@@ -40,6 +43,12 @@ import { auditScopeBoundary } from '../apps/v2/packages/core/src/con/scope-const
  *     system. A new top-level platform/source/extension surface or an out-of-scope widget distribution
  *     channel fails the gate, so v2 can never silently drift past its declared scope without an explicit
  *     scope/contract revision.
+ *   - (CON-001 / CON-002 / CON-005 security + source-of-truth gate) the declared invariants hold: no non-DM
+ *     delivery surface relies on GUI hiding (visibility/permission/sync filtering is enforced at the data
+ *     layer); no external dependency (network/MCP/AI/cloud sync/multi-user delivery) is required for a core
+ *     local workflow; and no cloud/external/snapshot/cache/widget store is the sole source of truth for core
+ *     vault content (every content class is owned by a durable local state document). A drift on any axis
+ *     fails the gate, so the security + source-of-truth invariants can never silently erode.
  *
  * Exit code 1 on any problem so the gate fails closed in CI and pre-push.
  */
@@ -104,6 +113,33 @@ export function runQualityGateCheck(
 				gateId: `${problem.requirementId.toLowerCase()}:${problem.axis}/${problem.value}`,
 				kind: 'scope-constraint-violation',
 				message: `[${problem.requirementId}] ${problem.message}`,
+			}),
+		),
+		// CON-001 security gate: no non-DM delivery surface may rely on GUI hiding as the authoritative
+		// enforcement point — every surface must filter visibility/permission/sync at the data layer.
+		...auditGuiHidingReliance().map(
+			(problem): GateProblem => ({
+				gateId: `con-001:${problem.surfaceId}`,
+				kind: 'security-source-of-truth-violation',
+				message: `[CON-001] ${problem.message}`,
+			}),
+		),
+		// CON-002 source-of-truth gate: network, MCP, AI, cloud sync, and multi-user delivery must stay
+		// supplementary — never required for a core local vault workflow.
+		...auditExternalDependencyRequirement().map(
+			(problem): GateProblem => ({
+				gateId: `con-002:${problem.dependencyClass}`,
+				kind: 'security-source-of-truth-violation',
+				message: `[CON-002] ${problem.message}`,
+			}),
+		),
+		// CON-005 source-of-truth gate: cloud/external/snapshot/cache/widget stores may never be the sole
+		// source of truth — every core content class is owned by a durable local state document.
+		...auditSourceOfTruthOwnership().map(
+			(problem): GateProblem => ({
+				gateId: `con-005:${problem.contentClass}`,
+				kind: 'security-source-of-truth-violation',
+				message: `[CON-005] ${problem.message}`,
 			}),
 		),
 	];
