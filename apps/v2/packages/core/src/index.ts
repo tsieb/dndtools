@@ -1779,6 +1779,89 @@ export type {
 } from './perf/measurement';
 export { measureBudget, measureBudgetSuite } from './perf/measurement';
 
+// PERF-005 — BUNDLE + MEMORY BUDGETS with PATH-AWARE GATES. Declares the core-bundle-size and
+// long-session-memory budgets as ordinary PerformanceBudgets (graded by the SAME measureBudget), and
+// adds the path-aware gate: a feature disabled-by-tier / out-of-scope must be lazy-loaded or excluded,
+// never in the core bundle (AC1 — the AI/MCP subsystem is declared lazy + off the core path, composing
+// MCP-001 default-off). Memory diagnostics report the major retained categories on a breach and detect
+// unbounded growth across a session (AC2). Fail closed: oversized bundle = breach; unbounded growth =
+// breach; unmeasured = unknown, never a confident pass.
+export type {
+	BundleCompositionProblem,
+	BundleCompositionProblemKind,
+	FeatureBundleEntry,
+	FeatureLoadStrategy,
+	MemoryCategory,
+	MemoryFootprintAnalysis,
+	MemorySnapshot,
+	UnboundedGrowthFinding,
+} from './perf/bundle-budget';
+export {
+	BUNDLE_BUDGETS,
+	CORE_BUNDLE_SIZE_BUDGET_ID,
+	SESSION_MEMORY_FOOTPRINT_BUDGET_ID,
+	analyzeBundleComposition,
+	analyzeMemoryFootprint,
+	detectUnboundedMemoryGrowth,
+	invalidBundleBudgetIds,
+	measureCoreBundleSize,
+} from './perf/bundle-budget';
+
+// PERF-006 — AI / MCP ISOLATION: the deterministic PROOF that the optional AI/MCP subsystem can never
+// degrade core performance. Composes MCP-001 optionality (isMcpEnabled) + the AI-boundary contract: a
+// core measurement's verdict/timing must be independent of the MCP enabled flag, of the AI capability
+// state, and of AI/MCP load (AC1/AC3 — off the critical path). Bounded AI tasks are cancellable and an
+// over-limit/cancelled task's output is discarded or clearly marked partial, never silently final (AC2).
+// Fail closed: un-provable isolation is `unknown`, never a confident pass; verdict drift is `not-isolated`.
+export type {
+	AiTaskBreachKind,
+	AiTaskBudget,
+	AiTaskDisposition,
+	AiTaskOutcome,
+	AiTaskUsage,
+	CorePerfIsolationProof,
+	IsolationResult,
+} from './perf/ai-isolation';
+export {
+	DEFAULT_AI_ISOLATION_TOLERANCE,
+	PERF_AI_ABSENT_CAPABILITY,
+	classifyAiTaskOutcome,
+	proveCorePerfIndependentOfAiCapability,
+	proveCorePerfIndependentOfMcpState,
+	proveCorePerfIsolatedFromAi,
+} from './perf/ai-isolation';
+
+// PERF-009 — PRIVACY-PRESERVING PERFORMANCE DIAGNOSTICS. A perf trace exported by default carries NO
+// hidden player-inaccessible content, raw bodies, secrets, or absolute paths — only an EXPLICIT DM
+// opt-in keeps raw context (AC1). Composes the diagnostics redaction guard (redactValue /
+// containsSensitiveData) + the stream-privacy needle scanner. Local UX diagnostics stay LOCAL until the
+// user explicitly exports them (AC2). Fail closed: a surviving secret/path/needle blocks the export; an
+// un-exported local sample must not leave the device.
+export type {
+	PerfDiagnosticResidency,
+	PerfDiagnosticSample,
+	PerfDiagnosticsStore,
+	PerfTraceContext,
+	PerfTraceExportCertification,
+	PerfTraceExportProblem,
+	PerfTraceExportProblemKind,
+	RawPerfMeasurement,
+	RawPerfTrace,
+	SanitizePerfTraceOptions,
+	SanitizedPerfContext,
+	SanitizedPerfMeasurement,
+	SanitizedPerfTrace,
+} from './perf/diagnostics-privacy';
+export {
+	EMPTY_PERF_DIAGNOSTICS_STORE,
+	assertNoUnexportedLeavesDevice,
+	certifyPerfTraceExport,
+	localOnlySamples,
+	markExportedByUser,
+	recordLocalDiagnostic,
+	sanitizePerfTrace,
+} from './perf/diagnostics-privacy';
+
 // PLAT-013: fresh-vault onboarding, feature-tier visibility, maturity gates, help surfaces, and
 // first-run Command Center setup — modeled in the core so the GUI renders from query results.
 export type {

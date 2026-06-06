@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: PERF-bundles-memory-and-ai-mcp-isolation
 title: "PERF: Bundles, memory, and AI/MCP isolation"
-status: approved
+status: active
 approved: true
 domain: PERF
 capabilityBranch: Bundles, memory, and AI/MCP isolation

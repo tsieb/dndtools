@@ -203,6 +203,8 @@ epics:
   - id: PERF-budget-ownership-and-measurement
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PERF-budget-ownership-and-measurement.completion.md
+  - id: PERF-bundles-memory-and-ai-mcp-isolation
+    status: active
   - id: PERM-base-roles-and-observer-limits
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PERM-base-roles-and-observer-limits.completion.md

@@ -36,6 +36,25 @@ const FILE_FORBIDDEN_V1 = [
 	'mcp/',
 ];
 
+// The repo-relative root of the v2 subproject. Any RELATIVE import that resolves OUTSIDE this tree is a
+// v1 (or cross-app) import and forbidden; one that stays inside it (e.g. the intra-core `../mcp/` package
+// directory) is fine. This is what distinguishes a genuine v1 `mcp/` import from the v2 core's own `mcp/`.
+const V2_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
+
+/**
+ * Whether a RELATIVE import escapes the v2 subproject tree (i.e. resolves to a v1/cross-app path). An
+ * absolute or bare import is handled by the prefix checks; this only judges `./` / `../` specifiers, by
+ * resolving them against the importing file's directory. Resolving the target makes the v1-path check
+ * precise: a single `../mcp/` from `src/perf/` lands inside the v2 core (allowed), while a deep
+ * `../../../../../mcp/` escapes to the repo-root v1 `mcp/` (forbidden).
+ */
+function relativeImportEscapesV2(fromFile: string, spec: string): boolean {
+	if (!spec.startsWith('.')) return false;
+	const resolved = path.resolve(path.dirname(fromFile), spec);
+	const rel = path.relative(V2_ROOT, resolved);
+	return rel.startsWith('..') || path.isAbsolute(rel);
+}
+
 function readImports(source: string): string[] {
 	const re = /(?:^|\s)(?:import|export)\s+(?:[\s\S]*?)\sfrom\s+['"]([^'"]+)['"]/g;
 	const out: string[] = [];
@@ -65,10 +84,14 @@ describe('Processing Core boundary lint', () => {
 					).toBe(false);
 				}
 				for (const v1Path of FILE_FORBIDDEN_V1) {
-					expect(
-						spec.includes(`../${v1Path}`) || spec.startsWith(`/${v1Path}`),
-						`Forbidden v1 path "${spec}" in ${file}`,
-					).toBe(false);
+					// A bare/absolute v1 path is always forbidden. A RELATIVE specifier is forbidden only when it
+					// actually RESOLVES outside the v2 subproject — so the v2 core's own `mcp/` directory, reached
+					// via a relative `../mcp/`, is allowed while a v1 `mcp/` import (which must escape `apps/v2`) is
+					// not. This keeps the ban precise rather than matching the substring `../mcp/` regardless of target.
+					const forbidden = spec.startsWith('.')
+						? relativeImportEscapesV2(file, spec)
+						: spec.includes(`../${v1Path}`) || spec.startsWith(`/${v1Path}`);
+					expect(forbidden, `Forbidden v1 path "${spec}" in ${file}`).toBe(false);
 				}
 			}
 		},

@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 6
-  active: 0
+  approved: 5
+  active: 1
   complete: 82
   deferred: 0
 metrics:
@@ -132,8 +132,8 @@ metrics:
     - domain: PERF
       totalEpics: 4
       complete: 1
-      active: 0
-      approved: 3
+      active: 1
+      approved: 2
       proposed: 0
       deferred: 0
       epicCompletionPercent: 25
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: PERF-bundles-memory-and-ai-mcp-isolation
   title: "PERF: Bundles, memory, and AI/MCP isolation"
-  status: approved
+  status: active
   requirementIds:
     - PERF-005
     - PERF-006
@@ -632,7 +632,7 @@ epics:
       - PERF-007
     completionEvidenceFile: docs/planning/v2/epics/PERF-budget-ownership-and-measurement.completion.md
   - id: PERF-bundles-memory-and-ai-mcp-isolation
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - PERF-005
