@@ -160,10 +160,30 @@ Generated planning files (workpack commands; not hand-edited):
 
 - Branch: `epic/SEC-input-and-content-safety`
 - Base/chained off: `412c892`
-- Commit SHA: recorded in the follow-up `docs(v2): record commit SHA …` commit.
+- Implementation commit SHA: `70da9610e41677584e09a1a22207cf7499c2ebd1` (`feat(v2): complete SEC-input-and-content-safety epic`)
+- Workpack-complete commit SHA: `4a43b283308c9f9bbfc0f54a2f3f6076581ce814` (`docs(v2): mark SEC-input-and-content-safety complete`)
 
 ### Final `git status --short`
 
+After the SHA-recording commit, the working tree is clean (empty `git status --short`). At the point the
+implementation + completion evidence were committed, `git status --short` was:
+
 ```
-(clean — see the recorded SHA commit; the working tree is empty after the completion commits)
+A  apps/v2/app/tests/e2e/content-safety.spec.ts
+M  apps/v2/packages/core/src/commands/content-import-export.ts
+M  apps/v2/packages/core/src/commands/types.ts
+M  apps/v2/packages/core/src/index.ts
+A  apps/v2/packages/core/src/security/content-safety.ts
+A  apps/v2/packages/core/src/security/path-safety.ts
+A  apps/v2/packages/core/src/security/payload-limits.ts
+M  apps/v2/packages/core/src/state/content-editor.ts
+M  apps/v2/packages/core/src/state/content-import.ts
+A  apps/v2/packages/core/tests/security-content-safety.test.ts
+A  apps/v2/packages/core/tests/security-import-boundary.test.ts
+A  apps/v2/packages/core/tests/security-path-safety.test.ts
+A  apps/v2/packages/core/tests/security-payload-limits.test.ts
+A  docs/planning/v2/epics/SEC-input-and-content-safety.completion.md
+M  docs/planning/v2/epics/SEC-input-and-content-safety.yaml
+M  docs/planning/v2/status.yaml
+M  docs/planning/v2/workpack-state.yaml
 ```
