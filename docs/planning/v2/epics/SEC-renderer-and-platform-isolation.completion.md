@@ -183,10 +183,13 @@ Modified:
 
 - Branch: `epic/SEC-renderer-and-platform-isolation`
 - Base: `1e40b73` (prior epic-chain tip)
-- Commit SHA (feat): recorded in the follow-up `docs(v2): record commit SHA` commit.
+- Commits:
+  - `0d47da4` feat(v2): complete SEC-renderer-and-platform-isolation epic (code + tests + completion evidence)
+  - `147a046` docs(v2): mark SEC-renderer-and-platform-isolation complete (regenerated planning files + doc fix)
+  - this `docs(v2): record commit SHA …` follow-up
 
 ### Final `git status --short`
 
 ```
-(empty — clean working tree after commits; see the recorded SHA commit)
+(empty — clean working tree after the SHA-record commit below)
 ```
