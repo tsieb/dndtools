@@ -2464,6 +2464,40 @@ export {
 	summarizeCapabilitySetGovernance,
 } from './con/capability-set-sustainability';
 
+// CON-003 + CON-006 — THE SCOPE-BOUNDARY CONSTRAINT GATE. The declared invariant that keeps v2 inside its
+// declared scope boundaries: no community marketplace / public directory / plugin ecosystem / third-party
+// compendium / i18n / public wiki (CON-003), and no new top-level platform / source / AI provider / public
+// extension surface / cloud backend assumption (CON-006) without an explicit scope/contract revision.
+// `findScopeViolation` is the fail-closed scope-review detector (reject / move to future scope) and
+// `auditScopeBoundary` is the codebase-drift audit that cross-checks the LIVE declared registries (platform
+// profiles, content sources, widget host permissions, widget author scopes) against the declared in-scope
+// allowlists. It COMPOSES the existing declared registries; it never re-implements them. Mirrors the
+// SEC-008 / PLAT-010 / CON-004 registry-gate pattern, wired into `scripts/quality-gates.ts` (`pnpm v2:gates`).
+export type {
+	InScopeWidgetDistributionScope,
+	OutOfScopeFeatureClass,
+	ScopeBoundaryProblem,
+	ScopeBoundarySummary,
+	ScopeProposal,
+	ScopeViolationFinding,
+	TopLevelScopeAxis,
+} from './con/scope-constraints';
+export {
+	DECLARED_CONTENT_SOURCES,
+	DECLARED_PLATFORM_TARGETS,
+	DECLARED_WIDGET_DISTRIBUTION_SCOPES,
+	DECLARED_WIDGET_HOST_PERMISSIONS,
+	OUT_OF_SCOPE_FEATURE_CLASSES,
+	PUBLIC_DISTRIBUTION_SIGNAL_TOKENS,
+	SCOPE_CONSTRAINTS_VERSION,
+	TOP_LEVEL_SCOPE_AXES,
+	auditScopeBoundary,
+	findScopeViolation,
+	isDeclaredInScopeForAxis,
+	isInScopeWidgetDistribution,
+	summarizeScopeBoundary,
+} from './con/scope-constraints';
+
 // SEC-010 — STREAM-PRIVACY PROOF + COVERAGE HARNESS. The shared, fail-closed proof that a player/observer
 // replication stream (or any `*ForActor` projection) carries NO hidden value/title/id/edge/snippet/count,
 // plus the replication-surface coverage enumeration so a new query surface is included in the filtering

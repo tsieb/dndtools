@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 2
-  active: 0
+  approved: 1
+  active: 1
   complete: 86
   deferred: 0
 metrics:
@@ -78,8 +78,8 @@ metrics:
     - domain: CON
       totalEpics: 3
       complete: 1
-      active: 0
-      approved: 2
+      active: 1
+      approved: 1
       proposed: 0
       deferred: 0
       epicCompletionPercent: 33.3
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: CON-scope-constraints
   title: "CON: Scope constraints"
-  status: approved
+  status: active
   requirementIds:
     - CON-003
     - CON-006
@@ -405,7 +405,7 @@ epics:
       - CON-004
     completionEvidenceFile: docs/planning/v2/epics/CON-permission-sustainability-constraints.completion.md
   - id: CON-scope-constraints
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - CON-003

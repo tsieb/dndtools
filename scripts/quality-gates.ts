@@ -10,11 +10,13 @@ import {
 } from '../apps/v2/packages/core/src/platform/quality-gates.ts';
 import { validateSupportStatus } from '../apps/v2/packages/core/src/platform/support-status.ts';
 import { auditCapabilitySetGovernance } from '../apps/v2/packages/core/src/con/capability-set-sustainability.ts';
+import { auditScopeBoundary } from '../apps/v2/packages/core/src/con/scope-constraints.ts';
 
 /**
- * PLAT-010 + PLAT-014 + CON-004 enforcement: validate the DECLARED quality-gate registry, the platform
- * support-status artifact, and the permission-sustainability constraint (the single sources of truth in
- * `@dndtools/v2-core`) against the actual repository and fail CLOSED.
+ * PLAT-010 + PLAT-014 + CON-004 + CON-003/CON-006 enforcement: validate the DECLARED quality-gate registry,
+ * the platform support-status artifact, the permission-sustainability constraint, and the scope-boundary
+ * constraint (the single sources of truth in `@dndtools/v2-core`) against the actual repository and fail
+ * CLOSED.
  *
  * This does NOT rewrite the test runner. It cross-checks that:
  *
@@ -32,6 +34,12 @@ import { auditCapabilitySetGovernance } from '../apps/v2/packages/core/src/con/c
  *     entity type exceeds the declared per-type cap. An ungoverned/undocumented set or an over-cap
  *     entity type fails the gate, so the named-capability-set model can never silently drift into an
  *     unmanageable per-instance field-list surface.
+ *   - (CON-003 / CON-006 scope-boundary gate) the LIVE declared registries stay within declared scope:
+ *     every registered platform profile, content source, and widget host permission is in the declared
+ *     in-scope allowlist, and every installed widget's distribution scope stays vault-local/workspace-local/
+ *     system. A new top-level platform/source/extension surface or an out-of-scope widget distribution
+ *     channel fails the gate, so v2 can never silently drift past its declared scope without an explicit
+ *     scope/contract revision.
  *
  * Exit code 1 on any problem so the gate fails closed in CI and pre-push.
  */
@@ -88,6 +96,14 @@ export function runQualityGateCheck(
 				gateId: `con-004:${problem.entityType}${problem.capabilitySet ? `/${problem.capabilitySet}` : ''}`,
 				kind: 'permission-sustainability-violation',
 				message: `[CON-004] ${problem.message}`,
+			}),
+		),
+		// CON-003 / CON-006 scope-boundary gate: the live registries must stay within declared scope.
+		...auditScopeBoundary().map(
+			(problem): GateProblem => ({
+				gateId: `${problem.requirementId.toLowerCase()}:${problem.axis}/${problem.value}`,
+				kind: 'scope-constraint-violation',
+				message: `[${problem.requirementId}] ${problem.message}`,
 			}),
 		),
 	];

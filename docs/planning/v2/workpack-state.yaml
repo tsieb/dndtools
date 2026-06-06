@@ -119,6 +119,8 @@ epics:
   - id: CON-permission-sustainability-constraints
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CON-permission-sustainability-constraints.completion.md
+  - id: CON-scope-constraints
+    status: active
   - id: CONTENT-calendar-custom-time-content
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CONTENT-calendar-custom-time-content.completion.md

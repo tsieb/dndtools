@@ -259,7 +259,11 @@ export type GateProblemKind =
 	| 'support-status-violation'
 	// CON-004 permission-sustainability block surfaced through the same gate runner (the
 	// capability-set model drifted past its bound or offered an ungoverned/undocumented set).
-	| 'permission-sustainability-violation';
+	| 'permission-sustainability-violation'
+	// CON-003 / CON-006 scope-boundary block surfaced through the same gate runner (a live registry
+	// grew a new top-level platform/source/host-permission surface or an out-of-scope widget
+	// distribution channel without an explicit scope/contract revision).
+	| 'scope-constraint-violation';
 
 export interface GateProblem {
 	readonly gateId: string;
