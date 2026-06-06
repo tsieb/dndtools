@@ -234,7 +234,8 @@ epics:
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SEC-renderer-and-platform-isolation.completion.md
   - id: SEC-secrets-and-cloud-collaboration
-    status: active
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SEC-secrets-and-cloud-collaboration.completion.md
   - id: SES-combat
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SES-combat.completion.md

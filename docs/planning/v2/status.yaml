@@ -16,19 +16,19 @@ summary:
   totalEpics: 88
   proposed: 0
   approved: 7
-  active: 1
-  complete: 80
+  active: 0
+  complete: 81
   deferred: 0
 metrics:
-  epicCompletionPercent: 90.9
-  requirementCompletionPercent: 91.9
+  epicCompletionPercent: 92
+  requirementCompletionPercent: 93.6
   totalRequirements: 234
-  completedRequirements: 215
+  completedRequirements: 219
   deferredRequirements: 0
-  remainingEpics: 8
-  promptableEpics: 8
+  remainingEpics: 7
+  promptableEpics: 7
   blockedByDependencies: 0
-  completionEvidenceFiles: 80
+  completionEvidenceFiles: 81
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -158,13 +158,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: SEC
       totalEpics: 4
-      complete: 3
-      active: 1
+      complete: 4
+      active: 0
       approved: 0
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 75
-      requirementCompletionPercent: 66.7
+      epicCompletionPercent: 100
+      requirementCompletionPercent: 100
     - domain: SES
       totalEpics: 5
       complete: 5
@@ -193,18 +193,16 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: SEC-secrets-and-cloud-collaboration
-  title: "SEC: Secrets and cloud collaboration"
-  status: active
+  id: PERF-budget-ownership-and-measurement
+  title: "PERF: Budget ownership and measurement"
+  status: approved
   requirementIds:
-    - SEC-004
-    - SEC-005
-    - SEC-009
-    - SEC-012
-  promptCommand: pnpm v2:prompt -- --epic SEC-secrets-and-cloud-collaboration
+    - PERF-001
+    - PERF-007
+  promptCommand: pnpm v2:prompt -- --epic PERF-budget-ownership-and-measurement
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    SEC-secrets-and-cloud-collaboration --status active
+    PERF-budget-ownership-and-measurement --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: complete
@@ -746,13 +744,14 @@ epics:
       - SEC-007
     completionEvidenceFile: docs/planning/v2/epics/SEC-renderer-and-platform-isolation.completion.md
   - id: SEC-secrets-and-cloud-collaboration
-    status: active
+    status: complete
     approved: true
     requirementIds:
       - SEC-004
       - SEC-005
       - SEC-009
       - SEC-012
+    completionEvidenceFile: docs/planning/v2/epics/SEC-secrets-and-cloud-collaboration.completion.md
   - id: SES-combat
     status: complete
     approved: true
