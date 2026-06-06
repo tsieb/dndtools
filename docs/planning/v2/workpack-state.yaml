@@ -228,7 +228,8 @@ epics:
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SEC-input-and-content-safety.completion.md
   - id: SEC-regression-gates-and-stream-privacy
-    status: active
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/SEC-regression-gates-and-stream-privacy.completion.md
   - id: SES-combat
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/SES-combat.completion.md

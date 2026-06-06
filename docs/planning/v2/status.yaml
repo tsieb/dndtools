@@ -16,19 +16,19 @@ summary:
   totalEpics: 88
   proposed: 0
   approved: 9
-  active: 1
-  complete: 78
+  active: 0
+  complete: 79
   deferred: 0
 metrics:
-  epicCompletionPercent: 88.6
-  requirementCompletionPercent: 89.7
+  epicCompletionPercent: 89.8
+  requirementCompletionPercent: 91
   totalRequirements: 234
-  completedRequirements: 210
+  completedRequirements: 213
   deferredRequirements: 0
-  remainingEpics: 10
-  promptableEpics: 10
+  remainingEpics: 9
+  promptableEpics: 9
   blockedByDependencies: 0
-  completionEvidenceFiles: 78
+  completionEvidenceFiles: 79
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -158,13 +158,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: SEC
       totalEpics: 4
-      complete: 1
-      active: 1
+      complete: 2
+      active: 0
       approved: 2
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 25
-      requirementCompletionPercent: 25
+      epicCompletionPercent: 50
+      requirementCompletionPercent: 50
     - domain: SES
       totalEpics: 5
       complete: 5
@@ -193,17 +193,16 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: SEC-regression-gates-and-stream-privacy
-  title: "SEC: Regression gates and stream privacy"
-  status: active
+  id: SEC-renderer-and-platform-isolation
+  title: "SEC: Renderer and platform isolation"
+  status: approved
   requirementIds:
-    - SEC-008
-    - SEC-010
-    - SEC-011
-  promptCommand: pnpm v2:prompt -- --epic SEC-regression-gates-and-stream-privacy
+    - SEC-001
+    - SEC-007
+  promptCommand: pnpm v2:prompt -- --epic SEC-renderer-and-platform-isolation
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    SEC-regression-gates-and-stream-privacy --status active
+    SEC-renderer-and-platform-isolation --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: complete
@@ -730,12 +729,13 @@ epics:
       - SEC-006
     completionEvidenceFile: docs/planning/v2/epics/SEC-input-and-content-safety.completion.md
   - id: SEC-regression-gates-and-stream-privacy
-    status: active
+    status: complete
     approved: true
     requirementIds:
       - SEC-008
       - SEC-010
       - SEC-011
+    completionEvidenceFile: docs/planning/v2/epics/SEC-regression-gates-and-stream-privacy.completion.md
   - id: SEC-renderer-and-platform-isolation
     status: approved
     approved: true
