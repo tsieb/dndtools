@@ -209,6 +209,8 @@ epics:
   - id: PERF-scene-and-map-rendering
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PERF-scene-and-map-rendering.completion.md
+  - id: PERF-search-graph-and-sync-responsiveness
+    status: active
   - id: PERM-base-roles-and-observer-limits
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PERM-base-roles-and-observer-limits.completion.md

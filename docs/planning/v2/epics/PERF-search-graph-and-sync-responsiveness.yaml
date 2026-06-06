@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: PERF-search-graph-and-sync-responsiveness
 title: "PERF: Search, graph, and sync responsiveness"
-status: approved
+status: active
 approved: true
 domain: PERF
 capabilityBranch: Search, graph, and sync responsiveness

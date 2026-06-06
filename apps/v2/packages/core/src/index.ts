@@ -1906,6 +1906,58 @@ export {
 	measureWidgetUpdate,
 } from './perf/scene-map-render';
 
+// PERF-004 / PERF-008 — SEARCH, GRAPH, AND SYNC RESPONSIVENESS COST MODELS + MEASUREMENT. Composes the
+// PERF-001 registry + PERF-007 measureBudget to grade a search query, a graph/search incremental index
+// update, and a sync reconciliation replay against the budgets the registry ALREADY owns (`search`,
+// `graph-indexing`, `sync-reconciliation`). PERF-004: an index-update cost model where an INCREMENTAL
+// one-changed-note update costs far less than a FULL recompute over the whole vault, measured DISTINCTLY
+// (AC1), plus search/graph responsiveness reports that surface the SRCH/GRAPH stale/partial freshness
+// WITHOUT blocking cached results (AC2 — composing `state/search-index.ts` + `state/graph-index.ts`).
+// PERF-008: a reconciliation cost model over an op-batch (AC1), a foreground-during-background-work check
+// that grades a concurrent search/navigate/advance-combat command against ITS OWN budget (AC1), and a
+// resumable-batch plan that resumes from a checkpoint or restarts with a visible diagnostic (AC2). Fail
+// closed: unmeasured = unknown; large index/op-batch over budget = breach; exactly-at-threshold passes; a
+// missing/corrupt checkpoint restarts rather than resuming wrongly. Live indexer/replay timing capture is
+// deferred per ADR-014 — this owns the declared budgets + the deterministic cost models + resumption plan.
+export type {
+	BackgroundWorkCheckpoint,
+	BatchResumptionAction,
+	BatchResumptionPlan,
+	BatchRestartReason,
+	ForegroundCommandKind,
+	GraphNavigationReport,
+	IndexUpdateComplexity,
+	IndexUpdateCostModel,
+	IndexUpdateEstimate,
+	IndexUpdateMode,
+	ReconciliationComplexity,
+	ReconciliationCostModel,
+	ReconciliationEstimate,
+	SearchQueryComplexity,
+	SearchQueryCostModel,
+	SearchQueryEstimate,
+	SearchResponsivenessReport,
+} from './perf/search-graph-sync';
+export {
+	DEFAULT_INDEX_UPDATE_COST_MODEL,
+	DEFAULT_RECONCILIATION_COST_MODEL,
+	DEFAULT_SEARCH_QUERY_COST_MODEL,
+	GRAPH_INDEXING_BUDGET_ID,
+	SEARCH_BUDGET_ID,
+	SYNC_RECONCILIATION_BUDGET_ID,
+	estimateIndexUpdateCost,
+	estimateReconciliationCost,
+	estimateSearchQueryCost,
+	foregroundBudgetIdFor,
+	measureForegroundDuringBackgroundWork,
+	measureIndexUpdate,
+	measureReconciliation,
+	measureSearchQuery,
+	planBatchResumption,
+	reportGraphNavigation,
+	reportSearchResponsiveness,
+} from './perf/search-graph-sync';
+
 // PLAT-013: fresh-vault onboarding, feature-tier visibility, maturity gates, help surfaces, and
 // first-run Command Center setup — modeled in the core so the GUI renders from query results.
 export type {

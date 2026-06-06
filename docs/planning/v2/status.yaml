@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 4
-  active: 0
+  approved: 3
+  active: 1
   complete: 84
   deferred: 0
 metrics:
@@ -132,8 +132,8 @@ metrics:
     - domain: PERF
       totalEpics: 4
       complete: 3
-      active: 0
-      approved: 1
+      active: 1
+      approved: 0
       proposed: 0
       deferred: 0
       epicCompletionPercent: 75
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: PERF-search-graph-and-sync-responsiveness
   title: "PERF: Search, graph, and sync responsiveness"
-  status: approved
+  status: active
   requirementIds:
     - PERF-004
     - PERF-008
@@ -646,7 +646,7 @@ epics:
       - PERF-003
     completionEvidenceFile: docs/planning/v2/epics/PERF-scene-and-map-rendering.completion.md
   - id: PERF-search-graph-and-sync-responsiveness
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - PERF-004
