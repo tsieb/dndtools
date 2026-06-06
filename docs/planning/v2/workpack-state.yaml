@@ -206,6 +206,8 @@ epics:
   - id: PERF-bundles-memory-and-ai-mcp-isolation
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PERF-bundles-memory-and-ai-mcp-isolation.completion.md
+  - id: PERF-scene-and-map-rendering
+    status: active
   - id: PERM-base-roles-and-observer-limits
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PERM-base-roles-and-observer-limits.completion.md

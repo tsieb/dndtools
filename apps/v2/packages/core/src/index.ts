@@ -1862,6 +1862,50 @@ export {
 	sanitizePerfTrace,
 } from './perf/diagnostics-privacy';
 
+// PERF-002 / PERF-003 — SCENE + MAP RENDER COST MODEL + MEASUREMENT. Composes the PERF-001 registry +
+// PERF-007 measureBudget to grade a Scene first-render estimate, a widget-update latency, and a map
+// pan/zoom frame rate against the budgets the registry ALREADY owns. PERF-002: a deterministic Scene
+// render-cost model where offscreen/collapsed widgets pay only bookkeeping (virtualization, AC1) plus a
+// backpressure evaluator that flags an unbounded high-frequency subscription (AC2). PERF-003: a
+// deterministic map frame-rate model graded against the desktop OR slim floor distinctly by device
+// class (AC1) plus an incremental-fog analysis that repaints only affected regions, failing closed to a
+// full repaint where region invalidation is unsupported (AC2). Fail closed: unmeasured = unknown; heavy
+// Scene/map = breach; unbounded subscription = breach; exactly-at-threshold passes. Live raf/GPU timing
+// capture is deferred per ADR-014 — this owns the declared budgets + the deterministic render model.
+export type {
+	BackpressurePolicyKind,
+	BackpressureProblemKind,
+	BackpressureResult,
+	FogRegionUpdateAnalysis,
+	MapFrameEstimate,
+	MapRenderComplexity,
+	MapRenderCostModel,
+	RenderDeviceClass,
+	RenderLayerRegion,
+	RenderRegion,
+	SceneRenderCostModel,
+	SceneRenderEstimate,
+	SceneWidgetComplexity,
+	SubscriptionBackpressure,
+} from './perf/scene-map-render';
+export {
+	DEFAULT_MAP_RENDER_COST_MODEL,
+	DEFAULT_RENDER_STARVATION_RATE,
+	DEFAULT_SCENE_RENDER_COST_MODEL,
+	MAP_PAN_ZOOM_DESKTOP_BUDGET_ID,
+	MAP_PAN_ZOOM_SLIM_BUDGET_ID,
+	SCENE_FIRST_RENDER_BUDGET_ID,
+	WIDGET_UPDATE_BUDGET_ID,
+	analyzeFogRegionUpdate,
+	estimateMapFrameRate,
+	estimateSceneRenderCost,
+	evaluateSubscriptionBackpressure,
+	mapPanZoomBudgetIdForDeviceClass,
+	measureMapPanZoom,
+	measureSceneFirstRender,
+	measureWidgetUpdate,
+} from './perf/scene-map-render';
+
 // PLAT-013: fresh-vault onboarding, feature-tier visibility, maturity gates, help surfaces, and
 // first-run Command Center setup — modeled in the core so the GUI renders from query results.
 export type {

@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 5
-  active: 0
+  approved: 4
+  active: 1
   complete: 83
   deferred: 0
 metrics:
@@ -132,8 +132,8 @@ metrics:
     - domain: PERF
       totalEpics: 4
       complete: 2
-      active: 0
-      approved: 2
+      active: 1
+      approved: 1
       proposed: 0
       deferred: 0
       epicCompletionPercent: 50
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: PERF-scene-and-map-rendering
   title: "PERF: Scene and map rendering"
-  status: approved
+  status: active
   requirementIds:
     - PERF-002
     - PERF-003
@@ -639,7 +639,7 @@ epics:
       - PERF-009
     completionEvidenceFile: docs/planning/v2/epics/PERF-bundles-memory-and-ai-mcp-isolation.completion.md
   - id: PERF-scene-and-map-rendering
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - PERF-002

@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: PERF-scene-and-map-rendering
 title: "PERF: Scene and map rendering"
-status: approved
+status: active
 approved: true
 domain: PERF
 capabilityBranch: Scene and map rendering
