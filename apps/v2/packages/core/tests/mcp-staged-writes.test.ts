@@ -5,6 +5,7 @@ import {
 	PLAYER_ACTOR,
 	buildInitialState,
 	makeEnvironment,
+	withMcpEnabled,
 } from '../src/testing/fixtures';
 import { z } from 'zod';
 import {
@@ -57,7 +58,7 @@ function staged(output: McpAgentInvokeOutput): Extract<McpAgentInvokeOutput['res
 
 /** Bind `agent-dm` → DM under strict_review with note.create allowlisted. */
 function seedDmAgent(mode: string = 'strict_review'): CoreStateSlice {
-	let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
+	let state = withMcpEnabled(buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR));
 	state = accepted(
 		dispatchCommand(state, env, {
 			type: 'mcp.set-agent-binding',
@@ -185,7 +186,7 @@ describe('MCP-003 AC3 — balanced batches low-risk staged changes for one appro
 				title: 'Low-risk note append (staged)',
 			},
 		]);
-		let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
+		let state = withMcpEnabled(buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR));
 		state = accepted(
 			dispatchCommand(state, env, {
 				type: 'mcp.set-agent-binding',
@@ -218,7 +219,7 @@ describe('MCP-003 / escalation via staged write — a player gains no authority 
 		// Seed a player-bound agent allowed to stage a note-create. The note-create command itself is DM-only
 		// (content is dm-authored), so the staged write must be BLOCKED at approval by the bound command —
 		// the player cannot escalate by routing through a proposal.
-		let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
+		let state = withMcpEnabled(buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR));
 		state = accepted(
 			dispatchCommand(state, env, {
 				type: 'mcp.set-agent-binding',
@@ -300,7 +301,7 @@ function hpAdjustRegistry(): McpToolRegistry {
 
 describe('MCP-003 / approval after revocation — a grant revoked since staging blocks the commit', () => {
 	it('a staged write whose grant was revoked between staging and approval is rejected (re-validated at commit)', () => {
-		let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
+		let state = withMcpEnabled(buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR));
 
 		// DM creates a player-visible character and starts an active session (combat-resource writes are
 		// active-session-gated). Then grant the player `combat-participant` so they MAY edit HP.
@@ -389,7 +390,7 @@ describe('MCP-003 / approval after revocation — a grant revoked since staging 
 	});
 
 	it('the SAME staged write commits cleanly when the grant is still in place at approval', () => {
-		let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
+		let state = withMcpEnabled(buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR));
 		state = accepted(
 			dispatchCommand(state, env, {
 				type: 'character.quick-create',

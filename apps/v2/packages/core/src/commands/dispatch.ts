@@ -194,6 +194,7 @@ import {
 	handleRemoveMcpAgentBinding,
 	handleSetMcpAgentBinding,
 	handleSetMcpAgentPolicy,
+	handleSetMcpEnabled,
 	handleSetMcpVaultDefault,
 } from './mcp-policy';
 import { EMPTY_MAP_IMPORT_ADAPTER_REGISTRY } from '../state/map-import';
@@ -540,6 +541,8 @@ export function dispatchCommand(
 			return handleSetSessionAudioVolume(state, env, command.actorId, command.payload);
 		case 'session.audio.project':
 			return handleProjectSessionAudio(state, env, command.actorId, command.payload);
+		case 'mcp.set-enabled':
+			return handleSetMcpEnabled(state, env, command.actorId, command.payload);
 		case 'mcp.set-agent-binding':
 			return handleSetMcpAgentBinding(state, env, command.actorId, command.payload);
 		case 'mcp.remove-agent-binding':

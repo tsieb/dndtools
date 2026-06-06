@@ -79,13 +79,16 @@ export type McpToolDefinition =
  * tests share ONE source of truth and a typo can never silently introduce an unrouted tool.
  */
 export const MCP_BASELINE_TOOL_IDS = [
-	// Baseline READ tools (MCP-002): vault summary, note read/list/search, graph context, character query.
+	// Baseline READ tools (MCP-002): vault summary, note read/list/search, graph context, character query,
+	// dice roll, and session prep bundles — the exact minimum set the requirement statement names.
 	'vault.summary',
 	'note.read',
 	'note.list',
 	'note.search',
 	'graph.context',
 	'character.query',
+	'dice.roll',
+	'session.prep',
 	// A representative WRITE tool whose enforcement this branch proves end-to-end (the staged note
 	// create — Glossary "Staged Write" / MCP-004 AC2). It dispatches the existing content-create command.
 	'note.create',
@@ -156,6 +159,30 @@ export const mcpNoteSearchInputSchema = z
 export const mcpGraphContextInputSchema = z.object({ nodeId: nonEmpty }).strict();
 
 /**
+ * The dice-roll tool input: a dice EXPRESSION (`2d20kh1+5`) + an EXPLICIT seed. The seed is REQUIRED so the
+ * roll is DETERMINISTIC and reproducible (SES-003) — the agent supplies the entropy source, and the same
+ * (expression, seed) always yields the identical result on every device. A malformed expression is rejected
+ * by the dice engine fail-closed (it never silently evaluates). The seed accepts a number or a string token.
+ */
+export const mcpDiceRollInputSchema = z
+	.object({
+		expression: nonEmpty,
+		seed: z.union([z.number(), z.string().min(1)]),
+	})
+	.strict();
+
+/**
+ * The session-prep bundle tool input: an optional `mode` (`prep` looks forward, `recap` looks back).
+ * Defaults to `prep`. The bundle itself is DM-FACING and fail-closed — a non-DM agent receives an EMPTY
+ * digest (no prep/recap content, no hidden source data), enforced by the composed `getPrepRecapDigest`.
+ */
+export const mcpSessionPrepInputSchema = z
+	.object({
+		mode: z.enum(['prep', 'recap']).default('prep'),
+	})
+	.strict();
+
+/**
  * The note-create WRITE tool input. This mirrors the MINIMUM the `content.create-item` command
  * needs; the command still re-validates the full payload (and an MCP author can never widen
  * visibility — the command defaults visibility fail-closed to `dm-only`). The visibility is NOT an
@@ -217,6 +244,25 @@ export function createBaselineMcpToolRegistry(): McpToolRegistry {
 			queryId: 'character.list',
 			inputSchema: mcpEmptyInputSchema,
 			title: 'Query characters',
+		},
+		{
+			id: 'dice.roll',
+			kind: 'read',
+			// dice.roll — the PURE, deterministic dice engine (SES-003). Modeled as a read tool: it returns
+			// computed data and mutates nothing (a roll is durable only when a write command records it, which
+			// this tool does NOT do). The agent supplies the seed, so the result is reproducible.
+			queryId: 'dice.roll',
+			inputSchema: mcpDiceRollInputSchema,
+			title: 'Roll dice',
+		},
+		{
+			id: 'session.prep',
+			kind: 'read',
+			// session.prep — the DM-facing prep/recap bundle (SES-009). Composed from the actor-filtered digest,
+			// so a non-DM agent receives an empty bundle (no hidden source content leaks — MCP-002 AC2).
+			queryId: 'session.prep-digest',
+			inputSchema: mcpSessionPrepInputSchema,
+			title: 'Session prep bundle',
 		},
 		{
 			id: 'note.create',

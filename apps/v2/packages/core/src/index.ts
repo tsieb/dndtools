@@ -3379,10 +3379,12 @@ export {
 	ensureAudioState,
 } from './state/audio-state';
 
-// MCP-003 / MCP-009 / MCP-011 — the durable MCP IDENTITY, POLICY, and STAGED-WRITES VaultState slice:
-// agent → scoped actor bindings (MCP-011), per-agent policy modes + tool allowlists + audit visibility
-// (MCP-009), pending staged proposals (MCP-003), the append-only write audit trail (MCP-011 AC2), and the
-// vault default posture. Fail-closed hydration: an unknown mode/status collapses to the most restrictive.
+// MCP-001 / MCP-003 / MCP-009 / MCP-011 — the durable MCP IDENTITY, POLICY, and STAGED-WRITES VaultState
+// slice: the vault-wide MASTER ENABLE switch (MCP-001 — off by default, fail-closed on hydration), agent →
+// scoped actor bindings (MCP-011), per-agent policy modes + tool allowlists + audit visibility (MCP-009),
+// pending staged proposals (MCP-003), the append-only write audit trail (MCP-011 AC2), and the vault
+// default posture. Fail-closed hydration: MCP restores OFF; an unknown mode/status collapses to the most
+// restrictive.
 export type {
 	McpAgentBinding,
 	McpAgentPolicy,
@@ -3400,6 +3402,7 @@ export {
 	MCP_POLICY_MODES,
 	MCP_POLICY_STATE_SCHEMA_VERSION,
 	ensureMcpPolicyState,
+	isMcpEnabled,
 	isMcpPolicyMode,
 	mcpBindingByAgentId,
 	mcpPolicyByAgentId,
@@ -3617,11 +3620,13 @@ export {
 	MCP_BASELINE_TOOL_IDS,
 	createBaselineMcpToolRegistry,
 	createMcpToolRegistry,
+	mcpDiceRollInputSchema,
 	mcpEmptyInputSchema,
 	mcpEntityIdInputSchema,
 	mcpGraphContextInputSchema,
 	mcpNoteCreateInputSchema,
 	mcpNoteSearchInputSchema,
+	mcpSessionPrepInputSchema,
 } from './mcp/tool-registry';
 export type {
 	McpDenyReason,

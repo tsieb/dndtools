@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 14
-  active: 0
+  approved: 13
+  active: 1
   complete: 74
   deferred: 0
 metrics:
@@ -114,8 +114,8 @@ metrics:
     - domain: MCP
       totalEpics: 5
       complete: 2
-      active: 0
-      approved: 3
+      active: 1
+      approved: 2
       proposed: 0
       deferred: 0
       epicCompletionPercent: 40
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: MCP-optionality-and-baseline-tools
   title: "MCP: Optionality and baseline tools"
-  status: approved
+  status: active
   requirementIds:
     - MCP-001
     - MCP-002
@@ -567,7 +567,7 @@ epics:
       - MCP-011
     completionEvidenceFile: docs/planning/v2/epics/MCP-identity-policy-and-staged-writes.completion.md
   - id: MCP-optionality-and-baseline-tools
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - MCP-001

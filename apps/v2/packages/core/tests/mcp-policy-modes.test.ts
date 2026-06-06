@@ -49,9 +49,18 @@ function denied(output: McpAgentInvokeOutput): Extract<McpAgentInvokeOutput['res
 	return output.result;
 }
 
-/** Seed a DM-bound agent (`agent-dm`) without a policy yet, plus the player/observer actors. */
+/** Seed a DM-bound agent (`agent-dm`) without a policy yet, plus the player/observer actors. MCP enabled. */
 function seedBoundAgent(): CoreStateSlice {
 	let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
+	// MCP-001 — MCP is OFF by default; enable it (as the DM) so these tests exercise the per-agent POLICY
+	// layer rather than the master gate (which is covered by the dedicated MCP-001 optionality tests).
+	state = accepted(
+		dispatchCommand(state, env, {
+			type: 'mcp.set-enabled',
+			actorId: DM_ACTOR.id,
+			payload: { enabled: true },
+		}),
+	).nextState;
 	state = accepted(
 		dispatchCommand(state, env, {
 			type: 'mcp.set-agent-binding',

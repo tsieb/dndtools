@@ -2171,6 +2171,15 @@ export const projectSessionAudioInputSchema = z
 
 const mcpPolicyModeSchema = z.enum(['disabled', 'strict_review', 'balanced', 'trusted_direct']);
 
+// MCP-001 — flip the vault-wide MASTER ENABLE switch. Enabling is an EXPLICIT DM action (the integration is
+// off by default); disabling cleanly removes all agent capability. The single boolean carries no other
+// policy — per-agent modes/allowlists are unchanged, but no tool resolves while the master switch is off.
+export const setMcpEnabledInputSchema = z
+	.object({
+		enabled: z.boolean(),
+	})
+	.strict();
+
 // MCP-011 — bind an MCP agent CONNECTION to a SCOPED registered actor. The bound actor must exist (the
 // handler rejects an unknown actor fail-closed). A binding confers no capability; it only names whose
 // view the agent speaks as. The label is a DM-facing description.

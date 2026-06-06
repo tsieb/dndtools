@@ -63,6 +63,15 @@ export function buildPermissionState(...actors: Actor[]): PermissionState {
 	return { actors: map, grants: [], schemaVersion: PERMISSION_STATE_SCHEMA_VERSION };
 }
 
+/**
+ * MCP-001 — return a copy of `state` with the vault-wide MCP master switch turned ON. A pure test helper
+ * (no env/op needed): MCP is OFF by default in `buildInitialState`, so any test exercising the agent
+ * identity/policy/staged-write pipeline must first enable MCP, exactly as a DM would via `mcp.set-enabled`.
+ */
+export function withMcpEnabled(state: CoreStateSlice): CoreStateSlice {
+	return { ...state, mcp: { ...state.mcp, enabled: true } };
+}
+
 export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 	return {
 		scenes: {
@@ -127,6 +136,7 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			schemaVersion: EMPTY_AUDIO_STATE.schemaVersion,
 		},
 		mcp: {
+			enabled: EMPTY_MCP_POLICY_STATE.enabled,
 			bindings: { ...EMPTY_MCP_POLICY_STATE.bindings },
 			policies: { ...EMPTY_MCP_POLICY_STATE.policies },
 			proposals: { ...EMPTY_MCP_POLICY_STATE.proposals },

@@ -4,6 +4,7 @@ import {
 	removeMcpAgentBindingInputSchema,
 	setMcpAgentBindingInputSchema,
 	setMcpAgentPolicyInputSchema,
+	setMcpEnabledInputSchema,
 	setMcpVaultDefaultInputSchema,
 } from '../schemas/commands';
 import {
@@ -243,6 +244,44 @@ export function handleSetMcpAgentPolicy(
 				actorId: actor.id,
 			},
 		],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * MCP-001 — flip the vault-wide MASTER ENABLE switch. DM-only and the ONLY way to turn the entire MCP/agent
+ * integration on (it is off by default). Enabling is an explicit DM action; disabling cleanly removes all
+ * agent capability — every later agent tool call is denied at the master gate regardless of per-agent
+ * policy, with no durable mutation of bindings/policies/proposals (turning MCP back on restores them
+ * unchanged). The change appends a durable op so it replays in order across devices.
+ */
+export function handleSetMcpEnabled(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(setMcpEnabledInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const input = parsed.data;
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: MCP_POLICY_ENTITY_TYPE,
+		entityId: 'vault-enabled',
+		opType: 'mcp.set-enabled',
+		path: 'enabled',
+		value: { enabled: input.enabled },
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withMcp({ ...state, sync: nextLog }, { ...state.mcp, enabled: input.enabled }),
+		events: [{ kind: 'mcp.enabled-changed', enabled: input.enabled, actorId: actor.id }],
 		operationIds: [op.id],
 	};
 }

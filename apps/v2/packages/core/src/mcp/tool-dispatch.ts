@@ -6,6 +6,8 @@ import { getContentItemsForActor, getContentItemDetailForActor } from '../querie
 import { listCharactersForActor } from '../queries/character-query';
 import { searchVaultForActor } from '../queries/search-query';
 import { getGraphRelationships } from '../queries/graph-api';
+import { getPrepRecapDigest } from '../queries/prep-recap-digest';
+import { rollExpression } from '../state/dice';
 
 /**
  * MCP-004 / MCP-011 (composition seam) — the SINGLE, FAIL-CLOSED ENTRY POINT for every MCP tool call.
@@ -176,6 +178,31 @@ function runReadTool(
 			// character.query — the actor-filtered character roster (hidden NPCs omitted; dm-only fields
 			// stripped). MCP-004 AC1 keystone: a non-DM agent never receives a hidden character field.
 			return listCharactersForActor(state.characters, state.permissions, actorId);
+		case 'dice.roll': {
+			// dice.roll — the PURE, deterministic dice engine (SES-003). It reads NO vault state, so there is
+			// nothing to visibility-filter; the actor is irrelevant to the result. The agent's seed makes the
+			// roll reproducible, and a malformed expression returns a structured parse error fail-closed (the
+			// roll is never silently produced). The envelope carries the recorded result or the parse error.
+			const { expression, seed } = input as { expression: string; seed: number | string };
+			const rolled = rollExpression(expression, seed);
+			return rolled.ok ? { ok: true, result: rolled.result } : { ok: false, error: rolled.error };
+		}
+		case 'session.prep-digest': {
+			// session.prep — the DM-facing prep/recap bundle (SES-009), composed from the ALREADY actor-filtered
+			// digest. A non-DM actor receives an EMPTY digest (no prep/recap content, no hidden source data —
+			// MCP-002 AC2), so the agent inherits the same DM-only fail-closed gate a human gets.
+			const { mode } = input as { mode: 'prep' | 'recap' };
+			return getPrepRecapDigest(
+				state.session,
+				state.content,
+				state.maps,
+				state.characters,
+				state.permissions,
+				state.sync,
+				actorId,
+				mode,
+			);
+		}
 		default:
 			// Defensive: a registered read tool whose queryId is unrouted reads NOTHING (fail closed).
 			// Unreachable for the baseline registry; guards a future tool added without a route.

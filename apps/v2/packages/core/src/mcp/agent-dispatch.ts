@@ -11,10 +11,15 @@ import { decidePolicy, type McpPolicyDenyReason } from './policy';
 import { invokeMcpTool, type McpToolInvocation, type McpToolResult } from './tool-dispatch';
 
 /**
- * MCP-003 / MCP-009 / MCP-011 — THE agent-facing entry point that COMPOSES the whole identity + policy +
- * staged-write contract onto the prior epic's fail-closed tool dispatch. The previous MCP epic left three
- * explicit seams; this is where they are tied together, IN ORDER and each gate fail-closed:
+ * MCP-001 / MCP-003 / MCP-009 / MCP-011 — THE agent-facing entry point that COMPOSES the whole optionality +
+ * identity + policy + staged-write contract onto the prior epic's fail-closed tool dispatch. The previous
+ * MCP epics left explicit seams; this is where they are tied together, IN ORDER and each gate fail-closed:
  *
+ *   0. OPTIONALITY (MCP-001) — the vault-wide MASTER ENABLE switch is checked FIRST. When MCP is DISABLED
+ *      (the default), EVERY tool call (read or write, known or unknown tool) is denied at this master gate
+ *      BEFORE identity resolves, before policy is read, and before any core query/command runs. There is no
+ *      agent side-channel when MCP is off; core app functionality is wholly unaffected. The denial message
+ *      is generic ("MCP is disabled for this vault") and leaks nothing about agents, policies, or proposals.
  *   1. IDENTITY (MCP-011) — resolve the agent CONNECTION to a SCOPED vault actor + role + policy profile
  *      + audit identity. An unmapped agent or a binding to an unregistered actor is DENIED here, BEFORE any
  *      core query/command runs. The agent then acts as exactly that actor — never widened.
@@ -36,8 +41,10 @@ import { invokeMcpTool, type McpToolInvocation, type McpToolResult } from './too
  * target entity. Per ADR-014 the MCP transport is deferred; this composes only Processing-Core surfaces.
  */
 
-/** Why an agent tool call was denied at the identity OR policy layer, BEFORE any core query/command ran. */
+/** Why an agent tool call was denied at the optionality, identity, OR policy layer, BEFORE any query ran. */
 export type McpAgentDenyReason =
+	/** MCP-001 — the vault-wide MCP master switch is OFF (the default); no agent capability exists. */
+	| 'mcp-disabled'
 	| McpIdentityDenyReason
 	| McpPolicyDenyReason
 	/** The tool id is not in the registry allowlist (unknown tool). */
@@ -122,7 +129,16 @@ export function invokeMcpToolAsAgent(
 	registry: McpToolRegistry,
 	invocation: McpAgentInvocation,
 ): McpAgentInvokeOutput {
-	// Gate 0 — UNKNOWN TOOL. Resolve the tool first so the allowlist/route can read its kind + write risk.
+	// Gate 0a — OPTIONALITY (MCP-001). The vault-wide master switch is checked FIRST: when MCP is OFF (the
+	// default) EVERY agent tool call — read or write, known or unknown tool — is denied here BEFORE the tool
+	// is even resolved, before identity, before policy, and before any core query/command. No agent
+	// capability exists when MCP is disabled, and the generic message leaks nothing (MCP-001 AC2: an
+	// MCP-only call while disabled returns disabled status without touching core state).
+	if (!state.mcp.enabled) {
+		return agentDenied(state, invocation.toolId, 'mcp-disabled', 'MCP is disabled for this vault.');
+	}
+
+	// Gate 0b — UNKNOWN TOOL. Resolve the tool first so the allowlist/route can read its kind + write risk.
 	const tool = registry.get(invocation.toolId);
 	if (!tool) {
 		return agentDenied(

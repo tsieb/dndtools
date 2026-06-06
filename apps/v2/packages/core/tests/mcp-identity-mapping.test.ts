@@ -47,6 +47,14 @@ function accepted(result: CommandResult): Extract<CommandResult, { status: 'acce
 function seedAgents(): CoreStateSlice {
 	let state = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
 
+	// MCP-001 — MCP is OFF by default; enable it explicitly (as the DM) before exercising the identity layer.
+	state = accepted(
+		dispatchCommand(state, env, {
+			type: 'mcp.set-enabled',
+			actorId: DM_ACTOR.id,
+			payload: { enabled: true },
+		}),
+	).nextState;
 	state = accepted(
 		dispatchCommand(state, env, {
 			type: 'mcp.set-agent-binding',

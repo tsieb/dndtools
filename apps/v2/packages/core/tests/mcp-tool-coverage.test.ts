@@ -105,6 +105,20 @@ const MCP_TOOL_COVERAGE: McpToolCoverageRow[] = [
 		validInput: {},
 	},
 	{
+		toolId: 'dice.roll',
+		kind: 'read',
+		behaviors: ['schema-validation', 'actor-policy', 'visibility-filtering', 'failure-handling'],
+		invalidInput: { expression: '2d20' }, // missing the required seed
+		validInput: { expression: '2d20kh1+5', seed: 7 },
+	},
+	{
+		toolId: 'session.prep',
+		kind: 'read',
+		behaviors: ['schema-validation', 'actor-policy', 'visibility-filtering', 'failure-handling'],
+		invalidInput: { mode: 'forecast' }, // not a declared digest mode
+		validInput: { mode: 'prep' },
+	},
+	{
 		toolId: 'note.create',
 		kind: 'write',
 		behaviors: [

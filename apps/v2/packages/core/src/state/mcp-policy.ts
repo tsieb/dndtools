@@ -31,6 +31,16 @@ import type { ActorId } from './ids';
  *
  * Pure data. No GUI, no storage, no clock — ids/clock are supplied by the command env. The IDENTITY,
  * POLICY, and STAGING decisions are pure functions in `mcp/`; this module owns only the shape + hydration.
+ *
+ * MCP-001 (OPTIONALITY) adds the vault-wide MASTER ENABLE switch above all of the above. It is the single
+ * kill switch the requirement names ("MCP can be completely disabled"): the entire MCP/agent integration is
+ * OFF by default and stays off until the DM EXPLICITLY enables it. When OFF, NO agent tool call resolves —
+ * the master gate denies every call BEFORE identity, policy, or any core query runs, so there is no agent
+ * side-channel and core app functionality (notes, maps, Scenes, characters, sessions, sync, search, graph)
+ * is wholly unaffected. The master switch is DISTINCT from the per-agent `vaultDefaultMode` (which only
+ * governs a never-configured agent's mode WHEN MCP is on); turning MCP off removes ALL agent capability
+ * regardless of per-agent policy. Hydration fails closed to OFF, so an older vault — or a corrupt flag —
+ * restores with MCP disabled.
  */
 
 export const MCP_POLICY_STATE_SCHEMA_VERSION = 1 as const;
@@ -166,6 +176,14 @@ export interface McpAuditEntry {
  * is the single posture a never-configured agent inherits; audit entries are an append-only ordered list.
  */
 export interface McpPolicyState {
+	/**
+	 * MCP-001 — the vault-wide MASTER ENABLE switch. `false` (the default) means the ENTIRE MCP/agent
+	 * integration is OFF: every agent tool call is denied at the master gate before identity/policy/queries
+	 * run, no agent capability exists, and core app functionality is unaffected. Only an explicit DM action
+	 * (`mcp.set-enabled`) flips it on; turning it off cleanly removes all agent capability. Default-off,
+	 * fail-closed on hydration.
+	 */
+	enabled: boolean;
 	/** Agent connection → scoped actor bindings, keyed by agent id (MCP-011). */
 	bindings: Record<string, McpAgentBinding>;
 	/** Per-agent policy modes + allowlists + audit visibility, keyed by agent id (MCP-009). */
@@ -180,10 +198,13 @@ export interface McpPolicyState {
 }
 
 /**
- * The fail-closed EMPTY MCP policy slice. The vault default is `strict_review` — the SAFE staged posture
- * — so a brand-new vault stages every MCP write by default and never silently allows a direct write.
+ * The fail-closed EMPTY MCP policy slice. MCP is DISABLED by default (MCP-001 optionality — the entire
+ * integration is off until the DM explicitly enables it). The vault default is `strict_review` — the SAFE
+ * staged posture — so when MCP IS enabled a brand-new vault still stages every write and never silently
+ * allows a direct write.
  */
 export const EMPTY_MCP_POLICY_STATE: McpPolicyState = Object.freeze({
+	enabled: false,
 	bindings: {},
 	policies: {},
 	proposals: {},
@@ -283,6 +304,10 @@ export function ensureMcpPolicyState(state: PersistedMcpPolicyState | undefined)
 		? state.auditEntries.filter((e): e is McpAuditEntry => Boolean(e && e.id))
 		: [];
 	return {
+		// MCP-001 — fail closed to OFF: ONLY a persisted literal `true` enables MCP. An absent flag (an older
+		// vault that predates the master switch) or any other value restores with MCP DISABLED, so a vault can
+		// never silently come back with agent access turned on.
+		enabled: state?.enabled === true,
 		bindings,
 		policies,
 		proposals,
@@ -290,6 +315,16 @@ export function ensureMcpPolicyState(state: PersistedMcpPolicyState | undefined)
 		vaultDefaultMode: ensureVaultDefaultMode(state?.vaultDefaultMode),
 		schemaVersion: MCP_POLICY_STATE_SCHEMA_VERSION,
 	};
+}
+
+/**
+ * MCP-001 — whether the vault-wide MCP integration is ENABLED. The single, non-leaking predicate every
+ * surface reads to decide whether MCP exists at all: the agent dispatch master-gates on it, and the GUI
+ * uses it to absent/disable MCP navigation + agent commands (a disabled answer reveals nothing about
+ * agents, policies, or proposals — it is just `false`). Fail closed: a slice without the flag reads off.
+ */
+export function isMcpEnabled(state: McpPolicyState): boolean {
+	return state.enabled === true;
 }
 
 /** Look up an agent binding by agent id, or undefined. Pure. */

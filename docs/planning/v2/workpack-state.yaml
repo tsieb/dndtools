@@ -176,6 +176,8 @@ epics:
   - id: MCP-identity-policy-and-staged-writes
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MCP-identity-policy-and-staged-writes.completion.md
+  - id: MCP-optionality-and-baseline-tools
+    status: active
   - id: NAV-command-palette-and-actor-filtering
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/NAV-command-palette-and-actor-filtering.completion.md

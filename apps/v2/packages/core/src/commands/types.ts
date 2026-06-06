@@ -475,6 +475,10 @@ export type CoreCommand =
 	| { type: 'session.audio.stop'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.audio.set-volume'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.audio.project'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// MCP-001: DM flips the vault-wide MASTER ENABLE switch (off by default). Enabling is an explicit DM
+	// action; disabling cleanly removes ALL agent capability — every later tool call is denied at the
+	// master gate before identity/policy/queries run. DM-only.
+	| { type: 'mcp.set-enabled'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// MCP-011: DM authors / removes an AGENT → SCOPED ACTOR binding. An agent can only ever speak as the
 	// bound actor (never widened). DM-only; the bound actor must be a registered participant (fail closed).
 	| { type: 'mcp.set-agent-binding'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -1153,6 +1157,9 @@ export type CoreEvent =
 			auditVisible: boolean;
 			actorId: ActorId;
 	  }
+	// MCP-001 — the vault-wide MASTER ENABLE switch was flipped. `enabled: false` means the entire MCP/agent
+	// integration is now off and every agent tool call is denied at the master gate (the audit of the toggle).
+	| { kind: 'mcp.enabled-changed'; enabled: boolean; actorId: ActorId }
 	// MCP-009 — the vault-wide default policy posture changed (the mode a never-configured agent inherits).
 	| { kind: 'mcp.vault-default-changed'; mode: string; actorId: ActorId }
 	// MCP-003 — a staged write was captured as a pending proposal (never auto-committed). Carries the

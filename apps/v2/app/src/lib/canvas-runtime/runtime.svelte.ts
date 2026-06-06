@@ -158,6 +158,7 @@ export class SceneRuntime {
 			schemaVersion: EMPTY_AUDIO_STATE.schemaVersion,
 		},
 		mcp: {
+			enabled: EMPTY_MCP_POLICY_STATE.enabled,
 			bindings: { ...EMPTY_MCP_POLICY_STATE.bindings },
 			policies: { ...EMPTY_MCP_POLICY_STATE.policies },
 			proposals: { ...EMPTY_MCP_POLICY_STATE.proposals },
