@@ -141,10 +141,11 @@ None. All three requirements and all acceptance criteria are implemented, tested
 ## Git evidence
 
 Branch: `epic/CON-security-and-source-of-truth-constraints`
-Commit SHA: `__FEAT_COMMIT_SHA__` (recorded in the follow-up `docs(v2): record commit SHA ...` commit)
+Implementation commit SHA: `5914af8d3a8b8f68c502ae599337cd298b832343`
+(`feat(v2): complete CON-security-and-source-of-truth-constraints epic`)
+Followed by `docs(v2): mark ... complete` (regenerated planning files) and this SHA-record follow-up.
 
-Final `git status --short`:
+Final `git status --short` (clean — empty output):
 
 ```
-__GIT_STATUS_SHORT__
 ```
