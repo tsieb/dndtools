@@ -53,9 +53,9 @@ screen. Reviewers verify it programmatically:
 - `pnpm --filter @dndtools/v2-core test` — runs `security-renderer-isolation.test.ts` (SEC-001),
   `security-widget-host-api.test.ts` (SEC-007), and the updated `sec-regression-gate-coverage.test.ts`
   (SEC-008 now covers the two new boundaries).
-- `pnpm --filter @dndtools/v2-app test` — runs `tests/unit/renderer-isolation-boundary.test.ts`, which drives
-  the live `pnpm v2:lint` boundary lint and proves a renderer module importing `node:fs` / `electron` /
-  `@modelcontextprotocol/sdk` fails the boundary (SEC-001 AC1 mechanical half).
+- `pnpm --filter @dndtools/v2-app test` — runs `apps/v2/app/tests/unit/renderer-isolation-boundary.test.ts`,
+  which drives the live `pnpm v2:lint` boundary lint and proves a renderer module importing `node:fs` /
+  `electron` / `@modelcontextprotocol/sdk` fails the boundary (SEC-001 AC1 mechanical half).
 - `pnpm v2:lint` — the live boundary lint passes against the real tree (no forbidden renderer import exists).
 - `pnpm v2:gates` — the SEC-008 registry (now including the two new isolation boundaries) passes.
 

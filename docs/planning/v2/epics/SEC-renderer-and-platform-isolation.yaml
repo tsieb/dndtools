@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: SEC-renderer-and-platform-isolation
 title: "SEC: Renderer and platform isolation"
-status: active
+status: complete
 approved: true
 domain: SEC
 capabilityBranch: Renderer and platform isolation
@@ -167,3 +167,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/SEC-renderer-and-platform-isolation.completion.md
