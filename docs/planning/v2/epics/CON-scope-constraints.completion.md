@@ -153,8 +153,9 @@ Generated planning files (via `set-status` / `complete`, not hand-edited):
 ## Git evidence
 
 - Branch: `epic/CON-scope-constraints` (based on `epic/CON-permission-sustainability-constraints` HEAD `0284887`).
-- Implementation commit SHA: `__IMPL_SHA__` (`feat(v2): complete CON-scope-constraints epic`).
-- Completion / regenerated-planning commit SHA: `__COMPLETE_SHA__`
+- Implementation commit SHA: `5c31e0a12d42a7a7fa153eade5686cf07a9d7cae`
+  (`feat(v2): complete CON-scope-constraints epic`).
+- Completion / regenerated-planning commit SHA: `c71a25376194eede5c862f5ceac9f24de22fd53c`
   (`docs(v2): mark CON-scope-constraints complete`).
 
 Final `git status --short` (after completion + clean slate — empty working tree):
