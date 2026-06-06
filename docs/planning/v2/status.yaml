@@ -16,19 +16,19 @@ summary:
   totalEpics: 88
   proposed: 0
   approved: 1
-  active: 1
-  complete: 86
+  active: 0
+  complete: 87
   deferred: 0
 metrics:
-  epicCompletionPercent: 97.7
-  requirementCompletionPercent: 97.9
+  epicCompletionPercent: 98.9
+  requirementCompletionPercent: 98.7
   totalRequirements: 234
-  completedRequirements: 229
+  completedRequirements: 231
   deferredRequirements: 0
-  remainingEpics: 2
-  promptableEpics: 2
+  remainingEpics: 1
+  promptableEpics: 1
   blockedByDependencies: 0
-  completionEvidenceFiles: 86
+  completionEvidenceFiles: 87
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -77,13 +77,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: CON
       totalEpics: 3
-      complete: 1
-      active: 1
+      complete: 2
+      active: 0
       approved: 1
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 33.3
-      requirementCompletionPercent: 16.7
+      epicCompletionPercent: 66.7
+      requirementCompletionPercent: 50
     - domain: CONTENT
       totalEpics: 7
       complete: 7
@@ -193,15 +193,17 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: CON-scope-constraints
-  title: "CON: Scope constraints"
-  status: active
+  id: CON-security-and-source-of-truth-constraints
+  title: "CON: Security and source-of-truth constraints"
+  status: approved
   requirementIds:
-    - CON-003
-    - CON-006
-  promptCommand: pnpm v2:prompt -- --epic CON-scope-constraints
+    - CON-001
+    - CON-002
+    - CON-005
+  promptCommand: pnpm v2:prompt -- --epic CON-security-and-source-of-truth-constraints
   nextPromptCommand: pnpm v2:prompt -- --next
-  statusCommand: pnpm v2:workpack:set-status -- --epic CON-scope-constraints --status active
+  statusCommand: pnpm v2:workpack:set-status -- --epic
+    CON-security-and-source-of-truth-constraints --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: complete
@@ -405,11 +407,12 @@ epics:
       - CON-004
     completionEvidenceFile: docs/planning/v2/epics/CON-permission-sustainability-constraints.completion.md
   - id: CON-scope-constraints
-    status: active
+    status: complete
     approved: true
     requirementIds:
       - CON-003
       - CON-006
+    completionEvidenceFile: docs/planning/v2/epics/CON-scope-constraints.completion.md
   - id: CON-security-and-source-of-truth-constraints
     status: approved
     approved: true

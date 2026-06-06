@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CON-scope-constraints
 title: "CON: Scope constraints"
-status: active
+status: complete
 approved: true
 domain: CON
 capabilityBranch: Scope constraints
@@ -160,3 +160,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/CON-scope-constraints.completion.md
