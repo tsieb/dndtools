@@ -218,10 +218,11 @@ Modified:
 - Branch: `epic/PERF-search-graph-and-sync-responsiveness` (created from the prior epic tip HEAD
   `a0d27a1`).
 - Commits on this branch:
-  - `feat(v2): complete PERF-search-graph-and-sync-responsiveness epic` (code + tests + completion
-    evidence).
-  - `docs(v2): mark PERF-search-graph-and-sync-responsiveness complete` (regenerated planning files).
-  - A follow-up `docs(v2): record commit SHA …` commit records these SHAs in this evidence file.
+  - `cc652cf` — `feat(v2): complete PERF-search-graph-and-sync-responsiveness epic` (code + tests +
+    completion evidence).
+  - `05edc20` — `docs(v2): mark PERF-search-graph-and-sync-responsiveness complete` (regenerated
+    planning files).
+  - This `docs(v2): record commit SHA …` commit records these SHAs in this evidence file.
 
 Final `git status --short` (after the completion commits) is empty (clean slate):
 
