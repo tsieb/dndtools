@@ -16,19 +16,19 @@ summary:
   totalEpics: 88
   proposed: 0
   approved: 11
-  active: 1
-  complete: 76
+  active: 0
+  complete: 77
   deferred: 0
 metrics:
-  epicCompletionPercent: 86.4
-  requirementCompletionPercent: 86.8
+  epicCompletionPercent: 87.5
+  requirementCompletionPercent: 88.5
   totalRequirements: 234
-  completedRequirements: 203
+  completedRequirements: 207
   deferredRequirements: 0
-  remainingEpics: 12
-  promptableEpics: 12
+  remainingEpics: 11
+  promptableEpics: 11
   blockedByDependencies: 0
-  completionEvidenceFiles: 76
+  completionEvidenceFiles: 77
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -113,13 +113,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: MCP
       totalEpics: 5
-      complete: 4
-      active: 1
+      complete: 5
+      active: 0
       approved: 0
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 80
-      requirementCompletionPercent: 69.2
+      epicCompletionPercent: 100
+      requirementCompletionPercent: 100
     - domain: NAV
       totalEpics: 5
       complete: 5
@@ -193,18 +193,17 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: MCP-semantic-bundles-and-ai-boundaries
-  title: "MCP: Semantic bundles and AI boundaries"
-  status: active
+  id: SEC-input-and-content-safety
+  title: "SEC: Input and content safety"
+  status: approved
   requirementIds:
-    - MCP-006
-    - MCP-007
-    - MCP-008
-    - MCP-013
-  promptCommand: pnpm v2:prompt -- --epic MCP-semantic-bundles-and-ai-boundaries
+    - SEC-002
+    - SEC-003
+    - SEC-006
+  promptCommand: pnpm v2:prompt -- --epic SEC-input-and-content-safety
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    MCP-semantic-bundles-and-ai-boundaries --status active
+    SEC-input-and-content-safety --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: complete
@@ -582,13 +581,14 @@ epics:
       - MCP-010
     completionEvidenceFile: docs/planning/v2/epics/MCP-response-contracts.completion.md
   - id: MCP-semantic-bundles-and-ai-boundaries
-    status: active
+    status: complete
     approved: true
     requirementIds:
       - MCP-006
       - MCP-007
       - MCP-008
       - MCP-013
+    completionEvidenceFile: docs/planning/v2/epics/MCP-semantic-bundles-and-ai-boundaries.completion.md
   - id: NAV-command-palette-and-actor-filtering
     status: complete
     approved: true

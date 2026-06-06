@@ -183,7 +183,8 @@ epics:
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/MCP-response-contracts.completion.md
   - id: MCP-semantic-bundles-and-ai-boundaries
-    status: active
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/MCP-semantic-bundles-and-ai-boundaries.completion.md
   - id: NAV-command-palette-and-actor-filtering
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/NAV-command-palette-and-actor-filtering.completion.md
