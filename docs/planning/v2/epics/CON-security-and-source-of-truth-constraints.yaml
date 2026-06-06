@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: CON-security-and-source-of-truth-constraints
 title: "CON: Security and source-of-truth constraints"
-status: active
+status: complete
 approved: true
 domain: CON
 capabilityBranch: Security and source-of-truth constraints
@@ -188,3 +188,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/CON-security-and-source-of-truth-constraints.completion.md

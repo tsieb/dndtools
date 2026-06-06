@@ -123,7 +123,8 @@ epics:
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CON-scope-constraints.completion.md
   - id: CON-security-and-source-of-truth-constraints
-    status: active
+    status: complete
+    completionEvidenceFile: docs/planning/v2/epics/CON-security-and-source-of-truth-constraints.completion.md
   - id: CONTENT-calendar-custom-time-content
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/CONTENT-calendar-custom-time-content.completion.md

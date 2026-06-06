@@ -42,18 +42,21 @@ dedicated adversarial meta-test proving RED on a deliberate violation and GREEN 
 
 ## Requirement coverage / traceability
 
+All code paths below are under `apps/v2/packages/core/src/` and all test paths under
+`apps/v2/packages/core/tests/`.
+
 | Requirement | Acceptance criterion | Code | Test |
 | --- | --- | --- | --- |
-| CON-001 | AC1 — hidden data already absent when it leaves the storage/query layer | `con/gui-hiding-not-authoritative.ts` `projectEntityForActor` (over `permissions/visibility-filter.ts`) | `tests/con-gui-hiding-not-authoritative.test.ts` "CON-001 AC1" |
-| CON-001 | AC2 — no DM-only field present to leak even if a UI renders everything | `con/gui-hiding-not-authoritative.ts` `assertProjectionHasNoDmOnlyField`/`findDmOnlyFieldLeaks` (over `collab/stream-privacy.ts`) | `tests/con-gui-hiding-not-authoritative.test.ts` "CON-001 AC2" |
-| CON-001 | drift audit — no non-DM surface relies on GUI hiding | `con/gui-hiding-not-authoritative.ts` `auditGuiHidingReliance`, `NON_DM_DELIVERY_SURFACES` | same file "GREEN" + "RED (adversarial)" |
-| CON-002 | AC1 — core local workflows usable with all network/MCP integrations disabled | `con/network-not-required.ts` `evaluateWorkflowsUnderOutage`, `assertExternalDependencyOptional` (over `sync/local-first.ts`) | `tests/con-network-not-required.test.ts` "CON-002 AC1" |
-| CON-002 | AC2 — deterministic features continue without AI when AI fails | `con/network-not-required.ts` `annotationDegradesWithoutAi` (over `mcp/ai-boundary.ts`) | `tests/con-network-not-required.test.ts` "CON-002 AC2" |
-| CON-002 | AC3 — local source of truth usable; multi-user delivery unavailable, not required | `con/network-not-required.ts` re-exports `deriveLocalFirstStatus` semantics | `tests/con-network-not-required.test.ts` "CON-002 AC3" |
-| CON-002 | drift audit — every external dependency is supplementary, never required | `con/network-not-required.ts` `auditExternalDependencyRequirement`, `EXTERNAL_DEPENDENCY_POSTURE` | same file "GREEN" + "RED (adversarial)" |
-| CON-005 | AC1 — vault usable + can queue ops when cloud unavailable | `con/source-of-truth.ts` `vaultUsableWithoutCloud` (over `sync/storage-classification.ts`) | `tests/con-source-of-truth.test.ts` "CON-005 AC1" |
-| CON-005 | AC2 — canonical entity data resides in owning entity/session/map state document | `con/source-of-truth.ts` `findWidgetLocalSourceOfTruthViolation`, `CANONICAL_FIELD_SIGNAL_KEYS` | `tests/con-source-of-truth.test.ts` "CON-005 AC2" |
-| CON-005 | drift audit — no cloud/cache/snapshot/widget store is the sole source of truth | `con/source-of-truth.ts` `auditSourceOfTruthOwnership`, `CORE_CONTENT_OWNERSHIP` | same file "GREEN" + "RED (adversarial)" |
+| CON-001 | AC1 — hidden data already absent when it leaves the storage/query layer | `apps/v2/packages/core/src/con/gui-hiding-not-authoritative.ts` `projectEntityForActor` (over `apps/v2/packages/core/src/permissions/visibility-filter.ts`) | `apps/v2/packages/core/tests/con-gui-hiding-not-authoritative.test.ts` "CON-001 AC1" |
+| CON-001 | AC2 — no DM-only field present to leak even if a UI renders everything | `apps/v2/packages/core/src/con/gui-hiding-not-authoritative.ts` `assertProjectionHasNoDmOnlyField`/`findDmOnlyFieldLeaks` (over `apps/v2/packages/core/src/collab/stream-privacy.ts`) | `apps/v2/packages/core/tests/con-gui-hiding-not-authoritative.test.ts` "CON-001 AC2" |
+| CON-001 | drift audit — no non-DM surface relies on GUI hiding | `apps/v2/packages/core/src/con/gui-hiding-not-authoritative.ts` `auditGuiHidingReliance`, `NON_DM_DELIVERY_SURFACES` | same file "GREEN" + "RED (adversarial)" |
+| CON-002 | AC1 — core local workflows usable with all network/MCP integrations disabled | `apps/v2/packages/core/src/con/network-not-required.ts` `evaluateWorkflowsUnderOutage`, `assertExternalDependencyOptional` (over `apps/v2/packages/core/src/sync/local-first.ts`) | `apps/v2/packages/core/tests/con-network-not-required.test.ts` "CON-002 AC1" |
+| CON-002 | AC2 — deterministic features continue without AI when AI fails | `apps/v2/packages/core/src/con/network-not-required.ts` `annotationDegradesWithoutAi` (over `apps/v2/packages/core/src/mcp/ai-boundary.ts`) | `apps/v2/packages/core/tests/con-network-not-required.test.ts` "CON-002 AC2" |
+| CON-002 | AC3 — local source of truth usable; multi-user delivery unavailable, not required | `apps/v2/packages/core/src/con/network-not-required.ts` re-exports `deriveLocalFirstStatus` semantics | `apps/v2/packages/core/tests/con-network-not-required.test.ts` "CON-002 AC3" |
+| CON-002 | drift audit — every external dependency is supplementary, never required | `apps/v2/packages/core/src/con/network-not-required.ts` `auditExternalDependencyRequirement`, `EXTERNAL_DEPENDENCY_POSTURE` | same file "GREEN" + "RED (adversarial)" |
+| CON-005 | AC1 — vault usable + can queue ops when cloud unavailable | `apps/v2/packages/core/src/con/source-of-truth.ts` `vaultUsableWithoutCloud` (over `apps/v2/packages/core/src/sync/storage-classification.ts`) | `apps/v2/packages/core/tests/con-source-of-truth.test.ts` "CON-005 AC1" |
+| CON-005 | AC2 — canonical entity data resides in owning entity/session/map state document | `apps/v2/packages/core/src/con/source-of-truth.ts` `findWidgetLocalSourceOfTruthViolation`, `CANONICAL_FIELD_SIGNAL_KEYS` | `apps/v2/packages/core/tests/con-source-of-truth.test.ts` "CON-005 AC2" |
+| CON-005 | drift audit — no cloud/cache/snapshot/widget store is the sole source of truth | `apps/v2/packages/core/src/con/source-of-truth.ts` `auditSourceOfTruthOwnership`, `CORE_CONTENT_OWNERSHIP` | same file "GREEN" + "RED (adversarial)" |
 
 ## Demo / programmatic verification path
 
