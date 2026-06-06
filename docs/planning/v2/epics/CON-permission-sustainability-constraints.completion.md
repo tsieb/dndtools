@@ -22,8 +22,8 @@ registry-gate pattern (SEC-008 `security/regression-gates.ts` and PERF-001 `perf
 
 - **New module** `apps/v2/packages/core/src/con/capability-set-sustainability.ts` — the single declared
   CON-004 invariant + a pure, fail-closed validator. No grant logic is re-implemented; it composes
-  `capability-schema.ts` (`CAPABILITY_SET_SCHEMA`, `isKnownCapabilitySet`,
-  `hasCapabilitySchemaForEntityType`) and `capability-sets.ts` (`describeCapabilitySet`).
+  `apps/v2/packages/core/src/permissions/capability-schema.ts` (`CAPABILITY_SET_SCHEMA`, `isKnownCapabilitySet`,
+  `hasCapabilitySchemaForEntityType`) and `apps/v2/packages/core/src/permissions/capability-sets.ts` (`describeCapabilitySet`).
   - `findRawFieldListGrant(payload)` / `isRawFieldListGrant` — the AC1 detector: a field-list-shaped
     key (`fields`, `allowedFields`, `fieldGrants`, … — `RAW_FIELD_LIST_SIGNAL_KEYS`, matched
     case/`-`/`_`-insensitively) or a non-name `capabilitySet` (array / object / blank) is the forbidden
@@ -33,7 +33,7 @@ registry-gate pattern (SEC-008 `security/regression-gates.ts` and PERF-001 `perf
     `MAX_CAPABILITY_SETS_PER_ENTITY_TYPE` (the bound that resists uncontrolled growth).
   - `isGovernedCapabilitySet(entityType, set)` — the AC2 supported-path predicate ("a new grouping is a
     named schema-defined set"); `summarizeCapabilitySetGovernance()` — DM-facing governance summary.
-- **AC1 enforced at the grant boundary** — `commands/grant.ts` rejects a raw-field-list grant FAIL
+- **AC1 enforced at the grant boundary** — `apps/v2/packages/core/src/commands/grant.ts` rejects a raw-field-list grant FAIL
   CLOSED with a CON-004 reason before schema parsing, on BOTH `permission.grant-capability-set` and
   `permission.transfer-ownership`.
 - **Gate wired into CI** — the governance audit runs inside `scripts/quality-gates.ts`
@@ -49,9 +49,9 @@ schema-defined capability sets for player permissions."
 
 | Acceptance criterion | Implementation | Tests |
 | --- | --- | --- |
-| **AC1** — Given a grant command contains a raw field list, when validated, then it is rejected. | `con/capability-set-sustainability.ts` (`findRawFieldListGrant`, `RAW_FIELD_LIST_SIGNAL_KEYS`); enforced in `commands/grant.ts` (`rejectRawFieldListGrant`, both grant + transfer). | `tests/con-permission-sustainability.test.ts` — "CON-004 AC1" describe blocks (field-list key, every signal key, separator variants, non-name `capabilitySet` as array/object/blank, transfer command, and a clean named-set grant still accepted) + detector unit tests. |
-| **AC2** — Given the DM needs a new permission grouping, when supported, then it is added as a named schema-defined capability set for that entity type. | `con/capability-set-sustainability.ts` (`isGovernedCapabilitySet`, `auditCapabilitySetGovernance`) composing `CAPABILITY_SET_SCHEMA` + `describeCapabilitySet`. The only supported path to a new grouping is a named, governed schema set; raw field names are not governed groupings. | `tests/con-permission-sustainability.test.ts` — "CON-004 AC2 + sustainability" (real model GREEN; every real set is governed; a raw field name is NOT governed). |
-| **Sustainability bound (constraint intent)** | `MAX_CAPABILITY_SETS_PER_ENTITY_TYPE` cap + `auditCapabilitySetGovernance` (`too-many-sets`/`blank-set-name`/`duplicate-set-name`/`set-not-governed`), wired into `scripts/quality-gates.ts`. | `tests/con-permission-sustainability.test.ts` — "the gate goes RED on a deliberate violation" (over-cap, blank, duplicate ⇒ flagged; small clean fixture GREEN; determinism). |
+| **AC1** — Given a grant command contains a raw field list, when validated, then it is rejected. | `apps/v2/packages/core/src/con/capability-set-sustainability.ts` (`findRawFieldListGrant`, `RAW_FIELD_LIST_SIGNAL_KEYS`); enforced in `apps/v2/packages/core/src/commands/grant.ts` (`rejectRawFieldListGrant`, both grant + transfer). | `apps/v2/packages/core/tests/con-permission-sustainability.test.ts` — "CON-004 AC1" describe blocks (field-list key, every signal key, separator variants, non-name `capabilitySet` as array/object/blank, transfer command, and a clean named-set grant still accepted) + detector unit tests. |
+| **AC2** — Given the DM needs a new permission grouping, when supported, then it is added as a named schema-defined capability set for that entity type. | `apps/v2/packages/core/src/con/capability-set-sustainability.ts` (`isGovernedCapabilitySet`, `auditCapabilitySetGovernance`) composing `CAPABILITY_SET_SCHEMA` + `describeCapabilitySet`. The only supported path to a new grouping is a named, governed schema set; raw field names are not governed groupings. | `apps/v2/packages/core/tests/con-permission-sustainability.test.ts` — "CON-004 AC2 + sustainability" (real model GREEN; every real set is governed; a raw field name is NOT governed). |
+| **Sustainability bound (constraint intent)** | `MAX_CAPABILITY_SETS_PER_ENTITY_TYPE` cap + `auditCapabilitySetGovernance` (`too-many-sets`/`blank-set-name`/`duplicate-set-name`/`set-not-governed`), wired into `scripts/quality-gates.ts`. | `apps/v2/packages/core/tests/con-permission-sustainability.test.ts` — "the gate goes RED on a deliberate violation" (over-cap, blank, duplicate ⇒ flagged; small clean fixture GREEN; determinism). |
 
 ## Adversarial constraint-violation evidence (gate goes RED, then GREEN)
 
@@ -91,7 +91,7 @@ schema-defined capability sets for player permissions."
 | Quality gates (incl. CON-004) | `pnpm v2:gates` | PASS — "quality-gate check passed: 7 gate(s)…"; RED on injected violation (demonstrated above) |
 
 **Playwright e2e: not run — intentionally skipped.** This epic touches only Processing-Core modules
-(`con/`, `commands/grant.ts`, `index.ts`, `platform/quality-gates.ts`), a CI tooling script
+(`con/`, `apps/v2/packages/core/src/commands/grant.ts`, `index.ts`, `platform/quality-gates.ts`), a CI tooling script
 (`scripts/quality-gates.ts`), tests, and generated planning files. No route, layout, `.svelte`, or
 visible-flow file was changed, so the e2e suite is not affected.
 
@@ -124,10 +124,13 @@ Generated planning files (via `set-status` / `complete`, not hand-edited):
 ## Git evidence
 
 - Branch: `epic/CON-permission-sustainability-constraints` (based on `epic/PERF-search-graph-and-sync-responsiveness` HEAD `8152fa8`).
-- Implementation commit SHA: `__IMPLEMENTATION_SHA__` (recorded in the follow-up SHA commit).
+- Implementation commit SHA: `e60c1fbe94e4c43b2c735274b08287ae3200b002`
+  (`feat(v2): complete CON-permission-sustainability-constraints epic`).
+- Completion / regenerated-planning commit SHA: `26ceb73ef87dfbf86260ac212e5cea33583b270e`
+  (`docs(v2): mark CON-permission-sustainability-constraints complete`).
 
-Final `git status --short` (after completion + clean slate):
+Final `git status --short` (after completion + clean slate — empty working tree):
 
 ```
-__GIT_STATUS_SHORT__
+(clean — no untracked or unstaged files)
 ```
