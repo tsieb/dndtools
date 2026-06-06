@@ -187,8 +187,11 @@ Modified:
 ## Git evidence
 
 - Branch: `epic/PERF-scene-and-map-rendering` (created from the prior epic tip HEAD `90f0665`).
-- Commit: see the `feat(v2): complete PERF-scene-and-map-rendering epic` commit and the follow-up
-  `docs(v2): record commit SHA …` commit on this branch.
+- Commits on this branch:
+  - `8ccf539` — `feat(v2): complete PERF-scene-and-map-rendering epic` (code + tests + completion
+    evidence).
+  - `1c25453` — `docs(v2): mark PERF-scene-and-map-rendering complete` (regenerated planning files).
+  - A follow-up `docs(v2): record commit SHA …` commit records these SHAs in this evidence file.
 
 Final `git status --short` (after the completion commits) is empty (clean slate):
 
