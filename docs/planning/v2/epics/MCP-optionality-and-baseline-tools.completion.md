@@ -201,7 +201,9 @@ Completion evidence:
 ## Git
 
 - Branch: `epic/MCP-optionality-and-baseline-tools` (from prior tip `5bd09e8`).
-- Commit SHA: recorded in the follow-up `docs(v2): record commit SHA …` commit (see git log).
+- Implementation commit SHA: `4d86717` (`feat(v2): complete MCP-optionality-and-baseline-tools epic`).
+- Workpack-complete commit SHA: `e942497` (`docs(v2): mark MCP-optionality-and-baseline-tools complete`).
+- This SHA-record commit follows as `docs(v2): record commit SHA …`.
 
 ### Final `git status --short`
 
