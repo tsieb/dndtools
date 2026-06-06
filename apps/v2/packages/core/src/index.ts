@@ -3665,6 +3665,36 @@ export type {
 } from './mcp/agent-dispatch';
 export { invokeMcpToolAsAgent } from './mcp/agent-dispatch';
 
+// MCP-010 — the STABLE, VERSIONED, SCHEMA-VALIDATED MCP/AI RESPONSE CONTRACT. Every tool already returns
+// a structured envelope (`McpToolResult` / `McpAgentToolResult`); this FORMALIZES the OUTWARD shape those
+// project into before leaving the core: one stable envelope with id/status/summary/data/warnings/citations/
+// remediation (warnings SEPARATE from data), errors STRUCTURED + NON-LEAKING. `certifyMcpResponse` is the
+// fail-closed gate — a malformed or leaky envelope (validated against the Zod contract + the shared
+// redaction leak guard) is REPLACED with a safe contract-conformant error, never passed through. Pure +
+// deterministic + versioned (unsupported future versions fail closed). Per ADR-014 the transport is deferred.
+export type {
+	McpResponseCertification,
+	McpResponseCitation,
+	McpResponseEnvelope,
+	McpResponseError,
+	McpResponseRemediation,
+	McpResponseStatus,
+	McpResponseContractViolation,
+	McpResponseWarning,
+} from './mcp/response-contract';
+export {
+	MCP_RESPONSE_CONTRACT_ERROR_CODE,
+	MCP_RESPONSE_CONTRACT_VERSION,
+	MCP_RESPONSE_ENVELOPE_SCHEMA,
+	MCP_RESPONSE_STATUSES,
+	buildCertifiedMcpAgentResponse,
+	buildCertifiedMcpResponse,
+	certifyMcpResponse,
+	isConformantMcpResponse,
+	toMcpAgentResponseEnvelope,
+	toMcpResponseEnvelope,
+} from './mcp/response-contract';
+
 // MCP-012 — the EXPLICIT, FAIL-CLOSED MCP FILESYSTEM / PLATFORM-SERVICE EXCEPTION ALLOWLIST. The few
 // narrow filesystem operations the future MCP sidecar may perform are DECLARED (not inferred from broad
 // runtime access): every exception is contained to a root, size-bounded, schema-validated, and audited.

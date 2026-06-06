@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: MCP-response-contracts
 title: "MCP: Response contracts"
-status: approved
+status: active
 approved: true
 domain: MCP
 capabilityBranch: Response contracts
