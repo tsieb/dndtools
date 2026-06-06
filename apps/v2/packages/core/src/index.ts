@@ -1741,6 +1741,44 @@ export {
 	validateGateRegistry,
 } from './platform/quality-gates';
 
+// PERF-001 — PERFORMANCE BUDGET OWNERSHIP: the single authoritative registry where v2 performance
+// budgets are DECLARED and OWNED. Each budget ties a user-facing workflow (startup, vault open, Scene
+// render, widget update, map pan/zoom, search, graph indexing, sync reconciliation, smoke CI) to an
+// owning domain, a user-facing risk, a measurement method (metric kind + target), a dataset/fixture,
+// a device class, and a provisional review date. `validateBudgetRegistry` fails closed when a budget
+// is unowned, unqualified, or its provisional review date has lapsed. The COLLAB live-session p95
+// delivery target was migrated here (`live-session-delivery`).
+export type {
+	BudgetDirection,
+	BudgetMaturity,
+	BudgetMetric,
+	BudgetMetricKind,
+	BudgetProblem,
+	BudgetProblemKind,
+	PerformanceBudget,
+} from './perf/budget-registry';
+export {
+	LIVE_SESSION_DELIVERY_BUDGET_ID,
+	PERFORMANCE_BUDGET_REGISTRY_VERSION,
+	PERFORMANCE_BUDGETS,
+	budgetForId,
+	budgetsForOwner,
+	validateBudgetRegistry,
+} from './perf/budget-registry';
+
+// PERF-007 — PERFORMANCE MEASUREMENT: deterministically grade observed samples against a DECLARED
+// budget and report pass / breach / unknown / error. Fail closed: a measurement against an unknown
+// budget id is an `error` (never a silent pass); a measurement with no usable samples is `unknown`
+// (un-proven, not green); exactly-at-threshold passes. Reuses the COLLAB nearest-rank `percentile`.
+export type {
+	BudgetMeasurement,
+	BudgetMeasurementInput,
+	BudgetMeasurementReason,
+	BudgetMeasurementResult,
+	BudgetMeasurementSuite,
+} from './perf/measurement';
+export { measureBudget, measureBudgetSuite } from './perf/measurement';
+
 // PLAT-013: fresh-vault onboarding, feature-tier visibility, maturity gates, help surfaces, and
 // first-run Command Center setup — modeled in the core so the GUI renders from query results.
 export type {

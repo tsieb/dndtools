@@ -15,8 +15,8 @@ stackDecision:
 summary:
   totalEpics: 88
   proposed: 0
-  approved: 7
-  active: 0
+  approved: 6
+  active: 1
   complete: 81
   deferred: 0
 metrics:
@@ -132,8 +132,8 @@ metrics:
     - domain: PERF
       totalEpics: 4
       complete: 0
-      active: 0
-      approved: 4
+      active: 1
+      approved: 3
       proposed: 0
       deferred: 0
       epicCompletionPercent: 0
@@ -195,7 +195,7 @@ metrics:
 nextEpic:
   id: PERF-budget-ownership-and-measurement
   title: "PERF: Budget ownership and measurement"
-  status: approved
+  status: active
   requirementIds:
     - PERF-001
     - PERF-007
@@ -624,7 +624,7 @@ epics:
       - NAV-005
     completionEvidenceFile: docs/planning/v2/epics/NAV-route-aliases-and-deep-links.completion.md
   - id: PERF-budget-ownership-and-measurement
-    status: approved
+    status: active
     approved: true
     requirementIds:
       - PERF-001

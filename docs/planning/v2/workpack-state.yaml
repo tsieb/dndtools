@@ -200,6 +200,8 @@ epics:
   - id: NAV-route-aliases-and-deep-links
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/NAV-route-aliases-and-deep-links.completion.md
+  - id: PERF-budget-ownership-and-measurement
+    status: active
   - id: PERM-base-roles-and-observer-limits
     status: complete
     completionEvidenceFile: docs/planning/v2/epics/PERM-base-roles-and-observer-limits.completion.md

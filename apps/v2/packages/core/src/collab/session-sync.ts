@@ -1,3 +1,4 @@
+import { budgetForId, LIVE_SESSION_DELIVERY_BUDGET_ID } from '../perf/budget-registry';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { SyncOperation } from '../sync/operation-log';
 import {
@@ -244,9 +245,14 @@ export interface SessionLatencyBudget {
 	staleThresholdMs: number;
 }
 
-/** A sensible default budget for the first prototype: 500ms p95 delivery, 2s stale threshold. */
+/**
+ * A sensible default budget for the first prototype: 500ms p95 delivery, 2s stale threshold. The p95
+ * delivery target is OWNED by the PERF-001 registry (`live-session-delivery`); this default reads it
+ * from there so the number is declared in exactly one place. The `staleThresholdMs` stays local to the
+ * live-session module — it is a live-session presentation threshold, not a generic graded budget.
+ */
 export const DEFAULT_SESSION_LATENCY_BUDGET: SessionLatencyBudget = Object.freeze({
-	p95DeliveryMs: 500,
+	p95DeliveryMs: budgetForId(LIVE_SESSION_DELIVERY_BUDGET_ID)?.metric.target ?? 500,
 	staleThresholdMs: 2000,
 });
 
