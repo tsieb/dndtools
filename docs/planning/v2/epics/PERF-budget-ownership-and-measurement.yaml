@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: PERF-budget-ownership-and-measurement
 title: "PERF: Budget ownership and measurement"
-status: active
+status: complete
 approved: true
 domain: PERF
 capabilityBranch: Budget ownership and measurement
@@ -164,3 +164,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/PERF-budget-ownership-and-measurement.completion.md
