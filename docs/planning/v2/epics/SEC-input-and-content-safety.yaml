@@ -1,7 +1,7 @@
 schemaVersion: 1
 id: SEC-input-and-content-safety
 title: "SEC: Input and content safety"
-status: active
+status: complete
 approved: true
 domain: SEC
 capabilityBranch: Input and content safety
@@ -185,3 +185,4 @@ completionEvidence:
     completion evidence exists.
   - The epic leaves a clean git slate with no untracked or unstaged files caused
     by the work.
+completionEvidenceFile: docs/planning/v2/epics/SEC-input-and-content-safety.completion.md

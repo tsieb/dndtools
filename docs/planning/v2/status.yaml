@@ -16,19 +16,19 @@ summary:
   totalEpics: 88
   proposed: 0
   approved: 10
-  active: 1
-  complete: 77
+  active: 0
+  complete: 78
   deferred: 0
 metrics:
-  epicCompletionPercent: 87.5
-  requirementCompletionPercent: 88.5
+  epicCompletionPercent: 88.6
+  requirementCompletionPercent: 89.7
   totalRequirements: 234
-  completedRequirements: 207
+  completedRequirements: 210
   deferredRequirements: 0
-  remainingEpics: 11
-  promptableEpics: 11
+  remainingEpics: 10
+  promptableEpics: 10
   blockedByDependencies: 0
-  completionEvidenceFiles: 77
+  completionEvidenceFiles: 78
   domains:
     - domain: AUDIO
       totalEpics: 5
@@ -158,13 +158,13 @@ metrics:
       requirementCompletionPercent: 100
     - domain: SEC
       totalEpics: 4
-      complete: 0
-      active: 1
+      complete: 1
+      active: 0
       approved: 3
       proposed: 0
       deferred: 0
-      epicCompletionPercent: 0
-      requirementCompletionPercent: 0
+      epicCompletionPercent: 25
+      requirementCompletionPercent: 25
     - domain: SES
       totalEpics: 5
       complete: 5
@@ -193,17 +193,17 @@ metrics:
       epicCompletionPercent: 100
       requirementCompletionPercent: 100
 nextEpic:
-  id: SEC-input-and-content-safety
-  title: "SEC: Input and content safety"
-  status: active
+  id: SEC-regression-gates-and-stream-privacy
+  title: "SEC: Regression gates and stream privacy"
+  status: approved
   requirementIds:
-    - SEC-002
-    - SEC-003
-    - SEC-006
-  promptCommand: pnpm v2:prompt -- --epic SEC-input-and-content-safety
+    - SEC-008
+    - SEC-010
+    - SEC-011
+  promptCommand: pnpm v2:prompt -- --epic SEC-regression-gates-and-stream-privacy
   nextPromptCommand: pnpm v2:prompt -- --next
   statusCommand: pnpm v2:workpack:set-status -- --epic
-    SEC-input-and-content-safety --status active
+    SEC-regression-gates-and-stream-privacy --status active
 epics:
   - id: AUDIO-assets-licensing-and-source-scope
     status: complete
@@ -722,12 +722,13 @@ epics:
       - PLAT-015
     completionEvidenceFile: docs/planning/v2/epics/PLAT-quality-gates-and-onboarding.completion.md
   - id: SEC-input-and-content-safety
-    status: active
+    status: complete
     approved: true
     requirementIds:
       - SEC-002
       - SEC-003
       - SEC-006
+    completionEvidenceFile: docs/planning/v2/epics/SEC-input-and-content-safety.completion.md
   - id: SEC-regression-gates-and-stream-privacy
     status: approved
     approved: true
