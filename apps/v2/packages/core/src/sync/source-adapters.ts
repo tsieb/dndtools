@@ -5,6 +5,7 @@ import {
 	type ContentFeatureSupport,
 	type ContentNoteFeature,
 } from '../state/content-constraints';
+import type { PlatformProfileId } from '../state/widget-package-state';
 
 /**
  * SYNC-003 / SYNC-015 — the SOURCE ADAPTER INTERFACE + its CAPABILITY-METADATA + FAIL-CLOSED model.
@@ -112,12 +113,23 @@ export interface SourceAdapterCapability {
 	readonly canRead: boolean;
 	/** Whether the adapter can write external content (push). */
 	readonly canWrite: boolean;
+	/** Whether the adapter supports push-initiated renames of external entities. */
+	readonly canRename: boolean;
+	/** Whether the adapter supports push-initiated deletes of external entities. */
+	readonly canDelete: boolean;
 	/** Whether the source exposes per-entity revision metadata (e.g. Drive revision ids). */
 	readonly canExposeRevisionHistory: boolean;
 	/** Whether the source exposes an incremental change cursor (e.g. Drive change page token). */
 	readonly canWatchChanges: boolean;
 	/** Offline availability of already-cached content (Contract 2 capabilities). */
 	readonly offlineAvailability: 'full' | 'cached' | 'none';
+	/**
+	 * The platform profiles on which this adapter is supported. A profile absent here resolves
+	 * to `unsupported` for this adapter (fail closed). Uses the existing {@link PlatformProfileId}
+	 * taxonomy (`desktop | tablet | mobile | web`). An empty list means the adapter is unsupported
+	 * everywhere, which `validateSourceAdapterCapability` flags as a descriptor problem.
+	 */
+	readonly supportedPlatformProfiles: readonly PlatformProfileId[];
 	/**
 	 * Per-note-feature TRANSFORM fidelity, REUSING the existing content-constraint feature taxonomy +
 	 * support classification. A `lossy`/`unsupported` feature is the seam the fail-closed push gate

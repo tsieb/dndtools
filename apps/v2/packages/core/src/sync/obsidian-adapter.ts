@@ -7,6 +7,7 @@ import {
 	type SyncSourceLifecycleState,
 	buildCanonicalOperation,
 } from './source-adapters';
+import type { PlatformProfileId } from '../state/widget-package-state';
 import {
 	type FakeVaultTransport,
 	readVaultFile,
@@ -56,9 +57,14 @@ export const OBSIDIAN_ADAPTER_CAPABILITY: SourceAdapterCapability = Object.freez
 	supportedEntityTypes: Object.freeze([CONTENT_ITEM_ENTITY_TYPE]),
 	canRead: true,
 	canWrite: true,
+	canRename: false,
+	canDelete: true,
 	canExposeRevisionHistory: false,
 	canWatchChanges: true,
 	offlineAvailability: 'full',
+	// Obsidian is a local vault on desktop; web profile is the deferred ADR-014 target.
+	// The mobile profile may be inaccessible at runtime (see `deriveObsidianVaultStatus`).
+	supportedPlatformProfiles: Object.freeze(['desktop', 'web'] as PlatformProfileId[]),
 	featureSupport: Object.freeze({
 		'frontmatter-properties': 'supported',
 		aliases: 'supported',

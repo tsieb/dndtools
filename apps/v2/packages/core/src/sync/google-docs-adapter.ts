@@ -7,6 +7,7 @@ import {
 	type SyncSourceLifecycleState,
 	buildCanonicalOperation,
 } from './source-adapters';
+import type { PlatformProfileId } from '../state/widget-package-state';
 import {
 	type FakeDriveFile,
 	type FakeDriveTransport,
@@ -53,9 +54,13 @@ export const GOOGLE_DOCS_ADAPTER_CAPABILITY: SourceAdapterCapability = Object.fr
 	supportedEntityTypes: Object.freeze([CONTENT_ITEM_ENTITY_TYPE]),
 	canRead: true,
 	canWrite: true,
+	canRename: false,
+	canDelete: true,
 	canExposeRevisionHistory: true,
 	canWatchChanges: true,
 	offlineAvailability: 'cached',
+	// Google Docs is cloud-accessible: all platform profiles can connect (subject to auth).
+	supportedPlatformProfiles: Object.freeze(['desktop', 'tablet', 'mobile', 'web'] as PlatformProfileId[]),
 	featureSupport: Object.freeze({
 		'frontmatter-properties': 'unsupported',
 		aliases: 'unsupported',

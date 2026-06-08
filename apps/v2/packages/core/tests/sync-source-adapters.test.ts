@@ -585,15 +585,52 @@ describe('SYNC-015 every adapter declares capability metadata and fails closed',
 		const caps = listSourceAdapterCapabilities();
 		expect(caps.map((c) => c.kind)).toEqual([...REGISTERED_SOURCE_KINDS]);
 		for (const capability of caps) {
-			// Every adapter declares the SYNC-015 dimensions.
+			// Every adapter declares ALL SYNC-015 AC1 dimensions.
 			expect(capability.supportedSchemaVersions.length).toBeGreaterThan(0);
 			expect(capability.supportedSourceVersions.length).toBeGreaterThan(0);
 			expect(capability.supportedAuthModes.length).toBeGreaterThan(0);
 			expect(capability.supportedEntityTypes.length).toBeGreaterThan(0);
+			// rename/delete support (AC1)
+			expect(typeof capability.canRename).toBe('boolean');
+			expect(typeof capability.canDelete).toBe('boolean');
+			// platform profile support (AC1) — at least one profile must be declared
+			expect(capability.supportedPlatformProfiles.length).toBeGreaterThan(0);
 		}
 		// Every declared descriptor is well-formed (the registry-wide fail-closed guard).
 		expect(validateRegisteredSourceAdapters()).toEqual([]);
 		expect(validateSourceAdapterCapability(GOOGLE_DOCS_ADAPTER_CAPABILITY)).toEqual([]);
+	});
+
+	it('platform profile support: each adapter declares the profiles it can operate on', () => {
+		// local-vault and obsidian-vault are local-filesystem sources: desktop + web only.
+		expect(LOCAL_VAULT_ADAPTER_CAPABILITY.supportedPlatformProfiles).toContain('desktop');
+		expect(LOCAL_VAULT_ADAPTER_CAPABILITY.supportedPlatformProfiles).toContain('web');
+		expect(OBSIDIAN_ADAPTER_CAPABILITY.supportedPlatformProfiles).toContain('desktop');
+		// Google Docs is cloud-accessible: all profiles are supported.
+		expect(GOOGLE_DOCS_ADAPTER_CAPABILITY.supportedPlatformProfiles).toContain('desktop');
+		expect(GOOGLE_DOCS_ADAPTER_CAPABILITY.supportedPlatformProfiles).toContain('mobile');
+		expect(GOOGLE_DOCS_ADAPTER_CAPABILITY.supportedPlatformProfiles).toContain('tablet');
+		expect(GOOGLE_DOCS_ADAPTER_CAPABILITY.supportedPlatformProfiles).toContain('web');
+	});
+
+	it('rename/delete support: adapters declare canRename and canDelete dimensions', () => {
+		// All three adapters support push-initiated deletes.
+		expect(LOCAL_VAULT_ADAPTER_CAPABILITY.canDelete).toBe(true);
+		expect(OBSIDIAN_ADAPTER_CAPABILITY.canDelete).toBe(true);
+		expect(GOOGLE_DOCS_ADAPTER_CAPABILITY.canDelete).toBe(true);
+		// No adapter currently supports push-initiated renames — the declared field makes this explicit.
+		expect(LOCAL_VAULT_ADAPTER_CAPABILITY.canRename).toBe(false);
+		expect(OBSIDIAN_ADAPTER_CAPABILITY.canRename).toBe(false);
+		expect(GOOGLE_DOCS_ADAPTER_CAPABILITY.canRename).toBe(false);
+	});
+
+	it('validateSourceAdapterCapability rejects a descriptor with no platform profiles', () => {
+		const noPlatform = {
+			...LOCAL_VAULT_ADAPTER_CAPABILITY,
+			supportedPlatformProfiles: Object.freeze([] as const),
+		};
+		const problems = validateSourceAdapterCapability(noPlatform);
+		expect(problems.map((p) => p.problem)).toContain('no-platform-profile');
 	});
 
 	it('summaries classify Google Docs constrained features as unsupported/lossy, Obsidian all supported', () => {

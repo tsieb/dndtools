@@ -18,6 +18,7 @@ import {
 } from './google-docs-adapter';
 import { CONTENT_ITEM_ENTITY_TYPE } from '../state/content';
 import type { ContentFeatureSupport, ContentNoteFeature } from '../state/content-constraints';
+import type { PlatformProfileId } from '../state/widget-package-state';
 
 /**
  * SYNC-003 / SYNC-015 — the SOURCE ADAPTER REGISTRY: the inspectable list of declared adapter
@@ -49,9 +50,12 @@ export const LOCAL_VAULT_ADAPTER_CAPABILITY: SourceAdapterCapability = Object.fr
 	supportedEntityTypes: Object.freeze([CONTENT_ITEM_ENTITY_TYPE]),
 	canRead: true,
 	canWrite: true,
+	canRename: false,
+	canDelete: true,
 	canExposeRevisionHistory: false,
 	canWatchChanges: true,
 	offlineAvailability: 'full',
+	supportedPlatformProfiles: Object.freeze(['desktop', 'web'] as PlatformProfileId[]),
 	featureSupport: Object.freeze({
 		'frontmatter-properties': 'supported',
 		aliases: 'supported',
@@ -253,6 +257,7 @@ export type CapabilityDescriptorProblemKind =
 	| 'no-source-version'
 	| 'no-auth-mode'
 	| 'no-entity-type'
+	| 'no-platform-profile'
 	| 'write-without-feature-support';
 
 export interface CapabilityDescriptorProblem {
@@ -279,6 +284,9 @@ export function validateSourceAdapterCapability(
 	}
 	if (capability.supportedEntityTypes.length === 0) {
 		add('no-entity-type', 'A source adapter must declare at least one supported entity type.');
+	}
+	if (capability.supportedPlatformProfiles.length === 0) {
+		add('no-platform-profile', 'A source adapter must declare at least one supported platform profile.');
 	}
 	if (capability.canWrite && Object.keys(capability.featureSupport).length === 0) {
 		add(
