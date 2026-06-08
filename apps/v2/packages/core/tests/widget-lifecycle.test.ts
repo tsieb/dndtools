@@ -713,4 +713,62 @@ describe('CANVAS-017: package review, disable, remove, and export', () => {
 			code: 'portability.device-local-asset-path',
 		});
 	});
+
+	it('re-installing an exported package from a vault backup preserves portability warnings and starts disabled (AC3)', () => {
+		// Simulate a vault-backup import round-trip: install → export → remove → re-install.
+		// AC3: when portability validation runs on import, package id, version, schemas, assets, and
+		// requested host permissions are checked before the widget can be enabled.
+		const pkg = packageDefinition({
+			assets: [{ path: 'widgets/counter/icon.png', sha256: 'abc' }],
+			portabilityWarnings: ['original portability note'],
+		});
+		const state = buildInitialState(DM_ACTOR);
+		const env = makeEnvironment();
+
+		// Install original, then export (portability validation run at export).
+		const installed = dispatchCommand(state, env, {
+			type: 'widget.package.install',
+			actorId: DM_ACTOR.id,
+			payload: { package: pkg },
+		});
+		if (installed.status !== 'accepted') throw new Error('install');
+
+		const exported = exportWidgetPackage(installed.nextState.widgets, env, pkg.id);
+		expect('package' in exported).toBe(true);
+		if (!('package' in exported)) return;
+
+		// Remove the original package.
+		const removed = dispatchCommand(installed.nextState, env, {
+			type: 'widget.package.remove',
+			actorId: DM_ACTOR.id,
+			payload: { packageId: pkg.id },
+		});
+		if (removed.status !== 'accepted') throw new Error('remove');
+
+		// Re-install from the exported (vault backup) definition. This is the import path:
+		// id, version, schemas, assets, and requested host permissions are all validated via Zod
+		// and semantic checks inside handleInstallWidgetPackage before the package can be enabled.
+		const reimport = dispatchCommand(removed.nextState, env, {
+			type: 'widget.package.install',
+			actorId: DM_ACTOR.id,
+			payload: { package: exported.package },
+		});
+		expect(reimport.status).toBe('accepted');
+		if (reimport.status !== 'accepted') return;
+
+		const record = reimport.nextState.widgets.packages[pkg.id];
+		// Package starts disabled (fail closed) — cannot run until explicitly enabled.
+		expect(record?.enabled).toBe(false);
+		// All host permissions denied by default.
+		expect(Object.values(record?.trust.hostPermissions ?? {})).toSatisfy((decisions: unknown[]) =>
+			decisions.every((d) => d === 'denied'),
+		);
+		// Portability warnings from the export are preserved in the re-imported definition.
+		expect(record?.package.portabilityWarnings).toContain('original portability note');
+		// Structural fields (id, version, schemas, assets) are validated and present.
+		expect(record?.package.id).toBe(pkg.id);
+		expect(record?.package.version).toBe(pkg.version);
+		expect(record?.package.widgets[0]?.configurationSchema).toBeDefined();
+		expect(record?.package.assets).toEqual(exported.package.assets);
+	});
 });
