@@ -282,6 +282,11 @@ describe('CONTENT-012 — content.write-to-source command (fail closed)', () => 
 			expect(event.source).toBe('obsidian');
 		}
 		expect(result.operationIds).toHaveLength(1);
+		// AC2: an Obsidian write never mutates the local draft — user-authored frontmatter properties and
+		// dndtools namespaced metadata are byte-identical after an accepted write (the command only
+		// appends to the sync log; content is reference-equal and the item body is unchanged).
+		expect(result.nextState.content).toBe(state.content);
+		expect(result.nextState.content.items[ITEM_ID]?.body).toBe(RICH_NOTE);
 	});
 
 	it('REJECTS a lossy write (Google Docs) without acknowledgment — no silent loss, draft untouched', () => {
