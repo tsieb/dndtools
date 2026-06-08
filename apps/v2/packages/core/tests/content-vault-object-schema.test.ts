@@ -87,6 +87,27 @@ describe('CONTENT-013 — Vault Object subtype registry (AC1: subtype schema set
 	});
 });
 
+describe('CONTENT-013 — unknown subtype rejected with structured diagnostic (AC2)', () => {
+	it('REJECTS an unregistered non-scene subtype with a structured unknown-subtype diagnostic', () => {
+		// The `scene` subtype has its own special rejection path (`scene-not-an-object`). This test
+		// proves that any OTHER unregistered subtype hits the `unknown-subtype` path — the second half
+		// of AC2 ("rejected with a structured diagnostic rather than partially interpreted").
+		const result = validateObjectFrontmatter('goblin-table', {});
+		expect(result.valid).toBe(false);
+		expect(result.subtype).toBeNull();
+		expect(result.issues).toHaveLength(1);
+		expect(result.issues[0]?.code).toBe('unknown-subtype');
+		// Non-leaking: the message names the subtype token itself, not a raw field value.
+		expect(result.issues[0]?.message).toContain('goblin-table');
+	});
+
+	it('isVaultObjectSubtype returns false for any unregistered subtype', () => {
+		expect(isVaultObjectSubtype('goblin-table')).toBe(false);
+		expect(isVaultObjectSubtype('unknown')).toBe(false);
+		expect(isVaultObjectSubtype('')).toBe(false);
+	});
+});
+
 describe('CONTENT-013 — Scene stays in SceneState (AC4)', () => {
 	it('never registers a `scene` subtype', () => {
 		expect(isVaultObjectSubtype('scene')).toBe(false);

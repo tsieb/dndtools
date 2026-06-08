@@ -110,6 +110,19 @@ describe('CONTENT-005 — frontmatter ↔ body synchronization (deterministic ro
 		expect(syncObjectToNote(roundTrip)).toBe(noteText);
 	});
 
+	it('returns null when the subtype key carries an unregistered subtype (opaque content path, AC2)', () => {
+		// A note sourced from an external vault may carry a subtype the current registry does not know.
+		// `readObjectSubtype` must return null rather than partially interpreting it — the caller then
+		// routes the item as opaque/unsupported content, not as a known structured object.
+		const noteText = [
+			'---',
+			`${VAULT_OBJECT_SUBTYPE_KEY}: goblin-table`,
+			'---',
+			'Some opaque content.',
+		].join('\n');
+		expect(readObjectSubtype(noteText)).toBeNull();
+	});
+
 	it('note → object → note reflects an edit to the note frontmatter back into the structured fields', () => {
 		const noteText = [
 			'---',
