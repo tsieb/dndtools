@@ -1,0 +1,335 @@
+schemaVersion: 1
+kind: ux-ui-remake-epic
+id: UX-SYNC-queues-conflicts-recovery-consent-and-authorization
+title: Sync Queues, Conflicts, Recovery, Consent, and Authorization
+status: approved
+approved: true
+phase: 09 Reliability and Optional Capabilities
+productPriority: P1
+domain: UX-SYNC
+objective: "Complete the Sync Status details: queued changes, conflicts,
+  actionable retry/recovery, asset-missing states, cloud storage
+  consent/classification, and first-time authorization."
+requirementIds:
+  - UX-SYNC-004
+  - UX-SYNC-005
+  - UX-SYNC-006
+  - UX-SYNC-007
+  - UX-SYNC-009
+  - UX-SYNC-010
+  - UX-SYNC-012
+sourceDocs:
+  - docs/remake-review/ux-requirements/00-overview-and-principles.md
+  - docs/remake-review/ux-requirements/12-sync-offline-reliability.md
+  - docs/remake-review/ux-requirements/16-ideal-gui-architecture.md
+  - docs/remake-review/ux-requirements/README.md
+expectedAffectedAreas:
+  - sync status page
+  - queued changes view
+  - conflict resolver
+  - asset missing states
+  - cloud consent panel
+  - authorization flow
+dependencies:
+  - UX-SYNC-global-indicators-local-first-and-entity-badges
+  - UX-CONTENT-templates-snippets-sources-import-export
+  - UX-COLLAB-presence-join-roster-connection-and-catchup
+parallelSafety:
+  fileOwnership:
+    - docs/planning/v2/ux/
+    - apps/v2/app/src/lib/gui/ux-sync/
+    - apps/v2/app/src/routes/
+  notes: Parallel execution is safe only with non-overlapping component, route,
+    and generated UX workpack ownership; shared shell/component contracts must
+    be agreed before implementation.
+stories:
+  - id: UX-SYNC-004-S01
+    title: Queued-changes view
+    requirementIds:
+      - UX-SYNC-004
+    acceptanceCriteria:
+      - Given five local edits have been made offline, when the user opens the
+        queued-changes view, then all five operations are listed in
+        reverse-chronological order with entity name, plain-language operation
+        type, and recency.
+      - Given all operations have synced, when the user opens the queued-changes
+        view, then the empty state is displayed.
+      - Given a Mobile user taps the global sync indicator in Pending state,
+        when the indicator is tapped, then the queued-changes bottom drawer
+        opens within 300 ms.
+    tasks:
+      - id: UX-SYNC-004-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SYNC-004
+        kind: design
+      - id: UX-SYNC-004-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SYNC-004
+        kind: implementation
+      - id: UX-SYNC-004-S01-T03
+        title: Add automated and manual coverage for UX-SYNC-004 acceptance criteria
+        kind: test
+      - id: UX-SYNC-004-S01-T04
+        title: Record demo notes and traceability evidence for UX-SYNC-004
+        kind: demo
+  - id: UX-SYNC-005-S01
+    title: Sync Status panel
+    requirementIds:
+      - UX-SYNC-005
+    acceptanceCriteria:
+      - Given the DM opens the Sync Status panel with an unresolved conflict on
+        a character, when the panel renders, then the Conflicts section is
+        visible with that character listed and a "Resolve" button.
+      - Given a Player opens the Sync Status panel, when the panel renders, then
+        the Conflicts section is absent or shows "No conflicts" even if DM-only
+        content conflicts exist.
+      - Given Google Docs auth has expired, when the Sources section renders,
+        then the Google Docs row shows `"Auth required"` state and a
+        `"Reauthorize"` button.
+      - Given the DM clicks `"Sync now"`, when the sync cycle is triggered, then
+        the button enters loading state and returns to its default state within
+        10 seconds (success or error).
+    tasks:
+      - id: UX-SYNC-005-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SYNC-005
+        kind: design
+      - id: UX-SYNC-005-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SYNC-005
+        kind: implementation
+      - id: UX-SYNC-005-S01-T03
+        title: Add automated and manual coverage for UX-SYNC-005 acceptance criteria
+        kind: test
+      - id: UX-SYNC-005-S01-T04
+        title: Record demo notes and traceability evidence for UX-SYNC-005
+        kind: demo
+  - id: UX-SYNC-006-S01
+    title: Conflict resolution surface
+    requirementIds:
+      - UX-SYNC-006
+    acceptanceCriteria:
+      - Given a conflict exists on a character with two conflicted fields, when
+        the DM opens the conflict resolution surface, then both fields are
+        displayed side-by-side with labeled source attribution.
+      - Given the DM has resolved one of two fields, when the Commit button is
+        inspected, then it is disabled and the result preview shows one resolved
+        value and one `[unresolved]` marker.
+      - Given the DM clicks "Accept All Mine", when the action completes, then
+        all fields show the "Your version" value in the result preview and the
+        Commit button becomes enabled.
+      - Given the DM commits a resolution, when the operation completes, then
+        the entity's conflict badge is cleared, a success toast appears, and the
+        panel closes.
+      - Given a Player role navigates to a URL that would open a conflict
+        surface, when the route resolves, then access is denied with a
+        `"Permission required"` message and no conflict data is rendered.
+    tasks:
+      - id: UX-SYNC-006-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SYNC-006
+        kind: design
+      - id: UX-SYNC-006-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SYNC-006
+        kind: implementation
+      - id: UX-SYNC-006-S01-T03
+        title: Add automated and manual coverage for UX-SYNC-006 acceptance criteria
+        kind: test
+      - id: UX-SYNC-006-S01-T04
+        title: Record demo notes and traceability evidence for UX-SYNC-006
+        kind: demo
+  - id: UX-SYNC-007-S01
+    title: Retry and error recovery with actionable messaging
+    requirementIds:
+      - UX-SYNC-007
+    acceptanceCriteria:
+      - Given Google Docs auth expires during a sync cycle, when the error is
+        surfaced, then the Sources section shows `"Google Docs — Authorization
+        expired"` with a `"Reauthorize"` button, not a generic error message.
+      - Given the user clicks `"Retry now"`, when the retry is in progress, then
+        the button shows a loading spinner and is disabled until the retry
+        completes or fails.
+      - Given a transient network timeout self-resolves within 5 seconds, when
+        the error occurs, then only a snackbar toast appears (not a persistent
+        error in the Sync Status panel).
+    tasks:
+      - id: UX-SYNC-007-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SYNC-007
+        kind: design
+      - id: UX-SYNC-007-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SYNC-007
+        kind: implementation
+      - id: UX-SYNC-007-S01-T03
+        title: Add automated and manual coverage for UX-SYNC-007 acceptance criteria
+        kind: test
+      - id: UX-SYNC-007-S01-T04
+        title: Record demo notes and traceability evidence for UX-SYNC-007
+        kind: demo
+  - id: UX-SYNC-009-S01
+    title: Asset-missing degraded state
+    requirementIds:
+      - UX-SYNC-009
+    acceptanceCriteria:
+      - Given a map widget references an image asset not on this device, when
+        the widget renders, then the hatched placeholder and explanatory text
+        are shown, and all other map controls remain functional.
+      - Given the user clicks "Download asset" while online, when the download
+        completes, then the placeholder is replaced with the map image without
+        requiring a page reload.
+    tasks:
+      - id: UX-SYNC-009-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SYNC-009
+        kind: design
+      - id: UX-SYNC-009-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SYNC-009
+        kind: implementation
+      - id: UX-SYNC-009-S01-T03
+        title: Add automated and manual coverage for UX-SYNC-009 acceptance criteria
+        kind: test
+      - id: UX-SYNC-009-S01-T04
+        title: Record demo notes and traceability evidence for UX-SYNC-009
+        kind: demo
+  - id: UX-SYNC-010-S01
+    title: Cloud storage classification and consent panel
+    requirementIds:
+      - UX-SYNC-010
+    acceptanceCriteria:
+      - Given cloud sync prerequisites are not met, when the user views the
+        classification panel, then the Enable button is disabled and each unmet
+        prerequisite is listed with an unmet indicator.
+      - Given all prerequisites are met, when the user clicks "Enable cloud
+        sync", then a confirmation modal appears naming the vault before
+        enabling.
+      - Given the user confirms enablement, when enablement succeeds, then the
+        gate summary updates to "Enabled" and the cloud-syncable categories are
+        marked as now-active.
+      - Given a screen reader user tabs to the Enable button while prerequisites
+        are unmet, when focus lands on the button, then `aria-disabled="true"`
+        is announced and the associated tooltip text is readable via
+        `aria-describedby`.
+    tasks:
+      - id: UX-SYNC-010-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SYNC-010
+        kind: design
+      - id: UX-SYNC-010-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SYNC-010
+        kind: implementation
+      - id: UX-SYNC-010-S01-T03
+        title: Add automated and manual coverage for UX-SYNC-010 acceptance criteria
+        kind: test
+      - id: UX-SYNC-010-S01-T04
+        title: Record demo notes and traceability evidence for UX-SYNC-010
+        kind: demo
+  - id: UX-SYNC-012-S01
+    title: First-time authorization flows
+    requirementIds:
+      - UX-SYNC-012
+    acceptanceCriteria:
+      - Given the user initiates Google Docs authorization, when the auth sheet
+        opens, then the plain-language explanation and permissions list are
+        visible before the Connect button is enabled.
+      - Given the device is offline, when the user attempts authorization, then
+        the offline-blocked state is shown with no OAuth redirect.
+      - Given OAuth completes successfully, when the sheet transitions, then the
+        `"Connected"` state is shown with a Done button and the source appears
+        in the Sync Status panel.
+    tasks:
+      - id: UX-SYNC-012-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SYNC-012
+        kind: design
+      - id: UX-SYNC-012-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SYNC-012
+        kind: implementation
+      - id: UX-SYNC-012-S01-T03
+        title: Add automated and manual coverage for UX-SYNC-012 acceptance criteria
+        kind: test
+      - id: UX-SYNC-012-S01-T04
+        title: Record demo notes and traceability evidence for UX-SYNC-012
+        kind: demo
+qualityBar:
+  - "Product fit: the delivered UI follows the canvas-first command platform
+    model and never regresses to a document-list home."
+  - "Traceability: every mapped UX requirement is tied to implementation, tests,
+    and demo evidence."
+  - "Foundations first: design tokens, shared components, platform profiles, and
+    accessibility primitives are reused rather than reimplemented per surface."
+  - "Actor safety: player and observer routes, search, ARIA, errors, skeletons,
+    previews, and command results never leak DM-only content."
+  - "Platform parity: Desktop, Tablet, and Mobile expose the same Must-have
+    commands through profile-appropriate surfaces and the same processing-core
+    commands."
+  - "Live-play readiness: hot paths acknowledge within 100 ms, support
+    undo/retry where appropriate, and stay glanceable under table pressure."
+  - "Accessibility: WCAG 2.2 AA, keyboard parity, reduced motion, touch targets,
+    non-color state, and screen-reader QA are part of the acceptance bar."
+  - "Production polish: empty/loading/error states, responsive constraints,
+    visual hierarchy, motion, and help affordances are complete enough to
+    share."
+gitWorkflow:
+  - Start from `git status --short` and work around unrelated local edits unless
+    they block the epic.
+  - Use one branch per UX epic and keep commits scoped to that epic plus its
+    generated UX workpack evidence.
+  - Do not hand-edit generated files under `docs/planning/v2/ux` for status
+    changes; use the UX workpack commands.
+  - Do not reset, overwrite, or reformat unrelated user changes.
+  - Before handoff, run targeted tests plus `pnpm v2:ux-workpack:validate` and
+    leave no stale generated UX planning diffs.
+statusAutomation:
+  - Do not hand-edit generated UX epic packets, `status.yaml`,
+    `requirements-index.yaml`, `initiative-map.yaml`, or `parallel-batches.yaml`
+    for status changes.
+  - Use `pnpm v2:ux-workpack:set-status -- --epic
+    UX-SYNC-queues-conflicts-recovery-consent-and-authorization --status active`
+    when implementation starts.
+  - Create
+    `docs/planning/v2/ux/epics/UX-SYNC-queues-conflicts-recovery-consent-and-authorization.completion.md`
+    with demo, tests, traceability, gaps, and git evidence before marking
+    complete.
+  - Use `pnpm v2:ux-workpack:complete -- --epic
+    UX-SYNC-queues-conflicts-recovery-consent-and-authorization` to update
+    `docs/planning/v2/ux/workpack-state.yaml` and regenerate all derived UX
+    planning files together.
+  - Run `pnpm v2:ux-workpack:validate` after any status or generation command.
+testPlan:
+  - Run `pnpm v2:ux-workpack:validate` before handoff.
+  - Run targeted unit tests for stores, query shaping, route metadata, component
+    state, and command dispatch touched by this epic.
+  - Run app tests or Playwright coverage for visible route, profile, keyboard,
+    touch, empty/loading/error, and player-safe behavior touched by this epic.
+  - Run axe and manual accessibility checks when the epic touches focus,
+    landmarks, dialogs, menus, tabs, drag alternatives, live regions, or
+    screen-reader output.
+  - Verify offline/degraded states never block local-first core work.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated on Desktop, Tablet, and Mobile
+    where applicable.
+  - List the UX requirement IDs and acceptance criteria exercised by the demo.
+  - Record actor roles used in the demo, especially DM/player/observer safety
+    cases.
+  - Record remaining polish, research, or product-decision gaps explicitly.
+stopConditions:
+  - Stop if the epic needs a product decision that the architecture
+    reconciliation epic has not resolved.
+  - Stop if a UX requirement conflicts with a functional requirement and the
+    conflict has not been raised in docs.
+  - Stop if a player-visible route, ARIA label, command result, search result,
+    preview, skeleton, or error can reveal hidden DM-only content.
+  - Stop if a Must-have action is pointer-only, gesture-only, desktop-only, or
+    depends on an optional network/cloud/AI feature.
+  - Stop if generated UX workpack validation fails and the cause is not
+    understood.
+completionEvidence:
+  - Targeted tests and profile checks pass.
+  - Requirement IDs are traced to implementation, tests, and demo notes.
+  - Desktop, Tablet, and Mobile behavior is covered or explicitly scoped with a
+    reason.
+  - Accessibility, actor-safety, no-leak, reduced-motion, touch-target, and
+    keyboard parity evidence is recorded where applicable.
+  - Completion file records demo path, tests run, changed files, requirement
+    coverage, known gaps, git branch/commit or PR, and final `git status
+    --short` output.
+  - The UX workpack status is updated with the programmatic complete command
+    after completion evidence exists.

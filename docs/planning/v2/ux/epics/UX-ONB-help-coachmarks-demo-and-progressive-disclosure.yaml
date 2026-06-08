@@ -1,0 +1,348 @@
+schemaVersion: 1
+kind: ux-ui-remake-epic
+id: UX-ONB-help-coachmarks-demo-and-progressive-disclosure
+title: Help, Coach Marks, Demo Content, and Progressive Disclosure
+status: approved
+approved: true
+phase: 10 Onboarding and Production Polish
+productPriority: P1
+domain: UX-ONB
+objective: Finish learnability with contextual coach marks, persistent help,
+  shortcut reference, contextual help center, progressive feature tiers, sample
+  content offer, and changelog.
+requirementIds:
+  - UX-ONB-013
+  - UX-ONB-014
+  - UX-ONB-015
+  - UX-ONB-016
+  - UX-ONB-017
+  - UX-ONB-018
+  - UX-ONB-019
+  - UX-ONB-020
+sourceDocs:
+  - docs/remake-review/ux-requirements/00-overview-and-principles.md
+  - docs/remake-review/ux-requirements/15-onboarding-learnability.md
+  - docs/remake-review/ux-requirements/16-ideal-gui-architecture.md
+  - docs/remake-review/ux-requirements/README.md
+expectedAffectedAreas:
+  - coach mark trigger rules
+  - help panel
+  - keyboard shortcut reference
+  - feature-tier controls
+  - demo content offer
+  - changelog surface
+dependencies:
+  - UX-ONB-first-run-role-and-player-join-paths
+  - UX-SHELL-command-surface-and-shortcuts
+  - UX-VIS-component-library-motion-density-icons
+parallelSafety:
+  fileOwnership:
+    - docs/planning/v2/ux/
+    - apps/v2/app/src/lib/gui/ux-onb/
+    - apps/v2/app/src/routes/
+  notes: Parallel execution is safe only with non-overlapping component, route,
+    and generated UX workpack ownership; shared shell/component contracts must
+    be agreed before implementation.
+stories:
+  - id: UX-ONB-013-S01
+    title: "Contextual coach marks: trigger rules and anatomy"
+    requirementIds:
+      - UX-ONB-013
+    acceptanceCriteria:
+      - Given a user first opens the Command Center, when no prior seen-state
+        exists, then exactly one coach mark fires pointing to the add-widget
+        affordance.
+      - Given the user dismisses a coach mark, when the session ends and a new
+        session starts, then the dismissed mark does not fire again.
+      - Given two coach marks have already fired in the current session, when a
+        third trigger event occurs, then no coach mark appears.
+      - Given a coach mark is visible, when the user interacts with the surface
+        behind it, then the interaction is not blocked.
+      - Given `prefers-reduced-motion` is active, when a coach mark appears or
+        dismisses, then no animation occurs.
+    tasks:
+      - id: UX-ONB-013-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-ONB-013
+        kind: design
+      - id: UX-ONB-013-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-ONB-013
+        kind: implementation
+      - id: UX-ONB-013-S01-T03
+        title: Add automated and manual coverage for UX-ONB-013 acceptance criteria
+        kind: test
+      - id: UX-ONB-013-S01-T04
+        title: Record demo notes and traceability evidence for UX-ONB-013
+        kind: demo
+  - id: UX-ONB-014-S01
+    title: Persistent "?" help entry
+    requirementIds:
+      - UX-ONB-014
+    acceptanceCriteria:
+      - Given any surface, when the user activates the "?" button, then the
+        contextual help panel opens.
+      - Given Desktop focus is not in a text input, when the user presses "?",
+        then the keyboard cheat sheet opens.
+      - Given Desktop focus is in a text input, when the user presses "?", then
+        no cheat sheet opens (the character is typed).
+      - Given Mobile profile, when the bottom bar is rendered, then the "?"
+        button is present and meets ≥44×44 CSS px touch target.
+    tasks:
+      - id: UX-ONB-014-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-ONB-014
+        kind: design
+      - id: UX-ONB-014-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-ONB-014
+        kind: implementation
+      - id: UX-ONB-014-S01-T03
+        title: Add automated and manual coverage for UX-ONB-014 acceptance criteria
+        kind: test
+      - id: UX-ONB-014-S01-T04
+        title: Record demo notes and traceability evidence for UX-ONB-014
+        kind: demo
+  - id: UX-ONB-015-S01
+    title: Keyboard shortcut cheat sheet
+    requirementIds:
+      - UX-ONB-015
+    acceptanceCriteria:
+      - Given Desktop focus is not in a text input, when "?" is pressed, then
+        the cheat sheet opens with the search input focused.
+      - Given the cheat sheet is open, when the user types "initiative," then
+        only shortcut rows with "initiative" in the description are shown.
+      - Given the cheat sheet is open, when Escape is pressed, then the cheat
+        sheet closes and focus returns to the element that had focus before it
+        opened.
+      - Given the cheat sheet is open, when "?" is pressed again, then the cheat
+        sheet closes.
+    tasks:
+      - id: UX-ONB-015-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-ONB-015
+        kind: design
+      - id: UX-ONB-015-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-ONB-015
+        kind: implementation
+      - id: UX-ONB-015-S01-T03
+        title: Add automated and manual coverage for UX-ONB-015 acceptance criteria
+        kind: test
+      - id: UX-ONB-015-S01-T04
+        title: Record demo notes and traceability evidence for UX-ONB-015
+        kind: demo
+  - id: UX-ONB-016-S01
+    title: Contextual help panel and help center
+    requirementIds:
+      - UX-ONB-016
+    acceptanceCriteria:
+      - Given the "?" button is activated on the Command Center, when the help
+        panel opens, then the heading reads "Command Center help" and the quick
+        tips are Command Center–specific.
+      - Given a new changelog entry exists (not yet viewed), when the "?" button
+        is rendered, then the red badge dot is visible.
+      - Given the help panel is opened, when the changelog badge is present,
+        then it is cleared.
+      - Given the help panel is open on Mobile, when the user swipes down on the
+        sheet handle, then the sheet dismisses.
+    tasks:
+      - id: UX-ONB-016-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-ONB-016
+        kind: design
+      - id: UX-ONB-016-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-ONB-016
+        kind: implementation
+      - id: UX-ONB-016-S01-T03
+        title: Add automated and manual coverage for UX-ONB-016 acceptance criteria
+        kind: test
+      - id: UX-ONB-016-S01-T04
+        title: Record demo notes and traceability evidence for UX-ONB-016
+        kind: demo
+  - id: UX-ONB-017-S01
+    title: Progressive onboarding for complex surfaces (Canvas, Maps, Characters)
+    requirementIds:
+      - UX-ONB-017
+    acceptanceCriteria:
+      - Given Tier 1 canvas milestone met but Tier 2 not yet met, when the user
+        opens the canvas editor, then only Tier 1 coach marks are eligible to
+        fire (subject to the session frequency cap in UX-ONB-013).
+      - Given the "first widget placed" milestone is met, when the user next
+        opens the canvas editor in a new session, then the Tier 2 coach mark for
+        widget resize is eligible to fire.
+      - Given Tier 3 content is eligible, when it fires, then the help panel
+        quick-tips for that surface are updated to reflect power-user articles.
+    tasks:
+      - id: UX-ONB-017-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-ONB-017
+        kind: design
+      - id: UX-ONB-017-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-ONB-017
+        kind: implementation
+      - id: UX-ONB-017-S01-T03
+        title: Add automated and manual coverage for UX-ONB-017 acceptance criteria
+        kind: test
+      - id: UX-ONB-017-S01-T04
+        title: Record demo notes and traceability evidence for UX-ONB-017
+        kind: demo
+  - id: UX-ONB-018-S01
+    title: Feature-tier control (progressive disclosure of capability sets)
+    requirementIds:
+      - UX-ONB-018
+    acceptanceCriteria:
+      - Given the tier is set to "Starter," when the widget library is opened,
+        then map layer controls, capability-set grants, and MCP tools are
+        absent.
+      - Given the tier is changed to "Advanced," when the widget library is
+        opened, then all features are present.
+      - Given the feature tier control is in Settings, when the DM accesses it,
+        then the current tier is pre-selected and changing it takes immediate
+        effect.
+    tasks:
+      - id: UX-ONB-018-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-ONB-018
+        kind: design
+      - id: UX-ONB-018-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-ONB-018
+        kind: implementation
+      - id: UX-ONB-018-S01-T03
+        title: Add automated and manual coverage for UX-ONB-018 acceptance criteria
+        kind: test
+      - id: UX-ONB-018-S01-T04
+        title: Record demo notes and traceability evidence for UX-ONB-018
+        kind: demo
+  - id: UX-ONB-019-S01
+    title: Demo / sample content offer
+    requirementIds:
+      - UX-ONB-019
+    acceptanceCriteria:
+      - Given the Knowledge surface is empty, when "Load demo notes" is
+        activated, then three demo notes appear with "Demo" badges.
+      - Given the user creates one real note, when the Knowledge surface
+        renders, then the "Load demo notes" secondary CTA is absent.
+      - 'Given demo content exists, when "Remove all demo content" is confirmed
+        in Settings, then all items tagged `_demo: true` are deleted across all
+        surfaces.'
+    tasks:
+      - id: UX-ONB-019-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-ONB-019
+        kind: design
+      - id: UX-ONB-019-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-ONB-019
+        kind: implementation
+      - id: UX-ONB-019-S01-T03
+        title: Add automated and manual coverage for UX-ONB-019 acceptance criteria
+        kind: test
+      - id: UX-ONB-019-S01-T04
+        title: Record demo notes and traceability evidence for UX-ONB-019
+        kind: demo
+  - id: UX-ONB-020-S01
+    title: "\"What's New\" / changelog surface"
+    requirementIds:
+      - UX-ONB-020
+    acceptanceCriteria:
+      - Given a new release entry exists, when the "?" button renders, then the
+        red badge dot is visible.
+      - Given the user opens the help panel, when it renders, then the badge is
+        cleared.
+      - Given the user opens the app after a release, then no interruptive modal
+        or dialog is shown before they can access the Command Center.
+    tasks:
+      - id: UX-ONB-020-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-ONB-020
+        kind: design
+      - id: UX-ONB-020-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-ONB-020
+        kind: implementation
+      - id: UX-ONB-020-S01-T03
+        title: Add automated and manual coverage for UX-ONB-020 acceptance criteria
+        kind: test
+      - id: UX-ONB-020-S01-T04
+        title: Record demo notes and traceability evidence for UX-ONB-020
+        kind: demo
+qualityBar:
+  - "Product fit: the delivered UI follows the canvas-first command platform
+    model and never regresses to a document-list home."
+  - "Traceability: every mapped UX requirement is tied to implementation, tests,
+    and demo evidence."
+  - "Foundations first: design tokens, shared components, platform profiles, and
+    accessibility primitives are reused rather than reimplemented per surface."
+  - "Actor safety: player and observer routes, search, ARIA, errors, skeletons,
+    previews, and command results never leak DM-only content."
+  - "Platform parity: Desktop, Tablet, and Mobile expose the same Must-have
+    commands through profile-appropriate surfaces and the same processing-core
+    commands."
+  - "Live-play readiness: hot paths acknowledge within 100 ms, support
+    undo/retry where appropriate, and stay glanceable under table pressure."
+  - "Accessibility: WCAG 2.2 AA, keyboard parity, reduced motion, touch targets,
+    non-color state, and screen-reader QA are part of the acceptance bar."
+  - "Production polish: empty/loading/error states, responsive constraints,
+    visual hierarchy, motion, and help affordances are complete enough to
+    share."
+gitWorkflow:
+  - Start from `git status --short` and work around unrelated local edits unless
+    they block the epic.
+  - Use one branch per UX epic and keep commits scoped to that epic plus its
+    generated UX workpack evidence.
+  - Do not hand-edit generated files under `docs/planning/v2/ux` for status
+    changes; use the UX workpack commands.
+  - Do not reset, overwrite, or reformat unrelated user changes.
+  - Before handoff, run targeted tests plus `pnpm v2:ux-workpack:validate` and
+    leave no stale generated UX planning diffs.
+statusAutomation:
+  - Do not hand-edit generated UX epic packets, `status.yaml`,
+    `requirements-index.yaml`, `initiative-map.yaml`, or `parallel-batches.yaml`
+    for status changes.
+  - Use `pnpm v2:ux-workpack:set-status -- --epic
+    UX-ONB-help-coachmarks-demo-and-progressive-disclosure --status active` when
+    implementation starts.
+  - Create
+    `docs/planning/v2/ux/epics/UX-ONB-help-coachmarks-demo-and-progressive-disclosure.completion.md`
+    with demo, tests, traceability, gaps, and git evidence before marking
+    complete.
+  - Use `pnpm v2:ux-workpack:complete -- --epic
+    UX-ONB-help-coachmarks-demo-and-progressive-disclosure` to update
+    `docs/planning/v2/ux/workpack-state.yaml` and regenerate all derived UX
+    planning files together.
+  - Run `pnpm v2:ux-workpack:validate` after any status or generation command.
+testPlan:
+  - Run `pnpm v2:ux-workpack:validate` before handoff.
+  - Run targeted unit tests for stores, query shaping, route metadata, component
+    state, and command dispatch touched by this epic.
+  - Run app tests or Playwright coverage for visible route, profile, keyboard,
+    touch, empty/loading/error, and player-safe behavior touched by this epic.
+  - Run axe and manual accessibility checks when the epic touches focus,
+    landmarks, dialogs, menus, tabs, drag alternatives, live regions, or
+    screen-reader output.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated on Desktop, Tablet, and Mobile
+    where applicable.
+  - List the UX requirement IDs and acceptance criteria exercised by the demo.
+  - Record actor roles used in the demo, especially DM/player/observer safety
+    cases.
+  - Record remaining polish, research, or product-decision gaps explicitly.
+stopConditions:
+  - Stop if the epic needs a product decision that the architecture
+    reconciliation epic has not resolved.
+  - Stop if a UX requirement conflicts with a functional requirement and the
+    conflict has not been raised in docs.
+  - Stop if a player-visible route, ARIA label, command result, search result,
+    preview, skeleton, or error can reveal hidden DM-only content.
+  - Stop if a Must-have action is pointer-only, gesture-only, desktop-only, or
+    depends on an optional network/cloud/AI feature.
+  - Stop if generated UX workpack validation fails and the cause is not
+    understood.
+completionEvidence:
+  - Targeted tests and profile checks pass.
+  - Requirement IDs are traced to implementation, tests, and demo notes.
+  - Desktop, Tablet, and Mobile behavior is covered or explicitly scoped with a
+    reason.
+  - Accessibility, actor-safety, no-leak, reduced-motion, touch-target, and
+    keyboard parity evidence is recorded where applicable.
+  - Completion file records demo path, tests run, changed files, requirement
+    coverage, known gaps, git branch/commit or PR, and final `git status
+    --short` output.
+  - The UX workpack status is updated with the programmatic complete command
+    after completion evidence exists.

@@ -1,0 +1,304 @@
+schemaVersion: 1
+kind: ux-ui-remake-epic
+id: UX-SYNC-global-indicators-local-first-and-entity-badges
+title: Sync Indicators, Local-First Feedback, and Entity Badges
+status: approved
+approved: true
+phase: 09 Reliability and Optional Capabilities
+productPriority: P0
+domain: UX-SYNC
+objective: Make sync visible but non-blocking through global status, entity
+  badges, offline banner, optimistic local-first acknowledgements, trust
+  signals, and no blocking spinners.
+requirementIds:
+  - UX-SYNC-001
+  - UX-SYNC-002
+  - UX-SYNC-003
+  - UX-SYNC-008
+  - UX-SYNC-011
+  - UX-SYNC-013
+sourceDocs:
+  - docs/remake-review/ux-requirements/00-overview-and-principles.md
+  - docs/remake-review/ux-requirements/12-sync-offline-reliability.md
+  - docs/remake-review/ux-requirements/16-ideal-gui-architecture.md
+  - docs/remake-review/ux-requirements/README.md
+expectedAffectedAreas:
+  - top-bar sync badge
+  - per-entity sync badges
+  - offline banner
+  - local-first write feedback
+  - last-synced trust signals
+dependencies:
+  - UX-SHELL-route-layout-and-platform-profiles
+parallelSafety:
+  fileOwnership:
+    - docs/planning/v2/ux/
+    - apps/v2/app/src/lib/gui/ux-sync/
+    - apps/v2/app/src/routes/
+  notes: Parallel execution is safe only with non-overlapping component, route,
+    and generated UX workpack ownership; shared shell/component contracts must
+    be agreed before implementation.
+stories:
+  - id: UX-SYNC-001-S01
+    title: "Global sync status indicator: five-state ambient icon"
+    requirementIds:
+      - UX-SYNC-001
+    acceptanceCriteria:
+      - Given the device has no network, when any surface is open, then the
+        indicator shows the Offline state icon with warning color within 2
+        seconds of connectivity loss.
+      - Given local changes are queued while offline, when connectivity returns
+        and sync begins, then the indicator transitions Pending → Syncing →
+        Synced without user action.
+      - Given a conflict exists on any entity, when the user has not opened the
+        Sync Status panel, then the indicator shows Error/Conflict state with a
+        badge count ≥ 1.
+      - Given the indicator is in any state, when the user presses `G S` on
+        Desktop, then the Sync Status panel opens within 300 ms.
+      - 'Given a screen reader user is present, when the state transitions from
+        Synced to Offline, then the live region announces "Sync status: Offline.
+        Changes saved locally." within one tick.'
+    tasks:
+      - id: UX-SYNC-001-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SYNC-001
+        kind: design
+      - id: UX-SYNC-001-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SYNC-001
+        kind: implementation
+      - id: UX-SYNC-001-S01-T03
+        title: Add automated and manual coverage for UX-SYNC-001 acceptance criteria
+        kind: test
+      - id: UX-SYNC-001-S01-T04
+        title: Record demo notes and traceability evidence for UX-SYNC-001
+        kind: demo
+  - id: UX-SYNC-002-S01
+    title: Per-entity sync badges
+    requirementIds:
+      - UX-SYNC-002
+    acceptanceCriteria:
+      - Given a character entity has an unresolved conflict, when the user views
+        the character list, then a conflict badge (exclamation icon, error
+        color) is visible on that character's card.
+      - Given a map asset is missing from this device (SYNC-009), when the map
+        card is rendered, then an "asset missing" badge is visible on the card.
+      - Given an entity has synced successfully, when the entity card is
+        rendered at rest (> 3 s after sync), then no badge (or a muted
+        checkmark) is shown, not a prominent colored indicator.
+      - Given a keyboard user focuses a conflict badge, when they press `Enter`,
+        then the conflict resolution panel opens with focus placed on the first
+        decision affordance.
+    tasks:
+      - id: UX-SYNC-002-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SYNC-002
+        kind: design
+      - id: UX-SYNC-002-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SYNC-002
+        kind: implementation
+      - id: UX-SYNC-002-S01-T03
+        title: Add automated and manual coverage for UX-SYNC-002 acceptance criteria
+        kind: test
+      - id: UX-SYNC-002-S01-T04
+        title: Record demo notes and traceability evidence for UX-SYNC-002
+        kind: demo
+  - id: UX-SYNC-003-S01
+    title: "Offline state: non-blocking persistent banner"
+    requirementIds:
+      - UX-SYNC-003
+    acceptanceCriteria:
+      - Given the device loses connectivity, when any user is editing a note or
+        character, then the offline banner appears within 2 seconds and the
+        editing surface remains fully interactive.
+      - Given the offline banner is visible, when the user dismisses it
+        manually, then it is removed from the DOM and editing continues without
+        interruption.
+      - Given connectivity returns and sync completes, when the app
+        re-establishes cloud connection, then the banner transitions Offline →
+        Reconnecting → "Back online. Changes synced." and auto-dismisses within
+        3 seconds.
+      - Given a screen reader user is present, when the device goes offline,
+        then the `aria-live="assertive"` region announces the offline banner
+        text within one render tick.
+    tasks:
+      - id: UX-SYNC-003-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SYNC-003
+        kind: design
+      - id: UX-SYNC-003-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SYNC-003
+        kind: implementation
+      - id: UX-SYNC-003-S01-T03
+        title: Add automated and manual coverage for UX-SYNC-003 acceptance criteria
+        kind: test
+      - id: UX-SYNC-003-S01-T04
+        title: Record demo notes and traceability evidence for UX-SYNC-003
+        kind: demo
+  - id: UX-SYNC-008-S01
+    title: "Optimistic UI: local-first write acknowledgment"
+    requirementIds:
+      - UX-SYNC-008
+    acceptanceCriteria:
+      - Given a user edits a character's HP field, when the edit is committed
+        (blur or Enter), then the new value is displayed within 100 ms without a
+        spinner or loading state.
+      - Given the sync engine rejects a write due to validation failure, when
+        the rejection arrives, then the field reverts to its prior value and an
+        inline error with a reason and action appears within 500 ms.
+      - Given `prefers-reduced-motion` is enabled, when a write rollback occurs,
+        then the rollback is instant (no animation) and the error badge appears
+        immediately.
+    tasks:
+      - id: UX-SYNC-008-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SYNC-008
+        kind: design
+      - id: UX-SYNC-008-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SYNC-008
+        kind: implementation
+      - id: UX-SYNC-008-S01-T03
+        title: Add automated and manual coverage for UX-SYNC-008 acceptance criteria
+        kind: test
+      - id: UX-SYNC-008-S01-T04
+        title: Record demo notes and traceability evidence for UX-SYNC-008
+        kind: demo
+  - id: UX-SYNC-011-S01
+    title: 'Trust signals: last-synced timestamp and "your data is safe" reassurance'
+    requirementIds:
+      - UX-SYNC-011
+    acceptanceCriteria:
+      - Given the user saves a note, when the save completes, then a `"Saved"`
+        micro-label appears adjacent to the note title within 100 ms and fades
+        after 1.5 s.
+      - Given the global sync indicator is in `Synced` state, when the user
+        hovers (Desktop) or reads the entity header (Mobile), then a `"Last
+        synced N minutes ago"` timestamp is visible.
+      - Given `prefers-reduced-motion` is active, when the "Saved" micro-label
+        appears, then it is displayed without fade animation.
+    tasks:
+      - id: UX-SYNC-011-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SYNC-011
+        kind: design
+      - id: UX-SYNC-011-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SYNC-011
+        kind: implementation
+      - id: UX-SYNC-011-S01-T03
+        title: Add automated and manual coverage for UX-SYNC-011 acceptance criteria
+        kind: test
+      - id: UX-SYNC-011-S01-T04
+        title: Record demo notes and traceability evidence for UX-SYNC-011
+        kind: demo
+  - id: UX-SYNC-013-S01
+    title: "Perceived performance: no blocking spinners on sync"
+    requirementIds:
+      - UX-SYNC-013
+    acceptanceCriteria:
+      - Given the user opens the Sync Status panel, when data is loading, then a
+        skeleton layout (not a spinner) is shown and the rest of the app remains
+        interactive.
+      - Given a large asset download is in progress, when the user navigates to
+        a different surface, then the download continues in the background and
+        the UI does not block.
+      - Given a full Google Docs initial sync is triggered, when the sync
+        begins, then a background progress toast appears and the user can open
+        and edit notes immediately.
+    tasks:
+      - id: UX-SYNC-013-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SYNC-013
+        kind: design
+      - id: UX-SYNC-013-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SYNC-013
+        kind: implementation
+      - id: UX-SYNC-013-S01-T03
+        title: Add automated and manual coverage for UX-SYNC-013 acceptance criteria
+        kind: test
+      - id: UX-SYNC-013-S01-T04
+        title: Record demo notes and traceability evidence for UX-SYNC-013
+        kind: demo
+qualityBar:
+  - "Product fit: the delivered UI follows the canvas-first command platform
+    model and never regresses to a document-list home."
+  - "Traceability: every mapped UX requirement is tied to implementation, tests,
+    and demo evidence."
+  - "Foundations first: design tokens, shared components, platform profiles, and
+    accessibility primitives are reused rather than reimplemented per surface."
+  - "Actor safety: player and observer routes, search, ARIA, errors, skeletons,
+    previews, and command results never leak DM-only content."
+  - "Platform parity: Desktop, Tablet, and Mobile expose the same Must-have
+    commands through profile-appropriate surfaces and the same processing-core
+    commands."
+  - "Live-play readiness: hot paths acknowledge within 100 ms, support
+    undo/retry where appropriate, and stay glanceable under table pressure."
+  - "Accessibility: WCAG 2.2 AA, keyboard parity, reduced motion, touch targets,
+    non-color state, and screen-reader QA are part of the acceptance bar."
+  - "Production polish: empty/loading/error states, responsive constraints,
+    visual hierarchy, motion, and help affordances are complete enough to
+    share."
+gitWorkflow:
+  - Start from `git status --short` and work around unrelated local edits unless
+    they block the epic.
+  - Use one branch per UX epic and keep commits scoped to that epic plus its
+    generated UX workpack evidence.
+  - Do not hand-edit generated files under `docs/planning/v2/ux` for status
+    changes; use the UX workpack commands.
+  - Do not reset, overwrite, or reformat unrelated user changes.
+  - Before handoff, run targeted tests plus `pnpm v2:ux-workpack:validate` and
+    leave no stale generated UX planning diffs.
+statusAutomation:
+  - Do not hand-edit generated UX epic packets, `status.yaml`,
+    `requirements-index.yaml`, `initiative-map.yaml`, or `parallel-batches.yaml`
+    for status changes.
+  - Use `pnpm v2:ux-workpack:set-status -- --epic
+    UX-SYNC-global-indicators-local-first-and-entity-badges --status active`
+    when implementation starts.
+  - Create
+    `docs/planning/v2/ux/epics/UX-SYNC-global-indicators-local-first-and-entity-badges.completion.md`
+    with demo, tests, traceability, gaps, and git evidence before marking
+    complete.
+  - Use `pnpm v2:ux-workpack:complete -- --epic
+    UX-SYNC-global-indicators-local-first-and-entity-badges` to update
+    `docs/planning/v2/ux/workpack-state.yaml` and regenerate all derived UX
+    planning files together.
+  - Run `pnpm v2:ux-workpack:validate` after any status or generation command.
+testPlan:
+  - Run `pnpm v2:ux-workpack:validate` before handoff.
+  - Run targeted unit tests for stores, query shaping, route metadata, component
+    state, and command dispatch touched by this epic.
+  - Run app tests or Playwright coverage for visible route, profile, keyboard,
+    touch, empty/loading/error, and player-safe behavior touched by this epic.
+  - Run axe and manual accessibility checks when the epic touches focus,
+    landmarks, dialogs, menus, tabs, drag alternatives, live regions, or
+    screen-reader output.
+  - Verify offline/degraded states never block local-first core work.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated on Desktop, Tablet, and Mobile
+    where applicable.
+  - List the UX requirement IDs and acceptance criteria exercised by the demo.
+  - Record actor roles used in the demo, especially DM/player/observer safety
+    cases.
+  - Record remaining polish, research, or product-decision gaps explicitly.
+stopConditions:
+  - Stop if the epic needs a product decision that the architecture
+    reconciliation epic has not resolved.
+  - Stop if a UX requirement conflicts with a functional requirement and the
+    conflict has not been raised in docs.
+  - Stop if a player-visible route, ARIA label, command result, search result,
+    preview, skeleton, or error can reveal hidden DM-only content.
+  - Stop if a Must-have action is pointer-only, gesture-only, desktop-only, or
+    depends on an optional network/cloud/AI feature.
+  - Stop if generated UX workpack validation fails and the cause is not
+    understood.
+completionEvidence:
+  - Targeted tests and profile checks pass.
+  - Requirement IDs are traced to implementation, tests, and demo notes.
+  - Desktop, Tablet, and Mobile behavior is covered or explicitly scoped with a
+    reason.
+  - Accessibility, actor-safety, no-leak, reduced-motion, touch-target, and
+    keyboard parity evidence is recorded where applicable.
+  - Completion file records demo path, tests run, changed files, requirement
+    coverage, known gaps, git branch/commit or PR, and final `git status
+    --short` output.
+  - The UX workpack status is updated with the programmatic complete command
+    after completion evidence exists.

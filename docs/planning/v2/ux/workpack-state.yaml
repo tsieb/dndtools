@@ -1,0 +1,76 @@
+schemaVersion: 1
+sourceOfTruth:
+  purpose: Mutable source of truth for v2 UX/UI remake epic approval and
+    completion state. Generated planning files are derived from ux-requirements
+    plus this file.
+  generatedFiles:
+    - docs/planning/v2/ux/requirements-index.yaml
+    - docs/planning/v2/ux/initiative-map.yaml
+    - docs/planning/v2/ux/status.yaml
+    - docs/planning/v2/ux/parallel-batches.yaml
+    - docs/planning/v2/ux/epics/*.yaml
+defaults:
+  status: approved
+  approved: true
+precedence:
+  phases:
+    - 00 Architecture Decisions
+    - 01 Foundations
+    - 02 Shell and Navigation
+    - 03 Canvas and Command Center
+    - 04 Trust and Safety
+    - 05 Live-Play Workspaces
+    - 06 Core Library Workspaces
+    - 07 Collaboration and Permissions
+    - 08 Campaign and Discovery
+    - 09 Reliability and Optional Capabilities
+    - 10 Onboarding and Production Polish
+    - 11 Production Readiness
+  epics:
+    - UX-ARCH-product-architecture-and-ia-reconciliation
+    - UX-VIS-design-tokens-themes-and-brand
+    - UX-VIS-component-library-motion-density-icons
+    - UX-A11Y-release-gates-and-contrast
+    - UX-A11Y-interaction-primitives-and-help-compliance
+    - UX-A11Y-spatial-live-region-and-leakage
+    - UX-SHELL-route-layout-and-platform-profiles
+    - UX-SHELL-contextual-navigation-history-and-deep-links
+    - UX-SHELL-actor-filtered-nav-recents
+    - UX-SHELL-command-surface-and-shortcuts
+    - UX-CANVAS-viewport-rendering-and-performance
+    - UX-CANVAS-widget-manipulation-and-outline
+    - UX-CANVAS-chrome-bindings-templates-and-view-modes
+    - UX-CMD-home-scene-and-role-differentiated-dashboard
+    - UX-PERM-visibility-preview-badges-and-privacy-status
+    - UX-CMD-player-view-handouts-map-and-session-controls
+    - UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
+    - UX-SESSION-combat-editing-conditions-and-player-tracker
+    - UX-SESSION-tools-encounters-dice-timers-prep-calendar
+    - UX-CHAR-roster-creation-and-draft-ownership
+    - UX-CHAR-sheet-live-resources-and-advancement
+    - UX-CHAR-collaboration-and-widget-bindings
+    - UX-MAP-library-viewer-import-and-search
+    - UX-MAP-layers-authoring-generation-and-tags
+    - UX-MAP-pois-fog-projection-combat-and-embeds
+    - UX-CONTENT-editor-shell-and-writing-controls
+    - UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields
+    - UX-CONTENT-templates-snippets-sources-import-export
+    - UX-PERM-grant-dialog-active-grants-and-diagnostics
+    - UX-CONTENT-visibility-and-embeds
+    - UX-COLLAB-presence-join-roster-connection-and-catchup
+    - UX-COLLAB-handouts-player-views-combat-and-groups
+    - UX-CAMPAIGN-world-model-route-shell
+    - UX-SRCH-result-layout-filters-freshness-and-saved-searches
+    - UX-GRAPH-canvas-encoding-filtering-and-health
+    - UX-GRAPH-accessible-mobile-and-link-repair
+    - UX-SYNC-global-indicators-local-first-and-entity-badges
+    - UX-SYNC-queues-conflicts-recovery-consent-and-authorization
+    - UX-AUDIO-live-controls-player-delivery-and-degradation
+    - UX-AUDIO-library-presets-soundboard-and-automation
+    - UX-MCP-settings-policy-provenance-staged-writes-and-fallback
+    - UX-MCP-inline-assist-suggestions-attachments-and-response-presentation
+    - UX-ONB-first-run-role-and-player-join-paths
+    - UX-ONB-empty-states-and-teach-by-doing
+    - UX-ONB-help-coachmarks-demo-and-progressive-disclosure
+    - UX-RELEASE-production-readiness-and-shareable-cut
+epics: []

@@ -1,0 +1,126 @@
+schemaVersion: 1
+batches:
+  - id: batch-01
+    status: planned
+    reason: Epics in the same batch have all declared dependencies satisfied by
+      prior batches. They still require file-ownership review before parallel
+      implementation.
+    epicIds:
+      - UX-ARCH-product-architecture-and-ia-reconciliation
+  - id: batch-02
+    status: planned
+    reason: Epics in the same batch have all declared dependencies satisfied by
+      prior batches. They still require file-ownership review before parallel
+      implementation.
+    epicIds:
+      - UX-VIS-design-tokens-themes-and-brand
+  - id: batch-03
+    status: planned
+    reason: Epics in the same batch have all declared dependencies satisfied by
+      prior batches. They still require file-ownership review before parallel
+      implementation.
+    epicIds:
+      - UX-A11Y-release-gates-and-contrast
+      - UX-VIS-component-library-motion-density-icons
+  - id: batch-04
+    status: planned
+    reason: Epics in the same batch have all declared dependencies satisfied by
+      prior batches. They still require file-ownership review before parallel
+      implementation.
+    epicIds:
+      - UX-A11Y-interaction-primitives-and-help-compliance
+  - id: batch-05
+    status: planned
+    reason: Epics in the same batch have all declared dependencies satisfied by
+      prior batches. They still require file-ownership review before parallel
+      implementation.
+    epicIds:
+      - UX-A11Y-spatial-live-region-and-leakage
+      - UX-SHELL-route-layout-and-platform-profiles
+  - id: batch-06
+    status: planned
+    reason: Epics in the same batch have all declared dependencies satisfied by
+      prior batches. They still require file-ownership review before parallel
+      implementation.
+    epicIds:
+      - UX-CANVAS-viewport-rendering-and-performance
+      - UX-CHAR-roster-creation-and-draft-ownership
+      - UX-CONTENT-editor-shell-and-writing-controls
+      - UX-SHELL-actor-filtered-nav-recents
+      - UX-SHELL-contextual-navigation-history-and-deep-links
+      - UX-SYNC-global-indicators-local-first-and-entity-badges
+  - id: batch-07
+    status: planned
+    reason: Epics in the same batch have all declared dependencies satisfied by
+      prior batches. They still require file-ownership review before parallel
+      implementation.
+    epicIds:
+      - UX-CANVAS-widget-manipulation-and-outline
+      - UX-CHAR-sheet-live-resources-and-advancement
+      - UX-COLLAB-presence-join-roster-connection-and-catchup
+      - UX-CONTENT-templates-snippets-sources-import-export
+      - UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields
+      - UX-MAP-library-viewer-import-and-search
+      - UX-PERM-visibility-preview-badges-and-privacy-status
+      - UX-SHELL-command-surface-and-shortcuts
+  - id: batch-08
+    status: planned
+    reason: Epics in the same batch have all declared dependencies satisfied by
+      prior batches. They still require file-ownership review before parallel
+      implementation.
+    epicIds:
+      - UX-CAMPAIGN-world-model-route-shell
+      - UX-CANVAS-chrome-bindings-templates-and-view-modes
+      - UX-CONTENT-visibility-and-embeds
+      - UX-GRAPH-canvas-encoding-filtering-and-health
+      - UX-MAP-layers-authoring-generation-and-tags
+      - UX-PERM-grant-dialog-active-grants-and-diagnostics
+      - UX-SRCH-result-layout-filters-freshness-and-saved-searches
+      - UX-SYNC-queues-conflicts-recovery-consent-and-authorization
+  - id: batch-09
+    status: planned
+    reason: Epics in the same batch have all declared dependencies satisfied by
+      prior batches. They still require file-ownership review before parallel
+      implementation.
+    epicIds:
+      - UX-CHAR-collaboration-and-widget-bindings
+      - UX-CMD-home-scene-and-role-differentiated-dashboard
+      - UX-GRAPH-accessible-mobile-and-link-repair
+      - UX-MAP-pois-fog-projection-combat-and-embeds
+      - UX-MCP-settings-policy-provenance-staged-writes-and-fallback
+  - id: batch-10
+    status: planned
+    reason: Epics in the same batch have all declared dependencies satisfied by
+      prior batches. They still require file-ownership review before parallel
+      implementation.
+    epicIds:
+      - UX-CMD-player-view-handouts-map-and-session-controls
+      - UX-MCP-inline-assist-suggestions-attachments-and-response-presentation
+      - UX-ONB-first-run-role-and-player-join-paths
+      - UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
+  - id: batch-11
+    status: planned
+    reason: Epics in the same batch have all declared dependencies satisfied by
+      prior batches. They still require file-ownership review before parallel
+      implementation.
+    epicIds:
+      - UX-AUDIO-live-controls-player-delivery-and-degradation
+      - UX-ONB-empty-states-and-teach-by-doing
+      - UX-ONB-help-coachmarks-demo-and-progressive-disclosure
+      - UX-SESSION-combat-editing-conditions-and-player-tracker
+      - UX-SESSION-tools-encounters-dice-timers-prep-calendar
+  - id: batch-12
+    status: planned
+    reason: Epics in the same batch have all declared dependencies satisfied by
+      prior batches. They still require file-ownership review before parallel
+      implementation.
+    epicIds:
+      - UX-AUDIO-library-presets-soundboard-and-automation
+      - UX-COLLAB-handouts-player-views-combat-and-groups
+  - id: batch-13
+    status: planned
+    reason: Epics in the same batch have all declared dependencies satisfied by
+      prior batches. They still require file-ownership review before parallel
+      implementation.
+    epicIds:
+      - UX-RELEASE-production-readiness-and-shareable-cut

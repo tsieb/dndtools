@@ -1,0 +1,210 @@
+schemaVersion: 1
+kind: ux-ui-remake-epic
+id: UX-CANVAS-viewport-rendering-and-performance
+title: Canvas Viewport, Rendering, and Performance
+status: approved
+approved: true
+phase: 03 Canvas and Command Center
+productPriority: P0
+domain: UX-CANVAS
+objective: Create the production canvas viewport with pan/zoom, responsive
+  gesture alternatives, and perceived-performance guarantees suitable for
+  Command Center, Scenes, maps, and player views.
+requirementIds:
+  - UX-CANVAS-001
+  - UX-CANVAS-014
+  - UX-CANVAS-016
+sourceDocs:
+  - docs/remake-review/ux-requirements/00-overview-and-principles.md
+  - docs/remake-review/ux-requirements/04-canvas-scene-widgets.md
+  - docs/remake-review/ux-requirements/16-ideal-gui-architecture.md
+  - docs/remake-review/ux-requirements/README.md
+expectedAffectedAreas:
+  - canvas runtime
+  - viewport controls
+  - performance instrumentation
+  - touch gesture alternatives
+dependencies:
+  - UX-ARCH-product-architecture-and-ia-reconciliation
+  - UX-A11Y-spatial-live-region-and-leakage
+parallelSafety:
+  fileOwnership:
+    - docs/planning/v2/ux/
+    - apps/v2/app/src/lib/gui/ux-canvas/
+    - apps/v2/app/src/routes/
+  notes: Parallel execution is safe only with non-overlapping component, route,
+    and generated UX workpack ownership; shared shell/component contracts must
+    be agreed before implementation.
+stories:
+  - id: UX-CANVAS-001-S01
+    title: "Canvas viewport: pan and zoom model"
+    requirementIds:
+      - UX-CANVAS-001
+    acceptanceCriteria:
+      - Given a Desktop user scrolls the mouse wheel over a widget, when the
+        scroll occurs, the canvas zooms and the widget remains under the cursor
+        position (zoom-to-pointer).
+      - Given a Tablet user performs a two-finger pinch, when the pinch occurs,
+        zoom anchors to the midpoint between the two touch points.
+      - Given a keyboard-only user, when they press `0`, the canvas animates to
+        zoom-to-fit showing all placed widgets.
+      - "Given `prefers-reduced-motion: reduce` is set, when any zoom/pan
+        animation would play, it is replaced by an instant snap with no
+        transform animation."
+      - Given the minimap is visible, when the user drags the viewport rect, the
+        canvas pans to match.
+    tasks:
+      - id: UX-CANVAS-001-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CANVAS-001
+        kind: design
+      - id: UX-CANVAS-001-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CANVAS-001
+        kind: implementation
+      - id: UX-CANVAS-001-S01-T03
+        title: Add automated and manual coverage for UX-CANVAS-001 acceptance criteria
+        kind: test
+      - id: UX-CANVAS-001-S01-T04
+        title: Record demo notes and traceability evidence for UX-CANVAS-001
+        kind: demo
+  - id: UX-CANVAS-014-S01
+    title: Performance and perceived performance
+    requirementIds:
+      - UX-CANVAS-014
+    acceptanceCriteria:
+      - Given a canvas with 50 widgets, when the DM pans continuously, the
+        canvas maintains ≥60 fps (measured via performance profiling in CI).
+      - Given the frame budget is exceeded during a pan gesture for >3 frames,
+        the canvas enters poster-frame mode with a "rendering…" indicator.
+      - Given a widget's data is loading, the widget content area shows a
+        layout-matched skeleton, not a generic spinner.
+      - Given >150 widgets are placed, a non-blocking notification warns the DM
+        about performance.
+      - "Given `prefers-reduced-motion: reduce` is active, no skeleton shimmer
+        animation runs."
+    tasks:
+      - id: UX-CANVAS-014-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CANVAS-014
+        kind: design
+      - id: UX-CANVAS-014-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CANVAS-014
+        kind: implementation
+      - id: UX-CANVAS-014-S01-T03
+        title: Add automated and manual coverage for UX-CANVAS-014 acceptance criteria
+        kind: test
+      - id: UX-CANVAS-014-S01-T04
+        title: Record demo notes and traceability evidence for UX-CANVAS-014
+        kind: demo
+  - id: UX-CANVAS-016-S01
+    title: Multi-touch gestures and non-gesture alternatives
+    requirementIds:
+      - UX-CANVAS-016
+    acceptanceCriteria:
+      - Given any multi-touch gesture, when the user cannot perform it (e.g.,
+        motor disability), there exists a documented and operable discrete
+        alternative that produces the same result.
+      - Given a touch user taps the `⋯` button on a widget, the context menu
+        opens without requiring any hover or long-press gesture.
+      - Given a pointer-down drag that is released outside a valid drop zone,
+        the widget returns to its original position.
+      - Given automated a11y testing, touch targets ≥44×44 CSS px with ≥8 px
+        gaps pass on all interactive canvas elements.
+    tasks:
+      - id: UX-CANVAS-016-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CANVAS-016
+        kind: design
+      - id: UX-CANVAS-016-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CANVAS-016
+        kind: implementation
+      - id: UX-CANVAS-016-S01-T03
+        title: Add automated and manual coverage for UX-CANVAS-016 acceptance criteria
+        kind: test
+      - id: UX-CANVAS-016-S01-T04
+        title: Record demo notes and traceability evidence for UX-CANVAS-016
+        kind: demo
+qualityBar:
+  - "Product fit: the delivered UI follows the canvas-first command platform
+    model and never regresses to a document-list home."
+  - "Traceability: every mapped UX requirement is tied to implementation, tests,
+    and demo evidence."
+  - "Foundations first: design tokens, shared components, platform profiles, and
+    accessibility primitives are reused rather than reimplemented per surface."
+  - "Actor safety: player and observer routes, search, ARIA, errors, skeletons,
+    previews, and command results never leak DM-only content."
+  - "Platform parity: Desktop, Tablet, and Mobile expose the same Must-have
+    commands through profile-appropriate surfaces and the same processing-core
+    commands."
+  - "Live-play readiness: hot paths acknowledge within 100 ms, support
+    undo/retry where appropriate, and stay glanceable under table pressure."
+  - "Accessibility: WCAG 2.2 AA, keyboard parity, reduced motion, touch targets,
+    non-color state, and screen-reader QA are part of the acceptance bar."
+  - "Production polish: empty/loading/error states, responsive constraints,
+    visual hierarchy, motion, and help affordances are complete enough to
+    share."
+gitWorkflow:
+  - Start from `git status --short` and work around unrelated local edits unless
+    they block the epic.
+  - Use one branch per UX epic and keep commits scoped to that epic plus its
+    generated UX workpack evidence.
+  - Do not hand-edit generated files under `docs/planning/v2/ux` for status
+    changes; use the UX workpack commands.
+  - Do not reset, overwrite, or reformat unrelated user changes.
+  - Before handoff, run targeted tests plus `pnpm v2:ux-workpack:validate` and
+    leave no stale generated UX planning diffs.
+statusAutomation:
+  - Do not hand-edit generated UX epic packets, `status.yaml`,
+    `requirements-index.yaml`, `initiative-map.yaml`, or `parallel-batches.yaml`
+    for status changes.
+  - Use `pnpm v2:ux-workpack:set-status -- --epic
+    UX-CANVAS-viewport-rendering-and-performance --status active` when
+    implementation starts.
+  - Create
+    `docs/planning/v2/ux/epics/UX-CANVAS-viewport-rendering-and-performance.completion.md`
+    with demo, tests, traceability, gaps, and git evidence before marking
+    complete.
+  - Use `pnpm v2:ux-workpack:complete -- --epic
+    UX-CANVAS-viewport-rendering-and-performance` to update
+    `docs/planning/v2/ux/workpack-state.yaml` and regenerate all derived UX
+    planning files together.
+  - Run `pnpm v2:ux-workpack:validate` after any status or generation command.
+testPlan:
+  - Run `pnpm v2:ux-workpack:validate` before handoff.
+  - Run targeted unit tests for stores, query shaping, route metadata, component
+    state, and command dispatch touched by this epic.
+  - Run app tests or Playwright coverage for visible route, profile, keyboard,
+    touch, empty/loading/error, and player-safe behavior touched by this epic.
+  - Run axe and manual accessibility checks when the epic touches focus,
+    landmarks, dialogs, menus, tabs, drag alternatives, live regions, or
+    screen-reader output.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated on Desktop, Tablet, and Mobile
+    where applicable.
+  - List the UX requirement IDs and acceptance criteria exercised by the demo.
+  - Record actor roles used in the demo, especially DM/player/observer safety
+    cases.
+  - Record remaining polish, research, or product-decision gaps explicitly.
+stopConditions:
+  - Stop if the epic needs a product decision that the architecture
+    reconciliation epic has not resolved.
+  - Stop if a UX requirement conflicts with a functional requirement and the
+    conflict has not been raised in docs.
+  - Stop if a player-visible route, ARIA label, command result, search result,
+    preview, skeleton, or error can reveal hidden DM-only content.
+  - Stop if a Must-have action is pointer-only, gesture-only, desktop-only, or
+    depends on an optional network/cloud/AI feature.
+  - Stop if generated UX workpack validation fails and the cause is not
+    understood.
+completionEvidence:
+  - Targeted tests and profile checks pass.
+  - Requirement IDs are traced to implementation, tests, and demo notes.
+  - Desktop, Tablet, and Mobile behavior is covered or explicitly scoped with a
+    reason.
+  - Accessibility, actor-safety, no-leak, reduced-motion, touch-target, and
+    keyboard parity evidence is recorded where applicable.
+  - Completion file records demo path, tests run, changed files, requirement
+    coverage, known gaps, git branch/commit or PR, and final `git status
+    --short` output.
+  - The UX workpack status is updated with the programmatic complete command
+    after completion evidence exists.

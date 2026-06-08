@@ -1,0 +1,1342 @@
+schemaVersion: 1
+sourceOfTruth:
+  requirements: docs/remake-review/ux-requirements/
+  mutableState: docs/planning/v2/ux/workpack-state.yaml
+  generatedFiles:
+    - docs/planning/v2/ux/requirements-index.yaml
+    - docs/planning/v2/ux/initiative-map.yaml
+    - docs/planning/v2/ux/status.yaml
+    - docs/planning/v2/ux/parallel-batches.yaml
+    - docs/planning/v2/ux/epics/*.yaml
+summary:
+  totalEpics: 46
+  proposed: 0
+  approved: 46
+  active: 0
+  complete: 0
+  deferred: 0
+metrics:
+  epicCompletionPercent: 0
+  requirementCompletionPercent: 0
+  totalRequirements: 244
+  completedRequirements: 0
+  deferredRequirements: 0
+  remainingEpics: 46
+  promptableEpics: 1
+  blockedByDependencies: 45
+  completionEvidenceFiles: 0
+  phases:
+    - phase: 00 Architecture Decisions
+      totalEpics: 1
+      complete: 0
+      active: 0
+      approved: 1
+      proposed: 0
+      deferred: 0
+      requirementIds:
+        - UX-NAV-002
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - phase: 01 Foundations
+      totalEpics: 5
+      complete: 0
+      active: 0
+      approved: 5
+      proposed: 0
+      deferred: 0
+      requirementIds:
+        - UX-A11Y-001
+        - UX-A11Y-002
+        - UX-A11Y-003
+        - UX-A11Y-004
+        - UX-A11Y-005
+        - UX-A11Y-006
+        - UX-A11Y-007
+        - UX-A11Y-008
+        - UX-A11Y-009
+        - UX-A11Y-010
+        - UX-A11Y-011
+        - UX-A11Y-012
+        - UX-A11Y-013
+        - UX-A11Y-014
+        - UX-A11Y-015
+        - UX-A11Y-016
+        - UX-A11Y-017
+        - UX-A11Y-018
+        - UX-VIS-001
+        - UX-VIS-002
+        - UX-VIS-003
+        - UX-VIS-004
+        - UX-VIS-005
+        - UX-VIS-006
+        - UX-VIS-007
+        - UX-VIS-008
+        - UX-VIS-009
+        - UX-VIS-010
+        - UX-VIS-011
+        - UX-VIS-012
+        - UX-VIS-013
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - phase: 02 Shell and Navigation
+      totalEpics: 4
+      complete: 0
+      active: 0
+      approved: 4
+      proposed: 0
+      deferred: 0
+      requirementIds:
+        - UX-NAV-001
+        - UX-NAV-003
+        - UX-NAV-004
+        - UX-NAV-005
+        - UX-NAV-006
+        - UX-NAV-007
+        - UX-NAV-008
+        - UX-NAV-009
+        - UX-NAV-010
+        - UX-NAV-011
+        - UX-NAV-012
+        - UX-NAV-013
+        - UX-NAV-014
+        - UX-NAV-015
+        - UX-NAV-016
+        - UX-NAV-017
+        - UX-NAV-018
+        - UX-NAV-019
+        - UX-NAV-020
+        - UX-SRCH-001
+        - UX-SRCH-005
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - phase: 03 Canvas and Command Center
+      totalEpics: 4
+      complete: 0
+      active: 0
+      approved: 4
+      proposed: 0
+      deferred: 0
+      requirementIds:
+        - UX-CANVAS-001
+        - UX-CANVAS-002
+        - UX-CANVAS-003
+        - UX-CANVAS-004
+        - UX-CANVAS-005
+        - UX-CANVAS-006
+        - UX-CANVAS-007
+        - UX-CANVAS-008
+        - UX-CANVAS-009
+        - UX-CANVAS-010
+        - UX-CANVAS-011
+        - UX-CANVAS-012
+        - UX-CANVAS-013
+        - UX-CANVAS-014
+        - UX-CANVAS-015
+        - UX-CANVAS-016
+        - UX-CMD-001
+        - UX-CMD-002
+        - UX-CMD-003
+        - UX-CMD-008
+        - UX-CMD-012
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - phase: 04 Trust and Safety
+      totalEpics: 2
+      complete: 0
+      active: 0
+      approved: 2
+      proposed: 0
+      deferred: 0
+      requirementIds:
+        - UX-CMD-004
+        - UX-CMD-005
+        - UX-CMD-006
+        - UX-CMD-007
+        - UX-CMD-009
+        - UX-CMD-010
+        - UX-CMD-011
+        - UX-PERM-001
+        - UX-PERM-006
+        - UX-PERM-007
+        - UX-PERM-008
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - phase: 05 Live-Play Workspaces
+      totalEpics: 3
+      complete: 0
+      active: 0
+      approved: 3
+      proposed: 0
+      deferred: 0
+      requirementIds:
+        - UX-SES-001
+        - UX-SES-002
+        - UX-SES-003
+        - UX-SES-004
+        - UX-SES-005
+        - UX-SES-006
+        - UX-SES-007
+        - UX-SES-008
+        - UX-SES-009
+        - UX-SES-010
+        - UX-SES-011
+        - UX-SES-012
+        - UX-SES-013
+        - UX-SES-014
+        - UX-SES-015
+        - UX-SES-016
+        - UX-SES-017
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - phase: 06 Core Library Workspaces
+      totalEpics: 9
+      complete: 0
+      active: 0
+      approved: 9
+      proposed: 0
+      deferred: 0
+      requirementIds:
+        - UX-CHAR-001
+        - UX-CHAR-002
+        - UX-CHAR-003
+        - UX-CHAR-004
+        - UX-CHAR-005
+        - UX-CHAR-006
+        - UX-CHAR-007
+        - UX-CHAR-008
+        - UX-CHAR-009
+        - UX-CHAR-010
+        - UX-CHAR-011
+        - UX-CHAR-012
+        - UX-CHAR-013
+        - UX-CONTENT-001
+        - UX-CONTENT-002
+        - UX-CONTENT-003
+        - UX-CONTENT-004
+        - UX-CONTENT-005
+        - UX-CONTENT-006
+        - UX-CONTENT-007
+        - UX-CONTENT-008
+        - UX-CONTENT-009
+        - UX-CONTENT-010
+        - UX-CONTENT-011
+        - UX-CONTENT-012
+        - UX-CONTENT-013
+        - UX-CONTENT-014
+        - UX-CONTENT-015
+        - UX-CONTENT-018
+        - UX-CONTENT-019
+        - UX-MAP-001
+        - UX-MAP-002
+        - UX-MAP-003
+        - UX-MAP-004
+        - UX-MAP-005
+        - UX-MAP-006
+        - UX-MAP-007
+        - UX-MAP-008
+        - UX-MAP-009
+        - UX-MAP-010
+        - UX-MAP-011
+        - UX-MAP-012
+        - UX-MAP-013
+        - UX-MAP-014
+        - UX-MAP-015
+        - UX-MAP-016
+        - UX-MAP-017
+        - UX-MAP-018
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - phase: 07 Collaboration and Permissions
+      totalEpics: 4
+      complete: 0
+      active: 0
+      approved: 4
+      proposed: 0
+      deferred: 0
+      requirementIds:
+        - UX-COLLAB-001
+        - UX-COLLAB-002
+        - UX-COLLAB-003
+        - UX-COLLAB-004
+        - UX-COLLAB-005
+        - UX-COLLAB-006
+        - UX-COLLAB-007
+        - UX-COLLAB-008
+        - UX-COLLAB-009
+        - UX-CONTENT-016
+        - UX-CONTENT-017
+        - UX-PERM-002
+        - UX-PERM-003
+        - UX-PERM-004
+        - UX-PERM-005
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - phase: 08 Campaign and Discovery
+      totalEpics: 4
+      complete: 0
+      active: 0
+      approved: 4
+      proposed: 0
+      deferred: 0
+      requirementIds:
+        - UX-GRAPH-001
+        - UX-GRAPH-002
+        - UX-GRAPH-003
+        - UX-GRAPH-004
+        - UX-GRAPH-005
+        - UX-GRAPH-006
+        - UX-GRAPH-007
+        - UX-GRAPH-008
+        - UX-GRAPH-009
+        - UX-GRAPH-010
+        - UX-GRAPH-011
+        - UX-SRCH-002
+        - UX-SRCH-003
+        - UX-SRCH-004
+        - UX-SRCH-006
+        - UX-SRCH-007
+        - UX-SRCH-008
+        - UX-SRCH-009
+        - UX-SRCH-010
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - phase: 09 Reliability and Optional Capabilities
+      totalEpics: 6
+      complete: 0
+      active: 0
+      approved: 6
+      proposed: 0
+      deferred: 0
+      requirementIds:
+        - UX-AUDIO-001
+        - UX-AUDIO-002
+        - UX-AUDIO-003
+        - UX-AUDIO-004
+        - UX-AUDIO-005
+        - UX-AUDIO-006
+        - UX-AUDIO-007
+        - UX-AUDIO-008
+        - UX-AUDIO-009
+        - UX-AUDIO-010
+        - UX-AUDIO-011
+        - UX-AUDIO-012
+        - UX-AUDIO-013
+        - UX-AUDIO-014
+        - UX-MCP-001
+        - UX-MCP-002
+        - UX-MCP-003
+        - UX-MCP-004
+        - UX-MCP-005
+        - UX-MCP-006
+        - UX-MCP-007
+        - UX-MCP-008
+        - UX-MCP-009
+        - UX-MCP-010
+        - UX-MCP-011
+        - UX-MCP-012
+        - UX-SYNC-001
+        - UX-SYNC-002
+        - UX-SYNC-003
+        - UX-SYNC-004
+        - UX-SYNC-005
+        - UX-SYNC-006
+        - UX-SYNC-007
+        - UX-SYNC-008
+        - UX-SYNC-009
+        - UX-SYNC-010
+        - UX-SYNC-011
+        - UX-SYNC-012
+        - UX-SYNC-013
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - phase: 10 Onboarding and Production Polish
+      totalEpics: 3
+      complete: 0
+      active: 0
+      approved: 3
+      proposed: 0
+      deferred: 0
+      requirementIds:
+        - UX-ONB-001
+        - UX-ONB-002
+        - UX-ONB-003
+        - UX-ONB-004
+        - UX-ONB-005
+        - UX-ONB-006
+        - UX-ONB-007
+        - UX-ONB-008
+        - UX-ONB-009
+        - UX-ONB-010
+        - UX-ONB-011
+        - UX-ONB-012
+        - UX-ONB-013
+        - UX-ONB-014
+        - UX-ONB-015
+        - UX-ONB-016
+        - UX-ONB-017
+        - UX-ONB-018
+        - UX-ONB-019
+        - UX-ONB-020
+        - UX-ONB-021
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 0
+    - phase: 11 Production Readiness
+      totalEpics: 1
+      complete: 0
+      active: 0
+      approved: 1
+      proposed: 0
+      deferred: 0
+      requirementIds: []
+      epicCompletionPercent: 0
+      requirementCompletionPercent: 100
+nextEpic:
+  id: UX-ARCH-product-architecture-and-ia-reconciliation
+  title: Product Architecture and IA Reconciliation
+  phase: 00 Architecture Decisions
+  status: approved
+  requirementIds:
+    - UX-NAV-002
+  promptCommand: pnpm v2:ux-prompt -- --epic
+    UX-ARCH-product-architecture-and-ia-reconciliation
+  nextPromptCommand: pnpm v2:ux-prompt -- --next
+  statusCommand: pnpm v2:ux-workpack:set-status -- --epic
+    UX-ARCH-product-architecture-and-ia-reconciliation --status active
+epics:
+  - id: UX-ARCH-product-architecture-and-ia-reconciliation
+    title: Product Architecture and IA Reconciliation
+    phase: 00 Architecture Decisions
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-NAV-002
+    expectedAffectedAreas:
+      - docs/remake-review/ux-requirements
+      - docs/planning/v2/ux
+      - app shell route registry
+      - navigation lint contracts
+    dependencies: []
+  - id: UX-VIS-design-tokens-themes-and-brand
+    title: Design Tokens, Themes, and Brand Mood
+    phase: 01 Foundations
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-VIS-001
+      - UX-VIS-002
+      - UX-VIS-003
+      - UX-VIS-004
+      - UX-VIS-005
+      - UX-VIS-006
+      - UX-VIS-007
+      - UX-VIS-008
+      - UX-VIS-012
+      - UX-VIS-013
+    expectedAffectedAreas:
+      - app CSS custom properties
+      - theme preferences
+      - token compliance lint
+      - visual regression fixtures
+    dependencies:
+      - UX-ARCH-product-architecture-and-ia-reconciliation
+  - id: UX-VIS-component-library-motion-density-icons
+    title: Component Library, Motion, Density, and Icons
+    phase: 01 Foundations
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-VIS-009
+      - UX-VIS-010
+      - UX-VIS-011
+    expectedAffectedAreas:
+      - app component library
+      - motion preference state
+      - icon registry
+      - profile density styles
+    dependencies:
+      - UX-VIS-design-tokens-themes-and-brand
+  - id: UX-A11Y-release-gates-and-contrast
+    title: Accessibility Release Gates and Contrast
+    phase: 01 Foundations
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-A11Y-001
+      - UX-A11Y-016
+      - UX-A11Y-017
+      - UX-A11Y-018
+    expectedAffectedAreas:
+      - Playwright accessibility projects
+      - axe report artifacts
+      - accessibility QA docs
+      - known violation register
+    dependencies:
+      - UX-VIS-design-tokens-themes-and-brand
+  - id: UX-A11Y-interaction-primitives-and-help-compliance
+    title: Accessible Interaction Primitives and Help Compliance
+    phase: 01 Foundations
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-A11Y-002
+      - UX-A11Y-007
+      - UX-A11Y-009
+      - UX-A11Y-010
+      - UX-A11Y-011
+      - UX-A11Y-012
+      - UX-A11Y-013
+      - UX-A11Y-014
+      - UX-A11Y-015
+    expectedAffectedAreas:
+      - focus manager
+      - live announcer
+      - dialog/menu/tabs/tree/grid primitives
+      - help trigger contract
+      - drag alternative command adapters
+    dependencies:
+      - UX-VIS-component-library-motion-density-icons
+  - id: UX-A11Y-spatial-live-region-and-leakage
+    title: Spatial Access, Live Regions, and No-Leak Boundaries
+    phase: 01 Foundations
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-A11Y-003
+      - UX-A11Y-004
+      - UX-A11Y-005
+      - UX-A11Y-006
+      - UX-A11Y-008
+    expectedAffectedAreas:
+      - Scene Outline model
+      - map accessibility summary
+      - combat announcer
+      - player-safe ARIA fixtures
+    dependencies:
+      - UX-A11Y-interaction-primitives-and-help-compliance
+  - id: UX-SHELL-route-layout-and-platform-profiles
+    title: Route Shell, Landmarks, and Platform Profiles
+    phase: 02 Shell and Navigation
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-NAV-001
+      - UX-NAV-003
+      - UX-NAV-004
+      - UX-NAV-005
+      - UX-NAV-006
+      - UX-NAV-009
+      - UX-NAV-010
+      - UX-NAV-011
+      - UX-NAV-018
+    expectedAffectedAreas:
+      - app route layout
+      - navigation components
+      - platform profile state
+      - route landmarks
+      - focus restoration
+    dependencies:
+      - UX-ARCH-product-architecture-and-ia-reconciliation
+      - UX-VIS-component-library-motion-density-icons
+      - UX-A11Y-interaction-primitives-and-help-compliance
+  - id: UX-SHELL-contextual-navigation-history-and-deep-links
+    title: Contextual Navigation, History, and Deep Links
+    phase: 02 Shell and Navigation
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-NAV-007
+      - UX-NAV-008
+      - UX-NAV-012
+      - UX-NAV-016
+      - UX-NAV-017
+      - UX-NAV-020
+    expectedAffectedAreas:
+      - breadcrumb components
+      - backlinks panel
+      - history store
+      - deep-link resolver
+      - alias redirect fixtures
+    dependencies:
+      - UX-SHELL-route-layout-and-platform-profiles
+  - id: UX-SHELL-actor-filtered-nav-recents
+    title: Actor-Filtered Navigation, Pinned Items, and Recents
+    phase: 02 Shell and Navigation
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-NAV-013
+      - UX-NAV-015
+    expectedAffectedAreas:
+      - actor-filtered nav query
+      - pinned/recent item store
+      - player-safe nav tests
+    dependencies:
+      - UX-SHELL-route-layout-and-platform-profiles
+  - id: UX-SHELL-command-surface-and-shortcuts
+    title: Command Surface, Search Entry, and Shortcuts
+    phase: 02 Shell and Navigation
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-NAV-014
+      - UX-NAV-019
+      - UX-SRCH-001
+      - UX-SRCH-005
+    expectedAffectedAreas:
+      - command palette
+      - mobile command sheet
+      - shortcut registry
+      - global search invocation
+      - quick switcher
+    dependencies:
+      - UX-SHELL-route-layout-and-platform-profiles
+      - UX-SHELL-actor-filtered-nav-recents
+  - id: UX-CANVAS-viewport-rendering-and-performance
+    title: Canvas Viewport, Rendering, and Performance
+    phase: 03 Canvas and Command Center
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-CANVAS-001
+      - UX-CANVAS-014
+      - UX-CANVAS-016
+    expectedAffectedAreas:
+      - canvas runtime
+      - viewport controls
+      - performance instrumentation
+      - touch gesture alternatives
+    dependencies:
+      - UX-ARCH-product-architecture-and-ia-reconciliation
+      - UX-A11Y-spatial-live-region-and-leakage
+  - id: UX-CANVAS-widget-manipulation-and-outline
+    title: Widget Placement, Manipulation, and Outline
+    phase: 03 Canvas and Command Center
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-CANVAS-002
+      - UX-CANVAS-003
+      - UX-CANVAS-004
+      - UX-CANVAS-005
+      - UX-CANVAS-006
+      - UX-CANVAS-009
+      - UX-CANVAS-012
+      - UX-CANVAS-015
+    expectedAffectedAreas:
+      - widget library insert flow
+      - selection toolbar
+      - Scene Outline integration
+      - canvas undo/redo
+      - alignment tools
+    dependencies:
+      - UX-CANVAS-viewport-rendering-and-performance
+  - id: UX-CANVAS-chrome-bindings-templates-and-view-modes
+    title: Widget Chrome, Bindings, Templates, and View Modes
+    phase: 03 Canvas and Command Center
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-CANVAS-007
+      - UX-CANVAS-008
+      - UX-CANVAS-010
+      - UX-CANVAS-011
+      - UX-CANVAS-013
+    expectedAffectedAreas:
+      - widget chrome components
+      - binding inspector
+      - layout templates
+      - DM/player view toggle
+      - canvas empty state
+    dependencies:
+      - UX-CANVAS-widget-manipulation-and-outline
+  - id: UX-CMD-home-scene-and-role-differentiated-dashboard
+    title: Command Center Home Scene and Role-Differentiated Dashboard
+    phase: 03 Canvas and Command Center
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-CMD-001
+      - UX-CMD-002
+      - UX-CMD-003
+      - UX-CMD-008
+      - UX-CMD-012
+    expectedAffectedAreas:
+      - home route
+      - Command Center layout preset store
+      - session status strip
+      - role-specific dashboards
+    dependencies:
+      - UX-SHELL-route-layout-and-platform-profiles
+      - UX-CANVAS-chrome-bindings-templates-and-view-modes
+  - id: UX-PERM-visibility-preview-badges-and-privacy-status
+    title: Visibility Controls, Preview Mode, Badges, and Privacy Status
+    phase: 04 Trust and Safety
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-PERM-001
+      - UX-PERM-006
+      - UX-PERM-007
+      - UX-PERM-008
+    expectedAffectedAreas:
+      - visibility controls
+      - preview-as actor state
+      - content badges
+      - session privacy panel
+      - cache purge UI
+    dependencies:
+      - UX-SHELL-actor-filtered-nav-recents
+      - UX-A11Y-spatial-live-region-and-leakage
+  - id: UX-CMD-player-view-handouts-map-and-session-controls
+    title: Command Center Player Views, Handouts, Map, and Session Controls
+    phase: 04 Trust and Safety
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-CMD-004
+      - UX-CMD-005
+      - UX-CMD-006
+      - UX-CMD-007
+      - UX-CMD-009
+      - UX-CMD-010
+      - UX-CMD-011
+    expectedAffectedAreas:
+      - player-view controller
+      - handout push flow
+      - active map widget
+      - widget library drawer
+      - session phase controls
+    dependencies:
+      - UX-CMD-home-scene-and-role-differentiated-dashboard
+      - UX-PERM-visibility-preview-badges-and-privacy-status
+      - UX-SHELL-command-surface-and-shortcuts
+  - id: UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
+    title: Session Lifecycle, Recovery, and Hot-Path Combat Shell
+    phase: 05 Live-Play Workspaces
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-SES-001
+      - UX-SES-002
+      - UX-SES-003
+      - UX-SES-004
+      - UX-SES-006
+      - UX-SES-017
+    expectedAffectedAreas:
+      - session route
+      - combat tracker shell
+      - turn controls
+      - recovery prompt
+      - pending/undo/retry UI
+    dependencies:
+      - UX-SHELL-route-layout-and-platform-profiles
+      - UX-CMD-home-scene-and-role-differentiated-dashboard
+  - id: UX-SESSION-combat-editing-conditions-and-player-tracker
+    title: Combat Editing, Conditions, and Player Tracker
+    phase: 05 Live-Play Workspaces
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-SES-005
+      - UX-SES-007
+      - UX-SES-008
+      - UX-SES-016
+    expectedAffectedAreas:
+      - combat row editor
+      - condition controls
+      - combatant reorder UI
+      - player combat projection
+    dependencies:
+      - UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
+      - UX-PERM-visibility-preview-badges-and-privacy-status
+  - id: UX-SESSION-tools-encounters-dice-timers-prep-calendar
+    title: Session Tools, Encounters, Dice, Timers, Prep, and Calendar
+    phase: 05 Live-Play Workspaces
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-SES-009
+      - UX-SES-010
+      - UX-SES-011
+      - UX-SES-012
+      - UX-SES-013
+      - UX-SES-014
+      - UX-SES-015
+    expectedAffectedAreas:
+      - encounter builder
+      - dice tools
+      - roll history
+      - timer widget
+      - quick reference
+      - prep/recap digest
+      - calendar continuity
+    dependencies:
+      - UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
+  - id: UX-CHAR-roster-creation-and-draft-ownership
+    title: Character Roster, Creation, and Draft Ownership
+    phase: 06 Core Library Workspaces
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-CHAR-001
+      - UX-CHAR-002
+      - UX-CHAR-011
+      - UX-CHAR-013
+    expectedAffectedAreas:
+      - characters route
+      - party roster
+      - quick-create panel
+      - creation wizard
+      - draft ownership surface
+    dependencies:
+      - UX-SHELL-route-layout-and-platform-profiles
+  - id: UX-CHAR-sheet-live-resources-and-advancement
+    title: Character Sheet, Live Resources, and Advancement
+    phase: 06 Core Library Workspaces
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-CHAR-003
+      - UX-CHAR-004
+      - UX-CHAR-005
+      - UX-CHAR-006
+      - UX-CHAR-007
+      - UX-CHAR-008
+      - UX-CHAR-012
+    expectedAffectedAreas:
+      - character sheet route
+      - vitals bar
+      - inline edit mode
+      - combat resources
+      - advancement flow
+      - character journal
+    dependencies:
+      - UX-CHAR-roster-creation-and-draft-ownership
+  - id: UX-CHAR-collaboration-and-widget-bindings
+    title: Character Collaboration and Widget Bindings
+    phase: 06 Core Library Workspaces
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-CHAR-009
+      - UX-CHAR-010
+    expectedAffectedAreas:
+      - collaborative edit badges
+      - character binding browser
+      - widget data exposure UI
+    dependencies:
+      - UX-CHAR-sheet-live-resources-and-advancement
+      - UX-CANVAS-chrome-bindings-templates-and-view-modes
+  - id: UX-MAP-library-viewer-import-and-search
+    title: Map Library, Viewer, Import, and Search
+    phase: 06 Core Library Workspaces
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-MAP-001
+      - UX-MAP-002
+      - UX-MAP-003
+      - UX-MAP-006
+      - UX-MAP-009
+      - UX-MAP-018
+    expectedAffectedAreas:
+      - atlas route
+      - map viewer
+      - map import wizard
+      - nested map breadcrumbs
+      - map search
+    dependencies:
+      - UX-SHELL-route-layout-and-platform-profiles
+      - UX-CANVAS-viewport-rendering-and-performance
+      - UX-A11Y-spatial-live-region-and-leakage
+  - id: UX-MAP-layers-authoring-generation-and-tags
+    title: Map Layers, Authoring, Generation, and Tags
+    phase: 06 Core Library Workspaces
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-MAP-004
+      - UX-MAP-005
+      - UX-MAP-007
+      - UX-MAP-008
+      - UX-MAP-014
+    expectedAffectedAreas:
+      - map layer panel
+      - map authoring tools
+      - procedural generation panel
+      - layer tag filters
+    dependencies:
+      - UX-MAP-library-viewer-import-and-search
+  - id: UX-MAP-pois-fog-projection-combat-and-embeds
+    title: Map POIs, Fog, Projection, Combat, Routes, and Embeds
+    phase: 06 Core Library Workspaces
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-MAP-010
+      - UX-MAP-011
+      - UX-MAP-012
+      - UX-MAP-013
+      - UX-MAP-015
+      - UX-MAP-016
+      - UX-MAP-017
+    expectedAffectedAreas:
+      - map POI controls
+      - fog-of-war panel
+      - projection consistency report
+      - combat overlay
+      - map widget embed
+      - route measurement tools
+    dependencies:
+      - UX-MAP-layers-authoring-generation-and-tags
+      - UX-PERM-visibility-preview-badges-and-privacy-status
+  - id: UX-CONTENT-editor-shell-and-writing-controls
+    title: Knowledge Editor Shell and Writing Controls
+    phase: 06 Core Library Workspaces
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-CONTENT-001
+      - UX-CONTENT-002
+      - UX-CONTENT-003
+      - UX-CONTENT-004
+      - UX-CONTENT-005
+      - UX-CONTENT-007
+    expectedAffectedAreas:
+      - knowledge route
+      - note editor
+      - markdown toolbar
+      - autosave status chip
+      - split preview
+      - focus writing mode
+    dependencies:
+      - UX-SHELL-route-layout-and-platform-profiles
+      - UX-VIS-component-library-motion-density-icons
+  - id: UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields
+    title: Wikilinks, Structured Objects, Backlinks, and Calendar Fields
+    phase: 06 Core Library Workspaces
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-CONTENT-006
+      - UX-CONTENT-008
+      - UX-CONTENT-009
+      - UX-CONTENT-010
+      - UX-CONTENT-019
+    expectedAffectedAreas:
+      - wikilink autocomplete
+      - frontmatter object form
+      - rename workflow
+      - backlinks panel
+      - calendar picker
+    dependencies:
+      - UX-CONTENT-editor-shell-and-writing-controls
+      - UX-SHELL-contextual-navigation-history-and-deep-links
+  - id: UX-CONTENT-templates-snippets-sources-import-export
+    title: Templates, Snippets, Sources, Import, and Export
+    phase: 06 Core Library Workspaces
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-CONTENT-011
+      - UX-CONTENT-012
+      - UX-CONTENT-013
+      - UX-CONTENT-014
+      - UX-CONTENT-015
+      - UX-CONTENT-018
+    expectedAffectedAreas:
+      - template library
+      - snippet library
+      - source badges
+      - source constraint panel
+      - import wizard
+      - export wizard
+    dependencies:
+      - UX-CONTENT-editor-shell-and-writing-controls
+  - id: UX-PERM-grant-dialog-active-grants-and-diagnostics
+    title: Grant Dialog, Active Grants, and Diagnostics
+    phase: 07 Collaboration and Permissions
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-PERM-002
+      - UX-PERM-003
+      - UX-PERM-004
+      - UX-PERM-005
+    expectedAffectedAreas:
+      - capability-set grant dialog
+      - active grant list
+      - player permission summary
+      - permission diagnostics
+    dependencies:
+      - UX-PERM-visibility-preview-badges-and-privacy-status
+  - id: UX-CONTENT-visibility-and-embeds
+    title: Content Visibility and Embeds
+    phase: 07 Collaboration and Permissions
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-CONTENT-016
+      - UX-CONTENT-017
+    expectedAffectedAreas:
+      - content visibility controls
+      - embed authoring
+      - actor-filtered previews
+      - canvas embed insertion
+    dependencies:
+      - UX-CONTENT-editor-shell-and-writing-controls
+      - UX-PERM-visibility-preview-badges-and-privacy-status
+  - id: UX-COLLAB-presence-join-roster-connection-and-catchup
+    title: Presence, Join, Roster, Connection, and Catch-Up
+    phase: 07 Collaboration and Permissions
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-COLLAB-001
+      - UX-COLLAB-002
+      - UX-COLLAB-003
+      - UX-COLLAB-006
+      - UX-COLLAB-009
+    expectedAffectedAreas:
+      - presence strip
+      - participant roster panel
+      - join/invite flow
+      - connection degradation banner
+      - reconnect catch-up UI
+    dependencies:
+      - UX-SHELL-actor-filtered-nav-recents
+  - id: UX-COLLAB-handouts-player-views-combat-and-groups
+    title: Handouts, Player Views, Combat Sharing, and Groups
+    phase: 07 Collaboration and Permissions
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-COLLAB-004
+      - UX-COLLAB-005
+      - UX-COLLAB-007
+      - UX-COLLAB-008
+    expectedAffectedAreas:
+      - handout delivery panel
+      - combat visibility overlay
+      - player-view assignment
+      - player group management
+    dependencies:
+      - UX-COLLAB-presence-join-roster-connection-and-catchup
+      - UX-CMD-player-view-handouts-map-and-session-controls
+      - UX-SESSION-combat-editing-conditions-and-player-tracker
+  - id: UX-CAMPAIGN-world-model-route-shell
+    title: Campaign World Model Route Shell
+    phase: 08 Campaign and Discovery
+    status: approved
+    approved: true
+    requirementIds: []
+    expectedAffectedAreas:
+      - campaign route
+      - campaign entity shell
+      - timeline overview
+      - cross-section related links
+      - visibility controls
+    dependencies:
+      - UX-SHELL-contextual-navigation-history-and-deep-links
+      - UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields
+      - UX-PERM-visibility-preview-badges-and-privacy-status
+  - id: UX-SRCH-result-layout-filters-freshness-and-saved-searches
+    title: Search Results, Filters, Freshness, and Saved Searches
+    phase: 08 Campaign and Discovery
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-SRCH-002
+      - UX-SRCH-003
+      - UX-SRCH-004
+      - UX-SRCH-006
+      - UX-SRCH-007
+      - UX-SRCH-008
+      - UX-SRCH-009
+      - UX-SRCH-010
+    expectedAffectedAreas:
+      - search result rows
+      - filter panel
+      - relevance labels
+      - index freshness indicators
+      - saved searches
+    dependencies:
+      - UX-SHELL-command-surface-and-shortcuts
+      - UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields
+      - UX-SHELL-actor-filtered-nav-recents
+  - id: UX-GRAPH-canvas-encoding-filtering-and-health
+    title: Graph Canvas, Encoding, Filtering, and Health
+    phase: 08 Campaign and Discovery
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-GRAPH-001
+      - UX-GRAPH-002
+      - UX-GRAPH-003
+      - UX-GRAPH-004
+      - UX-GRAPH-005
+      - UX-GRAPH-006
+      - UX-GRAPH-008
+      - UX-GRAPH-010
+    expectedAffectedAreas:
+      - graph route
+      - graph canvas renderer
+      - legend/filter sidebar
+      - graph health panel
+      - empty/sparse states
+    dependencies:
+      - UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields
+      - UX-VIS-component-library-motion-density-icons
+  - id: UX-GRAPH-accessible-mobile-and-link-repair
+    title: Graph Accessibility, Mobile Backlinks, and Link Repair
+    phase: 08 Campaign and Discovery
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-GRAPH-007
+      - UX-GRAPH-009
+      - UX-GRAPH-011
+    expectedAffectedAreas:
+      - accessible graph node list
+      - mobile backlinks surface
+      - link repair picker
+      - player-safe suggestion filtering
+    dependencies:
+      - UX-GRAPH-canvas-encoding-filtering-and-health
+      - UX-A11Y-spatial-live-region-and-leakage
+  - id: UX-SYNC-global-indicators-local-first-and-entity-badges
+    title: Sync Indicators, Local-First Feedback, and Entity Badges
+    phase: 09 Reliability and Optional Capabilities
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-SYNC-001
+      - UX-SYNC-002
+      - UX-SYNC-003
+      - UX-SYNC-008
+      - UX-SYNC-011
+      - UX-SYNC-013
+    expectedAffectedAreas:
+      - top-bar sync badge
+      - per-entity sync badges
+      - offline banner
+      - local-first write feedback
+      - last-synced trust signals
+    dependencies:
+      - UX-SHELL-route-layout-and-platform-profiles
+  - id: UX-SYNC-queues-conflicts-recovery-consent-and-authorization
+    title: Sync Queues, Conflicts, Recovery, Consent, and Authorization
+    phase: 09 Reliability and Optional Capabilities
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-SYNC-004
+      - UX-SYNC-005
+      - UX-SYNC-006
+      - UX-SYNC-007
+      - UX-SYNC-009
+      - UX-SYNC-010
+      - UX-SYNC-012
+    expectedAffectedAreas:
+      - sync status page
+      - queued changes view
+      - conflict resolver
+      - asset missing states
+      - cloud consent panel
+      - authorization flow
+    dependencies:
+      - UX-SYNC-global-indicators-local-first-and-entity-badges
+      - UX-CONTENT-templates-snippets-sources-import-export
+      - UX-COLLAB-presence-join-roster-connection-and-catchup
+  - id: UX-AUDIO-live-controls-player-delivery-and-degradation
+    title: Audio Live Controls, Player Delivery, and Degradation
+    phase: 09 Reliability and Optional Capabilities
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-AUDIO-001
+      - UX-AUDIO-002
+      - UX-AUDIO-003
+      - UX-AUDIO-008
+      - UX-AUDIO-009
+      - UX-AUDIO-012
+      - UX-AUDIO-014
+    expectedAffectedAreas:
+      - audio controls widget
+      - audio transport
+      - channel mixer
+      - player delivery indicators
+      - autoplay recovery UI
+      - player audio controls
+    dependencies:
+      - UX-CMD-home-scene-and-role-differentiated-dashboard
+      - UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
+  - id: UX-AUDIO-library-presets-soundboard-and-automation
+    title: Audio Library, Presets, Soundboard, and Automation
+    phase: 09 Reliability and Optional Capabilities
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-AUDIO-004
+      - UX-AUDIO-005
+      - UX-AUDIO-006
+      - UX-AUDIO-007
+      - UX-AUDIO-010
+      - UX-AUDIO-011
+      - UX-AUDIO-013
+    expectedAffectedAreas:
+      - audio preset association
+      - soundboard grid
+      - track library drawer
+      - audio asset management
+      - automation triggers
+      - mobile audio policy UI
+    dependencies:
+      - UX-AUDIO-live-controls-player-delivery-and-degradation
+      - UX-CANVAS-chrome-bindings-templates-and-view-modes
+      - UX-MAP-pois-fog-projection-combat-and-embeds
+  - id: UX-MCP-settings-policy-provenance-staged-writes-and-fallback
+    title: AI/MCP Settings, Policy, Provenance, Staged Writes, and Fallback
+    phase: 09 Reliability and Optional Capabilities
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-MCP-001
+      - UX-MCP-004
+      - UX-MCP-006
+      - UX-MCP-007
+      - UX-MCP-009
+      - UX-MCP-010
+      - UX-MCP-011
+      - UX-MCP-012
+    expectedAffectedAreas:
+      - AI settings route
+      - tool configuration panel
+      - provenance badge
+      - staged-write review panel
+      - streaming stop control
+      - policy mode labels
+      - capability fallback UI
+    dependencies:
+      - UX-SHELL-route-layout-and-platform-profiles
+      - UX-CONTENT-editor-shell-and-writing-controls
+      - UX-PERM-grant-dialog-active-grants-and-diagnostics
+      - UX-SYNC-global-indicators-local-first-and-entity-badges
+  - id: UX-MCP-inline-assist-suggestions-attachments-and-response-presentation
+    title: AI Inline Assist, Suggestions, Attachments, and Response Presentation
+    phase: 09 Reliability and Optional Capabilities
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-MCP-002
+      - UX-MCP-003
+      - UX-MCP-005
+      - UX-MCP-008
+    expectedAffectedAreas:
+      - inline AI suggestion panel
+      - named entity chips
+      - agent attachment flow
+      - AI response envelope UI
+    dependencies:
+      - UX-MCP-settings-policy-provenance-staged-writes-and-fallback
+      - UX-CONTENT-editor-shell-and-writing-controls
+  - id: UX-ONB-first-run-role-and-player-join-paths
+    title: First-Run, Role, and Player Join Paths
+    phase: 10 Onboarding and Production Polish
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-ONB-001
+      - UX-ONB-002
+      - UX-ONB-003
+      - UX-ONB-004
+      - UX-ONB-005
+      - UX-ONB-006
+      - UX-ONB-007
+      - UX-ONB-008
+    expectedAffectedAreas:
+      - first-run wizard
+      - vault setup
+      - role declaration
+      - starter presets
+      - invite players step
+      - player join route
+    dependencies:
+      - UX-SHELL-route-layout-and-platform-profiles
+      - UX-CMD-home-scene-and-role-differentiated-dashboard
+  - id: UX-ONB-empty-states-and-teach-by-doing
+    title: Empty States and Teach-by-Doing Examples
+    phase: 10 Onboarding and Production Polish
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-ONB-009
+      - UX-ONB-010
+      - UX-ONB-011
+      - UX-ONB-012
+      - UX-ONB-021
+    expectedAffectedAreas:
+      - empty state components
+      - starter/demo examples
+      - route root zero-data states
+      - interactive tutorial snippets
+    dependencies:
+      - UX-ONB-first-run-role-and-player-join-paths
+      - UX-CMD-home-scene-and-role-differentiated-dashboard
+      - UX-CANVAS-chrome-bindings-templates-and-view-modes
+      - UX-MAP-library-viewer-import-and-search
+      - UX-CHAR-roster-creation-and-draft-ownership
+      - UX-CONTENT-editor-shell-and-writing-controls
+      - UX-GRAPH-canvas-encoding-filtering-and-health
+      - UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
+  - id: UX-ONB-help-coachmarks-demo-and-progressive-disclosure
+    title: Help, Coach Marks, Demo Content, and Progressive Disclosure
+    phase: 10 Onboarding and Production Polish
+    status: approved
+    approved: true
+    requirementIds:
+      - UX-ONB-013
+      - UX-ONB-014
+      - UX-ONB-015
+      - UX-ONB-016
+      - UX-ONB-017
+      - UX-ONB-018
+      - UX-ONB-019
+      - UX-ONB-020
+    expectedAffectedAreas:
+      - coach mark trigger rules
+      - help panel
+      - keyboard shortcut reference
+      - feature-tier controls
+      - demo content offer
+      - changelog surface
+    dependencies:
+      - UX-ONB-first-run-role-and-player-join-paths
+      - UX-SHELL-command-surface-and-shortcuts
+      - UX-VIS-component-library-motion-density-icons
+  - id: UX-RELEASE-production-readiness-and-shareable-cut
+    title: Production Readiness and Shareable UI Cut
+    phase: 11 Production Readiness
+    status: approved
+    approved: true
+    requirementIds: []
+    expectedAffectedAreas:
+      - app-wide route walkthrough
+      - cross-profile Playwright suite
+      - accessibility release evidence
+      - player-safe no-leak fixtures
+      - visual polish review
+      - production readiness docs
+    dependencies:
+      - UX-AUDIO-library-presets-soundboard-and-automation
+      - UX-CAMPAIGN-world-model-route-shell
+      - UX-CHAR-collaboration-and-widget-bindings
+      - UX-COLLAB-handouts-player-views-combat-and-groups
+      - UX-CONTENT-visibility-and-embeds
+      - UX-GRAPH-accessible-mobile-and-link-repair
+      - UX-MAP-pois-fog-projection-combat-and-embeds
+      - UX-MCP-inline-assist-suggestions-attachments-and-response-presentation
+      - UX-ONB-empty-states-and-teach-by-doing
+      - UX-ONB-help-coachmarks-demo-and-progressive-disclosure
+      - UX-SESSION-tools-encounters-dice-timers-prep-calendar
+      - UX-SYNC-queues-conflicts-recovery-consent-and-authorization

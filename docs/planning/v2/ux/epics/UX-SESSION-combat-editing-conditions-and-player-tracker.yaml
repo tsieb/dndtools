@@ -1,0 +1,236 @@
+schemaVersion: 1
+kind: ux-ui-remake-epic
+id: UX-SESSION-combat-editing-conditions-and-player-tracker
+title: Combat Editing, Conditions, and Player Tracker
+status: approved
+approved: true
+phase: 05 Live-Play Workspaces
+productPriority: P1
+domain: UX-SES
+objective: Complete combat editing hot paths with HP steppers, conditions,
+  concentration, death saves, combatant management, mass/secret combatants, and
+  a safe player-visible tracker.
+requirementIds:
+  - UX-SES-005
+  - UX-SES-007
+  - UX-SES-008
+  - UX-SES-016
+sourceDocs:
+  - docs/remake-review/ux-requirements/00-overview-and-principles.md
+  - docs/remake-review/ux-requirements/08-sessions-live-play.md
+  - docs/remake-review/ux-requirements/16-ideal-gui-architecture.md
+  - docs/remake-review/ux-requirements/README.md
+expectedAffectedAreas:
+  - combat row editor
+  - condition controls
+  - combatant reorder UI
+  - player combat projection
+dependencies:
+  - UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
+  - UX-PERM-visibility-preview-badges-and-privacy-status
+parallelSafety:
+  fileOwnership:
+    - docs/planning/v2/ux/
+    - apps/v2/app/src/lib/gui/ux-ses/
+    - apps/v2/app/src/routes/
+  notes: Parallel execution is safe only with non-overlapping component, route,
+    and generated UX workpack ownership; shared shell/component contracts must
+    be agreed before implementation.
+stories:
+  - id: UX-SES-005-S01
+    title: "HP editing: inline stepper, undo, no context menu required"
+    requirementIds:
+      - UX-SES-005
+    acceptanceCriteria:
+      - Given an active combat, when the DM taps a combatant's HP number, then
+        an inline stepper appears within 100 ms without navigating away from the
+        tracker.
+      - Given the HP stepper is open and the DM types 42 and confirms, then the
+        row immediately shows "42/[max]" and a undo toast appears.
+      - Given HP is set to 0, when the DM taps "Yes — defeated", then the row
+        gains the defeated visual treatment and the defeated row moves below
+        active combatants.
+      - Given an HP change was made, when the DM taps "Undo" on the toast within
+        8 seconds, then the HP is restored to the previous value via the core's
+        inverse command.
+    tasks:
+      - id: UX-SES-005-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SES-005
+        kind: design
+      - id: UX-SES-005-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SES-005
+        kind: implementation
+      - id: UX-SES-005-S01-T03
+        title: Add automated and manual coverage for UX-SES-005 acceptance criteria
+        kind: test
+      - id: UX-SES-005-S01-T04
+        title: Record demo notes and traceability evidence for UX-SES-005
+        kind: demo
+  - id: UX-SES-007-S01
+    title: "Conditions, concentration, and death saves: row-level display"
+    requirementIds:
+      - UX-SES-007
+    acceptanceCriteria:
+      - Given a combatant with the "Paralyzed" condition, when the DM views the
+        tracker, then the word "Paralyzed" is visible in the row without hover,
+        tooltip, or menu interaction.
+      - Given a concentrating combatant takes damage, when the DM views the
+        tracker, then a toast with the concentration check DC appears within 500
+        ms.
+      - Given a combatant has HP = 0 and "not defeated" status, when the DM
+        views the tracker, then three death save success and three failure
+        checkboxes are visible for that combatant.
+    tasks:
+      - id: UX-SES-007-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SES-007
+        kind: design
+      - id: UX-SES-007-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SES-007
+        kind: implementation
+      - id: UX-SES-007-S01-T03
+        title: Add automated and manual coverage for UX-SES-007 acceptance criteria
+        kind: test
+      - id: UX-SES-007-S01-T04
+        title: Record demo notes and traceability evidence for UX-SES-007
+        kind: demo
+  - id: UX-SES-008-S01
+    title: Add, remove, and reorder combatants; mass combatants; secret combatants
+    requirementIds:
+      - UX-SES-008
+    acceptanceCriteria:
+      - Given an active combat, when the DM adds "5× Goblin" via the quick-add
+        tab, then five combatant rows appear in the tracker labeled "Goblin 1"
+        through "Goblin 5" within 1 second.
+      - Given the DM sets a combatant to hidden mid-combat, when a player client
+        renders the tracker, then the player sees a placeholder row — not the
+        real name or HP.
+      - Given the DM removes a combatant, then a confirmation dialog appears
+        before the row is removed from the tracker.
+    tasks:
+      - id: UX-SES-008-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SES-008
+        kind: design
+      - id: UX-SES-008-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SES-008
+        kind: implementation
+      - id: UX-SES-008-S01-T03
+        title: Add automated and manual coverage for UX-SES-008 acceptance criteria
+        kind: test
+      - id: UX-SES-008-S01-T04
+        title: Record demo notes and traceability evidence for UX-SES-008
+        kind: demo
+  - id: UX-SES-016-S01
+    title: "Player-visible combat tracker: synced view with visibility enforcement"
+    requirementIds:
+      - UX-SES-016
+    acceptanceCriteria:
+      - Given a player with `combat-participant` on their character, when they
+        tap their character's HP in the tracker, then the inline HP stepper
+        appears for their character only.
+      - Given a hidden combatant exists, when the player's tracker renders, then
+        no real name, real HP, or real AC appears for that combatant in any
+        rendered element or accessible label.
+      - Given the DM advances the turn to a hidden combatant, when the player's
+        live region announces the turn, then the announcement says "Unknown
+        creature's turn" — not the real name.
+    tasks:
+      - id: UX-SES-016-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SES-016
+        kind: design
+      - id: UX-SES-016-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SES-016
+        kind: implementation
+      - id: UX-SES-016-S01-T03
+        title: Add automated and manual coverage for UX-SES-016 acceptance criteria
+        kind: test
+      - id: UX-SES-016-S01-T04
+        title: Record demo notes and traceability evidence for UX-SES-016
+        kind: demo
+qualityBar:
+  - "Product fit: the delivered UI follows the canvas-first command platform
+    model and never regresses to a document-list home."
+  - "Traceability: every mapped UX requirement is tied to implementation, tests,
+    and demo evidence."
+  - "Foundations first: design tokens, shared components, platform profiles, and
+    accessibility primitives are reused rather than reimplemented per surface."
+  - "Actor safety: player and observer routes, search, ARIA, errors, skeletons,
+    previews, and command results never leak DM-only content."
+  - "Platform parity: Desktop, Tablet, and Mobile expose the same Must-have
+    commands through profile-appropriate surfaces and the same processing-core
+    commands."
+  - "Live-play readiness: hot paths acknowledge within 100 ms, support
+    undo/retry where appropriate, and stay glanceable under table pressure."
+  - "Accessibility: WCAG 2.2 AA, keyboard parity, reduced motion, touch targets,
+    non-color state, and screen-reader QA are part of the acceptance bar."
+  - "Production polish: empty/loading/error states, responsive constraints,
+    visual hierarchy, motion, and help affordances are complete enough to
+    share."
+gitWorkflow:
+  - Start from `git status --short` and work around unrelated local edits unless
+    they block the epic.
+  - Use one branch per UX epic and keep commits scoped to that epic plus its
+    generated UX workpack evidence.
+  - Do not hand-edit generated files under `docs/planning/v2/ux` for status
+    changes; use the UX workpack commands.
+  - Do not reset, overwrite, or reformat unrelated user changes.
+  - Before handoff, run targeted tests plus `pnpm v2:ux-workpack:validate` and
+    leave no stale generated UX planning diffs.
+statusAutomation:
+  - Do not hand-edit generated UX epic packets, `status.yaml`,
+    `requirements-index.yaml`, `initiative-map.yaml`, or `parallel-batches.yaml`
+    for status changes.
+  - Use `pnpm v2:ux-workpack:set-status -- --epic
+    UX-SESSION-combat-editing-conditions-and-player-tracker --status active`
+    when implementation starts.
+  - Create
+    `docs/planning/v2/ux/epics/UX-SESSION-combat-editing-conditions-and-player-tracker.completion.md`
+    with demo, tests, traceability, gaps, and git evidence before marking
+    complete.
+  - Use `pnpm v2:ux-workpack:complete -- --epic
+    UX-SESSION-combat-editing-conditions-and-player-tracker` to update
+    `docs/planning/v2/ux/workpack-state.yaml` and regenerate all derived UX
+    planning files together.
+  - Run `pnpm v2:ux-workpack:validate` after any status or generation command.
+testPlan:
+  - Run `pnpm v2:ux-workpack:validate` before handoff.
+  - Run targeted unit tests for stores, query shaping, route metadata, component
+    state, and command dispatch touched by this epic.
+  - Run app tests or Playwright coverage for visible route, profile, keyboard,
+    touch, empty/loading/error, and player-safe behavior touched by this epic.
+  - Run axe and manual accessibility checks when the epic touches focus,
+    landmarks, dialogs, menus, tabs, drag alternatives, live regions, or
+    screen-reader output.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated on Desktop, Tablet, and Mobile
+    where applicable.
+  - List the UX requirement IDs and acceptance criteria exercised by the demo.
+  - Record actor roles used in the demo, especially DM/player/observer safety
+    cases.
+  - Record remaining polish, research, or product-decision gaps explicitly.
+stopConditions:
+  - Stop if the epic needs a product decision that the architecture
+    reconciliation epic has not resolved.
+  - Stop if a UX requirement conflicts with a functional requirement and the
+    conflict has not been raised in docs.
+  - Stop if a player-visible route, ARIA label, command result, search result,
+    preview, skeleton, or error can reveal hidden DM-only content.
+  - Stop if a Must-have action is pointer-only, gesture-only, desktop-only, or
+    depends on an optional network/cloud/AI feature.
+  - Stop if generated UX workpack validation fails and the cause is not
+    understood.
+completionEvidence:
+  - Targeted tests and profile checks pass.
+  - Requirement IDs are traced to implementation, tests, and demo notes.
+  - Desktop, Tablet, and Mobile behavior is covered or explicitly scoped with a
+    reason.
+  - Accessibility, actor-safety, no-leak, reduced-motion, touch-target, and
+    keyboard parity evidence is recorded where applicable.
+  - Completion file records demo path, tests run, changed files, requirement
+    coverage, known gaps, git branch/commit or PR, and final `git status
+    --short` output.
+  - The UX workpack status is updated with the programmatic complete command
+    after completion evidence exists.

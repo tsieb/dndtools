@@ -1,0 +1,348 @@
+schemaVersion: 1
+kind: ux-ui-remake-epic
+id: UX-GRAPH-canvas-encoding-filtering-and-health
+title: Graph Canvas, Encoding, Filtering, and Health
+status: approved
+approved: true
+phase: 08 Campaign and Discovery
+productPriority: P2
+domain: UX-GRAPH
+objective: "Ship a useful graph, not a decorative graph: readable canvas,
+  non-color encoding, legend, filters, local mode, clustering, health
+  indicators, and sparse/empty states."
+requirementIds:
+  - UX-GRAPH-001
+  - UX-GRAPH-002
+  - UX-GRAPH-003
+  - UX-GRAPH-004
+  - UX-GRAPH-005
+  - UX-GRAPH-006
+  - UX-GRAPH-008
+  - UX-GRAPH-010
+sourceDocs:
+  - docs/remake-review/ux-requirements/00-overview-and-principles.md
+  - docs/remake-review/ux-requirements/10-graph-search-discovery.md
+  - docs/remake-review/ux-requirements/16-ideal-gui-architecture.md
+  - docs/remake-review/ux-requirements/README.md
+expectedAffectedAreas:
+  - graph route
+  - graph canvas renderer
+  - legend/filter sidebar
+  - graph health panel
+  - empty/sparse states
+dependencies:
+  - UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields
+  - UX-VIS-component-library-motion-density-icons
+parallelSafety:
+  fileOwnership:
+    - docs/planning/v2/ux/
+    - apps/v2/app/src/lib/gui/ux-graph/
+    - apps/v2/app/src/routes/
+  notes: Parallel execution is safe only with non-overlapping component, route,
+    and generated UX workpack ownership; shared shell/component contracts must
+    be agreed before implementation.
+stories:
+  - id: UX-GRAPH-001-S01
+    title: Graph canvas with force-directed layout and GPU acceleration
+    requirementIds:
+      - UX-GRAPH-001
+    acceptanceCriteria:
+      - Given a vault with 100 visible nodes, when the graph renders, then frame
+        rate is ≥ 30 fps during panning, measured with browser performance
+        tools.
+      - Given the user is on Mobile (< 600px), when they navigate to
+        `/knowledge/graph`, then the canvas is absent and the backlink-list slim
+        surface renders instead.
+      - Given the graph index is stale, when the canvas renders, then the amber
+        stale banner is visible and the canvas still shows cached data without
+        blocking.
+    tasks:
+      - id: UX-GRAPH-001-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-GRAPH-001
+        kind: design
+      - id: UX-GRAPH-001-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-GRAPH-001
+        kind: implementation
+      - id: UX-GRAPH-001-S01-T03
+        title: Add automated and manual coverage for UX-GRAPH-001 acceptance criteria
+        kind: test
+      - id: UX-GRAPH-001-S01-T04
+        title: Record demo notes and traceability evidence for UX-GRAPH-001
+        kind: demo
+  - id: UX-GRAPH-002-S01
+    title: "Node encoding: color + shape + icon-badge (never color-only)"
+    requirementIds:
+      - UX-GRAPH-002
+    acceptanceCriteria:
+      - Given the graph renders, when a grayscale filter is applied to the
+        viewport, then each node type remains distinguishable by shape alone (no
+        two types share the same shape).
+      - Given a colorblind user views the graph, when the type legend is open,
+        then shape + label alone identify each type without relying on color
+        perception.
+      - Given a hub note (degree ≥ 10) is in the graph, when rendered, then it
+        is visually larger than its peers and has the hub glow applied.
+    tasks:
+      - id: UX-GRAPH-002-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-GRAPH-002
+        kind: design
+      - id: UX-GRAPH-002-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-GRAPH-002
+        kind: implementation
+      - id: UX-GRAPH-002-S01-T03
+        title: Add automated and manual coverage for UX-GRAPH-002 acceptance criteria
+        kind: test
+      - id: UX-GRAPH-002-S01-T04
+        title: Record demo notes and traceability evidence for UX-GRAPH-002
+        kind: demo
+  - id: UX-GRAPH-003-S01
+    title: "Graph legend: always visible, interactive filter toggles"
+    requirementIds:
+      - UX-GRAPH-003
+    acceptanceCriteria:
+      - Given the graph renders with multiple node types, when the legend is
+        visible, then every distinct node type shown in the canvas has a
+        corresponding legend row.
+      - Given the user unchecks "Character" in the legend, when re-render
+        completes, then no Character nodes are visible in the canvas and the
+        Character row shows 0 in its count.
+      - Given a keyboard user Tabs to the legend, when they navigate rows with
+        arrow keys and press Space, then the corresponding node type toggles
+        without requiring a mouse.
+    tasks:
+      - id: UX-GRAPH-003-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-GRAPH-003
+        kind: design
+      - id: UX-GRAPH-003-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-GRAPH-003
+        kind: implementation
+      - id: UX-GRAPH-003-S01-T03
+        title: Add automated and manual coverage for UX-GRAPH-003 acceptance criteria
+        kind: test
+      - id: UX-GRAPH-003-S01-T04
+        title: Record demo notes and traceability evidence for UX-GRAPH-003
+        kind: demo
+  - id: UX-GRAPH-004-S01
+    title: "Filter sidebar: folder, tag, type, source, relationship, text"
+    requirementIds:
+      - UX-GRAPH-004
+    acceptanceCriteria:
+      - Given the user sets a tag filter to "npc", when the graph re-renders,
+        then only nodes tagged "npc" and their visible edges appear.
+      - Given a player is logged in, when they type "dragon" in the text filter,
+        then nodes whose titles match "dragon" appear only if those nodes are
+        visible to players; no hidden-node title leaks.
+      - Given three filters are active, when the user clicks "Clear all
+        filters", then all filters reset to defaults and the full visible graph
+        renders within 300 ms.
+    tasks:
+      - id: UX-GRAPH-004-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-GRAPH-004
+        kind: design
+      - id: UX-GRAPH-004-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-GRAPH-004
+        kind: implementation
+      - id: UX-GRAPH-004-S01-T03
+        title: Add automated and manual coverage for UX-GRAPH-004 acceptance criteria
+        kind: test
+      - id: UX-GRAPH-004-S01-T04
+        title: Record demo notes and traceability evidence for UX-GRAPH-004
+        kind: demo
+  - id: UX-GRAPH-005-S01
+    title: "Local graph mode: focus + expand/collapse"
+    requirementIds:
+      - UX-GRAPH-005
+    acceptanceCriteria:
+      - Given a node is selected and depth is 2, when local mode activates, then
+        only nodes within 2 edges of the selected node are visible and all
+        others are removed from canvas.
+      - Given local mode is active, when the user presses `Escape`, then global
+        mode restores and the canvas returns to the pre-selection view within
+        300 ms.
+      - Given a DM selects a hidden node in the DM-only graph, when a player
+        view is active, then the hidden node and its local subgraph are entirely
+        absent from the player's graph canvas.
+    tasks:
+      - id: UX-GRAPH-005-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-GRAPH-005
+        kind: design
+      - id: UX-GRAPH-005-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-GRAPH-005
+        kind: implementation
+      - id: UX-GRAPH-005-S01-T03
+        title: Add automated and manual coverage for UX-GRAPH-005 acceptance criteria
+        kind: test
+      - id: UX-GRAPH-005-S01-T04
+        title: Record demo notes and traceability evidence for UX-GRAPH-005
+        kind: demo
+  - id: UX-GRAPH-006-S01
+    title: Clustering above 300 visible nodes
+    requirementIds:
+      - UX-GRAPH-006
+    acceptanceCriteria:
+      - Given a vault with 400 visible nodes, when the graph renders without
+        filters, then cluster bubbles appear and fewer than 300 individual nodes
+        are rendered.
+      - Given the user double-clicks a cluster of 80 notes, when expansion
+        completes, then all 80 nodes are visible within the cluster boundary.
+      - Given expanding a cluster would bring total nodes to 380, when the user
+        initiates expansion, then the performance-warning dialog appears before
+        rendering.
+    tasks:
+      - id: UX-GRAPH-006-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-GRAPH-006
+        kind: design
+      - id: UX-GRAPH-006-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-GRAPH-006
+        kind: implementation
+      - id: UX-GRAPH-006-S01-T03
+        title: Add automated and manual coverage for UX-GRAPH-006 acceptance criteria
+        kind: test
+      - id: UX-GRAPH-006-S01-T04
+        title: Record demo notes and traceability evidence for UX-GRAPH-006
+        kind: demo
+  - id: UX-GRAPH-008-S01
+    title: "Graph health indicators: orphans, unresolved links, hub notes"
+    requirementIds:
+      - UX-GRAPH-008
+    acceptanceCriteria:
+      - Given an orphan note exists in the vault, when the graph renders with
+        "Show orphans" ON, then the orphan note node uses faded fill and dashed
+        outline.
+      - Given the DM opens the graph health panel, when it renders, then orphan
+        count and unresolved link count are both correct and each links to a
+        filtered graph view.
+      - Given a player opens the graph view, when the toolbar renders, then the
+        "Graph Health" button is absent from the DOM (not merely visually
+        hidden).
+    tasks:
+      - id: UX-GRAPH-008-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-GRAPH-008
+        kind: design
+      - id: UX-GRAPH-008-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-GRAPH-008
+        kind: implementation
+      - id: UX-GRAPH-008-S01-T03
+        title: Add automated and manual coverage for UX-GRAPH-008 acceptance criteria
+        kind: test
+      - id: UX-GRAPH-008-S01-T04
+        title: Record demo notes and traceability evidence for UX-GRAPH-008
+        kind: demo
+  - id: UX-GRAPH-010-S01
+    title: Graph empty and sparse states
+    requirementIds:
+      - UX-GRAPH-010
+    acceptanceCriteria:
+      - Given a fresh vault with no notes, when the user opens the graph, then
+        the "starts here" empty state renders with the CTA button and no canvas.
+      - Given all filter controls eliminate all visible nodes, when the canvas
+        re-renders, then the "No nodes match" state renders with the active
+        filter list and "Clear filters" button.
+      - Given a player with no visible content opens the graph, when the page
+        loads, then the player- specific empty state renders with no hidden node
+        count or title visible.
+    tasks:
+      - id: UX-GRAPH-010-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-GRAPH-010
+        kind: design
+      - id: UX-GRAPH-010-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-GRAPH-010
+        kind: implementation
+      - id: UX-GRAPH-010-S01-T03
+        title: Add automated and manual coverage for UX-GRAPH-010 acceptance criteria
+        kind: test
+      - id: UX-GRAPH-010-S01-T04
+        title: Record demo notes and traceability evidence for UX-GRAPH-010
+        kind: demo
+qualityBar:
+  - "Product fit: the delivered UI follows the canvas-first command platform
+    model and never regresses to a document-list home."
+  - "Traceability: every mapped UX requirement is tied to implementation, tests,
+    and demo evidence."
+  - "Foundations first: design tokens, shared components, platform profiles, and
+    accessibility primitives are reused rather than reimplemented per surface."
+  - "Actor safety: player and observer routes, search, ARIA, errors, skeletons,
+    previews, and command results never leak DM-only content."
+  - "Platform parity: Desktop, Tablet, and Mobile expose the same Must-have
+    commands through profile-appropriate surfaces and the same processing-core
+    commands."
+  - "Live-play readiness: hot paths acknowledge within 100 ms, support
+    undo/retry where appropriate, and stay glanceable under table pressure."
+  - "Accessibility: WCAG 2.2 AA, keyboard parity, reduced motion, touch targets,
+    non-color state, and screen-reader QA are part of the acceptance bar."
+  - "Production polish: empty/loading/error states, responsive constraints,
+    visual hierarchy, motion, and help affordances are complete enough to
+    share."
+gitWorkflow:
+  - Start from `git status --short` and work around unrelated local edits unless
+    they block the epic.
+  - Use one branch per UX epic and keep commits scoped to that epic plus its
+    generated UX workpack evidence.
+  - Do not hand-edit generated files under `docs/planning/v2/ux` for status
+    changes; use the UX workpack commands.
+  - Do not reset, overwrite, or reformat unrelated user changes.
+  - Before handoff, run targeted tests plus `pnpm v2:ux-workpack:validate` and
+    leave no stale generated UX planning diffs.
+statusAutomation:
+  - Do not hand-edit generated UX epic packets, `status.yaml`,
+    `requirements-index.yaml`, `initiative-map.yaml`, or `parallel-batches.yaml`
+    for status changes.
+  - Use `pnpm v2:ux-workpack:set-status -- --epic
+    UX-GRAPH-canvas-encoding-filtering-and-health --status active` when
+    implementation starts.
+  - Create
+    `docs/planning/v2/ux/epics/UX-GRAPH-canvas-encoding-filtering-and-health.completion.md`
+    with demo, tests, traceability, gaps, and git evidence before marking
+    complete.
+  - Use `pnpm v2:ux-workpack:complete -- --epic
+    UX-GRAPH-canvas-encoding-filtering-and-health` to update
+    `docs/planning/v2/ux/workpack-state.yaml` and regenerate all derived UX
+    planning files together.
+  - Run `pnpm v2:ux-workpack:validate` after any status or generation command.
+testPlan:
+  - Run `pnpm v2:ux-workpack:validate` before handoff.
+  - Run targeted unit tests for stores, query shaping, route metadata, component
+    state, and command dispatch touched by this epic.
+  - Run app tests or Playwright coverage for visible route, profile, keyboard,
+    touch, empty/loading/error, and player-safe behavior touched by this epic.
+  - Run axe and manual accessibility checks when the epic touches focus,
+    landmarks, dialogs, menus, tabs, drag alternatives, live regions, or
+    screen-reader output.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated on Desktop, Tablet, and Mobile
+    where applicable.
+  - List the UX requirement IDs and acceptance criteria exercised by the demo.
+  - Record actor roles used in the demo, especially DM/player/observer safety
+    cases.
+  - Record remaining polish, research, or product-decision gaps explicitly.
+stopConditions:
+  - Stop if the epic needs a product decision that the architecture
+    reconciliation epic has not resolved.
+  - Stop if a UX requirement conflicts with a functional requirement and the
+    conflict has not been raised in docs.
+  - Stop if a player-visible route, ARIA label, command result, search result,
+    preview, skeleton, or error can reveal hidden DM-only content.
+  - Stop if a Must-have action is pointer-only, gesture-only, desktop-only, or
+    depends on an optional network/cloud/AI feature.
+  - Stop if generated UX workpack validation fails and the cause is not
+    understood.
+completionEvidence:
+  - Targeted tests and profile checks pass.
+  - Requirement IDs are traced to implementation, tests, and demo notes.
+  - Desktop, Tablet, and Mobile behavior is covered or explicitly scoped with a
+    reason.
+  - Accessibility, actor-safety, no-leak, reduced-motion, touch-target, and
+    keyboard parity evidence is recorded where applicable.
+  - Completion file records demo path, tests run, changed files, requirement
+    coverage, known gaps, git branch/commit or PR, and final `git status
+    --short` output.
+  - The UX workpack status is updated with the programmatic complete command
+    after completion evidence exists.

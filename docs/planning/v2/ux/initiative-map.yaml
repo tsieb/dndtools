@@ -1,0 +1,355 @@
+schemaVersion: 1
+source: Generated from v2 UX requirements plus ideal GUI architecture planning
+  definitions.
+initiatives:
+  - id: ARCHITECTURE-DECISIONS
+    title: 00 Architecture Decisions
+    status: approved
+    requirementIds:
+      - UX-NAV-002
+    epicIds:
+      - UX-ARCH-product-architecture-and-ia-reconciliation
+  - id: FOUNDATIONS
+    title: 01 Foundations
+    status: approved
+    requirementIds:
+      - UX-VIS-001
+      - UX-VIS-002
+      - UX-VIS-003
+      - UX-VIS-004
+      - UX-VIS-005
+      - UX-VIS-006
+      - UX-VIS-007
+      - UX-VIS-008
+      - UX-VIS-012
+      - UX-VIS-013
+      - UX-VIS-009
+      - UX-VIS-010
+      - UX-VIS-011
+      - UX-A11Y-001
+      - UX-A11Y-016
+      - UX-A11Y-017
+      - UX-A11Y-018
+      - UX-A11Y-002
+      - UX-A11Y-007
+      - UX-A11Y-009
+      - UX-A11Y-010
+      - UX-A11Y-011
+      - UX-A11Y-012
+      - UX-A11Y-013
+      - UX-A11Y-014
+      - UX-A11Y-015
+      - UX-A11Y-003
+      - UX-A11Y-004
+      - UX-A11Y-005
+      - UX-A11Y-006
+      - UX-A11Y-008
+    epicIds:
+      - UX-VIS-design-tokens-themes-and-brand
+      - UX-VIS-component-library-motion-density-icons
+      - UX-A11Y-release-gates-and-contrast
+      - UX-A11Y-interaction-primitives-and-help-compliance
+      - UX-A11Y-spatial-live-region-and-leakage
+  - id: SHELL-AND-NAVIGATION
+    title: 02 Shell and Navigation
+    status: approved
+    requirementIds:
+      - UX-NAV-001
+      - UX-NAV-003
+      - UX-NAV-004
+      - UX-NAV-005
+      - UX-NAV-006
+      - UX-NAV-009
+      - UX-NAV-010
+      - UX-NAV-011
+      - UX-NAV-018
+      - UX-NAV-007
+      - UX-NAV-008
+      - UX-NAV-012
+      - UX-NAV-016
+      - UX-NAV-017
+      - UX-NAV-020
+      - UX-NAV-013
+      - UX-NAV-015
+      - UX-NAV-014
+      - UX-NAV-019
+      - UX-SRCH-001
+      - UX-SRCH-005
+    epicIds:
+      - UX-SHELL-route-layout-and-platform-profiles
+      - UX-SHELL-contextual-navigation-history-and-deep-links
+      - UX-SHELL-actor-filtered-nav-recents
+      - UX-SHELL-command-surface-and-shortcuts
+  - id: CANVAS-AND-COMMAND-CENTER
+    title: 03 Canvas and Command Center
+    status: approved
+    requirementIds:
+      - UX-CANVAS-001
+      - UX-CANVAS-014
+      - UX-CANVAS-016
+      - UX-CANVAS-002
+      - UX-CANVAS-003
+      - UX-CANVAS-004
+      - UX-CANVAS-005
+      - UX-CANVAS-006
+      - UX-CANVAS-009
+      - UX-CANVAS-012
+      - UX-CANVAS-015
+      - UX-CANVAS-007
+      - UX-CANVAS-008
+      - UX-CANVAS-010
+      - UX-CANVAS-011
+      - UX-CANVAS-013
+      - UX-CMD-001
+      - UX-CMD-002
+      - UX-CMD-003
+      - UX-CMD-008
+      - UX-CMD-012
+    epicIds:
+      - UX-CANVAS-viewport-rendering-and-performance
+      - UX-CANVAS-widget-manipulation-and-outline
+      - UX-CANVAS-chrome-bindings-templates-and-view-modes
+      - UX-CMD-home-scene-and-role-differentiated-dashboard
+  - id: TRUST-AND-SAFETY
+    title: 04 Trust and Safety
+    status: approved
+    requirementIds:
+      - UX-PERM-001
+      - UX-PERM-006
+      - UX-PERM-007
+      - UX-PERM-008
+      - UX-CMD-004
+      - UX-CMD-005
+      - UX-CMD-006
+      - UX-CMD-007
+      - UX-CMD-009
+      - UX-CMD-010
+      - UX-CMD-011
+    epicIds:
+      - UX-PERM-visibility-preview-badges-and-privacy-status
+      - UX-CMD-player-view-handouts-map-and-session-controls
+  - id: LIVE-PLAY-WORKSPACES
+    title: 05 Live-Play Workspaces
+    status: approved
+    requirementIds:
+      - UX-SES-001
+      - UX-SES-002
+      - UX-SES-003
+      - UX-SES-004
+      - UX-SES-006
+      - UX-SES-017
+      - UX-SES-005
+      - UX-SES-007
+      - UX-SES-008
+      - UX-SES-016
+      - UX-SES-009
+      - UX-SES-010
+      - UX-SES-011
+      - UX-SES-012
+      - UX-SES-013
+      - UX-SES-014
+      - UX-SES-015
+    epicIds:
+      - UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
+      - UX-SESSION-combat-editing-conditions-and-player-tracker
+      - UX-SESSION-tools-encounters-dice-timers-prep-calendar
+  - id: CORE-LIBRARY-WORKSPACES
+    title: 06 Core Library Workspaces
+    status: approved
+    requirementIds:
+      - UX-CHAR-001
+      - UX-CHAR-002
+      - UX-CHAR-011
+      - UX-CHAR-013
+      - UX-CHAR-003
+      - UX-CHAR-004
+      - UX-CHAR-005
+      - UX-CHAR-006
+      - UX-CHAR-007
+      - UX-CHAR-008
+      - UX-CHAR-012
+      - UX-CHAR-009
+      - UX-CHAR-010
+      - UX-MAP-001
+      - UX-MAP-002
+      - UX-MAP-003
+      - UX-MAP-006
+      - UX-MAP-009
+      - UX-MAP-018
+      - UX-MAP-004
+      - UX-MAP-005
+      - UX-MAP-007
+      - UX-MAP-008
+      - UX-MAP-014
+      - UX-MAP-010
+      - UX-MAP-011
+      - UX-MAP-012
+      - UX-MAP-013
+      - UX-MAP-015
+      - UX-MAP-016
+      - UX-MAP-017
+      - UX-CONTENT-001
+      - UX-CONTENT-002
+      - UX-CONTENT-003
+      - UX-CONTENT-004
+      - UX-CONTENT-005
+      - UX-CONTENT-007
+      - UX-CONTENT-006
+      - UX-CONTENT-008
+      - UX-CONTENT-009
+      - UX-CONTENT-010
+      - UX-CONTENT-019
+      - UX-CONTENT-011
+      - UX-CONTENT-012
+      - UX-CONTENT-013
+      - UX-CONTENT-014
+      - UX-CONTENT-015
+      - UX-CONTENT-018
+    epicIds:
+      - UX-CHAR-roster-creation-and-draft-ownership
+      - UX-CHAR-sheet-live-resources-and-advancement
+      - UX-CHAR-collaboration-and-widget-bindings
+      - UX-MAP-library-viewer-import-and-search
+      - UX-MAP-layers-authoring-generation-and-tags
+      - UX-MAP-pois-fog-projection-combat-and-embeds
+      - UX-CONTENT-editor-shell-and-writing-controls
+      - UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields
+      - UX-CONTENT-templates-snippets-sources-import-export
+  - id: COLLABORATION-AND-PERMISSIONS
+    title: 07 Collaboration and Permissions
+    status: approved
+    requirementIds:
+      - UX-PERM-002
+      - UX-PERM-003
+      - UX-PERM-004
+      - UX-PERM-005
+      - UX-CONTENT-016
+      - UX-CONTENT-017
+      - UX-COLLAB-001
+      - UX-COLLAB-002
+      - UX-COLLAB-003
+      - UX-COLLAB-006
+      - UX-COLLAB-009
+      - UX-COLLAB-004
+      - UX-COLLAB-005
+      - UX-COLLAB-007
+      - UX-COLLAB-008
+    epicIds:
+      - UX-PERM-grant-dialog-active-grants-and-diagnostics
+      - UX-CONTENT-visibility-and-embeds
+      - UX-COLLAB-presence-join-roster-connection-and-catchup
+      - UX-COLLAB-handouts-player-views-combat-and-groups
+  - id: CAMPAIGN-AND-DISCOVERY
+    title: 08 Campaign and Discovery
+    status: approved
+    requirementIds:
+      - UX-SRCH-002
+      - UX-SRCH-003
+      - UX-SRCH-004
+      - UX-SRCH-006
+      - UX-SRCH-007
+      - UX-SRCH-008
+      - UX-SRCH-009
+      - UX-SRCH-010
+      - UX-GRAPH-001
+      - UX-GRAPH-002
+      - UX-GRAPH-003
+      - UX-GRAPH-004
+      - UX-GRAPH-005
+      - UX-GRAPH-006
+      - UX-GRAPH-008
+      - UX-GRAPH-010
+      - UX-GRAPH-007
+      - UX-GRAPH-009
+      - UX-GRAPH-011
+    epicIds:
+      - UX-CAMPAIGN-world-model-route-shell
+      - UX-SRCH-result-layout-filters-freshness-and-saved-searches
+      - UX-GRAPH-canvas-encoding-filtering-and-health
+      - UX-GRAPH-accessible-mobile-and-link-repair
+  - id: RELIABILITY-AND-OPTIONAL-CAPABILITIES
+    title: 09 Reliability and Optional Capabilities
+    status: approved
+    requirementIds:
+      - UX-SYNC-001
+      - UX-SYNC-002
+      - UX-SYNC-003
+      - UX-SYNC-008
+      - UX-SYNC-011
+      - UX-SYNC-013
+      - UX-SYNC-004
+      - UX-SYNC-005
+      - UX-SYNC-006
+      - UX-SYNC-007
+      - UX-SYNC-009
+      - UX-SYNC-010
+      - UX-SYNC-012
+      - UX-AUDIO-001
+      - UX-AUDIO-002
+      - UX-AUDIO-003
+      - UX-AUDIO-008
+      - UX-AUDIO-009
+      - UX-AUDIO-012
+      - UX-AUDIO-014
+      - UX-AUDIO-004
+      - UX-AUDIO-005
+      - UX-AUDIO-006
+      - UX-AUDIO-007
+      - UX-AUDIO-010
+      - UX-AUDIO-011
+      - UX-AUDIO-013
+      - UX-MCP-001
+      - UX-MCP-004
+      - UX-MCP-006
+      - UX-MCP-007
+      - UX-MCP-009
+      - UX-MCP-010
+      - UX-MCP-011
+      - UX-MCP-012
+      - UX-MCP-002
+      - UX-MCP-003
+      - UX-MCP-005
+      - UX-MCP-008
+    epicIds:
+      - UX-SYNC-global-indicators-local-first-and-entity-badges
+      - UX-SYNC-queues-conflicts-recovery-consent-and-authorization
+      - UX-AUDIO-live-controls-player-delivery-and-degradation
+      - UX-AUDIO-library-presets-soundboard-and-automation
+      - UX-MCP-settings-policy-provenance-staged-writes-and-fallback
+      - UX-MCP-inline-assist-suggestions-attachments-and-response-presentation
+  - id: ONBOARDING-AND-PRODUCTION-POLISH
+    title: 10 Onboarding and Production Polish
+    status: approved
+    requirementIds:
+      - UX-ONB-001
+      - UX-ONB-002
+      - UX-ONB-003
+      - UX-ONB-004
+      - UX-ONB-005
+      - UX-ONB-006
+      - UX-ONB-007
+      - UX-ONB-008
+      - UX-ONB-009
+      - UX-ONB-010
+      - UX-ONB-011
+      - UX-ONB-012
+      - UX-ONB-021
+      - UX-ONB-013
+      - UX-ONB-014
+      - UX-ONB-015
+      - UX-ONB-016
+      - UX-ONB-017
+      - UX-ONB-018
+      - UX-ONB-019
+      - UX-ONB-020
+    epicIds:
+      - UX-ONB-first-run-role-and-player-join-paths
+      - UX-ONB-empty-states-and-teach-by-doing
+      - UX-ONB-help-coachmarks-demo-and-progressive-disclosure
+  - id: PRODUCTION-READINESS
+    title: 11 Production Readiness
+    status: approved
+    requirementIds: []
+    epicIds:
+      - UX-RELEASE-production-readiness-and-shareable-cut
+requirementCount: 244

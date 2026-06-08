@@ -1,0 +1,327 @@
+schemaVersion: 1
+kind: ux-ui-remake-epic
+id: UX-CHAR-sheet-live-resources-and-advancement
+title: Character Sheet, Live Resources, and Advancement
+status: approved
+approved: true
+phase: 06 Core Library Workspaces
+productPriority: P1
+domain: UX-CHAR
+objective: Complete the production character sheet with persistent vitals,
+  reading/edit modes, HP and class resources, conditions, concentration, death
+  saves, advancement, and journal.
+requirementIds:
+  - UX-CHAR-003
+  - UX-CHAR-004
+  - UX-CHAR-005
+  - UX-CHAR-006
+  - UX-CHAR-007
+  - UX-CHAR-008
+  - UX-CHAR-012
+sourceDocs:
+  - docs/remake-review/ux-requirements/00-overview-and-principles.md
+  - docs/remake-review/ux-requirements/07-characters.md
+  - docs/remake-review/ux-requirements/16-ideal-gui-architecture.md
+  - docs/remake-review/ux-requirements/README.md
+expectedAffectedAreas:
+  - character sheet route
+  - vitals bar
+  - inline edit mode
+  - combat resources
+  - advancement flow
+  - character journal
+dependencies:
+  - UX-CHAR-roster-creation-and-draft-ownership
+parallelSafety:
+  fileOwnership:
+    - docs/planning/v2/ux/
+    - apps/v2/app/src/lib/gui/ux-char/
+    - apps/v2/app/src/routes/
+  notes: Parallel execution is safe only with non-overlapping component, route,
+    and generated UX workpack ownership; shared shell/component contracts must
+    be agreed before implementation.
+stories:
+  - id: UX-CHAR-003-S01
+    title: "Character sheet: layout, hierarchy, and reading mode"
+    requirementIds:
+      - UX-CHAR-003
+    acceptanceCriteria:
+      - Given the character sheet opens, when the vitals bar renders, then HP is
+        the numerically largest value displayed in the header area.
+      - Given the user scrolls the sheet to the Spells section, when they look
+        at the top of the screen, then the vitals bar (HP / AC) is still
+        visible.
+      - Given the user opens the sheet on mobile, then the Combat tab is the
+        default active tab.
+      - Given a keyboard user navigates the sheet, when they Tab through the
+        vitals bar, then each value (HP, AC, Speed) receives focus in order.
+    tasks:
+      - id: UX-CHAR-003-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CHAR-003
+        kind: design
+      - id: UX-CHAR-003-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CHAR-003
+        kind: implementation
+      - id: UX-CHAR-003-S01-T03
+        title: Add automated and manual coverage for UX-CHAR-003 acceptance criteria
+        kind: test
+      - id: UX-CHAR-003-S01-T04
+        title: Record demo notes and traceability evidence for UX-CHAR-003
+        kind: demo
+  - id: UX-CHAR-004-S01
+    title: "Character sheet: inline edit and mode transitions"
+    requirementIds:
+      - UX-CHAR-004
+    acceptanceCriteria:
+      - Given the player clicks on their character's name, then the name
+        transitions to a text input with the current value selected.
+      - Given the player edits the name and presses Enter, then the field saves
+        and shows "Saved" briefly.
+      - Given the player presses Escape while editing, then the field reverts to
+        the previous value.
+      - Given the player lacks edit permission on a field, then that field has
+        no click-to-edit affordance and no edit cursor.
+    tasks:
+      - id: UX-CHAR-004-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CHAR-004
+        kind: design
+      - id: UX-CHAR-004-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CHAR-004
+        kind: implementation
+      - id: UX-CHAR-004-S01-T03
+        title: Add automated and manual coverage for UX-CHAR-004 acceptance criteria
+        kind: test
+      - id: UX-CHAR-004-S01-T04
+        title: Record demo notes and traceability evidence for UX-CHAR-004
+        kind: demo
+  - id: UX-CHAR-005-S01
+    title: "HP delta stepper: in-play combat resource control"
+    requirementIds:
+      - UX-CHAR-005
+    acceptanceCriteria:
+      - Given the player types 7 in Amount, then the HP display shows "→ 45 /
+        52" in muted text.
+      - Given the player clicks Deal Damage with Amount = 7 and HP = 52, then HP
+        becomes 45 and the display updates within 100 ms.
+      - Given the player presses + on the keyboard with the stepper focused and
+        Amount = 3, then Amount becomes 4.
+      - Given the session is inactive, then Deal Damage and Heal buttons are
+        disabled and a hint reads "Combat updates available during active
+        sessions."
+      - Given temp HP is 5 and the player deals 3 damage, then temp HP becomes 2
+        and current HP is unchanged.
+    tasks:
+      - id: UX-CHAR-005-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CHAR-005
+        kind: design
+      - id: UX-CHAR-005-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CHAR-005
+        kind: implementation
+      - id: UX-CHAR-005-S01-T03
+        title: Add automated and manual coverage for UX-CHAR-005 acceptance criteria
+        kind: test
+      - id: UX-CHAR-005-S01-T04
+        title: Record demo notes and traceability evidence for UX-CHAR-005
+        kind: demo
+  - id: UX-CHAR-006-S01
+    title: Death saves, conditions, and concentration panel
+    requirementIds:
+      - UX-CHAR-006
+    acceptanceCriteria:
+      - Given the player taps a death save success circle, then it fills
+        visually and the state updates.
+      - Given all 3 failure circles are filled, then a "Stabilize / Dead?"
+        prompt appears for the DM.
+      - Given the player taps "Add condition", then a type-ahead popover opens
+        with the 14 standard conditions listed.
+      - Given the player taps "Poisoned" in the popover, then "Poisoned" appears
+        as a pill badge on the conditions list.
+      - Given the player taps × on the Poisoned badge, then Poisoned is removed.
+    tasks:
+      - id: UX-CHAR-006-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CHAR-006
+        kind: design
+      - id: UX-CHAR-006-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CHAR-006
+        kind: implementation
+      - id: UX-CHAR-006-S01-T03
+        title: Add automated and manual coverage for UX-CHAR-006 acceptance criteria
+        kind: test
+      - id: UX-CHAR-006-S01-T04
+        title: Record demo notes and traceability evidence for UX-CHAR-006
+        kind: demo
+  - id: UX-CHAR-007-S01
+    title: "Spell slots and class resources: pip display"
+    requirementIds:
+      - UX-CHAR-007
+    acceptanceCriteria:
+      - Given a sorcerer has 4 level 2 slots, 1 used, when the Spells tab
+        renders, then 3 empty pips and 1 filled pip appear in the level 2 row.
+      - Given the player clicks "Cast" on level 2, then 1 empty pip becomes
+        filled and the count reads "2 remaining".
+      - Given all 4 level 2 slots are used, then the Cast button for level 2 is
+        disabled.
+      - Given the player clicks Short Rest, then a confirmation prompt appears
+        before resources recover.
+    tasks:
+      - id: UX-CHAR-007-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CHAR-007
+        kind: design
+      - id: UX-CHAR-007-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CHAR-007
+        kind: implementation
+      - id: UX-CHAR-007-S01-T03
+        title: Add automated and manual coverage for UX-CHAR-007 acceptance criteria
+        kind: test
+      - id: UX-CHAR-007-S01-T04
+        title: Record demo notes and traceability evidence for UX-CHAR-007
+        kind: demo
+  - id: UX-CHAR-008-S01
+    title: Level-up / advancement wizard
+    requirementIds:
+      - UX-CHAR-008
+    acceptanceCriteria:
+      - Given the character has sufficient XP, when the player clicks "Level up
+        (XP)", then the advancement modal opens with class confirmation as step
+        1.
+      - Given the player chooses HP roll, then an inline dice roller is
+        available and the rolled value is auto-populated.
+      - Given incomplete choices, when the player attempts to click "Finalize
+        level-up", then the button is aria-disabled and a tooltip lists
+        incomplete choices.
+      - Given the player finalizes the advancement, then the character sheet
+        shows the new level and a "Pending DM review" banner.
+      - Given the player clicks Escape in the modal, then a "Cancel level-up?"
+        confirm dialog appears.
+    tasks:
+      - id: UX-CHAR-008-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CHAR-008
+        kind: design
+      - id: UX-CHAR-008-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CHAR-008
+        kind: implementation
+      - id: UX-CHAR-008-S01-T03
+        title: Add automated and manual coverage for UX-CHAR-008 acceptance criteria
+        kind: test
+      - id: UX-CHAR-008-S01-T04
+        title: Record demo notes and traceability evidence for UX-CHAR-008
+        kind: demo
+  - id: UX-CHAR-012-S01
+    title: Character journal
+    requirementIds:
+      - UX-CHAR-012
+    acceptanceCriteria:
+      - Given the player adds an entry with visibility "Private", when another
+        player views the character journal, then that entry is absent with no
+        title, count, or snippet visible.
+      - Given the player removes an entry, then an undo toast appears for 5
+        seconds.
+      - Given the player clicks Undo, then the entry is restored.
+      - Given the journal is empty and the player is the owner, then the empty
+        state includes an "Add your first entry" prompt.
+      - Given the visibility defaults, when an entry is created without
+        selecting visibility, then it defaults to "Private (you + DM)".
+    tasks:
+      - id: UX-CHAR-012-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CHAR-012
+        kind: design
+      - id: UX-CHAR-012-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CHAR-012
+        kind: implementation
+      - id: UX-CHAR-012-S01-T03
+        title: Add automated and manual coverage for UX-CHAR-012 acceptance criteria
+        kind: test
+      - id: UX-CHAR-012-S01-T04
+        title: Record demo notes and traceability evidence for UX-CHAR-012
+        kind: demo
+qualityBar:
+  - "Product fit: the delivered UI follows the canvas-first command platform
+    model and never regresses to a document-list home."
+  - "Traceability: every mapped UX requirement is tied to implementation, tests,
+    and demo evidence."
+  - "Foundations first: design tokens, shared components, platform profiles, and
+    accessibility primitives are reused rather than reimplemented per surface."
+  - "Actor safety: player and observer routes, search, ARIA, errors, skeletons,
+    previews, and command results never leak DM-only content."
+  - "Platform parity: Desktop, Tablet, and Mobile expose the same Must-have
+    commands through profile-appropriate surfaces and the same processing-core
+    commands."
+  - "Live-play readiness: hot paths acknowledge within 100 ms, support
+    undo/retry where appropriate, and stay glanceable under table pressure."
+  - "Accessibility: WCAG 2.2 AA, keyboard parity, reduced motion, touch targets,
+    non-color state, and screen-reader QA are part of the acceptance bar."
+  - "Production polish: empty/loading/error states, responsive constraints,
+    visual hierarchy, motion, and help affordances are complete enough to
+    share."
+gitWorkflow:
+  - Start from `git status --short` and work around unrelated local edits unless
+    they block the epic.
+  - Use one branch per UX epic and keep commits scoped to that epic plus its
+    generated UX workpack evidence.
+  - Do not hand-edit generated files under `docs/planning/v2/ux` for status
+    changes; use the UX workpack commands.
+  - Do not reset, overwrite, or reformat unrelated user changes.
+  - Before handoff, run targeted tests plus `pnpm v2:ux-workpack:validate` and
+    leave no stale generated UX planning diffs.
+statusAutomation:
+  - Do not hand-edit generated UX epic packets, `status.yaml`,
+    `requirements-index.yaml`, `initiative-map.yaml`, or `parallel-batches.yaml`
+    for status changes.
+  - Use `pnpm v2:ux-workpack:set-status -- --epic
+    UX-CHAR-sheet-live-resources-and-advancement --status active` when
+    implementation starts.
+  - Create
+    `docs/planning/v2/ux/epics/UX-CHAR-sheet-live-resources-and-advancement.completion.md`
+    with demo, tests, traceability, gaps, and git evidence before marking
+    complete.
+  - Use `pnpm v2:ux-workpack:complete -- --epic
+    UX-CHAR-sheet-live-resources-and-advancement` to update
+    `docs/planning/v2/ux/workpack-state.yaml` and regenerate all derived UX
+    planning files together.
+  - Run `pnpm v2:ux-workpack:validate` after any status or generation command.
+testPlan:
+  - Run `pnpm v2:ux-workpack:validate` before handoff.
+  - Run targeted unit tests for stores, query shaping, route metadata, component
+    state, and command dispatch touched by this epic.
+  - Run app tests or Playwright coverage for visible route, profile, keyboard,
+    touch, empty/loading/error, and player-safe behavior touched by this epic.
+  - Run axe and manual accessibility checks when the epic touches focus,
+    landmarks, dialogs, menus, tabs, drag alternatives, live regions, or
+    screen-reader output.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated on Desktop, Tablet, and Mobile
+    where applicable.
+  - List the UX requirement IDs and acceptance criteria exercised by the demo.
+  - Record actor roles used in the demo, especially DM/player/observer safety
+    cases.
+  - Record remaining polish, research, or product-decision gaps explicitly.
+stopConditions:
+  - Stop if the epic needs a product decision that the architecture
+    reconciliation epic has not resolved.
+  - Stop if a UX requirement conflicts with a functional requirement and the
+    conflict has not been raised in docs.
+  - Stop if a player-visible route, ARIA label, command result, search result,
+    preview, skeleton, or error can reveal hidden DM-only content.
+  - Stop if a Must-have action is pointer-only, gesture-only, desktop-only, or
+    depends on an optional network/cloud/AI feature.
+  - Stop if generated UX workpack validation fails and the cause is not
+    understood.
+completionEvidence:
+  - Targeted tests and profile checks pass.
+  - Requirement IDs are traced to implementation, tests, and demo notes.
+  - Desktop, Tablet, and Mobile behavior is covered or explicitly scoped with a
+    reason.
+  - Accessibility, actor-safety, no-leak, reduced-motion, touch-target, and
+    keyboard parity evidence is recorded where applicable.
+  - Completion file records demo path, tests run, changed files, requirement
+    coverage, known gaps, git branch/commit or PR, and final `git status
+    --short` output.
+  - The UX workpack status is updated with the programmatic complete command
+    after completion evidence exists.

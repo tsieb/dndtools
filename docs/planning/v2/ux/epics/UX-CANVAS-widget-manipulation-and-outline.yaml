@@ -1,0 +1,360 @@
+schemaVersion: 1
+kind: ux-ui-remake-epic
+id: UX-CANVAS-widget-manipulation-and-outline
+title: Widget Placement, Manipulation, and Outline
+status: approved
+approved: true
+phase: 03 Canvas and Command Center
+productPriority: P0
+domain: UX-CANVAS
+objective: Make widget placement, selection, move, resize, rotation, grouping,
+  z-order, alignment, undo/redo, and keyboard focus feel like a direct
+  production canvas tool.
+requirementIds:
+  - UX-CANVAS-002
+  - UX-CANVAS-003
+  - UX-CANVAS-004
+  - UX-CANVAS-005
+  - UX-CANVAS-006
+  - UX-CANVAS-009
+  - UX-CANVAS-012
+  - UX-CANVAS-015
+sourceDocs:
+  - docs/remake-review/ux-requirements/00-overview-and-principles.md
+  - docs/remake-review/ux-requirements/04-canvas-scene-widgets.md
+  - docs/remake-review/ux-requirements/16-ideal-gui-architecture.md
+  - docs/remake-review/ux-requirements/README.md
+expectedAffectedAreas:
+  - widget library insert flow
+  - selection toolbar
+  - Scene Outline integration
+  - canvas undo/redo
+  - alignment tools
+dependencies:
+  - UX-CANVAS-viewport-rendering-and-performance
+parallelSafety:
+  fileOwnership:
+    - docs/planning/v2/ux/
+    - apps/v2/app/src/lib/gui/ux-canvas/
+    - apps/v2/app/src/routes/
+  notes: Parallel execution is safe only with non-overlapping component, route,
+    and generated UX workpack ownership; shared shell/component contracts must
+    be agreed before implementation.
+stories:
+  - id: UX-CANVAS-002-S01
+    title: "Placing widgets: widget library and insert flow"
+    requirementIds:
+      - UX-CANVAS-002
+    acceptanceCriteria:
+      - Given the DM presses `W`, when the library opens, the search field
+        receives focus.
+      - Given the DM selects a "Dice Roller" widget and clicks the canvas, a
+        Dice Roller widget appears at the click position with the default size,
+        selected.
+      - Given the DM presses Escape during ghost mode, the ghost disappears and
+        no widget is placed.
+      - Given a widget is marked unavailable for the current profile, when shown
+        in the library, it renders at 40% opacity and cannot be selected.
+      - Given a Mobile user opens the library and taps a widget, the
+        tap-to-place flow activates and the widget is placed on the first canvas
+        tap.
+    tasks:
+      - id: UX-CANVAS-002-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CANVAS-002
+        kind: design
+      - id: UX-CANVAS-002-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CANVAS-002
+        kind: implementation
+      - id: UX-CANVAS-002-S01-T03
+        title: Add automated and manual coverage for UX-CANVAS-002 acceptance criteria
+        kind: test
+      - id: UX-CANVAS-002-S01-T04
+        title: Record demo notes and traceability evidence for UX-CANVAS-002
+        kind: demo
+  - id: UX-CANVAS-003-S01
+    title: Widget move and resize
+    requirementIds:
+      - UX-CANVAS-003
+    acceptanceCriteria:
+      - Given a selected widget, when the user presses the right arrow key, the
+        widget moves 1 px right and a screen-reader announcement fires.
+      - Given a selected widget, when the user Shift+arrows, the widget moves 8
+        px per press.
+      - Given a Mobile user selects a widget, when they open its context menu
+        and tap "Position…", a numeric input modal opens and committing it moves
+        the widget.
+      - Given the user drags a widget toward the canvas boundary, when the
+        widget bounding box would be >200 px outside the viewport, it snaps to
+        20 px inside the viewport edge.
+      - Given Shift is held during a corner resize drag, when the user drags,
+        the aspect ratio is maintained.
+    tasks:
+      - id: UX-CANVAS-003-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CANVAS-003
+        kind: design
+      - id: UX-CANVAS-003-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CANVAS-003
+        kind: implementation
+      - id: UX-CANVAS-003-S01-T03
+        title: Add automated and manual coverage for UX-CANVAS-003 acceptance criteria
+        kind: test
+      - id: UX-CANVAS-003-S01-T04
+        title: Record demo notes and traceability evidence for UX-CANVAS-003
+        kind: demo
+  - id: UX-CANVAS-004-S01
+    title: Widget rotation
+    requirementIds:
+      - UX-CANVAS-004
+    acceptanceCriteria:
+      - Given a selected widget, when the user drags the rotation handle without
+        Shift, it snaps to the nearest 15° increment.
+      - Given the user double-clicks the rotation handle, the widget rotation
+        resets to 0°.
+      - Given a Mobile user opens the context menu, when they tap "Rotate…", a
+        numeric input modal appears and committing it rotates the widget.
+    tasks:
+      - id: UX-CANVAS-004-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CANVAS-004
+        kind: design
+      - id: UX-CANVAS-004-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CANVAS-004
+        kind: implementation
+      - id: UX-CANVAS-004-S01-T03
+        title: Add automated and manual coverage for UX-CANVAS-004 acceptance criteria
+        kind: test
+      - id: UX-CANVAS-004-S01-T04
+        title: Record demo notes and traceability evidence for UX-CANVAS-004
+        kind: demo
+  - id: UX-CANVAS-005-S01
+    title: "Selection model: single, multi, marquee"
+    requirementIds:
+      - UX-CANVAS-005
+    acceptanceCriteria:
+      - Given the user clicks widget A then Shift+clicks widget B, both widgets
+        are selected and the count badge shows "2 selected".
+      - Given the user drags from empty canvas space, a dashed marquee appears;
+        on release, only fully-enclosed widgets are selected.
+      - Given the user presses Ctrl/Cmd+A, all widgets on the canvas are
+        selected.
+      - Given the user presses Escape, the selection is cleared.
+      - Given a screen-reader user focuses a widget and presses Space, the
+        widget is selected and "1 widget selected" is announced.
+    tasks:
+      - id: UX-CANVAS-005-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CANVAS-005
+        kind: design
+      - id: UX-CANVAS-005-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CANVAS-005
+        kind: implementation
+      - id: UX-CANVAS-005-S01-T03
+        title: Add automated and manual coverage for UX-CANVAS-005 acceptance criteria
+        kind: test
+      - id: UX-CANVAS-005-S01-T04
+        title: Record demo notes and traceability evidence for UX-CANVAS-005
+        kind: demo
+  - id: UX-CANVAS-006-S01
+    title: Grouping and z-order
+    requirementIds:
+      - UX-CANVAS-006
+    acceptanceCriteria:
+      - Given two selected widgets, when the user presses Ctrl/Cmd+G, they are
+        grouped and a single selection ring appears around the group bounding
+        box.
+      - Given a group is selected and the user double-clicks a child widget, the
+        child is selected and the child's handles become visible.
+      - Given a widget is selected, when the user presses Ctrl/Cmd+], the
+        widget's z-order increases by one and the layers panel updates.
+      - Given the layers panel is open, when the user drags a row upward, the
+        corresponding widget's z-order increases and the canvas renders
+        immediately.
+    tasks:
+      - id: UX-CANVAS-006-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CANVAS-006
+        kind: design
+      - id: UX-CANVAS-006-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CANVAS-006
+        kind: implementation
+      - id: UX-CANVAS-006-S01-T03
+        title: Add automated and manual coverage for UX-CANVAS-006 acceptance criteria
+        kind: test
+      - id: UX-CANVAS-006-S01-T04
+        title: Record demo notes and traceability evidence for UX-CANVAS-006
+        kind: demo
+  - id: UX-CANVAS-009-S01
+    title: Alignment, grid, and smart guides
+    requirementIds:
+      - UX-CANVAS-009
+    acceptanceCriteria:
+      - Given snap is enabled and the user drags a widget near a sibling edge, a
+        snap guide line appears and the widget snaps when within 4 px (at 100%
+        zoom).
+      - Given the user holds Alt/Option during drag, no snap occurs.
+      - Given two widgets are selected, when the user clicks "Distribute
+        Horizontal", the widgets are evenly spaced horizontally by the same
+        processing-core command used on Desktop and Mobile.
+      - Given grid is enabled at 16 px, widget corners snap to the nearest 16 px
+        intersection during drag.
+    tasks:
+      - id: UX-CANVAS-009-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CANVAS-009
+        kind: design
+      - id: UX-CANVAS-009-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CANVAS-009
+        kind: implementation
+      - id: UX-CANVAS-009-S01-T03
+        title: Add automated and manual coverage for UX-CANVAS-009 acceptance criteria
+        kind: test
+      - id: UX-CANVAS-009-S01-T04
+        title: Record demo notes and traceability evidence for UX-CANVAS-009
+        kind: demo
+  - id: UX-CANVAS-012-S01
+    title: Undo/redo
+    requirementIds:
+      - UX-CANVAS-012
+    acceptanceCriteria:
+      - 'Given the DM moves a widget, when they press Ctrl/Cmd+Z, the widget
+        returns to its previous position and "Undone: Move widget [name]" is
+        announced.'
+      - Given the undo stack has 50 steps and the DM performs a 51st action, the
+        oldest step is discarded and a "Undo limit reached" toast appears on the
+        next undo attempt at the stack boundary.
+      - Given a widget was deleted, when the DM presses Ctrl/Cmd+Z, the widget
+        is restored with a "Widget restored" toast.
+      - Given a remote collaborator moves a widget, when the local DM presses
+        Ctrl/Cmd+Z, only the local DM's own operations are reversed.
+    tasks:
+      - id: UX-CANVAS-012-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CANVAS-012
+        kind: design
+      - id: UX-CANVAS-012-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CANVAS-012
+        kind: implementation
+      - id: UX-CANVAS-012-S01-T03
+        title: Add automated and manual coverage for UX-CANVAS-012 acceptance criteria
+        kind: test
+      - id: UX-CANVAS-012-S01-T04
+        title: Record demo notes and traceability evidence for UX-CANVAS-012
+        kind: demo
+  - id: UX-CANVAS-015-S01
+    title: Canvas keyboard model and focus management
+    requirementIds:
+      - UX-CANVAS-015
+    acceptanceCriteria:
+      - Given keyboard-only operation, when the user presses Tab from the nav
+        rail, focus enters the canvas at the first widget in z-order focus
+        metadata.
+      - Given a widget is focused and the user presses Delete, a confirmation
+        dialog appears; confirming removes the widget; canceling restores focus
+        to the widget.
+      - Given the user presses `0`, the canvas zooms to fit all widgets and
+        "Zoomed to fit" is announced in a live region.
+      - Given focus is inside a widget's content (Enter was pressed), when the
+        user presses Escape, focus returns to canvas level with the widget still
+        selected.
+      - Given the user presses `?`, a keyboard shortcuts panel opens and is
+        navigable by Tab.
+    tasks:
+      - id: UX-CANVAS-015-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-CANVAS-015
+        kind: design
+      - id: UX-CANVAS-015-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-CANVAS-015
+        kind: implementation
+      - id: UX-CANVAS-015-S01-T03
+        title: Add automated and manual coverage for UX-CANVAS-015 acceptance criteria
+        kind: test
+      - id: UX-CANVAS-015-S01-T04
+        title: Record demo notes and traceability evidence for UX-CANVAS-015
+        kind: demo
+qualityBar:
+  - "Product fit: the delivered UI follows the canvas-first command platform
+    model and never regresses to a document-list home."
+  - "Traceability: every mapped UX requirement is tied to implementation, tests,
+    and demo evidence."
+  - "Foundations first: design tokens, shared components, platform profiles, and
+    accessibility primitives are reused rather than reimplemented per surface."
+  - "Actor safety: player and observer routes, search, ARIA, errors, skeletons,
+    previews, and command results never leak DM-only content."
+  - "Platform parity: Desktop, Tablet, and Mobile expose the same Must-have
+    commands through profile-appropriate surfaces and the same processing-core
+    commands."
+  - "Live-play readiness: hot paths acknowledge within 100 ms, support
+    undo/retry where appropriate, and stay glanceable under table pressure."
+  - "Accessibility: WCAG 2.2 AA, keyboard parity, reduced motion, touch targets,
+    non-color state, and screen-reader QA are part of the acceptance bar."
+  - "Production polish: empty/loading/error states, responsive constraints,
+    visual hierarchy, motion, and help affordances are complete enough to
+    share."
+gitWorkflow:
+  - Start from `git status --short` and work around unrelated local edits unless
+    they block the epic.
+  - Use one branch per UX epic and keep commits scoped to that epic plus its
+    generated UX workpack evidence.
+  - Do not hand-edit generated files under `docs/planning/v2/ux` for status
+    changes; use the UX workpack commands.
+  - Do not reset, overwrite, or reformat unrelated user changes.
+  - Before handoff, run targeted tests plus `pnpm v2:ux-workpack:validate` and
+    leave no stale generated UX planning diffs.
+statusAutomation:
+  - Do not hand-edit generated UX epic packets, `status.yaml`,
+    `requirements-index.yaml`, `initiative-map.yaml`, or `parallel-batches.yaml`
+    for status changes.
+  - Use `pnpm v2:ux-workpack:set-status -- --epic
+    UX-CANVAS-widget-manipulation-and-outline --status active` when
+    implementation starts.
+  - Create
+    `docs/planning/v2/ux/epics/UX-CANVAS-widget-manipulation-and-outline.completion.md`
+    with demo, tests, traceability, gaps, and git evidence before marking
+    complete.
+  - Use `pnpm v2:ux-workpack:complete -- --epic
+    UX-CANVAS-widget-manipulation-and-outline` to update
+    `docs/planning/v2/ux/workpack-state.yaml` and regenerate all derived UX
+    planning files together.
+  - Run `pnpm v2:ux-workpack:validate` after any status or generation command.
+testPlan:
+  - Run `pnpm v2:ux-workpack:validate` before handoff.
+  - Run targeted unit tests for stores, query shaping, route metadata, component
+    state, and command dispatch touched by this epic.
+  - Run app tests or Playwright coverage for visible route, profile, keyboard,
+    touch, empty/loading/error, and player-safe behavior touched by this epic.
+  - Run axe and manual accessibility checks when the epic touches focus,
+    landmarks, dialogs, menus, tabs, drag alternatives, live regions, or
+    screen-reader output.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated on Desktop, Tablet, and Mobile
+    where applicable.
+  - List the UX requirement IDs and acceptance criteria exercised by the demo.
+  - Record actor roles used in the demo, especially DM/player/observer safety
+    cases.
+  - Record remaining polish, research, or product-decision gaps explicitly.
+stopConditions:
+  - Stop if the epic needs a product decision that the architecture
+    reconciliation epic has not resolved.
+  - Stop if a UX requirement conflicts with a functional requirement and the
+    conflict has not been raised in docs.
+  - Stop if a player-visible route, ARIA label, command result, search result,
+    preview, skeleton, or error can reveal hidden DM-only content.
+  - Stop if a Must-have action is pointer-only, gesture-only, desktop-only, or
+    depends on an optional network/cloud/AI feature.
+  - Stop if generated UX workpack validation fails and the cause is not
+    understood.
+completionEvidence:
+  - Targeted tests and profile checks pass.
+  - Requirement IDs are traced to implementation, tests, and demo notes.
+  - Desktop, Tablet, and Mobile behavior is covered or explicitly scoped with a
+    reason.
+  - Accessibility, actor-safety, no-leak, reduced-motion, touch-target, and
+    keyboard parity evidence is recorded where applicable.
+  - Completion file records demo path, tests run, changed files, requirement
+    coverage, known gaps, git branch/commit or PR, and final `git status
+    --short` output.
+  - The UX workpack status is updated with the programmatic complete command
+    after completion evidence exists.

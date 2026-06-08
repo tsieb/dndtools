@@ -1,0 +1,242 @@
+schemaVersion: 1
+kind: ux-ui-remake-epic
+id: UX-SHELL-command-surface-and-shortcuts
+title: Command Surface, Search Entry, and Shortcuts
+status: approved
+approved: true
+phase: 02 Shell and Navigation
+productPriority: P0
+domain: UX-SHELL
+objective: Turn the command palette and mobile command menu into the global
+  keyboard/touch command surface, including shell search entry and
+  quick-switcher behavior.
+requirementIds:
+  - UX-NAV-014
+  - UX-NAV-019
+  - UX-SRCH-001
+  - UX-SRCH-005
+sourceDocs:
+  - docs/remake-review/ux-requirements/00-overview-and-principles.md
+  - docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
+  - docs/remake-review/ux-requirements/10-graph-search-discovery.md
+  - docs/remake-review/ux-requirements/16-ideal-gui-architecture.md
+  - docs/remake-review/ux-requirements/README.md
+expectedAffectedAreas:
+  - command palette
+  - mobile command sheet
+  - shortcut registry
+  - global search invocation
+  - quick switcher
+dependencies:
+  - UX-SHELL-route-layout-and-platform-profiles
+  - UX-SHELL-actor-filtered-nav-recents
+parallelSafety:
+  fileOwnership:
+    - docs/planning/v2/ux/
+    - apps/v2/app/src/lib/gui/ux-shell/
+    - apps/v2/app/src/routes/
+  notes: Parallel execution is safe only with non-overlapping component, route,
+    and generated UX workpack ownership; shared shell/component contracts must
+    be agreed before implementation.
+stories:
+  - id: UX-NAV-014-S01
+    title: "Command palette: global keyboard surface and mobile command menu"
+    requirementIds:
+      - UX-NAV-014
+    acceptanceCriteria:
+      - Given any route on Desktop, when the user presses `Ctrl+K`, then the
+        command palette opens, input is focused, and recent destinations are
+        shown within 100 ms.
+      - Given a player session, when the palette opens and the user searches for
+        a DM-only action, then no results are returned.
+      - Given the palette is open and the user presses `Escape`, when text is
+        present, then text is cleared first; pressing `Escape` again closes the
+        palette and returns focus to the previously focused element.
+      - Given Mobile profile, when the user taps the palette button, then a
+        bottom sheet opens with an identical input + result list.
+      - Given a disabled result is in the list, when the user presses `Enter` on
+        it, then the action is not executed and a tooltip/announcement describes
+        the reason.
+    tasks:
+      - id: UX-NAV-014-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-NAV-014
+        kind: design
+      - id: UX-NAV-014-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-NAV-014
+        kind: implementation
+      - id: UX-NAV-014-S01-T03
+        title: Add automated and manual coverage for UX-NAV-014 acceptance criteria
+        kind: test
+      - id: UX-NAV-014-S01-T04
+        title: Record demo notes and traceability evidence for UX-NAV-014
+        kind: demo
+  - id: UX-NAV-019-S01
+    title: "Keyboard navigation model: global shortcuts registry"
+    requirementIds:
+      - UX-NAV-019
+    acceptanceCriteria:
+      - Given no text input is focused, when the user presses `Alt+4`, then the
+        app navigates to Atlas.
+      - Given the command palette is open with a result row focused, when the
+        result has a keyboard shortcut, then the shortcut hint is visible in the
+        row.
+      - Given the user presses `?`, when no text input is focused, then the
+        keyboard shortcuts help panel opens with a searchable list of all
+        shortcuts.
+      - Given a player session, when the shortcut registry is inspected, then
+        DM-only shortcuts are absent.
+    tasks:
+      - id: UX-NAV-019-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-NAV-019
+        kind: design
+      - id: UX-NAV-019-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-NAV-019
+        kind: implementation
+      - id: UX-NAV-019-S01-T03
+        title: Add automated and manual coverage for UX-NAV-019 acceptance criteria
+        kind: test
+      - id: UX-NAV-019-S01-T04
+        title: Record demo notes and traceability evidence for UX-NAV-019
+        kind: demo
+  - id: UX-SRCH-001-S01
+    title: "Global search overlay: invocation, layout, and scope indicator"
+    requirementIds:
+      - UX-SRCH-001
+    acceptanceCriteria:
+      - Given the user opens global search, when the overlay renders, then the
+        scope indicator chip shows "All visible content" and the search field
+        has focus.
+      - Given the user types "dragon", when 300 ms elapse, then results are
+        visible and grouped by type.
+      - Given a player types a term that matches only DM-hidden content, when
+        results render, then zero results show and the zero-result state is
+        identical to a query with no matches anywhere (no count difference that
+        could infer hidden matches).
+    tasks:
+      - id: UX-SRCH-001-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SRCH-001
+        kind: design
+      - id: UX-SRCH-001-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SRCH-001
+        kind: implementation
+      - id: UX-SRCH-001-S01-T03
+        title: Add automated and manual coverage for UX-SRCH-001 acceptance criteria
+        kind: test
+      - id: UX-SRCH-001-S01-T04
+        title: Record demo notes and traceability evidence for UX-SRCH-001
+        kind: demo
+  - id: UX-SRCH-005-S01
+    title: "Quick switcher: title-first navigation overlay"
+    requirementIds:
+      - UX-SRCH-005
+    acceptanceCriteria:
+      - Given the user opens the quick switcher and types "drag", when results
+        render, then title matches for "drag" appear ranked above body-only
+        matches.
+      - Given a player opens the quick switcher, when DM-only entity titles
+        would match the query, then those titles are absent and no count or hint
+        reveals their existence.
+      - Given the user types ">export", when the query processes, then
+        command-mode results appear showing matching commands (not entity
+        titles).
+    tasks:
+      - id: UX-SRCH-005-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-SRCH-005
+        kind: design
+      - id: UX-SRCH-005-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-SRCH-005
+        kind: implementation
+      - id: UX-SRCH-005-S01-T03
+        title: Add automated and manual coverage for UX-SRCH-005 acceptance criteria
+        kind: test
+      - id: UX-SRCH-005-S01-T04
+        title: Record demo notes and traceability evidence for UX-SRCH-005
+        kind: demo
+qualityBar:
+  - "Product fit: the delivered UI follows the canvas-first command platform
+    model and never regresses to a document-list home."
+  - "Traceability: every mapped UX requirement is tied to implementation, tests,
+    and demo evidence."
+  - "Foundations first: design tokens, shared components, platform profiles, and
+    accessibility primitives are reused rather than reimplemented per surface."
+  - "Actor safety: player and observer routes, search, ARIA, errors, skeletons,
+    previews, and command results never leak DM-only content."
+  - "Platform parity: Desktop, Tablet, and Mobile expose the same Must-have
+    commands through profile-appropriate surfaces and the same processing-core
+    commands."
+  - "Live-play readiness: hot paths acknowledge within 100 ms, support
+    undo/retry where appropriate, and stay glanceable under table pressure."
+  - "Accessibility: WCAG 2.2 AA, keyboard parity, reduced motion, touch targets,
+    non-color state, and screen-reader QA are part of the acceptance bar."
+  - "Production polish: empty/loading/error states, responsive constraints,
+    visual hierarchy, motion, and help affordances are complete enough to
+    share."
+gitWorkflow:
+  - Start from `git status --short` and work around unrelated local edits unless
+    they block the epic.
+  - Use one branch per UX epic and keep commits scoped to that epic plus its
+    generated UX workpack evidence.
+  - Do not hand-edit generated files under `docs/planning/v2/ux` for status
+    changes; use the UX workpack commands.
+  - Do not reset, overwrite, or reformat unrelated user changes.
+  - Before handoff, run targeted tests plus `pnpm v2:ux-workpack:validate` and
+    leave no stale generated UX planning diffs.
+statusAutomation:
+  - Do not hand-edit generated UX epic packets, `status.yaml`,
+    `requirements-index.yaml`, `initiative-map.yaml`, or `parallel-batches.yaml`
+    for status changes.
+  - Use `pnpm v2:ux-workpack:set-status -- --epic
+    UX-SHELL-command-surface-and-shortcuts --status active` when implementation
+    starts.
+  - Create
+    `docs/planning/v2/ux/epics/UX-SHELL-command-surface-and-shortcuts.completion.md`
+    with demo, tests, traceability, gaps, and git evidence before marking
+    complete.
+  - Use `pnpm v2:ux-workpack:complete -- --epic
+    UX-SHELL-command-surface-and-shortcuts` to update
+    `docs/planning/v2/ux/workpack-state.yaml` and regenerate all derived UX
+    planning files together.
+  - Run `pnpm v2:ux-workpack:validate` after any status or generation command.
+testPlan:
+  - Run `pnpm v2:ux-workpack:validate` before handoff.
+  - Run targeted unit tests for stores, query shaping, route metadata, component
+    state, and command dispatch touched by this epic.
+  - Run app tests or Playwright coverage for visible route, profile, keyboard,
+    touch, empty/loading/error, and player-safe behavior touched by this epic.
+  - Run axe and manual accessibility checks when the epic touches focus,
+    landmarks, dialogs, menus, tabs, drag alternatives, live regions, or
+    screen-reader output.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated on Desktop, Tablet, and Mobile
+    where applicable.
+  - List the UX requirement IDs and acceptance criteria exercised by the demo.
+  - Record actor roles used in the demo, especially DM/player/observer safety
+    cases.
+  - Record remaining polish, research, or product-decision gaps explicitly.
+stopConditions:
+  - Stop if the epic needs a product decision that the architecture
+    reconciliation epic has not resolved.
+  - Stop if a UX requirement conflicts with a functional requirement and the
+    conflict has not been raised in docs.
+  - Stop if a player-visible route, ARIA label, command result, search result,
+    preview, skeleton, or error can reveal hidden DM-only content.
+  - Stop if a Must-have action is pointer-only, gesture-only, desktop-only, or
+    depends on an optional network/cloud/AI feature.
+  - Stop if generated UX workpack validation fails and the cause is not
+    understood.
+completionEvidence:
+  - Targeted tests and profile checks pass.
+  - Requirement IDs are traced to implementation, tests, and demo notes.
+  - Desktop, Tablet, and Mobile behavior is covered or explicitly scoped with a
+    reason.
+  - Accessibility, actor-safety, no-leak, reduced-motion, touch-target, and
+    keyboard parity evidence is recorded where applicable.
+  - Completion file records demo path, tests run, changed files, requirement
+    coverage, known gaps, git branch/commit or PR, and final `git status
+    --short` output.
+  - The UX workpack status is updated with the programmatic complete command
+    after completion evidence exists.

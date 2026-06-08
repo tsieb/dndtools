@@ -1,0 +1,336 @@
+schemaVersion: 1
+kind: ux-ui-remake-epic
+id: UX-AUDIO-library-presets-soundboard-and-automation
+title: Audio Library, Presets, Soundboard, and Automation
+status: approved
+approved: true
+phase: 09 Reliability and Optional Capabilities
+productPriority: P2
+domain: UX-AUDIO
+objective: Finish the audio production surface with scene-linked presets,
+  soundboard, crossfades, track library, asset management, automation, and
+  mobile audio declarations.
+requirementIds:
+  - UX-AUDIO-004
+  - UX-AUDIO-005
+  - UX-AUDIO-006
+  - UX-AUDIO-007
+  - UX-AUDIO-010
+  - UX-AUDIO-011
+  - UX-AUDIO-013
+sourceDocs:
+  - docs/remake-review/ux-requirements/00-overview-and-principles.md
+  - docs/remake-review/ux-requirements/13-audio-atmosphere.md
+  - docs/remake-review/ux-requirements/16-ideal-gui-architecture.md
+  - docs/remake-review/ux-requirements/README.md
+expectedAffectedAreas:
+  - audio preset association
+  - soundboard grid
+  - track library drawer
+  - audio asset management
+  - automation triggers
+  - mobile audio policy UI
+dependencies:
+  - UX-AUDIO-live-controls-player-delivery-and-degradation
+  - UX-CANVAS-chrome-bindings-templates-and-view-modes
+  - UX-MAP-pois-fog-projection-combat-and-embeds
+parallelSafety:
+  fileOwnership:
+    - docs/planning/v2/ux/
+    - apps/v2/app/src/lib/gui/ux-audio/
+    - apps/v2/app/src/routes/
+  notes: Parallel execution is safe only with non-overlapping component, route,
+    and generated UX workpack ownership; shared shell/component contracts must
+    be agreed before implementation.
+stories:
+  - id: UX-AUDIO-004-S01
+    title: "Scene-linked audio: preset association and auto-play-on-activate"
+    requirementIds:
+      - UX-AUDIO-004
+    acceptanceCriteria:
+      - Given a Scene has an associated preset, when the DM activates the Scene,
+        then the audio widget offers to play (or auto-plays if configured) the
+        preset within 500 ms of Scene activation.
+      - Given auto-play is OFF for a Scene, when the DM activates it, then no
+        audio starts automatically and the DM sees a "Play [preset name]?"
+        prompt with a play button.
+      - Given auto-play is ON for a Scene, when a player device's audio context
+        is blocked, then the player sees a "Tap to start audio" prompt rather
+        than silent playback.
+      - Given the DM clicks "Preview (DM only)", then the preset plays at DM
+        device only; no session audio state changes; other players hear no
+        change.
+    tasks:
+      - id: UX-AUDIO-004-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-AUDIO-004
+        kind: design
+      - id: UX-AUDIO-004-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-AUDIO-004
+        kind: implementation
+      - id: UX-AUDIO-004-S01-T03
+        title: Add automated and manual coverage for UX-AUDIO-004 acceptance criteria
+        kind: test
+      - id: UX-AUDIO-004-S01-T04
+        title: Record demo notes and traceability evidence for UX-AUDIO-004
+        kind: demo
+  - id: UX-AUDIO-005-S01
+    title: "Soundboard: one-shot SFX pad grid"
+    requirementIds:
+      - UX-AUDIO-005
+    acceptanceCriteria:
+      - Given the soundboard is open and the DM presses a pad, then the SFX
+        sound plays within 100 ms and the playback indicator appears.
+      - Given a keyboard user focuses a pad and presses Space, then the sound
+        plays and an `aria-live` announcement fires.
+      - Given the SFX channel is muted, when the DM presses a pad, then no sound
+        plays and the pad shows a "SFX channel is muted" tooltip.
+      - Given a pad's asset file is missing, when the DM views the soundboard,
+        then the pad shows an amber warning indicator and a "sound file missing"
+        label — it does not silently appear as a normal pad.
+      - Given `prefers-reduced-motion` is active, when a pad is pressed, then no
+        scale transform animation fires; instead the border width increases.
+    tasks:
+      - id: UX-AUDIO-005-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-AUDIO-005
+        kind: design
+      - id: UX-AUDIO-005-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-AUDIO-005
+        kind: implementation
+      - id: UX-AUDIO-005-S01-T03
+        title: Add automated and manual coverage for UX-AUDIO-005 acceptance criteria
+        kind: test
+      - id: UX-AUDIO-005-S01-T04
+        title: Record demo notes and traceability evidence for UX-AUDIO-005
+        kind: demo
+  - id: UX-AUDIO-006-S01
+    title: Crossfade and scene transition controls
+    requirementIds:
+      - UX-AUDIO-006
+    acceptanceCriteria:
+      - Given the DM selects a new preset and sets crossfade to 5 s, when they
+        click "Crossfade now", then the now-playing card shows a progress
+        indicator and the audio transition completes in approximately 5 s.
+      - Given a crossfade is in progress, when the DM clicks "Cancel crossfade",
+        then a snap-choice prompt appears within 100 ms.
+      - Given `prefers-reduced-motion` is active, when a crossfade is in
+        progress, then the progress bar does not animate — a static percentage
+        label updates at 500 ms intervals instead.
+      - Given a player device receives the crossfade session event, then it
+        executes the same fade duration as the DM's device.
+    tasks:
+      - id: UX-AUDIO-006-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-AUDIO-006
+        kind: design
+      - id: UX-AUDIO-006-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-AUDIO-006
+        kind: implementation
+      - id: UX-AUDIO-006-S01-T03
+        title: Add automated and manual coverage for UX-AUDIO-006 acceptance criteria
+        kind: test
+      - id: UX-AUDIO-006-S01-T04
+        title: Record demo notes and traceability evidence for UX-AUDIO-006
+        kind: demo
+  - id: UX-AUDIO-007-S01
+    title: Track library and playlist management
+    requirementIds:
+      - UX-AUDIO-007
+    acceptanceCriteria:
+      - Given the track library has 20 tracks, when the DM types "dungeon" in
+        the search field, then only tracks with "dungeon" in name or tags are
+        shown within 300 ms.
+      - Given the DM plays a playlist from the library, when the track advances,
+        then the active track row in the library drawer highlights the new
+        track.
+      - Given a local file track's source file is missing, when the DM opens the
+        library, then the track row shows an amber warning and a "Locate"
+        button, not a generic error.
+      - Given the DM imports a track without a license note, when they attempt
+        to export a Scene package, then the export validation flags the track
+        and does not silently omit the warning.
+    tasks:
+      - id: UX-AUDIO-007-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-AUDIO-007
+        kind: design
+      - id: UX-AUDIO-007-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-AUDIO-007
+        kind: implementation
+      - id: UX-AUDIO-007-S01-T03
+        title: Add automated and manual coverage for UX-AUDIO-007 acceptance criteria
+        kind: test
+      - id: UX-AUDIO-007-S01-T04
+        title: Record demo notes and traceability evidence for UX-AUDIO-007
+        kind: demo
+  - id: UX-AUDIO-010-S01
+    title: "Asset management: import, metadata, and missing-asset states"
+    requirementIds:
+      - UX-AUDIO-010
+    acceptanceCriteria:
+      - Given an MP3 file is dragged onto the library drawer, when the import
+        dialog opens, then the display name is pre-populated from the filename
+        and the DM can save without filling any optional field.
+      - Given a track's source file is deleted outside the app, when the DM
+        opens the library or a soundboard pad that references it, then an amber
+        warning indicator appears with [Locate] and [Remove] actions — not a
+        silent empty state or a default placeholder sound.
+      - Given an export of a Scene package, when a referenced track has no
+        license note, then the export dialog flags it with an "I acknowledge"
+        checkbox before allowing export to complete.
+    tasks:
+      - id: UX-AUDIO-010-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-AUDIO-010
+        kind: design
+      - id: UX-AUDIO-010-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-AUDIO-010
+        kind: implementation
+      - id: UX-AUDIO-010-S01-T03
+        title: Add automated and manual coverage for UX-AUDIO-010 acceptance criteria
+        kind: test
+      - id: UX-AUDIO-010-S01-T04
+        title: Record demo notes and traceability evidence for UX-AUDIO-010
+        kind: demo
+  - id: UX-AUDIO-011-S01
+    title: "Atmosphere automation: session event triggers"
+    requirementIds:
+      - UX-AUDIO-011
+    acceptanceCriteria:
+      - 'Given a "combat started" trigger is enabled with "Combat — Tense
+        playlist" as the action, when combat is started via the combat tracker,
+        then the audio crossfades to the Combat playlist within the configured
+        duration and a toast confirms "Automation: Combat — Tense started."'
+      - 'Given a trigger fires but the referenced asset is missing, when the DM
+        views the audio widget, then a diagnostic toast appears: "Automation
+        trigger failed: track file missing" — no audio plays and no other
+        session command is blocked.'
+      - Given the DM soft-disables a trigger, when the trigger event occurs,
+        then no audio change happens and no toast fires.
+    tasks:
+      - id: UX-AUDIO-011-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-AUDIO-011
+        kind: design
+      - id: UX-AUDIO-011-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-AUDIO-011
+        kind: implementation
+      - id: UX-AUDIO-011-S01-T03
+        title: Add automated and manual coverage for UX-AUDIO-011 acceptance criteria
+        kind: test
+      - id: UX-AUDIO-011-S01-T04
+        title: Record demo notes and traceability evidence for UX-AUDIO-011
+        kind: demo
+  - id: UX-AUDIO-013-S01
+    title: Mobile audio constraints and background playback declaration
+    requirementIds:
+      - UX-AUDIO-013
+    acceptanceCriteria:
+      - Given audio is playing on a Mobile profile, when the user switches to
+        another app and returns, then the now-playing card shows "Audio paused
+        (switched apps)" with a "Resume ▶" button — no automatic retry has
+        fired.
+      - Given the DM is on Desktop and audio is playing, when the DM views the
+        Players row for a Mobile participant who has backgrounded the app, then
+        that participant's dot is grey (not errored).
+      - Given a Mobile participant taps "Resume ▶" after background suspension,
+        then audio resumes within 500 ms on that device.
+    tasks:
+      - id: UX-AUDIO-013-S01-T01
+        title: Confirm UI contract, responsive profile behavior, and actor-safety
+          implications for UX-AUDIO-013
+        kind: design
+      - id: UX-AUDIO-013-S01-T02
+        title: Implement the shared or surface-specific UI behavior for UX-AUDIO-013
+        kind: implementation
+      - id: UX-AUDIO-013-S01-T03
+        title: Add automated and manual coverage for UX-AUDIO-013 acceptance criteria
+        kind: test
+      - id: UX-AUDIO-013-S01-T04
+        title: Record demo notes and traceability evidence for UX-AUDIO-013
+        kind: demo
+qualityBar:
+  - "Product fit: the delivered UI follows the canvas-first command platform
+    model and never regresses to a document-list home."
+  - "Traceability: every mapped UX requirement is tied to implementation, tests,
+    and demo evidence."
+  - "Foundations first: design tokens, shared components, platform profiles, and
+    accessibility primitives are reused rather than reimplemented per surface."
+  - "Actor safety: player and observer routes, search, ARIA, errors, skeletons,
+    previews, and command results never leak DM-only content."
+  - "Platform parity: Desktop, Tablet, and Mobile expose the same Must-have
+    commands through profile-appropriate surfaces and the same processing-core
+    commands."
+  - "Live-play readiness: hot paths acknowledge within 100 ms, support
+    undo/retry where appropriate, and stay glanceable under table pressure."
+  - "Accessibility: WCAG 2.2 AA, keyboard parity, reduced motion, touch targets,
+    non-color state, and screen-reader QA are part of the acceptance bar."
+  - "Production polish: empty/loading/error states, responsive constraints,
+    visual hierarchy, motion, and help affordances are complete enough to
+    share."
+gitWorkflow:
+  - Start from `git status --short` and work around unrelated local edits unless
+    they block the epic.
+  - Use one branch per UX epic and keep commits scoped to that epic plus its
+    generated UX workpack evidence.
+  - Do not hand-edit generated files under `docs/planning/v2/ux` for status
+    changes; use the UX workpack commands.
+  - Do not reset, overwrite, or reformat unrelated user changes.
+  - Before handoff, run targeted tests plus `pnpm v2:ux-workpack:validate` and
+    leave no stale generated UX planning diffs.
+statusAutomation:
+  - Do not hand-edit generated UX epic packets, `status.yaml`,
+    `requirements-index.yaml`, `initiative-map.yaml`, or `parallel-batches.yaml`
+    for status changes.
+  - Use `pnpm v2:ux-workpack:set-status -- --epic
+    UX-AUDIO-library-presets-soundboard-and-automation --status active` when
+    implementation starts.
+  - Create
+    `docs/planning/v2/ux/epics/UX-AUDIO-library-presets-soundboard-and-automation.completion.md`
+    with demo, tests, traceability, gaps, and git evidence before marking
+    complete.
+  - Use `pnpm v2:ux-workpack:complete -- --epic
+    UX-AUDIO-library-presets-soundboard-and-automation` to update
+    `docs/planning/v2/ux/workpack-state.yaml` and regenerate all derived UX
+    planning files together.
+  - Run `pnpm v2:ux-workpack:validate` after any status or generation command.
+testPlan:
+  - Run `pnpm v2:ux-workpack:validate` before handoff.
+  - Run targeted unit tests for stores, query shaping, route metadata, component
+    state, and command dispatch touched by this epic.
+  - Run app tests or Playwright coverage for visible route, profile, keyboard,
+    touch, empty/loading/error, and player-safe behavior touched by this epic.
+  - Run axe and manual accessibility checks when the epic touches focus,
+    landmarks, dialogs, menus, tabs, drag alternatives, live regions, or
+    screen-reader output.
+demoNotesTemplate:
+  - Describe the user-visible path demonstrated on Desktop, Tablet, and Mobile
+    where applicable.
+  - List the UX requirement IDs and acceptance criteria exercised by the demo.
+  - Record actor roles used in the demo, especially DM/player/observer safety
+    cases.
+  - Record remaining polish, research, or product-decision gaps explicitly.
+stopConditions:
+  - Stop if the epic needs a product decision that the architecture
+    reconciliation epic has not resolved.
+  - Stop if a UX requirement conflicts with a functional requirement and the
+    conflict has not been raised in docs.
+  - Stop if a player-visible route, ARIA label, command result, search result,
+    preview, skeleton, or error can reveal hidden DM-only content.
+  - Stop if a Must-have action is pointer-only, gesture-only, desktop-only, or
+    depends on an optional network/cloud/AI feature.
+  - Stop if generated UX workpack validation fails and the cause is not
+    understood.
+completionEvidence:
+  - Targeted tests and profile checks pass.
+  - Requirement IDs are traced to implementation, tests, and demo notes.
+  - Desktop, Tablet, and Mobile behavior is covered or explicitly scoped with a
+    reason.
+  - Accessibility, actor-safety, no-leak, reduced-motion, touch-target, and
+    keyboard parity evidence is recorded where applicable.
+  - Completion file records demo path, tests run, changed files, requirement
+    coverage, known gaps, git branch/commit or PR, and final `git status
+    --short` output.
+  - The UX workpack status is updated with the programmatic complete command
+    after completion evidence exists.
