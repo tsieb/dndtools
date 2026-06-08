@@ -15,6 +15,7 @@ import {
 	type CommandResult,
 	type CoreEnvironment,
 	type CoreStateSlice,
+	type SyncOperation,
 } from '../src';
 
 const PLAYER_B: Actor = { id: 'actor-player-b', role: 'player', displayName: 'Player B' };
@@ -505,6 +506,54 @@ describe('CHAR-009 — level-up / advancement', () => {
 		expect(after.revision).toBe(beforeRevision);
 		// The staged draft is still present (not discarded by the failed commit).
 		expect(advancementStateOf(after).draft).not.toBeNull();
+	});
+
+	it('AC2: the DM can open, edit, and commit a level-up for any character; result is attributed to the DM', () => {
+		const env = makeEnvironment();
+		const __setup = setupOwnedL1(env);
+		// The character is OWNED by PLAYER_ACTOR; the DM bypasses the owner-only guard.
+		let state = __setup.state;
+		const characterId = __setup.characterId;
+
+		// DM opens the advancement on the player's character.
+		state = accepted(
+			dispatchCommand(state, env, {
+				type: 'character.open-advancement',
+				actorId: DM_ACTOR.id,
+				payload: { characterId, mode: 'milestone' },
+			}),
+		).nextState;
+		// DM provides all required choices.
+		state = accepted(
+			dispatchCommand(state, env, {
+				type: 'character.set-advancement-choices',
+				actorId: DM_ACTOR.id,
+				payload: { characterId, className: 'Paladin', hitPointsGained: 10 },
+			}),
+		).nextState;
+		// DM commits the advancement.
+		const committed = accepted(
+			dispatchCommand(state, env, {
+				type: 'character.commit-advancement',
+				actorId: DM_ACTOR.id,
+				payload: { characterId },
+			}),
+		);
+		// The level-up succeeds.
+		const character = committed.nextState.characters.characters[characterId]!;
+		expect(advancementStateOf(character).level).toBe(2);
+		expect(character.combat.maxHp).toBe(18); // 8 + 10
+		// The emitted event is attributed to the DM actor (CHAR-009 AC2: "attributed").
+		const finalizedEvent = committed.events.find((e) => e.kind === 'character.advancement-finalized') as
+			| Extract<(typeof committed.events)[number], { kind: 'character.advancement-finalized' }>
+			| undefined;
+		expect(finalizedEvent).toBeDefined();
+		expect(finalizedEvent!.actorId).toBe(DM_ACTOR.id);
+		// The durable op appended to the sync log also records the DM as the acting actor.
+		const op = committed.nextState.sync.operations.at(-1) as SyncOperation | undefined;
+		expect(op).toBeDefined();
+		expect(op!.opType).toBe('character.commit-advancement');
+		expect(op!.actorId).toBe(DM_ACTOR.id);
 	});
 
 	it('finalizes a fully-valid milestone advancement, bumping level and max HP', () => {
