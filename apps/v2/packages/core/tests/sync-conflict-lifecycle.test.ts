@@ -14,6 +14,7 @@ import {
 	dispatchCommand,
 	entityIsEditableDespiteOtherConflicts,
 	entityPublicationStatus,
+	getCollaborativeCharacterView,
 	getConflictLifecycle,
 	isEntityConflicted,
 	publicationStatusForEntity,
@@ -493,5 +494,53 @@ describe('SYNC-013 — DM-authorized resolution COMMAND over a real character co
 		expect(isEntityConflicted(after, 'character', charA)).toBe(false);
 		expect(isEntityConflicted(after, 'note', 'note-B')).toBe(true);
 		expect(conflictedEntityKeys(after)).toEqual(['note:note-B']);
+	});
+
+	it('AC3: owner view represents the conflicted field as conflicted; owner edit is a normal character.edit-field op, not a resolution command', () => {
+		// SYNC-013 AC3: "Given a character owner has a conflict on a player-authored field, when they
+		// view the character, then the conflicted field is represented as conflicted and any proposed
+		// value change is recorded as a normal edit rather than a conflict-resolution command."
+		const env = makeEnvironment();
+		const { state, characterId, conflict } = setupCharacterConflict(env);
+
+		// Part 1 — the owner's collaborative view must show the conflicted field as `conflicted: true`.
+		const ownerView = getCollaborativeCharacterView(
+			state.characters,
+			state.permissions,
+			PLAYER_ACTOR.id,
+			characterId,
+		)!;
+		expect(ownerView).not.toBeNull();
+		const backstoryField = ownerView.fields.find((f) => f.path === conflict.path)!;
+		expect(backstoryField).toBeDefined();
+		// The field is flagged conflicted in the owner's view — not silently hidden or shown as clean.
+		expect(backstoryField.conflicted).toBe(true);
+		// The owner also sees the conflict record in the conflicts list (path matches).
+		expect(ownerView.conflicts.map((c) => c.path)).toContain(conflict.path);
+
+		// Part 2 — when the owner proposes a new value for the conflicted field, it MUST be recorded as
+		// a normal `character.edit-field` op (not a `character.resolve-conflict` op).  Conflict
+		// resolution is DM-only (AC1); an owner edit while conflicted is a normal sequential write.
+		const currentRevision = state.characters.characters[characterId]!.revision;
+		const ownerEdit = accepted(
+			dispatchCommand(state, env, {
+				type: 'character.edit-field',
+				actorId: PLAYER_ACTOR.id,
+				payload: {
+					characterId,
+					path: conflict.path as 'data.backstory',
+					value: 'Owner updated version.',
+					baseRevision: currentRevision,
+				},
+			}),
+		);
+		// The command was accepted — the owner's edit is NOT blocked by the existing conflict.
+		expect(ownerEdit.operationIds).toHaveLength(1);
+		const editOp = ownerEdit.nextState.sync.operations.find(
+			(o) => o.id === ownerEdit.operationIds[0],
+		)!;
+		// The op is a normal edit, never a resolution command.
+		expect(editOp.opType).toBe('character.edit-field');
+		expect(editOp.opType).not.toContain('resolve');
 	});
 });
