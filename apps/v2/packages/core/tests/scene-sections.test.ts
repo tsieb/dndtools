@@ -5,7 +5,7 @@ import {
 	buildInitialState,
 	makeEnvironment,
 } from '../src/testing/fixtures';
-import { dispatchCommand, getSceneForActor } from '../src';
+import { dispatchCommand, getSceneForActor, type BindingResolver, type WidgetInstance } from '../src';
 
 function setup() {
 	const env = makeEnvironment();
@@ -75,7 +75,36 @@ describe('CANVAS-018: sections are layout regions on SceneState, never independe
 
 	it('narrows player payload to assigned section widgets while still filtering bindings per actor', () => {
 		const { state, env, sceneId, widgetIds } = setup();
-		const sectioned = dispatchCommand(state, env, {
+
+		// Add a 4th widget bound to a known entity that is hidden for the player — it will
+		// land in the player's assigned section but actor-scoped binding resolution must
+		// still redact it (section membership does NOT bypass binding filtering).
+		const boundAdded = dispatchCommand(state, env, {
+			type: 'scene.add-widget',
+			actorId: DM_ACTOR.id,
+			payload: {
+				sceneId,
+				widget: {
+					type: 'note',
+					version: '1.0.0',
+					layout: { x: 0, y: 0, w: 100, h: 100 },
+					binding: {
+						source: { entityType: 'note', entityId: 'sec-b-secret' },
+						mode: 'read',
+						requiredCapability: 'viewer',
+					},
+				},
+			},
+		});
+		if (boundAdded.status !== 'accepted') throw new Error('add bound widget');
+		const boundWidgetId = (
+			boundAdded.events.find((ev) => ev.kind === 'scene.widget-added') as
+				| { kind: 'scene.widget-added'; widgetInstanceId: string }
+				| undefined
+		)?.widgetInstanceId;
+		if (!boundWidgetId) throw new Error('missing bound widget id');
+
+		const sectioned = dispatchCommand(boundAdded.nextState, env, {
 			type: 'scene.set-sections',
 			actorId: DM_ACTOR.id,
 			payload: {
@@ -91,7 +120,8 @@ describe('CANVAS-018: sections are layout regions on SceneState, never independe
 						id: 'sec-b',
 						name: 'Player handouts',
 						bounds: { x: 0, y: 320, w: 500, h: 300 },
-						widgetInstanceIds: [widgetIds[1]!, widgetIds[2]!],
+						// widgetIds[1] and [2] are unbound (available); boundWidgetId is hidden for player
+						widgetInstanceIds: [widgetIds[1]!, widgetIds[2]!, boundWidgetId],
 					},
 				],
 			},
@@ -106,18 +136,45 @@ describe('CANVAS-018: sections are layout regions on SceneState, never independe
 			},
 		});
 		if (assigned.status !== 'accepted') return;
+
+		// Binding resolver: 'sec-b-secret' is a known entity but hidden for the player actor.
+		// This proves actor-scoped filtering still runs even for a widget that is within the
+		// assigned section scope.
+		const secretEntityId = 'sec-b-secret';
+		const bindingResolver: BindingResolver = {
+			knownEntityIds: new Set([secretEntityId]),
+			isHiddenForActor: (widget: WidgetInstance, actorId: string) =>
+				actorId === PLAYER_ACTOR.id &&
+				widget.binding?.source.entityId === secretEntityId,
+		};
+
 		const playerSummary = getSceneForActor(
 			assigned.nextState.scenes,
 			assigned.nextState.permissions,
 			PLAYER_ACTOR.id,
 			sceneId,
+			bindingResolver,
 		);
 		if (!('widgets' in playerSummary)) throw new Error('denied');
-		const visibleIds = playerSummary.widgets
+
+		// Section narrowing: only sec-b widgets delivered (sec-a widget excluded)
+		expect(playerSummary.assignedSectionIds).toEqual(['sec-b']);
+		const deliveredIds = playerSummary.widgets.map((p) =>
+			'widgetInstanceId' in p ? p.widgetInstanceId : (p as { widget: { id: string } }).widget.id,
+		);
+		expect(deliveredIds).not.toContain(widgetIds[0]);
+
+		// Unbound widgets inside sec-b are available to the player
+		const availableIds = playerSummary.widgets
 			.filter((p) => p.kind === 'available')
 			.map((p) => (p.kind === 'available' ? p.widget.id : null));
-		expect(visibleIds.sort()).toEqual([widgetIds[1]!, widgetIds[2]!].sort());
-		expect(playerSummary.assignedSectionIds).toEqual(['sec-b']);
+		expect(availableIds.sort()).toEqual([widgetIds[1]!, widgetIds[2]!].sort());
+
+		// Binding filter still runs: the entity-hidden widget inside sec-b is hidden, not leaked
+		const hiddenPayload = playerSummary.widgets.find(
+			(p) => ('widgetInstanceId' in p ? p.widgetInstanceId : null) === boundWidgetId,
+		);
+		expect(hiddenPayload?.kind).toBe('hidden');
 	});
 
 	it('rejects sections that reference unknown widget ids (no orphan ownership boundaries)', () => {
