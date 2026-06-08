@@ -510,6 +510,49 @@ describe('SES-010: standard async action model for session commands', () => {
 		expect(lifecycle.status).toBe('success');
 	});
 
+	it('AC1 (note append): a failed dice.append-to-note clears pending state and offers retry', () => {
+		// SES-010 AC1 specifically calls out "note append from a session tool fails". This test
+		// exercises the lifecycle model end-to-end for the dice.append-to-note command, which is
+		// the session tool that appends a recorded dice result to a vault note.
+		const env = makeEnvironment();
+		const { state, homeSceneId } = ensureHome(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env);
+		const active = accept(setWorkflow(state, env, 'active', homeSceneId)).nextState;
+
+		// Create a note in the active session context.
+		const noteResult = accept(
+			dispatchCommand(active, env, {
+				type: 'content.create-item',
+				actorId: DM_ACTOR.id,
+				payload: { kind: 'note', title: 'Session log', body: '' },
+			}),
+		);
+		const noteId = Object.keys(noteResult.nextState.content.items).find(
+			(id) => noteResult.nextState.content.items[id]?.title === 'Session log',
+		)!;
+		expect(noteId).toBeTruthy();
+
+		// Attempt append-to-note with a non-existent roll -> rejected (roll-not-found).
+		let lifecycle = markPending(createCommandLifecycle('dice.append-to-note'));
+		expect(lifecycle.status).toBe('pending');
+		const failed = dispatchCommand(noteResult.nextState, env, {
+			type: 'dice.append-to-note',
+			actorId: DM_ACTOR.id,
+			payload: { rollId: 'roll-does-not-exist', itemId: noteId },
+		});
+		expect(failed.status).toBe('rejected');
+		if (failed.status === 'rejected') {
+			expect(failed.rejection.code).toBe('roll-not-found');
+			lifecycle = markFailure(lifecycle, failed.rejection.message);
+		}
+		// The UI clears pending state (failure, no committed ops) and offers retry guidance.
+		expect(lifecycle.status).toBe('failure');
+		expect(lifecycle.operationIds).toEqual([]);
+		expect(canRetry(lifecycle)).toBe(true);
+		expect(recoveryAction(lifecycle)).toBe('retry');
+		// The note body is unchanged (no partial write).
+		expect(noteResult.nextState.content.items[noteId]?.body).toBe('');
+	});
+
 	it('AC2: an undoable session command (project player view) restores via its inverse', () => {
 		const env = makeEnvironment();
 		const { state, homeSceneId } = ensureHome(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env);
