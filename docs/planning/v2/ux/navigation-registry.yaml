@@ -1,0 +1,180 @@
+# UX v2 Navigation / Route Registry Contract
+#
+# Source of truth: this file is the UX-side, machine-readable reconciliation contract
+# produced by the UX-ARCH-product-architecture-and-ia-reconciliation epic. It records the
+# ACCEPTED seven-section global navigation model and how the functional v2 canonical
+# registry (apps/v2/packages/core/src/queries/navigation-sections.ts) maps onto it.
+#
+# Authority and consumers:
+# - UX requirement contract: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md (UX-NAV-002)
+# - IA synthesis / rationale: docs/remake-review/ux-requirements/16-ideal-gui-architecture.md (sections 4.1, 4.2, 4.3, 5)
+# - Decision record: docs/planning/v2/ux/architecture-decisions.md
+# - Functional architecture contract: docs/remake-review/03-architecture.md (Global nav = 5-7 destinations)
+# - Enforced by: scripts/ux-navigation-registry-lint.ts (cross-checks this file against the functional registry)
+# - Consumed by (later UX epics): UX-SHELL-route-layout-and-platform-profiles and the rest of phase 02.
+#
+# Do not hand-edit for UX epic status. This file is a durable IA contract, not a generated
+# workpack-state file; the UX workpack status commands do not regenerate it.
+schemaVersion: 1
+decision:
+  id: UX-ARCH-IA-001
+  title: Seven-section global navigation; Audio, MCP, and Scenes are non-global capabilities/authoring surfaces.
+  status: accepted
+  owner: UX architecture (this epic) — handed to UX-SHELL phase 02 for runtime presentation.
+  acceptedBy: UX-ARCH-product-architecture-and-ia-reconciliation
+  rationale: >-
+    The UX navigation document (UX-NAV-002) listed nine global sections and the functional
+    v2 registry declares ten canonical sections (adding a Scenes authoring surface plus
+    planned Audio and MCP sections). The ideal GUI architecture (doc 16, section 4.1) and the
+    functional architecture contract (doc 03, "Global nav = 5-7 destinations") both call for a
+    smaller, stable primary navigation. Seven global destinations fit that contract, reduce
+    first-run overload, and still give Audio, MCP, and Scenes durable non-global homes.
+
+# The seven global navigation destinations, in fixed canonical order (UX-NAV-002).
+# Order is invariant across Desktop / Tablet / Mobile profiles; only presentation changes.
+globalNav:
+  - id: command-center
+    order: 1
+    title: Command Center
+    routeRoot: /
+    icon: home
+    keyboardShortcut: Alt+1
+    altShortcut: Alt+Shift+H
+    ariaCurrentLabel: Command Center
+    announce: Command Center
+    home: true
+    availability: { dm: true, player: true, observer: true }
+  - id: session
+    order: 2
+    title: Session
+    routeRoot: /session
+    icon: session-bolt
+    keyboardShortcut: Alt+2
+    ariaCurrentLabel: Session
+    announce: Session
+    home: false
+    availability: { dm: true, player: true, observer: true }
+  - id: characters
+    order: 3
+    title: Characters
+    routeRoot: /characters
+    icon: characters-person
+    keyboardShortcut: Alt+3
+    ariaCurrentLabel: Characters
+    announce: Characters
+    home: false
+    availability: { dm: true, player: true, observer: false }
+  - id: atlas
+    order: 4
+    title: Atlas
+    routeRoot: /atlas
+    icon: atlas-map
+    keyboardShortcut: Alt+4
+    ariaCurrentLabel: Atlas
+    announce: Atlas
+    home: false
+    availability: { dm: true, player: true, observer: true }
+  - id: campaign
+    order: 5
+    title: Campaign
+    routeRoot: /campaign
+    icon: campaign-scroll
+    keyboardShortcut: Alt+5
+    ariaCurrentLabel: Campaign
+    announce: Campaign
+    home: false
+    availability: { dm: true, player: true, observer: false }
+  - id: knowledge
+    order: 6
+    title: Knowledge
+    routeRoot: /knowledge
+    icon: knowledge-book
+    keyboardShortcut: Alt+6
+    ariaCurrentLabel: Knowledge
+    announce: Knowledge
+    home: false
+    availability: { dm: true, player: true, observer: false }
+  - id: settings
+    order: 7
+    title: Settings
+    routeRoot: /settings
+    icon: settings-gear
+    keyboardShortcut: Alt+7
+    ariaCurrentLabel: Settings
+    announce: Settings
+    home: false
+    last: true
+    availability: { dm: true, player: true, observer: true }
+
+# Non-global capabilities / authoring surfaces. These remain first-class functional
+# sections in the v2 core registry, but the UX model does NOT give them a global nav slot.
+# Each must have a durable, discoverable home (doc 16, sections 4.1 and 4.3).
+capabilities:
+  - id: scenes
+    title: Scenes
+    classification: authoring
+    routeRoot: /scenes
+    entityRoutes: [/scene]
+    availability: { dm: true, player: false, observer: false }
+    homes:
+      - Command Center widget-library drawer and the saved-Scene list (local navigation).
+      - Deep-linkable /scene/:id pages reached from the Command Center, Session, or Campaign.
+    rationale: >-
+      Scenes are the reusable spatial primitive, authored from the Command Center; a separate
+      global "Scenes" destination competes with the Command Center home. doc 16 section 4.3.
+  - id: audio
+    title: Audio
+    classification: capability
+    routeRoot: /audio
+    availability: { dm: true, player: false, observer: false }
+    homes:
+      - Command Center Audio Controls widget.
+      - Session-local tool and scene/map-linked audio presets.
+      - Settings asset-management and configuration surface.
+    rationale: >-
+      Audio is a live-play capability surfaced where the DM already is, not a browse-first
+      global section. doc 16 sections 4.1 and 6.12.
+  - id: mcp
+    title: MCP
+    classification: capability
+    routeRoot: /mcp
+    availability: { dm: true, player: false, observer: false }
+    homes:
+      - Inline editor assistance and named-entity chips.
+      - Staged-write review panel and provenance details.
+      - Settings AI/MCP configuration surface.
+    rationale: >-
+      AI/MCP must feel optional, bounded, and reviewable; it lives inline and in Settings
+      rather than as a first-class global destination. doc 16 sections 4.1 and 6.13.
+
+# Capabilities that are reachable from many surfaces and must NOT become global nav items
+# (doc 16 section 4.3). Recorded here so route/IA review keeps them out of primary nav.
+nonGlobalSurfaces:
+  - id: search
+    home: Shell command-palette overlay plus a Knowledge-local deeper search view.
+  - id: graph
+    home: Knowledge-local graph page.
+  - id: dice
+    home: Session-local tool and Command Center widget.
+  - id: sync-status
+    home: Top-bar badge opens quick status; full details live in Settings.
+  - id: player-view
+    home: Command Center and Session collaboration controls.
+  - id: timeline-calendar
+    home: Campaign and Session local surfaces.
+
+# Reconciliation with the functional v2 core registry. The lint asserts these invariants.
+reconciliation:
+  functionalRegistry: apps/v2/packages/core/src/queries/navigation-sections.ts
+  functionalRegistryExport: CANONICAL_NAVIGATION_SECTIONS
+  invariants:
+    - Every globalNav id resolves to a functional canonical section with the same routeRoot and the same dm/player/observer availability.
+    - Every capability id resolves to a functional canonical section.
+    - The union of globalNav ids and capability ids equals the full set of functional canonical section ids (no unclassified section; no invented section).
+    - The single functional home section is the globalNav home (command-center).
+  followUps:
+    - >-
+      The functional registry currently tags scenes/audio/mcp with category "navigation". The
+      UX-SHELL phase 02 epic implements the seven-destination primary nav presentation and
+      treats scenes/audio/mcp as non-global per this contract. That is a presentation refinement
+      in the GUI layer; it does not require deleting those sections from the functional registry.

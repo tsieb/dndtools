@@ -20,6 +20,7 @@
 		"lint:circular": "tsx scripts/circular-dependency-lint.ts",
 		"lint:fix": "eslint . --fix",
 		"lint:navigation": "tsx scripts/nav-layer-lint.ts",
+		"lint:nav-registry": "tsx scripts/ux-navigation-registry-lint.ts",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"docs:validate": "tsx scripts/docs-validate.ts",

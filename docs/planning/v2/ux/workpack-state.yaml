@@ -73,4 +73,7 @@ precedence:
     - UX-ONB-empty-states-and-teach-by-doing
     - UX-ONB-help-coachmarks-demo-and-progressive-disclosure
     - UX-RELEASE-production-readiness-and-shareable-cut
-epics: []
+epics:
+  - id: UX-ARCH-product-architecture-and-ia-reconciliation
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-ARCH-product-architecture-and-ia-reconciliation.completion.md

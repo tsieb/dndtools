@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-ARCH-product-architecture-and-ia-reconciliation
 title: Product Architecture and IA Reconciliation
-status: approved
+status: complete
 approved: true
 phase: 00 Architecture Decisions
 productPriority: P0
@@ -172,3 +172,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-ARCH-product-architecture-and-ia-reconciliation.completion.md
