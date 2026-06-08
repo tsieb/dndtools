@@ -222,4 +222,40 @@ describe('COLLAB-006 shared combat view', () => {
 		// No combatants are returned to an unknown actor.
 		expect(view.tracker.combatants).toEqual([]);
 	});
+
+	it('CHAR-015 AC2: observer receives ONLY the projected stat-block summary for visible combatants; hidden combatants are omitted (non-leak)', () => {
+		// AC2: "Given a DM projects a visible stat-block summary to observers, when it renders,
+		// then only the explicitly projected summary fields are delivered."
+		// startCombat creates a visible Hero (ac=15, initiative=18) and a hidden Ambusher (no placeholder).
+		const env = makeEnvironment();
+		const combatState = startCombat(activeSession(env).state, env);
+
+		const observerView = getSharedCombatView(
+			combatState.session.combat,
+			combatState.permissions,
+			OBSERVER_ACTOR.id,
+		);
+
+		// Positive case: observer sees the non-hidden Hero combatant (the "non-character projection").
+		expect(observerView.tracker.combatants).toHaveLength(1);
+		const heroRow = observerView.tracker.combatants[0]!;
+		expect(heroRow.name).toBe('Hero');
+		expect(heroRow.redacted).toBe(false);
+
+		// The delivered stat-block contains ONLY the projected summary fields (CombatantStatBlockView).
+		// These are the explicit non-character projection fields the requirement permits.
+		expect(heroRow.statBlock.ac).toBe(15);
+		expect(heroRow.statBlock.initiative).toBe(18);
+		const statBlockKeys = Object.keys(heroRow.statBlock).sort();
+		expect(statBlockKeys).toEqual(['abilityScores', 'ac', 'initiative', 'notes'].sort());
+
+		// The hidden Ambusher (no placeholder) is OMITTED entirely — no identity, no stat leak.
+		expect(observerView.tracker.hiddenCount).toBe(0); // non-DM never receives the hidden count
+		expect(JSON.stringify(observerView.tracker)).not.toContain('Ambusher');
+
+		// Observers have no combat controls (no write authority).
+		expect(observerView.controls.canAdvanceTurn).toBe(false);
+		expect(observerView.controls.canEndCombat).toBe(false);
+		expect(observerView.controls.editableCombatantIds).toEqual([]);
+	});
 });
