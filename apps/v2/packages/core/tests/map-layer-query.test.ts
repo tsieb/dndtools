@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { createDemoMapState, queryMapLayers, type CoreStateSlice } from '../src';
 import { DM_ACTOR, OBSERVER_ACTOR, PLAYER_ACTOR, buildInitialState } from '../src/testing/fixtures';
+import type { Actor } from '../src/state/permission-state';
 
 const MAP_ID = 'map-western-reaches';
+const PLAYER_B: Actor = { id: 'actor-player-b', role: 'player', displayName: 'Player B' };
 
 function stateWithMaps(): CoreStateSlice {
 	const base = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
+	return { ...base, maps: createDemoMapState() };
+}
+
+function stateWithTwoPlayers(): CoreStateSlice {
+	const base = buildInitialState(DM_ACTOR, PLAYER_ACTOR, PLAYER_B);
 	return { ...base, maps: createDemoMapState() };
 }
 
@@ -108,5 +115,70 @@ describe('MAP-007 tag/query layers without reading hidden layer data into player
 			tags: ['type:fog'],
 		});
 		expect(result.layers.map((l) => l.layerId)).toContain('layer-fog');
+	});
+});
+
+describe('MAP-006 AC3 per-player layer delivery: same map, different results for different players', () => {
+	/**
+	 * MAP-006 AC3 — "Given Layer B is included in Player A's Player View assignment only, when Player A
+	 * and Player B query the same map, then only Player A receives Layer B."
+	 *
+	 * The Ruined Keep has layer-fog (visibility: `shared`). When Player A has explicit map delivery
+	 * (simulating an active-map projection or player-view assignment) and Player B does NOT, only
+	 * Player A's query returns layer-fog. The mechanism is the per-actor `deliveredMapIds` parameter:
+	 * each player's query carries their OWN delivery set, so the isolation is per-actor.
+	 */
+	const KEEP = 'map-ruined-keep';
+
+	it('Player A (with delivery) sees the shared layer; Player B (without) does not', () => {
+		const state = stateWithTwoPlayers();
+
+		// Player A has explicit delivery for the shared Ruined Keep map (simulating an active-map projection).
+		const playerAResult = queryMapLayers(
+			state.maps,
+			state.permissions,
+			PLAYER_ACTOR.id,
+			{ mapId: KEEP },
+			{ deliveredMapIds: [KEEP] },
+		);
+		// Player B has no delivery for the same map.
+		const playerBResult = queryMapLayers(
+			state.maps,
+			state.permissions,
+			PLAYER_B.id,
+			{ mapId: KEEP },
+		);
+
+		// Player A sees both the player-visible Rooms layer AND the shared Fog layer.
+		const playerALayerIds = playerAResult.layers.map((l) => l.layerId).sort();
+		expect(playerALayerIds).toEqual(['layer-fog', 'layer-rooms']);
+
+		// Player B sees nothing: without delivery the whole shared map is hidden (not just the shared layer).
+		expect(playerBResult.layers).toEqual([]);
+
+		// Hard cross-player leak assertion: the shared layer that Player A receives is absent from
+		// Player B's serialized result entirely.
+		expect(JSON.stringify(playerBResult)).not.toContain('layer-fog');
+		expect(JSON.stringify(playerBResult)).not.toContain('Fog of War');
+
+		// The dm-only Secret Ambush layer never appears for EITHER player, regardless of delivery.
+		expect(JSON.stringify(playerAResult)).not.toContain('layer-secret-ambush');
+		expect(JSON.stringify(playerAResult)).not.toContain('Secret Ambush');
+	});
+
+	it('both players querying the same player-visible map get the same player-visible layers', () => {
+		// Confirms the isolation is per-delivery, not per-identity: two players without special
+		// delivery on a player-visible map both receive the same player-visible layers.
+		const state = stateWithTwoPlayers();
+		const western = 'map-western-reaches';
+
+		const playerAResult = queryMapLayers(state.maps, state.permissions, PLAYER_ACTOR.id, { mapId: western });
+		const playerBResult = queryMapLayers(state.maps, state.permissions, PLAYER_B.id, { mapId: western });
+
+		expect(playerAResult.layers.map((l) => l.layerId).sort()).toEqual(['layer-roads', 'layer-terrain']);
+		expect(playerBResult.layers.map((l) => l.layerId).sort()).toEqual(['layer-roads', 'layer-terrain']);
+		// Neither player sees the dm-only hidden-camps layer.
+		expect(JSON.stringify(playerAResult)).not.toContain('layer-hidden-camps');
+		expect(JSON.stringify(playerBResult)).not.toContain('layer-hidden-camps');
 	});
 });
