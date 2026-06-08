@@ -124,6 +124,8 @@
 			type: hit.type,
 			id: hit.id,
 			mapId: hit.mapId,
+			// SRCH-007 AC2 — carry the heading anchor from the body match so the note opens to the matched section.
+			headingAnchor: hit.headingAnchor ?? null,
 		});
 		if (resolution.kind === 'unavailable') {
 			error = resolution.message;

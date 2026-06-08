@@ -8,7 +8,7 @@ import type {
 	CustomDate,
 } from '../state/calendar';
 import { absoluteDayIndex, compareCustomDates } from '../state/calendar';
-import { parseMarkdownNote } from '../state/markdown';
+import { parseMarkdownNote, slugifyHeading } from '../state/markdown';
 import {
 	SEARCH_CONTENT_TYPES,
 	SEARCH_SOURCE_IDS,
@@ -205,6 +205,15 @@ export interface SearchHit {
 	/** The map a POI hit belongs to (else `null` — content/handouts/artifacts do not live on a map). */
 	mapId: string | null;
 	/**
+	 * SRCH-007 AC2 — for a note/object hit with a BODY match that falls under a Markdown heading, the
+	 * deterministic anchor slug of that heading (`slugifyHeading` of the heading text, disambiguated for
+	 * duplicates). `null` when the match is a title-only match, when there is no heading above the match
+	 * position, or for non-note/object domains (POI/handout/session-artifact). The GUI passes this to
+	 * {@link resolveSearchResultOpen} as `headingAnchor` so the resolved hash navigates to the matched
+	 * section rather than just the note root.
+	 */
+	headingAnchor?: string | null;
+	/**
 	 * SRCH-005 — the DETERMINISTIC composite ranking score (the sum of {@link RankingSignals}). Higher sorts
 	 * first. Equal scores fall back to stable tie-breakers (type order → id) so the order is reproducible.
 	 */
@@ -385,6 +394,47 @@ function bodySnippet(body: string, needle: string): SearchSnippet | null {
 	const prefix = start > 0 ? '…' : '';
 	const suffix = end < body.length ? '…' : '';
 	return { field: 'body', text: `${prefix}${body.slice(start, end).trim()}${suffix}` };
+}
+
+// ATX heading line pattern (mirrors the one in markdown.ts).
+const HEADING_LINE_PATTERN = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
+// Code-fence delimiter pattern (mirrors markdown.ts).
+const CODE_FENCE_PATTERN = /^\s*(```|~~~)/;
+
+/**
+ * SRCH-007 AC2 — return the deterministic anchor slug of the LAST ATX heading that begins AT or BEFORE
+ * `matchOffset` in `body`, or `null` when no heading precedes the match. This identifies which heading
+ * section a body match falls into, so a search-opened note link can navigate directly to that section.
+ *
+ * Mirrors the heading-scanning logic of {@link headingAnchors} (markdown.ts) with cumulative offset
+ * tracking; code fences are respected so a `#` inside a fence is never mistaken for a heading. Pure.
+ */
+function headingAnchorForOffset(body: string, matchOffset: number): string | null {
+	let offset = 0;
+	let lastAnchor: string | null = null;
+	let inFence = false;
+	const seen = new Map<string, number>();
+	for (const rawLine of body.split(/\r?\n/)) {
+		if (offset > matchOffset) break;
+		const line = rawLine.trimEnd();
+		if (CODE_FENCE_PATTERN.test(line)) {
+			inFence = !inFence;
+		} else if (!inFence) {
+			const m = HEADING_LINE_PATTERN.exec(line);
+			if (m) {
+				const text = m[2]!.trim();
+				const base = slugifyHeading(text);
+				if (base !== '') {
+					const count = seen.get(base) ?? 0;
+					seen.set(base, count + 1);
+					lastAnchor = count === 0 ? base : `${base}-${count + 1}`;
+				}
+			}
+		}
+		// +1 accounts for the newline consumed by split.
+		offset += rawLine.length + 1;
+	}
+	return lastAnchor;
 }
 
 /**
@@ -698,6 +748,10 @@ export function searchVaultForActor(
 			sessionContext: 0,
 			recency: recencySignal(item.updatedAt, recencyAnchor),
 		};
+		// SRCH-007 AC2 — when the match is in the body (not title-only), find the heading above the match
+		// position so the search-opened note can navigate to that section. Pure: a function of body + needle.
+		const bodyMatchOffset = match.bodyMatch ? body.toLowerCase().indexOf(needle) : -1;
+		const headingAnchor = bodyMatchOffset >= 0 ? headingAnchorForOffset(body, bodyMatchOffset) : null;
 		hits.push({
 			id: item.id,
 			type,
@@ -706,6 +760,7 @@ export function searchVaultForActor(
 			folder,
 			tags,
 			mapId: null,
+			headingAnchor,
 			score: combineScore(signals),
 			signals,
 			snippet: match.bodyMatch ? bodySnippet(body, needle) : null,

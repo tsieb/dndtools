@@ -277,3 +277,96 @@ describe('SRCH-007 — the deep-link resolver itself resolves POI + note targets
 		if (result.kind === 'unavailable') expect(result.reason).toBe('not-cached');
 	});
 });
+
+describe('SRCH-007 AC2 — search hit carries headingAnchor for body-match; opens with hash', () => {
+	it('a body-match result under a heading carries headingAnchor and opens to the hash', () => {
+		// Create a note with two headings; search for a term under the second one.
+		const { state } = createNote(base(), {
+			title: 'Lore of the Coast',
+			body: '# Overview\n\nThe coast is rocky.\n\n## Hidden Cove\n\nA quiet inlet only locals know.',
+		});
+		// searchVaultForActor should produce a hit with headingAnchor = 'hidden-cove' for body term "quiet inlet".
+		const result = searchVaultForActor(
+			state.content,
+			state.maps,
+			state.permissions,
+			state.session,
+			DM_ACTOR.id,
+			{ query: 'quiet inlet', contentTypes: ['note'] },
+		);
+		const hit = result.hits.find((h) => h.title === 'Lore of the Coast');
+		expect(hit).toBeDefined();
+		// AC2 — the hit must carry the heading anchor for the section the body match fell under.
+		expect(hit?.headingAnchor).toBe('hidden-cove');
+
+		// End-to-end: opening via resolveSearchResultOpen with the headingAnchor yields a hashAnchor.
+		const open: SearchResultOpenTarget = {
+			type: 'note',
+			id: hit!.id,
+			headingAnchor: hit!.headingAnchor ?? null,
+		};
+		const resolution = resolveSearchResultOpen(view(state), DM_ACTOR.id, open);
+		expect(resolution.kind).toBe('restore');
+		if (resolution.kind === 'restore') {
+			expect(resolution.route).toBe('/knowledge/');
+			// The URL built from this resolution is `/knowledge/?note=<id>#hidden-cove`.
+			expect(resolution.hashAnchor).toBe('hidden-cove');
+		}
+	});
+
+	it('a title-only match has no headingAnchor (no heading to restore)', () => {
+		const { state } = createNote(base(), {
+			title: 'Unique Title Only',
+			body: '# Introduction\n\nSome body text.',
+		});
+		const result = searchVaultForActor(
+			state.content,
+			state.maps,
+			state.permissions,
+			state.session,
+			DM_ACTOR.id,
+			{ query: 'unique title only', contentTypes: ['note'] },
+		);
+		const hit = result.hits.find((h) => h.title === 'Unique Title Only');
+		expect(hit).toBeDefined();
+		// Title-only match → no heading anchor (we don't know which section the user wants).
+		expect(hit?.headingAnchor ?? null).toBeNull();
+	});
+
+	it('a body match under the first heading carries the first heading anchor', () => {
+		const { state } = createNote(base(), {
+			title: 'Two Sections',
+			body: '# First Section\n\nContent under first.\n\n## Second Section\n\nContent under second.',
+		});
+		const result = searchVaultForActor(
+			state.content,
+			state.maps,
+			state.permissions,
+			state.session,
+			DM_ACTOR.id,
+			{ query: 'content under first', contentTypes: ['note'] },
+		);
+		const hit = result.hits.find((h) => h.title === 'Two Sections');
+		expect(hit).toBeDefined();
+		expect(hit?.headingAnchor).toBe('first-section');
+	});
+
+	it('a body match with no heading above it carries null headingAnchor', () => {
+		const { state } = createNote(base(), {
+			title: 'Preamble Note',
+			body: 'This is the preamble with no heading above.\n\n# First Heading\n\nBody under heading.',
+		});
+		const result = searchVaultForActor(
+			state.content,
+			state.maps,
+			state.permissions,
+			state.session,
+			DM_ACTOR.id,
+			{ query: 'preamble with no heading', contentTypes: ['note'] },
+		);
+		const hit = result.hits.find((h) => h.title === 'Preamble Note');
+		expect(hit).toBeDefined();
+		// The match is before any heading → no heading anchor.
+		expect(hit?.headingAnchor ?? null).toBeNull();
+	});
+});

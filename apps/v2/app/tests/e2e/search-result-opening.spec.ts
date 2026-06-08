@@ -68,17 +68,17 @@ test.describe('SRCH-007 opening search results', () => {
 			'# Overview\n\nThe harbor glows.\n\n## Hidden Cove\n\nA quiet inlet only locals know.',
 		);
 
-		// Search for the note and open it. The result list renders the note as an "open" button (its testid is
-		// `search-open-note-<id>`; the id is dynamic, so match by prefix).
-		await page.getByTestId('search-query').fill('Harbor Lore');
+		// Search for a BODY term ("quiet inlet") that falls under the "## Hidden Cove" heading, so the result
+		// carries a headingAnchor and the opened URL includes the hash. (A title-only match has no heading anchor.)
+		await page.getByTestId('search-query').fill('quiet inlet');
 		await page.getByTestId('search-type-note').check();
 		const openButton = page.locator('[data-testid^="search-open-note-"]').first();
 		await expect(openButton).toBeVisible();
 		await openButton.click();
 
-		// AC2 — the note is selected WITHIN the Knowledge section (the `note` param) and the editor shows it.
-		// Synchronize on the editor showing the opened note (not just the URL) to avoid a selection race.
-		await expect(page).toHaveURL(/\/knowledge\/\?note=/);
+		// AC2 — the note is selected WITHIN the Knowledge section (the `note` param + heading hash). Synchronize
+		// on the editor showing the opened note (not just the URL) to avoid a selection race.
+		await expect(page).toHaveURL(/\/knowledge\/\?note=.*#hidden-cove/);
 		await expect(page.getByTestId('note-editor')).toContainText('Editing: Harbor Lore');
 		await expect(page.getByTestId('note-body')).toHaveValue(/Hidden Cove/);
 	});
