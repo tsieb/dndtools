@@ -28,6 +28,7 @@ import {
 import type { CombatLogEntry } from '../state/combat-tracker';
 import { hasGrantedCapability } from '../permissions/grants';
 import type { Actor } from '../state/permission-state';
+import { resolveDeliveryTarget } from '../collab/player-groups';
 import type { CommandRejection, CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import {
 	appendOperationDraft,
@@ -100,6 +101,34 @@ function resolveRollVisibility(
 /** Derive a seed when the caller did not supply one. Deterministic per generated op id (recorded). */
 function seedFrom(explicit: number | string | undefined, fallback: string): number | string {
 	return explicit ?? fallback;
+}
+
+/**
+ * SES-003 AC4 — expand an optional `groupIds` list into individual actor ids using
+ * {@link resolveDeliveryTarget}, then merge with the explicit `sharedWith` list. Unknown group ids are
+ * rejected fail-closed (never silently widen the delivery). Returns `null` when expansion fails.
+ */
+function expandSharedWith(
+	state: CoreStateSlice,
+	sharedWith: string[],
+	groupIds: string[],
+): { ok: true; sharedWith: string[] } | { ok: false; rejection: CommandRejection } {
+	if (groupIds.length === 0) return { ok: true, sharedWith };
+	const resolved = resolveDeliveryTarget(
+		{ recipientActorIds: sharedWith, groupIds },
+		state.session.playerGroups,
+		state.permissions,
+	);
+	if (resolved.unknownGroupIds.length > 0) {
+		return {
+			ok: false,
+			rejection: {
+				code: 'invalid-payload',
+				message: `Unknown player group(s): ${resolved.unknownGroupIds.join(', ')}.`,
+			},
+		};
+	}
+	return { ok: true, sharedWith: resolved.recipientActorIds };
 }
 
 function withSession(state: CoreStateSlice, diceHistory: SessionDiceRoll[]): CoreStateSlice {
@@ -235,8 +264,12 @@ export function handleRollDice(
 		sourceKind = 'macro';
 	}
 
+	// SES-003 AC4: expand any Player Group ids into individual actor ids before visibility resolution.
+	const expanded = expandSharedWith(state, input.sharedWith, input.groupIds);
+	if (!expanded.ok) return reject(expanded.rejection, state);
+
 	// Visibility fails closed (only the DM may make a secret roll).
-	const vis = resolveRollVisibility(actor, input.visibility, input.sharedWith);
+	const vis = resolveRollVisibility(actor, input.visibility, expanded.sharedWith);
 	if ('code' in vis) return reject(vis, state);
 
 	const operationId = env.ids();
@@ -358,7 +391,11 @@ export function handleRollTable(
 	const table = readDiceTable(item);
 	if ('code' in table) return reject(table, state);
 
-	const vis = resolveRollVisibility(actor, input.visibility, input.sharedWith);
+	// SES-003 AC4: expand any Player Group ids into individual actor ids before visibility resolution.
+	const expanded = expandSharedWith(state, input.sharedWith, input.groupIds);
+	if (!expanded.ok) return reject(expanded.rejection, state);
+
+	const vis = resolveRollVisibility(actor, input.visibility, expanded.sharedWith);
 	if ('code' in vis) return reject(vis, state);
 
 	const operationId = env.ids();

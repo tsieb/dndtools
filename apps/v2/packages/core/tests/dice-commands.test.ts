@@ -271,6 +271,43 @@ describe('SES-003 roll visibility composes with PERM (fail closed)', () => {
 		expect(getDiceHistoryForActor(next.session, next.permissions, DM_ACTOR.id).rolls).toHaveLength(1);
 	});
 
+	it('a shared roll with groupIds expands the group to individual recipients (AC4 — Player Group)', () => {
+		const { state: baseState, env } = activeSession(PLAYER_2);
+		// Create a Player Group containing PLAYER_ACTOR (but not PLAYER_2).
+		const groupResult = accept(
+			dispatch(baseState, env, {
+				type: 'session.create-player-group',
+				actorId: DM_ACTOR.id,
+				payload: { name: 'Party A', memberActorIds: [PLAYER_ACTOR.id] },
+			}),
+		);
+		const groupId = Object.keys(groupResult.nextState.session.playerGroups)[0]!;
+		// Roll shared via the group id (no explicit sharedWith).
+		const rollResult = accept(
+			dispatch(groupResult.nextState, env, {
+				type: 'dice.roll',
+				actorId: DM_ACTOR.id,
+				payload: { expression: '1d20', visibility: 'shared', groupIds: [groupId], seed: 'g' },
+			}),
+		);
+		const next = rollResult.nextState;
+		// PLAYER_ACTOR is a group member → sees the roll.
+		expect(getDiceHistoryForActor(next.session, next.permissions, PLAYER_ACTOR.id).rolls).toHaveLength(1);
+		// PLAYER_2 is not in the group → cannot see the roll.
+		expect(getDiceHistoryForActor(next.session, next.permissions, PLAYER_2.id).rolls).toHaveLength(0);
+		// The DM always sees it.
+		expect(getDiceHistoryForActor(next.session, next.permissions, DM_ACTOR.id).rolls).toHaveLength(1);
+		// Unknown group id is rejected fail-closed.
+		const bad = rejected(
+			dispatch(next, env, {
+				type: 'dice.roll',
+				actorId: DM_ACTOR.id,
+				payload: { expression: '1d20', visibility: 'shared', groupIds: ['no-such-group'] },
+			}),
+		);
+		expect(bad.rejection.code).toBe('invalid-payload');
+	});
+
 	it('the actor that rolled always sees their own roll', () => {
 		const { state, env } = activeSession();
 		const result = accept(

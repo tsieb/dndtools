@@ -342,6 +342,11 @@ export const rollDiceInputSchema = z
 		inline: z.boolean().default(false),
 		visibility: diceRollVisibilitySchema.default('session-visible'),
 		sharedWith: z.array(idSchema).default([]),
+		/**
+		 * SES-003 AC4 — Player Group ids to expand into individual sharedWith recipients (delivery-only;
+		 * membership confers no permission). Unknown group ids are rejected fail-closed.
+		 */
+		groupIds: z.array(idSchema).default([]),
 		label: z.string().max(120).optional(),
 		/** Optional explicit seed for deterministic/reproducible rolls (tests, replay). */
 		seed: z.union([z.number().finite(), z.string().min(1)]).optional(),
@@ -355,6 +360,11 @@ export const rollTableInputSchema = z
 		tableItemId: idSchema,
 		visibility: diceRollVisibilitySchema.default('session-visible'),
 		sharedWith: z.array(idSchema).default([]),
+		/**
+		 * SES-003 AC4 — Player Group ids to expand into individual sharedWith recipients (delivery-only;
+		 * membership confers no permission). Unknown group ids are rejected fail-closed.
+		 */
+		groupIds: z.array(idSchema).default([]),
 		label: z.string().max(120).optional(),
 		seed: z.union([z.number().finite(), z.string().min(1)]).optional(),
 	})
