@@ -413,7 +413,10 @@ describe('SYNC-016 explicit Google Docs sync states', () => {
 			online: false,
 			hasValidToken: false,
 		});
+		// SYNC-005 AC4: first-time auth and push are reported unavailable when offline; cached content stays
+		// readable. The state names the condition, and the message explicitly reports it as unavailable.
 		expect(offline.state).toBe('auth-required');
+		expect(offline.message).toMatch(/unavailable/i);
 		expect(offline.message).toMatch(/cached content remains readable/i);
 
 		const authorized = deriveAuthorizationState(GOOGLE_DOCS_ADAPTER_CAPABILITY, {
