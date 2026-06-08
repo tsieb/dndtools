@@ -191,6 +191,16 @@ describe('MAP-012 fog reveal/conceal is durable and syncs (queues offline)', () 
 		});
 		const map = result.nextState.maps.maps[KEEP]!;
 		expect(map.fog.some((op) => op.kind === 'reveal')).toBe(true);
+		// MAP-012 AC1: the reveal op is visible to a projected player (shared fog on shared layer).
+		const playerView = getMapViewForActor(
+			result.nextState.maps,
+			result.nextState.permissions,
+			PLAYER_ACTOR.id,
+			KEEP,
+			{ deliveredMapIds: new Set([KEEP]) },
+		);
+		if (playerView.kind !== 'available') throw new Error('KEEP should be available to delivered player');
+		expect(playerView.fog.some((op) => op.kind === 'reveal')).toBe(true);
 	});
 
 	it('MAP-012 AC2: an offline reveal queues with undelivered status but is still persisted locally', () => {

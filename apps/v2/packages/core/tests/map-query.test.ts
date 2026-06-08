@@ -138,6 +138,8 @@ describe('MAP-019 AC3 hidden tokens are omitted from a non-DM token projection',
 		expect(serialized).not.toContain('token-ambusher');
 		expect(serialized).not.toContain('Cellar Ambusher');
 		// The fog conceal over the cellar (shared layer) IS delivered; the dm-only trap-rune POI is not.
+		// MAP-012 AC1: a shared fog op on a shared layer reaches the player when the map is projected.
+		expect(playerView.fog.map((f) => f.id)).toContain('fog-cellar-conceal');
 		expect(playerView.pois.map((p) => p.id)).not.toContain('poi-trap-rune');
 	});
 
