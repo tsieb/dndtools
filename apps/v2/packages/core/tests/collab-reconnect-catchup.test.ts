@@ -155,6 +155,67 @@ describe('COLLAB-002 — reconnect catch-up filtered by current role/visibility/
 		expect(revokedResult.delivered).toEqual([]);
 	});
 
+	it('AC1 — a viewer GRANT revocation withholds the op via the delivery filter (hasGrantedCapability path)', () => {
+		// A `shared` note with NO sharedWith — accessible ONLY via a viewer grant. This exercises the
+		// `hasGrantedCapability` branch in `ruleVisibleToActor`, which is the actual delivery-filter gate
+		// for grant-based access control (distinct from sharedWith membership tested above).
+		const grantedMeta: EntityVisibilityMetadata = {
+			entityType: 'note',
+			entityId: 'note-grant-only',
+			entity: { level: 'shared' }, // no sharedWith — access is via grant only
+		};
+		const grantedOps = [
+			op({ id: 'op-grant-only', entityType: 'note', entityId: 'note-grant-only', value: { body: SECRET } }),
+		];
+		const viewerGrant: PermissionGrant = {
+			id: 'g-viewer-1',
+			entityType: 'note',
+			entityId: 'note-grant-only',
+			playerActorId: PLAYER_ACTOR.id,
+			capabilitySet: 'viewer',
+			createdBy: DM_ACTOR.id,
+			createdAt: NOW,
+		};
+		const ctxWithGrant = replayContext(
+			[grantedMeta],
+			{ note: ['note-grant-only'] },
+			{ 'note:note-grant-only': 'viewer' },
+		);
+
+		// Grant ACTIVE: delivery filter resolves the viewer grant → op is delivered.
+		const withGrant = computeReconnectCatchUp(
+			{
+				recipient: PLAYER_ACTOR,
+				operations: grantedOps,
+				alreadyDeliveredOperationIds: new Set(),
+				permission: { ...buildPermissionState(DM_ACTOR, PLAYER_ACTOR), grants: [viewerGrant] },
+				resolveVisibility: visibilitySource([grantedMeta]),
+				now: NOW,
+			},
+			stateWithGrants(viewerGrant),
+			ctxWithGrant,
+		);
+		expect(withGrant.delivered.map((o) => o.id)).toEqual(['op-grant-only']);
+
+		// Grant REVOKED (absent from permission state): delivery filter finds no viewer grant →
+		// op is NOT delivered, even though the device may have cached it under the prior grant.
+		const withoutGrant = computeReconnectCatchUp(
+			{
+				recipient: PLAYER_ACTOR,
+				operations: grantedOps,
+				alreadyDeliveredOperationIds: new Set(),
+				permission: buildPermissionState(DM_ACTOR, PLAYER_ACTOR), // no grants
+				resolveVisibility: visibilitySource([grantedMeta]),
+				now: NOW,
+			},
+			stateWithGrants(),
+			replayContext([grantedMeta], { note: ['note-grant-only'] }),
+		);
+		expect(withoutGrant.delivered).toEqual([]);
+		// The secret must not appear anywhere in the (empty) delivered stream.
+		expect(JSON.stringify(withoutGrant.delivered)).not.toContain(SECRET);
+	});
+
 	it('AC3 — already-applied ops (sync cursor) are not re-delivered; remaining ops apply in dependency order', () => {
 		const stream = [
 			op({ id: 'op-1', entityType: 'note', entityId: 'note-a', value: { body: 'one' } }),
