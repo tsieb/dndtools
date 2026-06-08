@@ -360,11 +360,12 @@ describe('CHAR-015 — observer denied by default on every surface', () => {
 		expect(JSON.stringify(view)).not.toContain('Secret plan');
 	});
 
-	it('an adversarial observer grant on the character/journal is dropped at the role ceiling', () => {
+	it('an adversarial observer grant on the character/journal is rejected by the command layer', () => {
 		const { state, env, id } = richState();
-		// Even if the DM forges a viewer grant to the observer on the character, the observer ceiling
-		// drops it — the observer still receives no character/journal data.
-		const granted = dispatchCommand(state, env, {
+		// `character-journal` is not a registered entity type in the capability-set schema, so any
+		// attempt to issue a grant on it (including a `viewer` grant for an observer) is rejected with
+		// `invalid-payload` before it ever reaches the observer-ceiling check. The state is unchanged.
+		const grantResult = dispatchCommand(state, env, {
 			type: 'permission.grant-capability-set',
 			actorId: DM_ACTOR.id,
 			payload: {
@@ -374,11 +375,14 @@ describe('CHAR-015 — observer denied by default on every surface', () => {
 				capabilitySet: 'viewer',
 			},
 		});
-		// The grant may be accepted as a record, but the effective surface drops it. Use whichever state.
-		const next = granted.status === 'accepted' ? granted.nextState : state;
-		const view = getCharacterJournalForActor(next.characters, next.permissions, OBSERVER_ACTOR.id, id);
+		expect(grantResult.status).toBe('rejected');
+		if (grantResult.status === 'rejected') {
+			expect(grantResult.rejection.code).toBe('invalid-payload');
+		}
+		// State is unchanged; the observer still receives no character/journal data (observer ceiling).
+		const view = getCharacterJournalForActor(state.characters, state.permissions, OBSERVER_ACTOR.id, id);
 		expect(view.entries).toHaveLength(0);
-		const party = getPartyOverviewForActor(next.characters, next.permissions, OBSERVER_ACTOR.id);
+		const party = getPartyOverviewForActor(state.characters, state.permissions, OBSERVER_ACTOR.id);
 		expect(party.members).toHaveLength(0);
 	});
 

@@ -4,7 +4,7 @@ import type {
 	CharacterJournalEntry,
 	JournalEntryKind,
 } from '../state/character-journal';
-import { CHARACTER_JOURNAL_ENTITY_TYPE, journalForCharacter } from '../state/character-journal';
+import { journalForCharacter } from '../state/character-journal';
 import type { Character, CharacterState } from '../state/character-state';
 import { journalsOf } from '../state/character-state';
 import { hasGrantedCapability } from '../permissions/grants';
@@ -69,29 +69,26 @@ function actorIsOwner(
 /**
  * Whether ONE entry is visible to an actor (the per-entry CHAR-016 check). The DM sees everything; the
  * owner sees all of their own entries; any other player sees `player-visible`, or `shared` delivered to
- * them (membership in `sharedWith`, or a viewer grant on the journal entity). Fail closed otherwise.
+ * them (membership in `sharedWith`). Fail closed otherwise.
+ *
+ * Note: `character-journal` is not registered in the capability-set schema, so viewer grants on this
+ * entity type cannot be issued via the command layer. The sole delivery channel for a `shared` entry
+ * is explicit `sharedWith` membership (CHAR-016 AC3).
  */
 function entryVisibleToActor(
 	entry: CharacterJournalEntry,
 	actor: Actor,
 	isOwner: boolean,
-	permissions: PermissionState,
-	characterId: string,
+	_permissions: PermissionState,
+	_characterId: string,
 ): boolean {
 	if (actor.role === 'dm') return true;
 	if (isOwner) return true;
 	if (entry.visibility === 'dm-only') return false;
 	if (entry.visibility === 'player-visible') return actor.role === 'player';
-	// `shared`: delivered only through an explicit channel — `sharedWith` membership OR a viewer
-	// grant on the journal entity (mirrors the PERM visibility filter's `shared` rule).
-	if (entry.sharedWith.includes(actor.id)) return true;
-	return hasGrantedCapability(
-		permissions,
-		actor,
-		CHARACTER_JOURNAL_ENTITY_TYPE,
-		characterId,
-		'viewer',
-	);
+	// `shared`: delivered only to actors explicitly listed in `sharedWith` (CHAR-016 AC3). Viewer
+	// grants on the journal entity are not available (no capability schema for `character-journal`).
+	return entry.sharedWith.includes(actor.id);
 }
 
 function projectEntry(entry: CharacterJournalEntry): JournalEntryView {
