@@ -32,7 +32,8 @@ export type GrantValidationError =
 	| 'observer-cannot-receive-grant'
 	| 'dm-needs-no-grant'
 	| 'invalid-expiry'
-	| 'expiry-in-past';
+	| 'expiry-in-past'
+	| 'already-has-owner';
 
 export type GrantValidationResult =
 	| { ok: true }
@@ -114,6 +115,39 @@ export function validateGrantRecord(
 				message: 'Grant expiry must be in the future.',
 			};
 		}
+	}
+	return { ok: true };
+}
+
+/**
+ * CHAR-003 AC2 — Check whether a plain `permission.grant-capability-set` command would create a
+ * second holder of a singular-ownership capability (e.g. character `owner`). Returns a rejection
+ * result if a DIFFERENT player already holds an active grant for this entity/capability, or `null`
+ * if the grant may proceed. This check does NOT apply to `permission.transfer-ownership`, which is
+ * the explicit semantic for changing ownership atomically (PERM-013).
+ */
+export function checkSingularOwnershipConflict(
+	permissions: PermissionState,
+	input: GrantRecordInput,
+	now?: string,
+): GrantValidationResult {
+	const singular = singularOwnershipCapabilityFor(input.entityType);
+	if (!singular || input.capabilitySet !== singular) return { ok: true };
+	const conflicting = permissions.grants.find(
+		(g) =>
+			g.entityType === input.entityType &&
+			g.entityId === input.entityId &&
+			g.capabilitySet === singular &&
+			g.playerActorId !== input.playerActorId &&
+			isGrantActive(g, now),
+	);
+	if (conflicting) {
+		return {
+			ok: false,
+			error: 'already-has-owner',
+			message:
+				'This character already has an owner. Use the permission.transfer-ownership command to transfer ownership.',
+		};
 	}
 	return { ok: true };
 }

@@ -346,32 +346,44 @@ describe('PERM-013: transfer character ownership atomically', () => {
 	});
 
 	it('AC2: a transfer that would leave two owners is impossible — defaults to a clean single owner', () => {
-		// Construct a corrupt prior state with TWO owners, then transfer to a third player.
+		// Construct a corrupt prior state with TWO owners by direct state injection (the grant
+		// command now correctly rejects a second owner; this state simulates legacy/corrupt data).
 		const env = makeEnvironment();
 		const seeded = withOwner(env);
-		const second = dispatchCommand(seeded, env, grantCommand({
-			entityType: 'character',
-			entityId: 'char-1',
-			playerActorId: PLAYER_2.id,
-			capabilitySet: 'owner',
-		}));
-		if (second.status !== 'accepted') throw new Error('seed second owner failed');
+		const PLAYER_3 = { id: 'actor-player-3', role: 'player' as const, displayName: 'Player Three' };
+		// Inject a second owner grant directly to simulate the corrupt state.
+		const corruptState: CoreStateSlice = {
+			...seeded,
+			permissions: {
+				...seeded.permissions,
+				actors: {
+					...seeded.permissions.actors,
+					[PLAYER_2.id]: PLAYER_2,
+					[PLAYER_3.id]: PLAYER_3,
+				},
+				grants: [
+					...seeded.permissions.grants,
+					{
+						id: 'grant-corrupt-owner-2' as import('../src').GrantId,
+						entityType: 'character',
+						entityId: 'char-1',
+						playerActorId: PLAYER_2.id,
+						capabilitySet: 'owner' as import('../src').CapabilitySet,
+						createdBy: DM_ACTOR.id,
+						createdAt: '2026-01-01T00:00:00.000Z',
+						expiresAt: null,
+					},
+				],
+			},
+		};
 		// Two owners now exist (an invalid state the consistency audit would flag).
 		expect(
-			second.nextState.permissions.grants.filter(
+			corruptState.permissions.grants.filter(
 				(g) => g.entityId === 'char-1' && g.capabilitySet === 'owner',
 			),
 		).toHaveLength(2);
 
-		const PLAYER_3 = { id: 'actor-player-3', role: 'player' as const, displayName: 'Player Three' };
-		const withThird: CoreStateSlice = {
-			...second.nextState,
-			permissions: {
-				...second.nextState.permissions,
-				actors: { ...second.nextState.permissions.actors, [PLAYER_3.id]: PLAYER_3 },
-			},
-		};
-		const transferred = dispatchCommand(withThird, env, transferCommand({
+		const transferred = dispatchCommand(corruptState, env, transferCommand({
 			entityType: 'character',
 			entityId: 'char-1',
 			toPlayerActorId: PLAYER_3.id,

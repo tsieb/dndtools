@@ -6,6 +6,7 @@ import {
 import type { PermissionGrant, PermissionState } from '../state/permission-state';
 import {
 	buildGrantRecord,
+	checkSingularOwnershipConflict,
 	computeOwnershipTransfer,
 	revokeGrantById,
 	upsertGrant,
@@ -86,6 +87,13 @@ export function handleGrantCapabilitySet(
 	const validation = validateGrantRecord(state.permissions, input, now);
 	if (!validation.ok) {
 		return reject({ code: 'invalid-payload', message: validation.message }, state);
+	}
+
+	// CHAR-003 AC2 — reject a singular-ownership grant when a different player already holds it;
+	// `transfer-ownership` is the only path that changes ownership atomically (PERM-013).
+	const ownershipConflict = checkSingularOwnershipConflict(state.permissions, input, now);
+	if (!ownershipConflict.ok) {
+		return reject({ code: 'invalid-payload', message: ownershipConflict.message }, state);
 	}
 
 	const grant = buildGrantRecord(input, { id: env.ids(), createdBy: actor.id, now });

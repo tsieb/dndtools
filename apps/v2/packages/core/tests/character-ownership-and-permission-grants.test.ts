@@ -152,26 +152,22 @@ describe('CHAR-003 — the DM assigns exactly one owner while retaining full DM 
 		expect(report.problems.some((p) => p.kind === 'multiple-character-owners')).toBe(false);
 	});
 
-	it('a SECOND distinct owner is an invalid state the consistency audit flags (Contract 3)', () => {
+	it('AC2: granting `owner` to a second player is REJECTED — must use transfer-ownership instead', () => {
 		const env = makeEnvironment();
 		const { state, characterId } = createCharacter(env);
 		const first = accepted(grant(state, env, characterId, PLAYER_ACTOR.id, 'owner'));
-		const second = accepted(grant(first.nextState, env, characterId, PLAYER_B.id, 'owner'));
 
-		// Both owner grants now exist (the grant command does not auto-revoke; transfer does that).
-		const owners = second.nextState.permissions.grants.filter(
+		// Attempting to grant `owner` to a different player while one already holds it is rejected.
+		const second = rejected(grant(first.nextState, env, characterId, PLAYER_B.id, 'owner'));
+		expect(second.rejection.code).toBe('invalid-payload');
+		expect(second.rejection.message).toMatch(/already has an owner/i);
+
+		// The state is unchanged — still exactly one owner (the original grantee).
+		const owners = first.nextState.permissions.grants.filter(
 			(g) => g.entityId === characterId && g.capabilitySet === 'owner',
 		);
-		expect(owners).toHaveLength(2);
-
-		const report = auditEntityPermissionConsistency(second.nextState.permissions, {
-			entities: [
-				{ entityType: 'character', entityId: characterId, visibility: 'player-visible' },
-			],
-		});
-		const problem = report.problems.find((p) => p.kind === 'multiple-character-owners');
-		expect(problem).toBeTruthy();
-		expect(report.hasErrors).toBe(true);
+		expect(owners).toHaveLength(1);
+		expect(owners[0]!.playerActorId).toBe(PLAYER_ACTOR.id);
 	});
 
 	it('DM-RETAINS-ADMIN: after granting `owner` to a player, the DM still edits EVERY field', () => {
