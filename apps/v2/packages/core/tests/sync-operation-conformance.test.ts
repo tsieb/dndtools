@@ -217,7 +217,9 @@ describe('SYNC-002 canonical operation shape', () => {
 		expect(op.path).toContain('combat.hp');
 		expect((op.value as { path?: string }).path).toBe('combat.hp');
 		// before/after revisions (the field edit advances the entity revision).
-		expect(typeof op.afterRevision).toBe('number');
+		expect(typeof op.beforeRevision).toBe('number'); // before revision (pre-edit entity revision)
+		expect(typeof op.afterRevision).toBe('number');  // after revision (post-edit entity revision)
+		expect(op.beforeRevision).toBeLessThan(op.afterRevision as number); // after > before
 		expect(op.issuedAt.length).toBeGreaterThan(0); // issue time
 		expect(op.id.length).toBeGreaterThan(0); // idempotency anchor (op id)
 		expect(isConformantSyncOperation(op)).toBe(true);
