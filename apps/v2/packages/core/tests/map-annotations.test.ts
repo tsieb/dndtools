@@ -191,9 +191,12 @@ describe('MAP-019 token reducers', () => {
 		);
 		expect('created' in result).toBe(true);
 		if ('created' in result) {
+			expect(result.created.id).toBe('token-1');
 			expect(result.created.linkedActorId).toBe('actor-player');
-			expect(result.created.controllerActorId).toBe('actor-player');
+			expect(result.created.position).toEqual({ x: 0.3, y: 0.3 }); // MAP-019 AC1: map position recorded
 			expect(result.created.size).toBe(1);
+			expect(result.created.visibility).toBe('shared');
+			expect(result.created.controllerActorId).toBe('actor-player');
 		}
 	});
 
