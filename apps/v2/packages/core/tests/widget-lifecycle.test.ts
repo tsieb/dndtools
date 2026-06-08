@@ -755,6 +755,64 @@ describe('CANVAS-017: package review, disable, remove, and export', () => {
 		expect(exported.portabilityDiagnostics[0]).toMatchObject({
 			code: 'portability.device-local-asset-path',
 		});
+		// AC4: portabilityWarnings in the export merges original warnings with new warnings
+		// generated during the export pass (e.g. device-local path exclusions).
+		expect(exported.package.portabilityWarnings).toEqual([
+			'uses optional art asset',
+			'Device-local asset path /Users/local/secret.png was excluded from export.',
+		]);
+	});
+
+	it('rejects widget command dispatch when a package is disabled (AC2 no-code-executes)', () => {
+		// When a package is disabled, every widget instance of that type gets a disabled flag set
+		// on it. Any attempt to dispatch a widget command to a disabled instance must be rejected
+		// with 'package-disabled' before any handler logic runs — the Processing Core must not
+		// execute widget package code on behalf of a disabled package.
+		const pkg = packageDefinition();
+		const state = buildInitialState(DM_ACTOR);
+		const env = makeEnvironment();
+		const installed = dispatchCommand(state, env, {
+			type: 'widget.package.install',
+			actorId: DM_ACTOR.id,
+			payload: { package: pkg },
+		});
+		if (installed.status !== 'accepted') throw new Error('install');
+		const enabled = dispatchCommand(installed.nextState, env, {
+			type: 'widget.package.enable',
+			actorId: DM_ACTOR.id,
+			payload: { packageId: pkg.id },
+		});
+		if (enabled.status !== 'accepted') throw new Error('enable');
+		const scene = createScene(enabled.nextState, env);
+		const { state: withWidget, widgetId } = addWidget(scene.state, scene.env, scene.sceneId, 'counter');
+		const disableResult = dispatchCommand(withWidget, env, {
+			type: 'widget.package.disable',
+			actorId: DM_ACTOR.id,
+			payload: { packageId: pkg.id, reason: 'security review failed' },
+		});
+		if (disableResult.status !== 'accepted') throw new Error('disable');
+		// The widget instance now carries a disabled flag.
+		expect(disableResult.nextState.scenes.scenes[scene.sceneId]?.widgets[0]?.disabled).toBeTruthy();
+
+		// Attempt to dispatch any command to the disabled widget instance.
+		const sceneRevision = disableResult.nextState.scenes.scenes[scene.sceneId]?.ownership.revision;
+		const dispatchResult = dispatchCommand(disableResult.nextState, env, {
+			type: 'widget.dispatch-command',
+			actorId: DM_ACTOR.id,
+			idempotencyKey: 'counter-cmd-1',
+			payload: {
+				sceneId: scene.sceneId,
+				widgetInstanceId: widgetId,
+				commandType: 'counter.noop',
+				payload: {},
+				expectedRevision: sceneRevision,
+			},
+		});
+		expect(dispatchResult.status).toBe('rejected');
+		if (dispatchResult.status !== 'rejected') return;
+		expect(dispatchResult.rejection.code).toBe('package-disabled');
+		// State is not mutated by the rejected dispatch.
+		expect(dispatchResult.nextState).toBe(disableResult.nextState);
 	});
 
 	it('re-installing an exported package from a vault backup preserves portability warnings and starts disabled (AC3)', () => {
