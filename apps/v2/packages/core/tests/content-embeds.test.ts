@@ -181,6 +181,8 @@ describe('CONTENT-010 embeds by reference — no clone', () => {
 			),
 		).nextState;
 		const resolvedAfter = resolveContentEmbedsForActor(next.content, next.permissions, PLAYER_ACTOR.id, host.itemId);
+		expect(resolvedAfter).toHaveLength(1);
+		expect(resolvedAfter[0]!.state).toBe('available');
 		if (resolvedAfter[0]!.state === 'available' && resolvedAfter[0]!.kind === 'object-card') {
 			expect(resolvedAfter[0]!.fields).toEqual({ population: 'booming' });
 		}
