@@ -9,6 +9,7 @@ import {
 	checkSchemaVersionSupported,
 	checkSourceVersionSupported,
 	checkTransformFidelity,
+	checkWriteSupported,
 } from './source-adapters';
 import { OBSIDIAN_ADAPTER_CAPABILITY, OBSIDIAN_SOURCE_KIND } from './obsidian-adapter';
 import {
@@ -226,12 +227,9 @@ export function preflightSourceAdapter(
 		});
 	}
 	if (request.write) {
-		if (!capability.canWrite) {
-			rejections.push({
-				ok: false,
-				reason: 'write-not-supported',
-				message: `The ${capability.displayName} adapter does not support writing.`,
-			});
+		const writeCheck = checkWriteSupported(capability);
+		if (!writeCheck.ok) {
+			rejections.push(writeCheck);
 		} else {
 			const result = checkTransformFidelity(
 				capability,

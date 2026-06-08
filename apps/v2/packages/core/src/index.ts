@@ -641,6 +641,7 @@ export {
 	checkSchemaVersionSupported,
 	checkSourceVersionSupported,
 	checkTransformFidelity,
+	checkWriteSupported,
 	deriveAuthorizationState,
 } from './sync/source-adapters';
 

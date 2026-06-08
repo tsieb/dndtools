@@ -212,6 +212,21 @@ export function checkEntityTypeSupported(
 }
 
 /**
+ * SYNC-003 / SYNC-015 — fail-closed WRITE-CAPABILITY check (SYNC-003 AC2). An adapter that declares
+ * `canWrite: false` cannot accept a push: the command must return `write-not-supported` status without
+ * changing the core contract. Used by `preflightSourceAdapter` so the check is exercisable in isolation.
+ */
+export function checkWriteSupported(capability: SourceAdapterCapability): CapabilityCheckResult {
+	if (!capability.canWrite) {
+		return fail(
+			'write-not-supported',
+			`The ${capability.displayName} adapter does not support writing; use a writable source or choose a read-only workflow.`,
+		);
+	}
+	return ok();
+}
+
+/**
  * SYNC-015 — fail-closed TRANSFORM-FIDELITY check for a PUSH. Given the note features actually present,
  * a feature the source classifies `lossy` or `unsupported` blocks the write UNLESS the matching
  * acknowledgment token is supplied (the same fail-closed posture as `isContentWriteAcknowledged`). A

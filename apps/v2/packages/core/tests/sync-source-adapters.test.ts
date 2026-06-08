@@ -16,6 +16,7 @@ import {
 	checkAuthModeSupported,
 	checkSchemaVersionSupported,
 	checkSourceVersionSupported,
+	checkWriteSupported,
 	createFakeDriveTransport,
 	createFakeVaultTransport,
 	createGoogleDocsAdapter,
@@ -151,6 +152,34 @@ describe('SYNC-003 adapter interface plugs in without a core-contract change', (
 		const bad = [{ id: '', vaultId: 'v', sourceId: 's' } as unknown as SyncOperation];
 		expect(adapterEmitsCanonicalOperations(bad)).toBe(false);
 		expect(() => assertAdapterEmitsCanonicalOperations(bad)).toThrow(/canonical/i);
+	});
+
+	it('SYNC-003 AC2: a read-only adapter (canWrite: false) returns write-not-supported without changing the core contract', () => {
+		// Build a minimal read-only capability — a future import-only source that has no push support.
+		const readOnlyCapability: SourceAdapterCapability = {
+			kind: 'import-only-source',
+			displayName: 'Import-only source',
+			summary: 'A hypothetical import-only source with no write capability.',
+			supportedSchemaVersions: [SYNC_OPERATION_SCHEMA_VERSION],
+			supportedSourceVersions: ['1'],
+			supportedAuthModes: ['none'],
+			supportedEntityTypes: ['content-item'],
+			canRead: true,
+			canWrite: false,
+			canExposeRevisionHistory: false,
+			canWatchChanges: false,
+			offlineAvailability: 'full',
+			featureSupport: {},
+		};
+		// `checkWriteSupported` returns `write-not-supported` for a read-only adapter (the same path
+		// `preflightSourceAdapter` exercises). The core contract is unchanged: no new command or reducer.
+		const result = checkWriteSupported(readOnlyCapability);
+		expect(result.ok).toBe(false);
+		expect(result.reason).toBe('write-not-supported');
+		expect(result.message).toMatch(/does not support writing/i);
+		// A readable adapter is NOT blocked.
+		const writableCapability: SourceAdapterCapability = { ...readOnlyCapability, canWrite: true };
+		expect(checkWriteSupported(writableCapability).ok).toBe(true);
 	});
 });
 
