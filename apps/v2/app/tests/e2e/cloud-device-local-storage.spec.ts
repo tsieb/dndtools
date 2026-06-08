@@ -66,6 +66,7 @@ test.describe('SYNC-007/008 cloud/device-local classification', () => {
 			'cloud-vault-identity',
 			'durable-operation-log',
 			'compacted-snapshot',
+			'collaboration-session-state',
 			'permission-metadata',
 			'asset-blob',
 			'conflict-record',
