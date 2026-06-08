@@ -672,6 +672,8 @@ export {
 // collides with user frontmatter. The fake vault transport is injected.
 export type {
 	ObsidianCanonicalNote,
+	ObsidianVaultAccessInput,
+	ObsidianVaultAccessOutcome,
 	ParsedHeading,
 	ParsedMarkdownLink,
 } from './sync/obsidian-adapter';
@@ -680,6 +682,7 @@ export {
 	OBSIDIAN_SOURCE_KIND,
 	canonicalNoteToObsidianFile,
 	createObsidianAdapter,
+	deriveObsidianVaultStatus,
 	extractHeadings,
 	extractMarkdownLinks,
 	obsidianEntityIdForPath,

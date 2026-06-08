@@ -22,6 +22,7 @@ import {
 	createGoogleDocsAdapter,
 	createObsidianAdapter,
 	deriveAuthorizationState,
+	deriveObsidianVaultStatus,
 	detectGoogleDocsConflict,
 	extractHeadings,
 	extractMarkdownLinks,
@@ -262,6 +263,31 @@ describe('SYNC-004 Obsidian round-trip preserves user content and isolates DND m
 				'dndtools-namespaced-metadata',
 			]),
 		);
+	});
+
+	it('SYNC-004 AC3: an inaccessible vault directory on a mobile profile reports unsupported capability while cached content stays readable', () => {
+		// The vault directory is not accessible on this profile (e.g. a desktop path on mobile).
+		const unavailable = deriveObsidianVaultStatus({
+			vaultAccessible: false,
+			profileNote: 'mobile-profile',
+		});
+		expect(unavailable.state).toBe('unsupported');
+		expect(unavailable.message).toMatch(/not accessible/i);
+		expect(unavailable.message).toMatch(/cached content remains readable/i);
+		expect(unavailable.message).toMatch(/mobile-profile/);
+		expect(unavailable.cachedContentReadable).toBe(true);
+
+		// Without a profile note the message still reports unavailability and cached readability.
+		const unavailableNoNote = deriveObsidianVaultStatus({ vaultAccessible: false });
+		expect(unavailableNoNote.state).toBe('unsupported');
+		expect(unavailableNoNote.message).toMatch(/not accessible/i);
+		expect(unavailableNoNote.message).toMatch(/cached content remains readable/i);
+		expect(unavailableNoNote.cachedContentReadable).toBe(true);
+
+		// An accessible vault directory is idle (no blocking state).
+		const accessible = deriveObsidianVaultStatus({ vaultAccessible: true });
+		expect(accessible.state).toBe('idle');
+		expect(accessible.cachedContentReadable).toBe(true);
 	});
 });
 

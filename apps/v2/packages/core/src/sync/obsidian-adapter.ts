@@ -4,6 +4,7 @@ import {
 	type ExternalMutation,
 	type SourceAdapterCapability,
 	type SyncSourceAdapter,
+	type SyncSourceLifecycleState,
 	buildCanonicalOperation,
 } from './source-adapters';
 import {
@@ -248,6 +249,52 @@ export function createObsidianAdapter(
 			if (!note) return [];
 			return [{ op: 'write', externalId: path, entity: { path, text: canonicalNoteToObsidianFile(note) } }];
 		},
+	};
+}
+
+/** Input for deriving the Obsidian vault directory accessibility status (SYNC-004 AC3). */
+export interface ObsidianVaultAccessInput {
+	/** Whether the vault directory is accessible on this device/profile. */
+	vaultAccessible: boolean;
+	/** Optional profile label for the status message (e.g. `'mobile-profile'`). */
+	profileNote?: string;
+}
+
+/** Outcome of deriving Obsidian vault accessibility (SYNC-004 AC3). */
+export interface ObsidianVaultAccessOutcome {
+	/**
+	 * `idle` when the directory is accessible on this profile;
+	 * `unsupported` when it is not (e.g. a desktop vault path on mobile).
+	 */
+	state: Extract<SyncSourceLifecycleState, 'idle' | 'unsupported'>;
+	/** Generic, non-leaking status message. Always notes cached content is readable when unavailable. */
+	message: string;
+	/** Always `true`: already-cached content is readable regardless of directory accessibility. */
+	cachedContentReadable: boolean;
+}
+
+/**
+ * SYNC-004 AC3 — Derive the Obsidian vault DIRECTORY ACCESSIBILITY status for a profile. A local vault
+ * whose directory is not accessible on the current device profile (e.g. a desktop filesystem path on a
+ * mobile profile) reports `unsupported` so the sync-status surface can surface "unavailable capability"
+ * while explicitly confirming that already-cached content remains readable (local-first invariant).
+ * Pure and deterministic over its input.
+ */
+export function deriveObsidianVaultStatus(
+	input: ObsidianVaultAccessInput,
+): ObsidianVaultAccessOutcome {
+	if (!input.vaultAccessible) {
+		const profile = input.profileNote ? ` (${input.profileNote})` : '';
+		return {
+			state: 'unsupported',
+			message: `The Obsidian vault directory is not accessible on this profile${profile}. Cached content remains readable.`,
+			cachedContentReadable: true,
+		};
+	}
+	return {
+		state: 'idle',
+		message: 'The Obsidian vault directory is accessible.',
+		cachedContentReadable: true,
 	};
 }
 
