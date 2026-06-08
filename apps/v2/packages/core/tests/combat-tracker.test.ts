@@ -423,3 +423,134 @@ describe('SES-002 actor-filtered combat tracker view (AC4 hidden combatants)', (
 		expect(assassin.statBlock.initiative).toBe(20);
 	});
 });
+
+// --- SES-002 AC5: dice rolls during active combat are recorded in the encounter log -----------------
+
+describe('SES-002 AC5: visible dice rolls persisted into the combat encounter log', () => {
+	/** Start an active session and begin combat with two monsters. */
+	function startCombat(): { state: CoreStateSlice; env: CoreEnvironment } {
+		const { state, env } = activeSession();
+		const started = accept(
+			dispatch(state, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: { combatants: TWO_COMBATANTS },
+			}),
+		).nextState;
+		return { state: started, env };
+	}
+
+	it('AC5-1: a roll made during active combat appears as a `roll` entry in the combat log with round/turn context', () => {
+		const { state, env } = startCombat();
+		const combat = state.session.combat;
+		// Roll a session-visible dice expression while combat is running.
+		const rolled = accept(
+			dispatch(state, env, {
+				type: 'dice.roll',
+				actorId: DM_ACTOR.id,
+				payload: { expression: '1d20+4', label: 'Attack roll', seed: 'atk-1' },
+			}),
+		).nextState;
+
+		// The roll must appear in the combat encounter log.
+		const rollEntries = rolled.session.combat.log.filter((e) => e.kind === 'roll');
+		expect(rollEntries).toHaveLength(1);
+		const entry = rollEntries[0]!;
+
+		// Round/turn context matches the combat state at roll time.
+		expect(entry.round).toBe(combat.round);
+		expect(entry.turn).toBe(combat.turn);
+
+		// The entry references the session dice-history record.
+		const rollRecord = rolled.session.diceHistory[0]!;
+		expect(entry.rollId).toBe(rollRecord.id);
+
+		// The label includes the expression and total.
+		expect(entry.label).toContain('1d20+4');
+		expect(entry.label).toContain(String(rollRecord.total));
+		expect(entry.label).toContain('Attack roll');
+
+		// The roll is session-visible.
+		expect(entry.rollVisibility).toBe('session-visible');
+	});
+
+	it('AC5-2: a DM-only roll is OMITTED from player/observer views but visible to the DM (hard non-leak)', () => {
+		const { state, env } = startCombat();
+		// DM makes a secret roll.
+		const afterRoll = accept(
+			dispatch(state, env, {
+				type: 'dice.roll',
+				actorId: DM_ACTOR.id,
+				payload: { expression: '1d20', visibility: 'dm-only', label: 'Ambush check', seed: 'sec-1' },
+			}),
+		).nextState;
+
+		// DM view: sees the roll entry.
+		const dmView = getCombatTrackerForActor(
+			afterRoll.session.combat,
+			afterRoll.permissions,
+			DM_ACTOR.id,
+		);
+		const dmRollEntries = dmView.log.filter((e) => e.kind === 'roll');
+		expect(dmRollEntries).toHaveLength(1);
+		expect(dmRollEntries[0]!.label).toContain('Ambush check');
+
+		// Player view: the roll entry is OMITTED entirely.
+		const playerView = getCombatTrackerForActor(
+			afterRoll.session.combat,
+			afterRoll.permissions,
+			PLAYER_ACTOR.id,
+		);
+		const playerRollEntries = playerView.log.filter((e) => e.kind === 'roll');
+		expect(playerRollEntries).toHaveLength(0);
+		// Hard non-leak: the serialized player log must not contain any reference to the hidden roll.
+		const playerLogJson = JSON.stringify(playerView.log);
+		expect(playerLogJson).not.toContain('Ambush check');
+		expect(playerLogJson).not.toContain(afterRoll.session.diceHistory[0]!.id);
+
+		// Observer view: also omitted.
+		const observerView = getCombatTrackerForActor(
+			afterRoll.session.combat,
+			afterRoll.permissions,
+			OBSERVER_ACTOR.id,
+		);
+		expect(observerView.log.filter((e) => e.kind === 'roll')).toHaveLength(0);
+	});
+
+	it('AC5-3: the encounter log returned at/after combat end includes the visible roll entries', () => {
+		const { state, env } = startCombat();
+		// Roll a session-visible expression during combat.
+		const afterRoll = accept(
+			dispatch(state, env, {
+				type: 'dice.roll',
+				actorId: DM_ACTOR.id,
+				payload: { expression: '2d6', label: 'Fireball damage', seed: 'fb-1' },
+			}),
+		).nextState;
+
+		// End combat.
+		const afterEnd = accept(
+			dispatch(afterRoll, env, {
+				type: 'combat.end',
+				actorId: DM_ACTOR.id,
+				payload: { note: 'Victory' },
+			}),
+		).nextState;
+
+		// The persisted log must include the roll entry AND the combat-ended entry.
+		const log = afterEnd.session.combat.log;
+		expect(log.some((e) => e.kind === 'combat-ended')).toBe(true);
+		const rollEntries = log.filter((e) => e.kind === 'roll');
+		expect(rollEntries).toHaveLength(1);
+		expect(rollEntries[0]!.label).toContain('Fireball damage');
+
+		// The tracker view for the DM also surfaces the roll (post-ended).
+		const dmView = getCombatTrackerForActor(
+			afterEnd.session.combat,
+			afterEnd.permissions,
+			DM_ACTOR.id,
+		);
+		expect(dmView.log.filter((e) => e.kind === 'roll')).toHaveLength(1);
+		expect(dmView.status).toBe('ended');
+	});
+});

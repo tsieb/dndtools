@@ -74,6 +74,11 @@ export interface CombatLogEntryView {
 	combatantId: string | null;
 	delta: number | null;
 	at: string;
+	/**
+	 * Present when {@link kind} === `'roll'`: the session dice-history id for cross-referencing
+	 * the full roll record. Null for all other entry kinds (SES-002 AC5).
+	 */
+	rollId: string | null;
 }
 
 /** The actor-filtered combat tracker view. */
@@ -190,11 +195,27 @@ export function getCombatTrackerForActor(
 		// Otherwise: omitted entirely (no row, no leak).
 	}
 
-	// The encounter log, redacted: an entry that names a combatant the actor cannot see is omitted so
-	// the log does not reveal a hidden combatant by reference.
+	// The encounter log, redacted: an entry that names a combatant the actor cannot see is omitted,
+	// and a 'roll' entry is filtered by its recorded visibility (fail closed to dm-only when absent)
+	// so a hidden roll never leaks to players or observers (SES-002 AC5).
 	const log: CombatLogEntryView[] = combat.log
 		.filter((entry) => {
 			if (isDm) return true;
+			// Roll entries: apply roll-visibility semantics analogous to dice-history filtering.
+			if (entry.kind === 'roll') {
+				const vis = entry.rollVisibility ?? 'dm-only'; // fail closed
+				if (vis === 'dm-only') return false;
+				if (vis === 'shared') {
+					// The rolling actor always sees their own entry; listed shared participants see it.
+					return (
+						entry.actorActorId === actorId ||
+						(entry.rollSharedWith ?? []).includes(actorId)
+					);
+				}
+				// session-visible: all participants see it.
+				return true;
+			}
+			// Non-roll entries: omit when the entry names a combatant the actor cannot see.
 			if (entry.combatantId === null) return true;
 			return visibleIds.has(entry.combatantId);
 		})
@@ -207,6 +228,7 @@ export function getCombatTrackerForActor(
 			combatantId: entry.combatantId,
 			delta: entry.delta,
 			at: entry.at,
+			rollId: entry.rollId ?? null,
 		}));
 
 	return {

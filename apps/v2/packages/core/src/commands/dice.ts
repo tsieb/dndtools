@@ -25,6 +25,7 @@ import {
 	type DiceRollVisibility,
 	type SessionDiceRoll,
 } from '../state/session-state';
+import type { CombatLogEntry } from '../state/combat-tracker';
 import { hasGrantedCapability } from '../permissions/grants';
 import type { Actor } from '../state/permission-state';
 import type { CommandRejection, CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
@@ -103,6 +104,68 @@ function seedFrom(explicit: number | string | undefined, fallback: string): numb
 
 function withSession(state: CoreStateSlice, diceHistory: SessionDiceRoll[]): CoreStateSlice {
 	return { ...state, session: { ...state.session, diceHistory } };
+}
+
+/**
+ * SES-002 AC5 — build a `roll` kind {@link CombatLogEntry} recording a dice roll made during active
+ * combat. Carries the roll id (for cross-reference), visibility, and shared-with so the query layer
+ * can filter the entry per-actor without duplicating the full roll payload.
+ */
+function buildCombatRollLogEntry(
+	env: CoreEnvironment,
+	actor: Actor,
+	operationId: string,
+	round: number,
+	turn: number,
+	record: SessionDiceRoll,
+): CombatLogEntry {
+	const prefix = record.label ? `${record.label}: ` : '';
+	const suffix =
+		record.sourceKind === 'table' && record.tableRowText ? ` (${record.tableRowText})` : '';
+	const label = `${prefix}${record.expression} → ${record.total}${suffix}`;
+	return {
+		id: env.ids(),
+		round,
+		turn,
+		kind: 'roll',
+		label,
+		combatantId: null,
+		delta: null,
+		actorActorId: actor.id,
+		actorRole: actor.role,
+		at: env.clock(),
+		operationId,
+		rollId: record.id,
+		rollVisibility: record.visibility ?? 'dm-only',
+		...(record.visibility === 'shared' ? { rollSharedWith: record.sharedWith ?? [] } : {}),
+	};
+}
+
+/**
+ * If combat is currently running, append a `roll` encounter-log entry for `record` and return the
+ * updated state (diceHistory + combat.log). Otherwise returns the state with only diceHistory updated.
+ * This is the SES-002 AC5 accumulation point: rolls are recorded into the combat log AS THEY HAPPEN,
+ * not reconstructed at end, so `handleEndCombat` inherits a complete log automatically.
+ */
+function withSessionAndCombatRoll(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actor: Actor,
+	operationId: string,
+	diceHistory: SessionDiceRoll[],
+	record: SessionDiceRoll,
+): CoreStateSlice {
+	const combat = state.session.combat;
+	if (combat.status !== 'running') {
+		return { ...state, session: { ...state.session, diceHistory } };
+	}
+	const rollEntry = buildCombatRollLogEntry(env, actor, operationId, combat.round, combat.turn, record);
+	const nextCombat = {
+		...combat,
+		log: [...combat.log, rollEntry],
+		revision: combat.revision + 1,
+	};
+	return { ...state, session: { ...state.session, diceHistory, combat: nextCombat } };
 }
 
 /** Build the durable roll record from a recorded evaluation. Pure assembly. */
@@ -222,7 +285,12 @@ export function handleRollDice(
 
 	return {
 		status: 'accepted',
-		nextState: { ...withSession(state, nextHistory), sync: draft.log },
+		// SES-002 AC5: if combat is running, also append a visibility-carrying roll entry to the
+		// combat encounter log so the log includes visible rolls at/after combat end.
+		nextState: {
+			...withSessionAndCombatRoll(state, env, actor, operationId, nextHistory, record),
+			sync: draft.log,
+		},
 		events: [diceRecordedEvent(actor.id, record)],
 		operationIds: [draft.op.id],
 	};
@@ -340,7 +408,12 @@ export function handleRollTable(
 
 	return {
 		status: 'accepted',
-		nextState: { ...withSession(state, nextHistory), sync: draft.log },
+		// SES-002 AC5: if combat is running, also append a visibility-carrying roll entry to the
+		// combat encounter log so the log includes visible rolls at/after combat end.
+		nextState: {
+			...withSessionAndCombatRoll(state, env, actor, operationId, nextHistory, record),
+			sync: draft.log,
+		},
 		events: [diceRecordedEvent(actor.id, record)],
 		operationIds: [draft.op.id],
 	};

@@ -129,7 +129,13 @@ export interface CombatLogEntry {
 		| 'concentration'
 		| 'combatant-added'
 		| 'combatant-removed'
-		| 'combat-ended';
+		| 'combat-ended'
+		/**
+		 * SES-002 AC5 — a dice roll made DURING active combat, visibility-carrying so the read layer
+		 * can filter DM-only and shared rolls appropriately (mirrors {@link SessionDiceRoll} visibility
+		 * semantics without creating a circular import). Fails closed to `dm-only` when absent.
+		 */
+		| 'roll';
 	/** A short human label for the event (e.g. "Goblin takes 5 damage"). */
 	label: string;
 	/** The combatant this event concerns, when applicable. */
@@ -142,6 +148,22 @@ export interface CombatLogEntry {
 	at: string;
 	/** The op id this log entry corresponds to, for traceability against the sync log. */
 	operationId: string;
+	/**
+	 * Present when {@link kind} === `'roll'`: the id of the corresponding {@link SessionDiceRoll}
+	 * in `session.diceHistory`, for cross-referencing without duplicating roll data.
+	 */
+	rollId?: string;
+	/**
+	 * Present when {@link kind} === `'roll'`: the visibility the roll was recorded with. Mirrors
+	 * `DiceRollVisibility` as a literal union to avoid a circular `session-state` import.
+	 * The query layer fails closed to `dm-only` when this field is absent.
+	 */
+	rollVisibility?: 'session-visible' | 'dm-only' | 'shared';
+	/**
+	 * Present when {@link kind} === `'roll'` and {@link rollVisibility} === `'shared'`:
+	 * the actor ids the roll is shared with (including the rolling actor).
+	 */
+	rollSharedWith?: string[];
 }
 
 /** The combat lifecycle status. `idle` before initiative is rolled; `ended` once combat is over. */
