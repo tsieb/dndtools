@@ -340,6 +340,21 @@ describe('MAP-002 map.import-asset / adapter gating', () => {
 describe('MAP-020 preview + diagnostics + rollback', () => {
 	const registry: MapImportAdapterRegistry = createMapImportAdapterRegistry([VTT_ADAPTER]);
 
+	// An adapter that exposes the 'blocked' classification (policy refusal, distinct from 'unsupported').
+	const STRICT_ADAPTER: MapImportAdapterDescriptor = {
+		formatId: 'strict-scene',
+		displayName: 'Strict Scene',
+		version: '1.0.0',
+		elementSupport: {
+			dimensions: 'importable',
+			walls: 'lossy',
+			lights: 'unsupported',
+			// 'tokens' is explicitly blocked by policy (e.g. security constraint), not just unsupported.
+			tokens: 'blocked',
+		},
+	};
+	const strictRegistry = createMapImportAdapterRegistry([STRICT_ADAPTER]);
+
 	it('AC1: preview classifies each declared element importable / lossy / unsupported', () => {
 		const preview = previewMapImport(registry, {
 			formatId: 'vtt-scene',
@@ -361,6 +376,27 @@ describe('MAP-020 preview + diagnostics + rollback', () => {
 		expect(preview.capabilitySummary!.importable).toContain('dimensions');
 	});
 
+	it('AC1 (blocked): preview classifies a policy-blocked element as blocked, not unsupported', () => {
+		const preview = previewMapImport(strictRegistry, {
+			formatId: 'strict-scene',
+			declaredElements: ['dimensions', 'walls', 'lights', 'tokens'],
+			importedBy: DM_ACTOR.id,
+			importedAt: 'now',
+		});
+		if (!preview.ok) throw new Error('expected ok preview');
+		const byKind = Object.fromEntries(preview.diagnostics.map((d) => [d.kind, d.support]));
+		expect(byKind.dimensions).toBe('importable');
+		expect(byKind.walls).toBe('lossy');
+		expect(byKind.lights).toBe('unsupported');
+		expect(byKind.tokens).toBe('blocked'); // policy refusal surfaced as 'blocked'
+		// Both unsupported and blocked elements are DROPPED and REPORTED.
+		expect(preview.droppedElements.sort()).toEqual(['lights', 'tokens']);
+		// The capability summary distinguishes blocked from unsupported.
+		expect(preview.capabilitySummary!.blocked).toEqual(['tokens']);
+		expect(preview.capabilitySummary!.unsupported).toEqual(['lights']);
+		expect(preview.capabilitySummary!.importable).toContain('dimensions');
+	});
+
 	it('preview never mutates: it is a pure read-only function', () => {
 		const result1 = previewMapImport(registry, {
 			formatId: 'vtt-scene',
@@ -377,16 +413,19 @@ describe('MAP-020 preview + diagnostics + rollback', () => {
 		expect(result1).toEqual(result2);
 	});
 
-	it('AC2: a previewed-but-not-committed import leaves storage byte-identical (cancel = rollback)', () => {
+	it('AC2: a previewed-but-not-committed import (with asset) leaves storage byte-identical (cancel = rollback)', () => {
+		// Use a native asset import so staging builds an asset record in the candidate state.
 		const before = buildInitialState(DM_ACTOR).maps;
+		// For a native import (no formatId) the registry is not consulted; any registry works here.
 		const preview = previewMapImport(registry, {
-			formatId: 'vtt-scene',
-			declaredElements: ['dimensions', 'walls'],
+			// No formatId = native import
+			asset: { bytes: Uint8Array.from(PNG), mimeType: 'image/png', fileName: 'battlemap.png' },
 			importedBy: DM_ACTOR.id,
 			importedAt: 'now',
 		});
-		if (!preview.ok) throw new Error('expected ok preview');
+		if (!preview.ok) throw new Error('expected ok native preview');
 		// Staging produces a candidate next state but NEVER mutates the input — discarding it is rollback.
+		// This is the cancel-from-preview path: the caller simply does NOT adopt staged.nextState.
 		const staged = stageMapImport(before, {
 			preview,
 			mapId: null,
@@ -394,11 +433,50 @@ describe('MAP-020 preview + diagnostics + rollback', () => {
 			importedBy: DM_ACTOR.id,
 			importedAt: 'now',
 		});
-		expect(Object.keys(staged.nextState.maps)).toHaveLength(1); // candidate has the map
-		expect(Object.keys(before.maps)).toHaveLength(0); // input untouched (rollback)
+		// The candidate state has a new map AND a new asset.
+		expect(Object.keys(staged.nextState.maps)).toHaveLength(1);
+		expect(Object.keys(staged.nextState.assets)).toHaveLength(1);
+		// Discarding the staged result (cancel) leaves the original state byte-identical:
+		// no map entity, no asset record, no partial layer remains.
+		expect(Object.keys(before.maps)).toHaveLength(0);
+		expect(Object.keys(before.assets)).toHaveLength(0);
 	});
 
-	it('AC3: a committed import that creates a map writes the map + reports dropped elements', () => {
+	it('AC3: a failed/aborted import after staging leaves existing maps + assets untouched', () => {
+		// Simulate a state that already has a committed map.
+		const env = withAdapters(VTT_ADAPTER);
+		const state0 = buildInitialState(DM_ACTOR);
+		const withFirstMap = accept(
+			dispatchCommand(state0, env, {
+				type: 'map.commit-import',
+				actorId: DM_ACTOR.id,
+				payload: { mapName: 'Original Map', formatId: 'vtt-scene', declaredElements: ['dimensions'] },
+			} satisfies CoreCommand),
+		);
+		// Now stage a second import but do NOT commit (simulate failure after staging).
+		const preview = previewMapImport(registry, {
+			formatId: 'vtt-scene',
+			declaredElements: ['walls'],
+			importedBy: DM_ACTOR.id,
+			importedAt: 'now',
+		});
+		if (!preview.ok) throw new Error('expected ok preview');
+		const staged = stageMapImport(withFirstMap.nextState.maps, {
+			preview,
+			mapId: null,
+			mapName: 'Would-Be Map',
+			importedBy: DM_ACTOR.id,
+			importedAt: 'now',
+		});
+		// The candidate state has 2 maps.
+		expect(Object.keys(staged.nextState.maps)).toHaveLength(2);
+		// Discarding staged.nextState (failure / abort) leaves the prior state unchanged:
+		// still only 1 map, no orphaned temporary map or asset.
+		expect(Object.keys(withFirstMap.nextState.maps.maps)).toHaveLength(1);
+		expect(Object.keys(withFirstMap.nextState.maps.maps)[0]).not.toBe('Would-Be Map');
+	});
+
+	it('committed import creates map + reports dropped elements (success path)', () => {
 		const env = withAdapters(VTT_ADAPTER);
 		const before = buildInitialState(DM_ACTOR);
 		const result = accept(
@@ -434,6 +512,24 @@ describe('MAP-020 preview + diagnostics + rollback', () => {
 		);
 		expect(result.rejection.message).toMatch(/nothing would import/i);
 		expect(Object.keys(result.nextState.maps.maps)).toHaveLength(0);
+		expect(result.nextState).toBe(before);
+	});
+
+	it('an import where all elements are blocked is rejected (nothing to import)', () => {
+		const env = makeEnvironment({ mapImportAdapters: createMapImportAdapterRegistry([STRICT_ADAPTER]) });
+		const before = buildInitialState(DM_ACTOR);
+		const result = rejected(
+			dispatchCommand(before, env, {
+				type: 'map.commit-import',
+				actorId: DM_ACTOR.id,
+				payload: {
+					mapName: 'Blocked',
+					formatId: 'strict-scene',
+					declaredElements: ['tokens'],
+				},
+			} satisfies CoreCommand),
+		);
+		expect(result.rejection.message).toMatch(/nothing would import/i);
 		expect(result.nextState).toBe(before);
 	});
 

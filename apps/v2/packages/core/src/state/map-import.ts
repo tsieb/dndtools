@@ -48,7 +48,11 @@ export type MapImportElementSupport =
 	// Mapped, but with declared loss of fidelity (the DM is told what is approximated).
 	| 'lossy'
 	// The adapter cannot map this element; it will be DROPPED and REPORTED (never silently lost).
-	| 'unsupported';
+	| 'unsupported'
+	// The adapter explicitly refuses this element (e.g. security policy, executable content).
+	// Like unsupported it is DROPPED and REPORTED, but the diagnostic identifies the refusal as
+	// a deliberate policy block rather than a capability gap.
+	| 'blocked';
 
 /**
  * A typed adapter capability descriptor (modeled on the platform capability descriptors). It declares
@@ -118,6 +122,8 @@ export interface MapImportAdapterCapabilitySummary {
 	importable: MapImportElementKind[];
 	lossy: MapImportElementKind[];
 	unsupported: MapImportElementKind[];
+	/** Elements the adapter explicitly refuses on policy grounds (distinct from capability gaps). */
+	blocked: MapImportElementKind[];
 }
 
 export type MapImportRejectionReason =
@@ -182,11 +188,13 @@ export function summarizeAdapterCapabilities(
 	const importable: MapImportElementKind[] = [];
 	const lossy: MapImportElementKind[] = [];
 	const unsupported: MapImportElementKind[] = [];
+	const blocked: MapImportElementKind[] = [];
 	for (const [kind, support] of Object.entries(descriptor.elementSupport) as Array<
 		[MapImportElementKind, MapImportElementSupport]
 	>) {
 		if (support === 'importable') importable.push(kind);
 		else if (support === 'lossy') lossy.push(kind);
+		else if (support === 'blocked') blocked.push(kind);
 		else unsupported.push(kind);
 	}
 	return {
@@ -196,6 +204,7 @@ export function summarizeAdapterCapabilities(
 		importable: importable.sort(),
 		lossy: lossy.sort(),
 		unsupported: unsupported.sort(),
+		blocked: blocked.sort(),
 	};
 }
 
@@ -203,6 +212,7 @@ const SUPPORT_MESSAGE: Record<MapImportElementSupport, string> = {
 	importable: 'Imports cleanly.',
 	lossy: 'Imports with reduced fidelity.',
 	unsupported: 'Not supported by this adapter; it will be dropped and reported.',
+	blocked: 'Refused by adapter policy (e.g. security constraint); it will be dropped and reported.',
 };
 
 function assetErrorReason(error: AssetValidationError): {
@@ -285,7 +295,9 @@ export function previewMapImport(
 	for (const kind of declared) {
 		const support: MapImportElementSupport = descriptor?.elementSupport[kind] ?? 'unsupported';
 		diagnostics.push({ kind, support, present: true, message: SUPPORT_MESSAGE[support] });
-		if (support === 'unsupported') droppedElements.push(kind);
+		// Both 'unsupported' (capability gap) and 'blocked' (policy refusal) result in the element
+		// being dropped and reported — neither is ever silently committed.
+		if (support === 'unsupported' || support === 'blocked') droppedElements.push(kind);
 		else importedElements.push(kind);
 	}
 

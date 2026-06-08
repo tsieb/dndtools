@@ -362,7 +362,8 @@
 							<p class="meta">
 								Imports: {preview.capabilitySummary.importable.join(', ') || 'none'} ·
 								Lossy: {preview.capabilitySummary.lossy.join(', ') || 'none'} ·
-								Unsupported: {preview.capabilitySummary.unsupported.join(', ') || 'none'}
+								Unsupported: {preview.capabilitySummary.unsupported.join(', ') || 'none'} ·
+								Blocked: {preview.capabilitySummary.blocked.join(', ') || 'none'}
 							</p>
 						</div>
 					{/if}
