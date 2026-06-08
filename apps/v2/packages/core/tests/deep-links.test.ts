@@ -9,6 +9,7 @@ import {
 } from '../src/index';
 import {
 	DM_ACTOR,
+	OBSERVER_ACTOR,
 	PLAYER_ACTOR,
 	buildInitialState,
 	makeEnvironment,
@@ -159,6 +160,83 @@ describe('NAV-005 AC2 a target hidden from a player is generic-unavailable', () 
 		});
 		expect(result.kind).toBe('unavailable');
 		if (result.kind === 'unavailable') expect(result.message).toBe(DEEP_LINK_UNAVAILABLE_MESSAGE);
+	});
+});
+
+describe('MAP-018 AC2 a POI deep link to a hidden map artifact is generic-unavailable', () => {
+	// This describe block tests the `type: \'poi\'` resolution path through resolveDeepLink /
+	// resolvePoiDeepLink specifically. The map-query unit suite already proves that a hidden POI is
+	// absent from getMapViewForActor; these tests verify the deep-link surface itself returns the
+	// correct generic unavailable (not just the underlying query layer), which is the direct AC2 proof.
+
+	it('a player cannot deep-link to a dm-only POI — fails closed to generic unavailable', () => {
+		const state = stateWithMaps();
+		// poi-smugglers-cache is on the dm-only layer of the player-visible Western Reaches map.
+		const result = resolveDeepLink(view(state), PLAYER_ACTOR.id, {
+			type: 'poi',
+			entityId: 'map-western-reaches',
+			selectionId: 'poi-smugglers-cache',
+			sectionId: 'atlas',
+		});
+		expect(result.kind).toBe('unavailable');
+		if (result.kind === 'unavailable') {
+			// The single generic message names no entity so the hidden POI\'s existence is not confirmed.
+			expect(result.message).toBe(DEEP_LINK_UNAVAILABLE_MESSAGE);
+			expect(result.message).not.toContain('Smugglers');
+			expect(result.message).not.toContain('Cache');
+		}
+	});
+
+	it('an observer cannot deep-link to a dm-only POI — same generic unavailable', () => {
+		const state = { ...stateWithMaps(), permissions: buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR).permissions };
+		const result = resolveDeepLink(view(state), OBSERVER_ACTOR.id, {
+			type: 'poi',
+			entityId: 'map-western-reaches',
+			selectionId: 'poi-smugglers-cache',
+			sectionId: 'atlas',
+		});
+		expect(result.kind).toBe('unavailable');
+		if (result.kind === 'unavailable') {
+			expect(result.message).toBe(DEEP_LINK_UNAVAILABLE_MESSAGE);
+		}
+	});
+
+	it('hidden POI deep link is indistinguishable from a missing POI (same message)', () => {
+		const state = stateWithMaps();
+		const hiddenResult = resolveDeepLink(view(state), PLAYER_ACTOR.id, {
+			type: 'poi',
+			entityId: 'map-western-reaches',
+			selectionId: 'poi-smugglers-cache', // exists but hidden
+			sectionId: 'atlas',
+		});
+		const missingResult = resolveDeepLink(view(state), PLAYER_ACTOR.id, {
+			type: 'poi',
+			entityId: 'map-western-reaches',
+			selectionId: 'poi-does-not-exist', // does not exist at all
+			sectionId: 'atlas',
+		});
+		expect(hiddenResult.kind).toBe('unavailable');
+		expect(missingResult.kind).toBe('unavailable');
+		if (hiddenResult.kind === 'unavailable' && missingResult.kind === 'unavailable') {
+			// A player cannot distinguish "hidden from you" from "does not exist" (MAP-018 AC2).
+			expect(hiddenResult.message).toBe(missingResult.message);
+		}
+	});
+
+	it('the DM CAN deep-link to the same POI — it resolves with the correct viewport coordinate', () => {
+		const state = stateWithMaps();
+		const result = resolveDeepLink(view(state), DM_ACTOR.id, {
+			type: 'poi',
+			entityId: 'map-western-reaches',
+			selectionId: 'poi-smugglers-cache',
+			sectionId: 'atlas',
+		});
+		expect(result.kind).toBe('restore');
+		if (result.kind === 'restore') {
+			expect(result.selectionId).toBe('poi-smugglers-cache');
+			// The viewport is derived from the POI\'s normalized position (SRCH-007 AC1).
+			expect(result.viewport).toEqual({ mapId: 'map-western-reaches', x: 0.71, y: 0.41 });
+		}
 	});
 });
 
