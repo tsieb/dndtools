@@ -19,6 +19,7 @@
 	import CapabilityStatus from '$lib/gui/CapabilityStatus.svelte';
 	import SupportMatrix from '$lib/gui/SupportMatrix.svelte';
 	import SupportStatus from '$lib/gui/SupportStatus.svelte';
+	import ThemeSelector from '$lib/gui/ThemeSelector.svelte';
 
 	const runtime = useRuntime();
 	const profile = useProfile();
@@ -73,6 +74,10 @@
 
 <section data-testid="settings-view" aria-label="Settings">
 	<p class="meta">Device-local display preferences for this prototype. Nothing here is synced.</p>
+
+	<!-- UX-VIS-001: dark-first theme picker (radiogroup). Device-local; applies instantly and
+	     persists. The five named themes plus an OS-following "System" option. -->
+	<ThemeSelector />
 
 	<!-- PLAT-009 / PLAT-017: status surfaces. The DM/admin diagnostics panel fails closed
 	     for non-DM actors via the Processing Core; participants see only their own

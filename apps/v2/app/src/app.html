@@ -5,6 +5,41 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="color-scheme" content="light dark" />
 		<title>DND Tools v2 — Scene workspace</title>
+		<!--
+			UX-VIS-001: apply the saved (or OS-resolved) theme to <html> before first paint so there
+			is no flash of the wrong theme. Mirrors the resolution in $lib/state/theme.svelte; the
+			store takes over on hydration and keeps `system` tracking the OS live.
+		-->
+		<script>
+			(function () {
+				try {
+					var DARK = { tavern: 1, dungeon: 1, 'high-contrast': 1 };
+					var NAMED = {
+						tavern: 1,
+						parchment: 1,
+						dungeon: 1,
+						scholar: 1,
+						'high-contrast': 1,
+					};
+					var pref = null;
+					try {
+						pref = window.localStorage.getItem('dndtools:v2:theme');
+					} catch (e) {
+						pref = null;
+					}
+					var osDark =
+						typeof window.matchMedia === 'function'
+							? window.matchMedia('(prefers-color-scheme: dark)').matches
+							: true;
+					var applied = NAMED[pref] ? pref : osDark ? 'tavern' : 'parchment';
+					var root = document.documentElement;
+					root.setAttribute('data-theme', applied);
+					root.style.colorScheme = DARK[applied] ? 'dark' : 'light';
+				} catch (e) {
+					/* fail open to the stylesheet default (tavern) */
+				}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

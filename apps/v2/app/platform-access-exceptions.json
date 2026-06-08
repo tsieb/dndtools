@@ -27,6 +27,14 @@
       "removalCriteria": "The raw global/viewport reads must remain confined to this platform-layer probe. Remove only if profile resolution moves into a dedicated platform-profile service module that keeps the reads out of feature components."
     },
     {
+      "id": "theme-preference",
+      "path": "apps/v2/app/src/lib/platform/theme.svelte.ts",
+      "primitives": ["localStorage", "viewport-sniff"],
+      "owner": "UX-VIS (visual design system)",
+      "rationale": "Device-local theme preference (UX-VIS-001/003) is an explicitly device-scoped UI display preference (Contract 1), never durable vault or sync state. localStorage persists the choice and matchMedia('(prefers-color-scheme: dark)') resolves the OS preference for the `system` option; both are guarded by typeof checks with corrupt-data/no-API fallbacks. This is OS colour-scheme detection, not layout-profile viewport sniffing (PLAT-001), and stays confined to this platform-layer store.",
+      "removalCriteria": "Remove if device-local display preferences move into a typed platform preferences adapter and OS colour-scheme detection moves into the shared capability probe; until then theme persistence and the colour-scheme query stay confined to this file."
+    },
+    {
       "id": "runtime-id-clock",
       "path": "apps/v2/app/src/lib/canvas-runtime/runtime.svelte.ts",
       "primitives": ["crypto"],

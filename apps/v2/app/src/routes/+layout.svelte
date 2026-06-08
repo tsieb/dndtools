@@ -16,6 +16,7 @@
 		provideNavigationHistory,
 	} from '$lib/platform/navigation-history.svelte';
 	import { FeatureTierStore, provideFeatureTier } from '$lib/state/feature-tier.svelte';
+	import { ThemeStore, provideTheme } from '$lib/platform/theme.svelte';
 	import { locationFromPath } from '$lib/state/navigation-location';
 	import CommandPalette from '$lib/gui/CommandPalette.svelte';
 	import QuickSwitcher from '$lib/gui/QuickSwitcher.svelte';
@@ -44,9 +45,21 @@
 	const featureTier = new FeatureTierStore();
 	provideFeatureTier(featureTier);
 
+	// UX-VIS-001/003: theme is a device-local display preference. The store resolves the user
+	// preference (or OS `system`) into the `data-theme` attribute on <html>, persists it, and
+	// follows OS colour-scheme changes when set to `system`. The inline boot script in app.html
+	// applies the saved theme before first paint to avoid a flash of the wrong theme.
+	const themeStore = new ThemeStore();
+	provideTheme(themeStore);
+
 	onMount(() => {
 		void runtime.load();
-		return profile.init();
+		const stopProfile = profile.init();
+		const stopTheme = themeStore.init();
+		return () => {
+			stopProfile();
+			stopTheme();
+		};
 	});
 
 	// Primary navigation reads the same actor-filtered availability API the command

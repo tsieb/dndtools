@@ -17,6 +17,7 @@
 		"audit:repo": "vitest run tests/unit/repo-boundary-audit.test.ts tests/unit/ci-guardrails.test.ts",
 		"lint": "eslint . && pnpm lint:navigation && pnpm lint:tokens && pnpm audit:repo",
 		"lint:tokens": "tsx scripts/token-compliance-lint.ts",
+		"tokens:contrast": "tsx scripts/token-contrast-lint.ts",
 		"lint:circular": "tsx scripts/circular-dependency-lint.ts",
 		"lint:fix": "eslint . --fix",
 		"lint:navigation": "tsx scripts/nav-layer-lint.ts",
