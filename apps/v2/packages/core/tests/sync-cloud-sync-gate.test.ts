@@ -3,6 +3,7 @@ import {
 	CLOUD_SYNC_PREREQUISITE_IDS,
 	UNMET_CLOUD_SYNC_SECURITY_MODEL,
 	canEnableCloudSync,
+	describeRecoveryDeclaration,
 	evaluateCloudSyncGate,
 	evaluateCloudSyncPrerequisites,
 	isCloudSyncEnabled,
@@ -100,6 +101,35 @@ describe('SYNC-017 AC3 recovery declaration', () => {
 		const model: CloudSyncSecurityModel = { ...FULLY_SATISFIED, recovery: 'undeclared' };
 		const recovery = evaluateCloudSyncPrerequisites(model).find((s) => s.id === 'key-recovery');
 		expect(recovery?.met).toBe(false);
+	});
+
+	it('detail reports the limitation when recovery is unsupported-by-design (SYNC-017 AC3)', () => {
+		// When a user would attempt recovery with recovery=unsupported-by-design, the app must surface
+		// the approved limitation — not a generic "satisfied" message — without weakening encryption.
+		const model: CloudSyncSecurityModel = { ...FULLY_SATISFIED, recovery: 'unsupported-by-design' };
+		const statuses = evaluateCloudSyncPrerequisites(model);
+		const recovery = statuses.find((s) => s.id === 'key-recovery');
+		expect(recovery?.met).toBe(true);
+		// The detail must explicitly mention the limitation, not just "satisfied".
+		expect(recovery?.detail).toMatch(/unsupported by design/i);
+		expect(recovery?.detail).toMatch(/cannot be recovered/i);
+	});
+
+	it('describeRecoveryDeclaration returns the limitation message for unsupported-by-design', () => {
+		const msg = describeRecoveryDeclaration('unsupported-by-design');
+		expect(msg).toMatch(/unsupported by design/i);
+		expect(msg).toMatch(/cannot be recovered/i);
+	});
+
+	it('describeRecoveryDeclaration returns a satisfied message for supported recovery', () => {
+		const msg = describeRecoveryDeclaration('supported');
+		expect(msg.length).toBeGreaterThan(0);
+		expect(msg).not.toMatch(/unsupported/i);
+	});
+
+	it('describeRecoveryDeclaration returns the unmet detail for undeclared recovery', () => {
+		const msg = describeRecoveryDeclaration('undeclared');
+		expect(msg).toMatch(/must be declared/i);
 	});
 });
 

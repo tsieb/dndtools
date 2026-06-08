@@ -604,6 +604,7 @@ export {
 	CLOUD_SYNC_PREREQUISITE_LABELS,
 	UNMET_CLOUD_SYNC_SECURITY_MODEL,
 	canEnableCloudSync,
+	describeRecoveryDeclaration,
 	evaluateCloudSyncGate,
 	evaluateCloudSyncPrerequisites,
 	isCloudSyncEnabled,

@@ -48,7 +48,10 @@
 				<li class="scene-card" data-testid={`cloud-sync-prereq-${prerequisite.id}`}>
 					<div>
 						<strong>{prerequisite.label}</strong>
-						{#if !prerequisite.met}
+						<!-- key-recovery: always show detail even when met — AC3 requires the app to report
+						     the approved recovery limitation (including "unsupported-by-design") whenever
+						     it is relevant, not only when the prerequisite is unmet. -->
+						{#if !prerequisite.met || prerequisite.id === 'key-recovery'}
 							<div class="meta">{prerequisite.detail}</div>
 						{/if}
 					</div>

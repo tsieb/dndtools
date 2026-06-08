@@ -97,7 +97,12 @@ export interface CloudSyncPrerequisiteStatus {
 	id: CloudSyncPrerequisiteId;
 	label: string;
 	met: boolean;
-	/** A generic, non-leaking explanation shown when the prerequisite is unmet. */
+	/**
+	 * Explanation for the user. Unmet prerequisites carry the action needed to satisfy them. For the
+	 * `key-recovery` prerequisite specifically, this is ALWAYS populated: when recovery is
+	 * `unsupported-by-design`, the limitation is reported to the user even when the prerequisite is
+	 * met (SYNC-017 AC3). For other prerequisites the detail is only meaningful when unmet.
+	 */
 	detail: string;
 }
 
@@ -116,6 +121,27 @@ const UNMET_DETAIL: Readonly<Record<CloudSyncPrerequisiteId, string>> = Object.f
 
 const MET_DETAIL = 'Satisfied by the release-approved cloud security model.' as const;
 
+/**
+ * Returns a user-facing description of the key-recovery declaration for the `key-recovery`
+ * prerequisite status (SYNC-017 AC3). When recovery is `unsupported-by-design`, the approved
+ * recovery LIMITATION is surfaced so the app can report it to a user who attempts recovery,
+ * without weakening encryption or exposing other vaults.
+ */
+export function describeRecoveryDeclaration(declaration: RecoveryDeclaration): string {
+	switch (declaration) {
+		case 'supported':
+			return MET_DETAIL;
+		case 'unsupported-by-design':
+			return (
+				'Key recovery is intentionally unsupported by design under the current model. ' +
+				'If device access or the local key is lost, encrypted cloud data cannot be recovered. ' +
+				'This limitation is declared in the release-approved cloud security decision record.'
+			);
+		case 'undeclared':
+			return UNMET_DETAIL['key-recovery'];
+	}
+}
+
 /** Evaluate every prerequisite against the declared security model. */
 export function evaluateCloudSyncPrerequisites(
 	model: CloudSyncSecurityModel = UNMET_CLOUD_SYNC_SECURITY_MODEL,
@@ -131,7 +157,10 @@ export function evaluateCloudSyncPrerequisites(
 		id,
 		label: CLOUD_SYNC_PREREQUISITE_LABELS[id],
 		met: met[id],
-		detail: met[id] ? MET_DETAIL : UNMET_DETAIL[id],
+		// key-recovery always surfaces its declaration detail (SYNC-017 AC3: the app must report the
+		// approved recovery limitation — including an "unsupported-by-design" declaration — so a user
+		// who attempts recovery sees the limitation without weakening encryption or exposing other vaults.
+		detail: id === 'key-recovery' ? describeRecoveryDeclaration(model.recovery) : met[id] ? MET_DETAIL : UNMET_DETAIL[id],
 	}));
 }
 
