@@ -34,6 +34,59 @@ function mapWith(layers: MapLayer[]): MapEntity {
 	});
 }
 
+describe('MAP-011 AC4 player-visible POI on a hidden layer is a DM consistency notice', () => {
+	it('emits a visible-annotation-on-hidden-layer warning (non-blocking) when the POI overrides the layer', () => {
+		// The DM set the POI's own visibility to player-visible, but the layer is dm-only.
+		// Hidden-ancestor-wins means the POI is effectively hidden, creating a confusing discrepancy.
+		const input: MapProjectionInput = {
+			map: mapWith([layer('dm-layer', 'dm-only')]),
+			pois: [{ id: 'poi-confused', layerId: 'dm-layer', visibility: 'player-visible' }],
+		};
+		const report = auditMapProjectionConsistency(input);
+		expect(report.blocked).toBe(false); // non-blocking: the enforcement is already correct
+		expect(report.problems).toContainEqual(
+			expect.objectContaining({
+				kind: 'visible-annotation-on-hidden-layer',
+				severity: 'warning',
+				elementKind: 'poi',
+				elementId: 'poi-confused',
+				relatedElementKind: 'layer',
+				relatedElementId: 'dm-layer',
+			}),
+		);
+	});
+
+	it('a POI with dm-only own visibility on a dm-only layer does NOT trigger the warning', () => {
+		// Both the POI and the layer are dm-only — no misconfiguration.
+		const input: MapProjectionInput = {
+			map: mapWith([layer('dm-layer', 'dm-only')]),
+			pois: [{ id: 'poi-dm', layerId: 'dm-layer', visibility: 'dm-only' }],
+		};
+		const report = auditMapProjectionConsistency(input);
+		expect(report.problems.some((p) => p.kind === 'visible-annotation-on-hidden-layer')).toBe(false);
+	});
+
+	it('a player-visible POI on a player-visible layer does NOT trigger the warning', () => {
+		const input: MapProjectionInput = {
+			map: mapWith([layer('pub-layer', 'player-visible')]),
+			pois: [{ id: 'poi-ok', layerId: 'pub-layer', visibility: 'player-visible' }],
+		};
+		const report = auditMapProjectionConsistency(input);
+		expect(report.problems.some((p) => p.kind === 'visible-annotation-on-hidden-layer')).toBe(false);
+		expect(report.blocked).toBe(false);
+	});
+
+	it('report is DM-only: the non-DM actor still receives null (AC4 does not leak the warning)', () => {
+		const input: MapProjectionInput = {
+			map: mapWith([layer('dm-layer', 'dm-only')]),
+			pois: [{ id: 'poi-confused', layerId: 'dm-layer', visibility: 'player-visible' }],
+		};
+		expect(getMapProjectionConsistencyForActor(input, 'player')).toBeNull();
+		expect(getMapProjectionConsistencyForActor(input, 'observer')).toBeNull();
+		expect(getMapProjectionConsistencyForActor(input, 'dm')).not.toBeNull();
+	});
+});
+
 describe('MAP-016 pre-projection visibility consistency', () => {
 	it('AC1: a player-visible route referencing a hidden POI BLOCKS projection', () => {
 		const input: MapProjectionInput = {

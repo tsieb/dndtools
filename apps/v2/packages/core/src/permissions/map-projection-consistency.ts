@@ -93,7 +93,8 @@ export type MapProjectionProblemKind =
 	| 'visible-overlay-omits-required-token'
 	| 'visible-link-targets-hidden-map'
 	| 'hidden-content-on-visible-layer'
-	| 'safely-omitted-hidden-token';
+	| 'safely-omitted-hidden-token'
+	| 'visible-annotation-on-hidden-layer';
 
 export type MapProjectionSeverity = 'error' | 'warning';
 
@@ -156,6 +157,29 @@ export function auditMapProjectionConsistency(
 	// A POI is player-visible iff its own level AND its layer are player-facing.
 	const poiPlayerVisible = (poi: MapPoiRecord): boolean =>
 		surfaceIsPlayerVisible(poi.visibility, layerById.get(poi.layerId));
+
+	// 0. MAP-011 AC4 — a POI whose OWN visibility is `player-visible` but whose LAYER is hidden
+	//    (hidden-ancestor-wins). The POI will not appear to players because the layer overrides it, yet
+	//    the DM set it `player-visible` — this is a misconfiguration the DM needs to resolve before
+	//    projecting. Non-blocking (the visibility enforcement is already correct) but explicitly surfaced
+	//    so the DM is not left wondering why the POI is absent from the player view.
+	for (const poi of pois) {
+		const layer = layerById.get(poi.layerId);
+		const layerHidesAnnotation = layer ? !isPlayerFacing(layer.visibility) : true; // orphan → hidden
+		if (isPlayerFacing(poi.visibility) && layerHidesAnnotation) {
+			problems.push({
+				kind: 'visible-annotation-on-hidden-layer',
+				severity: 'warning',
+				mapId: map.id,
+				elementKind: 'poi',
+				elementId: poi.id,
+				relatedElementKind: 'layer',
+				relatedElementId: poi.layerId,
+				remediation:
+					'This POI is set to player-visible but its layer is hidden from players. The POI will not appear in any player-facing surface until the layer is also revealed.',
+			});
+		}
+	}
 
 	// 1. A player-visible ROUTE that references a hidden POI (MAP-016 AC1). BLOCKING: projecting the
 	//    route would either leak the hidden POI's position or draw a path to nothing.
