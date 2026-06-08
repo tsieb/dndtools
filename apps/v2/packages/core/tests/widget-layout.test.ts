@@ -176,4 +176,102 @@ describe('CANVAS-003: scene layout commands keep bound-entity revisions out of t
 		expect(op?.beforeRevision).toBeDefined();
 		expect(op?.afterRevision).toBeDefined();
 	});
+
+	it('two independent widget position edits produce non-overlapping operation paths (AC-2 independent-merge contract)', () => {
+		const { state, env, sceneId, widgetIds } = setupSceneWithWidgets();
+		const w1 = widgetIds[0];
+		const w2 = widgetIds[1];
+		if (!w1 || !w2) throw new Error('no widgets');
+
+		// Simulate two independent users each moving a different widget on the same Scene.
+		const move1 = dispatchCommand(state, env, {
+			type: 'scene.move-widget',
+			actorId: DM_ACTOR.id,
+			payload: { sceneId, widgetInstanceId: w1, x: 10, y: 20 },
+		});
+		expect(move1.status).toBe('accepted');
+		if (move1.status !== 'accepted') return;
+		const move2 = dispatchCommand(move1.nextState, env, {
+			type: 'scene.move-widget',
+			actorId: DM_ACTOR.id,
+			payload: { sceneId, widgetInstanceId: w2, x: 30, y: 40 },
+		});
+		expect(move2.status).toBe('accepted');
+		if (move2.status !== 'accepted') return;
+
+		// Both positions are reflected in the final scene state.
+		const scene = move2.nextState.scenes.scenes[sceneId];
+		if (!scene) throw new Error('missing scene');
+		expect(scene.widgets.find((w) => w.id === w1)?.layout).toMatchObject({ x: 10, y: 20 });
+		expect(scene.widgets.find((w) => w.id === w2)?.layout).toMatchObject({ x: 30, y: 40 });
+
+		// Each operation targets a distinct, non-overlapping path so a sync engine can
+		// apply them independently without one clobbering the other (CANVAS-003 AC-2).
+		const ops = move2.nextState.sync.operations;
+		const pathW1 = ops.find((o) => o.opType === 'scene.move-widget' && o.path?.includes(w1))?.path;
+		const pathW2 = ops.find((o) => o.opType === 'scene.move-widget' && o.path?.includes(w2))?.path;
+		expect(pathW1).toBeDefined();
+		expect(pathW2).toBeDefined();
+		expect(pathW1).not.toEqual(pathW2);
+		expect(pathW1).toContain(w1);
+		expect(pathW2).toContain(w2);
+	});
+
+	it('group move preserves focus traversal metadata (focusOrder) on all members (AC-3)', () => {
+		const { state, env, sceneId, widgetIds } = setupSceneWithWidgets();
+		const a = widgetIds[0];
+		const b = widgetIds[1];
+		if (!a || !b) throw new Error('missing widgets');
+
+		// Assign explicit focusOrder to both widgets before grouping.
+		const focusA = dispatchCommand(state, env, {
+			type: 'scene.set-focus-order',
+			actorId: DM_ACTOR.id,
+			payload: { sceneId, widgetInstanceId: a, focusOrder: 3 },
+		});
+		expect(focusA.status).toBe('accepted');
+		if (focusA.status !== 'accepted') return;
+		const focusB = dispatchCommand(focusA.nextState, env, {
+			type: 'scene.set-focus-order',
+			actorId: DM_ACTOR.id,
+			payload: { sceneId, widgetInstanceId: b, focusOrder: 7 },
+		});
+		expect(focusB.status).toBe('accepted');
+		if (focusB.status !== 'accepted') return;
+
+		// Group the two widgets.
+		const grouped = dispatchCommand(focusB.nextState, env, {
+			type: 'scene.group-widgets',
+			actorId: DM_ACTOR.id,
+			payload: { sceneId, widgetInstanceIds: [a, b] },
+		});
+		expect(grouped.status).toBe('accepted');
+		if (grouped.status !== 'accepted') return;
+		const sceneWithGroup = grouped.nextState.scenes.scenes[sceneId];
+		if (!sceneWithGroup) throw new Error('missing scene');
+		const groupId = sceneWithGroup.widgets.find((w) => w.id === a)?.layout.groupId;
+		if (!groupId) throw new Error('no groupId');
+
+		// Move the group.
+		const moved = dispatchCommand(grouped.nextState, env, {
+			type: 'scene.move-group',
+			actorId: DM_ACTOR.id,
+			payload: { sceneId, groupId, deltaX: 100, deltaY: 50 },
+		});
+		expect(moved.status).toBe('accepted');
+		if (moved.status !== 'accepted') return;
+		const sceneAfter = moved.nextState.scenes.scenes[sceneId];
+		if (!sceneAfter) throw new Error('missing scene');
+		const wa = sceneAfter.widgets.find((w) => w.id === a);
+		const wb = sceneAfter.widgets.find((w) => w.id === b);
+
+		// Positions shifted by the group delta.
+		expect(wa?.layout.x).toBe(100);
+		expect(wa?.layout.y).toBe(50);
+		expect(wb?.layout.x).toBe(100);
+		expect(wb?.layout.y).toBe(50);
+		// Focus traversal metadata is intact and unchanged after the group move.
+		expect(wa?.layout.focusOrder).toBe(3);
+		expect(wb?.layout.focusOrder).toBe(7);
+	});
 });
