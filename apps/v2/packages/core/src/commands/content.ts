@@ -297,6 +297,48 @@ export function handleUpdateContentItem(
 	);
 	if (dateError) return reject(dateError, state);
 
+	// CONTENT-001 AC5 — concurrent-edit detection. When `baseRevision` is supplied and is stale (the
+	// item was updated by another editor since the caller read it), record a durable conflict op for DM
+	// resolution rather than silently clobbering the concurrent change. The item is left UNCHANGED so the
+	// other editor's work is preserved. This mirrors the CHAR-004 same-path conflict model at item scope.
+	if (parsed.data.baseRevision !== undefined && parsed.data.baseRevision < existing.revision) {
+		const conflictId = env.ids();
+		const conflictValue = {
+			id: conflictId,
+			reason: 'same-scalar-path',
+			ancestorRevision: parsed.data.baseRevision,
+			local: {
+				value: { title: existing.title, body: existing.body, fields: existing.fields },
+				revision: existing.revision,
+				authorActorId: existing.authorActorId,
+			},
+			remote: {
+				value: {
+					title: parsed.data.title,
+					body: parsed.data.body,
+					fields: parsed.data.fields,
+				},
+				revision: parsed.data.baseRevision + 1,
+				authorActorId: actor.id,
+			},
+		};
+		const draft = appendOperationDraft(env, state.sync, actor.id, {
+			entityType: CONTENT_ITEM_ENTITY_TYPE,
+			entityId: parsed.data.itemId,
+			opType: 'content.item-conflict',
+			path: `content/items/${parsed.data.itemId}/conflicts/${conflictId}`,
+			value: conflictValue,
+			beforeRevision: parsed.data.baseRevision,
+			afterRevision: existing.revision,
+		});
+		return {
+			status: 'accepted',
+			nextState: { ...contentWith(state, content), sync: draft.log },
+			events: [{ kind: 'content.item-conflicted', itemId: parsed.data.itemId, conflictId, actorId: actor.id }],
+			operationIds: [draft.op.id],
+		};
+	}
+
 	const nextContent = updateContentItem(
 		content,
 		parsed.data.itemId,

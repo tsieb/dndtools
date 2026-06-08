@@ -962,6 +962,15 @@ export type CoreEvent =
 			invalidatedActorIds: ActorId[];
 			actorId: ActorId;
 	  }
+	// CONTENT-001 AC5 — two authorized editors concurrently updated the same content item from the same
+	// base revision. The item is UNCHANGED (the concurrent edit did not overwrite). A durable
+	// `content.item-conflict` op is recorded for DM resolution via the vault conflict machinery.
+	| {
+			kind: 'content.item-conflicted';
+			itemId: string;
+			conflictId: string;
+			actorId: ActorId;
+	  }
 	// CONTENT-007 — a transactional import committed. Carries what was created/overwritten and which
 	// steps were APPLIED vs RESUMED-SKIPPED (already written by a prior partial run — AC2), for the audit.
 	| {

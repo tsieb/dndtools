@@ -8,9 +8,11 @@ import {
 } from '../src/testing/fixtures';
 import {
 	CONTENT_ITEM_ENTITY_TYPE,
+	deriveVaultConflicts,
 	dispatchCommand,
 	getContentItemsForActor,
 	getDeletedContentItemsForActor,
+	isEntityConflicted,
 	searchContentForActor,
 	type Actor,
 	type CommandResult,
@@ -237,3 +239,86 @@ function createNoteOn(
 ): [CoreStateSlice, string] {
 	return createNote(state, env, payload);
 }
+
+describe('CONTENT-001 AC5: concurrent same-note update → durable conflict record', () => {
+	it('AC5: two editors update the same note from the same base revision → a durable conflict op is recorded and the item is UNCHANGED', () => {
+		const env = makeEnvironment();
+		// Create a note at revision 1.
+		const [state0, noteId] = createNote(base(), env, {
+			title: 'Lore',
+			body: 'v1 content',
+			visibility: 'dm-only',
+		});
+
+		// First editor (DM) updates the note → revision 2.
+		const state1 = accepted(
+			dispatchCommand(state0, env, cmd('content.update-item', { itemId: noteId, body: 'DM edit', baseRevision: 1 })),
+		).nextState;
+		const afterFirstEdit = getContentItemsForActor(state1.content, state1.permissions, DM_ACTOR.id)[0]!;
+		expect(afterFirstEdit.revision).toBe(2);
+		expect(afterFirstEdit.body).toBe('DM edit');
+
+		// Second editor (PLAYER_ACTOR, granted contributor) sends an update that was based on revision 1
+		// (concurrent — they didn't see the DM's edit). This is now stale.
+		const grant: PermissionGrant = {
+			id: 'grant-contributor',
+			entityType: CONTENT_ITEM_ENTITY_TYPE,
+			entityId: noteId,
+			playerActorId: PLAYER_ACTOR.id,
+			capabilitySet: 'contributor',
+			createdBy: DM_ACTOR.id,
+			createdAt: '2026-06-03T00:00:00.000Z',
+		};
+		const stateWithGrant = { ...state1, permissions: { ...state1.permissions, grants: [...state1.permissions.grants, grant] } };
+		const conflictResult = accepted(
+			dispatchCommand(stateWithGrant, env, cmd('content.update-item', { itemId: noteId, body: 'Player edit', baseRevision: 1 }, PLAYER_ACTOR.id)),
+		);
+
+		// Item MUST be unchanged (the concurrent edit did not overwrite the DM's work).
+		const itemAfterConflict = getContentItemsForActor(conflictResult.nextState.content, conflictResult.nextState.permissions, DM_ACTOR.id)[0]!;
+		expect(itemAfterConflict.body).toBe('DM edit');
+		expect(itemAfterConflict.revision).toBe(2);
+
+		// A durable conflict-shaped op must be recorded (so deriveVaultConflicts can reconstruct it).
+		const conflictOp = conflictResult.nextState.sync.operations.at(-1)!;
+		expect(conflictOp.opType).toBe('content.item-conflict');
+		expect(conflictOp.entityType).toBe(CONTENT_ITEM_ENTITY_TYPE);
+		expect(conflictOp.entityId).toBe(noteId);
+
+		// The vault conflict machinery must recognize the entity as conflicted.
+		const conflicts = deriveVaultConflicts(
+			conflictResult.nextState.sync.operations,
+			conflictResult.nextState.sync.operations,
+		);
+		expect(isEntityConflicted(conflicts, CONTENT_ITEM_ENTITY_TYPE, noteId)).toBe(true);
+
+		// A `content.item-conflicted` event must be emitted.
+		const event = conflictResult.events.find((e) => e.kind === 'content.item-conflicted');
+		expect(event).toBeDefined();
+
+		// The event carries the item id (non-leaking: no content in the event).
+		expect((event as { itemId: string }).itemId).toBe(noteId);
+	});
+
+	it('AC5: update without baseRevision always succeeds (conflict detection is opt-in)', () => {
+		const env = makeEnvironment();
+		const [state0, noteId] = createNote(base(), env, { title: 'Lore', body: 'v1', visibility: 'dm-only' });
+		// DM updates to revision 2.
+		const state1 = accepted(dispatchCommand(state0, env, cmd('content.update-item', { itemId: noteId, body: 'v2' }))).nextState;
+		// Another update without baseRevision always succeeds, even though revision is now 2.
+		const state2 = accepted(dispatchCommand(state1, env, cmd('content.update-item', { itemId: noteId, body: 'v3' }))).nextState;
+		expect(getContentItemsForActor(state2.content, state2.permissions, DM_ACTOR.id)[0]!.body).toBe('v3');
+	});
+
+	it('AC5: update with a fresh baseRevision (not stale) succeeds normally — no conflict', () => {
+		const env = makeEnvironment();
+		const [state0, noteId] = createNote(base(), env, { title: 'Lore', body: 'v1', visibility: 'dm-only' });
+		// DM updates from revision 1 (fresh) → should succeed.
+		const result = accepted(
+			dispatchCommand(state0, env, cmd('content.update-item', { itemId: noteId, body: 'fresh edit', baseRevision: 1 })),
+		);
+		expect(getContentItemsForActor(result.nextState.content, result.nextState.permissions, DM_ACTOR.id)[0]!.body).toBe('fresh edit');
+		// No conflict op.
+		expect(result.nextState.sync.operations.at(-1)!.opType).toBe('content.update-item');
+	});
+});

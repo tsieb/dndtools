@@ -1481,6 +1481,13 @@ export const updateContentItemInputSchema = z
 		fields: z.record(z.string(), z.unknown()).optional(),
 		dateFields: z.record(z.string(), customDateSchema).optional(),
 		timelineRefs: z.array(timelineReferenceInputSchema).optional(),
+		/**
+		 * CONTENT-001 AC5 — the revision the editor was working from. When supplied and stale (less than
+		 * the current item revision), the command detects a concurrent edit and records a durable
+		 * `content.item-conflict` op for DM resolution rather than silently clobbering the other editor's
+		 * work. Omitting it skips the check (callers that do not need conflict detection may omit it).
+		 */
+		baseRevision: z.number().int().nonnegative().optional(),
 	})
 	.strict()
 	.refine(
