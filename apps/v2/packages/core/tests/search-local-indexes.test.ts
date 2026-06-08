@@ -293,4 +293,65 @@ describe('SRCH-001 AC3 — an accepted mutation updates the index incrementally 
 		// But the cached result is NOT blocked — search still returns the note.
 		expect(search(state, DM_ACTOR.id, { query: 'indexed', contentTypes: ['note'] }).hits.length).toBe(1);
 	});
+
+	it('a newly-created map artifact (POI) is immediately searchable (incremental update for map artifacts)', () => {
+		// AC3 explicitly covers "map artifact" — this test proves a new POI is searchable immediately
+		// after its accepted mutation, just as a new note is (the search reads live state directly).
+		const env = makeEnvironment();
+		// The demo map has no 'Sentry Post' POI yet.
+		const before = search(base(), DM_ACTOR.id, { query: 'sentry post', contentTypes: ['poi'] });
+		expect(before.hits).toEqual([]);
+		// Accept a map mutation; the new POI is searchable in the very next read (live local index).
+		const result = accepted(
+			dispatchCommand(
+				base(),
+				env,
+				cmd('map.create-poi', {
+					mapId: 'map-western-reaches',
+					layerId: 'layer-terrain',
+					label: 'Sentry Post',
+					category: 'landmark',
+					position: { x: 0.4, y: 0.5 },
+					visibility: 'player-visible',
+					notes: 'A watchtower at the crossroads.',
+				}),
+			),
+		);
+		const after = search(result.nextState, DM_ACTOR.id, { query: 'sentry', contentTypes: ['poi'] });
+		expect(after.hits.map((h) => h.title)).toContain('Sentry Post');
+		expect(after.hits.find((h) => h.title === 'Sentry Post')!.type).toBe('poi');
+	});
+
+	it('a behind background index marks the poi domain STALE for map artifacts without blocking results', () => {
+		// AC3 explicitly covers "map artifact" — this test proves a behind index marks the poi domain
+		// stale while still returning the cached visible POIs (fail closed, never blocking).
+		const state = base(); // demo map includes player-visible and dm-only POIs.
+		// The persisted index has NOT yet consumed the poi mutations (background indexing behind):
+		// the indexed cursor is empty while the live source cursor reflects the demo POIs.
+		const persisted = recordDomainMutation(undefined, 'poi', 0, '2026-06-03T12:00:01.000Z');
+		const lagging = {
+			...persisted,
+			domains: {
+				...persisted.domains,
+				poi: {
+					...persisted.domains.poi,
+					indexedCursor: { sequence: 0, revision: 0, updatedAt: null },
+				},
+			},
+		};
+		const status = getSearchIndexStatus(
+			state.content,
+			state.maps,
+			state.permissions,
+			state.session,
+			DM_ACTOR.id,
+			lagging,
+		);
+		const poi = status.domains.find((d) => d.domain === 'poi')!;
+		expect(poi.status).toBe('stale');
+		expect(status.anyStale).toBe(true);
+		expect(status.staleDomains).toContain('poi');
+		// But the cached result is NOT blocked — visible POIs still return (Harbor Town is player-visible).
+		expect(search(state, DM_ACTOR.id, { query: 'harbor', contentTypes: ['poi'] }).hits.length).toBe(1);
+	});
 });
