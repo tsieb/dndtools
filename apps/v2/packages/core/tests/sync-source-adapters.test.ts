@@ -316,6 +316,8 @@ describe('SYNC-012 Obsidian pull + push round-trip over the fake transport', () 
 		const original = obsidianFileToCanonicalNote(text);
 		expect(reparsed.body).toBe(original.body);
 		expect(reparsed.aliases).toEqual(original.aliases);
+		// AC1: tags must remain valid after a push (the note carries `tags: [loc]`).
+		expect(reparsed.tags).toEqual(original.tags);
 		expect(reparsed.wikilinks).toEqual(original.wikilinks);
 	});
 
@@ -375,6 +377,8 @@ describe('SYNC-012 / SYNC-005 Google Docs pull + push with revision + formatting
 		expect(file).not.toBeNull();
 		expect(file!.fileId).toBe('file-quest');
 		expect(file!.revisionId).toBe('rev-1');
+		// AC2: supported content (the markdown body) must be preserved on a push round-trip.
+		expect(file!.markdown).toBe('# Quest\nFind the relic. #urgent');
 		// The unsupported-format diagnostic is NOT lost on the write-back.
 		expect(file!.unsupportedFormatting).toContain('comment');
 	});
