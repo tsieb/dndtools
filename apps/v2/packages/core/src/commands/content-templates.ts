@@ -7,6 +7,7 @@ import {
 } from '../state/content-templates';
 import {
 	contentSnippet,
+	inheritedSnippetVisibility,
 	insertSnippet,
 	snippetCanInsertIntoVisibility,
 	type ContentSnippet,
@@ -170,7 +171,9 @@ export function handleInsertSnippet(
 	// VISIBILITY GUARD (CONTENT-004): inserting a snippet PRESERVES the note's visibility — the resulting
 	// visibility is the note's own. A snippet carries none and can never widen the note's audience. This is
 	// the explicit, fail-closed invariant (the resulting visibility must be ≤ the host's breadth).
-	if (!snippetCanInsertIntoVisibility(existing.visibility, existing.visibility)) {
+	// The second argument is inheritedSnippetVisibility (the host's own normalized visibility) because a
+	// snippet carries no visibility of its own — the result is always the host's visibility unchanged.
+	if (!snippetCanInsertIntoVisibility(existing.visibility, inheritedSnippetVisibility(existing.visibility))) {
 		return reject(
 			{ code: 'snippet-widens-visibility', message: 'A snippet cannot widen the note visibility.' },
 			state,
