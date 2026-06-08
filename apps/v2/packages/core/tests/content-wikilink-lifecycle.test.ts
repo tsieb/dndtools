@@ -343,6 +343,39 @@ describe('CONTENT-006 — durable repair command (fail closed offline)', () => {
 		// The local draft (note body) is unchanged.
 		expect(contentItemById(result.nextState.content, noteId)!.body).toBe(before);
 	});
+
+	it('REJECTS a repair when the broken note source is unavailable (AC3 — no destructive write via command)', () => {
+		let state = base();
+		// A note marked as from an unavailable (offline) source.
+		const unavailableNote = createNote(state, env, {
+			title: 'Old Ruins',
+			fields: { 'dndtools.source': 'obsidian', 'dndtools.sourceUnavailable': true },
+		});
+		state = unavailableNote.state;
+		const journal = createNote(state, env, {
+			title: 'Journal',
+			body: 'Visited [[Old Ruins]] (source offline).',
+		});
+		state = journal.state;
+		const noteId = journal.id;
+		const before = contentItemById(state.content, noteId)!.body;
+
+		// Attempting to repair [[Old Ruins]] when its source is unavailable is refused (AC3).
+		const result = rejected(
+			dispatchCommand(
+				state,
+				env,
+				cmd('content.repair-wikilink', {
+					itemId: noteId,
+					brokenTarget: 'Old Ruins',
+					fixTargetTitle: 'Highmoor',
+				}),
+			),
+		);
+		expect(result.rejection.code).toBe('wikilink-source-unavailable');
+		// The note body is unchanged — no destructive offline rewrite.
+		expect(contentItemById(result.nextState.content, noteId)!.body).toBe(before);
+	});
 });
 
 describe('CONTENT-006 — actor-filtered broken-link detection', () => {
@@ -363,6 +396,5 @@ describe('CONTENT-006 — actor-filtered broken-link detection', () => {
 		expect(
 			detectBrokenLinksForActor(state.content, state.permissions, DM_ACTOR.id, 'Heading to [[Secret Lair]].'),
 		).toHaveLength(0);
-		expect(LOCAL.available).toBe(true);
 	});
 });
