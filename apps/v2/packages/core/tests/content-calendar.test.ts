@@ -195,12 +195,13 @@ describe('CONTENT-011: create calendar-aware content items (fail closed + date v
 });
 
 describe('CONTENT-011: authorized-editor edits on an existing item', () => {
-	/** DM creates a note then grants PLAYER_ACTOR section-editor on it; returns state + item id. */
+	/** DM creates a player-visible note then grants PLAYER_ACTOR section-editor on it; returns state + item id. */
 	function withGrantedEditor(): { state: CoreStateSlice; env: CoreEnvironment; itemId: string } {
 		const env = makeEnvironment();
 		let state = withCalendar(base(), env);
 		state = accepted(
-			dispatchCommand(state, env, cmd('content.create-item', { kind: 'note', title: 'Lore' })),
+			// Must be player-visible: CONTENT-009 AC4 forbids non-DM writes to dm-only items even with a grant.
+			dispatchCommand(state, env, cmd('content.create-item', { kind: 'note', title: 'Lore', visibility: 'player-visible' })),
 		).nextState;
 		const itemId = Object.values(state.content.items)[0]!.id;
 		state = accepted(

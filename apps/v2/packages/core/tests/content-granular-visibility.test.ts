@@ -334,11 +334,10 @@ describe('CONTENT-009 AC4 — write grant on a hidden section is a consistency e
 		const playerDetail = getContentItemDetailForActor(granted.content, granted.permissions, PLAYER_ACTOR.id, itemId);
 		expect(playerDetail.visible).toBe(false);
 
-		// And the write grant alone does not let the player WRITE a hidden item's visibility either — the
-		// item being dm-only does not block an authorized editor, but reading is what AC4 forbids. Confirm
-		// the player cannot escalate by changing the entity visibility to a wider audience without DM action:
-		// a section-editor MAY edit, but the read filter still hides the item from them, proving the grant
-		// did not widen their READ access.
+		// And the write grant does NOT let the player WRITE a hidden item — a grant never bypasses
+		// visibility (Contract 3 Axis 2 rule 4 / CONTENT-009 AC4). A section-editor grant on a dm-only
+		// item is the exact invalid state flagged by the consistency error, and the write guard enforces
+		// it: the player cannot edit, read, or escalate visibility on a dm-only item regardless of grants.
 		const editAttempt = dispatchCommand(
 			granted,
 			env,
@@ -348,11 +347,13 @@ describe('CONTENT-009 AC4 — write grant on a hidden section is a consistency e
 				PLAYER_ACTOR.id,
 			),
 		);
-		// The grant authorizes the EDIT (section-editor is an authorized editor), but the player's READ of
-		// the dm-only item remains denied — the two axes are independent and the consistency error stands.
-		expect(editAttempt.status).toBe('accepted');
+		// The player's write is REJECTED — the dm-only visibility barrier blocks write access too.
+		expect(editAttempt.status).toBe('rejected');
+		if (editAttempt.status !== 'rejected') throw new Error('expected rejected');
+		expect(editAttempt.rejection.code).toBe('actor-not-authorized');
+		// Read remains denied as well (unchanged from before).
 		const stillHidden = getContentItemDetailForActor(
-			editAttempt.status === 'accepted' ? editAttempt.nextState.content : granted.content,
+			granted.content,
 			granted.permissions,
 			PLAYER_ACTOR.id,
 			itemId,

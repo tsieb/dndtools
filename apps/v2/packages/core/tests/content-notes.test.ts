@@ -243,11 +243,12 @@ function createNoteOn(
 describe('CONTENT-001 AC5: concurrent same-note update → durable conflict record', () => {
 	it('AC5: two editors update the same note from the same base revision → a durable conflict op is recorded and the item is UNCHANGED', () => {
 		const env = makeEnvironment();
-		// Create a note at revision 1.
+		// Create a note at revision 1. Must be player-visible so the granted player can write
+		// (CONTENT-009 AC4 blocks non-DM writes to dm-only items even with a grant).
 		const [state0, noteId] = createNote(base(), env, {
 			title: 'Lore',
 			body: 'v1 content',
-			visibility: 'dm-only',
+			visibility: 'player-visible',
 		});
 
 		// First editor (DM) updates the note → revision 2.

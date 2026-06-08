@@ -68,10 +68,18 @@ function actorMayAuthorVault(actor: Actor): boolean {
 /**
  * Authorized editor for an EXISTING item: the DM, or a player holding a write-capable grant
  * (`section-editor`/`contributor`) on that content-item entity. An observer never qualifies.
+ *
+ * CONTENT-009 AC4: a non-DM player cannot write to a `dm-only` item even when they hold a write
+ * grant — a grant never bypasses visibility (Contract 3 Axis 2 rule 4). The grant is invalid (the
+ * DM sees a `write-grant-on-hidden-content` consistency error), but the guard is enforced here so
+ * the player cannot circumvent the visibility barrier by exploiting the stale grant.
  */
 function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string): boolean {
 	if (actor.role === 'dm') return true;
 	if (actor.role === 'observer') return false;
+	// Fail closed: a dm-only item is never writable by a non-DM, regardless of any grant.
+	const item = contentItemById(state.content, itemId);
+	if (item && item.visibility === 'dm-only') return false;
 	return (
 		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor') ||
 		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor')

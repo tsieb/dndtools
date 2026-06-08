@@ -246,7 +246,8 @@ describe('CONTENT-004 — authoring authority + lifecycle (fail closed)', () => 
 	});
 
 	it('a granted authorized editor (player) may insert a snippet', () => {
-		const { state, env, itemId } = withNote('Prose.', 'dm-only');
+		// Must be player-visible: CONTENT-009 AC4 blocks non-DM writes to dm-only items even with a grant.
+		const { state, env, itemId } = withNote('Prose.', 'player-visible');
 		const granted = accepted(
 			dispatchCommand(
 				state,
@@ -268,7 +269,7 @@ describe('CONTENT-004 — authoring authority + lifecycle (fail closed)', () => 
 		);
 		expect(result.nextState.content.items[itemId]!.body).toContain('STR');
 		// Visibility still preserved even for the granted editor.
-		expect(result.nextState.content.items[itemId]!.visibility).toBe('dm-only');
+		expect(result.nextState.content.items[itemId]!.visibility).toBe('player-visible');
 	});
 
 	it('fails closed: a player WITHOUT a grant cannot insert a snippet', () => {
