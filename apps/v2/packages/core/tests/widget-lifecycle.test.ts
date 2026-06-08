@@ -542,18 +542,61 @@ describe('CANVAS-011: widget package upgrades and migration diagnostics', () => 
 
 describe('CANVAS-014: destroy removes widget-local state without mutating bindings', () => {
 	it('removes the widget instance and local state while only recording a Scene operation', () => {
-		const { env, state, sceneId } = createScene(buildInitialState(DM_ACTOR));
-		const { state: withWidget, widgetId } = addWidget(state, env, sceneId, 'map');
-		const beforeBinding = withWidget.scenes.scenes[sceneId]?.widgets[0]?.binding;
-		const destroyed = dispatchCommand(withWidget, env, {
+		const env = makeEnvironment();
+		const base = buildInitialState(DM_ACTOR);
+
+		// Create a real map entity so we can assert it is not mutated by widget destroy.
+		const mapCreated = dispatchCommand(base, env, {
+			type: 'map.create',
+			actorId: DM_ACTOR.id,
+			payload: { name: 'Dungeon Level 1' },
+		});
+		expect(mapCreated.status).toBe('accepted');
+		if (mapCreated.status !== 'accepted') return;
+		const mapId = mapCreated.events.find((e) => e.kind === 'map.created')?.mapId as string;
+
+		const { state: stateWithScene, sceneId } = createScene(mapCreated.nextState, env);
+
+		// Add a map widget bound to the real map entity.
+		const added = dispatchCommand(stateWithScene, env, {
+			type: 'scene.add-widget',
+			actorId: DM_ACTOR.id,
+			payload: {
+				sceneId,
+				widget: {
+					type: 'map',
+					version: '1.0.0',
+					layout: { x: 10, y: 20, w: 240, h: 160 },
+					configuration: {},
+					binding: {
+						source: { entityType: 'map', entityId: mapId },
+						mode: 'read' as const,
+						requiredCapability: 'viewer' as const,
+					},
+				},
+			},
+		});
+		if (added.status !== 'accepted') throw new Error('add-widget failed');
+		const widgetEvent = added.events.find((e) => e.kind === 'scene.widget-added');
+		if (!widgetEvent || widgetEvent.kind !== 'scene.widget-added')
+			throw new Error('missing scene.widget-added event');
+		const widgetId = widgetEvent.widgetInstanceId;
+
+		// Capture the bound entity snapshot before destroy.
+		const mapEntityBefore = added.nextState.maps.maps[mapId];
+
+		const destroyed = dispatchCommand(added.nextState, env, {
 			type: 'scene.destroy-widget',
 			actorId: DM_ACTOR.id,
 			payload: { sceneId, widgetInstanceId: widgetId },
 		});
 		expect(destroyed.status).toBe('accepted');
 		if (destroyed.status !== 'accepted') return;
+		// Widget instance is removed from the Scene.
 		expect(destroyed.nextState.scenes.scenes[sceneId]?.widgets).toEqual([]);
-		expect(beforeBinding?.source).toEqual({ entityType: 'map', entityId: 'map-1' });
+		// Bound map entity is not mutated or deleted by the destroy command.
+		expect(destroyed.nextState.maps.maps[mapId]).toBe(mapEntityBefore);
+		// Only a scene-scoped operation is appended; no map.delete or entity operation.
 		expect(destroyed.nextState.sync.operations.at(-1)).toMatchObject({
 			entityType: 'scene',
 			entityId: sceneId,
