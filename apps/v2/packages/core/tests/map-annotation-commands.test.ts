@@ -68,10 +68,43 @@ describe('MAP-010 POI create/move/categorize/link is a durable DM command', () =
 		expect(result.events[0]).toMatchObject({ kind: 'map.poi-changed', mutation: 'create' });
 		const map = result.nextState.maps.maps[WESTERN]!;
 		const created = map.pois.find((p) => p.label === 'Watchtower')!;
+		// MAP-010 AC1: normalized coordinates, label, category, and target entity id all stored.
+		expect(created.label).toBe('Watchtower');
+		expect(created.category).toBe('landmark');
 		expect(created.position).toEqual({ x: 0.25, y: 0.3 });
+		expect(created.linkedEntityType).toBe('note');
 		expect(created.linkedEntityId).toBe('note-watchtower');
 		// The parent map revision is bumped (conflict-shaped change).
 		expect(map.revision).toBe(2);
+	});
+
+	it('MAP-010 AC2: POI position passes through the actor-filtered query unchanged (anchored across zoom/resize)', () => {
+		// Create a POI at a specific normalized position; verify getMapViewForActor returns the SAME
+		// normalized coordinates so any render at any scale uses the same (x,y) anchor.
+		const result = accept(
+			run(seeded(), {
+				type: 'map.create-poi',
+				actorId: DM_ACTOR.id,
+				payload: {
+					mapId: WESTERN,
+					layerId: 'layer-terrain',
+					label: 'Beacon',
+					category: 'landmark',
+					position: { x: 0.33, y: 0.77 },
+					visibility: 'player-visible',
+				},
+			}),
+		);
+		const view = getMapViewForActor(
+			result.nextState.maps,
+			result.nextState.permissions,
+			PLAYER_ACTOR.id,
+			WESTERN,
+		);
+		if (view.kind !== 'available') throw new Error('unavailable');
+		const beacon = view.pois.find((p) => p.label === 'Beacon')!;
+		// Coordinates must be bit-for-bit identical regardless of render scale.
+		expect(beacon.position).toEqual({ x: 0.33, y: 0.77 });
 	});
 
 	it('rejects an out-of-bounds POI before any mutation (fail-closed)', () => {

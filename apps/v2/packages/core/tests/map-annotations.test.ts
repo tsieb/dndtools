@@ -61,9 +61,13 @@ describe('MAP-010 POI reducers', () => {
 		);
 		expect('created' in result).toBe(true);
 		if ('created' in result) {
+			// MAP-010 AC1: all four required fields are stored.
+			expect(result.created.label).toBe('Tower');
+			expect(result.created.category).toBe('landmark');
 			expect(result.created.position).toEqual({ x: 0.5, y: 0.5 });
-			expect(result.created.visibility).toBe('dm-only');
 			expect(result.created.linkedEntityId).toBe('note-1');
+			expect(result.created.linkedEntityType).toBe('note');
+			expect(result.created.visibility).toBe('dm-only');
 			expect(result.created.revision).toBe(1);
 		}
 	});
