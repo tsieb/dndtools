@@ -194,6 +194,18 @@ test.describe('CMD-001/002/007 Command Center home Scene', () => {
 		await expect(page.getByTestId('session-recap-archive')).toBeVisible();
 	});
 
+	test('active session workflow persists across app restart (SES-001 AC2)', async ({ page }) => {
+		// Start the session.
+		await page.getByTestId('session-workflow-active').click();
+		await expect(page.getByTestId('session-workflow-status')).toContainText('active');
+		// Simulate an app restart via page reload (state is durably stored in IndexedDB).
+		await page.reload();
+		await page.getByTestId('cc-profile').waitFor({ state: 'visible' });
+		// SES-001 AC2: "when the vault opens, then session state is restored" — the workflow is
+		// still active after the restart; no manual recovery step is required.
+		await expect(page.getByTestId('session-workflow-status')).toContainText('active');
+	});
+
 	test('Player View controller assigns connected and disconnected participants (CMD-004)', async ({
 		page,
 	}) => {
