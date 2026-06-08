@@ -134,7 +134,6 @@ export interface UxWorkpackValidationIssue {
 
 const repoRoot = process.cwd();
 const uxPlanningDir = path.join(repoRoot, 'docs', 'planning', 'v2', 'ux');
-const uxEpicsDir = path.join(uxPlanningDir, 'epics');
 const templatesDir = path.join(repoRoot, 'docs', 'planning', 'v2', 'templates');
 const uxStateFileName = 'workpack-state.yaml';
 

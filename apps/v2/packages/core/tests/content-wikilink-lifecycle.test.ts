@@ -67,8 +67,6 @@ function createNote(
 	return { state: result.nextState, id };
 }
 
-const LOCAL = { source: 'local-markdown' as const, available: true };
-
 function target(overrides: Partial<WikilinkTarget> & Pick<WikilinkTarget, 'id' | 'title'>): WikilinkTarget {
 	return {
 		aliases: [],
