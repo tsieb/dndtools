@@ -248,6 +248,72 @@ describe('SES-006 encounter → combat flow (AC2)', () => {
 		expect(hob.statBlock.ac).toBe(18);
 	});
 
+	it('flows terrain notes from the encounter into session combat state (SES-006 AC2)', () => {
+		const env = makeEnvironment();
+		const base = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
+		const built = accept(
+			dispatch(base, env, {
+				type: 'encounter.build',
+				actorId: DM_ACTOR.id,
+				payload: {
+					title: 'Swamp ambush',
+					combatants: [
+						{ kind: 'monster', name: 'Lizardfolk', challengeRating: 0.5, quantity: 1, maxHp: 22, ac: 15, initiative: 10 },
+					],
+					terrainNotes: 'Knee-deep swamp water; difficult terrain. Reeds provide half cover.',
+				},
+			}),
+		).nextState;
+		const encounterId = Object.keys(built.encounters.encounters)[0]!;
+		const home = accept(
+			dispatch(built, env, { type: 'command-center.ensure-home', actorId: DM_ACTOR.id, payload: {} }),
+		).nextState;
+		const active = accept(
+			dispatch(home, env, {
+				type: 'session.set-workflow',
+				actorId: DM_ACTOR.id,
+				payload: { workflow: 'active', activeSceneId: home.commandCenter.homeSceneId },
+			}),
+		).nextState;
+		const started = accept(
+			dispatch(active, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: { encounterId },
+			}),
+		).nextState;
+		// Terrain notes from the encounter must appear on the session combat state (SES-006 AC2).
+		expect(started.session.combat.terrainNotes).toContain('difficult terrain');
+		expect(started.session.combat.terrainNotes).toContain('half cover');
+	});
+
+	it('terrain notes are empty for ad-hoc combat (no encounter link)', () => {
+		const env = makeEnvironment();
+		const base = buildInitialState(DM_ACTOR);
+		const home = accept(
+			dispatch(base, env, { type: 'command-center.ensure-home', actorId: DM_ACTOR.id, payload: {} }),
+		).nextState;
+		const active = accept(
+			dispatch(home, env, {
+				type: 'session.set-workflow',
+				actorId: DM_ACTOR.id,
+				payload: { workflow: 'active', activeSceneId: home.commandCenter.homeSceneId },
+			}),
+		).nextState;
+		const started = accept(
+			dispatch(active, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: {
+					combatants: [
+						{ kind: 'npc', name: 'Bandit', ac: 12, initiative: 8, maxHp: 11 },
+					],
+				},
+			}),
+		).nextState;
+		expect(started.session.combat.terrainNotes).toBe('');
+	});
+
 	it('rejects starting combat from a non-existent encounter (fail closed)', () => {
 		const env = makeEnvironment();
 		const home = accept(

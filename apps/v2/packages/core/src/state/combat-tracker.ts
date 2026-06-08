@@ -179,6 +179,12 @@ export interface SessionCombatState {
 	status: CombatStatus;
 	/** The encounter this combat was started from (SES-006 link by reference), or null for ad-hoc combat. */
 	encounterId: string | null;
+	/**
+	 * SES-006 AC2 — TERRAIN NOTES flowed from the linked encounter when combat started. Empty for
+	 * ad-hoc combat (no encounter link). The notes are copied at start time so the combat record is
+	 * self-contained even if the encounter is later edited.
+	 */
+	terrainNotes: string;
 	/** The current round (1-based once combat starts; 0 while idle). */
 	round: number;
 	/** The current turn index into {@link order} (0-based; 0 while idle). */
@@ -196,6 +202,7 @@ export interface SessionCombatState {
 export const EMPTY_SESSION_COMBAT_STATE: SessionCombatState = Object.freeze({
 	status: 'idle',
 	encounterId: null,
+	terrainNotes: '',
 	round: 0,
 	turn: 0,
 	combatants: {},
@@ -242,6 +249,7 @@ export function ensureSessionCombatState(
 	return {
 		status: state?.status ?? 'idle',
 		encounterId: state?.encounterId ?? null,
+		terrainNotes: state?.terrainNotes ?? '',
 		round: state?.round ?? 0,
 		turn: state?.turn ?? 0,
 		combatants,

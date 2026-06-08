@@ -181,6 +181,8 @@ export function handleStartCombat(
 	// not cloned — its combatant selections seed tracker combatants and the link is recorded.
 	const encounterId: string | null = parsed.data.encounterId ?? null;
 	let rows = parsed.data.combatants;
+	// SES-006 AC2: terrain notes flow from the encounter into combat state at start time.
+	let linkedTerrainNotes = '';
 	if (encounterId) {
 		const encounter = encounterById(state.encounters, encounterId);
 		if (!encounter) {
@@ -189,8 +191,10 @@ export function handleStartCombat(
 				state,
 			);
 		}
+		// Capture terrain notes from the encounter (SES-006 AC2).
+		linkedTerrainNotes = encounter.terrainNotes;
 		// When started from an encounter with no explicit combatant overrides, flow the encounter's
-		// combatant selection (and terrain via stat-block notes) into the tracker (SES-006 AC2).
+		// combatant selections into the tracker (SES-006 AC2).
 		if (rows.length === 0) {
 			rows = encounter.combatants.flatMap((selection) => {
 				const count = Math.max(1, selection.quantity);
@@ -224,6 +228,8 @@ export function handleStartCombat(
 	let nextCombat: SessionCombatState = {
 		status: 'running',
 		encounterId,
+		// SES-006 AC2: terrain notes flowed from the linked encounter (empty for ad-hoc combat).
+		terrainNotes: linkedTerrainNotes,
 		round: 1,
 		turn: 0,
 		combatants: combatantMap,
