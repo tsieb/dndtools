@@ -77,9 +77,11 @@ test.describe('CHAR collaboration and DM edits', () => {
 		const card = page.getByTestId('collab-list').locator('[data-testid^="collab-character-"]').first();
 		const id = (await card.getAttribute('data-testid'))!.replace('collab-character-', '');
 
-		// As DM: the dm-only field IS visible in the collaborative view (with its value).
+		// As DM: the dm-only field IS visible in the collaborative view (with its value). The DM
+		// can edit any field, so the collab view renders an editable input (not a read-only value
+		// span) for the DM — check the input's value instead of the value-span.
 		await expect(page.getByTestId(`collab-field-${id}-data.dmNotes`)).toBeVisible();
-		await expect(page.getByTestId(`collab-value-${id}-data.dmNotes`)).toContainText("The villain is their father.");
+		await expect(page.getByTestId(`collab-input-${id}-data.dmNotes`)).toHaveValue("The villain is their father.");
 
 		// Grant ownership to Demo Player.
 		await page.getByTestId(`collab-grant-target-${id}`).selectOption('actor-player');
