@@ -231,15 +231,24 @@ describe('SES-011: set-workflow enforces the transition table', () => {
 		const env = makeEnvironment();
 		const { state } = ensureHome(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env);
 		expect(state.session.workflow).toBe('idle');
+		// dice.roll is a live-session command that ANY actor (including a player) may submit during an
+		// active session. When the session is idle, the session-workflow gate must reject it with
+		// `invalid-state` — NOT `actor-not-authorized` — so the session state guard is exercised, and
+		// the message must not leak internal entity ids (non-leaking, SES-011 AC1).
 		const result = dispatchCommand(state, env, {
-			type: 'combat.start',
+			type: 'dice.roll',
 			actorId: PLAYER_ACTOR.id,
-			payload: { combatants: [{ kind: 'monster', name: 'Goblin', initiative: 15, maxHp: 7 }] },
+			payload: { expression: '1d20' },
 		});
 		expect(result.status).toBe('rejected');
 		if (result.status === 'rejected') {
-			expect(['invalid-state', 'actor-not-authorized']).toContain(result.rejection.code);
+			expect(result.rejection.code).toBe('invalid-state');
+			// Non-leaking: the rejection message names the workflow requirement only, no internal ids.
+			expect(result.rejection.message).not.toMatch(/actor-|scene-|op-/);
 		}
+		// Durable state is unchanged — idle workflow, no dice history.
+		expect(result.nextState.session.workflow).toBe('idle');
+		expect(result.nextState.session.diceHistory).toHaveLength(0);
 	});
 
 	it('advances workflowRevision and appends an op only on an accepted transition', () => {
@@ -263,6 +272,73 @@ describe('SES-011: set-workflow enforces the transition table', () => {
 		});
 		expect(result.status).toBe('rejected');
 		if (result.status === 'rejected') expect(result.rejection.code).toBe('actor-not-authorized');
+	});
+
+	it('AC2: in recap, DM can create notes and archived combat/dice/handout data is read-only', () => {
+		const env = makeEnvironment();
+		const { state, homeSceneId } = ensureHome(buildInitialState(DM_ACTOR, PLAYER_ACTOR), env);
+
+		// Build an active session with live combat and dice data to be archived on recap entry.
+		let current = accept(setWorkflow(state, env, 'active', homeSceneId)).nextState;
+		current = accept(
+			dispatchCommand(current, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: { combatants: [{ kind: 'monster', name: 'Goblin', initiative: 15, maxHp: 7 }] },
+			}),
+		).nextState;
+		current = accept(
+			dispatchCommand(current, env, {
+				type: 'session.record-dice',
+				actorId: DM_ACTOR.id,
+				payload: { expression: '1d20', total: 17 },
+			}),
+		).nextState;
+
+		// Transition to ending then recap — archives the live combat, dice, and handout state.
+		current = accept(setWorkflow(current, env, 'ending', homeSceneId)).nextState;
+		current = accept(setWorkflow(current, env, 'recap')).nextState;
+		expect(current.session.workflow).toBe('recap');
+
+		const archiveId = current.session.recapArchiveId;
+		expect(archiveId).not.toBeNull();
+		const archiveBefore = current.session.archives[archiveId!];
+		expect(archiveBefore).toBeDefined();
+		// Sanity: the archive captured the live combat and dice history.
+		expect(archiveBefore?.combat.status).toBe('running');
+		expect(archiveBefore?.diceHistory).toHaveLength(1);
+		// The live session fields were reset on recap entry.
+		expect(current.session.diceHistory).toHaveLength(0);
+		expect(current.session.combat.status).toBe('idle');
+
+		// DM CAN create a recap note in recap state (content commands are not session-workflow-gated).
+		// The archived combat, dice, and handout data serve as read-only reference inputs for the note.
+		const noteResult = accept(
+			dispatchCommand(current, env, {
+				type: 'content.create-item',
+				actorId: DM_ACTOR.id,
+				payload: { kind: 'note', title: 'Session recap', body: 'Combat: Goblin encountered.' },
+			}),
+		);
+		const noteId = Object.keys(noteResult.nextState.content.items).find(
+			(id) => noteResult.nextState.content.items[id]?.title === 'Session recap',
+		);
+		expect(noteId).toBeTruthy();
+
+		// Creating the recap note MUST NOT mutate the archived data (it is read-only input).
+		const archiveAfter = noteResult.nextState.session.archives[archiveId!];
+		expect(archiveAfter?.combat).toEqual(archiveBefore?.combat);
+		expect(archiveAfter?.diceHistory).toEqual(archiveBefore?.diceHistory);
+
+		// Live-session writes (the way to mutate combat/dice/handouts) are rejected in recap with
+		// `invalid-state` — a separate edit command (e.g. session.recover) is required to re-open.
+		const diceReject = dispatchCommand(noteResult.nextState, env, {
+			type: 'session.record-dice',
+			actorId: DM_ACTOR.id,
+			payload: { expression: '1d6', total: 3 },
+		});
+		expect(diceReject.status).toBe('rejected');
+		if (diceReject.status === 'rejected') expect(diceReject.rejection.code).toBe('invalid-state');
 	});
 });
 
