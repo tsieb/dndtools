@@ -199,12 +199,40 @@ describe('SRCH-005 — deterministic ranking with AI disabled', () => {
 	});
 
 	it('a POI on the active map ranks ABOVE an unrelated POI with the same text match', () => {
-		// Build a clean two-map state where BOTH maps have a POI whose label matches the query, so the only
-		// differentiator is session context.
+		// Build state with a COMPETING "harbor" POI on the second map (ruined-keep, NOT the active one)
+		// so we have a true head-to-head ranking comparison. Both POIs title-match "harbor"; only the one
+		// on the session-active western-reaches map carries the SESSION-CONTEXT signal (+8 to score) and
+		// must rank first (SRCH-005 AC2 direct ranking assertion).
 		const state = base();
 		const activeMapId = 'map-western-reaches';
-		const withActiveMap: CoreStateSlice = {
+		const withCompetingPoi: CoreStateSlice = {
 			...state,
+			maps: {
+				...state.maps,
+				maps: {
+					...state.maps.maps,
+					'map-ruined-keep': {
+						...state.maps.maps['map-ruined-keep']!,
+						pois: [
+							...state.maps.maps['map-ruined-keep']!.pois,
+							{
+								id: 'poi-harbor-gate',
+								layerId: 'layer-rooms', // player-visible layer on ruined-keep
+								label: 'Harbor Gate',
+								category: 'landmark' as const,
+								position: { x: 0.2, y: 0.2 },
+								visibility: 'player-visible' as const,
+								notes: 'A gate facing the harbor.',
+								linkedEntityType: null,
+								linkedEntityId: null,
+								revision: 1,
+								updatedBy: null,
+								updatedAt: null,
+							},
+						],
+					},
+				},
+			},
 			session: {
 				...state.session,
 				activeMap: {
@@ -218,13 +246,23 @@ describe('SRCH-005 — deterministic ranking with AI disabled', () => {
 				},
 			},
 		};
-		// "harbor" matches the Harbor Town POI (on the active western-reaches map). Assert its session-context
-		// signal is set, proving the active-map boost is wired to the session.
-		const result = search(withActiveMap, DM_ACTOR.id, { query: 'harbor', contentTypes: ['poi'] });
-		const harbor = result.hits.find((h) => h.title === 'Harbor Town');
-		expect(harbor).toBeDefined();
-		expect(harbor!.mapId).toBe(activeMapId);
-		expect(harbor!.signals.sessionContext).toBe(1);
+
+		const result = search(withCompetingPoi, DM_ACTOR.id, { query: 'harbor', contentTypes: ['poi'] });
+
+		// Both POIs must appear in results (both title-match "harbor").
+		const harborTown = result.hits.find((h) => h.title === 'Harbor Town');
+		const harborGate = result.hits.find((h) => h.title === 'Harbor Gate');
+		expect(harborTown).toBeDefined();
+		expect(harborGate).toBeDefined();
+
+		// The active-map POI carries the SESSION-CONTEXT signal; the competing POI on the other map does not.
+		expect(harborTown!.mapId).toBe(activeMapId);
+		expect(harborTown!.signals.sessionContext).toBe(1);
+		expect(harborGate!.signals.sessionContext).toBe(0);
+
+		// The active-map POI RANKS ABOVE the other map's POI (the core claim of SRCH-005 AC2).
+		const titles = result.hits.map((h) => h.title);
+		expect(titles.indexOf('Harbor Town')).toBeLessThan(titles.indexOf('Harbor Gate'));
 	});
 
 	it('AC3 — equal score inputs produce a STABLE order across repeated runs and fresh fixtures', () => {
