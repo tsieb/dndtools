@@ -64,25 +64,35 @@ test.describe('CHAR collaboration and DM edits', () => {
 	test('CHAR-014: a DM-only field is never shown to the owning player (non-leak)', async ({
 		page,
 	}) => {
-		// DM creates a player-visible character WITH a dm-only note field.
+		// DM creates a player-visible character WITH a dm-only note field (CHAR-014 AC2). The
+		// `qc-dm-notes` input populates `data.dmNotes` and adds it to `dmOnlyFields` in the
+		// quick-create payload, so the Processing Core's actor-filtered view omits it for non-DM actors.
 		await page.getByTestId('qc-kind').selectOption('npc');
 		await page.getByTestId('qc-name').fill('Warden');
 		await page.getByTestId('qc-visibility').selectOption('player-visible');
+		await page.getByTestId('qc-dm-notes').fill('The villain is their father.');
 		await page.getByTestId('qc-submit').click();
 		await expect(page.getByTestId('qc-created')).toContainText('Warden');
 
 		const card = page.getByTestId('collab-list').locator('[data-testid^="collab-character-"]').first();
 		const id = (await card.getAttribute('data-testid'))!.replace('collab-character-', '');
+
+		// As DM: the dm-only field IS visible in the collaborative view (with its value).
+		await expect(page.getByTestId(`collab-field-${id}-data.dmNotes`)).toBeVisible();
+		await expect(page.getByTestId(`collab-value-${id}-data.dmNotes`)).toContainText("The villain is their father.");
+
+		// Grant ownership to Demo Player.
 		await page.getByTestId(`collab-grant-target-${id}`).selectOption('actor-player');
 		await page.getByTestId(`collab-grant-${id}`).click();
 		await expect(page.getByTestId(`collab-owner-${id}`)).toContainText('Demo Player');
 
-		// View as the owning player: the player sees the character but the dm-only data fields never
-		// appear (there are none authored here, so simply assert no leak of any 'dmNotes' path/value).
+		// Switch to the owning player's view: the dm-only field must NEVER appear — no field row,
+		// no path label, no value (CHAR-014 AC2 non-leak).
 		await page.getByTestId('view-as-select').selectOption('actor-player');
 		await expect(page.getByTestId(`collab-character-${id}`)).toBeVisible();
 		await expect(page.getByTestId(`collab-field-${id}-data.dmNotes`)).toHaveCount(0);
 		await expect(page.getByText('dmNotes')).toHaveCount(0);
+		await expect(page.getByText('The villain is their father.')).toHaveCount(0);
 	});
 
 	test('CHAR-004: a same-field concurrent edit surfaces a conflict the DM resolves', async ({

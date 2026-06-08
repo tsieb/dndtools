@@ -18,6 +18,8 @@
 	let visibility = $state<'dm-only' | 'player-visible' | 'shared'>('dm-only');
 	let attackName = $state('');
 	let attackDetail = $state('');
+	/** DM-only notes field: when non-empty, added to `data.dmNotes` and marked dm-only (CHAR-014). */
+	let dmNotes = $state('');
 	let error = $state<string | null>(null);
 	let lastCreatedName = $state<string | null>(null);
 
@@ -31,6 +33,12 @@
 		const attacks = attackName.trim()
 			? [{ name: attackName.trim(), detail: attackDetail.trim() }]
 			: [];
+		// When the DM enters dm-only notes, store them in `data.dmNotes` and declare the field
+		// dm-only so the Processing Core's actor-filtered view never leaks it to a non-DM actor
+		// (CHAR-014 AC2 — non-leak guarantee). The character's single canonical value is still
+		// `data.dmNotes`; only the DM sees it.
+		const data: Record<string, unknown> = dmNotes.trim() ? { dmNotes: dmNotes.trim() } : {};
+		const dmOnlyFields: string[] = dmNotes.trim() ? ['data.dmNotes'] : [];
 		const result = await runtime.dispatch({
 			type: 'character.quick-create',
 			actorId: dmActorId,
@@ -40,6 +48,8 @@
 				visibility,
 				combat: { hp, maxHp: hp, ac },
 				attacks,
+				data,
+				dmOnlyFields,
 			},
 		});
 		if (result.status === 'rejected') {
@@ -50,6 +60,7 @@
 		name = '';
 		attackName = '';
 		attackDetail = '';
+		dmNotes = '';
 		visibility = 'dm-only';
 	}
 </script>
@@ -96,6 +107,16 @@
 		<label>
 			<span>Attack detail (optional)</span>
 			<input data-testid="qc-attack-detail" bind:value={attackDetail} autocomplete="off" />
+		</label>
+		<label>
+			<span>DM notes — dm-only (optional)</span>
+			<textarea
+				data-testid="qc-dm-notes"
+				bind:value={dmNotes}
+				autocomplete="off"
+				rows="2"
+				placeholder="Visible only to the DM — never shown to players (CHAR-014)."
+			></textarea>
 		</label>
 		<button class="button" type="submit" data-testid="qc-submit">Create character</button>
 	</form>
