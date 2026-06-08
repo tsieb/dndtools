@@ -124,9 +124,12 @@ describe('SYNC-003 adapter interface plugs in without a core-contract change', (
 				supportedEntityTypes: ['content-item'],
 				canRead: true,
 				canWrite: false,
+				canRename: false,
+				canDelete: false,
 				canExposeRevisionHistory: false,
 				canWatchChanges: false,
 				offlineAvailability: 'full',
+				supportedPlatformProfiles: ['desktop', 'tablet', 'mobile', 'web'],
 				featureSupport: { 'frontmatter-properties': 'supported' },
 			}),
 			toCanonical: (_entity: unknown, ctx: AdapterTransformContext): SyncOperation[] => [
@@ -167,9 +170,12 @@ describe('SYNC-003 adapter interface plugs in without a core-contract change', (
 			supportedEntityTypes: ['content-item'],
 			canRead: true,
 			canWrite: false,
+			canRename: false,
+			canDelete: false,
 			canExposeRevisionHistory: false,
 			canWatchChanges: false,
 			offlineAvailability: 'full',
+			supportedPlatformProfiles: ['desktop', 'tablet', 'mobile', 'web'],
 			featureSupport: {},
 		};
 		// `checkWriteSupported` returns `write-not-supported` for a read-only adapter (the same path
