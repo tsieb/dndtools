@@ -103,11 +103,24 @@ test.describe('CMD-001/002/007 Command Center home Scene', () => {
 		const panel = page.getByTestId('cc-panel');
 		await expect(panel).toBeVisible();
 
-		// Switching the focused tool is local UI state only; the Scene is not mutated.
+		// Capture the initial widget layout before any tab switches. This is the Scene-stored
+		// x/y position that must NOT change when switching focused panels — the switch is
+		// local UI state only (selectedWidgetId $state), no command is dispatched (CMD-002 AC2).
+		const initialLayout = await panel.locator('.layout').textContent();
+		expect(initialLayout).toBeTruthy();
+
+		// Switch the focused tool: verify each tab shows the correct panel content.
 		await page.getByTestId('cc-tab-audio').click();
 		await expect(panel).toContainText('Audio');
 		await page.getByTestId('cc-tab-prep').click();
 		await expect(panel).toContainText('Prep');
+
+		// Switch back to the first tool (Active Map) and assert the stored layout position is
+		// byte-for-byte identical — proving tab navigation did not dispatch any scene mutation.
+		await page.getByTestId('cc-tab-map').click();
+		await expect(panel).toContainText('Active Map');
+		const afterLayout = await panel.locator('.layout').textContent();
+		expect(afterLayout).toBe(initialLayout);
 	});
 
 	test('active map and workflow controls preserve player-safe Session State (CMD-003/CMD-006)', async ({
