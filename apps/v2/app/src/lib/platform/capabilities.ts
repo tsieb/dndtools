@@ -31,6 +31,20 @@ export function prefersReducedMotion(): boolean {
 	return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+/**
+ * UX-VIS-010 / A11Y-005 — subscribe to OS reduced-motion preference changes so the motion store can
+ * re-resolve the single motion preference live. This is the ONLY place the media query is watched
+ * (the boundary forbids `matchMedia` outside this owned probe). Returns a cleanup function; on the
+ * server or where `matchMedia` is unavailable it is a no-op.
+ */
+export function watchReducedMotion(onChange: (prefersReduced: boolean) => void): () => void {
+	if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return () => {};
+	const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+	const handler = (event: MediaQueryListEvent) => onChange(event.matches);
+	query.addEventListener('change', handler);
+	return () => query.removeEventListener('change', handler);
+}
+
 // PLAT-001: the ONLY place a raw viewport width is read. The platform layer classifies it once
 // into a coarse class so the profile resolver and every feature component stay free of raw pixel
 // math. The boundary lint forbids `innerWidth` / `matchMedia` outside this owned probe.

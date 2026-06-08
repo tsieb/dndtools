@@ -17,6 +17,8 @@
 	} from '$lib/platform/navigation-history.svelte';
 	import { FeatureTierStore, provideFeatureTier } from '$lib/state/feature-tier.svelte';
 	import { ThemeStore, provideTheme } from '$lib/platform/theme.svelte';
+	import { MotionStore, provideMotion } from '$lib/platform/motion.svelte';
+	import { DensityStore, provideDensity } from '$lib/platform/density.svelte';
 	import { locationFromPath } from '$lib/state/navigation-location';
 	import CommandPalette from '$lib/gui/CommandPalette.svelte';
 	import QuickSwitcher from '$lib/gui/QuickSwitcher.svelte';
@@ -52,14 +54,38 @@
 	const themeStore = new ThemeStore();
 	provideTheme(themeStore);
 
+	// UX-VIS-010: motion is a device-local display preference. The store resolves the single motion
+	// state (user choice + OS reduced-motion, with documented precedence) into `data-motion` on
+	// <html>, which collapses the duration tokens under reduced motion. The boot script in app.html
+	// applies it before first paint to avoid an initial animation flash.
+	const motionStore = new MotionStore();
+	provideMotion(motionStore);
+
+	// UX-VIS-011: density is a device-local, profile-linked display preference. The store maps the
+	// resolved platform viewport class to `data-density` on <html>; Mobile/Tablet lock to comfortable,
+	// Desktop is user-overridable. The boot script applies it before first paint.
+	const densityStore = new DensityStore();
+	provideDensity(densityStore);
+
 	onMount(() => {
 		void runtime.load();
 		const stopProfile = profile.init();
 		const stopTheme = themeStore.init();
+		const stopMotion = motionStore.init();
+		const stopDensity = densityStore.init();
 		return () => {
 			stopProfile();
 			stopTheme();
+			stopMotion();
+			stopDensity();
 		};
+	});
+
+	// UX-VIS-011: re-apply density whenever the resolved platform viewport class changes (PLAT-001).
+	// Reading `densityStore.desktopPreference` inside `applyForViewport` makes this effect also react
+	// to the stored desktop preference loaded during init, so the first applied value is correct.
+	$effect(() => {
+		densityStore.applyForViewport(profile.viewportClass);
 	});
 
 	// Primary navigation reads the same actor-filtered availability API the command

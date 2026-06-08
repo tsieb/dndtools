@@ -14,6 +14,7 @@
 	},
 	"dependencies": {
 		"@dndtools/v2-core": "workspace:*",
+		"@lucide/svelte": "^1.17.0",
 		"dexie": "^4.4.3"
 	},
 	"devDependencies": {

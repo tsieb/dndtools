@@ -126,6 +126,34 @@
 	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
 	--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
 
+	/* --- Iconography (UX-VIS-009) — Lucide at four+1 named sizes; 2px stroke; currentColor ---
+	 * The shared Icon component (src/lib/gui/Icon.svelte + icons.ts registry) is the single icon
+	 * source: every surface draws from one Lucide family at one stroke weight (no "icon soup").
+	 * Icons inherit currentColor; status icons override with a --color-status-* token AND keep a
+	 * redundant shape/label cue (A11Y-011). Icon-only buttons require an accessible name. */
+	--icon-size-micro: 16px; /* inline text icons, badge indicators */
+	--icon-size-sm: 20px; /* dense toolbar, compact nav */
+	--icon-size-md: 24px; /* default — most UI contexts */
+	--icon-size-lg: 32px; /* empty states, feature callouts */
+	--icon-size-xl: 48px; /* onboarding illustrations, hero contexts */
+	--icon-stroke-width: 2; /* Lucide default — never 1px (thin) or 3px (heavy) */
+
+	/* --- Density (UX-VIS-011) — profile-linked sizing. `data-density` on <html> switches the set.
+	 * Default (no attribute) = `standard` (Desktop). The density store maps the resolved platform
+	 * viewport class to a mode: compact/medium viewports (Mobile/Tablet) lock to `comfortable`
+	 * (>=44px touch targets); expanded (Desktop) defaults to `standard` and is user-overridable to
+	 * `compact` or `comfortable`. The boot script in app.html sets the attribute before first paint. */
+	--density-card-padding-compact: var(--space-3); /* 12px — referenced by the compact block */
+	--density-touch-target: 2rem; /* 32px visual (Desktop standard; WCAG 2.5.8 AA w/ spacing) */
+	--density-focus-target: 2.75rem; /* 44px focus-ring hit extent at standard */
+	--density-nav-height: 2.25rem; /* 36px */
+	--density-card-padding: var(--space-4); /* 16px */
+	--density-list-gap: var(--space-1); /* 4px */
+	--density-icon-size: var(--icon-size-md); /* 24px */
+	--density-input-height: 2.25rem; /* 36px */
+	--density-button-height: 2.25rem; /* 36px */
+	--density-font-size: var(--text-base); /* 15px */
+
 	/* --- Colour tokens — TAVERN (dark warm) is the default theme (UX-VIS-001/002) ---------- */
 	--color-bg: #111418;
 	--color-surface: #1c2128;
@@ -488,13 +516,34 @@
 	}
 }
 
-/*
- * Reduced-motion floor (foundational). The full preference state machine with explicit-user
- * precedence and the `data-motion` attribute is owned by UX-VIS-010; this OS-level fallback keeps
- * the token contract honest until then.
- */
+/* ============================================================================================
+ * 2b. MOTION PREFERENCE CONTRACT (UX-VIS-010 / A11Y-005)
+ *
+ * A single resolved motion preference drives whether animations play. The motion store
+ * (src/lib/platform/motion.svelte.ts) resolves the preference with this precedence —
+ *   user-explicit-off > OS-reduce > user-explicit-on > OS-no-preference
+ * — and writes `data-motion="full"|"reduced"` to <html>; the app.html boot script sets it before
+ * first paint. CSS then zeroes every duration token under reduced/none, so NO component needs its
+ * own `prefers-reduced-motion` media query (the contract lives in one place). Easing curves are
+ * unchanged — only durations collapse to 0ms, turning transitions into instant state changes.
+ * `--easing-spring` stays reserved for dice-result / celebration surfaces, never standard UI.
+ * ========================================================================================== */
+
+[data-motion='reduced'],
+[data-motion='none'] {
+	--duration-micro: 0ms;
+	--duration-fast: 0ms;
+	--duration-standard: 0ms;
+	--duration-moderate: 0ms;
+	--duration-slow: 0ms;
+	--duration-crawl: 0ms;
+}
+
+/* Pre-resolution fallback: until the boot script / store writes `data-motion`, honor the OS reduce
+ * signal so the very first paint is safe. Scoped to :not([data-motion]) so once the resolved
+ * preference is written it wins — keeping an explicit user choice (incl. user-on) authoritative. */
 @media (prefers-reduced-motion: reduce) {
-	:root {
+	:root:not([data-motion]) {
 		--duration-micro: 0ms;
 		--duration-fast: 0ms;
 		--duration-standard: 0ms;
@@ -502,6 +551,38 @@
 		--duration-slow: 0ms;
 		--duration-crawl: 0ms;
 	}
+}
+
+/* ============================================================================================
+ * 2c. DENSITY MODES (UX-VIS-011) — `data-density` on <html> selects the active sizing set.
+ *
+ * Default (no attribute) is `standard` (Desktop), defined in the :root token block above. The
+ * density store maps the resolved platform viewport class to the mode; Mobile/Tablet lock to
+ * `comfortable` (>=44px targets), Desktop defaults to `standard` and is user-overridable.
+ * ========================================================================================== */
+
+[data-density='comfortable'] {
+	--density-touch-target: 2.75rem; /* 44px — Apple HIG / WCAG 2.5.8 Enhanced touch target */
+	--density-focus-target: 2.75rem; /* 44px */
+	--density-nav-height: 3rem; /* 48px */
+	--density-card-padding: var(--space-4); /* 16px */
+	--density-list-gap: var(--space-2); /* 8px */
+	--density-icon-size: var(--icon-size-md); /* 24px */
+	--density-input-height: 2.75rem; /* 44px */
+	--density-button-height: 2.75rem; /* 44px */
+	--density-font-size: var(--text-base); /* 15px */
+}
+
+[data-density='compact'] {
+	--density-touch-target: 1.75rem; /* 28px visual */
+	--density-focus-target: 2.5rem; /* 40px — focus ring extends past the 28px visual target */
+	--density-nav-height: 1.75rem; /* 28px */
+	--density-card-padding: var(--density-card-padding-compact); /* 12px */
+	--density-list-gap: var(--space-0-5); /* 2px */
+	--density-icon-size: var(--icon-size-sm); /* 20px */
+	--density-input-height: 1.75rem; /* 28px */
+	--density-button-height: 1.75rem; /* 28px */
+	--density-font-size: var(--text-sm); /* 13px */
 }
 
 /* ============================================================================================
@@ -1496,4 +1577,174 @@ select {
 	height: var(--space-4);
 	border-radius: var(--radius-full);
 	border: 1px solid var(--color-border-strong);
+}
+
+/* ============================================================================================
+ * 6. ICONOGRAPHY (UX-VIS-009) — shared Icon component sizing + status colour cues.
+ *
+ * The Lucide glyph inherits currentColor and a 2px stroke (Lucide defaults). Size classes drive
+ * width/height from the icon-size tokens (overriding Lucide's intrinsic 24px attributes). Status
+ * classes add a colour cue ON TOP of the redundant shape + adjacent text (A11Y-011) — never the
+ * sole signal.
+ * ========================================================================================== */
+
+.icon {
+	display: inline-block;
+	flex: none;
+	vertical-align: middle;
+	color: currentColor;
+}
+
+.icon-micro {
+	width: var(--icon-size-micro);
+	height: var(--icon-size-micro);
+}
+.icon-sm {
+	width: var(--icon-size-sm);
+	height: var(--icon-size-sm);
+}
+.icon-md {
+	width: var(--icon-size-md);
+	height: var(--icon-size-md);
+}
+.icon-lg {
+	width: var(--icon-size-lg);
+	height: var(--icon-size-lg);
+}
+.icon-xl {
+	width: var(--icon-size-xl);
+	height: var(--icon-size-xl);
+}
+/* Density-linked size for nav/toolbar consumers (UX-VIS-011). */
+.icon-density {
+	width: var(--density-icon-size);
+	height: var(--density-icon-size);
+}
+
+.icon-status-success {
+	color: var(--color-status-success);
+}
+.icon-status-warning {
+	color: var(--color-status-warning);
+}
+.icon-status-error {
+	color: var(--color-status-error);
+}
+.icon-status-info {
+	color: var(--color-status-info);
+}
+.icon-dm-only {
+	color: var(--color-dm-only-badge);
+}
+
+/* Icon-only button (UX-VIS §6.2). `aria-label` is mandatory — enforced by the Icon component +
+ * tests. Touch target follows the active density (>=44px on touch profiles). */
+.btn-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--density-touch-target);
+	min-height: var(--density-touch-target);
+	padding: var(--space-1);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+	background: var(--card);
+	color: var(--fg);
+	cursor: pointer;
+}
+.btn-icon:hover {
+	background: var(--color-interactive-hover);
+}
+.btn-icon:focus-visible {
+	outline: 2px solid var(--color-interactive-focus-ring);
+	outline-offset: 2px;
+}
+
+/* Status chip — demonstrates the non-color cue contract: distinct icon shape + visible text, so
+ * meaning survives a grayscale / colour-removed render (UX-VIS-009 AC2 / A11Y-011). */
+.status-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1-5);
+	padding: var(--space-0-5) var(--space-2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-full);
+	font-size: var(--text-xs);
+}
+
+/* ============================================================================================
+ * 7. DISPLAY PREFERENCES (UX-VIS-010 motion + UX-VIS-011 density) — Settings radiogroups.
+ *
+ * Reuses the theme-selector grammar. Controls size themselves from the active density tokens, so
+ * the density choice is visible in the controls that set it. The focus ring extends to
+ * --density-focus-target (>=40px even when the visual target is 28px in compact mode).
+ * ========================================================================================== */
+
+.display-prefs {
+	display: grid;
+	gap: var(--space-4);
+}
+
+.pref-group {
+	display: grid;
+	gap: var(--space-2);
+}
+
+.pref-options {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+}
+
+.pref-option {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1-5);
+	padding: var(--space-1-5) var(--space-3);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+	background: var(--card);
+	color: var(--fg);
+	cursor: pointer;
+	font-size: var(--text-sm);
+	min-height: var(--density-button-height);
+	transition: background var(--duration-micro) var(--easing-standard);
+}
+
+.pref-option:hover {
+	background: var(--color-interactive-hover);
+}
+
+.pref-option[aria-checked='true'] {
+	border-color: var(--accent);
+	background: var(--color-interactive-selected);
+	color: var(--accent);
+	font-weight: var(--font-weight-semibold);
+}
+
+.pref-option:focus-visible {
+	outline: 2px solid var(--color-interactive-focus-ring);
+	outline-offset: 2px;
+	/* Compact desktop: visual target shrinks to 28px but the focus hit area stays >=40px. */
+	min-height: var(--density-focus-target);
+	min-width: var(--density-focus-target);
+}
+
+.pref-option[aria-disabled='true'] {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.pref-note {
+	margin: 0;
+	color: var(--muted);
+	font-size: var(--text-xs);
+}
+
+.icon-demo {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-3);
+	margin-top: var(--space-1);
 }

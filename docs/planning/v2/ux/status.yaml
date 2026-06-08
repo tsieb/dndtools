@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 44
+  approved: 43
   active: 0
-  complete: 2
+  complete: 3
   deferred: 0
 metrics:
-  epicCompletionPercent: 4.3
-  requirementCompletionPercent: 4.5
+  epicCompletionPercent: 6.5
+  requirementCompletionPercent: 5.7
   totalRequirements: 244
-  completedRequirements: 11
+  completedRequirements: 14
   deferredRequirements: 0
-  remainingEpics: 44
+  remainingEpics: 43
   promptableEpics: 2
-  blockedByDependencies: 42
-  completionEvidenceFiles: 2
+  blockedByDependencies: 41
+  completionEvidenceFiles: 3
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -39,9 +39,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 01 Foundations
       totalEpics: 5
-      complete: 1
+      complete: 2
       active: 0
-      approved: 4
+      approved: 3
       proposed: 0
       deferred: 0
       requirementIds:
@@ -76,8 +76,8 @@ metrics:
         - UX-VIS-011
         - UX-VIS-012
         - UX-VIS-013
-      epicCompletionPercent: 20
-      requirementCompletionPercent: 32.3
+      epicCompletionPercent: 40
+      requirementCompletionPercent: 41.9
     - phase: 02 Shell and Navigation
       totalEpics: 4
       complete: 0
@@ -391,18 +391,19 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-VIS-component-library-motion-density-icons
-  title: Component Library, Motion, Density, and Icons
+  id: UX-A11Y-release-gates-and-contrast
+  title: Accessibility Release Gates and Contrast
   phase: 01 Foundations
   status: approved
   requirementIds:
-    - UX-VIS-009
-    - UX-VIS-010
-    - UX-VIS-011
-  promptCommand: pnpm v2:ux-prompt -- --epic UX-VIS-component-library-motion-density-icons
+    - UX-A11Y-001
+    - UX-A11Y-016
+    - UX-A11Y-017
+    - UX-A11Y-018
+  promptCommand: pnpm v2:ux-prompt -- --epic UX-A11Y-release-gates-and-contrast
   nextPromptCommand: pnpm v2:ux-prompt -- --next
   statusCommand: pnpm v2:ux-workpack:set-status -- --epic
-    UX-VIS-component-library-motion-density-icons --status active
+    UX-A11Y-release-gates-and-contrast --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -445,7 +446,7 @@ epics:
   - id: UX-VIS-component-library-motion-density-icons
     title: Component Library, Motion, Density, and Icons
     phase: 01 Foundations
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-VIS-009
@@ -458,6 +459,7 @@ epics:
       - profile density styles
     dependencies:
       - UX-VIS-design-tokens-themes-and-brand
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-VIS-component-library-motion-density-icons.completion.md
   - id: UX-A11Y-release-gates-and-contrast
     title: Accessibility Release Gates and Contrast
     phase: 01 Foundations

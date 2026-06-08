@@ -20,6 +20,19 @@
 	import SupportMatrix from '$lib/gui/SupportMatrix.svelte';
 	import SupportStatus from '$lib/gui/SupportStatus.svelte';
 	import ThemeSelector from '$lib/gui/ThemeSelector.svelte';
+	import MotionSelector from '$lib/gui/MotionSelector.svelte';
+	import DensitySelector from '$lib/gui/DensitySelector.svelte';
+	import Icon from '$lib/gui/Icon.svelte';
+	import { STATUS_ICON, type StatusKind } from '$lib/gui/icons';
+
+	// UX-VIS-009 demo data: each status carries a DISTINCT icon shape + visible text, so the state
+	// survives a grayscale / colour-removed render (non-colour cue; A11Y-011).
+	const statusDemo: ReadonlyArray<{ kind: StatusKind; label: string }> = [
+		{ kind: 'success', label: 'Saved' },
+		{ kind: 'warning', label: 'Unsynced' },
+		{ kind: 'error', label: 'Failed' },
+		{ kind: 'info', label: 'Local only' },
+	];
 
 	const runtime = useRuntime();
 	const profile = useProfile();
@@ -78,6 +91,45 @@
 	<!-- UX-VIS-001: dark-first theme picker (radiogroup). Device-local; applies instantly and
 	     persists. The five named themes plus an OS-following "System" option. -->
 	<ThemeSelector />
+
+	<!-- UX-VIS-009 / UX-VIS-010 / UX-VIS-011: foundational display preferences. Motion and density
+	     are device-local, profile-linked display preferences that drive `data-motion`/`data-density`
+	     on <html> and the shared component tokens. The icon row demonstrates the shared Icon
+	     primitive: an icon-only button with a required accessible name, and status chips whose state
+	     is conveyed by a distinct shape + visible text (never colour alone). -->
+	<section class="display-prefs" aria-label="Display preferences" data-testid="display-preferences">
+		<h2>Display preferences</h2>
+
+		<MotionSelector />
+		<DensitySelector />
+
+		<div class="pref-group" aria-label="Iconography" data-testid="icon-demo">
+			<h3>Iconography</h3>
+			<p class="pref-note">
+				One Lucide family at a single 2px stroke. Status is shown by icon shape and text, not
+				colour alone.
+			</p>
+			<div class="icon-demo">
+				<button type="button" class="btn-icon" data-testid="icon-only-button">
+					<Icon name="search" label="Search" />
+				</button>
+				{#each statusDemo as status (status.kind)}
+					<span class="status-chip" data-testid={`status-chip-${status.kind}`}>
+						<Icon
+							name={STATUS_ICON[status.kind]}
+							size="micro"
+							class={`icon-status-${status.kind}`}
+						/>
+						<span>{status.label}</span>
+					</span>
+				{/each}
+				<span class="status-chip" data-testid="status-chip-dm-only">
+					<Icon name="dm-only" size="micro" class="icon-dm-only" />
+					<span>DM only</span>
+				</span>
+			</div>
+		</div>
+	</section>
 
 	<!-- PLAT-009 / PLAT-017: status surfaces. The DM/admin diagnostics panel fails closed
 	     for non-DM actors via the Processing Core; participants see only their own
