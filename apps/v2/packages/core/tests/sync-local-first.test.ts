@@ -15,6 +15,8 @@ import {
 	getContentItemsForActor,
 	getCharacterForActor,
 	getCombatTrackerForActor,
+	getDiceHistoryForActor,
+	getMapViewForActor,
 	hasNoNetworkDependency,
 	isLocalFirstWorkflow,
 	searchContentForActor,
@@ -128,6 +130,29 @@ describe('SYNC-001 zero-network core workflow', () => {
 				payload: { workflow: 'active', activeSceneId: sceneId },
 			});
 			expect(state.session.workflow).toBe('active');
+
+			// MAPS — create a map (durable local write) and read its actor-filtered view offline.
+			const mapResult = dispatchCommand(state, env, {
+				type: 'map.create',
+				actorId: DM_ACTOR.id,
+				payload: { name: 'Goblin Lair Map' },
+			});
+			if (mapResult.status !== 'accepted') throw new Error('map.create rejected');
+			state = mapResult.nextState;
+			const mapId = (
+				mapResult.events.find((e) => e.kind === 'map.created') as { mapId: string }
+			).mapId;
+			const mapView = getMapViewForActor(state.maps, state.permissions, DM_ACTOR.id, mapId);
+			expect(mapView.kind).toBe('available');
+
+			// DICE — roll a die with a recorded seed (deterministic, no network).
+			state = accept(state, {
+				type: 'dice.roll',
+				actorId: DM_ACTOR.id,
+				payload: { expression: '1d6', seed: 42, visibility: 'session-visible' },
+			});
+			const diceHistory = getDiceHistoryForActor(state.session, state.permissions, DM_ACTOR.id);
+			expect(diceHistory.rolls.length).toBeGreaterThan(0);
 
 			// PROOF — nothing in the path reached for the network.
 			expect(fetchSpy).not.toHaveBeenCalled();
