@@ -102,6 +102,33 @@ describe('CANVAS-001: create Scene with full metadata', () => {
 		}
 	});
 
+	it('persists player-view metadata (playerViewAssignments) specified at creation time', () => {
+		// Criterion 1 explicitly lists "player-view metadata" as a required field. Verify
+		// that non-empty playerViewAssignments supplied in the create payload survive into the
+		// stored Scene document; the default-empty path is covered by the first test above.
+		const state = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
+		const env = makeEnvironment();
+		const result = dispatchCommand(state, env, {
+			type: 'scene.create',
+			actorId: DM_ACTOR.id,
+			payload: {
+				name: 'Briefing Room',
+				visibility: 'shared',
+				playerViewAssignments: [{ playerActorId: PLAYER_ACTOR.id, sectionIds: null }],
+			},
+		});
+
+		expect(result.status).toBe('accepted');
+		if (result.status !== 'accepted') return;
+		const sceneId = (result.events.find((e) => e.kind === 'scene.created') as {
+			sceneId: string;
+		}).sceneId;
+		const stored = result.nextState.scenes.scenes[sceneId];
+		expect(stored?.playerViewAssignments).toEqual([
+			{ playerActorId: PLAYER_ACTOR.id, sectionIds: null },
+		]);
+	});
+
 	it('rejects payloads missing required schema fields and writes no partial SceneState', () => {
 		const state = buildInitialState(DM_ACTOR);
 		const env = makeEnvironment();
