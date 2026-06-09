@@ -62,6 +62,12 @@ export interface CombatantView {
 	resources: CombatantResourcesView | null;
 	hidden: boolean;
 	isActive: boolean;
+	/**
+	 * True when the combatant's current HP is at or below half their maximum HP (and above 0).
+	 * A11Y-007 AC2: this explicit boolean enables non-color state indicators for screen readers.
+	 * Always false for redacted/hidden combatants whose resources are withheld.
+	 */
+	isBloodied: boolean;
 }
 
 /** A read-only encounter-log entry view. */
@@ -156,6 +162,7 @@ export function getCombatTrackerForActor(
 		const fullyVisible = actor ? actorCanSeeCombatant(permissions, actor, combatant) : false;
 		if (fullyVisible) {
 			visibleIds.add(id);
+			const res = resourcesView(combatant.resources);
 			combatants.push({
 				id: combatant.id,
 				kind: combatant.kind,
@@ -170,9 +177,11 @@ export function getCombatTrackerForActor(
 						: null,
 					notes: combatant.statBlock.notes,
 				},
-				resources: resourcesView(combatant.resources),
+				resources: res,
 				hidden: combatant.hidden,
 				isActive: combatant.id === activeId,
+				// A11Y-007 AC2: explicit non-color state indicator for screen readers.
+				isBloodied: res.hp > 0 && res.hp <= Math.floor(res.maxHp / 2),
 			});
 			continue;
 		}
@@ -190,6 +199,7 @@ export function getCombatTrackerForActor(
 				resources: null,
 				hidden: true,
 				isActive: combatant.id === activeId,
+				isBloodied: false, // stat data withheld; no derived status exposed
 			});
 		}
 		// Otherwise: omitted entirely (no row, no leak).

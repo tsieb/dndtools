@@ -13,6 +13,7 @@
 	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
+	import { widgetAccessibleName } from '$lib/a11y/widget-name';
 
 	const { data } = $props();
 	const runtime = useRuntime();
@@ -100,11 +101,6 @@
 	}
 	function focusNext() {
 		focusedIndex = Math.min(orderedWidgets.length - 1, focusedIndex + 1);
-	}
-
-	function widgetAccessibleName(widget: WidgetInstance): string {
-		const boundTo = widget.binding ? ` bound to ${widget.binding.source.entityId}` : '';
-		return `${widget.type} widget${boundTo}`;
 	}
 
 	function layoutCommandsFor(widget: WidgetInstance): SceneLayoutCommand[] {
@@ -387,7 +383,7 @@
 							<div
 								class="row-actions"
 								role="toolbar"
-								aria-label={`Layout controls for ${widgetAccessibleName(w)}`}
+								aria-label={`Layout controls for ${widgetAccessibleName(payload)}`}
 								data-testid={`layout-toolbar-${w.id}`}
 							>
 								{#each layoutCommandsFor(w) as command (command.id)}
@@ -395,7 +391,7 @@
 										<button
 											type="button"
 											data-testid={`layout-${command.id}-${w.id}`}
-											aria-label={`${command.label} — ${widgetAccessibleName(w)}`}
+											aria-label={`${command.label} — ${widgetAccessibleName(payload)}`}
 											onclick={() => runLayoutCommand(command, w)}
 										>
 											{command.label}

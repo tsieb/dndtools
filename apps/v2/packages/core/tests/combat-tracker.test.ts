@@ -636,3 +636,150 @@ describe('SES-002 AC5: visible dice rolls persisted into the combat encounter lo
 		expect(dmView.status).toBe('ended');
 	});
 });
+
+// --- A11Y-007 AC2: isBloodied non-color state indicator ------------------------------------------------
+
+describe('A11Y-007 AC2: getCombatTrackerForActor exposes isBloodied for non-color status indicators', () => {
+	/** Start an active session and begin combat with one combatant at a given HP. */
+	function startWithHp(
+		maxHp: number,
+	): { state: CoreStateSlice; env: CoreEnvironment; combatantId: string } {
+		const { state, env } = activeSession();
+		const started = accept(
+			dispatch(state, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: { combatants: [{ kind: 'monster', name: 'Test Monster', initiative: 10, maxHp }] },
+			}),
+		).nextState;
+		const combatantId = started.session.combat.order[0]!;
+		return { state: started, env, combatantId };
+	}
+
+	function applyDamage(
+		state: CoreStateSlice,
+		env: CoreEnvironment,
+		combatantId: string,
+		damage: number,
+	): CoreStateSlice {
+		return accept(
+			dispatch(state, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId, kind: 'hp', delta: -damage },
+			}),
+		).nextState;
+	}
+
+	it('isBloodied is false at full HP', () => {
+		const { state, combatantId } = startWithHp(20);
+		const view = getCombatTrackerForActor(state.session.combat, state.permissions, DM_ACTOR.id);
+		const c = view.combatants.find((x) => x.id === combatantId)!;
+		expect(c.resources!.hp).toBe(20);
+		expect(c.isBloodied).toBe(false);
+	});
+
+	it('isBloodied is false just above half HP', () => {
+		const { state, env, combatantId } = startWithHp(20);
+		// 9 damage → 11 HP remaining (above floor(20/2) = 10)
+		const after = applyDamage(state, env, combatantId, 9);
+		const view = getCombatTrackerForActor(after.session.combat, after.permissions, DM_ACTOR.id);
+		const c = view.combatants.find((x) => x.id === combatantId)!;
+		expect(c.resources!.hp).toBe(11);
+		expect(c.isBloodied).toBe(false);
+	});
+
+	it('isBloodied is true at exactly half HP (boundary)', () => {
+		const { state, env, combatantId } = startWithHp(20);
+		// 10 damage → 10 HP remaining = floor(20/2)
+		const after = applyDamage(state, env, combatantId, 10);
+		const view = getCombatTrackerForActor(after.session.combat, after.permissions, DM_ACTOR.id);
+		const c = view.combatants.find((x) => x.id === combatantId)!;
+		expect(c.resources!.hp).toBe(10);
+		expect(c.isBloodied).toBe(true);
+	});
+
+	it('isBloodied is true well below half HP', () => {
+		const { state, env, combatantId } = startWithHp(20);
+		// 15 damage → 5 HP remaining
+		const after = applyDamage(state, env, combatantId, 15);
+		const view = getCombatTrackerForActor(after.session.combat, after.permissions, DM_ACTOR.id);
+		const c = view.combatants.find((x) => x.id === combatantId)!;
+		expect(c.resources!.hp).toBe(5);
+		expect(c.isBloodied).toBe(true);
+	});
+
+	it('isBloodied is false at 0 HP (dead, not bloodied)', () => {
+		const { state, env, combatantId } = startWithHp(20);
+		// 20 damage → 0 HP
+		const after = applyDamage(state, env, combatantId, 20);
+		const view = getCombatTrackerForActor(after.session.combat, after.permissions, DM_ACTOR.id);
+		const c = view.combatants.find((x) => x.id === combatantId)!;
+		expect(c.resources!.hp).toBe(0);
+		expect(c.isBloodied).toBe(false);
+	});
+
+	it('isBloodied is false for a redacted/hidden combatant placeholder (no stat leak)', () => {
+		// A combatant with a placeholder but whose stats are withheld from non-DM actors.
+		const { state, env } = activeSession();
+		const started = accept(
+			dispatch(state, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: {
+					combatants: [
+						{
+							kind: 'monster',
+							name: 'Secret Boss',
+							initiative: 20,
+							maxHp: 100,
+							hidden: true,
+							placeholder: 'Mysterious Figure',
+						},
+					],
+				},
+			}),
+		).nextState;
+		const bossId = started.session.combat.order[0]!;
+
+		// Take heavy damage so isBloodied would be true for the DM.
+		const damaged = applyDamage(started, env, bossId, 80);
+
+		// DM sees full data → isBloodied should be true (80 of 100 HP gone = 20 HP left).
+		const dmView = getCombatTrackerForActor(damaged.session.combat, damaged.permissions, DM_ACTOR.id);
+		const dmRow = dmView.combatants.find((c) => c.name === 'Secret Boss')!;
+		expect(dmRow.isBloodied).toBe(true);
+
+		// Non-DM player sees the placeholder → isBloodied must be false (no stat leak).
+		const playerView = getCombatTrackerForActor(
+			damaged.session.combat,
+			damaged.permissions,
+			PLAYER_ACTOR.id,
+		);
+		const placeholder = playerView.combatants.find((c) => c.redacted)!;
+		expect(placeholder).toBeDefined();
+		expect(placeholder.resources).toBeNull();
+		expect(placeholder.isBloodied).toBe(false);
+	});
+
+	it('isBloodied works correctly for odd maxHp (floor rounding)', () => {
+		// floor(15/2) = 7, so ≤7 is bloodied, 8+ is not.
+		const { state, env, combatantId } = startWithHp(15);
+
+		// 7 damage → 8 HP: NOT bloodied.
+		const view8 = getCombatTrackerForActor(
+			applyDamage(state, env, combatantId, 7).session.combat,
+			state.permissions,
+			DM_ACTOR.id,
+		);
+		expect(view8.combatants.find((c) => c.id === combatantId)!.isBloodied).toBe(false);
+
+		// 8 damage → 7 HP: bloodied.
+		const view7 = getCombatTrackerForActor(
+			applyDamage(state, env, combatantId, 8).session.combat,
+			state.permissions,
+			DM_ACTOR.id,
+		);
+		expect(view7.combatants.find((c) => c.id === combatantId)!.isBloodied).toBe(true);
+	});
+});

@@ -162,6 +162,7 @@
 				>
 					<span class="name" data-testid="combatant-name">{combatant.name}</span>
 					{#if combatant.isActive}<span class="badge" data-testid="active-badge">Active</span>{/if}
+					{#if combatant.isBloodied}<span class="badge bloodied" data-testid="bloodied-badge">Bloodied</span>{/if}
 					{#if combatant.resources}
 						<span class="hp" data-testid="combatant-hp">
 							HP {combatant.resources.hp}/{combatant.resources.maxHp}
@@ -292,6 +293,10 @@
 		color: #fff;
 		border-radius: var(--radius-1, 0.25rem);
 		padding: 0 var(--space-1, 0.25rem);
+	}
+	/* A11Y-007 AC2: bloodied badge has a distinct shape+text so the state is never color-only. */
+	.badge.bloodied {
+		background: var(--color-danger, #b00020);
 	}
 	.combatant-controls {
 		display: flex;
