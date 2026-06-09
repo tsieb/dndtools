@@ -289,6 +289,34 @@ describe('AUDIO-002/003 — gates are respected by the playback path (fail close
 		);
 		expect(rejected.rejection.code).toBe('audio-source-not-found');
 	});
+
+	it('AUDIO-010 AC3: a cache-evicted play attempt is rejected and the already-playing track is preserved (session state not cleared, no substitution)', () => {
+		// Start with a track already playing so we can verify preservation, not vacuous null == null.
+		const env = makeEnvironment();
+		const state = activeSessionWithAudio(env);
+		const asset = assetId(state);
+		const playing = playTrack(state, env, asset);
+		expect(playing.session.audioPlayback.track?.status).toBe('playing');
+
+		// Attempt to replace the playing track with a cache-evicted version of the same asset.
+		const result = expectRejected(
+			dispatch(playing, env, {
+				type: 'session.audio.play',
+				actorId: DM_ACTOR.id,
+				payload: { sourceId: 's-local', assetId: asset, cacheEvicted: true },
+			}),
+		);
+		expect(result.rejection.code).toBe('audio-track-unavailable');
+		// The rejection message must cite the cache-evicted availability so the caller can surface it.
+		expect(result.rejection.message).toContain('cache-evicted');
+		// The originally-playing track is fully preserved in nextState — no substitution, no reset.
+		expect(result.nextState.session.audioPlayback.track?.sourceId).toBe('s-local');
+		expect(result.nextState.session.audioPlayback.track?.assetId).toBe(asset);
+		expect(result.nextState.session.audioPlayback.track?.status).toBe('playing');
+		expect(result.nextState.session.audioPlayback.track?.revision).toBe(
+			playing.session.audioPlayback.track?.revision,
+		);
+	});
 });
 
 describe('AUDIO-002/003 — actor-filtered view (no leak)', () => {
