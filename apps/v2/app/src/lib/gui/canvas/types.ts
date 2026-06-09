@@ -24,6 +24,10 @@ export interface CanvasTile extends Rect {
 	visibility: CanvasTileVisibility;
 	/** Data resolution state (drives skeleton vs. placeholder vs. content). Defaults to `ready`. */
 	state?: CanvasTileState;
+	/** Z-order (stacking) value; higher renders on top. Defaults to 0. */
+	z?: number;
+	/** Rotation in degrees (UX-CANVAS-004), applied as a CSS rotate transform. Defaults to 0. */
+	rotation?: number;
 }
 
 /** Minimap presentation per platform profile (UX-CANVAS-001 §Minimap). */

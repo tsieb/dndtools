@@ -14,13 +14,30 @@
 	import { useRuntime } from '$lib/state/runtime-context';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
 	import SceneOutline from '$lib/gui/a11y/SceneOutline.svelte';
+	import Dialog from '$lib/gui/a11y/Dialog.svelte';
+	import { arrowDirection, useLiveAnnouncer } from '$lib/gui/a11y';
 	import type { OutlineWidgetInput, Viewer } from '$lib/gui/a11y';
 	import CanvasViewport from '$lib/gui/canvas/CanvasViewport.svelte';
 	import type { CanvasTile, CanvasTileState, MinimapMode } from '$lib/gui/canvas/types';
+	import { ViewportController, screenToWorld } from '$lib/canvas-runtime';
+	import {
+		CanvasManipulationController,
+		defaultSizeForType,
+		placementTopLeft,
+		placedAnnouncement,
+		resolveCanvasShortcut,
+		toShortcutEvent,
+		type ManipWidget,
+	} from '$lib/gui/ux-canvas';
+	import WidgetLibrary from '$lib/gui/ux-canvas/WidgetLibrary.svelte';
+	import SelectionToolbar from '$lib/gui/ux-canvas/SelectionToolbar.svelte';
+	import TransformPanel from '$lib/gui/ux-canvas/TransformPanel.svelte';
+	import KeyboardShortcutsHelp from '$lib/gui/ux-canvas/KeyboardShortcutsHelp.svelte';
 
 	const { data } = $props();
 	const runtime = useRuntime();
 	const profile = useProfile();
+	const announcer = useLiveAnnouncer();
 
 	// PLAT-003: on a compact (mobile) profile the dense widget grid and the persistent
 	// "Add widget" panel do not fit. The shell shows ONE focused widget at a time (a focused
@@ -177,6 +194,11 @@
 		return map;
 	});
 
+	function rotationOf(widget: WidgetInstance): number {
+		const r = widget.configuration?.rotation;
+		return typeof r === 'number' && Number.isFinite(r) ? r : 0;
+	}
+
 	const canvasTiles = $derived.by<CanvasTile[]>(() => {
 		if (!rawScene) return [];
 		return rawScene.widgets
@@ -187,12 +209,194 @@
 				y: widget.layout.y,
 				w: widget.layout.w,
 				h: widget.layout.h,
+				z: widget.layout.z,
+				rotation: rotationOf(widget),
 				type: widget.type,
 				title: widget.binding ? `Bound to ${widget.binding.source.entityId}` : `${widget.type} widget`,
 				visibility: widgetVisibilityOf(widget),
 				state: canvasTileState.get(widget.id) ?? 'ready',
 			}));
 	});
+
+	// UX-CANVAS-002/003/004/005/006/009/012: the editor-side manipulation surface. The widget list is the
+	// SAME viewer-FILTERED set the canvas/outline use, so selection, marquee, alignment, z-order, and the
+	// transform panel can never reach a DM-only widget for a player/observer (no-leak). Editing is offered
+	// only to the DM/owner viewer; the processing core re-checks co-editor rights on every command.
+	const canEdit = $derived(viewer.role === 'dm');
+
+	const manipWidgets = $derived.by<ManipWidget[]>(() => {
+		if (!rawScene) return [];
+		return rawScene.widgets
+			.filter((widget) => viewer.role === 'dm' || widgetVisibilityOf(widget) !== 'dm-only')
+			.map((widget) => ({
+				id: widget.id,
+				x: widget.layout.x,
+				y: widget.layout.y,
+				w: widget.layout.w,
+				h: widget.layout.h,
+				z: widget.layout.z,
+				type: widget.type,
+				label: widget.binding ? `${widget.type} (${widget.binding.source.entityId})` : `${widget.type} widget`,
+				rotation: rotationOf(widget),
+				configuration: widget.configuration ?? {},
+			}));
+	});
+
+	// One shared viewport controller so placement can resolve the viewport centre in world space and the
+	// canvas drives a single pan/zoom runtime (foundational-canvas reuse).
+	const viewportController = new ViewportController();
+
+	const manipulation = new CanvasManipulationController({
+		get sceneId() {
+			return sceneId;
+		},
+		widgets: () => manipWidgets,
+		dispatch: async (commands) => {
+			for (const command of commands) {
+				const result = await runtime.dispatch({
+					type: command.type as never,
+					actorId: runtime.defaultActorId,
+					payload: command.payload,
+				});
+				if (result.status !== 'accepted') return false;
+			}
+			return true;
+		},
+		announce: (message) => announcer?.announce(message, 'polite'),
+	});
+
+	// Keep the selection valid when widgets are removed or the viewer switches (no stale/leaked ids).
+	$effect(() => {
+		void manipWidgets;
+		manipulation.reconcile();
+	});
+
+	// The primary selected widget, surfaced to the transform panel + canvas handles.
+	const primaryWidget = $derived.by<ManipWidget | null>(() => {
+		const id = manipulation.primaryId;
+		return id ? (manipWidgets.find((w) => w.id === id) ?? null) : null;
+	});
+
+	let libraryOpen = $state(false);
+	let helpOpen = $state(false);
+	let deleteTargetId = $state<string | null>(null);
+
+	const deleteTarget = $derived(
+		deleteTargetId ? (manipWidgets.find((w) => w.id === deleteTargetId) ?? null) : null,
+	);
+
+	async function placeFromLibrary(type: string) {
+		const size = defaultSizeForType(type);
+		const center = screenToWorld(
+			viewportController.viewport,
+			viewportController.centerAnchor.x || 200,
+			viewportController.centerAnchor.y || 150,
+		);
+		const topLeft = placementTopLeft(center, size);
+		const before = new Set((rawScene?.widgets ?? []).map((w) => w.id));
+		const result = await runtime.dispatch({
+			type: 'scene.add-widget',
+			actorId: runtime.defaultActorId,
+			payload: {
+				sceneId,
+				widget: {
+					type,
+					version: '1.0.0',
+					layout: { x: topLeft.x, y: topLeft.y, w: size.w, h: size.h },
+					configuration: { visibility: 'player-visible' },
+					binding: null,
+				},
+			},
+		});
+		if (result.status === 'accepted') {
+			const added = (runtime.state.scenes.scenes[sceneId]?.widgets ?? []).find((w) => !before.has(w.id));
+			if (added) manipulation.select(added.id);
+			announcer?.announce(placedAnnouncement(type), 'polite');
+		}
+	}
+
+	async function groupManipulationSelection() {
+		if (manipulation.selectionCount < 2) return;
+		await runtime.dispatch({
+			type: 'scene.group-widgets',
+			actorId: runtime.defaultActorId,
+			payload: { sceneId, widgetInstanceIds: [...manipulation.selectedIds] },
+		});
+	}
+
+	function requestDelete(id: string | null = manipulation.primaryId) {
+		if (id) deleteTargetId = id;
+	}
+
+	async function confirmDelete() {
+		if (deleteTargetId) await manipulation.destroy(deleteTargetId);
+		deleteTargetId = null;
+	}
+
+	// UX-CANVAS-015: canvas-level keyboard model. The host gets first crack at canvas keys so a selected
+	// widget's arrow-key MOVE wins over arrow-key pan, and the manipulation/history shortcuts dispatch the
+	// same core commands the toolbar does. Returns true when a key was handled (CanvasViewport then
+	// preventDefaults and skips the viewport pan/zoom handler).
+	function onManipulationKey(event: KeyboardEvent): boolean {
+		if (!canEdit) return false;
+		const dir = arrowDirection(event.key);
+		if (dir && manipulation.selectionCount > 0) {
+			const mod = event.ctrlKey || event.metaKey;
+			const size = mod && event.shiftKey ? 'large' : event.shiftKey ? 'nudge' : 'fine';
+			void manipulation.nudge(dir, size);
+			return true;
+		}
+		const action = resolveCanvasShortcut(toShortcutEvent(event));
+		switch (action) {
+			case 'open-library':
+				libraryOpen = true;
+				return true;
+			case 'undo':
+				void manipulation.undo();
+				return true;
+			case 'redo':
+				void manipulation.redo();
+				return true;
+			case 'select-all':
+				manipulation.selectAll();
+				return true;
+			case 'group':
+				void groupManipulationSelection();
+				return true;
+			case 'duplicate':
+				return true;
+			case 'z-front':
+				void manipulation.zOrder('front');
+				return true;
+			case 'z-back':
+				void manipulation.zOrder('back');
+				return true;
+			case 'z-forward':
+				void manipulation.zOrder('forward');
+				return true;
+			case 'z-backward':
+				void manipulation.zOrder('backward');
+				return true;
+			case 'toggle-grid':
+				manipulation.gridEnabled = !manipulation.gridEnabled;
+				return true;
+			case 'delete':
+				requestDelete();
+				return true;
+			case 'help':
+				helpOpen = true;
+				return true;
+			case 'escape':
+				manipulation.clearSelection();
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	function reorderFromOutline(id: string, direction: 'up' | 'down') {
+		void manipulation.zOrder(direction === 'up' ? 'forward' : 'backward', id);
+	}
 
 	// UX-CANVAS-001 §Minimap: persistent on Desktop, toggleable on Tablet, hidden by default on Mobile.
 	const minimapMode = $derived<MinimapMode>(
@@ -379,14 +583,105 @@
 
 		<!-- UX-CANVAS-001/014/016: the spatial canvas viewport. Pan/zoom with cursor-anchored zoom,
 		     on-screen zoom controls, a minimap, keyboard parity, virtualization, skeletons, and
-		     poster-frame degradation. Tiles are actor-filtered (no DM-only leak to a player view). -->
+		     poster-frame degradation. UX-CANVAS-002/003/004/005/006/009/012/015 layer the editor model on
+		     top: a widget library, selection + marquee, move/resize/rotate, alignment, z-order, undo/redo,
+		     and the keyboard model. Tiles are actor-filtered (no DM-only leak to a player view). -->
 		<section data-testid="scene-canvas-section" aria-label="Scene canvas viewport">
+			{#if canEdit}
+				<!-- Canvas command bar: the non-gesture entry points for placement, grid, history, and help.
+				     Every one has a keyboard shortcut too (UX-CANVAS-015), but the buttons guarantee parity
+				     on touch/no-keyboard profiles. -->
+				<div class="canvas-command-bar" role="toolbar" aria-label="Canvas tools" data-testid="canvas-command-bar">
+					<button type="button" class="button" data-testid="open-widget-library" onclick={() => (libraryOpen = true)}>
+						+ Add widget
+					</button>
+					<label class="grid-toggle">
+						<input type="checkbox" data-testid="canvas-grid-toggle" bind:checked={manipulation.gridEnabled} />
+						<span>Snap to grid</span>
+					</label>
+					<button
+						type="button"
+						class="button secondary"
+						data-testid="canvas-undo"
+						aria-label={manipulation.undoLabel ? `Undo ${manipulation.undoLabel}` : 'Nothing to undo'}
+						aria-disabled={!manipulation.canUndo}
+						disabled={!manipulation.canUndo}
+						onclick={() => manipulation.undo()}
+					>
+						Undo
+					</button>
+					<button
+						type="button"
+						class="button secondary"
+						data-testid="canvas-redo"
+						aria-label={manipulation.redoLabel ? `Redo ${manipulation.redoLabel}` : 'Nothing to redo'}
+						aria-disabled={!manipulation.canRedo}
+						disabled={!manipulation.canRedo}
+						onclick={() => manipulation.redo()}
+					>
+						Redo
+					</button>
+					<button type="button" class="button secondary" data-testid="canvas-shortcuts-open" onclick={() => (helpOpen = true)}>
+						Keyboard shortcuts
+					</button>
+					{#if manipulation.undoLimitReached && !manipulation.canUndo}
+						<span class="canvas-toast" role="status" data-testid="canvas-undo-limit">Undo limit reached</span>
+					{/if}
+				</div>
+			{/if}
+
 			<CanvasViewport
+				controller={viewportController}
 				tiles={canvasTiles}
 				minimap={minimapMode}
 				label={`${summary.name} canvas`}
+				interactive={canEdit}
+				selectedIds={manipulation.selectedIds}
+				primaryId={manipulation.primaryId}
+				selectionBounds={manipulation.selectionBounds}
+				onSelectTile={(id, mode) => manipulation.select(id, mode)}
+				onMarquee={(start, end, additive) => manipulation.marquee(start, end, additive)}
+				onMoveCommit={(id, x, y) => manipulation.moveTo(id, x, y)}
+				onResizeCommit={(id, w, h) => manipulation.resizeTo(id, w, h)}
+				onRotateCommit={(id, deg, free) => manipulation.rotateTo(id, deg, free)}
+				{onManipulationKey}
 			/>
+
+			{#if canEdit}
+				<SelectionToolbar
+					controller={manipulation}
+					ongroup={groupManipulationSelection}
+					ondelete={() => requestDelete()}
+				/>
+				<TransformPanel controller={manipulation} widget={primaryWidget} />
+			{/if}
 		</section>
+
+		{#if canEdit}
+			<WidgetLibrary bind:open={libraryOpen} profile={profile.profileId} onplace={placeFromLibrary} />
+			<KeyboardShortcutsHelp bind:open={helpOpen} />
+			<Dialog
+				open={deleteTargetId !== null}
+				title="Delete widget?"
+				role="alertdialog"
+				testid="delete-confirm"
+				closeOnBackdrop={false}
+				onclose={() => (deleteTargetId = null)}
+			>
+				<p>
+					Remove <strong>{deleteTarget?.label ?? 'this widget'}</strong> from the scene? The bound entity is
+					not deleted.
+				</p>
+				{#snippet footer()}
+					<button type="button" class="button secondary" data-testid="delete-cancel" onclick={() => (deleteTargetId = null)}>
+						Cancel
+					</button>
+					<button type="button" class="button" data-testid="delete-confirm-button" onclick={confirmDelete}>
+						Delete widget
+					</button>
+				{/snippet}
+			</Dialog>
+		{/if}
 
 		<section data-testid="add-widget-section">
 			<div class="widgets-head">
@@ -654,7 +949,14 @@
 		     Built through the visibility boundary for the active "view as" actor, so a player's outline
 		     never lists a DM-only widget (UX-A11Y-008). Activating an item focuses the widget. -->
 		<section data-testid="scene-outline-section">
-			<SceneOutline widgets={outlineWidgets} {viewer} onactivate={focusWidgetOnCanvas} />
+			<SceneOutline
+				widgets={outlineWidgets}
+				{viewer}
+				onactivate={focusWidgetOnCanvas}
+				selectedIds={canEdit ? manipulation.selectedIds : undefined}
+				onselect={canEdit ? (id, mode) => manipulation.select(id, mode) : undefined}
+				onreorder={canEdit ? reorderFromOutline : undefined}
+			/>
 		</section>
 
 		<section>
@@ -725,3 +1027,32 @@
 		</section>
 	</section>
 {/if}
+
+<style>
+	.canvas-command-bar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2);
+		margin-bottom: var(--space-2);
+	}
+	.grid-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		min-height: var(--touch-target-min);
+		font-size: var(--text-sm);
+		color: var(--color-text-secondary);
+	}
+	.canvas-toast {
+		padding: var(--space-0-5) var(--space-2);
+		border-radius: var(--radius-sm);
+		background: var(--color-status-warning-surface, var(--color-surface-raised));
+		color: var(--color-status-warning-text);
+		font-size: var(--text-sm);
+	}
+	[data-testid='scene-canvas-section'] :global(.selection-toolbar),
+	[data-testid='scene-canvas-section'] :global(.transform-panel) {
+		margin-top: var(--space-2);
+	}
+</style>

@@ -32,7 +32,9 @@ test.describe('CANVAS-005/CANVAS-015 Player View projection panel', () => {
 		await page.getByTestId('widget-add').click();
 		await expect(page.getByTestId('widget-grid')).toContainText('note');
 
-		await page.getByRole('checkbox').first().check();
+		// The per-widget selection checkbox lives in the dense widget grid. Scope to the grid so the
+		// canvas command bar's "Snap to grid" toggle (a separate checkbox above the grid) is not matched.
+		await page.getByTestId('widget-grid').getByRole('checkbox').first().check();
 		await page.getByTestId('projection-kind').selectOption('handout');
 		await page.getByTestId('project-player-view').click();
 		await expect(page.getByTestId('player-view-preview')).toContainText('handout');

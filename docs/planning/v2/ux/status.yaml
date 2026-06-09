@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 35
+  approved: 34
   active: 0
-  complete: 11
+  complete: 12
   deferred: 0
 metrics:
-  epicCompletionPercent: 23.9
-  requirementCompletionPercent: 23
+  epicCompletionPercent: 26.1
+  requirementCompletionPercent: 26.2
   totalRequirements: 244
-  completedRequirements: 56
+  completedRequirements: 64
   deferredRequirements: 0
-  remainingEpics: 35
+  remainingEpics: 34
   promptableEpics: 7
-  blockedByDependencies: 28
-  completionEvidenceFiles: 11
+  blockedByDependencies: 27
+  completionEvidenceFiles: 12
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -111,9 +111,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 03 Canvas and Command Center
       totalEpics: 4
-      complete: 1
+      complete: 2
       active: 0
-      approved: 3
+      approved: 2
       proposed: 0
       deferred: 0
       requirementIds:
@@ -138,8 +138,8 @@ metrics:
         - UX-CMD-003
         - UX-CMD-008
         - UX-CMD-012
-      epicCompletionPercent: 25
-      requirementCompletionPercent: 14.3
+      epicCompletionPercent: 50
+      requirementCompletionPercent: 52.4
     - phase: 04 Trust and Safety
       totalEpics: 2
       complete: 0
@@ -391,23 +391,21 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-CANVAS-widget-manipulation-and-outline
-  title: Widget Placement, Manipulation, and Outline
+  id: UX-CANVAS-chrome-bindings-templates-and-view-modes
+  title: Widget Chrome, Bindings, Templates, and View Modes
   phase: 03 Canvas and Command Center
   status: approved
   requirementIds:
-    - UX-CANVAS-002
-    - UX-CANVAS-003
-    - UX-CANVAS-004
-    - UX-CANVAS-005
-    - UX-CANVAS-006
-    - UX-CANVAS-009
-    - UX-CANVAS-012
-    - UX-CANVAS-015
-  promptCommand: pnpm v2:ux-prompt -- --epic UX-CANVAS-widget-manipulation-and-outline
+    - UX-CANVAS-007
+    - UX-CANVAS-008
+    - UX-CANVAS-010
+    - UX-CANVAS-011
+    - UX-CANVAS-013
+  promptCommand: pnpm v2:ux-prompt -- --epic
+    UX-CANVAS-chrome-bindings-templates-and-view-modes
   nextPromptCommand: pnpm v2:ux-prompt -- --next
   statusCommand: pnpm v2:ux-workpack:set-status -- --epic
-    UX-CANVAS-widget-manipulation-and-outline --status active
+    UX-CANVAS-chrome-bindings-templates-and-view-modes --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -628,7 +626,7 @@ epics:
   - id: UX-CANVAS-widget-manipulation-and-outline
     title: Widget Placement, Manipulation, and Outline
     phase: 03 Canvas and Command Center
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-CANVAS-002
@@ -647,6 +645,7 @@ epics:
       - alignment tools
     dependencies:
       - UX-CANVAS-viewport-rendering-and-performance
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CANVAS-widget-manipulation-and-outline.completion.md
   - id: UX-CANVAS-chrome-bindings-templates-and-view-modes
     title: Widget Chrome, Bindings, Templates, and View Modes
     phase: 03 Canvas and Command Center

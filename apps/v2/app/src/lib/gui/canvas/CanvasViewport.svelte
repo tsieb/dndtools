@@ -46,6 +46,31 @@
 		controller?: ViewportController;
 		/** World-space bounds of the current selection (Shift+0 zoom-to-selection target). */
 		selectionBounds?: Bounds | null;
+		/**
+		 * UX-CANVAS-005/003/004: opt-in editor interactivity. When set, single-pointer drag on empty
+		 * canvas marquee-selects, a tile pointer-down selects + drag-moves, and the primary selection
+		 * grows pointer resize + rotation handles. The keyboard / non-gesture paths live OUTSIDE this
+		 * presentational (aria-hidden) world layer — the Scene Outline, selection toolbar, transform panel
+		 * and the canvas-region shortcut handler — so the canvas chrome stays out of the a11y tree.
+		 */
+		interactive?: boolean;
+		/** Ids of the currently-selected widgets (drives the selection rings + handles). */
+		selectedIds?: ReadonlySet<string>;
+		/** The primary (most-recent) selection id — the one that shows resize + rotation handles. */
+		primaryId?: string | null;
+		/** Select a tile (plain or toggle via Shift/Ctrl). */
+		onSelectTile?: (id: string, mode: 'replace' | 'toggle') => void;
+		/** A marquee drag finished: world-space start/end corners + whether Shift (additive). A
+		 *  zero-area marquee (a click on empty canvas) clears the selection. */
+		onMarquee?: (start: Vec2, end: Vec2, additive: boolean) => void;
+		/** A tile move-drag committed: new world top-left. */
+		onMoveCommit?: (id: string, x: number, y: number) => void;
+		/** A corner resize-drag committed: new world size. */
+		onResizeCommit?: (id: string, w: number, h: number) => void;
+		/** A rotation-drag committed: absolute degrees (caller snaps). `free` = Shift held (1°). */
+		onRotateCommit?: (id: string, deg: number, free: boolean) => void;
+		/** Manipulation key handler given first crack at canvas keys; returns true when it handled one. */
+		onManipulationKey?: (event: KeyboardEvent) => boolean;
 	}
 
 	let {
@@ -55,6 +80,15 @@
 		loading = false,
 		controller: providedController,
 		selectionBounds = null,
+		interactive = false,
+		selectedIds,
+		primaryId = null,
+		onSelectTile,
+		onMarquee,
+		onMoveCommit,
+		onResizeCommit,
+		onRotateCommit,
+		onManipulationKey,
 	}: Props = $props();
 
 	// svelte-ignore state_referenced_locally
@@ -90,6 +124,166 @@
 	let lastPanTime = 0;
 	let inertiaRaf = 0;
 	let minimapDragging = false;
+
+	// --- Editor interaction (UX-CANVAS-005/003/004), all pointer-only on the aria-hidden world ---------
+	type Corner = 'nw' | 'ne' | 'sw' | 'se';
+	interface MoveInteraction {
+		kind: 'move';
+		id: string;
+		startWorld: Vec2;
+		originX: number;
+		originY: number;
+		moved: boolean;
+	}
+	interface ResizeInteraction {
+		kind: 'resize';
+		id: string;
+		corner: Corner;
+		startWorld: Vec2;
+		rect: { x: number; y: number; w: number; h: number };
+	}
+	interface RotateInteraction {
+		kind: 'rotate';
+		id: string;
+		center: Vec2;
+		free: boolean;
+	}
+	interface MarqueeInteraction {
+		kind: 'marquee';
+		startWorld: Vec2;
+		additive: boolean;
+	}
+	type Interaction = MoveInteraction | ResizeInteraction | RotateInteraction | MarqueeInteraction;
+
+	let interaction = $state<Interaction | null>(null);
+	// Live drag preview offsets (screen-independent world deltas) for the active move/resize/marquee.
+	let dragDelta = $state<Vec2>({ x: 0, y: 0 });
+	let resizePreview = $state<{ w: number; h: number } | null>(null);
+	let marqueePreview = $state<{ x: number; y: number; w: number; h: number } | null>(null);
+
+	function worldPoint(event: { clientX: number; clientY: number }): Vec2 {
+		const sp = surfacePoint(event);
+		const w = screenToWorldPt(sp);
+		return w;
+	}
+	function screenToWorldPt(sp: Vec2): Vec2 {
+		const v = controller.viewport;
+		return { x: (sp.x - v.tx) / v.scale, y: (sp.y - v.ty) / v.scale };
+	}
+
+	function tileById(id: string): CanvasTile | undefined {
+		return tiles.find((t) => t.id === id);
+	}
+
+	function beginTileMove(event: PointerEvent, id: string) {
+		const tile = tileById(id);
+		if (!tile) return;
+		const mode: 'replace' | 'toggle' = event.shiftKey || event.ctrlKey || event.metaKey ? 'toggle' : 'replace';
+		onSelectTile?.(id, mode);
+		interaction = { kind: 'move', id, startWorld: worldPoint(event), originX: tile.x, originY: tile.y, moved: false };
+		dragDelta = { x: 0, y: 0 };
+	}
+
+	function beginResize(event: PointerEvent, id: string, corner: Corner) {
+		const tile = tileById(id);
+		if (!tile) return;
+		event.stopPropagation();
+		interaction = {
+			kind: 'resize',
+			id,
+			corner,
+			startWorld: worldPoint(event),
+			rect: { x: tile.x, y: tile.y, w: tile.w, h: tile.h },
+		};
+		resizePreview = { w: tile.w, h: tile.h };
+		(event.target as HTMLElement)?.setPointerCapture?.(event.pointerId);
+	}
+
+	function beginRotate(event: PointerEvent, id: string) {
+		const tile = tileById(id);
+		if (!tile) return;
+		event.stopPropagation();
+		interaction = {
+			kind: 'rotate',
+			id,
+			center: { x: tile.x + tile.w / 2, y: tile.y + tile.h / 2 },
+			free: event.shiftKey,
+		};
+		(event.target as HTMLElement)?.setPointerCapture?.(event.pointerId);
+	}
+
+	function updateInteraction(event: PointerEvent) {
+		if (!interaction) return;
+		const wp = worldPoint(event);
+		switch (interaction.kind) {
+			case 'move': {
+				const dx = wp.x - interaction.startWorld.x;
+				const dy = wp.y - interaction.startWorld.y;
+				dragDelta = { x: dx, y: dy };
+				if (Math.abs(dx) > 1 || Math.abs(dy) > 1) interaction.moved = true;
+				break;
+			}
+			case 'resize': {
+				const dx = wp.x - interaction.startWorld.x;
+				const dy = wp.y - interaction.startWorld.y;
+				const east = interaction.corner === 'ne' || interaction.corner === 'se';
+				const south = interaction.corner === 'sw' || interaction.corner === 'se';
+				const w = interaction.rect.w + (east ? dx : -dx);
+				const h = interaction.rect.h + (south ? dy : -dy);
+				resizePreview = { w: Math.max(40, Math.round(w)), h: Math.max(40, Math.round(h)) };
+				break;
+			}
+			case 'rotate': {
+				const deg = (Math.atan2(wp.x - interaction.center.x, -(wp.y - interaction.center.y)) * 180) / Math.PI;
+				rotatePreview = deg < 0 ? deg + 360 : deg;
+				break;
+			}
+			case 'marquee': {
+				const x = Math.min(interaction.startWorld.x, wp.x);
+				const y = Math.min(interaction.startWorld.y, wp.y);
+				marqueePreview = {
+					x,
+					y,
+					w: Math.abs(wp.x - interaction.startWorld.x),
+					h: Math.abs(wp.y - interaction.startWorld.y),
+				};
+				break;
+			}
+		}
+	}
+
+	let rotatePreview = $state<number | null>(null);
+
+	function finishInteraction(event: PointerEvent) {
+		const active = interaction;
+		if (!active) return;
+		switch (active.kind) {
+			case 'move': {
+				if (active.moved) {
+					onMoveCommit?.(active.id, Math.round(active.originX + dragDelta.x), Math.round(active.originY + dragDelta.y));
+				}
+				break;
+			}
+			case 'resize': {
+				if (resizePreview) onResizeCommit?.(active.id, resizePreview.w, resizePreview.h);
+				break;
+			}
+			case 'rotate': {
+				if (rotatePreview !== null) onRotateCommit?.(active.id, rotatePreview, active.free);
+				break;
+			}
+			case 'marquee': {
+				const end = worldPoint(event);
+				onMarquee?.(active.startWorld, end, active.additive);
+				break;
+			}
+		}
+		interaction = null;
+		dragDelta = { x: 0, y: 0 };
+		resizePreview = null;
+		rotatePreview = null;
+		marqueePreview = null;
+	}
 
 	/** The two active touch points for a pinch, or `null` when fewer than two are down. */
 	function twoPointers(): [Vec2, Vec2] | null {
@@ -143,6 +337,28 @@
 	function onPointerDown(event: PointerEvent) {
 		if (isControl(event.target)) return;
 		cancelInertia();
+		// Editor interaction (UX-CANVAS-005/003): a single primary pointer on a tile drag-moves it; on
+		// empty canvas it marquee-selects. Resize/rotation handles run their own handlers (they
+		// stopPropagation before this fires). A second pointer falls through to the pan/pinch model.
+		if (interactive && pointers.size === 0 && event.isPrimary && !interaction) {
+			const targetEl = event.target as HTMLElement | null;
+			if (targetEl?.closest('[data-resize-corner]') || targetEl?.closest('[data-rotate-handle]')) {
+				// Handles already began the interaction in their own pointerdown.
+			} else {
+				const tileEl = targetEl?.closest('[data-tile-id]') as HTMLElement | null;
+				targetEl?.setPointerCapture?.(event.pointerId);
+				pointers.set(event.pointerId, surfacePoint(event));
+				if (tileEl) {
+					event.stopPropagation();
+					beginTileMove(event, tileEl.getAttribute('data-tile-id')!);
+				} else {
+					const start = worldPoint(event);
+					interaction = { kind: 'marquee', startWorld: start, additive: event.shiftKey };
+					marqueePreview = { x: start.x, y: start.y, w: 0, h: 0 };
+				}
+				return;
+			}
+		}
 		(event.target as HTMLElement)?.setPointerCapture?.(event.pointerId);
 		const p = surfacePoint(event);
 		pointers.set(event.pointerId, p);
@@ -159,6 +375,11 @@
 	}
 
 	function onPointerMove(event: PointerEvent) {
+		// An active editor interaction (move/resize/rotate/marquee) takes priority over pan/pinch.
+		if (interaction) {
+			updateInteraction(event);
+			return;
+		}
 		if (!pointers.has(event.pointerId)) return;
 		const p = surfacePoint(event);
 		pointers.set(event.pointerId, p);
@@ -183,6 +404,12 @@
 	}
 
 	function endPointer(event: PointerEvent) {
+		if (interaction) {
+			finishInteraction(event);
+			pointers.delete(event.pointerId);
+			panning = false;
+			return;
+		}
 		if (!pointers.has(event.pointerId)) return;
 		pointers.delete(event.pointerId);
 		if (pointers.size < 2) controller.endPinch();
@@ -206,6 +433,14 @@
 	function onKeydown(event: KeyboardEvent) {
 		// Shortcuts only when the canvas region itself is focused, never while typing in a control.
 		if (isControl(event.target) && event.target !== event.currentTarget) return;
+		// The host's manipulation handler gets first crack (UX-CANVAS-015): undo/redo, select-all,
+		// group, delete, and selection-aware arrow-key MOVE (which must win over arrow-key pan when a
+		// widget is selected). Only unhandled keys fall through to the viewport pan/zoom model.
+		if (onManipulationKey?.(event)) {
+			event.preventDefault();
+			cancelInertia();
+			return;
+		}
 		const handled = controller.handleKey(event.key, event.shiftKey, selectionBounds);
 		if (handled) {
 			event.preventDefault();
@@ -360,6 +595,43 @@
 		`translate(${controller.viewport.tx}px, ${controller.viewport.ty}px) scale(${controller.viewport.scale})`,
 	);
 	const renderedCount = $derived(visibleTiles.length);
+
+	// Effective tile rect/rotation, accounting for any in-flight drag preview (move/resize/rotate).
+	function effectiveRect(tile: CanvasTile): { x: number; y: number; w: number; h: number } {
+		let { x, y, w, h } = tile;
+		if (interaction?.kind === 'move' && interaction.id === tile.id) {
+			x += dragDelta.x;
+			y += dragDelta.y;
+		}
+		if (interaction?.kind === 'resize' && interaction.id === tile.id && resizePreview) {
+			w = resizePreview.w;
+			h = resizePreview.h;
+		}
+		return { x, y, w, h };
+	}
+	function effectiveRotation(tile: CanvasTile): number {
+		if (interaction?.kind === 'rotate' && interaction.id === tile.id && rotatePreview !== null) {
+			return rotatePreview;
+		}
+		return tile.rotation ?? 0;
+	}
+	function tileStyle(tile: CanvasTile): string {
+		const r = effectiveRect(tile);
+		const rot = effectiveRotation(tile);
+		return `transform: translate(${r.x}px, ${r.y}px) rotate(${rot}deg); width: ${r.w}px; height: ${r.h}px; z-index: ${tile.z ?? 0};`;
+	}
+	function isSelected(tile: CanvasTile): boolean {
+		return interactive && (selectedIds?.has(tile.id) ?? false);
+	}
+	function isPrimary(tile: CanvasTile): boolean {
+		return interactive && primaryId === tile.id;
+	}
+	const RESIZE_CORNERS: ReadonlyArray<{ corner: Corner; label: string; cls: string }> = [
+		{ corner: 'nw', label: 'top-left', cls: 'nw' },
+		{ corner: 'ne', label: 'top-right', cls: 'ne' },
+		{ corner: 'sw', label: 'bottom-left', cls: 'sw' },
+		{ corner: 'se', label: 'bottom-right', cls: 'se' },
+	];
 </script>
 
 <!-- UX-CANVAS-015: the spatial canvas is a keyboard-operable `role="application"` region with an
@@ -388,13 +660,48 @@
 	<div class="canvas-surface" data-canvas-surface bind:this={surfaceEl}>
 		<div class="canvas-world" data-animating={!panning && !controller.pinching} style={`transform: ${transform};`} aria-hidden="true">
 			{#each visibleTiles as tile (tile.id)}
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
 					class="canvas-tile"
 					class:is-skeleton={tilePending(tile)}
+					class:is-selected={isSelected(tile)}
+					class:is-dragging={interaction !== null && 'id' in interaction && interaction.id === tile.id}
 					data-testid={`canvas-tile-${tile.id}`}
+					data-tile-id={interactive ? tile.id : undefined}
+					data-selected={isSelected(tile)}
 					data-visibility={tile.visibility}
-					style={`transform: translate(${tile.x}px, ${tile.y}px); width: ${tile.w}px; height: ${tile.h}px;`}
+					style={tileStyle(tile)}
 				>
+					{#if isSelected(tile)}
+						<span class="canvas-tile-ring" aria-hidden="true"></span>
+					{/if}
+					{#if isPrimary(tile)}
+						<!-- Pointer resize handles (UX-CANVAS-003) — the gesture path; the keyboard/numeric
+						     alternative is the transform panel + selection toolbar (non-aria-hidden). -->
+						{#each RESIZE_CORNERS as h (h.corner)}
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<span
+								class={`canvas-resize-handle ${h.cls}`}
+								data-resize-corner={h.corner}
+								data-testid={`canvas-resize-${h.corner}-${tile.id}`}
+								title={`Resize ${h.label}`}
+								onpointerdown={(e) => beginResize(e, tile.id, h.corner)}
+								onpointermove={updateInteraction}
+								onpointerup={finishInteraction}
+							></span>
+						{/each}
+						<!-- Rotation handle (UX-CANVAS-004) — gesture path; keyboard/numeric is the panel. -->
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<span
+							class="canvas-rotate-handle"
+							data-rotate-handle
+							data-testid={`canvas-rotate-${tile.id}`}
+							title="Rotate"
+							onpointerdown={(e) => beginRotate(e, tile.id)}
+							onpointermove={updateInteraction}
+							onpointerup={finishInteraction}
+						></span>
+					{/if}
 					<div class="canvas-tile-head">
 						<span class="canvas-tile-type">{tile.type}</span>
 						{#if tile.visibility === 'dm-only'}
@@ -415,6 +722,15 @@
 					{/if}
 				</div>
 			{/each}
+
+			{#if interactive && marqueePreview}
+				<span
+					class="canvas-marquee"
+					aria-hidden="true"
+					data-testid="canvas-marquee"
+					style={`transform: translate(${marqueePreview.x}px, ${marqueePreview.y}px); width: ${marqueePreview.w}px; height: ${marqueePreview.h}px;`}
+				></span>
+			{/if}
 		</div>
 
 		<!-- Poster-frame degradation indicator (UX-CANVAS-014): a calm thin line + one polite
@@ -626,6 +942,82 @@
 			transparent 2px,
 			transparent 4px
 		);
+	}
+
+	/* Editor selection chrome (UX-CANVAS-005). The ring is a high-contrast outline (WCAG 1.4.11) plus a
+	   data attribute so selection is conveyed by more than colour alone. */
+	.canvas-tile.is-selected {
+		border-color: var(--color-accent);
+	}
+	.canvas-tile-ring {
+		position: absolute;
+		inset: -3px;
+		border: 2px solid var(--color-accent);
+		border-radius: var(--radius-sm);
+		pointer-events: none;
+	}
+	.canvas-tile.is-dragging {
+		opacity: 0.85;
+	}
+	.canvas-tile[data-tile-id] {
+		cursor: grab;
+	}
+
+	/* Pointer resize handles (UX-CANVAS-003): 12px visible target inside a 44px hit area via padding. */
+	.canvas-resize-handle {
+		position: absolute;
+		width: 14px;
+		height: 14px;
+		background: var(--color-surface-raised);
+		border: 2px solid var(--color-accent);
+		border-radius: 50%;
+		z-index: 2;
+		touch-action: none;
+	}
+	.canvas-resize-handle.nw {
+		top: -7px;
+		left: -7px;
+		cursor: nwse-resize;
+	}
+	.canvas-resize-handle.ne {
+		top: -7px;
+		right: -7px;
+		cursor: nesw-resize;
+	}
+	.canvas-resize-handle.sw {
+		bottom: -7px;
+		left: -7px;
+		cursor: nesw-resize;
+	}
+	.canvas-resize-handle.se {
+		bottom: -7px;
+		right: -7px;
+		cursor: nwse-resize;
+	}
+	.canvas-rotate-handle {
+		position: absolute;
+		top: -28px;
+		left: 50%;
+		width: 14px;
+		height: 14px;
+		margin-left: -7px;
+		background: var(--color-accent);
+		border: 2px solid var(--color-surface-raised);
+		border-radius: 50%;
+		z-index: 2;
+		cursor: grab;
+		touch-action: none;
+	}
+
+	.canvas-marquee {
+		position: absolute;
+		top: 0;
+		left: 0;
+		transform-origin: 0 0;
+		border: 1px dashed var(--color-accent);
+		background: var(--color-interactive-selected);
+		opacity: 0.4;
+		pointer-events: none;
 	}
 
 	/* Performance mode (UX-CANVAS-014): hide tile chrome to recover frame budget. */

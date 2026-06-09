@@ -31,10 +31,20 @@
 		widgets: readonly OutlineWidgetInput[];
 		viewer: Viewer;
 		onactivate?: (id: string) => void;
+		/**
+		 * UX-CANVAS-005/006: when provided, the outline doubles as the layers/selection panel — activating
+		 * an item selects the widget on canvas (Shift/Ctrl toggles), `selectedIds` drives `aria-selected`,
+		 * and `onreorder` (Ctrl/Cmd+Arrow, or the per-row buttons) changes its z-order. Omitting these keeps
+		 * the original read-only structural outline behaviour unchanged.
+		 */
+		selectedIds?: ReadonlySet<string>;
+		onselect?: (id: string, mode: 'replace' | 'toggle') => void;
+		onreorder?: (id: string, direction: 'up' | 'down') => void;
 		testid?: string;
 	}
 
-	let { widgets, viewer, onactivate, testid = 'scene-outline' }: Props = $props();
+	let { widgets, viewer, onactivate, selectedIds, onselect, onreorder, testid = 'scene-outline' }: Props =
+		$props();
 
 	const baseId = nextOutlineId();
 	const announcer = useLiveAnnouncer();
@@ -59,9 +69,22 @@
 	});
 
 	function onKeydown(event: KeyboardEvent) {
+		const mod = event.ctrlKey || event.metaKey;
+		const verticalArrow = event.key === 'ArrowUp' || event.key === 'ArrowDown';
+		// UX-CANVAS-006: Ctrl/Cmd+Arrow reorders the focused widget's z-order from the outline (the
+		// keyboard alternative to drag-to-reorder in a layers panel). Plain Arrow keys fall through to
+		// the roving navigation below.
+		if (onreorder && mod && verticalArrow) {
+			const item = model.items[focusIndex];
+			if (item) {
+				event.preventDefault();
+				onreorder(item.id, event.key === 'ArrowUp' ? 'up' : 'down');
+			}
+			return;
+		}
 		if (isActivationKey(event)) {
 			event.preventDefault();
-			activate(focusIndex);
+			activate(focusIndex, event.shiftKey || mod);
 			return;
 		}
 		const next = nextRovingIndex({
@@ -77,11 +100,17 @@
 		itemEls[next]?.focus();
 	}
 
-	function activate(index: number) {
+	function activate(index: number, toggle = false) {
 		const item = model.items[index];
 		if (!item) return;
+		onselect?.(item.id, toggle ? 'toggle' : 'replace');
 		onactivate?.(item.id);
 		announcer?.announce(outlineActivationAnnouncement(item), 'polite');
+	}
+
+	function selectedFor(id: string, focused: boolean): boolean | undefined {
+		if (model.role !== 'listbox') return undefined;
+		return selectedIds ? selectedIds.has(id) : focused;
 	}
 </script>
 
@@ -122,14 +151,16 @@
 						aria-posinset={item.posinset}
 						aria-setsize={item.setsize}
 						aria-level={model.role === 'tree' ? 1 : undefined}
-						aria-selected={model.role === 'listbox' ? i === focusIndex : undefined}
+						aria-selected={selectedFor(item.id, i === focusIndex)}
 						tabindex={i === focusIndex ? 0 : -1}
 						class="outline-item"
+						class:is-selected={selectedIds?.has(item.id)}
 						data-testid={`${testid}-item-${item.id}`}
 						data-visibility={item.visibility}
+						data-selected={selectedIds ? selectedIds.has(item.id) : undefined}
 						onkeydown={onKeydown}
 						onfocus={() => (focusIndex = i)}
-						onclick={() => activate(i)}
+						onclick={(e) => activate(i, e.shiftKey || e.ctrlKey || e.metaKey)}
 					>
 						<span class="outline-name">{item.accessibleName}</span>
 						{#if viewer.role === 'dm'}
@@ -168,6 +199,11 @@
 		flex-direction: column;
 		gap: var(--space-1, 0.25rem);
 	}
+	.outline-row {
+		display: flex;
+		align-items: stretch;
+		gap: var(--space-1, 0.25rem);
+	}
 	.outline-item {
 		display: flex;
 		align-items: center;
@@ -182,6 +218,11 @@
 		background: var(--color-surface, #fff);
 		color: inherit;
 		cursor: pointer;
+	}
+	.outline-item.is-selected {
+		border-color: var(--color-accent, #36c);
+		outline: 2px solid var(--color-accent, #36c);
+		outline-offset: -2px;
 	}
 	.outline-search input {
 		width: 100%;

@@ -89,6 +89,9 @@ epics:
   - id: UX-CANVAS-viewport-rendering-and-performance
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-CANVAS-viewport-rendering-and-performance.completion.md
+  - id: UX-CANVAS-widget-manipulation-and-outline
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CANVAS-widget-manipulation-and-outline.completion.md
   - id: UX-SHELL-actor-filtered-nav-recents
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-SHELL-actor-filtered-nav-recents.completion.md
