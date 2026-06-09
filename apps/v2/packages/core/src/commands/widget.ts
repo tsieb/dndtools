@@ -83,13 +83,18 @@ function requireSceneCoEditor(
 	return null;
 }
 
+/**
+ * PERM-004: `now` MUST be passed (from `env.clock()`) so expired `manager` grants are inert
+ * (fail closed). Omitting `now` would allow an expired widget-manager grant to remain effective.
+ */
 function requireWidgetManager(
 	state: CoreStateSlice,
 	actor: Actor,
 	widget: WidgetInstance,
+	now?: string,
 ): ReturnType<typeof reject>['rejection'] | null {
 	if (actor.role === 'dm') return null;
-	if (hasGrantedCapability(state.permissions, actor, 'widget', widget.id, 'manager')) {
+	if (hasGrantedCapability(state.permissions, actor, 'widget', widget.id, 'manager', now)) {
 		return null;
 	}
 	return {
@@ -98,10 +103,15 @@ function requireWidgetManager(
 	};
 }
 
+/**
+ * PERM-004: `now` MUST be passed (from `env.clock()`) so expired binding-capability grants are
+ * inert (fail closed). Omitting `now` would allow an expired grant to remain effective.
+ */
 function requireBindingCapability(
 	state: CoreStateSlice,
 	actor: Actor,
 	binding: WidgetBinding | null,
+	now?: string,
 ): ReturnType<typeof reject>['rejection'] | null {
 	if (!binding || actor.role === 'dm') return null;
 	if (
@@ -111,6 +121,7 @@ function requireBindingCapability(
 			binding.source.entityType,
 			binding.source.entityId,
 			binding.requiredCapability,
+			now,
 		)
 	) {
 		return null;
@@ -193,7 +204,8 @@ export function handleAddWidget(
 			state,
 		);
 	}
-	const bindingCheck = requireBindingCapability(state, actor, parsed.data.widget.binding);
+	const now = env.clock();
+	const bindingCheck = requireBindingCapability(state, actor, parsed.data.widget.binding, now);
 	if (bindingCheck) return reject(bindingCheck, state);
 
 	const widget: WidgetInstance = {
@@ -658,7 +670,8 @@ export function handleConfigureWidget(
 			state,
 		);
 	}
-	const managerCheck = requireWidgetManager(state, actor, widget);
+	const now = env.clock();
+	const managerCheck = requireWidgetManager(state, actor, widget, now);
 	if (managerCheck) return reject(managerCheck, state);
 
 	const definition = findWidgetDefinition(state.widgets, widget.type);
@@ -692,7 +705,7 @@ export function handleConfigureWidget(
 	}
 
 	const nextBinding = parsed.data.binding === undefined ? widget.binding : parsed.data.binding;
-	const bindingCheck = requireBindingCapability(state, actor, nextBinding);
+	const bindingCheck = requireBindingCapability(state, actor, nextBinding, now);
 	if (bindingCheck) return reject(bindingCheck, state);
 
 	const nextWidget: WidgetInstance = {

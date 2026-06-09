@@ -51,17 +51,24 @@ function charactersWith(state: CoreStateSlice, characters: CoreStateSlice['chara
 	return { ...state, characters };
 }
 
-/** CHAR-009 authority: the DM (administrator) OR the character `owner`. Fail closed otherwise. */
-function actorMayAdvance(state: CoreStateSlice, actor: Actor, characterId: string): boolean {
+/**
+ * CHAR-009 authority: the DM (administrator) OR the character `owner`. Fail closed otherwise.
+ *
+ * `now` (the ISO clock from `env.clock()`) MUST be passed so that expired grants are treated as
+ * inert (fail closed, PERM-004 AC2). Omitting `now` would allow an expired grant to remain
+ * effective, violating the grant expiry guarantee.
+ */
+function actorMayAdvance(state: CoreStateSlice, actor: Actor, characterId: string, now?: string): boolean {
 	if (actor.role === 'dm') return true;
 	if (actor.role === 'observer') return false;
-	return hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, characterId, 'owner');
+	return hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, characterId, 'owner', now);
 }
 
 function advanceGuard(
 	state: CoreStateSlice,
 	actorId: string,
 	characterId: string,
+	now?: string,
 ): { actor: Actor; existing: Character } | { rejection: CommandResult } {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return { rejection: reject(actor, state) };
@@ -75,7 +82,7 @@ function advanceGuard(
 			),
 		};
 	}
-	if (!actorMayAdvance(state, actor, existing.id)) {
+	if (!actorMayAdvance(state, actor, existing.id, now)) {
 		return {
 			rejection: reject(
 				{ code: 'actor-not-authorized', message: 'Only the character owner may manage advancement.' },
@@ -131,10 +138,9 @@ export function handleSetCharacterXp(
 ): CommandResult {
 	const parsed = parseInput(setCharacterXpInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
-	const guard = advanceGuard(state, actorId, parsed.data.characterId);
-	if ('rejection' in guard) return guard.rejection;
-
 	const now = env.clock();
+	const guard = advanceGuard(state, actorId, parsed.data.characterId, now);
+	if ('rejection' in guard) return guard.rejection;
 	const updated: Character = {
 		...guard.existing,
 		data: { ...guard.existing.data, xp: parsed.data.xp },
@@ -156,7 +162,8 @@ export function handleOpenAdvancement(
 ): CommandResult {
 	const parsed = parseInput(openAdvancementInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
-	const guard = advanceGuard(state, actorId, parsed.data.characterId);
+	const now = env.clock();
+	const guard = advanceGuard(state, actorId, parsed.data.characterId, now);
 	if ('rejection' in guard) return guard.rejection;
 
 	const eligibility = checkAdvancementEligibility(guard.existing, parsed.data.mode);
@@ -169,8 +176,6 @@ export function handleOpenAdvancement(
 					: 'invalid-state';
 		return reject({ code, message: eligibility.message }, state);
 	}
-
-	const now = env.clock();
 	const advancementDraft = buildAdvancementDraft(guard.existing, parsed.data.mode, guard.actor.id, now);
 	const updated = writeAdvancementDraft(guard.existing, advancementDraft, now);
 	return commitCharacter(state, env, guard.actor, guard.existing, updated, 'character.open-advancement', {
@@ -189,7 +194,8 @@ export function handleSetAdvancementChoices(
 ): CommandResult {
 	const parsed = parseInput(setAdvancementChoicesInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
-	const guard = advanceGuard(state, actorId, parsed.data.characterId);
+	const now = env.clock();
+	const guard = advanceGuard(state, actorId, parsed.data.characterId, now);
 	if ('rejection' in guard) return guard.rejection;
 
 	const draft = advancementDraftOf(guard.existing);
@@ -205,8 +211,6 @@ export function handleSetAdvancementChoices(
 	if (parsed.data.hitPointsGained !== undefined) choices.hitPointsGained = parsed.data.hitPointsGained;
 	if (parsed.data.subclass !== undefined) choices.subclass = parsed.data.subclass;
 	if (parsed.data.abilityOrFeat !== undefined) choices.abilityOrFeat = parsed.data.abilityOrFeat;
-
-	const now = env.clock();
 	const mergedDraft = mergeAdvancementChoices(draft, choices, now);
 	// `writeAdvancementDraft` writes the merged draft onto the character and bumps the revision exactly
 	// once. The character revision is bumped, but level/XP are unchanged — staged, not finalized.
@@ -229,10 +233,9 @@ export function handleCommitAdvancement(
 ): CommandResult {
 	const parsed = parseInput(commitAdvancementInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
-	const guard = advanceGuard(state, actorId, parsed.data.characterId);
-	if ('rejection' in guard) return guard.rejection;
-
 	const now = env.clock();
+	const guard = advanceGuard(state, actorId, parsed.data.characterId, now);
+	if ('rejection' in guard) return guard.rejection;
 	// The character is mutated ONLY when the pure commit reducer returns ok. An invalid/incomplete
 	// advancement returns an error here and NOTHING below runs — no partial mutation (CHAR-009 AC1).
 	const result = commitAdvancement(guard.existing, now);
@@ -285,7 +288,8 @@ export function handleCancelAdvancement(
 ): CommandResult {
 	const parsed = parseInput(cancelAdvancementInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
-	const guard = advanceGuard(state, actorId, parsed.data.characterId);
+	const now = env.clock();
+	const guard = advanceGuard(state, actorId, parsed.data.characterId, now);
 	if ('rejection' in guard) return guard.rejection;
 
 	if (!advancementDraftOf(guard.existing)) {
@@ -294,7 +298,6 @@ export function handleCancelAdvancement(
 			state,
 		);
 	}
-	const now = env.clock();
 	const updated = clearAdvancementDraft(guard.existing, now);
 	return commitCharacter(state, env, guard.actor, guard.existing, updated, 'character.cancel-advancement', {});
 }

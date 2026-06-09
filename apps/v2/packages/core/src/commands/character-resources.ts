@@ -71,36 +71,48 @@ function requireActiveSession(state: CoreStateSlice): CommandRejection | null {
 /**
  * CHAR-007 authority: the DM (administrator) OR a player holding `combat-participant` (which `owner`
  * inherits) on the character. An observer never qualifies. Fail closed for anyone else.
+ *
+ * `now` (the ISO clock from `env.clock()`) MUST be passed so that expired grants are treated as
+ * inert (fail closed, PERM-004 AC2). Omitting `now` would allow an expired grant to remain
+ * effective, violating the grant expiry guarantee.
  */
 function actorMayUpdateCombatResources(
 	state: CoreStateSlice,
 	actor: Actor,
 	characterId: string,
+	now?: string,
 ): boolean {
 	if (actor.role === 'dm') return true;
 	if (actor.role === 'observer') return false;
-	return hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, characterId, 'combat-participant');
+	return hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, characterId, 'combat-participant', now);
 }
 
-/** CHAR-008 authority: the DM (administrator) OR the character `owner`. Fail closed otherwise. */
+/**
+ * CHAR-008 authority: the DM (administrator) OR the character `owner`. Fail closed otherwise.
+ *
+ * `now` (the ISO clock from `env.clock()`) MUST be passed so that expired grants are treated as
+ * inert (fail closed, PERM-004 AC2).
+ */
 function actorMayManageResources(
 	state: CoreStateSlice,
 	actor: Actor,
 	characterId: string,
+	now?: string,
 ): boolean {
 	if (actor.role === 'dm') return true;
 	if (actor.role === 'observer') return false;
-	return hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, characterId, 'owner');
+	return hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, characterId, 'owner', now);
 }
 
 function makeResourceMeta(
 	env: CoreEnvironment,
 	actor: Actor,
 	operationId: string,
+	now?: string,
 ): ResourceUpdateMeta {
 	return {
 		ledgerId: env.ids(),
-		now: env.clock(),
+		now: now ?? env.clock(),
 		actorActorId: actor.id,
 		actorRole: actor.role,
 		operationId,
@@ -149,16 +161,17 @@ export function handleUpdateCombatResource(
 	const sessionGuard = requireActiveSession(state);
 	if (sessionGuard) return reject(sessionGuard, state);
 
+	const now = env.clock();
 	// CHAR-007 authority: owner OR combat-participant; anyone else (incl. observers) is rejected.
-	if (!actorMayUpdateCombatResources(state, actor, existing.id)) {
+	if (!actorMayUpdateCombatResources(state, actor, existing.id, now)) {
 		return reject(
-			{ code: 'actor-not-authorized', message: 'You may not update this character’s combat resources.' },
+			{ code: 'actor-not-authorized', message: 'You may not update this character\'s combat resources.' },
 			state,
 		);
 	}
 
 	const operationId = env.ids();
-	const meta = makeResourceMeta(env, actor, operationId);
+	const meta = makeResourceMeta(env, actor, operationId, now);
 	const resources = resourcesOf(existing);
 	const payload = parsed.data;
 
@@ -255,6 +268,7 @@ function manageGuard(
 	state: CoreStateSlice,
 	actorId: string,
 	characterId: string,
+	now?: string,
 ): { actor: Actor; existing: Character } | { rejection: CommandResult } {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return { rejection: reject(actor, state) };
@@ -268,7 +282,7 @@ function manageGuard(
 			),
 		};
 	}
-	if (!actorMayManageResources(state, actor, existing.id)) {
+	if (!actorMayManageResources(state, actor, existing.id, now)) {
 		return {
 			rejection: reject(
 				{ code: 'actor-not-authorized', message: 'Only the character owner may manage spells and resources.' },
@@ -287,12 +301,13 @@ function commitManagedResources(
 	nextResources: CharacterResources,
 	opType: string,
 	value: unknown,
+	now?: string,
 ): CommandResult {
-	const now = env.clock();
+	const now_ = now ?? env.clock();
 	const updated: Character = {
 		...existing,
 		resources: nextResources,
-		updatedAt: now,
+		updatedAt: now_,
 		revision: existing.revision + 1,
 	};
 	const characters = ensureCharacterStateSlice(state.characters);
@@ -329,7 +344,8 @@ export function handleSetSpellSlots(
 ): CommandResult {
 	const parsed = parseInput(setSpellSlotsInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
-	const guard = manageGuard(state, actorId, parsed.data.characterId);
+	const now = env.clock();
+	const guard = manageGuard(state, actorId, parsed.data.characterId, now);
 	if ('rejection' in guard) return guard.rejection;
 
 	const result = setSpellSlots(resourcesOf(guard.existing), {
@@ -341,7 +357,7 @@ export function handleSetSpellSlots(
 	return commitManagedResources(state, env, guard.actor, guard.existing, result.resources, 'character.set-spell-slots', {
 		level: parsed.data.level,
 		max: parsed.data.max,
-	});
+	}, now);
 }
 
 export function handleSetClassResource(
@@ -352,7 +368,8 @@ export function handleSetClassResource(
 ): CommandResult {
 	const parsed = parseInput(setClassResourceInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
-	const guard = manageGuard(state, actorId, parsed.data.characterId);
+	const now = env.clock();
+	const guard = manageGuard(state, actorId, parsed.data.characterId, now);
 	if ('rejection' in guard) return guard.rejection;
 
 	const result = setClassResource(resourcesOf(guard.existing), {
@@ -371,6 +388,7 @@ export function handleSetClassResource(
 		result.resources,
 		'character.set-class-resource',
 		{ id: parsed.data.id, name: parsed.data.name, max: parsed.data.max, recharge: parsed.data.recharge },
+		now,
 	);
 }
 
@@ -382,7 +400,8 @@ export function handleSetCharacterSpell(
 ): CommandResult {
 	const parsed = parseInput(setCharacterSpellInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
-	const guard = manageGuard(state, actorId, parsed.data.characterId);
+	const now = env.clock();
+	const guard = manageGuard(state, actorId, parsed.data.characterId, now);
 	if ('rejection' in guard) return guard.rejection;
 
 	const result = setSpell(resourcesOf(guard.existing), {
@@ -397,7 +416,7 @@ export function handleSetCharacterSpell(
 		name: parsed.data.name,
 		level: parsed.data.level,
 		prepared: parsed.data.prepared,
-	});
+	}, now);
 }
 
 // --- CHAR-008 — deterministic rest recovery -----------------------------------------------------
@@ -410,11 +429,12 @@ export function handleRestCharacter(
 ): CommandResult {
 	const parsed = parseInput(restCharacterInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
-	const guard = manageGuard(state, actorId, parsed.data.characterId);
+	const now = env.clock();
+	const guard = manageGuard(state, actorId, parsed.data.characterId, now);
 	if ('rejection' in guard) return guard.rejection;
 
 	const operationId = env.ids();
-	const meta = makeResourceMeta(env, guard.actor, operationId);
+	const meta = makeResourceMeta(env, guard.actor, operationId, now);
 	const result = applyRest(guard.existing, resourcesOf(guard.existing), parsed.data.rest, meta);
 	if (!result.ok) return reject({ code: 'invalid-state', message: result.message }, state);
 

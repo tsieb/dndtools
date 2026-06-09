@@ -771,3 +771,109 @@ describe('CHAR-009 — level-up / advancement', () => {
 		expect(advancementStateOf(character).level).toBe(1);
 	});
 });
+
+// ================================================================================================
+// PERM-004 hardening — expired CHARACTER grants are inert at command enforcement
+// ================================================================================================
+
+describe('PERM-004 hardening — expired CHARACTER grants are inert at authority guards', () => {
+	/**
+	 * Grant a capability set with an explicit future expiry. Uses the permission.grant-capability-set
+	 * command so the grant round-trips through the real durable-command path. The env clock MUST be
+	 * before expiresAt so the grant command does not reject it as a past-expiry (PERM-004 validation).
+	 */
+	function grantWithFutureExpiry(
+		state: CoreStateSlice,
+		env: CoreEnvironment,
+		characterId: string,
+		capabilitySet: string,
+		expiresAt: string,
+		playerActorId = PLAYER_ACTOR.id,
+	): CoreStateSlice {
+		return accepted(
+			dispatchCommand(state, env, {
+				type: 'permission.grant-capability-set',
+				actorId: DM_ACTOR.id,
+				payload: { entityType: 'character', entityId: characterId, playerActorId, capabilitySet, expiresAt },
+			}),
+		).nextState;
+	}
+
+	it('actorMayAdvance: expired owner grant is inert — advancement rejected after expiry, accepted before', () => {
+		// Setup clock at 12:00 so the grant expiry (13:00) is in the future at grant time.
+		const setupEnv = makeEnvironment({ clock: () => '2026-06-04T12:00:00.000Z' });
+		const { state: base, characterId } = setupCharacter(setupEnv);
+		const withGrant = grantWithFutureExpiry(base, setupEnv, characterId, 'owner', '2026-06-04T13:00:00.000Z');
+
+		// Before expiry (12:30): owner grant is active; advancement is accepted.
+		const beforeExpiry = dispatchCommand(withGrant, { ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' }, {
+			type: 'character.open-advancement',
+			actorId: PLAYER_ACTOR.id,
+			payload: { characterId, mode: 'milestone' },
+		});
+		expect(beforeExpiry.status).toBe('accepted');
+
+		// After expiry (14:00): owner grant is inert; advancement is rejected fail-closed (PERM-004 AC2).
+		const afterExpiry = dispatchCommand(withGrant, { ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' }, {
+			type: 'character.open-advancement',
+			actorId: PLAYER_ACTOR.id,
+			payload: { characterId, mode: 'milestone' },
+		});
+		expect(afterExpiry.status).toBe('rejected');
+		if (afterExpiry.status !== 'rejected') return;
+		expect(afterExpiry.rejection.code).toBe('actor-not-authorized');
+	});
+
+	it('actorMayUpdateCombatResources: expired combat-participant grant is inert — HP update rejected after expiry', () => {
+		const setupEnv = makeEnvironment({ clock: () => '2026-06-04T12:00:00.000Z' });
+		const { state: base, characterId } = setupCharacter(setupEnv, { hp: 10, maxHp: 10, ac: 12 });
+		let state = grantWithFutureExpiry(base, setupEnv, characterId, 'combat-participant', '2026-06-04T13:00:00.000Z');
+		state = startActiveSession(state, setupEnv);
+
+		// Before expiry (12:30): grant is active; HP update is accepted.
+		const beforeExpiry = dispatchCommand(state, { ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' }, {
+			type: 'character.update-combat-resource',
+			actorId: PLAYER_ACTOR.id,
+			payload: { characterId, kind: 'hp', delta: -3 },
+		});
+		expect(beforeExpiry.status).toBe('accepted');
+		if (beforeExpiry.status !== 'accepted') return;
+		expect(beforeExpiry.nextState.characters.characters[characterId]!.combat.hp).toBe(7);
+
+		// After expiry (14:00): grant is inert; HP update is rejected fail-closed (PERM-004 AC2).
+		const afterExpiry = dispatchCommand(state, { ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' }, {
+			type: 'character.update-combat-resource',
+			actorId: PLAYER_ACTOR.id,
+			payload: { characterId, kind: 'hp', delta: -3 },
+		});
+		expect(afterExpiry.status).toBe('rejected');
+		if (afterExpiry.status !== 'rejected') return;
+		expect(afterExpiry.rejection.code).toBe('actor-not-authorized');
+		// No mutation: HP is unchanged on the rejected command.
+		expect(afterExpiry.nextState.characters.characters[characterId]!.combat.hp).toBe(10);
+	});
+
+	it('actorMayManageResources: expired owner grant is inert — spell-slot management rejected after expiry', () => {
+		const setupEnv = makeEnvironment({ clock: () => '2026-06-04T12:00:00.000Z' });
+		const { state: base, characterId } = setupCharacter(setupEnv);
+		const state = grantWithFutureExpiry(base, setupEnv, characterId, 'owner', '2026-06-04T13:00:00.000Z');
+
+		// Before expiry (12:30): owner grant is active; set-spell-slots is accepted.
+		const beforeExpiry = dispatchCommand(state, { ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' }, {
+			type: 'character.set-spell-slots',
+			actorId: PLAYER_ACTOR.id,
+			payload: { characterId, level: 1, max: 2 },
+		});
+		expect(beforeExpiry.status).toBe('accepted');
+
+		// After expiry (14:00): owner grant is inert; set-spell-slots is rejected fail-closed (PERM-004 AC2).
+		const afterExpiry = dispatchCommand(state, { ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' }, {
+			type: 'character.set-spell-slots',
+			actorId: PLAYER_ACTOR.id,
+			payload: { characterId, level: 1, max: 2 },
+		});
+		expect(afterExpiry.status).toBe('rejected');
+		if (afterExpiry.status !== 'rejected') return;
+		expect(afterExpiry.rejection.code).toBe('actor-not-authorized');
+	});
+});

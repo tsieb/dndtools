@@ -873,3 +873,139 @@ describe('CANVAS-017: package review, disable, remove, and export', () => {
 		expect(record?.package.assets).toEqual(exported.package.assets);
 	});
 });
+
+// ================================================================================================
+// PERM-004 hardening — expired WIDGET grants are inert at command enforcement
+// ================================================================================================
+
+describe('PERM-004 hardening — expired WIDGET grants are inert at authority guards', () => {
+	it('requireWidgetManager: expired manager grant is inert — configure-widget rejected after expiry, accepted before', () => {
+		// Setup clock at 12:00; grant expiry at 13:00 is a valid future expiry at grant time.
+		const setupEnv = makeEnvironment({ clock: () => '2026-06-04T12:00:00.000Z' });
+		const base = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
+		const { state: withScene, sceneId } = createScene(base, setupEnv);
+		// DM adds a timer widget (no required binding so binding-capability check is skipped).
+		const { state: withWidget, widgetId } = addWidget(withScene, setupEnv, sceneId, 'timer');
+
+		// Inject grants directly into state (avoids the grant command's past-expiry validation):
+		// - non-expired co-editor on the scene (passes requireSceneCoEditor),
+		// - expired manager on the widget (forces requireWidgetManager to reject after 13:00).
+		const withExpiredManager: CoreStateSlice = {
+			...withWidget,
+			permissions: {
+				...withWidget.permissions,
+				grants: [
+					{
+						id: 'grant-scene-co-editor',
+						entityType: 'scene',
+						entityId: sceneId,
+						playerActorId: PLAYER_ACTOR.id,
+						capabilitySet: 'co-editor' as const,
+						createdBy: DM_ACTOR.id,
+						createdAt: '2026-06-04T10:00:00.000Z',
+						expiresAt: null,
+					},
+					{
+						id: 'grant-widget-manager',
+						entityType: 'widget',
+						entityId: widgetId,
+						playerActorId: PLAYER_ACTOR.id,
+						capabilitySet: 'manager' as const,
+						createdBy: DM_ACTOR.id,
+						createdAt: '2026-06-04T10:00:00.000Z',
+						expiresAt: '2026-06-04T13:00:00.000Z', // expires at 13:00
+					},
+				],
+			},
+		};
+
+		const configurePayload = { sceneId, widgetInstanceId: widgetId, configuration: { label: 'Changed' } };
+
+		// Before expiry (12:30): manager grant is active; configure-widget is accepted.
+		const beforeExpiry = dispatchCommand(withExpiredManager, { ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' }, {
+			type: 'scene.configure-widget',
+			actorId: PLAYER_ACTOR.id,
+			payload: configurePayload,
+		});
+		expect(beforeExpiry.status).toBe('accepted');
+
+		// After expiry (14:00): manager grant is inert; configure-widget is rejected fail-closed (PERM-004 AC2).
+		const afterExpiry = dispatchCommand(withExpiredManager, { ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' }, {
+			type: 'scene.configure-widget',
+			actorId: PLAYER_ACTOR.id,
+			payload: configurePayload,
+		});
+		expect(afterExpiry.status).toBe('rejected');
+		if (afterExpiry.status !== 'rejected') return;
+		expect(afterExpiry.rejection.code).toBe('actor-not-authorized');
+	});
+
+	it('requireBindingCapability: expired binding-capability grant is inert — add-widget with binding rejected after expiry', () => {
+		const setupEnv = makeEnvironment({ clock: () => '2026-06-04T12:00:00.000Z' });
+		const base = buildInitialState(DM_ACTOR, PLAYER_ACTOR);
+		const { state: withScene, sceneId } = createScene(base, setupEnv);
+
+		// Inject grants directly: non-expired co-editor on scene, and an expired viewer on the bound entity.
+		const withGrants: CoreStateSlice = {
+			...withScene,
+			permissions: {
+				...withScene.permissions,
+				grants: [
+					{
+						id: 'grant-scene-co-editor',
+						entityType: 'scene',
+						entityId: sceneId,
+						playerActorId: PLAYER_ACTOR.id,
+						capabilitySet: 'co-editor' as const,
+						createdBy: DM_ACTOR.id,
+						createdAt: '2026-06-04T10:00:00.000Z',
+						expiresAt: null,
+					},
+					{
+						id: 'grant-char-viewer',
+						entityType: 'character',
+						entityId: 'char-bound',
+						playerActorId: PLAYER_ACTOR.id,
+						capabilitySet: 'viewer' as const,
+						createdBy: DM_ACTOR.id,
+						createdAt: '2026-06-04T10:00:00.000Z',
+						expiresAt: '2026-06-04T13:00:00.000Z', // expires at 13:00
+					},
+				],
+			},
+		};
+
+		const addPayload = {
+			sceneId,
+			widget: {
+				type: 'map',
+				version: '1.0.0',
+				layout: { x: 10, y: 20, w: 200, h: 150 },
+				configuration: {},
+				binding: {
+					source: { entityType: 'character', entityId: 'char-bound' },
+					mode: 'read' as const,
+					requiredCapability: 'viewer' as const,
+				},
+			},
+		};
+
+		// Before expiry (12:30): viewer grant is active; add-widget with binding is accepted.
+		const beforeExpiry = dispatchCommand(withGrants, { ...setupEnv, clock: () => '2026-06-04T12:30:00.000Z' }, {
+			type: 'scene.add-widget',
+			actorId: PLAYER_ACTOR.id,
+			payload: addPayload,
+		});
+		expect(beforeExpiry.status).toBe('accepted');
+
+		// After expiry (14:00): viewer grant is inert; add-widget with binding is rejected fail-closed (PERM-004 AC2).
+		const afterExpiry = dispatchCommand(withGrants, { ...setupEnv, clock: () => '2026-06-04T14:00:00.000Z' }, {
+			type: 'scene.add-widget',
+			actorId: PLAYER_ACTOR.id,
+			payload: addPayload,
+		});
+		expect(afterExpiry.status).toBe('rejected');
+		if (afterExpiry.status !== 'rejected') return;
+		expect(afterExpiry.rejection.code).toBe('actor-not-authorized');
+	});
+});
