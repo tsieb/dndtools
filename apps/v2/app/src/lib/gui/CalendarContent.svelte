@@ -156,11 +156,21 @@
 		{#if timeline.length === 0}
 			<p class="meta" data-testid="content-timeline-empty">No dated events are visible to you.</p>
 		{:else}
+			<!-- A11Y-009: the timeline is an ordered list — deterministically chronological (AC1).
+			     Each entry is actor-filtered (dm-only items are OMITTED entirely, never redacted).
+			     The title is a keyboard-operable link so screen reader users can activate (navigate
+			     to) each visible event without pointer positioning. -->
 			<ol class="scene-list" data-testid="content-timeline">
 				{#each timeline as row (row.itemId)}
 					<li class="scene-card" data-testid={`content-timeline-${row.itemId}`}>
 						<span data-testid={`content-timeline-date-${row.itemId}`}>{row.date.display}</span>
-						<strong> — {row.title}</strong>
+						<strong> — </strong>
+						<a
+							href={`/knowledge/?note=${encodeURIComponent(row.itemId)}`}
+							data-testid={`content-timeline-open-${row.itemId}`}
+						>
+							{row.title}
+						</a>
 					</li>
 				{/each}
 			</ol>

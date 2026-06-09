@@ -226,6 +226,19 @@
 						<span class="annotation-name" data-testid={`ann-poi-label-${poi.id}`}>{poi.label}</span>
 						<span class="badge">{poi.category}</span>
 						<span class="badge" data-testid={`ann-poi-visibility-${poi.id}`}>{poi.visibility}</span>
+						{#if poi.linkedEntityId}
+							<!-- A11Y-009 AC1: a screen reader user can activate a POI by following the link to its
+							     linked entity. The linked entity is only present when the actor already holds
+							     visibility on it (getMapViewForActor resolves fail-closed, so only visible
+							     linkedEntityIds reach this surface). -->
+							<a
+								href={`/knowledge/?note=${encodeURIComponent(poi.linkedEntityId)}`}
+								data-testid={`ann-poi-open-${poi.id}`}
+								class="activate-link"
+							>
+								View linked entity
+							</a>
+						{/if}
 						{#if isDm}
 							<select
 								data-testid={`ann-poi-set-visibility-${poi.id}`}
@@ -261,6 +274,7 @@
 			<h4 id={`routes-${mapId}`}>Routes <span class="meta" data-testid="route-count">({view.routes.length})</span></h4>
 			<ul class="annotation-list" data-testid="route-list">
 				{#each view.routes as route (route.id)}
+					{@const linkedWaypoint = route.waypoints.find((wp) => wp.linkedEntityId)}
 					<li data-testid={`route-${route.id}`}>
 						<span class="annotation-name">{route.label}</span>
 						<span class="meta" data-testid={`route-distance-${route.id}`}>
@@ -275,6 +289,18 @@
 							<span class="meta" data-testid={`route-time-${route.id}`}>
 								~{route.measurement.travelTime.toFixed(2)} {route.measurement.timeUnit}
 							</span>
+						{/if}
+						{#if linkedWaypoint?.linkedEntityId}
+							<!-- A11Y-009 AC1: routes whose destination waypoint links to a known entity expose a
+							     keyboard-operable activation link. The entity id is only in the view when the
+							     actor already holds visibility (getMapViewForActor fail-closed guarantee). -->
+							<a
+								href={`/knowledge/?note=${encodeURIComponent(linkedWaypoint.linkedEntityId)}`}
+								data-testid={`route-open-${route.id}`}
+								class="activate-link"
+							>
+								View destination
+							</a>
 						{/if}
 					</li>
 				{/each}
@@ -424,6 +450,11 @@
 	}
 	.error {
 		color: var(--danger, #b00020);
+	}
+	.activate-link {
+		font-size: 0.75rem;
+		text-decoration: underline;
+		color: var(--color-link, #2563eb);
 	}
 	.visually-hidden {
 		position: absolute;
