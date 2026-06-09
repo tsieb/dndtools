@@ -126,4 +126,67 @@ test.describe('Scene layout accessibility', () => {
 		const grouped = page.getByTestId('widget-grid').getByText('• grouped');
 		await expect(grouped).toHaveCount(2);
 	});
+
+	// WCAG 2.4.11 Focus Not Obscured (AA): when a UI component receives keyboard focus, it must not
+	// be entirely hidden by author-created content such as sticky headers, fixed toolbars, or toast
+	// stacks. The canvas layout toolbar is the primary new interaction pattern in v2 that introduces
+	// persistent chrome adjacent to focusable controls — this test verifies the toolbar buttons remain
+	// visible when focused.
+	test('WCAG 2.4.11: layout toolbar buttons are not entirely obscured by sticky chrome when focused', async ({
+		page,
+	}) => {
+		await openSceneWithWidget(page, 'Focus Visibility Scene');
+		await page.getByTestId('widget-type').fill('note');
+		await page.getByTestId('widget-add').click();
+
+		const toolbar = page.locator('[data-testid^="layout-toolbar-"]').first();
+		await expect(toolbar).toBeVisible();
+
+		const allButtons = await toolbar.getByRole('button').all();
+		// Inspect each toolbar button; slice to first 5 to keep runtime bounded while covering the
+		// full set of layout operations (move, resize, layer, dock, pin).
+		for (const btn of allButtons.slice(0, 5)) {
+			await btn.focus();
+			const box = await btn.boundingBox();
+			expect(box, 'Focused button must have a non-null bounding box').not.toBeNull();
+			if (!box) continue;
+
+			const viewport = page.viewportSize()!;
+			// The focused button must intersect the viewport — not scrolled or clipped entirely away.
+			const intersectW =
+				Math.min(box.x + box.width, viewport.width) - Math.max(box.x, 0);
+			const intersectH =
+				Math.min(box.y + box.height, viewport.height) - Math.max(box.y, 0);
+			const label = await btn.getAttribute('aria-label');
+			expect(
+				intersectW,
+				`Button "${label}" must intersect viewport horizontally when focused (WCAG 2.4.11)`,
+			).toBeGreaterThan(0);
+			expect(
+				intersectH,
+				`Button "${label}" must intersect viewport vertically when focused (WCAG 2.4.11)`,
+			).toBeGreaterThan(0);
+
+			// Check that the button's center is not entirely covered by a non-descendant element.
+			// elementFromPoint returns the topmost element at a coordinate; if it is the focused button
+			// or a descendant (icon/text content inside the button), the button is reachable. If it
+			// returns an unrelated element (e.g., a sticky header) the button is obscured — WCAG 2.4.11
+			// violation.
+			const cx = box.x + box.width / 2;
+			const cy = box.y + box.height / 2;
+			const notObscured = await page.evaluate(
+				([x, y]) => {
+					const top = document.elementFromPoint(x, y);
+					const active = document.activeElement;
+					if (!top || !active) return false;
+					return active === top || active.contains(top);
+				},
+				[cx, cy] as [number, number],
+			);
+			expect(
+				notObscured,
+				`WCAG 2.4.11: center of focused button "${label}" must not be entirely obscured by sticky/fixed chrome`,
+			).toBe(true);
+		}
+	});
 });

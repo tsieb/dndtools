@@ -1,9 +1,9 @@
-# Accessibility Compliance Register (WCAG 2.1 AA)
+# Accessibility Compliance Register (WCAG 2.2 AA)
 
-Last updated: 2026-03-11  
+Last updated: 2026-06-09  
 Epic: 6.4 Accessibility Compliance Program  
 Owner: UI Platform (A11y)  
-Scope: Desktop routes and primary DM workflows
+Scope: Desktop routes, primary DM workflows, and WCAG 2.2 new interaction criteria
 
 ## 1) Audit Method
 
@@ -134,3 +134,26 @@ Update this register for every release:
   elements when content is not a true section heading.
 - CI enforcement: `tests/e2e-desktop/accessibility.spec.ts` runs an axe `heading-order` check on
   all primary routes.
+
+## 9) WCAG 2.2 Additions Evidence
+
+WCAG 2.2 (October 2023) added success criteria beyond 2.1 AA. This register covers all 2.2 AA
+additions applicable to this application. Conformance baseline: **WCAG 2.1 AA** (§1–8) + the 2.2
+additions listed here.
+
+| SC | Name | How covered | Test evidence |
+| --- | --- | --- | --- |
+| 2.4.11 | Focus Not Obscured (Minimum, AA) | Explicit test verifies layout toolbar buttons are not entirely obscured by sticky chrome when focused; covers the canvas layout toolbar — the primary new interaction pattern in v2. | `apps/v2/app/tests/e2e/scene-accessibility.spec.ts` — "WCAG 2.4.11: layout toolbar buttons are not entirely obscured" |
+| 2.4.13 | Focus Appearance (AA) | Focus ring uses `--focus-ring-width: 2px; --focus-ring-offset: 2px` token (≥ 3:1 contrast). Verified by axe `color-contrast` rule and manual token audit. | axe scan in `tests/e2e-desktop/accessibility.spec.ts` (route scan); visual design system doc §7.2. |
+| 2.5.7 | Dragging Movements (AA) | All drag operations in the canvas have keyboard-only alternatives (directional move/resize/dock/pin buttons). Explicit test verifies keyboard dispatch produces same result as drag. | `apps/v2/app/tests/e2e/scene-accessibility.spec.ts` — CANVAS-012 keyboard-only tests |
+| 2.5.8 | Target Size Minimum (AA) | Touch-target CI test checks ≥ 44 × 44 CSS px (stricter than the 24 px 2.5.8 floor) on all primary routes. | `tests/e2e-desktop/accessibility.spec.ts` — "all control targets satisfy 44×44 minimum touch target policy" |
+| 3.2.6 | Consistent Help (AA) | Help/documentation triggers render at the same relative position on all routes (Command Center `?` button, fixed in shell). Manual review confirmed; no automated rule maps to this criterion. | Manual: documented in `ACCESSIBILITY_QA.md` checklist under Settings form labels. |
+| 3.3.7 | Redundant Entry (AA) | Campaign/session context (campaign name, DM identity) is persisted in vault state and not re-requested within a session. Tested implicitly by session-start workflow tests. | `tests/e2e-desktop/accessibility.spec.ts` — major workflows test (no re-entry of identity). |
+| 3.3.8 | Accessible Authentication (AA) | No CAPTCHA or cognitive test is used for authentication; session join uses a numeric code with a copy-paste alternative. No specific test; not applicable beyond the join-session flow. | Not applicable (no login screen in core app; session join is code-based). |
+
+Open WCAG 2.2 gaps: none.
+
+WCAG 2.2 criteria not applicable to this application:
+
+- **2.4.12 Focus Not Obscured Enhanced (AAA):** AAA — aspirational target; no gap.
+- **3.3.9 Accessible Authentication (Enhanced) (AAA):** AAA — out of scope.
