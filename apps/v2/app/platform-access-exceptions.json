@@ -51,6 +51,14 @@
       "removalCriteria": "Remove if device-local display preferences move into a typed platform preferences adapter; until then density persistence stays confined to this file."
     },
     {
+      "id": "nav-chrome-collapse-preference",
+      "path": "apps/v2/app/src/lib/platform/nav-chrome.svelte.ts",
+      "primitives": ["localStorage"],
+      "owner": "UX-SHELL (navigation shell)",
+      "rationale": "Device-local Desktop sidebar icon-rail collapse state (UX-NAV-004) is an explicitly device-scoped UI display preference (Contract 1), never durable vault or sync state. localStorage persists the collapse choice so it survives a reload (UX-NAV-004 AC3); reads/writes are guarded by typeof checks with try/catch fallbacks (private mode / no API) and default to expanded on first launch. No viewport sniffing — only preference persistence.",
+      "removalCriteria": "Remove if device-local display preferences move into a typed platform preferences adapter; until then collapse-state persistence stays confined to this file."
+    },
+    {
       "id": "runtime-id-clock",
       "path": "apps/v2/app/src/lib/canvas-runtime/runtime.svelte.ts",
       "primitives": ["crypto"],

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openSection } from './_nav-helper';
 
 // UX-A11Y-014 (WCAG 3.2.6 consistent help) + UX-A11Y-009/012 (dialog focus trap, restoration) +
 // UX-A11Y-002 (keyboard parity). The Help trigger lives in the shared top bar — same position on
@@ -24,17 +25,17 @@ test.describe('UX-A11Y-014 consistent Help mechanism', () => {
 		await expect(help).toBeVisible();
 		await expect(help).toHaveAttribute('aria-label', 'Help');
 
-		// Same relative position on a second route: the Help trigger is the last control in the header
-		// nav on both, so it appears in the same place (the shell header is shared).
+		// Same relative position on a second route: the Help trigger is the last control in the shared
+		// top-bar controls on both, so it appears in the same place (the shell header is shared).
 		const lastControlTestId = async () =>
 			page
-				.locator('header.app-header nav')
+				.locator('header.app-header .top-bar-controls')
 				.locator('button, a, select')
 				.last()
 				.getAttribute('data-testid');
 		expect(await lastControlTestId()).toBe('open-help');
 
-		await page.getByTestId('nav-settings').click();
+		await openSection(page, 'settings');
 		await page.getByTestId('settings-view').waitFor({ state: 'visible' });
 		await expect(page.getByTestId('open-help')).toBeVisible();
 		expect(await lastControlTestId()).toBe('open-help');
@@ -49,7 +50,7 @@ test.describe('UX-A11Y-014 consistent Help mechanism', () => {
 		await expect(page.getByTestId('help-dialog')).toBeHidden();
 
 		// Consistent on another route.
-		await page.getByTestId('nav-settings').click();
+		await openSection(page, 'settings');
 		await page.getByTestId('settings-view').waitFor({ state: 'visible' });
 		await page.keyboard.press('Shift+Slash');
 		await expect(page.getByTestId('help-dialog')).toBeVisible();

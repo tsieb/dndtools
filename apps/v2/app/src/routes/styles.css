@@ -646,14 +646,84 @@ body {
 	-webkit-font-smoothing: antialiased;
 }
 
+/* ============================================================================
+ * UX-SHELL — application shell: route layout + platform profiles
+ * (UX-NAV-001/003/004/005/006/009/018). The shell is one DOM rendered through a
+ * profile-appropriate layout: a left nav column (Desktop sidebar / Tablet landscape rail)
+ * or a bottom tab bar (Mobile / Tablet portrait). Layout is driven by `data-viewport` +
+ * `data-orientation` on `.app-shell`; the nav surface by `data-surface` on `.global-nav`.
+ * ============================================================================ */
+
+.app-shell {
+	min-height: 100vh;
+}
+
+/* --- Left-nav layout: Desktop sidebar (expanded) and Tablet landscape rail (medium+landscape) --- */
+.app-shell[data-viewport='expanded'],
+.app-shell[data-viewport='medium'][data-orientation='landscape'] {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	grid-template-rows: auto auto auto 1fr;
+	grid-template-areas:
+		'nav header'
+		'nav subheader'
+		'nav announcer'
+		'nav main';
+}
+
+.app-shell[data-viewport='expanded'] > .app-header,
+.app-shell[data-viewport='medium'][data-orientation='landscape'] > .app-header {
+	grid-area: header;
+}
+.app-shell[data-viewport='expanded'] > .global-nav,
+.app-shell[data-viewport='medium'][data-orientation='landscape'] > .global-nav {
+	grid-area: nav;
+}
+.app-shell[data-viewport='expanded'] > .nav-subheader,
+.app-shell[data-viewport='medium'][data-orientation='landscape'] > .nav-subheader {
+	grid-area: subheader;
+}
+.app-shell[data-viewport='expanded'] > .app-main,
+.app-shell[data-viewport='medium'][data-orientation='landscape'] > .app-main {
+	grid-area: main;
+}
+
+/* --- Bottom-tab-bar layout: Mobile (compact) and Tablet portrait (medium+portrait) ---
+ * A full-height flex column: header (+ optional subheader) on top, the content area scrolls
+ * internally, and the bottom tab bar sits in normal flow as the last row — always visible and
+ * never overlapping content. Keeping the bar in flow (rather than position:fixed) avoids the
+ * mobile visual-viewport vs layout-viewport mismatch that lets taps fall through a fixed bar. */
+.app-shell[data-viewport='compact'],
+.app-shell[data-viewport='medium'][data-orientation='portrait'] {
+	display: flex;
+	flex-direction: column;
+	height: 100dvh;
+}
+.app-shell[data-viewport='compact'] > .global-nav,
+.app-shell[data-viewport='medium'][data-orientation='portrait'] > .global-nav {
+	order: 99; /* render the tab bar at the bottom of the column */
+	flex: 0 0 auto;
+}
+/* The content area is the single internal scroll region above the tab bar. */
+.app-shell[data-viewport='compact'] > .app-main,
+.app-shell[data-viewport='medium'][data-orientation='portrait'] > .app-main {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+}
+
 .app-header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--space-1) var(--space-4);
 	padding: var(--space-4) var(--space-8) var(--space-2);
 	border-bottom: 1px solid var(--border);
 }
 
 .app-header .brand {
 	display: inline-block;
-	margin: 0 0 var(--space-1);
+	margin: 0;
 	font-size: var(--text-lg);
 	font-weight: var(--font-weight-bold);
 	color: inherit;
@@ -670,28 +740,26 @@ body {
 }
 
 .app-header .tagline {
-	margin: 0 0 var(--space-2);
+	margin: 0;
 	color: var(--muted);
 	font-size: var(--text-sm);
 }
 
-.app-header nav {
+/* The top bar hosts only cross-route affordances (UX-NAV-009): palette, view-as, help. */
+.top-bar-controls {
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
 	gap: var(--space-2) var(--space-4);
+	margin-left: auto;
 }
 
-.app-header nav a {
+.top-bar-controls a {
 	color: var(--accent);
 	text-decoration: none;
 }
 
-.app-header nav .view-as {
-	margin-left: auto;
-}
-
-.app-header nav .view-as select {
+.view-as select {
 	background: var(--bg);
 	color: inherit;
 	border: 1px solid var(--border);
@@ -700,10 +768,285 @@ body {
 	font-size: var(--text-sm);
 }
 
+/* ---------------------------------------------------------------------------
+ * UX-NAV-009 — skip-to-main-content link: first focusable element, visually hidden
+ * until focused, then a 44×44 target pinned top-left above all chrome.
+ * --------------------------------------------------------------------------- */
+.skip-link {
+	position: fixed;
+	top: var(--space-2);
+	left: var(--space-2);
+	z-index: var(--z-titlebar);
+	display: inline-flex;
+	align-items: center;
+	min-height: var(--density-focus-target);
+	padding: var(--space-2) var(--space-4);
+	background: var(--color-surface-overlay);
+	color: var(--color-text-primary, var(--fg));
+	border: 2px solid var(--color-accent);
+	border-radius: var(--radius-md);
+	font-weight: var(--font-weight-semibold);
+	text-decoration: none;
+	transform: translateY(-150%);
+	opacity: 0;
+	pointer-events: none;
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+	transform: translateY(0);
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* ---------------------------------------------------------------------------
+ * UX-NAV-004/005/006 — global navigation surface (sidebar / rail / tab bar).
+ * --------------------------------------------------------------------------- */
+.global-nav {
+	background: var(--color-surface-raised, var(--card));
+	border-color: var(--border);
+}
+
+.global-nav-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+}
+
+.global-nav-item {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	width: 100%;
+	box-sizing: border-box;
+	padding: var(--space-2) var(--space-4);
+	color: var(--color-text-secondary, var(--muted));
+	text-decoration: none;
+	background: transparent;
+	border: 0;
+	border-left: 3px solid transparent;
+	font: inherit;
+	cursor: pointer;
+}
+
+.global-nav-item:hover {
+	background: var(--color-surface-overlay, var(--bg));
+	color: var(--fg);
+}
+
+.global-nav-item[data-active='true'] {
+	color: var(--fg);
+	font-weight: var(--font-weight-semibold);
+	border-left-color: var(--color-accent);
+	background: var(--color-accent-subtle);
+}
+
+.global-nav-icon {
+	display: inline-flex;
+	flex: 0 0 auto;
+}
+
+.global-nav-label {
+	flex: 1 1 auto;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.global-nav-kbd {
+	flex: 0 0 auto;
+	font-size: var(--text-xs);
+	color: var(--muted);
+	background: var(--color-surface-sunken, transparent);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	padding: 0 var(--space-1);
+}
+
+.global-nav-collapse {
+	margin-top: auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	margin: auto var(--space-2) var(--space-2);
+	background: transparent;
+	color: var(--muted);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+}
+.global-nav-collapse-icon {
+	transition: transform var(--duration-fast, 150ms) var(--ease-out, ease-out);
+}
+.global-nav-collapse-icon.is-expanded {
+	transform: rotate(180deg);
+}
+
+/* Settings (last item) is divider-separated and pushed to the bottom in the sidebar/rail. */
+.global-nav[data-surface='sidebar'] .nav-item-last,
+.global-nav[data-surface='rail'] .nav-item-last {
+	margin-top: auto;
+	border-top: 1px solid var(--border);
+	padding-top: var(--space-2);
+}
+
+/* --- Sidebar (Desktop, expanded) --- */
+.global-nav[data-surface='sidebar'] {
+	position: sticky;
+	top: 0;
+	align-self: start;
+	height: 100vh;
+	width: 14rem; /* 224px expanded */
+	display: flex;
+	flex-direction: column;
+	border-right: 1px solid var(--border);
+	padding-top: var(--space-2);
+	overflow-y: auto;
+}
+.global-nav[data-surface='sidebar'] .global-nav-list {
+	flex-direction: column;
+	flex: 1 1 auto;
+}
+.app-shell[data-nav-collapsed='true'] .global-nav[data-surface='sidebar'] {
+	width: 3.5rem; /* 56px icon-rail */
+}
+
+/* --- Rail (Tablet landscape) --- */
+.global-nav[data-surface='rail'] {
+	position: sticky;
+	top: 0;
+	align-self: start;
+	height: 100vh;
+	width: 4.5rem; /* 72px */
+	display: flex;
+	flex-direction: column;
+	border-right: 1px solid var(--border);
+	padding-top: var(--space-2);
+	overflow-y: auto;
+}
+.global-nav[data-surface='rail'] .global-nav-list {
+	flex-direction: column;
+	flex: 1 1 auto;
+}
+
+/* Icon-only states (collapsed sidebar + rail): centre the glyph, hide the visible label and kbd,
+   keep the 44px target. The accessible name still comes from the visually-hidden full title. */
+.global-nav[data-icon-only='true'] .global-nav-item {
+	justify-content: center;
+	gap: 0;
+	padding: var(--space-2);
+}
+.global-nav[data-icon-only='true'] .global-nav-label,
+.global-nav[data-icon-only='true'] .global-nav-kbd {
+	display: none;
+}
+.global-nav[data-surface='rail'] .global-nav-item {
+	min-height: var(--density-focus-target);
+}
+
+/* --- Bottom tab bar (Mobile + Tablet portrait) --- */
+.global-nav[data-surface='tabbar'] {
+	border-top: 1px solid var(--border);
+	/* Keep the bar clear of the device home indicator (UX-NAV-006). calc() wrapper keeps the
+	   declaration token-lint-compatible; no inner spaces so it parses as one value. */
+	padding-bottom: calc(env(safe-area-inset-bottom,0px));
+	box-shadow: var(--shadow-lg);
+}
+.global-nav[data-surface='tabbar'] .global-nav-list {
+	flex-direction: row;
+	justify-content: space-around;
+}
+.global-nav[data-surface='tabbar'] .global-nav-item {
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-0-5);
+	width: auto;
+	flex: 1 1 0;
+	min-width: var(--density-focus-target);
+	min-height: var(--density-focus-target);
+	border-left: 0;
+	border-top: 3px solid transparent;
+	padding: var(--space-1) var(--space-1);
+	font-size: var(--text-xs);
+}
+.global-nav[data-surface='tabbar'] .global-nav-item[data-active='true'] {
+	border-left-color: transparent;
+	border-top-color: var(--color-accent);
+}
+.global-nav[data-surface='tabbar'] .nav-item-last {
+	margin-top: 0;
+	border-top: 3px solid transparent;
+	padding-top: var(--space-1);
+}
+
+/* The "More" overflow sheet list (UX-NAV-005/006). */
+.global-nav-sheet-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: var(--space-1);
+}
+.global-nav-sheet-item {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	min-height: var(--density-focus-target);
+	padding: var(--space-2) var(--space-3);
+	color: inherit;
+	text-decoration: none;
+	border-radius: var(--radius-sm);
+}
+.global-nav-sheet-item:hover {
+	background: var(--color-surface-overlay, var(--bg));
+}
+.global-nav-sheet-item[data-active='true'] {
+	color: var(--fg);
+	font-weight: var(--font-weight-semibold);
+	background: var(--color-accent-subtle);
+}
+
+/* UX-NAV-018: under touch modality, suppress hover-only affordances (icon-rail tooltips are
+   already gated in markup; this also calms hover states so a tap does not look like a hover). */
+.global-nav[data-input-touch='true'] .global-nav-item:hover {
+	background: transparent;
+}
+
+/* Honest empty state for approved-but-planned section roots (Campaign), doc 16 §10.3. */
+.section-empty {
+	max-width: 44rem;
+	display: grid;
+	gap: var(--space-3);
+	padding: var(--space-6) 0;
+}
+.section-empty-icon {
+	margin: 0;
+	color: var(--muted);
+}
+.section-empty-title {
+	margin: 0;
+	font-size: var(--text-lg);
+	font-weight: var(--font-weight-semibold);
+}
+.section-empty-body {
+	margin: 0;
+	color: var(--color-text-secondary, var(--muted));
+	line-height: var(--leading-relaxed, 1.6);
+}
+.section-empty-body a {
+	color: var(--accent);
+}
+
 .app-main {
 	padding: var(--space-6) var(--space-8);
 	max-width: 1100px;
 	margin: 0 auto;
+	width: 100%;
+	box-sizing: border-box;
 }
 
 /* NAV-004: the route landmark is a programmatic focus target on a normal route

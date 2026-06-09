@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openSection } from './_nav-helper';
 
 // NAV-001 / NAV-009: the Command Center is the home surface, and the canonical
 // top-level Navigation Section registry roots every section with an owner, route root,
@@ -40,18 +41,18 @@ test.describe('NAV-001 home and canonical section reflection', () => {
 	}) => {
 		await freshAt(page, '/', 'command-center');
 
-		// Command Center → Scenes.
-		await page.getByTestId('nav-scenes').click();
-		await page.getByTestId('scene-name').waitFor({ state: 'visible' });
-		await expect(page).toHaveURL(/\/scenes\/?$/);
+		// Command Center → Atlas (a global section reached through the primary nav on every profile).
+		await openSection(page, 'atlas');
+		await page.getByTestId('atlas-view').waitFor({ state: 'visible' });
+		await expect(page).toHaveURL(/\/atlas\/?$/);
 		await expect(page.getByTestId('route-landmark')).toHaveAttribute(
 			'data-section-landmark',
-			'scenes',
+			'atlas',
 		);
-		await expect(page).toHaveTitle(/Scenes/);
+		await expect(page).toHaveTitle(/Atlas/);
 
-		// Scenes → Settings.
-		await page.getByTestId('nav-settings').click();
+		// Atlas → Settings (overflow on the compact tab bar; the helper opens "More" when needed).
+		await openSection(page, 'settings');
 		await page.getByTestId('settings-view').waitFor({ state: 'visible' });
 		await expect(page).toHaveURL(/\/settings\/?$/);
 		await expect(page.getByTestId('route-landmark')).toHaveAttribute(
@@ -61,7 +62,7 @@ test.describe('NAV-001 home and canonical section reflection', () => {
 		await expect(page).toHaveTitle(/Settings/);
 
 		// Settings → back to the Command Center home.
-		await page.getByTestId('nav-command-center').click();
+		await openSection(page, 'command-center');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await expect(page.getByTestId('route-landmark')).toHaveAttribute(
 			'data-section-landmark',

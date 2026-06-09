@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import {
-		listNavigationSections,
+		listNavigationRegistryForActor,
 		listReachableDestinations,
 		resolveNavigationView,
-		resolveRouteAccessibility,
 		resolveRouteFocus,
 	} from '@dndtools/v2-core';
 	import { SceneRuntime, defaultEnvironment } from '$lib/canvas-runtime/runtime.svelte';
@@ -19,7 +19,12 @@
 	import { ThemeStore, provideTheme } from '$lib/platform/theme.svelte';
 	import { MotionStore, provideMotion } from '$lib/platform/motion.svelte';
 	import { DensityStore, provideDensity } from '$lib/platform/density.svelte';
+	import { InputModalityStore, provideInputModality } from '$lib/platform/input-modality.svelte';
+	import { NavChromeStore, provideNavChrome } from '$lib/platform/nav-chrome.svelte';
 	import { locationFromPath } from '$lib/state/navigation-location';
+	import { buildGlobalNav } from '$lib/navigation/global-nav';
+	import { resolveShellRouteAccessibility } from '$lib/navigation/route-a11y';
+	import GlobalNav from '$lib/gui/GlobalNav.svelte';
 	import CommandPalette from '$lib/gui/CommandPalette.svelte';
 	import QuickSwitcher from '$lib/gui/QuickSwitcher.svelte';
 	import Breadcrumbs from '$lib/gui/Breadcrumbs.svelte';
@@ -70,6 +75,16 @@
 	const densityStore = new DensityStore();
 	provideDensity(densityStore);
 
+	// UX-NAV-018: input-modality detection. Reflects keyboard/pointer/touch on <html> as
+	// `data-input-modality` so focus rings show only for keyboard nav and hover-only affordances are
+	// suppressed under touch — without removing focus from the accessibility tree.
+	const inputModality = new InputModalityStore();
+	provideInputModality(inputModality);
+
+	// UX-NAV-004: the Desktop sidebar icon-rail collapse preference (persisted; never the default).
+	const navChrome = new NavChromeStore();
+	provideNavChrome(navChrome);
+
 	// UX-A11Y §6.2: the single live announcer for the app. Surfaces call announcer.announce(text,
 	// politeness) instead of mounting their own aria-live nodes; LiveRegion renders the one polite +
 	// one assertive region. Callers pass visibility-filtered text so ARIA never leaks DM-only data
@@ -83,11 +98,15 @@
 		const stopTheme = themeStore.init();
 		const stopMotion = motionStore.init();
 		const stopDensity = densityStore.init();
+		const stopModality = inputModality.init();
+		const stopChrome = navChrome.init();
 		return () => {
 			stopProfile();
 			stopTheme();
 			stopMotion();
 			stopDensity();
+			stopModality();
+			stopChrome();
 		};
 	});
 
@@ -98,13 +117,15 @@
 		densityStore.applyForViewport(profile.viewportClass);
 	});
 
-	// Primary navigation reads the same actor-filtered availability API the command
-	// palette and visible controls use (NAV-010): DM-only sections are absent for
-	// players/observers rather than disabled, so navigation never leaks a hidden
-	// section (NAV-010 AC1).
-	const sections = $derived(
-		listNavigationSections(runtime.state.permissions, runtime.activeActorId),
+	// UX-NAV-002 / NAV-010: the seven-section global navigation reads the same actor-filtered IA the
+	// command palette and visible controls use. `listNavigationRegistryForActor` is role-filtered, so
+	// DM-only / observer-hidden sections are absent from the data entirely. `buildGlobalNav` keeps
+	// only the seven global destinations (Scenes/Audio/MCP are non-global capabilities reached via
+	// the command palette and section-local surfaces) and orders them canonically.
+	const registry = $derived(
+		listNavigationRegistryForActor(runtime.state.permissions, runtime.activeActorId),
 	);
+	const globalNav = $derived(buildGlobalNav(registry, page.url.pathname));
 
 	// Contextual navigation (NAV-003): the route is the single source of truth. The
 	// whole navigation view — breadcrumbs, local section nav, contextual links — is
@@ -115,13 +136,15 @@
 	const navView = $derived(resolveNavigationView(runtime.state, runtime.activeActorId, location));
 	const reachable = $derived(listReachableDestinations(runtime.state, runtime.activeActorId));
 
-	// NAV-001 AC2 / NAV-007: the route's accessible semantics — the single route-level
-	// `h1`, the document title, the landmark, and the live route-change announcement —
-	// are all derived once from the navigation view, so the page title, heading, and
-	// announcement can never disagree about which route is active. Fail-closed: a section
-	// the actor cannot reach (or a hidden entity) yields the app-name fallback, never a
-	// leaked title.
-	const routeA11y = $derived(resolveRouteAccessibility(navView, { appName: 'DND Tools v2' }));
+	// NAV-001 AC2 / NAV-007: the route's accessible semantics — the single route-level `h1`, the
+	// document title, the landmark, and the live route-change announcement — are derived once. The
+	// shell resolver also covers the approved-but-not-yet-built global sections (Knowledge,
+	// Campaign), filling their canonical title/landmark from the actor-filtered IA registry. Fail
+	// closed: a section the actor cannot reach (or a hidden entity) yields the app-name fallback,
+	// never a leaked title.
+	const routeA11y = $derived(
+		resolveShellRouteAccessibility(navView, registry, location, { appName: 'DND Tools v2' }),
+	);
 	$effect(() => {
 		document.title = routeA11y.documentTitle;
 	});
@@ -134,15 +157,25 @@
 	let routeAnnouncement = $state('');
 	let landmarkEl = $state<HTMLElement | null>(null);
 	let lastFocusKey = '';
+	// The route id captured on the first effect run, and whether a real in-app navigation has
+	// happened since. We latch on *navigation* rather than effect re-runs so the announcement
+	// updating once the vault loads does not retroactively count as a transition.
+	let firstRouteId: string | null = null;
+	let hasNavigated = false;
 	$effect(() => {
-		// Re-run on every route + hash change. Build a key so an unrelated reactive update
-		// (e.g. a "view as" switch on the same URL) does not re-steal focus or re-announce.
+		// Re-run on every route + hash change, and once content loads (so a cold deep-link to a
+		// heading anchor can focus its target after it renders). Build a key so an unrelated
+		// reactive update (e.g. a "view as" switch on the same URL) does not re-steal focus.
 		const path = page.url.pathname;
 		const hash = page.url.hash;
+		const routeId = `${path}${hash}`;
 		const announcement = routeA11y.announcement;
-		const focusKey = `${path}${hash}::${announcement}`;
+		const loaded = runtime.loaded;
+		const focusKey = `${routeId}::${announcement}::${loaded}`;
 		if (focusKey === lastFocusKey) return;
 		lastFocusKey = focusKey;
+		if (firstRouteId === null) firstRouteId = routeId;
+		else if (routeId !== firstRouteId) hasNavigated = true;
 
 		const focus = resolveRouteFocus({ hash, isNavigation: true });
 		// Announce only when the core says to: a within-page heading jump does not
@@ -154,21 +187,50 @@
 				// Preserve the heading scroll target: focus and scroll the heading the hash
 				// names instead of the landmark (NAV-004 AC1). The browser also handles the
 				// native hash scroll; this makes the target programmatically focused for
-				// keyboard/AT users without the landmark stealing it.
+				// keyboard/AT users without the landmark stealing it. This applies even on a
+				// cold deep-link load (NAV-004 AC1).
 				const target = document.getElementById(focus.anchorId);
 				if (target) {
 					if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
 					target.focus({ preventScroll: false });
 					target.scrollIntoView();
 				}
-			} else if (landmarkEl) {
-				// Normal route transition: focus the route landmark (NAV-004 AC2). Scroll to
-				// the top so back/forward to a non-hash URL starts at the route's landmark.
+			} else if (hasNavigated && landmarkEl) {
+				// Normal client-side route transition: focus the route landmark (NAV-004 AC2).
+				// On the very first (cold) page load we leave focus at the document start so the
+				// skip-to-content link is the first Tab stop (UX-NAV-009 AC1); the route is still
+				// announced above for screen readers. Reset both the window scroll (Desktop/Tablet
+				// landscape) and the content region's own scroll (the compact internal-scroll layout)
+				// so a new route starts at the top.
 				landmarkEl.focus({ preventScroll: true });
+				landmarkEl.scrollTop = 0;
 				window.scrollTo({ top: 0 });
 			}
 		});
 	});
+
+	// UX-NAV-002 / UX-NAV-001: Alt+1..Alt+7 navigate to the Nth visible global section in canonical
+	// order; Alt+Shift+H is the Command Center home shortcut. The shortcuts are keyboard parity for
+	// the primary nav (a Must-have action must not be pointer-only); navigation fires the existing
+	// route announcer so the destination is announced via the live region. They only act on the
+	// actor-filtered set, so a player/observer can never reach a section they cannot see.
+	function onGlobalKeydown(event: KeyboardEvent) {
+		if (!event.altKey || event.ctrlKey || event.metaKey) return;
+		let target: string | undefined;
+		if (event.shiftKey) {
+			if (event.key.toLowerCase() === 'h') {
+				target = globalNav.find((item) => item.home)?.route;
+			}
+		} else if (/^[1-7]$/.test(event.key)) {
+			const position = Number(event.key);
+			target = globalNav.find((item) => item.position === position)?.route;
+		}
+		if (target) {
+			event.preventDefault();
+			void goto(target);
+		}
+	}
+
 	const currentEntry = $derived.by(() => {
 		const crumb = navView.breadcrumbs.at(-1);
 		return crumb ? { route: crumb.route, title: crumb.title } : null;
@@ -196,72 +258,101 @@
 	});
 </script>
 
-<header class="app-header">
-	<a class="brand" href="/" data-testid="app-brand">DND Tools v2</a>
-	<p class="tagline">Scene-first command platform — local prototype</p>
-	<nav aria-label="Primary">
-		{#each sections as section (section.id)}
-			<a href={section.route} data-testid={`nav-${section.id}`}>{section.title}</a>
-		{/each}
-		<QuickSwitcher />
-		<CommandPalette />
-		<label class="view-as">
-			<span class="visually-hidden">View as</span>
-			<select
-				data-testid="view-as-select"
-				value={runtime.activeActorId}
-				onchange={(event) => runtime.setActiveActor(event.currentTarget.value)}
-			>
-				{#each runtime.actors as actor (actor.id)}
-					<option value={actor.id}>View as: {actor.displayName} ({actor.role})</option>
-				{/each}
-			</select>
-		</label>
-		<!-- UX-A11Y-014 (WCAG 3.2.6): the Help trigger renders in the shared header, so it appears in
-		     the same top-bar position on every route, and is reachable by `?` / `F1` everywhere. -->
-		<HelpTrigger />
-	</nav>
-</header>
+<svelte:window onkeydown={onGlobalKeydown} />
 
-<!-- UX-A11Y §6.2: the product-wide polite + assertive live regions, written only by the announcer. -->
-<LiveRegion />
+<!-- UX-NAV-009: the skip-to-main-content link is the first focusable element on every page. It is
+     visually hidden until focused (see .skip-link in styles.css). -->
+<a class="skip-link" href="#main-content" data-testid="skip-link">Skip to main content</a>
 
-{#if showSubheader}
-	<div class="nav-subheader" data-testid="nav-subheader">
-		<Breadcrumbs crumbs={navView.breadcrumbs} />
-		<LocalNav
-			label={`${navView.section?.title ?? 'Section'} navigation`}
-			items={navView.localItems}
-		/>
-		<ContextualNav backlinks={navView.backlinks} related={navView.related} />
-		<QuickAccess {reachable} current={currentEntry} />
-	</div>
-{/if}
-
-<!-- NAV-007 AC2: a single polite live region announces the route after a navigation
-     completes. It is always present so screen readers register text changes. -->
-<div class="visually-hidden" aria-live="polite" aria-atomic="true" data-testid="route-announcer">
-	{routeAnnouncement}
-</div>
-
-<main
-	bind:this={landmarkEl}
-	class="app-main"
-	tabindex="-1"
-	data-testid="route-landmark"
-	data-section-landmark={routeA11y.landmark}
-	aria-label={routeA11y.landmarkLabel}
+<div
+	class="app-shell"
+	data-viewport={profile.viewportClass}
+	data-orientation={profile.orientation}
+	data-nav-collapsed={navChrome.collapsed ? 'true' : 'false'}
 >
-	<!-- NAV-007 AC1: exactly one route-level `h1`, reflecting the active route context.
-	     The app shell owns it so every route has one and only one, derived from the
-	     navigation view rather than authored per page. -->
-	<h1 class="route-title" data-testid="route-title">{routeA11y.heading}</h1>
-	{#if !runtime.loaded}
-		<p class="loading" role="status">Loading local Scene store…</p>
-	{:else}
-		{@render children?.()}
+	<!-- UX-NAV-009: the top bar is the page banner landmark. It hosts only cross-route affordances —
+	     brand/home, the command palette trigger, the "view as" actor switch, and help. Section
+	     routing lives in the primary nav (the sidebar/rail/tab bar), not here. -->
+	<header class="app-header">
+		<a class="brand" href="/" data-testid="app-brand">DND Tools v2</a>
+		<p class="tagline">Scene-first command platform — local prototype</p>
+		<div class="top-bar-controls" data-testid="top-bar-controls">
+			<QuickSwitcher />
+			<CommandPalette />
+			<label class="view-as">
+				<span class="visually-hidden">View as</span>
+				<select
+					data-testid="view-as-select"
+					value={runtime.activeActorId}
+					onchange={(event) => runtime.setActiveActor(event.currentTarget.value)}
+				>
+					{#each runtime.actors as actor (actor.id)}
+						<option value={actor.id}>View as: {actor.displayName} ({actor.role})</option>
+					{/each}
+				</select>
+			</label>
+			<!-- UX-A11Y-014 (WCAG 3.2.6): the Help trigger renders in the shared header, so it appears in
+			     the same top-bar position on every route, and is reachable by `?` / `F1` everywhere. -->
+			<HelpTrigger />
+		</div>
+	</header>
+
+	<!-- UX-NAV-002/004/005/006: the seven-section primary navigation, adapted per platform profile. -->
+	<GlobalNav
+		items={globalNav}
+		viewportClass={profile.viewportClass}
+		orientation={profile.orientation}
+		collapsed={navChrome.collapsed}
+		onToggleCollapse={() => navChrome.toggle()}
+		touch={inputModality.modality === 'touch'}
+	/>
+
+	<!-- UX-A11Y §6.2: the product-wide polite + assertive live regions, written only by the announcer. -->
+	<LiveRegion />
+
+	{#if showSubheader}
+		<div class="nav-subheader" data-testid="nav-subheader">
+			<Breadcrumbs crumbs={navView.breadcrumbs} />
+			<LocalNav
+				label={`${navView.section?.title ?? 'Section'} navigation`}
+				items={navView.localItems}
+			/>
+			<ContextualNav backlinks={navView.backlinks} related={navView.related} />
+			<QuickAccess {reachable} current={currentEntry} />
+		</div>
 	{/if}
-	{#if runtime.lastError}
-		<p class="error" role="alert">{runtime.lastError}</p>
-	{/if}
-</main>
+
+	<!-- NAV-007 AC2: a single polite live region announces the route after a navigation
+	     completes. It is always present so screen readers register text changes. -->
+	<div
+		class="visually-hidden"
+		aria-live="polite"
+		aria-atomic="true"
+		data-testid="route-announcer"
+	>
+		{routeAnnouncement}
+	</div>
+
+	<main
+		bind:this={landmarkEl}
+		class="app-main"
+		id="main-content"
+		tabindex="-1"
+		data-testid="route-landmark"
+		data-section-landmark={routeA11y.landmark}
+		aria-label={routeA11y.landmarkLabel}
+	>
+		<!-- NAV-007 AC1: exactly one route-level `h1`, reflecting the active route context.
+		     The app shell owns it so every route has one and only one, derived from the
+		     navigation view rather than authored per page. -->
+		<h1 class="route-title" data-testid="route-title">{routeA11y.heading}</h1>
+		{#if !runtime.loaded}
+			<p class="loading" role="status">Loading local Scene store…</p>
+		{:else}
+			{@render children?.()}
+		{/if}
+		{#if runtime.lastError}
+			<p class="error" role="alert">{runtime.lastError}</p>
+		{/if}
+	</main>
+</div>

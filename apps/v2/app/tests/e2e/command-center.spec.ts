@@ -141,7 +141,8 @@ test.describe('CMD-001/002/007 Command Center home Scene', () => {
 		await expect(page.getByTestId('cc-player-map-preview')).toContainText('Fog of War');
 		await expect(page.getByTestId('cc-player-map-preview')).not.toContainText('Secret Ambush');
 
-		await page.getByTestId('nav-scenes').click();
+		// Scenes is a non-global capability reached outside the primary nav; deep-link to it.
+		await page.goto('/scenes/');
 		await page.getByTestId('scene-name').waitFor({ state: 'visible' });
 		await page.getByTestId('nav-command-center').click();
 		await expect(page.getByTestId('session-workflow-status')).toContainText('active');
@@ -209,7 +210,7 @@ test.describe('CMD-001/002/007 Command Center home Scene', () => {
 	test('Player View controller assigns connected and disconnected participants (CMD-004)', async ({
 		page,
 	}) => {
-		await page.getByTestId('nav-scenes').click();
+		await page.goto('/scenes/');
 		await createNamedScene(page, 'Player One View');
 
 		await page.getByTestId('nav-command-center').click();

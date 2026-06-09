@@ -45,6 +45,33 @@ export function watchReducedMotion(onChange: (prefersReduced: boolean) => void):
 	return () => query.removeEventListener('change', handler);
 }
 
+/** Coarse device orientation, used by the shell to choose Tablet rail vs. tab bar (UX-NAV-005). */
+export type DeviceOrientation = 'portrait' | 'landscape';
+
+/**
+ * UX-NAV-005 — read the coarse device orientation. This is a presentation fact the shell uses to
+ * pick the Tablet navigation surface (landscape rail vs. portrait tab bar). It lives in the owned
+ * platform probe because the boundary lint forbids `matchMedia` outside this layer. Fail closed to
+ * `landscape` (the wider, rail layout) on the server or where `matchMedia` is unavailable.
+ */
+export function probeOrientation(): DeviceOrientation {
+	if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'landscape';
+	return window.matchMedia('(orientation: portrait)').matches ? 'portrait' : 'landscape';
+}
+
+/**
+ * Subscribe to orientation changes (UX-NAV-005). The ONLY orientation media-query watcher; the
+ * boundary lint forbids `matchMedia` outside this owned probe. Returns a cleanup function; no-op
+ * on the server.
+ */
+export function watchOrientation(onChange: (orientation: DeviceOrientation) => void): () => void {
+	if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return () => {};
+	const query = window.matchMedia('(orientation: portrait)');
+	const handler = (event: MediaQueryListEvent) => onChange(event.matches ? 'portrait' : 'landscape');
+	query.addEventListener('change', handler);
+	return () => query.removeEventListener('change', handler);
+}
+
 // PLAT-001: the ONLY place a raw viewport width is read. The platform layer classifies it once
 // into a coarse class so the profile resolver and every feature component stay free of raw pixel
 // math. The boundary lint forbids `innerWidth` / `matchMedia` outside this owned probe.

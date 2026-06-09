@@ -18,22 +18,39 @@ async function viewAs(page: Page, actorId: string) {
 	await page.getByTestId('view-as-select').selectOption(actorId);
 }
 
-test.describe('NAV-010 actor-filtered primary navigation', () => {
-	test('hides the DM-only Scenes section from a player without leaking it (AC1)', async ({
+test.describe('UX-NAV-002 / NAV-010 actor-filtered primary navigation', () => {
+	test('the primary nav presents the seven global destinations, never the non-global capabilities (AC1)', async ({
 		page,
 	}) => {
 		await freshAt(page, '/', 'command-center');
 
-		// DM sees every section.
+		// The DM sees the seven global destinations (Command Center + Session are always direct tabs).
 		await expect(page.getByTestId('nav-command-center')).toBeVisible();
-		await expect(page.getByTestId('nav-scenes')).toBeVisible();
-		await expect(page.getByTestId('nav-settings')).toBeVisible();
+		await expect(page.getByTestId('nav-session')).toBeVisible();
 
-		// As a player, the DM-only Scenes authoring section is absent entirely.
-		await viewAs(page, 'actor-player');
-		await expect(page.getByTestId('nav-command-center')).toBeVisible();
-		await expect(page.getByTestId('nav-settings')).toBeVisible();
+		// The non-global capabilities (Scenes/Audio/MCP) are NOT primary-nav items for ANYONE — they
+		// are reached through the command palette and section-local surfaces instead.
 		await expect(page.getByTestId('nav-scenes')).toHaveCount(0);
+		await expect(page.getByTestId('nav-audio')).toHaveCount(0);
+		await expect(page.getByTestId('nav-mcp')).toHaveCount(0);
+	});
+
+	test('observer-hidden sections are absent from the nav DOM without leaking (AC1)', async ({
+		page,
+	}) => {
+		await freshAt(page, '/', 'command-center');
+
+		// The DM/player can reach Characters; an observer cannot, so it is absent from the nav DOM
+		// entirely (not present-and-disabled, not display:none) — no path, label, or count leaks it.
+		await expect(page.getByTestId('nav-characters')).toBeVisible();
+
+		await viewAs(page, 'actor-observer');
+		await expect(page.getByTestId('nav-command-center')).toBeVisible();
+		await expect(page.getByTestId('nav-session')).toBeVisible();
+		await expect(page.getByTestId('nav-characters')).toHaveCount(0);
+		await expect(page.getByTestId('nav-campaign')).toHaveCount(0);
+		await expect(page.getByTestId('nav-knowledge')).toHaveCount(0);
+		await expect(page.getByTestId('primary-nav')).not.toContainText('Characters');
 	});
 });
 

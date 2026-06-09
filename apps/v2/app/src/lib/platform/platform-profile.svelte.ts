@@ -8,9 +8,15 @@ import {
 	type PlatformServiceCapabilities,
 	type PlatformViewportClass,
 } from '@dndtools/v2-core';
-import { probeEnvironment } from './capabilities';
+import {
+	probeEnvironment,
+	probeOrientation,
+	watchOrientation,
+	type DeviceOrientation,
+} from './capabilities';
 
 export type ViewportClass = PlatformViewportClass;
+export type { DeviceOrientation } from './capabilities';
 
 /**
  * PLAT-001 (the spine): the reactive platform profile owned by the app shell.
@@ -27,6 +33,11 @@ export class PlatformProfileStore {
 		selectPlatformProfile({ viewportClass: 'expanded', hasTouch: false, hasFinePointer: true }),
 	);
 
+	// UX-NAV-005: the coarse orientation drives the Tablet navigation surface (landscape rail vs.
+	// portrait tab bar). Tracked separately from the profile because orientation can change without
+	// the viewport class changing.
+	#orientation = $state<DeviceOrientation>('landscape');
+
 	/** The full resolved capability descriptor passed to GUI packages. */
 	get profile(): PlatformProfile {
 		return this.#profile;
@@ -38,6 +49,11 @@ export class PlatformProfileStore {
 
 	get viewportClass(): ViewportClass {
 		return this.#profile.viewportClass;
+	}
+
+	/** Coarse device orientation (UX-NAV-005): Tablet landscape uses a rail, portrait a tab bar. */
+	get orientation(): DeviceOrientation {
+		return this.#orientation;
 	}
 
 	/** The typed platform-service capability surface feature components branch on. */
@@ -66,8 +82,15 @@ export class PlatformProfileStore {
 			this.#profile = selectPlatformProfile(probeEnvironment());
 		};
 		update();
+		this.#orientation = probeOrientation();
+		const stopOrientation = watchOrientation((orientation) => {
+			this.#orientation = orientation;
+		});
 		window.addEventListener('resize', update);
-		return () => window.removeEventListener('resize', update);
+		return () => {
+			window.removeEventListener('resize', update);
+			stopOrientation();
+		};
 	}
 }
 

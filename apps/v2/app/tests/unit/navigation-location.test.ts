@@ -14,6 +14,19 @@ describe('locationFromPath', () => {
 		expect(locationFromPath('/settings/')).toEqual({ sectionId: 'settings' });
 	});
 
+	it('maps every seven-section global destination root (UX-SHELL / UX-NAV-002)', () => {
+		expect(locationFromPath('/session/')).toEqual({ sectionId: 'session' });
+		expect(locationFromPath('/characters/')).toEqual({ sectionId: 'characters' });
+		expect(locationFromPath('/atlas/')).toEqual({ sectionId: 'atlas' });
+		expect(locationFromPath('/campaign/')).toEqual({ sectionId: 'campaign' });
+		expect(locationFromPath('/knowledge/')).toEqual({ sectionId: 'knowledge' });
+	});
+
+	it('maps a descendant route to its owning section', () => {
+		expect(locationFromPath('/session/active/')).toEqual({ sectionId: 'session' });
+		expect(locationFromPath('/characters/char-7/')).toEqual({ sectionId: 'characters' });
+	});
+
 	it('maps a scene detail route to the scenes section with the open entity', () => {
 		expect(locationFromPath('/scene/scene-123/')).toEqual({
 			sectionId: 'scenes',

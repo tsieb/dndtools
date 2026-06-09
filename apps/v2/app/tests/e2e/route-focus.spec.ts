@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openSection } from './_nav-helper';
 
 // NAV-004: navigation focus restoration preserves hash anchors, scroll position, route
 // landmarks, deep-link semantics, and browser back/forward. A URL with a heading hash
@@ -59,7 +60,7 @@ test.describe('NAV-004 browser back/forward stays coherent', () => {
 
 		await page.getByTestId('nav-atlas').click();
 		await page.getByTestId('atlas-view').waitFor({ state: 'visible' });
-		await page.getByTestId('nav-settings').click();
+		await openSection(page, 'settings');
 		await page.getByTestId('settings-view').waitFor({ state: 'visible' });
 
 		// Back returns to Atlas and re-focuses/announces its landmark.

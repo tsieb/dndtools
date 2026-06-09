@@ -86,6 +86,9 @@ epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-ARCH-product-architecture-and-ia-reconciliation.completion.md
+  - id: UX-SHELL-route-layout-and-platform-profiles
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-SHELL-route-layout-and-platform-profiles.completion.md
   - id: UX-VIS-component-library-motion-density-icons
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-VIS-component-library-motion-density-icons.completion.md

@@ -29,6 +29,7 @@ const ROUTES: ReadonlyArray<{ path: string; slug: string }> = [
 	{ path: '/atlas', slug: 'atlas' },
 	{ path: '/characters', slug: 'characters' },
 	{ path: '/knowledge', slug: 'knowledge' },
+	{ path: '/campaign', slug: 'campaign' },
 	{ path: '/session', slug: 'session' },
 	{ path: '/settings', slug: 'settings' },
 ];
