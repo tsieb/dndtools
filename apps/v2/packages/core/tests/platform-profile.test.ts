@@ -124,4 +124,32 @@ describe('PLAT-002 / PLAT-005: declared-unavailable native capability descriptor
 		// @ts-expect-error intentionally probing an undeclared service key
 		expect(serviceAvailability(web, 'nonexistentService')).toBe('unsupported');
 	});
+
+	// PLAT-005 AC1: mobile + tablet declare nativeShareImport as `unavailable` (ADR-014 deferral,
+	// not `available`), so feature logic that checks the capability before using the typed
+	// AndroidShareImportService contract correctly degrades rather than calling a missing bridge.
+	it('declares android share/import as unavailable (deferred) on mobile and tablet (AC1)', () => {
+		for (const profileId of ['mobile', 'tablet'] as const) {
+			const profile = platformProfile(profileId);
+			expect(serviceAvailability(profile, 'nativeShareImport')).toBe('unavailable');
+			expect(hasService(profile, 'nativeShareImport')).toBe(false);
+		}
+		// Desktop has no share/import sheet at all (structurally impossible).
+		expect(serviceAvailability(platformProfile('desktop'), 'nativeShareImport')).toBe('unsupported');
+	});
+
+	// PLAT-005 AC2: mobile + tablet declare virtualKeyboardInsets as `unavailable` (ADR-014
+	// deferral). The typed AndroidKeyboardService contract defines the inset shape (bottomInset,
+	// visible); feature components read the capability flag and degrade correctly when the live
+	// Capacitor keyboard bridge is not yet present.
+	it('declares virtual keyboard insets as unavailable (deferred) on mobile and tablet (AC2)', () => {
+		for (const profileId of ['mobile', 'tablet'] as const) {
+			const profile = platformProfile(profileId);
+			expect(serviceAvailability(profile, 'virtualKeyboardInsets')).toBe('unavailable');
+			expect(hasService(profile, 'virtualKeyboardInsets')).toBe(false);
+		}
+		// Desktop and web have no virtual keyboard (structurally impossible).
+		expect(serviceAvailability(platformProfile('desktop'), 'virtualKeyboardInsets')).toBe('unsupported');
+		expect(serviceAvailability(platformProfile('web'), 'virtualKeyboardInsets')).toBe('unsupported');
+	});
 });
