@@ -1,6 +1,6 @@
 {
   "$schema": "./platform-access-exceptions.schema.json",
-  "description": "PLAT-006 / PLAT-012: explicit, scoped, owned allowlist of files permitted to touch platform/storage primitives directly. Every entry is regression-tested by tests/unit/boundary-exceptions.test.ts. The boundary lint (scripts/v2-boundary-lint.ts) fails closed for any direct platform-primitive access NOT covered here.",
+  "description": "PLAT-006 / PLAT-012: explicit, scoped, owned allowlist of files permitted to touch platform/storage primitives directly. Every entry is regression-tested by tests/unit/boundary-lint.test.ts (PLAT-012: exception manifest integrity). The boundary lint (scripts/v2-boundary-lint.ts) fails closed for any direct platform-primitive access NOT covered here.",
   "exceptions": [
     {
       "id": "storage-adapter-dexie",
