@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 43
+  approved: 42
   active: 0
-  complete: 3
+  complete: 4
   deferred: 0
 metrics:
-  epicCompletionPercent: 6.5
-  requirementCompletionPercent: 5.7
+  epicCompletionPercent: 8.7
+  requirementCompletionPercent: 7.4
   totalRequirements: 244
-  completedRequirements: 14
+  completedRequirements: 18
   deferredRequirements: 0
-  remainingEpics: 43
-  promptableEpics: 2
+  remainingEpics: 42
+  promptableEpics: 1
   blockedByDependencies: 41
-  completionEvidenceFiles: 3
+  completionEvidenceFiles: 4
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -39,9 +39,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 01 Foundations
       totalEpics: 5
-      complete: 2
+      complete: 3
       active: 0
-      approved: 3
+      approved: 2
       proposed: 0
       deferred: 0
       requirementIds:
@@ -76,8 +76,8 @@ metrics:
         - UX-VIS-011
         - UX-VIS-012
         - UX-VIS-013
-      epicCompletionPercent: 40
-      requirementCompletionPercent: 41.9
+      epicCompletionPercent: 60
+      requirementCompletionPercent: 54.8
     - phase: 02 Shell and Navigation
       totalEpics: 4
       complete: 0
@@ -391,19 +391,25 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-A11Y-release-gates-and-contrast
-  title: Accessibility Release Gates and Contrast
+  id: UX-A11Y-interaction-primitives-and-help-compliance
+  title: Accessible Interaction Primitives and Help Compliance
   phase: 01 Foundations
   status: approved
   requirementIds:
-    - UX-A11Y-001
-    - UX-A11Y-016
-    - UX-A11Y-017
-    - UX-A11Y-018
-  promptCommand: pnpm v2:ux-prompt -- --epic UX-A11Y-release-gates-and-contrast
+    - UX-A11Y-002
+    - UX-A11Y-007
+    - UX-A11Y-009
+    - UX-A11Y-010
+    - UX-A11Y-011
+    - UX-A11Y-012
+    - UX-A11Y-013
+    - UX-A11Y-014
+    - UX-A11Y-015
+  promptCommand: pnpm v2:ux-prompt -- --epic
+    UX-A11Y-interaction-primitives-and-help-compliance
   nextPromptCommand: pnpm v2:ux-prompt -- --next
   statusCommand: pnpm v2:ux-workpack:set-status -- --epic
-    UX-A11Y-release-gates-and-contrast --status active
+    UX-A11Y-interaction-primitives-and-help-compliance --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -463,7 +469,7 @@ epics:
   - id: UX-A11Y-release-gates-and-contrast
     title: Accessibility Release Gates and Contrast
     phase: 01 Foundations
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-A11Y-001
@@ -477,6 +483,7 @@ epics:
       - known violation register
     dependencies:
       - UX-VIS-design-tokens-themes-and-brand
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-A11Y-release-gates-and-contrast.completion.md
   - id: UX-A11Y-interaction-primitives-and-help-compliance
     title: Accessible Interaction Primitives and Help Compliance
     phase: 01 Foundations

@@ -34,7 +34,7 @@
 	<section data-testid="participant-status" aria-label="Your session status">
 		<h2>Your session status</h2>
 
-		<dl class="scene-list">
+		<div class="scene-list">
 			<div class="scene-card" data-testid="participant-connection">
 				<div>
 					<strong>Connection</strong>
@@ -62,7 +62,7 @@
 				</div>
 				<span class="meta" data-testid="participant-delivery-state">{status.delivery}</span>
 			</div>
-		</dl>
+		</div>
 
 		<section aria-label="Feature availability on your device">
 			<h3>On your device</h3>

@@ -1,0 +1,15 @@
+{
+	"version": 1,
+	"$schema": "Each entry approves (or tracks) a known axe finding so the gate can pass while it is scheduled for remediation. Fields: id (axe rule), route (or '*'), impact, selector (optional normalized-selector prefix), wcag, owner, reason, targetResolutionDate (YYYY-MM-DD). A critical finding can never be approved here. Once targetResolutionDate passes, the gate fails until the issue is resolved or the date is extended with owner approval. See docs/development/ACCESSIBILITY.md (V2 register).",
+	"violations": [
+		{
+			"id": "target-size",
+			"route": "/session",
+			"impact": "serious",
+			"wcag": "2.5.8",
+			"owner": "UX-A11Y-interaction-primitives-and-help-compliance",
+			"reason": "Native checkboxes in the session recipient/member lists (HandoutDelivery, PlayerGroups, handout recipient) render below the 24x24 CSS px WCAG 2.5.8 floor on the mobile-chromium profile. Comprehensive touch-target sizing is requirement UX-A11Y-010, owned by the interaction-primitives epic; tracked here so the release gate passes while the fix is scheduled.",
+			"targetResolutionDate": "2026-09-30"
+		}
+	]
+}

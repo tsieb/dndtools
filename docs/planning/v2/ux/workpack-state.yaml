@@ -74,6 +74,9 @@ precedence:
     - UX-ONB-help-coachmarks-demo-and-progressive-disclosure
     - UX-RELEASE-production-readiness-and-shareable-cut
 epics:
+  - id: UX-A11Y-release-gates-and-contrast
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-A11Y-release-gates-and-contrast.completion.md
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-ARCH-product-architecture-and-ia-reconciliation.completion.md
