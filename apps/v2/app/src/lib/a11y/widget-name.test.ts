@@ -21,7 +21,7 @@ function makeWidget(
 		version: '1.0.0',
 		layout: { x: 0, y: 0, w: 100, h: 100, z: 1, groupId: null, dock: null, pinned: false, focusOrder: null },
 		configuration: {},
-		localState: undefined,
+		localState: {},
 		binding: entityId
 			? { source: { entityType: 'character', entityId, selector: undefined }, mode: 'read', requiredCapability: 'viewer' }
 			: null,
