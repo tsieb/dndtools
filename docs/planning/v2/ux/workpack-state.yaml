@@ -86,6 +86,9 @@ epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-ARCH-product-architecture-and-ia-reconciliation.completion.md
+  - id: UX-SHELL-actor-filtered-nav-recents
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-SHELL-actor-filtered-nav-recents.completion.md
   - id: UX-SHELL-contextual-navigation-history-and-deep-links
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-SHELL-contextual-navigation-history-and-deep-links.completion.md

@@ -45,6 +45,8 @@ import Sparkles from '@lucide/svelte/icons/sparkles';
 import Gauge from '@lucide/svelte/icons/gauge';
 import Sun from '@lucide/svelte/icons/sun';
 import Accessibility from '@lucide/svelte/icons/accessibility';
+import Pin from '@lucide/svelte/icons/pin';
+import Clock from '@lucide/svelte/icons/clock';
 
 /** A Lucide glyph rendered by `Icon.svelte`. */
 export type LucideIconComponent = Component<LucideProps>;
@@ -96,6 +98,9 @@ export const ICON_REGISTRY = {
 	retry: RotateCcw,
 	loading: LoaderCircle,
 	move: Move,
+	// --- Pinned / recent strip (UX-NAV-015): a pin marker and a recency (clock) marker ---
+	pin: Pin,
+	recent: Clock,
 	// --- Display preferences (Settings) ---
 	motion: Sparkles,
 	density: Gauge,

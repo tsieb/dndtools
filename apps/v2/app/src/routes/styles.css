@@ -1016,6 +1016,127 @@ body {
 	background: transparent;
 }
 
+/* UX-NAV-015: split the sidebar/rail into Command Center (top, fixed), the pinned/recent strip
+   (below it), and the section list (grows so Settings still pins to the bottom via margin-top:auto). */
+.global-nav[data-surface='sidebar'] .global-nav-list--primary,
+.global-nav[data-surface='rail'] .global-nav-list--primary {
+	flex: 0 0 auto;
+}
+.global-nav[data-surface='sidebar'] .global-nav-list--sections,
+.global-nav[data-surface='rail'] .global-nav-list--sections {
+	flex: 1 1 auto;
+}
+
+/* UX-NAV-015: the pinned/recent strip. In the sidebar/rail it is a bordered block between Command
+   Center and the sections; in the "More" sheet it stacks above the overflow section list. */
+.pinned-recent {
+	flex: 0 0 auto;
+	display: grid;
+	gap: var(--space-1);
+	padding: var(--space-2) var(--space-2) var(--space-2-5);
+	border-bottom: 1px solid var(--border);
+}
+.pinned-recent[data-variant='sheet'] {
+	border-bottom: 1px solid var(--border);
+	margin-bottom: var(--space-2);
+	padding-bottom: var(--space-3);
+}
+.pinrec-group {
+	display: grid;
+	gap: var(--space-0-5);
+}
+.pinrec-label {
+	margin: 0;
+	padding: 0 var(--space-2);
+	color: var(--muted);
+	text-transform: uppercase;
+	font-size: var(--text-xs);
+	letter-spacing: var(--tracking-wide);
+}
+.pinrec-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: var(--space-0-5);
+}
+.pinrec-item {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	min-width: 0;
+}
+.pinrec-link {
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	min-width: 0;
+	padding: var(--space-1) var(--space-2);
+	color: var(--color-text-secondary, var(--muted));
+	text-decoration: none;
+	border-radius: var(--radius-sm);
+}
+.pinrec-link:hover {
+	background: var(--color-surface-overlay, var(--bg));
+	color: var(--fg);
+}
+.pinrec-icon {
+	display: inline-flex;
+	flex: 0 0 auto;
+	color: var(--muted);
+}
+.pinrec-text {
+	flex: 1 1 auto;
+	min-width: 0;
+	max-width: 24ch;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.pinrec-unpin {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--space-6);
+	height: var(--space-6);
+	background: transparent;
+	border: 0;
+	border-radius: var(--radius-sm);
+	color: var(--muted);
+	cursor: pointer;
+	opacity: 0;
+}
+/* Reveal the unpin control on hover/focus; under touch and in the sheet it is always visible
+   (no hover), so the action stays reachable without a pointer (WCAG 2.5.7 — not gesture-only). */
+.pinrec-item:hover .pinrec-unpin,
+.pinrec-unpin:focus-visible {
+	opacity: 1;
+}
+.global-nav[data-input-touch='true'] .pinrec-unpin,
+.pinned-recent[data-variant='sheet'] .pinrec-unpin {
+	opacity: 1;
+}
+.pinrec-sep {
+	margin: var(--space-1) var(--space-2);
+	border: 0;
+	border-top: 1px solid var(--border);
+}
+/* Icon-only (collapsed sidebar / rail): the strip shows centered glyphs with tooltips; the section
+   labels and truncated text collapse, leaving the visually-hidden full title as the accessible name. */
+.pinned-recent[data-icon-only='true'] {
+	padding-inline: 0;
+}
+.pinned-recent[data-icon-only='true'] .pinrec-label,
+.pinned-recent[data-icon-only='true'] .pinrec-text {
+	display: none;
+}
+.pinned-recent[data-icon-only='true'] .pinrec-link {
+	justify-content: center;
+	gap: 0;
+}
+
 /* Honest empty state for approved-but-planned section roots (Campaign), doc 16 §10.3. */
 .section-empty {
 	max-width: 44rem;

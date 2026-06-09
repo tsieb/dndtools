@@ -1226,11 +1226,13 @@ export type {
 	NavigationRegistryEntry,
 	NavigationSection,
 	NavigationSectionDef,
+	SectionRouteAccess,
 } from './queries/navigation';
 export {
 	NAVIGATION_SECTIONS,
 	listNavigationRegistryForActor,
 	listNavigationSections,
+	resolveSectionRouteAccess,
 } from './queries/navigation';
 
 export type {

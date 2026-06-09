@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-SHELL-actor-filtered-nav-recents
 title: Actor-Filtered Navigation, Pinned Items, and Recents
-status: approved
+status: complete
 approved: true
 phase: 02 Shell and Navigation
 productPriority: P0
@@ -168,3 +168,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-SHELL-actor-filtered-nav-recents.completion.md

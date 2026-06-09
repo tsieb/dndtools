@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 38
+  approved: 37
   active: 0
-  complete: 8
+  complete: 9
   deferred: 0
 metrics:
-  epicCompletionPercent: 17.4
-  requirementCompletionPercent: 19.3
+  epicCompletionPercent: 19.6
+  requirementCompletionPercent: 20.1
   totalRequirements: 244
-  completedRequirements: 47
+  completedRequirements: 49
   deferredRequirements: 0
-  remainingEpics: 38
-  promptableEpics: 5
-  blockedByDependencies: 33
-  completionEvidenceFiles: 8
+  remainingEpics: 37
+  promptableEpics: 7
+  blockedByDependencies: 30
+  completionEvidenceFiles: 9
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -80,9 +80,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 02 Shell and Navigation
       totalEpics: 4
-      complete: 2
+      complete: 3
       active: 0
-      approved: 2
+      approved: 1
       proposed: 0
       deferred: 0
       requirementIds:
@@ -107,8 +107,8 @@ metrics:
         - UX-NAV-020
         - UX-SRCH-001
         - UX-SRCH-005
-      epicCompletionPercent: 50
-      requirementCompletionPercent: 71.4
+      epicCompletionPercent: 75
+      requirementCompletionPercent: 81
     - phase: 03 Canvas and Command Center
       totalEpics: 4
       complete: 0
@@ -391,17 +391,19 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-SHELL-actor-filtered-nav-recents
-  title: Actor-Filtered Navigation, Pinned Items, and Recents
+  id: UX-SHELL-command-surface-and-shortcuts
+  title: Command Surface, Search Entry, and Shortcuts
   phase: 02 Shell and Navigation
   status: approved
   requirementIds:
-    - UX-NAV-013
-    - UX-NAV-015
-  promptCommand: pnpm v2:ux-prompt -- --epic UX-SHELL-actor-filtered-nav-recents
+    - UX-NAV-014
+    - UX-NAV-019
+    - UX-SRCH-001
+    - UX-SRCH-005
+  promptCommand: pnpm v2:ux-prompt -- --epic UX-SHELL-command-surface-and-shortcuts
   nextPromptCommand: pnpm v2:ux-prompt -- --next
   statusCommand: pnpm v2:ux-workpack:set-status -- --epic
-    UX-SHELL-actor-filtered-nav-recents --status active
+    UX-SHELL-command-surface-and-shortcuts --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -569,7 +571,7 @@ epics:
   - id: UX-SHELL-actor-filtered-nav-recents
     title: Actor-Filtered Navigation, Pinned Items, and Recents
     phase: 02 Shell and Navigation
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-NAV-013
@@ -580,6 +582,7 @@ epics:
       - player-safe nav tests
     dependencies:
       - UX-SHELL-route-layout-and-platform-profiles
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-SHELL-actor-filtered-nav-recents.completion.md
   - id: UX-SHELL-command-surface-and-shortcuts
     title: Command Surface, Search Entry, and Shortcuts
     phase: 02 Shell and Navigation

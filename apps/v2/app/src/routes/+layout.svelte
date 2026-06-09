@@ -8,7 +8,9 @@
 		listReachableDestinations,
 		resolveNavigationView,
 		resolveRouteFocus,
+		resolveSectionRouteAccess,
 	} from '@dndtools/v2-core';
+	import { selectStripLists } from '$lib/platform/navigation-history';
 	import { SceneRuntime, defaultEnvironment } from '$lib/canvas-runtime/runtime.svelte';
 	import { provideRuntime } from '$lib/state/runtime-context';
 	import { PlatformProfileStore, provideProfile } from '$lib/platform/platform-profile.svelte';
@@ -32,6 +34,7 @@
 	import LocalNav from '$lib/gui/LocalNav.svelte';
 	import ContextualNav from '$lib/gui/ContextualNav.svelte';
 	import BacklinksPanel from '$lib/gui/ux-shell/BacklinksPanel.svelte';
+	import DeepLinkUnavailable from '$lib/gui/ux-shell/DeepLinkUnavailable.svelte';
 	import HistoryControls from '$lib/gui/ux-shell/HistoryControls.svelte';
 	import QuickAccess from '$lib/gui/QuickAccess.svelte';
 	import HelpTrigger from '$lib/gui/HelpTrigger.svelte';
@@ -159,8 +162,32 @@
 	const routeA11y = $derived(
 		resolveShellRouteAccessibility(navView, registry, location, { appName: 'DND Tools v2' }),
 	);
+
+	// UX-NAV-013 AC2: a DM-only capability route (Scenes/Audio/MCP) reached directly by a
+	// player/observer — by typing the URL or following a stale link — must resolve to a single
+	// generic "Not available" page, never the capability surface. The Processing Core makes the
+	// actor-filtered decision (Contract 1/3); the shell renders what it returns. This is the
+	// route-level counterpart to the actor-filtered nav data and command list, so a hidden
+	// capability cannot be reached through the nav, the palette, OR a direct URL.
+	const sectionAccess = $derived(
+		resolveSectionRouteAccess(runtime.state.permissions, runtime.activeActorId, page.url.pathname),
+	);
+	const routeBlocked = $derived(sectionAccess.kind === 'unavailable');
+	// When blocked, the `h1`, title, landmark label, and announcement all collapse to the generic,
+	// non-leaking "Not available" — they must never echo the hidden section's name (UX-NAV-013).
+	const effectiveRouteA11y = $derived(
+		routeBlocked
+			? {
+					heading: 'Not available',
+					documentTitle: 'Not available — DND Tools v2',
+					landmark: '',
+					landmarkLabel: 'Main content',
+					announcement: 'Not available',
+				}
+			: routeA11y,
+	);
 	$effect(() => {
-		document.title = routeA11y.documentTitle;
+		document.title = effectiveRouteA11y.documentTitle;
 	});
 
 	// NAV-004 + NAV-007 AC2: restore focus and announce after a navigation completes.
@@ -183,7 +210,7 @@
 		const path = page.url.pathname;
 		const hash = page.url.hash;
 		const routeId = `${path}${hash}`;
-		const announcement = routeA11y.announcement;
+		const announcement = effectiveRouteA11y.announcement;
 		const loaded = runtime.loaded;
 		const focusKey = `${routeId}::${announcement}::${loaded}`;
 		if (focusKey === lastFocusKey) return;
@@ -290,17 +317,31 @@
 		const crumb = navView.breadcrumbs.at(-1);
 		return crumb ? { route: crumb.route, title: crumb.title } : null;
 	});
+	// The current destination is pin-able only when it is reachable for the active actor (fail
+	// closed): the "Pin this" toggle never offers a route the actor cannot reach.
+	const currentPinnable = $derived(
+		currentEntry && reachable.some((destination) => destination.route === currentEntry.route)
+			? currentEntry
+			: null,
+	);
+
+	// UX-NAV-015: the pinned/recent strip rendered in the sidebar/rail (and the "More" sheet). The
+	// device-local lists are filtered through the actor-reachable set, so a route the active actor
+	// can no longer reach (e.g. a DM-only Scene while viewing as a player) is dropped — and each
+	// title is refreshed from the reachable set so a rename never leaves a stale label (UX-NAV-013).
+	const strip = $derived(selectStripLists(history.pinned, history.recent, reachable));
+
 	// UX-NAV-007 AC1: a bare section root (Home + Section = two crumbs) shows no breadcrumb, so it
 	// must not force an empty subheader bar — the breadcrumb term matches the component's
-	// "second level and deeper" rule (> 2 crumbs). Local nav, backlinks, related, and pinned/recent
-	// still surface the subheader when present.
+	// "second level and deeper" rule (> 2 crumbs). Local nav, backlinks, related, and the
+	// pin-this-page affordance still surface the subheader when present. The pinned/recent LISTS now
+	// live in the sidebar strip (UX-NAV-015), so they no longer gate the subheader.
 	const showSubheader = $derived(
 		navView.breadcrumbs.length > 2 ||
 			navView.localItems.length > 0 ||
 			navView.backlinks.length > 0 ||
 			navView.related.length > 0 ||
-			history.pinned.length > 0 ||
-			history.recent.length > 0,
+			currentPinnable !== null,
 	);
 
 	// Record the current reachable destination as a recent visit (device-local only).
@@ -359,7 +400,8 @@
 		</div>
 	</header>
 
-	<!-- UX-NAV-002/004/005/006: the seven-section primary navigation, adapted per platform profile. -->
+	<!-- UX-NAV-002/004/005/006/015: the seven-section primary navigation + the pinned/recent strip,
+	     adapted per platform profile. The strip data is actor-filtered upstream (no leak). -->
 	<GlobalNav
 		items={globalNav}
 		viewportClass={profile.viewportClass}
@@ -367,6 +409,9 @@
 		collapsed={navChrome.collapsed}
 		onToggleCollapse={() => navChrome.toggle()}
 		touch={inputModality.modality === 'touch'}
+		pinned={strip.pinned}
+		recent={strip.recent}
+		onUnpin={(entry) => history.togglePin(entry)}
 	/>
 
 	<!-- UX-A11Y §6.2: the product-wide polite + assertive live regions, written only by the announcer. -->
@@ -383,7 +428,9 @@
 			     Desktop, a sheet on compact). Related links (entity -> ) stay inline (NAV-003). -->
 			<BacklinksPanel backlinks={navView.backlinks} />
 			<ContextualNav related={navView.related} />
-			<QuickAccess {reachable} current={currentEntry} />
+			<!-- UX-NAV-015: pinning the current page. The pinned/recent LISTS render in the sidebar
+			     strip; this is just the per-page pin/unpin toggle, available on every profile. -->
+			<QuickAccess current={currentPinnable} />
 		</div>
 	{/if}
 
@@ -404,15 +451,21 @@
 		id="main-content"
 		tabindex="-1"
 		data-testid="route-landmark"
-		data-section-landmark={routeA11y.landmark}
-		aria-label={routeA11y.landmarkLabel}
+		data-section-landmark={effectiveRouteA11y.landmark}
+		aria-label={effectiveRouteA11y.landmarkLabel}
 	>
 		<!-- NAV-007 AC1: exactly one route-level `h1`, reflecting the active route context.
 		     The app shell owns it so every route has one and only one, derived from the
-		     navigation view rather than authored per page. -->
-		<h1 class="route-title" data-testid="route-title">{routeA11y.heading}</h1>
+		     navigation view rather than authored per page. When the route is actor-blocked it
+		     collapses to the generic "Not available" heading (UX-NAV-013). -->
+		<h1 class="route-title" data-testid="route-title">{effectiveRouteA11y.heading}</h1>
 		{#if !runtime.loaded}
 			<p class="loading" role="status">Loading local Scene store…</p>
+		{:else if routeBlocked && sectionAccess.kind === 'unavailable'}
+			<!-- UX-NAV-013 AC2: a DM-only route reached by a non-DM session. One generic, non-leaking
+			     "Not available" page — it names no section, route, or resource, and is identical to the
+			     deep-link unavailable state, so existence cannot be inferred. -->
+			<DeepLinkUnavailable message={sectionAccess.message} testid="section-unavailable" />
 		{:else}
 			{@render children?.()}
 		{/if}

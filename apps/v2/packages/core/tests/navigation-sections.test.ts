@@ -8,7 +8,12 @@ import {
 	validateNavigationSections,
 	type CanonicalNavigationSection,
 } from '../src/queries/navigation-sections';
-import { listNavigationRegistryForActor, listNavigationSections } from '../src/queries/navigation';
+import {
+	listNavigationRegistryForActor,
+	listNavigationSections,
+	resolveSectionRouteAccess,
+} from '../src/queries/navigation';
+import { DEEP_LINK_UNAVAILABLE_MESSAGE } from '../src/queries/deep-links';
 import {
 	DM_ACTOR,
 	OBSERVER_ACTOR,
@@ -226,6 +231,67 @@ describe('NAV-009 AC2 actor-filtered registry view (no leaks)', () => {
 
 	it('fails closed for an unknown actor', () => {
 		expect(listNavigationRegistryForActor(permission, 'nobody')).toEqual([]);
+	});
+});
+
+describe('UX-NAV-013 AC2 resolveSectionRouteAccess (DM-only route gate)', () => {
+	const permission = buildPermissionState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
+
+	it('lets the DM load every section route, including the DM-only capabilities', () => {
+		for (const path of ['/', '/scenes/', '/audio/', '/mcp/', '/characters/', '/atlas/']) {
+			expect(resolveSectionRouteAccess(permission, DM_ACTOR.id, path).kind).toBe('available');
+		}
+	});
+
+	it('blocks a DM-only capability route for a player with the generic, non-leaking message', () => {
+		for (const path of ['/scenes/', '/scenes', '/audio/', '/mcp/']) {
+			const result = resolveSectionRouteAccess(permission, PLAYER_ACTOR.id, path);
+			expect(result.kind).toBe('unavailable');
+			if (result.kind === 'unavailable') {
+				expect(result.message).toBe(DEEP_LINK_UNAVAILABLE_MESSAGE);
+				// The message names no section, route, or resource (no-leak).
+				expect(result.message.toLowerCase()).not.toContain('scene');
+				expect(result.message.toLowerCase()).not.toContain('audio');
+				expect(result.message.toLowerCase()).not.toContain('mcp');
+			}
+		}
+	});
+
+	it('blocks DM-only capability routes for an observer too', () => {
+		expect(resolveSectionRouteAccess(permission, OBSERVER_ACTOR.id, '/scenes/').kind).toBe(
+			'unavailable',
+		);
+	});
+
+	it('does NOT gate player-visible sections at the route level (they render their own filtered content)', () => {
+		// Characters/Campaign/Knowledge are observer-hidden in the NAV but are player-visible, not
+		// DM-only, so the route is available; the page renders the actor-filtered (possibly empty)
+		// content rather than the unavailable page.
+		for (const path of ['/characters/', '/campaign/', '/knowledge/', '/atlas/', '/session/']) {
+			expect(resolveSectionRouteAccess(permission, PLAYER_ACTOR.id, path).kind).toBe('available');
+			expect(resolveSectionRouteAccess(permission, OBSERVER_ACTOR.id, path).kind).toBe('available');
+		}
+	});
+
+	it('treats non-section routes (entity routes, unowned paths, home) as available', () => {
+		for (const path of ['/', '/scene/scene-1/', '/preferences/', '/totally-unknown/']) {
+			expect(resolveSectionRouteAccess(permission, PLAYER_ACTOR.id, path).kind).toBe('available');
+		}
+	});
+
+	it('matches a DM-only route through its descendant paths and legacy aliases', () => {
+		// A nested route under a DM-only capability root is still gated.
+		expect(resolveSectionRouteAccess(permission, PLAYER_ACTOR.id, '/scenes/templates/').kind).toBe(
+			'unavailable',
+		);
+		// MCP aliases (/ai, /agents) resolve to the DM-only MCP capability and are gated too.
+		expect(resolveSectionRouteAccess(permission, PLAYER_ACTOR.id, '/agents/').kind).toBe(
+			'unavailable',
+		);
+	});
+
+	it('fails closed for an unknown actor on a DM-only route', () => {
+		expect(resolveSectionRouteAccess(permission, 'nobody', '/scenes/').kind).toBe('unavailable');
 	});
 });
 
