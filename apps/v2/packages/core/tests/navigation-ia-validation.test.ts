@@ -91,6 +91,8 @@ describe('NAV-006 IA-review includes task fit (AC1)', () => {
 			routeRoot: 'sample', // missing leading slash → route ownership
 			// @ts-expect-error intentionally invalid availability for the IA gate
 			availability: { dm: true },
+			// @ts-expect-error intentionally omit aliases to verify the IA gate requires them
+			aliases: null,
 			// @ts-expect-error intentionally invalid local nav for the IA gate
 			localNav: { kind: 'mystery', description: '' },
 		});
@@ -99,6 +101,7 @@ describe('NAV-006 IA-review includes task fit (AC1)', () => {
 			.map((p) => p.field);
 		expect(fields).toContain('taskFit');
 		expect(fields).toContain('routeRoot');
+		expect(fields).toContain('aliases');
 		expect(fields).toContain('localNav');
 	});
 
