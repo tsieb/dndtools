@@ -13,6 +13,8 @@
 	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
+	import SceneOutline from '$lib/gui/a11y/SceneOutline.svelte';
+	import type { OutlineWidgetInput, Viewer } from '$lib/gui/a11y';
 
 	const { data } = $props();
 	const runtime = useRuntime();
@@ -46,6 +48,10 @@
 
 	let widgetType = $state('note');
 	let widgetVersion = $state('1.0.0');
+	// UX-A11Y-004/008: per-widget visibility for the Scene Outline no-leak boundary. Stored in the
+	// widget configuration so it survives reload; the outline classifies each widget by it (defaulting
+	// to the scene's own visibility) and filters DM-only widgets out of a player's outline.
+	let widgetVisibility = $state<'dm-only' | 'shared' | 'player-visible'>('player-visible');
 	let widgetX = $state(40);
 	let widgetY = $state(40);
 	let widgetW = $state(240);
@@ -105,6 +111,57 @@
 	function widgetAccessibleName(widget: WidgetInstance): string {
 		const boundTo = widget.binding ? ` bound to ${widget.binding.source.entityId}` : '';
 		return `${widget.type} widget${boundTo}`;
+	}
+
+	// UX-A11Y-008: the viewer the Scene Outline is rendered for. Fail-closed to the most restrictive
+	// non-DM role when the active actor is unknown, so an unidentified viewer never sees DM-only items.
+	const viewer = $derived.by<Viewer>(() => {
+		const actor = runtime.state.permissions.actors[runtime.activeActorId];
+		return { role: actor?.role ?? 'observer', actorId: runtime.activeActorId };
+	});
+
+	function widgetVisibilityOf(widget: WidgetInstance): 'dm-only' | 'shared' | 'player-visible' {
+		const declared = widget.configuration?.visibility;
+		if (declared === 'dm-only' || declared === 'shared' || declared === 'player-visible') {
+			return declared;
+		}
+		// No per-widget visibility ⇒ inherit the scene's visibility (the spatial container's level).
+		return rawScene?.visibility ?? 'dm-only';
+	}
+
+	// UX-A11Y-004: map the raw scene widgets onto the Scene Outline input shape. The outline itself
+	// (buildSceneOutline) filters DM-only widgets out for non-DM viewers BEFORE computing any name, so
+	// this mapping may safely run over the full widget set on the DM's device (UX-A11Y-008).
+	const outlineWidgets = $derived.by<OutlineWidgetInput[]>(() => {
+		if (!rawScene) return [];
+		return rawScene.widgets.map((widget, index) => ({
+			id: widget.id,
+			type: widget.type,
+			name: widget.binding?.source.entityId,
+			layerOrder: widget.layout.focusOrder ?? widget.layout.z ?? index,
+			groupId: widget.layout.groupId,
+			visibility: widgetVisibilityOf(widget),
+			sharedWith: rawScene.sharingTargets,
+		}));
+	});
+
+	// UX-A11Y-004 AC2: activating an outline item scrolls to and focuses the widget on the canvas.
+	function focusWidgetOnCanvas(id: string) {
+		const idx = orderedWidgets.findIndex((entry) => {
+			const payload = entry.payload;
+			const widgetId =
+				payload.kind === 'available' || payload.kind === 'degraded'
+					? payload.widget.id
+					: payload.widgetInstanceId;
+			return widgetId === id;
+		});
+		if (idx >= 0) focusedIndex = idx;
+		const el = document.querySelector(`[data-testid="widget-${id}"]`);
+		if (el instanceof HTMLElement) {
+			el.scrollIntoView({ block: 'nearest' });
+			if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+			el.focus({ preventScroll: true });
+		}
 	}
 
 	function layoutCommandsFor(widget: WidgetInstance): SceneLayoutCommand[] {
@@ -197,7 +254,7 @@
 					type: widgetType,
 					version: widgetVersion,
 					layout: { x: widgetX, y: widgetY, w: widgetW, h: widgetH },
-					configuration: {},
+					configuration: { visibility: widgetVisibility },
 					binding,
 				},
 			},
@@ -328,6 +385,14 @@
 				<label>
 					<span>Bind selector</span>
 					<input bind:value={bindSelector} data-testid="bind-selector" autocomplete="off" />
+				</label>
+				<label>
+					<span>Visibility</span>
+					<select bind:value={widgetVisibility} data-testid="widget-visibility">
+						<option value="player-visible">Player visible</option>
+						<option value="shared">Shared</option>
+						<option value="dm-only">DM only</option>
+					</select>
 				</label>
 				<button class="button" type="submit" data-testid="widget-add">Add widget</button>
 				</form>
@@ -518,6 +583,13 @@
 					{/each}
 				</div>
 			{/if}
+		</section>
+
+		<!-- UX-A11Y-004: the Scene Outline — the structural, screen-reader path to the canvas widgets.
+		     Built through the visibility boundary for the active "view as" actor, so a player's outline
+		     never lists a DM-only widget (UX-A11Y-008). Activating an item focuses the widget. -->
+		<section data-testid="scene-outline-section">
+			<SceneOutline widgets={outlineWidgets} {viewer} onactivate={focusWidgetOnCanvas} />
 		</section>
 
 		<section>
