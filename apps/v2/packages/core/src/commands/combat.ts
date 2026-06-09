@@ -370,11 +370,16 @@ function clamp(value: number, min: number, max: number): number {
  * SES-002 authority for editing a combatant's resources: the DM always; for a CHARACTER combatant, a
  * player holding `combat-participant` on that character (the CHAR-007 authority, reused). An observer
  * never qualifies. An NPC/monster combatant has no character owner, so only the DM may edit it.
+ *
+ * `now` (the ISO clock from `env.clock()`) MUST be passed so that expired grants are treated as
+ * inert (fail closed, PERM-004 AC2). Omitting `now` would allow an expired grant to remain
+ * effective, violating the grant expiry guarantee.
  */
 function actorMayEditCombatant(
 	state: CoreStateSlice,
 	actor: Actor,
 	combatant: Combatant,
+	now?: string,
 ): boolean {
 	if (actor.role === 'dm') return true;
 	if (actor.role === 'observer') return false;
@@ -385,6 +390,7 @@ function actorMayEditCombatant(
 		CHARACTER_ENTITY_TYPE,
 		combatant.characterId,
 		'combat-participant',
+		now,
 	);
 }
 
@@ -408,6 +414,8 @@ export function handleApplyCombatResource(
 	const sessionGuard = requireActiveSession(state);
 	if (sessionGuard) return reject(sessionGuard, state);
 
+	const now = env.clock();
+
 	const existing = combat.combatants[parsed.data.combatantId];
 	if (!existing) {
 		return reject(
@@ -416,9 +424,10 @@ export function handleApplyCombatResource(
 		);
 	}
 	// Authority: DM, or an authorized combat-participant of a character combatant (fail closed).
-	if (!actorMayEditCombatant(state, actor, existing)) {
+	// `now` is passed so an EXPIRED grant is inert (fail closed — PERM-004 AC2).
+	if (!actorMayEditCombatant(state, actor, existing, now)) {
 		return reject(
-			{ code: 'actor-not-authorized', message: 'You may not edit this combatant’s resources.' },
+			{ code: 'actor-not-authorized', message: "You may not edit this combatant's resources." },
 			state,
 		);
 	}

@@ -16,6 +16,7 @@ import {
 	OBSERVER_ACTOR,
 	PLAYER_ACTOR,
 	buildInitialState,
+	fixedClock,
 	makeEnvironment,
 } from '../src/testing/fixtures';
 
@@ -355,6 +356,87 @@ describe('SES-002 run combat (commands)', () => {
 		const log = ended.nextState.session.combat.log;
 		expect(log[log.length - 1]!.kind).toBe('combat-ended');
 		expect(log[log.length - 1]!.label).toContain('Party victorious');
+	});
+
+	it('PERM-004 / PERM-006: an expired combat-participant grant is inert on combat.apply-resource (fail-closed)', () => {
+		// Clock starts well after the grant expiry so the grant is expired at command evaluation time.
+		const EXPIRY = '2026-06-03T10:00:00.000Z';
+		const env = makeEnvironment({ clock: fixedClock('2026-06-03T12:00:00.000Z') });
+		const base = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
+
+		// Quick-create a character combatant.
+		const withChar = accept(
+			dispatch(base, env, {
+				type: 'character.quick-create',
+				actorId: DM_ACTOR.id,
+				payload: {
+					kind: 'npc',
+					name: 'Hero',
+					visibility: 'player-visible',
+					combat: { hp: 10, maxHp: 10, ac: 15 },
+				},
+			}),
+		).nextState;
+		const characterId = Object.keys(withChar.characters.characters)[0]!;
+
+		// Inject an expired combat-participant grant directly (bypassing command validation which
+		// would reject a past-expiry grant at creation time; this simulates a stale/adversarial record).
+		const withExpiredGrant: CoreStateSlice = {
+			...withChar,
+			permissions: {
+				...withChar.permissions,
+				grants: [
+					{
+						id: 'stale-cp-grant',
+						entityType: 'character',
+						entityId: characterId,
+						playerActorId: PLAYER_ACTOR.id,
+						capabilitySet: 'combat-participant',
+						createdBy: DM_ACTOR.id,
+						createdAt: '2026-06-03T09:00:00.000Z',
+						expiresAt: EXPIRY, // already expired at clock time
+					},
+				],
+			},
+		};
+
+		// Activate session and start combat.
+		const home = accept(
+			dispatch(withExpiredGrant, env, {
+				type: 'command-center.ensure-home',
+				actorId: DM_ACTOR.id,
+				payload: {},
+			}),
+		).nextState;
+		const active = accept(
+			dispatch(home, env, {
+				type: 'session.set-workflow',
+				actorId: DM_ACTOR.id,
+				payload: { workflow: 'active', activeSceneId: home.commandCenter.homeSceneId! },
+			}),
+		).nextState;
+		const started = accept(
+			dispatch(active, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: {
+					combatants: [
+						{ kind: 'character', name: 'Hero', characterId, initiative: 16, maxHp: 10 },
+					],
+				},
+			}),
+		).nextState;
+		const heroId = started.session.combat.order[0]!;
+
+		// The player's combat-participant grant is expired — applying resource MUST be rejected.
+		const result = rejected(
+			dispatch(started, env, {
+				type: 'combat.apply-resource',
+				actorId: PLAYER_ACTOR.id,
+				payload: { combatantId: heroId, kind: 'hp', delta: -3 },
+			}),
+		);
+		expect(result.rejection.code).toBe('actor-not-authorized');
 	});
 });
 
