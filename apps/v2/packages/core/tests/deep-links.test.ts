@@ -66,6 +66,9 @@ describe('NAV-005 AC1 a deep link to a visible POI focuses the map viewport', ()
 			expect(result.selectionId).toBe('region-coast');
 			expect(result.selectionLabel).toBe('Storm Coast');
 			expect(result.route).toBe('/atlas/');
+			// AC1: the viewport is focused on the region's center in normalized map space.
+			// region-coast bounds { x: 0.5, y: 0.2, w: 0.3, h: 0.28 } → center (0.65, 0.34).
+			expect(result.viewport).toEqual({ mapId: 'map-western-reaches', x: 0.65, y: 0.34 });
 		}
 	});
 
@@ -79,7 +82,12 @@ describe('NAV-005 AC1 a deep link to a visible POI focuses the map viewport', ()
 			sectionId: 'atlas',
 		});
 		expect(result.kind).toBe('restore');
-		if (result.kind === 'restore') expect(result.selectionId).toBe('region-north-road');
+		if (result.kind === 'restore') {
+			expect(result.selectionId).toBe('region-north-road');
+			// AC1: viewport is focused on the region's center.
+			// region-north-road bounds { x: 0.12, y: 0.18, w: 0.32, h: 0.22 } → center (0.28, 0.29).
+			expect(result.viewport).toEqual({ mapId: 'map-western-reaches', x: 0.28, y: 0.29 });
+		}
 	});
 
 	it('falls back to the map default region when the requested region is unknown', () => {
