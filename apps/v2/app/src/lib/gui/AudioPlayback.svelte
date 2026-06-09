@@ -5,6 +5,8 @@
 		listAudioSourceClassificationsForActor,
 		resolveActivatedSceneAudioForActor,
 		resolveAudioMotionState,
+		shouldAnnounceAudioChange,
+		type AudioAnnounceableChange,
 		type AudioParticipantDeviceInput,
 		type AudioConsentState,
 	} from '@dndtools/v2-core';
@@ -152,6 +154,34 @@
 
 	// The player-safe active track is the same for DM and participant views (the type guard narrows the view).
 	const track = $derived(view.track);
+
+	// AUDIO-008 AC2 — announce meaningful playback state changes to assistive technology.
+	// `shouldAnnounceAudioChange` gates whether a change type is announced (lifecycle = yes; progress = no),
+	// so the AT live region is never spammed by high-frequency progress ticks.
+	let audioAnnouncement = $state('');
+	let _prevAudioStatus = $state<string | null | undefined>(undefined);
+	const AUDIO_CHANGE_LABELS: Record<AudioAnnounceableChange, string> = {
+		'track-started': 'Audio started',
+		'track-stopped': 'Audio stopped',
+		'track-paused': 'Audio paused',
+		'track-resumed': 'Audio resumed',
+		'track-degraded': 'Audio degraded',
+		progress: '',
+	};
+	$effect(() => {
+		const status = track?.status ?? null;
+		// Skip on first render — there is no prior status to diff against.
+		if (_prevAudioStatus === undefined) { _prevAudioStatus = status; return; }
+		if (status === _prevAudioStatus) return;
+		const prevStatus = _prevAudioStatus;
+		_prevAudioStatus = status;
+		let change: AudioAnnounceableChange;
+		if (status === 'playing' && prevStatus === null) change = 'track-started';
+		else if (status === null) change = 'track-stopped';
+		else if (status === 'paused') change = 'track-paused';
+		else change = 'track-resumed';
+		if (shouldAnnounceAudioChange(change)) audioAnnouncement = AUDIO_CHANGE_LABELS[change];
+	});
 
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
 		error = null;
@@ -326,6 +356,15 @@
 
 <section data-testid="audio-playback" aria-label="Audio playback">
 	<h2>Audio</h2>
+
+	<!-- AUDIO-008 AC2 — concise state-change announcements to assistive technology. Only lifecycle
+	     changes are announced (shouldAnnounceAudioChange gates this); progress ticks are never announced. -->
+	<div
+		class="visually-hidden"
+		aria-live="polite"
+		aria-atomic="true"
+		data-testid="audio-announcement"
+	>{audioAnnouncement}</div>
 
 	{#if error}
 		<p class="error" role="alert" data-testid="audio-error">{error}</p>
