@@ -491,7 +491,8 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 
 	// Write to a worker-indexed shard so parallel workers cannot race on the same
 	// file (CODEX-PR12-A11Y-REPORT-RACE).  Shards are merged by globalTeardown.
-	test.afterAll(async (_, testInfo) => {
+	// eslint-disable-next-line no-empty-pattern -- Playwright requires the fixtures arg to be an object destructuring pattern to access testInfo.
+	test.afterAll(async ({}, testInfo) => {
 		const reportPath = process.env.A11Y_REPORT_PATH;
 		if (!reportPath) return;
 		await axeReporter.write(workerShardPath(reportPath, testInfo.workerIndex));

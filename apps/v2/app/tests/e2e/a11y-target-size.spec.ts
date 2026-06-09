@@ -74,7 +74,8 @@ async function sweepTargets(page: Page, _route: string): Promise<string[]> {
 }
 
 test.describe('A11Y-004 AC1: mobile touch-target sweep', () => {
-	test.beforeEach(async (_, testInfo: TestInfo) => {
+	// eslint-disable-next-line no-empty-pattern -- Playwright requires the fixtures arg to be an object destructuring pattern to access testInfo.
+	test.beforeEach(async ({}, testInfo: TestInfo) => {
 		test.skip(
 			testInfo.project.name !== 'mobile-chromium',
 			'touch-target sweep applies to the compact (mobile) profile only',
