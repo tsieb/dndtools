@@ -9,6 +9,8 @@ import {
 	type CommandResult,
 	type CoreCommand,
 	type CoreEnvironment,
+	type CoreStateSlice,
+	type PermissionState,
 } from '../src';
 import {
 	DM_ACTOR,
