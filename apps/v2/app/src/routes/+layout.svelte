@@ -19,7 +19,7 @@
 	} from '$lib/platform/navigation-history.svelte';
 	import { FeatureTierStore, provideFeatureTier } from '$lib/state/feature-tier.svelte';
 	import { locationFromPath } from '$lib/state/navigation-location';
-	import { prefersReducedMotion } from '$lib/platform/capabilities';
+	import { prefersReducedMotion, subscribeReducedMotion } from '$lib/platform/capabilities';
 	import CommandPalette from '$lib/gui/CommandPalette.svelte';
 	import QuickSwitcher from '$lib/gui/QuickSwitcher.svelte';
 	import Breadcrumbs from '$lib/gui/Breadcrumbs.svelte';
@@ -61,20 +61,21 @@
 
 		// Set the document-level `data-motion` token once on mount and re-set it whenever the
 		// OS `prefers-reduced-motion` preference changes (e.g. the user toggles the OS setting).
-		const mql =
-			typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-				? window.matchMedia('(prefers-reduced-motion: reduce)')
-				: null;
+		// Both the current value (`prefersReducedMotion`) and the change subscription
+		// (`subscribeReducedMotion`) come from the owned platform probe — the GUI shell never
+		// touches `matchMedia` directly (PLAT-006).
 		const applyMotionToken = () => {
-			const osReduce = mql ? mql.matches : prefersReducedMotion();
-			document.documentElement.dataset.motion = resolveMotionPreference(osReduce, motionOverride);
+			document.documentElement.dataset.motion = resolveMotionPreference(
+				prefersReducedMotion(),
+				motionOverride,
+			);
 		};
 		applyMotionToken();
-		mql?.addEventListener('change', applyMotionToken);
+		const unsubscribeMotion = subscribeReducedMotion(applyMotionToken);
 
 		return () => {
 			cleanupProfile();
-			mql?.removeEventListener('change', applyMotionToken);
+			unsubscribeMotion();
 		};
 	});
 

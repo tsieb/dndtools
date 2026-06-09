@@ -33,6 +33,20 @@ export function prefersReducedMotion(): boolean {
 	return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+/**
+ * A11Y-005 — subscribe to OS `prefers-reduced-motion` CHANGES. Like `prefersReducedMotion`, the
+ * raw `matchMedia` listener lives ONLY in this owned platform probe (PLAT-006); the GUI shell
+ * passes a callback and re-reads `prefersReducedMotion()` when notified rather than touching the
+ * media query itself. Returns an unsubscribe function; a no-op on the server / where `matchMedia`
+ * is unavailable.
+ */
+export function subscribeReducedMotion(listener: () => void): () => void {
+	if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return () => {};
+	const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
+	mql.addEventListener('change', listener);
+	return () => mql.removeEventListener('change', listener);
+}
+
 // PLAT-001: the ONLY place a raw viewport width is read. The platform layer classifies it once
 // into a coarse class so the profile resolver and every feature component stay free of raw pixel
 // math. The boundary lint forbids `innerWidth` / `matchMedia` outside this owned probe.
