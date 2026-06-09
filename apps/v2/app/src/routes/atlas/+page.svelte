@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { resolveDeepLink, type DeepLinkTarget, type MapRegion } from '@dndtools/v2-core';
+	import { listMapsForActor, resolveDeepLink, type DeepLinkTarget, type MapRegion } from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 	import MapPoiControl from '$lib/gui/MapPoiControl.svelte';
 	import MapLayerPanel from '$lib/gui/MapLayerPanel.svelte';
@@ -80,19 +80,12 @@
 		focusedRegionId = regionId;
 	}
 
-	// The actor-visible maps, for the Atlas landing and as deep-link entry points. Maps
-	// are filtered the same way the deep-link resolver filters them, so the list never
-	// surfaces a map a deep link would refuse to open.
-	const visibleMaps = $derived.by(() => {
-		const actor = runtime.state.permissions.actors[runtime.activeActorId];
-		if (!actor) return [];
-		return Object.values(runtime.state.maps.maps)
-			.filter((map) => {
-				if (actor.role === 'dm') return true;
-				return map.visibility === 'player-visible';
-			})
-			.sort((a, b) => a.name.localeCompare(b.name));
-	});
+	// CON-001: the actor-visible map list comes from the Processing Core's actor-filtered query
+	// (listMapsForActor), never from reading raw map state and filtering by visibility in the GUI.
+	// The GUI never makes the authoritative visibility decision — it renders what the data layer returns.
+	const visibleMaps = $derived(
+		listMapsForActor(runtime.state.maps, runtime.state.permissions, runtime.activeActorId),
+	);
 </script>
 
 <section class="atlas" data-testid="atlas-view" aria-label="Atlas">

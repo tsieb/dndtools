@@ -6,6 +6,7 @@ import {
 	createDemoMapState,
 	deliveredMapIdsForActor,
 	getMapViewForActor,
+	listMapsForActor,
 	mapGraphEdgesForActor,
 	searchMapsForActor,
 	type MapState,
@@ -193,6 +194,70 @@ describe('MAP-018 a hidden map is a generic unavailable for a non-DM', () => {
 		// No projection ⇒ the shared Ruined Keep is not delivered.
 		const view = getMapViewForActor(demo(), PERMISSIONS, PLAYER_ACTOR.id, KEEP);
 		expect(view.kind).toBe('unavailable');
+	});
+});
+
+describe('CON-001 / MAP-018 listMapsForActor — actor-filtered map list, GUI must never filter raw maps itself', () => {
+	it('AC1: a player only sees player-visible maps in the list (dm-only maps are ABSENT, not hidden)', () => {
+		const list = listMapsForActor(demo(), PERMISSIONS, PLAYER_ACTOR.id);
+		// The demo state has at least one player-visible map (Western Reaches).
+		expect(list.length).toBeGreaterThan(0);
+		expect(list.every((m) => m.visibility === 'player-visible')).toBe(true);
+		// Hard leak check: no dm-only map id or name appears in the serialized list.
+		const serialized = JSON.stringify(list);
+		expect(serialized).not.toContain('dm-only');
+	});
+
+	it('AC2: a naive "render everything" component handed the player list cannot leak a dm-only map name/id', () => {
+		const dmList = listMapsForActor(demo(), PERMISSIONS, DM_ACTOR.id);
+		const playerList = listMapsForActor(demo(), PERMISSIONS, PLAYER_ACTOR.id);
+		// The DM sees at least one map the player does not (there must be dm-only maps in the demo).
+		const dmIds = new Set(dmList.map((m) => m.id));
+		const playerIds = new Set(playerList.map((m) => m.id));
+		const dmOnlyIds = [...dmIds].filter((id) => !playerIds.has(id));
+		expect(dmOnlyIds.length).toBeGreaterThan(0);
+		// None of the dm-only map ids appear in the player payload AT ALL.
+		const playerPayload = JSON.stringify(playerList);
+		for (const id of dmOnlyIds) {
+			expect(playerPayload).not.toContain(id);
+		}
+	});
+
+	it('the DM sees all maps (including dm-only and shared)', () => {
+		const dmList = listMapsForActor(demo(), PERMISSIONS, DM_ACTOR.id);
+		const playerList = listMapsForActor(demo(), PERMISSIONS, PLAYER_ACTOR.id);
+		expect(dmList.length).toBeGreaterThan(playerList.length);
+	});
+
+	it('results are sorted alphabetically by name', () => {
+		const list = listMapsForActor(demo(), PERMISSIONS, DM_ACTOR.id);
+		for (let i = 1; i < list.length; i++) {
+			expect(list[i - 1]!.name.localeCompare(list[i]!.name)).toBeLessThanOrEqual(0);
+		}
+	});
+
+	it('an unknown actor receives an empty list (fail closed)', () => {
+		expect(listMapsForActor(demo(), PERMISSIONS, 'ghost')).toEqual([]);
+	});
+
+	it('each list entry has the correct fields (id, name, description, defaultRegionId, visibility)', () => {
+		const list = listMapsForActor(demo(), PERMISSIONS, DM_ACTOR.id);
+		for (const entry of list) {
+			expect(typeof entry.id).toBe('string');
+			expect(typeof entry.name).toBe('string');
+			expect(typeof entry.description).toBe('string');
+			expect(entry.visibility).toMatch(/^(dm-only|player-visible|shared)$/);
+			expect(entry.defaultRegionId === null || typeof entry.defaultRegionId === 'string').toBe(true);
+		}
+	});
+
+	it('listMapsForActor and getMapViewForActor are consistent: every list entry resolves to available', () => {
+		// Consistency: any map in the player list must be available via the detail query.
+		const playerList = listMapsForActor(demo(), PERMISSIONS, PLAYER_ACTOR.id);
+		for (const entry of playerList) {
+			const view = getMapViewForActor(demo(), PERMISSIONS, PLAYER_ACTOR.id, entry.id);
+			expect(view.kind, `map ${entry.id} in list should be available`).toBe('available');
+		}
 	});
 });
 

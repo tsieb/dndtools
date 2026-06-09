@@ -392,6 +392,7 @@ export type {
 	MapGraphEdge,
 	MapHiddenCounts,
 	MapLayerView,
+	MapListEntry,
 	MapPoiView,
 	MapQueryOptions,
 	MapRouteView,
@@ -403,6 +404,7 @@ export type {
 export {
 	deliveredMapIdsForActor,
 	getMapViewForActor,
+	listMapsForActor,
 	mapGraphEdgesForActor,
 	searchMapsForActor,
 } from './queries/map-query';

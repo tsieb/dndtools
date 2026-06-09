@@ -437,4 +437,54 @@ export function mapGraphEdgesForActor(
 	return edges;
 }
 
+/**
+ * A map entry as projected to an actor for listing (atlas landing / deep-link picker). Contains
+ * ONLY the fields needed to enumerate and navigate to maps — no annotations, no hidden counts.
+ * A non-DM entry is always a map the actor may see; a DM entry may include every map.
+ */
+export interface MapListEntry {
+	id: string;
+	name: string;
+	description: string;
+	defaultRegionId: string | null;
+	visibility: MapEntity['visibility'];
+}
+
+/**
+ * CON-001 / MAP-018 — return the actor-filtered LIST of maps visible to an actor. This is the
+ * data-layer choke-point for the Atlas landing page map list (and any other surface that enumerates
+ * maps): the GUI MUST call this function and render whatever it returns, rather than reading
+ * `maps.maps` raw and filtering by `map.visibility` itself (which would make the GUI the
+ * authoritative enforcement point — the CON-001 violation).
+ *
+ * Visibility is evaluated via the same {@link mapVisibleToActor} predicate used by
+ * {@link getMapViewForActor}, so the list and the per-map detail view are always consistent:
+ * a map that appears in the list will always resolve to `available` for this actor, and a map
+ * that does NOT appear here will always resolve to `unavailable`. Sorted alphabetically by name.
+ * Fail closed: an unknown actor sees an empty list.
+ */
+export function listMapsForActor(
+	maps: MapState,
+	permissions: PermissionState,
+	actorId: ActorId,
+	options?: MapQueryOptions,
+): MapListEntry[] {
+	const actor = permissions.actors[actorId];
+	if (!actor) return [];
+	const result: MapListEntry[] = [];
+	for (const map of Object.values(maps.maps)) {
+		const delivered = isDelivered(map.id, options);
+		if (!mapVisibleToActor(map, actor, delivered)) continue;
+		result.push({
+			id: map.id,
+			name: map.name,
+			description: map.description,
+			defaultRegionId: map.defaultRegionId,
+			visibility: map.visibility,
+		});
+	}
+	result.sort((a, b) => a.name.localeCompare(b.name));
+	return result;
+}
+
 export type { MapOverlayMode };
