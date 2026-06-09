@@ -21,6 +21,24 @@ export function isOnline(): boolean {
 }
 
 /**
+ * UX-NAV-016 — subscribe to online/offline transitions so the deep-link "unavailable" surface can
+ * show its offline-specific copy only when the device is genuinely offline. This is the owned
+ * platform probe for connectivity (the boundary lint forbids `navigator` outside this layer);
+ * GUI components consume {@link isOnline} + this watcher instead of touching the global. Returns a
+ * cleanup function; a no-op on the server.
+ */
+export function watchConnectivity(onChange: (online: boolean) => void): () => void {
+	if (typeof window === 'undefined') return () => {};
+	const update = () => onChange(isOnline());
+	window.addEventListener('online', update);
+	window.addEventListener('offline', update);
+	return () => {
+		window.removeEventListener('online', update);
+		window.removeEventListener('offline', update);
+	};
+}
+
+/**
  * AUDIO-008 — whether the device prefers REDUCED MOTION. This is the ONLY place this media query is read
  * (the boundary forbids `matchMedia` outside this owned probe). Feature components pass the result to the
  * core `resolveAudioMotionState` and never touch the media query themselves. Fail closed: on the server, or

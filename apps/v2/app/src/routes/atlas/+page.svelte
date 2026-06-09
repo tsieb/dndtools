@@ -7,6 +7,7 @@
 	import MapNestedAreas from '$lib/gui/MapNestedAreas.svelte';
 	import MapAuthoringPanel from '$lib/gui/MapAuthoringPanel.svelte';
 	import MapAnnotationsPanel from '$lib/gui/MapAnnotationsPanel.svelte';
+	import DeepLinkUnavailable from '$lib/gui/ux-shell/DeepLinkUnavailable.svelte';
 
 	const runtime = useRuntime();
 
@@ -160,12 +161,10 @@
 				<MapNestedAreas mapId={resolution.entityId} />
 			</section>
 		{:else}
-			<!-- NAV-005 AC2/AC3: one generic, non-leaking unavailable state. It names no
-			     entity and is identical whether the target is hidden, missing, or uncached. -->
-			<section class="unavailable" data-testid="deep-link-unavailable" aria-label="Unavailable">
-				<h2>Content unavailable</h2>
-				<p role="status">{resolution.message}</p>
-			</section>
+			<!-- UX-NAV-016 AC2/AC3 (NAV-005): one generic, non-leaking unavailable state with a clear
+			     recovery action and an offline-aware retry. It names no entity and is identical whether
+			     the target is hidden, missing, or uncached. -->
+			<DeepLinkUnavailable message={resolution.message} />
 		{/if}
 	{/if}
 

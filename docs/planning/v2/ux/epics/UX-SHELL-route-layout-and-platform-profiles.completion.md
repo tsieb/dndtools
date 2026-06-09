@@ -19,7 +19,7 @@ It CONSUMES the phase-00 contracts rather than redefining them:
 - The seven-destination ordering and the Scenes/Audio/MCP "non-global capability" classification are
   taken from `docs/planning/v2/ux/navigation-registry.yaml` (UX-NAV-002). The GUI presentation list
   in `apps/v2/app/src/lib/navigation/global-nav.ts` is pinned to that contract by
-  `tests/unit/global-nav.test.ts`, so it cannot drift.
+  `apps/v2/app/tests/unit/global-nav.test.ts`, so it cannot drift.
 - Per-section title / route / landmark / actor-availability come from the functional registry's
   actor-filtered view (`listNavigationRegistryForActor`), so DM-only / observer-hidden sections are
   ABSENT from the nav data (not hidden) — the same source the command palette and visible controls
@@ -113,8 +113,9 @@ Code (GUI/platform):
 - `apps/v2/app/platform-access-exceptions.json` (scoped localStorage exception for nav-chrome)
 
 Tests:
-- New: `tests/unit/global-nav.test.ts`, `tests/e2e/route-shell.spec.ts`, `tests/e2e/_nav-helper.ts`
-- Updated: `tests/unit/navigation-location.test.ts`, `tests/unit/route-audit.test.ts`,
+- New: `apps/v2/app/tests/unit/global-nav.test.ts`, `apps/v2/app/tests/e2e/route-shell.spec.ts`,
+  `apps/v2/app/tests/e2e/_nav-helper.ts`
+- Updated: `apps/v2/app/tests/unit/navigation-location.test.ts`, `apps/v2/app/tests/unit/route-audit.test.ts`,
   `tests/e2e/{a11y-axe-gate,canonical-sections,command-center,command-palette-nav,help-and-interaction-primitives,onboarding,route-accessibility,route-focus}.spec.ts`
 
 Generated (via UX workpack CLI): `docs/planning/v2/ux/{workpack-state,status}.yaml`,

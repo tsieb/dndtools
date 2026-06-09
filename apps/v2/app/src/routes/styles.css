@@ -1113,10 +1113,11 @@ body {
 	list-style: none;
 }
 
+/* UX-NAV-007: location-style separator `›` (U+203A) between crumbs. */
 .breadcrumbs li:not(:first-child)::before {
-	content: '/';
+	content: '\203A';
 	margin-right: var(--space-1-5);
-	color: var(--muted);
+	color: var(--color-text-tertiary, var(--muted));
 }
 
 .breadcrumbs a {
@@ -1124,9 +1125,57 @@ body {
 	text-decoration: none;
 }
 
+.breadcrumbs a:hover,
+.breadcrumbs a:focus-visible {
+	text-decoration: underline;
+}
+
 .breadcrumbs [aria-current='page'] {
-	color: var(--muted);
+	color: var(--fg);
 	font-weight: var(--font-weight-semibold);
+}
+
+/* UX-NAV-007: the `…` control that expands the collapsed middle of a deep trail. */
+.breadcrumb-collapse {
+	cursor: pointer;
+	background: transparent;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	color: var(--accent);
+	padding: 0 var(--space-1-5);
+	line-height: 1.4;
+}
+.breadcrumb-collapse:hover {
+	background: var(--color-surface-overlay, var(--bg));
+}
+
+/* UX-NAV-007 AC3: compact truncation — `‹ <immediate parent>` opens the full-path sheet. */
+.breadcrumb-compact-trigger {
+	cursor: pointer;
+	background: transparent;
+	border: none;
+	color: var(--accent);
+	padding: var(--space-1) 0;
+	font: inherit;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	min-height: var(--touch-target-floor, 44px);
+}
+.breadcrumb-sheet-nav ol {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: var(--space-2);
+}
+.breadcrumb-sheet-nav [aria-current='page'] {
+	color: var(--fg);
+	font-weight: var(--font-weight-semibold);
+}
+.breadcrumb-sheet-nav a {
+	color: var(--accent);
+	text-decoration: none;
 }
 
 .local-nav-list {
@@ -1239,6 +1288,81 @@ body {
 	color: var(--muted);
 	font-size: var(--text-xs);
 	margin-left: var(--space-1);
+}
+
+/* UX-NAV-008: backlinks as a navigation surface — a collapsible complementary panel on
+   Desktop / Tablet landscape, a sheet trigger on the compact profile. */
+.backlinks {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: var(--space-1-5) var(--space-3);
+	min-width: 0;
+}
+.backlinks-toggle {
+	cursor: pointer;
+	background: transparent;
+	color: var(--accent);
+	border: 1px solid var(--accent);
+	padding: var(--space-1) var(--space-2);
+	border-radius: var(--radius-sm);
+	font-size: var(--text-sm);
+	min-height: var(--touch-target-floor, 44px);
+}
+.backlinks-panel {
+	min-width: 0;
+}
+.backlinks-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1) var(--space-3);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.backlinks-list a {
+	color: var(--accent);
+	text-decoration: none;
+}
+.backlinks-list a:hover,
+.backlinks-list a:focus-visible {
+	text-decoration: underline;
+}
+
+/* UX-NAV-017: in-app back/forward controls in the top bar. */
+.history-controls {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+.history-control {
+	cursor: pointer;
+	background: transparent;
+	color: var(--fg);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	min-width: 2.25rem; /* 36px — comfortably above the 24px WCAG 2.5.8 floor */
+	min-height: 2.25rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: var(--text-md);
+	line-height: 1;
+}
+.history-control:hover {
+	background: var(--color-surface-overlay, var(--bg));
+}
+
+/* UX-NAV-016: the player-safe "unavailable" surface recovery actions. */
+.unavailable-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-3);
+	margin-top: var(--space-3);
+}
+.unavailable-home {
+	color: var(--accent);
 }
 
 .loading {

@@ -17,7 +17,9 @@ async function freshAt(page: Page, route: string, readyTestId: string) {
 }
 
 test.describe('NAV-003 breadcrumbs and history coherence (AC1)', () => {
-	test('a breadcrumb updates the route and browser back stays coherent', async ({ page }) => {
+	test('a breadcrumb updates the route and browser back stays coherent', async ({
+		page,
+	}, testInfo) => {
 		await freshAt(page, '/scenes/', 'scene-name');
 
 		// Author a Scene and open it.
@@ -27,15 +29,27 @@ test.describe('NAV-003 breadcrumbs and history coherence (AC1)', () => {
 		await page.getByTestId('scene-editor').waitFor({ state: 'visible' });
 		const sceneUrl = page.url();
 
-		// The breadcrumb trail reflects the canonical path; the open Scene is current.
 		const breadcrumbs = page.getByTestId('breadcrumbs');
 		await expect(breadcrumbs).toBeVisible();
-		await expect(breadcrumbs.getByRole('link', { name: 'Command Center' })).toBeVisible();
-		await expect(breadcrumbs.getByRole('link', { name: 'Scenes' })).toBeVisible();
-		await expect(breadcrumbs.getByText('Riverside')).toHaveAttribute('aria-current', 'page');
+
+		// UX-NAV-007 AC3: on the compact (mobile) profile the trail truncates to `‹ <parent>` and the
+		// full path lives in a tap-to-expand sheet; on Desktop/landscape the full trail is inline.
+		let trail = breadcrumbs;
+		if (testInfo.project.name === 'mobile-chromium') {
+			const trigger = page.getByTestId('breadcrumb-compact-trigger');
+			await expect(trigger).toContainText('Scenes');
+			await trigger.click();
+			trail = page.getByTestId('breadcrumb-sheet');
+			await expect(trail).toBeVisible();
+		}
+
+		// The breadcrumb trail reflects the canonical path; the open Scene is current.
+		await expect(trail.getByRole('link', { name: 'Command Center' })).toBeVisible();
+		await expect(trail.getByRole('link', { name: 'Scenes' })).toBeVisible();
+		await expect(trail.getByText('Riverside')).toHaveAttribute('aria-current', 'page');
 
 		// Following the Scenes breadcrumb updates the route...
-		await breadcrumbs.getByRole('link', { name: 'Scenes' }).click();
+		await trail.getByRole('link', { name: 'Scenes' }).click();
 		await expect(page).toHaveURL(/\/scenes\/?$/);
 
 		// ...and browser back returns to the Scene: history is coherent, not duplicated.
@@ -46,7 +60,9 @@ test.describe('NAV-003 breadcrumbs and history coherence (AC1)', () => {
 });
 
 test.describe('NAV-003 contextual backlinks and history coherence (AC1)', () => {
-	test('a backlink updates the route and browser back stays coherent', async ({ page }) => {
+	test('a backlink updates the route and browser back stays coherent', async ({
+		page,
+	}, testInfo) => {
 		await freshAt(page, '/', 'command-center');
 
 		// The DM's Command Center auto-creates its home Scene; open it in the editor.
@@ -54,8 +70,16 @@ test.describe('NAV-003 contextual backlinks and history coherence (AC1)', () => 
 		await page.getByTestId('scene-editor').waitFor({ state: 'visible' });
 		const sceneUrl = page.url();
 
-		// The open Scene is the Command Center home, surfaced as a contextual backlink.
-		const contextual = page.getByTestId('contextual-nav');
+		// UX-NAV-008: backlinks are a navigation surface. On Desktop the panel is an inline,
+		// default-expanded complementary panel; on the compact profile the `Backlinks (N)` toggle
+		// opens a sheet with the same rows.
+		let contextual = page.getByTestId('contextual-nav');
+		if (testInfo.project.name === 'mobile-chromium') {
+			const toggle = page.getByTestId('backlinks-toggle');
+			await expect(toggle).toContainText('Backlinks (');
+			await toggle.click();
+			contextual = page.getByTestId('contextual-nav');
+		}
 		await expect(contextual).toBeVisible();
 		await expect(contextual).toContainText('Command Center home Scene');
 

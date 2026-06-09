@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { goto, beforeNavigate, afterNavigate } from '$app/navigation';
+	import { ScrollRestorationStore } from '$lib/platform/scroll-restoration';
 	import {
 		listNavigationRegistryForActor,
 		listReachableDestinations,
@@ -30,6 +31,8 @@
 	import Breadcrumbs from '$lib/gui/Breadcrumbs.svelte';
 	import LocalNav from '$lib/gui/LocalNav.svelte';
 	import ContextualNav from '$lib/gui/ContextualNav.svelte';
+	import BacklinksPanel from '$lib/gui/ux-shell/BacklinksPanel.svelte';
+	import HistoryControls from '$lib/gui/ux-shell/HistoryControls.svelte';
 	import QuickAccess from '$lib/gui/QuickAccess.svelte';
 	import HelpTrigger from '$lib/gui/HelpTrigger.svelte';
 	import LiveRegion from '$lib/gui/a11y/LiveRegion.svelte';
@@ -49,6 +52,13 @@
 
 	const history = new NavigationHistoryStore();
 	provideNavigationHistory(history);
+
+	// UX-NAV-012: scroll-position restoration across browser back/forward. With manual scroll
+	// restoration the shell records the scroll offset of the page it leaves and restores it after a
+	// `popstate` lands back on that page; a normal forward navigation starts at the top. The store
+	// is a pure keyed position map; the shell reads/writes the live DOM offsets (window scroll on
+	// the Desktop/landscape layout, the `<main>` internal scroll on the compact layout).
+	const scrollRestoration = new ScrollRestorationStore();
 
 	// PLAT-013: the active maturity / feature tier is a device-local display preference owned by
 	// the GUI (Contract 1). It drives progressive disclosure; the core decides what each tier shows.
@@ -94,6 +104,10 @@
 
 	onMount(() => {
 		void runtime.load();
+		// UX-NAV-012: own scroll restoration so a normal route transition starts at the top while a
+		// browser back/forward restores the saved offset (see beforeNavigate/afterNavigate below).
+		// (`history` the local is the device-local nav store; the browser API is `window.history`.)
+		window.history.scrollRestoration = 'manual';
 		const stopProfile = profile.init();
 		const stopTheme = themeStore.init();
 		const stopMotion = motionStore.init();
@@ -193,20 +207,61 @@
 				if (target) {
 					if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
 					target.focus({ preventScroll: false });
-					target.scrollIntoView();
+					// UX-NAV-012 AC3: `block: 'start'` with the default ('auto') behaviour scrolls
+					// instantly — never a smooth animation — so a hash jump honours reduced motion.
+					target.scrollIntoView({ block: 'start' });
 				}
 			} else if (hasNavigated && landmarkEl) {
 				// Normal client-side route transition: focus the route landmark (NAV-004 AC2).
 				// On the very first (cold) page load we leave focus at the document start so the
 				// skip-to-content link is the first Tab stop (UX-NAV-009 AC1); the route is still
-				// announced above for screen readers. Reset both the window scroll (Desktop/Tablet
-				// landscape) and the content region's own scroll (the compact internal-scroll layout)
-				// so a new route starts at the top.
+				// announced above for screen readers. Scroll position is owned by the scroll-
+				// restoration hooks (UX-NAV-012): a forward navigation resets to the top and a
+				// browser back/forward restores the saved offset, so we must NOT reset scroll here.
 				landmarkEl.focus({ preventScroll: true });
-				landmarkEl.scrollTop = 0;
-				window.scrollTo({ top: 0 });
 			}
 		});
+	});
+
+	// UX-NAV-012: scroll-position restoration across browser back/forward.
+	function isHeadingHash(hash: string): boolean {
+		return hash.length > 1 && hash !== '#top';
+	}
+	// Before leaving a page, record the scroll offset of BOTH containers (window for the Desktop/
+	// landscape grid, `<main>` for the compact internal-scroll layout), keyed by the page URL.
+	beforeNavigate((navigation) => {
+		const fromHref = navigation.from?.url.href;
+		if (!fromHref) return;
+		scrollRestoration.save(fromHref, {
+			x: window.scrollX,
+			y: window.scrollY,
+			main: landmarkEl?.scrollTop ?? 0,
+		});
+	});
+	// After a navigation lands: a browser back/forward (`popstate`) restores the saved offset
+	// (UX-NAV-012 AC2); a normal forward navigation to a hash-less route starts at the top. A hash
+	// navigation is left to the heading-anchor focus above, which scrolls the heading into view.
+	afterNavigate((navigation) => {
+		const toHash = navigation.to?.url.hash ?? '';
+		if (isHeadingHash(toHash)) return;
+		if (navigation.type === 'popstate') {
+			const saved = scrollRestoration.peek(navigation.to?.url.href ?? '');
+			if (saved) {
+				// Apply now, then re-apply after layout: the restored page's content may finish
+				// laying out a frame later (its scrollable height grows), and a scrollTop set before
+				// that would otherwise clamp to the top. The second apply lands the saved offset on
+				// the compact `<main>` internal-scroll layout as well as the window scroll.
+				const apply = () => {
+					window.scrollTo(saved.x, saved.y);
+					if (landmarkEl) landmarkEl.scrollTop = saved.main;
+				};
+				apply();
+				requestAnimationFrame(apply);
+				return;
+			}
+		}
+		window.scrollTo(0, 0);
+		if (landmarkEl) landmarkEl.scrollTop = 0;
 	});
 
 	// UX-NAV-002 / UX-NAV-001: Alt+1..Alt+7 navigate to the Nth visible global section in canonical
@@ -235,8 +290,12 @@
 		const crumb = navView.breadcrumbs.at(-1);
 		return crumb ? { route: crumb.route, title: crumb.title } : null;
 	});
+	// UX-NAV-007 AC1: a bare section root (Home + Section = two crumbs) shows no breadcrumb, so it
+	// must not force an empty subheader bar — the breadcrumb term matches the component's
+	// "second level and deeper" rule (> 2 crumbs). Local nav, backlinks, related, and pinned/recent
+	// still surface the subheader when present.
 	const showSubheader = $derived(
-		navView.breadcrumbs.length > 1 ||
+		navView.breadcrumbs.length > 2 ||
 			navView.localItems.length > 0 ||
 			navView.backlinks.length > 0 ||
 			navView.related.length > 0 ||
@@ -277,6 +336,9 @@
 		<a class="brand" href="/" data-testid="app-brand">DND Tools v2</a>
 		<p class="tagline">Scene-first command platform — local prototype</p>
 		<div class="top-bar-controls" data-testid="top-bar-controls">
+			<!-- UX-NAV-017: in-app back/forward for platforms without browser chrome (PWA/Electron).
+			     Browser back/forward keep working independently via ordinary route navigation. -->
+			<HistoryControls />
 			<QuickSwitcher />
 			<CommandPalette />
 			<label class="view-as">
@@ -317,7 +379,10 @@
 				label={`${navView.section?.title ?? 'Section'} navigation`}
 				items={navView.localItems}
 			/>
-			<ContextualNav backlinks={navView.backlinks} related={navView.related} />
+			<!-- UX-NAV-008: backlinks are a navigation surface (collapsible complementary panel on
+			     Desktop, a sheet on compact). Related links (entity -> ) stay inline (NAV-003). -->
+			<BacklinksPanel backlinks={navView.backlinks} />
+			<ContextualNav related={navView.related} />
 			<QuickAccess {reachable} current={currentEntry} />
 		</div>
 	{/if}
