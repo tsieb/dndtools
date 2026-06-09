@@ -15,6 +15,8 @@
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
 	import SceneOutline from '$lib/gui/a11y/SceneOutline.svelte';
 	import type { OutlineWidgetInput, Viewer } from '$lib/gui/a11y';
+	import CanvasViewport from '$lib/gui/canvas/CanvasViewport.svelte';
+	import type { CanvasTile, CanvasTileState, MinimapMode } from '$lib/gui/canvas/types';
 
 	const { data } = $props();
 	const runtime = useRuntime();
@@ -144,6 +146,58 @@
 			sharedWith: rawScene.sharingTargets,
 		}));
 	});
+
+	// UX-CANVAS-001/014/016: the spatial canvas tiles. Built from the raw Scene widgets (which always
+	// carry a layout rect) joined with the actor-FILTERED binding state, and gated by the same
+	// DM-only no-leak rule the Scene Outline uses — a non-DM viewer's canvas never renders a DM-only
+	// widget (UX-A11Y-008). The data state drives the skeleton / placeholder rendering (UX-CANVAS-014).
+	const canvasTileState = $derived.by<SvelteMap<string, CanvasTileState>>(() => {
+		const map = new SvelteMap<string, CanvasTileState>();
+		if ('kind' in summary) return map;
+		for (const payload of summary.widgets) {
+			const id =
+				payload.kind === 'available' || payload.kind === 'degraded'
+					? payload.widget.id
+					: payload.widgetInstanceId;
+			switch (payload.kind) {
+				case 'missing':
+					map.set(id, 'missing');
+					break;
+				case 'conflicted':
+					map.set(id, 'conflicted');
+					break;
+				case 'unbound':
+				case 'disabled':
+					map.set(id, 'unbound');
+					break;
+				default:
+					map.set(id, 'ready');
+			}
+		}
+		return map;
+	});
+
+	const canvasTiles = $derived.by<CanvasTile[]>(() => {
+		if (!rawScene) return [];
+		return rawScene.widgets
+			.filter((widget) => viewer.role === 'dm' || widgetVisibilityOf(widget) !== 'dm-only')
+			.map((widget) => ({
+				id: widget.id,
+				x: widget.layout.x,
+				y: widget.layout.y,
+				w: widget.layout.w,
+				h: widget.layout.h,
+				type: widget.type,
+				title: widget.binding ? `Bound to ${widget.binding.source.entityId}` : `${widget.type} widget`,
+				visibility: widgetVisibilityOf(widget),
+				state: canvasTileState.get(widget.id) ?? 'ready',
+			}));
+	});
+
+	// UX-CANVAS-001 §Minimap: persistent on Desktop, toggleable on Tablet, hidden by default on Mobile.
+	const minimapMode = $derived<MinimapMode>(
+		profile.isCompact ? 'hidden' : profile.viewportClass === 'medium' ? 'toggle' : 'persistent',
+	);
 
 	// UX-A11Y-004 AC2: activating an outline item scrolls to and focuses the widget on the canvas.
 	function focusWidgetOnCanvas(id: string) {
@@ -322,6 +376,17 @@
 				</button>
 			</div>
 		</header>
+
+		<!-- UX-CANVAS-001/014/016: the spatial canvas viewport. Pan/zoom with cursor-anchored zoom,
+		     on-screen zoom controls, a minimap, keyboard parity, virtualization, skeletons, and
+		     poster-frame degradation. Tiles are actor-filtered (no DM-only leak to a player view). -->
+		<section data-testid="scene-canvas-section" aria-label="Scene canvas viewport">
+			<CanvasViewport
+				tiles={canvasTiles}
+				minimap={minimapMode}
+				label={`${summary.name} canvas`}
+			/>
+		</section>
 
 		<section data-testid="add-widget-section">
 			<div class="widgets-head">

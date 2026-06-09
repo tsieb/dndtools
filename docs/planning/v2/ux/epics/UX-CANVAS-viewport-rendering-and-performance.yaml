@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-CANVAS-viewport-rendering-and-performance
 title: Canvas Viewport, Rendering, and Performance
-status: approved
+status: complete
 approved: true
 phase: 03 Canvas and Command Center
 productPriority: P0
@@ -208,3 +208,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-CANVAS-viewport-rendering-and-performance.completion.md
