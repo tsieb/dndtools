@@ -145,7 +145,15 @@ function runReadTool(
 		case 'content.item-detail': {
 			// note.read — the granular actor-filtered note detail (dm-only sections/fields omitted).
 			const { entityId } = input as { entityId: string };
-			return getContentItemDetailForActor(state.content, state.permissions, actorId, entityId);
+			const detail = getContentItemDetailForActor(state.content, state.permissions, actorId, entityId);
+			// PERM-010 AC2: strip the DM-facing `accessDenialAudit` before returning to the requesting
+			// agent. The audit record carries the precise denial reason (`not-visible`, etc.), which must
+			// never reach a non-DM actor — the public denial is already indistinguishable from not-found.
+			if ('accessDenialAudit' in detail) {
+				const { accessDenialAudit: _, ...publicDetail } = detail;
+				return publicDetail;
+			}
+			return detail;
 		}
 		case 'search.vault': {
 			// note.search — the actor-filtered vault search (every candidate is an actor-filtered read,

@@ -92,7 +92,14 @@ describe('CONTENT-009 granular visibility — section/field precedence', () => {
 		);
 		// Fail closed: hidden entity is indistinguishable from not-found. No id, kind, visibility,
 		// or revision is exposed — existence is not probeable by id (PERM-002 AC1).
-		expect(playerDetail).toEqual({ visible: false, reason: 'hidden' });
+		// PERM-010 AC1: the denial now carries an `accessDenialAudit` record for the DM audit trail.
+		expect(playerDetail).toMatchObject({ visible: false, reason: 'hidden' });
+		if ('accessDenialAudit' in playerDetail) {
+			expect(playerDetail.accessDenialAudit?.actorId).toBe(PLAYER_ACTOR.id);
+			expect(playerDetail.accessDenialAudit?.entityType).toBe(CONTENT_ITEM_ENTITY_TYPE);
+			expect(playerDetail.accessDenialAudit?.entityId).toBe(itemId);
+			expect(playerDetail.accessDenialAudit?.reason).toBe('not-visible');
+		}
 	});
 
 	it('AC1: a player-visible note with one dm-only section omits that section for a player', () => {

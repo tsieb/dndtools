@@ -13,6 +13,7 @@ import {
 } from '../state/calendar';
 import { hasGrantedCapability } from '../permissions/grants';
 import { filterEntityForActor } from '../permissions/visibility-filter';
+import { auditAccessAttempt, type AccessDenialAuditRecord } from '../permissions/access-audit';
 
 /**
  * CONTENT-011 — THE single actor-filtered CONTENT read model. The data layer decides per-item
@@ -313,7 +314,7 @@ export function getContentItemDetailForActor(
 	actorId: string,
 	itemId: string,
 	declaredSectionIds: string[] = [],
-): ContentItemDetailView | { visible: false; reason: 'not-found' | 'hidden' } {
+): ContentItemDetailView | { visible: false; reason: 'not-found' | 'hidden'; accessDenialAudit?: AccessDenialAuditRecord } {
 	const actor = permissions.actors[actorId];
 	if (!actor) return { visible: false, reason: 'hidden' };
 	const item = content.items[itemId];
@@ -334,7 +335,27 @@ export function getContentItemDetailForActor(
 		// no id, kind, visibility, or revision is returned to the actor. A player who queries a dm-only
 		// entity by id receives the same shape as a query for a non-existent entity (visibility-filter
 		// contract: "denial is indistinguishable from not-found").
-		return { visible: false, reason: 'hidden' };
+		//
+		// PERM-010 AC1 — generate the non-leaking denial audit record for the DM audit trail. The
+		// audit record carries only actor + entity reference + reason category (never title or content).
+		// Callers that surface data to the requesting actor MUST strip `accessDenialAudit` before
+		// returning it — the precise denial reason (e.g. `not-visible`) is DM-facing only.
+		const entityRecord = {
+			entityType: CONTENT_ITEM_ENTITY_TYPE,
+			entityId: item.id,
+			visibility: item.visibility,
+			...(item.sharedWith.length > 0 ? { sharedWith: item.sharedWith } : {}),
+		};
+		const auditResult = auditAccessAttempt(
+			permissions,
+			{ actorId, entityType: CONTENT_ITEM_ENTITY_TYPE, entityId: item.id, access: 'read' },
+			[entityRecord],
+		);
+		return {
+			visible: false,
+			reason: 'hidden',
+			...(auditResult.kind === 'denied' ? { accessDenialAudit: auditResult.audit } : {}),
+		};
 	}
 
 	const visibleFields: Record<string, unknown> = {};

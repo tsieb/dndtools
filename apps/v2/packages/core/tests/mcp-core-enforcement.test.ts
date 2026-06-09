@@ -213,11 +213,10 @@ describe('MCP-004 AC1 — read tools omit hidden fields/entities by the data lay
 				input: { entityId: dmOnlyNoteId },
 			}),
 		);
-		expect(result.data).toEqual(
-			getContentItemDetailForActor(state.content, state.permissions, PLAYER_ACTOR.id, dmOnlyNoteId),
-		);
 		// After fix: hidden entity is indistinguishable from not-found — no title/body/id/visibility
 		// leaks to an MCP agent acting as a player (PERM-002 AC1 + "existence not probeable by id").
+		// PERM-010 AC2: the MCP response strips `accessDenialAudit` so the DM-facing denial reason
+		// (`not-visible`) is never exposed to a player-scoped agent.
 		const detail = result.data as { visible: boolean; reason?: string };
 		expect(detail.visible).toBe(false);
 		expect(detail.reason).toBe('hidden');
@@ -225,6 +224,8 @@ describe('MCP-004 AC1 — read tools omit hidden fields/entities by the data lay
 		expect('body' in detail).toBe(false);
 		expect('id' in detail).toBe(false);
 		expect('visibility' in detail).toBe(false);
+		// The audit record must NOT be in the MCP response data (DM-facing only).
+		expect('accessDenialAudit' in detail).toBe(false);
 	});
 
 	it('vault.summary / note.list as a player omit the dm-only note entirely', () => {
