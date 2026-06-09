@@ -142,6 +142,35 @@ describe('MCP-003 AC1 — strict_review stages a change for human approval (no i
 	});
 });
 
+describe('MCP-003 AC2 — trusted_direct records mode + agent identity in audit history', () => {
+	it('a trusted_direct write records agentId, actorId, policyMode, toolId, and direct mode in audit', () => {
+		const state = seedDmAgent('trusted_direct');
+
+		const output = invokeMcpToolAsAgent(state, env, registry, {
+			agentId: 'agent-dm',
+			toolId: 'note.create',
+			input: { title: 'Direct Write Lore', body: 'committed directly', kind: 'note' },
+		});
+
+		// The write is committed directly under trusted_direct — no staging occurs.
+		expect(output.result.status).toBe('write');
+
+		// AC2: BOTH the mode AND the agent identity must appear in the audit entry.
+		const audit = output.nextState.mcp.auditEntries;
+		expect(audit).toHaveLength(1);
+		const entry = audit[0]!;
+		// Agent identity fields (the AC2 claim).
+		expect(entry.agentId).toBe('agent-dm');
+		expect(entry.actorId).toBe(DM_ACTOR.id);
+		// Mode + policy context recorded.
+		expect(entry.mode).toBe('direct');
+		expect(entry.policyMode).toBe('trusted_direct');
+		expect(entry.toolId).toBe('note.create');
+		// No staged proposal for a direct write.
+		expect(entry.proposalId).toBeNull();
+	});
+});
+
 describe('MCP-003 AC4 — a strict_review write is staged by declared tool capability, not written directly', () => {
 	it('the note-create write tool is staged rather than committed under strict_review', () => {
 		const state = seedDmAgent('strict_review');
