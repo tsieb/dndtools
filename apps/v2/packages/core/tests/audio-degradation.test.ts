@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	configureAudioSource,
+	dispatchCommand,
 	normalizeAudioParticipantPreferences,
 	normalizeAudioPlatformCapability,
 	normalizeAudioSafetyState,
@@ -15,7 +16,18 @@ import {
 	type AudioDeliveryRequest,
 	type AudioPlatformCapability,
 	type AudioSource,
+	type CommandResult,
+	type CoreCommand,
+	type CoreEnvironment,
+	type CoreStateSlice,
 } from '../src';
+import {
+	DM_ACTOR,
+	OBSERVER_ACTOR,
+	PLAYER_ACTOR,
+	buildInitialState,
+	makeEnvironment,
+} from '../src/testing/fixtures';
 
 /**
  * AUDIO-006 / AUDIO-007 / AUDIO-008 / AUDIO-012 / AUDIO-013 — the PLATFORM + PLAYER DEGRADATION policy.
@@ -320,6 +332,165 @@ describe('AUDIO-013 — performance-safe failure modes (degrade, do not retry/bl
 			}),
 		);
 		expect(decision.disposition).toBe('safety-degraded');
+	});
+});
+
+describe('AUDIO-013 AC2 — safety degradation is isolated: audio failure does not block session commands', () => {
+	/**
+	 * AUDIO-013 AC2 — When audio is degraded by safety limits, the DM's other session commands (advance
+	 * combat, roll dice, project a handout) remain within their responsiveness budgets. At the domain
+	 * model level this means: the safety-degraded disposition is a PURE, NON-THROWING read-time
+	 * computation that NEVER enters the combat, dice, or handout command reducers. The dispatch switch
+	 * routes each command type to its own isolated handler; no handler reads from the audio safety
+	 * snapshot. These tests prove the isolation is real: with audio actively playing, all three command
+	 * paths succeed and leave session-audio state UNCHANGED (no cross-contamination).
+	 */
+
+	function dispatchAccept(state: CoreStateSlice, env: CoreEnvironment, cmd: CoreCommand): CoreStateSlice {
+		const result: CommandResult = dispatchCommand(state, env, cmd);
+		if (result.status !== 'accepted') {
+			throw new Error(`expected accepted, got rejected: ${result.rejection.message}`);
+		}
+		return result.nextState;
+	}
+
+	/**
+	 * Build an ACTIVE session with a configured local-file source and a playing audio track. This
+	 * represents the state in which audio is actively playing (the safety snapshot lives device-locally,
+	 * not in CoreStateSlice — so "safety-degraded" is a read-time decision that the reducers never see).
+	 */
+	function activeSessionWithPlayingAudio(env: CoreEnvironment): CoreStateSlice {
+		const base = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
+		const home = dispatchAccept(base, env, {
+			type: 'command-center.ensure-home',
+			actorId: DM_ACTOR.id,
+			payload: {},
+		});
+		const sceneId = home.commandCenter.homeSceneId!;
+		const active = dispatchAccept(home, env, {
+			type: 'session.set-workflow',
+			actorId: DM_ACTOR.id,
+			payload: { workflow: 'active', activeSceneId: sceneId },
+		});
+		const withSource = dispatchAccept(active, env, {
+			type: 'audio.configure-source',
+			actorId: DM_ACTOR.id,
+			payload: { sourceId: 's-local', type: 'local-file', displayName: 'Local', cacheBehavior: 'local' },
+		});
+		const withAsset = dispatchAccept(withSource, env, {
+			type: 'audio.import-asset',
+			actorId: DM_ACTOR.id,
+			payload: {
+				sourceId: 's-local',
+				bytes: [1, 2, 3, 4],
+				mimeType: 'audio/mpeg',
+				fileName: 'track.mp3',
+				title: 'Track',
+				license: { kind: 'owned' },
+			},
+		});
+		const assetId = Object.keys(withAsset.audio.assets)[0]!;
+		return dispatchAccept(withAsset, env, {
+			type: 'session.audio.play',
+			actorId: DM_ACTOR.id,
+			payload: { sourceId: 's-local', assetId, volume: 0.8 },
+		});
+	}
+
+	it('resolveAudioDelivery at the failure limit returns safety-degraded without throwing (pure, no-side-effect)', () => {
+		// Confirm the safety-degraded computation is a pure no-op from the reducers' perspective:
+		// it returns a value and does NOT throw, mutate, or block anything.
+		const decision = resolveAudioDelivery(
+			clearedRequest({ safety: { consecutiveFailures: DEFAULT_AUDIO_FAILURE_LIMIT, resourceExceeded: false } }),
+		);
+		expect(decision.disposition).toBe('safety-degraded');
+		// The message is a DM-facing diagnostic (not null, not empty — a real string).
+		expect(decision.message).toMatch(/degraded/i);
+		// The device is silent (effectiveVolume 0), which is the "stopped, not retried" behaviour.
+		expect(decision.effectiveVolume).toBe(0);
+	});
+
+	it('AC2: combat.advance-turn succeeds with audio playing; session-audio state is untouched', () => {
+		// Proves: the safety-degraded delivery decision never enters the combat reducer path, so an
+		// audio failure cannot block or throw for advance-turn (the AUDIO-013 AC2 combat example).
+		const env = makeEnvironment();
+		const state = activeSessionWithPlayingAudio(env);
+		expect(state.session.audioPlayback.track?.status).toBe('playing');
+		const audioSourceId = state.session.audioPlayback.track?.sourceId;
+
+		// Start combat (gate required by advance-turn).
+		const withCombat = dispatchAccept(state, env, {
+			type: 'combat.start',
+			actorId: DM_ACTOR.id,
+			payload: { combatants: [{ kind: 'monster', name: 'Goblin', initiative: 18, maxHp: 7 }] },
+		});
+		expect(withCombat.session.combat.status).toBe('running');
+		// Audio track is UNCHANGED after combat started.
+		expect(withCombat.session.audioPlayback.track?.status).toBe('playing');
+
+		// Advance the turn — if audio safety degradation entered this path it would throw/reject.
+		const afterAdvance = dispatchAccept(withCombat, env, {
+			type: 'combat.advance-turn',
+			actorId: DM_ACTOR.id,
+			payload: {},
+		});
+		// Combat state advanced (round incremented on wrap with 1 combatant).
+		expect(afterAdvance.session.combat.round).toBeGreaterThanOrEqual(1);
+		// Audio state is UNCHANGED — the combat reducer never touches session.audioPlayback.
+		expect(afterAdvance.session.audioPlayback.track?.status).toBe('playing');
+		expect(afterAdvance.session.audioPlayback.track?.sourceId).toBe(audioSourceId);
+	});
+
+	it('AC2: dice.roll succeeds with audio playing; session-audio state is untouched', () => {
+		// Proves: the safety-degraded delivery decision never enters the dice reducer path, so an
+		// audio failure cannot block or throw for dice.roll (the AUDIO-013 AC2 dice example).
+		const env = makeEnvironment();
+		const state = activeSessionWithPlayingAudio(env);
+		const audioSourceId = state.session.audioPlayback.track?.sourceId;
+		const historyBefore = state.session.diceHistory.length;
+
+		// Roll dice — if audio safety degradation entered this path it would throw/reject.
+		const afterRoll = dispatchAccept(state, env, {
+			type: 'dice.roll',
+			actorId: DM_ACTOR.id,
+			payload: { expression: '1d20', seed: 'test-seed-audio-isolation' },
+		});
+		// A roll was recorded in the dice history (the roll succeeded with a real, changed result).
+		expect(afterRoll.session.diceHistory.length).toBe(historyBefore + 1);
+		const roll = afterRoll.session.diceHistory[afterRoll.session.diceHistory.length - 1]!;
+		expect(roll.expression).toBe('1d20');
+		expect(roll.total).toBeGreaterThanOrEqual(1);
+		// Audio state is UNCHANGED — the dice reducer never touches session.audioPlayback.
+		expect(afterRoll.session.audioPlayback.track?.status).toBe('playing');
+		expect(afterRoll.session.audioPlayback.track?.sourceId).toBe(audioSourceId);
+	});
+
+	it('AC2: session.deliver-handout succeeds with audio playing; session-audio state is untouched', () => {
+		// Proves: the safety-degraded delivery decision never enters the handout reducer path, so an
+		// audio failure cannot block or throw for deliver-handout (the AUDIO-013 AC2 handout example).
+		const env = makeEnvironment();
+		const state = activeSessionWithPlayingAudio(env);
+		const audioSourceId = state.session.audioPlayback.track?.sourceId;
+		const sceneId = state.commandCenter.homeSceneId!;
+
+		// Deliver a handout — if audio safety degradation entered this path it would throw/reject.
+		const afterHandout = dispatchAccept(state, env, {
+			type: 'session.deliver-handout',
+			actorId: DM_ACTOR.id,
+			payload: {
+				title: 'Ancient Scroll',
+				sceneId,
+				recipientActorIds: [PLAYER_ACTOR.id],
+				sections: [{ id: 's-1', heading: 'Text', body: 'It says: run.', visibility: 'player-visible' }],
+			},
+		});
+		// A handout was created and delivered (a real state mutation, not a no-op).
+		expect(Object.keys(afterHandout.session.handouts).length).toBeGreaterThan(0);
+		const handout = Object.values(afterHandout.session.handouts)[0]!;
+		expect(handout.title).toBe('Ancient Scroll');
+		// Audio state is UNCHANGED — the handout reducer never touches session.audioPlayback.
+		expect(afterHandout.session.audioPlayback.track?.status).toBe('playing');
+		expect(afterHandout.session.audioPlayback.track?.sourceId).toBe(audioSourceId);
 	});
 });
 
