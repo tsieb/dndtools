@@ -216,10 +216,15 @@ describe('MCP-004 AC1 — read tools omit hidden fields/entities by the data lay
 		expect(result.data).toEqual(
 			getContentItemDetailForActor(state.content, state.permissions, PLAYER_ACTOR.id, dmOnlyNoteId),
 		);
-		const detail = result.data as { visible: boolean; title: string; body: string };
+		// After fix: hidden entity is indistinguishable from not-found — no title/body/id/visibility
+		// leaks to an MCP agent acting as a player (PERM-002 AC1 + "existence not probeable by id").
+		const detail = result.data as { visible: boolean; reason?: string };
 		expect(detail.visible).toBe(false);
-		expect(detail.title).toBe(''); // hidden entity exposes nothing
-		expect(detail.body).toBe('');
+		expect(detail.reason).toBe('hidden');
+		expect('title' in detail).toBe(false);
+		expect('body' in detail).toBe(false);
+		expect('id' in detail).toBe(false);
+		expect('visibility' in detail).toBe(false);
 	});
 
 	it('vault.summary / note.list as a player omit the dm-only note entirely', () => {

@@ -330,20 +330,11 @@ export function getContentItemDetailForActor(
 		permissions,
 	);
 	if (!filtered.visible) {
-		// Fail closed: a hidden entity exposes NOTHING — not its title, body, sections, or field keys.
-		return {
-			id: item.id,
-			kind: item.kind,
-			title: '',
-			body: '',
-			visibility: item.visibility,
-			visible: false,
-			visibleSectionIds: [],
-			visibleFields: {},
-			redactedSectionIds: [],
-			redactedFieldKeys: [],
-			revision: item.revision,
-		};
+		// Fail closed: existence must not be probeable by id. Return indistinguishable from not-found —
+		// no id, kind, visibility, or revision is returned to the actor. A player who queries a dm-only
+		// entity by id receives the same shape as a query for a non-existent entity (visibility-filter
+		// contract: "denial is indistinguishable from not-found").
+		return { visible: false, reason: 'hidden' };
 	}
 
 	const visibleFields: Record<string, unknown> = {};

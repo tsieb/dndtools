@@ -90,14 +90,9 @@ describe('CONTENT-009 granular visibility — section/field precedence', () => {
 			PLAYER_ACTOR.id,
 			itemId,
 		);
-		expect(playerDetail.visible).toBe(false);
-		// Fail closed: NOTHING leaks — not the title, body, sections, or field keys.
-		if ('title' in playerDetail) {
-			expect(playerDetail.title).toBe('');
-			expect(playerDetail.body).toBe('');
-			expect(playerDetail.visibleSectionIds).toEqual([]);
-			expect(playerDetail.visibleFields).toEqual({});
-		}
+		// Fail closed: hidden entity is indistinguishable from not-found. No id, kind, visibility,
+		// or revision is exposed — existence is not probeable by id (PERM-002 AC1).
+		expect(playerDetail).toEqual({ visible: false, reason: 'hidden' });
 	});
 
 	it('AC1: a player-visible note with one dm-only section omits that section for a player', () => {
