@@ -46,3 +46,6 @@ jobs:
 
       - name: Validate docs
         run: pnpm docs:validate
+
+      - name: Run v2 unit tests (MCP-005 AC1 merge gate)
+        run: pnpm v2:test
