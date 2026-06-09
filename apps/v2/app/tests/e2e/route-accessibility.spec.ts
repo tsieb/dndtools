@@ -41,6 +41,27 @@ test.describe('NAV-007 exactly one route-level h1 and matching title (AC1)', () 
 		await expect(page.locator('h1')).toHaveCount(1);
 		await expect(page.getByTestId('route-title')).toHaveText('Settings');
 		await expect(page).toHaveTitle(/Settings/);
+
+		// Settings → Atlas.
+		await page.getByTestId('nav-atlas').click();
+		await page.getByTestId('atlas-view').waitFor({ state: 'visible' });
+		await expect(page.locator('h1')).toHaveCount(1);
+		await expect(page.getByTestId('route-title')).toHaveText('Atlas');
+		await expect(page).toHaveTitle(/Atlas/);
+
+		// Atlas → Session.
+		await page.getByTestId('nav-session').click();
+		await page.getByTestId('session-view').waitFor({ state: 'visible' });
+		await expect(page.locator('h1')).toHaveCount(1);
+		await expect(page.getByTestId('route-title')).toHaveText('Session');
+		await expect(page).toHaveTitle(/Session/);
+
+		// Session → Characters.
+		await page.getByTestId('nav-characters').click();
+		await page.getByTestId('characters-view').waitFor({ state: 'visible' });
+		await expect(page.locator('h1')).toHaveCount(1);
+		await expect(page.getByTestId('route-title')).toHaveText('Characters');
+		await expect(page).toHaveTitle(/Characters/);
 	});
 
 	test('an open Scene route uses the Scene name as its single h1 and title', async ({ page }) => {
@@ -76,5 +97,17 @@ test.describe('NAV-007 live route announcement (AC2)', () => {
 		await page.getByTestId('nav-settings').click();
 		await page.getByTestId('settings-view').waitFor({ state: 'visible' });
 		await expect(announcer).toHaveText('Settings');
+
+		await page.getByTestId('nav-atlas').click();
+		await page.getByTestId('atlas-view').waitFor({ state: 'visible' });
+		await expect(announcer).toHaveText('Atlas');
+
+		await page.getByTestId('nav-session').click();
+		await page.getByTestId('session-view').waitFor({ state: 'visible' });
+		await expect(announcer).toHaveText('Session');
+
+		await page.getByTestId('nav-characters').click();
+		await page.getByTestId('characters-view').waitFor({ state: 'visible' });
+		await expect(announcer).toHaveText('Characters');
 	});
 });

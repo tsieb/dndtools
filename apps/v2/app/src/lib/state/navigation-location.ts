@@ -16,6 +16,8 @@ export function locationFromPath(pathname: string): NavigationLocation {
 	if (path === '/settings') return { sectionId: 'settings' };
 	if (path === '/scenes') return { sectionId: 'scenes' };
 	if (path === '/atlas') return { sectionId: 'atlas' };
+	if (path === '/session') return { sectionId: 'session' };
+	if (path === '/characters') return { sectionId: 'characters' };
 	const sceneMatch = /^\/scene\/([^/]+)$/.exec(path);
 	if (sceneMatch) {
 		return { sectionId: 'scenes', entity: { type: 'scene', id: sceneMatch[1]! } };
