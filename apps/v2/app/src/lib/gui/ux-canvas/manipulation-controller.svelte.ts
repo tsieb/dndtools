@@ -16,7 +16,10 @@
  */
 
 import { SvelteSet, SvelteMap } from 'svelte/reactivity';
+import type { SceneVisibility, WidgetBinding } from '@dndtools/v2-core';
 import type { Bounds } from '$lib/canvas-runtime/viewport';
+import { visibilityToggle, type WidgetBindingState } from './widget-chrome';
+import { boundAnnouncement, UNBOUND_ANNOUNCEMENT } from './binding-inspector';
 import {
 	applyBatchSelection,
 	applySelection,
@@ -68,6 +71,14 @@ export interface ManipWidget {
 	label: string;
 	rotation: number;
 	configuration: Record<string, unknown>;
+	/** Declared player-visibility (UX-CANVAS-011). */
+	visibility: SceneVisibility;
+	/** Whether the widget's content is collapsed (UX-CANVAS-007). */
+	collapsed: boolean;
+	/** Current data binding (UX-CANVAS-008), or null when unbound. */
+	binding: WidgetBinding | null;
+	/** Per-actor binding-resolution state for the chain-link indicator (UX-CANVAS-007/008). */
+	bindingState: WidgetBindingState;
 }
 
 export interface ManipulationHost {
@@ -334,6 +345,71 @@ export class CanvasManipulationController {
 		return this.#commit({ label: `Align ${changes.length} widgets`, redo, undo });
 	}
 
+	// --- Visibility (UX-CANVAS-011) ----------------------------------------------------------------
+	/** Set a widget's player visibility, preserving the rest of its configuration. Undoable. */
+	async setVisibility(id: string, next: SceneVisibility): Promise<boolean> {
+		const w = this.#widget(id);
+		if (!w) return false;
+		if (w.visibility === next) return false;
+		const prev = w.configuration.visibility;
+		const ok = await this.#commit({
+			label: `Change visibility of ${w.label}`,
+			redo: [this.#configCmd(id, { ...w.configuration, visibility: next })],
+			undo: [this.#configCmd(id, { ...w.configuration, visibility: prev })],
+		});
+		if (ok) this.#announce(visibilityToggle(w.visibility).announce(w.label));
+		return ok;
+	}
+
+	/** Toggle a `dm-only` widget to `player-visible` and back (the ≤2-interaction path). Undoable. */
+	async toggleVisibility(id: string): Promise<boolean> {
+		const w = this.#widget(id);
+		if (!w) return false;
+		return this.setVisibility(id, visibilityToggle(w.visibility).next);
+	}
+
+	// --- Collapse (UX-CANVAS-007) ------------------------------------------------------------------
+	/** Collapse/expand a widget's content, persisting the flag in configuration. Undoable. */
+	async toggleCollapse(id: string): Promise<boolean> {
+		const w = this.#widget(id);
+		if (!w) return false;
+		const next = !w.collapsed;
+		const ok = await this.#commit({
+			label: `${next ? 'Collapse' : 'Expand'} ${w.label}`,
+			redo: [this.#configCmd(id, { ...w.configuration, collapsed: next })],
+			undo: [this.#configCmd(id, { ...w.configuration, collapsed: w.collapsed })],
+		});
+		if (ok) this.#announce(`${w.label} ${next ? 'collapsed' : 'expanded'}.`);
+		return ok;
+	}
+
+	// --- Binding (UX-CANVAS-008) -------------------------------------------------------------------
+	/** Bind a widget to an entity (replaces any existing binding). Undoable. `entityLabel` is DM-safe. */
+	async bind(id: string, binding: WidgetBinding, entityLabel: string): Promise<boolean> {
+		const w = this.#widget(id);
+		if (!w) return false;
+		const ok = await this.#commit({
+			label: `Bind ${w.label}`,
+			redo: [this.#bindingCmd(id, binding)],
+			undo: [this.#bindingCmd(id, w.binding)],
+		});
+		if (ok) this.#announce(boundAnnouncement(entityLabel));
+		return ok;
+	}
+
+	/** Remove a widget's binding. Undoable. */
+	async unbind(id: string): Promise<boolean> {
+		const w = this.#widget(id);
+		if (!w || !w.binding) return false;
+		const ok = await this.#commit({
+			label: `Unbind ${w.label}`,
+			redo: [this.#bindingCmd(id, null)],
+			undo: [this.#bindingCmd(id, w.binding)],
+		});
+		if (ok) this.#announce(UNBOUND_ANNOUNCEMENT);
+		return ok;
+	}
+
 	// --- Delete (UX-CANVAS-015 §Delete) ------------------------------------------------------------
 	/**
 	 * Destroy a widget. Destroy/restore is a LIFECYCLE op whose inverse (re-create with the same id) is
@@ -401,5 +477,8 @@ export class CanvasManipulationController {
 	}
 	#configCmd(id: string, configuration: Record<string, unknown>): LayoutCommand {
 		return { type: 'scene.configure-widget', payload: { sceneId: this.#host.sceneId, widgetInstanceId: id, configuration } };
+	}
+	#bindingCmd(id: string, binding: WidgetBinding | null): LayoutCommand {
+		return { type: 'scene.configure-widget', payload: { sceneId: this.#host.sceneId, widgetInstanceId: id, binding } };
 	}
 }

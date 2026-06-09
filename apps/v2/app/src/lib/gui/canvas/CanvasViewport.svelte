@@ -19,7 +19,7 @@
 	 * skeletons, and a frame-budget monitor drops to a calm poster-frame indicator under sustained jank.
 	 * All animation is reduced-motion aware (durations collapse via the motion tokens; inertia is gated).
 	 */
-	import { onMount } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import {
 		ViewportController,
@@ -71,6 +71,19 @@
 		onRotateCommit?: (id: string, deg: number, free: boolean) => void;
 		/** Manipulation key handler given first crack at canvas keys; returns true when it handled one. */
 		onManipulationKey?: (event: KeyboardEvent) => boolean;
+		/**
+		 * UX-CANVAS-008 §Show bindings overlay: when true, each bound tile shows its binding label as a
+		 * persistent on-canvas chip so a DM can audit every binding at a glance.
+		 */
+		showBindings?: boolean;
+		/** Pointer path for the tile collapse chevron (UX-CANVAS-007); keyboard path is the chrome panel + `C`. */
+		onToggleCollapse?: (id: string) => void;
+		/** Pointer path for the tile `⋯` actions trigger (UX-CANVAS-007); selects + opens the chrome panel. */
+		onOpenActions?: (id: string) => void;
+		/** "Rebind" recovery action shown in a missing/conflicted binding placeholder (UX-CANVAS-007 AC4). */
+		onRebind?: (id: string) => void;
+		/** Teaching empty state (UX-CANVAS-013) rendered over the canvas when there are no tiles. */
+		emptyState?: Snippet;
 	}
 
 	let {
@@ -89,6 +102,11 @@
 		onResizeCommit,
 		onRotateCommit,
 		onManipulationKey,
+		showBindings = false,
+		onToggleCollapse,
+		onOpenActions,
+		onRebind,
+		emptyState,
 	}: Props = $props();
 
 	// svelte-ignore state_referenced_locally
@@ -591,6 +609,16 @@
 		}
 	}
 
+	// UX-CANVAS-007/008: when a binding is missing/conflicted/hidden, the content area shows an explicit
+	// placeholder — never a zero/stale value that could read as real data (the hidden no-leak rule).
+	function bindingPlaceholder(tile: CanvasTile): string | null {
+		const state = tile.binding?.state;
+		if (state === 'missing') return 'Binding missing';
+		if (state === 'conflicted') return 'Binding conflicted';
+		if (state === 'hidden') return 'Hidden in this view';
+		return null;
+	}
+
 	const transform = $derived(
 		`translate(${controller.viewport.tx}px, ${controller.viewport.ty}px) scale(${controller.viewport.scale})`,
 	);
@@ -665,10 +693,12 @@
 					class="canvas-tile"
 					class:is-skeleton={tilePending(tile)}
 					class:is-selected={isSelected(tile)}
+					class:is-collapsed={tile.collapsed}
 					class:is-dragging={interaction !== null && 'id' in interaction && interaction.id === tile.id}
 					data-testid={`canvas-tile-${tile.id}`}
 					data-tile-id={interactive ? tile.id : undefined}
 					data-selected={isSelected(tile)}
+					data-collapsed={tile.collapsed ? 'true' : undefined}
 					data-visibility={tile.visibility}
 					style={tileStyle(tile)}
 				>
@@ -704,21 +734,93 @@
 					{/if}
 					<div class="canvas-tile-head">
 						<span class="canvas-tile-type">{tile.type}</span>
-						{#if tile.visibility === 'dm-only'}
-							<span class="canvas-tile-badge" data-testid={`canvas-tile-dm-${tile.id}`}>
-								<span class="canvas-tile-badge-stripe" aria-hidden="true"></span>DM Only
+						<span class="canvas-tile-chrome">
+							{#if tile.visibility === 'dm-only'}
+								<span class="canvas-tile-badge" data-testid={`canvas-tile-dm-${tile.id}`}>
+									<span class="canvas-tile-badge-stripe" aria-hidden="true"></span>DM Only
+								</span>
+							{:else}
+								<span
+									class="canvas-tile-badge is-player"
+									data-badge-visibility={tile.visibility}
+									data-testid={`tile-players-${tile.id}`}
+								>
+									<span class="canvas-tile-eye" aria-hidden="true"></span>
+									{tile.visibility === 'shared' ? 'Shared' : 'Players'}
+								</span>
+							{/if}
+							{#if interactive}
+								<!-- Collapse chevron + `⋯` actions: pointer affordances in the aria-hidden world; the
+								     keyboard / screen-reader path is the chrome panel + the C / F2 shortcuts. -->
+								<!-- svelte-ignore a11y_no_static_element_interactions -->
+								<span
+									class="canvas-tile-control"
+									data-canvas-no-pan
+									data-testid={`tile-collapse-${tile.id}`}
+									title={tile.collapsed ? 'Expand widget' : 'Collapse widget'}
+									onpointerdown={(e) => {
+										e.stopPropagation();
+										onToggleCollapse?.(tile.id);
+									}}
+								>{tile.collapsed ? '▸' : '▾'}</span>
+								<!-- svelte-ignore a11y_no_static_element_interactions -->
+								<span
+									class="canvas-tile-control"
+									data-canvas-no-pan
+									data-testid={`tile-actions-${tile.id}`}
+									title="Widget actions"
+									onpointerdown={(e) => {
+										e.stopPropagation();
+										onOpenActions?.(tile.id);
+									}}
+								>⋯</span>
+							{/if}
+						</span>
+					</div>
+					{#if !tile.collapsed}
+						{#if tilePending(tile)}
+							<div class="canvas-tile-skeleton" data-testid={`canvas-skeleton-${tile.id}`}>
+								<span class="skeleton-line"></span>
+								<span class="skeleton-line short"></span>
+							</div>
+						{:else if bindingPlaceholder(tile)}
+							<div class="canvas-tile-binding-missing" data-testid={`tile-binding-placeholder-${tile.id}`}>
+								<p class="canvas-tile-placeholder">{bindingPlaceholder(tile)}</p>
+								{#if interactive && tile.binding && (tile.binding.state === 'missing' || tile.binding.state === 'conflicted')}
+									<!-- svelte-ignore a11y_no_static_element_interactions -->
+									<span
+										class="canvas-tile-rebind"
+										data-canvas-no-pan
+										data-testid={`tile-rebind-${tile.id}`}
+										title="Rebind this widget to a data source"
+										onpointerdown={(e) => {
+											e.stopPropagation();
+											onRebind?.(tile.id);
+										}}
+									>Rebind</span>
+								{/if}
+							</div>
+						{:else if tilePlaceholder(tile)}
+							<p class="canvas-tile-placeholder">{tilePlaceholder(tile)}</p>
+						{:else}
+							<p class="canvas-tile-title">{tile.title}</p>
+						{/if}
+					{/if}
+					{#if tile.binding && tile.binding.state !== 'none'}
+						<!-- Link/binding indicator (UX-CANVAS-007 §Link indicator). The chain-link is a redundant,
+						     non-colour-only signal: a data attribute + glyph + title accompany the colour. -->
+						<span
+							class="canvas-tile-link"
+							data-binding-state={tile.binding.state}
+							data-testid={`tile-binding-link-${tile.id}`}
+							title={tile.binding.ariaLabel}
+							aria-hidden="true"
+						>🔗</span>
+						{#if showBindings}
+							<span class="canvas-tile-binding-chip" data-testid={`tile-binding-chip-${tile.id}`}>
+								{tile.binding.label}
 							</span>
 						{/if}
-					</div>
-					{#if tilePending(tile)}
-						<div class="canvas-tile-skeleton" data-testid={`canvas-skeleton-${tile.id}`}>
-							<span class="skeleton-line"></span>
-							<span class="skeleton-line short"></span>
-						</div>
-					{:else if tilePlaceholder(tile)}
-						<p class="canvas-tile-placeholder">{tilePlaceholder(tile)}</p>
-					{:else}
-						<p class="canvas-tile-title">{tile.title}</p>
 					{/if}
 				</div>
 			{/each}
@@ -732,6 +834,14 @@
 				></span>
 			{/if}
 		</div>
+
+		{#if emptyState && tiles.length === 0}
+			<!-- UX-CANVAS-013: the atmospheric teaching state, rendered over the canvas only while empty.
+			     It disappears the moment the first tile exists (this block stops rendering). -->
+			<div class="canvas-empty" data-testid="canvas-empty-state">
+				{@render emptyState()}
+			</div>
+		{/if}
 
 		<!-- Poster-frame degradation indicator (UX-CANVAS-014): a calm thin line + one polite
 		     announcement per episode, never a blocking spinner. -->
@@ -943,6 +1053,111 @@
 			transparent 4px
 		);
 	}
+	.canvas-tile-badge.is-player {
+		background: var(--color-status-success-subtle);
+		border-color: var(--color-status-success);
+		color: var(--color-text-primary);
+	}
+	.canvas-tile-eye {
+		width: 8px;
+		height: 8px;
+		border-radius: var(--radius-full);
+		border: 2px solid var(--color-status-success);
+	}
+	.canvas-tile-badge.is-player[data-badge-visibility='shared'] {
+		border-color: var(--color-status-info);
+	}
+	.canvas-tile-badge.is-player[data-badge-visibility='shared'] .canvas-tile-eye {
+		border-style: dashed;
+		border-color: var(--color-status-info);
+	}
+
+	.canvas-tile-chrome {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+	}
+	/* Pointer-only chrome controls (collapse / actions / rebind). Muted until the tile is hovered or
+	   selected (UX-CANVAS-007 §Chrome opacity); the keyboard path lives in the chrome panel. */
+	.canvas-tile-control,
+	.canvas-tile-rebind {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 20px;
+		min-height: 20px;
+		padding: 0 var(--space-0-5);
+		font-size: var(--text-sm);
+		color: var(--color-text-secondary);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-sm);
+		background: var(--color-surface-raised);
+		cursor: pointer;
+	}
+	.canvas-tile-rebind {
+		min-width: auto;
+		padding: 0 var(--space-1);
+		font-size: var(--text-2xs);
+		color: var(--color-status-warning-text);
+		margin-top: var(--space-1);
+	}
+	.canvas-tile-binding-missing {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--space-0-5);
+	}
+	.canvas-tile-link {
+		position: absolute;
+		left: var(--space-1);
+		bottom: var(--space-1);
+		font-size: var(--text-2xs);
+		filter: grayscale(1);
+		opacity: 0.7;
+	}
+	.canvas-tile-link[data-binding-state='active'] {
+		filter: none;
+		opacity: 1;
+	}
+	.canvas-tile-link[data-binding-state='missing'],
+	.canvas-tile-link[data-binding-state='conflicted'] {
+		filter: none;
+		opacity: 1;
+		color: var(--color-status-warning-text);
+	}
+	.canvas-tile-binding-chip {
+		position: absolute;
+		right: var(--space-1);
+		bottom: var(--space-1);
+		max-width: 70%;
+		padding: 0 var(--space-1);
+		font-size: var(--text-2xs);
+		color: var(--color-text-secondary);
+		background: var(--color-surface-overlay);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	/* Chrome recedes when the widget is inactive, becomes full-opacity on hover/selection
+	   (UX-CANVAS-007 §Chrome opacity; FigJam-style muted-until-active). */
+	.canvas-tile:not(:hover):not(.is-selected) .canvas-tile-control {
+		opacity: 0.4;
+	}
+
+	.canvas-empty {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		pointer-events: none;
+		z-index: 1;
+	}
+	.canvas-empty :global(*) {
+		pointer-events: auto;
+	}
 
 	/* Editor selection chrome (UX-CANVAS-005). The ring is a high-contrast outline (WCAG 1.4.11) plus a
 	   data attribute so selection is conveyed by more than colour alone. */
@@ -958,6 +1173,11 @@
 	}
 	.canvas-tile.is-dragging {
 		opacity: 0.85;
+	}
+	/* Collapsed: only the title bar chrome remains (UX-CANVAS-007 §Collapse toggle). */
+	.canvas-tile.is-collapsed {
+		height: auto !important;
+		min-height: 0;
 	}
 	.canvas-tile[data-tile-id] {
 		cursor: grab;

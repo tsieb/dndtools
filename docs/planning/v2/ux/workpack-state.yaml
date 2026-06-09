@@ -86,6 +86,9 @@ epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-ARCH-product-architecture-and-ia-reconciliation.completion.md
+  - id: UX-CANVAS-chrome-bindings-templates-and-view-modes
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CANVAS-chrome-bindings-templates-and-view-modes.completion.md
   - id: UX-CANVAS-viewport-rendering-and-performance
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-CANVAS-viewport-rendering-and-performance.completion.md

@@ -12,6 +12,11 @@ export * from './z-order';
 export * from './undo-stack';
 export * from './widget-library';
 export * from './canvas-shortcuts';
+export * from './widget-chrome';
+export * from './binding-inspector';
+export * from './canvas-templates';
+export * from './player-view-preview';
+export * from './empty-canvas';
 export {
 	CanvasManipulationController,
 	type LayoutCommand,

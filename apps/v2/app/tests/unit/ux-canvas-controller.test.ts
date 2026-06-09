@@ -50,7 +50,23 @@ function makeHost(initial: ManipWidget[]) {
 }
 
 function widget(id: string, over: Partial<ManipWidget> = {}): ManipWidget {
-	return { id, x: 0, y: 0, w: 200, h: 100, z: 0, type: 'note', label: `note ${id}`, rotation: 0, configuration: {}, ...over };
+	return {
+		id,
+		x: 0,
+		y: 0,
+		w: 200,
+		h: 100,
+		z: 0,
+		type: 'note',
+		label: `note ${id}`,
+		rotation: 0,
+		configuration: {},
+		visibility: 'player-visible',
+		collapsed: false,
+		binding: null,
+		bindingState: 'none',
+		...over,
+	};
 }
 
 describe('selection (UX-CANVAS-005)', () => {

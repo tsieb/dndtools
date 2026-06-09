@@ -15,6 +15,18 @@ export type CanvasTileState = 'ready' | 'pending' | 'missing' | 'conflicted' | '
 /** Visibility classification used for the redundant (non-color) player-boundary badge. */
 export type CanvasTileVisibility = 'dm-only' | 'shared' | 'player-visible';
 
+/**
+ * The data-binding chrome a tile shows (UX-CANVAS-007 §Link indicator / UX-CANVAS-008). The label is
+ * already visibility-safe — a hidden bound entity id is never placed here for a non-DM viewer.
+ */
+export interface CanvasTileBinding {
+	state: 'none' | 'active' | 'missing' | 'conflicted' | 'hidden';
+	/** Short glanceable label for the chain-link indicator / show-bindings overlay. */
+	label: string;
+	/** Accessible label for the chain-link indicator. */
+	ariaLabel: string;
+}
+
 export interface CanvasTile extends Rect {
 	id: string;
 	/** Glanceable title (already visibility-safe). */
@@ -28,6 +40,10 @@ export interface CanvasTile extends Rect {
 	z?: number;
 	/** Rotation in degrees (UX-CANVAS-004), applied as a CSS rotate transform. Defaults to 0. */
 	rotation?: number;
+	/** Collapsed widgets render only their title-bar chrome (UX-CANVAS-007 §Collapse toggle). */
+	collapsed?: boolean;
+	/** Binding chrome descriptor (UX-CANVAS-007/008). Absent ⇒ no binding indicator. */
+	binding?: CanvasTileBinding;
 }
 
 /** Minimap presentation per platform profile (UX-CANVAS-001 §Minimap). */
