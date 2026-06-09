@@ -71,6 +71,12 @@ test.describe('NAV-008 command palette actor filtering', () => {
 			'Set up the Command Center first.',
 		);
 		await expect(page.getByTestId('palette-run-cc.preset.save')).toBeDisabled();
+		// The reason span's id must be referenced by the disabled button's aria-describedby
+		// so assistive technology can announce the reason when the button is focused (NAV-008 AC2).
+		await expect(page.getByTestId('palette-run-cc.preset.save')).toHaveAttribute(
+			'aria-describedby',
+			'palette-reason-cc.preset.save',
+		);
 	});
 
 	test('does not leak a hidden scene through palette deep links (NAV-010 AC1)', async ({

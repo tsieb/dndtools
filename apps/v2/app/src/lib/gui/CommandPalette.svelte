@@ -150,7 +150,14 @@
 							<span class="palette-title">{command.title}</span>
 							<span class="palette-category" aria-hidden="true">{command.category}</span>
 							{#if !isAvailable && command.availability.status === 'unavailable'}
-								<span class="palette-reason" data-testid={`palette-reason-${command.id}`}>
+								<!-- id mirrors the data-testid so the button's aria-describedby can
+								     reference it, making the reason accessible to assistive technology
+								     (NAV-008 AC2). -->
+								<span
+									class="palette-reason"
+									id={`palette-reason-${command.id}`}
+									data-testid={`palette-reason-${command.id}`}
+								>
 									{command.availability.reason}
 								</span>
 							{/if}
@@ -171,6 +178,9 @@
 								type="button"
 								data-testid={`palette-run-${command.id}`}
 								aria-label={`${command.kind === 'navigation' ? 'Go to' : 'Run'} ${command.title}`}
+								aria-describedby={!isAvailable && command.availability.status === 'unavailable'
+									? `palette-reason-${command.id}`
+									: undefined}
 								disabled={!isAvailable}
 								onclick={() => run(command)}
 							>
