@@ -408,6 +408,7 @@ export {
 } from './queries/map-query';
 
 export type {
+	CommandCenterAutoSave,
 	CommandCenterPreset,
 	CommandCenterPresetSection,
 	CommandCenterPresetWidget,
@@ -1401,6 +1402,20 @@ export type {
 	PlayerViewControllerSceneOption,
 } from './queries/player-view-control';
 export { getPlayerViewController } from './queries/player-view-control';
+
+// UX-CMD-003 / UX-CMD-012 — the viewer-gated Command Center home read model: the glanceable session
+// status strip + the role-differentiated home decision (the single no-leak choke point for `/`).
+export type {
+	CommandCenterHomeView,
+	SessionPhaseTone,
+	SessionStatusStrip,
+	SessionStatusStripResult,
+	StatusStripAudioCell,
+	StatusStripPhaseCell,
+	StatusStripPlayersCell,
+	StatusStripTurnCell,
+} from './queries/command-center-home';
+export { getSessionStatusStrip, resolveCommandCenterHome } from './queries/command-center-home';
 
 // SES-005 — the OPERATE-vs-CONFIGURE widget authority policy (Contract 3 Timer/Tool + Widget capability
 // sets). An `operator` grant authorizes runtime OPERATE actions (start/pause/resume/reset/advance/roll/

@@ -133,6 +133,7 @@ export class SceneRuntime {
 		commandCenter: {
 			homeSceneId: EMPTY_COMMAND_CENTER_STATE.homeSceneId,
 			presets: {},
+			autoSave: null,
 			schemaVersion: EMPTY_COMMAND_CENTER_STATE.schemaVersion,
 		},
 		characters: {

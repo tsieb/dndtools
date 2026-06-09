@@ -1,14 +1,18 @@
 import {
 	applyCommandCenterPresetInputSchema,
+	commandCenterAutoSaveInputSchema,
 	ensureCommandCenterHomeInputSchema,
 	saveCommandCenterPresetInputSchema,
 } from '../schemas/commands';
 import {
 	buildDefaultCommandCenterScene,
+	type CommandCenterAutoSave,
 	type CommandCenterPreset,
+	type CommandCenterPresetSection,
 	type CommandCenterPresetWidget,
 	type CommandCenterState,
 } from '../state/command-center-state';
+import type { SceneVisualSettings } from '../state/scene-state';
 import {
 	SCENE_SCHEMA_VERSION,
 	type Scene,
@@ -228,11 +232,61 @@ export function handleApplyCommandCenterPreset(
 
 	// Restore valid widgets and report any whose widget type is no longer installed
 	// (e.g. a removed package), restoring all the others (CMD-007).
+	const materialized = materializeLayoutOntoScene(state, env, scene, preset);
+	const { nextScene, restoredWidgets, missingWidgetTypes } = materialized;
+	const nextSceneState = withScene(state.scenes, scene.id, () => nextScene);
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'scene',
+		entityId: scene.id,
+		opType: 'command-center.apply-preset',
+		value: {
+			presetId: preset.id,
+			restoredWidgetCount: restoredWidgets.length,
+			missingWidgetTypes,
+		},
+		beforeRevision: scene.ownership.revision,
+		afterRevision: nextScene.ownership.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, scenes: nextSceneState, sync: nextLog },
+		events: [
+			{
+				kind: 'command-center.preset-restored',
+				presetId: preset.id,
+				sceneId: scene.id,
+				actorId: actor.id,
+				restoredWidgetCount: restoredWidgets.length,
+				missingWidgetTypes,
+			},
+		],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * Materialize a snapshot layout (a preset or a last-known-good auto-save) onto the home Scene. Widget
+ * ids and group ids are remapped to fresh instances; any widget whose package is no longer installed is
+ * skipped and reported, restoring all the others (CMD-007 / UX-CMD-008 AC4). Shared by preset-apply and
+ * auto-save-restore so both paths behave identically.
+ */
+function materializeLayoutOntoScene(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	scene: Scene,
+	source: {
+		visualSettings: SceneVisualSettings;
+		sections: CommandCenterPresetSection[];
+		widgets: CommandCenterPresetWidget[];
+	},
+): { nextScene: Scene; restoredWidgets: WidgetInstance[]; missingWidgetTypes: string[] } {
 	const missingWidgetTypes: string[] = [];
 	const groupRemap = new Map<string, string>();
 	const presetToInstance = new Map<string, string>();
 	const restoredWidgets: WidgetInstance[] = [];
-	for (const presetWidget of preset.widgets) {
+	for (const presetWidget of source.widgets) {
 		const record = findPackageRecordForWidgetType(state.widgets, presetWidget.type);
 		if (!record || record.removedAt) {
 			if (!missingWidgetTypes.includes(presetWidget.type)) {
@@ -260,7 +314,7 @@ export function handleApplyCommandCenterPreset(
 		});
 	}
 
-	const restoredSections: SectionLayoutRegion[] = preset.sections.map((section) => ({
+	const restoredSections: SectionLayoutRegion[] = source.sections.map((section) => ({
 		id: env.ids(),
 		name: section.name,
 		bounds: { ...section.bounds },
@@ -272,21 +326,142 @@ export function handleApplyCommandCenterPreset(
 	const nextScene = bumpRevision(
 		{
 			...scene,
-			visualSettings: { ...preset.visualSettings },
+			visualSettings: { ...source.visualSettings },
 			sections: restoredSections,
 			widgets: restoredWidgets,
 			schemaVersion: SCENE_SCHEMA_VERSION,
 		},
 		env,
 	);
+	return { nextScene, restoredWidgets, missingWidgetTypes };
+}
+
+/**
+ * UX-CMD-008 — capture the current Command Center layout into the rolling last-known-good auto-save
+ * slot. Called at deliberate good checkpoints (home ready, preset save/apply) so a crash or unwanted
+ * experimental change can be rolled back. DM-only; idempotent overwrite of the single slot.
+ */
+export function handleSnapshotCommandCenterAutoSave(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(commandCenterAutoSaveInputSchema, rawPayload ?? {});
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const scene = homeSceneExists(state);
+	if (!scene) {
+		return reject(
+			{
+				code: 'command-center-not-configured',
+				message: 'No Command Center home Scene exists to capture as a safe point.',
+			},
+			state,
+		);
+	}
+
+	const now = env.clock();
+	const { widgets, byInstanceId } = snapshotPresetWidgets(env, scene);
+	const sections: CommandCenterPresetSection[] = scene.sections.map((section) => ({
+		name: section.name,
+		bounds: { ...section.bounds },
+		presetWidgetIds: section.widgetInstanceIds
+			.map((id) => byInstanceId.get(id))
+			.filter((value): value is string => Boolean(value)),
+	}));
+
+	const autoSave: CommandCenterAutoSave = {
+		capturedAt: now,
+		visualSettings: { ...scene.visualSettings },
+		sections,
+		widgets,
+	};
+
+	const nextCommandCenter: CommandCenterState = { ...state.commandCenter, autoSave };
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'command-center',
+		entityId: scene.id,
+		opType: 'command-center.snapshot-auto-save',
+		value: { sceneId: scene.id, capturedAt: now, widgetCount: widgets.length },
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, commandCenter: nextCommandCenter, sync: nextLog },
+		events: [
+			{
+				kind: 'command-center.auto-save-captured',
+				sceneId: scene.id,
+				actorId: actor.id,
+				capturedAt: now,
+			},
+		],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * UX-CMD-008 — restore the last-known-good layout from the auto-save slot onto the home Scene. Fails
+ * closed when no auto-save exists. DM-only. Restores all valid widgets and reports any whose package is
+ * no longer installed (CMD-007 AC4 semantics shared with preset-apply).
+ */
+export function handleRestoreCommandCenterAutoSave(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(commandCenterAutoSaveInputSchema, rawPayload ?? {});
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const scene = homeSceneExists(state);
+	if (!scene) {
+		return reject(
+			{
+				code: 'command-center-not-configured',
+				message: 'No Command Center home Scene exists to restore a safe point onto.',
+			},
+			state,
+		);
+	}
+
+	const autoSave = state.commandCenter.autoSave ?? null;
+	if (!autoSave) {
+		return reject(
+			{
+				code: 'auto-save-not-available',
+				message: 'No Command Center safe point has been captured yet.',
+			},
+			state,
+		);
+	}
+
+	const { nextScene, restoredWidgets, missingWidgetTypes } = materializeLayoutOntoScene(
+		state,
+		env,
+		scene,
+		autoSave,
+	);
 	const nextSceneState = withScene(state.scenes, scene.id, () => nextScene);
 
 	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
 		entityType: 'scene',
 		entityId: scene.id,
-		opType: 'command-center.apply-preset',
+		opType: 'command-center.restore-auto-save',
 		value: {
-			presetId: preset.id,
+			capturedAt: autoSave.capturedAt,
 			restoredWidgetCount: restoredWidgets.length,
 			missingWidgetTypes,
 		},
@@ -299,10 +474,10 @@ export function handleApplyCommandCenterPreset(
 		nextState: { ...state, scenes: nextSceneState, sync: nextLog },
 		events: [
 			{
-				kind: 'command-center.preset-restored',
-				presetId: preset.id,
+				kind: 'command-center.auto-save-restored',
 				sceneId: scene.id,
 				actorId: actor.id,
+				capturedAt: autoSave.capturedAt,
 				restoredWidgetCount: restoredWidgets.length,
 				missingWidgetTypes,
 			},

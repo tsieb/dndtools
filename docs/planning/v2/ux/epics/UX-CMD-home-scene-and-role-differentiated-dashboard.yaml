@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-CMD-home-scene-and-role-differentiated-dashboard
 title: Command Center Home Scene and Role-Differentiated Dashboard
-status: approved
+status: complete
 approved: true
 phase: 03 Canvas and Command Center
 productPriority: P0
@@ -258,3 +258,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-CMD-home-scene-and-role-differentiated-dashboard.completion.md
