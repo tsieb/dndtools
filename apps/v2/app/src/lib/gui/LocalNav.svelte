@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { NavigationItem } from '@dndtools/v2-core';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
+	import { trapFocus } from '$lib/actions/focus-trap';
 
 	interface Props {
 		label: string;
@@ -27,30 +28,17 @@
 		}
 	});
 
-	// While the sheet is open, Escape closes it and Tab cycles within it (modal). The
-	// listener is removed when the sheet closes, so focus is never trapped afterwards
-	// (NAV-003 AC2). Window-level handling mirrors the command palette.
+	// While the sheet is open, Escape closes it and returns focus to the trigger. Tab
+	// cycling is handled by the shared trapFocus action applied to the dialog element
+	// (A11Y-003 AC2 shared utility). The listener is removed when the sheet closes, so
+	// focus is never trapped afterwards (NAV-003 AC2). Window-level handling mirrors
+	// the command palette.
 	$effect(() => {
 		if (!open) return;
 		function onKey(event: KeyboardEvent) {
 			if (event.key === 'Escape') {
 				event.preventDefault();
 				closeDrawer();
-				return;
-			}
-			if (event.key !== 'Tab' || !drawerEl) return;
-			const focusable = [
-				...drawerEl.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'),
-			];
-			if (focusable.length === 0) return;
-			const first = focusable[0]!;
-			const last = focusable[focusable.length - 1]!;
-			if (event.shiftKey && document.activeElement === first) {
-				event.preventDefault();
-				last.focus();
-			} else if (!event.shiftKey && document.activeElement === last) {
-				event.preventDefault();
-				first.focus();
 			}
 		}
 		window.addEventListener('keydown', onKey);
@@ -89,6 +77,7 @@
 							aria-modal="true"
 							aria-label={label}
 							tabindex="-1"
+							use:trapFocus
 							onclick={(event) => event.stopPropagation()}
 						>
 							<div class="local-nav-head">

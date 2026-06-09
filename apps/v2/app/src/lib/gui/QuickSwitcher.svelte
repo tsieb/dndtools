@@ -7,6 +7,7 @@
 	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
+	import { trapFocus } from '$lib/actions/focus-trap';
 
 	const runtime = useRuntime();
 	const profile = useProfile();
@@ -185,6 +186,7 @@
 			tabindex="-1"
 			data-testid="quick-switcher"
 			data-profile={profile.viewportClass}
+			use:trapFocus
 			onclick={(e) => e.stopPropagation()}
 		>
 			<input
