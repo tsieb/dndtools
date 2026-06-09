@@ -27,8 +27,11 @@
 	import { locationFromPath } from '$lib/state/navigation-location';
 	import { buildGlobalNav } from '$lib/navigation/global-nav';
 	import { resolveShellRouteAccessibility } from '$lib/navigation/route-a11y';
+	import { buildShortcutRegistry } from '$lib/navigation/shortcuts';
+	import { isFromTextEntry } from '$lib/gui/a11y/keyboard';
 	import GlobalNav from '$lib/gui/GlobalNav.svelte';
 	import CommandPalette from '$lib/gui/CommandPalette.svelte';
+	import GlobalSearch from '$lib/gui/GlobalSearch.svelte';
 	import QuickSwitcher from '$lib/gui/QuickSwitcher.svelte';
 	import Breadcrumbs from '$lib/gui/Breadcrumbs.svelte';
 	import LocalNav from '$lib/gui/LocalNav.svelte';
@@ -143,6 +146,15 @@
 		listNavigationRegistryForActor(runtime.state.permissions, runtime.activeActorId),
 	);
 	const globalNav = $derived(buildGlobalNav(registry, page.url.pathname));
+
+	// UX-NAV-019: the actor-filtered global keyboard shortcut registry. It is derived from the SAME
+	// actor-filtered navigation data the primary nav and command palette use, so the DM-only Scenes shortcut
+	// is present only when the actor can reach Scenes (a DM) and is ABSENT for players/observers (AC4). It
+	// feeds the command palette's row hints and the searchable keyboard-shortcuts help panel.
+	const scenesRoute = $derived(
+		registry.find((entry) => entry.id === 'scenes' && entry.reachable)?.route ?? null,
+	);
+	const shortcuts = $derived(buildShortcutRegistry({ globalNav, scenesRoute }));
 
 	// Contextual navigation (NAV-003): the route is the single source of truth. The
 	// whole navigation view — breadcrumbs, local section nav, contextual links — is
@@ -298,10 +310,16 @@
 	// actor-filtered set, so a player/observer can never reach a section they cannot see.
 	function onGlobalKeydown(event: KeyboardEvent) {
 		if (!event.altKey || event.ctrlKey || event.metaKey) return;
+		// UX-NAV-019 AC1 — the navigation shortcuts fire only when no text input is focused, so `Alt+<n>`
+		// never steals a keystroke a field is consuming.
+		if (isFromTextEntry(event.target)) return;
 		let target: string | undefined;
 		if (event.shiftKey) {
 			if (event.key.toLowerCase() === 'h') {
 				target = globalNav.find((item) => item.home)?.route;
+			} else if (event.key.toLowerCase() === 's') {
+				// DM-only Scenes capability: present only when the actor can reach it (UX-NAV-019 AC4).
+				target = scenesRoute ?? undefined;
 			}
 		} else if (/^[1-7]$/.test(event.key)) {
 			const position = Number(event.key);
@@ -380,8 +398,9 @@
 			<!-- UX-NAV-017: in-app back/forward for platforms without browser chrome (PWA/Electron).
 			     Browser back/forward keep working independently via ordinary route navigation. -->
 			<HistoryControls />
+			<GlobalSearch recent={strip.recent} />
 			<QuickSwitcher />
-			<CommandPalette />
+			<CommandPalette recent={strip.recent} {shortcuts} />
 			<label class="view-as">
 				<span class="visually-hidden">View as</span>
 				<select
@@ -394,9 +413,10 @@
 					{/each}
 				</select>
 			</label>
-			<!-- UX-A11Y-014 (WCAG 3.2.6): the Help trigger renders in the shared header, so it appears in
-			     the same top-bar position on every route, and is reachable by `?` / `F1` everywhere. -->
-			<HelpTrigger />
+			<!-- UX-A11Y-014 (WCAG 3.2.6) + UX-NAV-019: the Help trigger renders in the shared header, so it
+			     appears in the same top-bar position on every route, is reachable by `?` / `F1` everywhere,
+			     and opens the SEARCHABLE keyboard-shortcuts panel built from the actor-filtered registry. -->
+			<HelpTrigger {shortcuts} />
 		</div>
 	</header>
 

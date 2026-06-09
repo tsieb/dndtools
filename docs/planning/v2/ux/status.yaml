@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 37
+  approved: 36
   active: 0
-  complete: 9
+  complete: 10
   deferred: 0
 metrics:
-  epicCompletionPercent: 19.6
-  requirementCompletionPercent: 20.1
+  epicCompletionPercent: 21.7
+  requirementCompletionPercent: 21.7
   totalRequirements: 244
-  completedRequirements: 49
+  completedRequirements: 53
   deferredRequirements: 0
-  remainingEpics: 37
-  promptableEpics: 7
+  remainingEpics: 36
+  promptableEpics: 6
   blockedByDependencies: 30
-  completionEvidenceFiles: 9
+  completionEvidenceFiles: 10
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -80,9 +80,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 02 Shell and Navigation
       totalEpics: 4
-      complete: 3
+      complete: 4
       active: 0
-      approved: 1
+      approved: 0
       proposed: 0
       deferred: 0
       requirementIds:
@@ -107,8 +107,8 @@ metrics:
         - UX-NAV-020
         - UX-SRCH-001
         - UX-SRCH-005
-      epicCompletionPercent: 75
-      requirementCompletionPercent: 81
+      epicCompletionPercent: 100
+      requirementCompletionPercent: 100
     - phase: 03 Canvas and Command Center
       totalEpics: 4
       complete: 0
@@ -391,19 +391,18 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-SHELL-command-surface-and-shortcuts
-  title: Command Surface, Search Entry, and Shortcuts
-  phase: 02 Shell and Navigation
+  id: UX-CANVAS-viewport-rendering-and-performance
+  title: Canvas Viewport, Rendering, and Performance
+  phase: 03 Canvas and Command Center
   status: approved
   requirementIds:
-    - UX-NAV-014
-    - UX-NAV-019
-    - UX-SRCH-001
-    - UX-SRCH-005
-  promptCommand: pnpm v2:ux-prompt -- --epic UX-SHELL-command-surface-and-shortcuts
+    - UX-CANVAS-001
+    - UX-CANVAS-014
+    - UX-CANVAS-016
+  promptCommand: pnpm v2:ux-prompt -- --epic UX-CANVAS-viewport-rendering-and-performance
   nextPromptCommand: pnpm v2:ux-prompt -- --next
   statusCommand: pnpm v2:ux-workpack:set-status -- --epic
-    UX-SHELL-command-surface-and-shortcuts --status active
+    UX-CANVAS-viewport-rendering-and-performance --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -586,7 +585,7 @@ epics:
   - id: UX-SHELL-command-surface-and-shortcuts
     title: Command Surface, Search Entry, and Shortcuts
     phase: 02 Shell and Navigation
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-NAV-014
@@ -602,6 +601,7 @@ epics:
     dependencies:
       - UX-SHELL-route-layout-and-platform-profiles
       - UX-SHELL-actor-filtered-nav-recents
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-SHELL-command-surface-and-shortcuts.completion.md
   - id: UX-CANVAS-viewport-rendering-and-performance
     title: Canvas Viewport, Rendering, and Performance
     phase: 03 Canvas and Command Center

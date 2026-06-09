@@ -32,8 +32,10 @@ test.describe('UX-VIS display preferences', () => {
 	test('UX-VIS-009: the icon-only button has an accessible name and status uses non-colour cues', async ({
 		page,
 	}) => {
-		// Icon-only button: the accessible name comes from the Icon component's aria-label.
-		await expect(page.getByRole('button', { name: 'Search' })).toBeVisible();
+		// Icon-only button: the accessible name comes from the Icon component's aria-label. Scope to the
+		// demo button by testid so it is unambiguous (the shared header also hosts a "Search" trigger).
+		await expect(page.getByTestId('icon-only-button')).toBeVisible();
+		await expect(page.getByTestId('icon-only-button')).toHaveAccessibleName('Search');
 
 		// Status chips convey state by text (+ distinct icon shape), not colour alone.
 		for (const label of ['Saved', 'Unsynced', 'Failed', 'Local only']) {

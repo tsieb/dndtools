@@ -1365,6 +1365,7 @@ export {
 } from './queries/command-availability';
 
 export type {
+	ParsedQuickSwitcherQuery,
 	QuickSwitcherCommandEntry,
 	QuickSwitcherEntry,
 	QuickSwitcherEntryKind,
@@ -1374,7 +1375,9 @@ export type {
 	ResolvedQuickSwitcherEntry,
 } from './queries/quick-switcher-query';
 export {
+	QUICK_SWITCHER_COMMAND_SIGIL,
 	buildQuickSwitcher,
+	parseQuickSwitcherQuery,
 	resolveQuickSwitcherEntry,
 } from './queries/quick-switcher-query';
 

@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import {
 		buildQuickSwitcher,
+		parseQuickSwitcherQuery,
 		resolveQuickSwitcherEntry,
 		type QuickSwitcherEntry,
 	} from '@dndtools/v2-core';
@@ -31,6 +32,13 @@
 			{ profileId: profile.profileId },
 			query,
 		),
+	);
+
+	// SRCH-005 — a leading `>` switches to command mode (the core lists only commands). The parsed mode
+	// drives the section caption: "Recent" before the user types, "Commands" in command mode, else "Results".
+	const parsed = $derived(parseQuickSwitcherQuery(query));
+	const sectionLabel = $derived(
+		query.trim() === '' ? 'Recent' : parsed.commandMode ? 'Commands' : 'Results',
 	);
 
 	// SRCH-002 AC2 — the active selection is derived from the CURRENT entry list, never a remembered index.
@@ -72,11 +80,12 @@
 		if (open && searchEl) searchEl.focus();
 	});
 
-	// Global shortcut: Cmd/Ctrl+P opens the quick switcher (distinct from the command palette's Cmd/Ctrl+K).
-	// Also reachable via the header button so touch profiles are not shortcut-only (SRCH-002 is Mobile: yes).
+	// UX-SRCH-005 — `Cmd/Ctrl+O` opens the quick switcher (distinct from the command palette's `Cmd/Ctrl+K`
+	// and global search's `Cmd/Ctrl+Shift+F`). Also reachable via the header button so touch profiles are
+	// not shortcut-only (SRCH-005 is Mobile: yes).
 	$effect(() => {
 		function onKey(event: KeyboardEvent) {
-			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'p') {
+			if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'o') {
 				event.preventDefault();
 				toggle();
 			} else if (event.key === 'Escape' && open) {
@@ -160,7 +169,7 @@
 	aria-expanded={open}
 	onclick={toggle}
 >
-	⌘P Go to
+	⌘O Go to
 </button>
 
 {#if open}
@@ -192,7 +201,7 @@
 				bind:value={query}
 				class="switcher-search"
 				type="text"
-				placeholder="Go to or run…"
+				placeholder="Go to note, map, character…  (›  for commands)"
 				aria-label="Search content and commands"
 				data-testid="quick-switcher-search"
 				role="combobox"
@@ -203,6 +212,11 @@
 				autocomplete="off"
 				onkeydown={onSearchKeydown}
 			/>
+			<!-- SRCH-005 — the pre-query state lists the recent destinations under a "Recent" caption; a `›`
+			     query switches the caption to "Commands" (command mode), otherwise "Results". -->
+			<p class="switcher-section" data-testid="quick-switcher-section" aria-hidden="true">
+				{sectionLabel}
+			</p>
 			<ul
 				class="switcher-list"
 				id="quick-switcher-list"
@@ -319,6 +333,15 @@
 		border: none;
 		border-bottom: 1px solid var(--border, #e2e8f0);
 		outline-offset: -2px;
+	}
+
+	.switcher-section {
+		margin: 0;
+		padding: 0.45rem 0.85rem 0.1rem;
+		font-size: 0.68rem;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--muted, #64748b);
 	}
 
 	.switcher-list {
