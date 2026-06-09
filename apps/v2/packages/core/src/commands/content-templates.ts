@@ -50,13 +50,16 @@ import { VAULT_OBJECT_SUBTYPE_KEY, readObjectSubtype, syncNoteToObject } from '.
  * intent and renders the computed render/validation model; it never touches storage (Architecture Contract 1).
  */
 
-/** Authorized editor for an EXISTING item: the DM, or a player with a write-capable grant. Fail closed. */
-function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string): boolean {
+/**
+ * Authorized editor for an EXISTING item: the DM, or a player with a write-capable grant. Fail closed.
+ * `now` (from `env.clock()`) is required so expired grants are treated as inert (PERM-004 AC2).
+ */
+function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string, now: string): boolean {
 	if (actor.role === 'dm') return true;
 	if (actor.role === 'observer') return false;
 	return (
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor') ||
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor')
+		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor', now) ||
+		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor', now)
 	);
 }
 
@@ -139,6 +142,7 @@ export function handleInsertSnippet(
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
 
+	const now = env.clock();
 	const content = ensureContentStateSlice(state.content);
 	const existing: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!existing) {
@@ -147,7 +151,7 @@ export function handleInsertSnippet(
 			state,
 		);
 	}
-	if (!actorMayEditItem(state, actor, parsed.data.itemId)) {
+	if (!actorMayEditItem(state, actor, parsed.data.itemId, now)) {
 		return reject(
 			{ code: 'actor-not-authorized', message: 'You are not an authorized editor of this item.' },
 			state,

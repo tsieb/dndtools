@@ -60,16 +60,18 @@ function contentWith(state: CoreStateSlice, content: VaultContentState): CoreSta
  * grant — a grant never bypasses visibility (Contract 3 Axis 2 rule 4). The grant is invalid (the
  * DM sees a `write-grant-on-hidden-content` consistency error), but the guard is enforced here so
  * the player cannot circumvent the visibility barrier by exploiting the stale grant.
+ *
+ * `now` (from `env.clock()`) MUST be passed so that expired grants are treated as inert (PERM-004 AC2).
  */
-function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string): boolean {
+function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string, now: string): boolean {
 	if (actor.role === 'dm') return true;
 	if (actor.role === 'observer') return false;
 	// Fail closed: a dm-only item is never writable by a non-DM, regardless of any grant.
 	const item = contentItemById(state.content, itemId);
 	if (item && item.visibility === 'dm-only') return false;
 	return (
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor') ||
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor')
+		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor', now) ||
+		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor', now)
 	);
 }
 
@@ -94,18 +96,20 @@ function itemChangedEvent(item: ContentItem, actorId: string): CoreEvent {
 /**
  * Shared guards for an EXISTING, LIVE, editable content item: load it, require an authorized editor, and
  * reject a tombstoned item. Returns the item or a rejection {@link CommandResult}.
+ * `now` (from `env.clock()`) is forwarded to expiry checking so expired grants are inert (PERM-004 AC2).
  */
 function requireEditableItem(
 	state: CoreStateSlice,
 	content: VaultContentState,
 	actor: Actor,
 	itemId: string,
+	now: string,
 ): ContentItem | CommandResult {
 	const item = contentItemById(content, itemId);
 	if (!item) {
 		return reject({ code: 'content-item-not-found', message: `Content item ${itemId} does not exist.` }, state);
 	}
-	if (!actorMayEditItem(state, actor, itemId)) {
+	if (!actorMayEditItem(state, actor, itemId, now)) {
 		return reject({ code: 'actor-not-authorized', message: 'You are not an authorized editor of this item.' }, state);
 	}
 	if (!isLiveContentItem(item)) {
@@ -127,8 +131,9 @@ export function handleSetContentSectionVisibility(
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
 
+	const now = env.clock();
 	const content = ensureContentStateSlice(state.content);
-	const before = requireEditableItem(state, content, actor, parsed.data.itemId);
+	const before = requireEditableItem(state, content, actor, parsed.data.itemId, now);
 	if ('status' in before) return before;
 
 	const rule: VisibilityRule | null = parsed.data.rule
@@ -142,7 +147,7 @@ export function handleSetContentSectionVisibility(
 		parsed.data.itemId,
 		parsed.data.sectionId,
 		rule,
-		env.clock(),
+		now,
 	);
 	if (!nextContent) {
 		return reject({ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` }, state);
@@ -179,8 +184,9 @@ export function handleSetContentFieldVisibility(
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
 
+	const now = env.clock();
 	const content = ensureContentStateSlice(state.content);
-	const before = requireEditableItem(state, content, actor, parsed.data.itemId);
+	const before = requireEditableItem(state, content, actor, parsed.data.itemId, now);
 	if ('status' in before) return before;
 
 	const rule: VisibilityRule | null = parsed.data.rule
@@ -233,8 +239,9 @@ export function handleAddContentEmbed(
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
 
+	const now = env.clock();
 	const content = ensureContentStateSlice(state.content);
-	const host = requireEditableItem(state, content, actor, parsed.data.hostItemId);
+	const host = requireEditableItem(state, content, actor, parsed.data.hostItemId, now);
 	if ('status' in host) return host;
 
 	// The target must exist + be live. We do NOT check the actor's visibility to the target here: an embed
@@ -307,11 +314,12 @@ export function handleRemoveContentEmbed(
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
 
+	const now = env.clock();
 	const content = ensureContentStateSlice(state.content);
-	const host = requireEditableItem(state, content, actor, parsed.data.hostItemId);
+	const host = requireEditableItem(state, content, actor, parsed.data.hostItemId, now);
 	if ('status' in host) return host;
 
-	const result = removeContentEmbed(content, parsed.data.hostItemId, parsed.data.embedId, env.clock());
+	const result = removeContentEmbed(content, parsed.data.hostItemId, parsed.data.embedId, now);
 	if (result === null) {
 		return reject({ code: 'content-item-not-found', message: `Content item ${parsed.data.hostItemId} does not exist.` }, state);
 	}

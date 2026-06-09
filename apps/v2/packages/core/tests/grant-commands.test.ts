@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+	CONTENT_ITEM_ENTITY_TYPE,
 	computeEffectivePermissionsForActor,
 	dispatchCommand,
 	hasGrantedCapability,
 	type CoreCommand,
+	type CoreEnvironment,
 	type CoreStateSlice,
 } from '../src';
 import {
@@ -241,6 +243,147 @@ describe('PERM-004: grant a capability set (durable command)', () => {
 				'combat-participant',
 			),
 		).toBe(false);
+	});
+
+	// --- end-to-end enforcement tests -------------------------------------------------------
+	// The AC1/AC2/AC3 e2e tests below verify that a grant on a content-item entity (the system
+	// entity type for notes) actually enables or blocks `content.update-item` commands.
+	//
+	// NOTE: `note-section` is a structurally valid entity type in the capability schema (for
+	// future section-granular grants), but the current content command layer enforces access via
+	// `content-item` entity-type grants. Section-granular enforcement is deferred to CONTENT epics.
+
+	/** Helper: DM creates a player-visible note and returns the new item's id + next state. */
+	function withPlayerVisibleNote(
+		state: CoreStateSlice,
+		env: CoreEnvironment,
+	): { state: CoreStateSlice; itemId: string } {
+		const result = dispatchCommand(state, env, {
+			type: 'content.create-item',
+			actorId: DM_ACTOR.id,
+			payload: { kind: 'note', title: 'Campaign Log', visibility: 'player-visible' },
+		});
+		if (result.status !== 'accepted') throw new Error('create-item failed');
+		const itemId = Object.values(result.nextState.content.items)[0]!.id;
+		return { state: result.nextState, itemId };
+	}
+
+	it('AC1 e2e: player with section-editor grant on content-item may run content.update-item', () => {
+		const env = makeEnvironment();
+		const { state: withNote, itemId } = withPlayerVisibleNote(initial(), env);
+
+		// DM grants section-editor on the content-item entity to the player.
+		const granted = dispatchCommand(withNote, env, grantCommand({
+			entityType: CONTENT_ITEM_ENTITY_TYPE,
+			entityId: itemId,
+			playerActorId: PLAYER_ACTOR.id,
+			capabilitySet: 'section-editor',
+		}));
+		expect(granted.status).toBe('accepted');
+		if (granted.status !== 'accepted') return;
+
+		// Player edits the note — command must be accepted (AC1).
+		const edited = dispatchCommand(granted.nextState, env, {
+			type: 'content.update-item',
+			actorId: PLAYER_ACTOR.id,
+			payload: { itemId, body: 'Player-authored session notes.' },
+		});
+		expect(edited.status).toBe('accepted');
+		if (edited.status !== 'accepted') return;
+		expect(edited.nextState.content.items[itemId]!.body).toBe('Player-authored session notes.');
+	});
+
+	it('AC2 e2e: player edit is rejected after the section-editor grant expires', () => {
+		const env = makeEnvironment({ clock: () => '2026-06-04T12:00:00.000Z' });
+		const { state: withNote, itemId } = withPlayerVisibleNote(initial(), env);
+
+		// DM grants section-editor with a one-hour expiry.
+		const granted = dispatchCommand(withNote, env, grantCommand({
+			entityType: CONTENT_ITEM_ENTITY_TYPE,
+			entityId: itemId,
+			playerActorId: PLAYER_ACTOR.id,
+			capabilitySet: 'section-editor',
+			expiresAt: '2026-06-04T13:00:00.000Z',
+		}));
+		expect(granted.status).toBe('accepted');
+		if (granted.status !== 'accepted') return;
+
+		// Edit before expiry: accepted.
+		const beforeExpiry = dispatchCommand(
+			granted.nextState,
+			{ ...env, clock: () => '2026-06-04T12:30:00.000Z' },
+			{
+				type: 'content.update-item',
+				actorId: PLAYER_ACTOR.id,
+				payload: { itemId, body: 'Edited before grant expired.' },
+			},
+		);
+		expect(beforeExpiry.status).toBe('accepted');
+		if (beforeExpiry.status !== 'accepted') return;
+
+		// Edit after expiry: rejected (AC2 — expired grant is inert).
+		const afterExpiry = dispatchCommand(
+			beforeExpiry.nextState,
+			{ ...env, clock: () => '2026-06-04T14:00:00.000Z' },
+			{
+				type: 'content.update-item',
+				actorId: PLAYER_ACTOR.id,
+				payload: { itemId, body: 'Should be rejected.' },
+			},
+		);
+		expect(afterExpiry.status).toBe('rejected');
+		if (afterExpiry.status !== 'rejected') return;
+		expect(afterExpiry.rejection.code).toBe('actor-not-authorized');
+		// Content unchanged after the rejected edit.
+		expect(afterExpiry.nextState.content.items[itemId]!.body).toBe('Edited before grant expired.');
+	});
+
+	it('AC3 e2e: player edit is rejected after the DM revokes the grant', () => {
+		const env = makeEnvironment();
+		const { state: withNote, itemId } = withPlayerVisibleNote(initial(), env);
+
+		// DM grants section-editor on the content-item.
+		const granted = dispatchCommand(withNote, env, grantCommand({
+			entityType: CONTENT_ITEM_ENTITY_TYPE,
+			entityId: itemId,
+			playerActorId: PLAYER_ACTOR.id,
+			capabilitySet: 'section-editor',
+		}));
+		expect(granted.status).toBe('accepted');
+		if (granted.status !== 'accepted') return;
+		const grantId = granted.nextState.permissions.grants.find(
+			(g) => g.entityType === CONTENT_ITEM_ENTITY_TYPE && g.entityId === itemId,
+		)!.id;
+
+		// Player edits while the grant is active — accepted.
+		const edited = dispatchCommand(granted.nextState, env, {
+			type: 'content.update-item',
+			actorId: PLAYER_ACTOR.id,
+			payload: { itemId, body: 'Pre-revocation edit.' },
+		});
+		expect(edited.status).toBe('accepted');
+		if (edited.status !== 'accepted') return;
+
+		// DM revokes the grant.
+		const revoked = dispatchCommand(edited.nextState, env, {
+			type: 'permission.revoke-grant',
+			actorId: DM_ACTOR.id,
+			payload: { grantId },
+		});
+		expect(revoked.status).toBe('accepted');
+		if (revoked.status !== 'accepted') return;
+
+		// Player's next edit is rejected (AC3 — cached edit command rejected after revoke).
+		const postRevoke = dispatchCommand(revoked.nextState, env, {
+			type: 'content.update-item',
+			actorId: PLAYER_ACTOR.id,
+			payload: { itemId, body: 'Post-revocation edit — must be rejected.' },
+		});
+		expect(postRevoke.status).toBe('rejected');
+		if (postRevoke.status !== 'rejected') return;
+		expect(postRevoke.rejection.code).toBe('actor-not-authorized');
+		// Content unchanged from before the revoke.
+		expect(postRevoke.nextState.content.items[itemId]!.body).toBe('Pre-revocation edit.');
 	});
 
 	it('re-granting the same key is idempotent (upsert in place, no duplicate)', () => {

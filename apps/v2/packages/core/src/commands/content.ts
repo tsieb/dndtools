@@ -73,16 +73,20 @@ function actorMayAuthorVault(actor: Actor): boolean {
  * grant — a grant never bypasses visibility (Contract 3 Axis 2 rule 4). The grant is invalid (the
  * DM sees a `write-grant-on-hidden-content` consistency error), but the guard is enforced here so
  * the player cannot circumvent the visibility barrier by exploiting the stale grant.
+ *
+ * `now` (the ISO clock from `env.clock()`) MUST be passed so that expired grants are treated as
+ * inert (fail closed, PERM-004 AC2). Omitting `now` would allow an expired grant to remain
+ * effective, violating the grant expiry guarantee.
  */
-function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string): boolean {
+function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string, now: string): boolean {
 	if (actor.role === 'dm') return true;
 	if (actor.role === 'observer') return false;
 	// Fail closed: a dm-only item is never writable by a non-DM, regardless of any grant.
 	const item = contentItemById(state.content, itemId);
 	if (item && item.visibility === 'dm-only') return false;
 	return (
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor') ||
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor')
+		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor', now) ||
+		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor', now)
 	);
 }
 
@@ -277,6 +281,7 @@ export function handleUpdateContentItem(
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
 
+	const now = env.clock();
 	const content = ensureContentStateSlice(state.content);
 	const existing: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!existing) {
@@ -285,7 +290,7 @@ export function handleUpdateContentItem(
 			state,
 		);
 	}
-	if (!actorMayEditItem(state, actor, parsed.data.itemId)) {
+	if (!actorMayEditItem(state, actor, parsed.data.itemId, now)) {
 		return reject(
 			{ code: 'actor-not-authorized', message: 'You are not an authorized editor of this item.' },
 			state,
@@ -414,6 +419,7 @@ export function handleSetContentItemVisibility(
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
 
+	const now = env.clock();
 	const content = ensureContentStateSlice(state.content);
 	const before: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!before) {
@@ -422,7 +428,7 @@ export function handleSetContentItemVisibility(
 			state,
 		);
 	}
-	if (!actorMayEditItem(state, actor, parsed.data.itemId)) {
+	if (!actorMayEditItem(state, actor, parsed.data.itemId, now)) {
 		return reject(
 			{ code: 'actor-not-authorized', message: 'You are not an authorized editor of this item.' },
 			state,
@@ -490,6 +496,7 @@ export function handleRemoveContentItem(
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
 
+	const now = env.clock();
 	const content = ensureContentStateSlice(state.content);
 	const before: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!before) {
@@ -498,7 +505,7 @@ export function handleRemoveContentItem(
 			state,
 		);
 	}
-	if (!actorMayEditItem(state, actor, parsed.data.itemId)) {
+	if (!actorMayEditItem(state, actor, parsed.data.itemId, now)) {
 		return reject(
 			{ code: 'actor-not-authorized', message: 'You are not an authorized editor of this item.' },
 			state,
@@ -513,7 +520,7 @@ export function handleRemoveContentItem(
 
 	// SOFT-DELETE (CONTENT-001): tombstone the item rather than purge it, so it can be restored. The
 	// item leaves every actor-filtered read immediately, so its delivery audience is invalidated.
-	const nextContent = softDeleteContentItem(content, parsed.data.itemId, env.clock());
+	const nextContent = softDeleteContentItem(content, parsed.data.itemId, now);
 	if (!nextContent) {
 		return reject(
 			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },
@@ -560,6 +567,7 @@ export function handleRestoreContentItem(
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
 
+	const now = env.clock();
 	const content = ensureContentStateSlice(state.content);
 	const before: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!before) {
@@ -568,7 +576,7 @@ export function handleRestoreContentItem(
 			state,
 		);
 	}
-	if (!actorMayEditItem(state, actor, parsed.data.itemId)) {
+	if (!actorMayEditItem(state, actor, parsed.data.itemId, now)) {
 		return reject(
 			{ code: 'actor-not-authorized', message: 'You are not an authorized editor of this item.' },
 			state,
@@ -581,7 +589,7 @@ export function handleRestoreContentItem(
 		);
 	}
 
-	const nextContent = restoreContentItem(content, parsed.data.itemId, env.clock());
+	const nextContent = restoreContentItem(content, parsed.data.itemId, now);
 	if (!nextContent) {
 		return reject(
 			{ code: 'content-item-not-found', message: `Content item ${parsed.data.itemId} does not exist.` },

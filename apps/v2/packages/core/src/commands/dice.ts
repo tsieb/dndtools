@@ -372,6 +372,7 @@ export function handleRollTable(
 	if (!parsed.ok) return reject(parsed.rejection, state);
 	const input = parsed.data;
 
+	const now = env.clock();
 	const content = ensureContentStateSlice(state.content);
 	const item = contentItemById(content, input.tableItemId);
 	if (!item || !isLiveContentItem(item)) {
@@ -382,7 +383,7 @@ export function handleRollTable(
 	}
 	// A rollable table is a DM session asset (SES-008 is DM-only/player-safe: dm-only); only the DM (or an
 	// authorized editor of the table) may draw it.
-	if (!actorMayUseTable(state, actor, item.id)) {
+	if (!actorMayUseTable(state, actor, item.id, now)) {
 		return reject(
 			{ code: 'actor-not-authorized', message: 'You may not draw this table.' },
 			state,
@@ -456,25 +457,31 @@ export function handleRollTable(
 	};
 }
 
-/** Authority to draw a table: the DM, or a player holding a write-capable grant on the table item. */
-function actorMayUseTable(state: CoreStateSlice, actor: Actor, itemId: string): boolean {
+/**
+ * Authority to draw a table: the DM, or a player holding a write-capable grant on the table item.
+ * `now` (from `env.clock()`) is required so expired grants are treated as inert (PERM-004 AC2).
+ */
+function actorMayUseTable(state: CoreStateSlice, actor: Actor, itemId: string, now: string): boolean {
 	if (actor.role === 'dm') return true;
 	if (actor.role === 'observer') return false;
 	return (
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor') ||
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor')
+		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor', now) ||
+		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor', now)
 	);
 }
 
 // --- SES-008 — append a recorded result to a note (through the existing content write path) -------
 
-/** Authorized editor of a content item: DM, or a player with a write-capable grant. (Mirrors content.ts.) */
-function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string): boolean {
+/**
+ * Authorized editor of a content item: DM, or a player with a write-capable grant. (Mirrors content.ts.)
+ * `now` (from `env.clock()`) is required so expired grants are treated as inert (PERM-004 AC2).
+ */
+function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string, now: string): boolean {
 	if (actor.role === 'dm') return true;
 	if (actor.role === 'observer') return false;
 	return (
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor') ||
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor')
+		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor', now) ||
+		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor', now)
 	);
 }
 
@@ -508,6 +515,7 @@ export function handleAppendRollToNote(
 		);
 	}
 
+	const now = env.clock();
 	const content = ensureContentStateSlice(state.content);
 	const item: ContentItem | undefined = contentItemById(content, parsed.data.itemId);
 	if (!item || !isLiveContentItem(item)) {
@@ -518,7 +526,7 @@ export function handleAppendRollToNote(
 	}
 	// The append goes through the EXISTING content write path: it requires the SAME authorized-editor
 	// authority as any other note edit (fail closed).
-	if (!actorMayEditItem(state, actor, item.id)) {
+	if (!actorMayEditItem(state, actor, item.id, now)) {
 		return reject(
 			{ code: 'actor-not-authorized', message: 'You are not an authorized editor of this note.' },
 			state,
