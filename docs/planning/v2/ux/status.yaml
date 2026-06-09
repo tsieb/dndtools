@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 42
+  approved: 41
   active: 0
-  complete: 4
+  complete: 5
   deferred: 0
 metrics:
-  epicCompletionPercent: 8.7
-  requirementCompletionPercent: 7.4
+  epicCompletionPercent: 10.9
+  requirementCompletionPercent: 11.1
   totalRequirements: 244
-  completedRequirements: 18
+  completedRequirements: 27
   deferredRequirements: 0
-  remainingEpics: 42
-  promptableEpics: 1
-  blockedByDependencies: 41
-  completionEvidenceFiles: 4
+  remainingEpics: 41
+  promptableEpics: 2
+  blockedByDependencies: 39
+  completionEvidenceFiles: 5
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -39,9 +39,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 01 Foundations
       totalEpics: 5
-      complete: 3
+      complete: 4
       active: 0
-      approved: 2
+      approved: 1
       proposed: 0
       deferred: 0
       requirementIds:
@@ -76,8 +76,8 @@ metrics:
         - UX-VIS-011
         - UX-VIS-012
         - UX-VIS-013
-      epicCompletionPercent: 60
-      requirementCompletionPercent: 54.8
+      epicCompletionPercent: 80
+      requirementCompletionPercent: 83.9
     - phase: 02 Shell and Navigation
       totalEpics: 4
       complete: 0
@@ -391,25 +391,20 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-A11Y-interaction-primitives-and-help-compliance
-  title: Accessible Interaction Primitives and Help Compliance
+  id: UX-A11Y-spatial-live-region-and-leakage
+  title: Spatial Access, Live Regions, and No-Leak Boundaries
   phase: 01 Foundations
   status: approved
   requirementIds:
-    - UX-A11Y-002
-    - UX-A11Y-007
-    - UX-A11Y-009
-    - UX-A11Y-010
-    - UX-A11Y-011
-    - UX-A11Y-012
-    - UX-A11Y-013
-    - UX-A11Y-014
-    - UX-A11Y-015
-  promptCommand: pnpm v2:ux-prompt -- --epic
-    UX-A11Y-interaction-primitives-and-help-compliance
+    - UX-A11Y-003
+    - UX-A11Y-004
+    - UX-A11Y-005
+    - UX-A11Y-006
+    - UX-A11Y-008
+  promptCommand: pnpm v2:ux-prompt -- --epic UX-A11Y-spatial-live-region-and-leakage
   nextPromptCommand: pnpm v2:ux-prompt -- --next
   statusCommand: pnpm v2:ux-workpack:set-status -- --epic
-    UX-A11Y-interaction-primitives-and-help-compliance --status active
+    UX-A11Y-spatial-live-region-and-leakage --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -487,7 +482,7 @@ epics:
   - id: UX-A11Y-interaction-primitives-and-help-compliance
     title: Accessible Interaction Primitives and Help Compliance
     phase: 01 Foundations
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-A11Y-002
@@ -507,6 +502,7 @@ epics:
       - drag alternative command adapters
     dependencies:
       - UX-VIS-component-library-motion-density-icons
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-A11Y-interaction-primitives-and-help-compliance.completion.md
   - id: UX-A11Y-spatial-live-region-and-leakage
     title: Spatial Access, Live Regions, and No-Leak Boundaries
     phase: 01 Foundations

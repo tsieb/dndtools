@@ -154,6 +154,22 @@
 	--density-button-height: 2.25rem; /* 36px */
 	--density-font-size: var(--text-base); /* 15px */
 
+	/* --- Focus ring (UX-A11Y-009 §focus visible; WCAG 2.4.7 / 2.4.13) ---------------------- */
+	/* 2px ring + 2px offset. The ring colour aliases the interactive focus token, whose >=3:1
+	 * contrast vs every adjacent surface (and the focused-vs-unfocused delta) is enforced by
+	 * `pnpm a11y:contrast`. One token set drives the global :focus-visible baseline below AND every
+	 * component focus rule, so no surface re-invents (or drops) the ring (AP-10). */
+	--focus-ring-width: 2px;
+	--focus-ring-offset: 2px;
+	--focus-ring-color: var(--color-interactive-focus-ring);
+
+	/* --- Touch / pointer targets (UX-A11Y-010 §size minimums; WCAG 2.5.8) ------------------ */
+	/* 24px is the hard floor on every profile; 44px is the recommended touch target. Native toggles
+	 * size to the floor (resolving the inherited /session target-size finding); icon buttons and the
+	 * wrapping label provide the 44px touch extent via the density tokens. */
+	--touch-target-min: 2.75rem; /* 44px — Tablet/Mobile recommended touch target */
+	--touch-target-floor: 1.5rem; /* 24px — WCAG 2.5.8 hard minimum, all profiles */
+
 	/* --- Colour tokens — TAVERN (dark warm) is the default theme (UX-VIS-001/002) ---------- */
 	--color-bg: #111418;
 	--color-surface: #1c2128;
@@ -901,6 +917,46 @@ textarea,
 select {
 	font: inherit;
 	color: inherit;
+}
+
+/* UX-A11Y-009 §focus visible (WCAG 2.4.7 / 2.4.13): a baseline visible focus ring on every
+ * interactive element, so no control can ship without one. Zero-specificity :where() lets a
+ * component restyle the ring colour/offset but never silently drop it; :focus-visible keeps the
+ * ring off pointer/touch taps and shows it for keyboard focus. */
+:where(
+		a[href],
+		button,
+		input,
+		select,
+		textarea,
+		summary,
+		[tabindex],
+		[role='button'],
+		[role='tab'],
+		[role='menuitem'],
+		[role='option'],
+		[role='treeitem'],
+		[role='checkbox'],
+		[role='switch']
+	):focus-visible {
+	outline: var(--focus-ring-width) solid var(--focus-ring-color);
+	outline-offset: var(--focus-ring-offset);
+}
+
+/* UX-A11Y-010 (WCAG 2.5.8): native checkboxes/radios meet the 24px target-size floor on every
+ * profile — this resolves the inherited `target-size` axe finding on /session, where the session
+ * recipient/member-list checkboxes rendered below 24x24 CSS px on the mobile profile. The accent
+ * colour keeps the checked state visible; the wrapping <label> stays the larger touch target. */
+input[type='checkbox'],
+input[type='radio'] {
+	width: var(--touch-target-floor);
+	height: var(--touch-target-floor);
+	min-width: var(--touch-target-floor);
+	min-height: var(--touch-target-floor);
+	margin: 0 var(--space-1) 0 0;
+	vertical-align: middle;
+	accent-color: var(--color-accent);
+	cursor: pointer;
 }
 
 /* Keep form controls within their column: a control sized to its content (e.g. a
@@ -1747,4 +1803,190 @@ select {
 	align-items: center;
 	gap: var(--space-3);
 	margin-top: var(--space-1);
+}
+
+/* ============================================================================================
+ * 8. ACCESSIBLE INTERACTION PRIMITIVES (UX-A11Y interaction-primitives-and-help-compliance)
+ *
+ * Shared styling for the reusable a11y widgets in src/lib/gui/a11y/ (Dialog, Tabs, Disclosure,
+ * StateBadge) and the consistent Help trigger. Token-only; the global :focus-visible baseline above
+ * already gives each control a conformant ring, so these rules cover layout and state, not focus.
+ * ========================================================================================== */
+
+/* Consistent Help trigger (UX-A11Y-014 / WCAG 3.2.6) — same top-bar position on every route. */
+.help-trigger {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--density-touch-target);
+	min-height: var(--density-touch-target);
+	padding: var(--space-1) var(--space-2);
+	border: 1px solid var(--accent);
+	border-radius: var(--radius-full);
+	background: transparent;
+	color: var(--accent);
+	cursor: pointer;
+	font-size: var(--text-md);
+	font-weight: var(--font-weight-semibold);
+	line-height: 1;
+}
+.help-trigger:hover {
+	background: var(--color-interactive-hover);
+}
+
+/* Modal dialog primitive (UX-A11Y-012 dialog / UX-A11Y-009 focus trap). */
+.dialog-backdrop {
+	position: fixed;
+	inset: 0;
+	background: var(--color-backdrop);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--space-4);
+	z-index: var(--z-modal);
+}
+
+.dialog {
+	width: min(640px, 94vw);
+	max-height: 86vh;
+	overflow: auto;
+	background: var(--color-surface-raised);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-lg);
+	padding: var(--component-dialog-padding);
+	display: grid;
+	gap: var(--space-4);
+}
+
+.dialog-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--space-4);
+}
+
+.dialog-title {
+	margin: 0;
+	font-size: var(--text-lg);
+	font-weight: var(--font-weight-semibold);
+}
+
+.dialog-close {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--density-touch-target);
+	min-height: var(--density-touch-target);
+	padding: var(--space-1);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+	background: var(--card);
+	color: var(--fg);
+	cursor: pointer;
+}
+.dialog-close:hover {
+	background: var(--color-interactive-hover);
+}
+
+.dialog-foot {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--space-2);
+}
+
+.help-intro {
+	margin: 0;
+	color: var(--muted);
+	font-size: var(--text-sm);
+}
+
+.help-shortcuts {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--text-sm);
+}
+.help-shortcuts th,
+.help-shortcuts td {
+	text-align: left;
+	padding: var(--space-1-5) var(--space-2);
+	border-bottom: 1px solid var(--border);
+	vertical-align: top;
+}
+
+kbd {
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	background: var(--color-surface-sunken);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	padding: 0 var(--space-1);
+	white-space: nowrap;
+}
+
+/* Compact (Mobile) profile: the dialog fills the screen as a sheet (doc 16 §5 overlay contract). */
+@media (max-width: 720px) {
+	.dialog-backdrop {
+		padding: 0;
+		align-items: stretch;
+	}
+	.dialog {
+		width: 100vw;
+		max-width: 100vw;
+		height: 100vh;
+		max-height: 100vh;
+		border-radius: var(--radius-none);
+		border: none;
+	}
+}
+
+/* Tabs primitive (UX-A11Y-012 tabs). */
+.tablist {
+	display: flex;
+	gap: var(--space-1-5);
+	flex-wrap: wrap;
+	border-bottom: 1px solid var(--border);
+	margin-bottom: var(--space-3);
+}
+.tab {
+	padding: var(--space-1-5) var(--space-3);
+	border: 1px solid transparent;
+	border-bottom: none;
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--muted);
+	cursor: pointer;
+	min-height: var(--density-button-height);
+}
+.tab.selected {
+	border-color: var(--border);
+	background: var(--card);
+	color: var(--accent);
+	font-weight: var(--font-weight-semibold);
+}
+
+/* Disclosure primitive (UX-A11Y-012 disclosure). */
+.disclosure-trigger {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1-5);
+	min-height: var(--touch-target-floor);
+	padding: var(--space-1) 0;
+	border: none;
+	background: transparent;
+	color: var(--fg);
+	cursor: pointer;
+	font: inherit;
+}
+.disclosure-marker {
+	color: var(--muted);
+}
+.disclosure-region {
+	margin-top: var(--space-2);
+}
+
+/* StateBadge (UX-A11Y-007): the icon shape + visible label carry the meaning; the tone token is
+ * decorative on top, never the sole signal. Reuses the .status-chip grammar from UX-VIS. */
+.state-badge {
+	gap: var(--space-1);
 }

@@ -26,6 +26,9 @@
 	import LocalNav from '$lib/gui/LocalNav.svelte';
 	import ContextualNav from '$lib/gui/ContextualNav.svelte';
 	import QuickAccess from '$lib/gui/QuickAccess.svelte';
+	import HelpTrigger from '$lib/gui/HelpTrigger.svelte';
+	import LiveRegion from '$lib/gui/a11y/LiveRegion.svelte';
+	import { LiveAnnouncer, provideLiveAnnouncer } from '$lib/gui/a11y/live-announcer.svelte';
 	import './styles.css';
 
 	const { children } = $props();
@@ -66,6 +69,13 @@
 	// Desktop is user-overridable. The boot script applies it before first paint.
 	const densityStore = new DensityStore();
 	provideDensity(densityStore);
+
+	// UX-A11Y §6.2: the single live announcer for the app. Surfaces call announcer.announce(text,
+	// politeness) instead of mounting their own aria-live nodes; LiveRegion renders the one polite +
+	// one assertive region. Callers pass visibility-filtered text so ARIA never leaks DM-only data
+	// (UX-A11Y-008 / AP-1).
+	const announcer = new LiveAnnouncer();
+	provideLiveAnnouncer(announcer);
 
 	onMount(() => {
 		void runtime.load();
@@ -207,8 +217,14 @@
 				{/each}
 			</select>
 		</label>
+		<!-- UX-A11Y-014 (WCAG 3.2.6): the Help trigger renders in the shared header, so it appears in
+		     the same top-bar position on every route, and is reachable by `?` / `F1` everywhere. -->
+		<HelpTrigger />
 	</nav>
 </header>
+
+<!-- UX-A11Y §6.2: the product-wide polite + assertive live regions, written only by the announcer. -->
+<LiveRegion />
 
 {#if showSubheader}
 	<div class="nav-subheader" data-testid="nav-subheader">

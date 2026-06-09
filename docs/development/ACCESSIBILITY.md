@@ -178,11 +178,14 @@ Machine-readable source of truth: `apps/v2/app/tests/a11y/known-violations.json`
 remediation date passes, both the axe gate and the report fail until the issue is resolved or the
 date is extended with owner approval (UX-A11Y-001 AC3 / UX-A11Y-017 AC4).
 
-| axe rule      | Route      | Impact  | WCAG  | Owner (epic)                                       | Target date | Note                                                                                                                                                                               |
-| ------------- | ---------- | ------- | ----- | -------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `target-size` | `/session` | serious | 2.5.8 | UX-A11Y-interaction-primitives-and-help-compliance | 2026-09-30  | Native checkboxes in session recipient/member lists fall below 24x24 CSS px on the mobile profile. Comprehensive touch-target sizing is UX-A11Y-010 (interaction-primitives epic). |
+The register is currently **empty** — there are no approved open violations. The axe gate passes on
+all 7 primary routes × both profiles with zero critical and zero serious findings.
 
-Resolved during this epic (no longer in the register):
+| axe rule | Route | Impact | WCAG | Owner (epic) | Target date | Note |
+| -------- | ----- | ------ | ---- | ------------ | ----------- | ---- |
+| _(none)_ |       |        |      |              |             |      |
+
+Resolved during the release-gates epic (`UX-A11Y-release-gates-and-contrast`):
 
 - `select-name` (critical, `/session`) — added `aria-label` to the Quick Reference pin-target
   `<select>` (`apps/v2/app/src/lib/gui/QuickReference.svelte`).
@@ -191,9 +194,47 @@ Resolved during this epic (no longer in the register):
   `apps/v2/app/src/lib/gui/ParticipantStatusPanel.svelte` and
   `apps/v2/app/src/lib/gui/PermissionSummary.svelte`.
 
+Resolved during the interaction-primitives epic (`UX-A11Y-interaction-primitives-and-help-compliance`,
+UX-A11Y-010, WCAG 2.5.8):
+
+- `target-size` (serious, `/session`) — native checkboxes/radios now size to the 24px CSS px target
+  floor on every profile via a global rule in `apps/v2/app/src/routes/styles.css` (`--touch-target-floor`).
+  This was the inherited known-violation deferred to this epic; its register entry has been removed
+  and the axe gate is clean without it. Verified by `pnpm a11y:axe` + `pnpm a11y:report` (0 serious)
+  and `apps/v2/app/tests/e2e/touch-targets.spec.ts` (both profiles).
+
 ### 9.4 Manual-only criteria
 
 Criteria not automatable by axe (1.4.11 graphical contrast spot-checks, focus-ring design review,
 motion behaviour, and the screen-reader QA checklist) are recorded as release evidence per
 `docs/development/ACCESSIBILITY_QA.md` (V2 Surfaces section): criterion, manual result, tester, scope,
 and date.
+
+### 9.5 Accessible interaction primitives (UX-A11Y-interaction-primitives-and-help-compliance)
+
+The reusable a11y building blocks live in `apps/v2/app/src/lib/gui/a11y/`. Surfaces consume these
+rather than re-implementing the ARIA/keyboard wiring (UX-A11Y-012 "no bespoke implementations"):
+
+- `focus-trap.ts` — the one modal focus trap: Tab cycles inside, Escape escapes (AP-3), focus
+  restores to the trigger (UX-A11Y-009). Used by `Dialog.svelte` and the Help dialog.
+- `roving-tabindex.ts` — arrow/Home/End/typeahead engine for tabs/menus/trees/grids; only one item
+  holds `tabindex=0` (no positive tabindex, AP-8). Powers `Tabs.svelte`.
+- `keyboard.ts` — activation keys, Ctrl/Cmd-equivalent shortcut matcher, the `?`/`F1` help key, and
+  the product-wide `KEYBOARD_SHORTCUTS` reference (UX-A11Y-002 / UX-A11Y-014).
+- `drag-alternative.ts` — `DragController` + `nudge`/`buildMoveCommand`: pointer drag and the
+  keyboard/menu alternative dispatch the IDENTICAL command; Escape/release-away cancels and restores
+  the origin (UX-A11Y-013 WCAG 2.5.7, pointer-cancellation WCAG 2.5.2).
+- `state-indicator.ts` + `StateBadge.svelte` — every semantic state resolves to a text label (+ icon
+  shape) so meaning survives grayscale; `fieldErrorAttributes` wires `aria-invalid`/`aria-describedby`
+  (UX-A11Y-007 WCAG 1.4.1).
+- `redundant-entry.ts` — `SessionEntryCache` pre-fills already-entered values (WCAG 3.3.7);
+  `isAccessibleAuthMethod` rejects a cognitive-test-only auth path (WCAG 3.3.8) — UX-A11Y-015.
+- `live-announcer.svelte.ts` + `LiveRegion.svelte` — the single polite/assertive announcer (§6.2),
+  mounted once in the shell; callers pass visibility-filtered text so ARIA never leaks DM-only data.
+- `Dialog.svelte`, `Tabs.svelte`, `Disclosure.svelte` — APG dialog/tabs/disclosure components built on
+  the utilities above (UX-A11Y-012).
+
+Shell wiring: the consistent Help trigger (`apps/v2/app/src/lib/gui/HelpTrigger.svelte`) renders in the
+shared top bar (same position on every route) and opens the shortcut reference in the `Dialog`
+primitive (UX-A11Y-014). Focus-ring tokens (`--focus-ring-*`) drive a global `:focus-visible` baseline
+in `styles.css` so every interactive control has a conformant ring (UX-A11Y-009; AP-10).
