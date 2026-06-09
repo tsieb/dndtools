@@ -69,6 +69,18 @@ describe('PLAT-016: web/PWA cached read/write support matrix', () => {
 		expect(assets?.evictionRecovery.toLowerCase()).toContain('missing');
 	});
 
+	// PLAT-004 AC5: a pending SW update must preserve local writes and report the reload
+	// requirement before activation. These are hard content requirements on the declared
+	// cache-update policy, not merely a non-empty string.
+	it('AC5 (PLAT-004): SW update policy preserves local writes and reports reload before activation', () => {
+		for (const domain of WEB_SUPPORT_MATRIX.domains) {
+			// Both invariants must be stated: (1) local writes are NOT discarded by an update, and
+			// (2) the user is informed of any reload requirement BEFORE the SW activates.
+			expect(domain.cachePolicy.toLowerCase()).toContain('preserves current local writes');
+			expect(domain.cachePolicy.toLowerCase()).toContain('reload requirement');
+		}
+	});
+
 	// AC5 / fail-closed: native-only features report unsupported, never a native path.
 	it('lists native-only features as unsupported with an action-oriented reason (AC5)', () => {
 		const ids = WEB_SUPPORT_MATRIX.unsupportedFeatures.map((f) => f.id).sort();
