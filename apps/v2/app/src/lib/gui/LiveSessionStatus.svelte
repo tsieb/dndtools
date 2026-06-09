@@ -3,6 +3,7 @@
 		buildPresenceEntry,
 		deriveLiveSessionStatus,
 		projectSessionPresence,
+		sessionStatusAnnouncement,
 		type PresenceEntry,
 		type PresenceState,
 	} from '@dndtools/v2-core';
@@ -56,7 +57,23 @@
 	const projection = $derived(
 		actor ? projectSessionPresence(presence, runtime.state.permissions, actor.id) : null,
 	);
+
+	// A11Y-006 — session event announcement. Nominal 'live' state is silent (sessionStatusAnnouncement
+	// returns '' for the happy path) so the live region is only updated on degraded/stale transitions.
+	let sessionAnnouncement = $state('');
+	let _prevSessionKey = $state<string | null>(null);
+	$effect(() => {
+		const key = `${liveStatus.status}|${liveStatus.stale}`;
+		if (key === _prevSessionKey) return;
+		_prevSessionKey = key;
+		sessionAnnouncement = sessionStatusAnnouncement(liveStatus.status, liveStatus.stale);
+	});
 </script>
+
+<!-- A11Y-006 — session event live announcement. Nominal 'live' state is silent; stale/reconnecting
+     transitions are announced once per distinct status change so the participant knows their view
+     may be behind without being spammed on every render. -->
+<div class="visually-hidden" aria-live="polite" aria-atomic="true" data-testid="session-announcement">{sessionAnnouncement}</div>
 
 {#if isParticipant && actor}
 	<section data-testid="live-session-status" aria-label="Live session status and presence">

@@ -4,6 +4,9 @@
 		getDmSyncLineage,
 		getSyncFreshness,
 		getSyncStatus,
+		shouldAnnounceSyncChange,
+		syncStatusAnnouncement,
+		syncStatusKey,
 		type DiagnosticsContextInput,
 	} from '@dndtools/v2-core';
 	import { useRuntime } from '$lib/state/runtime-context';
@@ -49,6 +52,24 @@
 		}),
 	);
 
+	// A11Y-006 AC2 — debounced sync-state live announcement. Rapid-fire sync events (e.g. bursts
+	// of operation acknowledgements) produce the same health/online/pending summary; the debounce
+	// logic in the core collapses these so the live region is updated at most once per distinct
+	// state change within the debounce window. We track the last announced key and timestamp so
+	// the shouldAnnounceSyncChange policy can suppress duplicates.
+	let syncAnnouncement = $state('');
+	let _lastSyncKey = $state<string | null>(null);
+	let _lastSyncMs = $state(0);
+	$effect(() => {
+		if (status.kind !== 'sync-status') return;
+		const nextKey = syncStatusKey(status.health, status.online, status.pendingOutboundCount);
+		const nowMs = Date.now();
+		if (!shouldAnnounceSyncChange(_lastSyncKey, nextKey, _lastSyncMs, nowMs)) return;
+		_lastSyncKey = nextKey;
+		_lastSyncMs = nowMs;
+		syncAnnouncement = syncStatusAnnouncement(status.health, status.online, status.pendingOutboundCount);
+	});
+
 	let conflictNotes = $state<Record<string, string>>({});
 	let conflictError = $state<string | null>(null);
 
@@ -82,6 +103,10 @@
 		delete conflictNotes[conflictId];
 	}
 </script>
+
+<!-- A11Y-006 AC2 — debounced sync-state live announcement. Always present so AT registers it;
+     content is set only when shouldAnnounceSyncChange approves the transition (dedup + window). -->
+<div class="visually-hidden" aria-live="polite" aria-atomic="true" data-testid="sync-announcement">{syncAnnouncement}</div>
 
 {#if status.kind === 'sync-status'}
 	<section data-testid="sync-status-panel" aria-label="Sync status">

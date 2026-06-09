@@ -8,6 +8,7 @@
 		getNoteRelationshipsForActor,
 		recoveryAction,
 		renderMarkdownPreview,
+		saveStateAnnouncement,
 		searchContentForActor,
 		suggestWikilinkTargetsForActor,
 		validateMarkdownDraft,
@@ -139,6 +140,18 @@
 	const canRetrySave = $derived(lifecycle ? canRetry(lifecycle) && lifecycle.status === 'failure' : false);
 	const recovery = $derived(lifecycle ? recoveryAction(lifecycle) : 'none');
 
+	// A11Y-006 AC1 — emit a CONCISE live announcement when the save lifecycle transitions.
+	// Dedup: only re-announce when the status key changes, so a re-render that produces the same
+	// saveStatus does not re-fire the live region.
+	let saveAnnouncement = $state('');
+	let _prevSaveStatus = $state<string | null>(null);
+	$effect(() => {
+		const text = saveStateAnnouncement(saveStatus as Parameters<typeof saveStateAnnouncement>[0]);
+		if (saveStatus === _prevSaveStatus) return;
+		_prevSaveStatus = saveStatus;
+		saveAnnouncement = text;
+	});
+
 	// --- New-note form --------------------------------------------------------------------------------
 	let newTitle = $state('');
 	let newVisibility = $state<'dm-only' | 'player-visible' | 'shared'>('dm-only');
@@ -215,6 +228,12 @@
 		),
 	);
 </script>
+
+<!-- A11Y-006 AC1 — concise save-state announcements. Always present so AT registers the region;
+     text is set only on meaningful lifecycle transitions (pending → success, etc.). Failure is
+     announced as role="alert" by the inline error element; we use polite here for non-critical
+     status transitions. -->
+<div class="visually-hidden" aria-live="polite" aria-atomic="true" data-testid="note-save-announcement">{saveAnnouncement}</div>
 
 <section data-testid="notes-workbench" aria-label="Notes">
 	<h2>Notes</h2>

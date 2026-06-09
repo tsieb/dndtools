@@ -4163,6 +4163,20 @@ export {
 	resolveMotionPreference,
 } from './state/motion-preference';
 
+// A11Y-006 — LIVE ANNOUNCER POLICY. Pure, deterministic helpers that decide what to say (and
+// when to say it) for every aria-live region. Route-change announcements live in the navigation
+// module (resolveRouteAccessibility); save-state, sync-state, and session-event announcements
+// live here. All surfaces route through these helpers so text is concise, duplication is
+// suppressed, and rapid-fire events are debounced (AC2) before reaching the AT live region.
+export {
+	SYNC_DEBOUNCE_MS,
+	saveStateAnnouncement,
+	sessionStatusAnnouncement,
+	shouldAnnounceSyncChange,
+	syncStatusAnnouncement,
+	syncStatusKey,
+} from './state/live-announcements';
+
 // capability is unknown → a clearly-signalled non-playing state (never autoplay where forbidden, never an
 // indefinite retry). Device-local preferences never mutate DM-authored session audio state. Pure +
 // deterministic (no DOM, navigator, clock, or network) — identical inputs ⇒ identical decisions.
