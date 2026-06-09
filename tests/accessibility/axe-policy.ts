@@ -215,19 +215,37 @@ export function assertAxePolicy(scan: AxePolicyScan): void {
 		);
 	}
 
-	if (scan.criticalViolations.length > 0) {
-		const critical = scan.criticalViolations
+	// Fail on UNAPPROVED critical violations (approved/known critical violations are tracked in
+	// known-violations.json with a justification and targetResolutionDate and are surfaced as
+	// warnings below rather than gate failures).
+	const unapprovedCritical = scan.criticalViolations.filter((entry) => !entry.known);
+	if (unapprovedCritical.length > 0) {
+		const critical = unapprovedCritical
 			.map((entry) => `${entry.id} at ${entry.selector}`)
 			.join('; ');
-		throw new Error(`Critical accessibility violations found on ${scan.route}: ${critical}`);
+		throw new Error(
+			`Unapproved critical accessibility violations found on ${scan.route}: ${critical}`,
+		);
 	}
 
-	if (scan.seriousViolations.length > 0) {
-		const tracked = scan.seriousViolations.filter((entry) => entry.known).length;
-		const untracked = scan.seriousViolations.length - tracked;
-		// Keep serious findings visible without blocking CI.
+	// Fail on UNAPPROVED serious violations — serious findings that are not in the approved
+	// known-violations baseline are AA-blocking and must gate releases (A11Y-010 AC1).
+	const unapprovedSerious = scan.seriousViolations.filter((entry) => !entry.known);
+	if (unapprovedSerious.length > 0) {
+		const serious = unapprovedSerious
+			.map((entry) => `${entry.id} at ${entry.selector}`)
+			.join('; ');
+		throw new Error(
+			`Unapproved serious accessibility violations found on ${scan.route}: ${serious}`,
+		);
+	}
+
+	// Approved critical/serious violations are still surfaced so they remain visible in logs.
+	const knownCriticalCount = scan.criticalViolations.filter((v) => v.known).length;
+	const knownSeriousCount = scan.seriousViolations.filter((v) => v.known).length;
+	if (knownCriticalCount > 0 || knownSeriousCount > 0) {
 		console.warn(
-			`[a11y] serious violations on ${scan.route}: ${scan.seriousViolations.length} (tracked: ${tracked}, untracked: ${untracked})`,
+			`[a11y] approved (known) critical/serious violations on ${scan.route}: critical=${knownCriticalCount}, serious=${knownSeriousCount}`,
 		);
 	}
 
@@ -236,6 +254,63 @@ export function assertAxePolicy(scan: AxePolicyScan): void {
 	if (moderateCount > 0 || minorCount > 0) {
 		console.warn(
 			`[a11y] moderate/minor violations on ${scan.route}: moderate=${moderateCount}, minor=${minorCount}`,
+		);
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Manual-evidence schema (A11Y-010 AC2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Structured record for a non-automatable accessibility criterion.
+ * All four fields are required so that evidence cannot be recorded with missing
+ * provenance (tester, scope, date) or unknown outcome (result).
+ */
+export type ManualEvidenceRecord = {
+	/** The criterion identifier being evidenced (e.g. "A11Y-007", "WCAG-2.1.1"). */
+	criterionId: string;
+	/** Pass, fail, or partial — the outcome of the manual test. */
+	result: 'pass' | 'fail' | 'partial';
+	/** Name or identifier of the person who performed the test. */
+	tester: string;
+	/** Route, page, component, or feature area covered by this test. */
+	scope: string;
+	/** ISO-8601 date string (YYYY-MM-DD) on which the test was performed. */
+	date: string;
+	/** Optional free-form notes, environment details, or reproduction steps. */
+	notes?: string;
+};
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Validates that a manual-evidence record has all required fields populated and
+ * that the date is in YYYY-MM-DD format.  Throws a descriptive error for any
+ * missing or malformed field.  Call this when ingesting evidence from JSON files
+ * or test fixtures to enforce the A11Y-010 AC2 schema at the gate boundary.
+ */
+export function assertManualEvidence(record: ManualEvidenceRecord): void {
+	if (!record.criterionId || record.criterionId.trim() === '') {
+		throw new Error('ManualEvidenceRecord: criterionId is required and must not be empty.');
+	}
+	if (record.result !== 'pass' && record.result !== 'fail' && record.result !== 'partial') {
+		throw new Error(
+			`ManualEvidenceRecord: result must be "pass", "fail", or "partial" — got "${record.result}".`,
+		);
+	}
+	if (!record.tester || record.tester.trim() === '') {
+		throw new Error('ManualEvidenceRecord: tester is required and must not be empty.');
+	}
+	if (!record.scope || record.scope.trim() === '') {
+		throw new Error('ManualEvidenceRecord: scope is required and must not be empty.');
+	}
+	if (!record.date || record.date.trim() === '') {
+		throw new Error('ManualEvidenceRecord: date is required and must not be empty.');
+	}
+	if (!ISO_DATE_RE.test(record.date)) {
+		throw new Error(
+			`ManualEvidenceRecord: date must be in YYYY-MM-DD format — got "${record.date}".`,
 		);
 	}
 }

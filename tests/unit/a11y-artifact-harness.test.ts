@@ -1,8 +1,11 @@
 // @vitest-environment node
 /**
- * Unit tests for the A11Y-008 artifact-harness properties:
- *   AC1 — worker-isolated shard path derivation + merge step
- *   AC2 — deterministic fingerprints via dynamic-ID normalization
+ * Unit tests for the accessibility-gate harness properties:
+ *
+ *   A11Y-008 AC1 — worker-isolated shard path derivation + merge step
+ *   A11Y-008 AC2 — deterministic fingerprints via dynamic-ID normalization
+ *   A11Y-010 AC1 — assertAxePolicy fails on unapproved critical/serious violations
+ *   A11Y-010 AC2 — assertManualEvidence enforces result + tester + scope + date
  *
  * Does NOT require a running browser or Playwright worker.
  */
@@ -11,11 +14,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+	assertAxePolicy,
+	assertManualEvidence,
 	mergeA11yShards,
 	normalizeSelector,
 	workerShardPath,
 	type AxePolicyReport,
 	type AxePolicyScan,
+	type ManualEvidenceRecord,
 } from '../accessibility/axe-policy.js';
 
 // ---------------------------------------------------------------------------
@@ -276,5 +282,223 @@ describe('mergeA11yShards', () => {
 
 		const merged = JSON.parse(await fs.readFile(outputPath, 'utf8')) as AxePolicyReport;
 		expect(merged.scans).toHaveLength(1);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// A11Y-010 AC1 — assertAxePolicy: fail on unapproved critical/serious violations
+// ---------------------------------------------------------------------------
+
+function makeViolation(
+	overrides: Partial<AxePolicyScan['criticalViolations'][number]> = {},
+): AxePolicyScan['criticalViolations'][number] {
+	return {
+		fingerprint: 'color-contrast::/:/button.cta',
+		id: 'color-contrast',
+		impact: 'critical' as const,
+		route: '/',
+		selector: 'button.cta',
+		help: 'Elements must meet color contrast ratio thresholds',
+		helpUrl: 'https://dequeuniversity.com/rules/axe/4.10/color-contrast',
+		known: false,
+		...overrides,
+	};
+}
+
+describe('assertAxePolicy — unapproved critical violations fail the gate', () => {
+	it('throws when an unapproved critical violation is present', () => {
+		const scan = makeMinimalScan({
+			criticalViolations: [makeViolation({ known: false })],
+			counts: { critical: 1, serious: 0, moderate: 0, minor: 0, unknown: 0 },
+		});
+		expect(() => assertAxePolicy(scan)).toThrow(/Unapproved critical/);
+	});
+
+	it('does NOT throw when the critical violation is approved (known)', () => {
+		const scan = makeMinimalScan({
+			criticalViolations: [makeViolation({ known: true })],
+			counts: { critical: 1, serious: 0, moderate: 0, minor: 0, unknown: 0 },
+		});
+		expect(() => assertAxePolicy(scan)).not.toThrow();
+	});
+
+	it('error message includes the violation id and selector', () => {
+		const scan = makeMinimalScan({
+			criticalViolations: [
+				makeViolation({ id: 'image-alt', selector: 'img.hero', known: false }),
+			],
+			counts: { critical: 1, serious: 0, moderate: 0, minor: 0, unknown: 0 },
+		});
+		expect(() => assertAxePolicy(scan)).toThrow(/image-alt at img\.hero/);
+	});
+});
+
+describe('assertAxePolicy — unapproved serious violations fail the gate', () => {
+	it('throws when an unapproved serious violation is present', () => {
+		const scan = makeMinimalScan({
+			seriousViolations: [makeViolation({ impact: 'serious', known: false })],
+			counts: { critical: 0, serious: 1, moderate: 0, minor: 0, unknown: 0 },
+		});
+		expect(() => assertAxePolicy(scan)).toThrow(/Unapproved serious/);
+	});
+
+	it('does NOT throw when the serious violation is approved (known)', () => {
+		const scan = makeMinimalScan({
+			seriousViolations: [makeViolation({ impact: 'serious', known: true })],
+			counts: { critical: 0, serious: 1, moderate: 0, minor: 0, unknown: 0 },
+		});
+		expect(() => assertAxePolicy(scan)).not.toThrow();
+	});
+
+	it('error message includes the violation id and selector', () => {
+		const scan = makeMinimalScan({
+			seriousViolations: [
+				makeViolation({ id: 'label', selector: 'input#email', impact: 'serious', known: false }),
+			],
+			counts: { critical: 0, serious: 1, moderate: 0, minor: 0, unknown: 0 },
+		});
+		expect(() => assertAxePolicy(scan)).toThrow(/label at input#email/);
+	});
+
+	it('throws on the first unapproved serious even when some serious violations are approved', () => {
+		const scan = makeMinimalScan({
+			seriousViolations: [
+				makeViolation({ id: 'known-rule', impact: 'serious', known: true }),
+				makeViolation({ id: 'new-rule', impact: 'serious', known: false }),
+			],
+			counts: { critical: 0, serious: 2, moderate: 0, minor: 0, unknown: 0 },
+		});
+		expect(() => assertAxePolicy(scan)).toThrow(/Unapproved serious/);
+	});
+});
+
+describe('assertAxePolicy — expired known violations fail the gate', () => {
+	it('throws when a known violation has passed its target resolution date', () => {
+		const scan = makeMinimalScan({
+			expiredKnownViolations: [
+				{
+					id: 'color-contrast',
+					impact: 'serious',
+					routePattern: '/',
+					selector: 'button.cta',
+					justification: 'Third-party widget',
+					targetResolutionDate: '2020-01-01',
+				},
+			],
+		});
+		expect(() => assertAxePolicy(scan)).toThrow(/passed their target resolution date/);
+	});
+});
+
+describe('assertAxePolicy — gate passes when there are no unapproved violations', () => {
+	it('passes with an empty scan', () => {
+		expect(() => assertAxePolicy(makeMinimalScan())).not.toThrow();
+	});
+
+	it('passes when moderate and minor violations exist (no throw, only warn)', () => {
+		const scan = makeMinimalScan({
+			moderateViolations: [makeViolation({ impact: 'moderate', known: false })],
+			minorViolations: [makeViolation({ impact: 'minor', known: false })],
+			counts: { critical: 0, serious: 0, moderate: 1, minor: 1, unknown: 0 },
+		});
+		expect(() => assertAxePolicy(scan)).not.toThrow();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// A11Y-010 AC2 — assertManualEvidence: all four fields required
+// ---------------------------------------------------------------------------
+
+const VALID_RECORD: ManualEvidenceRecord = {
+	criterionId: 'A11Y-007',
+	result: 'pass',
+	tester: 'alice',
+	scope: '/session route — keyboard navigation',
+	date: '2026-06-09',
+};
+
+describe('assertManualEvidence — valid records pass', () => {
+	it('accepts a fully populated pass record', () => {
+		expect(() => assertManualEvidence(VALID_RECORD)).not.toThrow();
+	});
+
+	it('accepts a fail record', () => {
+		expect(() => assertManualEvidence({ ...VALID_RECORD, result: 'fail' })).not.toThrow();
+	});
+
+	it('accepts a partial record', () => {
+		expect(() => assertManualEvidence({ ...VALID_RECORD, result: 'partial' })).not.toThrow();
+	});
+
+	it('accepts a record with optional notes', () => {
+		expect(() =>
+			assertManualEvidence({ ...VALID_RECORD, notes: 'Tested with NVDA 2024.1 on Firefox 125.' }),
+		).not.toThrow();
+	});
+});
+
+describe('assertManualEvidence — missing fields throw', () => {
+	it('throws when criterionId is missing', () => {
+		expect(() => assertManualEvidence({ ...VALID_RECORD, criterionId: '' })).toThrow(
+			/criterionId is required/,
+		);
+	});
+
+	it('throws when result is an invalid value', () => {
+		expect(() =>
+			assertManualEvidence({ ...VALID_RECORD, result: 'unknown' as ManualEvidenceRecord['result'] }),
+		).toThrow(/result must be/);
+	});
+
+	it('throws when tester is missing', () => {
+		expect(() => assertManualEvidence({ ...VALID_RECORD, tester: '' })).toThrow(
+			/tester is required/,
+		);
+	});
+
+	it('throws when tester is whitespace only', () => {
+		expect(() => assertManualEvidence({ ...VALID_RECORD, tester: '   ' })).toThrow(
+			/tester is required/,
+		);
+	});
+
+	it('throws when scope is missing', () => {
+		expect(() => assertManualEvidence({ ...VALID_RECORD, scope: '' })).toThrow(
+			/scope is required/,
+		);
+	});
+
+	it('throws when date is missing', () => {
+		expect(() => assertManualEvidence({ ...VALID_RECORD, date: '' })).toThrow(
+			/date is required/,
+		);
+	});
+
+	it('throws when date is not YYYY-MM-DD format', () => {
+		expect(() => assertManualEvidence({ ...VALID_RECORD, date: '09/06/2026' })).toThrow(
+			/date must be in YYYY-MM-DD format/,
+		);
+	});
+
+	it('throws when date has wrong separator', () => {
+		expect(() => assertManualEvidence({ ...VALID_RECORD, date: '2026/06/09' })).toThrow(
+			/date must be in YYYY-MM-DD format/,
+		);
+	});
+});
+
+describe('assertManualEvidence — all four required fields verified together', () => {
+	it('verifies result, tester, scope, AND date are all enforced independently', () => {
+		const missingFields: Array<[keyof ManualEvidenceRecord, string, RegExp]> = [
+			['result', 'not-a-result' as ManualEvidenceRecord['result'], /result must be/],
+			['tester', '', /tester is required/],
+			['scope', '', /scope is required/],
+			['date', '', /date is required/],
+		];
+		for (const [field, value, pattern] of missingFields) {
+			expect(() =>
+				assertManualEvidence({ ...VALID_RECORD, [field]: value }),
+			).toThrow(pattern);
+		}
 	});
 });
