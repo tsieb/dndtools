@@ -4152,6 +4152,17 @@ export {
 // AUDIO-009/010 offline gates and adds the PLATFORM (autoplay/consent/background/routing) and PLAYER
 // (consent/mute/volume/safety) axes into ONE deterministic per-participant delivery decision. Fail closed:
 // when consent is absent, the platform can't play, the track is offline/unlicensed/out-of-scope, or
+// A11Y-005 — the SINGLE resolved motion preference state. All animated surfaces (map transitions,
+// dice effects, audio visuals, reveal effects, focus changes) consume the one resolved level
+// emitted by the shell as the `data-motion` document token. No surface reads `prefers-reduced-motion`
+// directly. The resolver is pure + deterministic; precedence is documented in the module.
+export type { MotionOverride, ResolvedMotionLevel } from './state/motion-preference';
+export {
+	MOTION_OVERRIDES,
+	isMotionOverride,
+	resolveMotionPreference,
+} from './state/motion-preference';
+
 // capability is unknown → a clearly-signalled non-playing state (never autoplay where forbidden, never an
 // indefinite retry). Device-local preferences never mutate DM-authored session audio state. Pure +
 // deterministic (no DOM, navigator, clock, or network) — identical inputs ⇒ identical decisions.

@@ -942,3 +942,42 @@ select {
 	display: grid;
 	gap: 0.35rem;
 }
+
+/* A11Y-005 — global reduced-motion gate (AC2). Two complementary mechanisms:
+   1. `@media (prefers-reduced-motion: reduce)` catches the OS preference directly for any CSS
+      animation/transition not yet covered by the JS resolver (CSS-layer fallback).
+   2. `[data-motion="reduced"]` / `[data-motion="none"]` are the tokens emitted by the shell's
+      `resolveMotionPreference` resolver (the single resolved state). When the shell sets the
+      document-level `data-motion` attribute, every surface that transitions or animates receives
+      reduced/instant behavior without making its own media-query decision.
+   Both layers suppress `animation` and `transition` to cover: reveal effects, map transitions,
+   dice effects, audio visual crossfade indicators, and focus-change scroll behaviors. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+[data-motion='reduced'],
+[data-motion='reduced'] *,
+[data-motion='reduced'] *::before,
+[data-motion='reduced'] *::after {
+	animation-duration: 0.01ms !important;
+	animation-iteration-count: 1 !important;
+	transition-duration: 0.01ms !important;
+	scroll-behavior: auto !important;
+}
+
+[data-motion='none'],
+[data-motion='none'] *,
+[data-motion='none'] *::before,
+[data-motion='none'] *::after {
+	animation: none !important;
+	transition: none !important;
+	scroll-behavior: auto !important;
+}

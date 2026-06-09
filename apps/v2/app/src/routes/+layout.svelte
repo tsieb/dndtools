@@ -7,6 +7,8 @@
 		resolveNavigationView,
 		resolveRouteAccessibility,
 		resolveRouteFocus,
+		resolveMotionPreference,
+		type MotionOverride,
 	} from '@dndtools/v2-core';
 	import { SceneRuntime, defaultEnvironment } from '$lib/canvas-runtime/runtime.svelte';
 	import { provideRuntime } from '$lib/state/runtime-context';
@@ -17,6 +19,7 @@
 	} from '$lib/platform/navigation-history.svelte';
 	import { FeatureTierStore, provideFeatureTier } from '$lib/state/feature-tier.svelte';
 	import { locationFromPath } from '$lib/state/navigation-location';
+	import { prefersReducedMotion } from '$lib/platform/capabilities';
 	import CommandPalette from '$lib/gui/CommandPalette.svelte';
 	import QuickSwitcher from '$lib/gui/QuickSwitcher.svelte';
 	import Breadcrumbs from '$lib/gui/Breadcrumbs.svelte';
@@ -44,9 +47,35 @@
 	const featureTier = new FeatureTierStore();
 	provideFeatureTier(featureTier);
 
+	// A11Y-005 — the SINGLE resolved motion preference state emitted as `data-motion` on the
+	// document root so EVERY animated surface inherits it via CSS without making its own
+	// media-query decision. The device-local user override defaults to `'no-preference'` (no UI
+	// to change it yet; the resolver logic and precedence are live). The platform probe
+	// (`prefersReducedMotion`) is the ONLY place the `prefers-reduced-motion` media query is
+	// read (PLAT-006); the OS preference change listener updates the token on OS toggle.
+	const motionOverride = $state<MotionOverride>('no-preference');
+
 	onMount(() => {
 		void runtime.load();
-		return profile.init();
+		const cleanupProfile = profile.init();
+
+		// Set the document-level `data-motion` token once on mount and re-set it whenever the
+		// OS `prefers-reduced-motion` preference changes (e.g. the user toggles the OS setting).
+		const mql =
+			typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+				? window.matchMedia('(prefers-reduced-motion: reduce)')
+				: null;
+		const applyMotionToken = () => {
+			const osReduce = mql ? mql.matches : prefersReducedMotion();
+			document.documentElement.dataset.motion = resolveMotionPreference(osReduce, motionOverride);
+		};
+		applyMotionToken();
+		mql?.addEventListener('change', applyMotionToken);
+
+		return () => {
+			cleanupProfile();
+			mql?.removeEventListener('change', applyMotionToken);
+		};
 	});
 
 	// Primary navigation reads the same actor-filtered availability API the command
