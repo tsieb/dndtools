@@ -469,3 +469,115 @@ describe('CHAR-002 — guided PC creation (validation, resume, owner-only)', () 
 		expect(listDraftsForActor(state.characters, state.permissions, OBSERVER_ACTOR.id)).toHaveLength(0);
 	});
 });
+
+// =================================================================================================
+// PERM-011 AC2 — observer receives no character data from the character query path
+//
+// AC2: "Given an observer requests character data by id, when the query resolves, then no
+// character fields are returned." The character-query path uses its own observer-blocking logic
+// (characterVisibleToActor) rather than `decideCharacterDataRead`. These tests verify that
+// getCharacterForActor / listCharactersForActor enforce the observer ceiling for every
+// character visibility level including the `shared` finalized-PC path.
+// =================================================================================================
+
+describe('PERM-011 AC2 — observer receives no character data from the character query path', () => {
+	it('getCharacterForActor returns null for an observer on a dm-only NPC (fail-closed non-leak)', () => {
+		const env = makeEnvironment();
+		const result = dispatchCommand(withActors(), env, {
+			type: 'character.quick-create',
+			actorId: DM_ACTOR.id,
+			payload: { kind: 'npc', name: 'Hidden Cultist', visibility: 'dm-only', combat: { hp: 9, maxHp: 9 } },
+		});
+		expect(result.status).toBe('accepted');
+		if (result.status !== 'accepted') return;
+		const id = lastCharacterId(result.nextState.characters);
+		// DM sees it; observer must receive null — no fields, no existence signal.
+		expect(
+			getCharacterForActor(result.nextState.characters, result.nextState.permissions, DM_ACTOR.id, id),
+		).not.toBeNull();
+		expect(
+			getCharacterForActor(result.nextState.characters, result.nextState.permissions, OBSERVER_ACTOR.id, id),
+		).toBeNull();
+		expect(
+			listCharactersForActor(result.nextState.characters, result.nextState.permissions, OBSERVER_ACTOR.id),
+		).toHaveLength(0);
+	});
+
+	it('getCharacterForActor returns null for an observer on a player-visible NPC', () => {
+		const env = makeEnvironment();
+		const result = dispatchCommand(withActors(), env, {
+			type: 'character.quick-create',
+			actorId: DM_ACTOR.id,
+			payload: { kind: 'monster', name: 'Visible Ogre', visibility: 'player-visible', combat: { hp: 20, maxHp: 20 } },
+		});
+		expect(result.status).toBe('accepted');
+		if (result.status !== 'accepted') return;
+		const id = lastCharacterId(result.nextState.characters);
+		// player-visible → a player sees it; an observer must not (PERM-011 AC2).
+		expect(
+			getCharacterForActor(result.nextState.characters, result.nextState.permissions, PLAYER_ACTOR.id, id),
+		).not.toBeNull();
+		expect(
+			getCharacterForActor(result.nextState.characters, result.nextState.permissions, OBSERVER_ACTOR.id, id),
+		).toBeNull();
+		expect(
+			listCharactersForActor(result.nextState.characters, result.nextState.permissions, OBSERVER_ACTOR.id),
+		).toHaveLength(0);
+	});
+
+	it('getCharacterForActor returns null for an observer on a shared finalized PC', () => {
+		// A finalized PC is `shared` with its creating player (sharedWith: [ownerActorId]). An
+		// observer is never in sharedWith (commands enforce player-only draft ownership), and
+		// hasGrantedCapability returns false for observers. The observer must receive null.
+		const env = makeEnvironment();
+		let state = withActors();
+		const created = dispatchCommand(state, env, {
+			type: 'character.create-draft',
+			actorId: DM_ACTOR.id,
+			payload: { ownerActorId: PLAYER_ACTOR.id },
+		});
+		expect(created.status).toBe('accepted');
+		if (created.status !== 'accepted') return;
+		state = created.nextState;
+		const draftId = Object.keys(state.characters.drafts)[0]!;
+		const steps: Array<[string, Record<string, unknown>]> = [
+			['identity', { name: 'Sir Cedric', background: 'sage' }],
+			['abilities', { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 }],
+			['class', { class: 'fighter' }],
+		];
+		for (const [stepId, values] of steps) {
+			const r = dispatchCommand(state, env, {
+				type: 'character.update-draft-step',
+				actorId: PLAYER_ACTOR.id,
+				payload: { draftId, stepId, values },
+			});
+			expect(r.status).toBe('accepted');
+			if (r.status !== 'accepted') return;
+			state = r.nextState;
+		}
+		const finalized = dispatchCommand(state, env, {
+			type: 'character.finalize-draft',
+			actorId: PLAYER_ACTOR.id,
+			payload: { draftId },
+		});
+		expect(finalized.status).toBe('accepted');
+		if (finalized.status !== 'accepted') return;
+		state = finalized.nextState;
+		const pcs = Object.values(state.characters.characters).filter((c) => c.kind === 'pc');
+		expect(pcs).toHaveLength(1);
+		const pcId = pcs[0]!.id;
+		// Sanity: the PC is shared with the creating player only.
+		expect(pcs[0]!.visibility).toBe('shared');
+		expect(pcs[0]!.sharedWith).toContain(PLAYER_ACTOR.id);
+		// The owner can see their character; an observer must receive null (PERM-011 AC2).
+		expect(
+			getCharacterForActor(state.characters, state.permissions, PLAYER_ACTOR.id, pcId),
+		).not.toBeNull();
+		expect(
+			getCharacterForActor(state.characters, state.permissions, OBSERVER_ACTOR.id, pcId),
+		).toBeNull();
+		expect(
+			listCharactersForActor(state.characters, state.permissions, OBSERVER_ACTOR.id),
+		).toHaveLength(0);
+	});
+});
