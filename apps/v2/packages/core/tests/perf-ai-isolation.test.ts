@@ -3,6 +3,7 @@ import {
 	DEFAULT_AI_ISOLATION_TOLERANCE,
 	EMPTY_MCP_POLICY_STATE,
 	classifyAiTaskOutcome,
+	computeAiTaskProgress,
 	proveCorePerfIndependentOfAiCapability,
 	proveCorePerfIndependentOfMcpState,
 	proveCorePerfIsolatedFromAi,
@@ -203,5 +204,62 @@ describe('PERF-006 AC2 — an over-limit AI/MCP task is cancelled; its output is
 			hasOutput: true,
 		});
 		expect(outcome.breach).toBe('completed-over-budget');
+	});
+});
+
+describe('PERF-006 — progress reporting: computeAiTaskProgress reports per-dimension budget fractions', () => {
+	const budget: AiTaskBudget = { maxContextItems: 100, maxOutputUnits: 1000, maxSteps: 20 };
+
+	it('a task at zero usage reports all fractions as 0 and is not exceeded', () => {
+		const report = computeAiTaskProgress(
+			{ contextItems: 0, outputUnits: 0, steps: 0 },
+			budget,
+		);
+		expect(report.contextFraction).toBe(0);
+		expect(report.outputFraction).toBe(0);
+		expect(report.stepFraction).toBe(0);
+		expect(report.overallFraction).toBe(0);
+		expect(report.anyExceeded).toBe(false);
+	});
+
+	it('overallFraction is the MAX of the three per-dimension fractions', () => {
+		// steps is the most constrained: 15/20 = 0.75; context 10/100 = 0.1; output 200/1000 = 0.2.
+		const report = computeAiTaskProgress(
+			{ contextItems: 10, outputUnits: 200, steps: 15 },
+			budget,
+		);
+		expect(report.stepFraction).toBeCloseTo(0.75);
+		expect(report.contextFraction).toBeCloseTo(0.1);
+		expect(report.outputFraction).toBeCloseTo(0.2);
+		expect(report.overallFraction).toBeCloseTo(0.75);
+		expect(report.anyExceeded).toBe(false);
+	});
+
+	it('a task at exactly the budget boundary reports fractions of 1.0 and is NOT yet exceeded', () => {
+		const report = computeAiTaskProgress(
+			{ contextItems: 100, outputUnits: 1000, steps: 20 },
+			budget,
+		);
+		expect(report.contextFraction).toBe(1);
+		expect(report.outputFraction).toBe(1);
+		expect(report.stepFraction).toBe(1);
+		expect(report.overallFraction).toBe(1);
+		expect(report.anyExceeded).toBe(false);
+	});
+
+	it('any single dimension exceeding 1.0 sets anyExceeded (scheduler must cancel)', () => {
+		// steps over by 1 (21/20 = 1.05); others within budget.
+		const report = computeAiTaskProgress(
+			{ contextItems: 10, outputUnits: 200, steps: 21 },
+			budget,
+		);
+		expect(report.stepFraction).toBeGreaterThan(1);
+		expect(report.anyExceeded).toBe(true);
+	});
+
+	it('is deterministic — identical (usage, budget) always yields the same report', () => {
+		const a = computeAiTaskProgress({ contextItems: 30, outputUnits: 500, steps: 10 }, budget);
+		const b = computeAiTaskProgress({ contextItems: 30, outputUnits: 500, steps: 10 }, budget);
+		expect(a).toEqual(b);
 	});
 });

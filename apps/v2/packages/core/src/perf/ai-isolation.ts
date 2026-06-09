@@ -428,6 +428,76 @@ export function classifyAiTaskOutcome(input: {
 	};
 }
 
+// ---------------------------------------------------------------------------------------------------
+// Progress reporting — mid-task usage fractions so the GUI can report long-running AI/MCP tasks.
+// ---------------------------------------------------------------------------------------------------
+
+/**
+ * PERF-006 — "progress reporting": the PER-DIMENSION budget fractions for an AI/MCP task AT A POINT IN
+ * TIME (mid-task or final). Each dimension (context, output, steps) reports how much of its bound has
+ * been consumed as a fraction in [0, 1]. `overallFraction` is the maximum of the three — the most
+ * constrained dimension drives when the task must be cut off. `anyExceeded` is true when any fraction
+ * exceeds 1.0 (the task is over budget; the scheduler MUST cancel it).
+ *
+ * This is intentionally a PURE READ over (usage, budget) so a scheduler can call it at any step of a
+ * running task without side-effects. Per ADR-014 the live scheduler is deferred; this is the policy
+ * shape it will consume.
+ */
+export interface AiTaskProgressReport {
+	/** Fraction of `maxContextItems` consumed: `contextItems / maxContextItems`. Clamped to [0, ∞). */
+	readonly contextFraction: number;
+	/** Fraction of `maxOutputUnits` consumed: `outputUnits / maxOutputUnits`. Clamped to [0, ∞). */
+	readonly outputFraction: number;
+	/** Fraction of `maxSteps` consumed: `steps / maxSteps`. Clamped to [0, ∞). */
+	readonly stepFraction: number;
+	/** The maximum of the three fractions — the most constrained dimension drives cutoff. */
+	readonly overallFraction: number;
+	/** True when ANY fraction exceeds 1.0; the scheduler must cancel the task immediately. */
+	readonly anyExceeded: boolean;
+}
+
+/**
+ * PERF-006 — compute the MID-TASK PROGRESS REPORT for an AI/MCP task from its CURRENT usage and its
+ * bounded-context budget. Pure + deterministic: takes no clock, performs no I/O. A fraction of 0 means
+ * no resources consumed; 1.0 means the bound is exactly met; > 1.0 means the bound is exceeded (the
+ * scheduler MUST cancel). `overallFraction` is the max of the three dimensions — the one that is
+ * closest to (or over) its ceiling drives the decision.
+ *
+ * Safe with a zero-budget bound: a max of 0 on any dimension yields a fraction of 0 when that
+ * dimension's usage is also 0, and Infinity when usage is nonzero (ensuring `anyExceeded` fires).
+ */
+export function computeAiTaskProgress(
+	usage: AiTaskUsage,
+	budget: AiTaskBudget,
+): AiTaskProgressReport {
+	const contextFraction =
+		budget.maxContextItems === 0
+			? usage.contextItems === 0
+				? 0
+				: Infinity
+			: usage.contextItems / budget.maxContextItems;
+	const outputFraction =
+		budget.maxOutputUnits === 0
+			? usage.outputUnits === 0
+				? 0
+				: Infinity
+			: usage.outputUnits / budget.maxOutputUnits;
+	const stepFraction =
+		budget.maxSteps === 0
+			? usage.steps === 0
+				? 0
+				: Infinity
+			: usage.steps / budget.maxSteps;
+	const overallFraction = Math.max(contextFraction, outputFraction, stepFraction);
+	return {
+		contextFraction,
+		outputFraction,
+		stepFraction,
+		overallFraction,
+		anyExceeded: overallFraction > 1,
+	};
+}
+
 /**
  * Convenience: the fail-closed default AI capability used by the isolation proofs and the GUI when none
  * is reported. Re-exported through the perf surface so a caller proving isolation does not have to reach
