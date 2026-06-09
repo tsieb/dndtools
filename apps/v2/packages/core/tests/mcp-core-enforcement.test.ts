@@ -10,7 +10,6 @@ import {
 	createBaselineMcpToolRegistry,
 	dispatchCommand,
 	getCharacterForActor,
-	getContentItemDetailForActor,
 	invokeMcpTool,
 	listCharactersForActor,
 	type CommandResult,

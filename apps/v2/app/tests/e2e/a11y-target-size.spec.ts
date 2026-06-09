@@ -28,7 +28,7 @@ async function waitForRoute(page: Page, route: string): Promise<void> {
 	await page.waitForTimeout(100);
 }
 
-async function sweepTargets(page: Page, route: string): Promise<string[]> {
+async function sweepTargets(page: Page, _route: string): Promise<string[]> {
 	return page.evaluate(
 		({ selector, minSize }) => {
 			const elements = Array.from(document.querySelectorAll<HTMLElement>(selector));
@@ -74,7 +74,7 @@ async function sweepTargets(page: Page, route: string): Promise<string[]> {
 }
 
 test.describe('A11Y-004 AC1: mobile touch-target sweep', () => {
-	test.beforeEach(async ({}, testInfo: TestInfo) => {
+	test.beforeEach(async (_, testInfo: TestInfo) => {
 		test.skip(
 			testInfo.project.name !== 'mobile-chromium',
 			'touch-target sweep applies to the compact (mobile) profile only',

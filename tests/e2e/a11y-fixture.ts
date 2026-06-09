@@ -23,7 +23,7 @@ test.afterEach(async ({ page }, testInfo) => {
 // parallel workers cannot clobber each other (CODEX-PR12-A11Y-REPORT-RACE).
 // The shards are merged into the final report by the globalTeardown in
 // tests/e2e/a11y-merge-teardown.ts after all workers have finished.
-test.afterAll(async ({}, testInfo) => {
+test.afterAll(async (_, testInfo) => {
 	const outputPath = process.env.A11Y_REPORT_PATH;
 	if (!outputPath) return;
 	await reporter.write(workerShardPath(outputPath, testInfo.workerIndex));
