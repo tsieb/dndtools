@@ -2383,11 +2383,15 @@ export {
 // archive path, a note/object id, a folder name) passes BEFORE any read/write: traversal, NUL bytes,
 // control characters, length, unsupported schemes, absolute paths — plus the defence-in-depth vault
 // CONTAINMENT resolver that rejects an escape even if earlier validation missed it (SEC-002 AC2).
+// `checkVaultContainment` is the containment gate extracted as a standalone export so tests can
+// directly exercise the `escapes-vault-root` path independently of the input-validation gate (AC2
+// independence proof).
 export type { PathRejection, PathRejectionReason, PathValidationResult } from './security/path-safety';
 export {
 	MAX_PATH_LENGTH,
 	MAX_PATH_SEGMENT_LENGTH,
 	PATH_SAFETY_SCHEMA_VERSION,
+	checkVaultContainment,
 	isSafePathInput,
 	resolveWithinVaultRoot,
 	validateIdInput,

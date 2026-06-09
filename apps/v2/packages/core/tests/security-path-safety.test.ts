@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	MAX_PATH_LENGTH,
 	MAX_PATH_SEGMENT_LENGTH,
+	checkVaultContainment,
 	isSafePathInput,
 	resolveWithinVaultRoot,
 	validateIdInput,
@@ -129,5 +130,37 @@ describe('SEC-002 path-safety — vault containment is a SECOND gate (AC2)', () 
 	it('rejects an escape attempt the path validator would also catch (defence in depth)', () => {
 		// The relative validator catches the `..` first; the reason is path-traversal.
 		expect(rejectionReason(resolveWithinVaultRoot('/vault', '../etc/passwd'))).toBe('path-traversal');
+	});
+});
+
+describe('SEC-002 path-safety — containment gate fires INDEPENDENTLY of input validation (AC2)', () => {
+	// These tests call checkVaultContainment directly — bypassing validatePathInput — to prove that
+	// the `escapes-vault-root` rejection is reachable as an INDEPENDENT second gate (SEC-002 AC2:
+	// "even if earlier validation missed it"). The reason is `escapes-vault-root`, not `path-traversal`,
+	// proving the containment logic is a separate code path and not dead code.
+
+	it('rejects a `..` escape via checkVaultContainment even when input validation is bypassed', () => {
+		// Direct call — no validatePathInput. Demonstrates AC2 independence.
+		expect(rejectionReason(checkVaultContainment('/vault', '../etc/passwd'))).toBe('escapes-vault-root');
+	});
+
+	it('rejects a multi-hop escape via checkVaultContainment', () => {
+		expect(rejectionReason(checkVaultContainment('/vault/data', '../../etc/shadow'))).toBe(
+			'escapes-vault-root',
+		);
+	});
+
+	it('accepts a safe path via checkVaultContainment', () => {
+		const result = checkVaultContainment('/vault', 'lore/Highmoor.md');
+		expect(result.ok).toBe(true);
+		if (!result.ok) throw new Error('expected acceptance');
+		expect(result.value).toBe('/vault/lore/Highmoor.md');
+	});
+
+	it('resolveWithinVaultRoot composes BOTH gates: input-traversal is caught by gate 1, escapes-vault-root by gate 2', () => {
+		// Gate 1 fires when validatePathInput detects `..`.
+		expect(rejectionReason(resolveWithinVaultRoot('/vault', '../etc/passwd'))).toBe('path-traversal');
+		// Gate 2 (checkVaultContainment alone) fires with the INDEPENDENT `escapes-vault-root` reason.
+		expect(rejectionReason(checkVaultContainment('/vault', '../etc/passwd'))).toBe('escapes-vault-root');
 	});
 });

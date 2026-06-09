@@ -87,7 +87,7 @@ export const SECURITY_BOUNDARIES: readonly SecurityBoundaryDefinition[] = Object
 		id: 'storage-path-containment',
 		invariant:
 			'Every path-like input is validated (traversal/NUL/scheme/length/absolute) before any read or write, and a resolved path that escapes the vault root is rejected even if earlier validation missed it.',
-		guardSurface: 'validatePathInput, resolveWithinVaultRoot',
+		guardSurface: 'validatePathInput, resolveWithinVaultRoot, checkVaultContainment',
 		coverageTest: 'apps/v2/packages/core/tests/security-path-safety.test.ts',
 		requirementIds: ['SEC-002', 'SEC-008'],
 	},
