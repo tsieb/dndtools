@@ -81,6 +81,28 @@ describe('SEC-003 content-safety — dangerous URL schemes are neutralized (AC1)
 		expect(safeUrl(`java${TAB}script:alert(1)`)).toBe(NEUTRALIZED_URL);
 	});
 
+	it('defeats HTML-entity-encoded scheme smuggling (decimal/hex numeric + &colon;)', () => {
+		// `&#106;` = `j`, `&#x6a;` = `j` — both reconstruct `javascript:` after a single decode pass.
+		expect(isSafeUrl('&#106;avascript:alert(1)')).toBe(false);
+		expect(isSafeUrl('&#x6a;avascript:alert(1)')).toBe(false);
+		// `&colon;` reconstructs the `:` so the whole token becomes the `javascript:` scheme.
+		expect(isSafeUrl('javascript&colon;alert(1)')).toBe(false);
+		expect(isSafeUrl('JAVASCRIPT&COLON;alert(1)')).toBe(false);
+		// Entity-encoded data: URL is also neutralized.
+		expect(isSafeUrl('&#100;ata:text/html,<script>1</script>')).toBe(false);
+		expect(safeUrl('&#106;avascript:alert(1)')).toBe(NEUTRALIZED_URL);
+		// A markdown link with an entity-smuggled scheme is neutralized end to end.
+		expect(neutralizeMarkdownLinks('[x](&#106;avascript:alert)')).toBe(`[x](${NEUTRALIZED_URL})`);
+	});
+
+	it('does NOT over-decode: a double-encoded value that stays inert after one decode stays safe', () => {
+		// `&amp;#106;avascript:` decodes (one pass) to the literal text `&#106;avascript:`, NOT `javascript:` —
+		// it carries no live scheme, so treating it as a (relative) safe target matches renderer behavior.
+		expect(isSafeUrl('&amp;#106;avascript:note')).toBe(true);
+		// A legitimate query string with an ampersand is untouched.
+		expect(isSafeUrl('https://example.com/?a=1&b=2')).toBe(true);
+	});
+
 	it('preserves SAFE link targets (http/https/mailto/relative/fragment/wikilink)', () => {
 		expect(isSafeUrl('https://example.com')).toBe(true);
 		expect(isSafeUrl('http://example.com/x')).toBe(true);

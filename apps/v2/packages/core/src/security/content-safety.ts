@@ -48,17 +48,37 @@ const HTML_COMMENT_PATTERN = /<!--[\s\S]*?-->/g;
 const MARKDOWN_LINK_PATTERN = /(!?)\[([^\]]*)\]\(([^)]*)\)/g;
 
 /**
+ * SEC-003 — decode the HTML character references an attacker can use to SMUGGLE a dangerous scheme past a
+ * naive `scheme:` check: `&#106;avascript:` (decimal `j`), `&#x6a;avascript:` (hex `j`), and
+ * `javascript&colon;alert(1)` (named `:`). We decode the numeric references and the `&colon;` named
+ * reference — the forms that can reconstruct a `scheme:` prefix — then the caller re-runs the scheme
+ * allowlist on the decoded text. This mirrors a real renderer's SINGLE entity-decode pass, so a
+ * double-encoded value (`&amp;#106;…`) that stays inert after one decode also stays inert here. Fail
+ * closed: decoding only ADDS characters the scheme check can catch; it never makes an unsafe URL safe.
+ */
+function decodeSchemeSmugglingEntities(input: string): string {
+	const fromCode = (code: number): string =>
+		Number.isFinite(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : '';
+	return input
+		.replace(/&#x([0-9a-fA-F]+);?/g, (_m, hex: string) => fromCode(Number.parseInt(hex, 16)))
+		.replace(/&#(\d+);?/g, (_m, dec: string) => fromCode(Number.parseInt(dec, 10)))
+		.replace(/&colon;/gi, ':');
+}
+
+/**
  * SEC-003 — is a URL target SAFE to use as a link/image href? A target with NO scheme (relative path,
  * `#fragment`, `//` is treated as scheme-relative and allowed only via http context — see below) is safe;
  * a target with a scheme is safe ONLY when that scheme is in {@link SAFE_URL_SCHEMES}. FAILS CLOSED on
  * anything ambiguous. The check is robust to the classic evasions: leading/embedded whitespace and
- * control characters inside the scheme (`java\tscript:`), and mixed case (`JaVaScRiPt:`).
+ * control characters inside the scheme (`java\tscript:`), mixed case (`JaVaScRiPt:`), and HTML
+ * entity-encoded schemes (`&#106;avascript:`, `javascript&colon;`).
  */
 export function isSafeUrl(rawUrl: string): boolean {
 	if (typeof rawUrl !== 'string') return false;
-	// Strip ALL whitespace + control characters before scheme detection: `java\t\nscript:` is `javascript:`.
+	// Decode scheme-smuggling HTML entities, then strip ALL whitespace + control characters before scheme
+	// detection so `java\t\nscript:`, `&#106;avascript:`, and `javascript&colon;` all collapse to `javascript:`.
 	// eslint-disable-next-line no-control-regex
-	const collapsed = rawUrl.replace(/[\s\x00-\x1f\x7f]/g, '');
+	const collapsed = decodeSchemeSmugglingEntities(rawUrl).replace(/[\s\x00-\x1f\x7f]/g, '');
 	if (collapsed === '') return true; // an empty target is inert, not dangerous
 	// A scheme is `name:` at the very start. No scheme ⇒ relative/fragment ⇒ safe.
 	const schemeMatch = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(collapsed);
