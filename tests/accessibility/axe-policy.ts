@@ -85,8 +85,35 @@ function routeFromUrl(rawUrl: string): string {
 	}
 }
 
+/**
+ * Normalizes dynamic fixture IDs from an axe-core CSS selector so that the same
+ * logical violation produces the same fingerprint across runs with different fixture
+ * UUIDs, Radix UI auto-IDs, or other auto-generated numeric suffixes.
+ * Addresses defect CODEX-PR12-AXE-FINGERPRINTS.
+ */
+export function normalizeSelector(selector: string): string {
+	return (
+		selector
+			// Full UUIDs (e.g., 550e8400-e29b-41d4-a716-446655440000)
+			.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<uuid>')
+			// Radix UI auto-generated IDs (e.g., :r5:, :r1a:, :r0H:)
+			.replace(/:r[0-9a-zA-Z]+:/g, '<rid>')
+			// Long numeric sequences of 6+ digits (timestamps, high-entropy numeric IDs)
+			.replace(/\b\d{6,}\b/g, '<num>')
+	);
+}
+
+/**
+ * Returns the per-worker shard output path for a given base output path and Playwright
+ * worker index.  Each parallel worker writes to its own shard; the shards are merged by
+ * mergeA11yShards() after all workers finish.  Addresses defect CODEX-PR12-A11Y-REPORT-RACE.
+ */
+export function workerShardPath(outputPath: string, workerIndex: number): string {
+	return `${outputPath}.worker-${workerIndex}.json`;
+}
+
 function buildFingerprint(id: string, route: string, selector: string): string {
-	return `${id}::${route}::${selector}`;
+	return `${id}::${route}::${normalizeSelector(selector)}`;
 }
 
 function isKnownViolation(
@@ -258,4 +285,71 @@ export function createAxePolicyReporter(): {
 			await fs.writeFile(`${outputPath}`, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 		},
 	};
+}
+
+/**
+ * Merges all per-worker shard files written by workerShardPath() into a single
+ * consolidated report at outputPath.  Call this from a Playwright globalTeardown after
+ * all workers have finished.  Addresses defect CODEX-PR12-A11Y-REPORT-RACE.
+ */
+export async function mergeA11yShards(outputPath: string): Promise<void> {
+	const dir = path.dirname(outputPath);
+	const base = path.basename(outputPath);
+
+	let entries: string[];
+	try {
+		entries = await fs.readdir(dir);
+	} catch {
+		// Output directory does not exist yet — nothing to merge.
+		return;
+	}
+
+	// Match "a11y-report.json.worker-0.json", "a11y-report.json.worker-1.json", etc.
+	const escapedBase = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const shardPattern = new RegExp(`^${escapedBase}\\.worker-\\d+\\.json$`);
+	const shardFiles = entries.filter((e) => shardPattern.test(e)).sort();
+
+	if (shardFiles.length === 0) return;
+
+	const allScans: AxePolicyScan[] = [];
+	for (const shardFile of shardFiles) {
+		try {
+			const raw = await fs.readFile(path.join(dir, shardFile), 'utf8');
+			const shard = JSON.parse(raw) as AxePolicyReport;
+			allScans.push(...shard.scans);
+		} catch {
+			// Skip unreadable shards gracefully.
+		}
+	}
+
+	const violations: AxeViolationRecord[] = allScans.flatMap((scan) => [
+		...scan.criticalViolations,
+		...scan.seriousViolations,
+		...scan.moderateViolations,
+		...scan.minorViolations,
+		...scan.unknownViolations,
+	]);
+
+	const counts: Record<ImpactLevel, number> = {
+		critical: 0,
+		serious: 0,
+		moderate: 0,
+		minor: 0,
+		unknown: 0,
+	};
+	for (const violation of violations) {
+		counts[violation.impact] += 1;
+	}
+
+	const merged: AxePolicyReport = {
+		version: 1,
+		generatedAt: new Date().toISOString(),
+		scans: allScans,
+		violations,
+		counts,
+		expiredKnownViolations: allScans.flatMap((scan) => scan.expiredKnownViolations),
+	};
+
+	await fs.mkdir(dir, { recursive: true });
+	await fs.writeFile(outputPath, `${JSON.stringify(merged, null, 2)}\n`, 'utf8');
 }

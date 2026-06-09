@@ -3,6 +3,7 @@ import {
 	assertAxePolicy,
 	createAxePolicyReporter,
 	runAxePolicyScan,
+	workerShardPath,
 } from '../accessibility/axe-policy.js';
 
 export const test = base;
@@ -18,8 +19,12 @@ test.afterEach(async ({ page }, testInfo) => {
 	reporter.record(scan);
 });
 
-test.afterAll(async () => {
+// Each worker writes to an isolated shard keyed by its worker index so that
+// parallel workers cannot clobber each other (CODEX-PR12-A11Y-REPORT-RACE).
+// The shards are merged into the final report by the globalTeardown in
+// tests/e2e/a11y-merge-teardown.ts after all workers have finished.
+test.afterAll(async ({}, testInfo) => {
 	const outputPath = process.env.A11Y_REPORT_PATH;
 	if (!outputPath) return;
-	await reporter.write(outputPath);
+	await reporter.write(workerShardPath(outputPath, testInfo.workerIndex));
 });

@@ -5,6 +5,7 @@ import {
 	assertAxePolicy,
 	createAxePolicyReporter,
 	runAxePolicyScan,
+	workerShardPath,
 } from '../accessibility/axe-policy.js';
 import { createTempVaultDir, launchDesktopApp, closeDesktopApp } from './helpers/desktop-app.js';
 
@@ -488,9 +489,11 @@ test.describe('Desktop accessibility compliance @critical @a11y', () => {
 		}
 	});
 
-	test.afterAll(async () => {
+	// Write to a worker-indexed shard so parallel workers cannot race on the same
+	// file (CODEX-PR12-A11Y-REPORT-RACE).  Shards are merged by globalTeardown.
+	test.afterAll(async ({}, testInfo) => {
 		const reportPath = process.env.A11Y_REPORT_PATH;
 		if (!reportPath) return;
-		await axeReporter.write(reportPath);
+		await axeReporter.write(workerShardPath(reportPath, testInfo.workerIndex));
 	});
 });

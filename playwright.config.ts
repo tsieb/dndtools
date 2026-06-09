@@ -7,6 +7,8 @@ export default defineConfig({
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
 	workers: process.env.CI ? 1 : undefined,
+	// Merge per-worker a11y shard files after all workers finish (A11Y-008 / CODEX-PR12-A11Y-REPORT-RACE).
+	globalTeardown: './tests/e2e/a11y-merge-teardown.ts',
 	reporter: 'html',
 	use: {
 		baseURL: 'http://localhost:4173',
