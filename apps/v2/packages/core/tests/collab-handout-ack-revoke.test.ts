@@ -211,6 +211,67 @@ describe('COLLAB-007 handout acknowledgement + revocation', () => {
 		expect(handout.revocations.some((r) => r.recipientActorId === PLAYER_ACTOR.id)).toBe(false);
 	});
 
+	it('AC3: offline delivery and revocation record deliveryStatus queued; replay order + persistent grant determine final visibility', () => {
+		const env = makeEnvironment();
+		const { state, sceneId } = activeSession(env);
+
+		// Deliver OFFLINE → deliveryStatus must be 'queued'.
+		const delivered = accept(
+			deliver(state, env, sceneId, [PLAYER_ACTOR.id], { connectionState: 'offline' }),
+		).nextState;
+		const handoutId = Object.keys(delivered.session.handouts)[0]!;
+		const handoutAfterDeliver = delivered.session.handouts[handoutId]!;
+		expect(handoutAfterDeliver.deliveries[0]!.deliveryStatus).toBe('queued');
+
+		// Despite the 'queued' flag, the player immediately sees the handout in local state.
+		expect(getHandoutForActor(delivered.session, delivered.permissions, PLAYER_ACTOR.id, handoutId).kind).toBe(
+			'available',
+		);
+
+		// Revoke OFFLINE → deliveryStatus on the op must also be 'queued'; player is sealed.
+		const revoked = accept(
+			dispatch(delivered, env, {
+				type: 'session.revoke-handout',
+				actorId: DM_ACTOR.id,
+				payload: { handoutId, connectionState: 'offline' },
+			}),
+		).nextState;
+		expect(getHandoutForActor(revoked.session, revoked.permissions, PLAYER_ACTOR.id, handoutId)).toEqual({
+			kind: 'unavailable',
+		});
+
+		// Re-deliver OFFLINE (recovery order) → seal cleared; player sees it again; delivery status queued.
+		const redelivered = accept(
+			deliver(revoked, env, sceneId, [PLAYER_ACTOR.id], { handoutId, connectionState: 'offline' }),
+		).nextState;
+		expect(getHandoutForActor(redelivered.session, redelivered.permissions, PLAYER_ACTOR.id, handoutId).kind).toBe(
+			'available',
+		);
+		const ho = redelivered.session.handouts[handoutId]!;
+		const lastDelivery = ho.deliveries[ho.deliveries.length - 1]!;
+		expect(lastDelivery.deliveryStatus).toBe('queued');
+		expect(ho.revocations.some((r) => r.recipientActorId === PLAYER_ACTOR.id)).toBe(false);
+
+		// Persistent grant: deliver offline with persistent, revoke offline → retained.
+		const persistentDelivered = accept(
+			deliver(state, env, sceneId, [PLAYER_ACTOR.id], {
+				persistentRecipientActorIds: [PLAYER_ACTOR.id],
+				connectionState: 'offline',
+			}),
+		).nextState;
+		const persistentId = Object.keys(persistentDelivered.session.handouts)[0]!;
+		const revokedPersistent = accept(
+			dispatch(persistentDelivered, env, {
+				type: 'session.revoke-handout',
+				actorId: DM_ACTOR.id,
+				payload: { handoutId: persistentId, connectionState: 'offline' },
+			}),
+		).nextState;
+		expect(
+			getHandoutForActor(revokedPersistent.session, revokedPersistent.permissions, PLAYER_ACTOR.id, persistentId).kind,
+		).toBe('available');
+	});
+
 	it('fails closed: a player cannot revoke; the DM cannot acknowledge; persistent must be a recipient', () => {
 		const env = makeEnvironment();
 		const { state, sceneId } = activeSession(env);
