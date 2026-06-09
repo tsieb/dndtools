@@ -18,6 +18,13 @@ const ABSOLUTE_PATH_PATTERN = /(^|\s)(file:\/\/\S+|[a-zA-Z]:\\[^\s]+|\/[^\s]+\/[
 // Common secret-shaped tokens embedded in free text.
 const BEARER_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi;
 
+// JWT-shaped tokens: three dot-separated base64url segments whose header always begins with
+// eyJ (the base64url encoding of `{"` — every standard JWT header is a JSON object). This
+// catches raw JWTs NOT prefixed with `Bearer` that may appear in sync-source detail fields,
+// error messages, or MCP response context strings.  The eyJ prefix is highly reliable and
+// the two-dot requirement keeps false-positive risk negligible in normal prose.
+const JWT_VALUE_PATTERN = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g;
+
 function isSecretKey(key: string): boolean {
 	return SECRET_KEY_PATTERN.test(key);
 }
@@ -27,9 +34,13 @@ export function redactPaths(value: string): string {
 	return value.replace(ABSOLUTE_PATH_PATTERN, (_match, lead: string) => `${lead}${REDACTED_PATH}`);
 }
 
-/** Redact secret-shaped tokens (bearer tokens) found in free text. */
+/** Redact secret-shaped tokens (bearer tokens and raw JWTs) found in free text. */
 export function redactSecretsInText(value: string): string {
-	return value.replace(BEARER_PATTERN, `Bearer ${REDACTED_SECRET}`);
+	// Apply Bearer pattern first so `Bearer eyJ…` becomes `Bearer [redacted]` in one pass,
+	// then catch any remaining standalone JWT-shaped tokens (eyJxxx.yyy.zzz not bearer-prefixed).
+	return value
+		.replace(BEARER_PATTERN, `Bearer ${REDACTED_SECRET}`)
+		.replace(JWT_VALUE_PATTERN, REDACTED_SECRET);
 }
 
 function redactStringValue(value: string): string {

@@ -108,3 +108,55 @@ describe('SEC-004 AC1/AC2 — a planted secret never crosses a durable/outbound 
 		expect(JSON.stringify(scrubbed)).not.toContain(PLANTED_BEARER);
 	});
 });
+
+describe('SEC-004 AC1 — raw JWT value in free-text field (no Bearer prefix, non-secret key name)', () => {
+	// A realistic JWT-shaped token embedded in a text field whose key name is NOT a secret key.
+	// Before the JWT_VALUE_PATTERN fix, this string passed through `containsSensitiveData` → false,
+	// meaning the boundary guard would NOT catch it.  These tests prove the gap is now closed.
+	const RAW_JWT =
+		'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' +
+		'eyJzdWIiOiJ1c2VyLTEyMzQiLCJleHAiOjE3MTcwMDAwMDB9.' +
+		'SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+
+	it('containsSensitiveData detects a raw JWT in a free-text field with a non-secret key name', () => {
+		// `detail` does not match the secret-key pattern; only the value-level JWT scan catches this.
+		const payload = { detail: `Sync source status: ${RAW_JWT}` };
+		expect(containsSensitiveData(payload)).toBe(true);
+	});
+
+	it('scrubForChannel removes a raw JWT embedded in a non-secret-named field', () => {
+		const payload = { detail: `Token info: ${RAW_JWT}`, normal: 'safe text' };
+		const scrubbed = scrubForChannel(payload);
+		const serialized = JSON.stringify(scrubbed);
+		expect(serialized).not.toContain(RAW_JWT);
+		expect(serialized).toContain(REDACTED_SECRET);
+		// Non-sensitive field is untouched.
+		expect(serialized).toContain('safe text');
+		expect(containsSensitiveData(scrubbed)).toBe(false);
+	});
+
+	it('assertNoSecretLeak blocks a diagnostics payload carrying a raw JWT', () => {
+		const payload = { status: 'ok', context: RAW_JWT };
+		expect(() => assertNoSecretLeak(payload, 'diagnostics')).toThrow();
+		// After scrubbing the guard must pass.
+		const cleaned = scrubForChannel(payload);
+		expect(() => assertNoSecretLeak(cleaned, 'diagnostics')).not.toThrow();
+	});
+
+	it('assertNoSecretLeak blocks an export-package payload carrying a raw JWT', () => {
+		const payload = { frontMatter: { notes: `Bearer token: ${RAW_JWT}` } };
+		// Even when the JWT follows some prefix text (not `Bearer ` prefix), it is still caught.
+		expect(() => assertNoSecretLeak(payload, 'export-package')).toThrow();
+		const cleaned = scrubForChannel(payload);
+		expect(containsSensitiveData(cleaned)).toBe(false);
+	});
+
+	it('a Bearer-prefixed JWT is still fully redacted (Bearer pattern and JWT pattern compose)', () => {
+		const bearerJwt = `Bearer ${RAW_JWT}`;
+		// scrubForChannel should produce `Bearer [redacted]` (Bearer pattern fires first).
+		const result = scrubForChannel({ auth: bearerJwt });
+		const serialized = JSON.stringify(result);
+		expect(serialized).not.toContain(RAW_JWT);
+		expect(containsSensitiveData(result)).toBe(false);
+	});
+});
