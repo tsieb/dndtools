@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	ALL_HOST_PERMISSIONS,
+	FORBIDDEN_HOST_CAPABILITIES,
 	WIDGET_DESTINATION_CLASSES,
 	evaluateWidgetOutboundRequest,
 	evaluateWidgetStateOwnership,
@@ -49,6 +50,9 @@ describe('SEC-011 AC1 — hidden actor data / raw vault content / tokens / diagn
 		expect(result.decision).toBe('blocked');
 		expect(result.sentPayload).toBeNull();
 		expect(result.audit.detectedExfiltration).toContain('hidden-actor-data');
+		// Raw vault content is flagged alongside hidden actor data — they share the forbiddenContentTokens
+		// gate; both labels must appear so the operator's audit record names every exfiltration class caught.
+		expect(result.audit.detectedExfiltration).toContain('raw-vault-content');
 		// The audit carries a coarse reason, never the secret value.
 		expect(JSON.stringify(result.audit)).not.toContain('THE-DM-ONLY-SECRET');
 	});
@@ -181,5 +185,37 @@ describe('SEC-011 — the host-permission catalogue is the single source of trut
 		expect(ALL_HOST_PERMISSIONS).toContain('network');
 		expect(ALL_HOST_PERMISSIONS).toContain('clipboard');
 		expect(ALL_HOST_PERMISSIONS).toContain('filesystem');
+		expect(ALL_HOST_PERMISSIONS).toContain('source-adapter');
+		expect(ALL_HOST_PERMISSIONS).toContain('asset');
+		expect(ALL_HOST_PERMISSIONS).toContain('external-link');
+	});
+
+	it('telemetry is gated: the analytics destination class is in the catalogue and requires an approved network permission', () => {
+		// The analytics destination class is the telemetry sink; it must be a declared class.
+		expect(WIDGET_DESTINATION_CLASSES).toContain('analytics');
+		// A widget with network permission and analytics class approved can send telemetry.
+		const allowed = evaluateWidgetOutboundRequest(
+			request({ destinationClass: 'analytics', payload: { event: 'widget-opened' } }),
+			grant({ approvedDestinationClasses: ['analytics'] }),
+		);
+		expect(allowed.decision).toBe('allowed');
+		// Without analytics approval, the telemetry request is denied and carries an audit record.
+		const denied = evaluateWidgetOutboundRequest(
+			request({ destinationClass: 'analytics', payload: { event: 'widget-opened' } }),
+			grant({ approvedDestinationClasses: ['widget-declared'] }),
+		);
+		expect(denied.decision).toBe('denied');
+		expect(denied.audit.decision).toBe('denied');
+		expect(denied.audit.destinationClass).toBe('analytics');
+	});
+
+	it('cross-widget direct communication is gated: IPC is a forbidden host capability (never grantable)', () => {
+		// Widgets cannot communicate directly — IPC is forbidden. Widgets communicate only through
+		// Processing-Core commands and actor-filtered bindings.
+		expect(FORBIDDEN_HOST_CAPABILITIES).toContain('ipc');
+		// The forbidden set is disjoint from the permission-gated set: IPC is not unlockable by any DM.
+		for (const permission of ALL_HOST_PERMISSIONS) {
+			expect(permission).not.toBe('ipc');
+		}
 	});
 });
