@@ -304,6 +304,23 @@ select {
 	color: inherit;
 }
 
+/* A11Y-004: touch-target minimum for the compact (mobile/touch) platform profile.
+   All button-class controls must meet the WCAG 2.5.5/2.5.8 minimum of 44 × 44 CSS px on
+   touch profiles. The 720 px breakpoint matches COMPACT_MAX in the platform-profile probe
+   (`src/lib/platform/capabilities.ts`). Native form controls rendered by the browser UA
+   (inputs, selects) are excluded here — they receive the WCAG 2.5.8 exception for
+   platform-controlled UI; all explicit button elements must be reachable with a thumb. */
+@media (max-width: 720px) {
+	button,
+	summary,
+	[role='button'],
+	[role='tab'],
+	[role='radio'] {
+		min-height: 44px;
+		min-width: 44px;
+	}
+}
+
 /* Keep form controls within their column: a control sized to its content (e.g. a
    `<select>` whose widest option is a long operation id) must never exceed the
    container width, or on a narrow (mobile) viewport it pushes the document wider
