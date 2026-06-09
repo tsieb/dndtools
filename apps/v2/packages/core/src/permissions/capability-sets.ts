@@ -235,9 +235,13 @@ const CAPABILITY_SET_COPY: Record<
 });
 
 // Field- and section-scoped entity types reuse their parent entity's copy.
+// `content-item` shares the same note-authoring capability sets (section-editor / contributor /
+// viewer) by design (CONTENT-011), so it reuses the note copy rather than falling back to
+// auto-generated labels and an empty `allows` array (PERM-008).
 const COPY_ENTITY_TYPE_ALIAS: Record<string, string> = Object.freeze({
 	'character-field': 'character',
 	'note-section': 'note',
+	'content-item': 'note',
 });
 
 function copyEntityType(entityType: string): string {

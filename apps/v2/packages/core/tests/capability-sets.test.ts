@@ -146,4 +146,26 @@ describe('PERM-005 / PERM-008: grantable named sets, explanations, and preview',
 			expect.arrayContaining(['owner', 'combat-participant', 'backstory-editor']),
 		);
 	});
+
+	it('content-item descriptors have authored labels, explanations, and non-empty allows (PERM-008 gap fix)', () => {
+		// content-item shares the note authoring capability sets (CONTENT-011); its descriptors
+		// must carry authored copy — not auto-generated labels and empty allows arrays — because the
+		// DM grant UI surfaces content-item as a selectable entity type.
+		const sets = listGrantableCapabilitySets('content-item');
+		const names = sets.map((s) => s.capabilitySet);
+		expect(names).toEqual(['section-editor', 'contributor', 'viewer']);
+		for (const descriptor of sets) {
+			expect(descriptor.label.length, `${descriptor.capabilitySet} label empty`).toBeGreaterThan(0);
+			expect(descriptor.explanation, `${descriptor.capabilitySet} explanation is generic fallback`).not.toMatch(
+				/^Grants the .* capability set\.$/,
+			);
+			expect(descriptor.allows.length, `${descriptor.capabilitySet} allows is empty`).toBeGreaterThan(0);
+		}
+		// The preview must include concrete allowed operations — not an empty list.
+		const preview = previewGrantEffect('content-item', 'section-editor');
+		expect(preview.grantable).toBe(true);
+		expect(preview.allowedOperations.length).toBeGreaterThan(0);
+		// Excludes the narrower sets that section-editor implies.
+		expect(preview.excludedCapabilitySets).toEqual([]);
+	});
 });
