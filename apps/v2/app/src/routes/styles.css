@@ -20,6 +20,27 @@
 	}
 }
 
+/* A11Y-011 AC1: enhanced contrast tokens for users who prefer higher contrast.
+   Boosts accent, muted text, border, and danger to meet WCAG AA 4.5:1 against their backgrounds.
+   Applies on top of the light tokens (or dark tokens when both media queries match). */
+@media (prefers-contrast: more) {
+	:root {
+		--accent: #0e4d50;
+		--muted: #2e3338;
+		--border: #4b5563;
+		--danger: #7f0000;
+	}
+}
+
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+	:root {
+		--accent: #b2ede6;
+		--muted: #e2e8e4;
+		--border: #c4cdc7;
+		--danger: #fca5a5;
+	}
+}
+
 * {
 	box-sizing: border-box;
 }

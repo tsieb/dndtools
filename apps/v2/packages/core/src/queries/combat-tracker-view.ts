@@ -68,6 +68,20 @@ export interface CombatantView {
 	 * Always false for redacted/hidden combatants whose resources are withheld.
 	 */
 	isBloodied: boolean;
+	/**
+	 * True when the combatant is concentrating on a spell or effect.
+	 * A11Y-011 AC2: explicit boolean so renderers surface a non-color badge/aria cue for
+	 * concentrating state rather than relying on color alone.
+	 * Always false for redacted/hidden combatants whose resources are withheld.
+	 */
+	isConcentrating: boolean;
+	/**
+	 * True when the combatant's current HP is at or below 0 (down/dying).
+	 * A11Y-011 AC2: explicit boolean so renderers surface a non-color badge/aria cue for
+	 * defeated state rather than relying on color alone.
+	 * Always false for redacted/hidden combatants whose resources are withheld.
+	 */
+	isDefeated: boolean;
 }
 
 /** A read-only encounter-log entry view. */
@@ -182,6 +196,9 @@ export function getCombatTrackerForActor(
 				isActive: combatant.id === activeId,
 				// A11Y-007 AC2: explicit non-color state indicator for screen readers.
 				isBloodied: res.hp > 0 && res.hp <= Math.floor(res.maxHp / 2),
+				// A11Y-011 AC2: explicit non-color state indicators for concentrating and defeated.
+				isConcentrating: !!res.concentration.effect,
+				isDefeated: res.hp <= 0,
 			});
 			continue;
 		}
@@ -200,6 +217,8 @@ export function getCombatTrackerForActor(
 				hidden: true,
 				isActive: combatant.id === activeId,
 				isBloodied: false, // stat data withheld; no derived status exposed
+				isConcentrating: false, // stat data withheld; no derived status exposed
+				isDefeated: false, // stat data withheld; no derived status exposed
 			});
 		}
 		// Otherwise: omitted entirely (no row, no leak).

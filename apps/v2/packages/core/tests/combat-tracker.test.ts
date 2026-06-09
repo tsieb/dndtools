@@ -783,3 +783,212 @@ describe('A11Y-007 AC2: getCombatTrackerForActor exposes isBloodied for non-colo
 		expect(view7.combatants.find((c) => c.id === combatantId)!.isBloodied).toBe(true);
 	});
 });
+
+// --- A11Y-011 AC2/AC3: isConcentrating + isDefeated non-color state indicators -----------------------
+
+describe('A11Y-011 AC2: getCombatTrackerForActor exposes isConcentrating for non-color status indicators', () => {
+	/** Start an active combat with a single monster. */
+	function startCombat(): { state: CoreStateSlice; env: CoreEnvironment; combatantId: string } {
+		const { state, env } = activeSession();
+		const started = accept(
+			dispatch(state, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: { combatants: [{ kind: 'monster', name: 'Wizard', initiative: 10, maxHp: 20 }] },
+			}),
+		).nextState;
+		const combatantId = started.session.combat.order[0]!;
+		return { state: started, env, combatantId };
+	}
+
+	it('isConcentrating is false when no concentration effect is set', () => {
+		const { state, combatantId } = startCombat();
+		const view = getCombatTrackerForActor(state.session.combat, state.permissions, DM_ACTOR.id);
+		const c = view.combatants.find((x) => x.id === combatantId)!;
+		expect(c.resources!.concentration.effect).toBeNull();
+		expect(c.isConcentrating).toBe(false);
+	});
+
+	it('isConcentrating is true when a concentration effect is active', () => {
+		const { state, env, combatantId } = startCombat();
+		const after = accept(
+			dispatch(state, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId, kind: 'concentration', effect: 'Bless' },
+			}),
+		).nextState;
+		const view = getCombatTrackerForActor(after.session.combat, after.permissions, DM_ACTOR.id);
+		const c = view.combatants.find((x) => x.id === combatantId)!;
+		expect(c.resources!.concentration.effect).toBe('Bless');
+		expect(c.isConcentrating).toBe(true);
+	});
+
+	it('isConcentrating returns to false after concentration is cleared', () => {
+		const { state, env, combatantId } = startCombat();
+		const withConc = accept(
+			dispatch(state, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId, kind: 'concentration', effect: 'Bless' },
+			}),
+		).nextState;
+		const cleared = accept(
+			dispatch(withConc, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId, kind: 'concentration', effect: null },
+			}),
+		).nextState;
+		const view = getCombatTrackerForActor(cleared.session.combat, cleared.permissions, DM_ACTOR.id);
+		const c = view.combatants.find((x) => x.id === combatantId)!;
+		expect(c.resources!.concentration.effect).toBeNull();
+		expect(c.isConcentrating).toBe(false);
+	});
+
+	it('isConcentrating is false for a redacted/hidden combatant placeholder (no stat leak)', () => {
+		const { state, env } = activeSession();
+		const started = accept(
+			dispatch(state, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: {
+					combatants: [
+						{
+							kind: 'monster',
+							name: 'Secret Caster',
+							initiative: 20,
+							maxHp: 30,
+							hidden: true,
+							placeholder: 'Mysterious Figure',
+						},
+					],
+				},
+			}),
+		).nextState;
+		const casterId = started.session.combat.order[0]!;
+
+		// Set concentration so isConcentrating would be true for the DM.
+		const withConc = accept(
+			dispatch(started, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: casterId, kind: 'concentration', effect: 'Hold Person' },
+			}),
+		).nextState;
+
+		// DM sees isConcentrating = true.
+		const dmView = getCombatTrackerForActor(withConc.session.combat, withConc.permissions, DM_ACTOR.id);
+		const dmRow = dmView.combatants.find((c) => c.name === 'Secret Caster')!;
+		expect(dmRow.isConcentrating).toBe(true);
+
+		// Non-DM player sees the placeholder — isConcentrating must be false (no stat leak).
+		const playerView = getCombatTrackerForActor(
+			withConc.session.combat,
+			withConc.permissions,
+			PLAYER_ACTOR.id,
+		);
+		const placeholder = playerView.combatants.find((c) => c.redacted)!;
+		expect(placeholder).toBeDefined();
+		expect(placeholder.resources).toBeNull();
+		expect(placeholder.isConcentrating).toBe(false);
+	});
+});
+
+describe('A11Y-011 AC2: getCombatTrackerForActor exposes isDefeated for non-color status indicators', () => {
+	function startWithHpSingle(
+		maxHp: number,
+	): { state: CoreStateSlice; env: CoreEnvironment; combatantId: string } {
+		const { state, env } = activeSession();
+		const started = accept(
+			dispatch(state, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: { combatants: [{ kind: 'monster', name: 'Fighter', initiative: 12, maxHp }] },
+			}),
+		).nextState;
+		const combatantId = started.session.combat.order[0]!;
+		return { state: started, env, combatantId };
+	}
+
+	function applyDmg(state: CoreStateSlice, env: CoreEnvironment, id: string, dmg: number): CoreStateSlice {
+		return accept(
+			dispatch(state, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: id, kind: 'hp', delta: -dmg },
+			}),
+		).nextState;
+	}
+
+	it('isDefeated is false at full HP', () => {
+		const { state, combatantId } = startWithHpSingle(10);
+		const view = getCombatTrackerForActor(state.session.combat, state.permissions, DM_ACTOR.id);
+		expect(view.combatants.find((c) => c.id === combatantId)!.isDefeated).toBe(false);
+	});
+
+	it('isDefeated is false while HP is above 0', () => {
+		const { state, env, combatantId } = startWithHpSingle(10);
+		const after = applyDmg(state, env, combatantId, 9);
+		const view = getCombatTrackerForActor(after.session.combat, after.permissions, DM_ACTOR.id);
+		const c = view.combatants.find((x) => x.id === combatantId)!;
+		expect(c.resources!.hp).toBe(1);
+		expect(c.isDefeated).toBe(false);
+	});
+
+	it('isDefeated is true at exactly 0 HP', () => {
+		const { state, env, combatantId } = startWithHpSingle(10);
+		const after = applyDmg(state, env, combatantId, 10);
+		const view = getCombatTrackerForActor(after.session.combat, after.permissions, DM_ACTOR.id);
+		const c = view.combatants.find((x) => x.id === combatantId)!;
+		expect(c.resources!.hp).toBe(0);
+		expect(c.isDefeated).toBe(true);
+	});
+
+	it('isDefeated is mutually exclusive with isBloodied (dead is not bloodied)', () => {
+		const { state, env, combatantId } = startWithHpSingle(20);
+		const after = applyDmg(state, env, combatantId, 20);
+		const view = getCombatTrackerForActor(after.session.combat, after.permissions, DM_ACTOR.id);
+		const c = view.combatants.find((x) => x.id === combatantId)!;
+		expect(c.isDefeated).toBe(true);
+		expect(c.isBloodied).toBe(false); // A11Y-007 guarantees false at 0 HP
+	});
+
+	it('isDefeated is false for a redacted/hidden combatant placeholder (no stat leak)', () => {
+		const { state, env } = activeSession();
+		const started = accept(
+			dispatch(state, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: {
+					combatants: [
+						{
+							kind: 'monster',
+							name: 'Secret Boss',
+							initiative: 20,
+							maxHp: 10,
+							hidden: true,
+							placeholder: 'Mysterious Foe',
+						},
+					],
+				},
+			}),
+		).nextState;
+		const bossId = started.session.combat.order[0]!;
+		const downed = applyDmg(started, env, bossId, 10);
+
+		// DM: isDefeated should be true.
+		const dmView = getCombatTrackerForActor(downed.session.combat, downed.permissions, DM_ACTOR.id);
+		expect(dmView.combatants.find((c) => c.name === 'Secret Boss')!.isDefeated).toBe(true);
+
+		// Non-DM: placeholder row — isDefeated must be false (no stat leak).
+		const playerView = getCombatTrackerForActor(
+			downed.session.combat,
+			downed.permissions,
+			PLAYER_ACTOR.id,
+		);
+		const placeholder = playerView.combatants.find((c) => c.redacted)!;
+		expect(placeholder).toBeDefined();
+		expect(placeholder.isDefeated).toBe(false);
+	});
+});

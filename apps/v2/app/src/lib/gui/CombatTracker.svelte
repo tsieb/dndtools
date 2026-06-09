@@ -163,6 +163,8 @@
 					<span class="name" data-testid="combatant-name">{combatant.name}</span>
 					{#if combatant.isActive}<span class="badge" data-testid="active-badge">Active</span>{/if}
 					{#if combatant.isBloodied}<span class="badge bloodied" data-testid="bloodied-badge">Bloodied</span>{/if}
+					{#if combatant.isConcentrating}<span class="badge concentrating" data-testid="concentrating-badge">Concentrating</span>{/if}
+					{#if combatant.isDefeated}<span class="badge defeated" data-testid="defeated-badge">Defeated</span>{/if}
 					{#if combatant.resources}
 						<span class="hp" data-testid="combatant-hp">
 							HP {combatant.resources.hp}/{combatant.resources.maxHp}
@@ -297,6 +299,38 @@
 	/* A11Y-007 AC2: bloodied badge has a distinct shape+text so the state is never color-only. */
 	.badge.bloodied {
 		background: var(--color-danger, #b00020);
+	}
+	/* A11Y-011 AC2: concentrating and defeated badges convey state by distinct text labels +
+	   shape, so the states are never communicated by color alone. */
+	.badge.concentrating {
+		background: var(--accent, #2f6f73);
+	}
+	.badge.defeated {
+		background: var(--muted, #5f6670);
+	}
+	/* A11Y-011 AC1: preserve badge borders + contrast in forced-colors / Windows High Contrast.
+	   forced-color-adjust:none keeps our background/foreground pair; the explicit border ensures
+	   the badge shape is still visible when the UA overrides arbitrary backgrounds. */
+	@media (forced-colors: active) {
+		.badge {
+			forced-color-adjust: none;
+			border: 1px solid ButtonText;
+		}
+		.badge.bloodied {
+			background: Mark;
+			color: MarkText;
+		}
+		.badge.concentrating {
+			background: Highlight;
+			color: HighlightText;
+		}
+		.badge.defeated {
+			background: ButtonText;
+			color: ButtonFace;
+		}
+		.initiative-order li.active {
+			outline: 2px solid Highlight;
+		}
 	}
 	.combatant-controls {
 		display: flex;
