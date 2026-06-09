@@ -329,3 +329,71 @@ describe('SES-005 operate-vs-configure through the widget command dispatch', () 
 		expect(widget.configuration.durationSeconds).toBe(300);
 	});
 });
+
+describe('PERM-009 AC1: revoking a widget operator grant immediately blocks the player\'s next command', () => {
+	/**
+	 * AC1 end-to-end: DM issues a widget `operator` grant via `permission.grant-capability-set`, player
+	 * dispatches a timer operate command (accepted), DM revokes the grant via `permission.revoke-grant`,
+	 * player's NEXT widget command using the now-revoked grant is rejected. The cache-invalidation tests
+	 * prove the fingerprint changes; this test proves the command-dispatch gate itself fails closed.
+	 */
+	it('grant → operate accepted → revoke → next operate rejected (fail closed)', () => {
+		const env = makeEnvironment();
+		const home = ensureHomeWithTimer(env);
+		const { sceneId, timerId } = home;
+		let state = home.state;
+		state = startActive(state, env, sceneId);
+		state = projectWidget(state, env, sceneId, timerId, PLAYER_ACTOR.id);
+
+		// DM grants widget operator via the durable permission command.
+		const granted = dispatch(state, env, {
+			type: 'permission.grant-capability-set',
+			actorId: DM_ACTOR.id,
+			payload: {
+				entityType: 'widget',
+				entityId: timerId,
+				playerActorId: PLAYER_ACTOR.id,
+				capabilitySet: 'operator',
+			},
+		});
+		expect(granted.status).toBe('accepted');
+		if (granted.status !== 'accepted') return;
+		const grantId = granted.nextState.permissions.grants.find(
+			(g) => g.entityType === 'widget' && g.entityId === timerId && g.playerActorId === PLAYER_ACTOR.id,
+		)!.id;
+		state = granted.nextState;
+
+		// Player operates the timer while the grant is active — must be accepted.
+		const beforeRevoke = operate(state, env, PLAYER_ACTOR.id, sceneId, timerId, 'timer.start', {
+			durationSeconds: 60,
+		});
+		expect(beforeRevoke.status).toBe('accepted');
+		if (beforeRevoke.status !== 'accepted') return;
+		state = beforeRevoke.nextState;
+
+		// DM revokes the operator grant (the revocation is accepted — PERM-009 AC1 precondition).
+		const revoked = dispatch(state, env, {
+			type: 'permission.revoke-grant',
+			actorId: DM_ACTOR.id,
+			payload: { grantId },
+		});
+		expect(revoked.status).toBe('accepted');
+		if (revoked.status !== 'accepted') return;
+		state = revoked.nextState;
+		// The grant is gone from the live permission state.
+		expect(
+			state.permissions.grants.some(
+				(g) => g.entityType === 'widget' && g.entityId === timerId && g.playerActorId === PLAYER_ACTOR.id,
+			),
+		).toBe(false);
+
+		// Player's next timer operate command is rejected — the live grant check in the command
+		// dispatcher finds no operator grant and fails closed (PERM-009 AC1).
+		const afterRevoke = operate(state, env, PLAYER_ACTOR.id, sceneId, timerId, 'timer.pause');
+		expect(afterRevoke.status).toBe('rejected');
+		if (afterRevoke.status !== 'rejected') return;
+		expect(afterRevoke.rejection.code).toBe('actor-not-authorized');
+		// Timer state is unchanged — the rejected command did not mutate the session.
+		expect(state.session.timers[timerId]).toMatchObject({ status: 'running' });
+	});
+});
