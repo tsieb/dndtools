@@ -66,7 +66,36 @@ describe('PLAT-016: web/PWA cached read/write support matrix', () => {
 	it('models asset eviction recovery: missing blob reported, metadata safe (AC3)', () => {
 		const assets = supportDomain('assets');
 		expect(assets?.support).toBe('cached-read');
+		// An evicted asset must surface as missing to the user opening affected content.
 		expect(assets?.evictionRecovery.toLowerCase()).toContain('missing');
+		// Core cached metadata must remain safe after eviction (AC3 second invariant).
+		expect(assets?.evictionRecovery.toLowerCase()).toContain('metadata');
+	});
+
+	// AC4: a queued PWA edit reconnects → replayed through the SAME operation validation as
+	// desktop. The queuedWritePolicy must state this explicitly — "same operation validation" is
+	// the load-bearing phrase that distinguishes a correct replay path from a weaker PWA-only one.
+	// We test `cached-read-write` domains (direct vault-content edits: notes, maps, scenes,
+	// characters, sessions). `queued-write` domains that are delivery queues (handouts) also use
+	// the same shared policy; `sync-status` is a meta-status view of the operation queue and its
+	// queued policy is about reauth deferral, not content-edit replay.
+	it('cached-read-write domains state same-operation-validation-as-desktop in queued policy (AC4)', () => {
+		const editDomains = WEB_SUPPORT_MATRIX.domains.filter(
+			(d) => d.support === 'cached-read-write',
+		);
+		// There must be at least one direct-edit domain (sanity guard).
+		expect(editDomains.length).toBeGreaterThan(0);
+		for (const domain of editDomains) {
+			// The policy must explicitly state that the replay goes through the same validation
+			// path as desktop, not a weaker PWA-specific path.
+			expect(domain.queuedWritePolicy.toLowerCase()).toContain('same operation validation');
+		}
+	});
+
+	it('handouts queued-write delivery policy also states same-operation-validation-as-desktop (AC4)', () => {
+		const handouts = supportDomain('handouts');
+		expect(handouts?.support).toBe('queued-write');
+		expect(handouts?.queuedWritePolicy.toLowerCase()).toContain('same operation validation');
 	});
 
 	// PLAT-004 AC5: a pending SW update must preserve local writes and report the reload
