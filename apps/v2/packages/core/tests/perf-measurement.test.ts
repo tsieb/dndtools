@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	measureBudget,
 	measureBudgetSuite,
+	type BudgetApprovedException,
 	type PerformanceBudget,
 } from '../src/index';
 
@@ -161,15 +162,70 @@ describe('PERF-007 measureBudget — against the canonical registry (default bud
 	it('grades smoke CI against its real 3-minute ceiling (AC1)', () => {
 		const pass = measureBudget('smoke-ci', [2 * 60 * 1000]);
 		expect(pass.result).toBe('pass');
+		// Confirm the named target is the documented 3-minute threshold.
+		expect(pass.target).toBe(3 * 60 * 1000);
 		const breach = measureBudget('smoke-ci', [4 * 60 * 1000]);
 		expect(breach.result).toBe('breach');
 	});
 
-	it('a benchmark names its target, fixture, and platform profile (AC2)', () => {
+	it('a benchmark names its target, fixture, and platform profile in the measurement output (AC2)', () => {
 		const m = measureBudget('search', [120, 130, 140]);
 		expect(m.result).toBe('pass');
-		expect(m.message).toContain('10,000 indexed records'); // fixture
-		expect(m.message).toContain('Desktop and mobile reference profiles'); // platform profile
+		// Named target: the threshold value must appear in the message.
+		expect(m.target).toBe(250); // search is 250ms p95
+		expect(m.message).toContain('250ms'); // named target in message
+		// Fixture size must appear in the message.
+		expect(m.message).toContain('10,000 indexed records');
+		// Platform profile must appear in the message.
+		expect(m.message).toContain('Desktop and mobile reference profiles');
+	});
+});
+
+// ---------------------------------------------------------------------------
+// PERF-007 AC1 — approved temporary exception named in breach message
+// ---------------------------------------------------------------------------
+// When a budget breach has an active approvedException the measurement is still
+// 'breach' (exceptions do NOT waive budgets — the measurement is truthful) but
+// the message names the exception reason and expiry so CI reporters can
+// distinguish a known deviation from a surprise breach.
+describe('PERF-007 AC1 — approved exception path in measureBudget', () => {
+	const budgetWithException: PerformanceBudget = {
+		id: 'exc-test',
+		workflow: 'Smoke CI (with exception)',
+		owner: 'Platform',
+		userFacingRisk: 'Slow CI.',
+		dataset: 'CI runner',
+		deviceClass: 'CI reference runner',
+		metric: { kind: 'duration-ms', direction: 'lower-is-better', target: 1000, unit: 'ms' },
+		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
+		approvedException: {
+			reason: 'CI runner migration; target re-verified after migration completes.',
+			expiresOn: '2027-01-01',
+		} satisfies BudgetApprovedException,
+	};
+
+	it('a breach with an approved exception is still a breach — exception does NOT waive the budget', () => {
+		const m = measureBudget('exc-test', [2000], [budgetWithException]);
+		expect(m.result).toBe('breach');
+	});
+
+	it('the breach message names the exception reason and expiry (AC1 approved-exception path)', () => {
+		const m = measureBudget('exc-test', [2000], [budgetWithException]);
+		expect(m.message).toContain('approved exception until 2027-01-01');
+		expect(m.message).toContain('CI runner migration');
+	});
+
+	it('a passing measurement does not mention the exception (exception note only on breach)', () => {
+		const m = measureBudget('exc-test', [500], [budgetWithException]); // under the 1000ms ceiling
+		expect(m.result).toBe('pass');
+		expect(m.message).not.toContain('approved exception');
+	});
+
+	it('a budget without an approvedException does not mention exceptions in the breach message', () => {
+		// Re-uses the DURATION fixture from the small registry above (no approvedException).
+		const m = measureBudget('dur', [2000], REGISTRY); // breaches the 1000ms ceiling
+		expect(m.result).toBe('breach');
+		expect(m.message).not.toContain('approved exception');
 	});
 });
 

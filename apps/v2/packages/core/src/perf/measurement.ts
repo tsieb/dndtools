@@ -174,11 +174,18 @@ export function measureBudget(
 	const comparator = metric.direction === 'higher-is-better' ? '>=' : '<=';
 	const percentileLabel = metric.kind === 'duration-ms' ? 'max' : `p${metric.percentile ?? 95}`;
 
+	// PERF-007 AC1: when a breach has an approved temporary exception, name it in the message so
+	// CI reporters can distinguish a known deviation from a surprise breach.
+	const exceptionNote =
+		!pass && budget.approvedException !== undefined
+			? ` [approved exception until ${budget.approvedException.expiresOn}: ${budget.approvedException.reason}]`
+			: '';
+
 	return {
 		budgetId,
 		result: pass ? 'pass' : 'breach',
 		reason: 'ok',
-		message: `Budget "${budget.id}" (${budget.workflow}) ${pass ? 'PASS' : 'BREACH'}: ${percentileLabel} ${observedValue}${metric.unit} ${comparator} ${metric.target}${metric.unit} on ${budget.dataset} / ${budget.deviceClass}; owner ${budget.owner}${pass ? '' : `; risk: ${budget.userFacingRisk}`}.`,
+		message: `Budget "${budget.id}" (${budget.workflow}) ${pass ? 'PASS' : 'BREACH'}: ${percentileLabel} ${observedValue}${metric.unit} ${comparator} ${metric.target}${metric.unit} on ${budget.dataset} / ${budget.deviceClass}; owner ${budget.owner}${pass ? '' : `; risk: ${budget.userFacingRisk}`}${exceptionNote}.`,
 		budget,
 		sampleCount: usable.length,
 		observedValue,

@@ -1754,6 +1754,7 @@ export {
 // is unowned, unqualified, or its provisional review date has lapsed. The COLLAB live-session p95
 // delivery target was migrated here (`live-session-delivery`).
 export type {
+	BudgetApprovedException,
 	BudgetDirection,
 	BudgetMaturity,
 	BudgetMetric,

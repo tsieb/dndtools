@@ -6,6 +6,7 @@ import {
 	budgetForId,
 	budgetsForOwner,
 	validateBudgetRegistry,
+	type BudgetApprovedException,
 	type BudgetProblem,
 	type PerformanceBudget,
 } from '../src/index';
@@ -189,5 +190,84 @@ describe('PERF-001 migration — COLLAB live-session budget now references the r
 		expect(budget).not.toBeNull();
 		expect(budget?.owner).toBe('Collaboration');
 		expect(budget?.metric.target).toBe(500);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// PERF-007 AC1 — approved temporary exception mechanism
+// ---------------------------------------------------------------------------
+// A budget may declare an approvedException when the workflow is temporarily
+// expected to breach its target (e.g. CI migration). The exception does NOT
+// waive the budget — the measurement verdict is still 'breach' — but it lets
+// CI reporters distinguish a known deviation from a surprise. validateBudgetRegistry
+// flags expired exceptions so they cannot silently outlive their approval window.
+describe('PERF-007 AC1 — approved temporary exception mechanism', () => {
+	const ok: PerformanceBudget = {
+		id: 'unit-test',
+		workflow: 'Unit test workflow',
+		owner: 'Platform',
+		userFacingRisk: 'Risk text.',
+		dataset: 'A dataset',
+		deviceClass: 'Desktop reference',
+		metric: { kind: 'duration-ms', direction: 'lower-is-better', target: 1000, unit: 'ms' },
+		maturity: { kind: 'provisional', reviewDate: '2026-12-31' },
+	};
+
+	it('a budget with no approvedException validates clean (the common case)', () => {
+		expect(ok.approvedException).toBeUndefined();
+		expect(validateBudgetRegistry({ budgets: [ok], today: TODAY })).toEqual([]);
+	});
+
+	it('the canonical smoke-ci budget has no approvedException — it is within its target', () => {
+		const smokeBudget = budgetForId('smoke-ci');
+		expect(smokeBudget).not.toBeNull();
+		expect(smokeBudget?.approvedException).toBeUndefined();
+		// Confirming the target is the documented 3-minute ceiling (PERF-007 table).
+		expect(smokeBudget?.metric.target).toBe(3 * 60 * 1000);
+	});
+
+	it('a budget with a future approvedException validates clean (active exception is allowed)', () => {
+		const exception: BudgetApprovedException = {
+			reason: 'CI runner migration; target re-verified after migration completes.',
+			expiresOn: '2027-01-01',
+		};
+		const withException: PerformanceBudget = { ...ok, approvedException: exception };
+		expect(validateBudgetRegistry({ budgets: [withException], today: TODAY })).toEqual([]);
+	});
+
+	it('a budget with an approvedException expiring exactly today is still valid (boundary)', () => {
+		const exception: BudgetApprovedException = { reason: 'Known slow environment.', expiresOn: TODAY };
+		expect(
+			validateBudgetRegistry({ budgets: [{ ...ok, approvedException: exception }], today: TODAY }),
+		).toEqual([]);
+	});
+
+	it('flags an expired approvedException (approved-exception-expired)', () => {
+		const exception: BudgetApprovedException = {
+			reason: 'Legacy slow runner.',
+			expiresOn: '2025-01-01', // long past
+		};
+		const withExpired: PerformanceBudget = { ...ok, approvedException: exception };
+		const problems = validateBudgetRegistry({ budgets: [withExpired], today: TODAY });
+		expect(kinds(problems)).toContain('approved-exception-expired');
+		expect(problems[0]!.message).toContain('2025-01-01');
+	});
+
+	it('flags an approvedException with an invalid expiresOn date format', () => {
+		const exception: BudgetApprovedException = { reason: 'Bad format.', expiresOn: '01/01/2027' };
+		const problems = validateBudgetRegistry({
+			budgets: [{ ...ok, approvedException: exception }],
+			today: TODAY,
+		});
+		expect(kinds(problems)).toContain('approved-exception-expired');
+	});
+
+	it('flags an approvedException with an empty reason', () => {
+		const exception: BudgetApprovedException = { reason: '   ', expiresOn: '2027-01-01' };
+		const problems = validateBudgetRegistry({
+			budgets: [{ ...ok, approvedException: exception }],
+			today: TODAY,
+		});
+		expect(kinds(problems)).toContain('approved-exception-expired');
 	});
 });

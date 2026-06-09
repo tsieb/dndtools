@@ -74,6 +74,28 @@ export type BudgetMaturity =
 	| { readonly kind: 'baseline'; readonly measuredAt: string };
 
 /**
+ * PERF-007 AC1: a time-limited, explicitly approved exception for a budget that is temporarily
+ * expected to breach its target (e.g. a CI infrastructure migration, a known slow environment).
+ * The exception does NOT waive the budget — the measurement verdict is still `breach` — but
+ * {@link ./measurement}'s message names the reason so CI reporters can distinguish a known
+ * deviation from a surprise breach. {@link validateBudgetRegistry} flags any exception whose
+ * `expiresOn` date has passed, so exceptions cannot silently linger forever.
+ */
+export interface BudgetApprovedException {
+	/**
+	 * Human-readable explanation of why the temporary breach is accepted (e.g. "CI migration to
+	 * new runner pool; target will be re-verified once migration completes"). Non-empty.
+	 */
+	readonly reason: string;
+	/**
+	 * ISO `YYYY-MM-DD` date after which this exception is no longer valid. Any exception whose
+	 * `expiresOn` is in the past is flagged by {@link validateBudgetRegistry} (kind
+	 * `approved-exception-expired`) so it cannot silently persist beyond its approval window.
+	 */
+	readonly expiresOn: string;
+}
+
+/**
  * ONE owned performance budget for ONE user-facing workflow. The registry below is the only place
  * these are declared. Every field is required for a complete budget; {@link validateBudgetRegistry}
  * fails closed when an ownership/qualification field is missing or empty.
@@ -95,6 +117,14 @@ export interface PerformanceBudget {
 	readonly metric: BudgetMetric;
 	/** Whether the target is a measured baseline or a provisional placeholder (AC3). */
 	readonly maturity: BudgetMaturity;
+	/**
+	 * PERF-007 AC1: an approved, time-limited exception for a budget temporarily expected to
+	 * breach its target. When set, {@link ./measurement} names the exception in the breach
+	 * message. The verdict is still `breach` — the exception does NOT waive the budget —
+	 * so measurements remain truthful; CI scripts decide whether to treat a documented breach
+	 * as non-blocking. Omit when no exception is active (the common case).
+	 */
+	readonly approvedException?: BudgetApprovedException;
 }
 
 /** Registry schema version, bumped on a breaking budget-shape change. */
@@ -272,7 +302,8 @@ export type BudgetProblemKind =
 	| 'missing-review-date'
 	| 'invalid-review-date'
 	| 'review-window-expired'
-	| 'invalid-baseline-date';
+	| 'invalid-baseline-date'
+	| 'approved-exception-expired';
 
 export interface BudgetProblem {
 	readonly budgetId: string;
@@ -425,6 +456,35 @@ export function validateBudgetRegistry(options: {
 					kind: 'invalid-baseline-date',
 					message: `Baselined budget "${budget.id}" has an invalid measuredAt "${measuredAt}" (want YYYY-MM-DD).`,
 				});
+			}
+		}
+
+		// PERF-007 AC1 — validate any approved temporary exception (fail closed: an expired exception
+		// is flagged so it cannot silently outlive its approval window).
+		if (budget.approvedException !== undefined) {
+			const { expiresOn, reason } = budget.approvedException;
+			if (reason.trim() === '') {
+				// An exception with no reason is not reviewable and should not be accepted silently.
+				problems.push({
+					budgetId: budget.id,
+					kind: 'approved-exception-expired',
+					message: `Budget "${budget.id}" has an approved exception with no reason; add a reason or remove the exception (PERF-007 AC1).`,
+				});
+			} else if (!ISO_DATE.test(expiresOn)) {
+				problems.push({
+					budgetId: budget.id,
+					kind: 'approved-exception-expired',
+					message: `Budget "${budget.id}" approved exception has an invalid expiresOn "${expiresOn}" (want YYYY-MM-DD, PERF-007 AC1).`,
+				});
+			} else {
+				const overdueByDays = daysBetween(expiresOn, options.today);
+				if (overdueByDays !== null && overdueByDays > 0) {
+					problems.push({
+						budgetId: budget.id,
+						kind: 'approved-exception-expired',
+						message: `Budget "${budget.id}" approved exception expired ${overdueByDays} day(s) ago (${expiresOn}); re-approve or remove it (PERF-007 AC1).`,
+					});
+				}
 			}
 		}
 	}
