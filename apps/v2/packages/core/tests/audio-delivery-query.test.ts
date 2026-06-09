@@ -167,11 +167,13 @@ describe('AUDIO-007 / AUDIO-012 — a participant resolves only their OWN decisi
 		expect(decision?.effectiveVolume).toBe(0.3);
 	});
 
-	it('AC2: a participant changing local volume does not change the authoritative library/source record', () => {
+	it('AC2: a participant changing local output route keeps it device-local and does not mutate the authoritative source record', () => {
+		// AUDIO-012 AC2: the participant's chosen output route is honored (routing: 'routed') and is purely
+		// device-local — the DM-authored audio source record is byte-for-byte unchanged after the read.
 		const lib = library();
 		const sourceBefore = JSON.parse(JSON.stringify(lib.sources['s-local']));
 		const permissions = buildPermissionState(DM_ACTOR, PLAYER_ACTOR);
-		resolveAudioDeliveryForActor(lib, permissions, PLAYER_ACTOR.id, TRACK, {
+		const decision = resolveAudioDeliveryForActor(lib, permissions, PLAYER_ACTOR.id, TRACK, {
 			assetLocallyAvailable: true,
 			assetCached: false,
 			cacheEvicted: false,
@@ -179,6 +181,8 @@ describe('AUDIO-007 / AUDIO-012 — a participant resolves only their OWN decisi
 			capability: { canAutoplay: true, canPlayInBackground: true, canRouteOutput: true, canPlayAudio: true },
 			preferences: { consent: 'granted', muted: false, localVolume: 0.1, outputRouteId: 'spk-2' },
 		});
+		// The participant's route choice IS honored as device-local — routing reflects their preference.
+		expect(decision?.routing).toBe('routed');
 		// The DM-authored source is byte-for-byte unchanged — the read mutated no session audio state.
 		expect(lib.sources['s-local']).toEqual(sourceBefore);
 	});

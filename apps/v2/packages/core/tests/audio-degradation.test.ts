@@ -264,6 +264,23 @@ describe('AUDIO-012 — output routing (default fallback / device-local, never f
 		expect(decision.disposition).toBe('consent-blocked');
 		expect(decision.routing).toBe('unavailable');
 	});
+
+	it('AC1: a fully-cleared playing device with unsupported routing still plays — unavailable routing never fails the play disposition', () => {
+		// AUDIO-012 AC1: when playback starts on a platform that cannot route output, the device falls back to
+		// the default output and keeps playing. The disposition MUST stay 'playing' — unavailable routing does
+		// NOT fail session audio state (the routing failure is reported separately, not as a play failure).
+		const decision = resolveAudioDelivery(
+			clearedRequest({
+				preferences: { ...GRANTED_PREFERENCES, outputRouteId: 'spk-2' },
+				capability: { ...FULL_CAPABILITY, canRouteOutput: false },
+			}),
+		);
+		expect(decision.disposition).toBe('playing');
+		expect(decision.routing).toBe('unavailable');
+		// The device is actually sounding (unavailable routing falls back to default; audio is not blocked).
+		expect(isAudioSounding(decision.disposition)).toBe(true);
+		expect(decision.effectiveVolume).toBe(1);
+	});
 });
 
 describe('AUDIO-013 — performance-safe failure modes (degrade, do not retry/block)', () => {
