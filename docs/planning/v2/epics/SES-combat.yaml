@@ -13,14 +13,14 @@ requirementIds:
 excludedRequirementIds: []
 architectureContracts: []
 expectedAffectedAreas:
-  - apps/v2
+  - apps/gm
   - docs/planning/v2
   - session state
   - live tools
 dependencies: []
 parallelSafety:
   fileOwnership:
-    - apps/v2/ses/
+    - apps/gm/ses/
     - docs/planning/v2/
   requiresInterfaceContract: true
   notes: Parallel execution requires explicit interface contracts and
@@ -117,13 +117,13 @@ statusAutomation:
   - Do not hand-edit generated epic packets, `status.yaml`,
     `requirements-index.yaml`, `initiative-map.yaml`, or `parallel-batches.yaml`
     for status changes.
-  - Use `pnpm v2:workpack:set-status -- --epic SES-combat --status active` when
+  - Use `pnpm workpack:set-status -- --epic SES-combat --status active` when
     implementation starts.
   - Create `docs/planning/v2/epics/SES-combat.completion.md` with demo, tests,
     traceability, gaps, and git evidence before marking complete.
-  - Use `pnpm v2:workpack:complete -- --epic SES-combat` to update
+  - Use `pnpm workpack:complete -- --epic SES-combat` to update
     `workpack-state.yaml` and regenerate all derived planning files together.
-  - Run `pnpm v2:workpack:validate` after any status or generation command;
+  - Run `pnpm workpack:validate` after any status or generation command;
     validation fails if generated files drift from the source of truth.
 testPlan:
   - Run unit tests for domain reducers, command validators, and data transforms
@@ -133,7 +133,7 @@ testPlan:
   - Run domain-specific quality gates for accessibility, performance, security,
     permissions, sync/offline behavior, migrations, and docs when those areas
     are touched.
-  - Run `pnpm v2:workpack:validate` before handoff.
+  - Run `pnpm workpack:validate` before handoff.
 demoNotesTemplate:
   - Describe the user-visible path demonstrated.
   - List the requirement IDs exercised by the demo.

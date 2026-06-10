@@ -1,16 +1,17 @@
-name: V2 Planning Validation
+name: Planning Validation
 
 on:
   push:
     branches:
       - master
       - remake
-      - v2**
+      - epic/**
+      - reorg/**
   pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: v2-planning-${{ github.workflow }}-${{ github.event.pull_request.base.ref || github.ref }}
+  group: planning-${{ github.workflow }}-${{ github.event.pull_request.base.ref || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -38,14 +39,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate V2 workpack
-        run: pnpm v2:workpack:validate
+      - name: Validate workpack
+        run: pnpm workpack:validate
 
       - name: Enforce tiered quality gates (PLAT-010)
-        run: pnpm v2:gates
+        run: pnpm gates
 
       - name: Validate docs
         run: pnpm docs:validate
 
-      - name: Run v2 unit tests (MCP-005 AC1 merge gate)
-        run: pnpm v2:test
+      - name: Run unit tests (MCP-005 AC1 merge gate)
+        run: pnpm test

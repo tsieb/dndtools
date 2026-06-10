@@ -1,10 +1,13 @@
 # ADR-014: V2 Stack and Subproject Boundary
 
-- Status: Accepted
+- Status: Superseded by [ADR-016](./016-promote-gm-app-and-monorepo-reorg.md)
 - Date: 2026-06-03
 - Deciders: Engineering
 - Consulted: Product, Design, Security
 - Supersedes: N/A
+- Superseded-by: ADR-016 (2026-06-09) — the `apps/v2` quarantine, `v2-` package naming, and
+  v1-runtime import ban are retired now that the GM app is primary and v1 is removed. The stack,
+  processing/display boundary, storage, and testing decisions below remain in force.
 
 ## Context
 

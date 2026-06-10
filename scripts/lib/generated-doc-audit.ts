@@ -6,7 +6,7 @@
  * defect-count summaries must be GENERATED or VALIDATED from structured sources, never
  * hand-synchronized. These pure functions recompute the truth from structured data and report
  * drift so `docs-validate.ts` can fail CLOSED — mirroring the existing schema-version sync and
- * v2-workpack generate-and-validate pattern.
+ * workpack generate-and-validate pattern.
  *
  * Every function is pure (string/data in, issue list out) so a unit test can plant drift and
  * assert the audit catches it.

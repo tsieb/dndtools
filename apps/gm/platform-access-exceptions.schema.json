@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dndtools.local/v2/platform-access-exceptions.schema.json",
+  "title": "Platform Access Exception Manifest",
+  "description": "PLAT-006 / PLAT-012: the explicit, scoped, owned allowlist of files permitted to touch platform/storage primitives directly. Enforced by scripts/boundary-lint.ts and regression-tested by apps/gm/tests/unit/boundary-lint.test.ts.",
+  "type": "object",
+  "required": ["exceptions"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "description": { "type": "string" },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "path", "primitives", "owner", "rationale", "removalCriteria"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Unique exception identifier."
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Repo-relative path of the file allowed to access the primitives."
+          },
+          "primitives": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "dexie",
+                "indexedDB",
+                "localStorage",
+                "sessionStorage",
+                "crypto",
+                "navigator",
+                "caches",
+                "electron",
+                "capacitor",
+                "viewport-sniff"
+              ]
+            },
+            "description": "Primitive ids this file is allowed to use directly."
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The domain/team accountable for this exception."
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Why the direct access is justified."
+          },
+          "removalCriteria": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Conditions under which the exception should be removed."
+          }
+        }
+      }
+    }
+  }
+}

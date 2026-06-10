@@ -4,14 +4,16 @@ This docs set is the authoritative engineering reference for this repository.
 
 ## Scope
 
-DND Tools is a local-first markdown vault application with shared renderer/domain logic
-across Electron desktop and Capacitor Android runtimes.
+DND Tools is a canvas-first command platform for tabletop RPG play. The primary application is the
+GM command platform (`apps/gm`, `@dndtools/gm`); a platform-independent processing core
+(`packages/core`, `@dndtools/core`) holds command validation, reducers, permissions, and queries
+and is shared by every surface. See [reference/PROJECT_STRUCTURE.md](reference/PROJECT_STRUCTURE.md)
+and [ADR-016](adr/016-promote-gm-app-and-monorepo-reorg.md) for the repository layout, and the
+[vision brief](remake-review/00-vision-brief.md) for product intent.
 
-Runtime modes:
-
-- **Desktop**: Electron main + renderer + filesystem storage + MCP sidecar.
-- **Android**: Capacitor shell + renderer + Capacitor filesystem adapter (no MCP sidecar).
-- **Browser/PWA**: renderer + IndexedDB storage adapter + service worker cache (no MCP sidecar).
+> The prior v1 document-editor (Electron desktop + Capacitor Android + MCP sidecar) has been
+> retired; its last state is preserved at the git tag `v1-final`. Older docs in this set that
+> describe v1 runtimes are historical until refreshed.
 
 ---
 

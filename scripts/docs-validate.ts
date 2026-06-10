@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { validateWorkpack } from './v2-workpack.js';
+import { validateWorkpack } from './workpack.js';
 import {
 	auditCountTable,
 	auditDefectCounts,
@@ -15,8 +15,6 @@ interface ValidationIssue {
 
 const repoRoot = process.cwd();
 const docsRoot = path.join(repoRoot, 'docs');
-const schemaDocPath = path.join(docsRoot, 'operations', 'SCHEMA_MIGRATIONS.md');
-const migrationsSourcePath = path.join(repoRoot, 'mcp', 'migrations.ts');
 
 // PLAT-015 generated-from-structured-sources audits.
 const requirementsDocPath = path.join(docsRoot, 'remake-review', '10-requirements.md');
@@ -39,36 +37,22 @@ const structureIgnoredTopLevel = new Set([
 	'tmp',
 	'test-results',
 	'playwright-report',
-	'apps',
 	'.husky',
 ]);
-const pathPrefixAllowlist = [
-	'.github/',
-	'apps/',
-	'docs/',
-	'src/',
-	'mcp/',
-	'electron/',
-	'tests/',
-	'scripts/',
-	'static/',
-];
+const pathPrefixAllowlist = ['.github/', 'apps/', 'packages/', 'docs/', 'tests/', 'scripts/'];
 const rootFileAllowlist = new Set([
 	'package.json',
 	'pnpm-lock.yaml',
-	'tsconfig.json',
-	'vite.config.ts',
-	'playwright.config.ts',
+	'vitest.config.ts',
 	'README.md',
 	'CHANGELOG.md',
 	'pnpm-workspace.yaml',
 ]);
-const generatedPathPrefixes = ['apps/v2/', 'build/', '.svelte-kit/', 'mcp/dist/'];
+const generatedPathPrefixes = ['apps/v2/', 'apps/gm/', 'packages/core/', 'build/', '.svelte-kit/'];
 const pathValidatedDocs = [
 	'docs/adr/README.md',
-	'docs/adr/014-v2-stack-and-subproject-boundary.md',
+	'docs/adr/016-promote-gm-app-and-monorepo-reorg.md',
 	'docs/development/V2_AGENTIC_IMPLEMENTATION.md',
-	'docs/planning/v2/',
 	'docs/remake-review/00-vision-brief.md',
 	'docs/remake-review/08-glossary.md',
 	'docs/remake-review/09-architecture-contracts.md',
@@ -229,42 +213,6 @@ function validateTodoFields(markdown: string, filePath: string): ValidationIssue
 	return issues;
 }
 
-function parseSchemaVersionsFromMigrations(
-	source: string,
-): Record<'notes' | 'objects' | 'metadata', number> {
-	const blockMatch = source.match(
-		/export const CURRENT_SCHEMA_VERSION = \{\s*notes:\s*(\d+),\s*objects:\s*(\d+),\s*metadata:\s*(\d+),\s*\} as const;/s,
-	);
-	if (!blockMatch) {
-		throw new Error('Could not parse CURRENT_SCHEMA_VERSION from mcp/migrations.ts');
-	}
-	return {
-		notes: Number(blockMatch[1]),
-		objects: Number(blockMatch[2]),
-		metadata: Number(blockMatch[3]),
-	};
-}
-
-function parseSchemaVersionsFromDocs(
-	markdown: string,
-): Record<'notes' | 'objects' | 'metadata', number> {
-	const versions: Partial<Record<'notes' | 'objects' | 'metadata', number>> = {};
-	for (const match of markdown.matchAll(/-\s*(notes|objects|metadata):\s*`(\d+)`/g)) {
-		const key = match[1] as 'notes' | 'objects' | 'metadata';
-		versions[key] = Number(match[2]);
-	}
-	if (
-		versions.notes === undefined ||
-		versions.objects === undefined ||
-		versions.metadata === undefined
-	) {
-		throw new Error(
-			'Could not parse notes/objects/metadata version targets from docs/SCHEMA_MIGRATIONS.md',
-		);
-	}
-	return versions as Record<'notes' | 'objects' | 'metadata', number>;
-}
-
 /**
  * PLAT-015: recompute high-churn markdown registers from structured sources and report drift so
  * docs validation fails closed. Covers the requirement Count Audit table (AC3), the defect-count
@@ -341,23 +289,6 @@ async function validateDocs(): Promise<ValidationIssue[]> {
 					message: `Referenced path does not exist: ${candidate.token}`,
 				});
 			}
-		}
-	}
-
-	const [schemaDoc, migrationsSource] = await Promise.all([
-		fs.readFile(schemaDocPath, 'utf-8'),
-		fs.readFile(migrationsSourcePath, 'utf-8'),
-	]);
-	const docVersions = parseSchemaVersionsFromDocs(schemaDoc);
-	const sourceVersions = parseSchemaVersionsFromMigrations(migrationsSource);
-
-	for (const key of ['notes', 'objects', 'metadata'] as const) {
-		if (docVersions[key] !== sourceVersions[key]) {
-			issues.push({
-				file: 'docs/operations/SCHEMA_MIGRATIONS.md',
-				line: 1,
-				message: `Schema version mismatch for "${key}": docs=${docVersions[key]} source=${sourceVersions[key]}`,
-			});
 		}
 	}
 

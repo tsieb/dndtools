@@ -7,19 +7,19 @@ import {
 	checkBudgets,
 	validateGateRegistry,
 	type GateProblem,
-} from '../apps/v2/packages/core/src/platform/quality-gates.ts';
-import { validateSupportStatus } from '../apps/v2/packages/core/src/platform/support-status.ts';
-import { auditCapabilitySetGovernance } from '../apps/v2/packages/core/src/con/capability-set-sustainability.ts';
-import { auditScopeBoundary } from '../apps/v2/packages/core/src/con/scope-constraints.ts';
-import { auditGuiHidingReliance } from '../apps/v2/packages/core/src/con/gui-hiding-not-authoritative.ts';
-import { auditExternalDependencyRequirement } from '../apps/v2/packages/core/src/con/network-not-required.ts';
-import { auditSourceOfTruthOwnership } from '../apps/v2/packages/core/src/con/source-of-truth.ts';
+} from '../packages/core/src/platform/quality-gates.ts';
+import { validateSupportStatus } from '../packages/core/src/platform/support-status.ts';
+import { auditCapabilitySetGovernance } from '../packages/core/src/con/capability-set-sustainability.ts';
+import { auditScopeBoundary } from '../packages/core/src/con/scope-constraints.ts';
+import { auditGuiHidingReliance } from '../packages/core/src/con/gui-hiding-not-authoritative.ts';
+import { auditExternalDependencyRequirement } from '../packages/core/src/con/network-not-required.ts';
+import { auditSourceOfTruthOwnership } from '../packages/core/src/con/source-of-truth.ts';
 
 /**
  * PLAT-010 + PLAT-014 + CON-004 + CON-003/CON-006 + CON-001/CON-002/CON-005 enforcement: validate the
  * DECLARED quality-gate registry, the platform support-status artifact, the permission-sustainability
  * constraint, the scope-boundary constraint, and the security + source-of-truth constraints (the single
- * sources of truth in `@dndtools/v2-core`) against the actual repository and fail CLOSED.
+ * sources of truth in `@dndtools/core`) against the actual repository and fail CLOSED.
  *
  * This does NOT rewrite the test runner. It cross-checks that:
  *

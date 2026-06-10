@@ -18,13 +18,13 @@ architectureContracts:
   - "Contract 3: Role, Visibility & Permission Grant Model"
   - "Contract 4: Scene and Widget Contract"
 expectedAffectedAreas:
-  - apps/v2
+  - apps/gm
   - docs/planning/v2
   - governance constraints
 dependencies: []
 parallelSafety:
   fileOwnership:
-    - apps/v2/con/
+    - apps/gm/con/
     - docs/planning/v2/
   requiresInterfaceContract: true
   notes: Parallel execution requires explicit interface contracts and
@@ -140,17 +140,17 @@ statusAutomation:
   - Do not hand-edit generated epic packets, `status.yaml`,
     `requirements-index.yaml`, `initiative-map.yaml`, or `parallel-batches.yaml`
     for status changes.
-  - Use `pnpm v2:workpack:set-status -- --epic
+  - Use `pnpm workpack:set-status -- --epic
     CON-security-and-source-of-truth-constraints --status active` when
     implementation starts.
   - Create
     `docs/planning/v2/epics/CON-security-and-source-of-truth-constraints.completion.md`
     with demo, tests, traceability, gaps, and git evidence before marking
     complete.
-  - Use `pnpm v2:workpack:complete -- --epic
+  - Use `pnpm workpack:complete -- --epic
     CON-security-and-source-of-truth-constraints` to update
     `workpack-state.yaml` and regenerate all derived planning files together.
-  - Run `pnpm v2:workpack:validate` after any status or generation command;
+  - Run `pnpm workpack:validate` after any status or generation command;
     validation fails if generated files drift from the source of truth.
 testPlan:
   - Run unit tests for domain reducers, command validators, and data transforms
@@ -160,7 +160,7 @@ testPlan:
   - Run domain-specific quality gates for accessibility, performance, security,
     permissions, sync/offline behavior, migrations, and docs when those areas
     are touched.
-  - Run `pnpm v2:workpack:validate` before handoff.
+  - Run `pnpm workpack:validate` before handoff.
 demoNotesTemplate:
   - Describe the user-visible path demonstrated.
   - List the requirement IDs exercised by the demo.

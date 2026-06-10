@@ -3,15 +3,14 @@
     "defaultMode": "bypassPermissions",
     "allow": [
       "Bash(pnpm typecheck *)",
-      "Bash(pnpm v2:typecheck *)",
-      "Bash(pnpm v2:check *)",
-      "Bash(pnpm v2:workpack:validate *)",
+      "Bash(pnpm check *)",
+      "Bash(pnpm workpack:validate *)",
       "Bash(pnpm test *)",
       "Bash(pnpm e2e *)",
-      "Bash(pnpm --filter @dndtools/v2-core typecheck *)",
-      "Bash(pnpm --filter @dndtools/v2-app typecheck *)",
-      "Bash(pnpm --filter @dndtools/v2-core test *)",
-      "Bash(pnpm --filter @dndtools/v2-app test *)"
+      "Bash(pnpm --filter @dndtools/core typecheck *)",
+      "Bash(pnpm --filter @dndtools/gm typecheck *)",
+      "Bash(pnpm --filter @dndtools/core test *)",
+      "Bash(pnpm --filter @dndtools/gm test *)"
     ]
   }
 }

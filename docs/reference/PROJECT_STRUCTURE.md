@@ -1,52 +1,44 @@
 # Project Structure
 
-This repository is organized by runtime boundary and responsibility.
+This repository is a pnpm workspace organized by surface and runtime boundary. The GM command
+platform (`apps/gm`) is the primary application; the platform-independent processing core
+(`packages/core`) is shared by every surface.
 
 ## Top-Level Layout
 
-- `src/`: SvelteKit renderer application.
-- `electron/`: Electron main/preload runtime.
-- `android/`: Capacitor-managed Android project and Gradle build files.
-- `mcp/`: MCP server runtime and tool/resource modules.
-- `tests/`: cross-cutting test fixtures and e2e tests.
-- `docs/`: architecture, data model, development, and roadmap docs.
-- `docs/adr/`: architecture decision records and decision index.
-- `static/`: static assets served by the renderer.
-- `scripts/`: build, metric, and utility scripts.
-- `vault/`: local development vault data.
+- `apps/`: deployable end-user applications (one GUI per surface).
+- `packages/`: shared libraries with no GUI, reused across apps and services.
+- `docs/`: architecture, ADRs, planning, requirements, and reference docs.
+- `scripts/`: workspace tooling (boundary lint, quality gates, workpack, docs validation).
+- `tests/`: repo-level tooling/guardrail tests (each app and package owns its own test suite).
 
-## Renderer (`src/lib`) Layout
+## Applications (`apps/`)
 
-- `src/lib/domain/`: pure domain logic (search, export, object transforms, templates).
-- `src/lib/state/`: Svelte state stores.
-- `src/lib/ui/`: reusable UI components.
-  - `src/lib/ui/board/`: session board tile components.
-  - `src/lib/ui/combat/`: combat tracker components.
-  - `src/lib/ui/common/`: shared UI primitives (Button, Icon, EmptyState, Dialog, etc.).
-  - `src/lib/ui/editor/`: CodeMirror editor components.
-  - `src/lib/ui/map/`: map canvas and spatial components.
-  - `src/lib/ui/player/`: player mode components.
-  - `src/lib/ui/viewer/`: note and stat-block viewer components.
-- `src/lib/platform/desktop/`: desktop bridge integration.
-- `src/lib/platform/storage/`: storage adapter integration.
-- `src/lib/state/mobile-keyboard.svelte.ts`: keyboard viewport adaptation state.
-- `src/lib/runtime/`: app bootstrap/runtime orchestration.
-- `src/lib/markdown/`: markdown parsing/render pipeline.
-- `src/lib/types/`: shared type contracts.
-- `src/lib/utils/`: generic utilities.
+- `apps/gm/`: `@dndtools/gm` — the GM command platform. SvelteKit / Svelte 5 browser-first GUI.
+  Owns rendering, platform services (Dexie/IndexedDB), command dispatch wiring, and the visible
+  Scene/Command-Center workflow.
 
-## MCP Layout
+Future surfaces (documented here, not yet scaffolded — added when a real boundary appears, per
+ADR-016): a player app, and Electron desktop / Capacitor mobile shells.
 
-- `mcp/tools/`: MCP tool modules grouped by domain (`notes`, `search`, `vault`, `boards`, `objects`, `dice`, `random`).
-- `mcp/tools/shared/`: MCP shared helpers.
-- `mcp/resources/`: MCP resource modules.
-- `mcp/resources/uri-strategy.ts`: canonical + legacy resource URI mapping.
-- `mcp/resources/resource-catalog.ts`: discoverability metadata resource.
-- `mcp/storage.ts`: filesystem storage implementation.
-- `mcp/staged-storage.ts`: staged write-mode wrapper.
+## Packages (`packages/`)
+
+- `packages/core/`: `@dndtools/core` — the platform-independent Processing Core. Owns command
+  validation, deterministic reducers, permission/visibility evaluation, actor-scoped queries, the
+  local operation-log shape, and the declared quality-gate / security / source-of-truth registries.
+  No Svelte, DOM, Node, Electron, Capacitor, cloud, or app-runtime imports.
+
+Future shared packages (documented, not scaffolded): a shared UI kit, shared schemas, and MCP
+tool definitions.
+
+## Services (`services/`)
+
+Reserved for server/cloud-side runtimes (cloud sync backend per ADR-007, an MCP server). Documented
+here for orientation; not scaffolded until a concrete boundary lands (ADR-016).
 
 ## Cleanup Rules
 
-- Build artifacts (`build/`, `.svelte-kit/`, `mcp/dist/`) are generated and should not be committed.
+- Build artifacts (`build/`, `.svelte-kit/`) are generated and should not be committed.
 - Local package store (`.pnpm-store/`) is ignored.
-- Empty placeholder directories should be removed unless they are intentionally reserved with documentation.
+- Empty placeholder directories should be removed unless they are intentionally reserved with
+  documentation.
