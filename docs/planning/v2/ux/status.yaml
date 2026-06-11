@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 14
+  approved: 13
   active: 0
-  complete: 32
+  complete: 33
   deferred: 0
 metrics:
-  epicCompletionPercent: 69.6
+  epicCompletionPercent: 71.7
   requirementCompletionPercent: 67.6
   totalRequirements: 244
   completedRequirements: 165
   deferredRequirements: 0
-  remainingEpics: 14
-  promptableEpics: 6
+  remainingEpics: 13
+  promptableEpics: 5
   blockedByDependencies: 8
-  completionEvidenceFiles: 32
+  completionEvidenceFiles: 33
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -273,9 +273,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 08 Campaign and Discovery
       totalEpics: 4
-      complete: 0
+      complete: 1
       active: 0
-      approved: 4
+      approved: 3
       proposed: 0
       deferred: 0
       requirementIds:
@@ -298,7 +298,7 @@ metrics:
         - UX-SRCH-008
         - UX-SRCH-009
         - UX-SRCH-010
-      epicCompletionPercent: 0
+      epicCompletionPercent: 25
       requirementCompletionPercent: 0
     - phase: 09 Reliability and Optional Capabilities
       totalEpics: 6
@@ -391,15 +391,24 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-CAMPAIGN-world-model-route-shell
-  title: Campaign World Model Route Shell
+  id: UX-SRCH-result-layout-filters-freshness-and-saved-searches
+  title: Search Results, Filters, Freshness, and Saved Searches
   phase: 08 Campaign and Discovery
   status: approved
-  requirementIds: []
-  promptCommand: pnpm ux-prompt -- --epic UX-CAMPAIGN-world-model-route-shell
+  requirementIds:
+    - UX-SRCH-002
+    - UX-SRCH-003
+    - UX-SRCH-004
+    - UX-SRCH-006
+    - UX-SRCH-007
+    - UX-SRCH-008
+    - UX-SRCH-009
+    - UX-SRCH-010
+  promptCommand: pnpm ux-prompt -- --epic
+    UX-SRCH-result-layout-filters-freshness-and-saved-searches
   nextPromptCommand: pnpm ux-prompt -- --next
   statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-CAMPAIGN-world-model-route-shell --status active
+    UX-SRCH-result-layout-filters-freshness-and-saved-searches --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -1057,7 +1066,7 @@ epics:
   - id: UX-CAMPAIGN-world-model-route-shell
     title: Campaign World Model Route Shell
     phase: 08 Campaign and Discovery
-    status: approved
+    status: complete
     approved: true
     requirementIds: []
     expectedAffectedAreas:
@@ -1070,6 +1079,7 @@ epics:
       - UX-SHELL-contextual-navigation-history-and-deep-links
       - UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields
       - UX-PERM-visibility-preview-badges-and-privacy-status
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CAMPAIGN-world-model-route-shell.completion.md
   - id: UX-SRCH-result-layout-filters-freshness-and-saved-searches
     title: Search Results, Filters, Freshness, and Saved Searches
     phase: 08 Campaign and Discovery

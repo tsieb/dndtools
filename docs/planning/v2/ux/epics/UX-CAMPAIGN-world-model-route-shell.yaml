@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-CAMPAIGN-world-model-route-shell
 title: Campaign World Model Route Shell
-status: approved
+status: complete
 approved: true
 phase: 08 Campaign and Discovery
 productPriority: P1
@@ -143,3 +143,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-CAMPAIGN-world-model-route-shell.completion.md

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openSection } from './_nav-helper';
 
 // UX-CHAR-004/005/006 — the character SHEET polish layer: inline name edit, the HP Damage/Heal delta
 // stepper with an optimistic preview, tappable death-save circles, and a condition type-ahead. Renders
@@ -33,12 +34,15 @@ test.describe('UX-CHAR character sheet polish', () => {
 		await expect(page.getByTestId(`collab-owner-${id}`)).toContainText('Demo Player');
 	}
 
+	// In-app (SPA) navigation, not page.goto — a hard reload races the optimistic-then-durable
+	// IndexedDB writes (the owner grant + character) and intermittently drops them under load.
 	async function startSession(page: Page): Promise<void> {
-		await page.goto('/');
+		await openSection(page, 'command-center');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
+		await page.getByTestId('view-as-select').selectOption('local-dm');
 		await page.getByTestId('session-workflow-active').click();
 		await expect(page.getByTestId('session-workflow-status')).toContainText('active');
-		await page.goto('/characters/');
+		await openSection(page, 'characters');
 		await page.getByTestId('characters-view').waitFor({ state: 'visible' });
 	}
 
