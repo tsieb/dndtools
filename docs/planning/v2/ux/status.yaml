@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 13
+  approved: 12
   active: 0
-  complete: 33
+  complete: 34
   deferred: 0
 metrics:
-  epicCompletionPercent: 71.7
-  requirementCompletionPercent: 67.6
+  epicCompletionPercent: 73.9
+  requirementCompletionPercent: 70.9
   totalRequirements: 244
-  completedRequirements: 165
+  completedRequirements: 173
   deferredRequirements: 0
-  remainingEpics: 13
-  promptableEpics: 5
+  remainingEpics: 12
+  promptableEpics: 4
   blockedByDependencies: 8
-  completionEvidenceFiles: 33
+  completionEvidenceFiles: 34
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -273,9 +273,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 08 Campaign and Discovery
       totalEpics: 4
-      complete: 1
+      complete: 2
       active: 0
-      approved: 3
+      approved: 2
       proposed: 0
       deferred: 0
       requirementIds:
@@ -298,8 +298,8 @@ metrics:
         - UX-SRCH-008
         - UX-SRCH-009
         - UX-SRCH-010
-      epicCompletionPercent: 25
-      requirementCompletionPercent: 0
+      epicCompletionPercent: 50
+      requirementCompletionPercent: 42.1
     - phase: 09 Reliability and Optional Capabilities
       totalEpics: 6
       complete: 0
@@ -391,24 +391,23 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-SRCH-result-layout-filters-freshness-and-saved-searches
-  title: Search Results, Filters, Freshness, and Saved Searches
+  id: UX-GRAPH-canvas-encoding-filtering-and-health
+  title: Graph Canvas, Encoding, Filtering, and Health
   phase: 08 Campaign and Discovery
   status: approved
   requirementIds:
-    - UX-SRCH-002
-    - UX-SRCH-003
-    - UX-SRCH-004
-    - UX-SRCH-006
-    - UX-SRCH-007
-    - UX-SRCH-008
-    - UX-SRCH-009
-    - UX-SRCH-010
-  promptCommand: pnpm ux-prompt -- --epic
-    UX-SRCH-result-layout-filters-freshness-and-saved-searches
+    - UX-GRAPH-001
+    - UX-GRAPH-002
+    - UX-GRAPH-003
+    - UX-GRAPH-004
+    - UX-GRAPH-005
+    - UX-GRAPH-006
+    - UX-GRAPH-008
+    - UX-GRAPH-010
+  promptCommand: pnpm ux-prompt -- --epic UX-GRAPH-canvas-encoding-filtering-and-health
   nextPromptCommand: pnpm ux-prompt -- --next
   statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-SRCH-result-layout-filters-freshness-and-saved-searches --status active
+    UX-GRAPH-canvas-encoding-filtering-and-health --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -1083,7 +1082,7 @@ epics:
   - id: UX-SRCH-result-layout-filters-freshness-and-saved-searches
     title: Search Results, Filters, Freshness, and Saved Searches
     phase: 08 Campaign and Discovery
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-SRCH-002
@@ -1104,6 +1103,7 @@ epics:
       - UX-SHELL-command-surface-and-shortcuts
       - UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields
       - UX-SHELL-actor-filtered-nav-recents
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-SRCH-result-layout-filters-freshness-and-saved-searches.completion.md
   - id: UX-GRAPH-canvas-encoding-filtering-and-health
     title: Graph Canvas, Encoding, Filtering, and Health
     phase: 08 Campaign and Discovery

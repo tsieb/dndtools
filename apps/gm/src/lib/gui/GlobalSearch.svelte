@@ -372,9 +372,9 @@
 	.search-trigger {
 		font: inherit;
 		padding: 0.25rem 0.6rem;
-		border: 1px solid var(--border, #cbd5e1);
+		border: 1px solid var(--color-border);
 		border-radius: 0.375rem;
-		background: var(--surface, #fff);
+		background: var(--color-surface);
 		cursor: pointer;
 	}
 
@@ -399,7 +399,7 @@
 		max-height: 70vh;
 		display: flex;
 		flex-direction: column;
-		background: var(--surface, #fff);
+		background: var(--color-surface);
 		border-radius: 0.75rem;
 		box-shadow: 0 18px 48px rgba(15, 23, 42, 0.4);
 		overflow: hidden;
@@ -416,7 +416,7 @@
 		font-size: 1.05rem;
 		padding: 0.85rem 1rem;
 		border: none;
-		border-bottom: 1px solid var(--border, #e2e8f0);
+		border-bottom: 1px solid var(--color-border);
 		outline-offset: -2px;
 	}
 
@@ -424,15 +424,15 @@
 		display: flex;
 		gap: 0.4rem;
 		padding: 0.55rem 1rem;
-		border-bottom: 1px solid var(--border, #e2e8f0);
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	.scope-chip {
 		font-size: 0.78rem;
 		padding: 0.2rem 0.6rem;
 		border-radius: 999px;
-		background: var(--accent-soft, #e0e7ff);
-		color: var(--accent, #4338ca);
+		background: var(--color-accent-subtle);
+		color: var(--color-accent);
 	}
 
 	.search-section {
@@ -441,7 +441,7 @@
 		font-size: 0.68rem;
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
-		color: var(--muted, #64748b);
+		color: var(--color-text-secondary);
 	}
 
 	.search-list {
@@ -458,7 +458,7 @@
 		font-size: 0.68rem;
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
-		color: var(--muted, #64748b);
+		color: var(--color-text-secondary);
 	}
 
 	.search-result {
@@ -471,7 +471,7 @@
 	}
 
 	.search-result.active {
-		background: var(--accent-soft, #e0e7ff);
+		background: var(--color-accent-subtle);
 	}
 
 	.result-title {
@@ -480,21 +480,21 @@
 
 	.result-snippet {
 		font-size: 0.8rem;
-		color: var(--muted, #64748b);
+		color: var(--color-text-secondary);
 	}
 
 	.result-type {
 		font-size: 0.68rem;
 		text-transform: uppercase;
 		letter-spacing: 0.03em;
-		color: var(--muted, #64748b);
+		color: var(--color-text-secondary);
 	}
 
 	.search-hint,
 	.search-empty {
 		margin: 0;
 		padding: 1rem;
-		color: var(--muted, #64748b);
+		color: var(--color-text-secondary);
 	}
 
 	.visually-hidden {

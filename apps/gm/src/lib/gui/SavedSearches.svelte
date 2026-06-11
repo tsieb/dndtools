@@ -435,10 +435,10 @@
 
 <style>
 	.error {
-		color: var(--color-danger, #b00020);
+		color: var(--color-status-error-text);
 	}
 	.meta {
-		color: var(--color-text-muted, #666);
+		color: var(--color-text-secondary);
 	}
 	.check {
 		display: inline-flex;
@@ -470,7 +470,7 @@
 		padding: 0;
 		border: none;
 		background: none;
-		color: var(--color-link, #2563eb);
+		color: var(--color-text-link);
 		cursor: pointer;
 		text-decoration: underline;
 	}

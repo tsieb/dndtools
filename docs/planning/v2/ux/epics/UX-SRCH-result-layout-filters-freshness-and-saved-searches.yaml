@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-SRCH-result-layout-filters-freshness-and-saved-searches
 title: Search Results, Filters, Freshness, and Saved Searches
-status: approved
+status: complete
 approved: true
 phase: 08 Campaign and Discovery
 productPriority: P1
@@ -343,3 +343,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-SRCH-result-layout-filters-freshness-and-saved-searches.completion.md

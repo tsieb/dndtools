@@ -167,6 +167,9 @@ epics:
   - id: UX-SHELL-route-layout-and-platform-profiles
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-SHELL-route-layout-and-platform-profiles.completion.md
+  - id: UX-SRCH-result-layout-filters-freshness-and-saved-searches
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-SRCH-result-layout-filters-freshness-and-saved-searches.completion.md
   - id: UX-VIS-component-library-motion-density-icons
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-VIS-component-library-motion-density-icons.completion.md
