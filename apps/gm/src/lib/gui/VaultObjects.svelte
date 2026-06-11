@@ -169,11 +169,11 @@
 </script>
 
 {#if canAuthor}
-	<section data-testid="vault-objects" aria-label="Structured objects and wikilinks">
+	<section class="vault" data-testid="vault-objects" aria-label="Structured objects and wikilinks">
 		<h2>Structured objects</h2>
 
 		<!-- CONTENT-013 — the subtype schema registry (Scene is intentionally absent). -->
-		<details data-testid="object-schema-registry">
+		<details class="card" data-testid="object-schema-registry">
 			<summary>Vault Object subtypes ({schemaRegistry.length})</summary>
 			<ul class="scene-list">
 				{#each schemaRegistry as schema (schema.subtype)}
@@ -192,7 +192,7 @@
 
 		<!-- CONTENT-005 — create a schema-validated, note-backed structured object. -->
 		<form
-			data-testid="create-object-form"
+			class="card" data-testid="create-object-form"
 			onsubmit={(event) => {
 				event.preventDefault();
 				createObject();
@@ -255,7 +255,7 @@
 
 		<!-- CONTENT-006 — rename a wikilink target (propagates to referring notes). -->
 		<form
-			data-testid="rename-wikilink-form"
+			class="card" data-testid="rename-wikilink-form"
 			onsubmit={(event) => {
 				event.preventDefault();
 				renameTarget();
@@ -285,7 +285,7 @@
 
 		<!-- CONTENT-006 — repair a broken wikilink (fail closed). -->
 		<form
-			data-testid="repair-wikilink-form"
+			class="card" data-testid="repair-wikilink-form"
 			onsubmit={(event) => {
 				event.preventDefault();
 				repairLink();
@@ -331,7 +331,95 @@
 {/if}
 
 <style>
-	code {
-		font-family: var(--font-mono, monospace);
+	.vault {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+	}
+	.vault h2 {
+		margin: 0;
+	}
+	.vault :global(.card) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	.vault :global(.card > h3) {
+		margin: 0;
+		font-size: var(--text-md);
+	}
+	.vault :global(summary) {
+		cursor: pointer;
+		font-weight: var(--font-weight-semibold);
+		min-height: var(--touch-target-floor);
+	}
+	.vault :global(label) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-secondary);
+	}
+	.vault :global(input),
+	.vault :global(select),
+	.vault :global(textarea) {
+		min-height: var(--touch-target-min);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font: inherit;
+		font-weight: var(--font-weight-regular);
+	}
+	.vault :global(textarea) {
+		font-family: var(--font-mono);
+		resize: vertical;
+	}
+	.vault :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.vault :global(.scene-list li) {
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.vault :global(.meta) {
+		font-weight: var(--font-weight-regular);
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.vault :global(button[type='submit']) {
+		align-self: flex-start;
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-4);
+		background: var(--color-accent);
+		color: var(--color-accent-foreground);
+		border: 1px solid var(--color-accent);
+		border-radius: var(--radius-md);
+		font-weight: var(--font-weight-semibold);
+		cursor: pointer;
+	}
+	.vault :global([data-testid='object-create-error']),
+	.vault :global([data-testid='rename-error']),
+	.vault :global([data-testid='repair-error']),
+	.vault :global([data-testid='object-invalid']) {
+		color: var(--color-status-error-text);
+	}
+	.vault :global(code) {
+		font-family: var(--font-mono);
+		color: var(--color-text-primary);
 	}
 </style>

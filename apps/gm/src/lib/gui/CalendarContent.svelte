@@ -51,6 +51,10 @@
 	let dateDay = $state(1);
 	let dateYear = $state(1372);
 
+	// UX-CONTENT-019 — make the date field calendar-aware: reflect the chosen month's name from the
+	// active campaign calendar so the picker reads in-world ("Hammer 1"), not just a bare number.
+	const selectedMonthName = $derived(calendars[0]?.months[dateMonth - 1]?.name ?? null);
+
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0]): Promise<boolean> {
 		error = null;
 		const result = await runtime.dispatch(command);
@@ -129,7 +133,7 @@
 	}
 </script>
 
-<section data-testid="calendar-content" aria-label="Calendar and custom-time content">
+<section class="calendar" data-testid="calendar-content" aria-label="Calendar and custom-time content">
 	<h2>Calendar &amp; custom-time content</h2>
 	<p class="meta">
 		Calendar-aware notes and structured objects. Dates are expressed in a custom campaign calendar
@@ -252,6 +256,7 @@
 				<label>
 					Month
 					<input type="number" min="1" data-testid="content-date-month" bind:value={dateMonth} />
+					{#if selectedMonthName}<span class="month-name" data-testid="content-date-month-name">{selectedMonthName}</span>{/if}
 				</label>
 				<label>
 					Day
@@ -266,3 +271,100 @@
 		{/if}
 	{/if}
 </section>
+
+<style>
+	.calendar {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	.calendar h2 {
+		margin: 0;
+	}
+	.calendar h3 {
+		margin: var(--space-2) 0 0;
+		font-size: var(--text-md);
+	}
+	.calendar :global(.scene-list) {
+		list-style: none;
+		margin: var(--space-1) 0 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+	.calendar :global(.scene-card) {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		flex-wrap: wrap;
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.calendar :global([data-testid^='content-timeline-date-']) {
+		font-variant-numeric: tabular-nums;
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-accent);
+	}
+	.calendar :global(.meta) {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.calendar :global(form) {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+		gap: var(--space-2);
+		align-items: end;
+		padding: var(--space-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	.calendar :global(form label) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-secondary);
+	}
+	.calendar :global(input),
+	.calendar :global(select) {
+		min-height: var(--touch-target-min);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font: inherit;
+		font-weight: var(--font-weight-regular);
+	}
+	.month-name {
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-regular);
+		color: var(--color-accent);
+	}
+	.calendar :global(button) {
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+	.calendar :global([data-testid='content-submit']),
+	.calendar :global([data-testid='content-define-calendar']) {
+		background: var(--color-accent);
+		color: var(--color-accent-foreground);
+		border-color: var(--color-accent);
+		font-weight: var(--font-weight-semibold);
+	}
+	.calendar :global(a) {
+		color: var(--color-text-link);
+	}
+</style>
