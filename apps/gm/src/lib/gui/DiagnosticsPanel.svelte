@@ -43,7 +43,7 @@
 	const bundleJson = $derived(bundle ? JSON.stringify(bundle, null, 2) : '');
 </script>
 
-<section data-testid="diagnostics-panel" aria-label="System diagnostics">
+<section class="cwrap" data-testid="diagnostics-panel" aria-label="System diagnostics">
 	<h2>System health &amp; diagnostics</h2>
 	{#if diagnostics.kind === 'denied'}
 		<p class="meta" role="status" data-testid="diagnostics-denied">
@@ -143,3 +143,77 @@
 		</section>
 	{/if}
 </section>
+
+<style>
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+	}
+	.cwrap h2 {
+		margin: 0;
+	}
+	.cwrap :global(h3) {
+		margin: 0 0 var(--space-2);
+		font-size: var(--text-md);
+	}
+	.cwrap :global(.meta) {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.cwrap :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.cwrap :global(.scene-card) {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		flex-wrap: wrap;
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.cwrap :global(.unavailable) {
+		color: var(--color-status-error-text);
+	}
+	.cwrap :global(.error) {
+		color: var(--color-status-error-text);
+		font-size: var(--text-sm);
+	}
+	.cwrap :global(label) {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2);
+		font-size: var(--text-sm);
+	}
+	.cwrap :global(.button) {
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-4);
+		background: var(--color-accent);
+		color: var(--color-accent-foreground);
+		border: 1px solid var(--color-accent);
+		border-radius: var(--radius-md);
+		font-weight: var(--font-weight-semibold);
+		cursor: pointer;
+	}
+	.cwrap :global(.export-preview) {
+		white-space: pre-wrap;
+		word-break: break-word;
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		margin: var(--space-2) 0 0;
+		padding: var(--space-3);
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		max-height: 18rem;
+		overflow: auto;
+	}
+</style>

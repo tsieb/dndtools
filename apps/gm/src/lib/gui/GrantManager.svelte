@@ -122,7 +122,7 @@
 	}
 </script>
 
-<section data-testid="grant-manager" aria-label="Grant capability sets">
+<section class="cwrap" data-testid="grant-manager" aria-label="Grant capability sets">
 	<h2>Grant capability sets</h2>
 	<p class="meta">
 		Grant a named capability set to a player on one entity. The preview shows exactly what the grant
@@ -254,21 +254,94 @@
 </section>
 
 <style>
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	.cwrap :global(h2),
+	.cwrap :global(h3) {
+		margin: 0;
+	}
+	.cwrap :global(h3) {
+		font-size: var(--text-md);
+	}
 	form {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: var(--space-2);
 		max-width: 32rem;
+		padding: var(--space-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
 	}
 	label {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
-		font-weight: 600;
+		gap: var(--space-1);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-secondary);
+	}
+	.cwrap :global(input),
+	.cwrap :global(select),
+	form :global(textarea) {
+		min-height: var(--touch-target-min);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font: inherit;
+		font-weight: var(--font-weight-regular);
+	}
+	.cwrap :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.cwrap :global(.scene-card),
+	.cwrap :global(.scene-list li) {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
+		flex-wrap: wrap;
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.cwrap :global(.meta) {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.cwrap :global(button) {
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+	.cwrap :global(button[type='submit']) {
+		background: var(--color-accent);
+		color: var(--color-accent-foreground);
+		border-color: var(--color-accent);
+		font-weight: var(--font-weight-semibold);
+	}
+	.cwrap :global([role='alert']) {
+		color: var(--color-status-error-text);
 	}
 	.grant-actions {
 		display: flex;
-		gap: 0.5rem;
+		gap: var(--space-2);
 		flex-wrap: wrap;
 	}
 </style>

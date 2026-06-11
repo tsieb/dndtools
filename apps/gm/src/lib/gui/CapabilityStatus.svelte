@@ -33,7 +33,7 @@
 	}
 </script>
 
-<section aria-label="Platform capability status" data-testid="capability-status">
+<section class="cwrap" aria-label="Platform capability status" data-testid="capability-status">
 	<h2>Platform capability status</h2>
 	<p class="meta" data-testid="capability-profile">
 		Active profile: <strong>{profile.id}</strong> • viewport {profile.viewportClass} • storage
@@ -56,3 +56,42 @@
 		{/each}
 	</ul>
 </section>
+
+<style>
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+	.cwrap h2 {
+		margin: 0;
+	}
+	.cwrap :global(.meta) {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.cwrap :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+	.cwrap :global(.scene-card) {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
+		padding: var(--space-1-5) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.cwrap :global([data-status='available']) {
+		color: var(--color-status-success-text);
+	}
+	.cwrap :global(.unavailable) {
+		color: var(--color-status-warning-text);
+	}
+</style>

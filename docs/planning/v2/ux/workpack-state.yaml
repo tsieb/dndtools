@@ -128,6 +128,9 @@ epics:
   - id: UX-MAP-pois-fog-projection-combat-and-embeds
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-MAP-pois-fog-projection-combat-and-embeds.completion.md
+  - id: UX-PERM-grant-dialog-active-grants-and-diagnostics
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-PERM-grant-dialog-active-grants-and-diagnostics.completion.md
   - id: UX-PERM-visibility-preview-badges-and-privacy-status
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-PERM-visibility-preview-badges-and-privacy-status.completion.md
