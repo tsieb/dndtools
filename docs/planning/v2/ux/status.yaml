@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 26
+  approved: 25
   active: 0
-  complete: 20
+  complete: 21
   deferred: 0
 metrics:
-  epicCompletionPercent: 43.5
-  requirementCompletionPercent: 43.4
+  epicCompletionPercent: 45.7
+  requirementCompletionPercent: 46.3
   totalRequirements: 244
-  completedRequirements: 106
+  completedRequirements: 113
   deferredRequirements: 0
-  remainingEpics: 26
+  remainingEpics: 25
   promptableEpics: 8
-  blockedByDependencies: 18
-  completionEvidenceFiles: 20
+  blockedByDependencies: 17
+  completionEvidenceFiles: 21
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -190,9 +190,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 06 Core Library Workspaces
       totalEpics: 9
-      complete: 1
+      complete: 2
       active: 0
-      approved: 8
+      approved: 7
       proposed: 0
       deferred: 0
       requirementIds:
@@ -244,8 +244,8 @@ metrics:
         - UX-MAP-016
         - UX-MAP-017
         - UX-MAP-018
-      epicCompletionPercent: 11.1
-      requirementCompletionPercent: 8.3
+      epicCompletionPercent: 22.2
+      requirementCompletionPercent: 22.9
     - phase: 07 Collaboration and Permissions
       totalEpics: 4
       complete: 0
@@ -391,22 +391,17 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-CHAR-sheet-live-resources-and-advancement
-  title: Character Sheet, Live Resources, and Advancement
+  id: UX-CHAR-collaboration-and-widget-bindings
+  title: Character Collaboration and Widget Bindings
   phase: 06 Core Library Workspaces
   status: approved
   requirementIds:
-    - UX-CHAR-003
-    - UX-CHAR-004
-    - UX-CHAR-005
-    - UX-CHAR-006
-    - UX-CHAR-007
-    - UX-CHAR-008
-    - UX-CHAR-012
-  promptCommand: pnpm ux-prompt -- --epic UX-CHAR-sheet-live-resources-and-advancement
+    - UX-CHAR-009
+    - UX-CHAR-010
+  promptCommand: pnpm ux-prompt -- --epic UX-CHAR-collaboration-and-widget-bindings
   nextPromptCommand: pnpm ux-prompt -- --next
   statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-CHAR-sheet-live-resources-and-advancement --status active
+    UX-CHAR-collaboration-and-widget-bindings --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -818,7 +813,7 @@ epics:
   - id: UX-CHAR-sheet-live-resources-and-advancement
     title: Character Sheet, Live Resources, and Advancement
     phase: 06 Core Library Workspaces
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-CHAR-003
@@ -837,6 +832,7 @@ epics:
       - character journal
     dependencies:
       - UX-CHAR-roster-creation-and-draft-ownership
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CHAR-sheet-live-resources-and-advancement.completion.md
   - id: UX-CHAR-collaboration-and-widget-bindings
     title: Character Collaboration and Widget Bindings
     phase: 06 Core Library Workspaces

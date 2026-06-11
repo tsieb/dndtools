@@ -72,14 +72,14 @@ test.describe('CHAR combat resources and advancement', () => {
 
 		// Before a session is active, the combat controls are disabled and an inactive note is shown.
 		await expect(page.getByTestId('resources-session-inactive')).toBeVisible();
-		await expect(page.getByTestId(`resources-hp-apply-${id}`)).toBeDisabled();
+		await expect(page.getByTestId(`resources-deal-${id}`)).toBeDisabled();
 
-		// Start an active session, then the owner applies damage during the session.
+		// Start an active session, then the owner deals 4 damage with the Damage/Heal stepper.
 		await startActiveSession(page);
 		await expect(page.getByTestId('resources-session-inactive')).toHaveCount(0);
-		await page.getByTestId(`resources-hp-delta-${id}`).scrollIntoViewIfNeeded();
-		await page.getByTestId(`resources-hp-delta-${id}`).fill('-4');
-		await clickInView(page, `resources-hp-apply-${id}`);
+		await page.getByTestId(`resources-amount-${id}`).scrollIntoViewIfNeeded();
+		await page.getByTestId(`resources-amount-${id}`).fill('4');
+		await clickInView(page, `resources-deal-${id}`);
 		await expect(page.getByTestId(`resources-hp-${id}`)).toContainText('HP 6/10');
 
 		// The expenditure history records the command (CHAR-008 history surface).

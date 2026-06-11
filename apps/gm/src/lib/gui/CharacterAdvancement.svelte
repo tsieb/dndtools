@@ -8,24 +8,21 @@
 		xpForLevel,
 	} from '@dndtools/core';
 	import { useRuntime } from '$lib/state/runtime-context';
+	import Dialog from '$lib/gui/a11y/Dialog.svelte';
 
-	// CHAR-009: level-up / ADVANCEMENT (XP or milestone) with VALIDATION before the revision is
-	// FINALIZED. The owner OPENs a staged advancement, sets the level-up choices, and the Processing
-	// Core blocks COMMIT until validation passes (staged-then-commit, no partial mutation). The staged
-	// draft lives on the durable character, so reopening the app restores progress + validation state.
-	// Every mutation dispatches a durable command; the GUI renders the computed advancement model and
-	// the core re-enforces owner authority and validation on dispatch (Contract 1).
+	// UX-CHAR-008 (CHAR-009) — level-up / ADVANCEMENT (XP or milestone) as a STAGED, VALIDATED modal.
+	// The owner opens an advancement (the durable, resumable staged draft lives on the character), makes
+	// the level-up choices one panel at a time, and the Processing Core blocks COMMIT until validation
+	// passes (staged-then-commit, no partial mutation). The wizard is a modal dialog so the sheet is
+	// preserved behind it; a staged draft that is closed without finalizing can be resumed. Every
+	// mutation dispatches a durable command; the core re-enforces owner authority + validation (Contract 1).
 	const runtime = useRuntime();
 
 	const actor = $derived(runtime.state.permissions.actors[runtime.activeActorId] ?? null);
 	const isDm = $derived(actor?.role === 'dm');
 
 	const visibleCharacters = $derived(
-		listCharactersForActor(
-			runtime.state.characters,
-			runtime.state.permissions,
-			runtime.activeActorId,
-		),
+		listCharactersForActor(runtime.state.characters, runtime.state.permissions, runtime.activeActorId),
 	);
 
 	let error = $state<string | null>(null);
@@ -35,12 +32,16 @@
 	let subclass = $state<Record<string, string>>({});
 	let abilityOrFeat = $state<Record<string, string>>({});
 
+	// The character whose advancement modal is open. The staged draft itself is durable; this is just
+	// which one is being viewed, so closing the modal (Escape) leaves a resumable draft behind.
+	let advancingId = $state<string | null>(null);
+	const dialogOpen = $derived(advancingId != null);
+
 	function canAdvance(characterId: string): boolean {
 		if (!actor) return false;
 		if (isDm) return true;
 		return hasGrantedCapability(runtime.state.permissions, actor, 'character', characterId, 'owner');
 	}
-
 	function character(characterId: string) {
 		return runtime.state.characters.characters[characterId] ?? null;
 	}
@@ -64,11 +65,9 @@
 	}
 
 	async function open(characterId: string, mode: 'xp' | 'milestone'): Promise<void> {
-		await dispatch({
-			type: 'character.open-advancement',
-			actorId: runtime.activeActorId,
-			payload: { characterId, mode },
-		});
+		if (await dispatch({ type: 'character.open-advancement', actorId: runtime.activeActorId, payload: { characterId, mode } })) {
+			advancingId = characterId;
+		}
 	}
 
 	async function saveChoices(characterId: string): Promise<void> {
@@ -77,172 +76,79 @@
 		if (hpGained[characterId] != null && hpGained[characterId] !== ('' as unknown))
 			payload.hitPointsGained = Math.trunc(Number(hpGained[characterId]));
 		if ((subclass[characterId] ?? '').trim()) payload.subclass = subclass[characterId]!.trim();
-		if ((abilityOrFeat[characterId] ?? '').trim())
-			payload.abilityOrFeat = abilityOrFeat[characterId]!.trim();
-		await dispatch({
-			type: 'character.set-advancement-choices',
-			actorId: runtime.activeActorId,
-			payload,
-		});
+		if ((abilityOrFeat[characterId] ?? '').trim()) payload.abilityOrFeat = abilityOrFeat[characterId]!.trim();
+		await dispatch({ type: 'character.set-advancement-choices', actorId: runtime.activeActorId, payload });
 	}
 
 	async function commit(characterId: string): Promise<void> {
-		await dispatch({
-			type: 'character.commit-advancement',
-			actorId: runtime.activeActorId,
-			payload: { characterId },
-		});
+		if (await dispatch({ type: 'character.commit-advancement', actorId: runtime.activeActorId, payload: { characterId } })) {
+			advancingId = null;
+		}
+	}
+	async function cancel(characterId: string): Promise<void> {
+		if (await dispatch({ type: 'character.cancel-advancement', actorId: runtime.activeActorId, payload: { characterId } })) {
+			advancingId = null;
+		}
 	}
 
-	async function cancel(characterId: string): Promise<void> {
-		await dispatch({
-			type: 'character.cancel-advancement',
-			actorId: runtime.activeActorId,
-			payload: { characterId },
-		});
-	}
+	const advancingChar = $derived(advancingId ? character(advancingId) : null);
+	const advancingState = $derived(advancingChar ? advancementStateOf(advancingChar) : null);
+	const advancingValidation = $derived(
+		advancingState?.draft ? validateAdvancement(advancingState.draft) : null,
+	);
 </script>
 
-<section data-testid="advancement-view" aria-label="Character advancement">
-	<h2>Advancement</h2>
-	<p class="meta">
-		Level up via XP or milestone. Choices are validated before the level-up is finalized; an
-		incomplete advancement cannot be committed.
-	</p>
+<section class="adv" data-testid="advancement-view" aria-label="Character advancement">
+	<header class="adv__head">
+		<h2>Advancement</h2>
+		<p class="adv__sub">Level up by XP or milestone. Choices are validated before the level-up is finalized.</p>
+	</header>
 
 	{#if error}
-		<p class="meta" role="alert" data-testid="advancement-error">{error}</p>
+		<p class="adv__error" role="alert" data-testid="advancement-error">{error}</p>
 	{/if}
 
 	{#if visibleCharacters.length === 0}
-		<p class="meta" data-testid="advancement-empty">No characters are visible to you.</p>
+		<p class="adv__empty" data-testid="advancement-empty">No characters are visible to you.</p>
 	{:else}
-		<ul class="scene-list" data-testid="advancement-list">
+		<ul class="adv-list" data-testid="advancement-list">
 			{#each visibleCharacters as view (view.id)}
 				{@const char = character(view.id)}
 				{#if char}
 					{@const advancement = advancementStateOf(char)}
-					{@const validation = advancement.draft ? validateAdvancement(advancement.draft) : null}
 					{@const xpEligible = checkAdvancementEligibility(char, 'xp')}
-					<li class="scene-card" data-testid={`advancement-character-${view.id}`}>
-						<h3>{view.name}</h3>
-						<p class="meta" data-testid={`advancement-level-${view.id}`}>
-							Level {advancement.level} • XP {advancement.xp}
-							{#if advancement.level < 20}
-								• next at {xpForLevel(advancement.level + 1) ?? '—'} XP
-							{/if}
-						</p>
+					<li class="adv-card" data-testid={`advancement-character-${view.id}`}>
+						<div class="adv-card__main">
+							<strong class="adv-card__name">{view.name}</strong>
+							<span class="adv-card__level" data-testid={`advancement-level-${view.id}`}>
+								Level {advancement.level} · XP {advancement.xp}{#if advancement.level < 20} · next at {xpForLevel(advancement.level + 1) ?? '—'} XP{/if}
+							</span>
+						</div>
 
 						{#if canAdvance(view.id)}
-							{#if !advancement.draft}
-								<div class="control-row">
-									<label>
-										<span>Set XP</span>
-										<input
-											type="number"
-											data-testid={`advancement-xp-input-${view.id}`}
-											bind:value={xpInput[view.id]}
-										/>
-									</label>
-									<button
-										type="button"
-										data-testid={`advancement-xp-set-${view.id}`}
-										onclick={() => setXp(view.id)}>Set XP</button
-									>
-								</div>
-								<div class="control-row">
-									<button
-										type="button"
-										class="button"
-										data-testid={`advancement-open-xp-${view.id}`}
-										disabled={!xpEligible.eligible}
-										onclick={() => open(view.id, 'xp')}>Level up (XP)</button
-									>
-									<button
-										type="button"
-										class="button secondary"
-										data-testid={`advancement-open-milestone-${view.id}`}
-										onclick={() => open(view.id, 'milestone')}>Level up (milestone)</button
-									>
-								</div>
-							{:else}
-								<div class="advancement-draft" data-testid={`advancement-draft-${view.id}`}>
-									<p class="meta">
-										Advancing to level {advancement.draft.toLevel} ({advancement.draft.mode})
-									</p>
-									<div class="control-row">
-										<label>
-											<span>Class</span>
-											<input
-												data-testid={`advancement-class-${view.id}`}
-												bind:value={className[view.id]}
-												autocomplete="off"
-											/>
-										</label>
-										<label>
-											<span>HP gained</span>
-											<input
-												type="number"
-												data-testid={`advancement-hp-${view.id}`}
-												bind:value={hpGained[view.id]}
-											/>
-										</label>
-									</div>
-									<div class="control-row">
-										<label>
-											<span>Subclass (if required)</span>
-											<input
-												data-testid={`advancement-subclass-${view.id}`}
-												bind:value={subclass[view.id]}
-												autocomplete="off"
-											/>
-										</label>
-										<label>
-											<span>Ability/feat (if required)</span>
-											<input
-												data-testid={`advancement-ability-${view.id}`}
-												bind:value={abilityOrFeat[view.id]}
-												autocomplete="off"
-											/>
-										</label>
-									</div>
-									<div class="control-row">
-										<button
-											type="button"
-											data-testid={`advancement-save-${view.id}`}
-											onclick={() => saveChoices(view.id)}>Save choices</button
-										>
-										<button
-											type="button"
-											class="button"
-											data-testid={`advancement-commit-${view.id}`}
-											disabled={!validation?.complete}
-											onclick={() => commit(view.id)}>Finalize level-up</button
-										>
-										<button
-											type="button"
-											class="button secondary"
-											data-testid={`advancement-cancel-${view.id}`}
-											onclick={() => cancel(view.id)}>Cancel</button
-										>
-									</div>
-									{#if validation && validation.issues.length > 0}
-										<ul class="issue-list" data-testid={`advancement-issues-${view.id}`}>
-											{#each validation.issues as issue (issue.field)}
-												<li class="meta" data-testid={`advancement-issue-${view.id}-${issue.field}`}>
-													{issue.message}
-												</li>
-											{/each}
-										</ul>
-									{:else if validation?.complete}
-										<p class="meta" data-testid={`advancement-ready-${view.id}`}>
-											Ready to finalize.
-										</p>
-									{/if}
-								</div>
-							{/if}
+							<div class="adv-card__actions">
+								{#if advancement.draft}
+									<button type="button" class="button" data-testid={`advancement-resume-${view.id}`} onclick={() => (advancingId = view.id)}>
+										Resume level-up
+									</button>
+								{:else}
+									<details class="adv-xp">
+										<summary>Set XP</summary>
+										<div class="control-row">
+											<input class="num" type="number" data-testid={`advancement-xp-input-${view.id}`} bind:value={xpInput[view.id]} />
+											<button type="button" class="button secondary" data-testid={`advancement-xp-set-${view.id}`} onclick={() => setXp(view.id)}>Set XP</button>
+										</div>
+									</details>
+									<button type="button" class="button" data-testid={`advancement-open-xp-${view.id}`} disabled={!xpEligible.eligible} onclick={() => open(view.id, 'xp')}>
+										Level up (XP)
+									</button>
+									<button type="button" class="button secondary" data-testid={`advancement-open-milestone-${view.id}`} onclick={() => open(view.id, 'milestone')}>
+										Level up (milestone)
+									</button>
+								{/if}
+							</div>
 						{:else}
-							<p class="meta">You do not own this character.</p>
+							<span class="adv-card__readonly">You do not own this character.</span>
 						{/if}
 					</li>
 				{/if}
@@ -251,38 +157,85 @@
 	{/if}
 </section>
 
+<!-- Staged level-up modal (UX-CHAR-008): the sheet stays behind it; close leaves a resumable draft. -->
+{#if advancingId && advancingChar && advancingState?.draft}
+	<Dialog
+		open={dialogOpen}
+		role="dialog"
+		closeOnBackdrop={false}
+		title={`Level up ${advancingChar.name} to level ${advancingState.draft.toLevel}`}
+		testid="advancement-dialog"
+		onclose={() => (advancingId = null)}
+	>
+		<div class="draft" data-testid={`advancement-draft-${advancingId}`}>
+			<p class="draft__mode">Advancing to level {advancingState.draft.toLevel} ({advancingState.draft.mode}). One choice at a time.</p>
+			<div class="draft__grid">
+				<label class="field"><span>Class gaining the level</span>
+					<input data-testid={`advancement-class-${advancingId}`} bind:value={className[advancingId]} autocomplete="off" /></label>
+				<label class="field"><span>Hit points gained</span>
+					<input class="num" type="number" inputmode="numeric" data-testid={`advancement-hp-${advancingId}`} bind:value={hpGained[advancingId]} /></label>
+				<label class="field"><span>Subclass (if required)</span>
+					<input data-testid={`advancement-subclass-${advancingId}`} bind:value={subclass[advancingId]} autocomplete="off" /></label>
+				<label class="field"><span>Ability score / feat (if required)</span>
+					<input data-testid={`advancement-ability-${advancingId}`} bind:value={abilityOrFeat[advancingId]} autocomplete="off" /></label>
+			</div>
+
+			{#if advancingValidation && advancingValidation.issues.length > 0}
+				<ul class="issue-list" data-testid={`advancement-issues-${advancingId}`}>
+					{#each advancingValidation.issues as issue (issue.field)}
+						<li data-testid={`advancement-issue-${advancingId}-${issue.field}`}>{issue.message}</li>
+					{/each}
+				</ul>
+			{:else if advancingValidation?.complete}
+				<p class="ready" data-testid={`advancement-ready-${advancingId}`}>All choices are valid — ready to finalize.</p>
+			{/if}
+		</div>
+		{#snippet footer()}
+			<button type="button" class="button secondary" data-testid={`advancement-save-${advancingId}`} onclick={() => saveChoices(advancingId!)}>Save choices</button>
+			<button type="button" class="button ghost" data-testid={`advancement-cancel-${advancingId}`} onclick={() => cancel(advancingId!)}>Cancel level-up</button>
+			<button type="button" class="button" data-testid={`advancement-commit-${advancingId}`} disabled={!advancingValidation?.complete} onclick={() => commit(advancingId!)}>Finalize level-up</button>
+		{/snippet}
+	</Dialog>
+{/if}
+
 <style>
-	/* The shared `.scene-card` is a row flex container; these cards stack many block children, so
-	   render them as a column to avoid horizontal overflow/overlap on compact profiles. */
-	.scene-list .scene-card {
-		flex-direction: column;
-		align-items: stretch;
-	}
-	.control-row {
+	.adv {
 		display: flex;
-		align-items: flex-end;
-		gap: 0.5rem;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	.adv__head h2 { margin: 0; }
+	.adv__sub, .adv__empty { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
+	.adv__error { margin: 0; color: var(--color-status-error-text); font-size: var(--text-sm); }
+	.adv-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+	.adv-card {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
 		flex-wrap: wrap;
-		margin: 0.25rem 0;
+		padding: var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
 	}
-	.control-row label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.2rem;
-		font-weight: 600;
-	}
-	.control-row input {
-		max-width: 10rem;
-	}
-	.advancement-draft {
-		border: 1px solid var(--border, #d0c8b8);
-		border-radius: 0.5rem;
-		padding: 0.5rem 0.75rem;
-		margin: 0.5rem 0;
-	}
-	.issue-list {
-		list-style: none;
-		padding: 0;
-		margin: 0.5rem 0;
-	}
+	.adv-card__main { display: flex; flex-direction: column; gap: var(--space-0-5); min-width: 0; }
+	.adv-card__name { font-size: var(--text-md); }
+	.adv-card__level { font-size: var(--text-sm); color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+	.adv-card__actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+	.adv-card__readonly { font-size: var(--text-sm); color: var(--color-text-secondary); }
+	.adv-xp summary { cursor: pointer; font-size: var(--text-sm); color: var(--color-text-secondary); }
+	.control-row { display: flex; align-items: flex-end; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-1); }
+	.num { width: 6rem; min-height: var(--touch-target-min); padding: var(--space-2); background: var(--color-surface-sunken); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font: inherit; appearance: textfield; -moz-appearance: textfield; }
+	.num::-webkit-outer-spin-button, .num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+	.draft { display: flex; flex-direction: column; gap: var(--space-3); }
+	.draft__mode { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
+	.draft__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-3); }
+	.field { display: flex; flex-direction: column; gap: var(--space-1); }
+	.field span { font-size: var(--text-sm); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); }
+	.field :global(input) { min-height: var(--touch-target-min); padding: var(--space-2) var(--space-3); background: var(--color-surface-sunken); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font: inherit; }
+	.issue-list { list-style: none; margin: 0; padding-left: var(--space-5); color: var(--color-status-warning-text); font-size: var(--text-sm); }
+	.issue-list li { list-style: disc; }
+	.ready { margin: 0; color: var(--color-status-success-text); font-size: var(--text-sm); }
+	.button.ghost { background: transparent; color: var(--color-text-secondary); border: 1px solid var(--color-border); }
 </style>
