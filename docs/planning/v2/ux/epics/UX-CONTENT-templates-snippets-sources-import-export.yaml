@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-CONTENT-templates-snippets-sources-import-export
 title: Templates, Snippets, Sources, Import, and Export
-status: approved
+status: complete
 approved: true
 phase: 06 Core Library Workspaces
 productPriority: P1
@@ -287,3 +287,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-CONTENT-templates-snippets-sources-import-export.completion.md

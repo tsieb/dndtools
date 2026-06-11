@@ -105,7 +105,7 @@
 </script>
 
 {#if canAuthor}
-	<section data-testid="content-source-constraints" aria-label="Source-specific note constraints">
+	<section class="cwrap" data-testid="content-source-constraints" aria-label="Source-specific note constraints">
 		<h2>Source constraints</h2>
 
 		<!-- The capability reference table (what each source can / can't represent). -->
@@ -211,12 +211,94 @@
 {/if}
 
 <style>
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	.cwrap :global(h2) {
+		margin: 0;
+	}
+	.cwrap :global(h3) {
+		margin: var(--space-2) 0 0;
+		font-size: var(--text-md);
+	}
+	.cwrap :global(form) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	.cwrap :global(label) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-secondary);
+	}
+	.cwrap :global(input),
+	.cwrap :global(select),
+	.cwrap :global(textarea) {
+		min-height: var(--touch-target-min);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font: inherit;
+		font-weight: var(--font-weight-regular);
+	}
+	.cwrap :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.cwrap :global(.scene-card),
+	.cwrap :global(.scene-list li) {
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.cwrap :global(.meta) {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-regular);
+	}
+	.cwrap :global(button) {
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+	.cwrap :global(button[type='submit']) {
+		background: var(--color-accent);
+		color: var(--color-accent-foreground);
+		border-color: var(--color-accent);
+		font-weight: var(--font-weight-semibold);
+	}
+	.cwrap :global([role='alert']) {
+		color: var(--color-status-error-text);
+	}
 	.ack {
 		display: flex;
 		align-items: flex-start;
-		gap: 0.5rem;
+		gap: var(--space-2);
+		font-weight: var(--font-weight-regular);
 	}
-	[data-support='unsupported'] {
-		font-weight: 600;
+	.cwrap :global([data-support='unsupported']) {
+		color: var(--color-status-warning-text);
+		font-weight: var(--font-weight-semibold);
 	}
 </style>

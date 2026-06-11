@@ -113,6 +113,9 @@ epics:
   - id: UX-CONTENT-editor-shell-and-writing-controls
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-CONTENT-editor-shell-and-writing-controls.completion.md
+  - id: UX-CONTENT-templates-snippets-sources-import-export
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CONTENT-templates-snippets-sources-import-export.completion.md
   - id: UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields.completion.md
