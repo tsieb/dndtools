@@ -95,6 +95,9 @@ epics:
   - id: UX-CANVAS-widget-manipulation-and-outline
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-CANVAS-widget-manipulation-and-outline.completion.md
+  - id: UX-CHAR-collaboration-and-widget-bindings
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CHAR-collaboration-and-widget-bindings.completion.md
   - id: UX-CHAR-roster-creation-and-draft-ownership
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-CHAR-roster-creation-and-draft-ownership.completion.md

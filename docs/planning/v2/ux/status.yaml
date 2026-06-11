@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 25
+  approved: 24
   active: 0
-  complete: 21
+  complete: 22
   deferred: 0
 metrics:
-  epicCompletionPercent: 45.7
-  requirementCompletionPercent: 46.3
+  epicCompletionPercent: 47.8
+  requirementCompletionPercent: 47.1
   totalRequirements: 244
-  completedRequirements: 113
+  completedRequirements: 115
   deferredRequirements: 0
-  remainingEpics: 25
-  promptableEpics: 8
+  remainingEpics: 24
+  promptableEpics: 7
   blockedByDependencies: 17
-  completionEvidenceFiles: 21
+  completionEvidenceFiles: 22
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -190,9 +190,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 06 Core Library Workspaces
       totalEpics: 9
-      complete: 2
+      complete: 3
       active: 0
-      approved: 7
+      approved: 6
       proposed: 0
       deferred: 0
       requirementIds:
@@ -244,8 +244,8 @@ metrics:
         - UX-MAP-016
         - UX-MAP-017
         - UX-MAP-018
-      epicCompletionPercent: 22.2
-      requirementCompletionPercent: 22.9
+      epicCompletionPercent: 33.3
+      requirementCompletionPercent: 27.1
     - phase: 07 Collaboration and Permissions
       totalEpics: 4
       complete: 0
@@ -391,17 +391,21 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-CHAR-collaboration-and-widget-bindings
-  title: Character Collaboration and Widget Bindings
+  id: UX-MAP-library-viewer-import-and-search
+  title: Map Library, Viewer, Import, and Search
   phase: 06 Core Library Workspaces
   status: approved
   requirementIds:
-    - UX-CHAR-009
-    - UX-CHAR-010
-  promptCommand: pnpm ux-prompt -- --epic UX-CHAR-collaboration-and-widget-bindings
+    - UX-MAP-001
+    - UX-MAP-002
+    - UX-MAP-003
+    - UX-MAP-006
+    - UX-MAP-009
+    - UX-MAP-018
+  promptCommand: pnpm ux-prompt -- --epic UX-MAP-library-viewer-import-and-search
   nextPromptCommand: pnpm ux-prompt -- --next
   statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-CHAR-collaboration-and-widget-bindings --status active
+    UX-MAP-library-viewer-import-and-search --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -836,7 +840,7 @@ epics:
   - id: UX-CHAR-collaboration-and-widget-bindings
     title: Character Collaboration and Widget Bindings
     phase: 06 Core Library Workspaces
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-CHAR-009
@@ -848,6 +852,7 @@ epics:
     dependencies:
       - UX-CHAR-sheet-live-resources-and-advancement
       - UX-CANVAS-chrome-bindings-templates-and-view-modes
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CHAR-collaboration-and-widget-bindings.completion.md
   - id: UX-MAP-library-viewer-import-and-search
     title: Map Library, Viewer, Import, and Search
     phase: 06 Core Library Workspaces

@@ -60,7 +60,7 @@ test.describe('CHAR widget data exposure', () => {
 	test('resolves a bound HP value for the DM through the exposure API', async ({ page }) => {
 		await createCharacter(page, 'Aria', 'player-visible', '8', '14');
 		await page.getByTestId('exposure-character').selectOption({ label: 'Aria' });
-		await page.getByTestId('exposure-selector').selectOption('combat.hp');
+		await page.getByTestId('exposure-path-combat.hp').click();
 		await expect(page.getByTestId('exposure-state')).toHaveText('available');
 		await expect(page.getByTestId('exposure-value')).toContainText('8');
 	});
@@ -68,7 +68,7 @@ test.describe('CHAR widget data exposure', () => {
 	test('an unsupported selector fails closed to missing (not a leak)', async ({ page }) => {
 		await createCharacter(page, 'Aria', 'player-visible', '8', '14');
 		await page.getByTestId('exposure-character').selectOption({ label: 'Aria' });
-		await page.getByTestId('exposure-selector').selectOption('combat.secretPlan');
+		await page.getByTestId('exposure-path-combat.secretPlan').click();
 		await expect(page.getByTestId('exposure-state')).toHaveText('missing');
 		await expect(page.getByTestId('exposure-missing')).toBeVisible();
 	});
@@ -81,7 +81,7 @@ test.describe('CHAR widget data exposure', () => {
 
 		// DM can bind to the hidden character and read its secret HP.
 		await page.getByTestId('exposure-character').selectOption({ label: 'Hidden Horror' });
-		await page.getByTestId('exposure-selector').selectOption('combat.hp');
+		await page.getByTestId('exposure-path-combat.hp').click();
 		await expect(page.getByTestId('exposure-state')).toHaveText('available');
 		await expect(page.getByTestId('exposure-value')).toContainText('99');
 

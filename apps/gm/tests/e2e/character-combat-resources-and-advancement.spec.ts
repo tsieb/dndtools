@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openSection } from './_nav-helper';
 
 // CHAR-007 / CHAR-008 / CHAR-009: combat resources, spell/resource state, and advancement.
 //
@@ -55,13 +56,17 @@ test.describe('CHAR combat resources and advancement', () => {
 		await locator.click();
 	}
 
-	// Start an active session from the home Command Center (DM-only). The home Scene auto-provisions.
+	// Start an active session from the home Command Center (DM-only), then return to Characters. Uses
+	// IN-APP (SPA) navigation rather than page.goto so the shared in-memory runtime is preserved — a
+	// hard reload would race the optimistic-then-durable IndexedDB writes (e.g. a just-declared spell
+	// slot) and intermittently drop them. Switches the view to the DM to reach the session controls.
 	async function startActiveSession(page: import('@playwright/test').Page): Promise<void> {
-		await page.goto('/');
+		await openSection(page, 'command-center');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
+		await page.getByTestId('view-as-select').selectOption('local-dm');
 		await page.getByTestId('session-workflow-active').click();
 		await expect(page.getByTestId('session-workflow-status')).toContainText('active');
-		await page.goto('/characters/');
+		await openSection(page, 'characters');
 		await page.getByTestId('characters-view').waitFor({ state: 'visible' });
 	}
 
@@ -115,10 +120,11 @@ test.describe('CHAR combat resources and advancement', () => {
 		await clickInView(page, `resources-slot-declare-${id}`);
 		await expect(page.getByTestId(`resources-slot-${id}-1`)).toContainText('2/2');
 
-		// Cast one slot during an active session.
+		// Cast one slot during an active session (in-app nav keeps the declared slot in memory).
 		await startActiveSession(page);
 		await expect(page.getByTestId('resources-session-inactive')).toHaveCount(0);
 		await page.getByTestId('view-as-select').selectOption('actor-player');
+		await expect(page.getByTestId(`resources-slot-${id}-1`)).toContainText('2/2');
 		await expect(page.getByTestId(`resources-cast-${id}-1`)).toBeEnabled();
 		await clickInView(page, `resources-cast-${id}-1`);
 		await expect(page.getByTestId(`resources-slot-${id}-1`)).toContainText('1/2');
