@@ -1424,6 +1424,24 @@ export type {
 } from './queries/command-center-home';
 export { getSessionStatusStrip, resolveCommandCenterHome } from './queries/command-center-home';
 
+// UX-CMD-006/007/010/011 — the Command Center LIVE-CONTROL read models: spec'd session phase
+// transitions (with their confirmation contract), the default-deny pushable-content selector, the
+// shared push→deliver-handout command resolver, and the DM-only active-map projection glance state.
+export type {
+	ActiveMapProjectionSummary,
+	CommandCenterLiveStateView,
+	PhaseActionConfirmation,
+	PushableContentItem,
+	ResolvedPushHandoutCommand,
+	SessionPhaseAction,
+} from './queries/command-center-live';
+export {
+	getActiveMapProjectionSummary,
+	listPushableContent,
+	listSessionPhaseActions,
+	resolvePushHandoutCommand,
+} from './queries/command-center-live';
+
 // SES-005 — the OPERATE-vs-CONFIGURE widget authority policy (Contract 3 Timer/Tool + Widget capability
 // sets). An `operator` grant authorizes runtime OPERATE actions (start/pause/resume/reset/advance/roll/
 // draw) WITHOUT authorizing CONFIGURE/DEFINE actions; configure requires `manager`. Fail closed both ways.

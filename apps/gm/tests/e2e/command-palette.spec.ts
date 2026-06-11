@@ -8,7 +8,7 @@ test.describe('CMD-008 global command palette', () => {
 			await indexedDB.deleteDatabase('dndtools-v2');
 		});
 		await page.reload();
-		await page.getByTestId('cc-library-list').waitFor({ state: 'visible' });
+		await page.getByTestId('cc-add-widget').waitFor({ state: 'visible' });
 	});
 
 	test('runs a Command Center action through the same core command as the visible control (AC1)', async ({

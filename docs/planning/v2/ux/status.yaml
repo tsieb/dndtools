@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 31
+  approved: 30
   active: 0
-  complete: 15
+  complete: 16
   deferred: 0
 metrics:
-  epicCompletionPercent: 32.6
-  requirementCompletionPercent: 32
+  epicCompletionPercent: 34.8
+  requirementCompletionPercent: 34.8
   totalRequirements: 244
-  completedRequirements: 78
+  completedRequirements: 85
   deferredRequirements: 0
-  remainingEpics: 31
-  promptableEpics: 9
+  remainingEpics: 30
+  promptableEpics: 8
   blockedByDependencies: 22
-  completionEvidenceFiles: 15
+  completionEvidenceFiles: 16
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -142,9 +142,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 04 Trust and Safety
       totalEpics: 2
-      complete: 1
+      complete: 2
       active: 0
-      approved: 1
+      approved: 0
       proposed: 0
       deferred: 0
       requirementIds:
@@ -159,8 +159,8 @@ metrics:
         - UX-PERM-006
         - UX-PERM-007
         - UX-PERM-008
-      epicCompletionPercent: 50
-      requirementCompletionPercent: 36.4
+      epicCompletionPercent: 100
+      requirementCompletionPercent: 100
     - phase: 05 Live-Play Workspaces
       totalEpics: 3
       complete: 0
@@ -391,22 +391,22 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-CMD-player-view-handouts-map-and-session-controls
-  title: Command Center Player Views, Handouts, Map, and Session Controls
-  phase: 04 Trust and Safety
+  id: UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
+  title: Session Lifecycle, Recovery, and Hot-Path Combat Shell
+  phase: 05 Live-Play Workspaces
   status: approved
   requirementIds:
-    - UX-CMD-004
-    - UX-CMD-005
-    - UX-CMD-006
-    - UX-CMD-007
-    - UX-CMD-009
-    - UX-CMD-010
-    - UX-CMD-011
-  promptCommand: pnpm ux-prompt -- --epic UX-CMD-player-view-handouts-map-and-session-controls
+    - UX-SES-001
+    - UX-SES-002
+    - UX-SES-003
+    - UX-SES-004
+    - UX-SES-006
+    - UX-SES-017
+  promptCommand: pnpm ux-prompt -- --epic
+    UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
   nextPromptCommand: pnpm ux-prompt -- --next
   statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-CMD-player-view-handouts-map-and-session-controls --status active
+    UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -710,7 +710,7 @@ epics:
   - id: UX-CMD-player-view-handouts-map-and-session-controls
     title: Command Center Player Views, Handouts, Map, and Session Controls
     phase: 04 Trust and Safety
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-CMD-004
@@ -730,6 +730,7 @@ epics:
       - UX-CMD-home-scene-and-role-differentiated-dashboard
       - UX-PERM-visibility-preview-badges-and-privacy-status
       - UX-SHELL-command-surface-and-shortcuts
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CMD-player-view-handouts-map-and-session-controls.completion.md
   - id: UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
     title: Session Lifecycle, Recovery, and Hot-Path Combat Shell
     phase: 05 Live-Play Workspaces

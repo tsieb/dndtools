@@ -795,7 +795,7 @@ body {
  * Read-only navigation (links, nav, palette) stays fully usable.
  * --------------------------------------------------------------------------- */
 .app-shell[data-preview-mode] {
-	padding-top: 48px;
+	padding-top: var(--space-12); /* 48px — matches the preview banner's min-height */
 }
 
 .app-shell[data-preview-mode] :is(.app-main, .dialog) :is(

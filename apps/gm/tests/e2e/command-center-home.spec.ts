@@ -127,7 +127,9 @@ test.describe('UX-CMD Command Center home + role-differentiated dashboard', () =
 		await expect(page.getByTestId('session-workflow')).toHaveCount(0);
 		await expect(page.getByTestId('cc-player-view-controller')).toHaveCount(0);
 		await expect(page.getByTestId('cc-preset-list')).toHaveCount(0);
-		await expect(page.getByTestId('cc-library-list')).toHaveCount(0);
+		await expect(page.getByTestId('cc-add-widget')).toHaveCount(0);
+		await expect(page.getByTestId('cc-phase-controls')).toHaveCount(0);
+		await expect(page.getByTestId('cc-push-open')).toHaveCount(0);
 		// The players roster cell is DM-only — a participant never sees a connected count.
 		await expect(page.getByTestId('cc-status-players')).toHaveCount(0);
 

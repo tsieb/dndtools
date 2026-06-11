@@ -74,7 +74,9 @@ export type ResolvedPaletteCommand =
 	| { kind: 'dispatch'; command: ResolvedCommandAction };
 
 function categoryForAction(action: CommandAction): CommandCategory {
-	return action.group === 'widget' ? 'widget' : 'action';
+	if (action.group === 'widget') return 'widget';
+	if (action.group === 'map') return 'map';
+	return 'action';
 }
 
 /**
@@ -147,6 +149,40 @@ export function listPaletteCommands(
 	//    same guard.
 	if (actorCanAuthorScene(state.permissions.actors[actorId])) {
 		commands.push(createSceneCommand());
+
+		// UX-CMD-006 / UX-CMD-011 — "Push handout to players…" opens the SAME confirmed push flow the
+		// Player-View Controller's push buttons open (content selection is contextual inside the flow,
+		// per the UX-CMD-011 spec — per-item commands are intentionally NOT enumerated here, so no
+		// entity title ever enters the command registry). DM-gated by the surrounding guard.
+		commands.push({
+			kind: 'navigation',
+			id: 'cc.push-handout',
+			title: 'Push handout to players…',
+			keywords: ['push', 'handout', 'deliver', 'players', 'content', 'share'],
+			category: 'navigation',
+			availability: { status: 'available' },
+			route: '/?push-handout=1',
+		});
+
+		// UX-CMD-005 / UX-CMD-011 — "Preview <player>'s view" palette parity. Navigation-kind:
+		// it routes to the Command Center with the preview-view param, which opens the SAME
+		// DM-only preview modal the Player-View Controller's eye button opens. DM-gated by the
+		// surrounding guard, so these entries are entirely ABSENT for a non-DM actor (hidden,
+		// not disabled — present-in-DOM-but-hidden would leak structure).
+		const participants = Object.values(state.permissions.actors)
+			.filter((participant) => participant.role !== 'dm')
+			.sort((a, b) => a.displayName.localeCompare(b.displayName));
+		for (const participant of participants) {
+			commands.push({
+				kind: 'navigation',
+				id: `cc.preview-view:${participant.id}`,
+				title: `Preview ${participant.displayName}'s view`,
+				keywords: ['preview', 'player', 'view', participant.displayName],
+				category: 'navigation',
+				availability: { status: 'available' },
+				route: `/?preview-view=${participant.id}`,
+			});
+		}
 	}
 	for (const action of listCommandActions(state, actorId, context)) {
 		commands.push({

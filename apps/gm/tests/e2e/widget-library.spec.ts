@@ -8,6 +8,9 @@ test.describe('CMD-005 quick-access widget library', () => {
 			await indexedDB.deleteDatabase('dndtools-v2');
 		});
 		await page.reload();
+		// UX-CMD-009: the library is a quick-access drawer behind the "Add widget" button.
+		await page.getByTestId('cc-add-widget').waitFor({ state: 'visible' });
+		await page.getByTestId('cc-add-widget').click();
 		await page.getByTestId('cc-library-list').waitFor({ state: 'visible' });
 	});
 
@@ -34,7 +37,8 @@ test.describe('CMD-005 quick-access widget library', () => {
 		await page.getByTestId('cc-library-search').fill('note');
 		await page.getByTestId('cc-library-add-note').click();
 
-		// The added widget renders on the Command Center as a normal Scene widget.
+		// UX-CMD-009 AC3: the drawer closes on add and the widget renders on the Command Center.
+		await expect(page.getByTestId('cc-library-drawer')).toHaveCount(0);
 		await expect(page.getByTestId('cc-widget-note')).toBeVisible();
 	});
 });

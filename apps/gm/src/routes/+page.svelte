@@ -2,6 +2,7 @@
 	import {
 		DEFAULT_COMMAND_CENTER_TOOLS,
 		SESSION_WORKFLOW_STATES,
+		getActiveMapProjectionSummary,
 		getActiveMapViewForActor,
 		getPlayerViewController,
 		getSceneForActor,
@@ -17,12 +18,18 @@
 		type WidgetBindingPayload,
 		type WidgetLibraryEntry,
 	} from '@dndtools/core';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { useRuntime } from '$lib/state/runtime-context';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
 	import { useFeatureTier } from '$lib/state/feature-tier.svelte';
 	import FirstRun from '$lib/gui/FirstRun.svelte';
+	import Dialog from '$lib/gui/a11y/Dialog.svelte';
 	import SessionStatusStrip from '$lib/gui/ux-cmd/SessionStatusStrip.svelte';
 	import ParticipantHome from '$lib/gui/ux-cmd/ParticipantHome.svelte';
+	import SessionPhaseControls from '$lib/gui/ux-cmd/SessionPhaseControls.svelte';
+	import PlayerViewPreviewModal from '$lib/gui/ux-cmd/PlayerViewPreviewModal.svelte';
+	import HandoutPushFlow from '$lib/gui/ux-cmd/HandoutPushFlow.svelte';
 
 	const runtime = useRuntime();
 	const profile = useProfile();
@@ -65,6 +72,24 @@
 	let activeMapStatus = $state<string | null>(null);
 	let playerViewSceneSelections = $state<Record<string, string>>({});
 	let playerViewStatus = $state<string | null>(null);
+	// UX-CMD-005 — the DM-only player-view preview modal target.
+	let previewTarget = $state<{ actorId: string; displayName: string } | null>(null);
+	let previewOpen = $state(false);
+	// UX-CMD-006 — the push-handout flow (optionally pre-targeted at one participant row).
+	let pushOpen = $state(false);
+	let pushRecipientId = $state<string | null>(null);
+	// UX-CMD-009 — the widget library quick-access drawer.
+	let libraryOpen = $state(false);
+	let librarySearchEl = $state<HTMLInputElement | null>(null);
+
+	// UX-CMD-009: the search field is auto-focused when the drawer opens (after the dialog's focus
+	// trap takes its initial focus, hence the queued task).
+	$effect(() => {
+		if (!libraryOpen || !librarySearchEl) return;
+		const el = librarySearchEl;
+		const timer = setTimeout(() => el.focus(), 0);
+		return () => clearTimeout(timer);
+	});
 
 	const homeSceneId = $derived(runtime.state.commandCenter.homeSceneId);
 	const summary = $derived(
@@ -111,6 +136,73 @@
 	const playerViewSceneOptions = $derived(
 		playerViewController.kind === 'available' ? playerViewController.sceneOptions : [],
 	);
+	// UX-CMD-007 — the DM-only "Projecting" glance state of the active-map embed.
+	const projectionSummary = $derived(
+		getActiveMapProjectionSummary(runtime.state, runtime.defaultActorId),
+	);
+
+	function openPreview(actorId: string, displayName: string): void {
+		previewTarget = { actorId, displayName };
+		previewOpen = true;
+	}
+
+	function closePreview(): void {
+		previewOpen = false;
+		previewTarget = null;
+		// Palette parity (UX-CMD-011): when the preview was opened via /?preview-view=…, closing it
+		// returns to the clean home URL so the modal does not re-open on the next navigation.
+		if (page.url.searchParams.has('preview-view')) void goto('/');
+	}
+
+	function openPush(recipientId: string | null): void {
+		pushRecipientId = recipientId;
+		pushOpen = true;
+	}
+
+	function closePush(): void {
+		pushOpen = false;
+		pushRecipientId = null;
+		// Palette parity (UX-CMD-011): when the flow was opened via /?push-handout=1, closing it
+		// returns to the clean home URL so the flow does not re-open on the next navigation.
+		if (page.url.searchParams.has('push-handout')) void goto('/');
+	}
+
+	// UX-CMD-011 — "Push handout to players…" from the command palette routes here with
+	// ?push-handout=1 and opens the SAME confirmed flow the visible push buttons open. Each param
+	// occurrence is handled once (same race-guard pattern as the preview param below).
+	let handledPushParam = $state(false);
+	$effect(() => {
+		const requested = page.url.searchParams.has('push-handout');
+		if (!requested) {
+			handledPushParam = false;
+			return;
+		}
+		if (handledPushParam || homeView.kind !== 'dm') return;
+		handledPushParam = true;
+		openPush(null);
+	});
+
+	// UX-CMD-011 — "Preview <player>'s view" from the command palette routes here with
+	// ?preview-view=<actorId>. Resolve it against the DM's player-view controller (DM-only by
+	// construction: the controller is denied for any other actor, so the modal never opens for them).
+	// Each param value is handled ONCE, so closing the modal (which clears the URL asynchronously)
+	// can never race the effect into re-opening it.
+	let handledPreviewParam = $state<string | null>(null);
+	$effect(() => {
+		const requested = page.url.searchParams.get('preview-view');
+		if (!requested) {
+			handledPreviewParam = null;
+			return;
+		}
+		if (handledPreviewParam === requested) return;
+		if (homeView.kind !== 'dm' || playerViewController.kind !== 'available') return;
+		const participant = playerViewController.participants.find(
+			(entry) => entry.actorId === requested,
+		);
+		if (!participant) return;
+		handledPreviewParam = requested;
+		openPreview(participant.actorId, participant.displayName);
+	});
 
 	// Quick-access widget library (CMD-005): the Processing Core decides which widget
 	// types exist, their required bindings, and whether each runs on the active
@@ -314,10 +406,16 @@
 	}
 
 	async function projectActiveMap(connectionState: 'connected' | 'offline') {
+		// Project to every connected player (the same recipient set the palette's
+		// "Project active map to players" command carries — UX-CMD-011 parity).
+		const playerActorIds = runtime.actors
+			.filter((actor) => actor.role === 'player')
+			.map((actor) => actor.id)
+			.sort();
 		const result = await runtime.dispatch({
 			type: 'session.project-active-map',
 			actorId: runtime.defaultActorId,
-			payload: { playerActorIds: ['actor-player'], connectionState },
+			payload: { playerActorIds, connectionState },
 		});
 		activeMapStatus =
 			result.status === 'accepted'
@@ -415,6 +513,9 @@
 		<!-- UX-CMD-003: the glanceable, always-visible session status strip. -->
 		<SessionStatusStrip strip={homeView.statusStrip} />
 
+		<!-- UX-CMD-010: the Phase badge → valid-transitions popover (pause immediate, end two-step). -->
+		<SessionPhaseControls />
+
 	<FirstRun
 		view={onboarding}
 		tiers={featureTier.tiers}
@@ -476,8 +577,34 @@
 			{/if}
 		</section>
 
-		<section aria-label="Active map" data-testid="cc-active-map">
+		<section
+			aria-label="Active map"
+			data-testid="cc-active-map"
+			class="active-map-section"
+			data-projecting={projectionSummary?.projecting ? 'true' : 'false'}
+		>
 			<h2>Active map</h2>
+			<!-- UX-CMD-007: the glanceable projection state — text label, never colour alone. -->
+			<p
+				class="projection-state"
+				data-testid="cc-map-projection-state"
+				data-projecting={projectionSummary?.projecting ? 'true' : 'false'}
+				role="status"
+			>
+				{#if projectionSummary?.projecting}
+					Projecting to {projectionSummary.deliveredCount} player{projectionSummary.deliveredCount ===
+					1
+						? ''
+						: 's'}
+				{:else if projectionSummary && projectionSummary.queuedCount > 0}
+					Projection queued for {projectionSummary.queuedCount} player{projectionSummary.queuedCount ===
+					1
+						? ''
+						: 's'}
+				{:else}
+					Not projecting
+				{/if}
+			</p>
 			<div class="active-map-controls">
 				<label>
 					<span>Map</span>
@@ -520,10 +647,11 @@
 				<button
 					type="button"
 					data-testid="cc-active-map-project"
+					aria-pressed={projectionSummary?.projecting ?? false}
 					disabled={activeMap.kind !== 'available' || runtime.state.session.workflow !== 'active'}
 					onclick={() => projectActiveMap('connected')}
 				>
-					Project
+					{projectionSummary?.projecting ? 'Projecting' : 'Project to players'}
 				</button>
 				<button
 					type="button"
@@ -586,6 +714,12 @@
 
 		<section aria-label="Player View controller" data-testid="cc-player-view-controller">
 			<h2>Player views</h2>
+			<div class="row-actions">
+				<!-- UX-CMD-006: the unselected entry point — choose content, then recipients, then confirm. -->
+				<button type="button" class="secondary" data-testid="cc-push-open" onclick={() => openPush(null)}>
+					Push handout…
+				</button>
+			</div>
 			{#if playerViewController.kind === 'denied'}
 				<p class="error" role="alert" data-testid="cc-player-view-denied">
 					Player View controller unavailable: {playerViewController.reason}
@@ -664,6 +798,24 @@
 										onclick={() => revokeCommandCenterPlayerView(participant.actorId)}
 									>
 										Revoke
+									</button>
+									<!-- UX-CMD-004/005: DM-only live preview of THIS participant's view. -->
+									<button
+										type="button"
+										data-testid={`cc-player-view-preview-${participant.actorId}`}
+										aria-label={`Preview ${participant.displayName}'s view`}
+										onclick={() => openPreview(participant.actorId, participant.displayName)}
+									>
+										Preview
+									</button>
+									<!-- UX-CMD-004/006: open the push-handout flow pre-targeted at this participant. -->
+									<button
+										type="button"
+										data-testid={`cc-player-view-push-${participant.actorId}`}
+										aria-label={`Push handout to ${participant.displayName}`}
+										onclick={() => openPush(participant.actorId)}
+									>
+										Push handout
 									</button>
 								</div>
 							</div>
@@ -850,10 +1002,21 @@
 		<section aria-label="Widget library">
 			<h2>Widget library</h2>
 			<p class="meta">Search available widget types and add them to the Command Center.</p>
+			<!-- UX-CMD-009: the library is a quick-access DRAWER, one action away (≤3 actions to add). -->
+			<button class="button" type="button" data-testid="cc-add-widget" onclick={() => (libraryOpen = true)}>
+				Add widget
+			</button>
+		</section>
+
+		<!-- UX-CMD-009: the widget library quick-access drawer. The search field is the first focusable
+		     element, so the dialog's focus trap auto-focuses it on open. The Processing Core decides
+		     availability per profile; an unsupported widget shows its reason and cannot be added. -->
+		<Dialog bind:open={libraryOpen} title="Widget library" testid="cc-library-drawer">
 			<label class="library-search">
 				<span class="visually-hidden">Search widgets</span>
 				<input
 					data-testid="cc-library-search"
+					bind:this={librarySearchEl}
 					bind:value={librarySearch}
 					placeholder="Search widgets (e.g. dice)"
 					autocomplete="off"
@@ -884,7 +1047,11 @@
 								type="button"
 								data-testid={`cc-library-add-${entry.type}`}
 								disabled={!isAvailable}
-								onclick={() => addFromLibrary(entry)}
+								onclick={async () => {
+									// UX-CMD-009 AC3: adding places the widget and closes the drawer immediately.
+									await addFromLibrary(entry);
+									libraryOpen = false;
+								}}
 							>
 								Add
 							</button>
@@ -895,7 +1062,20 @@
 					<li class="meta" data-testid="cc-library-empty">No widgets match “{librarySearch}”.</li>
 				{/if}
 			</ul>
-		</section>
+		</Dialog>
+
+		<!-- UX-CMD-005: the DM-only preview modal (renders the participant's OWN core-filtered view). -->
+		{#if previewTarget}
+			<PlayerViewPreviewModal
+				bind:open={previewOpen}
+				actorId={previewTarget.actorId}
+				displayName={previewTarget.displayName}
+				onclose={closePreview}
+			/>
+		{/if}
+
+		<!-- UX-CMD-006: content → recipients → confirmation → deliver (cancel delivers nothing). -->
+		<HandoutPushFlow bind:open={pushOpen} initialRecipientId={pushRecipientId} onclose={closePush} />
 	{/if}
 	{:else}
 		<p class="error" role="alert" data-testid="cc-unknown-actor">

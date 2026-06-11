@@ -2,6 +2,9 @@ import type { ActorId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
 import type { CommandCenterState } from '../state/command-center-state';
+import type { MapState } from '../state/map-state';
+import type { SessionState } from '../state/session-state';
+import type { VaultContentState } from '../state/content';
 import type { PlatformProfileId, WidgetPackageState } from '../state/widget-package-state';
 import type { CoreCommand } from '../commands/types';
 import { actorCanAuthorScene } from '../permissions/grants';
@@ -10,6 +13,7 @@ import {
 	resolveAddWidgetCommand,
 	type WidgetLibraryEntry,
 } from './widget-library';
+import { listSessionPhaseActions } from './command-center-live';
 
 /**
  * Global command palette catalog (CMD-008).
@@ -22,7 +26,7 @@ import {
  * unavailable beyond a safe, generic reason.
  */
 
-export type CommandActionGroup = 'home' | 'preset' | 'widget';
+export type CommandActionGroup = 'home' | 'preset' | 'widget' | 'session' | 'map';
 
 /** A value the palette must collect from the DM before dispatch (e.g. a preset name). */
 export interface CommandActionInput {
@@ -61,6 +65,10 @@ export interface CommandActionStateView {
 	permissions: PermissionState;
 	widgets: WidgetPackageState;
 	commandCenter: CommandCenterState;
+	/** UX-CMD-011 — session phase / projection / push actions read the live session state. */
+	session: SessionState;
+	maps: MapState;
+	content: VaultContentState;
 }
 
 export interface CommandActionContext {
@@ -161,6 +169,77 @@ export function listCommandActions(
 	for (const entry of library) {
 		actions.push(addWidgetAction(entry, homeSceneId));
 	}
+
+	// UX-CMD-010 / UX-CMD-011 — session phase transitions. Mirrors the Phase badge
+	// popover: only the VALID transitions from the current workflow appear (invalid
+	// ones are absent, not disabled), and each dispatches the same session.set-workflow
+	// command the visible control issues. listSessionPhaseActions is already DM-gated.
+	const liveSceneId = state.session.activeSceneId ?? homeSceneId;
+	for (const phase of listSessionPhaseActions(state, actorId)) {
+		const carriesScene =
+			phase.targetWorkflow === 'active' ||
+			phase.targetWorkflow === 'prep' ||
+			phase.targetWorkflow === 'paused' ||
+			phase.targetWorkflow === 'ending';
+		actions.push({
+			id: phase.id,
+			title: phase.label,
+			keywords: ['session', 'phase', phase.label, phase.targetWorkflow],
+			group: 'session',
+			availability: available(),
+			commandType: 'session.set-workflow',
+			payload: carriesScene
+				? { workflow: phase.targetWorkflow, activeSceneId: liveSceneId }
+				: { workflow: phase.targetWorkflow },
+			input: null,
+		});
+	}
+
+	// UX-CMD-007 / UX-CMD-011 — active-map controls. "Set active map: <name>" per vault
+	// map (the same session.set-active-map the Change-map control dispatches), and
+	// "Project active map to players" (the same session.project-active-map the embed's
+	// toggle dispatches). Unavailable reasons are generic/non-leaking by construction:
+	// they describe the DM's own session state, never hidden content.
+	const sessionActive = state.session.workflow === 'active';
+	const vaultMaps = Object.values(state.maps.maps).sort((a, b) => a.name.localeCompare(b.name));
+	for (const map of vaultMaps) {
+		actions.push({
+			id: `cc.map.set-active:${map.id}`,
+			title: `Set active map: ${map.name}`,
+			keywords: ['map', 'active', 'change', map.name],
+			group: 'map',
+			availability: available(),
+			commandType: 'session.set-active-map',
+			payload: { mapId: map.id, regionId: map.defaultRegionId },
+			input: null,
+		});
+	}
+	const playerIds = Object.values(state.permissions.actors)
+		.filter((participant) => participant.role === 'player')
+		.map((participant) => participant.id)
+		.sort();
+	actions.push({
+		id: 'cc.map.project',
+		title: 'Project active map to players',
+		keywords: ['map', 'project', 'players', 'projection', 'show'],
+		group: 'map',
+		availability: !state.session.activeMap
+			? unavailable('No active map selected.')
+			: !sessionActive
+				? unavailable('Session is not active.')
+				: playerIds.length === 0
+					? unavailable('No connected players.')
+					: available(),
+		commandType: 'session.project-active-map',
+		payload: { playerActorIds: playerIds, connectionState: 'connected' },
+		input: null,
+	});
+
+	// UX-CMD-006 push parity note: "Push to players: [content name]" is CONTEXTUAL per the
+	// UX-CMD-011 spec — it is NOT enumerated per vault item here, because the command registry
+	// also feeds the quick switcher, and per-item commands would surface entity titles in command
+	// mode (SRCH-005). The palette instead carries a single "Push handout to players…" navigation
+	// entry (see command-availability.ts) that opens the same confirmed push flow.
 
 	return actions;
 }
