@@ -1,7 +1,7 @@
 /**
  * Theme contrast validation (UX-VIS-012).
  *
- * Parses the per-theme colour tokens from the v2 stylesheet and verifies that every primary
+ * Parses the per-theme colour tokens from the GM app stylesheet and verifies that every primary
  * foreground/background token pair meets its assigned WCAG 2.2 contrast level, for ALL five named
  * themes. The high-contrast theme is held to AAA (21:1 for primary text). Failures block release.
  *
@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const CSS_PATH = resolve(HERE, '..', 'apps', 'v2', 'app', 'src', 'routes', 'styles.css');
+const CSS_PATH = resolve(HERE, '..', 'apps', 'gm', 'src', 'routes', 'styles.css');
 
 const NAMED_THEMES = ['tavern', 'parchment', 'dungeon', 'scholar', 'high-contrast'] as const;
 type ThemeName = (typeof NAMED_THEMES)[number];

@@ -72,7 +72,7 @@ describe('icon registry (UX-VIS-009)', () => {
 
 	it('covers every navigation-registry icon id (traceability)', () => {
 		const registryYaml = readFileSync(
-			resolve(HERE, '..', '..', '..', '..', '..', 'docs/planning/v2/ux/navigation-registry.yaml'),
+			resolve(HERE, '..', '..', '..', '..', 'docs/planning/v2/ux/navigation-registry.yaml'),
 			'utf8',
 		);
 		const iconIds = [...registryYaml.matchAll(/^\s*icon:\s*([a-z0-9-]+)\s*$/gim)].map((m) => m[1]!);

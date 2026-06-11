@@ -28,7 +28,7 @@
     },
     {
       "id": "theme-preference",
-      "path": "apps/v2/app/src/lib/platform/theme.svelte.ts",
+      "path": "apps/gm/src/lib/platform/theme.svelte.ts",
       "primitives": ["localStorage", "viewport-sniff"],
       "owner": "UX-VIS (visual design system)",
       "rationale": "Device-local theme preference (UX-VIS-001/003) is an explicitly device-scoped UI display preference (Contract 1), never durable vault or sync state. localStorage persists the choice and matchMedia('(prefers-color-scheme: dark)') resolves the OS preference for the `system` option; both are guarded by typeof checks with corrupt-data/no-API fallbacks. This is OS colour-scheme detection, not layout-profile viewport sniffing (PLAT-001), and stays confined to this platform-layer store.",
@@ -36,7 +36,7 @@
     },
     {
       "id": "motion-preference",
-      "path": "apps/v2/app/src/lib/platform/motion.svelte.ts",
+      "path": "apps/gm/src/lib/platform/motion.svelte.ts",
       "primitives": ["localStorage"],
       "owner": "UX-VIS (visual design system)",
       "rationale": "Device-local motion preference (UX-VIS-010 / A11Y-005) is an explicitly device-scoped UI display preference (Contract 1), never durable vault or sync state. localStorage persists the user's explicit motion choice; reads/writes are guarded by typeof checks with corrupt-data/no-API fallbacks. The OS reduced-motion probe stays in the owned capability surface (capabilities.ts, viewport-sniff exception); this store only persists the choice.",
@@ -44,7 +44,7 @@
     },
     {
       "id": "density-preference",
-      "path": "apps/v2/app/src/lib/platform/density.svelte.ts",
+      "path": "apps/gm/src/lib/platform/density.svelte.ts",
       "primitives": ["localStorage"],
       "owner": "UX-VIS (visual design system)",
       "rationale": "Device-local Desktop density preference (UX-VIS-011) is an explicitly device-scoped UI display preference (Contract 1), never durable vault or sync state. localStorage persists the Desktop override; reads/writes are guarded by typeof checks with corrupt-data/no-API fallbacks. Density is derived from the resolved platform viewport class handed in by the shell, so this store performs NO viewport sniffing — only preference persistence.",
@@ -52,7 +52,7 @@
     },
     {
       "id": "nav-chrome-collapse-preference",
-      "path": "apps/v2/app/src/lib/platform/nav-chrome.svelte.ts",
+      "path": "apps/gm/src/lib/platform/nav-chrome.svelte.ts",
       "primitives": ["localStorage"],
       "owner": "UX-SHELL (navigation shell)",
       "rationale": "Device-local Desktop sidebar icon-rail collapse state (UX-NAV-004) is an explicitly device-scoped UI display preference (Contract 1), never durable vault or sync state. localStorage persists the collapse choice so it survives a reload (UX-NAV-004 AC3); reads/writes are guarded by typeof checks with try/catch fallbacks (private mode / no API) and default to expanded on first launch. No viewport sniffing — only preference persistence.",

@@ -22,7 +22,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const CSS_PATH = resolve(HERE, '..', 'apps', 'v2', 'app', 'src', 'routes', 'styles.css');
+const CSS_PATH = resolve(HERE, '..', 'apps', 'gm', 'src', 'routes', 'styles.css');
 
 export const NAMED_THEMES = ['tavern', 'parchment', 'dungeon', 'scholar', 'high-contrast'] as const;
 export type ThemeName = (typeof NAMED_THEMES)[number];
