@@ -131,6 +131,9 @@ epics:
   - id: UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields.completion.md
+  - id: UX-GRAPH-canvas-encoding-filtering-and-health
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-GRAPH-canvas-encoding-filtering-and-health.completion.md
   - id: UX-MAP-layers-authoring-generation-and-tags
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-MAP-layers-authoring-generation-and-tags.completion.md

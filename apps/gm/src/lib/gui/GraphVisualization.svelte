@@ -156,7 +156,7 @@
 	}
 </script>
 
-<section data-testid="graph-visualization" aria-label="Graph visualization">
+<section class="cwrap" data-testid="graph-visualization" aria-label="Graph visualization">
 	<h2>Graph visualization</h2>
 	<p class="meta">
 		Explore the link graph for the content you can see — notes, objects, maps, and their relationships.
@@ -356,7 +356,7 @@
 
 <style>
 	.meta {
-		color: var(--color-text-muted, #666);
+		color: var(--color-text-secondary);
 	}
 	.filters {
 		display: flex;
@@ -393,7 +393,7 @@
 		text-align: left;
 		vertical-align: top;
 		padding: var(--space-1, 0.25rem);
-		border-bottom: 1px solid var(--color-border, #ddd);
+		border-bottom: 1px solid var(--color-border);
 		overflow-wrap: anywhere;
 	}
 	.node-open {
@@ -403,7 +403,7 @@
 		padding: 0;
 		border: none;
 		background: none;
-		color: var(--color-link, #2563eb);
+		color: var(--color-text-link);
 		cursor: pointer;
 		text-decoration: underline;
 	}
@@ -417,5 +417,77 @@
 		clip: rect(0, 0, 0, 0);
 		white-space: nowrap;
 		border: 0;
+	}
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	.cwrap :global(h2),
+	.cwrap :global(h3) {
+		margin: 0;
+	}
+	.cwrap :global(h3) {
+		font-size: var(--text-md);
+	}
+	.filters,
+	.compact-filters {
+		padding: var(--space-3);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	.cwrap :global(fieldset) {
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		padding: var(--space-2) var(--space-3);
+		margin: var(--space-1) 0;
+	}
+	.cwrap :global(legend) {
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-secondary);
+		padding: 0 var(--space-1);
+	}
+	.cwrap :global(input[type='text']),
+	.cwrap :global(input:not([type])) {
+		min-height: var(--touch-target-min);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font: inherit;
+	}
+	.filters :global(button),
+	.compact-filters :global(button) {
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+	.graph-table {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		overflow: hidden;
+	}
+	.graph-table :global(thead th) {
+		background: var(--color-surface-raised);
+		font-size: var(--text-2xs);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wide);
+		color: var(--color-text-secondary);
+	}
+	.graph-table :global(tbody tr:hover) {
+		background: var(--color-interactive-hover);
+	}
+	.cwrap :global([data-testid^='graph-node-kind-']) {
+		font-size: var(--text-2xs);
+		color: var(--color-text-secondary);
 	}
 </style>
