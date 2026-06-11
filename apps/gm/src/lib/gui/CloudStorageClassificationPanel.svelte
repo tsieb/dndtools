@@ -24,7 +24,7 @@
 	const deviceLocalCategories = DEVICE_LOCAL_CATEGORIES;
 </script>
 
-<section data-testid="cloud-storage-panel" aria-label="Cloud and device-local storage">
+<section class="cwrap" data-testid="cloud-storage-panel" aria-label="Cloud and device-local storage">
 	<h2>Cloud &amp; device-local storage</h2>
 	<p class="meta">
 		What is eligible to sync to the cloud (only when cloud sync is enabled) and what always stays on
@@ -87,3 +87,50 @@
 		</ul>
 	</section>
 </section>
+
+<style>
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	.cwrap h2 {
+		margin: 0;
+	}
+	.cwrap :global(h3) {
+		margin: 0 0 var(--space-1);
+		font-size: var(--text-md);
+	}
+	.cwrap :global(h4) {
+		margin: var(--space-2) 0 var(--space-1);
+		font-size: var(--text-sm);
+		color: var(--color-text-secondary);
+	}
+	.cwrap :global(.meta) {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.cwrap :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.cwrap :global(.scene-card) {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		flex-wrap: wrap;
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.cwrap :global(.unavailable) {
+		color: var(--color-status-warning-text);
+		font-weight: var(--font-weight-semibold);
+	}
+</style>

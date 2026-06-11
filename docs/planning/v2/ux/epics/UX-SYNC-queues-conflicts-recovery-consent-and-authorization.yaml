@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-SYNC-queues-conflicts-recovery-consent-and-authorization
 title: Sync Queues, Conflicts, Recovery, Consent, and Authorization
-status: approved
+status: complete
 approved: true
 phase: 09 Reliability and Optional Capabilities
 productPriority: P1
@@ -333,3 +333,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-SYNC-queues-conflicts-recovery-consent-and-authorization.completion.md

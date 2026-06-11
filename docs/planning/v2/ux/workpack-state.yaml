@@ -179,6 +179,9 @@ epics:
   - id: UX-SYNC-global-indicators-local-first-and-entity-badges
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-SYNC-global-indicators-local-first-and-entity-badges.completion.md
+  - id: UX-SYNC-queues-conflicts-recovery-consent-and-authorization
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-SYNC-queues-conflicts-recovery-consent-and-authorization.completion.md
   - id: UX-VIS-component-library-motion-density-icons
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-VIS-component-library-motion-density-icons.completion.md

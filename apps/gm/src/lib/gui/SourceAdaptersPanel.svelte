@@ -69,7 +69,7 @@
 	}
 </script>
 
-<section data-testid="source-adapters-panel" aria-label="Sync source adapters">
+<section class="cwrap" data-testid="source-adapters-panel" aria-label="Sync source adapters">
 	<h2>Source adapters</h2>
 	<p class="meta">
 		Every external source (local vault, Obsidian, Google Docs, and future sources) plugs in behind one
@@ -189,24 +189,70 @@
 </section>
 
 <style>
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	.cwrap :global(h2),
+	.cwrap :global(h3) {
+		margin: 0;
+	}
+	.cwrap :global(h3) {
+		font-size: var(--text-md);
+	}
+	.cwrap :global(.meta) {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.cwrap :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.cwrap :global(.scene-card) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		padding: var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.cwrap :global(button),
+	.cwrap :global(select) {
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+		font: inherit;
+	}
 	.state-chips {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
+		gap: var(--space-1);
 		list-style: none;
 		padding: 0;
+		margin: 0;
 	}
 	.state-chips li {
-		border: 1px solid currentColor;
-		border-radius: 0.25rem;
-		padding: 0.1rem 0.4rem;
-		font-size: 0.85em;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-full);
+		padding: 0 var(--space-2);
+		font-size: var(--text-2xs);
+		color: var(--color-text-secondary);
 	}
 	.controls {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem;
+		gap: var(--space-2);
 		align-items: center;
-		margin: 0.5rem 0;
+		margin: var(--space-1) 0;
 	}
 </style>
