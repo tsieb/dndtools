@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 17
+  approved: 16
   active: 0
-  complete: 29
+  complete: 30
   deferred: 0
 metrics:
-  epicCompletionPercent: 63
-  requirementCompletionPercent: 63.1
+  epicCompletionPercent: 65.2
+  requirementCompletionPercent: 63.9
   totalRequirements: 244
-  completedRequirements: 154
+  completedRequirements: 156
   deferredRequirements: 0
-  remainingEpics: 17
-  promptableEpics: 8
+  remainingEpics: 16
+  promptableEpics: 7
   blockedByDependencies: 9
-  completionEvidenceFiles: 29
+  completionEvidenceFiles: 30
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -248,9 +248,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 07 Collaboration and Permissions
       totalEpics: 4
-      complete: 1
+      complete: 2
       active: 0
-      approved: 3
+      approved: 2
       proposed: 0
       deferred: 0
       requirementIds:
@@ -269,8 +269,8 @@ metrics:
         - UX-PERM-003
         - UX-PERM-004
         - UX-PERM-005
-      epicCompletionPercent: 25
-      requirementCompletionPercent: 26.7
+      epicCompletionPercent: 50
+      requirementCompletionPercent: 40
     - phase: 08 Campaign and Discovery
       totalEpics: 4
       complete: 0
@@ -391,17 +391,21 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-CONTENT-visibility-and-embeds
-  title: Content Visibility and Embeds
+  id: UX-COLLAB-presence-join-roster-connection-and-catchup
+  title: Presence, Join, Roster, Connection, and Catch-Up
   phase: 07 Collaboration and Permissions
   status: approved
   requirementIds:
-    - UX-CONTENT-016
-    - UX-CONTENT-017
-  promptCommand: pnpm ux-prompt -- --epic UX-CONTENT-visibility-and-embeds
+    - UX-COLLAB-001
+    - UX-COLLAB-002
+    - UX-COLLAB-003
+    - UX-COLLAB-006
+    - UX-COLLAB-009
+  promptCommand: pnpm ux-prompt -- --epic
+    UX-COLLAB-presence-join-roster-connection-and-catchup
   nextPromptCommand: pnpm ux-prompt -- --next
   statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-CONTENT-visibility-and-embeds --status active
+    UX-COLLAB-presence-join-roster-connection-and-catchup --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -1002,7 +1006,7 @@ epics:
   - id: UX-CONTENT-visibility-and-embeds
     title: Content Visibility and Embeds
     phase: 07 Collaboration and Permissions
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-CONTENT-016
@@ -1015,6 +1019,7 @@ epics:
     dependencies:
       - UX-CONTENT-editor-shell-and-writing-controls
       - UX-PERM-visibility-preview-badges-and-privacy-status
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CONTENT-visibility-and-embeds.completion.md
   - id: UX-COLLAB-presence-join-roster-connection-and-catchup
     title: Presence, Join, Roster, Connection, and Catch-Up
     phase: 07 Collaboration and Permissions

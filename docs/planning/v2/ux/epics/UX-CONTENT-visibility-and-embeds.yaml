@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-CONTENT-visibility-and-embeds
 title: Content Visibility and Embeds
-status: approved
+status: complete
 approved: true
 phase: 07 Collaboration and Permissions
 productPriority: P0
@@ -171,3 +171,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-CONTENT-visibility-and-embeds.completion.md

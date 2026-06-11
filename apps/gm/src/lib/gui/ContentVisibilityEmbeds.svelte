@@ -141,7 +141,7 @@
 	}
 </script>
 
-<section data-testid="visibility-embeds" aria-label="Granular visibility and embeds">
+<section class="cwrap" data-testid="visibility-embeds" aria-label="Granular visibility and embeds">
 	<h2>Granular visibility &amp; embeds</h2>
 	<p class="meta">
 		The DM authors visibility at the section and field level, and embeds a reference to another item.
@@ -249,3 +249,97 @@
 		{/if}
 	{/if}
 </section>
+
+<style>
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	.cwrap h2 {
+		margin: 0;
+	}
+	.cwrap :global(h3) {
+		margin: 0;
+		font-size: var(--text-md);
+	}
+	.cwrap :global(h4) {
+		margin: var(--space-2) 0 var(--space-1);
+		font-size: var(--text-sm);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wide);
+		color: var(--color-text-secondary);
+	}
+	.cwrap :global(.meta) {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.cwrap :global(.scene-card) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	.cwrap :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.cwrap :global(.scene-list li) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.cwrap :global(ul:not(.scene-list)) {
+		margin: 0;
+		padding-left: var(--space-5);
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.cwrap :global(dl) {
+		display: grid;
+		gap: var(--space-1);
+		margin: 0;
+	}
+	.cwrap :global(dl > div) {
+		display: flex;
+		gap: var(--space-2);
+	}
+	.cwrap :global(dt) {
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+		min-width: 6rem;
+	}
+	.cwrap :global(dd) {
+		margin: 0;
+		color: var(--color-text-primary);
+		font-size: var(--text-sm);
+	}
+	.cwrap :global(button) {
+		align-self: flex-start;
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-4);
+		background: var(--color-accent);
+		color: var(--color-accent-foreground);
+		border: 1px solid var(--color-accent);
+		border-radius: var(--radius-md);
+		font-weight: var(--font-weight-semibold);
+		cursor: pointer;
+	}
+	.cwrap :global([data-testid^='ve-embed-unavailable-']) {
+		color: var(--color-text-secondary);
+		font-style: italic;
+	}
+</style>

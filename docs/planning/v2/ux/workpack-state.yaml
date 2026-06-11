@@ -116,6 +116,9 @@ epics:
   - id: UX-CONTENT-templates-snippets-sources-import-export
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-CONTENT-templates-snippets-sources-import-export.completion.md
+  - id: UX-CONTENT-visibility-and-embeds
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CONTENT-visibility-and-embeds.completion.md
   - id: UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-CONTENT-wikilinks-objects-backlinks-and-calendar-fields.completion.md
