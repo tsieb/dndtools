@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-MAP-pois-fog-projection-combat-and-embeds
 title: Map POIs, Fog, Projection, Combat, Routes, and Embeds
-status: approved
+status: complete
 approved: true
 phase: 06 Core Library Workspaces
 productPriority: P1
@@ -311,3 +311,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-MAP-pois-fog-projection-combat-and-embeds.completion.md

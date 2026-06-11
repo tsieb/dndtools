@@ -225,7 +225,7 @@
 					<li data-testid={`ann-poi-${poi.id}`}>
 						<span class="annotation-name" data-testid={`ann-poi-label-${poi.id}`}>{poi.label}</span>
 						<span class="badge">{poi.category}</span>
-						<span class="badge" data-testid={`ann-poi-visibility-${poi.id}`}>{poi.visibility}</span>
+						<span class="badge" data-visibility={poi.visibility} data-testid={`ann-poi-visibility-${poi.id}`}>{poi.visibility}</span>
 						{#if poi.linkedEntityId}
 							<!-- A11Y-009 AC1: a screen reader user can activate a POI by following the link to its
 							     linked entity. The linked entity is only present when the actor already holds
@@ -318,7 +318,7 @@
 				{#each view.tokens as token (token.id)}
 					<li data-testid={`token-${token.id}`}>
 						<span class="annotation-name" data-testid={`token-label-${token.id}`}>{token.label}</span>
-						<span class="badge" data-testid={`token-visibility-${token.id}`}>{token.visibility}</span>
+						<span class="badge" data-visibility={token.visibility} data-testid={`token-visibility-${token.id}`}>{token.visibility}</span>
 						{#if token.canMove}
 							<button
 								type="button"
@@ -399,39 +399,66 @@
 
 <style>
 	.annotations-panel {
-		margin-top: 1rem;
-		border-top: 1px solid var(--border);
-		padding-top: 0.75rem;
+		margin-top: var(--space-4);
+		border-top: 1px solid var(--color-border);
+		padding-top: var(--space-3);
 		display: grid;
-		gap: 0.75rem;
+		gap: var(--space-4);
+	}
+	.annotations-panel :global(h4) {
+		margin: 0 0 var(--space-1);
+		font-size: var(--text-md);
+	}
+	.annotations-panel :global(h4 .meta) {
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-regular);
+		color: var(--color-text-secondary);
 	}
 	.annotation-list,
 	.search-results {
 		list-style: none;
-		margin: 0.25rem 0 0;
+		margin: var(--space-1) 0 0;
 		padding: 0;
 		display: grid;
-		gap: 0.35rem;
+		gap: var(--space-1-5);
 	}
 	.annotation-list li,
 	.search-results li {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.4rem;
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		padding: 0.35rem 0.6rem;
+		gap: var(--space-2);
+		border: 1px solid var(--color-border);
+		background: var(--color-surface-raised);
+		border-radius: var(--radius-md);
+		padding: var(--space-2) var(--space-3);
 	}
 	.annotation-name {
-		font-weight: 600;
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-primary);
 	}
 	.badge {
-		font-size: 0.7rem;
-		padding: 0.05rem 0.35rem;
-		border-radius: 999px;
-		background: var(--card);
-		border: 1px solid var(--border);
+		font-size: var(--text-2xs);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wide);
+		padding: 0 var(--space-1-5);
+		border-radius: var(--radius-full);
+		color: var(--color-text-secondary);
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-border);
+	}
+	.badge[data-visibility='dm-only'] {
+		color: var(--color-dm-only-badge);
+		border-color: var(--color-dm-only-badge);
+		background: var(--color-dm-only-subtle);
+	}
+	.badge[data-visibility='player-visible'] {
+		color: var(--color-status-info-text);
+		border-color: var(--color-status-info);
+	}
+	.badge[data-visibility='shared'] {
+		color: var(--color-status-success-text);
+		border-color: var(--color-status-success);
 	}
 	.create-poi,
 	.overlay-controls,
@@ -439,22 +466,44 @@
 	.search {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
+		gap: var(--space-2);
 		align-items: center;
-		margin: 0.4rem 0;
+		margin: var(--space-2) 0;
+	}
+	.search {
+		margin: 0;
+	}
+	.search input {
+		flex: 1 1 16rem;
+		min-width: 0;
+	}
+	.annotations-panel :global(input),
+	.annotations-panel :global(select) {
+		min-height: var(--touch-target-min);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font: inherit;
+	}
+	.annotations-panel :global(input[type='checkbox']) {
+		min-height: var(--touch-target-floor);
 	}
 	.control {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.35rem;
+		gap: var(--space-2);
 	}
 	.error {
-		color: var(--danger, #b00020);
+		margin: 0;
+		color: var(--color-status-error-text);
+		font-size: var(--text-sm);
 	}
 	.activate-link {
-		font-size: 0.75rem;
+		font-size: var(--text-sm);
 		text-decoration: underline;
-		color: var(--color-link, #2563eb);
+		color: var(--color-text-link);
 	}
 	.visually-hidden {
 		position: absolute;

@@ -119,44 +119,60 @@
 
 <style>
 	.nested-areas {
-		margin-top: 1rem;
-		border-top: 1px solid var(--border);
-		padding-top: 0.75rem;
+		margin-top: var(--space-4);
+		border-top: 1px solid var(--color-border);
+		padding-top: var(--space-3);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+	.nested-areas h3 {
+		margin: 0;
+		font-size: var(--text-md);
 	}
 	.nested-list {
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		display: grid;
-		gap: 0.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
 	}
 	.nested-item {
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		padding: 0.5rem 0.75rem;
+		border: 1px solid var(--color-border);
+		background: var(--color-surface-raised);
+		border-radius: var(--radius-md);
+		padding: var(--space-2) var(--space-3);
 	}
 	.nested-row {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.75rem;
+		gap: var(--space-2);
 	}
 	.nested-name {
-		font-weight: 600;
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-primary);
 	}
 	.nested-transform {
-		font-size: 0.75rem;
-		padding: 0.1rem 0.4rem;
-		border-radius: 999px;
-		background: var(--card);
-		border: 1px solid var(--border);
+		font-size: var(--text-2xs);
+		padding: 0 var(--space-1-5);
+		border-radius: var(--radius-full);
+		color: var(--color-text-secondary);
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-border);
 	}
 	.nested-unavailable {
 		margin: 0;
-		font-size: 0.85rem;
-		color: var(--muted, inherit);
+		font-size: var(--text-sm);
+		color: var(--color-text-secondary);
 	}
 	.transition-result {
-		margin-top: 0.5rem;
+		margin-top: var(--space-1);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		font-size: var(--text-sm);
 	}
 </style>

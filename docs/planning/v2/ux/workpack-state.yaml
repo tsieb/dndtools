@@ -116,6 +116,9 @@ epics:
   - id: UX-MAP-library-viewer-import-and-search
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-MAP-library-viewer-import-and-search.completion.md
+  - id: UX-MAP-pois-fog-projection-combat-and-embeds
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-MAP-pois-fog-projection-combat-and-embeds.completion.md
   - id: UX-PERM-visibility-preview-badges-and-privacy-status
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-PERM-visibility-preview-badges-and-privacy-status.completion.md
