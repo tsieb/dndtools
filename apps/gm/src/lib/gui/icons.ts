@@ -47,6 +47,7 @@ import Sun from '@lucide/svelte/icons/sun';
 import Accessibility from '@lucide/svelte/icons/accessibility';
 import Pin from '@lucide/svelte/icons/pin';
 import Clock from '@lucide/svelte/icons/clock';
+import Layers from '@lucide/svelte/icons/layers';
 
 /** A Lucide glyph rendered by `Icon.svelte`. */
 export type LucideIconComponent = Component<LucideProps>;
@@ -87,6 +88,13 @@ export const ICON_REGISTRY = {
 	// --- Actor-safety / visibility (DM-only uses Eye per UX-VIS-009 §usage rules) ---
 	'dm-only': Eye,
 	hidden: EyeOff,
+	// --- UX-PERM visibility family (reserved eye-family vocabulary; UX-PERM-001 §visual
+	// vocabulary separation — permission grants use a different family). `mixed` is the layered
+	// glyph for items whose section/field overrides differ from the entity level (UX-PERM-007). ---
+	'visibility-shared': Users,
+	'visibility-players': Eye,
+	'visibility-hidden': EyeOff,
+	'visibility-mixed': Layers,
 	// --- Common actions / affordances ---
 	close: X,
 	check: Check,

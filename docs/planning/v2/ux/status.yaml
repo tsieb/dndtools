@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 32
+  approved: 31
   active: 0
-  complete: 14
+  complete: 15
   deferred: 0
 metrics:
-  epicCompletionPercent: 30.4
-  requirementCompletionPercent: 30.3
+  epicCompletionPercent: 32.6
+  requirementCompletionPercent: 32
   totalRequirements: 244
-  completedRequirements: 74
+  completedRequirements: 78
   deferredRequirements: 0
-  remainingEpics: 32
-  promptableEpics: 8
-  blockedByDependencies: 24
-  completionEvidenceFiles: 14
+  remainingEpics: 31
+  promptableEpics: 9
+  blockedByDependencies: 22
+  completionEvidenceFiles: 15
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -142,9 +142,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 04 Trust and Safety
       totalEpics: 2
-      complete: 0
+      complete: 1
       active: 0
-      approved: 2
+      approved: 1
       proposed: 0
       deferred: 0
       requirementIds:
@@ -159,8 +159,8 @@ metrics:
         - UX-PERM-006
         - UX-PERM-007
         - UX-PERM-008
-      epicCompletionPercent: 0
-      requirementCompletionPercent: 0
+      epicCompletionPercent: 50
+      requirementCompletionPercent: 36.4
     - phase: 05 Live-Play Workspaces
       totalEpics: 3
       complete: 0
@@ -391,19 +391,22 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-PERM-visibility-preview-badges-and-privacy-status
-  title: Visibility Controls, Preview Mode, Badges, and Privacy Status
+  id: UX-CMD-player-view-handouts-map-and-session-controls
+  title: Command Center Player Views, Handouts, Map, and Session Controls
   phase: 04 Trust and Safety
   status: approved
   requirementIds:
-    - UX-PERM-001
-    - UX-PERM-006
-    - UX-PERM-007
-    - UX-PERM-008
-  promptCommand: pnpm ux-prompt -- --epic UX-PERM-visibility-preview-badges-and-privacy-status
+    - UX-CMD-004
+    - UX-CMD-005
+    - UX-CMD-006
+    - UX-CMD-007
+    - UX-CMD-009
+    - UX-CMD-010
+    - UX-CMD-011
+  promptCommand: pnpm ux-prompt -- --epic UX-CMD-player-view-handouts-map-and-session-controls
   nextPromptCommand: pnpm ux-prompt -- --next
   statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-PERM-visibility-preview-badges-and-privacy-status --status active
+    UX-CMD-player-view-handouts-map-and-session-controls --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -687,7 +690,7 @@ epics:
   - id: UX-PERM-visibility-preview-badges-and-privacy-status
     title: Visibility Controls, Preview Mode, Badges, and Privacy Status
     phase: 04 Trust and Safety
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-PERM-001
@@ -703,6 +706,7 @@ epics:
     dependencies:
       - UX-SHELL-actor-filtered-nav-recents
       - UX-A11Y-spatial-live-region-and-leakage
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-PERM-visibility-preview-badges-and-privacy-status.completion.md
   - id: UX-CMD-player-view-handouts-map-and-session-controls
     title: Command Center Player Views, Handouts, Map, and Session Controls
     phase: 04 Trust and Safety

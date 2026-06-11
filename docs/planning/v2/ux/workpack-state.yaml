@@ -98,6 +98,9 @@ epics:
   - id: UX-CMD-home-scene-and-role-differentiated-dashboard
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-CMD-home-scene-and-role-differentiated-dashboard.completion.md
+  - id: UX-PERM-visibility-preview-badges-and-privacy-status
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-PERM-visibility-preview-badges-and-privacy-status.completion.md
   - id: UX-SHELL-actor-filtered-nav-recents
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-SHELL-actor-filtered-nav-recents.completion.md

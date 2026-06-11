@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-PERM-visibility-preview-badges-and-privacy-status
 title: Visibility Controls, Preview Mode, Badges, and Privacy Status
-status: approved
+status: complete
 approved: true
 phase: 04 Trust and Safety
 productPriority: P0
@@ -233,3 +233,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-PERM-visibility-preview-badges-and-privacy-status.completion.md

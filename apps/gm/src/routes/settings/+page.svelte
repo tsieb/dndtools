@@ -14,6 +14,7 @@
 	import CloudStorageClassificationPanel from '$lib/gui/CloudStorageClassificationPanel.svelte';
 	import SourceAdaptersPanel from '$lib/gui/SourceAdaptersPanel.svelte';
 	import SessionPrivacyPanel from '$lib/gui/SessionPrivacyPanel.svelte';
+	import SessionPrivacyStatus from '$lib/gui/ux-perm/SessionPrivacyStatus.svelte';
 	import PermissionSummary from '$lib/gui/PermissionSummary.svelte';
 	import GrantManager from '$lib/gui/GrantManager.svelte';
 	import CapabilityStatus from '$lib/gui/CapabilityStatus.svelte';
@@ -170,6 +171,13 @@
 	     computed models and reaches no storage or transport (live transport deferred per ADR-014). -->
 	<SessionPrivacyPanel />
 
+	<!-- UX-PERM-008: the DM "Session privacy" status panel — per-departed-participant cache-purge
+	     status (Purged / Purge unconfirmed / Purge failed) with advisory copy, the 24 h archive
+	     window, and the all-clear empty state. DM-only default-deny in the Processing Core: the
+	     resolver returns null for a player/observer, so the panel does not exist on their surface
+	     and never names device-level data (PERM-014; transport deferred per ADR-014). -->
+	<SessionPrivacyStatus />
+
 	<!-- PERM-001 / PERM-011: the effective permission surface the Processing Core computes
 	     for the active actor (base role floor + observer ceiling, grants capped to the
 	     ceiling), plus the DM-only consistency audit. The GUI renders the computed set; it
@@ -182,7 +190,10 @@
 	     explanations and a core-computed effective-permission preview, dispatches durable grant /
 	     transfer / revoke commands, and never shows raw field checkboxes or writes state directly. -->
 	{#if activeRole === 'dm'}
-		<GrantManager />
+		<!-- UX-PERM-008: `id` is the in-page target of the privacy panel's "Review grants" link. -->
+		<div id="grant-manager">
+			<GrantManager />
+		</div>
 	{/if}
 
 	<section aria-label="Platform profile">

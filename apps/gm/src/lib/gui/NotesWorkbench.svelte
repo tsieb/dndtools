@@ -4,16 +4,23 @@
 		actorCanAuthorContent,
 		activeWikilinkQuery,
 		canRetry,
+		evaluateVisibilityChangeConflict,
 		getDeletedContentItemsForActor,
 		getNoteRelationshipsForActor,
 		recoveryAction,
 		renderMarkdownPreview,
+		resolveContentVisibilityBadge,
+		resolveContentVisibilityToggle,
 		saveStateAnnouncement,
 		searchContentForActor,
 		suggestWikilinkTargetsForActor,
 		validateMarkdownDraft,
+		CONTENT_ITEM_ENTITY_TYPE,
+		type VisibilityLevel,
 	} from '@dndtools/core';
 	import { useRuntime } from '$lib/state/runtime-context';
+	import VisibilityBadge from './ux-perm/VisibilityBadge.svelte';
+	import VisibilityToggle from './ux-perm/VisibilityToggle.svelte';
 
 	// CONTENT-001 / CONTENT-002 — the NOTES workbench: markdown notes as the primary vault content unit.
 	// An authorized editor can CREATE / READ / UPDATE / DELETE (recoverable soft-delete) / RESTORE /
@@ -132,11 +139,15 @@
 
 	// --- Save status (PLAT-018 lifecycle) -------------------------------------------------------------
 	const lifecycle = $derived(runtime.lastLifecycle);
-	const saveStatus = $derived(
-		lifecycle && (lifecycle.commandType === 'content.update-item' || lifecycle.commandType === 'content.create-item')
-			? lifecycle.status
-			: 'idle',
-	);
+	// Early-return shape rather than `x && (x.a === y || x.a === z)`: the production minifier
+	// mis-associates that compound condition into a null `commandType` read, which threw on every
+	// /knowledge mount with no prior command and poisoned the surrounding effect flush.
+	const saveStatus = $derived.by(() => {
+		if (!lifecycle) return 'idle';
+		if (lifecycle.commandType === 'content.update-item') return lifecycle.status;
+		if (lifecycle.commandType === 'content.create-item') return lifecycle.status;
+		return 'idle';
+	});
 	const canRetrySave = $derived(lifecycle ? canRetry(lifecycle) && lifecycle.status === 'failure' : false);
 	const recovery = $derived(lifecycle ? recoveryAction(lifecycle) : 'none');
 
@@ -264,6 +275,16 @@
 	{:else}
 		<ul class="scene-list" data-testid="notes-list">
 			{#each searchHits as hit (hit.item.id)}
+				<!-- UX-PERM-007: the ambient visibility badge, resolved through the DM-only core
+				     choke point — null for a player/observer, so their rows carry NO badge and no
+				     visibility text at all (AC3). dm-only rows are marked without hovering (AC1);
+				     section/field overrides surface as "Mixed" (AC2). -->
+				{@const badge = resolveContentVisibilityBadge(
+					runtime.state.content,
+					runtime.state.permissions,
+					runtime.activeActorId,
+					hit.item.id,
+				)}
 				<li class="scene-card" data-testid={`note-row-${hit.item.id}`}>
 					<button
 						type="button"
@@ -272,7 +293,9 @@
 					>
 						{hit.item.title}
 					</button>
-					<span class="meta"> • {hit.item.visibility}</span>
+					{#if badge}
+						<VisibilityBadge {badge} testid={`note-visibility-badge-${hit.item.id}`} />
+					{/if}
 					{#if hit.snippet}
 						<div class="meta" data-testid={`note-snippet-${hit.item.id}`}>{hit.snippet.text}</div>
 					{/if}
@@ -318,8 +341,41 @@
 
 	<!-- CONTENT-002: the editor (authorized editor only) -->
 	{#if selected && canAuthor}
+		<!-- UX-PERM-001: the entity-level 3-state visibility toggle in the note's header. The
+		     core resolver is the DM-only choke point: null for a player/observer, so the toggle
+		     is NOT RENDERED for them (AC3). The entity is in edit mode here, so the full
+		     3-segment group is persistently visible (§inline placement). Changing to dm-only
+		     with active grants surfaces the inline conflict warning BEFORE dispatch (AC2). -->
+		{@const selectedItemId = selected.id}
+		{@const visibilityView = resolveContentVisibilityToggle(
+			runtime.state.content,
+			runtime.state.permissions,
+			runtime.activeActorId,
+			selectedItemId,
+		)}
 		<section class="scene-card" data-testid="note-editor" aria-label="Note editor">
 			<h3>Editing: {selected.title}</h3>
+			{#if visibilityView}
+				<VisibilityToggle
+					view={visibilityView}
+					label="Content visibility"
+					testid="note-visibility"
+					conflict={(level: VisibilityLevel) =>
+						evaluateVisibilityChangeConflict(
+							runtime.state.permissions,
+							CONTENT_ITEM_ENTITY_TYPE,
+							selectedItemId,
+							level,
+						)}
+					onchange={async (level: VisibilityLevel) => {
+						await dispatch({
+							type: 'content.set-item-visibility',
+							actorId: runtime.activeActorId,
+							payload: { itemId: selectedItemId, visibility: level },
+						});
+					}}
+				/>
+			{/if}
 
 			<!-- Visible save status (PLAT-018 lifecycle) -->
 			<p class="meta" data-testid="note-save-status">

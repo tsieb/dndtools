@@ -759,13 +759,37 @@ body {
 	text-decoration: none;
 }
 
-.view-as select {
+.view-as select,
+.preview-launcher select {
 	background: var(--bg);
 	color: inherit;
 	border: 1px solid var(--border);
 	border-radius: var(--radius-sm);
 	padding: var(--space-1) var(--space-1-5);
 	font-size: var(--text-sm);
+}
+
+/* ---------------------------------------------------------------------------
+ * UX-PERM-006 — "Preview as player / observer" mode.
+ * The fixed amber banner overlays the viewport top; the shell compensates with
+ * top padding so no content hides beneath it. Write controls remain VISIBLE but
+ * inert: the authoritative read-only lock is the runtime dispatch choke point
+ * (every durable write is one dispatched command and is rejected during
+ * preview); this rule adds the visual/pointer layer on form-style controls.
+ * Read-only navigation (links, nav, palette) stays fully usable.
+ * --------------------------------------------------------------------------- */
+.app-shell[data-preview-mode] {
+	padding-top: 48px;
+}
+
+.app-shell[data-preview-mode] :is(.app-main, .dialog) :is(
+	button[type='submit'],
+	form button,
+	input:not([type='search']),
+	textarea
+):not([data-preview-safe]) {
+	pointer-events: none;
+	opacity: 0.55;
 }
 
 /* ---------------------------------------------------------------------------

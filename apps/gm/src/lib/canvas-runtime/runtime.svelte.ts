@@ -24,6 +24,9 @@ import {
 	markSuccess,
 	PERMISSION_STATE_SCHEMA_VERSION,
 	dispatchCommand,
+	permissionsWithPreviewActors,
+	resolvePreviewActor,
+	PREVIEW_READONLY_MESSAGE,
 	type ActorId,
 	type Actor,
 	type CommandLifecycleState,
@@ -31,6 +34,8 @@ import {
 	type CoreCommand,
 	type CoreEnvironment,
 	type CoreStateSlice,
+	type PreviewSelection,
+	type ResolvedPreview,
 } from '@dndtools/core';
 import { loadCoreState, persistFullState } from '../platform/storage/scene-store';
 
@@ -181,6 +186,19 @@ export class SceneRuntime {
 	// enforces every visibility and permission check. Defaults to the session DM and
 	// can be switched ("view as") to demonstrate actor filtering (NAV-008/NAV-010).
 	#activeActorId = $state<ActorId>('');
+	// UX-PERM-006: the active "Preview as player / observer" mode, or null. While set, the WHOLE
+	// shell renders through the SAME core actor-filtered queries a real player/observer would use
+	// (activeActorId returns the previewed actor), and every dispatch is rejected read-only at the
+	// single choke point below — preview is never a cosmetic overlay.
+	#preview = $state<ResolvedPreview | null>(null);
+	// UX-PERM-006: while previewing, queries run against a PURE projection of the permission state
+	// that contains the reserved zero-grant generic preview actors (and strips any grant addressed
+	// to a reserved id). The raw #state is untouched: dispatch/persist never see preview actors.
+	#viewState = $derived.by<CoreStateSlice>(() =>
+		this.#preview
+			? { ...this.#state, permissions: permissionsWithPreviewActors(this.#state.permissions) }
+			: this.#state,
+	);
 
 	constructor(options: RuntimeOptions) {
 		this.#options = options;
@@ -188,7 +206,7 @@ export class SceneRuntime {
 	}
 
 	get state(): CoreStateSlice {
-		return this.#state;
+		return this.#viewState;
 	}
 
 	/**
@@ -216,11 +234,32 @@ export class SceneRuntime {
 	/** The actor whose filtered view is currently rendered. Existing call sites read
 	 *  this; it now tracks the active "view as" actor rather than a fixed default. */
 	get defaultActorId(): ActorId {
-		return this.#activeActorId;
+		return this.activeActorId;
 	}
 
+	/** UX-PERM-006: while previewing, every query renders as the previewed actor. */
 	get activeActorId(): ActorId {
-		return this.#activeActorId;
+		return this.#preview ? this.#preview.actorId : this.#activeActorId;
+	}
+
+	/** UX-PERM-006: the active preview, or null when the DM is in their own full view. */
+	get preview(): ResolvedPreview | null {
+		return this.#preview;
+	}
+
+	/**
+	 * UX-PERM-006 — enter "Preview as player / observer". DM-only (fail closed: a non-DM active
+	 * actor cannot start a preview). Resolution is the core's: an unknown/non-player specific id
+	 * collapses to the reserved zero-grant generic actor for the role.
+	 */
+	enterPreview(selection: PreviewSelection): void {
+		if (this.#state.permissions.actors[this.#activeActorId]?.role !== 'dm') return;
+		this.#preview = resolvePreviewActor(this.#state.permissions, selection);
+	}
+
+	/** UX-PERM-006 AC2 — exit preview, restoring the DM's own full view (synchronous, < 200 ms). */
+	exitPreview(): void {
+		this.#preview = null;
 	}
 
 	/**
@@ -300,6 +339,22 @@ export class SceneRuntime {
 	}
 
 	async dispatch(command: CoreCommand): Promise<CommandResult> {
+		// UX-PERM-006 — the READ-ONLY choke point: while previewing, EVERY durable command is
+		// rejected before it reaches the core or storage. All GUI writes flow through this single
+		// method (Contract 1: the GUI never touches storage), so write controls in routes, panels,
+		// and modal dialogs alike are inert during preview by construction (AC1/AC4).
+		if (this.#preview) {
+			const rejection = {
+				code: 'actor-not-authorized' as const,
+				message: PREVIEW_READONLY_MESSAGE,
+			};
+			this.#lastError = rejection.message;
+			this.#lastLifecycle = markFailure(
+				markPending(createCommandLifecycle(command.type)),
+				rejection.message,
+			);
+			return { status: 'rejected', rejection, nextState: this.#state };
+		}
 		const before = this.#state;
 		// PLAT-018: the command enters the pending state before the durable write. No
 		// partial UI success is shown until the write actually commits (AC1).

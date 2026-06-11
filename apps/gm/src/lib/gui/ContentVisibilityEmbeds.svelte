@@ -4,9 +4,13 @@
 		getContentItemDetailForActor,
 		liveContentItems,
 		resolveContentEmbedsForActor,
+		resolveSectionVisibilityToggle,
 		type ContentItem,
+		type VisibilityLevel,
+		type VisibilityToggleView,
 	} from '@dndtools/core';
 	import { useRuntime } from '$lib/state/runtime-context';
+	import VisibilityToggle from './ux-perm/VisibilityToggle.svelte';
 
 	// CONTENT-009 / CONTENT-010 — the GRANULAR VISIBILITY + EMBEDS surface.
 	//
@@ -53,6 +57,26 @@
 				)
 			: [],
 	);
+
+	// UX-PERM-001 §section granularity: the DM's per-section toggle models for the host's declared
+	// sections. The core resolver is the DM-only DEFAULT-DENY choke point — for a player/observer
+	// every entry resolves null, the list is EMPTY, and the authoring block (heading included) is
+	// not rendered at all (AC3: absent, not hidden — no hint that section visibility even exists).
+	const sectionToggles = $derived.by(() => {
+		if (!hostId) return [];
+		const rows: { sectionId: string; view: VisibilityToggleView }[] = [];
+		for (const sectionId of DECLARED_SECTIONS) {
+			const view = resolveSectionVisibilityToggle(
+				runtime.state.content,
+				runtime.state.permissions,
+				runtime.activeActorId,
+				hostId,
+				sectionId,
+			);
+			if (view) rows.push({ sectionId, view });
+		}
+		return rows;
+	});
 
 	let error = $state<string | null>(null);
 
@@ -150,6 +174,38 @@
 						<li data-testid={`ve-section-${sectionId}`}>{sectionId}</li>
 					{/each}
 				</ul>
+
+				<!-- UX-PERM-001 §section granularity: a per-section 3-state toggle for each declared
+				     section, collapsed by default (current-state icon only) and expanded on
+				     interaction. The core resolver is the DM-only choke point — null for a
+				     player/observer, so no section toggle (and no hint of hidden sections) is ever
+				     rendered for them (AC3). Setting a section to dm-only on this player-visible host
+				     is exactly the AC4 path: the entity stays visible to players while the section
+				     drops out of their data. -->
+				{#if hostId && sectionToggles.length > 0}
+					{@const hostItemId = hostId}
+					<h4>Section visibility (DM)</h4>
+					<ul class="scene-list" data-testid="ve-section-visibility">
+						{#each sectionToggles as entry (entry.sectionId)}
+							<li data-testid={`ve-section-toggle-row-${entry.sectionId}`}>
+								<span class="meta">{entry.sectionId}</span>
+								<VisibilityToggle
+									view={entry.view}
+									label={`Content visibility — ${entry.sectionId} section`}
+									collapsible
+									testid={`ve-section-visibility-${entry.sectionId}`}
+									onchange={async (level: VisibilityLevel) => {
+										await dispatch({
+											type: 'content.set-section-visibility',
+											actorId: runtime.activeActorId,
+											payload: { itemId: hostItemId, sectionId: entry.sectionId, rule: { level } },
+										});
+									}}
+								/>
+							</li>
+						{/each}
+					</ul>
+				{/if}
 
 				<h4>Fields visible to you</h4>
 				<dl data-testid="ve-host-fields">

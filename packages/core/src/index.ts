@@ -4459,3 +4459,67 @@ export {
 	isMcpFsOperationId,
 	isPathContained,
 } from './mcp/fs-allowlist';
+
+// UX-PERM-001 / UX-PERM-007 — the DM visibility-control read models: the canonical 3-state toggle
+// (entity + section granularity), the dm-only conflict warning evaluated BEFORE dispatch, and the
+// ambient visibility badge. All are DM-only DEFAULT-DENY choke points: a player/observer/unknown
+// actor receives `null`, so non-DM surfaces render no toggle, no badge, and no hint of hidden state.
+export type {
+	VisibilityBadgeState,
+	VisibilityBadgeView,
+	VisibilityChangeConflict,
+	VisibilityToggleSegment,
+	VisibilityToggleView,
+} from './queries/visibility-status';
+export {
+	MIXED_BADGE_TOOLTIP,
+	VISIBILITY_CONFLICT_MESSAGE,
+	VISIBILITY_TOGGLE_SEGMENTS,
+	evaluateVisibilityChangeConflict,
+	resolveContentVisibilityBadge,
+	resolveContentVisibilityToggle,
+	resolveSectionVisibilityToggle,
+	visibilityAnnouncement,
+} from './queries/visibility-status';
+
+// UX-PERM-006 — "Preview as player / observer": the core actor-resolution side. Preview renders the
+// DM shell through the SAME actor-filtered queries a real player/observer would use, as a reserved
+// zero-grant generic actor or a specific player's exact grants. Fail closed everywhere: unknown
+// specific players collapse to the generic actor, grants addressed to reserved preview ids are
+// stripped, and the `?preview=` URL value is a strict two-role allowlist.
+export type {
+	PreviewBannerModel,
+	PreviewRole,
+	PreviewSelection,
+	ResolvedPreview,
+} from './queries/preview-mode';
+export {
+	PREVIEW_EXIT_ANNOUNCEMENT,
+	PREVIEW_OBSERVER_ACTOR_ID,
+	PREVIEW_PLAYER_ACTOR_ID,
+	PREVIEW_READONLY_MESSAGE,
+	isPreviewActorId,
+	parsePreviewParam,
+	permissionsWithPreviewActors,
+	previewBannerModel,
+	resolvePreviewActor,
+} from './queries/preview-mode';
+
+// UX-PERM-008 — the DM "Session privacy" panel model: per-departed-participant cache-purge status
+// (purged / unconfirmed / failed) with advisory copy, a 24 h retention window, and the all-clear
+// empty state. DM-only default-deny (`null` for any non-DM actor); the record/row types carry no
+// device-level secrets by construction (COLLAB-010 / COLLAB-014 / PERM-014).
+export type {
+	DepartedParticipantRecord,
+	PrivacyStatusTone,
+	PurgeOutcome,
+	SessionPrivacyRow,
+	SessionPrivacyView,
+} from './queries/session-privacy';
+export {
+	PURGE_FAILED_ADVISORY,
+	PURGE_UNCONFIRMED_ADVISORY,
+	SESSION_PRIVACY_EMPTY_STATE,
+	SESSION_PRIVACY_WINDOW_MS,
+	resolveSessionPrivacy,
+} from './queries/session-privacy';

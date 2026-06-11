@@ -1,14 +1,19 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import { page } from '$app/state';
 	import { goto, beforeNavigate, afterNavigate } from '$app/navigation';
 	import { ScrollRestorationStore } from '$lib/platform/scroll-restoration';
 	import {
 		listNavigationRegistryForActor,
 		listReachableDestinations,
+		parsePreviewParam,
+		previewBannerModel,
 		resolveNavigationView,
 		resolveRouteFocus,
 		resolveSectionRouteAccess,
+		PREVIEW_EXIT_ANNOUNCEMENT,
+		type PreviewSelection,
 	} from '@dndtools/core';
 	import { selectStripLists } from '$lib/platform/navigation-history';
 	import { SceneRuntime, defaultEnvironment } from '$lib/canvas-runtime/runtime.svelte';
@@ -41,6 +46,8 @@
 	import HistoryControls from '$lib/gui/ux-shell/HistoryControls.svelte';
 	import QuickAccess from '$lib/gui/QuickAccess.svelte';
 	import HelpTrigger from '$lib/gui/HelpTrigger.svelte';
+	import PreviewBanner from '$lib/gui/ux-perm/PreviewBanner.svelte';
+	import PreviewLauncher from '$lib/gui/ux-perm/PreviewLauncher.svelte';
 	import LiveRegion from '$lib/gui/a11y/LiveRegion.svelte';
 	import { LiveAnnouncer, provideLiveAnnouncer } from '$lib/gui/a11y/live-announcer.svelte';
 	import './styles.css';
@@ -107,6 +114,60 @@
 	// (UX-A11Y-008 / AP-1).
 	const announcer = new LiveAnnouncer();
 	provideLiveAnnouncer(announcer);
+
+	// --- UX-PERM-006: "Preview as player / observer" --------------------------------------------
+	// The runtime owns the preview state: while previewing, runtime.activeActorId IS the previewed
+	// actor, so every core query in the shell and the routes renders the SAME actor-filtered data a
+	// real player/observer would receive — never a cosmetic overlay. The runtime's dispatch choke
+	// point rejects every write read-only for the duration (AC1/AC4). The URL carries
+	// `?preview=player|observer` (strict core allowlist) so a "what will the player see" link opens
+	// in preview mode, and browser back/forward enters/exits coherently.
+	const isDmActor = $derived(
+		runtime.state.permissions.actors[runtime.activeActorId]?.role === 'dm',
+	);
+	const urlPreviewRole = $derived(parsePreviewParam(page.url.searchParams.get('preview')));
+	$effect(() => {
+		if (!runtime.loaded) return;
+		const role = urlPreviewRole;
+		// Entering via URL (cold load, shared "what will the player see" link, forward/back into a
+		// preview URL): a generic role preview. A specific-player preview is started through the
+		// launcher, which sets richer state before the URL updates — the role-match guard keeps it.
+		// A URL WITHOUT the parameter never force-exits: preview persists across in-app navigation
+		// until the explicit exit interaction (button / Shift+Escape), per UX-PERM-006.
+		// (Early returns rather than one compound condition: the production minifier mis-associates
+		// the `x && (!y || y.z !== x)` shape into a null read — the same pre-existing pattern crash
+		// exists in the notes save-status derived.)
+		if (!role) return;
+		const active = runtime.preview;
+		if (active !== null && active.role === role) return;
+		runtime.enterPreview({ role });
+	});
+
+	function previewUrl(role: 'player' | 'observer' | null): string {
+		const params = new SvelteURLSearchParams(page.url.search);
+		if (role) params.set('preview', role);
+		else params.delete('preview');
+		const query = params.toString();
+		return `${page.url.pathname}${query ? `?${query}` : ''}`;
+	}
+
+	function startPreview(selection: PreviewSelection): void {
+		runtime.enterPreview(selection);
+		// UX-PERM-006 §accessibility: assertive entry announcement ("Entering preview mode as …").
+		if (runtime.preview) {
+			announcer.announce(previewBannerModel(runtime.preview).announcement, 'assertive');
+		}
+		void goto(previewUrl(selection.role), { noScroll: true, keepFocus: true });
+	}
+
+	async function exitPreview(): Promise<void> {
+		// Strip the URL parameter FIRST, then clear the runtime state: the URL-entry effect above
+		// re-runs the moment `runtime.preview` changes, and with `?preview=` still present it would
+		// immediately re-enter the preview (the exit would silently bounce back).
+		await goto(previewUrl(null), { noScroll: true, keepFocus: true });
+		runtime.exitPreview();
+		announcer.announce(PREVIEW_EXIT_ANNOUNCEMENT, 'assertive');
+	}
 
 	onMount(() => {
 		void runtime.load();
@@ -309,6 +370,13 @@
 	// route announcer so the destination is announced via the live region. They only act on the
 	// actor-filtered set, so a player/observer can never reach a section they cannot see.
 	function onGlobalKeydown(event: KeyboardEvent) {
+		// UX-PERM-006 AC2: `Shift+Escape` exits preview mode from anywhere, restoring the DM's full
+		// view synchronously (< 200 ms). Handled before the Alt-navigation chords below.
+		if (event.key === 'Escape' && event.shiftKey && runtime.preview) {
+			event.preventDefault();
+			void exitPreview();
+			return;
+		}
 		if (!event.altKey || event.ctrlKey || event.metaKey) return;
 		// UX-NAV-019 AC1 — the navigation shortcuts fire only when no text input is focused, so `Alt+<n>`
 		// never steals a keystroke a field is consuming.
@@ -387,7 +455,13 @@
 	data-viewport={profile.viewportClass}
 	data-orientation={profile.orientation}
 	data-nav-collapsed={navChrome.collapsed ? 'true' : 'false'}
+	data-preview-mode={runtime.preview ? runtime.preview.role : undefined}
 >
+	<!-- UX-PERM-006: the persistent preview banner — full-viewport top, above all content, below
+	     modal dialogs; the shell compensates for the overlap via the data-preview-mode padding. -->
+	{#if runtime.preview}
+		<PreviewBanner preview={runtime.preview} onexit={exitPreview} />
+	{/if}
 	<!-- UX-NAV-009: the top bar is the page banner landmark. It hosts only cross-route affordances —
 	     brand/home, the command palette trigger, the "view as" actor switch, and help. Section
 	     routing lives in the primary nav (the sidebar/rail/tab bar), not here. -->
@@ -401,18 +475,25 @@
 			<GlobalSearch recent={strip.recent} />
 			<QuickSwitcher />
 			<CommandPalette recent={strip.recent} {shortcuts} />
-			<label class="view-as">
-				<span class="visually-hidden">View as</span>
-				<select
-					data-testid="view-as-select"
-					value={runtime.activeActorId}
-					onchange={(event) => runtime.setActiveActor(event.currentTarget.value)}
-				>
-					{#each runtime.actors as actor (actor.id)}
-						<option value={actor.id}>View as: {actor.displayName} ({actor.role})</option>
-					{/each}
-				</select>
-			</label>
+			{#if !runtime.preview}
+				<label class="view-as">
+					<span class="visually-hidden">View as</span>
+					<select
+						data-testid="view-as-select"
+						value={runtime.activeActorId}
+						onchange={(event) => runtime.setActiveActor(event.currentTarget.value)}
+					>
+						{#each runtime.actors as actor (actor.id)}
+							<option value={actor.id}>View as: {actor.displayName} ({actor.role})</option>
+						{/each}
+					</select>
+				</label>
+				<!-- UX-PERM-006: the "Preview as…" launcher — DM-only chrome (absent for any other
+				     actor, and absent while a preview is active: the banner owns the exit). -->
+				{#if isDmActor}
+					<PreviewLauncher actors={runtime.actors} onstart={startPreview} />
+				{/if}
+			{/if}
 			<!-- UX-A11Y-014 (WCAG 3.2.6) + UX-NAV-019: the Help trigger renders in the shared header, so it
 			     appears in the same top-bar position on every route, is reachable by `?` / `F1` everywhere,
 			     and opens the SEARCHABLE keyboard-shortcuts panel built from the actor-filtered registry. -->
