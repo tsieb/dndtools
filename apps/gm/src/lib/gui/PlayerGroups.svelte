@@ -69,7 +69,7 @@
 </script>
 
 {#if isDm}
-	<section data-testid="player-groups" aria-label="Player groups">
+	<section class="cwrap" data-testid="player-groups" aria-label="Player groups">
 		<h2>Player groups</h2>
 		<p class="meta">
 			Groups are delivery targets only. Membership does not grant any visibility or write permission.
@@ -141,20 +141,20 @@
 
 <style>
 	.error {
-		color: var(--color-danger, #b00020);
+		color: var(--color-status-error-text);
 	}
 	.meta {
-		color: var(--color-text-muted, #666);
+		color: var(--color-text-secondary);
 	}
 	.create-form {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-1, 0.25rem);
-		margin-bottom: var(--space-2, 0.5rem);
+		gap: var(--space-1);
+		margin-bottom: var(--space-2);
 	}
 	.member {
 		display: flex;
-		gap: var(--space-1, 0.25rem);
+		gap: var(--space-1);
 		align-items: center;
 	}
 	.group-list {
@@ -162,17 +162,88 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-2, 0.5rem);
+		gap: var(--space-2);
 	}
 	.group-list li {
-		border: 1px solid var(--color-border, #ddd);
-		border-radius: var(--radius-1, 0.25rem);
-		padding: var(--space-2, 0.5rem);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		padding: var(--space-2);
 	}
 	.group-members {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--space-2, 0.5rem);
-		margin: var(--space-1, 0.25rem) 0;
+		gap: var(--space-2);
+		margin: var(--space-1) 0;
+	}
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	.cwrap :global(h2),
+	.cwrap :global(h3) {
+		margin: 0;
+	}
+	.cwrap :global(h3) {
+		font-size: var(--text-md);
+	}
+	.cwrap :global(form) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	.cwrap :global(label) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-secondary);
+	}
+	.cwrap :global(input),
+	.cwrap :global(select) {
+		min-height: var(--touch-target-min);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font: inherit;
+		font-weight: var(--font-weight-regular);
+	}
+	.cwrap :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.cwrap :global(.scene-card),
+	.cwrap :global(.scene-list li) {
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.cwrap :global(button) {
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+	.cwrap :global(button[type='submit']) {
+		background: var(--color-accent);
+		color: var(--color-accent-foreground);
+		border-color: var(--color-accent);
+		font-weight: var(--font-weight-semibold);
 	}
 </style>

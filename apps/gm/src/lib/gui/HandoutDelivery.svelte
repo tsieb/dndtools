@@ -136,7 +136,7 @@
 	}
 </script>
 
-<section data-testid="handout-delivery" aria-label="Handout delivery">
+<section class="cwrap" data-testid="handout-delivery" aria-label="Handout delivery">
 	<h2>Handouts</h2>
 
 	{#if error}
@@ -312,32 +312,101 @@
 
 <style>
 	.error {
-		color: var(--color-danger, #b00020);
+		color: var(--color-status-error-text);
 	}
 	.meta {
-		color: var(--color-text-muted, #666);
+		color: var(--color-text-secondary);
 	}
 	.deliver-form {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-1, 0.25rem);
-		margin-bottom: var(--space-2, 0.5rem);
+		gap: var(--space-1);
+		margin-bottom: var(--space-2);
 	}
 	.recipient,
 	.reveal {
 		display: flex;
-		gap: var(--space-1, 0.25rem);
+		gap: var(--space-1);
 		align-items: center;
 	}
 	.handout {
-		border: 1px solid var(--color-border, #ddd);
-		border-radius: var(--radius-1, 0.25rem);
-		padding: var(--space-2, 0.5rem);
-		margin-bottom: var(--space-1, 0.25rem);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		padding: var(--space-2);
+		margin-bottom: var(--space-1);
 	}
 	.received ul,
 	.delivery-history ul {
 		list-style: none;
 		padding: 0;
+		margin: var(--space-1) 0 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	.cwrap :global(h2),
+	.cwrap :global(h3) {
+		margin: 0;
+	}
+	.cwrap :global(h3) {
+		font-size: var(--text-md);
+	}
+	.cwrap :global(form) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	.cwrap :global(label) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-secondary);
+	}
+	.cwrap :global(input),
+	.cwrap :global(select),
+	.cwrap :global(textarea) {
+		min-height: var(--touch-target-min);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font: inherit;
+		font-weight: var(--font-weight-regular);
+	}
+	.cwrap :global(.received ul li),
+	.cwrap :global(.delivery-history ul li),
+	.cwrap :global(.handout-status ul li) {
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.cwrap :global(button) {
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+	.cwrap :global(button[type='submit']) {
+		background: var(--color-accent);
+		color: var(--color-accent-foreground);
+		border-color: var(--color-accent);
+		font-weight: var(--font-weight-semibold);
 	}
 </style>

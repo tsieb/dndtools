@@ -110,6 +110,9 @@ epics:
   - id: UX-CMD-player-view-handouts-map-and-session-controls
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-CMD-player-view-handouts-map-and-session-controls.completion.md
+  - id: UX-COLLAB-handouts-player-views-combat-and-groups
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-COLLAB-handouts-player-views-combat-and-groups.completion.md
   - id: UX-COLLAB-presence-join-roster-connection-and-catchup
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-COLLAB-presence-join-roster-connection-and-catchup.completion.md
