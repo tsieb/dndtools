@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 10
+  approved: 9
   active: 0
-  complete: 36
+  complete: 37
   deferred: 0
 metrics:
-  epicCompletionPercent: 78.3
-  requirementCompletionPercent: 75.4
+  epicCompletionPercent: 80.4
+  requirementCompletionPercent: 77.9
   totalRequirements: 244
-  completedRequirements: 184
+  completedRequirements: 190
   deferredRequirements: 0
-  remainingEpics: 10
-  promptableEpics: 3
-  blockedByDependencies: 7
-  completionEvidenceFiles: 36
+  remainingEpics: 9
+  promptableEpics: 4
+  blockedByDependencies: 5
+  completionEvidenceFiles: 37
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -302,9 +302,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 09 Reliability and Optional Capabilities
       totalEpics: 6
-      complete: 0
+      complete: 1
       active: 0
-      approved: 6
+      approved: 5
       proposed: 0
       deferred: 0
       requirementIds:
@@ -347,8 +347,8 @@ metrics:
         - UX-SYNC-011
         - UX-SYNC-012
         - UX-SYNC-013
-      epicCompletionPercent: 0
-      requirementCompletionPercent: 0
+      epicCompletionPercent: 16.7
+      requirementCompletionPercent: 15.4
     - phase: 10 Onboarding and Production Polish
       totalEpics: 3
       complete: 0
@@ -391,22 +391,23 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-SYNC-global-indicators-local-first-and-entity-badges
-  title: Sync Indicators, Local-First Feedback, and Entity Badges
+  id: UX-SYNC-queues-conflicts-recovery-consent-and-authorization
+  title: Sync Queues, Conflicts, Recovery, Consent, and Authorization
   phase: 09 Reliability and Optional Capabilities
   status: approved
   requirementIds:
-    - UX-SYNC-001
-    - UX-SYNC-002
-    - UX-SYNC-003
-    - UX-SYNC-008
-    - UX-SYNC-011
-    - UX-SYNC-013
+    - UX-SYNC-004
+    - UX-SYNC-005
+    - UX-SYNC-006
+    - UX-SYNC-007
+    - UX-SYNC-009
+    - UX-SYNC-010
+    - UX-SYNC-012
   promptCommand: pnpm ux-prompt -- --epic
-    UX-SYNC-global-indicators-local-first-and-entity-badges
+    UX-SYNC-queues-conflicts-recovery-consent-and-authorization
   nextPromptCommand: pnpm ux-prompt -- --next
   statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-SYNC-global-indicators-local-first-and-entity-badges --status active
+    UX-SYNC-queues-conflicts-recovery-consent-and-authorization --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -1148,7 +1149,7 @@ epics:
   - id: UX-SYNC-global-indicators-local-first-and-entity-badges
     title: Sync Indicators, Local-First Feedback, and Entity Badges
     phase: 09 Reliability and Optional Capabilities
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-SYNC-001
@@ -1165,6 +1166,7 @@ epics:
       - last-synced trust signals
     dependencies:
       - UX-SHELL-route-layout-and-platform-profiles
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-SYNC-global-indicators-local-first-and-entity-badges.completion.md
   - id: UX-SYNC-queues-conflicts-recovery-consent-and-authorization
     title: Sync Queues, Conflicts, Recovery, Consent, and Authorization
     phase: 09 Reliability and Optional Capabilities

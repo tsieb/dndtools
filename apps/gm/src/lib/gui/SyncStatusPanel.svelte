@@ -109,7 +109,7 @@
 <div class="visually-hidden" aria-live="polite" aria-atomic="true" data-testid="sync-announcement">{syncAnnouncement}</div>
 
 {#if status.kind === 'sync-status'}
-	<section data-testid="sync-status-panel" aria-label="Sync status">
+	<section class="cwrap" data-testid="sync-status-panel" aria-label="Sync status">
 		<h2>Sync status</h2>
 		<p class="meta" data-testid="sync-status-health">
 			Health: <strong data-testid="sync-status-health-level">{status.health}</strong> •
@@ -381,16 +381,75 @@
 {/if}
 
 <style>
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+	}
+	.cwrap h2 {
+		margin: 0;
+	}
+	.cwrap :global(h3) {
+		margin: 0 0 var(--space-2);
+		font-size: var(--text-md);
+	}
+	.cwrap :global(.meta) {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.cwrap :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.cwrap :global(.scene-card) {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		flex-wrap: wrap;
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.cwrap :global(.unavailable) {
+		color: var(--color-status-error-text);
+		font-weight: var(--font-weight-semibold);
+	}
+	.cwrap :global(input),
+	.cwrap :global(select),
+	.cwrap :global(textarea) {
+		min-height: var(--touch-target-min);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font: inherit;
+	}
+	.cwrap :global(button) {
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
 	.conflict-notes {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
-		margin: 0.5rem 0;
-		font-weight: 600;
+		gap: var(--space-1);
+		margin: var(--space-2) 0;
+		font-weight: var(--font-weight-semibold);
 	}
 	.conflict-choices {
 		display: flex;
-		gap: 0.5rem;
+		gap: var(--space-2);
 		flex-wrap: wrap;
 	}
 </style>
