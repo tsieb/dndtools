@@ -209,11 +209,17 @@
 			editorError = 'Fix the validation errors before saving.';
 			return;
 		}
-		await dispatch({
+		const ok = await dispatch({
 			type: 'content.update-item',
 			actorId: runtime.activeActorId,
 			payload: { itemId: selectedId, title: draftTitle, body: draftBody },
 		});
+		// UX-CONTENT-004 — baseline the saved values so the autosave chip reads "Saved" (clean). Done
+		// here rather than off the lifecycle status, which can stay 'success' across saves and not re-fire.
+		if (ok) {
+			savedBody = draftBody;
+			savedTitle = draftTitle;
+		}
 	}
 
 	async function deleteNote(id: string): Promise<void> {
@@ -238,6 +244,134 @@
 			(item) => item.kind === 'note',
 		),
 	);
+
+	// --- UX-CONTENT-001/002/003/004/005/007: editor shell + writing controls -------------------------
+	let bodyEl = $state<HTMLTextAreaElement | null>(null);
+	let focusMode = $state(false);
+	let previewOpen = $state(false);
+
+	// UX-CONTENT-004 — autosave: the last successfully-saved values, so the chip reads "dirty" vs
+	// "saved", and a debounced autosave only fires when the draft actually changed and validates.
+	let savedBody = $state('');
+	let savedTitle = $state('');
+	const dirty = $derived(selectedId !== null && (draftBody !== savedBody || draftTitle !== savedTitle));
+	let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
+	$effect(() => {
+		// Track the dependencies that should (re)arm the debounce.
+		const _b = draftBody;
+		const _t = draftTitle;
+		void _b;
+		void _t;
+		if (!selectedId || !dirty || !validation.valid) return;
+		if (autosaveTimer) clearTimeout(autosaveTimer);
+		if (typeof setTimeout === 'undefined') return;
+		autosaveTimer = setTimeout(() => {
+			if (dirty && validation.valid) void saveNote();
+		}, 2000);
+		return () => clearTimeout(autosaveTimer);
+	});
+
+	// The save chip's presentation state (UX-CONTENT-004 §four states).
+	type ChipState = 'saved' | 'saving' | 'failed' | 'unsaved';
+	const chipState = $derived.by<ChipState>(() => {
+		if (saveStatus === 'pending') return 'saving';
+		if (saveStatus === 'failure') return 'failed';
+		if (dirty) return 'unsaved';
+		return 'saved';
+	});
+	const CHIP_TEXT: Record<ChipState, string> = {
+		saved: '✓ Saved',
+		saving: '⟳ Saving…',
+		failed: '✕ Save failed — retry',
+		unsaved: '• Unsaved changes',
+	};
+
+	// Keep the saved baseline in step when a note opens or a save lands.
+	let _trackedNote = '';
+	$effect(() => {
+		if (selectedId && selectedId !== _trackedNote) {
+			_trackedNote = selectedId;
+			savedBody = draftBody;
+			savedTitle = draftTitle;
+		}
+	});
+
+	const wordCount = $derived(draftBody.trim() === '' ? 0 : draftBody.trim().split(/\s+/).length);
+
+	// UX-CONTENT-002 — wrap the current selection (or insert at caret) with markdown delimiters.
+	function surround(before: string, after: string): void {
+		const el = bodyEl;
+		if (!el) return;
+		const s = el.selectionStart ?? draftBody.length;
+		const e = el.selectionEnd ?? s;
+		draftBody = draftBody.slice(0, s) + before + draftBody.slice(s, e) + after + draftBody.slice(e);
+		queueMicrotask(() => {
+			el.focus();
+			el.setSelectionRange(s + before.length, e + before.length);
+		});
+	}
+	// UX-CONTENT-002 — prefix the caret's line (headings, lists).
+	function linePrefix(prefix: string): void {
+		const el = bodyEl;
+		if (!el) return;
+		const s = el.selectionStart ?? draftBody.length;
+		const lineStart = draftBody.lastIndexOf('\n', s - 1) + 1;
+		draftBody = draftBody.slice(0, lineStart) + prefix + draftBody.slice(lineStart);
+		queueMicrotask(() => {
+			el.focus();
+			el.setSelectionRange(s + prefix.length, s + prefix.length);
+		});
+	}
+	const FORMATS = {
+		bold: () => surround('**', '**'),
+		italic: () => surround('_', '_'),
+		link: () => surround('[', '](https://)'),
+		code: () => surround('`', '`'),
+		heading: () => linePrefix('## '),
+		list: () => linePrefix('- '),
+	} as const;
+
+	function onBodyKeydown(event: KeyboardEvent): void {
+		const mod = event.metaKey || event.ctrlKey;
+		if (mod && event.key.toLowerCase() === 'b') { event.preventDefault(); FORMATS.bold(); }
+		else if (mod && event.key.toLowerCase() === 'i') { event.preventDefault(); FORMATS.italic(); }
+		else if (mod && event.key.toLowerCase() === 'k') { event.preventDefault(); FORMATS.link(); }
+		else if (event.key === 'Escape' && slashOpen) { event.preventDefault(); slashOpen = false; }
+	}
+
+	// UX-CONTENT-003 — slash insert menu: typing `/` at the start of a line opens a block-insert menu.
+	let slashOpen = $state(false);
+	const SLASH_ITEMS: { id: string; label: string; desc: string; apply: () => void }[] = [
+		{ id: 'h2', label: 'Heading', desc: 'Section heading', apply: () => insertBlock('## ') },
+		{ id: 'quote', label: 'Quote', desc: 'Block quote', apply: () => insertBlock('> ') },
+		{ id: 'list', label: 'Bulleted list', desc: 'List item', apply: () => insertBlock('- ') },
+		{ id: 'code', label: 'Code block', desc: 'Fenced code', apply: () => insertBlock('```\n\n```') },
+		{ id: 'divider', label: 'Divider', desc: 'Horizontal rule', apply: () => insertBlock('---\n') },
+	];
+	function onBodyInput(): void {
+		const el = bodyEl;
+		if (!el) return;
+		caret = el.selectionStart ?? draftBody.length;
+		const before = draftBody.slice(0, caret);
+		// `/` as the only char on the current line opens the menu.
+		slashOpen = /(^|\n)\/$/.test(before);
+	}
+	function insertBlock(markdown: string): void {
+		// Replace the trailing `/` (which opened the menu) with the chosen block.
+		const el = bodyEl;
+		const at = caret;
+		draftBody = draftBody.slice(0, at - 1) + markdown + draftBody.slice(at);
+		slashOpen = false;
+		queueMicrotask(() => {
+			el?.focus();
+			const pos = at - 1 + markdown.length;
+			el?.setSelectionRange(pos, pos);
+		});
+	}
+
+	function exitFocusMode(): void {
+		focusMode = false;
+	}
 </script>
 
 <!-- A11Y-006 AC1 — concise save-state announcements. Always present so AT registers the region;
@@ -353,8 +487,8 @@
 			runtime.activeActorId,
 			selectedItemId,
 		)}
-		<section class="scene-card" data-testid="note-editor" aria-label="Note editor">
-			<h3>Editing: {selected.title}</h3>
+		<section class="editor" data-testid="note-editor" data-focus={focusMode} aria-label="Note editor">
+			<h3 class="editor__heading">Editing: {selected.title}</h3>
 			{#if visibilityView}
 				<VisibilityToggle
 					view={visibilityView}
@@ -377,11 +511,38 @@
 				/>
 			{/if}
 
-			<!-- Visible save status (PLAT-018 lifecycle) -->
-			<p class="meta" data-testid="note-save-status">
-				Save status:
-				<strong data-testid="note-save-status-value">{saveStatus}</strong>
-			</p>
+			<!-- UX-CONTENT-004 — persistent autosave status chip. The visible label carries the state;
+			     the raw lifecycle status is kept (sr-only) for assertions. Clicking the chip while failed
+			     retries immediately. The chip stays visible in focus mode (save state must never hide). -->
+			<div class="editor__statusbar">
+				<button
+					type="button"
+					class="save-chip"
+					data-testid="note-save-status"
+					data-state={chipState}
+					aria-label={chipState === 'failed' ? 'Save failed — activate to retry' : `Autosave: ${chipState}`}
+					disabled={chipState !== 'failed'}
+					onclick={saveNote}
+				>
+					{CHIP_TEXT[chipState]}
+					<span class="visually-hidden" data-testid="note-save-status-value">{saveStatus}</span>
+				</button>
+			</div>
+
+			<!-- UX-CONTENT-002 — the markdown formatting toolbar (primary six + overflow). Shortcuts
+			     Ctrl/Cmd+B / +I / +K work from the body too. -->
+			<div class="toolbar" role="toolbar" aria-label="Formatting">
+				<button type="button" class="fmt" data-testid="note-fmt-bold" aria-label="Bold (Ctrl+B)" title="Bold (Ctrl+B)" onclick={FORMATS.bold}><b>B</b></button>
+				<button type="button" class="fmt" data-testid="note-fmt-italic" aria-label="Italic (Ctrl+I)" title="Italic (Ctrl+I)" onclick={FORMATS.italic}><i>I</i></button>
+				<button type="button" class="fmt" data-testid="note-fmt-link" aria-label="Link (Ctrl+K)" title="Link (Ctrl+K)" onclick={FORMATS.link}>🔗</button>
+				<button type="button" class="fmt" data-testid="note-fmt-code" aria-label="Inline code" title="Inline code" onclick={FORMATS.code}>&lt;&gt;</button>
+				<button type="button" class="fmt" data-testid="note-fmt-heading" aria-label="Heading" title="Heading" onclick={FORMATS.heading}>H</button>
+				<button type="button" class="fmt" data-testid="note-fmt-list" aria-label="Bulleted list" title="Bulleted list" onclick={FORMATS.list}>≡</button>
+				<span class="toolbar__sep" aria-hidden="true"></span>
+				<button type="button" class="fmt" data-testid="note-preview-toggle" aria-pressed={previewOpen} aria-label="Split preview" title="Split preview" onclick={() => (previewOpen = !previewOpen)}>⊟</button>
+				<button type="button" class="fmt" data-testid="note-focus-toggle" aria-pressed={focusMode} aria-label="Focus mode" title="Focus mode" onclick={() => (focusMode = !focusMode)}>⤢</button>
+			</div>
+
 			{#if canRetrySave}
 				<button type="button" data-testid="note-save-retry" onclick={saveNote}>Retry save</button>
 				<p class="meta" role="alert" data-testid="note-save-error">{lifecycle?.error}</p>
@@ -395,41 +556,80 @@
 				<input data-testid="note-title" bind:value={draftTitle} autocomplete="off" />
 			</label>
 
-			<label>
-				Body (markdown)
-				<textarea
-					data-testid="note-body"
-					bind:value={draftBody}
-					rows="8"
-					autocomplete="off"
-					onkeyup={(event) => (caret = event.currentTarget.selectionStart ?? draftBody.length)}
-					onclick={(event) => (caret = event.currentTarget.selectionStart ?? draftBody.length)}
-				></textarea>
-			</label>
+			<!-- UX-CONTENT-001/005 — the writing area + the rendered preview as adjacent panes (split when
+			     toggled). UX-CONTENT-003 slash insert opens from `/` at line start. -->
+			<div class="editor__panes" data-split={previewOpen}>
+				<div class="writing">
+					<label class="writing__label">
+						<span class="visually-hidden">Note body (markdown)</span>
+						<textarea
+							class="prose"
+							data-testid="note-body"
+							bind:this={bodyEl}
+							bind:value={draftBody}
+							rows="14"
+							autocomplete="off"
+							aria-label="Note body"
+							aria-multiline="true"
+							onkeydown={onBodyKeydown}
+							oninput={onBodyInput}
+							onkeyup={(event) => (caret = event.currentTarget.selectionStart ?? draftBody.length)}
+							onclick={(event) => (caret = event.currentTarget.selectionStart ?? draftBody.length)}
+						></textarea>
+					</label>
 
-			<!-- CONTENT-002: wikilink assistance (actor-filtered suggestions) -->
-			{#if wikilinkQuery !== null && wikilinkSuggestions.length > 0}
-				<div data-testid="note-wikilink-suggestions" aria-label="Wikilink suggestions">
-					<p class="meta">Link to:</p>
-					<ul class="scene-list">
-						{#each wikilinkSuggestions as suggestion (suggestion.itemId)}
-							<li>
-								<button
-									type="button"
-									data-testid={`wikilink-suggest-${suggestion.itemId}`}
-									onclick={() => applyWikilink(suggestion.title)}
-								>
-									[[{suggestion.title}]]
-								</button>
-							</li>
-						{/each}
-					</ul>
+					<!-- UX-CONTENT-003: slash insert menu (block types). -->
+					{#if slashOpen}
+						<ul class="slash-menu" role="listbox" aria-label="Insert block type" data-testid="note-slash-menu">
+							{#each SLASH_ITEMS as item (item.id)}
+								<li role="option" aria-selected="false">
+									<button type="button" class="slash-item" data-testid={`note-slash-${item.id}`} onclick={item.apply}>
+										<span class="slash-item__label">{item.label}</span>
+										<span class="slash-item__desc">{item.desc}</span>
+									</button>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+
+					<!-- CONTENT-002: wikilink assistance (actor-filtered suggestions) -->
+					{#if wikilinkQuery !== null && wikilinkSuggestions.length > 0}
+						<div class="wikilinks" data-testid="note-wikilink-suggestions" aria-label="Wikilink suggestions">
+							<p class="meta">Link to:</p>
+							<ul class="wikilinks__list">
+								{#each wikilinkSuggestions as suggestion (suggestion.itemId)}
+									<li>
+										<button type="button" class="wikilink-suggest" data-testid={`wikilink-suggest-${suggestion.itemId}`} onclick={() => applyWikilink(suggestion.title)}>
+											[[{suggestion.title}]]
+										</button>
+									</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
 				</div>
-			{/if}
+
+				<!-- CONTENT-002/005: rendered preview pane (always available; lays out beside the editor when split). -->
+				<div class="preview-pane" data-testid="note-preview" aria-label="Rendered preview" aria-readonly="true">
+					<h4 class="preview-pane__title">Preview</h4>
+					{#each preview.blocks as block, index (index)}
+						{#if block.kind === 'heading'}
+							<p class="preview-heading" data-testid="preview-heading">{block.text}</p>
+						{:else if block.kind === 'list-item'}
+							<p class="preview-list-item" data-testid="preview-list-item">• {block.text}</p>
+						{:else}
+							<p data-testid="preview-paragraph">{block.text}</p>
+						{/if}
+					{/each}
+					{#if preview.tags.length > 0}
+						<p class="meta" data-testid="preview-tags">Tags: {preview.tags.join(', ')}</p>
+					{/if}
+				</div>
+			</div>
 
 			<!-- CONTENT-002: validation feedback (fail closed) -->
 			{#if !validation.valid}
-				<ul class="scene-list" data-testid="note-validation" aria-label="Validation issues">
+				<ul class="validation" data-testid="note-validation" aria-label="Validation issues">
 					{#each validation.issues as issue, index (index)}
 						<li class="meta" role="alert" data-testid={`note-validation-${issue.code}`}>
 							{issue.severity}: {issue.message}
@@ -440,24 +640,13 @@
 				<p class="meta" data-testid="note-validation-ok">Markdown is valid.</p>
 			{/if}
 
-			<button type="button" data-testid="note-save" onclick={saveNote} disabled={!validation.valid}>
-				Save
-			</button>
-
-			<!-- CONTENT-002: preview -->
-			<div class="scene-card" data-testid="note-preview" aria-label="Preview">
-				<h4>Preview</h4>
-				{#each preview.blocks as block, index (index)}
-					{#if block.kind === 'heading'}
-						<p class="preview-heading" data-testid="preview-heading">{block.text}</p>
-					{:else if block.kind === 'list-item'}
-						<p class="preview-list-item" data-testid="preview-list-item">• {block.text}</p>
-					{:else}
-						<p data-testid="preview-paragraph">{block.text}</p>
-					{/if}
-				{/each}
-				{#if preview.tags.length > 0}
-					<p class="meta" data-testid="preview-tags">Tags: {preview.tags.join(', ')}</p>
+			<div class="editor__foot">
+				<button type="button" class="button" data-testid="note-save" onclick={saveNote} disabled={!validation.valid}>
+					Save
+				</button>
+				{#if focusMode}
+					<span class="word-count" data-testid="note-word-count" aria-hidden="true">{wordCount} words</span>
+					<button type="button" class="button secondary" data-testid="note-focus-exit" onclick={exitFocusMode}>Exit focus</button>
 				{/if}
 			</div>
 		</section>
@@ -543,11 +732,246 @@
 </section>
 
 <style>
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+	.editor {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		padding: var(--space-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	.editor__heading {
+		margin: 0;
+	}
+	/* UX-CONTENT-004 — autosave chip. */
+	.editor__statusbar {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+	.save-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-3);
+		font-size: var(--text-sm);
+		border-radius: var(--radius-full);
+		border: 1px solid transparent;
+		background: transparent;
+		color: var(--color-text-secondary);
+	}
+	.save-chip[data-state='saving'] {
+		color: var(--color-text-secondary);
+	}
+	.save-chip[data-state='unsaved'] {
+		color: var(--color-text-secondary);
+	}
+	.save-chip[data-state='failed'] {
+		color: var(--color-status-error-text);
+		background: var(--color-status-error-subtle);
+		border-color: var(--color-status-error);
+		cursor: pointer;
+	}
+	.save-chip[data-state='saved'] {
+		color: var(--color-status-success-text);
+	}
+	/* UX-CONTENT-002 — toolbar. */
+	.toolbar {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		flex-wrap: wrap;
+		position: sticky;
+		top: 0;
+		padding: var(--space-1);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.fmt {
+		min-width: var(--touch-target-min);
+		min-height: var(--touch-target-min);
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background: transparent;
+		color: var(--color-text-primary);
+		border: 1px solid transparent;
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+		font-size: var(--text-sm);
+	}
+	.fmt:hover {
+		background: var(--color-interactive-hover);
+	}
+	.fmt[aria-pressed='true'] {
+		background: var(--color-interactive-selected);
+		border-color: var(--color-accent-border);
+	}
+	.toolbar__sep {
+		width: 1px;
+		align-self: stretch;
+		background: var(--color-border);
+		margin: 0 var(--space-1);
+	}
+	/* UX-CONTENT-001/005 — writing area + panes. */
+	.editor__panes {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--space-4);
+		align-items: start;
+	}
+	.editor__panes[data-split='true'] {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	}
+	.writing {
+		position: relative;
+		min-width: 0;
+	}
+	.writing__label {
+		display: block;
+	}
+	.prose {
+		width: 100%;
+		max-width: 720px;
+		margin: 0 auto;
+		display: block;
+		min-height: 18rem;
+		padding: var(--space-8) var(--space-6);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		font-family: var(--font-sans);
+		font-size: var(--text-md);
+		line-height: var(--leading-relaxed);
+		resize: vertical;
+	}
+	.slash-menu {
+		position: absolute;
+		z-index: var(--z-popover, 50);
+		top: var(--space-10);
+		left: var(--space-6);
+		width: 20rem;
+		max-width: calc(100% - var(--space-8));
+		max-height: 20rem;
+		overflow-y: auto;
+		list-style: none;
+		margin: 0;
+		padding: var(--space-1);
+		background: var(--color-surface-overlay);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-md);
+	}
+	.slash-item {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		min-height: var(--touch-target-min);
+		text-align: left;
+		padding: var(--space-1) var(--space-2);
+		background: transparent;
+		color: var(--color-text-primary);
+		border: none;
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+	.slash-item:hover {
+		background: var(--color-interactive-hover);
+	}
+	.slash-item__desc {
+		font-size: var(--text-xs);
+		color: var(--color-text-secondary);
+	}
+	.wikilinks {
+		margin-top: var(--space-2);
+	}
+	.wikilinks__list {
+		list-style: none;
+		margin: var(--space-1) 0 0;
+		padding: 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-1);
+	}
+	.wikilink-suggest {
+		min-height: var(--touch-target-floor);
+		padding: var(--space-0-5) var(--space-2);
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-link);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+	.preview-pane {
+		padding: var(--space-4) var(--space-6);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		max-width: 720px;
+		margin: 0 auto;
+		width: 100%;
+	}
+	.preview-pane__title {
+		margin: 0 0 var(--space-2);
+		font-size: var(--text-sm);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wide);
+		color: var(--color-text-secondary);
+	}
 	.preview-heading {
-		font-weight: 600;
-		margin: 0.25rem 0;
+		font-weight: var(--font-weight-semibold);
+		font-size: var(--text-lg);
+		margin: var(--space-2) 0;
 	}
 	.preview-list-item {
-		margin: 0.1rem 0 0.1rem 0.5rem;
+		margin: var(--space-0-5) 0 var(--space-0-5) var(--space-3);
+	}
+	.validation {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		color: var(--color-status-error-text);
+	}
+	.editor__foot {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		flex-wrap: wrap;
+	}
+	.word-count {
+		font-size: var(--text-sm);
+		color: var(--color-text-secondary);
+		font-variant-numeric: tabular-nums;
+	}
+	/* UX-CONTENT-007 — focus mode: hide chrome except the writing area + save chip + word count. */
+	.editor[data-focus='true'] .editor__heading,
+	.editor[data-focus='true'] .toolbar,
+	.editor[data-focus='true'] :global(.visibility-toggle),
+	.editor[data-focus='true'] .preview-pane {
+		display: none;
+	}
+	.editor[data-focus='true'] .editor__panes[data-split='true'] {
+		grid-template-columns: minmax(0, 1fr);
 	}
 </style>

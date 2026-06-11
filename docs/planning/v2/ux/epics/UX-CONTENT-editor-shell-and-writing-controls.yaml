@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-CONTENT-editor-shell-and-writing-controls
 title: Knowledge Editor Shell and Writing Controls
-status: approved
+status: complete
 approved: true
 phase: 06 Core Library Workspaces
 productPriority: P1
@@ -285,3 +285,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-CONTENT-editor-shell-and-writing-controls.completion.md
