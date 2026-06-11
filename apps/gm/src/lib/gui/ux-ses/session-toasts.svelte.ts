@@ -22,7 +22,7 @@
 import { getContext, setContext } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 
-export type SessionToastKind = 'undo' | 'error' | 'milestone';
+export type SessionToastKind = 'undo' | 'error' | 'milestone' | 'warning';
 
 export interface SessionToast {
 	id: number;
@@ -39,6 +39,8 @@ const TTL_MS: Record<SessionToastKind, number> = {
 	undo: 8000,
 	error: 10_000,
 	milestone: 2000,
+	// UX-SES-007 §spec — the "Concentration check!" toast persists 4 s with the DC prominent.
+	warning: 4000,
 };
 
 /** Older toasts beyond this retire immediately when a new one lands. */

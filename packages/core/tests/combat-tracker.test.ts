@@ -1108,3 +1108,360 @@ describe('UX-SES-006 previous turn (the undo for an accidental advance)', () => 
 		).toBe('invalid-state');
 	});
 });
+
+// --- UX-SESSION-combat-editing-conditions-and-player-tracker -------------------------------------
+
+/** Start running combat with TWO_COMBATANTS as the DM (shared setup for the UX-SES-005/007/008 suites). */
+function runningCombat(): { state: CoreStateSlice; env: CoreEnvironment } {
+	const { state, env } = activeSession();
+	const started = accept(
+		dispatch(state, env, {
+			type: 'combat.start',
+			actorId: DM_ACTOR.id,
+			payload: { combatants: TWO_COMBATANTS },
+		}),
+	).nextState;
+	return { state: started, env };
+}
+
+describe('UX-SES-005 defeated confirmation (the `defeated` resource kind)', () => {
+	it('"No — keep at 0" keeps the combatant dying (isDying), not defeated; healing resets it', () => {
+		const { state, env } = runningCombat();
+		const goblinId = state.session.combat.order[0]!;
+
+		// Drop the goblin to 0 — the default semantics treat hp ≤ 0 as defeated (UX-SES-003 AC3).
+		let s = accept(
+			dispatch(state, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: goblinId, kind: 'hp', delta: -7 },
+			}),
+		).nextState;
+		let view = getCombatTrackerForActor(s.session.combat, s.permissions, DM_ACTOR.id);
+		expect(view.combatants.find((c) => c.id === goblinId)).toMatchObject({
+			isDefeated: true,
+			isDying: false,
+		});
+
+		// "No — keep at 0": NOT defeated; the death-save track becomes the active surface (AC3 of
+		// UX-SES-007: death saves render only for an at-0, not-defeated combatant).
+		s = accept(
+			dispatch(s, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: goblinId, kind: 'defeated', value: false },
+			}),
+		).nextState;
+		view = getCombatTrackerForActor(s.session.combat, s.permissions, DM_ACTOR.id);
+		expect(view.combatants.find((c) => c.id === goblinId)).toMatchObject({
+			isDefeated: false,
+			isDying: true,
+		});
+		expect(s.session.combat.log.at(-1)!.kind).toBe('defeated-set');
+
+		// "Yes — defeated" re-applies the defeated treatment.
+		s = accept(
+			dispatch(s, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: goblinId, kind: 'defeated', value: true },
+			}),
+		).nextState;
+		view = getCombatTrackerForActor(s.session.combat, s.permissions, DM_ACTOR.id);
+		expect(view.combatants.find((c) => c.id === goblinId)).toMatchObject({
+			isDefeated: true,
+			isDying: false,
+		});
+
+		// Healing above 0 ends the dying/defeated state AND resets the death-save track (5e rule).
+		s = accept(
+			dispatch(s, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: goblinId, kind: 'defeated', value: false },
+			}),
+		).nextState;
+		s = accept(
+			dispatch(s, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: goblinId, kind: 'death-save', outcome: 'failure' },
+			}),
+		).nextState;
+		expect(s.session.combat.combatants[goblinId]!.resources.deathSaves.failures).toBe(1);
+		s = accept(
+			dispatch(s, env, {
+				type: 'combat.apply-resource',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: goblinId, kind: 'hp', delta: 3 },
+			}),
+		).nextState;
+		const resources = s.session.combat.combatants[goblinId]!.resources;
+		expect(resources.hp).toBe(3);
+		expect(resources.deathSaves).toMatchObject({ successes: 0, failures: 0 });
+		expect(resources.notDefeated).toBe(false);
+		const healed = getCombatTrackerForActor(s.session.combat, s.permissions, DM_ACTOR.id);
+		expect(healed.combatants.find((c) => c.id === goblinId)).toMatchObject({
+			isDefeated: false,
+			isDying: false,
+		});
+	});
+});
+
+describe('UX-SES-008 add / remove / reorder / visibility (mid-combat combatant management)', () => {
+	it('mass-adds "5× Goblin" as "Goblin 1"…"Goblin 5", inserted by initiative, active combatant stable', () => {
+		const { state, env } = runningCombat();
+		const activeBefore = state.session.combat.order[state.session.combat.turn]!;
+
+		const result = accept(
+			dispatch(state, env, {
+				type: 'combat.add-combatants',
+				actorId: DM_ACTOR.id,
+				payload: {
+					combatants: [
+						{ kind: 'monster', name: 'Goblin Minion', initiative: 15, maxHp: 7, ac: 13, quantity: 5 },
+					],
+				},
+			}),
+		);
+		const combat = result.nextState.session.combat;
+		expect(combat.order).toHaveLength(7);
+		const names = combat.order.map((id) => combat.combatants[id]!.name);
+		expect(names.filter((n) => n.startsWith('Goblin Minion'))).toEqual([
+			'Goblin Minion 1',
+			'Goblin Minion 2',
+			'Goblin Minion 3',
+			'Goblin Minion 4',
+			'Goblin Minion 5',
+		]);
+		// Initiative 15 inserts AFTER Goblin (18) and BEFORE Ogre (12).
+		expect(names[0]).toBe('Goblin');
+		expect(names.at(-1)).toBe('Ogre');
+		// The active combatant did not change.
+		expect(combat.order[combat.turn]).toBe(activeBefore);
+		// Mass add is logged once; the event carries every new id.
+		expect(combat.log.at(-1)!.kind).toBe('combatant-added');
+		const event = result.events.find((e) => e.kind === 'combat.combatants-added');
+		expect(event && 'combatantIds' in event ? event.combatantIds : []).toHaveLength(5);
+	});
+
+	it('auto-rolls a 1d20 initiative deterministically when initiative is blank', () => {
+		const { state, env } = runningCombat();
+		const added = accept(
+			dispatch(state, env, {
+				type: 'combat.add-combatants',
+				actorId: DM_ACTOR.id,
+				payload: { combatants: [{ kind: 'monster', name: 'Wolf', maxHp: 11, ac: 13 }] },
+			}),
+		).nextState;
+		const wolf = Object.values(added.session.combat.combatants).find((c) => c.name === 'Wolf')!;
+		expect(wolf.statBlock.initiative).toBeGreaterThanOrEqual(1);
+		expect(wolf.statBlock.initiative).toBeLessThanOrEqual(20);
+	});
+
+	it('a hidden add fails closed to the "Unknown creature" placeholder (player sees a placeholder, never the name)', () => {
+		const { state, env } = runningCombat();
+		const added = accept(
+			dispatch(state, env, {
+				type: 'combat.add-combatants',
+				actorId: DM_ACTOR.id,
+				payload: {
+					combatants: [
+						{ kind: 'monster', name: 'Secret Assassin', initiative: 20, maxHp: 40, hidden: true },
+					],
+				},
+			}),
+		).nextState;
+
+		const playerView = getCombatTrackerForActor(
+			added.session.combat,
+			added.permissions,
+			PLAYER_ACTOR.id,
+		);
+		// The placeholder row is present (position preserved) with stat data withheld.
+		const placeholderRow = playerView.combatants.find((c) => c.name === 'Unknown creature');
+		expect(placeholderRow).toMatchObject({ redacted: true, resources: null });
+		// NO-LEAK: the real name appears nowhere in the player's serialized view.
+		expect(JSON.stringify(playerView)).not.toContain('Secret Assassin');
+	});
+
+	it('removes a combatant (turn cursor follows the active combatant) and rejects unknown ids', () => {
+		const { state, env } = runningCombat();
+		// Add a third combatant at initiative 15: order = Goblin(18), Patrol(15), Ogre(12).
+		let s = accept(
+			dispatch(state, env, {
+				type: 'combat.add-combatants',
+				actorId: DM_ACTOR.id,
+				payload: { combatants: [{ kind: 'monster', name: 'Patrol', initiative: 15, maxHp: 9 }] },
+			}),
+		).nextState;
+		// Advance to Patrol (turn 1), then remove Goblin (index 0 < turn): the cursor follows Patrol.
+		s = accept(
+			dispatch(s, env, { type: 'combat.advance-turn', actorId: DM_ACTOR.id, payload: {} }),
+		).nextState;
+		const goblinId = s.session.combat.order[0]!;
+		const patrolId = s.session.combat.order[1]!;
+		s = accept(
+			dispatch(s, env, {
+				type: 'combat.remove-combatant',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: goblinId },
+			}),
+		).nextState;
+		expect(s.session.combat.order).not.toContain(goblinId);
+		expect(s.session.combat.combatants[goblinId]).toBeUndefined();
+		expect(s.session.combat.order[s.session.combat.turn]).toBe(patrolId);
+		expect(s.session.combat.log.at(-1)!.kind).toBe('combatant-removed');
+
+		expect(
+			rejected(
+				dispatch(s, env, {
+					type: 'combat.remove-combatant',
+					actorId: DM_ACTOR.id,
+					payload: { combatantId: goblinId },
+				}),
+			).rejection.code,
+		).toBe('combatant-not-found');
+	});
+
+	it('removing the ACTIVE last-in-order combatant wraps to the next round', () => {
+		const { state, env } = runningCombat();
+		// Advance to the Ogre (last in order).
+		const s1 = accept(
+			dispatch(state, env, { type: 'combat.advance-turn', actorId: DM_ACTOR.id, payload: {} }),
+		).nextState;
+		const ogreId = s1.session.combat.order[1]!;
+		const s2 = accept(
+			dispatch(s1, env, {
+				type: 'combat.remove-combatant',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: ogreId },
+			}),
+		).nextState;
+		expect(s2.session.combat.turn).toBe(0);
+		expect(s2.session.combat.round).toBe(2);
+	});
+
+	it('reorders a combatant one position with the active combatant staying active; ends are rejected', () => {
+		const { state, env } = runningCombat();
+		const [goblinId, ogreId] = state.session.combat.order as [string, string];
+
+		// Move the Ogre earlier: order flips, and the ACTIVE combatant (Goblin) keeps the turn.
+		const moved = accept(
+			dispatch(state, env, {
+				type: 'combat.reorder-combatant',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: ogreId, direction: 'earlier' },
+			}),
+		).nextState;
+		expect(moved.session.combat.order).toEqual([ogreId, goblinId]);
+		expect(moved.session.combat.order[moved.session.combat.turn]).toBe(goblinId);
+		expect(moved.session.combat.log.at(-1)!.label).toContain('moved to position 1');
+
+		// Moving past the top is rejected (no silent no-op).
+		expect(
+			rejected(
+				dispatch(moved, env, {
+					type: 'combat.reorder-combatant',
+					actorId: DM_ACTOR.id,
+					payload: { combatantId: ogreId, direction: 'earlier' },
+				}),
+			).rejection.code,
+		).toBe('invalid-state');
+	});
+
+	it('hide mid-combat immediately yields the placeholder in the player view; unhide reveals (UX-SES-008 AC2)', () => {
+		const { state, env } = runningCombat();
+		const goblinId = state.session.combat.order[0]!;
+
+		const hidden = accept(
+			dispatch(state, env, {
+				type: 'combat.set-combatant-visibility',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: goblinId, hidden: true },
+			}),
+		).nextState;
+		const playerView = getCombatTrackerForActor(
+			hidden.session.combat,
+			hidden.permissions,
+			PLAYER_ACTOR.id,
+		);
+		const row = playerView.combatants.find((c) => c.id === goblinId);
+		// Placeholder (fail-closed default), stat data withheld, no real name anywhere.
+		expect(row).toMatchObject({ name: 'Unknown creature', redacted: true, resources: null });
+		expect(JSON.stringify(playerView)).not.toContain('Goblin');
+		// The DM still sees the real name + the hidden count.
+		const dmView = getCombatTrackerForActor(hidden.session.combat, hidden.permissions, DM_ACTOR.id);
+		expect(dmView.combatants.find((c) => c.id === goblinId)!.name).toBe('Goblin');
+		expect(dmView.hiddenCount).toBe(1);
+
+		// Unhide: the player sees the real combatant again.
+		const revealed = accept(
+			dispatch(hidden, env, {
+				type: 'combat.set-combatant-visibility',
+				actorId: DM_ACTOR.id,
+				payload: { combatantId: goblinId, hidden: false },
+			}),
+		).nextState;
+		const playerAfter = getCombatTrackerForActor(
+			revealed.session.combat,
+			revealed.permissions,
+			PLAYER_ACTOR.id,
+		);
+		expect(playerAfter.combatants.find((c) => c.id === goblinId)).toMatchObject({
+			name: 'Goblin',
+			redacted: false,
+		});
+	});
+
+	it('every management command is DM-only and running-combat gated (fail closed)', () => {
+		const { state, env } = runningCombat();
+		const goblinId = state.session.combat.order[0]!;
+		const commands = [
+			{
+				type: 'combat.add-combatants' as const,
+				payload: { combatants: [{ kind: 'monster' as const, name: 'X', maxHp: 1 }] },
+			},
+			{ type: 'combat.remove-combatant' as const, payload: { combatantId: goblinId } },
+			{
+				type: 'combat.reorder-combatant' as const,
+				payload: { combatantId: goblinId, direction: 'later' as const },
+			},
+			{
+				type: 'combat.set-combatant-visibility' as const,
+				payload: { combatantId: goblinId, hidden: true },
+			},
+		];
+		for (const command of commands) {
+			for (const actor of [PLAYER_ACTOR, OBSERVER_ACTOR]) {
+				expect(
+					rejected(dispatch(state, env, { ...command, actorId: actor.id })).rejection.code,
+				).toBe('actor-not-authorized');
+			}
+		}
+		// No running combat: the same commands are invalid-state for the DM.
+		const ended = accept(
+			dispatch(state, env, { type: 'combat.end', actorId: DM_ACTOR.id, payload: {} }),
+		).nextState;
+		for (const command of commands) {
+			expect(
+				rejected(dispatch(ended, env, { ...command, actorId: DM_ACTOR.id })).rejection.code,
+			).toBe('invalid-state');
+		}
+	});
+
+	it('rejects a mass add beyond the 20-per-row cap (schema bound)', () => {
+		const { state, env } = runningCombat();
+		expect(
+			rejected(
+				dispatch(state, env, {
+					type: 'combat.add-combatants',
+					actorId: DM_ACTOR.id,
+					payload: {
+						combatants: [{ kind: 'monster', name: 'Rat', maxHp: 1, quantity: 21 }],
+					},
+				}),
+			).rejection.code,
+		).toBe('invalid-payload');
+	});
+});

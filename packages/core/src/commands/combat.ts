@@ -1,8 +1,12 @@
 import {
+	addCombatantsInputSchema,
 	advanceCombatTurnInputSchema,
 	applyCombatResourceInputSchema,
 	endCombatInputSchema,
 	previousCombatTurnInputSchema,
+	removeCombatantInputSchema,
+	reorderCombatantInputSchema,
+	setCombatantVisibilityInputSchema,
 	startCombatInputSchema,
 } from '../schemas/commands';
 import {
@@ -11,6 +15,7 @@ import {
 	advanceTurn,
 	cloneCombatant,
 	cloneResources,
+	initiativeInsertionIndex,
 	orderInitiative,
 	previousTurn,
 	type Combatant,
@@ -18,6 +23,7 @@ import {
 	type CombatLogEntry,
 	type SessionCombatState,
 } from '../state/combat-tracker';
+import { rollExpression } from '../state/dice';
 import {
 	DEATH_SAVE_MAX,
 	EMPTY_CONCENTRATION,
@@ -525,6 +531,7 @@ export function handleApplyCombatResource(
 
 	switch (payload.kind) {
 		case 'hp': {
+			const hpBefore = resources.hp;
 			let remaining = payload.delta;
 			// Damage consumes temp HP first (the same rule as CHAR-007 applyHpDelta).
 			if (remaining < 0 && resources.tempHp > 0) {
@@ -533,6 +540,12 @@ export function handleApplyCombatResource(
 				remaining += absorbed;
 			}
 			resources.hp = clamp(resources.hp + remaining, 0, resources.maxHp);
+			// UX-SES-005/007 — regaining HP above 0 ends the dying state: the death-save track resets
+			// and the explicit "keep at 0, not defeated" choice clears (5e: regaining HP resets saves).
+			if (hpBefore <= 0 && resources.hp > 0) {
+				resources.deathSaves = { ...EMPTY_DEATH_SAVES };
+				resources.notDefeated = false;
+			}
 			logKind = 'hp-changed';
 			label = `${existing.name}: ${payload.delta >= 0 ? `heal ${payload.delta}` : `damage ${-payload.delta}`}`;
 			delta = payload.delta;
@@ -601,6 +614,17 @@ export function handleApplyCombatResource(
 					: `${existing.name}: concentrate on ${payload.effect}`;
 			break;
 		}
+		case 'defeated': {
+			// UX-SES-005 — the at-0-HP confirmation outcome: `true` ⇒ "Yes — defeated" (defeated
+			// treatment while HP ≤ 0); `false` ⇒ "No — keep at 0" (dying; death saves are the active
+			// surface per UX-SES-007 AC3).
+			resources.notDefeated = !payload.value;
+			logKind = 'defeated-set';
+			label = payload.value
+				? `${existing.name}: marked defeated`
+				: `${existing.name}: kept at 0 HP (not defeated)`;
+			break;
+		}
 	}
 
 	const operationId = env.ids();
@@ -641,6 +665,414 @@ export function handleApplyCombatResource(
 				actorId: actor.id,
 				combatantId: nextCombatant.id,
 				resourceKind: payload.kind,
+				revision: nextCombat.revision,
+			},
+		],
+		operationIds: [draft.op.id],
+	};
+}
+
+// --- UX-SES-008 — mid-combat combatant management (add / remove / reorder / visibility) -----------
+
+/** The fail-closed default placeholder for a hidden combatant (UX-SES-008 AC2 / UX-SES-016). */
+const DEFAULT_HIDDEN_PLACEHOLDER = 'Unknown creature';
+
+/** Shared DM + active-session + running-combat gate for combatant-management commands. */
+function requireRunningCombatAsDm(
+	state: CoreStateSlice,
+	actorId: string,
+): { actor: Actor } | { rejection: CommandRejection } {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return { rejection: actor };
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return { rejection: dmCheck };
+	const sessionGuard = requireActiveSession(state);
+	if (sessionGuard) return { rejection: sessionGuard };
+	if (state.session.combat.status !== 'running') {
+		return { rejection: { code: 'invalid-state', message: 'No combat is currently running.' } };
+	}
+	return { actor };
+}
+
+/**
+ * UX-SES-008 AC1 — ADD combatant(s) to RUNNING combat (DM-only). A row with `quantity` N > 1 is a
+ * MASS add creating "[Name] 1" … "[Name] N". A blank initiative AUTO-ROLLS 1d20 deterministically
+ * from a recorded per-combatant seed (the generated combatant id), so the roll is reproducible. A
+ * hidden row fails closed to the "Unknown creature" placeholder so the player tracker shows a
+ * placeholder row, never the identity (UX-SES-008 AC2). Each new combatant is inserted into the
+ * initiative order by descending initiative (after equal initiatives); the ACTIVE combatant stays
+ * active across the insertion.
+ */
+export function handleAddCombatants(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const gate = requireRunningCombatAsDm(state, actorId);
+	if ('rejection' in gate) return reject(gate.rejection, state);
+	const actor = gate.actor;
+
+	const parsed = parseInput(addCombatantsInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const combat = state.session.combat;
+	const activeId = combat.order[combat.turn] ?? null;
+
+	const combatants = { ...combat.combatants };
+	const order = [...combat.order];
+	const addedIds: string[] = [];
+	const addedNames: string[] = [];
+	// NO-LEAK: a mass-add log entry has no single combatantId, so the read layer cannot withhold it
+	// per-combatant. When ANY added combatant is hidden the label must not carry real names.
+	let addedHidden = false;
+
+	for (const row of parsed.data.combatants) {
+		if (row.hidden) addedHidden = true;
+		for (let index = 0; index < row.quantity; index += 1) {
+			const id = env.ids();
+			// Mass combatants are numbered "[Name] 1" … "[Name] N" (UX-SES-008 AC1).
+			const name = row.quantity > 1 ? `${row.name} ${index + 1}` : row.name;
+			// Auto-roll 1d20 when initiative is blank — deterministic from the recorded combatant id.
+			let initiative = row.initiative ?? null;
+			if (initiative === null) {
+				const rolled = rollExpression('1d20', id);
+				initiative = rolled.ok ? rolled.result.total : 10;
+			}
+			const combatant = buildCombatant(
+				state,
+				{
+					id,
+					kind: row.kind,
+					name,
+					characterId: row.characterId ?? null,
+					ac: row.ac,
+					initiative,
+					maxHp: row.maxHp,
+					hidden: row.hidden,
+					// Fail closed: a hidden combatant ALWAYS carries a placeholder so the player view
+					// renders a placeholder row rather than omitting it (UX-SES-008 AC2).
+					placeholder: row.hidden ? (row.placeholder ?? DEFAULT_HIDDEN_PLACEHOLDER) : (row.placeholder ?? null),
+				},
+				env.ids,
+			);
+			// Stamp a tie-break AFTER all existing combatants so equal initiatives keep their order.
+			combatant.tieBreak = order.length;
+			combatants[combatant.id] = combatant;
+			order.splice(initiativeInsertionIndex(order, combatants, initiative), 0, combatant.id);
+			addedIds.push(combatant.id);
+			addedNames.push(name);
+		}
+	}
+
+	// The active combatant stays active across insertions.
+	const nextTurn = activeId ? Math.max(0, order.indexOf(activeId)) : combat.turn;
+
+	const operationId = env.ids();
+	let nextCombat: SessionCombatState = {
+		...combat,
+		combatants,
+		order,
+		turn: nextTurn,
+		revision: combat.revision + 1,
+	};
+	const logEntry = combatLogEntry(
+		env,
+		actor,
+		operationId,
+		nextCombat,
+		'combatant-added',
+		// NO-LEAK: never put a hidden combatant's real name into a combatant-less (mass) log label —
+		// such entries pass the non-DM log filter. Single adds carry combatantId, so the read layer
+		// withholds them from viewers who cannot fully see that combatant.
+		addedNames.length === 1
+			? `Added ${addedNames[0]}.`
+			: addedHidden
+				? `Added ${addedNames.length} combatants.`
+				: `Added ${addedNames.length} combatants (${addedNames.join(', ')}).`,
+		addedIds.length === 1 ? (addedIds[0] ?? null) : null,
+		null,
+	);
+	nextCombat = { ...nextCombat, log: [...nextCombat.log, logEntry] };
+
+	const draft = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: COMBAT_ENTITY_TYPE,
+		entityId: SESSION_ENTITY_ID,
+		opType: 'combat.add-combatants',
+		path: 'combat/combatants',
+		value: { addedCount: addedIds.length, order },
+		beforeRevision: combat.revision,
+		afterRevision: nextCombat.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withCombat({ ...state, sync: draft.log }, nextCombat),
+		events: [
+			{
+				kind: 'combat.combatants-added',
+				actorId: actor.id,
+				combatantIds: addedIds,
+				revision: nextCombat.revision,
+			},
+		],
+		operationIds: [draft.op.id],
+	};
+}
+
+/**
+ * UX-SES-008 AC3 — REMOVE a combatant from running combat (DM-only; the GUI shows the confirmation
+ * dialog BEFORE dispatching). Not destructive: any linked character record is unaffected and the
+ * combatant can be re-added. The turn cursor is adjusted so the active combatant stays active; when
+ * the ACTIVE combatant is removed, the next combatant in order becomes active (wrapping to the next
+ * round when the removed combatant was last in the order).
+ */
+export function handleRemoveCombatant(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const gate = requireRunningCombatAsDm(state, actorId);
+	if ('rejection' in gate) return reject(gate.rejection, state);
+	const actor = gate.actor;
+
+	const parsed = parseInput(removeCombatantInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const combat = state.session.combat;
+	const existing = combat.combatants[parsed.data.combatantId];
+	if (!existing) {
+		return reject(
+			{ code: 'combatant-not-found', message: `Combatant ${parsed.data.combatantId} is not in combat.` },
+			state,
+		);
+	}
+
+	const removedIndex = combat.order.indexOf(existing.id);
+	const order = combat.order.filter((id) => id !== existing.id);
+	const combatants = { ...combat.combatants };
+	delete combatants[existing.id];
+
+	// Keep the turn cursor on the same active combatant (or its successor when it was removed).
+	let round = combat.round;
+	let turn = combat.turn;
+	if (removedIndex !== -1 && removedIndex < turn) {
+		turn -= 1;
+	} else if (removedIndex === turn && turn >= order.length) {
+		// The removed combatant was active AND last in the order: wrap to the next round.
+		turn = 0;
+		if (order.length > 0) round += 1;
+	}
+	if (order.length === 0) turn = 0;
+
+	const operationId = env.ids();
+	let nextCombat: SessionCombatState = {
+		...combat,
+		combatants,
+		order,
+		round,
+		turn,
+		revision: combat.revision + 1,
+	};
+	const logEntry = combatLogEntry(
+		env,
+		actor,
+		operationId,
+		nextCombat,
+		'combatant-removed',
+		`${existing.name} removed from combat.`,
+		existing.id,
+		null,
+	);
+	nextCombat = { ...nextCombat, log: [...nextCombat.log, logEntry] };
+
+	const draft = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: COMBAT_ENTITY_TYPE,
+		entityId: SESSION_ENTITY_ID,
+		opType: 'combat.remove-combatant',
+		path: `combat/combatants/${existing.id}`,
+		value: { removed: true },
+		beforeRevision: combat.revision,
+		afterRevision: nextCombat.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withCombat({ ...state, sync: draft.log }, nextCombat),
+		events: [
+			{
+				kind: 'combat.combatant-removed',
+				actorId: actor.id,
+				combatantId: existing.id,
+				revision: nextCombat.revision,
+			},
+		],
+		operationIds: [draft.op.id],
+	};
+}
+
+/**
+ * UX-SES-008 — REORDER: move a combatant one position earlier/later in the initiative order (the
+ * explicit, keyboard-accessible alternative to drag). The ACTIVE combatant stays active across the
+ * move (the turn cursor follows it). A move past either end is rejected as a no-op-invalid.
+ */
+export function handleReorderCombatant(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const gate = requireRunningCombatAsDm(state, actorId);
+	if ('rejection' in gate) return reject(gate.rejection, state);
+	const actor = gate.actor;
+
+	const parsed = parseInput(reorderCombatantInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const combat = state.session.combat;
+	const existing = combat.combatants[parsed.data.combatantId];
+	if (!existing) {
+		return reject(
+			{ code: 'combatant-not-found', message: `Combatant ${parsed.data.combatantId} is not in combat.` },
+			state,
+		);
+	}
+
+	const from = combat.order.indexOf(existing.id);
+	const to = parsed.data.direction === 'earlier' ? from - 1 : from + 1;
+	if (from === -1 || to < 0 || to >= combat.order.length) {
+		return reject(
+			{ code: 'invalid-state', message: 'The combatant is already at that end of the order.' },
+			state,
+		);
+	}
+
+	const activeId = combat.order[combat.turn] ?? null;
+	const order = [...combat.order];
+	const moved = order.splice(from, 1)[0]!;
+	order.splice(to, 0, moved);
+	const turn = activeId ? Math.max(0, order.indexOf(activeId)) : combat.turn;
+
+	const operationId = env.ids();
+	let nextCombat: SessionCombatState = {
+		...combat,
+		order,
+		turn,
+		revision: combat.revision + 1,
+	};
+	const logEntry = combatLogEntry(
+		env,
+		actor,
+		operationId,
+		nextCombat,
+		'combatant-reordered',
+		`${existing.name} moved to position ${to + 1}.`,
+		existing.id,
+		null,
+	);
+	nextCombat = { ...nextCombat, log: [...nextCombat.log, logEntry] };
+
+	const draft = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: COMBAT_ENTITY_TYPE,
+		entityId: SESSION_ENTITY_ID,
+		opType: 'combat.reorder-combatant',
+		path: `combat/combatants/${existing.id}/position`,
+		value: { position: to },
+		beforeRevision: combat.revision,
+		afterRevision: nextCombat.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withCombat({ ...state, sync: draft.log }, nextCombat),
+		events: [
+			{
+				kind: 'combat.combatant-reordered',
+				actorId: actor.id,
+				combatantId: existing.id,
+				position: to,
+				revision: nextCombat.revision,
+			},
+		],
+		operationIds: [draft.op.id],
+	};
+}
+
+/**
+ * UX-SES-008 — toggle a combatant HIDDEN/VISIBLE mid-combat (DM-only). Hiding fails closed to the
+ * "Unknown creature" placeholder (unless the DM supplied one), so the player tracker IMMEDIATELY
+ * renders a placeholder row — never the real name/HP, and never a silent gap. Unhiding reveals the
+ * real identity to players (UX-SES-008 §spec hidden toggle).
+ */
+export function handleSetCombatantVisibility(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const gate = requireRunningCombatAsDm(state, actorId);
+	if ('rejection' in gate) return reject(gate.rejection, state);
+	const actor = gate.actor;
+
+	const parsed = parseInput(setCombatantVisibilityInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const combat = state.session.combat;
+	const existing = combat.combatants[parsed.data.combatantId];
+	if (!existing) {
+		return reject(
+			{ code: 'combatant-not-found', message: `Combatant ${parsed.data.combatantId} is not in combat.` },
+			state,
+		);
+	}
+
+	const hidden = parsed.data.hidden;
+	const nextCombatant: Combatant = {
+		...cloneCombatant(existing),
+		hidden,
+		placeholder: hidden
+			? (parsed.data.placeholder ?? existing.placeholder ?? DEFAULT_HIDDEN_PLACEHOLDER)
+			: existing.placeholder,
+	};
+
+	const operationId = env.ids();
+	let nextCombat: SessionCombatState = {
+		...combat,
+		combatants: { ...combat.combatants, [nextCombatant.id]: nextCombatant },
+		revision: combat.revision + 1,
+	};
+	const logEntry = combatLogEntry(
+		env,
+		actor,
+		operationId,
+		nextCombat,
+		'combatant-visibility',
+		`${existing.name} is now ${hidden ? 'hidden from players' : 'visible to players'}.`,
+		existing.id,
+		null,
+	);
+	nextCombat = { ...nextCombat, log: [...nextCombat.log, logEntry] };
+
+	const draft = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: COMBAT_ENTITY_TYPE,
+		entityId: SESSION_ENTITY_ID,
+		opType: 'combat.set-combatant-visibility',
+		path: `combat/combatants/${nextCombatant.id}/visibility`,
+		value: { hidden },
+		beforeRevision: combat.revision,
+		afterRevision: nextCombat.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withCombat({ ...state, sync: draft.log }, nextCombat),
+		events: [
+			{
+				kind: 'combat.combatant-visibility-changed',
+				actorId: actor.id,
+				combatantId: nextCombatant.id,
+				hidden,
 				revision: nextCombat.revision,
 			},
 		],

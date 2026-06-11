@@ -271,12 +271,14 @@ test.describe('UX-SES lifecycle, recovery, and hot-path combat shell', () => {
 			.evaluate((el) => el.scrollWidth <= el.clientWidth + 1);
 		expect(noHScroll).toBe(true);
 
-		// AC3 — drop the FIRST combatant (a 7 HP goblin) to 0: defeated treatment + sorted last.
+		// AC3 — drop the FIRST combatant (a 7 HP goblin) to 0 through the UX-SES-005 inline stepper
+		// and confirm "Yes — defeated": defeated treatment + sorted last.
 		const firstRowId = await rows.first().getAttribute('data-combatant-id');
+		await clickInView(page, `hp-edit-${firstRowId}`);
 		const hpInput = page.getByTestId(`hp-input-${firstRowId}`);
-		await hpInput.scrollIntoViewIfNeeded();
-		await hpInput.fill('-7');
+		await hpInput.fill('0');
 		await page.getByTestId(`apply-hp-${firstRowId}`).click();
+		await page.getByTestId(`defeat-yes-${firstRowId}`).click();
 		await expect(
 			page.getByTestId(`combatant-${firstRowId}`).getByTestId('defeated-badge'),
 		).toBeVisible();
@@ -422,9 +424,10 @@ test.describe('UX-SES lifecycle, recovery, and hot-path combat shell', () => {
 			.locator('li')
 			.first()
 			.getAttribute('data-combatant-id');
+		// UX-SES-005 — the HP number opens the inline stepper; the typed value is the absolute target.
+		await clickInView(page, `hp-edit-${rowId}`);
 		const hpInput = page.getByTestId(`hp-input-${rowId}`);
-		await hpInput.scrollIntoViewIfNeeded();
-		await hpInput.fill('-12');
+		await hpInput.fill('18');
 		await page.getByTestId(`apply-hp-${rowId}`).click();
 
 		// AC1 — the optimistic update lands and the undo toast reads "[Name] HP: 30 → 18. Undo?".

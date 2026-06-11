@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-SESSION-combat-editing-conditions-and-player-tracker
 title: Combat Editing, Conditions, and Player Tracker
-status: approved
+status: complete
 approved: true
 phase: 05 Live-Play Workspaces
 productPriority: P1
@@ -234,3 +234,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-SESSION-combat-editing-conditions-and-player-tracker.completion.md

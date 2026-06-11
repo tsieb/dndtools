@@ -104,6 +104,9 @@ epics:
   - id: UX-PERM-visibility-preview-badges-and-privacy-status
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-PERM-visibility-preview-badges-and-privacy-status.completion.md
+  - id: UX-SESSION-combat-editing-conditions-and-player-tracker
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-SESSION-combat-editing-conditions-and-player-tracker.completion.md
   - id: UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell.completion.md

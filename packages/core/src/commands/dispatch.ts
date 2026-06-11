@@ -54,10 +54,14 @@ import {
 	handleSetSessionWorkflow,
 } from './session-control';
 import {
+	handleAddCombatants,
 	handleAdvanceCombatTurn,
 	handleApplyCombatResource,
 	handleEndCombat,
 	handlePreviousCombatTurn,
+	handleRemoveCombatant,
+	handleReorderCombatant,
+	handleSetCombatantVisibility,
 	handleStartCombat,
 } from './combat';
 import { handleAppendRollToNote, handleRollDice, handleRollTable } from './dice';
@@ -308,6 +312,15 @@ export function dispatchCommand(
 			return handleApplyCombatResource(state, env, command.actorId, command.payload);
 		case 'combat.end':
 			return handleEndCombat(state, env, command.actorId, command.payload);
+		// UX-SES-008 — mid-combat combatant management (DM-only; active-session + running-combat gated).
+		case 'combat.add-combatants':
+			return handleAddCombatants(state, env, command.actorId, command.payload);
+		case 'combat.remove-combatant':
+			return handleRemoveCombatant(state, env, command.actorId, command.payload);
+		case 'combat.reorder-combatant':
+			return handleReorderCombatant(state, env, command.actorId, command.payload);
+		case 'combat.set-combatant-visibility':
+			return handleSetCombatantVisibility(state, env, command.actorId, command.payload);
 		case 'encounter.build':
 			return handleBuildEncounter(state, env, command.actorId, command.payload);
 		case 'encounter.update':

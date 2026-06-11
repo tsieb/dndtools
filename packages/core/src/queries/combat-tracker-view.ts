@@ -76,12 +76,20 @@ export interface CombatantView {
 	 */
 	isConcentrating: boolean;
 	/**
-	 * True when the combatant's current HP is at or below 0 (down/dying).
+	 * True when the combatant's current HP is at or below 0 (down/dying) AND the DM has not chosen
+	 * "No — keep at 0" for them (UX-SES-005 defeated confirmation). A combatant kept at 0 is DYING,
+	 * not defeated — its death-save track is the active surface (UX-SES-007 AC3, see {@link isDying}).
 	 * A11Y-011 AC2: explicit boolean so renderers surface a non-color badge/aria cue for
 	 * defeated state rather than relying on color alone.
 	 * Always false for redacted/hidden combatants whose resources are withheld.
 	 */
 	isDefeated: boolean;
+	/**
+	 * UX-SES-007 AC3 — true when the combatant is at 0 HP but NOT defeated (the DM chose "No — keep
+	 * at 0"): the death-save success/failure track renders for this combatant. Always false for
+	 * redacted/hidden combatants whose resources are withheld.
+	 */
+	isDying: boolean;
 }
 
 /** A read-only encounter-log entry view. */
@@ -168,6 +176,10 @@ export function getCombatTrackerForActor(
 	// full visibility). For a non-DM viewer this stays 0 so the count never reveals a hidden combatant.
 	let dmHiddenCount = 0;
 	const visibleIds = new Set<string>();
+	// The combatants the viewer may FULLY see (identity + stats). A placeholder row's id is in
+	// `visibleIds` (its position is visible) but NOT here — log labels carry REAL NAMES, so an entry
+	// about a placeholder-visible hidden combatant must still be withheld (NO-LEAK, UX-SES-008 AC2).
+	const fullyVisibleIds = new Set<string>();
 
 	for (const id of combat.order) {
 		const combatant = combat.combatants[id];
@@ -176,6 +188,7 @@ export function getCombatTrackerForActor(
 		const fullyVisible = actor ? actorCanSeeCombatant(permissions, actor, combatant) : false;
 		if (fullyVisible) {
 			visibleIds.add(id);
+			fullyVisibleIds.add(id);
 			const res = resourcesView(combatant.resources);
 			combatants.push({
 				id: combatant.id,
@@ -198,7 +211,10 @@ export function getCombatTrackerForActor(
 				isBloodied: res.hp > 0 && res.hp <= Math.floor(res.maxHp / 2),
 				// A11Y-011 AC2: explicit non-color state indicators for concentrating and defeated.
 				isConcentrating: !!res.concentration.effect,
-				isDefeated: res.hp <= 0,
+				// UX-SES-005 — "No — keep at 0" suppresses the defeated treatment (dying instead).
+				isDefeated: res.hp <= 0 && !combatant.resources.notDefeated,
+				// UX-SES-007 AC3 — at 0 HP and explicitly NOT defeated: the death-save track renders.
+				isDying: res.hp <= 0 && combatant.resources.notDefeated === true,
 			});
 			continue;
 		}
@@ -219,6 +235,7 @@ export function getCombatTrackerForActor(
 				isBloodied: false, // stat data withheld; no derived status exposed
 				isConcentrating: false, // stat data withheld; no derived status exposed
 				isDefeated: false, // stat data withheld; no derived status exposed
+				isDying: false, // stat data withheld; no derived status exposed
 			});
 		}
 		// Otherwise: omitted entirely (no row, no leak).
@@ -244,9 +261,11 @@ export function getCombatTrackerForActor(
 				// session-visible: all participants see it.
 				return true;
 			}
-			// Non-roll entries: omit when the entry names a combatant the actor cannot see.
+			// Non-roll entries: omit when the entry names a combatant the actor cannot FULLY see.
+			// A placeholder-visible hidden combatant is excluded too: log labels carry the REAL name
+			// (e.g. "X is now hidden from players"), so they must never reach a non-DM (NO-LEAK).
 			if (entry.combatantId === null) return true;
-			return visibleIds.has(entry.combatantId);
+			return fullyVisibleIds.has(entry.combatantId);
 		})
 		.map((entry) => ({
 			id: entry.id,

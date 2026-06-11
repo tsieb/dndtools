@@ -1808,7 +1808,57 @@ export const applyCombatResourceInputSchema = z.discriminatedUnion('kind', [
 			effect: z.union([z.literal(null), z.string().min(1)]),
 		})
 		.strict(),
+	// UX-SES-005 — resolve the at-0-HP confirmation: `value: true` ⇒ "Yes — defeated" (the defeated
+	// treatment applies while HP ≤ 0); `value: false` ⇒ "No — keep at 0" (dying, death saves active).
+	z
+		.object({ combatantId: idSchema, kind: z.literal('defeated'), value: z.boolean() })
+		.strict(),
 ]);
+
+// UX-SES-008 — add combatant(s) to RUNNING combat (DM-only). `quantity` > 1 is a MASS add: the rows
+// are created as "[Name] 1" … "[Name] N" (max 20 per row). A blank initiative auto-rolls 1d20
+// deterministically from the recorded operation id. `hidden` rows fail closed to the default
+// "Unknown creature" placeholder so the player tracker shows a placeholder, never a gap that moves.
+const addCombatantRowSchema = z
+	.object({
+		kind: combatantKindSchema,
+		name: z.string().min(1, 'A combatant name is required'),
+		characterId: z.union([z.literal(null), idSchema]).optional(),
+		ac: z.number().int().nonnegative().default(10),
+		/** Omitted/null ⇒ auto-roll 1d20 (recorded deterministically). */
+		initiative: z.union([z.literal(null), z.number().int()]).optional(),
+		maxHp: z.number().int().nonnegative().default(0),
+		hidden: z.boolean().default(false),
+		placeholder: z.union([z.literal(null), z.string().min(1)]).optional(),
+		quantity: z.number().int().min(1).max(20).default(1),
+	})
+	.strict();
+
+export const addCombatantsInputSchema = z
+	.object({
+		combatants: z.array(addCombatantRowSchema).min(1, 'Provide at least one combatant to add.'),
+	})
+	.strict();
+
+// UX-SES-008 — remove a combatant from running combat (DM-only; the GUI confirms first). Not
+// destructive to any linked character record.
+export const removeCombatantInputSchema = z.object({ combatantId: idSchema }).strict();
+
+// UX-SES-008 — move a combatant one position earlier/later in the initiative order (the explicit,
+// keyboard-accessible reorder control). The active combatant stays active across the move.
+export const reorderCombatantInputSchema = z
+	.object({ combatantId: idSchema, direction: z.enum(['earlier', 'later']) })
+	.strict();
+
+// UX-SES-008 — toggle a combatant hidden/visible mid-combat. Hiding without a placeholder fails
+// closed to "Unknown creature" so the player tracker renders a placeholder row, never the identity.
+export const setCombatantVisibilityInputSchema = z
+	.object({
+		combatantId: idSchema,
+		hidden: z.boolean(),
+		placeholder: z.union([z.literal(null), z.string().min(1)]).optional(),
+	})
+	.strict();
 
 // SES-002 — end combat, persisting the durable encounter log. Optional closing note.
 export const endCombatInputSchema = z

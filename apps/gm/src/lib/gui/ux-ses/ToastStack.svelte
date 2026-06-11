@@ -111,6 +111,12 @@
 		border-color: var(--color-status-info);
 	}
 
+	/* UX-SES-007 — the concentration-check toast: warning tone, DC carried in the message text. */
+	.toast[data-kind='warning'] {
+		border-color: var(--color-status-warning);
+		background: var(--color-status-warning-subtle);
+	}
+
 	.toast-message {
 		font-size: var(--text-sm);
 		min-width: 0;

@@ -55,6 +55,14 @@ export interface CombatantResources {
 	conditions: string[];
 	deathSaves: DeathSaveState;
 	concentration: ConcentrationState;
+	/**
+	 * UX-SES-005/007 — the DM explicitly chose "No — keep at 0" when this combatant's HP reached 0
+	 * (dying / concentrating-on-last-breath, NOT defeated). While true and HP ≤ 0 the combatant is
+	 * NOT treated as defeated and the death-save track is the active surface. Cleared whenever the
+	 * combatant is healed above 0 or the DM confirms "Yes — defeated". Optional so previously
+	 * persisted combat states hydrate unchanged (absent ⇒ false ⇒ the pre-existing hp≤0 semantics).
+	 */
+	notDefeated?: boolean;
 }
 
 export const EMPTY_COMBATANT_RESOURCES: CombatantResources = Object.freeze({
@@ -132,6 +140,12 @@ export interface CombatLogEntry {
 		| 'concentration'
 		| 'combatant-added'
 		| 'combatant-removed'
+		// UX-SES-008 — the DM moved a combatant within the initiative order (explicit reorder).
+		| 'combatant-reordered'
+		// UX-SES-008 — the DM toggled a combatant hidden/visible mid-combat.
+		| 'combatant-visibility'
+		// UX-SES-005 — the DM resolved the at-0-HP confirmation ("Yes — defeated" / "No — keep at 0").
+		| 'defeated-set'
 		| 'combat-ended'
 		/**
 		 * SES-002 AC5 — a dice roll made DURING active combat, visibility-carrying so the read layer
@@ -238,7 +252,28 @@ export function cloneResources(resources: CombatantResources): CombatantResource
 		conditions: [...resources.conditions],
 		deathSaves: { ...resources.deathSaves },
 		concentration: { ...resources.concentration },
+		// UX-SES-005 — preserve the explicit "keep at 0, not defeated" choice across clones.
+		notDefeated: resources.notDefeated ?? false,
 	};
+}
+
+/**
+ * UX-SES-008 — find the initiative-order insertion index for a new combatant: AFTER the last existing
+ * combatant whose initiative is ≥ the new one (initiative sorts descending; a newcomer never jumps
+ * ahead of an equal-initiative combatant already in the order). Pure and deterministic.
+ */
+export function initiativeInsertionIndex(
+	order: readonly string[],
+	combatants: Record<string, Combatant>,
+	initiative: number,
+): number {
+	let index = 0;
+	for (let i = 0; i < order.length; i += 1) {
+		const id = order[i];
+		const existing = id === undefined ? undefined : combatants[id];
+		if (existing && existing.statBlock.initiative >= initiative) index = i + 1;
+	}
+	return index;
 }
 
 /** Tolerantly hydrate a possibly-undefined/partial persisted combat slice (safe empty default). */

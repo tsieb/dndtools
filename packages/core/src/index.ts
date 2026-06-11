@@ -3526,6 +3526,7 @@ export {
 	cloneCombatant,
 	cloneResources,
 	ensureSessionCombatState,
+	initiativeInsertionIndex,
 	orderInitiative,
 	previousTurn,
 } from './state/combat-tracker';
@@ -3588,12 +3589,16 @@ export {
 export type { EncounterView } from './queries/encounter-query';
 export { getEncounterForActor, listEncountersForActor } from './queries/encounter-query';
 
-// SES-002 / SES-006 — combat + encounter command input schemas.
+// SES-002 / SES-006 / UX-SES-008 — combat + encounter command input schemas.
 export {
+	addCombatantsInputSchema,
 	advanceCombatTurnInputSchema,
 	applyCombatResourceInputSchema,
 	buildEncounterInputSchema,
 	endCombatInputSchema,
+	removeCombatantInputSchema,
+	reorderCombatantInputSchema,
+	setCombatantVisibilityInputSchema,
 	startCombatInputSchema,
 	updateEncounterInputSchema,
 } from './schemas/commands';

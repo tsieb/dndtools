@@ -159,6 +159,17 @@ export type CoreCommand =
 	| { type: 'combat.previous-turn'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'combat.apply-resource'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'combat.end'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// UX-SES-008: mid-combat combatant management — add (incl. mass + hidden), remove (GUI-confirmed),
+	// explicit reorder, and the hidden/visible toggle. DM-only; active-session gated; fail closed.
+	| { type: 'combat.add-combatants'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'combat.remove-combatant'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'combat.reorder-combatant'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| {
+			type: 'combat.set-combatant-visibility';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	// SES-006: build / update a durable encounter (DM-only) — combatant selection, challenge guidance,
 	// terrain notes, legendary/lair actions, loot, and generated session-log links (by reference).
 	| { type: 'encounter.build'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -729,6 +740,34 @@ export type CoreEvent =
 			actorId: ActorId;
 			encounterId: string | null;
 			logEntries: number;
+			revision: number;
+	  }
+	// UX-SES-008 — mid-combat combatant management events (add / remove / reorder / visibility).
+	| {
+			kind: 'combat.combatants-added';
+			actorId: ActorId;
+			combatantIds: string[];
+			revision: number;
+	  }
+	| {
+			kind: 'combat.combatant-removed';
+			actorId: ActorId;
+			combatantId: string;
+			revision: number;
+	  }
+	| {
+			kind: 'combat.combatant-reordered';
+			actorId: ActorId;
+			combatantId: string;
+			/** The combatant's new 0-based position in the initiative order. */
+			position: number;
+			revision: number;
+	  }
+	| {
+			kind: 'combat.combatant-visibility-changed';
+			actorId: ActorId;
+			combatantId: string;
+			hidden: boolean;
 			revision: number;
 	  }
 	// SES-006 — encounter build/update events. Carry the computed challenge guidance for the GUI.

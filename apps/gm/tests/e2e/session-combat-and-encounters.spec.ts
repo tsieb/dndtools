@@ -124,11 +124,13 @@ test.describe('SES combat and encounters', () => {
 		await clickInView(page, 'advance-turn');
 		await expect(page.getByTestId('encounter-log')).toContainText('Turn advanced');
 
-		// Apply damage to the first combatant; the HP and log update.
-		const firstHpInput = page.getByTestId(/^hp-input-/).first();
-		await firstHpInput.scrollIntoViewIfNeeded();
-		await firstHpInput.fill('-3');
-		await page.getByTestId(/^apply-hp-/).first().click();
+		// Apply damage to the first combatant (the 7 HP Goblin) through the UX-SES-005 inline
+		// stepper: tap the HP number, type the absolute target (7 → 4 = damage 3), confirm.
+		const firstHpEdit = page.getByTestId(/^hp-edit-/).first();
+		await firstHpEdit.scrollIntoViewIfNeeded();
+		await firstHpEdit.click();
+		await page.getByTestId(/^hp-input-/).fill('4');
+		await page.getByTestId(/^apply-hp-/).click();
 		await expect(page.getByTestId('encounter-log')).toContainText('damage 3');
 
 		// End combat; the log is preserved.

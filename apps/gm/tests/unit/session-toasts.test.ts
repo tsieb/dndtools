@@ -41,6 +41,18 @@ describe('SessionToastStore (UX-SES-017)', () => {
 		expect(store.toasts).toHaveLength(0);
 	});
 
+	it('UX-SES-007: a warning (concentration-check) toast persists 4 s with no action', () => {
+		store.push('warning', 'Concentration check! DC 11 for Ogre.');
+		expect(store.toasts[0]).toMatchObject({
+			kind: 'warning',
+			actionLabel: null,
+		});
+		vi.advanceTimersByTime(3999);
+		expect(store.toasts).toHaveLength(1);
+		vi.advanceTimersByTime(1);
+		expect(store.toasts).toHaveLength(0);
+	});
+
 	it('runAction dismisses the toast first and invokes the action exactly once', async () => {
 		const run = vi.fn();
 		const id = store.push('undo', 'undoable', { label: 'Undo', run });
