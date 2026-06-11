@@ -601,6 +601,22 @@
 	--density-font-size: var(--text-sm); /* 13px */
 }
 
+/* A11Y-004 AC1 / UX-VIS-011 — touch-target floor on touch profiles. `comfortable` is the density
+ * Mobile/Tablet lock to, so EVERY button-class control inherits the 44px (--density-touch-target)
+ * minimum there, regardless of whether its component CSS consumes the density tokens yet. Keyed on
+ * the resolved data-density attribute (the density store maps the platform viewport class), not a
+ * raw media query, so the floor follows the SINGLE resolved density state (PLAT-001). Native form
+ * controls (inputs, selects) keep the WCAG 2.5.8 platform-UA exception, mirroring the e2e sweep in
+ * tests/e2e/a11y-target-size.spec.ts. */
+[data-density='comfortable'] button,
+[data-density='comfortable'] summary,
+[data-density='comfortable'] [role='button'],
+[data-density='comfortable'] [role='tab'],
+[data-density='comfortable'] [role='radio'] {
+	min-height: var(--density-touch-target);
+	min-width: var(--density-touch-target);
+}
+
 /* ============================================================================================
  * 3. LEGACY ALIAS BRIDGE — map the prototype's short token names onto the semantic layer so the
  *    component rules below resolve per active theme without per-surface colour logic.
