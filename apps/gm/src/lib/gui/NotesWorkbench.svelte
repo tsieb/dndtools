@@ -656,7 +656,7 @@
 	     actor who can open a visible note (the panel itself is read-only navigation), so a player inspecting a
 	     visible note can jump through its visible relationships. Every entry is actor-filtered in the core. -->
 	{#if selected && relationships}
-		<section class="scene-card" data-testid="note-relationships" aria-label="Note relationships">
+		<section class="relationships" data-testid="note-relationships" aria-label="Note relationships">
 			<h3>Relationships</h3>
 
 			<h4>Backlinks</h4>
@@ -732,6 +732,60 @@
 </section>
 
 <style>
+	/* UX-GRAPH-009/010 — backlinks + related-note relationships panel. */
+	.relationships {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	.relationships :global(h3) {
+		margin: 0;
+	}
+	.relationships :global(h4) {
+		margin: var(--space-2) 0 var(--space-1);
+		font-size: var(--text-sm);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wide);
+		color: var(--color-text-secondary);
+	}
+	.relationships :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.relationships :global(.scene-card),
+	.relationships :global(.scene-list li) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.relationships :global(.meta) {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.relationships :global(button) {
+		align-self: flex-start;
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-3);
+		background: transparent;
+		color: var(--color-text-link);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font-weight: var(--font-weight-medium);
+		cursor: pointer;
+	}
 	.visually-hidden {
 		position: absolute;
 		width: 1px;

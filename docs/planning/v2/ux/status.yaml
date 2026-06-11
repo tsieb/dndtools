@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 11
+  approved: 10
   active: 0
-  complete: 35
+  complete: 36
   deferred: 0
 metrics:
-  epicCompletionPercent: 76.1
-  requirementCompletionPercent: 74.2
+  epicCompletionPercent: 78.3
+  requirementCompletionPercent: 75.4
   totalRequirements: 244
-  completedRequirements: 181
+  completedRequirements: 184
   deferredRequirements: 0
-  remainingEpics: 11
-  promptableEpics: 4
+  remainingEpics: 10
+  promptableEpics: 3
   blockedByDependencies: 7
-  completionEvidenceFiles: 35
+  completionEvidenceFiles: 36
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -273,9 +273,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 08 Campaign and Discovery
       totalEpics: 4
-      complete: 3
+      complete: 4
       active: 0
-      approved: 1
+      approved: 0
       proposed: 0
       deferred: 0
       requirementIds:
@@ -298,8 +298,8 @@ metrics:
         - UX-SRCH-008
         - UX-SRCH-009
         - UX-SRCH-010
-      epicCompletionPercent: 75
-      requirementCompletionPercent: 84.2
+      epicCompletionPercent: 100
+      requirementCompletionPercent: 100
     - phase: 09 Reliability and Optional Capabilities
       totalEpics: 6
       complete: 0
@@ -391,18 +391,22 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-GRAPH-accessible-mobile-and-link-repair
-  title: Graph Accessibility, Mobile Backlinks, and Link Repair
-  phase: 08 Campaign and Discovery
+  id: UX-SYNC-global-indicators-local-first-and-entity-badges
+  title: Sync Indicators, Local-First Feedback, and Entity Badges
+  phase: 09 Reliability and Optional Capabilities
   status: approved
   requirementIds:
-    - UX-GRAPH-007
-    - UX-GRAPH-009
-    - UX-GRAPH-011
-  promptCommand: pnpm ux-prompt -- --epic UX-GRAPH-accessible-mobile-and-link-repair
+    - UX-SYNC-001
+    - UX-SYNC-002
+    - UX-SYNC-003
+    - UX-SYNC-008
+    - UX-SYNC-011
+    - UX-SYNC-013
+  promptCommand: pnpm ux-prompt -- --epic
+    UX-SYNC-global-indicators-local-first-and-entity-badges
   nextPromptCommand: pnpm ux-prompt -- --next
   statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-GRAPH-accessible-mobile-and-link-repair --status active
+    UX-SYNC-global-indicators-local-first-and-entity-badges --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -1126,7 +1130,7 @@ epics:
   - id: UX-GRAPH-accessible-mobile-and-link-repair
     title: Graph Accessibility, Mobile Backlinks, and Link Repair
     phase: 08 Campaign and Discovery
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-GRAPH-007
@@ -1140,6 +1144,7 @@ epics:
     dependencies:
       - UX-GRAPH-canvas-encoding-filtering-and-health
       - UX-A11Y-spatial-live-region-and-leakage
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-GRAPH-accessible-mobile-and-link-repair.completion.md
   - id: UX-SYNC-global-indicators-local-first-and-entity-badges
     title: Sync Indicators, Local-First Feedback, and Entity Badges
     phase: 09 Reliability and Optional Capabilities

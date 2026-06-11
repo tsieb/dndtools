@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-GRAPH-accessible-mobile-and-link-repair
 title: Graph Accessibility, Mobile Backlinks, and Link Repair
-status: approved
+status: complete
 approved: true
 phase: 08 Campaign and Discovery
 productPriority: P1
@@ -200,3 +200,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-GRAPH-accessible-mobile-and-link-repair.completion.md
