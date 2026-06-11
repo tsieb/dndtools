@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-AUDIO-live-controls-player-delivery-and-degradation
 title: Audio Live Controls, Player Delivery, and Degradation
-status: approved
+status: complete
 approved: true
 phase: 09 Reliability and Optional Capabilities
 productPriority: P1
@@ -338,3 +338,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-AUDIO-live-controls-player-delivery-and-degradation.completion.md

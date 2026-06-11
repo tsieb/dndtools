@@ -354,7 +354,7 @@
 	}
 </script>
 
-<section data-testid="audio-playback" aria-label="Audio playback">
+<section class="cwrap" data-testid="audio-playback" aria-label="Audio playback">
 	<h2>Audio</h2>
 
 	<!-- AUDIO-008 AC2 — concise state-change announcements to assistive technology. Only lifecycle
@@ -658,11 +658,76 @@
 </section>
 
 <style>
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	.cwrap :global(h2),
+	.cwrap :global(h3) {
+		margin: 0;
+	}
+	.cwrap :global(h3) {
+		font-size: var(--text-md);
+	}
+	.cwrap :global(input),
+	.cwrap :global(select) {
+		min-height: var(--touch-target-min);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font: inherit;
+	}
+	.cwrap :global(input[type='checkbox']),
+	.cwrap :global(input[type='radio']) {
+		min-height: var(--touch-target-floor);
+	}
+	.cwrap :global(button) {
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+	.cwrap :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.cwrap :global(.scene-card) {
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
 	.error {
-		color: var(--color-danger, #b00020);
+		color: var(--color-status-error-text);
 	}
 	.meta {
-		color: var(--color-text-muted, #666);
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.now-playing {
+		padding: var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-accent-border);
+		border-radius: var(--radius-md);
+	}
+	.delivery-roster :global(li),
+	.delivery-queue :global(li),
+	.preset-list :global(li) {
+		padding: var(--space-1-5) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		margin-bottom: var(--space-1);
 	}
 	.now-playing {
 		display: flex;
@@ -714,7 +779,7 @@
 	}
 	.preset-missing,
 	.preset-blocked {
-		color: var(--color-danger, #b00020);
+		color: var(--color-status-error-text);
 	}
 	/* AUDIO-008 — reduced-motion: the crossfade indicator never animates when motion is reduced. */
 	.reduced-motion {

@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 8
+  approved: 7
   active: 0
-  complete: 38
+  complete: 39
   deferred: 0
 metrics:
-  epicCompletionPercent: 82.6
-  requirementCompletionPercent: 80.7
+  epicCompletionPercent: 84.8
+  requirementCompletionPercent: 83.6
   totalRequirements: 244
-  completedRequirements: 197
+  completedRequirements: 204
   deferredRequirements: 0
-  remainingEpics: 8
+  remainingEpics: 7
   promptableEpics: 3
-  blockedByDependencies: 5
-  completionEvidenceFiles: 38
+  blockedByDependencies: 4
+  completionEvidenceFiles: 39
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -302,9 +302,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 09 Reliability and Optional Capabilities
       totalEpics: 6
-      complete: 2
+      complete: 3
       active: 0
-      approved: 4
+      approved: 3
       proposed: 0
       deferred: 0
       requirementIds:
@@ -347,8 +347,8 @@ metrics:
         - UX-SYNC-011
         - UX-SYNC-012
         - UX-SYNC-013
-      epicCompletionPercent: 33.3
-      requirementCompletionPercent: 33.3
+      epicCompletionPercent: 50
+      requirementCompletionPercent: 51.3
     - phase: 10 Onboarding and Production Polish
       totalEpics: 3
       complete: 0
@@ -391,23 +391,22 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-AUDIO-live-controls-player-delivery-and-degradation
-  title: Audio Live Controls, Player Delivery, and Degradation
+  id: UX-AUDIO-library-presets-soundboard-and-automation
+  title: Audio Library, Presets, Soundboard, and Automation
   phase: 09 Reliability and Optional Capabilities
   status: approved
   requirementIds:
-    - UX-AUDIO-001
-    - UX-AUDIO-002
-    - UX-AUDIO-003
-    - UX-AUDIO-008
-    - UX-AUDIO-009
-    - UX-AUDIO-012
-    - UX-AUDIO-014
-  promptCommand: pnpm ux-prompt -- --epic
-    UX-AUDIO-live-controls-player-delivery-and-degradation
+    - UX-AUDIO-004
+    - UX-AUDIO-005
+    - UX-AUDIO-006
+    - UX-AUDIO-007
+    - UX-AUDIO-010
+    - UX-AUDIO-011
+    - UX-AUDIO-013
+  promptCommand: pnpm ux-prompt -- --epic UX-AUDIO-library-presets-soundboard-and-automation
   nextPromptCommand: pnpm ux-prompt -- --next
   statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-AUDIO-live-controls-player-delivery-and-degradation --status active
+    UX-AUDIO-library-presets-soundboard-and-automation --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -1195,7 +1194,7 @@ epics:
   - id: UX-AUDIO-live-controls-player-delivery-and-degradation
     title: Audio Live Controls, Player Delivery, and Degradation
     phase: 09 Reliability and Optional Capabilities
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-AUDIO-001
@@ -1215,6 +1214,7 @@ epics:
     dependencies:
       - UX-CMD-home-scene-and-role-differentiated-dashboard
       - UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-AUDIO-live-controls-player-delivery-and-degradation.completion.md
   - id: UX-AUDIO-library-presets-soundboard-and-automation
     title: Audio Library, Presets, Soundboard, and Automation
     phase: 09 Reliability and Optional Capabilities
