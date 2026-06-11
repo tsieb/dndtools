@@ -110,6 +110,9 @@ epics:
   - id: UX-CMD-player-view-handouts-map-and-session-controls
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-CMD-player-view-handouts-map-and-session-controls.completion.md
+  - id: UX-MAP-layers-authoring-generation-and-tags
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-MAP-layers-authoring-generation-and-tags.completion.md
   - id: UX-MAP-library-viewer-import-and-search
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-MAP-library-viewer-import-and-search.completion.md

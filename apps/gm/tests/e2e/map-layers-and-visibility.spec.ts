@@ -113,7 +113,7 @@ test.describe('MAP-006 toggling one layer player-visibility does not affect othe
 		const opacity = page.getByTestId('layer-set-opacity-layer-terrain');
 		await opacity.fill('0');
 		await opacity.dispatchEvent('change');
-		await expect(page.getByTestId('layer-opacity-layer-terrain')).toHaveText('0');
+		await expect(page.getByTestId('layer-opacity-layer-terrain')).toHaveText('0%');
 		await expect(page.getByTestId('layer-visibility-layer-terrain')).toHaveAttribute(
 			'data-visibility',
 			'player-visible',
