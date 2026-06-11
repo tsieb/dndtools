@@ -95,6 +95,9 @@ epics:
   - id: UX-CANVAS-widget-manipulation-and-outline
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-CANVAS-widget-manipulation-and-outline.completion.md
+  - id: UX-CHAR-roster-creation-and-draft-ownership
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CHAR-roster-creation-and-draft-ownership.completion.md
   - id: UX-CMD-home-scene-and-role-differentiated-dashboard
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-CMD-home-scene-and-role-differentiated-dashboard.completion.md

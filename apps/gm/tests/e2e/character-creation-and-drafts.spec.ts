@@ -138,10 +138,14 @@ test.describe('CHAR character creation and drafts', () => {
 		await page.getByTestId('draft-create').click();
 		await expect(page.getByTestId('draft-list')).toContainText('Demo Player');
 
-		// Choose the transfer target (Demo Player 2) and transfer the only draft.
-		await page.getByTestId('draft-transfer-target').selectOption('actor-player-2');
+		// Choose the transfer target (Demo Player 2) on the draft's own picker and transfer it. Transfer
+		// is safety-critical, so it takes a confirmation dialog that names the players before dispatch.
 		const draftItem = page.getByTestId('draft-list').locator('li').first();
-		await draftItem.getByRole('button', { name: 'Transfer' }).click();
+		const draftId = (await draftItem.getAttribute('data-testid'))!.replace('draft-item-', '');
+		await page.getByTestId(`draft-transfer-target-${draftId}`).selectOption('actor-player-2');
+		await page.getByTestId(`draft-transfer-${draftId}`).click();
+		await expect(page.getByTestId('draft-transfer-dialog')).toBeVisible();
+		await page.getByTestId('draft-transfer-confirm').click();
 
 		// Exactly one owner remains — Demo Player 2 — and the prior owner (Demo Player) is gone.
 		const owners = page.getByTestId('draft-list').locator('[data-testid^="draft-owner-"]');
