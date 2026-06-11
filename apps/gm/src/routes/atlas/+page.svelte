@@ -7,6 +7,7 @@
 	import MapNestedAreas from '$lib/gui/MapNestedAreas.svelte';
 	import MapAuthoringPanel from '$lib/gui/MapAuthoringPanel.svelte';
 	import MapAnnotationsPanel from '$lib/gui/MapAnnotationsPanel.svelte';
+	import MapViewer from '$lib/gui/ux-map/MapViewer.svelte';
 	import DeepLinkUnavailable from '$lib/gui/ux-shell/DeepLinkUnavailable.svelte';
 
 	const runtime = useRuntime();
@@ -90,15 +91,25 @@
 </script>
 
 <section class="atlas" data-testid="atlas-view" aria-label="Atlas">
-	<p class="meta">
-		The map deep-link surface. Open a map to focus a region/POI in its viewport. Authoring and the
-		full map list are owned by the Maps feature epics.
+	<p class="atlas__lede">
+		Your world's maps. Open one to pan, zoom, and navigate its regions; the DM authors maps, layers,
+		points of interest, and nested areas.
 	</p>
 
 	{#if resolution}
 		{#if resolution.kind === 'restore'}
-			<section class="map-viewport" data-testid="map-viewport" aria-label="Map viewport">
+			<section class="map-viewport card" data-testid="map-viewport" aria-label="Map viewport">
 				<h2 data-testid="map-name">{resolution.entityName}</h2>
+
+				<!-- UX-MAP-001/002/003: the spatial viewer — a wayfinding breadcrumb over the foundational
+				     pan/zoom/minimap surface (CanvasViewport), fed the actor-filtered regions. -->
+				<MapViewer
+					mapName={resolution.entityName}
+					regions={resolvedRegions}
+					selectionLabel={resolution.selectionLabel}
+					selectionId={resolution.selectionId}
+				/>
+
 				{#if resolution.selectionId}
 					<p class="meta" data-testid="map-poi">
 						Focused on <strong>{resolution.selectionLabel}</strong>
@@ -161,21 +172,18 @@
 		{/if}
 	{/if}
 
-	<!-- MAP-001 / MAP-002 / MAP-020: the DM map authoring + safe import surface. Creating a map yields
-	     a default-dm-only map with its initial layers; importing previews diagnostics before commit and
-	     rolls back cleanly on cancel. DM-only (the panel renders nothing for a player/observer). -->
-	<MapAuthoringPanel />
-
-	<section aria-label="Maps">
-		<h2 id="maps">Maps</h2>
+	<section class="card" aria-label="Maps">
+		<h2 id="maps" class="atlas__h2">Maps</h2>
 		<ul class="map-list" data-testid="atlas-map-list">
 			{#each visibleMaps as map (map.id)}
-				<li data-testid={`atlas-map-${map.id}`}>
-					<a href={`?map=${map.id}`} data-testid={`atlas-open-${map.id}`}>{map.name}</a>
-					<span class="meta"> — {map.description}</span>
+				<li class="map-row" data-testid={`atlas-map-${map.id}`}>
+					<div class="map-row__main">
+						<a class="map-row__open" href={`?map=${map.id}`} data-testid={`atlas-open-${map.id}`}>{map.name}</a>
+						{#if map.description}<span class="map-row__desc">{map.description}</span>{/if}
+					</div>
 					{#if map.defaultRegionId}
 						<a
-							class="poi-link"
+							class="map-row__poi"
 							href={`?map=${map.id}&poi=${map.defaultRegionId}`}
 							data-testid={`atlas-open-poi-${map.id}`}
 						>
@@ -185,8 +193,90 @@
 				</li>
 			{/each}
 			{#if visibleMaps.length === 0}
-				<li class="meta" data-testid="atlas-empty">No maps are visible to you.</li>
+				<li class="map-empty" data-testid="atlas-empty">No maps are visible to you.</li>
 			{/if}
 		</ul>
 	</section>
+
+	<!-- MAP-001 / MAP-002 / MAP-020: the DM map authoring + safe import surface. Creating a map yields
+	     a default-dm-only map with its initial layers; importing previews diagnostics before commit and
+	     rolls back cleanly on cancel. DM-only (the panel renders nothing for a player/observer). -->
+	<div class="card card--authoring"><MapAuthoringPanel /></div>
 </section>
+
+<style>
+	.atlas {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+	}
+	.atlas__lede {
+		margin: 0;
+		color: var(--color-text-secondary);
+	}
+	.atlas__h2 {
+		margin: 0 0 var(--space-2);
+	}
+	.card {
+		padding: var(--space-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	.map-viewport :global(h2) {
+		margin: 0 0 var(--space-3);
+		font-family: var(--font-display);
+		font-size: var(--text-xl);
+	}
+	.map-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+	.map-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		flex-wrap: wrap;
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.map-row__main {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-0-5);
+		min-width: 0;
+	}
+	.map-row__open {
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-link);
+		min-height: var(--touch-target-floor);
+		display: inline-flex;
+		align-items: center;
+	}
+	.map-row__desc {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.map-row__poi {
+		color: var(--color-text-link);
+		font-size: var(--text-sm);
+		min-height: var(--touch-target-floor);
+		display: inline-flex;
+		align-items: center;
+	}
+	.map-empty {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+		padding: var(--space-4);
+		border: 1px dashed var(--color-border);
+		border-radius: var(--radius-md);
+	}
+</style>
