@@ -114,11 +114,21 @@
 
 	<section class="panels" data-testid="quick-reference-panels" aria-label="Pinned panels">
 		{#if panels.length === 0}
-			<p class="meta" data-testid="quick-reference-empty">No pinned panels.</p>
+			<!-- UX-SES-013 — the guided empty state. -->
+			<p class="meta" data-testid="quick-reference-empty">
+				No pinned panels. Use the form above to pin a note.
+			</p>
 		{:else}
-			<ul>
+			<ul aria-label="Quick reference panels">
 				{#each panels as panel (panel.id)}
-					<li class="panel" data-testid={`qr-panel-${panel.id}`}>
+					<!-- UX-SES-013 — an unavailable panel's accessible name carries NO target content. -->
+					<li
+						class="panel"
+						data-testid={`qr-panel-${panel.id}`}
+						aria-label={panel.status === 'available'
+							? `${panel.label}, ${panel.kind}`
+							: `${panel.label} — reference unavailable`}
+					>
 						<strong>{panel.label}</strong>
 						<span class="kind">{panel.kind}</span>
 						{#if panel.status === 'available' && panel.content}
@@ -130,9 +140,20 @@
 							</p>
 						{/if}
 						{#if isDm}
+							{#if panel.status === 'available' && panel.content}
+								<a
+									href="/knowledge/"
+									class="open-link"
+									data-testid={`qr-open-${panel.id}`}
+									aria-label={`Open full note for ${panel.label} in the Knowledge workbench`}
+								>
+									Open full note
+								</a>
+							{/if}
 							<button
 								type="button"
 								data-testid={`unpin-${panel.id}`}
+								aria-label={`Unpin ${panel.label}`}
 								onclick={() => void unpin(panel.id)}
 							>
 								Unpin
@@ -147,37 +168,43 @@
 
 <style>
 	.error {
-		color: var(--color-danger, #b00020);
+		color: var(--color-status-error);
 	}
 	.meta {
-		color: var(--color-text-muted, #666);
+		color: var(--color-text-secondary);
 	}
 	.pin-form {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--space-2, 0.5rem);
+		gap: var(--space-2);
 		align-items: center;
-		margin-bottom: var(--space-2, 0.5rem);
+		margin-bottom: var(--space-2);
 	}
 	.panels ul {
 		list-style: none;
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-1, 0.25rem);
+		gap: var(--space-1);
 	}
 	.panel {
-		border: 1px solid var(--color-border, #ddd);
-		border-radius: var(--radius-1, 0.25rem);
-		padding: var(--space-2, 0.5rem);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		padding: var(--space-2);
 	}
 	.kind {
-		font-size: 0.75rem;
-		color: var(--color-text-muted, #666);
-		margin-left: var(--space-1, 0.25rem);
+		font-size: var(--text-xs);
+		color: var(--color-text-secondary);
+		margin-left: var(--space-1);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		padding: 0 var(--space-1);
+	}
+	.open-link {
+		margin-right: var(--space-2);
 	}
 	.unavailable {
-		color: var(--color-text-muted, #666);
+		color: var(--color-text-secondary);
 		font-style: italic;
 	}
 </style>

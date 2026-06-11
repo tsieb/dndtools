@@ -254,17 +254,25 @@ describe('SES-005 operate-vs-configure through the widget command dispatch', () 
 
 		const paused = accept(operate(state, env, PLAYER_ACTOR.id, sceneId, timerId, 'timer.pause'));
 		state = paused.nextState;
-		expect(state.session.timers[timerId]).toMatchObject({ status: 'paused' });
+		// UX-SES-012 — pause FOLDS the synthetic-clock elapsed seconds into the remaining duration
+		// (the paused countdown freezes at the true remaining value, never the configured one).
+		expect(state.session.timers[timerId]).toMatchObject({ status: 'paused', startedAt: null });
+		const remainingAtPause = state.session.timers[timerId]!.durationSeconds;
+		expect(remainingAtPause).toBeGreaterThan(0);
+		expect(remainingAtPause).toBeLessThanOrEqual(60);
 
 		const resumed = accept(operate(state, env, PLAYER_ACTOR.id, sceneId, timerId, 'timer.resume'));
 		state = resumed.nextState;
-		expect(state.session.timers[timerId]).toMatchObject({ status: 'running' });
+		expect(state.session.timers[timerId]).toMatchObject({
+			status: 'running',
+			durationSeconds: remainingAtPause,
+		});
 
 		const advanced = accept(
 			operate(state, env, PLAYER_ACTOR.id, sceneId, timerId, 'timer.advance', { deltaSeconds: 30 }),
 		);
 		state = advanced.nextState;
-		expect(state.session.timers[timerId]?.durationSeconds).toBe(90);
+		expect(state.session.timers[timerId]?.durationSeconds).toBe(remainingAtPause + 30);
 
 		const reset = accept(operate(state, env, PLAYER_ACTOR.id, sceneId, timerId, 'timer.reset'));
 		state = reset.nextState;

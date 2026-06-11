@@ -11,6 +11,7 @@
 
 	const actor = $derived(runtime.state.permissions.actors[runtime.activeActorId] ?? null);
 	const isDm = $derived(actor?.role === 'dm');
+	const sessionActive = $derived(runtime.state.session.workflow === 'active');
 
 	const encounters = $derived(
 		listEncountersForActor(runtime.state.encounters, runtime.state.permissions, runtime.activeActorId),
@@ -81,10 +82,14 @@
 		draftCombatants = draftCombatants.filter((_unused, i) => i !== index);
 	}
 
+	// UX-SES-009 AC3 — with a blank title the Build button is INACTIVE (aria-disabled, no dispatch)
+	// but still focusable/clickable so activating it surfaces the inline requirement message.
+	const buildBlocked = $derived(title.trim() === '');
+
 	async function buildEncounter(): Promise<void> {
 		error = null;
-		if (!title.trim()) {
-			error = 'Enter an encounter title.';
+		if (buildBlocked) {
+			error = 'Enter an encounter title to build the encounter.';
 			return;
 		}
 		const result = await runtime.dispatch({
@@ -117,6 +122,21 @@
 		terrainNotes = '';
 		draftCombatants = [];
 	}
+
+	// UX-SES-009 AC2 — start combat from a SAVED encounter with one action: the command flows the
+	// stored combatant groups into the initiative tracker (auto-rolling blank initiatives in the
+	// core) and the tracker on this route renders the running combat.
+	async function startCombatFromEncounter(encounterId: string): Promise<void> {
+		error = null;
+		const result = await runtime.dispatch({
+			type: 'combat.start',
+			actorId: runtime.activeActorId,
+			payload: { encounterId },
+		});
+		if (result.status === 'rejected') {
+			error = result.rejection.message;
+		}
+	}
 </script>
 
 {#if isDm}
@@ -135,14 +155,15 @@
 			}}
 		>
 			<label for="encounter-title">Title</label>
-			<input id="encounter-title" data-testid="encounter-title" bind:value={title} />
+			<input id="encounter-title" data-testid="encounter-title" maxlength="64" bind:value={title} />
 
 			<fieldset>
 				<legend>Party</legend>
 				<label for="party-size">Size</label>
-				<input id="party-size" type="number" min="1" data-testid="party-size" bind:value={partySize} />
+				<input id="party-size" type="number" min="1" max="20" data-testid="party-size" bind:value={partySize} />
 				<label for="party-level">Average level</label>
 				<input id="party-level" type="number" min="1" max="20" data-testid="party-level" bind:value={partyLevel} />
+				<span class="meta" data-testid="party-summary">Party: {partySize} × Lvl {partyLevel}</span>
 			</fieldset>
 
 			<fieldset>
@@ -150,8 +171,13 @@
 				<ul data-testid="draft-combatants">
 					{#each draftCombatants as combatant, index (index)}
 						<li data-testid="draft-combatant">
-							{combatant.quantity}× {combatant.name} (CR {combatant.challengeRating})
-							<button type="button" data-testid="remove-combatant-{index}" onclick={() => removeDraftCombatant(index)}>
+							{combatant.quantity}× {combatant.name} (CR {combatant.challengeRating}, HP {combatant.maxHp}, AC {combatant.ac})
+							<button
+								type="button"
+								data-testid="remove-combatant-{index}"
+								aria-label={`Remove ${combatant.name} from encounter draft`}
+								onclick={() => removeDraftCombatant(index)}
+							>
 								Remove
 							</button>
 						</li>
@@ -159,23 +185,44 @@
 				</ul>
 				<div class="add-row">
 					<input placeholder="name" aria-label="Combatant name" data-testid="combatant-name-input" bind:value={newName} />
-					<input type="number" step="0.25" min="0" aria-label="Challenge rating" data-testid="combatant-cr-input" bind:value={newCr} />
-					<input type="number" min="1" aria-label="Quantity" data-testid="combatant-qty-input" bind:value={newQuantity} />
+					<input type="number" step="0.25" min="0" max="30" aria-label="Challenge rating" data-testid="combatant-cr-input" bind:value={newCr} />
+					<input type="number" min="1" max="20" aria-label="Quantity" data-testid="combatant-qty-input" bind:value={newQuantity} />
 					<input type="number" min="0" aria-label="Max HP" data-testid="combatant-hp-input" bind:value={newMaxHp} />
 					<button type="button" data-testid="add-combatant" onclick={() => addDraftCombatant()}>Add combatant</button>
 				</div>
 			</fieldset>
 
 			<label for="terrain-notes">Terrain notes</label>
-			<textarea id="terrain-notes" data-testid="terrain-notes" bind:value={terrainNotes}></textarea>
+			<textarea id="terrain-notes" data-testid="terrain-notes" maxlength="500" bind:value={terrainNotes}></textarea>
 
-			<div class="guidance" data-testid="challenge-guidance">
+			<!-- UX-SES-009 AC1 — the PERSISTENT live challenge banner: a polite status region whose
+			     difficulty band pill recomputes synchronously as the draft changes (no button). -->
+			<div
+				class="guidance"
+				data-testid="challenge-guidance"
+				role="status"
+				aria-live="polite"
+				aria-label={`Encounter difficulty: ${guidance.difficulty}, ${guidance.encounterPoints} points`}
+			>
 				<strong>Challenge:</strong>
-				<span data-testid="guidance-difficulty">{guidance.difficulty}</span>
+				<span class="difficulty-pill" data-difficulty={guidance.difficulty} data-testid="guidance-difficulty">
+					{guidance.difficulty}
+				</span>
 				<span class="meta" data-testid="guidance-points">({guidance.encounterPoints} pts)</span>
 			</div>
 
-			<button type="submit" data-testid="build-encounter">Build encounter</button>
+			<button
+				type="submit"
+				data-testid="build-encounter"
+				class:inactive={buildBlocked}
+				aria-disabled={buildBlocked}
+				aria-describedby={buildBlocked ? 'build-encounter-requirement' : undefined}
+			>
+				Build encounter
+			</button>
+			{#if buildBlocked}
+				<span id="build-encounter-requirement" class="visually-hidden">Enter a title to build</span>
+			{/if}
 		</form>
 
 		<section data-testid="encounter-list" aria-label="Encounters">
@@ -189,6 +236,18 @@
 							<span class="name">{encounter.title}</span>
 							<span class="badge" data-testid="encounter-difficulty">{encounter.challenge.difficulty}</span>
 							<span class="meta">{encounter.combatants.length} group(s)</span>
+							<!-- UX-SES-009 AC2 — one-action start: flows the saved groups into the tracker. -->
+							<button
+								type="button"
+								data-testid="start-combat-encounter-{encounter.id}"
+								disabled={!sessionActive}
+								title={sessionActive
+									? `Start combat from ${encounter.title}`
+									: 'Available when the session is active'}
+								onclick={() => void startCombatFromEncounter(encounter.id)}
+							>
+								Start combat
+							</button>
 						</li>
 					{/each}
 				</ul>
@@ -199,27 +258,57 @@
 
 <style>
 	.error {
-		color: var(--color-danger, #b00020);
+		color: var(--color-status-error);
 	}
 	.meta {
-		color: var(--color-text-muted, #666);
+		color: var(--color-text-secondary);
 	}
 	.add-row {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--space-1, 0.25rem);
+		gap: var(--space-1);
 	}
 	.add-row input[type='number'] {
 		width: 5rem;
 	}
 	.guidance {
-		margin: var(--space-2, 0.5rem) 0;
+		margin: var(--space-2) 0;
+	}
+	/* UX-SES-009 — the difficulty band pill: semantic status tokens per band, text label carries the
+	   meaning (never color alone). Deadly uses the saturated error treatment. */
+	.difficulty-pill {
+		border-radius: var(--radius-sm);
+		padding: 0 var(--space-2);
+		background: var(--color-surface-sunken);
+		text-transform: capitalize;
+	}
+	.difficulty-pill[data-difficulty='trivial'],
+	.difficulty-pill[data-difficulty='easy'] {
+		background: var(--color-status-success-subtle);
+		color: var(--color-status-success-text);
+	}
+	.difficulty-pill[data-difficulty='medium'] {
+		background: var(--color-status-warning-subtle);
+		color: var(--color-status-warning-text);
+	}
+	.difficulty-pill[data-difficulty='hard'] {
+		background: var(--color-status-error-subtle);
+		color: var(--color-status-error-text);
+	}
+	.difficulty-pill[data-difficulty='deadly'] {
+		background: var(--color-status-error);
+		color: var(--color-text-inverse);
+	}
+	/* UX-SES-009 AC3 — the inactive (blank-title) Build button look; it stays focusable so its
+	   activation explains the requirement inline. */
+	button.inactive {
+		opacity: 0.6;
 	}
 	.badge {
-		font-size: 0.75rem;
-		background: var(--color-accent, #3b82f6);
-		color: #fff;
-		border-radius: var(--radius-1, 0.25rem);
-		padding: 0 var(--space-1, 0.25rem);
+		font-size: var(--text-xs);
+		background: var(--color-accent);
+		color: var(--color-accent-foreground);
+		border-radius: var(--radius-sm);
+		padding: 0 var(--space-1);
 	}
 </style>

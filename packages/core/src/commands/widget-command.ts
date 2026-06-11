@@ -263,10 +263,13 @@ function reduceTimerOperate(
 			break;
 		}
 		case 'timer.pause':
+			// UX-SES-012 — pausing FOLDS the elapsed running time into the remaining duration, so the
+			// paused countdown freezes at the true remaining value and resume continues from there
+			// (the countdown view derives remaining = durationSeconds - elapsed-since-startedAt).
 			next = makeTimer(previous, scene.id, widgetInstanceId, env, {
 				status: 'paused',
-				durationSeconds: baseDuration,
-				startedAt: previous?.startedAt ?? null,
+				durationSeconds: remainingSecondsAt(previous, now),
+				startedAt: null,
 			});
 			event = { kind: 'session.timer-operated', sceneId: scene.id, widgetInstanceId, actorId, operation: 'pause' };
 			break;
@@ -338,6 +341,20 @@ function reduceTimerOperate(
 		events: [event],
 		operationIds: [op.id],
 	};
+}
+
+/**
+ * UX-SES-012 — the timer's remaining seconds at `nowIso`. For a running timer this subtracts the
+ * elapsed time since the recorded start (clamped at zero); otherwise the recorded duration IS the
+ * remaining time. Pure: a function of the recorded document + the supplied instant only.
+ */
+function remainingSecondsAt(previous: SessionTimer | undefined, nowIso: string): number {
+	const base = previous?.durationSeconds ?? 0;
+	if (previous?.status !== 'running' || !previous.startedAt) return base;
+	const started = Date.parse(previous.startedAt);
+	const now = Date.parse(nowIso);
+	if (Number.isNaN(started) || Number.isNaN(now)) return base;
+	return Math.max(0, base - Math.max(0, (now - started) / 1000));
 }
 
 function makeTimer(

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	MAX_DICE_COUNT,
 	MAX_DICE_SIDES,
+	applyAdvantageToExpression,
 	canonicalSource,
 	evaluateRoll,
 	parseDiceExpression,
@@ -181,5 +182,42 @@ describe('SES-003 macro resolution (pure aliases)', () => {
 
 	it('returns null for an unknown macro (caller fails closed)', () => {
 		expect(resolveMacro('unknown', macros)).toBeNull();
+	});
+});
+
+describe('UX-SES-010 advantage/disadvantage expression transform (pure)', () => {
+	it('rewrites a d20-only expression to 2d20kh1/2d20kl1 semantics, preserving modifiers', () => {
+		expect(applyAdvantageToExpression('d20+5', 'advantage')).toEqual({
+			expression: '2d20kh1+5',
+			applied: true,
+		});
+		expect(applyAdvantageToExpression('1d20', 'disadvantage')).toEqual({
+			expression: '2d20kl1',
+			applied: true,
+		});
+		expect(applyAdvantageToExpression('d20-2', 'disadvantage')).toEqual({
+			expression: '2d20kl1-2',
+			applied: true,
+		});
+	});
+
+	it('returns non-d20 / multi-die / already-kept expressions UNCHANGED with applied=false', () => {
+		for (const expr of ['2d6+3', '4d8', '2d20kh1+5', '1d20+1d4', '2d20', '-d20+5']) {
+			expect(applyAdvantageToExpression(expr, 'advantage')).toEqual({
+				expression: expr,
+				applied: false,
+			});
+		}
+	});
+
+	it('normal mode and malformed expressions pass through unchanged (fail-closed downstream)', () => {
+		expect(applyAdvantageToExpression('d20+5', 'normal')).toEqual({
+			expression: 'd20+5',
+			applied: false,
+		});
+		expect(applyAdvantageToExpression('2d6++bad', 'advantage')).toEqual({
+			expression: '2d6++bad',
+			applied: false,
+		});
 	});
 });

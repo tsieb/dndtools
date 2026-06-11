@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-SESSION-tools-encounters-dice-timers-prep-calendar
 title: Session Tools, Encounters, Dice, Timers, Prep, and Calendar
-status: approved
+status: complete
 approved: true
 phase: 05 Live-Play Workspaces
 productPriority: P1
@@ -317,3 +317,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-SESSION-tools-encounters-dice-timers-prep-calendar.completion.md

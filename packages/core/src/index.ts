@@ -3627,6 +3627,7 @@ export {
 	MAX_DICE_COUNT,
 	MAX_DICE_SIDES,
 	MAX_EXPRESSION_LENGTH,
+	applyAdvantageToExpression,
 	canonicalSource,
 	evaluateRoll,
 	parseDiceExpression,
@@ -3634,6 +3635,19 @@ export {
 	resolveTableDraw,
 	rollExpression,
 } from './state/dice';
+export type { AdvantageTransformResult, DiceAdvantageMode } from './state/dice';
+
+// UX-SES-012 — the pure timer countdown view model (remaining time, display, urgency band).
+export type {
+	TimerCountdownStatus,
+	TimerCountdownView,
+	TimerUrgency,
+} from './queries/timer-countdown';
+export {
+	TIMER_DANGER_SECONDS,
+	TIMER_WARNING_FRACTION,
+	getTimerCountdown,
+} from './queries/timer-countdown';
 
 // SES-003 / SES-008 — THE single actor-filtered session ROLL HISTORY read model. A secret/DM-only roll
 // is omitted from a player's history; a shared roll reaches only the listed participants; the DM sees all.

@@ -109,16 +109,19 @@ test.describe('SES handouts, live tools, and quick reference', () => {
 		await page.getByTestId('view-as-select').selectOption('actor-player');
 		await expect(page.getByTestId('timer-effective-sets')).toContainText('operator');
 
-		// The operator can START and PAUSE the timer (operate is allowed).
+		// The operator can START and PAUSE the timer (operate is allowed). The controls are
+		// contextual (UX-SES-012): Start while stopped, Pause while running.
 		await page.getByTestId('timer-start').click();
 		await expect(page.getByTestId('live-tools-error')).toHaveCount(0);
-		await expect(page.getByTestId('timer-status')).toContainText('running');
+		await expect(page.getByTestId('timer-status')).toContainText('Running');
 		await page.getByTestId('timer-pause').click();
-		await expect(page.getByTestId('timer-status')).toContainText('paused');
+		await expect(page.getByTestId('timer-status')).toContainText('Paused');
+		await expect(page.getByTestId('timer-resume')).toBeVisible();
 
-		// The operator CANNOT configure (set-duration requires manager) — rejected fail closed.
-		await page.getByTestId('timer-configure').click();
-		await expect(page.getByTestId('live-tools-error')).toContainText('requires manager');
+		// UX-SES-012 AC2 — the operator NEVER sees "Set duration" (manager-only; the core would
+		// also reject it fail-closed — covered by the core widget-operator-authority tests).
+		await expect(page.getByTestId('timer-configure')).toHaveCount(0);
+		await expect(page.getByTestId('timer-duration-input')).toHaveCount(0);
 	});
 
 	test('SES-007: the DM pins a quick-reference note; the pin survives navigation and degrades when deleted', async ({

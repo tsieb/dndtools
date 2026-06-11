@@ -144,17 +144,19 @@ test.describe('SES dice and tables', () => {
 		await page.getByTestId('object-create-submit').click();
 		await expect(page.getByTestId('object-create-summary')).toBeVisible();
 
-		// Back to the session: draw the table.
+		// Back to the session: draw the table. The DM-only tables section is a collapsed-by-default
+		// disclosure (UX-SES-010), so open it first.
 		await gotoSession(page);
+		await page.getByTestId('dice-tables-disclosure-trigger').click();
 		await page.getByTestId('dice-table-select').selectOption({ label: 'Wandering monsters' });
 		await page.getByTestId('draw-table').click();
 
-		// The recorded draw shows the selected row text.
+		// The recorded draw shows the table name + the selected row text inline (UX-SES-011 AC3).
 		const drawn = page.getByTestId('roll-history').getByTestId('roll-row').first();
-		await expect(drawn).not.toBeEmpty();
+		await expect(drawn).toContainText('[Table: Wandering monsters]');
 
-		// Capture the drawn row text so we can assert it was appended to the note.
-		const rowText = (await drawn.textContent())?.replace(/[()]/g, '').trim() ?? '';
+		// Capture the drawn row text (the quoted segment) so we can assert it was appended to the note.
+		const rowText = /“([^”]+)”/.exec((await drawn.textContent()) ?? '')?.[1]?.trim() ?? '';
 		expect(rowText.length).toBeGreaterThan(0);
 
 		// Append the recorded result to the note.

@@ -176,12 +176,16 @@ test.describe('UX-SES lifecycle, recovery, and hot-path combat shell', () => {
 
 		await page.goto('/session/');
 		await page.getByTestId('session-view').waitFor({ state: 'visible' });
-		// The digest mode switched to recap automatically and the CTA is visible.
-		await expect(page.getByTestId('digest-mode-select')).toHaveValue('recap');
+		// The digest mode switched to recap automatically and the CTA is visible (the mode selector
+		// is the UX-SES-014 segmented radiogroup).
+		await expect(page.getByTestId('digest-mode-recap')).toHaveAttribute('aria-checked', 'true');
 		const cta = page.getByTestId('create-recap-notes');
 		await cta.scrollIntoViewIfNeeded();
 		await expect(cta).toBeVisible();
+		// UX-SES-014 AC3 — the CTA opens a pre-populated, editable draft; saving creates the note.
 		await cta.click();
+		await expect(page.getByTestId('recap-draft-body')).not.toBeEmpty();
+		await page.getByTestId('save-recap-note').click();
 		await expect(page.getByTestId('recap-notes-created')).toBeVisible();
 	});
 

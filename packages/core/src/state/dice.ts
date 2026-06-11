@@ -235,6 +235,57 @@ export function canonicalSource(terms: readonly DiceExpressionTerm[]): string {
 	return out;
 }
 
+// --- Advantage / disadvantage expression transform (UX-SES-010) ----------------------------------
+
+/** The 3-state advantage selector the Dice Tools panel exposes (UX-SES-010 §2). */
+export type DiceAdvantageMode = 'normal' | 'advantage' | 'disadvantage';
+
+/** The result of {@link applyAdvantageToExpression}: the (possibly rewritten) expression text plus
+ * whether the advantage/disadvantage semantics were actually applied. `applied: false` with a non-
+ * normal mode means the expression is not a single plain d20 term — the GUI clarifies that advantage
+ * applies to d20 rolls and the expression is rolled unchanged (UX-SES-010 spec). */
+export interface AdvantageTransformResult {
+	expression: string;
+	applied: boolean;
+}
+
+/**
+ * UX-SES-010 — apply the Advantage/Disadvantage selector to a dice expression. PURE.
+ *
+ * A "d20-only" expression — exactly one positive dice term that is a single plain `1d20` (no keep
+ * policy), with any flat modifiers — is rewritten to `2d20kh1` (advantage) / `2d20kl1` (disadvantage)
+ * semantics, preserving the modifiers: `d20+5` + advantage ⇒ `2d20kh1+5`. Any other expression
+ * (multiple dice terms, non-d20 dice, an existing keep policy, a subtracted die) is returned
+ * UNCHANGED with `applied: false`, so the caller can surface the "use kh1 notation" hint instead of
+ * silently changing semantics. A malformed expression is also returned unchanged (the roll command's
+ * parser rejects it fail-closed with the real error).
+ */
+export function applyAdvantageToExpression(
+	input: string,
+	mode: DiceAdvantageMode,
+): AdvantageTransformResult {
+	if (mode === 'normal') return { expression: input, applied: false };
+	const parsed = parseDiceExpression(input);
+	if (!parsed.ok) return { expression: input, applied: false };
+	const diceTerms = parsed.expression.terms.filter((term) => term.kind === 'dice');
+	const target = diceTerms[0];
+	if (
+		diceTerms.length !== 1 ||
+		!target ||
+		target.sides !== 20 ||
+		target.count !== 1 ||
+		target.keep !== null ||
+		target.sign !== 1
+	) {
+		return { expression: input, applied: false };
+	}
+	const keep: DiceKeep = { kind: mode === 'advantage' ? 'highest' : 'lowest', count: 1 };
+	const terms = parsed.expression.terms.map((term) =>
+		term === target ? { ...term, count: 2, keep } : term,
+	);
+	return { expression: canonicalSource(terms), applied: true };
+}
+
 // --- The PURE, recorded roll evaluator -----------------------------------------------------------
 
 /** One rolled die face within a term's evaluation, with whether it was KEPT in the total. */
