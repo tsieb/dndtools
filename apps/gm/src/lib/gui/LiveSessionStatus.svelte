@@ -76,7 +76,7 @@
 <div class="visually-hidden" aria-live="polite" aria-atomic="true" data-testid="session-announcement">{sessionAnnouncement}</div>
 
 {#if isParticipant && actor}
-	<section data-testid="live-session-status" aria-label="Live session status and presence">
+	<section class="cwrap" data-testid="live-session-status" aria-label="Live session status and presence">
 		<h2>Live session</h2>
 		<p class="meta">
 			Live session state (combat, dice, timers, handouts, and visible map updates) is shared in
@@ -147,29 +147,65 @@
 {/if}
 
 <style>
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+	.cwrap :global(h2),
+	.cwrap :global(h3) {
+		margin: 0;
+	}
+	.cwrap :global(h3) {
+		font-size: var(--text-md);
+	}
 	.meta {
-		color: var(--color-text-muted, #666);
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
 	}
 	.stale {
-		color: var(--color-danger, #b00020);
+		color: var(--color-status-error-text);
 	}
 	.status-card {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-1, 0.25rem);
-		border: 1px solid var(--color-border, #ddd);
-		border-radius: var(--radius-1, 0.25rem);
-		padding: var(--space-2, 0.5rem);
-		margin: var(--space-1, 0.25rem) 0;
+		gap: var(--space-1);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface-raised);
+		padding: var(--space-3);
 	}
 	.sim {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-1, 0.25rem);
-		margin: var(--space-2, 0.5rem) 0;
+		gap: var(--space-1);
+		margin: var(--space-2) 0;
+	}
+	.cwrap :global(button) {
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
 	}
 	.presence-list {
+		list-style: none;
 		margin: 0;
-		padding-left: var(--space-3, 1rem);
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+	.presence-list :global(li) {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-1-5) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		font-size: var(--text-sm);
 	}
 </style>

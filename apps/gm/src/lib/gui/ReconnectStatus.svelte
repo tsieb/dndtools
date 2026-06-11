@@ -78,7 +78,7 @@
 </script>
 
 {#if isParticipant && actor}
-	<section data-testid="reconnect-status" aria-label="Reconnect and catch-up">
+	<section class="cwrap" data-testid="reconnect-status" aria-label="Reconnect and catch-up">
 		<h2>Reconnect &amp; catch-up</h2>
 		<p class="meta">
 			On reconnect the app re-checks your current role, visibility, and grants and delivers only the
@@ -154,26 +154,57 @@
 {/if}
 
 <style>
-	.meta {
-		color: var(--color-text-muted, #666);
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
 	}
-	.error {
-		color: var(--color-danger, #b00020);
+	.cwrap :global(h2),
+	.cwrap :global(h3) {
+		margin: 0;
+	}
+	.cwrap :global(h3) {
+		font-size: var(--text-md);
+	}
+	.meta {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.error,
+	.disabled {
+		color: var(--color-status-error-text);
 	}
 	.status-card {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-1, 0.25rem);
-		border: 1px solid var(--color-border, #ddd);
-		border-radius: var(--radius-1, 0.25rem);
-		padding: var(--space-2, 0.5rem);
-		margin: var(--space-1, 0.25rem) 0;
+		gap: var(--space-1);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface-raised);
+		padding: var(--space-3);
 	}
-	.disabled {
-		color: var(--color-danger, #b00020);
+	.cwrap :global(button) {
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
 	}
 	.op-list {
+		list-style: none;
 		margin: 0;
-		padding-left: var(--space-3, 1rem);
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+	.op-list :global(li) {
+		padding: var(--space-1-5) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		font-size: var(--text-sm);
 	}
 </style>
