@@ -5,6 +5,8 @@
 		VAULT_OBJECT_SUBTYPE_KEY,
 	} from '@dndtools/core';
 	import { useRuntime } from '$lib/state/runtime-context';
+	import { useSessionToasts } from '$lib/gui/ux-ses/session-toasts.svelte';
+	import SessionStateGate from '$lib/gui/ux-ses/SessionStateGate.svelte';
 
 	// SES-003 / SES-008: the Session section's DICE + TABLES surface. A participant rolls dice
 	// expressions / macros / inline rolls through the shared `dice.roll` command; the DM draws rollable
@@ -13,7 +15,13 @@
 	// or render — Contract 2), so the rendered history is the same for every participant who may see it.
 	// Visibility composes with PERM: a secret/DM-only roll is filtered out of a player's history by the
 	// core read model (Contract 3). The GUI only dispatches command intents and renders computed models.
+	//
+	// UX-SES-001 — the panel is session-state gated: when the session is not active, an inline
+	// `role="status"` message names the state and links to the Command Center (never a modal).
+	// UX-SES-017 AC3 — a FAILED roll raises an actionable error toast whose Retry re-dispatches the
+	// SAME command.
 	const runtime = useRuntime();
+	const toasts = useSessionToasts();
 
 	const actor = $derived(runtime.state.permissions.actors[runtime.activeActorId] ?? null);
 	const isDm = $derived(actor?.role === 'dm');
@@ -56,15 +64,28 @@
 			error = 'Enter a dice expression.';
 			return;
 		}
-		await dispatch({
-			type: 'dice.roll',
+		const command = {
+			type: 'dice.roll' as const,
 			actorId: runtime.activeActorId,
 			payload: {
 				expression: trimmed,
 				visibility,
 				...(label.trim() ? { label: label.trim() } : {}),
 			},
-		});
+		};
+		await dispatchRoll(command);
+	}
+
+	// UX-SES-017 AC3 — failure raises an error toast with a Retry that re-dispatches the SAME
+	// command (the identical payload, never a reconstructed one).
+	async function dispatchRoll(command: Parameters<typeof runtime.dispatch>[0]): Promise<void> {
+		const ok = await dispatch(command);
+		if (!ok) {
+			toasts?.push('error', `Roll failed. ${error ?? 'Unknown error.'}`, {
+				label: 'Retry',
+				run: () => dispatchRoll(command),
+			});
+		}
 	}
 
 	async function drawTable(): Promise<void> {
@@ -104,10 +125,8 @@
 	{/if}
 
 	{#if !sessionActive}
-		<p class="meta" data-testid="dice-needs-active-session">
-			Dice and tables are available while the session is active. Start the session from the Command
-			Center first.
-		</p>
+		<!-- UX-SES-001 AC2 — inline state-gate message with a direct link to start the session. -->
+		<SessionStateGate workflow={runtime.state.session.workflow} testid="dice-needs-active-session" />
 	{/if}
 
 	<form

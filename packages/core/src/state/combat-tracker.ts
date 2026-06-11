@@ -121,6 +121,9 @@ export interface CombatLogEntry {
 	kind:
 		| 'combat-started'
 		| 'turn-advanced'
+		// UX-SES-006 — the DM returned to the previous combatant ("Prev" is the undo for an
+		// accidental advance). Recorded distinctly so the encounter log shows the revert.
+		| 'turn-reverted'
 		| 'round-advanced'
 		| 'hp-changed'
 		| 'temp-hp-set'
@@ -311,6 +314,20 @@ export function advanceTurn(round: number, turn: number, count: number): CombatA
 		return { round: round + 1, turn: 0, wrappedRound: true };
 	}
 	return { round, turn: nextTurn, wrappedRound: false };
+}
+
+/**
+ * Return to the PREVIOUS turn (UX-SES-006 — the undo for an accidental advance). Moving back from
+ * the first combatant of a round WRAPS to the last combatant of the previous round and decrements
+ * the round counter (`wrappedRound: true`). At the very first turn of round 1 there is nothing to
+ * return to: the input is returned unchanged (a no-op, callers may treat it as such). Pure and
+ * deterministic: a function of (round, turn, count) only.
+ */
+export function previousTurn(round: number, turn: number, count: number): CombatAdvance {
+	if (count <= 0) return { round, turn, wrappedRound: false };
+	if (turn > 0) return { round, turn: turn - 1, wrappedRound: false };
+	if (round <= 1) return { round, turn, wrappedRound: false };
+	return { round: round - 1, turn: count - 1, wrappedRound: true };
 }
 
 /** The combatant whose turn it currently is, or null when combat is idle/empty. Pure. */

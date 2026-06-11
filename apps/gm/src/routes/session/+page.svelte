@@ -11,6 +11,16 @@
 	import ReconnectStatus from '$lib/gui/ReconnectStatus.svelte';
 	import LiveSessionStatus from '$lib/gui/LiveSessionStatus.svelte';
 	import PlayerViewAccess from '$lib/gui/PlayerViewAccess.svelte';
+	import SessionRecoveryGate from '$lib/gui/ux-ses/SessionRecoveryGate.svelte';
+	import ToastStack from '$lib/gui/ux-ses/ToastStack.svelte';
+	import {
+		SessionToastStore,
+		provideSessionToasts,
+	} from '$lib/gui/ux-ses/session-toasts.svelte';
+
+	// UX-SES-017: the Session route owns ONE toast queue for the async action model (undo / retry /
+	// milestone); session tools push into it via context and the stack renders fixed at the corner.
+	const toasts = provideSessionToasts(new SessionToastStore());
 
 	// SES-009 / SES-012: the Session section's PREP / RECAP + CAMPAIGN CALENDAR CONTINUITY surface. The DM
 	// maintains the campaign calendar + current date and LINKS dates to notes (by reference; a hidden/
@@ -64,6 +74,10 @@
 		they may see.
 	</p>
 
+	<!-- UX-SES-002: restart-during-live-session recovery — a full-restore confirmation strip, or the
+	     MODAL partial-restore prompt that locks every session tool until the DM decides. -->
+	<SessionRecoveryGate />
+
 	<EncounterBuilder />
 	<CombatTracker />
 	<DiceTools />
@@ -77,6 +91,9 @@
 	<QuickReference />
 	<PrepRecap />
 </section>
+
+<!-- UX-SES-017: the session toast stack (undo / retry / milestone), fixed at the viewport corner. -->
+<ToastStack store={toasts} />
 
 <style>
 	.meta {

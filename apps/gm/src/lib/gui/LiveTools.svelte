@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { effectiveCapabilitySetsForActorOnEntity } from '@dndtools/core';
 	import { useRuntime } from '$lib/state/runtime-context';
+	import SessionStateGate from '$lib/gui/ux-ses/SessionStateGate.svelte';
 
 	// SES-005: a participant with a timer/tool widget `operator` grant may OPERATE the tool (start, pause,
 	// resume, reset, advance) WITHOUT configuring it. Configuring (set-duration) requires `manager`. This
@@ -104,10 +105,8 @@
 	{/if}
 
 	{#if !sessionActive}
-		<p class="meta" data-testid="live-tools-needs-active-session">
-			Live tools are available while the session is active. Start the session from the Command Center
-			first.
-		</p>
+		<!-- UX-SES-001 — session-state-gated tool: inline message + direct Command Center link. -->
+		<SessionStateGate workflow={runtime.state.session.workflow} testid="live-tools-needs-active-session" />
 	{:else if !timerWidget}
 		<p class="meta" data-testid="live-tools-no-timer">No timer widget on the active Scene.</p>
 	{:else}

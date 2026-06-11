@@ -4,6 +4,7 @@ import {
 	dispatchCommand,
 	getCombatTrackerForActor,
 	orderInitiative,
+	previousTurn,
 	type Actor,
 	type Combatant,
 	type CommandResult,
@@ -990,5 +991,120 @@ describe('A11Y-011 AC2: getCombatTrackerForActor exposes isDefeated for non-colo
 		const placeholder = playerView.combatants.find((c) => c.redacted)!;
 		expect(placeholder).toBeDefined();
 		expect(placeholder.isDefeated).toBe(false);
+	});
+});
+
+describe('UX-SES-006 previous turn (the undo for an accidental advance)', () => {
+	it('previousTurn is the pure inverse of advanceTurn, wrapping back across rounds', () => {
+		expect(previousTurn(1, 2, 3)).toEqual({ round: 1, turn: 1, wrappedRound: false });
+		expect(previousTurn(1, 1, 3)).toEqual({ round: 1, turn: 0, wrappedRound: false });
+		// Wrap back: round 2 turn 0 → round 1, last combatant.
+		expect(previousTurn(2, 0, 3)).toEqual({ round: 1, turn: 2, wrappedRound: true });
+		// Nothing before round 1 turn 0 (no-op) and an empty order is a no-op.
+		expect(previousTurn(1, 0, 3)).toEqual({ round: 1, turn: 0, wrappedRound: false });
+		expect(previousTurn(2, 0, 0)).toEqual({ round: 2, turn: 0, wrappedRound: false });
+		// Round-trip: advancing then reverting restores the original position.
+		const advanced = advanceTurn(1, 2, 3);
+		expect(previousTurn(advanced.round, advanced.turn, 3)).toEqual({
+			round: 1,
+			turn: 2,
+			wrappedRound: true,
+		});
+	});
+
+	it('combat.previous-turn reverts an advance, logs the revert, and wraps back across rounds', () => {
+		const { state, env } = activeSession();
+		const started = accept(
+			dispatch(state, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: { combatants: TWO_COMBATANTS },
+			}),
+		).nextState;
+		const t1 = accept(
+			dispatch(started, env, { type: 'combat.advance-turn', actorId: DM_ACTOR.id, payload: {} }),
+		).nextState;
+		expect(t1.session.combat).toMatchObject({ round: 1, turn: 1 });
+
+		// Prev: back to turn 0 of round 1, with a durable 'turn-reverted' log entry + op.
+		const reverted = accept(
+			dispatch(t1, env, { type: 'combat.previous-turn', actorId: DM_ACTOR.id, payload: {} }),
+		);
+		expect(reverted.nextState.session.combat).toMatchObject({ round: 1, turn: 0 });
+		expect(reverted.operationIds).toHaveLength(1);
+		const lastEntry = reverted.nextState.session.combat.log.at(-1)!;
+		expect(lastEntry.kind).toBe('turn-reverted');
+		expect(lastEntry.label).toContain('Goblin');
+		expect(reverted.events[0]).toMatchObject({
+			kind: 'combat.turn-reverted',
+			round: 1,
+			turn: 0,
+			wrappedRound: false,
+		});
+
+		// Advance twice → round 2 turn 0; prev wraps BACK to round 1, last combatant.
+		const t2 = accept(
+			dispatch(t1, env, { type: 'combat.advance-turn', actorId: DM_ACTOR.id, payload: {} }),
+		).nextState;
+		expect(t2.session.combat).toMatchObject({ round: 2, turn: 0 });
+		const wrapped = accept(
+			dispatch(t2, env, { type: 'combat.previous-turn', actorId: DM_ACTOR.id, payload: {} }),
+		);
+		expect(wrapped.nextState.session.combat).toMatchObject({ round: 1, turn: 1 });
+		expect(wrapped.events[0]).toMatchObject({ kind: 'combat.turn-reverted', wrappedRound: true });
+	});
+
+	it('fails closed: first turn of round 1, non-DM actors, inactive session, no combat', () => {
+		const { state, env } = activeSession();
+		const started = accept(
+			dispatch(state, env, {
+				type: 'combat.start',
+				actorId: DM_ACTOR.id,
+				payload: { combatants: TWO_COMBATANTS },
+			}),
+		).nextState;
+
+		// Already at round 1 turn 0: nothing to return to.
+		expect(
+			rejected(
+				dispatch(started, env, { type: 'combat.previous-turn', actorId: DM_ACTOR.id, payload: {} }),
+			).rejection.code,
+		).toBe('invalid-state');
+
+		// DM-only (player and observer rejected).
+		const t1 = accept(
+			dispatch(started, env, { type: 'combat.advance-turn', actorId: DM_ACTOR.id, payload: {} }),
+		).nextState;
+		for (const actor of [PLAYER_ACTOR, OBSERVER_ACTOR]) {
+			expect(
+				rejected(
+					dispatch(t1, env, { type: 'combat.previous-turn', actorId: actor.id, payload: {} }),
+				).rejection.code,
+			).toBe('actor-not-authorized');
+		}
+
+		// No combat running.
+		const ended = accept(
+			dispatch(t1, env, { type: 'combat.end', actorId: DM_ACTOR.id, payload: {} }),
+		).nextState;
+		expect(
+			rejected(
+				dispatch(ended, env, { type: 'combat.previous-turn', actorId: DM_ACTOR.id, payload: {} }),
+			).rejection.code,
+		).toBe('invalid-state');
+
+		// Inactive session (paused): the active-session gate fails closed.
+		const paused = accept(
+			dispatch(t1, env, {
+				type: 'session.set-workflow',
+				actorId: DM_ACTOR.id,
+				payload: { workflow: 'paused', activeSceneId: t1.session.activeSceneId },
+			}),
+		).nextState;
+		expect(
+			rejected(
+				dispatch(paused, env, { type: 'combat.previous-turn', actorId: DM_ACTOR.id, payload: {} }),
+			).rejection.code,
+		).toBe('invalid-state');
 	});
 });

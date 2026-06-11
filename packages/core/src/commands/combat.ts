@@ -2,6 +2,7 @@ import {
 	advanceCombatTurnInputSchema,
 	applyCombatResourceInputSchema,
 	endCombatInputSchema,
+	previousCombatTurnInputSchema,
 	startCombatInputSchema,
 } from '../schemas/commands';
 import {
@@ -11,6 +12,7 @@ import {
 	cloneCombatant,
 	cloneResources,
 	orderInitiative,
+	previousTurn,
 	type Combatant,
 	type CombatantResources,
 	type CombatLogEntry,
@@ -351,6 +353,89 @@ export function handleAdvanceCombatTurn(
 				round: advance.round,
 				turn: advance.turn,
 				wrappedRound: advance.wrappedRound,
+				activeCombatantId: nextActiveId,
+				revision: nextCombat.revision,
+			},
+		],
+		operationIds: [draft.op.id],
+	};
+}
+
+// --- UX-SES-006 — previous turn (the undo for an accidental advance) ------------------------------
+
+export function handlePreviousCombatTurn(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+	const sessionGuard = requireActiveSession(state);
+	if (sessionGuard) return reject(sessionGuard, state);
+
+	const parsed = parseInput(previousCombatTurnInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const combat = state.session.combat;
+	if (combat.status !== 'running') {
+		return reject(
+			{ code: 'invalid-state', message: 'No combat is currently running.' },
+			state,
+		);
+	}
+	// Nothing to return to before the first turn of round 1 (the pure helper is a no-op there).
+	if (combat.round <= 1 && combat.turn <= 0) {
+		return reject(
+			{ code: 'invalid-state', message: 'Combat is already at the first turn of round 1.' },
+			state,
+		);
+	}
+
+	const revert = previousTurn(combat.round, combat.turn, combat.order.length);
+	const operationId = env.ids();
+	let nextCombat: SessionCombatState = {
+		...combat,
+		round: revert.round,
+		turn: revert.turn,
+		revision: combat.revision + 1,
+	};
+	const nextActiveId = nextCombat.order[nextCombat.turn] ?? null;
+	const nextActive = nextActiveId ? nextCombat.combatants[nextActiveId] : null;
+	const turnEntry = combatLogEntry(
+		env,
+		actor,
+		operationId,
+		nextCombat,
+		'turn-reverted',
+		`Returned to ${nextActive?.name ?? 'combatant'}'s turn.`,
+		nextActiveId,
+		null,
+	);
+	nextCombat = { ...nextCombat, log: [...nextCombat.log, turnEntry] };
+
+	const draft = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: COMBAT_ENTITY_TYPE,
+		entityId: SESSION_ENTITY_ID,
+		opType: 'combat.previous-turn',
+		path: 'combat/turn',
+		value: { round: revert.round, turn: revert.turn, wrappedRound: revert.wrappedRound },
+		beforeRevision: combat.revision,
+		afterRevision: nextCombat.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withCombat({ ...state, sync: draft.log }, nextCombat),
+		events: [
+			{
+				kind: 'combat.turn-reverted',
+				actorId: actor.id,
+				round: revert.round,
+				turn: revert.turn,
+				wrappedRound: revert.wrappedRound,
 				activeCombatantId: nextActiveId,
 				revision: nextCombat.revision,
 			},

@@ -1775,6 +1775,10 @@ export const startCombatInputSchema = z
 // SES-002 — advance to the next turn (wraps to the next round). No payload fields needed.
 export const advanceCombatTurnInputSchema = z.object({}).strict();
 
+// UX-SES-006 — return to the previous turn (the undo for an accidental advance; wraps back to the
+// last combatant of the previous round). No payload fields needed.
+export const previousCombatTurnInputSchema = z.object({}).strict();
+
 // SES-002 — apply a per-combatant resource DURING combat. Owner/combat-participant authority + the
 // active-session gate are enforced in the handler (fail closed). Reuses the CHAR-007 resource kinds.
 export const applyCombatResourceInputSchema = z.discriminatedUnion('kind', [

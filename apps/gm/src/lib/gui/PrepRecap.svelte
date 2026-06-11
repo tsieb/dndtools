@@ -48,6 +48,22 @@
 	);
 
 	let mode = $state<DigestMode>('prep');
+
+	// UX-SES-001 AC3 — when the session reaches the RECAP state, the panel's mode automatically
+	// shifts to recap (once per entry into recap; the DM may still switch back manually).
+	const workflow = $derived(runtime.state.session.workflow);
+	let autoAppliedRecap = $state(false);
+	$effect(() => {
+		if (workflow === 'recap') {
+			if (!autoAppliedRecap) {
+				mode = 'recap';
+				autoAppliedRecap = true;
+			}
+		} else if (autoAppliedRecap) {
+			autoAppliedRecap = false;
+		}
+	});
+
 	const digest = $derived(
 		getPrepRecapDigest(
 			runtime.state.session,
@@ -146,6 +162,35 @@
 			actorId: runtime.activeActorId,
 			payload: { linkId },
 		});
+	}
+
+	// UX-SES-001 AC3 — the primary "Create recap notes" CTA during recap: creates a dm-only recap
+	// note seeded from the recap digest (a pure derivation; the note is an ordinary durable content
+	// item the DM can edit afterwards).
+	let recapNoteCreated = $state(false);
+	async function createRecapNotes(): Promise<void> {
+		const lines: string[] = ['# Session recap', ''];
+		if (digest.dmOnly) {
+			lines.push(
+				digest.combatSummary
+					? `Combat ${digest.combatSummary.status}: ${digest.combatSummary.logEntryCount} log entries.`
+					: 'No combat this session.',
+			);
+			lines.push(`Handouts delivered: ${digest.handoutOutcomes.length}.`);
+			lines.push(`Open threads: ${digest.unresolvedThreads.length}.`);
+			lines.push(`Continuity prompts: ${digest.continuityPrompts.length}.`);
+		}
+		const ok = await dispatch({
+			type: 'content.create-item',
+			actorId: runtime.activeActorId,
+			payload: {
+				kind: 'note',
+				title: 'Session recap',
+				body: lines.join('\n'),
+				visibility: 'dm-only',
+			},
+		});
+		if (ok) recapNoteCreated = true;
 	}
 </script>
 
@@ -246,6 +291,22 @@
 				<option value="prep">Prep (pre-session)</option>
 				<option value="recap">Recap (post-session)</option>
 			</select>
+			{#if workflow === 'recap' && canAuthor}
+				<!-- UX-SES-001 AC3 — primary-visible "Create recap notes" CTA while in recap. -->
+				<button
+					type="button"
+					class="button"
+					data-testid="create-recap-notes"
+					onclick={() => void createRecapNotes()}
+				>
+					Create recap notes
+				</button>
+				{#if recapNoteCreated}
+					<span class="meta" role="status" data-testid="recap-notes-created">
+						Recap note created in the vault.
+					</span>
+				{/if}
+			{/if}
 		</div>
 
 		{#if !digest.dmOnly}

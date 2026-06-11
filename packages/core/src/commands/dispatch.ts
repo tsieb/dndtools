@@ -57,6 +57,7 @@ import {
 	handleAdvanceCombatTurn,
 	handleApplyCombatResource,
 	handleEndCombat,
+	handlePreviousCombatTurn,
 	handleStartCombat,
 } from './combat';
 import { handleAppendRollToNote, handleRollDice, handleRollTable } from './dice';
@@ -301,6 +302,8 @@ export function dispatchCommand(
 			return handleStartCombat(state, env, command.actorId, command.payload);
 		case 'combat.advance-turn':
 			return handleAdvanceCombatTurn(state, env, command.actorId, command.payload);
+		case 'combat.previous-turn':
+			return handlePreviousCombatTurn(state, env, command.actorId, command.payload);
 		case 'combat.apply-resource':
 			return handleApplyCombatResource(state, env, command.actorId, command.payload);
 		case 'combat.end':

@@ -155,6 +155,8 @@ export type CoreCommand =
 	// DM-run; resource application also accepts an authorized combat-participant. Active-session gated.
 	| { type: 'combat.start'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'combat.advance-turn'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// UX-SES-006: return to the previous turn (the undo for an accidental advance). DM-only.
+	| { type: 'combat.previous-turn'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'combat.apply-resource'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'combat.end'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// SES-006: build / update a durable encounter (DM-only) — combatant selection, challenge guidance,
@@ -697,6 +699,17 @@ export type CoreEvent =
 	  }
 	| {
 			kind: 'combat.turn-advanced';
+			actorId: ActorId;
+			round: number;
+			turn: number;
+			wrappedRound: boolean;
+			activeCombatantId: string | null;
+			revision: number;
+	  }
+	// UX-SES-006 — the turn was returned to the previous combatant (`wrappedRound` true when the
+	// revert crossed back into the previous round).
+	| {
+			kind: 'combat.turn-reverted';
 			actorId: ActorId;
 			round: number;
 			turn: number;

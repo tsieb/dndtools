@@ -3527,6 +3527,7 @@ export {
 	cloneResources,
 	ensureSessionCombatState,
 	orderInitiative,
+	previousTurn,
 } from './state/combat-tracker';
 
 // SES-002 — THE single actor-filtered combat tracker read model. Hidden combatants are omitted (or
@@ -3539,6 +3540,14 @@ export type {
 	CombatTrackerView,
 } from './queries/combat-tracker-view';
 export { HIDDEN_COMBATANT_NAME, getCombatTrackerForActor } from './queries/combat-tracker-view';
+
+// UX-SES-002 — the session RECOVERY read model: full-restore confirmation vs. the modal partial-
+// restore prompt naming exactly which items could not be restored. DM-gated, fail closed.
+export type {
+	SessionRecoveryPrompt,
+	SessionRecoveryStateView,
+} from './queries/session-recovery';
+export { getSessionRecoveryPrompt } from './queries/session-recovery';
 
 // SES-006 — the DURABLE ENCOUNTER model + the PURE deterministic challenge-guidance calculator
 // (CR/difficulty from combatant selection + party). Consistent with the `encounter` Vault Object

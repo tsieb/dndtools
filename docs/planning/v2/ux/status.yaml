@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 30
+  approved: 29
   active: 0
-  complete: 16
+  complete: 17
   deferred: 0
 metrics:
-  epicCompletionPercent: 34.8
-  requirementCompletionPercent: 34.8
+  epicCompletionPercent: 37
+  requirementCompletionPercent: 37.3
   totalRequirements: 244
-  completedRequirements: 85
+  completedRequirements: 91
   deferredRequirements: 0
-  remainingEpics: 30
-  promptableEpics: 8
-  blockedByDependencies: 22
-  completionEvidenceFiles: 16
+  remainingEpics: 29
+  promptableEpics: 10
+  blockedByDependencies: 19
+  completionEvidenceFiles: 17
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -163,9 +163,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 05 Live-Play Workspaces
       totalEpics: 3
-      complete: 0
+      complete: 1
       active: 0
-      approved: 3
+      approved: 2
       proposed: 0
       deferred: 0
       requirementIds:
@@ -186,8 +186,8 @@ metrics:
         - UX-SES-015
         - UX-SES-016
         - UX-SES-017
-      epicCompletionPercent: 0
-      requirementCompletionPercent: 0
+      epicCompletionPercent: 33.3
+      requirementCompletionPercent: 35.3
     - phase: 06 Core Library Workspaces
       totalEpics: 9
       complete: 0
@@ -391,22 +391,20 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
-  title: Session Lifecycle, Recovery, and Hot-Path Combat Shell
+  id: UX-SESSION-combat-editing-conditions-and-player-tracker
+  title: Combat Editing, Conditions, and Player Tracker
   phase: 05 Live-Play Workspaces
   status: approved
   requirementIds:
-    - UX-SES-001
-    - UX-SES-002
-    - UX-SES-003
-    - UX-SES-004
-    - UX-SES-006
-    - UX-SES-017
+    - UX-SES-005
+    - UX-SES-007
+    - UX-SES-008
+    - UX-SES-016
   promptCommand: pnpm ux-prompt -- --epic
-    UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
+    UX-SESSION-combat-editing-conditions-and-player-tracker
   nextPromptCommand: pnpm ux-prompt -- --next
   statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell --status active
+    UX-SESSION-combat-editing-conditions-and-player-tracker --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -734,7 +732,7 @@ epics:
   - id: UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
     title: Session Lifecycle, Recovery, and Hot-Path Combat Shell
     phase: 05 Live-Play Workspaces
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-SES-001
@@ -752,6 +750,7 @@ epics:
     dependencies:
       - UX-SHELL-route-layout-and-platform-profiles
       - UX-CMD-home-scene-and-role-differentiated-dashboard
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell.completion.md
   - id: UX-SESSION-combat-editing-conditions-and-player-tracker
     title: Combat Editing, Conditions, and Player Tracker
     phase: 05 Live-Play Workspaces

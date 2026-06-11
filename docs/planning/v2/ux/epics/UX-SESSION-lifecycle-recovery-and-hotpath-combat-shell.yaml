@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
 title: Session Lifecycle, Recovery, and Hot-Path Combat Shell
-status: approved
+status: complete
 approved: true
 phase: 05 Live-Play Workspaces
 productPriority: P1
@@ -293,3 +293,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell.completion.md
