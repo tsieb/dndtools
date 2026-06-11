@@ -91,121 +91,121 @@ domains:
         title: Command Center is the application home
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 196
+        line: 198
         epicId: UX-SHELL-route-layout-and-platform-profiles
       - id: UX-NAV-002
         title: Navigation Section registry and canonical ordering
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 240
+        line: 242
         epicId: UX-ARCH-product-architecture-and-ia-reconciliation
       - id: UX-NAV-003
         title: Three-tier navigation hierarchy
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 296
+        line: 308
         epicId: UX-SHELL-route-layout-and-platform-profiles
       - id: UX-NAV-004
         title: Persistent sidebar on Desktop; icon-rail collapse mode
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 347
+        line: 359
         epicId: UX-SHELL-route-layout-and-platform-profiles
       - id: UX-NAV-005
         title: "Tablet navigation: rail (landscape) and tab bar (portrait)"
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 397
+        line: 409
         epicId: UX-SHELL-route-layout-and-platform-profiles
       - id: UX-NAV-006
         title: "Mobile navigation: bottom tab bar and section sheets"
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 438
+        line: 450
         epicId: UX-SHELL-route-layout-and-platform-profiles
       - id: UX-NAV-007
         title: "Breadcrumbs: location-style, second-level and deeper only"
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 482
+        line: 494
         epicId: UX-SHELL-contextual-navigation-history-and-deep-links
       - id: UX-NAV-008
         title: Backlinks as navigation
         priority: Should-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 526
+        line: 538
         epicId: UX-SHELL-contextual-navigation-history-and-deep-links
       - id: UX-NAV-009
         title: Skip-to-content and landmark structure
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 574
+        line: 586
         epicId: UX-SHELL-route-layout-and-platform-profiles
       - id: UX-NAV-010
         title: Single `h1` and stable page title per route
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 615
+        line: 627
         epicId: UX-SHELL-route-layout-and-platform-profiles
       - id: UX-NAV-011
         title: Live route announcement
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 647
+        line: 659
         epicId: UX-SHELL-route-layout-and-platform-profiles
       - id: UX-NAV-012
         title: Hash-anchor focus and scroll restoration
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 684
+        line: 696
         epicId: UX-SHELL-contextual-navigation-history-and-deep-links
       - id: UX-NAV-013
         title: Actor-filtered navigation (DM-only section hiding)
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 727
+        line: 739
         epicId: UX-SHELL-actor-filtered-nav-recents
       - id: UX-NAV-014
         title: "Command palette: global keyboard surface and mobile command menu"
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 769
+        line: 781
         epicId: UX-SHELL-command-surface-and-shortcuts
       - id: UX-NAV-015
         title: Pinned and recent items strip
         priority: Should-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 850
+        line: 862
         epicId: UX-SHELL-actor-filtered-nav-recents
       - id: UX-NAV-016
         title: Deep-link resolution and player-safe unavailable state
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 907
+        line: 919
         epicId: UX-SHELL-contextual-navigation-history-and-deep-links
       - id: UX-NAV-017
         title: Back/forward navigation and browser history contract
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 956
+        line: 968
         epicId: UX-SHELL-contextual-navigation-history-and-deep-links
       - id: UX-NAV-018
         title: Input modality detection and focus-ring policy
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 1002
+        line: 1014
         epicId: UX-SHELL-route-layout-and-platform-profiles
       - id: UX-NAV-019
         title: "Keyboard navigation model: global shortcuts registry"
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 1050
+        line: 1062
         epicId: UX-SHELL-command-surface-and-shortcuts
       - id: UX-NAV-020
         title: Legacy route alias management and redirect transparency
         priority: Must-have
         file: docs/remake-review/ux-requirements/02-navigation-and-platform-profiles.md
-        line: 1110
+        line: 1120
         epicId: UX-SHELL-contextual-navigation-history-and-deep-links
   - domain: UX-A11Y
     count: 18

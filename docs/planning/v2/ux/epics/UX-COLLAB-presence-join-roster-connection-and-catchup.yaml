@@ -32,8 +32,8 @@ dependencies:
 parallelSafety:
   fileOwnership:
     - docs/planning/v2/ux/
-    - apps/v2/app/src/lib/gui/ux-collab/
-    - apps/v2/app/src/routes/
+    - apps/gm/src/lib/gui/ux-collab/
+    - apps/gm/src/routes/
   notes: Parallel execution is safe only with non-overlapping component, route,
     and generated UX workpack ownership; shared shell/component contracts must
     be agreed before implementation.
@@ -202,26 +202,26 @@ gitWorkflow:
   - Do not hand-edit generated files under `docs/planning/v2/ux` for status
     changes; use the UX workpack commands.
   - Do not reset, overwrite, or reformat unrelated user changes.
-  - Before handoff, run targeted tests plus `pnpm v2:ux-workpack:validate` and
+  - Before handoff, run targeted tests plus `pnpm ux-workpack:validate` and
     leave no stale generated UX planning diffs.
 statusAutomation:
   - Do not hand-edit generated UX epic packets, `status.yaml`,
     `requirements-index.yaml`, `initiative-map.yaml`, or `parallel-batches.yaml`
     for status changes.
-  - Use `pnpm v2:ux-workpack:set-status -- --epic
+  - Use `pnpm ux-workpack:set-status -- --epic
     UX-COLLAB-presence-join-roster-connection-and-catchup --status active` when
     implementation starts.
   - Create
     `docs/planning/v2/ux/epics/UX-COLLAB-presence-join-roster-connection-and-catchup.completion.md`
     with demo, tests, traceability, gaps, and git evidence before marking
     complete.
-  - Use `pnpm v2:ux-workpack:complete -- --epic
+  - Use `pnpm ux-workpack:complete -- --epic
     UX-COLLAB-presence-join-roster-connection-and-catchup` to update
     `docs/planning/v2/ux/workpack-state.yaml` and regenerate all derived UX
     planning files together.
-  - Run `pnpm v2:ux-workpack:validate` after any status or generation command.
+  - Run `pnpm ux-workpack:validate` after any status or generation command.
 testPlan:
-  - Run `pnpm v2:ux-workpack:validate` before handoff.
+  - Run `pnpm ux-workpack:validate` before handoff.
   - Run targeted unit tests for stores, query shaping, route metadata, component
     state, and command dispatch touched by this epic.
   - Run app tests or Playwright coverage for visible route, profile, keyboard,

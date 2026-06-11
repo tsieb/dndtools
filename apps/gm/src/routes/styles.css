@@ -1,45 +1,629 @@
+/*
+ * DND Tools v2 — production design-token system (UX-VIS epic).
+ *
+ * Token architecture (UX-VIS-002): raw palette values live ONLY inside the token-definition
+ * layer below (`:root` and the `[data-theme=...]` theme blocks). Component rules further down
+ * consume semantic `var(--…)` tokens exclusively — no bare hex/rgb/hsl colour literals, no
+ * arbitrary radius/spacing values. A full theme swap (UX-VIS-001/003) is therefore a single
+ * `data-theme` attribute change on <html> with zero component edits.
+ *
+ * Layers:
+ *   1. Theme-invariant tokens (typography, spacing, radius, elevation shape, z-index, motion).
+ *   2. Per-theme colour tokens — tavern (default), parchment, dungeon, scholar, high-contrast.
+ *   3. Legacy alias bridge (--bg/--fg/--accent/…) → semantic tokens, so existing component
+ *      rules keep working while resolving per active theme.
+ *   4. Component rules (token-only).
+ */
+
+/* ============================================================================================
+ * 1. THEME-INVARIANT TOKENS
+ * ========================================================================================== */
+
 :root {
-	color-scheme: light dark;
-	--bg: #f7f8f5;
-	--fg: #202124;
-	--accent: #2f6f73;
-	--muted: #5f6670;
-	--card: #ffffff;
-	--border: #cfd5d2;
-	--danger: #b91c1c;
+	color-scheme: dark;
+
+	/* --- Typography (UX-VIS-004) ---------------------------------------------------------- */
+	--font-sans: 'Inter', 'Segoe UI Variable', system-ui, -apple-system, sans-serif;
+	--font-display: 'Cinzel', 'Palatino Linotype', 'Book Antiqua', serif;
+	--font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+
+	--text-2xs: 0.625rem; /* 10px */
+	--text-xs: 0.75rem; /* 12px */
+	--text-sm: 0.8125rem; /* 13px */
+	--text-base: 0.9375rem; /* 15px */
+	--text-md: 1.0625rem; /* 17px */
+	--text-lg: 1.25rem; /* 20px */
+	--text-xl: 1.5rem; /* 24px — switch to --font-display here and above */
+	--text-2xl: 1.875rem; /* 30px */
+	--text-3xl: 2.25rem; /* 36px */
+
+	--font-weight-regular: 400;
+	--font-weight-medium: 500;
+	--font-weight-semibold: 600;
+	--font-weight-bold: 700;
+
+	--leading-tight: 1.2;
+	--leading-snug: 1.35;
+	--leading-body: 1.5;
+	--leading-relaxed: 1.7;
+
+	--tracking-tight: -0.02em;
+	--tracking-normal: 0em;
+	--tracking-wide: 0.05em;
+	--tracking-wider: 0.08em;
+
+	/* --- Spacing scale (UX-VIS-005) — 4px grid, 2px micro half-step ----------------------- */
+	--space-0: 0px;
+	--space-0-5: 0.125rem; /* 2px */
+	--space-1: 0.25rem; /* 4px */
+	--space-1-5: 0.375rem; /* 6px */
+	--space-2: 0.5rem; /* 8px */
+	--space-3: 0.75rem; /* 12px */
+	--space-4: 1rem; /* 16px */
+	--space-5: 1.25rem; /* 20px */
+	--space-6: 1.5rem; /* 24px */
+	--space-8: 2rem; /* 32px */
+	--space-10: 2.5rem; /* 40px */
+	--space-12: 3rem; /* 48px */
+	--space-16: 4rem; /* 64px */
+	--space-20: 5rem; /* 80px */
+	--space-24: 6rem; /* 96px */
+
+	/* Component structural tokens built from the scale (UX-VIS-005). */
+	--component-button-px: var(--space-4);
+	--component-button-py: var(--space-2);
+	--component-button-py-sm: var(--space-1-5);
+	--component-input-px: var(--space-3);
+	--component-input-py: var(--space-2);
+	--component-card-padding: var(--space-4);
+	--component-card-padding-dense: var(--space-3);
+	--component-dialog-padding: var(--space-6);
+	--component-nav-item-px: var(--space-3);
+	--component-nav-item-py: var(--space-1-5);
+	--component-section-gap: var(--space-8);
+	--component-list-gap: var(--space-1);
+	--component-toast-gap: var(--space-2);
+
+	/* --- Border radius (UX-VIS-006) ------------------------------------------------------- */
+	--radius-none: 0px;
+	--radius-sm: 3px; /* inputs, inline elements */
+	--radius-md: 6px; /* cards, panels, buttons, menus */
+	--radius-lg: 12px; /* dialogs, modals */
+	--radius-xl: 20px; /* sheets / drawers */
+	--radius-full: 9999px; /* pills — badges, chips, avatars */
+
+	/* --- Z-index layering (UX-VIS-008) ---------------------------------------------------- */
+	--z-base: 0;
+	--z-raised: 10;
+	--z-dropdown: 100;
+	--z-sticky: 200;
+	--z-overlay: 300;
+	--z-modal: 400;
+	--z-sheet: 500;
+	--z-toast: 600;
+	--z-tooltip: 700;
+	--z-command: 800;
+	--z-titlebar: 900;
+	--z-dm-boundary: 1000; /* DM-only visibility overlay — above all interactive content */
+
+	/* --- Motion tokens (foundational; the resolved-preference state machine is UX-VIS-010) - */
+	--duration-instant: 0ms;
+	--duration-micro: 80ms;
+	--duration-fast: 150ms;
+	--duration-standard: 220ms;
+	--duration-moderate: 300ms;
+	--duration-slow: 400ms;
+	--duration-crawl: 500ms;
+	--easing-linear: linear;
+	--easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+	--easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
+	--easing-accelerate: cubic-bezier(0.4, 0, 1, 1);
+	--easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+	--easing-snap: cubic-bezier(0.6, 0, 0.4, 1);
+
+	/* --- Elevation shadow shape (UX-VIS-007) — dark default; light themes override --------- */
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+	--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+
+	/* --- Iconography (UX-VIS-009) — Lucide at four+1 named sizes; 2px stroke; currentColor ---
+	 * The shared Icon component (src/lib/gui/Icon.svelte + icons.ts registry) is the single icon
+	 * source: every surface draws from one Lucide family at one stroke weight (no "icon soup").
+	 * Icons inherit currentColor; status icons override with a --color-status-* token AND keep a
+	 * redundant shape/label cue (A11Y-011). Icon-only buttons require an accessible name. */
+	--icon-size-micro: 16px; /* inline text icons, badge indicators */
+	--icon-size-sm: 20px; /* dense toolbar, compact nav */
+	--icon-size-md: 24px; /* default — most UI contexts */
+	--icon-size-lg: 32px; /* empty states, feature callouts */
+	--icon-size-xl: 48px; /* onboarding illustrations, hero contexts */
+	--icon-stroke-width: 2; /* Lucide default — never 1px (thin) or 3px (heavy) */
+
+	/* --- Density (UX-VIS-011) — profile-linked sizing. `data-density` on <html> switches the set.
+	 * Default (no attribute) = `standard` (Desktop). The density store maps the resolved platform
+	 * viewport class to a mode: compact/medium viewports (Mobile/Tablet) lock to `comfortable`
+	 * (>=44px touch targets); expanded (Desktop) defaults to `standard` and is user-overridable to
+	 * `compact` or `comfortable`. The boot script in app.html sets the attribute before first paint. */
+	--density-card-padding-compact: var(--space-3); /* 12px — referenced by the compact block */
+	--density-touch-target: 2rem; /* 32px visual (Desktop standard; WCAG 2.5.8 AA w/ spacing) */
+	--density-focus-target: 2.75rem; /* 44px focus-ring hit extent at standard */
+	--density-nav-height: 2.25rem; /* 36px */
+	--density-card-padding: var(--space-4); /* 16px */
+	--density-list-gap: var(--space-1); /* 4px */
+	--density-icon-size: var(--icon-size-md); /* 24px */
+	--density-input-height: 2.25rem; /* 36px */
+	--density-button-height: 2.25rem; /* 36px */
+	--density-font-size: var(--text-base); /* 15px */
+
+	/* --- Focus ring (UX-A11Y-009 §focus visible; WCAG 2.4.7 / 2.4.13) ---------------------- */
+	/* 2px ring + 2px offset. The ring colour aliases the interactive focus token, whose >=3:1
+	 * contrast vs every adjacent surface (and the focused-vs-unfocused delta) is enforced by
+	 * `pnpm a11y:contrast`. One token set drives the global :focus-visible baseline below AND every
+	 * component focus rule, so no surface re-invents (or drops) the ring (AP-10). */
+	--focus-ring-width: 2px;
+	--focus-ring-offset: 2px;
+	--focus-ring-color: var(--color-interactive-focus-ring);
+
+	/* --- Touch / pointer targets (UX-A11Y-010 §size minimums; WCAG 2.5.8) ------------------ */
+	/* 24px is the hard floor on every profile; 44px is the recommended touch target. Native toggles
+	 * size to the floor (resolving the inherited /session target-size finding); icon buttons and the
+	 * wrapping label provide the 44px touch extent via the density tokens. */
+	--touch-target-min: 2.75rem; /* 44px — Tablet/Mobile recommended touch target */
+	--touch-target-floor: 1.5rem; /* 24px — WCAG 2.5.8 hard minimum, all profiles */
+
+	/* --- Colour tokens — TAVERN (dark warm) is the default theme (UX-VIS-001/002) ---------- */
+	--color-bg: #111418;
+	--color-surface: #1c2128;
+	--color-surface-raised: #252c35;
+	--color-surface-overlay: #2e3744;
+	--color-surface-sunken: #0d1117;
+	--color-surface-alt: #1a2030;
+
+	--color-border: #2d3748;
+	--color-border-strong: #4a5568;
+	--color-border-focus: #d4a76a;
+
+	--color-text-primary: #e8ddd0;
+	--color-text-secondary: #a89888;
+	--color-text-tertiary: #6b7280;
+	--color-text-inverse: #111418;
+	--color-text-link: #d4a76a;
+	--color-text-link-visited: #c09850;
+
+	--color-accent: #d4a76a;
+	--color-accent-hover: #e0be85;
+	--color-accent-active: #c09050;
+	--color-accent-subtle: #2a2218;
+	--color-accent-foreground: #111418;
+	--color-accent-border: #7a5c32;
+
+	--color-status-success: #22c55e;
+	--color-status-success-text: #86efac;
+	--color-status-success-subtle: #0d2818;
+	--color-status-warning: #f59e0b;
+	--color-status-warning-text: #fcd34d;
+	--color-status-warning-subtle: #261c06;
+	--color-status-error: #ef4444;
+	--color-status-error-text: #fca5a5;
+	--color-status-error-subtle: #2a0d0d;
+	--color-status-info: #38bdf8;
+	--color-status-info-text: #7dd3fc;
+	--color-status-info-subtle: #061a2a;
+
+	--color-dm-only-badge: #9333ea;
+	--color-dm-only-subtle: #1a0d2e;
+	--color-hidden-content-stripe: rgba(147, 51, 234, 0.12);
+
+	--color-interactive-hover: rgba(212, 167, 106, 0.08);
+	--color-interactive-selected: rgba(212, 167, 106, 0.15);
+	--color-interactive-focus-ring: #d4a76a;
+	--color-interactive-disabled: rgba(232, 221, 208, 0.32);
+	--color-interactive-disabled-bg: rgba(44, 52, 66, 0.4);
+
+	--color-backdrop: rgba(0, 0, 0, 0.6); /* modal / sheet scrim */
 }
 
-@media (prefers-color-scheme: dark) {
-	:root {
-		--bg: #171918;
-		--fg: #f2f5f0;
-		--accent: #70c5ba;
-		--muted: #aeb8b1;
-		--card: #222826;
-		--border: #3d4945;
+/* ============================================================================================
+ * 2. PER-THEME COLOUR TOKENS (UX-VIS-003 — every theme defines every token)
+ * ========================================================================================== */
+
+/* tavern re-asserts the dark-warm default so switching back from another theme is one attr swap. */
+[data-theme='tavern'] {
+	color-scheme: dark;
+
+	--color-bg: #111418;
+	--color-surface: #1c2128;
+	--color-surface-raised: #252c35;
+	--color-surface-overlay: #2e3744;
+	--color-surface-sunken: #0d1117;
+	--color-surface-alt: #1a2030;
+	--color-border: #2d3748;
+	--color-border-strong: #4a5568;
+	--color-border-focus: #d4a76a;
+	--color-text-primary: #e8ddd0;
+	--color-text-secondary: #a89888;
+	--color-text-tertiary: #6b7280;
+	--color-text-inverse: #111418;
+	--color-text-link: #d4a76a;
+	--color-text-link-visited: #c09850;
+	--color-accent: #d4a76a;
+	--color-accent-hover: #e0be85;
+	--color-accent-active: #c09050;
+	--color-accent-subtle: #2a2218;
+	--color-accent-foreground: #111418;
+	--color-accent-border: #7a5c32;
+	--color-status-success: #22c55e;
+	--color-status-success-text: #86efac;
+	--color-status-success-subtle: #0d2818;
+	--color-status-warning: #f59e0b;
+	--color-status-warning-text: #fcd34d;
+	--color-status-warning-subtle: #261c06;
+	--color-status-error: #ef4444;
+	--color-status-error-text: #fca5a5;
+	--color-status-error-subtle: #2a0d0d;
+	--color-status-info: #38bdf8;
+	--color-status-info-text: #7dd3fc;
+	--color-status-info-subtle: #061a2a;
+	--color-dm-only-badge: #9333ea;
+	--color-dm-only-subtle: #1a0d2e;
+	--color-hidden-content-stripe: rgba(147, 51, 234, 0.12);
+	--color-interactive-hover: rgba(212, 167, 106, 0.08);
+	--color-interactive-selected: rgba(212, 167, 106, 0.15);
+	--color-interactive-focus-ring: #d4a76a;
+	--color-interactive-disabled: rgba(232, 221, 208, 0.32);
+	--color-interactive-disabled-bg: rgba(44, 52, 66, 0.4);
+	--color-backdrop: rgba(0, 0, 0, 0.6);
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+	--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+}
+
+/* parchment — light warm (aged parchment, deep ink) */
+[data-theme='parchment'] {
+	color-scheme: light;
+
+	--color-bg: #faf6f0;
+	--color-surface: #ffffff;
+	--color-surface-raised: #f5f0e8;
+	--color-surface-overlay: #fffdf9;
+	--color-surface-sunken: #f0ebe3;
+	--color-surface-alt: #f3ede4;
+	--color-border: #d9cdbb;
+	--color-border-strong: #b08f6a;
+	--color-border-focus: #7c3d12;
+	--color-text-primary: #1a0f0a;
+	--color-text-secondary: #5f4f43;
+	--color-text-tertiary: #877565;
+	--color-text-inverse: #ffffff;
+	--color-text-link: #7c3d12;
+	--color-text-link-visited: #5c2d0e;
+	--color-accent: #7c3d12;
+	--color-accent-hover: #95501f;
+	--color-accent-active: #5f2d0d;
+	--color-accent-subtle: #f3e6d8;
+	--color-accent-foreground: #ffffff;
+	--color-accent-border: #c9a07a;
+	--color-status-success: #15803d;
+	--color-status-success-text: #146331;
+	--color-status-success-subtle: #e6f4ea;
+	--color-status-warning: #92400e;
+	--color-status-warning-text: #823909;
+	--color-status-warning-subtle: #f7ecd9;
+	--color-status-error: #b91c1c;
+	--color-status-error-text: #a81818;
+	--color-status-error-subtle: #fbe7e7;
+	--color-status-info: #0369a1;
+	--color-status-info-text: #045f90;
+	--color-status-info-subtle: #e2eef6;
+	--color-dm-only-badge: #7e22ce;
+	--color-dm-only-subtle: #f1e6fb;
+	--color-hidden-content-stripe: rgba(126, 34, 206, 0.12);
+	--color-interactive-hover: rgba(124, 61, 18, 0.06);
+	--color-interactive-selected: rgba(124, 61, 18, 0.12);
+	--color-interactive-focus-ring: #7c3d12;
+	--color-interactive-disabled: rgba(26, 15, 10, 0.38);
+	--color-interactive-disabled-bg: rgba(217, 205, 187, 0.5);
+	--color-backdrop: rgba(26, 15, 10, 0.4);
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+	--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.14), 0 4px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* dungeon — dark cool (navy-black, cyan accent) */
+[data-theme='dungeon'] {
+	color-scheme: dark;
+
+	--color-bg: #05080d;
+	--color-surface: #0b1118;
+	--color-surface-raised: #111b25;
+	--color-surface-overlay: #12202e;
+	--color-surface-sunken: #020508;
+	--color-surface-alt: #0e1622;
+	--color-border: #1e2d3d;
+	--color-border-strong: #3a4f63;
+	--color-border-focus: #00d2ff;
+	--color-text-primary: #f0f6ff;
+	--color-text-secondary: #8ab4d8;
+	--color-text-tertiary: #5a6b7d;
+	--color-text-inverse: #05080d;
+	--color-text-link: #00d2ff;
+	--color-text-link-visited: #6fcfe6;
+	--color-accent: #00d2ff;
+	--color-accent-hover: #5ce0ff;
+	--color-accent-active: #00a8cc;
+	--color-accent-subtle: #04222b;
+	--color-accent-foreground: #001018;
+	--color-accent-border: #1a6b80;
+	--color-status-success: #22c55e;
+	--color-status-success-text: #86efac;
+	--color-status-success-subtle: #06210f;
+	--color-status-warning: #f59e0b;
+	--color-status-warning-text: #fcd34d;
+	--color-status-warning-subtle: #221806;
+	--color-status-error: #ef4444;
+	--color-status-error-text: #fca5a5;
+	--color-status-error-subtle: #240a0a;
+	--color-status-info: #38bdf8;
+	--color-status-info-text: #7dd3fc;
+	--color-status-info-subtle: #04161f;
+	--color-dm-only-badge: #a855f7;
+	--color-dm-only-subtle: #1a0d2e;
+	--color-hidden-content-stripe: rgba(168, 85, 247, 0.12);
+	--color-interactive-hover: rgba(0, 210, 255, 0.08);
+	--color-interactive-selected: rgba(0, 210, 255, 0.15);
+	--color-interactive-focus-ring: #00d2ff;
+	--color-interactive-disabled: rgba(240, 246, 255, 0.32);
+	--color-interactive-disabled-bg: rgba(30, 45, 61, 0.4);
+	--color-backdrop: rgba(0, 0, 0, 0.65);
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+	--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+/* scholar — light cool (clean white, deep navy accent) */
+[data-theme='scholar'] {
+	color-scheme: light;
+
+	--color-bg: #f7fafc;
+	--color-surface: #ffffff;
+	--color-surface-raised: #edf2f7;
+	--color-surface-overlay: #ffffff;
+	--color-surface-sunken: #e8eef4;
+	--color-surface-alt: #eef3f8;
+	--color-border: #cbd5e1;
+	--color-border-strong: #8092a8;
+	--color-border-focus: #1e3a8a;
+	--color-text-primary: #0f172a;
+	--color-text-secondary: #334155;
+	--color-text-tertiary: #5e6b7d;
+	--color-text-inverse: #ffffff;
+	--color-text-link: #1e3a8a;
+	--color-text-link-visited: #172a63;
+	--color-accent: #1e3a8a;
+	--color-accent-hover: #2949a8;
+	--color-accent-active: #162c6b;
+	--color-accent-subtle: #e6ebf5;
+	--color-accent-foreground: #ffffff;
+	--color-accent-border: #93a3c9;
+	--color-status-success: #15803d;
+	--color-status-success-text: #146331;
+	--color-status-success-subtle: #e6f4ea;
+	--color-status-warning: #92400e;
+	--color-status-warning-text: #823909;
+	--color-status-warning-subtle: #f7ecd9;
+	--color-status-error: #b91c1c;
+	--color-status-error-text: #a81818;
+	--color-status-error-subtle: #fbe7e7;
+	--color-status-info: #0369a1;
+	--color-status-info-text: #045f90;
+	--color-status-info-subtle: #e2eef6;
+	--color-dm-only-badge: #7e22ce;
+	--color-dm-only-subtle: #f1e6fb;
+	--color-hidden-content-stripe: rgba(126, 34, 206, 0.12);
+	--color-interactive-hover: rgba(30, 58, 138, 0.06);
+	--color-interactive-selected: rgba(30, 58, 138, 0.12);
+	--color-interactive-focus-ring: #1e3a8a;
+	--color-interactive-disabled: rgba(15, 23, 42, 0.38);
+	--color-interactive-disabled-bg: rgba(203, 213, 225, 0.5);
+	--color-backdrop: rgba(15, 23, 42, 0.4);
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+	--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.14), 0 4px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* high-contrast — AAA black/white, forced-colors compatible */
+[data-theme='high-contrast'] {
+	color-scheme: dark;
+
+	--color-bg: #000000;
+	--color-surface: #000000;
+	--color-surface-raised: #111111;
+	--color-surface-overlay: #000000;
+	--color-surface-sunken: #000000;
+	--color-surface-alt: #0a0a0a;
+	--color-border: #ffffff;
+	--color-border-strong: #ffffff;
+	--color-border-focus: #ffff00;
+	--color-text-primary: #ffffff;
+	--color-text-secondary: #e0e0e0;
+	--color-text-tertiary: #c0c0c0;
+	--color-text-inverse: #000000;
+	--color-text-link: #00ffff;
+	--color-text-link-visited: #ff80ff;
+	--color-accent: #00ffff;
+	--color-accent-hover: #80ffff;
+	--color-accent-active: #00cccc;
+	--color-accent-subtle: #001a1a;
+	--color-accent-foreground: #000000;
+	--color-accent-border: #00ffff;
+	--color-status-success: #7dff7d;
+	--color-status-success-text: #7dff7d;
+	--color-status-success-subtle: #001a00;
+	--color-status-warning: #ffd966;
+	--color-status-warning-text: #ffd966;
+	--color-status-warning-subtle: #1a1400;
+	--color-status-error: #ff8080;
+	--color-status-error-text: #ff8080;
+	--color-status-error-subtle: #1a0000;
+	--color-status-info: #80d8ff;
+	--color-status-info-text: #80d8ff;
+	--color-status-info-subtle: #001a2a;
+	--color-dm-only-badge: #ff80ff;
+	--color-dm-only-subtle: #1a001a;
+	--color-hidden-content-stripe: rgba(255, 128, 255, 0.2);
+	--color-interactive-hover: rgba(255, 255, 255, 0.15);
+	--color-interactive-selected: rgba(0, 255, 255, 0.25);
+	--color-interactive-focus-ring: #ffff00;
+	--color-interactive-disabled: rgba(255, 255, 255, 0.4);
+	--color-interactive-disabled-bg: rgba(255, 255, 255, 0.1);
+	--color-backdrop: rgba(0, 0, 0, 0.8);
+	--shadow-sm: 0 0 0 1px #ffffff;
+	--shadow-md: 0 0 0 1px #ffffff;
+	--shadow-lg: 0 0 0 2px #ffffff;
+}
+
+/*
+ * Forced-colors (Windows High Contrast) — UX-VIS-001 AC3 / UX-VIS-003 AC2. Author colours are
+ * already overridden by the UA; we map our semantic tokens to system colour keywords so nothing
+ * relies on a surviving hard-coded value, regardless of the active theme.
+ */
+@media (forced-colors: active) {
+	:root,
+	[data-theme] {
+		--color-bg: Canvas;
+		--color-surface: Canvas;
+		--color-surface-raised: Canvas;
+		--color-surface-overlay: Canvas;
+		--color-surface-sunken: Canvas;
+		--color-surface-alt: Canvas;
+		--color-border: CanvasText;
+		--color-border-strong: CanvasText;
+		--color-border-focus: Highlight;
+		--color-text-primary: CanvasText;
+		--color-text-secondary: CanvasText;
+		--color-text-tertiary: GrayText;
+		--color-text-inverse: Canvas;
+		--color-text-link: LinkText;
+		--color-text-link-visited: VisitedText;
+		--color-accent: Highlight;
+		--color-accent-hover: Highlight;
+		--color-accent-active: Highlight;
+		--color-accent-subtle: Canvas;
+		--color-accent-foreground: HighlightText;
+		--color-accent-border: CanvasText;
+		--color-status-success: CanvasText;
+		--color-status-success-text: CanvasText;
+		--color-status-success-subtle: Canvas;
+		--color-status-warning: CanvasText;
+		--color-status-warning-text: CanvasText;
+		--color-status-warning-subtle: Canvas;
+		--color-status-error: CanvasText;
+		--color-status-error-text: CanvasText;
+		--color-status-error-subtle: Canvas;
+		--color-status-info: CanvasText;
+		--color-status-info-text: CanvasText;
+		--color-status-info-subtle: Canvas;
+		--color-dm-only-badge: Highlight;
+		--color-dm-only-subtle: Canvas;
+		--color-interactive-hover: Canvas;
+		--color-interactive-selected: Highlight;
+		--color-interactive-focus-ring: Highlight;
+		--color-interactive-disabled: GrayText;
+		--color-interactive-disabled-bg: Canvas;
 	}
 }
 
-/* A11Y-011 AC1: enhanced contrast tokens for users who prefer higher contrast.
-   Boosts accent, muted text, border, and danger to meet WCAG AA 4.5:1 against their backgrounds.
-   Applies on top of the light tokens (or dark tokens when both media queries match). */
-@media (prefers-contrast: more) {
-	:root {
-		--accent: #0e4d50;
-		--muted: #2e3338;
-		--border: #4b5563;
-		--danger: #7f0000;
+/* ============================================================================================
+ * 2b. MOTION PREFERENCE CONTRACT (UX-VIS-010 / A11Y-005)
+ *
+ * A single resolved motion preference drives whether animations play. The motion store
+ * (src/lib/platform/motion.svelte.ts) resolves the preference with this precedence —
+ *   user-explicit-off > OS-reduce > user-explicit-on > OS-no-preference
+ * — and writes `data-motion="full"|"reduced"` to <html>; the app.html boot script sets it before
+ * first paint. CSS then zeroes every duration token under reduced/none, so NO component needs its
+ * own `prefers-reduced-motion` media query (the contract lives in one place). Easing curves are
+ * unchanged — only durations collapse to 0ms, turning transitions into instant state changes.
+ * `--easing-spring` stays reserved for dice-result / celebration surfaces, never standard UI.
+ * ========================================================================================== */
+
+[data-motion='reduced'],
+[data-motion='none'] {
+	--duration-micro: 0ms;
+	--duration-fast: 0ms;
+	--duration-standard: 0ms;
+	--duration-moderate: 0ms;
+	--duration-slow: 0ms;
+	--duration-crawl: 0ms;
+}
+
+/* Pre-resolution fallback: until the boot script / store writes `data-motion`, honor the OS reduce
+ * signal so the very first paint is safe. Scoped to :not([data-motion]) so once the resolved
+ * preference is written it wins — keeping an explicit user choice (incl. user-on) authoritative. */
+@media (prefers-reduced-motion: reduce) {
+	:root:not([data-motion]) {
+		--duration-micro: 0ms;
+		--duration-fast: 0ms;
+		--duration-standard: 0ms;
+		--duration-moderate: 0ms;
+		--duration-slow: 0ms;
+		--duration-crawl: 0ms;
 	}
 }
 
-@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
-	:root {
-		--accent: #b2ede6;
-		--muted: #e2e8e4;
-		--border: #c4cdc7;
-		--danger: #fca5a5;
-	}
+/* ============================================================================================
+ * 2c. DENSITY MODES (UX-VIS-011) — `data-density` on <html> selects the active sizing set.
+ *
+ * Default (no attribute) is `standard` (Desktop), defined in the :root token block above. The
+ * density store maps the resolved platform viewport class to the mode; Mobile/Tablet lock to
+ * `comfortable` (>=44px targets), Desktop defaults to `standard` and is user-overridable.
+ * ========================================================================================== */
+
+[data-density='comfortable'] {
+	--density-touch-target: 2.75rem; /* 44px — Apple HIG / WCAG 2.5.8 Enhanced touch target */
+	--density-focus-target: 2.75rem; /* 44px */
+	--density-nav-height: 3rem; /* 48px */
+	--density-card-padding: var(--space-4); /* 16px */
+	--density-list-gap: var(--space-2); /* 8px */
+	--density-icon-size: var(--icon-size-md); /* 24px */
+	--density-input-height: 2.75rem; /* 44px */
+	--density-button-height: 2.75rem; /* 44px */
+	--density-font-size: var(--text-base); /* 15px */
 }
+
+[data-density='compact'] {
+	--density-touch-target: 1.75rem; /* 28px visual */
+	--density-focus-target: 2.5rem; /* 40px — focus ring extends past the 28px visual target */
+	--density-nav-height: 1.75rem; /* 28px */
+	--density-card-padding: var(--density-card-padding-compact); /* 12px */
+	--density-list-gap: var(--space-0-5); /* 2px */
+	--density-icon-size: var(--icon-size-sm); /* 20px */
+	--density-input-height: 1.75rem; /* 28px */
+	--density-button-height: 1.75rem; /* 28px */
+	--density-font-size: var(--text-sm); /* 13px */
+}
+
+/* ============================================================================================
+ * 3. LEGACY ALIAS BRIDGE — map the prototype's short token names onto the semantic layer so the
+ *    component rules below resolve per active theme without per-surface colour logic.
+ * ========================================================================================== */
+
+:root {
+	--bg: var(--color-bg);
+	--fg: var(--color-text-primary);
+	--accent: var(--color-accent);
+	--muted: var(--color-text-secondary);
+	--card: var(--color-surface);
+	--border: var(--color-border);
+	--danger: var(--color-status-error);
+	--surface-subtle: var(--color-surface-alt);
+}
+
+/* ============================================================================================
+ * 4. COMPONENT RULES (token-only — no bare colour/radius literals; spacing via the scale)
+ *
+ * Brand mood (UX-VIS-013): warm-dark default palette, single warm-gold accent, a subtle radial
+ * body gradient (the only decorative surface), Cinzel display serif reserved for page headings,
+ * Inter for all UI text, no textures on contrast-bearing components.
+ * ========================================================================================== */
 
 * {
 	box-sizing: border-box;
@@ -47,69 +631,543 @@
 
 body {
 	margin: 0;
-	font-family:
-		system-ui,
-		-apple-system,
-		'Segoe UI',
-		sans-serif;
-	background: var(--bg);
-	color: var(--fg);
+	font-family: var(--font-sans);
+	font-size: var(--text-base);
+	line-height: var(--leading-body);
+	color: var(--color-text-primary);
+	background-color: var(--color-bg);
+	/* Brand mood: a single subtle warm glow on the page root only (UX-VIS-013). */
+	background-image: radial-gradient(
+		1200px 600px at 50% -200px,
+		var(--color-accent-subtle),
+		transparent 70%
+	);
+	background-attachment: fixed;
+	-webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================================
+ * UX-SHELL — application shell: route layout + platform profiles
+ * (UX-NAV-001/003/004/005/006/009/018). The shell is one DOM rendered through a
+ * profile-appropriate layout: a left nav column (Desktop sidebar / Tablet landscape rail)
+ * or a bottom tab bar (Mobile / Tablet portrait). Layout is driven by `data-viewport` +
+ * `data-orientation` on `.app-shell`; the nav surface by `data-surface` on `.global-nav`.
+ * ============================================================================ */
+
+.app-shell {
+	min-height: 100vh;
+}
+
+/* --- Left-nav layout: Desktop sidebar (expanded) and Tablet landscape rail (medium+landscape) --- */
+.app-shell[data-viewport='expanded'],
+.app-shell[data-viewport='medium'][data-orientation='landscape'] {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	grid-template-rows: auto auto auto 1fr;
+	grid-template-areas:
+		'nav header'
+		'nav subheader'
+		'nav announcer'
+		'nav main';
+}
+
+.app-shell[data-viewport='expanded'] > .app-header,
+.app-shell[data-viewport='medium'][data-orientation='landscape'] > .app-header {
+	grid-area: header;
+}
+.app-shell[data-viewport='expanded'] > .global-nav,
+.app-shell[data-viewport='medium'][data-orientation='landscape'] > .global-nav {
+	grid-area: nav;
+}
+.app-shell[data-viewport='expanded'] > .nav-subheader,
+.app-shell[data-viewport='medium'][data-orientation='landscape'] > .nav-subheader {
+	grid-area: subheader;
+}
+.app-shell[data-viewport='expanded'] > .app-main,
+.app-shell[data-viewport='medium'][data-orientation='landscape'] > .app-main {
+	grid-area: main;
+}
+
+/* --- Bottom-tab-bar layout: Mobile (compact) and Tablet portrait (medium+portrait) ---
+ * A full-height flex column: header (+ optional subheader) on top, the content area scrolls
+ * internally, and the bottom tab bar sits in normal flow as the last row — always visible and
+ * never overlapping content. Keeping the bar in flow (rather than position:fixed) avoids the
+ * mobile visual-viewport vs layout-viewport mismatch that lets taps fall through a fixed bar. */
+.app-shell[data-viewport='compact'],
+.app-shell[data-viewport='medium'][data-orientation='portrait'] {
+	display: flex;
+	flex-direction: column;
+	height: 100dvh;
+}
+.app-shell[data-viewport='compact'] > .global-nav,
+.app-shell[data-viewport='medium'][data-orientation='portrait'] > .global-nav {
+	order: 99; /* render the tab bar at the bottom of the column */
+	flex: 0 0 auto;
+}
+/* The content area is the single internal scroll region above the tab bar. */
+.app-shell[data-viewport='compact'] > .app-main,
+.app-shell[data-viewport='medium'][data-orientation='portrait'] > .app-main {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
 }
 
 .app-header {
-	padding: 1rem 2rem 0.5rem;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--space-1) var(--space-4);
+	padding: var(--space-4) var(--space-8) var(--space-2);
 	border-bottom: 1px solid var(--border);
 }
 
 .app-header .brand {
 	display: inline-block;
-	margin: 0 0 0.25rem;
-	font-size: 1.25rem;
-	font-weight: 700;
+	margin: 0;
+	font-size: var(--text-lg);
+	font-weight: var(--font-weight-bold);
 	color: inherit;
 	text-decoration: none;
 }
 
 .app-main .route-title {
-	margin: 0 0 1rem;
-	font-size: 1.5rem;
+	margin: 0 0 var(--space-4);
+	font-family: var(--font-display);
+	font-size: var(--text-xl);
+	font-weight: var(--font-weight-semibold);
+	letter-spacing: var(--tracking-tight);
+	line-height: var(--leading-tight);
 }
 
 .app-header .tagline {
-	margin: 0 0 0.5rem;
+	margin: 0;
 	color: var(--muted);
-	font-size: 0.875rem;
+	font-size: var(--text-sm);
 }
 
-.app-header nav {
+/* The top bar hosts only cross-route affordances (UX-NAV-009): palette, view-as, help. */
+.top-bar-controls {
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
-	gap: 0.5rem 1rem;
+	gap: var(--space-2) var(--space-4);
+	margin-left: auto;
 }
 
-.app-header nav a {
+.top-bar-controls a {
 	color: var(--accent);
 	text-decoration: none;
 }
 
-.app-header nav .view-as {
-	margin-left: auto;
-}
-
-.app-header nav .view-as select {
+.view-as select {
 	background: var(--bg);
 	color: inherit;
 	border: 1px solid var(--border);
-	border-radius: 0.4rem;
-	padding: 0.2rem 0.4rem;
-	font-size: 0.85rem;
+	border-radius: var(--radius-sm);
+	padding: var(--space-1) var(--space-1-5);
+	font-size: var(--text-sm);
+}
+
+/* ---------------------------------------------------------------------------
+ * UX-NAV-009 — skip-to-main-content link: first focusable element, visually hidden
+ * until focused, then a 44×44 target pinned top-left above all chrome.
+ * --------------------------------------------------------------------------- */
+.skip-link {
+	position: fixed;
+	top: var(--space-2);
+	left: var(--space-2);
+	z-index: var(--z-titlebar);
+	display: inline-flex;
+	align-items: center;
+	min-height: var(--density-focus-target);
+	padding: var(--space-2) var(--space-4);
+	background: var(--color-surface-overlay);
+	color: var(--color-text-primary, var(--fg));
+	border: 2px solid var(--color-accent);
+	border-radius: var(--radius-md);
+	font-weight: var(--font-weight-semibold);
+	text-decoration: none;
+	transform: translateY(-150%);
+	opacity: 0;
+	pointer-events: none;
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+	transform: translateY(0);
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* ---------------------------------------------------------------------------
+ * UX-NAV-004/005/006 — global navigation surface (sidebar / rail / tab bar).
+ * --------------------------------------------------------------------------- */
+.global-nav {
+	background: var(--color-surface-raised, var(--card));
+	border-color: var(--border);
+}
+
+.global-nav-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+}
+
+.global-nav-item {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	width: 100%;
+	box-sizing: border-box;
+	padding: var(--space-2) var(--space-4);
+	color: var(--color-text-secondary, var(--muted));
+	text-decoration: none;
+	background: transparent;
+	border: 0;
+	border-left: 3px solid transparent;
+	font: inherit;
+	cursor: pointer;
+}
+
+.global-nav-item:hover {
+	background: var(--color-surface-overlay, var(--bg));
+	color: var(--fg);
+}
+
+.global-nav-item[data-active='true'] {
+	color: var(--fg);
+	font-weight: var(--font-weight-semibold);
+	border-left-color: var(--color-accent);
+	background: var(--color-accent-subtle);
+}
+
+.global-nav-icon {
+	display: inline-flex;
+	flex: 0 0 auto;
+}
+
+.global-nav-label {
+	flex: 1 1 auto;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.global-nav-kbd {
+	flex: 0 0 auto;
+	font-size: var(--text-xs);
+	color: var(--muted);
+	background: var(--color-surface-sunken, transparent);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	padding: 0 var(--space-1);
+}
+
+.global-nav-collapse {
+	margin-top: auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	margin: auto var(--space-2) var(--space-2);
+	background: transparent;
+	color: var(--muted);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+}
+.global-nav-collapse-icon {
+	transition: transform var(--duration-fast, 150ms) var(--ease-out, ease-out);
+}
+.global-nav-collapse-icon.is-expanded {
+	transform: rotate(180deg);
+}
+
+/* Settings (last item) is divider-separated and pushed to the bottom in the sidebar/rail. */
+.global-nav[data-surface='sidebar'] .nav-item-last,
+.global-nav[data-surface='rail'] .nav-item-last {
+	margin-top: auto;
+	border-top: 1px solid var(--border);
+	padding-top: var(--space-2);
+}
+
+/* --- Sidebar (Desktop, expanded) --- */
+.global-nav[data-surface='sidebar'] {
+	position: sticky;
+	top: 0;
+	align-self: start;
+	height: 100vh;
+	width: 14rem; /* 224px expanded */
+	display: flex;
+	flex-direction: column;
+	border-right: 1px solid var(--border);
+	padding-top: var(--space-2);
+	overflow-y: auto;
+}
+.global-nav[data-surface='sidebar'] .global-nav-list {
+	flex-direction: column;
+	flex: 1 1 auto;
+}
+.app-shell[data-nav-collapsed='true'] .global-nav[data-surface='sidebar'] {
+	width: 3.5rem; /* 56px icon-rail */
+}
+
+/* --- Rail (Tablet landscape) --- */
+.global-nav[data-surface='rail'] {
+	position: sticky;
+	top: 0;
+	align-self: start;
+	height: 100vh;
+	width: 4.5rem; /* 72px */
+	display: flex;
+	flex-direction: column;
+	border-right: 1px solid var(--border);
+	padding-top: var(--space-2);
+	overflow-y: auto;
+}
+.global-nav[data-surface='rail'] .global-nav-list {
+	flex-direction: column;
+	flex: 1 1 auto;
+}
+
+/* Icon-only states (collapsed sidebar + rail): centre the glyph, hide the visible label and kbd,
+   keep the 44px target. The accessible name still comes from the visually-hidden full title. */
+.global-nav[data-icon-only='true'] .global-nav-item {
+	justify-content: center;
+	gap: 0;
+	padding: var(--space-2);
+}
+.global-nav[data-icon-only='true'] .global-nav-label,
+.global-nav[data-icon-only='true'] .global-nav-kbd {
+	display: none;
+}
+.global-nav[data-surface='rail'] .global-nav-item {
+	min-height: var(--density-focus-target);
+}
+
+/* --- Bottom tab bar (Mobile + Tablet portrait) --- */
+.global-nav[data-surface='tabbar'] {
+	border-top: 1px solid var(--border);
+	/* Keep the bar clear of the device home indicator (UX-NAV-006). calc() wrapper keeps the
+	   declaration token-lint-compatible; no inner spaces so it parses as one value. */
+	padding-bottom: calc(env(safe-area-inset-bottom,0px));
+	box-shadow: var(--shadow-lg);
+}
+.global-nav[data-surface='tabbar'] .global-nav-list {
+	flex-direction: row;
+	justify-content: space-around;
+}
+.global-nav[data-surface='tabbar'] .global-nav-item {
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-0-5);
+	width: auto;
+	flex: 1 1 0;
+	min-width: var(--density-focus-target);
+	min-height: var(--density-focus-target);
+	border-left: 0;
+	border-top: 3px solid transparent;
+	padding: var(--space-1) var(--space-1);
+	font-size: var(--text-xs);
+}
+.global-nav[data-surface='tabbar'] .global-nav-item[data-active='true'] {
+	border-left-color: transparent;
+	border-top-color: var(--color-accent);
+}
+.global-nav[data-surface='tabbar'] .nav-item-last {
+	margin-top: 0;
+	border-top: 3px solid transparent;
+	padding-top: var(--space-1);
+}
+
+/* The "More" overflow sheet list (UX-NAV-005/006). */
+.global-nav-sheet-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: var(--space-1);
+}
+.global-nav-sheet-item {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	min-height: var(--density-focus-target);
+	padding: var(--space-2) var(--space-3);
+	color: inherit;
+	text-decoration: none;
+	border-radius: var(--radius-sm);
+}
+.global-nav-sheet-item:hover {
+	background: var(--color-surface-overlay, var(--bg));
+}
+.global-nav-sheet-item[data-active='true'] {
+	color: var(--fg);
+	font-weight: var(--font-weight-semibold);
+	background: var(--color-accent-subtle);
+}
+
+/* UX-NAV-018: under touch modality, suppress hover-only affordances (icon-rail tooltips are
+   already gated in markup; this also calms hover states so a tap does not look like a hover). */
+.global-nav[data-input-touch='true'] .global-nav-item:hover {
+	background: transparent;
+}
+
+/* UX-NAV-015: split the sidebar/rail into Command Center (top, fixed), the pinned/recent strip
+   (below it), and the section list (grows so Settings still pins to the bottom via margin-top:auto). */
+.global-nav[data-surface='sidebar'] .global-nav-list--primary,
+.global-nav[data-surface='rail'] .global-nav-list--primary {
+	flex: 0 0 auto;
+}
+.global-nav[data-surface='sidebar'] .global-nav-list--sections,
+.global-nav[data-surface='rail'] .global-nav-list--sections {
+	flex: 1 1 auto;
+}
+
+/* UX-NAV-015: the pinned/recent strip. In the sidebar/rail it is a bordered block between Command
+   Center and the sections; in the "More" sheet it stacks above the overflow section list. */
+.pinned-recent {
+	flex: 0 0 auto;
+	display: grid;
+	gap: var(--space-1);
+	padding: var(--space-2) var(--space-2) var(--space-2-5);
+	border-bottom: 1px solid var(--border);
+}
+.pinned-recent[data-variant='sheet'] {
+	border-bottom: 1px solid var(--border);
+	margin-bottom: var(--space-2);
+	padding-bottom: var(--space-3);
+}
+.pinrec-group {
+	display: grid;
+	gap: var(--space-0-5);
+}
+.pinrec-label {
+	margin: 0;
+	padding: 0 var(--space-2);
+	color: var(--muted);
+	text-transform: uppercase;
+	font-size: var(--text-xs);
+	letter-spacing: var(--tracking-wide);
+}
+.pinrec-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: var(--space-0-5);
+}
+.pinrec-item {
+	display: flex;
+	align-items: center;
+	gap: var(--space-1);
+	min-width: 0;
+}
+.pinrec-link {
+	flex: 1 1 auto;
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	min-width: 0;
+	padding: var(--space-1) var(--space-2);
+	color: var(--color-text-secondary, var(--muted));
+	text-decoration: none;
+	border-radius: var(--radius-sm);
+}
+.pinrec-link:hover {
+	background: var(--color-surface-overlay, var(--bg));
+	color: var(--fg);
+}
+.pinrec-icon {
+	display: inline-flex;
+	flex: 0 0 auto;
+	color: var(--muted);
+}
+.pinrec-text {
+	flex: 1 1 auto;
+	min-width: 0;
+	max-width: 24ch;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.pinrec-unpin {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--space-6);
+	height: var(--space-6);
+	background: transparent;
+	border: 0;
+	border-radius: var(--radius-sm);
+	color: var(--muted);
+	cursor: pointer;
+	opacity: 0;
+}
+/* Reveal the unpin control on hover/focus; under touch and in the sheet it is always visible
+   (no hover), so the action stays reachable without a pointer (WCAG 2.5.7 — not gesture-only). */
+.pinrec-item:hover .pinrec-unpin,
+.pinrec-unpin:focus-visible {
+	opacity: 1;
+}
+.global-nav[data-input-touch='true'] .pinrec-unpin,
+.pinned-recent[data-variant='sheet'] .pinrec-unpin {
+	opacity: 1;
+}
+.pinrec-sep {
+	margin: var(--space-1) var(--space-2);
+	border: 0;
+	border-top: 1px solid var(--border);
+}
+/* Icon-only (collapsed sidebar / rail): the strip shows centered glyphs with tooltips; the section
+   labels and truncated text collapse, leaving the visually-hidden full title as the accessible name. */
+.pinned-recent[data-icon-only='true'] {
+	padding-inline: 0;
+}
+.pinned-recent[data-icon-only='true'] .pinrec-label,
+.pinned-recent[data-icon-only='true'] .pinrec-text {
+	display: none;
+}
+.pinned-recent[data-icon-only='true'] .pinrec-link {
+	justify-content: center;
+	gap: 0;
+}
+
+/* Honest empty state for approved-but-planned section roots (Campaign), doc 16 §10.3. */
+.section-empty {
+	max-width: 44rem;
+	display: grid;
+	gap: var(--space-3);
+	padding: var(--space-6) 0;
+}
+.section-empty-icon {
+	margin: 0;
+	color: var(--muted);
+}
+.section-empty-title {
+	margin: 0;
+	font-size: var(--text-lg);
+	font-weight: var(--font-weight-semibold);
+}
+.section-empty-body {
+	margin: 0;
+	color: var(--color-text-secondary, var(--muted));
+	line-height: var(--leading-relaxed, 1.6);
+}
+.section-empty-body a {
+	color: var(--accent);
 }
 
 .app-main {
-	padding: 1.5rem 2rem;
+	padding: var(--space-6) var(--space-8);
 	max-width: 1100px;
 	margin: 0 auto;
+	width: 100%;
+	box-sizing: border-box;
 }
 
 /* NAV-004: the route landmark is a programmatic focus target on a normal route
@@ -123,31 +1181,31 @@ body {
    into view via a deep link. */
 .app-main :is(h1, h2, h3, h4):target,
 .app-main :is(h1, h2, h3, h4):focus {
-	scroll-margin-top: 1.5rem;
+	scroll-margin-top: var(--space-6);
 }
 
 /* Atlas map deep-link surface (NAV-005). */
 .atlas .map-viewport {
-	padding: 1rem;
+	padding: var(--space-4);
 	border: 1px solid var(--border);
-	border-radius: 0.5rem;
-	margin-bottom: 1rem;
+	border-radius: var(--radius-md);
+	margin-bottom: var(--space-4);
 }
 .atlas .unavailable {
-	padding: 1rem;
+	padding: var(--space-4);
 	border: 1px solid var(--border);
-	border-radius: 0.5rem;
-	margin-bottom: 1rem;
+	border-radius: var(--radius-md);
+	margin-bottom: var(--space-4);
 }
 .atlas .map-list {
 	list-style: none;
 	padding: 0;
 	display: flex;
 	flex-direction: column;
-	gap: 0.5rem;
+	gap: var(--space-2);
 }
 .atlas .map-list .poi-link {
-	margin-left: 0.75rem;
+	margin-left: var(--space-3);
 }
 
 /* Contextual navigation subheader (NAV-003): breadcrumbs, local section nav,
@@ -156,10 +1214,10 @@ body {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 0.5rem 1.5rem;
-	padding: 0.5rem 2rem;
+	gap: var(--space-2) var(--space-6);
+	padding: var(--space-2) var(--space-8);
 	border-bottom: 1px solid var(--border);
-	font-size: 0.85rem;
+	font-size: var(--text-sm);
 }
 
 .nav-subheader nav {
@@ -170,16 +1228,17 @@ body {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 0.35rem;
+	gap: var(--space-1-5);
 	margin: 0;
 	padding: 0;
 	list-style: none;
 }
 
+/* UX-NAV-007: location-style separator `›` (U+203A) between crumbs. */
 .breadcrumbs li:not(:first-child)::before {
-	content: '/';
-	margin-right: 0.35rem;
-	color: var(--muted);
+	content: '\203A';
+	margin-right: var(--space-1-5);
+	color: var(--color-text-tertiary, var(--muted));
 }
 
 .breadcrumbs a {
@@ -187,16 +1246,64 @@ body {
 	text-decoration: none;
 }
 
+.breadcrumbs a:hover,
+.breadcrumbs a:focus-visible {
+	text-decoration: underline;
+}
+
 .breadcrumbs [aria-current='page'] {
-	color: var(--muted);
-	font-weight: 600;
+	color: var(--fg);
+	font-weight: var(--font-weight-semibold);
+}
+
+/* UX-NAV-007: the `…` control that expands the collapsed middle of a deep trail. */
+.breadcrumb-collapse {
+	cursor: pointer;
+	background: transparent;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	color: var(--accent);
+	padding: 0 var(--space-1-5);
+	line-height: 1.4;
+}
+.breadcrumb-collapse:hover {
+	background: var(--color-surface-overlay, var(--bg));
+}
+
+/* UX-NAV-007 AC3: compact truncation — `‹ <immediate parent>` opens the full-path sheet. */
+.breadcrumb-compact-trigger {
+	cursor: pointer;
+	background: transparent;
+	border: none;
+	color: var(--accent);
+	padding: var(--space-1) 0;
+	font: inherit;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+	min-height: var(--touch-target-floor, 44px);
+}
+.breadcrumb-sheet-nav ol {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: var(--space-2);
+}
+.breadcrumb-sheet-nav [aria-current='page'] {
+	color: var(--fg);
+	font-weight: var(--font-weight-semibold);
+}
+.breadcrumb-sheet-nav a {
+	color: var(--accent);
+	text-decoration: none;
 }
 
 .local-nav-list {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 0.25rem 0.75rem;
+	gap: var(--space-1) var(--space-3);
 	margin: 0;
 	padding: 0;
 	list-style: none;
@@ -209,7 +1316,7 @@ body {
 
 .local-nav-list a[aria-current='page'] {
 	color: var(--fg);
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 }
 
 .local-nav-trigger,
@@ -218,19 +1325,19 @@ body {
 	background: transparent;
 	color: var(--accent);
 	border: 1px solid var(--accent);
-	padding: 0.2rem 0.6rem;
-	border-radius: 0.4rem;
-	font-size: 0.8rem;
+	padding: var(--space-1) var(--space-2);
+	border-radius: var(--radius-sm);
+	font-size: var(--text-sm);
 }
 
 /* Compact profile: local section nav becomes a drawer/sheet (NAV-003 AC2). */
 .local-nav-backdrop {
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.35);
+	background: var(--color-backdrop);
 	display: flex;
 	justify-content: flex-start;
-	z-index: 60;
+	z-index: var(--z-sheet);
 }
 
 .local-nav-sheet {
@@ -239,10 +1346,10 @@ body {
 	overflow: auto;
 	background: var(--card);
 	border-right: 1px solid var(--border);
-	padding: 1rem;
-	box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+	padding: var(--space-4);
+	box-shadow: var(--shadow-lg);
 	display: grid;
-	gap: 0.75rem;
+	gap: var(--space-3);
 	align-content: start;
 }
 
@@ -250,12 +1357,12 @@ body {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 1rem;
+	gap: var(--space-4);
 }
 
 .local-nav-sheet .local-nav-list {
 	display: grid;
-	gap: 0.5rem;
+	gap: var(--space-2);
 }
 
 .contextual-nav,
@@ -263,14 +1370,14 @@ body {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 0.35rem 1rem;
+	gap: var(--space-1-5) var(--space-4);
 }
 
 .contextual-group,
 .quick-group {
 	display: flex;
 	align-items: center;
-	gap: 0.4rem;
+	gap: var(--space-1-5);
 	min-width: 0;
 }
 
@@ -278,7 +1385,7 @@ body {
 .quick-group ul {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0.25rem 0.6rem;
+	gap: var(--space-1) var(--space-2);
 	margin: 0;
 	padding: 0;
 	list-style: none;
@@ -294,14 +1401,89 @@ body {
 .quick-label {
 	color: var(--muted);
 	text-transform: uppercase;
-	font-size: 0.7rem;
-	letter-spacing: 0.04em;
+	font-size: var(--text-xs);
+	letter-spacing: var(--tracking-wide);
 }
 
 .contextual-reason {
 	color: var(--muted);
-	font-size: 0.72rem;
-	margin-left: 0.3rem;
+	font-size: var(--text-xs);
+	margin-left: var(--space-1);
+}
+
+/* UX-NAV-008: backlinks as a navigation surface — a collapsible complementary panel on
+   Desktop / Tablet landscape, a sheet trigger on the compact profile. */
+.backlinks {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: var(--space-1-5) var(--space-3);
+	min-width: 0;
+}
+.backlinks-toggle {
+	cursor: pointer;
+	background: transparent;
+	color: var(--accent);
+	border: 1px solid var(--accent);
+	padding: var(--space-1) var(--space-2);
+	border-radius: var(--radius-sm);
+	font-size: var(--text-sm);
+	min-height: var(--touch-target-floor, 44px);
+}
+.backlinks-panel {
+	min-width: 0;
+}
+.backlinks-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-1) var(--space-3);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.backlinks-list a {
+	color: var(--accent);
+	text-decoration: none;
+}
+.backlinks-list a:hover,
+.backlinks-list a:focus-visible {
+	text-decoration: underline;
+}
+
+/* UX-NAV-017: in-app back/forward controls in the top bar. */
+.history-controls {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1);
+}
+.history-control {
+	cursor: pointer;
+	background: transparent;
+	color: var(--fg);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	min-width: 2.25rem; /* 36px — comfortably above the 24px WCAG 2.5.8 floor */
+	min-height: 2.25rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: var(--text-md);
+	line-height: 1;
+}
+.history-control:hover {
+	background: var(--color-surface-overlay, var(--bg));
+}
+
+/* UX-NAV-016: the player-safe "unavailable" surface recovery actions. */
+.unavailable-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-3);
+	margin-top: var(--space-3);
+}
+.unavailable-home {
+	color: var(--accent);
 }
 
 .loading {
@@ -309,12 +1491,12 @@ body {
 }
 
 .error {
-	margin-top: 1rem;
-	padding: 0.75rem;
+	margin-top: var(--space-4);
+	padding: var(--space-3);
 	border: 1px solid var(--danger);
-	background: rgba(185, 28, 28, 0.06);
+	background: var(--color-status-error-subtle);
 	color: var(--danger);
-	border-radius: 0.5rem;
+	border-radius: var(--radius-md);
 }
 
 button,
@@ -325,21 +1507,44 @@ select {
 	color: inherit;
 }
 
-/* A11Y-004: touch-target minimum for the compact (mobile/touch) platform profile.
-   All button-class controls must meet the WCAG 2.5.5/2.5.8 minimum of 44 × 44 CSS px on
-   touch profiles. The 720 px breakpoint matches COMPACT_MAX in the platform-profile probe
-   (`src/lib/platform/capabilities.ts`). Native form controls rendered by the browser UA
-   (inputs, selects) are excluded here — they receive the WCAG 2.5.8 exception for
-   platform-controlled UI; all explicit button elements must be reachable with a thumb. */
-@media (max-width: 720px) {
-	button,
-	summary,
-	[role='button'],
-	[role='tab'],
-	[role='radio'] {
-		min-height: 44px;
-		min-width: 44px;
-	}
+/* UX-A11Y-009 §focus visible (WCAG 2.4.7 / 2.4.13): a baseline visible focus ring on every
+ * interactive element, so no control can ship without one. Zero-specificity :where() lets a
+ * component restyle the ring colour/offset but never silently drop it; :focus-visible keeps the
+ * ring off pointer/touch taps and shows it for keyboard focus. */
+:where(
+		a[href],
+		button,
+		input,
+		select,
+		textarea,
+		summary,
+		[tabindex],
+		[role='button'],
+		[role='tab'],
+		[role='menuitem'],
+		[role='option'],
+		[role='treeitem'],
+		[role='checkbox'],
+		[role='switch']
+	):focus-visible {
+	outline: var(--focus-ring-width) solid var(--focus-ring-color);
+	outline-offset: var(--focus-ring-offset);
+}
+
+/* UX-A11Y-010 (WCAG 2.5.8): native checkboxes/radios meet the 24px target-size floor on every
+ * profile — this resolves the inherited `target-size` axe finding on /session, where the session
+ * recipient/member-list checkboxes rendered below 24x24 CSS px on the mobile profile. The accent
+ * colour keeps the checked state visible; the wrapping <label> stays the larger touch target. */
+input[type='checkbox'],
+input[type='radio'] {
+	width: var(--touch-target-floor);
+	height: var(--touch-target-floor);
+	min-width: var(--touch-target-floor);
+	min-height: var(--touch-target-floor);
+	margin: 0 var(--space-1) 0 0;
+	vertical-align: middle;
+	accent-color: var(--color-accent);
+	cursor: pointer;
 }
 
 /* Keep form controls within their column: a control sized to its content (e.g. a
@@ -355,11 +1560,11 @@ select {
 
 .button {
 	cursor: pointer;
-	background: var(--accent);
-	color: var(--bg);
-	border: 1px solid var(--accent);
-	padding: 0.5rem 1rem;
-	border-radius: 0.4rem;
+	background: var(--color-accent);
+	color: var(--color-accent-foreground);
+	border: 1px solid var(--color-accent);
+	padding: var(--space-2) var(--space-4);
+	border-radius: var(--radius-md);
 }
 
 .button.secondary {
@@ -369,101 +1574,101 @@ select {
 
 .form {
 	display: grid;
-	gap: 0.75rem;
+	gap: var(--space-3);
 	max-width: 480px;
-	margin-bottom: 2rem;
+	margin-bottom: var(--space-8);
 }
 
 .form label {
 	display: grid;
-	gap: 0.25rem;
+	gap: var(--space-1);
 }
 
 .form input,
 .form textarea,
 .form select {
-	padding: 0.4rem 0.6rem;
+	padding: var(--space-1-5) var(--space-2);
 	background: var(--card);
 	border: 1px solid var(--border);
-	border-radius: 0.35rem;
+	border-radius: var(--radius-sm);
 }
 
 .scene-list {
 	display: grid;
-	gap: 0.75rem;
+	gap: var(--space-3);
 }
 
 .scene-list .scene-card,
 .package-row {
 	display: flex;
 	justify-content: space-between;
-	gap: 1rem;
+	gap: var(--space-4);
 	border: 1px solid var(--border);
 	background: var(--card);
-	padding: 0.75rem 1rem;
-	border-radius: 0.5rem;
+	padding: var(--space-3) var(--space-4);
+	border-radius: var(--radius-md);
 }
 
 .scene-card .meta,
 .package-row .meta {
 	color: var(--muted);
-	font-size: 0.85rem;
+	font-size: var(--text-sm);
 }
 
 .toolbar {
-	margin: 0.5rem 0 0.75rem;
+	margin: var(--space-2) 0 var(--space-3);
 }
 
 .package-list {
 	display: grid;
-	gap: 0.75rem;
+	gap: var(--space-3);
 }
 
 .permission-list {
-	margin: 0.35rem 0 0;
-	padding-left: 1.2rem;
+	margin: var(--space-1-5) 0 0;
+	padding-left: var(--space-5);
 	color: var(--muted);
-	font-size: 0.85rem;
+	font-size: var(--text-sm);
 }
 
 .export-preview {
-	margin-top: 0.75rem;
-	padding: 0.75rem;
+	margin-top: var(--space-3);
+	padding: var(--space-3);
 	overflow: auto;
 	border: 1px solid var(--border);
-	border-radius: 0.5rem;
+	border-radius: var(--radius-md);
 	background: var(--card);
-	font-size: 0.8rem;
+	font-size: var(--text-sm);
 }
 
 .scene-editor {
 	display: grid;
-	gap: 1.5rem;
+	gap: var(--space-6);
 }
 
 .scene-editor .scene-title {
-	margin: 0.25rem 0;
-	font-size: 1.15rem;
-	font-weight: 600;
+	margin: var(--space-1) 0;
+	font-size: var(--text-md);
+	font-weight: var(--font-weight-semibold);
 }
 
 .widgets-head {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 1rem;
+	gap: var(--space-4);
 	flex-wrap: wrap;
 }
 
 .widget-grid {
 	display: grid;
-	gap: 0.75rem;
+	gap: var(--space-3);
 }
 
 .select-widget {
 	display: flex;
 	align-items: center;
-	gap: 0.4rem;
+	gap: var(--space-1-5);
 }
 
 .row-actions[role='toolbar'] {
@@ -473,27 +1678,27 @@ select {
 .widget-row {
 	display: grid;
 	grid-template-columns: 1fr auto;
-	gap: 0.5rem;
-	padding: 0.6rem 0.9rem;
+	gap: var(--space-2);
+	padding: var(--space-2) var(--space-3);
 	border: 1px solid var(--border);
 	background: var(--card);
-	border-radius: 0.5rem;
+	border-radius: var(--radius-md);
 }
 
 .widget-row .layout {
 	color: var(--muted);
-	font-size: 0.85rem;
+	font-size: var(--text-sm);
 }
 
 .row-actions {
 	display: flex;
-	gap: 0.4rem;
+	gap: var(--space-1-5);
 	flex-wrap: wrap;
 }
 
 .row-actions button {
-	font-size: 0.75rem;
-	padding: 0.25rem 0.5rem;
+	font-size: var(--text-xs);
+	padding: var(--space-1) var(--space-2);
 }
 
 .projection-form {
@@ -502,40 +1707,40 @@ select {
 
 .player-view-preview {
 	display: grid;
-	gap: 0.4rem;
-	padding: 0.6rem 0.9rem;
+	gap: var(--space-1-5);
+	padding: var(--space-2) var(--space-3);
 	border: 1px solid var(--border);
 	background: var(--card);
-	border-radius: 0.5rem;
+	border-radius: var(--radius-md);
 }
 
 .player-view-preview ul {
 	margin: 0;
-	padding-left: 1.1rem;
+	padding-left: var(--space-4);
 }
 
 .command-center {
 	display: grid;
-	gap: 1.5rem;
+	gap: var(--space-6);
 }
 
 .cc-header .row-actions {
-	margin-top: 0.5rem;
+	margin-top: var(--space-2);
 }
 
 .workflow-strip,
 .active-map-controls {
 	display: flex;
-	gap: 0.5rem;
+	gap: var(--space-2);
 	flex-wrap: wrap;
 	align-items: end;
 }
 
 .workflow-strip button {
-	padding: 0.35rem 0.65rem;
+	padding: var(--space-1-5) var(--space-2);
 	border: 1px solid var(--border);
 	background: var(--card);
-	border-radius: 0.35rem;
+	border-radius: var(--radius-sm);
 	cursor: pointer;
 	text-transform: capitalize;
 }
@@ -547,81 +1752,81 @@ select {
 
 .active-map-controls label {
 	display: grid;
-	gap: 0.25rem;
+	gap: var(--space-1);
 	min-width: 12rem;
 }
 
 .active-map-controls select {
-	padding: 0.4rem 0.6rem;
+	padding: var(--space-1-5) var(--space-2);
 	background: var(--card);
 	border: 1px solid var(--border);
-	border-radius: 0.35rem;
+	border-radius: var(--radius-sm);
 }
 
 .active-map-preview {
 	display: grid;
-	gap: 0.3rem;
-	margin-top: 0.65rem;
-	padding: 0.7rem 0.9rem;
+	gap: var(--space-1);
+	margin-top: var(--space-2);
+	padding: var(--space-3) var(--space-3);
 	border: 1px solid var(--border);
 	background: var(--card);
-	border-radius: 0.5rem;
+	border-radius: var(--radius-md);
 }
 
 .active-map-preview ul {
 	margin: 0;
-	padding-left: 1.1rem;
+	padding-left: var(--space-4);
 }
 
 .player-view-controller {
 	display: grid;
-	gap: 0.75rem;
+	gap: var(--space-3);
 }
 
 .player-view-row {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto;
-	gap: 0.75rem;
+	gap: var(--space-3);
 	align-items: center;
-	padding: 0.7rem 0.9rem;
+	padding: var(--space-3) var(--space-3);
 	border: 1px solid var(--border);
 	background: var(--card);
-	border-radius: 0.5rem;
+	border-radius: var(--radius-md);
 }
 
 .player-view-actions {
 	display: flex;
 	align-items: end;
-	gap: 0.5rem;
+	gap: var(--space-2);
 	flex-wrap: wrap;
 	justify-content: flex-end;
 }
 
 .player-view-actions label {
 	display: grid;
-	gap: 0.25rem;
+	gap: var(--space-1);
 	min-width: 13rem;
 }
 
 .player-view-actions select {
-	padding: 0.35rem 0.55rem;
+	padding: var(--space-1-5) var(--space-2);
 	background: var(--card);
 	border: 1px solid var(--border);
-	border-radius: 0.35rem;
+	border-radius: var(--radius-sm);
 }
 
 .cc-tablist {
 	display: flex;
-	gap: 0.4rem;
+	gap: var(--space-1-5);
 	flex-wrap: wrap;
-	margin-bottom: 0.75rem;
+	margin-bottom: var(--space-3);
 }
 
 .cc-tablist button {
-	padding: 0.35rem 0.7rem;
+	padding: var(--space-1-5) var(--space-3);
 	border: 1px solid var(--border);
 	background: var(--card);
-	border-radius: 0.4rem;
+	border-radius: var(--radius-sm);
 	cursor: pointer;
 }
 
@@ -632,11 +1837,11 @@ select {
 
 .cc-panel {
 	display: grid;
-	gap: 0.5rem;
-	padding: 0.9rem 1rem;
+	gap: var(--space-2);
+	padding: var(--space-3) var(--space-4);
 	border: 1px solid var(--border);
 	background: var(--card);
-	border-radius: 0.5rem;
+	border-radius: var(--radius-md);
 }
 
 .visually-hidden {
@@ -644,9 +1849,10 @@ select {
 	width: 1px;
 	height: 1px;
 	padding: 0;
-	margin: -1px;
+	margin: 0;
 	overflow: hidden;
 	clip: rect(0, 0, 0, 0);
+	clip-path: inset(50%);
 	white-space: nowrap;
 	border: 0;
 }
@@ -654,16 +1860,16 @@ select {
 .library-search input {
 	width: 100%;
 	max-width: 360px;
-	padding: 0.4rem 0.6rem;
+	padding: var(--space-1-5) var(--space-2);
 	background: var(--card);
 	border: 1px solid var(--border);
-	border-radius: 0.35rem;
-	margin-bottom: 0.75rem;
+	border-radius: var(--radius-sm);
+	margin-bottom: var(--space-3);
 }
 
 .library-list {
 	display: grid;
-	gap: 0.5rem;
+	gap: var(--space-2);
 	list-style: none;
 	margin: 0;
 	padding: 0;
@@ -673,16 +1879,16 @@ select {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	gap: 1rem;
+	gap: var(--space-4);
 	border: 1px solid var(--border);
 	background: var(--card);
-	padding: 0.6rem 0.9rem;
-	border-radius: 0.5rem;
+	padding: var(--space-2) var(--space-3);
+	border-radius: var(--radius-md);
 }
 
 .library-row .meta {
 	color: var(--muted);
-	font-size: 0.85rem;
+	font-size: var(--text-sm);
 }
 
 .library-row .meta.unavailable {
@@ -699,41 +1905,41 @@ select {
 	background: transparent;
 	color: var(--accent);
 	border: 1px solid var(--accent);
-	padding: 0.2rem 0.6rem;
-	border-radius: 0.4rem;
-	font-size: 0.85rem;
+	padding: var(--space-1) var(--space-2);
+	border-radius: var(--radius-sm);
+	font-size: var(--text-sm);
 }
 
 .palette-backdrop {
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.35);
+	background: var(--color-backdrop);
 	display: flex;
 	align-items: flex-start;
 	justify-content: center;
 	padding-top: 12vh;
-	z-index: 50;
+	z-index: var(--z-command);
 }
 
 .palette {
 	width: min(560px, 92vw);
 	max-height: 70vh;
 	overflow: auto;
-	background: var(--card);
+	background: var(--color-surface-raised);
 	border: 1px solid var(--border);
-	border-radius: 0.6rem;
-	padding: 0.75rem;
-	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+	border-radius: var(--radius-lg);
+	padding: var(--space-3);
+	box-shadow: var(--shadow-lg);
 	display: grid;
-	gap: 0.5rem;
+	gap: var(--space-2);
 }
 
 .palette-search {
 	width: 100%;
-	padding: 0.5rem 0.7rem;
+	padding: var(--space-2) var(--space-3);
 	background: var(--bg);
 	border: 1px solid var(--border);
-	border-radius: 0.4rem;
+	border-radius: var(--radius-sm);
 }
 
 .palette-list {
@@ -741,47 +1947,47 @@ select {
 	margin: 0;
 	padding: 0;
 	display: grid;
-	gap: 0.35rem;
+	gap: var(--space-1-5);
 }
 
 .palette-item {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	gap: 0.75rem;
-	padding: 0.4rem 0.5rem;
-	border-radius: 0.4rem;
+	gap: var(--space-3);
+	padding: var(--space-1-5) var(--space-2);
+	border-radius: var(--radius-sm);
 }
 
 .palette-item:hover {
-	background: rgba(127, 127, 127, 0.1);
+	background: var(--color-interactive-hover);
 }
 
 .palette-item-main {
 	display: grid;
-	gap: 0.15rem;
+	gap: var(--space-0-5);
 }
 
 .palette-title {
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 }
 
 .palette-reason {
 	color: var(--muted);
-	font-size: 0.8rem;
+	font-size: var(--text-sm);
 }
 
 .palette-item-actions {
 	display: flex;
-	gap: 0.4rem;
+	gap: var(--space-1-5);
 	align-items: center;
 }
 
 .palette-input {
-	padding: 0.3rem 0.5rem;
+	padding: var(--space-1) var(--space-2);
 	background: var(--bg);
 	border: 1px solid var(--border);
-	border-radius: 0.35rem;
+	border-radius: var(--radius-sm);
 }
 
 .palette-item-actions button[disabled] {
@@ -792,15 +1998,15 @@ select {
 .palette-empty,
 .palette-status {
 	color: var(--muted);
-	font-size: 0.85rem;
-	padding: 0.25rem 0.5rem;
+	font-size: var(--text-sm);
+	padding: var(--space-1) var(--space-2);
 }
 
 .palette-category {
 	color: var(--muted);
-	font-size: 0.7rem;
+	font-size: var(--text-xs);
 	text-transform: uppercase;
-	letter-spacing: 0.04em;
+	letter-spacing: var(--tracking-wide);
 }
 
 /* Compact profile: the equivalent command menu fills the screen as a sheet, but
@@ -815,7 +2021,7 @@ select {
 	max-width: 100vw;
 	height: 100vh;
 	max-height: 100vh;
-	border-radius: 0;
+	border-radius: var(--radius-none);
 	border: none;
 }
 
@@ -838,76 +2044,76 @@ select {
 .focused-view {
 	display: flex;
 	flex-direction: column;
-	gap: 0.75rem;
+	gap: var(--space-3);
 }
 
 .focused-view-nav {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 0.75rem;
+	gap: var(--space-3);
 }
 
 /* PLAT-003: the add-widget form rendered as a drawer on compact profiles. */
 .form.drawer {
-	border: 1px solid var(--border, #d0d0d8);
-	border-radius: 8px;
-	padding: 0.75rem;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+	padding: var(--space-3);
 }
 
 /* PLAT-016: support matrix table + PLAT-004 capability status statuses. */
 .matrix-table {
 	width: 100%;
 	border-collapse: collapse;
-	font-size: 0.9rem;
+	font-size: var(--text-sm);
 }
 
 .matrix-table th,
 .matrix-table td {
 	text-align: left;
-	padding: 0.4rem 0.6rem;
-	border-bottom: 1px solid var(--border, #e2e2ea);
+	padding: var(--space-1-5) var(--space-2);
+	border-bottom: 1px solid var(--border);
 	vertical-align: top;
 }
 
 .matrix-table td[data-level='unsupported'],
 .matrix-table td[data-level='unavailable'] {
-	color: #9a3412;
+	color: var(--color-status-warning-text);
 }
 
 .matrix-policy {
-	margin-top: 0.75rem;
+	margin-top: var(--space-3);
 }
 
 .meta.unavailable,
 [data-status='unsupported'],
 [data-status='unavailable'] {
-	color: #9a3412;
+	color: var(--color-status-warning-text);
 }
 
 [data-status='parity'] {
-	color: #166534;
+	color: var(--color-status-success-text);
 }
 
 /* PLAT-013: onboarding / first-run surface. */
 .first-run {
 	display: grid;
-	gap: 1rem;
-	margin-bottom: 1.5rem;
-	padding: 1rem;
-	border: 1px solid var(--border, #e2e2ea);
-	border-radius: 0.5rem;
-	background: var(--surface-subtle, #f8f8fb);
+	gap: var(--space-4);
+	margin-bottom: var(--space-6);
+	padding: var(--space-4);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+	background: var(--surface-subtle);
 }
 
 .onboarding-banner h2 {
-	margin: 0 0 0.5rem;
+	margin: 0 0 var(--space-2);
 }
 
 .onboarding-steps {
 	display: grid;
-	gap: 0.35rem;
-	margin: 0.5rem 0 0;
+	gap: var(--space-1-5);
+	margin: var(--space-2) 0 0;
 	padding: 0;
 	list-style: none;
 }
@@ -915,90 +2121,460 @@ select {
 .onboarding-steps li {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem;
+	gap: var(--space-2);
 }
 
 .onboarding-steps li[data-done='true'] .step-mark {
-	color: #166534;
+	color: var(--color-status-success-text);
 }
 
 .feature-tier fieldset {
-	border: 1px solid var(--border, #e2e2ea);
-	border-radius: 0.4rem;
-	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+	padding: var(--space-2) var(--space-3);
 }
 
 .tier-options {
 	display: flex;
-	gap: 1rem;
+	gap: var(--space-4);
 	flex-wrap: wrap;
 }
 
 .tier-option {
 	display: flex;
 	align-items: center;
-	gap: 0.35rem;
+	gap: var(--space-1-5);
 	text-transform: capitalize;
 }
 
 .visible-features {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0.5rem;
-	margin: 0.75rem 0 0;
+	gap: var(--space-2);
+	margin: var(--space-3) 0 0;
 	padding: 0;
 	list-style: none;
 }
 
 .visible-features li {
-	padding: 0.2rem 0.6rem;
-	border: 1px solid var(--border, #e2e2ea);
-	border-radius: 999px;
-	font-size: 0.85rem;
+	padding: var(--space-1) var(--space-2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-full);
+	font-size: var(--text-sm);
 }
 
 .help-surfaces ul {
-	margin: 0.5rem 0 0;
-	padding-left: 1.1rem;
+	margin: var(--space-2) 0 0;
+	padding-left: var(--space-4);
 	display: grid;
-	gap: 0.35rem;
+	gap: var(--space-1-5);
 }
 
-/* A11Y-005 — global reduced-motion gate (AC2). Two complementary mechanisms:
-   1. `@media (prefers-reduced-motion: reduce)` catches the OS preference directly for any CSS
-      animation/transition not yet covered by the JS resolver (CSS-layer fallback).
-   2. `[data-motion="reduced"]` / `[data-motion="none"]` are the tokens emitted by the shell's
-      `resolveMotionPreference` resolver (the single resolved state). When the shell sets the
-      document-level `data-motion` attribute, every surface that transitions or animates receives
-      reduced/instant behavior without making its own media-query decision.
-   Both layers suppress `animation` and `transition` to cover: reveal effects, map transitions,
-   dice effects, audio visual crossfade indicators, and focus-change scroll behaviors. */
-@media (prefers-reduced-motion: reduce) {
-	*,
-	*::before,
-	*::after {
-		animation-duration: 0.01ms !important;
-		animation-iteration-count: 1 !important;
-		transition-duration: 0.01ms !important;
-		scroll-behavior: auto !important;
+/* ============================================================================================
+ * 5. THEME SELECTOR (UX-VIS-001) — the radiogroup surface in Settings.
+ * ========================================================================================== */
+
+.theme-selector {
+	display: grid;
+	gap: var(--space-2);
+}
+
+.theme-options {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+}
+
+.theme-option {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1-5);
+	padding: var(--space-1-5) var(--space-3);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+	background: var(--card);
+	color: var(--fg);
+	cursor: pointer;
+	font-size: var(--text-sm);
+	/* Touch target floor (UX-VIS density follow-up); keep >=44px tall on touch profiles. */
+	min-height: 2.75rem;
+}
+
+.theme-option:hover {
+	background: var(--color-interactive-hover);
+}
+
+.theme-option[aria-checked='true'] {
+	border-color: var(--accent);
+	background: var(--color-interactive-selected);
+	color: var(--accent);
+	font-weight: var(--font-weight-semibold);
+}
+
+.theme-option:focus-visible {
+	outline: 2px solid var(--color-interactive-focus-ring);
+	outline-offset: 2px;
+}
+
+.theme-swatch {
+	width: var(--space-4);
+	height: var(--space-4);
+	border-radius: var(--radius-full);
+	border: 1px solid var(--color-border-strong);
+}
+
+/* ============================================================================================
+ * 6. ICONOGRAPHY (UX-VIS-009) — shared Icon component sizing + status colour cues.
+ *
+ * The Lucide glyph inherits currentColor and a 2px stroke (Lucide defaults). Size classes drive
+ * width/height from the icon-size tokens (overriding Lucide's intrinsic 24px attributes). Status
+ * classes add a colour cue ON TOP of the redundant shape + adjacent text (A11Y-011) — never the
+ * sole signal.
+ * ========================================================================================== */
+
+.icon {
+	display: inline-block;
+	flex: none;
+	vertical-align: middle;
+	color: currentColor;
+}
+
+.icon-micro {
+	width: var(--icon-size-micro);
+	height: var(--icon-size-micro);
+}
+.icon-sm {
+	width: var(--icon-size-sm);
+	height: var(--icon-size-sm);
+}
+.icon-md {
+	width: var(--icon-size-md);
+	height: var(--icon-size-md);
+}
+.icon-lg {
+	width: var(--icon-size-lg);
+	height: var(--icon-size-lg);
+}
+.icon-xl {
+	width: var(--icon-size-xl);
+	height: var(--icon-size-xl);
+}
+/* Density-linked size for nav/toolbar consumers (UX-VIS-011). */
+.icon-density {
+	width: var(--density-icon-size);
+	height: var(--density-icon-size);
+}
+
+.icon-status-success {
+	color: var(--color-status-success);
+}
+.icon-status-warning {
+	color: var(--color-status-warning);
+}
+.icon-status-error {
+	color: var(--color-status-error);
+}
+.icon-status-info {
+	color: var(--color-status-info);
+}
+.icon-dm-only {
+	color: var(--color-dm-only-badge);
+}
+
+/* Icon-only button (UX-VIS §6.2). `aria-label` is mandatory — enforced by the Icon component +
+ * tests. Touch target follows the active density (>=44px on touch profiles). */
+.btn-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--density-touch-target);
+	min-height: var(--density-touch-target);
+	padding: var(--space-1);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+	background: var(--card);
+	color: var(--fg);
+	cursor: pointer;
+}
+.btn-icon:hover {
+	background: var(--color-interactive-hover);
+}
+.btn-icon:focus-visible {
+	outline: 2px solid var(--color-interactive-focus-ring);
+	outline-offset: 2px;
+}
+
+/* Status chip — demonstrates the non-color cue contract: distinct icon shape + visible text, so
+ * meaning survives a grayscale / colour-removed render (UX-VIS-009 AC2 / A11Y-011). */
+.status-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1-5);
+	padding: var(--space-0-5) var(--space-2);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-full);
+	font-size: var(--text-xs);
+}
+
+/* ============================================================================================
+ * 7. DISPLAY PREFERENCES (UX-VIS-010 motion + UX-VIS-011 density) — Settings radiogroups.
+ *
+ * Reuses the theme-selector grammar. Controls size themselves from the active density tokens, so
+ * the density choice is visible in the controls that set it. The focus ring extends to
+ * --density-focus-target (>=40px even when the visual target is 28px in compact mode).
+ * ========================================================================================== */
+
+.display-prefs {
+	display: grid;
+	gap: var(--space-4);
+}
+
+.pref-group {
+	display: grid;
+	gap: var(--space-2);
+}
+
+.pref-options {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+}
+
+.pref-option {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1-5);
+	padding: var(--space-1-5) var(--space-3);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+	background: var(--card);
+	color: var(--fg);
+	cursor: pointer;
+	font-size: var(--text-sm);
+	min-height: var(--density-button-height);
+	transition: background var(--duration-micro) var(--easing-standard);
+}
+
+.pref-option:hover {
+	background: var(--color-interactive-hover);
+}
+
+.pref-option[aria-checked='true'] {
+	border-color: var(--accent);
+	background: var(--color-interactive-selected);
+	color: var(--accent);
+	font-weight: var(--font-weight-semibold);
+}
+
+.pref-option:focus-visible {
+	outline: 2px solid var(--color-interactive-focus-ring);
+	outline-offset: 2px;
+	/* Compact desktop: visual target shrinks to 28px but the focus hit area stays >=40px. */
+	min-height: var(--density-focus-target);
+	min-width: var(--density-focus-target);
+}
+
+.pref-option[aria-disabled='true'] {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.pref-note {
+	margin: 0;
+	color: var(--muted);
+	font-size: var(--text-xs);
+}
+
+.icon-demo {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-3);
+	margin-top: var(--space-1);
+}
+
+/* ============================================================================================
+ * 8. ACCESSIBLE INTERACTION PRIMITIVES (UX-A11Y interaction-primitives-and-help-compliance)
+ *
+ * Shared styling for the reusable a11y widgets in src/lib/gui/a11y/ (Dialog, Tabs, Disclosure,
+ * StateBadge) and the consistent Help trigger. Token-only; the global :focus-visible baseline above
+ * already gives each control a conformant ring, so these rules cover layout and state, not focus.
+ * ========================================================================================== */
+
+/* Consistent Help trigger (UX-A11Y-014 / WCAG 3.2.6) — same top-bar position on every route. */
+.help-trigger {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--density-touch-target);
+	min-height: var(--density-touch-target);
+	padding: var(--space-1) var(--space-2);
+	border: 1px solid var(--accent);
+	border-radius: var(--radius-full);
+	background: transparent;
+	color: var(--accent);
+	cursor: pointer;
+	font-size: var(--text-md);
+	font-weight: var(--font-weight-semibold);
+	line-height: 1;
+}
+.help-trigger:hover {
+	background: var(--color-interactive-hover);
+}
+
+/* Modal dialog primitive (UX-A11Y-012 dialog / UX-A11Y-009 focus trap). */
+.dialog-backdrop {
+	position: fixed;
+	inset: 0;
+	background: var(--color-backdrop);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--space-4);
+	z-index: var(--z-modal);
+}
+
+.dialog {
+	width: min(640px, 94vw);
+	max-height: 86vh;
+	overflow: auto;
+	background: var(--color-surface-raised);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-lg);
+	padding: var(--component-dialog-padding);
+	display: grid;
+	gap: var(--space-4);
+}
+
+.dialog-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--space-4);
+}
+
+.dialog-title {
+	margin: 0;
+	font-size: var(--text-lg);
+	font-weight: var(--font-weight-semibold);
+}
+
+.dialog-close {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--density-touch-target);
+	min-height: var(--density-touch-target);
+	padding: var(--space-1);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+	background: var(--card);
+	color: var(--fg);
+	cursor: pointer;
+}
+.dialog-close:hover {
+	background: var(--color-interactive-hover);
+}
+
+.dialog-foot {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--space-2);
+}
+
+.help-intro {
+	margin: 0;
+	color: var(--muted);
+	font-size: var(--text-sm);
+}
+
+.help-shortcuts {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--text-sm);
+}
+.help-shortcuts th,
+.help-shortcuts td {
+	text-align: left;
+	padding: var(--space-1-5) var(--space-2);
+	border-bottom: 1px solid var(--border);
+	vertical-align: top;
+}
+
+kbd {
+	font-family: var(--font-mono);
+	font-size: var(--text-xs);
+	background: var(--color-surface-sunken);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	padding: 0 var(--space-1);
+	white-space: nowrap;
+}
+
+/* Compact (Mobile) profile: the dialog fills the screen as a sheet (doc 16 §5 overlay contract). */
+@media (max-width: 720px) {
+	.dialog-backdrop {
+		padding: 0;
+		align-items: stretch;
+	}
+	.dialog {
+		width: 100vw;
+		max-width: 100vw;
+		height: 100vh;
+		max-height: 100vh;
+		border-radius: var(--radius-none);
+		border: none;
 	}
 }
 
-[data-motion='reduced'],
-[data-motion='reduced'] *,
-[data-motion='reduced'] *::before,
-[data-motion='reduced'] *::after {
-	animation-duration: 0.01ms !important;
-	animation-iteration-count: 1 !important;
-	transition-duration: 0.01ms !important;
-	scroll-behavior: auto !important;
+/* Tabs primitive (UX-A11Y-012 tabs). */
+.tablist {
+	display: flex;
+	gap: var(--space-1-5);
+	flex-wrap: wrap;
+	border-bottom: 1px solid var(--border);
+	margin-bottom: var(--space-3);
+}
+.tab {
+	padding: var(--space-1-5) var(--space-3);
+	border: 1px solid transparent;
+	border-bottom: none;
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--muted);
+	cursor: pointer;
+	min-height: var(--density-button-height);
+}
+.tab.selected {
+	border-color: var(--border);
+	background: var(--card);
+	color: var(--accent);
+	font-weight: var(--font-weight-semibold);
 }
 
-[data-motion='none'],
-[data-motion='none'] *,
-[data-motion='none'] *::before,
-[data-motion='none'] *::after {
-	animation: none !important;
-	transition: none !important;
-	scroll-behavior: auto !important;
+/* Disclosure primitive (UX-A11Y-012 disclosure). */
+.disclosure-trigger {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-1-5);
+	min-height: var(--touch-target-floor);
+	padding: var(--space-1) 0;
+	border: none;
+	background: transparent;
+	color: var(--fg);
+	cursor: pointer;
+	font: inherit;
+}
+.disclosure-marker {
+	color: var(--muted);
+}
+.disclosure-region {
+	margin-top: var(--space-2);
+}
+
+/* StateBadge (UX-A11Y-007): the icon shape + visible label carry the meaning; the tone token is
+ * decorative on top, never the sole signal. Reuses the .status-chip grammar from UX-VIS. */
+.state-badge {
+	gap: var(--space-1);
 }

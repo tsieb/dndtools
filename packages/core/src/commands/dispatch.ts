@@ -23,7 +23,9 @@ import { handleDispatchWidgetCommand } from './widget-command';
 import {
 	handleApplyCommandCenterPreset,
 	handleEnsureCommandCenterHome,
+	handleRestoreCommandCenterAutoSave,
 	handleSaveCommandCenterPreset,
+	handleSnapshotCommandCenterAutoSave,
 } from './command-center';
 import { handleProjectPlayerView, handleRevokePlayerView } from './player-view';
 import {
@@ -275,6 +277,10 @@ export function dispatchCommand(
 			return handleSaveCommandCenterPreset(state, env, command.actorId, command.payload);
 		case 'command-center.apply-preset':
 			return handleApplyCommandCenterPreset(state, env, command.actorId, command.payload);
+		case 'command-center.snapshot-auto-save':
+			return handleSnapshotCommandCenterAutoSave(state, env, command.actorId, command.payload);
+		case 'command-center.restore-auto-save':
+			return handleRestoreCommandCenterAutoSave(state, env, command.actorId, command.payload);
 		case 'session.project-player-view':
 			return handleProjectPlayerView(state, env, command.actorId, command.payload);
 		case 'session.revoke-player-view':

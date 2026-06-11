@@ -14,9 +14,11 @@
 	},
 	"dependencies": {
 		"@dndtools/core": "workspace:*",
+		"@lucide/svelte": "^1.17.0",
 		"dexie": "^4.4.3"
 	},
 	"devDependencies": {
+		"@axe-core/playwright": "^4.11.3",
 		"@playwright/test": "^1.60.0",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.62.0",

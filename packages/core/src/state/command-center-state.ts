@@ -44,16 +44,36 @@ export interface CommandCenterPreset {
 	widgets: CommandCenterPresetWidget[];
 }
 
+/**
+ * UX-CMD-008 — the rolling LAST-KNOWN-GOOD layout snapshot. It is an unnamed, single-slot capture of
+ * the Command Center layout taken at deliberate good checkpoints (home ready, preset save/apply), so the
+ * DM can recover their console after a crash, a failed sync, or an unwanted experimental change. Unlike a
+ * named preset it carries no user name and only the snapshot fields needed to re-materialize the layout.
+ */
+export interface CommandCenterAutoSave {
+	/** When this last-known-good snapshot was captured. */
+	capturedAt: string;
+	visualSettings: SceneVisualSettings;
+	sections: CommandCenterPresetSection[];
+	widgets: CommandCenterPresetWidget[];
+}
+
 export interface CommandCenterState {
 	/** The Scene that is rendered as the application home surface. */
 	homeSceneId: SceneId | null;
 	presets: Record<string, CommandCenterPreset>;
+	/**
+	 * UX-CMD-008 — the recoverable last-known-good layout slot. Optional so a vault persisted before
+	 * this slice hydrates fail-closed to "no auto-save yet" without a destructive migration.
+	 */
+	autoSave?: CommandCenterAutoSave | null;
 	schemaVersion: typeof COMMAND_CENTER_STATE_SCHEMA_VERSION;
 }
 
 export const EMPTY_COMMAND_CENTER_STATE: CommandCenterState = Object.freeze({
 	homeSceneId: null,
 	presets: {},
+	autoSave: null,
 	schemaVersion: COMMAND_CENTER_STATE_SCHEMA_VERSION,
 });
 

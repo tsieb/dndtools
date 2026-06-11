@@ -14,9 +14,11 @@
 
 	// The DM's visible notes (the pinnable targets). Quick reference is dm-only, so this uses the DM view.
 	const notes = $derived(
-		getContentItemsForActor(runtime.state.content, runtime.state.permissions, runtime.activeActorId).filter(
-			(item) => item.kind === 'note',
-		),
+		getContentItemsForActor(
+			runtime.state.content,
+			runtime.state.permissions,
+			runtime.activeActorId,
+		).filter((item) => item.kind === 'note'),
 	);
 
 	const panels = $derived(
@@ -98,7 +100,7 @@
 				<option value="session-context">Session context</option>
 			</select>
 			{#if pinKind !== 'session-context'}
-				<select data-testid="qr-target-select" bind:value={pinTarget}>
+				<select data-testid="qr-target-select" aria-label="Pin target" bind:value={pinTarget}>
 					<option value="">Select a note…</option>
 					{#each notes as note (note.id)}
 						<option value={note.id}>{note.title}</option>
@@ -128,7 +130,11 @@
 							</p>
 						{/if}
 						{#if isDm}
-							<button type="button" data-testid={`unpin-${panel.id}`} onclick={() => void unpin(panel.id)}>
+							<button
+								type="button"
+								data-testid={`unpin-${panel.id}`}
+								onclick={() => void unpin(panel.id)}
+							>
 								Unpin
 							</button>
 						{/if}

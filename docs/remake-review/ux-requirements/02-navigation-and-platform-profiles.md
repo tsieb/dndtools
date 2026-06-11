@@ -20,8 +20,10 @@
   backlinks-as-navigation, pinned/recent items, back/forward and browser history semantics,
   deep-link resolution, hash-to-heading focus, scroll restoration, route landmarks, single `h1` per
   route, live route announcement, and actor-filtered navigation (hiding DM-only sections from players
-  without leaking). The Navigation Section registry (Command Center, Knowledge, Atlas, Session,
-  Campaign, Characters, Audio, MCP, Settings) is authoritatively defined here.
+  without leaking). The Navigation Section registry — seven global destinations (Command Center,
+  Session, Characters, Atlas, Campaign, Knowledge, Settings), with Audio, MCP, and Scenes as non-global
+  capabilities — is authoritatively defined here (UX-NAV-002) and reconciled in
+  `../../planning/v2/ux/architecture-decisions.md`.
 - **Does NOT cover:** The visual design token definitions (owned by `01-visual-design-system.md`);
   the canvas/Scene widget placement system (owned by `04-canvas-scene-widgets.md`); the Command
   Center surface itself beyond how it anchors as home in the nav shell (owned by
@@ -62,7 +64,7 @@
 The navigation shell is the skeleton of the product. It must be invisible when it is working — users
 think about their destination, not the mechanism. Under live-play pressure, a DM needs to reach any
 primary tool in under two taps or keystrokes. A player must never discover DM content through a
-navigation error or leaked section title. Across Desktop, Tablet, and Mobile, the same nine sections
+navigation error or leaked section title. Across Desktop, Tablet, and Mobile, the same seven sections
 must feel like one coherent product with a different control surface, not three different apps.
 
 | Parameter | Goal for this surface |
@@ -239,6 +241,13 @@ exactly what pressing `Enter` will do.
 
 ### UX-NAV-002 — Navigation Section registry and canonical ordering
 
+> **Reconciliation (UX-ARCH, accepted).** This registry was reconciled from nine global sections to
+> **seven** by the `UX-ARCH-product-architecture-and-ia-reconciliation` epic, per the ideal GUI
+> architecture (`16-ideal-gui-architecture.md`, section 4.1) and the functional architecture
+> contract's 5-7 global-destination cap. **Audio**, **MCP**, and the **Scenes** authoring surface
+> are first-class capabilities, not global nav sections; their durable homes are recorded in
+> `../../planning/v2/ux/navigation-registry.yaml` and `../../planning/v2/ux/architecture-decisions.md`.
+
 - **Requirement:** The approved Navigation Sections shall be presented in this fixed canonical order
   in the global nav, with no reordering by the user (sections may be hidden by actor role but the
   order among visible sections is invariant):
@@ -249,35 +258,38 @@ exactly what pressing `Enter` will do.
   4. Atlas
   5. Campaign
   6. Knowledge
-  7. Audio
-  8. MCP
-  9. Settings (always last, separated by a divider)
+  7. Settings (always last, separated by a divider)
 
 - **Rationale:** NAV-001, NAV-009. Fixed order maximizes muscle memory across sessions and reduces
   cognitive load during live play [1][2]. "Session" is placed second because live-play tasks are the
-  hottest path.
+  hottest path. Seven destinations keep the primary nav within the 5-7 architecture cap and keep
+  first-run overload low; Audio and MCP remain capabilities reached through widgets, tools, and
+  Settings rather than competing for a global slot.
 - **Spec:**
-  - Sections 1–8 are in the primary section group. Settings is in a secondary group below a
+  - Sections 1–6 are in the primary section group. Settings is in a secondary group below a
     `<hr role="separator">`.
   - Each section item: 40 px height on Desktop, 44 px on Tablet/Mobile; 16 px horizontal padding;
     icon (20 × 20 px) + label; 8 px gap between icon and label.
   - Section icons from the icon set defined in `01-visual-design-system.md`. Icon names (normative):
     `home`, `session-bolt`, `characters-person`, `atlas-map`, `campaign-scroll`, `knowledge-book`,
-    `audio-wave`, `mcp-cpu`, `settings-gear`.
+    `settings-gear`. (The `audio-wave` and `mcp-cpu` icons remain reserved for the Audio and MCP
+    capabilities, which surface as widgets, tools, and Settings rather than global nav items.)
   - The Settings item has `margin-top: auto` (pushed to bottom of sidebar) on Desktop; on Mobile/
     Tablet tab bar, Settings occupies the rightmost/last position.
-  - DM-only sections (Session DM controls, MCP, full Campaign management): filtered by actor role
-    per UX-NAV-013.
+  - All seven global sections are player-reachable (a player sees the player-safe/slim variant), so
+    no global section is DM-only. DM-only **within-section** content (e.g. Session DM control panels,
+    full Campaign management) is filtered by actor role per UX-NAV-013, and the DM-only capabilities
+    (Scenes, Audio, MCP) are absent from the player/observer navigation entirely.
 - **States:** Same as UX-NAV-001 for individual items. The separator line is `--color-border-subtle`,
   1 px.
 - **Platform profiles:**
-  - Desktop: all 9 items visible in sidebar (Session through MCP in primary group; Settings pinned
-    to bottom). Labels always shown unless sidebar is in icon-rail mode (see UX-NAV-005).
+  - Desktop: all 7 items visible in sidebar (Session through Knowledge in primary group; Settings
+    pinned to bottom). Labels always shown unless sidebar is in icon-rail mode (see UX-NAV-005).
   - Tablet landscape: navigation rail shows all items; labels below icons; Settings pinned bottom.
   - Tablet portrait / Mobile: bottom tab bar shows 5 items maximum. Items shown: Command Center,
-    Session, Characters, Atlas, and a "More" overflow (which reveals the remaining sections via a
-    bottom sheet). Settings is accessible via the "More" sheet or a dedicated tab slot.
-- **Input:** pointer: click; touch: tap; keyboard: `Alt+1` through `Alt+9` for sections in order
+    Session, Characters, Atlas, and a "More" overflow (which reveals the remaining sections —
+    Campaign, Knowledge, Settings — via a bottom sheet).
+- **Input:** pointer: click; touch: tap; keyboard: `Alt+1` through `Alt+7` for sections in order
   (Desktop + Tablet with keyboard; Mobile with external keyboard). Command palette: type section name.
 - **Accessibility:** `<nav aria-label="Primary navigation">`; each item `role="link"` with
   `aria-current="page"` for active; separator `role="separator"`; skip-to-content link before the
@@ -407,7 +419,7 @@ exactly what pressing `Enter` will do.
     primary` label; unselected: outlined icon + `--color-text-tertiary` label.
   - **Portrait tab bar (< 600px height or explicit portrait orientation):** Bottom-pinned, 56 px
     height; 5 tabs maximum (Command Center, Session, Characters, Atlas, More). "More" opens a bottom
-    sheet listing remaining sections (Campaign, Knowledge, Audio, MCP) plus Settings. Each tab: icon
+    sheet listing remaining sections (Campaign, Knowledge) plus Settings. Each tab: icon
     24 × 24 px centered, label 10 px below icon, 44 px minimum touch target width.
   - The rail and tab bar use the same section icon set and ordering as Desktop (UX-NAV-002).
   - Active indicator: rail — filled icon + label color change (no left accent bar). Tab bar — small
@@ -419,7 +431,7 @@ exactly what pressing `Enter` will do.
   `aria-expanded` reflecting sheet state.
 - **Platform profiles:** This requirement applies to Tablet only. Desktop uses sidebar (UX-NAV-004).
   Mobile uses its own bottom tab bar (UX-NAV-006).
-- **Input:** pointer/touch: tap; keyboard (external keyboard on iPad): `Alt+1` – `Alt+9` global
+- **Input:** pointer/touch: tap; keyboard (external keyboard on iPad): `Alt+1` – `Alt+7` global
   shortcuts; `Tab` / `Shift+Tab` to cycle nav items; `Enter`/`Space` to activate.
 - **Accessibility:** Tab bar: `<nav role="navigation" aria-label="Primary navigation">` wrapping a
   `role="tablist"` with each tab as `role="tab"` + `aria-selected`. "More" sheet: focus trapped
@@ -452,7 +464,7 @@ exactly what pressing `Enter` will do.
   - Tab item: 44 × 44 px minimum touch target, icon 24 × 24 px, label 11 px, `--font-size-xs`.
   - Active tab: filled icon, label in `--color-accent-primary`.
   - "More" sheet: 75% viewport height, drag handle at top; lists remaining sections (Campaign,
-    Knowledge, Audio, MCP, Settings) as full-width `<button>` rows (56 px height, 44 px touch
+    Knowledge, Settings) as full-width `<button>` rows (56 px height, 44 px touch
     target, icon + label + chevron).
   - Content panes: single primary pane (100vw, minus tab bar height). No persistent secondary
     columns. Details, filters, and local sub-navigation reveal as bottom sheets (≥ 44 px handle,
@@ -464,7 +476,7 @@ exactly what pressing `Enter` will do.
   `aria-expanded`. Focus mode: tab bar hidden, floating exit button `aria-label="Exit focus mode"`.
 - **Platform profiles:** Mobile (< 600px) only. Tablet uses UX-NAV-005.
 - **Input:** touch: tap; swipe-up on bottom sheet to expand; swipe-down to close sheet. Keyboard
-  (external): `Alt+1` – `Alt+9`; `Tab` cycles tabs; `Escape` closes open sheets.
+  (external): `Alt+1` – `Alt+7`; `Tab` cycles tabs; `Escape` closes open sheets.
 - **Accessibility:** `<nav aria-label="Primary navigation">` with `role="tablist"`; each tab
   `role="tab"`, `aria-selected`; "More" sheet: `role="dialog"`, focus trap, `aria-label`. All touch
   targets ≥ 44 × 44 CSS px.
@@ -1067,9 +1079,7 @@ exactly what pressing `Enter` will do.
     | Navigate to Atlas | `Alt+4` | `Alt+4` | |
     | Navigate to Campaign | `Alt+5` | `Alt+5` | |
     | Navigate to Knowledge | `Alt+6` | `Alt+6` | |
-    | Navigate to Audio | `Alt+7` | `Alt+7` | |
-    | Navigate to MCP | `Alt+8` | `Alt+8` | |
-    | Navigate to Settings | `Alt+9` | `Alt+9` | |
+    | Navigate to Settings | `Alt+7` | `Alt+7` | Last section |
     | Toggle sidebar expand/collapse | `Ctrl+\` | `Ctrl+\` | Desktop only |
     | Toggle backlinks panel | `Alt+B` | `Alt+B` | Desktop only |
     | Go back | `Cmd+[` | `Alt+←` | Browser/OS native |
@@ -1280,8 +1290,8 @@ exactly what pressing `Enter` will do.
 │ [Atlas] │              │   │                                │ │s│
 │ [Camp.] │              │   │                                │ │ │
 │ [Know.] │              │   │                                │ │2│
-│ [Audio] │              │   │                                │ │4│
-│ [MCP]   │              │   │                                │ │0│
+│         │              │   │                                │ │4│
+│         │              │   │                                │ │0│
 │         │              │   └────────────────────────────────┘ │p│
 │ ─────── │              │                                      │x│
 │ Pinned  │              │                                      │ │
@@ -1538,17 +1548,17 @@ hierarchy for Mobile vs. Desktop ("Mobile has a simplified IA").
 who prep on laptop and check on phone) must recognize the same concepts in the same order. A
 different IA per profile creates two separate mental models, doubling the learning burden and causing
 confusion when switching.
-**Rule:** The nine Navigation Sections, their names, and their canonical order are identical across
+**Rule:** The seven Navigation Sections, their names, and their canonical order are identical across
 all profiles. Only the *presentation surface* changes (sidebar ↔ tab bar).
 
 ### AP-7: No redundant "More" nesting on Desktop
 
 **Pattern:** Adding a "More" overflow to the Desktop sidebar when there are more than N sections.
-**Reason:** DND Tools has exactly 9 Navigation Sections — a number that fits comfortably in a 220 px
-sidebar at 40 px per item (360 px total, well within a reasonable viewport height). A "More" pattern
+**Reason:** DND Tools has exactly 7 Navigation Sections — a number that fits comfortably in a 220 px
+sidebar at 40 px per item (280 px total, well within a reasonable viewport height). A "More" pattern
 on Desktop hides destinations and reduces information scent. It is appropriate only on the Mobile
 tab bar (max 5 tabs) and Tablet portrait where space is genuinely constrained.
-**Rule:** The Desktop sidebar must show all 9 Navigation Sections (8 primary + Settings) without a
+**Rule:** The Desktop sidebar must show all 7 Navigation Sections (6 primary + Settings) without a
 "More" overflow. If the viewport is shorter than the sidebar content, the sidebar scrolls
 internally; it does not collapse items.
 
@@ -1614,12 +1624,14 @@ sole discovery path.
 
 ## 12. Open questions & risks
 
-### OQ-1: Navigation Section name finalization
-The vision brief uses "Scene" as a working name for the canvas (with alternatives noted). The
-Navigation Sections listed here ("Atlas", "Session", "Campaign", etc.) are proposed based on the
-vision but have not been validated in a tree-test or card sort with real users. **Risk:** Wrong
-labels reduce findability below the 80% target. **Mitigation:** Conduct a card sort and tree test
-with 8–12 DMs and players before implementation begins.
+### OQ-1: Navigation Section name finalization — PARTIALLY RESOLVED (UX-ARCH)
+**Resolution:** "Scene" is accepted as the v2 label for the canvas primitive, and the global
+Navigation Section set is fixed at seven (UX-NAV-002 reconciliation;
+`../../planning/v2/ux/architecture-decisions.md`). **Still recommended:** the seven section
+*labels* ("Atlas", "Session", "Campaign", etc.) have not been validated in a tree-test or card sort
+with real users (README section B.5). **Risk:** Wrong labels reduce findability below the 80%
+target. **Mitigation:** Conduct a card sort and tree test with 8–12 DMs and players before broad
+implementation; this does not block the route/registry contract, which keys on stable section ids.
 
 ### OQ-2: Tablet breakpoint definition for orientation detection
 The spec uses "landscape" / "portrait" as proxies for the Tablet rail vs. tab-bar switch, but a
@@ -1635,13 +1647,15 @@ height ≥ 500px AND landscape`, not orientation alone.
 is full. **Mitigation:** Reserve one of the 5 tab bar slots for a search/palette icon on Mobile
 (replacing the fifth section tab, which moves to "More"). Confirm this layout in usability testing.
 
-### OQ-4: MCP section actor availability
-The vision brief states MCP can be "completely disabled". For players, MCP is listed as a section
-they cannot access (DM-only in the registry). However, some MCP capabilities may be player-facing
-(e.g., MCP-assisted dice, narrative suggestions visible in Session). **Risk:** Over-filtering hides
-player-relevant MCP output; under-filtering leaks DM MCP config. **Mitigation:** Define the player-
-visible MCP surface explicitly in `14-ai-mcp.md` and confirm whether it warrants its own nav entry
-or is embedded in Session.
+### OQ-4: MCP section actor availability — RESOLVED (UX-ARCH)
+**Resolution:** MCP is no longer a global Navigation Section (UX-ARCH reconciliation; see the
+UX-NAV-002 banner). It is a DM-only capability surfaced inline (editor assistance, staged-write
+review) and in Settings. Any player-facing MCP output (e.g. MCP-assisted dice or narrative
+suggestions) is owned by `14-ai-mcp.md` and appears within Session/content surfaces, never as a nav
+entry. This removes the "own nav entry vs embedded" question for the primary nav. **Residual risk:**
+under-filtering could still leak DM MCP config into player-visible output. **Mitigation:** the
+actor-filtered output rules in `14-ai-mcp.md` and the no-leak boundary in `03-accessibility.md`
+(UX-A11Y-008) remain the controlling requirements.
 
 ### OQ-5: Local nav (Tier 2) contract per section
 This document defines the Tier 2 pattern (secondary panel on Desktop; segmented control on Tablet/

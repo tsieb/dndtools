@@ -10,6 +10,7 @@
 		isTransitionAllowed,
 		listWidgetLibrary,
 		resolveAddWidgetCommand,
+		resolveCommandCenterHome,
 		resolveOnboarding,
 		type MapEntity,
 		type SessionWorkflowState,
@@ -20,6 +21,8 @@
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
 	import { useFeatureTier } from '$lib/state/feature-tier.svelte';
 	import FirstRun from '$lib/gui/FirstRun.svelte';
+	import SessionStatusStrip from '$lib/gui/ux-cmd/SessionStatusStrip.svelte';
+	import ParticipantHome from '$lib/gui/ux-cmd/ParticipantHome.svelte';
 
 	const runtime = useRuntime();
 	const profile = useProfile();
@@ -39,10 +42,23 @@
 		return TOOL_LABELS.get(type) ?? type;
 	}
 
+	// UX-CMD-012: the role-differentiated home decision. This single viewer-gated read model decides
+	// whether the `/` route renders the DM dashboard or a player/observer's own controlled view. The DM
+	// dashboard markup below is gated entirely behind `homeView.kind === 'dm'`, so a player/observer
+	// never receives the DM surface, its controls, or any DM-only content/count/title (the home is the
+	// product's most dangerous leak surface; this is the choke point — see core command-center-home.ts).
+	const homeView = $derived(
+		resolveCommandCenterHome(runtime.state, runtime.defaultActorId, {
+			widgetPackages: runtime.state.widgets,
+		}),
+	);
+
 	let ensuring = $state(false);
+	let snapshotting = $state(false);
 	let presetName = $state('');
 	let selectedWidgetId = $state<string | null>(null);
 	let lastRestore = $state<{ restored: number; missing: string[] } | null>(null);
+	let autoSaveStatus = $state<string | null>(null);
 	let librarySearch = $state('');
 	let selectedMapId = $state('');
 	let selectedRegionId = $state<string | null>(null);
@@ -178,6 +194,33 @@
 		});
 	}
 
+	// UX-CMD-008: the recoverable last-known-good layout slot.
+	const autoSave = $derived(runtime.state.commandCenter.autoSave ?? null);
+
+	async function captureSafePoint(): Promise<void> {
+		if (!homeSceneId || snapshotting) return;
+		snapshotting = true;
+		try {
+			await runtime.dispatch({
+				type: 'command-center.snapshot-auto-save',
+				actorId: runtime.defaultActorId,
+				payload: {},
+			});
+		} finally {
+			snapshotting = false;
+		}
+	}
+
+	// Establish a baseline last-known-good as soon as the DM's home is ready, so a crash or an unwanted
+	// experimental change is always recoverable (CMD-008). Raw widget moves intentionally do NOT
+	// re-checkpoint — they are exactly what "Restore" rolls back.
+	$effect(() => {
+		if (!runtime.loaded || homeView.kind !== 'dm') return;
+		if (!homeSceneId || !summary || 'kind' in summary) return;
+		if (autoSave || snapshotting) return;
+		void captureSafePoint();
+	});
+
 	async function savePreset(event: SubmitEvent) {
 		event.preventDefault();
 		if (!presetName.trim()) return;
@@ -186,7 +229,11 @@
 			actorId: runtime.defaultActorId,
 			payload: { name: presetName.trim() },
 		});
-		if (result.status === 'accepted') presetName = '';
+		if (result.status === 'accepted') {
+			presetName = '';
+			// A saved preset is a deliberate good state — refresh the recoverable safe point too.
+			await captureSafePoint();
+		}
 	}
 
 	async function applyPreset(presetId: string) {
@@ -200,6 +247,25 @@
 			if (event && event.kind === 'command-center.preset-restored') {
 				lastRestore = { restored: event.restoredWidgetCount, missing: event.missingWidgetTypes };
 			}
+		}
+	}
+
+	async function restoreSafePoint(): Promise<void> {
+		const result = await runtime.dispatch({
+			type: 'command-center.restore-auto-save',
+			actorId: runtime.defaultActorId,
+			payload: {},
+		});
+		if (result.status === 'accepted') {
+			const event = result.events.find((e) => e.kind === 'command-center.auto-save-restored');
+			autoSaveStatus =
+				event && event.kind === 'command-center.auto-save-restored'
+					? `Layout restored from safe point (${event.restoredWidgetCount} widget${
+							event.restoredWidgetCount === 1 ? '' : 's'
+						}).`
+					: 'Layout restored from safe point.';
+		} else {
+			autoSaveStatus = result.rejection.message;
 		}
 	}
 
@@ -328,19 +394,26 @@
 </script>
 
 <section class="command-center" data-testid="command-center" aria-label="Command Center">
-	<header class="cc-header">
-		<p class="meta">
-			Your home Scene for active session management.
-			<span data-testid="cc-profile">profile: {profile.viewportClass}</span>
-		</p>
-		{#if homeSceneId}
-			<div class="row-actions">
-				<a class="button secondary" href={`scene/${homeSceneId}/`} data-testid="cc-open-editor">
-					Open in Scene editor
-				</a>
-			</div>
-		{/if}
-	</header>
+	{#if homeView.kind === 'participant'}
+		<!-- UX-CMD-012: a player/observer never sees the DM dashboard — only their own controlled view. -->
+		<ParticipantHome view={homeView} />
+	{:else if homeView.kind === 'dm'}
+		<header class="cc-header">
+			<p class="meta">
+				Your home Scene for active session management.
+				<span data-testid="cc-profile">profile: {profile.viewportClass}</span>
+			</p>
+			{#if homeSceneId}
+				<div class="row-actions">
+					<a class="button secondary" href={`scene/${homeSceneId}/`} data-testid="cc-open-editor">
+						Open in Scene editor
+					</a>
+				</div>
+			{/if}
+		</header>
+
+		<!-- UX-CMD-003: the glanceable, always-visible session status strip. -->
+		<SessionStatusStrip strip={homeView.statusStrip} />
 
 	<FirstRun
 		view={onboarding}
@@ -742,6 +815,36 @@
 					{/if}
 				</p>
 			{/if}
+
+			<!-- UX-CMD-008: the recoverable last-known-good layout. A baseline is captured automatically
+			     when the home is ready; the DM can re-checkpoint or roll an unwanted change back. -->
+			<div class="cc-autosave" data-testid="cc-autosave">
+				<div class="row-actions">
+					<button type="button" data-testid="cc-autosave-snapshot" onclick={() => captureSafePoint()}>
+						Save safe point
+					</button>
+					<button
+						type="button"
+						data-testid="cc-autosave-restore"
+						disabled={!autoSave}
+						onclick={() => restoreSafePoint()}
+					>
+						Restore last safe point
+					</button>
+				</div>
+				{#if autoSave}
+					<p class="meta" data-testid="cc-autosave-meta">
+						Last safe point: {autoSave.widgets.length} widget{autoSave.widgets.length === 1
+							? ''
+							: 's'} • captured {autoSave.capturedAt}
+					</p>
+				{:else}
+					<p class="meta" data-testid="cc-autosave-empty">No safe point captured yet.</p>
+				{/if}
+				{#if autoSaveStatus}
+					<p class="meta" role="status" data-testid="cc-autosave-status">{autoSaveStatus}</p>
+				{/if}
+			</div>
 		</section>
 
 		<section aria-label="Widget library">
@@ -793,5 +896,10 @@
 				{/if}
 			</ul>
 		</section>
+	{/if}
+	{:else}
+		<p class="error" role="alert" data-testid="cc-unknown-actor">
+			Command Center unavailable.
+		</p>
 	{/if}
 </section>

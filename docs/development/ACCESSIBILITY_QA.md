@@ -128,3 +128,73 @@ Use this block in release notes:
 - Findings:
   - [ID] Summary (WCAG X.X.X) - Status - Workaround
 ```
+
+## V2 Surfaces (UX-A11Y-018)
+
+Epic `UX-A11Y-release-gates-and-contrast` extends this release checklist to the v2 remake surfaces.
+Run the v2 sections below in all three environments (VoiceOver+Safari, NVDA+Chrome, TalkBack+Chrome)
+before every minor and major release, in addition to the automated gate (`pnpm a11y:gate`, see
+`docs/development/ACCESSIBILITY.md` §9).
+
+### Required v2 environments
+
+- VoiceOver + Safari (macOS) — Desktop profile, keyboard.
+- NVDA + Chrome (Windows) — Desktop profile, keyboard.
+- TalkBack + Chrome (Android) — Mobile profile, touch.
+
+### V2 surface checks (each environment)
+
+1. Primary navigation and route announcements
+
+- Traverse the seven global destinations (Command Center, Session, Characters, Atlas, Campaign,
+  Knowledge, Settings) by landmark/heading shortcuts.
+- Confirm each route exposes exactly one `h1`, the route landmark receives focus, and the polite
+  live region announces the new route.
+
+2. Scene canvas keyboard model and Scene Outline
+
+- Tab from the toolbar into the canvas; confirm a visible focus ring lands on the first widget.
+- Move/resize/layer/dock a widget by keyboard or touch handles (no drag-only step) and confirm
+  position/size announcements.
+- Open the Scene Outline and confirm every widget is announced by name + type in layer order; an
+  empty canvas announces the empty-state hint.
+
+3. Map summary panel
+
+- Open the map accessibility summary; confirm visible POIs/routes/areas are listed and activating
+  one centres the map and announces the POI.
+
+4. Combat live announcements (run as DM session AND Player session separately)
+
+- Confirm turn advance, HP/status changes (polite) and incapacitation/death (assertive) announce at
+  the right politeness level, debounced under rapid events.
+
+5. Drag alternatives (WCAG 2.5.7)
+
+- For every drag (widget move/resize, map pin, initiative reorder, file import), confirm a
+  keyboard/menu/numeric single-pointer alternative reaches the same state.
+
+6. Visibility-boundary no-leak check (UX-A11Y-008) — REQUIRED, Player role
+
+- In a Player-role session with a DM-only canvas widget, DM-only map POI, and a hidden combatant
+  present: confirm via the screen reader and a DOM/ARIA inspection that NONE of the DM-only names,
+  labels, descriptions, alt text, or live-region announcements are present or reachable in the
+  player context (not in Tab order, Scene Outline, map summary, search, or any announcement).
+- Record this as an explicit pass/fail line; a leak is a release blocker, never a known issue.
+
+### V2 release notes template
+
+```md
+### Accessibility QA — V2 Surfaces
+
+- Executed on: YYYY-MM-DD
+- Build: <production candidate>
+- Automated gate: `pnpm a11y:gate` — PASS | FAIL (link merged report)
+- Environments:
+  - VoiceOver/Safari (macOS): PASS | PASS WITH KNOWN ISSUES | FAIL
+  - NVDA/Chrome (Windows): PASS | PASS WITH KNOWN ISSUES | FAIL
+  - TalkBack/Chrome (Android): PASS | PASS WITH KNOWN ISSUES | FAIL
+- Player-role visibility-boundary no-leak check (UX-A11Y-008): PASS | FAIL
+- Findings:
+  - [ID] Summary (WCAG X.X.X) - Severity - Status - Workaround - Target fix release
+```

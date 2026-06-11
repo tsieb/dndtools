@@ -133,6 +133,12 @@ Search result counts, hidden targets, timing, error messages, and previews must 
 
 ### 4.1 IA reconciliation before scaffolding
 
+> **Decision (ACCEPTED, UX-ARCH).** The seven-destination reconciliation below is accepted. Audio,
+> MCP, and the Scenes authoring surface are non-global capabilities. The machine-readable contract is
+> `../../planning/v2/ux/navigation-registry.yaml` and the decision record is
+> `../../planning/v2/ux/architecture-decisions.md`; UX-NAV-002 in
+> `02-navigation-and-platform-profiles.md` has been updated to match.
+
 There is a document-level tension to resolve before large route work:
 
 - The UX navigation document proposes nine Navigation Sections: Command Center, Session,
@@ -758,6 +764,13 @@ The GUI plan should fit the v2 stack and repo practices:
 ## 10. Development Sequencing Guidance
 
 ### 10.1 Resolve before broad route work
+
+> **Status (UX-ARCH).** All six items below are now resolved or deferred-with-constraint in
+> `../../planning/v2/ux/architecture-decisions.md`: (1) seven-section global nav — accepted;
+> (2) Scene name — accepted; (3) canvas renderer — deferred (interim DOM baseline per ADR-014);
+> (4) player-view preview — deferred (interim actor-filtered re-render constraint); (5) layout-preset
+> storage — accepted proportional; (6) interim sync/collab states — deferred per ADR-014 with
+> explicit "not enabled in this build" affordances.
 
 1. **Global nav reconciliation**: decide whether the ideal global nav is seven destinations or the
    UX-NAV nine-section registry. Update all affected docs and lint contracts before scaffolding.

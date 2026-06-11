@@ -113,6 +113,18 @@ export type CoreCommand =
 			idempotencyKey?: string;
 	  }
 	| {
+			type: 'command-center.snapshot-auto-save';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'command-center.restore-auto-save';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
 			type: 'session.project-player-view';
 			actorId: ActorId;
 			payload: unknown;
@@ -620,6 +632,20 @@ export type CoreEvent =
 			presetId: string;
 			sceneId: SceneId;
 			actorId: ActorId;
+			restoredWidgetCount: number;
+			missingWidgetTypes: string[];
+	  }
+	| {
+			kind: 'command-center.auto-save-captured';
+			sceneId: SceneId;
+			actorId: ActorId;
+			capturedAt: string;
+	  }
+	| {
+			kind: 'command-center.auto-save-restored';
+			sceneId: SceneId;
+			actorId: ActorId;
+			capturedAt: string;
 			restoredWidgetCount: number;
 			missingWidgetTypes: string[];
 	  }
@@ -1223,6 +1249,7 @@ export type RejectionCode =
 	| 'template-source-not-template'
 	| 'command-center-not-configured'
 	| 'preset-not-found'
+	| 'auto-save-not-available'
 	// MAP-017 — nesting integrity rejections (cycle / depth bound), kept fail-closed and distinct so
 	// the DM authoring UI can explain exactly why an embed was refused.
 	| 'nesting-cycle'

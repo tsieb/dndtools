@@ -1,0 +1,5 @@
+{
+	"version": 1,
+	"$schema": "Each entry approves (or tracks) a known axe finding so the gate can pass while it is scheduled for remediation. Fields: id (axe rule), route (or '*'), impact, selector (optional normalized-selector prefix), wcag, owner, reason, targetResolutionDate (YYYY-MM-DD). A critical finding can never be approved here. Once targetResolutionDate passes, the gate fails until the issue is resolved or the date is extended with owner approval. See docs/development/ACCESSIBILITY.md (V2 register).",
+	"violations": []
+}

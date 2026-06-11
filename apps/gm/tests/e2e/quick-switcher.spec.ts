@@ -103,7 +103,7 @@ test.describe('SRCH-002 quick switcher — execute the current selection (AC2)',
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 
 		// Open with the global shortcut (distinct from the command palette's Ctrl+K).
-		await page.keyboard.press('Control+p');
+		await page.keyboard.press('Control+o');
 		await expect(page.getByTestId('quick-switcher')).toBeVisible();
 		await page.getByTestId('quick-switcher-search').fill('keep');
 
@@ -132,6 +132,31 @@ test.describe('SRCH-002 quick switcher — execute the current selection (AC2)',
 		await page.getByTestId('quick-switcher-search').press('Escape');
 		await expect(page.getByTestId('quick-switcher')).toHaveCount(0);
 		await expect(page).toHaveURL(/\/knowledge\/?$/);
+	});
+});
+
+test.describe('SRCH-005 quick switcher — `>` command mode lists commands, not titles (AC3)', () => {
+	test('a `>` query shows matching commands and never an entity title', async ({ page }) => {
+		await freshKnowledge(page);
+		// A note whose title contains "scene" would normally be a navigation hit.
+		await createNote(page, 'Scene Prep Notes', 'player-visible', 'Stage the ambush.');
+		await page.goto('/');
+		await page.getByTestId('command-center').waitFor({ state: 'visible' });
+
+		await openSwitcher(page);
+		const list = page.getByTestId('quick-switcher-list');
+
+		// A bare "scene" query surfaces the note (navigation) alongside the command.
+		await page.getByTestId('quick-switcher-search').fill('scene');
+		await expect(list.getByText('Scene Prep Notes')).toBeVisible();
+
+		// ">scene" switches to command mode: the note title is gone; only commands remain.
+		await page.getByTestId('quick-switcher-search').fill('>scene');
+		await expect(page.getByTestId('quick-switcher-section')).toHaveText('Commands');
+		await expect(list).not.toContainText('Scene Prep Notes');
+		await expect(list.getByText('Create Scene', { exact: true })).toBeVisible();
+		// Every visible option in command mode is a command entry, never a navigation entry.
+		await expect(list.locator('[role="option"][data-kind="navigation"]')).toHaveCount(0);
 	});
 });
 

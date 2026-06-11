@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+	import { goto } from '$app/navigation';
 	import {
 		EMPTY_WIDGET_DATA_ENVIRONMENT,
 		getPlayerViewForActor,
 		getSceneForActor,
+		listCharactersForActor,
+		listScenesForActor,
 		listWidgetLayoutCommands,
 		resolveLayoutCommandPayload,
 		type PlayerViewProjectionKind,
@@ -14,10 +17,50 @@
 	import { useRuntime } from '$lib/state/runtime-context';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
 	import { widgetAccessibleName } from '$lib/a11y/widget-name';
+	import SceneOutline from '$lib/gui/a11y/SceneOutline.svelte';
+	import Dialog from '$lib/gui/a11y/Dialog.svelte';
+	import { arrowDirection, useLiveAnnouncer } from '$lib/gui/a11y';
+	import { isVisibleToViewer, type OutlineWidgetInput, type Viewer } from '$lib/gui/a11y';
+	import CanvasViewport from '$lib/gui/canvas/CanvasViewport.svelte';
+	import type { CanvasTile, CanvasTileState, MinimapMode } from '$lib/gui/canvas/types';
+	import { ViewportController, screenToWorld } from '$lib/canvas-runtime';
+	import {
+		CanvasManipulationController,
+		bindingChrome,
+		bindingState,
+		builtInById,
+		defaultSizeForType,
+		instantiatedSceneName,
+		isCollapsed,
+		missingBindingBanner,
+		placementTopLeft,
+		placedAnnouncement,
+		previewEnterAnnouncement,
+		previewViewer,
+		PREVIEW_EXIT_ANNOUNCEMENT,
+		resolveCanvasShortcut,
+		safeBindingEntityId,
+		safeWidgetTitle,
+		toShortcutEvent,
+		type BindableEntity,
+		type BindingResolutionKind,
+		type ManipWidget,
+		type TemplateEntry,
+	} from '$lib/gui/ux-canvas';
+	import WidgetLibrary from '$lib/gui/ux-canvas/WidgetLibrary.svelte';
+	import SelectionToolbar from '$lib/gui/ux-canvas/SelectionToolbar.svelte';
+	import TransformPanel from '$lib/gui/ux-canvas/TransformPanel.svelte';
+	import KeyboardShortcutsHelp from '$lib/gui/ux-canvas/KeyboardShortcutsHelp.svelte';
+	import WidgetChromePanel from '$lib/gui/ux-canvas/WidgetChromePanel.svelte';
+	import BindingInspector from '$lib/gui/ux-canvas/BindingInspector.svelte';
+	import CanvasTemplatesDialog from '$lib/gui/ux-canvas/CanvasTemplatesDialog.svelte';
+	import PlayerViewPreviewBanner from '$lib/gui/ux-canvas/PlayerViewPreviewBanner.svelte';
+	import EmptyCanvasState from '$lib/gui/ux-canvas/EmptyCanvasState.svelte';
 
 	const { data } = $props();
 	const runtime = useRuntime();
 	const profile = useProfile();
+	const announcer = useLiveAnnouncer();
 
 	// PLAT-003: on a compact (mobile) profile the dense widget grid and the persistent
 	// "Add widget" panel do not fit. The shell shows ONE focused widget at a time (a focused
@@ -47,6 +90,10 @@
 
 	let widgetType = $state('note');
 	let widgetVersion = $state('1.0.0');
+	// UX-A11Y-004/008: per-widget visibility for the Scene Outline no-leak boundary. Stored in the
+	// widget configuration so it survives reload; the outline classifies each widget by it (defaulting
+	// to the scene's own visibility) and filters DM-only widgets out of a player's outline.
+	let widgetVisibility = $state<'dm-only' | 'shared' | 'player-visible'>('player-visible');
 	let widgetX = $state(40);
 	let widgetY = $state(40);
 	let widgetW = $state(240);
@@ -101,6 +148,544 @@
 	}
 	function focusNext() {
 		focusedIndex = Math.min(orderedWidgets.length - 1, focusedIndex + 1);
+	}
+
+	// UX-A11Y-008: the viewer the Scene Outline is rendered for. Fail-closed to the most restrictive
+	// non-DM role when the active actor is unknown, so an unidentified viewer never sees DM-only items.
+	const viewer = $derived.by<Viewer>(() => {
+		const actor = runtime.state.permissions.actors[runtime.activeActorId];
+		return { role: actor?.role ?? 'observer', actorId: runtime.activeActorId };
+	});
+
+	function widgetVisibilityOf(widget: WidgetInstance): 'dm-only' | 'shared' | 'player-visible' {
+		const declared = widget.configuration?.visibility;
+		if (declared === 'dm-only' || declared === 'shared' || declared === 'player-visible') {
+			return declared;
+		}
+		// No per-widget visibility ⇒ inherit the scene's visibility (the spatial container's level).
+		return rawScene?.visibility ?? 'dm-only';
+	}
+
+	// UX-A11Y-004: map the raw scene widgets onto the Scene Outline input shape. The outline itself
+	// (buildSceneOutline) filters DM-only widgets out for non-DM viewers BEFORE computing any name, so
+	// this mapping may safely run over the full widget set on the DM's device (UX-A11Y-008).
+	const outlineWidgets = $derived.by<OutlineWidgetInput[]>(() => {
+		if (!rawScene) return [];
+		return rawScene.widgets.map((widget, index) => ({
+			id: widget.id,
+			type: widget.type,
+			// UX-CANVAS-008 no-leak: the bound entity id is part of the outline name only when the viewer
+			// may see it. A player-visible widget bound to a DM-only entity shows just its type to a player.
+			name: safeEntityNameFor(widget),
+			layerOrder: widget.layout.focusOrder ?? widget.layout.z ?? index,
+			groupId: widget.layout.groupId,
+			visibility: widgetVisibilityOf(widget),
+			sharedWith: rawScene.sharingTargets,
+		}));
+	});
+
+	// UX-CANVAS-001/014/016: the spatial canvas tiles. Built from the raw Scene widgets (which always
+	// carry a layout rect) joined with the actor-FILTERED binding state, and gated by the same
+	// DM-only no-leak rule the Scene Outline uses — a non-DM viewer's canvas never renders a DM-only
+	// widget (UX-A11Y-008). The data state drives the skeleton / placeholder rendering (UX-CANVAS-014).
+	const canvasTileState = $derived.by<SvelteMap<string, CanvasTileState>>(() => {
+		const map = new SvelteMap<string, CanvasTileState>();
+		if ('kind' in summary) return map;
+		for (const payload of summary.widgets) {
+			const id =
+				payload.kind === 'available' || payload.kind === 'degraded'
+					? payload.widget.id
+					: payload.widgetInstanceId;
+			switch (payload.kind) {
+				case 'missing':
+					map.set(id, 'missing');
+					break;
+				case 'conflicted':
+					map.set(id, 'conflicted');
+					break;
+				case 'unbound':
+				case 'disabled':
+					map.set(id, 'unbound');
+					break;
+				default:
+					map.set(id, 'ready');
+			}
+		}
+		return map;
+	});
+
+	// UX-CANVAS-007/008: per-widget binding-resolution kind for the ACTIVE viewer, read off the Processing
+	// Core summary (already actor-redacted). Drives the chain-link state and the SAFE entity-name choke
+	// point — a non-DM never gets the entity id unless their own resolution returned the widget available.
+	const bindingResolutionByWidgetId = $derived.by<SvelteMap<string, BindingResolutionKind>>(() => {
+		const map = new SvelteMap<string, BindingResolutionKind>();
+		if ('kind' in summary) return map;
+		for (const payload of summary.widgets) {
+			const id =
+				payload.kind === 'available' || payload.kind === 'degraded'
+					? payload.widget.id
+					: payload.widgetInstanceId;
+			map.set(id, payload.kind);
+		}
+		return map;
+	});
+
+	// The DM-safe entity name for a widget's binding, given the active viewer (UX-CANVAS-008 no-leak).
+	function safeEntityNameFor(widget: WidgetInstance): string | undefined {
+		if (!widget.binding) return undefined;
+		const resolution = bindingResolutionByWidgetId.get(widget.id) ?? 'none';
+		return safeBindingEntityId(resolution, widget.binding.source.entityId, viewer.role);
+	}
+
+	function rotationOf(widget: WidgetInstance): number {
+		const r = widget.configuration?.rotation;
+		return typeof r === 'number' && Number.isFinite(r) ? r : 0;
+	}
+
+	// UX-CANVAS-007/008/013: the DM canvas tiles, carrying chrome (collapse + binding indicator) and a
+	// SAFE title that never embeds a hidden bound entity id. Actor-filtered (no DM-only leak to players).
+	const canvasTiles = $derived.by<CanvasTile[]>(() => {
+		if (!rawScene) return [];
+		return rawScene.widgets
+			.filter((widget) => viewer.role === 'dm' || widgetVisibilityOf(widget) !== 'dm-only')
+			.map((widget) => {
+				const safeName = safeEntityNameFor(widget);
+				const state = bindingState(widget.binding !== null, bindingResolutionByWidgetId.get(widget.id) ?? 'none');
+				const chrome = bindingChrome(state, safeName);
+				return {
+					id: widget.id,
+					x: widget.layout.x,
+					y: widget.layout.y,
+					w: widget.layout.w,
+					h: widget.layout.h,
+					z: widget.layout.z,
+					rotation: rotationOf(widget),
+					type: widget.type,
+					title: safeWidgetTitle(widget.type, safeName),
+					visibility: widgetVisibilityOf(widget),
+					state: canvasTileState.get(widget.id) ?? 'ready',
+					collapsed: isCollapsed(widget.configuration ?? {}),
+					binding:
+						state === 'none'
+							? undefined
+							: { state, label: chrome.label, ariaLabel: chrome.ariaLabel },
+				} satisfies CanvasTile;
+			});
+	});
+
+	// UX-CANVAS-011 §Player-view preview: the same canvas rendered as the chosen player would see it.
+	// A pure UI overlay over already-loaded data — filtered through the SAME visibility boundary the real
+	// player canvas uses; widget chrome / DM badges / bound entity ids are stripped, so nothing leaks.
+	const previewedViewer = $derived(
+		previewViewer(playerPreviewId, runtime.state.permissions.actors[playerPreviewId]?.role ?? 'player'),
+	);
+	const previewTiles = $derived.by<CanvasTile[]>(() => {
+		if (!rawScene) return [];
+		return rawScene.widgets
+			.filter((widget) =>
+				isVisibleToViewer(
+					{ visibility: widgetVisibilityOf(widget), sharedWith: rawScene.sharingTargets },
+					previewedViewer,
+				),
+			)
+			.map((widget) => ({
+				id: widget.id,
+				x: widget.layout.x,
+				y: widget.layout.y,
+				w: widget.layout.w,
+				h: widget.layout.h,
+				z: widget.layout.z,
+				rotation: rotationOf(widget),
+				type: widget.type,
+				// Player canvas hides chrome + bound entity ids (UX-CANVAS-011 §Player view canvas).
+				title: safeWidgetTitle(widget.type),
+				visibility: widgetVisibilityOf(widget),
+				state: canvasTileState.get(widget.id) ?? 'ready',
+				collapsed: isCollapsed(widget.configuration ?? {}),
+			}));
+	});
+
+	const playerLabelFor = $derived(
+		runtime.state.permissions.actors[playerPreviewId]?.displayName ?? playerPreviewId,
+	);
+
+	// UX-CANVAS-002/003/004/005/006/009/012: the editor-side manipulation surface. The widget list is the
+	// SAME viewer-FILTERED set the canvas/outline use, so selection, marquee, alignment, z-order, and the
+	// transform panel can never reach a DM-only widget for a player/observer (no-leak). Editing is offered
+	// only to the DM/owner viewer; the processing core re-checks co-editor rights on every command.
+	const canEdit = $derived(viewer.role === 'dm');
+
+	const manipWidgets = $derived.by<ManipWidget[]>(() => {
+		if (!rawScene) return [];
+		return rawScene.widgets
+			.filter((widget) => viewer.role === 'dm' || widgetVisibilityOf(widget) !== 'dm-only')
+			.map((widget) => {
+				const safeName = safeEntityNameFor(widget);
+				return {
+					id: widget.id,
+					x: widget.layout.x,
+					y: widget.layout.y,
+					w: widget.layout.w,
+					h: widget.layout.h,
+					z: widget.layout.z,
+					type: widget.type,
+					// SAFE label — entity id only when the viewer may see it (never to a player).
+					label: safeWidgetTitle(widget.type, safeName),
+					rotation: rotationOf(widget),
+					configuration: widget.configuration ?? {},
+					visibility: widgetVisibilityOf(widget),
+					collapsed: isCollapsed(widget.configuration ?? {}),
+					binding: widget.binding,
+					bindingState: bindingState(
+						widget.binding !== null,
+						bindingResolutionByWidgetId.get(widget.id) ?? 'none',
+					),
+				} satisfies ManipWidget;
+			});
+	});
+
+	// One shared viewport controller so placement can resolve the viewport centre in world space and the
+	// canvas drives a single pan/zoom runtime (foundational-canvas reuse).
+	const viewportController = new ViewportController();
+
+	const manipulation = new CanvasManipulationController({
+		get sceneId() {
+			return sceneId;
+		},
+		widgets: () => manipWidgets,
+		dispatch: async (commands) => {
+			for (const command of commands) {
+				const result = await runtime.dispatch({
+					type: command.type as never,
+					actorId: runtime.defaultActorId,
+					payload: command.payload,
+				});
+				if (result.status !== 'accepted') return false;
+			}
+			return true;
+		},
+		announce: (message) => announcer?.announce(message, 'polite'),
+	});
+
+	// Keep the selection valid when widgets are removed or the viewer switches (no stale/leaked ids).
+	$effect(() => {
+		void manipWidgets;
+		manipulation.reconcile();
+	});
+
+	// The primary selected widget, surfaced to the transform panel + canvas handles.
+	const primaryWidget = $derived.by<ManipWidget | null>(() => {
+		const id = manipulation.primaryId;
+		return id ? (manipWidgets.find((w) => w.id === id) ?? null) : null;
+	});
+
+	let libraryOpen = $state(false);
+	let helpOpen = $state(false);
+	let bindingOpen = $state(false);
+	let templatesOpen = $state(false);
+	let showBindings = $state(false);
+	let previewActive = $state(false);
+	let deleteTargetId = $state<string | null>(null);
+
+	// UX-CANVAS-008: DM-scoped bindable entities for the inspector (characters + scenes). This surface is
+	// DM-only (rendered under `canEdit`), so listing ids here is safe; the no-leak boundary protects the
+	// player view, never the DM's own binding UI.
+	const bindableEntities = $derived.by<BindableEntity[]>(() => {
+		const characters = listCharactersForActor(
+			runtime.state.characters,
+			runtime.state.permissions,
+			runtime.defaultActorId,
+		).map((c) => ({ entityType: 'character', entityId: c.id, label: c.name }));
+		const scenes = listScenesForActor(
+			runtime.state.scenes,
+			runtime.state.permissions,
+			runtime.defaultActorId,
+		)
+			.filter((s) => s.id !== sceneId && !s.isTemplate)
+			.map((s) => ({ entityType: 'scene', entityId: s.id, label: s.name }));
+		return [...characters, ...scenes];
+	});
+
+	// User-saved templates (already DM-only filtered by the Core query) for the templates dialog.
+	const userTemplates = $derived(
+		listScenesForActor(runtime.state.scenes, runtime.state.permissions, runtime.defaultActorId)
+			.filter((s) => s.isTemplate)
+			.map((s) => ({ id: s.id, name: s.name, updatedAt: s.updatedAt })),
+	);
+
+	// UX-CANVAS-010 AC2: surface a missing-binding banner whenever any widget in this canvas is in the
+	// missing state (e.g. a template instantiated against a now-deleted entity).
+	const missingBindingCount = $derived.by(() => {
+		if ('kind' in summary) return 0;
+		return summary.widgets.filter((p) => p.kind === 'missing').length;
+	});
+	const missingBanner = $derived(missingBindingBanner(missingBindingCount));
+
+	// The players a preview may render as (UX-CANVAS-011 §Player selector).
+	const previewablePlayers = $derived(
+		runtime.actors
+			.filter((a) => a.role !== 'dm')
+			.map((a) => ({ id: a.id, label: `${a.displayName} (${a.role})` })),
+	);
+
+	const deleteTarget = $derived(
+		deleteTargetId ? (manipWidgets.find((w) => w.id === deleteTargetId) ?? null) : null,
+	);
+
+	async function placeFromLibrary(type: string) {
+		const size = defaultSizeForType(type);
+		const center = screenToWorld(
+			viewportController.viewport,
+			viewportController.centerAnchor.x || 200,
+			viewportController.centerAnchor.y || 150,
+		);
+		const topLeft = placementTopLeft(center, size);
+		const before = new Set((rawScene?.widgets ?? []).map((w) => w.id));
+		const result = await runtime.dispatch({
+			type: 'scene.add-widget',
+			actorId: runtime.defaultActorId,
+			payload: {
+				sceneId,
+				widget: {
+					type,
+					version: '1.0.0',
+					layout: { x: topLeft.x, y: topLeft.y, w: size.w, h: size.h },
+					configuration: { visibility: 'player-visible' },
+					binding: null,
+				},
+			},
+		});
+		if (result.status === 'accepted') {
+			const added = (runtime.state.scenes.scenes[sceneId]?.widgets ?? []).find((w) => !before.has(w.id));
+			if (added) manipulation.select(added.id);
+			announcer?.announce(placedAnnouncement(type), 'polite');
+		}
+	}
+
+	async function groupManipulationSelection() {
+		if (manipulation.selectionCount < 2) return;
+		await runtime.dispatch({
+			type: 'scene.group-widgets',
+			actorId: runtime.defaultActorId,
+			payload: { sceneId, widgetInstanceIds: [...manipulation.selectedIds] },
+		});
+	}
+
+	function requestDelete(id: string | null = manipulation.primaryId) {
+		if (id) deleteTargetId = id;
+	}
+
+	async function confirmDelete() {
+		if (deleteTargetId) await manipulation.destroy(deleteTargetId);
+		deleteTargetId = null;
+	}
+
+	// --- Widget chrome / binding (UX-CANVAS-007 / UX-CANVAS-008) -----------------------------------
+	// The tile `⋯` actions trigger: select the widget so its chrome panel reflects it (the pointer entry
+	// into the accessible chrome panel, whose buttons are the real keyboard/AT path).
+	function openActionsFor(id: string) {
+		manipulation.select(id);
+	}
+	function toggleCollapseFor(id: string) {
+		void manipulation.toggleCollapse(id);
+	}
+	function openBindingFor(id: string) {
+		manipulation.select(id);
+		bindingOpen = true;
+	}
+	function openBindingForPrimary() {
+		if (manipulation.primaryId) bindingOpen = true;
+	}
+	async function doBind(binding: Parameters<typeof manipulation.bind>[1], entityLabel: string) {
+		if (manipulation.primaryId) await manipulation.bind(manipulation.primaryId, binding, entityLabel);
+	}
+	async function doUnbind() {
+		if (manipulation.primaryId) await manipulation.unbind(manipulation.primaryId);
+	}
+
+	// --- Templates (UX-CANVAS-010) -----------------------------------------------------------------
+	async function saveTemplateNamed(templateName: string) {
+		await runtime.dispatch({
+			type: 'scene.save-template',
+			actorId: runtime.defaultActorId,
+			payload: { sourceSceneId: sceneId, templateName },
+		});
+	}
+
+	async function instantiateTemplate(entry: TemplateEntry) {
+		let newSceneId: string | null = null;
+		if (entry.kind === 'user') {
+			const result = await runtime.dispatch({
+				type: 'scene.instantiate-template',
+				actorId: runtime.defaultActorId,
+				payload: { templateSceneId: entry.id, newSceneName: instantiatedSceneName(entry.name) },
+			});
+			if (result.status === 'accepted') {
+				const event = result.events.find((e) => e.kind === 'scene.template-instantiated');
+				if (event && event.kind === 'scene.template-instantiated') newSceneId = event.newSceneId;
+			}
+		} else {
+			// Built-in starter: create a fresh scene, then add its preset widgets (same commands a manual
+			// build would use). Never overwrites an existing scene (UX-CANVAS-010 §Instant recall).
+			const recipe = builtInById(entry.id);
+			if (!recipe) return;
+			const created = await runtime.dispatch({
+				type: 'scene.create',
+				actorId: runtime.defaultActorId,
+				payload: { name: instantiatedSceneName(recipe.name), visibility: 'dm-only' },
+			});
+			if (created.status !== 'accepted') return;
+			const createdEvent = created.events.find((e) => e.kind === 'scene.created');
+			if (!createdEvent || createdEvent.kind !== 'scene.created') return;
+			newSceneId = createdEvent.sceneId;
+			for (const w of recipe.widgets) {
+				await runtime.dispatch({
+					type: 'scene.add-widget',
+					actorId: runtime.defaultActorId,
+					payload: {
+						sceneId: newSceneId,
+						widget: {
+							type: w.type,
+							version: '1.0.0',
+							layout: { x: w.x, y: w.y, w: w.w, h: w.h },
+							configuration: { visibility: w.visibility },
+							binding: null,
+						},
+					},
+				});
+			}
+		}
+		templatesOpen = false;
+		if (newSceneId) await goto(`../${newSceneId}/`);
+	}
+
+	// --- Player-view preview (UX-CANVAS-011) -------------------------------------------------------
+	function enterPreview() {
+		if (previewablePlayers.length === 0) return;
+		if (!previewablePlayers.some((p) => p.id === playerPreviewId)) {
+			playerPreviewId = previewablePlayers[0]!.id;
+		}
+		previewActive = true;
+		manipulation.clearSelection();
+		announcer?.announce(previewEnterAnnouncement(playerLabelFor), 'assertive');
+	}
+	function exitPreview() {
+		if (!previewActive) return;
+		previewActive = false;
+		announcer?.announce(PREVIEW_EXIT_ANNOUNCEMENT, 'polite');
+	}
+	function togglePreview() {
+		if (previewActive) exitPreview();
+		else enterPreview();
+	}
+
+	// UX-CANVAS-015: canvas-level keyboard model. The host gets first crack at canvas keys so a selected
+	// widget's arrow-key MOVE wins over arrow-key pan, and the manipulation/history shortcuts dispatch the
+	// same core commands the toolbar does. Returns true when a key was handled (CanvasViewport then
+	// preventDefaults and skips the viewport pan/zoom handler).
+	function onManipulationKey(event: KeyboardEvent): boolean {
+		if (!canEdit) return false;
+		// UX-CANVAS-011: Shift+P toggles the player-view preview from anywhere on the canvas.
+		if (event.shiftKey && (event.key === 'P' || event.key === 'p')) {
+			togglePreview();
+			return true;
+		}
+		// While previewing, the canvas is read-only: Escape exits; every edit key is swallowed.
+		if (previewActive) {
+			if (event.key === 'Escape') exitPreview();
+			return true;
+		}
+		const dir = arrowDirection(event.key);
+		if (dir && manipulation.selectionCount > 0) {
+			const mod = event.ctrlKey || event.metaKey;
+			const size = mod && event.shiftKey ? 'large' : event.shiftKey ? 'nudge' : 'fine';
+			void manipulation.nudge(dir, size);
+			return true;
+		}
+		const action = resolveCanvasShortcut(toShortcutEvent(event));
+		switch (action) {
+			case 'open-library':
+				libraryOpen = true;
+				return true;
+			case 'undo':
+				void manipulation.undo();
+				return true;
+			case 'redo':
+				void manipulation.redo();
+				return true;
+			case 'select-all':
+				manipulation.selectAll();
+				return true;
+			case 'group':
+				void groupManipulationSelection();
+				return true;
+			case 'duplicate':
+				return true;
+			case 'z-front':
+				void manipulation.zOrder('front');
+				return true;
+			case 'z-back':
+				void manipulation.zOrder('back');
+				return true;
+			case 'z-forward':
+				void manipulation.zOrder('forward');
+				return true;
+			case 'z-backward':
+				void manipulation.zOrder('backward');
+				return true;
+			case 'toggle-grid':
+				manipulation.gridEnabled = !manipulation.gridEnabled;
+				return true;
+			case 'binding-panel':
+				openBindingForPrimary();
+				return true;
+			case 'collapse':
+				if (manipulation.primaryId) void manipulation.toggleCollapse(manipulation.primaryId);
+				return true;
+			case 'delete':
+				requestDelete();
+				return true;
+			case 'help':
+				helpOpen = true;
+				return true;
+			case 'escape':
+				manipulation.clearSelection();
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	function reorderFromOutline(id: string, direction: 'up' | 'down') {
+		void manipulation.zOrder(direction === 'up' ? 'forward' : 'backward', id);
+	}
+
+	// UX-CANVAS-001 §Minimap: persistent on Desktop, toggleable on Tablet, hidden by default on Mobile.
+	const minimapMode = $derived<MinimapMode>(
+		profile.isCompact ? 'hidden' : profile.viewportClass === 'medium' ? 'toggle' : 'persistent',
+	);
+
+	// What the viewport renders: the DM canvas normally, or the read-only player-view preview overlay.
+	const displayTiles = $derived(previewActive ? previewTiles : canvasTiles);
+	const displayInteractive = $derived(canEdit && !previewActive);
+
+	// UX-A11Y-004 AC2: activating an outline item scrolls to and focuses the widget on the canvas.
+	function focusWidgetOnCanvas(id: string) {
+		const idx = orderedWidgets.findIndex((entry) => {
+			const payload = entry.payload;
+			const widgetId =
+				payload.kind === 'available' || payload.kind === 'degraded'
+					? payload.widget.id
+					: payload.widgetInstanceId;
+			return widgetId === id;
+		});
+		if (idx >= 0) focusedIndex = idx;
+		const el = document.querySelector(`[data-testid="widget-${id}"]`);
+		if (el instanceof HTMLElement) {
+			el.scrollIntoView({ block: 'nearest' });
+			if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+			el.focus({ preventScroll: true });
+		}
 	}
 
 	function layoutCommandsFor(widget: WidgetInstance): SceneLayoutCommand[] {
@@ -193,7 +778,7 @@
 					type: widgetType,
 					version: widgetVersion,
 					layout: { x: widgetX, y: widgetY, w: widgetW, h: widgetH },
-					configuration: {},
+					configuration: { visibility: widgetVisibility },
 					binding,
 				},
 			},
@@ -232,14 +817,6 @@
 		});
 	}
 
-	async function saveTemplate() {
-		if ('kind' in summary) return;
-		await runtime.dispatch({
-			type: 'scene.save-template',
-			actorId: runtime.defaultActorId,
-			payload: { sourceSceneId: sceneId, templateName: `${summary.name} (template)` },
-		});
-	}
 </script>
 
 {#if 'kind' in summary}
@@ -256,11 +833,174 @@
 				{summary.widgets.length} widget{summary.widgets.length === 1 ? '' : 's'}
 			</p>
 			<div class="row-actions">
-				<button class="button secondary" data-testid="save-template" onclick={saveTemplate}>
-					Save as Template
-				</button>
+				{#if canEdit}
+					<button
+						class="button secondary"
+						data-testid="open-templates"
+						onclick={() => (templatesOpen = true)}
+					>
+						Templates
+					</button>
+					<button
+						class="button secondary"
+						data-testid="preview-player-view-toggle"
+						aria-pressed={previewActive}
+						onclick={togglePreview}
+					>
+						{previewActive ? 'Exit player preview' : 'Preview player view'}
+					</button>
+				{/if}
 			</div>
 		</header>
+
+		{#if missingBanner}
+			<!-- UX-CANVAS-010 AC2: bindings that could not be resolved on this canvas (e.g. a template
+			     instantiated against a deleted entity) are surfaced in a non-blocking alert banner. -->
+			<p class="missing-banner" role="alert" data-testid="missing-binding-banner">{missingBanner}</p>
+		{/if}
+
+		<!-- UX-CANVAS-001/014/016: the spatial canvas viewport. Pan/zoom with cursor-anchored zoom,
+		     on-screen zoom controls, a minimap, keyboard parity, virtualization, skeletons, and
+		     poster-frame degradation. UX-CANVAS-002/003/004/005/006/009/012/015 layer the editor model on
+		     top: a widget library, selection + marquee, move/resize/rotate, alignment, z-order, undo/redo,
+		     and the keyboard model. Tiles are actor-filtered (no DM-only leak to a player view). -->
+		<section data-testid="scene-canvas-section" aria-label="Scene canvas viewport">
+			{#if previewActive}
+				<!-- UX-CANVAS-011: the persistent player-view preview banner; editing is suspended while shown. -->
+				<PlayerViewPreviewBanner
+					playerLabel={playerLabelFor}
+					players={previewablePlayers}
+					selectedPlayerId={playerPreviewId}
+					onselect={(id) => (playerPreviewId = id)}
+					onexit={exitPreview}
+				/>
+			{/if}
+			{#if displayInteractive}
+				<!-- Canvas command bar: the non-gesture entry points for placement, grid, history, and help.
+				     Every one has a keyboard shortcut too (UX-CANVAS-015), but the buttons guarantee parity
+				     on touch/no-keyboard profiles. -->
+				<div class="canvas-command-bar" role="toolbar" aria-label="Canvas tools" data-testid="canvas-command-bar">
+					<button type="button" class="button" data-testid="open-widget-library" onclick={() => (libraryOpen = true)}>
+						+ Add widget
+					</button>
+					<label class="grid-toggle">
+						<input type="checkbox" data-testid="canvas-grid-toggle" bind:checked={manipulation.gridEnabled} />
+						<span>Snap to grid</span>
+					</label>
+					<label class="grid-toggle">
+						<input type="checkbox" data-testid="canvas-show-bindings" bind:checked={showBindings} />
+						<span>Show bindings</span>
+					</label>
+					<button
+						type="button"
+						class="button secondary"
+						data-testid="canvas-undo"
+						aria-label={manipulation.undoLabel ? `Undo ${manipulation.undoLabel}` : 'Nothing to undo'}
+						aria-disabled={!manipulation.canUndo}
+						disabled={!manipulation.canUndo}
+						onclick={() => manipulation.undo()}
+					>
+						Undo
+					</button>
+					<button
+						type="button"
+						class="button secondary"
+						data-testid="canvas-redo"
+						aria-label={manipulation.redoLabel ? `Redo ${manipulation.redoLabel}` : 'Nothing to redo'}
+						aria-disabled={!manipulation.canRedo}
+						disabled={!manipulation.canRedo}
+						onclick={() => manipulation.redo()}
+					>
+						Redo
+					</button>
+					<button type="button" class="button secondary" data-testid="canvas-shortcuts-open" onclick={() => (helpOpen = true)}>
+						Keyboard shortcuts
+					</button>
+					{#if manipulation.undoLimitReached && !manipulation.canUndo}
+						<span class="canvas-toast" role="status" data-testid="canvas-undo-limit">Undo limit reached</span>
+					{/if}
+				</div>
+			{/if}
+
+			<CanvasViewport
+				controller={viewportController}
+				tiles={displayTiles}
+				minimap={minimapMode}
+				label={previewActive ? `${summary.name} — player view preview` : `${summary.name} canvas`}
+				interactive={displayInteractive}
+				selectedIds={manipulation.selectedIds}
+				primaryId={manipulation.primaryId}
+				selectionBounds={manipulation.selectionBounds}
+				{showBindings}
+				onSelectTile={(id, mode) => manipulation.select(id, mode)}
+				onMarquee={(start, end, additive) => manipulation.marquee(start, end, additive)}
+				onMoveCommit={(id, x, y) => manipulation.moveTo(id, x, y)}
+				onResizeCommit={(id, w, h) => manipulation.resizeTo(id, w, h)}
+				onRotateCommit={(id, deg, free) => manipulation.rotateTo(id, deg, free)}
+				onToggleCollapse={toggleCollapseFor}
+				onOpenActions={openActionsFor}
+				onRebind={openBindingFor}
+				{onManipulationKey}
+			>
+				{#snippet emptyState()}
+					<!-- UX-CANVAS-013: empty-canvas teaching state — only for the editing DM; a player just
+					     sees an empty canvas. The CTA opens the widget library (same as the W shortcut). -->
+					{#if displayInteractive}
+						<EmptyCanvasState compact={profile.isCompact} onAdd={() => (libraryOpen = true)} />
+					{/if}
+				{/snippet}
+			</CanvasViewport>
+
+			{#if displayInteractive}
+				<SelectionToolbar
+					controller={manipulation}
+					ongroup={groupManipulationSelection}
+					ondelete={() => requestDelete()}
+				/>
+				<WidgetChromePanel controller={manipulation} widget={primaryWidget} onbind={openBindingForPrimary} />
+				<TransformPanel controller={manipulation} widget={primaryWidget} />
+			{/if}
+		</section>
+
+		{#if canEdit}
+			<WidgetLibrary bind:open={libraryOpen} profile={profile.profileId} onplace={placeFromLibrary} />
+			<KeyboardShortcutsHelp bind:open={helpOpen} />
+			<BindingInspector
+				bind:open={bindingOpen}
+				widget={primaryWidget}
+				entities={bindableEntities}
+				onbind={doBind}
+				onunbind={doUnbind}
+			/>
+			<CanvasTemplatesDialog
+				bind:open={templatesOpen}
+				sourceName={summary.name}
+				{userTemplates}
+				onsave={saveTemplateNamed}
+				oninstantiate={instantiateTemplate}
+			/>
+			<Dialog
+				open={deleteTargetId !== null}
+				title="Delete widget?"
+				role="alertdialog"
+				testid="delete-confirm"
+				closeOnBackdrop={false}
+				onclose={() => (deleteTargetId = null)}
+			>
+				<p>
+					Remove <strong>{deleteTarget?.label ?? 'this widget'}</strong> from the scene? The bound entity is
+					not deleted.
+				</p>
+				{#snippet footer()}
+					<button type="button" class="button secondary" data-testid="delete-cancel" onclick={() => (deleteTargetId = null)}>
+						Cancel
+					</button>
+					<button type="button" class="button" data-testid="delete-confirm-button" onclick={confirmDelete}>
+						Delete widget
+					</button>
+				{/snippet}
+			</Dialog>
+		{/if}
 
 		<section data-testid="add-widget-section">
 			<div class="widgets-head">
@@ -324,6 +1064,14 @@
 				<label>
 					<span>Bind selector</span>
 					<input bind:value={bindSelector} data-testid="bind-selector" autocomplete="off" />
+				</label>
+				<label>
+					<span>Visibility</span>
+					<select bind:value={widgetVisibility} data-testid="widget-visibility">
+						<option value="player-visible">Player visible</option>
+						<option value="shared">Shared</option>
+						<option value="dm-only">DM only</option>
+					</select>
 				</label>
 				<button class="button" type="submit" data-testid="widget-add">Add widget</button>
 				</form>
@@ -516,6 +1264,20 @@
 			{/if}
 		</section>
 
+		<!-- UX-A11Y-004: the Scene Outline — the structural, screen-reader path to the canvas widgets.
+		     Built through the visibility boundary for the active "view as" actor, so a player's outline
+		     never lists a DM-only widget (UX-A11Y-008). Activating an item focuses the widget. -->
+		<section data-testid="scene-outline-section">
+			<SceneOutline
+				widgets={outlineWidgets}
+				{viewer}
+				onactivate={focusWidgetOnCanvas}
+				selectedIds={displayInteractive ? manipulation.selectedIds : undefined}
+				onselect={displayInteractive ? (id, mode) => manipulation.select(id, mode) : undefined}
+				onreorder={displayInteractive ? reorderFromOutline : undefined}
+			/>
+		</section>
+
 		<section>
 			<h2>Player View</h2>
 			<div class="form projection-form" aria-label="Project Player View">
@@ -584,3 +1346,42 @@
 		</section>
 	</section>
 {/if}
+
+<style>
+	.missing-banner {
+		margin: 0 0 var(--space-2);
+		padding: var(--space-1) var(--space-2);
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--color-status-warning);
+		background: var(--color-status-warning-subtle);
+		color: var(--color-status-warning-text);
+		font-size: var(--text-sm);
+	}
+	.canvas-command-bar {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2);
+		margin-bottom: var(--space-2);
+	}
+	.grid-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		min-height: var(--touch-target-min);
+		font-size: var(--text-sm);
+		color: var(--color-text-secondary);
+	}
+	.canvas-toast {
+		padding: var(--space-0-5) var(--space-2);
+		border-radius: var(--radius-sm);
+		background: var(--color-status-warning-surface, var(--color-surface-raised));
+		color: var(--color-status-warning-text);
+		font-size: var(--text-sm);
+	}
+	[data-testid='scene-canvas-section'] :global(.selection-toolbar),
+	[data-testid='scene-canvas-section'] :global(.chrome-panel),
+	[data-testid='scene-canvas-section'] :global(.transform-panel) {
+		margin-top: var(--space-2);
+	}
+</style>

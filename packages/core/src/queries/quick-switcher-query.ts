@@ -189,6 +189,30 @@ export interface QuickSwitcherOptions {
 	dateFormat?: CalendarDateFormat;
 }
 
+/** The command-mode sigil (SRCH-005): a query that begins with `>` searches COMMANDS, not titles. */
+export const QUICK_SWITCHER_COMMAND_SIGIL = '>';
+
+/** The parsed shape of a switcher query: whether the user is in command mode, and the residual needle. */
+export interface ParsedQuickSwitcherQuery {
+	/** True when the query began with the command sigil `>` — only commands are listed (SRCH-005). */
+	commandMode: boolean;
+	/** The lowercased, trimmed search needle (the sigil stripped when in command mode). */
+	needle: string;
+}
+
+/**
+ * SRCH-005 — parse a raw switcher query into command-mode + a needle. A leading `>` switches the switcher
+ * to COMMAND MODE (matching commands by title/keyword, never entity titles), mirroring VS Code's
+ * `Ctrl+P` → `>`. Pure; the same input always parses identically.
+ */
+export function parseQuickSwitcherQuery(query: string): ParsedQuickSwitcherQuery {
+	const trimmed = query.trim();
+	if (trimmed.startsWith(QUICK_SWITCHER_COMMAND_SIGIL)) {
+		return { commandMode: true, needle: trimmed.slice(QUICK_SWITCHER_COMMAND_SIGIL.length).trim().toLowerCase() };
+	}
+	return { commandMode: false, needle: trimmed.toLowerCase() };
+}
+
 /**
  * SRCH-002 — build the actor-filtered, TITLE-FIRST quick-switcher entry list for a query. Composes the
  * visible search index (navigation) and the actor-filtered command surface (commands) into one ordered list.
@@ -211,25 +235,34 @@ export function buildQuickSwitcher(
 	query: string,
 	options: QuickSwitcherOptions = {},
 ): QuickSwitcherEntry[] {
-	const needle = query.trim().toLowerCase();
+	// SRCH-005 — a leading `>` switches to COMMAND MODE: only commands are listed (never entity titles), and
+	// the residual text matches command titles/keywords. Otherwise the needle searches the visible index.
+	const parsed = parseQuickSwitcherQuery(query);
+	const needle = parsed.needle;
 	const navigationLimit = options.navigationLimit ?? DEFAULT_NAVIGATION_LIMIT;
 
-	// NAVIGATION — the actor-filtered visible search index. The query is the free-text needle; passing it as
-	// the search filter's `query` gives the search read's own title-first scoring (AC1). An unknown actor
+	const entries: QuickSwitcherEntry[] = [];
+
+	// NAVIGATION — the actor-filtered visible search index. Skipped entirely in command mode so a `>`
+	// query can NEVER surface an entity title (SRCH-005 AC3). The query is the free-text needle; passing it
+	// as the search filter's `query` gives the search read's own title-first scoring (AC1). An unknown actor
 	// yields an empty result here (fail closed).
-	const searchResult = searchVaultForActor(
-		state.content,
-		state.maps,
-		state.permissions,
-		state.session,
-		actorId,
-		needle === '' ? {} : { query: needle },
-		options.dateFormat,
-	);
-	const entries: QuickSwitcherEntry[] = navigationEntries(searchResult, navigationLimit);
+	if (!parsed.commandMode) {
+		const searchResult = searchVaultForActor(
+			state.content,
+			state.maps,
+			state.permissions,
+			state.session,
+			actorId,
+			needle === '' ? {} : { query: needle },
+			options.dateFormat,
+		);
+		entries.push(...navigationEntries(searchResult, navigationLimit));
+	}
 
 	// COMMANDS — the actor-filtered command availability surface. Already fails closed: a non-permitted
-	// command is absent. We match the same query over titles + keywords, title-first.
+	// command is absent. We match the same query over titles + keywords, title-first. In command mode the
+	// `>` is stripped, so a bare `>` lists every eligible command.
 	for (const command of listPaletteCommands(state, actorId, context)) {
 		const { matched, titleMatch } = commandMatch(command, needle);
 		if (!matched) continue;

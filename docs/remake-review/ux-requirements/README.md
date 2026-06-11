@@ -94,6 +94,16 @@ Synthesized from every surface document's §12. These are the decisions a human 
 resolve; most are **product/architecture choices**, not UX gaps. Grouped by theme and roughly
 prioritized.
 
+> **Resolved by UX-ARCH (phase 00).** The architecture decisions in group A and item D.10 are now
+> recorded in [`../../planning/v2/ux/architecture-decisions.md`](../../planning/v2/ux/architecture-decisions.md),
+> with the navigation/route contract in
+> [`../../planning/v2/ux/navigation-registry.yaml`](../../planning/v2/ux/navigation-registry.yaml):
+> A.1 global nav → **seven sections** (Audio/MCP/Scenes are non-global capabilities); A.2 player-view
+> preview → deferred with an actor-filtered re-render constraint; A.3 ADR-014 deferrals → interim
+> "not enabled in this build" states; A.4 layout-preset storage → **proportional**; D.10 Scene name →
+> **accepted "Scene"**. The B.5 card-sort/tree-test of section labels is still recommended; C.9
+> provenance survival is still open (deferred to the sync/MCP epics).
+
 ### A. Architecture decisions that gate UX (resolve first)
 
 1. **Canvas rendering engine (WebGL vs DOM-positioned).** Materially affects the 60fps, virtualization
@@ -154,5 +164,7 @@ prioritized.
 ## Status
 
 Draft v1 — complete first pass across all 15 surfaces (244 `UX-*` requirements). Ready for human
-design review. Recommended next steps: resolve §A architecture decisions, run §B research, and wire
-§C safety tests into the gate set before implementation begins.
+design review. The §A architecture decisions (plus D.10) are resolved by the UX-ARCH phase-00 epic
+(see [`../../planning/v2/ux/architecture-decisions.md`](../../planning/v2/ux/architecture-decisions.md)).
+Recommended next steps: run §B research and wire §C safety tests into the gate set before broad
+implementation continues.

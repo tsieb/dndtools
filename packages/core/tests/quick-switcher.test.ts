@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	buildQuickSwitcher,
+	parseQuickSwitcherQuery,
 	resolveQuickSwitcherEntry,
 	type QuickSwitcherCommandEntry,
 	type QuickSwitcherEntry,
@@ -304,5 +305,56 @@ describe('SRCH-002 AC3 — a player never discovers DM-only/hidden content or co
 		const mobile = build(state, PLAYER_ACTOR.id, '', MOBILE).map((e) => e.id);
 		// A player has no widget/core commands, so the actor-filtered result is profile-independent.
 		expect(desktop).toEqual(mobile);
+	});
+});
+
+describe('SRCH-005 — `>` command mode lists commands, never entity titles', () => {
+	it('parses a leading `>` into command mode with the residual needle', () => {
+		expect(parseQuickSwitcherQuery('>export')).toEqual({ commandMode: true, needle: 'export' });
+		expect(parseQuickSwitcherQuery('>  Create  ')).toEqual({ commandMode: true, needle: 'create' });
+		expect(parseQuickSwitcherQuery('>')).toEqual({ commandMode: true, needle: '' });
+		expect(parseQuickSwitcherQuery('dragon')).toEqual({ commandMode: false, needle: 'dragon' });
+	});
+
+	it('a `>` query returns ONLY command entries, even when a note title would match', () => {
+		const env = makeEnvironment();
+		let state = withHome(base(), env);
+		// A note whose title contains "scene" would normally be a navigation hit for the bare query.
+		state = createNote(state, env, { title: 'Scene Notes', body: 'Prep.' }).state;
+
+		// Bare query "scene" surfaces the note (navigation) AND the Create Scene command.
+		const bare = build(state, DM_ACTOR.id, 'scene');
+		expect(bare.some((e) => e.kind === 'navigation' && e.title === 'Scene Notes')).toBe(true);
+		expect(bare.some((e) => e.kind === 'command')).toBe(true);
+
+		// Command mode ">scene" lists ONLY commands — the note title is absent entirely.
+		const commandMode = build(state, DM_ACTOR.id, '>scene');
+		expect(commandMode.length).toBeGreaterThan(0);
+		expect(commandMode.every((e) => e.kind === 'command')).toBe(true);
+		expect(commandMode.some((e) => e.title === 'Scene Notes')).toBe(false);
+		expect(commandMode.some((e) => e.title === 'Create Scene')).toBe(true);
+	});
+
+	it('a bare `>` lists every eligible command and no navigation entry', () => {
+		const env = makeEnvironment();
+		let state = withHome(base(), env);
+		state = createNote(state, env, { title: 'Town of Highmoor' }).state;
+		const all = build(state, DM_ACTOR.id, '>');
+		expect(all.length).toBeGreaterThan(0);
+		expect(all.every((e) => e.kind === 'command')).toBe(true);
+		// The note that the bare empty query would surface as navigation is absent in command mode.
+		expect(all.some((e) => e.title === 'Town of Highmoor')).toBe(false);
+	});
+
+	it('command mode stays fail-closed: a player never sees a DM-only command via `>`', () => {
+		const env = makeEnvironment();
+		const state = withHome(base(), env);
+		// The DM sees Create Scene in command mode; the player never does (absent, not disabled).
+		expect(build(state, DM_ACTOR.id, '>create scene').some((e) => e.title === 'Create Scene')).toBe(
+			true,
+		);
+		const player = build(state, PLAYER_ACTOR.id, '>create scene');
+		expect(player.some((e) => e.title === 'Create Scene')).toBe(false);
+		expect(JSON.stringify(player)).not.toContain('Create Scene');
 	});
 });

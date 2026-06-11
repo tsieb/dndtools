@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openSection } from './_nav-helper';
 
 // NAV-007: navigation components expose stable page titles, exactly one route-level
 // `h1`, semantic landmarks, and live route announcements. The app shell owns a single
@@ -28,15 +29,15 @@ test.describe('NAV-007 exactly one route-level h1 and matching title (AC1)', () 
 	}) => {
 		await freshHome(page);
 
-		// Command Center → Scenes.
-		await page.getByTestId('nav-scenes').click();
-		await page.getByTestId('scene-name').waitFor({ state: 'visible' });
+		// Command Center → Atlas (a global section reached through the primary nav).
+		await openSection(page, 'atlas');
+		await page.getByTestId('atlas-view').waitFor({ state: 'visible' });
 		await expect(page.locator('h1')).toHaveCount(1);
-		await expect(page.getByTestId('route-title')).toHaveText('Scenes');
-		await expect(page).toHaveTitle(/Scenes/);
+		await expect(page.getByTestId('route-title')).toHaveText('Atlas');
+		await expect(page).toHaveTitle(/Atlas/);
 
-		// Scenes → Settings.
-		await page.getByTestId('nav-settings').click();
+		// Atlas → Settings (overflow on the compact tab bar; the helper opens "More" when needed).
+		await openSection(page, 'settings');
 		await page.getByTestId('settings-view').waitFor({ state: 'visible' });
 		await expect(page.locator('h1')).toHaveCount(1);
 		await expect(page.getByTestId('route-title')).toHaveText('Settings');
@@ -66,7 +67,9 @@ test.describe('NAV-007 exactly one route-level h1 and matching title (AC1)', () 
 
 	test('an open Scene route uses the Scene name as its single h1 and title', async ({ page }) => {
 		await freshHome(page);
-		await page.getByTestId('nav-scenes').click();
+		// Scenes is a non-global capability reached outside the primary nav (command palette / direct
+		// link); deep-link to its root to author a Scene.
+		await page.goto('/scenes/');
 		await page.getByTestId('scene-name').waitFor({ state: 'visible' });
 
 		await page.getByTestId('scene-name').fill('Misty Vale');
@@ -90,11 +93,11 @@ test.describe('NAV-007 live route announcement (AC2)', () => {
 		await expect(announcer).toHaveText('Command Center');
 
 		// Navigating updates the announcement to name the new route.
-		await page.getByTestId('nav-scenes').click();
-		await page.getByTestId('scene-name').waitFor({ state: 'visible' });
-		await expect(announcer).toHaveText('Scenes');
+		await openSection(page, 'atlas');
+		await page.getByTestId('atlas-view').waitFor({ state: 'visible' });
+		await expect(announcer).toHaveText('Atlas');
 
-		await page.getByTestId('nav-settings').click();
+		await openSection(page, 'settings');
 		await page.getByTestId('settings-view').waitFor({ state: 'visible' });
 		await expect(announcer).toHaveText('Settings');
 

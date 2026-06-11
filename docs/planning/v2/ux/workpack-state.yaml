@@ -73,4 +73,46 @@ precedence:
     - UX-ONB-empty-states-and-teach-by-doing
     - UX-ONB-help-coachmarks-demo-and-progressive-disclosure
     - UX-RELEASE-production-readiness-and-shareable-cut
-epics: []
+epics:
+  - id: UX-A11Y-interaction-primitives-and-help-compliance
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-A11Y-interaction-primitives-and-help-compliance.completion.md
+  - id: UX-A11Y-release-gates-and-contrast
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-A11Y-release-gates-and-contrast.completion.md
+  - id: UX-A11Y-spatial-live-region-and-leakage
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-A11Y-spatial-live-region-and-leakage.completion.md
+  - id: UX-ARCH-product-architecture-and-ia-reconciliation
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-ARCH-product-architecture-and-ia-reconciliation.completion.md
+  - id: UX-CANVAS-chrome-bindings-templates-and-view-modes
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CANVAS-chrome-bindings-templates-and-view-modes.completion.md
+  - id: UX-CANVAS-viewport-rendering-and-performance
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CANVAS-viewport-rendering-and-performance.completion.md
+  - id: UX-CANVAS-widget-manipulation-and-outline
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CANVAS-widget-manipulation-and-outline.completion.md
+  - id: UX-CMD-home-scene-and-role-differentiated-dashboard
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-CMD-home-scene-and-role-differentiated-dashboard.completion.md
+  - id: UX-SHELL-actor-filtered-nav-recents
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-SHELL-actor-filtered-nav-recents.completion.md
+  - id: UX-SHELL-command-surface-and-shortcuts
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-SHELL-command-surface-and-shortcuts.completion.md
+  - id: UX-SHELL-contextual-navigation-history-and-deep-links
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-SHELL-contextual-navigation-history-and-deep-links.completion.md
+  - id: UX-SHELL-route-layout-and-platform-profiles
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-SHELL-route-layout-and-platform-profiles.completion.md
+  - id: UX-VIS-component-library-motion-density-icons
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-VIS-component-library-motion-density-icons.completion.md
+  - id: UX-VIS-design-tokens-themes-and-brand
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-VIS-design-tokens-themes-and-brand.completion.md

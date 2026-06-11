@@ -239,6 +239,10 @@ export const applyCommandCenterPresetInputSchema = z
 	})
 	.strict();
 
+// UX-CMD-008 — the auto-save snapshot / restore commands take no caller payload; they operate on the
+// single last-known-good slot and the current home Scene.
+export const commandCenterAutoSaveInputSchema = z.object({}).strict().default({});
+
 const projectionTargetSchema = z
 	.object({
 		kind: z.enum(['scene', 'widget-subset', 'handout', 'map-region', 'display-state']),

@@ -410,6 +410,7 @@ export {
 } from './queries/map-query';
 
 export type {
+	CommandCenterAutoSave,
 	CommandCenterPreset,
 	CommandCenterPresetSection,
 	CommandCenterPresetWidget,
@@ -1233,11 +1234,13 @@ export type {
 	NavigationRegistryEntry,
 	NavigationSection,
 	NavigationSectionDef,
+	SectionRouteAccess,
 } from './queries/navigation';
 export {
 	NAVIGATION_SECTIONS,
 	listNavigationRegistryForActor,
 	listNavigationSections,
+	resolveSectionRouteAccess,
 } from './queries/navigation';
 
 export type {
@@ -1370,6 +1373,7 @@ export {
 } from './queries/command-availability';
 
 export type {
+	ParsedQuickSwitcherQuery,
 	QuickSwitcherCommandEntry,
 	QuickSwitcherEntry,
 	QuickSwitcherEntryKind,
@@ -1379,7 +1383,9 @@ export type {
 	ResolvedQuickSwitcherEntry,
 } from './queries/quick-switcher-query';
 export {
+	QUICK_SWITCHER_COMMAND_SIGIL,
 	buildQuickSwitcher,
+	parseQuickSwitcherQuery,
 	resolveQuickSwitcherEntry,
 } from './queries/quick-switcher-query';
 
@@ -1403,6 +1409,20 @@ export type {
 	PlayerViewControllerSceneOption,
 } from './queries/player-view-control';
 export { getPlayerViewController } from './queries/player-view-control';
+
+// UX-CMD-003 / UX-CMD-012 — the viewer-gated Command Center home read model: the glanceable session
+// status strip + the role-differentiated home decision (the single no-leak choke point for `/`).
+export type {
+	CommandCenterHomeView,
+	SessionPhaseTone,
+	SessionStatusStrip,
+	SessionStatusStripResult,
+	StatusStripAudioCell,
+	StatusStripPhaseCell,
+	StatusStripPlayersCell,
+	StatusStripTurnCell,
+} from './queries/command-center-home';
+export { getSessionStatusStrip, resolveCommandCenterHome } from './queries/command-center-home';
 
 // SES-005 — the OPERATE-vs-CONFIGURE widget authority policy (Contract 3 Timer/Tool + Widget capability
 // sets). An `operator` grant authorizes runtime OPERATE actions (start/pause/resume/reset/advance/roll/

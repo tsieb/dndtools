@@ -61,7 +61,8 @@ test.describe('PLAT-013 fresh-vault onboarding (AC1)', () => {
 	});
 
 	test('authoring a Scene advances onboarding and clears the banner', async ({ page }) => {
-		await page.getByTestId('nav-scenes').click();
+		// Scenes is a non-global capability reached outside the primary nav; deep-link to its root.
+		await page.goto('/scenes/');
 		await page.getByTestId('scene-name').fill('Tavern Brawl');
 		await page.getByTestId('scene-create').click();
 		await expect(

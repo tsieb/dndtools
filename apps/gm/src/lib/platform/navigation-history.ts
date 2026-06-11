@@ -15,6 +15,12 @@ export interface NavEntry {
 
 export const MAX_RECENT = 8;
 
+/** UX-NAV-015 display caps for the sidebar/rail strip: up to 8 pinned items, and the 5 most
+ *  recent reachable destinations ("up to 5 recent items"). The store retains more history; the
+ *  strip surfaces the most relevant slice so the sidebar stays glanceable. */
+export const STRIP_PINNED_LIMIT = 8;
+export const STRIP_RECENT_LIMIT = 5;
+
 /** Add a visit to the front of the recent list, de-duplicating by route and
  *  capping the length. The most recent visit wins its title. */
 export function addRecentEntry(recent: NavEntry[], entry: NavEntry, max = MAX_RECENT): NavEntry[] {
@@ -52,4 +58,37 @@ export function filterReachable(
 		out.push({ route: entry.route, title });
 	}
 	return out;
+}
+
+/** The actor-filtered pinned + recent lists the strip renders (UX-NAV-015). */
+export interface StripLists {
+	pinned: NavEntry[];
+	recent: NavEntry[];
+}
+
+/**
+ * Build the pinned/recent strip lists for the active actor (UX-NAV-015).
+ *
+ * Both lists are filtered through {@link filterReachable} against the actor-reachable set, so a
+ * route the active actor cannot reach — e.g. a DM-only Scene while viewing as a player — is dropped
+ * entirely (no leak, UX-NAV-013), and each title is refreshed from the reachable set so a rename
+ * never leaves a stale label. Recents exclude routes already pinned (they appear once, above), and
+ * each list is capped to its display limit so the strip stays glanceable.
+ */
+export function selectStripLists(
+	pinned: NavEntry[],
+	recent: NavEntry[],
+	reachable: ReadonlyArray<{ route: string; title: string }>,
+): StripLists {
+	const filteredPinned = filterReachable(pinned, reachable);
+	const pinnedRoutes = new Set(filteredPinned.map((entry) => entry.route));
+	const filteredRecent = filterReachable(recent, reachable).filter(
+		// Exclude already-pinned routes (shown once, above) and the Command Center home, which is
+		// always one click away via the home item — auto-listing it as "recent" is redundant noise.
+		(entry) => !pinnedRoutes.has(entry.route) && entry.route !== '/',
+	);
+	return {
+		pinned: filteredPinned.slice(0, STRIP_PINNED_LIMIT),
+		recent: filteredRecent.slice(0, STRIP_RECENT_LIMIT),
+	};
 }

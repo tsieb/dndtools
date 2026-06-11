@@ -26,7 +26,7 @@
 
 <section data-testid="permission-summary" aria-label="Your permissions">
 	<h2>Your permissions</h2>
-	<dl class="scene-list">
+	<div class="scene-list">
 		<div class="scene-card" data-testid="perm-role">
 			<div><strong>Base role</strong></div>
 			<span class="meta" data-testid="perm-role-value">{effective.role}</span>
@@ -60,7 +60,7 @@
 				>{effective.canReadCharacterData ? 'available' : 'none'}</span
 			>
 		</div>
-	</dl>
+	</div>
 
 	{#if effective.roleNormalized}
 		<p class="meta" role="status" data-testid="perm-role-normalized">
