@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 1
+  approved: 0
   active: 0
-  complete: 45
+  complete: 46
   deferred: 0
 metrics:
-  epicCompletionPercent: 97.8
+  epicCompletionPercent: 100
   requirementCompletionPercent: 100
   totalRequirements: 244
   completedRequirements: 244
   deferredRequirements: 0
-  remainingEpics: 1
-  promptableEpics: 1
+  remainingEpics: 0
+  promptableEpics: 0
   blockedByDependencies: 0
-  completionEvidenceFiles: 45
+  completionEvidenceFiles: 46
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -382,24 +382,15 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 11 Production Readiness
       totalEpics: 1
-      complete: 0
+      complete: 1
       active: 0
-      approved: 1
+      approved: 0
       proposed: 0
       deferred: 0
       requirementIds: []
-      epicCompletionPercent: 0
+      epicCompletionPercent: 100
       requirementCompletionPercent: 100
-nextEpic:
-  id: UX-RELEASE-production-readiness-and-shareable-cut
-  title: Production Readiness and Shareable UI Cut
-  phase: 11 Production Readiness
-  status: approved
-  requirementIds: []
-  promptCommand: pnpm ux-prompt -- --epic UX-RELEASE-production-readiness-and-shareable-cut
-  nextPromptCommand: pnpm ux-prompt -- --next
-  statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-RELEASE-production-readiness-and-shareable-cut --status active
+nextEpic: null
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -1360,7 +1351,7 @@ epics:
   - id: UX-RELEASE-production-readiness-and-shareable-cut
     title: Production Readiness and Shareable UI Cut
     phase: 11 Production Readiness
-    status: approved
+    status: complete
     approved: true
     requirementIds: []
     expectedAffectedAreas:
@@ -1383,3 +1374,4 @@ epics:
       - UX-ONB-help-coachmarks-demo-and-progressive-disclosure
       - UX-SESSION-tools-encounters-dice-timers-prep-calendar
       - UX-SYNC-queues-conflicts-recovery-consent-and-authorization
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-RELEASE-production-readiness-and-shareable-cut.completion.md

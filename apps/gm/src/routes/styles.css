@@ -2284,7 +2284,7 @@ select {
 .changelog-title {
 	margin: var(--space-1) 0 var(--space-2);
 	font-family: var(--font-display);
-	font-size: var(--text-lg);
+	font-size: var(--text-xl);
 	letter-spacing: var(--tracking-tight);
 }
 
@@ -2802,7 +2802,6 @@ kbd {
 	justify-content: center;
 	width: var(--space-8);
 	height: var(--space-8);
-	margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) 0 0;
 	border: none;
 	border-radius: var(--radius-sm);
 	background: transparent;

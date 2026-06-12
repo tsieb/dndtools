@@ -173,6 +173,9 @@ epics:
   - id: UX-PERM-visibility-preview-badges-and-privacy-status
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-PERM-visibility-preview-badges-and-privacy-status.completion.md
+  - id: UX-RELEASE-production-readiness-and-shareable-cut
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-RELEASE-production-readiness-and-shareable-cut.completion.md
   - id: UX-SESSION-combat-editing-conditions-and-player-tracker
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-SESSION-combat-editing-conditions-and-player-tracker.completion.md
