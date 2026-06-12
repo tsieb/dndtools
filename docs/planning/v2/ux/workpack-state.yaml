@@ -158,6 +158,9 @@ epics:
   - id: UX-MCP-settings-policy-provenance-staged-writes-and-fallback
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-MCP-settings-policy-provenance-staged-writes-and-fallback.completion.md
+  - id: UX-ONB-first-run-role-and-player-join-paths
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-ONB-first-run-role-and-player-join-paths.completion.md
   - id: UX-PERM-grant-dialog-active-grants-and-diagnostics
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-PERM-grant-dialog-active-grants-and-diagnostics.completion.md
