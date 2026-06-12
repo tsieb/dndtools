@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 3
+  approved: 2
   active: 0
-  complete: 43
+  complete: 44
   deferred: 0
 metrics:
-  epicCompletionPercent: 93.5
-  requirementCompletionPercent: 94.7
+  epicCompletionPercent: 95.7
+  requirementCompletionPercent: 96.7
   totalRequirements: 244
-  completedRequirements: 231
+  completedRequirements: 236
   deferredRequirements: 0
-  remainingEpics: 3
-  promptableEpics: 2
+  remainingEpics: 2
+  promptableEpics: 1
   blockedByDependencies: 1
-  completionEvidenceFiles: 43
+  completionEvidenceFiles: 44
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -351,9 +351,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 10 Onboarding and Production Polish
       totalEpics: 3
-      complete: 1
+      complete: 2
       active: 0
-      approved: 2
+      approved: 1
       proposed: 0
       deferred: 0
       requirementIds:
@@ -378,8 +378,8 @@ metrics:
         - UX-ONB-019
         - UX-ONB-020
         - UX-ONB-021
-      epicCompletionPercent: 33.3
-      requirementCompletionPercent: 38.1
+      epicCompletionPercent: 66.7
+      requirementCompletionPercent: 61.9
     - phase: 11 Production Readiness
       totalEpics: 1
       complete: 0
@@ -391,20 +391,24 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-ONB-empty-states-and-teach-by-doing
-  title: Empty States and Teach-by-Doing Examples
+  id: UX-ONB-help-coachmarks-demo-and-progressive-disclosure
+  title: Help, Coach Marks, Demo Content, and Progressive Disclosure
   phase: 10 Onboarding and Production Polish
   status: approved
   requirementIds:
-    - UX-ONB-009
-    - UX-ONB-010
-    - UX-ONB-011
-    - UX-ONB-012
-    - UX-ONB-021
-  promptCommand: pnpm ux-prompt -- --epic UX-ONB-empty-states-and-teach-by-doing
+    - UX-ONB-013
+    - UX-ONB-014
+    - UX-ONB-015
+    - UX-ONB-016
+    - UX-ONB-017
+    - UX-ONB-018
+    - UX-ONB-019
+    - UX-ONB-020
+  promptCommand: pnpm ux-prompt -- --epic
+    UX-ONB-help-coachmarks-demo-and-progressive-disclosure
   nextPromptCommand: pnpm ux-prompt -- --next
   statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-ONB-empty-states-and-teach-by-doing --status active
+    UX-ONB-help-coachmarks-demo-and-progressive-disclosure --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -1313,7 +1317,7 @@ epics:
   - id: UX-ONB-empty-states-and-teach-by-doing
     title: Empty States and Teach-by-Doing Examples
     phase: 10 Onboarding and Production Polish
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-ONB-009
@@ -1335,6 +1339,7 @@ epics:
       - UX-CONTENT-editor-shell-and-writing-controls
       - UX-GRAPH-canvas-encoding-filtering-and-health
       - UX-SESSION-lifecycle-recovery-and-hotpath-combat-shell
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-ONB-empty-states-and-teach-by-doing.completion.md
   - id: UX-ONB-help-coachmarks-demo-and-progressive-disclosure
     title: Help, Coach Marks, Demo Content, and Progressive Disclosure
     phase: 10 Onboarding and Production Polish

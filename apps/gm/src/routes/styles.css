@@ -1178,28 +1178,58 @@ body {
 }
 
 /* Honest empty state for approved-but-planned section roots (Campaign), doc 16 §10.3. */
+/* UX-ONB-009..012 — empty states are teaching moments: a centered card with a prominent icon, a
+   clear title, a short "what this is + first action" body, and a styled call-to-action link. */
 .section-empty {
-	max-width: 44rem;
+	max-width: 38rem;
+	margin: var(--space-6) auto;
 	display: grid;
+	justify-items: center;
+	text-align: center;
 	gap: var(--space-3);
-	padding: var(--space-6) 0;
+	padding: var(--space-8) var(--space-6);
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-sm);
 }
 .section-empty-icon {
 	margin: 0;
-	color: var(--muted);
+	color: var(--color-accent);
 }
 .section-empty-title {
 	margin: 0;
-	font-size: var(--text-lg);
+	font-family: var(--font-display);
+	font-size: var(--text-xl);
+	letter-spacing: var(--tracking-tight);
 	font-weight: var(--font-weight-semibold);
 }
 .section-empty-body {
 	margin: 0;
-	color: var(--color-text-secondary, var(--muted));
-	line-height: var(--leading-relaxed, 1.6);
+	max-width: 30rem;
+	color: var(--color-text-secondary);
+	line-height: var(--leading-relaxed);
 }
 .section-empty-body a {
-	color: var(--accent);
+	color: var(--color-text-link);
+	font-weight: var(--font-weight-medium);
+}
+/* A teach-by-doing primary action (the first thing to create) reads as a button. */
+.section-empty-cta {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+	min-height: var(--touch-target-min);
+	padding: 0 var(--space-4);
+	background: var(--color-accent);
+	color: var(--color-accent-foreground);
+	border: 1px solid var(--color-accent);
+	border-radius: var(--radius-md);
+	font-weight: var(--font-weight-semibold);
+	text-decoration: none;
+}
+.section-empty-cta:hover {
+	background: var(--color-accent-hover);
 }
 
 .app-main {
