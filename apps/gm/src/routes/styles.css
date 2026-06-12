@@ -2206,15 +2206,28 @@ select {
 
 .tier-options {
 	display: flex;
-	gap: var(--space-4);
+	gap: var(--space-2);
 	flex-wrap: wrap;
+	margin-top: var(--space-1);
 }
 
 .tier-option {
-	display: flex;
+	display: inline-flex;
 	align-items: center;
-	gap: var(--space-1-5);
+	gap: var(--space-2);
+	min-height: var(--touch-target-min);
+	padding: 0 var(--space-3);
 	text-transform: capitalize;
+	background: var(--color-surface-sunken);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-full);
+	cursor: pointer;
+}
+
+.tier-option:has(input:checked) {
+	border-color: var(--color-accent);
+	background: var(--color-interactive-selected);
+	font-weight: var(--font-weight-semibold);
 }
 
 .visible-features {
@@ -2227,9 +2240,61 @@ select {
 }
 
 .visible-features li {
-	padding: var(--space-1) var(--space-2);
-	border: 1px solid var(--border);
+	padding: var(--space-0-5) var(--space-2);
+	background: var(--color-surface-raised);
+	border: 1px solid var(--color-border);
 	border-radius: var(--radius-full);
+	font-size: var(--text-sm);
+	color: var(--color-text-secondary);
+}
+
+/* UX-ONB-018 — the Settings feature-tier card. */
+.feature-tier-settings {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+}
+
+/* UX-ONB-020 — the "What's New" / changelog list in Settings → About. */
+.changelog {
+	list-style: none;
+	margin: var(--space-3) 0 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-3);
+}
+
+.changelog-entry {
+	padding: var(--space-4);
+	background: var(--color-surface-raised);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-sm);
+}
+
+.changelog-meta {
+	margin: 0;
+	font-size: var(--text-xs);
+	letter-spacing: var(--tracking-wide);
+	text-transform: uppercase;
+	color: var(--color-text-secondary);
+}
+
+.changelog-title {
+	margin: var(--space-1) 0 var(--space-2);
+	font-family: var(--font-display);
+	font-size: var(--text-lg);
+	letter-spacing: var(--tracking-tight);
+}
+
+.changelog-changes {
+	margin: 0;
+	padding-left: var(--space-4);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	color: var(--color-text-secondary);
 	font-size: var(--text-sm);
 }
 
@@ -2473,6 +2538,7 @@ select {
 
 /* Consistent Help trigger (UX-A11Y-014 / WCAG 3.2.6) — same top-bar position on every route. */
 .help-trigger {
+	position: relative;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -2490,6 +2556,18 @@ select {
 }
 .help-trigger:hover {
 	background: var(--color-interactive-hover);
+}
+/* UX-ONB-020 — the passive "What's New" badge: a small dot, never an interruptive modal. */
+.help-badge {
+	position: absolute;
+	top: 2px;
+	right: 2px;
+	width: var(--space-2);
+	height: var(--space-2);
+	border-radius: var(--radius-full);
+	background: var(--color-status-error);
+	border: 1px solid var(--color-surface-raised);
+	pointer-events: none;
 }
 
 /* Modal dialog primitive (UX-A11Y-012 dialog / UX-A11Y-009 focus trap). */
@@ -2647,4 +2725,107 @@ kbd {
  * decorative on top, never the sole signal. Reuses the .status-chip grammar from UX-VIS. */
 .state-badge {
 	gap: var(--space-1);
+}
+
+/* The positioned wrapper a coach mark anchors to — the target affordance lives inside it. */
+.coach-anchor {
+	position: relative;
+	display: inline-block;
+}
+
+/* ============================================================================================
+ * COACH MARKS (UX-ONB-013) — non-modal, first-reach teaching hints.
+ *
+ * Anchored just outside a target (the consumer wraps the target in a position:relative box). The
+ * whole mark is pointer-events:none EXCEPT its dismiss button, so a click over the mark passes
+ * through to the surface behind it — the underlying UI is never blocked (AC4). The fade is gated
+ * behind prefers-reduced-motion:no-preference, so reduced-motion users get an instant appear (AC5).
+ * ========================================================================================= */
+.coach-mark {
+	position: absolute;
+	top: calc(100% + var(--space-2));
+	left: 0;
+	z-index: var(--z-tooltip);
+	display: flex;
+	align-items: flex-start;
+	gap: var(--space-2);
+	width: max-content;
+	max-width: 17.5rem; /* 280px per spec */
+	padding: var(--space-3);
+	background: var(--color-surface-overlay);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-md);
+	box-shadow: var(--shadow-lg);
+	pointer-events: none;
+}
+.coach-mark--above {
+	top: auto;
+	bottom: calc(100% + var(--space-2));
+}
+.coach-arrow {
+	position: absolute;
+	bottom: 100%;
+	left: var(--space-4);
+	width: 0;
+	height: 0;
+	border-left: var(--space-1-5) solid transparent;
+	border-right: var(--space-1-5) solid transparent;
+	border-bottom: var(--space-1-5) solid var(--color-surface-overlay);
+}
+.coach-mark--above .coach-arrow {
+	bottom: auto;
+	top: 100%;
+	border-bottom: none;
+	border-top: var(--space-1-5) solid var(--color-surface-overlay);
+}
+.coach-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-0-5);
+}
+.coach-title {
+	margin: 0;
+	font-weight: var(--font-weight-semibold);
+	font-size: var(--text-sm);
+	color: var(--color-text-primary);
+}
+.coach-text {
+	margin: 0;
+	font-size: var(--text-sm);
+	color: var(--color-text-secondary);
+}
+.coach-dismiss {
+	pointer-events: auto;
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--space-8);
+	height: var(--space-8);
+	margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-1)) 0 0;
+	border: none;
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--color-text-secondary);
+	cursor: pointer;
+	font-size: var(--text-sm);
+}
+.coach-dismiss:hover {
+	background: var(--color-interactive-hover);
+	color: var(--color-text-primary);
+}
+@media (prefers-reduced-motion: no-preference) {
+	.coach-mark {
+		animation: coach-fade-in var(--duration-fast) var(--ease-out);
+	}
+	@keyframes coach-fade-in {
+		from {
+			opacity: 0;
+			transform: translateY(calc(-1 * var(--space-1)));
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
 }

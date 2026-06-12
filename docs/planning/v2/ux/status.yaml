@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 2
+  approved: 1
   active: 0
-  complete: 44
+  complete: 45
   deferred: 0
 metrics:
-  epicCompletionPercent: 95.7
-  requirementCompletionPercent: 96.7
+  epicCompletionPercent: 97.8
+  requirementCompletionPercent: 100
   totalRequirements: 244
-  completedRequirements: 236
+  completedRequirements: 244
   deferredRequirements: 0
-  remainingEpics: 2
+  remainingEpics: 1
   promptableEpics: 1
-  blockedByDependencies: 1
-  completionEvidenceFiles: 44
+  blockedByDependencies: 0
+  completionEvidenceFiles: 45
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -351,9 +351,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 10 Onboarding and Production Polish
       totalEpics: 3
-      complete: 2
+      complete: 3
       active: 0
-      approved: 1
+      approved: 0
       proposed: 0
       deferred: 0
       requirementIds:
@@ -378,8 +378,8 @@ metrics:
         - UX-ONB-019
         - UX-ONB-020
         - UX-ONB-021
-      epicCompletionPercent: 66.7
-      requirementCompletionPercent: 61.9
+      epicCompletionPercent: 100
+      requirementCompletionPercent: 100
     - phase: 11 Production Readiness
       totalEpics: 1
       complete: 0
@@ -391,24 +391,15 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-ONB-help-coachmarks-demo-and-progressive-disclosure
-  title: Help, Coach Marks, Demo Content, and Progressive Disclosure
-  phase: 10 Onboarding and Production Polish
+  id: UX-RELEASE-production-readiness-and-shareable-cut
+  title: Production Readiness and Shareable UI Cut
+  phase: 11 Production Readiness
   status: approved
-  requirementIds:
-    - UX-ONB-013
-    - UX-ONB-014
-    - UX-ONB-015
-    - UX-ONB-016
-    - UX-ONB-017
-    - UX-ONB-018
-    - UX-ONB-019
-    - UX-ONB-020
-  promptCommand: pnpm ux-prompt -- --epic
-    UX-ONB-help-coachmarks-demo-and-progressive-disclosure
+  requirementIds: []
+  promptCommand: pnpm ux-prompt -- --epic UX-RELEASE-production-readiness-and-shareable-cut
   nextPromptCommand: pnpm ux-prompt -- --next
   statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-ONB-help-coachmarks-demo-and-progressive-disclosure --status active
+    UX-RELEASE-production-readiness-and-shareable-cut --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -1343,7 +1334,7 @@ epics:
   - id: UX-ONB-help-coachmarks-demo-and-progressive-disclosure
     title: Help, Coach Marks, Demo Content, and Progressive Disclosure
     phase: 10 Onboarding and Production Polish
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-ONB-013
@@ -1365,6 +1356,7 @@ epics:
       - UX-ONB-first-run-role-and-player-join-paths
       - UX-SHELL-command-surface-and-shortcuts
       - UX-VIS-component-library-motion-density-icons
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-ONB-help-coachmarks-demo-and-progressive-disclosure.completion.md
   - id: UX-RELEASE-production-readiness-and-shareable-cut
     title: Production Readiness and Shareable UI Cut
     phase: 11 Production Readiness

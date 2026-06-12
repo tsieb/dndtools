@@ -29,6 +29,8 @@
 	import { DensityStore, provideDensity } from '$lib/platform/density.svelte';
 	import { InputModalityStore, provideInputModality } from '$lib/platform/input-modality.svelte';
 	import { NavChromeStore, provideNavChrome } from '$lib/platform/nav-chrome.svelte';
+	import { CoachMarkStore, provideCoachMarks } from '$lib/platform/coach-marks.svelte';
+	import { ChangelogSeenStore, provideChangelogSeen } from '$lib/platform/changelog-seen.svelte';
 	import { locationFromPath } from '$lib/state/navigation-location';
 	import { buildGlobalNav } from '$lib/navigation/global-nav';
 	import { resolveShellRouteAccessibility } from '$lib/navigation/route-a11y';
@@ -108,6 +110,16 @@
 	const navChrome = new NavChromeStore();
 	provideNavChrome(navChrome);
 
+	// UX-ONB-013/017: device-local coach-mark trigger state (seen-set persisted; per-session fire cap
+	// in memory). Surfaces call coachMarks.tryFire(id) on first-reach; the store enforces the rules.
+	const coachMarks = new CoachMarkStore();
+	provideCoachMarks(coachMarks);
+
+	// UX-ONB-020: device-local "What's New" seen-state. Drives the passive "?" badge; the help center
+	// clears it on open. Never an interruptive launch modal.
+	const changelogSeen = new ChangelogSeenStore();
+	provideChangelogSeen(changelogSeen);
+
 	// UX-A11Y §6.2: the single live announcer for the app. Surfaces call announcer.announce(text,
 	// politeness) instead of mounting their own aria-live nodes; LiveRegion renders the one polite +
 	// one assertive region. Callers pass visibility-filtered text so ARIA never leaks DM-only data
@@ -181,6 +193,8 @@
 		const stopDensity = densityStore.init();
 		const stopModality = inputModality.init();
 		const stopChrome = navChrome.init();
+		const stopCoachMarks = coachMarks.init();
+		const stopChangelog = changelogSeen.init();
 		return () => {
 			stopProfile();
 			stopTheme();
@@ -188,6 +202,8 @@
 			stopDensity();
 			stopModality();
 			stopChrome();
+			stopCoachMarks();
+			stopChangelog();
 		};
 	});
 

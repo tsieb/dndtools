@@ -24,6 +24,7 @@
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
 	import { useFeatureTier } from '$lib/state/feature-tier.svelte';
 	import FirstRun from '$lib/gui/FirstRun.svelte';
+	import CoachMark from '$lib/gui/ux-onb/CoachMark.svelte';
 	import Dialog from '$lib/gui/a11y/Dialog.svelte';
 	import SessionStatusStrip from '$lib/gui/ux-cmd/SessionStatusStrip.svelte';
 	import ParticipantHome from '$lib/gui/ux-cmd/ParticipantHome.svelte';
@@ -1003,9 +1004,18 @@
 			<h2>Widget library</h2>
 			<p class="meta">Search available widget types and add them to the Command Center.</p>
 			<!-- UX-CMD-009: the library is a quick-access DRAWER, one action away (≤3 actions to add). -->
-			<button class="button" type="button" data-testid="cc-add-widget" onclick={() => (libraryOpen = true)}>
-				Add widget
-			</button>
+			<!-- UX-ONB-013/017 (Tier 1): a first-reach coach mark points at the add-widget affordance the
+			     first time the DM reaches the Command Center. Non-blocking, fires at most once, capped. -->
+			<div class="coach-anchor">
+				<button class="button" type="button" data-testid="cc-add-widget" onclick={() => (libraryOpen = true)}>
+					Add widget
+				</button>
+				<CoachMark
+					id="cc-add-widget"
+					title="Add a widget"
+					body="Tap “Add widget” to open the library and place an initiative tracker, a map, or dice."
+				/>
+			</div>
 		</section>
 
 		<!-- UX-CMD-009: the widget library quick-access drawer. The search field is the first focusable

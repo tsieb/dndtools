@@ -2,10 +2,13 @@
 	import {
 		listNavigationRegistryForActor,
 		listNavigationSections,
+		visibleFeatures,
 		type SectionActorAvailability,
 	} from '@dndtools/core';
 	import { useRuntime } from '$lib/state/runtime-context';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
+	import { useFeatureTier } from '$lib/state/feature-tier.svelte';
+	import { CHANGELOG } from '$lib/content/changelog';
 	import { isOnline, storageAvailable } from '$lib/platform/capabilities';
 	import { buildDiagnosticsContext } from '$lib/platform/diagnostics-context';
 	import DiagnosticsPanel from '$lib/gui/DiagnosticsPanel.svelte';
@@ -38,6 +41,13 @@
 
 	const runtime = useRuntime();
 	const profile = useProfile();
+	const featureTier = useFeatureTier();
+
+	// UX-ONB-018: the feature-tier control is also reachable from Settings (besides Onboarding and the
+	// command palette). The active tier is a device-local display preference (Contract 1); changing it
+	// takes immediate effect and is reversible. `visibleFeatures(tier)` is the same core query the
+	// onboarding surface reads, so the capability list stays consistent across both locations.
+	const tierFeatures = $derived(visibleFeatures(featureTier.tier));
 
 	// Platform Services derive the diagnostics facts (Contract 1); the Processing Core
 	// assembles the actor-filtered views and the redacted support bundle. Online state
@@ -131,6 +141,37 @@
 				</span>
 			</div>
 		</div>
+	</section>
+
+	<!-- UX-ONB-018: the feature-tier control (progressive disclosure of capability sets), surfaced in
+	     Settings as well as Onboarding and the command palette. The current tier is pre-selected and
+	     changing it takes immediate effect; `visibleFeatures(tier)` lists what the selected tier shows. -->
+	<section class="feature-tier-settings" aria-label="Feature tier" data-testid="settings-feature-tier">
+		<h2>Feature tier</h2>
+		<p class="meta">
+			Reveal more capabilities as you grow comfortable (progressive disclosure). Changes apply
+			immediately and are reversible.
+		</p>
+		<div class="tier-options" role="radiogroup" aria-label="Feature tier">
+			{#each featureTier.tiers as tier (tier)}
+				<label class="tier-option">
+					<input
+						type="radio"
+						name="settings-feature-tier"
+						value={tier}
+						checked={featureTier.tier === tier}
+						data-testid={`settings-feature-tier-${tier}`}
+						onchange={() => featureTier.setTier(tier)}
+					/>
+					<span>{tier}</span>
+				</label>
+			{/each}
+		</div>
+		<ul class="visible-features" data-testid="settings-visible-features" aria-label="Visible capabilities">
+			{#each tierFeatures as feature (feature.id)}
+				<li data-testid={`settings-feature-${feature.id}`}>{feature.label}</li>
+			{/each}
+		</ul>
 	</section>
 
 	<!-- PLAT-009 / PLAT-017: status surfaces. The DM/admin diagnostics panel fails closed
@@ -278,5 +319,28 @@
 				</li>
 			{/each}
 		</ul>
+	</section>
+
+	<!-- UX-ONB-020: "What's New" / changelog surface, reachable from Settings → About (and the help
+	     center). A passive, reverse-chronological list of release entries — never an interruptive
+	     modal on launch. Opening the help center clears the "?"-button badge. -->
+	<section class="about" aria-label="About and what's new" data-testid="settings-about" id="changelog">
+		<h2>About &amp; what's new</h2>
+		<p class="meta">DND Tools — local-first, canvas-first command platform. Release notes below.</p>
+		<ol class="changelog" data-testid="changelog">
+			{#each CHANGELOG as entry (entry.version)}
+				<li class="changelog-entry" data-testid={`changelog-${entry.version}`}>
+					<p class="changelog-meta">
+						<strong>{entry.version}</strong> • {entry.date}
+					</p>
+					<h3 class="changelog-title">{entry.title}</h3>
+					<ul class="changelog-changes">
+						{#each entry.changes as change (change)}
+							<li>{change}</li>
+						{/each}
+					</ul>
+				</li>
+			{/each}
+		</ol>
 	</section>
 </section>

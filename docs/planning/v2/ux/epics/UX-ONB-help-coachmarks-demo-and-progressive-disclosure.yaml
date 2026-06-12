@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-ONB-help-coachmarks-demo-and-progressive-disclosure
 title: Help, Coach Marks, Demo Content, and Progressive Disclosure
-status: approved
+status: complete
 approved: true
 phase: 10 Onboarding and Production Polish
 productPriority: P1
@@ -346,3 +346,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-ONB-help-coachmarks-demo-and-progressive-disclosure.completion.md
