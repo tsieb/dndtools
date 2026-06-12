@@ -13,6 +13,7 @@
 	import SyncStatusPanel from '$lib/gui/SyncStatusPanel.svelte';
 	import CloudStorageClassificationPanel from '$lib/gui/CloudStorageClassificationPanel.svelte';
 	import SourceAdaptersPanel from '$lib/gui/SourceAdaptersPanel.svelte';
+	import McpSettingsPanel from '$lib/gui/ux-mcp/McpSettingsPanel.svelte';
 	import SessionPrivacyPanel from '$lib/gui/SessionPrivacyPanel.svelte';
 	import SessionPrivacyStatus from '$lib/gui/ux-perm/SessionPrivacyStatus.svelte';
 	import PermissionSummary from '$lib/gui/PermissionSummary.svelte';
@@ -162,6 +163,13 @@
 	     capability metadata, the explicit sync states, and the fail-closed preflight. This surface
 	     renders the computed registry and never reaches storage or network (live transports deferred). -->
 	<SourceAdaptersPanel />
+
+	<!-- UX-MCP-001/006/007/009/010: the AI/MCP settings surface. AI is optional and OFF by default
+	     (master gate); when off the panel shows full parity (no broken affordances). When the DM enables
+	     it, the panel surfaces the vault policy mode (labels + descriptions), the staged-write review
+	     queue, and the provenance/audit trail. DM-only; the core re-enforces authority and the default-off
+	     fail-closed posture (transport deferred per ADR-014). -->
+	<McpSettingsPanel />
 
 	<!-- COLLAB-008 / COLLAB-009 / COLLAB-010 / COLLAB-014: the session-privacy surface. Player/observer
 	     replication streams are filtered BEFORE data leaves the host (hidden content never enters the

@@ -11,20 +11,20 @@ sourceOfTruth:
 summary:
   totalEpics: 46
   proposed: 0
-  approved: 6
+  approved: 5
   active: 0
-  complete: 40
+  complete: 41
   deferred: 0
 metrics:
-  epicCompletionPercent: 87
-  requirementCompletionPercent: 86.5
+  epicCompletionPercent: 89.1
+  requirementCompletionPercent: 89.8
   totalRequirements: 244
-  completedRequirements: 211
+  completedRequirements: 219
   deferredRequirements: 0
-  remainingEpics: 6
+  remainingEpics: 5
   promptableEpics: 2
-  blockedByDependencies: 4
-  completionEvidenceFiles: 40
+  blockedByDependencies: 3
+  completionEvidenceFiles: 41
   phases:
     - phase: 00 Architecture Decisions
       totalEpics: 1
@@ -302,9 +302,9 @@ metrics:
       requirementCompletionPercent: 100
     - phase: 09 Reliability and Optional Capabilities
       totalEpics: 6
-      complete: 4
+      complete: 5
       active: 0
-      approved: 2
+      approved: 1
       proposed: 0
       deferred: 0
       requirementIds:
@@ -347,8 +347,8 @@ metrics:
         - UX-SYNC-011
         - UX-SYNC-012
         - UX-SYNC-013
-      epicCompletionPercent: 66.7
-      requirementCompletionPercent: 69.2
+      epicCompletionPercent: 83.3
+      requirementCompletionPercent: 89.7
     - phase: 10 Onboarding and Production Polish
       totalEpics: 3
       complete: 0
@@ -391,24 +391,21 @@ metrics:
       epicCompletionPercent: 0
       requirementCompletionPercent: 100
 nextEpic:
-  id: UX-MCP-settings-policy-provenance-staged-writes-and-fallback
-  title: AI/MCP Settings, Policy, Provenance, Staged Writes, and Fallback
+  id: UX-MCP-inline-assist-suggestions-attachments-and-response-presentation
+  title: AI Inline Assist, Suggestions, Attachments, and Response Presentation
   phase: 09 Reliability and Optional Capabilities
   status: approved
   requirementIds:
-    - UX-MCP-001
-    - UX-MCP-004
-    - UX-MCP-006
-    - UX-MCP-007
-    - UX-MCP-009
-    - UX-MCP-010
-    - UX-MCP-011
-    - UX-MCP-012
+    - UX-MCP-002
+    - UX-MCP-003
+    - UX-MCP-005
+    - UX-MCP-008
   promptCommand: pnpm ux-prompt -- --epic
-    UX-MCP-settings-policy-provenance-staged-writes-and-fallback
+    UX-MCP-inline-assist-suggestions-attachments-and-response-presentation
   nextPromptCommand: pnpm ux-prompt -- --next
   statusCommand: pnpm ux-workpack:set-status -- --epic
-    UX-MCP-settings-policy-provenance-staged-writes-and-fallback --status active
+    UX-MCP-inline-assist-suggestions-attachments-and-response-presentation
+    --status active
 epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     title: Product Architecture and IA Reconciliation
@@ -1245,7 +1242,7 @@ epics:
   - id: UX-MCP-settings-policy-provenance-staged-writes-and-fallback
     title: AI/MCP Settings, Policy, Provenance, Staged Writes, and Fallback
     phase: 09 Reliability and Optional Capabilities
-    status: approved
+    status: complete
     approved: true
     requirementIds:
       - UX-MCP-001
@@ -1269,6 +1266,7 @@ epics:
       - UX-CONTENT-editor-shell-and-writing-controls
       - UX-PERM-grant-dialog-active-grants-and-diagnostics
       - UX-SYNC-global-indicators-local-first-and-entity-badges
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-MCP-settings-policy-provenance-staged-writes-and-fallback.completion.md
   - id: UX-MCP-inline-assist-suggestions-attachments-and-response-presentation
     title: AI Inline Assist, Suggestions, Attachments, and Response Presentation
     phase: 09 Reliability and Optional Capabilities

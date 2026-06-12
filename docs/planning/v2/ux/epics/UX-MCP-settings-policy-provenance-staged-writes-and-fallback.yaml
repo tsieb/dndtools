@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-MCP-settings-policy-provenance-staged-writes-and-fallback
 title: AI/MCP Settings, Policy, Provenance, Staged Writes, and Fallback
-status: approved
+status: complete
 approved: true
 phase: 09 Reliability and Optional Capabilities
 productPriority: P1
@@ -359,3 +359,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-MCP-settings-policy-provenance-staged-writes-and-fallback.completion.md
