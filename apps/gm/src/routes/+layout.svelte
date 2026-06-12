@@ -415,6 +415,19 @@
 		}
 	}
 
+	// Command Center redesign §1: on the DM home (non-compact profiles) the shell enters its
+	// canvas-home treatment — the main area goes edge-to-edge (no padding / max-width / scroll) so
+	// the spatial board fills the viewport, and the route h1 floats as the top-left identity chip
+	// over the canvas. The shell DOM is unchanged (single h1, landmarks, skip link, nav all stay);
+	// only the layout treatment switches. A player/observer home (and preview mode, whose active
+	// actor is the previewed participant) keeps the standard document layout.
+	const canvasHome = $derived(
+		page.url.pathname === '/' &&
+			runtime.loaded &&
+			!profile.isCompact &&
+			runtime.state.permissions.actors[runtime.activeActorId]?.role === 'dm',
+	);
+
 	const currentEntry = $derived.by(() => {
 		const crumb = navView.breadcrumbs.at(-1);
 		return crumb ? { route: crumb.route, title: crumb.title } : null;
@@ -472,6 +485,7 @@
 	data-orientation={profile.orientation}
 	data-nav-collapsed={navChrome.collapsed ? 'true' : 'false'}
 	data-preview-mode={runtime.preview ? runtime.preview.role : undefined}
+	data-canvas-home={canvasHome ? 'true' : undefined}
 >
 	<!-- UX-PERM-006: the persistent preview banner — full-viewport top, above all content, below
 	     modal dialogs; the shell compensates for the overlap via the data-preview-mode padding. -->

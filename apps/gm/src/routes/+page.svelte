@@ -18,11 +18,16 @@
 		type WidgetBindingPayload,
 		type WidgetLibraryEntry,
 	} from '@dndtools/core';
+	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { useRuntime } from '$lib/state/runtime-context';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
 	import { useFeatureTier } from '$lib/state/feature-tier.svelte';
+	import { ViewportController, type Vec2 } from '$lib/canvas-runtime';
+	import CanvasViewport from '$lib/gui/canvas/CanvasViewport.svelte';
+	import type { CanvasTile } from '$lib/gui/canvas/types';
 	import FirstRun from '$lib/gui/FirstRun.svelte';
 	import CoachMark from '$lib/gui/ux-onb/CoachMark.svelte';
 	import Dialog from '$lib/gui/a11y/Dialog.svelte';
@@ -31,6 +36,24 @@
 	import SessionPhaseControls from '$lib/gui/ux-cmd/SessionPhaseControls.svelte';
 	import PlayerViewPreviewModal from '$lib/gui/ux-cmd/PlayerViewPreviewModal.svelte';
 	import HandoutPushFlow from '$lib/gui/ux-cmd/HandoutPushFlow.svelte';
+	import {
+		CanvasModeStore,
+		provideCanvasMode,
+	} from '$lib/gui/ux-canvas/dashboard/canvas-mode.svelte';
+	import {
+		COMMAND_CENTER_LAYOUT_KEY,
+		DashboardLayoutStore,
+		blockTitle,
+		commandCenterDefaultBlocks,
+	} from '$lib/gui/ux-canvas/dashboard/dashboard-layout.svelte';
+	import DashboardBlockFrame from '$lib/gui/ux-canvas/dashboard/DashboardBlock.svelte';
+	import CanvasPropertiesPanel from '$lib/gui/ux-canvas/CanvasPropertiesPanel.svelte';
+	import DataHubWidget from '$lib/gui/ux-canvas/widgets/DataHubWidget.svelte';
+	import CombatWidget from '$lib/gui/ux-canvas/widgets/CombatWidget.svelte';
+	import NotesWidget from '$lib/gui/ux-canvas/widgets/NotesWidget.svelte';
+	import CharactersWidget from '$lib/gui/ux-canvas/widgets/CharactersWidget.svelte';
+	import AtlasWidget from '$lib/gui/ux-canvas/widgets/AtlasWidget.svelte';
+	import SearchWidget from '$lib/gui/ux-canvas/widgets/SearchWidget.svelte';
 
 	const runtime = useRuntime();
 	const profile = useProfile();
@@ -82,6 +105,68 @@
 	// UX-CMD-009 — the widget library quick-access drawer.
 	let libraryOpen = $state(false);
 	let librarySearchEl = $state<HTMLInputElement | null>(null);
+
+	// --- Spatial mission-control board (Command Center redesign) ---------------------------------
+	// The DM home on a non-compact profile is a full-viewport spatial canvas: the dashboard widget
+	// BLOCKS below are GUI display state (device-local layout persistence), while the home Scene's
+	// tool widgets inside the Tools block remain core-owned (scene.move-widget / presets / safe
+	// point). View/Edit mode + single selection live in the shared CanvasModeStore (context, §8.3).
+	const canvasMode = provideCanvasMode(new CanvasModeStore());
+	const board = new DashboardLayoutStore({
+		storageKey: COMMAND_CENTER_LAYOUT_KEY,
+		defaults: commandCenterDefaultBlocks(),
+		locked: true, // §4: the Command Center widget set is fixed — move/resize/configure only.
+	});
+	const boardController = new ViewportController();
+	// §3: zoom-to-fit clears the floating chrome groups (identity/actions above, zoom group below),
+	// so the default view never parks a widget's controls underneath them.
+	boardController.setFitInsets({ top: 64, right: 24, bottom: 64, left: 24 });
+	onMount(() => board.load());
+
+	const boardTiles = $derived<CanvasTile[]>(
+		board.blocks.map((block) => ({
+			id: block.id,
+			type: block.type,
+			title: blockTitle(block),
+			x: block.rect.x,
+			y: block.rect.y,
+			w: block.rect.w,
+			h: block.rect.h,
+			z: block.z,
+			visibility: 'dm-only' as const,
+		})),
+	);
+	const selectedTileIds = $derived.by(() => {
+		const ids = new SvelteSet<string>();
+		if (canvasMode.selectedId) ids.add(canvasMode.selectedId);
+		return ids;
+	});
+	const selectedBlock = $derived(
+		canvasMode.selectedId ? (board.get(canvasMode.selectedId) ?? null) : null,
+	);
+
+	function nudgeBlock(id: string, dx: number, dy: number): void {
+		const block = board.get(id);
+		if (!block) return;
+		board.move(id, block.rect.x + dx, block.rect.y + dy);
+	}
+	function growBlock(id: string, dw: number, dh: number): void {
+		const block = board.get(id);
+		if (!block) return;
+		board.resize(id, block.rect.w + dw, block.rect.h + dh);
+	}
+	function onBoardMarquee(start: Vec2, end: Vec2): void {
+		// Single-selection board: a click on empty canvas (zero-area marquee) clears the selection.
+		if (Math.abs(end.x - start.x) < 2 && Math.abs(end.y - start.y) < 2) canvasMode.select(null);
+	}
+	function onBoardKey(event: KeyboardEvent): boolean {
+		// Escape exits Edit Mode from the canvas region itself (§4 keyboard path).
+		if (event.key === 'Escape' && canvasMode.isEdit) {
+			canvasMode.setMode('view');
+			return true;
+		}
+		return false;
+	}
 
 	// UX-CMD-009: the search field is auto-focused when the drawer opens (after the dialog's focus
 	// trap takes its initial focus, hence the queued task).
@@ -141,6 +226,22 @@
 	const projectionSummary = $derived(
 		getActiveMapProjectionSummary(runtime.state, runtime.defaultActorId),
 	);
+
+	// §3 top-right chrome: the notifications badge counts QUEUED deliveries (offline projections +
+	// queued player-view assignments) — real session signals, derived from the same core read models
+	// the Player Views block renders.
+	const queuedDeliveries = $derived.by(() => {
+		let queued = projectionSummary?.projecting ? 0 : (projectionSummary?.queuedCount ?? 0);
+		if (playerViewController.kind === 'available') {
+			for (const participant of playerViewController.participants) {
+				if (participant.assignment?.deliveryStatus === 'queued') queued += 1;
+			}
+		}
+		return queued;
+	});
+
+	// The board snippets render outside the dm-narrowed template branch, so narrow once here.
+	const dmStatusStrip = $derived(homeView.kind === 'dm' ? homeView.statusStrip : null);
 
 	function openPreview(actorId: string, displayName: string): void {
 		previewTarget = { actorId, displayName };
@@ -492,531 +593,732 @@
 	}
 </script>
 
-<section class="command-center" data-testid="command-center" aria-label="Command Center">
-	{#if homeView.kind === 'participant'}
-		<!-- UX-CMD-012: a player/observer never sees the DM dashboard — only their own controlled view. -->
-		<ParticipantHome view={homeView} />
-	{:else if homeView.kind === 'dm'}
-		<header class="cc-header">
-			<p class="meta">
-				Your home Scene for active session management.
-				<span data-testid="cc-profile">profile: {profile.viewportClass}</span>
-			</p>
-			{#if homeSceneId}
-				<div class="row-actions">
-					<a class="button secondary" href={`scene/${homeSceneId}/`} data-testid="cc-open-editor">
-						Open in Scene editor
-					</a>
-				</div>
-			{/if}
-		</header>
+<!-- ============================================================================================
+     Shared DM section snippets. Each functional surface renders ONCE per profile: the compact
+     profile keeps the stacked focused-panel document, the Desktop/Tablet-landscape profile hosts
+     the SAME surfaces as widget blocks on the spatial mission-control canvas (redesign §1/§2).
+     ============================================================================================ -->
 
-		<!-- UX-CMD-003: the glanceable, always-visible session status strip. -->
-		<SessionStatusStrip strip={homeView.statusStrip} />
-
-		<!-- UX-CMD-010: the Phase badge → valid-transitions popover (pause immediate, end two-step). -->
-		<SessionPhaseControls />
-
+{#snippet firstRunSection()}
 	<FirstRun
 		view={onboarding}
 		tiers={featureTier.tiers}
 		activeTier={featureTier.tier}
 		onSelectTier={(tier) => featureTier.setTier(tier)}
 	/>
+{/snippet}
 
-	{#if !summary}
-		<p class="loading" role="status" data-testid="cc-preparing">Preparing your Command Center…</p>
-	{:else if 'kind' in summary}
-		<p class="error" role="alert" data-testid="cc-denied">
-			Command Center unavailable: {summary.reason}
+{#snippet workflowSection()}
+	<section aria-label="Session workflow" data-testid="session-workflow">
+		<h2>Session workflow</h2>
+		<div class="workflow-strip" role="toolbar" aria-label="Session workflow states">
+			{#each SESSION_WORKFLOW_STATES as workflow (workflow)}
+				{@const allowed = isTransitionAllowed(runtime.state.session.workflow, workflow)}
+				<button
+					type="button"
+					data-testid={`session-workflow-${workflow}`}
+					aria-pressed={runtime.state.session.workflow === workflow}
+					class:selected={runtime.state.session.workflow === workflow}
+					disabled={!allowed}
+					title={allowed
+						? `Move session to ${workflow}`
+						: `Cannot move from ${runtime.state.session.workflow} to ${workflow}`}
+					onclick={() => setWorkflow(workflow)}
+				>
+					{workflow}
+				</button>
+			{/each}
+		</div>
+		<p class="meta" data-testid="session-workflow-status">
+			{runtime.state.session.workflow} • {sessionMode.mode} • {sessionMode.status}
+			{#if runtime.state.session.activeSceneId}
+				• Scene {runtime.state.session.activeSceneId}
+			{/if}
 		</p>
-	{:else}
-		<section aria-label="Session workflow" data-testid="session-workflow">
-			<h2>Session workflow</h2>
-			<div class="workflow-strip" role="toolbar" aria-label="Session workflow states">
-				{#each SESSION_WORKFLOW_STATES as workflow (workflow)}
-					{@const allowed = isTransitionAllowed(runtime.state.session.workflow, workflow)}
-					<button
-						type="button"
-						data-testid={`session-workflow-${workflow}`}
-						aria-pressed={runtime.state.session.workflow === workflow}
-						class:selected={runtime.state.session.workflow === workflow}
-						disabled={!allowed}
-						title={allowed
-							? `Move session to ${workflow}`
-							: `Cannot move from ${runtime.state.session.workflow} to ${workflow}`}
-						onclick={() => setWorkflow(workflow)}
-					>
-						{workflow}
-					</button>
-				{/each}
-			</div>
-			<p class="meta" data-testid="session-workflow-status">
-				{runtime.state.session.workflow} • {sessionMode.mode} • {sessionMode.status}
-				{#if runtime.state.session.activeSceneId}
-					• Scene {runtime.state.session.activeSceneId}
-				{/if}
+		<p class="meta" data-testid="session-player-status">
+			Demo Player: {playerSessionStatus.connection}
+		</p>
+		{#if sessionMode.recapArchiveId}
+			<p class="meta" data-testid="session-recap-archive">
+				Archive {sessionMode.recapArchiveId} •
+				{runtime.state.session.archives[sessionMode.recapArchiveId]?.diceHistory.length ?? 0}
+				rolls
 			</p>
-			<p class="meta" data-testid="session-player-status">
-				Demo Player: {playerSessionStatus.connection}
-			</p>
-			{#if sessionMode.recapArchiveId}
-				<p class="meta" data-testid="session-recap-archive">
-					Archive {sessionMode.recapArchiveId} •
-					{runtime.state.session.archives[sessionMode.recapArchiveId]?.diceHistory.length ?? 0}
-					rolls
-				</p>
-				<button
-					type="button"
-					class="secondary"
-					data-testid="session-recover"
-					disabled={!isTransitionAllowed(runtime.state.session.workflow, 'recap')}
-					onclick={() => recoverSession()}
-				>
-					Recover archived session
-				</button>
-			{/if}
-		</section>
-
-		<section
-			aria-label="Active map"
-			data-testid="cc-active-map"
-			class="active-map-section"
-			data-projecting={projectionSummary?.projecting ? 'true' : 'false'}
-		>
-			<h2>Active map</h2>
-			<!-- UX-CMD-007: the glanceable projection state — text label, never colour alone. -->
-			<p
-				class="projection-state"
-				data-testid="cc-map-projection-state"
-				data-projecting={projectionSummary?.projecting ? 'true' : 'false'}
-				role="status"
+			<button
+				type="button"
+				class="secondary"
+				data-testid="session-recover"
+				disabled={!isTransitionAllowed(runtime.state.session.workflow, 'recap')}
+				onclick={() => recoverSession()}
 			>
-				{#if projectionSummary?.projecting}
-					Projecting to {projectionSummary.deliveredCount} player{projectionSummary.deliveredCount ===
-					1
+				Recover archived session
+			</button>
+		{/if}
+	</section>
+{/snippet}
+
+{#snippet activeMapSection()}
+	<section
+		aria-label="Active map"
+		data-testid="cc-active-map"
+		class="active-map-section"
+		data-projecting={projectionSummary?.projecting ? 'true' : 'false'}
+	>
+		<h2>Active map</h2>
+		<!-- UX-CMD-007: the glanceable projection state — text label, never colour alone. -->
+		<p
+			class="projection-state"
+			data-testid="cc-map-projection-state"
+			data-projecting={projectionSummary?.projecting ? 'true' : 'false'}
+			role="status"
+		>
+			{#if projectionSummary?.projecting}
+				Projecting to {projectionSummary.deliveredCount} player{projectionSummary.deliveredCount ===
+				1
+					? ''
+					: 's'}
+			{:else if projectionSummary && projectionSummary.queuedCount > 0}
+				Projection queued for {projectionSummary.queuedCount} player{projectionSummary.queuedCount ===
+				1
+					? ''
+					: 's'}
+			{:else}
+				Not projecting
+			{/if}
+		</p>
+		<div class="active-map-controls">
+			<label>
+				<span>Map</span>
+				<select
+					data-testid="cc-active-map-select"
+					value={selectedMapId}
+					onchange={(event) => selectMap(event.currentTarget.value)}
+				>
+					{#each maps as map (map.id)}
+						<option value={map.id}>{map.name}</option>
+					{/each}
+				</select>
+			</label>
+			<label>
+				<span>Region</span>
+				<select
+					data-testid="cc-active-region-select"
+					value={selectedRegionId ?? ''}
+					onchange={(event) => {
+						selectedRegionId = event.currentTarget.value || null;
+					}}
+				>
+					<option value="">Whole map</option>
+					{#if selectedMap}
+						{#each selectedMap.regions as region (region.id)}
+							<option value={region.id}>{region.name}</option>
+						{/each}
+					{/if}
+				</select>
+			</label>
+			<button
+				class="button"
+				type="button"
+				data-testid="cc-active-map-bind"
+				disabled={!selectedMapId}
+				onclick={bindActiveMap}
+			>
+				Set active map
+			</button>
+			<button
+				type="button"
+				data-testid="cc-active-map-project"
+				aria-pressed={projectionSummary?.projecting ?? false}
+				disabled={activeMap.kind !== 'available' || runtime.state.session.workflow !== 'active'}
+				onclick={() => projectActiveMap('connected')}
+			>
+				{projectionSummary?.projecting ? 'Projecting' : 'Project to players'}
+			</button>
+			<button
+				type="button"
+				data-testid="cc-active-map-queue"
+				disabled={activeMap.kind !== 'available' || runtime.state.session.workflow !== 'active'}
+				onclick={() => projectActiveMap('offline')}
+			>
+				Queue
+			</button>
+		</div>
+		{#if activeMap.kind === 'available'}
+			<div class="active-map-preview" data-testid="cc-active-map-preview">
+				<strong>{activeMap.name}</strong>
+				<span class="meta">
+					{activeMap.regionName ?? 'Whole map'} • {activeMap.layers.length} layer{activeMap.layers
+						.length === 1
 						? ''
 						: 's'}
-				{:else if projectionSummary && projectionSummary.queuedCount > 0}
-					Projection queued for {projectionSummary.queuedCount} player{projectionSummary.queuedCount ===
-					1
+					{#if activeMap.hiddenLayerCount > 0}
+						• {activeMap.hiddenLayerCount} hidden
+					{/if}
+				</span>
+				<ul>
+					{#each activeMap.layers as layer (layer.id)}
+						<li>{layer.name}</li>
+					{/each}
+				</ul>
+			</div>
+		{:else if activeMap.kind === 'missing'}
+			<p class="error" role="alert" data-testid="cc-active-map-missing">
+				Active map missing: {activeMap.mapId}
+			</p>
+		{:else}
+			<p class="meta" data-testid="cc-active-map-empty">No active map selected.</p>
+		{/if}
+		{#if playerActiveMap.kind === 'available'}
+			<div class="active-map-preview" data-testid="cc-player-map-preview">
+				<strong>Demo Player</strong>
+				<span class="meta">
+					{playerActiveMap.deliveryStatus} • {playerActiveMap.regionName ?? 'Whole map'} •
+					{playerActiveMap.layers.length} visible layer{playerActiveMap.layers.length === 1
 						? ''
 						: 's'}
-				{:else}
-					Not projecting
+				</span>
+				<ul>
+					{#each playerActiveMap.layers as layer (layer.id)}
+						<li>{layer.name}</li>
+					{/each}
+				</ul>
+			</div>
+		{:else}
+			<p class="meta" data-testid="cc-player-map-empty">
+				Demo Player has no active map projection.
+			</p>
+		{/if}
+		{#if activeMapStatus}
+			<p class="meta" role="status" data-testid="cc-active-map-status">{activeMapStatus}</p>
+		{/if}
+	</section>
+{/snippet}
+
+{#snippet playerViewsSection()}
+	<section aria-label="Player View controller" data-testid="cc-player-view-controller">
+		<h2>Player views</h2>
+		<div class="row-actions">
+			<!-- UX-CMD-006: the unselected entry point — choose content, then recipients, then confirm. -->
+			<button type="button" class="secondary" data-testid="cc-push-open" onclick={() => openPush(null)}>
+				Push handout…
+			</button>
+		</div>
+		{#if playerViewController.kind === 'denied'}
+			<p class="error" role="alert" data-testid="cc-player-view-denied">
+				Player View controller unavailable: {playerViewController.reason}
+			</p>
+		{:else}
+			<div class="player-view-controller">
+				{#each playerViewController.participants as participant (participant.actorId)}
+					{@const assignment = participant.assignment}
+					{@const selectedSceneId = selectedPlayerViewSceneId(
+						participant.actorId,
+						assignment?.sceneId ?? null,
+					)}
+					<article
+						class="player-view-row"
+						data-testid={`cc-player-view-row-${participant.actorId}`}
+					>
+						<div>
+							<strong>{participant.displayName}</strong>
+							<span class="meta"> {participant.role}</span>
+							<div class="meta" data-testid={`cc-player-view-assignment-${participant.actorId}`}>
+								{#if assignment}
+									{#if assignment.kind === 'missing-scene'}
+										Missing Scene {assignment.sceneId} • {assignment.deliveryStatus}
+									{:else}
+										{assignment.sceneName} • {assignment.projectionKind} •
+										{assignment.deliveryStatus}
+										{#if assignment.deliveryReason === 'offline'}• offline{/if}
+										• {assignment.projectedWidgetCount ?? 0} widget{assignment.projectedWidgetCount ===
+										1
+											? ''
+											: 's'}
+									{/if}
+								{:else}
+									No assignment
+								{/if}
+							</div>
+						</div>
+						<div class="player-view-actions">
+							<label>
+								<span>Scene</span>
+								<select
+									data-testid={`cc-player-view-scene-${participant.actorId}`}
+									value={selectedSceneId}
+									disabled={playerViewSceneOptions.length === 0}
+									onchange={(event) =>
+										selectPlayerViewScene(participant.actorId, event.currentTarget.value)}
+								>
+									{#each playerViewSceneOptions as scene (scene.id)}
+										<option value={scene.id}>
+											{scene.name} ({scene.widgetCount})
+										</option>
+									{/each}
+								</select>
+							</label>
+							<div class="row-actions">
+								<button
+									type="button"
+									data-testid={`cc-player-view-deliver-${participant.actorId}`}
+									disabled={!selectedSceneId}
+									onclick={() => assignPlayerView(participant.actorId, 'connected')}
+								>
+									Deliver
+								</button>
+								<button
+									type="button"
+									data-testid={`cc-player-view-queue-${participant.actorId}`}
+									disabled={!selectedSceneId}
+									onclick={() => assignPlayerView(participant.actorId, 'offline')}
+								>
+									Queue
+								</button>
+								<button
+									type="button"
+									data-testid={`cc-player-view-revoke-${participant.actorId}`}
+									disabled={!assignment}
+									onclick={() => revokeCommandCenterPlayerView(participant.actorId)}
+								>
+									Revoke
+								</button>
+								<!-- UX-CMD-004/005: DM-only live preview of THIS participant's view. -->
+								<button
+									type="button"
+									data-testid={`cc-player-view-preview-${participant.actorId}`}
+									aria-label={`Preview ${participant.displayName}'s view`}
+									onclick={() => openPreview(participant.actorId, participant.displayName)}
+								>
+									Preview
+								</button>
+								<!-- UX-CMD-004/006: open the push-handout flow pre-targeted at this participant. -->
+								<button
+									type="button"
+									data-testid={`cc-player-view-push-${participant.actorId}`}
+									aria-label={`Push handout to ${participant.displayName}`}
+									onclick={() => openPush(participant.actorId)}
+								>
+									Push handout
+								</button>
+							</div>
+						</div>
+					</article>
+				{/each}
+				{#if playerViewController.participants.length === 0}
+					<p class="meta" data-testid="cc-player-view-empty">No session participants.</p>
+				{/if}
+				{#if playerViewSceneOptions.length === 0}
+					<p class="meta" data-testid="cc-player-view-no-scenes">No Scenes available.</p>
+				{/if}
+			</div>
+			{#if playerViewStatus}
+				<p class="meta" role="status" data-testid="cc-player-view-status">
+					{playerViewStatus}
+				</p>
+			{/if}
+		{/if}
+	</section>
+{/snippet}
+
+{#snippet toolsGridSection()}
+	<section aria-label="DM tools">
+		<h2>Tools</h2>
+		<div class="widget-grid" data-testid="cc-widget-grid">
+			{#each liveWidgets as payload (payload.widget.id)}
+				{@const w = payload.widget}
+				<article class="widget-row" data-testid={`cc-widget-${w.type}`}>
+					<div>
+						<strong>{toolLabel(w.type)}</strong>
+						<div class="layout" data-testid={`cc-widget-pos-${w.id}`}>
+							x {w.layout.x.toFixed(0)} • y {w.layout.y.toFixed(0)} • z {w.layout.z}
+						</div>
+					</div>
+					<div class="row-actions">
+						<button
+							type="button"
+							aria-label="Move tool left"
+							onclick={() => moveWidget(w.id, -20, 0)}>←</button
+						>
+						<button
+							type="button"
+							aria-label="Move tool right"
+							onclick={() => moveWidget(w.id, 20, 0)}>→</button
+						>
+						<button
+							type="button"
+							aria-label="Move tool up"
+							onclick={() => moveWidget(w.id, 0, -20)}>↑</button
+						>
+						<button
+							type="button"
+							aria-label="Move tool down"
+							onclick={() => moveWidget(w.id, 0, 20)}>↓</button
+						>
+					</div>
+				</article>
+			{/each}
+			{#if liveWidgets.length === 0}
+				<p class="meta">No tools on this Command Center yet.</p>
+			{/if}
+		</div>
+	</section>
+{/snippet}
+
+{#snippet presetsSection()}
+	<section aria-label="Command Center presets">
+		<h2>Presets</h2>
+		<form class="form" onsubmit={savePreset} aria-label="Save Command Center preset">
+			<label>
+				<span>Preset name</span>
+				<input data-testid="cc-preset-name" bind:value={presetName} autocomplete="off" />
+			</label>
+			<button
+				class="button"
+				type="submit"
+				data-testid="cc-save-preset"
+				disabled={!presetName.trim()}
+			>
+				Save preset
+			</button>
+		</form>
+		<ul class="scene-list" data-testid="cc-preset-list">
+			{#each presets as preset (preset.id)}
+				<li class="scene-card" data-testid={`cc-preset-${preset.id}`}>
+					<div>
+						<strong>{preset.name}</strong>
+						<div class="meta">{preset.widgets.length} widgets • saved {preset.createdAt}</div>
+					</div>
+					<div class="row-actions">
+						<button
+							type="button"
+							data-testid={`cc-apply-${preset.id}`}
+							onclick={() => applyPreset(preset.id)}
+						>
+							Apply
+						</button>
+					</div>
+				</li>
+			{/each}
+			{#if presets.length === 0}
+				<li class="meta" data-testid="cc-preset-empty">No presets saved yet.</li>
+			{/if}
+		</ul>
+		{#if lastRestore}
+			<p class="meta" role="status" data-testid="cc-restore-status">
+				Restored {lastRestore.restored} widget{lastRestore.restored === 1 ? '' : 's'}.
+				{#if lastRestore.missing.length > 0}
+					<span data-testid="cc-missing-widgets">
+						Missing widget types skipped: {lastRestore.missing.join(', ')}.
+					</span>
 				{/if}
 			</p>
-			<div class="active-map-controls">
-				<label>
-					<span>Map</span>
-					<select
-						data-testid="cc-active-map-select"
-						value={selectedMapId}
-						onchange={(event) => selectMap(event.currentTarget.value)}
-					>
-						{#each maps as map (map.id)}
-							<option value={map.id}>{map.name}</option>
-						{/each}
-					</select>
-				</label>
-				<label>
-					<span>Region</span>
-					<select
-						data-testid="cc-active-region-select"
-						value={selectedRegionId ?? ''}
-						onchange={(event) => {
-							selectedRegionId = event.currentTarget.value || null;
-						}}
-					>
-						<option value="">Whole map</option>
-						{#if selectedMap}
-							{#each selectedMap.regions as region (region.id)}
-								<option value={region.id}>{region.name}</option>
-							{/each}
-						{/if}
-					</select>
-				</label>
-				<button
-					class="button"
-					type="button"
-					data-testid="cc-active-map-bind"
-					disabled={!selectedMapId}
-					onclick={bindActiveMap}
-				>
-					Set active map
-				</button>
-				<button
-					type="button"
-					data-testid="cc-active-map-project"
-					aria-pressed={projectionSummary?.projecting ?? false}
-					disabled={activeMap.kind !== 'available' || runtime.state.session.workflow !== 'active'}
-					onclick={() => projectActiveMap('connected')}
-				>
-					{projectionSummary?.projecting ? 'Projecting' : 'Project to players'}
-				</button>
-				<button
-					type="button"
-					data-testid="cc-active-map-queue"
-					disabled={activeMap.kind !== 'available' || runtime.state.session.workflow !== 'active'}
-					onclick={() => projectActiveMap('offline')}
-				>
-					Queue
-				</button>
-			</div>
-			{#if activeMap.kind === 'available'}
-				<div class="active-map-preview" data-testid="cc-active-map-preview">
-					<strong>{activeMap.name}</strong>
-					<span class="meta">
-						{activeMap.regionName ?? 'Whole map'} • {activeMap.layers.length} layer{activeMap.layers
-							.length === 1
-							? ''
-							: 's'}
-						{#if activeMap.hiddenLayerCount > 0}
-							• {activeMap.hiddenLayerCount} hidden
-						{/if}
-					</span>
-					<ul>
-						{#each activeMap.layers as layer (layer.id)}
-							<li>{layer.name}</li>
-						{/each}
-					</ul>
-				</div>
-			{:else if activeMap.kind === 'missing'}
-				<p class="error" role="alert" data-testid="cc-active-map-missing">
-					Active map missing: {activeMap.mapId}
-				</p>
-			{:else}
-				<p class="meta" data-testid="cc-active-map-empty">No active map selected.</p>
-			{/if}
-			{#if playerActiveMap.kind === 'available'}
-				<div class="active-map-preview" data-testid="cc-player-map-preview">
-					<strong>Demo Player</strong>
-					<span class="meta">
-						{playerActiveMap.deliveryStatus} • {playerActiveMap.regionName ?? 'Whole map'} •
-						{playerActiveMap.layers.length} visible layer{playerActiveMap.layers.length === 1
-							? ''
-							: 's'}
-					</span>
-					<ul>
-						{#each playerActiveMap.layers as layer (layer.id)}
-							<li>{layer.name}</li>
-						{/each}
-					</ul>
-				</div>
-			{:else}
-				<p class="meta" data-testid="cc-player-map-empty">
-					Demo Player has no active map projection.
-				</p>
-			{/if}
-			{#if activeMapStatus}
-				<p class="meta" role="status" data-testid="cc-active-map-status">{activeMapStatus}</p>
-			{/if}
-		</section>
+		{/if}
 
-		<section aria-label="Player View controller" data-testid="cc-player-view-controller">
-			<h2>Player views</h2>
+		<!-- UX-CMD-008: the recoverable last-known-good layout. A baseline is captured automatically
+		     when the home is ready; the DM can re-checkpoint or roll an unwanted change back. -->
+		<div class="cc-autosave" data-testid="cc-autosave">
 			<div class="row-actions">
-				<!-- UX-CMD-006: the unselected entry point — choose content, then recipients, then confirm. -->
-				<button type="button" class="secondary" data-testid="cc-push-open" onclick={() => openPush(null)}>
-					Push handout…
+				<button type="button" data-testid="cc-autosave-snapshot" onclick={() => captureSafePoint()}>
+					Save safe point
+				</button>
+				<button
+					type="button"
+					data-testid="cc-autosave-restore"
+					disabled={!autoSave}
+					onclick={() => restoreSafePoint()}
+				>
+					Restore last safe point
 				</button>
 			</div>
-			{#if playerViewController.kind === 'denied'}
-				<p class="error" role="alert" data-testid="cc-player-view-denied">
-					Player View controller unavailable: {playerViewController.reason}
+			{#if autoSave}
+				<p class="meta" data-testid="cc-autosave-meta">
+					Last safe point: {autoSave.widgets.length} widget{autoSave.widgets.length === 1
+						? ''
+						: 's'} • captured {autoSave.capturedAt}
 				</p>
 			{:else}
-				<div class="player-view-controller">
-					{#each playerViewController.participants as participant (participant.actorId)}
-						{@const assignment = participant.assignment}
-						{@const selectedSceneId = selectedPlayerViewSceneId(
-							participant.actorId,
-							assignment?.sceneId ?? null,
-						)}
-						<article
-							class="player-view-row"
-							data-testid={`cc-player-view-row-${participant.actorId}`}
-						>
-							<div>
-								<strong>{participant.displayName}</strong>
-								<span class="meta"> {participant.role}</span>
-								<div class="meta" data-testid={`cc-player-view-assignment-${participant.actorId}`}>
-									{#if assignment}
-										{#if assignment.kind === 'missing-scene'}
-											Missing Scene {assignment.sceneId} • {assignment.deliveryStatus}
-										{:else}
-											{assignment.sceneName} • {assignment.projectionKind} •
-											{assignment.deliveryStatus}
-											{#if assignment.deliveryReason === 'offline'}• offline{/if}
-											• {assignment.projectedWidgetCount ?? 0} widget{assignment.projectedWidgetCount ===
-											1
-												? ''
-												: 's'}
-										{/if}
-									{:else}
-										No assignment
-									{/if}
+				<p class="meta" data-testid="cc-autosave-empty">No safe point captured yet.</p>
+			{/if}
+			{#if autoSaveStatus}
+				<p class="meta" role="status" data-testid="cc-autosave-status">{autoSaveStatus}</p>
+			{/if}
+		</div>
+	</section>
+{/snippet}
+
+{#snippet librarySection()}
+	<section aria-label="Widget library">
+		<h2>Widget library</h2>
+		<p class="meta">Search available widget types and add them to the Command Center.</p>
+		<!-- UX-CMD-009: the library is a quick-access DRAWER, one action away (≤3 actions to add). -->
+		<!-- UX-ONB-013/017 (Tier 1): a first-reach coach mark points at the add-widget affordance the
+		     first time the DM reaches the Command Center. Non-blocking, fires at most once, capped. -->
+		<div class="coach-anchor">
+			<button class="button" type="button" data-testid="cc-add-widget" onclick={() => (libraryOpen = true)}>
+				Add widget
+			</button>
+			<CoachMark
+				id="cc-add-widget"
+				title="Add a widget"
+				body="Tap “Add widget” to open the library and place an initiative tracker, a map, or dice."
+			/>
+		</div>
+	</section>
+{/snippet}
+
+<!-- The spatial board's per-tile content: each dashboard block hosts one widget surface. -->
+{#snippet boardTile(tile: CanvasTile)}
+	{@const block = board.get(tile.id)}
+	{#if block}
+		<DashboardBlockFrame
+			id={block.id}
+			title={blockTitle(block)}
+			mode={canvasMode.mode}
+			selected={canvasMode.selectedId === block.id}
+			meta={block.type === 'session' ? runtime.state.session.workflow : undefined}
+			onSelect={(id) => canvasMode.select(id)}
+			onMove={nudgeBlock}
+			onResize={growBlock}
+			onExitEdit={() => canvasMode.setMode('view')}
+		>
+			{#if block.type === 'session'}
+				{#if dmStatusStrip}
+					<SessionStatusStrip strip={dmStatusStrip} />
+				{/if}
+				<SessionPhaseControls />
+				{@render workflowSection()}
+			{:else if block.type === 'getting-started'}
+				{@render firstRunSection()}
+			{:else if block.type === 'tools'}
+				{#if homeSceneId}
+					<div class="row-actions">
+						<a class="button secondary" href={`scene/${homeSceneId}/`} data-testid="cc-open-editor">
+							Open in Scene editor
+						</a>
+					</div>
+				{/if}
+				{@render toolsGridSection()}
+				{@render librarySection()}
+				{@render presetsSection()}
+			{:else if block.type === 'data-hub'}
+				<DataHubWidget config={block.config} />
+			{:else if block.type === 'atlas'}
+				{@render activeMapSection()}
+				<AtlasWidget config={block.config} />
+			{:else if block.type === 'characters'}
+				<CharactersWidget config={block.config} />
+			{:else if block.type === 'player-views'}
+				{@render playerViewsSection()}
+			{:else if block.type === 'combat'}
+				<CombatWidget config={block.config} />
+			{:else if block.type === 'notes'}
+				<NotesWidget config={block.config} />
+			{:else if block.type === 'search'}
+				<SearchWidget />
+			{/if}
+		</DashboardBlockFrame>
+	{/if}
+{/snippet}
+
+<section
+	class="command-center"
+	class:is-board={homeView.kind === 'dm' && !profile.isCompact}
+	data-testid="command-center"
+	aria-label="Command Center"
+>
+	{#if homeView.kind === 'participant'}
+		<!-- UX-CMD-012: a player/observer never sees the DM dashboard — only their own controlled view. -->
+		<ParticipantHome view={homeView} />
+	{:else if homeView.kind === 'dm'}
+		{#if profile.isCompact}
+			<!-- ======= Compact profile: one focused work surface at a time (Contract 1) — the
+			     stacked document layout with the focused-panel tablist (CMD-002). ======= -->
+			<header class="cc-header">
+				<p class="meta">
+					Your home Scene for active session management.
+					<span data-testid="cc-profile">profile: {profile.viewportClass}</span>
+				</p>
+				{#if homeSceneId}
+					<div class="row-actions">
+						<a class="button secondary" href={`scene/${homeSceneId}/`} data-testid="cc-open-editor">
+							Open in Scene editor
+						</a>
+					</div>
+				{/if}
+			</header>
+
+			<!-- UX-CMD-003: the glanceable, always-visible session status strip. -->
+			<SessionStatusStrip strip={homeView.statusStrip} />
+
+			<!-- UX-CMD-010: the Phase badge → valid-transitions popover (pause immediate, end two-step). -->
+			<SessionPhaseControls />
+
+			{@render firstRunSection()}
+
+			{#if !summary}
+				<p class="loading" role="status" data-testid="cc-preparing">Preparing your Command Center…</p>
+			{:else if 'kind' in summary}
+				<p class="error" role="alert" data-testid="cc-denied">
+					Command Center unavailable: {summary.reason}
+				</p>
+			{:else}
+				{@render workflowSection()}
+				{@render activeMapSection()}
+				{@render playerViewsSection()}
+
+				<section aria-label="DM tools">
+					<h2>Tools</h2>
+					<!-- Slim profile: one focused work surface at a time (Contract 1). -->
+					<div class="cc-tablist" role="tablist" data-testid="cc-tablist">
+						{#each liveWidgets as payload (payload.widget.id)}
+							<button
+								type="button"
+								role="tab"
+								aria-selected={selectedWidgetId === payload.widget.id}
+								data-testid={`cc-tab-${payload.widget.type}`}
+								class:selected={selectedWidgetId === payload.widget.id}
+								onclick={() => (selectedWidgetId = payload.widget.id)}
+							>
+								{toolLabel(payload.widget.type)}
+							</button>
+						{/each}
+					</div>
+					{#each liveWidgets as payload (payload.widget.id)}
+						{#if selectedWidgetId === payload.widget.id}
+							{@const w = payload.widget}
+							<article class="cc-panel" data-testid="cc-panel" aria-label={toolLabel(w.type)}>
+								<strong>{toolLabel(w.type)}</strong>
+								<div class="layout" data-testid={`cc-widget-pos-${w.id}`}>
+									x {w.layout.x.toFixed(0)} • y {w.layout.y.toFixed(0)}
 								</div>
-							</div>
-							<div class="player-view-actions">
-								<label>
-									<span>Scene</span>
-									<select
-										data-testid={`cc-player-view-scene-${participant.actorId}`}
-										value={selectedSceneId}
-										disabled={playerViewSceneOptions.length === 0}
-										onchange={(event) =>
-											selectPlayerViewScene(participant.actorId, event.currentTarget.value)}
-									>
-										{#each playerViewSceneOptions as scene (scene.id)}
-											<option value={scene.id}>
-												{scene.name} ({scene.widgetCount})
-											</option>
-										{/each}
-									</select>
-								</label>
 								<div class="row-actions">
 									<button
 										type="button"
-										data-testid={`cc-player-view-deliver-${participant.actorId}`}
-										disabled={!selectedSceneId}
-										onclick={() => assignPlayerView(participant.actorId, 'connected')}
+										aria-label="Move tool left"
+										onclick={() => moveWidget(w.id, -20, 0)}>←</button
 									>
-										Deliver
-									</button>
 									<button
 										type="button"
-										data-testid={`cc-player-view-queue-${participant.actorId}`}
-										disabled={!selectedSceneId}
-										onclick={() => assignPlayerView(participant.actorId, 'offline')}
+										aria-label="Move tool right"
+										onclick={() => moveWidget(w.id, 20, 0)}>→</button
 									>
-										Queue
-									</button>
-									<button
-										type="button"
-										data-testid={`cc-player-view-revoke-${participant.actorId}`}
-										disabled={!assignment}
-										onclick={() => revokeCommandCenterPlayerView(participant.actorId)}
-									>
-										Revoke
-									</button>
-									<!-- UX-CMD-004/005: DM-only live preview of THIS participant's view. -->
-									<button
-										type="button"
-										data-testid={`cc-player-view-preview-${participant.actorId}`}
-										aria-label={`Preview ${participant.displayName}'s view`}
-										onclick={() => openPreview(participant.actorId, participant.displayName)}
-									>
-										Preview
-									</button>
-									<!-- UX-CMD-004/006: open the push-handout flow pre-targeted at this participant. -->
-									<button
-										type="button"
-										data-testid={`cc-player-view-push-${participant.actorId}`}
-										aria-label={`Push handout to ${participant.displayName}`}
-										onclick={() => openPush(participant.actorId)}
-									>
-										Push handout
-									</button>
 								</div>
-							</div>
-						</article>
+							</article>
+						{/if}
 					{/each}
-					{#if playerViewController.participants.length === 0}
-						<p class="meta" data-testid="cc-player-view-empty">No session participants.</p>
-					{/if}
-					{#if playerViewSceneOptions.length === 0}
-						<p class="meta" data-testid="cc-player-view-no-scenes">No Scenes available.</p>
-					{/if}
-				</div>
-				{#if playerViewStatus}
-					<p class="meta" role="status" data-testid="cc-player-view-status">
-						{playerViewStatus}
+				</section>
+
+				{@render presetsSection()}
+				{@render librarySection()}
+			{/if}
+		{:else}
+			<!-- ======= Desktop / Tablet landscape: the spatial mission-control board (§1–§4).
+			     The entire surface is the canvas; three discontiguous chrome groups float above it
+			     (top-left identity, top-right mode/actions, bottom-right zoom), and the docked
+			     Properties Panel appears for the selected widget in Edit Mode. ======= -->
+			<div
+				class="cc-board"
+				data-mode={canvasMode.mode}
+				data-testid="cc-board"
+			>
+				{#if !summary}
+					<p class="loading cc-board-loading" role="status" data-testid="cc-preparing">
+						Preparing your Command Center…
 					</p>
-				{/if}
-			{/if}
-		</section>
-
-		<section aria-label="DM tools">
-			<h2>Tools</h2>
-			{#if profile.isCompact}
-				<!-- Slim profile: one focused work surface at a time (Contract 1). -->
-				<div class="cc-tablist" role="tablist" data-testid="cc-tablist">
-					{#each liveWidgets as payload (payload.widget.id)}
-						<button
-							type="button"
-							role="tab"
-							aria-selected={selectedWidgetId === payload.widget.id}
-							data-testid={`cc-tab-${payload.widget.type}`}
-							class:selected={selectedWidgetId === payload.widget.id}
-							onclick={() => (selectedWidgetId = payload.widget.id)}
-						>
-							{toolLabel(payload.widget.type)}
-						</button>
-					{/each}
-				</div>
-				{#each liveWidgets as payload (payload.widget.id)}
-					{#if selectedWidgetId === payload.widget.id}
-						{@const w = payload.widget}
-						<article class="cc-panel" data-testid="cc-panel" aria-label={toolLabel(w.type)}>
-							<strong>{toolLabel(w.type)}</strong>
-							<div class="layout" data-testid={`cc-widget-pos-${w.id}`}>
-								x {w.layout.x.toFixed(0)} • y {w.layout.y.toFixed(0)}
-							</div>
-							<div class="row-actions">
-								<button
-									type="button"
-									aria-label="Move tool left"
-									onclick={() => moveWidget(w.id, -20, 0)}>←</button
-								>
-								<button
-									type="button"
-									aria-label="Move tool right"
-									onclick={() => moveWidget(w.id, 20, 0)}>→</button
-								>
-							</div>
-						</article>
-					{/if}
-				{/each}
-			{:else}
-				<div class="widget-grid" data-testid="cc-widget-grid">
-					{#each liveWidgets as payload (payload.widget.id)}
-						{@const w = payload.widget}
-						<article class="widget-row" data-testid={`cc-widget-${w.type}`}>
-							<div>
-								<strong>{toolLabel(w.type)}</strong>
-								<div class="layout" data-testid={`cc-widget-pos-${w.id}`}>
-									x {w.layout.x.toFixed(0)} • y {w.layout.y.toFixed(0)} • z {w.layout.z}
-								</div>
-							</div>
-							<div class="row-actions">
-								<button
-									type="button"
-									aria-label="Move tool left"
-									onclick={() => moveWidget(w.id, -20, 0)}>←</button
-								>
-								<button
-									type="button"
-									aria-label="Move tool right"
-									onclick={() => moveWidget(w.id, 20, 0)}>→</button
-								>
-								<button
-									type="button"
-									aria-label="Move tool up"
-									onclick={() => moveWidget(w.id, 0, -20)}>↑</button
-								>
-								<button
-									type="button"
-									aria-label="Move tool down"
-									onclick={() => moveWidget(w.id, 0, 20)}>↓</button
-								>
-							</div>
-						</article>
-					{/each}
-					{#if liveWidgets.length === 0}
-						<p class="meta">No tools on this Command Center yet.</p>
-					{/if}
-				</div>
-			{/if}
-		</section>
-
-		<section aria-label="Command Center presets">
-			<h2>Presets</h2>
-			<form class="form" onsubmit={savePreset} aria-label="Save Command Center preset">
-				<label>
-					<span>Preset name</span>
-					<input data-testid="cc-preset-name" bind:value={presetName} autocomplete="off" />
-				</label>
-				<button
-					class="button"
-					type="submit"
-					data-testid="cc-save-preset"
-					disabled={!presetName.trim()}
-				>
-					Save preset
-				</button>
-			</form>
-			<ul class="scene-list" data-testid="cc-preset-list">
-				{#each presets as preset (preset.id)}
-					<li class="scene-card" data-testid={`cc-preset-${preset.id}`}>
-						<div>
-							<strong>{preset.name}</strong>
-							<div class="meta">{preset.widgets.length} widgets • saved {preset.createdAt}</div>
-						</div>
-						<div class="row-actions">
-							<button
-								type="button"
-								data-testid={`cc-apply-${preset.id}`}
-								onclick={() => applyPreset(preset.id)}
-							>
-								Apply
-							</button>
-						</div>
-					</li>
-				{/each}
-				{#if presets.length === 0}
-					<li class="meta" data-testid="cc-preset-empty">No presets saved yet.</li>
-				{/if}
-			</ul>
-			{#if lastRestore}
-				<p class="meta" role="status" data-testid="cc-restore-status">
-					Restored {lastRestore.restored} widget{lastRestore.restored === 1 ? '' : 's'}.
-					{#if lastRestore.missing.length > 0}
-						<span data-testid="cc-missing-widgets">
-							Missing widget types skipped: {lastRestore.missing.join(', ')}.
-						</span>
-					{/if}
-				</p>
-			{/if}
-
-			<!-- UX-CMD-008: the recoverable last-known-good layout. A baseline is captured automatically
-			     when the home is ready; the DM can re-checkpoint or roll an unwanted change back. -->
-			<div class="cc-autosave" data-testid="cc-autosave">
-				<div class="row-actions">
-					<button type="button" data-testid="cc-autosave-snapshot" onclick={() => captureSafePoint()}>
-						Save safe point
-					</button>
-					<button
-						type="button"
-						data-testid="cc-autosave-restore"
-						disabled={!autoSave}
-						onclick={() => restoreSafePoint()}
-					>
-						Restore last safe point
-					</button>
-				</div>
-				{#if autoSave}
-					<p class="meta" data-testid="cc-autosave-meta">
-						Last safe point: {autoSave.widgets.length} widget{autoSave.widgets.length === 1
-							? ''
-							: 's'} • captured {autoSave.capturedAt}
+				{:else if 'kind' in summary}
+					<p class="error cc-board-loading" role="alert" data-testid="cc-denied">
+						Command Center unavailable: {summary.reason}
 					</p>
 				{:else}
-					<p class="meta" data-testid="cc-autosave-empty">No safe point captured yet.</p>
+					<CanvasViewport
+						tiles={boardTiles}
+						tileContent={boardTile}
+						controller={boardController}
+						label="Command Center board"
+						minimap="hidden"
+						chrome="minimal"
+						fill
+						interactive={canvasMode.isEdit}
+						selectedIds={selectedTileIds}
+						primaryId={canvasMode.selectedId}
+						onSelectTile={(id) => canvasMode.select(id)}
+						onMarquee={onBoardMarquee}
+						onMoveCommit={(id, x, y) => board.move(id, x, y)}
+						onResizeCommit={(id, w, h) => board.resize(id, w, h)}
+						onManipulationKey={onBoardKey}
+					/>
 				{/if}
-				{#if autoSaveStatus}
-					<p class="meta" role="status" data-testid="cc-autosave-status">{autoSaveStatus}</p>
-				{/if}
-			</div>
-		</section>
 
-		<section aria-label="Widget library">
-			<h2>Widget library</h2>
-			<p class="meta">Search available widget types and add them to the Command Center.</p>
-			<!-- UX-CMD-009: the library is a quick-access DRAWER, one action away (≤3 actions to add). -->
-			<!-- UX-ONB-013/017 (Tier 1): a first-reach coach mark points at the add-widget affordance the
-			     first time the DM reaches the Command Center. Non-blocking, fires at most once, capped. -->
-			<div class="coach-anchor">
-				<button class="button" type="button" data-testid="cc-add-widget" onclick={() => (libraryOpen = true)}>
-					Add widget
-				</button>
-				<CoachMark
-					id="cc-add-widget"
-					title="Add a widget"
-					body="Tap “Add widget” to open the library and place an initiative tracker, a map, or dice."
-				/>
+				<!-- §3 floating chrome — top-left: identity (the shell h1 docks above this chip). -->
+				<div class="cc-chrome cc-chrome-identity" data-testid="cc-identity">
+					<span class="cc-brand-mark" aria-hidden="true">⬡</span>
+					<span class="meta">
+						Mission control
+						<span data-testid="cc-profile">profile: {profile.viewportClass}</span>
+					</span>
+				</div>
+
+				<!-- §3 floating chrome — top-right: Edit Mode toggle, settings, notifications. -->
+				<div class="cc-chrome cc-chrome-actions" data-testid="cc-chrome-actions">
+					<button
+						type="button"
+						class="cc-edit-toggle"
+						data-testid="cc-edit-toggle"
+						aria-pressed={canvasMode.isEdit}
+						onclick={() => canvasMode.toggle()}
+					>
+						<span aria-hidden="true">✎</span>
+						{canvasMode.isEdit ? 'Done editing' : 'Edit layout'}
+					</button>
+					<a class="cc-chrome-icon" href="/settings/" aria-label="Settings" data-testid="cc-settings-link">
+						<span aria-hidden="true">⚙</span>
+					</a>
+					<span
+						class="cc-notify"
+						role="status"
+						data-testid="cc-notifications"
+						aria-label={`${queuedDeliveries} queued deliver${queuedDeliveries === 1 ? 'y' : 'ies'}`}
+						title={`${queuedDeliveries} queued deliver${queuedDeliveries === 1 ? 'y' : 'ies'}`}
+					>
+						<span aria-hidden="true">🔔</span>
+						<span class="cc-notify-count" data-active={queuedDeliveries > 0}>{queuedDeliveries}</span>
+					</span>
+				</div>
+
+				<!-- §4 Edit Mode indicator: an explicit, glanceable mode banner. -->
+				{#if canvasMode.isEdit}
+					<p class="cc-mode-banner" role="status" data-testid="cc-edit-banner">
+						Editing layout — drag blocks to move, grips to resize, Esc to finish
+					</p>
+				{/if}
+
+				<!-- §3 floating chrome — bottom-right: zoom level + controls (bound to the same
+				     ViewportController the canvas uses). -->
+				<div
+					class="cc-chrome cc-chrome-zoom"
+					role="toolbar"
+					aria-label="Board zoom"
+					data-testid="cc-zoom-group"
+				>
+					<button type="button" aria-label="Zoom out" data-testid="cc-zoom-out" onclick={() => boardController.zoomOutAt()}>−</button>
+					<span class="cc-zoom-level" data-testid="cc-zoom-level">{boardController.zoomPercent}%</span>
+					<button type="button" aria-label="Zoom in" data-testid="cc-zoom-in" onclick={() => boardController.zoomInAt()}>+</button>
+					<button type="button" aria-label="Zoom to fit" data-testid="cc-zoom-fit" onclick={() => boardController.zoomToFit()}>Fit</button>
+				</div>
+
+				<!-- §5 the docked Properties Panel — only while a widget is selected in Edit Mode. -->
+				{#if canvasMode.isEdit && selectedBlock}
+					<CanvasPropertiesPanel
+						block={selectedBlock}
+						locked={board.locked}
+						onRect={(id, rect) => board.setRect(id, rect)}
+						onConfigure={(id, key, value) => board.configure(id, key, value)}
+						onBringToFront={(id) => board.bringToFront(id)}
+						onClose={() => canvasMode.select(null)}
+					/>
+				{/if}
 			</div>
-		</section>
+		{/if}
 
 		<!-- UX-CMD-009: the widget library quick-access drawer. The search field is the first focusable
 		     element, so the dialog's focus trap auto-focuses it on open. The Processing Core decides
@@ -1086,7 +1388,6 @@
 
 		<!-- UX-CMD-006: content → recipients → confirmation → deliver (cancel delivers nothing). -->
 		<HandoutPushFlow bind:open={pushOpen} initialRecipientId={pushRecipientId} onclose={closePush} />
-	{/if}
 	{:else}
 		<p class="error" role="alert" data-testid="cc-unknown-actor">
 			Command Center unavailable.

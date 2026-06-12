@@ -75,6 +75,14 @@
       "removalCriteria": "Remove if device-local display preferences move into a typed platform preferences adapter; until then changelog seen-version persistence stays confined to this file."
     },
     {
+      "id": "dashboard-board-layout-preference",
+      "path": "apps/gm/src/lib/platform/board-layout-storage.ts",
+      "primitives": ["localStorage"],
+      "owner": "UX-CMD (Command Center)",
+      "rationale": "Device-local spatial-dashboard board layout (Command Center redesign) is an explicitly device-scoped UI display preference (Contract 1), never durable vault or sync state — the home Scene's tool widgets stay core-owned (scene.move-widget / presets / safe point). localStorage persists block geometry + per-widget display options so a user's board arrangement survives reload. Reads/writes are typeof-guarded with try/catch + corrupt-data fallbacks. No viewport sniffing — only preference persistence.",
+      "removalCriteria": "Remove if device-local display preferences move into a typed platform preferences adapter; until then board-layout persistence stays confined to this file."
+    },
+    {
       "id": "runtime-id-clock",
       "path": "apps/gm/src/lib/canvas-runtime/runtime.svelte.ts",
       "primitives": ["crypto"],

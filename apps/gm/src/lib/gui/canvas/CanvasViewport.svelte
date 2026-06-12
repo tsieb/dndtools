@@ -84,6 +84,22 @@
 		onRebind?: (id: string) => void;
 		/** Teaching empty state (UX-CANVAS-013) rendered over the canvas when there are no tiles. */
 		emptyState?: Snippet;
+		/**
+		 * Spatial-dashboard extension (Command Center redesign): when provided, each tile renders this
+		 * snippet INSTEAD of the presentational head/title chrome, and the world layer is NOT
+		 * aria-hidden — the snippet hosts real interactive content (tables, buttons, links) that must
+		 * stay in the accessibility tree and the tab order. The host marks non-pan regions with
+		 * `data-canvas-no-pan` so view-mode content scrolls/clicks natively while empty canvas pans.
+		 */
+		tileContent?: Snippet<[CanvasTile]>;
+		/**
+		 * 'full' (default) renders the built-in zoom toolbar, minimap, and diagnostics. 'minimal'
+		 * suppresses them so a host route can render its own floating chrome groups bound to the same
+		 * controller (the dashboard's bottom-right zoom group).
+		 */
+		chrome?: 'full' | 'minimal';
+		/** Fill the parent box (edge-to-edge dashboard surface) instead of the default banded height. */
+		fill?: boolean;
 	}
 
 	let {
@@ -107,6 +123,9 @@
 		onOpenActions,
 		onRebind,
 		emptyState,
+		tileContent,
+		chrome = 'full',
+		fill = false,
 	}: Props = $props();
 
 	// svelte-ignore state_referenced_locally
@@ -144,7 +163,8 @@
 	let minimapDragging = false;
 
 	// --- Editor interaction (UX-CANVAS-005/003/004), all pointer-only on the aria-hidden world ---------
-	type Corner = 'nw' | 'ne' | 'sw' | 'se';
+	// Corner handles resize both axes; edge handles (n/e/s/w) resize one axis (dashboard grips §4).
+	type Corner = 'nw' | 'ne' | 'sw' | 'se' | 'n' | 'e' | 's' | 'w';
 	interface MoveInteraction {
 		kind: 'move';
 		id: string;
@@ -244,10 +264,12 @@
 			case 'resize': {
 				const dx = wp.x - interaction.startWorld.x;
 				const dy = wp.y - interaction.startWorld.y;
-				const east = interaction.corner === 'ne' || interaction.corner === 'se';
-				const south = interaction.corner === 'sw' || interaction.corner === 'se';
-				const w = interaction.rect.w + (east ? dx : -dx);
-				const h = interaction.rect.h + (south ? dy : -dy);
+				const c = interaction.corner;
+				// Edge handles move one axis only; corner handles move both.
+				const horizontal = c === 'n' || c === 's' ? 0 : c.includes('e') ? dx : -dx;
+				const vertical = c === 'e' || c === 'w' ? 0 : c.includes('s') ? dy : -dy;
+				const w = interaction.rect.w + horizontal;
+				const h = interaction.rect.h + vertical;
 				resizePreview = { w: Math.max(40, Math.round(w)), h: Math.max(40, Math.round(h)) };
 				break;
 			}
@@ -660,6 +682,13 @@
 		{ corner: 'sw', label: 'bottom-left', cls: 'sw' },
 		{ corner: 'se', label: 'bottom-right', cls: 'se' },
 	];
+	// Edge grips (Command Center redesign §4: corner + edge). Single-axis resize.
+	const RESIZE_EDGES: ReadonlyArray<{ corner: Corner; label: string; cls: string }> = [
+		{ corner: 'n', label: 'top edge', cls: 'n' },
+		{ corner: 'e', label: 'right edge', cls: 'e' },
+		{ corner: 's', label: 'bottom edge', cls: 's' },
+		{ corner: 'w', label: 'left edge', cls: 'w' },
+	];
 </script>
 
 <!-- UX-CANVAS-015: the spatial canvas is a keyboard-operable `role="application"` region with an
@@ -670,6 +699,7 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <section
 	class="canvas-viewport"
+	class:is-fill={fill}
 	class:is-poster-frame={controller.posterFrame}
 	role="application"
 	aria-label={label}
@@ -686,11 +716,14 @@
 	onpointercancel={endPointer}
 >
 	<div class="canvas-surface" data-canvas-surface bind:this={surfaceEl}>
-		<div class="canvas-world" data-animating={!panning && !controller.pinching} style={`transform: ${transform};`} aria-hidden="true">
+		<!-- With a tileContent snippet the world hosts REAL interactive content, so it must stay in the
+		     accessibility tree; the presentational (tile-data) rendering keeps the aria-hidden world. -->
+		<div class="canvas-world" data-animating={!panning && !controller.pinching} style={`transform: ${transform};`} aria-hidden={tileContent ? undefined : 'true'}>
 			{#each visibleTiles as tile (tile.id)}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
 					class="canvas-tile"
+					class:is-host={!!tileContent}
 					class:is-skeleton={tilePending(tile)}
 					class:is-selected={isSelected(tile)}
 					class:is-collapsed={tile.collapsed}
@@ -720,18 +753,36 @@
 								onpointerup={finishInteraction}
 							></span>
 						{/each}
-						<!-- Rotation handle (UX-CANVAS-004) — gesture path; keyboard/numeric is the panel. -->
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<span
-							class="canvas-rotate-handle"
-							data-rotate-handle
-							data-testid={`canvas-rotate-${tile.id}`}
-							title="Rotate"
-							onpointerdown={(e) => beginRotate(e, tile.id)}
-							onpointermove={updateInteraction}
-							onpointerup={finishInteraction}
-						></span>
+						{#each RESIZE_EDGES as h (h.corner)}
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<span
+								class={`canvas-resize-edge ${h.cls}`}
+								data-resize-corner={h.corner}
+								data-testid={`canvas-resize-${h.corner}-${tile.id}`}
+								title={`Resize ${h.label}`}
+								onpointerdown={(e) => beginResize(e, tile.id, h.corner)}
+								onpointermove={updateInteraction}
+								onpointerup={finishInteraction}
+							></span>
+						{/each}
+						{#if onRotateCommit}
+							<!-- Rotation handle (UX-CANVAS-004) — gesture path; keyboard/numeric is the panel.
+							     Rendered only when the host supports rotation (dashboard blocks do not). -->
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<span
+								class="canvas-rotate-handle"
+								data-rotate-handle
+								data-testid={`canvas-rotate-${tile.id}`}
+								title="Rotate"
+								onpointerdown={(e) => beginRotate(e, tile.id)}
+								onpointermove={updateInteraction}
+								onpointerup={finishInteraction}
+							></span>
+						{/if}
 					{/if}
+					{#if tileContent}
+						{@render tileContent(tile)}
+					{:else}
 					<div class="canvas-tile-head">
 						<span class="canvas-tile-type">{tile.type}</span>
 						<span class="canvas-tile-chrome">
@@ -822,6 +873,7 @@
 							</span>
 						{/if}
 					{/if}
+					{/if}
 				</div>
 			{/each}
 
@@ -856,6 +908,7 @@
 		</p>
 	</div>
 
+	{#if chrome === 'full'}
 	<!-- On-screen zoom controls — the always-available non-gesture pointer alternatives (UX-CANVAS-016). -->
 	<div class="canvas-controls" role="toolbar" aria-label="Canvas zoom controls" data-canvas-no-pan data-testid="canvas-controls">
 		<button type="button" class="canvas-btn" aria-label="Zoom out" data-testid="canvas-zoom-out" onclick={() => controller.zoomOutAt()}>−</button>
@@ -944,9 +997,67 @@
 			</button>
 		</div>
 	</details>
+	{/if}
 </section>
 
 <style>
+	/* Edge-to-edge dashboard surface: fill the parent, drop the banded frame (Command Center §1). */
+	.canvas-viewport.is-fill {
+		height: 100%;
+		min-height: 0;
+		border: none;
+		border-radius: 0;
+	}
+
+	/* A tile hosting real widget content owns its own frame — no presentational padding, and the
+	   dm-only stripe treatment stays off (the dashboard host renders its own block chrome). */
+	.canvas-tile.is-host {
+		padding: 0;
+		gap: 0;
+	}
+	.canvas-tile.is-host[data-visibility='dm-only'] {
+		border-color: var(--color-border-strong);
+		background-image: none;
+	}
+
+	/* Edge resize grips (Command Center §4: corner + edge). Single-axis cursors. */
+	.canvas-resize-edge {
+		position: absolute;
+		background: var(--color-accent);
+		border-radius: var(--radius-full);
+		z-index: 2;
+		touch-action: none;
+		opacity: 0.85;
+	}
+	.canvas-resize-edge.n,
+	.canvas-resize-edge.s {
+		left: 50%;
+		width: 28px;
+		height: 6px;
+		margin-left: -14px;
+		cursor: ns-resize;
+	}
+	.canvas-resize-edge.e,
+	.canvas-resize-edge.w {
+		top: 50%;
+		width: 6px;
+		height: 28px;
+		margin-top: -14px;
+		cursor: ew-resize;
+	}
+	.canvas-resize-edge.n {
+		top: -3px;
+	}
+	.canvas-resize-edge.s {
+		bottom: -3px;
+	}
+	.canvas-resize-edge.e {
+		right: -3px;
+	}
+	.canvas-resize-edge.w {
+		left: -3px;
+	}
+
 	.canvas-viewport {
 		position: relative;
 		width: 100%;

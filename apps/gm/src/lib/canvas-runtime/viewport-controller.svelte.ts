@@ -66,6 +66,13 @@ export class ViewportController {
 	// In-flight pinch baseline (UX-CANVAS-016). Null when no two-finger gesture is active.
 	#pinch: PinchSample | null = null;
 
+	/**
+	 * Optional screen-space insets reserved for floating chrome (Command Center board §3): when set,
+	 * zoom-to-fit fits content into the inset-reduced area and offsets it below/inside the chrome,
+	 * so the default view never hides content under the floating control groups.
+	 */
+	#fitInsets: { top: number; right: number; bottom: number; left: number } | null = null;
+
 	get viewport(): Viewport {
 		return this.#viewport;
 	}
@@ -178,9 +185,24 @@ export class ViewportController {
 		this.zoomToScaleAt(1);
 	}
 
+	/** Reserve screen-space chrome clearance applied by every zoom-to-fit (board hosts). */
+	setFitInsets(insets: { top: number; right: number; bottom: number; left: number } | null): void {
+		this.#fitInsets = insets;
+	}
+
 	/** Zoom-to-fit all content with padding (UX-CANVAS-001 §zoom-to-fit; key `0`). */
 	zoomToFit(): void {
-		this.#apply(fitBounds(this.#contentBounds, this.#size));
+		const insets = this.#fitInsets;
+		if (!insets) {
+			this.#apply(fitBounds(this.#contentBounds, this.#size));
+			return;
+		}
+		const inner = {
+			w: Math.max(1, this.#size.w - insets.left - insets.right),
+			h: Math.max(1, this.#size.h - insets.top - insets.bottom),
+		};
+		const fitted = fitBounds(this.#contentBounds, inner, 0);
+		this.#apply({ ...fitted, tx: fitted.tx + insets.left, ty: fitted.ty + insets.top });
 	}
 
 	/** Zoom-to-selection: fit a selection bounding box with padding (key `Shift+0`). */
