@@ -2,7 +2,7 @@ schemaVersion: 1
 kind: ux-ui-remake-epic
 id: UX-AUDIO-library-presets-soundboard-and-automation
 title: Audio Library, Presets, Soundboard, and Automation
-status: approved
+status: complete
 approved: true
 phase: 09 Reliability and Optional Capabilities
 productPriority: P2
@@ -334,3 +334,4 @@ completionEvidence:
     --short` output.
   - The UX workpack status is updated with the programmatic complete command
     after completion evidence exists.
+completionEvidenceFile: docs/planning/v2/ux/epics/UX-AUDIO-library-presets-soundboard-and-automation.completion.md

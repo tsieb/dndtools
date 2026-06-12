@@ -786,4 +786,38 @@
 		transition: none !important;
 		animation: none !important;
 	}
+	/* UX-AUDIO-005 — the Scene presets render as a SOUNDBOARD pad grid: each cue a tappable card with
+	   the label foremost and a large Play action. */
+	.preset-list {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+		gap: var(--space-2);
+	}
+	.preset-list :global(li) {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--space-1);
+		margin-bottom: 0;
+		min-height: 6rem;
+	}
+	.preset-label {
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-primary);
+	}
+	.preset-kind {
+		font-size: var(--text-xs);
+		color: var(--color-text-secondary);
+	}
+	.preset-list :global([data-testid^='audio-preset-play-']) {
+		margin-top: auto;
+		align-self: stretch;
+		background: var(--color-accent);
+		color: var(--color-accent-foreground);
+		border-color: var(--color-accent);
+		font-weight: var(--font-weight-semibold);
+	}
+	.preset-list :global([data-testid^='audio-preset-remove-']) {
+		align-self: stretch;
+	}
 </style>

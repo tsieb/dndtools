@@ -86,6 +86,9 @@ epics:
   - id: UX-ARCH-product-architecture-and-ia-reconciliation
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-ARCH-product-architecture-and-ia-reconciliation.completion.md
+  - id: UX-AUDIO-library-presets-soundboard-and-automation
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-AUDIO-library-presets-soundboard-and-automation.completion.md
   - id: UX-AUDIO-live-controls-player-delivery-and-degradation
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-AUDIO-live-controls-player-delivery-and-degradation.completion.md
