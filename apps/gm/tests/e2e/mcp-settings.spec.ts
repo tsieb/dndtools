@@ -36,6 +36,12 @@ test.describe('UX-MCP AI/MCP settings', () => {
 		// The safe default policy is Strict review (UX-MCP-010).
 		await expect(page.getByTestId('mcp-mode-strict_review')).toHaveAttribute('aria-pressed', 'true');
 
+		// UX-MCP-008 — the response-presentation reference renders each response status.
+		await expect(page.getByTestId('mcp-response-presentation')).toBeVisible();
+		await expect(page.getByTestId('mcp-response-ok')).toBeVisible();
+		await expect(page.getByTestId('mcp-response-denied')).toBeVisible();
+		await expect(page.getByTestId('mcp-inline-assist-note')).toBeVisible();
+
 		// Turning it back off restores the parity fallback.
 		await page.getByTestId('mcp-enable-toggle').click();
 		await expect(page.getByTestId('mcp-fallback')).toBeVisible();

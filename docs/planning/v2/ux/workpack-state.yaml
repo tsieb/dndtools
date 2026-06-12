@@ -152,6 +152,9 @@ epics:
   - id: UX-MAP-pois-fog-projection-combat-and-embeds
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-MAP-pois-fog-projection-combat-and-embeds.completion.md
+  - id: UX-MCP-inline-assist-suggestions-attachments-and-response-presentation
+    status: complete
+    completionEvidenceFile: docs/planning/v2/ux/epics/UX-MCP-inline-assist-suggestions-attachments-and-response-presentation.completion.md
   - id: UX-MCP-settings-policy-provenance-staged-writes-and-fallback
     status: complete
     completionEvidenceFile: docs/planning/v2/ux/epics/UX-MCP-settings-policy-provenance-staged-writes-and-fallback.completion.md

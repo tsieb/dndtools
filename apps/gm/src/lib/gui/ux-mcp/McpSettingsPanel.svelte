@@ -1,7 +1,10 @@
 <script lang="ts">
 	import {
 		isMcpEnabled,
+		MCP_RESPONSE_STATUSES,
 		type McpPolicyMode,
+		type McpResponseEnvelope,
+		type McpResponseStatus,
 		type McpVaultDefaultMode,
 	} from '@dndtools/core';
 	import { useRuntime } from '$lib/state/runtime-context';
@@ -58,6 +61,37 @@
 	function reject(proposalId: string): void {
 		void dispatch({ type: 'mcp.reject-proposal', actorId: runtime.activeActorId, payload: { proposalId } });
 	}
+
+	// UX-MCP-008 — the response-presentation REFERENCE. Agent responses arrive as the stable core
+	// `McpResponseEnvelope` (one shape for every tool/status): a coarse status, a generic summary,
+	// warnings SEPARATE from data, bounded id/kind-only citations (never cited content — no leak),
+	// remediation actions, and a structured non-leaking error. These representative envelopes show how
+	// each status renders, so the presentation contract is concrete before any live transport exists.
+	const RESPONSE_SUMMARY: Record<McpResponseStatus, string> = {
+		ok: 'Read 3 visible notes and drafted a recap.',
+		staged: 'Prepared an edit — staged for your review before it commits.',
+		denied: 'This action is not permitted for the bound actor.',
+		error: 'The request could not be validated.',
+	};
+	function sampleEnvelope(status: McpResponseStatus): McpResponseEnvelope {
+		return {
+			contractVersion: 1,
+			id: `sample-${status}`,
+			toolId: 'vault.read',
+			status,
+			summary: RESPONSE_SUMMARY[status],
+			data: null,
+			warnings: status === 'ok' ? [{ code: 'partial-context', message: 'Some sources were not visible to the bound actor.' }] : [],
+			citations: status === 'ok' ? [{ kind: 'note', ref: 'note-7f' }, { kind: 'map', ref: 'map-2a' }] : [],
+			remediation: status === 'denied' ? [{ action: 'bind-actor', message: 'Ensure the agent is bound to a registered actor.' }] : [],
+			error: status === 'denied'
+				? { code: 'actor-unauthorized', message: 'The bound actor lacks this capability.' }
+				: status === 'error'
+					? { code: 'input-invalid', message: 'A field failed validation.', issues: [{ path: 'title', message: 'Required.' }] }
+					: null,
+		};
+	}
+	const sampleResponses = $derived(MCP_RESPONSE_STATUSES.map((status) => sampleEnvelope(status)));
 </script>
 
 {#if isDm}
@@ -162,6 +196,45 @@
 						{/each}
 					</ul>
 				{/if}
+			</section>
+
+			<!-- UX-MCP-008 — how agent responses are presented: stable envelope per status, warnings
+			     separate from data, id/kind-only citations, remediation, and a structured error. -->
+			<section class="card" aria-labelledby="mcp-response-h">
+				<h3 id="mcp-response-h">How agent responses are presented</h3>
+				<p class="meta">Every tool returns one stable envelope. Warnings, citations (id only), and remediation are separate from the result; a denied/error response carries a structured, non-leaking reason.</p>
+				<ul class="responses" data-testid="mcp-response-presentation">
+					{#each sampleResponses as envelope (envelope.status)}
+						<li class="response" data-testid={`mcp-response-${envelope.status}`}>
+							<div class="response__head">
+								<span class="status-badge" data-status={envelope.status === 'staged' ? 'pending' : envelope.status === 'ok' ? 'approved' : 'rejected'}>{envelope.status}</span>
+								<span class="response__summary">{envelope.summary}</span>
+							</div>
+							{#if envelope.warnings.length > 0}
+								<ul class="response__warnings">
+									{#each envelope.warnings as warning (warning.code)}<li>⚠ {warning.message}</li>{/each}
+								</ul>
+							{/if}
+							{#if envelope.citations.length > 0}
+								<div class="response__citations">
+									{#each envelope.citations as citation (citation.ref)}<code class="citation">{citation.kind}:{citation.ref}</code>{/each}
+								</div>
+							{/if}
+							{#if envelope.error}
+								<p class="response__error"><code>{envelope.error.code}</code> — {envelope.error.message}</p>
+							{/if}
+							{#if envelope.remediation.length > 0}
+								<ul class="response__remediation">
+									{#each envelope.remediation as remediation (remediation.action)}<li>→ {remediation.message}</li>{/each}
+								</ul>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+				<p class="meta" data-testid="mcp-inline-assist-note">
+					Inline assist, suggestion chips, and attachment bundles activate with the (deferred) AI
+					transport; their result presentation already follows this envelope contract.
+				</p>
 			</section>
 		{/if}
 	</section>
@@ -383,5 +456,66 @@
 		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
+	}
+	.responses {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+	.response {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.response__head {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		flex-wrap: wrap;
+	}
+	.response__summary {
+		font-size: var(--text-sm);
+	}
+	.response__warnings,
+	.response__remediation {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		font-size: var(--text-sm);
+	}
+	.response__warnings {
+		color: var(--color-status-warning-text);
+	}
+	.response__remediation {
+		color: var(--color-text-secondary);
+	}
+	.response__citations {
+		display: flex;
+		gap: var(--space-1);
+		flex-wrap: wrap;
+	}
+	.citation {
+		font-family: var(--font-mono);
+		font-size: var(--text-2xs);
+		color: var(--color-text-secondary);
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		padding: 0 var(--space-1);
+	}
+	.response__error {
+		margin: 0;
+		font-size: var(--text-sm);
+		color: var(--color-status-error-text);
+	}
+	.response__error code {
+		font-family: var(--font-mono);
 	}
 </style>
