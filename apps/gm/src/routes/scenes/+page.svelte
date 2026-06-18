@@ -1,10 +1,12 @@
 <script lang="ts">
 	import {
+		buildWidgetPackageReviewSummary,
 		exportWidgetPackage,
 		listScenesForActor,
 		type WidgetHostPermission,
 		type WidgetPackageDefinition,
 		type WidgetPackageRecord,
+		type WidgetPackageReviewSummary,
 	} from '@dndtools/core';
 	import { useRuntime } from '$lib/state/runtime-context';
 
@@ -66,6 +68,10 @@
 
 	function requestedPermissions(record: WidgetPackageRecord): WidgetHostPermission[] {
 		return Array.from(new Set(record.package.widgets.flatMap((widget) => widget.hostPermissions)));
+	}
+
+	function reviewFor(record: WidgetPackageRecord): WidgetPackageReviewSummary {
+		return buildWidgetPackageReviewSummary(record.package);
 	}
 
 	async function submit(event: SubmitEvent) {
@@ -211,6 +217,7 @@
 	</div>
 	<div class="package-list" data-testid="widget-package-list">
 		{#each packages as record (record.package.id)}
+			{@const review = reviewFor(record)}
 			<article class="package-row" data-testid={`package-${record.package.id}`}>
 				<div>
 					<strong>{record.package.displayName}</strong>
@@ -220,6 +227,23 @@
 						{#if record.removedAt}
 							• removed{/if}
 					</div>
+					<div class="meta" data-testid={`review-${record.package.id}`}>
+						Review {review.trustRecommendation}
+						{#if review.customCodeWidgets.length > 0}
+							• custom code {review.customCodeWidgets.join(', ')}
+						{/if}
+					</div>
+					{#if review.requestedStyleAssets.length > 0 || review.requestedStyleCapabilities.length > 0}
+						<div class="meta" data-testid={`style-review-${record.package.id}`}>
+							Style
+							{#if review.requestedStyleCapabilities.length > 0}
+								{review.requestedStyleCapabilities.join(', ')}
+							{/if}
+							{#if review.requestedStyleAssets.length > 0}
+								• {review.requestedStyleAssets.map((asset) => asset.assetPath).join(', ')}
+							{/if}
+						</div>
+					{/if}
 					{#if requestedPermissions(record).length > 0}
 						<ul class="permission-list" data-testid={`permissions-${record.package.id}`}>
 							{#each requestedPermissions(record) as permission (permission)}
@@ -231,6 +255,13 @@
 					{/if}
 					{#if record.migrationStatus.state !== 'none'}
 						<div class="meta">migration {record.migrationStatus.state}</div>
+					{/if}
+					{#if review.diagnostics.length > 0}
+						<ul class="permission-list" data-testid={`diagnostics-${record.package.id}`}>
+							{#each review.diagnostics as diagnostic (diagnostic.id)}
+								<li>{diagnostic.severity}: {diagnostic.message}</li>
+							{/each}
+						</ul>
 					{/if}
 				</div>
 				<div class="row-actions">

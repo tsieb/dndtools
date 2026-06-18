@@ -13,6 +13,7 @@
 		type SceneLayoutCommand,
 		type WidgetBindingPayload,
 		type WidgetInstance,
+		type WidgetWizardDraft,
 	} from '@dndtools/core';
 	import { useRuntime } from '$lib/state/runtime-context';
 	import { useProfile } from '$lib/platform/platform-profile.svelte';
@@ -54,6 +55,7 @@
 	import WidgetChromePanel from '$lib/gui/ux-canvas/WidgetChromePanel.svelte';
 	import BindingInspector from '$lib/gui/ux-canvas/BindingInspector.svelte';
 	import CanvasTemplatesDialog from '$lib/gui/ux-canvas/CanvasTemplatesDialog.svelte';
+	import CustomWidgetAuthoringDialog from '$lib/gui/ux-canvas/CustomWidgetAuthoringDialog.svelte';
 	import PlayerViewPreviewBanner from '$lib/gui/ux-canvas/PlayerViewPreviewBanner.svelte';
 	import EmptyCanvasState from '$lib/gui/ux-canvas/EmptyCanvasState.svelte';
 
@@ -250,7 +252,10 @@
 			.filter((widget) => viewer.role === 'dm' || widgetVisibilityOf(widget) !== 'dm-only')
 			.map((widget) => {
 				const safeName = safeEntityNameFor(widget);
-				const state = bindingState(widget.binding !== null, bindingResolutionByWidgetId.get(widget.id) ?? 'none');
+				const state = bindingState(
+					widget.binding !== null,
+					bindingResolutionByWidgetId.get(widget.id) ?? 'none',
+				);
 				const chrome = bindingChrome(state, safeName);
 				return {
 					id: widget.id,
@@ -277,7 +282,10 @@
 	// A pure UI overlay over already-loaded data — filtered through the SAME visibility boundary the real
 	// player canvas uses; widget chrome / DM badges / bound entity ids are stripped, so nothing leaks.
 	const previewedViewer = $derived(
-		previewViewer(playerPreviewId, runtime.state.permissions.actors[playerPreviewId]?.role ?? 'player'),
+		previewViewer(
+			playerPreviewId,
+			runtime.state.permissions.actors[playerPreviewId]?.role ?? 'player',
+		),
 	);
 	const previewTiles = $derived.by<CanvasTile[]>(() => {
 		if (!rawScene) return [];
@@ -380,6 +388,8 @@
 	});
 
 	let libraryOpen = $state(false);
+	let customWidgetOpen = $state(false);
+	let customWidgetIdSuffix = $state(runtime.newId());
 	let helpOpen = $state(false);
 	let bindingOpen = $state(false);
 	let templatesOpen = $state(false);
@@ -456,10 +466,62 @@
 			},
 		});
 		if (result.status === 'accepted') {
-			const added = (runtime.state.scenes.scenes[sceneId]?.widgets ?? []).find((w) => !before.has(w.id));
+			const added = (runtime.state.scenes.scenes[sceneId]?.widgets ?? []).find(
+				(w) => !before.has(w.id),
+			);
 			if (added) manipulation.select(added.id);
 			announcer?.announce(placedAnnouncement(type), 'polite');
 		}
+	}
+
+	function openCustomWidgetAuthoring() {
+		customWidgetIdSuffix = runtime.newId();
+		customWidgetOpen = true;
+	}
+
+	async function createCustomWidget(draft: WidgetWizardDraft) {
+		const widget = draft.package.widgets[0];
+		if (!widget) throw new Error('Custom widget draft has no widget definition.');
+		const install = await runtime.dispatch({
+			type: 'widget.package.install',
+			actorId: runtime.defaultActorId,
+			payload: { package: draft.package },
+		});
+		if (install.status !== 'accepted') throw new Error(install.rejection.message);
+		const enabled = await runtime.dispatch({
+			type: 'widget.package.enable',
+			actorId: runtime.defaultActorId,
+			payload: { packageId: draft.package.id },
+		});
+		if (enabled.status !== 'accepted') throw new Error(enabled.rejection.message);
+		const center = screenToWorld(
+			viewportController.viewport,
+			viewportController.centerAnchor.x || 200,
+			viewportController.centerAnchor.y || 150,
+		);
+		const size = { w: widget.defaultSize.width, h: widget.defaultSize.height };
+		const topLeft = placementTopLeft(center, size);
+		const before = new Set((rawScene?.widgets ?? []).map((w) => w.id));
+		const addedResult = await runtime.dispatch({
+			type: 'scene.add-widget',
+			actorId: runtime.defaultActorId,
+			payload: {
+				sceneId,
+				widget: {
+					type: widget.type,
+					version: widget.version,
+					layout: { x: topLeft.x, y: topLeft.y, w: size.w, h: size.h },
+					configuration: { visibility: 'player-visible' },
+					binding: null,
+				},
+			},
+		});
+		if (addedResult.status !== 'accepted') throw new Error(addedResult.rejection.message);
+		const added = (runtime.state.scenes.scenes[sceneId]?.widgets ?? []).find(
+			(w) => !before.has(w.id),
+		);
+		if (added) manipulation.select(added.id);
+		announcer?.announce(placedAnnouncement(widget.type), 'polite');
 	}
 
 	async function groupManipulationSelection() {
@@ -497,7 +559,8 @@
 		if (manipulation.primaryId) bindingOpen = true;
 	}
 	async function doBind(binding: Parameters<typeof manipulation.bind>[1], entityLabel: string) {
-		if (manipulation.primaryId) await manipulation.bind(manipulation.primaryId, binding, entityLabel);
+		if (manipulation.primaryId)
+			await manipulation.bind(manipulation.primaryId, binding, entityLabel);
 	}
 	async function doUnbind() {
 		if (manipulation.primaryId) await manipulation.unbind(manipulation.primaryId);
@@ -816,7 +879,6 @@
 			},
 		});
 	}
-
 </script>
 
 {#if 'kind' in summary}
@@ -856,7 +918,9 @@
 		{#if missingBanner}
 			<!-- UX-CANVAS-010 AC2: bindings that could not be resolved on this canvas (e.g. a template
 			     instantiated against a deleted entity) are surfaced in a non-blocking alert banner. -->
-			<p class="missing-banner" role="alert" data-testid="missing-binding-banner">{missingBanner}</p>
+			<p class="missing-banner" role="alert" data-testid="missing-binding-banner">
+				{missingBanner}
+			</p>
 		{/if}
 
 		<!-- UX-CANVAS-001/014/016: the spatial canvas viewport. Pan/zoom with cursor-anchored zoom,
@@ -879,12 +943,34 @@
 				<!-- Canvas command bar: the non-gesture entry points for placement, grid, history, and help.
 				     Every one has a keyboard shortcut too (UX-CANVAS-015), but the buttons guarantee parity
 				     on touch/no-keyboard profiles. -->
-				<div class="canvas-command-bar" role="toolbar" aria-label="Canvas tools" data-testid="canvas-command-bar">
-					<button type="button" class="button" data-testid="open-widget-library" onclick={() => (libraryOpen = true)}>
+				<div
+					class="canvas-command-bar"
+					role="toolbar"
+					aria-label="Canvas tools"
+					data-testid="canvas-command-bar"
+				>
+					<button
+						type="button"
+						class="button"
+						data-testid="open-widget-library"
+						onclick={() => (libraryOpen = true)}
+					>
 						+ Add widget
 					</button>
+					<button
+						type="button"
+						class="button secondary"
+						data-testid="open-custom-widget-authoring"
+						onclick={openCustomWidgetAuthoring}
+					>
+						Custom widget
+					</button>
 					<label class="grid-toggle">
-						<input type="checkbox" data-testid="canvas-grid-toggle" bind:checked={manipulation.gridEnabled} />
+						<input
+							type="checkbox"
+							data-testid="canvas-grid-toggle"
+							bind:checked={manipulation.gridEnabled}
+						/>
 						<span>Snap to grid</span>
 					</label>
 					<label class="grid-toggle">
@@ -895,7 +981,9 @@
 						type="button"
 						class="button secondary"
 						data-testid="canvas-undo"
-						aria-label={manipulation.undoLabel ? `Undo ${manipulation.undoLabel}` : 'Nothing to undo'}
+						aria-label={manipulation.undoLabel
+							? `Undo ${manipulation.undoLabel}`
+							: 'Nothing to undo'}
 						aria-disabled={!manipulation.canUndo}
 						disabled={!manipulation.canUndo}
 						onclick={() => manipulation.undo()}
@@ -906,18 +994,27 @@
 						type="button"
 						class="button secondary"
 						data-testid="canvas-redo"
-						aria-label={manipulation.redoLabel ? `Redo ${manipulation.redoLabel}` : 'Nothing to redo'}
+						aria-label={manipulation.redoLabel
+							? `Redo ${manipulation.redoLabel}`
+							: 'Nothing to redo'}
 						aria-disabled={!manipulation.canRedo}
 						disabled={!manipulation.canRedo}
 						onclick={() => manipulation.redo()}
 					>
 						Redo
 					</button>
-					<button type="button" class="button secondary" data-testid="canvas-shortcuts-open" onclick={() => (helpOpen = true)}>
+					<button
+						type="button"
+						class="button secondary"
+						data-testid="canvas-shortcuts-open"
+						onclick={() => (helpOpen = true)}
+					>
 						Keyboard shortcuts
 					</button>
 					{#if manipulation.undoLimitReached && !manipulation.canUndo}
-						<span class="canvas-toast" role="status" data-testid="canvas-undo-limit">Undo limit reached</span>
+						<span class="canvas-toast" role="status" data-testid="canvas-undo-limit"
+							>Undo limit reached</span
+						>
 					{/if}
 				</div>
 			{/if}
@@ -957,13 +1054,27 @@
 					ongroup={groupManipulationSelection}
 					ondelete={() => requestDelete()}
 				/>
-				<WidgetChromePanel controller={manipulation} widget={primaryWidget} onbind={openBindingForPrimary} />
+				<WidgetChromePanel
+					controller={manipulation}
+					widget={primaryWidget}
+					onbind={openBindingForPrimary}
+				/>
 				<TransformPanel controller={manipulation} widget={primaryWidget} />
 			{/if}
 		</section>
 
 		{#if canEdit}
-			<WidgetLibrary bind:open={libraryOpen} profile={profile.profileId} onplace={placeFromLibrary} />
+			<WidgetLibrary
+				bind:open={libraryOpen}
+				profile={profile.profileId}
+				onplace={placeFromLibrary}
+			/>
+			<CustomWidgetAuthoringDialog
+				bind:open={customWidgetOpen}
+				idSuffix={customWidgetIdSuffix}
+				oncreate={createCustomWidget}
+				onclose={() => (customWidgetOpen = false)}
+			/>
 			<KeyboardShortcutsHelp bind:open={helpOpen} />
 			<BindingInspector
 				bind:open={bindingOpen}
@@ -988,14 +1099,24 @@
 				onclose={() => (deleteTargetId = null)}
 			>
 				<p>
-					Remove <strong>{deleteTarget?.label ?? 'this widget'}</strong> from the scene? The bound entity is
-					not deleted.
+					Remove <strong>{deleteTarget?.label ?? 'this widget'}</strong> from the scene? The bound entity
+					is not deleted.
 				</p>
 				{#snippet footer()}
-					<button type="button" class="button secondary" data-testid="delete-cancel" onclick={() => (deleteTargetId = null)}>
+					<button
+						type="button"
+						class="button secondary"
+						data-testid="delete-cancel"
+						onclick={() => (deleteTargetId = null)}
+					>
 						Cancel
 					</button>
-					<button type="button" class="button" data-testid="delete-confirm-button" onclick={confirmDelete}>
+					<button
+						type="button"
+						class="button"
+						data-testid="delete-confirm-button"
+						onclick={confirmDelete}
+					>
 						Delete widget
 					</button>
 				{/snippet}
@@ -1029,51 +1150,51 @@
 					onsubmit={addWidget}
 					aria-label="Add widget"
 				>
-				<label>
-					<span>Type</span>
-					<input bind:value={widgetType} data-testid="widget-type" required />
-				</label>
-				<label>
-					<span>Version</span>
-					<input bind:value={widgetVersion} data-testid="widget-version" required />
-				</label>
-				<label>
-					<span>x</span>
-					<input type="number" bind:value={widgetX} data-testid="widget-x" />
-				</label>
-				<label>
-					<span>y</span>
-					<input type="number" bind:value={widgetY} data-testid="widget-y" />
-				</label>
-				<label>
-					<span>w</span>
-					<input type="number" min="1" bind:value={widgetW} data-testid="widget-w" />
-				</label>
-				<label>
-					<span>h</span>
-					<input type="number" min="1" bind:value={widgetH} data-testid="widget-h" />
-				</label>
-				<label>
-					<span>Bind entity type</span>
-					<input bind:value={bindEntityType} data-testid="bind-entity-type" autocomplete="off" />
-				</label>
-				<label>
-					<span>Bind entity id</span>
-					<input bind:value={bindEntityId} data-testid="bind-entity-id" autocomplete="off" />
-				</label>
-				<label>
-					<span>Bind selector</span>
-					<input bind:value={bindSelector} data-testid="bind-selector" autocomplete="off" />
-				</label>
-				<label>
-					<span>Visibility</span>
-					<select bind:value={widgetVisibility} data-testid="widget-visibility">
-						<option value="player-visible">Player visible</option>
-						<option value="shared">Shared</option>
-						<option value="dm-only">DM only</option>
-					</select>
-				</label>
-				<button class="button" type="submit" data-testid="widget-add">Add widget</button>
+					<label>
+						<span>Type</span>
+						<input bind:value={widgetType} data-testid="widget-type" required />
+					</label>
+					<label>
+						<span>Version</span>
+						<input bind:value={widgetVersion} data-testid="widget-version" required />
+					</label>
+					<label>
+						<span>x</span>
+						<input type="number" bind:value={widgetX} data-testid="widget-x" />
+					</label>
+					<label>
+						<span>y</span>
+						<input type="number" bind:value={widgetY} data-testid="widget-y" />
+					</label>
+					<label>
+						<span>w</span>
+						<input type="number" min="1" bind:value={widgetW} data-testid="widget-w" />
+					</label>
+					<label>
+						<span>h</span>
+						<input type="number" min="1" bind:value={widgetH} data-testid="widget-h" />
+					</label>
+					<label>
+						<span>Bind entity type</span>
+						<input bind:value={bindEntityType} data-testid="bind-entity-type" autocomplete="off" />
+					</label>
+					<label>
+						<span>Bind entity id</span>
+						<input bind:value={bindEntityId} data-testid="bind-entity-id" autocomplete="off" />
+					</label>
+					<label>
+						<span>Bind selector</span>
+						<input bind:value={bindSelector} data-testid="bind-selector" autocomplete="off" />
+					</label>
+					<label>
+						<span>Visibility</span>
+						<select bind:value={widgetVisibility} data-testid="widget-visibility">
+							<option value="player-visible">Player visible</option>
+							<option value="shared">Shared</option>
+							<option value="dm-only">DM only</option>
+						</select>
+					</label>
+					<button class="button" type="submit" data-testid="widget-add">Add widget</button>
 				</form>
 			{/if}
 		</section>
@@ -1098,130 +1219,130 @@
 			     same widget identity — only the surrounding density changes. -->
 			{#snippet widgetCard(tabIndex: number, payload: WidgetBindingPayload)}
 				{#if payload.kind === 'available' || payload.kind === 'degraded'}
-						{@const w = payload.widget}
-						{@const timer = runtime.state.session.timers[w.id]}
-						<article class="widget-row" data-testid={`widget-${w.id}`} data-focus-index={tabIndex}>
-							<div>
-								<label class="select-widget">
-									<input
-										type="checkbox"
-										data-testid={`select-${w.id}`}
-										checked={selectedForGroup.has(w.id)}
-										onchange={(e) => toggleGroupSelection(w.id, e.currentTarget.checked)}
-									/>
-									<span><strong>{w.type}</strong> <span class="meta">v{w.version}</span></span>
-								</label>
-								{#if payload.kind === 'degraded'}
-									<div class="layout" data-testid={`degraded-${w.id}`}>
-										degraded: {payload.unavailableHostPermissions.join(', ')} unavailable
-									</div>
-								{/if}
-								<div class="layout">
-									x {w.layout.x.toFixed(0)} • y {w.layout.y.toFixed(0)} • w {w.layout.w.toFixed(0)} •
-									h {w.layout.h.toFixed(0)} • z {w.layout.z}
-									{#if w.layout.dock}• docked {w.layout.dock}{/if}
-									{#if w.layout.pinned}• pinned{/if}
-									{#if w.layout.groupId}• grouped{/if}
-									{#if w.layout.focusOrder !== null}• focus {w.layout.focusOrder}{/if}
-									{#if timer}
-										• timer {timer.status}
-									{/if}
+					{@const w = payload.widget}
+					{@const timer = runtime.state.session.timers[w.id]}
+					<article class="widget-row" data-testid={`widget-${w.id}`} data-focus-index={tabIndex}>
+						<div>
+							<label class="select-widget">
+								<input
+									type="checkbox"
+									data-testid={`select-${w.id}`}
+									checked={selectedForGroup.has(w.id)}
+									onchange={(e) => toggleGroupSelection(w.id, e.currentTarget.checked)}
+								/>
+								<span><strong>{w.type}</strong> <span class="meta">v{w.version}</span></span>
+							</label>
+							{#if payload.kind === 'degraded'}
+								<div class="layout" data-testid={`degraded-${w.id}`}>
+									degraded: {payload.unavailableHostPermissions.join(', ')} unavailable
 								</div>
+							{/if}
+							<div class="layout">
+								x {w.layout.x.toFixed(0)} • y {w.layout.y.toFixed(0)} • w {w.layout.w.toFixed(0)} • h
+								{w.layout.h.toFixed(0)} • z {w.layout.z}
+								{#if w.layout.dock}• docked {w.layout.dock}{/if}
+								{#if w.layout.pinned}• pinned{/if}
+								{#if w.layout.groupId}• grouped{/if}
+								{#if w.layout.focusOrder !== null}• focus {w.layout.focusOrder}{/if}
+								{#if timer}
+									• timer {timer.status}
+								{/if}
 							</div>
-							<div
-								class="row-actions"
-								role="toolbar"
-								aria-label={`Layout controls for ${widgetAccessibleName(payload)}`}
-								data-testid={`layout-toolbar-${w.id}`}
-							>
-								{#each layoutCommandsFor(w) as command (command.id)}
-									{#if command.targets === 'self'}
-										<button
-											type="button"
-											data-testid={`layout-${command.id}-${w.id}`}
-											aria-label={`${command.label} — ${widgetAccessibleName(payload)}`}
-											onclick={() => runLayoutCommand(command, w)}
-										>
-											{command.label}
-										</button>
-									{/if}
-								{/each}
-								{#if w.type === 'timer'}
+						</div>
+						<div
+							class="row-actions"
+							role="toolbar"
+							aria-label={`Layout controls for ${widgetAccessibleName(payload)}`}
+							data-testid={`layout-toolbar-${w.id}`}
+						>
+							{#each layoutCommandsFor(w) as command (command.id)}
+								{#if command.targets === 'self'}
 									<button
 										type="button"
-										data-testid={`start-timer-${w.id}`}
-										onclick={() => startTimer(w.id)}
+										data-testid={`layout-${command.id}-${w.id}`}
+										aria-label={`${command.label} — ${widgetAccessibleName(payload)}`}
+										onclick={() => runLayoutCommand(command, w)}
 									>
-										Start
+										{command.label}
 									</button>
 								{/if}
-							</div>
-						</article>
-					{:else if payload.kind === 'disabled'}
-						<article
-							class="widget-row"
-							data-testid={`disabled-${payload.widgetInstanceId}`}
-							data-focus-index={tabIndex}
-						>
-							<div>
-								<strong>{payload.type}</strong>
-								<div class="layout">disabled: {payload.reason}</div>
-							</div>
-							<div class="row-actions">
+							{/each}
+							{#if w.type === 'timer'}
 								<button
 									type="button"
-									onclick={() => destroyWidget(payload.widgetInstanceId)}
-									data-testid={`destroy-${payload.widgetInstanceId}`}
+									data-testid={`start-timer-${w.id}`}
+									onclick={() => startTimer(w.id)}
 								>
-									Remove
+									Start
 								</button>
-							</div>
-						</article>
-					{:else if payload.kind === 'missing'}
-						<article
-							class="widget-row"
-							data-testid={`missing-${payload.widgetInstanceId}`}
-							data-focus-index={tabIndex}
-						>
-							<div>
-								<strong>{payload.type}</strong>
-								<div class="layout">binding missing</div>
-							</div>
-						</article>
-					{:else if payload.kind === 'conflicted'}
-						<article
-							class="widget-row"
-							data-testid={`conflicted-${payload.widgetInstanceId}`}
-							data-focus-index={tabIndex}
-						>
-							<div>
-								<strong>{payload.type}</strong>
-								<div class="layout">binding conflicted: {payload.conflictPaths.join(', ')}</div>
-							</div>
-						</article>
-					{:else if payload.kind === 'unbound'}
-						<article
-							class="widget-row"
-							data-testid={`unbound-${payload.widgetInstanceId}`}
-							data-focus-index={tabIndex}
-						>
-							<div>
-								<strong>{payload.type}</strong>
-								<div class="layout">needs a data source</div>
-							</div>
-						</article>
-					{:else}
-						<article
-							class="widget-row"
-							data-testid={`hidden-${payload.widgetInstanceId}`}
-							data-focus-index={tabIndex}
-						>
-							<div>
-								<strong>{payload.type}</strong>
-								<div class="layout">hidden in this view</div>
-							</div>
-						</article>
-					{/if}
+							{/if}
+						</div>
+					</article>
+				{:else if payload.kind === 'disabled'}
+					<article
+						class="widget-row"
+						data-testid={`disabled-${payload.widgetInstanceId}`}
+						data-focus-index={tabIndex}
+					>
+						<div>
+							<strong>{payload.type}</strong>
+							<div class="layout">disabled: {payload.reason}</div>
+						</div>
+						<div class="row-actions">
+							<button
+								type="button"
+								onclick={() => destroyWidget(payload.widgetInstanceId)}
+								data-testid={`destroy-${payload.widgetInstanceId}`}
+							>
+								Remove
+							</button>
+						</div>
+					</article>
+				{:else if payload.kind === 'missing'}
+					<article
+						class="widget-row"
+						data-testid={`missing-${payload.widgetInstanceId}`}
+						data-focus-index={tabIndex}
+					>
+						<div>
+							<strong>{payload.type}</strong>
+							<div class="layout">binding missing</div>
+						</div>
+					</article>
+				{:else if payload.kind === 'conflicted'}
+					<article
+						class="widget-row"
+						data-testid={`conflicted-${payload.widgetInstanceId}`}
+						data-focus-index={tabIndex}
+					>
+						<div>
+							<strong>{payload.type}</strong>
+							<div class="layout">binding conflicted: {payload.conflictPaths.join(', ')}</div>
+						</div>
+					</article>
+				{:else if payload.kind === 'unbound'}
+					<article
+						class="widget-row"
+						data-testid={`unbound-${payload.widgetInstanceId}`}
+						data-focus-index={tabIndex}
+					>
+						<div>
+							<strong>{payload.type}</strong>
+							<div class="layout">needs a data source</div>
+						</div>
+					</article>
+				{:else}
+					<article
+						class="widget-row"
+						data-testid={`hidden-${payload.widgetInstanceId}`}
+						data-focus-index={tabIndex}
+					>
+						<div>
+							<strong>{payload.type}</strong>
+							<div class="layout">hidden in this view</div>
+						</div>
+					</article>
+				{/if}
 			{/snippet}
 
 			{#if summary.widgets.length === 0}

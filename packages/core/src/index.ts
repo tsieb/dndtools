@@ -426,15 +426,23 @@ export {
 
 export type {
 	PlatformProfileId,
+	WidgetAuthoringProvenance,
+	WidgetAuthoringSource,
 	WidgetBindingDefinition,
 	WidgetCommandDescriptor,
+	WidgetComputedFieldDefinition,
 	WidgetDataSchema,
+	WidgetDataQueryDefinition,
+	WidgetDataQuerySource,
 	WidgetDefinition,
 	WidgetDiagnostic,
 	WidgetEventDescriptor,
 	WidgetHostPermission,
 	WidgetHostPermissionDecision,
 	WidgetMigration,
+	WidgetNetworkDestinationClass,
+	WidgetOutputDestinationClass,
+	WidgetOutputWriteDefinition,
 	WidgetPackageAsset,
 	WidgetPackageDefinition,
 	WidgetPackageMigrationStatus,
@@ -442,6 +450,14 @@ export type {
 	WidgetPackageState,
 	WidgetPackageTrustReview,
 	WidgetPackageTrustState,
+	WidgetRenderEntrypoint,
+	WidgetRuntimeKind,
+	WidgetRuntimeSandbox,
+	WidgetStyleCapability,
+	WidgetStyleDefinition,
+	WidgetStyleIsolation,
+	WidgetStyleTokenDefinition,
+	WidgetTemplateKind,
 } from './state/widget-package-state';
 export {
 	ALL_HOST_PERMISSIONS,
@@ -1189,16 +1205,43 @@ export type {
 	HiddenBindingReason,
 	ResolveBindingOptions,
 	WidgetBindingResolution,
+	WidgetBindingQuery,
+	WidgetBindingSetResolution,
 	WidgetBindingState,
 	WidgetDataEnvironment,
+	WidgetLeakAudit,
+	WidgetLeakDecision,
+	WidgetLeakRiskWarning,
+	WidgetSourcePrivilegeLabel,
+	WidgetTaintedBindingResolution,
+	WidgetTaintedValue,
+	WidgetWriteFlowRequest,
+	WidgetWriteFlowResult,
 } from './queries/binding';
 export {
 	EMPTY_WIDGET_DATA_ENVIRONMENT,
 	WIDGET_DATA_ENVIRONMENT_SCHEMA_VERSION,
 	commandBindingBlock,
+	deriveWidgetValue,
 	entityBindingKey,
+	evaluateWidgetWriteFlow,
+	highestSourcePrivilege,
 	resolveWidgetBinding,
+	resolveWidgetBindingSet,
+	resolveWidgetBindingWithTaint,
 } from './queries/binding';
+
+export type {
+	ScaffoldCustomWidgetPackageDraftInput,
+	WidgetPackageReviewSummary,
+	WidgetWizardDraft,
+} from './queries/widget-package-review';
+export {
+	CUSTOM_WIDGET_HOST_API_VERSION,
+	buildWidgetPackageReviewSummary,
+	scaffoldCustomWidgetPackageDraft,
+	stageWidgetWizardDraft,
+} from './queries/widget-package-review';
 
 export type {
 	ResolvedAddWidgetCommand,
@@ -2113,10 +2156,7 @@ export { getPartyOverviewForActor } from './queries/party-overview';
 // CHAR-012 / CHAR-015 / CHAR-016: THE single actor-filtered CHARACTER-JOURNAL read model. Observer
 // denied wholesale (PERM-011); per-entry visibility with DM/owner access and OTHER-PLAYER filtering;
 // a hidden entry is omitted entirely (no title/snippet/id/count/edge). Search/widgets/MCP consume this.
-export type {
-	CharacterJournalView,
-	JournalEntryView,
-} from './queries/character-journal-query';
+export type { CharacterJournalView, JournalEntryView } from './queries/character-journal-query';
 export {
 	actorCanAuthorJournal,
 	getCharacterJournalForActor,
@@ -2195,9 +2235,7 @@ export {
 // detail read REUSES the PERM visibility-filter precedence (field>section>entity, hidden-ancestor-wins);
 // the embed resolver resolves each reference against the LIVE target so a viewer who cannot see the
 // target gets the generic fail-closed `unavailable` placeholder (no clone, no leak).
-export type {
-	ContentItemDetailView,
-} from './queries/content-query';
+export type { ContentItemDetailView } from './queries/content-query';
 export {
 	CONTENT_FIELD_PATH_PREFIX,
 	contentFieldPath,
@@ -2297,15 +2335,8 @@ export {
 // CONTENT-001 / CONTENT-002: the actor-filtered NOTE SEARCH + the actor-filtered WIKILINK suggestion
 // source. Both compose `getContentItemsForActor`, so a hit/snippet/suggestion can NEVER name a note the
 // actor cannot see (no separate index to leak hidden content). Pure + deterministic ranking.
-export type {
-	ContentSearchHit,
-	SearchSnippet,
-	WikilinkSuggestion,
-} from './queries/content-search';
-export {
-	searchContentForActor,
-	suggestWikilinkTargetsForActor,
-} from './queries/content-search';
+export type { ContentSearchHit, SearchSnippet, WikilinkSuggestion } from './queries/content-search';
+export { searchContentForActor, suggestWikilinkTargetsForActor } from './queries/content-search';
 
 // SRCH-003 / SRCH-004: the durable SAVED-SEARCH model + the shared SEARCH-FILTER definition. A saved
 // search stores ONLY its filter criteria + its own visibility + pin state — NEVER a cached result, so a
@@ -2429,7 +2460,11 @@ export {
 // `checkVaultContainment` is the containment gate extracted as a standalone export so tests can
 // directly exercise the `escapes-vault-root` path independently of the input-validation gate (AC2
 // independence proof).
-export type { PathRejection, PathRejectionReason, PathValidationResult } from './security/path-safety';
+export type {
+	PathRejection,
+	PathRejectionReason,
+	PathValidationResult,
+} from './security/path-safety';
 export {
 	MAX_PATH_LENGTH,
 	MAX_PATH_SEGMENT_LENGTH,
@@ -2725,6 +2760,13 @@ export {
 	requiredPermissionFor,
 	resolveHostCapability,
 } from './security/widget-host-api';
+
+export type {
+	CustomWidgetRuntimeIssue,
+	CustomWidgetRuntimePolicy,
+	CustomWidgetRuntimePolicyResult,
+} from './security/custom-widget-runtime';
+export { resolveCustomWidgetRuntimePolicy } from './security/custom-widget-runtime';
 
 // SEC-004 — THE SECRET-CUSTODY POLICY. Auth/refresh/session/cloud/MCP secrets live in the OS/platform
 // credential store (or fail-closed encrypted-device-local) and NEVER cross a durable/outbound channel
@@ -3068,10 +3110,7 @@ export {
 // fail closed). The PLAYER-SCOPED summary computes over the actor's visible graph (no hidden node/snippet)
 // AND generalizes aggregate counts into coarse bands so a count can never betray hidden content (AC3).
 export type { CountBand, PlayerScopedHealthSummary } from './queries/graph-health-query';
-export {
-	getGraphHealthForDm,
-	getPlayerScopedHealthSummary,
-} from './queries/graph-health-query';
+export { getGraphHealthForDm, getPlayerScopedHealthSummary } from './queries/graph-health-query';
 
 // GRAPH-009: the PURE DETERMINISTIC CALENDAR / CUSTOM-TIME RELATIONSHIP engine — it indexes the date
 // references content carries and derives the date RELATIONSHIPS (same-date co-occurrence + timeline
@@ -3544,10 +3583,7 @@ export { HIDDEN_COMBATANT_NAME, getCombatTrackerForActor } from './queries/comba
 
 // UX-SES-002 — the session RECOVERY read model: full-restore confirmation vs. the modal partial-
 // restore prompt naming exactly which items could not be restored. DM-gated, fail closed.
-export type {
-	SessionRecoveryPrompt,
-	SessionRecoveryStateView,
-} from './queries/session-recovery';
+export type { SessionRecoveryPrompt, SessionRecoveryStateView } from './queries/session-recovery';
 export { getSessionRecoveryPrompt } from './queries/session-recovery';
 
 // SES-006 — the DURABLE ENCOUNTER model + the PURE deterministic challenge-guidance calculator
@@ -4362,11 +4398,7 @@ export {
 	mcpNoteSearchInputSchema,
 	mcpSessionPrepInputSchema,
 } from './mcp/tool-registry';
-export type {
-	McpDenyReason,
-	McpToolInvocation,
-	McpToolResult,
-} from './mcp/tool-dispatch';
+export type { McpDenyReason, McpToolInvocation, McpToolResult } from './mcp/tool-dispatch';
 export { invokeMcpTool } from './mcp/tool-dispatch';
 
 // MCP-011 — the FAIL-CLOSED agent-connection → scoped-vault-actor identity resolution. Before any tool can

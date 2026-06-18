@@ -19,6 +19,7 @@ import {
 	ALL_HOST_PERMISSIONS,
 	findPackageRecordForWidgetType,
 } from '../state/widget-package-state';
+import { resolveCustomWidgetRuntimePolicy } from '../security/custom-widget-runtime';
 import type { Scene, WidgetDisabledState, WidgetInstance } from '../state/scene-state';
 import type { CommandRejection, CommandResult, CoreEnvironment, CoreStateSlice } from './types';
 import {
@@ -46,6 +47,8 @@ function validateWidgetPackageDefinition(
 ): WidgetDiagnostic[] {
 	const diagnostics: WidgetDiagnostic[] = [];
 	const widgetTypes = new Set<string>();
+	const assetPaths = new Set(definition.assets.map((asset) => asset.path));
+	const assetKindByPath = new Map(definition.assets.map((asset) => [asset.path, asset.kind]));
 	for (const widget of definition.widgets) {
 		if (widgetTypes.has(widget.type)) {
 			diagnostics.push(
@@ -57,6 +60,65 @@ function validateWidgetPackageDefinition(
 			);
 		}
 		widgetTypes.add(widget.type);
+		const bindingIds = new Set(
+			[...widget.requiredBindings, ...widget.optionalBindings].map((binding) => binding.id),
+		);
+		const queryIds = new Set((widget.dataQueries ?? []).map((query) => query.id));
+		const commandTypes = new Set(widget.commands.map((command) => command.type));
+		const runtimePolicy = resolveCustomWidgetRuntimePolicy(widget as WidgetDefinition, {
+			approvedPermissions: [],
+		});
+		for (const issue of runtimePolicy.issues) {
+			diagnostics.push(
+				diagnostic(
+					env,
+					issue.code,
+					issue.message,
+					issue.code === 'custom-runtime-missing-sandbox' ? 'warning' : 'error',
+				),
+			);
+		}
+		if (widget.renderEntrypoint?.assetPath && !assetPaths.has(widget.renderEntrypoint.assetPath)) {
+			diagnostics.push(
+				diagnostic(
+					env,
+					'schema.render-entrypoint-asset-missing',
+					`Widget ${widget.type} references undeclared entrypoint asset ${widget.renderEntrypoint.assetPath}.`,
+				),
+			);
+		}
+		const styleTokenNames = new Set<string>();
+		for (const token of widget.style?.tokens ?? []) {
+			if (styleTokenNames.has(token.name)) {
+				diagnostics.push(
+					diagnostic(
+						env,
+						'schema.style-token-duplicate',
+						`Widget ${widget.type} declares style token ${token.name} more than once.`,
+					),
+				);
+			}
+			styleTokenNames.add(token.name);
+		}
+		for (const assetPath of widget.style?.stylesheetAssetPaths ?? []) {
+			if (!assetPaths.has(assetPath)) {
+				diagnostics.push(
+					diagnostic(
+						env,
+						'schema.stylesheet-asset-missing',
+						`Widget ${widget.type} references undeclared stylesheet asset ${assetPath}.`,
+					),
+				);
+			} else if (assetKindByPath.get(assetPath) !== 'css') {
+				diagnostics.push(
+					diagnostic(
+						env,
+						'schema.stylesheet-asset-kind',
+						`Widget ${widget.type} stylesheet asset ${assetPath} must be declared with kind "css".`,
+					),
+				);
+			}
+		}
 		if (!widget.configurationSchema) {
 			diagnostics.push(
 				diagnostic(
@@ -65,6 +127,43 @@ function validateWidgetPackageDefinition(
 					`Widget ${widget.type} is missing a configuration schema.`,
 				),
 			);
+		}
+		for (const query of widget.dataQueries ?? []) {
+			for (const bindingId of query.bindingIds ?? []) {
+				if (!bindingIds.has(bindingId)) {
+					diagnostics.push(
+						diagnostic(
+							env,
+							'schema.query-binding-missing',
+							`Data query ${query.id} references undeclared binding ${bindingId}.`,
+						),
+					);
+				}
+			}
+		}
+		for (const field of widget.computedFields ?? []) {
+			for (const queryId of field.inputQueryIds) {
+				if (!queryIds.has(queryId)) {
+					diagnostics.push(
+						diagnostic(
+							env,
+							'schema.computed-field-query-missing',
+							`Computed field ${field.id} references undeclared data query ${queryId}.`,
+						),
+					);
+				}
+			}
+		}
+		for (const write of widget.outputWrites ?? []) {
+			if (!commandTypes.has(write.commandType)) {
+				diagnostics.push(
+					diagnostic(
+						env,
+						'schema.output-write-command-missing',
+						`Output write ${write.id} references undeclared command ${write.commandType}.`,
+					),
+				);
+			}
 		}
 		for (const command of widget.commands) {
 			if (

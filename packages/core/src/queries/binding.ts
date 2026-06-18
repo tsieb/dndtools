@@ -1,5 +1,6 @@
 import type { Actor } from '../state/permission-state';
 import type { WidgetBinding } from '../state/scene-state';
+import type { WidgetOutputDestinationClass } from '../state/widget-package-state';
 
 export const WIDGET_DATA_ENVIRONMENT_SCHEMA_VERSION = 1 as const;
 
@@ -65,6 +66,12 @@ export type WidgetBindingState =
 	| 'degraded';
 
 export type HiddenBindingReason = 'dm-only' | 'not-shared' | 'field-hidden';
+export type WidgetSourcePrivilegeLabel =
+	| 'player-visible'
+	| 'shared-with-actors'
+	| 'derived'
+	| 'unknown'
+	| 'dm-only';
 
 /**
  * The outcome of resolving a binding for one actor. `degraded` is decided by the
@@ -77,6 +84,59 @@ export type WidgetBindingResolution =
 	| { state: 'missing' }
 	| { state: 'hidden'; reason: HiddenBindingReason }
 	| { state: 'conflicted'; conflictPaths: string[] };
+
+export type WidgetTaintedBindingResolution =
+	| { state: 'available'; value: Record<string, unknown> | null; privilege: WidgetSourcePrivilegeLabel }
+	| { state: 'unbound'; privilege: 'unknown' }
+	| { state: 'missing'; privilege: 'unknown' }
+	| { state: 'hidden'; reason: HiddenBindingReason; privilege: 'unknown' }
+	| { state: 'conflicted'; conflictPaths: string[]; privilege: 'unknown' };
+
+export interface WidgetBindingQuery {
+	id: string;
+	binding: WidgetBinding | null;
+	required?: boolean;
+}
+
+export interface WidgetBindingSetResolution {
+	queries: Record<string, WidgetTaintedBindingResolution>;
+	highestPrivilege: WidgetSourcePrivilegeLabel;
+}
+
+export interface WidgetTaintedValue<T = unknown> {
+	value: T;
+	privilege: WidgetSourcePrivilegeLabel;
+}
+
+export type WidgetLeakDecision = 'allowed' | 'requires-confirmation';
+
+export interface WidgetLeakRiskWarning {
+	widgetInstanceId: string;
+	sourcePrivilege: WidgetSourcePrivilegeLabel;
+	destinationClass: WidgetOutputDestinationClass;
+	message: string;
+}
+
+export interface WidgetLeakAudit {
+	widgetInstanceId: string;
+	sourcePrivilege: WidgetSourcePrivilegeLabel;
+	destinationClass: WidgetOutputDestinationClass;
+	decision: WidgetLeakDecision;
+	confirmedByDm: boolean;
+}
+
+export interface WidgetWriteFlowRequest {
+	widgetInstanceId: string;
+	values: readonly WidgetTaintedValue[];
+	destinationClass: WidgetOutputDestinationClass;
+	confirmedByDm?: boolean;
+}
+
+export interface WidgetWriteFlowResult {
+	decision: WidgetLeakDecision;
+	warning: WidgetLeakRiskWarning | null;
+	audit: WidgetLeakAudit;
+}
 
 export interface ResolveBindingOptions {
 	/** Whether the widget definition declares the binding as required. */
@@ -110,6 +170,48 @@ function redactValue(
 	const out: Record<string, unknown> = { ...record.value };
 	for (const key of hidden) delete out[key];
 	return out;
+}
+
+function privilegeForRecord(record: EntityBindingRecord): WidgetSourcePrivilegeLabel {
+	if (record.visibility === 'dm-only') return 'dm-only';
+	if (record.visibility === 'player-visible') return 'player-visible';
+	// Only `shared` reaches here, and resolution already proved this actor may see it.
+	return 'shared-with-actors';
+}
+
+const SOURCE_PRIVILEGE_RANK: Record<WidgetSourcePrivilegeLabel, number> = {
+	'player-visible': 0,
+	'shared-with-actors': 1,
+	derived: 2,
+	unknown: 2,
+	'dm-only': 3,
+};
+
+const DESTINATION_PRIVILEGE_RANK: Record<WidgetOutputDestinationClass, number> = {
+	scene: 1,
+	session: 1,
+	entity: 1,
+	'player-visible-state': 0,
+	'player-scene': 0,
+	clipboard: 0,
+	network: 0,
+	'exported-package': 0,
+};
+
+export function highestSourcePrivilege(
+	labels: readonly WidgetSourcePrivilegeLabel[],
+): WidgetSourcePrivilegeLabel {
+	if (labels.length === 0) return 'derived';
+	return labels.reduce((highest, next) =>
+		SOURCE_PRIVILEGE_RANK[next] > SOURCE_PRIVILEGE_RANK[highest] ? next : highest,
+	);
+}
+
+export function deriveWidgetValue<T>(
+	value: T,
+	inputs: readonly WidgetTaintedValue[],
+): WidgetTaintedValue<T> {
+	return { value, privilege: highestSourcePrivilege(inputs.map((input) => input.privilege)) };
 }
 
 /**
@@ -161,6 +263,64 @@ export function resolveWidgetBinding(
 		return { state: 'conflicted', conflictPaths: [path || '(entity)'] };
 	}
 	return { state: 'available', value: null };
+}
+
+export function resolveWidgetBindingWithTaint(
+	binding: WidgetBinding | null,
+	actor: Actor,
+	env: WidgetDataEnvironment = EMPTY_WIDGET_DATA_ENVIRONMENT,
+	options: ResolveBindingOptions = {},
+): WidgetTaintedBindingResolution {
+	const resolution = resolveWidgetBinding(binding, actor, env, options);
+	if (resolution.state !== 'available') return { ...resolution, privilege: 'unknown' };
+	if (!binding) return { ...resolution, privilege: 'derived' };
+	const record = env.entities[entityBindingKey(binding.source.entityType, binding.source.entityId)];
+	return { ...resolution, privilege: record ? privilegeForRecord(record) : 'unknown' };
+}
+
+export function resolveWidgetBindingSet(
+	queries: readonly WidgetBindingQuery[],
+	actor: Actor,
+	env: WidgetDataEnvironment = EMPTY_WIDGET_DATA_ENVIRONMENT,
+): WidgetBindingSetResolution {
+	const resolved: Record<string, WidgetTaintedBindingResolution> = {};
+	for (const query of queries) {
+		resolved[query.id] = resolveWidgetBindingWithTaint(query.binding, actor, env, {
+			bindingRequired: query.required,
+		});
+	}
+	const privileges = Object.values(resolved)
+		.filter((resolution) => resolution.state === 'available')
+		.map((resolution) => resolution.privilege);
+	return { queries: resolved, highestPrivilege: highestSourcePrivilege(privileges) };
+}
+
+export function evaluateWidgetWriteFlow(request: WidgetWriteFlowRequest): WidgetWriteFlowResult {
+	const sourcePrivilege = highestSourcePrivilege(request.values.map((value) => value.privilege));
+	const destinationRank = DESTINATION_PRIVILEGE_RANK[request.destinationClass];
+	const leakRisk = SOURCE_PRIVILEGE_RANK[sourcePrivilege] > destinationRank;
+	const confirmedByDm = request.confirmedByDm === true;
+	const decision: WidgetLeakDecision = leakRisk && !confirmedByDm ? 'requires-confirmation' : 'allowed';
+	const warning: WidgetLeakRiskWarning | null = leakRisk
+		? {
+				widgetInstanceId: request.widgetInstanceId,
+				sourcePrivilege,
+				destinationClass: request.destinationClass,
+				message:
+					'Widget output may move higher-privilege data into a lower-privilege destination. DM confirmation is required before committing the write.',
+			}
+		: null;
+	return {
+		decision,
+		warning,
+		audit: {
+			widgetInstanceId: request.widgetInstanceId,
+			sourcePrivilege,
+			destinationClass: request.destinationClass,
+			decision,
+			confirmedByDm,
+		},
+	};
 }
 
 export type CommandBindingBlock = {

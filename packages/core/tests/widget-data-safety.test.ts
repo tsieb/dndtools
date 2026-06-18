@@ -8,10 +8,13 @@ import {
 } from '../src/testing/fixtures';
 import {
 	WIDGET_DATA_ENVIRONMENT_SCHEMA_VERSION,
+	deriveWidgetValue,
 	dispatchCommand,
 	entityBindingKey,
+	evaluateWidgetWriteFlow,
 	getSceneForActor,
 	resolveWidgetBinding,
+	resolveWidgetBindingSet,
 	type CoreStateSlice,
 	type EntityBindingRecord,
 	type WidgetBinding,
@@ -79,6 +82,79 @@ describe('CANVAS-009: resolveWidgetBinding resolves states at the data layer', (
 			state: 'unbound',
 		});
 		expect(resolveWidgetBinding(null, PLAYER_ACTOR)).toEqual({ state: 'available', value: null });
+	});
+
+	it('resolves declared query sets and carries the highest source privilege', () => {
+		const env = envWith([
+			{
+				entityType: 'combatant',
+				entityId: 'npc-hidden',
+				visibility: 'dm-only',
+				value: { name: 'Assassin', hp: 4 },
+			},
+			{
+				entityType: 'combatant',
+				entityId: 'pc-visible',
+				visibility: 'player-visible',
+				value: { name: 'Tamsin', hp: 12 },
+			},
+		]);
+		const dmSet = resolveWidgetBindingSet(
+			[
+				{ id: 'dm-combatants', binding: binding('combatant', 'npc-hidden'), required: true },
+				{ id: 'player-combatants', binding: binding('combatant', 'pc-visible'), required: true },
+			],
+			DM_ACTOR,
+			env,
+		);
+		expect(dmSet.highestPrivilege).toBe('dm-only');
+		expect(dmSet.queries['dm-combatants']).toMatchObject({
+			state: 'available',
+			privilege: 'dm-only',
+		});
+
+		const playerSet = resolveWidgetBindingSet(
+			[
+				{ id: 'dm-combatants', binding: binding('combatant', 'npc-hidden'), required: true },
+				{ id: 'player-combatants', binding: binding('combatant', 'pc-visible'), required: true },
+			],
+			PLAYER_ACTOR,
+			env,
+		);
+		expect(playerSet.highestPrivilege).toBe('player-visible');
+		expect(playerSet.queries['dm-combatants']).toMatchObject({
+			state: 'hidden',
+			privilege: 'unknown',
+		});
+	});
+
+	it('propagates computed-value taint and requires DM confirmation for lower-privilege writes', () => {
+		const computed = deriveWidgetValue('The hidden NPC is badly wounded', [
+			{ value: { hp: 3 }, privilege: 'dm-only' },
+			{ value: { threshold: 10 }, privilege: 'player-visible' },
+		]);
+		expect(computed.privilege).toBe('dm-only');
+
+		const warning = evaluateWidgetWriteFlow({
+			widgetInstanceId: 'npc-combat-widget',
+			values: [computed],
+			destinationClass: 'player-scene',
+		});
+		expect(warning.decision).toBe('requires-confirmation');
+		expect(warning.warning).toMatchObject({
+			sourcePrivilege: 'dm-only',
+			destinationClass: 'player-scene',
+		});
+		expect(JSON.stringify(warning.audit)).not.toContain('hidden NPC');
+
+		const confirmed = evaluateWidgetWriteFlow({
+			widgetInstanceId: 'npc-combat-widget',
+			values: [computed],
+			destinationClass: 'player-scene',
+			confirmedByDm: true,
+		});
+		expect(confirmed.decision).toBe('allowed');
+		expect(confirmed.audit.confirmedByDm).toBe(true);
 	});
 
 	it('hides a dm-only entity from players and observers but not from the DM', () => {

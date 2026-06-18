@@ -17,6 +17,49 @@ export type WidgetPackageTrustState = 'trusted' | 'unreviewed' | 'denied';
 export type WidgetHostPermissionDecision = 'approved' | 'denied';
 
 export type WidgetSchemaFieldType = 'string' | 'number' | 'boolean' | 'object' | 'array';
+export type WidgetTemplateKind =
+	| 'data-table'
+	| 'status-list'
+	| 'tracker'
+	| 'action-panel'
+	| 'scene-message'
+	| 'chart'
+	| 'stat-block'
+	| 'form-panel';
+export type WidgetRuntimeKind = 'template' | 'custom-html-js';
+export type WidgetRuntimeSandbox = 'iframe' | 'worker';
+export type WidgetStyleIsolation = 'host-scoped' | 'iframe-document' | 'shadow-root';
+export type WidgetStyleCapability =
+	| 'css-variables'
+	| 'custom-stylesheet'
+	| 'responsive-layout'
+	| 'host-theme-tokens'
+	| 'animation'
+	| 'custom-fonts';
+export type WidgetDataQuerySource =
+	| 'current-combatants'
+	| 'visible-characters'
+	| 'selected-scene'
+	| 'session-state'
+	| 'notes'
+	| 'maps'
+	| 'content-objects'
+	| 'binding';
+export type WidgetOutputDestinationClass =
+	| 'scene'
+	| 'session'
+	| 'entity'
+	| 'player-visible-state'
+	| 'player-scene'
+	| 'clipboard'
+	| 'network'
+	| 'exported-package';
+export type WidgetNetworkDestinationClass =
+	| 'vault-sync'
+	| 'asset-cdn'
+	| 'widget-declared'
+	| 'analytics';
+export type WidgetAuthoringSource = 'system' | 'user-authored' | 'workspace' | 'generated';
 
 export interface WidgetDataSchema {
 	type: 'object';
@@ -39,6 +82,7 @@ export interface WidgetCommandDescriptor {
 	requiredCapability: WidgetCapabilitySet;
 	payloadSchema: WidgetDataSchema;
 	writesTo: 'scene' | 'session' | 'entity';
+	destinationClass?: WidgetOutputDestinationClass;
 	targetBindingId?: string;
 }
 
@@ -50,6 +94,67 @@ export interface WidgetEventDescriptor {
 export interface WidgetPackageAsset {
 	path: string;
 	sha256?: string;
+	kind?: 'html' | 'javascript' | 'css' | 'worker' | 'module' | 'asset';
+	entrypoint?: boolean;
+	content?: string;
+	contentEncoding?: 'utf-8' | 'base64';
+}
+
+export interface WidgetRenderEntrypoint {
+	runtime: WidgetRuntimeKind;
+	sandbox?: WidgetRuntimeSandbox;
+	template?: WidgetTemplateKind;
+	assetPath?: string;
+	exportName?: string;
+	hostApiVersion: number;
+}
+
+export interface WidgetStyleTokenDefinition {
+	name: string;
+	value: string;
+	description?: string;
+}
+
+export interface WidgetStyleDefinition {
+	isolation: WidgetStyleIsolation;
+	stylesheetAssetPaths?: string[];
+	capabilities?: WidgetStyleCapability[];
+	tokens?: WidgetStyleTokenDefinition[];
+	cssVariables?: Record<string, string>;
+}
+
+export interface WidgetDataQueryDefinition {
+	id: string;
+	label: string;
+	source: WidgetDataQuerySource;
+	bindingIds?: string[];
+	requiredCapability: WidgetCapabilitySet;
+	audience: 'dm' | 'players' | 'shared';
+}
+
+export interface WidgetComputedFieldDefinition {
+	id: string;
+	label: string;
+	inputQueryIds: string[];
+	valueType: WidgetSchemaFieldType;
+}
+
+export interface WidgetOutputWriteDefinition {
+	id: string;
+	label: string;
+	commandType: string;
+	destinationClass: WidgetOutputDestinationClass;
+	payloadSchema: WidgetDataSchema;
+	requiresConfirmation?: boolean;
+}
+
+export interface WidgetAuthoringProvenance {
+	source: WidgetAuthoringSource;
+	createdBy?: string;
+	createdAt?: string;
+	llmProvider?: string;
+	promptSummary?: string;
+	reviewNotes?: string[];
 }
 
 export interface WidgetDefinition {
@@ -57,12 +162,17 @@ export interface WidgetDefinition {
 	version: string;
 	displayName: string;
 	author: 'system' | 'user' | 'workspace' | string;
+	renderEntrypoint?: WidgetRenderEntrypoint;
+	style?: WidgetStyleDefinition;
 	supportedProfiles: PlatformProfileId[];
 	defaultSize: { width: number; height: number };
 	minSize: { width: number; height: number };
 	resizePolicy: 'fixed' | 'axis-locked' | 'free';
 	requiredBindings: WidgetBindingDefinition[];
 	optionalBindings: WidgetBindingDefinition[];
+	dataQueries?: WidgetDataQueryDefinition[];
+	computedFields?: WidgetComputedFieldDefinition[];
+	outputWrites?: WidgetOutputWriteDefinition[];
 	configurationSchema: WidgetDataSchema;
 	runtimeStateSchema?: WidgetDataSchema;
 	localStateSchema?: WidgetDataSchema;
@@ -71,6 +181,7 @@ export interface WidgetDefinition {
 	commands: WidgetCommandDescriptor[];
 	events: WidgetEventDescriptor[];
 	hostPermissions: WidgetHostPermission[];
+	networkDestinationClasses?: WidgetNetworkDestinationClass[];
 }
 
 export interface WidgetMigration {
@@ -90,6 +201,7 @@ export interface WidgetPackageDefinition {
 	migrations: WidgetMigration[];
 	assets: WidgetPackageAsset[];
 	portabilityWarnings: string[];
+	authoring?: WidgetAuthoringProvenance;
 }
 
 export interface WidgetDiagnostic {
