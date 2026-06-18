@@ -64,13 +64,14 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 		await page.getByTestId('widget-add').click();
 
 		const widgetGrid = page.getByTestId('widget-grid');
-		await expect(widgetGrid.getByText('initiative-tracker')).toBeVisible();
+		// The widget card shows the human display name (UX-CANVAS-007), not the raw machine type.
+		await expect(widgetGrid.getByText('Initiative Tracker')).toBeVisible();
 
 		const url = page.url();
 		await page.reload();
 		await page.goto(url);
 		await page.getByTestId('scene-editor').waitFor({ state: 'visible' });
-		await expect(widgetGrid.getByText('initiative-tracker')).toBeVisible();
+		await expect(widgetGrid.getByText('Initiative Tracker')).toBeVisible();
 	});
 
 	test('Widget package review, degraded host permissions, and disabled placeholders are visible', async ({
@@ -93,7 +94,9 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 		await page.getByTestId('widget-type').fill('weather-panel');
 		await page.getByTestId('widget-version').fill('1.0.0');
 		await page.getByTestId('widget-add').click();
-		const weatherWidget = page.getByTestId('widget-grid').getByText('weather-panel');
+		// The card title shows the package's human display name (UX-CANVAS-007), not the raw type.
+		// Scope to the <strong> title: the card's live render placeholder also shows "Weather Panel".
+		const weatherWidget = page.getByTestId('widget-grid').locator('strong', { hasText: 'Weather Panel' });
 		await expect(weatherWidget).toBeVisible();
 		await expect(page.getByTestId('widget-grid')).toContainText('degraded: network unavailable');
 

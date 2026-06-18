@@ -1,5 +1,6 @@
 import type {
 	WidgetDefinition,
+	WidgetRuntimeKind,
 	WidgetRuntimeSandbox,
 	WidgetStyleCapability,
 	WidgetStyleIsolation,
@@ -16,7 +17,7 @@ export const CUSTOM_WIDGET_HOST_API_VERSION = 1 as const;
 
 export interface CustomWidgetRuntimePolicy {
 	widgetType: string;
-	runtime: 'template' | 'custom-html-js';
+	runtime: WidgetRuntimeKind;
 	sandbox: WidgetRuntimeSandbox;
 	hostApiVersion: number;
 	assetPath: string | null;

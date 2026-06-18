@@ -37,15 +37,18 @@ export const DEFAULT_WIDGET_SIZE = { w: 240, h: 160 };
  * real definition. `map` is marked desktop/tablet-only to exercise the "unavailable on this profile"
  * affordance (CMD-005) without making any Must-have insert path profile-gated.
  */
+// NOTE: `type` values MUST match the system widget definition types (createSystemWidgetPackages),
+// or a placed widget will not resolve to a definition. (`initiative-tracker` / `audio` /
+// `quick-reference`, not the former `initiative` / `ambience` / `reference`.)
 export const WIDGET_LIBRARY: readonly LibraryWidgetItem[] = [
-	{ type: 'initiative', label: 'Initiative Tracker', category: 'Combat', defaultSize: { w: 280, h: 200 }, supportedProfiles: ALL_PROFILES },
-	{ type: 'character', label: 'Character Sheet', category: 'Characters', defaultSize: { w: 320, h: 240 }, supportedProfiles: ALL_PROFILES },
+	{ type: 'initiative-tracker', label: 'Initiative Tracker', category: 'Combat', defaultSize: { w: 280, h: 220 }, supportedProfiles: ALL_PROFILES },
+	{ type: 'character', label: 'Character Sheet', category: 'Characters', defaultSize: { w: 280, h: 220 }, supportedProfiles: ALL_PROFILES },
 	{ type: 'map', label: 'Map', category: 'Maps', defaultSize: { w: 360, h: 280 }, supportedProfiles: ['desktop', 'tablet', 'web'] },
 	{ type: 'note', label: 'Note', category: 'Notes', defaultSize: { w: 240, h: 160 }, supportedProfiles: ALL_PROFILES },
-	{ type: 'dice', label: 'Dice Roller', category: 'Dice & Timers', defaultSize: { w: 200, h: 160 }, supportedProfiles: ALL_PROFILES },
-	{ type: 'timer', label: 'Timer', category: 'Dice & Timers', defaultSize: { w: 200, h: 120 }, supportedProfiles: ALL_PROFILES },
-	{ type: 'ambience', label: 'Ambience', category: 'Atmosphere', defaultSize: { w: 240, h: 140 }, supportedProfiles: ALL_PROFILES },
-	{ type: 'reference', label: 'Quick Reference', category: 'Reference', defaultSize: { w: 280, h: 220 }, supportedProfiles: ALL_PROFILES },
+	{ type: 'dice', label: 'Dice Roller', category: 'Dice & Timers', defaultSize: { w: 220, h: 160 }, supportedProfiles: ALL_PROFILES },
+	{ type: 'timer', label: 'Timer', category: 'Dice & Timers', defaultSize: { w: 220, h: 150 }, supportedProfiles: ALL_PROFILES },
+	{ type: 'audio', label: 'Ambience', category: 'Atmosphere', defaultSize: { w: 240, h: 150 }, supportedProfiles: ALL_PROFILES },
+	{ type: 'quick-reference', label: 'Quick Reference', category: 'Reference', defaultSize: { w: 280, h: 220 }, supportedProfiles: ALL_PROFILES },
 ];
 
 export interface LibraryEntry extends LibraryWidgetItem {

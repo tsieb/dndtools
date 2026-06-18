@@ -1,3 +1,12 @@
+<script lang="ts" module>
+	// Per-instance base id for tab↔panel ARIA wiring (UX-A11Y-012). Mirrors the shared Tabs primitive.
+	let panelGroupSeq = 0;
+	function nextPanelGroupId(): string {
+		panelGroupSeq += 1;
+		return `props-group-${panelGroupSeq}`;
+	}
+</script>
+
 <script lang="ts">
 	/**
 	 * Docked widget Properties Panel (Command Center redesign §5).
@@ -12,13 +21,17 @@
 	 * (the floating chrome stays reachable), and slides in/out on the fast motion token (collapses
 	 * under reduced motion via the global duration tokens).
 	 */
-	import type { DashboardBlock, BlockPropertyField } from './dashboard/dashboard-layout.svelte';
-	import { blockTitle, BLOCK_PROPERTY_SCHEMAS, MIN_BLOCK_W, MIN_BLOCK_H } from './dashboard/dashboard-layout.svelte';
+	import { readStyleTokenOverrides, type WidgetConfigField, type WidgetDefinition } from '@dndtools/core';
+	import { nextRovingIndex } from '$lib/gui/a11y/roving-tabindex';
+	import type { DashboardBlock } from './dashboard/dashboard-layout.svelte';
+	import { blockTitle, MIN_BLOCK_W, MIN_BLOCK_H } from './dashboard/dashboard-layout.svelte';
 
 	interface Props {
 		block: DashboardBlock;
 		/** True when the surface's widget set is locked (Command Center: no remove). */
 		locked: boolean;
+		/** The widget definition backing this block — supplies the customizable style tokens. */
+		definition?: WidgetDefinition | null;
 		onRect: (id: string, rect: Partial<{ x: number; y: number; w: number; h: number }>) => void;
 		onConfigure: (id: string, key: string, value: unknown) => void;
 		onBringToFront: (id: string) => void;
@@ -26,25 +39,64 @@
 		onClose: () => void;
 	}
 
-	const { block, locked, onRect, onConfigure, onBringToFront, onRemove, onClose }: Props = $props();
+	const { block, locked, definition = null, onRect, onConfigure, onBringToFront, onRemove, onClose }: Props =
+		$props();
 
-	type PanelTab = 'layout' | 'content' | 'display';
+	const COLOR_FALLBACK = '#888888';
+	type PanelTab = 'layout' | 'content' | 'display' | 'style';
 	let activeTab = $state<PanelTab>('layout');
 
-	const schema = $derived<BlockPropertyField[]>(BLOCK_PROPERTY_SCHEMAS[block.type] ?? []);
-	const contentFields = $derived(schema.filter((field) => field.group === 'content'));
+	// The panel renders directly from the widget definition's declarative config fields (the single
+	// source of truth shared with the scene Customize panel) — no parallel GUI schema table.
+	const schema = $derived<WidgetConfigField[]>(definition?.configFields ?? []);
+	const contentFields = $derived(schema.filter((field) => (field.group ?? 'content') === 'content'));
 	const displayFields = $derived(schema.filter((field) => field.group === 'display'));
+	const styleFields = $derived(schema.filter((field) => field.group === 'style'));
+	const styleTokens = $derived(definition?.style?.tokens ?? []);
+	const defaultTitle = $derived(definition?.displayName ?? block.type);
+
+	const currentTokens = $derived(readStyleTokenOverrides(block.config));
+	function setToken(name: string, value: string) {
+		const tokens = { ...currentTokens };
+		if (value) tokens[name] = value;
+		else delete tokens[name];
+		onConfigure(block.id, 'styleTokens', tokens);
+	}
 
 	const tabs = $derived.by<Array<{ id: PanelTab; label: string }>>(() => {
 		const out: Array<{ id: PanelTab; label: string }> = [{ id: 'layout', label: 'Layout' }];
 		if (contentFields.length > 0) out.push({ id: 'content', label: 'Content' });
 		if (displayFields.length > 0) out.push({ id: 'display', label: 'Display' });
+		if (styleTokens.length > 0 || styleFields.length > 0) out.push({ id: 'style', label: 'Style' });
 		return out;
 	});
 	// A block with no fields in the active group falls back to Layout (tab list is derived above).
 	const currentTab = $derived<PanelTab>(
 		tabs.some((tab) => tab.id === activeTab) ? activeTab : 'layout',
 	);
+
+	// Tab↔panel ARIA wiring + roving tabindex (UX-A11Y-012). Only shown when >1 group exists; the
+	// single-group case renders the body as a plain region (no tablist to label it).
+	const isTabbed = $derived(tabs.length > 1);
+	const baseId = nextPanelGroupId();
+	const tabDomId = (id: PanelTab) => `${baseId}-tab-${id}`;
+	const panelDomId = (id: PanelTab) => `${baseId}-panel-${id}`;
+	const currentIndex = $derived(Math.max(0, tabs.findIndex((tab) => tab.id === currentTab)));
+	let tabEls = $state<HTMLButtonElement[]>([]);
+
+	function onTabKeydown(event: KeyboardEvent) {
+		const next = nextRovingIndex({
+			key: event.key,
+			currentIndex,
+			count: tabs.length,
+			orientation: 'horizontal',
+			wrap: true,
+		});
+		if (next === null) return;
+		event.preventDefault();
+		activeTab = tabs[next]!.id;
+		tabEls[next]?.focus();
+	}
 
 	// Inline validation (§5): out-of-range numbers are reported and not committed.
 	let rectErrors = $state<Record<string, string | null>>({});
@@ -60,8 +112,20 @@
 		onRect(block.id, { [key]: value });
 	}
 
-	function fieldValue(field: BlockPropertyField): unknown {
-		return block.config[field.key];
+	function fieldValue(field: WidgetConfigField): unknown {
+		return block.config[field.key] ?? field.default;
+	}
+
+	// Commit a numeric config value clamped to the field's declared [min, max]. A non-numeric entry
+	// (e.g. a cleared field on blur) is ignored so we never write NaN — the control snaps back on
+	// re-render to the last committed value.
+	function commitNumber(field: WidgetConfigField, raw: string) {
+		const value = Number(raw);
+		if (!Number.isFinite(value)) return;
+		let clamped = value;
+		if (field.min !== undefined) clamped = Math.max(field.min, clamped);
+		if (field.max !== undefined) clamped = Math.min(field.max, clamped);
+		onConfigure(block.id, field.key, clamped);
 	}
 
 	function onPanelKeydown(event: KeyboardEvent) {
@@ -84,14 +148,17 @@
 <!-- <aside> is the complementary landmark (§ a11y): no explicit role needed. -->
 <aside
 	class="props-panel"
-	aria-label={`Widget properties — ${blockTitle(block)}`}
+	aria-label={`Widget properties — ${blockTitle(block, defaultTitle)}`}
 	data-testid="canvas-properties-panel"
 	onkeydown={onPanelKeydown}
 >
 	<header class="props-head">
 		<div class="props-name">
 			<span class="props-kicker">Widget properties</span>
-			<strong data-testid="props-panel-title">{blockTitle(block)}</strong>
+			<strong data-testid="props-panel-title">{blockTitle(block, defaultTitle)}</strong>
+			{#if definition?.description}
+				<span class="props-subtitle" data-testid="props-panel-description">{definition.description}</span>
+			{/if}
 		</div>
 		<button
 			type="button"
@@ -104,15 +171,20 @@
 		</button>
 	</header>
 
-	{#if tabs.length > 1}
+	{#if isTabbed}
 		<div class="props-tabs" role="tablist" aria-label="Property groups">
-			{#each tabs as tab (tab.id)}
+			{#each tabs as tab, i (tab.id)}
 				<button
+					bind:this={tabEls[i]}
 					type="button"
 					role="tab"
+					id={tabDomId(tab.id)}
 					aria-selected={currentTab === tab.id}
+					aria-controls={panelDomId(tab.id)}
+					tabindex={currentTab === tab.id ? 0 : -1}
 					class:selected={currentTab === tab.id}
 					data-testid={`props-tab-${tab.id}`}
+					onkeydown={onTabKeydown}
 					onclick={() => (activeTab = tab.id)}
 				>
 					{tab.label}
@@ -121,7 +193,17 @@
 		</div>
 	{/if}
 
-	<div class="props-body">
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<!-- The body IS the tabpanel when tabbed; per WAI-ARIA APG a tabpanel takes tabindex=0 so keyboard
+	     users can reach a panel with no focusable content. svelte-check can't see the dynamic role is
+	     'tabpanel' so it flags the tabindex — the shared Tabs primitive sets the same tabindex=0. -->
+	<div
+		class="props-body"
+		role={isTabbed ? 'tabpanel' : undefined}
+		id={isTabbed ? panelDomId(currentTab) : undefined}
+		aria-labelledby={isTabbed ? tabDomId(currentTab) : undefined}
+		tabindex={isTabbed ? 0 : undefined}
+	>
 		{#if currentTab === 'layout'}
 			<section class="props-group" aria-label="Position and size">
 				<div class="props-rect">
@@ -168,6 +250,41 @@
 					{@render propertyField(field)}
 				{/each}
 			</section>
+		{:else if currentTab === 'style'}
+			<section class="props-group" aria-label="Style options">
+				{#each styleFields as field (field.key)}
+					{@render propertyField(field)}
+				{/each}
+				{#each styleTokens as token (token.name)}
+					{@const overridden = !!currentTokens[token.name]}
+					<label class="props-field is-toggle" data-testid={`props-token-${token.name}`}>
+						<input
+							type="color"
+							value={currentTokens[token.name] ?? COLOR_FALLBACK}
+							aria-label={`${token.name} color`}
+							onchange={(event) => setToken(token.name, event.currentTarget.value)}
+						/>
+						<span class="props-token-label">
+							{token.description ?? token.name}
+							<!-- An un-overridden token resolves to a theme CSS var the swatch can't display, so
+							     the gray swatch would lie — label the real state instead (principle 7). -->
+							<span class="props-token-state" data-testid={`props-token-state-${token.name}`}>
+								{overridden ? 'Custom' : 'Theme default'}
+							</span>
+						</span>
+						<button
+							type="button"
+							class="props-action"
+							data-testid={`props-token-reset-${token.name}`}
+							aria-label={`Reset ${token.name} to theme default`}
+							disabled={!overridden}
+							onclick={() => setToken(token.name, '')}
+						>
+							Reset
+						</button>
+					</label>
+				{/each}
+			</section>
 		{:else}
 			<section class="props-group" aria-label="Display options">
 				{#each displayFields as field (field.key)}
@@ -178,25 +295,29 @@
 	</div>
 </aside>
 
-{#snippet propertyField(field: BlockPropertyField)}
-	{#if field.kind === 'text'}
-		<label class="props-field">
-			<span>{field.label}</span>
+{#snippet propertyField(field: WidgetConfigField)}
+	<!-- field.help is rendered OUTSIDE the <label> and linked via aria-describedby so it never pollutes
+	     the control's accessible name (B5 / a11y). -->
+	{@const helpId = field.help ? `${baseId}-help-${field.key}` : undefined}
+	{#if field.control === 'toggle'}
+		<label class="props-field is-toggle">
 			<input
-				type="text"
-				value={typeof fieldValue(field) === 'string' ? (fieldValue(field) as string) : ''}
-				placeholder={field.placeholder ?? ''}
+				type="checkbox"
+				checked={fieldValue(field) !== false}
+				aria-describedby={helpId}
 				data-testid={`props-field-${field.key}`}
-				onchange={(event) => onConfigure(block.id, field.key, event.currentTarget.value)}
+				onchange={(event) => onConfigure(block.id, field.key, event.currentTarget.checked)}
 			/>
+			<span>{field.label}</span>
 		</label>
-	{:else if field.kind === 'select'}
+	{:else if field.control === 'select'}
 		<label class="props-field">
 			<span>{field.label}</span>
 			<select
 				value={typeof fieldValue(field) === 'string'
 					? (fieldValue(field) as string)
 					: (field.options?.[0]?.value ?? '')}
+				aria-describedby={helpId}
 				data-testid={`props-field-${field.key}`}
 				onchange={(event) => onConfigure(block.id, field.key, event.currentTarget.value)}
 			>
@@ -205,16 +326,58 @@
 				{/each}
 			</select>
 		</label>
-	{:else}
+	{:else if field.control === 'number'}
+		<label class="props-field">
+			<span>{field.label}</span>
+			<input
+				type="number"
+				value={Number.isFinite(Number(fieldValue(field))) ? Number(fieldValue(field)) : ''}
+				min={field.min}
+				max={field.max}
+				step={field.step ?? 1}
+				aria-describedby={helpId}
+				data-testid={`props-field-${field.key}`}
+				onchange={(event) => commitNumber(field, event.currentTarget.value)}
+			/>
+		</label>
+	{:else if field.control === 'textarea'}
+		<label class="props-field">
+			<span>{field.label}</span>
+			<textarea
+				rows="3"
+				value={typeof fieldValue(field) === 'string' ? (fieldValue(field) as string) : ''}
+				placeholder={field.placeholder ?? ''}
+				aria-describedby={helpId}
+				data-testid={`props-field-${field.key}`}
+				onchange={(event) => onConfigure(block.id, field.key, event.currentTarget.value)}
+			></textarea>
+		</label>
+	{:else if field.control === 'color'}
 		<label class="props-field is-toggle">
 			<input
-				type="checkbox"
-				checked={fieldValue(field) !== false}
+				type="color"
+				value={typeof fieldValue(field) === 'string' ? (fieldValue(field) as string) : COLOR_FALLBACK}
+				aria-describedby={helpId}
 				data-testid={`props-field-${field.key}`}
-				onchange={(event) => onConfigure(block.id, field.key, event.currentTarget.checked)}
+				onchange={(event) => onConfigure(block.id, field.key, event.currentTarget.value)}
 			/>
 			<span>{field.label}</span>
 		</label>
+	{:else}
+		<label class="props-field">
+			<span>{field.label}</span>
+			<input
+				type="text"
+				value={typeof fieldValue(field) === 'string' ? (fieldValue(field) as string) : ''}
+				placeholder={field.placeholder ?? ''}
+				aria-describedby={helpId}
+				data-testid={`props-field-${field.key}`}
+				onchange={(event) => onConfigure(block.id, field.key, event.currentTarget.value)}
+			/>
+		</label>
+	{/if}
+	{#if field.help}
+		<span class="props-help" id={helpId}>{field.help}</span>
 	{/if}
 {/snippet}
 
@@ -272,6 +435,10 @@
 		font-size: var(--text-md);
 		color: var(--color-text-primary);
 	}
+	.props-subtitle {
+		font-size: var(--text-2xs);
+		color: var(--color-text-tertiary);
+	}
 	.props-close {
 		min-width: var(--touch-target-min);
 		min-height: var(--touch-target-min);
@@ -309,6 +476,13 @@
 	.props-body {
 		flex: 1 1 auto;
 		min-height: 0;
+		/* Fields come from arbitrary definition.configFields, so a field-rich/custom widget can exceed
+		   the fixed panel height — the body scrolls (header + tabs stay fixed) instead of clipping (B6). */
+		overflow-y: auto;
+	}
+	.props-body:focus-visible {
+		outline: 2px solid var(--color-interactive-focus-ring);
+		outline-offset: -2px;
 	}
 	.props-group {
 		display: flex;
@@ -353,6 +527,20 @@
 	.props-error {
 		color: var(--color-status-error-text);
 		font-size: var(--text-2xs);
+	}
+	.props-help {
+		font-size: var(--text-2xs);
+		color: var(--color-text-tertiary);
+	}
+	.props-token-label {
+		flex: 1 1 auto;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-0-5);
+	}
+	.props-token-state {
+		font-size: var(--text-2xs);
+		color: var(--color-text-secondary);
 	}
 	.props-action {
 		min-height: var(--touch-target-floor);

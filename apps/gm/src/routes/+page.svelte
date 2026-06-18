@@ -10,16 +10,18 @@
 		getSessionWidgetMode,
 		isTransitionAllowed,
 		listWidgetLibrary,
+		listWidgetsForSurface,
 		resolveAddWidgetCommand,
 		resolveCommandCenterHome,
 		resolveOnboarding,
 		type MapEntity,
 		type SessionWorkflowState,
 		type WidgetBindingPayload,
+		type WidgetDefinition,
 		type WidgetLibraryEntry,
 	} from '@dndtools/core';
 	import { onMount } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { useRuntime } from '$lib/state/runtime-context';
@@ -48,16 +50,19 @@
 	} from '$lib/gui/ux-canvas/dashboard/dashboard-layout.svelte';
 	import DashboardBlockFrame from '$lib/gui/ux-canvas/dashboard/DashboardBlock.svelte';
 	import CanvasPropertiesPanel from '$lib/gui/ux-canvas/CanvasPropertiesPanel.svelte';
-	import DataHubWidget from '$lib/gui/ux-canvas/widgets/DataHubWidget.svelte';
-	import CombatWidget from '$lib/gui/ux-canvas/widgets/CombatWidget.svelte';
-	import NotesWidget from '$lib/gui/ux-canvas/widgets/NotesWidget.svelte';
-	import CharactersWidget from '$lib/gui/ux-canvas/widgets/CharactersWidget.svelte';
-	import AtlasWidget from '$lib/gui/ux-canvas/widgets/AtlasWidget.svelte';
-	import SearchWidget from '$lib/gui/ux-canvas/widgets/SearchWidget.svelte';
+	import WidgetView from '$lib/gui/ux-canvas/widgets/WidgetView.svelte';
+	import { provideCommandCenter } from '$lib/gui/ux-canvas/widgets/command-center-context';
 
 	const runtime = useRuntime();
 	const profile = useProfile();
 	const featureTier = useFeatureTier();
+
+	// Command Center widgets reach the two route-owned modal flows (push-handout, player-view
+	// preview) through this context; everything else they derive + dispatch themselves.
+	provideCommandCenter({
+		openPush: (recipientId) => openPush(recipientId),
+		openPreview: (actorId, displayName) => openPreview(actorId, displayName),
+	});
 
 	// PLAT-013: the onboarding view is computed by the Processing Core from durable state + the
 	// active (device-local) feature tier. The GUI renders it; it never derives fresh-vault /
@@ -123,11 +128,22 @@
 	boardController.setFitInsets({ top: 64, right: 24, bottom: 64, left: 24 });
 	onMount(() => board.load());
 
+	// The Command Center widgets are real, surface-scoped widget DEFINITIONS now. Each board block
+	// renders its definition through the shared WidgetView (titles/config/render come from the def);
+	// only geometry stays device-local in the DashboardLayoutStore.
+	const ccDefinitionByType = $derived.by(() => {
+		const map = new SvelteMap<string, WidgetDefinition>();
+		for (const def of listWidgetsForSurface(runtime.state.widgets, 'command-center')) {
+			map.set(def.type, def);
+		}
+		return map;
+	});
+
 	const boardTiles = $derived<CanvasTile[]>(
 		board.blocks.map((block) => ({
 			id: block.id,
 			type: block.type,
-			title: blockTitle(block),
+			title: blockTitle(block, ccDefinitionByType.get(block.type)?.displayName ?? block.type),
 			x: block.rect.x,
 			y: block.rect.y,
 			w: block.rect.w,
@@ -226,6 +242,15 @@
 	const projectionSummary = $derived(
 		getActiveMapProjectionSummary(runtime.state, runtime.defaultActorId),
 	);
+	// Why Project / Queue are unavailable, as a VISIBLE inline hint (parity with the desktop AtlasWidget;
+	// a title tooltip never shows on the touch/compact profile this snippet serves).
+	const projectionDisabledHint = $derived(
+		runtime.state.session.workflow !== 'active'
+			? 'Start the session to project to players'
+			: activeMap.kind !== 'available'
+				? 'Set an active map to project to players'
+				: undefined,
+	);
 
 	// §3 top-right chrome: the notifications badge counts QUEUED deliveries (offline projections +
 	// queued player-view assignments) — real session signals, derived from the same core read models
@@ -239,9 +264,6 @@
 		}
 		return queued;
 	});
-
-	// The board snippets render outside the dm-narrowed template branch, so narrow once here.
-	const dmStatusStrip = $derived(homeView.kind === 'dm' ? homeView.statusStrip : null);
 
 	function openPreview(actorId: string, displayName: string): void {
 		previewTarget = { actorId, displayName };
@@ -717,7 +739,7 @@
 				</select>
 			</label>
 			<button
-				class="button"
+				class="button secondary"
 				type="button"
 				data-testid="cc-active-map-bind"
 				disabled={!selectedMapId}
@@ -726,10 +748,12 @@
 				Set active map
 			</button>
 			<button
+				class="button"
 				type="button"
 				data-testid="cc-active-map-project"
 				aria-pressed={projectionSummary?.projecting ?? false}
 				disabled={activeMap.kind !== 'available' || runtime.state.session.workflow !== 'active'}
+				title={projectionDisabledHint}
 				onclick={() => projectActiveMap('connected')}
 			>
 				{projectionSummary?.projecting ? 'Projecting' : 'Project to players'}
@@ -738,11 +762,15 @@
 				type="button"
 				data-testid="cc-active-map-queue"
 				disabled={activeMap.kind !== 'available' || runtime.state.session.workflow !== 'active'}
+				title={projectionDisabledHint}
 				onclick={() => projectActiveMap('offline')}
 			>
 				Queue
 			</button>
 		</div>
+		{#if projectionDisabledHint}
+			<p class="active-map-hint" data-testid="cc-active-map-hint">{projectionDisabledHint}</p>
+		{/if}
 		{#if activeMap.kind === 'available'}
 			<div class="active-map-preview" data-testid="cc-active-map-preview">
 				<strong>{activeMap.name}</strong>
@@ -920,50 +948,6 @@
 	</section>
 {/snippet}
 
-{#snippet toolsGridSection()}
-	<section aria-label="DM tools">
-		<h2>Tools</h2>
-		<div class="widget-grid" data-testid="cc-widget-grid">
-			{#each liveWidgets as payload (payload.widget.id)}
-				{@const w = payload.widget}
-				<article class="widget-row" data-testid={`cc-widget-${w.type}`}>
-					<div>
-						<strong>{toolLabel(w.type)}</strong>
-						<div class="layout" data-testid={`cc-widget-pos-${w.id}`}>
-							x {w.layout.x.toFixed(0)} • y {w.layout.y.toFixed(0)} • z {w.layout.z}
-						</div>
-					</div>
-					<div class="row-actions">
-						<button
-							type="button"
-							aria-label="Move tool left"
-							onclick={() => moveWidget(w.id, -20, 0)}>←</button
-						>
-						<button
-							type="button"
-							aria-label="Move tool right"
-							onclick={() => moveWidget(w.id, 20, 0)}>→</button
-						>
-						<button
-							type="button"
-							aria-label="Move tool up"
-							onclick={() => moveWidget(w.id, 0, -20)}>↑</button
-						>
-						<button
-							type="button"
-							aria-label="Move tool down"
-							onclick={() => moveWidget(w.id, 0, 20)}>↓</button
-						>
-					</div>
-				</article>
-			{/each}
-			{#if liveWidgets.length === 0}
-				<p class="meta">No tools on this Command Center yet.</p>
-			{/if}
-		</div>
-	</section>
-{/snippet}
-
 {#snippet presetsSection()}
 	<section aria-label="Command Center presets">
 		<h2>Presets</h2>
@@ -1066,13 +1050,15 @@
 	</section>
 {/snippet}
 
-<!-- The spatial board's per-tile content: each dashboard block hosts one widget surface. -->
+<!-- The spatial board's per-tile content: each dashboard block hosts ONE real Command Center widget,
+     rendered through the shared WidgetView (template/builtin/custom) from its definition. -->
 {#snippet boardTile(tile: CanvasTile)}
 	{@const block = board.get(tile.id)}
+	{@const definition = ccDefinitionByType.get(tile.type)}
 	{#if block}
 		<DashboardBlockFrame
 			id={block.id}
-			title={blockTitle(block)}
+			title={blockTitle(block, definition?.displayName ?? block.type)}
 			mode={canvasMode.mode}
 			selected={canvasMode.selectedId === block.id}
 			meta={block.type === 'session' ? runtime.state.session.workflow : undefined}
@@ -1081,40 +1067,8 @@
 			onResize={growBlock}
 			onExitEdit={() => canvasMode.setMode('view')}
 		>
-			{#if block.type === 'session'}
-				{#if dmStatusStrip}
-					<SessionStatusStrip strip={dmStatusStrip} />
-				{/if}
-				<SessionPhaseControls />
-				{@render workflowSection()}
-			{:else if block.type === 'getting-started'}
-				{@render firstRunSection()}
-			{:else if block.type === 'tools'}
-				{#if homeSceneId}
-					<div class="row-actions">
-						<a class="button secondary" href={`scene/${homeSceneId}/`} data-testid="cc-open-editor">
-							Open in Scene editor
-						</a>
-					</div>
-				{/if}
-				{@render toolsGridSection()}
-				{@render librarySection()}
-				{@render presetsSection()}
-			{:else if block.type === 'data-hub'}
-				<DataHubWidget config={block.config} />
-			{:else if block.type === 'atlas'}
-				{@render activeMapSection()}
-				<AtlasWidget config={block.config} />
-			{:else if block.type === 'characters'}
-				<CharactersWidget config={block.config} />
-			{:else if block.type === 'player-views'}
-				{@render playerViewsSection()}
-			{:else if block.type === 'combat'}
-				<CombatWidget config={block.config} />
-			{:else if block.type === 'notes'}
-				<NotesWidget config={block.config} />
-			{:else if block.type === 'search'}
-				<SearchWidget />
+			{#if definition}
+				<WidgetView {definition} config={block.config} surface="command-center" />
 			{/if}
 		</DashboardBlockFrame>
 	{/if}
@@ -1311,6 +1265,7 @@
 					<CanvasPropertiesPanel
 						block={selectedBlock}
 						locked={board.locked}
+						definition={ccDefinitionByType.get(selectedBlock.type) ?? null}
 						onRect={(id, rect) => board.setRect(id, rect)}
 						onConfigure={(id, key, value) => board.configure(id, key, value)}
 						onBringToFront={(id) => board.bringToFront(id)}

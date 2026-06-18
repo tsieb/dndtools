@@ -63,7 +63,7 @@ const widgetEventDescriptorSchema = z
 
 const widgetRenderEntrypointSchema = z
 	.object({
-		runtime: z.enum(['template', 'custom-html-js']),
+		runtime: z.enum(['template', 'builtin', 'custom-html-js']),
 		sandbox: z.enum(['iframe', 'worker']).optional(),
 		template: z
 			.enum([
@@ -163,12 +163,42 @@ const widgetOutputWriteDefinitionSchema = z
 	})
 	.strict();
 
+const widgetPlacementSchema = z
+	.object({
+		surfaces: z.array(z.enum(['scene', 'command-center', 'player-view'])).min(1),
+		libraryListed: z.boolean(),
+	})
+	.strict();
+
+const widgetConfigFieldSchema = z
+	.object({
+		key: idSchema,
+		label: z.string().min(1),
+		control: z.enum(['text', 'textarea', 'number', 'select', 'toggle', 'color']),
+		group: z.enum(['content', 'display', 'style']).optional(),
+		options: z
+			.array(z.object({ value: z.string(), label: z.string().min(1) }).strict())
+			.optional(),
+		default: z.unknown().optional(),
+		min: z.number().finite().optional(),
+		max: z.number().finite().optional(),
+		step: z.number().finite().positive().optional(),
+		placeholder: z.string().optional(),
+		help: z.string().min(1).optional(),
+	})
+	.strict();
+
 const widgetDefinitionSchema = z
 	.object({
 		type: z.string().min(1),
 		version: z.string().min(1),
 		displayName: z.string().min(1),
 		author: z.string().min(1),
+		category: z.string().min(1).optional(),
+		description: z.string().min(1).optional(),
+		icon: z.string().min(1).optional(),
+		placement: widgetPlacementSchema.optional(),
+		configFields: z.array(widgetConfigFieldSchema).optional(),
 		renderEntrypoint: widgetRenderEntrypointSchema.optional(),
 		style: widgetStyleDefinitionSchema.optional(),
 		supportedProfiles: z.array(z.enum(['desktop', 'tablet', 'mobile', 'web'])).min(1),
