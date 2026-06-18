@@ -2,11 +2,15 @@ import type { ActorId, SceneId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
 import { actorCanAuthorScene } from '../permissions/grants';
 import {
+	isWidgetLibraryListed,
+	resolveWidgetConfig,
+	widgetSupportsSurface,
 	type PlatformProfileId,
 	type WidgetBindingDefinition,
 	type WidgetDefinition,
 	type WidgetPackageRecord,
 	type WidgetPackageState,
+	type WidgetSurface,
 } from '../state/widget-package-state';
 
 /**
@@ -36,6 +40,9 @@ export interface WidgetLibraryEntry {
 	version: string;
 	displayName: string;
 	author: string;
+	category?: string;
+	description?: string;
+	icon?: string;
 	packageId: string;
 	packageDisplayName: string;
 	supportedProfiles: PlatformProfileId[];
@@ -43,6 +50,8 @@ export interface WidgetLibraryEntry {
 	minSize: { width: number; height: number };
 	requiredBindings: WidgetLibraryBinding[];
 	optionalBindings: WidgetLibraryBinding[];
+	/** The widget's `configField` defaults, seeded into a freshly-placed instance. */
+	defaultConfiguration: Record<string, unknown>;
 	availability: WidgetLibraryAvailability;
 }
 
@@ -138,11 +147,19 @@ export function listWidgetLibrary(
 		// not appear in the library at all (rather than as an unavailable row).
 		if (record.removedAt) continue;
 		for (const definition of record.package.widgets) {
+			// Only scene-surface, library-listed widgets are addable to a scene. Command Center
+			// widgets (surface 'command-center', libraryListed:false) never appear here (CMD-005).
+			if (!widgetSupportsSurface(definition, 'scene') || !isWidgetLibraryListed(definition)) {
+				continue;
+			}
 			const entry: WidgetLibraryEntry = {
 				type: definition.type,
 				version: definition.version,
 				displayName: definition.displayName,
 				author: definition.author,
+				category: definition.category,
+				description: definition.description,
+				icon: definition.icon,
 				packageId: record.package.id,
 				packageDisplayName: record.package.displayName,
 				supportedProfiles: [...definition.supportedProfiles],
@@ -150,6 +167,7 @@ export function listWidgetLibrary(
 				minSize: { ...definition.minSize },
 				requiredBindings: definition.requiredBindings.map(toLibraryBinding),
 				optionalBindings: definition.optionalBindings.map(toLibraryBinding),
+				defaultConfiguration: resolveWidgetConfig(definition, {}),
 				availability: availabilityFor(record, definition, query.profileId),
 			};
 			if (!includeUnavailable && !entry.availability.available) continue;
@@ -205,10 +223,31 @@ export function resolveAddWidgetCommand(
 					w: entry.defaultSize.width,
 					h: entry.defaultSize.height,
 				},
-				configuration: {},
+				// Seed the widget's declared config defaults so a freshly placed widget renders
+				// with its "system defaults" before the DM customizes anything.
+				configuration: { ...entry.defaultConfiguration },
 				localState: {},
 				binding: null,
 			},
 		},
 	};
+}
+
+/**
+ * List every widget definition available on a given surface (e.g. `command-center`), from enabled,
+ * non-removed packages. Unlike {@link listWidgetLibrary} this is not capability-gated or
+ * library-listed-filtered — the caller's surface is already access-gated upstream (the DM home).
+ */
+export function listWidgetsForSurface(
+	widgets: WidgetPackageState,
+	surface: WidgetSurface,
+): WidgetDefinition[] {
+	const out: WidgetDefinition[] = [];
+	for (const record of Object.values(widgets.packages)) {
+		if (record.removedAt || !record.enabled) continue;
+		for (const definition of record.package.widgets) {
+			if (widgetSupportsSurface(definition, surface)) out.push(definition);
+		}
+	}
+	return out;
 }

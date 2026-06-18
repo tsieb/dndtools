@@ -285,7 +285,7 @@ export function scaffoldCustomWidgetPackageDraft(
 			'.widget-root { min-height: 100vh; box-sizing: border-box; padding: 12px; display: grid; gap: 8px; align-content: start; }',
 			'.widget-title { margin: 0; font-size: 16px; font-weight: 650; }',
 			'.widget-panel { border: 1px solid color-mix(in srgb, var(--widget-text), transparent 80%); border-radius: 8px; padding: 10px; }',
-			'.widget-button { border: 0; border-radius: 6px; padding: 8px 10px; color: white; background: var(--widget-accent); }',
+			'.widget-button { border: 0; border-radius: 6px; padding: 8px 10px; color: var(--widget-accent-foreground, var(--color-accent-foreground)); background: var(--widget-accent); }',
 		].join('\n');
 	const js =
 		input.javascript ??

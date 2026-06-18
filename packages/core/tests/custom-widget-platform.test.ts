@@ -222,6 +222,15 @@ describe('custom system widget platform package review', () => {
 		expect(draft.review.requestedHostPermissions).toEqual(['clipboard']);
 	});
 
+	it('scaffolds button CSS whose foreground tracks the accent (no hardcoded white) so preview = render (B11)', () => {
+		const draft = scaffoldCustomWidgetPackageDraft({ displayName: 'Contrast Probe' });
+		const css = draft.package.assets.find((asset) => asset.kind === 'css')?.content ?? '';
+		expect(css).toContain('.widget-button');
+		// The accent foreground resolves via the host token chain, matching the live render — never `white`.
+		expect(css).toContain('color: var(--widget-accent-foreground, var(--color-accent-foreground))');
+		expect(css).not.toContain('color: white');
+	});
+
 	it('rejects a custom widget package whose entrypoint asset is undeclared', () => {
 		const state = buildInitialState(DM_ACTOR);
 		const env = makeEnvironment();
