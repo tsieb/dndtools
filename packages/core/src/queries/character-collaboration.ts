@@ -3,6 +3,7 @@ import type { Character, CharacterState } from '../state/character-state';
 import { CHARACTER_ENTITY_TYPE } from '../state/character-state';
 import {
 	ensureCollaboration,
+	isDmOnlyFieldPath,
 	readFieldValue,
 	type CharacterEdit,
 	type CharacterFieldPath,
@@ -102,9 +103,9 @@ function characterVisibleToActor(
  * SINGLE gate every per-field projection below passes through, so a DM-only field cannot leak through
  * the value list, the history, OR the conflict list.
  */
-function fieldVisibleToActor(character: Character, actor: Actor, path: string): boolean {
+function fieldVisibleToActor(character: Character, actor: Actor, path: CharacterFieldPath): boolean {
 	if (actor.role === 'dm') return true;
-	return !character.dmOnlyFields.includes(path);
+	return !isDmOnlyFieldPath(character, path);
 }
 
 /**

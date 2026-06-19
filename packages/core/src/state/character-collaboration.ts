@@ -251,9 +251,31 @@ export function writeFieldValue(
 	return character;
 }
 
-/** Whether a field path is among the character's declared DM-only fields (Contract 3 field visibility). */
+/**
+ * Resolve a character field path to its canonical (scope, key). A field is addressable in several
+ * EQUIVALENT forms: the field-edit convention is `data.<key>` / `combat.<key>`, but a dm-only field
+ * may be DECLARED as a bare legacy/schema key (`dmNotes` — e.g. a vault-object schema field, or a
+ * CHAR-001 quick-create payload). The plain redactor treats a bare key as a `data` key, so two paths
+ * denote the SAME field iff they share scope + key under this canonicalization.
+ */
+function resolveFieldScope(path: string): { scope: 'data' | 'combat'; key: string } {
+	if (path.startsWith('combat.')) return { scope: 'combat', key: path.slice('combat.'.length) };
+	if (path.startsWith('data.')) return { scope: 'data', key: path.slice('data.'.length) };
+	return { scope: 'data', key: path };
+}
+
+/**
+ * Whether a field path is among the character's declared DM-only fields (Contract 3 field visibility).
+ * Matches across ALL equivalent path forms so a bare-declared dm-only field (`dmNotes`) is recognized
+ * when addressed by its namespaced path (`data.dmNotes`), and vice-versa — neither form may leak or be
+ * written by a non-DM (CHAR-010 / CHAR-014 non-leak).
+ */
 export function isDmOnlyFieldPath(character: Character, path: CharacterFieldPath): boolean {
-	return character.dmOnlyFields.includes(path);
+	const target = resolveFieldScope(path);
+	return character.dmOnlyFields.some((field) => {
+		const ref = resolveFieldScope(field);
+		return ref.scope === target.scope && ref.key === target.key;
+	});
 }
 
 // --- Conflict helpers (pure) --------------------------------------------------------------------

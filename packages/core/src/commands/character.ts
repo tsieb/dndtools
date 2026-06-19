@@ -27,6 +27,7 @@ import {
 import {
 	applyFieldEdit,
 	ensureCollaboration,
+	isDmOnlyFieldPath,
 	resolveFieldConflict,
 	validateFieldEdit,
 } from '../state/character-collaboration';
@@ -650,7 +651,7 @@ export function handleEditCharacterField(
 		// A non-DM may never write a DM-only field. Checked FIRST and with the SAME generic message
 		// regardless of capability, so a backstory-editor probing a DM-only path cannot distinguish
 		// "DM-only" from "not allowed for my grant" — the field's DM-only status is not probeable.
-		if (existing.dmOnlyFields.includes(validation.path)) {
+		if (isDmOnlyFieldPath(existing, validation.path)) {
 			return reject(
 				{ code: 'actor-not-authorized', message: 'You do not have permission to edit this field.' },
 				state,
