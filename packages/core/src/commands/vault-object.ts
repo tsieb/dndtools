@@ -70,6 +70,9 @@ function actorMayAuthorVault(actor: Actor): boolean {
 function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string, now: string): boolean {
 	if (actor.role === 'dm') return true;
 	if (actor.role === 'observer') return false;
+	// Fail closed: a dm-only item is never writable by a non-DM, regardless of any grant (CONTENT-009 AC4).
+	const item = contentItemById(state.content, itemId);
+	if (item && item.visibility === 'dm-only') return false;
 	return (
 		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor', now) ||
 		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor', now)
