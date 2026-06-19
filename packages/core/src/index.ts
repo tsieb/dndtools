@@ -307,6 +307,7 @@ export {
 	actorCanViewMapProjectionConsistency,
 	auditMapProjectionConsistency,
 	getMapProjectionConsistencyForActor,
+	mapProjectionInput,
 } from './permissions/map-projection-consistency';
 
 // MAP-010 / MAP-011 / MAP-012 / MAP-013 / MAP-019: durable map ANNOTATION model (POIs, routes, fog,

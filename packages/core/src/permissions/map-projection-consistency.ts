@@ -324,4 +324,35 @@ export function getMapProjectionConsistencyForActor(
 	return auditMapProjectionConsistency(input);
 }
 
+/**
+ * Build the audit input from a durable {@link MapEntity}. The validator reasons over a minimal
+ * id/layer/visibility graph; this projects the map's own POIs/routes/fog/tokens into that shape.
+ *
+ *   - A route references a POI through any waypoint whose link is a POI (`linkedEntityType === 'poi'`).
+ *   - Nested-map links carry no per-embed visibility in the domain model (an embed inherits the child
+ *     map's visibility, resolved at the query layer per MAP-017), so they are not surfaced here — the
+ *     map-level audit covers the POI/route/layer leak class (MAP-016 AC1) that the projection command
+ *     must block on.
+ */
+export function mapProjectionInput(map: MapEntity): MapProjectionInput {
+	return {
+		map,
+		pois: map.pois.map((poi) => ({ id: poi.id, layerId: poi.layerId, visibility: poi.visibility })),
+		routes: map.routes.map((route) => ({
+			id: route.id,
+			layerId: route.layerId,
+			visibility: route.visibility,
+			poiIds: route.waypoints
+				.filter((wp) => wp.linkedEntityType === 'poi' && wp.linkedEntityId !== null)
+				.map((wp) => wp.linkedEntityId as string),
+		})),
+		fog: map.fog.map((fog) => ({ id: fog.id, layerId: fog.layerId, visibility: fog.visibility })),
+		tokens: map.tokens.map((token) => ({
+			id: token.id,
+			layerId: token.layerId,
+			visibility: token.visibility,
+		})),
+	};
+}
+
 export type { ActorId };

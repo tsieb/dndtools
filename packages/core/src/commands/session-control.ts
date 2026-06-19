@@ -15,6 +15,10 @@ import {
 } from '../state/session-state';
 import { isTransitionAllowed } from '../lifecycle/session-workflow';
 import {
+	auditMapProjectionConsistency,
+	mapProjectionInput,
+} from '../permissions/map-projection-consistency';
+import {
 	EMPTY_SESSION_COMBAT_STATE,
 	ensureSessionCombatState,
 } from '../state/combat-tracker';
@@ -694,6 +698,28 @@ export function handleProjectActiveMap(
 			state,
 		);
 	}
+
+	// MAP-016 AC1 — BLOCK projection while the map has a blocking visibility inconsistency (e.g. a
+	// player-visible route references a hidden POI). GUI hiding is not authoritative, so the block is
+	// enforced here in the core, not just surfaced as a DM-facing report. Warnings are non-blocking.
+	const consistency = auditMapProjectionConsistency(mapProjectionInput(map));
+	if (consistency.blocked) {
+		return reject(
+			{
+				code: 'invalid-state',
+				message:
+					'This map has visibility inconsistencies that must be resolved before it can be projected to players.',
+				issues: consistency.problems
+					.filter((problem) => problem.severity === 'error')
+					.map((problem) => ({
+						path: `${problem.elementKind}:${problem.elementId}`,
+						message: problem.remediation,
+					})),
+			},
+			state,
+		);
+	}
+
 	const deliveryStatus: ActiveMapDeliveryStatus =
 		parsed.data.connectionState === 'offline' ? 'queued' : 'delivered';
 	const now = env.clock();
