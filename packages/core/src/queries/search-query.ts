@@ -918,8 +918,13 @@ export function searchVaultForActor(
 	// still returned its cached visible hits); a fully-available source is `fresh`. An explicitly requested
 	// source the actor has NO visible content for is reported `unavailable` so the GUI can surface it
 	// (SRCH-003 AC2) — without failing the whole search.
-	const referencedSources = new Set<SearchSourceId>(sourceMatchCount.keys());
-	if (sourceSet) for (const source of sourceSet) referencedSources.add(source);
+	// When an explicit source filter is active, `sourceStatus` reflects EXACTLY the requested sources
+	// (a requested-but-empty source is still reported `unavailable`). A source the user filtered OUT must
+	// not appear, even though a candidate of that source was touched while building hits. With no filter,
+	// every source the actor has visible content for is reported.
+	const referencedSources = sourceSet
+		? new Set<SearchSourceId>(sourceSet)
+		: new Set<SearchSourceId>(sourceMatchCount.keys());
 	const sourceStatus: SearchSourceStatus[] = SEARCH_SOURCE_IDS.filter((source) =>
 		referencedSources.has(source),
 	).map((source) => {

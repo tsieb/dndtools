@@ -239,6 +239,25 @@ describe('SRCH-003 AC2 — a referenced unavailable source is marked, not failed
 		expect(local?.freshness).toBe('fresh');
 	});
 
+	it('a source the user filtered OUT does not appear in sourceStatus even if it has content', () => {
+		const env = makeEnvironment();
+		let state = createNote(base(), env, {
+			title: 'Local Note',
+			fields: { 'dndtools.source': 'local-markdown' },
+		}).state;
+		state = createNote(state, env, {
+			title: 'Obsidian Note',
+			fields: { 'dndtools.source': 'obsidian' },
+		}).state;
+
+		// Filter the search to local-markdown only.
+		const result = search(state, DM_ACTOR.id, { sources: ['local-markdown'], contentTypes: ['note'] });
+		expect(result.hits.map((h) => h.title)).toEqual(['Local Note']);
+		// obsidian was filtered OUT — it must not appear in sourceStatus despite having visible content.
+		expect(result.sourceStatus.find((s) => s.source === 'obsidian')).toBeUndefined();
+		expect(result.sourceStatus.find((s) => s.source === 'local-markdown')).toBeDefined();
+	});
+
 	it('reports an explicitly-requested source with no visible content as unavailable', () => {
 		const env = makeEnvironment();
 		const state = createNote(base(), env, {

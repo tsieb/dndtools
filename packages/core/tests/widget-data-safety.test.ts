@@ -245,6 +245,29 @@ describe('CANVAS-009: resolveWidgetBinding resolves states at the data layer', (
 		});
 	});
 
+	it('a field-selector binding ignores a conflict on an UNRELATED path', () => {
+		const env = envWith([
+			{
+				entityType: 'character',
+				entityId: 'pc-3',
+				visibility: 'player-visible',
+				conflict: { paths: ['data.backstory'] },
+				value: { hp: 7 },
+			},
+		]);
+		// A binding to `combat.hp` is NOT blocked by an unrelated `data.backstory` conflict.
+		expect(resolveWidgetBinding(binding('character', 'pc-3', 'combat.hp'), DM_ACTOR, env).state).toBe(
+			'available',
+		);
+		// A binding to the conflicted path itself IS conflicted.
+		expect(resolveWidgetBinding(binding('character', 'pc-3', 'data.backstory'), DM_ACTOR, env)).toEqual({
+			state: 'conflicted',
+			conflictPaths: ['data.backstory'],
+		});
+		// An entity-level binding (no selector) is still conflicted by any conflict.
+		expect(resolveWidgetBinding(binding('character', 'pc-3'), DM_ACTOR, env).state).toBe('conflicted');
+	});
+
 	it('checks visibility before conflict so a hidden entity never leaks its conflict to players', () => {
 		const env = envWith([
 			{ entityType: 'character', entityId: 'npc-2', visibility: 'dm-only', conflict: true },

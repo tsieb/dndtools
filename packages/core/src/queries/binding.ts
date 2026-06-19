@@ -246,7 +246,15 @@ export function resolveWidgetBinding(
 			return { state: 'hidden', reason: 'field-hidden' };
 		}
 		const conflictPaths = conflictPathsFor(record);
-		if (conflictPaths) return { state: 'conflicted', conflictPaths };
+		if (conflictPaths) {
+			// A binding with a field SELECTOR is conflicted only by an ENTITY-level conflict or a conflict
+			// on its OWN path — a conflict on an unrelated path (e.g. `data.backstory`) must NOT block this
+			// binding (e.g. `combat.hp`). An entity-level binding (no selector) is conflicted by any conflict.
+			const relevant = selector
+				? conflictPaths.filter((path) => path === '(entity)' || path === selector)
+				: conflictPaths;
+			if (relevant.length > 0) return { state: 'conflicted', conflictPaths: relevant };
+		}
 		return { state: 'available', value: redactValue(record, isDm) };
 	}
 
