@@ -1,4 +1,5 @@
 import { dispatchWidgetCommandInputSchema } from '../schemas/commands';
+import { handleRollDice } from './dice';
 import { decideWidgetCommandAuthority } from '../permissions/widget-operator-authority';
 import { evaluateSceneVisibility } from '../permissions/visibility';
 import { commandBindingBlock } from '../queries/binding';
@@ -191,6 +192,12 @@ export function handleDispatchWidgetCommand(
 	}
 	if (TIMER_OPERATE_COMMANDS.includes(parsed.data.commandType)) {
 		return reduceTimerOperate(state, env, actor.id, scene, widget.id, parsed.data, idempotencyKey);
+	}
+	// SES-003 — the Dice widget's `dice.roll` is the shared session dice engine, not a slice-local
+	// reducer. Delegate to it (it computes the outcome from a seed and records it to the session dice
+	// history); the envelope's idempotency key is threaded through so a retry does not double-roll.
+	if (parsed.data.commandType === 'dice.roll') {
+		return handleRollDice(state, env, actor.id, parsed.data.payload, idempotencyKey);
 	}
 	return reject(
 		{

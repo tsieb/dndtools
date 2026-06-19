@@ -60,6 +60,20 @@ function validateWidgetPackageDefinition(
 			);
 		}
 		widgetTypes.add(widget.type);
+		// SEC — the `builtin` render runtime resolves to a privileged FIRST-PARTY app component by
+		// export name (the host's own Session/Tools/Map/… widgets). It is reserved for the in-code
+		// system packages, which are constructed directly and never pass through this installer. An
+		// installed/imported (i.e. untrusted) package declaring `builtin` could otherwise puppet
+		// first-party UI by name, so reject it here — both install and upgrade run this validation.
+		if (widget.renderEntrypoint?.runtime === 'builtin') {
+			diagnostics.push(
+				diagnostic(
+					env,
+					'schema.builtin-runtime-reserved',
+					`Widget ${widget.type} declares the built-in render runtime, which is reserved for first-party system widgets. Use the template or custom-html-js runtime instead.`,
+				),
+			);
+		}
 		const bindingIds = new Set(
 			[...widget.requiredBindings, ...widget.optionalBindings].map((binding) => binding.id),
 		);

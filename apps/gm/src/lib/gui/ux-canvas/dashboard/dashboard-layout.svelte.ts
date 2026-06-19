@@ -52,118 +52,15 @@ export interface DashboardBlock {
 export const MIN_BLOCK_W = 160;
 export const MIN_BLOCK_H = 96;
 
-/** Human title per widget type (the default when no title override is configured). */
-export const DASHBOARD_BLOCK_TITLES: Record<DashboardWidgetType, string> = {
-	session: 'Active Session',
-	'data-hub': 'Data Hub',
-	'player-views': 'Player Views',
-	tools: 'Tools & Layouts',
-	atlas: 'Atlas',
-	combat: 'Combat',
-	notes: 'Notes',
-	characters: 'Characters',
-	search: 'Search',
-	'getting-started': 'Getting Started',
-};
-
-/** Resolve a block's display title: the configured override, else the catalog default. */
-export function blockTitle(block: DashboardBlock): string {
-	const override = block.config.title;
-	return typeof override === 'string' && override.trim() !== ''
-		? override.trim()
-		: DASHBOARD_BLOCK_TITLES[block.type];
-}
-
-// --- Properties Panel schema (§5) ----------------------------------------------------------------
-
-export type BlockPropertyKind = 'text' | 'select' | 'toggle';
-
-export interface BlockPropertyOption {
-	value: string;
-	label: string;
-}
-
-export interface BlockPropertyField {
-	key: string;
-	label: string;
-	kind: BlockPropertyKind;
-	/** Which fixed panel tab the field renders in (Layout is built-in; these add to it). */
-	group: 'content' | 'display';
-	options?: BlockPropertyOption[];
-	placeholder?: string;
-}
-
-/** Title override is available on every widget (display group). */
-const TITLE_FIELD: BlockPropertyField = {
-	key: 'title',
-	label: 'Title override',
-	kind: 'text',
-	group: 'display',
-	placeholder: 'Default title',
-};
-
 /**
- * Per-widget editable fields (§8.5: the panel renders from this schema). Keep each list short —
- * the panel is fixed-height and never scrolls (§6), so fields must fit their tab group.
+ * Resolve a block's display title: the configured override, else the widget definition's display
+ * name (passed in by the caller, which has the surface's `WidgetDefinition`). The per-type default
+ * title lives on the definition (`displayName`) now — this store no longer keeps a parallel table.
  */
-export const BLOCK_PROPERTY_SCHEMAS: Record<DashboardWidgetType, BlockPropertyField[]> = {
-	session: [TITLE_FIELD],
-	'data-hub': [
-		TITLE_FIELD,
-		{
-			key: 'tabOrder',
-			label: 'Tab order',
-			kind: 'select',
-			group: 'content',
-			options: [
-				{ value: 'scenes-first', label: 'Scenes · Parties · Campaign' },
-				{ value: 'parties-first', label: 'Parties · Campaign · Scenes' },
-				{ value: 'campaign-first', label: 'Campaign · Scenes · Parties' },
-			],
-		},
-		{ key: 'showUpdated', label: 'Updated column', kind: 'toggle', group: 'display' },
-		{ key: 'showVisibility', label: 'Visibility column', kind: 'toggle', group: 'display' },
-	],
-	'player-views': [TITLE_FIELD],
-	tools: [TITLE_FIELD],
-	atlas: [
-		TITLE_FIELD,
-		{
-			key: 'thumbnails',
-			label: 'Map thumbnails',
-			kind: 'select',
-			group: 'content',
-			options: [
-				{ value: '3', label: '3 most recent' },
-				{ value: '6', label: '6 most recent' },
-			],
-		},
-	],
-	combat: [
-		TITLE_FIELD,
-		{ key: 'showChallenge', label: 'Challenge rating', kind: 'toggle', group: 'display' },
-	],
-	notes: [
-		TITLE_FIELD,
-		{
-			key: 'count',
-			label: 'Recent notes shown',
-			kind: 'select',
-			group: 'content',
-			options: [
-				{ value: '3', label: '3 notes' },
-				{ value: '5', label: '5 notes' },
-				{ value: '8', label: '8 notes' },
-			],
-		},
-	],
-	characters: [
-		TITLE_FIELD,
-		{ key: 'showVitals', label: 'HP / AC vitals', kind: 'toggle', group: 'display' },
-	],
-	search: [TITLE_FIELD],
-	'getting-started': [TITLE_FIELD],
-};
+export function blockTitle(block: DashboardBlock, fallback: string): string {
+	const override = block.config.title;
+	return typeof override === 'string' && override.trim() !== '' ? override.trim() : fallback;
+}
 
 // --- The authored Command Center default board (§8.7 — curated, not random) ----------------------
 //

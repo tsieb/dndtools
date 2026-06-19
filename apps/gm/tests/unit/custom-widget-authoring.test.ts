@@ -60,4 +60,35 @@ describe('custom widget authoring', () => {
 		expect(srcdoc).toContain('<\\/script>');
 		expect(srcdoc).toContain('<main id="app"></main>');
 	});
+
+	it('injects a CSP, root variables, and config into the sandbox document (findings 6 + 11)', () => {
+		const srcdoc = composeCustomWidgetPreviewSrcdoc({
+			html: '<main id="app"></main>',
+			css: ':root { --widget-accent: #000; }',
+			javascript: 'render(window.__WIDGET_CONFIG__);',
+			csp: "default-src 'none'; connect-src 'none'",
+			rootVars: { '--widget-accent': 'rebeccapurple' },
+			config: { formulas: 'd20', showHp: true },
+		});
+		// CSP meta is present and is the FIRST node inside <head> (it only governs what follows it).
+		expect(srcdoc).toContain("content=\"default-src 'none'; connect-src 'none'\"");
+		expect(srcdoc.indexOf('Content-Security-Policy')).toBeLessThan(srcdoc.indexOf('<style>'));
+		// Host-resolved token is re-declared AFTER the author CSS so a customized value wins.
+		const authorCssAt = srcdoc.indexOf('--widget-accent: #000;');
+		const rootVarAt = srcdoc.indexOf('--widget-accent: rebeccapurple;');
+		expect(rootVarAt).toBeGreaterThan(authorCssAt);
+		// Config is exposed as a frozen global before the author module runs.
+		expect(srcdoc).toContain('window.__WIDGET_CONFIG__=Object.freeze(');
+		expect(srcdoc).toContain('"formulas":"d20"');
+	});
+
+	it('does not inject a CSP/config block when none are supplied (authoring preview is unchanged)', () => {
+		const srcdoc = composeCustomWidgetPreviewSrcdoc({
+			html: '<main></main>',
+			css: '',
+			javascript: '',
+		});
+		expect(srcdoc).not.toContain('Content-Security-Policy');
+		expect(srcdoc).not.toContain('__WIDGET_CONFIG__');
+	});
 });

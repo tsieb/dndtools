@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-	BLOCK_PROPERTY_SCHEMAS,
 	COMMAND_CENTER_LAYOUT_KEY,
 	DashboardLayoutStore,
 	MIN_BLOCK_H,
@@ -69,11 +68,14 @@ describe('authored Command Center default board', () => {
 		}
 	});
 
-	it('every widget type has a Properties Panel schema and a default title', () => {
+	it('blockTitle uses the config override, else the definition display name fallback', () => {
 		for (const block of commandCenterDefaultBlocks()) {
-			expect(BLOCK_PROPERTY_SCHEMAS[block.type].length).toBeGreaterThan(0);
-			expect(blockTitle(block)).not.toBe('');
+			// No override → the caller-supplied fallback (the widget definition's displayName).
+			expect(blockTitle(block, 'Definition name')).toBe('Definition name');
 		}
+		// A configured title override wins over the fallback (and is trimmed).
+		const overridden: DashboardBlock = { ...extraBlock(), config: { title: '  Library  ' } };
+		expect(blockTitle(overridden, 'Definition name')).toBe('Library');
 	});
 });
 
@@ -98,7 +100,7 @@ describe('geometry edits + persistence', () => {
 		fresh.load();
 		expect(fresh.get('combat')!.rect.x).toBe(555);
 		expect(fresh.get('combat')!.rect.y).toBe(333);
-		expect(blockTitle(fresh.get('data-hub')!)).toBe('Library');
+		expect(blockTitle(fresh.get('data-hub')!, 'Data Hub')).toBe('Library');
 	});
 
 	it('reset() restores the authored board and clears the persisted layout', () => {

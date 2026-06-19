@@ -64,13 +64,14 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 		await page.getByTestId('widget-add').click();
 
 		const widgetGrid = page.getByTestId('widget-grid');
-		await expect(widgetGrid.getByText('initiative-tracker')).toBeVisible();
+		// The widget card shows the human display name (UX-CANVAS-007), not the raw machine type.
+		await expect(widgetGrid.getByText('Initiative Tracker')).toBeVisible();
 
 		const url = page.url();
 		await page.reload();
 		await page.goto(url);
 		await page.getByTestId('scene-editor').waitFor({ state: 'visible' });
-		await expect(widgetGrid.getByText('initiative-tracker')).toBeVisible();
+		await expect(widgetGrid.getByText('Initiative Tracker')).toBeVisible();
 	});
 
 	test('Widget package review, degraded host permissions, and disabled placeholders are visible', async ({
@@ -93,7 +94,9 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 		await page.getByTestId('widget-type').fill('weather-panel');
 		await page.getByTestId('widget-version').fill('1.0.0');
 		await page.getByTestId('widget-add').click();
-		const weatherWidget = page.getByTestId('widget-grid').getByText('weather-panel');
+		// The card title shows the package's human display name (UX-CANVAS-007), not the raw type.
+		// Scope to the <strong> title: the card's live render placeholder also shows "Weather Panel".
+		const weatherWidget = page.getByTestId('widget-grid').locator('strong', { hasText: 'Weather Panel' });
 		await expect(weatherWidget).toBeVisible();
 		await expect(page.getByTestId('widget-grid')).toContainText('degraded: network unavailable');
 
@@ -155,5 +158,25 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 		await expect(timerArticle).toBeVisible();
 		await page.getByTestId('widget-grid').getByRole('button', { name: 'Start' }).click();
 		await expect(page.getByTestId('widget-grid')).toContainText('timer running');
+	});
+
+	test('Timer controls are gated on an active session instead of failing silently', async ({
+		page,
+	}, testInfo) => {
+		test.skip(testInfo.project.name === 'mobile-chromium', DESKTOP_GRID_ONLY);
+		// No session is activated here. Timer operate commands write to session state, which the core
+		// rejects unless the workflow is active — so the controls must read as unavailable (disabled +
+		// an explaining hint) rather than looking clickable but doing nothing.
+		await page.getByTestId('scene-name').fill('Inactive Timer Scene');
+		await page.getByTestId('scene-create').click();
+		await page.getByTestId('scene-list').getByRole('link', { name: 'Inactive Timer Scene' }).click();
+		await page.getByTestId('scene-editor').waitFor({ state: 'visible' });
+		await page.getByTestId('widget-type').fill('timer');
+		await page.getByTestId('widget-version').fill('1.0.0');
+		await page.getByTestId('widget-add').click();
+
+		const grid = page.getByTestId('widget-grid');
+		await expect(grid.getByRole('button', { name: 'Start' })).toBeDisabled();
+		await expect(grid.getByTestId('widget-timer-inactive-hint')).toBeVisible();
 	});
 });

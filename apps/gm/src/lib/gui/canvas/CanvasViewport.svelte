@@ -93,6 +93,20 @@
 		 */
 		tileContent?: Snippet<[CanvasTile]>;
 		/**
+		 * Scene-canvas extension: when provided, a READY (non-skeleton, non-placeholder) tile renders
+		 * this snippet as its BODY in place of the plain title, while keeping the built-in head/badge/
+		 * collapse/actions/binding chrome. Used to draw live widget content on the scene canvas without
+		 * replacing the accessible tile chrome (unlike `tileContent`, which replaces the whole tile).
+		 */
+		tileBody?: Snippet<[CanvasTile]>;
+		/**
+		 * UX-CANVAS-007 cross-surface: optional lookup that maps a tile to its human display name for the
+		 * presentational tile-type label (so the scene chrome shows "Active Session", not the machine
+		 * `initiative-tracker`). Defaults to `tile.type` when absent. The display name is the widget
+		 * type's generic name (no DM-only data), so it is safe to show in a player-view preview too.
+		 */
+		tileTypeLabel?: (tile: CanvasTile) => string;
+		/**
 		 * 'full' (default) renders the built-in zoom toolbar, minimap, and diagnostics. 'minimal'
 		 * suppresses them so a host route can render its own floating chrome groups bound to the same
 		 * controller (the dashboard's bottom-right zoom group).
@@ -124,6 +138,8 @@
 		onRebind,
 		emptyState,
 		tileContent,
+		tileBody,
+		tileTypeLabel,
 		chrome = 'full',
 		fill = false,
 	}: Props = $props();
@@ -784,7 +800,7 @@
 						{@render tileContent(tile)}
 					{:else}
 					<div class="canvas-tile-head">
-						<span class="canvas-tile-type">{tile.type}</span>
+						<span class="canvas-tile-type">{tileTypeLabel?.(tile) ?? tile.type}</span>
 						<span class="canvas-tile-chrome">
 							{#if tile.visibility === 'dm-only'}
 								<span class="canvas-tile-badge" data-testid={`canvas-tile-dm-${tile.id}`}>
@@ -853,6 +869,12 @@
 							</div>
 						{:else if tilePlaceholder(tile)}
 							<p class="canvas-tile-placeholder">{tilePlaceholder(tile)}</p>
+						{:else if tileBody}
+							<!-- Live widget body (scene canvas). Marked non-pan so its content scrolls/clicks
+							     natively while empty canvas still pans. -->
+							<div class="canvas-tile-body" data-canvas-no-pan data-testid={`tile-body-${tile.id}`}>
+								{@render tileBody(tile)}
+							</div>
 						{:else}
 							<p class="canvas-tile-title">{tile.title}</p>
 						{/if}

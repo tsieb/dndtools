@@ -430,6 +430,10 @@ export type {
 	WidgetBindingDefinition,
 	WidgetCommandDescriptor,
 	WidgetComputedFieldDefinition,
+	WidgetConfigControl,
+	WidgetConfigField,
+	WidgetConfigFieldGroup,
+	WidgetConfigFieldOption,
 	WidgetDataSchema,
 	WidgetDataQueryDefinition,
 	WidgetDataQuerySource,
@@ -449,6 +453,7 @@ export type {
 	WidgetPackageState,
 	WidgetPackageTrustReview,
 	WidgetPackageTrustState,
+	WidgetPlacement,
 	WidgetRenderEntrypoint,
 	WidgetRuntimeKind,
 	WidgetRuntimeSandbox,
@@ -456,17 +461,26 @@ export type {
 	WidgetStyleDefinition,
 	WidgetStyleIsolation,
 	WidgetStyleTokenDefinition,
+	WidgetSurface,
 	WidgetTemplateKind,
 } from './state/widget-package-state';
 export {
 	ALL_HOST_PERMISSIONS,
+	DEFAULT_WIDGET_SURFACES,
 	EMPTY_WIDGET_PACKAGE_STATE,
 	SYSTEM_WIDGET_PACKAGE_STATE,
 	WIDGET_PACKAGE_STATE_SCHEMA_VERSION,
 	createSystemWidgetPackages,
+	findActiveWidgetDefinition,
 	findPackageRecordForWidgetType,
 	findWidgetDefinition,
+	isWidgetLibraryListed,
 	mergeSystemWidgetPackages,
+	readStyleTokenOverrides,
+	resolveWidgetConfig,
+	resolveWidgetStyleVariables,
+	widgetSupportsSurface,
+	widgetSurfaces,
 } from './state/widget-package-state';
 
 export type {
@@ -1250,6 +1264,7 @@ export type {
 export {
 	DEFAULT_LIBRARY_WIDGET_POSITION,
 	listWidgetLibrary,
+	listWidgetsForSurface,
 	resolveAddWidgetCommand,
 } from './queries/widget-library';
 

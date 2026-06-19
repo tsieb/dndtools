@@ -3,11 +3,14 @@
 	import { goto } from '$app/navigation';
 	import {
 		EMPTY_WIDGET_DATA_ENVIRONMENT,
+		findActiveWidgetDefinition,
+		findWidgetDefinition,
 		getPlayerViewForActor,
 		getSceneForActor,
 		listCharactersForActor,
 		listScenesForActor,
 		listWidgetLayoutCommands,
+		readStyleTokenOverrides,
 		resolveLayoutCommandPayload,
 		type PlayerViewProjectionKind,
 		type SceneLayoutCommand,
@@ -58,6 +61,8 @@
 	import CustomWidgetAuthoringDialog from '$lib/gui/ux-canvas/CustomWidgetAuthoringDialog.svelte';
 	import PlayerViewPreviewBanner from '$lib/gui/ux-canvas/PlayerViewPreviewBanner.svelte';
 	import EmptyCanvasState from '$lib/gui/ux-canvas/EmptyCanvasState.svelte';
+	import WidgetView from '$lib/gui/ux-canvas/widgets/WidgetView.svelte';
+	import WidgetCustomizePanel from '$lib/gui/ux-canvas/widgets/WidgetCustomizePanel.svelte';
 
 	const { data } = $props();
 	const runtime = useRuntime();
@@ -864,19 +869,91 @@
 		});
 	}
 
-	async function startTimer(id: string) {
-		if ('kind' in summary) return;
+	// --- Unified widget rendering + customization (widget platform) -------------------------------
+	// Resolve a widget's definition for chrome that names the widget (card title, type label).
+	function widgetDefinitionOf(type: string) {
+		return findWidgetDefinition(runtime.state.widgets, type) ?? null;
+	}
+
+	// Resolve a definition for RENDERING only — null when its package is disabled/removed, so a
+	// disabled package's widget is never drawn (its renderer/iframe must not mount). The widget card
+	// already hides disabled/removed widgets via the binding payload kind; this guards the canvas tile.
+	function activeWidgetDefinitionOf(type: string) {
+		return findActiveWidgetDefinition(runtime.state.widgets, type) ?? null;
+	}
+
+	// A rejected widget command (timer/dice/…) is otherwise invisible — templates fire-and-forget. We
+	// surface the rejection message in a polite alert so the user sees WHY an action did nothing
+	// instead of a frozen-looking widget. Cleared on the next accepted command.
+	let widgetCommandError = $state<string | null>(null);
+
+	// Dispatch a widget command (timer/dice/…) for a scene widget instance, supplying the scene
+	// context (sceneId + expectedRevision) a template renderer cannot know. Returns the dispatcher,
+	// or undefined while previewing (the player-view preview canvas is read-only).
+	function widgetCommandDispatcher(widgetInstanceId: string) {
+		if (previewActive || 'kind' in summary) return undefined;
+		return async (commandType: string, payload: Record<string, unknown>) => {
+			if ('kind' in summary) return;
+			const result = await runtime.dispatch({
+				type: 'widget.dispatch-command',
+				actorId: runtime.defaultActorId,
+				idempotencyKey: `${commandType}-${widgetInstanceId}-${Date.now()}`,
+				payload: {
+					sceneId,
+					widgetInstanceId,
+					commandType,
+					payload,
+					expectedRevision: summary.ownership.revision,
+				},
+			});
+			widgetCommandError =
+				result.status === 'accepted'
+					? null
+					: (result.rejection.message ?? 'That widget action could not be completed.');
+		};
+	}
+
+	// The Customize panel target (a selected widget). Edits write through scene.configure-widget
+	// (config + per-instance style tokens, both stored in `configuration`) and scene.resize-widget.
+	let customizeTargetId = $state<string | null>(null);
+	const customizeWidget = $derived(
+		customizeTargetId ? (rawScene?.widgets.find((w) => w.id === customizeTargetId) ?? null) : null,
+	);
+	const customizeDefinition = $derived(
+		customizeWidget ? widgetDefinitionOf(customizeWidget.type) : null,
+	);
+	const customizeStyleTokens = $derived(readStyleTokenOverrides(customizeWidget?.configuration));
+
+	function openCustomize(id: string) {
+		manipulation.select(id);
+		customizeTargetId = id;
+	}
+
+	async function configureWidget(configuration: Record<string, unknown>) {
+		if (!customizeWidget) return;
 		await runtime.dispatch({
-			type: 'widget.dispatch-command',
+			type: 'scene.configure-widget',
 			actorId: runtime.defaultActorId,
-			idempotencyKey: `timer-start-${id}-${Date.now()}`,
-			payload: {
-				sceneId,
-				widgetInstanceId: id,
-				commandType: 'timer.start',
-				payload: { durationSeconds: 60 },
-				expectedRevision: summary.ownership.revision,
-			},
+			payload: { sceneId, widgetInstanceId: customizeWidget.id, configuration },
+		});
+	}
+	function setWidgetConfigKey(key: string, value: unknown) {
+		if (!customizeWidget) return;
+		void configureWidget({ ...customizeWidget.configuration, [key]: value });
+	}
+	function setWidgetStyleToken(name: string, value: string) {
+		if (!customizeWidget) return;
+		const tokens = { ...customizeStyleTokens };
+		if (value) tokens[name] = value;
+		else delete tokens[name];
+		void configureWidget({ ...customizeWidget.configuration, styleTokens: tokens });
+	}
+	async function resizeCustomizeWidget(w: number, h: number) {
+		if (!customizeWidget) return;
+		await runtime.dispatch({
+			type: 'scene.resize-widget',
+			actorId: runtime.defaultActorId,
+			payload: { sceneId, widgetInstanceId: customizeWidget.id, w, h },
 		});
 	}
 </script>
@@ -1037,8 +1114,34 @@
 				onToggleCollapse={toggleCollapseFor}
 				onOpenActions={openActionsFor}
 				onRebind={openBindingFor}
+				tileTypeLabel={(t) => widgetDefinitionOf(t.type)?.displayName ?? t.type}
 				{onManipulationKey}
 			>
+				{#snippet tileBody(tile)}
+					<!-- UX: live widget visuals on the canvas. The canvas world is presentational
+					     (aria-hidden); the body is `inert` so its controls are not focusable here — the
+					     interactive, accessible path is the widget card + Customize panel below.
+					     UX-CANVAS-011 no-leak: never render the raw DM-resolved body while previewing a
+					     player view — that resolves widget data against the DM actor and would leak
+					     field-level DM-only content into the "player view" preview. The preview keeps
+					     correct geometry / visibility / chrome and shows a neutral "hidden in preview"
+					     affordance so the tile reads as intentional rather than blank. (Rendering the
+					     body with the previewed player's filtered data is a tracked enhancement.) -->
+					{@const cw = rawScene?.widgets.find((x) => x.id === tile.id) ?? null}
+					{@const cdef = cw ? activeWidgetDefinitionOf(cw.type) : null}
+					{#if cw && cdef}
+						{#if previewActive}
+							<div class="canvas-widget-preview" aria-hidden="true">
+								<span class="canvas-widget-preview-icon">◌</span>
+								<span>Content hidden in preview</span>
+							</div>
+						{:else}
+							<div class="canvas-widget-body" inert>
+								<WidgetView definition={cdef} widget={cw} surface="scene" />
+							</div>
+						{/if}
+					{/if}
+				{/snippet}
 				{#snippet emptyState()}
 					<!-- UX-CANVAS-013: empty-canvas teaching state — only for the editing DM; a player just
 					     sees an empty canvas. The CTA opens the widget library (same as the W shortcut). -->
@@ -1075,6 +1178,24 @@
 				oncreate={createCustomWidget}
 				onclose={() => (customWidgetOpen = false)}
 			/>
+			<Dialog
+				open={customizeTargetId !== null}
+				title="Customize widget"
+				testid="widget-customize-dialog"
+				onclose={() => (customizeTargetId = null)}
+			>
+				{#if customizeWidget && customizeDefinition}
+					<WidgetCustomizePanel
+						definition={customizeDefinition}
+						config={customizeWidget.configuration}
+						styleTokens={customizeStyleTokens}
+						size={{ w: customizeWidget.layout.w, h: customizeWidget.layout.h }}
+						onConfig={setWidgetConfigKey}
+						onStyleToken={setWidgetStyleToken}
+						onSize={resizeCustomizeWidget}
+					/>
+				{/if}
+			</Dialog>
 			<KeyboardShortcutsHelp bind:open={helpOpen} />
 			<BindingInspector
 				bind:open={bindingOpen}
@@ -1220,6 +1341,7 @@
 			{#snippet widgetCard(tabIndex: number, payload: WidgetBindingPayload)}
 				{#if payload.kind === 'available' || payload.kind === 'degraded'}
 					{@const w = payload.widget}
+					{@const def = widgetDefinitionOf(w.type)}
 					{@const timer = runtime.state.session.timers[w.id]}
 					<article class="widget-row" data-testid={`widget-${w.id}`} data-focus-index={tabIndex}>
 						<div>
@@ -1230,7 +1352,7 @@
 									checked={selectedForGroup.has(w.id)}
 									onchange={(e) => toggleGroupSelection(w.id, e.currentTarget.checked)}
 								/>
-								<span><strong>{w.type}</strong> <span class="meta">v{w.version}</span></span>
+								<span><strong>{def?.displayName ?? w.type}</strong> <span class="meta">v{w.version}</span></span>
 							</label>
 							{#if payload.kind === 'degraded'}
 								<div class="layout" data-testid={`degraded-${w.id}`}>
@@ -1248,6 +1370,19 @@
 									• timer {timer.status}
 								{/if}
 							</div>
+							{#if def}
+								<!-- The live, interactive widget — the accessible render of its definition (template /
+								     builtin / custom), token-styled and config-driven. Timer/dice commands dispatch
+								     through the Processing Core with this scene's context. -->
+								<div class="widget-card-render" data-testid={`render-${w.id}`}>
+									<WidgetView
+										definition={def}
+										widget={w}
+										surface="scene"
+										onCommand={widgetCommandDispatcher(w.id)}
+									/>
+								</div>
+							{/if}
 						</div>
 						<div
 							class="row-actions"
@@ -1255,6 +1390,16 @@
 							aria-label={`Layout controls for ${widgetAccessibleName(payload)}`}
 							data-testid={`layout-toolbar-${w.id}`}
 						>
+							{#if canEdit}
+								<button
+									type="button"
+									data-testid={`customize-${w.id}`}
+									aria-label={`Customize ${widgetAccessibleName(payload)}`}
+									onclick={() => openCustomize(w.id)}
+								>
+									Customize
+								</button>
+							{/if}
 							{#each layoutCommandsFor(w) as command (command.id)}
 								{#if command.targets === 'self'}
 									<button
@@ -1267,15 +1412,6 @@
 									</button>
 								{/if}
 							{/each}
-							{#if w.type === 'timer'}
-								<button
-									type="button"
-									data-testid={`start-timer-${w.id}`}
-									onclick={() => startTimer(w.id)}
-								>
-									Start
-								</button>
-							{/if}
 						</div>
 					</article>
 				{:else if payload.kind === 'disabled'}
@@ -1345,6 +1481,11 @@
 				{/if}
 			{/snippet}
 
+			{#if widgetCommandError}
+				<p class="widget-command-error" role="alert" data-testid="widget-command-error">
+					{widgetCommandError}
+				</p>
+			{/if}
 			{#if summary.widgets.length === 0}
 				<p class="meta" data-testid="widgets-empty">No widgets yet — add one above.</p>
 			{:else if profile.isCompact}
@@ -1478,6 +1619,15 @@
 		color: var(--color-status-warning-text);
 		font-size: var(--text-sm);
 	}
+	.widget-command-error {
+		margin: 0 0 var(--space-2);
+		padding: var(--space-1) var(--space-2);
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--color-status-error);
+		background: var(--color-status-error-subtle);
+		color: var(--color-status-error-text);
+		font-size: var(--text-sm);
+	}
 	.canvas-command-bar {
 		display: flex;
 		flex-wrap: wrap;
@@ -1504,5 +1654,38 @@
 	[data-testid='scene-canvas-section'] :global(.chrome-panel),
 	[data-testid='scene-canvas-section'] :global(.transform-panel) {
 		margin-top: var(--space-2);
+	}
+	/* The inert, visual widget render inside a canvas tile (interactivity lives in the card). */
+	.canvas-widget-body {
+		height: 100%;
+		min-height: 0;
+		overflow: hidden;
+		pointer-events: none;
+	}
+	/* Player-view preview: a neutral placeholder instead of the (DM-resolved) live body, so the
+	   tile reads as intentionally hidden rather than as an empty/broken box. */
+	.canvas-widget-preview {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		align-items: center;
+		justify-content: center;
+		height: 100%;
+		min-height: 0;
+		padding: var(--space-2);
+		font-size: var(--text-xs);
+		text-align: center;
+		color: var(--color-text-secondary);
+		pointer-events: none;
+	}
+	.canvas-widget-preview-icon {
+		font-size: var(--text-lg);
+		opacity: 0.7;
+	}
+	/* The live, interactive widget render inside a widget card. */
+	.widget-card-render {
+		margin-top: var(--space-1);
+		padding-top: var(--space-1);
+		border-top: 1px solid var(--color-border);
 	}
 </style>
