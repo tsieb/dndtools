@@ -40,7 +40,7 @@ test.describe('UX-SES session tools, dice, timers, prep, calendar', () => {
 	// Start an active session from the home Command Center (DM-only), polling the durable session
 	// document for `active` before navigating away (the standard no-arbitrary-wait pattern).
 	async function startActiveSession(page: Page): Promise<void> {
-		await page.goto('/');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await page.getByTestId('session-workflow-active').click();
 		await expect(page.getByTestId('session-workflow-status')).toContainText('active');

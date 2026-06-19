@@ -29,7 +29,7 @@ test.describe('AUDIO session playback and session state', () => {
 	// Start an active session from the home Command Center (DM-only), polling the durable session document
 	// for `active` before navigating, so a hard navigation reloads the active workflow from storage.
 	async function startActiveSession(page: import('@playwright/test').Page): Promise<void> {
-		await page.goto('/');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await page.getByTestId('session-workflow-active').click();
 		await expect(page.getByTestId('session-workflow-status')).toContainText('active');
@@ -132,7 +132,7 @@ test.describe('AUDIO session playback and session state', () => {
 		});
 
 		// Hard navigation away and back: the active track is restored from session state (AUDIO-003 AC1).
-		await page.goto('/');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await gotoSession(page);
 		await expect(page.getByTestId('audio-track-status')).toContainText('playing');

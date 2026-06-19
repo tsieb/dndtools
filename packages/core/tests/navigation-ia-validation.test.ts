@@ -55,6 +55,7 @@ function section(overrides: Partial<CanonicalNavigationSection> = {}): Canonical
 const SCAFFOLDED_ROUTES = [
 	'/',
 	'/atlas',
+	'/board',
 	'/characters',
 	'/scene',
 	'/scenes',
@@ -160,6 +161,7 @@ describe('NAV-006 route audit (AC2)', () => {
 				scaffoldedRoutes: [
 					'/',
 					'/atlas/',
+					'/board/',
 					'/characters/',
 					'/scene/',
 					'/scenes/',

@@ -12,7 +12,7 @@ import { expect, test, type Page } from '@playwright/test';
 const FORBIDDEN = 'DMSECRETZZZ9';
 
 async function resetHome(page: Page) {
-	await page.goto('/');
+	await page.goto('/board/');
 	await page.getByTestId('command-center').waitFor({ state: 'visible' });
 	await page.evaluate(async () => {
 		await indexedDB.deleteDatabase('dndtools-v2');
@@ -101,8 +101,8 @@ test.describe('UX-CMD Command Center home + role-differentiated dashboard', () =
 		await createScene(page, `Secret ${FORBIDDEN}`, 'dm-only');
 		await createScene(page, 'Shared Tavern', 'player-visible');
 
-		// Assign the player-visible scene to the demo player from the Command Center.
-		await page.getByTestId('nav-command-center').click();
+		// Assign the player-visible scene to the demo player from the Command Center board.
+		await page.goto('/board/');
 		await page.getByTestId('cc-player-view-controller').waitFor({ state: 'visible' });
 		const select = page.getByTestId('cc-player-view-scene-actor-player');
 		const value = await select

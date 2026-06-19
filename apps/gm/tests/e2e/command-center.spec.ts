@@ -19,7 +19,7 @@ async function selectPlayerViewScene(page: Page, actorId: string, sceneName: str
 
 test.describe('CMD-001/002/007 Command Center home Scene', () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		// Reset local IndexedDB so each run starts from a fresh, unconfigured vault.
 		await page.evaluate(async () => {
@@ -144,7 +144,7 @@ test.describe('CMD-001/002/007 Command Center home Scene', () => {
 		// Scenes is a non-global capability reached outside the primary nav; deep-link to it.
 		await page.goto('/scenes/');
 		await page.getByTestId('scene-name').waitFor({ state: 'visible' });
-		await page.getByTestId('nav-command-center').click();
+		await page.goto('/board/');
 		await expect(page.getByTestId('session-workflow-status')).toContainText('active');
 		await expect(page.getByTestId('cc-active-map-preview')).toContainText('Ruined Keep');
 
@@ -213,7 +213,7 @@ test.describe('CMD-001/002/007 Command Center home Scene', () => {
 		await page.goto('/scenes/');
 		await createNamedScene(page, 'Player One View');
 
-		await page.getByTestId('nav-command-center').click();
+		await page.goto('/board/');
 		await page.getByTestId('cc-player-view-controller').waitFor({ state: 'visible' });
 		await expect(page.getByTestId('cc-player-view-row-actor-player')).toContainText(
 			'No assignment',

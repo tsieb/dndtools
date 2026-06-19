@@ -84,7 +84,7 @@ async function mutatePersistedSession(page: Page, mutatorBody: string): Promise<
 
 /** Start an active session from the home workflow toolbar and land on /session. */
 async function startActiveSession(page: Page): Promise<void> {
-	await page.goto('/');
+	await page.goto('/board/');
 	await page.getByTestId('command-center').waitFor({ state: 'visible' });
 	await page.getByTestId('session-workflow-active').click();
 	await expect(page.getByTestId('session-workflow-status')).toContainText('active');
@@ -166,7 +166,7 @@ test.describe('UX-SES lifecycle, recovery, and hot-path combat shell', () => {
 		page,
 	}) => {
 		// Walk the lifecycle to recap from the home toolbar: active → ending → recap.
-		await page.goto('/');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await page.getByTestId('session-workflow-active').click();
 		await page.getByTestId('session-workflow-ending').click();

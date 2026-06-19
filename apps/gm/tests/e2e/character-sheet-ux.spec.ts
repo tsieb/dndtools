@@ -37,7 +37,7 @@ test.describe('UX-CHAR character sheet polish', () => {
 	// In-app (SPA) navigation, not page.goto — a hard reload races the optimistic-then-durable
 	// IndexedDB writes (the owner grant + character) and intermittently drops them under load.
 	async function startSession(page: Page): Promise<void> {
-		await openSection(page, 'command-center');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await page.getByTestId('view-as-select').selectOption('local-dm');
 		await page.getByTestId('session-workflow-active').click();

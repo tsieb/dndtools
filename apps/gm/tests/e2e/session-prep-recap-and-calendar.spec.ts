@@ -44,7 +44,7 @@ test.describe('SES prep/recap and calendar continuity', () => {
 	}
 
 	async function startActiveSession(page: Page): Promise<void> {
-		await page.goto('/');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await page.getByTestId('session-workflow-active').click();
 		await expect(page.getByTestId('session-workflow-status')).toContainText('active');

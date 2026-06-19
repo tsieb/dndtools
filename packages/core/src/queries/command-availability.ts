@@ -161,7 +161,7 @@ export function listPaletteCommands(
 			keywords: ['push', 'handout', 'deliver', 'players', 'content', 'share'],
 			category: 'navigation',
 			availability: { status: 'available' },
-			route: '/?push-handout=1',
+			route: '/board?push-handout=1',
 		});
 
 		// UX-CMD-005 / UX-CMD-011 — "Preview <player>'s view" palette parity. Navigation-kind:
@@ -180,7 +180,7 @@ export function listPaletteCommands(
 				keywords: ['preview', 'player', 'view', participant.displayName],
 				category: 'navigation',
 				availability: { status: 'available' },
-				route: `/?preview-view=${participant.id}`,
+				route: `/board?preview-view=${participant.id}`,
 			});
 		}
 	}

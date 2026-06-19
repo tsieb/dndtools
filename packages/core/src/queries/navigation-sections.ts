@@ -141,7 +141,9 @@ export const CANONICAL_NAVIGATION_SECTIONS: readonly CanonicalNavigationSection[
 		taskFit:
 			'Run the live session from a configured home Scene: tools, active map, and player views.',
 		routeRoot: '/',
-		entityRoutes: [],
+		// `/board` is the Command Center's spatial widget board (the live-play scene surface). The
+		// `/` root is the launcher hub; the board is an owned sub-surface reached from it.
+		entityRoutes: ['/board'],
 		availability: { dm: true, player: true, observer: true },
 		aliases: ['/home'],
 		landmark: 'command-center',

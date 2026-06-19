@@ -14,7 +14,7 @@ import { openSection } from './_nav-helper';
  */
 
 async function freshHome(page: Page) {
-	await page.goto('/');
+	await page.goto('/board/');
 	await page.getByTestId('command-center').waitFor({ state: 'visible' });
 }
 

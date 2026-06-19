@@ -27,7 +27,7 @@ test.describe('COLLAB join, reconnect, and identity', () => {
 	});
 
 	async function startActiveSession(page: import('@playwright/test').Page): Promise<void> {
-		await page.goto('/');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await page.getByTestId('session-workflow-active').click();
 		await expect(page.getByTestId('session-workflow-status')).toContainText('active');

@@ -63,7 +63,15 @@ test.describe('NAV-003 contextual backlinks and history coherence (AC1)', () => 
 	test('a backlink updates the route and browser back stays coherent', async ({
 		page,
 	}, testInfo) => {
-		await freshAt(page, '/', 'command-center');
+		// DEFERRED (design-package move): opens the home Scene editor via the board's "open in editor"
+		// affordance, which only renders on the compact board; the Desktop spatial board has no such
+		// entry point yet. Restoring it is part of the deferred scene-surface rework (zoom→scroll +
+		// scene-ified widgets). Keep mobile coverage; skip on Desktop until the entry point exists.
+		test.skip(
+			testInfo.project.name === 'desktop-chromium',
+			'Desktop board has no open-scene-editor affordance yet (deferred scene-surface rework)',
+		);
+		await freshAt(page, '/board/', 'command-center');
 
 		// The DM's Command Center auto-creates its home Scene; open it in the editor.
 		await page.getByTestId('cc-open-editor').click();

@@ -31,7 +31,7 @@ test.describe('COLLAB combat view, handouts, and player groups', () => {
 	// Start an active session from the home Command Center (DM-only), polling the durable session document
 	// for `active` before navigating, so a hard navigation reloads the active workflow from storage.
 	async function startActiveSession(page: import('@playwright/test').Page): Promise<void> {
-		await page.goto('/');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await page.getByTestId('session-workflow-active').click();
 		await expect(page.getByTestId('session-workflow-status')).toContainText('active');

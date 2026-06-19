@@ -10,7 +10,7 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 async function resetToFreshVault(page: Page) {
-	await page.goto('/');
+	await page.goto('/board/');
 	await page.getByTestId('command-center').waitFor({ state: 'visible' });
 	await page.evaluate(async () => {
 		await indexedDB.deleteDatabase('dndtools-v2');
@@ -69,7 +69,9 @@ test.describe('PLAT-013 fresh-vault onboarding (AC1)', () => {
 			page.getByTestId('scene-list').getByRole('link', { name: 'Tavern Brawl' }),
 		).toBeVisible();
 
-		await page.getByTestId('nav-command-center').click();
+		// The onboarding surface (first-run banner + steps) lives on the /board scene surface; the nav
+		// Command Center item goes to the launcher hub.
+		await page.goto('/board/');
 		await page.getByTestId('onboarding').waitFor({ state: 'visible' });
 		// Both setup steps are now done → onboarding is complete and the first-run banner + steps
 		// are gone (the onboarding surface stays for the feature-tier control + help).

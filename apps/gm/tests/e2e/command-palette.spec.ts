@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe('CMD-008 global command palette', () => {
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await page.evaluate(async () => {
 			await indexedDB.deleteDatabase('dndtools-v2');

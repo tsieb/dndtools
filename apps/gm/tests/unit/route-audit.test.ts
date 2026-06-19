@@ -72,6 +72,7 @@ describe('NAV-006 AC2 route audit gate', () => {
 		expect(routes).toEqual([
 			'/',
 			'/atlas',
+			'/board',
 			'/campaign',
 			'/canvas',
 			'/characters',

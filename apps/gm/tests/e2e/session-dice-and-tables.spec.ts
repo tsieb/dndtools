@@ -28,7 +28,7 @@ test.describe('SES dice and tables', () => {
 	// document for `active` before navigating away (the same no-arbitrary-wait pattern the combat spec
 	// uses), so a hard navigation reloads the active workflow from storage.
 	async function startActiveSession(page: import('@playwright/test').Page): Promise<void> {
-		await page.goto('/');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await page.getByTestId('session-workflow-active').click();
 		await expect(page.getByTestId('session-workflow-status')).toContainText('active');

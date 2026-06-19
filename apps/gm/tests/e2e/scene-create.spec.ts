@@ -141,7 +141,7 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 		// widget command (`timer.start`, writesTo: 'session') while the session workflow is
 		// active (CMD-active-session-control). Session state is application-level, so
 		// activate the session on the Command Center first; it persists across navigation.
-		await page.goto('/');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await page.getByTestId('session-workflow-active').click();
 		await expect(page.getByTestId('session-workflow-status')).toContainText('active');

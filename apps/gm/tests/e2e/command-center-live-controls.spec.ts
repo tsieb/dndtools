@@ -13,7 +13,7 @@ import { expect, test, type Page } from '@playwright/test';
 const FORBIDDEN = 'DMSECRETLIVE7Q';
 
 async function resetHome(page: Page) {
-	await page.goto('/');
+	await page.goto('/board/');
 	await page.getByTestId('command-center').waitFor({ state: 'visible' });
 	await page.evaluate(async () => {
 		await indexedDB.deleteDatabase('dndtools-v2');
@@ -46,7 +46,9 @@ async function createNote(
 }
 
 async function gotoHome(page: Page) {
-	await page.getByTestId('nav-command-center').click();
+	// The spatial board (status strip, live controls) lives on the /board scene surface; the nav
+	// Command Center item goes to the launcher hub.
+	await page.goto('/board/');
 	await page.getByTestId('cc-status-strip').waitFor({ state: 'visible' });
 }
 

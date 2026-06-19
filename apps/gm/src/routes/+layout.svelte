@@ -415,14 +415,15 @@
 		}
 	}
 
-	// Command Center redesign §1: on the DM home (non-compact profiles) the shell enters its
-	// canvas-home treatment — the main area goes edge-to-edge (no padding / max-width / scroll) so
-	// the spatial board fills the viewport, and the route h1 floats as the top-left identity chip
-	// over the canvas. The shell DOM is unchanged (single h1, landmarks, skip link, nav all stay);
-	// only the layout treatment switches. A player/observer home (and preview mode, whose active
-	// actor is the previewed participant) keeps the standard document layout.
+	// Command Center redesign: the spatial widget board now lives on the `/board` scene surface (the
+	// home `/` is the launcher hub). On the DM board (non-compact profiles) the shell enters its
+	// canvas-home treatment — the main area goes edge-to-edge (no padding / max-width / scroll) so the
+	// spatial board fills the viewport. The shell DOM is unchanged (single h1, landmarks, skip link,
+	// nav all stay); only the layout treatment switches. A player/observer board (and preview mode,
+	// whose active actor is the previewed participant) keeps the standard document layout.
 	const canvasHome = $derived(
-		page.url.pathname === '/' &&
+		// `trailingSlash: 'always'` means the board path is `/board/`; normalize before comparing.
+		page.url.pathname.replace(/\/+$/, '') === '/board' &&
 			runtime.loaded &&
 			!profile.isCompact &&
 			runtime.state.permissions.actors[runtime.activeActorId]?.role === 'dm',

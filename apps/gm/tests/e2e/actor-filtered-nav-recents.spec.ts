@@ -88,7 +88,7 @@ test.describe('UX-NAV-013 actor-filtered navigation (DM-only route hiding)', () 
 });
 
 test.describe('UX-NAV-015 pinned and recent items strip', () => {
-	test('AC1/AC2: pinned items sit below Command Center and above the sections; recents follow', async ({
+	test('AC1/AC2: pinned items sit below the Library group; recents follow', async ({
 		page,
 	}, testInfo) => {
 		await freshHome(page);
@@ -115,7 +115,9 @@ test.describe('UX-NAV-015 pinned and recent items strip', () => {
 		await expect(recent.getByRole('link', { name: /Characters|Party/ })).toBeVisible();
 
 		if (testInfo.project.name !== 'mobile-chromium') {
-			// AC1 position (Desktop sidebar): Command Center -> strip -> first section, in DOM order.
+			// AC1 position (Desktop sidebar): the design-package rail groups Command Center + the
+			// sections under "Library", with the pinned/recent strip below the group. So the vertical
+			// order is Command Center -> sections -> strip.
 			const order = await page.getByTestId('primary-nav').evaluate((nav) => {
 				const ids = ['nav-command-center', 'pinned-recent', 'nav-session'];
 				return ids.map((id) => {
@@ -133,8 +135,8 @@ test.describe('UX-NAV-015 pinned and recent items strip', () => {
 					session: top('[data-testid="nav-session"]'),
 				};
 			});
-			expect(positions.home).toBeLessThan(positions.strip);
-			expect(positions.strip).toBeLessThan(positions.session);
+			expect(positions.home).toBeLessThan(positions.session);
+			expect(positions.session).toBeLessThan(positions.strip);
 		}
 	});
 

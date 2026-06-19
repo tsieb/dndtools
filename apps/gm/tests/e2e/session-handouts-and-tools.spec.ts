@@ -30,7 +30,7 @@ test.describe('SES handouts, live tools, and quick reference', () => {
 	// Start an active session from the home Command Center (DM-only), polling the durable session document
 	// for `active` before navigating, so a hard navigation reloads the active workflow from storage.
 	async function startActiveSession(page: import('@playwright/test').Page): Promise<void> {
-		await page.goto('/');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await page.getByTestId('session-workflow-active').click();
 		await expect(page.getByTestId('session-workflow-status')).toContainText('active');
@@ -147,7 +147,7 @@ test.describe('SES handouts, live tools, and quick reference', () => {
 		await expect(page.getByTestId('quick-reference-panels')).toContainText('Tavern rumors');
 
 		// Durable pin: a hard navigation away and back keeps the panel (SES-007 AC1).
-		await page.goto('/');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await gotoSession(page);
 		await expect(page.getByTestId('quick-reference-panels')).toContainText('Tavern rumors');

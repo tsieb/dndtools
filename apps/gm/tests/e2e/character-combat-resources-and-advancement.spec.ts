@@ -61,7 +61,7 @@ test.describe('CHAR combat resources and advancement', () => {
 	// hard reload would race the optimistic-then-durable IndexedDB writes (e.g. a just-declared spell
 	// slot) and intermittently drop them. Switches the view to the DM to reach the session controls.
 	async function startActiveSession(page: import('@playwright/test').Page): Promise<void> {
-		await openSection(page, 'command-center');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await page.getByTestId('view-as-select').selectOption('local-dm');
 		await page.getByTestId('session-workflow-active').click();

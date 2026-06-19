@@ -28,7 +28,7 @@ test.describe('SES combat and encounters', () => {
 	// navigation reloads from storage, so we poll the persisted session document for `active` before
 	// navigating away. That avoids racing the durable write under full-suite load (no arbitrary waits).
 	async function startActiveSession(page: import('@playwright/test').Page): Promise<void> {
-		await page.goto('/');
+		await page.goto('/board/');
 		await page.getByTestId('command-center').waitFor({ state: 'visible' });
 		await page.getByTestId('session-workflow-active').click();
 		await expect(page.getByTestId('session-workflow-status')).toContainText('active');
