@@ -37,6 +37,7 @@ import {
 	reject,
 	requireActor,
 } from './helpers';
+import { actorMayEditItem } from './content-edit-authority';
 
 /**
  * SES-003 / SES-008 — the SHARED DICE COMMANDS (Architecture Contract 1 / Contract 2 / Contract 3).
@@ -471,23 +472,6 @@ function actorMayUseTable(state: CoreStateSlice, actor: Actor, itemId: string, n
 }
 
 // --- SES-008 — append a recorded result to a note (through the existing content write path) -------
-
-/**
- * Authorized editor of a content item: DM, or a player with a write-capable grant. Mirrors the
- * fail-closed model in content.ts, including the dm-only guard: a grant never bypasses visibility.
- * `now` (from `env.clock()`) is required so expired grants are treated as inert (PERM-004 AC2).
- */
-function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string, now: string): boolean {
-	if (actor.role === 'dm') return true;
-	if (actor.role === 'observer') return false;
-	// Fail closed: a dm-only item is never writable by a non-DM, regardless of any grant (CONTENT-009 AC4).
-	const item = contentItemById(state.content, itemId);
-	if (item && item.visibility === 'dm-only') return false;
-	return (
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor', now) ||
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor', now)
-	);
-}
 
 /** Render a recorded roll as a one-line markdown append. Withholds nothing the recipient already has. */
 function renderRollLine(roll: SessionDiceRoll): string {

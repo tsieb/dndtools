@@ -27,10 +27,10 @@ import {
 	type CalendarDefinition,
 	type CustomDate,
 } from '../state/calendar';
-import { hasGrantedCapability } from '../permissions/grants';
 import type { Actor } from '../state/permission-state';
 import type { CommandRejection, CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import { appendOperationDraft, ensureContentStateSlice, parseInput, reject, requireActor } from './helpers';
+import { actorMayEditItem } from './content-edit-authority';
 
 /**
  * CONTENT-011 — durable CALENDAR/CUSTOM-TIME CONTENT commands (Architecture Contract 1 / Contract 3).
@@ -63,31 +63,6 @@ function contentWith(state: CoreStateSlice, content: VaultContentState): CoreSta
 /** Vault-level authoring (define calendar / create item): DM only. Fail closed otherwise. */
 function actorMayAuthorVault(actor: Actor): boolean {
 	return actor.role === 'dm';
-}
-
-/**
- * Authorized editor for an EXISTING item: the DM, or a player holding a write-capable grant
- * (`section-editor`/`contributor`) on that content-item entity. An observer never qualifies.
- *
- * CONTENT-009 AC4: a non-DM player cannot write to a `dm-only` item even when they hold a write
- * grant — a grant never bypasses visibility (Contract 3 Axis 2 rule 4). The grant is invalid (the
- * DM sees a `write-grant-on-hidden-content` consistency error), but the guard is enforced here so
- * the player cannot circumvent the visibility barrier by exploiting the stale grant.
- *
- * `now` (the ISO clock from `env.clock()`) MUST be passed so that expired grants are treated as
- * inert (fail closed, PERM-004 AC2). Omitting `now` would allow an expired grant to remain
- * effective, violating the grant expiry guarantee.
- */
-function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string, now: string): boolean {
-	if (actor.role === 'dm') return true;
-	if (actor.role === 'observer') return false;
-	// Fail closed: a dm-only item is never writable by a non-DM, regardless of any grant.
-	const item = contentItemById(state.content, itemId);
-	if (item && item.visibility === 'dm-only') return false;
-	return (
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor', now) ||
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor', now)
-	);
 }
 
 /**

@@ -15,11 +15,11 @@ import {
 	type ContentItem,
 	type VaultContentState,
 } from '../state/content';
-import { hasGrantedCapability } from '../permissions/grants';
 import type { Actor } from '../state/permission-state';
 import type { VisibilityRule } from '../permissions/visibility-filter';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import { appendOperationDraft, ensureContentStateSlice, parseInput, reject, requireActor } from './helpers';
+import { actorMayEditItem } from './content-edit-authority';
 
 /**
  * CONTENT-009 / CONTENT-010 — durable GRANULAR-VISIBILITY + EMBED commands (Architecture Contract 1 /
@@ -49,30 +49,6 @@ import { appendOperationDraft, ensureContentStateSlice, parseInput, reject, requ
 
 function contentWith(state: CoreStateSlice, content: VaultContentState): CoreStateSlice {
 	return { ...state, content };
-}
-
-/**
- * Authorized editor for an EXISTING item: the DM, or a player holding a write-capable grant
- * (`section-editor`/`contributor`) on that content-item entity. An observer never qualifies. (Same rule as
- * `commands/content.ts`; kept local so this module is self-contained.)
- *
- * CONTENT-009 AC4: a non-DM player cannot write to a `dm-only` item even when they hold a write
- * grant — a grant never bypasses visibility (Contract 3 Axis 2 rule 4). The grant is invalid (the
- * DM sees a `write-grant-on-hidden-content` consistency error), but the guard is enforced here so
- * the player cannot circumvent the visibility barrier by exploiting the stale grant.
- *
- * `now` (from `env.clock()`) MUST be passed so that expired grants are treated as inert (PERM-004 AC2).
- */
-function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string, now: string): boolean {
-	if (actor.role === 'dm') return true;
-	if (actor.role === 'observer') return false;
-	// Fail closed: a dm-only item is never writable by a non-DM, regardless of any grant.
-	const item = contentItemById(state.content, itemId);
-	if (item && item.visibility === 'dm-only') return false;
-	return (
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor', now) ||
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor', now)
-	);
 }
 
 /** The actors a content item is delivered to, for cross-surface invalidation (mirrors content.ts). */

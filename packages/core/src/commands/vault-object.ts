@@ -24,10 +24,10 @@ import {
 	applyLinkRepairForActor,
 	propagateRenameForActor,
 } from '../queries/wikilink-graph';
-import { hasGrantedCapability } from '../permissions/grants';
 import type { Actor } from '../state/permission-state';
 import type { CommandRejection, CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import { appendOperationDraft, ensureContentStateSlice, parseInput, reject, requireActor } from './helpers';
+import { actorMayEditItem } from './content-edit-authority';
 
 /**
  * CONTENT-005 / CONTENT-006 — durable STRUCTURED VAULT OBJECT + WIKILINK LIFECYCLE commands.
@@ -63,21 +63,6 @@ function actorMayAuthorVault(actor: Actor): boolean {
 	return actor.role === 'dm';
 }
 
-/**
- * Authorized editor for an EXISTING item: the DM, or a player holding a write-capable grant.
- * `now` (from `env.clock()`) is required so expired grants are treated as inert (PERM-004 AC2).
- */
-function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string, now: string): boolean {
-	if (actor.role === 'dm') return true;
-	if (actor.role === 'observer') return false;
-	// Fail closed: a dm-only item is never writable by a non-DM, regardless of any grant (CONTENT-009 AC4).
-	const item = contentItemById(state.content, itemId);
-	if (item && item.visibility === 'dm-only') return false;
-	return (
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor', now) ||
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor', now)
-	);
-}
 
 /** The cross-surface invalidation audience for a content item, by visibility (mirrors `commands/content.ts`). */
 function deliveryAudience(visibility: string, sharedWith: readonly string[]): string[] {

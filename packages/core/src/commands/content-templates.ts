@@ -13,17 +13,15 @@ import {
 	type ContentSnippet,
 } from '../state/content-snippets';
 import {
-	CONTENT_ITEM_ENTITY_TYPE,
 	contentItemById,
 	isLiveContentItem,
 	type ContentItem,
 } from '../state/content';
-import { hasGrantedCapability } from '../permissions/grants';
-import type { Actor } from '../state/permission-state';
 import type { CommandRejection, CommandResult, CoreEnvironment, CoreStateSlice } from './types';
 import { ensureContentStateSlice, parseInput, reject, requireActor } from './helpers';
 import { handleCreateContentItem, handleUpdateContentItem } from './content';
 import { handleCreateVaultObject, handleUpdateVaultObject } from './vault-object';
+import { actorMayEditItem } from './content-edit-authority';
 import { VAULT_OBJECT_SUBTYPE_KEY, readObjectSubtype, syncNoteToObject } from '../state/vault-object';
 
 /**
@@ -49,22 +47,6 @@ import { VAULT_OBJECT_SUBTYPE_KEY, readObjectSubtype, syncNoteToObject } from '.
  * authorized editor (a player holding a write-capable grant on that content-item). The GUI dispatches the
  * intent and renders the computed render/validation model; it never touches storage (Architecture Contract 1).
  */
-
-/**
- * Authorized editor for an EXISTING item: the DM, or a player with a write-capable grant. Fail closed.
- * `now` (from `env.clock()`) is required so expired grants are treated as inert (PERM-004 AC2).
- */
-function actorMayEditItem(state: CoreStateSlice, actor: Actor, itemId: string, now: string): boolean {
-	if (actor.role === 'dm') return true;
-	if (actor.role === 'observer') return false;
-	// Fail closed: a dm-only item is never writable by a non-DM, regardless of any grant (CONTENT-009 AC4).
-	const item = contentItemById(state.content, itemId);
-	if (item && item.visibility === 'dm-only') return false;
-	return (
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor', now) ||
-		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'contributor', now)
-	);
-}
 
 /** Turn a blocked render result into a non-leaking rejection carrying the per-issue findings. */
 function templateInvalidRejection(result: TemplateRenderResult): CommandRejection {
