@@ -4,7 +4,6 @@ import type { MapState } from '../state/map-state';
 import type { SessionState } from '../state/session-state';
 import { parseMarkdownNote } from '../state/markdown';
 import {
-	applyGraphChange,
 	backlinksOf,
 	buildGraphIndexState,
 	emptyGraphIndex,
@@ -133,8 +132,7 @@ function buildGraphRecordsForActor(
 /**
  * GRAPH-005 — the ACTOR-FILTERED incremental GRAPH-INDEX STATE: the visible graph + the records it was built
  * from (so an incremental change re-resolves edges without a full reparse). An unknown/unauthenticated actor
- * receives the EMPTY state (fail closed). This is the FULL build; {@link applyGraphChangeForActor} maintains
- * it incrementally after a single accepted change. Pure + deterministic.
+ * receives the EMPTY state (fail closed). Pure + deterministic.
  */
 export function getGraphIndexStateForActor(
 	content: VaultContentState,
@@ -164,19 +162,6 @@ export function getGraphIndexForActor(
 	return getGraphIndexStateForActor(content, maps, session, permissions, actorId).index;
 }
 
-/**
- * GRAPH-005 AC1 — apply ONE accepted change to an actor's maintained graph state INCREMENTALLY, given the
- * change's resolved actor-VISIBLE record (for an upsert) or removed node id (for a remove). Only the changed
- * node's edges + the dependent backlink index update; the result converges to the full actor-filtered
- * recompute. The change is built by the caller from the SAME actor-filtered reads, so it can never carry a
- * hidden node. Pure + deterministic — a thin re-export so consumers maintain the graph through one surface.
- */
-export function applyGraphChangeForActor(
-	state: GraphIndexState,
-	change: GraphChange,
-): GraphIndexState {
-	return applyGraphChange(state, change);
-}
 
 /**
  * GRAPH-005 AC1 — build the incremental {@link GraphChange} for an UPSERTED visible note/object, parsing its

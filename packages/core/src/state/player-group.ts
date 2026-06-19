@@ -56,10 +56,6 @@ export function normalizeMembers(members: readonly ActorId[]): ActorId[] {
 	return result;
 }
 
-/** Deep-clone a player group (so callers never mutate shared state). Pure. */
-export function clonePlayerGroup(group: PlayerGroup): PlayerGroup {
-	return { ...group, memberActorIds: [...group.memberActorIds] };
-}
 
 /** Tolerantly hydrate a possibly-undefined/partial persisted player-group map (safe empty default). */
 export function ensurePlayerGroups(

@@ -29,9 +29,6 @@ import type {
  * Pure + deterministic: a function of (combat state, permissions, actor) only. No GUI, no storage.
  */
 
-/** The placeholder shown for a hidden combatant the viewer cannot fully see. */
-export const HIDDEN_COMBATANT_NAME = 'Hidden combatant' as const;
-
 /** A read-only stat-block preview projection. Hidden stat data is withheld for non-authorized viewers. */
 export interface CombatantStatBlockView {
 	ac: number | null;

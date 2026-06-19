@@ -116,16 +116,3 @@ export function groupMembershipGrantsNoCapability(
 	return true;
 }
 
-/**
- * The set of group ids a participant is a member of (delivery-targeting metadata ONLY). Exposed for the
- * DM-facing group surface; a non-DM caller must never use this to derive access. Sorted, deterministic.
- */
-export function groupsContainingActor(
-	actorId: ActorId,
-	groups: Record<string, PlayerGroup>,
-): string[] {
-	return Object.values(groups)
-		.filter((group) => group.memberActorIds.includes(actorId))
-		.map((group) => group.id)
-		.sort();
-}

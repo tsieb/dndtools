@@ -33,7 +33,6 @@ export {
 	EMPTY_SCENE_STATE,
 	SCENE_SCHEMA_VERSION,
 	SCENE_STATE_SCHEMA_VERSION,
-	isWidgetInGroup,
 } from './state/scene-state';
 
 export type {
@@ -126,7 +125,6 @@ export {
 	applyMatrix,
 	composeChain,
 	composeMatrix,
-	depthFromRoot,
 	descendantMapIds,
 	directChildMapIds,
 	embedTransformToMatrix,
@@ -485,12 +483,10 @@ export type {
 
 export type { OperationLog, SyncOperation } from './sync/operation-log';
 export {
-	EMPTY_OPERATION_LOG,
 	SYNC_OPERATION_SCHEMA_VERSION,
 	appendOperation,
 	createOperationLog,
 	findOperationByIdempotencyKey,
-	hasIdempotencyKey,
 } from './sync/operation-log';
 
 // SYNC-002: the CANONICAL operation shape + IDEMPOTENCY model. Formalizes Contract 2's Sync Unit:
@@ -986,7 +982,7 @@ export {
 	listGrantableCapabilitySets,
 	previewGrantEffect,
 } from './permissions/capability-sets';
-export { canActorSeeScene, evaluateSceneVisibility } from './permissions/visibility';
+export { evaluateSceneVisibility } from './permissions/visibility';
 export type { SceneVisibilityResult } from './permissions/visibility';
 
 // PERM-002 / PERM-003: the visibility-filtering engine — the SECURITY KEYSTONE choke-point every
@@ -1819,7 +1815,6 @@ export type {
 } from './platform/quality-gates';
 export {
 	QUALITY_GATE_BUDGETS,
-	QUALITY_GATE_REGISTRY_VERSION,
 	QUALITY_GATES,
 	REVIEW_WINDOW_DAYS,
 	SMOKE_TARGET_MS,
@@ -3215,7 +3210,6 @@ export {
 // a hidden node/edge — fail closed), and exposes the backlink/forward reverse index, freshness, and the
 // repair/REINDEX signal. Unknown actor ⇒ empty graph (fail closed).
 export {
-	applyGraphChangeForActor,
 	getGraphBacklinksForActor,
 	getGraphForwardLinksForActor,
 	getGraphIndexForActor,
@@ -3579,7 +3573,7 @@ export type {
 	CombatLogEntryView,
 	CombatTrackerView,
 } from './queries/combat-tracker-view';
-export { HIDDEN_COMBATANT_NAME, getCombatTrackerForActor } from './queries/combat-tracker-view';
+export { getCombatTrackerForActor } from './queries/combat-tracker-view';
 
 // UX-SES-002 — the session RECOVERY read model: full-restore confirmation vs. the modal partial-
 // restore prompt naming exactly which items could not be restored. DM-gated, fail closed.
@@ -3613,7 +3607,6 @@ export {
 	cloneEncounter,
 	computeEncounterChallenge,
 	encounterById,
-	encounterObjectFrontmatter,
 	ensureEncounterState,
 	partyDeadlyThreshold,
 	updateEncounter,
@@ -3837,7 +3830,6 @@ export {
 export type { DeliveryTarget, ResolvedDeliveryTarget } from './collab/player-groups';
 export {
 	groupMembershipGrantsNoCapability,
-	groupsContainingActor,
 	resolveDeliveryTarget,
 } from './collab/player-groups';
 
@@ -3847,7 +3839,6 @@ export type { PlayerGroup } from './state/player-group';
 export {
 	PLAYER_GROUP_ENTITY_TYPE,
 	PLAYER_GROUP_SCHEMA_VERSION,
-	clonePlayerGroup,
 	ensurePlayerGroups,
 	normalizeMembers,
 } from './state/player-group';

@@ -406,21 +406,3 @@ export function updateEncounter(
 	return { ...state, encounters: { ...state.encounters, [encounterId]: next } };
 }
 
-/**
- * Project an encounter onto the `encounter` Vault Object subtype FRONTMATTER contract (CONTENT-013):
- * `title`, the computed `difficulty`, and the DM-only `participantIds` (combatant names — a DM-only
- * pointer in the subtype schema). This keeps the encounter CONSISTENT with the declared subtype
- * without cloning the encounter into a separate object record. Pure.
- */
-export function encounterObjectFrontmatter(encounter: Encounter): {
-	title: string;
-	difficulty: EncounterDifficulty;
-	participantIds: string[];
-} {
-	const challenge = computeEncounterChallenge(encounter.combatants, encounter.party);
-	return {
-		title: encounter.title,
-		difficulty: challenge.difficulty,
-		participantIds: encounter.combatants.map((c) => c.id),
-	};
-}

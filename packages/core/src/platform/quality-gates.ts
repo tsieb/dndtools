@@ -81,8 +81,6 @@ export const SMOKE_TARGET_MS = 3 * 60 * 1000;
 /** A gate not reviewed within this many days is flagged for re-justification (AC4). */
 export const REVIEW_WINDOW_DAYS = 180;
 
-export const QUALITY_GATE_REGISTRY_VERSION = 1 as const;
-
 /**
  * Configured per-tier time budgets. Critical and smoke are kept fast so the default developer
  * loop stays responsive; full/release trade speed for breadth and declare a scope exception.

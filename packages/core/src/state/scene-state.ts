@@ -106,6 +106,3 @@ export const EMPTY_SCENE_STATE: SceneState = Object.freeze({
 	schemaVersion: SCENE_STATE_SCHEMA_VERSION,
 });
 
-export function isWidgetInGroup(widget: WidgetInstance, groupId: GroupId): boolean {
-	return widget.layout.groupId === groupId;
-}

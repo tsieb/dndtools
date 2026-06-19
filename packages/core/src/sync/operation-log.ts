@@ -38,8 +38,6 @@ export function createOperationLog(operations: SyncOperation[] = []): OperationL
 	return { operations, idempotencyKeys };
 }
 
-export const EMPTY_OPERATION_LOG: OperationLog = Object.freeze(createOperationLog());
-
 export function appendOperation(log: OperationLog, op: SyncOperation): OperationLog {
 	const key = operationIdempotencyKey(op);
 	let idempotencyKeys = log.idempotencyKeys;
@@ -47,10 +45,6 @@ export function appendOperation(log: OperationLog, op: SyncOperation): Operation
 		idempotencyKeys = new Set(idempotencyKeys).add(key);
 	}
 	return { operations: [...log.operations, op], idempotencyKeys };
-}
-
-export function hasIdempotencyKey(log: OperationLog, idempotencyKey: string): boolean {
-	return log.idempotencyKeys.has(idempotencyKey);
 }
 
 export function findOperationByIdempotencyKey(

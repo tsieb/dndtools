@@ -163,25 +163,6 @@ export function subtreeDepth(
 	return deepest;
 }
 
-/**
- * The depth of `mapId` measured from its DEEPEST root ancestor (how many embeds sit above it). A map
- * with no ancestor is at depth 0. Cycle-safe. Used together with {@link subtreeDepth} to check that
- * adding an embed does not push any chain past {@link MAX_NESTING_DEPTH}.
- */
-export function depthFromRoot(maps: MapState['maps'], mapId: string): number {
-	let deepest = 0;
-	for (const ancestorId of ancestorMapIds(maps, mapId)) {
-		// distance from ancestorId down to mapId = subtreeDepth contribution along that path. We
-		// approximate the longest path by counting how many ancestors chain above; precise longest
-		// path is computed by walking down from each root, but for the bound check the conservative
-		// measure below (max over ancestors of their own root-distance + 1) suffices and is cycle-safe.
-		const aboveAncestor = ancestorMapIds(maps, ancestorId).size === 0 ? 0 : 1;
-		const candidate = aboveAncestor + 1;
-		if (candidate > deepest) deepest = candidate;
-	}
-	return deepest;
-}
-
 // ---------------------------------------------------------------------------
 // 2D affine transform math (pure). A transform maps CHILD-normalized space → PARENT-normalized space.
 // ---------------------------------------------------------------------------
@@ -466,9 +447,7 @@ export function removeEmbed(
 
 /**
  * The longest path (number of edges) from ANY root down to `mapId`. A root is a map with no ancestors.
- * Cycle-safe via memo + on-path guard. This is the precise depth measure used by the depth bound
- * (more accurate than {@link depthFromRoot}, which is a conservative bound kept for callers that only
- * need a quick check).
+ * Cycle-safe via memo + on-path guard. This is the precise depth measure used by the depth bound.
  */
 export function longestPathFromAnyRoot(maps: MapState['maps'], mapId: string): number {
 	// longest path TO mapId = max over parents of (1 + longest path to parent); 0 if no parents.

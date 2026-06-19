@@ -1,6 +1,5 @@
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { Scene } from '../state/scene-state';
-import type { ActorId } from '../state/ids';
 import { hasGrantedCapability } from './grants';
 
 export type SceneVisibilityResult =
@@ -31,11 +30,3 @@ export function evaluateSceneVisibility(
 	return { kind: 'hidden', reason: 'not-shared' };
 }
 
-export function canActorSeeScene(
-	scene: Scene,
-	permission: PermissionState,
-	actorId: ActorId,
-): boolean {
-	const actor = permission.actors[actorId];
-	return evaluateSceneVisibility(scene, actor, permission).kind === 'visible';
-}
