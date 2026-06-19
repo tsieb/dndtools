@@ -157,6 +157,14 @@ function selectExportItems(
 	if (mode === 'dm-backup') {
 		return { items: all, omittedForVisibility: 0 };
 	}
+	// CONTENT-008 fail closed: a `portable` export MUST reflect a representative NON-DM (player)
+	// perspective. A DM viewer would make the actor-filtered query return every item — INCLUDING
+	// dm-only — under a `portable` label (a leak). An unknown/missing actor is likewise invalid. In
+	// either case nothing is eligible, so the portable export carries no hidden content by construction.
+	const viewer = permissions.actors[portableViewerActorId];
+	if (!viewer || viewer.role === 'dm') {
+		return { items: [], omittedForVisibility: all.length };
+	}
 	// Portable: the filtered query returns ONLY the items the player may see. We re-key those view ids
 	// back to the durable items so we export the canonical body/fields (still only the visible ones).
 	const visibleViews = getContentItemsForActor(state, permissions, portableViewerActorId);

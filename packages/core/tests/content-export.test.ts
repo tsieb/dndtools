@@ -134,6 +134,22 @@ describe('CONTENT-008 export — portable mode (fail-closed visibility + redacti
 		expect(result.report.exportedItems).toBe(0);
 		expect(JSON.stringify(result)).not.toContain('Highmoor');
 	});
+
+	it('fail closed: a DM portable viewer does NOT leak dm-only under a portable label (CONTENT-008)', () => {
+		// A DM is not a representative player. Passing a DM id must NOT make a `portable` export reflect
+		// DM visibility (which would include dm-only content). Use `dm-backup` to export hidden content.
+		const base = buildInitialState(DM_ACTOR, PLAYER_ACTOR, OBSERVER_ACTOR);
+		const result = exportContent(vaultWithMixedVisibility(), permissionsFor(base), {
+			mode: 'portable',
+			portableViewerActorId: DM_ACTOR.id,
+		});
+		expect(result.report.mode).toBe('portable');
+		expect(result.report.exportedItems).toBe(0);
+		const serialized = JSON.stringify(result);
+		expect(serialized).not.toContain('The Lich Phylactery');
+		expect(serialized).not.toContain(SECRET_TOKEN);
+		expect(serialized).not.toContain(ABSOLUTE_PATH);
+	});
 });
 
 describe('CONTENT-008 export — DM-backup mode (includes hidden, still scrubs secrets/paths)', () => {
