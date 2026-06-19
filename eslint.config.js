@@ -45,6 +45,8 @@ export default ts.config(
 			'coverage/',
 			'playwright-report/',
 			'test-results/',
+			// Vendored design-system reference kit (third-party React/JS mockups, not app source).
+			'docs/design-package/',
 		],
 	},
 );

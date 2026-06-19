@@ -36,7 +36,6 @@
 	import { resolveShellRouteAccessibility } from '$lib/navigation/route-a11y';
 	import { buildShortcutRegistry } from '$lib/navigation/shortcuts';
 	import { isFromTextEntry } from '$lib/gui/a11y/keyboard';
-	import Icon from '$lib/gui/Icon.svelte';
 	import GlobalNav from '$lib/gui/GlobalNav.svelte';
 	import CommandPalette from '$lib/gui/CommandPalette.svelte';
 	import GlobalSearch from '$lib/gui/GlobalSearch.svelte';
@@ -497,10 +496,11 @@
 	     brand/home, the command palette trigger, the "view as" actor switch, and help. Section
 	     routing lives in the primary nav (the sidebar/rail/tab bar), not here. -->
 	<header class="app-header">
-		<a class="brand" href="/" data-testid="app-brand" aria-label="DND Tools — Command Center home">
-			<span class="brand-mark" aria-hidden="true"><Icon name="dice" size="sm" /></span>
-			<span class="brand-word">DND<span class="brand-accent">Tools</span></span>
-		</a>
+		<!-- NAV-007 AC1: the single shell-owned route h1. It now sits at the left of the top bar
+		     (design-package shell — the brand/home link moved into the primary-nav rail). It is
+		     derived from the navigation view and collapses to "Not available" when the route is
+		     actor-blocked, so it never echoes a hidden section name (UX-NAV-013). -->
+		<h1 class="route-title" data-testid="route-title">{effectiveRouteA11y.heading}</h1>
 		<div class="top-bar-controls" data-testid="top-bar-controls">
 			<!-- UX-NAV-017: in-app back/forward for platforms without browser chrome (PWA/Electron).
 			     Browser back/forward keep working independently via ordinary route navigation. -->
@@ -588,11 +588,8 @@
 		data-section-landmark={effectiveRouteA11y.landmark}
 		aria-label={effectiveRouteA11y.landmarkLabel}
 	>
-		<!-- NAV-007 AC1: exactly one route-level `h1`, reflecting the active route context.
-		     The app shell owns it so every route has one and only one, derived from the
-		     navigation view rather than authored per page. When the route is actor-blocked it
-		     collapses to the generic "Not available" heading (UX-NAV-013). -->
-		<h1 class="route-title" data-testid="route-title">{effectiveRouteA11y.heading}</h1>
+		<!-- NAV-007 AC1: the single route-level `h1` is rendered once in the top bar (above); the
+		     main landmark holds only the route content. -->
 		{#if !runtime.loaded}
 			<p class="loading" role="status">Loading local Scene store…</p>
 		{:else if routeBlocked && sectionAccess.kind === 'unavailable'}

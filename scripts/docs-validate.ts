@@ -32,6 +32,8 @@ const structureIgnoredTopLevel = new Set([
 	'.vscode',
 	'.idea',
 	'.claude',
+	'.agents',
+	'.codex',
 	'coverage',
 	'dist',
 	'tmp',

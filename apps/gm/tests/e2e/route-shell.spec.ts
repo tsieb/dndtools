@@ -153,8 +153,11 @@ test.describe('UX-NAV-018 input-modality detection and focus-ring policy', () =>
 			await page.getByTestId('command-center').tap();
 			expect(await modality()).toBe('touch');
 		} else {
-			// A mouse press flips it to "pointer".
-			await page.getByTestId('app-brand').click();
+			// A mouse press flips it to "pointer". The brand/home link now lives in the rail at the
+			// top-left corner, where the just-focused skip-link overlays it; click the top-bar route
+			// title instead — a stable banner element clear of the skip-link (the element clicked is
+			// incidental; the test verifies the pointer-down modality flip).
+			await page.getByTestId('route-title').click();
 			expect(await modality()).toBe('pointer');
 		}
 	});

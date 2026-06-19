@@ -82,8 +82,10 @@
 	// UX-NAV-015: in the sidebar/rail the Command Center home anchors the top, the strip sits below
 	// it, and the remaining sections (Session…Settings) fill the rest, so the strip lands "below the
 	// Command Center item and above the section list" (UX-NAV-015 AC1).
-	const homeItems = $derived(items.filter((item) => item.home));
-	const sectionItems = $derived(items.filter((item) => !item.home));
+	// Design-package rail grouping: "Library" = Command Center + the sections; Settings is pinned at
+	// the foot, divider-separated (UX-NAV-002 keeps Settings `last`).
+	const libraryItems = $derived(items.filter((item) => !item.last));
+	const settingsItem = $derived(items.find((item) => item.last) ?? null);
 
 	const stripHasContent = $derived(pinned.length > 0 || recent.length > 0);
 	// The "More" sheet hosts the overflow sections AND the pinned/recent strip; surface it whenever
@@ -151,9 +153,26 @@
 			{/if}
 		</ul>
 	{:else}
-		<!-- Sidebar / rail: Command Center, then the pinned/recent strip, then the section list. -->
-		<ul class="global-nav-list global-nav-list--primary">
-			{#each homeItems as item (item.id)}
+		<!-- Sidebar / rail (design-package shell): the brand anchors the top, then the "Library"
+		     group (Command Center + sections), the pinned/recent strip, and Settings pinned at the
+		     foot. The brand is the single app-brand home link — it moved out of the top bar so the bar
+		     can carry the route title, matching the package. -->
+		<a
+			class="global-nav-brand"
+			href="/"
+			data-testid="app-brand"
+			aria-label="DND Tools — Command Center home"
+			title={iconOnly && !touch ? 'DND Tools — Command Center' : undefined}
+		>
+			<span class="global-nav-brand-mark" aria-hidden="true"><Icon name="dice" size="sm" /></span>
+			<span class="global-nav-brand-word">DND<span class="global-nav-brand-accent">Tools</span></span>
+		</a>
+
+		{#if !iconOnly}
+			<p class="global-nav-group-label">Library</p>
+		{/if}
+		<ul class="global-nav-list global-nav-list--library">
+			{#each libraryItems as item (item.id)}
 				<li>{@render navLink(item)}</li>
 			{/each}
 		</ul>
@@ -162,11 +181,11 @@
 			<PinnedRecentStrip {pinned} {recent} {onUnpin} {iconOnly} {touch} variant="rail" />
 		{/if}
 
-		<ul class="global-nav-list global-nav-list--sections">
-			{#each sectionItems as item (item.id)}
-				<li class:nav-item-last={item.last}>{@render navLink(item)}</li>
-			{/each}
-		</ul>
+		{#if settingsItem}
+			<ul class="global-nav-list global-nav-list--footer">
+				<li class="nav-item-last">{@render navLink(settingsItem)}</li>
+			</ul>
+		{/if}
 
 		{#if isSidebar}
 			<!-- UX-NAV-004: icon-rail collapse toggle. Never the default state on first launch. -->

@@ -660,55 +660,21 @@ body {
 .app-header {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: baseline;
+	align-items: center;
 	gap: var(--space-1) var(--space-4);
-	padding: var(--space-4) var(--space-8) var(--space-2);
+	padding: var(--space-3) var(--space-6);
 	border-bottom: 1px solid var(--border);
 }
 
-/* Brand mark (matches the package shell): a gold dice chip + display-serif wordmark with a
- * gold "Tools" accent. The chip is the one decorative accent surface in the calm top bar. */
-.app-header .brand {
-	display: inline-flex;
-	align-items: center;
-	/* The brand is an interactive link (routes to the Command Center); keep its hit area at the
-	   touch-target floor so the mobile target-size sweep passes (A11Y-004 — the 34px mark alone is
-	   below the 44px minimum). */
-	min-height: var(--touch-target-min);
-	gap: var(--space-2);
+/* The single shell-owned route h1 sits at the left of the top bar (design-package shell). */
+.app-header .route-title {
 	margin: 0;
-	color: inherit;
-	text-decoration: none;
-}
-.app-header .brand-mark {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 34px;
-	height: 34px;
-	border-radius: var(--radius-md);
-	background: var(--color-accent);
-	color: var(--color-accent-foreground);
-	box-shadow: var(--shadow-sm);
-}
-.app-header .brand-word {
-	font-family: var(--font-display);
-	font-size: var(--text-xl);
-	font-weight: var(--font-weight-bold);
-	letter-spacing: var(--tracking-wide);
-	line-height: 1;
-}
-.app-header .brand-accent {
-	color: var(--color-accent);
-}
-
-.app-main .route-title {
-	margin: 0 0 var(--space-4);
 	font-family: var(--font-display);
 	font-size: var(--text-xl);
 	font-weight: var(--font-weight-semibold);
 	letter-spacing: var(--tracking-tight);
 	line-height: var(--leading-tight);
+	color: var(--color-text-primary);
 }
 
 .app-header .tagline {
@@ -943,6 +909,61 @@ body {
 	min-height: var(--density-focus-target);
 }
 
+/* --- Brand + group labels in the sidebar/rail (design-package shell) --------------------------
+   The brand is the home link at the top of the rail: a gold dice chip + display wordmark with a
+   gold "Tools" accent. Group labels are small uppercase section headers (Library / Pinned / …). */
+.global-nav-brand {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+	min-height: var(--touch-target-min);
+	padding: 0 var(--space-3) var(--space-3);
+	margin: 0;
+	color: var(--color-text-primary);
+	text-decoration: none;
+}
+.global-nav-brand-mark {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.125rem; /* 34px */
+	height: 2.125rem;
+	flex: 0 0 auto;
+	border-radius: var(--radius-md);
+	background: var(--color-accent);
+	color: var(--color-accent-foreground);
+	box-shadow: var(--shadow-sm);
+}
+.global-nav-brand-word {
+	font-family: var(--font-display);
+	/* Display serif is reserved for >= 24px text (UX-VIS-004 AC3); the wordmark uses --text-xl. */
+	font-size: var(--text-xl);
+	font-weight: var(--font-weight-bold);
+	letter-spacing: var(--tracking-wide);
+	line-height: 1;
+}
+.global-nav-brand-accent {
+	color: var(--color-accent);
+}
+.global-nav-group-label {
+	margin: var(--space-3) 0 var(--space-1);
+	padding: 0 var(--space-3);
+	font-size: var(--text-2xs);
+	font-weight: var(--font-weight-semibold);
+	letter-spacing: var(--tracking-wider);
+	text-transform: uppercase;
+	color: var(--color-text-secondary);
+}
+/* Icon-only rail / collapsed sidebar: hide the wordmark + labels, centre the dice chip. */
+.global-nav[data-icon-only='true'] .global-nav-brand {
+	justify-content: center;
+	padding: 0 0 var(--space-3);
+}
+.global-nav[data-icon-only='true'] .global-nav-brand-word,
+.global-nav[data-icon-only='true'] .global-nav-group-label {
+	display: none;
+}
+
 /* --- Bottom tab bar (Mobile + Tablet portrait) --- */
 .global-nav[data-surface='tabbar'] {
 	border-top: 1px solid var(--border);
@@ -1012,15 +1033,17 @@ body {
 	background: transparent;
 }
 
-/* UX-NAV-015: split the sidebar/rail into Command Center (top, fixed), the pinned/recent strip
-   (below it), and the section list (grows so Settings still pins to the bottom via margin-top:auto). */
-.global-nav[data-surface='sidebar'] .global-nav-list--primary,
-.global-nav[data-surface='rail'] .global-nav-list--primary {
+/* Design-package rail order: brand, the "Library" group (natural height), the pinned/recent strip,
+   then Settings pinned to the foot. Only the footer grows-up via margin-top:auto so Settings sits at
+   the very bottom regardless of how much the strip holds. */
+.global-nav[data-surface='sidebar'] .global-nav-list--library,
+.global-nav[data-surface='rail'] .global-nav-list--library {
 	flex: 0 0 auto;
 }
-.global-nav[data-surface='sidebar'] .global-nav-list--sections,
-.global-nav[data-surface='rail'] .global-nav-list--sections {
-	flex: 1 1 auto;
+.global-nav[data-surface='sidebar'] .global-nav-list--footer,
+.global-nav[data-surface='rail'] .global-nav-list--footer {
+	flex: 0 0 auto;
+	margin-top: auto;
 }
 
 /* UX-NAV-015: the pinned/recent strip. In the sidebar/rail it is a bordered block between Command
