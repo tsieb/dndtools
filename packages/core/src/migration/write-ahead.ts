@@ -131,6 +131,20 @@ export function recoverFromJournal(entry: MigrationJournalEntry | null): Recover
 				reason: 'Migration was already rolled back; clearing write-ahead journal.',
 			};
 	}
+	// Fail closed: the journal is read from disk, so an unrecognized/corrupt/forged phase must NOT
+	// fall through and return `undefined` where a RecoveryDecision is promised. Treat an unknown phase
+	// as a possibly-mid-write migration and roll back to the captured snapshot when one exists.
+	return entry.snapshot
+		? {
+				action: 'roll-back',
+				snapshot: entry.snapshot,
+				reason: 'Unrecognized migration journal phase; rolling back to the safety snapshot (fail closed).',
+			}
+		: {
+				action: 'none',
+				snapshot: null,
+				reason: 'Unrecognized migration journal phase and no snapshot to restore.',
+			};
 }
 
 /** Record that a rolled-back snapshot was restored, so a subsequent restart is a no-op. */

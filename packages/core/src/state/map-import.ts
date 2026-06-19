@@ -395,13 +395,25 @@ export function stageMapImport(state: MapState, input: StageMapImportInput): Sta
 	const assetDeduped = asset ? asset.id in state.assets : false;
 	const nextAssets = asset && !assetDeduped ? { ...state.assets, [asset.id]: asset } : state.assets;
 
+	// Resolve the target map id: an explicit existing map, else the deterministic content-addressed id
+	// (asset checksum) or name slug, so two imports of the SAME file resolve to the SAME id.
+	const targetMapId =
+		input.mapId && state.maps[input.mapId]
+			? input.mapId
+			: asset
+				? `map-import-${asset.checksum}`
+				: `map-import-${(input.mapName ?? 'imported').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+	const existing = state.maps[targetMapId];
+
 	let mapId: string;
 	let mapCreated: boolean;
 	let nextMaps: Record<string, MapEntity>;
 
-	if (input.mapId && state.maps[input.mapId]) {
-		// Attach to an existing map: add the asset reference (deduped) and bump the revision.
-		const existing = state.maps[input.mapId]!;
+	if (existing) {
+		// Attach to an EXISTING map — whether the caller named it explicitly OR a re-import of the same
+		// file resolved to the same deterministic id. NEVER clobber the map's annotations: add the
+		// (deduped) asset reference and bump the revision. This makes re-importing the same file
+		// idempotent instead of wiping the existing layers/POIs/routes/fog/tokens (data loss).
 		mapId = existing.id;
 		mapCreated = false;
 		const assetIds =
@@ -416,12 +428,8 @@ export function stageMapImport(state: MapState, input: StageMapImportInput): Sta
 		};
 		nextMaps = { ...state.maps, [mapId]: updated };
 	} else {
-		// Create a fresh imported map. The id is derived from the asset checksum when present (stable),
-		// else from a name slug, so two imports of the same file land on the same map id deterministically.
-		const slug = asset
-			? `map-import-${asset.checksum}`
-			: `map-import-${(input.mapName ?? 'imported').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-		mapId = slug;
+		// Create a fresh imported map at the resolved deterministic id.
+		mapId = targetMapId;
 		mapCreated = true;
 		// `normalizeMapEntity` fills the annotation lists (empty) + overlay defaults so a freshly imported
 		// map starts with no POIs/routes/fog/tokens (MAP-010..019) without hand-rolling those fields.

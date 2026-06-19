@@ -168,6 +168,12 @@ export interface McpAuditEntry {
 	mode: 'staged' | 'direct' | 'denied';
 	/** The staged proposal id when `mode` is `staged`; null otherwise. */
 	proposalId: string | null;
+	/**
+	 * Whether this entry is SURFACED in the (player/agent-facing) audit feed, from the agent's
+	 * `auditVisible` policy. The entry is ALWAYS recorded for the DM trail (MCP-011 AC2) regardless;
+	 * this flag only governs visibility, never whether the attribution exists.
+	 */
+	visible: boolean;
 	recordedAt: string;
 }
 
@@ -301,7 +307,10 @@ export function ensureMcpPolicyState(state: PersistedMcpPolicyState | undefined)
 		if (ensured) proposals[id] = ensured;
 	}
 	const auditEntries: McpAuditEntry[] = Array.isArray(state?.auditEntries)
-		? state.auditEntries.filter((e): e is McpAuditEntry => Boolean(e && e.id))
+		? state.auditEntries
+				.filter((e): e is McpAuditEntry => Boolean(e && e.id))
+				// Backward-compat: entries persisted before the `visible` flag default to visible.
+				.map((e) => ({ ...e, visible: e.visible !== false }))
 		: [];
 	return {
 		// MCP-001 — fail closed to OFF: ONLY a persisted literal `true` enables MCP. An absent flag (an older

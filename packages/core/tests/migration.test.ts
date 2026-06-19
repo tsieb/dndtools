@@ -193,6 +193,17 @@ describe('PLAT-008 write-ahead recovery (AC2: restart restores a consistent stat
 		expect(recoverFromJournal(null).action).toBe('none');
 	});
 
+	it('fails closed on a corrupt/forged journal phase (no undefined fall-through)', () => {
+		// The journal is read from disk, so an unrecognized phase must NOT fall through the switch and
+		// return `undefined` where a RecoveryDecision is promised. Treat it as possibly mid-write and roll
+		// back to the captured snapshot.
+		const corrupt = { ...markCommitting(begin()), phase: 'totally-bogus' as never };
+		const decision = recoverFromJournal(corrupt);
+		expect(decision).toBeDefined();
+		expect(decision.action).toBe('roll-back');
+		expect(decision.snapshot?.id).toBe('snap-1');
+	});
+
 	it('roll-back snapshot restores integrity consistency end to end', () => {
 		// Simulate: mid-write corruption (session document gone), recover via snapshot.
 		const inFlight = markCommitting(begin());

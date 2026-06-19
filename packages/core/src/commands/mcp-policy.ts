@@ -411,6 +411,8 @@ export function handleApproveMcpProposal(
 		toolId: proposal.toolId,
 		mode: 'staged',
 		proposalId: proposal.id,
+		// A DM-approved write is always visible in the audit feed (the DM authorized it).
+		visible: true,
 		recordedAt: now,
 	};
 	const nextMcp = appendAuditEntry(

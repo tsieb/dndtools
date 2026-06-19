@@ -193,14 +193,15 @@ export function invokeMcpToolAsAgent(
 		const result = invokeMcpTool(state, env, registry, toolInvocation);
 		if (result.status === 'write' && result.commandResult.status === 'accepted') {
 			const committedState = result.commandResult.nextState;
-			const audited = identity.auditVisible
-				? recordDirectAudit(committedState, env, {
-						agentId: invocation.agentId,
-						actorId: identity.actorId,
-						policyMode: identity.policyMode,
-						toolId: invocation.toolId,
-					})
-				: committedState;
+			// MCP-011 AC2 — the attribution is ALWAYS recorded for the DM audit trail; `auditVisible`
+			// only governs whether the entry is surfaced in the visible feed (its `visible` flag).
+			const audited = recordDirectAudit(committedState, env, {
+				agentId: invocation.agentId,
+				actorId: identity.actorId,
+				policyMode: identity.policyMode,
+				toolId: invocation.toolId,
+				visible: identity.auditVisible,
+			});
 			return { result, nextState: audited };
 		}
 		// A rejected direct write made no durable mutation; pass the envelope through unchanged.
@@ -258,6 +259,7 @@ export function invokeMcpToolAsAgent(
 		value: { proposalId, toolId: invocation.toolId, commandType: tool.commandType },
 	});
 
+	// MCP-011 AC2 — always record the staged-write attribution; `auditVisible` only sets `visible`.
 	const auditEntry: McpAuditEntry = {
 		id: env.ids(),
 		agentId: invocation.agentId,
@@ -266,6 +268,7 @@ export function invokeMcpToolAsAgent(
 		toolId: invocation.toolId,
 		mode: 'staged',
 		proposalId,
+		visible: identity.auditVisible,
 		recordedAt: now,
 	};
 
@@ -275,9 +278,7 @@ export function invokeMcpToolAsAgent(
 		mcp: {
 			...state.mcp,
 			proposals: { ...state.mcp.proposals, [proposalId]: proposal },
-			auditEntries: identity.auditVisible
-				? [...state.mcp.auditEntries, auditEntry]
-				: state.mcp.auditEntries,
+			auditEntries: [...state.mcp.auditEntries, auditEntry],
 		},
 	};
 
