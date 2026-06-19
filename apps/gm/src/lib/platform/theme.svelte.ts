@@ -18,8 +18,8 @@ import { getContext, setContext } from 'svelte';
  * so GUI components consume it through the provided context rather than touching host globals.
  */
 
-/** Applied theme = one of the five named themes shipped in the stylesheet. */
-export const NAMED_THEMES = ['tavern', 'parchment', 'dungeon', 'scholar', 'high-contrast'] as const;
+/** Applied theme = one of the three named themes shipped in the stylesheet. */
+export const NAMED_THEMES = ['tavern', 'parchment', 'high-contrast'] as const;
 export type AppliedTheme = (typeof NAMED_THEMES)[number];
 
 /** User-selectable preferences: the five named themes plus `system` (follow OS). */
@@ -29,7 +29,7 @@ export type ThemePreference = (typeof THEME_PREFERENCES)[number];
 export const DEFAULT_THEME_PREFERENCE: ThemePreference = 'system';
 
 /** Themes that resolve to a dark `color-scheme` (used for the OS `system` mapping + scheme hint). */
-const DARK_THEMES = new Set<AppliedTheme>(['tavern', 'dungeon', 'high-contrast']);
+const DARK_THEMES = new Set<AppliedTheme>(['tavern', 'high-contrast']);
 
 export interface ThemeOption {
 	readonly id: ThemePreference;
@@ -41,10 +41,8 @@ export interface ThemeOption {
 
 export const THEME_OPTIONS: readonly ThemeOption[] = [
 	{ id: 'system', label: 'System', description: 'Match the operating system', swatch: '#888888' },
-	{ id: 'tavern', label: 'Tavern', description: 'Dark, warm (default)', swatch: '#d4a76a' },
-	{ id: 'parchment', label: 'Parchment', description: 'Light, warm', swatch: '#7c3d12' },
-	{ id: 'dungeon', label: 'Dungeon', description: 'Dark, cool', swatch: '#00d2ff' },
-	{ id: 'scholar', label: 'Scholar', description: 'Light, cool', swatch: '#1e3a8a' },
+	{ id: 'tavern', label: 'Tavern', description: 'Dark, warm (default)', swatch: '#e0b06f' },
+	{ id: 'parchment', label: 'Parchment', description: 'Light, warm', swatch: '#9a5418' },
 	{
 		id: 'high-contrast',
 		label: 'High contrast',

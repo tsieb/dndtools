@@ -18,16 +18,14 @@ describe('theme resolution helpers', () => {
 	});
 
 	it('passes named themes through unchanged', () => {
-		expect(resolveAppliedTheme('dungeon', false)).toBe('dungeon');
+		expect(resolveAppliedTheme('parchment', true)).toBe('parchment');
 		expect(resolveAppliedTheme('high-contrast', true)).toBe('high-contrast');
 	});
 
 	it('classifies dark vs light themes', () => {
 		expect(isDarkTheme('tavern')).toBe(true);
-		expect(isDarkTheme('dungeon')).toBe(true);
 		expect(isDarkTheme('high-contrast')).toBe(true);
 		expect(isDarkTheme('parchment')).toBe(false);
-		expect(isDarkTheme('scholar')).toBe(false);
 	});
 });
 
@@ -41,7 +39,7 @@ describe('ThemeStore', () => {
 		document.documentElement.removeAttribute('data-theme');
 	});
 
-	it('defaults to system and offers system + five named themes', () => {
+	it('defaults to system and offers system + three named themes', () => {
 		const store = new ThemeStore();
 		expect(store.preference).toBe(DEFAULT_THEME_PREFERENCE);
 		expect(store.preference).toBe('system');
@@ -49,22 +47,20 @@ describe('ThemeStore', () => {
 			'system',
 			'tavern',
 			'parchment',
-			'dungeon',
-			'scholar',
 			'high-contrast',
 		]);
-		expect(THEME_OPTIONS).toHaveLength(6);
+		expect(THEME_OPTIONS).toHaveLength(4);
 	});
 
 	it('applies a named theme to <html>, persists it, and announces (UX-VIS-001)', () => {
 		const store = new ThemeStore();
-		store.setPreference('dungeon');
-		expect(store.preference).toBe('dungeon');
-		expect(store.appliedTheme).toBe('dungeon');
-		expect(document.documentElement.getAttribute('data-theme')).toBe('dungeon');
+		store.setPreference('high-contrast');
+		expect(store.preference).toBe('high-contrast');
+		expect(store.appliedTheme).toBe('high-contrast');
+		expect(document.documentElement.getAttribute('data-theme')).toBe('high-contrast');
 		expect(document.documentElement.style.colorScheme).toBe('dark');
-		expect(window.localStorage.getItem('dndtools:v2:theme')).toBe('dungeon');
-		expect(store.announcement).toBe('Theme changed to Dungeon');
+		expect(window.localStorage.getItem('dndtools:v2:theme')).toBe('high-contrast');
+		expect(store.announcement).toBe('Theme changed to High contrast');
 	});
 
 	it('sets a light color-scheme for light themes', () => {
@@ -81,11 +77,11 @@ describe('ThemeStore', () => {
 	});
 
 	it('rehydrates a persisted preference on init', () => {
-		window.localStorage.setItem('dndtools:v2:theme', 'scholar');
+		window.localStorage.setItem('dndtools:v2:theme', 'parchment');
 		const store = new ThemeStore();
 		const stop = store.init();
-		expect(store.preference).toBe('scholar');
-		expect(document.documentElement.getAttribute('data-theme')).toBe('scholar');
+		expect(store.preference).toBe('parchment');
+		expect(document.documentElement.getAttribute('data-theme')).toBe('parchment');
 		stop();
 	});
 });

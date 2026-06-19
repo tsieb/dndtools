@@ -228,7 +228,7 @@
 	.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 	.journal { display: flex; flex-direction: column; gap: var(--space-3); }
 	.journal__head { display: flex; flex-direction: column; gap: var(--space-2); }
-	.journal__head h2 { margin: 0; }
+	.journal__head h2 { margin: 0; font-family: var(--font-display); font-weight: var(--font-weight-bold); font-size: var(--text-lg); color: var(--color-text-primary); letter-spacing: var(--tracking-tight); }
 	.journal__filters { display: flex; gap: var(--space-1); flex-wrap: wrap; }
 	.filter {
 		padding: var(--space-1) var(--space-3);
@@ -245,10 +245,10 @@
 	.journal__empty { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
 	.journal__characters { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-4); }
 	.jchar { display: flex; flex-direction: column; gap: var(--space-2); }
-	.jchar__name { margin: 0; font-size: var(--text-md); }
+	.jchar__name { margin: 0; font-family: var(--font-display); font-weight: var(--font-weight-bold); font-size: var(--text-md); color: var(--color-text-primary); }
 	.jchar__none { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
 	.entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
-	.entry { padding: var(--space-2) var(--space-3); background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+	.entry { padding: var(--space-2) var(--space-3); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
 	.entry__head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 	.entry__title { color: var(--color-text-primary); }
 	.entry__body { margin: var(--space-1) 0 0; color: var(--color-text-secondary); font-size: var(--text-sm); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

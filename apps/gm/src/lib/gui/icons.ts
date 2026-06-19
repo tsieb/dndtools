@@ -47,7 +47,17 @@ import Sun from '@lucide/svelte/icons/sun';
 import Accessibility from '@lucide/svelte/icons/accessibility';
 import Pin from '@lucide/svelte/icons/pin';
 import Clock from '@lucide/svelte/icons/clock';
+import Dices from '@lucide/svelte/icons/dices';
 import Layers from '@lucide/svelte/icons/layers';
+// Maps — layer-type glyphs (UX-MAP-005): one distinct Lucide shape per layer category so the
+// type reads without colour (A11Y-011 non-colour cue), paired with the visible badge label.
+import Mountain from '@lucide/svelte/icons/mountain';
+import Spline from '@lucide/svelte/icons/spline';
+import Waypoints from '@lucide/svelte/icons/waypoints';
+import MapPin from '@lucide/svelte/icons/map-pin';
+import CloudFog from '@lucide/svelte/icons/cloud-fog';
+import PencilLine from '@lucide/svelte/icons/pencil-line';
+import UsersRound from '@lucide/svelte/icons/users-round';
 
 /** A Lucide glyph rendered by `Icon.svelte`. */
 export type LucideIconComponent = Component<LucideProps>;
@@ -80,6 +90,8 @@ export const ICON_REGISTRY = {
 	'campaign-scroll': Scroll,
 	'knowledge-book': BookOpen,
 	'settings-gear': Settings,
+	// --- Brand mark (the gold dice chip in the top-bar wordmark) ---
+	dice: Dices,
 	// --- Status (each a distinct shape so meaning survives grayscale; A11Y-011) ---
 	success: CircleCheck,
 	warning: TriangleAlert,
@@ -114,6 +126,15 @@ export const ICON_REGISTRY = {
 	density: Gauge,
 	theme: Sun,
 	accessibility: Accessibility,
+	// --- Maps — layer-type glyphs (UX-MAP-005). One distinct shape per layer category drives the
+	// type badge alongside its hue + label, so the type survives grayscale (never colour alone). ---
+	'layer-base': Mountain,
+	'layer-height': Spline,
+	'layer-roads': Waypoints,
+	'layer-poi': MapPin,
+	'layer-fog': CloudFog,
+	'layer-dm': PencilLine,
+	'layer-player': UsersRound,
 } satisfies Record<string, LucideIconComponent>;
 
 export type IconName = keyof typeof ICON_REGISTRY;

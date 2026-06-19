@@ -233,7 +233,15 @@
 				>
 					Bring to front
 				</button>
-				{#if !locked && onRemove}
+				{#if locked}
+					<!-- Core widget (redesign §5 tiered inspector): content is locked — only name,
+					     visibility and size are editable, and there is no remove. The note makes the
+					     missing Remove legible rather than silently absent. -->
+					<p class="props-locked-note" data-testid="props-locked-note">
+						<span class="props-locked-icon" aria-hidden="true">🔒</span>
+						Core widget — content is locked. You can still rename, set visibility, and resize it.
+					</p>
+				{:else if onRemove}
 					<button
 						type="button"
 						class="props-action is-danger"
@@ -557,5 +565,22 @@
 	.props-action.is-danger {
 		color: var(--color-status-error-text);
 		border-color: var(--color-status-error);
+	}
+	.props-locked-note {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--space-2);
+		margin: 0;
+		padding: var(--space-2) var(--space-3);
+		font-size: var(--text-2xs);
+		line-height: 1.4;
+		color: var(--color-text-secondary);
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+	}
+	.props-locked-icon {
+		flex: 0 0 auto;
+		font-size: var(--text-xs);
 	}
 </style>

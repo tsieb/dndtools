@@ -204,7 +204,7 @@
 		flex-direction: column;
 		gap: var(--space-3);
 	}
-	.adv__head h2 { margin: 0; }
+	.adv__head h2 { margin: 0; font-family: var(--font-display); font-weight: var(--font-weight-bold); font-size: var(--text-lg); color: var(--color-text-primary); letter-spacing: var(--tracking-tight); }
 	.adv__sub, .adv__empty { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
 	.adv__error { margin: 0; color: var(--color-status-error-text); font-size: var(--text-sm); }
 	.adv-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
@@ -215,9 +215,10 @@
 		gap: var(--space-3);
 		flex-wrap: wrap;
 		padding: var(--space-3);
-		background: var(--color-surface-raised);
+		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-sm);
 	}
 	.adv-card__main { display: flex; flex-direction: column; gap: var(--space-0-5); min-width: 0; }
 	.adv-card__name { font-size: var(--text-md); }

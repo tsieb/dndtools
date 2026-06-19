@@ -56,7 +56,7 @@
 	{:else}
 		<ul class="nested-list" data-testid="nested-list">
 			{#each embeds as embed (embed.embedId)}
-				<li class="nested-item" data-testid={`nested-${embed.embedId}`}>
+				<li class="nested-item" data-kind={embed.kind} data-testid={`nested-${embed.embedId}`}>
 					{#if embed.kind === 'available'}
 						<div class="nested-row">
 							<span class="nested-name" data-testid={`nested-name-${embed.embedId}`}>
@@ -143,6 +143,15 @@
 		background: var(--color-surface-raised);
 		border-radius: var(--radius-md);
 		padding: var(--space-2) var(--space-3);
+	}
+	/* UX-MAP-008 — an openable nested area reads as a map thumbnail: a faint warm tactical grid
+	   (--map-grid-line) laid over the surface. Low-alpha, decorative, so body text keeps full
+	   contrast; the solid --map-canvas-bg fill is left to the deferred canvas renderer. */
+	.nested-item[data-kind='available'] {
+		background-image:
+			linear-gradient(var(--map-grid-line) 1px, transparent 1px),
+			linear-gradient(90deg, var(--map-grid-line) 1px, transparent 1px);
+		background-size: 16px 16px;
 	}
 	.nested-row {
 		display: flex;

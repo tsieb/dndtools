@@ -147,16 +147,27 @@
 {/if}
 
 <style>
+	/* Tier-3 "status strip": calmer than the tool cards (flat surface-alt fill, denser padding,
+	   smaller title) — matches the package's session-live side panels. */
 	.cwrap {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
+		padding: var(--space-4);
+		background: var(--color-surface-alt);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
 	}
-	.cwrap :global(h2),
+	.cwrap :global(h2) {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: var(--text-base);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
 	.cwrap :global(h3) {
 		margin: 0;
-	}
-	.cwrap :global(h3) {
 		font-size: var(--text-md);
 	}
 	.meta {
@@ -189,6 +200,26 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-sm);
 		cursor: pointer;
+	}
+	.cwrap :global(select),
+	.cwrap :global(input:not([type='checkbox'])) {
+		min-height: var(--touch-target-min);
+		padding: var(--space-1-5) var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+	}
+	.sim {
+		padding: var(--space-3);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.sim legend {
+		padding: 0 var(--space-1);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-secondary);
 	}
 	.presence-list {
 		list-style: none;

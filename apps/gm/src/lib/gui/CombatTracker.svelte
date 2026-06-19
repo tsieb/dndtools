@@ -527,7 +527,7 @@
 					<option value={encounter.id}>{encounter.title} ({encounter.challenge.difficulty})</option>
 				{/each}
 			</select>
-			<button type="submit" data-testid="start-combat" disabled={!sessionActive}>Roll initiative</button>
+			<button type="submit" class="button secondary" data-testid="start-combat" disabled={!sessionActive}>Roll initiative</button>
 		</form>
 	{/if}
 
@@ -539,7 +539,7 @@
 			{#if controls.canAdvanceTurn}
 				<button
 					type="button"
-					class="prev-turn"
+					class="button secondary prev-turn"
 					data-testid="previous-turn"
 					aria-label="Return to previous turn (Shift+Space)"
 					aria-keyshortcuts="Shift+Space"
@@ -581,6 +581,7 @@
 				<!-- UX-SES-008 — "Add +" lives in the tracker header (DM-only; players never see it). -->
 				<button
 					type="button"
+					class="button secondary"
 					data-testid="add-combatant-open"
 					aria-label="Add combatant"
 					onclick={() => (addOpen = true)}
@@ -589,7 +590,12 @@
 				</button>
 			{/if}
 			{#if controls.canEndCombat && view.status === 'running'}
-				<button type="button" data-testid="end-combat" onclick={() => void endCombat()}>
+				<button
+					type="button"
+					class="button ghost end-combat"
+					data-testid="end-combat"
+					onclick={() => void endCombat()}
+				>
 					End combat
 				</button>
 			{/if}
@@ -597,6 +603,7 @@
 				<!-- UX-SES-001 AC1 — Pause session, visible in the tracker header without scrolling. -->
 				<button
 					type="button"
+					class="button ghost"
 					data-testid="combat-pause-session"
 					aria-label="Pause session"
 					onclick={() => void pauseSession()}
@@ -980,11 +987,59 @@
 </Dialog>
 
 <style>
+	/* EMPHASIS TARGET — combat is the Session section's single primary focus, so the tracker reads as
+	   the accent "hero" card: accent-subtle fill, accent border, raised elevation (matches the
+	   package's <Card accent elevation="raised">). Every other session panel recedes to a calmer
+	   surface-raised card, giving the page one clear focal point. */
+	[data-testid='combat-tracker'] {
+		display: block;
+		padding: var(--space-5);
+		background: var(--color-accent-subtle);
+		border: 1px solid var(--color-accent-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-md);
+	}
+
+	[data-testid='combat-tracker'] > h2 {
+		margin: 0 0 var(--space-4);
+		font-family: var(--font-display);
+		font-size: var(--text-lg);
+		font-weight: var(--font-weight-bold);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
+
+	.encounter-log h3 {
+		margin: var(--space-4) 0 var(--space-2);
+		font-family: var(--font-display);
+		font-size: var(--text-base);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-primary);
+	}
+
+	/* Idle (pre-combat) "Run encounter" form sitting on the accent hero — token-styled select so it
+	   doesn't fall back to a raw UA control against the accent surface. */
+	.start-combat {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2);
+		margin-bottom: var(--space-3);
+	}
+	.start-combat select {
+		min-height: var(--density-input-height);
+		padding: var(--space-1-5) var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-sm);
+	}
+
 	.error {
-		color: var(--color-danger, #b00020);
+		color: var(--color-status-error);
 	}
 	.meta {
-		color: var(--color-text-muted, #666);
+		color: var(--color-text-secondary);
 	}
 
 	/* UX-SES-006 — the spatially stable header strip: sticky, never scrolls out of view. */
@@ -1025,6 +1080,13 @@
 		min-width: 80px;
 	}
 
+	/* End combat reads as a low-emphasis but clearly destructive affordance (ghost + error tint),
+	   matching the package's error-toned "End combat" action — pushed to the trailing edge. */
+	.end-combat {
+		margin-left: auto;
+		color: var(--color-status-error-text);
+	}
+
 	:global(.app-shell[data-viewport='medium']) .tracker-header {
 		min-height: 60px;
 	}
@@ -1048,10 +1110,11 @@
 
 	/* UX-SES-003 — scoreboard rows: ≥52 px Desktop, 60 px Tablet, 64 px Mobile. */
 	.initiative-order li {
-		border: 1px solid var(--color-border, #ddd);
+		border: 1px solid var(--color-border);
 		border-left: 4px solid transparent;
-		border-radius: var(--radius-2, 0.5rem);
-		padding: var(--space-2, 0.5rem);
+		border-radius: var(--radius-md);
+		padding: var(--space-2);
+		background: var(--color-surface);
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--space-2, 0.5rem);
@@ -1070,6 +1133,7 @@
 		align-items: center;
 		justify-content: center;
 		min-width: 2.5rem;
+		font-family: var(--font-mono);
 		font-variant-numeric: tabular-nums;
 		font-weight: 600;
 		color: var(--color-text-secondary, #888);
@@ -1080,6 +1144,7 @@
 	}
 
 	.hp {
+		font-family: var(--font-mono);
 		font-variant-numeric: tabular-nums;
 	}
 	.hp-current {
@@ -1087,7 +1152,7 @@
 		font-weight: 700;
 	}
 	.hp-max {
-		color: var(--color-text-muted, #666);
+		color: var(--color-text-secondary);
 	}
 
 	/* UX-SES-005 — the HP number IS the tap target (≥44 px); visually it reads as the HP cell with
@@ -1098,7 +1163,7 @@
 		padding: var(--space-1) var(--space-2);
 		min-height: 44px;
 		cursor: pointer;
-		border-radius: var(--radius-1, 0.25rem);
+		border-radius: var(--radius-sm);
 	}
 	.hp-tap .hp {
 		text-decoration: underline dotted;
@@ -1112,9 +1177,10 @@
 	/* UX-SES-004 — current-turn emphasis: ≥3 simultaneous dimensions (4 px live left border,
 	   elevated background, bold name + larger HP) + the "▶ Active" chip + aria-current. */
 	.initiative-order li.active {
-		border-color: var(--color-accent, #3b82f6);
+		border-color: var(--color-accent);
 		border-left: 4px solid var(--color-status-success);
-		background: var(--color-surface-raised, #f5f8ff);
+		background: var(--color-surface-overlay);
+		box-shadow: var(--shadow-sm);
 	}
 	.initiative-order li.active .name {
 		font-weight: 700;
@@ -1136,15 +1202,16 @@
 	}
 
 	.badge {
-		font-size: 0.75rem;
-		background: var(--color-accent, #3b82f6);
-		color: #fff;
-		border-radius: var(--radius-1, 0.25rem);
-		padding: 0 var(--space-1, 0.25rem);
+		font-size: var(--text-xs);
+		background: var(--color-accent);
+		color: var(--color-accent-foreground);
+		border-radius: var(--radius-sm);
+		padding: 0 var(--space-1);
 	}
 	/* A11Y-007 AC2: bloodied badge has a distinct shape+text so the state is never color-only. */
 	.badge.bloodied {
-		background: var(--color-danger, #b00020);
+		background: var(--color-status-error);
+		color: var(--color-text-inverse);
 	}
 	/* A11Y-011 AC2: concentrating and defeated badges convey state by distinct text labels +
 	   shape, so the states are never communicated by color alone. */
@@ -1228,8 +1295,8 @@
 	}
 	.ds-label,
 	.ds-set-label {
-		font-size: var(--text-xs, 0.75rem);
-		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+		color: var(--color-text-secondary);
 	}
 	.ds-set {
 		display: inline-flex;
@@ -1241,7 +1308,7 @@
 		min-height: 44px;
 	}
 	.ds-box.failure {
-		color: var(--color-danger, #b00020);
+		color: var(--color-status-error);
 	}
 	.ds-box.success {
 		color: var(--color-status-success);

@@ -233,6 +233,11 @@
 	}
 	.qc__head h2 {
 		margin: 0;
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-lg);
+		color: var(--color-text-primary);
+		letter-spacing: var(--tracking-tight);
 	}
 	.qc__sub {
 		margin: var(--space-1) 0 0;

@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CSS = readFileSync(resolve(HERE, '..', '..', 'src', 'routes', 'styles.css'), 'utf8');
 
-const NAMED_THEMES = ['tavern', 'parchment', 'dungeon', 'scholar', 'high-contrast'] as const;
+const NAMED_THEMES = ['tavern', 'parchment', 'high-contrast'] as const;
 
 const REQUIRED_COLOR_TOKENS = [
 	'--color-bg',
@@ -112,7 +112,7 @@ function declarations(property: string): string[] {
 }
 
 describe('UX-VIS design tokens — theme matrix', () => {
-	it('defines all five named themes', () => {
+	it('defines all three named themes', () => {
 		for (const theme of NAMED_THEMES) {
 			expect(() => themeBlock(theme), theme).not.toThrow();
 		}

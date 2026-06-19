@@ -283,7 +283,7 @@
 					</select>
 				</label>
 			</div>
-			<button type="submit" data-testid="create-map-submit" disabled={busy || !mapName.trim()}>
+			<button type="submit" class="button" data-testid="create-map-submit" disabled={busy || !mapName.trim()}>
 				Create map
 			</button>
 		</form>
@@ -345,7 +345,7 @@
 				</fieldset>
 			{/if}
 
-			<button type="submit" data-testid="import-preview-submit" disabled={busy}>Preview import</button>
+			<button type="submit" class="button secondary" data-testid="import-preview-submit" disabled={busy}>Preview import</button>
 		</form>
 
 		<!-- MAP-020: the preview surface. The transaction is staged here; nothing is committed yet. -->
@@ -354,7 +354,7 @@
 				<h3>Import preview</h3>
 				{#if !preview.ok}
 					<p class="error" role="alert" data-testid="import-preview-error">{preview.message}</p>
-					<button type="button" data-testid="import-cancel" onclick={cancelImport}>Dismiss</button>
+					<button type="button" class="button secondary" data-testid="import-cancel" onclick={cancelImport}>Dismiss</button>
 				{:else}
 					{#if preview.capabilitySummary}
 						<div data-testid="import-capability-summary">
@@ -388,10 +388,10 @@
 						</p>
 					{/if}
 					<div class="row">
-						<button type="button" data-testid="import-commit" onclick={commitImport} disabled={busy}>
+						<button type="button" class="button" data-testid="import-commit" onclick={commitImport} disabled={busy}>
 							Commit import
 						</button>
-						<button type="button" data-testid="import-cancel" onclick={cancelImport} disabled={busy}>
+						<button type="button" class="button secondary" data-testid="import-cancel" onclick={cancelImport} disabled={busy}>
 							Cancel (rollback)
 						</button>
 					</div>
@@ -402,68 +402,150 @@
 {/if}
 
 <style>
+	/* MAP-001/002/020 — the DM authoring + safe-import card. Reads as a supporting panel (flat
+	   surface, eyebrow sub-headings) under the library, with the package form-control treatment. */
 	.authoring {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
-		padding: 1rem;
-		border: 1px solid var(--color-border, #d0d0d0);
-		border-radius: 0.5rem;
+		gap: var(--space-4);
+		padding: var(--space-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	.authoring > h2 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: var(--text-lg);
+		letter-spacing: var(--tracking-tight);
+	}
+	.authoring h3 {
+		margin: 0;
+		font-size: var(--text-xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--tracking-wider);
+		text-transform: uppercase;
+		/* Secondary, not tertiary: this small uppercase heading sits on the flat panel bg where
+		   tertiary parchment ink is < 4.5:1 (axe color-contrast). Secondary clears it. */
+		color: var(--color-text-secondary);
+	}
+	.authoring h4 {
+		margin: 0;
+		font-size: var(--text-sm);
+		color: var(--color-text-primary);
 	}
 	.block {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
-		padding-bottom: 0.75rem;
-		border-bottom: 1px solid var(--color-border, #e5e5e5);
+		gap: var(--space-2);
+		padding-bottom: var(--space-3);
+		border-bottom: 1px solid var(--color-border);
 	}
 	.row {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.75rem;
+		gap: var(--space-3);
 	}
 	label {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
-		font-size: 0.9rem;
+		gap: var(--space-1);
+		font-size: var(--text-sm);
+		color: var(--color-text-secondary);
 	}
 	label.element {
 		flex-direction: row;
 		align-items: center;
-		gap: 0.35rem;
+		gap: var(--space-1-5);
+	}
+	/* A label that directly wraps a radio/checkbox lays out inline (control beside its text). */
+	.authoring label:has(input[type='radio']),
+	.authoring label:has(input[type='checkbox']) {
+		flex-direction: row;
+		align-items: center;
+		gap: var(--space-1-5);
+	}
+	/* Package Input / Select treatment: sunken field, strong resting border firming to the focus
+	   token on keyboard focus (the global :focus-visible baseline still draws the gold ring). */
+	.authoring input:not([type='radio']):not([type='checkbox']),
+	.authoring select {
+		min-height: var(--density-input-height);
+		padding: var(--component-input-py) var(--component-input-px);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-sm);
+		font: inherit;
+	}
+	.authoring input:focus-visible,
+	.authoring select:focus-visible {
+		border-color: var(--color-border-focus);
+	}
+	.authoring fieldset {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2) var(--space-4);
+		margin: 0;
+		padding: var(--space-2) var(--space-3);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.authoring legend {
+		padding: 0 var(--space-1);
+		font-size: var(--text-xs);
+		letter-spacing: var(--tracking-wide);
+		text-transform: uppercase;
+		/* Secondary, not tertiary: small uppercase legend on the flat panel bg needs >= 4.5:1
+		   (axe color-contrast); tertiary parchment ink falls short. */
+		color: var(--color-text-secondary);
 	}
 	.meta {
-		font-size: 0.85rem;
-		color: var(--color-text-muted, #555);
+		font-size: var(--text-sm);
+		color: var(--color-text-secondary);
 	}
 	.warn {
-		color: #8a5a00;
+		color: var(--color-status-warning-text);
 	}
 	.error {
-		color: #a40000;
-		font-weight: 600;
+		color: var(--color-status-error-text);
+		font-weight: var(--font-weight-semibold);
 	}
 	.diagnostics {
 		list-style: none;
 		padding: 0;
-		margin: 0.25rem 0;
+		margin: var(--space-1) 0;
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
+		gap: var(--space-1);
+	}
+	/* MAP-020 — per-element import diagnostics carry the status hue beside the printed support word
+	   (importable / lossy / unsupported), mirroring the ImportWizard support legend; colour is never
+	   the sole signal. */
+	.diagnostics li[data-support='importable'] {
+		color: var(--color-status-success-text);
 	}
 	.diagnostics li[data-support='unsupported'] {
-		color: #a40000;
+		color: var(--color-status-error-text);
 	}
 	.diagnostics li[data-support='lossy'] {
-		color: #8a5a00;
+		color: var(--color-status-warning-text);
 	}
-	button {
+	/* MAP-020 — the staged import preview reads as a sunken inset transaction surface. */
+	.preview {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-3);
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.authoring button {
 		align-self: flex-start;
-		padding: 0.4rem 0.8rem;
-		cursor: pointer;
 	}
 	code {
-		font-size: 0.8rem;
+		font-size: var(--text-xs);
+		font-family: var(--font-mono);
 	}
 </style>

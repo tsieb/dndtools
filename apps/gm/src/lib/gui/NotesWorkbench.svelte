@@ -380,34 +380,39 @@
      status transitions. -->
 <div class="visually-hidden" aria-live="polite" aria-atomic="true" data-testid="note-save-announcement">{saveAnnouncement}</div>
 
-<section data-testid="notes-workbench" aria-label="Notes">
-	<h2>Notes</h2>
-	<p class="meta">
-		Markdown notes are the primary content unit of the vault. Search, read, and (for an authorized
-		editor) create, edit, delete, and restore notes. Players only ever see notes their visibility
-		permits.
-	</p>
+<section data-testid="notes-workbench" aria-label="Notes" class="workbench">
+	<header class="workbench__head">
+		<h2 class="workbench__title">Notes</h2>
+		<p class="meta">
+			Markdown notes are the primary content unit of the vault. Search, read, and (for an authorized
+			editor) create, edit, delete, and restore notes. Players only ever see notes their visibility
+			permits.
+		</p>
 
-	{#if editorError}
-		<p class="meta" role="alert" data-testid="notes-error">{editorError}</p>
-	{/if}
+		{#if editorError}
+			<p class="meta" role="alert" data-testid="notes-error">{editorError}</p>
+		{/if}
+	</header>
 
-	<!-- CONTENT-001: actor-filtered search -->
-	<label>
-		Search notes
-		<input
-			data-testid="notes-search"
-			type="search"
-			bind:value={searchQuery}
-			autocomplete="off"
-			placeholder="Search titles and body…"
-		/>
-	</label>
+	<div class="workbench__panes">
+		<!-- LEFT RAIL: search, the note list, and the new-note form. -->
+		<div class="workbench__rail">
+			<!-- CONTENT-001: actor-filtered search -->
+			<label class="rail-search">
+				<span class="rail-search__label">Search notes</span>
+				<input
+					data-testid="notes-search"
+					type="search"
+					bind:value={searchQuery}
+					autocomplete="off"
+					placeholder="Search titles and body…"
+				/>
+			</label>
 
 	{#if searchHits.length === 0}
 		<p class="meta" data-testid="notes-empty">No notes match your search.</p>
 	{:else}
-		<ul class="scene-list" data-testid="notes-list">
+		<ul class="scene-list note-list" data-testid="notes-list">
 			{#each searchHits as hit (hit.item.id)}
 				<!-- UX-PERM-007: the ambient visibility badge, resolved through the DM-only core
 				     choke point — null for a player/observer, so their rows carry NO badge and no
@@ -419,23 +424,31 @@
 					runtime.activeActorId,
 					hit.item.id,
 				)}
-				<li class="scene-card" data-testid={`note-row-${hit.item.id}`}>
-					<button
-						type="button"
-						data-testid={`note-open-${hit.item.id}`}
-						onclick={() => openNote(hit.item.id, hit.item.title, hit.item.body)}
-					>
-						{hit.item.title}
-					</button>
-					{#if badge}
-						<VisibilityBadge {badge} testid={`note-visibility-badge-${hit.item.id}`} />
-					{/if}
+				<li
+					class="scene-card note-row"
+					data-testid={`note-row-${hit.item.id}`}
+					data-selected={selectedId === hit.item.id}
+				>
+					<div class="note-row__head">
+						<button
+							type="button"
+							class="note-row__open"
+							data-testid={`note-open-${hit.item.id}`}
+							onclick={() => openNote(hit.item.id, hit.item.title, hit.item.body)}
+						>
+							{hit.item.title}
+						</button>
+						{#if badge}
+							<VisibilityBadge {badge} testid={`note-visibility-badge-${hit.item.id}`} />
+						{/if}
+					</div>
 					{#if hit.snippet}
-						<div class="meta" data-testid={`note-snippet-${hit.item.id}`}>{hit.snippet.text}</div>
+						<div class="meta note-row__snippet" data-testid={`note-snippet-${hit.item.id}`}>{hit.snippet.text}</div>
 					{/if}
 					{#if canAuthor}
 						<button
 							type="button"
+							class="note-row__delete"
 							data-testid={`note-delete-${hit.item.id}`}
 							onclick={() => deleteNote(hit.item.id)}
 						>
@@ -472,6 +485,15 @@
 			<button type="submit" data-testid="note-create">Create note</button>
 		</form>
 	{/if}
+		</div>
+
+		<!-- MAIN: the dominating editor surface, with a calm placeholder when nothing is open. -->
+		<div class="workbench__main">
+			{#if !selected}
+				<div class="workbench__placeholder">
+					<p class="meta">Select a note from the list to read or edit it — or create a new one to begin.</p>
+				</div>
+			{/if}
 
 	<!-- CONTENT-002: the editor (authorized editor only) -->
 	{#if selected && canAuthor}
@@ -712,6 +734,8 @@
 			{/if}
 		</section>
 	{/if}
+		</div>
+	</div>
 
 	<!-- CONTENT-001: recycle bin (DM-only restore) -->
 	{#if canAuthor && deletedNotes.length > 0}
@@ -732,6 +756,176 @@
 </section>
 
 <style>
+	/* --- Two-pane workbench: a calm note-list rail beside the dominating editor (mockup). --- */
+	.workbench {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-5);
+	}
+	.workbench__head {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+	.workbench__title {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: var(--text-xl);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
+	.workbench__panes {
+		display: grid;
+		grid-template-columns: 320px minmax(0, 1fr);
+		gap: var(--space-4);
+		align-items: start;
+	}
+	/* The note-list rail: a flat card; the editor beside it is the dominating surface. */
+	.workbench__rail {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		padding: var(--space-3);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+		position: sticky;
+		top: var(--space-4);
+		max-height: calc(100vh - var(--space-12));
+		overflow-y: auto;
+	}
+	.workbench__main {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+		min-width: 0;
+	}
+	.workbench__placeholder {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 16rem;
+		padding: var(--space-8);
+		text-align: center;
+		background: var(--color-surface);
+		border: 1px dashed var(--color-border-strong);
+		border-radius: var(--radius-lg);
+	}
+	@media (max-width: 860px) {
+		.workbench__panes {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.workbench__rail {
+			position: static;
+			max-height: none;
+		}
+	}
+
+	/* Rail search field. */
+	.rail-search {
+		display: grid;
+		gap: var(--space-1);
+	}
+	.rail-search__label {
+		font-size: var(--text-xs);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wider);
+		/* Secondary, not tertiary: this small uppercase label sits on the flat page bg where
+		   tertiary parchment ink falls below 4.5:1 (axe color-contrast). Secondary clears it. */
+		color: var(--color-text-secondary);
+	}
+	.rail-search input {
+		width: 100%;
+		padding: var(--component-input-py) var(--component-input-px);
+		min-height: var(--density-input-height);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-sm);
+	}
+	.rail-search input:focus-visible {
+		border-color: var(--color-border-focus);
+	}
+
+	/* Note rows — the mockup NoteRow: left-accent selection, title + chip, snippet, meta. */
+	.note-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-0-5);
+	}
+	.note-row {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		justify-content: flex-start;
+		gap: var(--space-1);
+		padding: var(--space-2) var(--space-3);
+		background: transparent;
+		border: 1px solid transparent;
+		border-left: 3px solid transparent;
+		border-radius: var(--radius-sm);
+		transition: background var(--duration-fast) var(--easing-standard);
+	}
+	.note-row:hover {
+		background: var(--color-interactive-hover);
+	}
+	.note-row[data-selected='true'] {
+		background: var(--color-accent-subtle);
+		border-left-color: var(--color-accent);
+	}
+	.note-row__head {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+	.note-row__open {
+		flex: 1 1 auto;
+		min-width: 0;
+		text-align: left;
+		padding: 0;
+		background: transparent;
+		border: none;
+		color: var(--color-text-primary);
+		font-weight: var(--font-weight-semibold);
+		font-size: var(--text-sm);
+		cursor: pointer;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.note-row__open:hover {
+		color: var(--color-accent);
+	}
+	.note-row__snippet {
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+		font-size: var(--text-xs);
+		line-height: var(--leading-snug);
+		color: var(--color-text-tertiary);
+	}
+	.note-row__delete {
+		align-self: flex-start;
+		padding: var(--space-0-5) var(--space-2);
+		background: transparent;
+		border: 1px solid transparent;
+		border-radius: var(--radius-sm);
+		color: var(--color-text-tertiary);
+		font-size: var(--text-xs);
+		cursor: pointer;
+	}
+	.note-row__delete:hover {
+		color: var(--color-status-error-text);
+		background: var(--color-status-error-subtle);
+	}
+
 	/* UX-GRAPH-009/010 — backlinks + related-note relationships panel. */
 	.relationships {
 		display: flex;
@@ -797,18 +991,25 @@
 		white-space: nowrap;
 		border: 0;
 	}
+	/* The editor is the one PRIMARY region: accent border + raised elevation so it dominates. */
 	.editor {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3);
-		padding: var(--space-4);
+		padding: var(--space-6);
 		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		border: 1px solid var(--color-accent-border);
 		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-sm);
+		box-shadow: var(--shadow-md);
 	}
 	.editor__heading {
 		margin: 0;
+		font-family: var(--font-display);
+		font-size: var(--text-2xl);
+		font-weight: var(--font-weight-bold);
+		letter-spacing: var(--tracking-tight);
+		line-height: var(--leading-tight);
+		color: var(--color-text-primary);
 	}
 	/* UX-CONTENT-004 — autosave chip. */
 	.editor__statusbar {
@@ -840,8 +1041,11 @@
 		border-color: var(--color-status-error);
 		cursor: pointer;
 	}
+	/* Mockup parity: the clean "Saved" state reads as a success badge. */
 	.save-chip[data-state='saved'] {
 		color: var(--color-status-success-text);
+		background: var(--color-status-success-subtle);
+		border-color: var(--color-status-success);
 	}
 	/* UX-CONTENT-002 — toolbar. */
 	.toolbar {

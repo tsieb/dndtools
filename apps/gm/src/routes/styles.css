@@ -9,7 +9,7 @@
  *
  * Layers:
  *   1. Theme-invariant tokens (typography, spacing, radius, elevation shape, z-index, motion).
- *   2. Per-theme colour tokens — tavern (default), parchment, dungeon, scholar, high-contrast.
+ *   2. Per-theme colour tokens — tavern (default), parchment, high-contrast.
  *   3. Legacy alias bridge (--bg/--fg/--accent/…) → semantic tokens, so existing component
  *      rules keep working while resolving per active theme.
  *   4. Component rules (token-only).
@@ -122,9 +122,9 @@
 	--easing-snap: cubic-bezier(0.6, 0, 0.4, 1);
 
 	/* --- Elevation shadow shape (UX-VIS-007) — dark default; light themes override --------- */
-	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-	--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+	--shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
+	--shadow-lg: 0 14px 44px rgba(0, 0, 0, 0.62);
 
 	/* --- Iconography (UX-VIS-009) — Lucide at four+1 named sizes; 2px stroke; currentColor ---
 	 * The shared Icon component (src/lib/gui/Icon.svelte + icons.ts registry) is the single icon
@@ -171,55 +171,55 @@
 	--touch-target-floor: 1.5rem; /* 24px — WCAG 2.5.8 hard minimum, all profiles */
 
 	/* --- Colour tokens — TAVERN (dark warm) is the default theme (UX-VIS-001/002) ---------- */
-	--color-bg: #111418;
-	--color-surface: #1c2128;
-	--color-surface-raised: #252c35;
-	--color-surface-overlay: #2e3744;
-	--color-surface-sunken: #0d1117;
-	--color-surface-alt: #1a2030;
+	--color-bg: #14100b;
+	--color-surface: #1f1810;
+	--color-surface-raised: #2a2117;
+	--color-surface-overlay: #362a1d;
+	--color-surface-sunken: #0e0a06;
+	--color-surface-alt: #241c12;
 
-	--color-border: #2d3748;
-	--color-border-strong: #4a5568;
-	--color-border-focus: #d4a76a;
+	--color-border: #3a2e20;
+	--color-border-strong: #5c4630;
+	--color-border-focus: #e0b06f;
 
-	--color-text-primary: #e8ddd0;
-	--color-text-secondary: #a89888;
-	--color-text-tertiary: #6b7280;
-	--color-text-inverse: #111418;
-	--color-text-link: #d4a76a;
-	--color-text-link-visited: #c09850;
+	--color-text-primary: #f2e8d8;
+	--color-text-secondary: #bcab92;
+	--color-text-tertiary: #897a64;
+	--color-text-inverse: #14100b;
+	--color-text-link: #e0b06f;
+	--color-text-link-visited: #caa05a;
 
-	--color-accent: #d4a76a;
-	--color-accent-hover: #e0be85;
-	--color-accent-active: #c09050;
-	--color-accent-subtle: #2a2218;
-	--color-accent-foreground: #111418;
-	--color-accent-border: #7a5c32;
+	--color-accent: #e0b06f;
+	--color-accent-hover: #efc587;
+	--color-accent-active: #c8964f;
+	--color-accent-subtle: #2f2414;
+	--color-accent-foreground: #1a1206;
+	--color-accent-border: #8a6736;
 
-	--color-status-success: #22c55e;
-	--color-status-success-text: #86efac;
-	--color-status-success-subtle: #0d2818;
-	--color-status-warning: #f59e0b;
-	--color-status-warning-text: #fcd34d;
-	--color-status-warning-subtle: #261c06;
-	--color-status-error: #ef4444;
+	--color-status-success: #4ec27a;
+	--color-status-success-text: #93e6ad;
+	--color-status-success-subtle: #112a1a;
+	--color-status-warning: #f0a830;
+	--color-status-warning-text: #fbd07f;
+	--color-status-warning-subtle: #2c2008;
+	--color-status-error: #ef5350;
 	--color-status-error-text: #fca5a5;
-	--color-status-error-subtle: #2a0d0d;
-	--color-status-info: #38bdf8;
-	--color-status-info-text: #7dd3fc;
-	--color-status-info-subtle: #061a2a;
+	--color-status-error-subtle: #2d1110;
+	--color-status-info: #4fb6e0;
+	--color-status-info-text: #97d6f0;
+	--color-status-info-subtle: #0c2230;
 
-	--color-dm-only-badge: #9333ea;
-	--color-dm-only-subtle: #1a0d2e;
-	--color-hidden-content-stripe: rgba(147, 51, 234, 0.12);
+	--color-dm-only-badge: #a763e8;
+	--color-dm-only-subtle: #1f1330;
+	--color-hidden-content-stripe: rgba(167, 99, 232, 0.14);
 
-	--color-interactive-hover: rgba(212, 167, 106, 0.08);
-	--color-interactive-selected: rgba(212, 167, 106, 0.15);
-	--color-interactive-focus-ring: #d4a76a;
-	--color-interactive-disabled: rgba(232, 221, 208, 0.32);
-	--color-interactive-disabled-bg: rgba(44, 52, 66, 0.4);
+	--color-interactive-hover: rgba(224, 176, 111, 0.09);
+	--color-interactive-selected: rgba(224, 176, 111, 0.16);
+	--color-interactive-focus-ring: #e0b06f;
+	--color-interactive-disabled: rgba(242, 232, 216, 0.34);
+	--color-interactive-disabled-bg: rgba(58, 46, 32, 0.45);
 
-	--color-backdrop: rgba(0, 0, 0, 0.6); /* modal / sheet scrim */
+	--color-backdrop: rgba(8, 5, 2, 0.66); /* modal / sheet scrim */
 }
 
 /* ============================================================================================
@@ -230,213 +230,111 @@
 [data-theme='tavern'] {
 	color-scheme: dark;
 
-	--color-bg: #111418;
-	--color-surface: #1c2128;
-	--color-surface-raised: #252c35;
-	--color-surface-overlay: #2e3744;
-	--color-surface-sunken: #0d1117;
-	--color-surface-alt: #1a2030;
-	--color-border: #2d3748;
-	--color-border-strong: #4a5568;
-	--color-border-focus: #d4a76a;
-	--color-text-primary: #e8ddd0;
-	--color-text-secondary: #a89888;
-	--color-text-tertiary: #6b7280;
-	--color-text-inverse: #111418;
-	--color-text-link: #d4a76a;
-	--color-text-link-visited: #c09850;
-	--color-accent: #d4a76a;
-	--color-accent-hover: #e0be85;
-	--color-accent-active: #c09050;
-	--color-accent-subtle: #2a2218;
-	--color-accent-foreground: #111418;
-	--color-accent-border: #7a5c32;
-	--color-status-success: #22c55e;
-	--color-status-success-text: #86efac;
-	--color-status-success-subtle: #0d2818;
-	--color-status-warning: #f59e0b;
-	--color-status-warning-text: #fcd34d;
-	--color-status-warning-subtle: #261c06;
-	--color-status-error: #ef4444;
+	--color-bg: #14100b;
+	--color-surface: #1f1810;
+	--color-surface-raised: #2a2117;
+	--color-surface-overlay: #362a1d;
+	--color-surface-sunken: #0e0a06;
+	--color-surface-alt: #241c12;
+	--color-border: #3a2e20;
+	--color-border-strong: #5c4630;
+	--color-border-focus: #e0b06f;
+	--color-text-primary: #f2e8d8;
+	--color-text-secondary: #bcab92;
+	--color-text-tertiary: #897a64;
+	--color-text-inverse: #14100b;
+	--color-text-link: #e0b06f;
+	--color-text-link-visited: #caa05a;
+	--color-accent: #e0b06f;
+	--color-accent-hover: #efc587;
+	--color-accent-active: #c8964f;
+	--color-accent-subtle: #2f2414;
+	--color-accent-foreground: #1a1206;
+	--color-accent-border: #8a6736;
+	--color-status-success: #4ec27a;
+	--color-status-success-text: #93e6ad;
+	--color-status-success-subtle: #112a1a;
+	--color-status-warning: #f0a830;
+	--color-status-warning-text: #fbd07f;
+	--color-status-warning-subtle: #2c2008;
+	--color-status-error: #ef5350;
 	--color-status-error-text: #fca5a5;
-	--color-status-error-subtle: #2a0d0d;
-	--color-status-info: #38bdf8;
-	--color-status-info-text: #7dd3fc;
-	--color-status-info-subtle: #061a2a;
-	--color-dm-only-badge: #9333ea;
-	--color-dm-only-subtle: #1a0d2e;
-	--color-hidden-content-stripe: rgba(147, 51, 234, 0.12);
-	--color-interactive-hover: rgba(212, 167, 106, 0.08);
-	--color-interactive-selected: rgba(212, 167, 106, 0.15);
-	--color-interactive-focus-ring: #d4a76a;
-	--color-interactive-disabled: rgba(232, 221, 208, 0.32);
-	--color-interactive-disabled-bg: rgba(44, 52, 66, 0.4);
-	--color-backdrop: rgba(0, 0, 0, 0.6);
-	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-	--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
+	--color-status-error-subtle: #2d1110;
+	--color-status-info: #4fb6e0;
+	--color-status-info-text: #97d6f0;
+	--color-status-info-subtle: #0c2230;
+	--color-dm-only-badge: #a763e8;
+	--color-dm-only-subtle: #1f1330;
+	--color-hidden-content-stripe: rgba(167, 99, 232, 0.14);
+	--color-interactive-hover: rgba(224, 176, 111, 0.09);
+	--color-interactive-selected: rgba(224, 176, 111, 0.16);
+	--color-interactive-focus-ring: #e0b06f;
+	--color-interactive-disabled: rgba(242, 232, 216, 0.34);
+	--color-interactive-disabled-bg: rgba(58, 46, 32, 0.45);
+	--color-backdrop: rgba(8, 5, 2, 0.66);
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+	--shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
+	--shadow-lg: 0 14px 44px rgba(0, 0, 0, 0.62);
 }
 
-/* parchment — light warm (aged parchment, deep ink) */
+/* parchment — warm light (aged vellum, deep ink); contrast raised so it is not washed out */
 [data-theme='parchment'] {
 	color-scheme: light;
 
-	--color-bg: #faf6f0;
-	--color-surface: #ffffff;
-	--color-surface-raised: #f5f0e8;
-	--color-surface-overlay: #fffdf9;
-	--color-surface-sunken: #f0ebe3;
-	--color-surface-alt: #f3ede4;
-	--color-border: #d9cdbb;
-	--color-border-strong: #b08f6a;
-	--color-border-focus: #7c3d12;
-	--color-text-primary: #1a0f0a;
-	--color-text-secondary: #5f4f43;
-	--color-text-tertiary: #877565;
-	--color-text-inverse: #ffffff;
-	--color-text-link: #7c3d12;
-	--color-text-link-visited: #5c2d0e;
-	--color-accent: #7c3d12;
-	--color-accent-hover: #95501f;
-	--color-accent-active: #5f2d0d;
-	--color-accent-subtle: #f3e6d8;
+	--color-bg: #f3ebdd;
+	--color-surface: #fdf8f0;
+	--color-surface-raised: #ffffff;
+	--color-surface-overlay: #fffdf8;
+	--color-surface-sunken: #e9ddc9;
+	--color-surface-alt: #f0e6d4;
+	--color-border: #d2c2a6;
+	--color-border-strong: #a8865f;
+	--color-border-focus: #8a4a16;
+	--color-text-primary: #221409;
+	--color-text-secondary: #5c4a39;
+	--color-text-tertiary: #837057;
+	--color-text-inverse: #fdf8f0;
+	--color-text-link: #8a4a16;
+	--color-text-link-visited: #6a360f;
+	--color-accent: #9a5418;
+	--color-accent-hover: #8f4d15;
+	--color-accent-active: #7c4111;
+	--color-accent-subtle: #f0e0c8;
 	--color-accent-foreground: #ffffff;
-	--color-accent-border: #c9a07a;
-	--color-status-success: #15803d;
-	--color-status-success-text: #146331;
-	--color-status-success-subtle: #e6f4ea;
-	--color-status-warning: #92400e;
-	--color-status-warning-text: #823909;
-	--color-status-warning-subtle: #f7ecd9;
-	--color-status-error: #b91c1c;
-	--color-status-error-text: #a81818;
-	--color-status-error-subtle: #fbe7e7;
-	--color-status-info: #0369a1;
-	--color-status-info-text: #045f90;
-	--color-status-info-subtle: #e2eef6;
-	--color-dm-only-badge: #7e22ce;
-	--color-dm-only-subtle: #f1e6fb;
-	--color-hidden-content-stripe: rgba(126, 34, 206, 0.12);
-	--color-interactive-hover: rgba(124, 61, 18, 0.06);
-	--color-interactive-selected: rgba(124, 61, 18, 0.12);
-	--color-interactive-focus-ring: #7c3d12;
-	--color-interactive-disabled: rgba(26, 15, 10, 0.38);
-	--color-interactive-disabled-bg: rgba(217, 205, 187, 0.5);
-	--color-backdrop: rgba(26, 15, 10, 0.4);
-	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
-	--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.14), 0 4px 8px rgba(0, 0, 0, 0.08);
+	--color-accent-border: #c79e6f;
+	--color-status-success: #1f7a3d;
+	--color-status-success-text: #155e2e;
+	--color-status-success-subtle: #e4f2e6;
+	--color-status-warning: #9a6310;
+	--color-status-warning-text: #7c4f0b;
+	--color-status-warning-subtle: #f6ead2;
+	--color-status-error: #c0271f;
+	--color-status-error-text: #9e1d17;
+	--color-status-error-subtle: #fbe5e2;
+	--color-status-info: #0c6791;
+	--color-status-info-text: #0a5577;
+	--color-status-info-subtle: #e0eef5;
+	--color-dm-only-badge: #7b27c4;
+	--color-dm-only-subtle: #f0e4fb;
+	--color-hidden-content-stripe: rgba(123, 39, 196, 0.12);
+	--color-interactive-hover: rgba(154, 84, 24, 0.07);
+	--color-interactive-selected: rgba(154, 84, 24, 0.13);
+	--color-interactive-focus-ring: #8a4a16;
+	--color-interactive-disabled: rgba(34, 20, 9, 0.4);
+	--color-interactive-disabled-bg: rgba(210, 194, 166, 0.55);
+	--color-backdrop: rgba(34, 20, 9, 0.42);
+	--shadow-sm: 0 1px 3px rgba(74, 50, 20, 0.1), 0 1px 2px rgba(74, 50, 20, 0.07);
+	--shadow-md: 0 6px 18px rgba(74, 50, 20, 0.13), 0 2px 5px rgba(74, 50, 20, 0.08);
+	--shadow-lg: 0 14px 44px rgba(74, 50, 20, 0.17), 0 4px 10px rgba(74, 50, 20, 0.1);
 }
 
-/* dungeon — dark cool (navy-black, cyan accent) */
-[data-theme='dungeon'] {
-	color-scheme: dark;
-
-	--color-bg: #05080d;
-	--color-surface: #0b1118;
-	--color-surface-raised: #111b25;
-	--color-surface-overlay: #12202e;
-	--color-surface-sunken: #020508;
-	--color-surface-alt: #0e1622;
-	--color-border: #1e2d3d;
-	--color-border-strong: #3a4f63;
-	--color-border-focus: #00d2ff;
-	--color-text-primary: #f0f6ff;
-	--color-text-secondary: #8ab4d8;
-	--color-text-tertiary: #5a6b7d;
-	--color-text-inverse: #05080d;
-	--color-text-link: #00d2ff;
-	--color-text-link-visited: #6fcfe6;
-	--color-accent: #00d2ff;
-	--color-accent-hover: #5ce0ff;
-	--color-accent-active: #00a8cc;
-	--color-accent-subtle: #04222b;
-	--color-accent-foreground: #001018;
-	--color-accent-border: #1a6b80;
-	--color-status-success: #22c55e;
-	--color-status-success-text: #86efac;
-	--color-status-success-subtle: #06210f;
-	--color-status-warning: #f59e0b;
-	--color-status-warning-text: #fcd34d;
-	--color-status-warning-subtle: #221806;
-	--color-status-error: #ef4444;
-	--color-status-error-text: #fca5a5;
-	--color-status-error-subtle: #240a0a;
-	--color-status-info: #38bdf8;
-	--color-status-info-text: #7dd3fc;
-	--color-status-info-subtle: #04161f;
-	--color-dm-only-badge: #a855f7;
-	--color-dm-only-subtle: #1a0d2e;
-	--color-hidden-content-stripe: rgba(168, 85, 247, 0.12);
-	--color-interactive-hover: rgba(0, 210, 255, 0.08);
-	--color-interactive-selected: rgba(0, 210, 255, 0.15);
-	--color-interactive-focus-ring: #00d2ff;
-	--color-interactive-disabled: rgba(240, 246, 255, 0.32);
-	--color-interactive-disabled-bg: rgba(30, 45, 61, 0.4);
-	--color-backdrop: rgba(0, 0, 0, 0.65);
-	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
-	--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
-}
-
-/* scholar — light cool (clean white, deep navy accent) */
-[data-theme='scholar'] {
-	color-scheme: light;
-
-	--color-bg: #f7fafc;
-	--color-surface: #ffffff;
-	--color-surface-raised: #edf2f7;
-	--color-surface-overlay: #ffffff;
-	--color-surface-sunken: #e8eef4;
-	--color-surface-alt: #eef3f8;
-	--color-border: #cbd5e1;
-	--color-border-strong: #8092a8;
-	--color-border-focus: #1e3a8a;
-	--color-text-primary: #0f172a;
-	--color-text-secondary: #334155;
-	--color-text-tertiary: #5e6b7d;
-	--color-text-inverse: #ffffff;
-	--color-text-link: #1e3a8a;
-	--color-text-link-visited: #172a63;
-	--color-accent: #1e3a8a;
-	--color-accent-hover: #2949a8;
-	--color-accent-active: #162c6b;
-	--color-accent-subtle: #e6ebf5;
-	--color-accent-foreground: #ffffff;
-	--color-accent-border: #93a3c9;
-	--color-status-success: #15803d;
-	--color-status-success-text: #146331;
-	--color-status-success-subtle: #e6f4ea;
-	--color-status-warning: #92400e;
-	--color-status-warning-text: #823909;
-	--color-status-warning-subtle: #f7ecd9;
-	--color-status-error: #b91c1c;
-	--color-status-error-text: #a81818;
-	--color-status-error-subtle: #fbe7e7;
-	--color-status-info: #0369a1;
-	--color-status-info-text: #045f90;
-	--color-status-info-subtle: #e2eef6;
-	--color-dm-only-badge: #7e22ce;
-	--color-dm-only-subtle: #f1e6fb;
-	--color-hidden-content-stripe: rgba(126, 34, 206, 0.12);
-	--color-interactive-hover: rgba(30, 58, 138, 0.06);
-	--color-interactive-selected: rgba(30, 58, 138, 0.12);
-	--color-interactive-focus-ring: #1e3a8a;
-	--color-interactive-disabled: rgba(15, 23, 42, 0.38);
-	--color-interactive-disabled-bg: rgba(203, 213, 225, 0.5);
-	--color-backdrop: rgba(15, 23, 42, 0.4);
-	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-	--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
-	--shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.14), 0 4px 8px rgba(0, 0, 0, 0.08);
-}
-
-/* high-contrast — AAA black/white, forced-colors compatible */
+/* high-contrast — AAA black/white, forced-colors compatible (retuned to a gold accent) */
 [data-theme='high-contrast'] {
 	color-scheme: dark;
 
 	--color-bg: #000000;
 	--color-surface: #000000;
-	--color-surface-raised: #111111;
+	--color-surface-raised: #121212;
 	--color-surface-overlay: #000000;
 	--color-surface-sunken: #000000;
 	--color-surface-alt: #0a0a0a;
@@ -444,17 +342,17 @@
 	--color-border-strong: #ffffff;
 	--color-border-focus: #ffff00;
 	--color-text-primary: #ffffff;
-	--color-text-secondary: #e0e0e0;
-	--color-text-tertiary: #c0c0c0;
+	--color-text-secondary: #e6e6e6;
+	--color-text-tertiary: #c4c4c4;
 	--color-text-inverse: #000000;
-	--color-text-link: #00ffff;
-	--color-text-link-visited: #ff80ff;
-	--color-accent: #00ffff;
-	--color-accent-hover: #80ffff;
-	--color-accent-active: #00cccc;
-	--color-accent-subtle: #001a1a;
+	--color-text-link: #6ff0ff;
+	--color-text-link-visited: #ff9cff;
+	--color-accent: #ffd86b;
+	--color-accent-hover: #ffe79c;
+	--color-accent-active: #e0b84a;
+	--color-accent-subtle: #1c1600;
 	--color-accent-foreground: #000000;
-	--color-accent-border: #00ffff;
+	--color-accent-border: #ffd86b;
 	--color-status-success: #7dff7d;
 	--color-status-success-text: #7dff7d;
 	--color-status-success-subtle: #001a00;
@@ -470,15 +368,46 @@
 	--color-dm-only-badge: #ff80ff;
 	--color-dm-only-subtle: #1a001a;
 	--color-hidden-content-stripe: rgba(255, 128, 255, 0.2);
-	--color-interactive-hover: rgba(255, 255, 255, 0.15);
-	--color-interactive-selected: rgba(0, 255, 255, 0.25);
+	--color-interactive-hover: rgba(255, 255, 255, 0.16);
+	--color-interactive-selected: rgba(255, 216, 107, 0.26);
 	--color-interactive-focus-ring: #ffff00;
-	--color-interactive-disabled: rgba(255, 255, 255, 0.4);
+	--color-interactive-disabled: rgba(255, 255, 255, 0.42);
 	--color-interactive-disabled-bg: rgba(255, 255, 255, 0.1);
-	--color-backdrop: rgba(0, 0, 0, 0.8);
+	--color-backdrop: rgba(0, 0, 0, 0.82);
 	--shadow-sm: 0 0 0 1px #ffffff;
 	--shadow-md: 0 0 0 1px #ffffff;
 	--shadow-lg: 0 0 0 2px #ffffff;
+}
+
+/* --------------------------------------------------------------------------------------------
+ * MAP / LAYER TOKENS (Atlas map-authoring surface) — NEW, additive; no existing token is
+ * touched. The 13 layer-type hues are harmonised in OKLCH (~0.72 L, ~0.10 C) so the badges read
+ * distinct at a glance yet stay in the warm candle-lit family. Each token is the badge FG +
+ * border; the badge bg is mixed from it against the surface at render time. Consumed by the
+ * Atlas map suite (Phase 2); landing the tokens now is harmless.
+ * ------------------------------------------------------------------------------------------ */
+:root {
+	--layer-base: oklch(0.7 0.018 70);
+	--layer-height: oklch(0.74 0.1 150);
+	--layer-political: oklch(0.77 0.105 78);
+	--layer-climate: oklch(0.74 0.085 200);
+	--layer-roads: oklch(0.72 0.115 50);
+	--layer-water: oklch(0.71 0.085 245);
+	--layer-wshed: oklch(0.73 0.08 215);
+	--layer-fog: oklch(0.6 0.012 65);
+	--layer-poi: oklch(0.65 0.15 28);
+	--layer-dm: oklch(0.62 0.14 305);
+	--layer-player: oklch(0.78 0.1 82);
+	--layer-combat: oklch(0.64 0.145 40);
+	--layer-custom: oklch(0.72 0.016 70);
+
+	--color-route: oklch(0.74 0.11 62);
+	--color-route-player: var(--layer-player);
+	--map-fog-opacity-dm: 0.2;
+	--map-fog-opacity-player: 0.95;
+	--map-fog-fill: oklch(0.46 0.01 65);
+	--map-grid-line: rgba(224, 176, 111, 0.14);
+	--map-canvas-bg: #16110b;
 }
 
 /*
@@ -737,13 +666,40 @@ body {
 	border-bottom: 1px solid var(--border);
 }
 
+/* Brand mark (matches the package shell): a gold dice chip + display-serif wordmark with a
+ * gold "Tools" accent. The chip is the one decorative accent surface in the calm top bar. */
 .app-header .brand {
-	display: inline-block;
+	display: inline-flex;
+	align-items: center;
+	/* The brand is an interactive link (routes to the Command Center); keep its hit area at the
+	   touch-target floor so the mobile target-size sweep passes (A11Y-004 — the 34px mark alone is
+	   below the 44px minimum). */
+	min-height: var(--touch-target-min);
+	gap: var(--space-2);
 	margin: 0;
-	font-size: var(--text-lg);
-	font-weight: var(--font-weight-bold);
 	color: inherit;
 	text-decoration: none;
+}
+.app-header .brand-mark {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 34px;
+	height: 34px;
+	border-radius: var(--radius-md);
+	background: var(--color-accent);
+	color: var(--color-accent-foreground);
+	box-shadow: var(--shadow-sm);
+}
+.app-header .brand-word {
+	font-family: var(--font-display);
+	font-size: var(--text-xl);
+	font-weight: var(--font-weight-bold);
+	letter-spacing: var(--tracking-wide);
+	line-height: 1;
+}
+.app-header .brand-accent {
+	color: var(--color-accent);
 }
 
 .app-main .route-title {
@@ -1628,18 +1584,103 @@ select {
 	max-width: 100%;
 }
 
+/* Action button (UX-VIS-013). One crafted control with four variants: `.button` is the single
+ * primary (gold) action per region; `.secondary` recedes (raised surface + strong border);
+ * `.ghost` is low-emphasis/toolbar; `.danger` is a destructive confirm. Sizes via `.sm`/`.lg`.
+ * Token-only — the component-layer lint forbids bare colour/radius/font-size literals here. */
 .button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-2);
 	cursor: pointer;
 	background: var(--color-accent);
 	color: var(--color-accent-foreground);
 	border: 1px solid var(--color-accent);
 	padding: var(--space-2) var(--space-4);
+	min-height: var(--density-button-height);
 	border-radius: var(--radius-md);
+	font-family: var(--font-sans);
+	font-size: var(--text-base);
+	font-weight: var(--font-weight-semibold);
+	line-height: 1;
+	white-space: nowrap;
+	box-shadow: var(--shadow-sm);
+	transition:
+		background var(--duration-fast) var(--easing-standard),
+		border-color var(--duration-fast) var(--easing-standard),
+		color var(--duration-fast) var(--easing-standard),
+		filter var(--duration-fast) var(--easing-standard);
 }
 
+.button:hover {
+	background: var(--color-accent-hover);
+	border-color: var(--color-accent-hover);
+}
+
+.button:active {
+	background: var(--color-accent-active);
+	border-color: var(--color-accent-active);
+}
+
+.button:disabled,
+.button[aria-disabled='true'] {
+	opacity: 0.5;
+	cursor: not-allowed;
+	filter: none;
+}
+
+/* Secondary — the default for everything that is not the one primary action. */
 .button.secondary {
+	background: var(--color-surface-raised);
+	color: var(--color-text-primary);
+	border-color: var(--color-border-strong);
+	box-shadow: none;
+}
+.button.secondary:hover {
+	background: var(--color-surface-overlay);
+	border-color: var(--color-border-strong);
+}
+.button.secondary:active {
+	background: var(--color-surface-overlay);
+}
+
+/* Ghost — low-emphasis (toolbars, inline affordances): no fill until hovered. */
+.button.ghost {
 	background: transparent;
-	color: var(--accent);
+	color: var(--color-text-secondary);
+	border-color: transparent;
+	box-shadow: none;
+}
+.button.ghost:hover {
+	background: var(--color-interactive-hover);
+	color: var(--color-text-primary);
+	border-color: transparent;
+}
+.button.ghost:active {
+	background: var(--color-interactive-selected);
+}
+
+/* Danger — destructive confirm. Inverse text keeps >=4.5:1 on the error fill in every theme. */
+.button.danger {
+	background: var(--color-status-error);
+	color: var(--color-text-inverse);
+	border-color: var(--color-status-error);
+}
+.button.danger:hover {
+	filter: brightness(1.1);
+	background: var(--color-status-error);
+	border-color: var(--color-status-error);
+}
+
+.button.sm {
+	gap: var(--space-1-5);
+	padding: var(--space-1-5) var(--space-3);
+	font-size: var(--text-sm);
+}
+.button.lg {
+	padding: var(--space-3) var(--space-5);
+	font-size: var(--text-md);
 }
 
 .form {
@@ -1657,10 +1698,28 @@ select {
 .form input,
 .form textarea,
 .form select {
-	padding: var(--space-1-5) var(--space-2);
-	background: var(--card);
-	border: 1px solid var(--border);
+	padding: var(--component-input-py) var(--component-input-px);
+	min-height: var(--density-input-height);
+	background: var(--color-surface-sunken);
+	color: var(--color-text-primary);
+	border: 1px solid var(--color-border-strong);
 	border-radius: var(--radius-sm);
+	transition: border-color var(--duration-fast) var(--easing-standard);
+}
+
+/* Textareas grow from a comfortable multi-line height rather than the single-line input height. */
+.form textarea {
+	min-height: auto;
+	line-height: var(--leading-body);
+	resize: vertical;
+}
+
+/* Resting border strengthens to the focus colour on keyboard focus; the global :focus-visible
+ * baseline still draws the 2px gold ring, so the field reads focused two ways. */
+.form input:focus-visible,
+.form textarea:focus-visible,
+.form select:focus-visible {
+	border-color: var(--color-border-focus);
 }
 
 .scene-list {
@@ -1769,6 +1828,13 @@ select {
 .row-actions button {
 	font-size: var(--text-xs);
 	padding: var(--space-1) var(--space-2);
+	/* Full 44px touch target, NOT the WCAG floor: these action buttons (player-view controller,
+	   scene/widget export, …) sit on the Command Center SPATIAL CANVAS, whose auto-fit zoom (~0.8)
+	   scales them down — a 32px button renders ~26px and dips under the 24px axe target-size rule at
+	   load. 44px scaled stays >=24 down to ~0.55 zoom. On mobile this matches the global comfortable
+	   rule (also 44px), so there is no regression; an earlier --touch-target-floor (24px) wrongly
+	   OVERRODE that comfortable rule (equal specificity, later) and broke the mobile sweep. */
+	min-height: var(--touch-target-min);
 }
 
 .projection-form {
@@ -2470,13 +2536,36 @@ select {
 	background: var(--card);
 	color: var(--fg);
 	cursor: pointer;
+	transition:
+		background var(--duration-fast) var(--easing-standard),
+		color var(--duration-fast) var(--easing-standard),
+		border-color var(--duration-fast) var(--easing-standard);
 }
 .btn-icon:hover {
 	background: var(--color-interactive-hover);
+	color: var(--color-text-primary);
 }
 .btn-icon:focus-visible {
 	outline: 2px solid var(--color-interactive-focus-ring);
 	outline-offset: 2px;
+}
+
+/* Ghost icon button — no chrome until hovered (widget headers, dense toolbars). */
+.btn-icon.ghost {
+	background: transparent;
+	border-color: transparent;
+	color: var(--color-text-secondary);
+}
+.btn-icon.ghost:hover {
+	background: var(--color-interactive-hover);
+	color: var(--color-text-primary);
+}
+
+/* Accent icon button — a tinted, low-noise way to mark the active/primary icon affordance. */
+.btn-icon.accent {
+	background: var(--color-accent-subtle);
+	border-color: var(--color-accent-border);
+	color: var(--color-accent);
 }
 
 /* Status chip — demonstrates the non-color cue contract: distinct icon shape + visible text, so

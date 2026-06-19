@@ -24,13 +24,18 @@
 	}
 </script>
 
-<section aria-label="Web/PWA support matrix" data-testid="support-matrix">
+<section class="cwrap" aria-label="Web/PWA support matrix" data-testid="support-matrix">
 	<h2>Web / PWA support matrix</h2>
 	<p class="meta">
 		Published cached read/write support for the web release (v{matrix.version}). Each domain
 		declares its support level, offline behavior, and the fallback shown when degraded.
 	</p>
 
+	<!-- The wide matrix scrolls horizontally inside its own track rather than forcing the centered
+	     .app-main column wider on narrow viewports. A horizontally-scrollable region must be keyboard
+	     reachable (axe scrollable-region-focusable): tabindex makes it focusable, role+label name it. -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<div class="table-scroll" tabindex="0" role="region" aria-label="Web / PWA support matrix (scroll horizontally to see all columns)">
 	<table class="matrix-table">
 		<thead>
 			<tr>
@@ -55,6 +60,7 @@
 			{/each}
 		</tbody>
 	</table>
+	</div>
 
 	<details class="matrix-policy">
 		<summary>Cache, quota, and eviction-recovery policy</summary>
@@ -85,3 +91,61 @@
 		{/each}
 	</ul>
 </section>
+
+<style>
+	/* CANONICAL secondary card recipe. */
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		padding: var(--space-5);
+		box-shadow: var(--shadow-sm);
+	}
+	.cwrap h2 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-lg);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
+	.cwrap h3 {
+		margin: var(--space-2) 0 var(--space-1);
+		font-size: var(--text-md);
+	}
+	.cwrap :global(.meta) {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	/* Preserve the "unsupported" warning cue (re-declared so it out-specifies the .meta rule). */
+	.cwrap :global(.unavailable) {
+		color: var(--color-status-warning-text);
+	}
+	.table-scroll {
+		overflow-x: auto;
+	}
+	.cwrap :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.cwrap :global(.scene-card) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-alt);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.cwrap :global(summary) {
+		cursor: pointer;
+		font-weight: var(--font-weight-semibold);
+	}
+</style>

@@ -104,7 +104,9 @@
 		title={iconOnly && !touch ? item.title : undefined}
 	>
 		<span class="global-nav-icon"><Icon name={item.icon} size="md" /></span>
-		<span class="global-nav-label">{item.shortLabel}</span>
+		<!-- Full section title in the sidebar/rail (matches the package); the width-constrained
+		     compact tab bar keeps the short label. -->
+		<span class="global-nav-label">{isTabBar ? item.shortLabel : item.title}</span>
 		<!-- Keyboard shortcut hint, shown in the labeled sidebar (UX-NAV-002/019). -->
 		{#if isSidebar && !collapsed}
 			<kbd class="global-nav-kbd">{shortcutHint(item)}</kbd>

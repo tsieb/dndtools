@@ -335,9 +335,19 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-4);
+		padding: var(--space-5);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
 	}
 	.vault h2 {
 		margin: 0;
+		font-family: var(--font-display);
+		font-size: var(--text-lg);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
 	}
 	.vault :global(.card) {
 		display: flex;

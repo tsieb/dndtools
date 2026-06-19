@@ -219,6 +219,7 @@
 				{:else}
 					<button
 						type="button"
+						class="button"
 						data-testid="timer-start"
 						onclick={() => void operate('timer.start', { durationSeconds: configuredDuration })}
 					>
@@ -293,6 +294,51 @@
 </section>
 
 <style>
+	/* Secondary "tool" card (package Panel anatomy). */
+	[data-testid='live-tools'] {
+		display: block;
+		padding: var(--space-5);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	[data-testid='live-tools'] > h2 {
+		margin: 0 0 var(--space-4);
+		font-family: var(--font-display);
+		font-size: var(--text-md);
+		font-weight: var(--font-weight-bold);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
+	/* The timer operate / configure / grant controls reuse the secondary button look without each
+	   needing a markup class (Start is promoted to the primary .button in markup). */
+	[data-testid='live-tools'] button:not(.button) {
+		min-height: var(--density-button-height);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-md);
+		font-weight: var(--font-weight-medium);
+		cursor: pointer;
+	}
+	[data-testid='live-tools'] button:not(.button):hover {
+		background: var(--color-surface-overlay);
+	}
+	[data-testid='live-tools'] :is(input, select) {
+		min-height: var(--density-input-height);
+		padding: var(--space-1-5) var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-sm);
+	}
+	[data-testid='live-tools'] label {
+		font-size: var(--text-sm);
+		color: var(--color-text-secondary);
+	}
+
 	.error {
 		color: var(--color-status-error);
 	}

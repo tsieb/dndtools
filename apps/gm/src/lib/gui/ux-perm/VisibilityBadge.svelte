@@ -41,9 +41,10 @@
 		align-items: center;
 		gap: var(--space-1);
 		height: 20px;
-		padding: 0 var(--space-1);
+		padding: 0 var(--space-2);
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
+		/* Pill shape per the redesign's VisibilityChip — the safety signal reads as its own token. */
+		border-radius: var(--radius-full);
 		background: var(--color-surface-raised);
 		color: var(--color-text-secondary);
 		font-size: var(--text-xs);
@@ -57,7 +58,10 @@
 		background: var(--color-dm-only-subtle);
 		color: var(--color-dm-only-badge);
 	}
+	/* Uppercase + tracked: the redesign treats the visibility level as a labelled state cue. */
 	.vis-badge-label {
 		font-weight: var(--font-weight-semibold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wide);
 	}
 </style>

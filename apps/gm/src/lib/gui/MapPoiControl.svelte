@@ -164,7 +164,7 @@
 			<li class="poi-item">
 				<button
 					type="button"
-					class="button secondary poi-trigger"
+					class="button secondary sm poi-trigger"
 					data-testid={`poi-trigger-${region.id}`}
 					aria-haspopup="dialog"
 					aria-expanded={isControlOpen(interaction, region.id)}
@@ -201,7 +201,7 @@
 							<strong>{region.name}</strong>
 							<button
 								type="button"
-								class="button secondary"
+								class="button secondary sm"
 								data-testid={`poi-close-${region.id}`}
 								onclick={closeControl}
 							>
@@ -211,14 +211,14 @@
 						<div class="poi-actions">
 							<button
 								type="button"
-								class="button"
+								class="button sm"
 								data-testid={`poi-focus-${region.id}`}
 								onclick={() => focusRegion(region.id)}
 							>
 								Focus region
 							</button>
 							<a
-								class="button secondary"
+								class="button secondary sm"
 								href={`?map=${mapId}&poi=${region.id}`}
 								data-testid={`poi-open-${region.id}`}
 							>
@@ -241,7 +241,16 @@
 
 <style>
 	.poi-control {
-		margin-top: 0.75rem;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		margin-top: var(--space-4);
+		padding-top: var(--space-3);
+		border-top: 1px solid var(--color-border);
+	}
+	.poi-control h3 {
+		margin: 0;
+		font-size: var(--text-md);
 	}
 	.poi-list {
 		list-style: none;
@@ -249,49 +258,60 @@
 		padding: 0;
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
+		gap: var(--space-2);
 	}
 	.poi-item {
 		position: relative;
 	}
+	/* The POI detail surface (package POIPopover): an overlay-elevation card. It floats above the
+	   trigger on roomy profiles and rises as a bottom sheet on compact ones; both persist until a
+	   genuine dismiss intent (MAP-015 — the core reducer owns the policy). */
 	.poi-surface {
-		background: var(--card);
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		padding: 0.75rem;
+		background: var(--color-surface-overlay);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		padding: var(--space-3);
 		display: grid;
-		gap: 0.5rem;
+		gap: var(--space-2);
 		max-width: 22rem;
 	}
 	/* Expanded profile: anchored popover floating above the trigger. No hover is required to
 	   keep it open — it persists until a genuine dismiss intent (MAP-015). */
 	.poi-surface.as-popover {
 		position: absolute;
-		z-index: 20;
-		top: calc(100% + 0.35rem);
+		z-index: var(--z-dropdown);
+		top: calc(100% + var(--space-1));
 		left: 0;
-		box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+		box-shadow: var(--shadow-lg);
 	}
 	/* Compact profile: a bottom sheet/drawer instead of a popover (slim-device contract). */
 	.poi-surface.as-sheet {
 		position: fixed;
-		z-index: 40;
+		z-index: var(--z-sheet);
 		left: 0;
 		right: 0;
 		bottom: 0;
 		max-width: none;
-		border-radius: 12px 12px 0 0;
-		box-shadow: 0 -6px 24px rgb(0 0 0 / 22%);
+		border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+		box-shadow: var(--shadow-lg);
 	}
 	.poi-surface-head {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 0.5rem;
+		gap: var(--space-2);
+	}
+	.poi-surface-head strong {
+		font-size: var(--text-md);
 	}
 	.poi-actions {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
+		gap: var(--space-2);
+	}
+	.poi-surface .meta {
+		margin: 0;
+		font-size: var(--text-xs);
+		color: var(--color-text-tertiary);
 	}
 </style>

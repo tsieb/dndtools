@@ -67,7 +67,7 @@
 	// list; observer write commands are rejected before mutation by the core. Participant-only.
 </script>
 
-<section data-testid="session-view" aria-label="Session">
+<section data-testid="session-view" aria-label="Session" class="session-view">
 	<p class="meta">
 		Run the live session: build encounters, run combat, and roll dice or draw tables. The DM builds
 		and runs combat and draws session assets; players roll and see the live state filtered to what
@@ -78,8 +78,11 @@
 	     MODAL partial-restore prompt that locks every session tool until the DM decides. -->
 	<SessionRecoveryGate />
 
-	<EncounterBuilder />
+	<!-- Combat is the section's single primary focus (accent hero); the build/dice tools and the
+	     status strips read as calmer secondary content below it. Combat is lifted above the encounter
+	     builder to match the mockup's "Run combat" / "Build encounter" order. -->
 	<CombatTracker />
+	<EncounterBuilder />
 	<DiceTools />
 	<PlayerGroups />
 	<HandoutDelivery />
@@ -96,7 +99,19 @@
 <ToastStack store={toasts} />
 
 <style>
-	.meta {
-		color: var(--color-text-muted, #666);
+	/* The session route stacks one accent hero (combat) above a calm column of secondary tool and
+	   status cards. Each child component owns its own card surface; the route sets the vertical
+	   rhythm + reading width so the hierarchy reads as one composed section, not a flat stack. */
+	.session-view {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-6);
+	}
+
+	.session-view > .meta {
+		max-width: 60ch;
+		margin: 0;
+		color: var(--color-text-secondary);
+		line-height: var(--leading-relaxed);
 	}
 </style>

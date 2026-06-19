@@ -573,6 +573,11 @@
 	}
 	.combat__head h2 {
 		margin: 0;
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-lg);
+		color: var(--color-text-primary);
+		letter-spacing: var(--tracking-tight);
 	}
 	.combat__sub,
 	.combat__inactive,
@@ -605,25 +610,28 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3);
-		padding: var(--space-3);
-		background: var(--color-surface-raised);
+		padding: var(--space-4);
+		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
 	}
-	/* Vitals bar */
+	/* Vitals bar — the in-play focal strip of each sheet; a subtle accent base line draws the eye to
+	   HP/AC without turning every card in the list into a competing accent hero. */
 	.vitals {
 		display: grid;
 		grid-template-columns: 1fr auto;
 		grid-template-areas: 'name ac' 'hp ac' 'bar bar' 'cond cond' 'death death';
 		gap: var(--space-1) var(--space-3);
 		align-items: center;
-		padding-bottom: var(--space-2);
-		border-bottom: 1px solid var(--color-border);
+		padding-bottom: var(--space-3);
+		border-bottom: 2px solid var(--color-accent-border);
 	}
 	.vitals__name { grid-area: name; display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
-	.vitals__name strong { font-size: var(--text-lg); }
+	.vitals__name strong { font-size: var(--text-lg); font-family: var(--font-display); font-weight: var(--font-weight-bold); }
 	.name-display {
 		font-size: var(--text-lg);
+		font-family: var(--font-display);
 		font-weight: var(--font-weight-bold);
 		color: var(--color-text-primary);
 		background: transparent;
@@ -647,7 +655,7 @@
 	.name-saved { font-size: var(--text-xs); color: var(--color-status-success-text); }
 	.vitals__kind { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: var(--tracking-wide); color: var(--color-text-secondary); }
 	.vitals__hp { grid-area: hp; display: flex; align-items: baseline; gap: var(--space-2); }
-	.vitals__hp-num { font-size: var(--text-xl); font-weight: var(--font-weight-bold); font-variant-numeric: tabular-nums; color: var(--color-text-primary); }
+	.vitals__hp-num { font-size: var(--text-xl); font-weight: var(--font-weight-bold); font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--color-text-primary); }
 	.vitals__temp { font-size: var(--text-sm); color: var(--color-status-info-text); }
 	.vitals :global(.hpbar) { grid-area: bar; }
 	.vitals__ac { grid-area: ac; justify-self: end; font-size: var(--text-md); color: var(--color-text-secondary); }
@@ -709,7 +717,7 @@
 	.num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 	.stepper__actions { display: flex; gap: var(--space-2); }
 	.stepper__actions .button { flex: 1 1 0; min-height: 3rem; font-weight: var(--font-weight-semibold); }
-	.stepper__preview { margin: 0; font-size: var(--text-sm); color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+	.stepper__preview { margin: 0; font-size: var(--text-sm); color: var(--color-text-secondary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 	.button.danger { background: var(--color-status-error); color: var(--color-text-inverse); border-color: var(--color-status-error); }
 	.button.heal { background: var(--color-status-success); color: var(--color-text-inverse); border-color: var(--color-status-success); }
 	.button.ghost { background: transparent; color: var(--color-text-secondary); border: 1px solid var(--color-border); }
@@ -758,7 +766,7 @@
 	/* Pools / pips */
 	.pools { display: flex; flex-direction: column; gap: var(--space-2); }
 	.pool { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
-	.pool__label { font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+	.pool__label { font-size: var(--text-sm); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 	.recharge-badge { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: var(--tracking-wide); color: var(--color-text-secondary); border: 1px solid var(--color-border); border-radius: var(--radius-full); padding: 0 var(--space-1-5); margin-left: var(--space-1); }
 	.pips { display: inline-flex; gap: var(--space-1); }
 	.pip { width: var(--space-3); height: var(--space-3); border-radius: var(--radius-full); border: 1px solid var(--color-accent-border); background: transparent; }

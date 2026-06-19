@@ -108,7 +108,7 @@
 				</select>
 			{/if}
 			<input data-testid="qr-label" placeholder="Label" bind:value={pinLabel} />
-			<button type="submit" data-testid="pin-quick-reference">Pin</button>
+			<button type="submit" class="button" data-testid="pin-quick-reference">Pin</button>
 		</form>
 	{/if}
 
@@ -167,6 +167,27 @@
 </section>
 
 <style>
+	/* Secondary "tool" card (package Panel anatomy). */
+	[data-testid='quick-reference'] {
+		display: block;
+		padding: var(--space-5);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	[data-testid='quick-reference'] > h2 {
+		margin: 0 0 var(--space-4);
+		font-family: var(--font-display);
+		font-size: var(--text-md);
+		font-weight: var(--font-weight-bold);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
+	.panel strong {
+		color: var(--color-text-primary);
+	}
+
 	.error {
 		color: var(--color-status-error);
 	}

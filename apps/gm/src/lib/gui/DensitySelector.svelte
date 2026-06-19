@@ -111,3 +111,47 @@
 		{density.announcement}
 	</div>
 </section>
+
+<style>
+	/* Package SegmentedControl treatment (mirrors MotionSelector): the radiogroup keeps radio
+	   semantics but reads as one connected control — an inset sunken track with the selected segment
+	   lifted onto a raised surface. Selected / focus / disabled states are re-declared so they win the
+	   specificity tie against the global .pref-option rules. When density is locked to Comfortable on
+	   touch profiles the group is aria-disabled and the segments dim. Token-only. */
+	.pref-options {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: var(--space-0-5);
+		padding: var(--space-0-5);
+		background: var(--color-surface-sunken);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.pref-options :global(.pref-option) {
+		background: transparent;
+		border-color: transparent;
+		border-radius: var(--radius-sm);
+		color: var(--color-text-secondary);
+	}
+	.pref-options :global(.pref-option:hover) {
+		background: var(--color-interactive-hover);
+		color: var(--color-text-primary);
+	}
+	.pref-options :global(.pref-option[aria-checked='true']) {
+		background: var(--color-surface-raised);
+		border-color: var(--color-accent-border);
+		color: var(--color-text-primary);
+		font-weight: var(--font-weight-semibold);
+		box-shadow: var(--shadow-sm);
+	}
+	.pref-options :global(.pref-option[aria-disabled='true']) {
+		opacity: 0.55;
+		cursor: not-allowed;
+	}
+	.pref-options :global(.pref-option:focus-visible) {
+		outline: var(--focus-ring-width) solid var(--focus-ring-color);
+		outline-offset: var(--focus-ring-offset);
+		min-height: var(--density-focus-target);
+		min-width: var(--density-focus-target);
+	}
+</style>

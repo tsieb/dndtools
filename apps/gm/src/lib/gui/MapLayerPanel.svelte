@@ -11,6 +11,8 @@
 		type SceneVisibility,
 	} from '@dndtools/core';
 	import { useRuntime } from '$lib/state/runtime-context';
+	import Icon from './Icon.svelte';
+	import type { IconName } from './icons';
 
 	// UX-MAP-004/005/008/014 (MAP-003/004/005/006/007/016) — the DM LAYER-MANAGEMENT surface, with the
 	// established layer-panel row anatomy (type badge · DM-display eye · player-visibility · name ·
@@ -37,15 +39,17 @@
 		isDm ? auditMapProjectionConsistency({ map: runtime.state.maps.maps[mapId]! }) : null,
 	);
 
-	// UX-MAP-005 — the layer-type badge model: a human label + a tone token per category.
-	const CATEGORY: Record<MapLayerCategory, { label: string; tone: string }> = {
-		base: { label: 'Base', tone: 'neutral' },
-		terrain: { label: 'Terrain', tone: 'terrain' },
-		roads: { label: 'Roads', tone: 'roads' },
-		poi: { label: 'POI', tone: 'poi' },
-		fog: { label: 'Fog', tone: 'fog' },
-		'dm-annotations': { label: 'DM notes', tone: 'dm' },
-		'player-overlay': { label: 'Player overlay', tone: 'player' },
+	// UX-MAP-005 — the layer-type badge model: a human label + a distinct Lucide glyph + a hue per
+	// category. The `tone` keys the `--layer-*` hue in the scoped stylesheet (badge fg + border, with
+	// a low-alpha mix for the fill); the `icon` is the non-colour cue so the type survives grayscale.
+	const CATEGORY: Record<MapLayerCategory, { label: string; tone: string; icon: IconName }> = {
+		base: { label: 'Base', tone: 'base', icon: 'layer-base' },
+		terrain: { label: 'Terrain', tone: 'terrain', icon: 'layer-height' },
+		roads: { label: 'Roads', tone: 'roads', icon: 'layer-roads' },
+		poi: { label: 'POI', tone: 'poi', icon: 'layer-poi' },
+		fog: { label: 'Fog', tone: 'fog', icon: 'layer-fog' },
+		'dm-annotations': { label: 'DM notes', tone: 'dm', icon: 'layer-dm' },
+		'player-overlay': { label: 'Player overlay', tone: 'player', icon: 'layer-player' },
 	};
 	const VIS_LABEL: Record<string, string> = {
 		'dm-only': 'DM only',
@@ -190,9 +194,12 @@
 
 	<ul class="layer-list" data-testid="layer-list">
 		{#each shownLayers as layer, index (layer.layerId)}
-			<li class="layer" data-testid={`layer-${layer.layerId}`} data-locked={layer.locked}>
+			<li class="layer" data-testid={`layer-${layer.layerId}`} data-locked={layer.locked} data-category={layer.category}>
 				<div class="layer__row">
-					<span class="type-badge" data-tone={CATEGORY[layer.category]?.tone}>{CATEGORY[layer.category]?.label ?? layer.category}</span>
+					<span class="type-badge" data-tone={CATEGORY[layer.category]?.tone}>
+						<Icon name={CATEGORY[layer.category]?.icon ?? 'layer-poi'} size="micro" />
+						{CATEGORY[layer.category]?.label ?? layer.category}
+					</span>
 					<span class="layer__name" data-testid={`layer-name-${layer.layerId}`}>{layer.name}</span>
 					<span class="vis-badge" data-testid={`layer-visibility-${layer.layerId}`} data-visibility={layer.visibility}>
 						{VIS_LABEL[layer.visibility] ?? layer.visibility}
@@ -276,15 +283,36 @@
 	.layer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 	.layer { padding: var(--space-2) var(--space-3); background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
 	.layer[data-locked='true'] { opacity: 0.7; }
+	/* UX-MAP-005 — the safety-critical DM-annotations accent: a 3px purple rail painted as an inset
+	   shadow so the warm cue never shifts the row's box geometry (icon + label carry it too). */
+	.layer[data-category='dm-annotations'] { box-shadow: inset 3px 0 0 0 var(--layer-dm); }
 	.layer__row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 	.layer__name { font-weight: var(--font-weight-semibold); }
-	.type-badge { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: var(--tracking-wide); padding: 0 var(--space-1-5); border-radius: var(--radius-full); border: 1px solid var(--color-border-strong); color: var(--color-text-secondary); }
-	.type-badge[data-tone='terrain'] { color: var(--color-status-success-text); border-color: var(--color-status-success); }
-	.type-badge[data-tone='roads'] { color: var(--color-status-warning-text); border-color: var(--color-status-warning); }
-	.type-badge[data-tone='poi'] { color: var(--color-accent); border-color: var(--color-accent-border); }
-	.type-badge[data-tone='fog'] { color: var(--color-status-info-text); border-color: var(--color-status-info); }
-	.type-badge[data-tone='dm'] { color: var(--color-dm-only-badge); border-color: var(--color-dm-only-badge); }
-	.type-badge[data-tone='player'] { color: var(--color-status-info-text); border-color: var(--color-status-info); }
+	/* UX-MAP-005 — the layer-type badge: its `--layer-*` hue is the fg + border, the fill is a
+	   low-alpha mix of that hue against the surface, and the distinct glyph rides beside the label. */
+	.type-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		--h: var(--color-text-secondary);
+		font-size: var(--text-2xs);
+		font-weight: var(--font-weight-semibold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wide);
+		white-space: nowrap;
+		padding: 0 var(--space-1-5);
+		border-radius: var(--radius-full);
+		color: var(--h);
+		border: 1px solid color-mix(in oklab, var(--h) 55%, transparent);
+		background: color-mix(in oklab, var(--h) 16%, var(--color-surface));
+	}
+	.type-badge[data-tone='base'] { --h: var(--layer-base); }
+	.type-badge[data-tone='terrain'] { --h: var(--layer-height); }
+	.type-badge[data-tone='roads'] { --h: var(--layer-roads); }
+	.type-badge[data-tone='poi'] { --h: var(--layer-poi); }
+	.type-badge[data-tone='fog'] { --h: var(--layer-fog); }
+	.type-badge[data-tone='dm'] { --h: var(--layer-dm); }
+	.type-badge[data-tone='player'] { --h: var(--layer-player); }
 	.vis-badge, .lock-badge, .content-badge { font-size: var(--text-2xs); padding: 0 var(--space-1-5); border-radius: var(--radius-full); border: 1px solid var(--color-border); color: var(--color-text-secondary); }
 	.vis-badge[data-visibility='dm-only'] { color: var(--color-dm-only-badge); border-color: var(--color-dm-only-badge); background: var(--color-dm-only-subtle); }
 	.content-badge { margin-left: auto; }

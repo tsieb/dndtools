@@ -24,7 +24,7 @@
 	const consistency = $derived(auditPermissionConsistency(runtime.state.permissions));
 </script>
 
-<section data-testid="permission-summary" aria-label="Your permissions">
+<section class="cwrap" data-testid="permission-summary" aria-label="Your permissions">
 	<h2>Your permissions</h2>
 	<div class="scene-list">
 		<div class="scene-card" data-testid="perm-role">
@@ -103,3 +103,58 @@
 		</section>
 	{/if}
 </section>
+
+<style>
+	/* CANONICAL secondary card recipe — converges this panel with the other settings cards. The
+	   nested status rows use the calm tier-3 surface (surface-alt) so they recede inside the raised
+	   card. Token-only; .meta stays at secondary for the parchment-theme contrast gate. */
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		padding: var(--space-5);
+		box-shadow: var(--shadow-sm);
+	}
+	.cwrap h2 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-lg);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
+	.cwrap :global(h3) {
+		margin: 0 0 var(--space-2);
+		font-size: var(--text-md);
+	}
+	.cwrap :global(.meta) {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.cwrap :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.cwrap :global(.scene-card) {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		flex-wrap: wrap;
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-alt);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.cwrap :global(.unavailable) {
+		color: var(--color-status-error-text);
+		font-weight: var(--font-weight-semibold);
+	}
+</style>

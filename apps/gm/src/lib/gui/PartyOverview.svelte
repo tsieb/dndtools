@@ -255,6 +255,11 @@
 	}
 	.party__head h2 {
 		margin: 0;
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-lg);
+		color: var(--color-text-primary);
+		letter-spacing: var(--tracking-tight);
 	}
 	.party__sub,
 	.party__hint {
@@ -275,23 +280,26 @@
 		color: var(--color-status-error-text);
 		font-size: var(--text-sm);
 	}
+	/* Party vitals board — a responsive tile grid (mockup: repeat(4, …) glance-strip). Each tile is
+	   a recessed --color-surface block so it pops on the raised/hero card wrapper. */
 	.party__members {
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+		gap: var(--space-3);
 	}
 	.member {
 		display: flex;
 		align-items: center;
 		gap: var(--space-3);
-		padding: var(--space-2) var(--space-3);
-		background: var(--color-surface-raised);
+		padding: var(--space-3);
+		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-left: 3px solid var(--color-border-strong);
 		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-sm);
 	}
 	.member--critical {
 		border-left-color: var(--color-status-error);
@@ -400,7 +408,10 @@
 	.party__section h3,
 	.party__add h3 {
 		margin: 0 0 var(--space-2);
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
 		font-size: var(--text-md);
+		color: var(--color-text-primary);
 	}
 	.inventory {
 		list-style: none;
@@ -416,7 +427,7 @@
 		justify-content: space-between;
 		gap: var(--space-3);
 		padding: var(--space-2) var(--space-3);
-		background: var(--color-surface-raised);
+		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 	}

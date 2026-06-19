@@ -537,6 +537,61 @@
 </section>
 
 <style>
+	/* Secondary "tool" card (package Panel anatomy): one titled card; the calendar / digest / recap
+	   sub-surfaces read as nested blocks within it. */
+	[data-testid='prep-recap'] {
+		display: block;
+		padding: var(--space-5);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	[data-testid='prep-recap'] > h2 {
+		margin: 0 0 var(--space-4);
+		font-family: var(--font-display);
+		font-size: var(--text-md);
+		font-weight: var(--font-weight-bold);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
+	[data-testid='prep-recap'] h3 {
+		margin: 0 0 var(--space-2);
+		font-family: var(--font-display);
+		font-size: var(--text-base);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-primary);
+	}
+	[data-testid='prep-recap'] h4 {
+		margin: var(--space-2) 0 var(--space-1);
+		font-size: var(--text-sm);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-secondary);
+	}
+	/* Calendar / recap action buttons reuse the secondary look without per-button markup classes;
+	   the segmented mode control keeps its own treatment. */
+	[data-testid='prep-recap'] button:not(.button):not(.mode-option) {
+		min-height: var(--density-button-height);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-md);
+		font-weight: var(--font-weight-medium);
+		cursor: pointer;
+	}
+	[data-testid='prep-recap'] button:not(.button):not(.mode-option):hover {
+		background: var(--color-surface-overlay);
+	}
+	[data-testid='prep-recap'] :is(input, select, textarea) {
+		min-height: var(--density-input-height);
+		padding: var(--space-1-5) var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border-strong);
+		border-radius: var(--radius-sm);
+	}
+
 	.error {
 		color: var(--color-status-error);
 	}
@@ -549,9 +604,10 @@
 	}
 	.block {
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
-		padding: var(--space-2);
-		margin-bottom: var(--space-2);
+		border-radius: var(--radius-md);
+		padding: var(--space-4);
+		margin-bottom: var(--space-3);
+		background: var(--color-surface);
 	}
 	.row {
 		display: flex;

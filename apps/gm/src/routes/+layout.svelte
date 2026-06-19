@@ -36,6 +36,7 @@
 	import { resolveShellRouteAccessibility } from '$lib/navigation/route-a11y';
 	import { buildShortcutRegistry } from '$lib/navigation/shortcuts';
 	import { isFromTextEntry } from '$lib/gui/a11y/keyboard';
+	import Icon from '$lib/gui/Icon.svelte';
 	import GlobalNav from '$lib/gui/GlobalNav.svelte';
 	import CommandPalette from '$lib/gui/CommandPalette.svelte';
 	import GlobalSearch from '$lib/gui/GlobalSearch.svelte';
@@ -496,8 +497,10 @@
 	     brand/home, the command palette trigger, the "view as" actor switch, and help. Section
 	     routing lives in the primary nav (the sidebar/rail/tab bar), not here. -->
 	<header class="app-header">
-		<a class="brand" href="/" data-testid="app-brand">DND Tools v2</a>
-		<p class="tagline">Scene-first command platform — local prototype</p>
+		<a class="brand" href="/" data-testid="app-brand" aria-label="DND Tools — Command Center home">
+			<span class="brand-mark" aria-hidden="true"><Icon name="dice" size="sm" /></span>
+			<span class="brand-word">DND<span class="brand-accent">Tools</span></span>
+		</a>
 		<div class="top-bar-controls" data-testid="top-bar-controls">
 			<!-- UX-NAV-017: in-app back/forward for platforms without browser chrome (PWA/Electron).
 			     Browser back/forward keep working independently via ordinary route navigation. -->

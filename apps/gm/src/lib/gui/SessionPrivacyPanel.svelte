@@ -127,7 +127,7 @@
 	);
 </script>
 
-<section data-testid="session-privacy-panel" aria-label="Session privacy">
+<section class="cwrap" data-testid="session-privacy-panel" aria-label="Session privacy">
 	<h2>Session privacy</h2>
 	<p class="meta">
 		Player and observer replication streams are filtered before data leaves the host, concurrent
@@ -215,11 +215,76 @@
 </section>
 
 <style>
+	/* CANONICAL secondary card recipe; the demo controls + status rows are tokenized to the warm set. */
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		padding: var(--space-5);
+		box-shadow: var(--shadow-sm);
+	}
+	.cwrap h2 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-lg);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
+	.cwrap :global(h3) {
+		margin: 0 0 var(--space-1);
+		font-size: var(--text-md);
+	}
+	.cwrap :global(.meta) {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	.cwrap :global(.scene-list) {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+	}
+	.cwrap :global(.scene-card) {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+		flex-wrap: wrap;
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-alt);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	.cwrap :global(.unavailable) {
+		color: var(--color-status-warning-text);
+		font-weight: var(--font-weight-semibold);
+	}
+	.cwrap :global(select) {
+		min-height: var(--touch-target-min);
+		padding: 0 var(--space-3);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font: inherit;
+	}
+	.cwrap :global(label) {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2);
+		font-size: var(--text-sm);
+	}
 	.controls {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem;
+		gap: var(--space-4);
 		align-items: center;
-		margin: 0.5rem 0;
+		margin: var(--space-2) 0;
 	}
 </style>

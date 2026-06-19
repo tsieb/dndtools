@@ -395,6 +395,11 @@
 	}
 	.wizard__head h2 {
 		margin: 0;
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-xl);
+		color: var(--color-text-primary);
+		letter-spacing: var(--tracking-tight);
 	}
 	.wizard__sub {
 		margin: var(--space-1) 0 0;
@@ -492,6 +497,10 @@
 	}
 	.panel__title {
 		margin: 0;
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-md);
+		color: var(--color-text-primary);
 	}
 	.panel__desc {
 		margin: 0;

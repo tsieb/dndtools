@@ -129,6 +129,7 @@
 		border: 1px solid var(--color-status-success);
 		border-radius: var(--radius-md);
 		background: var(--color-status-success-subtle);
+		box-shadow: var(--shadow-sm);
 	}
 
 	.recovery-summary {
@@ -156,7 +157,7 @@
 	}
 
 	.meta {
-		color: var(--color-text-muted);
+		color: var(--color-text-secondary);
 	}
 
 	.recovery-actions {

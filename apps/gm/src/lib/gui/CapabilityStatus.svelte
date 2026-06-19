@@ -58,13 +58,24 @@
 </section>
 
 <style>
+	/* CANONICAL secondary card recipe. */
 	.cwrap {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		padding: var(--space-5);
+		box-shadow: var(--shadow-sm);
 	}
 	.cwrap h2 {
-		margin: 0;
+		margin: 0 0 var(--space-1);
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-lg);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
 	}
 	.cwrap :global(.meta) {
 		color: var(--color-text-secondary);
@@ -84,7 +95,7 @@
 		justify-content: space-between;
 		gap: var(--space-2);
 		padding: var(--space-1-5) var(--space-3);
-		background: var(--color-surface-raised);
+		background: var(--color-surface-alt);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 	}

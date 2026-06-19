@@ -195,7 +195,7 @@
 	}
 </script>
 
-<section data-testid="saved-searches" aria-label="Filters and saved searches">
+<section class="cwrap" data-testid="saved-searches" aria-label="Filters and saved searches">
 	<h2>Filters &amp; saved searches</h2>
 	<p class="meta">
 		Filter search by source, content type, tag, folder, and text. Results — and any count — include only
@@ -434,6 +434,24 @@
 </section>
 
 <style>
+	.cwrap {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		padding: var(--space-5);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	.cwrap h2 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: var(--text-lg);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
 	.error {
 		color: var(--color-status-error-text);
 	}

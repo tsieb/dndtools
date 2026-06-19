@@ -248,6 +248,11 @@
 	}
 	.head h2 {
 		margin: 0;
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-lg);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
 	}
 	.lede {
 		margin: var(--space-1) 0 0;

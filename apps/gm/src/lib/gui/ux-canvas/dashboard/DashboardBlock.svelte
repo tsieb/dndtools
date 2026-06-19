@@ -116,29 +116,37 @@
 		border-color: var(--color-border-strong);
 		cursor: grab;
 	}
+	/* Selected widget reads as the one focus: a 2px accent ring + raised elevation (package edit
+	   mode shows the selected frame ringed, not just bordered). */
 	.dash-block[data-selected='true'] {
 		border-color: var(--color-accent);
+		box-shadow:
+			0 0 0 2px var(--color-accent),
+			var(--shadow-md);
 	}
 
+	/* Inline header (package widget anatomy): the title sits inside the card with no divider bar —
+	   a display-serif, bold, primary-ink name, not a grey uppercase eyebrow on a separate surface. */
 	.dash-block-head {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: var(--space-2);
 		flex: 0 0 auto;
-		padding: var(--space-1-5) var(--space-3);
-		border-bottom: 1px solid var(--color-border);
-		background: var(--color-surface-alt);
+		padding: var(--space-2) var(--space-3);
 	}
 
 	.dash-block-title {
 		margin: 0;
+		min-width: 0;
 		font-family: var(--font-display);
-		font-size: var(--text-sm);
-		font-weight: var(--font-weight-semibold);
-		letter-spacing: var(--tracking-wide);
-		text-transform: uppercase;
-		color: var(--color-text-secondary);
+		font-size: var(--text-base);
+		font-weight: var(--font-weight-bold);
+		letter-spacing: var(--tracking-normal);
+		color: var(--color-text-primary);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.dash-block-meta {
@@ -154,8 +162,8 @@
 		gap: var(--space-2);
 		flex: 1 1 auto;
 		min-height: var(--touch-target-min);
-		margin: calc(-1 * var(--space-1-5)) calc(-1 * var(--space-3));
-		padding: var(--space-1-5) var(--space-3);
+		margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-3));
+		padding: var(--space-2) var(--space-3);
 		background: transparent;
 		border: none;
 		cursor: grab;

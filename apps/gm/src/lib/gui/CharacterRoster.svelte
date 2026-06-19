@@ -37,12 +37,12 @@
 					tabindex="-1"
 				>
 					<div class="rc__top">
-						<strong class="rc__name">{character.name}</strong>
-						<span class="kind-badge">{character.kind}</span>
+						<span class="kind-badge" data-kind={character.kind}>{character.kind}</span>
 						<span class="vis-badge" data-visibility={character.visibility}>
 							{VIS_LABEL[character.visibility] ?? character.visibility}
 						</span>
 					</div>
+					<strong class="rc__name">{character.name}</strong>
 					<div class="rc__vitals">
 						<HpBar
 							hp={character.combat.hp}
@@ -52,6 +52,13 @@
 						/>
 						<span class="ac-badge">AC {character.combat.ac}</span>
 					</div>
+					{#if character.combat.conditions.length > 0}
+						<ul class="rc__conditions" aria-label="Conditions">
+							{#each character.combat.conditions as condition (condition)}
+								<li class="condition-pill">{condition}</li>
+							{/each}
+						</ul>
+					{/if}
 				</li>
 			{/each}
 		</ul>
@@ -71,6 +78,11 @@
 	}
 	.roster__head h2 {
 		margin: 0;
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-lg);
+		color: var(--color-text-primary);
+		letter-spacing: var(--tracking-tight);
 	}
 	.roster__count {
 		font-size: var(--text-xs);
@@ -89,22 +101,26 @@
 		color: var(--color-text-secondary);
 		font-size: var(--text-sm);
 	}
+	/* Roster as a card grid (mockup: repeat(auto-fill, minmax(260px, …))), HP / AC / conditions /
+	   ownership pulled forward. Each card is a recessed --color-surface tile so it pops on the raised
+	   wrapper card. */
 	.roster__list {
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(244px, 1fr));
+		gap: var(--space-3);
 	}
 	.rc {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-1-5);
-		padding: var(--space-2) var(--space-3);
-		background: var(--color-surface-raised);
+		gap: var(--space-2);
+		padding: var(--space-4);
+		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-sm);
 	}
 	.rc:focus-visible {
 		outline: var(--focus-ring-width) solid var(--focus-ring-color);
@@ -118,6 +134,26 @@
 	}
 	.rc__name {
 		color: var(--color-text-primary);
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-md);
+		line-height: var(--leading-tight);
+	}
+	.rc__conditions {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-1);
+	}
+	.condition-pill {
+		font-size: var(--text-2xs);
+		color: var(--color-status-warning-text);
+		background: var(--color-status-warning-subtle);
+		border: 1px solid var(--color-status-warning);
+		border-radius: var(--radius-full);
+		padding: 0 var(--space-2);
 	}
 	.rc__vitals {
 		display: flex;
@@ -142,6 +178,23 @@
 		color: var(--color-dm-only-badge);
 		border-color: var(--color-dm-only-badge);
 		background: var(--color-dm-only-subtle);
+	}
+	/* Kind tone (mockup: PC success, NPC neutral, Monster warning) — colour on top of the visible
+	   uppercase label, never the sole cue. */
+	.kind-badge[data-kind='pc'] {
+		color: var(--color-status-success-text);
+		border-color: var(--color-status-success);
+		background: var(--color-status-success-subtle);
+	}
+	.kind-badge[data-kind='monster'] {
+		color: var(--color-status-warning-text);
+		border-color: var(--color-status-warning);
+		background: var(--color-status-warning-subtle);
+	}
+	.kind-badge[data-kind='sidekick'] {
+		color: var(--color-status-info-text);
+		border-color: var(--color-status-info);
+		background: var(--color-status-info-subtle);
 	}
 	.ac-badge {
 		flex: 0 0 auto;

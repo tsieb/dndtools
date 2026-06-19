@@ -175,16 +175,28 @@
 		gap: var(--space-2);
 		margin: var(--space-1) 0;
 	}
+	/* Secondary "tool" card (package Panel anatomy): the whole surface is one titled card; the create
+	   form sits inside it as a sunken sub-well rather than a competing second card. */
 	.cwrap {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3);
+		padding: var(--space-5);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
 	}
-	.cwrap :global(h2),
+	.cwrap :global(h2) {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: var(--text-md);
+		font-weight: var(--font-weight-bold);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
 	.cwrap :global(h3) {
 		margin: 0;
-	}
-	.cwrap :global(h3) {
 		font-size: var(--text-md);
 	}
 	.cwrap :global(form) {
@@ -192,10 +204,10 @@
 		flex-direction: column;
 		gap: var(--space-2);
 		padding: var(--space-4);
-		background: var(--color-surface);
+		background: var(--color-surface-sunken);
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-sm);
+		border-radius: var(--radius-md);
+		box-shadow: none;
 	}
 	.cwrap :global(label) {
 		display: flex;

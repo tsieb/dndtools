@@ -263,13 +263,13 @@
 
 <style>
 	.collab { display: flex; flex-direction: column; gap: var(--space-3); }
-	.collab__head h2 { margin: 0; }
+	.collab__head h2 { margin: 0; font-family: var(--font-display); font-weight: var(--font-weight-bold); font-size: var(--text-lg); color: var(--color-text-primary); letter-spacing: var(--tracking-tight); }
 	.collab__sub, .collab__empty { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
 	.collab__error { margin: 0; color: var(--color-status-error-text); font-size: var(--text-sm); }
 	.collab-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
-	.ccard { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+	.ccard { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
 	.ccard__head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
-	.ccard__name { margin: 0; font-size: var(--text-md); }
+	.ccard__name { margin: 0; font-family: var(--font-display); font-weight: var(--font-weight-bold); font-size: var(--text-md); color: var(--color-text-primary); }
 	.owner-pill { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: var(--tracking-wide); color: var(--color-text-secondary); border: 1px solid var(--color-border); border-radius: var(--radius-full); padding: 0 var(--space-2); }
 	.grant { display: flex; align-items: flex-end; gap: var(--space-2); flex-wrap: wrap; }
 	.field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }

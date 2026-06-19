@@ -55,7 +55,7 @@
 	{#if activeRole === 'dm'}
 		<div class="suite__grid">
 			<div class="suite__col suite__col--primary">
-				<section class="card"><PartyOverview /></section>
+				<section class="card card--hero"><PartyOverview /></section>
 				<section class="card"><CharacterRoster /></section>
 			</div>
 			<div class="suite__col suite__col--rail">
@@ -128,22 +128,41 @@
 		gap: var(--space-4);
 		min-width: 0;
 	}
+	/* Canonical secondary panel/card — the default content block. */
 	.card {
-		padding: var(--space-4);
-		background: var(--color-surface);
+		padding: var(--space-5);
+		background: var(--color-surface-raised);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-sm);
 	}
+	/* Canonical PRIMARY / hero card — the ONE focal block per role-view (DM: party vitals;
+	   player: guided character creation). */
 	.card--hero {
+		background: var(--color-accent-subtle);
 		border-color: var(--color-accent-border);
-		background: var(--color-surface-raised);
+		box-shadow: var(--shadow-md);
 	}
+	.card--hero h2 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-xl);
+		color: var(--color-text-primary);
+		letter-spacing: var(--tracking-tight);
+	}
+	.card--hero .meta {
+		margin: var(--space-2) 0 0;
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+	}
+	/* Calm / tier-3 strip — the collapsible secondary character tools. */
 	.suite__tools {
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
-		background: var(--color-surface-sunken);
-		padding: var(--space-3) var(--space-4);
+		background: var(--color-surface-alt);
+		box-shadow: var(--shadow-sm);
+		padding: var(--space-4);
 	}
 	.suite__tools-summary {
 		cursor: pointer;

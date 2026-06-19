@@ -307,6 +307,7 @@
 		</select>
 		<button
 			type="submit"
+			class="button"
 			data-testid="roll-dice"
 			aria-keyshortcuts="Enter"
 			disabled={!sessionActive || expression.trim() === ''}
@@ -333,7 +334,7 @@
 						<option value={table.id}>{table.title}</option>
 					{/each}
 				</select>
-				<button type="submit" data-testid="draw-table" disabled={!sessionActive || tables.length === 0}>
+				<button type="submit" class="button secondary" data-testid="draw-table" disabled={!sessionActive || tables.length === 0}>
 					Draw table
 				</button>
 			</form>
@@ -361,7 +362,7 @@
 					<option value={note.id}>{note.title}</option>
 				{/each}
 			</select>
-			<button type="submit" data-testid="append-roll" disabled={notes.length === 0}>
+			<button type="submit" class="button secondary" data-testid="append-roll" disabled={notes.length === 0}>
 				Append to note
 			</button>
 		</form>
@@ -414,6 +415,31 @@
 </section>
 
 <style>
+	/* Secondary "tool" card (package Panel anatomy): calm surface-raised fill, display-serif title. */
+	[data-testid='dice-tools'] {
+		display: block;
+		padding: var(--space-5);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	[data-testid='dice-tools'] > h2 {
+		margin: 0 0 var(--space-4);
+		font-family: var(--font-display);
+		font-size: var(--text-md);
+		font-weight: var(--font-weight-bold);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
+	.roll-history h3 {
+		margin: var(--space-5) 0 var(--space-2);
+		font-family: var(--font-display);
+		font-size: var(--text-base);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-primary);
+	}
+
 	.error {
 		color: var(--color-status-error);
 	}
@@ -487,11 +513,15 @@
 		font-style: italic;
 	}
 	.dice {
+		font-family: var(--font-mono);
 		font-size: var(--text-sm);
 		color: var(--color-text-secondary);
 	}
+	/* The roll total is the result — set it in the mono face, bold, in primary ink so it reads first. */
 	.total {
-		font-weight: 600;
+		font-family: var(--font-mono);
+		font-weight: var(--font-weight-bold);
+		color: var(--color-text-primary);
 	}
 	.row {
 		font-style: italic;

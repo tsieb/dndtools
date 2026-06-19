@@ -272,10 +272,10 @@
 		<!-- MAP-013: routes with DERIVED distance + travel time. -->
 		<section aria-labelledby={`routes-${mapId}`}>
 			<h4 id={`routes-${mapId}`}>Routes <span class="meta" data-testid="route-count">({view.routes.length})</span></h4>
-			<ul class="annotation-list" data-testid="route-list">
+			<ul class="annotation-list route-list" data-testid="route-list">
 				{#each view.routes as route (route.id)}
 					{@const linkedWaypoint = route.waypoints.find((wp) => wp.linkedEntityId)}
-					<li data-testid={`route-${route.id}`}>
+					<li data-testid={`route-${route.id}`} data-visibility={route.visibility}>
 						<span class="annotation-name">{route.label}</span>
 						<span class="meta" data-testid={`route-distance-${route.id}`}>
 							{#if route.measurement.distance !== null}
@@ -351,7 +351,7 @@
 					<p class="meta" data-testid="fog-status" role="status">Fog operation saved.</p>
 				{/if}
 			{/if}
-			<ul class="annotation-list" data-testid="fog-list">
+			<ul class="annotation-list fog-list" data-testid="fog-list">
 				{#each view.fog as op (op.id)}
 					<li data-testid={`fog-${op.id}`}>
 						<span class="badge">{op.kind}</span>
@@ -436,6 +436,25 @@
 	.annotation-name {
 		font-weight: var(--font-weight-semibold);
 		color: var(--color-text-primary);
+	}
+	/* MAP-013 — routes carry the warm route hue as a left rail (inset so the box never shifts). A
+	   player-facing route uses the lighter player-route hue; the DM-only route keeps the base hue. */
+	.route-list li {
+		box-shadow: inset 3px 0 0 0 var(--color-route);
+	}
+	.route-list li[data-visibility='player-visible'],
+	.route-list li[data-visibility='shared'] {
+		box-shadow: inset 3px 0 0 0 var(--color-route-player);
+	}
+	/* MAP-012 — this is the DM authoring view, so fog reads at the DM's see-through opacity: the fog
+	   fill mixed in at --map-fog-opacity-dm (0.2) over the raised surface. The near-solid player
+	   projection (--map-fog-opacity-player) is a canvas-render value with no surface here. */
+	.fog-list li {
+		background: color-mix(
+			in oklab,
+			var(--map-fog-fill) calc(var(--map-fog-opacity-dm) * 100%),
+			var(--color-surface-raised)
+		);
 	}
 	.badge {
 		font-size: var(--text-2xs);

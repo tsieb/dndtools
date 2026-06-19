@@ -74,6 +74,8 @@
 		display: inline-flex;
 		align-items: baseline;
 		gap: var(--space-0-5);
+		/* Numerals in the mono face for tabular alignment across rows (design: numbers are mono). */
+		font-family: var(--font-mono);
 		font-variant-numeric: tabular-nums;
 		font-size: var(--text-sm);
 		white-space: nowrap;

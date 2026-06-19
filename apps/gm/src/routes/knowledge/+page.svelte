@@ -40,20 +40,67 @@
 	// (fail-closed).
 </script>
 
-<section data-testid="knowledge-view" aria-label="Knowledge">
-	<p class="meta">
+<section data-testid="knowledge-view" aria-label="Knowledge" class="knowledge">
+	<p class="meta knowledge__lede">
 		Campaign notes, lore, and calendar-aware content. The DM (or an authorized editor) creates and
 		edits markdown notes; players see only what their visibility permits.
 	</p>
 
-	<NotesWorkbench />
-	<VaultObjects />
-	<TemplatesAndSnippets />
-	<CalendarContent />
-	<CalendarDiscovery />
-	<SavedSearches />
-	<GraphVisualization />
-	<ContentVisibilityEmbeds />
-	<ContentImportExport />
-	<ContentSourceConstraints />
+	<!-- PRIMARY focus: the notes workbench (list rail + dominating editor). -->
+	<div class="knowledge__primary">
+		<NotesWorkbench />
+	</div>
+
+	<!-- SECONDARY content: the supporting authoring/management surfaces, re-composed as a calm
+	     grid of cards below the editor. Table- and filter-heavy panels span the full width. -->
+	<div class="knowledge__secondary">
+		<VaultObjects />
+		<TemplatesAndSnippets />
+		<CalendarContent />
+		<CalendarDiscovery />
+		<SavedSearches />
+		<GraphVisualization />
+		<ContentVisibilityEmbeds />
+		<ContentImportExport />
+		<ContentSourceConstraints />
+	</div>
 </section>
+
+<style>
+	.knowledge {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-8);
+	}
+
+	.knowledge__lede {
+		margin: 0;
+		max-width: 62ch;
+		color: var(--color-text-secondary);
+	}
+
+	.knowledge__primary {
+		min-width: 0;
+	}
+
+	/* Calm secondary grid: two balanced columns of cards; the table/filter-heavy panels span
+	   the full width so their wide content never gets squeezed into a narrow column. */
+	.knowledge__secondary {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--space-6);
+		align-items: start;
+	}
+	.knowledge__secondary > :global([data-testid='saved-searches']),
+	.knowledge__secondary > :global([data-testid='graph-visualization']),
+	.knowledge__secondary > :global([data-testid='calendar-content']),
+	.knowledge__secondary > :global([data-testid='content-import-export']) {
+		grid-column: 1 / -1;
+	}
+
+	@media (max-width: 860px) {
+		.knowledge__secondary {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+</style>

@@ -272,6 +272,11 @@
 	}
 	.drafts__head h2 {
 		margin: 0;
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-lg);
+		color: var(--color-text-primary);
+		letter-spacing: var(--tracking-tight);
 	}
 	.drafts__sub {
 		margin: var(--space-1) 0 0;
@@ -281,7 +286,10 @@
 	}
 	.drafts__subhead {
 		margin: 0 0 var(--space-2);
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
 		font-size: var(--text-md);
+		color: var(--color-text-primary);
 	}
 	.drafts__error {
 		margin: 0;
@@ -348,9 +356,10 @@
 		gap: var(--space-3);
 		flex-wrap: wrap;
 		padding: var(--space-3);
-		background: var(--color-surface-raised);
+		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-sm);
 	}
 	.draft-card__main {
 		display: flex;

@@ -94,3 +94,51 @@
 		{theme.announcement}
 	</div>
 </section>
+
+<style>
+	/* PRIMARY / hero card — Theme is the focal preference, so it takes the accent-subtle hero recipe
+	   (warm tint + accent border + raised shadow). Token-only; the global .theme-selector layout
+	   (display:grid; gap) is kept and only the surface + title are added here. */
+	.theme-selector {
+		background: var(--color-accent-subtle);
+		border: 1px solid var(--color-accent-border);
+		border-radius: var(--radius-lg);
+		padding: var(--space-5);
+		box-shadow: var(--shadow-md);
+	}
+	.theme-selector h2 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-weight: var(--font-weight-bold);
+		font-size: var(--text-lg);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
+	/* On accent-subtle, small text must be at least secondary to clear the axe contrast gate. */
+	.theme-selector :global(.meta) {
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
+		margin: 0;
+	}
+	/* Swatch chips read as raised tiles on the hero tint so they pop. Re-declare the selected and
+	   focus states locally (they out-specify the global .theme-option state rules, which would
+	   otherwise tie and risk dropping the selected treatment). */
+	.theme-selector :global(.theme-option) {
+		background: var(--color-surface-raised);
+		border-color: var(--color-border);
+	}
+	.theme-selector :global(.theme-option[aria-checked='true']) {
+		border-color: var(--color-accent);
+		/* SOLID surface, not --color-interactive-selected: the faint accent tint composites over the
+		   accent-subtle hero card to ~#e5cdb1, on which the accent-coloured label is only 3.78:1 (axe
+		   color-contrast fail). On the solid raised surface the same accent label clears 4.5:1; the
+		   accent border + bold weight still mark the selected option. */
+		background: var(--color-surface-raised);
+		color: var(--color-accent);
+		font-weight: var(--font-weight-semibold);
+	}
+	.theme-selector :global(.theme-option:focus-visible) {
+		outline: var(--focus-ring-width) solid var(--focus-ring-color);
+		outline-offset: var(--focus-ring-offset);
+	}
+</style>

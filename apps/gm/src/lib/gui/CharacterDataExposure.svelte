@@ -185,7 +185,7 @@
 
 <style>
 	.exposure { display: flex; flex-direction: column; gap: var(--space-3); }
-	.exposure__head h2 { margin: 0; }
+	.exposure__head h2 { margin: 0; font-family: var(--font-display); font-weight: var(--font-weight-bold); font-size: var(--text-lg); color: var(--color-text-primary); letter-spacing: var(--tracking-tight); }
 	.exposure__sub, .exposure__empty { margin: 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
 	.exposure__grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
 	.exposure__pick { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
@@ -200,7 +200,7 @@
 	.path--active { background: var(--color-interactive-selected); border-color: var(--color-accent-border); }
 	.path__label { font-size: var(--text-sm); }
 	.path__sel, .preview__sel { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-secondary); }
-	.preview { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); position: sticky; top: var(--space-3); }
+	.preview { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); position: sticky; top: var(--space-3); }
 	.preview__head { display: flex; flex-direction: column; gap: var(--space-0-5); }
 	.preview__path { font-weight: var(--font-weight-semibold); }
 	.preview__state { font-size: var(--text-sm); color: var(--color-text-secondary); }

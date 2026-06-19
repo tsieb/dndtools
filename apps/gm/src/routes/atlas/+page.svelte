@@ -88,6 +88,15 @@
 	const visibleMaps = $derived(
 		listMapsForActor(runtime.state.maps, runtime.state.permissions, runtime.activeActorId),
 	);
+
+	// The map's default visibility, surfaced as the at-a-glance card badge (the package's
+	// VisibilityChip vocabulary). This is REAL data from the actor-filtered list — it is not the
+	// mockup's faked "Projecting" state (no such field exists on the list entry).
+	const MAP_VIS_LABEL: Record<string, string> = {
+		'dm-only': 'DM only',
+		'player-visible': 'Player visible',
+		shared: 'Shared',
+	};
 </script>
 
 <section class="atlas" data-testid="atlas-view" aria-label="Atlas">
@@ -98,8 +107,11 @@
 
 	{#if resolution}
 		{#if resolution.kind === 'restore'}
-			<section class="map-viewport card" data-testid="map-viewport" aria-label="Map viewport">
-				<h2 data-testid="map-name">{resolution.entityName}</h2>
+			<section class="map-open" data-testid="map-viewport" aria-label="Map viewport">
+				<header class="map-open__head">
+					<p class="map-open__eyebrow">Open map</p>
+					<h2 data-testid="map-name">{resolution.entityName}</h2>
+				</header>
 
 				<!-- UX-MAP-001/002/003: the spatial viewer — a wayfinding breadcrumb over the foundational
 				     pan/zoom/minimap surface (CanvasViewport), fed the actor-filtered regions. -->
@@ -110,32 +122,34 @@
 					selectionId={resolution.selectionId}
 				/>
 
-				{#if resolution.selectionId}
-					<p class="meta" data-testid="map-poi">
-						Focused on <strong>{resolution.selectionLabel}</strong>
-						({resolution.selectionId})
-					</p>
-				{:else}
-					<p class="meta" data-testid="map-poi-none">
-						No specific POI requested — showing the map.
-					</p>
-				{/if}
-				<!-- SRCH-007 AC1 — the viewport focus coordinate. Prefer the resolver-computed POI coordinate,
-				     then the x/y params carried in the URL; both center the viewport on the search-opened POI. -->
-				{#if resolution.viewport}
-					<p class="meta" data-testid="viewport-coords">
-						Viewport centered at ({resolution.viewport.x.toFixed(2)}, {resolution.viewport.y.toFixed(2)}).
-					</p>
-				{:else if viewportParams}
-					<p class="meta" data-testid="viewport-coords">
-						Viewport centered at ({viewportParams.x.toFixed(2)}, {viewportParams.y.toFixed(2)}).
-					</p>
-				{/if}
-				{#if focusedRegionId}
-					<p class="meta" data-testid="viewport-focus">
-						Viewport centered on <strong>{focusedRegionId}</strong>.
-					</p>
-				{/if}
+				<div class="map-open__meta">
+					{#if resolution.selectionId}
+						<p class="meta" data-testid="map-poi">
+							Focused on <strong>{resolution.selectionLabel}</strong>
+							({resolution.selectionId})
+						</p>
+					{:else}
+						<p class="meta" data-testid="map-poi-none">
+							No specific POI requested — showing the map.
+						</p>
+					{/if}
+					<!-- SRCH-007 AC1 — the viewport focus coordinate. Prefer the resolver-computed POI coordinate,
+					     then the x/y params carried in the URL; both center the viewport on the search-opened POI. -->
+					{#if resolution.viewport}
+						<p class="meta" data-testid="viewport-coords">
+							Viewport centered at ({resolution.viewport.x.toFixed(2)}, {resolution.viewport.y.toFixed(2)}).
+						</p>
+					{:else if viewportParams}
+						<p class="meta" data-testid="viewport-coords">
+							Viewport centered at ({viewportParams.x.toFixed(2)}, {viewportParams.y.toFixed(2)}).
+						</p>
+					{/if}
+					{#if focusedRegionId}
+						<p class="meta" data-testid="viewport-focus">
+							Viewport centered on <strong>{focusedRegionId}</strong>.
+						</p>
+					{/if}
+				</div>
 
 				<!-- MAP-015: the POI interaction-safety surface. Pointer, touch, and keyboard
 				     all reach every action without hover; the control dismisses only on a
@@ -172,24 +186,35 @@
 		{/if}
 	{/if}
 
-	<section class="card" aria-label="Maps">
-		<h2 id="maps" class="atlas__h2">Maps</h2>
-		<ul class="map-list" data-testid="atlas-map-list">
+	<section class="library" aria-label="Maps">
+		<header class="library__head">
+			<h2 id="maps" class="library__title">Maps</h2>
+			<span class="library__count">{visibleMaps.length} map{visibleMaps.length === 1 ? '' : 's'}</span>
+		</header>
+		<!-- The map LIBRARY — a calm, scannable card grid (package Atlas anatomy: thumbnail header
+		     with a warm tactical grid overlay, a visibility badge top-right, then name + meta). Each
+		     card keeps its REAL navigation links (open the map; open at the default region). -->
+		<ul class="map-grid" data-testid="atlas-map-list">
 			{#each visibleMaps as map (map.id)}
-				<li class="map-row" data-testid={`atlas-map-${map.id}`}>
-					<div class="map-row__main">
-						<a class="map-row__open" href={`?map=${map.id}`} data-testid={`atlas-open-${map.id}`}>{map.name}</a>
-						{#if map.description}<span class="map-row__desc">{map.description}</span>{/if}
+				<li class="map-card" data-testid={`atlas-map-${map.id}`} data-visibility={map.visibility}>
+					<div class="map-card__thumb" aria-hidden="true">
+						<span class="map-card__badge" data-visibility={map.visibility}>
+							{MAP_VIS_LABEL[map.visibility] ?? map.visibility}
+						</span>
 					</div>
-					{#if map.defaultRegionId}
-						<a
-							class="map-row__poi"
-							href={`?map=${map.id}&poi=${map.defaultRegionId}`}
-							data-testid={`atlas-open-poi-${map.id}`}
-						>
-							Open at {map.defaultRegionId}
-						</a>
-					{/if}
+					<div class="map-card__body">
+						<a class="map-card__open" href={`?map=${map.id}`} data-testid={`atlas-open-${map.id}`}>{map.name}</a>
+						{#if map.description}<span class="map-card__desc">{map.description}</span>{/if}
+						{#if map.defaultRegionId}
+							<a
+								class="map-card__poi"
+								href={`?map=${map.id}&poi=${map.defaultRegionId}`}
+								data-testid={`atlas-open-poi-${map.id}`}
+							>
+								Open at {map.defaultRegionId}
+							</a>
+						{/if}
+					</div>
 				</li>
 			{/each}
 			{#if visibleMaps.length === 0}
@@ -208,75 +233,207 @@
 	.atlas {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-4);
+		gap: var(--space-6);
 	}
 	.atlas__lede {
 		margin: 0;
+		max-width: 62ch;
 		color: var(--color-text-secondary);
+		line-height: var(--leading-relaxed);
 	}
-	.atlas__h2 {
-		margin: 0 0 var(--space-2);
-	}
-	.card {
-		padding: var(--space-4);
-		background: var(--color-surface);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-sm);
-	}
-	.map-viewport :global(h2) {
-		margin: 0 0 var(--space-3);
-		font-family: var(--font-display);
-		font-size: var(--text-xl);
-	}
-	.map-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
+
+	/* ---- Open map: the focused authoring view. The canvas is the focus; the layer / annotation /
+	     nested-area panels stack below it as supporting rails. The accent border + raised elevation
+	     mark this as the one primary region while a map is open (package Card accent treatment). ---- */
+	.map-open {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-2);
+		gap: var(--space-4);
+		padding: var(--space-5);
+		background: var(--color-surface);
+		border: 1px solid var(--color-accent-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-md);
 	}
-	.map-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--space-3);
-		flex-wrap: wrap;
-		padding: var(--space-2) var(--space-3);
-		background: var(--color-surface-raised);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-	}
-	.map-row__main {
+	.map-open__head {
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-0-5);
-		min-width: 0;
 	}
-	.map-row__open {
+	.map-open__eyebrow {
+		margin: 0;
+		font-size: var(--text-xs);
 		font-weight: var(--font-weight-semibold);
-		color: var(--color-text-link);
-		min-height: var(--touch-target-floor);
-		display: inline-flex;
-		align-items: center;
+		letter-spacing: var(--tracking-wider);
+		text-transform: uppercase;
+		color: var(--color-text-tertiary);
 	}
-	.map-row__desc {
+	.map-open :global(h2) {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: var(--text-2xl);
+		letter-spacing: var(--tracking-tight);
+		line-height: var(--leading-tight);
+	}
+	.map-open__meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-1) var(--space-4);
+	}
+	.map-open__meta .meta {
+		margin: 0;
+		font-size: var(--text-sm);
 		color: var(--color-text-secondary);
-		font-size: var(--text-sm);
 	}
-	.map-row__poi {
-		color: var(--color-text-link);
+	.map-open__meta :global(strong) {
+		color: var(--color-text-primary);
+	}
+
+	/* ---- Map library: a calm, scannable card grid (package Atlas anatomy). ---- */
+	.library {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	.library__head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: var(--space-3);
+	}
+	.library__title {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: var(--text-xl);
+		letter-spacing: var(--tracking-tight);
+	}
+	.library__count {
 		font-size: var(--text-sm);
+		color: var(--color-text-tertiary);
+	}
+	.map-grid {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr));
+		gap: var(--space-4);
+	}
+	.map-card {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-sm);
+		transition:
+			border-color var(--duration-fast) var(--easing-standard),
+			box-shadow var(--duration-fast) var(--easing-standard);
+	}
+	.map-card:hover,
+	.map-card:focus-within {
+		border-color: var(--color-border-strong);
+		box-shadow: var(--shadow-md);
+	}
+	/* Thumbnail header: a warm gradient under a faint tactical grid overlay (decorative — the
+	   deferred canvas renderer owns the real preview). The visibility badge rides the top-right
+	   corner, matching the package card's status-badge slot. */
+	.map-card__thumb {
+		position: relative;
+		height: 9.25rem;
+		background: linear-gradient(
+			135deg,
+			var(--color-surface-raised),
+			var(--color-surface-sunken)
+		);
+	}
+	.map-card__thumb::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background-image:
+			linear-gradient(var(--map-grid-line) 1px, transparent 1px),
+			linear-gradient(90deg, var(--map-grid-line) 1px, transparent 1px);
+		background-size: 22px 22px;
+	}
+	.map-card__badge {
+		position: absolute;
+		top: var(--space-2);
+		right: var(--space-2);
+		display: inline-flex;
+		align-items: center;
+		padding: var(--space-0-5) var(--space-2);
+		font-size: var(--text-2xs);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--tracking-wide);
+		text-transform: uppercase;
+		border-radius: var(--radius-full);
+		color: var(--color-text-secondary);
+		background: var(--color-surface-overlay);
+		border: 1px solid var(--color-border);
+	}
+	.map-card__badge[data-visibility='dm-only'] {
+		color: var(--color-dm-only-badge);
+		border-color: var(--color-dm-only-badge);
+		background: var(--color-dm-only-subtle);
+	}
+	.map-card__badge[data-visibility='player-visible'] {
+		color: var(--color-status-info-text);
+		border-color: var(--color-status-info);
+	}
+	.map-card__badge[data-visibility='shared'] {
+		color: var(--color-status-success-text);
+		border-color: var(--color-status-success);
+	}
+	.map-card__body {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		padding: var(--space-3) var(--space-4);
+	}
+	.map-card__open {
+		font-size: var(--text-md);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-primary);
+		text-decoration: none;
 		min-height: var(--touch-target-floor);
 		display: inline-flex;
 		align-items: center;
+	}
+	.map-card__open:hover {
+		color: var(--color-accent);
+	}
+	.map-card__desc {
+		color: var(--color-text-secondary);
+		font-size: var(--text-xs);
+		line-height: var(--leading-snug);
+	}
+	.map-card__poi {
+		margin-top: var(--space-1);
+		color: var(--color-text-link);
+		font-size: var(--text-sm);
+		text-decoration: none;
+		min-height: var(--touch-target-floor);
+		display: inline-flex;
+		align-items: center;
+	}
+	.map-card__poi:hover {
+		text-decoration: underline;
 	}
 	.map-empty {
+		grid-column: 1 / -1;
 		color: var(--color-text-secondary);
 		font-size: var(--text-sm);
-		padding: var(--space-4);
+		padding: var(--space-6);
+		text-align: center;
 		border: 1px dashed var(--color-border);
 		border-radius: var(--radius-md);
+	}
+
+	/* The authoring panel renders its own card surface (and nothing at all for non-DM actors), so
+	   the wrapper must generate no box of its own — otherwise a player would see an empty frame. */
+	.card--authoring {
+		display: contents;
 	}
 </style>

@@ -124,24 +124,49 @@
 {/if}
 
 <style>
+	/* Tier-3 "status strip": calmer than the tool cards (flat surface-alt fill, denser padding,
+	   smaller title) — matches the package's session-live side panels. */
+	[data-testid='player-view-access'] {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-4);
+		background: var(--color-surface-alt);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+	}
+	[data-testid='player-view-access'] > h2 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: var(--text-base);
+		font-weight: var(--font-weight-semibold);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
+	[data-testid='player-view-access'] h3 {
+		margin: var(--space-2) 0 0;
+		font-size: var(--text-md);
+	}
 	.error {
-		color: var(--color-danger, #b00020);
+		color: var(--color-status-error-text);
 	}
 	.meta {
-		color: var(--color-text-muted, #666);
+		color: var(--color-text-secondary);
+		font-size: var(--text-sm);
 	}
 	.view-card {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-1, 0.25rem);
-		border: 1px solid var(--color-border, #ddd);
-		border-radius: var(--radius-1, 0.25rem);
-		padding: var(--space-2, 0.5rem);
-		margin: var(--space-1, 0.25rem) 0;
+		gap: var(--space-1);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface-raised);
+		padding: var(--space-3);
+		margin: var(--space-1) 0;
 	}
 	.widget-list,
 	.scene-list {
 		margin: 0;
-		padding-left: var(--space-3, 1rem);
+		padding-left: var(--space-4);
 	}
 </style>

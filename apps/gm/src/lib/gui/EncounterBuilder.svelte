@@ -174,6 +174,7 @@
 							{combatant.quantity}× {combatant.name} (CR {combatant.challengeRating}, HP {combatant.maxHp}, AC {combatant.ac})
 							<button
 								type="button"
+								class="button ghost sm"
 								data-testid="remove-combatant-{index}"
 								aria-label={`Remove ${combatant.name} from encounter draft`}
 								onclick={() => removeDraftCombatant(index)}
@@ -188,7 +189,7 @@
 					<input type="number" step="0.25" min="0" max="30" aria-label="Challenge rating" data-testid="combatant-cr-input" bind:value={newCr} />
 					<input type="number" min="1" max="20" aria-label="Quantity" data-testid="combatant-qty-input" bind:value={newQuantity} />
 					<input type="number" min="0" aria-label="Max HP" data-testid="combatant-hp-input" bind:value={newMaxHp} />
-					<button type="button" data-testid="add-combatant" onclick={() => addDraftCombatant()}>Add combatant</button>
+					<button type="button" class="button secondary sm" data-testid="add-combatant" onclick={() => addDraftCombatant()}>Add combatant</button>
 				</div>
 			</fieldset>
 
@@ -213,6 +214,7 @@
 
 			<button
 				type="submit"
+				class="button"
 				data-testid="build-encounter"
 				class:inactive={buildBlocked}
 				aria-disabled={buildBlocked}
@@ -239,6 +241,7 @@
 							<!-- UX-SES-009 AC2 — one-action start: flows the saved groups into the tracker. -->
 							<button
 								type="button"
+								class="button secondary sm"
 								data-testid="start-combat-encounter-{encounter.id}"
 								disabled={!sessionActive}
 								title={sessionActive
@@ -257,6 +260,65 @@
 {/if}
 
 <style>
+	/* Secondary "tool" card — calmer than the combat hero: surface-raised fill, hairline border,
+	   resting elevation. Display-serif title gives the panel a clear heading (package Panel anatomy). */
+	[data-testid='encounter-builder'] {
+		display: block;
+		padding: var(--space-5);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-sm);
+	}
+	[data-testid='encounter-builder'] > h2 {
+		margin: 0 0 var(--space-4);
+		font-family: var(--font-display);
+		font-size: var(--text-md);
+		font-weight: var(--font-weight-bold);
+		letter-spacing: var(--tracking-tight);
+		color: var(--color-text-primary);
+	}
+	[data-testid='encounter-list'] h3 {
+		margin: var(--space-5) 0 var(--space-2);
+		font-family: var(--font-display);
+		font-size: var(--text-base);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-primary);
+	}
+	[data-testid='encounter-builder'] fieldset {
+		margin: var(--space-3) 0;
+		padding: var(--space-3);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	[data-testid='encounter-builder'] legend {
+		padding: 0 var(--space-1);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text-secondary);
+	}
+	[data-testid='encounter-list'] ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+	}
+	[data-testid='encounter-list'] li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+	}
+	[data-testid='encounter-list'] li .name {
+		font-weight: var(--font-weight-semibold);
+		margin-right: auto;
+	}
+
 	.error {
 		color: var(--color-status-error);
 	}
