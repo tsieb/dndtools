@@ -1087,11 +1087,11 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-md);
 		background-color: var(--color-surface-sunken);
-		/* Subtle grid texture for spatial orientation — low contrast per Apple HIG (research §3.2). */
-		background-image:
-			linear-gradient(to right, var(--color-border) 1px, transparent 1px),
-			linear-gradient(to bottom, var(--color-border) 1px, transparent 1px);
-		background-size: 32px 32px;
+		/* Dot-grid surface (design package "edit-mode" scene canvas): a low-contrast dotted lattice
+		   for spatial orientation, per Apple HIG (research §3.2). Dots read calmer than ruled lines
+		   and match the proof-of-concept edit surface. */
+		background-image: radial-gradient(var(--color-border-strong) 1px, transparent 1px);
+		background-size: 20px 20px;
 		overflow: hidden;
 		touch-action: none;
 		outline-offset: -2px;

@@ -1628,12 +1628,18 @@
 		color: var(--color-status-error-text);
 		font-size: var(--text-sm);
 	}
+	/* Raised, cohesive edit toolbar (design package "edit-mode" header): the placement, grid, history,
+	   and help controls read as one banded toolbar rather than loose buttons. */
 	.canvas-command-bar {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--space-2);
 		margin-bottom: var(--space-2);
+		padding: var(--space-2) var(--space-3);
+		background: var(--color-surface-raised);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
 	}
 	.grid-toggle {
 		display: inline-flex;
