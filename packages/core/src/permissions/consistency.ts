@@ -260,9 +260,17 @@ function entityKey(entityType: string, entityId: string): string {
 }
 
 /**
- * Resolve whether an entity is visible to a specific actor from a visibility record. Fails closed:
- * an entity with no record is treated as not visible to a non-DM (default `dm-only`, Contract 3
- * Axis 1 rule 5). The DM always sees everything.
+ * Resolve whether an entity is visible to a specific actor PURELY from its visibility record (not its
+ * grants). Fails closed: an entity with no record is treated as not visible to a non-DM (default
+ * `dm-only`, Contract 3 Axis 1 rule 5). The DM always sees everything.
+ *
+ * NOTE — this deliberately uses the EXPLICIT-DELIVERY model (visibility + `sharedWith`), NOT the
+ * grant-aware live read gate. A write grant on content-items confers `viewer` (capability-sets), so
+ * the live gate would treat a write-granted `shared` item as visible; here we intentionally do NOT,
+ * so `write-grant-on-hidden-content` still flags a `shared` item the DM granted write on but never
+ * actually shared (a likely misconfiguration — "you granted write but forgot to share/reveal it").
+ * Over-reporting is fail-closed (a DM-facing warning, never a player leak); PERM-007's acceptance
+ * criteria mandate the `dm-only` case, and this stricter `shared` check is a deliberate safety net.
  */
 function entityVisibleToActor(
 	record: ConsistencyEntityRecord | undefined,

@@ -83,6 +83,13 @@ const PUBLIC_NOT_FOUND_MESSAGE = 'The requested content is unavailable.' as cons
 const PUBLIC_NO_PERMISSION_MESSAGE = 'You do not have permission to perform this action.' as const;
 const PUBLIC_UNKNOWN_ACTOR_MESSAGE = 'The requested content is unavailable.' as const;
 
+/**
+ * Coarse visibility used ONLY to CLASSIFY an already-denied access into a public/audit reason
+ * (`not-visible` vs `not-shared`). It is NOT the live access gate and intentionally does not consult
+ * grants: a viewer-granted actor is admitted by the grant-aware live gate (e.g. content-query's
+ * `itemVisibleToActor`) and so never reaches `auditAccessAttempt` — by the time this runs, the actor
+ * genuinely cannot see the entity, so a grant-blind decision here is correct by construction.
+ */
 function entityVisibleToActor(
 	visibility: ConsistencyEntityVisibility,
 	sharedWith: ActorId[] | undefined,
