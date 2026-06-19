@@ -182,6 +182,19 @@ export function handleStartCombat(
 	const sessionGuard = requireActiveSession(state);
 	if (sessionGuard) return reject(sessionGuard, state);
 
+	// SES-002 — refuse to start over a running combat. Silently replacing it would DISCARD the
+	// in-progress encounter (its log, round/turn, and combatants); the DM must explicitly end the
+	// current combat first. Fail closed against accidental data loss.
+	if (state.session.combat.status === 'running') {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: 'Combat is already running. End the current combat before starting a new one.',
+			},
+			state,
+		);
+	}
+
 	const parsed = parseInput(startCombatInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
 

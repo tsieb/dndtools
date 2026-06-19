@@ -126,11 +126,16 @@ export interface CombatTrackerView {
 	revision: number;
 }
 
-/** Whether the actor may fully see a combatant's identity + stat block (DM, or its combat-participant). */
+/**
+ * Whether the actor may fully see a combatant's identity + stat block (DM, or its combat-participant).
+ * `now` (from `env.clock()`) MUST be passed so an EXPIRED combat-participant grant is inert — omitting
+ * it lets a stale grant keep revealing a hidden combatant's identity/stats (PERM-004 fail closed).
+ */
 function actorCanSeeCombatant(
 	permissions: PermissionState,
 	actor: Actor,
 	combatant: Combatant,
+	now?: string,
 ): boolean {
 	if (actor.role === 'dm') return true;
 	if (!combatant.hidden) return true;
@@ -142,6 +147,7 @@ function actorCanSeeCombatant(
 			CHARACTER_ENTITY_TYPE,
 			combatant.characterId,
 			'combat-participant',
+			now,
 		);
 	}
 	return false;
@@ -166,6 +172,7 @@ export function getCombatTrackerForActor(
 	combat: SessionCombatState,
 	permissions: PermissionState,
 	actorId: string,
+	now?: string,
 ): CombatTrackerView {
 	const actor = getActor(permissions, actorId);
 	const isDm = actor?.role === 'dm';
@@ -185,7 +192,7 @@ export function getCombatTrackerForActor(
 		const combatant = combat.combatants[id];
 		if (!combatant) continue;
 		if (combatant.hidden) dmHiddenCount += 1;
-		const fullyVisible = actor ? actorCanSeeCombatant(permissions, actor, combatant) : false;
+		const fullyVisible = actor ? actorCanSeeCombatant(permissions, actor, combatant, now) : false;
 		if (fullyVisible) {
 			visibleIds.add(id);
 			fullyVisibleIds.add(id);

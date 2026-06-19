@@ -95,6 +95,7 @@ function actorMayEditCombatant(
 	permissions: PermissionState,
 	actor: Actor,
 	combatant: { kind: string; characterId: string | null },
+	now?: string,
 ): boolean {
 	if (actor.role === 'dm') return true;
 	if (actor.role === 'observer') return false;
@@ -105,6 +106,7 @@ function actorMayEditCombatant(
 		CHARACTER_ENTITY_TYPE,
 		combatant.characterId,
 		'combat-participant',
+		now,
 	);
 }
 
@@ -120,6 +122,7 @@ export function computeCombatControls(
 	tracker: CombatTrackerView,
 	actor: Actor | undefined,
 	liveness: CombatViewLiveness,
+	now?: string,
 ): CombatControlPermissions {
 	if (!actor) return NO_CONTROLS;
 	const live = liveness === 'live';
@@ -133,7 +136,7 @@ export function computeCombatControls(
 				.filter((row) => {
 					const source = combat.combatants[row.id];
 					if (!source) return false;
-					return actorMayEditCombatant(permissions, actor, source);
+					return actorMayEditCombatant(permissions, actor, source, now);
 				})
 				.map((row) => row.id)
 		: [];
@@ -159,10 +162,11 @@ export function getSharedCombatView(
 	permissions: PermissionState,
 	actorId: string,
 	liveness: CombatViewLiveness = 'live',
+	now?: string,
 ): SharedCombatView {
 	const actor = getActor(permissions, actorId);
-	const tracker = getCombatTrackerForActor(combat, permissions, actorId);
-	const controls = computeCombatControls(combat, permissions, tracker, actor, liveness);
+	const tracker = getCombatTrackerForActor(combat, permissions, actorId, now);
+	const controls = computeCombatControls(combat, permissions, tracker, actor, liveness, now);
 	return {
 		tracker,
 		controls,
@@ -183,6 +187,7 @@ function recipientCanSeeCombatant(
 	combatant: Combatant,
 	permissions: PermissionState,
 	recipient: Actor,
+	now?: string,
 ): boolean {
 	if (recipient.role === 'dm') return true;
 	if (!combatant.hidden) return true;
@@ -193,6 +198,7 @@ function recipientCanSeeCombatant(
 			CHARACTER_ENTITY_TYPE,
 			combatant.characterId,
 			'combat-participant',
+			now,
 		);
 	}
 	return false;
@@ -206,32 +212,51 @@ export function combatantIdFromOpPath(op: SyncOperation): string | null {
 }
 
 /**
- * REDACT a combat-level op's value for a non-DM recipient so it does not leak a hidden combatant's id.
- * The `combat.start` op records the full initiative `order` (every combatant id, including hidden ones);
- * for a non-DM recipient that array is filtered to the combatants they may SEE — so the delivered op never
- * carries a hidden combatant's id, and the count is reduced accordingly. Other combat-level ops are
- * delivered unchanged (they reference no specific hidden combatant). Pure (returns a new op when redacted).
+ * REDACT a combat-level op's value for a non-DM recipient so it does not leak a hidden combatant's id OR
+ * an aggregate count that betrays hidden-combatant volume:
+ *
+ *   - `order` (e.g. `combat.start`/`combat.add-combatants`) lists every combatant id, including hidden
+ *     ones; it is filtered to the combatants the recipient may SEE, and `combatantCount` reduced to match.
+ *   - `addedCount` (`combat.add-combatants`) and `logEntries` (`combat.end`) are AGGREGATE counts that
+ *     include hidden combatants / hidden activity. A non-DM never needs them, so they are stripped — a
+ *     count must not reveal that N combatants were added when the recipient may only see M of them.
+ *
+ * Only ever called for a NON-DM recipient (the stream filter delivers DMs every op unchanged). Pure
+ * (returns the same op when nothing needed redacting).
  */
+const HIDDEN_ACTIVITY_COUNT_FIELDS = ['addedCount', 'logEntries'] as const;
+
 function redactCombatLevelOpForRecipient(
 	op: SyncOperation,
 	combat: SessionCombatState,
 	permissions: PermissionState,
 	recipient: Actor,
+	now?: string,
 ): SyncOperation {
 	const value = op.value;
 	if (!value || typeof value !== 'object') return op;
-	const order = (value as { order?: unknown }).order;
-	if (!Array.isArray(order)) return op;
-	const visibleOrder = order.filter((id): id is string => {
-		if (typeof id !== 'string') return false;
-		const combatant = combat.combatants[id];
-		return !!combatant && recipientCanSeeCombatant(combatant, permissions, recipient);
-	});
-	if (visibleOrder.length === order.length) return op;
-	return {
-		...op,
-		value: { ...(value as Record<string, unknown>), order: visibleOrder, combatantCount: visibleOrder.length },
-	};
+	const record = value as Record<string, unknown>;
+	let redacted: Record<string, unknown> | null = null;
+	const draft = (): Record<string, unknown> => (redacted ??= { ...record });
+
+	const order = record.order;
+	if (Array.isArray(order)) {
+		const visibleOrder = order.filter((id): id is string => {
+			if (typeof id !== 'string') return false;
+			const combatant = combat.combatants[id];
+			return !!combatant && recipientCanSeeCombatant(combatant, permissions, recipient, now);
+		});
+		if (visibleOrder.length !== order.length) {
+			draft().order = visibleOrder;
+			draft().combatantCount = visibleOrder.length;
+		}
+	}
+
+	for (const field of HIDDEN_ACTIVITY_COUNT_FIELDS) {
+		if (field in record) delete draft()[field];
+	}
+
+	return redacted ? { ...op, value: redacted } : op;
 }
 
 /**
@@ -250,6 +275,7 @@ export function filterCombatStreamForRecipient(
 	combat: SessionCombatState,
 	permissions: PermissionState,
 	recipient: Actor | undefined,
+	now?: string,
 ): SyncOperation[] {
 	if (!recipient) return [];
 	if (recipient.role === 'dm') return [...operations];
@@ -263,12 +289,12 @@ export function filterCombatStreamForRecipient(
 		if (combatantId === null) {
 			// Combat-level op (start/advance/end): no per-combatant path, but its value may carry the
 			// initiative order — redact it so a hidden combatant's id never reaches a non-DM recipient.
-			delivered.push(redactCombatLevelOpForRecipient(op, combat, permissions, recipient));
+			delivered.push(redactCombatLevelOpForRecipient(op, combat, permissions, recipient, now));
 			continue;
 		}
 		const combatant = combat.combatants[combatantId];
 		if (!combatant) continue; // fail closed: unknown combatant ⇒ withhold from a non-DM
-		if (recipientCanSeeCombatant(combatant, permissions, recipient)) delivered.push(op);
+		if (recipientCanSeeCombatant(combatant, permissions, recipient, now)) delivered.push(op);
 	}
 	return delivered;
 }
@@ -284,11 +310,12 @@ export function assertCombatStreamCarriesNoHiddenCombatant(
 	combat: SessionCombatState,
 	permissions: PermissionState,
 	recipient: Actor | undefined,
+	now?: string,
 ): void {
 	if (recipient && recipient.role === 'dm') return;
 	const canSee = (id: string): boolean => {
 		const combatant = combat.combatants[id];
-		return !!combatant && !!recipient && recipientCanSeeCombatant(combatant, permissions, recipient);
+		return !!combatant && !!recipient && recipientCanSeeCombatant(combatant, permissions, recipient, now);
 	};
 	for (const op of delivered) {
 		if (op.entityType !== COMBAT_ENTITY_TYPE) continue;
