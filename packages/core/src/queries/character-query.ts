@@ -42,6 +42,10 @@ function characterVisibleToActor(
 	permissions: PermissionState,
 ): boolean {
 	if (actor.role === 'dm') return true;
+	// Observer ceiling (base-roles `canReadCharacterData: false`): an observer NEVER reads character
+	// data — not even a `shared` character it was added to `sharedWith` on. Enforced here so the
+	// single-character read matches the party overview's ceiling (CHAR-015), fail closed.
+	if (actor.role === 'observer') return false;
 	if (character.visibility === 'player-visible') return actor.role === 'player';
 	if (character.visibility === 'dm-only') return false;
 	// `shared`: delivered only through explicit delivery — membership in `sharedWith` (e.g. the

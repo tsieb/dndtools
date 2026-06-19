@@ -243,7 +243,11 @@ export function exportContent(
 		});
 	}
 
-	// Fail-closed self-check: a clean export proves NO serialized file still leaks a secret or path.
+	// Post-redaction self-check, surfaced as `report.clean` (the fail-closed SIGNAL — a caller must
+	// treat `clean: false` as an unsafe bundle and not publish it). Every serialized field already went
+	// through `redactValue`, and `redactStringValue` is idempotent, so this is an INVARIANT that holds
+	// true unless the redactor and the `containsSensitiveData` detector drift apart — in which case this
+	// catches the regression rather than silently shipping a leak. It is a signal, not a second scrub.
 	const clean = files.every((file) => !containsSensitiveData(file.markdown));
 
 	return {
