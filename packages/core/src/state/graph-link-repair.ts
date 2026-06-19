@@ -1,5 +1,6 @@
 import { extractWikilinks } from './markdown';
 import { resolveWikilink, type WikilinkTarget } from './wikilink-graph';
+import { editDistance } from './edit-distance';
 import {
 	featureSupportForSource,
 	type ContentSourceId,
@@ -47,27 +48,6 @@ export interface LinkPickerSuggestion {
 	title: string;
 	/** True when the candidate's title/alias matches the broken target name exactly (case-insensitive). */
 	exactName: boolean;
-}
-
-/** Levenshtein edit distance capped at `max` (shared shape with the graph-quality candidate proposer). Pure. */
-function editDistance(a: string, b: string, max: number): number {
-	if (a === b) return 0;
-	if (Math.abs(a.length - b.length) > max) return max + 1;
-	const prev = new Array<number>(b.length + 1);
-	const curr = new Array<number>(b.length + 1);
-	for (let j = 0; j <= b.length; j += 1) prev[j] = j;
-	for (let i = 1; i <= a.length; i += 1) {
-		curr[0] = i;
-		let rowMin = curr[0]!;
-		for (let j = 1; j <= b.length; j += 1) {
-			const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-			curr[j] = Math.min(prev[j]! + 1, curr[j - 1]! + 1, prev[j - 1]! + cost);
-			if (curr[j]! < rowMin) rowMin = curr[j]!;
-		}
-		if (rowMin > max) return max + 1;
-		for (let j = 0; j <= b.length; j += 1) prev[j] = curr[j]!;
-	}
-	return prev[b.length]!;
 }
 
 const MAX_PICKER_SUGGESTIONS = 10;

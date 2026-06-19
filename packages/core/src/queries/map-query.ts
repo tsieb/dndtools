@@ -3,6 +3,7 @@ import type { MapEntity, MapLayer, MapState } from '../state/map-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { SessionState } from '../state/session-state';
 import { sortedLayers } from '../state/map-layers';
+import { mapVisibleToActor } from './map-visibility';
 import type {
 	MapFogOp,
 	MapPoi,
@@ -142,14 +143,6 @@ function isDelivered(mapId: string, options: MapQueryOptions | undefined): boole
 	const delivered = options?.deliveredMapIds;
 	if (!delivered) return false;
 	return Array.isArray(delivered) ? delivered.includes(mapId) : delivered.has(mapId);
-}
-
-/** Whether the MAP entity is visible to the actor. Mirrors the active-map / atlas / deep-link filter. */
-function mapVisibleToActor(map: MapEntity, actor: Actor, delivered: boolean): boolean {
-	if (actor.role === 'dm') return true;
-	if (map.visibility === 'dm-only') return false;
-	if (map.visibility === 'player-visible') return true;
-	return delivered; // `shared` map requires explicit delivery.
 }
 
 /** Whether a player-facing visibility level is visible to the actor, given the map is visible. */

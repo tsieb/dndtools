@@ -1,6 +1,5 @@
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { Character, CharacterState } from '../state/character-state';
-import { CHARACTER_ENTITY_TYPE } from '../state/character-state';
 import {
 	ensureCollaboration,
 	isDmOnlyFieldPath,
@@ -9,8 +8,8 @@ import {
 	type CharacterFieldPath,
 	type CharacterFieldConflict,
 } from '../state/character-collaboration';
-import { hasGrantedCapability } from '../permissions/grants';
 import { BACKSTORY_EDITOR_DATA_KEYS } from '../permissions/character-field-authority';
+import { characterVisibleToActor } from './character-visibility';
 
 /**
  * CHAR-014 — the ACTOR-FILTERED collaborative character view. The collaborative surface must visibly
@@ -85,20 +84,6 @@ export interface CollaborativeCharacterView {
 	revision: number;
 }
 
-function characterVisibleToActor(
-	character: Character,
-	actor: Actor,
-	permissions: PermissionState,
-): boolean {
-	if (actor.role === 'dm') return true;
-	// Observer ceiling (base-roles `canReadCharacterData: false`): an observer never reads character
-	// data, even a `shared` character it was added to `sharedWith` on. Fail closed.
-	if (actor.role === 'observer') return false;
-	if (character.visibility === 'player-visible') return actor.role === 'player';
-	if (character.visibility === 'dm-only') return false;
-	if (character.sharedWith.includes(actor.id)) return true;
-	return hasGrantedCapability(permissions, actor, CHARACTER_ENTITY_TYPE, character.id, 'viewer');
-}
 
 /**
  * Whether a single FIELD PATH is visible to the actor. The DM sees every field. A non-DM actor never

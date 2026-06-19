@@ -1,11 +1,11 @@
-import type { Actor, PermissionState } from '../state/permission-state';
+import type { PermissionState } from '../state/permission-state';
 import type {
 	Character,
 	CharacterDraft,
 	CharacterState,
 } from '../state/character-state';
-import { CHARACTER_ENTITY_TYPE, isDraftOwner } from '../state/character-state';
-import { hasGrantedCapability } from '../permissions/grants';
+import { isDraftOwner } from '../state/character-state';
+import { characterVisibleToActor } from './character-visibility';
 
 /**
  * CHAR-001 / CHAR-002 — the ACTOR-FILTERED character read model. The data layer decides visibility
@@ -34,24 +34,6 @@ export interface CharacterView {
 	data: Record<string, unknown>;
 	updatedAt: string;
 	revision: number;
-}
-
-function characterVisibleToActor(
-	character: Character,
-	actor: Actor,
-	permissions: PermissionState,
-): boolean {
-	if (actor.role === 'dm') return true;
-	// Observer ceiling (base-roles `canReadCharacterData: false`): an observer NEVER reads character
-	// data — not even a `shared` character it was added to `sharedWith` on. Enforced here so the
-	// single-character read matches the party overview's ceiling (CHAR-015), fail closed.
-	if (actor.role === 'observer') return false;
-	if (character.visibility === 'player-visible') return actor.role === 'player';
-	if (character.visibility === 'dm-only') return false;
-	// `shared`: delivered only through explicit delivery — membership in `sharedWith` (e.g. the
-	// owner of a finalized PC) OR a viewer-capable grant on the character.
-	if (character.sharedWith.includes(actor.id)) return true;
-	return hasGrantedCapability(permissions, actor, CHARACTER_ENTITY_TYPE, character.id, 'viewer');
 }
 
 function redactCharacter(character: Character, isDm: boolean): CharacterView {

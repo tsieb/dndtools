@@ -1,6 +1,7 @@
 import type { ActorId } from '../state/ids';
 import type { MapEntity, MapFeature, MapLayer, MapState } from '../state/map-state';
 import { sortedLayers } from '../state/map-layers';
+import { mapVisibleToActor } from './map-visibility';
 import type { EntityVisibilityMetadata } from '../permissions/visibility-filter';
 import type { VisibilitySurfaceRef } from '../permissions/visibility-invalidation';
 import type { Actor, PermissionState } from '../state/permission-state';
@@ -66,14 +67,6 @@ export interface MapLayerQuery {
 	tags?: string[];
 	/** Query facets that must ALL match the layer's `query` (exact key=value). */
 	facets?: Record<string, string>;
-}
-
-/** Whether the MAP ENTITY is visible to the actor. Mirrors the active-map / atlas filter. */
-function mapVisibleToActor(map: MapEntity, actor: Actor, delivered: boolean): boolean {
-	if (actor.role === 'dm') return true;
-	if (map.visibility === 'dm-only') return false;
-	if (map.visibility === 'player-visible') return true;
-	return delivered; // `shared` map requires explicit delivery.
 }
 
 /** Whether the LAYER is visible to the actor, given the map is already visible. Fail-closed. */
