@@ -110,15 +110,58 @@ function withInjectedScript(html: string, javascript: string): string {
 	return `${html}${script}`;
 }
 
+/** Inject a `<meta http-equiv="Content-Security-Policy">` as the FIRST child of `<head>` — a meta
+ * CSP only governs resources that FOLLOW it, so it must precede every injected style/script. */
+function withInjectedCsp(html: string, csp: string): string {
+	const meta = `<meta http-equiv="Content-Security-Policy" content="${csp}" />`;
+	if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (match) => `${match}${meta}`);
+	if (/<html[^>]*>/i.test(html))
+		return html.replace(/<html[^>]*>/i, (match) => `${match}<head>${meta}</head>`);
+	return `${meta}${html}`;
+}
+
+/** Expose the resolved widget config to author code as a frozen `window.__WIDGET_CONFIG__` global,
+ * set in `<head>` so it is available before the author module runs. */
+function withInjectedConfig(html: string, config: Record<string, unknown>): string {
+	// `<` is escaped so a string value can never open a tag and break out of the script element.
+	const json = JSON.stringify(config).replace(/</g, '\\u003c');
+	const script = `<script>window.__WIDGET_CONFIG__=Object.freeze(${json});</script>`;
+	if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (match) => `${match}${script}`);
+	return `${script}${html}`;
+}
+
+/** A `:root` rule carrying the host-resolved `--widget-*` variables. CSS custom properties do NOT
+ * cross the iframe boundary, so the host's customized tokens must be re-declared inside the document. */
+function rootVarsCss(rootVars: Record<string, string>): string {
+	const decls = Object.entries(rootVars)
+		.map(([name, value]) => `${name}: ${value};`)
+		.join(' ');
+	return `:root { ${decls} }`;
+}
+
 export function composeCustomWidgetPreviewSrcdoc(input: {
 	html: string;
 	css: string;
 	javascript: string;
+	/** Content-Security-Policy for the iframe document (egress control). */
+	csp?: string;
+	/** Host-resolved, pre-sanitized `--widget-*` variables to re-declare on the iframe's `:root`. */
+	rootVars?: Record<string, string>;
+	/** Resolved widget configuration exposed to author code as `window.__WIDGET_CONFIG__`. */
+	config?: Record<string, unknown>;
 }): string {
 	const base = /<!doctype|<html/i.test(input.html)
 		? input.html
 		: `<!doctype html><html lang="en"><head><meta charset="utf-8" /></head><body>${input.html}</body></html>`;
-	return withInjectedScript(withInjectedStyle(base, input.css), input.javascript);
+	let doc = withInjectedScript(withInjectedStyle(base, input.css), input.javascript);
+	// Re-declare the host-resolved tokens AFTER the author CSS so a customized value wins.
+	if (input.rootVars && Object.keys(input.rootVars).length > 0) {
+		doc = withInjectedStyle(doc, rootVarsCss(input.rootVars));
+	}
+	if (input.config) doc = withInjectedConfig(doc, input.config);
+	// CSP is injected LAST so that, inserting right after `<head>`, it ends up as the first head node.
+	if (input.csp) doc = withInjectedCsp(doc, input.csp);
+	return doc;
 }
 
 export function draftAssetContents(draft: WidgetWizardDraft): {

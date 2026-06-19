@@ -237,6 +237,10 @@ export function handleRollDice(
 	env: CoreEnvironment,
 	actorId: string,
 	rawPayload: unknown,
+	// When the roll is dispatched through the durable `widget.dispatch-command` envelope (the Dice
+	// widget), the envelope's idempotency key is threaded in and recorded on the op so a retry under
+	// the same key is de-duplicated instead of rolling twice. Top-level `dice.roll` passes none.
+	idempotencyKey?: string,
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
@@ -311,6 +315,7 @@ export function handleRollDice(
 			dice: record.dice,
 			visibility: record.visibility,
 			sourceKind: record.sourceKind,
+			...(idempotencyKey ? { idempotencyKey } : {}),
 		},
 		beforeRevision: state.session.diceHistory.length,
 		afterRevision: nextHistory.length,

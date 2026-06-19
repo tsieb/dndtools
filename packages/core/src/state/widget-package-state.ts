@@ -892,9 +892,21 @@ export function createSystemWidgetPackages(now = '2026-06-03T00:00:00.000Z'): Wi
 export const SYSTEM_WIDGET_PACKAGE_STATE = createSystemWidgetPackages();
 
 export function mergeSystemWidgetPackages(state: WidgetPackageState): WidgetPackageState {
+	// Code is the source of truth for system package DEFINITIONS: a persisted system package
+	// (saved under an older app version, possibly with a now-stale shape) must NOT shadow the
+	// shipped definition, or a widget's renderer/config/style change would never take effect after
+	// upgrade. We still honor the one user-owned decision on a system package — its enable/remove
+	// state — by overlaying just those flags from the persisted record.
+	const merged: Record<string, WidgetPackageRecord> = { ...state.packages };
+	for (const [id, systemRecord] of Object.entries(SYSTEM_WIDGET_PACKAGE_STATE.packages)) {
+		const persisted = state.packages[id];
+		merged[id] = persisted
+			? { ...systemRecord, enabled: persisted.enabled, removedAt: persisted.removedAt }
+			: systemRecord;
+	}
 	return {
 		schemaVersion: WIDGET_PACKAGE_STATE_SCHEMA_VERSION,
-		packages: { ...SYSTEM_WIDGET_PACKAGE_STATE.packages, ...state.packages },
+		packages: merged,
 	};
 }
 
@@ -914,6 +926,22 @@ export function findWidgetDefinition(
 	return findPackageRecordForWidgetType(state, widgetType)?.package.widgets.find(
 		(definition) => definition.type === widgetType,
 	);
+}
+
+/**
+ * Like {@link findWidgetDefinition}, but resolves a definition ONLY when its package is currently
+ * active — installed, enabled, and not removed. Render surfaces must use this so a disabled or
+ * removed package's widget can never be drawn (its renderer/iframe must not mount or execute). The
+ * command path deliberately keeps the raw finders so it can still emit a specific package-disabled
+ * vs package-not-found rejection rather than a generic "unknown widget".
+ */
+export function findActiveWidgetDefinition(
+	state: WidgetPackageState,
+	widgetType: string,
+): WidgetDefinition | undefined {
+	const record = findPackageRecordForWidgetType(state, widgetType);
+	if (!record || !record.enabled || record.removedAt) return undefined;
+	return record.package.widgets.find((definition) => definition.type === widgetType);
 }
 
 // --- Placement + customization helpers (shared by every surface, fail-soft to scene defaults) -------
@@ -981,24 +1009,37 @@ export function readStyleTokenOverrides(
  * is exposed as `--widget-<name>` (the convention {@link scaffoldCustomWidgetPackageDraft} uses), so
  * the same accent/surface/text knobs work for system, command-center, and user-authored widgets.
  */
+// These resolved variables are serialized onto a NON-sandboxed host element's `style` attribute
+// (WidgetView) and injected into the custom-widget iframe's `:root`. A value containing a
+// declaration/markup terminator could break out of its single declaration and inject arbitrary CSS
+// rules or markup (overlay/clickjacking), and a malformed key is not a real custom property — so an
+// unsafe value is dropped entirely (the consumer falls back to its theme default) and a non
+// `--custom-property` key is ignored. Token VALUES are author-controlled and may legitimately be
+// `var(--color-accent)`, `#abc`, `1rem`, etc.; none of those contain these characters.
+const UNSAFE_CSS_VALUE = /[;{}<>]/;
+const CSS_CUSTOM_PROPERTY_KEY = /^--[A-Za-z0-9_-]+$/;
+
 export function resolveWidgetStyleVariables(
 	definition: Pick<WidgetDefinition, 'style'>,
 	configuration?: Record<string, unknown> | null,
 ): Record<string, string> {
 	const vars: Record<string, string> = {};
+	const setVar = (key: string, value: string) => {
+		if (!UNSAFE_CSS_VALUE.test(value)) vars[key] = value;
+	};
 	const style = definition.style;
 	if (style) {
 		for (const token of style.tokens ?? []) {
-			vars[`--widget-${token.name}`] = token.value;
+			setVar(`--widget-${token.name}`, token.value);
 		}
 		for (const [name, value] of Object.entries(style.cssVariables ?? {})) {
-			vars[name] = value;
+			if (CSS_CUSTOM_PROPERTY_KEY.test(name)) setVar(name, value);
 		}
 	}
 	const overrides = configuration?.styleTokens;
 	if (overrides && typeof overrides === 'object') {
 		for (const [name, value] of Object.entries(overrides as Record<string, unknown>)) {
-			if (typeof value === 'string' && value.trim() !== '') vars[`--widget-${name}`] = value;
+			if (typeof value === 'string' && value.trim() !== '') setVar(`--widget-${name}`, value);
 		}
 	}
 	return vars;

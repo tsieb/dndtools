@@ -23,7 +23,7 @@
 	});
 	const data = $derived(
 		query
-			? resolveWidgetData(runtime, runtime.defaultActorId, query, widget?.binding)
+			? resolveWidgetData(runtime, runtime.defaultActorId, query, widget?.binding, config)
 			: { rows: [], emptyLabel: 'Nothing here yet.', header: undefined },
 	);
 	const rows = $derived(data.rows.slice(0, limit));

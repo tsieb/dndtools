@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import {
 		EMPTY_WIDGET_DATA_ENVIRONMENT,
+		findActiveWidgetDefinition,
 		findWidgetDefinition,
 		getPlayerViewForActor,
 		getSceneForActor,
@@ -869,10 +870,22 @@
 	}
 
 	// --- Unified widget rendering + customization (widget platform) -------------------------------
-	// Resolve a widget's definition so WidgetView can render its template/builtin/custom view.
+	// Resolve a widget's definition for chrome that names the widget (card title, type label).
 	function widgetDefinitionOf(type: string) {
 		return findWidgetDefinition(runtime.state.widgets, type) ?? null;
 	}
+
+	// Resolve a definition for RENDERING only — null when its package is disabled/removed, so a
+	// disabled package's widget is never drawn (its renderer/iframe must not mount). The widget card
+	// already hides disabled/removed widgets via the binding payload kind; this guards the canvas tile.
+	function activeWidgetDefinitionOf(type: string) {
+		return findActiveWidgetDefinition(runtime.state.widgets, type) ?? null;
+	}
+
+	// A rejected widget command (timer/dice/…) is otherwise invisible — templates fire-and-forget. We
+	// surface the rejection message in a polite alert so the user sees WHY an action did nothing
+	// instead of a frozen-looking widget. Cleared on the next accepted command.
+	let widgetCommandError = $state<string | null>(null);
 
 	// Dispatch a widget command (timer/dice/…) for a scene widget instance, supplying the scene
 	// context (sceneId + expectedRevision) a template renderer cannot know. Returns the dispatcher,
@@ -881,7 +894,7 @@
 		if (previewActive || 'kind' in summary) return undefined;
 		return async (commandType: string, payload: Record<string, unknown>) => {
 			if ('kind' in summary) return;
-			await runtime.dispatch({
+			const result = await runtime.dispatch({
 				type: 'widget.dispatch-command',
 				actorId: runtime.defaultActorId,
 				idempotencyKey: `${commandType}-${widgetInstanceId}-${Date.now()}`,
@@ -893,6 +906,10 @@
 					expectedRevision: summary.ownership.revision,
 				},
 			});
+			widgetCommandError =
+				result.status === 'accepted'
+					? null
+					: (result.rejection.message ?? 'That widget action could not be completed.');
 		};
 	}
 
@@ -1111,7 +1128,7 @@
 					     affordance so the tile reads as intentional rather than blank. (Rendering the
 					     body with the previewed player's filtered data is a tracked enhancement.) -->
 					{@const cw = rawScene?.widgets.find((x) => x.id === tile.id) ?? null}
-					{@const cdef = cw ? widgetDefinitionOf(cw.type) : null}
+					{@const cdef = cw ? activeWidgetDefinitionOf(cw.type) : null}
 					{#if cw && cdef}
 						{#if previewActive}
 							<div class="canvas-widget-preview" aria-hidden="true">
@@ -1464,6 +1481,11 @@
 				{/if}
 			{/snippet}
 
+			{#if widgetCommandError}
+				<p class="widget-command-error" role="alert" data-testid="widget-command-error">
+					{widgetCommandError}
+				</p>
+			{/if}
 			{#if summary.widgets.length === 0}
 				<p class="meta" data-testid="widgets-empty">No widgets yet — add one above.</p>
 			{:else if profile.isCompact}
@@ -1595,6 +1617,15 @@
 		border: 1px solid var(--color-status-warning);
 		background: var(--color-status-warning-subtle);
 		color: var(--color-status-warning-text);
+		font-size: var(--text-sm);
+	}
+	.widget-command-error {
+		margin: 0 0 var(--space-2);
+		padding: var(--space-1) var(--space-2);
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--color-status-error);
+		background: var(--color-status-error-subtle);
+		color: var(--color-status-error-text);
 		font-size: var(--text-sm);
 	}
 	.canvas-command-bar {

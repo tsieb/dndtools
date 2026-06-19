@@ -1,3 +1,14 @@
+<script lang="ts" module>
+	// A per-component-instance id so the freeform input's <label for> is unique. This template is
+	// rendered TWICE for the same scene widget (the inert canvas tile body + the interactive card),
+	// so a static id would produce duplicate ids and mis-associate the label with the first match.
+	let actionPanelSeq = 0;
+	function nextActionPanelId(): string {
+		actionPanelSeq += 1;
+		return `widget-roll-custom-${actionPanelSeq}`;
+	}
+</script>
+
 <script lang="ts">
 	/**
 	 * Action-panel template (the Dice widget). Renders quick-roll buttons from the `formulas` config
@@ -15,12 +26,20 @@
 	}
 	const { config, onCommand }: Props = $props();
 
+	const customInputId = nextActionPanelId();
+
 	const formulas = $derived.by<string[]>(() => {
 		const raw = typeof config.formulas === 'string' ? config.formulas : 'd20,2d6,d100';
-		return raw
-			.split(',')
-			.map((f) => f.trim())
-			.filter(Boolean);
+		// De-duplicate: the list is keyed by formula in the {#each}, and a duplicate free-text entry
+		// (e.g. "d20, d20") would otherwise collide on the key and break keyed reconciliation.
+		return [
+			...new Set(
+				raw
+					.split(',')
+					.map((f) => f.trim())
+					.filter(Boolean),
+			),
+		];
 	});
 
 	let custom = $state('');
@@ -54,9 +73,9 @@
 			void roll(custom);
 		}}
 	>
-		<label class="visually-hidden" for="widget-roll-custom">Custom dice expression</label>
+		<label class="visually-hidden" for={customInputId}>Custom dice expression</label>
 		<input
-			id="widget-roll-custom"
+			id={customInputId}
 			placeholder="e.g. 1d20+5"
 			autocomplete="off"
 			data-testid="widget-roll-custom"

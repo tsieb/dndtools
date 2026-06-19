@@ -36,7 +36,12 @@
 	});
 
 	const countdown = $derived(getTimerCountdown(timer, now, duration));
-	const interactive = $derived(!!onCommand && !!widget);
+	// Timer operate commands write to SESSION state, which the core only accepts while the session
+	// workflow is active. Gate the controls on that too — otherwise they look enabled but every click
+	// is silently rejected (CMD-active-session-control). The hint says why when a dispatcher exists.
+	const sessionActive = $derived(runtime.state.session.workflow === 'active');
+	const interactive = $derived(!!onCommand && !!widget && sessionActive);
+	const showInactiveHint = $derived(!!onCommand && !!widget && !sessionActive);
 
 	function run(commandType: string, payload: Record<string, unknown> = {}) {
 		void onCommand?.(commandType, payload);
@@ -73,6 +78,9 @@
 			>−30s</button
 		>
 	</div>
+	{#if showInactiveHint}
+		<p class="tpl-hint" data-testid="widget-timer-inactive-hint">Start a session to run the timer.</p>
+	{/if}
 </div>
 
 <style>
@@ -132,5 +140,10 @@
 	.tpl-actions button:disabled {
 		opacity: 0.5;
 		cursor: default;
+	}
+	.tpl-hint {
+		margin: 0;
+		font-size: var(--text-xs);
+		color: var(--color-text-secondary);
 	}
 </style>

@@ -472,6 +472,7 @@ export {
 	SYSTEM_WIDGET_PACKAGE_STATE,
 	WIDGET_PACKAGE_STATE_SCHEMA_VERSION,
 	createSystemWidgetPackages,
+	findActiveWidgetDefinition,
 	findPackageRecordForWidgetType,
 	findWidgetDefinition,
 	isWidgetLibraryListed,

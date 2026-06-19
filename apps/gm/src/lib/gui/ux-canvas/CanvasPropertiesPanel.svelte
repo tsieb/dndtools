@@ -22,6 +22,11 @@
 	 * under reduced motion via the global duration tokens).
 	 */
 	import { readStyleTokenOverrides, type WidgetConfigField, type WidgetDefinition } from '@dndtools/core';
+	import {
+		WIDGET_COLOR_FALLBACK,
+		clampConfigNumber,
+		configFieldValue,
+	} from './widget-config-controls';
 	import { nextRovingIndex } from '$lib/gui/a11y/roving-tabindex';
 	import type { DashboardBlock } from './dashboard/dashboard-layout.svelte';
 	import { blockTitle, MIN_BLOCK_W, MIN_BLOCK_H } from './dashboard/dashboard-layout.svelte';
@@ -42,7 +47,6 @@
 	const { block, locked, definition = null, onRect, onConfigure, onBringToFront, onRemove, onClose }: Props =
 		$props();
 
-	const COLOR_FALLBACK = '#888888';
 	type PanelTab = 'layout' | 'content' | 'display' | 'style';
 	let activeTab = $state<PanelTab>('layout');
 
@@ -113,19 +117,15 @@
 	}
 
 	function fieldValue(field: WidgetConfigField): unknown {
-		return block.config[field.key] ?? field.default;
+		return configFieldValue(block.config, field);
 	}
 
-	// Commit a numeric config value clamped to the field's declared [min, max]. A non-numeric entry
-	// (e.g. a cleared field on blur) is ignored so we never write NaN — the control snaps back on
-	// re-render to the last committed value.
+	// Commit a numeric config value clamped to [min, max] via the shared helper. A blank/non-numeric
+	// entry (e.g. a cleared field on blur) is ignored so the control snaps back to its last committed
+	// value instead of writing 0 (Number('') === 0 is finite and would otherwise clamp to the minimum).
 	function commitNumber(field: WidgetConfigField, raw: string) {
-		const value = Number(raw);
-		if (!Number.isFinite(value)) return;
-		let clamped = value;
-		if (field.min !== undefined) clamped = Math.max(field.min, clamped);
-		if (field.max !== undefined) clamped = Math.min(field.max, clamped);
-		onConfigure(block.id, field.key, clamped);
+		const clamped = clampConfigNumber(field, raw);
+		if (clamped !== null) onConfigure(block.id, field.key, clamped);
 	}
 
 	function onPanelKeydown(event: KeyboardEvent) {
@@ -260,7 +260,7 @@
 					<label class="props-field is-toggle" data-testid={`props-token-${token.name}`}>
 						<input
 							type="color"
-							value={currentTokens[token.name] ?? COLOR_FALLBACK}
+							value={currentTokens[token.name] ?? WIDGET_COLOR_FALLBACK}
 							aria-label={`${token.name} color`}
 							onchange={(event) => setToken(token.name, event.currentTarget.value)}
 						/>
@@ -356,7 +356,7 @@
 		<label class="props-field is-toggle">
 			<input
 				type="color"
-				value={typeof fieldValue(field) === 'string' ? (fieldValue(field) as string) : COLOR_FALLBACK}
+				value={typeof fieldValue(field) === 'string' ? (fieldValue(field) as string) : WIDGET_COLOR_FALLBACK}
 				aria-describedby={helpId}
 				data-testid={`props-field-${field.key}`}
 				onchange={(event) => onConfigure(block.id, field.key, event.currentTarget.value)}

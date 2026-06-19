@@ -159,4 +159,24 @@ test.describe('CANVAS-001 visible Scene creation + restart persistence', () => {
 		await page.getByTestId('widget-grid').getByRole('button', { name: 'Start' }).click();
 		await expect(page.getByTestId('widget-grid')).toContainText('timer running');
 	});
+
+	test('Timer controls are gated on an active session instead of failing silently', async ({
+		page,
+	}, testInfo) => {
+		test.skip(testInfo.project.name === 'mobile-chromium', DESKTOP_GRID_ONLY);
+		// No session is activated here. Timer operate commands write to session state, which the core
+		// rejects unless the workflow is active — so the controls must read as unavailable (disabled +
+		// an explaining hint) rather than looking clickable but doing nothing.
+		await page.getByTestId('scene-name').fill('Inactive Timer Scene');
+		await page.getByTestId('scene-create').click();
+		await page.getByTestId('scene-list').getByRole('link', { name: 'Inactive Timer Scene' }).click();
+		await page.getByTestId('scene-editor').waitFor({ state: 'visible' });
+		await page.getByTestId('widget-type').fill('timer');
+		await page.getByTestId('widget-version').fill('1.0.0');
+		await page.getByTestId('widget-add').click();
+
+		const grid = page.getByTestId('widget-grid');
+		await expect(grid.getByRole('button', { name: 'Start' })).toBeDisabled();
+		await expect(grid.getByTestId('widget-timer-inactive-hint')).toBeVisible();
+	});
 });

@@ -17,11 +17,15 @@
 	 * This is NOT the only customization surface: the Command Center board has its own docked
 	 * `CanvasPropertiesPanel`, which renders the SAME `WidgetConfigField` + style-token model but with
 	 * surface-specific affordances (tabbed groups, position/size/z-order) and its own DOM/testids. The
-	 * two panels are kept field-behaviour-consistent (commit-on-change, help via aria-describedby,
-	 * select defaults, numeric clamping, style-token "Theme default" state) rather than sharing one
-	 * component, because their per-surface DOM contracts differ.
+	 * two panels keep their own markup because their per-surface DOM contracts differ, but the shared
+	 * value-reading + numeric-commit invariants live in `../widget-config-controls` so they cannot drift.
 	 */
 	import type { WidgetConfigField, WidgetDefinition } from '@dndtools/core';
+	import {
+		WIDGET_COLOR_FALLBACK,
+		clampConfigNumber,
+		configFieldValue,
+	} from '../widget-config-controls';
 
 	interface Props {
 		definition: WidgetDefinition;
@@ -38,7 +42,6 @@
 	const { definition, config, styleTokens = {}, size = null, onConfig, onStyleToken, onSize }: Props =
 		$props();
 
-	const COLOR_FALLBACK = '#888888';
 	const baseId = nextCustomizeId();
 	const fields = $derived(definition.configFields ?? []);
 	const styleFields = $derived(fields.filter((f) => f.group === 'style'));
@@ -48,21 +51,17 @@
 	const canResize = $derived(!!onSize && definition.resizePolicy !== 'fixed');
 
 	function valueOf(field: WidgetConfigField): unknown {
-		return config[field.key] ?? field.default;
+		return configFieldValue(config, field);
 	}
 	function numberValue(field: WidgetConfigField): number {
 		const v = Number(valueOf(field));
 		return Number.isFinite(v) ? v : 0;
 	}
-	// Commit a numeric value clamped to [min, max]; ignore a non-numeric entry so we never write NaN
-	// (the controlled value snaps back to the last committed value on re-render). Matches the CC panel.
+	// Commit a numeric value clamped to [min, max] via the shared helper; a blank/non-numeric entry is
+	// ignored (returns null) so the control snaps back to its last committed value instead of writing 0.
 	function commitNumber(field: WidgetConfigField, raw: string) {
-		const value = Number(raw);
-		if (!Number.isFinite(value)) return;
-		let clamped = value;
-		if (field.min !== undefined) clamped = Math.max(field.min, clamped);
-		if (field.max !== undefined) clamped = Math.min(field.max, clamped);
-		onConfig(field.key, clamped);
+		const clamped = clampConfigNumber(field, raw);
+		if (clamped !== null) onConfig(field.key, clamped);
 	}
 	// Commit a size dimension clamped to the definition's minimum; a non-numeric/empty entry (which
 	// would otherwise collapse the widget via Number('')===0) snaps back to the current size. Mirrors
@@ -132,7 +131,7 @@
 			{:else if field.control === 'color'}
 				<input
 					type="color"
-					value={String(valueOf(field) ?? COLOR_FALLBACK)}
+					value={String(valueOf(field) ?? WIDGET_COLOR_FALLBACK)}
 					aria-describedby={helpId}
 					onchange={(e) => onConfig(field.key, e.currentTarget.value)}
 				/>
@@ -173,7 +172,7 @@
 					<span class="customize-token-row">
 						<input
 							type="color"
-							value={styleTokens[token.name] ?? COLOR_FALLBACK}
+							value={styleTokens[token.name] ?? WIDGET_COLOR_FALLBACK}
 							aria-label={`${token.name} color`}
 							onchange={(e) => onStyleToken(token.name, e.currentTarget.value)}
 						/>

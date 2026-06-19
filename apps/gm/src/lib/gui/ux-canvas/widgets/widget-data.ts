@@ -39,6 +39,7 @@ export function resolveWidgetData(
 	actorId: string,
 	query: WidgetDataQueryDefinition,
 	binding?: WidgetBinding | null,
+	config?: Record<string, unknown> | null,
 ): WidgetDataResult {
 	const { state } = runtime;
 	switch (query.source) {
@@ -99,18 +100,28 @@ export function resolveWidgetData(
 				tracker.status === 'running'
 					? `Round ${tracker.round} · turn ${tracker.turn + 1} of ${tracker.combatants.length}`
 					: 'No combat running';
+			// The initiative tracker's `showHp` toggle (default on) appends HP to each row. HP is read
+			// from the actor-FILTERED tracker view, so a combatant whose resources are withheld for this
+			// viewer (`resources: null`) simply shows no HP — the toggle can never leak hidden vitals.
+			const showHp = config?.showHp !== false;
 			return {
 				emptyLabel: 'No combatants in the tracker.',
 				header,
-				rows: tracker.combatants.map((combatant) => ({
-					id: combatant.id,
-					primary: combatant.name,
-					secondary:
-						combatant.statBlock?.initiative != null
-							? `init ${combatant.statBlock.initiative}`
-							: undefined,
-					active: combatant.isActive,
-				})),
+				rows: tracker.combatants.map((combatant) => {
+					const parts: string[] = [];
+					if (combatant.statBlock?.initiative != null) {
+						parts.push(`init ${combatant.statBlock.initiative}`);
+					}
+					if (showHp && combatant.resources) {
+						parts.push(`HP ${combatant.resources.hp}/${combatant.resources.maxHp}`);
+					}
+					return {
+						id: combatant.id,
+						primary: combatant.name,
+						secondary: parts.length > 0 ? parts.join(' · ') : undefined,
+						active: combatant.isActive,
+					};
+				}),
 			};
 		}
 		case 'binding': {
