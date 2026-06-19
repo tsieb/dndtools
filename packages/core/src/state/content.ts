@@ -411,17 +411,6 @@ export function restoreContentItem(
 	return { ...state, items: { ...state.items, [itemId]: next } };
 }
 
-/** HARD-remove a content item (purge — no tombstone). Returns `null` when it does not exist. Pure. */
-export function removeContentItem(
-	state: VaultContentState,
-	itemId: string,
-): VaultContentState | null {
-	if (!state.items[itemId]) return null;
-	const items = { ...state.items };
-	delete items[itemId];
-	return { ...state, items };
-}
-
 // --- CONTENT-009 — granular visibility (entity / section / field) --------------------------------
 
 /**

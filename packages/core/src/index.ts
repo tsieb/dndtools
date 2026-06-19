@@ -2221,7 +2221,6 @@ export {
 	isLiveContentItem,
 	liveContentItems,
 	removeContentEmbed,
-	removeContentItem,
 	restoreContentItem,
 	setContentFieldVisibility,
 	setContentItemVisibility,
