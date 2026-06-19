@@ -1,0 +1,17 @@
+/* ============================================================================================
+ * DND Tools — Design System · global stylesheet entry point
+ *
+ * Consumers link THIS one file. It is an @import manifest only — no rules live here. Everything
+ * it transitively imports ships to consumers: the token layers (color/type/spacing) declare the
+ * design tokens, fonts.css declares the webfonts.
+ *
+ * Token architecture & the warm "candle-lit" redesign are documented in readme.md and in each
+ * imported file's header. Hero theme: tavern (warm dark, default). Swap with `data-theme` on
+ * <html>: tavern | parchment | high-contrast.
+ * ========================================================================================== */
+
+@import url('tokens/fonts.css');
+@import url('tokens/colors.css');
+@import url('tokens/typography.css');
+@import url('tokens/spacing.css');
+@import url('tokens/base.css');

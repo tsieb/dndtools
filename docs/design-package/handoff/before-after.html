@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DND Tools — redesign before / after</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" />
+<style>
+  /* ---- BEFORE: the production tavern (cool navy) ---- */
+  .before {
+    --bg:#111418; --surface:#1c2128; --raised:#252c35; --overlay:#2e3744; --sunken:#0d1117;
+    --border:#2d3748; --border-strong:#4a5568;
+    --text:#e8ddd0; --text-2:#a89888; --text-3:#6b7280;
+    --accent:#d4a76a; --accent-sub:#2a2218; --accent-fg:#111418;
+    --success:#22c55e; --warning:#f59e0b; --error:#ef4444; --dm:#9333ea;
+    --shadow:0 4px 12px rgba(0,0,0,.4);
+  }
+  /* ---- AFTER: the warm candle-lit redesign ---- */
+  .after {
+    --bg:#14100b; --surface:#1f1810; --raised:#2a2117; --overlay:#362a1d; --sunken:#0e0a06;
+    --border:#3a2e20; --border-strong:#5c4630;
+    --text:#f2e8d8; --text-2:#bcab92; --text-3:#897a64;
+    --accent:#e0b06f; --accent-sub:#2f2414; --accent-fg:#1a1206;
+    --success:#4ec27a; --warning:#f0a830; --error:#ef5350; --dm:#a763e8;
+    --shadow:0 6px 18px rgba(0,0,0,.5);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin:0; min-height:100vh; padding:48px 40px 64px;
+    background:#0a0a0c; color:#e8e6e2;
+    font-family:'Inter',system-ui,sans-serif; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page-head { max-width:1180px; margin:0 auto 36px; }
+  .eyebrow { font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:#7e7a72; margin:0 0 10px; }
+  h1 { font-family:'Cinzel',serif; font-weight:600; font-size:30px; margin:0 0 8px; letter-spacing:-.01em; }
+  .lede { color:#9b968d; font-size:15px; max-width:62ch; margin:0; }
+
+  .cols { max-width:1180px; margin:0 auto; display:grid; grid-template-columns:1fr 1fr; gap:28px; }
+  .col-label { display:flex; align-items:baseline; gap:10px; margin:0 0 14px; }
+  .col-label .tag { font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:600; padding:3px 8px; border-radius:999px; }
+  .before .tag { background:#1c2128; color:#a89888; border:1px solid #2d3748; }
+  .after  .tag { background:#2f2414; color:#e0b06f; border:1px solid #8a6736; }
+  .col-label .name { font-size:13px; color:#86827a; }
+
+  /* The rendered mini-app, painted entirely from each column's token set */
+  .surface {
+    background:var(--bg);
+    background-image:radial-gradient(900px 420px at 50% -160px, var(--accent-sub), transparent 70%);
+    border:1px solid var(--border); border-radius:12px; padding:20px;
+    display:grid; grid-template-columns:170px 1fr; gap:18px;
+  }
+  .nav { display:flex; flex-direction:column; gap:2px; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px;
+    color:var(--text-2); font-size:13px; border-left:3px solid transparent; }
+  .nav-item .dot { width:7px; height:7px; border-radius:2px; background:currentColor; opacity:.7; }
+  .nav-item.active { color:var(--text); font-weight:600; background:var(--accent-sub); border-left-color:var(--accent); }
+
+  .panel { display:flex; flex-direction:column; gap:14px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:16px; box-shadow:var(--shadow); }
+  .card.primary { background:var(--raised); border-color:var(--accent-border,var(--accent)); border:1px solid var(--accent); }
+  .card h3 { font-family:'Cinzel',serif; font-weight:600; font-size:17px; margin:0 0 4px; color:var(--text); }
+  .card .sub { color:var(--text-3); font-size:12px; margin:0 0 12px; text-transform:uppercase; letter-spacing:.08em; }
+
+  .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .btn { font:inherit; font-size:13px; font-weight:600; padding:8px 14px; border-radius:6px; border:1px solid var(--border-strong); background:transparent; color:var(--text); cursor:default; }
+  .btn.primary { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
+  .badge { font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; display:inline-flex; align-items:center; gap:5px; }
+  .badge .gem { width:7px; height:7px; border-radius:50%; }
+  .badge.dm { background:color-mix(in srgb, var(--dm) 18%, var(--surface)); color:var(--dm); border:1px solid color-mix(in srgb,var(--dm) 45%,transparent); }
+  .badge.ok { background:color-mix(in srgb, var(--success) 16%, var(--surface)); color:var(--success); }
+  .badge.warn { background:color-mix(in srgb, var(--warning) 16%, var(--surface)); color:var(--warning); }
+
+  .hp { display:flex; align-items:center; gap:12px; }
+  .hp .track { flex:1; height:8px; border-radius:999px; background:var(--sunken); overflow:hidden; border:1px solid var(--border); }
+  .hp .fill { height:100%; width:62%; background:var(--success); }
+  .hp .num { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; color:var(--text); }
+  .hp .num .max { color:var(--text-3); }
+  .init { font-family:'JetBrains Mono',monospace; font-weight:600; font-size:15px; color:var(--accent); }
+
+  .swatches { display:flex; gap:0; border-radius:6px; overflow:hidden; border:1px solid var(--border); }
+  .sw { flex:1; height:34px; }
+  @media (max-width:880px){ .cols{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+  <div class="page-head">
+    <p class="eyebrow">Token reskin · tavern theme</p>
+    <h1>Before / after</h1>
+    <p class="lede">The same mini-workspace painted from two token sets. Nothing in the markup
+      changes between columns — only the values of the shared <code>--color-*</code> tokens. This is
+      exactly what landing <code>redesign.tokens.css</code> does to every surface in the app.</p>
+  </div>
+
+  <div class="cols">
+    <!-- BEFORE -->
+    <section class="before">
+      <div class="col-label"><span class="tag">Before</span><span class="name">production · cool navy</span></div>
+      <div class="surface">
+        <nav class="nav">
+          <div class="nav-item active"><span class="dot"></span>Command Center</div>
+          <div class="nav-item"><span class="dot"></span>Session</div>
+          <div class="nav-item"><span class="dot"></span>Atlas</div>
+          <div class="nav-item"><span class="dot"></span>Knowledge</div>
+        </nav>
+        <div class="panel">
+          <div class="card primary">
+            <h3>Combat — round 3</h3>
+            <p class="sub">Current turn</p>
+            <div class="hp">
+              <span class="init">17</span>
+              <div class="track"><div class="fill"></div></div>
+              <span class="num">28<span class="max">/45</span></span>
+            </div>
+            <div class="row" style="margin-top:14px">
+              <button class="btn primary">Next turn</button>
+              <button class="btn">Roll</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="row">
+              <span class="badge dm"><span class="gem" style="background:currentColor"></span>DM only</span>
+              <span class="badge ok">Session live</span>
+              <span class="badge warn">Queued</span>
+            </div>
+            <div class="swatches" style="margin-top:14px">
+              <div class="sw" style="background:var(--bg)"></div>
+              <div class="sw" style="background:var(--surface)"></div>
+              <div class="sw" style="background:var(--raised)"></div>
+              <div class="sw" style="background:var(--accent)"></div>
+              <div class="sw" style="background:var(--border-strong)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AFTER -->
+    <section class="after">
+      <div class="col-label"><span class="tag">After</span><span class="name">redesign · warm candle-lit</span></div>
+      <div class="surface">
+        <nav class="nav">
+          <div class="nav-item active"><span class="dot"></span>Command Center</div>
+          <div class="nav-item"><span class="dot"></span>Session</div>
+          <div class="nav-item"><span class="dot"></span>Atlas</div>
+          <div class="nav-item"><span class="dot"></span>Knowledge</div>
+        </nav>
+        <div class="panel">
+          <div class="card primary">
+            <h3>Combat — round 3</h3>
+            <p class="sub">Current turn</p>
+            <div class="hp">
+              <span class="init">17</span>
+              <div class="track"><div class="fill"></div></div>
+              <span class="num">28<span class="max">/45</span></span>
+            </div>
+            <div class="row" style="margin-top:14px">
+              <button class="btn primary">Next turn</button>
+              <button class="btn">Roll</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="row">
+              <span class="badge dm"><span class="gem" style="background:currentColor"></span>DM only</span>
+              <span class="badge ok">Session live</span>
+              <span class="badge warn">Queued</span>
+            </div>
+            <div class="swatches" style="margin-top:14px">
+              <div class="sw" style="background:var(--bg)"></div>
+              <div class="sw" style="background:var(--surface)"></div>
+              <div class="sw" style="background:var(--raised)"></div>
+              <div class="sw" style="background:var(--accent)"></div>
+              <div class="sw" style="background:var(--border-strong)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

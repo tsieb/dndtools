@@ -1,0 +1,69 @@
+<!-- @dsCard group="Components" viewport="700x430" name="Core — Buttons, Cards, Tabs" subtitle="Action, container & navigation primitives" -->
+<!DOCTYPE html>
+<html lang="en" data-theme="tavern">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;padding:20px;}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { Button, IconButton, Card, CardHeader, Avatar, Tabs } = window.DNDToolsDesignSystem_8ae046;
+function Row({ children, label }) {
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+      {label && <span style={{ fontSize:11, letterSpacing:'.08em', textTransform:'uppercase', color:'var(--color-text-tertiary)', fontFamily:'var(--font-sans)' }}>{label}</span>}
+      <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>{children}</div>
+    </div>
+  );
+}
+function Demo() {
+  const [tab, setTab] = React.useState('active');
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:18 }}>
+      <Row label="Buttons">
+        <Button variant="primary" icon="add">New note</Button>
+        <Button variant="secondary">Cancel</Button>
+        <Button variant="ghost" icon="search">Search</Button>
+        <Button variant="danger" icon="close">End</Button>
+        <Button variant="primary" disabled>Disabled</Button>
+      </Row>
+      <Row label="Sizes & icon buttons">
+        <Button variant="secondary" size="sm">Small</Button>
+        <Button variant="secondary" size="md">Medium</Button>
+        <Button variant="secondary" size="lg">Large</Button>
+        <IconButton icon="more" label="More" variant="ghost" />
+        <IconButton icon="pin" label="Pin" variant="outline" />
+        <IconButton icon="dice" label="Roll" variant="accent" />
+      </Row>
+      <Row label="Tabs">
+        <Tabs value={tab} onChange={setTab} tabs={[{id:'prep',label:'Prep'},{id:'active',label:'Active',icon:'session-bolt'},{id:'paused',label:'Paused'},{id:'ending',label:'Ending'}]} />
+      </Row>
+      <div style={{ display:'flex', gap:12 }}>
+        <Card accent elevation="raised" style={{ flex:1 }}>
+          <CardHeader title="Combat" actions={<IconButton icon="more" label="More" size="sm" />} />
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <Avatar name="Mara Quill" ring="turn" />
+            <div><strong style={{fontSize:'var(--text-md)'}}>Mara Quill</strong><div style={{fontSize:'var(--text-sm)',color:'var(--color-text-secondary)'}}>Current turn</div></div>
+          </div>
+        </Card>
+        <Card elevation="flat" style={{ flex:1 }}>
+          <CardHeader title="Party" />
+          <div style={{ display:'flex', gap:6 }}>
+            <Avatar name="Bran" size="sm" ring="active" /><Avatar name="Lyra" size="sm" /><Avatar name=" To" size="sm" ring="danger" />
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body>
+</html>

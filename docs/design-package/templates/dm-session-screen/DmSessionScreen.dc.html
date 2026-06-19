@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="DM Session Screen" description="A live-play DM cockpit: primary combat panel + player-view and party tiles, on the warm tavern theme." -->
+<helmet>
+<script src="./ds-base.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+</helmet>
+<div data-theme="tavern" ref="{{ setRoot }}" style="min-height:100vh;--app-bg:#14100b;--glow:#2f2414;--panel-bg:#2a2117;--panel-bd:#8a6736;--tile-bg:#1f1810;--tile-bd:#3a2e20;--ink:#f2e8d8;--sub:#bcab92;--label:#897a64;--accent:#e0b06f;--accent-ink:#1a1206;--rule:#3a2e20;--live:#4ec27a;--app-pad:28px;--gap:20px;--panel-pad:24px;--tile-pad:16px;--title-size:24px;--grid-cols:minmax(0,1.6fr) minmax(0,1fr);--aside-op:1;background-color:var(--app-bg);background-image:radial-gradient(1200px 620px at 50% -240px, var(--glow), transparent 70%);font-family:'Inter',system-ui,sans-serif;color:var(--ink);padding:var(--app-pad);box-sizing:border-box;transition:background-color .35s ease, color .35s ease, padding .35s ease;">
+  <div style="max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:var(--gap);">
+
+    <header style="display:flex;align-items:center;gap:16px;">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:6px;background:var(--accent);color:var(--accent-ink);">{{ diceGlyph }}</span>
+      <div style="flex:1;">
+        <div style="font-family:'Cinzel',serif;font-size:var(--title-size);font-weight:700;letter-spacing:-.01em;line-height:1.1;">Command Center</div>
+        <div style="font-size:13px;color:var(--sub);">The Sunken Outpost · The Pier</div>
+      </div>
+      <span style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--sub);"><span style="width:9px;height:9px;border-radius:50%;background:var(--live);"></span>Session live</span>
+    </header>
+
+    <div style="display:grid;grid-template-columns:var(--grid-cols);gap:var(--gap);align-items:start;transition:grid-template-columns .35s ease;">
+
+      <!-- PRIMARY: combat — the one panel that wins the squint test -->
+      <section style="background:var(--panel-bg);border:1px solid var(--panel-bd);border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.5);padding:var(--panel-pad);display:flex;flex-direction:column;gap:18px;transition:padding .35s ease;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+          <div style="font-family:'Cinzel',serif;font-size:20px;font-weight:700;">Combat — Round 2</div>
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Button" variant="primary" icon-right="skip" hint-size="120px,40px">Next turn</x-import>
+        </div>
+        <div style="display:flex;gap:28px;padding:14px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);">
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.StatPill" label="Current turn" value="Mara Quill" mono="{{ off }}" tone="accent" hint-size="120px,44px"></x-import>
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.StatPill" label="Round" value="2" hint-size="60px,44px"></x-import>
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.StatPill" label="Lowest HP" value="6/52" tone="error" hint-size="80px,44px"></x-import>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.InitiativeRow" name="Mara Quill" initiative="19" current="22" max="30" active="true" hint-size="100%,52px"></x-import>
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.InitiativeRow" name="Bran Ironwood" initiative="14" current="41" max="44" hint-size="100%,52px"></x-import>
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.InitiativeRow" name="Cult Acolyte" initiative="8" current="13" max="13" dm-only="true" hint-size="100%,52px"></x-import>
+        </div>
+      </section>
+
+      <!-- SECONDARY tiles -->
+      <div style="display:flex;flex-direction:column;gap:var(--gap);opacity:var(--aside-op);transition:opacity .35s ease;">
+        <section style="background:var(--tile-bg);border:1px solid var(--tile-bd);border-radius:6px;padding:var(--tile-pad);transition:padding .35s ease;">
+          <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--label);margin-bottom:12px;">Player views — what players see</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
+            <span style="font-size:14px;">3 players seeing <strong>The Pier</strong></span>
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Badge" status="success" icon="visibility-players" hint-size="90px,22px">Projecting</x-import>
+          </div>
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Button" variant="ghost" size="sm" icon="send" hint-size="120px,32px">Push handout</x-import>
+        </section>
+
+        <section style="background:var(--tile-bg);border:1px solid var(--tile-bd);border-radius:6px;padding:var(--tile-pad);transition:padding .35s ease;">
+          <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--label);margin-bottom:12px;">Party vitals</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.HPBar" current="22" max="30" label="Mara Quill" size="sm" hint-size="100%,34px"></x-import>
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.HPBar" current="41" max="44" label="Bran Ironwood" size="sm" hint-size="100%,34px"></x-import>
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.HPBar" current="18" max="32" label="Toral Dusk" size="sm" hint-size="100%,34px"></x-import>
+          </div>
+        </section>
+
+        <section style="background:var(--tile-bg);border:1px solid var(--tile-bd);border-radius:6px;padding:var(--tile-pad);display:flex;align-items:center;gap:12px;transition:padding .35s ease;">
+          <span style="font-size:14px;flex:1;">Lower Vaults — secrets</span>
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.VisibilityChip" level="dm-only" hint-size="90px,22px"></x-import>
+        </section>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;mood&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Candlelit&quot;, &quot;Parchment&quot;, &quot;High contrast&quot;], &quot;default&quot;: &quot;Candlelit&quot;, &quot;tsType&quot;: &quot;'Candlelit' | 'Parchment' | 'High contrast'&quot; },
+  &quot;focus&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Balanced&quot;, &quot;Combat-first&quot;], &quot;default&quot;: &quot;Balanced&quot;, &quot;tsType&quot;: &quot;'Balanced' | 'Combat-first'&quot; },
+  &quot;density&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Comfortable&quot;, &quot;At the table&quot;], &quot;default&quot;: &quot;Comfortable&quot;, &quot;tsType&quot;: &quot;'Comfortable' | 'At the table'&quot; }
+}">
+// Tweak maps. The three controls reshape the whole feel: mood = full palette + theme reflow,
+// focus = combat emphasis (panel width + dimmed aside), density = table-readability scale.
+const PALETTES = {
+  'Candlelit':     { themeAttr: 'tavern',        appBg: '#14100b', glow: '#2f2414', panelBg: '#2a2117', panelBd: '#8a6736', tileBg: '#1f1810', tileBd: '#3a2e20', ink: '#f2e8d8', sub: '#bcab92', label: '#897a64', accent: '#e0b06f', accentInk: '#1a1206', rule: '#3a2e20', live: '#4ec27a' },
+  'Parchment':     { themeAttr: 'parchment',     appBg: '#e7dcc4', glow: '#f5ecd8', panelBg: '#fbf6ea', panelBd: '#c6a25e', tileBg: '#f3ead6', tileBd: '#d8c9a8', ink: '#2c2519', sub: '#6d6150', label: '#8c7d61', accent: '#9c6a1c', accentInk: '#fdf6e8', rule: '#ddcfb1', live: '#2f8a52' },
+  'High contrast': { themeAttr: 'high-contrast', appBg: '#050505', glow: '#1a1a1a', panelBg: '#0c0c0c', panelBd: '#ffd27a', tileBg: '#0c0c0c', tileBd: '#5a5a5a', ink: '#ffffff', sub: '#d6d6d6', label: '#bdbdbd', accent: '#ffcf66', accentInk: '#000000', rule: '#4a4a4a', live: '#36f08a' },
+};
+const DENSITY = {
+  'Comfortable':  { appPad: '28px', gap: '20px', panelPad: '24px', tilePad: '16px', titleSize: '24px' },
+  'At the table': { appPad: '36px', gap: '28px', panelPad: '34px', tilePad: '24px', titleSize: '30px' },
+};
+const FOCUS = {
+  'Balanced':     { gridCols: 'minmax(0,1.6fr) minmax(0,1fr)', asideOp: '1' },
+  'Combat-first': { gridCols: 'minmax(0,1fr) minmax(0,0.46fr)', asideOp: '0.5' },
+};
+
+class Component extends DCLogic {
+  componentDidMount() {
+    this.applyVars();
+    // Lucide loads async in <helmet>; once its glyph data exists, re-render so the dice mark builds.
+    if (window.lucide && window.lucide.icons) return;
+    this._iconTimer = setInterval(() => {
+      if (window.lucide && window.lucide.icons) { clearInterval(this._iconTimer); this.forceUpdate(); }
+    }, 60);
+    setTimeout(() => clearInterval(this._iconTimer), 4000);
+  }
+  componentDidUpdate() { this.applyVars(); }
+  componentWillUnmount() { if (this._iconTimer) clearInterval(this._iconTimer); }
+
+  resolve() {
+    return {
+      pal: PALETTES[this.props.mood] || PALETTES['Candlelit'],
+      den: DENSITY[this.props.density] || DENSITY['Comfortable'],
+      foc: FOCUS[this.props.focus] || FOCUS['Balanced'],
+    };
+  }
+  // Apply the tweak-driven palette/scale imperatively as CSS vars, so the template's styles stay
+  // literal (they paint immediately) instead of being gated behind logic via {{ }} style holes.
+  applyVars() {
+    const el = this._root;
+    if (!el) return;
+    const { pal, den, foc } = this.resolve();
+    const vars = {
+      '--app-bg': pal.appBg, '--glow': pal.glow, '--panel-bg': pal.panelBg, '--panel-bd': pal.panelBd,
+      '--tile-bg': pal.tileBg, '--tile-bd': pal.tileBd, '--ink': pal.ink, '--sub': pal.sub,
+      '--label': pal.label, '--accent': pal.accent, '--accent-ink': pal.accentInk, '--rule': pal.rule,
+      '--live': pal.live, '--app-pad': den.appPad, '--gap': den.gap, '--panel-pad': den.panelPad,
+      '--tile-pad': den.tilePad, '--title-size': den.titleSize, '--grid-cols': foc.gridCols, '--aside-op': foc.asideOp,
+    };
+    for (const k in vars) el.style.setProperty(k, vars[k]);
+    el.setAttribute('data-theme', pal.themeAttr);
+  }
+
+  renderVals() {
+    const { pal } = this.resolve();
+    return {
+      off: false,
+      diceGlyph: this.buildGlyph('Dices', pal.accentInk),
+      setRoot: (el) => { this._root = el; this.applyVars(); },
+    };
+  }
+  // Build the brand dice mark straight from the page's lucide (mounting Icon via x-import renders
+  // empty on this glyph; every internally-rendered icon works, so we mirror that path here).
+  buildGlyph(pascal, color) {
+    const lib = typeof window !== 'undefined' && window.lucide && window.lucide.icons;
+    const node = lib && lib[pascal];
+    if (!node) return null;
+    return React.createElement(
+      'svg',
+      { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
+      node.map(([tag, attrs], i) => React.createElement(tag, { key: i, ...attrs }))
+    );
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!-- @dsCard group="Maps" viewport="900x560" name="Authoring tools" subtitle="Tool palette, contextual fog strip, procedural generation panel" -->
+<!DOCTYPE html>
+<html lang="en" data-theme="tavern">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;padding:20px;}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { ToolPalette, FogControls, GenerationPanel } = window.DNDToolsDesignSystem_8ae046;
+function Label({ children }) {
+  return <span style={{ fontSize:11, letterSpacing:'.08em', textTransform:'uppercase', color:'var(--color-text-tertiary)', fontFamily:'var(--font-sans)' }}>{children}</span>;
+}
+function Demo() {
+  const [tool, setTool] = React.useState('brush');
+  const [fog, setFog] = React.useState({ mode:'reveal', shape:'brush', brushSize:24, feather:false });
+  const [progress, setProgress] = React.useState(0.55);
+  return (
+    <div style={{ display:'flex', gap:28, alignItems:'flex-start' }}>
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        <Label>Tool rail</Label>
+        <ToolPalette active={tool} onSelect={setTool} canUndo onUndo={()=>{}} />
+      </div>
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        <Label>Fog options strip</Label>
+        <FogControls
+          mode={fog.mode} onModeChange={(m)=>setFog(f=>({...f,mode:m}))}
+          shape={fog.shape} onShapeChange={(s)=>setFog(f=>({...f,shape:s}))}
+          brushSize={fog.brushSize} onBrushSize={(v)=>setFog(f=>({...f,brushSize:v}))} unit="ft"
+          feather={fog.feather} onFeather={(v)=>setFog(f=>({...f,feather:v}))}
+          syncStatus="synced" />
+      </div>
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        <Label>Procedural generation</Label>
+        <GenerationPanel progress={progress} phase="Placing settlements…" onDiscard={()=>{}} onAccept={()=>{}} />
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+/* ============================================================================================
+ * DND Tools — Webfonts
+ *
+ * Three families carry the entire brand (UX-VIS-004):
+ *   • Inter        — all UI text, body, labels, numerals. Carries ~95% of the interface.
+ *   • Cinzel       — display serif, reserved for large page/section headings and atmospheric
+ *                    accents only. Never body copy, never small text.
+ *   • JetBrains Mono — dice rolls, initiative numbers, IDs, stat blocks, code/keyboard glyphs.
+ *
+ * SUBSTITUTION NOTE: the source Svelte app references these by family name and loads them as
+ * webfonts; no font binaries ship in the repo. We serve them from the Google Fonts CDN here so
+ * specimens and kits render exactly. If you want the fonts vendored/self-hosted for offline use,
+ * drop the .woff2 files in assets/fonts/ and replace this @import with local @font-face rules.
+ * ========================================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');

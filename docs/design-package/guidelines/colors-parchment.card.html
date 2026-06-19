@@ -1,0 +1,24 @@
+<!-- @dsCard group="Colors" viewport="700x170" name="Parchment — Light theme" subtitle="Warm ink-on-vellum; contrast raised so it is not washed out" -->
+<!DOCTYPE html>
+<html lang="en" data-theme="parchment">
+<head><meta charset="utf-8" /><link rel="stylesheet" href="../styles.css" />
+<style>
+  body{margin:0;padding:18px;background:var(--color-bg);}
+  .ramp{display:flex;gap:10px;}
+  .sw{flex:1;display:flex;flex-direction:column;gap:8px;}
+  .chip{height:50px;border-radius:var(--radius-md);border:1px solid var(--color-border);}
+  .lab{font:var(--font-weight-semibold) var(--text-xs)/1.3 var(--font-sans);color:var(--color-text-primary);}
+  .val{font:var(--text-2xs)/1.3 var(--font-mono);color:var(--color-text-tertiary);}
+  .head{font:var(--font-weight-semibold) var(--text-md) var(--font-display);color:var(--color-text-primary);margin:0 0 12px;}
+</style></head>
+<body>
+<p class="head">Parchment · light surfaces & accent</p>
+<div class="ramp">
+  <div class="sw"><div class="chip" style="background:var(--color-bg)"></div><span class="lab">bg vellum</span><span class="val">#f3ebdd</span></div>
+  <div class="sw"><div class="chip" style="background:var(--color-surface)"></div><span class="lab">surface</span><span class="val">#fdf8f0</span></div>
+  <div class="sw"><div class="chip" style="background:var(--color-surface-sunken)"></div><span class="lab">sunken</span><span class="val">#e9ddc9</span></div>
+  <div class="sw"><div class="chip" style="background:var(--color-accent)"></div><span class="lab">accent</span><span class="val">#9a5418</span></div>
+  <div class="sw"><div class="chip" style="background:var(--color-text-primary)"></div><span class="lab">ink</span><span class="val">#221409</span></div>
+  <div class="sw"><div class="chip" style="background:var(--color-border-strong)"></div><span class="lab">border</span><span class="val">#a8865f</span></div>
+</div>
+</body></html>

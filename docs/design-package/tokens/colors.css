@@ -1,0 +1,297 @@
+/* ============================================================================================
+ * DND Tools — COLOR TOKENS
+ *
+ * Architecture (preserved from the production app, UX-VIS-002): raw palette values live ONLY in
+ * this file. Every component consumes semantic var(--color-*) tokens — never bare hex. A full
+ * theme swap is a single `data-theme` attribute change on <html> with zero component edits.
+ *
+ * THE REDESIGN (01-design-brief.md §3): the hero theme is "tavern" — a WARM, candle-lit dark.
+ * The original tavern read cool/navy (#111418 bg, #2d3748 borders) while only text/accent were
+ * warm. We shifted the ENTIRE neutral ramp warm — toward deep espresso / brown-black — so panels
+ * feel candle-lit, not blue, and gave the gold accent more presence. Parchment is the light
+ * variant: warm ink-on-vellum, contrast raised so it is not washed out.
+ *
+ * Color is SPARING and ENCODES STATE, never decoration:
+ *   accent gold = the one primary action / active nav per region
+ *   success/warning/error/info = state & severity only, always with a redundant icon/shape
+ *   dm-only purple = the safety-critical DM-only vs player-visible signal
+ * ========================================================================================== */
+
+/* --------------------------------------------------------------------------------------------
+ * TAVERN — warm candle-lit dark. The default & hero theme.
+ * :root holds it so an un-themed document is already the brand.
+ * ------------------------------------------------------------------------------------------ */
+:root {
+	color-scheme: dark;
+
+	/* Surfaces — espresso ramp, warm not navy. */
+	--color-bg: #14100b; /* deepest — app background, candle-lit espresso */
+	--color-surface: #1f1810; /* default panel / card */
+	--color-surface-raised: #2a2117; /* raised panel, primary widget */
+	--color-surface-overlay: #362a1d; /* menus, popovers, hover surface */
+	--color-surface-sunken: #0e0a06; /* wells, inset tracks, code blocks */
+	--color-surface-alt: #241c12; /* alternating rows, subtle fills */
+
+	/* Borders — warm brown, stronger than the original hairlines. */
+	--color-border: #3a2e20;
+	--color-border-strong: #5c4630;
+	--color-border-focus: #e0b06f;
+
+	/* Text — warm parchment ink on espresso. */
+	--color-text-primary: #f2e8d8;
+	--color-text-secondary: #bcab92;
+	--color-text-tertiary: #897a64;
+	--color-text-inverse: #14100b;
+	--color-text-link: #e0b06f;
+	--color-text-link-visited: #caa05a;
+
+	/* Accent — warm gold, given more presence (brighter, warmer than original #d4a76a). */
+	--color-accent: #e0b06f;
+	--color-accent-hover: #efc587;
+	--color-accent-active: #c8964f;
+	--color-accent-subtle: #2f2414; /* tinted fill behind active nav / selected */
+	--color-accent-foreground: #1a1206; /* text/icon ON the gold accent */
+	--color-accent-border: #8a6736;
+
+	/* Status — state & severity only. Each pairs with a distinct icon shape (A11Y-011). */
+	--color-status-success: #4ec27a; /* combat live, turn, connected */
+	--color-status-success-text: #93e6ad;
+	--color-status-success-subtle: #112a1a;
+	--color-status-warning: #f0a830; /* caution, queued, paused */
+	--color-status-warning-text: #fbd07f;
+	--color-status-warning-subtle: #2c2008;
+	--color-status-error: #ef5350; /* danger, low HP, disconnected */
+	--color-status-error-text: #fca5a5;
+	--color-status-error-subtle: #2d1110;
+	--color-status-info: #4fb6e0; /* sync, info, neutral notice */
+	--color-status-info-text: #97d6f0;
+	--color-status-info-subtle: #0c2230;
+
+	/* DM-only vs player-visible — the safety-critical signal. Reads in grayscale via shape too. */
+	--color-dm-only-badge: #a763e8;
+	--color-dm-only-subtle: #1f1330;
+	--color-hidden-content-stripe: rgba(167, 99, 232, 0.14);
+
+	/* Interactive states. */
+	--color-interactive-hover: rgba(224, 176, 111, 0.09);
+	--color-interactive-selected: rgba(224, 176, 111, 0.16);
+	--color-interactive-focus-ring: #e0b06f;
+	--color-interactive-disabled: rgba(242, 232, 216, 0.34);
+	--color-interactive-disabled-bg: rgba(58, 46, 32, 0.45);
+
+	--color-backdrop: rgba(8, 5, 2, 0.66); /* modal / sheet scrim */
+
+	/* Elevation — dark theme shadows are deep & warm-black. */
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+	--shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
+	--shadow-lg: 0 14px 44px rgba(0, 0, 0, 0.62);
+}
+
+/* tavern re-asserts the dark-warm default so switching back from another theme is one attr swap. */
+[data-theme='tavern'] {
+	color-scheme: dark;
+	--color-bg: #14100b;
+	--color-surface: #1f1810;
+	--color-surface-raised: #2a2117;
+	--color-surface-overlay: #362a1d;
+	--color-surface-sunken: #0e0a06;
+	--color-surface-alt: #241c12;
+	--color-border: #3a2e20;
+	--color-border-strong: #5c4630;
+	--color-border-focus: #e0b06f;
+	--color-text-primary: #f2e8d8;
+	--color-text-secondary: #bcab92;
+	--color-text-tertiary: #897a64;
+	--color-text-inverse: #14100b;
+	--color-text-link: #e0b06f;
+	--color-text-link-visited: #caa05a;
+	--color-accent: #e0b06f;
+	--color-accent-hover: #efc587;
+	--color-accent-active: #c8964f;
+	--color-accent-subtle: #2f2414;
+	--color-accent-foreground: #1a1206;
+	--color-accent-border: #8a6736;
+	--color-status-success: #4ec27a;
+	--color-status-success-text: #93e6ad;
+	--color-status-success-subtle: #112a1a;
+	--color-status-warning: #f0a830;
+	--color-status-warning-text: #fbd07f;
+	--color-status-warning-subtle: #2c2008;
+	--color-status-error: #ef5350;
+	--color-status-error-text: #fca5a5;
+	--color-status-error-subtle: #2d1110;
+	--color-status-info: #4fb6e0;
+	--color-status-info-text: #97d6f0;
+	--color-status-info-subtle: #0c2230;
+	--color-dm-only-badge: #a763e8;
+	--color-dm-only-subtle: #1f1330;
+	--color-hidden-content-stripe: rgba(167, 99, 232, 0.14);
+	--color-interactive-hover: rgba(224, 176, 111, 0.09);
+	--color-interactive-selected: rgba(224, 176, 111, 0.16);
+	--color-interactive-focus-ring: #e0b06f;
+	--color-interactive-disabled: rgba(242, 232, 216, 0.34);
+	--color-interactive-disabled-bg: rgba(58, 46, 32, 0.45);
+	--color-backdrop: rgba(8, 5, 2, 0.66);
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+	--shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
+	--shadow-lg: 0 14px 44px rgba(0, 0, 0, 0.62);
+}
+
+/* --------------------------------------------------------------------------------------------
+ * PARCHMENT — warm light. Ink on aged vellum; contrast raised so it is NOT washed out.
+ * Light-OS users get this by default, so it is designed with equal care to tavern.
+ * ------------------------------------------------------------------------------------------ */
+[data-theme='parchment'] {
+	color-scheme: light;
+	--color-bg: #f3ebdd; /* aged vellum, warmer & deeper than the original #faf6f0 */
+	--color-surface: #fdf8f0;
+	--color-surface-raised: #ffffff;
+	--color-surface-overlay: #fffdf8;
+	--color-surface-sunken: #e9ddc9;
+	--color-surface-alt: #f0e6d4;
+	--color-border: #d2c2a6;
+	--color-border-strong: #a8865f;
+	--color-border-focus: #8a4a16;
+	--color-text-primary: #221409; /* deep walnut ink — high contrast */
+	--color-text-secondary: #5c4a39;
+	--color-text-tertiary: #837057;
+	--color-text-inverse: #fdf8f0;
+	--color-text-link: #8a4a16;
+	--color-text-link-visited: #6a360f;
+	--color-accent: #9a5418; /* burnt-sienna gold, deep enough for AA on vellum */
+	--color-accent-hover: #b3651f;
+	--color-accent-active: #7c4111;
+	--color-accent-subtle: #f0e0c8;
+	--color-accent-foreground: #ffffff;
+	--color-accent-border: #c79e6f;
+	--color-status-success: #1f7a3d;
+	--color-status-success-text: #155e2e;
+	--color-status-success-subtle: #e4f2e6;
+	--color-status-warning: #9a6310;
+	--color-status-warning-text: #7c4f0b;
+	--color-status-warning-subtle: #f6ead2;
+	--color-status-error: #c0271f;
+	--color-status-error-text: #9e1d17;
+	--color-status-error-subtle: #fbe5e2;
+	--color-status-info: #0c6791;
+	--color-status-info-text: #0a5577;
+	--color-status-info-subtle: #e0eef5;
+	--color-dm-only-badge: #7b27c4;
+	--color-dm-only-subtle: #f0e4fb;
+	--color-hidden-content-stripe: rgba(123, 39, 196, 0.12);
+	--color-interactive-hover: rgba(154, 84, 24, 0.07);
+	--color-interactive-selected: rgba(154, 84, 24, 0.13);
+	--color-interactive-focus-ring: #8a4a16;
+	--color-interactive-disabled: rgba(34, 20, 9, 0.4);
+	--color-interactive-disabled-bg: rgba(210, 194, 166, 0.55);
+	--color-backdrop: rgba(34, 20, 9, 0.42);
+	--shadow-sm: 0 1px 3px rgba(74, 50, 20, 0.1), 0 1px 2px rgba(74, 50, 20, 0.07);
+	--shadow-md: 0 6px 18px rgba(74, 50, 20, 0.13), 0 2px 5px rgba(74, 50, 20, 0.08);
+	--shadow-lg: 0 14px 44px rgba(74, 50, 20, 0.17), 0 4px 10px rgba(74, 50, 20, 0.1);
+}
+
+/* --------------------------------------------------------------------------------------------
+ * HIGH-CONTRAST — AAA black/white, forced-colors compatible. The accessibility floor.
+ * ------------------------------------------------------------------------------------------ */
+[data-theme='high-contrast'] {
+	color-scheme: dark;
+	--color-bg: #000000;
+	--color-surface: #000000;
+	--color-surface-raised: #121212;
+	--color-surface-overlay: #000000;
+	--color-surface-sunken: #000000;
+	--color-surface-alt: #0a0a0a;
+	--color-border: #ffffff;
+	--color-border-strong: #ffffff;
+	--color-border-focus: #ffff00;
+	--color-text-primary: #ffffff;
+	--color-text-secondary: #e6e6e6;
+	--color-text-tertiary: #c4c4c4;
+	--color-text-inverse: #000000;
+	--color-text-link: #6ff0ff;
+	--color-text-link-visited: #ff9cff;
+	--color-accent: #ffd86b;
+	--color-accent-hover: #ffe79c;
+	--color-accent-active: #e0b84a;
+	--color-accent-subtle: #1c1600;
+	--color-accent-foreground: #000000;
+	--color-accent-border: #ffd86b;
+	--color-status-success: #7dff7d;
+	--color-status-success-text: #7dff7d;
+	--color-status-success-subtle: #001a00;
+	--color-status-warning: #ffd966;
+	--color-status-warning-text: #ffd966;
+	--color-status-warning-subtle: #1a1400;
+	--color-status-error: #ff8080;
+	--color-status-error-text: #ff8080;
+	--color-status-error-subtle: #1a0000;
+	--color-status-info: #80d8ff;
+	--color-status-info-text: #80d8ff;
+	--color-status-info-subtle: #001a2a;
+	--color-dm-only-badge: #ff80ff;
+	--color-dm-only-subtle: #1a001a;
+	--color-hidden-content-stripe: rgba(255, 128, 255, 0.2);
+	--color-interactive-hover: rgba(255, 255, 255, 0.16);
+	--color-interactive-selected: rgba(255, 216, 107, 0.26);
+	--color-interactive-focus-ring: #ffff00;
+	--color-interactive-disabled: rgba(255, 255, 255, 0.42);
+	--color-interactive-disabled-bg: rgba(255, 255, 255, 0.1);
+	--color-backdrop: rgba(0, 0, 0, 0.82);
+	--shadow-sm: 0 0 0 1px #ffffff;
+	--shadow-md: 0 0 0 1px #ffffff;
+	--shadow-lg: 0 0 0 2px #ffffff;
+}
+
+/* --------------------------------------------------------------------------------------------
+ * MAP / LAYER TOKENS (MAP-005..007, UX-MAP-004/005) — the map-creation surface.
+ *
+ * The maps UX spec lists raw Material hues (#4CAF50, #2196F3, …) for the 13 layer-type badges.
+ * Those cool, high-chroma primaries fight the warm candle-lit brand, so we RE-HARMONISED every
+ * layer hue in OKLCH at a controlled lightness (~0.72) and a tamed chroma (~0.10) — distinguishable
+ * at a glance, but unmistakably part of the tavern palette. Each token is the badge FG + border;
+ * the badge BG is mixed from it against the surface at render time (see LayerTypeBadge), so one
+ * token drives the whole chip and a theme swap needs no per-type bg token.
+ *
+ * Reds (poi/combat) keep a touch more chroma — they double as danger/attention. Greys (base/custom)
+ * drop to near-zero chroma but stay warm (hue ~70). fog is a warm charcoal so it reads as "absence".
+ * ------------------------------------------------------------------------------------------ */
+:root {
+	--layer-base: oklch(0.7 0.018 70); /* warm grey — the underlying image/terrain */
+	--layer-height: oklch(0.74 0.1 150); /* heightmap / topography — sage green */
+	--layer-political: oklch(0.77 0.105 78); /* borders & holdings — warm amber */
+	--layer-climate: oklch(0.74 0.085 200); /* climate / weather — muted teal */
+	--layer-roads: oklch(0.72 0.115 50); /* roads & transport — burnt orange */
+	--layer-water: oklch(0.71 0.085 245); /* waterways — dusty blue */
+	--layer-wshed: oklch(0.73 0.08 215); /* watersheds — blue-green */
+	--layer-fog: oklch(0.6 0.012 65); /* fog-of-war — warm charcoal */
+	--layer-poi: oklch(0.65 0.15 28); /* points of interest — terracotta red */
+	--layer-dm: oklch(0.62 0.14 305); /* DM-only annotations — the safety purple */
+	--layer-player: oklch(0.78 0.1 82); /* player overlay — brand gold family */
+	--layer-combat: oklch(0.64 0.145 40); /* combat overlay — red-orange */
+	--layer-custom: oklch(0.72 0.016 70); /* user/custom — light warm grey */
+
+	/* Map functional tokens. Routes echo roads/player; fog opacity differs DM vs player view
+	 * (AP-9 — the DM always sees terrain through 20% fog, players get near-solid 95%). */
+	--color-route: oklch(0.74 0.11 62); /* DM route line — amber */
+	--color-route-player: var(--layer-player); /* player-visible route — gold, thicker */
+	--map-fog-opacity-dm: 0.2; /* @kind other */ /* DM view: see terrain behind fog */
+	--map-fog-opacity-player: 0.95; /* @kind other */ /* player view: near-solid */
+	--map-fog-fill: oklch(0.46 0.01 65); /* the fog wash itself — warm slate */
+	--map-grid-line: rgba(224, 176, 111, 0.14); /* faint gold tactical grid */
+	--map-canvas-bg: #16110b; /* the dark map well, candle-lit */
+}
+
+/* --------------------------------------------------------------------------------------------
+ * Legacy alias bridge — the prototype's short token names map onto the semantic layer so older
+ * component rules resolve per active theme without per-surface color logic.
+ * ------------------------------------------------------------------------------------------ */
+:root {
+	--bg: var(--color-bg);
+	--fg: var(--color-text-primary);
+	--accent: var(--color-accent);
+	--muted: var(--color-text-secondary);
+	--card: var(--color-surface);
+	--border: var(--color-border);
+	--danger: var(--color-status-error);
+	--surface-subtle: var(--color-surface-alt);
+}

@@ -1,0 +1,22 @@
+<!-- @dsCard group="Colors" viewport="700x160" name="Status — State & Severity" subtitle="Color encodes state only, always paired with a redundant icon shape" -->
+<!DOCTYPE html>
+<html lang="en" data-theme="tavern">
+<head><meta charset="utf-8" /><link rel="stylesheet" href="../styles.css" />
+<style>
+  body{margin:0;padding:18px;}
+  .ramp{display:flex;gap:10px;}
+  .sw{flex:1;display:flex;flex-direction:column;gap:8px;}
+  .chip{height:54px;border-radius:var(--radius-md);}
+  .pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-full);font:var(--font-weight-semibold) var(--text-xs) var(--font-sans);}
+  .lab{font:var(--font-weight-semibold) var(--text-xs)/1.3 var(--font-sans);color:var(--color-text-primary);}
+  .val{font:var(--text-2xs)/1.3 var(--font-mono);color:var(--color-text-tertiary);}
+</style></head>
+<body>
+<div class="ramp">
+  <div class="sw"><div class="chip" style="background:var(--color-status-success)"></div><span class="pill" style="background:var(--color-status-success-subtle);color:var(--color-status-success-text)">● Success</span><span class="val">#4ec27a</span></div>
+  <div class="sw"><div class="chip" style="background:var(--color-status-warning)"></div><span class="pill" style="background:var(--color-status-warning-subtle);color:var(--color-status-warning-text)">▲ Warning</span><span class="val">#f0a830</span></div>
+  <div class="sw"><div class="chip" style="background:var(--color-status-error)"></div><span class="pill" style="background:var(--color-status-error-subtle);color:var(--color-status-error-text)">✕ Error</span><span class="val">#ef5350</span></div>
+  <div class="sw"><div class="chip" style="background:var(--color-status-info)"></div><span class="pill" style="background:var(--color-status-info-subtle);color:var(--color-status-info-text)">ⓘ Info</span><span class="val">#4fb6e0</span></div>
+  <div class="sw"><div class="chip" style="background:var(--color-dm-only-badge)"></div><span class="pill" style="background:var(--color-dm-only-subtle);color:var(--color-dm-only-badge)">⊘ DM only</span><span class="val">#a763e8</span></div>
+</div>
+</body></html>

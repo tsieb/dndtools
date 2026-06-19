@@ -1,0 +1,26 @@
+<!-- @dsCard group="Brand" viewport="700x200" name="Themes" subtitle="One data-theme swap; tavern is the warm candle-lit hero" -->
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /><link rel="stylesheet" href="../styles.css" />
+<style>
+  body{margin:0;padding:18px;display:flex;gap:14px;font-family:var(--font-sans);}
+  .theme{flex:1;border-radius:var(--radius-md);overflow:hidden;border:1px solid rgba(140,110,70,.4);}
+  .bar{padding:10px 12px;font:var(--font-weight-semibold) var(--text-sm) var(--font-sans);display:flex;justify-content:space-between;align-items:center;}
+  .body{padding:12px;display:flex;flex-direction:column;gap:8px;}
+  .panel{padding:8px 10px;border-radius:var(--radius-sm);font:var(--text-xs) var(--font-sans);}
+  .btn{display:inline-block;padding:5px 10px;border-radius:var(--radius-sm);font:var(--font-weight-semibold) var(--text-xs) var(--font-sans);}
+</style></head>
+<body>
+  <div class="theme" data-theme="tavern" style="background:var(--color-bg)">
+    <div class="bar" style="background:var(--color-surface-raised);color:var(--color-text-primary)">Tavern <span style="color:var(--color-text-tertiary);font-weight:400">hero · dark</span></div>
+    <div class="body"><div class="panel" style="background:var(--color-surface);color:var(--color-text-secondary);border:1px solid var(--color-border)">Candle-lit espresso</div><span class="btn" style="background:var(--color-accent);color:var(--color-accent-foreground)">Project to players</span></div>
+  </div>
+  <div class="theme" data-theme="parchment" style="background:var(--color-bg)">
+    <div class="bar" style="background:var(--color-surface-raised);color:var(--color-text-primary)">Parchment <span style="color:var(--color-text-tertiary);font-weight:400">light</span></div>
+    <div class="body"><div class="panel" style="background:var(--color-surface);color:var(--color-text-secondary);border:1px solid var(--color-border)">Ink on vellum</div><span class="btn" style="background:var(--color-accent);color:var(--color-accent-foreground)">Project to players</span></div>
+  </div>
+  <div class="theme" data-theme="high-contrast" style="background:var(--color-bg)">
+    <div class="bar" style="background:var(--color-surface-raised);color:var(--color-text-primary)">High-contrast <span style="color:var(--color-text-tertiary);font-weight:400">AAA</span></div>
+    <div class="body"><div class="panel" style="background:var(--color-surface);color:var(--color-text-secondary);border:1px solid var(--color-border)">Accessibility floor</div><span class="btn" style="background:var(--color-accent);color:var(--color-accent-foreground)">Project to players</span></div>
+  </div>
+</body></html>

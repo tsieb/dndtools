@@ -1,0 +1,48 @@
+/* ============================================================================================
+ * DND Tools — BASE / RESET
+ *
+ * Minimal global resets + the one decorative brand surface: a single subtle warm radial glow on
+ * the page root (UX-VIS-013), evoking candlelight from above. No textures on contrast-bearing
+ * components — the glow lives on <body> only.
+ * ========================================================================================== */
+
+* {
+	box-sizing: border-box;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+}
+
+body {
+	margin: 0;
+	font-family: var(--font-sans);
+	font-size: var(--text-base);
+	line-height: var(--leading-body);
+	color: var(--color-text-primary);
+	background-color: var(--color-bg);
+	/* Brand mood: a single warm candle-glow on the page root only. */
+	background-image: radial-gradient(
+		1200px 620px at 50% -240px,
+		var(--color-accent-subtle),
+		transparent 70%
+	);
+	background-attachment: fixed;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+/* Global focus-visible baseline — one ring everywhere (WCAG 2.4.7). */
+:focus-visible {
+	outline: var(--focus-ring-width) solid var(--focus-ring-color);
+	outline-offset: var(--focus-ring-offset);
+}
+
+::selection {
+	background: var(--color-accent-subtle);
+	color: var(--color-text-primary);
+}
+
+a {
+	color: var(--color-text-link);
+}

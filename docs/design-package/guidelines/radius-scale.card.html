@@ -1,0 +1,21 @@
+<!-- @dsCard group="Spacing" viewport="700x150" name="Radius scale" subtitle="sm inputs · md cards/buttons · lg dialogs · xl sheets · full pills" -->
+<!DOCTYPE html>
+<html lang="en" data-theme="tavern">
+<head><meta charset="utf-8" /><link rel="stylesheet" href="../styles.css" />
+<style>
+  body{margin:0;padding:20px;}
+  .row{display:flex;gap:18px;align-items:flex-end;}
+  .col{display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .box{width:78px;height:60px;background:var(--color-surface-raised);border:1px solid var(--color-border-strong);}
+  .lab{font:var(--font-weight-semibold) var(--text-xs) var(--font-sans);color:var(--color-text-primary);}
+  .val{font:var(--text-2xs) var(--font-mono);color:var(--color-text-tertiary);}
+</style></head>
+<body>
+<div class="row">
+  <div class="col"><div class="box" style="border-radius:var(--radius-sm)"></div><span class="lab">sm</span><span class="val">3px</span></div>
+  <div class="col"><div class="box" style="border-radius:var(--radius-md)"></div><span class="lab">md</span><span class="val">6px</span></div>
+  <div class="col"><div class="box" style="border-radius:var(--radius-lg)"></div><span class="lab">lg</span><span class="val">12px</span></div>
+  <div class="col"><div class="box" style="border-radius:var(--radius-xl)"></div><span class="lab">xl</span><span class="val">20px</span></div>
+  <div class="col"><div class="box" style="border-radius:var(--radius-full);width:60px"></div><span class="lab">full</span><span class="val">pills</span></div>
+</div>
+</body></html>

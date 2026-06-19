@@ -1,0 +1,266 @@
+/* ============================================================================================
+ * DND Tools — WARM "CANDLE-LIT" REDESIGN · token override layer
+ *
+ * Drop-in for apps/gm/src/routes/styles.css. The redesign keeps the production token
+ * ARCHITECTURE untouched (same names, same theme/density/motion contracts) and only changes
+ * VALUES — so applying it is one append, and reverting it is one delete.
+ *
+ * HOW TO APPLY
+ *   Paste this whole file at the BOTTOM of apps/gm/src/routes/styles.css (after all component
+ *   rules). It redefines tokens under the same `:root` / `[data-theme=…]` selectors that appear
+ *   earlier in the file; with equal specificity the LATER rule wins, so these values override the
+ *   originals with zero edits to the existing blocks. The legacy alias bridge (--bg/--fg/…) reads
+ *   tokens via var() at use-time, so order does not matter for it.
+ *
+ *   Fonts must be declared separately — see handoff/APPLY.md "Fonts". @import cannot live at the
+ *   bottom of a stylesheet.
+ *
+ * SCOPE
+ *   Restyled : tavern (hero), parchment, high-contrast  + the shared :root default
+ *   Added    : map / layer tokens (new surface, additive)
+ *   Untouched: dungeon, scholar — the opt-in "cool" themes. See APPLY.md "Theme decision".
+ * ============================================================================================ */
+
+/* --------------------------------------------------------------------------------------------
+ * Shared :root — theme-invariant elevation gets deeper + warmer, and the un-themed default
+ * inherits the warm tavern palette (app.html always sets data-theme before paint, but this keeps
+ * a no-JS / pre-hydration paint on-brand instead of the old navy).
+ * ------------------------------------------------------------------------------------------ */
+:root {
+	/* Elevation — deeper, warmer-black than the original (sm .3→.4, md 4/12/.4→6/18/.5, lg up). */
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+	--shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
+	--shadow-lg: 0 14px 44px rgba(0, 0, 0, 0.62);
+
+	/* Warm tavern default (espresso ramp, not navy). */
+	--color-bg: #14100b;
+	--color-surface: #1f1810;
+	--color-surface-raised: #2a2117;
+	--color-surface-overlay: #362a1d;
+	--color-surface-sunken: #0e0a06;
+	--color-surface-alt: #241c12;
+	--color-border: #3a2e20;
+	--color-border-strong: #5c4630;
+	--color-border-focus: #e0b06f;
+	--color-text-primary: #f2e8d8;
+	--color-text-secondary: #bcab92;
+	--color-text-tertiary: #897a64;
+	--color-text-inverse: #14100b;
+	--color-text-link: #e0b06f;
+	--color-text-link-visited: #caa05a;
+	--color-accent: #e0b06f;
+	--color-accent-hover: #efc587;
+	--color-accent-active: #c8964f;
+	--color-accent-subtle: #2f2414;
+	--color-accent-foreground: #1a1206;
+	--color-accent-border: #8a6736;
+	--color-status-success: #4ec27a;
+	--color-status-success-text: #93e6ad;
+	--color-status-success-subtle: #112a1a;
+	--color-status-warning: #f0a830;
+	--color-status-warning-text: #fbd07f;
+	--color-status-warning-subtle: #2c2008;
+	--color-status-error: #ef5350;
+	--color-status-error-text: #fca5a5;
+	--color-status-error-subtle: #2d1110;
+	--color-status-info: #4fb6e0;
+	--color-status-info-text: #97d6f0;
+	--color-status-info-subtle: #0c2230;
+	--color-dm-only-badge: #a763e8;
+	--color-dm-only-subtle: #1f1330;
+	--color-hidden-content-stripe: rgba(167, 99, 232, 0.14);
+	--color-interactive-hover: rgba(224, 176, 111, 0.09);
+	--color-interactive-selected: rgba(224, 176, 111, 0.16);
+	--color-interactive-focus-ring: #e0b06f;
+	--color-interactive-disabled: rgba(242, 232, 216, 0.34);
+	--color-interactive-disabled-bg: rgba(58, 46, 32, 0.45);
+	--color-backdrop: rgba(8, 5, 2, 0.66);
+}
+
+/* --------------------------------------------------------------------------------------------
+ * TAVERN — warm candle-lit dark. The hero theme.
+ * ------------------------------------------------------------------------------------------ */
+[data-theme='tavern'] {
+	color-scheme: dark;
+	--color-bg: #14100b;
+	--color-surface: #1f1810;
+	--color-surface-raised: #2a2117;
+	--color-surface-overlay: #362a1d;
+	--color-surface-sunken: #0e0a06;
+	--color-surface-alt: #241c12;
+	--color-border: #3a2e20;
+	--color-border-strong: #5c4630;
+	--color-border-focus: #e0b06f;
+	--color-text-primary: #f2e8d8;
+	--color-text-secondary: #bcab92;
+	--color-text-tertiary: #897a64;
+	--color-text-inverse: #14100b;
+	--color-text-link: #e0b06f;
+	--color-text-link-visited: #caa05a;
+	--color-accent: #e0b06f;
+	--color-accent-hover: #efc587;
+	--color-accent-active: #c8964f;
+	--color-accent-subtle: #2f2414;
+	--color-accent-foreground: #1a1206;
+	--color-accent-border: #8a6736;
+	--color-status-success: #4ec27a;
+	--color-status-success-text: #93e6ad;
+	--color-status-success-subtle: #112a1a;
+	--color-status-warning: #f0a830;
+	--color-status-warning-text: #fbd07f;
+	--color-status-warning-subtle: #2c2008;
+	--color-status-error: #ef5350;
+	--color-status-error-text: #fca5a5;
+	--color-status-error-subtle: #2d1110;
+	--color-status-info: #4fb6e0;
+	--color-status-info-text: #97d6f0;
+	--color-status-info-subtle: #0c2230;
+	--color-dm-only-badge: #a763e8;
+	--color-dm-only-subtle: #1f1330;
+	--color-hidden-content-stripe: rgba(167, 99, 232, 0.14);
+	--color-interactive-hover: rgba(224, 176, 111, 0.09);
+	--color-interactive-selected: rgba(224, 176, 111, 0.16);
+	--color-interactive-focus-ring: #e0b06f;
+	--color-interactive-disabled: rgba(242, 232, 216, 0.34);
+	--color-interactive-disabled-bg: rgba(58, 46, 32, 0.45);
+	--color-backdrop: rgba(8, 5, 2, 0.66);
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+	--shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
+	--shadow-lg: 0 14px 44px rgba(0, 0, 0, 0.62);
+}
+
+/* --------------------------------------------------------------------------------------------
+ * PARCHMENT — warm light, ink on aged vellum. Contrast raised so it is not washed out.
+ * ------------------------------------------------------------------------------------------ */
+[data-theme='parchment'] {
+	color-scheme: light;
+	--color-bg: #f3ebdd;
+	--color-surface: #fdf8f0;
+	--color-surface-raised: #ffffff;
+	--color-surface-overlay: #fffdf8;
+	--color-surface-sunken: #e9ddc9;
+	--color-surface-alt: #f0e6d4;
+	--color-border: #d2c2a6;
+	--color-border-strong: #a8865f;
+	--color-border-focus: #8a4a16;
+	--color-text-primary: #221409;
+	--color-text-secondary: #5c4a39;
+	--color-text-tertiary: #837057;
+	--color-text-inverse: #fdf8f0;
+	--color-text-link: #8a4a16;
+	--color-text-link-visited: #6a360f;
+	--color-accent: #9a5418;
+	--color-accent-hover: #b3651f;
+	--color-accent-active: #7c4111;
+	--color-accent-subtle: #f0e0c8;
+	--color-accent-foreground: #ffffff;
+	--color-accent-border: #c79e6f;
+	--color-status-success: #1f7a3d;
+	--color-status-success-text: #155e2e;
+	--color-status-success-subtle: #e4f2e6;
+	--color-status-warning: #9a6310;
+	--color-status-warning-text: #7c4f0b;
+	--color-status-warning-subtle: #f6ead2;
+	--color-status-error: #c0271f;
+	--color-status-error-text: #9e1d17;
+	--color-status-error-subtle: #fbe5e2;
+	--color-status-info: #0c6791;
+	--color-status-info-text: #0a5577;
+	--color-status-info-subtle: #e0eef5;
+	--color-dm-only-badge: #7b27c4;
+	--color-dm-only-subtle: #f0e4fb;
+	--color-hidden-content-stripe: rgba(123, 39, 196, 0.12);
+	--color-interactive-hover: rgba(154, 84, 24, 0.07);
+	--color-interactive-selected: rgba(154, 84, 24, 0.13);
+	--color-interactive-focus-ring: #8a4a16;
+	--color-interactive-disabled: rgba(34, 20, 9, 0.4);
+	--color-interactive-disabled-bg: rgba(210, 194, 166, 0.55);
+	--color-backdrop: rgba(34, 20, 9, 0.42);
+	--shadow-sm: 0 1px 3px rgba(74, 50, 20, 0.1), 0 1px 2px rgba(74, 50, 20, 0.07);
+	--shadow-md: 0 6px 18px rgba(74, 50, 20, 0.13), 0 2px 5px rgba(74, 50, 20, 0.08);
+	--shadow-lg: 0 14px 44px rgba(74, 50, 20, 0.17), 0 4px 10px rgba(74, 50, 20, 0.1);
+}
+
+/* --------------------------------------------------------------------------------------------
+ * HIGH-CONTRAST — AAA floor, retuned to a GOLD accent so the a11y theme stays on-brand
+ * (the original used cyan). Links keep distinct cyan/magenta for visited-state legibility.
+ * ------------------------------------------------------------------------------------------ */
+[data-theme='high-contrast'] {
+	color-scheme: dark;
+	--color-bg: #000000;
+	--color-surface: #000000;
+	--color-surface-raised: #121212;
+	--color-surface-overlay: #000000;
+	--color-surface-sunken: #000000;
+	--color-surface-alt: #0a0a0a;
+	--color-border: #ffffff;
+	--color-border-strong: #ffffff;
+	--color-border-focus: #ffff00;
+	--color-text-primary: #ffffff;
+	--color-text-secondary: #e6e6e6;
+	--color-text-tertiary: #c4c4c4;
+	--color-text-inverse: #000000;
+	--color-text-link: #6ff0ff;
+	--color-text-link-visited: #ff9cff;
+	--color-accent: #ffd86b;
+	--color-accent-hover: #ffe79c;
+	--color-accent-active: #e0b84a;
+	--color-accent-subtle: #1c1600;
+	--color-accent-foreground: #000000;
+	--color-accent-border: #ffd86b;
+	--color-status-success: #7dff7d;
+	--color-status-success-text: #7dff7d;
+	--color-status-success-subtle: #001a00;
+	--color-status-warning: #ffd966;
+	--color-status-warning-text: #ffd966;
+	--color-status-warning-subtle: #1a1400;
+	--color-status-error: #ff8080;
+	--color-status-error-text: #ff8080;
+	--color-status-error-subtle: #1a0000;
+	--color-status-info: #80d8ff;
+	--color-status-info-text: #80d8ff;
+	--color-status-info-subtle: #001a2a;
+	--color-dm-only-badge: #ff80ff;
+	--color-dm-only-subtle: #1a001a;
+	--color-hidden-content-stripe: rgba(255, 128, 255, 0.2);
+	--color-interactive-hover: rgba(255, 255, 255, 0.16);
+	--color-interactive-selected: rgba(255, 216, 107, 0.26);
+	--color-interactive-focus-ring: #ffff00;
+	--color-interactive-disabled: rgba(255, 255, 255, 0.42);
+	--color-interactive-disabled-bg: rgba(255, 255, 255, 0.1);
+	--color-backdrop: rgba(0, 0, 0, 0.82);
+	--shadow-sm: 0 0 0 1px #ffffff;
+	--shadow-md: 0 0 0 1px #ffffff;
+	--shadow-lg: 0 0 0 2px #ffffff;
+}
+
+/* --------------------------------------------------------------------------------------------
+ * MAP / LAYER TOKENS — NEW (the Atlas map-authoring surface). Additive; no existing token is
+ * touched. The maps spec's raw Material hues were re-harmonised in OKLCH (~0.72 L, ~0.10 C) so
+ * the 13 layer-type badges read distinct at a glance but stay in the warm candle-lit family.
+ * Each token is the badge FG + border; the badge bg is mixed from it against the surface at
+ * render time, so one token drives the whole chip and a theme swap needs no per-type bg token.
+ * ------------------------------------------------------------------------------------------ */
+:root {
+	--layer-base: oklch(0.7 0.018 70);
+	--layer-height: oklch(0.74 0.1 150);
+	--layer-political: oklch(0.77 0.105 78);
+	--layer-climate: oklch(0.74 0.085 200);
+	--layer-roads: oklch(0.72 0.115 50);
+	--layer-water: oklch(0.71 0.085 245);
+	--layer-wshed: oklch(0.73 0.08 215);
+	--layer-fog: oklch(0.6 0.012 65);
+	--layer-poi: oklch(0.65 0.15 28);
+	--layer-dm: oklch(0.62 0.14 305);
+	--layer-player: oklch(0.78 0.1 82);
+	--layer-combat: oklch(0.64 0.145 40);
+	--layer-custom: oklch(0.72 0.016 70);
+
+	--color-route: oklch(0.74 0.11 62);
+	--color-route-player: var(--layer-player);
+	--map-fog-opacity-dm: 0.2;
+	--map-fog-opacity-player: 0.95;
+	--map-fog-fill: oklch(0.46 0.01 65);
+	--map-grid-line: rgba(224, 176, 111, 0.14);
+	--map-canvas-bg: #16110b;
+}

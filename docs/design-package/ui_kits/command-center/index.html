@@ -1,0 +1,64 @@
+<!-- @dsCard group="DND Tools App" viewport="1320x880" name="Command Center — navigational hub" subtitle="The locked-down home scene: resume live play, browse scenes, create, and manage (click the nav to explore)" -->
+<!DOCTYPE html>
+<html lang="en" data-theme="tavern">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DND Tools — Command Center</title>
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="data.js"></script>
+<script src="nav.js"></script>
+<style>html,body{margin:0;height:100%;}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react" src="shell.jsx"></script>
+<script type="text/babel" data-presets="react" src="command-center.jsx"></script>
+<script type="text/babel" data-presets="react" src="screens.jsx"></script>
+<script type="text/babel" data-presets="react">
+const TITLES = { home: 'Command Center', session: 'Session', characters: 'Characters', atlas: 'Atlas', campaign: 'Campaign', knowledge: 'Knowledge', settings: 'Settings' };
+function Placeholder({ label }) {
+  const { Card, Icon } = window.DNDToolsDesignSystem_8ae046;
+  return (
+    <div style={{ maxWidth: 600, margin: '60px auto', textAlign: 'center' }}>
+      <Card elevation="flat" padding="lg">
+        <Icon name="campaign-scroll" size="xl" color="var(--color-text-tertiary)" />
+        <div style={{ font: '700 var(--text-xl) var(--font-display)', color: 'var(--color-text-primary)', marginTop: 12 }}>{label}</div>
+        <div style={{ font: 'var(--text-sm) var(--font-sans)', color: 'var(--color-text-secondary)', marginTop: 6 }}>This section is part of the seven-section IA. The Command Center, Session, Knowledge and Atlas surfaces are built out in this kit.</div>
+      </Card>
+    </div>
+  );
+}
+function App() {
+  const INTERNAL = ['home', 'session', 'knowledge', 'atlas'];
+  const initial = (() => { const h = (location.hash || '').replace('#', ''); return INTERNAL.includes(h) ? h : 'home'; })();
+  const [active, setActive] = React.useState(initial);
+  const nav = (id) => {
+    if (INTERNAL.includes(id)) {
+      setActive(id);
+      history.replaceState(null, '', id === 'home' ? 'index.html' : '#' + id);
+      return;
+    }
+    window.DNDNavigate(id);
+  };
+  let screen;
+  if (active === 'home') screen = <window.CommandCenter onNav={nav} />;
+  else if (active === 'session') screen = <window.SessionCombat />;
+  else if (active === 'knowledge') screen = <window.Knowledge />;
+  else if (active === 'atlas') screen = <window.Atlas />;
+  else screen = <Placeholder label={TITLES[active]} />;
+  return <window.AppShell active={active} onNav={nav} title={TITLES[active]} queued={1}>{screen}</window.AppShell>;
+}
+function mount() {
+  if (!window.DNDToolsDesignSystem_8ae046 || !window.AppShell || !window.CommandCenter || !window.SessionCombat) { setTimeout(mount, 40); return; }
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+}
+mount();
+</script>
+</body>
+</html>

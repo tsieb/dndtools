@@ -1,0 +1,45 @@
+/* ============================================================================================
+ * DND Tools — TYPOGRAPHY TOKENS (UX-VIS-004)
+ *
+ * Pairing: Inter (UI — carries almost everything) + Cinzel (display serif — large headings &
+ * atmospheric accents only) + JetBrains Mono (dice, initiative, stat numbers, IDs, kbd).
+ *
+ * Scale rule: switch to --font-display at --text-xl (24px) and above. Below that, Inter.
+ * Keep a clear 3–4 step hierarchy per surface — do NOT make every card title the same size.
+ * ========================================================================================== */
+
+:root {
+	/* --- Families ------------------------------------------------------------------------- */
+	--font-sans: 'Inter', 'Segoe UI Variable', system-ui, -apple-system, sans-serif;
+	--font-display: 'Cinzel', 'Palatino Linotype', 'Book Antiqua', serif;
+	--font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+
+	/* --- Type scale (rem; px noted) ------------------------------------------------------- */
+	--text-2xs: 0.625rem; /* 10px — micro badges */
+	--text-xs: 0.75rem; /* 12px — kbd, meta, chip text */
+	--text-sm: 0.8125rem; /* 13px — secondary / dense UI */
+	--text-base: 0.9375rem; /* 15px — body & default UI */
+	--text-md: 1.0625rem; /* 17px — emphasized body, card titles */
+	--text-lg: 1.25rem; /* 20px — sub-headings */
+	--text-xl: 1.5rem; /* 24px — page headings (Cinzel from here up) */
+	--text-2xl: 1.875rem; /* 30px — section heroes */
+	--text-3xl: 2.25rem; /* 36px — display / splash */
+
+	/* --- Weights -------------------------------------------------------------------------- */
+	--font-weight-regular: 400;
+	--font-weight-medium: 500;
+	--font-weight-semibold: 600;
+	--font-weight-bold: 700;
+
+	/* --- Line height ---------------------------------------------------------------------- */
+	--leading-tight: 1.2; /* display headings */
+	--leading-snug: 1.35; /* sub-heads, card titles */
+	--leading-body: 1.5; /* body copy */
+	--leading-relaxed: 1.7; /* long-form notes / knowledge editor */
+
+	/* --- Letter spacing ------------------------------------------------------------------- */
+	--tracking-tight: -0.02em; /* large Cinzel headings */
+	--tracking-normal: 0em;
+	--tracking-wide: 0.05em; /* small caps eyebrows */
+	--tracking-wider: 0.08em; /* widget eyebrows / section labels */
+}

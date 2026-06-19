@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Map Editor" description="A full DM map-creation workspace: tool rail, layer system, fog controls, POIs, nested-map breadcrumb and minimap — every map component composed on the warm tavern theme." -->
+<helmet>
+<script src="./ds-base.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<style>
+  .me-canvas{ background-color:#16110b;
+    background-image:
+      radial-gradient(420px 300px at 38% 42%, color-mix(in oklab, var(--layer-height) 26%, transparent), transparent 70%),
+      radial-gradient(360px 240px at 70% 64%, color-mix(in oklab, var(--layer-water) 24%, transparent), transparent 72%),
+      radial-gradient(220px 180px at 24% 74%, color-mix(in oklab, var(--layer-roads) 16%, transparent), transparent 70%),
+      linear-gradient(rgba(224,176,111,.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(224,176,111,.06) 1px, transparent 1px);
+    background-size: auto, auto, auto, 44px 44px, 44px 44px; }
+</style>
+</helmet>
+<div data-theme="tavern" style="height:100vh;display:flex;flex-direction:column;background-color:#14100b;background-image:radial-gradient(1200px 600px at 50% -260px, #2f2414, transparent 70%);color:#f2e8d8;font-family:'Inter',system-ui,sans-serif;box-sizing:border-box;overflow:hidden;">
+
+  <!-- Top bar: nested-map wayfinding + title + actions -->
+  <header style="display:flex;align-items:center;gap:16px;padding:10px 16px;border-bottom:1px solid #3a2e20;background:#1f1810;flex:0 0 auto;">
+    <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Breadcrumb" items="{{ crumbs }}" on-navigate="{{ noop }}" hint-size="360px,26px"></x-import>
+    <div style="flex:1;"></div>
+    <span style="font-family:'Cinzel',serif;font-size:18px;font-weight:700;letter-spacing:-.01em;">Silverdale Region</span>
+    <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.VisibilityChip" level="players" hint-size="92px,22px"></x-import>
+    <div style="flex:1;"></div>
+    <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.IconButton" icon="search" label="Search map" hint-size="36px,36px"></x-import>
+    <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.IconButton" icon="import" label="Import" hint-size="36px,36px"></x-import>
+    <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Button" variant="primary" icon="validate" hint-size="150px,36px">Project to players</x-import>
+  </header>
+
+  <!-- Workspace: tool rail · canvas · layer panel -->
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:auto minmax(0,1fr) 304px;">
+
+    <!-- Tool rail -->
+    <div style="display:flex;flex-direction:column;align-items:center;padding:12px 10px;border-right:1px solid #3a2e20;background:#1a140d;gap:10px;">
+      <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.ToolPalette" tools="{{ tools }}" active="{{ activeTool }}" on-select="{{ selectTool }}" can-undo="{{ trueVal }}" on-undo="{{ noop }}" hint-size="48px,360px"></x-import>
+    </div>
+
+    <!-- Canvas well -->
+    <div class="me-canvas" style="position:relative;overflow:hidden;">
+
+      <!-- Contextual fog options strip (shown when the fog tool is active) -->
+      <sc-if value="{{ showFog }}" hint-placeholder-val="{{ trueVal }}">
+        <div style="position:absolute;top:16px;left:16px;z-index:6;">
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.FogControls" mode="{{ fogMode }}" on-mode-change="{{ setFogMode }}" shape="{{ fogShape }}" on-shape-change="{{ setFogShape }}" brush-size="{{ fogBrush }}" on-brush-size="{{ setFogBrush }}" unit="ft" feather="{{ fogFeather }}" on-feather="{{ setFogFeather }}" sync-status="synced" on-reveal-all="{{ noop }}" on-reset-fog="{{ noop }}" hint-size="252px,300px"></x-import>
+        </div>
+      </sc-if>
+
+      <!-- POI markers (normalized positions on the map) -->
+      <div style="position:absolute;left:39%;top:40%;transform:translate(-50%,-100%);">
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.POIMarker" category="location" label="Silverdale" on-click="{{ noop }}" hint-size="44px,44px"></x-import>
+      </div>
+      <div style="position:absolute;left:62%;top:30%;transform:translate(-50%,-100%);">
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.POIMarker" category="quest" label="The old road" on-click="{{ noop }}" hint-size="44px,44px"></x-import>
+      </div>
+      <div style="position:absolute;left:72%;top:66%;transform:translate(-50%,-100%);">
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.POIMarker" category="treasure" label="Hidden cache" on-click="{{ noop }}" hint-size="44px,44px"></x-import>
+      </div>
+      <div style="position:absolute;left:48%;top:72%;transform:translate(-50%,-100%);">
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.POIMarker" category="danger" label="Cinderfang's lair" dm-only="{{ trueVal }}" active="{{ trueVal }}" on-click="{{ openPoi }}" hint-size="44px,44px"></x-import>
+      </div>
+
+      <!-- Open POI popover (anchored above the danger marker) -->
+      <sc-if value="{{ poiOpen }}" hint-placeholder-val="{{ trueVal }}">
+        <div style="position:absolute;left:48%;top:calc(72% - 56px);transform:translate(-50%,-100%);z-index:8;">
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.POIPopover" poi="{{ poi }}" on-close="{{ closePoi }}" on-visibility-change="{{ setPoiVis }}" on-focus="{{ noop }}" on-edit="{{ noop }}" on-deep-link="{{ noop }}" on-delete="{{ closePoi }}" on-open-note="{{ noop }}" hint-size="320px,240px"></x-import>
+        </div>
+      </sc-if>
+
+      <!-- Zoom controls -->
+      <div style="position:absolute;right:16px;bottom:148px;display:flex;flex-direction:column;gap:6px;z-index:5;">
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.IconButton" icon="zoom-in" label="Zoom in" variant="outline" on-click="{{ noop }}" hint-size="36px,36px"></x-import>
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.IconButton" icon="zoom-out" label="Zoom out" variant="outline" on-click="{{ noop }}" hint-size="36px,36px"></x-import>
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.IconButton" icon="zoom-fit" label="Fit map to window" variant="outline" on-click="{{ noop }}" hint-size="36px,36px"></x-import>
+      </div>
+
+      <!-- Minimap -->
+      <div style="position:absolute;right:16px;bottom:16px;z-index:5;">
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Minimap" hint-size="168px,140px"></x-import>
+      </div>
+    </div>
+
+    <!-- Layer panel + consistency footer -->
+    <div style="display:flex;flex-direction:column;min-height:0;border-left:1px solid #3a2e20;background:#1a140d;">
+      <div style="flex:1;min-height:0;padding:12px;display:flex;">
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.LayerPanel" layers="{{ layers }}" on-change="{{ noop }}" on-add-layer="{{ noop }}" style="height:100%;width:100%" hint-size="280px,100%"></x-import>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid #3a2e20;">
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Badge" status="success" icon="validate" hint-size="120px,22px">Safe to project</x-import>
+        <span style="font-size:12px;color:#897a64;">layer / POI / fog consistent</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { activeTool: 'fog', poiOpen: false, fogMode: 'reveal', fogShape: 'brush', fogBrush: 24, fogFeather: false, poiVis: 'dm-only' };
+
+  componentDidMount() {
+    // Lucide loads async in <helmet>; re-render once its glyph data lands so every icon paints.
+    if (window.lucide && window.lucide.icons) return;
+    this._t = setInterval(() => {
+      if (window.lucide && window.lucide.icons) { clearInterval(this._t); this.forceUpdate(); }
+    }, 60);
+    setTimeout(() => clearInterval(this._t), 4000);
+  }
+  componentWillUnmount() { if (this._t) clearInterval(this._t); }
+
+  renderVals() {
+    const s = this.state;
+    return {
+      trueVal: true,
+      noop: () => {},
+      crumbs: [
+        { id: 'w', label: 'World' },
+        { id: 'r', label: 'Northern Region' },
+        { id: 's', label: 'Silverdale' },
+      ],
+      tools: [
+        { id: 'select', icon: 'tool-select', label: 'Select' },
+        { id: 'brush', icon: 'tool-brush', label: 'Brush / terrain' },
+        { id: 'fog', icon: 'layer-fog', label: 'Fog of war' },
+        { id: 'poi', icon: 'poi', label: 'Place POI' },
+        { id: 'route', icon: 'tool-route', label: 'Route' },
+        { id: 'eraser', icon: 'tool-eraser', label: 'Eraser' },
+        { id: 'text', icon: 'tool-text', label: 'Text' },
+      ],
+      activeTool: s.activeTool,
+      selectTool: (id) => this.setState({ activeTool: id }),
+      showFog: s.activeTool === 'fog',
+      fogMode: s.fogMode, setFogMode: (m) => this.setState({ fogMode: m }),
+      fogShape: s.fogShape, setFogShape: (sh) => this.setState({ fogShape: sh }),
+      fogBrush: s.fogBrush, setFogBrush: (v) => this.setState({ fogBrush: v }),
+      fogFeather: s.fogFeather, setFogFeather: (v) => this.setState({ fogFeather: v }),
+      poiOpen: s.poiOpen,
+      openPoi: () => this.setState({ poiOpen: true }),
+      closePoi: () => this.setState({ poiOpen: false }),
+      setPoiVis: (v) => this.setState({ poiVis: v }),
+      poi: { name: "Cinderfang's Lair", category: 'danger', categoryLabel: 'Danger', linkedNote: 'Cinderfang — lair', visibility: s.poiVis },
+      panelStyle: { height: '100%', width: '100%' },
+      layers: [
+        { id: 'l1', name: 'Region base', type: 'base', opacity: 100, dmDisplay: true, visibility: 'players' },
+        { id: 'l2', name: 'Heightmap', type: 'height', opacity: 80, dmDisplay: true, visibility: 'players' },
+        { id: 'l3', name: 'Roads & trails', type: 'roads', opacity: 100, dmDisplay: true, visibility: 'players' },
+        { id: 'l4', name: 'Rivers', type: 'water', opacity: 90, dmDisplay: true, visibility: 'shared' },
+        { id: 'l5', name: 'Points of interest', type: 'poi', opacity: 100, dmDisplay: true, visibility: 'players' },
+        { id: 'l6', name: 'Cult movements', type: 'dm', opacity: 100, dmDisplay: true, visibility: 'dm-only' },
+        { id: 'l7', name: 'Fog of war', type: 'fog', opacity: 100, dmDisplay: true, visibility: 'players', locked: true },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

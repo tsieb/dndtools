@@ -1,0 +1,50 @@
+<!-- @dsCard group="Maps" viewport="780x540" name="Layer system" subtitle="Layer panel, row anatomy, three independent visibility axes, actor-filtered player view" -->
+<!DOCTYPE html>
+<html lang="en" data-theme="tavern">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;padding:20px;}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { LayerPanel } = window.DNDToolsDesignSystem_8ae046;
+const LAYERS = [
+  { id:'l1', name:'Region base', type:'base', opacity:100, dmDisplay:true, visibility:'players' },
+  { id:'l2', name:'Heightmap', type:'height', opacity:80, dmDisplay:true, visibility:'players' },
+  { id:'l3', name:'Roads & trails', type:'roads', opacity:100, dmDisplay:true, visibility:'players' },
+  { id:'l4', name:'Rivers', type:'water', opacity:90, dmDisplay:true, visibility:'shared' },
+  { id:'l5', name:'Points of interest', type:'poi', opacity:100, dmDisplay:true, visibility:'players' },
+  { id:'l6', name:'Cult movements', type:'dm', opacity:100, dmDisplay:true, visibility:'dm-only' },
+  { id:'l7', name:'Fog of war', type:'fog', opacity:100, dmDisplay:true, visibility:'players', locked:true },
+];
+function Label({ children }) {
+  return <span style={{ fontSize:11, letterSpacing:'.08em', textTransform:'uppercase', color:'var(--color-text-tertiary)', fontFamily:'var(--font-sans)' }}>{children}</span>;
+}
+function Demo() {
+  const [layers, setLayers] = React.useState(LAYERS);
+  // The player view only ever receives the actor-visible layers.
+  const playerLayers = layers.filter(l => l.visibility !== 'dm-only').map(l => ({ ...l }));
+  return (
+    <div style={{ display:'grid', gridTemplateColumns:'300px 300px', gap:24, alignItems:'start' }}>
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        <Label>DM authoring · drag, rename (dbl-click), Alt+↑/↓ reorder</Label>
+        <LayerPanel layers={layers} onChange={setLayers} style={{ height:440 }} />
+      </div>
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        <Label>Player view · actor-filtered, no controls, DM-only absent</Label>
+        <LayerPanel layers={playerLayers} readOnly style={{ height:440 }} />
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body>
+</html>
