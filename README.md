@@ -14,9 +14,8 @@ apps/
   gm/          @dndtools/gm   — the GM command platform (SvelteKit / Svelte 5, browser-first)
 packages/
   core/        @dndtools/core — the processing core (commands, reducers, permissions, queries)
-services/      — server/cloud-side runtimes (documented; scaffolded when a boundary lands)
-docs/          — architecture, ADRs, planning, requirements, reference
-scripts/       — workspace tooling (boundary lint, quality gates, workpack, docs validation)
+docs/          — architecture, ADRs, planning, development, reference
+scripts/       — workspace tooling (boundary lint, quality gates, a11y/token lints)
 tests/         — repo-level tooling/guardrail tests
 ```
 
@@ -34,11 +33,10 @@ pnpm build            # build core, then the GM app
 pnpm typecheck        # typecheck core + GM app
 pnpm test             # core + GM app + repo tooling tests
 pnpm e2e              # Playwright (desktop + mobile Chromium) against the GM app
-pnpm lint             # eslint + boundary lint
+pnpm lint             # eslint + boundary lint + non-text contrast lint
 pnpm lint:boundary    # processing/display + platform-primitive boundary lint
 pnpm gates            # tiered quality-gate registry enforcement
-pnpm docs:validate    # docs path + generated-from-structured-source audits
-pnpm check            # workpack validate + gates + boundary lint + typecheck + tests
+pnpm check            # gates + boundary lint + typecheck + tests
 ```
 
 ## Boundaries
@@ -51,6 +49,6 @@ pnpm check            # workpack validate + gates + boundary lint + typecheck + 
 ## History
 
 The prior v1 document-editor application has been retired; its last state is preserved at the git
-tag `v1-final`. Dated planning and audit artifacts under `docs/planning/v2/` and
-`docs/remake-review/` are a historical record of the remake — "v2" there refers to today's primary
-GM app.
+tag `v1-final`. The current GM app is the product of a full remake; the dated planning, audit, and
+requirements artifacts from that remake have been pruned from the tree and remain recoverable in
+git history.

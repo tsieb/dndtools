@@ -1,7 +1,0 @@
-schemaVersion: 1
-batches:
-  - id: blocked-until-v2-stack-adr
-    status: blocked
-    reason: Implementation batches require ADR-014 to choose the v2 stack and
-      subproject boundary.
-    epicIds: []

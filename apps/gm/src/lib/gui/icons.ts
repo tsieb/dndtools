@@ -68,7 +68,7 @@ export const ICON_SIZE_TOKEN: Readonly<Record<IconSize, string>> = {
 
 /**
  * The curated icon registry. Section keys mirror the navigation-registry icon ids
- * (`docs/planning/v2/ux/navigation-registry.yaml`) so the phase-02 shell can render the global nav
+ * (`apps/gm/tests/fixtures/navigation-registry.yaml`) so the shell can render the global nav
  * through this same registry. Status keys give each severity a DISTINCT shape (non-colour cue).
  */
 export const ICON_REGISTRY = {

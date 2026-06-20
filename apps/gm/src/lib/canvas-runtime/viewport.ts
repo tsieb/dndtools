@@ -1,9 +1,8 @@
 /**
  * Canvas viewport math (UX-CANVAS-001): the pure pan/zoom model shared by every spatial surface —
  * Command Center, Scenes, maps, and player views all consume the SAME viewport so the foundational
- * canvas runtime is built once, not per surface (doc 16 §6.3; canvas-renderer decision: interim
- * DOM/CSS baseline behind a renderer-abstraction boundary, `docs/planning/v2/ux/architecture-decisions.md`
- * §4).
+ * canvas runtime is built once, not per surface (canvas-renderer decision: interim DOM/CSS
+ * baseline behind a renderer-abstraction boundary).
  *
  * Coordinate model — a single affine transform:
  *   screen = world * scale + translate
