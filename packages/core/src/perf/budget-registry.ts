@@ -133,11 +133,10 @@ export const PERFORMANCE_BUDGET_REGISTRY_VERSION = 1 as const;
 /**
  * The declared, owned performance budgets for v2. These are the concrete provisional thresholds the
  * PERF-007 budget artifact names (smoke CI, startup, vault open, Scene first render, widget update,
- * map pan/zoom, search, graph indexing, sync reconciliation). Every target here mirrors the
- * provisional budget table in `docs/remake-review/requirements/18-performance.md` — this module is
- * the executable, validated form of that table. All are `provisional` (no measured baseline exists
- * yet, per ADR-014's prototype stance) and therefore each declares dataset, device class, and a
- * review date.
+ * map pan/zoom, search, graph indexing, sync reconciliation). This module is the executable,
+ * validated source of truth for those thresholds. All are `provisional` (no measured baseline
+ * exists yet, per ADR-014's prototype stance) and therefore each declares dataset, device class,
+ * and a review date.
  */
 export const PERFORMANCE_BUDGETS: readonly PerformanceBudget[] = [
 	{

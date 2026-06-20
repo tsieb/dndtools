@@ -8,12 +8,11 @@ DND Tools is a canvas-first command platform for tabletop RPG play. The primary 
 GM command platform (`apps/gm`, `@dndtools/gm`); a platform-independent processing core
 (`packages/core`, `@dndtools/core`) holds command validation, reducers, permissions, and queries
 and is shared by every surface. See [reference/PROJECT_STRUCTURE.md](reference/PROJECT_STRUCTURE.md)
-and [ADR-016](adr/016-promote-gm-app-and-monorepo-reorg.md) for the repository layout, and the
-[vision brief](remake-review/00-vision-brief.md) for product intent.
+and [ADR-016](adr/016-promote-gm-app-and-monorepo-reorg.md) for the repository layout.
 
 > The prior v1 document-editor (Electron desktop + Capacitor Android + MCP sidecar) has been
-> retired; its last state is preserved at the git tag `v1-final`. Older docs in this set that
-> describe v1 runtimes are historical until refreshed.
+> retired; its last state is preserved at the git tag `v1-final`. Some ADRs predate the remake and
+> describe v1 runtimes — they are kept as the decision record, not as current behavior.
 
 ---
 
@@ -22,15 +21,14 @@ and [ADR-016](adr/016-promote-gm-app-and-monorepo-reorg.md) for the repository l
 | You want to...                | Start here                                                                 |
 | ----------------------------- | -------------------------------------------------------------------------- |
 | Understand the system design  | [architecture/ARCHITECTURE.md](architecture/ARCHITECTURE.md)               |
-| Onboard as a new contributor  | [CONTRIBUTING.md](CONTRIBUTING.md)                                         |
-| Look up a domain term         | [GLOSSARY.md](GLOSSARY.md)                                                 |
-| See the roadmap and epics     | [planning/initiatives/README.md](planning/initiatives/README.md)           |
+| Onboard as a new contributor  | [CONTRIBUTING.md](CONTRIBUTING.md)                                          |
+| Look up a domain term         | [GLOSSARY.md](GLOSSARY.md)                                                  |
+| See the roadmap and initiatives | [planning/initiatives/README.md](planning/initiatives/README.md)         |
 | Check the data model          | [architecture/DATA_MODEL.md](architecture/DATA_MODEL.md)                   |
-| Understand dev standards      | [development/DEVELOPMENT.md](development/DEVELOPMENT.md)                   |
-| Configure git workflow        | [development/GIT_WORKFLOW.md](development/GIT_WORKFLOW.md)                 |
-| Understand testing strategy   | [development/TESTING.md](development/TESTING.md)                           |
-| Work with MCP / AI agents     | [reference/AGENTIC_NOTES_WORKFLOW.md](reference/AGENTIC_NOTES_WORKFLOW.md) |
-| Ship a release                | [operations/RELEASE.md](operations/RELEASE.md)                             |
+| Understand dev standards      | [development/DEVELOPMENT.md](development/DEVELOPMENT.md)                    |
+| Configure git workflow        | [development/GIT_WORKFLOW.md](development/GIT_WORKFLOW.md)                  |
+| Understand testing strategy   | [development/TESTING.md](development/TESTING.md)                            |
+| Look up a workspace script    | [development/SCRIPTS.md](development/SCRIPTS.md)                            |
 | Review architecture decisions | [adr/README.md](adr/README.md)                                             |
 
 ---
@@ -43,54 +41,14 @@ docs/
 ├── GLOSSARY.md             — domain terminology
 ├── CONTRIBUTING.md         — onboarding guide
 │
-├── architecture/           — system design, data model, security
-│   ├── ARCHITECTURE.md
-│   ├── DATA_MODEL.md
-│   ├── TECH_STACK.md
-│   └── SECURITY.md
-│
-├── development/            — dev standards, testing, git, performance, a11y
-│   ├── DEVELOPMENT.md
-│   ├── GIT_WORKFLOW.md
-│   ├── TESTING.md          — includes E2E route coverage matrix
-│   ├── PERFORMANCE.md
-│   ├── ACCESSIBILITY.md
-│   ├── UX_GUIDELINES.md
-│   └── OWNERSHIP.md
-│
-├── planning/               — roadmap and initiative breakdown
+├── architecture/           — system design, data model, security, navigation, design tokens
+├── development/            — dev standards, testing, git, performance, a11y, scripts, ownership
+├── planning/               — roadmap, planning tiers, and the I1–I21 initiative breakdown
 │   ├── ROADMAP.md
 │   ├── PLANNING_TIERS.md
 │   └── initiatives/
-│       ├── README.md       — vision, principles, initiative map
-│       ├── I1-platform-foundation.md
-│       ├── I2-engineering-excellence.md
-│       ├── I3-core-knowledge-architecture.md
-│       ├── I4-session-command-center.md
-│       ├── I5-ai-creative-partnership.md
-│       ├── I6-multi-platform-distribution.md
-│       ├── I7-collaborative-infrastructure.md
-│       ├── I8-extensibility-ecosystem.md
-│       ├── I9-maps-spatial-intelligence.md
-│       ├── I10-player-character-suite.md
-│       ├── I11-atmosphere-audio-immersion.md
-│       └── I12-community-content-ecosystem.md
-│
-├── operations/             — migrations, release, mobile, MCP testing
-│   ├── SCHEMA_MIGRATIONS.md
-│   ├── MCP_INSPECTOR_WORKFLOW.md
-│   ├── RELEASE.md          — desktop + Android signing and sideload
-│   └── MOBILE.md
-│
-├── reference/              — MCP tool contracts, random tables, repo layout
-│   ├── AGENTIC_NOTES_WORKFLOW.md
-│   ├── RANDOM_TABLES.md
-│   └── PROJECT_STRUCTURE.md
-│
-└── adr/                    — architecture decision records
-    ├── README.md           — ADR index
-    ├── 000-template.md
-    └── 001–010-*.md
+├── reference/              — project structure, feature tiers, icon vocabulary, random tables
+└── adr/                    — architecture decision records (000-template + 001–016)
 ```
 
 ---
@@ -101,20 +59,21 @@ docs/
 - Planned work must be marked as `TODO(APP)` and include: what's missing, why it matters, who owns it, target milestone, risk.
 - Do not present aspirational behavior as if already implemented.
 - When contracts change (types, IPC, tools, storage format), update docs in the same change set.
-- Use exact tool names, script names, and type names — never approximations like "30+" when the actual count is known.
+- Use exact tool names, script names, and type names — never approximations.
 
 ---
 
-## Current Product Baseline (Verified)
+## Current Product Baseline
 
-- Notes are markdown files in a vault folder when running desktop mode.
-- MCP runs as a sidecar process and defaults to staged write mode (pending approvals).
-- Renderer uses runtime-selected `StorageAdapter`:
-  Electron bridge (desktop), Capacitor filesystem (Android), Dexie/IndexedDB (browser PWA).
-- Import/export includes Obsidian analyzer + conflict-aware import jobs with resumable checkpoints.
-- Export supports portable markdown zip and deterministic git-friendly markdown zip with validation.
-- MCP resources expose canonical versioned URIs under `dndtools://v1/*` with legacy aliases.
-- Vault-intelligence tools provide campaign health, coverage gaps, stale-note APIs, and task bundles.
-- 43+ MCP tools registered across notes, search, vault, boards, objects, dice, and random domains. See `mcp/tools/index.ts` for the canonical list.
-- Accessibility: WCAG 2.1 AA — all 10 gap register items closed; CI gate active via `tests/e2e-desktop/accessibility.spec.ts`.
-- IPC: explicit named channels with Zod payload schemas (`electron/ipc-schemas.ts`); security regression tests in `electron/ipc-security.test.ts`.
+- `apps/gm` (`@dndtools/gm`) is a browser-first SvelteKit / Svelte 5 application — the GM command
+  platform. It owns rendering, platform services, and command dispatch.
+- Renderer persistence uses a Dexie/IndexedDB `StorageAdapter`; the app never mutates durable state
+  directly — all changes flow through commands into the processing core.
+- `packages/core` (`@dndtools/core`) is platform-independent (no Svelte, DOM, Node, Electron,
+  Capacitor, cloud, or app-runtime imports) and owns command validation, deterministic reducers,
+  permission/visibility evaluation, actor-scoped queries, and the declared quality-gate, security,
+  and source-of-truth registries. The boundary is enforced by `scripts/boundary-lint.ts`.
+- Quality gates are a declared, owned, time-bounded registry in `@dndtools/core`, enforced by
+  `scripts/quality-gates.ts` (`pnpm gates`) and run in CI.
+- Accessibility is gated: non-text contrast lint (`pnpm a11y:contrast`) plus a Playwright axe gate
+  (`apps/gm/tests/e2e/a11y-axe-gate.spec.ts`).

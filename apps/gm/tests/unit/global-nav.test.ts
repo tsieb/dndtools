@@ -26,8 +26,10 @@ import {
  * actor-filtered (no DM-only / observer-hidden section leaks into the data).
  */
 
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
-const REGISTRY_PATH = resolve(REPO_ROOT, 'docs/planning/v2/ux/navigation-registry.yaml');
+const REGISTRY_PATH = resolve(
+	dirname(fileURLToPath(import.meta.url)),
+	'../fixtures/navigation-registry.yaml',
+);
 
 function idsInBlock(raw: string, startMarker: string, endMarker: string): string[] {
 	const start = raw.indexOf(startMarker);

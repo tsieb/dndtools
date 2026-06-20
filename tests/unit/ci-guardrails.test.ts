@@ -6,21 +6,6 @@ import { describe, expect, it } from 'vitest';
 const repoRoot = process.cwd();
 
 describe('CI guardrails', () => {
-	it('keeps planning validation wired through package scripts and CI', () => {
-		const packageJson = JSON.parse(
-			fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf-8'),
-		) as { scripts?: Record<string, string> };
-		const ciWorkflow = fs.readFileSync(
-			path.join(repoRoot, '.github', 'workflows', 'ci.yml'),
-			'utf-8',
-		);
-
-		expect(packageJson.scripts?.['workpack:validate']).toBe('tsx scripts/workpack.ts validate');
-		expect(packageJson.scripts?.['docs:validate']).toBe('tsx scripts/docs-validate.ts');
-		expect(ciWorkflow).toContain('run: pnpm workpack:validate');
-		expect(ciWorkflow).toContain('run: pnpm docs:validate');
-	});
-
 	it('keeps the PLAT-010 tiered quality-gate enforcement wired through scripts and CI', () => {
 		const packageJson = JSON.parse(
 			fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf-8'),

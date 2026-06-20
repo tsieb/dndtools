@@ -5,16 +5,15 @@ import type { IconName } from '$lib/gui/icons';
  * UX-SHELL — the seven-destination global navigation presentation (UX-NAV-002, UX-NAV-004,
  * UX-NAV-005, UX-NAV-006).
  *
- * This module is the GUI-layer presentation refinement the navigation contract delegates to
- * phase 02 (`docs/planning/v2/ux/navigation-registry.yaml` followUps): it presents the SEVEN
- * accepted global destinations — Command Center, Session, Characters, Atlas, Campaign,
+ * This module is the GUI-layer presentation refinement the navigation contract delegates to:
+ * it presents the SEVEN accepted global destinations — Command Center, Session, Characters, Atlas, Campaign,
  * Knowledge, Settings — in their fixed canonical order, and treats Scenes/Audio/MCP as
  * non-global capabilities that are reached through the command palette and section-local
  * surfaces rather than a primary-nav slot.
  *
  * It CONSUMES, never redefines, the source-of-truth registry:
  * - The ordered ids below are validated against
- *   `docs/planning/v2/ux/navigation-registry.yaml` by `global-nav.test.ts`, so this list cannot
+ *   `apps/gm/tests/fixtures/navigation-registry.yaml` by `global-nav.test.ts`, so this list cannot
  *   drift from the accepted contract.
  * - The runtime title / route / landmark / role-availability for each item come from the
  *   actor-filtered functional registry view ({@link NavigationRegistryEntry} from

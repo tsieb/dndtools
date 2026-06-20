@@ -9,7 +9,7 @@ platform (`apps/gm`) is the primary application; the platform-independent proces
 - `apps/`: deployable end-user applications (one GUI per surface).
 - `packages/`: shared libraries with no GUI, reused across apps and services.
 - `docs/`: architecture, ADRs, planning, requirements, and reference docs.
-- `scripts/`: workspace tooling (boundary lint, quality gates, workpack, docs validation).
+- `scripts/`: workspace tooling (boundary lint, quality gates, a11y/token lints).
 - `tests/`: repo-level tooling/guardrail tests (each app and package owns its own test suite).
 
 ## Applications (`apps/`)

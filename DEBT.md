@@ -2,7 +2,7 @@
 
 This file is the canonical debt register for long-lived refactors and deferred architectural work.
 
-Last reviewed: 2026-03-01
+Last reviewed: 2026-06-20
 
 ## Entry Requirements
 
@@ -18,11 +18,10 @@ Each debt item must include:
 
 ## Active Debt Items
 
-| ID              | Severity | Impact                                                                                         | Owner    | Resolution Window       | Targets                                                                           | Status   |
-| --------------- | -------- | ---------------------------------------------------------------------------------------------- | -------- | ----------------------- | --------------------------------------------------------------------------------- | -------- |
-| `DEBT-2026-002` | high     | Desktop distribution trust posture is weaker without automated installer signing/notarization. | `@trent` | 2026-Q3 (by 2026-09-30) | `.github/workflows/release-assets.yml`, `electron-builder.yml`, `docs/RELEASE.md` | resolved |
+_None. No open architectural debt is tracked at this time._
 
 ## Usage Notes
 
 - Reference debt IDs in PR descriptions when deferring architectural work.
-- If a code comment uses `TODO(APP)` and remains unresolved for more than one quarter, add/update a debt entry here before merge.
+- If a code comment uses `TODO(APP)` and remains unresolved for more than one quarter, add/update a
+  debt entry here before merge.

@@ -1,25 +1,22 @@
-name: Planning Validation
+name: CI
 
 on:
   push:
     branches:
       - master
-      - remake
-      - epic/**
-      - reorg/**
   pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: planning-${{ github.workflow }}-${{ github.event.pull_request.base.ref || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.base.ref || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  docs-and-workpack:
-    name: docs-and-workpack
+  build-and-test:
+    name: build-and-test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -39,14 +36,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate workpack
-        run: pnpm workpack:validate
-
       - name: Enforce tiered quality gates (PLAT-010)
         run: pnpm gates
 
-      - name: Validate docs
-        run: pnpm docs:validate
-
-      - name: Run unit tests (MCP-005 AC1 merge gate)
+      - name: Run unit tests
         run: pnpm test
