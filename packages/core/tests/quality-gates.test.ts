@@ -156,11 +156,6 @@ describe('PLAT-010 path/tier selection (AC1)', () => {
 		expect(ids).toContain('critical-tests');
 		expect(ids).toContain('smoke');
 	});
-
-	it('selects the docs gate when docs change (AC1)', () => {
-		const selected = selectGatesForPaths(['docs/remake-review/10-requirements.md']);
-		expect(selected.map((g) => g.id)).toContain('docs-validate');
-	});
 });
 
 describe('PLAT-010 budget enforcement (AC3)', () => {

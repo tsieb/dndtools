@@ -6,7 +6,7 @@
  * (`scripts/a11y-axe-report.ts`). Keeping the policy here lets it be unit-tested in isolation
  * (`tests/unit/a11y-axe-policy.test.ts`) so the release gate is provably non-vacuous.
  *
- * Contract (per `docs/remake-review/ux-requirements/03-accessibility.md`):
+ * Contract (see `docs/development/ACCESSIBILITY.md`):
  *  - `critical` violations always block (zero tolerance).
  *  - `serious` violations block UNLESS matched by an approved known-violation entry whose
  *    `targetResolutionDate` is still in the future.

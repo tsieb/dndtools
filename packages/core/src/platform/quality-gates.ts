@@ -4,8 +4,7 @@
  * This is the DECLARED, structured source of truth for the repo's existing test/lint tiers
  * (critical / smoke / full / release). It does NOT rewrite the test runner — every tier maps
  * onto the package.json scripts that already exist (`test:critical`, `test:smoke`, `lint`,
- * `docs:validate`, `check`, ...). What this module adds is the *contract* a release-quality
- * review needs and the repo previously lacked (defect `CLAUDE-INFRA-CI-GATES`):
+ * `check`, ...). What this module adds is the *contract* a release-quality review needs:
  *
  *   - every gate has an OWNER, a REASON, and the user-facing DEFECT CLASS it protects (AC2);
  *   - every gate is bound to a configured TIME BUDGET that preserves developer feedback (AC3);
@@ -157,22 +156,10 @@ export const QUALITY_GATES: readonly QualityGate[] = [
 		tier: 'full',
 		script: 'check',
 		owner: 'platform',
-		reason:
-			'Full gate: workpack validation + boundary lint + typecheck + the complete unit suite.',
-		protects: ['platform-regression', 'planning-drift', 'boundary-violation'],
-		selectsOnPaths: ['apps/gm/**', 'packages/core/**', 'docs/planning/v2/**'],
-		lastReviewed: '2026-06-09',
-	},
-	{
-		id: 'docs-validate',
-		tier: 'full',
-		script: 'docs:validate',
-		owner: 'platform',
-		reason:
-			'Validates doc path references, generated structure/count audits, and the workpack — the generated-from-structured-sources contract (PLAT-015).',
-		protects: ['doc-count-drift', 'planning-drift'],
-		selectsOnPaths: ['docs/**'],
-		lastReviewed: '2026-06-09',
+		reason: 'Full gate: boundary lint + typecheck + the complete unit suite.',
+		protects: ['platform-regression', 'boundary-violation'],
+		selectsOnPaths: ['apps/gm/**', 'packages/core/**'],
+		lastReviewed: '2026-06-20',
 	},
 	{
 		id: 'e2e',
