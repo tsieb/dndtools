@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Character Sheet" description="A full player-character sheet on the warm tavern theme: identity, ability scores, saves & skills, a live combat panel (HP + conditions), and spellcasting — assembled from the design-system primitives." -->
+<helmet>
+<script src="./ds-base.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+</helmet>
+<div data-theme="tavern" style="min-height:100vh;background-color:var(--color-bg);background-image:radial-gradient(1200px 620px at 50% -240px, var(--color-accent-subtle), transparent 70%);font-family:var(--font-sans);color:var(--color-text-primary);padding:28px;box-sizing:border-box;">
+  <div style="max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:20px;">
+
+    <!-- Identity header -->
+    <header style="display:flex;align-items:center;gap:18px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:18px 22px;box-shadow:var(--shadow-sm);">
+      <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Avatar" name="Mara Quill" size="xl" ring="active" hint-size="64px,64px"></x-import>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:var(--font-display);font-size:26px;font-weight:700;letter-spacing:-.01em;line-height:1.1;">Mara Quill</div>
+        <div style="font-size:14px;color:var(--color-text-tertiary);margin-top:2px;">Level 6 Half-elf Rogue (Arcane Trickster) · Chaotic good · Folk hero</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Button" variant="ghost" size="sm" icon="recent" hint-size="110px,36px">Short rest</x-import>
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Button" variant="secondary" size="sm" icon="motion" hint-size="100px,36px">Long rest</x-import>
+      </div>
+    </header>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:20px;align-items:start;">
+
+      <!-- LEFT — abilities, saves, skills -->
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <section style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:18px;box-shadow:var(--shadow-sm);">
+          <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:12px;">Ability scores</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.AbilityScore" label="STR" score="10" hint-size="100%,76px"></x-import>
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.AbilityScore" label="DEX" score="18" tone="accent" hint-size="100%,76px"></x-import>
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.AbilityScore" label="CON" score="14" hint-size="100%,76px"></x-import>
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.AbilityScore" label="INT" score="16" tone="accent" hint-size="100%,76px"></x-import>
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.AbilityScore" label="WIS" score="12" hint-size="100%,76px"></x-import>
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.AbilityScore" label="CHA" score="13" hint-size="100%,76px"></x-import>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--color-border);">
+            <div style="text-align:center;flex:1;"><div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);">Prof. bonus</div><div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--color-accent);">+3</div></div>
+            <div style="text-align:center;flex:1;border-left:1px solid var(--color-border);"><div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);">Passive perc.</div><div style="font-family:var(--font-mono);font-size:20px;font-weight:700;">17</div></div>
+            <div style="text-align:center;flex:1;border-left:1px solid var(--color-border);"><div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);">Insp.</div><div style="font-family:var(--font-mono);font-size:20px;font-weight:700;">1</div></div>
+          </div>
+        </section>
+
+        <section style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:18px;box-shadow:var(--shadow-sm);">
+          <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:12px;">Saving throws</div>
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.DefinitionList" items="{{ saves }}" hint-size="100%,140px"></x-import>
+        </section>
+
+        <section style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:18px;box-shadow:var(--shadow-sm);">
+          <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:12px;">Proficient skills</div>
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.DefinitionList" items="{{ skills }}" hint-size="100%,160px"></x-import>
+        </section>
+      </div>
+
+      <!-- RIGHT — combat + spellcasting + features -->
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <section style="background:var(--color-surface-raised);border:1px solid var(--color-accent-border);border-radius:6px;padding:20px;box-shadow:var(--shadow-md);display:flex;flex-direction:column;gap:16px;">
+          <div style="font-family:var(--font-display);font-size:20px;font-weight:700;">Combat</div>
+          <div style="display:flex;gap:14px;">
+            <div style="flex:1;text-align:center;background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:4px;padding:10px;"><div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);">Armor class</div><div style="font-family:var(--font-mono);font-size:26px;font-weight:700;">15</div></div>
+            <div style="flex:1;text-align:center;background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:4px;padding:10px;"><div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);">Initiative</div><div style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--color-accent);">+4</div></div>
+            <div style="flex:1;text-align:center;background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:4px;padding:10px;"><div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);">Speed</div><div style="font-family:var(--font-mono);font-size:26px;font-weight:700;">30</div></div>
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <span style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);">Hit points</span>
+              <span style="display:flex;gap:6px;">
+                <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Button" variant="danger" size="sm" onClick="{{ damage }}" hint-size="64px,32px">Damage</x-import>
+                <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Button" variant="secondary" size="sm" onClick="{{ heal }}" hint-size="56px,32px">Heal</x-import>
+              </span>
+            </div>
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.HPBar" current="{{ hp }}" max="38" size="lg" hint-size="100%,32px"></x-import>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:8px;">Conditions</div>
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.ConditionTracker" entries="{{ conditions }}" onRemove="{{ removeCondition }}" onAdd="{{ addCondition }}" hint-size="100%,28px"></x-import>
+          </div>
+        </section>
+
+        <section style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:18px;box-shadow:var(--shadow-sm);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div style="font-family:var(--font-display);font-size:18px;font-weight:700;">Spellcasting</div>
+            <div style="display:flex;gap:18px;">
+              <div style="text-align:right;"><div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);">Save DC</div><div style="font-family:var(--font-mono);font-size:18px;font-weight:700;">14</div></div>
+              <div style="text-align:right;"><div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);">Atk bonus</div><div style="font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--color-accent);">+6</div></div>
+            </div>
+          </div>
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.SpellSlots" levels="{{ slots }}" onToggle="{{ toggleSlot }}" hint-size="100%,90px"></x-import>
+          <div style="margin-top:16px;">
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.SpellCard" name="Mirror Image" level="2" school="illusion" castingTime="1 action" range="Self" components="V, S" duration="1 minute" description="Three illusory duplicates of yourself appear in your space. Each time a creature targets you with an attack, roll a d20 to determine whether it instead targets one of your duplicates." hint-size="100%,220px"></x-import>
+          </div>
+        </section>
+
+        <section style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:18px;box-shadow:var(--shadow-sm);">
+          <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:12px;">Features &amp; traits</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <p style="margin:0;font-size:13px;line-height:1.55;color:var(--color-text-secondary);"><strong style="font-style:italic;font-weight:700;color:var(--color-text-primary);">Sneak Attack (3d6). </strong>Once per turn, deal an extra 3d6 damage to a target you hit with advantage or that has an ally adjacent.</p>
+            <p style="margin:0;font-size:13px;line-height:1.55;color:var(--color-text-secondary);"><strong style="font-style:italic;font-weight:700;color:var(--color-text-primary);">Cunning Action. </strong>Dash, Disengage, or Hide as a bonus action on each of your turns.</p>
+            <p style="margin:0;font-size:13px;line-height:1.55;color:var(--color-text-secondary);"><strong style="font-style:italic;font-weight:700;color:var(--color-text-primary);">Uncanny Dodge. </strong>Halve the damage from one attacker you can see, as a reaction.</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    hp: 27,
+    conditions: [{ key: 'blessed' }, { key: 'concentration' }],
+    slots: [
+      { level: 1, total: 4, used: 1 },
+      { level: 2, total: 3, used: 2 },
+      { level: 3, total: 2, used: 0 },
+    ],
+  };
+
+  renderVals() {
+    return {
+      hp: this.state.hp,
+      damage: () => this.setState((s) => ({ hp: Math.max(0, s.hp - 4) })),
+      heal: () => this.setState((s) => ({ hp: Math.min(38, s.hp + 4) })),
+      conditions: this.state.conditions,
+      removeCondition: (key, i) => this.setState((s) => ({ conditions: s.conditions.filter((_, idx) => idx !== i) })),
+      addCondition: () => this.setState((s) => ({ conditions: [...s.conditions, { key: 'poisoned', duration: 3 }] })),
+      slots: this.state.slots,
+      toggleSlot: (level, i, wasFilled) => this.setState((s) => ({
+        slots: s.slots.map((l) => l.level === level
+          ? { ...l, used: wasFilled ? l.used + 1 : Math.max(0, l.used - 1) }
+          : l),
+      })),
+      saves: [
+        { label: 'Strength', value: '+0', mono: true },
+        { label: 'Dexterity', value: '+7', mono: true },
+        { label: 'Constitution', value: '+2', mono: true },
+        { label: 'Intelligence', value: '+6', mono: true },
+        { label: 'Wisdom', value: '+1', mono: true },
+        { label: 'Charisma', value: '+1', mono: true },
+      ],
+      skills: [
+        { label: 'Acrobatics', value: '+7', mono: true },
+        { label: 'Deception', value: '+4', mono: true },
+        { label: 'Investigation', value: '+6', mono: true },
+        { label: 'Perception', value: '+7', mono: true },
+        { label: 'Sleight of Hand', value: '+7', mono: true },
+        { label: 'Stealth', value: '+10', mono: true },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

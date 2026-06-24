@@ -1,6 +1,6 @@
 ---
 name: dndtools-design
-description: Use this skill to generate well-branded interfaces and assets for DND Tools — a canvas-first command platform for running tabletop RPG (D&D) sessions live, for the Dungeon Master. Either for production or throwaway prototypes/mocks. Contains essential design guidelines, colors, type, fonts, assets, and UI kit components for prototyping.
+description: Use this skill to generate well-branded interfaces and assets for DND Tools — a canvas-first, **system-agnostic** command platform for running tabletop RPG sessions live, for the Game Master. The rules of the game (stats, resources, conditions, dice) come from a swappable **System Package** — D&D 5e ships as the default/reference package, plus generic and community packages, or a GM builds their own. Either for production or throwaway prototypes/mocks. Contains essential design guidelines, colors, type, fonts, assets, and UI kit components for prototyping.
 user-invocable: true
 ---
 
@@ -15,8 +15,17 @@ design, ask some questions, and act as an expert designer who outputs HTML artif
 production code, depending on the need.
 
 ## Orientation
-- **Brand:** DND Tools — a warm, candle-lit, dark-first DM workspace. Hero theme **tavern**
-  (espresso neutrals + warm-gold accent); light variant **parchment**; a11y floor **high-contrast**.
+- **System-agnostic.** The platform runs **any** TTRPG via a swappable **System Package** that
+  declares the game's vocabulary: attributes/stats, resources, conditions, dice, action economy,
+  creature schema, roles. **D&D 5e is the default reference package, not a hardwired assumption** —
+  the `creature`/`condition`/`spell`/`domain` components are 5e's *implementation* of that contract.
+  Premade packages ship built-in (D&D 5e · Generic / narrative · community Pathfinder 2e); a GM can
+  fork one or build their own. Components are containers; packages are content — feed a non-5e
+  package's vocabulary into the same containers; don't assume STR/DEX, a d20, or spell slots exist.
+- **Brand:** DND Tools — a warm, candle-lit, dark-first GM workspace (name kept for now; product is
+  any-system). Hero theme **tavern** (espresso neutrals + warm-gold accent); light variant
+  **parchment**; a11y floor **high-contrast**. The candle-lit warmth is the house style across
+  every package.
 - **The one rule:** color encodes state, never decorates. Gold = the single primary action per
   region. Status colors always pair with a redundant icon shape. The purple DM-only vs
   player-visible signal is safety-critical and must read at a glance and in grayscale.
@@ -28,7 +37,9 @@ production code, depending on the need.
   `<html>` (`tavern` | `parchment` | `high-contrast`).
 - `tokens/` — color / type / spacing / fonts / base CSS.
 - `components/<group>/` — React primitives (core, forms, feedback, domain). Read each `.prompt.md`.
-- `ui_kits/command-center/` — full-screen recreations of the DM surfaces.
+- `ui_kits/command-center/` — full-screen recreations of the GM surfaces (incl. `system-packages.html`,
+  the agnostic package-picker flow).
+- `templates/system-package-picker/` — the system-agnostic front door (premade gallery + build-your-own).
 - `guidelines/*.card.html` — foundation specimens.
 - `readme.md` — the full design guide (content voice, visual foundations, iconography).
 

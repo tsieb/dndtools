@@ -146,6 +146,33 @@ export const ICON_REGISTRY = {
 	travel: 'Footprints',
 	validate: 'ShieldCheck',
 	'arrow-left': 'ArrowLeft',
+
+	// ── Conditions (5e) — each a DISTINCT shape so status reads in grayscale (A11Y-011) ─────
+	'cond-blinded': 'EyeOff',
+	'cond-charmed': 'HeartHandshake',
+	'cond-deafened': 'EarOff',
+	'cond-frightened': 'Ghost',
+	'cond-grappled': 'Grab',
+	'cond-incapacitated': 'Ban',
+	'cond-invisible': 'VenetianMask',
+	'cond-paralyzed': 'Zap',
+	'cond-petrified': 'Gem',
+	'cond-poisoned': 'FlaskConical',
+	'cond-prone': 'ArrowDownToLine',
+	'cond-restrained': 'Lock',
+	'cond-stunned': 'Stars',
+	'cond-unconscious': 'Moon',
+	'cond-exhaustion': 'BatteryLow',
+	'cond-concentration': 'Brain',
+	'cond-blessed': 'Sparkles',
+	'cond-cursed': 'Skull',
+	hourglass: 'Hourglass',
+	// Spellcasting
+	'spell-slot': 'Diamond',
+	'spell-slot-filled': 'Diamond',
+	flame: 'Flame',
+	ritual: 'Infinity',
+	concentration: 'Brain',
 };
 
 const SIZE_TOKEN = {

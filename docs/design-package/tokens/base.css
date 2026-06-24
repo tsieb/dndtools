@@ -46,3 +46,13 @@ body {
 a {
 	color: var(--color-text-link);
 }
+
+/* Skeleton shimmer — the one loading affordance. Collapses under the resolved reduce preference. */
+@keyframes dnd-shimmer {
+	0% { background-position: 200% 0; }
+	100% { background-position: -200% 0; }
+}
+[data-motion='reduced'] .dnd-skeleton,
+[data-motion='none'] .dnd-skeleton {
+	animation: none !important;
+}

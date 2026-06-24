@@ -186,7 +186,7 @@ function InEditor({ d }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-2) var(--space-3)', background: 'var(--color-accent-subtle)', borderBottom: '1px solid var(--color-accent-border)' }}>
             <AI.Icon name="sparkle" size="sm" color="var(--color-accent)" />
             <span style={{ flex: 1, font: '600 var(--text-sm) var(--font-sans)', color: 'var(--color-text-primary)' }}>AI draft — review and edit before accepting</span>
-            <span style={{ font: 'var(--text-2xs) var(--font-mono)', color: 'var(--color-text-tertiary)' }}>“{sug.prompt}”</span>
+            <span style={{ font: 'var(--text-2xs) var(--font-mono)', color: 'var(--color-text-tertiary)' }}>"{sug.prompt}"</span>
           </div>
           <div style={{ padding: 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <DiffBlock diff={sug.diff} />
@@ -204,7 +204,7 @@ function InEditor({ d }) {
       {/* entity-extraction chips */}
       <window.Panel title="Entities detected" pad="md">
         <div style={{ font: 'var(--text-2xs) var(--font-sans)', color: 'var(--color-text-tertiary)', lineHeight: 1.5 }}>AI suggests; it never auto-creates links or records.</div>
-        {[['Vorlag', 'characters-person'], ['The far dock', 'atlas-map'], ['Tidecaller’s Bell', 'tag']].map(([name, icon], i) => (
+        {[['Vorlag', 'characters-person'], ['The far dock', 'atlas-map'], ['Tidecaller's Bell', 'tag']].map(([name, icon], i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}>
             <AI.Icon name={icon} size="sm" color="var(--color-accent)" />
             <span style={{ flex: 1, font: '500 var(--text-sm) var(--font-sans)', color: 'var(--color-text-primary)' }}>{name}</span>
