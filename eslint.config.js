@@ -47,6 +47,8 @@ export default ts.config(
 			'test-results/',
 			// Vendored design-system reference kit (third-party React/JS mockups, not app source).
 			'docs/design-package/',
+			// Isolated React prototype port (own React/TSX toolchain; not linted by the Svelte config).
+			'apps/gm-react/',
 		],
 	},
 );

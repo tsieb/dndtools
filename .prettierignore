@@ -8,3 +8,4 @@ test-results
 tmp
 pnpm-lock.yaml
 docs/design-package
+apps/gm-react

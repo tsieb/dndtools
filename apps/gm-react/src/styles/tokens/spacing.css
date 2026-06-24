@@ -1,0 +1,155 @@
+/* ============================================================================================
+ * DND Tools — SPACING, RADIUS, ELEVATION, MOTION, ICON & DENSITY TOKENS
+ * (UX-VIS-005 / 006 / 007 / 008 / 009 / 010 / 011)
+ *
+ * All spacing is on a 4px grid with a 2px micro half-step. Radius, z-index, motion durations &
+ * easings, icon sizes, and the density sizing sets all live here as theme-invariant tokens.
+ * ========================================================================================== */
+
+:root {
+	/* --- Spacing scale — 4px grid, 2px micro half-step ------------------------------------ */
+	--space-0: 0px;
+	--space-0-5: 0.125rem; /* 2px */
+	--space-1: 0.25rem; /* 4px */
+	--space-1-5: 0.375rem; /* 6px */
+	--space-2: 0.5rem; /* 8px */
+	--space-3: 0.75rem; /* 12px */
+	--space-4: 1rem; /* 16px */
+	--space-5: 1.25rem; /* 20px */
+	--space-6: 1.5rem; /* 24px */
+	--space-8: 2rem; /* 32px */
+	--space-10: 2.5rem; /* 40px */
+	--space-12: 3rem; /* 48px */
+	--space-16: 4rem; /* 64px */
+	--space-20: 5rem; /* 80px */
+	--space-24: 6rem; /* 96px */
+
+	/* Component structural tokens built from the scale. */
+	--component-button-px: var(--space-4);
+	--component-button-py: var(--space-2);
+	--component-button-py-sm: var(--space-1-5);
+	--component-input-px: var(--space-3);
+	--component-input-py: var(--space-2);
+	--component-card-padding: var(--space-4);
+	--component-card-padding-dense: var(--space-3);
+	--component-dialog-padding: var(--space-6);
+	--component-nav-item-px: var(--space-3);
+	--component-nav-item-py: var(--space-1-5);
+	--component-section-gap: var(--space-8);
+	--component-list-gap: var(--space-1);
+	--component-toast-gap: var(--space-2);
+
+	/* --- Border radius (UX-VIS-006) ------------------------------------------------------- */
+	--radius-none: 0px;
+	--radius-sm: 3px; /* inputs, inline elements */
+	--radius-md: 6px; /* cards, panels, buttons, menus */
+	--radius-lg: 12px; /* dialogs, modals */
+	--radius-xl: 20px; /* sheets / drawers */
+	--radius-full: 9999px; /* pills — badges, chips, avatars */
+
+	/* --- Elevation shadow shape (UX-VIS-007). Dark default; per-theme color overrides live in
+	 * colors.css so shadows read correctly on light parchment too. ------------------------- */
+	--shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+	--shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
+	--shadow-lg: 0 14px 44px rgba(0, 0, 0, 0.62);
+
+	/* --- Z-index layering (UX-VIS-008) ---------------------------------------------------- */
+	--z-base: 0; /* @kind other */
+	--z-raised: 10; /* @kind other */
+	--z-dropdown: 100; /* @kind other */
+	--z-sticky: 200; /* @kind other */
+	--z-overlay: 300; /* @kind other */
+	--z-modal: 400; /* @kind other */
+	--z-sheet: 500; /* @kind other */
+	--z-toast: 600; /* @kind other */
+	--z-tooltip: 700; /* @kind other */
+	--z-command: 800; /* @kind other */
+	--z-titlebar: 900; /* @kind other */
+	--z-dm-boundary: 1000; /* @kind other */ /* DM-only visibility overlay — above all interactive content */
+
+	/* --- Motion (UX-VIS-010). Easing curves are constant; durations collapse to 0 under
+	 * reduced-motion (see the contract block below). --easing-spring is reserved for dice /
+	 * celebration surfaces only, never standard UI. --------------------------------------- */
+	--duration-instant: 0ms; /* @kind other */
+	--duration-micro: 80ms; /* @kind other */
+	--duration-fast: 150ms; /* @kind other */
+	--duration-standard: 220ms; /* @kind other */
+	--duration-moderate: 300ms; /* @kind other */
+	--duration-slow: 400ms; /* @kind other */
+	--duration-crawl: 500ms; /* @kind other */
+	--easing-linear: linear; /* @kind other */
+	--easing-standard: cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+	--easing-decelerate: cubic-bezier(0, 0, 0.2, 1); /* @kind other */
+	--easing-accelerate: cubic-bezier(0.4, 0, 1, 1); /* @kind other */
+	--easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* @kind other */
+	--easing-snap: cubic-bezier(0.6, 0, 0.4, 1); /* @kind other */
+
+	/* --- Iconography (UX-VIS-009) — Lucide, 2px stroke, currentColor. ---------------------- */
+	--icon-size-micro: 16px; /* inline text icons, badge indicators */
+	--icon-size-sm: 20px; /* dense toolbar, compact nav */
+	--icon-size-md: 24px; /* default — most UI contexts */
+	--icon-size-lg: 32px; /* empty states, feature callouts */
+	--icon-size-xl: 48px; /* onboarding illustrations, hero contexts */
+	--icon-stroke-width: 2; /* never 1px (thin) or 3px (heavy). @kind other */
+
+	/* --- Focus ring (WCAG 2.4.7 / 2.4.13) — 2px ring + 2px offset. ------------------------- */
+	--focus-ring-width: 2px;
+	--focus-ring-offset: 2px;
+	--focus-ring-color: var(--color-interactive-focus-ring);
+
+	/* --- Touch / pointer targets (WCAG 2.5.8) --------------------------------------------- */
+	--touch-target-min: 2.75rem; /* 44px — recommended touch target */
+	--touch-target-floor: 1.5rem; /* 24px — hard minimum, all profiles */
+
+	/* --- Density (UX-VIS-011) — `data-density` on <html> selects the active set. Default
+	 * (no attribute) = standard (Desktop). Mobile/Tablet lock to comfortable (>=44px). ----- */
+	--density-card-padding-compact: var(--space-3);
+	--density-touch-target: 2rem; /* 32px visual (Desktop standard) */
+	--density-focus-target: 2.75rem; /* 44px focus-ring hit extent */
+	--density-nav-height: 2.25rem; /* 36px */
+	--density-card-padding: var(--space-4); /* 16px */
+	--density-list-gap: var(--space-1); /* 4px */
+	--density-icon-size: var(--icon-size-md); /* 24px */
+	--density-input-height: 2.25rem; /* 36px */
+	--density-button-height: 2.25rem; /* 36px */
+	--density-font-size: var(--text-base); /* 15px */
+}
+
+[data-density='comfortable'] {
+	--density-touch-target: 2.75rem; /* 44px — touch */
+	--density-focus-target: 2.75rem;
+	--density-nav-height: 3rem;
+	--density-card-padding: var(--space-4);
+	--density-list-gap: var(--space-2);
+	--density-icon-size: var(--icon-size-md);
+	--density-input-height: 2.75rem;
+	--density-button-height: 2.75rem;
+	--density-font-size: var(--text-base);
+}
+
+[data-density='compact'] {
+	--density-touch-target: 1.75rem; /* 28px visual */
+	--density-focus-target: 2.5rem;
+	--density-nav-height: 1.75rem;
+	--density-card-padding: var(--density-card-padding-compact);
+	--density-list-gap: var(--space-0-5);
+	--density-icon-size: var(--icon-size-sm);
+	--density-input-height: 1.75rem;
+	--density-button-height: 1.75rem;
+	--density-font-size: var(--text-sm);
+}
+
+/* --- Motion preference contract (UX-VIS-010). A single resolved preference drives whether
+ * animations play; under reduced/none every duration collapses to 0ms (easing unchanged), so no
+ * component needs its own prefers-reduced-motion query. The consuming app's boot script resolves
+ * the preference and writes `data-motion="full|reduced|none"` to <html> before first paint
+ * (precedence: user-explicit-off > OS-reduce > user-explicit-on > OS-no-preference). --------- */
+[data-motion='reduced'],
+[data-motion='none'] {
+	--duration-micro: 0ms; /* @kind other */
+	--duration-fast: 0ms; /* @kind other */
+	--duration-standard: 0ms; /* @kind other */
+	--duration-moderate: 0ms; /* @kind other */
+	--duration-slow: 0ms; /* @kind other */
+	--duration-crawl: 0ms; /* @kind other */
+}

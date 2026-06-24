@@ -1,0 +1,52 @@
+/* Design-system token layers (copied from the design package) + a thin app reset.
+   Order matters: fonts → colors → typography → spacing → base. */
+@import './tokens/fonts.css';
+@import './tokens/colors.css';
+@import './tokens/typography.css';
+@import './tokens/spacing.css';
+@import './tokens/base.css';
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+	height: 100%;
+}
+
+body {
+	margin: 0;
+	background: var(--color-bg);
+	color: var(--color-text-primary);
+	font-family: var(--font-sans);
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* Reduced motion (UX-VIS-010). The duration tokens already collapse token-driven transitions to 0ms;
+   this also tames the looping keyframe animations (status pulse, skeleton shimmer) that don't read those
+   tokens, so the "Reduced" setting — and the OS prefers-reduced-motion the boot script maps onto it — is
+   comprehensive across transitions AND animations. */
+[data-motion='reduced'] *,
+[data-motion='reduced'] *::before,
+[data-motion='reduced'] *::after {
+	animation-duration: 0.001ms !important;
+	animation-iteration-count: 1 !important;
+	transition-duration: 0.001ms !important;
+}

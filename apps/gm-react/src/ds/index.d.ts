@@ -1,0 +1,121 @@
+// Typed facade for the design-system barrel. The DS components are authored as untyped `.jsx`; this
+// declaration types every export as a permissive React component (props are `any`) so consuming
+// `.tsx` screens get clean autocompletion without `tsc` inferring the components' destructured props
+// as *required*. The runtime still loads the real `index.js`; this file only shapes the types.
+import type { ComponentType } from 'react';
+
+type DSComponent = ComponentType<Record<string, unknown>>;
+
+// Core
+export const Icon: DSComponent;
+export const IconButton: DSComponent;
+export const Avatar: DSComponent;
+export const Breadcrumb: DSComponent;
+export const Button: DSComponent;
+export const Card: DSComponent;
+export const CardHeader: DSComponent;
+export const Popover: DSComponent;
+export const Stepper: DSComponent;
+export const Tabs: DSComponent;
+export const ICON_REGISTRY: Record<string, string>;
+
+// Feedback
+export const Badge: DSComponent;
+export const Chip: DSComponent;
+export const StatusDot: DSComponent;
+export const VisibilityChip: DSComponent;
+
+// Forms
+export const Checkbox: DSComponent;
+export const Field: DSComponent;
+export const Input: DSComponent;
+export const Textarea: DSComponent;
+export const SegmentedControl: DSComponent;
+export const Select: DSComponent;
+export const Slider: DSComponent;
+export const Switch: DSComponent;
+
+// Data
+export const DataTable: DSComponent;
+export const DefinitionList: DSComponent;
+export const Stat: DSComponent;
+
+// Domain
+export const DiceResult: DSComponent;
+export const HPBar: DSComponent;
+export const InitiativeRow: DSComponent;
+export const StatPill: DSComponent;
+
+// Creature
+export const AbilityScore: DSComponent;
+export const StatBlock: DSComponent;
+export const abilityModifier: (score: number) => number;
+
+// Campaign
+export const NpcCard: DSComponent;
+export const QuestCard: DSComponent;
+export const SessionTimeline: DSComponent;
+
+// Command
+export const CommandPalette: DSComponent;
+
+// Condition
+export const ConditionBadge: DSComponent;
+export const ConditionTracker: DSComponent;
+export const CONDITIONS: Record<string, unknown>;
+
+// Map
+export const FogControls: DSComponent;
+export const GenerationPanel: DSComponent;
+export const ImportWizard: DSComponent;
+export const LayerPanel: DSComponent;
+export const LayerRow: DSComponent;
+export const LayerTypeBadge: DSComponent;
+export const LAYER_TYPES: Record<string, unknown>;
+export const MapCreationForm: DSComponent;
+export const Minimap: DSComponent;
+export const POIMarker: DSComponent;
+export const POIPopover: DSComponent;
+export const ToolPalette: DSComponent;
+export const DEFAULT_TOOLS: unknown[];
+
+// Navigation
+export const BottomTabBar: DSComponent;
+export const NavItem: DSComponent;
+export const NavRail: DSComponent;
+export const NavSidebar: DSComponent;
+
+// Overlay
+export const Dialog: DSComponent;
+export const Sheet: DSComponent;
+export const Toast: DSComponent;
+export interface ToastOptions {
+	id?: string | number;
+	status?: 'success' | 'warning' | 'error' | 'info';
+	message?: string;
+	title?: string;
+	duration?: number;
+	action?: string;
+	onAction?: () => void;
+}
+export const Toaster: {
+	show(input: string | ToastOptions): number;
+	success(message: string, opts?: ToastOptions): number;
+	warning(message: string, opts?: ToastOptions): number;
+	error(message: string, opts?: ToastOptions): number;
+	info(message: string, opts?: ToastOptions): number;
+	dismiss(id: number): void;
+	clear(): void;
+	subscribe(fn: (items: unknown[]) => void): () => void;
+};
+export const ToastViewport: DSComponent;
+export const Tooltip: DSComponent;
+
+// Spell
+export const SpellCard: DSComponent;
+export const SpellSlots: DSComponent;
+
+// System
+export const EmptyState: DSComponent;
+export const ProgressMeter: DSComponent;
+export const Skeleton: DSComponent;

@@ -5,8 +5,12 @@
 	"type": "module",
 	"scripts": {
 		"dev": "pnpm --filter @dndtools/gm dev",
+		"dev:react": "pnpm --filter @dndtools/gm-react dev",
 		"build": "pnpm --filter @dndtools/core build && pnpm --filter @dndtools/gm build",
+		"build:react": "pnpm --filter @dndtools/gm-react build",
 		"preview": "pnpm --filter @dndtools/gm preview",
+		"preview:react": "pnpm --filter @dndtools/gm-react preview",
+		"typecheck:react": "pnpm --filter @dndtools/gm-react typecheck",
 		"typecheck": "pnpm --filter @dndtools/core typecheck && pnpm --filter @dndtools/gm typecheck",
 		"test": "pnpm --filter @dndtools/core test && pnpm --filter @dndtools/gm test && pnpm test:tooling",
 		"test:tooling": "vitest run",
