@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Settings" description="A Settings-section page that drives the design system's own token architecture live — theme, density, and motion swap the whole surface via one data-attribute each — plus session and player-safety defaults built from the form primitives." -->
+<helmet>
+<script src="./ds-base.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+</helmet>
+<div data-theme="tavern" ref="{{ setRoot }}" style="min-height:100vh;background-color:var(--color-bg);background-image:radial-gradient(1200px 620px at 50% -240px, var(--color-accent-subtle), transparent 70%);font-family:var(--font-sans);color:var(--color-text-primary);padding:32px;box-sizing:border-box;transition:background-color .35s ease, color .35s ease;">
+  <div style="max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:22px;">
+
+    <header>
+      <div style="font-family:var(--font-display);font-size:26px;font-weight:700;letter-spacing:-.01em;line-height:1.1;">Settings</div>
+      <div style="font-size:14px;color:var(--color-text-tertiary);margin-top:3px;">Tune the workspace. Appearance changes apply to everything you see, instantly.</div>
+    </header>
+
+    <!-- Appearance -->
+    <section style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:6px 4px;box-shadow:var(--shadow-sm);">
+      <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);padding:14px 18px 6px;">Appearance</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 18px;">
+        <div><div style="font-size:15px;font-weight:600;">Theme</div><div style="font-size:13px;color:var(--color-text-tertiary);">Tavern is the warm dark default; parchment is light; high contrast is the a11y floor.</div></div>
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.SegmentedControl" options="{{ themeOptions }}" value="{{ theme }}" onChange="{{ setTheme }}" ariaLabel="Theme" hint-size="280px,36px"></x-import>
+      </div>
+      <div style="height:1px;background:var(--color-border);margin:0 18px;"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 18px;">
+        <div><div style="font-size:15px;font-weight:600;">Display density</div><div style="font-size:13px;color:var(--color-text-tertiary);">Comfortable enforces 44px touch targets — the mobile and tablet default.</div></div>
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.SegmentedControl" options="{{ densityOptions }}" value="{{ density }}" onChange="{{ setDensity }}" ariaLabel="Display density" hint-size="280px,36px"></x-import>
+      </div>
+      <div style="height:1px;background:var(--color-border);margin:0 18px;"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 18px;">
+        <div><div style="font-size:15px;font-weight:600;">Reduce motion</div><div style="font-size:13px;color:var(--color-text-tertiary);">Collapses every transition and the skeleton shimmer to zero duration.</div></div>
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Switch" checked="{{ reduceMotion }}" onChange="{{ setMotion }}" hint-size="44px,24px"></x-import>
+      </div>
+    </section>
+
+    <!-- Session defaults -->
+    <section style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:6px 4px;box-shadow:var(--shadow-sm);">
+      <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);padding:14px 18px 6px;">Session defaults</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 18px;">
+        <div><div style="font-size:15px;font-weight:600;">Dice roller</div><div style="font-size:13px;color:var(--color-text-tertiary);">How rolls resolve when you tap a die.</div></div>
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Select" options="{{ diceOptions }}" value="{{ dice }}" onChange="{{ setDice }}" hint-size="180px,36px"></x-import>
+      </div>
+      <div style="height:1px;background:var(--color-border);margin:0 18px;"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding:14px 18px;">
+        <div style="flex:0 0 auto;"><div style="font-size:15px;font-weight:600;">Map grid opacity</div><div style="font-size:13px;color:var(--color-text-tertiary);">Default tactical-grid strength on new maps.</div></div>
+        <div style="flex:1;max-width:240px;">
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Slider" min="0" max="100" value="{{ gridOpacity }}" onChange="{{ setGridOpacity }}" valueLabel="{{ gridReadout }}" hint-size="100%,40px"></x-import>
+        </div>
+      </div>
+    </section>
+
+    <!-- Player safety -->
+    <section style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:6px 4px;box-shadow:var(--shadow-sm);">
+      <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);padding:14px 18px 6px;">Player safety</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 18px;">
+        <div><div style="font-size:15px;font-weight:600;">Confirm before revealing</div><div style="font-size:13px;color:var(--color-text-tertiary);">Ask before any DM-only content is pushed to players.</div></div>
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Switch" checked="{{ confirmReveal }}" onChange="{{ setConfirmReveal }}" hint-size="44px,24px"></x-import>
+      </div>
+      <div style="height:1px;background:var(--color-border);margin:0 18px;"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 18px;">
+        <div><div style="font-size:15px;font-weight:600;">Mask DM notes in player view</div><div style="font-size:13px;color:var(--color-text-tertiary);">Blur secret annotations whenever a player view is projecting.</div></div>
+        <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Switch" checked="{{ maskNotes }}" onChange="{{ setMaskNotes }}" hint-size="44px,24px"></x-import>
+      </div>
+    </section>
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;">
+      <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Button" variant="ghost" hint-size="90px,40px">Reset</x-import>
+      <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Button" variant="primary" icon="check" hint-size="130px,40px">Save changes</x-import>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    theme: 'tavern',
+    density: 'standard',
+    reduceMotion: false,
+    dice: 'animated',
+    gridOpacity: 40,
+    confirmReveal: true,
+    maskNotes: true,
+  };
+
+  apply() {
+    const r = this._root;
+    if (!r) return;
+    r.setAttribute('data-theme', this.state.theme);
+    if (this.state.density === 'standard') r.removeAttribute('data-density');
+    else r.setAttribute('data-density', this.state.density);
+    r.setAttribute('data-motion', this.state.reduceMotion ? 'reduced' : 'full');
+  }
+
+  renderVals() {
+    return {
+      setRoot: (el) => { this._root = el; if (el) this.apply(); },
+      theme: this.state.theme,
+      themeOptions: [
+        { value: 'tavern', label: 'Tavern' },
+        { value: 'parchment', label: 'Parchment' },
+        { value: 'high-contrast', label: 'High contrast' },
+      ],
+      setTheme: (v) => this.setState({ theme: v }, () => this.apply()),
+      density: this.state.density,
+      densityOptions: [
+        { value: 'standard', label: 'Standard' },
+        { value: 'comfortable', label: 'Comfortable' },
+        { value: 'compact', label: 'Compact' },
+      ],
+      setDensity: (v) => this.setState({ density: v }, () => this.apply()),
+      reduceMotion: this.state.reduceMotion,
+      setMotion: (v) => this.setState({ reduceMotion: v }, () => this.apply()),
+      dice: this.state.dice,
+      diceOptions: [
+        { value: 'animated', label: 'Animated roll' },
+        { value: 'instant', label: 'Instant result' },
+        { value: 'manual', label: 'Manual entry' },
+      ],
+      setDice: (e) => this.setState({ dice: e && e.target ? e.target.value : e }),
+      gridOpacity: this.state.gridOpacity,
+      gridReadout: this.state.gridOpacity + '%',
+      setGridOpacity: (v) => this.setState({ gridOpacity: v }),
+      confirmReveal: this.state.confirmReveal,
+      setConfirmReveal: (v) => this.setState({ confirmReveal: v }),
+      maskNotes: this.state.maskNotes,
+      setMaskNotes: (v) => this.setState({ maskNotes: v }),
+    };
+  }
+}
+</script>
+</body>
+</html>

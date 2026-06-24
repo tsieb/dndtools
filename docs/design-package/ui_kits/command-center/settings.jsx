@@ -15,6 +15,7 @@ const SECTIONS = [
   { id: 'sources', label: 'Sources', icon: 'connection', group: 'Table' },
   { id: 'ai', label: 'AI / MCP', icon: 'Bot', group: 'Table' },
   { id: 'audio', label: 'Audio & atmosphere', icon: 'audio', group: 'Table' },
+  { id: 'extensions', label: 'Extensions & systems', icon: 'Blocks', group: 'System' },
   { id: 'diagnostics', label: 'Diagnostics', icon: 'Activity', group: 'System' },
 ];
 
@@ -171,7 +172,7 @@ function SyncPanel() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3)', marginTop: 'var(--space-2)', borderRadius: 'var(--radius-md)', background: 'var(--color-status-warning-subtle)', border: '1px solid var(--color-status-warning)' }}>
         <SE.Icon name="warning" size="sm" color="var(--color-status-warning)" />
         <div style={{ flex: 1 }}>
-          <div style={{ font: '600 var(--text-sm) var(--font-sans)', color: 'var(--color-status-warning-text)' }}>1 conflict on “Brine Hand Notes”</div>
+          <div style={{ font: '600 var(--text-sm) var(--font-sans)', color: 'var(--color-status-warning-text)' }}>1 conflict on "Brine Hand Notes"</div>
           <div style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}>Local and Obsidian both edited the Vorlag note.</div>
         </div>
         <SE.Button variant="secondary" size="sm">Resolve</SE.Button>
@@ -218,6 +219,27 @@ function AudioPanel() {
   );
 }
 
+function ExtensionsPanel() {
+  const go = () => window.DNDNavigate && window.DNDNavigate('extensions');
+  return (
+    <Panel id="extensions" title="Extensions & systems" sub="Plugins, the compendium, custom object types, the campaign-system module, and the theme studio.">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface-sunken)', border: '1px solid var(--color-accent-border)', marginBottom: 'var(--space-2)' }}>
+        <SE.Icon name="Blocks" size="md" color="var(--color-accent)" />
+        <div style={{ flex: 1 }}>
+          <div style={{ font: '600 var(--text-sm) var(--font-sans)', color: 'var(--color-text-primary)' }}>DND Tools is a platform</div>
+          <div style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}>Capability-sandboxed plugins, an Open5e compendium, no-code object types, and swappable rules — every write still staged.</div>
+        </div>
+        <SE.Button variant="primary" icon="chevron-right" onClick={go}>Open</SE.Button>
+      </div>
+      <Row title="Plugins" sub="3 enabled · 1 review requested" control={<SE.Button variant="ghost" icon="chevron-right" onClick={go}>Manage</SE.Button>} />
+      <Row title="Campaign system" sub="D&D 5e" control={<SE.Button variant="ghost" icon="chevron-right" onClick={go}>Change</SE.Button>} />
+      <Row title="Custom object types" sub="3 defined · Ship, Deity, Faction Treaty" control={<SE.Button variant="ghost" icon="chevron-right" onClick={go}>Edit</SE.Button>} />
+      <Row title="Compendium import" sub="Open5e SRD — monsters, spells, items" control={<SE.Button variant="ghost" icon="import" onClick={go}>Browse</SE.Button>} />
+      <Row title="Theme studio" sub="Override any token; export & import themes" control={<SE.Button variant="ghost" icon="theme" onClick={go}>Open</SE.Button>} />
+    </Panel>
+  );
+}
+
 function DiagnosticsPanel() {
   return (
     <Panel id="diagnostics" title="Diagnostics" sub="Build info and performance budgets.">
@@ -231,7 +253,7 @@ function DiagnosticsPanel() {
 
 const PANELS = {
   preferences: PrefsPanel, account: AccountPanel, accessibility: AccessibilityPanel, players: PlayersPanel,
-  vault: VaultPanel, sync: SyncPanel, sources: SourcesPanel, ai: AiPanel, audio: AudioPanel, diagnostics: DiagnosticsPanel,
+  vault: VaultPanel, sync: SyncPanel, sources: SourcesPanel, ai: AiPanel, audio: AudioPanel, extensions: ExtensionsPanel, diagnostics: DiagnosticsPanel,
 };
 
 function Rail({ active, setActive, layout, setLayout }) {

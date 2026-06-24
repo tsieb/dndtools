@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Encounter Builder" description="A Session-section encounter planner: party config, a creature roster with live counts, an XP-budget difficulty meter, and the selected creature's full statblock — built from the design-system primitives." -->
+<helmet>
+<script src="./ds-base.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+</helmet>
+<div data-theme="tavern" style="min-height:100vh;background-color:var(--color-bg);background-image:radial-gradient(1200px 620px at 50% -240px, var(--color-accent-subtle), transparent 70%);font-family:var(--font-sans);color:var(--color-text-primary);padding:28px;box-sizing:border-box;">
+  <div style="max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:20px;">
+
+    <header style="display:flex;align-items:center;gap:16px;">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:6px;background:var(--color-accent);color:var(--color-accent-foreground);">{{ swordGlyph }}</span>
+      <div style="flex:1;">
+        <div style="font-family:var(--font-display);font-size:24px;font-weight:700;letter-spacing:-.01em;line-height:1.1;">Build encounter</div>
+        <div style="font-size:13px;color:var(--color-text-tertiary);">Ruined watchtower · 4 players · level 6</div>
+      </div>
+      <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Button" variant="primary" icon="sword" hint-size="150px,40px">Run encounter</x-import>
+    </header>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:20px;align-items:start;">
+
+      <!-- LEFT — budget + roster -->
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <section style="background:var(--color-surface-raised);border:1px solid var(--color-accent-border);border-radius:6px;padding:20px;box-shadow:var(--shadow-md);display:flex;flex-direction:column;gap:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-family:var(--font-display);font-size:18px;font-weight:700;">Difficulty</div>
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Badge" status="{{ diffStatus }}" hint-size="90px,24px">{{ diffLabel }}</x-import>
+          </div>
+          <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.ProgressMeter" label="Adjusted XP vs party budget" value="{{ adjustedXp }}" max="{{ budgetMax }}" valueLabel="{{ budgetReadout }}" tone="{{ diffStatus }}" size="lg" markers="{{ markers }}" hint-size="100%,40px"></x-import>
+          <div style="display:flex;gap:14px;">
+            <div style="flex:1;text-align:center;background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:4px;padding:10px;"><div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);">Raw XP</div><div style="font-family:var(--font-mono);font-size:20px;font-weight:700;">{{ rawReadout }}</div></div>
+            <div style="flex:1;text-align:center;background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:4px;padding:10px;"><div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);">×Multiplier</div><div style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--color-accent);">{{ multiplierReadout }}</div></div>
+            <div style="flex:1;text-align:center;background:var(--color-surface-sunken);border:1px solid var(--color-border);border-radius:4px;padding:10px;"><div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);">Monsters</div><div style="font-family:var(--font-mono);font-size:20px;font-weight:700;">{{ monsterCount }}</div></div>
+          </div>
+        </section>
+
+        <section style="background:var(--color-surface);border:1px solid var(--color-border);border-radius:6px;padding:18px;box-shadow:var(--shadow-sm);">
+          <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:12px;">Creature roster</div>
+          <div ref="{{ setRoster }}" style="display:flex;flex-direction:column;gap:8px;"></div>
+          <div style="margin-top:14px;">
+            <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Button" variant="ghost" size="sm" icon="add" hint-size="140px,32px">Add from bestiary</x-import>
+          </div>
+        </section>
+      </div>
+
+      <!-- RIGHT — selected statblock -->
+      <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.StatBlock"
+        name="Bandit Captain" meta="Medium humanoid (any race), any non-good alignment"
+        ac="15" ac-note="(studded leather)" hp="65" hp-formula="(10d8 + 20)" speed="30 ft."
+        abilities="{{ captainAbilities }}"
+        saves="Str +4, Dex +5, Wis +2" skills="Athletics +4, Deception +4"
+        senses="passive Perception 10" languages="any two languages"
+        cr="2" xp="450" proficiency="+2"
+        traits="{{ captainTraits }}" actions="{{ captainActions }}" reactions="{{ captainReactions }}"
+        dm-only="true"
+        hint-size="100%,640px"></x-import>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  // CR → XP (5e), and the encounter multiplier by number of monsters.
+  state = {
+    roster: [
+      { name: 'Bandit Captain', cr: '2', xp: 450, count: 1 },
+      { name: 'Bandit', cr: '1/8', xp: 25, count: 4 },
+      { name: 'Guard Drake', cr: '2', xp: 450, count: 1 },
+    ],
+  };
+
+  multiplier(n) {
+    if (n <= 1) return 1;
+    if (n === 2) return 1.5;
+    if (n <= 6) return 2;
+    if (n <= 10) return 2.5;
+    if (n <= 14) return 3;
+    return 4;
+  }
+
+  componentDidMount() { this.paintRoster(); }
+  componentDidUpdate() { this.paintRoster(); }
+
+  paintRoster() {
+    const el = this._roster;
+    if (!el) return;
+    el.innerHTML = '';
+    this.state.roster.forEach((c, i) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:6px;background:var(--color-surface-alt);border:1px solid var(--color-border);';
+      row.innerHTML =
+        '<div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:var(--color-text-primary);">' + c.name + '</div>' +
+        '<div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-tertiary);">CR ' + c.cr + ' · ' + c.xp + ' XP</div></div>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+        '<button data-act="dec" data-i="' + i + '" aria-label="Fewer ' + c.name + '" style="width:28px;height:28px;border-radius:3px;border:1px solid var(--color-border-strong);background:var(--color-surface-raised);color:var(--color-text-primary);font-family:var(--font-mono);font-size:16px;font-weight:700;cursor:pointer;line-height:1;">&minus;</button>' +
+        '<span style="font-family:var(--font-mono);font-size:15px;font-weight:700;min-width:20px;text-align:center;">' + c.count + '</span>' +
+        '<button data-act="inc" data-i="' + i + '" aria-label="More ' + c.name + '" style="width:28px;height:28px;border-radius:3px;border:1px solid var(--color-border-strong);background:var(--color-surface-raised);color:var(--color-text-primary);font-family:var(--font-mono);font-size:16px;font-weight:700;cursor:pointer;line-height:1;">+</button>' +
+        '</div>';
+      el.appendChild(row);
+    });
+    el.querySelectorAll('button[data-act]').forEach((b) => {
+      b.onclick = () => {
+        const i = +b.getAttribute('data-i');
+        const d = b.getAttribute('data-act') === 'inc' ? 1 : -1;
+        this.setState((s) => ({
+          roster: s.roster.map((c, idx) => idx === i ? { ...c, count: Math.max(0, c.count + d) } : c),
+        }));
+      };
+    });
+  }
+
+  renderVals() {
+    const roster = this.state.roster;
+    const monsterCount = roster.reduce((a, c) => a + c.count, 0);
+    const rawXp = roster.reduce((a, c) => a + c.xp * c.count, 0);
+    const mult = this.multiplier(monsterCount);
+    const adjustedXp = Math.round(rawXp * mult);
+    // Party of 4 level-6 thresholds (5e DMG): easy/medium/hard/deadly
+    const thresholds = { easy: 1200, medium: 2400, hard: 3600, deadly: 5400 };
+    const budgetMax = thresholds.deadly;
+    let diff = { label: 'Trivial', status: 'neutral' };
+    if (adjustedXp >= thresholds.deadly) diff = { label: 'Deadly', status: 'error' };
+    else if (adjustedXp >= thresholds.hard) diff = { label: 'Hard', status: 'warning' };
+    else if (adjustedXp >= thresholds.medium) diff = { label: 'Medium', status: 'info' };
+    else if (adjustedXp >= thresholds.easy) diff = { label: 'Easy', status: 'success' };
+
+    return {
+      swordGlyph: '⚔',
+      setRoster: (el) => { this._roster = el; if (el) this.paintRoster(); },
+      monsterCount,
+      rawReadout: rawXp.toLocaleString(),
+      multiplierReadout: '×' + mult,
+      adjustedXp,
+      budgetMax,
+      budgetReadout: adjustedXp.toLocaleString() + ' / ' + budgetMax.toLocaleString() + ' XP',
+      diffLabel: diff.label,
+      diffStatus: diff.status,
+      markers: [
+        { at: thresholds.easy, label: 'Easy' },
+        { at: thresholds.medium, label: 'Medium' },
+        { at: thresholds.hard, label: 'Hard' },
+        { at: thresholds.deadly, label: 'Deadly' },
+      ],
+      captainAbilities: { str: 15, dex: 16, con: 14, int: 14, wis: 11, cha: 14 },
+      captainTraits: [],
+      captainActions: [
+        { name: 'Multiattack', text: 'The captain makes three melee attacks: two with its scimitar and one with its dagger. Or it makes two ranged attacks with its daggers.' },
+        { name: 'Scimitar', text: 'Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 6 (1d6 + 3) slashing damage.' },
+        { name: 'Dagger', text: 'Melee or Ranged Weapon Attack: +5 to hit, reach 5 ft. or range 20/60 ft., one target. Hit: 5 (1d4 + 3) piercing damage.' },
+      ],
+      captainReactions: [
+        { name: 'Parry', text: 'The captain adds 2 to its AC against one melee attack that would hit it. To do so, the captain must see the attacker and be wielding a melee weapon.' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

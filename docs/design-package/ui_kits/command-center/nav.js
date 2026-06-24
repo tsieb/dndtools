@@ -43,6 +43,9 @@
     'sync-conflict': 'sync-conflict.html',
     profiles:     'nav-profiles.html',
     a11y:         'accessibility.html',
+    extensions:   'extensibility.html',
+    player:       'player.html',
+    community:    'community.html',
   };
 
   // ---- The seven-section IA, in order -----------------------------------------------------
@@ -81,6 +84,9 @@
     'sync-conflict.html':      { trail: [['Command Center', 'home'], ['Settings', 'settings'], ['Sync & conflicts']] },
     'nav-profiles.html':       { trail: [['Command Center', 'home'], ['Navigation profiles']] },
     'accessibility.html':      { trail: [['Command Center', 'home'], ['Settings', 'settings'], ['Accessibility']] },
+    'extensibility.html':      { trail: [['Command Center', 'home'], ['Settings', 'settings'], ['Extensions & systems']] },
+    'player.html':             { trail: [['Command Center', 'home'], ['Characters', 'characters'], ['Player mode']] },
+    'community.html':          { trail: [['Command Center', 'home'], ['Community']] },
   };
 
   function basename() {

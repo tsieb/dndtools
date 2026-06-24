@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="System Package Picker" description="The system-agnostic front door: choose a premade rules package (D&D 5e · Generic · Pathfinder 2e), see what each declares, or build your own — on the warm tavern theme." -->
+<helmet>
+<script src="./ds-base.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+</helmet>
+<div data-theme="tavern" ref="{{ setRoot }}" style="min-height:100vh;--app-bg:#14100b;--glow:#2f2414;--panel-bg:#2a2117;--panel-bd:#8a6736;--tile-bg:#1f1810;--tile-bd:#3a2e20;--ink:#f2e8d8;--sub:#bcab92;--label:#897a64;--accent:#e0b06f;--accent-ink:#1a1206;--rule:#3a2e20;--live:#4ec27a;--warn:#d9a441;background-color:var(--app-bg);background-image:radial-gradient(1200px 620px at 50% -240px, var(--glow), transparent 70%);font-family:'Inter',system-ui,sans-serif;color:var(--ink);padding:32px;box-sizing:border-box;">
+  <div style="max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:26px;">
+
+    <header style="display:flex;align-items:flex-start;gap:16px;">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:8px;background:var(--accent);color:var(--accent-ink);flex:none;">{{ brandGlyph }}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:'Cinzel',serif;font-size:28px;font-weight:700;letter-spacing:-.01em;line-height:1.1;">Choose a system</div>
+        <div style="font-size:14px;color:var(--sub);max-width:56ch;margin-top:4px;line-height:1.5;">The rules of your game — stats, resources, conditions, dice — come from a <strong style="color:var(--ink);">System Package</strong>. Pick a premade one, or build your own. The same widgets render against whichever you choose.</div>
+      </div>
+      <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:5px;padding-top:2px;">
+        <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--label);">Active package</div>
+        <span style="display:inline-flex;align-items:center;gap:8px;font-family:'Cinzel',serif;font-size:16px;font-weight:700;"><span style="width:8px;height:8px;border-radius:50%;background:var(--live);"></span>D&amp;D 5e</span>
+      </div>
+    </header>
+
+    <!-- ============ GALLERY ============ -->
+    <sc-if value="{{ isGallery }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
+        <sc-for list="{{ packages }}" as="pkg" hint-placeholder-count="3">
+          <button type="button" onClick="{{ pkg.onSelect }}" ref="{{ pkg.setRef }}" style="text-align:left;cursor:pointer;font:inherit;color:inherit;background:var(--tile-bg);border:1px solid var(--tile-bd);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:14px;transition:border-color .2s ease,box-shadow .2s ease,background .2s ease;">
+            <div style="display:flex;align-items:flex-start;gap:12px;">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:7px;background:var(--panel-bg);border:1px solid var(--tile-bd);color:var(--accent);flex:none;">{{ pkg.sigilGlyph }}</span>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-family:'Cinzel',serif;font-size:18px;font-weight:700;line-height:1.15;">{{ pkg.name }}</span>
+                  <sc-if value="{{ pkg.active }}"><span style="width:7px;height:7px;border-radius:50%;background:var(--live);" title="Active system"></span></sc-if>
+                </div>
+                <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--label);margin-top:3px;">{{ pkg.tier }}</div>
+              </div>
+              <sc-if value="{{ pkg.selected }}"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);flex:none;">{{ checkGlyph }}</span></sc-if>
+            </div>
+            <div style="font-size:13px;color:var(--sub);line-height:1.5;">{{ pkg.desc }}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              <sc-for list="{{ pkg.chips }}" as="chip" hint-placeholder-count="3">
+                <span style="font-size:11px;color:var(--sub);background:var(--panel-bg);border:1px solid var(--rule);border-radius:999px;padding:3px 9px;">{{ chip }}</span>
+              </sc-for>
+            </div>
+          </button>
+        </sc-for>
+        <button type="button" onClick="{{ onBuild }}" style="text-align:left;cursor:pointer;font:inherit;color:inherit;background:transparent;border:1px dashed var(--panel-bd);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:14px;transition:border-color .2s ease,background .2s ease;" style-hover="background:rgba(224,176,111,.06)">
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:7px;background:transparent;border:1px dashed var(--panel-bd);color:var(--accent);flex:none;">{{ plusGlyph }}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'Cinzel',serif;font-size:18px;font-weight:700;line-height:1.15;">Build your own</div>
+              <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--label);margin-top:3px;">Custom · from scratch</div>
+            </div>
+          </div>
+          <div style="font-size:13px;color:var(--sub);line-height:1.5;">Define stats, resources, conditions and dice yourself — or fork any package above and tweak it.</div>
+        </button>
+      </div>
+    </sc-if>
+
+    <!-- ============ DETAIL ============ -->
+    <sc-if value="{{ isDetail }}">
+      <div style="display:grid;grid-template-columns:288px minmax(0,1fr);gap:20px;align-items:start;">
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <sc-for list="{{ packages }}" as="pkg" hint-placeholder-count="3">
+            <button type="button" onClick="{{ pkg.onSelect }}" ref="{{ pkg.setRef }}" style="text-align:left;cursor:pointer;font:inherit;color:inherit;background:var(--tile-bg);border:1px solid var(--tile-bd);border-radius:7px;padding:12px 14px;display:flex;align-items:center;gap:11px;transition:border-color .2s ease,box-shadow .2s ease,background .2s ease;">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;background:var(--panel-bg);border:1px solid var(--tile-bd);color:var(--accent);flex:none;">{{ pkg.sigilGlyph }}</span>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:7px;"><span style="font-size:14px;font-weight:600;">{{ pkg.name }}</span><sc-if value="{{ pkg.active }}"><span style="width:6px;height:6px;border-radius:50%;background:var(--live);" title="Active system"></span></sc-if></div>
+                <div style="font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--label);margin-top:2px;">{{ pkg.tier }}</div>
+              </div>
+            </button>
+          </sc-for>
+          <button type="button" onClick="{{ onBuild }}" style="text-align:left;cursor:pointer;font:inherit;color:var(--sub);background:transparent;border:1px dashed var(--panel-bd);border-radius:7px;padding:12px 14px;display:flex;align-items:center;gap:11px;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;border:1px dashed var(--panel-bd);color:var(--accent);flex:none;">{{ plusGlyph }}</span>
+            <span style="font-size:14px;font-weight:600;">Build your own</span>
+          </button>
+        </div>
+
+        <section style="background:var(--panel-bg);border:1px solid var(--panel-bd);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.45);padding:24px;display:flex;flex-direction:column;gap:20px;">
+          <div style="display:flex;align-items:flex-start;gap:14px;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:9px;background:var(--accent);color:var(--accent-ink);flex:none;">{{ selPkg.sigilGlyph }}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'Cinzel',serif;font-size:23px;font-weight:700;line-height:1.1;">{{ selPkg.name }}</div>
+              <div style="font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--label);margin-top:4px;">{{ selPkg.tier }}</div>
+            </div>
+            <sc-if value="{{ selPkg.isActive }}"><span style="display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--live);border:1px solid var(--rule);border-radius:999px;padding:5px 11px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--live);"></span>Active system</span></sc-if>
+          </div>
+          <div style="font-size:14px;color:var(--sub);line-height:1.55;">{{ selPkg.desc }}</div>
+
+          <div>
+            <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--label);margin-bottom:12px;">What this package declares</div>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:8px;overflow:hidden;">
+              <sc-for list="{{ selPkg.declares }}" as="d" hint-placeholder-count="6">
+                <div style="background:var(--panel-bg);padding:13px 15px;display:flex;align-items:flex-start;gap:11px;">
+                  <span style="color:var(--accent);flex:none;margin-top:1px;">{{ d.glyph }}</span>
+                  <div style="min-width:0;">
+                    <div style="font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--label);">{{ d.k }}</div>
+                    <div style="font-size:13px;color:var(--ink);margin-top:3px;line-height:1.4;">{{ d.v }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <sc-if value="{{ selPkg.isActive }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;gap:12px;padding-top:4px;border-top:1px solid var(--rule);padding-top:18px;">
+              <span style="font-size:13px;color:var(--sub);">This is the system your campaign is currently running.</span>
+              <span style="flex:1;"></span>
+              <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Button" variant="ghost" icon="edit" hint-size="150px,40px">Fork &amp; customize</x-import>
+            </div>
+          </sc-if>
+          <sc-if value="{{ selPkg.isSwitch }}">
+            <div style="display:flex;flex-direction:column;gap:14px;padding-top:18px;border-top:1px solid var(--rule);">
+              <div style="display:flex;align-items:flex-start;gap:10px;background:rgba(217,164,65,.08);border:1px solid rgba(217,164,65,.4);border-radius:8px;padding:12px 14px;">
+                <span style="color:var(--warn);flex:none;margin-top:1px;">{{ warnGlyph }}</span>
+                <div style="font-size:12.5px;color:var(--sub);line-height:1.5;">Switching from <strong style="color:var(--ink);">D&amp;D 5e</strong> runs a <strong style="color:var(--ink);">non-destructive migration dry-run</strong> first — it previews what maps, what carries over, and what's dropped before anything changes.</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Button" variant="primary" icon="retry" hint-size="190px,40px">Switch system &amp; preview</x-import>
+                <x-import component-from-global-scope="DNDToolsDesignSystem_8ae046.Button" variant="ghost" icon="edit" hint-size="150px,40px">Fork &amp; customize</x-import>
+              </div>
+            </div>
+          </sc-if>
+        </section>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1080, &quot;height&quot;: 760 },
+  &quot;layout&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Gallery&quot;, &quot;Detail&quot;], &quot;default&quot;: &quot;Gallery&quot;, &quot;tsType&quot;: &quot;'Gallery' | 'Detail'&quot; },
+  &quot;mood&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Candlelit&quot;, &quot;Parchment&quot;, &quot;High contrast&quot;], &quot;default&quot;: &quot;Candlelit&quot;, &quot;tsType&quot;: &quot;'Candlelit' | 'Parchment' | 'High contrast'&quot; }
+}">
+// System Package Picker — the system-agnostic front door. Premade packages (built-in + community)
+// plus a build-your-own entry. Two layouts (Gallery / Detail) and the three house themes are tweaks.
+// Theme palette + per-card selection styling are applied imperatively as inline styles via refs, so
+// the template's literal styles paint immediately (no value-hole gating).
+
+const ACTIVE_ID = 'dnd5e'; // the campaign's currently-running system
+
+const PALETTES = {
+  'Candlelit':     { themeAttr: 'tavern',        appBg: '#14100b', glow: '#2f2414', panelBg: '#2a2117', panelBd: '#8a6736', tileBg: '#1f1810', tileBd: '#3a2e20', ink: '#f2e8d8', sub: '#bcab92', label: '#897a64', accent: '#e0b06f', accentInk: '#1a1206', rule: '#3a2e20', live: '#4ec27a', warn: '#d9a441' },
+  'Parchment':     { themeAttr: 'parchment',     appBg: '#e7dcc4', glow: '#f5ecd8', panelBg: '#fbf6ea', panelBd: '#c6a25e', tileBg: '#f3ead6', tileBd: '#d8c9a8', ink: '#2c2519', sub: '#6d6150', label: '#8c7d61', accent: '#9c6a1c', accentInk: '#fdf6e8', rule: '#ddcfb1', live: '#2f8a52', warn: '#9c6a1c' },
+  'High contrast': { themeAttr: 'high-contrast', appBg: '#050505', glow: '#1a1a1a', panelBg: '#0c0c0c', panelBd: '#ffd27a', tileBg: '#0c0c0c', tileBd: '#5a5a5a', ink: '#ffffff', sub: '#d6d6d6', label: '#bdbdbd', accent: '#ffcf66', accentInk: '#000000', rule: '#4a4a4a', live: '#36f08a', warn: '#ffcf66' },
+};
+
+// Each package = the rules vocabulary the chrome reads. `declares` is the System Package contract.
+const PKGS = [
+  {
+    id: 'dnd5e', name: 'D&D 5e', tier: 'Built-in · reference', sigil: 'Swords',
+    desc: 'Full stat blocks, the 15 conditions, the CR→XP table, class names and spell slots. The default reference package.',
+    chips: ['STR–CHA', 'HP · slots', '15 conditions', 'd20'],
+    declares: [
+      { icon: 'Hexagon',     k: 'Attributes',  v: 'STR · DEX · CON · INT · WIS · CHA' },
+      { icon: 'HeartPulse',  k: 'Resources',   v: 'HP · Hit Dice · Spell slots' },
+      { icon: 'TriangleAlert', k: 'Conditions', v: '15 conditions (Prone, Stunned…)' },
+      { icon: 'Dices',       k: 'Dice & rolls', v: 'd20 + mods · advantage' },
+      { icon: 'ListOrdered', k: 'Turn order',  v: 'Initiative · action · bonus · reaction' },
+      { icon: 'Users',       k: 'Roles',       v: 'Dungeon Master · Players' },
+    ],
+  },
+  {
+    id: 'generic', name: 'Generic / narrative', tier: 'Built-in', sigil: 'Feather',
+    desc: 'No stat blocks, no CR. Freeform character sheets for system-agnostic or fiction-first play.',
+    chips: ['Freeform', 'Custom tags', 'Any dice'],
+    declares: [
+      { icon: 'Hexagon',     k: 'Attributes',  v: 'None — freeform sheet' },
+      { icon: 'HeartPulse',  k: 'Resources',   v: 'Harm track · custom pools' },
+      { icon: 'TriangleAlert', k: 'Conditions', v: 'Custom tags you define' },
+      { icon: 'Dices',       k: 'Dice & rolls', v: 'GM-defined — any die or pool' },
+      { icon: 'ListOrdered', k: 'Turn order',  v: 'No fixed order — spotlight' },
+      { icon: 'Users',       k: 'Roles',       v: 'Game Master · Players' },
+    ],
+  },
+  {
+    id: 'pf2e', name: 'Pathfinder 2e', tier: 'Community package', sigil: 'Shield',
+    desc: 'Three-action economy, PF2e conditions and creature schema. Provided by a community package.',
+    chips: ['STR–CHA', 'Focus pts', '3 actions'],
+    declares: [
+      { icon: 'Hexagon',     k: 'Attributes',  v: 'STR · DEX · CON · INT · WIS · CHA' },
+      { icon: 'HeartPulse',  k: 'Resources',   v: 'HP · Focus · Hero points' },
+      { icon: 'TriangleAlert', k: 'Conditions', v: 'PF2e conditions (with values)' },
+      { icon: 'Dices',       k: 'Dice & rolls', v: 'd20 + level · degrees of success' },
+      { icon: 'ListOrdered', k: 'Turn order',  v: 'Three-action economy · reaction' },
+      { icon: 'Users',       k: 'Roles',       v: 'Game Master · Players' },
+    ],
+  },
+];
+
+class Component extends DCLogic {
+  state = { selected: ACTIVE_ID };
+
+  componentDidMount() {
+    this._cards = {};
+    this.apply();
+    if (window.lucide && window.lucide.icons) return;
+    this._t = setInterval(() => {
+      if (window.lucide && window.lucide.icons) { clearInterval(this._t); this.forceUpdate(); }
+    }, 60);
+    setTimeout(() => clearInterval(this._t), 4000);
+  }
+  componentDidUpdate() { this.apply(); }
+  componentWillUnmount() { if (this._t) clearInterval(this._t); }
+
+  pal() { return PALETTES[this.props.mood] || PALETTES['Candlelit']; }
+
+  // Imperatively paint theme vars on the root + the selected-card treatment on each card ref.
+  apply() {
+    const p = this.pal();
+    const root = this._root;
+    if (root) {
+      const vars = { '--app-bg': p.appBg, '--glow': p.glow, '--panel-bg': p.panelBg, '--panel-bd': p.panelBd, '--tile-bg': p.tileBg, '--tile-bd': p.tileBd, '--ink': p.ink, '--sub': p.sub, '--label': p.label, '--accent': p.accent, '--accent-ink': p.accentInk, '--rule': p.rule, '--live': p.live, '--warn': p.warn };
+      for (const k in vars) root.style.setProperty(k, vars[k]);
+      // Drive the page base imperatively with literal values — the var() indirection on
+      // background-color doesn't re-resolve reliably on theme change.
+      root.style.backgroundColor = p.appBg;
+      root.style.backgroundImage = 'radial-gradient(1200px 620px at 50% -240px, ' + p.glow + ', transparent 70%)';
+      root.setAttribute('data-theme', p.themeAttr);
+    }
+    if (this._cards) {
+      for (const id in this._cards) {
+        const el = this._cards[id];
+        if (!el) continue;
+        const on = id === this.state.selected;
+        el.style.borderColor = on ? p.accent : p.tileBd;
+        el.style.boxShadow = on ? ('inset 0 0 0 1px ' + p.accent + ', 0 8px 22px rgba(0,0,0,.4)') : 'none';
+        el.style.background = on ? p.panelBg : p.tileBg;
+      }
+    }
+  }
+
+  buildGlyph(pascal, color, size) {
+    const lib = typeof window !== 'undefined' && window.lucide && window.lucide.icons;
+    const node = lib && lib[pascal];
+    if (!node) return null;
+    return React.createElement('svg',
+      { width: size || 20, height: size || 20, viewBox: '0 0 24 24', fill: 'none', stroke: color || 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
+      node.map(([tag, attrs], i) => React.createElement(tag, { key: i, ...attrs })));
+  }
+
+  renderVals() {
+    const p = this.pal();
+    const layout = this.props.layout || 'Gallery';
+    const sel = this.state.selected;
+
+    const packages = PKGS.map((pk) => ({
+      id: pk.id, name: pk.name, tier: pk.tier, desc: pk.desc, chips: pk.chips,
+      active: pk.id === ACTIVE_ID,
+      selected: pk.id === sel,
+      sigilGlyph: this.buildGlyph(pk.sigil, p.accent, 20),
+      onSelect: () => this.setState({ selected: pk.id }),
+      setRef: (el) => { if (this._cards) this._cards[pk.id] = el; if (el) this.apply(); },
+    }));
+
+    const sp = PKGS.find((x) => x.id === sel) || PKGS[0];
+    const selPkg = {
+      name: sp.name, tier: sp.tier, desc: sp.desc,
+      sigilGlyph: this.buildGlyph(sp.sigil, p.accentInk, 24),
+      isActive: sp.id === ACTIVE_ID,
+      isSwitch: sp.id !== ACTIVE_ID,
+      declares: sp.declares.map((d) => ({ k: d.k, v: d.v, glyph: this.buildGlyph(d.icon, p.accent, 18) })),
+    };
+
+    return {
+      isGallery: layout === 'Gallery',
+      isDetail: layout === 'Detail',
+      packages,
+      selPkg,
+      brandGlyph: this.buildGlyph('Boxes', p.accentInk, 22),
+      plusGlyph: this.buildGlyph('Plus', p.accent, 20),
+      checkGlyph: this.buildGlyph('Check', p.accentInk, 14),
+      warnGlyph: this.buildGlyph('TriangleAlert', p.warn, 18),
+      onBuild: () => {},
+      setRoot: (el) => { this._root = el; if (el) this.apply(); },
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -97,7 +97,7 @@ function GraphSearch() {
                   <DV.Icon name={TYPE_ICON[n.type]} size={Math.round(size * 0.42)} />
                 </span>
                 <span style={{ font: `${isSel ? 700 : 500} var(--text-2xs) var(--font-sans)`, color: isSel ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', textAlign: 'center', maxWidth: 110, lineHeight: 1.2, padding: '1px 5px', borderRadius: 'var(--radius-sm)', background: isSel ? 'var(--color-surface-overlay)' : 'transparent' }}>{n.label}</span>
-              </button>
+            </button>
             );
           })}
           <div style={{ position: 'absolute', left: 'var(--space-3)', bottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 6, font: 'var(--text-2xs) var(--font-mono)', color: 'var(--color-text-tertiary)' }}>
