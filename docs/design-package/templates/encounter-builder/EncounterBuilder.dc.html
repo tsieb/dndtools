@@ -133,11 +133,11 @@ class Component extends DCLogic {
     else if (adjustedXp >= thresholds.easy) diff = { label: 'Easy', status: 'success' };
 
     return {
-      swordGlyph: '⚔',
+      swordGlyph: '\u2694',
       setRoster: (el) => { this._roster = el; if (el) this.paintRoster(); },
       monsterCount,
       rawReadout: rawXp.toLocaleString(),
-      multiplierReadout: '×' + mult,
+      multiplierReadout: '\u00d7' + mult,
       adjustedXp,
       budgetMax,
       budgetReadout: adjustedXp.toLocaleString() + ' / ' + budgetMax.toLocaleString() + ' XP',

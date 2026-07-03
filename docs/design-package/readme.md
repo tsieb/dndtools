@@ -299,13 +299,14 @@ Mount in `@dsCard` HTML via `const { Button } = window.DNDToolsDesignSystem_8ae0
 - `map-editor/` — **Map Editor**, the Atlas authoring workspace wiring the whole `map/` suite
   (layer panel, tool rail, fog, generation, minimap, POIs) into one screen.
 
-**UI kit** (`ui_kits/command-center/`)
-- A click-through recreation of the redesigned DM workspace, each surface its own `@dsCard` in the
-  **DND Tools App** group: Command Center cockpit, Session/Combat hot path, Knowledge note editor,
-  Atlas map builder, the scene canvas edit mode, plus the authoring (scene / character / widget
-  creators) and management (vault / players / permissions) pages. The **System Packages** surface
-  (`system-packages.html`) shows the agnostic flow in-app: the active package, the premade gallery,
-  what each declares, and the switch → migration dry-run. See its `README.md`.
+**Assembled app — the prototype** (separate project)
+- The full click-through application is **not** in this design system; it lives in the separate
+  **Dndtools design system prototype** (claude.ai/design, id `20316ed7-4fd5-4edd-8294-48f899b74252`),
+  which consumes this system's bundle via `window.DNDToolsDesignSystem_8ae046`. Compose surfaces and
+  see the whole app there, not here — including the system-agnostic package-picker flow. See
+  `SOURCES.md` for the dependency map. *(An earlier in-system `ui_kits/command-center/` mock was
+  retired 2026-06-23 once the prototype superseded it; its source is archived in the product repo at
+  `docs/design/_archive/command-center-kit/`.)*
 
 **Developer handoff** (`handoff/`)
 - `redesign.tokens.css` — the warm redesign as a drop-in token override for the production app
@@ -328,4 +329,5 @@ Mount in `@dsCard` HTML via `const { Button } = window.DNDToolsDesignSystem_8ae0
   brief deliberately moves away from — use them for IA only, not visual reference.
 - This system implements the brief's highest-leverage surfaces in depth (Command Center, Session,
   Knowledge, Atlas) and now carries the Characters/Campaign vocabulary (creature, condition, spell,
-  campaign groups + the Character Sheet template); Settings remains stubbed in the kit.
+  campaign groups + the Character Sheet template). The full assembled, click-through application
+  lives in the separate **prototype** project — see `SOURCES.md`.

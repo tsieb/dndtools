@@ -37,8 +37,8 @@ production code, depending on the need.
   `<html>` (`tavern` | `parchment` | `high-contrast`).
 - `tokens/` — color / type / spacing / fonts / base CSS.
 - `components/<group>/` — React primitives (core, forms, feedback, domain). Read each `.prompt.md`.
-- `ui_kits/command-center/` — full-screen recreations of the GM surfaces (incl. `system-packages.html`,
-  the agnostic package-picker flow).
+- `SOURCES.md` — how this system relates to the separate **prototype** project (which holds the full
+  click-through app, consuming this system's bundle) and to the product repo.
 - `templates/system-package-picker/` — the system-agnostic front door (premade gallery + build-your-own).
 - `guidelines/*.card.html` — foundation specimens.
 - `readme.md` — the full design guide (content voice, visual foundations, iconography).

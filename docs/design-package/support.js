@@ -112,7 +112,7 @@
     .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
       padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
       border-radius:4px;white-space:pre-wrap;pointer-events:none}
-    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts \u2014 keep both
        in sync until dc-runtime regains a build step. */
     @media print {
       @page { margin: 0.5cm; }
@@ -314,7 +314,7 @@
   };
   var ATTRS = `(?:[^>"']|"[^"]*"|'[^']*')*`;
   var IMPORT_SELF_CLOSE_RE = new RegExp(
-    "<(x-import|dc-import)(" + ATTRS + ")/?>",
+    "<(x-import|dc-import)(" + ATTRS + ")/>",
     "gi"
   );
   var CAMEL_ATTR_RE = /(\s)([a-z]+[A-Z][A-Za-z0-9]*)(\s*=)/g;
@@ -477,7 +477,7 @@
             }
             warnUnresolved(
               ctx,
-              "{{ " + p.trim() + " }} never resolved — rendered as empty"
+              "{{ " + p.trim() + " }} never resolved \u2014 rendered as empty"
             );
             return null;
           }
@@ -603,7 +603,7 @@
         style: hostStyle || { display: "contents" }
       } : null;
       if (!C) {
-        const error = urlBindable ? "x-import `from` cannot contain {{ … }} — module URLs are resolved at parse time; use a literal URL" : host.resolveExternalError(url, name);
+        const error = urlBindable ? "x-import `from` cannot contain {{ \u2026 }} \u2014 module URLs are resolved at parse time; use a literal URL" : host.resolveExternalError(url, name);
         const ph = host.placeholder({
           key: wrapper ? void 0 : key,
           name,
@@ -738,11 +738,23 @@
         __publicField(this, "__name");
         __publicField(this, "__sub");
         __publicField(this, "__needsDidMount", false);
+        /** Snapshot of the registry's streaming flags taken at render time —
+         *  builders read it off the RenderCtx (this) to pick placeholder vs
+         *  render-nothing for unresolved values. */
         __publicField(this, "__streamingNow", false);
         __publicField(this, "__htmlStreamingNow", false);
+        /** When a construct throws, remember the (class, registry.ver, props)
+         *  triple so render-time reconcile doesn't re-attempt it on every parent
+         *  re-render. A registry bump (new class, template, external module
+         *  resolving via bumpAll) changes `ver` and breaks the memo so an
+         *  env-dependent constructor can self-heal. */
         __publicField(this, "__failedLogic", null);
         __publicField(this, "__failedUserProps", null);
         __publicField(this, "__failedVer", -1);
+        /** Per-instance constructor error — kept here (not on the registry entry)
+         *  so one instance's successful construct can't hide a sibling's failure,
+         *  and a construct can never wipe an eval error `updateJs` recorded on
+         *  `r.logicError`. */
         __publicField(this, "__ctorError", null);
         __publicField(this, "logic");
         this.__name = props.__name;
@@ -754,6 +766,9 @@
         this.__makeLogic(registry.get(this.__name).Logic, null);
         ensureFetched(this.__name);
       }
+      /** Error-boundary hook: a render crash anywhere in this DC's subtree
+       *  (its own template, an x-import'd component, a child DC without its
+       *  own deeper boundary) lands here instead of unmounting the page. */
       static getDerivedStateFromError(e) {
         return { __err: e instanceof Error && e.message ? e.message : String(e) };
       }
@@ -764,6 +779,8 @@
           info?.componentStack || ""
         );
       }
+      /** Instantiate the logic class (or the no-op base) and adopt `prevState`
+       *  over its initial state — used both at mount and on hot-swap. */
       __makeLogic(Logic, prevState) {
         const L = Logic || StreamableLogic;
         try {
@@ -785,6 +802,8 @@
         if (prevState)
           this.logic.state = { ...this.logic.state || {}, ...prevState };
       }
+      /** The props the author's logic + template see — internal __-prefixed
+       *  wiring stripped. */
       __userProps() {
         const { __name, __hintSize, __tplId, __hostStyle, ...rest } = this.props;
         return rest;
@@ -795,6 +814,9 @@
         this.logic.state = { ...prev, ...patch };
         this.setState((s) => ({ __v: s.__v + 1 }), cb);
       }
+      /** Swap the logic instance when the registry's Logic class changed
+       *  (streaming completion, hot reload). State carries over; didMount
+       *  re-fires after the swap commits so refs exist. */
       __reconcileLogic() {
         const r = registry.get(this.__name);
         const Next = r.Logic;
@@ -864,7 +886,7 @@
           const cycle = [
             ...chain.slice(chain.indexOf(this.__name)),
             this.__name
-          ].join(" → ");
+          ].join(" \u2192 ");
           return h(
             "div",
             { ...hostBase, className: cls + " sc-has-error" },
@@ -1017,7 +1039,7 @@
         console.info(
           "[dc-runtime] x-import: loaded",
           url,
-          "— exports:",
+          "\u2014 exports:",
           Object.keys(module.exports),
           "window globals:",
           Object.keys(globals)
@@ -1055,7 +1077,7 @@
           url,
           "loaded but has no component named",
           JSON.stringify(name),
-          "— available exports:",
+          "\u2014 available exports:",
           Object.keys(mod),
           "window globals:",
           Object.keys(globals),
@@ -1116,7 +1138,7 @@
             url,
             "loaded but no custom element",
             JSON.stringify(name),
-            "is registered and window." + name + " is not a function — rendering <" + name + "> as an unknown element."
+            "is registered and window." + name + " is not a function \u2014 rendering <" + name + "> as an unknown element."
           );
         }
       }
@@ -1273,7 +1295,7 @@
             url,
             "returned",
             res.status,
-            "— the reference renders as an empty placeholder."
+            "\u2014 the reference renders as an empty placeholder."
           );
           return "";
         }
@@ -1285,7 +1307,7 @@
           console.error(
             "[dc-runtime] sibling fetch for <" + name + "/>:",
             url,
-            "has no <x-dc> block — not a Design Component."
+            "has no <x-dc> block \u2014 not a Design Component."
           );
           return;
         }
@@ -1328,7 +1350,7 @@
         console.error(
           "[dc-runtime] logic class eval FAILED for",
           name,
-          "— the template renders with props only.",
+          "\u2014 the template renders with props only.",
           e
         );
         r.logicError = name + ": " + (e instanceof Error && e.message ? e.message : String(e));
@@ -1457,8 +1479,16 @@
         if (name === rootName && !streaming && kind === "props") notifyHost();
       },
       __dcSetProps: (name, overrides) => runtime.setProps(name, overrides),
+      /** Name of the component currently mounted as the page root — DC tools
+       *  push their template-stream here when targeting "the open page". */
       __dcRootName: () => rootName,
+      /** Editor bridge — the encoded, `data-dc-tpl`-annotated template source.
+       *  The host editor parses this into its own template DOM so it can map a
+       *  rendered node (carrying the same `data-dc-tpl`) back to the source
+       *  node that emitted it. Returns the encoded form (`<sc-comp>`,
+       *  `sc-camel-*` attrs); the editor decodes on serialize. */
       __dcAnnotatedTemplate: (name) => runtime.annotatedTemplate(name),
+      /** Editor bridge — the *original* (decoded) template source. */
       __dcTemplateSource: (name) => runtime.templateSource(name),
       __dcBoot: () => {
         rootName = boot(runtime, document) ?? rootName;
@@ -1466,6 +1496,8 @@
       },
       __dcRegistry: runtime.registry.entries,
       getDC: (name) => runtime.getDC(name),
+      // `DCLogic` is the documented base class name; `StreamableLogic` is the
+      // implementation alias kept for any project that already references it.
       DCLogic: runtime.StreamableLogic,
       StreamableLogic: runtime.StreamableLogic
     };

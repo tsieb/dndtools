@@ -89,10 +89,13 @@ inherits the look for free. Work bottom-up.
 → domain (combat hot path) → map suite. Each PR is small and independently shippable because the
 token layer already carries the palette.
 
-**Templates & kit as targets:** `templates/dm-session-screen` and `templates/map-editor` (DS) plus
-the `ui_kits/command-center/` cards are the assembled target-state references — build the Svelte
-screens (`routes/home`, `routes/session`, `routes/knowledge`, `routes/atlas`) *toward* them. They
-are reference, not code to paste.
+**Templates & the prototype as targets:** `templates/dm-session-screen` and `templates/map-editor`
+(DS), plus the separate **Dndtools design system prototype** (claude.ai/design — the full assembled
+app), are the target-state references — build the Svelte screens (`routes/home`, `routes/session`,
+`routes/knowledge`, `routes/atlas`) *toward* them. For the scene-canvas edit mode + tiered inspector,
+the prototype's `Scene & Widget System` entry is the spec. They are reference, not code to paste.
+*(The in-system `ui_kits/command-center/` cards were retired 2026-06-23 once the prototype superseded
+them.)*
 
 ---
 
