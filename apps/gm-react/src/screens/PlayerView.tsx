@@ -1,21 +1,25 @@
 import { useMemo, useState, type ReactNode, type CSSProperties } from 'react';
 import {
 	resolveCommandCenterHome,
+	advancementStateOf,
 	getPartyOverviewForActor,
 	getCharacterForActor,
 	getCharacterJournalForActor,
 	getContentItemsForActor,
 	getCombatTrackerForActor,
+	getDiceHistoryForActor,
 	listCharactersForActor,
 	resourcesOf,
 	availableSlots,
 	type CommandCenterHomeView,
 	type PartyOverview,
 	type CharacterView,
+	type DiceRollView,
+	type EvaluatedDiceTerm,
 	type JournalEntryView,
 	type ContentItemView,
 } from '@dndtools/core';
-import { Avatar, Badge, Button, Chip, ConditionBadge, CONDITIONS, DiceResult, HPBar, Icon, IconButton, Stat } from '../ds';
+import { Avatar, Badge, Chip, ConditionBadge, CONDITIONS, DiceResult, HPBar, Icon, IconButton, Stat } from '../ds';
 import { T, eb } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 
@@ -27,19 +31,23 @@ import { useRuntime } from '../runtime/RuntimeContext';
  *
  * Because this is the player's device, every read is made with a player actor id (`PLAYER_ACTOR_ID`),
  * so the Core delivers ONLY player-safe content: the projected scene, the visible party (PCs; DM-only
- * NPCs are absent), shared handouts, and the player's own sheet. It is READ-ONLY — the demo player
- * owns no PC, so writes would be rejected; the live surface displays rather than mutates.
+ * NPCs are absent), shared handouts, and the player's own sheet.
  *
  * Wired reads: {@link resolveCommandCenterHome} (the participant home: assigned scene + session status
  * strip), {@link getCombatTrackerForActor} (the viewer-masked turn order), {@link getPartyOverviewForActor},
- * {@link getCharacterForActor} + {@link resourcesOf}, {@link getCharacterJournalForActor}, and
- * {@link getContentItemsForActor} (shared handouts). Null-safe: when nothing is projected it shows the
- * "waiting for the table" empty state.
+ * {@link getCharacterForActor} + {@link resourcesOf} + {@link advancementStateOf},
+ * {@link getCharacterJournalForActor}, {@link getContentItemsForActor} (shared handouts), and
+ * {@link getDiceHistoryForActor} (the actor-filtered SHARED roll log). Null-safe: when nothing is
+ * projected it shows the "waiting for the table" empty state.
  *
- * HONEST-LOCAL (each tagged `// no core command`): the presence affordances (raise hand / ready),
- * the dice roller broadcast, drop-concentration, and the elevated Co-DM tools — none of which a player
- * actor can drive through the Core. The Co-DM / Trusted tiers have NO core role above `player`, so the
- * elevated nav is shown-locked.
+ * REAL write: the Dice tab dispatches `dice.roll` AS the player actor — each roll is recorded in the
+ * durable session dice history (the same log the DM's /session dice panel reads), attributed to this
+ * player, and session-gated by the Core (no live session ⇒ the rejection surfaces as a toast).
+ *
+ * HONEST-LOCAL (labeled in the UI): the presence affordances (raise hand / ready) are device-local —
+ * live presence needs the table transport deferred by ADR-014. // no core command
+ * The Trusted / Co-DM tiers have NO core role above `player`, so the elevated nav is shown-locked
+ * until such a role exists. // no core role
  */
 
 // The player's device identity. The runtime seeds `actor-player` (Demo Player) as a participant; the
@@ -126,11 +134,13 @@ function SectionHead({ title, sub, action }: { title: string; sub?: ReactNode; a
 		</div>
 	);
 }
-function LockedNote({ need, what }: { need: string; what: string }) {
+function LockedNote({ what }: { what: string }) {
 	return (
 		<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 10, background: 'var(--color-visibility-dm-subtle)', border: `1px solid var(--color-visibility-dm)` }}>
 			<Icon name="hidden" size={16} color="var(--color-visibility-dm)" />
-			<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>{what} — your DM grants this at <strong style={{ color: T.ink }}>{need}</strong> permission.</span>
+			<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+				{what} is shown locked — the core permissions model has no role above <strong style={{ color: T.ink }}>player</strong> yet, so there is no Co-DM grant your DM could give. This preview unlocks when that role exists.
+			</span>
 		</div>
 	);
 }
@@ -144,10 +154,16 @@ interface LiveData {
 	activeName: string | null;
 	pc: CharacterView | null;
 	pcId: string | null;
+	/** The PC's real level from the CHAR-009 advancement model (null without a PC). */
+	level: number | null;
 	resources: ReturnType<typeof resourcesOf> | null;
 	party: PartyOverview;
 	journal: JournalEntryView[];
 	handouts: ContentItemView[];
+	/** The actor-filtered SHARED session roll log (own + session-visible rolls), oldest-first. */
+	diceRolls: DiceRollView[];
+	/** Whether the Session workflow is `active` — the Core's gate for `dice.roll`. */
+	sessionActive: boolean;
 	displayName: string;
 }
 
@@ -193,6 +209,7 @@ export function PlayerView() {
 		const journal = chosen ? getCharacterJournalForActor(state.characters, state.permissions, viewer, chosen.id).entries : [];
 		const party = getPartyOverviewForActor(state.characters, state.permissions, viewer);
 		const handouts = getContentItemsForActor(state.content, state.permissions, viewer);
+		const dice = getDiceHistoryForActor(state.session, state.permissions, viewer);
 
 		return {
 			home,
@@ -203,13 +220,34 @@ export function PlayerView() {
 			activeName: strip?.turn.activeName ?? null,
 			pc,
 			pcId: chosen?.id ?? null,
+			level: record ? advancementStateOf(record).level : null,
 			resources,
 			party,
 			journal,
 			handouts,
+			diceRolls: dice.rolls,
+			sessionActive: state.session.workflow === 'active',
 			displayName: home.kind === 'participant' ? home.displayName : (actor?.displayName ?? 'Player'),
 		};
 	}, [state, viewer, actor?.displayName]);
+
+	// REAL dice write: dispatch `dice.roll` AS this player actor. An accepted roll is recorded in the
+	// durable session log (attributed + visibility-filtered by the Core); a rejection (no live session,
+	// previewing) surfaces honestly as a toast. Returns the recorded roll so the caller can react to it.
+	const rollDice = async (expression: string, label: string): Promise<DiceRollView | null> => {
+		const result = await runtime.dispatch({ type: 'dice.roll', actorId: viewer, payload: { expression, label } });
+		if (result.status === 'rejected') {
+			toast(result.rejection.message, 'error', 'hidden');
+			return null;
+		}
+		const after = getDiceHistoryForActor(runtime.state.session, runtime.state.permissions, viewer);
+		const recorded = after.rolls.length > 0 ? after.rolls[after.rolls.length - 1] : null;
+		const crit = recorded ? critOf(recorded) : undefined;
+		if (crit === 'success') toast('Natural 20 — critical!', 'success', 'sparkle');
+		else if (crit === 'fail') toast('Natural 1 — critical miss', 'error', 'close');
+		return recorded;
+	};
+	const actorName = (id: string) => state.permissions.actors[id]?.displayName ?? 'Player';
 
 	const allItems = [...NAV, ...NAV_ELEVATED];
 	const allowedIds = allItems.filter((n) => r >= n.min).map((n) => n.id);
@@ -220,7 +258,21 @@ export function PlayerView() {
 			key={n.id}
 			type="button"
 			disabled={locked}
-			onClick={() => { if (locked) { toast(`${n.label} needs ${minTierLabel(n.min)} permission`, 'info', 'hidden'); return; } setSection(n.id); }}
+			onClick={() => {
+				if (locked) {
+					// Honest lock reason: the Trusted/Co-DM tiers do not EXIST in the core roles yet, so
+					// there is nothing the DM could grant — say so instead of implying a grantable permission.
+					toast(
+						n.min >= 2
+							? `${n.label} is shown locked — the core has no ${minTierLabel(n.min)} role yet`
+							: `${n.label} needs ${minTierLabel(n.min)} permission`,
+						'info',
+						'hidden',
+					);
+					return;
+				}
+				setSection(n.id);
+			}}
 			style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 9, cursor: locked ? 'not-allowed' : 'pointer', textAlign: 'left', width: '100%', border: 'none', borderLeft: `3px solid ${current === n.id && !locked ? T.acc : 'transparent'}`, background: current === n.id && !locked ? T.accSub : 'transparent', opacity: locked ? 0.42 : 1 }}
 		>
 			<Icon name={n.icon} size={19} color={current === n.id && !locked ? T.acc : T.ter} />
@@ -232,7 +284,7 @@ export function PlayerView() {
 	let body: ReactNode = null;
 	if (current === 'stage') body = <StageSection data={data} r={r} toast={toast} />;
 	else if (current === 'sheet') body = <SheetSection data={data} />;
-	else if (current === 'dice') body = <DiceSection name={data.displayName} toast={toast} />;
+	else if (current === 'dice') body = <DiceSection rolls={data.diceRolls} sessionActive={data.sessionActive} viewer={viewer} actorName={actorName} onRoll={rollDice} />;
 	else if (current === 'party') body = <PartySection data={data} />;
 	else if (current === 'handouts') body = <HandoutsSection data={data} />;
 	else if (current === 'journal') body = <JournalSection data={data} />;
@@ -341,13 +393,15 @@ function StageSection({ data, r, toast }: { data: LiveData; r: number; toast: (m
 						)}
 					</div>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: T.surf, borderTop: `1px solid ${T.bd}`, flexWrap: 'wrap' }}>
-						{/* no core command — presence (raise hand / ready) is a local affordance */}
+						{/* no core command — presence (raise hand / ready) is DEVICE-LOCAL: there is no presence
+						    channel until the table transport lands (ADR-014), and the copy says so honestly. */}
 						{r >= 1 ? (
 							<>
-								<button type="button" onClick={() => { setHand((v) => !v); toast(hand ? 'Hand lowered' : 'Hand raised — the DM sees it', hand ? 'neutral' : 'info', 'flag'); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 9, cursor: 'pointer', font: `600 12.5px ${T.sans}`, border: `1px solid ${hand ? T.accBd : T.bd}`, background: hand ? T.accSub : T.surf, color: hand ? T.acc : T.sub }}>
+								<button type="button" aria-pressed={hand} onClick={() => { setHand((v) => !v); toast(hand ? 'Hand lowered (this device only)' : "Hand raised on this device — presence isn't shared with the table yet", hand ? 'neutral' : 'info', 'flag'); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 9, cursor: 'pointer', font: `600 12.5px ${T.sans}`, border: `1px solid ${hand ? T.accBd : T.bd}`, background: hand ? T.accSub : T.surf, color: hand ? T.acc : T.sub }}>
 									<Icon name="flag" size={15} />{hand ? 'Hand raised' : 'Raise hand'}</button>
-								<button type="button" onClick={() => setReady((v) => !v)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 9, cursor: 'pointer', font: `600 12.5px ${T.sans}`, border: `1px solid ${ready ? 'var(--color-status-success-border)' : T.bd}`, background: ready ? 'var(--color-status-success-subtle)' : T.surf, color: ready ? 'var(--color-status-success-text)' : T.sub }}>
+								<button type="button" aria-pressed={ready} onClick={() => setReady((v) => !v)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 9, cursor: 'pointer', font: `600 12.5px ${T.sans}`, border: `1px solid ${ready ? 'var(--color-status-success-border)' : T.bd}`, background: ready ? 'var(--color-status-success-subtle)' : T.surf, color: ready ? 'var(--color-status-success-text)' : T.sub }}>
 									<Icon name="check" size={15} />{ready ? "I'm ready" : 'Not ready'}</button>
+								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>Device-local — not broadcast yet</span>
 							</>
 						) : (
 							<span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, font: `12.5px ${T.sans}`, color: T.ter }}>
@@ -412,6 +466,9 @@ function SheetSection({ data }: { data: LiveData }) {
 	}
 	const r = data.resources;
 	const slots = r ? Object.values(r.spellSlots).sort((a, b) => a.level - b.level) : [];
+	// Real sheet identity: the `data.class` field the draft flow writes + the CHAR-009 level.
+	const cls = typeof C.data?.class === 'string' && C.data.class.trim() !== '' ? C.data.class : null;
+	const clsLabel = cls ? cls.charAt(0).toUpperCase() + cls.slice(1) : 'Adventurer';
 	const cardBox: CSSProperties = { textAlign: 'center', padding: '10px 6px', borderRadius: 11, border: `1px solid ${T.bd}`, background: T.surf };
 	return (
 		<div>
@@ -419,7 +476,7 @@ function SheetSection({ data }: { data: LiveData }) {
 				<Avatar name={C.name} size="md" ring="active" />
 				<div style={{ minWidth: 0 }}>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ font: `700 16px ${T.disp}`, color: T.ink }}>{C.name}</span><Badge status="success">PC</Badge></div>
-					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{String(C.data?.cls ?? 'Adventurer')}</div>
+					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{clsLabel}{data.level != null ? ` · Level ${data.level}` : ''}</div>
 				</div>
 				<div style={{ textAlign: 'center', minWidth: 70, padding: '6px 12px', borderRadius: 11, background: T.alt, border: `1px solid ${T.bd}` }}>
 					<div style={{ font: `700 18px ${T.mono}`, color: C.combat.maxHp > 0 && C.combat.hp / C.combat.maxHp < 0.3 ? T.err : T.ink, lineHeight: 1 }}>{C.combat.hp}<span style={{ font: `13px ${T.mono}`, color: T.ter }}> / {C.combat.maxHp}</span></div>
@@ -477,41 +534,58 @@ function SheetSection({ data }: { data: LiveData }) {
 	);
 }
 
-// 3 · DICE — a working local roller. // no core command (player dice broadcast is DM-gated)
+// 3 · DICE — the REAL table roller: every roll dispatches `dice.roll` AS the player actor and is
+// recorded in the shared, durable session log (the same history the DM's /session panel reads). The
+// log below is the actor-filtered `getDiceHistoryForActor` view — the player's own rolls plus every
+// session-visible roll at the table. Rolling is session-gated by the Core: on standby the dice
+// disable with the honest reason instead of pretending to roll.
 const DICE = [20, 12, 10, 8, 6, 4];
-interface RollEntry { id: string; notation: string; total: number; rolls: number[]; modifier: number; crit?: 'success' | 'fail'; who: string }
-function DiceSection({ name, toast }: { name: string; toast: (m: string, s?: string, i?: string) => void }) {
-	const [log, setLog] = useState<RollEntry[]>([]);
+
+/** Natural 20/1 detection on a RECORDED roll: exactly one d20 term keeping a single die. */
+function critOf(roll: DiceRollView): 'success' | 'fail' | undefined {
+	const diceTerms = roll.terms.filter((t): t is EvaluatedDiceTerm => t.kind === 'dice');
+	if (diceTerms.length !== 1) return undefined;
+	const term = diceTerms[0];
+	if (term.sides !== 20 || term.kept.length !== 1) return undefined;
+	return term.kept[0] === 20 ? 'success' : term.kept[0] === 1 ? 'fail' : undefined;
+}
+
+function DiceSection({ rolls, sessionActive, viewer, actorName, onRoll }: {
+	rolls: DiceRollView[];
+	sessionActive: boolean;
+	viewer: string;
+	actorName: (id: string) => string;
+	onRoll: (expression: string, label: string) => Promise<DiceRollView | null>;
+}) {
 	const [mode, setMode] = useState<'normal' | 'adv' | 'dis'>('normal');
 	const [mod, setMod] = useState(0);
+	// Compose the core dice expression: advantage/disadvantage use the parser's keep syntax
+	// (`2d20kh1` / `2d20kl1`) so the RECORDED roll carries both faces and the kept one.
 	const rollOne = (faces: number) => {
-		let rolls: number[]; let keep: number; let crit: 'success' | 'fail' | undefined;
-		if (faces === 20 && mode !== 'normal') {
-			const a = 1 + Math.floor(Math.random() * 20), b = 1 + Math.floor(Math.random() * 20);
-			keep = mode === 'adv' ? Math.max(a, b) : Math.min(a, b);
-			rolls = [a, b];
-		} else {
-			keep = 1 + Math.floor(Math.random() * faces);
-			rolls = [keep];
-		}
-		if (faces === 20) crit = keep === 20 ? 'success' : keep === 1 ? 'fail' : undefined;
-		const total = keep + mod;
-		const entry: RollEntry = { id: Math.random().toString(36).slice(2), notation: `1d${faces}${mod ? sgn(mod) : ''}${faces === 20 && mode !== 'normal' ? ` (${mode})` : ''}`, total, rolls, modifier: mod, crit, who: `${name} · d${faces}` };
-		setLog((l) => [entry, ...l].slice(0, 16));
-		if (crit === 'success') toast('Natural 20 — critical!', 'success', 'sparkle');
-		else if (crit === 'fail') toast('Natural 1 — critical miss', 'error', 'close');
+		const term = faces === 20 && mode === 'adv' ? '2d20kh1' : faces === 20 && mode === 'dis' ? '2d20kl1' : `1d${faces}`;
+		const expression = `${term}${mod !== 0 ? (mod > 0 ? `+${mod}` : String(mod)) : ''}`;
+		const label = `d${faces}${faces === 20 && mode !== 'normal' ? ` · ${mode === 'adv' ? 'advantage' : 'disadvantage'}` : ''}`;
+		void onRoll(expression, label);
 	};
+	// Newest first for display; the query returns the durable log oldest-first.
+	const recent = [...rolls].reverse().slice(0, 16);
 	const seg = (id: 'normal' | 'adv' | 'dis', label: string) => (
-		<button type="button" onClick={() => setMode(id)} style={{ flex: 1, padding: '8px 0', cursor: 'pointer', font: `600 12px ${T.sans}`, border: 'none', background: mode === id ? T.acc : 'transparent', color: mode === id ? T.accFg : T.sub }}>{label}</button>
+		<button type="button" aria-pressed={mode === id} onClick={() => setMode(id)} style={{ flex: 1, padding: '8px 0', cursor: 'pointer', font: `600 12px ${T.sans}`, border: 'none', background: mode === id ? T.acc : 'transparent', color: mode === id ? T.accFg : T.sub }}>{label}</button>
 	);
 	return (
 		<PvPage max={920}>
-			<SectionHead title="Dice" sub="Roll for your character (local to your device on the prototype)" />
+			<SectionHead title="Dice" sub="Rolls are recorded to the table's shared session log, attributed to you" />
+			{!sessionActive && (
+				<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'var(--color-status-warning-subtle)', border: `1px solid var(--color-status-warning-border)`, marginBottom: 16 }}>
+					<Icon name="hidden" size={15} color="var(--color-status-warning-text)" />
+					<span style={{ font: `12.5px ${T.sans}`, color: 'var(--color-status-warning-text)' }}>Rolling needs a live session — the dice unlock when your DM starts one.</span>
+				</div>
+			)}
 			<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'start' }}>
 				<Panel title="Roll" pad={16}>
 					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
 						{DICE.map((f) => (
-							<button key={f} type="button" onClick={() => rollOne(f)} style={{ padding: '16px 0', borderRadius: 11, cursor: 'pointer', border: `1px solid ${T.bd}`, background: T.alt, color: T.ink, font: `700 17px ${T.mono}` }}>d{f}</button>
+							<button key={f} type="button" disabled={!sessionActive} onClick={() => rollOne(f)} style={{ padding: '16px 0', borderRadius: 11, cursor: sessionActive ? 'pointer' : 'not-allowed', border: `1px solid ${T.bd}`, background: T.alt, color: sessionActive ? T.ink : T.ter, opacity: sessionActive ? 1 : 0.55, font: `700 17px ${T.mono}` }}>d{f}</button>
 						))}
 					</div>
 					<div style={{ marginTop: 14 }}>
@@ -527,13 +601,19 @@ function DiceSection({ name, toast }: { name: string; toast: (m: string, s?: str
 						<IconButton icon="chevron-up" label="+1" variant="ghost" size="sm" onClick={() => setMod((m) => m + 1)} />
 					</div>
 				</Panel>
-				<Panel title="Roll log" pad={14} action={<Button variant="ghost" size="sm" onClick={() => setLog([])}>Clear</Button>}>
+				<Panel title="Table roll log" pad={14} action={<Badge status="neutral">{rolls.length} recorded</Badge>}>
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 9, maxHeight: 460, overflow: 'auto' }}>
-						{log.length === 0 && <div style={{ font: `12.5px ${T.sans}`, color: T.ter, padding: '14px 0', textAlign: 'center' }}>No rolls yet — pick a die.</div>}
-						{log.map((d) => (
+						{recent.length === 0 && (
+							<div style={{ font: `12.5px ${T.sans}`, color: T.ter, padding: '14px 0', textAlign: 'center' }}>
+								{sessionActive ? 'No rolls yet — pick a die.' : 'The shared roll log fills up during a live session.'}
+							</div>
+						)}
+						{recent.map((d) => (
 							<div key={d.id}>
-								<div style={{ font: `10.5px ${T.sans}`, color: T.ter, marginBottom: 3 }}>{d.who}</div>
-								<DiceResult notation={d.notation} total={d.total} rolls={d.rolls} modifier={d.modifier} crit={d.crit} />
+								<div style={{ font: `10.5px ${T.sans}`, color: T.ter, marginBottom: 3 }}>
+									{d.actorId === viewer ? 'You' : actorName(d.actorId)}{d.label ? ` · ${d.label}` : ''}
+								</div>
+								<DiceResult notation={d.expression} total={d.total} rolls={d.dice} modifier={d.modifier} crit={critOf(d)} />
 							</div>
 						))}
 					</div>
@@ -647,8 +727,8 @@ function JournalSection({ data }: { data: LiveData }) {
 function ElevatedLocked({ label }: { label: string }) {
 	return (
 		<PvPage max={900}>
-			<SectionHead title={label} sub="Granted by your DM at Co-DM permission" action={<Badge status="accent" icon="session-bolt">Co-DM tool</Badge>} />
-			<LockedNote need="Co-DM" what={label} />
+			<SectionHead title={label} sub="A future Co-DM tool — the core has no role above player yet" action={<Badge status="accent" icon="session-bolt">Co-DM tool</Badge>} />
+			<LockedNote what={label} />
 		</PvPage>
 	);
 }

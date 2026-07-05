@@ -16,7 +16,7 @@ import {
 
 /**
  * CONTENT-013 — the core VAULT OBJECT SUBTYPE SCHEMA REGISTRY. The catalog covers the ten required initial
- * subtypes, REFERENCES the already-built character/map/calendar models (it never re-models them), enforces
+ * subtypes (plus the later-added `faction`), REFERENCES the already-built character/map/calendar models (it never re-models them), enforces
  * subtype schema + visibility defaults + revealing-field omission, and keeps SCENE in SceneState (never a
  * note-backed object subtype — Contract 4 / AC4).
  */
@@ -32,17 +32,18 @@ const EXPECTED_SUBTYPES: VaultObjectSubtype[] = [
 	'encounter',
 	'audio-preset',
 	'widget-package-ref',
+	'faction',
 ];
 
 describe('CONTENT-013 — Vault Object subtype registry (AC1: subtype schema set)', () => {
-	it('covers exactly the ten initial v2 subtypes', () => {
+	it('covers exactly the ten initial v2 subtypes plus faction', () => {
 		expect([...VAULT_OBJECT_SUBTYPES].sort()).toEqual([...EXPECTED_SUBTYPES].sort());
-		expect(VAULT_OBJECT_SUBTYPES).toHaveLength(10);
+		expect(VAULT_OBJECT_SUBTYPES).toHaveLength(11);
 	});
 
 	it('lists a catalog summary row per subtype with a fail-closed dm-only visibility default', () => {
 		const rows = listVaultObjectSchemas();
-		expect(rows).toHaveLength(10);
+		expect(rows).toHaveLength(11);
 		for (const row of rows) {
 			// Every new object FAILS CLOSED to dm-only (AC1 visibility defaults).
 			expect(row.defaultVisibility).toBe('dm-only');
@@ -75,6 +76,7 @@ describe('CONTENT-013 — Vault Object subtype registry (AC1: subtype schema set
 			'encounter',
 			'audio-preset',
 			'widget-package-ref',
+			'faction',
 		];
 		for (const subtype of deferred) {
 			expect(VAULT_OBJECT_SCHEMAS[subtype].modelImplemented).toBe(false);
@@ -136,7 +138,42 @@ describe('CONTENT-013 — actor-filtered projection omits revealing fields (AC3)
 		expect(dmOnlyFieldKeys('handout')).toContain('cipher');
 		expect(dmOnlyFieldKeys('encounter')).toContain('participantIds');
 		expect(dmOnlyFieldKeys('character')).toContain('dmNotes');
+		// faction has a dm-only secret.
+		expect(dmOnlyFieldKeys('faction')).toContain('secret');
 		// note has no dm-only fields.
 		expect(dmOnlyFieldKeys('note')).toEqual([]);
+	});
+});
+
+describe('faction — the Campaign faction dossier subtype (note-backed, pattern-consistent)', () => {
+	it('validates a well-formed faction frontmatter', () => {
+		const result = validateObjectFrontmatter('faction', {
+			name: 'Brine Hand',
+			kind: 'cult',
+			stance: 'hostile',
+			leader: 'Mother Sild',
+			goals: ['Wake what sleeps below the vaults', 'Keep the shipment route open'],
+			secret: 'Sild translates for the cult rather than leading it.',
+		});
+		expect(result.valid).toBe(true);
+		expect(result.subtype).toBe('faction');
+		expect(result.issues).toEqual([]);
+	});
+
+	it('fails closed on a missing name, a wrong-typed goals value, and an undeclared field', () => {
+		const result = validateObjectFrontmatter('faction', {
+			goals: 'not-an-array',
+			powerLevel: 3,
+		});
+		expect(result.valid).toBe(false);
+		const codes = result.issues.map((issue) => issue.code).sort();
+		expect(codes).toEqual(['missing-required-field', 'undeclared-field', 'wrong-type']);
+	});
+
+	it('defaults to dm-only visibility and declares no model reference (full model deferred)', () => {
+		const schema = vaultObjectSchema('faction');
+		expect(schema?.defaultVisibility).toBe('dm-only');
+		expect(schema?.modelReference).toBeNull();
+		expect(schema?.modelImplemented).toBe(false);
 	});
 });

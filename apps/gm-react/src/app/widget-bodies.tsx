@@ -1,4 +1,13 @@
+import { useEffect, useState } from 'react';
+import {
+	getCharacterForActor,
+	getCombatTrackerForActor,
+	getDiceHistoryForActor,
+	getTimerCountdown,
+	parseDiceExpression,
+} from '@dndtools/core';
 import { Icon } from '../ds';
+import { useRuntime } from '../runtime/RuntimeContext';
 import type { BoardWidget } from './board-helpers';
 
 /**
@@ -10,8 +19,13 @@ import type { BoardWidget } from './board-helpers';
  *
  * This component renders ONLY the inner content; the `WidgetFrame` (SceneBoardCanvas) supplies the
  * shared header (glyph · title · visibility chip · type label) so view- and edit-mode chrome stay
- * identical. Bodies are purely presentational — no dispatch, no live queries — so the canvas stays a
- * thin, fast read surface; binding-backed widgets (map / character) show an honest bound-data shell.
+ * identical. Bodies are LIVE where the core has a live view: the initiative tracker reads
+ * `getCombatTrackerForActor`, the character body its bound character (`getCharacterForActor`), the
+ * timer the durable session timer (`getTimerCountdown`), and the dice body the session dice history.
+ * In VIEW mode the declared operate affordances (Roll / Start / Pause / Reset) are REAL buttons that
+ * dispatch through the parent's `onCommand` (→ `widget.dispatch-command`); each is rendered only when
+ * the widget's own `WidgetDefinition.commands` declares that command type. Without `onCommand`
+ * (edit mode) they stay the inert, de-emphasized chips of the original design.
  */
 
 /** Read a configuration value, falling back to the field's declared default. */
@@ -21,6 +35,12 @@ function cfg<T = unknown>(widget: BoardWidget, key: string): T | undefined {
 	const field = widget.configFields.find((f) => f.key === key);
 	return field?.default as T | undefined;
 }
+
+/** Dispatch a widget-declared durable command; undefined while editing (bodies stay inert). */
+export type WidgetCommandHandler = (
+	commandType: string,
+	payload: Record<string, unknown>,
+) => void;
 
 const bodyWrap: React.CSSProperties = {
 	height: '100%',
@@ -48,6 +68,59 @@ function Chip({ children, tone = 'neutral' }: { children: React.ReactNode; tone?
 		>
 			{children}
 		</span>
+	);
+}
+
+const opChipStyle: React.CSSProperties = {
+	display: 'inline-flex',
+	alignItems: 'center',
+	gap: 5,
+	padding: '4px 10px',
+	borderRadius: 'var(--radius-sm)',
+	background: 'var(--color-surface-sunken)',
+	font: '600 var(--text-2xs) var(--font-sans)',
+	color: 'var(--color-text-secondary)',
+	whiteSpace: 'nowrap',
+};
+
+/**
+ * A widget operate affordance. With `onPress` it is a REAL button (accent-toned, keyboard operable);
+ * without it it renders the original inert, de-emphasized chip so edit mode keeps the same silhouette.
+ */
+function OpChip({
+	icon,
+	label,
+	onPress,
+	ariaLabel,
+}: {
+	icon: string;
+	label: string;
+	onPress?: () => void;
+	ariaLabel?: string;
+}) {
+	if (!onPress) {
+		return (
+			<span style={opChipStyle} aria-hidden>
+				<Icon name={icon} size={13} /> {label}
+			</span>
+		);
+	}
+	return (
+		<button
+			type="button"
+			aria-label={ariaLabel ?? label}
+			onClick={onPress}
+			onPointerDown={(e) => e.stopPropagation()}
+			style={{
+				...opChipStyle,
+				border: '1px solid var(--color-border)',
+				background: 'var(--color-accent-subtle)',
+				color: 'var(--color-accent)',
+				cursor: 'pointer',
+			}}
+		>
+			<Icon name={icon} size={13} /> {label}
+		</button>
 	);
 }
 
@@ -97,11 +170,36 @@ function NoteBody({ widget }: { widget: BoardWidget }) {
 	);
 }
 
-function DiceBody({ widget }: { widget: BoardWidget }) {
+function DiceBody({ widget, onCommand }: { widget: BoardWidget; onCommand?: WidgetCommandHandler }) {
+	const runtime = useRuntime();
 	const formulas = (cfg<string>(widget, 'formulas') ?? 'd20')
 		.split(',')
 		.map((f) => f.trim())
 		.filter(Boolean);
+
+	// The last session roll matching one of this widget's formulas (actor-filtered history). The
+	// engine records the CANONICAL expression ('d20' → '1d20'), so canonicalize before comparing.
+	const canonical = (f: string): string => {
+		const parsed = parseDiceExpression(f);
+		return parsed.ok ? parsed.expression.source : f;
+	};
+	const history = getDiceHistoryForActor(
+		runtime.state.session,
+		runtime.state.permissions,
+		runtime.defaultActorId,
+	);
+	const formulaSet = new Set(formulas.map(canonical));
+	let lastRoll = null;
+	for (let i = history.rolls.length - 1; i >= 0; i -= 1) {
+		const roll = history.rolls[i];
+		if (formulaSet.has(roll.expression)) {
+			lastRoll = roll;
+			break;
+		}
+	}
+
+	// Only a widget whose definition DECLARES dice.roll gets a live affordance.
+	const canRoll = !!onCommand && widget.commands.includes('dice.roll') && formulas.length > 0;
 	return (
 		<div style={bodyWrap}>
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -111,50 +209,82 @@ function DiceBody({ widget }: { widget: BoardWidget }) {
 					</Chip>
 				))}
 			</div>
-			<div
-				style={{
-					marginTop: 'auto',
-					display: 'inline-flex',
-					alignItems: 'center',
-					gap: 6,
-					alignSelf: 'flex-start',
-					padding: '4px 10px',
-					borderRadius: 'var(--radius-sm)',
-					background: 'var(--color-surface-sunken)',
-					font: '600 var(--text-2xs) var(--font-sans)',
-					color: 'var(--color-text-secondary)',
-				}}
-			>
-				<Icon name="dice" size={13} /> Roll
+			<div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+				<OpChip
+					icon="dice"
+					label="Roll"
+					ariaLabel={`Roll ${formulas[0] ?? 'dice'}`}
+					onPress={canRoll ? () => onCommand('dice.roll', { expression: formulas[0] }) : undefined}
+				/>
+				{lastRoll && (
+					<span
+						style={{ font: '700 var(--text-sm) var(--font-mono)', color: 'var(--color-text-primary)' }}
+						aria-label={`Last result for ${lastRoll.expression}: ${lastRoll.total}`}
+					>
+						= {lastRoll.total}
+					</span>
+				)}
 			</div>
 		</div>
 	);
 }
 
-function TimerBody({ widget }: { widget: BoardWidget }) {
-	const seconds = Number(cfg<number>(widget, 'durationSeconds') ?? 60) || 60;
-	const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
-	const ss = String(seconds % 60).padStart(2, '0');
+const URGENCY_COLOR: Record<string, string> = {
+	danger: 'var(--color-status-error-text)',
+	warning: 'var(--color-status-warning-text)',
+	normal: 'var(--color-text-primary)',
+};
+
+function TimerBody({ widget, onCommand }: { widget: BoardWidget; onCommand?: WidgetCommandHandler }) {
+	const runtime = useRuntime();
+	const configured = Number(cfg<number>(widget, 'durationSeconds') ?? 60) || 60;
+	// The DURABLE session timer for this widget instance (SES-005); the countdown view is a pure
+	// function of (timer, now) — the GUI only ticks a clock and re-derives (never owns timer state).
+	const timer = runtime.state.session.timers[widget.id] ?? null;
+	const [nowIso, setNowIso] = useState(() => new Date().toISOString());
+	const countdown = getTimerCountdown(timer, nowIso, configured);
+	const ticking = countdown.status === 'running';
+	useEffect(() => {
+		if (!ticking) return;
+		// Re-anchor immediately: `nowIso` may be stale from mount (set before the timer started).
+		setNowIso(new Date().toISOString());
+		const id = window.setInterval(() => setNowIso(new Date().toISOString()), 500);
+		return () => window.clearInterval(id);
+	}, [ticking]);
+
+	const declares = (type: string) => !!onCommand && widget.commands.includes(type);
+	const op = (type: string, payload: Record<string, unknown> = {}) =>
+		declares(type) ? () => onCommand?.(type, payload) : undefined;
+
 	return (
 		<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', height: '100%' }}>
-			<div style={{ font: '700 26px var(--font-mono)', color: 'var(--color-text-primary)', letterSpacing: '.04em' }}>
-				{mm}:{ss}
+			<div style={{ minWidth: 0 }}>
+				<div
+					style={{
+						font: '700 26px var(--font-mono)',
+						color: URGENCY_COLOR[countdown.urgency] ?? 'var(--color-text-primary)',
+						letterSpacing: '.04em',
+					}}
+				>
+					{countdown.display}
+				</div>
+				{countdown.status !== 'stopped' && <Muted>{countdown.statusLabel}</Muted>}
 			</div>
-			<span
-				style={{
-					marginLeft: 'auto',
-					display: 'inline-flex',
-					alignItems: 'center',
-					gap: 5,
-					padding: '4px 10px',
-					borderRadius: 'var(--radius-sm)',
-					background: 'var(--color-surface-sunken)',
-					font: '600 var(--text-2xs) var(--font-sans)',
-					color: 'var(--color-text-secondary)',
-				}}
-			>
-				<Icon name="play" size={13} /> Start
-			</span>
+			<div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+				{(countdown.status === 'stopped' || countdown.status === 'expired') && (
+					<OpChip
+						icon="play"
+						label="Start"
+						ariaLabel={`Start ${configured}-second timer`}
+						onPress={op('timer.start', { durationSeconds: configured })}
+					/>
+				)}
+				{countdown.status === 'running' && <OpChip icon="pause" label="Pause" onPress={op('timer.pause')} />}
+				{countdown.status === 'paused' && <OpChip icon="play" label="Resume" onPress={op('timer.resume')} />}
+				{countdown.status !== 'stopped' && declares('timer.reset') && (
+					<OpChip icon="retry" label="Reset" onPress={op('timer.reset')} />
+				)}
+			</div>
 		</div>
 	);
 }
@@ -187,34 +317,73 @@ function AudioBody({ widget }: { widget: BoardWidget }) {
 }
 
 function InitiativeBody({ widget }: { widget: BoardWidget }) {
+	const runtime = useRuntime();
 	const showHp = cfg<boolean>(widget, 'showHp') ?? true;
+	// SES-002 — the ONE actor-filtered combat read model; hidden combatants are already redacted.
+	const tracker = getCombatTrackerForActor(
+		runtime.state.session.combat,
+		runtime.state.permissions,
+		runtime.defaultActorId,
+	);
+	const running = tracker.status === 'running';
+	const active =
+		tracker.combatants.find((c) => c.isActive) ??
+		tracker.combatants.find((c) => c.id === tracker.activeCombatantId) ??
+		null;
+	const orderNames = tracker.combatants.map((c) => c.name);
 	return (
 		<div style={bodyWrap}>
 			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
-				<StatPill label="Round" value="—" />
-				<StatPill label="Turn" value="—" />
+				<StatPill label="Round" value={running ? String(tracker.round) : '—'} />
+				<StatPill label="Turn" value={running ? (active?.name ?? `#${tracker.turn + 1}`) : '—'} />
+				{running && showHp && active?.resources && (
+					<StatPill label="HP" value={`${active.resources.hp} / ${active.resources.maxHp}`} />
+				)}
 			</div>
-			<Muted>Live turn order · {showHp ? 'HP shown' : 'HP hidden'}</Muted>
+			{running && orderNames.length > 0 ? (
+				<Muted>
+					{orderNames.slice(0, 3).join(' · ')}
+					{orderNames.length > 3 ? ` +${orderNames.length - 3}` : ''}
+				</Muted>
+			) : (
+				<Muted>No combat running · {showHp ? 'HP shown' : 'HP hidden'}</Muted>
+			)}
 		</div>
 	);
 }
 
+const ABILITY_ORDER = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
+
 function CharacterBody({ widget }: { widget: BoardWidget }) {
+	const runtime = useRuntime();
 	const showAbilities = cfg<boolean>(widget, 'showAbilities') ?? true;
 	if (widget.requiresBinding && widget.status !== 'available') {
 		return <Muted>No character bound — bind one to show its stat block.</Muted>;
 	}
+	// Resolve the BOUND character through the actor-filtered query (redacted per viewer).
+	const boundId = widget.bindingRef?.entityType === 'character' ? widget.bindingRef.entityId : null;
+	const view = boundId
+		? getCharacterForActor(runtime.state.characters, runtime.state.permissions, runtime.defaultActorId, boundId)
+		: null;
+	const scores = (view?.abilityScores ?? {}) as Record<string, number | undefined>;
 	return (
 		<div style={bodyWrap}>
+			{view && (
+				<div style={{ font: '700 var(--text-sm) var(--font-display)', color: 'var(--color-text-primary)' }}>
+					{view.name}
+				</div>
+			)}
 			<div style={{ display: 'flex', gap: 'var(--space-4)' }}>
-				<StatPill label="HP" value="— / —" />
-				<StatPill label="AC" value="—" />
+				<StatPill label="HP" value={view ? `${view.combat.hp} / ${view.combat.maxHp}` : '— / —'} />
+				<StatPill label="AC" value={view ? String(view.combat.ac) : '—'} />
 			</div>
 			{showAbilities && (
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-					{['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'].map((a) => (
-						<Chip key={a}>{a}</Chip>
-					))}
+					{ABILITY_ORDER.map((key) => {
+						const label = key.toUpperCase();
+						const score = scores[key];
+						return <Chip key={key}>{score !== undefined ? `${label} ${score}` : label}</Chip>;
+					})}
 				</div>
 			)}
 		</div>
@@ -262,15 +431,22 @@ function ListBody({ widget, unit }: { widget: BoardWidget; unit: string }) {
 	);
 }
 
-export function WidgetBody({ widget }: { widget: BoardWidget }) {
+export function WidgetBody({
+	widget,
+	onCommand,
+}: {
+	widget: BoardWidget;
+	/** VIEW-mode operate dispatch (`widget.dispatch-command`); omit in edit mode to keep bodies inert. */
+	onCommand?: WidgetCommandHandler;
+}) {
 	switch (widget.type) {
 		case 'note':
 		case 'handout':
 			return <NoteBody widget={widget} />;
 		case 'dice':
-			return <DiceBody widget={widget} />;
+			return <DiceBody widget={widget} onCommand={onCommand} />;
 		case 'timer':
-			return <TimerBody widget={widget} />;
+			return <TimerBody widget={widget} onCommand={onCommand} />;
 		case 'audio':
 			return <AudioBody widget={widget} />;
 		case 'initiative-tracker':

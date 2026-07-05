@@ -21,6 +21,12 @@ function check(name, ok, detail = '') {
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
+// Skip the first-run onboarding overlay (it would cover the surfaces this gate drives).
+await page.addInitScript(() => {
+	try {
+		window.localStorage.setItem('dndtools:react:onboarded', 'gate');
+	} catch {}
+});
 page.on('console', (m) => {
 	if (m.type() === 'error') console.log('  [page error]', m.text());
 });

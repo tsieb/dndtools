@@ -57,6 +57,17 @@ export interface BoardWidget {
 	 * inspector shows it as locked instead of an editable field.
 	 */
 	requiresBinding: boolean;
+	/**
+	 * The command types this widget's definition DECLARES (`WidgetDefinition.commands`). Operate
+	 * affordances (Roll / Start) verify a command is declared here before dispatching
+	 * `widget.dispatch-command`; an undeclared command renders as an inert decoration instead.
+	 */
+	commands: string[];
+	/**
+	 * The instance's data-binding source (a Character widget's character, a Map widget's map), when
+	 * bound. Live bodies resolve the bound entity through the actor-filtered queries from this ref.
+	 */
+	bindingRef: { entityType: string; entityId: string } | null;
 }
 
 // WidgetDefinition.author is the closest core analogue to the prototype's four widget "tiers".
@@ -132,6 +143,13 @@ export function boardWidgetsOf(
 			configuration: instance.configuration,
 			configFields: def?.configFields ?? [],
 			requiresBinding: (def?.requiredBindings?.length ?? 0) > 0,
+			commands: (def?.commands ?? []).map((command) => command.type),
+			bindingRef: instance.binding
+				? {
+						entityType: instance.binding.source.entityType,
+						entityId: instance.binding.source.entityId,
+					}
+				: null,
 			x: instance.layout.x,
 			y: instance.layout.y,
 			w: instance.layout.w,

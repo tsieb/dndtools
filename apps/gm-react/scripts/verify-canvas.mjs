@@ -18,6 +18,12 @@ const check = (name, ok, detail = '') => {
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
+// Skip the first-run onboarding overlay (it would cover the canvas this gate drives).
+await page.addInitScript(() => {
+	try {
+		window.localStorage.setItem('dndtools:react:onboarded', 'gate');
+	} catch {}
+});
 const errors = [];
 page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(`console.error: ${m.text()}`); });

@@ -5,14 +5,17 @@ import {
 	FEATURE_TIERS,
 	describeCapabilitySet,
 	deriveVaultConflicts,
+	getContentItemsForActor,
 	listGrantableCapabilitySets,
+	listScenesForActor,
 	unresolvedConflicts,
 	visibleFeatures,
 	type FeatureTier,
 } from '@dndtools/core';
-import { Avatar, Badge, Button, Chip, DataTable, Icon, IconButton, ProgressMeter, StatusDot, Switch, Toaster } from '../ds';
+import { Avatar, Badge, Button, Chip, DataTable, Dialog, Icon, IconButton, ProgressMeter, StatusDot, Switch, Toaster } from '../ds';
 import { Page, Panel, Seg, SetRow, T, eb } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { ONBOARDED_KEY, REPLAY_EVENT } from '../app/Onboarding';
 import { DNDAccount, DNDExt, DNDGaps2, DNDPages } from '../runtime/mockCampaign';
 
 /**
@@ -194,7 +197,27 @@ function SettingsAccount() {
 				</div>
 			</Panel>
 
-			<Panel title="Onboarding & help" action={<Button variant="ghost" size="sm" icon="sparkle" onClick={toast}>Replay setup</Button>}>
+			<Panel
+				title="Onboarding & help"
+				action={
+					<Button
+						variant="ghost"
+						size="sm"
+						icon="sparkle"
+						onClick={() => {
+							// REAL: clears the first-run flag and re-opens the live overlay (it listens for this event).
+							try {
+								window.localStorage.removeItem(ONBOARDED_KEY);
+							} catch {
+								/* ignore */
+							}
+							window.dispatchEvent(new Event(REPLAY_EVENT));
+						}}
+					>
+						Replay setup
+					</Button>
+				}
+			>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>Re-run the guided first-time setup, revisit the product tour, or reopen the table-readiness checklist any time.</div>
 			</Panel>
 
@@ -256,11 +279,25 @@ function SettingsAccount() {
 }
 
 /* ---- Subscription (honest stub — no core command for billing; CTAs route to the real /upgrade page) -- */
+// Mirror of Upgrade.tsx's readPlanId (same PLAN_KEY, same validation) — duplicated rather than
+// imported so this route chunk doesn't pull the separately-split /upgrade chunk in with it.
+const PLAN_KEY = 'dndtools:react:plan';
+function readPlanId(): string {
+	const sub = ACCT.subscription;
+	try {
+		const v = window.localStorage.getItem(PLAN_KEY);
+		if (v && sub.plans.some((p: any) => p.id === v)) return v;
+	} catch {
+		/* ignore */
+	}
+	return sub.current;
+}
 function SettingsSubscription() {
 	const navigate = useNavigate();
 	const sub = ACCT.subscription;
-	// no core command — billing/plan state is not Core-backed; `current` is the mock active plan.
-	const [plan] = useState<string>(sub.current);
+	// no core command for billing — but the device-local plan CHOICE (made on /upgrade) is shared via
+	// localStorage so the two screens never disagree about which plan you're on.
+	const [plan] = useState<string>(() => readPlanId());
 	const current = sub.plans.find((p: any) => p.id === plan) || sub.plans[0];
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -655,10 +692,48 @@ function SettingsPlugins() {
 }
 
 /* ---- Systems (honest stub — no core command for campaign-system switching here) ----------------- */
+const MIGRATION_EFFECT_TONE: Record<string, string> = { keep: 'success', flatten: 'warning', drop: 'error' };
+/** The design prototype's migration dry-run dialog, kept HONEST: it shows what a switch would map,
+ * flatten or drop, but the apply action is disabled — the core has no system-switch command yet. */
+function MigrationDialog({ from, to, onClose }: { from: any; to: any; onClose: () => void }) {
+	const cs = EXT.campaignSystem;
+	return (
+		<Dialog
+			open
+			onClose={onClose}
+			title={`Switch to ${to.name}`}
+			description={`Migration dry-run · ${from.name} → ${to.name}`}
+			footer={
+				<>
+					<Button variant="secondary" onClick={onClose}>Close</Button>
+					<Button variant="primary" icon="check" disabled title="No core command for a system switch yet">Apply switch (not wired)</Button>
+				</>
+			}
+		>
+			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 14 }}>
+				Nothing changes — this preview shows what a switch would map, flatten, or drop. Applying it needs a core
+				migration command that doesn't exist yet, so the action stays disabled instead of pretending.
+			</div>
+			<div style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${T.bd}`, borderRadius: 10, overflow: 'hidden' }}>
+				{cs.migration.rows.map((r: any, i: number) => (
+					<div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderTop: i ? `1px solid ${T.bd}` : 'none', background: i % 2 ? T.alt : 'transparent' }}>
+						<span style={{ font: `600 13px ${T.sans}`, width: 120 }}>{r.label}</span>
+						<span style={{ font: `12px ${T.mono}`, color: T.ter, width: 40 }}>{r.count}</span>
+						<Badge status={(MIGRATION_EFFECT_TONE[r.effect] || 'neutral') as any}>{r.effect}</Badge>
+						<span style={{ flex: 1, font: `12px ${T.sans}`, color: T.sub }}>{r.note}</span>
+					</div>
+				))}
+			</div>
+		</Dialog>
+	);
+}
 function SettingsSystems() {
 	const cs = EXT.campaignSystem;
 	// no core command — campaign-system migration is out of this prototype's scope; active is mock.
 	const [activeSystem] = useState<string>(cs.active);
+	const [migrateTo, setMigrateTo] = useState<string | null>(null);
+	const from = cs.modules.find((m: any) => m.id === activeSystem);
+	const target = cs.modules.find((m: any) => m.id === migrateTo);
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel title="Campaign system" accent>
@@ -674,7 +749,7 @@ function SettingsSystems() {
 								{active ? <Badge status="accent" icon="check">Active</Badge> : <Badge status="neutral">{m.from}</Badge>}
 							</div>
 							<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub, flex: 1 }}>{m.desc}</div>
-							{active ? <Button variant="secondary" size="sm" disabled>Current system</Button> : <Button variant="primary" size="sm" icon="retry" onClick={toast}>Switch &amp; preview migration</Button>}
+							{active ? <Button variant="secondary" size="sm" disabled>Current system</Button> : <Button variant="primary" size="sm" icon="retry" onClick={() => setMigrateTo(m.id)}>Preview migration</Button>}
 						</div>
 					);
 				})}
@@ -682,18 +757,56 @@ function SettingsSystems() {
 					<Icon name="add" size="lg" /><span style={{ font: `600 13px ${T.sans}` }}>Build your own system</span>
 				</button>
 			</div>
+			{target && from && <MigrationDialog from={from} to={target} onClose={() => setMigrateTo(null)} />}
 		</div>
 	);
 }
 
 /* ---- Accessibility (REAL persisted prefs — write the SAME doc attrs Appearance owns) ------------- */
+/** The shortcuts this build actually implements (AppShell ⌘K, SceneBoardCanvas keyboard nav, the
+ * skip link) — an authored list, but of REAL behavior, replacing the prototype's mock table. */
+const REAL_SHORTCUTS: { keys: string; action: string }[] = [
+	{ keys: '⌘K / Ctrl+K', action: 'Open the command palette — search the whole vault' },
+	{ keys: 'Tab', action: 'Move focus; first press reveals “Skip to content”' },
+	{ keys: '← ↑ ↓ →', action: 'Walk the canvas widgets in focus order' },
+	{ keys: 'Enter / Space', action: 'Select the focused widget (opens the inspector in edit mode)' },
+	{ keys: '⌘/Ctrl + Arrows', action: 'Move the selected widget (canvas edit mode)' },
+	{ keys: 'Shift + Arrows', action: 'Resize the selected widget (canvas edit mode)' },
+	{ keys: 'Delete', action: 'Remove the selected widget (canvas edit mode)' },
+	{ keys: 'Esc', action: 'Close dialog / deselect widget / exit preview' },
+];
 function SettingsAccessibility() {
-	const a = GAPS2.a11y;
+	const runtime = useRuntime();
 	// Single source of truth = the live <html> attribute (the same one Appearance + index.html restore).
 	const [theme, setTheme] = useState<string>(document.documentElement.getAttribute('data-theme') || 'tavern');
 	const [motion, setMotion] = useState<string>(document.documentElement.getAttribute('data-motion') || 'full');
 	const reduceMotion = motion === 'reduced';
 	const highContrast = theme === 'high-contrast';
+
+	// REAL player-safety checks: run the SAME actor-filtered reads a player actor gets and assert no
+	// dm-only entity leaks through them. Computed live against the current vault, not authored flags.
+	const leakChecks = (() => {
+		const players = (Object.values(runtime.state.permissions.actors) as { id: string; role: string }[]).filter((a) => a.role === 'player');
+		const checks: { id: string; ok: boolean; label: string }[] = [];
+		let sceneLeaks = 0;
+		let contentLeaks = 0;
+		for (const p of players) {
+			sceneLeaks += listScenesForActor(runtime.state.scenes, runtime.state.permissions, p.id).filter((s) => s.visibility === 'dm-only').length;
+			contentLeaks += getContentItemsForActor(runtime.state.content, runtime.state.permissions, p.id).filter((c) => c.visibility === 'dm-only').length;
+		}
+		checks.push({
+			id: 'scenes',
+			ok: sceneLeaks === 0,
+			label: players.length === 0 ? 'DM-only scenes: no player actors to check against yet' : `DM-only scenes are hidden from all ${players.length} player actors (checked live)`,
+		});
+		checks.push({
+			id: 'content',
+			ok: contentLeaks === 0,
+			label: players.length === 0 ? 'DM-only notes/handouts: no player actors to check against yet' : `DM-only notes & handouts are excluded from every player read (checked live)`,
+		});
+		checks.push({ id: 'preview', ok: true, label: 'Preview-as-player rejects every write command (enforced fail-closed in the runtime)' });
+		return checks;
+	})();
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel title="Display & motion">
@@ -711,17 +824,17 @@ function SettingsAccessibility() {
 			</Panel>
 			<Panel title="Keyboard shortcuts">
 				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px' }}>
-					{a.shortcuts.map((s: any, i: number) => (
+					{REAL_SHORTCUTS.map((s, i) => (
 						<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-							<span style={{ font: `12px ${T.mono}`, color: T.ink, border: `1px solid ${T.bd}`, borderRadius: 5, padding: '2px 7px', background: T.alt }}>{s.keys}</span>
+							<span style={{ font: `12px ${T.mono}`, color: T.ink, border: `1px solid ${T.bd}`, borderRadius: 5, padding: '2px 7px', background: T.alt, whiteSpace: 'nowrap' }}>{s.keys}</span>
 							<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>{s.action}</span>
 						</div>
 					))}
 				</div>
 			</Panel>
 			<Panel title="Player-safety checks">
-				{/* honest stub — these would read the Core's session-privacy query when a live session is running. */}
-				{a.leakChecks.map((c: any) => (
+				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>Run live against your vault: each check re-reads the world AS each player actor and asserts nothing DM-only comes back.</div>
+				{leakChecks.map((c) => (
 					<div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', font: `12.5px ${T.sans}`, color: T.sub }}>
 						<Icon name={c.ok ? 'success' : 'error'} size={16} color={c.ok ? T.ok : T.err} /><span>{c.label}</span>
 					</div>

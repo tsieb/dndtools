@@ -2966,7 +2966,7 @@ export {
 
 // CONTENT-013: the core VAULT OBJECT SUBTYPE SCHEMA REGISTRY — a typed catalog over the note-backed object
 // substrate covering the ten initial v2 subtypes (note/character/map/handout/calendar-event/timeline-event/
-// dice-table/encounter/audio-preset/widget-package-ref). It REFERENCES the already-built character/map/
+// dice-table/encounter/audio-preset/widget-package-ref) plus `faction`. It REFERENCES the already-built character/map/
 // calendar models by entity type + schema version rather than re-modeling them, and NEVER registers a `scene`
 // subtype — a Scene stays in SceneState (Contract 4). Pure data + pure functions.
 export type {

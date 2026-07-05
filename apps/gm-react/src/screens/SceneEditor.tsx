@@ -12,6 +12,7 @@ import { Badge, Button, Card, Field, Icon, IconButton, Input, Select, Switch, Te
 import { useRuntime } from '../runtime/RuntimeContext';
 import { SceneBoardCanvas, WidgetGlyph } from '../app/SceneBoardCanvas';
 import { boardWidgetsOf, payloadIndex, TIER_LABEL, type BoardWidget } from '../app/board-helpers';
+import { parseTags } from '../app/scene-helpers';
 
 type Visibility = 'dm-only' | 'shared' | 'player-visible';
 
@@ -36,6 +37,7 @@ export function SceneEditor() {
 	const [snap, setSnap] = useState(true);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [addOpen, setAddOpen] = useState(false);
+	const [metaOpen, setMetaOpen] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const summary = getSceneForActor(runtime.state.scenes, runtime.state.permissions, actorId, id, {
@@ -108,6 +110,42 @@ export function SceneEditor() {
 			payload: { sceneId: id, widgetInstanceId },
 		});
 	}
+	// VIEW-mode widget operation (SES-005/SES-003): dispatch a widget-DECLARED durable command through
+	// the one envelope the core accepts — fresh idempotencyKey per press + the scene's current revision
+	// (`expectedRevision`, packages/core/src/commands/widget-command.ts).
+	function operateWidget(widgetInstanceId: string, commandType: string, payload: Record<string, unknown>) {
+		if (!rawScene) return;
+		return dispatch({
+			type: 'widget.dispatch-command',
+			actorId,
+			idempotencyKey: crypto.randomUUID(),
+			payload: {
+				sceneId: id,
+				widgetInstanceId,
+				commandType,
+				payload,
+				expectedRevision: rawScene.ownership.revision,
+			},
+		});
+	}
+	// SCENE METADATA (scene.update-metadata) — scenes are no longer permanently named at creation.
+	async function saveMetadata(meta: { name: string; description: string; tags: string[] }) {
+		const ok = await dispatch({
+			type: 'scene.update-metadata',
+			actorId,
+			payload: { sceneId: id, name: meta.name, description: meta.description, tags: meta.tags },
+		});
+		if (ok) setMetaOpen(false);
+	}
+	// CANVAS-016 — pin the selected widget's explicit keyboard traversal position (null clears it back
+	// to the core's derived order).
+	function setFocusOrder(widgetInstanceId: string, focusOrder: number | null) {
+		return dispatch({
+			type: 'scene.set-focus-order',
+			actorId,
+			payload: { sceneId: id, widgetInstanceId, focusOrder },
+		});
+	}
 	function setVisibility(visibility: Visibility) {
 		return setConfig('visibility', visibility);
 	}
@@ -159,6 +197,16 @@ export function SceneEditor() {
 						{widgets.length} widget{widgets.length === 1 ? '' : 's'} · canvas · pan &amp; zoom
 					</div>
 				</div>
+				<IconButton
+					icon="edit"
+					label="Edit scene name, description & tags"
+					variant="ghost"
+					size="sm"
+					onClick={() => {
+						setMetaOpen((v) => !v);
+						setAddOpen(false);
+					}}
+				/>
 				<div style={{ flex: 1 }} />
 				{editing && (
 					<>
@@ -167,7 +215,15 @@ export function SceneEditor() {
 							onChange={setSnap}
 							label={<span style={{ font: 'var(--text-2xs) var(--font-sans)', color: 'var(--color-text-secondary)' }}>Snap</span>}
 						/>
-						<Button variant="secondary" size="sm" icon="add" onClick={() => setAddOpen((v) => !v)}>
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="add"
+							onClick={() => {
+								setAddOpen((v) => !v);
+								setMetaOpen(false);
+							}}
+						>
 							Add
 						</Button>
 					</>
@@ -203,26 +259,119 @@ export function SceneEditor() {
 					onSelect={setSelectedId}
 					onMove={move}
 					onResize={resize}
+					focusOrder={summary.focusOrder.map((entry) => entry.widgetInstanceId)}
+					onRemove={destroy}
+					onWidgetCommand={operateWidget}
 					emptyHint={editing ? 'Press Add to place your first widget.' : 'Press Edit, then add a widget.'}
 				/>
 
-				{addOpen && (
+				{metaOpen && (
+					<SceneMetaPanel
+						name={summary.name}
+						description={summary.description}
+						tags={summary.tags}
+						onSave={saveMetadata}
+						onClose={() => setMetaOpen(false)}
+					/>
+				)}
+
+				{addOpen && !metaOpen && (
 					<AddWidgetPanel library={library} onAdd={addWidget} onClose={() => setAddOpen(false)} />
 				)}
 
-				{editing && selectedWidget && selectedInstance && !addOpen && (
+				{editing && selectedWidget && selectedInstance && !addOpen && !metaOpen && (
 					<Inspector
 						key={selectedInstance.id}
 						widget={selectedWidget}
+						focusOrder={selectedInstance.layout.focusOrder}
 						onVisibility={setVisibility}
 						onConfigure={setConfig}
 						onResize={(w, h) => resize(selectedInstance.id, w, h)}
+						onFocusOrder={(order) => setFocusOrder(selectedInstance.id, order)}
 						onRemove={() => destroy(selectedInstance.id)}
 						onClose={() => setSelectedId(null)}
 					/>
 				)}
 			</div>
 		</div>
+	);
+}
+
+/**
+ * SceneMetaPanel — rename / re-describe / re-tag the scene AFTER creation, round-tripped through
+ * `scene.update-metadata`. A right-docked side panel like the add-widget panel; Escape closes it.
+ */
+function SceneMetaPanel({
+	name,
+	description,
+	tags,
+	onSave,
+	onClose,
+}: {
+	name: string;
+	description: string;
+	tags: string[];
+	onSave: (meta: { name: string; description: string; tags: string[] }) => void;
+	onClose: () => void;
+}) {
+	const [draftName, setDraftName] = useState(name);
+	const [draftDescription, setDraftDescription] = useState(description);
+	const [draftTags, setDraftTags] = useState(tags.join(', '));
+	return (
+		<Card
+			elevation="overlay"
+			padding="md"
+			data-testid="scene-meta-panel"
+			onKeyDown={(e: React.KeyboardEvent) => {
+				if (e.key === 'Escape') {
+					e.stopPropagation();
+					onClose();
+				}
+			}}
+			style={{ width: 300, flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', maxHeight: '100%', overflow: 'auto' }}
+		>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+				<span style={{ flex: 1, font: '700 var(--text-md) var(--font-display)', color: 'var(--color-text-primary)' }}>
+					Scene details
+				</span>
+				<IconButton icon="close" label="Close scene details" variant="ghost" size="sm" onClick={onClose} />
+			</div>
+			<Field label="Name" htmlFor="scene-meta-name" required>
+				<Input
+					id="scene-meta-name"
+					value={draftName}
+					onChange={(e: { target: { value: string } }) => setDraftName(e.target.value)}
+				/>
+			</Field>
+			<Field label="Description" htmlFor="scene-meta-description">
+				<Textarea
+					id="scene-meta-description"
+					rows={3}
+					value={draftDescription}
+					onChange={(e: { target: { value: string } }) => setDraftDescription(e.target.value)}
+				/>
+			</Field>
+			<Field label="Tags" htmlFor="scene-meta-tags" help="Comma-separated.">
+				<Input
+					id="scene-meta-tags"
+					value={draftTags}
+					onChange={(e: { target: { value: string } }) => setDraftTags(e.target.value)}
+					placeholder="dungeon, combat"
+				/>
+			</Field>
+			<Button
+				variant="primary"
+				size="sm"
+				icon="check"
+				disabled={!draftName.trim()}
+				onClick={() =>
+					onSave({ name: draftName.trim(), description: draftDescription.trim(), tags: parseTags(draftTags) })
+				}
+				style={{ alignSelf: 'flex-start' }}
+			>
+				Save details
+			</Button>
+		</Card>
 	);
 }
 
@@ -296,16 +445,21 @@ function AddWidgetPanel({
  */
 function Inspector({
 	widget,
+	focusOrder,
 	onVisibility,
 	onConfigure,
 	onResize,
+	onFocusOrder,
 	onRemove,
 	onClose,
 }: {
 	widget: BoardWidget;
+	/** The instance's EXPLICIT keyboard traversal position (`layout.focusOrder`); null = derived. */
+	focusOrder: number | null;
 	onVisibility: (v: Visibility) => void;
 	onConfigure: (key: string, value: unknown) => void;
 	onResize: (w: number, h: number) => void;
+	onFocusOrder: (order: number | null) => void;
 	onRemove: () => void;
 	onClose: () => void;
 }) {
@@ -385,6 +539,32 @@ function Inspector({
 				</div>
 				<div style={{ font: 'var(--text-2xs) var(--font-mono)', color: 'var(--color-text-tertiary)' }}>
 					{widget.w} × {widget.h}
+				</div>
+			</Section>
+
+			{/* CANVAS-016 — pin where this widget lands in the canvas's keyboard traversal
+			    (`scene.set-focus-order`); "Auto" clears back to the core's derived order. */}
+			<Section label="Keyboard order">
+				<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+					<Button
+						variant="secondary"
+						size="sm"
+						onClick={() => onFocusOrder(Math.max(0, (focusOrder ?? 0) - 1))}
+						disabled={focusOrder === 0}
+					>
+						Earlier
+					</Button>
+					<Button variant="secondary" size="sm" onClick={() => onFocusOrder((focusOrder ?? 0) + 1)}>
+						Later
+					</Button>
+					{focusOrder !== null && (
+						<Button variant="ghost" size="sm" onClick={() => onFocusOrder(null)}>
+							Auto
+						</Button>
+					)}
+				</div>
+				<div style={{ font: 'var(--text-2xs) var(--font-mono)', color: 'var(--color-text-tertiary)' }}>
+					{focusOrder === null ? 'Auto (layout order)' : `Position ${focusOrder + 1}`}
 				</div>
 			</Section>
 

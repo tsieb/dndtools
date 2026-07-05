@@ -151,6 +151,7 @@ export const ICON_REGISTRY = {
 	travel: 'Footprints',
 	validate: 'ShieldCheck',
 	'arrow-left': 'ArrowLeft',
+	'arrow-up': 'ArrowUp',
 
 	// ── Conditions (5e) — each a DISTINCT shape so status reads in grayscale (A11Y-011) ─────
 	'cond-blinded': 'EyeOff',

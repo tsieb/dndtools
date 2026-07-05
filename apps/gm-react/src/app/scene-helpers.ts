@@ -20,3 +20,11 @@ export function statusLabel(status: SceneStatus): string {
 export function activeSceneId(state: CoreStateSlice): string | null {
 	return state.session.activeSceneId ?? null;
 }
+
+/** Parse a comma-separated tags input into the trimmed tag list the scene commands expect. */
+export function parseTags(raw: string): string[] {
+	return raw
+		.split(',')
+		.map((t) => t.trim())
+		.filter(Boolean);
+}

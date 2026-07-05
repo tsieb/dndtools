@@ -1,4 +1,6 @@
 import {
+	VAULT_OBJECT_SUBTYPE_KEY,
+	isLiveContentItem,
 	listWidgetLibrary,
 	resolveAddWidgetCommand,
 	type CommandResult,
@@ -10,7 +12,8 @@ import {
  * demo-seed — populate a FRESH vault with representative campaign content so the prototype resembles
  * the design-studio prototype (which is populated everywhere), not an empty shell. It runs only when
  * a slice is empty, dispatching the SAME commands a DM would (`character.quick-create`,
- * `content.create-item`, `scene.create`, `scene.add-widget`, `content.define-calendar`,
+ * `content.create-item`, `content.create-object`, `content.update-item`, `scene.create`,
+ * `scene.add-widget`, `content.define-calendar`,
  * `audio.configure-source`, `session.audio.play`) through the single choke point — so the demo content
  * persists to IndexedDB and survives reload identically to user-authored content, and the PER-SLICE
  * emptiness guards mean each category seeds independently and never double-seeds.
@@ -87,6 +90,77 @@ const DEMO_NOTES = [
 	},
 ] as const;
 
+// CONTENT-013 — faction dossiers as real note-backed Vault Objects (`content.create-object`, subtype
+// `faction`), so the Campaign → Factions tab renders live core entities instead of sample data. Card
+// data (kind/stance/leader/goals + the dm-only secret) lives in the validated frontmatter fields; the
+// prose summary is the markdown body. One faction is player-visible so a previewed player still sees
+// a populated (but secret-free) tab; the hostile cult stays dm-only.
+const DEMO_FACTIONS = [
+	{
+		title: 'Brine Hand',
+		visibility: 'dm-only',
+		body: 'A drowned-god cult that took the Sunken Outpost as a smuggling waypoint and a temple. They move cargo at low tide and pray to something in the lower vaults at high.',
+		fields: {
+			name: 'Brine Hand',
+			kind: 'cult',
+			stance: 'hostile',
+			leader: 'Mother Sild',
+			goals: ['Wake what sleeps below the vaults', 'Keep the shipment route open through the 14th'],
+			secret: 'Sild doesn’t lead the cult so much as translate for it. If the Bell rings twice, she stops being in charge.',
+		},
+	},
+	{
+		title: 'Saltmarsh Watch',
+		visibility: 'player-visible',
+		body: 'The town militia — understaffed, underpaid, and quietly humiliated since they lost Sergeant Vorlag to the cult and never figured out how.',
+		fields: {
+			name: 'Saltmarsh Watch',
+			kind: 'militia',
+			stance: 'neutral',
+			leader: 'Captain Roese',
+			goals: ['Recover the missing shipment to save face', 'Find out who turned Vorlag'],
+			secret: 'Roese suspects a second cult sympathizer still wears a watch tabard.',
+		},
+	},
+	{
+		title: 'Dockworkers’ Union',
+		visibility: 'player-visible',
+		body: 'The dockworkers’ guild — they know every tide, every bribe, and every crate that moves on the waterfront. Friendly, for a price.',
+		fields: {
+			name: 'Dockworkers’ Union',
+			kind: 'guild',
+			stance: 'friendly',
+			leader: 'Dockmaster Pell',
+			goals: ['Keep the docks working through the trouble'],
+			secret: 'Pell’s the leak — the tide schedule that let the cult take the shipment came from his own hand.',
+		},
+	},
+] as const;
+
+// GRAPH/CONTENT-006 — [[wikilinks]] between the seeded notes, so Knowledge backlinks and the Graph's
+// wikilink edges are non-empty out of the box. Each line is APPENDED to an existing note body through
+// the real `content.update-item` command. Wikilink targets resolve by note TITLE (case-insensitive;
+// `state/wikilink-graph.ts`), and backlinks are computed between `kind: 'note'` items only — so every
+// line below links note→note by exact seeded title. Player-safe: a player-visible source only names
+// player-visible targets (a raw body leaks its link text to every reader of that note).
+const DEMO_WIKILINK_APPENDS = [
+	{
+		source: 'Campaign Primer',
+		line: 'The elders still speak of [[The Drowning of Saltreach]]; the company’s own story begins at [[The party makes landfall]].',
+		targets: ['The Drowning of Saltreach', 'The party makes landfall'],
+	},
+	{
+		source: 'The Sunken Crypt — DM notes',
+		line: 'The rites below answer to [[Faction · The Ashen Hand]] — read [[The Hollow King stirs]] before the party descends.',
+		targets: ['Faction · The Ashen Hand', 'The Hollow King stirs'],
+	},
+	{
+		source: 'Faction · The Ashen Hand',
+		line: 'Their next rite is staged beneath [[The Sunken Crypt — DM notes]].',
+		targets: ['The Sunken Crypt — DM notes'],
+	},
+] as const;
+
 const DEMO_SCENES = [
 	{
 		name: 'The Sunken Crypt',
@@ -146,11 +220,41 @@ const DEMO_DATED_NOTES = [
 // AUDIO-009/010 — a declared, supported web-stream source (cache behaviour declared ⇒ playback enabled)
 // played as the session's now-playing track, so the Audio screen's now-playing strip is populated. A
 // web-stream needs no imported asset bytes (the stream IS the track), so this seeds with no file import.
+// The URL is a generated data: URI (a 0.25s silent WAV loop) rather than a fake remote host: the
+// app-level playback driver mounts an <audio> for the now-playing track on every route, and a
+// non-resolvable host would log a network error on every page (breaking the console-clean gates).
+// Silence keeps the demo honest — the transport genuinely plays; there is just nothing to hear.
+function silentWavDataUri(): string {
+	const sampleRate = 8000;
+	const samples = Math.round(sampleRate * 0.25);
+	const bytes = new Uint8Array(44 + samples).fill(128, 44); // 8-bit unsigned silence
+	const view = new DataView(bytes.buffer);
+	const ascii = (offset: number, text: string) => {
+		for (let i = 0; i < text.length; i++) bytes[offset + i] = text.charCodeAt(i);
+	};
+	ascii(0, 'RIFF');
+	view.setUint32(4, 36 + samples, true);
+	ascii(8, 'WAVE');
+	ascii(12, 'fmt ');
+	view.setUint32(16, 16, true); // fmt chunk size
+	view.setUint16(20, 1, true); // PCM
+	view.setUint16(22, 1, true); // mono
+	view.setUint32(24, sampleRate, true);
+	view.setUint32(28, sampleRate, true); // byte rate (8-bit mono)
+	view.setUint16(32, 1, true); // block align
+	view.setUint16(34, 8, true); // bits per sample
+	ascii(36, 'data');
+	view.setUint32(40, samples, true);
+	let bin = '';
+	for (const b of bytes) bin += String.fromCharCode(b);
+	return `data:audio/wav;base64,${btoa(bin)}`;
+}
+
 const DEMO_AUDIO = {
 	source: {
 		type: 'web-stream',
-		displayName: 'Tides Beneath Saltreach',
-		url: 'https://stream.dndtools.local/saltreach-ambience',
+		displayName: 'Tides Beneath Saltreach (silent sample loop)',
+		url: silentWavDataUri(),
 		cacheBehavior: 'cache-required',
 	},
 	volume: 0.5,
@@ -196,7 +300,22 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 		Object.values(rt.state.scenes.scenes).filter((s) => !s?.templateMeta?.isTemplate).length === 0;
 	const needCalendar = Object.keys(rt.state.content.calendars).length === 0;
 	const needAudio = Object.keys(rt.state.audio.sources).length === 0;
-	if (!needCharacters && !needNotes && !needScenes && !needCalendar && !needAudio) return false;
+	// Factions guard on THEIR OWN emptiness (any faction-subtype object), so a vault seeded before the
+	// faction category existed still backfills it.
+	const needFactions = !Object.values(rt.state.content.items).some(
+		(item) => item.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'faction',
+	);
+	// Wikilinks guard on their own emptiness too: notes exist (or are about to be seeded) and NONE
+	// carries a `[[wikilink]]` yet. The append pass itself re-reads live state AFTER the note/calendar
+	// categories run, so it only ever links notes that actually exist in this vault.
+	const liveNotesUpFront = Object.values(rt.state.content.items).filter(
+		(item) => item.kind === 'note' && isLiveContentItem(item),
+	);
+	const needWikilinks =
+		(needNotes || liveNotesUpFront.length > 0) &&
+		liveNotesUpFront.every((item) => !item.body.includes('[['));
+	if (!needCharacters && !needNotes && !needScenes && !needCalendar && !needAudio && !needFactions && !needWikilinks)
+		return false;
 
 	// Surface a swallowed rejection in dev so a mis-shaped seed datum is visible, not silently dropped.
 	const expect = (result: CommandResult, label: string): CommandResult => {
@@ -265,6 +384,22 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 					}),
 					`combat ${pc.name}`,
 				);
+				// finalize-draft does NOT auto-grant the `owner` capability set (PERM-004 grants are
+				// explicit), so without this the player persona can't level up or journal on their own PC.
+				expect(
+					await rt.dispatch({
+						type: 'permission.grant-capability-set',
+						actorId,
+						payload: {
+							entityType: 'character',
+							entityId: characterId,
+							playerActorId: pc.owner,
+							capabilitySet: 'owner',
+							expiresAt: null,
+						},
+					}),
+					`owner grant ${pc.name}`,
+				);
 			}
 		}
 
@@ -277,6 +412,27 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 						payload: { kind: 'note', title: n.title, body: n.body, visibility: n.visibility },
 					}),
 					`note ${n.title}`,
+				);
+			}
+		}
+
+		// Faction dossiers as real Vault Objects (CONTENT-013 subtype `faction`) → a populated Campaign
+		// Factions tab. `content.create-object` schema-validates the frontmatter fields fail-closed.
+		if (needFactions) {
+			for (const f of DEMO_FACTIONS) {
+				expect(
+					await rt.dispatch({
+						type: 'content.create-object',
+						actorId,
+						payload: {
+							subtype: 'faction',
+							title: f.title,
+							fields: { ...f.fields, goals: [...f.fields.goals] },
+							body: f.body,
+							visibility: f.visibility,
+						},
+					}),
+					`faction ${f.title}`,
 				);
 			}
 		}
@@ -302,6 +458,32 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 						},
 					}),
 					`dated note ${n.title}`,
+				);
+			}
+		}
+
+		// [[Wikilinks]] between the seeded notes → non-empty Knowledge backlinks + Graph wikilink edges.
+		// Runs AFTER the note/calendar categories so the titles it links exist; re-reads LIVE state (the
+		// runtime state getter tracks each accepted dispatch) and appends through `content.update-item`.
+		if (needWikilinks) {
+			const notesByTitle = new Map(
+				Object.values(rt.state.content.items)
+					.filter((item) => item.kind === 'note' && isLiveContentItem(item))
+					.map((item) => [item.title, item]),
+			);
+			for (const append of DEMO_WIKILINK_APPENDS) {
+				const source = notesByTitle.get(append.source);
+				// Only link notes that actually exist in THIS vault (categories seed independently — the
+				// dated targets live under the calendar guard), and never double-append into a linked body.
+				if (!source || source.body.includes('[[')) continue;
+				if (!append.targets.every((title) => notesByTitle.has(title))) continue;
+				expect(
+					await rt.dispatch({
+						type: 'content.update-item',
+						actorId,
+						payload: { itemId: source.id, body: `${source.body}\n\n${append.line}` },
+					}),
+					`wikilinks ${append.source}`,
 				);
 			}
 		}

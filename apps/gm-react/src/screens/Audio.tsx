@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore, type FormEvent } from 'react';
 import {
 	getSessionAudioView,
 	listAudioAssetsForActor,
@@ -6,10 +6,12 @@ import {
 	listAudioSourceClassificationsForActor,
 	listScenesForActor,
 	type AudioAssetView,
+	type AudioSourceClassification,
 } from '@dndtools/core';
-import { Badge, Button, Icon, StatusDot, VisibilityChip } from '../ds';
+import { Badge, Button, Field, Icon, Input, Select, StatusDot, VisibilityChip } from '../ds';
 import { Page, Panel, T, eb } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { ensureAudioPlayback } from '../runtime/audio-playback';
 
 /**
  * Audio — soundboard + session-audio transport, now wired to the live Processing Core (was static
@@ -17,8 +19,18 @@ import { useRuntime } from '../runtime/RuntimeContext';
  * the soundboard plays real library assets (`listAudioAssetsForActor` → `session.audio.play`), the master
  * fader sets the AUTHORITATIVE session volume (`session.audio.set-volume`), and scene bindings are real
  * AUDIO-001 associations (`audio.associate-scene` / `disassociate-scene`). All audio config is DM-only —
- * a non-DM device receives empty lists (fail closed). A fresh vault seeds no audio, so empty states are
- * honest, and a one-click `audio.configure-source` gives the screen a real, dispatchable source.
+ * a non-DM device receives empty lists (fail closed), and every write is disabled while previewing.
+ *
+ * AUDIBLE playback: mounting this screen starts the app-lifetime device-output driver
+ * (`runtime/audio-playback.ts`), which follows the authoritative session track and drives a single
+ * HTMLAudioElement for web-stream sources — so the transport buttons below actually make sound. The
+ * driver's snapshot surfaces the honest silent states (autoplay blocked / no stream URL / stream error)
+ * as a small line in the now-playing strip.
+ *
+ * ADD TRACK: the "Tracks & sources" panel dispatches `audio.configure-source` (the same declared-cache
+ * web-stream path the demo seed uses — no asset bytes needed) and can `session.audio.play` a stream
+ * source directly. Importing LOCAL FILES stays an honest stub: `audio.import-asset` requires the asset
+ * BYTES, and this prototype has no asset-byte storage beside the core store yet.
  *
  * Honest-local (no core command): the per-layer AMBIENCE MIXER. Session audio is a SINGLE authoritative
  * track (Architecture Contract 4), not a per-loop layered mix — so the layer volumes/mute live in local
@@ -47,10 +59,25 @@ const LOCAL_AMBIENCE = [
 	{ id: 'amb-heartbeat', name: 'Dread heartbeat', icon: 'audio', on: true, vol: 22, dm: true },
 ];
 
+const SOURCE_KIND_OPTIONS = [
+	{ value: 'web-stream', label: 'Web stream (URL)' },
+	{ value: 'bundled-preset', label: 'Bundled preset' },
+	{ value: 'local-file', label: 'Local file library' },
+] as const;
+type SourceKind = (typeof SOURCE_KIND_OPTIONS)[number]['value'];
+
 export function Audio() {
 	const runtime = useRuntime();
 	const dmId = runtime.defaultActorId;
 	const state = runtime.state;
+	const previewing = !!runtime.preview;
+	const isDm = state.permissions.actors[dmId]?.role === 'dm';
+	const canEdit = isDm && !previewing;
+
+	// Start (idempotently) the app-lifetime device-output driver and follow its honest status. The driver
+	// is keyed per runtime, so StrictMode double-render / remount reuses the same element and subscription.
+	const playback = useMemo(() => ensureAudioPlayback(runtime), [runtime]);
+	const playbackState = useSyncExternalStore(playback.subscribe, playback.getSnapshot, playback.getSnapshot);
 
 	const audioView = useMemo(
 		() => getSessionAudioView(state.audio, state.session.audioPlayback, state.permissions, dmId),
@@ -81,6 +108,14 @@ export function Audio() {
 	const [ambience, setAmbience] = useState(LOCAL_AMBIENCE.map((a) => ({ ...a })));
 	const [pulse, setPulse] = useState<string | null>(null);
 
+	// Add-track form (audio.configure-source — the same declared-cache path the demo seed proves out).
+	const [trackName, setTrackName] = useState('');
+	const [trackUrl, setTrackUrl] = useState('');
+	const [trackKind, setTrackKind] = useState<SourceKind>('web-stream');
+	const [addBusy, setAddBusy] = useState(false);
+	const [addError, setAddError] = useState<string | null>(null);
+	const [addedName, setAddedName] = useState<string | null>(null);
+
 	const dispatch = (command: Parameters<typeof runtime.dispatch>[0]) => {
 		void runtime.dispatch(command);
 	};
@@ -101,17 +136,52 @@ export function Audio() {
 		});
 	};
 
-	const configureSource = () =>
+	// ADD TRACK — configure a declared source, exactly as the demo seed does for the now-playing stream:
+	// a web-stream declares `cache-required` (⇒ playback-enabled, no asset bytes needed); local kinds only
+	// allow `local`. The core rejects a missing URL / disallowed cache behavior fail-closed.
+	const addTrack = async (e: FormEvent) => {
+		e.preventDefault();
+		if (addBusy || !trackName.trim()) return;
+		if (trackKind === 'web-stream' && !trackUrl.trim()) {
+			setAddError('A web stream needs a stream URL.');
+			return;
+		}
+		setAddBusy(true);
+		setAddError(null);
+		try {
+			const result = await runtime.dispatch({
+				type: 'audio.configure-source',
+				actorId: dmId,
+				payload: {
+					type: trackKind,
+					displayName: trackName.trim(),
+					url: trackKind === 'web-stream' ? trackUrl.trim() : null,
+					cacheBehavior: trackKind === 'web-stream' ? 'cache-required' : 'local',
+				},
+			});
+			if (result.status === 'accepted') {
+				setAddedName(trackName.trim());
+				setTrackName('');
+				setTrackUrl('');
+			} else {
+				setAddedName(null);
+				setAddError(result.rejection.message);
+			}
+		} finally {
+			setAddBusy(false);
+		}
+	};
+
+	// Play a configured STREAM source as the session track (a web-stream play needs no asset — the stream
+	// IS the track). Non-stream sources need an imported asset, which the file-import stub can't provide.
+	const playSource = (s: AudioSourceClassification) => {
+		if (s.type !== 'web-stream' || !s.playbackEnabled) return;
 		dispatch({
-			type: 'audio.configure-source',
+			type: 'session.audio.play',
 			actorId: dmId,
-			payload: {
-				type: 'web-stream',
-				displayName: 'Ambience Stream',
-				url: 'https://stream.dndtools.local/ambience',
-				cacheBehavior: 'cache-required',
-			},
+			payload: { sourceId: s.sourceId, online: true },
 		});
+	};
 
 	const sceneAssociationsFor = (sceneId: string) =>
 		associations.filter((a) => a.targetKind === 'scene' && a.targetId === sceneId);
@@ -178,15 +248,15 @@ export function Audio() {
 				{track && (
 					<div style={{ display: 'flex', gap: 7 }}>
 						{playing ? (
-							<Button variant="ghost" size="sm" icon="pause" onClick={() => dispatch({ type: 'session.audio.pause', actorId: dmId, payload: {} })}>
+							<Button variant="ghost" size="sm" icon="pause" disabled={!canEdit} onClick={() => dispatch({ type: 'session.audio.pause', actorId: dmId, payload: {} })}>
 								Pause
 							</Button>
 						) : (
-							<Button variant="ghost" size="sm" icon="play" onClick={() => dispatch({ type: 'session.audio.resume', actorId: dmId, payload: {} })}>
+							<Button variant="ghost" size="sm" icon="play" disabled={!canEdit} onClick={() => dispatch({ type: 'session.audio.resume', actorId: dmId, payload: {} })}>
 								Resume
 							</Button>
 						)}
-						<Button variant="ghost" size="sm" icon="close" onClick={() => dispatch({ type: 'session.audio.stop', actorId: dmId, payload: {} })}>
+						<Button variant="ghost" size="sm" icon="close" disabled={!canEdit} onClick={() => dispatch({ type: 'session.audio.stop', actorId: dmId, payload: {} })}>
 							Stop
 						</Button>
 					</div>
@@ -206,98 +276,179 @@ export function Audio() {
 					<Icon name="audio" size={15} color={T.ter} />
 					<Fader
 						value={masterPct}
-						disabled={!track}
+						disabled={!track || !canEdit}
 						onChange={(v) => dispatch({ type: 'session.audio.set-volume', actorId: dmId, payload: { volume: v / 100 } })}
 					/>
 					<span style={{ font: `12px ${T.mono}`, color: T.sub, width: 30, textAlign: 'right' }}>{masterPct}</span>
 				</div>
+				{/* The device-output driver's honest silent states — the durable track says "playing", this
+				    line says why THIS device is (or isn't) actually sounding. Nothing fancy by design. */}
+				{track && (playbackState.status === 'blocked' || playbackState.status === 'no-stream' || playbackState.status === 'error') && (
+					<div role="status" style={{ flexBasis: '100%', font: `11.5px/1.5 ${T.sans}`, color: T.ter, display: 'flex', alignItems: 'center', gap: 6 }}>
+						<Icon name="audio" size={13} color={T.ter} /> {playbackState.detail}
+					</div>
+				)}
 			</div>
 
 			<div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 18, alignItems: 'start' }}>
-				{/* soundboard — real library assets; each tile dispatches session.audio.play */}
-				<Panel
-					title="Soundboard"
-					action={<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{assets.length} {assets.length === 1 ? 'asset' : 'assets'}</span>}
-				>
-					{assets.length === 0 ? (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '8px 2px' }}>
-							<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.ter }}>
-								The audio library is empty. Configure a source, then import assets to it. Importing assets requires
-								file bytes (a real file picker), so it is not wired on this prototype surface — but a source is.
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+					{/* soundboard — real library assets; each tile dispatches session.audio.play */}
+					<Panel
+						title="Soundboard"
+						action={<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{assets.length} {assets.length === 1 ? 'asset' : 'assets'}</span>}
+					>
+						{assets.length === 0 ? (
+							<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.ter, padding: '8px 2px' }}>
+								The audio asset library is empty. Add a stream track below to get audible session audio right away —
+								importing local files needs asset-byte storage this prototype doesn’t have yet, so file upload is not wired.
 							</div>
-							<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-								<Button variant="secondary" size="sm" icon="add" onClick={configureSource}>
-									Configure web-stream source
-								</Button>
-								{sources.length > 0 && (
-									<span style={{ font: `11.5px ${T.sans}`, color: T.sub }}>
-										{sources.length} {sources.length === 1 ? 'source' : 'sources'} configured
-									</span>
-								)}
+						) : (
+							<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
+								{assets.map((a) => {
+									const lit = pulse === a.id;
+									return (
+										<button
+											key={a.id}
+											type="button"
+											onClick={() => playAsset(a)}
+											style={{
+												display: 'flex',
+												alignItems: 'center',
+												gap: 11,
+												padding: '13px 14px',
+												borderRadius: 11,
+												cursor: 'pointer',
+												textAlign: 'left',
+												border: `1px solid ${lit ? T.acc : T.bd}`,
+												background: lit ? `color-mix(in srgb, ${T.acc} 18%, ${T.surf})` : T.surf,
+												transition: 'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
+											}}
+										>
+											<span
+												style={{
+													width: 34,
+													height: 34,
+													borderRadius: 9,
+													flex: '0 0 auto',
+													display: 'inline-flex',
+													alignItems: 'center',
+													justifyContent: 'center',
+													background: `color-mix(in srgb, ${T.acc} 16%, transparent)`,
+													color: T.acc,
+												}}
+											>
+												<Icon name="play" size="md" />
+											</span>
+											<span style={{ flex: 1, minWidth: 0 }}>
+												<span style={{ display: 'block', font: `600 13px ${T.sans}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title || a.fileName}</span>
+												<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>{a.tags.length ? a.tags.join(' · ') : a.mimeType}</span>
+											</span>
+											{a.needsLicenseReview && <VisibilityChip level="dm-only" compact />}
+										</button>
+									);
+								})}
 							</div>
-							{sources.length > 0 && (
-								<div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 2 }}>
-									{sources.map((s) => (
-										<div key={s.sourceId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', border: `1px solid ${T.bd}`, borderRadius: 9, background: T.surf }}>
+						)}
+					</Panel>
+
+					{/* tracks & sources — ADD a source in-app (audio.configure-source) + play a stream directly */}
+					<Panel
+						title="Tracks &amp; sources"
+						action={<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{sources.length} {sources.length === 1 ? 'source' : 'sources'}</span>}
+					>
+						{canEdit ? (
+							<form onSubmit={addTrack} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+								<div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 10 }}>
+									<Field label="Track name" htmlFor="audio-track-name" required>
+										<Input
+											id="audio-track-name"
+											value={trackName}
+											onChange={(e: { target: { value: string } }) => setTrackName(e.target.value)}
+											placeholder="Tavern murmur"
+										/>
+									</Field>
+									<Field label="Kind" htmlFor="audio-track-kind">
+										<Select
+											id="audio-track-kind"
+											value={trackKind}
+											onChange={(e: { target: { value: string } }) => setTrackKind(e.target.value as SourceKind)}
+											options={[...SOURCE_KIND_OPTIONS]}
+										/>
+									</Field>
+								</div>
+								<Field
+									label="Stream URL"
+									htmlFor="audio-track-url"
+									required={trackKind === 'web-stream'}
+									help={
+										trackKind === 'web-stream'
+											? 'A direct audio URL — the stream is the track, no file import needed.'
+											: 'Only web streams take a URL. Local kinds need imported asset files (file upload is not wired — no asset-byte storage yet).'
+									}
+								>
+									<Input
+										id="audio-track-url"
+										value={trackUrl}
+										disabled={trackKind !== 'web-stream'}
+										onChange={(e: { target: { value: string } }) => setTrackUrl(e.target.value)}
+										placeholder="https://example.com/ambience.mp3"
+									/>
+								</Field>
+								<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+									<Button type="submit" variant="secondary" size="sm" icon="add" disabled={addBusy || !trackName.trim()}>
+										{addBusy ? 'Adding…' : 'Add track'}
+									</Button>
+									{addError && (
+										<span role="status" style={{ font: `11.5px ${T.sans}`, color: 'var(--color-status-error-text)' }}>{addError}</span>
+									)}
+									{!addError && addedName && (
+										<span role="status" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, font: `11.5px ${T.sans}`, color: 'var(--color-status-success-text)' }}>
+											<Icon name="success" size="sm" /> “{addedName}” added
+										</span>
+									)}
+								</div>
+							</form>
+						) : (
+							<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+								Audio configuration is DM-only{previewing ? ' — exit preview to add tracks.' : '.'}
+							</div>
+						)}
+						{sources.length > 0 && (
+							<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+								{sources.map((s) => {
+									const streamPlayable = s.type === 'web-stream' && s.playbackEnabled;
+									const isActive = track?.sourceId === s.sourceId;
+									return (
+										<div key={s.sourceId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', border: `1px solid ${isActive ? T.accBd : T.bd}`, borderRadius: 9, background: T.surf }}>
 											<Icon name="audio" size={15} color={s.playbackEnabled ? T.acc : T.ter} />
 											<div style={{ flex: 1, minWidth: 0 }}>
 												<div style={{ font: `600 12.5px ${T.sans}` }}>{s.displayName}</div>
 												<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{s.type} · {s.cacheBehavior} · {s.offlineAvailability}</div>
 											</div>
 											<Badge status={s.playbackEnabled ? 'success' : 'neutral'}>{s.playbackEnabled ? 'Playback ready' : 'Disabled'}</Badge>
+											{streamPlayable ? (
+												<Button
+													variant="ghost"
+													size="sm"
+													icon="play"
+													disabled={!canEdit || (isActive && playing)}
+													aria-label={`Play ${s.displayName}`}
+													onClick={() => playSource(s)}
+												>
+													{isActive && playing ? 'Playing' : 'Play'}
+												</Button>
+											) : (
+												<span style={{ font: `10.5px ${T.sans}`, color: T.ter }} title="Playing this kind needs an imported asset — file import is not wired (no asset-byte storage).">
+													Needs asset
+												</span>
+											)}
 										</div>
-									))}
-								</div>
-							)}
-						</div>
-					) : (
-						<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
-							{assets.map((a) => {
-								const lit = pulse === a.id;
-								return (
-									<button
-										key={a.id}
-										type="button"
-										onClick={() => playAsset(a)}
-										style={{
-											display: 'flex',
-											alignItems: 'center',
-											gap: 11,
-											padding: '13px 14px',
-											borderRadius: 11,
-											cursor: 'pointer',
-											textAlign: 'left',
-											border: `1px solid ${lit ? T.acc : T.bd}`,
-											background: lit ? `color-mix(in srgb, ${T.acc} 18%, ${T.surf})` : T.surf,
-											transition: 'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard)',
-										}}
-									>
-										<span
-											style={{
-												width: 34,
-												height: 34,
-												borderRadius: 9,
-												flex: '0 0 auto',
-												display: 'inline-flex',
-												alignItems: 'center',
-												justifyContent: 'center',
-												background: `color-mix(in srgb, ${T.acc} 16%, transparent)`,
-												color: T.acc,
-											}}
-										>
-											<Icon name="play" size="md" />
-										</span>
-										<span style={{ flex: 1, minWidth: 0 }}>
-											<span style={{ display: 'block', font: `600 13px ${T.sans}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title || a.fileName}</span>
-											<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>{a.tags.length ? a.tags.join(' · ') : a.mimeType}</span>
-										</span>
-										{a.needsLicenseReview && <VisibilityChip level="dm-only" compact />}
-									</button>
-								);
-							})}
-						</div>
-					)}
-				</Panel>
+									);
+								})}
+							</div>
+						)}
+					</Panel>
+				</div>
 
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 					{/* ambience mixer — honest-local (no core command for a per-layer mix) */}
@@ -374,7 +525,7 @@ export function Audio() {
 						})}
 						{!webStreamSource && scenes.length > 0 && (
 							<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 8 }}>
-								Configure a web-stream source (in the soundboard) to bind scenes.
+								Add a web-stream track (in Tracks &amp; sources) to bind scenes.
 							</div>
 						)}
 					</Panel>

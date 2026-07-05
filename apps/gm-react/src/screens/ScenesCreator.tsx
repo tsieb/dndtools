@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listScenesForActor } from '@dndtools/core';
-import { Badge, Button, Card, Field, Icon, Input, Select, Textarea } from '../ds';
+import { Badge, Button, Card, Field, Icon, IconButton, Input, Select, Textarea } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
-import { sceneStatus, statusLabel } from '../app/scene-helpers';
+import { parseTags, sceneStatus, statusLabel } from '../app/scene-helpers';
 
 type Visibility = 'dm-only' | 'shared' | 'player-visible';
 
@@ -24,6 +24,8 @@ export function ScenesCreator() {
 	const [visibility, setVisibility] = useState<Visibility>('dm-only');
 	const [tagsRaw, setTagsRaw] = useState('');
 	const [submitting, setSubmitting] = useState(false);
+	// Which scene row (if any) has its metadata editor expanded (scene.update-metadata).
+	const [editingId, setEditingId] = useState<string | null>(null);
 
 	const actorId = runtime.defaultActorId;
 	const activeSceneId = runtime.state.session.activeSceneId;
@@ -64,6 +66,24 @@ export function ScenesCreator() {
 	}
 
 	const status = createLifecycle?.status;
+
+	// SCENE METADATA — rename / re-describe / re-tag a scene AFTER creation through the core's
+	// `scene.update-metadata`. Returns the rejection message (null on success) for inline display.
+	async function saveRowMeta(
+		sceneId: string,
+		meta: { name: string; description: string; tags: string[] },
+	): Promise<string | null> {
+		const result = await runtime.dispatch({
+			type: 'scene.update-metadata',
+			actorId,
+			payload: { sceneId, name: meta.name, description: meta.description, tags: meta.tags },
+		});
+		if (result.status === 'rejected') {
+			return result.rejection.message ?? 'The scene details could not be saved.';
+		}
+		setEditingId(null);
+		return null;
+	}
 
 	return (
 		<div
@@ -171,47 +191,161 @@ export function ScenesCreator() {
 					<Card elevation="flat" padding="sm" style={{ display: 'flex', flexDirection: 'column' }}>
 						{scenes.map((scene, i) => {
 							const s = sceneStatus(scene, activeSceneId);
+							const rowEditing = editingId === scene.id;
 							return (
-								<button
-									key={scene.id}
-									type="button"
-									onClick={() => navigate(`/scene/${scene.id}`)}
-									style={{
-										display: 'flex',
-										alignItems: 'center',
-										gap: 'var(--space-3)',
-										padding: 'var(--space-3)',
-										border: 'none',
-										borderTop: i ? '1px solid var(--color-border)' : 'none',
-										borderRadius: 'var(--radius-sm)',
-										background: 'transparent',
-										cursor: 'pointer',
-										textAlign: 'left',
-									}}
-									onMouseEnter={(e) => {
-										e.currentTarget.style.background = 'var(--color-interactive-hover)';
-									}}
-									onMouseLeave={(e) => {
-										e.currentTarget.style.background = 'transparent';
-									}}
-								>
-									<Icon name={s === 'draft' ? 'Lock' : 'atlas-map'} size="sm" color="var(--color-text-secondary)" />
-									<div style={{ flex: 1, minWidth: 0 }}>
-										<div style={{ font: '600 var(--text-sm) var(--font-sans)', color: 'var(--color-text-primary)' }}>
-											{scene.name}
-										</div>
-										<div style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}>
-											{scene.tags?.[0] ?? 'Scene'}
-										</div>
+								<div key={scene.id} style={{ borderTop: i ? '1px solid var(--color-border)' : 'none' }}>
+									<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+										<button
+											type="button"
+											onClick={() => navigate(`/scene/${scene.id}`)}
+											style={{
+												flex: 1,
+												minWidth: 0,
+												display: 'flex',
+												alignItems: 'center',
+												gap: 'var(--space-3)',
+												padding: 'var(--space-3)',
+												border: 'none',
+												borderRadius: 'var(--radius-sm)',
+												background: 'transparent',
+												cursor: 'pointer',
+												textAlign: 'left',
+											}}
+											onMouseEnter={(e) => {
+												e.currentTarget.style.background = 'var(--color-interactive-hover)';
+											}}
+											onMouseLeave={(e) => {
+												e.currentTarget.style.background = 'transparent';
+											}}
+										>
+											<Icon name={s === 'draft' ? 'Lock' : 'atlas-map'} size="sm" color="var(--color-text-secondary)" />
+											<div style={{ flex: 1, minWidth: 0 }}>
+												<div style={{ font: '600 var(--text-sm) var(--font-sans)', color: 'var(--color-text-primary)' }}>
+													{scene.name}
+												</div>
+												<div style={{ font: 'var(--text-xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}>
+													{scene.tags?.[0] ?? 'Scene'}
+												</div>
+											</div>
+											<Badge status={s === 'live' ? 'success' : s === 'ready' ? 'info' : 'neutral'}>
+												{statusLabel(s)}
+											</Badge>
+										</button>
+										<IconButton
+											icon="edit"
+											label={`Edit details of ${scene.name}`}
+											variant="ghost"
+											size="sm"
+											onClick={() => setEditingId(rowEditing ? null : scene.id)}
+											style={{ marginRight: 'var(--space-2)', flex: '0 0 auto' }}
+										/>
 									</div>
-									<Badge status={s === 'live' ? 'success' : s === 'ready' ? 'info' : 'neutral'}>
-										{statusLabel(s)}
-									</Badge>
-								</button>
+									{rowEditing && (
+										<SceneRowMetaEditor
+											name={scene.name}
+											description={runtime.state.scenes.scenes[scene.id]?.description ?? ''}
+											tags={scene.tags}
+											onSave={(meta) => saveRowMeta(scene.id, meta)}
+											onClose={() => setEditingId(null)}
+										/>
+									)}
+								</div>
 							);
 						})}
 					</Card>
 				)}
+			</div>
+		</div>
+	);
+}
+
+/**
+ * SceneRowMetaEditor — the inline expansion under a scene row for editing name / description / tags
+ * after creation (`scene.update-metadata`). `onSave` resolves to a rejection message (shown inline)
+ * or null on success; Escape collapses the editor.
+ */
+function SceneRowMetaEditor({
+	name,
+	description,
+	tags,
+	onSave,
+	onClose,
+}: {
+	name: string;
+	description: string;
+	tags: string[];
+	onSave: (meta: { name: string; description: string; tags: string[] }) => Promise<string | null>;
+	onClose: () => void;
+}) {
+	const [draftName, setDraftName] = useState(name);
+	const [draftDescription, setDraftDescription] = useState(description);
+	const [draftTags, setDraftTags] = useState(tags.join(', '));
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	async function save() {
+		if (!draftName.trim() || saving) return;
+		setSaving(true);
+		try {
+			const rejection = await onSave({
+				name: draftName.trim(),
+				description: draftDescription.trim(),
+				tags: parseTags(draftTags),
+			});
+			setError(rejection);
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	return (
+		<div
+			onKeyDown={(e: React.KeyboardEvent) => {
+				if (e.key === 'Escape') {
+					e.stopPropagation();
+					onClose();
+				}
+			}}
+			style={{
+				display: 'flex',
+				flexDirection: 'column',
+				gap: 'var(--space-3)',
+				margin: '0 var(--space-3) var(--space-3)',
+				padding: 'var(--space-3)',
+				borderRadius: 'var(--radius-md)',
+				background: 'var(--color-surface-sunken)',
+				border: '1px solid var(--color-border)',
+			}}
+		>
+			<Field label="Name" required>
+				<Input value={draftName} onChange={(e: { target: { value: string } }) => setDraftName(e.target.value)} />
+			</Field>
+			<Field label="Description">
+				<Textarea
+					rows={2}
+					value={draftDescription}
+					onChange={(e: { target: { value: string } }) => setDraftDescription(e.target.value)}
+				/>
+			</Field>
+			<Field label="Tags" help="Comma-separated.">
+				<Input
+					value={draftTags}
+					onChange={(e: { target: { value: string } }) => setDraftTags(e.target.value)}
+					placeholder="dungeon, combat"
+				/>
+			</Field>
+			{error && (
+				<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--color-status-error-text)', font: 'var(--text-xs) var(--font-sans)' }}>
+					<Icon name="error" size="sm" /> {error}
+				</span>
+			)}
+			<div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+				<Button variant="primary" size="sm" icon="check" disabled={saving || !draftName.trim()} onClick={save}>
+					{saving ? 'Saving…' : 'Save details'}
+				</Button>
+				<Button variant="ghost" size="sm" onClick={onClose}>
+					Cancel
+				</Button>
 			</div>
 		</div>
 	);

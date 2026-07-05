@@ -21,6 +21,12 @@ const browser = await chromium.launch();
 let fails = 0;
 for (const route of routes) {
 	const page = await browser.newPage();
+	// Skip the first-run onboarding overlay so each route's own surface is what mounts.
+	await page.addInitScript(() => {
+		try {
+			window.localStorage.setItem('dndtools:react:onboarded', 'gate');
+		} catch {}
+	});
 	const errors = [];
 	page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
 	page.on('console', (m) => m.type() === 'error' && errors.push(`console.error: ${m.text()}`));

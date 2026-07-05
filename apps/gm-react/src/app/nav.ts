@@ -39,7 +39,7 @@ export const PLAYER_SECTION: NavSection = {
 	label: 'Player view',
 	icon: 'UserCircle',
 	path: '/player',
-	sub: 'Mara Quill · second persona',
+	sub: 'Your character · second persona',
 };
 
 export const SETTINGS_SECTION: NavSection = {
@@ -65,7 +65,7 @@ export const SECTION_TITLES: Record<string, [string, string]> = {
 	extensibility: ['Extensions & Systems', 'Plugins, the compendium, custom objects, and the rules module'],
 	community: ['Community', 'Browse modules, export your work, and publish the campaign wiki'],
 	pricing: ['Plans & cloud', 'Local-first is free. Cloud features are paid to cover what they cost to run'],
-	player: ['Player — Mara Quill', 'The second persona: your own sheet, resources, and journal'],
+	player: ['Player', 'The second persona: your own sheet, resources, and journal'],
 	settings: ['Settings', 'Appearance, players, permissions, and systems'],
 };
 

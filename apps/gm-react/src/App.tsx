@@ -1,30 +1,29 @@
-import { Component, Suspense, lazy, type CSSProperties, type ReactNode } from 'react';
+import { Component, Suspense, lazy, useEffect, type CSSProperties, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RuntimeProvider, useRuntime } from './runtime/RuntimeContext';
+import { ensureAudioPlayback } from './runtime/audio-playback';
 import { AppShell } from './app/AppShell';
+import { Onboarding } from './app/Onboarding';
 import { CommandCenter } from './screens/CommandCenter';
-import { ScenesCreator } from './screens/ScenesCreator';
-import { SceneEditor } from './screens/SceneEditor';
-import { Board } from './screens/Board';
-import { Session } from './screens/Session';
-import { Characters } from './screens/Characters';
-import { Atlas } from './screens/Atlas';
-import { Campaign } from './screens/Campaign';
-import { Knowledge } from './screens/Knowledge';
-import { Settings } from './screens/Settings';
-import { Graph } from './screens/Graph';
-import { Audio } from './screens/Audio';
-import { Extensions } from './screens/Extensions';
-import { Community } from './screens/Community';
-import { Player } from './screens/Player';
 
-// New design-package surfaces, lazily mounted at the paths their screen agents will fill in:
-//   /upgrade → src/screens/Upgrade.tsx     (named export `Upgrade`) — the prototype `pricing`
-//              section ("Plans & cloud"); renders INSIDE the DM shell like any other section.
-//   /play    → src/screens/PlayerView.tsx  (named export `PlayerView`) — the standalone,
-//              permission-tiered player companion app (player-view-app.jsx). It brings its OWN
-//              sidebar/topbar, so it is mounted CHROME-LESS, outside <AppShell> (see Shell below).
-// These are distinct from the existing `/player` → Player.tsx (the in-shell "Mara Quill" section).
+// Route-level code-splitting: every section except the landing Command Center is a lazy chunk, so
+// the boot bundle carries only the shell + hub and each surface loads on first visit (all behind
+// the one <Suspense> below — same Boot fallback everywhere). `/play` (PlayerView) brings its OWN
+// chrome, so it mounts OUTSIDE <AppShell>; `/player` is the in-shell player section.
+const ScenesCreator = lazy(() => import('./screens/ScenesCreator').then((m) => ({ default: m.ScenesCreator })));
+const SceneEditor = lazy(() => import('./screens/SceneEditor').then((m) => ({ default: m.SceneEditor })));
+const Board = lazy(() => import('./screens/Board').then((m) => ({ default: m.Board })));
+const Session = lazy(() => import('./screens/Session').then((m) => ({ default: m.Session })));
+const Characters = lazy(() => import('./screens/Characters').then((m) => ({ default: m.Characters })));
+const Atlas = lazy(() => import('./screens/Atlas').then((m) => ({ default: m.Atlas })));
+const Campaign = lazy(() => import('./screens/Campaign').then((m) => ({ default: m.Campaign })));
+const Knowledge = lazy(() => import('./screens/Knowledge').then((m) => ({ default: m.Knowledge })));
+const Settings = lazy(() => import('./screens/Settings').then((m) => ({ default: m.Settings })));
+const Graph = lazy(() => import('./screens/Graph').then((m) => ({ default: m.Graph })));
+const Audio = lazy(() => import('./screens/Audio').then((m) => ({ default: m.Audio })));
+const Extensions = lazy(() => import('./screens/Extensions').then((m) => ({ default: m.Extensions })));
+const Community = lazy(() => import('./screens/Community').then((m) => ({ default: m.Community })));
+const Player = lazy(() => import('./screens/Player').then((m) => ({ default: m.Player })));
 const Upgrade = lazy(() => import('./screens/Upgrade').then((m) => ({ default: m.Upgrade })));
 const PlayerView = lazy(() => import('./screens/PlayerView').then((m) => ({ default: m.PlayerView })));
 
@@ -103,10 +102,13 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 	}
 }
 
-/** Every routed section that lives inside the DM shell (sidebar + topbar). */
+/** Every routed section that lives inside the DM shell (sidebar + topbar). The first-run
+ * onboarding overlay mounts here (not around `/play`) so a joining player never sees DM setup;
+ * it self-gates on its localStorage flag and renders null once completed or skipped. */
 function ShelledRoutes() {
 	return (
 		<AppShell>
+			<Onboarding />
 			<Suspense fallback={<Boot />}>
 				<Routes>
 					<Route path="/" element={<CommandCenter />} />
@@ -134,6 +136,12 @@ function ShelledRoutes() {
 
 function Shell() {
 	const runtime = useRuntime();
+	// The app-lifetime audio driver (idempotent per runtime): session `audioPlayback` state makes
+	// sound no matter which screen is mounted — Session's now-playing and the Audio screen both
+	// write the same core state this driver reconciles against a single <audio> element.
+	useEffect(() => {
+		if (runtime.loaded) ensureAudioPlayback(runtime);
+	}, [runtime, runtime.loaded]);
 	if (runtime.hasLoadError) {
 		return (
 			<FailScreen

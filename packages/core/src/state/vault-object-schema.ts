@@ -19,10 +19,10 @@ import type { VisibilityLevel } from '../permissions/visibility-filter';
  *   - `calendar-event` / `timeline-event` REFERENCE the CALENDAR model (`state/calendar.ts`): a dated note
  *     anchored to a campaign calendar definition.
  *   - `note` is the free-form base (no extra required fields beyond the common envelope).
- *   - `handout`, `dice-table`, `encounter`, `audio-preset`, and `widget-package-ref` declare a frontmatter
- *     schema entry whose FULL feature model is deferred to its own later epic; this registry gives each a
- *     stable, validated frontmatter contract today so a note authored as that subtype is never silently
- *     mis-parsed.
+ *   - `handout`, `dice-table`, `encounter`, `audio-preset`, `widget-package-ref`, and `faction` declare a
+ *     frontmatter schema entry whose FULL feature model is deferred to its own later epic; this registry
+ *     gives each a stable, validated frontmatter contract today so a note authored as that subtype is never
+ *     silently mis-parsed.
  *
  * CRITICAL — SCENE IS NOT A VAULT OBJECT (Contract 4). A Scene is the spatial workspace and its state lives
  * in `SceneState`; it is validated through Scene rules, never as a note-backed object subtype. This module
@@ -38,7 +38,8 @@ import type { VisibilityLevel } from '../permissions/visibility-filter';
 export const VAULT_OBJECT_SCHEMA_REGISTRY_VERSION = 1 as const;
 
 /**
- * The initial v2 Vault Object SUBTYPES (CONTENT-013). Exactly the ten required by the requirement. Scene is
+ * The v2 Vault Object SUBTYPES: the ten initial subtypes required by CONTENT-013, plus `faction` (added for
+ * the Campaign faction dossier surface — same note-backed contract, no new storage model). Scene is
  * intentionally ABSENT — it is not a note-backed object subtype (Contract 4).
  */
 export type VaultObjectSubtype =
@@ -51,7 +52,8 @@ export type VaultObjectSubtype =
 	| 'dice-table'
 	| 'encounter'
 	| 'audio-preset'
-	| 'widget-package-ref';
+	| 'widget-package-ref'
+	| 'faction';
 
 export const VAULT_OBJECT_SUBTYPES: readonly VaultObjectSubtype[] = [
 	'note',
@@ -64,6 +66,7 @@ export const VAULT_OBJECT_SUBTYPES: readonly VaultObjectSubtype[] = [
 	'encounter',
 	'audio-preset',
 	'widget-package-ref',
+	'faction',
 ] as const;
 
 /**
@@ -296,6 +299,23 @@ export const VAULT_OBJECT_SCHEMAS: Readonly<Record<VaultObjectSubtype, VaultObje
 				schemaVersion: SCENE_STATE_SCHEMA_VERSION,
 				module: 'state/widget-package-state.ts',
 			},
+			modelImplemented: false,
+		},
+		faction: {
+			subtype: 'faction',
+			displayName: 'Faction',
+			// A campaign faction dossier: an organized group with a stance toward the party. Prose (summary,
+			// history, holdings) lives in the markdown body; these fields are the structured card/dossier data.
+			fields: [
+				field('name', 'string', true, 'The faction name.'),
+				field('kind', 'string', false, 'cult | militia | guild | party | order | other.'),
+				field('stance', 'string', false, 'hostile | neutral | friendly | allied.'),
+				field('leader', 'string', false, 'The faction leader or figurehead.'),
+				field('goals', 'string-array', false, 'The faction goals, in priority order.'),
+				dmOnlyField('secret', 'string', false, 'A DM-only secret; omitted from player projections.'),
+			],
+			defaultVisibility: 'dm-only',
+			modelReference: null,
 			modelImplemented: false,
 		},
 	});

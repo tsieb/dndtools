@@ -14,7 +14,11 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const CSS_PATH = resolve(HERE, '..', 'apps', 'gm', 'src', 'routes', 'styles.css');
+// Both apps carry the same per-theme token vocabulary — validate each so neither drifts below AA.
+const CSS_PATHS = [
+	resolve(HERE, '..', 'apps', 'gm', 'src', 'routes', 'styles.css'),
+	resolve(HERE, '..', 'apps', 'gm-react', 'src', 'styles', 'tokens', 'colors.css'),
+];
 
 const NAMED_THEMES = ['tavern', 'parchment', 'high-contrast'] as const;
 type ThemeName = (typeof NAMED_THEMES)[number];
@@ -51,6 +55,12 @@ function pairsForTheme(): Pair[] {
 			label: 'secondary text on surface',
 		},
 		{ fg: '--color-text-link', bg: '--color-surface', min: 4.5, label: 'link text on surface' },
+		{
+			fg: '--color-text-tertiary',
+			bg: '--color-surface-raised',
+			min: 4.5,
+			label: 'tertiary text on raised surface',
+		},
 		{ fg: '--color-accent', bg: '--color-bg', min: 4.5, label: 'accent text on page' },
 		{ fg: '--color-accent', bg: '--color-surface', min: 4.5, label: 'accent text on surface' },
 		{
@@ -72,11 +82,11 @@ function pairsForTheme(): Pair[] {
 	return pairs;
 }
 
-function parseThemeTokens(css: string, theme: ThemeName): Map<string, string> {
+function parseThemeTokens(css: string, theme: ThemeName, cssPath: string): Map<string, string> {
 	const escaped = theme.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
 	const blockMatch = new RegExp(`\\[data-theme='${escaped}'\\]\\s*\\{([^}]*)\\}`).exec(css);
 	if (!blockMatch) {
-		throw new Error(`Theme block not found for "${theme}" in ${CSS_PATH}`);
+		throw new Error(`Theme block not found for "${theme}" in ${cssPath}`);
 	}
 	const tokens = new Map<string, string>();
 	for (const decl of blockMatch[1]!.split(';')) {
@@ -121,45 +131,49 @@ function contrastRatio(fg: [number, number, number], bg: [number, number, number
 }
 
 function main(): void {
-	const css = readFileSync(CSS_PATH, 'utf8');
 	const failures: string[] = [];
 	let checks = 0;
 
-	for (const theme of NAMED_THEMES) {
-		const tokens = parseThemeTokens(css, theme);
-		for (const pair of pairsForTheme()) {
-			const fgValue = tokens.get(pair.fg);
-			const bgValue = tokens.get(pair.bg);
-			if (fgValue === undefined || bgValue === undefined) {
-				failures.push(`[${theme}] missing token in pair ${pair.fg} / ${pair.bg}`);
-				continue;
-			}
-			const fg = parseHex(fgValue);
-			const bg = parseHex(bgValue);
-			if (!fg || !bg) {
-				// Non-hex (e.g. rgba) values are not contrast-checked here.
-				continue;
-			}
-			checks += 1;
-			const ratio = contrastRatio(fg, bg);
-			if (ratio + 1e-9 < pair.min) {
-				failures.push(
-					`[${theme}] ${pair.label}: ${pair.fg} (${fgValue}) on ${pair.bg} (${bgValue}) = ${ratio.toFixed(2)}:1, need >= ${pair.min}:1`,
-				);
-			}
-		}
+	for (const cssPath of CSS_PATHS) {
+		const css = readFileSync(cssPath, 'utf8');
+		const app = cssPath.includes('gm-react') ? 'gm-react' : 'gm';
 
-		// AAA floor for the high-contrast theme primary text (UX-VIS-012 AC2).
-		if (theme === 'high-contrast') {
-			const fg = parseHex(tokens.get('--color-text-primary') ?? '');
-			const bg = parseHex(tokens.get('--color-bg') ?? '');
-			if (fg && bg) {
+		for (const theme of NAMED_THEMES) {
+			const tokens = parseThemeTokens(css, theme, cssPath);
+			for (const pair of pairsForTheme()) {
+				const fgValue = tokens.get(pair.fg);
+				const bgValue = tokens.get(pair.bg);
+				if (fgValue === undefined || bgValue === undefined) {
+					failures.push(`[${app}/${theme}] missing token in pair ${pair.fg} / ${pair.bg}`);
+					continue;
+				}
+				const fg = parseHex(fgValue);
+				const bg = parseHex(bgValue);
+				if (!fg || !bg) {
+					// Non-hex (e.g. rgba) values are not contrast-checked here.
+					continue;
+				}
 				checks += 1;
 				const ratio = contrastRatio(fg, bg);
-				if (ratio + 1e-9 < 21) {
+				if (ratio + 1e-9 < pair.min) {
 					failures.push(
-						`[high-contrast] primary text must reach 21:1 (AAA); got ${ratio.toFixed(2)}:1`,
+						`[${app}/${theme}] ${pair.label}: ${pair.fg} (${fgValue}) on ${pair.bg} (${bgValue}) = ${ratio.toFixed(2)}:1, need >= ${pair.min}:1`,
 					);
+				}
+			}
+
+			// AAA floor for the high-contrast theme primary text (UX-VIS-012 AC2).
+			if (theme === 'high-contrast') {
+				const fg = parseHex(tokens.get('--color-text-primary') ?? '');
+				const bg = parseHex(tokens.get('--color-bg') ?? '');
+				if (fg && bg) {
+					checks += 1;
+					const ratio = contrastRatio(fg, bg);
+					if (ratio + 1e-9 < 21) {
+						failures.push(
+							`[${app}/high-contrast] primary text must reach 21:1 (AAA); got ${ratio.toFixed(2)}:1`,
+						);
+					}
 				}
 			}
 		}
@@ -171,7 +185,7 @@ function main(): void {
 		process.exit(1);
 	}
 	console.log(
-		`Theme contrast validation passed (${checks} pair checks across ${NAMED_THEMES.length} themes).`,
+		`Theme contrast validation passed (${checks} pair checks across ${NAMED_THEMES.length} themes × ${CSS_PATHS.length} apps).`,
 	);
 }
 

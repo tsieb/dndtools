@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../ds';
 import { TIER_LABEL, visibilityChip, type BoardWidget } from './board-helpers';
-import { WidgetBody } from './widget-bodies';
+import { WidgetBody, type WidgetCommandHandler } from './widget-bodies';
 
 /**
  * SceneBoardCanvas — the ONE canvas engine the prototype's `scene-canvas.jsx` describes: the same
@@ -14,6 +14,15 @@ import { WidgetBody } from './widget-bodies';
  * `scene.resize-widget` per gesture — never per pointer-move, which would hammer IndexedDB). While a
  * gesture is in flight an optimistic local draft drives the frame; the draft is dropped the moment
  * the core-confirmed layout catches up, so there is no snap-back flicker.
+ *
+ * KEYBOARD OPERATION (CANVAS-016). Widget frames are focusable with a roving tabindex that follows
+ * the core-computed scene focus order (`SceneSummary.focusOrder`, passed as `focusOrder`): Tab enters
+ * the canvas at the selected (else last-focused, else first) widget, and plain arrow keys walk the
+ * focus order. Enter/Space selects the focused widget (opening the inspector where the host screen
+ * mounts one); Escape deselects. In EDIT mode, arrows on the SELECTED widget commit one grid step
+ * per key press through `onMove` (`scene.move-widget`), Shift+arrows one resize step through
+ * `onResize`, and Delete removes via `onRemove` — each key press is ONE discrete core op, exactly
+ * like a pointer gesture's pointer-up. The pointer paths are untouched.
  */
 
 const GRID = 20;
@@ -55,8 +64,24 @@ export interface SceneBoardCanvasProps {
 	onResize: (id: string, w: number, h: number) => void | Promise<unknown>;
 	/** System widgets are move-only (never resizable), mirroring the prototype. */
 	canResize?: (widget: BoardWidget) => boolean;
+	/** Keyboard traversal order (widget instance ids) — pass `SceneSummary.focusOrder` ids. Widgets
+	 *  missing from it are appended in render order so nothing becomes unreachable. */
+	focusOrder?: string[];
+	/** Remove the focused widget (Delete key, edit mode). Omit to disable keyboard removal. */
+	onRemove?: (id: string) => void;
+	/** VIEW-mode widget operation: dispatch a widget-declared durable command
+	 *  (`widget.dispatch-command`). Bodies render inert chips when omitted. */
+	onWidgetCommand?: (widgetInstanceId: string, commandType: string, payload: Record<string, unknown>) => void;
 	emptyHint?: string;
 }
+
+/** Arrow-key vector: [dx, dy] in grid steps. */
+const ARROW_DELTA: Record<string, readonly [number, number]> = {
+	ArrowLeft: [-1, 0],
+	ArrowRight: [1, 0],
+	ArrowUp: [0, -1],
+	ArrowDown: [0, 1],
+};
 
 type Drag =
 	| { mode: 'move'; id: string; sx: number; sy: number; ox: number; oy: number }
@@ -79,10 +104,16 @@ export function SceneBoardCanvas({
 	onMove,
 	onResize,
 	canResize,
+	focusOrder,
+	onRemove,
+	onWidgetCommand,
 	emptyHint,
 }: SceneBoardCanvasProps) {
 	const wrapRef = useRef<HTMLDivElement | null>(null);
 	const dragRef = useRef<Drag | null>(null);
+	// Keyboard roving-tabindex state: live frame elements by id + the last-focused widget.
+	const frameRefs = useRef(new Map<string, HTMLDivElement>());
+	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [view, setView] = useState<View>({ tx: 32, ty: 32, scale: 1 });
 	// Optimistic per-gesture overrides (x/y for moves, w/h for resizes).
 	const [posDraft, setPosDraft] = useState<Record<string, { x: number; y: number }>>({});
@@ -222,6 +253,67 @@ export function SceneBoardCanvas({
 			return { tx: cx - wx * s1, ty: cy - wy * s1, scale: s1 };
 		});
 
+	// Keyboard traversal order: the core-computed scene focus order first, then any widget it does
+	// not cover (in render order) so every frame stays reachable. Frames keep their RENDER order in
+	// the DOM (paint/stacking unchanged) — traversal moves focus by id instead.
+	const orderIds = useMemo(() => {
+		const present = new Set(widgets.map((w) => w.id));
+		const ordered = (focusOrder ?? []).filter((id) => present.has(id));
+		const seen = new Set(ordered);
+		for (const w of widgets) if (!seen.has(w.id)) ordered.push(w.id);
+		return ordered;
+	}, [widgets, focusOrder]);
+
+	// Roving tabindex holder: the selection, else the last-focused frame, else the first in order.
+	const tabbableId =
+		(selectedId && orderIds.includes(selectedId) ? selectedId : null) ??
+		(focusedId && orderIds.includes(focusedId) ? focusedId : null) ??
+		orderIds[0] ??
+		null;
+
+	const frameKeyDown = (e: React.KeyboardEvent, w: BoardWidget) => {
+		// Keys on the widget's own controls (Roll/Start buttons) belong to those controls.
+		if (e.target !== e.currentTarget) return;
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			onSelect(w.id);
+			return;
+		}
+		if (e.key === 'Escape') {
+			onSelect(null);
+			return;
+		}
+		if ((e.key === 'Delete' || e.key === 'Backspace') && editing && onRemove) {
+			e.preventDefault();
+			// Hand focus to a neighbour BEFORE the frame unmounts so keyboard users aren't dropped.
+			const idx = orderIds.indexOf(w.id);
+			const neighbour = orderIds[idx + 1] ?? orderIds[idx - 1];
+			onRemove(w.id);
+			if (neighbour) frameRefs.current.get(neighbour)?.focus();
+			return;
+		}
+		const delta = ARROW_DELTA[e.key];
+		if (!delta) return;
+		e.preventDefault();
+		if (editing && selectedId === w.id) {
+			// One grid step per key press, committed as ONE core op (like a pointer gesture's up).
+			const pos = posDraft[w.id] ?? { x: w.x, y: w.y };
+			const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
+			if (e.shiftKey) {
+				const resizable = canResize ? canResize(w) : w.tier !== 'system';
+				if (!resizable) return;
+				void onResize(w.id, Math.max(180, size.w + delta[0] * GRID), Math.max(120, size.h + delta[1] * GRID));
+			} else {
+				void onMove(w.id, Math.max(0, pos.x + delta[0] * GRID), Math.max(0, pos.y + delta[1] * GRID));
+			}
+			return;
+		}
+		// Unselected (any mode): arrows walk the scene focus order.
+		const dir = delta[0] + delta[1];
+		const next = orderIds[orderIds.indexOf(w.id) + dir];
+		if (next) frameRefs.current.get(next)?.focus();
+	};
+
 	const frames = widgets.map((w) => {
 		const pos = posDraft[w.id] ?? { x: w.x, y: w.y };
 		const size = sizeDraft[w.id] ?? { w: w.w, h: w.h };
@@ -239,8 +331,21 @@ export function SceneBoardCanvas({
 				selected={selected}
 				scale={scale}
 				resizable={resizable}
+				tabbable={tabbableId === w.id}
+				ariaLabel={`${w.title}, ${w.typeLabel} widget, position ${pos.x}, ${pos.y}, size ${size.w} by ${size.h}`}
+				onKeyDown={(e) => frameKeyDown(e, w)}
+				onFocusIn={() => setFocusedId(w.id)}
+				registerRef={(el) => {
+					if (el) frameRefs.current.set(w.id, el);
+					else frameRefs.current.delete(w.id);
+				}}
 				onStartMove={(e) => startMove(e, w)}
 				onStartResize={(e) => startResize(e, w)}
+				onCommand={
+					!editing && onWidgetCommand
+						? (commandType, payload) => onWidgetCommand(w.id, commandType, payload)
+						: undefined
+				}
 			/>
 		);
 	});
@@ -394,8 +499,16 @@ interface WidgetFrameProps {
 	selected: boolean;
 	scale: number;
 	resizable: boolean;
+	/** Roving tabindex: exactly one frame per canvas is tab-reachable (CANVAS-016). */
+	tabbable: boolean;
+	ariaLabel: string;
+	onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
+	onFocusIn: () => void;
+	registerRef: (el: HTMLDivElement | null) => void;
 	onStartMove: (e: React.PointerEvent) => void;
 	onStartResize: (e: React.PointerEvent) => void;
+	/** VIEW-mode operate dispatch, pre-bound to this widget instance. Absent while editing. */
+	onCommand?: WidgetCommandHandler;
 }
 
 function WidgetFrame({
@@ -408,14 +521,26 @@ function WidgetFrame({
 	selected,
 	scale,
 	resizable,
+	tabbable,
+	ariaLabel,
+	onKeyDown,
+	onFocusIn,
+	registerRef,
 	onStartMove,
 	onStartResize,
+	onCommand,
 }: WidgetFrameProps) {
 	const chip = visibilityChip(w.visibility);
 	const placeholder = w.status !== 'available';
 	return (
 		<div
 			data-testid={`widget-${w.id}`}
+			ref={registerRef}
+			role="group"
+			aria-label={ariaLabel}
+			tabIndex={tabbable ? 0 : -1}
+			onKeyDown={onKeyDown}
+			onFocus={onFocusIn}
 			style={{
 				position: 'absolute',
 				left: x,
@@ -486,7 +611,7 @@ function WidgetFrame({
 					{w.typeLabel}
 				</div>
 				<div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-					<WidgetBody widget={w} />
+					<WidgetBody widget={w} onCommand={onCommand} />
 				</div>
 				{w.statusNote && (
 					<div

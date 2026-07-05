@@ -1603,6 +1603,7 @@ const vaultObjectSubtypeSchema = z.enum([
 	'encounter',
 	'audio-preset',
 	'widget-package-ref',
+	'faction',
 ]);
 
 // CONTENT-005 — create a structured Vault Object as a note-backed content item (DM-only authoring). The

@@ -43,6 +43,10 @@ export function Board() {
 			})
 		: null;
 	const ready = summary !== null && !('kind' in summary);
+	// Core-computed keyboard traversal order (CANVAS-016) + the scene revision the durable widget
+	// command envelope must carry (`expectedRevision`, packages/core/src/commands/widget-command.ts).
+	const focusOrder = ready ? summary.focusOrder.map((entry) => entry.widgetInstanceId) : [];
+	const sceneRevision = ready ? summary.ownership.revision : 0;
 
 	// CMD-001: create the DM's home Scene from the system template the first time the board loads.
 	useEffect(() => {
@@ -94,6 +98,23 @@ export function Board() {
 	function resize(widgetInstanceId: string, w: number, h: number) {
 		if (!homeSceneId) return;
 		return dispatch({ type: 'scene.resize-widget', actorId, payload: { sceneId: homeSceneId, widgetInstanceId, w, h } });
+	}
+	function remove(widgetInstanceId: string) {
+		if (!homeSceneId) return;
+		setSelectedId((cur) => (cur === widgetInstanceId ? null : cur));
+		return dispatch({ type: 'scene.destroy-widget', actorId, payload: { sceneId: homeSceneId, widgetInstanceId } });
+	}
+	// VIEW-mode widget operation (SES-005/SES-003): a widget-DECLARED durable command through the one
+	// envelope the core accepts — fresh idempotencyKey per press + the scene's current revision.
+	async function operateWidget(widgetInstanceId: string, commandType: string, payload: Record<string, unknown>) {
+		if (!homeSceneId) return;
+		const ok = await dispatch({
+			type: 'widget.dispatch-command',
+			actorId,
+			idempotencyKey: crypto.randomUUID(),
+			payload: { sceneId: homeSceneId, widgetInstanceId, commandType, payload, expectedRevision: sceneRevision },
+		});
+		if (ok) setStatus(null);
 	}
 	async function addWidget(entry: WidgetLibraryEntry) {
 		if (!homeSceneId) return;
@@ -204,6 +225,9 @@ export function Board() {
 					onSelect={setSelectedId}
 					onMove={move}
 					onResize={resize}
+					focusOrder={focusOrder}
+					onRemove={remove}
+					onWidgetCommand={operateWidget}
 					emptyHint={
 						ready
 							? 'Press Edit layout, then Add to place a widget.'

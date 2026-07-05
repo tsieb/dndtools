@@ -7,7 +7,7 @@ import {
 	getContentItemsForActor,
 	type SceneListEntry,
 } from '@dndtools/core';
-import { Avatar, Icon, IconButton, StatusDot, ToastViewport } from '../ds';
+import { Avatar, BottomTabBar, Icon, IconButton, NavRail, Sheet, StatusDot, ToastViewport } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { CommandPalette } from './CommandPalette';
 import { ViewAsControl } from './ViewAsControl';
@@ -53,6 +53,31 @@ const SECTION_PATH: Record<string, string> = {
 	player: '/player',
 	settings: '/settings',
 };
+
+/* ── Responsive breakpoints (UX nav-profiles): ≥1025px the full sidebar, 641–1024px the icon
+ * NavRail (same IA, presentation change only), ≤640px a BottomTabBar of the hot destinations
+ * plus a "More" sheet. One hook, live via matchMedia — no resize listeners, no layout thrash. */
+type Viewport = 'desktop' | 'rail' | 'phone';
+
+function computeViewport(): Viewport {
+	if (typeof window === 'undefined') return 'desktop';
+	if (window.matchMedia('(max-width: 640px)').matches) return 'phone';
+	if (window.matchMedia('(max-width: 1024px)').matches) return 'rail';
+	return 'desktop';
+}
+
+function useViewport(): Viewport {
+	const [vp, setVp] = useState<Viewport>(() => computeViewport());
+	useEffect(() => {
+		const queries = [window.matchMedia('(max-width: 640px)'), window.matchMedia('(max-width: 1024px)')];
+		const onChange = () => setVp(computeViewport());
+		for (const q of queries) q.addEventListener('change', onChange);
+		return () => {
+			for (const q of queries) q.removeEventListener('change', onChange);
+		};
+	}, []);
+	return vp;
+}
 
 type SceneStatus = 'live' | 'ready' | 'draft';
 const SCENE_STATUS: Record<SceneStatus, { dot: 'live' | 'idle' | 'off'; label: string }> = {
@@ -454,6 +479,82 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	);
 }
 
+/** All sections in rail order — the same IA as the sidebar, flattened (a presentation change,
+ * never an IA change). */
+const ALL_SECTIONS: NavSection[] = [...RUN, ...LIBRARY, ...PLATFORM, PLAYER_SECTION, SETTINGS_SECTION];
+
+/** Tablet: the DS NavRail — icon-only, labels move to the accessible name/tooltip. */
+function RailNav({ onOpenPalette }: { onOpenPalette: () => void }) {
+	const navigate = useNavigate();
+	const location = useLocation();
+	const runtime = useRuntime();
+	const active = activeSectionId(location.pathname);
+	const liveDot = runtime.state.session.activeSceneId != null;
+	return (
+		<NavRail
+			width={64}
+			items={ALL_SECTIONS.map((s) => ({ key: s.id, icon: s.icon, label: s.label, badge: s.id === 'session' && liveDot ? '•' : undefined }))}
+			active={active}
+			onSelect={(id: string) => navigate(SECTION_PATH[id] ?? '/')}
+			header={
+				<span style={{ width: 30, height: 30, borderRadius: 7, background: T.acc, color: T.accFg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: T.ssm }}>
+					<Icon name="dice" size="sm" />
+				</span>
+			}
+			footer={<IconButton icon="search" label="Search (⌘K)" variant="ghost" size="sm" onClick={onOpenPalette} />}
+		/>
+	);
+}
+
+/** Phone: the 4 hot destinations + "More" (a bottom sheet listing the rest of the IA). */
+const PHONE_TABS: NavSection[] = [RUN[0], RUN[2], LIBRARY[0], LIBRARY[1]];
+
+function PhoneNav() {
+	const navigate = useNavigate();
+	const location = useLocation();
+	const runtime = useRuntime();
+	const [moreOpen, setMoreOpen] = useState(false);
+	const active = activeSectionId(location.pathname);
+	const hotIds = new Set(PHONE_TABS.map((s) => s.id));
+	const liveDot = runtime.state.session.activeSceneId != null;
+	const rest = ALL_SECTIONS.filter((s) => !hotIds.has(s.id));
+	return (
+		<>
+			<BottomTabBar
+				items={[
+					...PHONE_TABS.map((s) => ({ key: s.id, icon: s.icon, label: s.id === 'home' ? 'Home' : s.label, badge: s.id === 'session' && liveDot ? '•' : undefined })),
+					{ key: 'more', icon: 'chevron-up', label: 'More' },
+				]}
+				active={hotIds.has(active) ? active : 'more'}
+				onSelect={(id: string) => {
+					if (id === 'more') {
+						setMoreOpen(true);
+						return;
+					}
+					navigate(SECTION_PATH[id] ?? '/');
+				}}
+			/>
+			<Sheet open={moreOpen} onClose={() => setMoreOpen(false)} side="bottom" title="All sections">
+				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, paddingBottom: 8 }}>
+					{rest.map((s) => (
+						<SideRow
+							key={s.id}
+							icon={s.icon}
+							label={s.label}
+							sub={s.sub}
+							active={active === s.id}
+							onClick={() => {
+								setMoreOpen(false);
+								navigate(SECTION_PATH[s.id] ?? '/');
+							}}
+						/>
+					))}
+				</div>
+			</Sheet>
+		</>
+	);
+}
+
 function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const location = useLocation();
 	const id = activeSectionId(location.pathname);
@@ -541,6 +642,7 @@ function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
 
 export function AppShell({ children }: { children: ReactNode }) {
 	const [paletteOpen, setPaletteOpen] = useState(false);
+	const viewport = useViewport();
 	useEffect(() => {
 		function onKey(e: KeyboardEvent) {
 			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -581,12 +683,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 			>
 				Skip to content
 			</a>
-			<Sidebar onOpenPalette={() => setPaletteOpen(true)} />
+			{viewport === 'desktop' && <Sidebar onOpenPalette={() => setPaletteOpen(true)} />}
+			{viewport === 'rail' && <RailNav onOpenPalette={() => setPaletteOpen(true)} />}
 			<div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 				<TopBar onOpenPalette={() => setPaletteOpen(true)} />
 				<main id="main-content" tabIndex={-1} style={{ flex: 1, overflowY: 'auto', outline: 'none' }}>
 					{children}
 				</main>
+				{viewport === 'phone' && <PhoneNav />}
 			</div>
 			<CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 			<ToastViewport placement="bottom-right" />

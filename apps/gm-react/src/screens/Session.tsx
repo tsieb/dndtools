@@ -1,6 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+	addDays,
 	allowedTransitionsFrom,
+	daysInMonth,
+	getCalendarContinuityForActor,
 	getCombatTrackerForActor,
 	getDiceHistoryForActor,
 	getHandoutsForActor,
@@ -11,17 +14,22 @@ import {
 	listCharactersForActor,
 	listMapsForActor,
 	listScenesForActor,
+	type CalendarDefinition,
 	type CombatTrackerView,
-	type CommandResult,
+	type CustomDate,
 	type SessionWorkflowState,
 } from '@dndtools/core';
 import {
+	Avatar,
 	Badge,
 	Button,
 	Card,
-	Chip,
+	CONDITIONS,
+	ConditionBadge,
 	DiceResult,
+	Dialog,
 	EmptyState,
+	Field,
 	HPBar,
 	Icon,
 	IconButton,
@@ -31,40 +39,39 @@ import {
 	StatPill,
 	StatusDot,
 	Textarea,
+	VisibilityChip,
 } from '../ds';
 import { Toaster } from '../ds';
+import { EncounterDialog } from '../app/EncounterBuilder';
 import { Page, Panel, Seg, SetRow, T, eb, mono } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 
 /**
  * Session — the live-play console, wired to the real Processing Core (was a local-reducer mock).
- * It runs the session lifecycle (`session.set-workflow`), the combat tracker
- * (`combat.start/advance-turn/previous-turn/apply-resource/end` over `getCombatTrackerForActor`), the
- * dice roller (`dice.roll` over `getDiceHistoryForActor`), handout delivery
- * (`session.deliver-handout/revoke-handout/acknowledge-handout` over `getHandoutsForActor` +
- * `getHandoutStatusForDm`), now-playing session audio (`session.audio.pause/resume/stop/set-volume`
- * over `getSessionAudioView`), and the active-map stage (`session.set-active-map/project-active-map`).
- * Combat, dice, and delivery are Processing-Core gated to the live (`active`) workflow, so the console
- * guides the DM to go live first. Reads are actor-filtered, so previewing as a player projects the
- * player-safe view; every durable write is rejected read-only while previewing. The spatial widget
- * board lives on `/board` and `/scene/:id`; this screen is the combat hot path.
+ * It runs the session lifecycle (`session.set-workflow`), the encounter builder (a composition
+ * dialog over the real character roster dispatching `encounter.build` → `combat.start`), the combat
+ * tracker (`combat.advance-turn/previous-turn/apply-resource/end` plus the mid-fight roster ops
+ * `combat.add-combatants/remove-combatant/reorder-combatant/set-combatant-visibility` over
+ * `getCombatTrackerForActor`), the dice roller (`dice.roll` over `getDiceHistoryForActor`), handout
+ * delivery (`session.deliver-handout/revoke-handout/acknowledge-handout`), now-playing session audio
+ * (`session.audio.pause/resume/stop/set-volume`), the active-map stage
+ * (`session.set-active-map/project-active-map`), and the campaign date (`session.set-campaign-date`
+ * over `getCalendarContinuityForActor` — the control the Campaign timeline points at). Combat, dice,
+ * and delivery are Processing-Core gated to the live (`active`) workflow, so the console guides the
+ * DM to go live first. Reads are actor-filtered, so previewing as a player projects the player-safe
+ * view; every durable write is rejected read-only while previewing. Tracker rows follow the DS
+ * InitiativeRow anatomy (mono initiative · avatar with gold turn ring · gold active left rail ·
+ * HPBar) with per-condition ConditionBadge chips from the CONDITIONS registry (distinct icon per
+ * condition — the grayscale-safe contract). The spatial widget board lives on `/board` and
+ * `/scene/:id`; this screen is the combat hot path.
  */
-
-const COMMON_CONDITIONS = ['prone', 'poisoned', 'stunned', 'frightened', 'restrained', 'grappled', 'blinded', 'charmed'];
 
 type HandoutView = ReturnType<typeof getHandoutsForActor>[number];
 type HandoutStatusView = ReturnType<typeof getHandoutStatusForDm>[number];
 type SessionAudioView = ReturnType<typeof getSessionAudioView>;
 type MapEntry = ReturnType<typeof listMapsForActor>[number];
-
-function extractId(result: CommandResult, key: string): string | null {
-	if (result.status !== 'accepted') return null;
-	for (const event of result.events) {
-		const value = (event as Record<string, unknown>)[key];
-		if (typeof value === 'string') return value;
-	}
-	return null;
-}
+type ContinuityDate = NonNullable<ReturnType<typeof getCalendarContinuityForActor>['currentDate']>;
+type CombatantRow = CombatTrackerView['combatants'][number];
 
 export function Session() {
 	const runtime = useRuntime();
@@ -74,48 +81,80 @@ export function Session() {
 	const previewing = !!runtime.preview;
 	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
 
-	const { tracker, dice, party, activeSceneName, activeSceneId, handouts, handoutStatus, audio, audioLabel, maps, activeMapId, players } =
-		useMemo(() => {
-			const session = runtime.state.session;
-			const perms = runtime.state.permissions;
-			const tracker = getCombatTrackerForActor(session.combat, perms, actorId);
-			const dice = getDiceHistoryForActor(session, perms, actorId);
-			const characters = listCharactersForActor(runtime.state.characters, perms, actorId);
-			const scenes = listScenesForActor(runtime.state.scenes, perms, actorId);
-			const activeSceneId = session.activeSceneId;
-			const audioView = getSessionAudioView(runtime.state.audio, session.audioPlayback, perms, actorId);
-			// Resolve the now-playing track to a friendly title (asset title, else source display name) — the
-			// track view carries only ids, so a raw uuid would otherwise show in the "Now playing" strip.
-			const aTrack = audioView.track;
-			const audioLabel = aTrack
-				? ((aTrack.assetId
-						? listAudioAssetsForActor(runtime.state.audio, perms, actorId).find((a) => a.id === aTrack.assetId)?.title
-						: undefined) ??
-					listAudioSourceClassificationsForActor(runtime.state.audio, perms, actorId).find((s) => s.sourceId === aTrack.sourceId)?.displayName ??
-					aTrack.assetId ??
-					aTrack.sourceId)
-				: null;
-			return {
-				tracker,
-				dice,
-				party: characters.filter((c) => c.kind === 'pc'),
-				activeSceneName: scenes.find((s) => s.id === activeSceneId)?.name ?? null,
-				activeSceneId,
-				handouts: getHandoutsForActor(session, perms, actorId),
-				handoutStatus: getHandoutStatusForDm(session, perms, actorId),
-				audio: audioView,
-				audioLabel,
-				maps: listMapsForActor(runtime.state.maps, perms, actorId),
-				activeMapId: session.activeMap?.mapId ?? null,
-				players: Object.values(perms.actors).filter((a) => a.role === 'player'),
-			};
-		}, [runtime.state, actorId]);
+	const {
+		tracker,
+		dice,
+		characters,
+		party,
+		activeSceneName,
+		activeSceneId,
+		handouts,
+		handoutStatus,
+		audio,
+		audioLabel,
+		maps,
+		activeMapId,
+		players,
+		calendar,
+		campaignDate,
+	} = useMemo(() => {
+		const session = runtime.state.session;
+		const perms = runtime.state.permissions;
+		const tracker = getCombatTrackerForActor(session.combat, perms, actorId);
+		const dice = getDiceHistoryForActor(session, perms, actorId);
+		const characters = listCharactersForActor(runtime.state.characters, perms, actorId);
+		const scenes = listScenesForActor(runtime.state.scenes, perms, actorId);
+		const activeSceneId = session.activeSceneId;
+		const audioView = getSessionAudioView(runtime.state.audio, session.audioPlayback, perms, actorId);
+		// Resolve the now-playing track to a friendly title (asset title, else source display name) — the
+		// track view carries only ids, so a raw uuid would otherwise show in the "Now playing" strip.
+		const aTrack = audioView.track;
+		const audioLabel = aTrack
+			? ((aTrack.assetId
+					? listAudioAssetsForActor(runtime.state.audio, perms, actorId).find((a) => a.id === aTrack.assetId)?.title
+					: undefined) ??
+				listAudioSourceClassificationsForActor(runtime.state.audio, perms, actorId).find((s) => s.sourceId === aTrack.sourceId)?.displayName ??
+				aTrack.assetId ??
+				aTrack.sourceId)
+			: null;
+		// SES-012 — the campaign calendar + current date (the Campaign timeline reads the same view).
+		const calendar = (Object.values(runtime.state.content.calendars)[0] ?? null) as CalendarDefinition | null;
+		const campaignDate = getCalendarContinuityForActor(
+			session,
+			runtime.state.content,
+			runtime.state.maps,
+			perms,
+			actorId,
+			'long',
+		).currentDate;
+		return {
+			tracker,
+			dice,
+			characters,
+			party: characters.filter((c) => c.kind === 'pc'),
+			activeSceneName: scenes.find((s) => s.id === activeSceneId)?.name ?? null,
+			activeSceneId,
+			handouts: getHandoutsForActor(session, perms, actorId),
+			handoutStatus: getHandoutStatusForDm(session, perms, actorId),
+			audio: audioView,
+			audioLabel,
+			maps: listMapsForActor(runtime.state.maps, perms, actorId),
+			activeMapId: session.activeMap?.mapId ?? null,
+			players: Object.values(perms.actors).filter((a) => a.role === 'player'),
+			calendar,
+			campaignDate,
+		};
+	}, [runtime.state, actorId]);
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [diceExpr, setDiceExpr] = useState('1d20+7');
-	const [busy, setBusy] = useState(false);
 	const [handoutTitle, setHandoutTitle] = useState('');
 	const [handoutBody, setHandoutBody] = useState('');
+	// The encounter-composition dialog: 'start' builds `encounter.build` → `combat.start`;
+	// 'reinforce' adds to running combat via `combat.add-combatants`.
+	const [builderMode, setBuilderMode] = useState<'start' | 'reinforce' | null>(null);
+	// The combatant id the condition-picker dialog is open for (the design-b condPick modal pattern).
+	const [condPickFor, setCondPickFor] = useState<string | null>(null);
 
 	async function dispatch(command: Parameters<typeof runtime.dispatch>[0], ok?: string): Promise<boolean> {
 		const result = await runtime.dispatch(command);
@@ -140,43 +179,6 @@ export function Session() {
 			{ type: 'session.set-workflow', actorId, payload: { workflow: 'active', activeSceneId: sceneId } },
 			'You are live — combat & dice are open',
 		);
-	}
-
-	async function startCombat(): Promise<void> {
-		setBusy(true);
-		try {
-			// Build an encounter from the party (and a token adversary) and run it.
-			type Selection = {
-				kind: 'character' | 'npc' | 'monster';
-				name: string;
-				characterId?: string;
-				maxHp: number;
-				ac: number;
-				initiative: number;
-			};
-			const combatants: Selection[] = party.slice(0, 6).map((c, i) => ({
-				kind: 'character',
-				name: c.name,
-				characterId: c.id,
-				maxHp: c.combat?.maxHp ?? 20,
-				ac: c.combat?.ac ?? 12,
-				initiative: 10 + ((i * 3) % 11),
-			}));
-			combatants.push({ kind: 'npc', name: 'Brine Cultist', maxHp: 17, ac: 13, initiative: 14 });
-			const built = await runtime.dispatch({
-				type: 'encounter.build',
-				actorId,
-				payload: { title: `${activeSceneName ?? 'Skirmish'} — initiative`, combatants },
-			});
-			const encounterId = extractId(built, 'encounterId') ?? extractId(built, 'id');
-			if (!encounterId) {
-				Toaster.error(built.status === 'rejected' ? built.rejection.message : 'Could not build the encounter.');
-				return;
-			}
-			await dispatch({ type: 'combat.start', actorId, payload: { encounterId } }, 'Combat started — roll initiative!');
-		} finally {
-			setBusy(false);
-		}
 	}
 
 	async function deliverHandout(): Promise<void> {
@@ -210,6 +212,7 @@ export function Session() {
 	}
 
 	const selected = tracker.combatants.find((c) => c.id === selectedId) ?? null;
+	const condPickTarget = tracker.combatants.find((c) => c.id === condPickFor) ?? null;
 	const canDeliver = isDm && isLive && !!activeSceneId && players.length > 0;
 
 	return (
@@ -233,11 +236,12 @@ export function Session() {
 				<CombatPanel
 					tracker={tracker}
 					isLive={isLive}
-					busy={busy}
+					isDm={isDm}
 					selectedId={selectedId}
 					selected={selected}
 					previewing={previewing}
-					onStart={startCombat}
+					onStart={() => setBuilderMode('start')}
+					onAdd={() => setBuilderMode('reinforce')}
 					onSelect={setSelectedId}
 					onAdvance={() => dispatch({ type: 'combat.advance-turn', actorId, payload: {} })}
 					onPrevious={() => dispatch({ type: 'combat.previous-turn', actorId, payload: {} })}
@@ -247,6 +251,19 @@ export function Session() {
 					}
 					onCondition={(combatantId, condition, present) =>
 						dispatch({ type: 'combat.apply-resource', actorId, payload: { combatantId, kind: 'condition', condition, present } })
+					}
+					onPickCondition={(combatantId) => setCondPickFor(combatantId)}
+					onRemove={(combatantId, name) =>
+						dispatch({ type: 'combat.remove-combatant', actorId, payload: { combatantId } }, `${name} removed from combat`)
+					}
+					onReorder={(combatantId, direction) =>
+						dispatch({ type: 'combat.reorder-combatant', actorId, payload: { combatantId, direction } })
+					}
+					onVisibility={(combatantId, hidden) =>
+						dispatch(
+							{ type: 'combat.set-combatant-visibility', actorId, payload: { combatantId, hidden } },
+							hidden ? 'Hidden from players' : 'Revealed to players',
+						)
 					}
 				/>
 
@@ -302,9 +319,37 @@ export function Session() {
 							);
 						}}
 					/>
+					{isDm && (
+						<CampaignDatePanel
+							calendar={calendar}
+							current={campaignDate}
+							previewing={previewing}
+							onSet={(date, ok) => void dispatch({ type: 'session.set-campaign-date', actorId, payload: { date } }, ok)}
+						/>
+					)}
 					<PartyPanel party={party} />
 				</div>
 			</div>
+
+			<EncounterDialog
+				mode={builderMode}
+				onClose={() => setBuilderMode(null)}
+				characters={characters}
+				party={party}
+				defaultTitle={`${activeSceneName ?? 'Skirmish'} — encounter`}
+			/>
+			<ConditionPickerDialog
+				target={condPickTarget}
+				onClose={() => setCondPickFor(null)}
+				onPick={(combatantId, condition) => {
+					setCondPickFor(null);
+					void dispatch({
+						type: 'combat.apply-resource',
+						actorId,
+						payload: { combatantId, kind: 'condition', condition, present: true },
+					});
+				}}
+			/>
 		</Page>
 	);
 
@@ -357,54 +402,74 @@ function SessionHeader({
 	);
 }
 
+// ── Combat tracker ────────────────────────────────────────────────────────────────────────────────
+
 function CombatPanel({
 	tracker,
 	isLive,
-	busy,
+	isDm,
 	selectedId,
 	selected,
 	previewing,
 	onStart,
+	onAdd,
 	onSelect,
 	onAdvance,
 	onPrevious,
 	onEnd,
 	onHp,
 	onCondition,
+	onPickCondition,
+	onRemove,
+	onReorder,
+	onVisibility,
 }: {
 	tracker: CombatTrackerView;
 	isLive: boolean;
-	busy: boolean;
+	isDm: boolean;
 	selectedId: string | null;
-	selected: CombatTrackerView['combatants'][number] | null;
+	selected: CombatantRow | null;
 	previewing: boolean;
 	onStart: () => void;
+	onAdd: () => void;
 	onSelect: (id: string) => void;
 	onAdvance: () => void;
 	onPrevious: () => void;
 	onEnd: () => void;
 	onHp: (id: string, delta: number) => void;
 	onCondition: (id: string, condition: string, present: boolean) => void;
+	onPickCondition: (id: string) => void;
+	onRemove: (id: string, name: string) => void;
+	onReorder: (id: string, direction: 'earlier' | 'later') => void;
+	onVisibility: (id: string, hidden: boolean) => void;
 }) {
 	const running = tracker.status === 'running';
 	const lowest = tracker.combatants
 		.filter((c) => c.resources)
-		.reduce<CombatTrackerView['combatants'][number] | null>(
+		.reduce<CombatantRow | null>(
 			(m, c) => (!m || (c.resources!.hp / Math.max(1, c.resources!.maxHp)) < (m.resources!.hp / Math.max(1, m.resources!.maxHp)) ? c : m),
 			null,
 		);
+	const selectedIndex = selected ? tracker.combatants.findIndex((c) => c.id === selected.id) : -1;
 
 	return (
 		<Panel
 			title="Combat"
 			action={
 				running ? (
-					<Button variant="ghost" size="sm" icon="close" disabled={previewing} onClick={onEnd}>
-						End combat
-					</Button>
+					<div style={{ display: 'flex', gap: 7 }}>
+						{isDm && (
+							<Button variant="secondary" size="sm" icon="add" disabled={previewing} onClick={onAdd}>
+								Add
+							</Button>
+						)}
+						<Button variant="ghost" size="sm" icon="close" disabled={previewing} onClick={onEnd}>
+							End combat
+						</Button>
+					</div>
 				) : (
-					<Button variant="primary" size="sm" icon="sword" disabled={!isLive || busy || previewing} onClick={onStart}>
-						{busy ? 'Starting…' : 'Start combat'}
+					<Button variant="primary" size="sm" icon="sword" disabled={!isLive || previewing || !isDm} onClick={onStart}>
+						Build encounter
 					</Button>
 				)
 			}
@@ -415,7 +480,7 @@ function CombatPanel({
 					title={isLive ? 'No combat running' : 'Go live to start combat'}
 					description={
 						isLive
-							? 'Start combat to roll initiative for the party and run turns.'
+							? 'Compose an encounter from your roster — party, NPCs, monsters — set initiative, and run it.'
 							: 'Combat is open only while the session is live.'
 					}
 				/>
@@ -440,6 +505,10 @@ function CombatPanel({
 							const sel = c.id === selectedId;
 							const res = c.resources;
 							return (
+								// The DS InitiativeRow anatomy (mono initiative · avatar with gold turn ring · gold
+								// 3px active left rail · HPBar · quick HP steps), hand-hosted so the row can also
+								// carry selection, state badges, and per-condition ConditionBadge chips with the
+								// distinct-icon grayscale contract (the plain component renders generic chips only).
 								<div
 									key={c.id}
 									role="button"
@@ -461,15 +530,19 @@ function CombatPanel({
 										padding: '9px 12px',
 										borderRadius: 9,
 										border: `1px solid ${active ? T.accBd : sel ? T.bdS : T.bd}`,
+										borderLeft: `3px solid ${active ? T.acc : 'transparent'}`,
 										background: active ? T.accSub : T.surf,
+										opacity: c.hidden ? 0.75 : 1,
 									}}
 								>
-									<span style={{ width: 30, textAlign: 'center', font: `700 14px ${T.mono}`, color: active ? T.acc : T.sub }}>
+									<span style={{ minWidth: 28, textAlign: 'center', font: `700 14px ${T.mono}`, color: active ? T.acc : T.sub }}>
 										{c.statBlock.initiative ?? '—'}
 									</span>
+									<Avatar name={c.name} size="sm" ring={active ? 'turn' : undefined} />
 									<div style={{ flex: 1, minWidth: 0 }}>
 										<div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
 											<span style={{ font: `600 13.5px ${T.sans}`, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+											{c.hidden && <VisibilityChip level="dm-only" compact />}
 											{active && <Badge status="success">Active</Badge>}
 											{c.isBloodied && <Badge status="warning">Bloodied</Badge>}
 											{c.isDefeated && <Badge status="error">Down</Badge>}
@@ -483,11 +556,14 @@ function CombatPanel({
 											</div>
 										)}
 										{res && res.conditions.length > 0 && (
-											<div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
+											<div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }} onClick={(e) => e.stopPropagation()}>
 												{res.conditions.map((cond) => (
-													<Chip key={cond} tone="warning" icon="alert" onClick={() => onCondition(c.id, cond, false)}>
-														{cond} ✕
-													</Chip>
+													<ConditionBadge
+														key={cond}
+														condition={cond}
+														compact
+														onRemove={previewing ? undefined : () => onCondition(c.id, cond, false)}
+													/>
 												))}
 											</div>
 										)}
@@ -503,16 +579,54 @@ function CombatPanel({
 						})}
 					</div>
 
-					{selected && selected.resources && (
-						<div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 12 }}>
-							<div style={{ font: `${eb.font}`, color: T.ter, marginBottom: 8 }}>Add condition · {selected.name}</div>
-							<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-								{COMMON_CONDITIONS.filter((cond) => !selected.resources!.conditions.includes(cond)).map((cond) => (
-									<Button key={cond} variant="secondary" size="sm" disabled={previewing} onClick={() => onCondition(selected.id, cond, true)}>
-										{cond}
+					{selected && (
+						<div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+							<div style={{ ...eb }}>Selected · {selected.name}</div>
+							<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+								{selected.resources && (
+									<Button variant="secondary" size="sm" icon="add" disabled={previewing} onClick={() => onPickCondition(selected.id)}>
+										Add condition
 									</Button>
-								))}
+								)}
+								{isDm && (
+									<>
+										<span aria-hidden="true" style={{ width: 1, height: 20, background: T.bd, margin: '0 4px' }} />
+										<IconButton
+											icon="chevron-up"
+											label={`Move ${selected.name} earlier in initiative`}
+											variant="ghost"
+											size="sm"
+											disabled={previewing || selectedIndex <= 0}
+											onClick={() => onReorder(selected.id, 'earlier')}
+										/>
+										<IconButton
+											icon="chevron-down"
+											label={`Move ${selected.name} later in initiative`}
+											variant="ghost"
+											size="sm"
+											disabled={previewing || selectedIndex < 0 || selectedIndex >= tracker.combatants.length - 1}
+											onClick={() => onReorder(selected.id, 'later')}
+										/>
+										<Button
+											variant="secondary"
+											size="sm"
+											icon={selected.hidden ? 'visibility-players' : 'visibility-hidden'}
+											disabled={previewing}
+											onClick={() => onVisibility(selected.id, !selected.hidden)}
+										>
+											{selected.hidden ? 'Reveal' : 'Hide'}
+										</Button>
+										<Button variant="ghost" size="sm" icon="close" disabled={previewing} onClick={() => onRemove(selected.id, selected.name)}>
+											Remove
+										</Button>
+									</>
+								)}
 							</div>
+							{isDm && selected.hidden && (
+								<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+									Players see an “Unknown creature” placeholder for this row.
+								</div>
+							)}
 						</div>
 					)}
 				</div>
@@ -520,6 +634,157 @@ function CombatPanel({
 		</Panel>
 	);
 }
+
+// ── Condition picker (design-b condPick modal, wired to combat.apply-resource) ────────────────────
+
+function ConditionPickerDialog({
+	target,
+	onClose,
+	onPick,
+}: {
+	target: CombatantRow | null;
+	onClose: () => void;
+	onPick: (combatantId: string, condition: string) => void;
+}) {
+	const present = new Set(target?.resources?.conditions ?? []);
+	const keys = Object.keys(CONDITIONS).filter((k) => !present.has(k));
+	return (
+		<Dialog
+			open={!!target}
+			onClose={onClose}
+			title={`Add condition${target ? ` — ${target.name}` : ''}`}
+			description="Each condition keeps a distinct icon so it stays readable at the table (and in grayscale)."
+			icon="cond-poisoned"
+			size="md"
+		>
+			<div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}>
+				{keys.map((k) => (
+					<button
+						key={k}
+						type="button"
+						aria-label={`Add ${(CONDITIONS as Record<string, { label: string }>)[k].label}`}
+						onClick={() => target && onPick(target.id, k)}
+						style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+					>
+						<ConditionBadge condition={k} />
+					</button>
+				))}
+				{keys.length === 0 && (
+					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Every catalog condition is already applied.</div>
+				)}
+			</div>
+		</Dialog>
+	);
+}
+
+// ── Campaign date (SES-012 — the control the Campaign timeline points at) ─────────────────────────
+
+function CampaignDatePanel({
+	calendar,
+	current,
+	previewing,
+	onSet,
+}: {
+	calendar: CalendarDefinition | null;
+	current: ContinuityDate | null;
+	previewing: boolean;
+	onSet: (date: CustomDate, ok: string) => void;
+}) {
+	const [year, setYear] = useState(1);
+	const [month, setMonth] = useState(1);
+	const [day, setDay] = useState(1);
+
+	// Keep the form anchored to the canonical current date (e.g. after “+1 day” or a set elsewhere).
+	const currentIso = current?.isoLike ?? null;
+	useEffect(() => {
+		if (!current) return;
+		setYear(current.value.year);
+		setMonth(current.value.month);
+		setDay(current.value.day);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- sync from the canonical date only
+	}, [currentIso]);
+
+	if (!calendar) {
+		return (
+			<Panel title="Campaign date">
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+					No campaign calendar defined in this vault yet, so there is no date to set.
+				</div>
+			</Panel>
+		);
+	}
+
+	const maxDay = daysInMonth(calendar, month) ?? 1;
+
+	function setDate() {
+		if (!calendar) return;
+		onSet(
+			{ calendarId: calendar.id, year: Math.trunc(year), month, day: Math.min(maxDay, Math.max(1, Math.trunc(day))) },
+			'Campaign date set',
+		);
+	}
+
+	function advanceDay() {
+		if (!calendar || !current) return;
+		const next = addDays(calendar, current.value, 1);
+		if (next) onSet(next, 'A new day dawns');
+	}
+
+	return (
+		<Panel title="Campaign date">
+			<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+				<Icon name="recent" size="sm" color={current ? T.acc : T.ter} />
+				<div style={{ flex: 1, minWidth: 0 }}>
+					<div style={{ font: `600 13px ${T.sans}`, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+						{current ? current.display : 'No date set'}
+					</div>
+					<div style={{ font: `11px ${T.sans}`, color: T.ter }}>{calendar.name} · drives the Campaign timeline</div>
+				</div>
+				<Button variant="secondary" size="sm" icon="skip" disabled={previewing || !current} onClick={advanceDay}>
+					+1 day
+				</Button>
+			</div>
+			<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+				<Field label="Month" style={{ flex: '1 1 120px' }}>
+					<Select
+						value={String(month)}
+						disabled={previewing}
+						options={calendar.months.map((m, i) => ({ value: String(i + 1), label: m.name }))}
+						onChange={(e: { target: { value: string } }) => {
+							const next = Math.max(1, Math.trunc(Number(e.target.value) || 1));
+							setMonth(next);
+							const cap = daysInMonth(calendar, next) ?? 1;
+							setDay((d) => Math.min(cap, Math.max(1, d)));
+						}}
+					/>
+				</Field>
+				<Field label="Day" style={{ width: 70 }}>
+					<Input
+						type="number"
+						min={1}
+						max={maxDay}
+						value={day}
+						disabled={previewing}
+						onChange={(e: { target: { value: string } }) => setDay(Math.min(maxDay, Math.max(1, Math.trunc(Number(e.target.value) || 1))))}
+					/>
+				</Field>
+				<Field label="Year" style={{ width: 84 }}>
+					<Input
+						type="number"
+						value={year}
+						disabled={previewing}
+						onChange={(e: { target: { value: string } }) => setYear(Math.trunc(Number(e.target.value) || 0))}
+					/>
+				</Field>
+				<Button variant="primary" size="sm" icon="check" disabled={previewing} onClick={setDate}>
+					Set date
+				</Button>
+			</div>
+		</Panel>
+	);
+}
+
+// ── Dice ──────────────────────────────────────────────────────────────────────────────────────────
 
 function DicePanel({
 	rolls,

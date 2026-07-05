@@ -252,7 +252,9 @@ export class SceneRuntime {
 			// Populate a fresh vault with representative content (guarded by per-slice emptiness) so every
 			// screen resembles the populated design-studio prototype rather than an empty shell. Seeds via
 			// the real command path, so it persists and survives reload exactly like user-authored content.
-			await seedDemoContent(this);
+			// EXCEPT when onboarding's "Start fresh" recorded an explicit empty-vault choice — that wipe
+			// would otherwise be undone right here on the post-wipe reload.
+			if (!this.freshVaultChosen()) await seedDemoContent(this);
 			// A seed command is not a user action — don't let it surface as the last lifecycle (which some
 			// screens reflect, e.g. ScenesCreator's "Saved" affordance).
 			this.lifecycle = null;
@@ -268,11 +270,21 @@ export class SceneRuntime {
 		this.emit();
 	}
 
+	/** Onboarding's "Start fresh" records an explicit empty-vault choice (device-local); honor it on
+	 * every subsequent boot by skipping BOTH demo-population paths (command seed + demo map state). */
+	private freshVaultChosen(): boolean {
+		try {
+			return typeof window !== 'undefined' && window.localStorage.getItem('dndtools:react:vault-choice') === 'fresh';
+		} catch {
+			return false;
+		}
+	}
+
 	private ensureDefaultActor(slice: CoreStateSlice): CoreStateSlice {
 		const id = this.options.defaultActorId;
 		const withDefaultWidgets = {
 			...slice,
-			maps: Object.keys(slice.maps.maps).length > 0 ? slice.maps : createDemoMapState(),
+			maps: Object.keys(slice.maps.maps).length > 0 || this.freshVaultChosen() ? slice.maps : createDemoMapState(),
 			widgets: mergeSystemWidgetPackages(slice.widgets),
 		};
 		const actors = withDefaultWidgets.permissions.actors;

@@ -10,6 +10,7 @@ import {
 	validateAdvancement,
 	xpForLevel,
 	type CharacterView,
+	type PreparedSpell,
 } from '@dndtools/core';
 import {
 	AbilityScore,
@@ -18,12 +19,10 @@ import {
 	Badge,
 	Button,
 	Card,
-	Chip,
-	ConditionBadge,
+	ConditionTracker,
 	CONDITIONS,
 	DataTable,
 	DefinitionList,
-	Dialog,
 	EmptyState,
 	Field,
 	HPBar,
@@ -34,9 +33,9 @@ import {
 	SpellSlots,
 	Stat,
 	Tabs,
-	Textarea,
 	VisibilityChip,
 } from '../ds';
+import { CharBuilder } from '../app/CharBuilder';
 import { Page, Panel, T, eb, mono } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 
@@ -45,21 +44,28 @@ import { useRuntime } from '../runtime/RuntimeContext';
  * The roster is the actor-filtered `listCharactersForActor` read model (a player/observer sees only
  * what the core permits — a dm-only NPC is omitted, never redacted-but-listed); opening a character
  * loads the redacted `getCharacterForActor` view bound to a real sheet (ability scores, combat vitals,
- * attacks, spell slots, level/XP). New character dispatches the durable `character.quick-create`
- * command; the DM edit mode dispatches `character.set-combat` (HP/AC/conditions) and `character.edit-field`
- * (name); the level-up panel runs the staged `character.{set-xp,open/set-choices/commit/cancel-advancement}`
- * flow. Every mutation flows through the single `runtime.dispatch` write choke point — the GUI never
- * writes core state directly (Architecture Contract 1).
+ * attacks, spells + spell slots, conditions, level/XP). "New character" opens the guided CharBuilder
+ * overlay (`../app/CharBuilder` — the ported design-prototype wizard): a PC runs the REAL guided
+ * draft flow (`character.create-draft` → `update-draft-step` ×3 → `finalize-draft` → DM `set-combat`),
+ * everything else lands through the durable `character.quick-create`. The DM edit mode dispatches
+ * `character.set-combat` (HP/AC/conditions) and `character.edit-field` (name); spell slots
+ * spend/restore through `character.set-spell-slots`, prepared spells toggle/add through
+ * `character.set-spell` (both DM-or-owner, CHAR-008 — no active-session gate); the level-up panel runs
+ * the staged `character.{set-xp,open/set-choices/commit/cancel-advancement}` flow. Every mutation
+ * flows through the single `runtime.dispatch` write choke point — the GUI never writes core state
+ * directly (Architecture Contract 1).
  *
  * Honest gaps (no backing command after checking commands/ + the Svelte route):
- *   - "Import from D&D Beyond" — no content/character import command exists in core. Honest stub.
- *   - Skills & saves, race/subclass/background, hit dice, passive perception, proficiency — the
- *     simplified core character has no such fields. Those mock-only panels are dropped, not faked.
+ *   - "Import from D&D Beyond" — no content/character import command exists in core. Honest stub
+ *     (both the toolbar button and the builder's entry card say so).
+ *   - Skills & saves, hit dice, passive perception, proficiency — the simplified core character has
+ *     no such fields. Those mock-only panels are dropped, not faked. (Race/alignment/speed/bio ARE
+ *     rendered when present — the builder writes them into validated `data.*` fields.)
+ *   - The DS SpellCard's casting-time/range/components/duration need core fields `PreparedSpell`
+ *     doesn't carry ({id,name,level,prepared} only) — spells render as an honest list instead.
  *   - "Start combat" — `combat.start` is DM + active-session gated and is authoritatively driven from
  *     the Session / Combat Tracker surfaces; it is dispatched here as a convenience and surfaces the
  *     core rejection (e.g. "start a session first") rather than silently no-op-ing.
- *   - The guided PLAYER draft flow (`character.create-draft` / `update-draft-step` / `finalize-draft`)
- *     is a larger separate surface; the DM quick-create dialog is the create path wired here.
  */
 
 const KIND_LABEL: Record<string, string> = { pc: 'PC', npc: 'NPC', monster: 'Monster', sidekick: 'Sidekick' };
@@ -83,11 +89,19 @@ function condKey(s: string): string | null {
 	return COND_ALIAS[k] || ((CONDITIONS as any)[k] ? k : null);
 }
 
-/** A stable card gradient angle derived from the character id (real characters carry no `grad`). */
+/** A stable card gradient angle derived from the character id (fallback when no portrait tone). */
 function gradFor(id: string): number {
 	let h = 0;
 	for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) % 360;
 	return h;
+}
+
+/** The builder's "portrait tone" persists as `data.grad` (a validated `data.*` string field); older
+ *  characters without one fall back to the id-derived angle. */
+function gradOf(view: CharacterView): number {
+	const raw = view.data?.grad;
+	const n = typeof raw === 'string' || typeof raw === 'number' ? Number(raw) : NaN;
+	return Number.isFinite(n) ? ((n % 360) + 360) % 360 : gradFor(view.id);
 }
 
 /** Map the core visibility level onto the VisibilityChip's players/dm-only axis. */
@@ -106,7 +120,7 @@ function subtitleOf(view: CharacterView, level: number | null): string {
 }
 
 function CharCard({ view, onOpen }: { view: CharacterView; onOpen: () => void }) {
-	const grad = gradFor(view.id);
+	const grad = gradOf(view);
 	const conditions = view.combat.conditions;
 	return (
 		<Card elevation="flat" interactive padding="none" onClick={onOpen} style={{ overflow: 'hidden' }}>
@@ -156,102 +170,6 @@ function BackBar({ onBack }: { onBack: () => void }) {
 	);
 }
 
-// ── DM quick-create (CHAR-001) — mirrors apps/gm CharacterQuickCreate.svelte ────────────────────
-function QuickCreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (id: string) => void }) {
-	const runtime = useRuntime();
-	const actorId = runtime.defaultActorId;
-	const [kind, setKind] = useState<'npc' | 'monster' | 'sidekick'>('npc');
-	const [name, setName] = useState('');
-	const [hp, setHp] = useState(10);
-	const [ac, setAc] = useState(12);
-	const [visibility, setVisibility] = useState<'dm-only' | 'shared' | 'player-visible'>('dm-only');
-	const [attackName, setAttackName] = useState('');
-	const [attackDetail, setAttackDetail] = useState('');
-	const [dmNotes, setDmNotes] = useState('');
-	const [error, setError] = useState<string | null>(null);
-	const [submitting, setSubmitting] = useState(false);
-
-	function reset() {
-		setName(''); setHp(10); setAc(12); setVisibility('dm-only');
-		setAttackName(''); setAttackDetail(''); setDmNotes(''); setError(null);
-	}
-
-	async function submit() {
-		const trimmed = name.trim();
-		if (!trimmed) { setError('Enter a character name.'); return; }
-		// DM notes stay dm-only so the core's actor-filtered view never leaks them to a player (CHAR-014).
-		const data: Record<string, unknown> = dmNotes.trim() ? { dmNotes: dmNotes.trim() } : {};
-		const dmOnlyFields = dmNotes.trim() ? ['data.dmNotes'] : [];
-		const attacks = attackName.trim() ? [{ name: attackName.trim(), detail: attackDetail.trim() }] : [];
-		setSubmitting(true);
-		const result = await runtime.dispatch({
-			type: 'character.quick-create',
-			actorId,
-			payload: { kind, name: trimmed, visibility, combat: { hp, maxHp: hp, ac }, attacks, data, dmOnlyFields },
-		});
-		setSubmitting(false);
-		if (result.status === 'rejected') { setError(result.rejection.message); return; }
-		const created = result.events.find((e) => e.kind === 'character.created');
-		const id = created && created.kind === 'character.created' ? created.characterId : '';
-		reset();
-		onClose();
-		if (id) onCreated(id);
-	}
-
-	return (
-		<Dialog
-			open={open}
-			onClose={onClose}
-			title="New character"
-			description="An NPC, monster, or sidekick with just enough stats to run. New creations stay DM-only until you share them."
-			size="md"
-			footer={
-				<>
-					<Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-					<Button variant="primary" size="sm" icon="new-character" disabled={submitting} onClick={submit}>
-						{submitting ? 'Creating…' : `Create ${KIND_LABEL[kind]}`}
-					</Button>
-				</>
-			}
-		>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-				<Field label="Kind">
-					<Select value={kind} onChange={(e: any) => setKind(e.target.value)} options={[
-						{ value: 'npc', label: 'NPC' }, { value: 'monster', label: 'Monster' }, { value: 'sidekick', label: 'Sidekick' },
-					]} />
-				</Field>
-				<Field label="Name" error={error ?? undefined}>
-					<Input value={name} invalid={!!error} autoFocus onChange={(e: any) => { setName(e.target.value); if (error) setError(null); }} placeholder="Vorlag" />
-				</Field>
-				<div style={{ display: 'flex', gap: 12 }}>
-					<Field label="HP" style={{ flex: 1 }}>
-						<Input type="number" min={0} value={hp} onChange={(e: any) => setHp(Math.max(0, Math.trunc(Number(e.target.value) || 0)))} />
-					</Field>
-					<Field label="AC" style={{ flex: 1 }}>
-						<Input type="number" min={0} value={ac} onChange={(e: any) => setAc(Math.max(0, Math.trunc(Number(e.target.value) || 0)))} />
-					</Field>
-				</div>
-				<Field label="Visibility" help="Defaults to DM only — a player never sees a fresh NPC.">
-					<Select value={visibility} onChange={(e: any) => setVisibility(e.target.value)} options={[
-						{ value: 'dm-only', label: 'DM only' }, { value: 'shared', label: 'Shared' }, { value: 'player-visible', label: 'Player visible' },
-					]} />
-				</Field>
-				<div style={{ display: 'flex', gap: 12 }}>
-					<Field label="Attack name" style={{ flex: 1 }}>
-						<Input value={attackName} onChange={(e: any) => setAttackName(e.target.value)} placeholder="Cutlass" />
-					</Field>
-					<Field label="Attack detail" style={{ flex: 1 }}>
-						<Input value={attackDetail} onChange={(e: any) => setAttackDetail(e.target.value)} placeholder="+5 to hit, 1d8+3 slashing" />
-					</Field>
-				</div>
-				<Field label="DM notes (DM only)">
-					<Textarea rows={2} value={dmNotes} onChange={(e: any) => setDmNotes(e.target.value)} placeholder="Visible only to you — never shown to players (CHAR-014)." />
-				</Field>
-			</div>
-		</Dialog>
-	);
-}
-
 // ── The live character sheet, bound to the redacted core view ───────────────────────────────────
 function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	const runtime = useRuntime();
@@ -270,6 +188,12 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	const [hpGained, setHpGained] = useState('');
 	const [subclass, setSubclass] = useState('');
 	const [abilityOrFeat, setAbilityOrFeat] = useState('');
+
+	// Spellcasting local inputs (edit mode): add a known spell / declare a slot level (CHAR-008).
+	const [spellName, setSpellName] = useState('');
+	const [spellLevel, setSpellLevel] = useState('1');
+	const [slotLevel, setSlotLevel] = useState('1');
+	const [slotMax, setSlotMax] = useState('');
 
 	// The redacted view gates visibility (null when this actor may not see the character); the raw
 	// record is read ONLY after that gate passes, so its resources/advancement never leak (the same
@@ -326,6 +250,34 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		await dispatch({ type: 'character.edit-field', actorId, payload: { characterId: id, path: 'name', value: next } });
 	}
 
+	// CHAR-008 spell/slot writes — DM or character owner, NOT session-gated (unlike CHAR-007's
+	// `update-combat-resource`), so the DM sheet can spend/restore slots outside a live session.
+	// Same command pattern as the /player resources tab.
+	async function toggleSlot(level: number, max: number, expended: number, filled: boolean) {
+		// Clicking a filled diamond expends a slot; a hollow one recovers it.
+		const nextExpended = filled ? Math.min(max, expended + 1) : Math.max(0, expended - 1);
+		await dispatch({ type: 'character.set-spell-slots', actorId, payload: { characterId: id, level, max, expended: nextExpended } });
+	}
+	async function togglePrepared(s: PreparedSpell) {
+		await dispatch({ type: 'character.set-spell', actorId, payload: { characterId: id, id: s.id, name: s.name, level: s.level, prepared: !s.prepared } });
+	}
+	async function addSpell() {
+		const trimmed = spellName.trim();
+		if (!trimmed) return;
+		const level = clamp(Math.trunc(Number(spellLevel) || 0), 0, 9);
+		if (await dispatch({ type: 'character.set-spell', actorId, payload: { characterId: id, id: runtime.newId(), name: trimmed, level, prepared: true } })) {
+			setSpellName('');
+		}
+	}
+	async function declareSlots() {
+		const level = clamp(Math.trunc(Number(slotLevel) || 0), 0, 9);
+		const max = Math.max(0, Math.trunc(Number(slotMax)));
+		if (!Number.isFinite(Number(slotMax)) || slotMax.trim() === '') return;
+		if (await dispatch({ type: 'character.set-spell-slots', actorId, payload: { characterId: id, level, max } })) {
+			setSlotMax('');
+		}
+	}
+
 	// Advancement (CHAR-009) — DM/owner only. set-combat authority differs (DM-only) from advancement
 	// (DM or character owner); the core re-enforces both on dispatch.
 	const canAdvance = isDm; // owner grants aren't surfaced on this screen; the DM is the default actor.
@@ -365,7 +317,12 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		.filter((a) => typeof a.val === 'number') as { key: string; val: number }[];
 	const slots = resources ? Object.values(resources.spellSlots).sort((a, b) => a.level - b.level) : [];
 	const classResources = resources ? Object.values(resources.classResources) : [];
-	const hasSpellcasting = slots.length > 0 || classResources.length > 0;
+	const spells = resources
+		? [...resources.spells].sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+		: [];
+	// Show the panel whenever the character has ANY casting structure, or when the DM is editing (so
+	// spells/slots can be declared on a character that has none yet).
+	const hasSpellcasting = slots.length > 0 || classResources.length > 0 || spells.length > 0 || (editMode && isDm);
 
 	return (
 		<Page max={1000}>
@@ -495,14 +452,20 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 							)}
 						</div>
 						<div style={{ ...eb, marginTop: 10 }}>Conditions</div>
-						<div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-							{view.combat.conditions.length ? view.combat.conditions.map((c) => {
-								const k = condKey(c);
-								return editMode && isDm ? (
-									<Chip key={c} tone="neutral" onRemove={() => setCondition(c, false)}>{c}</Chip>
-								) : k ? <ConditionBadge key={c} condition={k} compact /> : <Chip key={c} tone="neutral">{c}</Chip>;
-							}) : <span style={{ font: `13px ${T.sans}`, color: T.ter }}>None</span>}
-						</div>
+						{/* DS ConditionTracker — the character-sheet template's stacked condition set; each
+						    registry key keeps its DISTINCT icon shape (grayscale-safe), unknown strings render
+						    as labeled badges. Removal (edit mode) round-trips character.set-combat. The add
+						    picker stays the Select below (addable=false avoids a second, dangling affordance). */}
+						{view.combat.conditions.length ? (
+							<ConditionTracker
+								entries={view.combat.conditions.map((c) => condKey(c) ?? c)}
+								compact={!editMode}
+								addable={false}
+								onRemove={editMode && isDm ? (_key: string, idx: number) => setCondition(view!.combat.conditions[idx], false) : undefined}
+							/>
+						) : (
+							<span style={{ font: `13px ${T.sans}`, color: T.ter }}>None</span>
+						)}
 
 						{editMode && isDm && (
 							<div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10, borderTop: `1px solid ${T.bd}`, paddingTop: 12 }}>
@@ -532,7 +495,17 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 					{hasSpellcasting && (
 						<Panel title="Spellcasting">
 							{slots.length > 0 && (
-								<SpellSlots readOnly levels={slots.map((sl) => ({ level: sl.level, total: sl.max, used: sl.max - availableSlots(sl) }))} />
+								// Live slot economy (character-sheet template: SpellSlots WITH onToggle) — a pip
+								// click spends/recovers through character.set-spell-slots (CHAR-008, DM-or-owner,
+								// no session gate). Read-only for any non-DM viewer of this DM sheet.
+								<SpellSlots
+									readOnly={!isDm}
+									levels={slots.map((sl) => ({ level: sl.level, total: sl.max, used: sl.max - availableSlots(sl) }))}
+									onToggle={(level: number, _idx: number, filled: boolean) => {
+										const sl = slots.find((s) => s.level === level);
+										if (sl) toggleSlot(sl.level, sl.max, sl.max - availableSlots(sl), filled);
+									}}
+								/>
 							)}
 							{classResources.length > 0 && (
 								<div style={{ marginTop: slots.length ? 12 : 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -544,6 +517,59 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 									))}
 								</div>
 							)}
+							{spells.length > 0 && (
+								<div style={{ marginTop: slots.length || classResources.length ? 12 : 0 }}>
+									{/* WHAT the character can cast — resources.spells (CHAR-008 PreparedSpell).
+									    The core model carries {name, level, prepared} only; the DS SpellCard's
+									    casting-time/range/components meta would need core fields it doesn't have,
+									    so spells render as an honest list. Prepared toggles via character.set-spell. */}
+									<div style={{ ...eb, marginBottom: 6 }}>Spells ({spells.filter((s) => s.prepared).length} prepared)</div>
+									<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+										{spells.map((s) => (
+											<div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 9, border: `1px solid ${T.bd}`, background: T.surf }}>
+												<span style={{ width: 24, height: 24, borderRadius: 6, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', font: `700 12px ${T.mono}`, background: T.alt, color: T.acc }} title={s.level === 0 ? 'Cantrip' : `Level ${s.level}`}>
+													{s.level}
+												</span>
+												<span style={{ flex: 1, minWidth: 0, font: `600 12.5px ${T.sans}` }}>{s.name}</span>
+												{isDm ? (
+													<button
+														type="button"
+														aria-pressed={s.prepared}
+														onClick={() => togglePrepared(s)}
+														style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 14, cursor: 'pointer', font: `11px ${T.sans}`, border: `1px solid ${s.prepared ? T.accBd : T.bd}`, background: s.prepared ? T.accSub : T.surf, color: s.prepared ? T.acc : T.ter }}
+													>
+														{s.prepared && <Icon name="check" size={12} />}{s.prepared ? 'Prepared' : 'Not prepared'}
+													</button>
+												) : (
+													<Badge status={s.prepared ? 'success' : 'neutral'}>{s.prepared ? 'Prepared' : 'Known'}</Badge>
+												)}
+											</div>
+										))}
+									</div>
+								</div>
+							)}
+							{editMode && isDm && (
+								<div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10, borderTop: `1px solid ${T.bd}`, paddingTop: 12 }}>
+									<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+										<Field label="Add spell" style={{ minWidth: 140, flex: 1 }}>
+											<Input value={spellName} placeholder="Cure Wounds" onChange={(e: any) => setSpellName(e.target.value)} />
+										</Field>
+										<Field label="Level" style={{ width: 70 }}>
+											<Input type="number" min={0} max={9} value={spellLevel} onChange={(e: any) => setSpellLevel(e.target.value)} />
+										</Field>
+										<Button variant="secondary" size="sm" disabled={!spellName.trim()} onClick={addSpell}>Add</Button>
+									</div>
+									<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+										<Field label="Slot level" style={{ width: 90 }}>
+											<Input type="number" min={0} max={9} value={slotLevel} onChange={(e: any) => setSlotLevel(e.target.value)} />
+										</Field>
+										<Field label="Max slots" style={{ width: 90 }}>
+											<Input type="number" min={0} value={slotMax} placeholder="0" onChange={(e: any) => setSlotMax(e.target.value)} />
+										</Field>
+										<Button variant="secondary" size="sm" disabled={slotMax.trim() === ''} onClick={declareSlots}>Set slots</Button>
+									</div>
+								</div>
+							)}
 						</Panel>
 					)}
 
@@ -551,6 +577,11 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 						<DefinitionList
 							items={[
 								{ label: 'Type', value: KIND_LABEL[view.kind] || view.kind },
+								// Builder-authored sheet fields (validated `data.*` writes) — rendered when present.
+								...(typeof view.data.race === 'string' ? [{ label: 'Race', value: String(view.data.race) }] : []),
+								...(typeof view.data.subclass === 'string' ? [{ label: 'Subclass', value: String(view.data.subclass) }] : []),
+								...(typeof view.data.alignment === 'string' ? [{ label: 'Alignment', value: String(view.data.alignment) }] : []),
+								...(typeof view.data.speed === 'string' ? [{ label: 'Speed', value: `${view.data.speed} ft`, mono: true }] : []),
 								{ label: 'Armor class', value: String(view.combat.ac), mono: true },
 								{ label: 'Hit points', value: `${view.combat.hp} / ${view.combat.maxHp}`, mono: true },
 								...(view.combat.tempHp > 0 ? [{ label: 'Temp HP', value: String(view.combat.tempHp), mono: true }] : []),
@@ -559,6 +590,12 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 							]}
 						/>
 					</Panel>
+
+					{typeof view.data.bio === 'string' && view.data.bio.trim() !== '' && (
+						<Panel title="Bio">
+							<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>{String(view.data.bio)}</div>
+						</Panel>
+					)}
 				</div>
 			</div>
 		</Page>
@@ -652,7 +689,14 @@ export function Characters() {
 				</div>
 			)}
 
-			<QuickCreateDialog open={creating} onClose={() => setCreating(false)} onCreated={(id) => setDetailId(id)} />
+			{/* The guided creation overlay (ported design-prototype wizard): PC → real core draft flow;
+			    NPC/Monster/Sidekick → character.quick-create. Created characters open their sheet. */}
+			{creating && data.isDm && (
+				<CharBuilder
+					onClose={() => setCreating(false)}
+					onCreated={(id) => { setCreating(false); setDetailId(id); }}
+				/>
+			)}
 		</Page>
 	);
 }

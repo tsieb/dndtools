@@ -4,61 +4,41 @@ import {
 	getMapViewForActor,
 	listMapsForActor,
 	queryMapLayers,
-	MAP_POI_CATEGORIES,
-	type MapLayerCategory,
-	type MapPoiCategory,
 	type SceneVisibility,
 } from '@dndtools/core';
-import { Badge, Button, Icon, IconButton, Input, Select, StatusDot, Switch } from '../ds';
+import { Badge, Button, Icon, IconButton, Input, POIPopover, Select, StatusDot, Switch } from '../ds';
 import { Page, Panel, T } from '../app/screen-kit';
+import {
+	CATEGORY_LABEL,
+	CATEGORY_VAR,
+	MapBuilder,
+	MapCanvas,
+	POI_MARKER_CAT,
+	VIS_LABEL,
+	VIS_OPTIONS,
+	VIS_STATUS,
+	dsToVis,
+	visToDs,
+	type MapTool,
+} from '../app/MapBuilder';
 import { useRuntime } from '../runtime/RuntimeContext';
 
 /**
- * Atlas — the map library, now wired to the live Processing Core (was static `mockCampaign`). The map
- * switcher reads the actor-filtered `listMapsForActor`; opening a map reads the single MAP-018 keystone
- * `getMapViewForActor` (so a player/observer device only ever sees player-safe maps, layers, POIs, fog,
- * and tokens). Every mutation — create map, add/reorder/toggle layers, create/reveal POIs & fog —
- * dispatches a durable Processing-Core command through `runtime.dispatch`; the GUI never writes state
- * or re-derives visibility (Architecture Contract 1). The map CANVAS is a stylized placeholder: the
- * pixel renderer (and a pixel "builder") is deferred per ADR-014, so this wires the DATA/CONTROL layer.
+ * Atlas — the map library, wired to the live Processing Core. The map switcher reads the
+ * actor-filtered `listMapsForActor`; opening a map reads the single MAP-018 keystone
+ * `getMapViewForActor` (so a player/observer device only ever sees player-safe maps, layers, POIs,
+ * fog, and tokens). Every mutation dispatches a durable Processing-Core command through
+ * `runtime.dispatch`; the GUI never writes state or re-derives visibility (Architecture Contract 1).
+ *
+ * The canvas is the REAL shared geometry renderer (`MapCanvas` from MapBuilder): grid, painted layer
+ * features, fog composed op-by-op from the durable MAP-012 log, DS POI markers, and tokens — all
+ * actor-filtered. No raster/pixel engine (deferred per ADR-014); the core model is geometric, so an
+ * engine-free SVG renderer draws it faithfully. Spatial AUTHORING (drag-drawn fog rects, click-placed
+ * POIs/tokens) lives in the full-screen MapBuilder overlay, mounted from here — the old hardcoded
+ * fog rect / center-POI shortcuts are gone.
  */
 
 const ghostBtn = { border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, display: 'inline-flex' } as const;
-
-// The layer-type → `--layer-*` hue map (mirrors apps/gm MapLayerPanel.svelte CATEGORY tones).
-const CATEGORY_VAR: Record<MapLayerCategory, string> = {
-	base: '--layer-base',
-	terrain: '--layer-height',
-	roads: '--layer-roads',
-	poi: '--layer-poi',
-	fog: '--layer-fog',
-	'dm-annotations': '--layer-dm',
-	'player-overlay': '--layer-player',
-};
-const CATEGORY_LABEL: Record<MapLayerCategory, string> = {
-	base: 'Base',
-	terrain: 'Terrain',
-	roads: 'Roads',
-	poi: 'POI',
-	fog: 'Fog',
-	'dm-annotations': 'DM notes',
-	'player-overlay': 'Player overlay',
-};
-const VIS_LABEL: Record<string, string> = {
-	'dm-only': 'DM only',
-	'player-visible': 'Player visible',
-	shared: 'Shared',
-};
-const VIS_STATUS: Record<string, 'neutral' | 'info' | 'success'> = {
-	'dm-only': 'neutral',
-	'player-visible': 'info',
-	shared: 'success',
-};
-const VIS_OPTIONS = [
-	{ value: 'dm-only', label: 'DM only' },
-	{ value: 'player-visible', label: 'Player visible' },
-	{ value: 'shared', label: 'Shared' },
-];
 
 export function Atlas() {
 	const runtime = useRuntime();
@@ -70,21 +50,19 @@ export function Atlas() {
 
 	const [mapId, setMapId] = useState<string | null>(null);
 	const [mapZoom, setMapZoom] = useState(1);
-	// Presentation-only canvas veil — the real pixel fog renderer is deferred (ADR-014). Toggling it is
-	// a DM preview; the durable reveal/conceal still dispatches a `map.append-fog` op below.
-	const [showVeil, setShowVeil] = useState(true);
 	const [busy, setBusy] = useState(false);
 	const [notice, setNotice] = useState<string | null>(null);
+	// The full-screen authoring overlay. Opening with a tool (fog/poi) drops the DM straight into
+	// that gesture; non-DM actors get the same surface as a pan/zoom viewer (writes are disabled).
+	const [builder, setBuilder] = useState<{ tool: MapTool; fogMode?: 'reveal' | 'conceal' } | null>(null);
+	// Preview-canvas marker selection (popover for POIs, highlight ring for tokens).
+	const [selPoiId, setSelPoiId] = useState<string | null>(null);
+	const [selTokenId, setSelTokenId] = useState<string | null>(null);
 
 	// New-map inline create form (DM authoring) — dispatches a real `map.create`.
 	const [creating, setCreating] = useState(false);
 	const [newMapName, setNewMapName] = useState('');
 	const [newMapVis, setNewMapVis] = useState<SceneVisibility>('dm-only');
-
-	// POI authoring form state.
-	const [poiLabel, setPoiLabel] = useState('');
-	const [poiCategory, setPoiCategory] = useState<MapPoiCategory>('landmark');
-	const [poiVis, setPoiVis] = useState<SceneVisibility>('dm-only');
 
 	const delivered = useMemo(
 		() => deliveredMapIdsForActor(runtime.state.session, actorId),
@@ -119,7 +97,6 @@ export function Atlas() {
 		[runtime.state.maps, runtime.state.permissions, actorId, selectedId],
 	);
 	const layers = layerResult.layers;
-	const firstLayerId = mapView?.layers[0]?.id ?? null;
 
 	// The single durable write path with a re-entrancy guard (mirrors the Svelte panels' `busy`).
 	const run = async (command: Parameters<typeof runtime.dispatch>[0]) => {
@@ -134,6 +111,12 @@ export function Atlas() {
 
 	const zoom = (delta?: number, fit?: boolean) =>
 		setMapZoom((z) => (fit ? 1 : Math.min(2.4, Math.max(0.4, +(z + (delta ?? 0)).toFixed(2)))));
+
+	const openBuilder = (tool: MapTool, fogMode?: 'reveal' | 'conceal') => {
+		if (!selectedId) return;
+		setSelPoiId(null);
+		setBuilder({ tool, fogMode });
+	};
 
 	async function createMap() {
 		const name = newMapName.trim();
@@ -184,16 +167,6 @@ export function Atlas() {
 		void run({ type: 'map.reorder-layer', actorId, payload: { mapId: selectedId, layerId, toOrder } });
 	}
 
-	async function createPoi() {
-		const label = poiLabel.trim();
-		if (!selectedId || !firstLayerId || !label) return;
-		const res = await run({
-			type: 'map.create-poi',
-			actorId,
-			payload: { mapId: selectedId, layerId: firstLayerId, label, category: poiCategory, position: { x: 0.5, y: 0.5 }, visibility: poiVis },
-		});
-		if (res?.status === 'accepted') setPoiLabel('');
-	}
 	function togglePoiVisibility(poiId: string, visibility: SceneVisibility) {
 		if (!selectedId) return;
 		void run({
@@ -202,19 +175,14 @@ export function Atlas() {
 			payload: { mapId: selectedId, poiId, visibility: visibility === 'dm-only' ? 'player-visible' : 'dm-only' },
 		});
 	}
+	function setPoiVisibility(poiId: string, visibility: SceneVisibility) {
+		if (!selectedId) return;
+		void run({ type: 'map.update-poi', actorId, payload: { mapId: selectedId, poiId, visibility } });
+	}
 	function deletePoi(poiId: string) {
 		if (!selectedId) return;
+		if (selPoiId === poiId) setSelPoiId(null);
 		void run({ type: 'map.delete-poi', actorId, payload: { mapId: selectedId, poiId } });
-	}
-
-	function appendFog(kind: 'reveal' | 'conceal') {
-		if (!selectedId || !firstLayerId) return;
-		setShowVeil(kind === 'conceal');
-		void run({
-			type: 'map.append-fog',
-			actorId,
-			payload: { mapId: selectedId, layerId: firstLayerId, kind, region: { x: 0.2, y: 0.2, w: 0.3, h: 0.3 }, visibility: 'shared', connectionState: 'connected' },
-		});
 	}
 
 	return (
@@ -229,7 +197,8 @@ export function Atlas() {
 							onClick={() => {
 								setMapId(mp.id);
 								setMapZoom(1);
-								setShowVeil(true);
+								setSelPoiId(null);
+								setSelTokenId(null);
 							}}
 							style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 9, cursor: 'pointer', border: `1px solid ${on ? T.accBd : T.bd}`, background: on ? T.accSub : T.surf, color: on ? T.acc : T.sub, font: `600 12.5px ${T.sans}` }}
 						>
@@ -243,12 +212,7 @@ export function Atlas() {
 					<span style={{ font: `13px ${T.sans}`, color: T.ter, padding: '7px 4px' }}>No maps are visible to you.</span>
 				)}
 				<div style={{ flex: 1 }} />
-				<Button
-					variant="ghost"
-					size="sm"
-					icon="edit"
-					onClick={() => setNotice('Pixel map builder is deferred in this prototype (ADR-014) — author maps via the layer, POI, and fog controls.')}
-				>
+				<Button variant="ghost" size="sm" icon="edit" disabled={!selectedId} onClick={() => openBuilder('select')}>
 					Open in builder
 				</Button>
 				{isDm && (
@@ -288,25 +252,35 @@ export function Atlas() {
 			)}
 
 			<div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 18, alignItems: 'start' }}>
-				{/* canvas — stylized placeholder; the pixel renderer is deferred (ADR-014). Tokens, name, and
-				    visibility are REAL (actor-filtered map view); grid + fog veil are presentation only. */}
-				<div style={{ position: 'relative', height: 560, borderRadius: 12, overflow: 'hidden', background: 'radial-gradient(700px 400px at 40% 30%, #2a2016, #14100b 75%)', border: `1px solid ${T.bd}` }}>
-					<div style={{ position: 'absolute', inset: 0, transform: `scale(${mapZoom})`, transformOrigin: 'center center', transition: 'transform var(--duration-fast) var(--easing-standard)' }}>
-						<div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(var(--map-grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--map-grid-line) 1px,transparent 1px)', backgroundSize: '40px 40px' }} />
-						{mapView?.tokens.map((t) => (
-							<div key={t.id} style={{ position: 'absolute', left: `${t.position.x * 100}%`, top: `${t.position.y * 100}%`, transform: 'translate(-50%,-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-								<span style={{ width: 30, height: 30, borderRadius: '50%', border: `2.5px solid ${t.linkedActorId ? T.ok : T.err}`, background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `700 11px ${T.mono}`, color: T.ink, boxShadow: T.ssm }}>
-									{t.label[0]}
-								</span>
-								<span style={{ font: `10px ${T.sans}`, color: T.sub, background: 'rgba(0,0,0,.4)', padding: '1px 5px', borderRadius: 4 }}>{t.label}</span>
-							</div>
-						))}
-					</div>
-					{/* presentation-only fog veil (pixel fog deferred — ADR-014) */}
-					{showVeil && (
-						<div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(120deg, rgba(20,16,11,.92) 0%, rgba(20,16,11,.5) 38%, rgba(20,16,11,0) 60%)', pointerEvents: 'none' }} />
+				{/* canvas — the REAL shared geometry renderer (grid, layer features, fog mask composed from
+				    durable ops, DS POI markers, tokens), actor-filtered. Read-only here; authoring gestures
+				    live in the MapBuilder overlay. */}
+				<MapCanvas
+					view={mapView}
+					layers={layers}
+					isDm={isDm}
+					zoom={mapZoom}
+					height={560}
+					selectedPoiId={selPoiId}
+					selectedTokenId={selTokenId}
+					onSelectPoi={setSelPoiId}
+					onSelectToken={setSelTokenId}
+					renderPoiPopover={(poi, anchor, placement) => (
+						<POIPopover
+							poi={{ name: poi.label, category: POI_MARKER_CAT[poi.category] ?? 'location', categoryLabel: poi.category, visibility: visToDs(poi.visibility) }}
+							anchor={anchor}
+							placement={placement}
+							readOnly={!isDm}
+							onClose={() => setSelPoiId(null)}
+							onVisibilityChange={(v: string) => setPoiVisibility(poi.id, dsToVis(v))}
+							onFocus={() => openBuilder('select')}
+							onEdit={() => openBuilder('select')}
+							onDeepLink={() => setNotice('POI deep links are not wired in this build.')}
+							onDelete={() => deletePoi(poi.id)}
+						/>
 					)}
-					<div style={{ position: 'absolute', top: 12, left: 14, maxWidth: 'calc(100% - 190px)', display: 'flex', flexDirection: 'column', gap: 2, padding: '5px 11px', borderRadius: 8, background: 'rgba(13,10,7,.55)', backdropFilter: 'blur(2px)', border: `1px solid ${T.bd}` }}>
+				>
+					<div style={{ position: 'absolute', top: 12, left: 14, maxWidth: 'calc(100% - 190px)', display: 'flex', flexDirection: 'column', gap: 2, padding: '5px 11px', borderRadius: 8, background: 'color-mix(in oklab, var(--map-canvas-bg) 72%, transparent)', backdropFilter: 'blur(2px)', border: `1px solid ${T.bd}` }}>
 						<span style={{ font: `700 16px ${T.disp}`, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
 							{mapView?.name ?? selectedEntry?.name ?? 'No map selected'}
 						</span>
@@ -321,17 +295,17 @@ export function Atlas() {
 						<IconButton icon="zoom-in" label="Zoom in" variant="outline" size="sm" onClick={() => zoom(0.2)} />
 						<IconButton icon="zoom-out" label="Zoom out" variant="outline" size="sm" onClick={() => zoom(-0.2)} />
 						<IconButton icon="zoom-fit" label="Fit" variant="outline" size="sm" onClick={() => zoom(undefined, true)} />
-						<span style={{ display: 'inline-flex', alignItems: 'center', padding: '0 8px', borderRadius: 7, background: 'rgba(0,0,0,.45)', font: `11px ${T.mono}`, color: T.ink }}>{Math.round(mapZoom * 100)}%</span>
+						<span style={{ display: 'inline-flex', alignItems: 'center', padding: '0 8px', borderRadius: 7, background: 'color-mix(in oklab, var(--map-canvas-bg) 78%, transparent)', font: `11px ${T.mono}`, color: T.ink }}>{Math.round(mapZoom * 100)}%</span>
 					</div>
 					{view?.kind === 'unavailable' && (
 						<div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `13px ${T.sans}`, color: T.sub }}>
 							This map is unavailable to you.
 						</div>
 					)}
-					<div style={{ position: 'absolute', bottom: 12, left: 14, display: 'flex', gap: 8 }}>
+					<div style={{ position: 'absolute', bottom: 12, left: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
 						{isDm && mapView && (
-							<Button variant={showVeil ? 'primary' : 'secondary'} size="sm" icon={showVeil ? 'reveal' : 'conceal'} disabled={busy || !firstLayerId} onClick={() => appendFog(showVeil ? 'reveal' : 'conceal')}>
-								{showVeil ? 'Reveal area' : 'Conceal'}
+							<Button variant="primary" size="sm" icon="layer-fog" onClick={() => openBuilder('fog', 'reveal')}>
+								Fog of war
 							</Button>
 						)}
 						<Button
@@ -343,7 +317,7 @@ export function Atlas() {
 							Project to players
 						</Button>
 					</div>
-				</div>
+				</MapCanvas>
 
 				{/* side rails — all real, actor-filtered Core data */}
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -386,7 +360,7 @@ export function Atlas() {
 											<button type="button" title="Toggle player visibility" disabled={busy} onClick={() => toggleLayerVisibility(l.layerId, l.visibility)} style={ghostBtn}>
 												<Icon name={l.visibility === 'dm-only' ? 'dm-only' : 'visibility-players'} size={15} color={l.visibility === 'dm-only' ? T.dm : T.ok} />
 											</button>
-											<Switch checked={l.enabled} onChange={() => toggleLayerEnabled(l.layerId, l.enabled)} />
+											<Switch checked={l.enabled} aria-label={`Display ${l.name}`} onChange={() => toggleLayerEnabled(l.layerId, l.enabled)} />
 										</>
 									) : (
 										<Badge status={VIS_STATUS[l.visibility] ?? 'neutral'}>{VIS_LABEL[l.visibility] ?? l.visibility}</Badge>
@@ -409,25 +383,27 @@ export function Atlas() {
 						}
 					>
 						{isDm && mapView && (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 10, borderBottom: `1px solid ${T.bd}` }}>
-								<Input value={poiLabel} placeholder="POI label" onChange={(e: { target: { value: string } }) => setPoiLabel(e.target.value)} />
-								<div style={{ display: 'flex', gap: 8 }}>
-									<Select value={poiCategory} options={MAP_POI_CATEGORIES.map((c) => ({ value: c, label: c }))} onChange={(e: { target: { value: string } }) => setPoiCategory(e.target.value as MapPoiCategory)} style={{ flex: 1 }} />
-									<Select value={poiVis} options={VIS_OPTIONS} onChange={(e: { target: { value: string } }) => setPoiVis(e.target.value as SceneVisibility)} style={{ flex: 1 }} />
-								</div>
-								<Button variant="secondary" size="sm" icon="add" disabled={busy || !firstLayerId || !poiLabel.trim()} onClick={createPoi}>
-									Add POI
+							<div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 10, borderBottom: `1px solid ${T.bd}` }}>
+								<Button variant="secondary" size="sm" icon="poi" onClick={() => openBuilder('poi')}>
+									Place POI in builder
 								</Button>
-								{!firstLayerId && <div style={{ font: `11px ${T.sans}`, color: T.ter }}>Add a visible layer first to place a POI.</div>}
+								<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
+									The builder's POI tool places at the exact clicked map position; drag a marker to move it.
+								</div>
 							</div>
 						)}
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
 							{mapView?.pois.map((poi) => (
 								<div key={poi.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px' }}>
-									<div style={{ flex: 1, minWidth: 0 }}>
-										<div style={{ font: `12.5px ${T.sans}`, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{poi.label}</div>
-										<div style={{ font: `10.5px ${T.mono}`, color: T.ter }}>{poi.category}</div>
-									</div>
+									<button
+										type="button"
+										title="Show on map"
+										onClick={() => setSelPoiId(poi.id === selPoiId ? null : poi.id)}
+										style={{ ...ghostBtn, flex: 1, minWidth: 0, flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}
+									>
+										<span style={{ font: `12.5px ${T.sans}`, color: poi.id === selPoiId ? T.acc : T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{poi.label}</span>
+										<span style={{ font: `10.5px ${T.mono}`, color: T.ter }}>{poi.category}</span>
+									</button>
 									{isDm ? (
 										<>
 											<button type="button" title="Toggle player visibility" disabled={busy} onClick={() => togglePoiVisibility(poi.id, poi.visibility)} style={ghostBtn}>
@@ -456,14 +432,14 @@ export function Atlas() {
 						}
 					>
 						<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.sub }}>
-							The DM authors reveal/conceal regions as durable fog ops; players see only the resulting fog. The canvas veil above is a presentation preview (pixel fog deferred, ADR-014).
+							Reveal/conceal regions are durable, append-only fog ops — the canvas composes the real mask in sequence order (a later op overrides an earlier overlap). Draw regions in the builder.
 						</div>
 						{isDm && mapView && (
 							<div style={{ display: 'flex', gap: 8 }}>
-								<Button variant="secondary" size="sm" icon="reveal" disabled={busy || !firstLayerId} onClick={() => appendFog('reveal')}>
+								<Button variant="secondary" size="sm" icon="reveal" disabled={!selectedId} onClick={() => openBuilder('fog', 'reveal')}>
 									Reveal area
 								</Button>
-								<Button variant="secondary" size="sm" icon="conceal" disabled={busy || !firstLayerId} onClick={() => appendFog('conceal')}>
+								<Button variant="secondary" size="sm" icon="conceal" disabled={!selectedId} onClick={() => openBuilder('fog', 'conceal')}>
 									Conceal area
 								</Button>
 							</div>
@@ -473,7 +449,7 @@ export function Atlas() {
 								{mapView.fog.slice(-4).map((op) => (
 									<div key={op.id} style={{ display: 'flex', alignItems: 'center', gap: 8, font: `11px ${T.mono}`, color: T.ter }}>
 										<Badge status={op.kind === 'reveal' ? 'success' : 'neutral'}>{op.kind}</Badge>
-										seq {op.sequence}
+										seq {op.sequence} · {Math.round(op.region.w * 100)}×{Math.round(op.region.h * 100)}% at {Math.round(op.region.x * 100)},{Math.round(op.region.y * 100)}
 									</div>
 								))}
 							</div>
@@ -481,6 +457,15 @@ export function Atlas() {
 					</Panel>
 				</div>
 			</div>
+
+			{builder && selectedId && (
+				<MapBuilder
+					mapId={selectedId}
+					initialTool={builder.tool}
+					initialFogMode={builder.fogMode ?? 'reveal'}
+					onClose={() => setBuilder(null)}
+				/>
+			)}
 		</Page>
 	);
 }

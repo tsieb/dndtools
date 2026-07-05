@@ -1,6 +1,12 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listScenesForActor, listCharactersForActor } from '@dndtools/core';
+import {
+	listScenesForActor,
+	listCharactersForActor,
+	listMapsForActor,
+	searchVaultForActor,
+	type SearchHit,
+} from '@dndtools/core';
 import { CommandPalette as DSCommandPalette } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { RUN, LIBRARY, PLATFORM } from './nav';
@@ -12,19 +18,65 @@ interface PaletteCommand {
 	group?: string;
 	keywords?: string;
 	description?: string;
+	meta?: string;
 	run: () => void;
 }
 
+/** Light debounce so the full-text search read runs per pause, not per keystroke (no new deps). */
+const SEARCH_DEBOUNCE_MS = 150;
+/** Cap on full-text hits fed to the palette — the core read already ranked them (SRCH-005). */
+const SEARCH_HIT_LIMIT = 15;
+
 /**
- * CommandPalette — the working ⌘K surface (was a no-op affordance in the visual port). It composes a
- * real, navigable command set from the live Processing Core: every section destination, every scene
- * the actor can see (opens the real `/scene/:id` editor), and the quick-create launchers. Filtering
- * and keyboard nav are handled by the design-system `CommandPalette`.
+ * How each core search-hit kind is presented: which palette group it lands in, the route the app
+ * navigates to (the section that owns the domain — same mapping as the core quick-switcher's
+ * `routeForHit`), and its icon. Notes/objects live in Knowledge, POIs in the Atlas, handouts and
+ * session artifacts in the Session section.
+ */
+const HIT_PRESENTATION: Record<SearchHit['type'], { group: string; route: string; icon: string; kind: string }> = {
+	note: { group: 'Notes', route: '/knowledge', icon: 'knowledge-book', kind: 'Note' },
+	object: { group: 'Notes', route: '/knowledge', icon: 'knowledge-book', kind: 'Object' },
+	poi: { group: 'Map locations', route: '/atlas', icon: 'poi', kind: 'POI' },
+	handout: { group: 'Session', route: '/session', icon: 'scroll', kind: 'Handout' },
+	'session-artifact': { group: 'Session', route: '/session', icon: 'dice', kind: 'Roll' },
+};
+
+/**
+ * CommandPalette — the working ⌘K surface, now backed by the Processing Core's search engine. The
+ * command set composes:
+ *  - the static "Go to" / "Create" launchers (section destinations),
+ *  - the actor-filtered entity lists the core exposes (`listScenesForActor` → `/scene/:id`,
+ *    `listCharactersForActor` → Characters, `listMapsForActor` → Atlas), and
+ *  - once the user types, REAL full-text hits from `searchVaultForActor` (SRCH-001/003/005) — the
+ *    same actor-filtered, deterministically ranked read the core quick-switcher composes — over
+ *    notes, structured objects, map POIs, handouts, and session artifacts, grouped by kind and
+ *    routed to the owning section. Every candidate comes from the actor-filtered read, so a
+ *    dm-only note / hidden POI / withheld handout is never even a candidate while previewing or
+ *    viewing as a player.
+ *
+ * The DS `CommandPalette` owns the input; we mirror its query through the (bubbling) input event
+ * on a wrapper and debounce it lightly before running the search read. Each hit carries its query
+ * + snippet as keywords so the DS substring filter keeps body-only matches visible.
  */
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
 	const navigate = useNavigate();
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
+
+	// Mirror of the DS palette's input value (captured via the bubbling input event) + its debounce.
+	const [query, setQuery] = useState('');
+	const [debouncedQuery, setDebouncedQuery] = useState('');
+
+	useEffect(() => {
+		// The DS palette clears its own input on open; keep the mirror in sync so stale hits never flash.
+		setQuery('');
+		setDebouncedQuery('');
+	}, [open]);
+
+	useEffect(() => {
+		const t = setTimeout(() => setDebouncedQuery(query), SEARCH_DEBOUNCE_MS);
+		return () => clearTimeout(t);
+	}, [query]);
 
 	const commands = useMemo<PaletteCommand[]>(() => {
 		const goTo = (path: string) => () => {
@@ -60,22 +112,72 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				keywords: c.kind,
 				run: goTo('/characters'),
 			}));
+		const maps = listMapsForActor(runtime.state.maps, runtime.state.permissions, actorId)
+			.slice(0, 12)
+			.map((m) => ({
+				id: `map:${m.id}`,
+				label: m.name,
+				icon: 'atlas-map',
+				group: 'Maps',
+				keywords: m.description,
+				description: m.visibility === 'dm-only' ? 'DM-only' : 'Shared',
+				run: goTo('/atlas'),
+			}));
 		const creates: PaletteCommand[] = [
 			{ id: 'new:scene', label: 'New scene', icon: 'add', group: 'Create', run: goTo('/scenes') },
 			{ id: 'new:character', label: 'New character', icon: 'new-character', group: 'Create', run: goTo('/characters') },
 			{ id: 'new:note', label: 'New note', icon: 'note-edit', group: 'Create', run: goTo('/knowledge') },
 			{ id: 'new:map', label: 'New map', icon: 'new-map', group: 'Create', run: goTo('/atlas') },
 		];
-		return [...creates, ...sections, ...scenes, ...characters];
-	}, [runtime.state, actorId, navigate, onClose]);
+
+		// Full-text hits from the core search engine — only once the user typed something (a blank
+		// query would match the whole visible vault and flood the palette's browse view).
+		const needle = debouncedQuery.trim();
+		let searchHits: PaletteCommand[] = [];
+		if (needle !== '') {
+			const result = searchVaultForActor(
+				runtime.state.content,
+				runtime.state.maps,
+				runtime.state.permissions,
+				runtime.state.session,
+				actorId,
+				{ query: needle },
+			);
+			searchHits = result.hits.slice(0, SEARCH_HIT_LIMIT).map((hit) => {
+				const p = HIT_PRESENTATION[hit.type];
+				return {
+					id: `search:${hit.type}:${hit.mapId ?? ''}:${hit.id}`,
+					label: hit.title,
+					icon: p.icon,
+					group: p.group,
+					// Carry the matched query + snippet + tags so the DS live substring filter keeps
+					// body-only matches (whose titles don't contain the query) in the list.
+					keywords: [needle, hit.tags.join(' '), hit.snippet?.text ?? ''].join(' '),
+					description: hit.snippet?.text,
+					meta: p.kind,
+					run: goTo(p.route),
+				};
+			});
+		}
+
+		return [...creates, ...sections, ...scenes, ...characters, ...maps, ...searchHits];
+	}, [runtime.state, actorId, debouncedQuery, navigate, onClose]);
 
 	return (
-		<DSCommandPalette
-			open={open}
-			onClose={onClose}
-			commands={commands}
-			groupOrder={['Create', 'Go to', 'Scenes', 'Characters']}
-			placeholder="Search scenes, characters, and destinations…"
-		/>
+		<div
+			style={{ display: 'contents' }}
+			onInput={(e) => {
+				const target = e.target as HTMLInputElement;
+				if (typeof target.value === 'string') setQuery(target.value);
+			}}
+		>
+			<DSCommandPalette
+				open={open}
+				onClose={onClose}
+				commands={commands}
+				groupOrder={['Create', 'Go to', 'Scenes', 'Characters', 'Maps', 'Notes', 'Map locations', 'Session']}
+				placeholder="Search notes, maps, handouts, scenes, characters…"
+			/>
+		</div>
 	);
 }
