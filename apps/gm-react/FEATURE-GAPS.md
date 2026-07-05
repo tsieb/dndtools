@@ -4,14 +4,81 @@
 
 > **Scope of this document.** A thorough, severity-rated inventory of every gap between what the
 > React prototype *appears* to be (a polished, populated GM command center) and what it *actually
-> does* (a mostly-static visual shell with three genuinely-wired surfaces). It complements
-> [PROTOTYPE.md](./PROTOTYPE.md) (visual contract) and [README.md](./README.md) (wiring contract),
-> both of which describe the design intent; this document describes the **runtime reality** measured
-> from the code and the running app.
+> does* (at audit time, a mostly-static visual shell with three genuinely-wired surfaces). It
+> complements [PROTOTYPE.md](./PROTOTYPE.md) (visual contract) and [README.md](./README.md) (wiring
+> contract), both of which describe the design intent; this document describes the **runtime
+> reality** measured from the code and the running app. **Current state: see §0★★ below** — every
+> surface is now core-wired; §1–§9 are the historical audit kept for the record.
 
 ---
 
-## 0★. 2026-06-24 UPDATE — deep code-review + fix pass (latest)
+## 0★★. 2026-07-04 UPDATE — completion pass (latest): every surface functional
+
+A 10-agent completion wave (disjoint file ownership) + a lead-driven chrome/hygiene pass closed the
+remaining functional and design-fidelity gaps against the online prototype (design project B) and
+`@dndtools/core`. Commit `feat/gm-react-completion`.
+
+**New surfaces (were missing or fabricated):**
+- **Onboarding** (`src/app/Onboarding.tsx`) — the prototype's 5-step first-run overlay, core-wired:
+  vault step shows the real seeded counts and "Start fresh" genuinely wipes (`resetCoreStorage()` +
+  a `dndtools:react:vault-choice` seed guard in `SceneRuntime.load()`); experience step drives the
+  same feature-tier convention Settings uses (live `visibleFeatures()` reveals); ready checklist is
+  computed from the vault. Settings → "Replay setup" re-opens it for real.
+- **MapBuilder** (`src/app/MapBuilder.tsx`) + Atlas — engine-free SVG geometry renderer (grid,
+  ordered layers, fog composed from the durable MAP-012 op log at DM/player opacities, POIs, tokens)
+  and a full-screen builder overlay: drag-drawn fog rects (`map.append-fog` with the REAL region),
+  click-placed POIs, token create/move/delete, layer visibility/opacity/lock/reorder, and a real
+  import wizard (`previewMapImport` → `map.import-asset`/`map.commit-import`, metadata-only per
+  ADR-014 and labeled as such).
+- **CharBuilder** (`src/app/CharBuilder.tsx`) + Characters — the prototype's guided 6-step wizard
+  running the REAL core draft flow (create-draft → per-owner update-draft-step → finalize-draft →
+  set-combat → owner capability grant); NPC/monster/sidekick land through one enriched
+  `character.quick-create`.
+- **EncounterBuilder** (`src/app/EncounterBuilder.tsx`) + Session — encounter composition over the
+  real actor-filtered roster (quick-add foes, per-combatant initiative, challenge meter) dispatching
+  `encounter.build` → `combat.start`; the same dialog reinforces mid-combat
+  (`combat.add-combatants`), plus roster ops (remove/reorder/set-visibility), a condition picker
+  over the CONDITIONS catalog, and the DM campaign-date panel (`session.set-campaign-date`).
+
+**Now genuinely functional (was stub/partial):** canvas keyboard operation (roving tabindex per
+core focus order; arrows/Shift+arrows/Delete commit one op per press) and live Dice/Timer widget
+bodies via `widget.dispatch-command`; scene metadata editing (`scene.update-metadata`,
+`scene.set-focus-order`); Player staged level-up (CHAR-009) + personal quests/highlights journal +
+party marching order/shared stash; `/play` dice as the player actor into the shared session log;
+⌘K palette backed by `searchVaultForActor` (notes/objects/POIs/handouts/rolls + maps); Audio
+add-source form + an app-lifetime `<audio>` playback driver reconciling `session.audioPlayback`
+(mounted at shell level); Extensions Plugins tab on real `widget.package.*` dispatches; Campaign
+factions as a core `content.*` vault-object subtype (additive core change, 3183 tests green);
+Upgrade change-plan dialog whose device-local choice Settings reads back.
+
+**Chrome:** responsive shell — full sidebar ≥1025px, DS `NavRail` at 641–1024px, DS `BottomTabBar`
++ "More" `Sheet` ≤640px (same IA, presentation-only). Settings truthfulness — real shortcut list,
+LIVE player-safety leak checks (re-reads the world as each player actor), honest migration dry-run
+dialog with the apply action disabled.
+
+**Hygiene:** route-level code-splitting (16 lazy chunks; boot bundle −363 kB); tavern
+`--color-text-tertiary` raised to `#9d8d75` (≥4.5:1 AA on raised surfaces) in BOTH apps with
+`scripts/token-contrast-lint.ts` extended to gm-react + a tertiary-on-raised pair (122 checks);
+demo-seed audio is now a generated silent data-URI WAV (the fake host errored on every page);
+`pnpm verify:react[:routes|:roundtrip|:canvas|:ui]` aliases.
+
+**Honest stubs remaining (labeled in-UI, no core backing):** Community publish/wiki/discover ·
+billing/account/devices · AI-provider config · map raster preview (metadata-only import, ADR-014) ·
+MapBuilder generation panel + fog brush/polygon sub-tools · D&D Beyond character import · PC custom
+attacks / post-creation dm-only fields · campaign-system switch apply · invite transport (emails
+stay device-local, labeled).
+
+**Gates (all green, this pass):** `typecheck` (react + core + gm svelte) ✓ · `build` ✓ ·
+`verify-routes` 16/16 · `verify-roundtrip` 11/11 · `verify-canvas` 13/13 · **`verify-ui` 10/10** —
+now incl. Onboarding 5-step walkthrough, CharBuilder wizard (asserts `character.finalize-draft`),
+encounter launch (asserts `combat.start`), canvas keyboard move (asserts `scene.move-widget`), and
+builder POI place (asserts `map.poi.create`). Core suite 3183/3183 · eslint + boundary + both
+contrast lints ✓. All gate pages pre-set `dndtools:react:onboarded` (the overlay would cover every
+surface); the onboarding case runs without it by design.
+
+---
+
+## 0★. 2026-06-24 UPDATE — deep code-review + fix pass
 
 A 5-agent read-only deep review (runtime/wiring · canvas+live-play · content+platform · shell/cross-cutting · UX/a11y) was run against the whole app; the lead then applied every fix serially. All findings were verified against the real `@dndtools/core` command/query schemas.
 

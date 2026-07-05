@@ -44,7 +44,7 @@
 	--color-border-focus: #e0b06f;
 	--color-text-primary: #f2e8d8;
 	--color-text-secondary: #bcab92;
-	--color-text-tertiary: #897a64;
+	--color-text-tertiary: #9d8d75; /* ≥4.5:1 AA on --color-surface-raised (was #897a64 · 3.79:1) */
 	--color-text-inverse: #14100b;
 	--color-text-link: #e0b06f;
 	--color-text-link-visited: #caa05a;
@@ -93,7 +93,7 @@
 	--color-border-focus: #e0b06f;
 	--color-text-primary: #f2e8d8;
 	--color-text-secondary: #bcab92;
-	--color-text-tertiary: #897a64;
+	--color-text-tertiary: #9d8d75; /* ≥4.5:1 AA on --color-surface-raised (was #897a64 · 3.79:1) */
 	--color-text-inverse: #14100b;
 	--color-text-link: #e0b06f;
 	--color-text-link-visited: #caa05a;
