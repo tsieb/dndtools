@@ -8,10 +8,13 @@ import {
 	type ReactNode,
 } from 'react';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { useAuth } from '../cloud/AuthContext';
+import { isCloudConfigured } from '../cloud/config';
 import { SessionHost, type HostInvitation, type HostPeer } from './SessionHost';
 import { SessionClient, type ClientState, type JoinedIdentity } from './SessionClient';
 import type { CommandRequest } from './messages';
-import { getDiscovery, type DiscoveredService } from './discovery';
+import { getDiscovery, type DiscoveryBridge, type DiscoveredService } from './discovery';
+import { createCloudBridge, type CloudBridge } from './cloudBridge';
 
 /**
  * The P2P session role of THIS device:
@@ -42,6 +45,13 @@ export interface SessionContextValue {
 	browseTables: () => void;
 	stopBrowseTables: () => void;
 	connectDiscovered: (service: DiscoveredService) => Promise<void>;
+	// Cloud (internet) remote play — auth-gated, only when cloud is configured.
+	cloudAvailable: boolean;
+	startHostingOnline: () => Promise<void>;
+	cloudSessions: DiscoveredService[];
+	browseOnline: () => Promise<void>;
+	stopBrowseOnline: () => void;
+	connectOnline: (service: DiscoveredService) => Promise<void>;
 }
 
 const SessionCtx = createContext<SessionContextValue | null>(null);
@@ -66,22 +76,33 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 	const [peers, setPeers] = useState<HostPeer[]>([]);
 	const [client, setClient] = useState<ClientState | null>(null);
 	const [discovered, setDiscovered] = useState<DiscoveredService[]>([]);
+	const [cloudSessions, setCloudSessions] = useState<DiscoveredService[]>([]);
 	const discoveryCleanup = useRef<Array<() => void>>([]);
 	const discovery = getDiscovery();
+	const auth = useAuth();
+	const cloudBridgeRef = useRef<CloudBridge | null>(null);
+	const getCloudBridge = useCallback((): CloudBridge => {
+		if (!cloudBridgeRef.current) cloudBridgeRef.current = createCloudBridge(() => auth.getIdToken());
+		return cloudBridgeRef.current;
+	}, [auth]);
 
-	const startHosting = useCallback(() => {
-		if (hostRef.current) return;
+	// Wire a host to a discovery bridge (LAN mDNS OR cloud WS — same DiscoveryBridge interface): advertise
+	// the table and, when a joiner arrives, auto-invite the first participant without a live peer and accept
+	// their answer. The offer/answer codes are opaque and already AES-GCM sealed regardless of bridge.
+	const ensureHost = useCallback((): SessionHost => {
+		if (hostRef.current) return hostRef.current;
 		const host = new SessionHost(runtime, randomSessionId());
 		host.onChange(() => setPeers(host.connectedPeers));
 		hostRef.current = host;
 		setRole('host');
 		setPeers(host.connectedPeers);
+		return host;
+	}, [runtime]);
 
-		// LAN auto-discovery (Electron): advertise the table and answer code-free join handshakes. When a
-		// joiner arrives, auto-invite the first participant without a live peer; accept their answer.
-		if (discovery) {
-			void discovery.advertise(host.sessionId, 'DND Tools table');
-			const offAsk = discovery.onOfferRequest(async (reqId) => {
+	const wireHost = useCallback(
+		(host: SessionHost, bridge: DiscoveryBridge, name: string) => {
+			void bridge.advertise(host.sessionId, name);
+			const offAsk = bridge.onOfferRequest(async (reqId) => {
 				const taken = new Set(host.connectedPeers.map((p) => p.actorId));
 				const target = runtime.actors.find(
 					(a) => (a.role === 'player' || a.role === 'observer') && !taken.has(a.id),
@@ -89,9 +110,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 				if (!target) return;
 				const inv = await host.invite(target.id);
 				setPeers(host.connectedPeers);
-				await discovery.respondOffer(reqId, inv.offerCode);
+				await bridge.respondOffer(reqId, inv.offerCode);
 			});
-			const offAns = discovery.onAnswer(async (answerCode) => {
+			const offAns = bridge.onAnswer(async (answerCode) => {
 				try {
 					await host.acceptAnswer(answerCode);
 				} catch {
@@ -99,8 +120,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 				}
 			});
 			discoveryCleanup.current.push(offAsk, offAns);
-		}
-	}, [runtime, discovery]);
+		},
+		[runtime],
+	);
+
+	const startHosting = useCallback(() => {
+		if (hostRef.current) return;
+		const host = ensureHost();
+		if (discovery) wireHost(host, discovery, 'DND Tools table');
+	}, [discovery, ensureHost, wireHost]);
+
+	// Make the table joinable over the internet (auth-gated). Can be combined with LAN hosting.
+	const startHostingOnline = useCallback(async () => {
+		if (!isCloudConfigured) return;
+		if (!(await auth.requireAuth())) return;
+		const host = ensureHost();
+		wireHost(host, getCloudBridge(), 'DND Tools table');
+	}, [auth, ensureHost, wireHost, getCloudBridge]);
 
 	const invite = useCallback(async (actorId: string) => {
 		if (!hostRef.current) throw new Error('Start hosting first.');
@@ -126,6 +162,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 		for (const off of discoveryCleanup.current) off();
 		discoveryCleanup.current = [];
 		void discovery?.stopAdvertise();
+		void cloudBridgeRef.current?.stopAdvertise();
 		setRole((r) => (r === 'host' ? 'solo' : r));
 	}, [discovery]);
 
@@ -187,6 +224,37 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 		[discovery, join],
 	);
 
+	// --- Cloud (internet) counterparts of browse/connect, auth-gated. -------
+	const browseOnline = useCallback(async () => {
+		if (!isCloudConfigured) return;
+		if (!(await auth.requireAuth())) return;
+		const bridge = getCloudBridge();
+		const off = bridge.onServices((services) => setCloudSessions(services));
+		discoveryCleanup.current.push(off);
+		await bridge.browseStart();
+	}, [auth, getCloudBridge]);
+
+	const stopBrowseOnline = useCallback(() => {
+		void cloudBridgeRef.current?.browseStop();
+		setCloudSessions([]);
+	}, []);
+
+	const connectOnline = useCallback(
+		async (service: DiscoveredService) => {
+			if (!isCloudConfigured) return;
+			if (!(await auth.requireAuth())) return;
+			const bridge = getCloudBridge();
+			// The host sends us an offer over the cloud rendezvous; join with it and return the answer.
+			const off = bridge.onOffer(async (reqId, offerCode) => {
+				const { answerCode } = await join(offerCode);
+				await bridge.respondAnswer(reqId, answerCode);
+			});
+			discoveryCleanup.current.push(off);
+			await bridge.connect(service);
+		},
+		[auth, getCloudBridge, join],
+	);
+
 	const value = useMemo<SessionContextValue>(
 		() => ({
 			role,
@@ -206,6 +274,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 			browseTables,
 			stopBrowseTables,
 			connectDiscovered,
+			cloudAvailable: isCloudConfigured,
+			startHostingOnline,
+			cloudSessions,
+			browseOnline,
+			stopBrowseOnline,
+			connectOnline,
 		}),
 		[
 			role,
@@ -225,6 +299,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 			browseTables,
 			stopBrowseTables,
 			connectDiscovered,
+			startHostingOnline,
+			cloudSessions,
+			browseOnline,
+			stopBrowseOnline,
+			connectOnline,
 		],
 	);
 
