@@ -11,6 +11,8 @@ build
 dist
 dist-demo
 mcp/dist
+# electron-builder installer output (dmg / AppImage / unpacked app)
+apps/gm-react/release
 /tmp
 
 # OS

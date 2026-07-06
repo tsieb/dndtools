@@ -37,15 +37,17 @@ overrides:
   yaml@1.10.2: 1.10.3
 
 allowBuilds:
-  electron: false
+  # electron's install script downloads its prebuilt binary — required to package the gm-react
+  # desktop shell (apps/gm-react/electron). electron-winstaller stays off: Windows is not a target.
+  electron: true
   electron-winstaller: false
   esbuild: true
 
 onlyBuiltDependencies:
   - esbuild
+  - electron
 
 ignoredBuiltDependencies:
-  - electron
   - electron-winstaller
 
 minimumReleaseAgeExclude:
