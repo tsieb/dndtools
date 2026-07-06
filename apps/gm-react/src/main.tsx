@@ -10,6 +10,22 @@ window.addEventListener('unhandledrejection', () => {
 	Toaster.error('Something didn’t save — please try that again.');
 });
 
+// Demo build (`VITE_DEMO_MODE=1`): open straight into the populated sample campaign instead of the
+// first-run onboarding overlay, so the standalone demo boots into an immediately-usable, seeded state.
+// The demo content itself is produced at runtime by `SceneRuntime.load` → `seedDemoContent` (it fills
+// an empty vault whenever "Start fresh" was never chosen); all this flag does is skip the overlay that
+// would otherwise sit in front of it. Only writes when the visitor has made no prior choice, so a real
+// interaction on this origin is never overridden.
+if (import.meta.env.VITE_DEMO_MODE === '1') {
+	try {
+		if (window.localStorage.getItem('dndtools:react:onboarded') === null) {
+			window.localStorage.setItem('dndtools:react:onboarded', 'done');
+		}
+	} catch {
+		/* private mode: the overlay just shows first — the app is still fully usable from there */
+	}
+}
+
 const container = document.getElementById('root');
 if (!container) throw new Error('Root container #root not found');
 createRoot(container).render(<App />);

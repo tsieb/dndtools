@@ -7,11 +7,16 @@
 	"scripts": {
 		"dev": "vite --port 5273",
 		"build": "vite build",
+		"build:demo": "vite build --outDir dist-demo --mode demo",
 		"preview": "vite preview --port 4273",
+		"preview:demo": "vite preview --outDir dist-demo --port 4274",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@dndtools/core": "workspace:*",
+		"@fontsource/cinzel": "^5.2.8",
+		"@fontsource/inter": "^5.2.8",
+		"@fontsource/jetbrains-mono": "^5.2.8",
 		"dexie": "^4.4.3",
 		"lucide-react": "^0.460.0",
 		"react": "^18.3.1",

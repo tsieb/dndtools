@@ -54,7 +54,7 @@ try {
 
 	// --- Round-trip: create a scene through the real UI form. ---
 	const SCENE_NAME = `Crypt ${Date.now()}`;
-	await page.goto(`${URL}scenes`, { waitUntil: 'domcontentloaded' });
+	await page.goto(`${URL}#/scenes`, { waitUntil: 'domcontentloaded' });
 	await waitForRuntime();
 	await page.fill('#scene-name', SCENE_NAME);
 	await page.click('button[type="submit"]');
@@ -76,7 +76,7 @@ try {
 	check('scene SURVIVES reload (persistFullState round-trip)', persisted, SCENE_NAME);
 
 	// And it's visible in the rendered scenes list after reload.
-	await page.goto(`${URL}scenes`, { waitUntil: 'domcontentloaded' });
+	await page.goto(`${URL}#/scenes`, { waitUntil: 'domcontentloaded' });
 	await waitForRuntime();
 	const inDom = (await page.textContent('body')).includes(SCENE_NAME);
 	check('persisted scene renders in the DOM after reload', inDom);

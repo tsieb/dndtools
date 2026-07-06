@@ -33,7 +33,8 @@ async function trial(name, route, interact) {
 	page.on('pageerror', (e) => errs.push(e.message));
 	page.on('console', (m) => m.type() === 'error' && errs.push(m.text()));
 	try {
-		await page.goto(`${BASE}${route}`, { waitUntil: 'networkidle', timeout: 20000 });
+		// HashRouter: navigate under the `#` fragment (`route` already starts with `/`).
+		await page.goto(`${BASE}/#${route}`, { waitUntil: 'networkidle', timeout: 20000 });
 		await ready(page);
 		await page.waitForTimeout(400);
 		const before = await ops(page);
@@ -172,7 +173,7 @@ await trial('Session · Build encounter', '/session', async (p) => {
 	const errs = [];
 	page.on('pageerror', (e) => errs.push(e.message));
 	try {
-		await page.goto(`${BASE}/board`, { waitUntil: 'networkidle', timeout: 20000 });
+		await page.goto(`${BASE}/#/board`, { waitUntil: 'networkidle', timeout: 20000 });
 		await ready(page);
 		await page.waitForTimeout(400);
 		await click(page, /edit layout/i);

@@ -7,10 +7,31 @@
  *                    accents only. Never body copy, never small text.
  *   • JetBrains Mono — dice rolls, initiative numbers, IDs, stat blocks, code/keyboard glyphs.
  *
- * SUBSTITUTION NOTE: the source Svelte app references these by family name and loads them as
- * webfonts; no font binaries ship in the repo. We serve them from the Google Fonts CDN here so
- * specimens and kits render exactly. If you want the fonts vendored/self-hosted for offline use,
- * drop the .woff2 files in assets/fonts/ and replace this @import with local @font-face rules.
+ * SELF-HOSTED (offline): these are served from the vendored `@fontsource/*` packages, not a CDN, so
+ * the desktop shell (and any offline web use) renders the real brand faces with no network. Each
+ * import is a latin-subset @font-face for one weight; Vite fingerprints and bundles the woff2 into
+ * `dist/assets`. Family names are unchanged (`Inter` / `Cinzel` / `JetBrains Mono`), so every design
+ * token that references them keeps working. Weight coverage mirrors the former Google Fonts request:
+ * Inter 400–800, Cinzel 400–900, JetBrains Mono 400–700.
  * ========================================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+/* Inter — UI / body / numerals */
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-600.css';
+@import '@fontsource/inter/latin-700.css';
+@import '@fontsource/inter/latin-800.css';
+
+/* Cinzel — display serif */
+@import '@fontsource/cinzel/latin-400.css';
+@import '@fontsource/cinzel/latin-500.css';
+@import '@fontsource/cinzel/latin-600.css';
+@import '@fontsource/cinzel/latin-700.css';
+@import '@fontsource/cinzel/latin-800.css';
+@import '@fontsource/cinzel/latin-900.css';
+
+/* JetBrains Mono — dice / initiative / IDs / code */
+@import '@fontsource/jetbrains-mono/latin-400.css';
+@import '@fontsource/jetbrains-mono/latin-500.css';
+@import '@fontsource/jetbrains-mono/latin-600.css';
+@import '@fontsource/jetbrains-mono/latin-700.css';

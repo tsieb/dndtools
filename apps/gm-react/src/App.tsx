@@ -1,5 +1,9 @@
 import { Component, Suspense, lazy, useEffect, type CSSProperties, type ReactNode } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+// HashRouter (not BrowserRouter): the built app is loaded from disk in the Electron desktop shell
+// (`file://` via loadFile), where the History API's path-based URLs 404 on reload/deep-link. Hash
+// routing resolves entirely client-side, so it works identically under `file://` and a web origin —
+// the only web-visible difference is a cosmetic `#` in the URL.
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RuntimeProvider, useRuntime } from './runtime/RuntimeContext';
 import { ensureAudioPlayback } from './runtime/audio-playback';
 import { AppShell } from './app/AppShell';
@@ -183,11 +187,11 @@ function Shell() {
 export function App() {
 	return (
 		<RuntimeProvider>
-			<BrowserRouter>
+			<HashRouter>
 				<ErrorBoundary>
 					<Shell />
 				</ErrorBoundary>
-			</BrowserRouter>
+			</HashRouter>
 		</RuntimeProvider>
 	);
 }

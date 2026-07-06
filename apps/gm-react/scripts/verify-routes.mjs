@@ -31,7 +31,9 @@ for (const route of routes) {
 	page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
 	page.on('console', (m) => m.type() === 'error' && errors.push(`console.error: ${m.text()}`));
 	try {
-		await page.goto(`${BASE}${route}`, { waitUntil: 'networkidle', timeout: 20000 });
+		// HashRouter: routes live under the `#` fragment (`/#/board`), so a path-style URL would just
+		// resolve to home and false-green the check. `route` already begins with `/`, so `/#${route}`.
+		await page.goto(`${BASE}/#${route}`, { waitUntil: 'networkidle', timeout: 20000 });
 		await page.waitForTimeout(600); // let lazy chunks + effects settle
 		const rootHtml = await page.evaluate(() => document.getElementById('root')?.innerHTML?.length ?? 0);
 		const ok = errors.length === 0 && rootHtml > 200;

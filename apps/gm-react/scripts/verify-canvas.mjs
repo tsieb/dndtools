@@ -40,7 +40,7 @@ try {
 
 	// ---- /board: ensure-home materializes the home scene with seeded system widgets ----
 	errors.length = 0;
-	await page.goto(`${URL}board`, { waitUntil: 'domcontentloaded' });
+	await page.goto(`${URL}#/board`, { waitUntil: 'domcontentloaded' });
 	await waitForRuntime();
 	// ensure-home is dispatched in an effect; wait for the home scene id + its widgets.
 	await page.waitForFunction(() => {
@@ -98,7 +98,7 @@ try {
 	});
 	check('scene.create returned a scene id for the editor', !!sceneId, sceneId || 'none');
 	errors.length = 0;
-	await page.goto(`${URL}scene/${sceneId}`, { waitUntil: 'domcontentloaded' });
+	await page.goto(`${URL}#/scene/${sceneId}`, { waitUntil: 'domcontentloaded' });
 	await waitForRuntime();
 	await page.waitForTimeout(300);
 	const editorText = (await page.textContent('body')) ?? '';

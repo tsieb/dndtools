@@ -46,13 +46,11 @@
 				} catch (e) { /* fail open */ }
 			})();
 		</script>
-		<!-- Brand webfonts: Inter (UI), Cinzel (display ≥24px), JetBrains Mono (numerals/dice/IDs). -->
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link
-			rel="stylesheet"
-			href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
-		/>
+		<!--
+			Brand webfonts: Inter (UI), Cinzel (display ≥24px), JetBrains Mono (numerals/dice/IDs).
+			Self-hosted, not CDN — the @font-face rules live in src/styles/tokens/fonts.css (vendored
+			from @fontsource/*) and are bundled by Vite, so the app renders the real faces fully offline.
+		-->
 	</head>
 	<body>
 		<div id="root"></div>
