@@ -23,14 +23,15 @@ Parameters:
       Becomes https://<prefix>.auth.<region>.amazoncognito.com. Change if taken.
   CallbackUrls:
     Type: CommaDelimitedList
-    Default: 'http://localhost:5173/,http://localhost:4173/,dndtools://auth'
+    Default: 'http://localhost:5273/,http://localhost:4273/,dndtools://auth'
     Description: >-
-      Allowed OAuth redirect URIs. Web dev (Vite 5173 / preview 4173), the
-      Electron custom-scheme loopback (dndtools://auth), plus the deployed web
-      origin once web-hosting exists. HashRouter reads ?code= at the origin root.
+      Allowed OAuth redirect URIs. Web dev (Vite 5273 / preview 4273 — see
+      apps/gm-react/vite.config.ts), the Electron custom-scheme loopback
+      (dndtools://auth), plus the deployed web origin once web-hosting exists.
+      HashRouter reads ?code= at the origin root.
   LogoutUrls:
     Type: CommaDelimitedList
-    Default: 'http://localhost:5173/,http://localhost:4173/,dndtools://auth'
+    Default: 'http://localhost:5273/,http://localhost:4273/,dndtools://auth'
     Description: Allowed post-logout redirect URIs (same set as callbacks).
 
 Resources:

@@ -17,8 +17,12 @@ STACK_DIR="$HERE/$STACK"
 [ -d "$STACK_DIR" ] || { echo "unknown stack: $STACK (no dir $STACK_DIR)" >&2; exit 1; }
 [ -f "$STACK_DIR/template.yaml" ] || { echo "no template.yaml in $STACK_DIR" >&2; exit 1; }
 
-echo "==> $STACK / $STAGE : validate"
-sam validate --lint --template "$STACK_DIR/template.yaml"
+echo "==> $STACK / $STAGE : validate (service-side, blocking)"
+sam validate --template "$STACK_DIR/template.yaml" --region "${AWS_REGION:-ca-central-1}" --profile "${AWS_PROFILE:-dndtools}"
+
+echo "==> $STACK / $STAGE : lint (advisory — bundled cfn-lint spec can lag AWS)"
+sam validate --lint --template "$STACK_DIR/template.yaml" --region "${AWS_REGION:-ca-central-1}" --profile "${AWS_PROFILE:-dndtools}" || \
+  echo "    (lint reported findings; review above — not blocking deploy)"
 
 echo "==> $STACK / $STAGE : build"
 sam build --template "$STACK_DIR/template.yaml" --base-dir "$STACK_DIR" \

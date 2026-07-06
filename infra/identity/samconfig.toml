@@ -10,7 +10,7 @@ capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
 resolve_s3 = true
 s3_prefix = "dndtools-dev-identity"
-parameter_overrides = "ProjectName=dndtools Stage=dev DomainPrefix=dndtools-dev-auth"
+parameter_overrides = "ProjectName=dndtools Stage=dev DomainPrefix=dndtools-dev-auth CallbackUrls='http://localhost:5273/,http://localhost:4273/,dndtools://auth' LogoutUrls='http://localhost:5273/,http://localhost:4273/,dndtools://auth'"
 tags = "project=dndtools stage=dev stack=identity managed-by=sam"
 
 [prod.global.parameters]
