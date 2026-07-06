@@ -597,11 +597,11 @@ export function CharBuilder({ onClose, onCreated }: { onClose: () => void; onCre
 								<div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16 }}>
 									<div>
 										<FieldLabel>Name</FieldLabel>
-										<Input value={name} onChange={(e: any) => setName(e.target.value)} placeholder="e.g. Sister Avelin" style={{ width: '100%' }} />
+										<Input value={name} onChange={(e: any) => setName(e.target.value)} placeholder="e.g. Sister Avelin" aria-label="Name" style={{ width: '100%' }} />
 									</div>
 									<div>
 										<FieldLabel>Alignment</FieldLabel>
-										<Select value={align} onChange={(e: any) => setAlign(e.target.value)} options={ALIGNMENTS.map((a) => ({ value: a, label: a }))} style={{ width: '100%' }} />
+										<Select value={align} onChange={(e: any) => setAlign(e.target.value)} options={ALIGNMENTS.map((a) => ({ value: a, label: a }))} aria-label="Alignment" style={{ width: '100%' }} />
 									</div>
 								</div>
 								{isPc && (
@@ -611,7 +611,7 @@ export function CharBuilder({ onClose, onCreated }: { onClose: () => void; onCre
 											    fills and finalizes the guided steps. */}
 											<FieldLabel hint="A PC belongs to a player — the guided draft is created in their name">Owned by</FieldLabel>
 											{players.length > 0 ? (
-												<Select value={owner} onChange={(e: any) => setOwner(e.target.value)} options={players.map((p) => ({ value: p.id, label: p.displayName }))} style={{ width: '100%' }} />
+												<Select value={owner} onChange={(e: any) => setOwner(e.target.value)} options={players.map((p) => ({ value: p.id, label: p.displayName }))} aria-label="Owned by" style={{ width: '100%' }} />
 											) : (
 												<HonestNote>No player actors are registered — add players in Settings before building a PC.</HonestNote>
 											)}
@@ -657,6 +657,7 @@ export function CharBuilder({ onClose, onCreated }: { onClose: () => void; onCre
 											value={subclass}
 											onChange={(e: any) => setSubclass(e.target.value)}
 											options={[{ value: '', label: '— none yet —' }, ...clsObj.sub.split(', ').map((s) => ({ value: s, label: s }))]}
+											aria-label="Subclass"
 											style={{ width: '100%' }}
 										/>
 									</div>

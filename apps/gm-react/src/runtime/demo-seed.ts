@@ -314,7 +314,36 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 	const needWikilinks =
 		(needNotes || liveNotesUpFront.length > 0) &&
 		liveNotesUpFront.every((item) => !item.body.includes('[['));
-	if (!needCharacters && !needNotes && !needScenes && !needCalendar && !needAudio && !needFactions && !needWikilinks)
+	// Owner grants guard on THEIR OWN absence, like factions/wikilinks: a vault seeded before the
+	// per-PC owner grant existed has the demo PCs but no grants (finalize-draft never auto-grants,
+	// PERM-004), leaving the player personas unable to level up or journal their own PC. Collect the
+	// pre-existing demo PCs that are missing one so the pass below backfills exactly those.
+	const hasOwnerGrant = (characterId: string, playerActorId: string) =>
+		rt.state.permissions.grants.some(
+			(g) =>
+				g.entityType === 'character' &&
+				g.entityId === characterId &&
+				g.playerActorId === playerActorId &&
+				g.capabilitySet === 'owner',
+		);
+	const ownerGrantBackfill = DEMO_PCS.flatMap((pc) => {
+		const existing = Object.entries(rt.state.characters.characters).find(
+			([, c]) => c.kind === 'pc' && c.name === pc.name,
+		);
+		return existing && !hasOwnerGrant(existing[0], pc.owner)
+			? [{ name: pc.name, characterId: existing[0], owner: pc.owner }]
+			: [];
+	});
+	if (
+		!needCharacters &&
+		!needNotes &&
+		!needScenes &&
+		!needCalendar &&
+		!needAudio &&
+		!needFactions &&
+		!needWikilinks &&
+		ownerGrantBackfill.length === 0
+	)
 		return false;
 
 	// Surface a swallowed rejection in dev so a mis-shaped seed datum is visible, not silently dropped.
@@ -401,6 +430,25 @@ export async function seedDemoContent(rt: Seedable): Promise<boolean> {
 					`owner grant ${pc.name}`,
 				);
 			}
+		}
+
+		// PERM-004 backfill for vaults seeded BEFORE the owner grant existed (needCharacters is false
+		// there forever, so the in-loop grant above never runs for them).
+		for (const grant of ownerGrantBackfill) {
+			expect(
+				await rt.dispatch({
+					type: 'permission.grant-capability-set',
+					actorId,
+					payload: {
+						entityType: 'character',
+						entityId: grant.characterId,
+						playerActorId: grant.owner,
+						capabilitySet: 'owner',
+						expiresAt: null,
+					},
+				}),
+				`owner grant backfill ${grant.name}`,
+			);
 		}
 
 		if (needNotes) {

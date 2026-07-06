@@ -131,6 +131,8 @@ export function dsToVis(v: string): SceneVisibility {
 }
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+const FOCUSABLE =
+	'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const ghostBtn = {
 	border: 'none',
 	background: 'transparent',
@@ -1194,10 +1196,41 @@ export function MapBuilder({
 			const typing = target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 			if (e.key === 'Escape') {
 				if (overlayOpenRef.current) return; // the open popover/dialog consumes this Escape
+				if (typing) {
+					target?.blur(); // Escape in a label field exits the FIELD, never the whole builder
+					return;
+				}
 				e.stopPropagation();
 				onCloseRef.current();
-			} else if ((e.key === 'Delete' || e.key === 'Backspace') && !typing && selTokenRef.current) {
+			} else if ((e.key === 'Delete' || e.key === 'Backspace') && !typing && !overlayOpenRef.current && selTokenRef.current) {
+				// The overlay guard matters: without it, Backspace behind an open Import/POI dialog
+				// silently deletes the selected token off-screen (durable, and undo is disabled).
 				void deleteTokenRef.current(selTokenRef.current);
+			} else if (e.key === 'Tab' && !overlayOpenRef.current) {
+				// aria-modal contract: wrap Tab inside the builder (same trap as CharBuilder's Overlay) —
+				// the AppShell stays mounted underneath and must never receive focus. Open dialogs/popovers
+				// stack above and own their Tab cycle, hence the overlay guard.
+				const root = rootRef.current;
+				if (!root) return;
+				const nodes = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((n) => n.offsetParent !== null);
+				if (nodes.length === 0) {
+					e.preventDefault();
+					root.focus();
+					return;
+				}
+				const firstNode = nodes[0];
+				const lastNode = nodes[nodes.length - 1];
+				const active = document.activeElement;
+				if (e.shiftKey && (active === firstNode || active === root)) {
+					e.preventDefault();
+					lastNode.focus();
+				} else if (!e.shiftKey && active === lastNode) {
+					e.preventDefault();
+					firstNode.focus();
+				} else if (active instanceof HTMLElement && !root.contains(active)) {
+					e.preventDefault();
+					firstNode.focus(); // focus escaped (e.g. devtools round-trip) — pull it back in
+				}
 			}
 		};
 		document.addEventListener('keydown', onKey);

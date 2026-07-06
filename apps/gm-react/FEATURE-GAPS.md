@@ -18,6 +18,20 @@ A 10-agent completion wave (disjoint file ownership) + a lead-driven chrome/hygi
 remaining functional and design-fidelity gaps against the online prototype (design project B) and
 `@dndtools/core`. Commit `feat/gm-react-completion`.
 
+*2026-07-05 adversarial-review fix pass (37-agent find→2-refuter-verify workflow; 7 confirmed + 5
+lead-verified findings, all fixed):* fresh-vault choice now truly suppresses demo maps
+(`loadCoreState` no longer substitutes the demo map state before the guard could run — verified
+headless: fresh boot = 0 maps/chars/notes/scenes); choosing the sample after a prior "start fresh"
+clears the choice key and re-seeds (was a permanent silent no-op); the ready-step checklist
+shortcuts route through `finish()` (tier/vault/invites were silently discarded); onboarding step
+changes focus the content region instead of parking focus on "Skip setup", and the vault/experience
+radiogroups follow the ARIA pattern (roving tabindex + arrows); MapBuilder gained the app's Tab
+focus trap, its Delete/Backspace shortcut is inert behind open dialogs, and Escape in a label field
+blurs the field instead of closing the builder; demo-seed backfills the per-PC owner grants on
+pre-existing vaults (own-absence guard, like factions/wikilinks); Session combat rows and
+Extensions SRD cards no longer swallow Enter/Space from nested buttons; CharBuilder's
+Name/Alignment/Owned-by/Subclass fields have accessible names.
+
 **New surfaces (were missing or fabricated):**
 - **Onboarding** (`src/app/Onboarding.tsx`) — the prototype's 5-step first-run overlay, core-wired:
   vault step shows the real seeded counts and "Start fresh" genuinely wipes (`resetCoreStorage()` +

@@ -437,7 +437,12 @@ function ExtCompendium() {
 								aria-pressed={sel === r.id}
 								aria-label={`Select ${r.name}`}
 								onClick={() => setSel(r.id)}
-								onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSel(r.id); } }}
+								onKeyDown={(e) => {
+									// Only when the CARD itself is focused — Enter on the nested Import button must
+									// keep its native activation, not collapse into select.
+									if (e.target !== e.currentTarget) return;
+									if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSel(r.id); }
+								}}
 								style={{
 									display: 'flex',
 									gap: 12,

@@ -517,6 +517,9 @@ function CombatPanel({
 									aria-label={`Select ${c.name}`}
 									onClick={() => onSelect(c.id)}
 									onKeyDown={(e) => {
+										// Only when the ROW itself is focused — Enter/Space bubbling from the nested
+										// Heal/Damage/condition buttons must keep their native activation.
+										if (e.target !== e.currentTarget) return;
 										if (e.key === 'Enter' || e.key === ' ') {
 											e.preventDefault();
 											onSelect(c.id);

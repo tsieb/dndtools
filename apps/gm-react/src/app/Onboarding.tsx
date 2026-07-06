@@ -63,6 +63,27 @@ function writeStorage(key: string, value: string) {
 	}
 }
 
+function removeStorage(key: string) {
+	try {
+		window.localStorage.removeItem(key);
+	} catch {
+		/* private mode — nothing was persisted anyway */
+	}
+}
+
+/** ARIA radio-group contract: arrows move selection (selection follows focus), Tab skips the group. */
+function radioGroupKeyDown(e: React.KeyboardEvent) {
+	if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(e.key)) return;
+	const radios = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'));
+	const at = radios.indexOf(e.target as HTMLElement);
+	if (at === -1 || radios.length < 2) return;
+	e.preventDefault();
+	const delta = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1;
+	const next = radios[(at + delta + radios.length) % radios.length];
+	next.focus();
+	next.click();
+}
+
 const ONB_STEPS = [
 	{ id: 'welcome', title: 'Welcome', icon: 'sparkle' },
 	{ id: 'vault', title: 'Your vault', icon: 'vault' },
@@ -97,6 +118,7 @@ function ChoiceCard({
 			type="button"
 			role="radio"
 			aria-checked={on}
+			tabIndex={on ? 0 : -1}
 			onClick={onPick}
 			style={{
 				display: 'flex',
@@ -157,13 +179,23 @@ export function Onboarding() {
 		return () => window.removeEventListener(REPLAY_EVENT, onReplay);
 	}, []);
 
-	// Focus the panel when the overlay opens; trap Tab inside it (same contract as the DS Sheet).
+	// Focus placement: first-focusable ONLY on open (the DS Dialog contract). On step CHANGES focus
+	// the content region instead — the first focusable is the "Skip setup" button, and parking focus
+	// there on every Continue both mis-announces the step and arms a destructive Enter.
+	const contentRef = useRef<HTMLDivElement>(null);
+	const placedRef = useRef(false);
 	useEffect(() => {
-		if (!open) return;
-		const panel = panelRef.current;
-		if (!panel) return;
-		const first = panel.querySelector<HTMLElement>(FOCUSABLE);
-		(first ?? panel).focus();
+		if (!open) {
+			placedRef.current = false;
+			return;
+		}
+		if (!placedRef.current) {
+			placedRef.current = true;
+			const first = panelRef.current?.querySelector<HTMLElement>(FOCUSABLE);
+			(first ?? panelRef.current)?.focus();
+			return;
+		}
+		contentRef.current?.focus();
 	}, [open, i]);
 
 	const actorId = runtime.defaultActorId;
@@ -176,6 +208,9 @@ export function Onboarding() {
 		const pcs = characters.filter((c) => c.kind === 'pc').length;
 		return { scenes: scenes.length, pcs, npcs: characters.length - pcs, maps: maps.length, notes: notes.length };
 	}, [open, runtime.state, actorId]);
+	// A replayed setup on a device that went fresh sees an EMPTY vault — the step copy must offer to
+	// load the sample, not claim it "is already loaded" beside a card full of zeros.
+	const vaultEmpty = vaultFacts.scenes + vaultFacts.pcs + vaultFacts.npcs + vaultFacts.maps + vaultFacts.notes === 0;
 
 	if (!open) return null;
 
@@ -188,7 +223,9 @@ export function Onboarding() {
 		setOpen(false);
 	}
 
-	async function finish() {
+	// The SINGLE completion path — the ready-step checklist shortcuts route through here too (with
+	// their destination), so the vault choice / tier / invites are never silently discarded.
+	async function finish(to?: string) {
 		// Apply the experience tier with the same one-source-of-truth convention Settings uses.
 		document.documentElement.setAttribute(TIER_ATTR, tier);
 		writeStorage(TIER_KEY, tier);
@@ -204,10 +241,23 @@ export function Onboarding() {
 			} catch {
 				/* the reload below re-runs load() either way */
 			}
-			window.location.reload();
+			if (to) window.location.assign(to);
+			else window.location.reload();
+			return;
+		}
+		// Choosing the sample must UNDO a prior "start fresh" (a replayed setup would otherwise keep
+		// suppressing the seed forever): clear the stored choice, and if this device HAD gone fresh,
+		// reboot so load() re-seeds the sample campaign it just promised.
+		const hadFresh = readStorage(VAULT_CHOICE_KEY) === 'fresh';
+		removeStorage(VAULT_CHOICE_KEY);
+		if (hadFresh) {
+			setWiping(true);
+			if (to) window.location.assign(to);
+			else window.location.reload();
 			return;
 		}
 		setOpen(false);
+		if (to) navigate(to);
 		Toaster.success('Setup complete — welcome to the table');
 	}
 
@@ -302,7 +352,7 @@ export function Onboarding() {
 							Skip setup
 						</Button>
 					</div>
-					<div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 36px 24px' }}>
+					<div ref={contentRef} tabIndex={-1} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 36px 24px', outline: 'none' }}>
 						{step.id === 'welcome' && (
 							<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', height: '100%', gap: 16 }}>
 								<span style={{ width: 60, height: 60, borderRadius: 16, background: T.acc, color: T.accFg, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -325,25 +375,35 @@ export function Onboarding() {
 							</div>
 						)}
 						{step.id === 'vault' && (
-							<div style={{ paddingTop: 14 }} role="radiogroup" aria-label="Vault choice">
+							<div style={{ paddingTop: 14 }} role="radiogroup" aria-label="Vault choice" onKeyDown={radioGroupKeyDown}>
 								<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>Where should your world live?</h2>
 								<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
-									Your vault lives on this device — every note, map, and character. The sample campaign is already loaded so nothing starts empty.
+									{vaultEmpty
+										? 'Your vault lives on this device — every note, map, and character. This device started fresh, so the vault is currently empty.'
+										: 'Your vault lives on this device — every note, map, and character. The sample campaign is already loaded so nothing starts empty.'}
 								</p>
 								<div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
 									<ChoiceCard
 										on={vault === 'sample'}
 										icon="scene"
-										title="Keep the sample campaign"
+										title={vaultEmpty ? 'Load the sample campaign' : 'Keep the sample campaign'}
 										badge="Recommended"
-										desc={`Explore with a table already set: ${vaultFacts.scenes} scenes · ${vaultFacts.pcs} PCs · ${vaultFacts.npcs} NPCs · ${vaultFacts.maps} ${vaultFacts.maps === 1 ? 'map' : 'maps'} · ${vaultFacts.notes} notes. Everything is editable or deletable later.`}
+										desc={
+											vaultEmpty
+												? 'Loads the sample table — scenes, party, maps and notes — so you can explore with nothing starting empty. Everything is editable or deletable later.'
+												: `Explore with a table already set: ${vaultFacts.scenes} scenes · ${vaultFacts.pcs} PCs · ${vaultFacts.npcs} NPCs · ${vaultFacts.maps} ${vaultFacts.maps === 1 ? 'map' : 'maps'} · ${vaultFacts.notes} notes. Everything is editable or deletable later.`
+										}
 										onPick={() => setVault('sample')}
 									/>
 									<ChoiceCard
 										on={vault === 'fresh'}
 										icon="add"
 										title="Start fresh"
-										desc="Clears the sample campaign from this device and boots an empty vault. Your own campaign from a blank page."
+										desc={
+											vaultEmpty
+												? 'Keeps this device\'s vault empty. Your own campaign from a blank page.'
+												: 'Clears the sample campaign from this device and boots an empty vault. Your own campaign from a blank page.'
+										}
 										onPick={() => setVault('fresh')}
 									/>
 								</div>
@@ -353,7 +413,7 @@ export function Onboarding() {
 							</div>
 						)}
 						{step.id === 'experience' && (
-							<div style={{ paddingTop: 14 }} role="radiogroup" aria-label="Experience complexity">
+							<div style={{ paddingTop: 14 }} role="radiogroup" aria-label="Experience complexity" onKeyDown={radioGroupKeyDown}>
 								<h2 style={{ margin: '0 0 4px', font: `700 21px ${T.disp}` }}>How much do you want on screen?</h2>
 								<p style={{ margin: '0 0 18px', font: `13px ${T.sans}`, color: T.ter }}>
 									You can change this any time in Settings. It only affects how much is revealed — never what you can do.
@@ -369,6 +429,7 @@ export function Onboarding() {
 												type="button"
 												role="radio"
 												aria-checked={on}
+												tabIndex={on ? 0 : -1}
 												onClick={() => setTier(levelTier)}
 												style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 9, padding: 14, borderRadius: 12, cursor: 'pointer', border: `1px solid ${on ? T.accBd : T.bd}`, background: on ? T.accSub : T.surf, boxShadow: on ? T.smd : 'none' }}
 											>
@@ -443,11 +504,8 @@ export function Onboarding() {
 											<button
 												key={c.id}
 												type="button"
-												onClick={() => {
-													writeStorage(ONBOARDED_KEY, 'done');
-													setOpen(false);
-													navigate(c.to);
-												}}
+												disabled={wiping}
+												onClick={() => void finish(c.to)}
 												style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: T.surf, border: `1px solid ${c.done ? T.bd : T.accBd}`, cursor: 'pointer', textAlign: 'left' }}
 											>
 												<span style={{ width: 20, height: 20, borderRadius: '50%', flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: c.done ? T.ok : 'transparent', border: `1.5px solid ${c.done ? T.ok : T.bdS}`, color: T.accFg }}>
@@ -486,7 +544,7 @@ export function Onboarding() {
 							</Button>
 						) : (
 							<Button variant="primary" icon="check" onClick={() => void finish()} disabled={wiping}>
-								{wiping ? 'Clearing vault…' : vault === 'fresh' ? 'Clear sample & start fresh' : 'Enter Command Center'}
+								{wiping ? (vault === 'fresh' ? 'Clearing vault…' : 'Restoring sample…') : vault === 'fresh' ? 'Clear sample & start fresh' : 'Enter Command Center'}
 							</Button>
 						)}
 					</div>

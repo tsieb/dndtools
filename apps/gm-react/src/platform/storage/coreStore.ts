@@ -9,7 +9,6 @@ import {
 	EMPTY_SESSION_STATE,
 	EMPTY_WIDGET_PACKAGE_STATE,
 	createOperationLog,
-	createDemoMapState,
 	createStoragePlatformServiceRegistry,
 	ensureAudioState,
 	ensureCalendarContinuityState,
@@ -191,7 +190,14 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		scenes: {},
 		schemaVersion: EMPTY_SCENE_STATE.schemaVersion,
 	};
-	const maps = (mapDoc?.doc as MapState | undefined) ?? createDemoMapState();
+	// No persisted map document defaults EMPTY, not demo: SceneRuntime.ensureDefaultActor owns
+	// demo-map population, and it must be able to honor onboarding's "start fresh" vault choice —
+	// substituting the demo state here would make that guard unreachable on the post-wipe reload.
+	const maps = (mapDoc?.doc as MapState | undefined) ?? {
+		maps: { ...EMPTY_MAP_STATE.maps },
+		assets: { ...EMPTY_MAP_STATE.assets },
+		schemaVersion: EMPTY_MAP_STATE.schemaVersion,
+	};
 	maps.maps ??= { ...EMPTY_MAP_STATE.maps };
 	// MAP-002: a map document persisted before the content-addressed asset store existed has no
 	// `assets` map; default it so older vaults stay readable without a destructive migration.
