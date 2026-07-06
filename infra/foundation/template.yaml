@@ -1,0 +1,193 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  dndtools foundation stack — account-wide guardrails that every other stack
+  depends on but that change rarely: a monthly cost Budget (pre-revenue tripwire),
+  the GitHub Actions OIDC provider + CI deploy role (keyless deploys), and the
+  SSM Parameter Store namespace convention (/dndtools/<stage>/...). Deploy this
+  FIRST. It creates no always-on billable resources.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: dndtools
+    Description: Project slug; used as the SSM namespace root and resource prefix.
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+    Description: Deployment stage. Each stage is an independent set of parameters.
+  NotificationEmail:
+    Type: String
+    Default: trentonsieb@gmail.com
+    Description: Email address that receives Budget threshold alerts.
+  MonthlyBudgetUsd:
+    Type: Number
+    Default: 25
+    Description: Monthly cost ceiling in USD. Alerts fire at 40/80/100% (see below).
+  GitHubOrg:
+    Type: String
+    Default: tsieb
+    Description: GitHub org/user that owns the repo allowed to assume the deploy role.
+  GitHubRepo:
+    Type: String
+    Default: dndtools
+    Description: GitHub repo name allowed to assume the deploy role.
+  GitHubBranch:
+    Type: String
+    Default: master
+    Description: >-
+      Branch whose GitHub Actions runs may assume the deploy role. The OIDC
+      subject condition is built as
+      repo:<org>/<repo>:ref:refs/heads/<branch>. Widen only deliberately.
+
+Resources:
+  # --- Cost guardrail: a monthly budget with escalating email alerts. -------
+  # Budgets is a global service; the resource is fine to create from any region.
+  MonthlyCostBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub '${ProjectName}-${Stage}-monthly'
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref MonthlyBudgetUsd
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 40           # ~$10 on a $25 ceiling — early warning
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref NotificationEmail
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80           # projected to blow ~$20
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref NotificationEmail
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100          # hit the ceiling
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: !Ref NotificationEmail
+
+  # --- Keyless CI: GitHub Actions OIDC provider + scoped deploy role. --------
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      # AWS now validates GitHub's OIDC cert via its trust store and ignores
+      # these thumbprints, but the property is still required. Both are GitHub's
+      # published intermediate thumbprints.
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+
+  CiDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-${Stage}-ci-deploy'
+      Description: >-
+        Assumed by GitHub Actions (via OIDC) to run sam build/deploy for all
+        dndtools stacks. This account is single-purpose, so the role is broad
+        within it (PowerUser + IAM role management) but cannot be assumed
+        outside the named repo/branch.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                'token.actions.githubusercontent.com:aud': sts.amazonaws.com
+              StringLike:
+                'token.actions.githubusercontent.com:sub': !Sub 'repo:${GitHubOrg}/${GitHubRepo}:ref:refs/heads/${GitHubBranch}'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/PowerUserAccess
+      Policies:
+        - PolicyName: iam-and-service-role-management
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # SAM/CloudFormation must create & pass Lambda/EC2/service roles and
+              # manage the OIDC provider on redeploy. Scoped to this account only.
+              - Effect: Allow
+                Action:
+                  - 'iam:CreateRole'
+                  - 'iam:DeleteRole'
+                  - 'iam:GetRole'
+                  - 'iam:UpdateRole'
+                  - 'iam:UpdateAssumeRolePolicy'
+                  - 'iam:AttachRolePolicy'
+                  - 'iam:DetachRolePolicy'
+                  - 'iam:PutRolePolicy'
+                  - 'iam:DeleteRolePolicy'
+                  - 'iam:GetRolePolicy'
+                  - 'iam:ListRolePolicies'
+                  - 'iam:ListAttachedRolePolicies'
+                  - 'iam:PassRole'
+                  - 'iam:TagRole'
+                  - 'iam:UntagRole'
+                  - 'iam:CreatePolicy'
+                  - 'iam:DeletePolicy'
+                  - 'iam:CreatePolicyVersion'
+                  - 'iam:DeletePolicyVersion'
+                  - 'iam:GetPolicy'
+                  - 'iam:GetPolicyVersion'
+                  - 'iam:ListPolicyVersions'
+                  - 'iam:CreateInstanceProfile'
+                  - 'iam:DeleteInstanceProfile'
+                  - 'iam:GetInstanceProfile'
+                  - 'iam:AddRoleToInstanceProfile'
+                  - 'iam:RemoveRoleFromInstanceProfile'
+                  - 'iam:CreateServiceLinkedRole'
+                Resource: '*'
+
+  # --- SSM namespace: baseline meta params other stacks/build read. ---------
+  ParamProject:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/meta/project'
+      Type: String
+      Value: !Ref ProjectName
+      Description: Project slug (namespace root marker).
+  ParamRegion:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/meta/region'
+      Type: String
+      Value: !Ref 'AWS::Region'
+      Description: Primary region for regional resources.
+  ParamDeployRoleArn:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/meta/ci-deploy-role-arn'
+      Type: String
+      Value: !GetAtt CiDeployRole.Arn
+      Description: ARN the GitHub Actions workflow assumes to deploy.
+
+Outputs:
+  CiDeployRoleArn:
+    Description: Set this as the GitHub Actions `role-to-assume` (repo variable AWS_DEPLOY_ROLE_ARN).
+    Value: !GetAtt CiDeployRole.Arn
+    Export:
+      Name: !Sub '${ProjectName}-${Stage}-ci-deploy-role-arn'
+  SsmNamespace:
+    Description: Root SSM namespace all stacks read/write under.
+    Value: !Sub '/${ProjectName}/${Stage}'
+  BudgetName:
+    Description: The monthly cost budget name.
+    Value: !Sub '${ProjectName}-${Stage}-monthly'
