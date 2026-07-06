@@ -82,6 +82,9 @@ Resources:
       ExplicitAuthFlows:
         - ALLOW_USER_SRP_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH
+        # IAM-gated server/admin auth — used by automated verification (and any
+        # future backend flow). Browsers still use SRP/PKCE, never this.
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
       AllowedOAuthFlows:
         - code
       AllowedOAuthFlowsUserPoolClient: true

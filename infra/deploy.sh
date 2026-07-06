@@ -17,11 +17,19 @@ STACK_DIR="$HERE/$STACK"
 [ -d "$STACK_DIR" ] || { echo "unknown stack: $STACK (no dir $STACK_DIR)" >&2; exit 1; }
 [ -f "$STACK_DIR/template.yaml" ] || { echo "no template.yaml in $STACK_DIR" >&2; exit 1; }
 
+# Stacks whose Lambdas import @dndtools/core need the cloud-fns bundle built first.
+case "$STACK" in
+  signaling|sync-api)
+    echo "==> building @dndtools/cloud-fns (Lambda bundles)"
+    ( cd "$HERE/.." && pnpm --filter @dndtools/cloud-fns build )
+    ;;
+esac
+
 echo "==> $STACK / $STAGE : validate (service-side, blocking)"
-sam validate --template "$STACK_DIR/template.yaml" --region "${AWS_REGION:-ca-central-1}" --profile "${AWS_PROFILE:-dndtools}"
+sam validate --template "$STACK_DIR/template.yaml" --region "${DNDTOOLS_REGION:-ca-central-1}" --profile "${DNDTOOLS_PROFILE:-dndtools}"
 
 echo "==> $STACK / $STAGE : lint (advisory — bundled cfn-lint spec can lag AWS)"
-sam validate --lint --template "$STACK_DIR/template.yaml" --region "${AWS_REGION:-ca-central-1}" --profile "${AWS_PROFILE:-dndtools}" || \
+sam validate --lint --template "$STACK_DIR/template.yaml" --region "${DNDTOOLS_REGION:-ca-central-1}" --profile "${DNDTOOLS_PROFILE:-dndtools}" || \
   echo "    (lint reported findings; review above — not blocking deploy)"
 
 echo "==> $STACK / $STAGE : build"

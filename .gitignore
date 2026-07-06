@@ -40,3 +40,7 @@ test-results
 .idea
 *.swp
 *.swo
+
+# Cloud infra build artifacts
+packages/cloud-fns/build/
+infra/**/.aws-sam/
