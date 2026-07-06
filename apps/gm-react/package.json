@@ -30,6 +30,7 @@
 		"@fontsource/cinzel": "^5.2.8",
 		"@fontsource/inter": "^5.2.8",
 		"@fontsource/jetbrains-mono": "^5.2.8",
+		"amazon-cognito-identity-js": "^6.3.20",
 		"dexie": "^4.4.3",
 		"lucide-react": "^0.460.0",
 		"multicast-dns": "^7.2.5",

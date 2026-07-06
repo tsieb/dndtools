@@ -36,7 +36,21 @@ export interface AnswerPayload {
 
 export const SIGNALING_VERSION = 1 as const;
 
-const RTC_CONFIG: RTCConfiguration = { iceServers: [] };
+// LAN play leaves this empty (host candidates only). Internet remote play injects
+// minted STUN/TURN via setRtcIceServers() BEFORE creating/accepting an offer, so
+// the non-trickle gathered SDP carries server-reflexive + relay candidates. WebRTC
+// media is governed by the CSP `webrtc` directive, not `connect-src`.
+let RTC_CONFIG: RTCConfiguration = { iceServers: [] };
+
+/** Set the STUN/TURN servers used for subsequent peer connections (cloud transport). */
+export function setRtcIceServers(iceServers: RTCIceServer[]): void {
+	RTC_CONFIG = { ...RTC_CONFIG, iceServers };
+}
+
+/** Clear injected ICE servers, returning to LAN-only (host candidates). */
+export function clearRtcIceServers(): void {
+	RTC_CONFIG = { iceServers: [] };
+}
 
 /** Resolve once ICE gathering is complete (or after a short cap — LAN host candidates gather fast). */
 function waitForIceGatheringComplete(pc: RTCPeerConnection, capMs = 4000): Promise<void> {

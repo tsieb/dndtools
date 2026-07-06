@@ -5,6 +5,7 @@ import { Component, Suspense, lazy, useEffect, type CSSProperties, type ReactNod
 // the only web-visible difference is a cosmetic `#` in the URL.
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RuntimeProvider, useRuntime } from './runtime/RuntimeContext';
+import { AuthProvider } from './cloud/AuthContext';
 import { SessionProvider } from './net/SessionContext';
 import { ensureAudioPlayback } from './runtime/audio-playback';
 import { AppShell } from './app/AppShell';
@@ -188,13 +189,15 @@ function Shell() {
 export function App() {
 	return (
 		<RuntimeProvider>
-			<SessionProvider>
-				<HashRouter>
-					<ErrorBoundary>
-						<Shell />
-					</ErrorBoundary>
-				</HashRouter>
-			</SessionProvider>
+			<AuthProvider>
+				<SessionProvider>
+					<HashRouter>
+						<ErrorBoundary>
+							<Shell />
+						</ErrorBoundary>
+					</HashRouter>
+				</SessionProvider>
+			</AuthProvider>
 		</RuntimeProvider>
 	);
 }
