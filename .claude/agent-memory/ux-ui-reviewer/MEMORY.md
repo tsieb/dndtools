@@ -5,3 +5,6 @@ component anti-patterns, surface ownership maps, spec-to-component mappings — 
 
 Governing UX/design references live under `docs/development/` (UX_GUIDELINES, ACCESSIBILITY)
 and `docs/architecture/` (DESIGN_TOKENS, INFORMATION_ARCHITECTURE, NAVIGATION_CONTRACT).
+
+## Tooling gotchas
+- [DesignSync availability](reference_designsync_availability.md) — DesignSync can be runtime-disabled in ux-ui-reviewer *subagent* context despite being on the toolset; report up + run from main thread.
