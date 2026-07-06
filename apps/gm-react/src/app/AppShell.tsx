@@ -12,6 +12,7 @@ import { useRuntime } from '../runtime/RuntimeContext';
 import { CommandPalette } from './CommandPalette';
 import { ViewAsControl } from './ViewAsControl';
 import { ProjectionControl } from './ProjectionControl';
+import { HostSessionButton } from '../net/SessionPanel';
 import {
 	LIBRARY,
 	PLATFORM,
@@ -634,6 +635,7 @@ function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
 					⌘K
 				</span>
 			</button>
+			<HostSessionButton />
 			<ViewAsControl />
 			<ProjectionControl />
 		</header>

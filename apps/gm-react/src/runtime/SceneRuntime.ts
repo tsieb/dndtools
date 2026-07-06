@@ -35,6 +35,7 @@ import {
 	type CoreStateSlice,
 	type PreviewSelection,
 	type ResolvedPreview,
+	type SyncOperation,
 } from '@dndtools/core';
 import { loadCoreState, persistFullState } from '../platform/storage/coreStore';
 import { MAP_IMPORT_ADAPTERS } from './environment';
@@ -44,6 +45,14 @@ export interface RuntimeOptions {
 	env: CoreEnvironment;
 	defaultActorId: ActorId;
 }
+
+/**
+ * Notified AFTER a command is accepted and durably persisted, with the operations newly appended by
+ * that dispatch (the tail of the op-log) and the resulting authoritative state. The P2P SessionHost
+ * subscribes to this to replicate player-visible changes — it is the "op-log grew" signal the plan's
+ * DM→player replication is triggered by. Never fired for rejected or preview-blocked commands.
+ */
+export type DispatchListener = (newOperations: SyncOperation[], nextState: CoreStateSlice) => void;
 
 const DEFAULT_DEMO_PARTICIPANTS: Actor[] = [
 	{ id: 'actor-player', role: 'player', displayName: 'Demo Player' },
@@ -147,6 +156,7 @@ export class SceneRuntime {
 
 	private version = 0;
 	private readonly listeners = new Set<() => void>();
+	private readonly dispatchListeners = new Set<DispatchListener>();
 
 	constructor(options: RuntimeOptions) {
 		this.options = options;
@@ -173,6 +183,24 @@ export class SceneRuntime {
 		return this.previewState
 			? { ...this.innerState, permissions: permissionsWithPreviewActors(this.innerState.permissions) }
 			: this.innerState;
+	}
+
+	/**
+	 * The RAW authoritative state, unaffected by "view as"/preview projection. The P2P host must
+	 * replicate the true campaign state (then filter it per-recipient), never the DM's previewed view —
+	 * so it reads this, not `state`.
+	 */
+	get authoritativeState(): CoreStateSlice {
+		return this.innerState;
+	}
+
+	/**
+	 * Subscribe to accepted+persisted dispatches (the "op-log grew" signal). Returns an unsubscribe.
+	 * Used by the P2P SessionHost to replicate player-visible operations as they happen.
+	 */
+	onDispatched(listener: DispatchListener): () => void {
+		this.dispatchListeners.add(listener);
+		return () => this.dispatchListeners.delete(listener);
 	}
 
 	get loaded(): boolean {
@@ -358,6 +386,21 @@ export class SceneRuntime {
 				await persistFullState(before, result.nextState);
 				this.error = null;
 				lifecycle = markSuccess(lifecycle, result.operationIds);
+				// Notify the P2P host (if any) of the operations this dispatch appended, so it can replicate
+				// the player-visible ones. Isolated from the durable path: a listener throw must never roll
+				// back or fail the (already-persisted) command.
+				const newOperations = result.nextState.sync.operations.slice(
+					before.sync.operations.length,
+				);
+				if (newOperations.length > 0 && this.dispatchListeners.size > 0) {
+					for (const listener of this.dispatchListeners) {
+						try {
+							listener(newOperations, result.nextState);
+						} catch {
+							// A replication listener failure must not affect the local durable write.
+						}
+					}
+				}
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				this.error = message;

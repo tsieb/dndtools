@@ -17,9 +17,12 @@
 		"preview": "vite preview --port 4273",
 		"preview:demo": "vite preview --outDir dist-demo --port 4274",
 		"typecheck": "tsc --noEmit",
+		"verify:p2p": "node scripts/verify-p2p.mjs",
+		"verify:p2p-live": "node scripts/verify-p2p-live.mjs",
+		"desktop:bundle-discovery": "esbuild electron/discovery.cjs --bundle --platform=node --format=cjs --external:electron --outfile=electron/discovery.bundled.cjs",
 		"desktop:dev": "node scripts/ensure-electron.mjs && concurrently -k -n vite,electron -c cyan,magenta \"vite --port 5273\" \"wait-on tcp:5273 && cross-env VITE_DEV_SERVER_URL=http://localhost:5273 electron .\"",
-		"desktop:build": "vite build && electron-builder",
-		"desktop:build:dir": "vite build && electron-builder --dir",
+		"desktop:build": "pnpm run desktop:bundle-discovery && vite build && electron-builder",
+		"desktop:build:dir": "pnpm run desktop:bundle-discovery && vite build && electron-builder --dir",
 		"desktop:smoke": "node scripts/ensure-electron.mjs && vite build && node scripts/run-desktop-smoke.mjs"
 	},
 	"dependencies": {
@@ -29,11 +32,14 @@
 		"@fontsource/jetbrains-mono": "^5.2.8",
 		"dexie": "^4.4.3",
 		"lucide-react": "^0.460.0",
+		"multicast-dns": "^7.2.5",
+		"qrcode": "^1.5.4",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
 		"react-router-dom": "^6.28.0"
 	},
 	"devDependencies": {
+		"@types/qrcode": "^1.5.6",
 		"@types/react": "^18.3.12",
 		"@types/react-dom": "^18.3.1",
 		"@vitejs/plugin-react": "^4.3.4",
@@ -41,6 +47,7 @@
 		"cross-env": "^10.1.0",
 		"electron": "^43.0.0",
 		"electron-builder": "^26.15.3",
+		"esbuild": "^0.28.1",
 		"typescript": "^6.0.3",
 		"vite": "^7.1.0",
 		"wait-on": "^9.0.10"

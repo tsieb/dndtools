@@ -3,10 +3,47 @@
 
 // Preload bridge for the DND Tools GM desktop shell.
 //
-// Intentionally empty. The renderer is a self-contained offline app (IndexedDB persistence, no native
-// filesystem/dialog/update needs for the alpha), so there is nothing to expose across the context
-// bridge yet. This file exists so `contextIsolation: true` has a preload to load and so a future IPC
-// surface (see packages/core/src/contracts/desktop-shell.contract.ts) has an obvious home:
-//
-//   const { contextBridge, ipcRenderer } = require('electron');
-//   contextBridge.exposeInMainWorld('desktop', { ... });
+// Exposes ONLY the LAN session-discovery surface (Epic 7.3 mDNS auto-discovery) behind the context
+// bridge — the renderer exchanges opaque, already-encrypted offer/answer codes; it never touches sockets
+// or Node APIs. Everything else about the renderer stays a self-contained offline web app. On the web
+// build (or a packaged app without the discovery module) `window.dndtoolsDiscovery` is simply absent and
+// the app degrades to the manual code flow.
+
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('dndtoolsDiscovery', {
+	available: () => ipcRenderer.invoke('discovery:available'),
+	advertise: (sessionId, name) => ipcRenderer.invoke('discovery:advertise', { sessionId, name }),
+	stopAdvertise: () => ipcRenderer.invoke('discovery:stopAdvertise'),
+	browseStart: () => ipcRenderer.invoke('discovery:browse-start'),
+	browseStop: () => ipcRenderer.invoke('discovery:browse-stop'),
+	connect: (service) => ipcRenderer.invoke('discovery:connect', { service }),
+
+	// Host side: a joiner needs an offer code; respond with `respondOffer(reqId, offerCode)`.
+	onOfferRequest: (cb) => {
+		const h = (_e, data) => cb(data.reqId);
+		ipcRenderer.on('discovery:offer-request', h);
+		return () => ipcRenderer.removeListener('discovery:offer-request', h);
+	},
+	respondOffer: (reqId, offerCode) => ipcRenderer.invoke('discovery:offer-response', { reqId, offerCode }),
+	onAnswer: (cb) => {
+		const h = (_e, data) => cb(data.answerCode);
+		ipcRenderer.on('discovery:answer', h);
+		return () => ipcRenderer.removeListener('discovery:answer', h);
+	},
+
+	// Joiner side: an offer arrived; respond with `respondAnswer(reqId, answerCode)`.
+	onOffer: (cb) => {
+		const h = (_e, data) => cb(data.reqId, data.offerCode);
+		ipcRenderer.on('discovery:offer', h);
+		return () => ipcRenderer.removeListener('discovery:offer', h);
+	},
+	respondAnswer: (reqId, answerCode) => ipcRenderer.invoke('discovery:answer-response', { reqId, answerCode }),
+
+	// Joiner side: the discovered-services roster.
+	onServices: (cb) => {
+		const h = (_e, data) => cb(data);
+		ipcRenderer.on('discovery:services', h);
+		return () => ipcRenderer.removeListener('discovery:services', h);
+	},
+});

@@ -1,27 +1,16 @@
 import { useMemo, useState, type ReactNode, type CSSProperties } from 'react';
 import {
-	resolveCommandCenterHome,
-	advancementStateOf,
-	getPartyOverviewForActor,
-	getCharacterForActor,
-	getCharacterJournalForActor,
-	getContentItemsForActor,
-	getCombatTrackerForActor,
 	getDiceHistoryForActor,
-	listCharactersForActor,
-	resourcesOf,
 	availableSlots,
-	type CommandCenterHomeView,
-	type PartyOverview,
-	type CharacterView,
 	type DiceRollView,
 	type EvaluatedDiceTerm,
-	type JournalEntryView,
-	type ContentItemView,
 } from '@dndtools/core';
 import { Avatar, Badge, Chip, ConditionBadge, CONDITIONS, DiceResult, HPBar, Icon, IconButton, Stat } from '../ds';
 import { T, eb } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { useSession } from '../net/SessionContext';
+import { buildPlayerData, type PlayerData } from '../net/viewModels';
+import { JoinSessionButton } from '../net/SessionPanel';
 
 /**
  * PlayerView — the STANDALONE, chrome-less player companion app (route `/play`, OUTSIDE the DM
@@ -145,96 +134,43 @@ function LockedNote({ what }: { what: string }) {
 	);
 }
 
-interface LiveData {
-	home: CommandCenterHomeView;
-	live: boolean;
-	sceneName: string | null;
-	turnOrder: { id: string; name: string; init: number | null; hp: number | null; maxHp: number | null; kind: string; active: boolean }[];
-	round: number | null;
-	activeName: string | null;
-	pc: CharacterView | null;
-	pcId: string | null;
-	/** The PC's real level from the CHAR-009 advancement model (null without a PC). */
-	level: number | null;
-	resources: ReturnType<typeof resourcesOf> | null;
-	party: PartyOverview;
-	journal: JournalEntryView[];
-	handouts: ContentItemView[];
-	/** The actor-filtered SHARED session roll log (own + session-visible rolls), oldest-first. */
-	diceRolls: DiceRollView[];
-	/** Whether the Session workflow is `active` — the Core's gate for `dice.roll`. */
-	sessionActive: boolean;
-	displayName: string;
-}
+// The player view-model is now the shared `PlayerData` shape (see net/viewModels.ts): identical fields,
+// computed once by `buildPlayerData` so the LOCAL (DM preview / offline) path and the REMOTE (joined,
+// replicated over P2P) path can never diverge.
+type LiveData = PlayerData;
 
 export function PlayerView() {
 	const runtime = useRuntime();
-	const state = runtime.state;
-	const viewer = PLAYER_ACTOR_ID;
+	const session = useSession();
 	const { toasts, toast } = useToasts();
 	const [section, setSection] = useState('stage');
 
-	const actor = state.permissions.actors[viewer];
-	// Derive the permission rank from the REAL actor role. The Core has no `trusted`/`codm` role, so a
-	// player tops out at rank 1 and the elevated tools below stay shown-locked. // no core role above player
-	const role = actor?.role === 'observer' ? 'observer' : 'player';
+	// Two data sources, one shape (PlayerData):
+	//  - JOINED over P2P → the host's replicated, player-safe snapshot (never the local vault),
+	//  - otherwise (solo / DM previewing this route on their own device) → computed locally from the
+	//    actor-filtered Core, exactly as before.
+	const joined = session.role === 'joined' && session.client?.data != null;
+	const remoteData = session.client?.data ?? null;
+	const viewer = joined ? (session.client?.identity?.actorId ?? PLAYER_ACTOR_ID) : PLAYER_ACTOR_ID;
+
+	const state = runtime.state;
+	const localData = useMemo<LiveData>(() => buildPlayerData(state, viewer), [state, viewer]);
+	const data: LiveData = joined && remoteData ? remoteData : localData;
+
+	const role = data.role;
 	const r = role === 'observer' ? 0 : 1;
 	const meta = TIER_META[role];
 
-	const data = useMemo<LiveData>(() => {
-		const home = resolveCommandCenterHome(state, viewer, { widgetPackages: state.widgets });
-		const strip = home.kind === 'participant' || home.kind === 'dm' ? home.statusStrip : null;
-		const playerView = home.kind === 'participant' ? home.playerView : null;
-		const sceneName = playerView && playerView.kind === 'assigned' ? playerView.name : null;
-		const live = strip?.phase.tone === 'live' || sceneName !== null;
-
-		const combat = getCombatTrackerForActor(state.session.combat, state.permissions, viewer);
-		const turnOrder = combat.status === 'running'
-			? combat.combatants.map((c) => ({
-				id: c.id,
-				name: c.name,
-				init: c.statBlock.initiative,
-				hp: c.resources?.hp ?? null,
-				maxHp: c.resources?.maxHp ?? null,
-				kind: c.kind,
-				active: c.isActive,
-			}))
-			: [];
-
-		const pcs = listCharactersForActor(state.characters, state.permissions, viewer).filter((c) => c.kind === 'pc');
-		const chosen = pcs[0] ?? null;
-		const pc = chosen ? getCharacterForActor(state.characters, state.permissions, viewer, chosen.id) : null;
-		const record = chosen ? state.characters.characters[chosen.id] : undefined;
-		const resources = record ? resourcesOf(record) : null;
-		const journal = chosen ? getCharacterJournalForActor(state.characters, state.permissions, viewer, chosen.id).entries : [];
-		const party = getPartyOverviewForActor(state.characters, state.permissions, viewer);
-		const handouts = getContentItemsForActor(state.content, state.permissions, viewer);
-		const dice = getDiceHistoryForActor(state.session, state.permissions, viewer);
-
-		return {
-			home,
-			live: Boolean(live),
-			sceneName,
-			turnOrder,
-			round: strip?.turn.round ?? null,
-			activeName: strip?.turn.activeName ?? null,
-			pc,
-			pcId: chosen?.id ?? null,
-			level: record ? advancementStateOf(record).level : null,
-			resources,
-			party,
-			journal,
-			handouts,
-			diceRolls: dice.rolls,
-			sessionActive: state.session.workflow === 'active',
-			displayName: home.kind === 'participant' ? home.displayName : (actor?.displayName ?? 'Player'),
-		};
-	}, [state, viewer, actor?.displayName]);
-
-	// REAL dice write: dispatch `dice.roll` AS this player actor. An accepted roll is recorded in the
-	// durable session log (attributed + visibility-filtered by the Core); a rejection (no live session,
-	// previewing) surfaces honestly as a toast. Returns the recorded roll so the caller can react to it.
+	// Dice write. JOINED → send a command REQUEST to the host (which stamps our authenticated identity,
+	// dispatches, and replicates the updated log back in the next snapshot); a rejection surfaces as a
+	// toast. SOLO/preview → the original local dispatch, which also returns the recorded roll for crit
+	// detection. Either way the roll lands in the shared, durable session log at the table.
 	const rollDice = async (expression: string, label: string): Promise<DiceRollView | null> => {
+		if (joined) {
+			const ack = await session.requestCommand({ type: 'dice.roll', payload: { expression, label } });
+			if (!ack.ok) toast(ack.message ?? 'The table declined the roll.', 'error', 'hidden');
+			return null; // the recorded roll arrives via the next replicated snapshot
+		}
 		const result = await runtime.dispatch({ type: 'dice.roll', actorId: viewer, payload: { expression, label } });
 		if (result.status === 'rejected') {
 			toast(result.rejection.message, 'error', 'hidden');
@@ -247,7 +183,16 @@ export function PlayerView() {
 		else if (crit === 'fail') toast('Natural 1 — critical miss', 'error', 'close');
 		return recorded;
 	};
-	const actorName = (id: string) => state.permissions.actors[id]?.displayName ?? 'Player';
+	// Resolve a roller's display name. Joined devices have no full roster, so map self → "You" and fall
+	// back to the presence roster / the roll's own attribution; solo reads the local actor roster.
+	const actorName = (id: string): string => {
+		if (id === viewer) return 'You';
+		if (joined) {
+			const entry = session.client?.presence.find((p) => p.actorId === id);
+			return entry?.displayName ?? 'Player';
+		}
+		return runtime.state.permissions.actors[id]?.displayName ?? 'Player';
+	};
 
 	const allItems = [...NAV, ...NAV_ELEVATED];
 	const allowedIds = allItems.filter((n) => r >= n.min).map((n) => n.id);
@@ -329,9 +274,10 @@ export function PlayerView() {
 						<Icon name={meta.icon} size={15} color={T.acc} /><span style={{ font: `600 12.5px ${T.sans}`, color: T.acc }}>{meta.label}</span>
 					</span>
 					<span style={{ font: `12.5px ${T.sans}`, color: T.sub, flex: 1, minWidth: 0 }}>{meta.blurb}</span>
+					<JoinSessionButton />
 					<span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
 						<span style={{ width: 8, height: 8, borderRadius: '50%', background: data.live ? 'var(--color-status-success-text)' : T.ter }} />
-						<span style={{ font: `12px ${T.sans}`, color: T.ter }}>{data.live ? 'Session live' : 'Offline'}</span>
+						<span style={{ font: `12px ${T.sans}`, color: T.ter }}>{joined ? 'Connected to table' : data.live ? 'Session live' : 'Offline'}</span>
 					</span>
 				</div>
 				<main style={{ flex: 1, minWidth: 0 }}>{body}</main>

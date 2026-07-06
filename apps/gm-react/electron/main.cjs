@@ -10,8 +10,25 @@
 //
 // CommonJS (.cjs) because the package is `type: module`; Electron's main entry is CJS.
 
-const { app, BrowserWindow, session, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, session, shell } = require('electron');
 const path = require('node:path');
+
+/**
+ * Load the LAN discovery module (Epic 7.3 mDNS). Prefer the esbuild-BUNDLED variant (multicast-dns
+ * inlined) so it works in the packaged app which ships no node_modules; fall back to the source module
+ * in dev. If neither loads, discovery is simply unavailable and the renderer degrades to the code flow.
+ */
+function loadDiscovery() {
+	for (const rel of ['./discovery.bundled.cjs', './discovery.cjs']) {
+		try {
+			return require(rel);
+		} catch {
+			/* try next */
+		}
+	}
+	return null;
+}
+const discoveryModule = loadDiscovery();
 
 // Align the userData directory name across dev and the packaged app (electron-builder productName is
 // "DND Tools GM"), so IndexedDB/localStorage live at one predictable path testers can reset:
@@ -29,6 +46,11 @@ const DEV_SERVER_URL = !app.isPackaged ? process.env.VITE_DEV_SERVER_URL : undef
  * resolve theme/motion/density before first paint. `style-src` allows inline for React style props and
  * the token CSS; data:/blob: cover the self-hosted fonts and the seeded silent-WAV `data:` audio.
  * Not applied in dev, where Vite's HMR client needs 'unsafe-eval'.
+ *
+ * P2P (Epic 7.3): the LAN remote-player feature uses WebRTC data channels with NO STUN/TURN (LAN host
+ * candidates only), so NO external origin is added to `connect-src` — nothing off-device is ever
+ * contacted. The explicit CSP Level 3 `webrtc 'allow'` directive permits `RTCPeerConnection` while the
+ * rest of the policy stays locked down.
  */
 const CSP = [
 	"default-src 'self'",
@@ -38,6 +60,7 @@ const CSP = [
 	"img-src 'self' data: blob:",
 	"media-src 'self' data: blob:",
 	"connect-src 'self'",
+	"webrtc 'allow'",
 	"object-src 'none'",
 	"base-uri 'self'",
 	"form-action 'none'",
@@ -102,9 +125,65 @@ function createWindow() {
 	return win;
 }
 
+/**
+ * Wire the LAN discovery IPC surface (Epic 7.3 S7.3.2). The renderer never touches sockets — it exchanges
+ * only opaque, already-encrypted offer/answer codes across this bridge; the main process runs mDNS + the
+ * LAN-TCP rendezvous. All handlers no-op if discovery is unavailable, so the renderer degrades to codes.
+ */
+function setupDiscoveryIpc(win) {
+	if (!discoveryModule || !discoveryModule.available()) {
+		ipcMain.handle('discovery:available', () => false);
+		return;
+	}
+	const discovery = new discoveryModule.Discovery();
+	const pendingOffer = new Map(); // reqId -> resolve(offerCode)   (host)
+	const pendingAnswer = new Map(); // reqId -> resolve(answerCode) (joiner)
+	let reqSeq = 0;
+
+	discovery.setHandlers({
+		onServices: (services) => win.webContents.send('discovery:services', services),
+		// Host: a joiner arrived and needs an offer code — ask the renderer.
+		onOfferRequest: () =>
+			new Promise((resolve) => {
+				const reqId = `o-${reqSeq++}`;
+				pendingOffer.set(reqId, resolve);
+				win.webContents.send('discovery:offer-request', { reqId });
+			}),
+		// Host: the joiner returned an answer code — hand it to the renderer to accept.
+		onAnswer: (answerCode) => win.webContents.send('discovery:answer', { answerCode }),
+	});
+
+	ipcMain.handle('discovery:available', () => true);
+	ipcMain.handle('discovery:advertise', (_e, { sessionId, name }) => discovery.advertise(sessionId, name));
+	ipcMain.handle('discovery:stopAdvertise', () => discovery.stopAdvertise());
+	ipcMain.handle('discovery:browse-start', () => discovery.startBrowse());
+	ipcMain.handle('discovery:browse-stop', () => discovery.stopBrowse());
+	ipcMain.handle('discovery:offer-response', (_e, { reqId, offerCode }) => {
+		pendingOffer.get(reqId)?.(offerCode);
+		pendingOffer.delete(reqId);
+	});
+	ipcMain.handle('discovery:answer-response', (_e, { reqId, answerCode }) => {
+		pendingAnswer.get(reqId)?.(answerCode);
+		pendingAnswer.delete(reqId);
+	});
+	// Joiner: connect to a discovered host; relay the offer to the renderer and await its answer.
+	ipcMain.handle('discovery:connect', (_e, { service }) =>
+		discovery.connect(service, (offerCode) =>
+			new Promise((resolve) => {
+				const reqId = `a-${reqSeq++}`;
+				pendingAnswer.set(reqId, resolve);
+				win.webContents.send('discovery:offer', { reqId, offerCode });
+			}),
+		),
+	);
+
+	win.on('closed', () => discovery.dispose());
+}
+
 app.whenReady().then(() => {
 	if (app.isPackaged) applyCsp();
-	createWindow();
+	const win = createWindow();
+	setupDiscoveryIpc(win);
 
 	// macOS: re-open a window when the dock icon is clicked and none are open.
 	app.on('activate', () => {
