@@ -1,0 +1,54 @@
+# Whole-application validation harness (`pnpm validate`).
+#
+# Complementary to ci.yml (which gates every push/PR with `pnpm gates` + `pnpm test`):
+# this workflow runs the FULL offline validation matrix — static + unit + build +
+# browser (Playwright e2e, axe, React verify + P2P) + feature-gap audit — and uploads
+# the consolidated report. It is manual + weekly, not per-PR, so it never slows the
+# fast CI gate. Live cloud (`--live`) is intentionally NOT run here (needs AWS creds).
+name: Validate (full app)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Validation scope'
+        type: choice
+        default: default
+        options: [fast, default, full]
+  schedule:
+    - cron: '0 7 * * 1' # Mondays 07:00 UTC
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Browser-driven checks (e2e / axe / React verify) resolve Playwright from apps/gm.
+      - run: pnpm --filter @dndtools/gm exec playwright install --with-deps chromium
+      - name: Run validation
+        run: |
+          case "${{ github.event.inputs.mode }}" in
+            fast) pnpm validate:fast ;;
+            full) pnpm validate --full ;;      # desktop/cloud self-skip without a display/AWS
+            *)    pnpm validate ;;
+          esac
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-report
+          path: test-results/validation
+          retention-days: 14

@@ -40,7 +40,13 @@
 		"format:check": "prettier --check .",
 		"gates": "tsx scripts/quality-gates.ts",
 		"audit:repo": "vitest run tests/unit/ci-guardrails.test.ts",
-		"check": "pnpm gates && pnpm lint:boundary && pnpm typecheck && pnpm test"
+		"check": "pnpm gates && pnpm lint:boundary && pnpm typecheck && pnpm test",
+		"validate": "tsx scripts/validate/index.ts",
+		"validate:fast": "tsx scripts/validate/index.ts --fast",
+		"validate:live": "tsx scripts/validate/index.ts --live",
+		"validate:full": "tsx scripts/validate/index.ts --full",
+		"validate:list": "tsx scripts/validate/index.ts --list",
+		"feature-audit": "tsx scripts/validate/feature-audit.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
