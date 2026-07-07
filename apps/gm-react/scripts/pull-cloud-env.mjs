@@ -22,11 +22,23 @@ const ssm = (name) =>
     { encoding: 'utf8' },
   ).trim();
 
+// Tolerant read — a not-yet-deployed stack's param is absent; return '' rather than throwing so the
+// app still gets the params for the stacks that ARE deployed (cloud features gate on presence).
+const ssmOptional = (name) => {
+  try {
+    return ssm(name);
+  } catch {
+    console.warn(`  (optional param /${project}/${stage}/${name} not found — skipping)`);
+    return '';
+  }
+};
+
 const env = {
   VITE_CLOUD_REGION: region,
   VITE_COGNITO_USER_POOL_ID: ssm('identity/user-pool-id'),
   VITE_COGNITO_CLIENT_ID: ssm('identity/app-client-id'),
   VITE_SIGNALING_WS_URL: ssm('signaling/ws-url'),
+  VITE_SYNC_API_URL: ssmOptional('sync/api-url'),
 };
 
 const here = dirname(fileURLToPath(import.meta.url));

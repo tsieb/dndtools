@@ -6,6 +6,7 @@ import { Component, Suspense, lazy, useEffect, type CSSProperties, type ReactNod
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RuntimeProvider, useRuntime } from './runtime/RuntimeContext';
 import { AuthProvider } from './cloud/AuthContext';
+import { CloudSyncProvider } from './cloud/CloudSyncContext';
 import { SessionProvider } from './net/SessionContext';
 import { ensureAudioPlayback } from './runtime/audio-playback';
 import { AppShell } from './app/AppShell';
@@ -190,13 +191,15 @@ export function App() {
 	return (
 		<RuntimeProvider>
 			<AuthProvider>
-				<SessionProvider>
-					<HashRouter>
-						<ErrorBoundary>
-							<Shell />
-						</ErrorBoundary>
-					</HashRouter>
-				</SessionProvider>
+				<CloudSyncProvider>
+					<SessionProvider>
+						<HashRouter>
+							<ErrorBoundary>
+								<Shell />
+							</ErrorBoundary>
+						</HashRouter>
+					</SessionProvider>
+				</CloudSyncProvider>
 			</AuthProvider>
 		</RuntimeProvider>
 	);

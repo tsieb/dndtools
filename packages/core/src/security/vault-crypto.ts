@@ -94,7 +94,9 @@ function ab(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
 	return out;
 }
 
-function subtle(): SubtleCrypto {
+// Return type inferred from globalThis.crypto so this module needs no DOM lib types (it is consumed
+// by the Node Lambda tsconfig, which has no lib.dom — naming SubtleCrypto/CryptoKey there fails).
+function subtle() {
 	const c = globalThis.crypto;
 	if (!c?.subtle) {
 		// Fail closed: without WebCrypto there is no E2EE, so cloud sync must not proceed.
@@ -116,7 +118,7 @@ export function generateContentKeyMaterial(): Uint8Array {
 	return randomBytes(AES_KEY_BYTES);
 }
 
-async function importAesKey(material: Uint8Array, usage: 'encrypt' | 'decrypt'): Promise<CryptoKey> {
+async function importAesKey(material: Uint8Array, usage: 'encrypt' | 'decrypt') {
 	if (material.length !== AES_KEY_BYTES) {
 		throw new Error(`Vault content key must be ${AES_KEY_BYTES} bytes; got ${material.length} (fail closed).`);
 	}

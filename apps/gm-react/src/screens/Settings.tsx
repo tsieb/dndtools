@@ -15,6 +15,7 @@ import {
 import { Avatar, Badge, Button, Chip, DataTable, Dialog, Icon, IconButton, ProgressMeter, StatusDot, Switch, Toaster } from '../ds';
 import { Page, Panel, Seg, SetRow, T, eb } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { useCloudSync } from '../cloud/CloudSyncContext';
 import { ONBOARDED_KEY, REPLAY_EVENT } from '../app/Onboarding';
 import { DNDAccount, DNDExt, DNDGaps2, DNDPages } from '../runtime/mockCampaign';
 
@@ -573,6 +574,83 @@ function SettingsVault() {
 function humanizeOp(opType: string): string {
 	return opType.replace(/[._-]/g, ' ');
 }
+/** Real E2EE cloud sync/backup controls (Stage 3). The core gate decides whether sync MAY be enabled;
+ *  this panel reflects that and drives the engine (enable / sync now / restore). Local-first fallback
+ *  when the sync backend isn't configured in this build. */
+function CloudSyncPanel({ online, localChanges }: { online: boolean; localChanges: number }) {
+	const cloud = useCloudSync();
+	const [busy, setBusy] = useState(false);
+
+	if (!cloud.available) {
+		return (
+			<Panel title="Cloud sync">
+				<div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+					<StatusDot status={online ? 'live' : 'error'} pulse={online} />
+					<div style={{ flex: 1 }}>
+						<div style={{ font: `600 13.5px ${T.sans}` }}>{online ? 'Online' : 'Offline'} · local-only</div>
+						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{localChanges} change(s) recorded on this device · cloud sync isn’t configured in this build (work stays on this device).</div>
+					</div>
+					<Button variant="secondary" size="sm" icon="retry" disabled>Sync now</Button>
+				</div>
+			</Panel>
+		);
+	}
+
+	const gate = cloud.gate;
+	const canEnable = gate?.canEnableOnThisDevice ?? false;
+	const es = cloud.engineStatus;
+	const lastSynced = es?.lastSyncedAt ? new Date(es.lastSyncedAt).toLocaleTimeString() : 'never';
+
+	const run = async (fn: () => Promise<unknown>, okMsg: string) => {
+		setBusy(true);
+		try {
+			const r = await fn();
+			if (r === 'no-snapshot') Toaster.info('No cloud backup found for this account yet.');
+			else Toaster.success(okMsg);
+		} catch (e) {
+			Toaster.error(e instanceof Error ? e.message : 'Cloud sync failed.');
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	return (
+		<Panel title="Cloud sync" action={<Badge status={cloud.enabled ? 'success' : 'neutral'}>{cloud.enabled ? 'On' : 'Off'}</Badge>}>
+			<SetRow
+				label="End-to-end encrypted cloud backup"
+				help={
+					canEnable
+						? 'Encrypted on this device before upload — the server only ever stores ciphertext. Off by default; recovery is unsupported by design (lose every device + its key = lose the cloud copy; local data is unaffected).'
+						: gate?.custodyAvailable === false
+							? 'Unavailable on this device: durable cloud sync needs an OS credential store to hold your key (available in the desktop app).'
+							: 'The release-approved security model prerequisites are not met on this device.'
+				}
+				control={
+					<Switch
+						checked={cloud.enabled}
+						disabled={!canEnable || busy}
+						label=""
+						onChange={() => void run(() => (cloud.enabled ? cloud.disable() : cloud.enable()), cloud.enabled ? 'Cloud sync turned off.' : 'Cloud sync enabled.')}
+					/>
+				}
+			/>
+			{cloud.enabled && canEnable ? (
+				<div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+					<StatusDot status={es?.lastError ? 'error' : es?.busy || busy ? 'pending' : 'live'} pulse={es?.busy} />
+					<div style={{ flex: 1, minWidth: 180 }}>
+						<div style={{ font: `600 13px ${T.sans}` }}>{es?.busy ? 'Syncing…' : es?.lastError ? 'Sync error' : 'Up to date'}</div>
+						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+							{es?.lastError ? es.lastError : `Last backed up: ${lastSynced} · ${localChanges} local change(s)`}
+						</div>
+					</div>
+					<Button variant="secondary" size="sm" icon="retry" disabled={busy || es?.busy} onClick={() => void run(cloud.syncNow, 'Backed up to the cloud.')}>Sync now</Button>
+					<Button variant="ghost" size="sm" icon="download" disabled={busy || es?.busy} onClick={() => void run(cloud.restore, 'Restored from the cloud backup.')}>Restore</Button>
+				</div>
+			) : null}
+		</Panel>
+	);
+}
+
 function SettingsSync() {
 	const runtime = useRuntime();
 	const ops = runtime.state.sync.operations;
@@ -593,17 +671,7 @@ function SettingsSync() {
 	const recent = [...ops].slice(-8).reverse();
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<Panel title="Connection">
-				<div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-					<StatusDot status={online ? 'live' : 'error'} pulse={online} />
-					<div style={{ flex: 1 }}>
-						<div style={{ font: `600 13.5px ${T.sans}` }}>{online ? 'Online' : 'Offline'}</div>
-						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{ops.length} change(s) recorded locally · no cloud transport configured (work stays on this device)</div>
-					</div>
-					{/* no core command — a "sync now" push needs a live transport (deferred per ADR-014). */}
-					<Button variant="secondary" size="sm" icon="retry" onClick={toast} disabled>Sync now</Button>
-				</div>
-			</Panel>
+			<CloudSyncPanel online={online} localChanges={ops.length} />
 			<Panel title="Recent changes" action={<Badge status="neutral">{ops.length}</Badge>}>
 				{recent.length === 0 ? (
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No changes recorded yet.</div>

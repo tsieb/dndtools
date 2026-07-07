@@ -9,6 +9,7 @@ import {
   GetItemCommand,
   DeleteItemCommand,
   ScanCommand,
+  QueryCommand,
   type AttributeValue,
 } from '@aws-sdk/client-dynamodb';
 import {
@@ -63,6 +64,48 @@ export async function deleteItem(table: string, key: Record<string, string>): Pr
 export async function scanAll(table: string, limit = 200): Promise<Record<string, string>[]> {
   const res = await ddb.send(new ScanCommand({ TableName: table, Limit: limit }));
   return (res.Items ?? []).map((i) => fromItem(i)!).filter(Boolean);
+}
+
+/**
+ * Query a partition, optionally bounded by a sort-key range, returning items in ascending SK order.
+ * `skRange` supplies a `#sk BETWEEN :lo AND :hi` clause (both inclusive) on the given sort-key attribute.
+ * Pages through all results (cloud sync op-tails are small; the DM is the single writer per vault).
+ */
+export async function queryPartition(
+  table: string,
+  pk: { name: string; value: string },
+  skRange?: { name: string; lo: string; hi: string },
+  limit = 1000,
+): Promise<Record<string, string>[]> {
+  const names: Record<string, string> = { '#pk': pk.name };
+  const values: Record<string, AttributeValue> = { ':pk': { S: pk.value } };
+  let keyExpr = '#pk = :pk';
+  if (skRange) {
+    names['#sk'] = skRange.name;
+    values[':lo'] = { S: skRange.lo };
+    values[':hi'] = { S: skRange.hi };
+    keyExpr += ' AND #sk BETWEEN :lo AND :hi';
+  }
+  const out: Record<string, string>[] = [];
+  let lastKey: Record<string, AttributeValue> | undefined;
+  do {
+    const res = await ddb.send(
+      new QueryCommand({
+        TableName: table,
+        KeyConditionExpression: keyExpr,
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+        ExclusiveStartKey: lastKey,
+        Limit: limit,
+      }),
+    );
+    for (const item of res.Items ?? []) {
+      const row = fromItem(item);
+      if (row) out.push(row);
+    }
+    lastKey = res.LastEvaluatedKey;
+  } while (lastKey && out.length < limit);
+  return out;
 }
 
 /** In-memory cache of secret values (Lambda container reuse). */

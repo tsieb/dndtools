@@ -260,19 +260,24 @@ features are **opt-in** and being rolled out (see ADR-007/015/017):
   IndexedDB/localStorage or logs (`SEC-004`); on the web build tokens are
   memory-only. The relay is untrusted: it sees only opaque, already-encrypted
   offer/answer codes and mints short-lived HMAC TURN credentials.
-- **Cloud sync/backup (crypto landed, engine pending):** end-to-end encrypted with
-  **client-held** AES-256-GCM keys per key epoch (ADR-017,
-  `packages/core/src/security/vault-crypto.ts`). The server stores ciphertext plus
-  a strictly bounded metadata set only (`vault-id`, `participant-id`,
-  `operation-revision`, `operation-size`, `content-hash`, `timestamp`). Cloud sync
-  stays **off by default and fail-closed** behind the SYNC-017 gate, and is offered
-  only on devices with an OS credential store to durably hold the client key.
+- **Cloud sync/backup (shipped, opt-in):** end-to-end encrypted with **client-held**
+  AES-256-GCM keys per key epoch (ADR-017, `packages/core/src/security/vault-crypto.ts`).
+  Every artifact is sealed on-device before upload; the sync-api (`infra/sync-api/`,
+  API GW HTTP + Lambda + S3 + DynamoDB) stores ciphertext plus a strictly bounded
+  metadata set only (`vault-id`, `participant-id`, `operation-revision`,
+  `operation-size`, `content-hash`, `timestamp`) — proven on every write by the same
+  `assertServerSeesOnlyAllowedMetadata` policy the client uses. The server holds no key
+  and never decrypts; storage is tenant-isolated by Cognito `sub`. Restore is
+  snapshot-based (there is no generic op-applier). Cloud sync stays **off by default
+  and fail-closed** behind the SYNC-017 gate, and is offered only on devices with an OS
+  credential store to durably hold the client key. Verified end-to-end
+  (`infra/verify-sync.sh`): encrypted push/pull/snapshot/restore, ciphertext-at-rest,
+  and fail-closed rejection of plaintext in metadata.
 
-Remaining items to document as the sync engine and web hosting land:
+Remaining items to document as web hosting + CI land:
 
-- Sync conflict resolution and trust model for remote data (reuses `validateReplayBatch`).
-- Server-side rate limiting and abuse prevention (join rate-limit reused from `cloud-boundary`).
 - CloudFront CSP parity with the Electron `connect-src` allowlist.
+- Server-side rate limiting / abuse budgets on the sync-api (self-tenant caps are in place).
 
 Desktop updates use GitHub Releases via `electron-updater` with signed release
 artifacts and staged rollout controls for major-version adoption.

@@ -640,6 +640,21 @@ export {
 	isCloudSyncEnabled,
 } from './sync/cloud-sync-gate';
 
+// The cloud-sync WIRE CONTRACT (client engine ⇄ sync-api Lambda). E2EE: the envelope carries the whole
+// sensitive artifact; only the six ALLOWED_SERVER_METADATA classes are server-visible. The *ServerVisibleFields
+// helpers produce the exact list a publish path runs through assertServerSeesOnlyAllowedMetadata.
+export type {
+	CloudOpMeta,
+	CloudOpRecord,
+	CloudSnapshotMeta,
+	CloudSnapshotRecord,
+} from './sync/cloud-wire';
+export {
+	CLOUD_SYNC_WIRE_VERSION,
+	opServerVisibleFields,
+	snapshotServerVisibleFields,
+} from './sync/cloud-wire';
+
 // SYNC-003 / SYNC-015: the SOURCE ADAPTER interface + CAPABILITY-METADATA + FAIL-CLOSED model. An adapter
 // transforms external source content ↔ canonical SyncOperations at the boundary; it declares typed
 // capability metadata (supported schema/source versions, auth modes, entity types, transform fidelity) and

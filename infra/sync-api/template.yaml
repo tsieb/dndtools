@@ -1,0 +1,161 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >-
+  dndtools sync-api stack — API Gateway HTTP API + Lambda + DynamoDB + S3 for
+  END-TO-END-ENCRYPTED cloud sync/backup. The server is UNTRUSTED: it stores only
+  ciphertext (per-vault AES-256-GCM envelopes from the client) in a versioned S3
+  bucket, and a metadata-only index in DynamoDB (the six ALLOWED_SERVER_METADATA
+  classes — vault-id/participant-id/operation-revision/operation-size/content-hash/
+  timestamp — never plaintext). Cognito-gated via a native JWT authorizer (no Lambda
+  authorizer). The handler imports @dndtools/core and re-runs the SAME security policy
+  the client uses (server-visibility assertion + replay validation) on every write.
+  Scale-to-zero: HTTP API + Lambda + on-demand DynamoDB + S3 — $0 idle. Cross-stack
+  values are read from SSM at deploy time (no ImportValue).
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: dndtools
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Architectures: [arm64]
+    MemorySize: 256
+    Timeout: 20
+    Tracing: Active
+
+Resources:
+  # --- Ciphertext store: versioned, private, encrypted-at-rest S3 --------------
+  CiphertextBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-old-noncurrent-versions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+          - Id: abort-incomplete-multipart
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+
+  # --- Metadata-only op index (on-demand) -------------------------------------
+  # PK vaultId ("<cognito-sub>#<vault>", tenant-isolated by the authenticated user),
+  # SK sk: op rows use sk = "op#<zero-padded-revision>"; the latest snapshot pointer
+  # uses sk = "snapshot#latest". The client-assigned monotonic `revision` is the
+  # deterministic sort key, so re-pushing an op overwrites the same row (idempotent —
+  # no counter or GSI needed). Rows carry ONLY the allowed server-visible metadata
+  # classes + the S3 key — never the decrypted operation (which lives, encrypted, in S3).
+  SyncOpsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: vaultId, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: vaultId, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+
+  # --- HTTP API with a native Cognito JWT authorizer --------------------------
+  SyncHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Stage
+      Auth:
+        DefaultAuthorizer: CognitoJwt
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: '$request.header.Authorization'
+            JwtConfiguration:
+              issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/{{resolve:ssm:/${ProjectName}/${Stage}/identity/user-pool-id}}'
+              audience:
+                - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/app-client-id}}'
+      CorsConfiguration:
+        AllowOrigins:
+          - 'http://localhost:5273'
+          - 'http://localhost:4273'
+        AllowHeaders:
+          - authorization
+          - content-type
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - OPTIONS
+
+  # --- The sync handler (reuses @dndtools/core policy) ------------------------
+  SyncFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../packages/cloud-fns/build/sync-handler
+      Handler: index.handler
+      Environment:
+        Variables:
+          SYNC_OPS_TABLE: !Ref SyncOpsTable
+          CIPHERTEXT_BUCKET: !Ref CiphertextBucket
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref SyncOpsTable }
+        - S3CrudPolicy: { BucketName: !Ref CiphertextBucket }
+      Events:
+        PushOps:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncHttpApi
+            Method: POST
+            Path: /vaults/{vaultId}/operations
+        PullOps:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncHttpApi
+            Method: GET
+            Path: /vaults/{vaultId}/operations
+        PutSnapshot:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncHttpApi
+            Method: PUT
+            Path: /vaults/{vaultId}/snapshot
+        GetSnapshot:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SyncHttpApi
+            Method: GET
+            Path: /vaults/{vaultId}/snapshot/latest
+
+  # --- Publish the API URL for the client build -------------------------------
+  ParamSyncApiUrl:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/sync/api-url'
+      Type: String
+      Value: !Sub 'https://${SyncHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+
+Outputs:
+  SyncApiUrl:
+    Description: HTTP API base URL for cloud sync (send Authorization=<cognito-id-token>).
+    Value: !Sub 'https://${SyncHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+  CiphertextBucket:
+    Value: !Ref CiphertextBucket
+  SyncOpsTable:
+    Value: !Ref SyncOpsTable

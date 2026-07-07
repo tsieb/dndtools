@@ -9,6 +9,7 @@ const ENV = {
 	pool: 'VITE_COGNITO_USER_POOL_ID',
 	client: 'VITE_COGNITO_CLIENT_ID',
 	ws: 'VITE_SIGNALING_WS_URL',
+	sync: 'VITE_SYNC_API_URL',
 } as const;
 
 async function importFresh() {
@@ -26,17 +27,32 @@ describe('cloud config gates', () => {
 		vi.stubEnv(ENV.pool, 'ca-central-1_abc');
 		vi.stubEnv(ENV.client, 'client123');
 		vi.stubEnv(ENV.ws, 'wss://sig.example.com/dev');
+		vi.stubEnv(ENV.sync, 'https://sync.example.com/dev');
 
-		const { cloudConfig, isCloudConfigured, isAuthConfigured } = await importFresh();
+		const { cloudConfig, isCloudConfigured, isAuthConfigured, isSyncConfigured } = await importFresh();
 
 		expect(isCloudConfigured).toBe(true);
 		expect(isAuthConfigured).toBe(true);
+		expect(isSyncConfigured).toBe(true);
 		expect(cloudConfig).toEqual({
 			region: 'ca-central-1',
 			userPoolId: 'ca-central-1_abc',
 			userPoolClientId: 'client123',
 			signalingWsUrl: 'wss://sig.example.com/dev',
+			syncApiUrl: 'https://sync.example.com/dev',
 		});
+	});
+
+	it('is auth-configured but NOT sync-configured when the sync URL is absent', async () => {
+		vi.stubEnv(ENV.region, 'ca-central-1');
+		vi.stubEnv(ENV.pool, 'ca-central-1_abc');
+		vi.stubEnv(ENV.client, 'client123');
+		vi.stubEnv(ENV.sync, '');
+
+		const { isAuthConfigured, isSyncConfigured } = await importFresh();
+
+		expect(isAuthConfigured).toBe(true);
+		expect(isSyncConfigured).toBe(false);
 	});
 
 	it('is auth-configured but NOT cloud-configured when the signaling URL is absent (sign-in without online play)', async () => {

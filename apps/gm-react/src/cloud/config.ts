@@ -12,6 +12,8 @@ export interface CloudConfig {
   userPoolClientId: string;
   /** wss:// URL of the signaling API (append ?token=<cognito-id-token>). */
   signalingWsUrl: string;
+  /** https:// base URL of the sync-api (E2EE cloud sync/backup); Authorization: <cognito-id-token>. */
+  syncApiUrl: string;
 }
 
 function read(key: keyof ImportMetaEnv): string {
@@ -24,6 +26,7 @@ export const cloudConfig: CloudConfig = {
   userPoolId: read('VITE_COGNITO_USER_POOL_ID'),
   userPoolClientId: read('VITE_COGNITO_CLIENT_ID'),
   signalingWsUrl: read('VITE_SIGNALING_WS_URL'),
+  syncApiUrl: read('VITE_SYNC_API_URL'),
 };
 
 /** True only when every value needed to reach the cloud is present. */
@@ -38,3 +41,6 @@ export const isCloudConfigured: boolean = Boolean(
 export const isAuthConfigured: boolean = Boolean(
   cloudConfig.region && cloudConfig.userPoolId && cloudConfig.userPoolClientId,
 );
+
+/** True when the E2EE cloud-sync backend is reachable (identity + sync API present). */
+export const isSyncConfigured: boolean = Boolean(isAuthConfigured && cloudConfig.syncApiUrl);
