@@ -20,6 +20,11 @@ export default defineConfig(({ mode }) => ({
 	plugins: [react()],
 	define: {
 		'import.meta.env.VITE_DEMO_MODE': JSON.stringify(mode === 'demo' ? '1' : ''),
+		// `amazon-cognito-identity-js` pulls in `buffer@4.x`, whose module init reads a bare
+		// `global` — undefined in the browser, so the whole app (AuthProvider wraps the root)
+		// throws `global is not defined` and never mounts. Map it to `globalThis` at build time
+		// (compile-time, so it also works under the strict prod/Electron CSP — no inline shim).
+		global: 'globalThis',
 	},
 	server: { port: 5273, strictPort: false },
 	preview: { port: 4273, strictPort: false },

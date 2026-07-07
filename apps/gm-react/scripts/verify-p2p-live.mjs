@@ -35,7 +35,9 @@ try {
 	await host.goto(URL, { waitUntil: 'networkidle' });
 
 	await host.getByRole('button', { name: /^Hosting|^Host$/ }).first().click();
-	await host.getByRole('button', { name: 'Start hosting' }).click();
+	// The LAN-start button is labelled "Host on local network" (was "Start hosting" before the
+	// online-play UI landed). Clicking it flips the modal into host mode and reveals "Create invite".
+	await host.getByRole('button', { name: 'Host on local network' }).click();
 	await host.getByRole('button', { name: /Create invite/ }).click();
 	// The invite's offer code lands in the first readonly textarea.
 	const offerField = host.locator('textarea[readonly]').first();
