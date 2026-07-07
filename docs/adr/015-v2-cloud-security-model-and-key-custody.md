@@ -1,10 +1,22 @@
 # ADR-015: V2 Cloud Security Model and Key Custody
 
-- Status: Proposed
-- Date: 2026-06-05
+- Status: Accepted
+- Date: 2026-06-05 (Accepted 2026-07-06)
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
 - Supersedes: N/A
+- Amended by: ADR-017 (concrete cloud E2EE cryptography) — supplies the deferred crypto that makes this
+  model truthful; with ADR-017 the release gate opens (`evaluateDndtoolsCloudRelease().canRelease === true`).
+
+> **Acceptance note (2026-07-06):** This ADR was Accepted once ADR-017 delivered the concrete
+> cryptography it was waiting on. The AES-256-GCM client-held per-epoch crypto
+> (`packages/core/src/security/vault-crypto.ts`) makes the declared model honest, and the populated
+> `DNDTOOLS_CLOUD_SYNC_SECURITY_MODEL` / `DNDTOOLS_CLOUD_SECURITY_DECISION_RECORD`
+> (`packages/core/src/security/cloud-security-decision.ts`) open the SYNC-017 / SEC-009 gates with no
+> call-site change. The "fail-closed until Accepted" posture below is preserved for the DEFAULT
+> (undeclared) models; the release-approved constants are the exception this acceptance authorizes. Note
+> the file paths below use the pre-ADR-016 `apps/v2/packages/core/...` layout; the live modules are at
+> `packages/core/...`.
 
 ## Context
 

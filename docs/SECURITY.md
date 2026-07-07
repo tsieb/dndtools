@@ -1,9 +1,11 @@
 # Security — P2P Remote-Player Sessions (Epic 7.3)
 
 This document is the threat model for the **LAN / serverless peer-to-peer remote-player** feature in
-`apps/gm-react` (Epic 7.3 story S7.3.4). It covers only the P2P transport; the deferred **cloud** storage
-security model is separate (see ADR-015 and `packages/core/src/sync/cloud-sync-gate.ts`, which stays gated
-closed and is **not** affected by this feature).
+`apps/gm-react` (Epic 7.3 story S7.3.4). It covers only the LAN P2P transport. The **cloud** storage
+security model is separate (see ADR-015/ADR-017 and `packages/core/src/security/vault-crypto.ts`): cloud
+sync is end-to-end encrypted with client-held keys, stays **off by default** behind the fail-closed
+SYNC-017 gate (`packages/core/src/sync/cloud-sync-gate.ts`), and is **not** affected by this LAN feature.
+Internet remote play (Cognito accounts + a TURN-relayed WebRTC path) is also separate from this LAN model.
 
 ## What the feature does
 

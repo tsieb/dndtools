@@ -9,8 +9,9 @@
 ## 1. Overview
 
 DND Tools is a local-first Electron application. All vault data lives on the
-user's own filesystem; there is no cloud backend, no user-account service, and
-no network-accessible API surface. The primary threat actors are:
+user's own filesystem, and the app is fully usable with no account and no
+network. Cloud features (Cognito accounts, internet remote play, and E2EE
+cloud sync) are **opt-in** and covered in §6. The primary threat actors are:
 
 | Actor                   | Description                                                                                                  |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -249,20 +250,29 @@ to access files outside the vault.
 
 ## 6. Local-Only vs Cloud-Connected Threat Profile
 
-DND Tools is **local-only** in its current form. There is no:
+DND Tools is **local-first**: with no account and no opt-in, it is fully local-only
+(no cloud storage, no third-party analytics/telemetry, no remote sync). Cloud
+features are **opt-in** and being rolled out (see ADR-007/015/017):
 
-- User account or authentication service
-- Cloud storage backend
-- Third-party analytics or telemetry
-- Remote user-data sync service
+- **Accounts + internet remote play (shipped, opt-in):** AWS Cognito (SRP + PKCE)
+  identity; a WebSocket signaling relay + coturn TURN for WebRTC. Auth/refresh
+  tokens are held in the OS credential store (Electron `safeStorage`), never in
+  IndexedDB/localStorage or logs (`SEC-004`); on the web build tokens are
+  memory-only. The relay is untrusted: it sees only opaque, already-encrypted
+  offer/answer codes and mints short-lived HMAC TURN credentials.
+- **Cloud sync/backup (crypto landed, engine pending):** end-to-end encrypted with
+  **client-held** AES-256-GCM keys per key epoch (ADR-017,
+  `packages/core/src/security/vault-crypto.ts`). The server stores ciphertext plus
+  a strictly bounded metadata set only (`vault-id`, `participant-id`,
+  `operation-revision`, `operation-size`, `content-hash`, `timestamp`). Cloud sync
+  stays **off by default and fail-closed** behind the SYNC-017 gate, and is offered
+  only on devices with an OS credential store to durably hold the client key.
 
-When cloud sync is added (planned Phase 5), this document must be updated to
-cover:
+Remaining items to document as the sync engine and web hosting land:
 
-- Authentication token storage (OS credential store, not plaintext)
-- Sync conflict resolution and trust model for remote data
-- End-to-end encryption for vault content in transit
-- Server-side rate limiting and abuse prevention
+- Sync conflict resolution and trust model for remote data (reuses `validateReplayBatch`).
+- Server-side rate limiting and abuse prevention (join rate-limit reused from `cloud-boundary`).
+- CloudFront CSP parity with the Electron `connect-src` allowlist.
 
 Desktop updates use GitHub Releases via `electron-updater` with signed release
 artifacts and staged rollout controls for major-version adoption.

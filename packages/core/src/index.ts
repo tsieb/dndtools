@@ -2889,6 +2889,36 @@ export {
 	rotateKeyOnRevocation,
 } from './security/key-custody';
 
+// ADR-017 — CONCRETE CLIENT-HELD E2EE. The real AES-256-GCM crypto (deferred by ADR-014/015): seals every
+// cloud artifact client-side under a per-epoch key held only in the OS credential store, so the server
+// stores/relays ciphertext only. Its existence makes the declared cloud security model TRUTHFUL.
+export type {
+	EncryptedEnvelope,
+	KeyringRotationResult,
+	VaultKeyring,
+} from './security/vault-crypto';
+export {
+	VAULT_CRYPTO_ALG,
+	VAULT_CRYPTO_SCHEMA_VERSION,
+	createVaultKeyring,
+	decryptFromKeyring,
+	encryptForKeyring,
+	envelopeAsStoredArtifact,
+	envelopeServerVisibleFields,
+	generateContentKeyMaterial,
+	openWithKeyMaterial,
+	rotateVaultKeyring,
+	sealWithKeyMaterial,
+} from './security/vault-crypto';
+
+// ADR-017 + ADR-015 (Accepted) — the RELEASE-APPROVED cloud security model + decision record, made truthful
+// by the shipped E2EE. Supplying these to the SYNC-017 / SEC-009 gates opens them with no call-site change.
+export {
+	DNDTOOLS_CLOUD_SECURITY_DECISION_RECORD,
+	DNDTOOLS_CLOUD_SYNC_SECURITY_MODEL,
+	evaluateDndtoolsCloudRelease,
+} from './security/cloud-security-decision';
+
 // CONTENT-007: transactional, resumable import. Preview is pure/read-only; the plan is deterministic and
 // re-derivable on resume (already-applied steps are skipped — no double-write); applying is pure (a
 // discarded result leaves prior state byte-identical — no partial commit).

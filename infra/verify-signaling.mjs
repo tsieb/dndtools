@@ -65,7 +65,7 @@ async function main() {
     const anon = connect(null);
     await opened(anon);
     bad('rejects connection without token', 'connection opened');
-    try { anon.close(); } catch {}
+    try { anon.close(); } catch { /* already closed */ }
   } catch {
     ok('rejects connection without token');
   }
@@ -75,7 +75,7 @@ async function main() {
     const bogus = connect('not-a-real-jwt');
     await opened(bogus);
     bad('rejects connection with invalid token', 'connection opened');
-    try { bogus.close(); } catch {}
+    try { bogus.close(); } catch { /* already closed */ }
   } catch {
     ok('rejects connection with invalid token');
   }
@@ -147,7 +147,7 @@ async function main() {
   } catch (e) { bad('mints TURN credentials', e.message); }
 
   await sleep(200);
-  try { host.close(); client.close(); } catch {}
+  try { host.close(); client.close(); } catch { /* already closed */ }
   finish();
 }
 
