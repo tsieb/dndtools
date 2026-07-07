@@ -120,8 +120,9 @@ function HostModal({ onClose }: { onClose: () => void }) {
 	const hostOnline = async () => {
 		setError(null);
 		try {
-			await session.startHostingOnline();
-			setOnlineActive(true);
+			// Only reflect "joinable online" when hosting actually started — a
+			// dismissed sign-in (or failed advertise) resolves false / throws.
+			setOnlineActive(await session.startHostingOnline());
 		} catch (e) {
 			setError(e instanceof Error ? e.message : 'Could not host online.');
 		}
@@ -170,9 +171,19 @@ function HostModal({ onClose }: { onClose: () => void }) {
 					{session.cloudAvailable && (
 						<div style={{ marginBottom: 14 }}>
 							{onlineActive ? (
-								<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: `600 12px ${T.sans}`, color: 'var(--color-status-success-text)' }}>
-									<Icon name="check" size={14} />Joinable online — players can connect over the internet
-								</span>
+								<>
+									<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: `600 12px ${T.sans}`, color: 'var(--color-status-success-text)' }}>
+										<Icon name="check" size={14} />Joinable online — players can connect over the internet
+									</span>
+									{session.onlineJoinCode && (
+										<>
+											<CopyField label="Online join code — send privately to your players" value={session.onlineJoinCode} />
+											<div style={{ marginTop: 6, font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+												Share this code only with people you invite — anyone who has it can join this table. It carries a one-time key that never touches our servers.
+											</div>
+										</>
+									)}
+								</>
 							) : (
 								<button type="button" style={btn()} onClick={() => void hostOnline()}><Icon name="players" size={14} />Also make joinable online</button>
 							)}
@@ -249,35 +260,33 @@ export function JoinSessionButton() {
 function JoinModal({ onClose }: { onClose: () => void }) {
 	const session = useSession();
 	const [offer, setOffer] = useState('');
+	const [onlineCode, setOnlineCode] = useState('');
 	const [answerCode, setAnswerCode] = useState('');
 	const [error, setError] = useState<string | null>(null);
-	const [browsingOnline, setBrowsingOnline] = useState(false);
+	const [connectingOnline, setConnectingOnline] = useState(false);
 	const status = session.client?.status ?? 'idle';
 
-	const browseOnlineNow = async () => {
+	const connectOnlineNow = async () => {
 		setError(null);
+		setConnectingOnline(true);
 		try {
-			await session.browseOnline();
-			setBrowsingOnline(true);
+			await session.connectOnlineByCode(onlineCode.trim());
 		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Could not reach online tables.');
-		}
-	};
-	const connectOnlineTo = async (i: number) => {
-		setError(null);
-		try {
-			await session.connectOnline(session.cloudSessions[i]!);
-		} catch (e) {
-			setError(e instanceof Error ? e.message : 'Could not connect to that table.');
+			setError(e instanceof Error ? e.message : 'Could not connect with that join code.');
+		} finally {
+			setConnectingOnline(false);
 		}
 	};
 
 	// Electron LAN auto-discovery: browse for tables while the modal is open.
+	// Depend on the (stable) callbacks, not the whole session object, whose identity
+	// churns on every cloud-session update and would restart mDNS browse each tick.
+	const { discoveryAvailable, browseTables, stopBrowseTables } = session;
 	useEffect(() => {
-		if (!session.discoveryAvailable) return;
-		session.browseTables();
-		return () => session.stopBrowseTables();
-	}, [session]);
+		if (!discoveryAvailable) return;
+		browseTables();
+		return () => stopBrowseTables();
+	}, [discoveryAvailable, browseTables, stopBrowseTables]);
 
 	const join = async () => {
 		setError(null);
@@ -313,25 +322,15 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 				<>
 					{session.cloudAvailable && (
 						<div style={{ marginBottom: 14 }}>
-							<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-								<span style={{ flex: 1, font: `600 11px ${T.sans}`, color: T.ter, textTransform: 'uppercase', letterSpacing: '.04em' }}>Tables online</span>
-								<button type="button" style={{ ...btn(), padding: '5px 9px' }} onClick={() => void browseOnlineNow()}>{browsingOnline ? 'Refresh' : 'Browse'}</button>
-							</div>
-							{browsingOnline &&
-								(session.cloudSessions.length === 0 ? (
-									<div style={{ font: `12px ${T.sans}`, color: T.ter }}>No online tables yet — ask your DM to “Host online”.</div>
-								) : (
-									<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-										{session.cloudSessions.map((s, i) => (
-											<button key={s.sessionId} type="button" onClick={() => void connectOnlineTo(i)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 9, cursor: 'pointer', border: `1px solid ${T.accBd}`, background: T.accSub, textAlign: 'left' }}>
-												<Icon name="players" size={15} color={T.acc} />
-												<span style={{ flex: 1, font: `12.5px ${T.sans}`, color: T.ink }}>{s.name}<span style={{ color: T.ter }}> · online</span></span>
-												<span style={{ font: `11px ${T.sans}`, color: T.acc }}>Join</span>
-											</button>
-										))}
-									</div>
-								))}
-							<div style={{ marginTop: 10, height: 1, background: T.bd }} />
+							<span style={{ font: `600 11px ${T.sans}`, color: T.ter, textTransform: 'uppercase', letterSpacing: '.04em' }}>Join online with a code</span>
+							<p style={{ margin: '5px 0 6px', font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+								Paste the online join code your DM sent you. It connects you to their table over the internet — no one else can join without this code.
+							</p>
+							<textarea value={onlineCode} onChange={(e) => setOnlineCode(e.target.value)} rows={2} placeholder="Paste the online join code…" style={fieldStyle} />
+							<button type="button" style={{ ...btn(true), marginTop: 8 }} onClick={() => void connectOnlineNow()} disabled={!onlineCode.trim() || connectingOnline || status === 'connecting'}>
+								<Icon name="players" size={14} />{connectingOnline ? 'Connecting…' : 'Join online'}
+							</button>
+							<div style={{ marginTop: 12, height: 1, background: T.bd }} />
 						</div>
 					)}
 					{session.discoveryAvailable && (

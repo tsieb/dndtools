@@ -19,6 +19,7 @@ vi.mock('./signaling', () => ({ setRtcIceServers: vi.fn() }));
 
 import { createCloudBridge } from './cloudBridge';
 import { setRtcIceServers } from './signaling';
+import { generateEcdhKeyPair, deriveWrapKey, wrapCode, unwrapCode } from './cloudCrypto';
 
 // --- fake WebSocket -------------------------------------------------------------
 type Listener = (ev: unknown) => void;
@@ -62,7 +63,9 @@ class FakeWebSocket {
 
 const flush = async (n = 3) => {
 	for (let i = 0; i < n; i++) await Promise.resolve();
-	await new Promise((r) => setTimeout(r));
+	// Several macrotask turns so chained async WebCrypto (ECDH derive → AES-GCM
+	// open, in the cloud bridge's transparent code wrap) has time to settle.
+	for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r));
 };
 const token = () => Promise.resolve<string | null>('id-token');
 
@@ -149,7 +152,12 @@ describe('createCloudBridge — browse (client)', () => {
 		expect(sock.sent[0]).toEqual({ action: 'turnCredentials' });
 		sock.deliver({ type: 'turn-credentials', iceServers: [{ urls: 'turn:x' }] });
 		await flush();
-		expect(sock.lastSent).toEqual({ action: 'join', sessionId: 's-1' });
+		// The join now carries the joiner's ephemeral ECDH public key (for the E2E code wrap).
+		const join = sock.lastSent as { action: string; sessionId: string; pubKey: string };
+		expect(join.action).toBe('join');
+		expect(join.sessionId).toBe('s-1');
+		expect(typeof join.pubKey).toBe('string');
+		expect(join.pubKey.length).toBeGreaterThan(0);
 		await p;
 	});
 });
@@ -169,28 +177,103 @@ describe('createCloudBridge — offer/answer relay callbacks', () => {
 		expect(reqIds).toEqual(['player-conn']);
 	});
 
-	it('fires onOffer with reqId + opaque offer code (client side)', async () => {
-		const { bridge, sock } = await connectedBridge();
+	// Joiner side, full ECDH round-trip: connect mints the joiner key; the test plays the
+	// host (derives the shared key from the joiner's public key, seals the offer). The relay
+	// must never see plaintext — only ciphertext + public keys.
+	it('E2E-decrypts a relayed offer and re-seals the answer (client side)', async () => {
+		const PIN = 'shared-join-secret';
+		const bridge = createCloudBridge(token);
+		const { p, sock } = await withOpenSocket(() =>
+			bridge.connect({ sessionId: 's-1', name: 'One', host: 'cloud', port: 0 }, PIN),
+		);
+		sock.deliver({ type: 'turn-credentials', iceServers: [{ urls: 'turn:x' }] });
+		await flush();
+		const join = sock.lastSent as { action: string; pubKey: string };
+		expect(join.action).toBe('join');
+
+		// Host (played by the test): derive the shared key from the SAME join PIN and seal an offer.
+		const hostKp = await generateEcdhKeyPair();
+		const hostWrap = await deriveWrapKey(hostKp.privateKey, join.pubKey, PIN);
+		const sealedOffer = await wrapCode(hostWrap, 'OFFER-PLAINTEXT');
+		expect(sealedOffer).not.toContain('OFFER-PLAINTEXT'); // wire carries ciphertext only
+
 		const got: Array<[string, string]> = [];
 		bridge.onOffer((reqId, code) => got.push([reqId, code]));
-		sock.deliver({ type: 'offer', reqId: 'player-conn', offerCode: 'OPAQUE-OFFER' });
-		expect(got).toEqual([['player-conn', 'OPAQUE-OFFER']]);
+		sock.deliver({ type: 'offer', reqId: 'player-conn', offerCode: sealedOffer, pubKey: hostKp.publicKeyB64 });
+		await flush();
+		expect(got).toEqual([['player-conn', 'OFFER-PLAINTEXT']]); // decrypted for SessionClient
+
+		// The answer the joiner sends back must be sealed with the same shared key.
+		await bridge.respondAnswer('player-conn', 'ANSWER-PLAINTEXT');
+		const ans = sock.lastSent as { action: string; reqId: string; answerCode: string };
+		expect(ans.action).toBe('answer');
+		expect(ans.reqId).toBe('player-conn');
+		expect(ans.answerCode).not.toContain('ANSWER-PLAINTEXT');
+		expect(await unwrapCode(hostWrap, ans.answerCode)).toBe('ANSWER-PLAINTEXT');
+		await p;
 	});
 
-	it('fires onAnswer with the opaque answer code (host side)', async () => {
+	// Admission gate: a joiner holding the WRONG join PIN derives a different key and cannot open
+	// the host's sealed offer, so the session key never reaches it and onOffer never fires with
+	// plaintext — an uninvited user reaching the rendezvous still gets nothing usable.
+	it('a wrong join PIN cannot open the relayed offer (no admission)', async () => {
+		const bridge = createCloudBridge(token);
+		const { p, sock } = await withOpenSocket(() =>
+			bridge.connect({ sessionId: 's-1', name: 'One', host: 'cloud', port: 0 }, 'WRONG-PIN'),
+		);
+		sock.deliver({ type: 'turn-credentials', iceServers: [{ urls: 'turn:x' }] });
+		await flush();
+		const join = sock.lastSent as { action: string; pubKey: string };
+
+		// Host seals the offer under the REAL PIN.
+		const hostKp = await generateEcdhKeyPair();
+		const hostWrap = await deriveWrapKey(hostKp.privateKey, join.pubKey, 'REAL-PIN');
+		const sealedOffer = await wrapCode(hostWrap, 'OFFER-PLAINTEXT');
+
+		const got: Array<[string, string]> = [];
+		bridge.onOffer((reqId, code) => got.push([reqId, code]));
+		sock.deliver({ type: 'offer', reqId: 'player-conn', offerCode: sealedOffer, pubKey: hostKp.publicKeyB64 });
+		await flush();
+		// The joiner could not decrypt — no plaintext offer surfaced to SessionClient.
+		expect(got).toEqual([]);
+		await p;
+	});
+
+	// Host side, full ECDH round-trip: an offer-request delivers the joiner's public key; the
+	// test plays the joiner (derives the same key, opens the offer, seals the answer).
+	it('seals a relayed offer and E2E-decrypts the answer (host side)', async () => {
 		const { bridge, sock } = await connectedBridge();
+
+		// Joiner (played by the test) mints its ephemeral key and "sends" it via offer-request.
+		const joinerKp = await generateEcdhKeyPair();
+		sock.deliver({ type: 'offer-request', reqId: 'player-conn', pubKey: joinerKp.publicKeyB64 });
+		await flush();
+
+		await bridge.respondOffer('player-conn', 'OFFER#1');
+		const offer = sock.lastSent as { action: string; reqId: string; offerCode: string; pubKey: string };
+		expect(offer.action).toBe('offer');
+		expect(offer.reqId).toBe('player-conn');
+		expect(offer.offerCode).not.toContain('OFFER#1'); // sealed on the wire
+		expect(typeof offer.pubKey).toBe('string');
+
+		// Joiner derives the shared key and opens the offer. The bridge-as-host was not advertised
+		// with a PIN here, so both sides use the empty default — the round-trip still exercises the
+		// PIN-bound HKDF path (see the wrong-PIN test below for the admission gate).
+		const joinerWrap = await deriveWrapKey(joinerKp.privateKey, offer.pubKey, '');
+		expect(await unwrapCode(joinerWrap, offer.offerCode)).toBe('OFFER#1');
+
+		// Joiner seals an answer with that key; the host bridge must decrypt it for SessionHost.
 		const answers: string[] = [];
 		bridge.onAnswer((code) => answers.push(code));
-		sock.deliver({ type: 'answer', answerCode: 'OPAQUE-ANSWER' });
-		expect(answers).toEqual(['OPAQUE-ANSWER']);
+		const sealedAnswer = await wrapCode(joinerWrap, 'ANSWER#1');
+		sock.deliver({ type: 'answer', reqId: 'player-conn', answerCode: sealedAnswer });
+		await flush();
+		expect(answers).toEqual(['ANSWER#1']);
 	});
 
-	it('respondOffer / respondAnswer send the opaque codes with routing ids', async () => {
-		const { bridge, sock } = await connectedBridge();
-		await bridge.respondOffer('player-conn', 'OFFER#1');
-		expect(sock.lastSent).toEqual({ action: 'offer', reqId: 'player-conn', offerCode: 'OFFER#1' });
-		await bridge.respondAnswer('player-conn', 'ANSWER#1');
-		expect(sock.lastSent).toEqual({ action: 'answer', reqId: 'player-conn', answerCode: 'ANSWER#1' });
+	it('respondOffer fails closed if it never saw the joiner public key', async () => {
+		const { bridge } = await connectedBridge();
+		await expect(bridge.respondOffer('unknown-conn', 'OFFER#1')).rejects.toThrow(/joiner key/i);
 	});
 
 	it('unsubscribes cleanly (returned disposer stops further callbacks)', async () => {

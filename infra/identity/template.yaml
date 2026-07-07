@@ -34,6 +34,13 @@ Parameters:
     Default: 'http://localhost:5273/,http://localhost:4273/,dndtools://auth'
     Description: Allowed post-logout redirect URIs (same set as callbacks).
 
+Conditions:
+  # ADMIN_USER_PASSWORD_AUTH is a non-SRP password flow used only by automated
+  # verification scripts in dev. It is a standing weakening (anyone able to call
+  # AdminInitiateAuth can attempt password auth), so it is enabled in dev only —
+  # prod uses SRP/PKCE exclusively.
+  IsDev: !Equals [!Ref Stage, dev]
+
 Resources:
   UserPool:
     Type: AWS::Cognito::UserPool
@@ -79,12 +86,15 @@ Resources:
       ClientName: !Sub '${ProjectName}-${Stage}-app'
       UserPoolId: !Ref UserPool
       GenerateSecret: false
-      ExplicitAuthFlows:
-        - ALLOW_USER_SRP_AUTH
-        - ALLOW_REFRESH_TOKEN_AUTH
-        # IAM-gated server/admin auth — used by automated verification (and any
-        # future backend flow). Browsers still use SRP/PKCE, never this.
-        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+      # Browsers/Electron always use SRP (+ refresh). ADMIN_USER_PASSWORD_AUTH is
+      # appended only in dev (see IsDev) for the automated verification scripts.
+      ExplicitAuthFlows: !If
+        - IsDev
+        - - ALLOW_USER_SRP_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+          - ALLOW_ADMIN_USER_PASSWORD_AUTH
+        - - ALLOW_USER_SRP_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
       AllowedOAuthFlows:
         - code
       AllowedOAuthFlowsUserPoolClient: true

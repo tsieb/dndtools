@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>(isAuthConfigured ? 'loading' : 'unconfigured');
   const [user, setUser] = useState<AuthUser | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const gateResolver = useRef<((ok: boolean) => void) | null>(null);
+  const gateResolvers = useRef<Array<(ok: boolean) => void>>([]);
 
   useEffect(() => {
     if (!isAuthConfigured) return;
@@ -61,8 +61,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const resolveGate = useCallback((ok: boolean) => {
-    gateResolver.current?.(ok);
-    gateResolver.current = null;
+    // Resolve EVERY pending gate: several cloud actions may await auth at once,
+    // and dropping all but the last would leave the earlier callers hung forever.
+    const pending = gateResolvers.current;
+    gateResolvers.current = [];
+    for (const resolve of pending) resolve(ok);
   }, []);
 
   const signIn = useCallback(
@@ -87,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) return Promise.resolve(true);
     setModalOpen(true);
     return new Promise<boolean>((resolve) => {
-      gateResolver.current = resolve;
+      gateResolvers.current.push(resolve);
     });
   }, [user]);
 

@@ -32,7 +32,15 @@ async function readDurable(vaultId: string): Promise<VaultKeyring | null> {
 	try {
 		const parsed = JSON.parse(raw) as VaultKeyring;
 		// Minimal shape guard — a corrupt record fails closed (treated as absent).
-		if (parsed && typeof parsed.currentEpoch === 'number' && parsed.keys) return parsed;
+		// Require the current-epoch key to actually be present: a truncated/partial write that
+		// dropped it must be rebuilt (fail closed), not loaded and then made to throw inside encrypt.
+		if (
+			parsed &&
+			typeof parsed.currentEpoch === 'number' &&
+			parsed.keys &&
+			typeof parsed.keys[parsed.currentEpoch] === 'string'
+		)
+			return parsed;
 	} catch {
 		/* fall through — corrupt keyring is treated as absent (fail closed) */
 	}
@@ -70,6 +78,24 @@ async function getOrCreateKeyring(vaultId: string): Promise<VaultKeyring> {
 	return fresh;
 }
 
+/**
+ * Get an EXISTING keyring, or throw fail-closed. Unlike {@link getOrCreateKeyring} this NEVER mints key
+ * material — decrypt must never fabricate a key. A device that holds no keyring cannot decrypt the vault's
+ * artifacts (they were sealed under a key held only on the originating device), so minting a fresh random
+ * keyring here would (a) fail the AES-GCM tag with a cryptic error and, worse, (b) durably persist a wrong
+ * key that then re-seals NEW content under a divergent key — permanently forking/locking out the vault.
+ */
+async function requireExistingKeyring(vaultId: string): Promise<VaultKeyring> {
+	const cached = cache.get(vaultId);
+	if (cached) return cached;
+	const existing = await readDurable(vaultId);
+	if (!existing) {
+		throw new Error('This device holds no vault key; the cloud artifact cannot be decrypted here (fail closed).');
+	}
+	cache.set(vaultId, existing);
+	return existing;
+}
+
 export interface VaultKeyManager {
 	/** Whether this device can durably hold the client-held key (OS credential store present). */
 	custodyAvailable(): Promise<boolean>;
@@ -94,7 +120,7 @@ export const vaultKeyManager: VaultKeyManager = {
 	},
 
 	async decrypt(vaultId, envelope) {
-		const keyring = await getOrCreateKeyring(vaultId);
+		const keyring = await requireExistingKeyring(vaultId); // NEVER mint on decrypt (fail closed)
 		return decryptFromKeyring(keyring, envelope);
 	},
 

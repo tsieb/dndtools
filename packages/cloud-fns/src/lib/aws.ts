@@ -69,13 +69,14 @@ export async function scanAll(table: string, limit = 200): Promise<Record<string
 /**
  * Query a partition, optionally bounded by a sort-key range, returning items in ascending SK order.
  * `skRange` supplies a `#sk BETWEEN :lo AND :hi` clause (both inclusive) on the given sort-key attribute.
- * Pages through all results (cloud sync op-tails are small; the DM is the single writer per vault).
+ * Pages through ALL results (`pageSize` is only the per-request page hint — the loop continues until
+ * DynamoDB stops returning a LastEvaluatedKey, so large op-tails are never silently truncated).
  */
 export async function queryPartition(
   table: string,
   pk: { name: string; value: string },
   skRange?: { name: string; lo: string; hi: string },
-  limit = 1000,
+  pageSize = 1000,
 ): Promise<Record<string, string>[]> {
   const names: Record<string, string> = { '#pk': pk.name };
   const values: Record<string, AttributeValue> = { ':pk': { S: pk.value } };
@@ -96,7 +97,7 @@ export async function queryPartition(
         ExpressionAttributeNames: names,
         ExpressionAttributeValues: values,
         ExclusiveStartKey: lastKey,
-        Limit: limit,
+        Limit: pageSize,
       }),
     );
     for (const item of res.Items ?? []) {
@@ -104,7 +105,7 @@ export async function queryPartition(
       if (row) out.push(row);
     }
     lastKey = res.LastEvaluatedKey;
-  } while (lastKey && out.length < limit);
+  } while (lastKey);
   return out;
 }
 

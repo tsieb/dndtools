@@ -59,6 +59,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 			const engine = createSyncEngine({
 				runtime,
 				apiUrl: cloudConfig.syncApiUrl,
+				accountId: auth.user?.sub ?? '', // namespaces the device-local high-water per Cognito account
 				onStatus: (s) => setEngineStatus(s),
 			});
 			engineRef.current = engine;
@@ -69,7 +70,7 @@ export function CloudSyncProvider({ children }: { children: ReactNode }) {
 			engineRef.current = null;
 			setEngineStatus(null);
 		}
-	}, [runtime, auth.status, enabled, gate?.canEnableOnThisDevice]);
+	}, [runtime, auth.status, auth.user?.sub, enabled, gate?.canEnableOnThisDevice]);
 
 	useEffect(() => () => engineRef.current?.stop(), []);
 

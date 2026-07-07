@@ -2,7 +2,7 @@
 // design system's accessible Dialog (focus trap + Esc handled by the DS). Rendered
 // by AuthProvider; opened via requireAuth()/openAuthModal(). Actions are passed in
 // as props (no context import) to keep it decoupled from AuthContext.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, Field, Input, Button, Toaster } from '../ds';
 
 type View = 'sign-in' | 'sign-up' | 'confirm';
@@ -36,6 +36,16 @@ export function AuthModal({ open, onClose, signIn, signUp, confirm, resend }: Pr
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // The modal is a persistently-mounted singleton (AuthProvider never unmounts
+  // it), and the sign-in success path closes it without clearing `busy`. Reset
+  // the transient flags whenever it opens so a reopened form is never frozen.
+  useEffect(() => {
+    if (open) {
+      setBusy(false);
+      setError(null);
+    }
+  }, [open]);
+
   const reset = (next: View) => {
     setError(null);
     setBusy(false);
@@ -68,7 +78,11 @@ export function AuthModal({ open, onClose, signIn, signUp, confirm, resend }: Pr
         Toaster.info('Please confirm your email first.');
         reset('confirm');
       } else {
-        setError(message(err));
+        // Never surface distinguishable auth failures on sign-in (wrong-password vs
+        // no-such-user) — collapse to one generic message so the form can't be used
+        // to enumerate which emails have accounts. Sign-up/confirm keep their
+        // specific guidance (they don't reveal existence beyond what's inherent).
+        setError(view === 'sign-in' ? 'Incorrect email or password.' : message(err));
         setBusy(false);
       }
     }

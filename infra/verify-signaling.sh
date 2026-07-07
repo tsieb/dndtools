@@ -7,6 +7,12 @@
 set -euo pipefail
 
 STAGE="${1:-dev}"
+# The test user has a hardcoded, repo-visible password; never leave one sitting in
+# a production pool. Refuse prod unless explicitly opted in.
+if [ "$STAGE" = prod ] && [ "${ALLOW_PROD:-}" != 1 ]; then
+  echo "refusing to run against prod (would create a known-credentials user); set ALLOW_PROD=1 to override" >&2
+  exit 1
+fi
 PROJECT="${PROJECT:-dndtools}"
 # Default hard to the dndtools profile; override with DNDTOOLS_PROFILE, NOT the
 # ambient AWS_PROFILE (which may point at an unrelated SSO session).
@@ -22,6 +28,13 @@ CLIENT_ID="$(ssm identity/app-client-id)"
 
 TEST_USER="signaling-verify@example.com"
 TEST_PASS="Verify-Signaling-2026"
+
+# Ephemeral test user: delete it on exit so no known-credentials account lingers.
+cleanup() {
+  aws cognito-idp admin-delete-user --user-pool-id "$POOL_ID" --username "$TEST_USER" \
+    --profile "$PROFILE" --region "$REGION" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
 
 echo "ws=$WS_URL pool=$POOL_ID"
 

@@ -164,7 +164,8 @@ describe('advertise / stopAdvertise / browse', () => {
 		expect(room('s-1')).toBeUndefined();
 	});
 
-	it('browse lists advertised rooms as cloud services', async () => {
+	it('browse is scoped to the caller — it never lists another user’s rooms', async () => {
+		// Two different DMs each host a room.
 		await call({ connectionId: 'h1', routeKey: '$connect', sub: 'dm1' });
 		await call(
 			{ connectionId: 'h1', routeKey: '$default' },
@@ -176,21 +177,27 @@ describe('advertise / stopAdvertise / browse', () => {
 			{ action: 'advertise', sessionId: 's-2', name: 'Two' },
 		);
 
+		// A stranger browsing must NOT be able to enumerate anyone's live sessions: cross-tenant
+		// browse was the enumeration half of the join-authorization finding. Joiners use the DM's
+		// out-of-band join code instead.
 		await call({ connectionId: 'browser', routeKey: '$connect', sub: 'player' });
 		await call({ connectionId: 'browser', routeKey: '$default' }, { action: 'browse' });
+		const strangerMsg = lastTo('browser') as {
+			type: string;
+			services: Array<{ sessionId: string; name: string }>;
+		};
+		expect(strangerMsg.type).toBe('services');
+		expect(strangerMsg.services).toHaveLength(0);
 
-		const msg = lastTo('browser') as {
+		// A host browsing sees only its OWN room (e.g. to reconcile UI after a reconnect).
+		await call({ connectionId: 'h1', routeKey: '$default' }, { action: 'browse' });
+		const ownMsg = lastTo('h1') as {
 			type: string;
 			services: Array<{ sessionId: string; name: string; host: string }>;
 		};
-		expect(msg.type).toBe('services');
-		expect(msg.services).toHaveLength(2);
-		expect(msg.services).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ sessionId: 's-1', name: 'One', host: 'cloud' }),
-				expect.objectContaining({ sessionId: 's-2', name: 'Two', host: 'cloud' }),
-			]),
-		);
+		expect(ownMsg.services).toEqual([
+			expect.objectContaining({ sessionId: 's-1', name: 'One', host: 'cloud' }),
+		]);
 	});
 });
 
@@ -372,5 +379,68 @@ describe('malformed / unknown messages', () => {
 	it('rejects a request with no connectionId as a 400', async () => {
 		const res = await call({ connectionId: '', routeKey: '$default' }, { action: 'browse' });
 		expect(res.statusCode).toBe(400);
+	});
+});
+
+describe('authorization hardening', () => {
+	it('$connect fails closed when the authorizer did not supply a sub', async () => {
+		const res = await call({ connectionId: 'c-x', routeKey: '$connect' }); // no sub
+		expect(res.statusCode).toBe(401);
+		expect(conn('c-x')).toBeUndefined(); // nothing persisted for an unauthenticated connection
+	});
+
+	it('$default rejects a message from a connection with no authenticated sub', async () => {
+		// A socket that never completed an authenticated $connect (no stored sub, no authorizer sub).
+		await call({ connectionId: 'ghost', routeKey: '$default' }, { action: 'browse' });
+		expect(lastTo('ghost')).toMatchObject({ type: 'error', code: 'unauthenticated' });
+	});
+
+	it('does NOT relay an offer from a connection that is not the target session host', async () => {
+		// Host advertises s-1; a player joins it (offer-request goes to the host).
+		await call({ connectionId: 'host', routeKey: '$connect', sub: 'dm' });
+		await call(
+			{ connectionId: 'host', routeKey: '$default' },
+			{ action: 'advertise', sessionId: 's-1', name: 'Game' },
+		);
+		await call({ connectionId: 'player', routeKey: '$connect', sub: 'p1' });
+		await call(
+			{ connectionId: 'player', routeKey: '$default' },
+			{ action: 'join', sessionId: 's-1' },
+		);
+
+		// A different authenticated user tries to inject a forged offer at the player.
+		await call({ connectionId: 'evil', routeKey: '$connect', sub: 'evil' });
+		await call(
+			{ connectionId: 'evil', routeKey: '$default' },
+			{ action: 'offer', reqId: 'player', offerCode: 'FORGED' },
+		);
+		expect(sentTo('player').some((m) => m.offerCode === 'FORGED')).toBe(false);
+
+		// The real host CAN deliver an offer to the player it is joining.
+		await call(
+			{ connectionId: 'host', routeKey: '$default' },
+			{ action: 'offer', reqId: 'player', offerCode: 'REAL' },
+		);
+		expect(sentTo('player').some((m) => m.type === 'offer' && m.offerCode === 'REAL')).toBe(true);
+	});
+
+	it('routes an answer to the host using the sender connection id, ignoring a spoofed reqId', async () => {
+		await call({ connectionId: 'host', routeKey: '$connect', sub: 'dm' });
+		await call(
+			{ connectionId: 'host', routeKey: '$default' },
+			{ action: 'advertise', sessionId: 's-1', name: 'Game' },
+		);
+		await call({ connectionId: 'player', routeKey: '$connect', sub: 'p1' });
+		await call(
+			{ connectionId: 'player', routeKey: '$default' },
+			{ action: 'join', sessionId: 's-1' },
+		);
+
+		await call(
+			{ connectionId: 'player', routeKey: '$default' },
+			{ action: 'answer', reqId: 'someone-elses-conn', answerCode: 'ANS' },
+		);
+		const ans = sentTo('host').find((m) => m.type === 'answer');
+		expect(ans).toMatchObject({ answerCode: 'ANS', reqId: 'player' }); // sender id, not the spoofed reqId
 	});
 });

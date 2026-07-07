@@ -31,7 +31,12 @@ import { getIdToken } from './auth';
 export const CLOUD_VAULT_ID = 'primary';
 
 const PUSH_DEBOUNCE_MS = 1500;
-const pushedRevKey = (vaultId: string) => `dndtools:react:cloud-pushed-rev:${vaultId}`;
+// Scope the high-water by the ACCOUNT too: localStorage is per-origin and shared across Cognito
+// accounts on one install, so a key scoped only by vaultId ('primary') would let one account's
+// pushed-revision bleed into another's engine — skipping real pushes or overwriting the other
+// account's op rows (same revision index, different ciphertext).
+const pushedRevKey = (accountId: string, vaultId: string) =>
+	`dndtools:react:cloud-pushed-rev:${accountId}:${vaultId}`;
 
 /** Byte length of a base64url string (no padding): 4 chars → 3 bytes. */
 function b64urlBytes(s: string): number {
@@ -69,18 +74,24 @@ export interface CloudSyncEngine {
 export interface SyncEngineOptions {
 	runtime: SceneRuntime;
 	apiUrl: string;
+	/** The authenticated account id (Cognito sub) — namespaces the device-local high-water. */
+	accountId: string;
 	vaultId?: string;
 	onStatus?: (status: SyncEngineStatus) => void;
 }
 
 export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 	const { runtime, apiUrl, onStatus } = opts;
+	const accountId = opts.accountId || 'anon';
 	const vaultId = opts.vaultId ?? CLOUD_VAULT_ID;
 	const base = apiUrl.replace(/\/$/, '');
 
 	let unsubscribe: (() => void) | null = null;
 	let debounce: ReturnType<typeof setTimeout> | null = null;
 	let inFlight: Promise<void> | null = null;
+	// The op-count the last successfully-pushed snapshot reflected. A snapshot re-encrypts + re-uploads
+	// the WHOLE vault, so skip it when nothing new has been dispatched since the last one.
+	let lastSnapshotRev = -1;
 	const status: SyncEngineStatus = {
 		busy: false,
 		lastPushedRevision: readPushedRev(),
@@ -90,7 +101,7 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 
 	function readPushedRev(): number {
 		try {
-			const raw = window.localStorage.getItem(pushedRevKey(vaultId));
+			const raw = window.localStorage.getItem(pushedRevKey(accountId, vaultId));
 			return raw ? Number(raw) : -1;
 		} catch {
 			return -1;
@@ -99,7 +110,7 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 	function writePushedRev(rev: number): void {
 		status.lastPushedRevision = rev;
 		try {
-			window.localStorage.setItem(pushedRevKey(vaultId), String(rev));
+			window.localStorage.setItem(pushedRevKey(accountId, vaultId), String(rev));
 		} catch {
 			/* localStorage unavailable — high-water is best-effort; a re-push is idempotent server-side */
 		}
@@ -143,10 +154,12 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 	}
 
 	async function pushSnapshot(slice: CoreStateSlice, headers: Record<string, string>): Promise<void> {
+		const revision = slice.sync.operations.length;
+		if (revision === lastSnapshotRev) return; // nothing new since the last snapshot — skip the full re-upload
 		const envelope = await vaultKeyManager.encrypt(vaultId, normalizeSliceForSnapshot(slice));
 		const record: CloudSnapshotRecord = {
 			meta: {
-				revision: slice.sync.operations.length,
+				revision,
 				size: b64urlBytes(envelope.ct),
 				contentHash: envelope.contentHash,
 				issuedAt: new Date().toISOString(),
@@ -159,6 +172,7 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 			body: JSON.stringify(record),
 		});
 		if (!res.ok) throw new Error(`snapshot push failed (${res.status})`);
+		lastSnapshotRev = revision;
 	}
 
 	async function doSync(): Promise<void> {
@@ -168,8 +182,12 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 		try {
 			const headers = await authHeaders();
 			const slice = runtime.authoritativeState;
-			await pushOpTail(slice, headers);
+			// Snapshot FIRST: fresh-device restore is snapshot-only (no op replay), so the snapshot must
+			// reflect the full current state before we advance the op high-water. If the op-tail push then
+			// fails, its high-water is not advanced and it re-pushes next time (idempotent) — but the
+			// snapshot already captured those ops, so a restore is never missing them.
 			await pushSnapshot(slice, headers);
+			await pushOpTail(slice, headers);
 			status.lastSyncedAt = new Date().toISOString();
 		} catch (err) {
 			// Network / transient failures are surfaced as status, NOT thrown — local-first stays intact.
@@ -180,13 +198,23 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 		}
 	}
 
+	// Serialize every sync through a single chain: a debounce-fired sync, a syncNow(), and a dispatch
+	// arriving mid-sync must not run two doSync() concurrently (they'd read the same high-water, rebuild
+	// the same op-tail, and race writePushedRev — duplicate pushes that only the server's idempotency
+	// masks). Queue instead of overlap. doSync() never rejects (it swallows to status), so chaining is safe.
+	function runSync(): Promise<void> {
+		const next = (inFlight ?? Promise.resolve()).then(() => doSync());
+		inFlight = next.finally(() => {
+			if (inFlight === next) inFlight = null;
+		});
+		return next;
+	}
+
 	function scheduleSync(): void {
 		if (debounce) clearTimeout(debounce);
 		debounce = setTimeout(() => {
 			debounce = null;
-			inFlight = doSync().finally(() => {
-				inFlight = null;
-			});
+			void runSync();
 		}, PUSH_DEBOUNCE_MS);
 	}
 
@@ -207,8 +235,7 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 				clearTimeout(debounce);
 				debounce = null;
 			}
-			if (inFlight) await inFlight;
-			await doSync();
+			await runSync();
 		},
 		async restoreFromCloud() {
 			status.busy = true;
@@ -225,6 +252,7 @@ export function createSyncEngine(opts: SyncEngineOptions): CloudSyncEngine {
 				await restoreCoreState(slice);
 				await runtime.load(); // reload the runtime from the freshly-restored storage
 				writePushedRev(slice.sync.operations.length - 1); // those ops are already in the cloud
+				lastSnapshotRev = slice.sync.operations.length; // the cloud snapshot already reflects this state
 				status.lastSyncedAt = new Date().toISOString();
 				return 'restored';
 			} finally {

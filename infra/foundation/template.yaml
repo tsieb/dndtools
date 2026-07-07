@@ -99,9 +99,16 @@ Resources:
       RoleName: !Sub '${ProjectName}-${Stage}-ci-deploy'
       Description: >-
         Assumed by GitHub Actions (via OIDC) to run sam build/deploy for all
-        dndtools stacks. This account is single-purpose, so the role is broad
-        within it (PowerUser + IAM role management) but cannot be assumed
-        outside the named repo/branch.
+        dndtools stacks. This account is single-purpose, so compute/data access
+        is broad within it (PowerUser), but IAM role/policy management is scoped
+        to the "${ProjectName}-*" namespace and iam:PassRole is constrained by
+        iam:PassedToService, so a compromised CI run cannot mint or pass an
+        arbitrary AdministratorAccess role (no privilege-escalation-to-admin
+        path). The role also cannot be assumed outside the named repo/branch.
+      # Deny-all guardrail: even PowerUserAccess cannot touch the org, account
+      # settings, or the account's own IAM users/root — blocks lateral moves and
+      # persistence that PowerUser would otherwise permit in this account.
+      PermissionsBoundary: !Ref CiDeployBoundary
       MaxSessionDuration: 3600
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -122,9 +129,13 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              # SAM/CloudFormation must create & pass Lambda/EC2/service roles and
-              # manage the OIDC provider on redeploy. Scoped to this account only.
-              - Effect: Allow
+              # SAM/CloudFormation creates & manages the Lambda/EC2 service roles,
+              # policies and instance profiles for the stacks. All such resources
+              # are named "<stack>-..." and every stack is "${ProjectName}-*", so
+              # scoping the mutating actions to that ARN prefix lets CI manage its
+              # own roles but NOT create/alter an admin role elsewhere.
+              - Sid: ManageProjectRolesAndPolicies
+                Effect: Allow
                 Action:
                   - 'iam:CreateRole'
                   - 'iam:DeleteRole'
@@ -138,9 +149,32 @@ Resources:
                   - 'iam:GetRolePolicy'
                   - 'iam:ListRolePolicies'
                   - 'iam:ListAttachedRolePolicies'
-                  - 'iam:PassRole'
                   - 'iam:TagRole'
                   - 'iam:UntagRole'
+                  - 'iam:CreateInstanceProfile'
+                  - 'iam:DeleteInstanceProfile'
+                  - 'iam:GetInstanceProfile'
+                  - 'iam:AddRoleToInstanceProfile'
+                  - 'iam:RemoveRoleFromInstanceProfile'
+                Resource:
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-*'
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:instance-profile/${ProjectName}-*'
+              # Force every role CI creates to carry the same permissions boundary,
+              # so CI cannot bootstrap a role more powerful than itself.
+              - Sid: RequireBoundaryOnCreatedRoles
+                Effect: Deny
+                Action:
+                  - 'iam:CreateRole'
+                  - 'iam:PutRolePermissionsBoundary'
+                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-*'
+                Condition:
+                  StringNotEquals:
+                    'iam:PermissionsBoundary': !Ref CiDeployBoundary
+              # Customer-managed policies for the stacks (SAM inline policies attach
+              # to the scoped roles above; standalone managed policies are "${ProjectName}-*").
+              - Sid: ManageProjectManagedPolicies
+                Effect: Allow
+                Action:
                   - 'iam:CreatePolicy'
                   - 'iam:DeletePolicy'
                   - 'iam:CreatePolicyVersion'
@@ -148,13 +182,63 @@ Resources:
                   - 'iam:GetPolicy'
                   - 'iam:GetPolicyVersion'
                   - 'iam:ListPolicyVersions'
-                  - 'iam:CreateInstanceProfile'
-                  - 'iam:DeleteInstanceProfile'
-                  - 'iam:GetInstanceProfile'
-                  - 'iam:AddRoleToInstanceProfile'
-                  - 'iam:RemoveRoleFromInstanceProfile'
-                  - 'iam:CreateServiceLinkedRole'
+                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:policy/${ProjectName}-*'
+              # PassRole is the escalation lever: constrain it to project roles AND
+              # to the specific services SAM actually hands roles to, so CI can't
+              # pass a role to an arbitrary/privileged principal.
+              - Sid: PassProjectRolesToKnownServicesOnly
+                Effect: Allow
+                Action: 'iam:PassRole'
+                Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-*'
+                Condition:
+                  StringEquals:
+                    'iam:PassedToService':
+                      - lambda.amazonaws.com
+                      - ec2.amazonaws.com
+                      - apigateway.amazonaws.com
+              # Service-linked roles have fixed, AWS-controlled trust policies and
+              # cannot be repurposed, so a wildcard resource here is not an
+              # escalation path (the service name is pinned by the API).
+              - Sid: CreateServiceLinkedRoles
+                Effect: Allow
+                Action: 'iam:CreateServiceLinkedRole'
                 Resource: '*'
+
+  # Permissions boundary applied to the CI role (and every role it creates): the
+  # ceiling of what any CI-managed principal can ever do in this account. It
+  # grants broad service access for deploys but hard-denies IAM user/root
+  # manipulation, Organizations, and account-level settings — the things a
+  # single-purpose deploy pipeline never needs and an attacker would want.
+  CiDeployBoundary:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${ProjectName}-${Stage}-ci-deploy-boundary'
+      Description: Permissions ceiling for the CI deploy role and roles it creates.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowServiceActions
+            Effect: Allow
+            Action: '*'
+            Resource: '*'
+          - Sid: DenyAccountAndIdentityTakeover
+            Effect: Deny
+            Action:
+              - 'organizations:*'
+              - 'account:*'
+              - 'iam:CreateUser'
+              - 'iam:CreateAccessKey'
+              - 'iam:CreateLoginProfile'
+              - 'iam:UpdateLoginProfile'
+              - 'iam:AttachUserPolicy'
+              - 'iam:PutUserPolicy'
+              - 'iam:DeleteUserPolicy'
+              - 'iam:DetachUserPolicy'
+              - 'iam:DeleteUserPermissionsBoundary'
+              - 'iam:DeleteRolePermissionsBoundary'
+              - 'iam:CreateSAMLProvider'
+              - 'iam:UpdateSAMLProvider'
+            Resource: '*'
 
   # --- SSM namespace: baseline meta params other stacks/build read. ---------
   ParamProject:

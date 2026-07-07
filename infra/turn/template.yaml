@@ -145,12 +145,19 @@ Resources:
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          set -euxo pipefail
+          set -euo pipefail
+          # NOTE: intentionally NOT using `set -x` (xtrace). This script handles the
+          # coturn shared secret; with xtrace on, the expanded `docker run ... secret`
+          # command would be written in cleartext to the bootstrap log below, where
+          # anyone with SSM Session Manager access could read it. Milestone `echo`s
+          # give us traceability without leaking the secret.
           exec > /var/log/turn-bootstrap.log 2>&1
+          echo "[turn-bootstrap] start"
 
           # --- Docker (AWS CLI v2 + python3 are preinstalled on AL2023) ---
           dnf install -y docker
           systemctl enable --now docker
+          echo "[turn-bootstrap] docker up"
 
           # --- Fetch coturn shared secret from Secrets Manager ---
           SECRET_JSON=$(aws secretsmanager get-secret-value \
@@ -158,27 +165,70 @@ Resources:
             --region "${AWS::Region}" \
             --query SecretString --output text)
           TURN_SECRET=$(printf '%s' "$SECRET_JSON" | python3 -c "import sys,json;print(json.load(sys.stdin)['secret'])")
+          echo "[turn-bootstrap] secret fetched"
+
+          # --- Write coturn config to a root-only file (mode 600) instead of passing
+          #     the secret on the command line, so it never appears in `ps aux`,
+          #     `/proc/<pid>/cmdline`, or `docker inspect`. The file is mounted
+          #     read-only into the container. ---
+          mkdir -p /etc/coturn
+          umask 077
+          cat > /etc/coturn/turnserver.conf <<CONF
+          realm=${Realm}
+          use-auth-secret
+          static-auth-secret=$TURN_SECRET
+          listening-port=${ListeningPort}
+          min-port=${RelayMinPort}
+          max-port=${RelayMaxPort}
+          external-ip=${TurnEip}
+          no-tls
+          no-dtls
+          no-multicast-peers
+          fingerprint
+          simple-log
+          log-file=stdout
+          # --- SSRF / open-relay prevention: refuse to relay to internal, loopback,
+          #     link-local (incl. the 169.254.169.254 instance-metadata endpoint),
+          #     CGNAT, and IPv6 ULA/link-local ranges. Without these an authenticated
+          #     (or credential-sniffing) client could use the relay to reach the VPC
+          #     and AWS metadata service. Only public peers may be relayed to. ---
+          denied-peer-ip=0.0.0.0-0.255.255.255
+          denied-peer-ip=10.0.0.0-10.255.255.255
+          denied-peer-ip=100.64.0.0-100.127.255.255
+          denied-peer-ip=127.0.0.0-127.255.255.255
+          denied-peer-ip=169.254.0.0-169.254.255.255
+          denied-peer-ip=172.16.0.0-172.31.255.255
+          denied-peer-ip=192.0.0.0-192.0.0.255
+          denied-peer-ip=192.0.2.0-192.0.2.255
+          denied-peer-ip=192.88.99.0-192.88.99.255
+          denied-peer-ip=192.168.0.0-192.168.255.255
+          denied-peer-ip=198.18.0.0-198.19.255.255
+          denied-peer-ip=198.51.100.0-198.51.100.255
+          denied-peer-ip=203.0.113.0-203.0.113.255
+          denied-peer-ip=240.0.0.0-255.255.255.255
+          denied-peer-ip=::1
+          denied-peer-ip=fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+          denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+          # --- Bandwidth / allocation quotas so a single (or leaked) credential
+          #     cannot saturate the relay and run up cost. ---
+          total-quota=100
+          user-quota=6
+          max-bps=2000000
+          CONF
+          echo "[turn-bootstrap] config written"
 
           # --- Run coturn (arm64-native multi-arch image; host networking;
           #     restart-always survives reboot). NOTE: --platform linux/arm64 is
           #     required on Graviton — the default manifest can resolve to amd64
-          #     and crash-loop. Modern coturn denies loopback/multicast relay by
-          #     default; --no-loopback-peers is NOT a valid flag in 4.14 and
-          #     --no-cli is deprecated, so neither is passed. ---
+          #     and crash-loop. All settings (incl. the secret) come from the
+          #     mounted root-only config; -c points coturn at it. ---
           docker rm -f coturn 2>/dev/null || true
           docker run -d --name coturn --restart always --network host \
             --platform linux/arm64 \
+            -v /etc/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro \
             coturn/coturn:latest \
-            -n \
-            --realm="${Realm}" \
-            --use-auth-secret \
-            --static-auth-secret="$TURN_SECRET" \
-            --listening-port=${ListeningPort} \
-            --min-port=${RelayMinPort} --max-port=${RelayMaxPort} \
-            --external-ip="${TurnEip}" \
-            --no-tls --no-dtls \
-            --no-multicast-peers --fingerprint \
-            --simple-log --log-file=stdout
+            -c /etc/coturn/turnserver.conf
+          echo "[turn-bootstrap] done"
 
   TurnEipAssociation:
     Type: AWS::EC2::EIPAssociation

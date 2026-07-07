@@ -21,9 +21,13 @@ capabilities to the local-first app. Everything is pay-per-use / scale-to-zero
 | 1 | `foundation`  | Budget alarm, GitHub OIDC deploy role, SSM namespace | none |
 | 2 | `identity`    | Cognito user pool + app client (gates everything) | none |
 | 3 | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + cred Lambda | ~$3–8/mo |
-| 3 | `signaling`   | API GW WebSocket + Lambdas + DynamoDB (rooms/conns, TTL) | none |
-| 4 | `sync-api`    | API GW HTTP + Lambdas + DynamoDB (op index) + S3 (ciphertext) | none |
-| 5 | `web-hosting` | S3 (private) + CloudFront (OAC) + CSP header | none |
+| 4 | `signaling`   | API GW WebSocket + Lambdas + DynamoDB (rooms/conns, TTL) | none |
+| 5 | `sync-api`    | API GW HTTP + Lambdas + DynamoDB (op index) + S3 (ciphertext) | none |
+| 6 | `web-hosting` | S3 (private) + CloudFront (OAC) + CSP header | none |
+
+> `signaling` resolves `turn`'s `/turn/secret-arn` and `/turn/uri` via `{{resolve:ssm}}`
+> at deploy time, so **`turn` must be deployed before `signaling`** — deploying signaling
+> first fails with an SSM `ParameterNotFound`.
 
 Stacks are decoupled via **SSM Parameter Store** under `/dndtools/<stage>/…`
 (each stack writes its outputs; downstream stacks and the client build read them),

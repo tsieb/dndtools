@@ -52,8 +52,13 @@ export function clearRtcIceServers(): void {
 	RTC_CONFIG = { iceServers: [] };
 }
 
+// LAN host candidates gather in well under a second, but allocating a TURN relay
+// candidate over the internet (cold coturn, TCP fallback, loaded network) can take
+// several seconds — so the cap is longer whenever ICE servers are configured.
+const iceGatherCapMs = (): number => (RTC_CONFIG.iceServers && RTC_CONFIG.iceServers.length > 0 ? 8000 : 4000);
+
 /** Resolve once ICE gathering is complete (or after a short cap — LAN host candidates gather fast). */
-function waitForIceGatheringComplete(pc: RTCPeerConnection, capMs = 4000): Promise<void> {
+function waitForIceGatheringComplete(pc: RTCPeerConnection, capMs = iceGatherCapMs()): Promise<void> {
 	if (pc.iceGatheringState === 'complete') return Promise.resolve();
 	return new Promise((resolve) => {
 		const done = () => {

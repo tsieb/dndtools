@@ -19,8 +19,11 @@ Parameters:
     AllowedValues: [dev, prod]
   TurnTtlSeconds:
     Type: Number
-    Default: 86400
-    Description: Lifetime of minted TURN credentials.
+    Default: 3600
+    Description: >-
+      Lifetime of minted TURN credentials. coturn use-auth-secret credentials are
+      bearer tokens (the username:credential pair works for anyone holding it until
+      expiry), so keep this short — 1h is ample to establish a relay allocation.
 
 Globals:
   Function:
@@ -162,6 +165,13 @@ Resources:
       ApiId: !Ref SignalingApi
       StageName: !Ref Stage
       AutoDeploy: true
+      # Cap per-connection message throughput so a single authenticated client
+      # cannot flood $default (join-spam, unbounded turnCredentials minting, relay
+      # abuse) and run up Lambda/DynamoDB cost. These are generous for real play
+      # (a handshake is a handful of messages) but stop automated abuse.
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
 
   # --- Let API Gateway invoke the Lambdas -----------------------------------
   AuthorizerInvokePermission:

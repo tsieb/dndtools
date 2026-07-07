@@ -169,7 +169,10 @@ async function pushOperations(
 
 // --- GET /operations?since=<rev>: return encrypted ops after `since` ----------------
 async function pullOperations(pk: string, since: string | undefined) {
-	const from = Number.isFinite(Number(since)) ? Number(since) + 1 : 0;
+	// `since` is exclusive. An ABSENT or EMPTY param means "from the start" (rev 0). Guard the empty
+	// string explicitly: Number('') === 0 is finite, which would otherwise make from=1 and drop rev 0.
+	const trimmed = since?.trim();
+	const from = trimmed && Number.isFinite(Number(trimmed)) ? Number(trimmed) + 1 : 0;
 	const rows = await queryPartition(
 		SYNC_OPS_TABLE,
 		{ name: 'vaultId', value: pk },
@@ -214,7 +217,11 @@ async function putSnapshot(pk: string, prefix: string, vaultId: string, body: st
 		),
 	);
 	const rev = record.meta.revision;
-	const s3Key = `${prefix}/snapshots/${padRev(rev)}.json`;
+	// Overwrite a single STABLE key rather than a per-revision key. Only `snapshot#latest` ever points
+	// at a snapshot, so per-revision objects are unreferenced garbage that accumulate unbounded (the
+	// bucket lifecycle only expires NONCURRENT versions). Overwriting makes the prior object a noncurrent
+	// version the 30-day lifecycle rule reclaims.
+	const s3Key = `${prefix}/snapshots/latest.json`;
 	await putJson(CIPHERTEXT_BUCKET, s3Key, record.envelope);
 	await putItem(SYNC_OPS_TABLE, {
 		vaultId: pk,
