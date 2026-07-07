@@ -1,0 +1,232 @@
+name: Deploy Cloud
+
+# Deploys the dndtools cloud stacks (infra/*) and the hosted SPA to the `dev` stage on
+# every push to master, PATH-FILTERED so only what changed redeploys. Keyless: GitHub's
+# OIDC token is exchanged for the scoped `foundation` deploy role (no long-lived AWS
+# keys). The desktop release pipeline (release.yml) and CI gates (ci.yml) are untouched.
+#
+# Prerequisites (one-time, manual — see infra/README.md):
+#   • Deploy infra/foundation once locally so the OIDC provider + CI deploy role exist.
+#   • Set the repo variable AWS_DEPLOY_ROLE_ARN to that role's ARN
+#     (foundation stack output `CiDeployRoleArn`).
+# The foundation role trusts refs/heads/master only, so this workflow deploys from master.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'infra/**'
+      - 'packages/cloud-fns/**'
+      - 'packages/core/**'
+      - 'apps/gm-react/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  # Never cancel an in-flight deploy — a half-applied CloudFormation change is worse
+  # than a queued one.
+  group: deploy-cloud-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # request the GitHub OIDC token to assume the AWS deploy role
+  contents: read
+
+env:
+  AWS_REGION: ca-central-1
+  STAGE: dev
+
+jobs:
+  # --- Decide which stacks/app changed so we only redeploy those. --------------------
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      foundation: ${{ steps.filter.outputs.foundation }}
+      identity: ${{ steps.filter.outputs.identity }}
+      signaling: ${{ steps.filter.outputs.signaling }}
+      turn: ${{ steps.filter.outputs.turn }}
+      sync_api: ${{ steps.filter.outputs.sync_api }}
+      web_hosting: ${{ steps.filter.outputs.web_hosting }}
+      app: ${{ steps.filter.outputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            foundation:
+              - 'infra/foundation/**'
+            identity:
+              - 'infra/identity/**'
+            signaling:
+              - 'infra/signaling/**'
+              - 'packages/cloud-fns/**'
+            turn:
+              - 'infra/turn/**'
+            sync_api:
+              - 'infra/sync-api/**'
+              - 'packages/cloud-fns/**'
+            web_hosting:
+              - 'infra/web-hosting/**'
+            app:
+              - 'apps/gm-react/**'
+              - 'packages/core/**'
+
+  # --- Deploy changed CloudFormation stacks, in dependency order. --------------------
+  infra:
+    name: deploy infra
+    needs: changes
+    if: >-
+      needs.changes.outputs.foundation == 'true' ||
+      needs.changes.outputs.identity == 'true' ||
+      needs.changes.outputs.signaling == 'true' ||
+      needs.changes.outputs.turn == 'true' ||
+      needs.changes.outputs.sync_api == 'true' ||
+      needs.changes.outputs.web_hosting == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Assume deploy role (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Materialize `dndtools` profile from assumed creds
+        # samconfig.toml and deploy.sh reference `--profile dndtools`; SAM reads it from
+        # config even when CLI creds live in the environment. Mirror the assumed-role
+        # env creds into a named profile so the local-dev deploy path works verbatim in CI.
+        run: |
+          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" --profile dndtools
+          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" --profile dndtools
+          aws configure set aws_session_token "$AWS_SESSION_TOKEN" --profile dndtools
+          aws configure set region "$AWS_REGION" --profile dndtools
+
+      - name: Install dependencies
+        # Needed so deploy.sh can build the @dndtools/cloud-fns Lambda bundles.
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: pnpm install --frozen-lockfile
+
+      # Deploy in dependency order; each step is a no-op unless its paths changed.
+      - name: Deploy foundation
+        if: needs.changes.outputs.foundation == 'true'
+        run: infra/deploy.sh foundation "$STAGE"
+
+      - name: Deploy identity
+        if: needs.changes.outputs.identity == 'true'
+        run: infra/deploy.sh identity "$STAGE"
+
+      - name: Deploy signaling
+        if: needs.changes.outputs.signaling == 'true'
+        run: infra/deploy.sh signaling "$STAGE"
+
+      - name: Deploy turn
+        if: needs.changes.outputs.turn == 'true'
+        run: infra/deploy.sh turn "$STAGE"
+
+      - name: Deploy sync-api
+        if: needs.changes.outputs.sync_api == 'true'
+        run: infra/deploy.sh sync-api "$STAGE"
+
+      - name: Deploy web-hosting
+        if: needs.changes.outputs.web_hosting == 'true'
+        run: infra/deploy.sh web-hosting "$STAGE"
+
+  # --- Build the SPA against deployed cloud coordinates, upload, invalidate. ---------
+  web:
+    name: publish web app
+    needs: [changes, infra]
+    # Run when the app or the hosting stack changed, as long as infra didn't fail.
+    if: >-
+      always() &&
+      (needs.changes.outputs.app == 'true' || needs.changes.outputs.web_hosting == 'true') &&
+      (needs.infra.result == 'success' || needs.infra.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Assume deploy role (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Materialize `dndtools` profile from assumed creds
+        run: |
+          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" --profile dndtools
+          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" --profile dndtools
+          aws configure set aws_session_token "$AWS_SESSION_TOKEN" --profile dndtools
+          aws configure set region "$AWS_REGION" --profile dndtools
+
+      - name: Install dependencies
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: pnpm install --frozen-lockfile
+
+      - name: Pull cloud coordinates into .env.local
+        # Writes apps/gm-react/.env.local from the deployed SSM params so the built bundle
+        # carries the Cognito pool/client, signaling WS, and sync API URLs.
+        run: node apps/gm-react/scripts/pull-cloud-env.mjs "$STAGE"
+
+      - name: Build web bundle
+        run: pnpm --filter @dndtools/gm-react build
+
+      - name: Resolve hosting target from SSM
+        id: target
+        run: |
+          BUCKET=$(aws ssm get-parameter --name "/dndtools/$STAGE/web/bucket-name" --query 'Parameter.Value' --output text)
+          DIST=$(aws ssm get-parameter --name "/dndtools/$STAGE/web/distribution-id" --query 'Parameter.Value' --output text)
+          URL=$(aws ssm get-parameter --name "/dndtools/$STAGE/web/url" --query 'Parameter.Value' --output text)
+          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+          echo "distribution=$DIST" >> "$GITHUB_OUTPUT"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Sync dist/ to S3
+        # Long-cache the fingerprinted assets; short-cache index.html (the invalidation
+        # below guarantees a fresh index even if an edge kept the old one).
+        run: |
+          aws s3 sync apps/gm-react/dist "s3://${{ steps.target.outputs.bucket }}" \
+            --delete \
+            --cache-control 'public, max-age=31536000, immutable' \
+            --exclude 'index.html'
+          aws s3 cp apps/gm-react/dist/index.html "s3://${{ steps.target.outputs.bucket }}/index.html" \
+            --cache-control 'no-cache'
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ steps.target.outputs.distribution }}" \
+            --paths '/*'
+
+      - name: Report
+        run: echo "Published to ${{ steps.target.outputs.url }}"

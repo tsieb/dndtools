@@ -1,0 +1,187 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  dndtools web-hosting stack — serves the built gm-react SPA (apps/gm-react `dist/`)
+  from a PRIVATE, encrypted S3 bucket fronted by CloudFront with Origin Access Control
+  (the bucket is never public; only this distribution can read it). A CloudFront
+  Response Headers Policy attaches a Content-Security-Policy that MIRRORS the Electron
+  shell's `connect-src` (Cognito + API Gateway https/wss in this region) plus the usual
+  hardening headers (HSTS, no-sniff, frame-deny). Scale-to-zero and effectively $0 idle:
+  S3 + CloudFront bill per request/GB only. No custom domain / ACM cert here — the app
+  ships on the default *.cloudfront.net certificate; adding a domain later needs a
+  us-east-1 ACM cert and a Route53 alias (a separate, additive change).
+  Cross-stack values are published to SSM for the CI deploy/upload step (no ImportValue).
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: dndtools
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+
+Resources:
+  # --- Private origin bucket: holds dist/ assets; only CloudFront (OAC) may read. -----
+  # Versioned so a bad deploy can be rolled back; noncurrent versions expire in 30 days
+  # to keep storage cost near zero.
+  WebBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-old-noncurrent-versions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+          - Id: abort-incomplete-multipart
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+
+  # --- Origin Access Control: CloudFront signs (SigV4) its reads to the S3 origin, so
+  # the bucket can stay fully private (no public ACLs, no legacy OAI). -----------------
+  WebOac:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${ProjectName}-${Stage}-web-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # --- Response Headers Policy: the web CSP + hardening headers. ----------------------
+  # The CSP `connect-src` MUST stay in sync with the Electron shell
+  # (apps/gm-react/electron/main.cjs). `script-src`/`style-src` keep 'unsafe-inline'
+  # because index.html runs pre-paint theme/motion IIFEs and React sets inline styles.
+  # `connect-src` allows the same-origin app plus Cognito (SRP) and API Gateway
+  # (https REST + wss signaling) in this region. Fonts are self-hosted (@fontsource),
+  # so `font-src 'self' data:` (no external font host).
+  WebHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub '${ProjectName}-${Stage}-web-headers'
+        Comment: CSP + security headers for the gm-react SPA (mirrors the Electron CSP).
+        SecurityHeadersConfig:
+          ContentSecurityPolicy:
+            Override: true
+            ContentSecurityPolicy: !Sub >-
+              default-src 'self'; base-uri 'self'; object-src 'none';
+              frame-ancestors 'none'; form-action 'self';
+              script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';
+              img-src 'self' data: blob:; media-src 'self' data: blob:;
+              font-src 'self' data:; worker-src 'self' blob:;
+              connect-src 'self' https://cognito-idp.${AWS::Region}.amazonaws.com
+              https://*.execute-api.${AWS::Region}.amazonaws.com
+              wss://*.execute-api.${AWS::Region}.amazonaws.com
+          StrictTransportSecurity:
+            Override: true
+            AccessControlMaxAgeSec: 31536000
+            IncludeSubdomains: true
+            Preload: true
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            Override: true
+            FrameOption: DENY
+          ReferrerPolicy:
+            Override: true
+            ReferrerPolicy: strict-origin-when-cross-origin
+          XSSProtection:
+            Override: true
+            Protection: true
+            ModeBlock: true
+
+  # --- CloudFront distribution: HTTPS-only, compressed, cheapest price class. ---------
+  # HashRouter (`base: './'`) means every real request is `/`, `/index.html`, or
+  # `/assets/…` — there is no server-side route rewrite to configure. PriceClass_100
+  # (NA + EU edges) is the cheapest tier; raise it only if latency elsewhere matters.
+  WebDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub '${ProjectName}-${Stage} gm-react SPA'
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: web-s3-origin
+            DomainName: !GetAtt WebBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt WebOac.Id
+            S3OriginConfig:
+              OriginAccessIdentity: '' # empty: OAC (above) supersedes the legacy OAI
+        DefaultCacheBehavior:
+          TargetOriginId: web-s3-origin
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          # AWS-managed CachingOptimized policy (long-lived cache, gzip/br).
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          ResponseHeadersPolicyId: !Ref WebHeadersPolicy
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+
+  # --- Bucket policy: grant ONLY this distribution (by ARN) read access. --------------
+  WebBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontOacRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: 's3:GetObject'
+            Resource: !Sub '${WebBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                'AWS:SourceArn': !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${WebDistribution}'
+
+  # --- Publish coordinates the CI upload step reads (bucket to sync, dist to invalidate).
+  ParamWebBucket:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/web/bucket-name'
+      Type: String
+      Value: !Ref WebBucket
+  ParamWebDistributionId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/web/distribution-id'
+      Type: String
+      Value: !Ref WebDistribution
+  ParamWebUrl:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/web/url'
+      Type: String
+      Value: !Sub 'https://${WebDistribution.DomainName}'
+
+Outputs:
+  WebUrl:
+    Description: Public HTTPS URL of the hosted SPA (default CloudFront domain).
+    Value: !Sub 'https://${WebDistribution.DomainName}'
+  WebBucket:
+    Description: Private origin bucket that CI syncs dist/ into.
+    Value: !Ref WebBucket
+  WebDistributionId:
+    Description: CloudFront distribution id CI invalidates after each upload.
+    Value: !Ref WebDistribution

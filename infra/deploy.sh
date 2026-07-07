@@ -37,6 +37,8 @@ sam build --template "$STACK_DIR/template.yaml" --base-dir "$STACK_DIR" \
   --build-dir "$STACK_DIR/.aws-sam/build"
 
 echo "==> $STACK / $STAGE : deploy"
-( cd "$STACK_DIR" && sam deploy --config-env "$STAGE" )
+# --no-fail-on-empty-changeset: a path-filtered CI redeploy of an unchanged template
+# is a no-op, not an error (sam otherwise exits non-zero on "no changes").
+( cd "$STACK_DIR" && sam deploy --config-env "$STAGE" --no-fail-on-empty-changeset )
 
 echo "==> $STACK / $STAGE : done"

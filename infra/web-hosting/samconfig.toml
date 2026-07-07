@@ -1,0 +1,25 @@
+version = 0.1
+
+[dev.global.parameters]
+stack_name = "dndtools-dev-web-hosting"
+
+[dev.deploy.parameters]
+profile = "dndtools"
+region = "ca-central-1"
+confirm_changeset = false
+resolve_s3 = true
+s3_prefix = "dndtools-dev-web-hosting"
+parameter_overrides = "ProjectName=dndtools Stage=dev"
+tags = "project=dndtools stage=dev stack=web-hosting managed-by=sam"
+
+[prod.global.parameters]
+stack_name = "dndtools-prod-web-hosting"
+
+[prod.deploy.parameters]
+profile = "dndtools"
+region = "ca-central-1"
+confirm_changeset = true
+resolve_s3 = true
+s3_prefix = "dndtools-prod-web-hosting"
+parameter_overrides = "ProjectName=dndtools Stage=prod"
+tags = "project=dndtools stage=prod stack=web-hosting managed-by=sam"
