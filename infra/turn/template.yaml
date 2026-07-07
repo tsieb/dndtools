@@ -1,0 +1,277 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  dndtools TURN stack — coturn relay on a single t4g.nano (the ONLY always-on
+  cost, ~$3-4/mo). Runs the official coturn container with use-auth-secret; the
+  shared secret is generated in Secrets Manager and read at boot. WebRTC uses
+  free public STUN for most peers and falls back to this TURN relay only for
+  symmetric-NAT / CGNAT / UDP-blocked networks. Short-lived TURN credentials are
+  minted by the signaling stack (which is already Cognito-authenticated) using
+  the secret ARN this stack publishes to SSM. Admin access is via SSM Session
+  Manager only (no SSH ingress, no key pair).
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: dndtools
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for the coturn instance (default VPC is fine).
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: A public subnet in the VPC (auto-assign public IP / has IGW route).
+  InstanceType:
+    Type: String
+    Default: t4g.nano
+    Description: ARM Graviton nano — cheapest always-on option that runs coturn.
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64
+    Description: Latest Amazon Linux 2023 arm64 AMI (resolved at deploy time).
+  Realm:
+    Type: String
+    Default: dndtools
+    Description: coturn realm (used in the REST-API credential HMAC).
+  RelayMinPort:
+    Type: Number
+    Default: 49152
+  RelayMaxPort:
+    Type: Number
+    Default: 65535
+  ListeningPort:
+    Type: Number
+    Default: 3478
+
+Resources:
+  # Auto-generated shared secret for coturn use-auth-secret (TURN REST API).
+  # Both coturn (here) and the signaling credential minter read it. Never in
+  # user-data / the op log / client storage.
+  TurnSharedSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/turn/shared-secret'
+      Description: coturn static-auth-secret for TURN REST API credential minting.
+      GenerateSecretString:
+        SecretStringTemplate: '{}'
+        GenerateStringKey: secret
+        PasswordLength: 48
+        ExcludePunctuation: true
+
+  TurnSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: coturn STUN/TURN relay ingress
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: STUN/TURN over UDP
+          IpProtocol: udp
+          FromPort: !Ref ListeningPort
+          ToPort: !Ref ListeningPort
+          CidrIp: 0.0.0.0/0
+        - Description: STUN/TURN over TCP (for UDP-blocked networks)
+          IpProtocol: tcp
+          FromPort: !Ref ListeningPort
+          ToPort: !Ref ListeningPort
+          CidrIp: 0.0.0.0/0
+        - Description: TURN relay port range (media)
+          IpProtocol: udp
+          FromPort: !Ref RelayMinPort
+          ToPort: !Ref RelayMaxPort
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - Description: All outbound (container pull, secret fetch, relay)
+          IpProtocol: '-1'
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - { Key: project, Value: !Ref ProjectName }
+        - { Key: stage, Value: !Ref Stage }
+
+  TurnInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: read-turn-secret
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref TurnSharedSecret
+
+  TurnInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref TurnInstanceRole]
+
+  TurnEip:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - { Key: project, Value: !Ref ProjectName }
+        - { Key: stage, Value: !Ref Stage }
+
+  TurnInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref AmiId
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds: [!Ref TurnSecurityGroup]
+      IamInstanceProfile: !Ref TurnInstanceProfile
+      MetadataOptions:
+        HttpTokens: required        # IMDSv2 only
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp3
+            DeleteOnTermination: true
+      Tags:
+        - { Key: Name, Value: !Sub '${ProjectName}-${Stage}-turn' }
+        - { Key: project, Value: !Ref ProjectName }
+        - { Key: stage, Value: !Ref Stage }
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+          # NOTE: intentionally NOT using `set -x` (xtrace). This script handles the
+          # coturn shared secret; with xtrace on, the expanded `docker run ... secret`
+          # command would be written in cleartext to the bootstrap log below, where
+          # anyone with SSM Session Manager access could read it. Milestone `echo`s
+          # give us traceability without leaking the secret.
+          exec > /var/log/turn-bootstrap.log 2>&1
+          echo "[turn-bootstrap] start"
+
+          # --- Docker (AWS CLI v2 + python3 are preinstalled on AL2023) ---
+          dnf install -y docker
+          systemctl enable --now docker
+          echo "[turn-bootstrap] docker up"
+
+          # --- Fetch coturn shared secret from Secrets Manager ---
+          SECRET_JSON=$(aws secretsmanager get-secret-value \
+            --secret-id "${TurnSharedSecret}" \
+            --region "${AWS::Region}" \
+            --query SecretString --output text)
+          TURN_SECRET=$(printf '%s' "$SECRET_JSON" | python3 -c "import sys,json;print(json.load(sys.stdin)['secret'])")
+          echo "[turn-bootstrap] secret fetched"
+
+          # --- Write coturn config to a root-only file (mode 600) instead of passing
+          #     the secret on the command line, so it never appears in `ps aux`,
+          #     `/proc/<pid>/cmdline`, or `docker inspect`. The file is mounted
+          #     read-only into the container. ---
+          mkdir -p /etc/coturn
+          umask 077
+          cat > /etc/coturn/turnserver.conf <<CONF
+          realm=${Realm}
+          use-auth-secret
+          static-auth-secret=$TURN_SECRET
+          listening-port=${ListeningPort}
+          min-port=${RelayMinPort}
+          max-port=${RelayMaxPort}
+          external-ip=${TurnEip}
+          no-tls
+          no-dtls
+          no-multicast-peers
+          fingerprint
+          simple-log
+          log-file=stdout
+          # --- SSRF / open-relay prevention: refuse to relay to internal, loopback,
+          #     link-local (incl. the 169.254.169.254 instance-metadata endpoint),
+          #     CGNAT, and IPv6 ULA/link-local ranges. Without these an authenticated
+          #     (or credential-sniffing) client could use the relay to reach the VPC
+          #     and AWS metadata service. Only public peers may be relayed to. ---
+          denied-peer-ip=0.0.0.0-0.255.255.255
+          denied-peer-ip=10.0.0.0-10.255.255.255
+          denied-peer-ip=100.64.0.0-100.127.255.255
+          denied-peer-ip=127.0.0.0-127.255.255.255
+          denied-peer-ip=169.254.0.0-169.254.255.255
+          denied-peer-ip=172.16.0.0-172.31.255.255
+          denied-peer-ip=192.0.0.0-192.0.0.255
+          denied-peer-ip=192.0.2.0-192.0.2.255
+          denied-peer-ip=192.88.99.0-192.88.99.255
+          denied-peer-ip=192.168.0.0-192.168.255.255
+          denied-peer-ip=198.18.0.0-198.19.255.255
+          denied-peer-ip=198.51.100.0-198.51.100.255
+          denied-peer-ip=203.0.113.0-203.0.113.255
+          denied-peer-ip=240.0.0.0-255.255.255.255
+          denied-peer-ip=::1
+          denied-peer-ip=fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+          denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+          # --- Bandwidth / allocation quotas so a single (or leaked) credential
+          #     cannot saturate the relay and run up cost. ---
+          total-quota=100
+          user-quota=6
+          max-bps=2000000
+          CONF
+          echo "[turn-bootstrap] config written"
+
+          # --- Run coturn (arm64-native multi-arch image; host networking;
+          #     restart-always survives reboot). NOTE: --platform linux/arm64 is
+          #     required on Graviton — the default manifest can resolve to amd64
+          #     and crash-loop. All settings (incl. the secret) come from the
+          #     mounted root-only config; -c points coturn at it. ---
+          docker rm -f coturn 2>/dev/null || true
+          docker run -d --name coturn --restart always --network host \
+            --platform linux/arm64 \
+            -v /etc/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro \
+            coturn/coturn:latest \
+            -c /etc/coturn/turnserver.conf
+          echo "[turn-bootstrap] done"
+
+  TurnEipAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt TurnEip.AllocationId
+      InstanceId: !Ref TurnInstance
+
+  # --- Publish coordinates for the signaling stack + client build. ----------
+  ParamTurnUri:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/turn/uri'
+      Type: String
+      Value: !Sub 'turn:${TurnEip}:${ListeningPort}'
+  ParamTurnSecretArn:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/turn/secret-arn'
+      Type: String
+      Value: !Ref TurnSharedSecret
+  ParamTurnRealm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/turn/realm'
+      Type: String
+      Value: !Ref Realm
+  ParamTurnEip:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/turn/eip'
+      Type: String
+      Value: !Ref TurnEip
+
+Outputs:
+  TurnEip:
+    Description: Elastic IP of the coturn relay.
+    Value: !Ref TurnEip
+  TurnUri:
+    Description: STUN/TURN URI clients use.
+    Value: !Sub 'turn:${TurnEip}:${ListeningPort}'
+  TurnSecretArn:
+    Value: !Ref TurnSharedSecret
+    Export:
+      Name: !Sub '${ProjectName}-${Stage}-turn-secret-arn'
+  InstanceId:
+    Value: !Ref TurnInstance

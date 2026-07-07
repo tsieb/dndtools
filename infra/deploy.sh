@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Deploy one dndtools infra stack for one stage.
+# Usage: infra/deploy.sh <stack> [stage]
+#   <stack>  foundation | identity | signaling | turn | sync-api | web-hosting
+#   [stage]  dev (default) | prod
+#
+# Thin wrapper around `sam build && sam deploy --config-env <stage>` run from the
+# stack directory. Each stack's samconfig.toml carries the profile/region/params.
+set -euo pipefail
+
+STACK="${1:?usage: infra/deploy.sh <stack> [stage]}"
+STAGE="${2:-dev}"
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STACK_DIR="$HERE/$STACK"
+
+[ -d "$STACK_DIR" ] || { echo "unknown stack: $STACK (no dir $STACK_DIR)" >&2; exit 1; }
+[ -f "$STACK_DIR/template.yaml" ] || { echo "no template.yaml in $STACK_DIR" >&2; exit 1; }
+
+# Stacks whose Lambdas import @dndtools/core need the cloud-fns bundle built first.
+case "$STACK" in
+  signaling|sync-api)
+    echo "==> building @dndtools/cloud-fns (Lambda bundles)"
+    ( cd "$HERE/.." && pnpm --filter @dndtools/cloud-fns build )
+    ;;
+esac
+
+echo "==> $STACK / $STAGE : validate (service-side, blocking)"
+sam validate --template "$STACK_DIR/template.yaml" --region "${DNDTOOLS_REGION:-ca-central-1}" --profile "${DNDTOOLS_PROFILE:-dndtools}"
+
+echo "==> $STACK / $STAGE : lint (advisory — bundled cfn-lint spec can lag AWS)"
+sam validate --lint --template "$STACK_DIR/template.yaml" --region "${DNDTOOLS_REGION:-ca-central-1}" --profile "${DNDTOOLS_PROFILE:-dndtools}" || \
+  echo "    (lint reported findings; review above — not blocking deploy)"
+
+echo "==> $STACK / $STAGE : build"
+sam build --template "$STACK_DIR/template.yaml" --base-dir "$STACK_DIR" \
+  --build-dir "$STACK_DIR/.aws-sam/build"
+
+echo "==> $STACK / $STAGE : deploy"
+# --no-fail-on-empty-changeset: a path-filtered CI redeploy of an unchanged template
+# is a no-op, not an error (sam otherwise exits non-zero on "no changes").
+( cd "$STACK_DIR" && sam deploy --config-env "$STAGE" --no-fail-on-empty-changeset )
+
+echo "==> $STACK / $STAGE : done"

@@ -24,6 +24,7 @@
 		"typecheck": "pnpm --filter @dndtools/core typecheck && pnpm --filter @dndtools/gm typecheck",
 		"test": "pnpm --filter @dndtools/core test && pnpm --filter @dndtools/gm test && pnpm test:tooling",
 		"test:tooling": "vitest run",
+		"test:cloud": "vitest run --config vitest.cloud.config.ts",
 		"test:critical": "pnpm --filter @dndtools/core test",
 		"test:smoke": "pnpm lint:boundary && pnpm typecheck",
 		"e2e": "pnpm --filter @dndtools/gm e2e",

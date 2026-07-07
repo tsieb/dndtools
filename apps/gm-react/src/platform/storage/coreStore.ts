@@ -441,6 +441,31 @@ export async function persistFullState(
 	]);
 }
 
+/**
+ * Overwrite ALL durable storage with a restored full slice (cloud restore / fresh-device bootstrap).
+ * Clears every table first, then writes each slice document + the whole op log, so sequences restart at 0.
+ * This deliberately bypasses the persistFullState op-growth guard: a restore is an authoritative BULK
+ * load of a decrypted cloud snapshot, not an incremental Processing-Core command dispatch. Callers
+ * reload the runtime from storage afterwards (SceneRuntime.load).
+ */
+export async function restoreCoreState(slice: CoreStateSlice): Promise<void> {
+	await resetCoreStorage();
+	await Promise.all([
+		persistSceneState(slice.scenes),
+		persistMapState(slice.maps),
+		persistPermissionState(slice.permissions),
+		persistSessionState(slice.session),
+		persistWidgetPackageState(slice.widgets),
+		persistCommandCenterState(slice.commandCenter),
+		persistCharacterState(slice.characters),
+		persistContentState(slice.content),
+		persistEncounterState(slice.encounters),
+		persistAudioState(slice.audio),
+		persistMcpPolicyState(slice.mcp),
+		appendOperations(slice.sync.operations),
+	]);
+}
+
 export async function resetCoreStorage(): Promise<void> {
 	const database = db();
 	await Promise.all([

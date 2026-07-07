@@ -10,8 +10,9 @@
 //
 // CommonJS (.cjs) because the package is `type: module`; Electron's main entry is CJS.
 
-const { app, BrowserWindow, ipcMain, session, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, session, shell, safeStorage } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs');
 
 /**
  * Load the LAN discovery module (Epic 7.3 mDNS). Prefer the esbuild-BUNDLED variant (multicast-dns
@@ -48,9 +49,14 @@ const DEV_SERVER_URL = !app.isPackaged ? process.env.VITE_DEV_SERVER_URL : undef
  * Not applied in dev, where Vite's HMR client needs 'unsafe-eval'.
  *
  * P2P (Epic 7.3): the LAN remote-player feature uses WebRTC data channels with NO STUN/TURN (LAN host
- * candidates only), so NO external origin is added to `connect-src` — nothing off-device is ever
- * contacted. The explicit CSP Level 3 `webrtc 'allow'` directive permits `RTCPeerConnection` while the
- * rest of the policy stays locked down.
+ * candidates only). The explicit CSP Level 3 `webrtc 'allow'` directive permits `RTCPeerConnection`.
+ *
+ * Cloud (opt-in): cloud features add off-device origins to `connect-src` — the Cognito SRP endpoint
+ * (`cognito-idp.<region>`) that amazon-cognito-identity-js calls for sign-in, the signaling WebSocket
+ * (`wss://*.execute-api.<region>`) for internet remote play, and the sync-api HTTP endpoint
+ * (`https://*.execute-api.<region>`) for E2EE cloud sync/backup. STUN/TURN media is governed by `webrtc`,
+ * not `connect-src`, so no relay origin is listed here. Region is ca-central-1 (see infra/); nothing is
+ * contacted until the user opts into a cloud feature.
  */
 const CSP = [
 	"default-src 'self'",
@@ -59,7 +65,7 @@ const CSP = [
 	"font-src 'self' data:",
 	"img-src 'self' data: blob:",
 	"media-src 'self' data: blob:",
-	"connect-src 'self'",
+	"connect-src 'self' https://cognito-idp.ca-central-1.amazonaws.com https://*.execute-api.ca-central-1.amazonaws.com wss://*.execute-api.ca-central-1.amazonaws.com",
 	"webrtc 'allow'",
 	"object-src 'none'",
 	"base-uri 'self'",
@@ -77,6 +83,17 @@ function applyCsp() {
 	});
 }
 
+/**
+ * Deny every renderer-initiated device-permission request (camera, mic, geolocation,
+ * notifications, MIDI, etc.). The app needs none of them; a compromised renderer must
+ * not be able to reach hardware or the network via a permission prompt. Applied to the
+ * default session in both dev and packaged builds.
+ */
+function denyAllPermissions() {
+	session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+	session.defaultSession.setPermissionCheckHandler(() => false);
+}
+
 function createWindow() {
 	const win = new BrowserWindow({
 		width: 1440,
@@ -92,6 +109,9 @@ function createWindow() {
 			contextIsolation: true,
 			nodeIntegration: false,
 			sandbox: true,
+			// The app embeds no third-party frames; <webview> is a large remote-content
+			// attack surface, so pin it off explicitly rather than relying on the default.
+			webviewTag: false,
 		},
 	});
 
@@ -180,10 +200,93 @@ function setupDiscoveryIpc(win) {
 	win.on('closed', () => discovery.dispose());
 }
 
+/**
+ * Secure secret store for cloud auth tokens (SEC-004). Persists ONLY through the OS-backed
+ * `safeStorage` encryption so secrets are never written in plaintext. FAIL-CLOSED: if encryption is
+ * unavailable (e.g. no Linux keyring), `set` returns false and the renderer keeps tokens in memory
+ * only (the user re-authenticates each session) rather than persisting them weakly. Values live in a
+ * single JSON map of key → base64(ciphertext) under userData.
+ */
+function setupSecureStoreIpc() {
+	const file = path.join(app.getPath('userData'), 'secure-store.json');
+
+	// FAIL-CLOSED for real: on Linux, safeStorage.isEncryptionAvailable() also
+	// returns true for the `basic_text` backend, which "encrypts" under a
+	// hardcoded, well-known key (i.e. trivially reversible — effectively plaintext).
+	// Treat that as unavailable so tokens stay in memory only, honouring SEC-004.
+	const encryptionUsable = () => {
+		if (!safeStorage.isEncryptionAvailable()) return false;
+		if (process.platform === 'linux' && typeof safeStorage.getSelectedStorageBackend === 'function') {
+			return safeStorage.getSelectedStorageBackend() !== 'basic_text';
+		}
+		return true;
+	};
+	// The renderer may only touch its own secret namespaces: Cognito tokens ("cog:")
+	// and the E2EE vault keyring ("vaultkey:"). Validating here means a compromised
+	// renderer cannot read/enumerate/overwrite anything outside them via this bridge.
+	const ALLOWED_KEY_PREFIXES = ['cog:', 'vaultkey:'];
+	const isAllowedKey = (key) =>
+		typeof key === 'string' && key.length <= 256 && ALLOWED_KEY_PREFIXES.some((p) => key.startsWith(p));
+
+	const readAll = () => {
+		try {
+			return JSON.parse(fs.readFileSync(file, 'utf8'));
+		} catch {
+			return {};
+		}
+	};
+	const writeAll = (obj) => {
+		fs.writeFileSync(file, JSON.stringify(obj), { mode: 0o600 });
+		// `mode` only applies on creation; enforce 0600 on a pre-existing file too.
+		try {
+			fs.chmodSync(file, 0o600);
+		} catch {
+			/* best effort */
+		}
+	};
+
+	ipcMain.handle('secure-store:available', () => encryptionUsable());
+
+	ipcMain.handle('secure-store:get', (_e, { key }) => {
+		if (!encryptionUsable() || !isAllowedKey(key)) return null;
+		const entry = readAll()[key];
+		if (typeof entry !== 'string') return null;
+		try {
+			return safeStorage.decryptString(Buffer.from(entry, 'base64'));
+		} catch {
+			return null;
+		}
+	});
+
+	ipcMain.handle('secure-store:set', (_e, { key, value }) => {
+		if (!encryptionUsable() || !isAllowedKey(key)) return false;
+		const all = readAll();
+		all[key] = safeStorage.encryptString(String(value)).toString('base64');
+		writeAll(all);
+		return true;
+	});
+
+	ipcMain.handle('secure-store:remove', (_e, { key }) => {
+		if (!encryptionUsable() || !isAllowedKey(key)) return false;
+		const all = readAll();
+		delete all[key];
+		writeAll(all);
+		return true;
+	});
+
+	// Only ever expose the app's own namespaced keys, never the raw file contents.
+	ipcMain.handle('secure-store:keys', () => {
+		if (!encryptionUsable()) return [];
+		return Object.keys(readAll()).filter(isAllowedKey);
+	});
+}
+
 app.whenReady().then(() => {
 	if (app.isPackaged) applyCsp();
+	denyAllPermissions();
 	const win = createWindow();
 	setupDiscoveryIpc(win);
+	setupSecureStoreIpc();
 
 	// macOS: re-open a window when the dock icon is clicked and none are open.
 	app.on('activate', () => {

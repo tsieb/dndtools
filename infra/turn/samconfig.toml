@@ -1,0 +1,27 @@
+version = 0.1
+
+[dev.global.parameters]
+stack_name = "dndtools-dev-turn"
+
+[dev.deploy.parameters]
+profile = "dndtools"
+region = "ca-central-1"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+resolve_s3 = true
+s3_prefix = "dndtools-dev-turn"
+parameter_overrides = "ProjectName=dndtools Stage=dev VpcId=vpc-0dd2698d9379f67e5 SubnetId=subnet-08806a047fd66a616 Realm=dndtools"
+tags = "project=dndtools stage=dev stack=turn managed-by=sam"
+
+[prod.global.parameters]
+stack_name = "dndtools-prod-turn"
+
+[prod.deploy.parameters]
+profile = "dndtools"
+region = "ca-central-1"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+s3_prefix = "dndtools-prod-turn"
+parameter_overrides = "ProjectName=dndtools Stage=prod VpcId=vpc-0dd2698d9379f67e5 SubnetId=subnet-08806a047fd66a616 Realm=dndtools"
+tags = "project=dndtools stage=prod stack=turn managed-by=sam"

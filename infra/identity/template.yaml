@@ -1,0 +1,175 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  dndtools identity stack — Cognito user pool + public (PKCE) app client + hosted
+  UI domain. This is the single identity that gates BOTH the signaling WebSocket
+  and the sync REST API (their JWT authorizers validate tokens from this pool).
+  No always-on cost (Cognito bills per MAU above the free tier). Outputs are
+  published to SSM (/dndtools/<stage>/identity/*) for downstream stacks and the
+  client build to consume.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: dndtools
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  DomainPrefix:
+    Type: String
+    Default: dndtools-dev-auth
+    Description: >-
+      Cognito hosted-UI domain prefix (must be globally unique within the region).
+      Becomes https://<prefix>.auth.<region>.amazoncognito.com. Change if taken.
+  CallbackUrls:
+    Type: CommaDelimitedList
+    Default: 'http://localhost:5273/,http://localhost:4273/,dndtools://auth'
+    Description: >-
+      Allowed OAuth redirect URIs. Web dev (Vite 5273 / preview 4273 — see
+      apps/gm-react/vite.config.ts), the Electron custom-scheme loopback
+      (dndtools://auth), plus the deployed web origin once web-hosting exists.
+      HashRouter reads ?code= at the origin root.
+  LogoutUrls:
+    Type: CommaDelimitedList
+    Default: 'http://localhost:5273/,http://localhost:4273/,dndtools://auth'
+    Description: Allowed post-logout redirect URIs (same set as callbacks).
+
+Conditions:
+  # ADMIN_USER_PASSWORD_AUTH is a non-SRP password flow used only by automated
+  # verification scripts in dev. It is a standing weakening (anyone able to call
+  # AdminInitiateAuth can attempt password auth), so it is enabled in dev only —
+  # prod uses SRP/PKCE exclusively.
+  IsDev: !Equals [!Ref Stage, dev]
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub '${ProjectName}-${Stage}'
+      # Self-service signup with email as the username/login.
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          TemporaryPasswordValidityDays: 7
+      MfaConfiguration: 'OPTIONAL'
+      EnabledMfas:
+        - SOFTWARE_TOKEN_MFA
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      # Cognito's built-in email sender (50/day) is fine for dev; swap to SES for prod.
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate:
+          - email
+      DeletionProtection: ACTIVE
+      UserPoolTags:
+        project: !Ref ProjectName
+        stage: !Ref Stage
+
+  # Public client for the SPA + Electron app: no client secret, PKCE only.
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub '${ProjectName}-${Stage}-app'
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      # Browsers/Electron always use SRP (+ refresh). ADMIN_USER_PASSWORD_AUTH is
+      # appended only in dev (see IsDev) for the automated verification scripts.
+      ExplicitAuthFlows: !If
+        - IsDev
+        - - ALLOW_USER_SRP_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+          - ALLOW_ADMIN_USER_PASSWORD_AUTH
+        - - ALLOW_USER_SRP_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs: !Ref CallbackUrls
+      LogoutURLs: !Ref LogoutUrls
+      # Short access/id tokens, long-lived refresh — refresh token is held in the
+      # OS credential store per SEC-004 (secret-custody), never in IndexedDB.
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+      EnableTokenRevocation: true
+      PreventUserExistenceErrors: ENABLED
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref DomainPrefix
+      UserPoolId: !Ref UserPool
+
+  # --- Publish identity coordinates to SSM for downstream stacks + client build.
+  ParamUserPoolId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/identity/user-pool-id'
+      Type: String
+      Value: !Ref UserPool
+  ParamUserPoolArn:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/identity/user-pool-arn'
+      Type: String
+      Value: !GetAtt UserPool.Arn
+  ParamClientId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/identity/app-client-id'
+      Type: String
+      Value: !Ref UserPoolClient
+  ParamHostedUiDomain:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/identity/hosted-ui-domain'
+      Type: String
+      Value: !Sub 'https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com'
+  ParamIssuerUrl:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/identity/issuer-url'
+      Type: String
+      Value: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}'
+
+Outputs:
+  UserPoolId:
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub '${ProjectName}-${Stage}-user-pool-id'
+  UserPoolArn:
+    Value: !GetAtt UserPool.Arn
+    Export:
+      Name: !Sub '${ProjectName}-${Stage}-user-pool-arn'
+  AppClientId:
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub '${ProjectName}-${Stage}-app-client-id'
+  HostedUiDomain:
+    Value: !Sub 'https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com'
+  IssuerUrl:
+    Value: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}'

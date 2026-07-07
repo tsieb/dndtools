@@ -47,3 +47,13 @@ contextBridge.exposeInMainWorld('dndtoolsDiscovery', {
 		return () => ipcRenderer.removeListener('discovery:services', h);
 	},
 });
+
+// OS-encrypted secret store for cloud auth tokens (SEC-004). Absent on the web build, where the app
+// keeps tokens in memory only. All async; `available()` reflects whether OS encryption is usable.
+contextBridge.exposeInMainWorld('dndtoolsSecureStore', {
+	available: () => ipcRenderer.invoke('secure-store:available'),
+	get: (key) => ipcRenderer.invoke('secure-store:get', { key }),
+	set: (key, value) => ipcRenderer.invoke('secure-store:set', { key, value }),
+	remove: (key) => ipcRenderer.invoke('secure-store:remove', { key }),
+	keys: () => ipcRenderer.invoke('secure-store:keys'),
+});

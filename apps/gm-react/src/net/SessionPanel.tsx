@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../ds';
 import { T } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { useAuth } from '../cloud/AuthContext';
 import { useSession } from './SessionContext';
 import { qrDataUrl } from './qr';
 import type { HostInvitation } from './SessionHost';
@@ -69,6 +70,26 @@ function CopyField({ label, value }: { label: string; value: string }) {
 	);
 }
 
+// --- Account control (topbar) ----------------------------------------------------------------------
+
+export function AccountButton() {
+	const auth = useAuth();
+	if (!auth.isConfigured) return null; // local-first: hidden when cloud isn't configured
+	const signedIn = auth.status === 'signed-in';
+	const label = signedIn ? (auth.user?.email ?? 'Account').split('@')[0] : 'Sign in';
+	return (
+		<button
+			type="button"
+			title={signedIn ? `Signed in as ${auth.user?.email ?? ''} — click to sign out` : 'Sign in for online play & cloud sync'}
+			onClick={() => (signedIn ? void auth.signOut() : auth.openAuthModal())}
+			style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 8, cursor: 'pointer', font: `600 12px ${T.sans}`, border: `1px solid ${signedIn ? 'var(--color-status-success-border)' : T.bd}`, background: signedIn ? 'var(--color-status-success-subtle)' : 'transparent', color: signedIn ? 'var(--color-status-success-text)' : T.sub }}
+		>
+			<Icon name="players" size={15} />
+			{label}
+		</button>
+	);
+}
+
 // --- DM host control -------------------------------------------------------------------------------
 
 export function HostSessionButton() {
@@ -94,6 +115,18 @@ function HostModal({ onClose }: { onClose: () => void }) {
 	const [qr, setQr] = useState<string | null>(null);
 	const [answer, setAnswer] = useState('');
 	const [error, setError] = useState<string | null>(null);
+	const [onlineActive, setOnlineActive] = useState(false);
+
+	const hostOnline = async () => {
+		setError(null);
+		try {
+			// Only reflect "joinable online" when hosting actually started — a
+			// dismissed sign-in (or failed advertise) resolves false / throws.
+			setOnlineActive(await session.startHostingOnline());
+		} catch (e) {
+			setError(e instanceof Error ? e.message : 'Could not host online.');
+		}
+	};
 
 	const invitable = runtime.actors.filter((a) => a.role === 'player' || a.role === 'observer');
 
@@ -127,9 +160,35 @@ function HostModal({ onClose }: { onClose: () => void }) {
 				Players connect directly to this device over your local network — no server, no account, nothing leaves your machine. Share an invite code (or QR), then paste the player’s reply code to connect them.
 			</p>
 			{session.role !== 'host' ? (
-				<button type="button" style={btn(true)} onClick={() => session.startHosting()}><Icon name="session-bolt" size={14} />Start hosting</button>
+				<div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+						<button type="button" style={btn(true)} onClick={() => session.startHosting()}><Icon name="session-bolt" size={14} />Host on local network</button>
+						{session.cloudAvailable && (
+							<button type="button" style={btn()} onClick={() => void hostOnline()}><Icon name="players" size={14} />Host online</button>
+						)}
+					</div>
 			) : (
 				<>
+					{session.cloudAvailable && (
+						<div style={{ marginBottom: 14 }}>
+							{onlineActive ? (
+								<>
+									<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: `600 12px ${T.sans}`, color: 'var(--color-status-success-text)' }}>
+										<Icon name="check" size={14} />Joinable online — players can connect over the internet
+									</span>
+									{session.onlineJoinCode && (
+										<>
+											<CopyField label="Online join code — send privately to your players" value={session.onlineJoinCode} />
+											<div style={{ marginTop: 6, font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+												Share this code only with people you invite — anyone who has it can join this table. It carries a one-time key that never touches our servers.
+											</div>
+										</>
+									)}
+								</>
+							) : (
+								<button type="button" style={btn()} onClick={() => void hostOnline()}><Icon name="players" size={14} />Also make joinable online</button>
+							)}
+						</div>
+					)}
 					<div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
 						<label style={{ flex: 1, minWidth: 180 }}>
 							<span style={{ display: 'block', font: `600 11px ${T.sans}`, color: T.ter, marginBottom: 4 }}>Invite participant</span>
@@ -201,16 +260,33 @@ export function JoinSessionButton() {
 function JoinModal({ onClose }: { onClose: () => void }) {
 	const session = useSession();
 	const [offer, setOffer] = useState('');
+	const [onlineCode, setOnlineCode] = useState('');
 	const [answerCode, setAnswerCode] = useState('');
 	const [error, setError] = useState<string | null>(null);
+	const [connectingOnline, setConnectingOnline] = useState(false);
 	const status = session.client?.status ?? 'idle';
 
+	const connectOnlineNow = async () => {
+		setError(null);
+		setConnectingOnline(true);
+		try {
+			await session.connectOnlineByCode(onlineCode.trim());
+		} catch (e) {
+			setError(e instanceof Error ? e.message : 'Could not connect with that join code.');
+		} finally {
+			setConnectingOnline(false);
+		}
+	};
+
 	// Electron LAN auto-discovery: browse for tables while the modal is open.
+	// Depend on the (stable) callbacks, not the whole session object, whose identity
+	// churns on every cloud-session update and would restart mDNS browse each tick.
+	const { discoveryAvailable, browseTables, stopBrowseTables } = session;
 	useEffect(() => {
-		if (!session.discoveryAvailable) return;
-		session.browseTables();
-		return () => session.stopBrowseTables();
-	}, [session]);
+		if (!discoveryAvailable) return;
+		browseTables();
+		return () => stopBrowseTables();
+	}, [discoveryAvailable, browseTables, stopBrowseTables]);
 
 	const join = async () => {
 		setError(null);
@@ -244,6 +320,19 @@ function JoinModal({ onClose }: { onClose: () => void }) {
 				</div>
 			) : (
 				<>
+					{session.cloudAvailable && (
+						<div style={{ marginBottom: 14 }}>
+							<span style={{ font: `600 11px ${T.sans}`, color: T.ter, textTransform: 'uppercase', letterSpacing: '.04em' }}>Join online with a code</span>
+							<p style={{ margin: '5px 0 6px', font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+								Paste the online join code your DM sent you. It connects you to their table over the internet — no one else can join without this code.
+							</p>
+							<textarea value={onlineCode} onChange={(e) => setOnlineCode(e.target.value)} rows={2} placeholder="Paste the online join code…" style={fieldStyle} />
+							<button type="button" style={{ ...btn(true), marginTop: 8 }} onClick={() => void connectOnlineNow()} disabled={!onlineCode.trim() || connectingOnline || status === 'connecting'}>
+								<Icon name="players" size={14} />{connectingOnline ? 'Connecting…' : 'Join online'}
+							</button>
+							<div style={{ marginTop: 12, height: 1, background: T.bd }} />
+						</div>
+					)}
 					{session.discoveryAvailable && (
 						<div style={{ marginBottom: 14 }}>
 							<span style={{ font: `600 11px ${T.sans}`, color: T.ter, textTransform: 'uppercase', letterSpacing: '.04em' }}>Tables on your network</span>

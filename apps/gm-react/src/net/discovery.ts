@@ -18,11 +18,16 @@ export interface DiscoveredService {
 
 export interface DiscoveryBridge {
 	available(): Promise<boolean>;
-	advertise(sessionId: string, name: string): Promise<{ ok: boolean; port?: number }>;
+	/**
+	 * Advertise a table. `pin` is the cloud-only out-of-band join secret folded into the pairing
+	 * key (see net/cloudCrypto); the LAN bridge ignores it (proximity is the credential there).
+	 */
+	advertise(sessionId: string, name: string, pin?: string): Promise<{ ok: boolean; port?: number }>;
 	stopAdvertise(): Promise<void>;
 	browseStart(): Promise<void>;
 	browseStop(): Promise<void>;
-	connect(service: DiscoveredService): Promise<void>;
+	/** Join a table. `pin` is the cloud-only join secret (from the DM's join code); LAN ignores it. */
+	connect(service: DiscoveredService, pin?: string): Promise<void>;
 	/** Host: a joiner needs an offer code; reply via `respondOffer`. Returns an unsubscribe. */
 	onOfferRequest(cb: (reqId: string) => void): () => void;
 	respondOffer(reqId: string, offerCode: string): Promise<void>;

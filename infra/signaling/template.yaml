@@ -1,0 +1,206 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >-
+  dndtools signaling stack — API Gateway WebSocket + Lambda + DynamoDB that
+  brokers WebRTC offer/answer between a DM (host) and joining players over the
+  internet. Cognito-gated ($connect Lambda authorizer verifies an ID token from
+  the identity stack). The relay is untrusted: WebRTC payloads are E2E encrypted
+  by the client. Also mints short-lived TURN credentials from the coturn shared
+  secret. Scale-to-zero: API GW WS + Lambda + on-demand DynamoDB with TTL — $0
+  idle. Cross-stack values are read from SSM at deploy time (no ImportValue).
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: dndtools
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  TurnTtlSeconds:
+    Type: Number
+    Default: 3600
+    Description: >-
+      Lifetime of minted TURN credentials. coturn use-auth-secret credentials are
+      bearer tokens (the username:credential pair works for anyone holding it until
+      expiry), so keep this short — 1h is ample to establish a relay allocation.
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Architectures: [arm64]
+    MemorySize: 256
+    Timeout: 15
+    Tracing: Active
+
+Resources:
+  # --- State tables (all on-demand + TTL: pay-per-use, auto-expiring) --------
+  ConnectionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: connectionId, AttributeType: S }
+      KeySchema:
+        - { AttributeName: connectionId, KeyType: HASH }
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+
+  RoomsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: sessionId, AttributeType: S }
+      KeySchema:
+        - { AttributeName: sessionId, KeyType: HASH }
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+
+  AttemptsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: sourceKey, AttributeType: S }
+      KeySchema:
+        - { AttributeName: sourceKey, KeyType: HASH }
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+
+  # --- WebSocket API --------------------------------------------------------
+  SignalingApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${ProjectName}-${Stage}-signaling'
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: '$request.body.action'
+
+  # --- Lambdas --------------------------------------------------------------
+  AuthorizerFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../packages/cloud-fns/build/signaling-authorizer
+      Handler: index.handler
+      Timeout: 10
+      Environment:
+        Variables:
+          USER_POOL_ID: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/user-pool-id}}'
+          APP_CLIENT_ID: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/app-client-id}}'
+
+  SignalingFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../packages/cloud-fns/build/signaling-handler
+      Handler: index.handler
+      Environment:
+        Variables:
+          CONNECTIONS_TABLE: !Ref ConnectionsTable
+          ROOMS_TABLE: !Ref RoomsTable
+          ATTEMPTS_TABLE: !Ref AttemptsTable
+          TURN_SECRET_ARN: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/turn/secret-arn}}'
+          TURN_URI: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/turn/uri}}'
+          TURN_TTL_SECONDS: !Ref TurnTtlSeconds
+          WS_ENDPOINT: !Sub 'https://${SignalingApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref ConnectionsTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref RoomsTable }
+        - DynamoDBCrudPolicy: { TableName: !Ref AttemptsTable }
+        - Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/turn/secret-arn}}'
+        - Statement:
+            - Effect: Allow
+              Action: execute-api:ManageConnections
+              Resource: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${SignalingApi}/${Stage}/POST/@connections/*'
+
+  # --- Authorizer + integration + routes ------------------------------------
+  SignalingAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref SignalingApi
+      Name: cognito-jwt
+      AuthorizerType: REQUEST
+      # WebSocket REQUEST authorizers use a simple (non-IAM) identity source list.
+      IdentitySource: ['route.request.querystring.token']
+      AuthorizerUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AuthorizerFn.Arn}/invocations'
+
+  SignalingIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref SignalingApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SignalingFn.Arn}/invocations'
+
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref SignalingApi
+      RouteKey: $connect
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref SignalingAuthorizer
+      Target: !Sub 'integrations/${SignalingIntegration}'
+
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref SignalingApi
+      RouteKey: $disconnect
+      Target: !Sub 'integrations/${SignalingIntegration}'
+
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref SignalingApi
+      RouteKey: $default
+      Target: !Sub 'integrations/${SignalingIntegration}'
+
+  SignalingStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref SignalingApi
+      StageName: !Ref Stage
+      AutoDeploy: true
+      # Cap per-connection message throughput so a single authenticated client
+      # cannot flood $default (join-spam, unbounded turnCredentials minting, relay
+      # abuse) and run up Lambda/DynamoDB cost. These are generous for real play
+      # (a handshake is a handful of messages) but stop automated abuse.
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
+
+  # --- Let API Gateway invoke the Lambdas -----------------------------------
+  AuthorizerInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AuthorizerFn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${SignalingApi}/authorizers/${SignalingAuthorizer}'
+
+  SignalingInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SignalingFn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${SignalingApi}/*/*'
+
+  # --- Publish the WS URL for the client build ------------------------------
+  ParamSignalingWsUrl:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/signaling/ws-url'
+      Type: String
+      Value: !Sub 'wss://${SignalingApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+
+Outputs:
+  SignalingWsUrl:
+    Description: WebSocket URL clients connect to (append ?token=<cognito-id-token>).
+    Value: !Sub 'wss://${SignalingApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+  ApiId:
+    Value: !Ref SignalingApi

@@ -640,6 +640,21 @@ export {
 	isCloudSyncEnabled,
 } from './sync/cloud-sync-gate';
 
+// The cloud-sync WIRE CONTRACT (client engine ⇄ sync-api Lambda). E2EE: the envelope carries the whole
+// sensitive artifact; only the six ALLOWED_SERVER_METADATA classes are server-visible. The *ServerVisibleFields
+// helpers produce the exact list a publish path runs through assertServerSeesOnlyAllowedMetadata.
+export type {
+	CloudOpMeta,
+	CloudOpRecord,
+	CloudSnapshotMeta,
+	CloudSnapshotRecord,
+} from './sync/cloud-wire';
+export {
+	CLOUD_SYNC_WIRE_VERSION,
+	opServerVisibleFields,
+	snapshotServerVisibleFields,
+} from './sync/cloud-wire';
+
 // SYNC-003 / SYNC-015: the SOURCE ADAPTER interface + CAPABILITY-METADATA + FAIL-CLOSED model. An adapter
 // transforms external source content ↔ canonical SyncOperations at the boundary; it declares typed
 // capability metadata (supported schema/source versions, auth modes, entity types, transform fidelity) and
@@ -2888,6 +2903,36 @@ export {
 	partitionRecoveryScope,
 	rotateKeyOnRevocation,
 } from './security/key-custody';
+
+// ADR-017 — CONCRETE CLIENT-HELD E2EE. The real AES-256-GCM crypto (deferred by ADR-014/015): seals every
+// cloud artifact client-side under a per-epoch key held only in the OS credential store, so the server
+// stores/relays ciphertext only. Its existence makes the declared cloud security model TRUTHFUL.
+export type {
+	EncryptedEnvelope,
+	KeyringRotationResult,
+	VaultKeyring,
+} from './security/vault-crypto';
+export {
+	VAULT_CRYPTO_ALG,
+	VAULT_CRYPTO_SCHEMA_VERSION,
+	createVaultKeyring,
+	decryptFromKeyring,
+	encryptForKeyring,
+	envelopeAsStoredArtifact,
+	envelopeServerVisibleFields,
+	generateContentKeyMaterial,
+	openWithKeyMaterial,
+	rotateVaultKeyring,
+	sealWithKeyMaterial,
+} from './security/vault-crypto';
+
+// ADR-017 + ADR-015 (Accepted) — the RELEASE-APPROVED cloud security model + decision record, made truthful
+// by the shipped E2EE. Supplying these to the SYNC-017 / SEC-009 gates opens them with no call-site change.
+export {
+	DNDTOOLS_CLOUD_SECURITY_DECISION_RECORD,
+	DNDTOOLS_CLOUD_SYNC_SECURITY_MODEL,
+	evaluateDndtoolsCloudRelease,
+} from './security/cloud-security-decision';
 
 // CONTENT-007: transactional, resumable import. Preview is pure/read-only; the plan is deterministic and
 // re-derivable on resume (already-applied steps are skipped — no double-write); applying is pure (a

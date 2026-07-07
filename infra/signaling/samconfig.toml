@@ -1,0 +1,27 @@
+version = 0.1
+
+[dev.global.parameters]
+stack_name = "dndtools-dev-signaling"
+
+[dev.deploy.parameters]
+profile = "dndtools"
+region = "ca-central-1"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+resolve_s3 = true
+s3_prefix = "dndtools-dev-signaling"
+parameter_overrides = "ProjectName=dndtools Stage=dev"
+tags = "project=dndtools stage=dev stack=signaling managed-by=sam"
+
+[prod.global.parameters]
+stack_name = "dndtools-prod-signaling"
+
+[prod.deploy.parameters]
+profile = "dndtools"
+region = "ca-central-1"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+s3_prefix = "dndtools-prod-signaling"
+parameter_overrides = "ProjectName=dndtools Stage=prod"
+tags = "project=dndtools stage=prod stack=signaling managed-by=sam"

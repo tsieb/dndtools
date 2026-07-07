@@ -1,0 +1,30 @@
+version = 0.1
+
+# Foundation stack config. Each stack directory carries its own samconfig so it
+# can be built and deployed independently. Config-envs mirror the Stage values.
+
+[dev.global.parameters]
+stack_name = "dndtools-dev-foundation"
+
+[dev.deploy.parameters]
+profile = "dndtools"
+region = "ca-central-1"
+capabilities = "CAPABILITY_NAMED_IAM"
+confirm_changeset = false
+resolve_s3 = true
+s3_prefix = "dndtools-dev-foundation"
+parameter_overrides = "ProjectName=dndtools Stage=dev NotificationEmail=trentonsieb@gmail.com MonthlyBudgetUsd=25 GitHubOrg=tsieb GitHubRepo=dndtools"
+tags = "project=dndtools stage=dev stack=foundation managed-by=sam"
+
+[prod.global.parameters]
+stack_name = "dndtools-prod-foundation"
+
+[prod.deploy.parameters]
+profile = "dndtools"
+region = "ca-central-1"
+capabilities = "CAPABILITY_NAMED_IAM"
+confirm_changeset = true
+resolve_s3 = true
+s3_prefix = "dndtools-prod-foundation"
+parameter_overrides = "ProjectName=dndtools Stage=prod NotificationEmail=trentonsieb@gmail.com MonthlyBudgetUsd=25 GitHubOrg=tsieb GitHubRepo=dndtools"
+tags = "project=dndtools stage=prod stack=foundation managed-by=sam"
