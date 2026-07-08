@@ -5,11 +5,16 @@ name: Deploy Cloud
 # OIDC token is exchanged for the scoped `foundation` deploy role (no long-lived AWS
 # keys). The desktop release pipeline (release.yml) and CI gates (ci.yml) are untouched.
 #
-# Prerequisites (one-time, manual — see infra/README.md):
+# Activation (one-time, manual — see infra/README.md):
 #   • Deploy infra/foundation once locally so the OIDC provider + CI deploy role exist.
 #   • Set the repo variable AWS_DEPLOY_ROLE_ARN to that role's ARN
-#     (foundation stack output `CiDeployRoleArn`).
+#     (foundation stack output `CiDeployRoleArn`):
+#       gh variable set AWS_DEPLOY_ROLE_ARN --body 'arn:aws:iam::<acct>:role/<role>'
 # The foundation role trusts refs/heads/master only, so this workflow deploys from master.
+#
+# UNTIL that variable is set, the `preflight` job below emits a notice and the deploy
+# jobs SKIP (neutral) instead of failing — so an unconfigured cloud deploy never turns
+# the repo's push status red. It activates automatically the moment the variable exists.
 
 on:
   push:
@@ -50,8 +55,8 @@ jobs:
       web_hosting: ${{ steps.filter.outputs.web_hosting }}
       app: ${{ steps.filter.outputs.app }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -73,39 +78,62 @@ jobs:
               - 'apps/gm-react/**'
               - 'packages/core/**'
 
+  # --- Is the cloud deploy activated? (repo variable AWS_DEPLOY_ROLE_ARN set?) --------
+  # Runs with no AWS access. If the variable is unset we emit a notice and every deploy
+  # job downstream skips, keeping the push status green instead of failing on missing
+  # credentials. Gating here (not in each job's `if`) makes the reason self-documenting.
+  preflight:
+    name: check deploy config
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          if [ -n "$ROLE_ARN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "Cloud deploy is active (AWS_DEPLOY_ROLE_ARN is set)."
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Cloud deploy skipped::Repo variable AWS_DEPLOY_ROLE_ARN is not set, so infra + web deploy jobs were skipped (not failed). Set it to the foundation stack's CiDeployRoleArn to activate — see infra/README.md."
+          fi
+
   # --- Deploy changed CloudFormation stacks, in dependency order. --------------------
   infra:
     name: deploy infra
-    needs: changes
+    needs: [changes, preflight]
     if: >-
-      needs.changes.outputs.foundation == 'true' ||
-      needs.changes.outputs.identity == 'true' ||
-      needs.changes.outputs.signaling == 'true' ||
-      needs.changes.outputs.turn == 'true' ||
-      needs.changes.outputs.sync_api == 'true' ||
-      needs.changes.outputs.web_hosting == 'true'
+      needs.preflight.outputs.configured == 'true' &&
+      (needs.changes.outputs.foundation == 'true' ||
+       needs.changes.outputs.identity == 'true' ||
+       needs.changes.outputs.signaling == 'true' ||
+       needs.changes.outputs.turn == 'true' ||
+       needs.changes.outputs.sync_api == 'true' ||
+       needs.changes.outputs.web_hosting == 'true')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         with:
           version: 10
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
 
       - name: Setup AWS SAM CLI
-        uses: aws-actions/setup-sam@v2
+        uses: aws-actions/setup-sam@v3
         with:
           use-installer: true
 
       - name: Assume deploy role (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -154,29 +182,32 @@ jobs:
   # --- Build the SPA against deployed cloud coordinates, upload, invalidate. ---------
   web:
     name: publish web app
-    needs: [changes, infra]
-    # Run when the app or the hosting stack changed, as long as infra didn't fail.
+    needs: [changes, preflight, infra]
+    # Run when the app or the hosting stack changed, as long as deploy is activated and
+    # infra didn't fail. (`always()` is needed so this still runs when the infra job was
+    # skipped — a pure app change deploys no stacks but still republishes the SPA.)
     if: >-
       always() &&
+      needs.preflight.outputs.configured == 'true' &&
       (needs.changes.outputs.app == 'true' || needs.changes.outputs.web_hosting == 'true') &&
       (needs.infra.result == 'success' || needs.infra.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         with:
           version: 10
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
 
       - name: Assume deploy role (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
