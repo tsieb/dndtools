@@ -8,25 +8,15 @@ import type { ServerSpec } from './types.ts';
 import { isPortOpen, spawnServer, waitForPort, c } from './util.ts';
 
 /**
- * The two servers browser checks depend on:
- *  - `gm-preview`: the production Svelte build served on :4183. Playwright's own
- *    config reuses an existing server here (reuseExistingServer when not CI), so
- *    pre-starting it once lets `e2e` and `a11y:axe` share a single build+preview
- *    instead of building gm twice.
- *  - `react-dev`: the React app under `vite dev` on :5273. The verify-* gates need
- *    the DEV-only `window.__rt` seam, so this must be the dev server, not preview.
+ * The server all browser checks depend on:
+ *  - `react-dev`: the React app under `vite dev` on :5273. The Playwright e2e/axe gates and the
+ *    verify-* gates all need the DEV-only `window.__rt` seam, so this must be the dev server, not
+ *    a production preview. Playwright's own config reuses this existing server when not in CI.
  */
 export const SERVERS: Record<string, ServerSpec> = {
-	'gm-preview': {
-		name: 'gm-preview',
-		command: 'pnpm --filter @dndtools/gm preview',
-		port: 4183,
-		readyTimeoutMs: 60_000,
-		note: 'Svelte production preview (requires build:gm first)',
-	},
 	'react-dev': {
 		name: 'react-dev',
-		command: 'pnpm dev:react',
+		command: 'pnpm dev',
 		port: 5273,
 		readyTimeoutMs: 60_000,
 		note: 'React app vite dev server (DEV __rt seam)',

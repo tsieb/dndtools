@@ -4,11 +4,10 @@
 // checks that share a dev server; requires[] gates on detected capabilities.
 //
 // Design notes:
-//  - The gm browser checks (e2e / a11y) self-manage their own Playwright preview
-//    server (reuseExistingServer when not CI), so they need no managed server here.
-//  - The React verify-* gates need the DEV `window.__rt` seam, so they run against
-//    the managed `react-dev` server and share the `react` group to avoid IndexedDB
-//    races between gates hitting the same origin.
+//  - The React browser checks (Playwright e2e / axe + verify-*) need the DEV `window.__rt`
+//    seam, so they run against the managed `react-dev` server and share the `react` group to
+//    avoid IndexedDB races between gates hitting the same origin. Playwright's own webServer
+//    reuses that existing server when not in CI.
 
 import type { Check } from './types.ts';
 import { runFeatureAudit } from './feature-audit.ts';
@@ -30,7 +29,7 @@ export const CHECKS: Check[] = [
 		title: 'ESLint',
 		layer: 'static',
 		stage: 0,
-		description: 'Lint core + Svelte app (gm-react has its own toolchain, excluded by config).',
+		description: 'Lint the React app + core + cloud-fns + tooling (typescript-eslint + react-hooks).',
 		command: 'pnpm exec eslint .',
 	},
 	{
@@ -82,20 +81,12 @@ export const CHECKS: Check[] = [
 		command: 'pnpm --filter @dndtools/core typecheck',
 	},
 	{
-		id: 'typecheck:gm',
-		title: 'Typecheck @dndtools/gm',
-		layer: 'static',
-		stage: 0,
-		description: 'Svelte app type-safety (svelte-check).',
-		command: 'pnpm --filter @dndtools/gm typecheck',
-	},
-	{
 		id: 'typecheck:react',
 		title: 'Typecheck @dndtools/gm-react',
 		layer: 'static',
 		stage: 0,
-		description: 'React app type-safety — orphaned from the default `check`, wired in here.',
-		command: 'pnpm typecheck:react',
+		description: 'React app type-safety (tsc --noEmit); part of the default `typecheck`.',
+		command: 'pnpm --filter @dndtools/gm-react typecheck',
 	},
 	{
 		id: 'typecheck:cloud-fns',
@@ -116,14 +107,6 @@ export const CHECKS: Check[] = [
 		command: 'pnpm --filter @dndtools/core test',
 	},
 	{
-		id: 'test:gm',
-		title: 'GM app unit suite',
-		layer: 'unit',
-		stage: 0,
-		description: 'Svelte stores, widgets, a11y, migration recovery (vitest).',
-		command: 'pnpm --filter @dndtools/gm test',
-	},
-	{
 		id: 'test:tooling',
 		title: 'Repo tooling suite',
 		layer: 'unit',
@@ -136,7 +119,7 @@ export const CHECKS: Check[] = [
 		title: 'Cloud + transport unit suite',
 		layer: 'unit',
 		stage: 0,
-		description: 'Lambda handlers + client net/cloud modules — orphaned from CI, wired in here.',
+		description: 'Lambda handlers + client net/cloud modules (part of the default `test`).',
 		command: 'pnpm test:cloud',
 	},
 	{
@@ -159,45 +142,40 @@ export const CHECKS: Check[] = [
 		run: (ctx) => runFeatureAudit({ repoRoot: ctx.repoRoot, writeTo: ctx.logDir }),
 	},
 
-	// ---- Stage 1: production builds (gate desktop; standalone build health) --
+	// ---- Stage 1: production build (gate desktop; standalone build health) ---
 	{
-		id: 'build:gm',
-		title: 'Build core + Svelte app',
+		id: 'build',
+		title: 'Build core + React app',
 		layer: 'build',
 		stage: 1,
-		description: 'Production build of @dndtools/core and @dndtools/gm succeeds.',
+		description: 'Production build of @dndtools/core and @dndtools/gm-react succeeds.',
 		command: 'pnpm build',
-	},
-	{
-		id: 'build:react',
-		title: 'Build React app',
-		layer: 'build',
-		stage: 1,
-		description: 'Production build of @dndtools/gm-react succeeds.',
-		command: 'pnpm build:react',
 	},
 
 	// ---- Stage 2: browser-driven checks -------------------------------------
-	// gm group: Playwright self-serves its own preview on :4183 (sequential group).
+	// react group: managed `react-dev` server (DEV `window.__rt` seam), sequential to avoid
+	// IndexedDB races. Playwright's own webServer reuses this existing server when not in CI.
 	{
 		id: 'e2e',
-		title: 'Svelte E2E (desktop + mobile)',
+		title: 'React E2E (desktop + mobile)',
 		layer: 'browser',
 		stage: 2,
-		group: 'gm',
+		group: 'react',
+		servers: ['react-dev'],
 		timeoutMs: 25 * 60_000,
-		description: '88 Playwright specs across desktop-chromium + mobile-chromium.',
+		description: 'Playwright critical-path specs (collab, sync, canvas, permissions) on both profiles.',
 		// Match the CI gate's tolerance: playwright.config uses retries:2 under CI but 0 locally,
 		// so a run here would be STRICTER than CI and red on a known-flaky timing race. Force
 		// retries:2 (keeping parallel workers) so a genuine failure still fails, but flake self-heals.
-		command: 'pnpm --filter @dndtools/gm exec playwright test --retries=2',
+		command: 'pnpm --filter @dndtools/gm-react exec playwright test --retries=2',
 	},
 	{
 		id: 'a11y:axe',
 		title: 'Axe accessibility scan',
 		layer: 'browser',
 		stage: 2,
-		group: 'gm',
+		group: 'react',
+		servers: ['react-dev'],
 		description: 'Axe-core scan on both device profiles (writes per-worker artifacts).',
 		command: 'pnpm a11y:axe',
 	},
@@ -206,50 +184,49 @@ export const CHECKS: Check[] = [
 		title: 'Axe gate report',
 		layer: 'browser',
 		stage: 2,
-		group: 'gm',
+		group: 'react',
 		description: 'Merge axe artifacts + apply the release policy (fails on regressions).',
 		command: 'pnpm a11y:report',
 	},
-	// react group: managed `react-dev` server, sequential to avoid IndexedDB races.
 	{
-		id: 'verify:react:routes',
+		id: 'verify:routes',
 		title: 'React route-mount smoke',
 		layer: 'browser',
 		stage: 2,
 		group: 'react',
 		servers: ['react-dev'],
 		description: 'Every React route mounts clean (no page/console error, real DOM).',
-		command: 'pnpm verify:react:routes',
+		command: 'pnpm verify:routes',
 	},
 	{
-		id: 'verify:react:roundtrip',
+		id: 'verify:roundtrip',
 		title: 'React persistence round-trip',
 		layer: 'browser',
 		stage: 2,
 		group: 'react',
 		servers: ['react-dev'],
 		description: 'load → dispatch → persist → reload against real IndexedDB; preview read-only.',
-		command: 'pnpm verify:react:roundtrip',
+		command: 'pnpm verify:roundtrip',
 	},
 	{
-		id: 'verify:react:canvas',
+		id: 'verify:canvas',
 		title: 'React canvas wiring',
 		layer: 'browser',
 		stage: 2,
 		group: 'react',
 		servers: ['react-dev'],
 		description: '/board + /scene wired to the Processing core; content mutation round-trip.',
-		command: 'pnpm verify:react:canvas',
+		command: 'pnpm verify:canvas',
 	},
 	{
-		id: 'verify:react:ui',
+		id: 'verify:ui',
 		title: 'React UI-driven dispatch',
 		layer: 'browser',
 		stage: 2,
 		group: 'react',
 		servers: ['react-dev'],
 		description: 'Click a real button per screen; assert the core op-log actually grew.',
-		command: 'pnpm verify:react:ui',
+		command: 'pnpm verify:ui',
 	},
 	{
 		id: 'verify:p2p-live',

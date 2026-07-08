@@ -295,3 +295,58 @@
 	--danger: var(--color-status-error);
 	--surface-subtle: var(--color-surface-alt);
 }
+
+/* --------------------------------------------------------------------------------------------
+ * FORCED-COLORS (OS high-contrast) fallback — WCAG 1.4.11 / 2.4.13.
+ * When the OS forces its own palette, remap the semantic tokens onto system colour keywords so
+ * surfaces, borders, focus rings, and status graphics still meet non-text contrast. The legacy
+ * aliases above resolve through these tokens, so they need no separate remap. Enforced by
+ * scripts/a11y-nontext-contrast-lint.ts (`pnpm a11y:contrast`).
+ * ------------------------------------------------------------------------------------------ */
+@media (forced-colors: active) {
+	:root,
+	[data-theme] {
+		--color-bg: Canvas;
+		--color-backdrop: Canvas;
+		--color-surface: Canvas;
+		--color-surface-raised: Canvas;
+		--color-surface-overlay: Canvas;
+		--color-surface-sunken: Canvas;
+		--color-surface-alt: Canvas;
+		--color-border: CanvasText;
+		--color-border-strong: CanvasText;
+		--color-border-focus: Highlight;
+		--color-text-primary: CanvasText;
+		--color-text-secondary: CanvasText;
+		--color-text-tertiary: GrayText;
+		--color-text-inverse: Canvas;
+		--color-text-link: LinkText;
+		--color-text-link-visited: VisitedText;
+		--color-accent: Highlight;
+		--color-accent-hover: Highlight;
+		--color-accent-active: Highlight;
+		--color-accent-subtle: Canvas;
+		--color-accent-foreground: HighlightText;
+		--color-accent-border: CanvasText;
+		--color-status-success: CanvasText;
+		--color-status-success-text: CanvasText;
+		--color-status-success-subtle: Canvas;
+		--color-status-warning: CanvasText;
+		--color-status-warning-text: CanvasText;
+		--color-status-warning-subtle: Canvas;
+		--color-status-error: CanvasText;
+		--color-status-error-text: CanvasText;
+		--color-status-error-subtle: Canvas;
+		--color-status-info: CanvasText;
+		--color-status-info-text: CanvasText;
+		--color-status-info-subtle: Canvas;
+		--color-dm-only-badge: Highlight;
+		--color-dm-only-subtle: Canvas;
+		--color-hidden-content-stripe: GrayText;
+		--color-interactive-hover: Canvas;
+		--color-interactive-selected: Highlight;
+		--color-interactive-focus-ring: Highlight;
+		--color-interactive-disabled: GrayText;
+		--color-interactive-disabled-bg: Canvas;
+	}
+}

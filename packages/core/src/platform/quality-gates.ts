@@ -115,8 +115,8 @@ export const QUALITY_GATES: readonly QualityGate[] = [
 		reason:
 			'Enforces the processing/display + platform-primitive boundaries that the whole architecture depends on.',
 		protects: ['boundary-violation', 'visibility-leak'],
-		selectsOnPaths: ['apps/gm/**', 'packages/core/**'],
-		lastReviewed: '2026-06-09',
+		selectsOnPaths: ['apps/gm-react/**', 'packages/core/**'],
+		lastReviewed: '2026-07-08',
 	},
 	{
 		id: 'repo-boundary-audit',
@@ -158,8 +158,8 @@ export const QUALITY_GATES: readonly QualityGate[] = [
 		owner: 'platform',
 		reason: 'Full gate: boundary lint + typecheck + the complete unit suite.',
 		protects: ['platform-regression', 'boundary-violation'],
-		selectsOnPaths: ['apps/gm/**', 'packages/core/**'],
-		lastReviewed: '2026-06-20',
+		selectsOnPaths: ['apps/gm-react/**', 'packages/core/**'],
+		lastReviewed: '2026-07-08',
 	},
 	{
 		id: 'e2e',
@@ -169,8 +169,8 @@ export const QUALITY_GATES: readonly QualityGate[] = [
 		reason:
 			'Playwright browser automation for visible app flows (Scene create/reload, navigation, platform profiles, onboarding) before a release.',
 		protects: ['platform-regression', 'accessibility-breakage', 'visibility-leak'],
-		selectsOnPaths: ['apps/gm/**'],
-		lastReviewed: '2026-06-09',
+		selectsOnPaths: ['apps/gm-react/**'],
+		lastReviewed: '2026-07-08',
 	},
 ];
 

@@ -1,6 +1,6 @@
-.svelte-kit
 build
 dist
+dist-demo
 node_modules
 coverage
 playwright-report
@@ -8,4 +8,5 @@ test-results
 tmp
 pnpm-lock.yaml
 docs/design-package
-apps/gm-react
+apps/gm-react/electron/discovery.bundled.cjs
+archive

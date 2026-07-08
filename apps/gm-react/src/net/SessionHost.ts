@@ -1,8 +1,8 @@
 import type { CoreCommand, CoreStateSlice, SyncOperation } from '@dndtools/core';
 import type { SceneRuntime } from '../runtime/SceneRuntime';
 import { PeerLink } from './PeerConnection';
-import { exportKeyBase64, generateSessionKey, importKeyBase64 } from './crypto';
-import { buildPlayerData, type PlayerData } from './viewModels';
+import { exportKeyBase64, generateSessionKey } from './crypto';
+import { buildPlayerData } from './viewModels';
 import type {
 	ClientMessage,
 	PeerPresenceEntry,

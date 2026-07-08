@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(path.resolve(here, '../apps/gm/package.json'));
+const require = createRequire(path.resolve(here, '../apps/gm-react/package.json'));
 const { chromium } = require('playwright');
 
 const WS_URL = process.env.WS_URL;

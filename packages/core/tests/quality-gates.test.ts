@@ -127,20 +127,20 @@ describe('PLAT-010 quality-gate registry', () => {
 
 describe('PLAT-010 path/tier selection (AC1)', () => {
 	it('matches ** globs across directory depth', () => {
-		expect(pathMatchesGlob('apps/gm/src/routes/+page.svelte', 'apps/gm/**')).toBe(true);
+		expect(pathMatchesGlob('apps/gm-react/src/screens/Board.tsx', 'apps/gm-react/**')).toBe(true);
 		expect(pathMatchesGlob('packages/core/src/index.ts', 'packages/core/**')).toBe(true);
-		expect(pathMatchesGlob('docs/x.md', 'apps/gm/**')).toBe(false);
+		expect(pathMatchesGlob('docs/x.md', 'apps/gm-react/**')).toBe(false);
 	});
 
 	it('matches a root file glob exactly', () => {
 		expect(pathMatchesGlob('package.json', 'package.json')).toBe(true);
-		expect(pathMatchesGlob('apps/gm/package.json', 'package.json')).toBe(false);
+		expect(pathMatchesGlob('apps/gm-react/package.json', 'package.json')).toBe(false);
 	});
 
 	it('selects the platform gates when a change touches the app (AC1)', () => {
-		const selected = selectGatesForPaths(['apps/gm/src/lib/gui/Foo.svelte']);
+		const selected = selectGatesForPaths(['apps/gm-react/src/screens/Foo.tsx']);
 		const ids = selected.map((g) => g.id);
-		// Unconditional gates (empty selectsOnPaths) plus the apps/gm-scoped gates.
+		// Unconditional gates (empty selectsOnPaths) plus the apps/gm-react-scoped gates.
 		expect(ids).toContain('boundary-lint');
 		expect(ids).toContain('check');
 		expect(ids).toContain('e2e');

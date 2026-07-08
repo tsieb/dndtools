@@ -226,7 +226,7 @@ export function PlayerView() {
 		</button>
 	);
 
-	let body: ReactNode = null;
+	let body: ReactNode;
 	if (current === 'stage') body = <StageSection data={data} r={r} toast={toast} />;
 	else if (current === 'sheet') body = <SheetSection data={data} />;
 	else if (current === 'dice') body = <DiceSection rolls={data.diceRolls} sessionActive={data.sessionActive} viewer={viewer} actorName={actorName} onRoll={rollDice} />;

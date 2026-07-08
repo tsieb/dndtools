@@ -8,7 +8,7 @@ import {
 	collectViolations,
 	defaultRoots,
 	type BoundaryLintRoots,
-} from '../../../../scripts/boundary-lint';
+} from '../../scripts/boundary-lint';
 
 /**
  * SEC-001 AC1 — RENDERER ISOLATION, the MECHANICAL half. "Given renderer code attempts to import filesystem
@@ -21,8 +21,8 @@ import {
  * the core package `rootDir` forbids reaching outside `packages/core`.
  */
 
-// The repo root is five levels up from apps/gm/tests/unit.
-const REPO_ROOT = path.resolve(fileURLToPath(import.meta.url), '../../../../..');
+// The repo root is three levels up from tests/unit.
+const REPO_ROOT = path.resolve(fileURLToPath(import.meta.url), '../../..');
 
 const tempDirs: string[] = [];
 

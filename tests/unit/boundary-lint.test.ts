@@ -8,10 +8,10 @@ import {
 	defaultRoots,
 	loadExceptions,
 	type BoundaryLintRoots,
-} from '../../../../scripts/boundary-lint';
+} from '../../scripts/boundary-lint';
 
-// The repo root is five levels up from apps/gm/tests/unit.
-const REPO_ROOT = path.resolve(fileURLToPath(import.meta.url), '../../../../..');
+// The repo root is three levels up from tests/unit.
+const REPO_ROOT = path.resolve(fileURLToPath(import.meta.url), '../../..');
 
 const tempDirs: string[] = [];
 
@@ -22,11 +22,12 @@ afterEach(() => {
 });
 
 /**
- * Build a minimal fixture tree that mirrors the v2 layout the lint expects, so we can plant
- * individual violations and prove each rule fires. Returns roots pointed at the fixture.
+ * Build a minimal fixture tree that mirrors the app layout the lint expects (the React GM app
+ * under apps/gm-react + the processing core under packages/core), so we can plant individual
+ * violations and prove each rule fires. Returns roots pointed at the fixture.
  */
 function makeFixture(files: Record<string, string>, exceptions: unknown[]): BoundaryLintRoots {
-	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'v2-boundary-'));
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gm-react-boundary-'));
 	tempDirs.push(root);
 	const roots = defaultRoots(root);
 	fs.mkdirSync(path.dirname(roots.exceptionsFile), { recursive: true });
@@ -39,7 +40,7 @@ function makeFixture(files: Record<string, string>, exceptions: unknown[]): Boun
 	return roots;
 }
 
-describe('v2 boundary lint — clean repo baseline', () => {
+describe('boundary lint — clean repo baseline', () => {
 	it('passes against the real repository tree', () => {
 		const violations = collectViolations(defaultRoots(REPO_ROOT));
 		expect(violations).toEqual([]);
@@ -50,8 +51,8 @@ describe('PLAT-006 / PLAT-012: GUI/platform primitive access is caught', () => {
 	it('flags a GUI component that imports Dexie directly', () => {
 		const roots = makeFixture(
 			{
-				'apps/gm/src/lib/gui/BadPanel.svelte':
-					"<script lang='ts'>\nimport Dexie from 'dexie';\nconst db = new Dexie('x');\n</script>",
+				'apps/gm-react/src/ds/BadPanel.tsx':
+					"import Dexie from 'dexie';\nconst db = new Dexie('x');\nexport const P = () => null;\n",
 			},
 			[],
 		);
@@ -59,11 +60,11 @@ describe('PLAT-006 / PLAT-012: GUI/platform primitive access is caught', () => {
 		expect(violations.some((v) => /imports Dexie directly/.test(v.message))).toBe(true);
 	});
 
-	it('flags a route component that touches indexedDB directly', () => {
+	it('flags a screen component that touches indexedDB directly', () => {
 		const roots = makeFixture(
 			{
-				'apps/gm/src/routes/notes/+page.svelte':
-					"<script lang='ts'>\nconst ok = typeof indexedDB !== 'undefined';\n</script>",
+				'apps/gm-react/src/screens/Notes.tsx':
+					"export const ok = typeof indexedDB !== 'undefined';\n",
 			},
 			[],
 		);
@@ -74,8 +75,7 @@ describe('PLAT-006 / PLAT-012: GUI/platform primitive access is caught', () => {
 	it('flags a GUI component that reaches localStorage directly', () => {
 		const roots = makeFixture(
 			{
-				'apps/gm/src/lib/gui/Prefs.svelte':
-					"<script lang='ts'>\nlocalStorage.setItem('k', 'v');\n</script>",
+				'apps/gm-react/src/screens/Prefs.tsx': "localStorage.setItem('k', 'v');\n",
 			},
 			[],
 		);
@@ -86,8 +86,7 @@ describe('PLAT-006 / PLAT-012: GUI/platform primitive access is caught', () => {
 	it('flags a GUI component that reaches the Capacitor native bridge', () => {
 		const roots = makeFixture(
 			{
-				'apps/gm/src/lib/gui/Native.svelte':
-					"<script lang='ts'>\nconst c = window.Capacitor;\n</script>",
+				'apps/gm-react/src/app/Native.tsx': 'const c = window.Capacitor;\nexport const x = c;\n',
 			},
 			[],
 		);
@@ -96,12 +95,11 @@ describe('PLAT-006 / PLAT-012: GUI/platform primitive access is caught', () => {
 	});
 
 	// PLAT-001 AC2: feature components must branch on the resolved platform profile, not raw
-	// viewport width. The lint forbids innerWidth/matchMedia/screen.* in GUI/route components.
+	// viewport width. The lint forbids innerWidth/matchMedia/screen.* in GUI/screen components.
 	it('flags a GUI component that branches on window.innerWidth', () => {
 		const roots = makeFixture(
 			{
-				'apps/gm/src/lib/gui/Layout.svelte':
-					"<script lang='ts'>\nconst compact = window.innerWidth < 720;\n</script>",
+				'apps/gm-react/src/app/Layout.tsx': 'export const compact = window.innerWidth < 720;\n',
 			},
 			[],
 		);
@@ -109,11 +107,11 @@ describe('PLAT-006 / PLAT-012: GUI/platform primitive access is caught', () => {
 		expect(violations.some((v) => /sniffs the raw viewport.*PLAT-001/.test(v.message))).toBe(true);
 	});
 
-	it('flags a route component that uses matchMedia for layout', () => {
+	it('flags a screen component that uses matchMedia for layout', () => {
 		const roots = makeFixture(
 			{
-				'apps/gm/src/routes/scene/+page.svelte':
-					"<script lang='ts'>\nconst m = window.matchMedia('(max-width: 700px)').matches;\n</script>",
+				'apps/gm-react/src/screens/Scene.tsx':
+					"export const m = window.matchMedia('(max-width: 700px)').matches;\n",
 			},
 			[],
 		);
@@ -121,8 +119,8 @@ describe('PLAT-006 / PLAT-012: GUI/platform primitive access is caught', () => {
 		expect(violations.some((v) => /sniffs the raw viewport.*PLAT-001/.test(v.message))).toBe(true);
 	});
 
-	it('allows the platform-layer probe to read the viewport behind its owned exception (PLAT-012)', () => {
-		const probe = 'apps/gm/src/lib/platform/capabilities.ts';
+	it('allows a GUI file to read the viewport behind its owned exception (PLAT-012)', () => {
+		const probe = 'apps/gm-react/src/app/capabilities-probe.tsx';
 		const exception = {
 			id: 'platform-capabilities-probe',
 			path: probe,
@@ -131,10 +129,7 @@ describe('PLAT-006 / PLAT-012: GUI/platform primitive access is caught', () => {
 			rationale: 'The single owned place the raw viewport is read.',
 			removalCriteria: 'Reads stay confined to the platform layer.',
 		};
-		const roots = makeFixture(
-			{ [probe]: 'export const w = window.innerWidth;\n' },
-			[exception],
-		);
+		const roots = makeFixture({ [probe]: 'export const w = window.innerWidth;\n' }, [exception]);
 		expect(collectViolations(roots)).toEqual([]);
 
 		// Without the exception the same probe fails closed.
@@ -146,7 +141,7 @@ describe('PLAT-006 / PLAT-012: GUI/platform primitive access is caught', () => {
 	});
 
 	it('allows the same primitive only inside an allowlisted, owned exception path (PLAT-012)', () => {
-		const adapter = 'apps/gm/src/lib/platform/storage/scene-store.ts';
+		const adapter = 'apps/gm-react/src/app/store-probe.tsx';
 		const exception = {
 			id: 'storage-adapter-dexie',
 			path: adapter,
@@ -172,8 +167,8 @@ describe('PLAT-006 / PLAT-012: GUI/platform primitive access is caught', () => {
 	it('does not flag primitive names that only appear in comments or strings', () => {
 		const roots = makeFixture(
 			{
-				'apps/gm/src/lib/gui/Doc.svelte':
-					"<script lang='ts'>\n// this never touches indexedDB or localStorage\nconst label = 'uses localStorage';\n</script>",
+				'apps/gm-react/src/ds/Doc.tsx':
+					"// this never touches indexedDB or localStorage\nexport const label = 'uses localStorage';\n",
 			},
 			[],
 		);

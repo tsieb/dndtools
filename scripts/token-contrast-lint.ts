@@ -14,11 +14,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-// Both apps carry the same per-theme token vocabulary — validate each so neither drifts below AA.
-const CSS_PATHS = [
-	resolve(HERE, '..', 'apps', 'gm', 'src', 'routes', 'styles.css'),
-	resolve(HERE, '..', 'apps', 'gm-react', 'src', 'styles', 'tokens', 'colors.css'),
-];
+// The React GM app's per-theme token vocabulary — validated so no theme drifts below AA text contrast.
+const CSS_PATHS = [resolve(HERE, '..', 'apps', 'gm-react', 'src', 'styles', 'tokens', 'colors.css')];
 
 const NAMED_THEMES = ['tavern', 'parchment', 'high-contrast'] as const;
 type ThemeName = (typeof NAMED_THEMES)[number];

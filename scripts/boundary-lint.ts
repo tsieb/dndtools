@@ -11,17 +11,17 @@ export interface Violation {
 export interface BoundaryLintRoots {
 	repoRoot: string;
 	coreRoot: string;
-	svelteAppRoot: string;
+	appRoot: string;
 	exceptionsFile: string;
 }
 
 export function defaultRoots(repoRoot: string = process.cwd()): BoundaryLintRoots {
-	const svelteAppRoot = path.join(repoRoot, 'apps', 'gm');
+	const appRoot = path.join(repoRoot, 'apps', 'gm-react');
 	return {
 		repoRoot,
 		coreRoot: path.join(repoRoot, 'packages', 'core'),
-		svelteAppRoot,
-		exceptionsFile: path.join(svelteAppRoot, 'platform-access-exceptions.json'),
+		appRoot,
+		exceptionsFile: path.join(appRoot, 'platform-access-exceptions.json'),
 	};
 }
 
@@ -30,11 +30,18 @@ const SIDE_EFFECT_PATTERN = /(?:^|\s)import\s+['"]([^'"]+)['"]/g;
 const DYNAMIC_IMPORT_PATTERN = /import\(\s*['"]([^'"]+)['"]\s*\)/g;
 
 const CORE_FORBIDDEN_PREFIXES = [
+	// Frameworks: the processing core is framework-independent and must import neither the
+	// legacy Svelte surface nor the current React surface.
 	'svelte',
 	'@sveltejs/',
 	'$app',
 	'$lib',
 	'$service-worker',
+	'react',
+	'react-dom',
+	'react-router',
+	'react-router-dom',
+	// Platform / persistence / native primitives.
 	'dexie',
 	'@capacitor/',
 	'electron',
@@ -185,7 +192,7 @@ function walk(dir: string, files: string[] = []): string[] {
 		const full = path.join(dir, entry.name);
 		if (entry.isDirectory()) {
 			walk(full, files);
-		} else if (/\.(ts|svelte|svelte\.ts|js|mjs)$/.test(entry.name)) {
+		} else if (/\.(tsx|ts|jsx|svelte|svelte\.ts|js|mjs)$/.test(entry.name)) {
 			files.push(full);
 		}
 	}
@@ -236,8 +243,19 @@ function scanFile(
 }
 
 // Lines that only mention a primitive in a comment or string should not trip the rule.
-// We strip line comments and template/quoted strings cheaply before matching.
+// Whole-line comments (JSDoc `*` continuations, `//` line comments, `/* … */` delimiters)
+// carry no code, so a primitive named in prose does not count; we also strip trailing line
+// comments and template/quoted strings cheaply before matching.
 function codeOnly(line: string): string {
+	const trimmed = line.trimStart();
+	if (
+		trimmed.startsWith('*') ||
+		trimmed.startsWith('//') ||
+		trimmed.startsWith('/*') ||
+		trimmed.startsWith('*/')
+	) {
+		return '';
+	}
 	const noLineComment = line.replace(/\/\/.*$/, '');
 	return noLineComment.replace(/(['"`])(?:\\.|(?!\1).)*\1/g, '""');
 }
@@ -347,13 +365,16 @@ function scanMcpFilesystem(file: string, repoRoot: string, violations: Violation
 	});
 }
 
-function isGuiOrRouteFile(file: string, svelteAppRoot: string): boolean {
-	const rel = path.relative(svelteAppRoot, file).split(path.sep).join('/');
-	if (rel.startsWith('src/lib/gui/')) return true;
-	if (rel.startsWith('src/routes/')) return true;
-	if (rel.startsWith('src/lib/platform/')) return true;
-	if (rel.startsWith('src/lib/canvas-runtime/')) return true;
-	if (rel.startsWith('src/lib/state/')) return true;
+// PLAT-006 applies to the React app's GUI surface: screens (route views), the app shell /
+// builders, and the design-system component library. These must route persistence and
+// capability access through the runtime/dispatch + storage adapter, or declare a scoped
+// exception. The platform/transport layer (src/platform, src/runtime, src/cloud, src/net)
+// is where primitive access legitimately lives, so it is out of the GUI boundary.
+function isGuiOrRouteFile(file: string, appRoot: string): boolean {
+	const rel = path.relative(appRoot, file).split(path.sep).join('/');
+	if (rel.startsWith('src/screens/')) return true;
+	if (rel.startsWith('src/app/')) return true;
+	if (rel.startsWith('src/ds/')) return true;
 	return false;
 }
 
@@ -367,7 +388,7 @@ function main(): Violation[] {
  * the rules actually fire (PLAT-006/011/012 enforcement is mechanical, not convention).
  */
 export function collectViolations(roots: BoundaryLintRoots): Violation[] {
-	const { repoRoot, coreRoot, svelteAppRoot, exceptionsFile } = roots;
+	const { repoRoot, coreRoot, appRoot, exceptionsFile } = roots;
 	const violations: Violation[] = [];
 
 	// Core production source must have zero GUI/platform/v1 dependencies.
@@ -395,8 +416,8 @@ export function collectViolations(roots: BoundaryLintRoots): Violation[] {
 		exceptionsByPath.set(exc.path.split(path.sep).join('/'), new Set(exc.primitives));
 	}
 
-	for (const file of walk(path.join(svelteAppRoot, 'src'))) {
-		if (isGuiOrRouteFile(file, svelteAppRoot)) {
+	for (const file of walk(path.join(appRoot, 'src'))) {
+		if (isGuiOrRouteFile(file, appRoot)) {
 			scanPlatformPrimitives(file, repoRoot, exceptionsByPath, violations);
 		}
 	}

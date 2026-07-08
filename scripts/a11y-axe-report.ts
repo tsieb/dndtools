@@ -2,15 +2,15 @@
  * v2 accessibility axe gate — merge + report CLI (UX-A11Y-001, UX-A11Y-017).
  *
  * Reads the per-worker axe artifacts written by the Playwright gate
- * (`apps/gm/tests/e2e/a11y-axe-gate.spec.ts`), merges and de-duplicates them, applies the
+ * (`apps/gm-react/tests/e2e/a11y-axe-gate.spec.ts`), merges and de-duplicates them, applies the
  * shared release policy in `scripts/lib/a11y-axe-policy.ts`, and writes a deterministic merged
  * report plus a Markdown summary suitable for a PR comment artifact. Exits non-zero when the gate
  * fails so it can be wired straight into CI.
  *
  * Usage:
  *   tsx scripts/a11y-axe-report.ts \
- *     --artifacts apps/gm/test-results/a11y \
- *     --register apps/gm/tests/a11y/known-violations.json \
+ *     --artifacts apps/gm-react/test-results/a11y \
+ *     --register apps/gm-react/tests/a11y/known-violations.json \
  *     --out tmp/a11y
  */
 
@@ -63,10 +63,10 @@ function readArtifacts(dir: string): WorkerArtifact[] {
 
 function main(): void {
 	const args = parseArgs(process.argv.slice(2));
-	const artifactsDir = resolve(REPO_ROOT, args.artifacts ?? 'apps/gm/test-results/a11y');
+	const artifactsDir = resolve(REPO_ROOT, args.artifacts ?? 'apps/gm-react/test-results/a11y');
 	const registerPath = resolve(
 		REPO_ROOT,
-		args.register ?? 'apps/gm/tests/a11y/known-violations.json',
+		args.register ?? 'apps/gm-react/tests/a11y/known-violations.json',
 	);
 	const outDir = resolve(REPO_ROOT, args.out ?? 'tmp/a11y');
 

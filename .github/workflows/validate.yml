@@ -36,8 +36,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Browser-driven checks (e2e / axe / React verify) resolve Playwright from apps/gm.
-      - run: pnpm --filter @dndtools/gm exec playwright install --with-deps chromium
+      # Browser-driven checks (e2e / axe / React verify) resolve Playwright from apps/gm-react.
+      - run: pnpm --filter @dndtools/gm-react exec playwright install --with-deps chromium
       - name: Run validation
         run: |
           case "${{ github.event.inputs.mode }}" in

@@ -14,7 +14,7 @@ import {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CSS = readFileSync(
-	resolve(HERE, '..', '..', 'apps', 'gm', 'src', 'routes', 'styles.css'),
+	resolve(HERE, '..', '..', 'apps', 'gm-react', 'src', 'styles', 'tokens', 'colors.css'),
 	'utf8',
 );
 

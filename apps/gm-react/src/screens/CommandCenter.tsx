@@ -127,11 +127,6 @@ function LaunchTile({ icon, label, onClick }: { icon: string; label: string; onC
 	);
 }
 
-function initials(name: string): string {
-	const parts = name.split(/\s+/).filter(Boolean).slice(0, 2);
-	return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || '?';
-}
-
 export function CommandCenter() {
 	const navigate = useNavigate();
 	const runtime = useRuntime();
