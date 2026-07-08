@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const gmPkg = path.resolve(here, '../../gm/package.json');
+const gmPkg = path.resolve(here, '../package.json');
 const require = createRequire(gmPkg);
 const { chromium } = require('playwright');
 

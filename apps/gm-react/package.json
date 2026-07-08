@@ -8,7 +8,7 @@
 		"type": "git",
 		"url": "https://github.com/tsieb/dndtools.git"
 	},
-	"description": "Parallel React prototype of the DND Tools GM workspace — the design-package command-center kit, ported to a real Vite + React app wired to @dndtools/core. Isolated from the production SvelteKit app (@dndtools/gm).",
+	"description": "The DND Tools GM command platform — a Vite + React app wired to @dndtools/core, realizing the shared design system, with an Electron desktop shell and LAN/cloud remote play. The primary GM surface (the retired SvelteKit app lives at archive/gm-svelte).",
 	"main": "electron/main.cjs",
 	"scripts": {
 		"dev": "vite --port 5273",
@@ -17,6 +17,7 @@
 		"preview": "vite preview --port 4273",
 		"preview:demo": "vite preview --outDir dist-demo --port 4274",
 		"typecheck": "tsc --noEmit",
+		"e2e": "playwright test",
 		"verify:p2p": "node scripts/verify-p2p.mjs",
 		"verify:p2p-live": "node scripts/verify-p2p-live.mjs",
 		"desktop:bundle-discovery": "esbuild electron/discovery.cjs --bundle --platform=node --format=cjs --external:electron --outfile=electron/discovery.bundled.cjs",
@@ -40,6 +41,8 @@
 		"react-router-dom": "^6.28.0"
 	},
 	"devDependencies": {
+		"@axe-core/playwright": "^4.12.1",
+		"@playwright/test": "^1.61.1",
 		"@types/qrcode": "^1.5.6",
 		"@types/react": "^18.3.12",
 		"@types/react-dom": "^18.3.1",

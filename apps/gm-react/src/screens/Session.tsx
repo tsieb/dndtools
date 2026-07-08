@@ -1051,6 +1051,7 @@ function StagePanel({
 						help="What you stage for the table."
 						control={
 							<Select
+								aria-label="Active map"
 								value={activeMapId ?? ''}
 								disabled={previewing}
 								options={[{ value: '', label: '— none —' }, ...maps.map((m) => ({ value: m.id, label: m.name }))]}

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(path.resolve(here, '../../gm/package.json'));
+const require = createRequire(path.resolve(here, '../package.json'));
 const { chromium } = require('playwright');
 
 const URL = process.env.REACT_URL ?? 'http://localhost:5273/';
