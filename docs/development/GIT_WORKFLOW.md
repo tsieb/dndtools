@@ -8,14 +8,14 @@ Reference for the tiered branch model, validation gates, PR checklists, and reco
 
 ### 1.1 Stable Branch
 
-`master` is the release-ready branch. Only initiative-integration PRs target `master`.
+`main` is the release-ready branch. Only initiative-integration PRs target `main`.
 
 ### 1.2 Initiative Branches
 
-Long-lived initiative branches are created from `master` and collect related epics:
+Long-lived initiative branches are created from `main` and collect related epics:
 
 ```bash
-git checkout master
+git checkout main
 git pull
 git checkout -b initiative/<id>-<slug>
 ```
@@ -48,20 +48,20 @@ story/21.3-metrics-baselines
 
 ```mermaid
 flowchart LR
-  master["master (full quality gate)"]
+  main["main (full quality gate)"]
   initiative["initiative/I21-realignment (smoke gate)"]
   epic1["story/21.1-tiered-ci"]
   epic2["story/21.2-script-audit"]
   epic3["story/21.3-metrics-baselines"]
 
-  master --> initiative
+  main --> initiative
   initiative --> epic1
   initiative --> epic2
   initiative --> epic3
   epic1 --> initiative
   epic2 --> initiative
   epic3 --> initiative
-  initiative --> master
+  initiative --> main
 ```
 
 ### 1.5 Test Tier By Boundary
@@ -69,7 +69,7 @@ flowchart LR
 | Merge boundary                | Branch target           | Required gate             |
 | ----------------------------- | ----------------------- | ------------------------- |
 | Epic PR                       | `initiative/*`          | `smoke`                   |
-| Initiative PR                 | `master`                | `quality`                 |
+| Initiative PR                 | `main`                | `quality`                 |
 | Release / scheduled workflows | release + schedule refs | domain-specific workflows |
 
 ---
@@ -101,15 +101,15 @@ When the initiative branch is ready:
 ```bash
 gh pr create \
   --title "<type>(<scope>): <summary> [Initiative IXX]" \
-  --base master \
+  --base main \
   --head initiative/<id>-<slug> \
   --body "$(cat .github/pull_request_template.md)"
 gh pr merge --auto --squash
 ```
 
-### 2.3 Trivial Direct-to-Master Exceptions
+### 2.3 Trivial Direct-to-Main Exceptions
 
-Direct commits to `master` are reserved for:
+Direct commits to `main` are reserved for:
 
 - single-file documentation typo fixes
 - emergency release follow-ups explicitly approved by a human
@@ -142,7 +142,7 @@ Never bypass hooks with `--no-verify`.
 
 ### 3.3 Full Quality Gate
 
-PRs targeting `master` must pass:
+PRs targeting `main` must pass:
 
 - `quality-core`
 - `docs-validation`
@@ -167,11 +167,11 @@ Run the domain-appropriate commands before opening a PR:
 
 ## 4. Branch Protection Setup
 
-### 4.1 `master`
+### 4.1 `main`
 
 GitHub Settings -> Branches -> Add rule:
 
-- Branch name pattern: `master`
+- Branch name pattern: `main`
 - Require a pull request before merging: enabled
 - Require status checks to pass before merging: enabled
 - Required checks:
@@ -225,7 +225,7 @@ Repository settings must enable:
 ### 5.3 Merge Policy
 
 - Epic PRs merge into `initiative/*` only after `smoke` is green.
-- Initiative PRs merge into `master` only after `quality` is green.
+- Initiative PRs merge into `main` only after `quality` is green.
 - Squash merge is the default strategy for both tiers.
 
 ---
@@ -236,7 +236,7 @@ Repository settings must enable:
 | ---------------------------------------- | --------------------------------------------------------------------------- |
 | Smoke fails on epic PR                   | Fix on the same `story/*` branch and push again                             |
 | Full gate fails on initiative PR         | Fix on the same initiative branch or merge the needed epic fix first        |
-| Initiative branch drifts behind `master` | Rebase or merge `master`, then re-run `pnpm audit:full`                     |
+| Initiative branch drifts behind `main` | Rebase or merge `main`, then re-run `pnpm audit:full`                     |
 | Merged PR requires rollback              | Human decision only; use a new `git revert <sha>` PR                        |
 | Broken local commit not yet pushed       | `git commit --amend` is acceptable only for the immediately previous commit |
 
@@ -247,7 +247,7 @@ Repository settings must enable:
 Validated assumptions for the tiered model:
 
 - `ci-smoke.yml` is scoped to `initiative/*`, so epic PRs do not pay for desktop E2E or metric capture.
-- `ci.yml` is scoped to `master`, so initiative integration gets the full quality gate plus metric comparison.
+- `ci.yml` is scoped to `main`, so initiative integration gets the full quality gate plus metric comparison.
 - Concurrency groups are separated by tier to cancel superseded smoke runs without interrupting full-quality runs.
 - The PR template supports both tiers in a single file, which avoids drift between multiple templates.
 

@@ -1,7 +1,7 @@
 name: Deploy Cloud
 
 # Deploys the dndtools cloud stacks (infra/*) and the hosted SPA to the `dev` stage on
-# every push to master, PATH-FILTERED so only what changed redeploys. Keyless: GitHub's
+# every push to main, PATH-FILTERED so only what changed redeploys. Keyless: GitHub's
 # OIDC token is exchanged for the scoped `foundation` deploy role (no long-lived AWS
 # keys). The desktop release pipeline (release.yml) and CI gates (ci.yml) are untouched.
 #
@@ -10,7 +10,10 @@ name: Deploy Cloud
 #   • Set the repo variable AWS_DEPLOY_ROLE_ARN to that role's ARN
 #     (foundation stack output `CiDeployRoleArn`):
 #       gh variable set AWS_DEPLOY_ROLE_ARN --body 'arn:aws:iam::<acct>:role/<role>'
-# The foundation role trusts refs/heads/master only, so this workflow deploys from master.
+# The foundation role trusts refs/heads/main only, so this workflow deploys from main.
+# NOTE: after renaming the default branch master->main, the foundation stack must be
+# redeployed with GitHubBranch=main so the deployed CI role's trust policy accepts main
+# (see infra/README.md). Until then this deploy will fail the OIDC assume-role on main.
 #
 # UNTIL that variable is set, the `preflight` job below emits a notice and the deploy
 # jobs SKIP (neutral) instead of failing — so an unconfigured cloud deploy never turns
@@ -18,7 +21,7 @@ name: Deploy Cloud
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - 'infra/**'
       - 'packages/cloud-fns/**'

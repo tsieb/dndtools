@@ -68,7 +68,7 @@ pnpm desktop:run  # Start Electron desktop app
 All feature work follows the initiative/epic branch model:
 
 ```bash
-git checkout master
+git checkout main
 git pull
 git checkout -b initiative/<id>-<slug>
 git checkout -b story/<epic-id>-<slug>

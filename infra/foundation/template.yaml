@@ -34,7 +34,7 @@ Parameters:
     Description: GitHub repo name allowed to assume the deploy role.
   GitHubBranch:
     Type: String
-    Default: master
+    Default: main
     Description: >-
       Branch whose GitHub Actions runs may assume the deploy role. The OIDC
       subject condition is built as

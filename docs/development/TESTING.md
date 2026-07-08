@@ -1,6 +1,6 @@
 # Testing Strategy
 
-This repository uses a tiered testing model: fast smoke validation for epic branches and full-quality validation for initiative-to-master integration.
+This repository uses a tiered testing model: fast smoke validation for epic branches and full-quality validation for initiative-to-main integration.
 
 ## 1. Tooling
 
@@ -31,7 +31,7 @@ Contents:
 
 ### 2.2 Full Quality Gate
 
-PRs targeting `master` must pass:
+PRs targeting `main` must pass:
 
 - format check
 - lint

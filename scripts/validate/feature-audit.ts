@@ -1,4 +1,4 @@
-// Feature-gap drift audit (master-only, pragmatic).
+// Feature-gap drift audit (main-only, pragmatic).
 //
 // `apps/gm-react/FEATURE-GAPS.md` is a *layered, historical* ledger: its old
 // gap sections (§3–§7) were remediated by later dated update passes, so parsing

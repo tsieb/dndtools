@@ -38,13 +38,13 @@ want to time the non-gating browser and extended desktop suites.
 ## 3. Tooling
 
 - capture: `pnpm metrics:capture`
-  This captures the suites enforced by the `master` quality gate by default. Use
+  This captures the suites enforced by the `main` quality gate by default. Use
   `pnpm metrics:capture -- --includeExtendedTests` for a broader audit snapshot.
 - compare: `pnpm metrics:compare`
 - legacy perf-only compare alias: `pnpm perf:compare`
 - scheduled benchmark workflow: `.github/workflows/performance-regression.yml`
 
-The compare step is merge-blocking on `master` PRs when:
+The compare step is merge-blocking on `main` PRs when:
 
 - a timing baseline regresses materially
 - initial-route gzip exceeds the bundle budget
