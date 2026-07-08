@@ -1,28 +1,30 @@
-# @dndtools/gm-react — React prototype port
+# @dndtools/gm-react — the GM command platform
 
-A parallel **React** frontend that reproduces the polished online design prototype and wires it to the
-real `@dndtools/core` Processing Core. It is a complete, functional prototype of the GM app (a
-candidate to later port back to Svelte). It is **fully isolated** from the production Svelte app
-(`apps/gm`).
+The primary DND Tools application: a **React** frontend for the canvas-first GM Command Center,
+wired to the real `@dndtools/core` Processing Core, plus an Electron desktop shell and LAN/cloud
+remote play. It realizes the shared design system (see `docs/design/`) and is the only maintained GM
+surface (the original SvelteKit app is retired to `archive/gm-svelte`; see
+[ADR-018](../../docs/adr/018-promote-react-app-to-primary.md)).
 
-> **Design & visual-match reference:** [PROTOTYPE.md](./PROTOTYPE.md) — where the online prototype
-> lives (Claude Design project + `DesignSync` MCP), the design principles (token theming, the
-> launcher-first IA, player-safe visibility, complexity tiers), and exactly which sections are
-> matched vs deferred. Read it before reskinning a section. This README is the **core-wiring**
-> reference.
+> **Design & visual reference:** [PROTOTYPE.md](./PROTOTYPE.md) — where the design system lives
+> (Claude Design project + `DesignSync` MCP), the design principles (token theming, launcher-first
+> IA, player-safe visibility, complexity tiers), and which sections map to which design views. Read
+> it before reskinning a section. This README is the **core-wiring** reference.
 
 ## Run it
 
 From the repo root:
 
 ```bash
-pnpm dev:react        # vite dev server on http://localhost:5273
-pnpm build:react      # production build
-pnpm preview:react    # preview the build on http://localhost:4273
-pnpm typecheck:react  # tsc --noEmit
+pnpm dev              # vite dev server on http://localhost:5273 (exposes the DEV window.__rt seam)
+pnpm build            # production build (core, then this app)
+pnpm preview          # preview the build on http://localhost:4273
+pnpm typecheck        # tsc --noEmit
+pnpm e2e              # Playwright (desktop + mobile Chromium) — tests/e2e
+pnpm desktop:dev      # run the Electron desktop shell against the dev server
 ```
 
-Verify the core round-trip end-to-end in a headless browser (needs `pnpm dev:react` running):
+Verify the core round-trip end-to-end in a headless browser (needs `pnpm dev` running):
 
 ```bash
 node apps/gm-react/scripts/verify-roundtrip.mjs   # foundation: load → dispatch → persist → reload
@@ -37,48 +39,45 @@ node apps/gm-react/scripts/verify-canvas.mjs      # canvas surfaces: /board + /s
   `lucide-react` (semantic name → registry). **Always import DS components from the `../ds` barrel.**
 - **`src/runtime/SceneRuntime.ts`** — observable class owning the `CoreStateSlice`. The **single
   write choke point**: `runtime.dispatch(command)` runs the pure `dispatchCommand` reducer then
-  `persistFullState` (Dexie/IndexedDB). Read `runtime.state` (actor-filtered) and
-  `runtime.defaultActorId`. While previewing, every command is rejected read-only.
+  `persistFullState` (Dexie/IndexedDB via `src/platform/storage/coreStore.ts`). Read `runtime.state`
+  (actor-filtered) and `runtime.defaultActorId`. While previewing, every command is rejected read-only.
 - **`src/runtime/RuntimeContext.tsx`** — `useRuntime()` subscribes via `useSyncExternalStore`; any
-  state change re-renders. Get the runtime in a screen with `const runtime = useRuntime();`.
+  state change re-renders. In DEV it also exposes `window.__rt` (used by the verify scripts + e2e).
+- **`src/net/`, `src/cloud/`** — LAN/serverless WebRTC remote play and the AWS cloud sync + Cognito
+  auth client. `electron/` is the desktop shell (CommonJS main/preload + LAN discovery).
 - **`src/app/AppShell.tsx`, `src/app/nav.ts`** — shared chrome + the section IA. **Shared — do not
   edit when porting a screen.**
-- **`src/App.tsx`** — `RuntimeProvider` + `BrowserRouter` + routes. **Shared — the parent wires new
+- **`src/App.tsx`** — `RuntimeProvider` + `HashRouter` + routes. **Shared — the parent wires new
   routes here, not the screen author.**
 - **`src/app/board-helpers.ts` + `src/app/SceneBoardCanvas.tsx`** — the shared widget-canvas
-  substrate both canvas screens render: a flat `BoardWidget` view-model (raw layout merged with the
-  actor-scoped binding kind) and the dot-grid canvas engine (select / drag-move / resize, two
-  overflow policies). Layout edits commit through the parent's dispatch on pointer-UP only.
+  substrate both canvas screens render: a flat `BoardWidget` view-model and the dot-grid canvas
+  engine (select / drag-move / resize). Layout edits commit through dispatch on pointer-UP only.
 - **`src/screens/`** — one file per screen. Core-wired canvas/data surfaces: `CommandCenter.tsx`
-  (`/` launcher hub), `Board.tsx` (`/board`, the Command Center spatial widget board),
-  `ScenesCreator.tsx` (`/scenes`), `SceneEditor.tsx` (`/scene/:id`, the scene canvas editor).
-  Section surfaces (ported from the online prototype, populated from `mockCampaign`): `Session.tsx`,
-  `Characters.tsx` (+ MaraSheet), `Atlas.tsx`, `Campaign.tsx`, `Knowledge.tsx`, `Graph.tsx`,
-  `Audio.tsx`, `Extensions.tsx`, `Community.tsx`, `Player.tsx`, `Settings.tsx` (11 subpages). See
-  [PROTOTYPE.md](./PROTOTYPE.md) §4 for the per-section match status.
+  (`/` launcher hub), `Board.tsx` (`/board`), `ScenesCreator.tsx` (`/scenes`), `SceneEditor.tsx`
+  (`/scene/:id`). Section surfaces: `Session.tsx`, `Characters.tsx`, `Atlas.tsx`, `Campaign.tsx`,
+  `Knowledge.tsx`, `Graph.tsx`, `Audio.tsx`, `Extensions.tsx`, `Community.tsx`, `Player.tsx`,
+  `Settings.tsx`. See [PROTOTYPE.md](./PROTOTYPE.md) §4 for the per-section design-view mapping.
 
-## Porting a screen (subagent contract)
+## Adding or reskinning a screen
 
-1. **Pick the source** — the authoritative source is the online Claude Design project's
+1. **Pick the design source** — the authoritative source is the Claude Design project's
    `views/<group>.jsx` (fetch via the `claude_design` MCP `DesignSync` tool; see
-   [PROTOTYPE.md](./PROTOTYPE.md) §2 for the project id, file map, and the port translation rules).
-   The older local `docs/design-package/ui_kits/command-center/<screen>.jsx` export is a fallback,
-   not current. Copy the **visual structure** faithfully using the `../ds` barrel components and
-   inline token styles (`var(--color-…)`, `var(--space-…)`, `var(--text-…)`, `var(--font-…)`).
-2. **Wire data through the core, not the mock.** The package screens read `window.DNDData`/`DNDHub`
-   mock globals — DON'T. Read real state via `useRuntime()` + the actor-filtered core queries
-   (`listScenesForActor`, `listCharactersForActor`, `listMapsForActor`, `resolveCommandCenterHome`,
-   …) exactly as the matching production file **`apps/gm/src/routes/**/+page.svelte`** does — that
-   Svelte route is your wiring reference for which queries/commands a screen uses. Mutations go
-   through `runtime.dispatch({ type, actorId: runtime.defaultActorId, payload })`. Be null-safe for
-   empty fresh state; **drop mock fields with no core backing** (mirror the +page.svelte keep/drop).
-3. **Write ONLY your screen file** in `src/screens/`. Do **not** touch `App.tsx`, `AppShell.tsx`,
-   `nav.ts`, or other screens — the parent wires the route. Export a named component.
-4. **Gate:** `pnpm --filter @dndtools/gm-react typecheck` must pass. Report your file path, the
-   exported component name, and the route it should mount at.
+   [PROTOTYPE.md](./PROTOTYPE.md) §2 for the project id, file map, and translation rules). Copy the
+   **visual structure** using the `../ds` barrel components and inline token styles
+   (`var(--color-…)`, `var(--space-…)`, `var(--text-…)`, `var(--font-…)`).
+2. **Wire data through the core.** Read real state via `useRuntime()` + the actor-filtered core
+   queries (`listScenesForActor`, `listCharactersForActor`, `listMapsForActor`,
+   `resolveCommandCenterHome`, …). Mutations go through
+   `runtime.dispatch({ type, actorId: runtime.defaultActorId, payload })`. Be null-safe for empty
+   fresh state; drop view-model fields with no core backing.
+3. **Write ONLY your screen file** in `src/screens/`. Do **not** touch `App.tsx`, `AppShell.tsx`, or
+   `nav.ts` — the parent wires the route. Export a named component.
+4. **Gate:** `pnpm typecheck`, `pnpm --filter @dndtools/gm-react e2e`, and `pnpm a11y:axe` must pass.
 
-## Isolation
+## Boundaries
 
-`apps/gm-react/` is excluded from the repo's `eslint`/`prettier` and is not referenced by the
-`--filter`ed root `build`/`test`/`typecheck` or the boundary lint. Committing the app requires
-committing the updated `pnpm-lock.yaml` (CI runs `pnpm install --frozen-lockfile`).
+This app owns rendering, platform services (Dexie/IndexedDB), remote-play transport, and command
+dispatch; it depends on `@dndtools/core` via `workspace:*` and never mutates durable state directly.
+GUI code (`src/screens/`, `src/app/`, `src/ds/`) must route platform access through the runtime /
+storage adapter or declare a scoped exception in `platform-access-exceptions.json` (enforced by
+`scripts/boundary-lint.ts`).

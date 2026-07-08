@@ -1,332 +1,133 @@
 # Architecture
 
-This document defines the implemented architecture and required constraints for DND Tools.
-
-## 1. Runtime Topology
-
-### 1.1 Electron Main Process
-
-Implemented in:
-
-- `electron/main.ts`
-- `electron/preload.ts`
-- `electron/mcp-sidecar.ts`
-
-Responsibilities:
-
-- Own BrowserWindow lifecycle and frameless desktop shell behavior.
-- Provide native desktop shell integrations (titlebar/menu/context menus).
-- Select and initialize vault directory.
-- Host filesystem storage (`FileSystemAdapter`) in the trusted process.
-- Expose a constrained bridge to renderer via preload.
-- Spawn/restart/stop MCP sidecar and expose status.
-- Manage desktop auto-update state and staged rollout gating.
-- Serve built renderer assets in production with a local static server.
-- Register desktop open intents (`dndtools://` protocol and `.md` file association) and route to renderer.
-- Watch vault markdown files for external changes and publish incremental note refresh events.
-
-### 1.1.1 Android Shell (Capacitor)
-
-Implemented in:
-
-- `capacitor.config.ts`
-- `android/`
-
-Responsibilities:
-
-- Host the same renderer bundle inside a native Android WebView shell.
-- Bridge approved native plugin APIs (filesystem) to the renderer runtime.
-- Build/sign APK artifacts through Gradle.
-
-### 1.1.2 Browser PWA Runtime
-
-Implemented in:
-
-- `vite.config.ts` (`vite-plugin-pwa` service worker + manifest)
-- `src/lib/platform/storage/indexeddb-adapter.ts`
-- `src/lib/state/pwa.svelte.ts`
-
-Responsibilities:
-
-- Run the shared renderer bundle as an installable Progressive Web App.
-- Persist vault state locally in IndexedDB through `IndexedDbStorageAdapter`.
-- Cache app shell and static assets for offline operation via service worker.
-- Surface install/offline-cache UX states in-app.
-
-### 1.2 Renderer Process
-
-Implemented in:
-
-- `src/routes/+layout.svelte`
-- `src/lib/runtime/bootstrap.ts`
-- `src/lib/platform/storage/index.ts`
-
-Responsibilities:
-
-- UI, interaction flows, search, markdown rendering, editor workflows.
-- Runtime bootstrap orchestration.
-- Backend-agnostic state management via `StorageAdapter`.
-- Section-rooted route hierarchy (`/knowledge/*`, `/atlas/*`, `/session/*`, `/campaign/*`, `/settings/*`) with
-  breadcrumb metadata exported from route `+page.ts` files.
-- Primary section shell navigation via `PrimaryNav` (`src/lib/ui/layout/PrimaryNav.svelte`) with section identity
-  defined in `docs/architecture/NAVIGATION_ICONOGRAPHY.md`.
-- Reduced TopBar scope defined by `docs/architecture/TOPBAR_CHARTER.md`.
-- Offline sync orchestration (connectivity probes, deferred write queue replay, conflict workflows).
-- Desktop integrations only through `window.dndtoolsDesktop` bridge.
-
-### 1.3 MCP Server Process
-
-Implemented in:
-
-- `mcp/index.ts`
-- `mcp/tools/**`
-- `mcp/resources/**`
-- `mcp/storage.ts`
-- `mcp/staged-storage.ts`
-
-Responsibilities:
-
-- Provide structured tool/resource access over stdio MCP.
-- Read/write vault content and derived indexes.
-- In staged mode, create pending changes instead of direct writes.
-- Publish stable resource URIs and discoverability metadata for agent clients.
-
-## 2. Runtime Data Path
-
-Desktop data path:
-
-- Renderer -> Sync-aware storage wrapper -> preload bridge -> Electron IPC -> `FileSystemAdapter`.
-
-Android data path:
-
-- Renderer -> Sync-aware storage wrapper -> `CapacitorStorageAdapter` -> Capacitor Filesystem plugin -> app-private storage.
-
-Browser data path:
-
-- Renderer -> Sync-aware storage wrapper -> `IndexedDbStorageAdapter` -> Dexie/IndexedDB tables.
-
-MCP path:
-
-- Electron main -> sidecar using bundled Electron Node runtime (`process.execPath` with
-  `ELECTRON_RUN_AS_NODE=1`) -> `mcp/dist/index.cjs <vaultDir>`.
-- Development fallback: system `node` runtime when bundled runtime validation fails.
-
-## 3. Storage Boundary (Strict)
-
-Authoritative contract:
-
-- `src/lib/types/storage.ts`
-
-Rules:
-
-- UI components must never access storage details directly.
-- All persistence must go through `StorageAdapter` methods.
-- Any new persisted concept must be added to the filesystem storage implementation and documented.
-
-## 4. Bootstrap Flow (Implemented)
-
-Executed by `bootstrapApplication()` in `src/lib/runtime/bootstrap.ts`:
-
-1. `initStorage()` initializes runtime-specific storage:
-   - desktop: `ElectronStorageAdapter`
-   - android native: `CapacitorStorageAdapter`
-   - browser/PWA: `IndexedDbStorageAdapter`
-2. `syncState` initializes persisted sync strategy/queue state and connectivity listeners.
-3. Load UI settings from storage.
-4. Load all notes.
-5. If vault is empty, create welcome note.
-6. Build search index, link graph, MCP changes, and session boards in parallel.
-
-Required behavior:
-
-- bootstrap must be idempotent and guarded by a single in-flight promise.
-- failures must surface a user-visible error state.
-
-Android runtime degradations (intentional):
-
-- No MCP sidecar process (desktop-only capability).
-- Desktop-only controls (window controls, auto-update, desktop diagnostics) must be hidden or no-op.
-
-Browser runtime degradations (intentional):
-
-- No filesystem vault chooser; browser mode uses local IndexedDB vault + import/export workflows.
-- No MCP sidecar process; MCP-specific controls are disabled and client-side algorithms remain available.
-- No Electron auto-update; updates come from browser refresh + service worker cache refresh.
-- Notifications use the Web Notifications API when the browser supports and grants permission.
-
-## 5. MCP Write Modes
-
-Configured in `mcp/index.ts`:
-
-- default staged mode: `StagedMcpAdapter`
-- direct mode: `--direct` or `DNDTOOLS_MCP_STAGED=0`
-
-Staged mode behavior:
-
-- tool writes create pending change records in `.vault/mcp-changelog.json`.
-- pending previews include semantic impact (rename/move/tags/frontmatter), content delta, and link impact counts.
-- pending entries are conflict-checked against live notes before approval to prevent overwriting newer UI edits.
-- policy presets are evaluated per agent (`strict_review`, `balanced`, `trusted`) to decide review vs auto-approval for safe edits.
-- user approves/rejects changes in Settings MCP tab with filter/search driven batch actions.
-- resolved records keep an audit trail (who/what/when/why) and are surfaced in MCP audit history.
-
-Tool contract enforcement:
-
-- `registerTools()` wraps registrations with strict request parsing, response schema validation, and deterministic error envelopes.
-- each tool is classified as `read-only`, `write-staged`, or `write-direct`.
-- `write-direct` tools are blocked in staged mode.
-- non-idempotent tools accept optional `idempotencyKey` for safe retries.
-
-## 6. Module Layout Requirements
-
-### 6.1 MCP Tool Organization
-
-- One tool per file under domain folders:
-  - `mcp/tools/notes/*`
-  - `mcp/tools/search/*`
-  - `mcp/tools/vault/*`
-  - `mcp/tools/boards/*`
-  - `mcp/tools/objects/*`
-
-### 6.2 Shared Helpers
-
-- Reusable MCP helpers go in `mcp/tools/shared/*`.
-- Shared renderer domain logic goes in `src/lib/domain/*`.
-- Object graph/lint/template helpers are implemented in:
-  - `src/lib/domain/object-relationships.ts`
-  - `src/lib/domain/object-validation.ts`
-  - `src/lib/domain/object-templates.ts`
-- Resource URI strategy constants live in `mcp/resources/uri-strategy.ts`.
-
-### 6.3 Renderer Boundaries
-
-- Routes orchestrate; services and stores own behavior.
-- Runtime bootstrap logic must stay in `src/lib/runtime/*`.
-
-## 7. Security Model (Current + Required)
-
-Current protections:
-
-- `contextIsolation: true`
-- `nodeIntegration: false`
-- `sandbox: true`
-- renderer cannot import Node APIs
-
-Required protections:
-
-- validate every IPC payload
-- keep preload API surface minimal and typed
-- avoid broad "method + args" dispatch patterns
-
-`TODO(APP):` Replace generic storage IPC dispatcher (`dndtools:storage`) with explicit IPC channels per operation.
-Reason: backlog item tracked for planned implementation.
-Risk: broad invocation surface increases attack and misuse risk.
-Target files:
-
-- `electron/main.ts`
-- `electron/preload.ts`
-- `src/lib/platform/storage/electron-adapter.ts`
-
-## 7.1 MCP Resource URI Strategy
-
-Canonical stable URIs:
-
-- `dndtools://v1/notes/{id}`
-- `dndtools://v1/vault/structure`
-- `dndtools://v1/vault/tags`
-- `dndtools://v1/resources/catalog`
-
-Compatibility:
-
-- legacy aliases remain registered (`note://{id}`, `vault://structure`, `vault://tags`).
-- discoverability metadata is available through `dndtools://v1/resources/catalog`.
-
-## 8. Performance Architecture Requirements
-
-- Startup must parallelize independent work (already done in bootstrap).
-- Heavy editor code must remain lazy-loaded (`CodeMirrorEditor` route usage).
-- Search index updates should be incremental where possible.
-- Link graph updates are incremental for note mutations and vault reloads; full rebuild is reserved for explicit recovery paths.
-- Heavy renderer computations run through `src/lib/runtime/worker-bridge.ts` (search index build, full graph rebuild, note batch parse) so large vaults do not block the main thread.
-
-### 8.1 Hard Budgets (Epic 2.5)
-
-The following user-visible latencies are treated as hard budgets:
-
-| Operation                                                    | Target budget | Regression failure threshold |
-| ------------------------------------------------------------ | ------------- | ---------------------------- |
-| Cold start (desktop app launch to shell ready)               | `<= 3000ms`   | `> 3600ms`                   |
-| Vault open (5k notes, select/open -> loaded shell)           | `<= 2000ms`   | `> 2400ms`                   |
-| Note open (notes list -> note viewer ready)                  | `<= 200ms`    | `> 240ms`                    |
-| Search response (query input -> result visible)              | `<= 150ms`    | `> 180ms`                    |
-| Save latency (explicit save action -> success confirmation)  | `<= 100ms`    | `> 120ms`                    |
-| Graph rebuild (incremental, single-note mutation)            | `<= 50ms`     | `> 60ms`                     |
-| MCP semantic bundle call (`session/recap/continuity` bundle) | `<= 800ms`    | `> 960ms`                    |
-
-Regression threshold policy:
-
-- Weekly benchmark failures are triggered at `> 20%` above target budget.
-- Benchmarks run in `.github/workflows/performance-regression.yml`.
-- Benchmarks are implemented in `tests/e2e-desktop/performance.spec.ts` and tagged `@perf`.
-- Canonical registry and operation identifiers live in `src/lib/types/diagnostics.ts` (`PERFORMANCE_BUDGETS`).
-- Any budget change must include a dedicated ADR update before merge.
-
-## 9. Reliability and Integrity Gaps
-
-`TODO(APP):` Atomic writes for note/index/settings/session board/object metadata files.
-Risk: quality and behavior drift if deferred.
-Current issue: direct `writeFile` can leave partial files on crash/power loss.
-Target files:
-
-- `mcp/storage.ts`
-
-Implemented for object workflow depth:
-
-- object change history snapshots + revert in `mcp/storage.ts` backed by `.vault/object-history.json`.
-- structured object editor in `src/lib/ui/editor/ObjectStructuredEditor.svelte` with markdown sync via storage object saves.
-- object validation/lint and relationship graph APIs exposed through storage/Electron bridge.
-
-`TODO(APP):` Metadata integrity verification and repair flow for `.vault/index.json`.
-Risk: quality and behavior drift if deferred.
-Current issue: index rebuild only if empty; stale/corrupt states are not fully diagnosed.
-Target files:
-
-- `mcp/storage.ts`
-- `docs/planning/initiatives/README.md` (tracking)
-
-Implemented reliability telemetry baseline:
-
-- Structured error taxonomy in renderer/main diagnostics (`src/lib/domain/error-taxonomy.ts`).
-- MCP sidecar lifecycle telemetry (start/stop/restart/crash + reason) in `electron/mcp-sidecar.ts`.
-- Subsystem success timestamps for bootstrap/sync/index/link graph.
-- Local diagnostics bundle export via desktop bridge and Settings System Health tab.
-
-## 10. Architecture Decision Requirements
-
-For any major architecture change, add/update ADR content in docs before merge:
-
-- decision context
-- chosen option
-- rejected options
-- migration impact
-- rollback plan
-
-Required process:
+This document defines the **implemented** architecture and the required constraints for DND Tools.
+Every claim below maps to a file in the current tree. The pivot to a React primary app is recorded in
+[ADR-018](../adr/018-promote-react-app-to-primary.md) (which amends ADR-016).
+
+## 1. Surfaces
+
+The workspace is a pnpm monorepo. There is one primary application, a shared processing core, a set
+of cloud Lambdas, and the AWS infrastructure that hosts them.
+
+| Surface | Package | Role |
+| --- | --- | --- |
+| GM app | `apps/gm-react` (`@dndtools/gm-react`) | Vite + React 18 + react-router-dom v6 (HashRouter). Owns rendering, command dispatch, platform storage, remote play, cloud sync, and the Electron desktop shell. |
+| Processing core | `packages/core` (`@dndtools/core`) | Framework-independent (zod-only). Owns commands, reducers, permissions/visibility, actor-scoped queries, and the declared registries. |
+| Cloud functions | `packages/cloud-fns` (`@dndtools/cloud-fns`) | AWS Lambda handlers for WebRTC signaling and encrypted sync. |
+| Infrastructure | `infra/` | AWS SAM stacks for the opt-in cloud backend (see [`infra/README.md`](../../infra/README.md)). |
+
+Retired code is preserved but **not built**: the original SvelteKit GM app at `archive/gm-svelte`
+(tag `svelte-gm-final`) and the earlier v1 document editor (tag `v1-final`).
+
+## 2. Runtime Topology (`apps/gm-react`)
+
+The app is browser-first. The same renderer bundle also runs inside an Electron desktop shell.
+
+### 2.1 React renderer
+
+- Entry: `src/main.tsx` mounts `src/App.tsx` into `#root`.
+- Shell: `src/app/AppShell.tsx` renders the navigation, top bar, and the active screen. Screens live
+  in `src/screens/*.tsx`; the design system is `src/ds/components/**`; styles/tokens are
+  `src/styles/index.css` + `src/styles/tokens/*.css`.
+- Navigation is defined once in `src/app/nav.ts` (grouped IA + `SECTION_TITLES`) — see
+  [NAVIGATION_CONTRACT.md](NAVIGATION_CONTRACT.md) and [INFORMATION_ARCHITECTURE.md](INFORMATION_ARCHITECTURE.md).
+- The renderer never mutates durable state directly. Every GUI mutation is a command sent through the
+  runtime (§3).
+
+### 2.2 Command runtime
+
+- `src/runtime/SceneRuntime.ts` is the **single durable write choke point**. `SceneRuntime.dispatch(command)`
+  runs the pure `dispatchCommand` reducer from `@dndtools/core`, persists the result, and notifies
+  dispatch listeners.
+- `src/runtime/RuntimeContext.tsx` provides `RuntimeProvider` / `useRuntime`. React components read an
+  actor-filtered `CoreStateSlice` and call `runtime.dispatch(...)` to change anything.
+- A dev-only `window.__rt` handle exists for debugging; it is never present in a production build.
+
+### 2.3 Platform storage
+
+- `src/platform/storage/coreStore.ts` is the only module that touches Dexie/IndexedDB. It exposes
+  `loadCoreState`, `persistFullState`, `appendOperations`, `restoreCoreState`, `resetCoreStorage`, and
+  a type-only `storagePort`.
+- The Dexie database (`V2Database`) holds state-slice documents, the append-only operation log, and a
+  migration journal used for crash-safe upgrade recovery.
+- Persistence conforms to the framework-free `StoragePort` shape declared in `@dndtools/core`; the
+  boundary lint (`scripts/boundary-lint.ts`) keeps storage details out of the UI.
+
+### 2.4 Remote play (`src/net/`)
+
+- LAN / serverless WebRTC transport. The DM host (`SessionHost.ts`) holds the single authoritative
+  `SceneRuntime` and replicates **player-safe view-models** (`viewModels.ts`) built from the
+  actor-filtered query layer. Players (`SessionClient.ts`) are non-authoritative and send back only
+  intents (dice rolls, edits to their own character).
+- LAN discovery uses mDNS (`discovery.ts`); pairing/QR in `qr.ts`; message contracts in `messages.ts`.
+- The internet path reuses the same transport over a signaling relay + coturn TURN (`signaling.ts`,
+  `cloudBridge.ts`); the threat model is in [../security/README.md](../security/README.md).
+
+### 2.5 Cloud sync + auth (`src/cloud/`)
+
+- Opt-in. AWS Cognito identity (`auth.ts`, `AuthContext.tsx`); end-to-end-encrypted sync
+  (`cloudSync.ts`, `syncEngine.ts`, `vaultKey.ts`) with client-held keys. Tokens/keys live in an OS
+  credential store on desktop and are memory-only on the web (`tokenStore.ts`, `secureStore.ts`).
+- Sync stays **off by default and fail-closed** behind the core `SYNC-017` gate
+  (`packages/core/src/sync/cloud-sync-gate.ts`). Details: [../security/README.md](../security/README.md).
+
+### 2.6 Electron desktop shell (`electron/`)
+
+- `main.cjs` owns the BrowserWindow and serves the built renderer; `preload.cjs` exposes a minimal,
+  explicit bridge; `discovery.cjs` bundles the mDNS peer discovery for LAN play. The shell adds no
+  authoritative state — it hosts the same renderer and command runtime.
+
+## 3. Data Path
+
+```
+React screen ──dispatch(command)──▶ SceneRuntime ──▶ dispatchCommand (core reducer, pure)
+                                          │
+                                          ├──▶ coreStore (Dexie/IndexedDB): persist slices + op-log
+                                          ├──▶ dispatch listeners ──▶ SessionHost (P2P replication)
+                                          └──▶ (opt-in) cloud syncEngine: E2EE push of new operations
+```
+
+Reads flow the other way: components subscribe to the runtime and select an **actor-filtered**
+`CoreStateSlice`, so hidden/DM-only content is removed by the core query layer before it reaches the
+view (and before it is replicated to a player).
+
+## 4. Processing Core Boundary (Strict)
+
+`@dndtools/core` is platform-independent: it imports **no React, Svelte, DOM, Node, Electron,
+Capacitor, cloud, or app-runtime code** — only zod. This is enforced mechanically by
+`scripts/boundary-lint.ts` (which, per ADR-018, now also forbids React imports).
+
+The core owns:
+
+- commands + the deterministic `dispatchCommand` reducer (`src/commands`, `src/state`),
+- permission/visibility evaluation and actor-scoped queries (`src/permissions`, `src/queries`),
+- zod schemas (`src/schemas`),
+- the declared, owned registries:
+  - source-of-truth registry — `src/con/source-of-truth.ts`
+  - quality-gate registry — `src/platform/quality-gates.ts`
+  - performance-budget registry — `src/perf/budget-registry.ts`
+  - security regression gates — `src/security/regression-gates.ts`
+  - cloud-sync gate — `src/sync/cloud-sync-gate.ts`
+
+All durable mutation flows through commands into this core; nothing else may produce authoritative
+state.
+
+## 5. Quality & Verification
+
+- `pnpm gates` (`scripts/quality-gates.ts`) enforces the tiered quality-gate registry, failing closed.
+- `pnpm lint:boundary` enforces the core boundary.
+- Accessibility is gated: `pnpm a11y:contrast` (non-text contrast) + `pnpm a11y:axe` (Playwright axe
+  gate, `apps/gm-react/tests/e2e/a11y-axe-gate.spec.ts`).
+- `pnpm validate` is the whole-application harness — see [../development/VALIDATION.md](../development/VALIDATION.md).
+
+## 6. Architecture Decision Process
+
+For any major architecture change, add/update an ADR before merge:
 
 1. Start from `docs/adr/000-template.md`.
 2. Add or update a numbered ADR in `docs/adr/`.
-3. Update the ADR index in `docs/adr/README.md` with one-line summary and status.
+3. Update `docs/adr/README.md` with a one-line summary and status.
 4. Update affected implementation docs in the same change set.
 
-Baseline decision coverage is documented in:
-
-- `docs/adr/001-electron-filesystem-ownership.md`
-- `docs/adr/002-staged-mcp-write-model.md`
-- `docs/adr/003-ipc-surface-strategy.md`
-- `docs/adr/004-storage-adapter-boundary.md`
-- `docs/adr/005-unified-markdown-pipeline.md`
-- `docs/adr/006-multi-platform-approach-electron-capacitor.md`
-- `docs/adr/007-cloud-backend-architecture-aws.md`
-- `docs/adr/008-mcp-semantic-bundling-strategy.md`
-- `docs/adr/009-performance-budget-registry-and-telemetry.md`
-- `docs/adr/010-offline-sync-queue-and-conflict-resolution.md`
+The full decision history — including the ADRs that describe now-retired v1/Svelte runtimes — lives in
+[`docs/adr/`](../adr/README.md). Those historical ADRs are the decision record, not current behavior.

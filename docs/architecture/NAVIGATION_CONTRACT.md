@@ -1,73 +1,57 @@
 # Navigation Contract
 
-This document defines the required three-layer navigation model for DND Tools.
+The React app has a single navigation source of truth:
+`apps/gm-react/src/app/nav.ts`. It defines the grouped information architecture and the
+per-section top-bar titles; `apps/gm-react/src/app/AppShell.tsx` is the sole renderer
+(sidebar on desktop, `NavRail` on tablet, `BottomTabBar` + More sheet on phone). No other
+module may define primary destinations.
 
-## 1. Layer Definitions
+## 1. Information architecture (from `nav.ts`)
 
-### 1.1 Global Navigation
+Routes are HashRouter (`react-router-dom` v6) paths. The IA is grouped:
 
-Global navigation is stable across routes and switches between primary sections.
+- **RUN** — Command Center `/`, Command board `/board`, Session `/session`
+- **LIBRARY** — Characters `/characters`, Atlas `/atlas`, Campaign `/campaign`,
+  Knowledge `/knowledge`
+- **PLATFORM** — Graph & Search `/graph`, Audio `/audio`, Extensions `/extensions`,
+  Community `/community`, Plans & cloud `/upgrade`
+- **Player view** `/player` and **Settings** `/settings` (rendered in the shell footer)
 
-Requirements:
+`activeSectionId(pathname)` resolves the active section (longest matching path wins; `/`
+is Command Center). `sectionLabel` / `sectionSubtitle` read `SECTION_TITLES` for the top
+bar (see `TOPBAR_CHARTER.md`).
 
-1. Must expose between `5` and `7` destinations.
-2. Destinations must map to primary section roots.
-3. Must be visible in all main-shell routes except explicit immersive/fullscreen modes.
-4. Must not include content actions (create, delete, dice roll).
+## 2. Layer model
 
-### 1.2 Local Navigation
+Navigation elements are classified as exactly one of `global`, `local`, or `contextual`.
 
-Local navigation is section-scoped browse/filter/navigation within the active primary section.
+- **Global** — the grouped section destinations above. Stable across routes; maps to
+  section roots; carries no content actions (create/delete/dice). Rendered by `AppShell`
+  and defined only in `nav.ts`.
+- **Local** — section-scoped browse within the active section (e.g. the sidebar Scenes
+  list, Recent scenes). Must not duplicate global section switching and must swap out when
+  the section changes.
+- **Contextual** — inline links between related content (backlinks, cross-links,
+  breadcrumbs). Rendered adjacent to content, e.g. the `BackBar` breadcrumb in
+  `screen-kit.tsx`. Never a substitute for global section switching.
 
-Requirements:
+## 3. Accessibility and labeling
 
-1. Must only show structures relevant to the active section.
-2. Can include browse affordances (trees, tabs, saved filters, recent lists).
-3. Must not duplicate global section switching.
-4. Local controls must disappear or swap when section changes.
-
-### 1.3 Contextual Navigation
-
-Contextual navigation connects related objects and hierarchy from the currently viewed content.
-
-Requirements:
-
-1. Appears inline or adjacent to current content.
-2. Includes breadcrumbs, backlinks, related links, and object cross-links.
-3. Must not be used as a substitute for global section switching.
-
-## 2. Classification Requirement
-
-Every new navigation element must be classified as exactly one of:
-
-- `global`
-- `local`
-- `contextual`
-
-No unclassified navigation element is allowed.
-
-## 3. Accessibility And Labeling Contract
-
-All navigation landmarks must use stable, concise labels:
+Navigation landmarks use stable, concise `aria-label`s (as rendered in `AppShell`):
 
 - Primary section navigation: `<nav role="navigation" aria-label="Primary">`
-- Section-local navigation: `<nav aria-label="<Section> navigation">`
-- Breadcrumb navigation: `<nav aria-label="Breadcrumb">`
+- Section-scoped navigation: a concise section label (e.g. `aria-label="Shortcuts"`,
+  `aria-label="Settings"` on the footer nav)
+- Breadcrumb / back navigation: `<nav aria-label="Breadcrumb">` (`BackBar`)
 
-Acceptance criteria:
+Any `<nav>` or `role="navigation"` without an `aria-label` is a defect.
 
-1. Any `<nav>` without `aria-label` fails lint.
-2. Any `role="navigation"` without `aria-label` fails lint.
-3. Primary section navigation must use `aria-label="Primary"`.
-4. Breadcrumb navigation must use `aria-label="Breadcrumb"`.
+## 4. Rules
 
-## 4. Testable Rules
-
-1. Global nav destination count remains 5-7.
-2. A single user action must trigger one history push for route transitions.
-3. Duplicate global destinations in multiple shell surfaces are disallowed unless platform-specific and explicitly documented.
-4. Route pages must publish breadcrumb metadata consumed by shell breadcrumb UI.
-
-## 5. Enforcement
-
-CI enforces this contract with navigation-layer linting on Svelte source files.
+1. Primary destinations are defined once, in `nav.ts`; the same IA renders in every
+   viewport tier — a tier change is a presentation change, never an IA change.
+2. A single user action triggers exactly one history push per route transition.
+3. The same global destination must not be duplicated as an independently-defined entry
+   in another surface; the phone `BottomTabBar` and tablet `NavRail` derive from the same
+   `nav.ts` arrays, not hand-copied lists.
+4. Global navigation carries navigation only — no create/delete/roll content actions.

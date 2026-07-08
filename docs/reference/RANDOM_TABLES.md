@@ -1,67 +1,46 @@
-# Random Generation and Tables
+# Rollable Tables
 
-This document defines the production contract for Epic 4.7 random generation.
+How rollable tables work in the current app. A rollable table is a **`dice-table`
+Vault Object** — a `ContentItem` (`kind: 'object'`) with a declared `dice-table`
+subtype. Drawing one is a session action, resolved deterministically in the
+framework-free core (SES-008).
 
-## 1. Vault Random Table Format
+## 1. Table shape
 
-Random tables are normal markdown notes tagged `random-table` with a fenced block:
+A `dice-table` object declares two fields:
 
-````md
+- `dice` — a dice expression (e.g. `1d20`, `2d6`), parsed by the core dice engine.
+- `entries` — an ordered list of result strings, one per row.
+
+Validation is fail-closed: a table with no dice expression, no rows, or an invalid
+expression is rejected before any draw. See `readDiceTable` in
+`packages/core/src/commands/dice.ts`.
+
+## 2. Drawing a table
+
+Drawing is the `session.roll-table` command (`handleRollTable`,
+`packages/core/src/commands/dice.ts`; input contract `rollTableInputSchema` in
+`packages/core/src/schemas/commands.ts`, keyed by `tableItemId`).
+
+Resolution is `resolveTableDraw(dice, entries, seed)` in
+`packages/core/src/state/dice.ts`:
+
+- The `dice` expression is rolled deterministically from the draw seed.
+- The total maps to a 1-based row (`row N` = total N), **clamped** into `[1, rowCount]`
+  so an out-of-band total can never select a missing row.
+- Pure and deterministic: the same `(table, seed)` always selects the same row, so
+  every session participant sees the same result.
+
+## 3. Authority
+
+A rollable table is a DM session asset. Only the DM — or a player holding a
+write-capable grant on the table item — may draw it (`actorMayUseTable`,
+`packages/core/src/commands/dice.ts`). This is enforced in core, not the UI.
+
 ---
-title: Loot Table
-tags: [random-table]
----
 
-```random-table
-3 | 10 gp
-1 | Potion of healing
-1 | {{table: Trinkets}}
-```
-````
-
-Rules:
-
-- `weight | result` sets direct weight (`3 | ...` means weight 3).
-- `start-end | result` creates range weight (`5-8 | ...` means weight 4).
-- Nested table references are supported via `{{table: Name}}` or `[[table: Name]]`.
-- Cycles and runaway nesting are rejected safely.
-
-## 2. Built-In System Library
-
-The app ships read-only 5e/SRD-oriented system tables (`source: system`) for:
-
-- Encounters by terrain (`dungeon`, `wilderness`, `urban`)
-- NPC personality matrices (trait, bond, flaw, ideal)
-- Treasure hoards by tier
-- Weather by climate
-- Dungeon room content
-- Tavern names
-- Name tables (common/northern/desert) for NPC/location generation
-
-System tables can be copied into vault notes for customization from the Generator panel.
-
-## 3. MCP Tool
-
-`roll_table` rolls by table name with strict contract validation:
-
-- input: `name`, optional `includeSystem`, optional `maxDepth`
-- output: resolved result text, references, trace, index counts
-
-## 4. Editor and Reader Workflow
-
-- In editor:
-  - `/table <name>` + Enter inserts `{{roll: Name}}`
-  - Insert menu includes direct roll-block insertion
-- In reading mode:
-  - roll blocks render as interactive dice controls
-  - repeated rolls append history under the block
-  - accepting a result replaces the block in note content
-
-## 5. Context-Aware Generation
-
-NPC quick generation is algorithmic (no AI dependency):
-
-- Uses vault notes/objects + link graph degree for weighted context.
-- Faction/location/name candidates prefer high-signal vault entities.
-- Active region culture (from session context location metadata) biases name tables.
-- New NPC names are de-duplicated against existing NPC roster.
+> **Historical note.** Earlier drafts of this document described an Epic 4.7 system of
+> markdown notes tagged `random-table` with weighted/range rows, nested `{{table:}}`
+> references, a built-in SRD table library, a `roll_table` MCP tool, and `/table` editor
+> commands. That was the retired SvelteKit app (`archive/gm-svelte`). None of it exists
+> in the current React/core codebase; the `dice-table` model above supersedes it.

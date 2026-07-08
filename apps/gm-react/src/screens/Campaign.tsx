@@ -201,7 +201,7 @@ function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClo
 			setErr(result.rejection.message);
 			return;
 		}
-		// Visibility is a SEPARATE command on edit (same split as Knowledge / the production app).
+		// Visibility is a SEPARATE command on edit (same split as Knowledge).
 		if (faction && visibility !== faction.view.visibility) {
 			const vis = await runtime.dispatch({
 				type: 'content.set-item-visibility',

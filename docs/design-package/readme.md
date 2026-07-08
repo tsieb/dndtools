@@ -101,15 +101,18 @@ own accent via the theme tokens, but the warmth is ours).
 This system was built by reading the product's real code and design materials. If you have access,
 explore them to build higher-fidelity work:
 
-- **`gm/`** — the production app (SvelteKit 5 + semantic-token CSS). Source of truth for the token
-  system (`gm/src/routes/styles.css`), the seven-section IA, the widget set, and the Lucide icon
-  registry (`gm/src/lib/gui/icons.ts`).
+- **`apps/gm-react/`** — the production app (Vite + React 18 + semantic-token CSS). Source of truth
+  for the token system (`apps/gm-react/src/styles/tokens/*.css`), the seven-section IA, the widget
+  set, and the Lucide icon registry (`lucide-react`, documented in
+  `docs/reference/ICON_VOCABULARY.md`). *(The retired SvelteKit app is archived at
+  `archive/gm-svelte`.)*
 - **`redesign/`** — the redesign package: `00-diagnosis.md` (evidence-backed UI/UX diagnosis of the
   current build) and `01-design-brief.md` (the warm, single-focus redesign brief this system
   implements). Plus `evidence/` screenshots of the "before" state.
 - **GitHub — [`tsieb/dndtools`](https://github.com/tsieb/dndtools)** — the monorepo (`apps/`,
-  `packages/`, `docs/`). Browse `docs/planning/v2/ux/` and `apps/gm/` for the full UX spec, the
-  navigation registry, and component code. **Explore this repo to build better DND Tools designs.**
+  `packages/`, `docs/`). Browse `docs/architecture/` (IA, navigation, layout contracts) and
+  `apps/gm-react/` for the full UX spec, the navigation registry, and component code. **Explore this
+  repo to build better DND Tools designs.**
 
 Fonts (Inter, Cinzel, JetBrains Mono) are referenced by name in the app and loaded as webfonts; no
 binaries ship in the repo. See **Caveats**.
@@ -201,8 +204,9 @@ grid. Cool/navy and bluish-purple gradients are explicitly off-brand.
 ## ICONOGRAPHY
 
 **One family: [Lucide](https://lucide.dev).** Clean 2px stroke, `currentColor`, MIT-licensed. The
-production app imports Lucide as the *only* icon source through a single registry
-(`gm/src/lib/gui/icons.ts`) so there is one family at one weight — never "icon soup". This system
+production app imports Lucide as the *only* icon source (`lucide-react`) through a single documented
+vocabulary (`docs/reference/ICON_VOCABULARY.md`) so there is one family at one weight — never "icon
+soup". This system
 mirrors that registry in `components/core/Icon.jsx` (semantic name → Lucide glyph).
 
 - **Delivery.** Lucide is **CDN-linked** (`https://unpkg.com/lucide@latest/dist/umd/lucide.js`) in
@@ -310,9 +314,10 @@ Mount in `@dsCard` HTML via `const { Button } = window.DNDToolsDesignSystem_8ae0
 
 **Developer handoff** (`handoff/`)
 - `redesign.tokens.css` — the warm redesign as a drop-in token override for the production app
-  (`apps/gm`); same token names, new values. `APPLY.md` — the migration runbook (what to paste,
-  which components map to which Svelte files). `before-after.html` — a one-page demo of the same
-  markup under the old vs new token set.
+  (`apps/gm-react`); same token names, new values. `APPLY.md` — the runbook mapping the design
+  system onto the React app (tokens at `apps/gm-react/src/styles/tokens/`, components at
+  `apps/gm-react/src/ds/`). `before-after.html` — a one-page demo of the same markup under the old
+  vs new token set.
 
 **Other**
 - `SKILL.md` — Agent-Skills-compatible entry point.

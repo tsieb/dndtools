@@ -1,14 +1,14 @@
-# @dndtools/gm-react — Feature Gap Audit
+# @dndtools/gm-react — Feature Inventory & Gap Audit
 
-**Audited:** 2026-06-20 · **Branch:** `worktree-react-prototype` · **Auditor:** automated, evidence-based.
+**Audited:** 2026-06-20 · **Branch:** `main` · **Auditor:** automated, evidence-based.
 
-> **Scope of this document.** A thorough, severity-rated inventory of every gap between what the
-> React prototype *appears* to be (a polished, populated GM command center) and what it *actually
-> does* (at audit time, a mostly-static visual shell with three genuinely-wired surfaces). It
-> complements [PROTOTYPE.md](./PROTOTYPE.md) (visual contract) and [README.md](./README.md) (wiring
-> contract), both of which describe the design intent; this document describes the **runtime
-> reality** measured from the code and the running app. **Current state: see §0★★ below** — every
-> surface is now core-wired; §1–§9 are the historical audit kept for the record.
+> **Scope of this document.** `apps/gm-react` is the **primary GM app**. This is the severity-rated
+> feature inventory of that app: what each surface does today, and the gaps between the intended,
+> fully-populated GM command center and the runtime reality measured from the code and the running
+> app. It complements [PROTOTYPE.md](../../apps/gm-react/PROTOTYPE.md) (visual contract) and
+> [README.md](../../apps/gm-react/README.md) (wiring contract), both of which describe the design
+> intent. **Current state: see §0★★ below** — every surface is now core-wired; §1–§9 are the
+> historical gap audit (dated 2026-06-20, when the app was an early build) kept for the record.
 
 ---
 
@@ -181,8 +181,8 @@ Ran against the live dev server (`pnpm dev:react`, port 5273):
 `typecheck:react` (PASS) · `build:react` (PASS) · `verify-roundtrip.mjs` (11/11) ·
 `verify-canvas.mjs` (13/13) · a 15-route headless smoke test (15/15 mount, 0 page errors). Then
 static cross-reference of every `src/screens/*.tsx` for `useRuntime`/`dispatch`/`mockCampaign`/no-op
-handlers, and comparison of the live-play surfaces against their Svelte wiring reference in
-`apps/gm/src`.
+handlers, and comparison of the live-play surfaces against the (now archived) Svelte wiring
+reference in `archive/gm-svelte/src`.
 
 **Verification basis (be precise about it).** The two shipped gate scripts dispatch commands via the
 DEV `window.__rt` handle, *not* by clicking the UI — so on their own they prove the *Core* accepts a

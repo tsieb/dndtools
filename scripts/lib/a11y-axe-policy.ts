@@ -2,7 +2,7 @@
  * Accessibility axe gate policy (UX-A11Y-001, UX-A11Y-017).
  *
  * Pure, side-effect-free decision logic shared by the Playwright a11y gate spec
- * (`apps/gm/tests/e2e/a11y-axe-gate.spec.ts`) and the merge/report CLI
+ * (`apps/gm-react/tests/e2e/a11y-axe-gate.spec.ts`) and the merge/report CLI
  * (`scripts/a11y-axe-report.ts`). Keeping the policy here lets it be unit-tested in isolation
  * (`tests/unit/a11y-axe-policy.test.ts`) so the release gate is provably non-vacuous.
  *

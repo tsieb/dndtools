@@ -1,81 +1,56 @@
 # Performance Engineering
 
-This document defines the committed runtime budgets plus the baseline-capture workflow used to track regressions over time.
+> This document was sharply reduced during the React pivot (ADR-018). The prior
+> metrics-capture/baseline pipeline (`metrics:capture`, `metrics:compare`, `tests/perf/*.json`,
+> `performance-regression.yml`) and the v1 Electron/vault/MCP diagnostics IPC no longer exist.
+> Performance budgets now live in a single core registry; there is no automated capture/compare
+> pipeline wired to scripts today.
 
-## 1. Hard Budgets
+## 1. Budget Registry
 
-Canonical budget registry:
+Canonical, owned source of truth:
 
-- `src/lib/types/diagnostics.ts` (`PERFORMANCE_BUDGETS`)
+- `packages/core/src/perf/budget-registry.ts` (`performanceBudgets`, validated by `validateBudgetRegistry`)
 
-Budgeted operations:
+Each budget names the user workflow it governs, the owning domain, a user-facing risk, and a
+measurement method (`latency-ms-p95`, `throughput-fps-p95`, or one-shot `duration-ms`). The registry
+is pure (no DOM/Node/clock/entropy) so it is deterministic and unit-testable.
 
-- `cold_start` <= `3000ms`
-- `vault_open` <= `2000ms`
-- `note_open` <= `200ms`
-- `search_response` <= `150ms`
-- `note_save` <= `100ms`
-- `graph_rebuild_incremental` <= `50ms`
-- `mcp_bundle_call` <= `800ms`
+Current budgets (all `provisional` — provisional targets, no measured baseline yet):
 
-Initial client bundle goal:
+| Budget id             | Target                 |
+| --------------------- | ---------------------- |
+| `smoke-ci`            | <= 3 min (duration)    |
+| `app-startup`         | <= 2000 ms             |
+| `vault-open`          | <= 3000 ms             |
+| `scene-first-render`  | <= 1500 ms             |
+| `widget-update`       | <= 100 ms (p95)        |
+| `map-pan-zoom-desktop`| >= 50 fps (p95)        |
+| `map-pan-zoom-slim`   | >= 30 fps (p95)        |
+| `search`              | <= 250 ms (p95)        |
+| `graph-indexing`      | <= 500 ms (duration)   |
+| `sync-reconciliation` | <= 2000 ms (p95)       |
+| `live-session-delivery`| <= 500 ms (p95)       |
 
-- initial-route JavaScript <= `100KB` gzipped
+The measurement half that grades observed samples against these budgets is
+`packages/core/src/perf/measurement.ts`. The initial-route JavaScript bundle budget lives in
+`packages/core/src/perf/bundle-budget.ts`.
 
-## 2. Baseline Artifacts
+## 2. Enforcement
 
-Committed baselines live in `tests/perf/`:
+`validateBudgetRegistry` fails closed when a budget is missing an owner, a user-facing risk, or (for
+a provisional budget) a valid, un-lapsed `reviewDate`. It is exercised by the core unit test
+`packages/core/tests/perf-budget-registry.test.ts`, which runs under `pnpm test:critical`
+(and therefore `pnpm test` / `pnpm check`).
 
-- `bundle-baseline.json`
-- `build-baseline.json`
-- `test-baseline.json`
-- `performance-baseline.json`
+Because every budget is still `provisional`, each carries a `reviewDate`; once real baselines are
+measured, promote the relevant budgets from provisional to measured in the registry.
 
-Use `pnpm metrics:capture -- --profile baseline --writeBaseline` to refresh the
-merge-blocking baseline set intentionally. Add `--includeExtendedTests` when you also
-want to time the non-gating browser and extended desktop suites.
+## 3. When A Budget Matters To A Change
 
-## 3. Tooling
-
-- capture: `pnpm metrics:capture`
-  This captures the suites enforced by the `main` quality gate by default. Use
-  `pnpm metrics:capture -- --includeExtendedTests` for a broader audit snapshot.
-- compare: `pnpm metrics:compare`
-- legacy perf-only compare alias: `pnpm perf:compare`
-- scheduled benchmark workflow: `.github/workflows/performance-regression.yml`
-
-The compare step is merge-blocking on `main` PRs when:
-
-- a timing baseline regresses materially
-- initial-route gzip exceeds the bundle budget
-- a runtime metric exceeds its regression threshold
-
-## 4. Build Pipeline Expectations
-
-The desktop build now runs renderer and MCP builds in parallel before Electron bundling.
-
-Expected healthy ordering:
-
-- `build` should be the slowest renderer-facing stage
-- `mcp:build` should stay materially below renderer build time
-- `desktop:build` should remain well below the sum of `build + mcp:build` because of parallelism
-- `desktop:package` / `desktop:package:dir` are expected to be the slowest overall stages
-
-Authoritative current timings should be read from `tests/perf/build-baseline.json`.
-
-## 5. Runtime Telemetry
-
-Runtime telemetry sources:
-
-- renderer operations report through diagnostics IPC
-- Electron main reports vault-open telemetry
-- desktop benchmark runs emit machine-readable snapshots to `tmp/metrics/` or `tmp/performance/`
-
-## 6. Mitigation Playbook
-
-When a metric regresses:
-
-1. Capture fresh metrics with `pnpm metrics:capture -- --profile ci --outputDir tmp/metrics/latest`.
-2. Compare against committed baselines with `pnpm metrics:compare`.
-3. Identify whether the regression is in bundle size, build duration, suite duration, or runtime telemetry.
-4. Apply targeted fixes and re-run the affected category before updating baselines.
+1. If a change touches a budgeted workflow (startup, scene render, widget update, map pan/zoom,
+   search, graph indexing, sync/live-session delivery), confirm the relevant budget in the registry.
+2. Add or update the measurement in `packages/core/src/perf/measurement.ts` (and its companion perf
+   modules) rather than scattering ad-hoc timings.
+3. Do not weaken a target to make a change pass; adjust the registry only through the owned review it
+   documents.

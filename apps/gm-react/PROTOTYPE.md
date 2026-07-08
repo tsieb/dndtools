@@ -8,10 +8,10 @@ what is and isn't matched. For the **core-wiring / runtime architecture**, see [
 
 ## 1. Purpose
 
-`apps/gm-react` is a parallel **React** frontend that reproduces a polished, cohesive online design
-prototype ("DND Tools") pixel-faithfully, while wiring the live surfaces to the real
-`@dndtools/core` Processing Core. It is a complete, functional prototype of the GM app — a candidate
-to later port back to the production Svelte app (`apps/gm`) — and is kept **fully isolated** from it.
+`apps/gm-react` is the primary GM app: a **React** frontend that reproduces a polished, cohesive
+online design prototype ("DND Tools") pixel-faithfully, while wiring the live surfaces to the real
+`@dndtools/core` Processing Core. It is the only maintained GM surface (the original SvelteKit app is
+retired to `archive/gm-svelte`; see [ADR-018](../../docs/adr/018-promote-react-app-to-primary.md)).
 
 Two intents run in parallel and must both hold:
 

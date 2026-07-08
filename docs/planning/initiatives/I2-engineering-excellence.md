@@ -340,7 +340,7 @@ any budget that is exceeded. Performance is treated as a feature, not an afterth
   3. Add periodic policy verification checklist.
 
 - **S2.6.21 - Standardize primary branch naming in workflows**
-  Remove dual-branch trigger ambiguity (`main` + `master`) where possible.
+  Keep a single primary branch (`main`) so there is no dual-branch trigger ambiguity.
   Implementation steps:
   1. Select canonical primary branch.
   2. Update all workflow triggers and docs consistently.

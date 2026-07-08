@@ -1,10 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Isolated React prototype app. It consumes @dndtools/core directly from its TypeScript
-// source (the core package's "exports" points at ./src/index.ts), so Vite/esbuild transforms
-// the framework-agnostic Processing Core with no separate build step — exactly how the
-// production SvelteKit app consumes it.
+// The React GM app. It consumes @dndtools/core directly from its TypeScript source (the core
+// package's "exports" points at ./src/index.ts), so Vite/esbuild transforms the framework-agnostic
+// Processing Core with no separate build step.
 //
 // Two build targets, one codebase:
 //   • `build`       (default mode) → dist/       — the standard app; first run shows onboarding.

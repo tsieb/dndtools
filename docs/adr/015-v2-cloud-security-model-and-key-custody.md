@@ -34,7 +34,8 @@ custody, rotation, recovery, participant cache sealing, CRDT/websocket provider)
 exists to satisfy the SEC-009 "declare before release" obligation in a **machine-checkable** form while
 that concrete crypto remains deferred: it declares the security model **framework**, the **fail-closed
 default posture**, and the **release gate** that stays BLOCKED until an accepted model + satisfied
-prerequisites exist. The remake-review traceability matrix (`00-quality-traceability.md`) names exactly
+prerequisites exist. The (since-pruned) remake-review traceability matrix — retained in git history;
+current requirements live in `docs/requirements/` — named exactly
 this requirement: a decision record + test coverage for encryption, key ownership, server trust
 boundaries, rotation, revocation, and recovery before cloud sync/collaboration release.
 
@@ -168,4 +169,5 @@ enforced by `apps/v2/packages/core/src/security/cloud-boundary.ts`.
   - `apps/v2/packages/core/tests/security-cloud-security-model.test.ts`
   - `apps/v2/packages/core/tests/security-key-custody.test.ts`
   - `apps/v2/packages/core/tests/sec-regression-gate-coverage.test.ts`
-- Operational docs: `docs/planning/v2/epics/SEC-secrets-and-cloud-collaboration.completion.md`.
+- Operational docs: the SEC secrets-and-cloud-collaboration completion record, formerly under
+  `docs/planning/v2/` _(since pruned from the tree; retained in git history)_.

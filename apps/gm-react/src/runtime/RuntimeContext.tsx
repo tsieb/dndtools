@@ -9,8 +9,8 @@ import {
 import { SceneRuntime } from './SceneRuntime';
 import { defaultEnvironment } from './environment';
 
-// The device owner. The production app seeds a DM actor with this id (plus demo participants) on
-// first load; the "view as" control switches which actor's filtered view is rendered.
+// The device owner. The app seeds a DM actor with this id (plus demo participants) on first load;
+// the "view as" control switches which actor's filtered view is rendered.
 export const DEFAULT_DM_ACTOR_ID = 'dm-1';
 
 const RuntimeCtx = createContext<SceneRuntime | null>(null);

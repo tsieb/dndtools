@@ -8,10 +8,11 @@
 ## Vision Statement
 
 DND Tools will be the standard by which all TTRPG digital companions are measured. It
-runs offline-first on every platform a DM or player actually uses — desktop, Android,
-eventually iOS — with data fully owned by the user. When connected, it enables real-time
-collaborative sessions between any participants, with or without a backend, using direct
-peer-to-peer links for local play and AWS-backed cloud for remote groups. An AI agent
+runs offline-first — in the browser and inside the Electron desktop shell today, with
+mobile a future target — with data fully owned by the user. When connected, it enables
+real-time collaborative sessions between any participants, with or without a backend,
+using direct peer-to-peer links for local play and AWS-backed cloud for remote groups
+(both real today). An AI agent
 layer (MCP) operates as a genuine creative partner: it does not merely wrap CRUD
 operations but performs deep algorithmic reasoning over the vault and delivers
 pre-contextualized, semantically bundled intelligence that dramatically reduces model
@@ -36,9 +37,11 @@ under the stress of a live game session.
    never silently mutate data. Every write is staged, previewed, and human-approved
    unless explicitly trusted.
 
-5. **Platform agnosticism through abstraction.** The `StorageAdapter` boundary and the
-   renderer/main separation allow every platform target (desktop, Android, browser) to
-   share the same application layer with only the adapter changing.
+5. **Platform agnosticism through abstraction.** The framework-free Processing Core
+   (`packages/core`) is the shared application layer: the React renderer reaches it only
+   through command dispatch and actor-scoped queries, and persistence sits behind a
+   Dexie/IndexedDB adapter. The same core runs in the browser and inside the Electron
+   desktop shell, with only the outer shell changing.
 
 6. **Extensibility from first principles.** Campaign systems, object types, plugins, and
    themes are designed as first-class module boundaries so the community can contribute
@@ -75,6 +78,11 @@ under the stress of a live game session.
 Each Initiative contains 3–7 Epics. Each Epic contains 3–7 Stories. Stories are the
 atomic reviewable unit of work — one PR, one demonstrable outcome.
 
+> **This map is the planning backlog, not a shipped-feature list.** Initiatives are
+> aspirational direction; many are partially delivered or not yet started. `I21`
+> (`I21-codebase-realignment-quality-audit.md`) tracks realigning docs and code to the
+> React-primary reality recorded in ADR-018.
+
 | #   | Initiative                    | Priority | Depends On | File                                                                     |
 | --- | ----------------------------- | -------- | ---------- | ------------------------------------------------------------------------ |
 | I1  | Platform Foundation & Trust   | P0       | —          | [I1-platform-foundation.md](I1-platform-foundation.md)                   |
@@ -96,8 +104,8 @@ the prerequisite for all others. I14 (adaptive shell) and I15 (design system) bu
 parallel on I13's foundation. I16, I17, and I18 build on I13–I15. I19 (map tool UX)
 and I20 (board tool UX) are the domain-specific UX completions that require the full
 I13–I18 foundation plus their respective functional prerequisites (I9 for maps, I4/I16
-for boards). These initiatives will touch nearly every file in `src/` and require a
-dedicated story branch series. Plan for a long-running refactor branch strategy: each
+for boards). These initiatives will touch nearly every screen in `apps/gm-react/src/`
+and require a dedicated story branch series. Plan for a long-running refactor branch strategy: each
 initiative is a branch, each epic within it is a PR. I19 and I20 must not be started
 until I13, I14, I15, I16, I17, and I18 are complete.
 

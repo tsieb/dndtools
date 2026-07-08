@@ -3,8 +3,9 @@ import { icons } from 'lucide-react';
 
 /**
  * The DND Tools icon registry — semantic names → Lucide PascalCase glyph names.
- * Mirrors src/lib/gui/icons.ts in the production app: Lucide is the ONLY icon family
- * (clean 2px stroke), and every surface draws through this one registry so there is one
+ * Lucide (via lucide-react) is the ONLY icon family (clean 2px stroke), and the canonical
+ * vocabulary is documented in docs/reference/ICON_VOCABULARY.md;
+ * every surface draws through this one registry so there is one
  * family at one weight — no "icon soup". Status keys each map to a DISTINCT shape so
  * meaning survives grayscale (A11Y-011).
  *

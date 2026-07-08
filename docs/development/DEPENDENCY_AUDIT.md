@@ -1,5 +1,12 @@
 # Dependency Audit
 
+> HISTORICAL ARTIFACT — point-in-time audit dated 2026-03-13. It predates the React pivot
+> (ADR-018) and audits the retired v1 desktop / browser / MCP-sidecar dependency tree. It does
+> NOT reflect the current dependencies of `apps/gm-react`, `packages/core`, `packages/cloud-fns`,
+> or `infra/`. Kept for history only; references below (MCP flows, vault/markdown ZIP export,
+> `tests/unit/repo-boundary-audit.test.ts`, Initiative 21) describe code that no longer exists.
+> Re-run a fresh audit against the current workspace before acting on anything here.
+
 Last reviewed: 2026-03-13
 
 ## Current posture

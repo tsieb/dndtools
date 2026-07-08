@@ -1,10 +1,16 @@
-# Applying the DND Tools design system to `apps/gm`
+# Applying the DND Tools design system to `apps/gm-react`
 
-This is the migration runbook for landing the **warm "candle-lit" redesign** on the production
-SvelteKit app. The work is two phases: a **token reskin** (low-risk, reskins the whole app at once)
-and an incremental **component port** (lifts the crafted treatment into specific Svelte components).
+This is the runbook for landing the **warm "candle-lit" redesign** on the production **React** app
+(`apps/gm-react`, Vite + React 18). Two phases: a **token reskin** (low-risk, reskins the whole app
+at once) and an incremental **component port** (lifts the crafted treatment into specific components).
 
-The design system was authored *from* this app's own token architecture, so token **names match
+> **Target: `apps/gm-react`.** The React app already realizes this design system — tokens live in
+> `apps/gm-react/src/styles/tokens/*.css` and the DS component library mirrors this package under
+> `apps/gm-react/src/ds/components/<group>/`. This runbook is the mapping/spec for keeping the two in
+> sync as the design system evolves. *(The retired SvelteKit app is archived at `archive/gm-svelte`;
+> Svelte filenames still cited below are the original reskin targets, kept for reference.)*
+
+The design system was authored *from* the app's own token architecture, so token **names match
 1:1** — applying the redesign changes values, never names or contracts.
 
 ---
@@ -15,17 +21,17 @@ This single step reskins every surface that already consumes `var(--color-*)` �
 them. No component code changes.
 
 ### 1.1 Land the token override
-Paste the entire contents of **`redesign.tokens.css`** at the **bottom** of
-`apps/gm/src/routes/styles.css` (after the component rules).
+Land the values from **`redesign.tokens.css`** in the React token layer under
+`apps/gm-react/src/styles/tokens/` (`colors.css`, `typography.css`, `spacing.css`, `base.css`).
 
-Because it redefines tokens under the same `:root` / `[data-theme=…]` selectors that appear earlier
-in the file, equal specificity means the **later** rule wins — the original values are overridden
-with no edits to the existing blocks. To revert, delete the pasted block.
+Because it redefines tokens under the same `:root` / `[data-theme=…]` selectors, equal specificity
+means the **later** rule wins — the original values are overridden with no edits to the existing
+blocks. To revert, delete the pasted block.
 
 > Prefer a clean diff? Instead of appending, replace the value bodies of the `:root`,
-> `[data-theme='tavern']`, `[data-theme='parchment']`, and `[data-theme='high-contrast']` blocks in
-> section 1–2 with the matching blocks from `redesign.tokens.css`, and add the MAP TOKENS block.
-> Same result, smaller file.
+> `[data-theme='tavern']`, `[data-theme='parchment']`, and `[data-theme='high-contrast']` blocks
+> with the matching blocks from `redesign.tokens.css`, and add the MAP TOKENS block. Same result,
+> smaller file.
 
 ### 1.2 Add the fonts
 The app references `Inter`, `Cinzel`, and `JetBrains Mono` by family name but ships no `@font-face`.
@@ -67,12 +73,13 @@ deliberate choice. Decide one:
 
 ## Phase 2 — Component port (incremental; token-styled, so each is independent)
 
-The DS ships **React** reference components under `components/<group>/`; the app is **Svelte 5**.
-They are the *spec*, not drop-ins: port the markup + token usage into the matching Svelte component,
-matching the prop shape in each `.d.ts`. Both sides read the same CSS variables, so a faithful port
-inherits the look for free. Work bottom-up.
+The DS ships **React** reference components under `components/<group>/`; the app realizes them 1:1
+under `apps/gm-react/src/ds/components/<group>/`, matching the prop shape in each `.d.ts`. Both sides
+read the same CSS variables, so the treatment transfers for free. The table below maps each DS group
+to its React DS component group (the Svelte filenames in the right column are the original reskin
+targets, retained for reference).
 
-| DS reference (`components/`) | App target (`apps/gm/src/lib/gui/` unless noted) | Notes |
+| DS reference (`components/`) | App target (`apps/gm-react/src/ds/components/`; Svelte originals cited) | Notes |
 |---|---|---|
 | `core/Icon.jsx` + `Icon.d.ts` | `Icon.svelte` | Same Lucide registry; confirm semantic-name → glyph parity with `lib/gui/icons.ts`. |
 | `core/Button.jsx`, `IconButton.jsx` | (shared button styles in `styles.css`) | Lift variant/size/state treatment; keep token-only. |
@@ -91,8 +98,8 @@ token layer already carries the palette.
 
 **Templates & the prototype as targets:** `templates/dm-session-screen` and `templates/map-editor`
 (DS), plus the separate **Dndtools design system prototype** (claude.ai/design — the full assembled
-app), are the target-state references — build the Svelte screens (`routes/home`, `routes/session`,
-`routes/knowledge`, `routes/atlas`) *toward* them. For the scene-canvas edit mode + tiered inspector,
+app), are the target-state references — build the React screens (Command Center, Session, Knowledge,
+Atlas) *toward* them. For the scene-canvas edit mode + tiered inspector,
 the prototype's `Scene & Widget System` entry is the spec. They are reference, not code to paste.
 *(The in-system `ui_kits/command-center/` cards were retired 2026-06-23 once the prototype superseded
 them.)*

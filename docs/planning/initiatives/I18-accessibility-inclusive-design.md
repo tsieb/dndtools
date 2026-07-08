@@ -308,7 +308,7 @@ an accessibility checkpoint.
      indicate regressions in keyboard navigation.
 
 - **S18.5.3 — Manual screen reader QA process**
-  Document a screen reader QA checklist in `docs/development/ACCESSIBILITY_QA.md`.
+  Document a screen reader QA checklist in the Manual QA checklist in `docs/development/ACCESSIBILITY.md`.
   The checklist covers three environments: VoiceOver + Safari on macOS, NVDA +
   Chrome on Windows, TalkBack + Chrome on Android. For each, the checklist walks:
   (a) navigate to each primary section using screen reader gestures, (b) open and read

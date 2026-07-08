@@ -27,10 +27,10 @@ Selectors: `--layer=unit,static` · `--only=e2e,test:core` · `--skip=e2e` · `-
 
 | Layer | Checks | Environment |
 |-------|--------|-------------|
-| **static** | eslint, boundary lint, quality-gate meta-gate, CI-guardrail audit, text + non-text contrast, typecheck ×4 (core / gm / **gm-react** / **cloud-fns**), prettier | none |
-| **unit** | core suite, gm suite, repo tooling suite, **cloud + transport suite** (`test:cloud`), P2P crypto gate | none |
-| **build** | production build of core+gm and of gm-react | none |
-| **browser** | Svelte E2E (88 specs × desktop+mobile), axe scan + gate report, React verify (routes / round-trip / canvas / UI-dispatch), P2P live WebRTC handshake | headless Chromium + managed `react-dev` server |
+| **static** | eslint, boundary lint, quality-gate meta-gate, CI-guardrail audit, text + non-text contrast, typecheck ×3 (**core** / **gm-react** / **cloud-fns**), prettier | none |
+| **unit** | core suite, repo tooling suite, **cloud + transport suite** (`test:cloud`), P2P crypto gate | none |
+| **build** | production build of core, then gm-react | none |
+| **browser** | React Playwright E2E (`apps/gm-react/tests/e2e/`, desktop + mobile Chromium), axe scan + gate report, React verify (routes / round-trip / canvas / UI-dispatch), P2P live WebRTC handshake | headless Chromium + managed `react-dev` server |
 | **desktop** | Electron packaged smoke (file://, CSP, IndexedDB persistence across restart) | display + electron binary — *off by default* |
 | **cloud** | SSM config resolvable, CloudFront security headers, sync-API rejects anonymous, Cognito OIDC discovery, signaling e2e, TURN relay, E2EE sync round-trip + ciphertext-at-rest | live AWS dev stacks — *off by default, `--live`* |
 | **audit** | feature-gap drift (FEATURE-GAPS.md ↔ live code) | none |
@@ -47,7 +47,7 @@ both `check` and CI: `typecheck:react`, `typecheck:cloud-fns`, `test:cloud`,
   sequentially in one `group` to avoid IndexedDB races.
 - **Servers** (`react-dev` on :5273) are started once when a stage needs them and
   torn down at the end. A server already listening on its port is reused. The
-  Svelte E2E/axe checks let Playwright manage its own preview on :4183.
+  React E2E/axe checks let Playwright manage its own preview.
 - **Capabilities** are detected up front. A check whose requirement is absent is
   **skipped with a reason**, never failed — so `--full` on a laptop without AWS
   creds or a display simply skips cloud/desktop instead of erroring.

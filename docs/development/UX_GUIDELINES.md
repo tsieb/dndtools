@@ -1,134 +1,81 @@
-# UX Guidelines
+# UX Guidelines (engineering)
 
-This document defines strict UX requirements for DND Tools and tracks known gaps.
+Engineering-facing UX rules for the primary React GM app (`apps/gm-react`, `@dndtools/gm-react`).
 
-## 1. Product UX Context
+This doc covers UX *rules that engineers enforce in code*. Visual language, tokens, and component
+specs are owned by the design system — see `docs/design/`. Do not duplicate design-system content
+here; link to it.
 
-Primary usage context:
+Where things live:
 
-- active tabletop sessions
-- fast retrieval under time pressure
-- low tolerance for data loss or confusing state
+- Screens: `apps/gm-react/src/screens/*.tsx`
+- Shell / composition (nav, command palette, canvas): `apps/gm-react/src/app/*.tsx`
+- Design-system components: `apps/gm-react/src/ds/components/**`
+- Icons: `apps/gm-react/src/ds/components/core/Icon.jsx` (semantic name → `lucide-react`)
+- Tokens / global CSS: `apps/gm-react/src/styles/index.css` + `apps/gm-react/src/styles/tokens/`
 
-Primary user roles:
+## 1) Product context
 
-- Dungeon Masters (heavy linking, high note volume)
-- Players (lighter but frequent read/update access)
+Primary usage is live tabletop sessions: fast retrieval under time pressure and low tolerance for
+data loss or confusing state. Users are Dungeon Masters (heavy authoring) and Players (frequent
+read/light update).
 
-## 2. Non-Negotiable UX Principles
+## 2) Non-negotiable principles
 
 1. Content-first layout.
 2. Fast interaction feedback.
-3. Zero-surprise persistence behavior.
+3. Zero-surprise persistence behaviour.
 4. Keyboard parity for all major actions.
-5. Accessible defaults.
+5. Accessible defaults (see `docs/development/ACCESSIBILITY.md`).
 
-## 3. Current Implemented UX Baseline
+## 3) Interaction requirements
 
-Verified from code:
+### Navigation
 
-- Theme system with light/dark/system modes.
-- Sticky location bar with breadcrumbs and route context hints.
-- Sidebar mode switcher for folder tree, recent, favorites, and campaign entities.
-- Command palette (`Ctrl/Cmd+P`) supporting actions, navigation, settings, and notes.
-- Command palette template creation actions, including one-click session recap scaffold generation.
-- New note shortcut (`Ctrl/Cmd+N`).
-- Global search shortcut (`Ctrl/Cmd+Shift+F`).
-- Top bar back/forward controls with recent-route clarity.
-- Link graph exploration view with folder/tag/text filters and isolated-node toggle.
-- Top bar template button for quick "create from template" access.
-- Editor lazy loading and rich toolbar actions.
-- Reusable editor snippet library in the insert menu.
-- Editor split-pane mode with synchronized preview scrolling.
-- Structured frontmatter metadata controls in note edit flow.
-- Structured object forms for object-backed notes with markdown sync, lint feedback, and history-revert controls.
-- Unresolved-link workflow in editor (batch create, quick rename, disambiguation suggestions).
-- Backlinks panel in note view.
-- Session-mode focus reading toggle with minimal chrome.
-- Related note quick-jump panel (tags, backlinks, object references).
-- First-run setup wizard with vault naming and starter-preset selection.
-- Milestone-based Getting Started help panel (optional, non-blocking).
-- Contextual first-link guidance callouts in the note editor.
-- Help menu What's New panel with version-keyed update highlights.
-- Settings tabs including MCP pending changes (desktop mode).
-- Skip link and focus-visible styling.
-- Reduced motion media query handling.
+- Every screen has a clear route back to a home/list surface.
+- Browser back/forward semantics stay intact (the app uses `react-router-dom` `HashRouter`).
+- Sidebar/drawer toggling must never trap focus.
+- The command palette (`Cmd`/`Ctrl`+`K`, `apps/gm-react/src/app/CommandPalette.tsx`) is the
+  keyboard-first entry point for navigation and actions.
 
-## 4. Interaction Requirements
+### Editing & persistence
 
-### 4.1 Navigation
+- Visible save status for any auto-persisted surface; save/index failures surface actionable
+  messaging, not silent loss.
+- Destructive actions require explicit confirmation; deletions are reversible unless a permanent
+  delete is explicitly requested.
+- Long-running actions (imports, vault/cloud sync) show progress and result feedback.
 
-- Every page must have a clear route back to note list or home.
-- Back/forward browser semantics must remain intact.
-- Sidebar toggling must never trap focus.
+### Search
 
-### 4.2 Editing
+- Title-first quick navigation and content-oriented search are distinct affordances; results carry
+  enough context to disambiguate fast.
 
-- Editor must provide visible save status.
-- Auto-save failures must be surfaced with actionable messaging.
-- Keyboard shortcuts in editor must be documented and discoverable.
+## 4) Visual system
 
-### 4.3 Search
+- Use semantic tokens from `apps/gm-react/src/styles/tokens/` — never hard-coded colours.
+- Consistent spacing and interaction states via the token scale.
+- Preserve reduced-motion compliance (`prefers-reduced-motion` baseline in `styles/tokens/base.css`).
+- For the full visual language (palette, type scale, component anatomy), defer to `docs/design/`.
 
-- Quick switcher is title-first navigation.
-- Global search is content-oriented discovery.
-- Search results must expose enough context for fast disambiguation.
+## 5) Accessibility (mandatory)
 
-## 5. Visual System Requirements
+Full requirements and gates are in `docs/development/ACCESSIBILITY.md`. In short:
 
-Current theme tokens are in `src/app.css` and must remain source of truth.
-
-Rules:
-
-- use semantic tokens, not hard-coded random colors
-- ensure contrast ratios meet WCAG 2.1 AA
-- use consistent spacing and interaction states
-- preserve reduced-motion compliance
-
-## 6. Accessibility Requirements (Mandatory)
-
-- Full keyboard access for all critical workflows.
-- Visible focus indicators across controls.
-- Correct ARIA semantics on tablists, dialogs, and dynamic regions.
+- Full keyboard access for critical workflows; visible `:focus-visible` indicators on all controls.
+- Correct ARIA semantics on tablists, dialogs (use `ds/components/overlay/Dialog.jsx`), and live
+  regions; no keyboard traps in modals/drawers.
 - Skip-to-content present and functional.
-- Avoid keyboard traps in modals/sidebars.
+- Enforced by `pnpm a11y:gate` (axe on desktop + mobile Chromium, contrast lints, merged report).
 
-Automated accessibility assertions are implemented in `tests/e2e-desktop/accessibility.spec.ts` with Playwright + axe integration. All 10 a11y gaps closed; CI gate active. See `docs/development/ACCESSIBILITY.md`.
+## 6) Mobile & responsive
 
-## 7. Mobile and Responsive Requirements
+- Sidebar collapses to an overlay drawer on mobile; main content stays scrollable.
+- Core controls meet the touch-target minimum; the mobile-chromium axe profile guards this.
+- Editor/input surfaces must handle the virtual keyboard without obscuring the active field.
 
-Current behavior:
+## 7) Reliability UX
 
-- sidebar becomes overlay drawer on mobile
-- main content remains scrollable
-
-Required improvements:
-
-- stable touch target sizing (>=44x44 for core controls)
-- better keyboard + virtual keyboard handling in editor
-- explicit viewport-specific QA matrix
-
-`TODO(APP):` Add mobile-specific e2e scenarios for note edit/search/sidebar interactions.
-Reason: backlog item tracked for planned implementation.
-Target: see the surrounding section and referenced files in this block.
-Risk: quality and behavior drift if deferred.
-
-## 8. Reliability UX Requirements
-
-- destructive actions must use explicit confirmation.
-- trash behavior must be reversible unless permanent delete is explicitly requested.
-- vault-switch and MCP actions must display progress/result feedback.
-
-## 9. Known UX Gaps
-
-`TODO(APP):` Add explicit failure state UX for background save/index failures with retry guidance.
-Reason: backlog item tracked for planned implementation.
-Target: see the surrounding section and referenced files in this block.
-Risk: quality and behavior drift if deferred.
-
-Import/export preview UX with conflict reporting is now available in Settings:
-
-- Obsidian source analyzer reports severity-tagged issues before import.
-- Conflict policy selection (`skip` / `overwrite` / `merge`) is explicit before starting import.
-- Large imports expose background progress and resumable checkpoint controls.
-- Markdown archive export now emits a portable `.zip` plus `validation-report.json` so unresolved links are surfaced before restore/import on another device.
+- Trash/undo behaviour is reversible by default.
+- Vault-switch, import/export, and cloud-sync actions display progress and a clear result state,
+  including conflict reporting before applying a destructive merge.

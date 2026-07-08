@@ -38,10 +38,10 @@ const ACCT = DNDAccount as any;
 const PAGES = DNDPages as any;
 const GAPS2 = DNDGaps2 as any;
 const EXT = DNDExt as any;
-// Honest feedback for controls whose backend isn't part of this prototype (account/billing/vault
+// Honest feedback for controls whose backend isn't part of this build yet (account/billing/vault
 // connections, etc.) — they used to be silent no-ops, which read as broken. They now say so instead
 // of pretending to work. Controls that DO have a core path dispatch real commands elsewhere.
-const toast = () => Toaster.info('That isn’t available in this prototype build yet.');
+const toast = () => Toaster.info('That isn’t available in this build yet.');
 
 const SETTINGS_NAV = [
 	{ id: 'appearance', label: 'Appearance', icon: 'theme' },
@@ -545,7 +545,7 @@ function SettingsPermissions() {
 	);
 }
 
-/* ---- Vault (honest stub — no core command for source connection flows in this prototype) -------- */
+/* ---- Vault (honest stub — no core command for source connection flows in this build) -------- */
 function SettingsVault() {
 	const stateTone: Record<string, string> = { synced: 'success', syncing: 'info', 'needs-auth': 'warning', error: 'error' };
 	return (
@@ -666,7 +666,7 @@ function SettingsSync() {
 		};
 	}, []);
 	// REAL conflict read: the Core derives vault-conflict records straight from the op-log substrate. A
-	// transport-less local-first prototype seeds no conflict ops, so this is honestly empty here.
+	// transport-less local-first build seeds no conflict ops, so this is honestly empty here.
 	const conflicts = unresolvedConflicts(deriveVaultConflicts(ops, ops));
 	const recent = [...ops].slice(-8).reverse();
 	return (
@@ -711,7 +711,7 @@ function SettingsSync() {
 function SettingsAI() {
 	const ai = GAPS2.ai;
 	// no core command — the MCP/AI policy surface (vault modes, staged-write review) is out of this
-	// prototype's scope; the master gate is device-local mock and OFF by default.
+	// build's scope; the master gate is device-local mock and OFF by default.
 	const [enabled, setEnabled] = useState(ai.enabled);
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -797,7 +797,7 @@ function MigrationDialog({ from, to, onClose }: { from: any; to: any; onClose: (
 }
 function SettingsSystems() {
 	const cs = EXT.campaignSystem;
-	// no core command — campaign-system migration is out of this prototype's scope; active is mock.
+	// no core command — campaign-system migration is out of this build's scope; active is mock.
 	const [activeSystem] = useState<string>(cs.active);
 	const [migrateTo, setMigrateTo] = useState<string | null>(null);
 	const from = cs.modules.find((m: any) => m.id === activeSystem);

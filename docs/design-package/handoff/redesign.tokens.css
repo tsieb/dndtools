@@ -1,16 +1,16 @@
 /* ============================================================================================
  * DND Tools — WARM "CANDLE-LIT" REDESIGN · token override layer
  *
- * Drop-in for apps/gm/src/routes/styles.css. The redesign keeps the production token
- * ARCHITECTURE untouched (same names, same theme/density/motion contracts) and only changes
- * VALUES — so applying it is one append, and reverting it is one delete.
+ * Drop-in for the React app's token layer (apps/gm-react/src/styles/tokens/*.css). The redesign
+ * keeps the production token ARCHITECTURE untouched (same names, same theme/density/motion
+ * contracts) and only changes VALUES — so applying it is one append, and reverting it is one delete.
  *
  * HOW TO APPLY
- *   Paste this whole file at the BOTTOM of apps/gm/src/routes/styles.css (after all component
- *   rules). It redefines tokens under the same `:root` / `[data-theme=…]` selectors that appear
- *   earlier in the file; with equal specificity the LATER rule wins, so these values override the
- *   originals with zero edits to the existing blocks. The legacy alias bridge (--bg/--fg/…) reads
- *   tokens via var() at use-time, so order does not matter for it.
+ *   Land these values in the React token files under apps/gm-react/src/styles/tokens/ (colors.css,
+ *   typography.css, spacing.css, base.css). It redefines tokens under the same `:root` /
+ *   `[data-theme=…]` selectors; with equal specificity the LATER rule wins, so these values
+ *   override the originals with zero edits to the existing blocks. The legacy alias bridge
+ *   (--bg/--fg/…) reads tokens via var() at use-time, so order does not matter for it.
  *
  *   Fonts must be declared separately — see handoff/APPLY.md "Fonts". @import cannot live at the
  *   bottom of a stylesheet.

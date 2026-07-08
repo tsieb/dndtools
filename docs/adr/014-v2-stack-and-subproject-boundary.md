@@ -416,15 +416,8 @@ Evidence reviewed for this decision:
 
 - `CLAUDE.md`
 - `docs/development/V2_AGENTIC_IMPLEMENTATION.md`
-- `docs/remake-review/00-vision-brief.md`
-- `docs/remake-review/08-glossary.md`
-- `docs/remake-review/09-architecture-contracts.md`
-- `docs/remake-review/10-requirements.md`
-- `docs/remake-review/requirements/01-canvas-scene-widgets.md`
-- `docs/remake-review/requirements/09-sync.md`
-- `docs/remake-review/requirements/10-collaboration.md`
-- `docs/remake-review/requirements/14-platform.md`
-- `docs/remake-review/requirements/19-constraints.md`
+- The `docs/remake-review/` vision/architecture/requirements artifacts _(since pruned from
+  the tree; retained in git history. The current requirements live in `docs/requirements/`.)_
 - `docs/adr/006-multi-platform-approach-electron-capacitor.md`
 - `docs/adr/007-cloud-backend-architecture-aws.md`
 - `docs/adr/009-performance-budget-registry-and-telemetry.md`

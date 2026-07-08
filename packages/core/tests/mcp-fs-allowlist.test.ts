@@ -14,7 +14,7 @@ import {
 /**
  * MCP-012 — MCP FILESYSTEM AND PLATFORM-SERVICE EXCEPTIONS ARE EXPLICITLY ALLOWLISTED, LINTED, AND
  * REGRESSION-TESTED rather than inferred from broad runtime access. The boundary-lint regression
- * (apps/gm/tests/unit/boundary-lint.test.ts) covers AC1 (a filesystem import outside the
+ * (tests/unit/boundary-lint.test.ts) covers AC1 (a filesystem import outside the
  * allowlist fails the gate). THIS file covers AC2: an allowlisted MCP filesystem operation asserts
  * CONTAINMENT, SIZE LIMITS, SCHEMA VALIDATION, and AUDIT BEHAVIOR — plus the adversarial path-
  * traversal / forged-operation cases the epic demands, all FAIL CLOSED.

@@ -6,25 +6,23 @@ This document defines the engineering rules that apply to every code change in t
 
 - Node.js 20+
 - pnpm 9+
-- Desktop environment support for Electron validation
-- Java 21 + Android SDK for APK builds
+- Electron desktop is optional; a packaged-app smoke run needs a display.
 
 ## 2. Script Surface
 
 Canonical references:
 
-- `docs/development/SCRIPTS.md` - complete script inventory, runtimes, and use cases
-- `docs/development/TESTING.md` - test-scope guidance and smoke/full-gate policy
-- `docs/development/GIT_WORKFLOW.md` - initiative/epic branch model and CI tiers
+- `docs/development/SCRIPTS.md` - complete script inventory and use cases
+- `docs/development/VALIDATION.md` - test/validation story and the `pnpm validate` harness
+- `docs/development/GIT_WORKFLOW.md` - branch model and CI gates
 
 High-signal commands:
 
-- `pnpm audit:quick` - structured local smoke run
-- `pnpm audit:full` - structured local full-quality run
-- `pnpm test:smoke` - CI smoke contract for epic PRs
-- `pnpm check` - lint + typecheck + full Vitest suite
-- `pnpm desktop:test:critical` - desktop critical-path regression gate
-- `pnpm metrics:capture` / `pnpm metrics:compare` - baseline capture and comparison
+- `pnpm check` - `gates` + boundary lint + typecheck + full test suite (pre-handoff gate)
+- `pnpm validate` - whole-application validation harness (see VALIDATION.md)
+- `pnpm test` - core unit + cloud/net + repo tooling tests
+- `pnpm e2e` - Playwright (desktop + mobile Chromium) against `apps/gm-react`
+- `pnpm a11y:gate` - contrast + axe accessibility gate
 
 ## 3. Required Workflow
 
@@ -34,26 +32,24 @@ For every non-trivial change:
 2. Update tests at the correct layer.
 3. Run the smallest validating command that matches the change while iterating.
 4. Run `pnpm check` before handoff.
-5. Run the relevant manual gates from `docs/development/GIT_WORKFLOW.md` before opening a PR.
+5. Run the relevant gates from `docs/development/GIT_WORKFLOW.md` before opening a PR.
 6. Update docs when contracts, workflows, or architecture change.
 
 ## 4. Boundary Rules
 
-- Renderer (`src/`) must not import Node-only APIs.
-- Electron main/preload must not import renderer-only modules except shared types.
-- MCP code must not import Svelte runtime modules.
-- Route components must not import storage adapters directly.
-- Persistence logic belongs in adapters/services, not Svelte components.
+- Shared core (`packages/core`) is framework-independent: it imports NO React, Svelte, DOM, Node, Electron, or cloud APIs.
+- The renderer (`apps/gm-react/src`) must not import Node-only APIs; Electron main/preload live under `apps/gm-react/electron` and must not import renderer-only modules except shared types.
+- Screens (`apps/gm-react/src/screens`) dispatch commands; they never mutate durable state directly.
+- Durable storage goes only through the Dexie/IndexedDB adapter (`apps/gm-react/src/platform/storage/coreStore.ts`), never from screens or components.
 
-Boundary violations are lint-enforced and fail CI.
+Boundary violations are lint-enforced by `scripts/boundary-lint.ts` (which also forbids React imports in `packages/core`) and fail CI.
 
 ## 5. Coding Rules
 
 - TypeScript strict mode is non-negotiable.
-- Avoid `any`; prefer narrow types and runtime validation.
+- Avoid `any`; prefer narrow types and runtime validation (zod in core).
 - Keep modules single-purpose.
-- Keep route files thin and push business logic into domain/state modules.
-- Keep IPC payloads explicit and validated.
+- Keep screen/route files thin and push business logic into core commands/reducers.
 
 ## 6. Definition of Done
 
@@ -64,7 +60,7 @@ A change is complete only when all are true:
 - docs synced
 - no boundary violations introduced
 - no known regressions in lint, typecheck, or tests
-- performance budgets and committed baselines are not regressed
+- performance budgets in `packages/core/src/perf/budget-registry.ts` are not regressed
 
 ## 7. Documentation Rules
 

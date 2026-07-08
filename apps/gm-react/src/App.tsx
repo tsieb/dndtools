@@ -178,7 +178,7 @@ function Shell() {
 }
 
 /**
- * App — the React prototype root. The Processing Core is loaded once by the RuntimeProvider; until
+ * App — the application root. The Processing Core is loaded once by the RuntimeProvider; until
  * the first load resolves the shell shows a calm boot state so no screen renders against an empty,
  * un-seeded slice. After load most routes render inside the shared AppShell; `/play` is the lone
  * chrome-less route (the standalone player-view app brings its own sidebar/topbar).

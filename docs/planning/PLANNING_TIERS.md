@@ -57,7 +57,7 @@ An Epic is complete when its features are usable, tested, and documented — not
 
 **Characteristics:**
 
-- Maps naturally to a code domain (`mcp/tools/vault/`, `src/lib/domain/`, etc.)
+- Maps naturally to a code domain (`packages/core/src/commands/`, `apps/gm-react/src/screens/`, etc.)
 - Has a clear acceptance boundary: you can demonstrate it working end-to-end
 - Can be tracked as a GitHub milestone or project column
 - Decompose into 2–8 Stories
@@ -110,7 +110,7 @@ A Task is complete when the code compiles, relevant unit tests pass, and the cha
 **Characteristics:**
 
 - Directly touches specific files or modules
-- Can be expressed as a verb + noun + file reference ("Add `staleAfterDays` param to tool schema in `vault-intelligence.ts`")
+- Can be expressed as a verb + noun + file reference ("Add `staleAfterDays` param to a command schema in `packages/core/src/schemas/commands.ts`")
 - No further decomposition is needed to understand what to do
 - Decompose into 2–6 Atomic actions when complex
 
@@ -119,7 +119,7 @@ A Task is complete when the code compiles, relevant unit tests pass, and the cha
 - Add `healthScore` field to vault summary response type
 - Refactor `get_vault_summary` to call shared `computeHealth()` helper
 - Write unit test for stale note threshold edge cases
-- Update `mcp/tools/index.ts` to register new tool
+- Update `packages/core/src/mcp/tool-registry.ts` to register a new tool
 
 ---
 
@@ -143,8 +143,8 @@ An Atomic action is complete when it is done. No review, no test gate — just a
 **Examples:**
 
 - Add `staleAfterDays` param to Zod schema
-- Fix lint error on line 42 of `vault-intelligence.ts`
-- Update import path in `mcp/tools/index.ts`
+- Fix lint error on line 42 of `packages/core/src/commands/dice.ts`
+- Update import path in `packages/core/src/mcp/tool-registry.ts`
 - Run `pnpm check` and verify clean output
 
 ---

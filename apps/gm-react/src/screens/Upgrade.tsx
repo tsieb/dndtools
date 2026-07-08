@@ -155,7 +155,7 @@ function ChangePlanDialog({
 			)}
 			{/* Honest-local: billing has no Core/transport backing — the plan choice is real, the charge is not. */}
 			<div style={{ marginTop: 14, font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-				Prototype build — no payment is taken and no account is created. Your plan choice is saved on this device only.
+				No payment is taken and no account is created. Your plan choice is saved on this device only.
 			</div>
 		</Dialog>
 	);

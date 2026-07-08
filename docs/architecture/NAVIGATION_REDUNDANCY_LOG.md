@@ -1,5 +1,14 @@
 # Navigation Redundancy Inventory And Elimination Log
 
+> **HISTORICAL — point-in-time artifact.** This log inventoried the *old SvelteKit*
+> sidebar/topbar/mobile-nav entry points (`PrimaryNav.svelte`, section-rooted routes,
+> Epic 13.x sequencing) and predates the React pivot (ADR-018,
+> `docs/adr/018-promote-react-app-to-primary.md`). The Svelte app is archived at
+> `archive/gm-svelte`. It is **superseded** by the single React navigation source of
+> truth, `apps/gm-react/src/app/nav.ts` (see `NAVIGATION_CONTRACT.md`). The entries below
+> describe surfaces that no longer exist; kept only as a record of the consolidation
+> decisions that shaped the current grouped IA.
+
 This audit records current navigation/action entry points and defines the single resolved location for each behavior.
 
 Legend:

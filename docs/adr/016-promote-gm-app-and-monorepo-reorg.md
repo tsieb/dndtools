@@ -10,8 +10,8 @@
 
 ## Context
 
-DND Tools 0.2.0 (the canvas-first GM command platform, per
-`docs/remake-review/00-vision-brief.md`) was built under ADR-014 as a quarantined subproject at
+DND Tools 0.2.0 (the canvas-first GM command platform, described in the since-pruned
+`docs/remake-review/` vision brief — retained in git history) was built under ADR-014 as a quarantined subproject at
 `apps/v2`, deliberately kept separate from the stable v1 document-editor while the remake matured.
 The remake is now feature-complete and verified; v1 is retired. The `apps/v2` quarantine and the
 `v2-` labels have served their purpose and now obscure the fact that the GM app **is** the product.
@@ -80,9 +80,9 @@ was removed.
 
 - A large mechanical rename touched the package scope across the app and core, plus tooling,
   configs, and the gate registry.
-- Dated planning/audit artifacts under `docs/planning/v2/` and `docs/remake-review/` keep their
-  original `apps/v2` / `v2-` references as a historical record; "v2" there refers to today's
-  primary GM app. They are no longer path-validated.
+- Dated planning/audit artifacts formerly under `docs/planning/v2/` and `docs/remake-review/` have
+  since been pruned from the tree (retained in git history); where "v2" appears in surviving records
+  it refers to today's primary GM app. Current requirements live in `docs/requirements/`.
 
 ## Migration Notes
 

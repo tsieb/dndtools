@@ -5,7 +5,7 @@
 **Outcome:** The entire application is structurally sound, performant within budget,
 free of data exposure regressions, and maintainable at scale. No source file exceeds
 500 lines. CI/CD enforces a tiered branch model with fast smoke gates on epic merges
-and full quality gates on initiative-to-master merges. Every audit finding is paired
+and full quality gates on initiative-to-main merges. Every audit finding is paired
 with a regression test. All project goals, standards, and metrics established by
 initiatives I1–I20 are verified met. The audit framework and metric baselines persist
 as repeatable infrastructure for future maintenance cycles.
@@ -34,8 +34,8 @@ all subsequent audit and fix work depends on. They must complete first.
 
 ## Epic 21.1 — CI/CD Pipeline Restructuring
 
-**Goal:** Replace the flat branch-to-master model with a tiered initiative branch
-strategy where epic PRs run smoke tests only and initiative-to-master PRs run the full
+**Goal:** Replace the flat branch-to-main model with a tiered initiative branch
+strategy where epic PRs run smoke tests only and initiative-to-main PRs run the full
 quality gate.
 
 **Stories:**
@@ -43,8 +43,8 @@ quality gate.
 - **S21.1.1 — Define and document the tiered branch model**
   Document the new branching strategy in `docs/development/GIT_WORKFLOW.md`:
   initiative branches (`initiative/<id>-<slug>`) are long-lived and branch from
-  `master`. Epic branches (`story/<epic-id>-<slug>`) branch from their parent
-  initiative branch and merge back via PR. Initiative branches merge to `master` via PR
+  `main`. Epic branches (`story/<epic-id>-<slug>`) branch from their parent
+  initiative branch and merge back via PR. Initiative branches merge to `main` via PR
   when all epics are complete. Include diagrams showing the branch topology, merge
   direction, and test tier at each boundary.
 
@@ -57,15 +57,15 @@ quality gate.
 
 - **S21.1.3 — Restructure GitHub Actions for tiered gates**
   Refactor `.github/workflows/ci.yml` to detect target branch context. PRs targeting
-  an `initiative/*` branch run only the smoke suite. PRs targeting `master` run the
+  an `initiative/*` branch run only the smoke suite. PRs targeting `main` run the
   full quality matrix (lint, format, typecheck, unit tests, desktop E2E critical, desktop
   E2E accessibility, docs validation). Add a `ci-smoke.yml` workflow or conditional job
   logic as appropriate. Ensure the concurrency group strategy still cancels superseded
   runs within each tier.
 
 - **S21.1.4 — Configure branch protection rules**
-  Document the required branch protection configuration for both `master` and
-  `initiative/*` branches. `master` requires the full quality gate status checks.
+  Document the required branch protection configuration for both `main` and
+  `initiative/*` branches. `main` requires the full quality gate status checks.
   Initiative branches require only the smoke status check. Include setup instructions
   for GitHub branch protection rules in `docs/development/GIT_WORKFLOW.md`.
 
@@ -77,9 +77,9 @@ quality gate.
   reflect the new model.
 
 - **S21.1.6 — Validate the pipeline end-to-end**
-  Create the `initiative/I21-realignment` branch from `master`. Create a test epic
+  Create the `initiative/I21-realignment` branch from `main`. Create a test epic
   branch, push a trivial change, verify the smoke workflow triggers. Merge the epic PR,
-  then verify the initiative-to-master PR triggers the full quality gate. Document any
+  then verify the initiative-to-main PR triggers the full quality gate. Document any
   edge cases or gotchas discovered.
 
 ---
@@ -156,10 +156,10 @@ against a known starting point.
   Create or update `scripts/compare-baselines.ts` to compare current metrics against
   any baseline snapshot. Output a structured diff showing improvements, regressions,
   and budget compliance. Wire into `pnpm metrics:compare`. Ensure the tool can be run
-  in CI to gate initiative-to-master merges on metric regression.
+  in CI to gate initiative-to-main merges on metric regression.
 
 - **S21.3.6 — Metric reporting in CI**
-  Add a CI job or step that runs `pnpm metrics:capture` on initiative-to-master PRs
+  Add a CI job or step that runs `pnpm metrics:capture` on initiative-to-main PRs
   and posts a formatted metric comparison as a PR comment. Include bundle size delta,
   test duration delta, and performance budget compliance status.
 
@@ -1073,7 +1073,7 @@ and the accessibility QA checklist passes on all target screen readers.
   pointer. Fix each one and add an E2E keyboard test.
 
 - **S21.22.3 — Screen reader QA execution**
-  Execute the full screen reader QA checklist from `docs/development/ACCESSIBILITY_QA.md`
+  Execute the full screen reader QA checklist from the Manual QA checklist in `docs/development/ACCESSIBILITY.md`
   on NVDA + Chrome (Windows). Document findings as issues. Fix critical/serious
   findings. Update the QA checklist with any new test scenarios discovered.
 
@@ -1220,7 +1220,7 @@ and no documented contract contradicts the code.
 - **S21.25.2 — Development documentation audit**
   Review and update: `DEVELOPMENT.md`, `GIT_WORKFLOW.md` (especially the new tiered
   branch model), `TESTING.md`, `PERFORMANCE.md`, `ACCESSIBILITY.md`,
-  `ACCESSIBILITY_QA.md`, `UX_GUIDELINES.md`, `OWNERSHIP.md`. Verify setup instructions
+  `ACCESSIBILITY.md`, `UX_GUIDELINES.md`, `OWNERSHIP.md`. Verify setup instructions
   still work from a clean clone.
 
 - **S21.25.3 — Reference documentation audit**
@@ -1347,7 +1347,7 @@ Phase G (Validation)              │
   without an accompanying test that would fail if the fix were reverted.
 
 - **Branch model applies to this initiative.** Create `initiative/I21-realignment`
-  from `master` after Epic 21.1 establishes the branch model. Each subsequent epic
+  from `main` after Epic 21.1 establishes the branch model. Each subsequent epic
   branches from the initiative branch and merges back via PR with smoke tests.
 
 - **Metric snapshots at phase boundaries.** Capture metric snapshots after each phase

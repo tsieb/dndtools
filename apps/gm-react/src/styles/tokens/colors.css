@@ -1,7 +1,7 @@
 /* ============================================================================================
  * DND Tools — COLOR TOKENS
  *
- * Architecture (preserved from the production app, UX-VIS-002): raw palette values live ONLY in
+ * Architecture (UX-VIS-002): raw palette values live ONLY in
  * this file. Every component consumes semantic var(--color-*) tokens — never bare hex. A full
  * theme swap is a single `data-theme` attribute change on <html> with zero component edits.
  *

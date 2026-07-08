@@ -48,9 +48,8 @@ function section(overrides: Partial<CanonicalNavigationSection> = {}): Canonical
 }
 
 /**
- * The route roots the prototype actually scaffolds under `apps/gm/src/routes`.
- * The app's route-audit gate (tests/unit/route-audit.test.ts) derives this set from the
- * filesystem; here it is stated explicitly so the audit semantics are unit-tested too.
+ * The route roots the app actually scaffolds (React screens/routes under `apps/gm-react/src`).
+ * Stated explicitly here so the IA audit semantics are unit-tested against the declared set.
  */
 const SCAFFOLDED_ROUTES = [
 	'/',

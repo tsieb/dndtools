@@ -14,7 +14,7 @@ import { z } from 'zod';
  * This module is the DECLARED registry of those exceptions plus the pure, fail-closed VALIDATOR every
  * such operation must pass BEFORE the platform layer performs it. It is the exact analogue of the
  * PLAT-007 platform-service boundary (`platform/service-boundary.ts`) and the PLAT-006/012 GUI
- * platform-access exception manifest (`apps/gm/platform-access-exceptions.json`), applied to the
+ * platform-access exception manifest (`apps/gm-react/platform-access-exceptions.json`), applied to the
  * MCP filesystem surface:
  *
  *   - An operation id NOT in the allowlist is denied (`unknown-operation`). There is no implicit

@@ -1,31 +1,14 @@
-# Navigation Iconography Specification
+# Navigation Iconography
 
-This document defines the icon and identity system for the five primary sections in
-Epic 13.2 (`PrimaryNav`).
+The navigation section icons are part of the single icon vocabulary and are drawn through the same
+`Icon` component as every other glyph.
 
-## Primary Section Icons
+- **Canonical icon reference:** [`../reference/ICON_VOCABULARY.md`](../reference/ICON_VOCABULARY.md)
+- **Icon component + registry:** `apps/gm-react/src/ds/components/core/Icon.jsx` (Lucide via
+  `lucide-react`)
+- **Navigation source of truth (which icon each section uses):** `apps/gm-react/src/app/nav.ts`
 
-| Section   | Icon token | Semantic category       | Rationale                                                                 |
-| --------- | ---------- | ----------------------- | ------------------------------------------------------------------------- |
-| Knowledge | `book`     | documentation / archive | Distinctly communicates note-centric worldbuilding and knowledge browsing |
-| Atlas     | `map`      | spatial / geography     | Explicit map metaphor for location and spatial exploration                |
-| Session   | `hex`      | live mode / gameplay    | Strong gameplay-state identity without overlap with map or campaign icons |
-| Campaign  | `banner`   | planning / progression  | Signals long-running narrative and entity management                      |
-| Settings  | `gear`     | system utility          | Conventional utility icon, reserved only for configuration                |
-
-## Rendering Contract
-
-1. `PrimaryNav` is the canonical renderer for these icons.
-2. Icon size is layout-dependent:
-   - expanded rail: `28px`
-   - collapsed rail / medium rail / compact nav: `20px`
-3. Active section indicator must include:
-   - filled accent icon background
-   - structural indicator (`border-left` in vertical rails, `border-top` in compact nav)
-4. Inactive state uses muted text/icon tokens.
-5. Icon semantics are mutually exclusive; no two section icons share the same concept domain.
-
-## Source Of Truth
-
-- Component: `src/lib/ui/layout/PrimaryNav.svelte`
-- Icon glyphs: `src/lib/ui/layout/PrimaryNavIcon.svelte`
+Each nav entry in `nav.ts` carries an `icon` semantic name (e.g. `home`, `session-bolt`,
+`characters-person`, `atlas-map`, `campaign-scroll`, `knowledge-book`, `settings-gear`) which resolves
+to a distinct Lucide glyph through `ICON_REGISTRY`. Section icons are mutually exclusive — no two
+sections share a glyph. See [NAVIGATION_CONTRACT.md](NAVIGATION_CONTRACT.md) for the navigation model.
