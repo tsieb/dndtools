@@ -2,6 +2,7 @@ build
 dist
 dist-demo
 node_modules
+.claude
 coverage
 playwright-report
 test-results
