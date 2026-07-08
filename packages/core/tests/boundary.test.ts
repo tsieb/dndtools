@@ -45,7 +45,7 @@ const CORE_ROOT = path.resolve(import.meta.dirname, '..');
  * absolute or bare import is handled by the prefix checks; this only judges `./` / `../` specifiers, by
  * resolving them against the importing file's directory. Resolving the target makes the cross-app check
  * precise: a single `../mcp/` from `src/perf/` lands inside the core package (allowed), while a deep
- * `../../../../apps/gm/...` escapes the core package (forbidden).
+ * `../../../../apps/gm-react/...` escapes the core package (forbidden).
  */
 function relativeImportEscapesCore(fromFile: string, spec: string): boolean {
 	if (!spec.startsWith('.')) return false;

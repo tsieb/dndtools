@@ -9,7 +9,7 @@ type Visibility = 'dm-only' | 'shared' | 'player-visible';
 
 /**
  * ScenesCreator — the prototype's scene-authoring surface AND the app's one proven write path. It
- * ports the production `scenes/+page.svelte` `submit`: a `scene.create` command flows through the
+ * ports the archived Svelte `scenes/+page.svelte` `submit`: a `scene.create` command flows through the
  * single runtime dispatch choke point (`dispatchCommand` → `persistFullState`), and the lifecycle
  * (PLAT-018: pending → confirmed / failed) is reflected on the button. On success the new scene
  * lands in the persisted Core state and reappears in the list + sidebar after a reload — this is the

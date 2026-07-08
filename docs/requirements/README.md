@@ -7,19 +7,21 @@ The primary GM app is **`apps/gm-react`** (`@dndtools/gm-react`, Vite + React 18
 SvelteKit app now lives at `archive/gm-svelte`. Requirements below describe the product the React
 app ships.
 
-## Canonical information architecture — 7 sections
+## Information architecture — 7 sections
 
-The app and the design package are organized into **seven durable sections** (this is the canonical
-IA; `docs/architecture/INFORMATION_ARCHITECTURE.md` still describes an older 5-section split — the 7
-below win):
+The canonical IA is defined in
+[`../architecture/INFORMATION_ARCHITECTURE.md`](../architecture/INFORMATION_ARCHITECTURE.md)
+(derived from `apps/gm-react/src/app/nav.ts`). In brief, the app is organized into **seven durable
+sections** (icons are the semantic registry names from
+[`../reference/ICON_VOCABULARY.md`](../reference/ICON_VOCABULARY.md)):
 
-1. **Command Center** — the spatial home; a board of live-play widgets (icon `house`)
-2. **Session** — run the live game: combat, dice, encounters (icon `zap`)
-3. **Characters** — PCs, NPCs, monsters, sheets & builders (icon `users`)
-4. **Atlas** — maps, fog, layers, points of interest (icon `map`)
-5. **Campaign** — prep: NPCs, quests, session arc (icon `scroll`)
-6. **Knowledge** — notes, wiki, backlinks graph (icon `book-open`)
-7. **Settings** — themes, packages, players, accessibility (icon `settings`)
+1. **Command Center** — the spatial home; a board of live-play widgets (`home`)
+2. **Session** — run the live game: combat, dice, encounters (`session-bolt`)
+3. **Characters** — PCs, NPCs, monsters, sheets & builders (`characters-person`)
+4. **Atlas** — maps, fog, layers, points of interest (`atlas-map`)
+5. **Campaign** — prep: NPCs, quests, session arc (`campaign-scroll`)
+6. **Knowledge** — notes, wiki, backlinks graph (`knowledge-book`)
+7. **Settings** — themes, packages, players, accessibility (`settings-gear`)
 
 One IA runs on desktop, tablet and mobile; only the presentation changes (sidebar ↔ rail ↔ bottom
 tab bar). The system is **system-agnostic**: game rules come from a swappable **System Package**
@@ -34,7 +36,7 @@ tab bar). The system is **system-agnostic**: game rules come from a swappable **
 | [`../architecture/LAYOUT_TIERS.md`](../architecture/LAYOUT_TIERS.md) | Responsive layout tiers (sidebar / rail / bottom-tab) and density behavior. |
 | [`../architecture/TOPBAR_CHARTER.md`](../architecture/TOPBAR_CHARTER.md) | What the top bar owns and what it must never hold. |
 | [`../reference/FEATURE_TIERS.md`](../reference/FEATURE_TIERS.md) | Progressive-disclosure feature tiers (which features reveal at which experience level). |
-| [`../planning/initiatives/`](../planning/initiatives/) | Initiative epics (I10–I19). These carry the **functional-requirement detail** — player suite, audio, community content, IA/nav, adaptive shell, design system, session UX, learnability, accessibility, map-tool UX. |
+| [`../planning/initiatives/`](../planning/initiatives/) | Initiative epics (I1–I21). These carry the **functional-requirement detail** — player suite, audio, community content, IA/nav, adaptive shell, design system, session UX, learnability, accessibility, and map-tool UX (the I13–I20 UX cluster). |
 
 Design requirements (tokens, components, visual language) live under [`../design/`](../design/) —
 see its `README.md`.

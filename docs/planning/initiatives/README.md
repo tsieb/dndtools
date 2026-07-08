@@ -3,6 +3,14 @@
 > The definitive TTRPG companion: local-first worldbuilding, live session management,
 > AI creative partnership, and cross-device collaborative play.
 
+> **⚠️ Pre-pivot planning backlog.** These initiative epics (I1–I21) are the aspirational
+> roadmap and predate the React pivot ([ADR-018](../../adr/018-promote-react-app-to-primary.md)).
+> File paths written as `src/lib/**` / `src/routes/**` / `*.svelte` refer to the **retired**
+> Svelte app (now `archive/gm-svelte`); the live implementation targets are the React app under
+> `apps/gm-react/src/**`. Present-tense "exists / is defined" claims describe the design intent,
+> not a guarantee the item is shipped — the current feature state is
+> [`docs/requirements/FEATURE-GAPS.md`](../../requirements/FEATURE-GAPS.md).
+
 ---
 
 ## Vision Statement

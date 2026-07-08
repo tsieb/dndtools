@@ -62,8 +62,8 @@ project. The byte-identical token CSS lives here and was copied into the app.
 
 ### The local app
 
-- **`apps/gm-react/`** (`@dndtools/gm-react`). Run from repo root: `pnpm dev:react` (Vite, port 5273),
-  `build:react`, `preview:react` (4273), `typecheck:react`.
+- **`apps/gm-react/`** (`@dndtools/gm-react`). Run from repo root: `pnpm dev` (Vite, port 5273),
+  `pnpm build`, `pnpm preview` (4273), `pnpm typecheck`.
 - **`src/ds/`** — the design-system React components + barrel (`import { … } from '../ds'`).
 - **`src/app/screen-kit.tsx`** — the local mirror of the prototype's shared primitives: the `T` token
   shorthand object, `eb`/`mono` style consts, and `Page` / `Panel` / `Seg` / `SetRow` (1:1 with the

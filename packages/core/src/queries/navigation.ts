@@ -49,7 +49,7 @@ export type NavigationAudience = 'all' | 'dm-only';
 export interface NavigationSectionDef {
 	id: string;
 	title: string;
-	/** SvelteKit route the GUI navigates to. */
+	/** Route the GUI navigates to. */
 	route: string;
 	keywords: string[];
 	audience: NavigationAudience;

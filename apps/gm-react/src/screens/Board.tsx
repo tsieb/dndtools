@@ -14,7 +14,7 @@ import { boardWidgetsOf, payloadIndex, type BoardWidget } from '../app/board-hel
 /**
  * Board (`/board`) — the Command Center spatial board: the application's home Scene rendered as a
  * canvas of system widgets, ported from the prototype's bounded "Home" scene and wired to the REAL
- * Processing Core, mirroring `board/+page.svelte`. The DM's home Scene is materialized the first time
+ * Processing Core, mirroring the archived Svelte `board/+page.svelte`. The DM's home Scene is materialized the first time
  * the board loads (`command-center.ensure-home`, CMD-001); its seeded system widgets then read out of
  * `getSceneForActor`. Widgets move/resize through `scene.move-widget` / `scene.resize-widget`; new
  * widgets come from the profile-evaluated widget library; and the layout is recoverable through the

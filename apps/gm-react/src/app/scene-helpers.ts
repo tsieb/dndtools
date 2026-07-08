@@ -3,7 +3,7 @@ import type { CoreStateSlice, SceneListEntry } from '@dndtools/core';
 export type SceneStatus = 'live' | 'ready' | 'draft';
 
 /**
- * The hub/sidebar status for a scene, mirroring the production `+page.svelte` derivation: the
+ * The hub/sidebar status for a scene, mirroring the archived Svelte `+page.svelte` derivation: the
  * actor's active scene is "live", a DM-only scene is a "draft", anything else is "ready". The
  * design package's tri-state badge (Live / Ready / Draft) maps onto exactly these.
  */

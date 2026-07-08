@@ -137,7 +137,7 @@ function emptySlice(): CoreStateSlice {
 }
 
 /**
- * SceneRuntime — the React port of the production `SceneRuntime` (apps/gm canvas-runtime). It owns
+ * SceneRuntime — the React port of the archived Svelte `SceneRuntime` (archive/gm-svelte canvas-runtime). It owns
  * the in-memory CoreStateSlice, loads/persists through the Dexie storage port, and is the SINGLE
  * write choke point: every GUI mutation flows through `dispatch`, which runs the pure
  * `dispatchCommand` reducer and persists the result. A plain observable (subscribe/version) so React

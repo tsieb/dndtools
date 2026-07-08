@@ -1,6 +1,6 @@
 # Changelog
 
-User-facing release notes for the GM command platform (`@dndtools/gm`). Entries from the retired
+User-facing release notes for the GM command platform (`@dndtools/gm-react`). Entries from the retired
 v1 document-editor have been removed; that application's last state is preserved at the git tag
 `v1-final`.
 

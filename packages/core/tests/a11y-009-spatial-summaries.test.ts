@@ -36,7 +36,7 @@ import {
  *   - `getMapViewForActor` activation data: visible route carries waypoint linkedEntityId for "View destination"
  *   - `getCalendarTimelineForActor` fail-closed: dm-only content item omitted from timeline
  *   - `getCalendarTimelineForActor` activation data: visible item exposes itemId for "/knowledge/?note=…" link
- *   - `getSceneForActor` + `widgetAccessibleName` visibility-safe names tested in app/src/lib/a11y/widget-name.test.ts
+ *   - `getSceneForActor` + `widgetAccessibleName` visibility-safe names tested in the archived Svelte widget-name.test.ts
  */
 
 const MAP_ID = 'map-western-reaches';
@@ -288,7 +288,7 @@ describe('A11Y-009 AC1: getCalendarTimelineForActor — timeline nonvisual summa
 // ---------------------------------------------------------------------------
 // AC2 — Scene outline: widgetAccessibleName visibility-safe names
 // (Core structural proof; detailed name-derivation tests live in
-// apps/gm/src/lib/a11y/widget-name.test.ts — A11Y-007 AC1)
+// archive/gm-svelte/src/lib/a11y/widget-name.test.ts — A11Y-007 AC1)
 // ---------------------------------------------------------------------------
 
 describe('A11Y-009 AC2: getSceneForActor — Scene outline delivers hidden payload without entity id', () => {

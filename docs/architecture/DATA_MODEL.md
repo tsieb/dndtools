@@ -30,6 +30,9 @@ The persisted state is a fixed set of durable documents, enumerated as
 `scenes`, `maps`, `permissions`, `session`, `widgets`, `commandCenter`,
 `characters`, `content`, `encounters`, `audio`, `mcp`.
 
+(The `mcp` slice is the in-core AI/MCP **policy** state — `packages/core/src/state/mcp-policy.ts` —
+not the retired v1 Electron MCP sidecar.)
+
 The sync **operation log** is a twelfth persisted artifact; it is replayed rather than
 migrated (each operation carries its own schema version), so it is excluded from the
 migration document set.

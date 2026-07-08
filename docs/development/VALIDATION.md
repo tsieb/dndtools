@@ -37,7 +37,7 @@ Selectors: `--layer=unit,static` · `--only=e2e,test:core` · `--skip=e2e` · `-
 
 The harness deliberately folds in the checks that were previously orphaned from
 both `check` and CI: `typecheck:react`, `typecheck:cloud-fns`, `test:cloud`,
-`a11y:*`, `e2e`, `verify:react:*`, and the P2P/desktop/cloud gates.
+`a11y:*`, `e2e`, `verify:{routes,roundtrip,canvas,ui}`, and the P2P/desktop/cloud gates.
 
 ## How it runs
 

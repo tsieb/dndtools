@@ -19,7 +19,7 @@ type Visibility = 'dm-only' | 'shared' | 'player-visible';
 /**
  * SceneEditor (`/scene/:id`) — the prototype's scene canvas (`scene-shell.jsx` + `scene-canvas.jsx`)
  * ported as a React screen and wired to the REAL Processing Core widget platform, mirroring the
- * production `scene/[id]/+page.svelte`. The scene + its widgets come from `getSceneForActor`
+ * archived Svelte `scene/[id]/+page.svelte`. The scene + its widgets come from `getSceneForActor`
  * (CANVAS-009, which surfaces hidden / conflicted / missing binding states); every edit flows through
  * the single dispatch choke point: `scene.add-widget`, `scene.move-widget`, `scene.resize-widget`,
  * `scene.configure-widget`, `scene.destroy-widget`.

@@ -74,7 +74,7 @@ export type MapTool = 'select' | 'pan' | 'poi' | 'token' | 'fog';
 
 // ── Shared vocabulary (also imported by Atlas) ──────────────────────────────────────────────────
 
-/** Layer-type → `--layer-*` hue map (mirrors apps/gm MapLayerPanel.svelte CATEGORY tones). */
+/** Layer-type → `--layer-*` hue map (mirrors the archived Svelte MapLayerPanel.svelte CATEGORY tones). */
 export const CATEGORY_VAR: Record<MapLayerCategory, string> = {
 	base: '--layer-base',
 	terrain: '--layer-height',
