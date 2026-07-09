@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	VAULT_OBJECT_SUBTYPE_KEY,
 	actorCanAuthorContent,
@@ -266,6 +266,7 @@ function FactionEditor({ faction, onClose }: { faction: FactionRow | null; onClo
 
 export function Campaign() {
 	const navigate = useNavigate();
+	const location = useLocation();
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
 	const [tab, setTab] = useState('quests');
@@ -273,6 +274,17 @@ export function Campaign() {
 	const [factionEditor, setFactionEditor] = useState<{ id: string | null } | null>(null);
 
 	const canAuthor = actorCanAuthorContent(runtime.state.permissions, actorId);
+
+	// Create-intent handoff from "New faction" launchers (⌘K): land on the Factions tab with the
+	// editor already open. Consumed once, then cleared.
+	useEffect(() => {
+		const intent = (location.state ?? null) as { createFaction?: boolean } | null;
+		if (intent?.createFaction) {
+			setTab('factions');
+			setFactionEditor({ id: null });
+			navigate(location.pathname, { replace: true, state: null });
+		}
+	}, [location.state, location.pathname, navigate]);
 
 	const data = useMemo(() => {
 		const { content, permissions, characters, session, maps } = runtime.state;
@@ -314,8 +326,14 @@ export function Campaign() {
 					<EmptyState
 						icon="campaign-scroll"
 						title="No threads yet"
-						description="Campaign threads surface your written notes. Create one in Knowledge to see it here."
-						action={undefined}
+						description="Story threads surface your written notes — quests, arcs, and hooks."
+						action={
+							canAuthor ? (
+								<Button variant="primary" size="sm" icon="note-edit" onClick={() => navigate('/knowledge', { state: { create: true } })}>
+									Write the first note
+								</Button>
+							) : undefined
+						}
 					/>
 				) : (
 					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))', gap: 16, alignItems: 'start' }}>
@@ -324,9 +342,9 @@ export function Campaign() {
 								key={n.id}
 								role="button"
 								tabIndex={0}
-								aria-label={`Open “${n.title}” in Knowledge`}
-								onClick={() => navigate('/knowledge')}
-								onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/knowledge'); } }}
+								aria-label={`Open “${n.title}” in Notes`}
+								onClick={() => navigate(`/knowledge/${n.id}`)}
+								onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/knowledge/${n.id}`); } }}
 								style={{ cursor: 'pointer' }}
 							>
 								<QuestCard
@@ -347,7 +365,13 @@ export function Campaign() {
 						icon="characters-person"
 						title="No NPCs yet"
 						description="NPCs and monsters you create in Characters appear here."
-						action={undefined}
+						action={
+							canAuthor ? (
+								<Button variant="primary" size="sm" icon="new-character" onClick={() => navigate('/characters', { state: { create: true, kind: 'npc' } })}>
+									New NPC
+								</Button>
+							) : undefined
+						}
 					/>
 				) : (
 					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 16, alignItems: 'start' }}>
@@ -356,9 +380,9 @@ export function Campaign() {
 								key={n.id}
 								role="button"
 								tabIndex={0}
-								aria-label={`Open ${n.name} in Characters`}
-								onClick={() => navigate('/characters')}
-								onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/characters'); } }}
+								aria-label={`Open ${n.name}’s sheet in Characters`}
+								onClick={() => navigate(`/characters/${n.id}`)}
+								onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/characters/${n.id}`); } }}
 								style={{ cursor: 'pointer' }}
 							>
 								<NpcCard

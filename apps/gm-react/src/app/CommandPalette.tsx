@@ -35,11 +35,17 @@ const SEARCH_HIT_LIMIT = 15;
  */
 const HIT_PRESENTATION: Record<SearchHit['type'], { group: string; route: string; icon: string; kind: string }> = {
 	note: { group: 'Notes', route: '/knowledge', icon: 'knowledge-book', kind: 'Note' },
-	object: { group: 'Notes', route: '/knowledge', icon: 'knowledge-book', kind: 'Object' },
+	object: { group: 'Notes', route: '/campaign', icon: 'knowledge-book', kind: 'Dossier' },
 	poi: { group: 'Map locations', route: '/atlas', icon: 'poi', kind: 'POI' },
 	handout: { group: 'Session', route: '/session', icon: 'scroll', kind: 'Handout' },
 	'session-artifact': { group: 'Session', route: '/session', icon: 'dice', kind: 'Roll' },
 };
+
+/** A note hit deep-links the exact note; everything else lands on its owning section. */
+function routeForHit(hit: SearchHit): string {
+	if (hit.type === 'note') return `/knowledge/${hit.id}`;
+	return HIT_PRESENTATION[hit.type].route;
+}
 
 /**
  * CommandPalette — the working ⌘K surface, now backed by the Processing Core's search engine. The
@@ -79,8 +85,8 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 	}, [query]);
 
 	const commands = useMemo<PaletteCommand[]>(() => {
-		const goTo = (path: string) => () => {
-			navigate(path);
+		const goTo = (path: string, state?: Record<string, unknown>) => () => {
+			navigate(path, state ? { state } : undefined);
 			onClose();
 		};
 		const sections = [...RUN, ...LIBRARY, ...PLATFORM].map((s) => ({
@@ -91,8 +97,11 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 			keywords: s.sub ?? '',
 			run: goTo(s.path),
 		}));
+		// The GM Screen's backing home scene is its own "Go to" destination — as a scene row it reads
+		// as a mystery scene named "Command Center".
+		const homeSceneId = runtime.state.commandCenter.homeSceneId;
 		const scenes = listScenesForActor(runtime.state.scenes, runtime.state.permissions, actorId)
-			.filter((s) => !s.isTemplate)
+			.filter((s) => !s.isTemplate && s.id !== homeSceneId)
 			.map((s) => ({
 				id: `scene:${s.id}`,
 				label: s.name,
@@ -110,7 +119,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				icon: 'characters-person',
 				group: 'Characters',
 				keywords: c.kind,
-				run: goTo('/characters'),
+				run: goTo(`/characters/${c.id}`),
 			}));
 		const maps = listMapsForActor(runtime.state.maps, runtime.state.permissions, actorId)
 			.slice(0, 12)
@@ -123,11 +132,17 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				description: m.visibility === 'dm-only' ? 'DM-only' : 'Shared',
 				run: goTo('/atlas'),
 			}));
+		// Each launcher lands with `state.create` so the destination OPENS its create flow (instead of
+		// leaving the user on a list hunting for the button). Keywords cover the words a GM actually
+		// types — "npc", "location", "quest" — not just our screen names.
 		const creates: PaletteCommand[] = [
-			{ id: 'new:scene', label: 'New scene', icon: 'add', group: 'Create', run: goTo('/scenes') },
-			{ id: 'new:character', label: 'New character', icon: 'new-character', group: 'Create', run: goTo('/characters') },
-			{ id: 'new:note', label: 'New note', icon: 'note-edit', group: 'Create', run: goTo('/knowledge') },
-			{ id: 'new:map', label: 'New map', icon: 'new-map', group: 'Create', run: goTo('/atlas') },
+			{ id: 'new:scene', label: 'New scene', icon: 'add', group: 'Create', keywords: 'canvas board battle stage', run: goTo('/scenes') },
+			{ id: 'new:character', label: 'New character', icon: 'new-character', group: 'Create', keywords: 'pc party player hero', run: goTo('/characters', { create: true }) },
+			{ id: 'new:npc', label: 'New NPC or monster', icon: 'new-character', group: 'Create', keywords: 'npc monster villain creature bestiary sidekick', run: goTo('/characters', { create: true, kind: 'npc' }) },
+			{ id: 'new:note', label: 'New note', icon: 'note-edit', group: 'Create', keywords: 'quest thread lore location place handout journal wiki', run: goTo('/knowledge', { create: true }) },
+			{ id: 'new:map', label: 'New map', icon: 'new-map', group: 'Create', keywords: 'location place battlemap dungeon atlas poi', run: goTo('/atlas', { create: true }) },
+			{ id: 'new:faction', label: 'New faction', icon: 'flag', group: 'Create', keywords: 'cult guild order organization dossier', run: goTo('/campaign', { createFaction: true }) },
+			{ id: 'new:encounter', label: 'Build encounter', icon: 'sword', group: 'Create', keywords: 'combat fight initiative monsters battle', run: goTo('/session') },
 		];
 
 		// Full-text hits from the core search engine — only once the user typed something (a blank
@@ -155,7 +170,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 					keywords: [needle, hit.tags.join(' '), hit.snippet?.text ?? ''].join(' '),
 					description: hit.snippet?.text,
 					meta: p.kind,
-					run: goTo(p.route),
+					run: goTo(routeForHit(hit)),
 				};
 			});
 		}

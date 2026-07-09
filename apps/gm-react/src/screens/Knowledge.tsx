@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
 	actorCanAuthorContent,
 	getContentItemsForActor,
@@ -114,11 +115,15 @@ function mdToNodes(md: string): ReactNode {
 }
 
 function RelRow({ icon, title, kind, onClick }: { icon: string; title: string; kind: string; onClick?: () => void }) {
+	const [hov, setHov] = useState(false);
+	// Clickable rows read as LINKS (accent + hover underline) — as plain grey text nobody tried them.
 	return (
 		<button
 			type="button"
 			onClick={onClick}
 			disabled={!onClick}
+			onMouseEnter={() => setHov(true)}
+			onMouseLeave={() => setHov(false)}
 			style={{
 				display: 'flex',
 				alignItems: 'center',
@@ -130,11 +135,22 @@ function RelRow({ icon, title, kind, onClick }: { icon: string; title: string; k
 				textAlign: 'left',
 				cursor: onClick ? 'pointer' : 'default',
 				font: `12.5px ${T.sans}`,
-				color: T.sub,
+				color: onClick ? T.acc : T.sub,
 			}}
 		>
 			<Icon name={icon} size={14} color={T.ter} />
-			<span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+			<span
+				style={{
+					flex: 1,
+					minWidth: 0,
+					overflow: 'hidden',
+					textOverflow: 'ellipsis',
+					whiteSpace: 'nowrap',
+					textDecoration: onClick && hov ? 'underline' : 'none',
+				}}
+			>
+				{title}
+			</span>
 			<span style={{ font: `11px ${T.sans}`, color: T.ter }}>{kind}</span>
 		</button>
 	);
@@ -205,7 +221,7 @@ function NoteViewer({
 
 	return (
 		<Page max={1080}>
-			<BackBar label="Knowledge" onClick={onBack} />
+			<BackBar label="Notes" onClick={onBack} />
 			<div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 280px', gap: 20, alignItems: 'start' }}>
 				<Panel pad={26}>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -362,6 +378,11 @@ function ImportPanel({ onImport, onCancel, busy, message }: { onImport: (text: s
 
 export function Knowledge() {
 	const runtime = useRuntime();
+	const navigate = useNavigate();
+	const location = useLocation();
+	// URL-driven detail (`/knowledge/:id`) so Story thread cards, palette search hits, and
+	// character-sheet mentions can open the exact note.
+	const { id: detailId = null } = useParams<{ id: string }>();
 	const actorId = runtime.defaultActorId;
 	const canAuthor = actorCanAuthorContent(runtime.state.permissions, actorId);
 
@@ -370,18 +391,36 @@ export function Knowledge() {
 		[runtime.state, actorId],
 	);
 
-	const [detailId, setDetailId] = useState<string | null>(null);
 	const [composing, setComposing] = useState(false);
 	const [importing, setImporting] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [importMsg, setImportMsg] = useState<string | null>(null);
+
+	// Create-intent handoff from "New note" launchers elsewhere (home hub, ⌘K): open the composer
+	// immediately instead of landing the user on the list with nothing happening.
+	useEffect(() => {
+		const intent = (location.state ?? null) as { create?: boolean } | null;
+		if (intent?.create) {
+			setComposing(true);
+			setImporting(false);
+			navigate(location.pathname, { replace: true, state: null });
+		}
+	}, [location.state, location.pathname, navigate]);
 
 	const open = detailId ? notes.find((n) => n.id === detailId) ?? null : null;
 	// `key={open.id}` REMOUNTS the editor when navigating between notes (e.g. via a backlink/related
 	// row), resetting the draft/edit state — without it React reuses the instance and a Save could
 	// persist note A's draft into note B. Same-note re-renders keep the instance (id unchanged).
 	if (open)
-		return <NoteViewer key={open.id} note={open} canAuthor={canAuthor} onBack={() => setDetailId(null)} onOpen={(id) => setDetailId(id)} />;
+		return (
+			<NoteViewer
+				key={open.id}
+				note={open}
+				canAuthor={canAuthor}
+				onBack={() => navigate('/knowledge')}
+				onOpen={(id) => navigate(`/knowledge/${id}`)}
+			/>
+		);
 
 	async function createNote(title: string) {
 		setBusy(true);
@@ -392,7 +431,7 @@ export function Knowledge() {
 		setComposing(false);
 		if (result.status === 'accepted') {
 			const created = result.events.find((e) => (e as { kind?: string }).kind === 'content.item-changed') as { itemId?: string } | undefined;
-			if (created?.itemId) setDetailId(created.itemId);
+			if (created?.itemId) navigate(`/knowledge/${created.itemId}`);
 		}
 	}
 
@@ -473,7 +512,7 @@ export function Knowledge() {
 			) : (
 				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14 }}>
 					{notes.map((n) => (
-						<Card key={n.id} elevation="flat" interactive onClick={() => setDetailId(n.id)}>
+						<Card key={n.id} elevation="flat" interactive onClick={() => navigate(`/knowledge/${n.id}`)}>
 							<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7 }}>
 								<span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
 									<Icon name="knowledge-book" size={15} color={T.acc} />
