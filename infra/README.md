@@ -14,15 +14,14 @@ capabilities to the local-first app. Everything is pay-per-use / scale-to-zero
 - CI deploys use the keyless **GitHub OIDC** role created by the `foundation` stack
   (no long-lived AWS keys).
 
-> **⚠️ Branch rename (master → main): foundation redeploy required.** The `foundation`
-> stack's `GitHubBranch` parameter (default now `main`) builds the OIDC trust condition
-> `repo:tsieb/dndtools:ref:refs/heads/<branch>`. The **already-deployed** dev role still
-> trusts `refs/heads/master`, so `deploy.yml` will fail its OIDC assume-role on pushes to
-> `main` until the stack is redeployed:
->
-> ```bash
-> infra/deploy.sh foundation dev      # picks up GitHubBranch=main default
-> ```
+> **Branch rename (master → main): foundation redeployed 2026-07-09.** The `foundation`
+> stack's `GitHubBranch` parameter builds the OIDC trust condition
+> `repo:tsieb/dndtools:ref:refs/heads/<branch>`. The **dev** role now trusts
+> `refs/heads/main` (verified). `GitHubBranch=main` is set explicitly in each stack's
+> `samconfig.toml` — a CloudFormation *update* keeps a parameter's previous value when it
+> is omitted from `parameter_overrides` (the template `Default` only applies on initial
+> *create*), so relying on the default alone would have left the role on `master`.
+> **`prod` foundation has not been deployed yet**; its first deploy will pick up `main`.
 
 ## Stacks (deploy order)
 
