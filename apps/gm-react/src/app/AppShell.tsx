@@ -5,6 +5,7 @@ import {
 	listCharactersForActor,
 	listMapsForActor,
 	getContentItemsForActor,
+	VAULT_OBJECT_SUBTYPE_KEY,
 	type SceneListEntry,
 } from '@dndtools/core';
 import { Avatar, BottomTabBar, Icon, IconButton, NavRail, Sheet, StatusDot, ToastViewport } from '../ds';
@@ -261,12 +262,22 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const dmActor = runtime.state.permissions.actors[actorId];
 
 	const { scenes, counts, recent } = useMemo(() => {
+		// The GM Screen's backing home scene is reachable via its own nav row — listing it among the
+		// table scenes (as a scene literally named "Command Center") only reads as a mystery scene.
+		const homeSceneId = runtime.state.commandCenter.homeSceneId;
 		const allScenes = listScenesForActor(runtime.state.scenes, runtime.state.permissions, actorId).filter(
-			(s) => !s.isTemplate,
+			(s) => !s.isTemplate && s.id !== homeSceneId,
 		);
 		const characters = listCharactersForActor(runtime.state.characters, runtime.state.permissions, actorId);
 		const maps = listMapsForActor(runtime.state.maps, runtime.state.permissions, actorId);
-		const notes = getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId);
+		const items = getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId);
+		// Count what each screen actually lists: Notes shows kind==='note' only; Story's tabs surface
+		// those notes as threads plus the faction dossiers (a raw item count here once claimed
+		// "9 notes" while the Notes screen showed 6).
+		const noteCount = items.filter((n) => n.kind === 'note').length;
+		const factionCount = items.filter(
+			(n) => n.kind === 'object' && n.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'faction',
+		).length;
 		const pcCount = characters.filter((c) => c.kind === 'pc').length;
 		const npcCount = characters.length - pcCount;
 		const ordered = [...allScenes].sort((a, b) => {
@@ -282,8 +293,8 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 			counts: {
 				characters: `${pcCount} PCs · ${npcCount} NPCs`,
 				atlas: `${maps.length} ${maps.length === 1 ? 'map' : 'maps'}`,
-				campaign: `${allScenes.length} scenes`,
-				knowledge: `${notes.length} ${notes.length === 1 ? 'note' : 'notes'}`,
+				campaign: `${noteCount} ${noteCount === 1 ? 'thread' : 'threads'} · ${factionCount} ${factionCount === 1 ? 'faction' : 'factions'}`,
+				knowledge: `${noteCount} ${noteCount === 1 ? 'note' : 'notes'}`,
 			} as Record<string, string>,
 		};
 	}, [runtime.state, actorId, activeSceneId]);
@@ -303,6 +314,12 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 	const [showAllScenes, setShowAllScenes] = useState(false);
 	const [moreOpen, setMoreOpen] = useState(false);
 	const visibleScenes = showAllScenes ? scenes : scenes.slice(0, 5);
+	// Never hide the row you're ON: with a platform section active the group stays expanded.
+	const platformActive = PLATFORM.some((s) => s.id === active);
+	const moreExpanded = moreOpen || platformActive;
+	// "Recent scenes" earns its keep only once the Scenes list truncates — below that it just
+	// mirrors the same handful of scenes twice in one sidebar.
+	const showRecent = recent.length > 0 && scenes.length > 5;
 
 	return (
 		<aside
@@ -341,10 +358,11 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 				<IconButton icon="search" label="Search (⌘K)" variant="ghost" size="sm" onClick={onOpenPalette} />
 			</div>
 
-			{/* campaign chip */}
+			{/* campaign chip — a "which campaign am I in" affordance; it goes HOME (the campaign hub),
+			    not to the Story section (sending it there read as a broken campaign switcher). */}
 			<button
 				type="button"
-				onClick={() => go('campaign')}
+				onClick={() => go('home')}
 				style={{
 					margin: '0 12px 4px',
 					padding: '9px 11px',
@@ -423,23 +441,35 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 
 					<SideGroup label="Library">{LIBRARY.map((s) => row(s))}</SideGroup>
 
-					<SideGroup
-						label="More"
-						action={
-							<IconButton
-								icon={moreOpen ? 'chevron-up' : 'chevron-down'}
-								label={moreOpen ? 'Collapse' : 'Expand'}
-								variant="ghost"
-								size="sm"
-								onClick={() => setMoreOpen((v) => !v)}
-							/>
-						}
-					>
-						{moreOpen && PLATFORM.map((s) => row(s))}
-					</SideGroup>
+					{/* The whole header is the toggle — a label-plus-tiny-chevron where only the chevron
+					    worked made the group look empty and unclickable. */}
+					<div style={{ marginTop: 14 }}>
+						<button
+							type="button"
+							aria-expanded={moreExpanded}
+							onClick={() => setMoreOpen((v) => !v)}
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								justifyContent: 'space-between',
+								width: '100%',
+								padding: '4px 10px 6px',
+								border: 'none',
+								background: 'transparent',
+								cursor: 'pointer',
+								borderRadius: 8,
+							}}
+						>
+							<span style={{ font: `600 11px ${T.sans}`, letterSpacing: '.09em', textTransform: 'uppercase', color: T.ter }}>
+								More · tools &amp; platform
+							</span>
+							<Icon name={moreExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={T.ter} />
+						</button>
+						{moreExpanded && <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>{PLATFORM.map((s) => row(s))}</div>}
+					</div>
 				</nav>
 
-				{recent.length > 0 && (
+				{showRecent && (
 					<nav aria-label="Shortcuts">
 						<SideGroup label="Recent scenes">
 							{recent.map((s) => (
