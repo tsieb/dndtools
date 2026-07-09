@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	deliveredMapIdsForActor,
 	getMapViewForActor,
@@ -63,6 +64,18 @@ export function Atlas() {
 	const [creating, setCreating] = useState(false);
 	const [newMapName, setNewMapName] = useState('');
 	const [newMapVis, setNewMapVis] = useState<SceneVisibility>('dm-only');
+
+	// Create-intent handoff from "New map" launchers (home hub, ⌘K): open the create form on
+	// arrival. Consumed once, then cleared.
+	const navigate = useNavigate();
+	const location = useLocation();
+	useEffect(() => {
+		const intent = (location.state ?? null) as { create?: boolean } | null;
+		if (intent?.create) {
+			setCreating(true);
+			navigate(location.pathname, { replace: true, state: null });
+		}
+	}, [location.state, location.pathname, navigate]);
 
 	const delivered = useMemo(
 		() => deliveredMapIdsForActor(runtime.state.session, actorId),

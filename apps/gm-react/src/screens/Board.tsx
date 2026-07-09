@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	findWidgetDefinition,
 	getSceneForActor,
@@ -35,6 +36,19 @@ export function Board() {
 	const [presetName, setPresetName] = useState('');
 	const [status, setStatus] = useState<string | null>(null);
 	const ensuringRef = useRef(false);
+
+	// Create-intent handoff from "New widget" launchers (home hub): arrive in edit mode with the
+	// Add-widget panel already open. Consumed once, then cleared.
+	const navigate = useNavigate();
+	const location = useLocation();
+	useEffect(() => {
+		const intent = (location.state ?? null) as { addWidget?: boolean } | null;
+		if (intent?.addWidget) {
+			setEditing(true);
+			setAddOpen(true);
+			navigate(location.pathname, { replace: true, state: null });
+		}
+	}, [location.state, location.pathname, navigate]);
 
 	const homeSceneId = runtime.state.commandCenter.homeSceneId;
 	const summary = homeSceneId
@@ -158,10 +172,10 @@ export function Board() {
 			<div style={{ maxWidth: 640, margin: '0 auto' }}>
 				<Card elevation="raised" padding="lg" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
 					<span style={{ font: '700 var(--text-lg) var(--font-display)', color: 'var(--color-text-primary)' }}>
-						The board is the DM&apos;s home
+						The GM Screen is the DM&apos;s dashboard
 					</span>
 					<span style={{ font: 'var(--text-sm) var(--font-sans)', color: 'var(--color-text-secondary)' }}>
-						The Command Center board is authored by the DM. Switch back to the DM view to arrange it.
+						The GM Screen is authored by the DM. Switch back to the DM view to arrange it.
 					</span>
 				</Card>
 			</div>
@@ -175,7 +189,7 @@ export function Board() {
 					<Icon name="home" size="sm" />
 				</span>
 				<div style={{ minWidth: 0 }}>
-					<div style={{ font: '700 var(--text-xl) var(--font-display)', color: 'var(--color-text-primary)' }}>Command Center</div>
+					<div style={{ font: '700 var(--text-xl) var(--font-display)', color: 'var(--color-text-primary)' }}>GM Screen</div>
 					<div style={{ font: 'var(--text-2xs) var(--font-sans)', color: 'var(--color-text-tertiary)' }}>
 						{widgets.length} widget{widgets.length === 1 ? '' : 's'} · home · fits to screen
 					</div>
