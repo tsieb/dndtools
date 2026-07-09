@@ -17,6 +17,7 @@ const ENTRYPOINTS = [
   { name: 'signaling-authorizer', entry: 'src/signaling/authorizer.ts' },
   { name: 'signaling-handler', entry: 'src/signaling/handler.ts' },
   { name: 'sync-handler', entry: 'src/sync/handler.ts' },
+  { name: 'app-api-handler', entry: 'src/app-api/handler.ts' },
 ];
 
 rmSync(out, { recursive: true, force: true });

@@ -10,6 +10,7 @@ const ENV = {
 	client: 'VITE_COGNITO_CLIENT_ID',
 	ws: 'VITE_SIGNALING_WS_URL',
 	sync: 'VITE_SYNC_API_URL',
+	appApi: 'VITE_APP_API_URL',
 } as const;
 
 async function importFresh() {
@@ -40,7 +41,23 @@ describe('cloud config gates', () => {
 			userPoolClientId: 'client123',
 			signalingWsUrl: 'wss://sig.example.com/dev',
 			syncApiUrl: 'https://sync.example.com/dev',
+			appApiUrl: '',
 		});
+	});
+
+	it('is account-api-configured only when identity AND the app-api URL are present (fail closed)', async () => {
+		vi.stubEnv(ENV.region, 'ca-central-1');
+		vi.stubEnv(ENV.pool, 'ca-central-1_abc');
+		vi.stubEnv(ENV.client, 'client123');
+		vi.stubEnv(ENV.appApi, '');
+		expect((await importFresh()).isAccountApiConfigured).toBe(false);
+
+		vi.stubEnv(ENV.appApi, 'https://app.example.com/dev');
+		expect((await importFresh()).isAccountApiConfigured).toBe(true);
+
+		// app-api URL without identity must stay closed — no anonymous account surface.
+		vi.stubEnv(ENV.pool, '');
+		expect((await importFresh()).isAccountApiConfigured).toBe(false);
 	});
 
 	it('is auth-configured but NOT sync-configured when the sync URL is absent', async () => {

@@ -16,6 +16,11 @@ interface ImportMetaEnv {
 	readonly VITE_COGNITO_CLIENT_ID?: string;
 	readonly VITE_SIGNALING_WS_URL?: string;
 	readonly VITE_SYNC_API_URL?: string;
+	readonly VITE_APP_API_URL?: string;
+
+	// Google Docs vault-source OAuth client id (WS-7). Absent ⇒ the Google Docs source option
+	// is hidden entirely (fail-closed); see docs/runbooks/google-oauth-setup.md.
+	readonly VITE_GOOGLE_CLIENT_ID?: string;
 }
 
 interface ImportMeta {

@@ -39,6 +39,7 @@ const env = {
   VITE_COGNITO_CLIENT_ID: ssm('identity/app-client-id'),
   VITE_SIGNALING_WS_URL: ssm('signaling/ws-url'),
   VITE_SYNC_API_URL: ssmOptional('sync/api-url'),
+  VITE_APP_API_URL: ssmOptional('app-api/url'),
 };
 
 const here = dirname(fileURLToPath(import.meta.url));
