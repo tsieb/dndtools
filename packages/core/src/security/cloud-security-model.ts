@@ -12,7 +12,7 @@ import { containsSensitiveData } from '../diagnostics/redaction';
  * OWASP ASVS; NIST session guidance). Until that decision record EXISTS and is approved, release gating for
  * cloud sync/collaboration is BLOCKED (SEC-009 AC3).
  *
- * Per ADR-014 the real encryption / key custody / crypto is DEFERRED to a later ADR. This module is the
+ * ADR-014 originally DEFERRED the real encryption / key custody / crypto to a later ADR. This module is the
  * machine-checkable EXPRESSION of that decision-record requirement: a typed {@link CloudSecurityDecisionRecord}
  * (what the prose ADR/threat-model must declare), a fail-closed release gate that BLOCKS cloud release unless
  * a complete, approved record exists AND the {@link CloudSyncSecurityModel} prerequisites are satisfied
@@ -20,10 +20,10 @@ import { containsSensitiveData } from '../diagnostics/redaction';
  * proves an E2EE claim: when the model claims end-to-end encryption, the server may see ONLY the metadata
  * the record explicitly allows — hidden content is unavailable to server-side code paths (SEC-009 AC4).
  *
- * Because the crypto is deferred, the prose decision record `docs/adr/015-...` (the human artifact) ships in
- * a DRAFT/declared-tradeoffs form and the gate stays BLOCKED — which is the correct release posture today:
- * you cannot release cloud sync/collaboration without the approved model. When a future ADR delivers the
- * model, it supplies a complete approved record + a satisfied security model and the SAME gate opens.
+ * ADR-017 has since supplied that deferred crypto (AES-256-GCM, client-held per-epoch keys), so ADR-015 is
+ * Accepted and the gate now OPENS on a satisfied model — exactly as designed, with no call-site change. The
+ * gate remains fail-closed by construction: an incomplete or unapproved record still BLOCKS release, and
+ * enablement additionally requires explicit user opt-in and on-device key custody.
  *
  * Pure Processing-Core policy: deterministic over plain data. No DOM, Node, Svelte, or crypto APIs.
  */

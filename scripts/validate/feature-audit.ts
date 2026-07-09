@@ -1,6 +1,6 @@
 // Feature-gap drift audit (main-only, pragmatic).
 //
-// `apps/gm-react/FEATURE-GAPS.md` is a *layered, historical* ledger: its old
+// `docs/requirements/FEATURE-GAPS.md` is a *layered, historical* ledger: its old
 // gap sections (§3–§7) were remediated by later dated update passes, so parsing
 // them naively would report already-fixed work as "missing". This tool instead:
 //
@@ -20,7 +20,7 @@ import type { CheckOutcome } from './types.ts';
 
 const GM_REACT = 'apps/gm-react';
 const SRC = `${GM_REACT}/src`;
-const GAPS = `${GM_REACT}/FEATURE-GAPS.md`;
+const GAPS = 'docs/requirements/FEATURE-GAPS.md';
 
 // High-signal stub phrases only. We deliberately do NOT match a bare "placeholder",
 // because in this codebase it is overwhelmingly the HTML `placeholder=` input
@@ -86,15 +86,21 @@ export interface FeatureAuditResult {
 	screens: { file: string; wired: boolean }[];
 	unwiredScreens: string[];
 	generatedFrom: string;
+	/** The ledger could not be read. An empty `knownStubs` then means "unknown", not "none". */
+	gapsMissing: boolean;
 }
 
 export function auditFeatures(repoRoot: string): FeatureAuditResult {
 	const gapsPath = path.join(repoRoot, GAPS);
 	let gapsText: string;
+	let gapsMissing = false;
 	try {
 		gapsText = readFileSync(gapsPath, 'utf8');
 	} catch {
+		// A moved/renamed ledger must not read as "no declared stubs" — that is a silent
+		// false negative. Surface it; the caller escalates it to a warn.
 		gapsText = '';
+		gapsMissing = true;
 	}
 	const knownStubs = extractHonestStubs(gapsText);
 
@@ -138,6 +144,7 @@ export function auditFeatures(repoRoot: string): FeatureAuditResult {
 		screens,
 		unwiredScreens: screens.filter((s) => !s.wired).map((s) => s.file),
 		generatedFrom: GAPS,
+		gapsMissing,
 	};
 }
 
@@ -146,7 +153,12 @@ function toMarkdown(r: FeatureAuditResult): string {
 	lines.push(`Source of truth: \`${r.generatedFrom}\` (latest pass) + live code probes.`, '');
 
 	lines.push('## Known remaining stubs (declared, no core backing)', '');
-	if (r.knownStubs.length) r.knownStubs.forEach((s) => lines.push(`- ${s}`));
+	if (r.gapsMissing) {
+		lines.push(
+			`⚠ **Ledger not found at \`${r.generatedFrom}\`.** The declared-stub list is UNKNOWN, ` +
+				'not empty — fix the path before trusting this section.',
+		);
+	} else if (r.knownStubs.length) r.knownStubs.forEach((s) => lines.push(`- ${s}`));
 	else lines.push('_None declared in the latest FEATURE-GAPS pass._');
 	lines.push('');
 
@@ -191,12 +203,14 @@ export async function runFeatureAudit(opts: {
 		writeFileSync(path.join(opts.writeTo, 'feature-audit.json'), JSON.stringify(r, null, 2));
 	}
 	const parts = [
-		`${r.knownStubs.length} declared stubs`,
+		r.gapsMissing
+			? `ledger MISSING at ${r.generatedFrom}`
+			: `${r.knownStubs.length} declared stubs`,
 		`${r.stubMarkerTotal} code markers`,
 		`${r.unwiredScreens.length}/${r.screens.length} screens need wiring review`,
 	];
 	// Informational: warn if there is anything worth a human glance, else pass.
-	const status = r.unwiredScreens.length || r.knownStubs.length ? 'warn' : 'pass';
+	const status = r.gapsMissing || r.unwiredScreens.length || r.knownStubs.length ? 'warn' : 'pass';
 	return { status, summary: parts.join('; '), detail: r };
 }
 
@@ -208,8 +222,10 @@ if (invokedDirectly) {
 	const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 	const r = auditFeatures(repoRoot);
 	console.log(toMarkdown(r));
+	const declared = r.gapsMissing ? 'ledger MISSING' : `${r.knownStubs.length} declared stubs`;
 	console.log(
-		`\nSummary: ${r.knownStubs.length} declared stubs · ${r.stubMarkerTotal} code markers · ` +
+		`\nSummary: ${declared} · ${r.stubMarkerTotal} code markers · ` +
 			`${r.unwiredScreens.length}/${r.screens.length} screens need wiring review`,
 	);
+	if (r.gapsMissing) process.exitCode = 1;
 }

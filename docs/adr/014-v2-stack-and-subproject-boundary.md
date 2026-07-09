@@ -8,6 +8,8 @@
 - Superseded-by: ADR-016 (2026-06-09) — the `apps/v2` quarantine, `v2-` package naming, and
   v1-runtime import ban are retired now that the GM app is primary and v1 is removed. The stack,
   processing/display boundary, storage, and testing decisions below remain in force.
+- Superseded-by: ADR-018 (2026-07-08) — the React-rejecting rationale in this ADR's
+  rejected-alternatives table is reversed; React is now the primary GUI stack.
 
 ## Context
 

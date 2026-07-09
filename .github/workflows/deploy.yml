@@ -11,9 +11,6 @@ name: Deploy Cloud
 #     (foundation stack output `CiDeployRoleArn`):
 #       gh variable set AWS_DEPLOY_ROLE_ARN --body 'arn:aws:iam::<acct>:role/<role>'
 # The foundation role trusts refs/heads/main only, so this workflow deploys from main.
-# NOTE: after renaming the default branch master->main, the foundation stack must be
-# redeployed with GitHubBranch=main so the deployed CI role's trust policy accepts main
-# (see infra/README.md). Until then this deploy will fail the OIDC assume-role on main.
 #
 # UNTIL that variable is set, the `preflight` job below emits a notice and the deploy
 # jobs SKIP (neutral) instead of failing — so an unconfigured cloud deploy never turns
