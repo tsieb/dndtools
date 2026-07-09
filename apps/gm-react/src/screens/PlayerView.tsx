@@ -60,7 +60,7 @@ const NAV = [
 	{ id: 'journal', label: 'Journal', icon: 'note-edit', min: 1 },
 ];
 const NAV_ELEVATED = [
-	{ id: 'atlas', label: 'Atlas', icon: 'atlas-map', min: 3 },
+	{ id: 'atlas', label: 'Maps', icon: 'atlas-map', min: 3 },
 	{ id: 'bestiary', label: 'Bestiary', icon: 'campaign-scroll', min: 3 },
 	{ id: 'assist', label: 'Combat assist', icon: 'session-bolt', min: 3 },
 ];

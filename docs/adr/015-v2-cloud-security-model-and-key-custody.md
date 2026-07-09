@@ -1,6 +1,6 @@
 # ADR-015: V2 Cloud Security Model and Key Custody
 
-- Status: Accepted
+- Status: Accepted (amended by [ADR-017](./017-concrete-cloud-e2ee-crypto.md))
 - Date: 2026-06-05 (Accepted 2026-07-06)
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA

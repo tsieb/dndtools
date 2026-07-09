@@ -321,7 +321,16 @@ function Overlay({ children, onClose, wide, label }: { children: React.ReactNode
 	);
 }
 
-export function CharBuilder({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+export function CharBuilder({
+	onClose,
+	onCreated,
+	initialKind,
+}: {
+	onClose: () => void;
+	onCreated: (id: string) => void;
+	/** Pre-select the character kind — lets "New NPC"-style launchers land on the right wizard. */
+	initialKind?: string;
+}) {
 	const runtime = useRuntime();
 	const dmActorId = runtime.defaultActorId;
 	const players = runtime.actors.filter((a) => a.role === 'player');
@@ -332,7 +341,8 @@ export function CharBuilder({ onClose, onCreated }: { onClose: () => void; onCre
 	const [submitting, setSubmitting] = useState(false);
 
 	// form state (design source shape)
-	const [kind, setKind] = useState<CharKind>('pc');
+	const isKind = (k: string | undefined): k is CharKind => k === 'pc' || k === 'npc' || k === 'monster' || k === 'sidekick';
+	const [kind, setKind] = useState<CharKind>(isKind(initialKind) ? initialKind : 'pc');
 	const [name, setName] = useState('');
 	const [race, setRace] = useState('human');
 	const [align, setAlign] = useState('Neutral good');

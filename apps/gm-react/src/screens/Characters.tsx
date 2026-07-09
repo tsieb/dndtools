@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
 	listCharactersForActor,
 	getCharacterForActor,
+	searchVaultForActor,
 	resourcesOf,
 	availableSlots,
 	availableClassResource,
@@ -173,6 +175,7 @@ function BackBar({ onBack }: { onBack: () => void }) {
 // ── The live character sheet, bound to the redacted core view ───────────────────────────────────
 function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	const runtime = useRuntime();
+	const navigate = useNavigate();
 	const actorId = runtime.defaultActorId;
 	const [editMode, setEditMode] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -204,6 +207,22 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	const record = view ? runtime.state.characters.characters[id] ?? null : null;
 	const resources = record ? resourcesOf(record) : null;
 	const advancement = record ? advancementStateOf(record) : null;
+
+	// Cross-links: notes that mention this character by name (the same actor-filtered full-text
+	// read the ⌘K palette uses), so the sheet connects to the lore written about it.
+	const mentions = useMemo(() => {
+		const name = view?.name.trim();
+		if (!name) return [];
+		const result = searchVaultForActor(
+			runtime.state.content,
+			runtime.state.maps,
+			runtime.state.permissions,
+			runtime.state.session,
+			actorId,
+			{ query: name },
+		);
+		return result.hits.filter((h) => h.type === 'note' || h.type === 'object').slice(0, 6);
+	}, [runtime.state, actorId, view?.name]);
 
 	if (!view) {
 		return (
@@ -596,6 +615,37 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 							<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>{String(view.data.bio)}</div>
 						</Panel>
 					)}
+
+					{mentions.length > 0 && (
+						<Panel title="Mentioned in">
+							{mentions.map((hit) => (
+								<button
+									key={`${hit.type}:${hit.id}`}
+									type="button"
+									onClick={() => navigate(hit.type === 'note' ? `/knowledge/${hit.id}` : '/campaign')}
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 8,
+										padding: '6px 0',
+										width: '100%',
+										border: 'none',
+										background: 'transparent',
+										textAlign: 'left',
+										cursor: 'pointer',
+										font: `12.5px ${T.sans}`,
+										color: T.acc,
+									}}
+									onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+									onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+								>
+									<Icon name={hit.type === 'note' ? 'knowledge-book' : 'flag'} size={14} color={T.ter} />
+									<span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hit.title}</span>
+									<span style={{ font: `11px ${T.sans}`, color: T.ter }}>{hit.type === 'note' ? 'Note' : 'Dossier'}</span>
+								</button>
+							))}
+						</Panel>
+					)}
 				</div>
 			</div>
 		</Page>
@@ -604,11 +654,27 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 
 export function Characters() {
 	const runtime = useRuntime();
+	const navigate = useNavigate();
+	const location = useLocation();
+	// URL-driven detail (`/characters/:id`) so Story cards, palette hits, and note mentions can
+	// deep-link a specific sheet instead of dumping the user on the roster.
+	const { id: detailId = null } = useParams<{ id: string }>();
 	const actorId = runtime.defaultActorId;
 	const [kind, setKind] = useState('all');
-	const [detailId, setDetailId] = useState<string | null>(null);
 	const [creating, setCreating] = useState(false);
+	const [initialKind, setInitialKind] = useState<string | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
+
+	// Create-intent handoff: "New character" launchers elsewhere (home hub, ⌘K) navigate here with
+	// router state instead of leaving the user to re-find the button. Consumed once, then cleared.
+	useEffect(() => {
+		const intent = (location.state ?? null) as { create?: boolean; kind?: string } | null;
+		if (intent?.create) {
+			setCreating(true);
+			setInitialKind(typeof intent.kind === 'string' ? intent.kind : null);
+			navigate(location.pathname, { replace: true, state: null });
+		}
+	}, [location.state, location.pathname, navigate]);
 
 	const data = useMemo(() => {
 		const actor = runtime.state.permissions.actors[actorId] ?? null;
@@ -616,7 +682,7 @@ export function Characters() {
 		return { isDm: actor?.role === 'dm', characters };
 	}, [runtime.state, actorId]);
 
-	if (detailId) return <CharacterSheet id={detailId} onBack={() => setDetailId(null)} />;
+	if (detailId) return <CharacterSheet id={detailId} onBack={() => navigate('/characters')} />;
 
 	const list = data.characters.filter((c) => {
 		if (kind === 'all') return true;
@@ -684,7 +750,7 @@ export function Characters() {
 			) : (
 				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(230px,1fr))', gap: 16 }}>
 					{list.map((c) => (
-						<CharCard key={c.id} view={c} onOpen={() => setDetailId(c.id)} />
+						<CharCard key={c.id} view={c} onOpen={() => navigate(`/characters/${c.id}`)} />
 					))}
 				</div>
 			)}
@@ -693,8 +759,9 @@ export function Characters() {
 			    NPC/Monster/Sidekick → character.quick-create. Created characters open their sheet. */}
 			{creating && data.isDm && (
 				<CharBuilder
-					onClose={() => setCreating(false)}
-					onCreated={(id) => { setCreating(false); setDetailId(id); }}
+					initialKind={initialKind ?? undefined}
+					onClose={() => { setCreating(false); setInitialKind(null); }}
+					onCreated={(id) => { setCreating(false); setInitialKind(null); navigate(`/characters/${id}`); }}
 				/>
 			)}
 		</Page>

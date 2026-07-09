@@ -12,17 +12,18 @@ export interface NavSection {
 
 /** Run the table — the live-play destinations. */
 export const RUN: NavSection[] = [
-	{ id: 'home', label: 'Command Center', icon: 'home', path: '/' },
-	{ id: 'board', label: 'Command board', icon: 'widget', path: '/board', sub: 'Spatial widget board' },
-	{ id: 'session', label: 'Session', icon: 'session-bolt', path: '/session' },
+	{ id: 'home', label: 'Command Center', icon: 'home', path: '/', sub: 'Campaign home' },
+	{ id: 'board', label: 'GM Screen', icon: 'widget', path: '/board', sub: 'Dice, initiative & trackers' },
+	{ id: 'session', label: 'Session', icon: 'session-bolt', path: '/session', sub: 'Live play & combat' },
 ];
 
-/** The content library — the four browse-able sections (with at-a-glance counts). */
+/** The content library — the four browse-able sections. The sidebar overrides `sub` with live
+ * counts; these static subs describe what each section OWNS (shown on the phone More sheet). */
 export const LIBRARY: NavSection[] = [
-	{ id: 'characters', label: 'Characters', icon: 'characters-person', path: '/characters', sub: '4 PCs · 23 NPCs' },
-	{ id: 'atlas', label: 'Atlas', icon: 'atlas-map', path: '/atlas', sub: '12 maps' },
-	{ id: 'campaign', label: 'Campaign', icon: 'campaign-scroll', path: '/campaign', sub: '6 arcs · 5 quests' },
-	{ id: 'knowledge', label: 'Knowledge', icon: 'knowledge-book', path: '/knowledge', sub: '38 notes' },
+	{ id: 'characters', label: 'Characters', icon: 'characters-person', path: '/characters', sub: 'PCs, NPCs & bestiary' },
+	{ id: 'atlas', label: 'Maps', icon: 'atlas-map', path: '/atlas', sub: 'Maps & locations' },
+	{ id: 'campaign', label: 'Story', icon: 'campaign-scroll', path: '/campaign', sub: 'Threads, factions & timeline' },
+	{ id: 'knowledge', label: 'Notes', icon: 'knowledge-book', path: '/knowledge', sub: 'Notes & handouts' },
 ];
 
 /** Platform surfaces — graph, audio, extensions, community, plans & cloud. */
@@ -54,12 +55,13 @@ const ALL = [...RUN, ...LIBRARY, ...PLATFORM, PLAYER_SECTION, SETTINGS_SECTION];
 /** Per-section [title, subtitle] for the top bar — mirrors the prototype's SECTION_TITLES. */
 export const SECTION_TITLES: Record<string, [string, string]> = {
 	home: ['Command Center', 'Your campaign hub — resume the live scene or jump anywhere'],
-	board: ['Command board', 'Your spatial widget board — glanceable trackers at the table'],
+	board: ['GM Screen', 'Your table dashboard — dice, initiative, timers, and trackers'],
 	session: ['Session', 'The live scene: combat, dice, maps, and what players see'],
 	characters: ['Characters', 'The party, your NPCs, and the bestiary'],
-	atlas: ['Atlas', 'Maps, layers, fog, and projection'],
-	campaign: ['Campaign', 'Arcs, quests, factions, and the session log'],
-	knowledge: ['Knowledge', 'Notes, handouts, and read-aloud text'],
+	atlas: ['Maps', 'Maps, locations, fog, and projection'],
+	campaign: ['Story', 'Threads, factions, NPCs, and the timeline'],
+	knowledge: ['Notes', 'Notes, handouts, and read-aloud text'],
+	scenes: ['Scenes', 'The canvases your table plays on — build, edit, and stage them'],
 	graph: ['Graph & Search', 'Every entity and how it connects — actor-filtered'],
 	audio: ['Audio & Atmosphere', 'Soundboard cues, layered ambience, and scene bindings'],
 	extensibility: ['Extensions & Systems', 'Plugins, the compendium, custom objects, and the rules module'],
@@ -71,6 +73,9 @@ export const SECTION_TITLES: Record<string, [string, string]> = {
 
 /** Resolve the active section id for a pathname (longest matching path wins; `/` is home). */
 export function activeSectionId(pathname: string): string {
+	// Scene routes are their own pseudo-section (the sidebar Scenes group, not a nav row): without
+	// this the fallback is 'home' and the top bar claims "Command Center" while editing a scene.
+	if (pathname === '/scenes' || pathname === '/scene' || pathname.startsWith('/scene/')) return 'scenes';
 	let best: NavSection | null = null;
 	for (const section of ALL) {
 		if (section.path === '/') {

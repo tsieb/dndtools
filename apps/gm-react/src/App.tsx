@@ -123,10 +123,13 @@ function ShelledRoutes() {
 					<Route path="/scene/:id" element={<SceneEditor />} />
 					<Route path="/session" element={<Session />} />
 					<Route path="/board" element={<Board />} />
-					<Route path="/characters" element={<Characters />} />
+					{/* `:id?` — the roster and the sheet share one screen; a present id deep-links the
+					    sheet so cross-links (Story cards, palette hits, note mentions) can target an
+					    entity instead of dumping the user on the list. */}
+					<Route path="/characters/:id?" element={<Characters />} />
 					<Route path="/atlas" element={<Atlas />} />
 					<Route path="/campaign" element={<Campaign />} />
-					<Route path="/knowledge" element={<Knowledge />} />
+					<Route path="/knowledge/:id?" element={<Knowledge />} />
 					<Route path="/graph" element={<Graph />} />
 					<Route path="/audio" element={<Audio />} />
 					<Route path="/extensions" element={<Extensions />} />

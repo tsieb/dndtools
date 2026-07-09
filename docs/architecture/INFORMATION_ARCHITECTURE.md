@@ -18,7 +18,7 @@ and **Library** groups; **Platform**, **Player**, and **Settings** round out the
 | Destination | Route | Purpose |
 | --- | --- | --- |
 | Command Center | `/` | Campaign hub — resume the live scene or jump anywhere |
-| Command board | `/board` | Spatial widget board — glanceable trackers at the table |
+| GM Screen | `/board` | The table dashboard — dice, initiative, timers, and trackers |
 | Session | `/session` | The live scene: combat, dice, maps, and what players see |
 
 ### Library (browse-able content)
@@ -26,9 +26,9 @@ and **Library** groups; **Platform**, **Player**, and **Settings** round out the
 | Destination | Route | Owns |
 | --- | --- | --- |
 | Characters | `/characters` | PCs, NPCs, and the bestiary |
-| Atlas | `/atlas` | Maps, layers, fog, and projection |
-| Campaign | `/campaign` | Arcs, quests, factions, and the session log |
-| Knowledge | `/knowledge` | Notes, handouts, and read-aloud text |
+| Maps | `/atlas` | Maps, locations, fog, and projection |
+| Story | `/campaign` | Threads, factions, NPCs, and the timeline |
+| Notes | `/knowledge` | Notes, handouts, and read-aloud text |
 
 ### Platform, Player, Settings
 

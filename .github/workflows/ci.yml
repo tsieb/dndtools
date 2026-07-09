@@ -18,6 +18,7 @@ jobs:
   build-and-test:
     name: build-and-test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -38,6 +39,17 @@ jobs:
 
       - name: Enforce tiered quality gates (PLAT-010)
         run: pnpm gates
+
+      # `pnpm gates` only cross-checks gate metadata; it runs no compiler or linter.
+      # `pnpm format:check` is deliberately absent: the repo has never been Prettier-uniform.
+      - name: Lint (eslint + boundary + non-text contrast)
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
 
       - name: Run unit tests
         run: pnpm test

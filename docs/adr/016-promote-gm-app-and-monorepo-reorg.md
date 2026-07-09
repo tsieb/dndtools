@@ -1,12 +1,15 @@
 # ADR-016: Promote the GM App to Primary and Reorganize the Monorepo
 
-- Status: Accepted
+- Status: Accepted (amended by [ADR-018](./018-promote-react-app-to-primary.md))
 - Date: 2026-06-09
 - Deciders: Engineering
 - Consulted: Product, Design
 - Supersedes: ADR-014 (the `apps/v2` quarantine, the `v2-` package naming, and the v1-runtime
   import ban — the stack, processing/display boundary, storage, and test decisions of ADR-014 are
   retained)
+- Amended by: ADR-018 (2026-07-08) — supersedes this ADR's "Svelte is the primary and only GM app"
+  position; `apps/gm-react` is now primary and the Svelte app is archived. The core-to-`packages/core`
+  move, the `@dndtools/core` naming, the v1 retirement, and the drop of the "v2" label remain in force.
 
 ## Context
 

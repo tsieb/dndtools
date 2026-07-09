@@ -5,6 +5,7 @@
 - Deciders: Engineering
 - Consulted: Product, Design, Security, QA
 - Supersedes: N/A (implements the concrete crypto deferred by ADR-014 and framed by ADR-015)
+- Amends: ADR-015 — supplies the concrete cryptography that ADR-015 declared but left unspecified.
 
 ## Context
 

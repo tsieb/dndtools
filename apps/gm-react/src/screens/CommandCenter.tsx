@@ -6,6 +6,7 @@ import {
 	listScenesForActor,
 	getContentItemsForActor,
 	resolveCommandCenterHome,
+	VAULT_OBJECT_SUBTYPE_KEY,
 	type SceneListEntry,
 } from '@dndtools/core';
 import { Avatar, Badge, Button, Card, Icon, StatusDot } from '../ds';
@@ -37,18 +38,24 @@ function statusOf(scene: SceneListEntry, activeSceneId: string | null): 'live' |
 
 function SceneTile({ scene, status, widgetCount, onOpen }: { scene: SceneListEntry; status: 'live' | 'ready' | 'draft'; widgetCount: number; onOpen: () => void }) {
 	const live = status === 'live';
+	const [h, setH] = useState(false);
 	return (
 		<button
 			type="button"
 			onClick={onOpen}
+			onMouseEnter={() => setH(true)}
+			onMouseLeave={() => setH(false)}
 			style={{
 				textAlign: 'left',
 				padding: 0,
-				border: `1px solid ${live ? T.accBd : T.bd}`,
+				border: `1px solid ${live || h ? T.accBd : T.bd}`,
 				borderRadius: 11,
 				overflow: 'hidden',
-				background: T.surf,
+				background: h ? T.alt : T.surf,
+				boxShadow: h ? T.ssm : 'none',
 				cursor: 'pointer',
+				transition:
+					'background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), box-shadow var(--duration-fast) var(--easing-standard)',
 			}}
 		>
 			<div style={{ position: 'relative', height: 96, background: 'linear-gradient(135deg,#2a2117,#14100b)' }}>
@@ -86,7 +93,7 @@ function SceneTile({ scene, status, widgetCount, onOpen }: { scene: SceneListEnt
 	);
 }
 
-function LaunchTile({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
+function LaunchTile({ icon, label, sub, onClick }: { icon: string; label: string; sub?: string; onClick: () => void }) {
 	const [h, setH] = useState(false);
 	return (
 		<button
@@ -122,7 +129,10 @@ function LaunchTile({ icon, label, onClick }: { icon: string; label: string; onC
 			>
 				<Icon name={icon} size="md" />
 			</span>
-			<span style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>{label}</span>
+			<span style={{ minWidth: 0 }}>
+				<span style={{ display: 'block', font: `600 12.5px ${T.sans}`, color: T.ink }}>{label}</span>
+				{sub && <span style={{ display: 'block', font: `11px ${T.sans}`, color: T.ter, marginTop: 2 }}>{sub}</span>}
+			</span>
 		</button>
 	);
 }
@@ -134,14 +144,20 @@ export function CommandCenter() {
 
 	const data = useMemo(() => {
 		const homeView = resolveCommandCenterHome(runtime.state, actorId, { widgetPackages: runtime.state.widgets });
+		const homeSceneId = runtime.state.commandCenter.homeSceneId;
+		// The GM Screen's backing scene (named "Command Center") is not a table scene — keep it out
+		// of the Scenes board (it has its own nav destination).
 		const scenes = listScenesForActor(runtime.state.scenes, runtime.state.permissions, actorId).filter(
-			(s) => !s.isTemplate,
+			(s) => !s.isTemplate && s.id !== homeSceneId,
 		);
 		const characters = listCharactersForActor(runtime.state.characters, runtime.state.permissions, actorId);
 		const maps = listMapsForActor(runtime.state.maps, runtime.state.permissions, actorId);
-		const notes = getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId);
+		const items = getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId);
+		const notes = items.filter((n) => n.kind === 'note');
+		const factionCount = items.filter(
+			(n) => n.kind === 'object' && n.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'faction',
+		).length;
 		const activeSceneId = runtime.state.session.activeSceneId;
-		const homeSceneId = runtime.state.commandCenter.homeSceneId;
 		const liveScene =
 			scenes.find((s) => s.id === activeSceneId) ??
 			scenes.find((s) => s.id === homeSceneId) ??
@@ -159,18 +175,22 @@ export function CommandCenter() {
 			party,
 			pcCount: party.length,
 			npcCount: characters.length - party.length,
+			factionCount,
 			widgetCountFor,
 		};
 	}, [runtime.state, actorId]);
 
 	const isLive = data.activeSceneId !== null && data.activeSceneId !== undefined;
 
+	// Each launcher hands its destination a create-intent (router state) so the create flow OPENS on
+	// arrival; the sub-line says what the thing is in GM vocabulary, since the labels alone
+	// ("widget"?) didn't tell a new user where NPCs, locations, or lore go.
 	const create = [
-		{ icon: 'scene', label: 'New scene', run: () => navigate('/scenes') },
-		{ icon: 'new-character', label: 'New character', run: () => navigate('/characters') },
-		{ icon: 'new-map', label: 'New map', run: () => navigate('/atlas') },
-		{ icon: 'widget', label: 'New widget', run: () => navigate('/board') },
-		{ icon: 'note-edit', label: 'New note', run: () => navigate('/knowledge') },
+		{ icon: 'scene', label: 'New scene', sub: 'A canvas for the table', run: () => navigate('/scenes') },
+		{ icon: 'new-character', label: 'New character', sub: 'PC, NPC, or monster', run: () => navigate('/characters', { state: { create: true } }) },
+		{ icon: 'new-map', label: 'New map', sub: 'Battle map or region', run: () => navigate('/atlas', { state: { create: true } }) },
+		{ icon: 'widget', label: 'New widget', sub: 'A GM Screen tracker', run: () => navigate('/board', { state: { addWidget: true } }) },
+		{ icon: 'note-edit', label: 'New note', sub: 'Lore, quest, or handout', run: () => navigate('/knowledge', { state: { create: true } }) },
 	];
 
 	const manage = [
@@ -182,7 +202,7 @@ export function CommandCenter() {
 	const libraryCounts: Record<string, string> = {
 		characters: `${data.pcCount} PCs · ${data.npcCount} NPCs`,
 		atlas: `${data.maps.length} ${data.maps.length === 1 ? 'map' : 'maps'}`,
-		campaign: `${data.scenes.length} scenes`,
+		campaign: `${data.notes.length} ${data.notes.length === 1 ? 'thread' : 'threads'} · ${data.factionCount} ${data.factionCount === 1 ? 'faction' : 'factions'}`,
 		knowledge: `${data.notes.length} ${data.notes.length === 1 ? 'note' : 'notes'}`,
 	};
 
@@ -293,7 +313,7 @@ export function CommandCenter() {
 						<HubLabel>Create</HubLabel>
 						<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11 }}>
 							{create.map((c) => (
-								<LaunchTile key={c.label} icon={c.icon} label={c.label} onClick={c.run} />
+								<LaunchTile key={c.label} icon={c.icon} label={c.label} sub={c.sub} onClick={c.run} />
 							))}
 						</div>
 					</div>

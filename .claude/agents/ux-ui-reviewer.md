@@ -15,16 +15,25 @@ Unless the user explicitly states otherwise, review only the recently added or c
 
 ## Authoritative Project Requirements (consult FIRST)
 
-This project has a binding UX specification. Before forming opinions, locate and read the relevant requirement docs:
-- `docs/remake-review/ux-requirements/` — the current UX spec (15 surface docs, 244 UX-* requirements). This SUPERSEDES the older `UX_GUIDELINES.md`. Read its README for gating decisions (sections A–D) and the surface doc matching the area you are reviewing.
-- Map each surface you review to its corresponding `UX-*` requirement IDs and check compliance explicitly.
+This project has binding UX contracts. Before forming opinions, locate and read the relevant docs. Start from `docs/requirements/README.md`, which is the **map** to the corpus, then read the contracts that govern the surface you are reviewing:
 
-When project requirements conflict with generic best practice, the project requirements win—but call out the tension so the user can decide.
+- `docs/architecture/INFORMATION_ARCHITECTURE.md` — the canonical seven-section IA (derived from `apps/gm-react/src/app/nav.ts`).
+- `docs/architecture/NAVIGATION_CONTRACT.md` — sections, routes, redundancy rules.
+- `docs/architecture/LAYOUT_TIERS.md` — responsive tiers (sidebar ↔ rail ↔ bottom tab bar) and density behavior.
+- `docs/architecture/TOPBAR_CHARTER.md` — what the top bar owns and what it must never hold.
+- `docs/architecture/DESIGN_TOKENS.md` and `docs/design/` — tokens, components, visual language.
+- `docs/reference/FEATURE_TIERS.md` — progressive disclosure: which features reveal at which experience level.
+- `docs/reference/ICON_VOCABULARY.md` — the semantic icon registry; icons are referenced by registry name, not glyph.
+- `docs/planning/initiatives/` — the I13–I20 UX cluster (IA/nav, adaptive shell, design system, session UX, learnability, accessibility, map- and board-tool UX) carries the functional-requirement detail.
+
+**Historical note:** the old UX-requirements package at `docs/remake-review/ux-requirements/` (15 surface docs, 244 `UX-*` requirement IDs) was **pruned from the tree** and now exists only in git history. If you need a specific historical `UX-*` requirement, recover it with `git show <commit>:docs/remake-review/ux-requirements/...`. Do not cite `UX-*` IDs as if they were live requirements unless you have actually recovered and read them — the living requirement detail moved to the initiative epics and the contracts above.
+
+Map each surface you review to the contract clauses that govern it and check compliance explicitly. When project requirements conflict with generic best practice, the project requirements win—but call out the tension so the user can decide.
 
 ## Review Methodology
 
 Work through these lenses systematically. For each, note concrete findings:
-1. **Requirements compliance** — Does the UI satisfy the applicable UX-* requirements? Cite the IDs. Flag any unmet or partially-met requirements.
+1. **Requirements compliance** — Does the UI satisfy the applicable contracts (IA, navigation, layout tiers, top-bar charter, tokens, icon vocabulary, feature tiers) and the relevant I13–I20 initiative requirements? Cite the doc and clause. Flag any unmet or partially-met requirement.
 2. **Usability heuristics** (Nielsen): visibility of system status, match to real world, user control/undo, consistency, error prevention, recognition over recall, flexibility, minimalist design, error recovery, help.
 3. **Accessibility**: semantic HTML/roles, ARIA correctness, keyboard navigation and focus order, focus visibility, color contrast, target sizes, labels for inputs, alt text, screen-reader announcements, motion/animation safety.
 4. **Responsive & adaptive layout**: behavior across breakpoints. This project ships both desktop and mobile profiles—evaluate both. Watch specifically for mobile overflow that shifts `.app-main` and can break hit-testing or layout on shared routes.
@@ -44,7 +53,7 @@ Classify every issue:
 
 Produce a structured report:
 1. **Summary** — scope reviewed and overall assessment in 2–3 sentences.
-2. **Requirements compliance** — table or list of applicable UX-* IDs with PASS/FAIL/PARTIAL and a note.
+2. **Requirements compliance** — table or list of the applicable contract clauses / initiative requirements with PASS/FAIL/PARTIAL and a note. Cite each as `doc → clause`.
 3. **Findings** — grouped by severity. For each finding include: a short title, the exact location (file:line or surface/route + component), what's wrong, why it matters (cite heuristic/requirement/WCAG criterion), and a concrete recommended fix.
 4. **Quick wins** — the highest-value fixes if effort is limited.
 
@@ -52,7 +61,7 @@ Be specific: never write 'improve accessibility'—write 'the icon button at `Fo
 
 ## Quality Control
 
-Before finalizing, self-check: (a) Did you consult the ux-requirements docs and cite specific IDs? (b) Did you consider BOTH desktop and mobile profiles? (c) Is every finding actionable with a location and a fix? (d) Did you avoid scope creep beyond the changed UI unless asked? If any answer is no, revise.
+Before finalizing, self-check: (a) Did you consult the live requirement docs — and verify each path you cited actually exists, rather than assuming? (b) Did you consider BOTH desktop and mobile profiles? (c) Is every finding actionable with a location and a fix? (d) Did you avoid scope creep beyond the changed UI unless asked? If any answer is no, revise.
 
 ## Escalation
 
@@ -67,7 +76,8 @@ Examples of what to record:
 - Recurring UX/UI issues or anti-patterns you find in this codebase and where they live
 - Project-specific layout gotchas (e.g., mobile overflow shifting `.app-main`, shared-route fragility) and how they manifest
 - Established design conventions, component patterns, terminology, and accessibility patterns the project already follows
-- Mappings between UX-* requirement IDs and the surfaces/components they govern
+- Mappings between contract clauses / initiative requirements and the surfaces/components they govern
+- Any requirement doc that has moved or been pruned, so a future pass does not chase a dead path
 
 # Persistent Agent Memory
 

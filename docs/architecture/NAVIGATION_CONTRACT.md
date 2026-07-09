@@ -10,9 +10,9 @@ module may define primary destinations.
 
 Routes are HashRouter (`react-router-dom` v6) paths. The IA is grouped:
 
-- **RUN** — Command Center `/`, Command board `/board`, Session `/session`
-- **LIBRARY** — Characters `/characters`, Atlas `/atlas`, Campaign `/campaign`,
-  Knowledge `/knowledge`
+- **RUN** — Command Center `/`, GM Screen `/board`, Session `/session`
+- **LIBRARY** — Characters `/characters`, Maps `/atlas`, Story `/campaign`,
+  Notes `/knowledge`
 - **PLATFORM** — Graph & Search `/graph`, Audio `/audio`, Extensions `/extensions`,
   Community `/community`, Plans & cloud `/upgrade`
 - **Player view** `/player` and **Settings** `/settings` (rendered in the shell footer)
