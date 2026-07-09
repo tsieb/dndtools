@@ -40,6 +40,9 @@ const env = {
   VITE_SIGNALING_WS_URL: ssm('signaling/ws-url'),
   VITE_SYNC_API_URL: ssmOptional('sync/api-url'),
   VITE_APP_API_URL: ssmOptional('app-api/url'),
+  // Google Docs vault-source OAuth client id (manual setup — docs/runbooks/google-oauth-setup.md).
+  // Absent ⇒ the Google Docs source option stays hidden (fail closed).
+  VITE_GOOGLE_CLIENT_ID: ssmOptional('google/client-id'),
 };
 
 const here = dirname(fileURLToPath(import.meta.url));
