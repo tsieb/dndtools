@@ -381,7 +381,8 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 					<span style={{ display: 'block', font: `600 12.5px ${T.sans}`, color: T.ink }}>Your campaign</span>
 					<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>{scenes.length} scenes · {counts.characters}</span>
 				</span>
-				<Icon name="chevron-down" size={13} color={T.ter} />
+				{/* chevron-right = "this navigates"; chevron-down here implied a dropdown that never opened */}
+				<Icon name="chevron-right" size={13} color={T.ter} />
 			</button>
 
 			<div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '4px 12px 16px' }}>
