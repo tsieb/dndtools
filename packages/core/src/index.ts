@@ -1717,9 +1717,13 @@ export {
 	validatePlatformRequest,
 } from './platform/service-boundary';
 export {
+	MAX_ASSET_BLOB_BYTES,
 	createStoragePlatformServiceRegistry,
+	deleteAssetBytesRequestSchema,
+	getAssetBytesRequestSchema,
 	loadCoreStateRequestSchema,
 	persistFullStateRequestSchema,
+	putAssetBytesRequestSchema,
 	recoverPendingMigrationRequestSchema,
 	resetCoreStorageRequestSchema,
 } from './schemas/platform-service';

@@ -10,6 +10,10 @@
   processing/display boundary, storage, and testing decisions below remain in force.
 - Superseded-by: ADR-018 (2026-07-08) — the React-rejecting rationale in this ADR's
   rejected-alternatives table is reversed; React is now the primary GUI stack.
+- Amended by: ADR-019 (2026-07-09) — the "large assets / map storage deferred until justified"
+  storage deferral and the `content.write-to-source` transport deferral are lifted; asset bytes
+  now live in a content-addressed Dexie blob table behind the platform boundary. The storage
+  boundary itself (Dexie/IndexedDB, no binary in core state or the op log) remains in force.
 
 ## Context
 

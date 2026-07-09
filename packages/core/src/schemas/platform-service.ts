@@ -41,6 +41,34 @@ export const recoverPendingMigrationRequestSchema = z.undefined();
 export const resetCoreStorageRequestSchema = z.undefined();
 
 /**
+ * Hard per-blob ceiling for the asset-byte store (ADR-014 amendment). Equal to the largest
+ * per-asset cap any domain declares (`DEFAULT_MAX_AUDIO_BYTES`); domain commands still apply
+ * their own tighter limits (e.g. `DEFAULT_MAX_ASSET_BYTES` for map images) before bytes reach
+ * the store, so this is the outer fail-closed bound, not the primary validator.
+ */
+export const MAX_ASSET_BLOB_BYTES = 32 * 1024 * 1024;
+
+/**
+ * Asset-byte methods validate a small DESCRIPTOR at the boundary, never the bytes themselves:
+ * a multi-megabyte buffer is not JSON-serializable within the payload budget, and per
+ * ADR-014/Contract 2 binary bytes stay out of core state and the operation log entirely. The
+ * storage adapter enforces `byteLength` against the actual buffer it receives.
+ */
+export const putAssetBytesRequestSchema = z
+	.object({
+		id: z.string().min(1).max(120),
+		mime: z.string().min(1).max(255),
+		byteLength: z.number().int().positive().max(MAX_ASSET_BLOB_BYTES),
+	})
+	.strict();
+
+export const getAssetBytesRequestSchema = z
+	.object({ id: z.string().min(1).max(120) })
+	.strict();
+
+export const deleteAssetBytesRequestSchema = getAssetBytesRequestSchema;
+
+/**
  * persistFullState receives the previous and next durable state slices the runtime is
  * about to write. The boundary only enforces structural shape and the size budget; the
  * adapter still enforces the "no durable change without an accepted operation" invariant.
@@ -90,5 +118,8 @@ export function createStoragePlatformServiceRegistry(): PlatformServiceRegistry 
 			requestSchema: recoverPendingMigrationRequestSchema,
 		},
 		{ method: 'storage.resetCoreStorage', requestSchema: resetCoreStorageRequestSchema },
+		{ method: 'storage.putAssetBytes', requestSchema: putAssetBytesRequestSchema },
+		{ method: 'storage.getAssetBytes', requestSchema: getAssetBytesRequestSchema },
+		{ method: 'storage.deleteAssetBytes', requestSchema: deleteAssetBytesRequestSchema },
 	]);
 }
