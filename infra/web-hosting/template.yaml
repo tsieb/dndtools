@@ -68,7 +68,9 @@ Resources:
   # (apps/gm-react/electron/main.cjs). `script-src`/`style-src` keep 'unsafe-inline'
   # because index.html runs pre-paint theme/motion IIFEs and React sets inline styles.
   # `connect-src` allows the same-origin app plus Cognito (SRP) and API Gateway
-  # (https REST + wss signaling) in this region. Fonts are self-hosted (@fontsource),
+  # (https REST + wss signaling) in this region, the Open5e compendium API, and the
+  # Google Docs API (vault source; the OAuth popup is a navigation, not a fetch, so
+  # accounts.google.com is NOT needed here). Fonts are self-hosted (@fontsource),
   # so `font-src 'self' data:` (no external font host).
   WebHeadersPolicy:
     Type: AWS::CloudFront::ResponseHeadersPolicy
@@ -88,6 +90,7 @@ Resources:
               connect-src 'self' https://cognito-idp.${AWS::Region}.amazonaws.com
               https://*.execute-api.${AWS::Region}.amazonaws.com
               wss://*.execute-api.${AWS::Region}.amazonaws.com
+              https://api.open5e.com https://docs.googleapis.com
           StrictTransportSecurity:
             Override: true
             AccessControlMaxAgeSec: 31536000
