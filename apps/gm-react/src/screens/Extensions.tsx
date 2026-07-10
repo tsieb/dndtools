@@ -5,14 +5,16 @@ import {
 	exportWidgetPackage,
 	getContentItemsForActor,
 	listCharactersForActor,
+	listVaultObjectSchemas,
+	previewSystemSwitch,
 	scaffoldCustomWidgetPackageDraft,
 	VAULT_OBJECT_SUBTYPE_KEY,
 	type CommandResult,
+	type SystemSwitchPreviewResult,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
-import { Badge, Button, EmptyState, HPBar, Icon, Input, Select, Skeleton, Switch, Tabs, Textarea, Toaster, VisibilityChip } from '../ds';
+import { Badge, Button, Dialog, EmptyState, HPBar, Icon, Input, Select, Skeleton, Switch, Tabs, Textarea, Toaster, VisibilityChip } from '../ds';
 import { Page, Panel, T, eb, mono } from '../app/screen-kit';
-import { DNDExt } from '../runtime/mockCampaign';
 import { useRuntime } from '../runtime/RuntimeContext';
 import {
 	isAbortError,
@@ -57,15 +59,21 @@ import type {
  * the EncounterBuilder), a spell dispatches `content.create-object` (subtype 'spell'). Duplicate
  * names are flagged with an explicit re-import confirm — never silent.
  *
- * HONEST STUBS (no core command on this surface, clearly noted in each panel):
+ * REAL — the Object types tab renders the Core's declared vault-object schema registry
+ * (`listVaultObjectSchemas`) with live per-subtype counts from the actor-filtered content read; the
+ * System tab runs the real `previewSystemSwitch` dry-run and applies through the real
+ * `widget.package.switch-system` command (fail-closed: a non-migratable vault or an unacknowledged
+ * destructive drop blocks the switch); the Theme studio persists the preset choice through the same
+ * mechanism Settings → Appearance uses and lists the LIVE token values of the active preset.
+ *
+ * HONEST LIMITS (no core command — each panel says so, no fake controls):
  *   - Community marketplace: browsing/fetching community packages needs a network backend — nothing
  *     is fetched; the panel says so and offers no fake controls.
- *   - Object types: a custom-type schema editor has no Core command here — local draft state.
- *   - System switch: swapping the rules system has no Core command here — local selection only.
- *   - Theme studio: the live `data-theme` swap IS real (DOM), token import/export is a local preview.
+ *   - Custom object types: the Core has no define-object-type command; the tab says custom types
+ *     aren't supported yet instead of offering a schema editor that saves nowhere.
+ *   - Per-token theme overrides: presets are the architecture (ADR-011); token rows are read-only.
  */
 
-const EXT = DNDExt as any;
 const TRUST_TONE: Record<string, string> = { trusted: 'success', unreviewed: 'warning', denied: 'error' };
 const HOST_PERM_LABEL: Record<string, string> = {
 	filesystem: 'Filesystem',
@@ -993,168 +1001,355 @@ function ExtCompendium() {
 	);
 }
 
+/* ---- Object types (REAL — the Core's declared vault-object schema registry + live counts) ------- */
+const SUBTYPE_ICON: Record<string, string> = {
+	note: 'note',
+	character: 'players',
+	map: 'atlas-map',
+	handout: 'scroll',
+	spell: 'spell-sparkle',
+	encounter: 'monster-claw',
+	'dice-table': 'dice',
+	'audio-preset': 'play',
+};
+
 function ExtObjects() {
-	const O = EXT.objectTypes;
-	const fts: Record<string, any> = Object.fromEntries(O.fieldTypes.map((f: any) => [f.id, f]));
-	// Honest-local: no Core command for a custom-type schema editor on this surface — local draft state.
-	const [fields, setFields] = useState<any[]>(O.draft.fields.map((f: any) => ({ ...f })));
-	const addField = () =>
-		setFields((fs) => [...fs, { label: `Field ${fs.length + 1}`, key: `field_${fs.length + 1}`, type: O.fieldTypes[0]?.id ?? 'text', required: false }]);
+	const runtime = useRuntime();
+	const actorId = runtime.defaultActorId;
+	const schemas = listVaultObjectSchemas();
+	// Live per-subtype counts through the SAME visibility-respecting content read Knowledge lists with.
+	const items = getContentItemsForActor(runtime.state.content, runtime.state.permissions, actorId);
+	const countFor = (subtype: string): number =>
+		subtype === 'note'
+			? items.filter((i) => i.kind === 'note').length
+			: items.filter((i) => i.kind === 'object' && i.fields[VAULT_OBJECT_SUBTYPE_KEY] === subtype).length;
 	return (
-		<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'start' }}>
-			<Panel title="Object types" action={<Badge status="neutral">preview</Badge>}>
-				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
-					Preview only — defining custom object types is not wired to a Core command on this surface.
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+			<Panel title="Object types" action={<Badge status="neutral">{schemas.length} schema-defined</Badge>}>
+				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
+					The Core's declared vault-object schema registry — these fields drive the forms and columns
+					everywhere a type appears. Counts are live from your vault (visibility-filtered).
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-					{O.types.map((t: any) => (
-						<div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, border: `1px solid ${T.bd}`, borderRadius: 10, background: T.surf }}>
-							<span style={{ width: 36, height: 36, borderRadius: 9, background: T.alt, color: T.acc, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' }}>
-								<Icon name={t.icon} size="md" />
-							</span>
-							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-									<span style={{ font: `600 13.5px ${T.sans}` }}>{t.name}</span>
-									{t.builtin && <Badge status="neutral">Built-in</Badge>}
-								</div>
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-									{t.from} · {t.fields} fields · {t.count} objects
-								</div>
-							</div>
-							<Icon name="chevron-right" size={15} color={T.ter} />
-						</div>
-					))}
-				</div>
-			</Panel>
-			<Panel accent title={`New type · ${O.draft.name}`}>
-				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
-					A schema-backed type — these fields become the form and the columns everywhere this type appears. Local draft.
-				</div>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-					{fields.map((f: any, i: number) => {
-						const ft = fts[f.type];
+					{schemas.map((s) => {
+						const count = countFor(s.subtype);
 						return (
-							<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px', border: `1px solid ${T.bd}`, borderRadius: 10, background: T.surf }}>
-								<Icon name={ft?.icon || 'tag'} size={16} color={T.acc} />
+							<div key={s.subtype} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, border: `1px solid ${T.bd}`, borderRadius: 10, background: T.surf }}>
+								<span style={{ width: 36, height: 36, borderRadius: 9, background: T.alt, color: T.acc, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' }}>
+									<Icon name={SUBTYPE_ICON[s.subtype] ?? 'tag'} size="md" />
+								</span>
 								<div style={{ flex: 1, minWidth: 0 }}>
-									<div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-										<span style={{ font: `600 12.5px ${T.sans}` }}>{f.label}</span>
-										{f.required && (
-											<span style={{ font: `9px ${T.sans}`, letterSpacing: '.06em', color: T.err, border: `1px solid ${T.bd}`, borderRadius: 4, padding: '1px 5px' }}>REQ</span>
-										)}
+									<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+										<span style={{ font: `600 13.5px ${T.sans}` }}>{s.displayName}</span>
+										<Badge status="neutral">Built-in</Badge>
+										{s.dmOnlyFields.length > 0 && <Badge status="accent">{s.dmOnlyFields.length} DM-only {s.dmOnlyFields.length === 1 ? 'field' : 'fields'}</Badge>}
 									</div>
-									<div style={{ font: `11px ${T.mono}`, color: T.ter }}>{f.key}</div>
+									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+										<span style={mono}>{s.subtype}</span> · defaults to {s.defaultVisibility} · {s.requiredFields.length} required {s.requiredFields.length === 1 ? 'field' : 'fields'}
+									</div>
 								</div>
-								<Badge status="neutral">{ft?.label || f.type}</Badge>
+								<span style={{ font: `12px ${T.mono}`, color: count ? T.ink : T.ter }}>{count} in vault</span>
 							</div>
 						);
 					})}
-					<button
-						type="button"
-						onClick={addField}
-						style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '9px', borderRadius: 10, border: `1.5px dashed ${T.bdS}`, background: 'transparent', cursor: 'pointer', color: T.ter, font: `600 12.5px ${T.sans}` }}
-					>
-						<Icon name="add" size={14} />
-						Add field
-					</button>
+				</div>
+			</Panel>
+			<Panel title="Custom object types" action={<Badge status="neutral">not supported yet</Badge>}>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>
+					Defining your own object types isn't supported yet — the Core has no define-object-type command,
+					so a schema editor here would save nowhere. Every type above is schema-defined in the Core; if you
+					need a custom shape today, a note with structured fields or a custom widget package (Plugins tab)
+					is the honest workaround.
 				</div>
 			</Panel>
 		</div>
 	);
 }
 
+/* ---- System (REAL — `previewSystemSwitch` dry-run gating the `widget.package.switch-system` command) */
+const SWITCH_UNAVAILABLE_COPY: Record<string, string> = {
+	'package-not-found': 'That package is not installed.',
+	'package-removed': 'That package has been removed — reinstall it first.',
+	'package-disabled': 'That package is disabled — enable it on the Plugins tab first.',
+	'already-active': 'That package is already the active system.',
+};
+const FINDING_TONE: Record<string, 'success' | 'warning' | 'error'> = { keep: 'success', remap: 'warning', drop: 'error' };
+
+function SystemSwitchDialog({
+	targetId,
+	targetName,
+	preview,
+	busy,
+	canWrite,
+	onApply,
+	onClose,
+}: {
+	targetId: string;
+	targetName: string;
+	preview: SystemSwitchPreviewResult;
+	busy: boolean;
+	canWrite: boolean;
+	onApply: (acknowledgeLoss: boolean) => void;
+	onClose: () => void;
+}) {
+	const [ack, setAck] = useState(false);
+	const available = preview.kind === 'available';
+	const blocked = available && !preview.vault.canMigrate;
+	const destructive = available && preview.destructive;
+	const canApply = available && !blocked && (!destructive || ack) && canWrite && !busy;
+	return (
+		<Dialog
+			open
+			onClose={onClose}
+			title={`Switch to ${targetName}`}
+			description={`Migration dry-run · ${targetId}`}
+			size="md"
+			footer={
+				<>
+					<Button variant="secondary" size="sm" disabled={busy} onClick={onClose}>Cancel</Button>
+					<Button
+						variant={destructive ? 'danger' : 'primary'}
+						size="sm"
+						icon="check"
+						disabled={!canApply}
+						onClick={() => onApply(destructive && ack)}
+					>
+						{busy ? 'Switching…' : 'Apply switch'}
+					</Button>
+				</>
+			}
+		>
+			{!available && (
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					{SWITCH_UNAVAILABLE_COPY[preview.reason] ?? 'The switch is unavailable.'} Nothing was changed.
+				</div>
+			)}
+			{available && (
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+					<div style={{ display: 'flex', alignItems: 'center', gap: 8, font: `12.5px ${T.sans}`, color: T.sub }}>
+						<Icon name={blocked ? 'error' : 'success'} size={16} color={blocked ? T.err : T.ok} />
+						{blocked
+							? 'The vault cannot be safely migrated — the switch is blocked (fail-closed).'
+							: 'Vault migration dry-run is clean.'}
+					</div>
+					{blocked && (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+							{preview.vault.blockingIssues.map((issue, i) => (
+								<div key={i} style={{ font: `12px/1.5 ${T.sans}`, color: T.err }}>{issue.documentId}: {issue.reason}</div>
+							))}
+						</div>
+					)}
+					{preview.findings.length === 0 ? (
+						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>No widget-vocabulary changes — the current system declares no types the target lacks.</div>
+					) : (
+						<div style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${T.bd}`, borderRadius: 10, overflow: 'hidden' }}>
+							{preview.findings.map((f, i) => (
+								<div key={f.widgetType} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderTop: i ? `1px solid ${T.bd}` : 'none', background: i % 2 ? T.alt : 'transparent' }}>
+									<span style={{ font: `600 12.5px ${T.mono}`, width: 140, flex: '0 0 auto' }}>{f.widgetType}</span>
+									<Badge status={FINDING_TONE[f.effect] ?? 'neutral'}>{f.effect}</Badge>
+									<span style={{ font: `11.5px ${T.mono}`, color: T.ter, width: 60, flex: '0 0 auto' }}>×{f.instanceCount}</span>
+									<span style={{ flex: 1, font: `12px/1.4 ${T.sans}`, color: T.sub }}>{f.note}</span>
+								</div>
+							))}
+						</div>
+					)}
+					{destructive && !blocked && (
+						<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 9, border: `1px solid ${T.accBd}`, background: T.accSub }}>
+							<div style={{ flex: 1, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+								Dropped types above have live widgets on your scenes — they would be disabled (recoverable
+								by switching back). The command fails closed unless you acknowledge this.
+							</div>
+							<Switch checked={ack} onChange={() => setAck((v) => !v)} label="I understand" />
+						</div>
+					)}
+					{preview.clean && (
+						<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ok }}>Clean dry-run: the switch applies without losing anything.</div>
+					)}
+				</div>
+			)}
+		</Dialog>
+	);
+}
+
 function ExtSystem() {
-	const cs = EXT.campaignSystem;
-	// Honest-local: swapping the campaign rules-system is not Core-backed on this surface — local selection.
-	const [activeSystem, setActiveSystem] = useState<string>(cs.modules.find((m: any) => m.active)?.id ?? cs.active ?? cs.modules[0]?.id);
+	const runtime = useRuntime();
+	const dmId = runtime.defaultActorId;
+	const previewing = !!runtime.preview;
+	const isDm = runtime.state.permissions.actors[dmId]?.role === 'dm';
+	const canWrite = isDm && !previewing;
+	const widgets = runtime.state.widgets;
+	const packages = useMemo(
+		() => Object.values(widgets.packages).filter((rec) => !rec.removedAt),
+		[widgets],
+	);
+	const activeId = widgets.activeSystemPackageId ?? null;
+	const [targetId, setTargetId] = useState<string | null>(null);
+	const [busy, setBusy] = useState(false);
+	// The PURE dry-run behind the command — recomputed live from the same state the command validates.
+	const preview = targetId ? previewSystemSwitch(widgets, runtime.state.scenes, targetId) : null;
+	const targetName = targetId ? (widgets.packages[targetId]?.package.displayName ?? targetId) : '';
+
+	const apply = (acknowledgeLoss: boolean) => {
+		if (!targetId || busy) return;
+		setBusy(true);
+		void runtime
+			.dispatch({ type: 'widget.package.switch-system', actorId: dmId, payload: { packageId: targetId, acknowledgeLoss } })
+			.then((res: CommandResult) => {
+				if (res.status === 'accepted') {
+					Toaster.success(`Active system switched to ${targetName}.`);
+					setTargetId(null);
+				} else {
+					Toaster.error(res.rejection.message);
+				}
+			})
+			.catch((error: unknown) => Toaster.error(error instanceof Error ? error.message : String(error)))
+			.finally(() => setBusy(false));
+	};
+
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel title="Campaign system" accent>
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
-					The rules vocabulary the whole interface reads at runtime — stats, conditions, dice, action economy.
-					Switching is a local preview here; the migration dry-run has no Core command on this surface.
+					The widget vocabulary the whole interface reads at runtime. Switching runs the Core's
+					non-destructive dry-run first and fails closed on anything unsafe — a switch that would drop
+					live widgets needs your explicit acknowledgment.
+					{activeId === null && ' No explicit system package is set yet; the built-in scene widgets act as the default until you switch.'}
 				</div>
+				{!canWrite && (
+					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>Switching is DM-only and read-only while previewing.</div>
+				)}
 			</Panel>
 			<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14 }}>
-				{cs.modules.map((m: any) => {
-					const active = m.id === activeSystem;
+				{packages.map((rec) => {
+					const def = rec.package;
+					const active = def.id === activeId;
 					return (
-						<div key={m.id} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 12, border: `1px solid ${active ? T.accBd : T.bd}`, background: T.surf, boxShadow: active ? T.smd : 'none' }}>
-							<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-								<span style={{ font: `700 15px ${T.disp}`, color: active ? T.acc : T.ink }}>{m.name}</span>
+						<div key={def.id} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 12, border: `1px solid ${active ? T.accBd : T.bd}`, background: T.surf, boxShadow: active ? T.smd : 'none' }}>
+							<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+								<span style={{ font: `700 15px ${T.disp}`, color: active ? T.acc : T.ink }}>{def.displayName}</span>
 								{active ? (
-									<Badge status="accent" icon="check">
-										Active
-									</Badge>
+									<Badge status="accent" icon="check">Active</Badge>
+								) : rec.enabled ? (
+									<Badge status="neutral">v{def.version}</Badge>
 								) : (
-									<Badge status="neutral">{m.from}</Badge>
+									<Badge status="warning">disabled</Badge>
 								)}
 							</div>
-							<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub, flex: 1 }}>{m.desc}</div>
+							<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{def.id}</div>
+							<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub, flex: 1 }}>
+								{def.widgets.length} {def.widgets.length === 1 ? 'widget type' : 'widget types'} declared.
+							</div>
 							{active ? (
-								<Button variant="secondary" size="sm" disabled>
-									Current system
-								</Button>
+								<Button variant="secondary" size="sm" disabled>Current system</Button>
 							) : (
-								<Button variant="primary" size="sm" icon="retry" onClick={() => setActiveSystem(m.id)}>
-									Switch (preview)
+								<Button variant="primary" size="sm" icon="retry" disabled={busy} onClick={() => setTargetId(def.id)}>
+									Preview switch
 								</Button>
 							)}
 						</div>
 					);
 				})}
 			</div>
+			<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter }}>
+				Want a system that isn't listed? Install its widget package on the Plugins tab (starter library or
+				package JSON) — every installed, enabled package can be previewed as the active system.
+			</div>
+			{targetId && preview && (
+				<SystemSwitchDialog
+					targetId={targetId}
+					targetName={targetName}
+					preview={preview}
+					busy={busy}
+					canWrite={canWrite}
+					onApply={apply}
+					onClose={() => setTargetId(null)}
+				/>
+			)}
 		</div>
 	);
 }
 
+/* ---- Theme studio (REAL — persisted preset choice + the LIVE token values of the active preset) --- */
+// Mirrors Settings → Appearance: the same localStorage key index.html restores pre-paint, and the
+// same dark-theme set so the native color-scheme (scrollbars, form controls) stays in sync.
+const THEME_STORE_KEY = 'dndtools:react:theme';
+const DARK_PRESETS = new Set(['tavern', 'high-contrast']);
+const THEME_PRESETS = [
+	{ id: 'tavern', label: 'Tavern', desc: 'Candle-lit dark (default)' },
+	{ id: 'parchment', label: 'Parchment', desc: 'Warm vellum light' },
+	{ id: 'high-contrast', label: 'High contrast', desc: 'The accessibility floor' },
+];
+// The semantic tokens the design system actually drives — read LIVE off the document, never authored.
+const TOKEN_GROUPS: { label: string; tokens: string[] }[] = [
+	{ label: 'Surfaces', tokens: ['--color-bg', '--color-surface', '--color-surface-raised', '--color-surface-sunken', '--color-border'] },
+	{ label: 'Text', tokens: ['--color-text-primary', '--color-text-secondary', '--color-text-tertiary'] },
+	{ label: 'Accent & status', tokens: ['--color-accent', '--color-accent-subtle', '--color-status-success', '--color-status-warning', '--color-status-error'] },
+];
+
 function ExtTheme() {
-	const TH = EXT.theme;
-	const presetToTheme: Record<string, string> = { tavern: 'tavern', parchment: 'parchment', 'high-contrast': 'high-contrast' };
-	// REAL: the live `data-theme` swap drives the actual document theme (DOM). Token import/export is local.
 	const [theme, setTheme] = useState<string>(document.documentElement.getAttribute('data-theme') || 'tavern');
+	// REAL + PERSISTED: the same data-theme attr + localStorage key Settings → Appearance writes, so
+	// the choice survives reload (index.html restores it pre-paint) and both surfaces always agree.
 	const applyTheme = (v: string) => {
 		setTheme(v);
 		document.documentElement.setAttribute('data-theme', v);
+		document.documentElement.style.colorScheme = DARK_PRESETS.has(v) ? 'dark' : 'light';
+		try {
+			window.localStorage.setItem(THEME_STORE_KEY, v);
+		} catch {
+			/* ignore */
+		}
 	};
+	// The LIVE computed value of each token under the active preset (recomputed on theme change —
+	// the `theme` read below is the dependency that forces the re-read after the attr flips).
+	const tokenValues = useMemo(() => {
+		const attr = document.documentElement.getAttribute('data-theme') ?? theme;
+		void attr;
+		const styles = getComputedStyle(document.documentElement);
+		const out: Record<string, string> = {};
+		for (const g of TOKEN_GROUPS) for (const name of g.tokens) out[name] = styles.getPropertyValue(name).trim() || '—';
+		return out;
+	}, [theme]);
+	const tokenValue = (name: string) => tokenValues[name] ?? '—';
 	return (
 		<div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 18, alignItems: 'start' }}>
-			<Panel title="Token overrides" action={<Badge status="neutral">live theme: {theme}</Badge>}>
+			<Panel title="Theme preset" action={<Badge status="neutral">active: {theme}</Badge>}>
 				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 14 }}>
-					{TH.presets.map((p: any) => (
+					{THEME_PRESETS.map((p) => (
 						<button
 							key={p.id}
 							type="button"
-							onClick={() => presetToTheme[p.id] && applyTheme(presetToTheme[p.id])}
+							aria-pressed={theme === p.id}
+							onClick={() => applyTheme(p.id)}
 							style={{
 								font: `12px ${T.sans}`,
 								padding: '6px 12px',
 								borderRadius: 8,
 								cursor: 'pointer',
-								border: `1px solid ${theme === presetToTheme[p.id] ? T.accBd : T.bd}`,
-								background: theme === presetToTheme[p.id] ? T.accSub : T.surf,
-								color: theme === presetToTheme[p.id] ? T.acc : T.sub,
+								border: `1px solid ${theme === p.id ? T.accBd : T.bd}`,
+								background: theme === p.id ? T.accSub : T.surf,
+								color: theme === p.id ? T.acc : T.sub,
 							}}
+							title={p.desc}
 						>
 							{p.label}
-							{p.custom && ' ✎'}
 						</button>
 					))}
 				</div>
 				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 12 }}>
-					Theme swap is real (drives the document <span style={mono}>data-theme</span>). The token rows below are a
-					display-only preview — there is no Core command for per-token overrides on this surface.
+					The preset choice is real and persists (the same setting as Settings → Appearance). Presets are the
+					theming architecture — per-token overrides aren't supported, so the rows below are the live,
+					read-only token values of the active preset.
 				</div>
-				{TH.groups.map((g: any) => (
+				{TOKEN_GROUPS.map((g) => (
 					<div key={g.label} style={{ marginBottom: 14 }}>
 						<div style={{ ...eb, marginBottom: 8 }}>{g.label}</div>
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-							{g.tokens.map((t: any) => (
-								<div key={t.name} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-									<span style={{ width: 26, height: 26, borderRadius: 7, flex: '0 0 auto', background: t.swatch, border: `1px solid ${T.bd}` }} />
-									<span style={{ flex: 1, font: `11.5px ${T.mono}`, color: T.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</span>
-									{t.edited && <Badge status="accent">edited</Badge>}
-									<span style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{t.value}</span>
+							{g.tokens.map((name) => (
+								<div key={name} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+									<span style={{ width: 26, height: 26, borderRadius: 7, flex: '0 0 auto', background: `var(${name})`, border: `1px solid ${T.bd}` }} />
+									<span style={{ flex: 1, font: `11.5px ${T.mono}`, color: T.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+									<span style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{tokenValue(name)}</span>
 								</div>
 							))}
 						</div>

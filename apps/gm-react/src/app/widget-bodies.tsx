@@ -2,12 +2,17 @@ import { useEffect, useState } from 'react';
 import {
 	getCharacterForActor,
 	getCombatTrackerForActor,
+	getContentItemsForActor,
 	getDiceHistoryForActor,
+	getMapViewForActor,
+	getSessionAudioView,
 	getTimerCountdown,
 	parseDiceExpression,
 } from '@dndtools/core';
 import { Icon } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { useAssetObjectUrl } from '../platform/assetUrl';
+import { pickRasterAssetId } from './mapGeometry';
 import type { BoardWidget } from './board-helpers';
 
 /**
@@ -289,8 +294,29 @@ function TimerBody({ widget, onCommand }: { widget: BoardWidget; onCommand?: Wid
 	);
 }
 
-function AudioBody({ widget }: { widget: BoardWidget }) {
-	const loop = cfg<boolean>(widget, 'loop') ?? true;
+function AudioBody() {
+	const runtime = useRuntime();
+	// AUDIO-002/003 — the ONE actor-filtered session-audio read model: the DM sees the authoritative
+	// track + ambience mix; a participant only the player-safe track. Names resolve through the audio
+	// library only on the DM view (they are DM config, not part of the player-safe projection).
+	const view = getSessionAudioView(
+		runtime.state.audio,
+		runtime.state.session.audioPlayback,
+		runtime.state.permissions,
+		runtime.defaultActorId,
+	);
+	const track = view.track;
+	if (!track) {
+		return <Muted>Nothing playing — cue a track from the session audio controls.</Muted>;
+	}
+	const isDm = view.role === 'dm';
+	const title = isDm
+		? ((track.assetId ? runtime.state.audio.assets[track.assetId]?.title : undefined) ??
+			runtime.state.audio.sources[track.sourceId]?.displayName ??
+			track.sourceId)
+		: 'Session audio';
+	const ambienceCount = isDm ? Object.keys(view.ambienceLayers).length : 0;
+	const playing = track.status === 'playing';
 	return (
 		<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', height: '100%' }}>
 			<span
@@ -306,11 +332,16 @@ function AudioBody({ widget }: { widget: BoardWidget }) {
 					flex: '0 0 auto',
 				}}
 			>
-				<Icon name="play" size="sm" />
+				<Icon name={playing ? 'play' : 'pause'} size="sm" />
 			</span>
 			<div style={{ minWidth: 0 }}>
-				<div style={{ font: '600 var(--text-sm) var(--font-sans)', color: 'var(--color-text-primary)' }}>Ambient track</div>
-				<Muted>{loop ? 'Looping' : 'Play once'}</Muted>
+				<div style={{ font: '600 var(--text-sm) var(--font-sans)', color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+					{title}
+				</div>
+				<Muted>
+					{playing ? 'Playing' : 'Paused'} · vol {Math.round(track.volume * 100)}%
+					{ambienceCount > 0 ? ` · ${ambienceCount} ambience ${ambienceCount === 1 ? 'layer' : 'layers'}` : ''}
+				</Muted>
 			</div>
 		</div>
 	);
@@ -391,41 +422,93 @@ function CharacterBody({ widget }: { widget: BoardWidget }) {
 }
 
 function MapBody({ widget }: { widget: BoardWidget }) {
+	const runtime = useRuntime();
+	// Resolve the BOUND map through the actor-filtered view (hidden maps collapse to unavailable),
+	// then pick its raster base layer exactly like Atlas does. Hooks run before any early return.
+	const boundId = widget.bindingRef?.entityType === 'map' ? widget.bindingRef.entityId : null;
+	const view = boundId
+		? getMapViewForActor(runtime.state.maps, runtime.state.permissions, runtime.defaultActorId, boundId)
+		: null;
+	const rasterId =
+		view && view.kind === 'available'
+			? pickRasterAssetId(runtime.state.maps.maps[view.mapId]?.assetIds ?? [], runtime.state.maps.assets)
+			: null;
+	const rasterUrl = useAssetObjectUrl(rasterId);
 	if (widget.requiresBinding && widget.status !== 'available') {
 		return <Muted>No map bound — bind a map to display its layers.</Muted>;
 	}
+	if (!view || view.kind !== 'available') {
+		return <Muted>The bound map isn’t available to you.</Muted>;
+	}
 	return (
-		<div
-			style={{
-				height: '100%',
-				minHeight: 64,
-				borderRadius: 'var(--radius-sm)',
-				border: '1px solid var(--color-border)',
-				background:
-					'linear-gradient(135deg, rgba(224,176,111,.10), rgba(20,16,11,.20)), repeating-linear-gradient(0deg, transparent 0 17px, rgba(224,176,111,.10) 17px 18px), repeating-linear-gradient(90deg, transparent 0 17px, rgba(224,176,111,.10) 17px 18px)',
-			}}
-		/>
+		<div style={{ ...bodyWrap, gap: 6 }}>
+			<div
+				style={{
+					flex: 1,
+					minHeight: 64,
+					borderRadius: 'var(--radius-sm)',
+					border: '1px solid var(--color-border)',
+					overflow: 'hidden',
+					background: rasterUrl
+						? 'var(--color-surface-sunken)'
+						: 'linear-gradient(135deg, rgba(224,176,111,.10), rgba(20,16,11,.20)), repeating-linear-gradient(0deg, transparent 0 17px, rgba(224,176,111,.10) 17px 18px), repeating-linear-gradient(90deg, transparent 0 17px, rgba(224,176,111,.10) 17px 18px)',
+				}}
+			>
+				{rasterUrl && (
+					<img
+						src={rasterUrl}
+						alt={`${view.name} map`}
+						style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+					/>
+				)}
+			</div>
+			<Muted>
+				{view.name} · {view.pois.length} {view.pois.length === 1 ? 'POI' : 'POIs'} · {view.tokens.length}{' '}
+				{view.tokens.length === 1 ? 'token' : 'tokens'}
+				{view.fog.length > 0 ? ` · fog ×${view.fog.length}` : ''}
+			</Muted>
+		</div>
 	);
 }
 
-function ListBody({ widget, unit }: { widget: BoardWidget; unit: string }) {
-	const count = Number(cfg<number>(widget, 'count') ?? 5) || 5;
-	const rows = Math.min(count, 4);
+function ListBody({ widget, kind, unit }: { widget: BoardWidget; kind: 'note' | 'object'; unit: string }) {
+	const runtime = useRuntime();
+	// The SAME visibility-respecting content read Knowledge lists with — a player-viewed board never
+	// shows a DM-only row here. `count` is the widget's configured row cap.
+	const count = Math.max(1, Number(cfg<number>(widget, 'count') ?? 5) || 5);
+	const items = getContentItemsForActor(
+		runtime.state.content,
+		runtime.state.permissions,
+		runtime.defaultActorId,
+	).filter((item) => item.kind === kind);
+	if (items.length === 0) {
+		return (
+			<Muted>
+				{kind === 'note'
+					? 'No notes visible yet — prep notes appear here as you write them.'
+					: 'No reference objects visible yet — imported spells and objects appear here.'}
+			</Muted>
+		);
+	}
+	const shown = items.slice(0, count);
 	return (
 		<div style={bodyWrap}>
-			{Array.from({ length: rows }, (_, i) => (
+			{shown.map((item) => (
 				<div
-					key={i}
+					key={item.id}
 					style={{
-						height: 8,
-						borderRadius: 'var(--radius-full)',
-						background: 'var(--color-surface-sunken)',
-						width: `${88 - i * 12}%`,
+						font: 'var(--text-xs)/1.4 var(--font-sans)',
+						color: 'var(--color-text-secondary)',
+						whiteSpace: 'nowrap',
+						overflow: 'hidden',
+						textOverflow: 'ellipsis',
 					}}
-				/>
+				>
+					{item.title}
+				</div>
 			))}
 			<Muted>
-				{count} {unit}
+				{shown.length} of {items.length} {unit}
 			</Muted>
 		</div>
 	);
@@ -448,7 +531,7 @@ export function WidgetBody({
 		case 'timer':
 			return <TimerBody widget={widget} onCommand={onCommand} />;
 		case 'audio':
-			return <AudioBody widget={widget} />;
+			return <AudioBody />;
 		case 'initiative-tracker':
 			return <InitiativeBody widget={widget} />;
 		case 'character':
@@ -456,9 +539,9 @@ export function WidgetBody({
 		case 'map':
 			return <MapBody widget={widget} />;
 		case 'quick-reference':
-			return <ListBody widget={widget} unit="rows shown" />;
+			return <ListBody widget={widget} kind="object" unit="reference rows" />;
 		case 'prep':
-			return <ListBody widget={widget} unit="items shown" />;
+			return <ListBody widget={widget} kind="note" unit="prep notes" />;
 		default:
 			return widget.description ? <Muted>{widget.description}</Muted> : null;
 	}

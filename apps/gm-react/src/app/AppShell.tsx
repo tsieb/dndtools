@@ -10,6 +10,8 @@ import {
 } from '@dndtools/core';
 import { Avatar, BottomTabBar, Icon, IconButton, NavRail, Sheet, StatusDot, ToastViewport } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { useCloudSync } from '../cloud/CloudSyncContext';
+import { useSession } from '../net/SessionContext';
 import { CommandPalette } from './CommandPalette';
 import { ViewAsControl } from './ViewAsControl';
 import { ProjectionControl } from './ProjectionControl';
@@ -232,6 +234,28 @@ function SideRow({
 	);
 }
 
+/**
+ * The DM-footer presence dot — REAL state, not a hardcoded "Online": the live P2P session role wins
+ * (hosting / joined), then the cloud-sync engine (error / syncing / synced), else the honest
+ * local-only baseline. The label doubles as the row's status caption.
+ */
+function usePresenceStatus(): { dot: 'live' | 'idle' | 'error' | 'pending'; label: string } {
+	const session = useSession();
+	const cloud = useCloudSync();
+	if (session.role === 'host') {
+		const n = session.peers.length;
+		return { dot: 'live', label: n > 0 ? `Hosting · ${n} connected` : 'Hosting — waiting for players' };
+	}
+	if (session.role === 'joined') return { dot: 'live', label: 'Joined a table' };
+	if (cloud.available && cloud.enabled) {
+		const es = cloud.engineStatus;
+		if (es?.lastError) return { dot: 'error', label: 'Cloud sync error' };
+		if (es?.busy) return { dot: 'pending', label: 'Syncing…' };
+		return { dot: 'live', label: es?.lastSyncedAt ? 'Cloud sync up to date' : 'Cloud sync on' };
+	}
+	return { dot: 'idle', label: 'Local-only — this device' };
+}
+
 function SideGroup({ label, action, children }: { label: string; action?: ReactNode; children: ReactNode }) {
 	const eb: CSSProperties = {
 		font: `600 11px ${T.sans}`,
@@ -260,6 +284,7 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 
 	const activeSceneId = runtime.state.session.activeSceneId;
 	const dmActor = runtime.state.permissions.actors[actorId];
+	const presence = usePresenceStatus();
 
 	const { scenes, counts, recent } = useMemo(() => {
 		// The GM Screen's backing home scene is reachable via its own nav row — listing it among the
@@ -502,9 +527,11 @@ function Sidebar({ onOpenPalette }: { onOpenPalette: () => void }) {
 					<Avatar name={dmActor?.displayName ?? 'DM'} size="sm" ring="active" />
 					<div style={{ flex: 1, minWidth: 0 }}>
 						<div style={{ font: `600 12.5px ${T.sans}` }}>{dmActor?.displayName ?? 'DM'}</div>
-						<div style={{ font: `10.5px ${T.sans}`, color: T.ter }}>Dungeon Master</div>
+						<div style={{ font: `10.5px ${T.sans}`, color: T.ter, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={presence.label}>
+							Dungeon Master · {presence.label}
+						</div>
 					</div>
-					<StatusDot status="live" label="Online" />
+					<StatusDot status={presence.dot} label={presence.label} pulse={presence.dot === 'pending'} />
 				</div>
 			</div>
 		</aside>
