@@ -20,6 +20,8 @@ import {
 } from '../ds';
 import { Seg, T, eb, mono } from './screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { pickTextFile } from '../platform/filePick';
+import { parseCharacterImport, type ImportPlan } from './charImport/ddbJson';
 
 /**
  * CharBuilder — the full-screen guided character-creation overlay, ported from the online
@@ -47,9 +49,16 @@ import { useRuntime } from '../runtime/RuntimeContext';
  *     the core's own `validateDraftStep` issues instead of letting finalize reject.
  *   - A PC needs a player OWNER (create-draft rejects otherwise) — an "Owned by" select is added.
  *   - PC visibility is forced `shared`-with-owner by finalize; the visibility tiles are replaced
- *     with a note. PC attack lists and DM-only notes have no post-create core command — noted, not
- *     faked.
- *   - "Import from D&D Beyond" stays an honest stub: no import command exists in the core.
+ *     with a note (the DM widens sharing post-create from the sheet via `character.set-sharing`).
+ *     DM-only notes still have no post-create marking command for a PC — noted, not faked.
+ *   - PC custom attacks ride the draft's optional `kit` step: `character.finalize-draft` carries
+ *     the saved kit attacks (and AC/HP) onto the finalized character.
+ *
+ * "Import character file (JSON)" is REAL: the pure mapper (`./charImport/ddbJson`) accepts a
+ * D&D Beyond character export or the simple native JSON shape and produces a PLAN of core
+ * dispatches (`character.quick-create` → `set-proficiencies` → `set-spell` ×N → `update-attacks`).
+ * FAIL-CLOSED: the plan's mapped/unmapped field report is shown as an import PREVIEW and nothing
+ * is created until the user confirms — unrecognized fields are listed, never silently dropped.
  */
 
 // ── Builder rules kit — inlined from the design prototype's `campaign-extras.js` (DNDX.builder).
@@ -335,10 +344,15 @@ export function CharBuilder({
 	const dmActorId = runtime.defaultActorId;
 	const players = runtime.actors.filter((a) => a.role === 'player');
 
-	const [phase, setPhase] = useState<'choose' | 'scratch'>('choose');
+	const [phase, setPhase] = useState<'choose' | 'scratch' | 'import'>('choose');
 	const [i, setI] = useState(0);
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
+
+	// Import-from-file state: the parsed plan (with its mapped/unmapped field report) or the
+	// parse failure, both rendered in the 'import' preview phase before anything is created.
+	const [importPlan, setImportPlan] = useState<ImportPlan | null>(null);
+	const [importError, setImportError] = useState<string | null>(null);
 
 	// form state (design source shape)
 	const isKind = (k: string | undefined): k is CharKind => k === 'pc' || k === 'npc' || k === 'monster' || k === 'sidekick';
@@ -415,8 +429,24 @@ export function CharBuilder({
 
 	// ── The real create paths ─────────────────────────────────────────────────────────────────────
 
+	/** Build the durable attack entries ({name, detail}) from the editor rows. */
+	function attackEntries(): { name: string; detail: string }[] {
+		return attacks
+			.filter((a) => a.name.trim())
+			.map((a) => ({
+				name: a.name.trim(),
+				detail: [
+					a.kind.trim(),
+					a.hit.trim() ? `${a.hit.trim()} to hit` : '',
+					[a.dmg.trim(), a.type.trim()].filter(Boolean).join(' '),
+				].filter(Boolean).join(' · '),
+			}));
+	}
+
 	/** PC: the guided draft flow exactly as demo-seed §0★ — DM creates the draft for a player owner,
-	 *  the OWNER fills identity/abilities/class and finalizes, then the DM applies combat + extras. */
+	 *  the OWNER fills identity/abilities/class (+ the optional `kit` step: AC/HP + custom attacks,
+	 *  which `character.finalize-draft` carries onto the character) and finalizes, then the DM
+	 *  applies extras. */
 	async function createPc(): Promise<string | null> {
 		const created = await runtime.dispatch({
 			type: 'character.create-draft',
@@ -431,6 +461,9 @@ export function CharBuilder({
 			['identity', { name: name.trim(), background: bgId }],
 			['abilities', { ...coreAbilities }],
 			['class', { class: clsId }],
+			// The OPTIONAL kit step: finalize-draft reads it tolerantly and carries AC / HP / the
+			// draft's CUSTOM ATTACKS onto the finalized character (it doesn't gate completeness).
+			['kit', { attacks: attackEntries(), hp, maxHp: hp, ac }],
 		];
 		for (const [stepId, values] of steps) {
 			const r = await runtime.dispatch({
@@ -449,13 +482,7 @@ export function CharBuilder({
 		const characterId = eventField(finalized, 'character.created', 'characterId');
 		if (!characterId) { setError('The core did not return the new character id.'); return null; }
 
-		// finalize seeds 0/0 HP, AC 10 — the DM-only set-combat applies the kit values (demo-seed §0★).
-		const combat = await runtime.dispatch({
-			type: 'character.set-combat',
-			actorId: dmActorId,
-			payload: { characterId, hp, maxHp: hp, ac },
-		});
-		if (combat.status === 'rejected') Toaster.warning(`Combat stats were not applied: ${combat.rejection.message}`);
+		// finalize-draft consumed the kit step above (AC / HP / attacks land on the character).
 
 		// finalize-draft does NOT auto-grant the `owner` capability set (PERM-004 grants are explicit) —
 		// without this the owning player can't level up or journal on their own PC (demo-seed §0★).
@@ -490,16 +517,7 @@ export function CharBuilder({
 
 	/** NPC / Monster / Sidekick: one durable `character.quick-create` (CHAR-001). */
 	async function createOther(): Promise<string | null> {
-		const attackRows = attacks
-			.filter((a) => a.name.trim())
-			.map((a) => ({
-				name: a.name.trim(),
-				detail: [
-					a.kind.trim(),
-					a.hit.trim() ? `${a.hit.trim()} to hit` : '',
-					[a.dmg.trim(), a.type.trim()].filter(Boolean).join(' '),
-				].filter(Boolean).join(' · '),
-			}));
+		const attackRows = attackEntries();
 		const data: Record<string, unknown> = {
 			class: clsObj.name,
 			background: bgObj.name,
@@ -542,6 +560,72 @@ export function CharBuilder({
 		onCreated(id);
 	}
 
+	// ── Import from a character file (JSON) ───────────────────────────────────────────────────────
+
+	/** Pick a file, run the PURE mapper, and land on the preview phase (nothing is created yet). */
+	async function startImport() {
+		const picked = await pickTextFile('.json,application/json');
+		if (!picked) return; // cancelled
+		const result = parseCharacterImport(picked.text);
+		if (result.ok) {
+			setImportPlan(result.plan);
+			setImportError(null);
+		} else {
+			setImportPlan(null);
+			setImportError(`${picked.name}: ${result.error}`);
+		}
+		setError(null);
+		setPhase('import');
+	}
+
+	/** Execute the reviewed plan: quick-create → set-proficiencies → set-spell ×N → update-attacks. */
+	async function runImport() {
+		if (!importPlan) return;
+		setError(null);
+		setSubmitting(true);
+		try {
+			const created = await runtime.dispatch({
+				type: 'character.quick-create',
+				actorId: dmActorId,
+				payload: importPlan.quickCreate,
+			});
+			if (created.status === 'rejected') { setError(created.rejection.message); return; }
+			const characterId = eventField(created, 'character.created', 'characterId');
+			if (!characterId) { setError('The core did not return the new character id.'); return; }
+
+			if (importPlan.proficiencies) {
+				const r = await runtime.dispatch({
+					type: 'character.set-proficiencies',
+					actorId: dmActorId,
+					payload: { characterId, ...importPlan.proficiencies },
+				});
+				if (r.status === 'rejected') Toaster.warning(`Proficiencies were not applied: ${r.rejection.message}`);
+			}
+			let spellFailures = 0;
+			for (const spell of importPlan.spells) {
+				const r = await runtime.dispatch({
+					type: 'character.set-spell',
+					actorId: dmActorId,
+					payload: { characterId, id: runtime.newId(), ...spell },
+				});
+				if (r.status === 'rejected') spellFailures += 1;
+			}
+			if (spellFailures > 0) Toaster.warning(`${spellFailures} spell${spellFailures === 1 ? '' : 's'} could not be applied.`);
+			if (importPlan.attacks.length > 0) {
+				const r = await runtime.dispatch({
+					type: 'character.update-attacks',
+					actorId: dmActorId,
+					payload: { characterId, attacks: importPlan.attacks },
+				});
+				if (r.status === 'rejected') Toaster.warning(`Attacks were not applied: ${r.rejection.message}`);
+			}
+			Toaster.success(`${importPlan.name} imported to the roster (DM-only)`);
+			onCreated(characterId);
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
 	/* ---- entry choice ---- */
 	if (phase === 'choose') {
 		return (
@@ -563,15 +647,109 @@ export function CharBuilder({
 							onClick={() => { setPhase('scratch'); setI(0); }}
 							primary
 						/>
-						{/* Honest stub — no character-import command exists in the Processing Core. */}
 						<PathCard
 							icon="import"
-							title="Import from D&D Beyond"
-							desc="Not available yet — the Processing Core has no character-import command, so there is nothing real to connect to."
-							cta="Not available"
-							badge={<Badge status="neutral">Not wired</Badge>}
-							onClick={() => Toaster.info('Import from D&D Beyond is not available — no import command exists in the core.')}
+							title="Import character file (JSON)"
+							desc="A D&D Beyond character export or a dndtools character JSON. You review exactly what maps — and what doesn't — before anything is created."
+							cta="Choose a file"
+							onClick={() => void startImport()}
 						/>
+					</div>
+				</div>
+			</Overlay>
+		);
+	}
+
+	/* ---- import preview: the mapper's field report, shown BEFORE anything is created ---- */
+	if (phase === 'import') {
+		return (
+			<Overlay onClose={onClose} label="Import character file">
+				<div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1 }}>
+					<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 28px 0' }}>
+						<div>
+							<h2 style={{ margin: 0, font: `700 24px ${T.disp}` }}>Import character file</h2>
+							<p style={{ margin: '4px 0 0', font: `13px ${T.sans}`, color: T.ter }}>
+								{importPlan ? 'Review what will be imported. Nothing is created until you confirm.' : 'The file could not be read.'}
+							</p>
+						</div>
+						<IconButton icon="close" label="Close" variant="ghost" onClick={onClose} />
+					</div>
+					<div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 28px' }}>
+						{importError && (
+							<div role="alert" style={{ font: `13px/1.6 ${T.sans}`, color: T.err, padding: '12px 14px', borderRadius: 10, border: `1px solid ${T.err}` }}>
+								{importError}
+							</div>
+						)}
+						{importPlan && (
+							<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+								<div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+									<Avatar name={importPlan.name} size="lg" ring="turn" />
+									<div style={{ minWidth: 0 }}>
+										<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+											<span style={{ font: `700 19px ${T.disp}` }}>{importPlan.name}</span>
+											<Badge status={KIND_TONE[importPlan.quickCreate.kind]}>{KIND_LABEL[importPlan.quickCreate.kind]}</Badge>
+											<VisibilityChip level={importPlan.quickCreate.visibility === 'dm-only' ? 'dm-only' : 'players'} compact />
+											<Badge status="neutral">{importPlan.source === 'dndbeyond' ? 'D&D Beyond export' : 'dndtools JSON'}</Badge>
+										</div>
+										<div style={{ font: `12px ${T.sans}`, color: T.ter, marginTop: 3 }}>
+											{[
+												`${Object.keys(importPlan.quickCreate.abilityScores).length} ability scores`,
+												importPlan.proficiencies?.skills ? `${Object.keys(importPlan.proficiencies.skills).length} skills` : null,
+												importPlan.proficiencies?.saves ? `${importPlan.proficiencies.saves.length} saves` : null,
+												`${importPlan.spells.length} spells`,
+												`${importPlan.attacks.length} attacks`,
+											].filter(Boolean).join(' · ')}
+										</div>
+									</div>
+								</div>
+								<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
+									<div style={{ padding: 14, borderRadius: 12, border: `1px solid ${T.bd}`, background: T.surf }}>
+										<div style={{ ...eb, marginBottom: 8, color: T.ok }}>Will import ({importPlan.mapped.length})</div>
+										<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+											{importPlan.mapped.map((n, j) => (
+												<div key={`${n.field}-${j}`} style={{ display: 'flex', gap: 7, font: `12px/1.45 ${T.sans}`, color: T.sub }}>
+													<Icon name="check" size={13} color={T.ok} />
+													<span style={{ minWidth: 0 }}><strong style={{ color: T.ink }}>{n.field}</strong> — {n.detail}</span>
+												</div>
+											))}
+										</div>
+									</div>
+									<div style={{ padding: 14, borderRadius: 12, border: `1.5px dashed ${T.bdS}`, background: T.alt }}>
+										<div style={{ ...eb, marginBottom: 8, color: T.warn }}>Couldn't map ({importPlan.unmapped.length})</div>
+										{importPlan.unmapped.length === 0 ? (
+											<div style={{ font: `12px ${T.sans}`, color: T.ter }}>Every field in the file mapped cleanly.</div>
+										) : (
+											<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+												{importPlan.unmapped.map((n, j) => (
+													<div key={`${n.field}-${j}`} style={{ display: 'flex', gap: 7, font: `12px/1.45 ${T.sans}`, color: T.sub }}>
+														<Icon name="hidden" size={13} color={T.warn} />
+														<span style={{ minWidth: 0 }}><strong style={{ color: T.ink }}>{n.field}</strong> — {n.detail}</span>
+													</div>
+												))}
+											</div>
+										)}
+										<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter, marginTop: 10 }}>
+											These fields will NOT be imported — listed here so nothing is lost silently.
+										</div>
+									</div>
+								</div>
+								{error && (
+									<div role="alert" style={{ font: `12.5px/1.5 ${T.sans}`, color: T.err, padding: '10px 12px', borderRadius: 10, border: `1px solid ${T.err}` }}>
+										{error}
+									</div>
+								)}
+							</div>
+						)}
+					</div>
+					<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 28px', borderTop: `1px solid ${T.bd}` }}>
+						<Button variant="ghost" icon="chevron-left" onClick={() => { setPhase('choose'); setImportPlan(null); setImportError(null); setError(null); }}>Back</Button>
+						<div style={{ flex: 1 }} />
+						<Button variant="secondary" onClick={() => void startImport()}>Choose another file</Button>
+						{importPlan && (
+							<Button variant="primary" icon="check" disabled={submitting} onClick={() => void runImport()}>
+								{submitting ? 'Importing…' : 'Import character'}
+							</Button>
+						)}
 					</div>
 				</div>
 			</Overlay>
@@ -758,33 +936,26 @@ export function CharBuilder({
 								</div>
 								<div>
 									<FieldLabel hint="Attacks, cantrips, and signature moves">Attacks &amp; actions</FieldLabel>
-									{isPc ? (
-										// No core command carries a custom attack list onto a finalized PC
-										// (quick-create attacks are NPC/monster/sidekick-only; edit-field has no attacks path).
-										<HonestNote>
-											The guided PC model doesn't carry a custom attack list yet — for a PC this step sets AC,
-											hit points, and speed. Track signature moves in the bio for now.
-										</HonestNote>
-									) : (
-										<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-											{attacks.map((at, idx) => (
-												<div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr .8fr 1fr 28px', gap: 8, alignItems: 'center' }}>
-													<Input value={at.name} aria-label="Attack name" onChange={(e: any) => setAttacks((a) => a.map((x, j) => j === idx ? { ...x, name: e.target.value } : x))} placeholder="Name" />
-													<Input value={at.kind} aria-label="Attack type" onChange={(e: any) => setAttacks((a) => a.map((x, j) => j === idx ? { ...x, kind: e.target.value } : x))} placeholder="Type" />
-													<Input value={at.hit} aria-label="Attack to-hit" onChange={(e: any) => setAttacks((a) => a.map((x, j) => j === idx ? { ...x, hit: e.target.value } : x))} placeholder="Hit" />
-													<Input value={at.dmg} aria-label="Attack damage" onChange={(e: any) => setAttacks((a) => a.map((x, j) => j === idx ? { ...x, dmg: e.target.value } : x))} placeholder="Damage" />
-													<IconButton icon="close" label="Remove attack" variant="ghost" size="sm" onClick={() => setAttacks((a) => a.filter((_, j) => j !== idx))} />
-												</div>
-											))}
-											<button
-												type="button"
-												onClick={() => setAttacks((a) => [...a, { name: '', kind: 'Melee', hit: '+0', dmg: '1d6', type: '' }])}
-												style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 10, borderRadius: 10, border: `1.5px dashed ${T.bdS}`, background: 'transparent', cursor: 'pointer', color: T.ter, font: `600 12.5px ${T.sans}` }}
-											>
-												<Icon name="add" size={14} />Add attack
-											</button>
-										</div>
-									)}
+									{/* All kinds carry custom attacks now: NPC/monster/sidekick via quick-create,
+									    a PC via the draft's kit step (finalize-draft carries kit attacks onto the PC). */}
+									<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+										{attacks.map((at, idx) => (
+											<div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr .8fr 1fr 28px', gap: 8, alignItems: 'center' }}>
+												<Input value={at.name} aria-label="Attack name" onChange={(e: any) => setAttacks((a) => a.map((x, j) => j === idx ? { ...x, name: e.target.value } : x))} placeholder="Name" />
+												<Input value={at.kind} aria-label="Attack type" onChange={(e: any) => setAttacks((a) => a.map((x, j) => j === idx ? { ...x, kind: e.target.value } : x))} placeholder="Type" />
+												<Input value={at.hit} aria-label="Attack to-hit" onChange={(e: any) => setAttacks((a) => a.map((x, j) => j === idx ? { ...x, hit: e.target.value } : x))} placeholder="Hit" />
+												<Input value={at.dmg} aria-label="Attack damage" onChange={(e: any) => setAttacks((a) => a.map((x, j) => j === idx ? { ...x, dmg: e.target.value } : x))} placeholder="Damage" />
+												<IconButton icon="close" label="Remove attack" variant="ghost" size="sm" onClick={() => setAttacks((a) => a.filter((_, j) => j !== idx))} />
+											</div>
+										))}
+										<button
+											type="button"
+											onClick={() => setAttacks((a) => [...a, { name: '', kind: 'Melee', hit: '+0', dmg: '1d6', type: '' }])}
+											style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 10, borderRadius: 10, border: `1.5px dashed ${T.bdS}`, background: 'transparent', cursor: 'pointer', color: T.ter, font: `600 12.5px ${T.sans}` }}
+										>
+											<Icon name="add" size={14} />Add attack
+										</button>
+									</div>
 								</div>
 							</div>
 						)}
@@ -813,7 +984,8 @@ export function CharBuilder({
 									{isPc ? (
 										<HonestNote>
 											A new PC starts <strong>shared with its owning player</strong> — the core's guided-flow
-											rule (CHAR-002). Broader party visibility is a later core epic.
+											rule (CHAR-002). The DM can widen who sees it afterwards from the character sheet's
+											Sharing controls.
 										</HonestNote>
 									) : (
 										<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -864,17 +1036,15 @@ export function CharBuilder({
 										))}
 									</div>
 									<div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 10 }}>
-										<div style={{ ...eb, marginBottom: 6 }}>Attacks ({isPc ? 0 : attacks.filter((a) => a.name.trim()).length})</div>
+										<div style={{ ...eb, marginBottom: 6 }}>Attacks ({attacks.filter((a) => a.name.trim()).length})</div>
 										<div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-											{!isPc && attacks.filter((a) => a.name.trim()).map((a, idx) => (
+											{attacks.filter((a) => a.name.trim()).map((a, idx) => (
 												<div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, font: `12.5px ${T.sans}`, color: T.sub }}>
 													<Icon name="sword" size={13} color={T.ter} /><span style={{ flex: 1 }}>{a.name}</span><span style={mono}>{a.hit}</span><span style={{ ...mono, color: T.ter }}>{a.dmg}</span>
 												</div>
 											))}
-											{(isPc || !attacks.filter((a) => a.name.trim()).length) && (
-												<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-													{isPc ? 'PC attack lists arrive with a later core epic.' : 'No attacks added.'}
-												</span>
+											{!attacks.filter((a) => a.name.trim()).length && (
+												<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No attacks added.</span>
 											)}
 										</div>
 									</div>
