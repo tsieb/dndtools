@@ -1,28 +1,43 @@
-import { useMemo, useState } from 'react';
-import { getContentItemsForActor } from '@dndtools/core';
-import { Badge, Button, Icon, Stat, Switch, Tabs, VisibilityChip } from '../ds';
-import { Page, Panel, Seg, T, eb } from '../app/screen-kit';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+	exportWidgetPackage,
+	getContentItemsForActor,
+	type WidgetPackageDefinition,
+} from '@dndtools/core';
+import { Badge, Button, Dialog, EmptyState, Icon, Input, Stat, Switch, Tabs, Textarea, Toaster, VisibilityChip } from '../ds';
+import { Page, Panel, T, eb } from '../app/screen-kit';
 import { DNDCommunity } from '../runtime/mockCampaign';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { useAuth } from '../cloud/AuthContext';
+import { isAccountApiConfigured } from '../cloud/config';
+import {
+	deleteModule,
+	getModule,
+	listModules,
+	publishModule,
+	type ModuleListing,
+} from '../cloud/appApi';
+import { downloadJsonFile, downloadTextFile, fileDateStamp } from '../platform/download';
 
 /**
- * Community — discover modules, export your work, publish the campaign wiki (port of platform.jsx
- * CommunitySection: Discover / Export / Publish / Campaign wiki).
+ * Community — discover/publish marketplace modules and export your work.
  *
- * REAL CORE WIRING — the EXPORT tab dispatches the real `content.export` command and shows the actual
- * per-export report (exported vs visibility-omitted item counts). Content COUNTS (export + wiki
- * eligibility) come from the live `getContentItemsForActor` actor-filtered read.
+ * REAL WIRING:
+ *   - Discover / Publish: the app-api marketplace (list/fetch/publish/delete). Installing runs the
+ *     EXISTING `widget.package.install`/`upgrade` review flow — packages land unreviewed with every
+ *     host permission denied (fail-closed), enabled later in Extensions → Plugins. Fail-closed gate
+ *     when the cloud backend isn't configured or the user is signed out.
+ *   - Export: dispatches the real `content.export` (mode + item-type scope are REAL core params) and
+ *     DOWNLOADS the result — one markdown file exports as .md, multiple as a .json bundle.
+ *   - Wiki eligibility counts come from the live actor-filtered content read.
  *
- * HONEST STUBS (no core command on this surface, clearly noted in each panel):
- *   - Discover / Install: there is no module-marketplace fetch/install command — local preview state.
- *   - Publish: publishing to a registry has no Core command here — local preview only.
- *   - Wiki publish: hosting a public wiki has no Core command here (eligibility count IS real).
+ * HONEST STUB (clearly noted in-panel): wiki HOSTING has no backend — eligibility is real, the
+ * publish button is a local preview.
  */
 
 const COMM = DNDCommunity as any;
-const VAL_TONE: Record<string, string> = { pass: 'success', warn: 'warning', fail: 'error' };
-const VAL_ICON: Record<string, string> = { pass: 'check', warn: 'warning', fail: 'close' };
-const MTONE: Record<string, string> = { info: 'var(--color-status-info)', success: T.ok, warning: 'var(--color-status-warning)', neutral: T.sub };
+
+const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Something went wrong — try again.');
 
 export function Community() {
 	const [tab, setTab] = useState('discover');
@@ -43,93 +58,186 @@ export function Community() {
 	);
 }
 
-function Stars({ n }: { n: number }) {
+/** Fail-closed marketplace gate: local-only build, or signed out. */
+function MarketplaceGate({ verb }: { verb: string }) {
+	const auth = useAuth();
+	if (!isAccountApiConfigured) {
+		return (
+			<Panel title="Module marketplace" action={<Badge status="neutral">Local-only build</Badge>}>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					This build isn’t connected to a cloud backend, so there is no marketplace to {verb}. You can
+					still install packages by pasting their JSON in Extensions → Plugins.
+				</div>
+			</Panel>
+		);
+	}
 	return (
-		<span style={{ color: T.acc, font: `12px ${T.sans}`, letterSpacing: '1px' }}>
-			{'★'.repeat(Math.round(n))}
-			<span style={{ color: T.bd }}>{'★'.repeat(5 - Math.round(n))}</span>
-		</span>
+		<Panel title="Module marketplace" action={<Badge status="neutral">Signed out</Badge>}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+				<div style={{ flex: '1 1 240px', font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					Sign in to {verb} community modules. Everything else in the app works without an account.
+				</div>
+				<Button variant="primary" size="sm" icon="UserCircle" onClick={() => auth.openAuthModal()}>Sign in</Button>
+			</div>
+		</Panel>
 	);
 }
 
+const kb = (n: number) => (n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
+
 function CommDiscover() {
-	const [type, setType] = useState('all');
-	const [sel, setSel] = useState('m-saltmarsh');
-	// Honest-local: no module-marketplace fetch/install command — `installed` is local preview state only.
-	const [installed, setInstalled] = useState<Record<string, boolean>>({});
-	const mods = COMM.modules.filter((m: any) => type === 'all' || m.type === type);
-	const selMod = COMM.modules.find((m: any) => m.id === sel) || COMM.modules[0];
-	const D = COMM.detail;
+	const runtime = useRuntime();
+	const auth = useAuth();
+	const dmId = runtime.defaultActorId;
+	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
+	const [modules, setModules] = useState<ModuleListing[] | null>(null);
+	const [failed, setFailed] = useState(false);
+	const [selId, setSelId] = useState<string | null>(null);
+	const [busy, setBusy] = useState(false);
+	const [review, setReview] = useState<{ listing: ModuleListing; definition: WidgetPackageDefinition; isUpgrade: boolean } | null>(null);
+
+	const load = useCallback(() => {
+		setFailed(false);
+		listModules()
+			.then(setModules)
+			.catch(() => setFailed(true));
+	}, []);
+	useEffect(() => {
+		if (cloudReady) load();
+	}, [cloudReady, load]);
+
+	if (!cloudReady) return <MarketplaceGate verb="browse and install" />;
+
+	const sel = modules?.find((m) => m.moduleId === selId) ?? modules?.[0] ?? null;
+
+	// Fetch the payload, sanity-check the definition shape, then hand off to the review dialog. The
+	// core install command re-validates the full definition fail-closed — this check is only so the
+	// dialog can show honest facts (id/widget count) before the user commits.
+	const startInstall = (listing: ModuleListing) => {
+		setBusy(true);
+		getModule(listing.moduleId)
+			.then((full) => {
+				const def = full.package as WidgetPackageDefinition;
+				if (!def || typeof def !== 'object' || typeof def.id !== 'string' || !def.id) {
+					Toaster.error('This module’s payload is not a valid widget package.');
+					return;
+				}
+				const existing = runtime.state.widgets.packages[def.id];
+				const isUpgrade = !!existing && !existing.removedAt;
+				if (isUpgrade && def.id.startsWith('system.')) {
+					Toaster.error('This module clashes with a code-defined system package and can’t be installed.');
+					return;
+				}
+				setReview({ listing, definition: def, isUpgrade });
+			})
+			.catch((e: unknown) => Toaster.error(errText(e)))
+			.finally(() => setBusy(false));
+	};
+
+	const confirmInstall = async () => {
+		if (!review) return;
+		setBusy(true);
+		try {
+			const result = await runtime.dispatch({
+				type: review.isUpgrade ? 'widget.package.upgrade' : 'widget.package.install',
+				actorId: dmId,
+				payload: { package: review.definition },
+			});
+			if (result.status === 'accepted') {
+				Toaster.success(
+					review.isUpgrade
+						? `Upgraded ${review.definition.id} — declared migrations ran against placed widgets.`
+						: `Installed ${review.definition.id} — unreviewed, every host permission denied (fail-closed). Enable it in Extensions → Plugins.`,
+				);
+				setReview(null);
+			} else {
+				Toaster.error(result.rejection.message);
+			}
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	const removeListing = (listing: ModuleListing) => {
+		setBusy(true);
+		deleteModule(listing.moduleId)
+			.then(() => {
+				Toaster.success('Listing removed from the marketplace.');
+				setModules((list) => (list ? list.filter((m) => m.moduleId !== listing.moduleId) : list));
+			})
+			.catch((e: unknown) => Toaster.error(errText(e)))
+			.finally(() => setBusy(false));
+	};
+
 	return (
 		<div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 18, alignItems: 'start' }}>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-				<div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-					{COMM.featured.map((f: any) => (
-						<div key={f.id} style={{ flex: '1 1 150px', padding: '12px 14px', borderRadius: 11, background: `linear-gradient(135deg, ${T.accSub}, ${T.surf})`, border: `1px solid ${T.bd}` }}>
-							<div style={{ font: `600 13px ${T.sans}` }}>{f.label}</div>
-							<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 2 }}>{f.count} modules</div>
-						</div>
-					))}
-				</div>
-				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-					{COMM.typeFilters.map((t: any) => (
-						<button key={t.id} type="button" onClick={() => setType(t.id)} style={{ font: `12px ${T.sans}`, padding: '5px 11px', borderRadius: 20, cursor: 'pointer', border: `1px solid ${type === t.id ? T.accBd : T.bd}`, background: type === t.id ? T.accSub : 'transparent', color: type === t.id ? T.acc : T.sub }}>
-							{t.label} <span style={{ color: T.ter }}>{t.count}</span>
-						</button>
-					))}
-				</div>
-				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))', gap: 14 }}>
-					{mods.map((m: any) => (
-						<button key={m.id} type="button" onClick={() => setSel(m.id)} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 14, borderRadius: 12, cursor: 'pointer', textAlign: 'left', border: `1px solid ${sel === m.id ? T.accBd : T.bd}`, background: T.surf, boxShadow: sel === m.id ? T.smd : 'none' }}>
-							<div style={{ height: 60, borderRadius: 9, background: `linear-gradient(135deg, color-mix(in srgb, ${MTONE[m.tone]} 40%, ${T.sunken}), ${T.sunken})`, display: 'flex', alignItems: 'flex-end', padding: 8 }}>
-								{m.featured && <Badge status="accent" icon="sparkle">Featured</Badge>}
-							</div>
-							<div style={{ font: `700 14px ${T.disp}` }}>{m.name}</div>
-							<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>by {m.author} · {m.levels} · {m.license}</div>
-							<div style={{ font: `12px/1.45 ${T.sans}`, color: T.sub, flex: 1 }}>{m.desc}</div>
-							<div style={{ display: 'flex', alignItems: 'center', gap: 8, font: `11.5px ${T.sans}`, color: T.ter }}>
-								<Stars n={m.rating} /> {m.rating} · {(m.installs / 1000).toFixed(1)}k installs
-							</div>
-						</button>
-					))}
-				</div>
-			</div>
-			{/* detail panel — install is honest-local (no marketplace command on this surface) */}
-			<Panel accent title={selMod.name} action={<Badge status="neutral">{selMod.system}</Badge>}>
-				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>by {selMod.author} · updated {selMod.updated}</div>
-				<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>{selMod.desc}</div>
-				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
-					Preview only — discovering and installing community modules is not Core-backed on this surface.
-				</div>
-				<Button variant="primary" size="md" icon={installed[selMod.id] ? 'check' : 'import'} disabled={installed[selMod.id]} onClick={() => setInstalled((s) => ({ ...s, [selMod.id]: true }))}>
-					{installed[selMod.id] ? 'Installed (local preview)' : 'Install to vault'}
-				</Button>
-				{selMod.id === D.id && (
-					<>
-						<div style={{ ...eb, marginTop: 4 }}>Contents</div>
-						<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-							{D.contents.map((c: any, i: number) => (
-								<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', border: `1px solid ${T.bd}`, borderRadius: 8 }}>
-									<Icon name={c.icon} size={15} color={T.acc} /><span style={{ font: `12px ${T.sans}`, flex: 1 }}>{c.kind}</span><span style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{c.n}</span>
+				{failed ? (
+					<Panel title="Modules">
+						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Couldn’t load the marketplace — check your connection.</div>
+						<Button variant="secondary" size="sm" onClick={load}>Retry</Button>
+					</Panel>
+				) : modules === null ? (
+					<Panel title="Modules"><div style={{ font: `12.5px ${T.sans}`, color: T.ter }} role="status">Loading modules…</div></Panel>
+				) : modules.length === 0 ? (
+					<EmptyState icon="globe" title="No modules published yet" description="Anything you publish from the Publish tab appears here for every signed-in player and DM." />
+				) : (
+					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))', gap: 14 }}>
+						{modules.map((m) => (
+							<button key={m.moduleId} type="button" onClick={() => setSelId(m.moduleId)} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 14, borderRadius: 12, cursor: 'pointer', textAlign: 'left', border: `1px solid ${sel?.moduleId === m.moduleId ? T.accBd : T.bd}`, background: T.surf, boxShadow: sel?.moduleId === m.moduleId ? T.smd : 'none' }}>
+								<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+									<span style={{ font: `700 14px ${T.disp}`, flex: 1, minWidth: 0 }}>{m.name}</span>
+									{m.owned && <Badge status="accent">Yours</Badge>}
 								</div>
-							))}
-						</div>
-						<div style={{ ...eb, marginTop: 4 }}>Changelog</div>
-						{D.changelog.map((c: any, i: number) => (
-							<div key={i} style={{ display: 'flex', gap: 9, padding: '4px 0' }}>
-								<Badge status="neutral">{c.v}</Badge><div style={{ flex: 1 }}><div style={{ font: `12px ${T.sans}`, color: T.sub }}>{c.note}</div><div style={{ font: `10.5px ${T.sans}`, color: T.ter }}>{c.when}</div></div>
-							</div>
+								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>v{m.version} · {kb(m.size)} · {new Date(m.publishedAt).toLocaleDateString()}</div>
+								<div style={{ font: `12px/1.45 ${T.sans}`, color: T.sub, flex: 1 }}>{m.summary}</div>
+							</button>
 						))}
-						<div style={{ ...eb, marginTop: 4 }}>Reviews</div>
-						{D.reviews.map((r: any, i: number) => (
-							<div key={i} style={{ padding: '8px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
-								<div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}><span style={{ font: `600 12px ${T.sans}` }}>{r.who}</span>{r.verified && <Badge status="success" icon="check">Verified install</Badge>}<span style={{ color: T.acc, marginLeft: 'auto' }}>{'★'.repeat(r.stars)}</span></div>
-								<div style={{ font: `12px/1.45 ${T.sans}`, color: T.sub }}>{r.text}</div>
-							</div>
-						))}
-					</>
+					</div>
 				)}
-			</Panel>
+			</div>
+			{sel && (
+				<Panel accent title={sel.name} action={<Badge status="neutral">v{sel.version}</Badge>}>
+					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>published {new Date(sel.publishedAt).toLocaleDateString()} · {kb(sel.size)} · hash {sel.contentHash.slice(0, 12)}…</div>
+					<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.sub }}>{sel.summary}</div>
+					<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
+						Installing runs the standard package review flow: the package arrives disabled and
+						unreviewed, with every host permission denied until you enable it in Extensions → Plugins.
+					</div>
+					<Button variant="primary" size="md" icon="import" disabled={busy} onClick={() => startInstall(sel)}>Install to vault</Button>
+					{sel.owned && (
+						<Button variant="ghost" size="sm" icon="trash" disabled={busy} onClick={() => removeListing(sel)}>Remove listing</Button>
+					)}
+				</Panel>
+			)}
+			<Dialog
+				open={review !== null}
+				onClose={() => setReview(null)}
+				title={review?.isUpgrade ? 'Upgrade this package?' : 'Install this package?'}
+				description="Review what you’re adding to the vault before it lands."
+				icon="import"
+				size="md"
+				footer={
+					<>
+						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setReview(null)}>Cancel</Button>
+						<Button variant="primary" size="sm" icon="import" disabled={busy} onClick={() => void confirmInstall()}>
+							{busy ? 'Working…' : review?.isUpgrade ? 'Upgrade package' : 'Install package'}
+						</Button>
+					</>
+				}
+			>
+				{review && (
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 8, font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+						<div><strong style={{ color: T.ink }}>{review.definition.displayName ?? review.definition.id}</strong> · v{review.definition.version}</div>
+						<div>{Array.isArray(review.definition.widgets) ? review.definition.widgets.length : 0} widget{Array.isArray(review.definition.widgets) && review.definition.widgets.length === 1 ? '' : 's'} · package id <code style={{ font: `11.5px ${T.mono}` }}>{review.definition.id}</code></div>
+						<div style={{ color: T.ter, font: `11.5px/1.5 ${T.sans}` }}>
+							{review.isUpgrade
+								? 'This upgrades your installed copy — declared migrations run against every placed widget.'
+								: 'It installs fail-closed: disabled, unreviewed, and with every host permission denied until you enable it.'}
+						</div>
+					</div>
+				)}
+			</Dialog>
 		</div>
 	);
 }
@@ -137,74 +245,104 @@ function CommDiscover() {
 function CommExport() {
 	const runtime = useRuntime();
 	const dmId = runtime.defaultActorId;
-	const E = COMM.export;
-	const [scope, setScope] = useState(E.scope);
-	const [types, setTypes] = useState<Record<string, boolean>>(() => Object.fromEntries(E.contentTypes.map((t: any) => [t.id, t.on])));
-	const [priv, setPriv] = useState(E.includePrivate);
-	const [result, setResult] = useState<{ exported: number; omitted: number; mode: string } | null>(null);
+	const [priv, setPriv] = useState(false);
+	const [result, setResult] = useState<{ exported: number; omitted: number; mode: string; file: string } | null>(null);
 
 	// REAL counts from the live actor-filtered content read (the DM sees every item).
 	const items = useMemo(() => getContentItemsForActor(runtime.state.content, runtime.state.permissions, dmId), [runtime.state.content, runtime.state.permissions, dmId]);
 	const dmOnlyCount = items.filter((i) => i.visibility === 'dm-only').length;
 	const playerCount = items.length - dmOnlyCount;
 
+	// REAL type scope: distinct item kinds with live counts; the selection feeds core's `itemTypes`
+	// export parameter (scoping can only NARROW the visibility-filtered export, never widen it).
+	const kinds = useMemo(() => {
+		const counts = new Map<string, number>();
+		for (const item of items) counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1);
+		return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+	}, [items]);
+	const [offKinds, setOffKinds] = useState<Record<string, boolean>>({});
+	const selectedKinds = kinds.map(([k]) => k).filter((k) => !offKinds[k]);
+	const allSelected = selectedKinds.length === kinds.length;
+
 	const runExport = async () => {
 		// REAL: core `content.export` selects by VISIBILITY MODE — `dm-backup` keeps DM-only content,
-		// `portable` redacts it. The per-type toggles + scope above are local UI; core exports the whole
-		// vault by mode (the granular type filter is not a Core parameter).
+		// `portable` redacts it — narrowed by the selected item types.
 		const res = await runtime.dispatch({
 			type: 'content.export',
 			actorId: dmId,
-			payload: { mode: priv ? 'dm-backup' : 'portable' },
+			payload: {
+				mode: priv ? 'dm-backup' : 'portable',
+				...(allSelected ? {} : { itemTypes: selectedKinds }),
+			},
 		});
-		if (res.status === 'accepted') {
-			const ev = res.events.find((e: any) => e.kind === 'content.exported') as any;
-			if (ev) setResult({ exported: ev.exportedItems, omitted: ev.omittedForVisibility, mode: ev.mode });
+		if (res.status !== 'accepted') {
+			Toaster.error(res.rejection.message);
+			return;
 		}
+		const ev = res.events.find((e: any) => e.kind === 'content.exported') as any;
+		if (!ev) return;
+		const files: { path: string; markdown: string }[] = ev.export?.files ?? [];
+		const mode: string = ev.mode;
+		let fileName: string;
+		if (files.length === 1) {
+			// A single note downloads as plain markdown, named by its stable export path.
+			fileName = files[0].path.split('/').pop() || `export-${fileDateStamp()}.md`;
+			downloadTextFile(fileName, files[0].markdown, 'text/markdown');
+		} else {
+			// Multiple files ship as one JSON bundle (round-trips through the Knowledge import).
+			fileName = `dndtools-export-${mode}-${fileDateStamp()}.json`;
+			downloadJsonFile(fileName, {
+				format: 'dndtools-content-export',
+				version: 1,
+				mode,
+				files,
+			});
+		}
+		setResult({ exported: ev.exportedItems, omitted: ev.omittedForVisibility, mode, file: fileName });
 	};
 
 	return (
 		<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'start' }}>
 			<Panel title="What to export">
-				<div style={{ ...eb }}>Scope</div>
-				<Seg value={scope} onChange={setScope} options={E.scopes} />
-				<div style={{ ...eb, marginTop: 10 }}>Content types <span style={{ color: T.ter, font: `11px ${T.sans}` }}>(local filter — core exports by visibility mode)</span></div>
+				<div style={{ ...eb }}>Content types <span style={{ color: T.ter, font: `11px ${T.sans}` }}>(live counts — feeds core’s export scope)</span></div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-					{E.contentTypes.map((t: any) => (
-						<label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 11px', border: `1px solid ${T.bd}`, borderRadius: 9, cursor: 'pointer' }}>
-							<Switch checked={types[t.id]} onChange={() => setTypes((s) => ({ ...s, [t.id]: !s[t.id] }))} />
-							<span style={{ flex: 1, font: `12.5px ${T.sans}` }}>{t.label}</span>
-							<span style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{t.n}</span>
-						</label>
-					))}
+					{kinds.length === 0 ? (
+						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Nothing to export yet — create notes and content in Knowledge first.</div>
+					) : (
+						kinds.map(([kind, count]) => (
+							<label key={kind} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 11px', border: `1px solid ${T.bd}`, borderRadius: 9, cursor: 'pointer' }}>
+								<Switch checked={!offKinds[kind]} onChange={() => setOffKinds((s) => ({ ...s, [kind]: !s[kind] }))} />
+								<span style={{ flex: 1, font: `12.5px ${T.sans}`, textTransform: 'capitalize' }}>{kind}</span>
+								<span style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{count}</span>
+							</label>
+						))
+					)}
 				</div>
 				<label style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 11px', borderRadius: 9, background: priv ? 'var(--color-visibility-dm-subtle)' : T.alt, border: `1px solid ${priv ? 'var(--color-visibility-dm)' : T.bd}`, cursor: 'pointer', marginTop: 4 }}>
 					<Switch checked={priv} onChange={() => setPriv((p: boolean) => !p)} />
 					<span style={{ flex: 1 }}><span style={{ display: 'flex', alignItems: 'center', gap: 6, font: `600 12.5px ${T.sans}` }}>Include DM-only content <VisibilityChip level="dm-only" compact /></span><span style={{ font: `11px ${T.sans}`, color: T.ter }}>Off → <code>portable</code> mode (secrets redacted). On → <code>dm-backup</code> mode.</span></span>
 				</label>
 			</Panel>
-			<Panel accent title="Pre-export validation">
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 10, font: `12.5px ${T.sans}`, color: T.sub }}>
-						<Icon name="check" size={16} color={T.ok} /><span>{items.length} vault items · {playerCount} player-visible · {dmOnlyCount} DM-only</span>
-					</div>
-					{E.validation.map((v: any, i: number) => (
-						<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, font: `12.5px ${T.sans}`, color: T.sub }}>
-							<Icon name={VAL_ICON[v.status]} size={16} color={v.status === 'pass' ? T.ok : v.status === 'warn' ? 'var(--color-status-warning)' : T.err} /><span>{v.label}</span>
-						</div>
-					))}
+			<Panel accent title="Export">
+				<div style={{ display: 'flex', alignItems: 'center', gap: 10, font: `12.5px ${T.sans}`, color: T.sub }}>
+					<Icon name="check" size={16} color={T.ok} /><span>{items.length} vault items · {playerCount} player-visible · {dmOnlyCount} DM-only</span>
 				</div>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 9, background: T.sunken, border: `1px solid ${T.bd}`, marginTop: 6 }}>
-					<Icon name="upload" size={16} color={T.acc} /><span style={{ flex: 1, font: `12px ${T.mono}`, color: T.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{priv ? 'dm-backup' : 'portable'} · {E.output}</span>
+					<Icon name="download" size={16} color={T.acc} />
+					<span style={{ flex: 1, font: `12px ${T.mono}`, color: T.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+						{priv ? 'dm-backup' : 'portable'} · {allSelected ? 'all types' : `${selectedKinds.length}/${kinds.length} types`} · downloads .md / .json
+					</span>
 				</div>
-				<Button variant="primary" size="md" icon="send" onClick={runExport}>Export module</Button>
+				<Button variant="primary" size="md" icon="download" disabled={items.length === 0 || selectedKinds.length === 0} onClick={() => void runExport()}>
+					Export &amp; download
+				</Button>
 				{result ? (
 					<div style={{ display: 'flex', alignItems: 'center', gap: 8, font: `12px ${T.sans}`, color: T.sub }}>
 						<Icon name="check" size={15} color={T.ok} />
-						<span>Exported {result.exported} {result.exported === 1 ? 'item' : 'items'} in <strong>{result.mode}</strong> mode · {result.omitted} omitted for visibility.</span>
+						<span>Downloaded <code style={{ font: `11.5px ${T.mono}` }}>{result.file}</code> — {result.exported} {result.exported === 1 ? 'item' : 'items'} in <strong>{result.mode}</strong> mode · {result.omitted} omitted for visibility.</span>
 					</div>
 				) : (
-					<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>Warnings won't block export — they ride along in the manifest.</div>
+					<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>One note exports as markdown; more become a JSON bundle you can re-import in Knowledge.</div>
 				)}
 			</Panel>
 		</div>
@@ -212,54 +350,133 @@ function CommExport() {
 }
 
 function CommPublish() {
-	const P = COMM.publish;
-	const blocked = P.checklist.some((c: any) => c.status === 'fail');
-	// Honest-local: publishing to a registry has no Core command on this surface — local preview only.
-	const [submitted, setSubmitted] = useState(false);
-	const r = 26;
-	const c = 2 * Math.PI * r;
-	const off = c * (1 - P.completeness / 100);
+	const runtime = useRuntime();
+	const auth = useAuth();
+	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
+	const [mine, setMine] = useState<ModuleListing[] | null>(null);
+	const [busy, setBusy] = useState(false);
+	const [draft, setDraft] = useState<{ packageId: string; name: string; summary: string; version: string } | null>(null);
+
+	const packages = useMemo(
+		() =>
+			Object.values(runtime.state.widgets.packages)
+				.filter((rec) => !rec.removedAt && !rec.package.id.startsWith('system.'))
+				.map((rec) => rec.package),
+		[runtime.state.widgets],
+	);
+
+	const loadMine = useCallback(() => {
+		listModules()
+			.then((all) => setMine(all.filter((m) => m.owned)))
+			.catch(() => setMine(null));
+	}, []);
+	useEffect(() => {
+		if (cloudReady) loadMine();
+	}, [cloudReady, loadMine]);
+
+	if (!cloudReady) return <MarketplaceGate verb="publish" />;
+
+	const openDraft = (def: WidgetPackageDefinition) =>
+		setDraft({ packageId: def.id, name: def.displayName ?? def.id, summary: '', version: def.version });
+
+	const publish = () => {
+		if (!draft) return;
+		if (!draft.name.trim() || !draft.summary.trim() || !draft.version.trim()) {
+			Toaster.error('Name, summary and version are all required.');
+			return;
+		}
+		const exported = exportWidgetPackage(runtime.state.widgets, { ids: () => runtime.newId() }, draft.packageId);
+		if ('kind' in exported) {
+			Toaster.error(`Package ${draft.packageId} could not be exported (${exported.reason}).`);
+			return;
+		}
+		setBusy(true);
+		publishModule({ name: draft.name.trim(), summary: draft.summary.trim(), version: draft.version.trim(), package: exported.package })
+			.then(() => {
+				Toaster.success(`Published ${draft.name.trim()} to the marketplace.`);
+				setDraft(null);
+				loadMine();
+			})
+			.catch((e: unknown) => Toaster.error(errText(e)))
+			.finally(() => setBusy(false));
+	};
+
+	const unpublish = (listing: ModuleListing) => {
+		setBusy(true);
+		deleteModule(listing.moduleId)
+			.then(() => {
+				Toaster.success('Listing removed.');
+				setMine((list) => (list ? list.filter((m) => m.moduleId !== listing.moduleId) : list));
+			})
+			.catch((e: unknown) => Toaster.error(errText(e)))
+			.finally(() => setBusy(false));
+	};
+
 	return (
-		<div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 18, alignItems: 'start' }}>
-			<Panel title="Readiness">
-				<div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-					<svg width="70" height="70" viewBox="0 0 70 70">
-						<circle cx="35" cy="35" r={r} fill="none" stroke={T.bd} strokeWidth="7" />
-						<circle cx="35" cy="35" r={r} fill="none" stroke={blocked ? T.err : T.acc} strokeWidth="7" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} transform="rotate(-90 35 35)" />
-						<text x="35" y="40" textAnchor="middle" style={{ font: `700 17px var(--font-mono)`, fill: T.ink }}>{P.completeness}</text>
-					</svg>
-					<div>
-						<div style={{ font: `700 15px ${T.disp}` }}>{blocked ? 'Not ready' : 'Almost there'}</div>
-						<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{P.completeness}% complete</div>
+		<div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 18, alignItems: 'start' }}>
+			<Panel title="Publish an installed package">
+				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
+					Publishing shares one of your installed widget packages (its full exported definition) with
+					every signed-in user. System packages are code-defined and can’t be published.
+				</div>
+				{packages.length === 0 ? (
+					<EmptyState icon="widget" title="No publishable packages" description="Install or author a widget package in Extensions → Plugins first — system packages stay private." />
+				) : (
+					<div style={{ display: 'flex', flexDirection: 'column' }}>
+						{packages.map((def, i) => (
+							<div key={def.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
+								<span style={{ width: 34, height: 34, borderRadius: 8, flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: T.alt, color: T.acc }}><Icon name="widget" size="sm" /></span>
+								<div style={{ flex: 1, minWidth: 0 }}>
+									<div style={{ font: `600 13px ${T.sans}` }}>{def.displayName ?? def.id}</div>
+									<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{def.id} · v{def.version} · {def.widgets.length} widget{def.widgets.length === 1 ? '' : 's'}</div>
+								</div>
+								<Button variant="secondary" size="sm" icon="upload" disabled={busy} onClick={() => openDraft(def)}>Publish</Button>
+							</div>
+						))}
 					</div>
-				</div>
-				<div style={{ ...eb, marginTop: 8 }}>Version</div>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 9, font: `13px ${T.mono}` }}>
-					<span style={{ color: T.ter }}>{P.version.from}</span><Icon name="chevron-right" size={13} color={T.ter} /><span style={{ color: T.acc }}>{P.version.to}</span><Badge status="info">{P.version.bump}</Badge>
-				</div>
-				<div style={{ ...eb, marginTop: 8 }}>License</div>
-				<Badge status="neutral">{P.license}</Badge>
+				)}
 			</Panel>
-			<Panel accent title="Publish checklist" action={blocked ? <Badge status="error" icon="close">1 blocker</Badge> : undefined}>
-				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
-					Preview only — publishing to a module registry is not Core-backed on this surface.
-				</div>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-					{P.checklist.map((c: any, i: number) => (
-						<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 9, border: `1px solid ${c.status === 'fail' ? 'var(--color-status-error-border)' : T.bd}`, background: c.status === 'fail' ? 'var(--color-status-error-subtle)' : T.surf }}>
-							<Icon name={VAL_ICON[c.status]} size={16} color={c.status === 'pass' ? T.ok : c.status === 'warn' ? 'var(--color-status-warning)' : T.err} />
-							<span style={{ flex: 1, font: `12.5px ${T.sans}`, color: T.sub }}>{c.label}</span>
-							<Badge status={VAL_TONE[c.status] as any}>{c.status}</Badge>
-						</div>
-					))}
-				</div>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-					<Button variant="primary" size="md" icon="upload" disabled={blocked || submitted} onClick={() => setSubmitted(true)}>
-						{submitted ? 'Submitted (preview)' : 'Publish module'}
-					</Button>
-					{blocked && <span style={{ font: `12px ${T.sans}`, color: T.err }}>Fix the blocker first — fails block publish.</span>}
-				</div>
+			<Panel accent title="Your listings">
+				{mine === null ? (
+					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }} role="status">Loading your listings…</div>
+				) : mine.length === 0 ? (
+					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Nothing published yet.</div>
+				) : (
+					<div style={{ display: 'flex', flexDirection: 'column' }}>
+						{mine.map((m, i) => (
+							<div key={m.moduleId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
+								<div style={{ flex: 1, minWidth: 0 }}>
+									<div style={{ font: `600 13px ${T.sans}` }}>{m.name}</div>
+									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>v{m.version} · {new Date(m.publishedAt).toLocaleDateString()}</div>
+								</div>
+								<Button variant="ghost" size="sm" disabled={busy} onClick={() => unpublish(m)}>Remove</Button>
+							</div>
+						))}
+					</div>
+				)}
 			</Panel>
+			<Dialog
+				open={draft !== null}
+				onClose={() => setDraft(null)}
+				title="Publish to the marketplace"
+				description="Shown to everyone browsing Discover — write it for a stranger’s table."
+				icon="upload"
+				size="md"
+				footer={
+					<>
+						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setDraft(null)}>Cancel</Button>
+						<Button variant="primary" size="sm" icon="upload" disabled={busy} onClick={publish}>{busy ? 'Publishing…' : 'Publish module'}</Button>
+					</>
+				}
+			>
+				{draft && (
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+						<Input value={draft.name} onChange={(e: { target: { value: string } }) => setDraft((d) => (d ? { ...d, name: e.target.value } : d))} placeholder="Module name" aria-label="Module name" maxLength={80} />
+						<Textarea value={draft.summary} onChange={(e: { target: { value: string } }) => setDraft((d) => (d ? { ...d, summary: e.target.value } : d))} placeholder="What does this add to a table? (required)" aria-label="Module summary" rows={3} maxLength={280} />
+						<Input value={draft.version} onChange={(e: { target: { value: string } }) => setDraft((d) => (d ? { ...d, version: e.target.value } : d))} placeholder="Version (e.g. 1.0.0)" aria-label="Module version" maxLength={20} />
+					</div>
+				)}
+			</Dialog>
 		</div>
 	);
 }
@@ -269,7 +486,7 @@ function CommWiki() {
 	const dmId = runtime.defaultActorId;
 	const W = COMM.wiki;
 	const [access, setAccess] = useState(W.access);
-	// Honest-local: hosting a public wiki has no Core command on this surface — local preview only.
+	// Honest-local: hosting a public wiki has no backend — local preview only (noted in-panel).
 	const [published, setPublished] = useState(false);
 
 	// REAL: only player-visible notes are eligible for a published wiki (DM-only blocks are stripped).

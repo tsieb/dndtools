@@ -34,6 +34,9 @@ import {
 	type Profile,
 } from '../cloud/appApi';
 import { qrDataUrl } from '../net/qr';
+import { downloadJsonFile, fileDateStamp } from '../platform/download';
+import { pickTextFile } from '../platform/filePick';
+import { exportFullVault, importFullVault, validateVaultBackup, type VaultBackup } from '../platform/backup';
 import { ONBOARDED_KEY, REPLAY_EVENT } from '../app/Onboarding';
 import { DNDAccount, DNDExt, DNDGaps2, DNDPages } from '../runtime/mockCampaign';
 
@@ -167,18 +170,6 @@ function SettingsAppearance() {
 
 /* ---- Account — REAL app-api backend when configured + signed in (profile edit, devices,
  * export, delete); honest labeled fallback otherwise. ------------------------------------------- */
-
-// TODO(ws-1): use platform/download once the shared download util lands.
-function downloadJsonLocal(filename: string, value: unknown) {
-	const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }));
-	const anchor = document.createElement('a');
-	anchor.href = url;
-	anchor.download = filename;
-	document.body.appendChild(anchor);
-	anchor.click();
-	anchor.remove();
-	setTimeout(() => URL.revokeObjectURL(url), 0);
-}
 
 const errMsg = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
 
@@ -338,7 +329,7 @@ function AccountDangerPanel() {
 		setBusy(true);
 		exportAccountData()
 			.then((data) => {
-				downloadJsonLocal(`dndtools-account-${new Date().toISOString().slice(0, 10)}.json`, data);
+				downloadJsonFile(`dndtools-account-${fileDateStamp()}.json`, data);
 				Toaster.success('Account data downloaded.');
 			})
 			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not export your account data.')))
@@ -1038,6 +1029,7 @@ function SettingsSync() {
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<CloudSyncPanel online={online} localChanges={ops.length} />
+			<LocalBackupPanel />
 			<Panel title="Recent changes" action={<Badge status="neutral">{ops.length}</Badge>}>
 				{recent.length === 0 ? (
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No changes recorded yet.</div>
@@ -1070,6 +1062,88 @@ function SettingsSync() {
 				)}
 			</Panel>
 		</div>
+	);
+}
+
+/** Full local vault backup + restore (WS-1): the whole persisted core slice + every stored asset
+ * byte in one JSON file. Restore is authoritative and destructive — it replaces the current vault
+ * (validated fail-closed first), then hard-reloads so every runtime rebuilds from the restored data. */
+function LocalBackupPanel() {
+	const [busy, setBusy] = useState(false);
+	const [pendingRestore, setPendingRestore] = useState<VaultBackup | null>(null);
+	const backup = () => {
+		setBusy(true);
+		exportFullVault()
+			.then((data) => {
+				downloadJsonFile(`dndtools-vault-backup-${fileDateStamp()}.json`, data);
+				Toaster.success(`Backup downloaded — ${data.assets.length} media ${data.assets.length === 1 ? 'asset' : 'assets'} included.`);
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not build the backup.')))
+			.finally(() => setBusy(false));
+	};
+	const pickBackup = async () => {
+		const file = await pickTextFile('.json');
+		if (!file) return;
+		try {
+			// validateVaultBackup is fail-closed: anything structurally off is rejected with a reason
+			// BEFORE the confirm dialog ever offers to overwrite the current vault.
+			setPendingRestore(validateVaultBackup(JSON.parse(file.text)));
+		} catch (e: unknown) {
+			Toaster.error(errMsg(e, 'That file is not a valid vault backup.'));
+		}
+	};
+	const restore = () => {
+		if (!pendingRestore) return;
+		setBusy(true);
+		importFullVault(pendingRestore)
+			.then(({ restoredAssets, skippedAssets }) => {
+				if (skippedAssets > 0) {
+					// Surface the partial-media outcome before the reload wipes the toast.
+					window.alert(`Vault restored (${restoredAssets} media assets; ${skippedAssets} skipped as oversized/corrupt). The app will now reload.`);
+				}
+				window.location.reload();
+			})
+			.catch((e: unknown) => {
+				Toaster.error(errMsg(e, 'Restore failed — your current vault is unchanged only if the error happened during validation; reload to see its state.'));
+				setBusy(false);
+			});
+	};
+	return (
+		<Panel title="Local backup">
+			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+				<div style={{ flex: '1 1 260px' }}>
+					<div style={{ font: `600 13px ${T.sans}` }}>Back up or restore this device’s vault</div>
+					<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+						One JSON file with everything: notes, scenes, characters, maps, session state and stored
+						media bytes. Restoring replaces the current vault on this device.
+					</div>
+				</div>
+				<Button variant="secondary" size="sm" icon="download" disabled={busy} onClick={backup}>Download backup</Button>
+				<Button variant="secondary" size="sm" icon="import" disabled={busy} onClick={() => void pickBackup()}>Restore from backup…</Button>
+			</div>
+			<Dialog
+				open={pendingRestore !== null}
+				onClose={() => setPendingRestore(null)}
+				title="Replace this vault?"
+				description="Restoring is authoritative — everything currently in this vault is replaced by the backup."
+				icon="warning"
+				size="md"
+				footer={
+					<>
+						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setPendingRestore(null)}>Cancel</Button>
+						<Button variant="danger" size="sm" icon="import" disabled={busy} onClick={restore}>{busy ? 'Restoring…' : 'Replace vault & reload'}</Button>
+					</>
+				}
+			>
+				{pendingRestore && (
+					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+						Backup from <strong style={{ color: T.ink }}>{new Date(pendingRestore.createdAt).toLocaleString()}</strong> with{' '}
+						{pendingRestore.assets.length} media {pendingRestore.assets.length === 1 ? 'asset' : 'assets'}. Consider downloading a
+						backup of the CURRENT vault first — this cannot be undone.
+					</div>
+				)}
+			</Dialog>
+		</Panel>
 	);
 }
 

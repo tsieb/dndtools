@@ -9,6 +9,7 @@ import {
 import { Button, Card, EmptyState, Icon, IconButton, Input, Select, Textarea, VisibilityChip } from '../ds';
 import { BackBar, Page, Panel, Seg, T } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { pickTextFiles } from '../platform/filePick';
 
 /**
  * Knowledge — notes / handouts / read-aloud, now wired to the live Processing Core (was static
@@ -345,14 +346,52 @@ function Composer({ onCreate, onCancel, busy }: { onCreate: (title: string) => v
 	);
 }
 
+/** Turn picked files into paste-box archive text. A `.json` export bundle (the shape Community's
+ * Export downloads) expands into its member files; anything else imports as one markdown note. */
+function pickedFilesToArchiveText(files: Array<{ name: string; text: string }>): string {
+	const parts: string[] = [];
+	for (const file of files) {
+		if (file.name.toLowerCase().endsWith('.json')) {
+			try {
+				const parsed = JSON.parse(file.text) as { format?: unknown; files?: Array<{ path?: unknown; markdown?: unknown }> };
+				if (parsed.format === 'dndtools-content-export' && Array.isArray(parsed.files)) {
+					for (const entry of parsed.files) {
+						if (typeof entry.path === 'string' && typeof entry.markdown === 'string') {
+							parts.push(`===== ${entry.path} =====\n${entry.markdown.trimEnd()}`);
+						}
+					}
+					continue;
+				}
+			} catch {
+				/* not a bundle — fall through and import the raw text as one file */
+			}
+		}
+		parts.push(`===== ${file.name} =====\n${file.text.trimEnd()}`);
+	}
+	return parts.join('\n\n');
+}
+
 function ImportPanel({ onImport, onCancel, busy, message }: { onImport: (text: string, policy: string) => void; onCancel: () => void; busy: boolean; message: string | null }) {
 	const [text, setText] = useState('');
 	const [policy, setPolicy] = useState('skip');
+	const pickFiles = async () => {
+		const files = await pickTextFiles('.md,.markdown,.txt,.json');
+		if (files.length === 0) return;
+		const archive = pickedFilesToArchiveText(files);
+		if (!archive) return;
+		// Append into the paste box (never silently dispatch) so the user reviews before importing.
+		setText((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${archive}` : archive));
+	};
 	return (
 		<Card elevation="flat" padding="md" style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-			<div style={{ font: `600 13px ${T.sans}`, color: T.ink }}>Import a markdown vault</div>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+				<div style={{ flex: 1, font: `600 13px ${T.sans}`, color: T.ink }}>Import a markdown vault</div>
+				<Button variant="secondary" size="sm" icon="import" disabled={busy} onClick={() => void pickFiles()}>
+					Import files…
+				</Button>
+			</div>
 			<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
-				Paste markdown. Separate multiple notes with <code style={{ fontFamily: T.mono }}>===== path.md =====</code> headers.
+				Paste markdown or pick <code style={{ fontFamily: T.mono }}>.md</code> / exported <code style={{ fontFamily: T.mono }}>.json</code> bundles — files land in the box below for review. Separate multiple notes with <code style={{ fontFamily: T.mono }}>===== path.md =====</code> headers.
 			</div>
 			<Textarea
 				value={text}
