@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
 	deliveredMapIdsForActor,
 	getMapViewForActor,
@@ -10,6 +10,7 @@ import {
 import { Badge, Button, Icon, IconButton, Input, POIPopover, Select, StatusDot, Switch } from '../ds';
 import { Page, Panel, T } from '../app/screen-kit';
 import { fogRegionSummary } from '../app/fogRegions';
+import { pickRasterAssetId } from '../app/mapGeometry';
 import {
 	CATEGORY_LABEL,
 	CATEGORY_VAR,
@@ -23,6 +24,7 @@ import {
 	visToDs,
 	type MapTool,
 } from '../app/MapBuilder';
+import { useAssetObjectUrl } from '../platform/assetUrl';
 import { useRuntime } from '../runtime/RuntimeContext';
 
 /**
@@ -41,6 +43,15 @@ import { useRuntime } from '../runtime/RuntimeContext';
  */
 
 const ghostBtn = { border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, display: 'inline-flex' } as const;
+
+/** Map-switcher chip thumbnail: the map's real raster bytes when they exist on this device
+ *  (content-addressed asset store), else the atlas glyph. Missing bytes degrade to the glyph —
+ *  never a broken image. */
+function MapChipThumb({ assetId, active }: { assetId: string | null; active: boolean }) {
+	const url = useAssetObjectUrl(assetId);
+	if (!url) return <Icon name="atlas-map" size={14} color={active ? T.acc : T.ter} />;
+	return <img src={url} alt="" style={{ width: 18, height: 18, borderRadius: 4, objectFit: 'cover', flex: '0 0 auto' }} />;
+}
 
 export function Atlas() {
 	const runtime = useRuntime();
@@ -87,6 +98,31 @@ export function Atlas() {
 		[runtime.state.maps, runtime.state.permissions, actorId],
 	);
 
+	// POI deep links — `#/atlas?map=…&poi=…`, the exact URL MapBuilder's "copy link" writes and the
+	// ⌘K palette's map/POI hits navigate to. A present `map` selects that map (when the actor-filtered
+	// list contains it — visibility authority stays with the core read); a present `poi` highlights
+	// that marker (canvas ring + popover + list tint). Params are consumed once then stripped so
+	// manual navigation afterwards isn't sticky. An unavailable map degrades to an honest notice.
+	const [searchParams, setSearchParams] = useSearchParams();
+	useEffect(() => {
+		const linkMap = searchParams.get('map');
+		const linkPoi = searchParams.get('poi');
+		if (linkMap === null && linkPoi === null) return;
+		if (linkMap !== null) {
+			if (maps.some((mp) => mp.id === linkMap)) {
+				setMapId(linkMap);
+				setMapZoom(1);
+				setSelTokenId(null);
+				setSelPoiId(linkPoi);
+			} else {
+				setNotice('This link points at a map that isn’t available to you.');
+			}
+		} else if (linkPoi !== null) {
+			setSelPoiId(linkPoi);
+		}
+		setSearchParams({}, { replace: true });
+	}, [searchParams, maps, setSearchParams]);
+
 	// Async load → `maps` is empty on the first paint, so never index `maps[0]` in a state initializer.
 	// Selection falls back to the first visible map and clears if the selected map is no longer visible.
 	const selectedId = mapId && maps.some((mp) => mp.id === mapId) ? mapId : maps[0]?.id ?? null;
@@ -111,6 +147,15 @@ export function Atlas() {
 		[runtime.state.maps, runtime.state.permissions, actorId, selectedId],
 	);
 	const layers = layerResult.layers;
+
+	// Raster base layer for the preview canvas — the same DM-side rule as MapBuilder: the most
+	// recently imported image/SVG asset (`pickRasterAssetId`). MapCanvas only renders it once the
+	// actor-filtered view is available, and shows the honest missing-bytes state when the bytes
+	// aren't in this device's asset store. Player-side raster gating lives in projectedMap.ts.
+	const rasterAssetId = useMemo(() => {
+		const entity = selectedId ? runtime.state.maps.maps[selectedId] : undefined;
+		return entity ? pickRasterAssetId(entity.assetIds, runtime.state.maps.assets) : null;
+	}, [runtime.state.maps, selectedId]);
 
 	// The single durable write path with a re-entrancy guard (mirrors the Svelte panels' `busy`).
 	const run = async (command: Parameters<typeof runtime.dispatch>[0]) => {
@@ -199,6 +244,53 @@ export function Atlas() {
 		void run({ type: 'map.delete-poi', actorId, payload: { mapId: selectedId, poiId } });
 	}
 
+	// POI deep link — the SAME shareable hash URL MapBuilder's copy-link writes (`#/atlas?map=…&poi=…`);
+	// opening it selects this map and highlights the POI. Clipboard denial degrades to showing the link.
+	async function copyPoiLink(poiId: string) {
+		if (!selectedId) return;
+		// `window.location` explicitly — the react-router `location` above shadows the global here.
+		const url = `${window.location.origin}${window.location.pathname}${window.location.search}#/atlas?map=${encodeURIComponent(selectedId)}&poi=${encodeURIComponent(poiId)}`;
+		try {
+			await navigator.clipboard.writeText(url);
+			setNotice('POI link copied — opening it selects this map and highlights the POI.');
+		} catch {
+			setNotice(`POI link (copy failed — copy it manually): ${url}`);
+		}
+	}
+
+	// Projection to players — the same two durable commands the Session console's Stage panel
+	// dispatches: `session.set-active-map` stages this map on the session, then
+	// `session.project-active-map` delivers it to every player actor. Core-side validation (live
+	// session, DM role, map visibility) rejects with a message surfaced honestly in the notice bar;
+	// the chip row's live dot then marks the delivered map.
+	async function projectToPlayers() {
+		if (!selectedId) return;
+		const players = Object.values(runtime.state.permissions.actors).filter((a) => a.role === 'player');
+		if (players.length === 0) {
+			setNotice('No player actors exist yet — projection needs at least one player.');
+			return;
+		}
+		const staged = await run({ type: 'session.set-active-map', actorId, payload: { mapId: selectedId } });
+		if (!staged) return;
+		if (staged.status !== 'accepted') {
+			setNotice(staged.rejection.message);
+			return;
+		}
+		const projected = await run({
+			type: 'session.project-active-map',
+			actorId,
+			payload: { playerActorIds: players.map((p) => p.id) },
+		});
+		if (!projected) return;
+		if (projected.status === 'accepted') {
+			setNotice(
+				`Projected “${selectedEntry?.name ?? 'map'}” to ${players.length} player${players.length === 1 ? '' : 's'} — the live dot marks delivered maps.`,
+			);
+		} else {
+			setNotice(projected.rejection.message);
+		}
+	}
+
 	return (
 		<Page max={1320}>
 			<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -216,7 +308,7 @@ export function Atlas() {
 							}}
 							style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 9, cursor: 'pointer', border: `1px solid ${on ? T.accBd : T.bd}`, background: on ? T.accSub : T.surf, color: on ? T.acc : T.sub, font: `600 12.5px ${T.sans}` }}
 						>
-							<Icon name="atlas-map" size={14} color={on ? T.acc : T.ter} />
+							<MapChipThumb assetId={pickRasterAssetId(runtime.state.maps.maps[mp.id]?.assetIds ?? [], runtime.state.maps.assets)} active={on} />
 							{mp.name}
 							{delivered.has(mp.id) && <StatusDot status="live" pulse />}
 						</button>
@@ -275,6 +367,7 @@ export function Atlas() {
 					isDm={isDm}
 					zoom={mapZoom}
 					height={560}
+					rasterAssetId={rasterAssetId}
 					selectedPoiId={selPoiId}
 					selectedTokenId={selTokenId}
 					onSelectPoi={setSelPoiId}
@@ -289,7 +382,7 @@ export function Atlas() {
 							onVisibilityChange={(v: string) => setPoiVisibility(poi.id, dsToVis(v))}
 							onFocus={() => openBuilder('select')}
 							onEdit={() => openBuilder('select')}
-							onDeepLink={() => setNotice('POI deep links are not wired in this build.')}
+							onDeepLink={() => void copyPoiLink(poi.id)}
 							onDelete={() => deletePoi(poi.id)}
 						/>
 					)}
@@ -322,14 +415,17 @@ export function Atlas() {
 								Fog of war
 							</Button>
 						)}
-						<Button
-							variant="ghost"
-							size="sm"
-							icon="visibility-players"
-							onClick={() => setNotice('Projection to players runs from the Session console (session.project-active-map requires an active session). The live dot marks maps already delivered to this device.')}
-						>
-							Project to players
-						</Button>
+						{isDm && (
+							<Button
+								variant="ghost"
+								size="sm"
+								icon="visibility-players"
+								disabled={busy || !mapView}
+								onClick={() => void projectToPlayers()}
+							>
+								Project to players
+							</Button>
+						)}
 					</div>
 				</MapCanvas>
 
