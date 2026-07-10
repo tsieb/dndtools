@@ -7,8 +7,65 @@
 > fully-populated GM command center and the runtime reality measured from the code and the running
 > app. It complements [PROTOTYPE.md](../../apps/gm-react/PROTOTYPE.md) (visual contract) and
 > [README.md](../../apps/gm-react/README.md) (wiring contract), both of which describe the design
-> intent. **Current state: see §0★★ below** — every surface is now core-wired; §1–§9 are the
-> historical gap audit (dated 2026-06-20, when the app was an early build) kept for the record.
+> intent. **Current state: see §0★★★ below** — the 2026-07 completion pass closed every remaining
+> stub; §1–§9 are the historical gap audit (dated 2026-06-20, when the app was an early build) kept
+> for the record.
+
+---
+
+## 0★★★. 2026-07-10 UPDATE — feature-completion pass: the honest-stubs list is closed
+
+The completion pass (branch `feat/completion-pass`, ADR-014 amendment + ADR-020) took the
+"honest stubs remaining" list from §0★★ to done, under five fixed product decisions:
+**(A)** real AWS backends (marketplace/invites/account/devices) with real server-side entitlements
+and a clearly-labeled **simulated** checkout — no payment processor; **(B)** a content-addressed
+asset-byte store (IndexedDB `assetBlobs`, Dexie v3 additive); **(C)** live Open5e v2 + bundled SRD
+5.1 fallback; **(D)** generic JSON character import (D&D Beyond export shape + native); **(E)**
+vault sources = File System Access local folder + Google Docs OAuth (PKCE, fail-closed until
+`VITE_GOOGLE_CLIENT_ID`).
+
+**Each former stub, and what closed it:**
+- *Community publish/discover* → real marketplace over `infra/app-api` (S3 payloads, DynamoDB
+  listings, Cognito-scoped ownership); install runs the existing fail-closed package review flow.
+- *Billing/account/devices* → app-api entitlements (`simulated: true` in the API contract),
+  Cognito profile/device list/revoke/global sign-out, export-my-data, delete-account; Settings
+  renders labeled local states when unconfigured/signed out. Invites are server-minted TTL join
+  links redeemed at the chrome-less `#/join` screen.
+- *AI-provider config* → Settings AI tab drives the durable core `mcp.*` slice (bindings,
+  policies, staged-proposal approve/reject, audit trail); provider transport honestly absent.
+- *Map raster preview* → real bytes in the asset store; MapBuilder/Atlas render rasters, players
+  get them ONLY through the projection-gated resolver (`app/projectedMap.ts`).
+- *Generation panel + fog brush/polygon* → `map.generate-layers` dispatched; fog is a
+  rect|polygon|stroke union with optional feather (legacy rect ops preprocess on replay).
+- *D&D Beyond import* → reviewable JSON import plan (`app/charImport/`) with a field-level
+  unmapped report; nothing dispatches unconfirmed.
+- *PC custom attacks / DM-only fields* → attacks survive finalize; post-create editing via
+  `character.update-attacks`; sharing via `character.set-sharing`; skills/saves/passive-perception
+  panels on `Character.proficiencies`; player-side PC switcher.
+- *Campaign-system switch apply* → `previewSystemSwitch` dry-run dialog gating
+  `widget.package.switch-system` (destructive drops need explicit acknowledgment).
+- *Invite transport* → the app-api invite links above (SES email deliberately not built).
+
+**Also landed:** audio local-file import + output-device routing (`setSinkId`, feature-detected) +
+real ambience mixer + automation tab (AUDIO-005 UI) · full-vault backup/restore (fail-closed
+validate → confirm → authoritative restore) · content export downloads (.md / .json bundle) with
+real per-type scope · Open5e/SRD compendium tab (monsters → roster, spells → vault, CC-BY
+attribution in-UI) · quest threads / recap authoring / scene delete+undo · presence side-channel
+(raise-hand/ready → host-stamped `session.set-presence`, DM roster; `PLAYER_REQUESTABLE_PREFIXES`
+untouched) · live widget bodies, real StatusDot, experience-tier gating via `FEATURE_GATES` ·
+theme preset persistence · connected vault sources (local folder + Google Docs) with core-gated
+write-back (CONTENT-012) · `runtime/mockCampaign.ts` DELETED (feature-audit enforces zero
+importers).
+
+**Honest remaining (deliberate deferrals, labeled in-UI where surfaced):** Co-DM/Trusted role ·
+real payment processor (checkout stays simulated by design) · SES-emailed invites (links/QR only) ·
+provider-connected AI transport (MCP registry is real; nothing can connect yet) · custom
+vault-object types (no core command; registry renders read-only) · community wiki hosting (honest
+preview; real eligibility counts) · Google OAuth requires one-time manual GCP setup
+(`docs/runbooks/google-oauth-setup.md`).
+
+**Gates (this pass):** core 3203 · app 107 · cloud/net 136 · typecheck ✓ · build ✓ · eslint 0
+errors · full `pnpm validate` run recorded in the validation report.
 
 ---
 
