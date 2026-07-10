@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
 	DEFAULT_FEATURE_TIER,
 	FEATURE_TIERS,
@@ -1367,7 +1367,13 @@ const SUBPAGES: Record<string, () => JSX.Element> = {
 };
 
 export function Settings() {
-	const [tab, setTab] = useState('appearance');
+	// `#/settings?tab=players` deep-links a specific subpage so "manage" affordances elsewhere
+	// (Command Center rows, empty-state CTAs) land on the right panel, not the section root.
+	const location = useLocation();
+	const navigate = useNavigate();
+	const urlTab = new URLSearchParams(location.search).get('tab');
+	const tab = urlTab && urlTab in SUBPAGES ? urlTab : 'appearance';
+	const setTab = (next: string) => navigate(`/settings?tab=${next}`, { replace: true });
 	const Sub = SUBPAGES[tab] || SettingsAppearance;
 	return (
 		<Page max={1180} style={{ display: 'grid', gridTemplateColumns: '232px minmax(0,1fr)', gap: 24, alignItems: 'start' }}>
