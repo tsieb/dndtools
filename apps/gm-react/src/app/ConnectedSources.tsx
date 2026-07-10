@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { getContentItemsForActor, parseMarkdownNote, type ContentItemView } from '@dndtools/core';
-import { Badge, Button, Icon, Input, Select } from '../ds';
+import { Badge, Button, Dialog, Icon, Input, Select, Toaster, VisibilityChip } from '../ds';
 import { Panel, T } from './screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import {
@@ -86,6 +86,15 @@ interface PendingPush {
 	plan: PushPlan;
 	record?: FolderSourceRecord;
 	conn?: GdocConnection;
+	/** The pushed note is DM-only and the target is an external (shareable) Google Doc. */
+	dmOnlyToExternal?: boolean;
+}
+
+/** A source pending the disconnect confirm (folder handles can't be restored — honest copy). */
+interface DisconnectTarget {
+	kind: 'folder' | 'gdoc';
+	id: string;
+	name: string;
 }
 
 function SourceRow({
@@ -132,6 +141,7 @@ export function ConnectedSourcesPanel() {
 	const [busy, setBusy] = useState<string | null>(null);
 	const [policy, setPolicy] = useState('skip');
 	const [pendingPush, setPendingPush] = useState<PendingPush | null>(null);
+	const [disconnectTarget, setDisconnectTarget] = useState<DisconnectTarget | null>(null);
 	const [googleSignedIn, setGoogleSignedIn] = useState(isGoogleSignedIn());
 	const [docInput, setDocInput] = useState('');
 	const [pushNoteBySource, setPushNoteBySource] = useState<Record<string, string>>({});
@@ -383,9 +393,28 @@ export function ConnectedSourcesPanel() {
 			return;
 		}
 		const plan = planNotesPush([viewToPlanNote(note)], 'google-docs');
-		const pending: PendingPush = { kind: 'gdoc', sourceKey: conn.docId, label: conn.title, plan, conn };
-		if (plan.requiresAcknowledgment) setPendingPush(pending);
+		// A dm-only note leaving the vault for an external, shareable Doc is confirmed even when the
+		// push itself is lossless — the exposure risk deserves its own explicit gate.
+		const dmOnlyToExternal = note.visibility === 'dm-only';
+		const pending: PendingPush = { kind: 'gdoc', sourceKey: conn.docId, label: conn.title, plan, conn, dmOnlyToExternal };
+		if (plan.requiresAcknowledgment || dmOnlyToExternal) setPendingPush(pending);
 		else void executePush(pending);
+	}
+
+	// --- disconnect (both source kinds confirm first; a folder disconnect is not undoable) --------
+
+	async function confirmDisconnect() {
+		if (!disconnectTarget) return;
+		const { kind, id, name } = disconnectTarget;
+		setDisconnectTarget(null);
+		try {
+			if (kind === 'folder') await disconnectFolderSource(id);
+			else removeGdocConnection(id);
+			await refresh();
+			Toaster.success(`Disconnected “${name}”`);
+		} catch (error) {
+			Toaster.error(errText(error));
+		}
 	}
 
 	// --- render ---------------------------------------------------------------------------------
@@ -413,29 +442,86 @@ export function ConnectedSourcesPanel() {
 				fail-closed <code style={{ fontFamily: T.mono }}>content.write-to-source</code> gate — a write that would lose note structure asks first.
 			</div>
 
+			{/* Push confirm — a data-writing gate, so it gets the DS Dialog's modal contract (focus-in,
+			    Tab trap, Escape, focus return) instead of an inline card that can scroll off-screen.
+			    The per-item acknowledgment-token logic in executePush is untouched (core contract). */}
 			{pendingPush && (
-				<div style={{ border: `1px solid ${T.accBd}`, borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 8, background: T.alt }}>
-					<div style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>
-						Pushing to “{pendingPush.label}” loses fidelity on {pendingPush.plan.lossyEntries.length} of {pendingPush.plan.entries.length} note(s)
+				<Dialog
+					open
+					onClose={() => setPendingPush(null)}
+					tone="warning"
+					size="sm"
+					title={
+						pendingPush.plan.requiresAcknowledgment
+							? `Pushing to “${pendingPush.label}” loses fidelity on ${pendingPush.plan.lossyEntries.length} of ${pendingPush.plan.entries.length} note(s)`
+							: `Push a DM-only note to “${pendingPush.label}”?`
+					}
+					footer={
+						<>
+							<Button variant="ghost" size="sm" onClick={() => setPendingPush(null)}>
+								Cancel
+							</Button>
+							<Button variant="primary" size="sm" icon="check" disabled={busy !== null} onClick={() => void executePush(pendingPush)}>
+								{pendingPush.plan.requiresAcknowledgment ? 'Acknowledge loss & push' : 'Push anyway'}
+							</Button>
+						</>
+					}
+				>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+						{pendingPush.dmOnlyToExternal && (
+							<div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+								<VisibilityChip level="dm-only" compact />
+								<span style={{ font: `12px/1.6 ${T.sans}`, color: 'var(--color-status-warning-text)' }}>
+									This note is DM-only. Pushing copies it into an external Google Doc — anyone that
+									document is shared with can read it there.
+								</span>
+							</div>
+						)}
+						<div style={{ font: `12px/1.6 ${T.sans}`, color: T.sub }}>
+							{pendingPush.plan.droppedFeatures.length > 0 && (
+								<>Dropped (cannot be represented): {pendingPush.plan.droppedFeatures.join(', ')}. </>
+							)}
+							{pendingPush.plan.lossyFeatures.length > 0 && (
+								<>Downgraded: {pendingPush.plan.lossyFeatures.join(', ')}. </>
+							)}
+							Your notes in the vault are untouched either way.
+						</div>
 					</div>
+				</Dialog>
+			)}
+
+			{/* Disconnect confirm — honest copy: a folder disconnect deletes the persisted handle and
+			    CANNOT be undone (reconnect = re-pick + permission re-grant); a Doc disconnect only
+			    forgets the connection. */}
+			{disconnectTarget && (
+				<Dialog
+					open
+					onClose={() => setDisconnectTarget(null)}
+					tone="danger"
+					size="sm"
+					title={`Disconnect “${disconnectTarget.name}”?`}
+					description={
+						disconnectTarget.kind === 'folder'
+							? 'This can’t be undone — reconnecting means picking the folder and granting access again.'
+							: 'The Doc itself and your vault notes are untouched.'
+					}
+					footer={
+						<>
+							<Button variant="ghost" size="sm" onClick={() => setDisconnectTarget(null)}>
+								Cancel
+							</Button>
+							<Button variant="danger" size="sm" icon="trash" onClick={() => void confirmDisconnect()}>
+								Disconnect
+							</Button>
+						</>
+					}
+				>
 					<div style={{ font: `12px/1.6 ${T.sans}`, color: T.sub }}>
-						{pendingPush.plan.droppedFeatures.length > 0 && (
-							<>Dropped (cannot be represented): {pendingPush.plan.droppedFeatures.join(', ')}. </>
-						)}
-						{pendingPush.plan.lossyFeatures.length > 0 && (
-							<>Downgraded: {pendingPush.plan.lossyFeatures.join(', ')}. </>
-						)}
-						Your notes in the vault are untouched either way.
+						{disconnectTarget.kind === 'folder'
+							? 'Disconnecting forgets the saved folder connection and its access permission. Notes already in the vault and the files in the folder stay exactly as they are.'
+							: 'This removes only the saved connection — you can reconnect the Doc later by pasting its URL or id.'}
 					</div>
-					<div style={{ display: 'flex', gap: 8 }}>
-						<Button variant="primary" size="sm" icon="check" disabled={busy !== null} onClick={() => void executePush(pendingPush)}>
-							Acknowledge loss & push
-						</Button>
-						<Button variant="ghost" size="sm" onClick={() => setPendingPush(null)}>
-							Cancel
-						</Button>
-					</div>
-				</div>
+				</Dialog>
 			)}
 
 			{/* Local folders (File System Access API — Chromium only; hidden as an affordance elsewhere) */}
@@ -467,7 +553,7 @@ export function ConnectedSourcesPanel() {
 							size="sm"
 							icon="trash"
 							disabled={busy !== null}
-							onClick={() => void disconnectFolderSource(record.id).then(refresh)}
+							onClick={() => setDisconnectTarget({ kind: 'folder', id: record.id, name: record.name })}
 						>
 							Disconnect
 						</Button>
@@ -523,7 +609,9 @@ export function ConnectedSourcesPanel() {
 							</Button>
 						</div>
 						{statusBySource['google'] && <div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>{statusBySource['google']}</div>}
-						{gdocs.map((conn, i) => (
+						{gdocs.map((conn, i) => {
+							const pushNote = notes.find((n) => n.id === pushNoteBySource[conn.docId]) ?? null;
+							return (
 							<div key={conn.docId} style={{ display: 'flex', flexDirection: 'column' }}>
 								<SourceRow
 									icon="knowledge-book"
@@ -539,6 +627,9 @@ export function ConnectedSourcesPanel() {
 											setPushNoteBySource((prev) => ({ ...prev, [conn.docId]: e.target.value }))
 										}
 									/>
+									{/* The selected note's visibility, visible BEFORE pushing — a dm-only note headed
+									    for an external Doc should never be a surprise. */}
+									{pushNote && <VisibilityChip level={pushNote.visibility === 'dm-only' ? 'dm-only' : 'players'} compact />}
 									<Button variant="secondary" size="sm" icon="import" disabled={busy !== null} onClick={() => void pullGdoc(conn)}>
 										Pull
 									</Button>
@@ -550,7 +641,7 @@ export function ConnectedSourcesPanel() {
 										size="sm"
 										icon="trash"
 										disabled={busy !== null}
-										onClick={() => { removeGdocConnection(conn.docId); void refresh(); }}
+										onClick={() => setDisconnectTarget({ kind: 'gdoc', id: conn.docId, name: conn.title })}
 									>
 										Disconnect
 									</Button>
@@ -559,7 +650,8 @@ export function ConnectedSourcesPanel() {
 									<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub, paddingBottom: 8 }}>{statusBySource[conn.docId]}</div>
 								)}
 							</div>
-						))}
+							);
+						})}
 					</>
 				)}
 			</div>

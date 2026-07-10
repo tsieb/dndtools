@@ -6,7 +6,7 @@ import {
 	getNoteRelationshipsForActor,
 	type ContentItemView,
 } from '@dndtools/core';
-import { Button, Card, EmptyState, Icon, IconButton, Input, Select, Textarea, VisibilityChip } from '../ds';
+import { Button, Card, EmptyState, Icon, IconButton, Input, Select, Textarea, Toaster, VisibilityChip } from '../ds';
 import { BackBar, Page, Panel, Seg, T } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { pickTextFiles } from '../platform/filePick';
@@ -214,11 +214,27 @@ function NoteViewer({
 
 	async function remove() {
 		setBusy(true);
-		// content.remove-item — recoverable soft-delete (the item leaves every actor-filtered read).
+		// content.remove-item — recoverable soft-delete (the item leaves every actor-filtered read),
+		// so Delete acts immediately and the toast's Undo dispatches the counterpart
+		// content.restore-item (same delete→undo pattern as ScenesCreator).
 		const result = await runtime.dispatch({ type: 'content.remove-item', actorId, payload: { itemId: note.id } });
 		setBusy(false);
-		if (result.status === 'accepted') onBack();
-		else setErr(result.rejection.message);
+		if (result.status === 'accepted') {
+			const itemId = note.id;
+			const title = note.title;
+			Toaster.success(`“${title}” deleted`, {
+				action: 'Undo',
+				onAction: () => {
+					void runtime
+						.dispatch({ type: 'content.restore-item', actorId, payload: { itemId } })
+						.then((restored) => {
+							if (restored.status === 'accepted') Toaster.success(`“${title}” restored`);
+							else Toaster.error(restored.rejection.message ?? 'The note could not be restored.');
+						});
+				},
+			});
+			onBack();
+		} else setErr(result.rejection.message);
 	}
 
 	return (

@@ -144,7 +144,7 @@ interface FactionRow {
  * handler merges declared fields, so each write sends ONLY the field it changes — except objectives,
  * which are one declared array and therefore always written whole.
  */
-function QuestCardRow({ row, canAuthor }: { row: QuestRow; canAuthor: boolean }) {
+function QuestCardRow({ row, canAuthor, onEdit }: { row: QuestRow; canAuthor: boolean; onEdit: () => void }) {
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
 	const status = str(row.fields.status) || 'active';
@@ -167,7 +167,6 @@ function QuestCardRow({ row, canAuthor }: { row: QuestRow; canAuthor: boolean })
 				status={QUEST_CARD_STATUS[status] ?? 'active'}
 				hook={bodySummary(row.view.body, 'No hook written yet.')}
 				objectives={objectives.map((o) => ({ label: o.text, done: o.done }))}
-				dmOnly={row.view.visibility === 'dm-only'}
 				onToggleObjective={
 					canAuthor
 						? (i: number) =>
@@ -175,34 +174,43 @@ function QuestCardRow({ row, canAuthor }: { row: QuestRow; canAuthor: boolean })
 						: undefined
 				}
 			/>
-			{canAuthor && (
-				<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-					<span style={{ ...eb }}>Status</span>
-					<Select
-						aria-label={`Status of ${row.view.title}`}
-						options={QUEST_STATUS_OPTIONS}
-						value={status}
-						onChange={(e: { target: { value: string } }) => void update({ status: e.target.value })}
-					/>
-				</div>
-			)}
+			<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+				{/* EVERY quest carries the safety-critical visibility cue (not only dm-only ones) — the
+				    same always-on chip FactionCard shows, so a mis-set visibility is visible at a glance. */}
+				<VisibilityChip level={VIS_CHIP[row.view.visibility] || 'dm-only'} compact />
+				{canAuthor && (
+					<>
+						<div style={{ flex: 1 }} />
+						<IconButton icon="note-edit" label={`Edit ${row.view.title}`} variant="ghost" size="sm" onClick={onEdit} />
+						<span style={{ ...eb }}>Status</span>
+						<Select
+							aria-label={`Status of ${row.view.title}`}
+							options={QUEST_STATUS_OPTIONS}
+							value={status}
+							onChange={(e: { target: { value: string } }) => void update({ status: e.target.value })}
+						/>
+					</>
+				)}
+			</div>
 		</div>
 	);
 }
 
 /**
- * Inline create-quest form (DM-only; the caller gates on `actorCanAuthorContent`). Structured
+ * Inline create/edit quest form (DM-only; the caller gates on `actorCanAuthorContent`). Structured
  * tracker data (status + objectives) lives in the subtype's declared frontmatter fields; the hook /
- * journal prose is the markdown body. Same shape as the FactionEditor beside it.
+ * journal prose is the markdown body. Same shape as the FactionEditor beside it — editing dispatches
+ * `content.update-object` so a mis-set visibility or objective list stays correctable.
  */
-function QuestEditor({ onClose }: { onClose: () => void }) {
+function QuestEditor({ quest, onClose }: { quest: QuestRow | null; onClose: () => void }) {
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
-	const [title, setTitle] = useState('');
-	const [status, setStatus] = useState('active');
-	const [objectivesText, setObjectivesText] = useState('');
-	const [body, setBody] = useState('');
-	const [visibility, setVisibility] = useState<string>('dm-only');
+	const existingObjectives = objectiveArray(quest?.fields.objectives);
+	const [title, setTitle] = useState(quest?.view.title ?? '');
+	const [status, setStatus] = useState(str(quest?.fields.status) || 'active');
+	const [objectivesText, setObjectivesText] = useState(existingObjectives.map((o) => o.text).join('\n'));
+	const [body, setBody] = useState(quest?.view.body ?? '');
+	const [visibility, setVisibility] = useState<string>(quest?.view.visibility ?? 'dm-only');
 	const [busy, setBusy] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
 
@@ -214,34 +222,59 @@ function QuestEditor({ onClose }: { onClose: () => void }) {
 		setBusy(true);
 		setErr(null);
 		const stamp = Date.now().toString(36);
+		// Line i keeps existing objective i's id + done state (a text edit doesn't reset the checklist);
+		// new lines become fresh unchecked objectives.
 		const objectives: QuestObjective[] = objectivesText
 			.split('\n')
 			.map((t) => t.trim())
 			.filter(Boolean)
-			.map((text, i) => ({ id: `obj-${stamp}-${i}`, text, done: false }));
-		// content.create-object — DM-only vault authoring against the declared `quest` schema
-		// (validated fail-closed before any durable write); visibility fails closed to dm-only.
-		const result = await runtime.dispatch({
-			type: 'content.create-object',
-			actorId,
-			payload: {
-				subtype: 'quest',
-				title: title.trim(),
-				fields: { title: title.trim(), status, objectives },
-				body,
-				visibility,
-			},
-		});
-		setBusy(false);
+			.map((text, i) =>
+				existingObjectives[i] ? { ...existingObjectives[i], text } : { id: `obj-${stamp}-${i}`, text, done: false },
+			);
+		const result = quest
+			? // content.update-object — authorized-editor edit; merged frontmatter is re-validated.
+			  await runtime.dispatch({
+					type: 'content.update-object',
+					actorId,
+					payload: { itemId: quest.view.id, title: title.trim(), fields: { title: title.trim(), status, objectives }, body },
+			  })
+			: // content.create-object — DM-only vault authoring against the declared `quest` schema
+			  // (validated fail-closed before any durable write); visibility fails closed to dm-only.
+			  await runtime.dispatch({
+					type: 'content.create-object',
+					actorId,
+					payload: {
+						subtype: 'quest',
+						title: title.trim(),
+						fields: { title: title.trim(), status, objectives },
+						body,
+						visibility,
+					},
+			  });
 		if (result.status !== 'accepted') {
+			setBusy(false);
 			setErr(result.rejection.message);
 			return;
 		}
+		// Visibility is a SEPARATE command on edit (same split as FactionEditor / Knowledge).
+		if (quest && visibility !== quest.view.visibility) {
+			const vis = await runtime.dispatch({
+				type: 'content.set-item-visibility',
+				actorId,
+				payload: { itemId: quest.view.id, visibility },
+			});
+			if (vis.status !== 'accepted') {
+				setBusy(false);
+				setErr(vis.rejection.message);
+				return;
+			}
+		}
+		setBusy(false);
 		onClose();
 	}
 
 	return (
-		<Panel title="New quest" accent>
+		<Panel title={quest ? `Edit ${quest.view.title}` : 'New quest'} accent>
 			<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
 				<Field label="Title" required>
 					<Input value={title} onChange={(e: { target: { value: string } }) => setTitle(e.target.value)} placeholder="Wake of the Drowned God" />
@@ -270,7 +303,7 @@ function QuestEditor({ onClose }: { onClose: () => void }) {
 					Cancel
 				</Button>
 				<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={save}>
-					Create quest
+					{quest ? 'Save quest' : 'Create quest'}
 				</Button>
 			</div>
 		</Panel>
@@ -292,7 +325,9 @@ function FactionCard({ row, canAuthor, onEdit }: { row: FactionRow; canAuthor: b
 					{view.title}
 				</span>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-					<Badge status={STANCE_TONE[stance] || 'neutral'}>{stance}</Badge>
+					<Badge status={STANCE_TONE[stance] || 'neutral'}>
+						{STANCE_OPTIONS.find((o) => o.value === stance)?.label ?? stance}
+					</Badge>
 					{canAuthor && <IconButton icon="note-edit" label={`Edit ${view.title}`} variant="ghost" size="sm" onClick={onEdit} />}
 				</div>
 			</div>
@@ -455,8 +490,8 @@ export function Campaign() {
 	const [tab, setTab] = useState('quests');
 	// null = closed · { id: null } = composing a new faction · { id } = editing that faction.
 	const [factionEditor, setFactionEditor] = useState<{ id: string | null } | null>(null);
-	// Whether the inline create-quest form is open on the Threads tab.
-	const [questEditor, setQuestEditor] = useState(false);
+	// null = closed · { id: null } = composing a new quest · { id } = editing that quest.
+	const [questEditor, setQuestEditor] = useState<{ id: string | null } | null>(null);
 
 	const canAuthor = actorCanAuthorContent(runtime.state.permissions, actorId);
 
@@ -501,6 +536,7 @@ export function Campaign() {
 	];
 
 	const editingFaction = factionEditor?.id ? data.factions.find((f) => f.view.id === factionEditor.id) ?? null : null;
+	const editingQuest = questEditor?.id ? data.quests.find((q) => q.view.id === questEditor.id) ?? null : null;
 
 	return (
 		<Page>
@@ -512,12 +548,14 @@ export function Campaign() {
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 					{canAuthor && !questEditor && data.quests.length > 0 && (
 						<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-							<Button variant="primary" size="sm" icon="add" onClick={() => setQuestEditor(true)}>
+							<Button variant="primary" size="sm" icon="add" onClick={() => setQuestEditor({ id: null })}>
 								New quest
 							</Button>
 						</div>
 					)}
-					{canAuthor && questEditor && <QuestEditor onClose={() => setQuestEditor(false)} />}
+					{canAuthor && questEditor && (
+						<QuestEditor key={questEditor.id ?? 'new'} quest={editingQuest} onClose={() => setQuestEditor(null)} />
+					)}
 					{data.quests.length === 0 ? (
 						<EmptyState
 							icon="campaign-scroll"
@@ -529,7 +567,7 @@ export function Campaign() {
 							}
 							action={
 								canAuthor && !questEditor ? (
-									<Button variant="primary" size="sm" icon="add" onClick={() => setQuestEditor(true)}>
+									<Button variant="primary" size="sm" icon="add" onClick={() => setQuestEditor({ id: null })}>
 										Create the first quest
 									</Button>
 								) : undefined
@@ -538,7 +576,7 @@ export function Campaign() {
 					) : (
 						<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))', gap: 16, alignItems: 'start' }}>
 							{data.quests.map((q) => (
-								<QuestCardRow key={q.view.id} row={q} canAuthor={canAuthor} />
+								<QuestCardRow key={q.view.id} row={q} canAuthor={canAuthor} onEdit={() => setQuestEditor({ id: q.view.id })} />
 							))}
 						</div>
 					)}

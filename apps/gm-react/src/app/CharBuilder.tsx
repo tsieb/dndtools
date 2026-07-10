@@ -144,6 +144,10 @@ const ALIGNMENTS = [
 const CORE_PC_CLASSES = new Set(DRAFT_CLASS_OPTIONS.map((o) => o.value));
 const CORE_PC_BACKGROUNDS = new Set(DRAFT_BACKGROUND_OPTIONS.map((o) => o.value));
 
+/** The character "portrait tone" gradient — single source for the builder's preview swatch and the
+ *  roster's CharCard header (Characters.tsx imports this instead of duplicating the raw hexes). */
+export const portraitGradient = (deg: number) => `linear-gradient(${deg}deg,#2a2117,#14100b)`;
+
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 const modOf = (n: number) => {
 	const m = Math.floor((Number(n) - 10) / 2);
@@ -352,6 +356,10 @@ export function CharBuilder({
 	const [i, setI] = useState(0);
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
+	// Dismiss-loses-work guard: backdrop/Escape on a DIRTY wizard shows this confirm instead of
+	// silently discarding the multi-step draft. The Overlay itself is untouched — it just calls
+	// requestClose, which decides whether closing needs a deliberate answer first.
+	const [confirmDiscard, setConfirmDiscard] = useState(false);
 
 	// Import-from-file state: the parsed plan (with its mapped/unmapped field report) or the
 	// parse failure, both rendered in the 'import' preview phase before anything is created.
@@ -414,6 +422,15 @@ export function CharBuilder({
 
 	const next = () => setI((x) => Math.min(STEPS.length - 1, x + 1));
 	const back = () => { if (i === 0) setPhase('choose'); else setI((x) => x - 1); };
+
+	// The wizard is "dirty" once real work exists: any step past the first, or typed prose. Kind /
+	// race / class tile picks alone are one click to redo and don't warrant a confirm.
+	const dirty = phase === 'scratch' && (i > 0 || name.trim() !== '' || bio.trim() !== '' || dmNotes.trim() !== '' || subclass !== '');
+	function requestClose() {
+		if (confirmDiscard) { setConfirmDiscard(false); return; } // Escape/backdrop on the confirm = stay
+		if (dirty) { setConfirmDiscard(true); return; }
+		onClose();
+	}
 
 	// Manual bounds tighten to the core's legal PC range so a PC's rolled scores can finalize.
 	const scoreMin = method === 'pointbuy' || isPc ? 8 : 1;
@@ -773,13 +790,13 @@ export function CharBuilder({
 	const canContinue = step.id === 'identity' ? identityOk : step.id === 'stats' ? statsOk : true;
 
 	return (
-		<Overlay onClose={onClose} wide label="New character wizard">
-			<div style={{ display: 'flex', height: '100%', flex: 1 }}>
+		<Overlay onClose={requestClose} wide label="New character wizard">
+			<div style={{ display: 'flex', height: '100%', flex: 1, position: 'relative' }}>
 				<StepRail steps={STEPS} i={i} />
 				<div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
 					<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 28px 0' }}>
 						<div style={{ font: `700 19px ${T.disp}` }}>{step.title}</div>
-						<Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+						<Button variant="ghost" size="sm" onClick={requestClose}>Cancel</Button>
 					</div>
 					<div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 28px 20px' }}>
 
@@ -826,7 +843,7 @@ export function CharBuilder({
 								<div>
 									<FieldLabel>Portrait tone</FieldLabel>
 									<div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-										<span style={{ width: 56, height: 56, borderRadius: 12, flex: '0 0 auto', position: 'relative', overflow: 'hidden', background: `linear-gradient(${grad}deg,#2a2117,#14100b)`, border: `1px solid ${T.bd}` }}>
+										<span style={{ width: 56, height: 56, borderRadius: 12, flex: '0 0 auto', position: 'relative', overflow: 'hidden', background: portraitGradient(grad), border: `1px solid ${T.bd}` }}>
 											<span style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(var(--map-grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--map-grid-line) 1px,transparent 1px)', backgroundSize: '14px 14px' }} />
 										</span>
 										<input type="range" min="0" max="359" value={grad} onChange={(e) => setGrad(Number(e.target.value))} aria-label="Portrait tone" style={{ flex: 1, accentColor: 'var(--color-accent)' }} />
@@ -1073,6 +1090,27 @@ export function CharBuilder({
 							: <Button variant="primary" icon="check" disabled={!identityOk || !statsOk || submitting} onClick={create}>{submitting ? 'Creating…' : 'Create character'}</Button>}
 					</div>
 				</div>
+
+				{/* Discard confirm — shown when a dismiss (backdrop / Escape / Cancel) would lose a dirty
+				    wizard. Rendered INSIDE the Overlay panel so its existing focus trap covers it. */}
+				{confirmDiscard && (
+					<div
+						role="alertdialog"
+						aria-label="Discard this character?"
+						style={{ position: 'absolute', inset: 0, zIndex: 5, background: 'var(--color-backdrop)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+					>
+						<div style={{ width: 400, maxWidth: '100%', background: T.raised, border: `1px solid ${T.bdS}`, borderRadius: 14, boxShadow: 'var(--shadow-lg)', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+							<div style={{ font: `700 16px ${T.disp}` }}>Discard this character?</div>
+							<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+								The wizard hasn't created anything yet — closing now throws away everything entered so far.
+							</div>
+							<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+								<Button variant="ghost" size="sm" autoFocus onClick={() => setConfirmDiscard(false)}>Keep editing</Button>
+								<Button variant="danger" size="sm" onClick={onClose}>Discard character</Button>
+							</div>
+						</div>
+					</div>
+				)}
 			</div>
 		</Overlay>
 	);

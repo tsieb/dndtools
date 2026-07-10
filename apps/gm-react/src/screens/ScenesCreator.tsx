@@ -252,7 +252,7 @@ export function ScenesCreator() {
 												e.currentTarget.style.background = 'transparent';
 											}}
 										>
-											<Icon name={s === 'draft' ? 'Lock' : 'atlas-map'} size="sm" color="var(--color-text-secondary)" />
+											<Icon name={s === 'draft' ? 'lock' : 'atlas-map'} size="sm" color="var(--color-text-secondary)" />
 											<div style={{ flex: 1, minWidth: 0 }}>
 												<div style={{ font: '600 var(--text-sm) var(--font-sans)', color: 'var(--color-text-primary)' }}>
 													{scene.name}

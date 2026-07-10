@@ -22,7 +22,7 @@ import {
 	type PartyOverview,
 } from '@dndtools/core';
 import { ABILITY_IDS, SKILLS } from '../app/charImport/skills';
-import { Avatar, Badge, Button, Chip, ConditionBadge, CONDITIONS, DefinitionList, Field, HPBar, Icon, IconButton, Input, ProgressMeter, Select, Stat, Tabs, Textarea } from '../ds';
+import { Avatar, Badge, Button, Chip, ConditionBadge, CONDITIONS, DefinitionList, EmptyState, Field, HPBar, Icon, IconButton, Input, ProgressMeter, Select, SpellSlots, Stat, Tabs, Textarea, Toaster } from '../ds';
 import { Page, Panel, T, eb } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 
@@ -578,32 +578,25 @@ function PlayerResources({
 				)}
 				<Panel title="Spell slots">
 					{slots.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No spell slots tracked for this character.</div>
+						<EmptyState inset icon="sparkle" title="No spell slots" description="No spell slots are tracked for this character yet." />
 					) : (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-							{slots.map((s) => {
-								const avail = availableSlots(s);
-								return (
-									<div key={s.level} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-										<span style={{ font: `600 12px ${T.sans}`, color: T.sub, width: 48 }}>Level {s.level}</span>
-										<div style={{ display: 'flex', gap: 7, flex: 1 }}>
-											{Array.from({ length: s.max }).map((_, i) => (
-												<button key={i} type="button" onClick={() => toggleSlot(s.level, s.max, s.expended, i)} aria-label="Toggle slot" style={{ width: 22, height: 22, flex: '0 0 auto', cursor: 'pointer', border: 'none', background: 'transparent', padding: 0 }}>
-													<span style={{ display: 'block', width: '100%', height: '100%', transform: 'rotate(45deg)', borderRadius: 3, background: i < avail ? T.acc : 'transparent', border: `1.5px solid ${i < avail ? T.acc : T.bdS}` }} />
-												</button>
-											))}
-										</div>
-										<span style={{ font: `12px ${T.mono}`, color: T.ter }}>{avail}/{s.max}</span>
-									</div>
-								);
-							})}
-						</div>
+						// The DS SpellSlots economy (same component as the roster sheet) — a pip click
+						// spends/recovers through the same character.set-spell-slots write as before.
+						<SpellSlots
+							levels={slots.map((s) => ({ level: s.level, total: s.max, used: s.max - availableSlots(s) }))}
+							onToggle={(level: number, idx: number) => {
+								const s = slots.find((x) => x.level === level);
+								if (s) void toggleSlot(s.level, s.max, s.expended, idx);
+							}}
+						/>
 					)}
 				</Panel>
 				<Panel title="Class resources">
 					{classResources.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No class resources tracked.</div>
+						<EmptyState inset icon="sparkle" title="No class resources" description="Resources like Rage or Ki appear here once the sheet tracks them." />
 					) : (
+						// Named resources keep round pips (the DS SpellSlots row is hard-labeled "Lvl N", which
+						// misreads for a named resource) — but each pip mirrors SpellSlots' a11y contract.
 						classResources.map((res, i) => {
 							const cur = res.max - res.expended;
 							return (
@@ -612,7 +605,7 @@ function PlayerResources({
 									<div style={{ flex: 1 }}><div style={{ font: `600 12.5px ${T.sans}` }}>{res.name}</div><div style={{ font: `10.5px ${T.sans}`, color: T.ter }}>Recovers on {res.recharge} rest</div></div>
 									<div style={{ display: 'flex', gap: 5 }}>
 										{Array.from({ length: res.max }).map((_, j) => (
-											<button key={j} type="button" aria-label="Toggle resource" onClick={() => toggleResource(res, j)} style={{ width: 13, height: 13, padding: 0, borderRadius: '50%', cursor: 'pointer', background: j < cur ? T.acc : 'transparent', border: `1.5px solid ${j < cur ? T.acc : T.bdS}` }} />
+											<button key={j} type="button" aria-label={`${res.name} use ${j + 1} ${j < cur ? 'available' : 'expended'}`} aria-pressed={j < cur} onClick={() => toggleResource(res, j)} style={{ width: 13, height: 13, padding: 0, borderRadius: '50%', cursor: 'pointer', background: j < cur ? T.acc : 'transparent', border: `1.5px solid ${j < cur ? T.acc : T.bdS}` }} />
 										))}
 									</div>
 									<span style={{ font: `12px ${T.mono}`, color: T.ter, width: 30, textAlign: 'right' }}>{cur}/{res.max}</span>
@@ -640,7 +633,7 @@ function PlayerResources({
 				</Panel>
 				<Panel title={`Prepared spells (${spells.filter((s) => s.prepared).length})`}>
 					{spells.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No spells tracked for this character.</div>
+						<EmptyState inset icon="knowledge-book" title="No spells tracked" description="Spells the character learns show up here with a prepared toggle." />
 					) : (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
 							{spells.map((s) => (
@@ -705,8 +698,24 @@ function PlayerParty({ party, selfId, isDm, actorId, dispatch }: {
 		});
 		if (ok) { setItemName(''); setItemDetail(''); }
 	};
-	const removeItem = (itemId: string) =>
-		dispatch({ type: 'character.remove-party-inventory-item', actorId, payload: { itemId } });
+	// Removal is instant with an UNDO toast — the undo re-creates the item through the same upsert
+	// command, preserving its id via the schema's optional `id` (same pattern as scene delete).
+	const removeItem = async (item: PartyOverview['inventory'][number]) => {
+		const ok = await dispatch({ type: 'character.remove-party-inventory-item', actorId, payload: { itemId: item.id } });
+		if (!ok) return;
+		Toaster.success(`“${item.name}” removed from the stash`, {
+			action: 'Undo',
+			onAction: () => {
+				void dispatch({
+					type: 'character.upsert-party-inventory-item',
+					actorId,
+					payload: { id: item.id, name: item.name, detail: item.detail, visibility: item.visibility, sharedWith: [] },
+				}).then((restored) => {
+					if (restored) Toaster.success(`“${item.name}” restored`);
+				});
+			},
+		});
+	};
 
 	return (
 		<div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 18, alignItems: 'start' }}>
@@ -774,7 +783,7 @@ function PlayerParty({ party, selfId, isDm, actorId, dispatch }: {
 								<span style={{ flex: 1, font: `12.5px ${T.sans}` }}>{s.name}</span>
 								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>{s.detail}</span>
 								{isDm && s.visibility === 'dm-only' && <Badge status="neutral" icon="hidden">dm-only</Badge>}
-								{isDm && <IconButton icon="close" label={`Remove ${s.name}`} variant="ghost" size="sm" onClick={() => removeItem(s.id)} />}
+								{isDm && <IconButton icon="close" label={`Remove ${s.name}`} variant="ghost" size="sm" onClick={() => void removeItem(s)} />}
 							</div>
 						))
 					)}
@@ -888,7 +897,7 @@ function PlayerLevelUp({ charId, actorId, advancement, xpEligible, milestoneElig
 					const done = !pending.has(field);
 					return (
 						<div key={field} style={{ display: 'flex', gap: 13, padding: 14, borderRadius: 11, border: `1px solid ${done ? T.bd : T.accBd}`, background: T.surf }}>
-							<span style={{ width: 28, height: 28, borderRadius: '50%', flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: done ? T.ok : T.alt, color: done ? '#fff' : T.ter }}>{done ? <Icon name="check" size={15} /> : <span style={{ font: `700 12px ${T.mono}` }}>{i + 1}</span>}</span>
+							<span style={{ width: 28, height: 28, borderRadius: '50%', flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: done ? T.ok : T.alt, color: done ? T.accFg : T.ter }}>{done ? <Icon name="check" size={15} /> : <span style={{ font: `700 12px ${T.mono}` }}>{i + 1}</span>}</span>
 							<div style={{ flex: 1 }}>
 								<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}><span style={{ font: `600 13.5px ${T.sans}` }}>{meta.label}</span><Badge status="neutral">{meta.kind}</Badge></div>
 								{done ? (
@@ -984,8 +993,25 @@ function PlayerJournal({
 		});
 		if (ok) setEditId(null);
 	};
-	const remove = (entry: JournalEntryView) =>
-		dispatch({ type: 'character.remove-journal-entry', actorId, payload: { characterId: charId, entryId: entry.id } });
+	// Delete is instant with an UNDO toast — the undo re-authors the captured entry through the
+	// same add command (kind/title/body/visibility preserved; the restored entry gets a fresh id).
+	const remove = async (entry: JournalEntryView) => {
+		const ok = await dispatch({ type: 'character.remove-journal-entry', actorId, payload: { characterId: charId, entryId: entry.id } });
+		if (!ok) return;
+		const { kind: entryKind, title: entryTitle, body: entryBody, visibility } = entry;
+		Toaster.success(`“${entryTitle}” deleted`, {
+			action: 'Undo',
+			onAction: () => {
+				void dispatch({
+					type: 'character.add-journal-entry',
+					actorId,
+					payload: { characterId: charId, kind: entryKind, title: entryTitle, body: entryBody, visibility, sharedWith: [] },
+				}).then((restored) => {
+					if (restored) Toaster.success(`“${entryTitle}” restored`);
+				});
+			},
+		});
+	};
 
 	// Quests + highlights are REAL journal-entry kinds (core `journalEntryKindSchema`), projected into
 	// their own side panels; the main list carries every entry (the editable source of truth).
@@ -1001,7 +1027,7 @@ function PlayerJournal({
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 					<Panel title={`Journal entries (${entries.length})`}>
 						{entries.length === 0 ? (
-							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No entries yet.</div>
+							<EmptyState inset icon="note-edit" title="No entries yet" description="Write the first journal entry below — it stays private until shared." />
 						) : (
 							<div style={{ display: 'flex', flexDirection: 'column' }}>
 								{entries.map((im, i) => {
@@ -1028,7 +1054,7 @@ function PlayerJournal({
 																	<Icon name={shared ? 'visibility-players' : 'hidden'} size={12} />{shared ? 'Shared' : 'Private'}
 																</button>
 																<IconButton icon="note-edit" label={`Edit ${im.title}`} variant="ghost" size="sm" onClick={() => startEdit(im)} />
-																<IconButton icon="close" label={`Delete ${im.title}`} variant="ghost" size="sm" onClick={() => remove(im)} />
+																<IconButton icon="close" label={`Delete ${im.title}`} variant="ghost" size="sm" onClick={() => void remove(im)} />
 															</span>
 														)}
 													</div>
@@ -1056,7 +1082,7 @@ function PlayerJournal({
 					{/* Real projections of the journal's `personal-quest` / `session-highlight` entry kinds. */}
 					<Panel title={`Personal quests (${quests.length})`}>
 						{quests.length === 0 ? (
-							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No personal quests yet — add a journal entry with the "Personal quest" kind.</div>
+							<EmptyState inset icon="flag" title="No personal quests" description="Add a journal entry with the &quot;Personal quest&quot; kind to track one here." />
 						) : (
 							quests.map((q, i) => (
 								<div key={q.id} style={{ display: 'flex', gap: 10, padding: '9px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
@@ -1071,7 +1097,7 @@ function PlayerJournal({
 					</Panel>
 					<Panel title={`Session highlights (${highlights.length})`}>
 						{highlights.length === 0 ? (
-							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No highlights recorded yet — add a journal entry with the "Session highlight" kind.</div>
+							<EmptyState inset icon="sparkle" title="No highlights yet" description="Add a journal entry with the &quot;Session highlight&quot; kind to capture one." />
 						) : (
 							highlights.map((h, i) => (
 								<div key={h.id} style={{ padding: '9px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>

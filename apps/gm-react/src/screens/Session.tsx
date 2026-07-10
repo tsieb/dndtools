@@ -898,7 +898,8 @@ function RecapPanel({
 	}
 
 	return (
-		<Panel title="Prep & recap">
+		// The whole panel (digest + recap authoring) is DM-only — labeled explicitly in the header.
+		<Panel title="Prep & recap" action={<VisibilityChip level="dm-only" compact />}>
 			<div>
 				<div style={{ ...eb, marginBottom: 5 }}>
 					{digest.mode === 'recap' ? 'What happened' : 'Carry into the session'}

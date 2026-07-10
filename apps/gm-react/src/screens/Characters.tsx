@@ -39,7 +39,7 @@ import {
 	Tabs,
 	VisibilityChip,
 } from '../ds';
-import { CharBuilder } from '../app/CharBuilder';
+import { CharBuilder, portraitGradient } from '../app/CharBuilder';
 import { ABILITY_IDS, SKILLS } from '../app/charImport/skills';
 import { Page, Panel, T, eb, mono } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
@@ -137,7 +137,7 @@ function CharCard({ view, onOpen }: { view: CharacterView; onOpen: () => void })
 	const conditions = view.combat.conditions;
 	return (
 		<Card elevation="flat" interactive padding="none" onClick={onOpen} style={{ overflow: 'hidden' }}>
-			<div style={{ height: 84, background: `linear-gradient(${grad}deg,#2a2117,#14100b)`, position: 'relative' }}>
+			<div style={{ height: 84, background: portraitGradient(grad), position: 'relative' }}>
 				<div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(var(--map-grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--map-grid-line) 1px,transparent 1px)', backgroundSize: '20px 20px' }} />
 				<div style={{ position: 'absolute', left: 14, bottom: -18 }}>
 					<Avatar name={view.name} ring="turn" />
