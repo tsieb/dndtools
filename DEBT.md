@@ -2,7 +2,7 @@
 
 This file is the canonical debt register for long-lived refactors and deferred architectural work.
 
-Last reviewed: 2026-07-08
+Last reviewed: 2026-07-10
 
 ## Entry Requirements
 
@@ -54,6 +54,23 @@ Each debt item must include:
 - `Owner`: platform
 - `Resolution Window`: 2026 Q3
 - `Targets`: `apps/gm-react/tests/e2e/` (port from `archive/gm-svelte/tests/e2e/`).
+- `Status`: open
+
+### DEBT-2026-004 — Design-system P2 polish deferred from the completion-pass UX review
+
+- `Severity`: low
+- `Impact`: The 2026-07-10 design-package conformance review (feature-completion pass) fixed the
+  P0/P1 findings; these P2 polish items were deliberately deferred and remain as small
+  inconsistencies, not broken UX: (a) `screen-kit`'s token map omits spacing/radius tokens, so
+  screens carry one-off px paddings (worst in `Audio.tsx`) — needs a deliberate `--space-*`/
+  `--radius-*` decision, not piecemeal edits; (b) MapBuilder/Atlas hand-roll layer panels and an
+  import wizard that exist as design-package specs (`LayerPanel`/`LayerRow`/`ImportWizard`);
+  (c) a few hand-rolled toggle groups that could be ds `SegmentedControl`; (d) residual raw
+  rgba/hex in `app/widget-bodies.tsx` map placeholder tiles.
+- `Owner`: platform
+- `Resolution Window`: 2026 Q4
+- `Targets`: `apps/gm-react/src/app/screen-kit.tsx`, `apps/gm-react/src/app/MapBuilder.tsx`,
+  `apps/gm-react/src/screens/Atlas.tsx`, `apps/gm-react/src/app/widget-bodies.tsx`.
 - `Status`: open
 
 ## Usage Notes
