@@ -7,6 +7,7 @@ import {
 } from '@dndtools/core';
 import { Avatar, Badge, Chip, ConditionBadge, CONDITIONS, DiceResult, HPBar, Icon, IconButton, Stat } from '../ds';
 import { T, eb } from '../app/screen-kit';
+import { useAssetObjectUrl } from '../platform/assetUrl';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useSession } from '../net/SessionContext';
 import { buildPlayerData, type PlayerData } from '../net/viewModels';
@@ -301,6 +302,12 @@ function StageSection({ data, r, toast }: { data: LiveData; r: number; toast: (m
 	const { live, sceneName } = data;
 	const [hand, setHand] = useState(false);
 	const [ready, setReady] = useState(true);
+	// RASTER GATING (player side): `data.projectedMap` is non-null ONLY when the DM actively
+	// projected a map to this viewer (`resolveProjectedMapForViewer`), so this is the only state in
+	// which the device ever asks the asset store for map image bytes. A missing blob (e.g. a remote
+	// device that never held the bytes) renders the honest geometry-name state, never a crash.
+	const projected = data.projectedMap;
+	const projectedRasterUrl = useAssetObjectUrl(projected?.rasterAssetId ?? null);
 	return (
 		<PvPage max={1180}>
 			<SectionHead
@@ -323,12 +330,23 @@ function StageSection({ data, r, toast }: { data: LiveData; r: number; toast: (m
 						backgroundImage: sceneName ? `linear-gradient(color-mix(in srgb, var(--color-accent) 14%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 14%, transparent) 1px, transparent 1px)` : 'none',
 						backgroundSize: '38px 38px',
 					}}>
+						{/* projected map raster — bytes resolve only because the projection gate admitted the id */}
+						{projectedRasterUrl && (
+							<img src={projectedRasterUrl} alt={projected ? `Map: ${projected.name}` : 'Projected map'} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+						)}
 						<div style={{ position: 'absolute', top: 14, left: 16 }}>
 							<span style={{ ...eb, color: 'color-mix(in srgb, var(--color-accent) 80%, #fff)' }}>What the table sees</span>
 						</div>
-						{sceneName ? (
+						{projected && !projectedRasterUrl && (
+							<div style={{ position: 'absolute', top: 12, right: 14, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, background: 'rgba(8,5,3,.6)', font: `11px ${T.sans}`, color: 'rgba(243,231,210,.75)' }}>
+								<Icon name="info" size={12} />
+								{projected.rasterAssetId ? 'Map image not on this device — showing the map name' : 'Geometric map (no image layer)'}
+							</div>
+						)}
+						{sceneName || projected ? (
 							<div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '20px 22px', background: 'linear-gradient(transparent, rgba(8,5,3,.85))' }}>
-								<div style={{ font: `600 24px ${T.disp}`, color: '#f3e7d2' }}>{sceneName}</div>
+								<div style={{ font: `600 24px ${T.disp}`, color: '#f3e7d2' }}>{sceneName ?? projected?.name}</div>
+								{projected && sceneName && <div style={{ marginTop: 2, font: `13px ${T.sans}`, color: 'rgba(243,231,210,.85)' }}>Map: {projected.name}</div>}
 								<div style={{ marginTop: 3, font: `13px ${T.sans}`, color: 'rgba(243,231,210,.7)' }}>Projected to your view by the DM</div>
 							</div>
 						) : (

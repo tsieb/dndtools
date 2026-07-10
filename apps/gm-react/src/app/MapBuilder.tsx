@@ -17,6 +17,7 @@ import {
 	previewMapImport,
 	queryMapLayers,
 	type MapFeature,
+	type MapFogRegion,
 	type MapImportElementKind,
 	type MapImportPreview,
 	type MapLayerCategory,
@@ -47,7 +48,19 @@ import {
 	ToolPalette,
 } from '../ds';
 import { FogRegionShape } from './fogRegions';
+import {
+	MAX_FOG_POINTS,
+	appendPolygonVertex,
+	appendStrokePoint,
+	closePolygonRegion,
+	pickRasterAssetId,
+	rectRegionFromDrag,
+	strokeRegionFromPoints,
+	type NormPoint,
+} from './mapGeometry';
 import { T, eb } from './screen-kit';
+import { useAssetObjectUrl } from '../platform/assetUrl';
+import { putAssetBytes } from '../platform/storage/assetStore';
 import { useRuntime } from '../runtime/RuntimeContext';
 
 /**
@@ -64,14 +77,17 @@ import { useRuntime } from '../runtime/RuntimeContext';
  * `getMapViewForActor` / `queryMapLayers`, so the same renderer is player-safe when the Atlas
  * preview renders a non-DM actor's view.
  *
- * Honest stubs kept (labeled in-UI, no fake results): the procedural/AI GenerationPanel (no
- * generation backend is wired in this build) and the fog brush/polygon/feather sub-tools (the core
- * fog op is an axis-aligned rect). Import IS real: `map.import-asset` / `map.commit-import` create
- * the content-addressed asset metadata record — the byte payload itself has no storage path in the
- * core prototype (ADR-014: no blob store), which the wizard states explicitly.
+ * Fog authoring is fully shaped (MAP-012 union): drag-draw rects, click-placed polygons
+ * (double-click/Enter closes, Esc cancels), and swept brush strokes — each with an optional
+ * feathered edge — all dispatch the real `map.append-fog`. Generation dispatches the deterministic
+ * `map.generate-layers` (MAP-004). Import stores REAL bytes: `map.import-asset` records the
+ * content-addressed metadata while the byte payload lands in the app-side asset store under the
+ * SAME content-hash id, and the canvas renders the raster as an `<image>` base layer (with an
+ * honest placeholder when the bytes are absent on this device).
  */
 
 export type MapTool = 'select' | 'pan' | 'poi' | 'token' | 'fog';
+export type FogShape = 'rect' | 'polygon' | 'brush';
 
 // ── Shared vocabulary (also imported by Atlas) ──────────────────────────────────────────────────
 
@@ -148,15 +164,10 @@ interface Point {
 	x: number;
 	y: number;
 }
-interface Region {
-	x: number;
-	y: number;
-	w: number;
-	h: number;
-}
 
 type DragState =
 	| { kind: 'fog'; start: Point; cur: Point }
+	| { kind: 'brush'; points: NormPoint[] }
 	| { kind: 'pan'; px: number; py: number; c0: Point }
 	| { kind: 'poi' | 'token'; id: string; pos: Point; sx: number; sy: number; moved: boolean };
 
@@ -171,6 +182,15 @@ export interface MapCanvasProps {
 	center?: Point;
 	tool?: MapTool;
 	fogMode?: 'reveal' | 'conceal';
+	/** Which fog sub-tool is active: drag-rect, click-vertex polygon, or swept brush. */
+	fogShape?: FogShape;
+	/** Normalized brush radius (0..0.5) for the fog brush sub-tool. */
+	fogBrushRadius?: number;
+	/**
+	 * Content-addressed raster asset id rendered as the base `<image>` layer under the vector
+	 * geometry. Null/absent ⇒ pure geometry well. Missing bytes render an honest placeholder.
+	 */
+	rasterAssetId?: string | null;
 	/** Enables authoring gestures (builder). The Atlas preview passes false → select/inspect only. */
 	editable?: boolean;
 	/** Draw dashed per-op fog outlines (DM authoring aid). */
@@ -182,8 +202,8 @@ export interface MapCanvasProps {
 	onSelectToken?: (tokenId: string | null) => void;
 	/** Click with the poi/token tool → normalized position. */
 	onPlace?: (position: Point) => void;
-	/** Drag-drawn rect with the fog tool → normalized region (already clamped, w/h > 0). */
-	onFogRegion?: (region: Region) => void;
+	/** A completed fog gesture (rect drag, closed polygon, or brush sweep) → the shaped region. */
+	onFogRegion?: (region: MapFogRegion) => void;
 	onMovePoi?: (poiId: string, position: Point) => void;
 	onMoveToken?: (tokenId: string, position: Point) => void;
 	onPan?: (center: Point) => void;
@@ -226,6 +246,9 @@ export function MapCanvas({
 	center = { x: 0.5, y: 0.5 },
 	tool = 'select',
 	fogMode = 'reveal',
+	fogShape = 'rect',
+	fogBrushRadius = 0.024,
+	rasterAssetId = null,
 	editable = false,
 	showFogOutlines = false,
 	height = 560,
@@ -251,11 +274,51 @@ export function MapCanvas({
 	/** A press on a non-draggable marker (no capture) — select on release. */
 	const pressRef = useRef<{ id: string } | null>(null);
 	const fogMaskId = useId();
+	/** In-progress polygon vertices (fog polygon sub-tool). */
+	const [polyPoints, setPolyPoints] = useState<NormPoint[]>([]);
+	const polyRef = useRef<NormPoint[]>(polyPoints);
+	polyRef.current = polyPoints;
+	/** Raster base layer: object URL for the map's content-addressed image bytes (null = absent). */
+	const rasterUrl = useAssetObjectUrl(rasterAssetId);
 
 	const setDrag = (d: DragState | null) => {
 		dragRef.current = d;
 		setDragState(d);
 	};
+
+	const fogActive = editable && tool === 'fog' && isDm;
+	const onFogRegionRef = useRef(onFogRegion);
+	onFogRegionRef.current = onFogRegion;
+
+	// Leaving the fog tool / switching sub-tool abandons an in-progress polygon (never dispatches).
+	useEffect(() => {
+		setPolyPoints([]);
+	}, [tool, fogShape, fogMode]);
+
+	// Polygon keyboard contract while vertices exist: Enter closes (≥3 vertices), Escape cancels.
+	// Registered in the CAPTURE phase so the builder overlay's own document-level Escape handler
+	// (which would close the whole builder) never sees an Escape that belongs to the polygon.
+	const polyActive = polyPoints.length > 0;
+	useEffect(() => {
+		if (!polyActive) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				e.stopPropagation();
+				e.preventDefault();
+				setPolyPoints([]);
+			} else if (e.key === 'Enter') {
+				const region = closePolygonRegion(polyRef.current);
+				if (region) {
+					e.stopPropagation();
+					e.preventDefault();
+					setPolyPoints([]);
+					onFogRegionRef.current?.(region);
+				}
+			}
+		};
+		document.addEventListener('keydown', onKey, true);
+		return () => document.removeEventListener('keydown', onKey, true);
+	}, [polyActive]);
 
 	// visual = 0.5 + zoom·(p − center); inverse: p = (visual − 0.5)/zoom + center.
 	const toVisual = (p: Point): Point => ({
@@ -295,14 +358,16 @@ export function MapCanvas({
 		[layers],
 	);
 
-	// ── Well-level gestures (fog rect draw · pan · click-to-place) ────────────────────────────
+	// ── Well-level gestures (fog rect/brush draw · polygon vertices · pan · click-to-place) ────
 	const onWellPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
 		pressRef.current = null; // a well press is never a marker press (markers stop propagation)
 		if (!editable || e.button !== 0) return;
 		if (tool === 'fog' && isDm && onFogRegion) {
+			if (fogShape === 'polygon') return; // polygon collects vertices on CLICK, not on drag
 			e.currentTarget.setPointerCapture(e.pointerId);
 			const p = toMap(e);
-			setDrag({ kind: 'fog', start: p, cur: p });
+			if (fogShape === 'brush') setDrag({ kind: 'brush', points: [p] });
+			else setDrag({ kind: 'fog', start: p, cur: p });
 		} else if (tool === 'pan' && onPan) {
 			e.currentTarget.setPointerCapture(e.pointerId);
 			setDrag({ kind: 'pan', px: e.clientX, py: e.clientY, c0: center });
@@ -312,6 +377,7 @@ export function MapCanvas({
 		const d = dragRef.current;
 		if (!d) return;
 		if (d.kind === 'fog') setDrag({ ...d, cur: toMap(e) });
+		else if (d.kind === 'brush') setDrag({ ...d, points: appendStrokePoint(d.points, toMap(e)) });
 		else if (d.kind === 'pan' && onPan) {
 			const r = wellRef.current?.getBoundingClientRect();
 			if (!r) return;
@@ -326,17 +392,27 @@ export function MapCanvas({
 		if (!d) return;
 		setDrag(null);
 		if (d.kind === 'fog' && onFogRegion) {
-			const x = Math.min(d.start.x, d.cur.x);
-			const y = Math.min(d.start.y, d.cur.y);
-			const w = Math.min(Math.abs(d.cur.x - d.start.x), 1 - x);
-			const h = Math.min(Math.abs(d.cur.y - d.start.y), 1 - y);
-			// The core rejects a zero-area region (w/h must be > 0) — ignore accidental micro-drags.
-			if (w >= 0.01 && h >= 0.01) onFogRegion({ x, y, w, h });
+			// The core rejects a zero-area region — the helper returns null for accidental micro-drags.
+			const region = rectRegionFromDrag(d.start, d.cur);
+			if (region) onFogRegion(region);
+		} else if (d.kind === 'brush' && onFogRegion) {
+			const region = strokeRegionFromPoints(d.points, fogBrushRadius);
+			if (region) onFogRegion(region);
 		}
 	};
 	const onWellClick = (e: ReactMouseEvent<HTMLDivElement>) => {
 		if (!editable) return;
 		if ((tool === 'poi' || tool === 'token') && onPlace) onPlace(toMap(e));
+		else if (fogActive && fogShape === 'polygon' && onFogRegion) {
+			setPolyPoints((pts) => appendPolygonVertex(pts, toMap(e)));
+		}
+	};
+	const onWellDoubleClick = (e: ReactMouseEvent<HTMLDivElement>) => {
+		if (!fogActive || fogShape !== 'polygon' || !onFogRegion) return;
+		e.preventDefault();
+		const region = closePolygonRegion(polyRef.current);
+		setPolyPoints([]);
+		if (region) onFogRegion(region);
 	};
 
 	// ── Marker press/drag. Selection resolves on POINTERUP (under pointer capture the follow-up
@@ -413,6 +489,7 @@ export function MapCanvas({
 			onPointerMove={onWellPointerMove}
 			onPointerUp={onWellPointerUp}
 			onClick={onWellClick}
+			onDoubleClick={onWellDoubleClick}
 		>
 			{/* scaled map space (grid + geometry) */}
 			<div
@@ -439,6 +516,11 @@ export function MapCanvas({
 						preserveAspectRatio="none"
 						style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}
 					>
+						{/* raster base layer — the imported image bytes, content-addressed. Rendered FIRST so
+						    every vector layer, annotation, and (critically) the fog mask covers it. */}
+						{rasterUrl && (
+							<image href={rasterUrl} x={0} y={0} width={100} height={100} preserveAspectRatio="none" />
+						)}
 						{/* painted layer features (MAP-003), in render order, tinted by layer category */}
 						{contentLayers.map((l) => (
 							<g key={l.layerId} opacity={l.opacity}>
@@ -474,7 +556,7 @@ export function MapCanvas({
 										<rect x={0} y={0} width={100} height={100} fill="black" />
 										{fogOps.map((op) => (
 											<g key={op.id}>
-												<FogRegionShape region={op.region} paint={op.kind === 'conceal' ? 'white' : 'black'} mode="fill" />
+												<FogRegionShape region={op.region} paint={op.kind === 'conceal' ? 'white' : 'black'} mode="fill" feather={op.feather} />
 											</g>
 										))}
 									</mask>
@@ -490,7 +572,7 @@ export function MapCanvas({
 									<FogRegionShape region={op.region} paint={op.kind === 'reveal' ? 'var(--color-accent)' : 'var(--map-fog-fill)'} mode="outline" />
 								</g>
 							))}
-						{/* ghost rect while drag-drawing fog */}
+						{/* ghost previews while a fog gesture is in progress (rect drag · brush sweep · polygon) */}
 						{drag?.kind === 'fog' && (
 							<rect
 								x={Math.min(drag.start.x, drag.cur.x) * 100}
@@ -504,9 +586,42 @@ export function MapCanvas({
 								vectorEffect="non-scaling-stroke"
 							/>
 						)}
+						{drag?.kind === 'brush' && (
+							<g opacity={0.7}>
+								<FogRegionShape
+									region={{ shape: 'stroke', points: drag.points, radius: fogBrushRadius }}
+									paint={fogMode === 'reveal' ? 'color-mix(in oklab, var(--color-accent) 30%, transparent)' : 'color-mix(in oklab, var(--map-fog-fill) 55%, transparent)'}
+									mode="fill"
+								/>
+							</g>
+						)}
+						{polyPoints.length > 0 && (
+							<g>
+								<polyline
+									points={polyPoints.map((p) => `${p.x * 100},${p.y * 100}`).join(' ')}
+									fill={polyPoints.length >= 3 ? (fogMode === 'reveal' ? 'color-mix(in oklab, var(--color-accent) 14%, transparent)' : 'color-mix(in oklab, var(--map-fog-fill) 35%, transparent)') : 'none'}
+									stroke={fogMode === 'reveal' ? 'var(--color-accent)' : 'var(--map-fog-fill)'}
+									strokeWidth={1.4}
+									strokeDasharray="4 3"
+									vectorEffect="non-scaling-stroke"
+								/>
+								{polyPoints.map((p, i) => (
+									<circle key={i} cx={p.x * 100} cy={p.y * 100} r={0.8} fill={fogMode === 'reveal' ? 'var(--color-accent)' : 'var(--map-fog-fill)'} />
+								))}
+							</g>
+						)}
 					</svg>
 				)}
 			</div>
+
+			{/* honest missing-bytes state: asset metadata names a raster, but the bytes are not in this
+			    device's asset store (evicted / imported elsewhere). Geometry still renders; no crash. */}
+			{view && rasterAssetId && !rasterUrl && (
+				<div style={{ position: 'absolute', left: '50%', bottom: 14, transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 8, background: 'color-mix(in oklab, var(--map-canvas-bg) 80%, transparent)', border: `1px solid ${T.bd}`, font: `11.5px ${T.sans}`, color: T.sub, pointerEvents: 'none', zIndex: 2 }}>
+					<Icon name="warning" size={13} color={T.warn} />
+					Map image bytes aren't on this device — showing geometry only
+				</div>
+			)}
 
 			{/* markers (unscaled, positioned via the zoom/pan transform so hit targets stay 44px) */}
 			<div
@@ -729,7 +844,7 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 	const [declared, setDeclared] = useState<MapImportElementKind[]>(['dimensions', 'grid', 'background-image']);
 	const [busy, setBusy] = useState(false);
 	const [commitError, setCommitError] = useState<string | null>(null);
-	const [result, setResult] = useState<{ assetId: string | null; deduped: boolean; dropped: number } | null>(null);
+	const [result, setResult] = useState<{ assetId: string | null; deduped: boolean; dropped: number; byteError: string | null } | null>(null);
 
 	const nativeMimes = Object.keys(NATIVE_ASSET_MIME_TYPES);
 
@@ -805,7 +920,18 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 				const ev = (res.events as Array<{ kind: string; assetId?: string | null; assetDeduped?: boolean; droppedElementCount?: number }> | undefined)?.find(
 					(e) => e.kind === 'map.import-committed',
 				);
-				setResult({ assetId: ev?.assetId ?? null, deduped: ev?.assetDeduped ?? false, dropped: ev?.droppedElementCount ?? 0 });
+				// Store the REAL bytes in the app-side content-addressed store (same hash id as the core
+				// metadata record, so the canvas can resolve them). A byte-store failure is reported
+				// honestly on the result step — the metadata record stands, the raster just won't render.
+				let byteError: string | null = null;
+				if (source === 'native' && picked) {
+					try {
+						await putAssetBytes(picked.bytes, picked.file.type);
+					} catch (err) {
+						byteError = err instanceof Error ? err.message : String(err);
+					}
+				}
+				setResult({ assetId: ev?.assetId ?? null, deduped: ev?.assetDeduped ?? false, dropped: ev?.droppedElementCount ?? 0, byteError });
 				setStep(2);
 			} else {
 				setCommitError(res.rejection.message);
@@ -965,7 +1091,7 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 								<div style={{ display: 'flex', gap: 8, padding: '9px 12px', borderRadius: 9, background: T.alt, border: `1px solid ${T.bd}`, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
 									<Icon name="info" size={15} color={T.info} />
 									<span>
-										The core stores a content-addressed <strong>metadata record</strong> (hash, size, MIME, dimensions). The byte payload itself has no storage path in this prototype (ADR-014 — no blob store), so no raster preview will render on the canvas.
+										The core records the content-addressed <strong>metadata</strong> (hash, size, MIME, dimensions); the image bytes are stored on this device under the same hash, and the builder canvas renders the raster as its base layer.
 									</span>
 								</div>
 							</>
@@ -1008,6 +1134,14 @@ function ImportMapDialog({ mapId, mapName, onClose }: { mapId: string; mapName: 
 								</div>
 							</div>
 						</div>
+						{result.byteError && (
+							<div style={{ display: 'flex', gap: 8, padding: '9px 12px', borderRadius: 9, background: 'var(--color-status-warning-subtle)', border: `1px solid ${T.warn}`, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+								<Icon name="warning" size={15} color={T.warn} />
+								<span>
+									The metadata record was committed, but the image bytes could not be stored on this device: {result.byteError} The canvas will show geometry only.
+								</span>
+							</div>
+						)}
 						<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
 							<Button variant="primary" size="sm" onClick={onClose}>
 								Done
@@ -1123,6 +1257,12 @@ export function MapBuilder({
 
 	const [tool, setTool] = useState<MapTool>(initialTool);
 	const [fogMode, setFogMode] = useState<'reveal' | 'conceal'>(initialFogMode);
+	const [fogShape, setFogShape] = useState<FogShape>('rect');
+	/** DS FogControls brush size (5..200); dispatched as a normalized radius of brushSize/1000. */
+	const [brushSize, setBrushSize] = useState(24);
+	const [featherOn, setFeatherOn] = useState(false);
+	/** Feather width as % of the map (1..20 → the core's 0.01..0.2 normalized bound). */
+	const [featherPct, setFeatherPct] = useState(4);
 	const [zoom, setZoom] = useState(1);
 	const [center, setCenter] = useState({ x: 0.5, y: 0.5 });
 	const [activeLayerId, setActiveLayerId] = useState<string | null>(null);
@@ -1138,6 +1278,10 @@ export function MapBuilder({
 	const [poiEdit, setPoiEdit] = useState<MapPoiView | null>(null);
 	const [poiDraft, setPoiDraft] = useState({ label: '', category: 'landmark' as MapPoiCategory, visibility: 'dm-only' as SceneVisibility, notes: '' });
 	const [confirmConcealAll, setConfirmConcealAll] = useState(false);
+	// Map metadata drafts (rename / re-describe — `map.update-metadata`). Re-seeded from the core
+	// values whenever they change (e.g. after a save), never on unrelated state ticks.
+	const [metaName, setMetaName] = useState('');
+	const [metaDesc, setMetaDesc] = useState('');
 
 	const rootRef = useRef<HTMLDivElement>(null);
 
@@ -1147,6 +1291,12 @@ export function MapBuilder({
 		[runtime.state.maps, runtime.state.permissions, actorId, mapId, delivered],
 	);
 	const view = viewResult.kind === 'available' ? viewResult : null;
+	const viewName = view?.name ?? '';
+	const viewDescription = view?.description ?? '';
+	useEffect(() => {
+		setMetaName(viewName);
+		setMetaDesc(viewDescription);
+	}, [viewName, viewDescription]);
 	const layerResult = useMemo(
 		() => queryMapLayers(runtime.state.maps, runtime.state.permissions, actorId, { mapId }),
 		[runtime.state.maps, runtime.state.permissions, actorId, mapId],
@@ -1165,6 +1315,13 @@ export function MapBuilder({
 		if (!entity) return [];
 		return entity.assetIds.map((id) => runtime.state.maps.assets[id]).filter((a) => a !== undefined);
 	}, [isDm, runtime.state.maps, mapId]);
+
+	// Raster base layer. Gated on the actor-filtered view being AVAILABLE (`view` below): a hidden
+	// map already collapsed to the unavailable overlay before this id can reach the canvas.
+	const rasterAssetId = useMemo(() => {
+		const entity = runtime.state.maps.maps[mapId];
+		return entity ? pickRasterAssetId(entity.assetIds, runtime.state.maps.assets) : null;
+	}, [runtime.state.maps, mapId]);
 
 	// Focus containment: focus the overlay on open, restore the opener on close (dialog semantics).
 	useEffect(() => {
@@ -1241,12 +1398,20 @@ export function MapBuilder({
 		}
 	};
 
-	function appendFog(region: { x: number; y: number; w: number; h: number }, kind: 'reveal' | 'conceal') {
+	function appendFog(region: MapFogRegion, kind: 'reveal' | 'conceal') {
 		if (!fogLayerId) return;
 		void run({
 			type: 'map.append-fog',
 			actorId,
-			payload: { mapId, layerId: fogLayerId, kind, region, visibility: 'shared', connectionState: 'connected' },
+			payload: {
+				mapId,
+				layerId: fogLayerId,
+				kind,
+				region,
+				...(featherOn ? { feather: Math.min(0.2, Math.max(0, featherPct / 100)) } : {}),
+				visibility: 'shared',
+				connectionState: 'connected',
+			},
 		});
 	}
 
@@ -1305,6 +1470,46 @@ export function MapBuilder({
 	};
 	const deleteTokenRef = useRef(deleteToken);
 	deleteTokenRef.current = deleteToken;
+
+	/** GenerationPanel sizes (Small…Huge) → grid cells within the core's [2, 24] generation cap. */
+	const GENERATION_DIMENSIONS = [8, 12, 18, 24] as const;
+
+	// MAP-004 — the panel's parameters map onto the deterministic `map.generate-layers` command.
+	// The id prefix is carried IN the durable command, so replay on another device regenerates the
+	// exact same layer/feature ids.
+	async function generateLayers(params: { type: string; seed: string; size: number; density: number }) {
+		const dim = GENERATION_DIMENSIONS[Math.min(3, Math.max(0, Math.round(params.size)))] ?? 12;
+		const res = await run({
+			type: 'map.generate-layers',
+			actorId,
+			payload: {
+				mapId,
+				kind: params.type,
+				seed: params.seed.trim() || 'seed',
+				width: dim,
+				height: dim,
+				density: Math.min(1, Math.max(0, params.density / 100)),
+				visibility: 'dm-only',
+				idPrefix: `gen-${Date.now().toString(36)}`,
+			},
+		});
+		if (res?.status === 'accepted') {
+			setNotice(`Generated ${params.type} layers from seed “${params.seed.trim() || 'seed'}” — they're in the Layers tab, DM-only until revealed.`);
+			setRightTab('layers');
+		}
+	}
+
+	// POI deep link: a shareable hash URL the Atlas consumes (`?map=…&poi=…` selects the map and
+	// highlights the POI). Clipboard denial degrades to showing the link in the notice bar.
+	async function copyPoiLink(poiId: string) {
+		const url = `${location.origin}${location.pathname}${location.search}#/atlas?map=${encodeURIComponent(mapId)}&poi=${encodeURIComponent(poiId)}`;
+		try {
+			await navigator.clipboard.writeText(url);
+			setNotice('POI link copied — opening it selects this map and highlights the POI.');
+		} catch {
+			setNotice(`POI link (copy failed — copy it manually): ${url}`);
+		}
+	}
 
 	function savePoiEdit() {
 		if (!poiEdit || !poiDraft.label.trim()) return;
@@ -1407,6 +1612,9 @@ export function MapBuilder({
 						center={center}
 						tool={tool}
 						fogMode={fogMode}
+						fogShape={fogShape}
+						fogBrushRadius={brushSize / 1000}
+						rasterAssetId={rasterAssetId}
 						editable={isDm && !busy}
 						showFogOutlines={tool === 'fog'}
 						height="100%"
@@ -1437,7 +1645,7 @@ export function MapBuilder({
 									setPoiEdit(poi);
 									setSelPoiId(null);
 								}}
-								onDeepLink={() => setNotice('POI deep links are not wired in this build.')}
+								onDeepLink={() => void copyPoiLink(poi.id)}
 								onDelete={() => deletePoi(poi.id)}
 							/>
 						)}
@@ -1449,18 +1657,37 @@ export function MapBuilder({
 									<FogControls
 										mode={fogMode}
 										onModeChange={(m: string) => setFogMode(m as 'reveal' | 'conceal')}
-										shape="rect"
-										onShapeChange={(s: string) => {
-											if (s !== 'rect') setNotice('Only rectangle fog regions are core-backed (MAP-012 rect ops) — brush and polygon are not wired.');
-										}}
-										feather={false}
-										onFeather={() => setNotice('Feathered fog edges are not core-backed — regions are sharp rects.')}
+										shape={fogShape}
+										onShapeChange={(s: string) => setFogShape(s as FogShape)}
+										brushSize={brushSize}
+										onBrushSize={(v: number) => setBrushSize(v)}
+										unit="map‰"
+										feather={featherOn}
+										onFeather={() => setFeatherOn((f) => !f)}
 										syncStatus={busy ? 'syncing' : 'synced'}
-										onRevealAll={() => appendFog({ x: 0, y: 0, w: 1, h: 1 }, 'reveal')}
+										onRevealAll={() => appendFog({ shape: 'rect', x: 0, y: 0, w: 1, h: 1 }, 'reveal')}
 										onResetFog={() => setConfirmConcealAll(true)}
 									/>
+									{featherOn && (
+										<label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 11px', borderRadius: 8, background: 'var(--color-surface-raised)', border: `1px solid ${T.bd}`, font: `11px ${T.sans}`, color: T.sub }}>
+											Feather width
+											<input
+												type="range"
+												min={1}
+												max={20}
+												step={1}
+												value={featherPct}
+												aria-label="Feather width (% of map)"
+												onChange={(e) => setFeatherPct(Number(e.target.value))}
+												style={{ flex: 1, height: 3, accentColor: 'var(--color-accent)', cursor: 'pointer' }}
+											/>
+											<span style={{ font: `10.5px ${T.mono}`, color: T.ink, minWidth: 28, textAlign: 'right' }}>{featherPct}%</span>
+										</label>
+									)}
 									<span style={{ alignSelf: 'flex-start', padding: '4px 9px', borderRadius: 7, background: 'color-mix(in oklab, var(--map-canvas-bg) 78%, transparent)', border: `1px solid ${T.bd}`, font: `11px ${T.sans}`, color: T.sub }}>
-										Drag on the map to {fogMode} a rectangle
+										{fogShape === 'rect' && `Drag on the map to ${fogMode} a rectangle`}
+										{fogShape === 'brush' && `Drag to sweep a ${fogMode} stroke (radius ${brushSize}‰ of the map)`}
+										{fogShape === 'polygon' && `Click to add vertices (up to ${MAX_FOG_POINTS}) · double-click or Enter closes · Esc cancels`}
 									</span>
 								</div>
 							)}
@@ -1626,16 +1853,17 @@ export function MapBuilder({
 						)}
 						{rightTab === 'generate' && (
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-								{/* HONEST STUB — no generation backend is wired in this build; nothing dispatches. */}
-								<div style={{ display: 'flex', gap: 8, padding: '9px 12px', borderRadius: 9, background: 'var(--color-status-warning-subtle)', border: `1px solid ${T.warn}`, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
-									<Icon name="warning" size={15} color={T.warn} />
+								<div style={{ display: 'flex', gap: 8, padding: '9px 12px', borderRadius: 9, background: T.alt, border: `1px solid ${T.bd}`, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+									<Icon name="info" size={15} color={T.info} />
 									<span>
-										<strong style={{ color: T.ink }}>Preview only — not wired.</strong> Procedural/AI map generation has no backend in this build; Accept writes nothing.
+										Deterministic procedural generation (MAP-004): the same type, seed, size, and density always produce identical layers. Accept appends them as editable layers (DM-only until you reveal them).
 									</span>
 								</div>
 								<GenerationPanel
 									progress={null}
-									onAccept={() => setNotice('Generation is a labeled preview — no backend is wired in this build, so nothing was written.')}
+									onAccept={(params: { type: string; seed: string; size: number; density: number }) =>
+										void generateLayers(params)
+									}
 									onDiscard={() => setRightTab('layers')}
 									style={{ width: '100%' }}
 								/>
@@ -1645,21 +1873,49 @@ export function MapBuilder({
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 								<div>
 									<PanelLabel>Map</PanelLabel>
-									<div style={{ display: 'flex', flexDirection: 'column', gap: 7, font: `12.5px ${T.sans}`, color: T.sub }}>
-										<div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-											<span>Name</span>
-											<span style={{ color: T.ink, textAlign: 'right' }}>{view.name}</span>
-										</div>
-										<div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-											<span>Visibility</span>
-											<Badge status={VIS_STATUS[view.visibility] ?? 'neutral'}>{VIS_LABEL[view.visibility] ?? view.visibility}</Badge>
-										</div>
-										<div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-											<span>Scale</span>
-											<span style={{ font: `12px ${T.mono}`, color: T.ink }}>{view.scale ? `${view.scale.unitsPerMap} ${view.scale.unit}` : '—'}</span>
+									<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+										{isDm ? (
+											<>
+												<Field label="Name">
+													<Input value={metaName} onChange={(e: { target: { value: string } }) => setMetaName(e.target.value)} />
+												</Field>
+												<Field label="Description">
+													<Textarea rows={2} value={metaDesc} onChange={(e: { target: { value: string } }) => setMetaDesc(e.target.value)} />
+												</Field>
+												<Button
+													variant="secondary"
+													size="sm"
+													icon="check"
+													disabled={busy || !metaName.trim() || (metaName.trim() === view.name && metaDesc === view.description)}
+													onClick={() =>
+														void run({
+															type: 'map.update-metadata',
+															actorId,
+															payload: { mapId, name: metaName.trim(), description: metaDesc },
+														})
+													}
+												>
+													Save name & description
+												</Button>
+											</>
+										) : (
+											<div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, font: `12.5px ${T.sans}`, color: T.sub }}>
+												<span>Name</span>
+												<span style={{ color: T.ink, textAlign: 'right' }}>{view.name}</span>
+											</div>
+										)}
+										<div style={{ display: 'flex', flexDirection: 'column', gap: 7, font: `12.5px ${T.sans}`, color: T.sub }}>
+											<div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+												<span>Visibility</span>
+												<Badge status={VIS_STATUS[view.visibility] ?? 'neutral'}>{VIS_LABEL[view.visibility] ?? view.visibility}</Badge>
+											</div>
+											<div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+												<span>Scale</span>
+												<span style={{ font: `12px ${T.mono}`, color: T.ink }}>{view.scale ? `${view.scale.unitsPerMap} ${view.scale.unit}` : '—'}</span>
+											</div>
 										</div>
 									</div>
-									<div style={{ marginTop: 8, font: `11px/1.5 ${T.sans}`, color: T.ter }}>Renaming a map has no core command yet — name and scale are set at creation.</div>
+									<div style={{ marginTop: 8, font: `11px/1.5 ${T.sans}`, color: T.ter }}>Scale is set at creation; name and description are durable `map.update-metadata` edits.</div>
 								</div>
 								<div>
 									<PanelLabel>Stats</PanelLabel>
@@ -1696,7 +1952,7 @@ export function MapBuilder({
 													</div>
 												))}
 												<div style={{ font: `10.5px/1.5 ${T.sans}`, color: T.ter }}>
-													Content-addressed metadata records — the bytes themselves have no storage path in this prototype, so the canvas renders geometry, not the raster.
+													Content-addressed records — the bytes live in this device's asset store under the same hash. The newest image renders as the canvas base layer; if its bytes are missing here, the canvas says so.
 												</div>
 											</div>
 										)}
@@ -1781,7 +2037,7 @@ export function MapBuilder({
 								disabled={busy}
 								onClick={() => {
 									setConfirmConcealAll(false);
-									appendFog({ x: 0, y: 0, w: 1, h: 1 }, 'conceal');
+									appendFog({ shape: 'rect', x: 0, y: 0, w: 1, h: 1 }, 'conceal');
 								}}
 							>
 								Conceal everything

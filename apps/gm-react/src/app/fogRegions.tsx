@@ -1,7 +1,9 @@
 // Shared SVG rendering for fog-region shapes (rect | polygon | stroke) in the 0..100 map
 // viewBox space. Both the builder canvas mask/outlines and the Atlas summaries consume the
 // core MapFogRegion union through these helpers so every shape renders honestly everywhere.
+import { useId } from 'react';
 import { normalizeFogRegion, type MapFogRegion } from '@dndtools/core';
+import { featherBlurStdDev } from './mapGeometry';
 
 interface FogShapeProps {
 	region: MapFogRegion;
@@ -9,12 +11,34 @@ interface FogShapeProps {
 	paint: string;
 	/** 'fill' paints the covered area (mask use); 'outline' draws a dashed boundary aid. */
 	mode: 'fill' | 'outline';
+	/**
+	 * Optional soft-edge feather width (the op's `feather`, 0..0.2 normalized). Fill shapes render
+	 * through a gaussian blur (stdDev ≈ feather·100/2 in the 0..100 viewBox) so the mask edge is a
+	 * soft band; outlines stay sharp (they are an authoring aid marking the exact op boundary).
+	 */
+	feather?: number;
 }
 
 /** One fog region as an SVG element in the 0..100 viewBox. Pure presentational. */
-export function FogRegionShape({ region, paint, mode }: FogShapeProps) {
+export function FogRegionShape({ region, paint, mode, feather }: FogShapeProps) {
+	const filterId = useId();
 	const r = normalizeFogRegion(region);
 	const outline = mode === 'outline';
+	const stdDev = outline ? 0 : featherBlurStdDev(feather);
+	const shape = renderShape(r, paint, outline);
+	if (stdDev <= 0) return shape;
+	return (
+		<g>
+			{/* Filter region padded so the blur halo is not clipped at the shape's bounding box. */}
+			<filter id={filterId} x="-30%" y="-30%" width="160%" height="160%">
+				<feGaussianBlur stdDeviation={stdDev} />
+			</filter>
+			<g filter={`url(#${filterId})`}>{shape}</g>
+		</g>
+	);
+}
+
+function renderShape(r: ReturnType<typeof normalizeFogRegion>, paint: string, outline: boolean) {
 	const common = outline
 		? {
 				fill: 'none' as const,
