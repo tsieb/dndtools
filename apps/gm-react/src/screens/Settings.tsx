@@ -38,7 +38,9 @@ import { downloadJsonFile, fileDateStamp } from '../platform/download';
 import { pickTextFile } from '../platform/filePick';
 import { exportFullVault, importFullVault, validateVaultBackup, type VaultBackup } from '../platform/backup';
 import { ONBOARDED_KEY, REPLAY_EVENT } from '../app/Onboarding';
-import { DNDAccount, DNDExt, DNDGaps2, DNDPages } from '../runtime/mockCampaign';
+import { isFsSourceSupported, listFolderSources, disconnectFolderSource, type FolderSourceRecord } from '../platform/fsSource';
+import { GOOGLE_DOCS_SETUP_RUNBOOK, isGoogleDocsConfigured, listGdocConnections, removeGdocConnection, type GdocConnection } from '../cloud/googleDocs';
+import { DNDAccount, DNDExt, DNDGaps2 } from '../runtime/mockCampaign';
 
 /**
  * Settings — the category-rail section. The subpages now split three ways by how much of the app
@@ -59,7 +61,6 @@ import { DNDAccount, DNDExt, DNDGaps2, DNDPages } from '../runtime/mockCampaign'
  */
 
 const ACCT = DNDAccount as any;
-const PAGES = DNDPages as any;
 const GAPS2 = DNDGaps2 as any;
 const EXT = DNDExt as any;
 // Honest feedback for controls whose backend isn't part of this build yet (account/billing/vault
@@ -902,26 +903,60 @@ function SettingsPermissions() {
 	);
 }
 
-/* ---- Vault (honest stub — no core command for source connection flows in this build) -------- */
+/* ---- Vault (REAL — the connected-source registry; pull/push/manage lives in Knowledge → Sources) ---- */
 function SettingsVault() {
-	const stateTone: Record<string, string> = { synced: 'success', syncing: 'info', 'needs-auth': 'warning', error: 'error' };
+	const navigate = useNavigate();
+	const [folders, setFolders] = useState<FolderSourceRecord[]>([]);
+	const [gdocs, setGdocs] = useState<GdocConnection[]>([]);
+	useEffect(() => {
+		void listFolderSources().then(setFolders);
+		setGdocs(listGdocConnections());
+	}, []);
+	const when = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'never');
+	const rows = [
+		...folders.map((f) => ({
+			key: `folder-${f.id}`,
+			name: f.name,
+			kind: 'Local folder',
+			meta: `pulled ${when(f.lastImportAt)} · pushed ${when(f.lastWriteAt)}`,
+			disconnect: () => void disconnectFolderSource(f.id).then(listFolderSources).then(setFolders),
+		})),
+		...gdocs.map((g) => ({
+			key: `gdoc-${g.docId}`,
+			name: g.title,
+			kind: 'Google Doc',
+			meta: `pulled ${when(g.lastPullAt)} · pushed ${when(g.lastPushAt)}`,
+			disconnect: () => { removeGdocConnection(g.docId); setGdocs(listGdocConnections()); },
+		})),
+	];
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<Panel title="Vault connections" action={<div style={{ display: 'flex', gap: 8 }}><Button variant="secondary" size="sm" icon="import" onClick={toast}>Import from source</Button><Button variant="ghost" size="sm" icon="add" onClick={toast}>Connect source</Button></div>}>
-				{/* no core command — source adapters / live transport are deferred (ADR-014); these rows are mock. */}
-				<div style={{ display: 'flex', flexDirection: 'column' }}>
-					{PAGES.sources.map((s: any, i: number) => (
-						<div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
-							<span style={{ width: 36, height: 36, borderRadius: 8, background: T.alt, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: T.acc, flex: '0 0 auto' }}><Icon name="vault" size="md" /></span>
-							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ font: `600 13px ${T.sans}` }}>{s.name}</div>
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{s.kind} · {s.last}{s.pending ? ` · ${s.pending} pending` : ''}</div>
+			<Panel title="Vault connections" action={<Button variant="secondary" size="sm" icon="import" onClick={() => navigate('/knowledge')}>Manage in Knowledge</Button>}>
+				{/* Real WS-7 source registry (fsSource + googleDocs) — import/write-back actions live in the
+				    Knowledge → Sources panel, which dispatches content.commit-import / content.write-to-source. */}
+				{rows.length === 0 ? (
+					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>No sources connected. Connect a local markdown folder{isGoogleDocsConfigured ? ' or a Google Doc' : ''} from Knowledge → Sources; pull and push live there too.</div>
+				) : (
+					<div style={{ display: 'flex', flexDirection: 'column' }}>
+						{rows.map((s, i) => (
+							<div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
+								<span style={{ width: 36, height: 36, borderRadius: 8, background: T.alt, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: T.acc, flex: '0 0 auto' }}><Icon name="vault" size="md" /></span>
+								<div style={{ flex: 1, minWidth: 0 }}>
+									<div style={{ font: `600 13px ${T.sans}` }}>{s.name}</div>
+									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{s.kind} · {s.meta}</div>
+								</div>
+								<Badge status="success">connected</Badge>
+								<Button variant="ghost" size="sm" icon="trash" onClick={s.disconnect}>Disconnect</Button>
 							</div>
-							<Badge status={(stateTone[s.state] || 'neutral') as any} icon={s.state === 'syncing' ? 'loading' : undefined}>{s.state.replace('-', ' ')}</Badge>
-							{(s.state === 'needs-auth' || s.state === 'error') && <Button variant="secondary" size="sm" onClick={toast}>Reconnect</Button>}
-						</div>
-					))}
-				</div>
+						))}
+					</div>
+				)}
+				{!isFsSourceSupported() && (
+					<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>Local folder connections need the File System Access API (Chrome or Edge) — unavailable in this browser.</div>
+				)}
+				{!isGoogleDocsConfigured && (
+					<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>Google Docs sync is off in this build — no <code style={{ font: `11px ${T.mono}` }}>VITE_GOOGLE_CLIENT_ID</code> is configured; setup is a one-time step, see <code style={{ font: `11px ${T.mono}` }}>{GOOGLE_DOCS_SETUP_RUNBOOK}</code>.</div>
+				)}
 			</Panel>
 		</div>
 	);

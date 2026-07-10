@@ -10,6 +10,7 @@ import { Button, Card, EmptyState, Icon, IconButton, Input, Select, Textarea, Vi
 import { BackBar, Page, Panel, Seg, T } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { pickTextFiles } from '../platform/filePick';
+import { ConnectedSourcesPanel } from '../app/ConnectedSources';
 
 /**
  * Knowledge — notes / handouts / read-aloud, now wired to the live Processing Core (was static
@@ -432,6 +433,7 @@ export function Knowledge() {
 
 	const [composing, setComposing] = useState(false);
 	const [importing, setImporting] = useState(false);
+	const [showSources, setShowSources] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [importMsg, setImportMsg] = useState<string | null>(null);
 
@@ -507,10 +509,23 @@ export function Knowledge() {
 						<Button
 							variant="ghost"
 							size="sm"
+							icon="vault"
+							onClick={() => {
+								setShowSources((v) => !v);
+								setComposing(false);
+								setImporting(false);
+							}}
+						>
+							Sources
+						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
 							icon="import"
 							onClick={() => {
 								setImporting((v) => !v);
 								setComposing(false);
+								setShowSources(false);
 							}}
 						>
 							Import vault
@@ -522,6 +537,7 @@ export function Knowledge() {
 							onClick={() => {
 								setComposing((v) => !v);
 								setImporting(false);
+								setShowSources(false);
 							}}
 						>
 							New note
@@ -534,6 +550,8 @@ export function Knowledge() {
 			{canAuthor && importing && (
 				<ImportPanel busy={busy} message={importMsg} onImport={runImport} onCancel={() => { setImporting(false); setImportMsg(null); }} />
 			)}
+			{/* WS-7 — connected vault sources (local folder / Google Docs) pull+push panel. */}
+			{canAuthor && showSources && <ConnectedSourcesPanel />}
 
 			{notes.length === 0 ? (
 				<EmptyState
