@@ -1,15 +1,40 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
 	buildWidgetPackageReviewSummary,
 	exportWidgetPackage,
+	getContentItemsForActor,
+	listCharactersForActor,
 	scaffoldCustomWidgetPackageDraft,
+	VAULT_OBJECT_SUBTYPE_KEY,
 	type CommandResult,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
-import { Badge, Button, HPBar, Icon, Switch, Tabs, Textarea, VisibilityChip } from '../ds';
+import { Badge, Button, EmptyState, HPBar, Icon, Input, Select, Skeleton, Switch, Tabs, Textarea, Toaster, VisibilityChip } from '../ds';
 import { Page, Panel, T, eb, mono } from '../app/screen-kit';
 import { DNDExt } from '../runtime/mockCampaign';
 import { useRuntime } from '../runtime/RuntimeContext';
+import {
+	isAbortError,
+	listDocuments,
+	searchMonsters,
+	searchSpells,
+	SRD_DOCUMENT_KEY,
+	type Open5eDocument,
+} from '../app/compendium/open5e';
+import {
+	formatCr,
+	monsterToQuickCreatePayload,
+	spellDuration,
+	spellToCreateObjectPayload,
+	type ImportSourceMeta,
+} from '../app/compendium/import';
+import type {
+	CompendiumKind,
+	CompendiumMonster,
+	CompendiumResult,
+	CompendiumSpell,
+} from '../app/compendium/types';
 
 /**
  * Extensions & Systems — plugins, compendium import, custom object types, the rules-system switch, and
@@ -25,17 +50,22 @@ import { useRuntime } from '../runtime/RuntimeContext';
  *     declared migrations against every placed widget; removes leave placed widgets as disabled
  *     placeholders. All of it persists.
  *
+ * REAL — the Compendium tab browses the Open5e v2 API (default: the CC-BY-4.0 SRD; other source
+ * documents only behind an explicit opt-in that shows each source's own license) with an offline
+ * fallback to the bundled SRD dataset (`app/compendium/`), and IMPORTS entries through real core
+ * commands: a monster dispatches `character.quick-create` (kind 'monster' — lands in the roster and
+ * the EncounterBuilder), a spell dispatches `content.create-object` (subtype 'spell'). Duplicate
+ * names are flagged with an explicit re-import confirm — never silent.
+ *
  * HONEST STUBS (no core command on this surface, clearly noted in each panel):
  *   - Community marketplace: browsing/fetching community packages needs a network backend — nothing
  *     is fetched; the panel says so and offers no fake controls.
- *   - Compendium (Open5e SRD): external SRD fetch + field-mapping are not Core-backed — local preview state.
  *   - Object types: a custom-type schema editor has no Core command here — local draft state.
  *   - System switch: swapping the rules system has no Core command here — local selection only.
  *   - Theme studio: the live `data-theme` swap IS real (DOM), token import/export is a local preview.
  */
 
 const EXT = DNDExt as any;
-const MAP_KIND_TONE: Record<string, string> = { text: 'neutral', num: 'info', list: 'accent', new: 'success' };
 const TRUST_TONE: Record<string, string> = { trusted: 'success', unreviewed: 'warning', denied: 'error' };
 const HOST_PERM_LABEL: Record<string, string> = {
 	filesystem: 'Filesystem',
@@ -385,129 +415,580 @@ function ExtPlugins() {
 	);
 }
 
-function ExtCompendium() {
-	const C = EXT.compendium;
-	const [type, setType] = useState('monster');
-	const [sel, setSel] = useState(C.selected);
-	// Honest-local: external SRD fetch is not Core-backed — `imported`/`saved` are local preview state only.
-	const [imported, setImported] = useState<Record<string, boolean>>(() => Object.fromEntries(C.results.map((r: any) => [r.id, r.imported])));
-	const [saved, setSaved] = useState(false);
-	const results = C.results.filter((r: any) => r.type === type);
-	const selRow = C.results.find((r: any) => r.id === sel);
+/* ---- Compendium (real Open5e browse + import) --------------------------------------------------- */
+
+/** Pull a string field off the first emitted event of a given kind (mirrors CharBuilder/demo-seed). */
+function eventField(result: CommandResult, kind: string, field: string): string | null {
+	if (result.status !== 'accepted') return null;
+	for (const event of result.events) {
+		if ((event as { kind?: string }).kind === kind) {
+			const value = (event as unknown as Record<string, unknown>)[field];
+			if (typeof value === 'string') return value;
+		}
+	}
+	return null;
+}
+
+// The standard 5e CR ladder (matches both the live `challenge_rating` filter and bundled `cr`).
+const CR_VALUES = [0, 0.125, 0.25, 0.5, ...Array.from({ length: 30 }, (_, i) => i + 1)];
+const CR_OPTIONS = [
+	{ value: 'any', label: 'Any CR' },
+	...CR_VALUES.map((cr) => ({ value: String(cr), label: `CR ${formatCr(cr)}` })),
+];
+const LEVEL_OPTIONS = [
+	{ value: 'any', label: 'Any level' },
+	{ value: '0', label: 'Cantrip' },
+	...Array.from({ length: 9 }, (_, i) => ({ value: String(i + 1), label: `Level ${i + 1}` })),
+];
+
+const monsterMeta = (m: CompendiumMonster) =>
+	`${m.size} ${m.type} · CR ${formatCr(m.cr)}${m.ac != null ? ` · AC ${m.ac}` : ''}${m.hp != null ? ` · HP ${m.hp}` : ''}`;
+const spellMeta = (s: CompendiumSpell) =>
+	`${s.level === 0 ? 'Cantrip' : `Level ${s.level}`} ${s.school} · ${s.castingTime} · ${s.range}`;
+
+const ABILITY_COLUMNS: Array<[label: string, key: string]> = [
+	['STR', 'strength'], ['DEX', 'dexterity'], ['CON', 'constitution'],
+	['INT', 'intelligence'], ['WIS', 'wisdom'], ['CHA', 'charisma'],
+];
+
+/** One labeled detail line in the entry panel (rendered only when there is a value). */
+function DetailLine({ label, value }: { label: string; value?: string | null }) {
+	if (!value) return null;
 	return (
-		<div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 18, alignItems: 'start' }}>
-			<Panel title="Open5e SRD" action={<div style={{ display: 'flex', gap: 6 }}>{C.sources.map((s: any) => <Badge key={s.id} status={s.on ? 'success' : 'neutral'}>{s.label} · {s.count}</Badge>)}</div>}>
-				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 10 }}>
-					Preview only — fetching the external SRD and committing the import are not Core-backed on this surface.
-					Create real vault content from the Knowledge screen.
-				</div>
-				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-					{C.types.map((t: any) => (
-						<button
-							key={t.id}
-							type="button"
-							onClick={() => setType(t.id)}
-							style={{
-								display: 'inline-flex',
-								alignItems: 'center',
-								gap: 6,
-								font: `12px ${T.sans}`,
-								padding: '6px 11px',
-								borderRadius: 8,
-								cursor: 'pointer',
-								border: `1px solid ${type === t.id ? T.accBd : T.bd}`,
-								background: type === t.id ? T.accSub : T.surf,
-								color: type === t.id ? T.acc : T.sub,
-							}}
-						>
-							<Icon name={t.icon} size={14} />
-							{t.label}
-							<span style={{ color: T.ter }}>{t.count}</span>
-						</button>
-					))}
-				</div>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-					{results.map((r: any) => {
-						const imp = imported[r.id];
-						return (
-							<div
-								key={r.id}
-								role="button"
-								tabIndex={0}
-								aria-pressed={sel === r.id}
-								aria-label={`Select ${r.name}`}
-								onClick={() => setSel(r.id)}
-								onKeyDown={(e) => {
-									// Only when the CARD itself is focused — Enter on the nested Import button must
-									// keep its native activation, not collapse into select.
-									if (e.target !== e.currentTarget) return;
-									if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSel(r.id); }
+		<div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+			<span style={{ font: `600 12px ${T.sans}`, color: T.ink }}>{label}. </span>
+			{value}
+		</div>
+	);
+}
+
+/**
+ * The import control with the duplicate guard: a same-name entry already in the vault flips the
+ * button into an explicit two-step "Import again → Import copy / Keep" confirm — never silent.
+ */
+function ImportControl({
+	name, inVault, busy, disabled, confirming, onConfirmChange, onImport, size = 'sm',
+}: {
+	name: string;
+	inVault: boolean;
+	busy: boolean;
+	disabled: boolean;
+	confirming: boolean;
+	onConfirmChange: (on: boolean) => void;
+	onImport: () => void;
+	size?: 'sm' | 'md';
+}) {
+	if (inVault && confirming) {
+		return (
+			<span style={{ display: 'inline-flex', gap: 6 }}>
+				<Button variant="danger" size={size} disabled={disabled || busy} onClick={onImport}>
+					Import copy
+				</Button>
+				<Button variant="ghost" size={size} onClick={() => onConfirmChange(false)}>
+					Keep
+				</Button>
+			</span>
+		);
+	}
+	if (inVault) {
+		return (
+			<Button
+				variant="ghost"
+				size={size}
+				icon="import"
+				disabled={disabled || busy}
+				aria-label={`Import ${name} again (already in vault)`}
+				onClick={() => onConfirmChange(true)}
+			>
+				Import again
+			</Button>
+		);
+	}
+	return (
+		<Button variant="secondary" size={size} icon="import" disabled={disabled || busy} onClick={onImport}>
+			{busy ? 'Importing…' : 'Import'}
+		</Button>
+	);
+}
+
+function ExtCompendium() {
+	const runtime = useRuntime();
+	const navigate = useNavigate();
+	const dmId = runtime.defaultActorId;
+	const previewing = !!runtime.preview;
+	const isDm = runtime.state.permissions.actors[dmId]?.role === 'dm';
+	const canWrite = isDm && !previewing;
+
+	const [kind, setKind] = useState<CompendiumKind>('monster');
+	const [search, setSearch] = useState('');
+	const [cr, setCr] = useState('any');
+	const [level, setLevel] = useState('any');
+	const [loading, setLoading] = useState(true);
+	const [result, setResult] = useState<CompendiumResult<CompendiumMonster | CompendiumSpell> | null>(null);
+	const [selKey, setSelKey] = useState<string | null>(null);
+	const [busyKey, setBusyKey] = useState<string | null>(null);
+	const [confirmKey, setConfirmKey] = useState<string | null>(null);
+	// Non-SRD sources: an explicit opt-in that shows each source's own license before any fetch.
+	const [sourceUiOpen, setSourceUiOpen] = useState(false);
+	const [docs, setDocs] = useState<Open5eDocument[] | null>(null);
+	const [docsError, setDocsError] = useState<string | null>(null);
+	const [pendingDocKey, setPendingDocKey] = useState(SRD_DOCUMENT_KEY);
+	const [activeDoc, setActiveDoc] = useState<Open5eDocument | null>(null); // null = the default SRD
+	const abortRef = useRef<AbortController | null>(null);
+
+	// Debounced, abortable search — live Open5e first, bundled SRD on network failure (the client
+	// re-throws intentional aborts so a stale query can never clobber a fresh one).
+	useEffect(() => {
+		const ctrl = new AbortController();
+		abortRef.current?.abort();
+		abortRef.current = ctrl;
+		setLoading(true);
+		const timer = setTimeout(() => {
+			const query = {
+				search: search.trim() || undefined,
+				cr: kind === 'monster' && cr !== 'any' ? Number(cr) : undefined,
+				level: kind === 'spell' && level !== 'any' ? Number(level) : undefined,
+				documentKey: activeDoc?.key,
+				limit: 40,
+			};
+			const opts = { signal: ctrl.signal, document: activeDoc ?? undefined };
+			const run = kind === 'monster' ? searchMonsters(query, opts) : searchSpells(query, opts);
+			run
+				.then((res) => {
+					if (ctrl.signal.aborted) return;
+					setResult(res);
+					setLoading(false);
+				})
+				.catch((error: unknown) => {
+					if (isAbortError(error) || ctrl.signal.aborted) return;
+					setResult(null); // bundled fallback failed too — the empty state below says so
+					setLoading(false);
+				});
+		}, 250);
+		return () => {
+			clearTimeout(timer);
+			ctrl.abort();
+		};
+	}, [kind, search, cr, level, activeDoc]);
+
+	// Duplicate guards — what is ALREADY in the vault, by (case-insensitive) name.
+	const rosterNames = useMemo(
+		() =>
+			new Set(
+				listCharactersForActor(runtime.state.characters, runtime.state.permissions, dmId).map((c) =>
+					c.name.trim().toLowerCase(),
+				),
+			),
+		[runtime.state.characters, runtime.state.permissions, dmId],
+	);
+	const spellTitles = useMemo(
+		() =>
+			new Set(
+				getContentItemsForActor(runtime.state.content, runtime.state.permissions, dmId)
+					.filter((item) => item.kind === 'object' && item.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'spell')
+					.map((item) => item.title.trim().toLowerCase()),
+			),
+		[runtime.state.content, runtime.state.permissions, dmId],
+	);
+	const inVault = (name: string) =>
+		(kind === 'monster' ? rosterNames : spellTitles).has(name.trim().toLowerCase());
+
+	const sourceMeta: ImportSourceMeta | null = result
+		? { document: result.document, license: result.license, attribution: result.attribution }
+		: null;
+
+	const importEntry = async (entry: CompendiumMonster | CompendiumSpell) => {
+		if (!canWrite || busyKey !== null || !sourceMeta) return;
+		setBusyKey(entry.key);
+		try {
+			if (kind === 'monster') {
+				const monster = entry as CompendiumMonster;
+				const res = await runtime.dispatch({
+					type: 'character.quick-create',
+					actorId: dmId,
+					payload: monsterToQuickCreatePayload(monster, sourceMeta),
+				});
+				if (res.status === 'rejected') {
+					Toaster.error(`${monster.name} was not imported: ${res.rejection.message}`);
+					return;
+				}
+				const id = eventField(res, 'character.created', 'characterId');
+				Toaster.success(
+					`${monster.name} added to the roster (DM-only)`,
+					id ? { action: 'Open', onAction: () => navigate(`/characters/${id}`) } : undefined,
+				);
+			} else {
+				const spell = entry as CompendiumSpell;
+				const res = await runtime.dispatch({
+					type: 'content.create-object',
+					actorId: dmId,
+					payload: spellToCreateObjectPayload(spell, sourceMeta),
+				});
+				if (res.status === 'rejected') {
+					Toaster.error(`${spell.name} was not imported: ${res.rejection.message}`);
+					return;
+				}
+				const id = eventField(res, 'content.object-changed', 'itemId');
+				Toaster.success(
+					`${spell.name} saved to the vault (DM-only)`,
+					id ? { action: 'Open', onAction: () => navigate(`/knowledge/${id}`) } : undefined,
+				);
+			}
+		} catch (error) {
+			Toaster.error(error instanceof Error ? error.message : String(error));
+		} finally {
+			setBusyKey(null);
+			setConfirmKey(null);
+		}
+	};
+
+	const openSourcePicker = () => {
+		setSourceUiOpen(true);
+		if (docs || docsError) return;
+		listDocuments()
+			.then(setDocs)
+			.catch(() => setDocsError('The Open5e source list could not be reached — only the bundled SRD is available offline.'));
+	};
+	const pendingDoc = docs?.find((d) => d.key === pendingDocKey) ?? null;
+
+	const entries = result?.entries ?? [];
+	const selected = entries.find((e) => e.key === selKey) ?? null;
+	const sourceBadge = loading ? (
+		<Badge status="neutral">searching…</Badge>
+	) : result?.source === 'live' ? (
+		<Badge status="success" icon="check">Live · Open5e API</Badge>
+	) : result ? (
+		<Badge status="warning" icon="warning">Offline — bundled SRD</Badge>
+	) : (
+		<Badge status="error" icon="warning">unavailable</Badge>
+	);
+
+	return (
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+			<div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 18, alignItems: 'start' }}>
+				<Panel title="Open5e compendium" action={sourceBadge}>
+					{!canWrite && (
+						<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
+							Importing is DM-only and read-only while previewing — browsing works, the import buttons are disabled.
+						</div>
+					)}
+					{/* kind pills */}
+					<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+						{(
+							[
+								{ id: 'monster' as const, label: 'Monsters', icon: 'monster-claw' },
+								{ id: 'spell' as const, label: 'Spells', icon: 'spell-sparkle' },
+							]
+						).map((t) => (
+							<button
+								key={t.id}
+								type="button"
+								aria-pressed={kind === t.id}
+								onClick={() => {
+									setKind(t.id);
+									setSelKey(null);
+									setConfirmKey(null);
 								}}
 								style={{
-									display: 'flex',
-									gap: 12,
-									padding: 12,
-									borderRadius: 10,
+									display: 'inline-flex',
+									alignItems: 'center',
+									gap: 6,
+									font: `12px ${T.sans}`,
+									padding: '6px 11px',
+									borderRadius: 8,
 									cursor: 'pointer',
-									textAlign: 'left',
-									border: `1px solid ${sel === r.id ? T.accBd : T.bd}`,
-									background: sel === r.id ? T.accSub : T.surf,
+									border: `1px solid ${kind === t.id ? T.accBd : T.bd}`,
+									background: kind === t.id ? T.accSub : T.surf,
+									color: kind === t.id ? T.acc : T.sub,
 								}}
 							>
-								<div style={{ flex: 1, minWidth: 0 }}>
-									<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-										<span style={{ font: `600 13.5px ${T.sans}` }}>{r.name}</span>
-										{imp && (
-											<Badge status="success" icon="check">
-												In vault
-											</Badge>
+								<Icon name={t.icon} size={14} />
+								{t.label}
+								{kind === t.id && result && <span style={{ color: T.ter }}>{result.total}</span>}
+							</button>
+						))}
+					</div>
+					{/* search + filter */}
+					<div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+						<span style={{ flex: 1, minWidth: 0 }}>
+							<Input
+								value={search}
+								onChange={(e: { target: { value: string } }) => setSearch(e.target.value)}
+								placeholder={kind === 'monster' ? 'Search monsters by name…' : 'Search spells by name…'}
+								aria-label="Search the compendium by name"
+							/>
+						</span>
+						<span style={{ flex: '0 0 130px' }}>
+							{kind === 'monster' ? (
+								<Select aria-label="Filter by challenge rating" options={CR_OPTIONS} value={cr} onChange={(e: { target: { value: string } }) => setCr(e.target.value)} />
+							) : (
+								<Select aria-label="Filter by spell level" options={LEVEL_OPTIONS} value={level} onChange={(e: { target: { value: string } }) => setLevel(e.target.value)} />
+							)}
+						</span>
+					</div>
+					{/* source document (non-SRD needs an explicit opt-in that shows the source's license) */}
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 10px', border: `1px solid ${T.bd}`, borderRadius: 9, background: T.alt, marginBottom: 12 }}>
+						<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+							<span style={{ font: `12px ${T.sans}`, color: T.sub, flex: 1, minWidth: 0 }}>
+								Source: <span style={{ font: `600 12px ${T.sans}`, color: T.ink }}>{activeDoc ? activeDoc.name : 'SRD 5.1'}</span>{' '}
+								<span style={{ color: T.ter }}>· {activeDoc ? activeDoc.licenses.map((l) => l.name).join(', ') || 'see publisher' : 'CC-BY-4.0'}</span>
+							</span>
+							{!sourceUiOpen && (
+								<Button variant="ghost" size="sm" onClick={openSourcePicker}>
+									Other sources…
+								</Button>
+							)}
+						</div>
+						{sourceUiOpen && (
+							<>
+								{!docs && !docsError && <Skeleton height={30} />}
+								{docsError && <div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>{docsError}</div>}
+								{docs && (
+									<>
+										<Select
+											aria-label="Choose a source document"
+											options={docs.map((d) => ({ value: d.key, label: `${d.name} — ${d.publisher}` }))}
+											value={pendingDocKey}
+											onChange={(e: { target: { value: string } }) => setPendingDocKey(e.target.value)}
+										/>
+										{pendingDoc && (
+											<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+												License: <span style={{ color: T.sub }}>{pendingDoc.licenses.map((l) => l.name).join(', ') || 'see the publisher’s terms'}</span>
+												{pendingDoc.permalink ? ` · ${pendingDoc.permalink}` : ''}. Content from this source is fetched live
+												from the Open5e API and remains under its publisher’s license.
+											</div>
 										)}
-									</div>
-									<div style={{ font: `11.5px ${T.mono}`, color: T.ter, margin: '2px 0 4px' }}>{r.meta}</div>
-									<div style={{ font: `12px/1.45 ${T.sans}`, color: T.sub }}>{r.line}</div>
-								</div>
-								{!imp && (
-									<span
-										onClick={(e) => {
-											e.stopPropagation();
-											setImported((m) => ({ ...m, [r.id]: true }));
-										}}
-										style={{ alignSelf: 'center' }}
-									>
-										<Button variant="secondary" size="sm" icon="import">
-											Import
-										</Button>
-									</span>
+										<div style={{ display: 'flex', gap: 6 }}>
+											<Button
+												variant="secondary"
+												size="sm"
+												disabled={!pendingDoc}
+												onClick={() => {
+													setActiveDoc(pendingDoc && pendingDoc.key !== SRD_DOCUMENT_KEY ? pendingDoc : null);
+													setSourceUiOpen(false);
+													setSelKey(null);
+												}}
+											>
+												Use this source
+											</Button>
+											<Button variant="ghost" size="sm" onClick={() => setSourceUiOpen(false)}>
+												Cancel
+											</Button>
+										</div>
+									</>
 								)}
+							</>
+						)}
+						{activeDoc && result?.source === 'bundled' && (
+							<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.err }}>
+								{activeDoc.name} needs the live API — offline results below are the bundled SRD instead.
+							</div>
+						)}
+					</div>
+					{/* results */}
+					{loading && (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 9 }} aria-label="Loading results">
+							{[0, 1, 2, 3].map((i) => (
+								<Skeleton key={i} height={62} />
+							))}
+						</div>
+					)}
+					{!loading && !result && (
+						<EmptyState
+							icon="warning"
+							title="Compendium unavailable"
+							description="Neither the Open5e API nor the bundled SRD dataset could be loaded. Try again."
+						/>
+					)}
+					{!loading && result && entries.length === 0 && (
+						<EmptyState
+							icon="search"
+							title="No matches"
+							description={`Nothing in ${result.document} matches this search — try a different name or clear the filter.`}
+						/>
+					)}
+					{!loading && entries.length > 0 && (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+							{entries.map((entry) => {
+								const dup = inVault(entry.name);
+								return (
+									<div
+										key={entry.key}
+										role="button"
+										tabIndex={0}
+										aria-pressed={selKey === entry.key}
+										aria-label={`Select ${entry.name}`}
+										onClick={() => setSelKey(entry.key)}
+										onKeyDown={(e) => {
+											// Only when the CARD itself is focused — Enter on the nested Import button must
+											// keep its native activation, not collapse into select.
+											if (e.target !== e.currentTarget) return;
+											if (e.key === 'Enter' || e.key === ' ') {
+												e.preventDefault();
+												setSelKey(entry.key);
+											}
+										}}
+										style={{
+											display: 'flex',
+											gap: 12,
+											padding: 12,
+											borderRadius: 10,
+											cursor: 'pointer',
+											textAlign: 'left',
+											border: `1px solid ${selKey === entry.key ? T.accBd : T.bd}`,
+											background: selKey === entry.key ? T.accSub : T.surf,
+										}}
+									>
+										<div style={{ flex: 1, minWidth: 0 }}>
+											<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+												<span style={{ font: `600 13.5px ${T.sans}` }}>{entry.name}</span>
+												{dup && (
+													<Badge status="success" icon="check">
+														In vault
+													</Badge>
+												)}
+											</div>
+											<div style={{ font: `11.5px ${T.mono}`, color: T.ter, margin: '2px 0 0' }}>
+												{kind === 'monster' ? monsterMeta(entry as CompendiumMonster) : spellMeta(entry as CompendiumSpell)}
+											</div>
+										</div>
+										<span onClick={(e) => e.stopPropagation()} style={{ alignSelf: 'center' }}>
+											<ImportControl
+												name={entry.name}
+												inVault={dup}
+												busy={busyKey === entry.key}
+												disabled={!canWrite || (busyKey !== null && busyKey !== entry.key)}
+												confirming={confirmKey === entry.key}
+												onConfirmChange={(on) => setConfirmKey(on ? entry.key : null)}
+												onImport={() => void importEntry(entry)}
+											/>
+										</span>
+									</div>
+								);
+							})}
+							{result && result.total > entries.length && (
+								<div style={{ font: `11.5px ${T.sans}`, color: T.ter, textAlign: 'center', padding: '2px 0 0' }}>
+									Showing the first {entries.length} of {result.total} matches — refine the search to narrow it down.
+								</div>
+							)}
+						</div>
+					)}
+				</Panel>
+				{/* detail panel */}
+				<Panel accent title={selected ? selected.name : 'Entry details'} action={selected && <Badge status="info">{kind === 'monster' ? 'Monster' : 'Spell'}</Badge>}>
+					{!selected && (
+						<div style={{ font: `12.5px/1.55 ${T.sans}`, color: T.ter }}>
+							Select an entry to review its statblock before importing. Monsters land in the roster as DM-only
+							quick-create characters (usable in the Encounter Builder); spells become DM-only vault objects on
+							the Knowledge screen.
+						</div>
+					)}
+					{selected && kind === 'monster' && (() => {
+						const m = selected as CompendiumMonster;
+						const scores = m.abilityScores;
+						return (
+							<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+								<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{monsterMeta(m)} · {m.alignment}</div>
+								{scores && (
+									<div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>
+										{ABILITY_COLUMNS.map(([label, key]) => (
+											<div key={key} style={{ textAlign: 'center', padding: '6px 2px', border: `1px solid ${T.bd}`, borderRadius: 8, background: T.surf }}>
+												<div style={{ font: `600 10px ${T.sans}`, color: T.ter }}>{label}</div>
+												<div style={{ font: `600 13px ${T.mono}` }}>{scores[key] ?? '—'}</div>
+											</div>
+										))}
+									</div>
+								)}
+								<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+									<DetailLine label="Armor Class" value={m.ac != null ? `${m.ac}${m.acDetail ? ` (${m.acDetail})` : ''}` : undefined} />
+									<DetailLine label="Hit Points" value={m.hp != null ? `${m.hp}${m.hitDice ? ` (${m.hitDice})` : ''}` : undefined} />
+									<DetailLine
+										label="Speed"
+										value={Object.entries(m.speed ?? {}).filter(([, v]) => typeof v === 'number' && v > 0).map(([mode, v]) => `${mode} ${v} ft.`).join(', ') || undefined}
+									/>
+									<DetailLine
+										label="Senses"
+										value={[...Object.entries(m.senses ?? {}).map(([s, r]) => `${s} ${r} ft.`), ...(m.passivePerception != null ? [`passive Perception ${m.passivePerception}`] : [])].join(', ') || undefined}
+									/>
+									<DetailLine label="Languages" value={m.languages} />
+									<DetailLine label="Damage immunities" value={m.damageImmunities} />
+									<DetailLine label="Damage resistances" value={m.damageResistances} />
+									<DetailLine label="Condition immunities" value={m.conditionImmunities} />
+								</div>
+								{((m.traits?.length ?? 0) > 0 || (m.actions?.length ?? 0) > 0) && (
+									<div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', border: `1px solid ${T.bd}`, borderRadius: 10, background: T.surf }}>
+										{(m.traits ?? []).map((t) => (
+											<div key={`t-${t.name}`} style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+												<span style={{ font: `600 italic 12px ${T.sans}`, color: T.ink }}>{t.name}. </span>
+												{t.desc}
+											</div>
+										))}
+										{(m.actions ?? []).length > 0 && <div style={{ ...eb, marginTop: 2 }}>Actions</div>}
+										{(m.actions ?? []).map((a) => (
+											<div key={`a-${a.name}`} style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+												<span style={{ font: `600 12px ${T.sans}`, color: T.ink }}>
+													{a.name}
+													{a.actionType === 'LEGENDARY_ACTION' ? ' (legendary)' : ''}.{' '}
+												</span>
+												{a.desc}
+											</div>
+										))}
+									</div>
+								)}
+								<ImportControl
+									name={m.name}
+									inVault={inVault(m.name)}
+									busy={busyKey === m.key}
+									disabled={!canWrite || (busyKey !== null && busyKey !== m.key)}
+									confirming={confirmKey === m.key}
+									onConfirmChange={(on) => setConfirmKey(on ? m.key : null)}
+									onImport={() => void importEntry(m)}
+									size="md"
+								/>
 							</div>
 						);
-					})}
-				</div>
-			</Panel>
-			<Panel accent title="Field map" action={selRow && <Badge status="info">{selRow.name}</Badge>}>
-				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 6 }}>
-					Each API field maps to a vault object field. Edit before saving — the import never overwrites silently.
-				</div>
-				<div style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${T.bd}`, borderRadius: 10, overflow: 'hidden' }}>
-					{C.mapping.map((m: any, i: number) => (
-						<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderTop: i ? `1px solid ${T.bd}` : 'none', background: i % 2 ? T.alt : 'transparent' }}>
-							<span style={{ font: `11px ${T.mono}`, color: T.ter, width: 90, flex: '0 0 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.api}</span>
-							<Icon name="chevron-right" size={12} color={T.ter} />
-							<span style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-									<span style={{ font: `600 12px ${T.sans}` }}>{m.field}</span>
-									<Badge status={MAP_KIND_TONE[m.kind] || 'neutral'}>{m.kind}</Badge>
+					})()}
+					{selected && kind === 'spell' && (() => {
+						const s = selected as CompendiumSpell;
+						return (
+							<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+								<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>
+									{spellMeta(s)}
+									{s.ritual ? ' · ritual' : ''}
 								</div>
-								<div style={{ font: `11.5px ${T.sans}`, color: T.sub }}>{m.value}</div>
-							</span>
-						</div>
-					))}
+								<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+									<DetailLine label="Casting time" value={s.castingTime} />
+									<DetailLine label="Range" value={s.range} />
+									<DetailLine label="Components" value={s.components} />
+									<DetailLine label="Duration" value={spellDuration(s)} />
+									<DetailLine label="Classes" value={s.classes?.join(', ')} />
+								</div>
+								<div style={{ maxHeight: 300, overflowY: 'auto', font: `12.5px/1.6 ${T.sans}`, color: T.sub, padding: '10px 12px', border: `1px solid ${T.bd}`, borderRadius: 10, background: T.surf, whiteSpace: 'pre-line' }}>
+									{s.desc}
+									{s.higherLevel ? `\n\nAt higher levels. ${s.higherLevel}` : ''}
+								</div>
+								<ImportControl
+									name={s.name}
+									inVault={inVault(s.name)}
+									busy={busyKey === s.key}
+									disabled={!canWrite || (busyKey !== null && busyKey !== s.key)}
+									confirming={confirmKey === s.key}
+									onConfirmChange={(on) => setConfirmKey(on ? s.key : null)}
+									onImport={() => void importEntry(s)}
+									size="md"
+								/>
+							</div>
+						);
+					})()}
+				</Panel>
+			</div>
+			{/* LEGAL: the license attribution for the rendered material must stay visible on this surface. */}
+			{result && (
+				<div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 14px', border: `1px solid ${T.bd}`, borderRadius: 10, background: T.alt }}>
+					<Badge status="neutral">{result.license}</Badge>
+					<span style={{ font: `11px/1.6 ${T.sans}`, color: T.ter }}>{result.attribution}</span>
 				</div>
-				{/* no core command — external SRD import is not Core-backed; mark saved locally only. */}
-				<Button variant="primary" size="sm" icon="check" disabled={saved} onClick={() => setSaved(true)}>
-					{saved ? 'Saved (local preview)' : 'Save to vault'}
-				</Button>
-			</Panel>
+			)}
 		</div>
 	);
 }
