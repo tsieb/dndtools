@@ -20,7 +20,7 @@ import {
 	type McpStagedProposal,
 	type VaultConflictRecord,
 } from '@dndtools/core';
-import { Avatar, Badge, Button, Chip, DataTable, Dialog, Icon, Input, StatusDot, Switch, Textarea, Toaster } from '../ds';
+import { Avatar, Badge, Button, Chip, DataTable, Dialog, EmptyState, Icon, Input, Select, Skeleton, StatusDot, Switch, Textarea, Toaster } from '../ds';
 import { Page, Panel, Seg, SetRow, T } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useCloudSync } from '../cloud/CloudSyncContext';
@@ -47,7 +47,7 @@ import { pickTextFile } from '../platform/filePick';
 import { exportFullVault, importFullVault, validateVaultBackup, type VaultBackup } from '../platform/backup';
 import { ONBOARDED_KEY, REPLAY_EVENT } from '../app/Onboarding';
 import { isFsSourceSupported, listFolderSources, disconnectFolderSource, type FolderSourceRecord } from '../platform/fsSource';
-import { GOOGLE_DOCS_SETUP_RUNBOOK, isGoogleDocsConfigured, listGdocConnections, removeGdocConnection, type GdocConnection } from '../cloud/googleDocs';
+import { GOOGLE_DOCS_SETUP_RUNBOOK, addGdocConnection, isGoogleDocsConfigured, listGdocConnections, removeGdocConnection, type GdocConnection } from '../cloud/googleDocs';
 import { PLAN_CARDS, useEntitlements } from '../cloud/entitlements';
 
 /**
@@ -270,6 +270,10 @@ function AccountDevicesPanel() {
 	const [devices, setDevices] = useState<Device[] | null>(null);
 	const [failed, setFailed] = useState(false);
 	const [busy, setBusy] = useState(false);
+	// Both revocations are server-side and irreversible (no undo exists), so each one goes through
+	// an honest confirm dialog instead of firing straight off its button.
+	const [pendingRevoke, setPendingRevoke] = useState<Device | null>(null);
+	const [signOutOpen, setSignOutOpen] = useState(false);
 	const load = () => {
 		listDevices()
 			.then(setDevices)
@@ -281,7 +285,8 @@ function AccountDevicesPanel() {
 		revokeDevice(deviceKey)
 			.then(() => {
 				setDevices((list) => (list ? list.filter((d) => d.deviceKey !== deviceKey) : list));
-				Toaster.success('Device revoked.');
+				setPendingRevoke(null);
+				Toaster.success('Device revoked — it has to sign in again.');
 			})
 			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not revoke that device.')))
 			.finally(() => setBusy(false));
@@ -290,6 +295,7 @@ function AccountDevicesPanel() {
 		setBusy(true);
 		revokeAllSessions()
 			.then(async () => {
+				setSignOutOpen(false);
 				Toaster.success('Signed out everywhere — sign in again to continue.');
 				await auth.signOut(); // the global revoke killed this session's refresh token too
 			})
@@ -299,7 +305,7 @@ function AccountDevicesPanel() {
 	return (
 		<Panel
 			title="Signed-in devices"
-			action={<Button variant="ghost" size="sm" icon="close" disabled={busy} onClick={signOutEverywhere}>Sign out everywhere</Button>}
+			action={<Button variant="ghost" size="sm" icon="close" disabled={busy} onClick={() => setSignOutOpen(true)}>Sign out everywhere</Button>}
 		>
 			<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
 				Devices your account has signed in from. Revoking one forgets it; “Sign out everywhere” revokes every session, including this one.
@@ -307,9 +313,12 @@ function AccountDevicesPanel() {
 			{failed ? (
 				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Couldn’t load your devices — check your connection and reopen this tab.</div>
 			) : devices === null ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Loading devices…</div>
+				<div role="status" aria-label="Loading devices" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+					<Skeleton height={46} />
+					<Skeleton height={46} />
+				</div>
 			) : devices.length === 0 ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No remembered devices yet — devices appear here after they sign in.</div>
+				<EmptyState inset icon="Monitor" title="No remembered devices yet" description="Devices appear here after they sign in." />
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column' }}>
 					{devices.map((d, i) => (
@@ -319,11 +328,47 @@ function AccountDevicesPanel() {
 								<div style={{ font: `600 13px ${T.sans}` }}>{d.name}</div>
 								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{d.lastSeen ? `Last seen ${new Date(d.lastSeen).toLocaleString()}` : 'Last seen: unknown'}</div>
 							</div>
-							<Button variant="ghost" size="sm" disabled={busy} onClick={() => revoke(d.deviceKey)}>Revoke</Button>
+							<Button variant="ghost" size="sm" disabled={busy} onClick={() => setPendingRevoke(d)}>Revoke</Button>
 						</div>
 					))}
 				</div>
 			)}
+			<Dialog
+				open={pendingRevoke !== null}
+				onClose={() => setPendingRevoke(null)}
+				title="Revoke this device?"
+				description="Revocation happens on the server and cannot be undone."
+				tone="danger"
+				size="sm"
+				footer={
+					<>
+						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setPendingRevoke(null)}>Cancel</Button>
+						<Button variant="danger" size="sm" disabled={busy} onClick={() => pendingRevoke && revoke(pendingRevoke.deviceKey)}>{busy ? 'Revoking…' : 'Revoke device'}</Button>
+					</>
+				}
+			>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					<strong style={{ color: T.ink }}>{pendingRevoke?.name}</strong> is forgotten immediately and has to sign in again. Nothing stored on that device is touched — only its session.
+				</div>
+			</Dialog>
+			<Dialog
+				open={signOutOpen}
+				onClose={() => setSignOutOpen(false)}
+				title="Sign out everywhere?"
+				description="Every session is revoked — including this one."
+				tone="danger"
+				size="sm"
+				footer={
+					<>
+						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setSignOutOpen(false)}>Cancel</Button>
+						<Button variant="danger" size="sm" disabled={busy} onClick={signOutEverywhere}>{busy ? 'Signing out…' : 'Sign out everywhere'}</Button>
+					</>
+				}
+			>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					This device signs out too, right now — you land back at the sign-in screen. Other devices lose their session the next time they reach the server. This cannot be undone.
+				</div>
+			</Dialog>
 		</Panel>
 	);
 }
@@ -594,6 +639,8 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 	const [note, setNote] = useState('');
 	const [minted, setMinted] = useState<Invite | null>(null);
 	const [qr, setQr] = useState<string | null>(null);
+	// Revoking kills the link server-side for good (no undo exists), so it confirms first.
+	const [pendingRevoke, setPendingRevoke] = useState<Invite | null>(null);
 	useEffect(() => {
 		if (!cloudReady) return;
 		let cancelled = false;
@@ -647,6 +694,7 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 		apiRevokeInvite(inviteId)
 			.then(() => {
 				setInvites((list) => (list ? list.filter((i) => i.inviteId !== inviteId) : list));
+				setPendingRevoke(null);
 				Toaster.success('Invite revoked — its link no longer works.');
 			})
 			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not revoke that invite.')))
@@ -662,9 +710,12 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 			) : failed ? (
 				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Couldn’t load your invites — check your connection and reopen this tab.</div>
 			) : invites === null ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Loading invites…</div>
+				<div role="status" aria-label="Loading invites" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+					<Skeleton height={44} />
+					<Skeleton height={44} />
+				</div>
 			) : invites.length === 0 ? (
-				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No pending invites. “Invite player” mints a shareable join link (it expires after 14 days).</div>
+				<EmptyState inset icon="send" title="No pending invites" description="“Invite player” mints a shareable join link (it expires after 14 days)." />
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column' }}>
 					{invites.map((v, i) => (
@@ -675,11 +726,29 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{v.note ? `${v.note} · ` : ''}expires {new Date(v.expiresAt * 1000).toLocaleDateString()}</div>
 							</div>
 							<Button variant="secondary" size="sm" icon="link" disabled={busy} onClick={() => void copyText(inviteJoinUrl(v.token), 'Join link copied.')}>Copy link</Button>
-							<Button variant="ghost" size="sm" disabled={busy} onClick={() => revoke(v.inviteId)}>Revoke</Button>
+							<Button variant="ghost" size="sm" disabled={busy} onClick={() => setPendingRevoke(v)}>Revoke</Button>
 						</div>
 					))}
 				</div>
 			)}
+			<Dialog
+				open={pendingRevoke !== null}
+				onClose={() => setPendingRevoke(null)}
+				title="Revoke this invite?"
+				description="The link stops working for good — revocation cannot be undone."
+				tone="danger"
+				size="sm"
+				footer={
+					<>
+						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setPendingRevoke(null)}>Cancel</Button>
+						<Button variant="danger" size="sm" disabled={busy} onClick={() => pendingRevoke && revoke(pendingRevoke.inviteId)}>{busy ? 'Revoking…' : 'Revoke invite'}</Button>
+					</>
+				}
+			>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					The join link for <strong style={{ color: T.ink }}>{pendingRevoke?.campaignName}</strong> stops working immediately, even if it was already shared. Anyone who already joined keeps their seat — mint a new invite to replace it.
+				</div>
+			</Dialog>
 			<Dialog
 				open={createOpen}
 				onClose={close}
@@ -700,6 +769,7 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 			>
 				{minted ? (
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+						{/* deliberate literal #fff: a QR quiet zone must stay white for scanners, whatever the theme */}
 						{qr && <img src={qr} alt="QR code for the join link" style={{ width: 168, height: 168, borderRadius: 10, border: `1px solid ${T.bd}`, background: '#fff', padding: 8 }} />}
 						<code style={{ font: `11.5px ${T.mono}`, color: T.sub, wordBreak: 'break-all', textAlign: 'center' }}>{inviteJoinUrl(minted.token)}</code>
 						<Button variant="secondary" size="sm" icon="link" onClick={() => void copyText(inviteJoinUrl(minted.token), 'Join link copied.')}>Copy link</Button>
@@ -750,8 +820,9 @@ function SettingsPlayers() {
 								<div style={{ font: `600 13px ${T.sans}` }}>{a.displayName}</div>
 								<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{a.id}</div>
 							</div>
+							{/* No presence dot here: this roster has no live session/connection state to derive one
+							    from, and a role-derived "live" would be a fake claim. The role badge carries the row. */}
 							<Badge status={a.role === 'dm' ? 'accent' : a.role === 'observer' ? 'neutral' : 'info'}>{ROLE_LABEL[a.role] ?? a.role}</Badge>
-							<StatusDot status={a.role === 'dm' ? 'live' : 'idle'} label={ROLE_LABEL[a.role] ?? a.role} />
 						</div>
 					))}
 				</div>
@@ -762,18 +833,6 @@ function SettingsPlayers() {
 }
 
 /* ---- Permissions (REAL — real grant list + grant/revoke commands; DM-authored, fail-closed in core) -- */
-function selectStyle(): React.CSSProperties {
-	return {
-		flex: 1,
-		minWidth: 0,
-		padding: '8px 10px',
-		borderRadius: 8,
-		border: `1px solid ${T.bd}`,
-		background: T.surf,
-		color: T.ink,
-		font: `13px ${T.sans}`,
-	};
-}
 function SettingsPermissions() {
 	const runtime = useRuntime();
 	const actorId = runtime.defaultActorId;
@@ -804,8 +863,37 @@ function SettingsPermissions() {
 		expires: g.expiresAt ? new Date(g.expiresAt).toLocaleDateString() : null,
 	}));
 
+	// Revoke is recoverable here (the grant's full shape is in hand), so the toast carries an Undo
+	// that re-dispatches the same `permission.grant-capability-set` — mirroring the scene-delete flow.
 	const revoke = (grantId: string) => {
-		void runtime.dispatch({ type: 'permission.revoke-grant', actorId, payload: { grantId } });
+		const g = grants.find((x) => x.id === grantId);
+		void runtime
+			.dispatch({ type: 'permission.revoke-grant', actorId, payload: { grantId } })
+			.then((res: CommandResult) => {
+				if (res.status !== 'accepted') {
+					Toaster.error(res.rejection.message);
+					return;
+				}
+				const who = g ? (actors[g.playerActorId]?.displayName ?? g.playerActorId) : 'the player';
+				Toaster.success(`Access revoked for ${who}.`, {
+					action: g ? 'Undo' : undefined,
+					onAction: g
+						? () => {
+								void runtime
+									.dispatch({
+										type: 'permission.grant-capability-set',
+										actorId,
+										payload: { entityType: g.entityType, entityId: g.entityId, playerActorId: g.playerActorId, capabilitySet: g.capabilitySet, expiresAt: g.expiresAt ?? null },
+									})
+									.then((r2: CommandResult) => {
+										if (r2.status === 'accepted') Toaster.success(`Access re-granted to ${who}.`);
+										else Toaster.error(r2.rejection.message);
+									});
+							}
+						: undefined,
+				});
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not revoke that grant.')));
 	};
 	const grant = () => {
 		if (!grantPlayer || !grantScene) return;
@@ -838,16 +926,12 @@ function SettingsPermissions() {
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>{players.length === 0 ? 'No player actors to grant to.' : 'No scenes to grant on yet.'}</div>
 				) : (
 					<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-						<select aria-label="Player" value={grantPlayer} onChange={(e) => setGrantPlayer(e.target.value)} style={selectStyle()}>
-							{players.map((pl) => (
-								<option key={pl.id} value={pl.id}>{pl.displayName}</option>
-							))}
-						</select>
-						<select aria-label="Scene" value={grantScene} onChange={(e) => setGrantScene(e.target.value)} style={selectStyle()}>
-							{scenes.map((sc) => (
-								<option key={sc.id} value={sc.id}>{sc.name}</option>
-							))}
-						</select>
+						<span style={{ flex: 1, minWidth: 140 }}>
+							<Select aria-label="Player" value={grantPlayer} onChange={(e: { target: { value: string } }) => setGrantPlayer(e.target.value)} options={players.map((pl) => ({ value: pl.id, label: pl.displayName }))} />
+						</span>
+						<span style={{ flex: 1, minWidth: 140 }}>
+							<Select aria-label="Scene" value={grantScene} onChange={(e: { target: { value: string } }) => setGrantScene(e.target.value)} options={scenes.map((sc) => ({ value: sc.id, label: sc.name }))} />
+						</span>
 						<Seg value={grantSet} onChange={setGrantSet} options={sceneSets.map((s) => ({ value: s.capabilitySet, label: s.label }))} />
 						<Button variant="primary" size="sm" icon="check" onClick={grant}>Grant</Button>
 					</div>
@@ -876,27 +960,56 @@ function SettingsPermissions() {
 /* ---- Vault (REAL — the connected-source registry; pull/push/manage lives in Knowledge → Sources) ---- */
 function SettingsVault() {
 	const navigate = useNavigate();
-	const [folders, setFolders] = useState<FolderSourceRecord[]>([]);
+	// null = the async folder-source listing hasn't resolved yet — without this sentinel the panel
+	// flashes "No sources connected" for a beat on every open.
+	const [folders, setFolders] = useState<FolderSourceRecord[] | null>(null);
 	const [gdocs, setGdocs] = useState<GdocConnection[]>([]);
+	// Folder disconnect drops a granted directory handle that can only come back through the OS
+	// picker — no clean undo — so it confirms first. (Google Docs rows undo via their toast instead.)
+	const [pendingDisconnect, setPendingDisconnect] = useState<FolderSourceRecord | null>(null);
 	useEffect(() => {
 		void listFolderSources().then(setFolders);
 		setGdocs(listGdocConnections());
 	}, []);
 	const when = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'never');
+	const disconnectFolder = (f: FolderSourceRecord) => {
+		void disconnectFolderSource(f.id)
+			.then(listFolderSources)
+			.then((list) => {
+				setFolders(list);
+				setPendingDisconnect(null);
+				Toaster.success(`“${f.name}” disconnected — reconnect it any time from Knowledge → Sources.`);
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not disconnect that folder.')));
+	};
+	const disconnectGdoc = (g: GdocConnection) => {
+		// Connection metadata is all a Google Doc row holds, so removal is cleanly undoable in place.
+		removeGdocConnection(g.docId);
+		setGdocs(listGdocConnections());
+		Toaster.success(`“${g.title}” disconnected.`, {
+			action: 'Undo',
+			onAction: () => {
+				addGdocConnection(g.docId, g.title);
+				setGdocs(listGdocConnections());
+				Toaster.success(`“${g.title}” reconnected.`);
+			},
+		});
+	};
+	const loading = folders === null;
 	const rows = [
-		...folders.map((f) => ({
+		...(folders ?? []).map((f) => ({
 			key: `folder-${f.id}`,
 			name: f.name,
 			kind: 'Local folder',
 			meta: `pulled ${when(f.lastImportAt)} · pushed ${when(f.lastWriteAt)}`,
-			disconnect: () => void disconnectFolderSource(f.id).then(listFolderSources).then(setFolders),
+			disconnect: () => setPendingDisconnect(f),
 		})),
 		...gdocs.map((g) => ({
 			key: `gdoc-${g.docId}`,
 			name: g.title,
 			kind: 'Google Doc',
 			meta: `pulled ${when(g.lastPullAt)} · pushed ${when(g.lastPushAt)}`,
-			disconnect: () => { removeGdocConnection(g.docId); setGdocs(listGdocConnections()); },
+			disconnect: () => disconnectGdoc(g),
 		})),
 	];
 	return (
@@ -904,8 +1017,19 @@ function SettingsVault() {
 			<Panel title="Vault connections" action={<Button variant="secondary" size="sm" icon="import" onClick={() => navigate('/knowledge')}>Manage in Knowledge</Button>}>
 				{/* Real WS-7 source registry (fsSource + googleDocs) — import/write-back actions live in the
 				    Knowledge → Sources panel, which dispatches content.commit-import / content.write-to-source. */}
-				{rows.length === 0 ? (
-					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>No sources connected. Connect a local markdown folder{isGoogleDocsConfigured ? ' or a Google Doc' : ''} from Knowledge → Sources; pull and push live there too.</div>
+				{loading ? (
+					<div role="status" aria-label="Loading vault connections" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+						<Skeleton height={52} />
+						<Skeleton height={52} />
+					</div>
+				) : rows.length === 0 ? (
+					<EmptyState
+						inset
+						icon="vault"
+						title="No sources connected"
+						description={`Connect a local markdown folder${isGoogleDocsConfigured ? ' or a Google Doc' : ''} from Knowledge → Sources; pull and push live there too.`}
+						action={<Button variant="secondary" size="sm" icon="import" onClick={() => navigate('/knowledge')}>Open Knowledge → Sources</Button>}
+					/>
 				) : (
 					<div style={{ display: 'flex', flexDirection: 'column' }}>
 						{rows.map((s, i) => (
@@ -921,6 +1045,24 @@ function SettingsVault() {
 						))}
 					</div>
 				)}
+				<Dialog
+					open={pendingDisconnect !== null}
+					onClose={() => setPendingDisconnect(null)}
+					title="Disconnect this folder?"
+					description="The folder and everything already imported stay untouched."
+					tone="danger"
+					size="sm"
+					footer={
+						<>
+							<Button variant="secondary" size="sm" onClick={() => setPendingDisconnect(null)}>Cancel</Button>
+							<Button variant="danger" size="sm" icon="trash" onClick={() => pendingDisconnect && disconnectFolder(pendingDisconnect)}>Disconnect</Button>
+						</>
+					}
+				>
+					<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+						Disconnecting <strong style={{ color: T.ink }}>{pendingDisconnect?.name}</strong> drops this app’s permission to the folder. Nothing on disk or in your vault is deleted — but reconnecting means picking the folder again in Knowledge → Sources.
+					</div>
+				</Dialog>
 				{!isFsSourceSupported() && (
 					<div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.ter }}>Local folder connections need the File System Access API (Chrome or Edge) — unavailable in this browser.</div>
 				)}
@@ -1126,10 +1268,16 @@ function LocalBackupPanel() {
 		importFullVault(pendingRestore)
 			.then(({ restoredAssets, skippedAssets }) => {
 				if (skippedAssets > 0) {
-					// Surface the partial-media outcome before the reload wipes the toast.
-					window.alert(`Vault restored (${restoredAssets} media assets; ${skippedAssets} skipped as oversized/corrupt). The app will now reload.`);
+					// Surface the partial-media outcome in the app's own voice, then hold the reload just
+					// long enough for the toast to be read (a reload wipes it; `busy` stays true meanwhile).
+					Toaster.warning(
+						`Vault restored — ${restoredAssets} media ${restoredAssets === 1 ? 'asset' : 'assets'} kept, ${skippedAssets} skipped as oversized or corrupt. Reloading…`,
+						{ duration: 4000 },
+					);
+					window.setTimeout(() => window.location.reload(), 4000);
+				} else {
+					window.location.reload();
 				}
-				window.location.reload();
 			})
 			.catch((e: unknown) => {
 				Toaster.error(errMsg(e, 'Restore failed — your current vault is unchanged only if the error happened during validation; reload to see its state.'));
@@ -1303,26 +1451,24 @@ function SettingsAI() {
 										<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{b.agentId} → {actorName(b.actorId)}</div>
 									</div>
 									<Badge status="neutral">never connected</Badge>
-									<select
-										aria-label={`Policy mode for ${b.label || b.agentId}`}
-										value={mode}
-										disabled={!canWrite || busy}
-										onChange={(e) =>
-											run(
-												{
-													type: 'mcp.set-agent-policy',
-													actorId,
-													payload: { agentId: b.agentId, mode: e.target.value, allowedToolIds: policy?.allowedToolIds ?? [], auditVisible: policy?.auditVisible ?? true },
-												},
-												`${b.label || b.agentId} set to ${MCP_MODE_LABEL[e.target.value as McpPolicyMode]}.`,
-											)
-										}
-										style={{ ...selectStyle(), flex: '0 0 150px' }}
-									>
-										{MCP_POLICY_MODES.map((m) => (
-											<option key={m} value={m}>{MCP_MODE_LABEL[m]}</option>
-										))}
-									</select>
+									<span style={{ flex: '0 0 150px' }}>
+										<Select
+											aria-label={`Policy mode for ${b.label || b.agentId}`}
+											value={mode}
+											disabled={!canWrite || busy}
+											onChange={(e: { target: { value: string } }) =>
+												run(
+													{
+														type: 'mcp.set-agent-policy',
+														actorId,
+														payload: { agentId: b.agentId, mode: e.target.value, allowedToolIds: policy?.allowedToolIds ?? [], auditVisible: policy?.auditVisible ?? true },
+													},
+													`${b.label || b.agentId} set to ${MCP_MODE_LABEL[e.target.value as McpPolicyMode]}.`,
+												)
+											}
+											options={MCP_POLICY_MODES.map((m) => ({ value: m, label: MCP_MODE_LABEL[m] }))}
+										/>
+									</span>
 									<Switch
 										checked={allowlisted}
 										disabled={!canWrite || busy}
@@ -1359,11 +1505,9 @@ function SettingsAI() {
 					<span style={{ flex: '1 1 140px', minWidth: 120 }}>
 						<Input value={newLabel} onChange={(e: { target: { value: string } }) => setNewLabel(e.target.value)} placeholder="Label (optional)" aria-label="Agent label" maxLength={80} />
 					</span>
-					<select aria-label="Actor the agent speaks as" value={newActorId} onChange={(e) => setNewActorId(e.target.value)} style={{ ...selectStyle(), flex: '0 0 170px' }}>
-						{actors.map((a) => (
-							<option key={a.id} value={a.id}>{a.displayName} ({a.role})</option>
-						))}
-					</select>
+					<span style={{ flex: '0 0 170px' }}>
+						<Select aria-label="Actor the agent speaks as" value={newActorId} onChange={(e: { target: { value: string } }) => setNewActorId(e.target.value)} options={actors.map((a) => ({ value: a.id, label: `${a.displayName} (${a.role})` }))} />
+					</span>
 					<Button variant="primary" size="sm" icon="add" disabled={!canWrite || busy} onClick={registerAgent}>Register</Button>
 				</div>
 			</Panel>

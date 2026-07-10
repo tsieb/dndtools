@@ -4,7 +4,7 @@ import {
 	getContentItemsForActor,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
-import { Badge, Button, Dialog, EmptyState, Icon, Input, Stat, Switch, Tabs, Textarea, Toaster, VisibilityChip } from '../ds';
+import { Badge, Button, Dialog, EmptyState, Icon, Input, Skeleton, Stat, Switch, Tabs, Textarea, Toaster, VisibilityChip } from '../ds';
 import { Page, Panel, T, eb } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useAuth } from '../cloud/AuthContext';
@@ -35,6 +35,20 @@ import { downloadJsonFile, downloadTextFile, fileDateStamp } from '../platform/d
  */
 
 const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Something went wrong — try again.');
+
+/** ARIA radio-group contract (mirrors Onboarding's): arrows move selection (selection follows
+ * focus, wrapping), Tab skips the group as one stop. */
+function radioGroupKeyDown(e: React.KeyboardEvent) {
+	if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(e.key)) return;
+	const radios = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'));
+	const at = radios.indexOf(e.target as HTMLElement);
+	if (at === -1 || radios.length < 2) return;
+	e.preventDefault();
+	const delta = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1;
+	const next = radios[(at + delta + radios.length) % radios.length];
+	next.focus();
+	next.click();
+}
 
 // Wiki access vocabulary for the preview-only publish settings (hosting has no backend — noted in-panel).
 const WIKI_ACCESS_MODES = [
@@ -99,6 +113,8 @@ function CommDiscover() {
 	const [selId, setSelId] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [review, setReview] = useState<{ listing: ModuleListing; definition: WidgetPackageDefinition; isUpgrade: boolean } | null>(null);
+	// Removing a listing deletes it server-side for everyone (no undo exists), so it confirms first.
+	const [confirmRemove, setConfirmRemove] = useState<ModuleListing | null>(null);
 
 	const load = useCallback(() => {
 		setFailed(false);
@@ -166,6 +182,7 @@ function CommDiscover() {
 		setBusy(true);
 		deleteModule(listing.moduleId)
 			.then(() => {
+				setConfirmRemove(null);
 				Toaster.success('Listing removed from the marketplace.');
 				setModules((list) => (list ? list.filter((m) => m.moduleId !== listing.moduleId) : list));
 			})
@@ -178,11 +195,21 @@ function CommDiscover() {
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 				{failed ? (
 					<Panel title="Modules">
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Couldn’t load the marketplace — check your connection.</div>
-						<Button variant="secondary" size="sm" onClick={load}>Retry</Button>
+						<EmptyState
+							inset
+							icon="warning"
+							title="Couldn’t load the marketplace"
+							description="Check your connection and try again."
+							action={<Button variant="secondary" size="sm" icon="retry" onClick={load}>Retry</Button>}
+						/>
 					</Panel>
 				) : modules === null ? (
-					<Panel title="Modules"><div style={{ font: `12.5px ${T.sans}`, color: T.ter }} role="status">Loading modules…</div></Panel>
+					<Panel title="Modules">
+						<div role="status" aria-label="Loading modules" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+							<Skeleton height={96} />
+							<Skeleton height={96} />
+						</div>
+					</Panel>
 				) : modules.length === 0 ? (
 					<EmptyState icon="globe" title="No modules published yet" description="Anything you publish from the Publish tab appears here for every signed-in player and DM." />
 				) : (
@@ -210,10 +237,28 @@ function CommDiscover() {
 					</div>
 					<Button variant="primary" size="md" icon="import" disabled={busy} onClick={() => startInstall(sel)}>Install to vault</Button>
 					{sel.owned && (
-						<Button variant="ghost" size="sm" icon="trash" disabled={busy} onClick={() => removeListing(sel)}>Remove listing</Button>
+						<Button variant="ghost" size="sm" icon="trash" disabled={busy} onClick={() => setConfirmRemove(sel)}>Remove listing</Button>
 					)}
 				</Panel>
 			)}
+			<Dialog
+				open={confirmRemove !== null}
+				onClose={() => setConfirmRemove(null)}
+				title="Remove this listing?"
+				description="Deleted from the marketplace server-side — this cannot be undone."
+				tone="danger"
+				size="sm"
+				footer={
+					<>
+						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setConfirmRemove(null)}>Cancel</Button>
+						<Button variant="danger" size="sm" icon="trash" disabled={busy} onClick={() => confirmRemove && removeListing(confirmRemove)}>{busy ? 'Removing…' : 'Remove listing'}</Button>
+					</>
+				}
+			>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					<strong style={{ color: T.ink }}>{confirmRemove?.name}</strong> disappears from Discover for everyone. Copies already installed in vaults keep working — you can publish it again later.
+				</div>
+			</Dialog>
 			<Dialog
 				open={review !== null}
 				onClose={() => setReview(null)}
@@ -251,6 +296,9 @@ function CommExport() {
 	const dmId = runtime.defaultActorId;
 	const [priv, setPriv] = useState(false);
 	const [result, setResult] = useState<{ exported: number; omitted: number; mode: string; file: string } | null>(null);
+	// Busy latch: the export dispatch is async, and an unbuffered double-click would dispatch (and
+	// download) twice.
+	const [exporting, setExporting] = useState(false);
 
 	// REAL counts from the live actor-filtered content read (the DM sees every item).
 	const items = useMemo(() => getContentItemsForActor(runtime.state.content, runtime.state.permissions, dmId), [runtime.state.content, runtime.state.permissions, dmId]);
@@ -269,6 +317,16 @@ function CommExport() {
 	const allSelected = selectedKinds.length === kinds.length;
 
 	const runExport = async () => {
+		if (exporting) return;
+		setExporting(true);
+		try {
+			await doExport();
+		} finally {
+			setExporting(false);
+		}
+	};
+
+	const doExport = async () => {
 		// REAL: core `content.export` selects by VISIBILITY MODE — `dm-backup` keeps DM-only content,
 		// `portable` redacts it — narrowed by the selected item types.
 		const res = await runtime.dispatch({
@@ -337,8 +395,8 @@ function CommExport() {
 						{priv ? 'dm-backup' : 'portable'} · {allSelected ? 'all types' : `${selectedKinds.length}/${kinds.length} types`} · downloads .md / .json
 					</span>
 				</div>
-				<Button variant="primary" size="md" icon="download" disabled={items.length === 0 || selectedKinds.length === 0} onClick={() => void runExport()}>
-					Export &amp; download
+				<Button variant="primary" size="md" icon="download" disabled={items.length === 0 || selectedKinds.length === 0 || exporting} onClick={() => void runExport()}>
+					{exporting ? 'Exporting…' : 'Export & download'}
 				</Button>
 				{result ? (
 					<div style={{ display: 'flex', alignItems: 'center', gap: 8, font: `12px ${T.sans}`, color: T.sub }}>
@@ -358,8 +416,13 @@ function CommPublish() {
 	const auth = useAuth();
 	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
 	const [mine, setMine] = useState<ModuleListing[] | null>(null);
+	// Failure is its own state — `mine === null` means LOADING, so folding errors into it would
+	// leave a permanent fake "Loading…" after a failed fetch.
+	const [mineFailed, setMineFailed] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [draft, setDraft] = useState<{ packageId: string; name: string; summary: string; version: string } | null>(null);
+	// Unpublishing deletes the listing server-side for everyone (no undo exists), so it confirms first.
+	const [confirmUnpublish, setConfirmUnpublish] = useState<ModuleListing | null>(null);
 
 	const packages = useMemo(
 		() =>
@@ -370,9 +433,11 @@ function CommPublish() {
 	);
 
 	const loadMine = useCallback(() => {
+		setMineFailed(false);
+		setMine(null);
 		listModules()
 			.then((all) => setMine(all.filter((m) => m.owned)))
-			.catch(() => setMine(null));
+			.catch(() => setMineFailed(true));
 	}, []);
 	useEffect(() => {
 		if (cloudReady) loadMine();
@@ -409,7 +474,8 @@ function CommPublish() {
 		setBusy(true);
 		deleteModule(listing.moduleId)
 			.then(() => {
-				Toaster.success('Listing removed.');
+				setConfirmUnpublish(null);
+				Toaster.success('Listing removed from the marketplace.');
 				setMine((list) => (list ? list.filter((m) => m.moduleId !== listing.moduleId) : list));
 			})
 			.catch((e: unknown) => Toaster.error(errText(e)))
@@ -441,8 +507,19 @@ function CommPublish() {
 				)}
 			</Panel>
 			<Panel accent title="Your listings">
-				{mine === null ? (
-					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }} role="status">Loading your listings…</div>
+				{mineFailed ? (
+					<EmptyState
+						inset
+						icon="warning"
+						title="Couldn’t load your listings"
+						description="Check your connection and try again."
+						action={<Button variant="secondary" size="sm" icon="retry" onClick={loadMine}>Retry</Button>}
+					/>
+				) : mine === null ? (
+					<div role="status" aria-label="Loading your listings" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+						<Skeleton height={44} />
+						<Skeleton height={44} />
+					</div>
 				) : mine.length === 0 ? (
 					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Nothing published yet.</div>
 				) : (
@@ -453,12 +530,30 @@ function CommPublish() {
 									<div style={{ font: `600 13px ${T.sans}` }}>{m.name}</div>
 									<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>v{m.version} · {new Date(m.publishedAt).toLocaleDateString()}</div>
 								</div>
-								<Button variant="ghost" size="sm" disabled={busy} onClick={() => unpublish(m)}>Remove</Button>
+								<Button variant="ghost" size="sm" disabled={busy} onClick={() => setConfirmUnpublish(m)}>Remove</Button>
 							</div>
 						))}
 					</div>
 				)}
 			</Panel>
+			<Dialog
+				open={confirmUnpublish !== null}
+				onClose={() => setConfirmUnpublish(null)}
+				title="Remove this listing?"
+				description="Deleted from the marketplace server-side — this cannot be undone."
+				tone="danger"
+				size="sm"
+				footer={
+					<>
+						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setConfirmUnpublish(null)}>Cancel</Button>
+						<Button variant="danger" size="sm" icon="trash" disabled={busy} onClick={() => confirmUnpublish && unpublish(confirmUnpublish)}>{busy ? 'Removing…' : 'Remove listing'}</Button>
+					</>
+				}
+			>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					<strong style={{ color: T.ink }}>{confirmUnpublish?.name}</strong> disappears from Discover for everyone. Copies already installed in vaults keep working — your local package stays, so you can publish it again later.
+				</div>
+			</Dialog>
 			<Dialog
 				open={draft !== null}
 				onClose={() => setDraft(null)}
@@ -506,9 +601,9 @@ function CommWiki() {
 					<Icon name="globe" size={15} color={T.acc} /><span style={{ font: `12.5px ${T.mono}`, color: T.ter, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Assigned at publish — hosting is preview-only</span>
 				</div>
 				<div style={{ ...eb, marginTop: 10 }}>Access</div>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+				<div role="radiogroup" aria-label="Wiki access" onKeyDown={radioGroupKeyDown} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 					{WIKI_ACCESS_MODES.map((m) => (
-						<button key={m.value} type="button" onClick={() => setAccess(m.value)} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px', borderRadius: 9, cursor: 'pointer', textAlign: 'left', border: `1px solid ${access === m.value ? T.accBd : T.bd}`, background: access === m.value ? T.accSub : T.surf }}>
+						<button key={m.value} type="button" role="radio" aria-checked={access === m.value} tabIndex={access === m.value ? 0 : -1} onClick={() => setAccess(m.value)} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px', borderRadius: 9, cursor: 'pointer', textAlign: 'left', border: `1px solid ${access === m.value ? T.accBd : T.bd}`, background: access === m.value ? T.accSub : T.surf }}>
 							<span style={{ width: 16, height: 16, borderRadius: '50%', flex: '0 0 auto', border: `2px solid ${access === m.value ? T.acc : T.bdS}`, background: access === m.value ? T.acc : 'transparent' }} />
 							<span style={{ flex: 1 }}><div style={{ font: `600 12.5px ${T.sans}` }}>{m.label}</div><div style={{ font: `11px ${T.sans}`, color: T.ter }}>{m.note}</div></span>
 						</button>
