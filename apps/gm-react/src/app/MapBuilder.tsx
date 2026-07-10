@@ -28,9 +28,9 @@ import {
 	type SceneVisibility,
 } from '@dndtools/core';
 import {
-	Badge,
 	Button,
 	Dialog,
+	EmptyState,
 	Field,
 	FogControls,
 	GenerationPanel,
@@ -42,10 +42,13 @@ import {
 	POIPopover,
 	SegmentedControl,
 	Select,
+	Slider,
 	Stepper,
 	Switch,
 	Textarea,
+	Toaster,
 	ToolPalette,
+	VisibilityChip,
 } from '../ds';
 import { FogRegionShape } from './fogRegions';
 import {
@@ -125,6 +128,9 @@ export const VIS_OPTIONS = [
 	{ value: 'player-visible', label: 'Player visible' },
 	{ value: 'shared', label: 'Shared' },
 ];
+/** Core visibility → the safety-critical VisibilityChip level (same map as Knowledge/Campaign).
+ *  `shared` reads as "players can see it" — the chip's players level is the honest signal. */
+export const VIS_CHIP: Record<string, string> = { 'dm-only': 'dm-only', 'player-visible': 'players', shared: 'players' };
 
 /** Core POI category → the DS POIMarker/POIPopover glyph family (the DS knows 6 tones, core 9). */
 export const POI_MARKER_CAT: Record<MapPoiCategory, string> = {
@@ -681,9 +687,9 @@ export function MapCanvas({
 								>
 									{t.label[0]}
 								</button>
-								<span style={{ font: `10px ${T.sans}`, color: T.sub, background: 'color-mix(in oklab, var(--map-canvas-bg) 72%, transparent)', padding: '1px 5px', borderRadius: 4, whiteSpace: 'nowrap' }}>
+								<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, font: `10px ${T.sans}`, color: T.sub, background: 'color-mix(in oklab, var(--map-canvas-bg) 72%, transparent)', padding: '1px 5px', borderRadius: 4, whiteSpace: 'nowrap' }}>
 									{t.label}
-									{t.visibility === 'dm-only' && <span style={{ color: T.dm }}> · DM</span>}
+									{t.visibility === 'dm-only' && <VisibilityChip level="dm-only" compact />}
 								</span>
 							</div>
 						);
@@ -777,22 +783,24 @@ function CommitRange({
 		if (local !== null && local !== value) onCommit(local);
 		setLocal(null);
 	};
+	// DS Slider spreads extra props onto its <input type="range">, so the commit-on-release contract
+	// (pointerup / arrow-keyup / blur) survives the swap — dragging never dispatches per tick.
 	return (
-		<input
-			type="range"
+		<Slider
 			min={min}
 			max={max}
 			step={1}
 			value={local ?? value}
 			aria-label={label}
 			disabled={disabled}
-			onChange={(e) => setLocal(Number(e.target.value))}
+			onChange={(v: number) => setLocal(v)}
 			onPointerUp={commit}
-			onKeyUp={(e) => {
+			onKeyUp={(e: { key: string }) => {
 				if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Home' || e.key === 'End') commit();
 			}}
 			onBlur={commit}
-			style={{ flex: 1, width: '100%', height: 3, accentColor: 'var(--color-accent)', cursor: disabled ? 'not-allowed' : 'pointer' }}
+			valueLabel={`${local ?? value}%`}
+			style={{ flex: 1 }}
 		/>
 	);
 }
@@ -1213,8 +1221,9 @@ function BuilderLayerRow({
 						</span>
 					</span>
 				</button>
-				<button type="button" title={`Visibility: ${VIS_LABEL[l.visibility] ?? l.visibility} — click to toggle DM-only ↔ player-visible`} disabled={busy} onClick={onVis} style={ghostBtn}>
-					<Icon name={l.visibility === 'dm-only' ? 'dm-only' : 'visibility-players'} size={15} color={l.visibility === 'dm-only' ? T.dm : T.ok} />
+				<button type="button" title={`Visibility: ${VIS_LABEL[l.visibility] ?? l.visibility} — click to toggle DM-only ↔ player-visible`} aria-label={`Toggle ${l.name} player visibility`} disabled={busy} onClick={onVis} style={ghostBtn}>
+					{/* compact chip (icon-only, distinct glyph per level) — the display; the button stays the toggle */}
+					<VisibilityChip level={VIS_CHIP[l.visibility] ?? 'dm-only'} compact />
 				</button>
 				<button type="button" title={l.locked ? 'Unlock layer' : 'Lock layer'} disabled={busy} onClick={onLock} style={ghostBtn}>
 					<Icon name={l.locked ? 'lock' : 'unlock'} size={14} color={l.locked ? T.acc : T.ter} />
@@ -1278,6 +1287,12 @@ export function MapBuilder({
 	const [poiEdit, setPoiEdit] = useState<MapPoiView | null>(null);
 	const [poiDraft, setPoiDraft] = useState({ label: '', category: 'landmark' as MapPoiCategory, visibility: 'dm-only' as SceneVisibility, notes: '' });
 	const [confirmConcealAll, setConfirmConcealAll] = useState(false);
+	// Reveal-all is the SAFETY-CRITICAL direction (players see the whole map) — it confirms, exactly
+	// like its conceal-all sibling.
+	const [confirmRevealAll, setConfirmRevealAll] = useState(false);
+	/** Generation progress driven around the awaited `map.generate-layers` dispatch (start → phase → done). */
+	const [genProgress, setGenProgress] = useState<{ value: number; phase: string } | null>(null);
+	const genClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	// Map metadata drafts (rename / re-describe — `map.update-metadata`). Re-seeded from the core
 	// values whenever they change (e.g. after a save), never on unrelated state ticks.
 	const [metaName, setMetaName] = useState('');
@@ -1332,7 +1347,7 @@ export function MapBuilder({
 
 	// Escape closes the TOPMOST surface only (popover/dialogs handle their own Escape first).
 	const overlayOpenRef = useRef(false);
-	overlayOpenRef.current = importOpen || poiEdit !== null || confirmConcealAll || selPoiId !== null;
+	overlayOpenRef.current = importOpen || poiEdit !== null || confirmConcealAll || confirmRevealAll || selPoiId !== null;
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			const target = e.target as HTMLElement | null;
@@ -1347,7 +1362,8 @@ export function MapBuilder({
 				onCloseRef.current();
 			} else if ((e.key === 'Delete' || e.key === 'Backspace') && !typing && !overlayOpenRef.current && selTokenRef.current) {
 				// The overlay guard matters: without it, Backspace behind an open Import/POI dialog
-				// silently deletes the selected token off-screen (durable, and undo is disabled).
+				// silently deletes the selected token off-screen. The delete itself now raises an Undo
+				// toast that re-creates the token from its prior payload.
 				void deleteTokenRef.current(selTokenRef.current);
 			} else if (e.key === 'Tab' && !overlayOpenRef.current) {
 				// aria-modal contract: wrap Tab inside the builder (same trap as CharBuilder's Overlay) —
@@ -1460,13 +1476,69 @@ export function MapBuilder({
 		void run({ type: 'map.update-poi', actorId, payload: { mapId, poiId, position } });
 	const moveToken = (tokenId: string, position: { x: number; y: number }) =>
 		void run({ type: 'map.move-token', actorId, payload: { mapId, tokenId, position } });
-	const deletePoi = (poiId: string) => {
+	// Deletes are durable core ops with no inverse-op log — so each capture the entity's prior
+	// payload BEFORE dispatching and raise an Undo toast that re-creates it via the real create
+	// command (a re-created entity gets a fresh id; visibility/notes/links are preserved).
+	const deletePoi = async (poiId: string) => {
+		const prior = view?.pois.find((p) => p.id === poiId) ?? null;
 		setSelPoiId(null);
-		void run({ type: 'map.delete-poi', actorId, payload: { mapId, poiId } });
+		const res = await run({ type: 'map.delete-poi', actorId, payload: { mapId, poiId } });
+		if (res?.status !== 'accepted' || !prior) return;
+		Toaster.success(`POI “${prior.label}” deleted`, {
+			action: 'Undo',
+			onAction: () => {
+				void runtime
+					.dispatch({
+						type: 'map.create-poi',
+						actorId,
+						payload: {
+							mapId,
+							layerId: prior.layerId,
+							label: prior.label,
+							category: prior.category,
+							position: prior.position,
+							visibility: prior.visibility,
+							notes: prior.notes,
+							linkedEntityType: prior.linkedEntityType,
+							linkedEntityId: prior.linkedEntityId,
+						},
+					})
+					.then((restored) => {
+						if (restored.status === 'accepted') Toaster.success(`“${prior.label}” restored`);
+						else Toaster.error(restored.rejection.message ?? 'The POI could not be restored.');
+					});
+			},
+		});
 	};
 	const deleteToken = async (tokenId: string) => {
+		const prior = view?.tokens.find((t) => t.id === tokenId) ?? null;
 		setSelTokenId(null);
-		await run({ type: 'map.delete-token', actorId, payload: { mapId, tokenId } });
+		const res = await run({ type: 'map.delete-token', actorId, payload: { mapId, tokenId } });
+		if (res?.status !== 'accepted' || !prior) return;
+		Toaster.success(`Token “${prior.label}” deleted`, {
+			action: 'Undo',
+			onAction: () => {
+				void runtime
+					.dispatch({
+						type: 'map.create-token',
+						actorId,
+						payload: {
+							mapId,
+							layerId: prior.layerId,
+							label: prior.label,
+							linkedActorId: prior.linkedActorId,
+							position: prior.position,
+							size: prior.size,
+							visibility: prior.visibility,
+							controllerActorId: prior.controllerActorId,
+						},
+					})
+					.then((restored) => {
+						if (restored.status === 'accepted') Toaster.success(`“${prior.label}” restored`);
+						else Toaster.error(restored.rejection.message ?? 'The token could not be restored.');
+					});
+			},
+		});
 	};
 	const deleteTokenRef = useRef(deleteToken);
 	deleteTokenRef.current = deleteToken;
@@ -1479,13 +1551,21 @@ export function MapBuilder({
 	// exact same layer/feature ids.
 	async function generateLayers(params: { type: string; seed: string; size: number; density: number }) {
 		const dim = GENERATION_DIMENSIONS[Math.min(3, Math.max(0, Math.round(params.size)))] ?? 12;
+		const seed = params.seed.trim() || 'seed';
+		// Drive the panel's phase-labelled progress bar around the awaited dispatch. Generation is
+		// deterministic and fast, so the staging is coarse — but the bar (never null) tells the DM the
+		// command is running, and GenerationPanel disables Accept while progress < 1.
+		if (genClearRef.current) clearTimeout(genClearRef.current);
+		setGenProgress({ value: 0.15, phase: `Preparing deterministic seed “${seed}”…` });
+		await new Promise((resolve) => setTimeout(resolve, 120)); // let the starting phase paint
+		setGenProgress({ value: 0.6, phase: `Generating ${params.type} layers…` });
 		const res = await run({
 			type: 'map.generate-layers',
 			actorId,
 			payload: {
 				mapId,
 				kind: params.type,
-				seed: params.seed.trim() || 'seed',
+				seed,
 				width: dim,
 				height: dim,
 				density: Math.min(1, Math.max(0, params.density / 100)),
@@ -1494,8 +1574,13 @@ export function MapBuilder({
 			},
 		});
 		if (res?.status === 'accepted') {
-			setNotice(`Generated ${params.type} layers from seed “${params.seed.trim() || 'seed'}” — they're in the Layers tab, DM-only until revealed.`);
+			setGenProgress({ value: 1, phase: 'Done — layers added' });
+			genClearRef.current = setTimeout(() => setGenProgress(null), 1500);
+			setNotice(`Generated ${params.type} layers from seed “${seed}” — they're in the Layers tab, DM-only until revealed.`);
 			setRightTab('layers');
+		} else {
+			// Rejected (or re-entered while busy) — clear the bar; the rejection message is in the notice.
+			setGenProgress(null);
 		}
 	}
 
@@ -1563,7 +1648,7 @@ export function MapBuilder({
 					<Icon name="chevron-right" size={13} color={T.ter} />
 					<span style={{ color: T.ink, fontWeight: 600 }}>{view.name}</span>
 				</nav>
-				<Badge status={VIS_STATUS[view.visibility] ?? 'neutral'}>{VIS_LABEL[view.visibility] ?? view.visibility}</Badge>
+				<VisibilityChip level={VIS_CHIP[view.visibility] ?? 'dm-only'} />
 				<div style={{ flex: 1 }} />
 				{saved && (
 					<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: `11.5px ${T.sans}`, color: T.ter }}>
@@ -1646,7 +1731,7 @@ export function MapBuilder({
 									setSelPoiId(null);
 								}}
 								onDeepLink={() => void copyPoiLink(poi.id)}
-								onDelete={() => deletePoi(poi.id)}
+								onDelete={() => void deletePoi(poi.id)}
 							/>
 						)}
 					>
@@ -1665,24 +1750,23 @@ export function MapBuilder({
 										feather={featherOn}
 										onFeather={() => setFeatherOn((f) => !f)}
 										syncStatus={busy ? 'syncing' : 'synced'}
-										onRevealAll={() => appendFog({ shape: 'rect', x: 0, y: 0, w: 1, h: 1 }, 'reveal')}
+										onRevealAll={() => setConfirmRevealAll(true)}
 										onResetFog={() => setConfirmConcealAll(true)}
 									/>
 									{featherOn && (
-										<label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 11px', borderRadius: 8, background: 'var(--color-surface-raised)', border: `1px solid ${T.bd}`, font: `11px ${T.sans}`, color: T.sub }}>
+										<div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 11px', borderRadius: 8, background: 'var(--color-surface-raised)', border: `1px solid ${T.bd}`, font: `11px ${T.sans}`, color: T.sub }}>
 											Feather width
-											<input
-												type="range"
+											<Slider
 												min={1}
 												max={20}
 												step={1}
 												value={featherPct}
 												aria-label="Feather width (% of map)"
-												onChange={(e) => setFeatherPct(Number(e.target.value))}
-												style={{ flex: 1, height: 3, accentColor: 'var(--color-accent)', cursor: 'pointer' }}
+												valueLabel={`${featherPct}%`}
+												onChange={(v: number) => setFeatherPct(v)}
+												style={{ flex: 1 }}
 											/>
-											<span style={{ font: `10.5px ${T.mono}`, color: T.ink, minWidth: 28, textAlign: 'right' }}>{featherPct}%</span>
-										</label>
+										</div>
 									)}
 									<span style={{ alignSelf: 'flex-start', padding: '4px 9px', borderRadius: 7, background: 'color-mix(in oklab, var(--map-canvas-bg) 78%, transparent)', border: `1px solid ${T.bd}`, font: `11px ${T.sans}`, color: T.sub }}>
 										{fogShape === 'rect' && `Drag on the map to ${fogMode} a rectangle`}
@@ -1712,15 +1796,16 @@ export function MapBuilder({
 								<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', borderRadius: 10, background: 'color-mix(in oklab, var(--map-canvas-bg) 82%, transparent)', backdropFilter: 'blur(3px)', border: `1px solid ${T.bd}`, boxShadow: T.smd }}>
 									<Icon name="tool-token" size={14} color={T.acc} />
 									<span style={{ font: `600 12.5px ${T.sans}`, color: T.ink }}>{selToken.label}</span>
-									<Badge status={VIS_STATUS[selToken.visibility] ?? 'neutral'}>{VIS_LABEL[selToken.visibility] ?? selToken.visibility}</Badge>
+									{/* the chip is the display; the wrapping button keeps the toggle functional */}
 									<button
 										type="button"
-										title="Toggle player visibility"
+										title={`Visibility: ${VIS_LABEL[selToken.visibility] ?? selToken.visibility} — click to toggle DM-only ↔ player-visible`}
+										aria-label="Toggle player visibility"
 										disabled={busy}
 										onClick={() => void run({ type: 'map.update-token', actorId, payload: { mapId, tokenId: selToken.id, visibility: selToken.visibility === 'dm-only' ? 'player-visible' : 'dm-only' } })}
 										style={ghostBtn}
 									>
-										<Icon name={selToken.visibility === 'dm-only' ? 'dm-only' : 'visibility-players'} size={15} color={selToken.visibility === 'dm-only' ? T.dm : T.ok} />
+										<VisibilityChip level={VIS_CHIP[selToken.visibility] ?? 'dm-only'} />
 									</button>
 									<Button variant="danger" size="sm" icon="delete" disabled={busy} onClick={() => void deleteToken(selToken.id)}>
 										Delete
@@ -1844,7 +1929,7 @@ export function MapBuilder({
 											onOpacity={(v) => void run({ type: 'map.set-layer-opacity', actorId, payload: { mapId, layerId: l.layerId, opacity: v } })}
 										/>
 									))}
-									{layers.length === 0 && <div style={{ font: `12.5px ${T.sans}`, color: T.ter, padding: '8px 6px' }}>No layers are visible to you.</div>}
+									{layers.length === 0 && <EmptyState inset icon="layers" title="No layers are visible to you" description={isDm ? 'Add a layer with the + above, or generate some in the Generate tab.' : undefined} />}
 								</div>
 								<div style={{ marginTop: 9, font: `11px/1.5 ${T.sans}`, color: T.ter }}>
 									The <strong style={{ color: T.sub }}>active</strong> layer receives new POIs and tokens. Fog ops land on the fog layer{fogLayerId && view.layers.find((l) => l.id === fogLayerId)?.category !== 'fog' ? ' (none here — using the active layer)' : ''}.
@@ -1860,7 +1945,8 @@ export function MapBuilder({
 									</span>
 								</div>
 								<GenerationPanel
-									progress={null}
+									progress={genProgress?.value ?? null}
+									phase={genProgress?.phase ?? null}
 									onAccept={(params: { type: string; seed: string; size: number; density: number }) =>
 										void generateLayers(params)
 									}
@@ -1907,7 +1993,7 @@ export function MapBuilder({
 										<div style={{ display: 'flex', flexDirection: 'column', gap: 7, font: `12.5px ${T.sans}`, color: T.sub }}>
 											<div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
 												<span>Visibility</span>
-												<Badge status={VIS_STATUS[view.visibility] ?? 'neutral'}>{VIS_LABEL[view.visibility] ?? view.visibility}</Badge>
+												<VisibilityChip level={VIS_CHIP[view.visibility] ?? 'dm-only'} />
 											</div>
 											<div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
 												<span>Scale</span>
@@ -1940,7 +2026,7 @@ export function MapBuilder({
 									<div>
 										<PanelLabel>Imported assets · {mapAssets.length}</PanelLabel>
 										{mapAssets.length === 0 ? (
-											<div style={{ font: `12px ${T.sans}`, color: T.ter }}>No assets imported yet — use Import in the top bar.</div>
+											<EmptyState inset icon="import" title="No assets imported yet" description="Use Import in the top bar to attach an image or scene file." />
 										) : (
 											<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
 												{mapAssets.map((a) => (
@@ -2014,6 +2100,37 @@ export function MapBuilder({
 						</Field>
 					</div>
 				</Dialog>
+			)}
+
+			{confirmRevealAll && (
+				<Dialog
+					open
+					onClose={() => setConfirmRevealAll(false)}
+					title="Reveal the whole map to players?"
+					description="Appends a full-map reveal op — players will immediately see the entire map, including anything the fog was hiding. You can re-conceal afterwards, but what players have seen can't be unseen."
+					tone="danger"
+					icon="reveal"
+					size="sm"
+					footer={
+						<>
+							<Button variant="ghost" size="sm" onClick={() => setConfirmRevealAll(false)}>
+								Cancel
+							</Button>
+							<Button
+								variant="danger"
+								size="sm"
+								icon="reveal"
+								disabled={busy}
+								onClick={() => {
+									setConfirmRevealAll(false);
+									appendFog({ shape: 'rect', x: 0, y: 0, w: 1, h: 1 }, 'reveal');
+								}}
+							>
+								Reveal everything
+							</Button>
+						</>
+					}
+				/>
 			)}
 
 			{confirmConcealAll && (

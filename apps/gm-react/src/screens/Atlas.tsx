@@ -7,7 +7,7 @@ import {
 	queryMapLayers,
 	type SceneVisibility,
 } from '@dndtools/core';
-import { Badge, Button, Icon, IconButton, Input, POIPopover, Select, StatusDot, Switch } from '../ds';
+import { Badge, Button, EmptyState, Icon, IconButton, MapCreationForm, POIPopover, Skeleton, StatusDot, Switch, Toaster, VisibilityChip } from '../ds';
 import { Page, Panel, T } from '../app/screen-kit';
 import { fogRegionSummary } from '../app/fogRegions';
 import { pickRasterAssetId } from '../app/mapGeometry';
@@ -17,9 +17,8 @@ import {
 	MapBuilder,
 	MapCanvas,
 	POI_MARKER_CAT,
+	VIS_CHIP,
 	VIS_LABEL,
-	VIS_OPTIONS,
-	VIS_STATUS,
 	dsToVis,
 	visToDs,
 	type MapTool,
@@ -61,6 +60,10 @@ export function Atlas() {
 	const actorId = runtime.defaultActorId;
 	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
 
+	// Async-load sentinel: the runtime hydrates from IndexedDB after first paint, so an empty `maps`
+	// while `!loaded` means "still loading", never "you have no maps".
+	const loading = !runtime.loaded;
+
 	const [mapId, setMapId] = useState<string | null>(null);
 	const [mapZoom, setMapZoom] = useState(1);
 	const [busy, setBusy] = useState(false);
@@ -72,10 +75,9 @@ export function Atlas() {
 	const [selPoiId, setSelPoiId] = useState<string | null>(null);
 	const [selTokenId, setSelTokenId] = useState<string | null>(null);
 
-	// New-map inline create form (DM authoring) — dispatches a real `map.create`.
+	// New-map create form (DM authoring) — the DS MapCreationForm (name, scale/unit, projection,
+	// default visibility) dispatching a real `map.create`.
 	const [creating, setCreating] = useState(false);
-	const [newMapName, setNewMapName] = useState('');
-	const [newMapVis, setNewMapVis] = useState<SceneVisibility>('dm-only');
 
 	// Create-intent handoff from "New map" launchers (home hub, ⌘K): open the create form on
 	// arrival. Consumed once, then cleared.
@@ -177,18 +179,20 @@ export function Atlas() {
 		setBuilder({ tool, fogMode });
 	};
 
-	async function createMap() {
-		const name = newMapName.trim();
-		if (!name) return;
+	// The DS form's draft → the real `map.create` payload: scale becomes the core's
+	// {unitsPerMap, unit} (or null when unset), the form's `mercator` value maps to the core's
+	// `web-mercator` projection kind, and DS visibility values go through `dsToVis`.
+	async function createMap(draft: { name: string; scale: number | null; unit: string; projection: string; visibility: string }) {
+		const visibility = dsToVis(draft.visibility);
 		const res = await run({
 			type: 'map.create',
 			actorId,
 			payload: {
-				name,
-				visibility: newMapVis,
-				scale: null,
-				projection: { kind: 'flat', rotationDegrees: 0 },
-				initialLayers: [{ name: 'Base', category: 'base', visibility: newMapVis }],
+				name: draft.name,
+				visibility,
+				scale: draft.scale && draft.scale > 0 ? { unitsPerMap: draft.scale, unit: draft.unit.trim() || 'miles' } : null,
+				projection: { kind: draft.projection === 'mercator' ? 'web-mercator' : draft.projection, rotationDegrees: 0 },
+				initialLayers: [{ name: 'Base', category: 'base', visibility }],
 			},
 		});
 		if (res?.status === 'accepted') {
@@ -196,8 +200,9 @@ export function Atlas() {
 				(e) => e.kind === 'map.created',
 			);
 			if (created?.mapId) setMapId(created.mapId);
-			setNewMapName('');
 			setCreating(false);
+		} else if (res) {
+			setNotice(res.rejection.message);
 		}
 	}
 
@@ -238,10 +243,41 @@ export function Atlas() {
 		if (!selectedId) return;
 		void run({ type: 'map.update-poi', actorId, payload: { mapId: selectedId, poiId, visibility } });
 	}
-	function deletePoi(poiId: string) {
-		if (!selectedId) return;
+	// Delete is a durable core op with no inverse-op log — capture the POI's prior payload BEFORE
+	// dispatching and raise an Undo toast that re-creates it via the real `map.create-poi` (the
+	// re-created POI gets a fresh id; visibility/notes/links are preserved).
+	async function deletePoi(poiId: string) {
+		const mid = selectedId;
+		if (!mid) return;
+		const prior = mapView?.pois.find((p) => p.id === poiId) ?? null;
 		if (selPoiId === poiId) setSelPoiId(null);
-		void run({ type: 'map.delete-poi', actorId, payload: { mapId: selectedId, poiId } });
+		const res = await run({ type: 'map.delete-poi', actorId, payload: { mapId: mid, poiId } });
+		if (res?.status !== 'accepted' || !prior) return;
+		Toaster.success(`POI “${prior.label}” deleted`, {
+			action: 'Undo',
+			onAction: () => {
+				void runtime
+					.dispatch({
+						type: 'map.create-poi',
+						actorId,
+						payload: {
+							mapId: mid,
+							layerId: prior.layerId,
+							label: prior.label,
+							category: prior.category,
+							position: prior.position,
+							visibility: prior.visibility,
+							notes: prior.notes,
+							linkedEntityType: prior.linkedEntityType,
+							linkedEntityId: prior.linkedEntityId,
+						},
+					})
+					.then((restored) => {
+						if (restored.status === 'accepted') Toaster.success(`“${prior.label}” restored`);
+						else Toaster.error(restored.rejection.message ?? 'The POI could not be restored.');
+					});
+			},
+		});
 	}
 
 	// POI deep link — the SAME shareable hash URL MapBuilder's copy-link writes (`#/atlas?map=…&poi=…`);
@@ -314,7 +350,15 @@ export function Atlas() {
 						</button>
 					);
 				})}
-				{maps.length === 0 && (
+				{maps.length === 0 && loading && (
+					// Hydration in flight — skeleton chips, never a premature "no maps" claim.
+					<>
+						<Skeleton width={128} height={33} radius={9} />
+						<Skeleton width={104} height={33} radius={9} />
+						<Skeleton width={118} height={33} radius={9} />
+					</>
+				)}
+				{maps.length === 0 && !loading && (
 					<span style={{ font: `13px ${T.sans}`, color: T.ter, padding: '7px 4px' }}>No maps are visible to you.</span>
 				)}
 				<div style={{ flex: 1 }} />
@@ -339,21 +383,14 @@ export function Atlas() {
 			)}
 
 			{creating && isDm && (
-				<div style={{ marginBottom: 16, padding: 14, borderRadius: 10, background: T.raised, border: `1px solid ${T.accBd}`, display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-					<label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 200px' }}>
-						<span style={{ font: `600 11px ${T.sans}`, color: T.sub }}>Map name</span>
-						<Input value={newMapName} placeholder="e.g. Sunless Citadel" onChange={(e: { target: { value: string } }) => setNewMapName(e.target.value)} />
-					</label>
-					<label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '0 0 170px' }}>
-						<span style={{ font: `600 11px ${T.sans}`, color: T.sub }}>Default visibility</span>
-						<Select value={newMapVis} options={VIS_OPTIONS} onChange={(e: { target: { value: string } }) => setNewMapVis(e.target.value as SceneVisibility)} />
-					</label>
-					<Button variant="primary" size="sm" icon="new-map" disabled={busy || !newMapName.trim()} onClick={createMap}>
-						Create map
-					</Button>
-					<Button variant="ghost" size="sm" onClick={() => setCreating(false)}>
-						Cancel
-					</Button>
+				<div style={{ marginBottom: 16, padding: 16, borderRadius: 10, background: T.raised, border: `1px solid ${T.accBd}`, maxWidth: 520 }}>
+					<MapCreationForm
+						submitting={busy}
+						onCancel={() => setCreating(false)}
+						onCreate={(draft: { name: string; scale: number | null; unit: string; projection: string; visibility: string }) =>
+							void createMap(draft)
+						}
+					/>
 				</div>
 			)}
 
@@ -383,7 +420,7 @@ export function Atlas() {
 							onFocus={() => openBuilder('select')}
 							onEdit={() => openBuilder('select')}
 							onDeepLink={() => void copyPoiLink(poi.id)}
-							onDelete={() => deletePoi(poi.id)}
+							onDelete={() => void deletePoi(poi.id)}
 						/>
 					)}
 				>
@@ -393,7 +430,7 @@ export function Atlas() {
 						</span>
 						{selectedEntry && (
 							<span style={{ display: 'flex', alignItems: 'center', gap: 7, font: `11px ${T.sans}`, color: T.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-								<Badge status={VIS_STATUS[selectedEntry.visibility] ?? 'neutral'}>{VIS_LABEL[selectedEntry.visibility] ?? selectedEntry.visibility}</Badge>
+								<VisibilityChip level={VIS_CHIP[selectedEntry.visibility] ?? 'dm-only'} />
 								{selectedEntry.description || 'No description'}
 							</span>
 						)}
@@ -467,17 +504,23 @@ export function Atlas() {
 									</div>
 									{isDm ? (
 										<>
-											<button type="button" title="Toggle player visibility" disabled={busy} onClick={() => toggleLayerVisibility(l.layerId, l.visibility)} style={ghostBtn}>
-												<Icon name={l.visibility === 'dm-only' ? 'dm-only' : 'visibility-players'} size={15} color={l.visibility === 'dm-only' ? T.dm : T.ok} />
+											{/* compact chip = the grayscale-safe status display; the button stays the toggle */}
+											<button type="button" title={`Visibility: ${VIS_LABEL[l.visibility] ?? l.visibility} — click to toggle DM-only ↔ player-visible`} aria-label={`Toggle ${l.name} player visibility`} disabled={busy} onClick={() => toggleLayerVisibility(l.layerId, l.visibility)} style={ghostBtn}>
+												<VisibilityChip level={VIS_CHIP[l.visibility] ?? 'dm-only'} compact />
 											</button>
 											<Switch checked={l.enabled} aria-label={`Display ${l.name}`} onChange={() => toggleLayerEnabled(l.layerId, l.enabled)} />
 										</>
 									) : (
-										<Badge status={VIS_STATUS[l.visibility] ?? 'neutral'}>{VIS_LABEL[l.visibility] ?? l.visibility}</Badge>
+										<VisibilityChip level={VIS_CHIP[l.visibility] ?? 'dm-only'} />
 									)}
 								</div>
 							))}
-							{layers.length === 0 && <div style={{ font: `12.5px ${T.sans}`, color: T.ter, padding: '4px 6px' }}>No layers are visible to you.</div>}
+							{layers.length === 0 &&
+								(loading ? (
+									<Skeleton height={44} />
+								) : (
+									<EmptyState inset icon="layers" title="No layers are visible to you" description={isDm && selectedId ? 'Add one with the + above.' : undefined} />
+								))}
 						</div>
 					</Panel>
 
@@ -516,20 +559,33 @@ export function Atlas() {
 									</button>
 									{isDm ? (
 										<>
-											<button type="button" title="Toggle player visibility" disabled={busy} onClick={() => togglePoiVisibility(poi.id, poi.visibility)} style={ghostBtn}>
-												<Icon name={poi.visibility === 'dm-only' ? 'dm-only' : 'visibility-players'} size={15} color={poi.visibility === 'dm-only' ? T.dm : T.ok} />
+											{/* compact chip = the grayscale-safe status display; the button stays the toggle */}
+											<button type="button" title={`Visibility: ${VIS_LABEL[poi.visibility] ?? poi.visibility} — click to toggle DM-only ↔ player-visible`} aria-label={`Toggle ${poi.label} player visibility`} disabled={busy} onClick={() => togglePoiVisibility(poi.id, poi.visibility)} style={ghostBtn}>
+												<VisibilityChip level={VIS_CHIP[poi.visibility] ?? 'dm-only'} compact />
 											</button>
-											<button type="button" title="Delete POI" disabled={busy} onClick={() => deletePoi(poi.id)} style={ghostBtn}>
+											<button type="button" title="Delete POI" disabled={busy} onClick={() => void deletePoi(poi.id)} style={ghostBtn}>
 												<Icon name="delete" size={14} color={T.ter} />
 											</button>
 										</>
 									) : (
-										<Badge status={VIS_STATUS[poi.visibility] ?? 'neutral'}>{VIS_LABEL[poi.visibility] ?? poi.visibility}</Badge>
+										<VisibilityChip level={VIS_CHIP[poi.visibility] ?? 'dm-only'} />
 									)}
 								</div>
 							))}
-							{mapView && mapView.pois.length === 0 && <div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No points of interest{isDm ? ' yet.' : ' are visible to you.'}</div>}
-							{!mapView && <div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Open a map to see its points of interest.</div>}
+							{mapView && mapView.pois.length === 0 && (
+								<EmptyState
+									inset
+									icon="poi"
+									title={isDm ? 'No points of interest yet' : 'No points of interest are visible to you'}
+									description={isDm ? 'The builder’s POI tool places one at the exact clicked position.' : undefined}
+								/>
+							)}
+							{!mapView &&
+								(loading ? (
+									<Skeleton height={44} />
+								) : (
+									<EmptyState inset icon="atlas-map" title="Open a map to see its points of interest" />
+								))}
 						</div>
 					</Panel>
 
