@@ -27,7 +27,12 @@ security review is required for testing or small-scale use.
      - `http://localhost:5273` (vite dev)
      - `http://localhost:4273` (vite preview)
      - `https://d1xn0o010v89mt.cloudfront.net` (deployed dev web app — adjust per stage)
-   - No redirect URIs are needed (the Google Identity Services token client uses a popup).
+   - Authorized redirect URIs — the app implements the **authorization-code + PKCE** flow
+     (popup-first with a full-redirect fallback), so the app's own page URL must be a
+     registered redirect URI (origin + path, no `#/…` fragment):
+     - `http://localhost:5273/`
+     - `http://localhost:4273/`
+     - `https://d1xn0o010v89mt.cloudfront.net/`
 5. **Provide the id to the build** (either):
    - Local dev: add `VITE_GOOGLE_CLIENT_ID=<client-id>.apps.googleusercontent.com` to
      `apps/gm-react/.env.local` (the file `pull-cloud-env.mjs` writes — re-running that
@@ -41,16 +46,27 @@ security review is required for testing or small-scale use.
      ```
 
      (`apps/gm-react/scripts/pull-cloud-env.mjs` reads `google/client-id` as an optional
-     parameter once WS-7 lands; absent ⇒ feature stays hidden.)
+     parameter; absent ⇒ feature stays hidden.)
 6. **Verify**: rebuild/restart the app signed in as a test user → Knowledge → Connected
    sources → "Connect Google Docs" appears; connecting opens the Google popup; after
    consent, an import of a picked Doc round-trips and write-back updates the Doc.
 
 ## Notes / gotchas
 
-- **Testing mode tokens expire**: consent-screen "Testing" apps issue refresh-less popup
-  tokens with short lifetimes; the app re-prompts via the token client silently where
-  possible. Publish the consent screen only if/when this leaves personal use.
+- **If the token exchange fails with a `client_secret`-related error** (e.g.
+  `invalid_request: client_secret is missing`): Google sometimes requires a client secret
+  at the token endpoint for "Web application"-type clients even with PKCE, and the app
+  deliberately ships no secret. Workarounds, in preference order: (1) some Google Cloud
+  console flows let you create a web client without a secret requirement — try recreating
+  the client; (2) for **local-only** use, a "Desktop app"-type client id exchanges
+  secret-less, but Desktop clients only allow loopback redirect URIs, so the deployed
+  CloudFront origin cannot use one. If neither works for the deployed app, that's a code
+  change (switch to the GIS token model), not a console setting — file it rather than
+  pasting a secret into the bundle.
+- **Testing mode tokens expire**: consent-screen "Testing" apps issue short-lived tokens
+  without refresh; the app holds them in sessionStorage only and shows an honest
+  "sign in again" state on expiry. Publish the consent screen only if/when this leaves
+  personal use.
 - The client id is **not a secret** (it ships in the JS bundle); the origin allowlist is
   what constrains it.
 - Never request broader Drive scopes (`drive`, `drive.readonly`): they are restricted,
