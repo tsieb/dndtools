@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+	EMPTY_PRESENCE_STATE,
 	addDays,
 	allowedTransitionsFrom,
 	daysInMonth,
@@ -15,10 +16,12 @@ import {
 	listCharactersForActor,
 	listMapsForActor,
 	listScenesForActor,
+	projectSessionPresence,
 	type CalendarDefinition,
 	type CombatTrackerView,
 	type CustomDate,
 	type PrepRecapDigest,
+	type ProjectedPresenceEntry,
 	type SessionArchiveSnapshot,
 	type SessionWorkflowState,
 } from '@dndtools/core';
@@ -48,6 +51,8 @@ import { Toaster } from '../ds';
 import { EncounterDialog } from '../app/EncounterBuilder';
 import { Page, Panel, Seg, SetRow, T, eb, mono } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { useSession } from '../net/SessionContext';
+import type { HostPeer } from '../net/SessionHost';
 
 /**
  * Session — the live-play console, wired to the real Processing Core (was a local-reducer mock).
@@ -80,6 +85,7 @@ type CombatantRow = CombatTrackerView['combatants'][number];
 
 export function Session() {
 	const runtime = useRuntime();
+	const session = useSession();
 	const actorId = runtime.defaultActorId;
 	const workflow = runtime.state.session.workflow;
 	const isLive = workflow === 'active';
@@ -171,6 +177,18 @@ export function Session() {
 			archives,
 			recapArchiveId: session.recapArchiveId,
 		};
+	}, [runtime.state, actorId]);
+
+	// COLLAB-004 — the ephemeral core presence, projected for this viewer via the core query (fail
+	// closed: only registered participants surface). Written by `session.set-presence`, which the P2P
+	// host applies (stamped) whenever a connected player's presence beat arrives; never persisted.
+	const presenceByActor = useMemo(() => {
+		const projection = projectSessionPresence(
+			runtime.state.presence ?? EMPTY_PRESENCE_STATE,
+			runtime.state.permissions,
+			actorId,
+		);
+		return new Map(projection.visible.map((entry) => [entry.actorId, entry]));
 	}, [runtime.state, actorId]);
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -365,6 +383,11 @@ export function Session() {
 							}
 						/>
 					)}
+					<RosterPanel
+						hosting={session.role === 'host'}
+						peers={session.peers}
+						presence={presenceByActor}
+					/>
 					<PartyPanel party={party} />
 				</div>
 			</div>
@@ -1225,6 +1248,85 @@ function StagePanel({
 						Show players the map
 					</Button>
 				</>
+			)}
+		</Panel>
+	);
+}
+
+// ── Table roster (COLLAB-004 — connected players + live presence) ─────────────────────────────────
+
+/**
+ * RosterPanel — who is at the table right now. Connection + the hand-raised / ready hints come from
+ * the P2P host's peer roster; the online/away status and device come from the CORE presence state via
+ * its projection query (`projectSessionPresence` — the model `session.set-presence` writes when a
+ * player's presence beat arrives). Honest when there is no transport: not hosting ⇒ it says how to
+ * host, hosting with nobody joined ⇒ it says players appear as they connect.
+ */
+function RosterPanel({
+	hosting,
+	peers,
+	presence,
+}: {
+	hosting: boolean;
+	peers: HostPeer[];
+	presence: Map<string, ProjectedPresenceEntry>;
+}) {
+	const connected = peers.filter((p) => p.connected);
+	return (
+		<Panel
+			title="Table roster"
+			action={hosting ? <Badge status={connected.length > 0 ? 'success' : 'neutral'}>{connected.length} connected</Badge> : undefined}
+		>
+			{!hosting ? (
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+					No live table — use <strong style={{ color: T.sub }}>Host</strong> in the top bar to open your table, then connected players and their presence appear here.
+				</div>
+			) : peers.length === 0 ? (
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+					Hosting — no players yet. Invite from the Host panel; players appear here as they connect.
+				</div>
+			) : (
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+					{peers.map((p) => {
+						const entry = presence.get(p.actorId);
+						const status = p.connected ? (entry?.status ?? p.status) : 'offline';
+						return (
+							<div
+								key={p.peerId}
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 10,
+									padding: '8px 10px',
+									borderRadius: 9,
+									border: `1px solid ${p.hand ? T.accBd : T.bd}`,
+									background: p.hand ? T.accSub : T.surf,
+								}}
+							>
+								<StatusDot status={status === 'online' ? 'live' : 'idle'} pulse={p.hand} />
+								<Avatar name={p.displayName} size="sm" />
+								<div style={{ flex: 1, minWidth: 0 }}>
+									<div style={{ font: `600 13px ${T.sans}`, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+										{p.displayName}
+									</div>
+									<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+										{p.role}
+										{p.connected ? ` · ${status}` : ' · invited, not connected'}
+										{entry && entry.device !== 'unknown' ? ` · ${entry.device}` : ''}
+									</div>
+								</div>
+								{p.connected &&
+									(p.hand ? (
+										<Badge status="accent" icon="flag">Hand raised</Badge>
+									) : p.ready ? (
+										<Badge status="success" icon="check">Ready</Badge>
+									) : (
+										<Badge status="neutral">Idle</Badge>
+									))}
+							</div>
+						);
+					})}
+				</div>
 			)}
 		</Panel>
 	);

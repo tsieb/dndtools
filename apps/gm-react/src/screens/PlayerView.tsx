@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type ReactNode, type CSSProperties } from 'react';
 import {
 	getDiceHistoryForActor,
 	availableSlots,
@@ -34,8 +34,11 @@ import { JoinSessionButton } from '../net/SessionPanel';
  * durable session dice history (the same log the DM's /session dice panel reads), attributed to this
  * player, and session-gated by the Core (no live session ⇒ the rejection surfaces as a toast).
  *
- * HONEST-LOCAL (labeled in the UI): the presence affordances (raise hand / ready) are device-local —
- * live presence needs the table transport deferred by ADR-014. // no core command
+ * REAL presence (when joined): the raise-hand / ready affordances send an ephemeral `presence-beat`
+ * over the live transport (a SIDE-CHANNEL — never the command-request path). The host stamps the
+ * authenticated identity, applies `session.set-presence` into the core presence model, and echoes the
+ * roster back in its `presence` broadcast — the local optimistic state reconciles from that echo. On a
+ * solo/preview device the toggles stay honestly device-local and the copy says so.
  * The Trusted / Co-DM tiers have NO core role above `player`, so the elevated nav is shown-locked
  * until such a role exists. // no core role
  */
@@ -195,6 +198,18 @@ export function PlayerView() {
 		return runtime.state.permissions.actors[id]?.displayName ?? 'Player';
 	};
 
+	// Presence wiring. Shared only over a LIVE joined transport; the beat is a dedicated side-channel
+	// message (never a command request). The host's `presence` broadcast echoes our own entry back —
+	// that echo is the table-visible truth StageSection reconciles its optimistic state from.
+	const presenceShared = joined && session.client?.status === 'live';
+	const selfPresence = presenceShared
+		? (session.client?.presence.find((p) => p.actorId === viewer) ?? null)
+		: null;
+	const sendPresence = (hand: boolean, ready: boolean) => {
+		if (!presenceShared) return;
+		session.sendPresenceBeat({ status: 'online', hand, ready });
+	};
+
 	const allItems = [...NAV, ...NAV_ELEVATED];
 	const allowedIds = allItems.filter((n) => r >= n.min).map((n) => n.id);
 	const current = allowedIds.includes(section) ? section : 'stage';
@@ -228,7 +243,7 @@ export function PlayerView() {
 	);
 
 	let body: ReactNode;
-	if (current === 'stage') body = <StageSection data={data} r={r} toast={toast} />;
+	if (current === 'stage') body = <StageSection data={data} r={r} toast={toast} presenceShared={presenceShared} selfPresence={selfPresence} onPresence={sendPresence} />;
 	else if (current === 'sheet') body = <SheetSection data={data} />;
 	else if (current === 'dice') body = <DiceSection rolls={data.diceRolls} sessionActive={data.sessionActive} viewer={viewer} actorName={actorName} onRoll={rollDice} />;
 	else if (current === 'party') body = <PartySection data={data} />;
@@ -298,10 +313,42 @@ export function PlayerView() {
 }
 
 // 1 · NOW PLAYING — the live stage the DM is projecting + the player's presence row.
-function StageSection({ data, r, toast }: { data: LiveData; r: number; toast: (m: string, s?: string, i?: string) => void }) {
+function StageSection({ data, r, toast, presenceShared, selfPresence, onPresence }: {
+	data: LiveData;
+	r: number;
+	toast: (m: string, s?: string, i?: string) => void;
+	/** True when a live joined transport carries presence beats to the DM. */
+	presenceShared: boolean;
+	/** Our own entry from the host's replicated presence roster (the table-visible truth), when joined. */
+	selfPresence: { hand?: boolean; ready?: boolean } | null;
+	onPresence: (hand: boolean, ready: boolean) => void;
+}) {
 	const { live, sceneName } = data;
 	const [hand, setHand] = useState(false);
 	const [ready, setReady] = useState(true);
+	// Reconcile optimistic local state from the host's echoed roster entry — after our beat round-trips,
+	// what we show matches what the DM actually sees (and a host-side reset propagates back honestly).
+	const remoteHand = selfPresence?.hand;
+	const remoteReady = selfPresence?.ready;
+	useEffect(() => {
+		if (remoteHand !== undefined) setHand(remoteHand);
+		if (remoteReady !== undefined) setReady(remoteReady);
+	}, [remoteHand, remoteReady]);
+	const toggleHand = () => {
+		const next = !hand;
+		setHand(next);
+		if (presenceShared) {
+			onPresence(next, ready);
+			toast(next ? 'Hand raised — your DM can see it' : 'Hand lowered', next ? 'info' : 'neutral', 'flag');
+		} else {
+			toast(next ? 'Hand raised on this device — join a table to share it with your DM' : 'Hand lowered (this device only)', next ? 'info' : 'neutral', 'flag');
+		}
+	};
+	const toggleReady = () => {
+		const next = !ready;
+		setReady(next);
+		if (presenceShared) onPresence(hand, next);
+	};
 	// RASTER GATING (player side): `data.projectedMap` is non-null ONLY when the DM actively
 	// projected a map to this viewer (`resolveProjectedMapForViewer`), so this is the only state in
 	// which the device ever asks the asset store for map image bytes. A missing blob (e.g. a remote
@@ -357,15 +404,16 @@ function StageSection({ data, r, toast }: { data: LiveData; r: number; toast: (m
 						)}
 					</div>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: T.surf, borderTop: `1px solid ${T.bd}`, flexWrap: 'wrap' }}>
-						{/* no core command — presence (raise hand / ready) is DEVICE-LOCAL: there is no presence
-						    channel until the table transport lands (ADR-014), and the copy says so honestly. */}
+						{/* Presence (raise hand / ready): over a live joined transport each toggle sends a
+						    `presence-beat` side-channel message the host applies as `session.set-presence`
+						    (stamped, self-only) — otherwise it stays honestly device-local and says so. */}
 						{r >= 1 ? (
 							<>
-								<button type="button" aria-pressed={hand} onClick={() => { setHand((v) => !v); toast(hand ? 'Hand lowered (this device only)' : "Hand raised on this device — presence isn't shared with the table yet", hand ? 'neutral' : 'info', 'flag'); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 9, cursor: 'pointer', font: `600 12.5px ${T.sans}`, border: `1px solid ${hand ? T.accBd : T.bd}`, background: hand ? T.accSub : T.surf, color: hand ? T.acc : T.sub }}>
+								<button type="button" aria-pressed={hand} onClick={toggleHand} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 9, cursor: 'pointer', font: `600 12.5px ${T.sans}`, border: `1px solid ${hand ? T.accBd : T.bd}`, background: hand ? T.accSub : T.surf, color: hand ? T.acc : T.sub }}>
 									<Icon name="flag" size={15} />{hand ? 'Hand raised' : 'Raise hand'}</button>
-								<button type="button" aria-pressed={ready} onClick={() => setReady((v) => !v)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 9, cursor: 'pointer', font: `600 12.5px ${T.sans}`, border: `1px solid ${ready ? 'var(--color-status-success-border)' : T.bd}`, background: ready ? 'var(--color-status-success-subtle)' : T.surf, color: ready ? 'var(--color-status-success-text)' : T.sub }}>
+								<button type="button" aria-pressed={ready} onClick={toggleReady} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 13px', borderRadius: 9, cursor: 'pointer', font: `600 12.5px ${T.sans}`, border: `1px solid ${ready ? 'var(--color-status-success-border)' : T.bd}`, background: ready ? 'var(--color-status-success-subtle)' : T.surf, color: ready ? 'var(--color-status-success-text)' : T.sub }}>
 									<Icon name="check" size={15} />{ready ? "I'm ready" : 'Not ready'}</button>
-								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>Device-local — not broadcast yet</span>
+								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>{presenceShared ? 'Shared live with your DM' : 'Device-local — join a table to share'}</span>
 							</>
 						) : (
 							<span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, font: `12.5px ${T.sans}`, color: T.ter }}>
