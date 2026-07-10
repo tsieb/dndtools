@@ -121,10 +121,15 @@ function useAudioOutputDevices(enabled: boolean): { outputs: OutputDeviceOption[
 			media.enumerateDevices().then(
 				(devices) => {
 					if (cancelled) return;
-					const outs = devices.filter((d) => d.kind === 'audiooutput');
-					setOutputs(outs.map((d, i) => ({ deviceId: d.deviceId, label: d.label || `Output device ${i + 1}` })));
+					// Pre-permission, browsers report outputs with an EMPTY deviceId — several of them,
+					// indistinguishable from (and unroutable except as) the platform default. Drop them
+					// and dedupe by id so the picker never offers colliding options.
+					const outs = devices.filter((d) => d.kind === 'audiooutput' && d.deviceId !== '');
+					const seen = new Set<string>();
+					const unique = outs.filter((d) => (seen.has(d.deviceId) ? false : (seen.add(d.deviceId), true)));
+					setOutputs(unique.map((d, i) => ({ deviceId: d.deviceId, label: d.label || `Output device ${i + 1}` })));
 					setNote(
-						outs.some((d) => !d.label)
+						unique.length === 0 || unique.some((d) => !d.label)
 							? 'Device names appear once the browser has granted media permission; unnamed outputs still work.'
 							: null,
 					);
