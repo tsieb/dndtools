@@ -1,6 +1,9 @@
 import {
 	playSessionAudioInputSchema,
 	projectSessionAudioInputSchema,
+	removeAmbienceLayerInputSchema,
+	setAmbienceLayerInputSchema,
+	setAudioOutputDeviceInputSchema,
 	setSessionAudioVolumeInputSchema,
 } from '../schemas/commands';
 import { assetNeedsLicenseReview } from '../state/audio-asset';
@@ -10,6 +13,8 @@ import {
 } from '../state/audio-source';
 import {
 	SESSION_AUDIO_ENTITY_TYPE,
+	ambienceLayersOf,
+	type SessionAmbienceLayer,
 	type SessionAudioDelivery,
 	type SessionAudioDeliveryStatus,
 	type SessionAudioState,
@@ -419,6 +424,211 @@ export function handleSetSessionAudioVolume(
 				sourceId: track.sourceId,
 				assetId: track.assetId,
 				crossfade: false,
+			},
+		],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * Set (create/update) one AMBIENCE LAYER on the session-owned audio state (DM-only) — a secondary
+ * looping bed mixed under the primary track (mirrors `session.audio.set-volume`). The referenced
+ * source is validated through the EXISTING AUDIO-009/010 gates fail-closed: an unknown, unsupported,
+ * or playback-disabled source is rejected and NO layer state is created/changed.
+ */
+export function handleSetAmbienceLayer(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(setAmbienceLayerInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	// AUDIO-009/010 — the layer's source must exist, be a declared supported type, and be
+	// playback-enabled (cache behavior declared). Same gates as `session.audio.play`, fail closed.
+	const source = state.audio.sources[parsed.data.sourceId];
+	if (!source) {
+		return reject(
+			{ code: 'audio-source-not-found', message: `Audio source ${parsed.data.sourceId} is not configured.` },
+			state,
+		);
+	}
+	const classification = classifyAudioSource(source);
+	if (!classification.supported) {
+		return reject(
+			{
+				code: 'unsupported-audio-source',
+				message: `Audio source ${source.id} is not a declared, supported source. Ambience is rejected.`,
+			},
+			state,
+		);
+	}
+	if (!classification.playbackEnabled) {
+		return reject(
+			{
+				code: 'audio-playback-disabled',
+				message: `Audio source ${source.id} has no declared cache/offline behavior; playback is disabled.`,
+			},
+			state,
+		);
+	}
+
+	const layers = ambienceLayersOf(state.session.audioPlayback);
+	const layer: SessionAmbienceLayer = {
+		sourceId: source.id,
+		volume: parsed.data.volume,
+		muted: parsed.data.muted,
+	};
+	const nextAudio: SessionAudioState = {
+		...state.session.audioPlayback,
+		ambienceLayers: { ...layers, [parsed.data.layerId]: layer },
+	};
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: SESSION_AUDIO_ENTITY_TYPE,
+		entityId: SESSION_ENTITY_ID,
+		opType: 'session.audio.set-ambience-layer',
+		path: `audioPlayback/ambienceLayers/${parsed.data.layerId}`,
+		value: { layerId: parsed.data.layerId, ...layer },
+		dependencies: [`audio-source:${source.id}@${source.revision}`],
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withSessionAudio({ ...state, sync: nextLog }, nextAudio),
+		events: [
+			{
+				kind: 'session.ambience-changed',
+				layerId: parsed.data.layerId,
+				mutation: 'set',
+				sourceId: source.id,
+				actorId: actor.id,
+			},
+		],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * Remove one ambience layer by id (DM-only). Fail closed: an unknown layer id is rejected (nothing
+ * to remove — mirrors `session.audio.stop` on an idle session).
+ */
+export function handleRemoveAmbienceLayer(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(removeAmbienceLayerInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const layers = ambienceLayersOf(state.session.audioPlayback);
+	const existing = layers[parsed.data.layerId];
+	if (!existing) {
+		return reject(
+			{ code: 'invalid-state', message: `Ambience layer ${parsed.data.layerId} does not exist.` },
+			state,
+		);
+	}
+
+	const nextLayers = { ...layers };
+	delete nextLayers[parsed.data.layerId];
+	const nextAudio: SessionAudioState = {
+		...state.session.audioPlayback,
+		ambienceLayers: nextLayers,
+	};
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: SESSION_AUDIO_ENTITY_TYPE,
+		entityId: SESSION_ENTITY_ID,
+		opType: 'session.audio.remove-ambience-layer',
+		path: `audioPlayback/ambienceLayers/${parsed.data.layerId}`,
+		value: { layerId: parsed.data.layerId },
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withSessionAudio({ ...state, sync: nextLog }, nextAudio),
+		events: [
+			{
+				kind: 'session.ambience-changed',
+				layerId: parsed.data.layerId,
+				mutation: 'remove',
+				sourceId: existing.sourceId,
+				actorId: actor.id,
+			},
+		],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * Record the DM-selected audio OUTPUT DEVICE for the session host (DM-only). `deviceId: null` selects
+ * the platform default. This records the selection for the app's audio driver to read via the session
+ * audio query; per-PARTICIPANT routing stays device-local in the degradation model
+ * (`audio-degradation.ts` AUDIO-012) and is never mutated here. Idempotent: re-selecting the same
+ * device is a no-op success with no op.
+ */
+export function handleSetAudioOutputDevice(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(setAudioOutputDeviceInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const previous = state.session.audioPlayback.outputDevice ?? null;
+	const previousId = previous?.deviceId ?? null;
+	const previousLabel = previous?.label;
+	if (previousId === parsed.data.deviceId && previousLabel === parsed.data.label) {
+		return { status: 'accepted', nextState: state, events: [], operationIds: [] };
+	}
+
+	const outputDevice =
+		parsed.data.deviceId === null && parsed.data.label === undefined
+			? null // the platform default is canonically represented as null (no explicit selection)
+			: {
+					deviceId: parsed.data.deviceId,
+					...(parsed.data.label !== undefined ? { label: parsed.data.label } : {}),
+				};
+	const nextAudio: SessionAudioState = {
+		...state.session.audioPlayback,
+		outputDevice,
+	};
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: SESSION_AUDIO_ENTITY_TYPE,
+		entityId: SESSION_ENTITY_ID,
+		opType: 'session.audio.set-output-device',
+		path: 'audioPlayback/outputDevice',
+		value: { deviceId: parsed.data.deviceId, label: parsed.data.label ?? null },
+	});
+
+	return {
+		status: 'accepted',
+		nextState: withSessionAudio({ ...state, sync: nextLog }, nextAudio),
+		events: [
+			{
+				kind: 'session.audio-output-device-changed',
+				deviceId: parsed.data.deviceId,
+				actorId: actor.id,
 			},
 		],
 		operationIds: [op.id],

@@ -293,6 +293,13 @@ export interface WidgetPackageRecord {
 
 export interface WidgetPackageState {
 	packages: Record<string, WidgetPackageRecord>;
+	/**
+	 * The ACTIVE campaign SYSTEM PACKAGE (the rules vocabulary the interface reads), by installed
+	 * package id. Optional + nullable so a vault persisted before system switching existed hydrates
+	 * safely (absent/null ⇒ no explicit system package selected — the built-in default vocabulary).
+	 * Changed only by `widget.package.switch-system`, which fail-closed dry-runs the switch first.
+	 */
+	activeSystemPackageId?: string | null;
 	schemaVersion: typeof WIDGET_PACKAGE_STATE_SCHEMA_VERSION;
 }
 

@@ -79,6 +79,60 @@ export const EMPTY_COMBAT_STATE: CharacterCombatState = Object.freeze({
 	conditions: [],
 });
 
+/** How proficient a character is with one skill. `expertise` doubles the proficiency bonus. */
+export type SkillProficiencyLevel = 'none' | 'proficient' | 'expertise';
+
+export const SKILL_PROFICIENCY_LEVELS: readonly SkillProficiencyLevel[] = Object.freeze([
+	'none',
+	'proficient',
+	'expertise',
+]);
+
+/**
+ * Structured PROFICIENCY state: per-skill proficiency levels, proficient saving throws, an optional
+ * explicit proficiency bonus (null ⇒ derived from level by the standard 5e progression — see
+ * `queries/character-query.ts`), and hit dice. Optional on {@link Character} so a character persisted
+ * before this slice hydrates safely (absent ⇒ empty proficiencies via
+ * {@link ensureCharacterProficiencies}).
+ */
+export interface CharacterProficiencies {
+	/** Per-skill proficiency level keyed by skill name (e.g. `perception`). Absent skill ⇒ `none`. */
+	skills: Record<string, SkillProficiencyLevel>;
+	/** The ability ids (`str`…`cha`) the character is proficient in for saving throws. */
+	saves: string[];
+	/** Explicit proficiency bonus override, or null to derive it from the character level. */
+	proficiencyBonus: number | null;
+	/** Hit dice: the die (e.g. `d8`), total dice, and how many are spent. */
+	hitDice: { die: string; total: number; spent: number };
+}
+
+export const EMPTY_CHARACTER_PROFICIENCIES: CharacterProficiencies = Object.freeze({
+	skills: {},
+	saves: [],
+	proficiencyBonus: null,
+	hitDice: Object.freeze({ die: 'd8', total: 0, spent: 0 }),
+});
+
+/** Tolerantly hydrate a possibly-absent/partial persisted proficiencies block (safe defaults). Pure. */
+export function ensureCharacterProficiencies(
+	proficiencies: CharacterProficiencies | undefined,
+): CharacterProficiencies {
+	return {
+		skills: { ...(proficiencies?.skills ?? {}) },
+		saves: [...(proficiencies?.saves ?? [])],
+		proficiencyBonus:
+			typeof proficiencies?.proficiencyBonus === 'number' &&
+			Number.isFinite(proficiencies.proficiencyBonus)
+				? proficiencies.proficiencyBonus
+				: null,
+		hitDice: {
+			die: proficiencies?.hitDice?.die ?? EMPTY_CHARACTER_PROFICIENCIES.hitDice.die,
+			total: proficiencies?.hitDice?.total ?? 0,
+			spent: proficiencies?.hitDice?.spent ?? 0,
+		},
+	};
+}
+
 /**
  * A finalized character. The `data` block holds the player-/DM-authored sheet fields; visibility is
  * an entity-level default plus optional field-level overrides (e.g. `dmNotes` stays `dm-only` even on
@@ -128,7 +182,18 @@ export interface Character {
 	 * the model alongside the simplified `combat` quick-create surface; there is no parallel model.
 	 */
 	resources?: CharacterResources;
+	/**
+	 * Structured proficiency state (skills / saves / proficiency bonus / hit dice). Optional so a
+	 * character persisted before this slice hydrates safely (absent ⇒ empty proficiencies via
+	 * {@link ensureCharacterProficiencies}).
+	 */
+	proficiencies?: CharacterProficiencies;
 	schemaVersion: typeof CHARACTER_STATE_SCHEMA_VERSION;
+}
+
+/** Read the proficiencies block off a character, hydrating safe defaults. Pure. */
+export function proficienciesOf(character: Character): CharacterProficiencies {
+	return ensureCharacterProficiencies(character.proficiencies);
 }
 
 /** One step in the guided PC-creation flow, recorded on the draft as the player progresses. */

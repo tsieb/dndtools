@@ -46,6 +46,7 @@ import {
 	Textarea,
 	ToolPalette,
 } from '../ds';
+import { FogRegionShape } from './fogRegions';
 import { T, eb } from './screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 
@@ -472,14 +473,9 @@ export function MapCanvas({
 									<mask id={fogMaskId} maskUnits="userSpaceOnUse" x={0} y={0} width={100} height={100}>
 										<rect x={0} y={0} width={100} height={100} fill="black" />
 										{fogOps.map((op) => (
-											<rect
-												key={op.id}
-												x={op.region.x * 100}
-												y={op.region.y * 100}
-												width={op.region.w * 100}
-												height={op.region.h * 100}
-												fill={op.kind === 'conceal' ? 'white' : 'black'}
-											/>
+											<g key={op.id}>
+												<FogRegionShape region={op.region} paint={op.kind === 'conceal' ? 'white' : 'black'} mode="fill" />
+											</g>
 										))}
 									</mask>
 								</defs>
@@ -490,19 +486,9 @@ export function MapCanvas({
 						{showFogOutlines &&
 							isDm &&
 							fogOps.map((op) => (
-								<rect
-									key={`o-${op.id}`}
-									x={op.region.x * 100}
-									y={op.region.y * 100}
-									width={op.region.w * 100}
-									height={op.region.h * 100}
-									fill="none"
-									stroke={op.kind === 'reveal' ? 'var(--color-accent)' : 'var(--map-fog-fill)'}
-									strokeWidth={1.2}
-									strokeDasharray="4 3"
-									vectorEffect="non-scaling-stroke"
-									opacity={0.75}
-								/>
+								<g key={`o-${op.id}`}>
+									<FogRegionShape region={op.region} paint={op.kind === 'reveal' ? 'var(--color-accent)' : 'var(--map-fog-fill)'} mode="outline" />
+								</g>
 							))}
 						{/* ghost rect while drag-drawing fog */}
 						{drag?.kind === 'fog' && (

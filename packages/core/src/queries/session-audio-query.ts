@@ -2,10 +2,13 @@ import type { PermissionState } from '../state/permission-state';
 import { getActor } from '../state/permission-state';
 import type { AudioState } from '../state/audio-state';
 import type {
+	SessionAmbienceLayer,
 	SessionAudioDeliveryStatus,
+	SessionAudioOutputDevice,
 	SessionAudioState,
 	SessionAudioStatus,
 } from '../state/session-audio';
+import { ambienceLayersOf } from '../state/session-audio';
 import { classifyAudioSource } from '../state/audio-source';
 import type { AudioDeliveryDisposition, AudioOutputRouting } from '../state/audio-degradation';
 import {
@@ -72,6 +75,10 @@ export interface SessionAudioDmView {
 	participantDelivery: AudioParticipantDeliveryView[];
 	/** AUDIO-003 AC3 — the per-player offline DELIVERY QUEUE (delivered/queued), in stable player-id order. */
 	deliveryQueue: SessionAudioDeliveryView[];
+	/** DM-authored AMBIENCE LAYERS keyed by layer id (session-authoritative mix under the track). */
+	ambienceLayers: Record<string, SessionAmbienceLayer>;
+	/** The DM-selected session-host OUTPUT DEVICE (null ⇒ platform default). For the app audio driver. */
+	outputDevice: SessionAudioOutputDevice | null;
 }
 
 /** A participant's own session-audio view: the player-safe track + THEIR OWN resolved delivery decision. */
@@ -95,6 +102,11 @@ export interface SessionAudioParticipantView {
 	message: string;
 	/** This participant's delivery-queue status for the active track (delivered / queued / null if none). */
 	queueStatus: SessionAudioDeliveryStatus | null;
+	/**
+	 * The DM-authored AMBIENCE LAYERS (player-safe: source ids + session volume/mute only — never DM
+	 * source config). The participant device mixes these under the track per its own local decision.
+	 */
+	ambienceLayers: Record<string, SessionAmbienceLayer>;
 }
 
 export type SessionAudioView = SessionAudioDmView | SessionAudioParticipantView;
@@ -158,7 +170,14 @@ export function getSessionAudioView(
 				deliveryStatus: delivery.deliveryStatus,
 				deliveryReason: delivery.deliveryReason,
 			}));
-		return { role: 'dm', track: trackView, participantDelivery, deliveryQueue };
+		return {
+			role: 'dm',
+			track: trackView,
+			participantDelivery,
+			deliveryQueue,
+			ambienceLayers: ambienceLayersOf(session),
+			outputDevice: session.outputDevice ?? null,
+		};
 	}
 
 	// A participant (or unknown actor): the player-safe track + their OWN resolved decision. A track whose
@@ -193,6 +212,7 @@ export function getSessionAudioView(
 			effectiveVolume: 0,
 			message: 'No session audio is playing.',
 			queueStatus,
+			ambienceLayers: actor ? ambienceLayersOf(session) : {},
 		};
 	}
 
@@ -205,5 +225,6 @@ export function getSessionAudioView(
 		effectiveVolume: decision.effectiveVolume,
 		message: decision.message,
 		queueStatus,
+		ambienceLayers: ambienceLayersOf(session),
 	};
 }

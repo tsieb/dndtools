@@ -129,6 +129,27 @@ export interface SessionAudioDelivery {
 }
 
 /**
+ * One DM-authored AMBIENCE LAYER: a secondary looping bed (rain, tavern chatter, …) mixed under the
+ * primary track. References its source BY ID (never asset bytes); `volume` is the layer's
+ * authoritative session volume; `muted` silences the layer without removing it.
+ */
+export interface SessionAmbienceLayer {
+	sourceId: string;
+	volume: number;
+	muted: boolean;
+}
+
+/**
+ * The DM-selected audio OUTPUT DEVICE for the session host (`deviceId === null` ⇒ the platform
+ * default). Recorded here so the app's audio driver can read the selection via the session audio
+ * query; the per-participant routing/degradation model (`audio-degradation.ts`) stays device-local.
+ */
+export interface SessionAudioOutputDevice {
+	deviceId: string | null;
+	label?: string;
+}
+
+/**
  * AUDIO-002 / AUDIO-003 — the SESSION-OWNED audio playback slice. It lives ON the session document
  * (Contract 4 Widget State Ownership), so it is durable, syncs as session state, and survives widget
  * removal. `track === null` is the stopped/idle state.
@@ -138,12 +159,24 @@ export interface SessionAudioState {
 	track: SessionAudioTrack | null;
 	/** Per-player delivery records keyed by player actor id (AUDIO-003 AC3 offline queue). */
 	deliveries: Record<ActorId, SessionAudioDelivery>;
+	/**
+	 * DM-authored AMBIENCE LAYERS keyed by layer id, mixed under the primary track. Optional so a
+	 * session persisted before this field existed hydrates safely (absent ⇒ no layers).
+	 */
+	ambienceLayers?: Record<string, SessionAmbienceLayer>;
+	/**
+	 * The DM-selected output device for the session host, or null for the platform default. Optional so
+	 * an older persisted session hydrates safely (absent ⇒ default device).
+	 */
+	outputDevice?: SessionAudioOutputDevice | null;
 	schemaVersion: typeof SESSION_AUDIO_SCHEMA_VERSION;
 }
 
 export const EMPTY_SESSION_AUDIO_STATE: SessionAudioState = Object.freeze({
 	track: null,
 	deliveries: {},
+	ambienceLayers: {},
+	outputDevice: null,
 	schemaVersion: SESSION_AUDIO_SCHEMA_VERSION,
 });
 
@@ -217,8 +250,46 @@ export function ensureSessionAudioState(
 	return {
 		track: ensureSessionAudioTrack(state?.track),
 		deliveries,
+		// Ambience layers hydrate fail-closed: a malformed layer (no source id) is dropped; volume clamps
+		// to [0,1]. A session persisted before this field restores with no layers.
+		ambienceLayers: ensureAmbienceLayers(state?.ambienceLayers),
+		// The output device hydrates fail-closed to the platform default (null) when absent/malformed.
+		outputDevice: ensureOutputDevice(state?.outputDevice),
 		schemaVersion: SESSION_AUDIO_SCHEMA_VERSION,
 	};
+}
+
+/** Hydrate the ambience-layer map fail-closed (drop malformed layers; clamp volume). Pure. */
+function ensureAmbienceLayers(
+	layers: Record<string, SessionAmbienceLayer> | undefined,
+): Record<string, SessionAmbienceLayer> {
+	const result: Record<string, SessionAmbienceLayer> = {};
+	for (const [id, layer] of Object.entries(layers ?? {})) {
+		if (!layer || typeof layer.sourceId !== 'string' || layer.sourceId.length === 0) continue;
+		result[id] = {
+			sourceId: layer.sourceId,
+			volume: clampVolume(layer.volume),
+			muted: layer.muted === true,
+		};
+	}
+	return result;
+}
+
+/** Hydrate the output-device selection fail-closed (absent/malformed ⇒ default device). Pure. */
+function ensureOutputDevice(
+	device: SessionAudioOutputDevice | null | undefined,
+): SessionAudioOutputDevice | null {
+	if (!device || typeof device !== 'object') return null;
+	if (device.deviceId !== null && typeof device.deviceId !== 'string') return null;
+	return {
+		deviceId: device.deviceId,
+		...(typeof device.label === 'string' ? { label: device.label } : {}),
+	};
+}
+
+/** Read the ambience layers off a session-audio slice, hydrating a safe empty default. Pure. */
+export function ambienceLayersOf(state: SessionAudioState): Record<string, SessionAmbienceLayer> {
+	return ensureAmbienceLayers(state.ambienceLayers);
 }
 
 /** Deep-clone a session-audio slice so an archive/snapshot never shares mutable references with the live state. */
@@ -228,6 +299,10 @@ export function cloneSessionAudioState(state: SessionAudioState): SessionAudioSt
 		deliveries: Object.fromEntries(
 			Object.entries(state.deliveries).map(([id, delivery]) => [id, { ...delivery }]),
 		),
+		ambienceLayers: Object.fromEntries(
+			Object.entries(state.ambienceLayers ?? {}).map(([id, layer]) => [id, { ...layer }]),
+		),
+		outputDevice: state.outputDevice ? { ...state.outputDevice } : null,
 		schemaVersion: SESSION_AUDIO_SCHEMA_VERSION,
 	};
 }

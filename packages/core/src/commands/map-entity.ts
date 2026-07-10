@@ -2,6 +2,7 @@ import {
 	commitMapImportInputSchema,
 	createMapInputSchema,
 	importMapAssetInputSchema,
+	updateMapMetadataInputSchema,
 } from '../schemas/commands';
 import type { MapEntity, MapLayer, MapState } from '../state/map-state';
 import { normalizeMapEntity, normalizeMapLayer } from '../state/map-state';
@@ -141,6 +142,66 @@ export function handleCreateMap(
 		status: 'accepted',
 		nextState: { ...state, maps: nextMaps, sync: nextLog },
 		events: [{ kind: 'map.created', mapId, actorId: dm.actorId }],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * Rename / re-describe a map entity (mirrors `scene.update-metadata`). DM-only. Only the supplied
+ * fields change; the durable op records exactly which paths changed for the audit.
+ */
+export function handleUpdateMapMetadata(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const parsed = parseInput(updateMapMetadataInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+	const dm = requireMapDm(state, actorId);
+	if ('status' in dm) return dm;
+
+	const map = state.maps.maps[parsed.data.mapId];
+	if (!map) {
+		return reject(
+			{ code: 'map-not-found', message: `Map ${parsed.data.mapId} does not exist.` },
+			state,
+		);
+	}
+
+	const changedPaths: string[] = [];
+	if (parsed.data.name !== undefined) changedPaths.push('name');
+	if (parsed.data.description !== undefined) changedPaths.push('description');
+
+	const now = env.clock();
+	const nextMap: MapEntity = {
+		...map,
+		name: parsed.data.name ?? map.name,
+		description: parsed.data.description ?? map.description,
+		updatedAt: now,
+		revision: map.revision + 1,
+	};
+	const nextMaps: MapState = { ...state.maps, maps: { ...state.maps.maps, [map.id]: nextMap } };
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, dm.actorId, {
+		entityType: 'map',
+		entityId: map.id,
+		opType: 'map.update-metadata',
+		path: changedPaths.join(','),
+		value: {
+			...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
+			...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+		},
+		beforeRevision: map.revision,
+		afterRevision: nextMap.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, maps: nextMaps, sync: nextLog },
+		events: [
+			{ kind: 'map.metadata-changed', mapId: map.id, actorId: dm.actorId, paths: changedPaths },
+		],
 		operationIds: [op.id],
 	};
 }

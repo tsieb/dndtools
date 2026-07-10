@@ -3,8 +3,10 @@ import {
 	enableWidgetPackageInputSchema,
 	installWidgetPackageInputSchema,
 	removeWidgetPackageInputSchema,
+	switchSystemPackageInputSchema,
 	upgradeWidgetPackageInputSchema,
 } from '../schemas/commands';
+import { previewSystemSwitch } from '../queries/system-switch-query';
 import type { WidgetPackageDefinitionParsed } from '../schemas/widget-package';
 import type {
 	WidgetDataSchema,
@@ -750,4 +752,161 @@ export function getPackageRecordForWidgetType(
 	widgetType: string,
 ): WidgetPackageRecord | undefined {
 	return findPackageRecordForWidgetType(state, widgetType);
+}
+
+
+/**
+ * SWITCH the active campaign SYSTEM PACKAGE (DM-only). The handler re-runs the PURE dry-run
+ * (`queries/system-switch-query.ts` `previewSystemSwitch`, which wraps the PLAT-008 vault-migration
+ * dry-run) and applies the switch ONLY when it is safe, fail-closed:
+ *
+ *   - An unknown / removed / disabled target package is rejected before any mutation.
+ *   - A vault the dry-run cannot migrate (blocking document issues) is rejected (`invalid-state`).
+ *   - A DESTRUCTIVE switch (the dry-run reports widget types the target does not declare, with live
+ *     Scene instances) is rejected `system-switch-loss-unacknowledged` UNLESS the DM explicitly
+ *     acknowledged the loss (`acknowledgeLoss: true`) — never a silent loss.
+ *
+ * APPLY = (1) point `widgets.activeSystemPackageId` at the target package, and (2) perform the
+ * mapping the dry-run planned: instances of DROPPED widget types are marked disabled placeholders
+ * (recoverable — the instance record is preserved, exactly like a package disable). `keep`/`remap`
+ * types need no instance mutation here: instance config migration is owned by the target package's
+ * declared migrations on upgrade (the same seam `widget.package.upgrade` uses).
+ *
+ * Idempotent: switching to the already-active package is a no-op success with no op.
+ */
+export function handleSwitchSystemPackage(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+	const parsed = parseInput(switchSystemPackageInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const preview = previewSystemSwitch(state.widgets, state.scenes, parsed.data.packageId);
+	if (preview.kind === 'unavailable') {
+		if (preview.reason === 'already-active') {
+			// Idempotent: re-selecting the active system is a no-op success (mirrors pause-of-paused).
+			return { status: 'accepted', nextState: state, events: [], operationIds: [] };
+		}
+		if (preview.reason === 'package-not-found') {
+			return reject(
+				{ code: 'package-not-found', message: `Widget package ${parsed.data.packageId} is not installed.` },
+				state,
+			);
+		}
+		return reject(
+			{
+				code: 'package-disabled',
+				message: `Widget package ${parsed.data.packageId} is ${preview.reason === 'package-removed' ? 'removed' : 'disabled'}; enable it before switching.`,
+			},
+			state,
+		);
+	}
+
+	// (1) The vault must be migratable (the wrapped PLAT-008 dry-run) — fail closed on blockers.
+	if (!preview.vault.canMigrate) {
+		return reject(
+			{
+				code: 'invalid-state',
+				message: 'The vault cannot be safely migrated, so the system switch is blocked.',
+				issues: preview.vault.blockingIssues.map((issue) => ({
+					path: issue.documentId,
+					message: issue.message,
+				})),
+			},
+			state,
+		);
+	}
+
+	// (2) A destructive switch requires the DM's explicit acknowledgment (never a silent loss).
+	const drops = preview.findings.filter(
+		(finding) => finding.effect === 'drop' && finding.instanceCount > 0,
+	);
+	if (drops.length > 0 && !parsed.data.acknowledgeLoss) {
+		return reject(
+			{
+				code: 'system-switch-loss-unacknowledged',
+				message:
+					'Switching systems would disable widget content. Re-run with acknowledgeLoss after reviewing the dry-run.',
+				issues: drops.map((finding) => ({ path: finding.widgetType, message: finding.note })),
+			},
+			state,
+		);
+	}
+
+	const now = env.clock();
+	const previousPackageId = state.widgets.activeSystemPackageId ?? null;
+
+	// APPLY the planned mapping: instances of dropped types become disabled placeholders (recoverable).
+	const droppedTypes = new Set(drops.map((finding) => finding.widgetType));
+	let nextScenes = state.scenes;
+	let disabledWidgetCount = 0;
+	if (droppedTypes.size > 0) {
+		const nextSceneMap = { ...state.scenes.scenes };
+		for (const scene of Object.values(state.scenes.scenes)) {
+			if (!scene.widgets.some((widget) => droppedTypes.has(widget.type))) continue;
+			nextSceneMap[scene.id] = bumpRevision(
+				{
+					...scene,
+					widgets: scene.widgets.map((widget) => {
+						if (!droppedTypes.has(widget.type)) return widget;
+						disabledWidgetCount += 1;
+						return {
+							...widget,
+							disabled: disabledState(
+								env,
+								'package-disabled',
+								previousPackageId,
+								`Disabled by the system switch to ${parsed.data.packageId}: the target system does not declare this widget.`,
+								null,
+								widget.version,
+							),
+						};
+					}),
+				},
+				env,
+			);
+		}
+		nextScenes = { ...state.scenes, scenes: nextSceneMap };
+	}
+
+	const nextWidgets: WidgetPackageState = {
+		...state.widgets,
+		activeSystemPackageId: parsed.data.packageId,
+	};
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'widget-package',
+		entityId: parsed.data.packageId,
+		opType: 'widget.package.switch-system',
+		path: 'activeSystemPackageId',
+		value: {
+			packageId: parsed.data.packageId,
+			previousPackageId,
+			acknowledgedLoss: parsed.data.acknowledgeLoss,
+			droppedWidgetTypes: [...droppedTypes].sort(),
+			disabledWidgetCount,
+			appliedAt: now,
+		},
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, widgets: nextWidgets, scenes: nextScenes, sync: nextLog },
+		events: [
+			{
+				kind: 'widget.system-switched',
+				packageId: parsed.data.packageId,
+				previousPackageId,
+				disabledWidgetCount,
+				actorId: actor.id,
+			},
+		],
+		operationIds: [op.id],
+	};
 }

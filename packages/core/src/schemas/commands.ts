@@ -49,6 +49,21 @@ export const updateSceneMetadataInputSchema = z
 	})
 	.strict();
 
+// SOFT-DELETE a scene (tombstone; mirrors content.remove-item). DM-only. The reducer guards the
+// ACTIVE scene and the Command Center HOME scene fail-closed (they can never be deleted).
+export const deleteSceneInputSchema = z
+	.object({
+		sceneId: idSchema,
+	})
+	.strict();
+
+// RESTORE a soft-deleted scene (the undo counterpart of scene.delete). DM-only.
+export const restoreSceneInputSchema = z
+	.object({
+		sceneId: idSchema,
+	})
+	.strict();
+
 export const setSceneSectionsInputSchema = z
 	.object({
 		sceneId: idSchema,
@@ -576,6 +591,18 @@ export const createMapInputSchema = z
 	})
 	.strict();
 
+// Rename / re-describe a map entity (mirrors scene.update-metadata). DM-only; at least one field.
+export const updateMapMetadataInputSchema = z
+	.object({
+		mapId: idSchema,
+		name: z.string().min(1).optional(),
+		description: z.string().optional(),
+	})
+	.strict()
+	.refine((value) => value.name !== undefined || value.description !== undefined, {
+		message: 'Provide at least one metadata field to update.',
+	});
+
 // MAP-002 — a native map asset import (image/SVG). The bytes arrive as a number array (a serialized
 // Uint8Array) so the payload is JSON-validatable at the boundary; the handler hashes them into a
 // content-addressed asset id (identical bytes dedupe). Size/MIME are validated fail-closed in the
@@ -829,14 +856,62 @@ const normalizedPointSchema = z
 	.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
 	.strict();
 
-const normalizedRegionSchema = z
+// A fog-region SHAPE in normalized (0..1) map space: the original axis-aligned rectangle, a polygon
+// (3..256 vertices), or a brush stroke (1..256 points swept by a disc of `radius`). A discriminated
+// union so each shape validates exactly its own fields.
+const fogRectRegionSchema = z
 	.object({
+		shape: z.literal('rect'),
 		x: z.number().min(0).max(1),
 		y: z.number().min(0).max(1),
 		w: z.number().gt(0).max(1),
 		h: z.number().gt(0).max(1),
 	})
 	.strict();
+
+const fogPolygonRegionSchema = z
+	.object({
+		shape: z.literal('polygon'),
+		points: z.array(normalizedPointSchema).min(3).max(256),
+	})
+	.strict();
+
+const fogStrokeRegionSchema = z
+	.object({
+		shape: z.literal('stroke'),
+		points: z.array(normalizedPointSchema).min(1).max(256),
+		radius: z.number().min(0).max(0.5),
+	})
+	.strict();
+
+/**
+ * BACK-COMPAT (critical): fog ops persisted/replayed from BEFORE shaped regions carry a PLAIN
+ * `{x,y,w,h}` rectangle with no `shape` tag. The preprocess step canonicalizes that legacy form to
+ * `{shape:'rect',…}` BEFORE the union validates, so op-log replay of old `map.append-fog` payloads
+ * still validates and composes identically to an explicit rect.
+ */
+const normalizedRegionSchema = z.preprocess(
+	(value) => {
+		if (
+			typeof value === 'object' &&
+			value !== null &&
+			!Array.isArray(value) &&
+			!('shape' in value) &&
+			'x' in value &&
+			'y' in value &&
+			'w' in value &&
+			'h' in value
+		) {
+			return { shape: 'rect', ...value };
+		}
+		return value;
+	},
+	z.discriminatedUnion('shape', [
+		fogRectRegionSchema,
+		fogPolygonRegionSchema,
+		fogStrokeRegionSchema,
+	]),
+);
 
 const mapPoiCategorySchema = z.enum([
 	'settlement',
@@ -925,6 +1000,8 @@ export const appendMapFogInputSchema = z
 		layerId: idSchema,
 		kind: z.enum(['reveal', 'conceal']),
 		region: normalizedRegionSchema,
+		/** Optional soft-edge feather width (0..0.2, normalized units) for the renderer. */
+		feather: z.number().min(0).max(0.2).optional(),
 		visibility: sceneVisibilitySchema.default('shared'),
 		connectionState: z.enum(['connected', 'offline']).default('connected'),
 	})
@@ -1256,7 +1333,8 @@ export const setClassResourceInputSchema = z
 	})
 	.strict();
 
-// CHAR-008 — add/update a known spell and its prepared flag (owner-only).
+// CHAR-008 — add/update a known spell and its prepared flag (owner-only). The optional DETAIL fields
+// (SRD-style) are all-optional patches: an omitted field preserves the recorded detail.
 export const setCharacterSpellInputSchema = z
 	.object({
 		characterId: idSchema,
@@ -1264,8 +1342,67 @@ export const setCharacterSpellInputSchema = z
 		name: z.string().min(1),
 		level: z.number().int().min(0).max(9),
 		prepared: z.boolean(),
+		castingTime: z.string().min(1).optional(),
+		range: z.string().min(1).optional(),
+		components: z.string().min(1).optional(),
+		duration: z.string().min(1).optional(),
+		school: z.string().min(1).optional(),
 	})
 	.strict();
+
+// --- Character sheet extensions — proficiencies / attacks / sharing ------------------------------
+
+// Set a character's structured PROFICIENCY state (owner or DM). Every facet is an optional patch;
+// `proficiencyBonus: null` means "derive from level" (the standard 5e progression — see
+// `queries/character-query.ts`). `hitDice.spent` is clamped into `total` by the reducer.
+export const setCharacterProficienciesInputSchema = z
+	.object({
+		characterId: idSchema,
+		skills: z
+			.record(z.string().min(1), z.enum(['none', 'proficient', 'expertise']))
+			.optional(),
+		saves: z.array(z.string().min(1)).optional(),
+		proficiencyBonus: z.union([z.literal(null), z.number().int().min(0).max(20)]).optional(),
+		hitDice: z
+			.object({
+				die: z.string().min(1),
+				total: z.number().int().nonnegative(),
+				spent: z.number().int().nonnegative(),
+			})
+			.strict()
+			.optional(),
+	})
+	.strict()
+	.refine(
+		(value) =>
+			value.skills !== undefined ||
+			value.saves !== undefined ||
+			value.proficiencyBonus !== undefined ||
+			value.hitDice !== undefined,
+		{ message: 'Provide at least one proficiency field to update.' },
+	);
+
+// REPLACE a character's attack list (post-create add/edit/remove — the GUI edits the list and submits
+// the full replacement). Owner or DM. An entry without an id is a NEW attack (the handler assigns one).
+export const updateCharacterAttacksInputSchema = z
+	.object({
+		characterId: idSchema,
+		attacks: z.array(characterAttackInputSchema).max(50),
+	})
+	.strict();
+
+// Set a character's SHARING (entity visibility + explicit `sharedWith` delivery list). DM-only —
+// widening a character's audience is a DM authority (fail-closed visibility model, Contract 3).
+export const setCharacterSharingInputSchema = z
+	.object({
+		characterId: idSchema,
+		visibility: characterVisibilitySchema.optional(),
+		sharedWith: z.array(idSchema).optional(),
+	})
+	.strict()
+	.refine((value) => value.visibility !== undefined || value.sharedWith !== undefined, {
+		message: 'Provide a visibility level and/or a sharedWith list.',
+	});
 
 // CHAR-008 — apply a SHORT or LONG rest; recovery is deterministic in the reducer (owner-only).
 export const restCharacterInputSchema = z
@@ -1604,6 +1741,8 @@ const vaultObjectSubtypeSchema = z.enum([
 	'audio-preset',
 	'widget-package-ref',
 	'faction',
+	'quest',
+	'spell',
 ]);
 
 // CONTENT-005 — create a structured Vault Object as a note-backed content item (DM-only authoring). The
@@ -1690,6 +1829,14 @@ export const exportContentInputSchema = z
 	.object({
 		mode: contentExportModeSchema,
 		portableViewerActorId: z.string().default(''),
+		/**
+		 * Optional export SCOPE: item types to include — an item KIND (`note`/`object`) or a structured
+		 * object SUBTYPE (`quest`, `faction`, …). Applied AFTER the visibility filter (narrows only,
+		 * never widens visibility). Omitted ⇒ all types.
+		 */
+		itemTypes: z.array(z.string().min(1)).optional(),
+		/** Optional export SCOPE: explicit item ids to include. Applied AFTER visibility (narrows only). */
+		itemIds: z.array(idSchema).optional(),
 	})
 	.strict();
 
@@ -2236,6 +2383,85 @@ export const projectSessionAudioInputSchema = z
 	.object({
 		playerActorIds: z.array(idSchema),
 		connectionState: z.enum(['connected', 'offline']),
+	})
+	.strict();
+
+// Set (create/update) one AMBIENCE LAYER on the session-owned audio state (DM-only) — a secondary
+// looping bed mixed under the primary track. References a configured source BY ID (validated through
+// the AUDIO-009/010 gates in the handler, fail closed). Mirrors `session.audio.set-volume`.
+export const setAmbienceLayerInputSchema = z
+	.object({
+		layerId: idSchema,
+		sourceId: idSchema,
+		volume: z.number().min(0).max(1).default(1),
+		muted: z.boolean().default(false),
+	})
+	.strict();
+
+// Remove an ambience layer by id (DM-only). Fail closed: an unknown layer id is rejected.
+export const removeAmbienceLayerInputSchema = z
+	.object({
+		layerId: idSchema,
+	})
+	.strict();
+
+// Record the DM-selected audio OUTPUT DEVICE for the session host (DM-only). `deviceId: null` selects
+// the platform default. The label is display-only (e.g. "USB speakers"); per-participant routing stays
+// device-local in the degradation model (`audio-degradation.ts`).
+export const setAudioOutputDeviceInputSchema = z
+	.object({
+		deviceId: z.union([z.literal(null), z.string().min(1)]),
+		label: z.string().min(1).optional(),
+	})
+	.strict();
+
+// SES-009 — AUTHOR a recap onto a session archive (DM-only). `archiveId` optional: absent targets the
+// session's current `recapArchiveId` (the most recent archive). Fail closed when no archive resolves.
+export const authorRecapInputSchema = z
+	.object({
+		archiveId: idSchema.optional(),
+		markdown: z.string().max(100_000),
+	})
+	.strict();
+
+// Set (or clear) THIS actor's ephemeral session PRESENCE (COLLAB-004). A player may set ONLY their
+// own presence; the DM may additionally CLEAR another participant's stale entry by naming
+// `targetActorId` with `status: 'offline'`. Presence is EPHEMERAL: the handler never appends a
+// durable op, and the host resets presence on session start/end.
+export const setPresenceInputSchema = z
+	.object({
+		status: z.enum(['online', 'away', 'offline']).default('online'),
+		device: z.enum(['desktop', 'tablet', 'mobile', 'web', 'unknown']).default('unknown'),
+		activeSceneId: idSchema.optional(),
+		cursor: z
+			.object({
+				sceneId: idSchema,
+				widgetInstanceId: idSchema.optional(),
+				x: z.number().finite(),
+				y: z.number().finite(),
+			})
+			.strict()
+			.optional(),
+		selection: z
+			.object({
+				sceneId: idSchema,
+				widgetInstanceIds: z.array(idSchema),
+			})
+			.strict()
+			.optional(),
+		/** DM-only: the participant whose presence to CLEAR (requires `status: 'offline'`). */
+		targetActorId: idSchema.optional(),
+	})
+	.strict();
+
+// SWITCH the active campaign SYSTEM PACKAGE (DM-only). The handler re-runs the pure dry-run
+// (`queries/system-switch-query.ts`) and FAILS CLOSED when the vault cannot migrate or the switch
+// would DROP widget content, unless the DM explicitly acknowledged the loss.
+export const switchSystemPackageInputSchema = z
+	.object({
+		packageId: idSchema,
+		/** Explicit acknowledgment of the dry-run's destructive findings (required when any exist). */
+		acknowledgeLoss: z.boolean().default(false),
 	})
 	.strict();
 

@@ -217,6 +217,10 @@ export function handleExportContent(
 	const result: ContentExport = exportContent(content, state.permissions, {
 		mode: parsed.data.mode,
 		portableViewerActorId: parsed.data.portableViewerActorId,
+		// Optional export SCOPE (item types / ids). Applied AFTER the visibility filter inside
+		// `exportContent`, so scoping can only NARROW the export — never widen visibility.
+		...(parsed.data.itemTypes !== undefined ? { itemTypes: parsed.data.itemTypes } : {}),
+		...(parsed.data.itemIds !== undefined ? { itemIds: parsed.data.itemIds } : {}),
 	});
 
 	// The export mutates NO durable content; we still append an audit op recording WHAT was exported (the

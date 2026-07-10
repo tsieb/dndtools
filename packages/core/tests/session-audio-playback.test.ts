@@ -522,6 +522,8 @@ describe('AUDIO-003 — fail-closed hydration', () => {
 		expect(ensureSessionAudioState(undefined)).toEqual({
 			track: null,
 			deliveries: {},
+			ambienceLayers: {},
+			outputDevice: null,
 			schemaVersion: 1,
 		});
 	});

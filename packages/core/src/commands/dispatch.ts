@@ -1,7 +1,9 @@
 import type { CommandResult, CoreCommand, CoreEnvironment, CoreStateSlice } from './types';
 import {
 	handleCreateScene,
+	handleDeleteScene,
 	handleInstantiateSceneTemplate,
+	handleRestoreScene,
 	handleSaveSceneTemplate,
 	handleSetSceneSections,
 	handleUpdateSceneMetadata,
@@ -47,6 +49,7 @@ import {
 } from './calendar-continuity';
 import { handleGrantCapabilitySet, handleRevokeGrant, handleTransferOwnership } from './grant';
 import {
+	handleAuthorRecap,
 	handleProjectActiveMap,
 	handleRecordSessionDice,
 	handleRecoverSession,
@@ -71,6 +74,7 @@ import {
 	handleEnableWidgetPackage,
 	handleInstallWidgetPackage,
 	handleRemoveWidgetPackage,
+	handleSwitchSystemPackage,
 	handleUpgradeWidgetPackage,
 } from './widget-package';
 import {
@@ -86,7 +90,12 @@ import {
 	handleSetMapLayerVisibility,
 } from './map-layer';
 import { handleEditMapLayer, handleGenerateMapLayers } from './map-editing';
-import { handleCommitMapImport, handleCreateMap, handleImportMapAsset } from './map-entity';
+import {
+	handleCommitMapImport,
+	handleCreateMap,
+	handleImportMapAsset,
+	handleUpdateMapMetadata,
+} from './map-entity';
 import { handleEmbedChildMap, handleRemoveMapEmbed, handleUpdateMapEmbed } from './map-nesting';
 import {
 	handleAppendMapFog,
@@ -122,6 +131,11 @@ import {
 	handleSetSpellSlots,
 	handleUpdateCombatResource,
 } from './character-resources';
+import {
+	handleSetCharacterProficiencies,
+	handleSetCharacterSharing,
+	handleUpdateCharacterAttacks,
+} from './character-sheet';
 import {
 	handleCancelAdvancement,
 	handleCommitAdvancement,
@@ -190,10 +204,14 @@ import {
 	handlePauseSessionAudio,
 	handlePlaySessionAudio,
 	handleProjectSessionAudio,
+	handleRemoveAmbienceLayer,
 	handleResumeSessionAudio,
+	handleSetAmbienceLayer,
+	handleSetAudioOutputDevice,
 	handleSetSessionAudioVolume,
 	handleStopSessionAudio,
 } from './audio-playback';
+import { handleSetPresence } from './presence';
 import { handleResolveVaultConflict } from './conflict-resolution';
 import {
 	handleApproveMcpProposal,
@@ -230,6 +248,10 @@ export function dispatchCommand(
 			return handleCreateScene(state, env, command.actorId, command.payload);
 		case 'scene.update-metadata':
 			return handleUpdateSceneMetadata(state, env, command.actorId, command.payload);
+		case 'scene.delete':
+			return handleDeleteScene(state, env, command.actorId, command.payload);
+		case 'scene.restore':
+			return handleRestoreScene(state, env, command.actorId, command.payload);
 		case 'scene.set-sections':
 			return handleSetSceneSections(state, env, command.actorId, command.payload);
 		case 'scene.save-template':
@@ -268,6 +290,8 @@ export function dispatchCommand(
 			return handleRemoveWidgetPackage(state, env, command.actorId, command.payload);
 		case 'widget.package.upgrade':
 			return handleUpgradeWidgetPackage(state, env, command.actorId, command.payload);
+		case 'widget.package.switch-system':
+			return handleSwitchSystemPackage(state, env, command.actorId, command.payload);
 		case 'widget.dispatch-command':
 			return handleDispatchWidgetCommand(
 				state,
@@ -435,6 +459,8 @@ export function dispatchCommand(
 			return handleSetMapOverlayMode(state, env, command.actorId, command.payload);
 		case 'map.configure-overlay':
 			return handleConfigureMapOverlay(state, env, command.actorId, command.payload);
+		case 'map.update-metadata':
+			return handleUpdateMapMetadata(state, env, command.actorId, command.payload);
 		case 'character.quick-create':
 			return handleQuickCreateCharacter(state, env, command.actorId, command.payload);
 		case 'character.set-combat':
@@ -465,6 +491,12 @@ export function dispatchCommand(
 			return handleSetCharacterSpell(state, env, command.actorId, command.payload);
 		case 'character.rest':
 			return handleRestCharacter(state, env, command.actorId, command.payload);
+		case 'character.set-proficiencies':
+			return handleSetCharacterProficiencies(state, env, command.actorId, command.payload);
+		case 'character.update-attacks':
+			return handleUpdateCharacterAttacks(state, env, command.actorId, command.payload);
+		case 'character.set-sharing':
+			return handleSetCharacterSharing(state, env, command.actorId, command.payload);
 		case 'character.set-xp':
 			return handleSetCharacterXp(state, env, command.actorId, command.payload);
 		case 'character.open-advancement':
@@ -563,6 +595,16 @@ export function dispatchCommand(
 			return handleSetSessionAudioVolume(state, env, command.actorId, command.payload);
 		case 'session.audio.project':
 			return handleProjectSessionAudio(state, env, command.actorId, command.payload);
+		case 'session.audio.set-ambience-layer':
+			return handleSetAmbienceLayer(state, env, command.actorId, command.payload);
+		case 'session.audio.remove-ambience-layer':
+			return handleRemoveAmbienceLayer(state, env, command.actorId, command.payload);
+		case 'session.audio.set-output-device':
+			return handleSetAudioOutputDevice(state, env, command.actorId, command.payload);
+		case 'session.author-recap':
+			return handleAuthorRecap(state, env, command.actorId, command.payload);
+		case 'session.set-presence':
+			return handleSetPresence(state, env, command.actorId, command.payload);
 		case 'mcp.set-enabled':
 			return handleSetMcpEnabled(state, env, command.actorId, command.payload);
 		case 'mcp.set-agent-binding':

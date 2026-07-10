@@ -91,6 +91,15 @@ export interface DigestContinuityPrompt {
 	text: string;
 }
 
+/** The DM-AUTHORED recap for the digest's archive (`session.author-recap`), when one exists. */
+export interface DigestAuthoredRecap {
+	archiveId: string;
+	markdown: string;
+	authoredBy: string;
+	authoredAt: string;
+	revision: number;
+}
+
 /** The computed prep/recap digest (DM-facing; empty for a non-DM). */
 export interface PrepRecapDigest {
 	mode: DigestMode;
@@ -102,6 +111,8 @@ export interface PrepRecapDigest {
 	combatSummary: DigestCombatSummary | null;
 	calendarContext: CalendarContextView;
 	continuityPrompts: DigestContinuityPrompt[];
+	/** The DM-authored recap on the digest's archive (`recapArchiveId`), or null when none/absent. */
+	authoredRecap: DigestAuthoredRecap | null;
 }
 
 /** How many recent changes / log-tail lines the digest surfaces by default (deterministic, bounded). */
@@ -124,6 +135,22 @@ function emptyDigest(mode: DigestMode): PrepRecapDigest {
 		combatSummary: null,
 		calendarContext: EMPTY_CALENDAR_CONTEXT,
 		continuityPrompts: [],
+		authoredRecap: null,
+	};
+}
+
+/** Read the DM-authored recap off the session's current recap archive, or null. Pure. */
+function authoredRecapOf(session: SessionState): DigestAuthoredRecap | null {
+	const archiveId = session.recapArchiveId;
+	if (!archiveId) return null;
+	const archive: SessionArchiveSnapshot | undefined = session.archives[archiveId];
+	if (!archive?.recap) return null;
+	return {
+		archiveId,
+		markdown: archive.recap.markdown,
+		authoredBy: archive.recap.authoredBy,
+		authoredAt: archive.recap.authoredAt,
+		revision: archive.recap.revision,
 	};
 }
 
@@ -256,6 +283,8 @@ export function getPrepRecapDigest(
 		combatSummary,
 		calendarContext,
 		continuityPrompts,
+		// SES-009 — the DM-authored recap on the current recap archive (`session.author-recap`).
+		authoredRecap: authoredRecapOf(session),
 	};
 }
 

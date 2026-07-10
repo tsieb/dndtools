@@ -9,6 +9,7 @@ import {
 } from '@dndtools/core';
 import { Badge, Button, Icon, IconButton, Input, POIPopover, Select, StatusDot, Switch } from '../ds';
 import { Page, Panel, T } from '../app/screen-kit';
+import { fogRegionSummary } from '../app/fogRegions';
 import {
 	CATEGORY_LABEL,
 	CATEGORY_VAR,
@@ -462,7 +463,7 @@ export function Atlas() {
 								{mapView.fog.slice(-4).map((op) => (
 									<div key={op.id} style={{ display: 'flex', alignItems: 'center', gap: 8, font: `11px ${T.mono}`, color: T.ter }}>
 										<Badge status={op.kind === 'reveal' ? 'success' : 'neutral'}>{op.kind}</Badge>
-										seq {op.sequence} · {Math.round(op.region.w * 100)}×{Math.round(op.region.h * 100)}% at {Math.round(op.region.x * 100)},{Math.round(op.region.y * 100)}
+										seq {op.sequence} · {fogRegionSummary(op.region)}
 									</div>
 								))}
 							</div>

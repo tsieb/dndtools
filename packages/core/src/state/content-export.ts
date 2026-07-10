@@ -1,6 +1,7 @@
 import type { Actor, PermissionState } from './permission-state';
 import type { ContentItem, VaultContentState } from './content';
 import { serializeMarkdownNote } from './markdown';
+import { VAULT_OBJECT_SUBTYPE_KEY } from './vault-object';
 import { DNDTOOLS_PROPERTY_NAMESPACE } from './content-import';
 import { redactValue, containsSensitiveData } from '../diagnostics/redaction';
 import { getContentItemsForActor } from '../queries/content-query';
@@ -143,6 +144,37 @@ function exportItem(item: ContentItem): { file: ExportedFile; redacted: boolean 
  * given player actor, so only visible items survive (dm-only/undelivered-shared are omitted). `dm-backup`
  * exports every item directly from state. Returns the chosen items plus the visibility-omitted count.
  */
+/**
+ * The item "type" facets an export scope can name: the item KIND (`note` / `object`) or, for a
+ * structured object, its declared SUBTYPE (`quest`, `faction`, `spell`, …). Pure.
+ */
+function itemTypeMatches(item: ContentItem, itemTypes: readonly string[]): boolean {
+	if (itemTypes.includes(item.kind)) return true;
+	const subtype = item.fields[VAULT_OBJECT_SUBTYPE_KEY];
+	return typeof subtype === 'string' && itemTypes.includes(subtype);
+}
+
+/**
+ * CONTENT-008 — narrow the export to an explicit SCOPE (item types and/or item ids). Applied AFTER the
+ * visibility filter, so scoping can only ever NARROW the export — a scoped id/type can never pull a
+ * hidden item back in (never widens visibility). An empty/omitted facet leaves that axis unfiltered.
+ */
+function applyExportScope(
+	items: ContentItem[],
+	itemTypes: readonly string[] | undefined,
+	itemIds: readonly string[] | undefined,
+): ContentItem[] {
+	let scoped = items;
+	if (itemTypes && itemTypes.length > 0) {
+		scoped = scoped.filter((item) => itemTypeMatches(item, itemTypes));
+	}
+	if (itemIds && itemIds.length > 0) {
+		const ids = new Set(itemIds);
+		scoped = scoped.filter((item) => ids.has(item.id));
+	}
+	return scoped;
+}
+
 function selectExportItems(
 	state: VaultContentState,
 	permissions: PermissionState,
@@ -181,6 +213,13 @@ export interface ExportContentInput {
 	 * when this actor is missing/unknown the portable filter returns nothing (no leak).
 	 */
 	portableViewerActorId: string;
+	/**
+	 * Optional export SCOPE: item types (kind or object subtype) to include. Applied AFTER the
+	 * visibility filter — scoping only narrows, never widens. Omitted/empty ⇒ all types.
+	 */
+	itemTypes?: string[];
+	/** Optional export SCOPE: explicit item ids to include. Applied AFTER visibility (narrows only). */
+	itemIds?: string[];
 }
 
 /**
@@ -196,12 +235,14 @@ export function exportContent(
 ): ContentExport {
 	// CONTENT-001: tombstoned items are not part of the exportable vault total.
 	const all = Object.values(state.items).filter((item) => item.deletedAt === null);
-	const { items, omittedForVisibility } = selectExportItems(
+	const { items: visibleItems, omittedForVisibility } = selectExportItems(
 		state,
 		permissions,
 		input.mode,
 		input.portableViewerActorId,
 	);
+	// Scope filtering runs AFTER the visibility filter (narrows only — never widens visibility).
+	const items = applyExportScope(visibleItems, input.itemTypes, input.itemIds);
 
 	const files: ExportedFile[] = [];
 	const notes: ExportValidationNote[] = [];

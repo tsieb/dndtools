@@ -4,7 +4,7 @@ import type { Actor, PermissionState } from '../state/permission-state';
 import type { Scene, SceneState, WidgetInstance } from '../state/scene-state';
 import type { ActorId } from '../state/ids';
 import { appendOperation, type OperationLog, type SyncOperation } from '../sync/operation-log';
-import { SCENE_STATE_SCHEMA_VERSION, SCENE_SCHEMA_VERSION } from '../state/scene-state';
+import { SCENE_STATE_SCHEMA_VERSION, SCENE_SCHEMA_VERSION, isLiveScene } from '../state/scene-state';
 import { SYNC_OPERATION_SCHEMA_VERSION } from '../sync/operation-log';
 import type { WidgetDataSchema, WidgetPackageState } from '../state/widget-package-state';
 import type { SessionHandout, SessionState } from '../state/session-state';
@@ -56,7 +56,9 @@ export function getScene(state: CoreStateSlice, sceneId: string): Scene | undefi
 
 export function requireScene(state: CoreStateSlice, sceneId: string): Scene | CommandRejection {
 	const scene = getScene(state, sceneId);
-	if (!scene) {
+	// A soft-deleted (tombstoned) scene cannot be targeted by any scene command: it reads exactly like
+	// a missing scene (non-leaking; mirrors the actor-filtered reads). `scene.restore` reads raw state.
+	if (!scene || !isLiveScene(scene)) {
 		return { code: 'scene-not-found', message: `Scene ${sceneId} does not exist.` };
 	}
 	return scene;

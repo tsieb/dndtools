@@ -11,6 +11,7 @@ import type {
 	MapRouteWaypoint,
 	MapToken,
 } from '../state/map-annotations';
+import { cloneFogRegion } from '../state/map-annotations';
 import type { MapOverlaySettings, MapOverlayMode } from '../state/map-overlay-modes';
 import { measureRoute, type RouteMeasurement, type TravelSpeed } from '../state/map-travel';
 
@@ -69,7 +70,10 @@ export interface MapFogView {
 	id: string;
 	layerId: string;
 	kind: MapFogOp['kind'];
+	/** The fog region (rect / polygon / stroke; legacy untagged rects stay valid). */
 	region: MapFogOp['region'];
+	/** Optional soft-edge feather width (0..0.2), when the op recorded one. */
+	feather?: number;
 	visibility: MapFogOp['visibility'];
 	sequence: number;
 }
@@ -280,7 +284,8 @@ export function getMapViewForActor(
 			id: op.id,
 			layerId: op.layerId,
 			kind: op.kind,
-			region: { ...op.region },
+			region: cloneFogRegion(op.region),
+			...(op.feather !== undefined ? { feather: op.feather } : {}),
 			visibility: op.visibility,
 			sequence: op.sequence,
 		});

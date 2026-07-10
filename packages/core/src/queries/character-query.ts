@@ -2,9 +2,11 @@ import type { PermissionState } from '../state/permission-state';
 import type {
 	Character,
 	CharacterDraft,
+	CharacterProficiencies,
 	CharacterState,
 } from '../state/character-state';
-import { isDraftOwner } from '../state/character-state';
+import { isDraftOwner, proficienciesOf } from '../state/character-state';
+import { characterLevel } from '../state/character-advancement';
 import { characterVisibleToActor } from './character-visibility';
 
 /**
@@ -32,6 +34,8 @@ export interface CharacterView {
 	combat: Character['combat'];
 	/** `data` with the character's declared DM-only fields removed for non-DM actors. */
 	data: Record<string, unknown>;
+	/** Structured proficiency state, hydrated with safe defaults (skills/saves/bonus/hit dice). */
+	proficiencies: CharacterProficiencies;
 	updatedAt: string;
 	revision: number;
 }
@@ -63,9 +67,51 @@ function redactCharacter(character: Character, isDm: boolean): CharacterView {
 		attacks: character.attacks.map((attack) => ({ ...attack })),
 		combat,
 		data,
+		proficiencies: proficienciesOf(character),
 		updatedAt: character.updatedAt,
 		revision: character.revision,
 	};
+}
+
+// --- Derived proficiency read model (pure) --------------------------------------------------------
+
+/**
+ * The standard 5e proficiency-bonus progression: +2 at level 1, +1 every 4 levels (⌈1 + level/4⌉ —
+ * levels 1–4 ⇒ 2, 5–8 ⇒ 3, … 17–20 ⇒ 6). Level is clamped to ≥ 1. Pure.
+ */
+export function derivedProficiencyBonus(level: number): number {
+	const clamped = Math.max(1, Math.trunc(Number.isFinite(level) ? level : 1));
+	return Math.ceil(1 + clamped / 4);
+}
+
+/**
+ * The character's EFFECTIVE proficiency bonus: the explicit `proficiencies.proficiencyBonus` when
+ * set, otherwise DERIVED from the character level (stored on `data.level`, defaulting to 1) by the
+ * standard 5e progression. Pure.
+ */
+export function effectiveProficiencyBonus(character: Character): number {
+	const explicit = proficienciesOf(character).proficiencyBonus;
+	if (explicit !== null) return explicit;
+	return derivedProficiencyBonus(characterLevel(character));
+}
+
+/** The 5e ability modifier for a score (⌊(score − 10) / 2⌋; an absent score reads as 10 ⇒ +0). Pure. */
+export function abilityModifier(score: number | undefined): number {
+	const value = typeof score === 'number' && Number.isFinite(score) ? score : 10;
+	return Math.floor((value - 10) / 2);
+}
+
+/**
+ * PASSIVE PERCEPTION: 10 + WIS modifier + the perception-skill proficiency contribution (the
+ * effective proficiency bonus once for `proficient`, twice for `expertise`). Pure + deterministic —
+ * derived on read, never stored, so it can never drift from the underlying scores/proficiencies.
+ */
+export function passivePerception(character: Character): number {
+	const proficiencies = proficienciesOf(character);
+	const level = proficiencies.skills['perception'] ?? 'none';
+	const bonus = effectiveProficiencyBonus(character);
+	const skillBonus = level === 'expertise' ? bonus * 2 : level === 'proficient' ? bonus : 0;
+	return 10 + abilityModifier(character.abilityScores.wis) + skillBonus;
 }
 
 /** A single character for one actor, or `null` when the actor may not see it (fail closed). */

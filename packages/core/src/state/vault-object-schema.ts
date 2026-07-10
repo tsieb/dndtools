@@ -53,7 +53,9 @@ export type VaultObjectSubtype =
 	| 'encounter'
 	| 'audio-preset'
 	| 'widget-package-ref'
-	| 'faction';
+	| 'faction'
+	| 'quest'
+	| 'spell';
 
 export const VAULT_OBJECT_SUBTYPES: readonly VaultObjectSubtype[] = [
 	'note',
@@ -67,13 +69,23 @@ export const VAULT_OBJECT_SUBTYPES: readonly VaultObjectSubtype[] = [
 	'audio-preset',
 	'widget-package-ref',
 	'faction',
+	'quest',
+	'spell',
 ] as const;
 
 /**
  * The scalar/structural type of one declared frontmatter field. Deliberately a small, deterministic set
  * (mirrors the widget-data-schema field kinds the rest of v2 uses) — not a full type system.
  */
-export type VaultObjectFieldType = 'string' | 'number' | 'boolean' | 'string-array' | 'object';
+export type VaultObjectFieldType =
+	| 'string'
+	| 'number'
+	| 'boolean'
+	| 'string-array'
+	| 'object'
+	// An array of plain objects (e.g. quest objectives `{id, text, done}[]`). Serialized to
+	// frontmatter as JSON entries; validated entry-by-entry as non-null, non-array objects.
+	| 'object-array';
 
 /** One declared frontmatter field of a subtype. */
 export interface VaultObjectFieldSchema {
@@ -317,6 +329,44 @@ export const VAULT_OBJECT_SCHEMAS: Readonly<Record<VaultObjectSubtype, VaultObje
 			defaultVisibility: 'dm-only',
 			modelReference: null,
 			modelImplemented: false,
+		},
+		quest: {
+			subtype: 'quest',
+			displayName: 'Quest',
+			// A campaign quest: a lifecycle status plus structured objectives. Prose (hooks, rewards,
+			// journal) lives in the markdown body; these fields are the structured tracker data.
+			fields: [
+				field('title', 'string', true, 'The quest title.'),
+				field('status', 'string', true, 'active | completed | failed | paused.'),
+				field(
+					'objectives',
+					'object-array',
+					false,
+					'The quest objectives, each `{id, text, done}`, in order.',
+				),
+			],
+			defaultVisibility: 'dm-only',
+			modelReference: null,
+			modelImplemented: true,
+		},
+		spell: {
+			subtype: 'spell',
+			displayName: 'Spell',
+			// An SRD-compendium spell record (CHAR-008 detail vocabulary). The rules text lives in the
+			// markdown body (`description` mirrors a short summary for card surfaces).
+			fields: [
+				field('name', 'string', true, 'The spell name.'),
+				field('level', 'number', true, 'The spell level (0 = cantrip).'),
+				field('school', 'string', false, 'The school of magic.'),
+				field('castingTime', 'string', false, 'The casting time (e.g. 1 action).'),
+				field('range', 'string', false, 'The range (e.g. 60 feet).'),
+				field('components', 'string', false, 'The components (e.g. V, S, M).'),
+				field('duration', 'string', false, 'The duration (e.g. Concentration, up to 1 minute).'),
+				field('description', 'string', false, 'A short rules summary for card surfaces.'),
+			],
+			defaultVisibility: 'dm-only',
+			modelReference: null,
+			modelImplemented: true,
 		},
 	});
 

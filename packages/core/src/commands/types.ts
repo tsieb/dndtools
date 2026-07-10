@@ -22,6 +22,7 @@ import type { EncounterDifficulty } from '../state/encounter';
 import type { ImportConflictPolicy, ImportSourceKind } from '../state/content-import';
 import type { ContentExport, ContentExportMode } from '../state/content-export';
 import type { McpPolicyState } from '../state/mcp-policy';
+import type { PresenceState } from '../state/presence-state';
 import type { OperationLog, SyncOperation } from '../sync/operation-log';
 
 export interface CoreStateSlice {
@@ -44,6 +45,13 @@ export interface CoreStateSlice {
 	 * the write audit trail, and the vault default policy posture. Fail-closed to `strict_review`.
 	 */
 	mcp: McpPolicyState;
+	/**
+	 * COLLAB-004 — the EPHEMERAL presence document (Contract 1's seventh, non-durable state document).
+	 * OPTIONAL and NEVER op-logged: `session.set-presence` mutates it without appending a durable
+	 * operation, and the host RESETS it on session start/end (`session.set-workflow`). Persisting hosts
+	 * treat it as device-local; it must never be required for offline correctness.
+	 */
+	presence?: PresenceState;
 	sync: OperationLog;
 }
 
@@ -64,6 +72,10 @@ export interface CoreEnvironment {
 export type CoreCommand =
 	| { type: 'scene.create'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.update-metadata'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// SOFT-DELETE a scene (tombstone; recoverable via scene.restore) / RESTORE it. DM-only. The active
+	// scene and the Command Center home scene can never be deleted (fail closed).
+	| { type: 'scene.delete'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene.restore'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.set-sections'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'scene.save-template'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| {
@@ -88,6 +100,14 @@ export type CoreCommand =
 	| { type: 'widget.package.disable'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'widget.package.remove'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'widget.package.upgrade'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// SWITCH the active campaign SYSTEM PACKAGE (DM-only). Fail-closed on the pure dry-run: a switch
+	// that cannot migrate or would drop widget content is rejected unless the loss is acknowledged.
+	| {
+			type: 'widget.package.switch-system';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
 	| {
 			type: 'widget.dispatch-command';
 			actorId: ActorId;
@@ -280,6 +300,8 @@ export type CoreCommand =
 	// MAP-014: explicit combat overlay mode + prerequisite-gated configuration.
 	| { type: 'map.set-overlay-mode'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'map.configure-overlay'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// Rename / re-describe a map entity (mirrors scene.update-metadata). DM-only.
+	| { type: 'map.update-metadata'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// CHAR-001: DM quick-create of an NPC/monster/sidekick (simplified, dm-only default, bindable).
 	| { type: 'character.quick-create'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// CHAR-013: draft ownership lifecycle (create/assign, atomic transfer, revoke) — exactly one owner.
@@ -338,6 +360,17 @@ export type CoreCommand =
 	  }
 	| { type: 'character.set-spell'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'character.rest'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// Structured proficiency state (skills / saves / proficiency bonus / hit dice). Owner or DM.
+	| {
+			type: 'character.set-proficiencies';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	// Post-create attack-list editing (add/edit/remove via full replacement). Owner or DM.
+	| { type: 'character.update-attacks'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// Entity visibility + sharedWith delivery-list authoring. DM-only (widening is a DM authority).
+	| { type: 'character.set-sharing'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// CHAR-009: staged-then-commit level-up / advancement (XP or milestone), owner-only.
 	| { type: 'character.set-xp'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'character.open-advancement'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -500,6 +533,32 @@ export type CoreCommand =
 	| { type: 'session.audio.stop'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.audio.set-volume'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.audio.project'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// AMBIENCE LAYERS: set (create/update) / remove a secondary looping bed mixed under the primary
+	// track. DM-only; the referenced source is validated through the AUDIO-009/010 gates (fail closed).
+	| {
+			type: 'session.audio.set-ambience-layer';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	| {
+			type: 'session.audio.remove-ambience-layer';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	// Record the DM-selected audio OUTPUT DEVICE for the session host (null = platform default).
+	| {
+			type: 'session.audio.set-output-device';
+			actorId: ActorId;
+			payload: unknown;
+			idempotencyKey?: string;
+	  }
+	// SES-009 — AUTHOR a recap (markdown) onto a session archive. DM-only; fails closed with no archive.
+	| { type: 'session.author-recap'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// COLLAB-004 — set/clear ephemeral session PRESENCE. Actor-scoped (a player sets only their own;
+	// the DM may clear another's). NEVER op-logged: presence is ephemeral, non-durable state.
+	| { type: 'session.set-presence'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// MCP-001: DM flips the vault-wide MASTER ENABLE switch (off by default). Enabling is an explicit DM
 	// action; disabling cleanly removes ALL agent capability — every later tool call is denied at the
 	// master gate before identity/policy/queries run. DM-only.
@@ -840,6 +899,11 @@ export type CoreEvent =
 			actorId: ActorId;
 	  }
 	| { kind: 'map.created'; mapId: string; actorId: ActorId }
+	// Map name/description metadata changed (mirrors scene.metadata-changed).
+	| { kind: 'map.metadata-changed'; mapId: string; actorId: ActorId; paths: string[] }
+	// A scene was soft-deleted (tombstoned; recoverable) / restored.
+	| { kind: 'scene.deleted'; sceneId: SceneId; actorId: ActorId }
+	| { kind: 'scene.restored'; sceneId: SceneId; actorId: ActorId }
 	| {
 			kind: 'map.embed-changed';
 			parentMapId: string;
@@ -905,6 +969,31 @@ export type CoreEvent =
 	| {
 			kind: 'character.combat-changed';
 			characterId: string;
+			revision: number;
+			actorId: ActorId;
+	  }
+	// Structured proficiency state (skills / saves / proficiency bonus / hit dice) changed.
+	| {
+			kind: 'character.proficiencies-changed';
+			characterId: string;
+			revision: number;
+			actorId: ActorId;
+	  }
+	// The character's attack list was replaced (post-create add/edit/remove).
+	| {
+			kind: 'character.attacks-changed';
+			characterId: string;
+			revision: number;
+			attackCount: number;
+			actorId: ActorId;
+	  }
+	// The character's entity visibility and/or sharedWith delivery list changed (DM authored). Carries
+	// the new visibility so cross-surface caches can invalidate — never sheet content.
+	| {
+			kind: 'character.sharing-changed';
+			characterId: string;
+			visibility: string;
+			sharedWith: ActorId[];
 			revision: number;
 			actorId: ActorId;
 	  }
@@ -1225,6 +1314,44 @@ export type CoreEvent =
 			playerActorId: ActorId;
 			deliveryStatus: 'delivered' | 'queued';
 	  }
+	// An AMBIENCE LAYER was set (created/updated) or removed on the session audio state (DM authored).
+	| {
+			kind: 'session.ambience-changed';
+			layerId: string;
+			mutation: 'set' | 'remove';
+			sourceId: string | null;
+			actorId: ActorId;
+	  }
+	// The DM-selected session-host audio OUTPUT DEVICE changed (null ⇒ platform default).
+	| {
+			kind: 'session.audio-output-device-changed';
+			deviceId: string | null;
+			actorId: ActorId;
+	  }
+	// SES-009 — a recap was authored onto a session archive. Carries the archive id + revision only.
+	| {
+			kind: 'session.recap-authored';
+			archiveId: string;
+			revision: number;
+			actorId: ActorId;
+	  }
+	// COLLAB-004 — an ephemeral presence entry changed. `subjectActorId` is whose presence changed
+	// (the actor themselves, or a participant the DM cleared). Carries status only — never cursor data.
+	| {
+			kind: 'session.presence-changed';
+			subjectActorId: ActorId;
+			status: 'online' | 'away' | 'offline';
+			actorId: ActorId;
+	  }
+	// The active campaign SYSTEM PACKAGE was switched after a clean/acknowledged dry-run. Carries the
+	// package ids + how many widget instances were disabled by the switch (the acknowledged loss).
+	| {
+			kind: 'widget.system-switched';
+			packageId: string;
+			previousPackageId: string | null;
+			disabledWidgetCount: number;
+			actorId: ActorId;
+	  }
 	// MCP-011 — an agent → scoped actor binding was set/removed. Carries the agent + bound actor id (the
 	// audit), never any capability data (a binding confers none). `removed` ⇒ the binding was deleted.
 	| {
@@ -1444,7 +1571,14 @@ export type RejectionCode =
 	// SEC-006 — an input payload crossing a trust boundary breached an explicit SIZE/COUNT ceiling (too many
 	// import entries, a single oversized file, an oversized total, or an oversized body). Fail closed: the
 	// payload is rejected BEFORE allocation-heavy processing. The breached path/limit rides `issues`.
-	| 'payload-too-large';
+	| 'payload-too-large'
+	// The target scene is soft-deleted: it must be restored before it can be edited, and a live scene
+	// cannot be restored (mirrors content-item-deleted / content-item-not-deleted).
+	| 'scene-deleted'
+	| 'scene-not-deleted'
+	// A system-package switch would DROP widget content per the dry-run and the caller did not
+	// acknowledge the loss (mirrors content-write-loss-unacknowledged). Fail closed: never silent.
+	| 'system-switch-loss-unacknowledged';
 
 export interface CommandRejection {
 	code: RejectionCode;
