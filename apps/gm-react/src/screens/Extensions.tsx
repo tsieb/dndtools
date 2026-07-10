@@ -13,7 +13,7 @@ import {
 	type SystemSwitchPreviewResult,
 	type WidgetPackageDefinition,
 } from '@dndtools/core';
-import { Badge, Button, Dialog, EmptyState, HPBar, Icon, Input, Select, Skeleton, Switch, Tabs, Textarea, Toaster, VisibilityChip } from '../ds';
+import { Badge, Button, Checkbox, Dialog, EmptyState, HPBar, Icon, Input, SegmentedControl, Select, Skeleton, Switch, Tabs, Textarea, Toaster, VisibilityChip } from '../ds';
 import { Page, Panel, T, eb, mono } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import {
@@ -127,7 +127,6 @@ function ExtPlugins() {
 	const isDm = runtime.state.permissions.actors[dmId]?.role === 'dm';
 	const canWrite = isDm && !previewing;
 	const [busy, setBusy] = useState(false);
-	const [msg, setMsg] = useState<{ tone: 'success' | 'error' | 'info'; text: string } | null>(null);
 	const [jsonDraft, setJsonDraft] = useState('');
 	const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
 	// The live widget-package registry — the "plugins" of this app. A removed package is gone, not listed.
@@ -136,21 +135,22 @@ function ExtPlugins() {
 		[runtime.state.widgets],
 	);
 
-	// Shared result surfacing: success copy on accept, the Core rejection (with its per-field zod/
-	// validation issues) on reject. A thrown dispatch (failed durable write) also lands here.
+	// Shared result surfacing — transient outcomes go through the app-wide Toaster (like every other
+	// tab): success copy on accept, the Core rejection (with its per-field zod/validation issues) on
+	// reject. A thrown dispatch (failed durable write) also lands here.
 	const finish = (result: CommandResult, okText: string) => {
 		if (result.status === 'accepted') {
-			setMsg({ tone: 'success', text: okText });
+			Toaster.success(okText);
 		} else {
 			const issues = (result.rejection.issues ?? []).map((i) => `${i.path}: ${i.message}`).join(' · ');
-			setMsg({ tone: 'error', text: issues ? `${result.rejection.message} ${issues}` : result.rejection.message });
+			Toaster.error(issues ? `${result.rejection.message} ${issues}` : result.rejection.message);
 		}
 	};
 	const guard = (fn: () => Promise<void>) => {
 		if (busy) return;
 		setBusy(true);
 		void fn()
-			.catch((error: unknown) => setMsg({ tone: 'error', text: error instanceof Error ? error.message : String(error) }))
+			.catch((error: unknown) => Toaster.error(error instanceof Error ? error.message : String(error)))
 			.finally(() => setBusy(false));
 	};
 
@@ -199,14 +199,14 @@ function ExtPlugins() {
 	const exportToDraft = (packageId: string) => {
 		const exported = exportWidgetPackage(runtime.state.widgets, { ids: () => runtime.newId() }, packageId);
 		if ('kind' in exported) {
-			setMsg({ tone: 'error', text: `Package ${packageId} could not be exported (${exported.reason}).` });
+			Toaster.error(`Package ${packageId} could not be exported (${exported.reason}).`);
 			return;
 		}
 		setJsonDraft(JSON.stringify(exported.package, null, 2));
-		setMsg({
-			tone: 'info',
-			text: `Exported ${packageId} into the JSON box below — bump "version" (and declare "migrations" for placed widgets) to upgrade it.`,
-		});
+		Toaster.info(
+			`Exported ${packageId} into the JSON box below — bump "version" (and declare "migrations" for placed widgets) to upgrade it.`,
+			{ duration: 7000 },
+		);
 	};
 
 	const applyJson = () =>
@@ -215,7 +215,7 @@ function ExtPlugins() {
 			try {
 				parsed = JSON.parse(jsonDraft);
 			} catch (error) {
-				setMsg({ tone: 'error', text: `Not valid JSON: ${error instanceof Error ? error.message : String(error)}` });
+				Toaster.error(`Not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
 				return;
 			}
 			// Accept a raw package definition or the { package: ... } export wrapper.
@@ -224,13 +224,13 @@ function ExtPlugins() {
 			) as WidgetPackageDefinition;
 			const id = definition && typeof definition === 'object' ? definition.id : undefined;
 			if (typeof id !== 'string' || !id) {
-				setMsg({ tone: 'error', text: 'Package JSON needs a top-level "id" (or an export wrapper with "package.id").' });
+				Toaster.error('Package JSON needs a top-level "id" (or an export wrapper with "package.id").');
 				return;
 			}
 			const existing = runtime.state.widgets.packages[id];
 			const isUpgrade = !!existing && !existing.removedAt;
 			if (isUpgrade && id.startsWith('system.')) {
-				setMsg({ tone: 'error', text: 'System packages are code-defined — their definitions cannot be upgraded from JSON.' });
+				Toaster.error('System packages are code-defined — their definitions cannot be upgraded from JSON.');
 				return;
 			}
 			const result = await runtime.dispatch({
@@ -252,21 +252,6 @@ function ExtPlugins() {
 			{!canWrite && (
 				<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
 					Package management is DM-only and read-only while previewing — the controls below are disabled.
-				</div>
-			)}
-			{msg && (
-				<div
-					role="status"
-					style={{
-						font: `12.5px/1.5 ${T.sans}`,
-						color: msg.tone === 'error' ? T.err : msg.tone === 'success' ? T.ok : T.sub,
-						padding: '9px 12px',
-						border: `1px solid ${T.bd}`,
-						borderRadius: 9,
-						background: T.surf,
-					}}
-				>
-					{msg.text}
 				</div>
 			)}
 			<Panel title="Installed packages" action={<Badge status="neutral">{packages.length} installed</Badge>}>
@@ -680,41 +665,40 @@ function ExtCompendium() {
 							Importing is DM-only and read-only while previewing — browsing works, the import buttons are disabled.
 						</div>
 					)}
-					{/* kind pills */}
-					<div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-						{(
-							[
-								{ id: 'monster' as const, label: 'Monsters', icon: 'monster-claw' },
-								{ id: 'spell' as const, label: 'Spells', icon: 'spell-sparkle' },
-							]
-						).map((t) => (
-							<button
-								key={t.id}
-								type="button"
-								aria-pressed={kind === t.id}
-								onClick={() => {
-									setKind(t.id);
-									setSelKey(null);
-									setConfirmKey(null);
-								}}
-								style={{
-									display: 'inline-flex',
-									alignItems: 'center',
-									gap: 6,
-									font: `12px ${T.sans}`,
-									padding: '6px 11px',
-									borderRadius: 8,
-									cursor: 'pointer',
-									border: `1px solid ${kind === t.id ? T.accBd : T.bd}`,
-									background: kind === t.id ? T.accSub : T.surf,
-									color: kind === t.id ? T.acc : T.sub,
-								}}
-							>
-								<Icon name={t.icon} size={14} />
-								{t.label}
-								{kind === t.id && result && <span style={{ color: T.ter }}>{result.total}</span>}
-							</button>
-						))}
+					{/* kind selector */}
+					<div style={{ marginBottom: 10 }}>
+						<SegmentedControl
+							ariaLabel="Compendium entry kind"
+							size="sm"
+							value={kind}
+							onChange={(id: string) => {
+								setKind(id as CompendiumKind);
+								setSelKey(null);
+								setConfirmKey(null);
+							}}
+							options={[
+								{
+									value: 'monster',
+									label: (
+										<>
+											<Icon name="monster-claw" size={14} />
+											Monsters
+											{kind === 'monster' && result ? <span style={{ opacity: 0.75 }}>{result.total}</span> : null}
+										</>
+									),
+								},
+								{
+									value: 'spell',
+									label: (
+										<>
+											<Icon name="spell-sparkle" size={14} />
+											Spells
+											{kind === 'spell' && result ? <span style={{ opacity: 0.75 }}>{result.total}</span> : null}
+										</>
+									),
+								},
+							]}
+						/>
 					</div>
 					{/* search + filter */}
 					<div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
@@ -1103,6 +1087,7 @@ function SystemSwitchDialog({
 			onClose={onClose}
 			title={`Switch to ${targetName}`}
 			description={`Migration dry-run · ${targetId}`}
+			tone={destructive ? 'danger' : undefined}
 			size="md"
 			footer={
 				<>
@@ -1159,7 +1144,7 @@ function SystemSwitchDialog({
 								Dropped types above have live widgets on your scenes — they would be disabled (recoverable
 								by switching back). The command fails closed unless you acknowledge this.
 							</div>
-							<Switch checked={ack} onChange={() => setAck((v) => !v)} label="I understand" />
+							<Checkbox checked={ack} onChange={(v: boolean) => setAck(v)} label="I understand" />
 						</div>
 					)}
 					{preview.clean && (
@@ -1314,27 +1299,16 @@ function ExtTheme() {
 	return (
 		<div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 18, alignItems: 'start' }}>
 			<Panel title="Theme preset" action={<Badge status="neutral">active: {theme}</Badge>}>
-				<div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 14 }}>
-					{THEME_PRESETS.map((p) => (
-						<button
-							key={p.id}
-							type="button"
-							aria-pressed={theme === p.id}
-							onClick={() => applyTheme(p.id)}
-							style={{
-								font: `12px ${T.sans}`,
-								padding: '6px 12px',
-								borderRadius: 8,
-								cursor: 'pointer',
-								border: `1px solid ${theme === p.id ? T.accBd : T.bd}`,
-								background: theme === p.id ? T.accSub : T.surf,
-								color: theme === p.id ? T.acc : T.sub,
-							}}
-							title={p.desc}
-						>
-							{p.label}
-						</button>
-					))}
+				<div style={{ marginBottom: 14 }}>
+					<SegmentedControl
+						ariaLabel="Theme preset"
+						value={theme}
+						onChange={applyTheme}
+						options={THEME_PRESETS.map((p) => ({ value: p.id, label: p.label }))}
+					/>
+					<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 6 }}>
+						{THEME_PRESETS.find((p) => p.id === theme)?.desc}
+					</div>
 				</div>
 				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 12 }}>
 					The preset choice is real and persists (the same setting as Settings → Appearance). Presets are the

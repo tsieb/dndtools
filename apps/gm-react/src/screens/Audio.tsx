@@ -16,7 +16,7 @@ import {
 	type AudioAutomationTriggerKind,
 	type AudioSourceClassification,
 } from '@dndtools/core';
-import { Badge, Button, EmptyState, Field, Icon, Input, Select, StatusDot, Switch, Tabs, Toaster, VisibilityChip } from '../ds';
+import { Badge, Button, EmptyState, Field, Icon, Input, Select, Slider, StatusDot, Switch, Tabs, Toaster } from '../ds';
 import { Page, Panel, T, eb } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { ensureAudioPlayback } from '../runtime/audio-playback';
@@ -47,21 +47,6 @@ import { hasAssetBytes } from '../platform/storage/assetStore';
  * the core resolver — a blocked rule is flagged, never silently bypassed.
  */
 
-function Fader({ value, onChange, accent, disabled }: { value: number; onChange: (v: number) => void; accent?: string; disabled?: boolean }) {
-	return (
-		<input
-			type="range"
-			min="0"
-			max="100"
-			value={value}
-			disabled={disabled}
-			onChange={(e) => onChange(Number(e.target.value))}
-			aria-label="Volume"
-			style={{ flex: 1, height: 4, accentColor: accent || T.acc, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1 }}
-		/>
-	);
-}
-
 const SOURCE_KIND_OPTIONS = [
 	{ value: 'web-stream', label: 'Web stream (URL)' },
 	{ value: 'bundled-preset', label: 'Bundled preset' },
@@ -85,10 +70,16 @@ const ACTION_LABELS: Record<AudioAutomationAction, string> = {
 const SUPPORTS_SINK_SELECTION =
 	typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in HTMLMediaElement.prototype;
 
-/** Live map of which library assets actually have BYTES in the device asset-byte store (honest,
- *  async). Recomputed whenever the asset id set changes (an import adds both metadata and bytes). */
-function useAssetBytesPresence(assetIds: string[]): Record<string, boolean> {
-	const [presence, setPresence] = useState<Record<string, boolean>>({});
+/** Byte-presence of one library asset in THIS device's asset-byte store. `unknown` until the async
+ *  check settles — callers must render a NEUTRAL state for it (never the missing-bytes copy, never
+ *  a blocked flag), because "we haven't looked yet" is not "it isn't there". */
+type BytesPresence = 'unknown' | 'present' | 'missing';
+
+/** Live tri-state map of which library assets actually have BYTES in the device asset-byte store
+ *  (honest, async). An id absent from the map is `unknown` (still resolving); recomputed whenever
+ *  the asset id set changes (an import adds both metadata and bytes). */
+function useAssetBytesPresence(assetIds: string[]): Record<string, BytesPresence> {
+	const [presence, setPresence] = useState<Record<string, BytesPresence>>({});
 	const key = [...assetIds].sort().join('\n');
 	useEffect(() => {
 		const ids = key ? key.split('\n') : [];
@@ -98,7 +89,7 @@ function useAssetBytesPresence(assetIds: string[]): Record<string, boolean> {
 		}
 		let cancelled = false;
 		void Promise.all(
-			ids.map(async (id) => [id, await hasAssetBytes(id).catch(() => false)] as const),
+			ids.map(async (id) => [id, (await hasAssetBytes(id).catch(() => false)) ? 'present' : 'missing'] as const),
 		).then((pairs) => {
 			if (!cancelled) setPresence(Object.fromEntries(pairs));
 		});
@@ -247,7 +238,10 @@ export function Audio() {
 		setPulse(asset.id);
 		setTimeout(() => setPulse((p) => (p === asset.id ? null : p)), 360);
 		setPlayError(null);
-		const bytesReady = bytesPresence[asset.id] === true;
+		// While the presence check is still resolving ('unknown'), do NOT gate on missing bytes — only
+		// a RESOLVED 'missing' is reported to the AUDIO-010 gate. The playback driver stays honest
+		// either way: a truly-missing file lands in its `no-stream` state, never a fake rejection.
+		const bytesReady = (bytesPresence[asset.id] ?? 'unknown') !== 'missing';
 		const result = await runtime.dispatch({
 			type: 'session.audio.play',
 			actorId: dmId,
@@ -356,14 +350,28 @@ export function Audio() {
 		await setLayer(runtime.newId(), sourceId, 0.5, false);
 	};
 
-	const removeLayer = async (layerId: string) => {
+	// Remove is immediate with a Toaster UNDO — undo re-dispatches set-ambience-layer with the
+	// layer's previous payload under its ORIGINAL layer id.
+	const removeLayer = async (
+		layerId: string,
+		previous: { sourceId: string; volume: number; muted: boolean },
+		sourceName: string,
+	) => {
 		setAmbienceError(null);
 		const result = await runtime.dispatch({
 			type: 'session.audio.remove-ambience-layer',
 			actorId: dmId,
 			payload: { layerId },
 		});
-		if (result.status !== 'accepted') setAmbienceError(result.rejection.message);
+		if (result.status !== 'accepted') {
+			setAmbienceError(result.rejection.message);
+			return;
+		}
+		Toaster.show({
+			message: `“${sourceName}” ambience layer removed.`,
+			action: 'Undo',
+			onAction: () => void setLayer(layerId, previous.sourceId, previous.volume, previous.muted),
+		});
 	};
 
 	// ── Output device routing (session.audio.set-output-device + driver setSinkId) ───────────────
@@ -397,10 +405,17 @@ export function Audio() {
 	// Each ENABLED rule's deterministic resolution against the CURRENT library + this device's real
 	// byte presence — exactly what the core resolver would compute if the trigger fired now.
 	const ruleOutcomes = useMemo(() => {
-		const map = new Map<string, AudioAutomationOutcome>();
+		const map = new Map<string, AudioAutomationOutcome | 'checking'>();
 		for (const rule of automationRules) {
 			if (!rule.enabled) continue;
-			const bytesReady = rule.assetId ? bytesPresence[rule.assetId] === true : true;
+			const assetPresence = rule.assetId ? (bytesPresence[rule.assetId] ?? 'unknown') : 'present';
+			if (assetPresence === 'unknown') {
+				// The byte check hasn't settled on this device yet — resolving now would flash an
+				// untrue "Blocked". Report 'checking' and resolve once presence is known.
+				map.set(rule.id, 'checking');
+				continue;
+			}
+			const bytesReady = assetPresence === 'present';
 			const resolution = resolveAudioAutomationForActor(state.audio, state.permissions, dmId, {
 				kind: rule.trigger,
 				scopeId: rule.triggerScopeId,
@@ -423,7 +438,6 @@ export function Audio() {
 	const [ruleAssetId, setRuleAssetId] = useState('');
 	const [ruleBusy, setRuleBusy] = useState(false);
 	const [ruleError, setRuleError] = useState<string | null>(null);
-	const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
 	const ruleFormSourceId = ruleSourceId || sources[0]?.sourceId || '';
 	const ruleSourceAssets = assets.filter((a) => a.sourceId === ruleFormSourceId);
@@ -475,22 +489,49 @@ export function Audio() {
 			},
 		});
 
+	// Delete is immediate with a Toaster UNDO (no confirm step) — undo re-dispatches the rule's
+	// previous definition under its ORIGINAL id (configure-automation recreates a deleted ruleId).
 	const deleteRule = async (rule: AudioAutomationRule) => {
-		setConfirmingDeleteId(null);
 		const result = await runtime.dispatch({
 			type: 'audio.delete-automation',
 			actorId: dmId,
 			payload: { ruleId: rule.id },
 		});
-		if (result.status === 'accepted') Toaster.success(`Automation “${rule.label}” deleted.`);
-		else Toaster.error(result.rejection.message);
+		if (result.status !== 'accepted') {
+			Toaster.error(result.rejection.message);
+			return;
+		}
+		Toaster.show({
+			message: `Automation “${rule.label}” deleted.`,
+			action: 'Undo',
+			onAction: () => {
+				void runtime
+					.dispatch({
+						type: 'audio.configure-automation',
+						actorId: dmId,
+						payload: {
+							ruleId: rule.id,
+							label: rule.label,
+							enabled: rule.enabled,
+							trigger: rule.trigger,
+							triggerScopeId: rule.triggerScopeId,
+							action: rule.action,
+							sourceId: rule.sourceId,
+							assetId: rule.assetId,
+						},
+					})
+					.then((restored) => {
+						if (restored.status !== 'accepted') Toaster.error(`Undo failed: ${restored.rejection.message}`);
+					});
+			},
+		});
 	};
 
 	/** Dispatch a rule's RESOLVED command request through the core (AUDIO-005 AC1) — DM-initiated. */
 	const runRuleNow = async (rule: AudioAutomationRule) => {
 		const outcome = ruleOutcomes.get(rule.id);
-		if (!outcome || outcome.status !== 'requested') return;
-		const bytesReady = rule.assetId ? bytesPresence[rule.assetId] === true : true;
+		if (!outcome || outcome === 'checking' || outcome.status !== 'requested') return;
+		const bytesReady = rule.assetId ? bytesPresence[rule.assetId] === 'present' : true;
 		const result = await runtime.dispatch(
 			outcome.request.action === 'stop'
 				? { type: 'session.audio.stop', actorId: dmId, payload: {} }
@@ -581,12 +622,15 @@ export function Audio() {
 					}}
 				>
 					<Icon name="audio" size={15} color={T.ter} />
-					<Fader
+					<Slider
 						value={masterPct}
 						disabled={!track || !canEdit}
-						onChange={(v) => dispatch({ type: 'session.audio.set-volume', actorId: dmId, payload: { volume: v / 100 } })}
+						onChange={(v: number) => dispatch({ type: 'session.audio.set-volume', actorId: dmId, payload: { volume: v / 100 } })}
+						valueLabel={`${masterPct}%`}
+						steppers
+						aria-label="Master volume"
+						style={{ flex: 1 }}
 					/>
-					<span style={{ font: `12px ${T.mono}`, color: T.sub, width: 30, textAlign: 'right' }}>{masterPct}</span>
 				</div>
 				{/* The device-output driver's honest silent states — the durable track says "playing", this
 				    line says why THIS device is (or isn't) actually sounding. Nothing fancy by design. */}
@@ -645,7 +689,7 @@ export function Audio() {
 								<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
 									{assets.map((a) => {
 										const lit = pulse === a.id;
-										const bytesReady = bytesPresence[a.id] === true;
+										const bytes = bytesPresence[a.id] ?? 'unknown';
 										return (
 											<button
 												key={a.id}
@@ -674,7 +718,7 @@ export function Audio() {
 														alignItems: 'center',
 														justifyContent: 'center',
 														background: `color-mix(in srgb, ${T.acc} 16%, transparent)`,
-														color: bytesReady ? T.acc : T.ter,
+														color: bytes === 'missing' ? T.ter : T.acc,
 													}}
 												>
 													<Icon name="play" size="md" />
@@ -682,10 +726,14 @@ export function Audio() {
 												<span style={{ flex: 1, minWidth: 0 }}>
 													<span style={{ display: 'block', font: `600 13px ${T.sans}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.title || a.fileName}</span>
 													<span style={{ display: 'block', font: `10.5px ${T.sans}`, color: T.ter }}>
-														{bytesReady ? (a.tags.length ? a.tags.join(' · ') : a.mimeType) : 'File bytes missing on this device — re-import to restore'}
+														{bytes === 'unknown'
+															? 'Checking this device…'
+															: bytes === 'present'
+																? (a.tags.length ? a.tags.join(' · ') : a.mimeType)
+																: 'File bytes missing on this device — re-import to restore'}
 													</span>
 												</span>
-												{a.needsLicenseReview && <VisibilityChip level="dm-only" compact />}
+												{a.needsLicenseReview && <Badge status="warning">Review license</Badge>}
 											</button>
 										);
 									})}
@@ -849,15 +897,16 @@ export function Audio() {
 														</span>
 													)}
 												</div>
-												<Fader
+												<Slider
 													value={Math.round(layer.volume * 100)}
 													disabled={!canEdit}
-													onChange={(v) => void setLayer(layerId, layer.sourceId, v / 100, layer.muted)}
-													accent={on ? T.acc : T.ter}
+													onChange={(v: number) => void setLayer(layerId, layer.sourceId, v / 100, layer.muted)}
+													valueLabel={`${Math.round(layer.volume * 100)}%`}
+													steppers
+													aria-label={`${sourceName} volume`}
 												/>
 											</div>
-											<span style={{ font: `11.5px ${T.mono}`, color: T.ter, width: 26, textAlign: 'right' }}>{Math.round(layer.volume * 100)}</span>
-											<Button variant="ghost" size="sm" icon="close" disabled={!canEdit} aria-label={`Remove ${sourceName} layer`} onClick={() => void removeLayer(layerId)} />
+											<Button variant="ghost" size="sm" icon="close" disabled={!canEdit} aria-label={`Remove ${sourceName} layer`} onClick={() => void removeLayer(layerId, layer, sourceName)} />
 										</div>
 									);
 								})}
@@ -921,7 +970,14 @@ export function Audio() {
 
 						{/* scene bindings — real AUDIO-001 associations */}
 						<Panel title="Scene bindings">
-							{scenes.length === 0 && <div style={{ font: `12px ${T.sans}`, color: T.ter }}>No scenes yet.</div>}
+							{scenes.length === 0 && (
+								<EmptyState
+									inset
+									icon="scene"
+									title="No scenes yet."
+									description="Create a scene in the Scenes section — each one can carry its own ambience cue."
+								/>
+							)}
 							{scenes.map((s, i) => {
 								const bound = sceneAssociationsFor(s.id);
 								return (
@@ -978,7 +1034,6 @@ export function Audio() {
 								const sourceName = sources.find((s) => s.sourceId === rule.sourceId)?.displayName ?? rule.sourceId;
 								const assetName = rule.assetId ? (assets.find((a) => a.id === rule.assetId)?.title ?? rule.assetId) : null;
 								const scopeName = rule.trigger === 'scene-activation' ? sceneNameById(rule.triggerScopeId) : rule.triggerScopeId;
-								const confirming = confirmingDeleteId === rule.id;
 								return (
 									<div key={rule.id} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 12px', border: `1px solid ${T.bd}`, borderRadius: 9, background: T.surf }}>
 										<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -993,31 +1048,22 @@ export function Audio() {
 											</div>
 											{!rule.enabled ? (
 												<Badge status="neutral">Disabled</Badge>
+											) : outcome === 'checking' ? (
+												<Badge status="neutral">Checking…</Badge>
 											) : outcome?.status === 'requested' ? (
 												<Badge status="success">Ready</Badge>
 											) : outcome?.status === 'blocked' ? (
 												<Badge status="warning">Blocked</Badge>
 											) : null}
 											<Switch checked={rule.enabled} disabled={!canEdit} onChange={(v: boolean) => toggleRuleEnabled(rule, v)} aria-label={`Enable ${rule.label}`} />
-											{outcome?.status === 'requested' && (
+											{outcome !== 'checking' && outcome?.status === 'requested' && (
 												<Button variant="ghost" size="sm" icon="play" disabled={!canEdit} aria-label={`Run ${rule.label} now`} onClick={() => void runRuleNow(rule)}>
 													Run now
 												</Button>
 											)}
-											{confirming ? (
-												<span style={{ display: 'inline-flex', gap: 4 }}>
-													<Button variant="danger" size="sm" onClick={() => void deleteRule(rule)}>
-														Delete
-													</Button>
-													<Button variant="ghost" size="sm" onClick={() => setConfirmingDeleteId(null)}>
-														Keep
-													</Button>
-												</span>
-											) : (
-												<Button variant="ghost" size="sm" icon="delete" disabled={!canEdit} aria-label={`Delete ${rule.label}`} onClick={() => setConfirmingDeleteId(rule.id)} />
-											)}
+											<Button variant="ghost" size="sm" icon="delete" disabled={!canEdit} aria-label={`Delete ${rule.label}`} onClick={() => void deleteRule(rule)} />
 										</div>
-										{rule.enabled && outcome?.status === 'blocked' && (
+										{rule.enabled && outcome !== 'checking' && outcome?.status === 'blocked' && (
 											<div role="status" style={{ font: `11px/1.5 ${T.sans}`, color: 'var(--color-status-warning-text)' }}>{outcome.message}</div>
 										)}
 									</div>
