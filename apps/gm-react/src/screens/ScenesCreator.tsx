@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listScenesForActor } from '@dndtools/core';
-import { Badge, Button, Card, Field, Icon, IconButton, Input, Select, Textarea } from '../ds';
+import { Badge, Button, Card, Dialog, Field, Icon, IconButton, Input, Select, Textarea, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { parseTags, sceneStatus, statusLabel } from '../app/scene-helpers';
 
@@ -26,6 +26,9 @@ export function ScenesCreator() {
 	const [submitting, setSubmitting] = useState(false);
 	// Which scene row (if any) has its metadata editor expanded (scene.update-metadata).
 	const [editingId, setEditingId] = useState<string | null>(null);
+	// The scene the delete-confirm dialog is open for (scene.delete is destructive — confirm first).
+	const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+	const [deleting, setDeleting] = useState(false);
 
 	const actorId = runtime.defaultActorId;
 	const activeSceneId = runtime.state.session.activeSceneId;
@@ -83,6 +86,37 @@ export function ScenesCreator() {
 		}
 		setEditingId(null);
 		return null;
+	}
+
+	// SCENE DELETE — `scene.delete` is the core's recoverable tombstone soft-delete. On success the
+	// row leaves the list and an UNDO toast dispatches the counterpart `scene.restore`. The core's
+	// fail-closed guards (the ACTIVE scene and the Command Center HOME scene can never be deleted)
+	// surface as their honest rejection messages.
+	async function confirmDelete() {
+		if (!deleteTarget || deleting) return;
+		const { id, name } = deleteTarget;
+		setDeleting(true);
+		try {
+			const result = await runtime.dispatch({ type: 'scene.delete', actorId, payload: { sceneId: id } });
+			setDeleteTarget(null);
+			if (result.status !== 'accepted') {
+				Toaster.error(result.rejection.message ?? 'The scene could not be deleted.');
+				return;
+			}
+			Toaster.success(`“${name}” deleted`, {
+				action: 'Undo',
+				onAction: () => {
+					void runtime
+						.dispatch({ type: 'scene.restore', actorId, payload: { sceneId: id } })
+						.then((restored) => {
+							if (restored.status === 'accepted') Toaster.success(`“${name}” restored`);
+							else Toaster.error(restored.rejection.message ?? 'The scene could not be restored.');
+						});
+				},
+			});
+		} finally {
+			setDeleting(false);
+		}
 	}
 
 	return (
@@ -237,6 +271,14 @@ export function ScenesCreator() {
 											variant="ghost"
 											size="sm"
 											onClick={() => setEditingId(rowEditing ? null : scene.id)}
+											style={{ flex: '0 0 auto' }}
+										/>
+										<IconButton
+											icon="delete"
+											label={`Delete ${scene.name}`}
+											variant="ghost"
+											size="sm"
+											onClick={() => setDeleteTarget({ id: scene.id, name: scene.name })}
 											style={{ marginRight: 'var(--space-2)', flex: '0 0 auto' }}
 										/>
 									</div>
@@ -255,6 +297,31 @@ export function ScenesCreator() {
 					</Card>
 				)}
 			</div>
+
+			{/* Delete confirm — the DS Dialog manages focus; Delete stays one honest, undoable step. */}
+			<Dialog
+				open={!!deleteTarget}
+				onClose={() => setDeleteTarget(null)}
+				title={`Delete “${deleteTarget?.name ?? ''}”?`}
+				description="The scene leaves every list and board. You can undo right after — it stays recoverable."
+				icon="delete"
+				size="sm"
+				footer={
+					<>
+						<Button variant="secondary" size="sm" disabled={deleting} onClick={() => setDeleteTarget(null)}>
+							Cancel
+						</Button>
+						<Button variant="danger" size="sm" icon="delete" disabled={deleting} onClick={() => void confirmDelete()}>
+							{deleting ? 'Deleting…' : 'Delete scene'}
+						</Button>
+					</>
+				}
+			>
+				<div style={{ font: 'var(--text-sm) var(--font-sans)', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+					The live scene and the Command Center home scene can’t be deleted — if this is one of
+					those, the delete is refused and nothing changes.
+				</div>
+			</Dialog>
 		</div>
 	);
 }

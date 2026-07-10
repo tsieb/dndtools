@@ -23,6 +23,7 @@ import {
 	SessionTimeline,
 	Tabs,
 	Textarea,
+	Toaster,
 	VisibilityChip,
 } from '../ds';
 import { Page, Panel, T, eb } from '../app/screen-kit';
@@ -32,9 +33,11 @@ import { useRuntime } from '../runtime/RuntimeContext';
  * Campaign — the structured-entity / world-model lens, wired to the live Processing Core (was
  * static `mockCampaign`). Mirrors the production `routes/campaign` CampaignOverview reads: NPCs come
  * from `listCharactersForActor`, the Timeline from `getCalendarTimelineForActor` + the campaign date
- * from `getCalendarContinuityForActor`, Quests surface real content notes, and FACTIONS are real
- * note-backed Vault Objects (`kind: 'object'`, subtype `faction`) authored through the real
- * `content.create-object` / `content.update-object` / `content.set-item-visibility` commands. Every
+ * from `getCalendarContinuityForActor`, and QUESTS and FACTIONS are real note-backed Vault Objects
+ * (`kind: 'object'`, subtypes `quest` / `faction`) authored through the real `content.create-object`
+ * / `content.update-object` / `content.set-item-visibility` commands. A quest carries its lifecycle
+ * status + `{id, text, done}` objectives as declared frontmatter fields, so the status select and
+ * the objective checklist are durable writes, not display state. Every
  * read is player-safe: a player/observer sees only their visible items, and the faction dossier's
  * dm-only `secret` field is OMITTED from non-DM projections by `projectObjectFieldsForRole` (the
  * core's CONTENT-013 AC3 projection, not client-side filtering). Campaign-date AUTHORING lives on
@@ -54,6 +57,22 @@ const STANCE_OPTIONS = [
 	{ value: 'friendly', label: 'Friendly' },
 	{ value: 'allied', label: 'Allied' },
 ];
+
+// The `quest` subtype's declared status vocabulary (schemas: active | completed | failed | paused).
+const QUEST_STATUS_OPTIONS = [
+	{ value: 'active', label: 'Active' },
+	{ value: 'completed', label: 'Completed' },
+	{ value: 'failed', label: 'Failed' },
+	{ value: 'paused', label: 'Paused' },
+];
+
+// Core quest status → the DS QuestCard status key (the card calls the paused state "onhold").
+const QUEST_CARD_STATUS: Record<string, string> = {
+	active: 'active',
+	completed: 'completed',
+	failed: 'failed',
+	paused: 'onhold',
+};
 
 const FACTION_KIND_OPTIONS = [
 	{ value: 'cult', label: 'Cult' },
@@ -88,10 +107,174 @@ const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 const strArray = (v: unknown): string[] =>
 	Array.isArray(v) ? v.filter((entry): entry is string => typeof entry === 'string') : [];
 
+/** A quest objective as declared by the `quest` subtype schema: `{id, text, done}`, in order. */
+interface QuestObjective {
+	id: string;
+	text: string;
+	done: boolean;
+}
+
+const objectiveArray = (v: unknown): QuestObjective[] =>
+	Array.isArray(v)
+		? v.filter(
+				(entry): entry is QuestObjective =>
+					!!entry &&
+					typeof entry === 'object' &&
+					typeof (entry as QuestObjective).id === 'string' &&
+					typeof (entry as QuestObjective).text === 'string' &&
+					typeof (entry as QuestObjective).done === 'boolean',
+			)
+		: [];
+
+/** A quest Vault Object row: the raw item view + its role-projected tracker fields. */
+interface QuestRow {
+	view: ContentItemView;
+	fields: Record<string, unknown>;
+}
+
 /** A faction Vault Object row: the raw item view + its role-projected dossier fields. */
 interface FactionRow {
 	view: ContentItemView;
 	fields: Record<string, unknown>;
+}
+
+/**
+ * One quest in the Threads list: the DS QuestCard (status header · hook · objective checklist) with
+ * the checklist and a status select wired to durable `content.update-object` writes. The update
+ * handler merges declared fields, so each write sends ONLY the field it changes — except objectives,
+ * which are one declared array and therefore always written whole.
+ */
+function QuestCardRow({ row, canAuthor }: { row: QuestRow; canAuthor: boolean }) {
+	const runtime = useRuntime();
+	const actorId = runtime.defaultActorId;
+	const status = str(row.fields.status) || 'active';
+	const objectives = objectiveArray(row.fields.objectives);
+
+	async function update(fields: Record<string, unknown>) {
+		// content.update-object — authorized-editor edit; merged frontmatter is re-validated fail-closed.
+		const result = await runtime.dispatch({
+			type: 'content.update-object',
+			actorId,
+			payload: { itemId: row.view.id, fields },
+		});
+		if (result.status !== 'accepted') Toaster.error(result.rejection.message);
+	}
+
+	return (
+		<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+			<QuestCard
+				title={row.view.title}
+				status={QUEST_CARD_STATUS[status] ?? 'active'}
+				hook={bodySummary(row.view.body, 'No hook written yet.')}
+				objectives={objectives.map((o) => ({ label: o.text, done: o.done }))}
+				dmOnly={row.view.visibility === 'dm-only'}
+				onToggleObjective={
+					canAuthor
+						? (i: number) =>
+								void update({ objectives: objectives.map((o, j) => (j === i ? { ...o, done: !o.done } : o)) })
+						: undefined
+				}
+			/>
+			{canAuthor && (
+				<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+					<span style={{ ...eb }}>Status</span>
+					<Select
+						aria-label={`Status of ${row.view.title}`}
+						options={QUEST_STATUS_OPTIONS}
+						value={status}
+						onChange={(e: { target: { value: string } }) => void update({ status: e.target.value })}
+					/>
+				</div>
+			)}
+		</div>
+	);
+}
+
+/**
+ * Inline create-quest form (DM-only; the caller gates on `actorCanAuthorContent`). Structured
+ * tracker data (status + objectives) lives in the subtype's declared frontmatter fields; the hook /
+ * journal prose is the markdown body. Same shape as the FactionEditor beside it.
+ */
+function QuestEditor({ onClose }: { onClose: () => void }) {
+	const runtime = useRuntime();
+	const actorId = runtime.defaultActorId;
+	const [title, setTitle] = useState('');
+	const [status, setStatus] = useState('active');
+	const [objectivesText, setObjectivesText] = useState('');
+	const [body, setBody] = useState('');
+	const [visibility, setVisibility] = useState<string>('dm-only');
+	const [busy, setBusy] = useState(false);
+	const [err, setErr] = useState<string | null>(null);
+
+	async function save() {
+		if (!title.trim()) {
+			setErr('A quest needs a title.');
+			return;
+		}
+		setBusy(true);
+		setErr(null);
+		const stamp = Date.now().toString(36);
+		const objectives: QuestObjective[] = objectivesText
+			.split('\n')
+			.map((t) => t.trim())
+			.filter(Boolean)
+			.map((text, i) => ({ id: `obj-${stamp}-${i}`, text, done: false }));
+		// content.create-object — DM-only vault authoring against the declared `quest` schema
+		// (validated fail-closed before any durable write); visibility fails closed to dm-only.
+		const result = await runtime.dispatch({
+			type: 'content.create-object',
+			actorId,
+			payload: {
+				subtype: 'quest',
+				title: title.trim(),
+				fields: { title: title.trim(), status, objectives },
+				body,
+				visibility,
+			},
+		});
+		setBusy(false);
+		if (result.status !== 'accepted') {
+			setErr(result.rejection.message);
+			return;
+		}
+		onClose();
+	}
+
+	return (
+		<Panel title="New quest" accent>
+			<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
+				<Field label="Title" required>
+					<Input value={title} onChange={(e: { target: { value: string } }) => setTitle(e.target.value)} placeholder="Wake of the Drowned God" />
+				</Field>
+				<Field label="Status">
+					<Select options={QUEST_STATUS_OPTIONS} value={status} onChange={(e: { target: { value: string } }) => setStatus(e.target.value)} />
+				</Field>
+			</div>
+			<Field label="Objectives" help="One objective per line — each becomes a checklist item.">
+				<Textarea value={objectivesText} onChange={(e: { target: { value: string } }) => setObjectivesText(e.target.value)} rows={3} placeholder={'Find who is buying the shipments\nMap the flooded vault level'} />
+			</Field>
+			<Field label="Hook & journal" help="Markdown prose — the hook, rewards, session journal.">
+				<Textarea value={body} onChange={(e: { target: { value: string } }) => setBody(e.target.value)} rows={4} placeholder="Mother Sild wants the party to trace the tithe barrels back upriver…" />
+			</Field>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+				<Field label="Visibility">
+					<Select options={VIS_OPTIONS} value={visibility} onChange={(e: { target: { value: string } }) => setVisibility(e.target.value)} />
+				</Field>
+				<div style={{ flex: 1 }} />
+				{err && (
+					<span role="alert" style={{ font: `12px ${T.sans}`, color: T.err }}>
+						{err}
+					</span>
+				)}
+				<Button variant="ghost" size="sm" disabled={busy} onClick={onClose}>
+					Cancel
+				</Button>
+				<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={save}>
+					Create quest
+				</Button>
+			</div>
+		</Panel>
+	);
 }
 
 function FactionCard({ row, canAuthor, onEdit }: { row: FactionRow; canAuthor: boolean; onEdit: () => void }) {
@@ -272,6 +455,8 @@ export function Campaign() {
 	const [tab, setTab] = useState('quests');
 	// null = closed · { id: null } = composing a new faction · { id } = editing that faction.
 	const [factionEditor, setFactionEditor] = useState<{ id: string | null } | null>(null);
+	// Whether the inline create-quest form is open on the Threads tab.
+	const [questEditor, setQuestEditor] = useState(false);
 
 	const canAuthor = actorCanAuthorContent(runtime.state.permissions, actorId);
 
@@ -291,19 +476,21 @@ export function Campaign() {
 		const roster = listCharactersForActor(characters, permissions, actorId);
 		const npcs = roster.filter((c) => c.kind !== 'pc');
 		const items = getContentItemsForActor(content, permissions, actorId);
-		// Quests/threads have no distinct Core entity — surface the real content notes (the production
-		// CampaignOverview models quests as linked notes too). // no core command for quests.
-		const notes = items.filter((n) => n.kind === 'note');
-		// Factions ARE a Core entity: note-backed Vault Objects of subtype `faction`. The dossier fields
-		// are projected per the actor's role, so a non-DM never receives the dm-only `secret`.
 		const role = permissions.actors[actorId]?.role ?? 'observer';
+		// Quests ARE a Core entity now: note-backed Vault Objects of subtype `quest` carrying the
+		// declared status + objectives tracker fields (role-projected like every object read).
+		const quests: QuestRow[] = items
+			.filter((n) => n.kind === 'object' && n.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'quest')
+			.map((n) => ({ view: n, fields: projectObjectFieldsForRole('quest', n.fields, role) }));
+		// Factions: note-backed Vault Objects of subtype `faction`. The dossier fields are projected
+		// per the actor's role, so a non-DM never receives the dm-only `secret`.
 		const factions: FactionRow[] = items
 			.filter((n) => n.kind === 'object' && n.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'faction')
 			.map((n) => ({ view: n, fields: projectObjectFieldsForRole('faction', n.fields, role) }));
 		const calendarId = Object.values(content.calendars)[0]?.id ?? null;
 		const timeline = calendarId ? getCalendarTimelineForActor(content, permissions, actorId, calendarId, 'long') : [];
 		const continuity = getCalendarContinuityForActor(session, content, maps, permissions, actorId, 'long');
-		return { npcs, notes, factions, timeline, currentDate: continuity.currentDate };
+		return { npcs, quests, factions, timeline, currentDate: continuity.currentDate };
 	}, [runtime.state, actorId]);
 
 	const tabs = [
@@ -321,43 +508,42 @@ export function Campaign() {
 				<Tabs value={tab} onChange={setTab} tabs={tabs} />
 			</div>
 
-			{tab === 'quests' &&
-				(data.notes.length === 0 ? (
-					<EmptyState
-						icon="campaign-scroll"
-						title="No threads yet"
-						description="Story threads surface your written notes — quests, arcs, and hooks."
-						action={
-							canAuthor ? (
-								<Button variant="primary" size="sm" icon="note-edit" onClick={() => navigate('/knowledge', { state: { create: true } })}>
-									Write the first note
-								</Button>
-							) : undefined
-						}
-					/>
-				) : (
-					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))', gap: 16, alignItems: 'start' }}>
-						{data.notes.map((n) => (
-							<div
-								key={n.id}
-								role="button"
-								tabIndex={0}
-								aria-label={`Open “${n.title}” in Notes`}
-								onClick={() => navigate(`/knowledge/${n.id}`)}
-								onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/knowledge/${n.id}`); } }}
-								style={{ cursor: 'pointer' }}
-							>
-								<QuestCard
-									title={n.title}
-									status="active"
-									hook={bodySummary(n.body, 'A campaign note.')}
-									objectives={[]}
-									dmOnly={n.visibility === 'dm-only'}
-								/>
-							</div>
-						))}
-					</div>
-				))}
+			{tab === 'quests' && (
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+					{canAuthor && !questEditor && data.quests.length > 0 && (
+						<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+							<Button variant="primary" size="sm" icon="add" onClick={() => setQuestEditor(true)}>
+								New quest
+							</Button>
+						</div>
+					)}
+					{canAuthor && questEditor && <QuestEditor onClose={() => setQuestEditor(false)} />}
+					{data.quests.length === 0 ? (
+						<EmptyState
+							icon="campaign-scroll"
+							title="No quests yet"
+							description={
+								canAuthor
+									? 'Track the party’s story threads — status, objectives, and hooks — as real quest records.'
+									: 'No quests have been shared with you yet.'
+							}
+							action={
+								canAuthor && !questEditor ? (
+									<Button variant="primary" size="sm" icon="add" onClick={() => setQuestEditor(true)}>
+										Create the first quest
+									</Button>
+								) : undefined
+							}
+						/>
+					) : (
+						<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(330px,1fr))', gap: 16, alignItems: 'start' }}>
+							{data.quests.map((q) => (
+								<QuestCardRow key={q.view.id} row={q} canAuthor={canAuthor} />
+							))}
+						</div>
+					)}
+				</div>
+			)}
 
 			{tab === 'npcs' &&
 				(data.npcs.length === 0 ? (

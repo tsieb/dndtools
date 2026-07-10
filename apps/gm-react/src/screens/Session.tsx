@@ -8,6 +8,7 @@ import {
 	getDiceHistoryForActor,
 	getHandoutsForActor,
 	getHandoutStatusForDm,
+	getPrepRecapDigest,
 	getSessionAudioView,
 	listAudioAssetsForActor,
 	listAudioSourceClassificationsForActor,
@@ -17,6 +18,8 @@ import {
 	type CalendarDefinition,
 	type CombatTrackerView,
 	type CustomDate,
+	type PrepRecapDigest,
+	type SessionArchiveSnapshot,
 	type SessionWorkflowState,
 } from '@dndtools/core';
 import {
@@ -55,8 +58,10 @@ import { useRuntime } from '../runtime/RuntimeContext';
  * `getCombatTrackerForActor`), the dice roller (`dice.roll` over `getDiceHistoryForActor`), handout
  * delivery (`session.deliver-handout/revoke-handout/acknowledge-handout`), now-playing session audio
  * (`session.audio.pause/resume/stop/set-volume`), the active-map stage
- * (`session.set-active-map/project-active-map`), and the campaign date (`session.set-campaign-date`
- * over `getCalendarContinuityForActor` — the control the Campaign timeline points at). Combat, dice,
+ * (`session.set-active-map/project-active-map`), the campaign date (`session.set-campaign-date`
+ * over `getCalendarContinuityForActor` — the control the Campaign timeline points at), and the
+ * SES-009 prep/recap panel (the `getPrepRecapDigest` continuity digest, the session archives, and
+ * recap authoring via `session.author-recap`). Combat, dice,
  * and delivery are Processing-Core gated to the live (`active`) workflow, so the console guides the
  * DM to go live first. Reads are actor-filtered, so previewing as a player projects the player-safe
  * view; every durable write is rejected read-only while previewing. Tracker rows follow the DS
@@ -97,6 +102,9 @@ export function Session() {
 		players,
 		calendar,
 		campaignDate,
+		digest,
+		archives,
+		recapArchiveId,
 	} = useMemo(() => {
 		const session = runtime.state.session;
 		const perms = runtime.state.permissions;
@@ -127,6 +135,22 @@ export function Session() {
 			actorId,
 			'long',
 		).currentDate;
+		// SES-009 — the prep/recap continuity digest (DM-only: a non-DM receives an EMPTY digest) and
+		// the durable session archives that recap authoring writes onto. In `recap` the digest looks
+		// back at the just-archived session; every other phase preps forward.
+		const digest = getPrepRecapDigest(
+			session,
+			runtime.state.content,
+			runtime.state.maps,
+			runtime.state.characters,
+			perms,
+			runtime.state.sync,
+			actorId,
+			session.workflow === 'recap' ? 'recap' : 'prep',
+		);
+		const archives = Object.values(session.archives).sort((a, b) =>
+			b.archivedAt.localeCompare(a.archivedAt),
+		);
 		return {
 			tracker,
 			dice,
@@ -143,6 +167,9 @@ export function Session() {
 			players: Object.values(perms.actors).filter((a) => a.role === 'player'),
 			calendar,
 			campaignDate,
+			digest,
+			archives,
+			recapArchiveId: session.recapArchiveId,
 		};
 	}, [runtime.state, actorId]);
 
@@ -325,6 +352,17 @@ export function Session() {
 							current={campaignDate}
 							previewing={previewing}
 							onSet={(date, ok) => void dispatch({ type: 'session.set-campaign-date', actorId, payload: { date } }, ok)}
+						/>
+					)}
+					{isDm && (
+						<RecapPanel
+							digest={digest}
+							archives={archives}
+							defaultArchiveId={recapArchiveId}
+							previewing={previewing}
+							onAuthor={(archiveId, markdown) =>
+								dispatch({ type: 'session.author-recap', actorId, payload: { archiveId, markdown } }, 'Recap saved')
+							}
 						/>
 					)}
 					<PartyPanel party={party} />
@@ -782,6 +820,122 @@ function CampaignDatePanel({
 				<Button variant="primary" size="sm" icon="check" disabled={previewing} onClick={setDate}>
 					Set date
 				</Button>
+			</div>
+		</Panel>
+	);
+}
+
+// ── Prep & recap (SES-009 — the continuity digest, session archives, recap authoring) ─────────────
+
+function formatArchiveStamp(iso: string): string {
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return iso;
+	return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+}
+
+/**
+ * RecapPanel — the DM-only SES-009 surface: the computed prep/recap continuity digest (pure
+ * derivation, never a copied dataset), the durable session archives, and recap AUTHORING via
+ * `session.author-recap` (markdown onto the selected archive; re-saving replaces it). Ending a live
+ * session into Recap is what creates an archive — the empty state says so instead of faking one.
+ */
+function RecapPanel({
+	digest,
+	archives,
+	defaultArchiveId,
+	previewing,
+	onAuthor,
+}: {
+	digest: PrepRecapDigest;
+	archives: SessionArchiveSnapshot[];
+	defaultArchiveId: string | null;
+	previewing: boolean;
+	onAuthor: (archiveId: string, markdown: string) => Promise<boolean>;
+}) {
+	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const [draft, setDraft] = useState('');
+	const [busy, setBusy] = useState(false);
+	const target = archives.find((a) => a.id === (selectedId ?? defaultArchiveId)) ?? archives[0] ?? null;
+
+	// Seed the editor from the canonical authored recap whenever the target archive (or its authored
+	// revision) changes — same sync-from-canonical pattern as CampaignDatePanel.
+	const seedKey = target ? `${target.id}:${target.recap?.revision ?? 0}` : 'none';
+	useEffect(() => {
+		setDraft(target?.recap?.markdown ?? '');
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- seed from the canonical recap only
+	}, [seedKey]);
+
+	const prompts = digest.continuityPrompts.slice(0, 6);
+
+	async function save() {
+		if (!target || busy) return;
+		setBusy(true);
+		await onAuthor(target.id, draft);
+		setBusy(false);
+	}
+
+	return (
+		<Panel title="Prep & recap">
+			<div>
+				<div style={{ ...eb, marginBottom: 5 }}>
+					{digest.mode === 'recap' ? 'What happened' : 'Carry into the session'}
+				</div>
+				{prompts.length === 0 ? (
+					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>Nothing to carry over yet.</div>
+				) : (
+					prompts.map((p) => (
+						<div key={p.id} style={{ display: 'flex', alignItems: 'baseline', gap: 7, font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+							<span aria-hidden style={{ width: 5, height: 5, borderRadius: '50%', background: T.accBd, flexShrink: 0, transform: 'translateY(-2px)' }} />
+							<span style={{ minWidth: 0 }}>{p.text}</span>
+						</div>
+					))
+				)}
+			</div>
+
+			<div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+				<div style={eb}>Session archives</div>
+				{archives.length === 0 ? (
+					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+						No archived sessions yet — wrapping a live session into Recap archives it here.
+					</div>
+				) : (
+					<>
+						{archives.length > 1 && (
+							<Select
+								aria-label="Archived session"
+								value={target?.id ?? ''}
+								options={archives.map((a) => ({
+									value: a.id,
+									label: `${formatArchiveStamp(a.archivedAt)}${a.recap ? ' · has recap' : ''}`,
+								}))}
+								onChange={(e: { target: { value: string } }) => setSelectedId(e.target.value)}
+							/>
+						)}
+						{target && (
+							<>
+								<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+									{formatArchiveStamp(target.archivedAt)}
+									{target.recap ? ` · recap v${target.recap.revision}` : ' · no recap yet'}
+								</div>
+								<Textarea
+									value={draft}
+									onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
+									rows={4}
+									placeholder="What happened this session — markdown prose. Re-saving replaces the recap."
+								/>
+								<Button
+									variant="primary"
+									size="sm"
+									icon="check"
+									disabled={previewing || busy || !draft.trim()}
+									onClick={() => void save()}
+								>
+									{target.recap ? 'Update recap' : 'Save recap'}
+								</Button>
+							</>
+						)}
+					</>
+				)}
 			</div>
 		</Panel>
 	);

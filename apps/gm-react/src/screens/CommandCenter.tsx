@@ -157,6 +157,10 @@ export function CommandCenter() {
 		const factionCount = items.filter(
 			(n) => n.kind === 'object' && n.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'faction',
 		).length;
+		// The Campaign "Threads" tab lists real quest Vault Objects now — count those, not notes.
+		const questCount = items.filter(
+			(n) => n.kind === 'object' && n.fields[VAULT_OBJECT_SUBTYPE_KEY] === 'quest',
+		).length;
 		const activeSceneId = runtime.state.session.activeSceneId;
 		const liveScene =
 			scenes.find((s) => s.id === activeSceneId) ??
@@ -176,6 +180,7 @@ export function CommandCenter() {
 			pcCount: party.length,
 			npcCount: characters.length - party.length,
 			factionCount,
+			questCount,
 			widgetCountFor,
 		};
 	}, [runtime.state, actorId]);
@@ -202,7 +207,7 @@ export function CommandCenter() {
 	const libraryCounts: Record<string, string> = {
 		characters: `${data.pcCount} PCs · ${data.npcCount} NPCs`,
 		atlas: `${data.maps.length} ${data.maps.length === 1 ? 'map' : 'maps'}`,
-		campaign: `${data.notes.length} ${data.notes.length === 1 ? 'thread' : 'threads'} · ${data.factionCount} ${data.factionCount === 1 ? 'faction' : 'factions'}`,
+		campaign: `${data.questCount} ${data.questCount === 1 ? 'thread' : 'threads'} · ${data.factionCount} ${data.factionCount === 1 ? 'faction' : 'factions'}`,
 		knowledge: `${data.notes.length} ${data.notes.length === 1 ? 'note' : 'notes'}`,
 	};
 
@@ -324,7 +329,8 @@ export function CommandCenter() {
 								<button
 									key={m.id}
 									type="button"
-									onClick={() => navigate('/settings')}
+									// Deep-link the exact Settings subpage (Settings reads `?tab=`), not the section root.
+									onClick={() => navigate(`/settings?tab=${m.id}`)}
 									style={{
 										display: 'flex',
 										alignItems: 'center',
