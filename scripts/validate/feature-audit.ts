@@ -10,9 +10,12 @@
 //      stubs the ledger doesn't mention (drift the other way).
 //   3. Probes each React screen for a real core-dispatch wiring reference, flagging
 //      any screen with no wiring as "presentation-only — verify".
+//   4. Asserts ZERO imports of `runtime/mockCampaign` across apps/gm-react/src — the
+//      mock module is slated for deletion and any importer is a real regression.
 //
 // Output: a structured object (rendered into the HTML report) + a standalone
-// markdown/JSON pair under the log dir. Never fails the run — it is informational.
+// markdown/JSON pair under the log dir. Informational (warn at worst), EXCEPT the
+// mockCampaign probe: a surviving importer fails the check outright.
 
 import { readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -42,6 +45,11 @@ const NOISE = /\.(test|spec)\.[tj]sx?$/;
 
 const WIRING_RE =
 	/useRuntime|useDispatch|useCore|useSession|useCloudSync|useAuth|runtime\.dispatch|\bdispatch\(|__rt\b|from ['"](?:@dndtools\/core|\.\.?\/[^'"]*runtime)/;
+
+// The demo/mock data module being eliminated: any `import … from '…runtime/mockCampaign'` under
+// apps/gm-react/src is a regression once the module is deleted. Matches static + dynamic imports.
+const MOCK_MODULE = 'runtime/mockCampaign';
+const MOCK_IMPORT_RE = /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"][^'"]*runtime\/mockCampaign['"]/;
 
 function walk(dir: string, out: string[] = []): string[] {
 	let entries;
@@ -85,6 +93,8 @@ export interface FeatureAuditResult {
 	stubMarkerTotal: number;
 	screens: { file: string; wired: boolean }[];
 	unwiredScreens: string[];
+	/** Files still importing `runtime/mockCampaign` — must be EMPTY (the module is slated for deletion). */
+	mockCampaignImporters: string[];
 	generatedFrom: string;
 	/** The ledger could not be read. An empty `knownStubs` then means "unknown", not "none". */
 	gapsMissing: boolean;
@@ -120,6 +130,16 @@ export function auditFeatures(repoRoot: string): FeatureAuditResult {
 		});
 	}
 
+	// Mock-elimination probe: NOTHING may import runtime/mockCampaign. Scans EVERY source file
+	// (including tests — a test importing the mock breaks the moment the module is deleted).
+	const mockCampaignImporters: string[] = [];
+	for (const file of files) {
+		const rel = path.relative(repoRoot, file);
+		if (rel.replace(/\\/g, '/').includes(`${MOCK_MODULE}.`)) continue; // the module itself
+		if (MOCK_IMPORT_RE.test(readFileSync(file, 'utf8'))) mockCampaignImporters.push(rel);
+	}
+	mockCampaignImporters.sort();
+
 	// Screen wiring probe: the route surfaces live in src/screens/*.tsx.
 	const appDir = path.join(repoRoot, SRC, 'screens');
 	const screens: FeatureAuditResult['screens'] = [];
@@ -143,6 +163,7 @@ export function auditFeatures(repoRoot: string): FeatureAuditResult {
 		stubMarkerTotal: stubMarkers.length,
 		screens,
 		unwiredScreens: screens.filter((s) => !s.wired).map((s) => s.file),
+		mockCampaignImporters,
 		generatedFrom: GAPS,
 		gapsMissing,
 	};
@@ -179,6 +200,15 @@ function toMarkdown(r: FeatureAuditResult): string {
 	} else lines.push('_No stub markers found._');
 	lines.push('');
 
+	lines.push(`## mockCampaign imports (must be zero — module slated for deletion)`, '');
+	if (r.mockCampaignImporters.length) {
+		lines.push('✗ **These files still import `runtime/mockCampaign`:**');
+		r.mockCampaignImporters.forEach((f) => lines.push(`- \`${f}\``));
+	} else {
+		lines.push('✓ Nothing imports `runtime/mockCampaign`.');
+	}
+	lines.push('');
+
 	lines.push(`## Screen wiring (${r.screens.length} route surfaces)`, '');
 	if (r.unwiredScreens.length) {
 		lines.push(
@@ -209,6 +239,14 @@ export async function runFeatureAudit(opts: {
 		`${r.stubMarkerTotal} code markers`,
 		`${r.unwiredScreens.length}/${r.screens.length} screens need wiring review`,
 	];
+	if (r.mockCampaignImporters.length) {
+		// The one HARD assertion: the failure message names EXACTLY which files still import it.
+		parts.push(
+			`runtime/mockCampaign still imported by ${r.mockCampaignImporters.length} file(s): ` +
+				r.mockCampaignImporters.join(', '),
+		);
+		return { status: 'fail', summary: parts.join('; '), detail: r };
+	}
 	// Informational: warn if there is anything worth a human glance, else pass.
 	const status = r.gapsMissing || r.unwiredScreens.length || r.knownStubs.length ? 'warn' : 'pass';
 	return { status, summary: parts.join('; '), detail: r };
@@ -227,5 +265,11 @@ if (invokedDirectly) {
 		`\nSummary: ${declared} · ${r.stubMarkerTotal} code markers · ` +
 			`${r.unwiredScreens.length}/${r.screens.length} screens need wiring review`,
 	);
-	if (r.gapsMissing) process.exitCode = 1;
+	if (r.mockCampaignImporters.length) {
+		console.error(
+			`\nFAIL: runtime/mockCampaign still imported by ${r.mockCampaignImporters.length} file(s): ` +
+				r.mockCampaignImporters.join(', '),
+		);
+	}
+	if (r.gapsMissing || r.mockCampaignImporters.length) process.exitCode = 1;
 }

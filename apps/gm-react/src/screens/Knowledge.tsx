@@ -13,8 +13,8 @@ import { pickTextFiles } from '../platform/filePick';
 import { ConnectedSourcesPanel } from '../app/ConnectedSources';
 
 /**
- * Knowledge — notes / handouts / read-aloud, now wired to the live Processing Core (was static
- * `mockCampaign`). The list reads the actor-filtered content model (`getContentItemsForActor`); a
+ * Knowledge — notes / handouts / read-aloud, wired to the live Processing Core.
+ * The list reads the actor-filtered content model (`getContentItemsForActor`); a
  * player/observer therefore sees ONLY the notes shared with them, never the DM's dm-only material.
  * Opening a note gives a real editor whose Save PERSISTS through `content.update-item`; New note and
  * Import dispatch the real `content.create-item` / `content.commit-import` commands; the visibility

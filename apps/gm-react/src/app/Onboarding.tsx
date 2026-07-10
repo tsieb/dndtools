@@ -11,7 +11,6 @@ import {
 } from '@dndtools/core';
 import { Avatar, Badge, Button, Icon, IconButton, Input, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
-import { DNDAccount } from '../runtime/mockCampaign';
 import { resetCoreStorage } from '../platform/storage/coreStore';
 import { T } from './screen-kit';
 
@@ -45,7 +44,31 @@ const TIER_ATTR = 'data-feature-tier';
 // Mirrors Settings' complexity mapping — design vocabulary level → real core FeatureTier.
 const LEVEL_TO_TIER: Record<string, FeatureTier> = { beginner: 'core', standard: 'intermediate', expert: 'advanced' };
 
-const ACCT = DNDAccount as any;
+// The experience-step card copy (design vocabulary). Each card's REVEALS list stays live — read from
+// the Core's `visibleFeatures()` for the mapped tier, never from static copy.
+const COMPLEXITY_LEVELS = [
+	{
+		id: 'beginner',
+		name: 'Beginner',
+		icon: 'Sprout',
+		rec: false,
+		blurb: 'The essentials only. Guided prompts, presets over fields, advanced panels hidden until you ask.',
+	},
+	{
+		id: 'standard',
+		name: 'Standard',
+		icon: 'SlidersHorizontal',
+		rec: true,
+		blurb: 'The full table toolkit with sensible defaults. Most DMs live here.',
+	},
+	{
+		id: 'expert',
+		name: 'Expert',
+		icon: 'Wrench',
+		rec: false,
+		blurb: 'Everything on, nothing hidden. Code widgets, raw tokens, automation hooks, API surface.',
+	},
+] as const;
 
 function readStorage(key: string): string | null {
 	try {
@@ -419,7 +442,7 @@ export function Onboarding() {
 									You can change this any time in Settings. It only affects how much is revealed — never what you can do.
 								</p>
 								<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-									{(ACCT.complexity.levels as any[]).map((l) => {
+									{COMPLEXITY_LEVELS.map((l) => {
 										const levelTier = LEVEL_TO_TIER[l.id] ?? DEFAULT_FEATURE_TIER;
 										const on = levelTier === tier;
 										const reveals = visibleFeatures(levelTier).map((f) => f.label);

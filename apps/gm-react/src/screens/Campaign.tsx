@@ -30,8 +30,8 @@ import { Page, Panel, T, eb } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 
 /**
- * Campaign — the structured-entity / world-model lens, wired to the live Processing Core (was
- * static `mockCampaign`). Mirrors the production `routes/campaign` CampaignOverview reads: NPCs come
+ * Campaign — the structured-entity / world-model lens, wired to the live Processing Core.
+ * Mirrors the production `routes/campaign` CampaignOverview reads: NPCs come
  * from `listCharactersForActor`, the Timeline from `getCalendarTimelineForActor` + the campaign date
  * from `getCalendarContinuityForActor`, and QUESTS and FACTIONS are real note-backed Vault Objects
  * (`kind: 'object'`, subtypes `quest` / `faction`) authored through the real `content.create-object`

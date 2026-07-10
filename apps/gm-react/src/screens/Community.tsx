@@ -6,7 +6,6 @@ import {
 } from '@dndtools/core';
 import { Badge, Button, Dialog, EmptyState, Icon, Input, Stat, Switch, Tabs, Textarea, Toaster, VisibilityChip } from '../ds';
 import { Page, Panel, T, eb } from '../app/screen-kit';
-import { DNDCommunity } from '../runtime/mockCampaign';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useAuth } from '../cloud/AuthContext';
 import { isAccountApiConfigured } from '../cloud/config';
@@ -35,9 +34,14 @@ import { downloadJsonFile, downloadTextFile, fileDateStamp } from '../platform/d
  * publish button is a local preview.
  */
 
-const COMM = DNDCommunity as any;
-
 const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Something went wrong — try again.');
+
+// Wiki access vocabulary for the preview-only publish settings (hosting has no backend — noted in-panel).
+const WIKI_ACCESS_MODES = [
+	{ value: 'public', label: 'Public', note: 'Indexed by search engines' },
+	{ value: 'unlisted', label: 'Unlisted', note: 'Direct link only, not indexed' },
+	{ value: 'password', label: 'Password', note: 'Visitors enter a password once' },
+] as const;
 
 export function Community() {
 	const [tab, setTab] = useState('discover');
@@ -484,26 +488,26 @@ function CommPublish() {
 function CommWiki() {
 	const runtime = useRuntime();
 	const dmId = runtime.defaultActorId;
-	const W = COMM.wiki;
-	const [access, setAccess] = useState(W.access);
+	const [access, setAccess] = useState<string>('unlisted');
 	// Honest-local: hosting a public wiki has no backend — local preview only (noted in-panel).
 	const [published, setPublished] = useState(false);
 
 	// REAL: only player-visible notes are eligible for a published wiki (DM-only blocks are stripped).
 	const items = useMemo(() => getContentItemsForActor(runtime.state.content, runtime.state.permissions, dmId), [runtime.state.content, runtime.state.permissions, dmId]);
 	const notes = items.filter((i) => i.kind === 'note');
-	const eligible = notes.filter((i) => i.visibility === 'player-visible').length;
+	const eligibleNotes = notes.filter((i) => i.visibility === 'player-visible');
+	const eligible = eligibleNotes.length;
 
 	return (
 		<div style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr', gap: 18, alignItems: 'start' }}>
 			<Panel title="Publish settings">
 				<div style={{ ...eb }}>Public address</div>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px', borderRadius: 9, background: T.alt, border: `1px solid ${T.bd}` }}>
-					<Icon name="globe" size={15} color={T.acc} /><span style={{ font: `12.5px ${T.mono}`, color: T.sub, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{W.slug}</span>
+					<Icon name="globe" size={15} color={T.acc} /><span style={{ font: `12.5px ${T.mono}`, color: T.ter, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Assigned at publish — hosting is preview-only</span>
 				</div>
 				<div style={{ ...eb, marginTop: 10 }}>Access</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-					{W.accessModes.map((m: any) => (
+					{WIKI_ACCESS_MODES.map((m) => (
 						<button key={m.value} type="button" onClick={() => setAccess(m.value)} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px', borderRadius: 9, cursor: 'pointer', textAlign: 'left', border: `1px solid ${access === m.value ? T.accBd : T.bd}`, background: access === m.value ? T.accSub : T.surf }}>
 							<span style={{ width: 16, height: 16, borderRadius: '50%', flex: '0 0 auto', border: `2px solid ${access === m.value ? T.acc : T.bdS}`, background: access === m.value ? T.acc : 'transparent' }} />
 							<span style={{ flex: 1 }}><div style={{ font: `600 12.5px ${T.sans}` }}>{m.label}</div><div style={{ font: `11px ${T.sans}`, color: T.ter }}>{m.note}</div></span>
@@ -512,7 +516,7 @@ function CommWiki() {
 				</div>
 				<div style={{ display: 'flex', gap: 14, marginTop: 6 }}>
 					<Stat label="Eligible pages" value={`${eligible}/${notes.length}`} icon="knowledge-book" />
-					<Stat label="Theme" value={W.theme} icon="theme" />
+					<Stat label="Theme" value="Parchment" icon="theme" />
 				</div>
 				<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter }}>
 					Eligibility is real — only player-visible notes publish; DM-only blocks are stripped. Hosting itself is preview-only.
@@ -524,18 +528,25 @@ function CommWiki() {
 			<Panel title="Reading preview">
 				<div data-theme="parchment" style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid var(--color-border)`, background: 'var(--color-bg)', color: 'var(--color-text-primary)' }}>
 					<div style={{ padding: '18px 20px', borderBottom: `1px solid var(--color-border)`, background: 'var(--color-surface)' }}>
-						<div style={{ font: `700 19px var(--font-display)`, color: 'var(--color-text-primary)' }}>The Sunken Outpost</div>
-						<div style={{ font: `12px var(--font-sans)`, color: 'var(--color-text-tertiary)' }}>A campaign wiki · {W.pages} pages</div>
+						<div style={{ font: `700 19px var(--font-display)`, color: 'var(--color-text-primary)' }}>Your campaign wiki</div>
+						<div style={{ font: `12px var(--font-sans)`, color: 'var(--color-text-tertiary)' }}>A campaign wiki · {eligible} {eligible === 1 ? 'page' : 'pages'}</div>
 					</div>
 					<div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-						<div style={{ font: `600 12px var(--font-sans)`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--color-text-tertiary)' }}>Session recaps</div>
-						{W.recaps.map((r: any) => (
-							<div key={r.n} style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-								<span style={{ font: `700 13px var(--font-mono)`, color: 'var(--color-accent)' }}>#{r.n}</span>
-								<span style={{ flex: 1, font: `13.5px var(--font-sans)`, color: 'var(--color-text-primary)' }}>{r.title}</span>
-								<span style={{ font: `11px var(--font-sans)`, color: 'var(--color-text-tertiary)' }}>{r.when}</span>
+						<div style={{ font: `600 12px var(--font-sans)`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--color-text-tertiary)' }}>Player-visible pages</div>
+						{eligibleNotes.slice(0, 3).map((n) => (
+							<div key={n.id} style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+								<span style={{ flex: 1, font: `13.5px var(--font-sans)`, color: 'var(--color-text-primary)' }}>{n.title}</span>
+								<span style={{ font: `11px var(--font-sans)`, color: 'var(--color-text-tertiary)' }}>{new Date(n.updatedAt).toLocaleDateString()}</span>
 							</div>
 						))}
+						{eligible === 0 && (
+							<div style={{ font: `12.5px var(--font-sans)`, color: 'var(--color-text-tertiary)' }}>
+								No player-visible notes yet — mark notes player-visible in Knowledge to include them.
+							</div>
+						)}
+						{eligible > 3 && (
+							<div style={{ font: `11px var(--font-sans)`, color: 'var(--color-text-tertiary)' }}>… and {eligible - 3} more</div>
+						)}
 					</div>
 				</div>
 				<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>Only player-visible notes appear. DM-only blocks are stripped from the published page.</div>

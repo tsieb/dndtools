@@ -15,8 +15,8 @@ import { LIBRARY } from '../app/nav';
 import { useRuntime } from '../runtime/RuntimeContext';
 
 /**
- * CommandCenter — the navigational hub (port of app.jsx HomeSection), now wired to the live
- * Processing Core (was static `mockCampaign`). The single Resume primary drops back into the live
+ * CommandCenter — the navigational hub (port of app.jsx HomeSection), wired to the live
+ * Processing Core. The single Resume primary drops back into the live
  * scene, the Scenes board opens the real `/scene/:id` editor, Create launchers reach the real
  * sections, and every count comes from the actor-filtered read model. A player/observer device sees
  * only their own player-safe view (UX-CMD-012), never the DM hub.

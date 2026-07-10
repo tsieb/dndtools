@@ -45,7 +45,7 @@ import { Page, Panel, T, eb, mono } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 
 /**
- * Characters — the roster library, now wired to the live Processing Core (was static `mockCampaign`).
+ * Characters — the roster library, wired to the live Processing Core.
  * The roster is the actor-filtered `listCharactersForActor` read model (a player/observer sees only
  * what the core permits — a dm-only NPC is omitted, never redacted-but-listed); opening a character
  * loads the redacted `getCharacterForActor` view bound to a real sheet (ability scores, combat vitals,
