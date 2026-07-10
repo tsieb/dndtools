@@ -18,6 +18,7 @@ import {
 	type JournalEntryView,
 	type ContentItemView,
 } from '@dndtools/core';
+import { resolveProjectedMapForViewer, type ProjectedMapInfo } from '../app/projectedMap';
 
 /**
  * PLAYER VIEW-MODEL — the single, player-safe, JSON-serializable snapshot the P2P host replicates to a
@@ -62,6 +63,14 @@ export interface PlayerData {
 	diceRolls: DiceRollView[];
 	/** Whether the Session workflow is `active` — the Core's gate for `dice.roll`. */
 	sessionActive: boolean;
+	/**
+	 * The map actively projected TO THIS VIEWER (`session.set-active-map` + `session.project-active-map`),
+	 * or null. This is the ONLY path a raster asset id may take into a player view-model: the resolver
+	 * is gated on the viewer's own delivery record, so a non-projected map's raster reference (and
+	 * therefore its bytes) can never reach a player device. Metadata only — bytes resolve on the
+	 * rendering device through the content-addressed store, and only for ids this gate admitted.
+	 */
+	projectedMap: ProjectedMapInfo | null;
 	displayName: string;
 	/** The role the Core resolved for this viewer (`player` | `observer`) — drives the tier gate. */
 	role: 'player' | 'observer';
@@ -129,6 +138,7 @@ export function buildPlayerData(state: CoreStateSlice, viewer: ActorId): PlayerD
 		handouts,
 		diceRolls: dice.rolls,
 		sessionActive: state.session.workflow === 'active',
+		projectedMap: resolveProjectedMapForViewer(state, viewer),
 		displayName: home.kind === 'participant' ? home.displayName : (actor?.displayName ?? 'Player'),
 		role,
 	};

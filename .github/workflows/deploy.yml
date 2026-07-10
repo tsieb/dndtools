@@ -52,6 +52,7 @@ jobs:
       signaling: ${{ steps.filter.outputs.signaling }}
       turn: ${{ steps.filter.outputs.turn }}
       sync_api: ${{ steps.filter.outputs.sync_api }}
+      app_api: ${{ steps.filter.outputs.app_api }}
       web_hosting: ${{ steps.filter.outputs.web_hosting }}
       app: ${{ steps.filter.outputs.app }}
     steps:
@@ -71,6 +72,9 @@ jobs:
               - 'infra/turn/**'
             sync_api:
               - 'infra/sync-api/**'
+              - 'packages/cloud-fns/**'
+            app_api:
+              - 'infra/app-api/**'
               - 'packages/cloud-fns/**'
             web_hosting:
               - 'infra/web-hosting/**'
@@ -111,6 +115,7 @@ jobs:
        needs.changes.outputs.signaling == 'true' ||
        needs.changes.outputs.turn == 'true' ||
        needs.changes.outputs.sync_api == 'true' ||
+       needs.changes.outputs.app_api == 'true' ||
        needs.changes.outputs.web_hosting == 'true')
     runs-on: ubuntu-latest
     steps:
@@ -174,6 +179,10 @@ jobs:
       - name: Deploy sync-api
         if: needs.changes.outputs.sync_api == 'true'
         run: infra/deploy.sh sync-api "$STAGE"
+
+      - name: Deploy app-api
+        if: needs.changes.outputs.app_api == 'true'
+        run: infra/deploy.sh app-api "$STAGE"
 
       - name: Deploy web-hosting
         if: needs.changes.outputs.web_hosting == 'true'

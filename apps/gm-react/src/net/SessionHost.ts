@@ -3,11 +3,13 @@ import type { SceneRuntime } from '../runtime/SceneRuntime';
 import { PeerLink } from './PeerConnection';
 import { exportKeyBase64, generateSessionKey } from './crypto';
 import { buildPlayerData } from './viewModels';
-import type {
-	ClientMessage,
-	PeerPresenceEntry,
-	PresenceMessage,
-	SnapshotMessage,
+import {
+	parsePresenceBeatMessage,
+	presenceBeatToSetPresencePayload,
+	type ClientMessage,
+	type PeerPresenceEntry,
+	type PresenceMessage,
+	type SnapshotMessage,
 } from './messages';
 import {
 	applyAnswer,
@@ -47,6 +49,8 @@ interface InternalPeer extends HostPeer {
 	link: PeerLink;
 	key: CryptoKey;
 	lastDataJson: string | null;
+	/** The device kind the peer announced in its join-time hello (feeds `session.set-presence`). */
+	deviceKind: 'desktop' | 'web' | 'unknown';
 }
 
 export interface HostInvitation {
@@ -131,6 +135,7 @@ export class SessionHost {
 			link,
 			key,
 			lastDataJson: null,
+			deviceKind: 'unknown',
 		};
 		this.peers.set(peerId, peer);
 		this.pcByPeer.set(peer, pc);
@@ -139,7 +144,11 @@ export class SessionHost {
 			peer.connected = state === 'open';
 			peer.status = state === 'open' ? 'online' : 'away';
 			if (state === 'open') void this.pushSnapshot(peer);
-			if (state === 'closed') this.peers.delete(peerId);
+			if (state === 'closed') {
+				this.peers.delete(peerId);
+				// The peer is gone: clear its ephemeral core presence entry (DM-authored offline clear).
+				this.clearPeerPresence(peer);
+			}
 			this.broadcastPresence();
 			this.changeHandler?.();
 		});
@@ -177,6 +186,7 @@ export class SessionHost {
 		if (!peer) return;
 		peer.link.close();
 		this.peers.delete(peerId);
+		this.clearPeerPresence(peer);
 		this.broadcastPresence();
 		this.changeHandler?.();
 	}
@@ -218,6 +228,8 @@ export class SessionHost {
 			case 'hello':
 				// The identity was bound at invite time from the registered roster (fail-closed). Confirm and
 				// send the first snapshot.
+				peer.deviceKind =
+					message.deviceKind === 'desktop' || message.deviceKind === 'web' ? message.deviceKind : 'unknown';
 				void peer.link.send({
 					kind: 'join-result',
 					ok: true,
@@ -227,22 +239,65 @@ export class SessionHost {
 					role: peer.role,
 				});
 				void this.pushSnapshot(peer);
+				// Record the just-joined peer's presence in the core presence model (as the peer itself).
+				this.applyPeerPresence(peer, { status: 'online', device: peer.deviceKind });
 				this.broadcastPresence();
 				break;
 			case 'command-request':
 				void this.handleCommandRequest(peer, message.requestId, message.command);
 				break;
-			case 'presence-beat':
-				peer.status = message.status;
-				peer.hand = Boolean(message.hand);
-				peer.ready = Boolean(message.ready);
+			case 'presence-beat': {
+				// Presence is a SIDE-CHANNEL: it never rides the command-request path (it is deliberately
+				// NOT player-requestable), so validate it fail-closed here. The message carries no actor id;
+				// the presence SUBJECT is always the authenticated sender — a peer can only report itself.
+				const beat = parsePresenceBeatMessage(message);
+				if (!beat) break; // malformed — drop, never partially apply
+				peer.status = beat.status;
+				peer.hand = Boolean(beat.hand);
+				peer.ready = Boolean(beat.ready);
+				this.applyPeerPresence(peer, presenceBeatToSetPresencePayload(beat, peer.deviceKind));
 				this.broadcastPresence();
 				this.changeHandler?.();
 				break;
+			}
 			case 'ping':
 				void peer.link.send({ kind: 'pong', t: message.t });
 				break;
 		}
+	}
+
+	/**
+	 * Apply a peer's ephemeral presence to the CORE presence model via `session.set-presence`, STAMPED
+	 * with the authenticated actor id bound at invite time (same trust rule as `handleCommandRequest`:
+	 * nothing from the wire names an actor). Ephemeral + best-effort: the handler appends no durable op,
+	 * and a rejection (e.g. the DM is previewing read-only) must never disturb the transport.
+	 */
+	private applyPeerPresence(
+		peer: InternalPeer,
+		payload: { status: 'online' | 'away'; device: 'desktop' | 'web' | 'unknown' },
+	): void {
+		void this.runtime
+			.dispatch({ type: 'session.set-presence', actorId: peer.actorId, payload })
+			.catch(() => {
+				// Presence is ephemeral — a failed apply is dropped, never retried or surfaced to the peer.
+			});
+	}
+
+	/** DM-authored CLEAR of a departed peer's presence entry (`targetActorId` + `status: 'offline'`). */
+	private clearPeerPresence(peer: InternalPeer): void {
+		const dm = Object.values(this.runtime.authoritativeState.permissions.actors).find(
+			(a) => a.role === 'dm',
+		);
+		if (!dm) return;
+		void this.runtime
+			.dispatch({
+				type: 'session.set-presence',
+				actorId: dm.id,
+				payload: { status: 'offline', targetActorId: peer.actorId },
+			})
+			.catch(() => {
+				// Best-effort: a stale ephemeral entry expires with the session either way.
+			});
 	}
 
 	private async handleCommandRequest(

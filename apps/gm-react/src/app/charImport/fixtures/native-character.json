@@ -1,0 +1,48 @@
+{
+	"format": "dndtools-character",
+	"name": "Brother Aldric",
+	"kind": "pc",
+	"visibility": "dm-only",
+	"abilityScores": { "str": 10, "dex": 12, "con": 14, "int": 13, "wis": 16, "cha": 8, "luck": 20 },
+	"ac": 16,
+	"hp": 21,
+	"maxHp": 24,
+	"tempHp": 3,
+	"level": 3,
+	"class": "Cleric",
+	"race": "Hill Dwarf",
+	"background": "Acolyte",
+	"alignment": "Lawful good",
+	"speed": 25,
+	"bio": "A wandering healer sworn to the Dawnfather.",
+	"dmNotes": "Secretly owes the thieves' guild a debt.",
+	"proficiencyBonus": 2,
+	"skills": {
+		"insight": "proficient",
+		"Religion": "expertise",
+		"medicine": "proficient",
+		"basket-weaving": "proficient",
+		"perception": "sometimes"
+	},
+	"saves": ["wis", "cha", "moxie"],
+	"hitDice": { "die": "d8", "total": 3, "spent": 1 },
+	"attacks": [
+		{ "name": "Warhammer", "detail": "+4 to hit, 1d8+2 bludgeoning" },
+		{ "detail": "an attack with no name" }
+	],
+	"spells": [
+		{
+			"name": "Cure Wounds",
+			"level": 1,
+			"prepared": true,
+			"castingTime": "action",
+			"range": "Touch",
+			"components": "V, S",
+			"duration": "Instantaneous",
+			"school": "Evocation"
+		},
+		{ "name": "Sacred Flame", "level": 0 },
+		{ "name": "Broken Spell" }
+	],
+	"homebrewMana": 42
+}

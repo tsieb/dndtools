@@ -14,6 +14,8 @@ export interface CloudConfig {
   signalingWsUrl: string;
   /** https:// base URL of the sync-api (E2EE cloud sync/backup); Authorization: <cognito-id-token>. */
   syncApiUrl: string;
+  /** https:// base URL of the app-api (marketplace/invites/account/entitlements); Authorization: <cognito-id-token>. */
+  appApiUrl: string;
 }
 
 function read(key: keyof ImportMetaEnv): string {
@@ -27,6 +29,7 @@ export const cloudConfig: CloudConfig = {
   userPoolClientId: read('VITE_COGNITO_CLIENT_ID'),
   signalingWsUrl: read('VITE_SIGNALING_WS_URL'),
   syncApiUrl: read('VITE_SYNC_API_URL'),
+  appApiUrl: read('VITE_APP_API_URL'),
 };
 
 /** True only when every value needed to reach the cloud is present. */
@@ -44,3 +47,9 @@ export const isAuthConfigured: boolean = Boolean(
 
 /** True when the E2EE cloud-sync backend is reachable (identity + sync API present). */
 export const isSyncConfigured: boolean = Boolean(isAuthConfigured && cloudConfig.syncApiUrl);
+
+/**
+ * True when the application backend (marketplace/invites/account/entitlements) is reachable.
+ * Fail-closed: every account-backed surface stays in its labeled local state when absent.
+ */
+export const isAccountApiConfigured: boolean = Boolean(isAuthConfigured && cloudConfig.appApiUrl);

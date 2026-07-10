@@ -1,6 +1,7 @@
 import type { ActorId, SceneId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
 import type { Scene, SceneState, SectionLayoutRegion, WidgetInstance } from '../state/scene-state';
+import { isLiveScene } from '../state/scene-state';
 import type {
 	PlayerViewDeliveryStatus,
 	PlayerViewProjectionTarget,
@@ -95,6 +96,8 @@ export function listScenesForActor(
 	if (!actor) return [];
 	const out: SceneListEntry[] = [];
 	for (const scene of Object.values(state.scenes)) {
+		// A soft-deleted scene is OMITTED from every actor-filtered read (tombstone; scene.delete).
+		if (!isLiveScene(scene)) continue;
 		const evaluation = evaluateSceneVisibility(scene, actor, permission);
 		if (evaluation.kind !== 'visible') continue;
 		if (scene.templateMeta.isTemplate && actor.role !== 'dm') continue;
@@ -178,7 +181,8 @@ export function getSceneForActor(
 	const actor = permission.actors[actorId];
 	if (!actor) return { kind: 'denied', reason: 'unknown-actor' };
 	const scene = state.scenes[sceneId];
-	if (!scene) return { kind: 'denied', reason: 'scene-not-found' };
+	// A tombstoned scene reads exactly like a missing one (non-leaking; scene.delete soft-delete).
+	if (!scene || !isLiveScene(scene)) return { kind: 'denied', reason: 'scene-not-found' };
 
 	const evaluation = projectionScope?.allowSceneVisibility
 		? ({ kind: 'visible', assignedSectionIds: projectionScope.sectionIds } as const)

@@ -32,7 +32,8 @@ capabilities to the local-first app. Everything is pay-per-use / scale-to-zero
 | 3 | `turn`        | coturn on EC2 `t4g.nano` + Elastic IP + cred Lambda | ~$3–8/mo |
 | 4 | `signaling`   | API GW WebSocket + Lambdas + DynamoDB (rooms/conns, TTL) | none |
 | 5 | `sync-api`    | API GW HTTP + Lambdas + DynamoDB (op index) + S3 (ciphertext) | none |
-| 6 | `web-hosting` | S3 (private) + CloudFront (OAC) + CSP header | none |
+| 6 | `app-api`     | API GW HTTP + Lambda + DynamoDB (accounts/entitlements/invites/listings, TTL) + S3 (marketplace payloads) | none |
+| 7 | `web-hosting` | S3 (private) + CloudFront (OAC) + CSP header | none |
 
 > `signaling` resolves `turn`'s `/turn/secret-arn` and `/turn/uri` via `{{resolve:ssm}}`
 > at deploy time, so **`turn` must be deployed before `signaling`** — deploying signaling

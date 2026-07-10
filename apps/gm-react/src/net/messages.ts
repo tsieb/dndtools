@@ -117,6 +117,44 @@ export interface PresenceBeatMessage {
 	ready?: boolean;
 }
 
+/** The presence statuses a peer may broadcast (`offline` is host-derived from the link, never claimed). */
+export const PEER_PRESENCE_STATUSES: readonly PeerPresenceStatus[] = Object.freeze(['online', 'away']);
+
+/**
+ * FAIL-CLOSED validation of an incoming presence beat. Presence is a SIDE-CHANNEL: it deliberately does
+ * NOT ride the player command-request path (it is not in `PLAYER_REQUESTABLE_PREFIXES` and must never
+ * be), so the host validates it here instead of relying on the core command gate. The message carries NO
+ * actor id by construction — the presence SUBJECT is always the authenticated sender, so a peer can only
+ * ever report its own presence. Returns the validated message, or `null` for anything malformed
+ * (unknown status, non-boolean hints, wrong kind, non-object) — a malformed beat is dropped, never
+ * partially applied.
+ */
+export function parsePresenceBeatMessage(value: unknown): PresenceBeatMessage | null {
+	if (typeof value !== 'object' || value === null) return null;
+	const v = value as Record<string, unknown>;
+	if (v.kind !== 'presence-beat') return null;
+	if (!(PEER_PRESENCE_STATUSES as readonly unknown[]).includes(v.status)) return null;
+	if (v.hand !== undefined && typeof v.hand !== 'boolean') return null;
+	if (v.ready !== undefined && typeof v.ready !== 'boolean') return null;
+	const message: PresenceBeatMessage = { kind: 'presence-beat', status: v.status as PeerPresenceStatus };
+	if (v.hand !== undefined) message.hand = v.hand;
+	if (v.ready !== undefined) message.ready = v.ready;
+	return message;
+}
+
+/**
+ * Map a validated presence beat to the `session.set-presence` command PAYLOAD the host applies locally,
+ * stamped with the authenticated sender's identity at the dispatch site (never an id from the wire).
+ * `device` comes from the peer's join-time hello, not the beat. Pure, so the protocol mapping is testable
+ * without a live transport.
+ */
+export function presenceBeatToSetPresencePayload(
+	beat: PresenceBeatMessage,
+	device: 'desktop' | 'web' | 'unknown',
+): { status: PeerPresenceStatus; device: 'desktop' | 'web' | 'unknown' } {
+	return { status: beat.status, device };
+}
+
 export interface PingMessage {
 	kind: 'ping';
 	t: number;

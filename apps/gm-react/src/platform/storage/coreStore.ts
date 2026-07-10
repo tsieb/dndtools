@@ -41,7 +41,7 @@ import {
 } from '@dndtools/core';
 
 const DB_NAME = 'dndtools-v2';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const SCENE_STATE_KEY = 'scene-state';
 const MAP_STATE_KEY = 'map-state';
 const PERMISSION_STATE_KEY = 'permission-state';
@@ -87,10 +87,25 @@ interface MigrationJournalRecord {
 	entry: MigrationJournalEntry;
 }
 
+/**
+ * One content-addressed binary blob (ADR-014 amendment). The id IS the content hash of the
+ * bytes (`assetId(hashAssetBytes(bytes))` in core), so the blob key always agrees with the
+ * asset METADATA the core already stores in `maps.assets` / `audio.assets` — identical bytes
+ * dedupe to one record. Bytes never enter `CoreStateSlice` or the operation log.
+ */
+export interface AssetBlobRecord {
+	id: string;
+	bytes: ArrayBuffer;
+	mime: string;
+	byteLength: number;
+	createdAt: string;
+}
+
 class V2Database extends Dexie {
 	documents!: Table<DocumentRecord, string>;
 	operations!: Table<OperationRecord, string>;
 	migrationJournal!: Table<MigrationJournalRecord, string>;
+	assetBlobs!: Table<AssetBlobRecord, string>;
 
 	constructor() {
 		super(DB_NAME);
@@ -100,10 +115,19 @@ class V2Database extends Dexie {
 			documents: '&key',
 			operations: '&id, sequence',
 		});
+		this.version(2).stores({
+			documents: '&key',
+			operations: '&id, sequence',
+			migrationJournal: '&key',
+		});
+		// Version 3 adds the asset-byte store. ADDITIVE ONLY — no upgrade function touches the
+		// existing stores, so the defensive fail-closed hydration in loadCoreState remains the
+		// sole migration path for documents (PLAT-008 stays intact).
 		this.version(DB_VERSION).stores({
 			documents: '&key',
 			operations: '&id, sequence',
 			migrationJournal: '&key',
+			assetBlobs: '&id',
 		});
 	}
 }
@@ -447,9 +471,13 @@ export async function persistFullState(
  * This deliberately bypasses the persistFullState op-growth guard: a restore is an authoritative BULK
  * load of a decrypted cloud snapshot, not an incremental Processing-Core command dispatch. Callers
  * reload the runtime from storage afterwards (SceneRuntime.load).
+ *
+ * Asset BYTES are deliberately preserved: a cloud snapshot carries only asset metadata, so wiping
+ * local blobs here would orphan bytes the restored metadata still references. Callers that need a
+ * true wipe use resetCoreStorage; unreferenced blobs are reclaimed by assetStore.collectGarbage.
  */
 export async function restoreCoreState(slice: CoreStateSlice): Promise<void> {
-	await resetCoreStorage();
+	await clearStateTables();
 	await Promise.all([
 		persistSceneState(slice.scenes),
 		persistMapState(slice.maps),
@@ -466,13 +494,27 @@ export async function restoreCoreState(slice: CoreStateSlice): Promise<void> {
 	]);
 }
 
-export async function resetCoreStorage(): Promise<void> {
+async function clearStateTables(): Promise<void> {
 	const database = db();
 	await Promise.all([
 		database.documents.clear(),
 		database.operations.clear(),
 		database.migrationJournal.clear(),
 	]);
+}
+
+/** Full wipe (onboarding "start fresh"): durable state AND asset bytes. */
+export async function resetCoreStorage(): Promise<void> {
+	await clearStateTables();
+	await db().assetBlobs.clear();
+}
+
+/**
+ * Internal seam for the asset-byte store (assetStore.ts) — the ONLY other module allowed to
+ * touch Dexie, and only this table. GUI code goes through assetStore's validated API.
+ */
+export function assetBlobsTable(): Table<AssetBlobRecord, string> {
+	return db().assetBlobs;
 }
 
 /**

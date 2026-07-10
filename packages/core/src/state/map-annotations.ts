@@ -106,17 +106,68 @@ export interface MapRoute {
 export type MapFogOpKind = 'reveal' | 'conceal';
 
 /**
- * MAP-012 — a durable fog-of-war operation. A reveal/conceal targets a rectangular `region` in
- * normalized map space and syncs to player map views (the durable op is conflict-shaped and replayable
- * — Contract 2). A concealed region never appears in a player's actor-filtered query. `sequence` makes
- * the op-log order deterministic so a replay reconstructs the same fog state.
+ * A fog region SHAPE in normalized (0..1) map space:
+ *
+ *   - `rect` — the original axis-aligned rectangle;
+ *   - `polygon` — a simple polygon of ≥ 3 vertices (coverage by even–odd point-in-polygon);
+ *   - `stroke` — a brush stroke: a polyline of ≥ 1 points swept by a disc of `radius` (a capsule
+ *     chain; a single point is a disc).
+ *
+ * BACK-COMPAT: a fog op persisted before shapes existed stores a PLAIN rectangle (`{x,y,w,h}` with no
+ * `shape` tag). {@link normalizeFogRegion} canonicalizes either form, so old stored regions and old
+ * replayed ops compose identically to an explicit `rect`.
+ */
+export type FogRegion =
+	| { shape: 'rect'; x: number; y: number; w: number; h: number }
+	| { shape: 'polygon'; points: NormalizedPoint[] }
+	| { shape: 'stroke'; points: NormalizedPoint[]; radius: number };
+
+/** The legacy (pre-shape) stored rectangle form. Composes identically to `{shape:'rect',…}`. */
+export interface LegacyFogRect {
+	shape?: undefined;
+	x: number;
+	y: number;
+	w: number;
+	h: number;
+}
+
+/** The stored fog-region type: a tagged shape, or the legacy untagged rectangle. */
+export type MapFogRegion = FogRegion | LegacyFogRect;
+
+/** Canonicalize a stored/replayed region: a legacy untagged rectangle becomes `{shape:'rect',…}`. Pure. */
+export function normalizeFogRegion(region: MapFogRegion): FogRegion {
+	if (region.shape === undefined) {
+		return { shape: 'rect', x: region.x, y: region.y, w: region.w, h: region.h };
+	}
+	return region;
+}
+
+/** Deep-clone a fog region so stored state never aliases a payload/input. Pure. */
+export function cloneFogRegion<T extends MapFogRegion>(region: T): T {
+	const normalized = region as MapFogRegion;
+	if (normalized.shape === 'polygon') {
+		return { ...normalized, points: normalized.points.map((p) => ({ ...p })) } as T;
+	}
+	if (normalized.shape === 'stroke') {
+		return { ...normalized, points: normalized.points.map((p) => ({ ...p })) } as T;
+	}
+	return { ...(normalized as object) } as T;
+}
+
+/**
+ * MAP-012 — a durable fog-of-war operation. A reveal/conceal targets a `region` (rect / polygon /
+ * stroke) in normalized map space and syncs to player map views (the durable op is conflict-shaped and
+ * replayable — Contract 2). A concealed region never appears in a player's actor-filtered query.
+ * `sequence` makes the op-log order deterministic so a replay reconstructs the same fog state.
  */
 export interface MapFogOp {
 	id: string;
 	layerId: string;
 	kind: MapFogOpKind;
-	/** Rectangular region in normalized (0..1) map space the op reveals/conceals. */
-	region: { x: number; y: number; w: number; h: number };
+	/** The region in normalized (0..1) map space the op reveals/conceals. Legacy rects stay valid. */
+	region: MapFogRegion;
+	/** Optional soft-edge feather width (0..0.2, normalized units) for the renderer. Absent ⇒ hard edge. */
+	feather?: number;
 	visibility: SceneVisibility;
 	/** Monotonic per-map ordering for deterministic replay (a later op overrides an earlier overlap). */
 	sequence: number;
@@ -178,8 +229,8 @@ export function isNormalizedPoint(point: NormalizedPoint): boolean {
 	);
 }
 
-/** A region is valid iff its corner is in [0,1] and it stays within the map bounds. */
-export function isNormalizedRegion(region: MapFogOp['region']): boolean {
+/** A rectangle is valid iff its corner is in [0,1] and it stays within the map bounds. */
+function isValidFogRect(region: { x: number; y: number; w: number; h: number }): boolean {
 	return (
 		Number.isFinite(region.x) &&
 		Number.isFinite(region.y) &&
@@ -192,6 +243,129 @@ export function isNormalizedRegion(region: MapFogOp['region']): boolean {
 		region.x + region.w <= 1 &&
 		region.y + region.h <= 1
 	);
+}
+
+/** Bounds for polygon/stroke point lists and the stroke brush radius (mirrors the input schema). */
+export const FOG_MAX_POINTS = 256 as const;
+export const FOG_MAX_STROKE_RADIUS = 0.5 as const;
+
+/**
+ * A region is valid iff every coordinate stays within normalized [0,1] map space and the shape is
+ * well-formed (rect within bounds; polygon ≥ 3 points; stroke ≥ 1 point with a bounded radius). A
+ * LEGACY untagged rectangle validates exactly like an explicit `rect` (back-compat).
+ */
+export function isNormalizedRegion(region: MapFogRegion): boolean {
+	const normalized = normalizeFogRegion(region);
+	if (normalized.shape === 'rect') return isValidFogRect(normalized);
+	if (normalized.points.length === 0 || normalized.points.length > FOG_MAX_POINTS) return false;
+	if (!normalized.points.every(isNormalizedPoint)) return false;
+	if (normalized.shape === 'polygon') return normalized.points.length >= 3;
+	// stroke: radius bounded (0 allowed — a degenerate line/point stroke still validates).
+	return (
+		Number.isFinite(normalized.radius) &&
+		normalized.radius >= 0 &&
+		normalized.radius <= FOG_MAX_STROKE_RADIUS
+	);
+}
+
+// ---------------------------------------------------------------------------
+// Fog geometry (pure + deterministic): point coverage per shape + composition
+// ---------------------------------------------------------------------------
+
+/** Squared distance from `p` to the segment `a`→`b`. Pure. */
+function squaredDistanceToSegment(
+	p: NormalizedPoint,
+	a: NormalizedPoint,
+	b: NormalizedPoint,
+): number {
+	const abx = b.x - a.x;
+	const aby = b.y - a.y;
+	const lengthSq = abx * abx + aby * aby;
+	let t = 0;
+	if (lengthSq > 0) {
+		t = ((p.x - a.x) * abx + (p.y - a.y) * aby) / lengthSq;
+		t = Math.min(1, Math.max(0, t));
+	}
+	const cx = a.x + t * abx;
+	const cy = a.y + t * aby;
+	const dx = p.x - cx;
+	const dy = p.y - cy;
+	return dx * dx + dy * dy;
+}
+
+/** Even–odd (ray-casting) point-in-polygon. A boundary point may land either side; deterministic. */
+function pointInPolygon(point: NormalizedPoint, points: readonly NormalizedPoint[]): boolean {
+	let inside = false;
+	for (let i = 0, j = points.length - 1; i < points.length; j = i, i += 1) {
+		const a = points[i]!;
+		const b = points[j]!;
+		const crosses = a.y > point.y !== b.y > point.y;
+		if (!crosses) continue;
+		const xAtY = ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x;
+		if (point.x < xAtY) inside = !inside;
+	}
+	return inside;
+}
+
+/**
+ * Whether a normalized point is COVERED by a fog region (any shape). Legacy untagged rectangles are
+ * normalized first, so old stored regions compose identically. Pure + deterministic.
+ */
+export function pointInFogRegion(region: MapFogRegion, point: NormalizedPoint): boolean {
+	const normalized = normalizeFogRegion(region);
+	switch (normalized.shape) {
+		case 'rect':
+			return (
+				point.x >= normalized.x &&
+				point.x <= normalized.x + normalized.w &&
+				point.y >= normalized.y &&
+				point.y <= normalized.y + normalized.h
+			);
+		case 'polygon':
+			return pointInPolygon(point, normalized.points);
+		case 'stroke': {
+			const radiusSq = normalized.radius * normalized.radius;
+			const pts = normalized.points;
+			if (pts.length === 1) {
+				const dx = point.x - pts[0]!.x;
+				const dy = point.y - pts[0]!.y;
+				return dx * dx + dy * dy <= radiusSq;
+			}
+			for (let i = 0; i + 1 < pts.length; i += 1) {
+				if (squaredDistanceToSegment(point, pts[i]!, pts[i + 1]!) <= radiusSq) return true;
+			}
+			return false;
+		}
+	}
+}
+
+/** The composed fog state at one point: no op covers it, the latest covering op reveals, or conceals. */
+export type FogCoverage = 'none' | 'revealed' | 'concealed';
+
+/** The minimal structural fog-op shape the composition needs (both `MapFogOp` and views satisfy it). */
+export interface FogCompositionOp {
+	kind: MapFogOpKind;
+	region: MapFogRegion;
+	sequence: number;
+}
+
+/**
+ * MAP-012 — COMPOSE the append-only fog op list at a point: the op with the HIGHEST `sequence` whose
+ * region covers the point wins (a later op overrides an earlier overlap), exactly the deterministic
+ * replay rule the op log guarantees. Works uniformly over rect / polygon / stroke shapes AND legacy
+ * untagged rectangles. Pure + deterministic.
+ */
+export function fogCoverageAtPoint(
+	fog: readonly FogCompositionOp[],
+	point: NormalizedPoint,
+): FogCoverage {
+	let winner: FogCompositionOp | null = null;
+	for (const op of fog) {
+		if (!pointInFogRegion(op.region, point)) continue;
+		if (winner === null || op.sequence > winner.sequence) winner = op;
+	}
+	if (!winner) return 'none';
+	return winner.kind === 'reveal' ? 'revealed' : 'concealed';
 }
 
 // ---------------------------------------------------------------------------
@@ -434,14 +608,18 @@ export interface AppendFogOpInput {
 	id: string;
 	layerId: string;
 	kind: MapFogOpKind;
-	region: MapFogOp['region'];
+	region: MapFogRegion;
+	/** Optional soft-edge feather width (0..0.2). Absent ⇒ hard edge. */
+	feather?: number;
 	visibility: SceneVisibility;
 }
 
 /**
  * MAP-012: append a fog reveal/conceal op. The op is APPEND-ONLY (never an in-place edit) so the
  * op-log replays deterministically and a later op overrides an earlier overlapping one. `sequence` is
- * assigned from the current max + 1. Fails closed on an out-of-bounds region.
+ * assigned from the current max + 1. Fails closed on an out-of-bounds/malformed region. A LEGACY
+ * untagged rectangle input stays valid and is stored as supplied (back-compat: replayed old ops
+ * produce byte-identical state).
  */
 export function appendFogOp(
 	fog: MapFogOp[],
@@ -452,8 +630,16 @@ export function appendFogOp(
 		return {
 			error: {
 				kind: 'invalid-region',
-				message: 'Fog region must be a positive rectangle within normalized [0,1] map space.',
+				message: 'Fog region must be a well-formed shape within normalized [0,1] map space.',
 			},
+		};
+	}
+	if (
+		input.feather !== undefined &&
+		(!Number.isFinite(input.feather) || input.feather < 0 || input.feather > 0.2)
+	) {
+		return {
+			error: { kind: 'invalid-region', message: 'Fog feather must be within [0, 0.2].' },
 		};
 	}
 	const nextSequence = fog.reduce((max, op) => Math.max(max, op.sequence), 0) + 1;
@@ -461,7 +647,8 @@ export function appendFogOp(
 		id: input.id,
 		layerId: input.layerId,
 		kind: input.kind,
-		region: { ...input.region },
+		region: cloneFogRegion(input.region),
+		...(input.feather !== undefined ? { feather: input.feather } : {}),
 		visibility: input.visibility,
 		sequence: nextSequence,
 		revision: 1,

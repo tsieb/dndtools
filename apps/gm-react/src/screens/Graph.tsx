@@ -1,29 +1,33 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
 	getGraphVisualizationForActor,
 	getGraphHealthForDm,
+	getMapViewForActor,
 	getPlayerScopedHealthSummary,
+	listMapsForActor,
 	type GraphVisualization,
 	type GraphVizNode,
 } from '@dndtools/core';
-import { Badge, Icon, VisibilityChip } from '../ds';
+import { Badge, Button, Icon, VisibilityChip } from '../ds';
 import { Page, Panel, Seg, T, eb } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 
 /**
- * Graph & Search — the relationship graph canvas + faceted search, now wired to the live Processing
- * Core (was static `mockCampaign`). Every node/edge/facet comes from `getGraphVisualizationForActor`,
+ * Graph & Search — the relationship graph canvas + faceted search, wired to the live Processing
+ * Core. Every node/edge/facet comes from `getGraphVisualizationForActor`,
  * the actor-filtered GRAPH-004 read model: the DM/Player toggle simply re-runs the read AS a different
  * actor, so a player view drops every DM-only node the data layer hides (the leak-proofing contract,
  * proven by the read itself, not by client-side filtering). Health is the DM-only GRAPH-007 report;
  * a player sees only the GENERALIZED coarse-band summary (GRAPH-007 AC3). The graph is read-only
- * intelligence — there is no node-authoring command on this surface.
+ * intelligence — a node's Open action deep-links to the entity's own surface (`/knowledge/:id`,
+ * `/atlas?map=&poi=`); there is no node-authoring command here.
  */
 
 const DEFAULT_SOURCE_ID = 'local-vault';
 
-// Real GraphVizNode.kind is note | object | map | poi (NOT the mock's character/place/faction). Colors,
-// icons and labels are remapped to those; the legend is built from the live facets, never a fixed list.
+// Real GraphVizNode.kind is note | object | map | poi (NOT the design prototype's character/place/
+// faction). Colors, icons and labels are remapped to those; the legend is built from the live facets.
 const KIND_COLOR: Record<string, string> = {
 	note: 'var(--color-status-info)',
 	object: T.acc,
@@ -70,6 +74,7 @@ function HealthRow({ label, count }: { label: string; count: number }) {
 
 export function Graph() {
 	const runtime = useRuntime();
+	const navigate = useNavigate();
 	const dmId = runtime.defaultActorId;
 	const actors = runtime.state.permissions.actors;
 	// The player POV is a REAL registered player actor; the toggle reads the graph AS them (no global
@@ -116,6 +121,36 @@ export function Graph() {
 	const selEdges = selNode ? viz.edges.filter((e) => e.fromId === sel || e.toId === sel) : [];
 	// The kinds the actor COULD filter by, straight from the live facets (never reveals hidden content).
 	const legendKinds = viz.facets.kinds;
+
+	// Open navigates to the ENTITY the node represents, not to a list: notes deep-link to
+	// `/knowledge/:id`, maps/POIs to the Atlas `?map=&poi=` deep link (the same URL MapBuilder's
+	// "copy link" writes). A POI's owning map is resolved through the SAME actor-filtered map reads
+	// the Atlas renders from, so the link never names a map the current viewpoint cannot see.
+	// Objects (quest/faction dossiers) live on Campaign — the same destination the Characters
+	// mention-search uses for object hits.
+	const openNode = (n: GraphVizNode) => {
+		if (n.kind === 'note') {
+			navigate(`/knowledge/${n.id}`);
+			return;
+		}
+		if (n.kind === 'map') {
+			navigate(`/atlas?map=${encodeURIComponent(n.id)}`);
+			return;
+		}
+		if (n.kind === 'poi') {
+			const owner = listMapsForActor(runtime.state.maps, runtime.state.permissions, viewActorId).find((m) => {
+				const view = getMapViewForActor(runtime.state.maps, runtime.state.permissions, viewActorId, m.id);
+				return view.kind === 'available' && view.pois.some((p) => p.id === n.id);
+			});
+			navigate(
+				owner
+					? `/atlas?map=${encodeURIComponent(owner.id)}&poi=${encodeURIComponent(n.id)}`
+					: `/atlas?poi=${encodeURIComponent(n.id)}`,
+			);
+			return;
+		}
+		navigate('/campaign');
+	};
 
 	return (
 		<Page max={1280}>
@@ -260,6 +295,15 @@ export function Graph() {
 									))}
 								</div>
 							)}
+							<div style={{ marginTop: 8 }}>
+								<Button variant="secondary" size="sm" icon="chevron-right" onClick={() => openNode(selNode)}>
+									{selNode.kind === 'note'
+										? 'Open note'
+										: selNode.kind === 'object'
+											? 'Open in Campaign'
+											: 'Open in Atlas'}
+								</Button>
+							</div>
 							<div style={{ ...eb, marginTop: 8 }}>Connections ({selEdges.length})</div>
 							{selEdges.length === 0 ? (
 								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>No links from or to this node yet.</div>

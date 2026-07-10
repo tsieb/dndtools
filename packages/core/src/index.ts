@@ -33,6 +33,7 @@ export {
 	EMPTY_SCENE_STATE,
 	SCENE_SCHEMA_VERSION,
 	SCENE_STATE_SCHEMA_VERSION,
+	isLiveScene,
 } from './state/scene-state';
 
 export type {
@@ -52,6 +53,7 @@ export type {
 	QuickReferenceTargetKind,
 	SessionActiveMapProjection,
 	SessionActiveMapSelection,
+	SessionArchiveRecap,
 	SessionArchiveSnapshot,
 	SessionDiceRoll,
 	SessionHandout,
@@ -319,8 +321,13 @@ export type {
 	CreateTokenInput,
 	MapAnnotationError,
 	MapAnnotationStamp,
+	FogCompositionOp,
+	FogCoverage,
+	FogRegion,
+	LegacyFogRect,
 	MapFogOp,
 	MapFogOpKind,
+	MapFogRegion,
 	MapPoi,
 	MapPoiCategory,
 	MapRoute,
@@ -334,17 +341,23 @@ export type {
 	UpdateTokenPatch,
 } from './state/map-annotations';
 export {
+	FOG_MAX_POINTS,
+	FOG_MAX_STROKE_RADIUS,
 	MAP_POI_CATEGORIES,
 	appendFogOp,
+	cloneFogRegion,
 	createPoi,
 	createRoute,
 	createToken,
 	deletePoi,
 	deleteRoute,
 	deleteToken,
+	fogCoverageAtPoint,
 	isNormalizedPoint,
 	isNormalizedRegion,
 	moveToken,
+	normalizeFogRegion,
+	pointInFogRegion,
 	removeFogOp,
 	updatePoi,
 	updateRoute,
@@ -400,6 +413,14 @@ export type {
 	MapView,
 	MapViewResult,
 } from './queries/map-query';
+// MAP-012 — PLAYER fog composition over the actor-filtered fog views: rect / polygon / stroke shapes
+// (and legacy untagged rects) compose by the same latest-covering-op rule the op log replays.
+export type { FogCoverageOp } from './queries/map-visibility';
+export {
+	fogCoverageForActorView,
+	isPointConcealed,
+	mapVisibleToActor,
+} from './queries/map-visibility';
 export {
 	deliveredMapIdsForActor,
 	getMapViewForActor,
@@ -1604,6 +1625,7 @@ export {
 // DM-FACING: a non-DM receives an EMPTY digest (fail closed, hard no-leak). Nothing is copied — it is
 // COMPUTED. In `recap`, combat/handout sources derive from the archive snapshot of the just-ended session.
 export type {
+	DigestAuthoredRecap,
 	DigestCombatSummary,
 	DigestContinuityPrompt,
 	DigestHandoutOutcome,
@@ -1613,6 +1635,21 @@ export type {
 	PrepRecapDigest,
 } from './queries/prep-recap-digest';
 export { DEFAULT_RECENT_CHANGE_LIMIT, getPrepRecapDigest } from './queries/prep-recap-digest';
+
+// The PURE campaign-SYSTEM-SWITCH dry-run behind `widget.package.switch-system`: it WRAPS the
+// PLAT-008 vault-migration dry-run (a blocked vault blocks the switch) and classifies every
+// current-system widget type against the target package (keep / remap / drop). A `drop` with live
+// Scene instances is a DESTRUCTIVE finding the command fails closed on unless acknowledged.
+export type {
+	SystemSwitchFinding,
+	SystemSwitchPreview,
+	SystemSwitchPreviewResult,
+	SystemSwitchUnavailableReason,
+} from './queries/system-switch-query';
+export {
+	currentDocumentVersions,
+	previewSystemSwitch,
+} from './queries/system-switch-query';
 
 export type { WidgetPackageExport } from './commands/widget-package';
 export { exportWidgetPackage } from './commands/widget-package';
@@ -1717,9 +1754,13 @@ export {
 	validatePlatformRequest,
 } from './platform/service-boundary';
 export {
+	MAX_ASSET_BLOB_BYTES,
 	createStoragePlatformServiceRegistry,
+	deleteAssetBytesRequestSchema,
+	getAssetBytesRequestSchema,
 	loadCoreStateRequestSchema,
 	persistFullStateRequestSchema,
+	putAssetBytesRequestSchema,
 	recoverPendingMigrationRequestSchema,
 	resetCoreStorageRequestSchema,
 } from './schemas/platform-service';
@@ -2109,6 +2150,7 @@ export type {
 	CharacterDraft,
 	CharacterDraftStepProgress,
 	CharacterKind,
+	CharacterProficiencies,
 	CharacterState,
 	CreateDraftInput,
 	DraftTransferError,
@@ -2116,23 +2158,28 @@ export type {
 	PartyInventoryItem,
 	PartyRecord,
 	QuickCreateCharacterInput,
+	SkillProficiencyLevel,
 	UpsertPartyInventoryInput,
 } from './state/character-state';
 export {
 	CHARACTER_DRAFT_ENTITY_TYPE,
 	CHARACTER_ENTITY_TYPE,
 	CHARACTER_STATE_SCHEMA_VERSION,
+	EMPTY_CHARACTER_PROFICIENCIES,
 	EMPTY_CHARACTER_STATE,
 	EMPTY_COMBAT_STATE,
 	EMPTY_PARTY_RECORD,
+	SKILL_PROFICIENCY_LEVELS,
 	applyDraftStep,
 	buildCharacterDraft,
 	buildQuickCreatedCharacter,
 	draftStepValues,
+	ensureCharacterProficiencies,
 	ensureCharacterState,
 	isDraftOwner,
 	journalsOf,
 	partyRecordOf,
+	proficienciesOf,
 	removeDraft,
 	removePartyInventoryItem,
 	setMarchingOrder,
@@ -3393,10 +3440,14 @@ export {
 // all consume this rather than raw CharacterState.
 export type { CharacterDraftView, CharacterView } from './queries/character-query';
 export {
+	abilityModifier,
+	derivedProficiencyBonus,
+	effectiveProficiencyBonus,
 	getCharacterForActor,
 	getDraftForActor,
 	listCharactersForActor,
 	listDraftsForActor,
+	passivePerception,
 } from './queries/character-query';
 
 // CHAR-001: bridge a character's fields into the EXISTING widget binding model so a Scene widget can
@@ -4391,14 +4442,17 @@ export {
 // players (an offline participant is QUEUED — AUDIO-003 AC3); the slice is durable session state, syncs to
 // collaborators, and survives audio-widget removal (only a stop clears it — AUDIO-003 AC2).
 export type {
+	SessionAmbienceLayer,
 	SessionAudioDelivery,
 	SessionAudioDeliveryStatus,
+	SessionAudioOutputDevice,
 	SessionAudioState,
 	SessionAudioStatus,
 	SessionAudioTrack,
 } from './state/session-audio';
 export {
 	EMPTY_SESSION_AUDIO_STATE,
+	ambienceLayersOf,
 	SESSION_AUDIO_ENTITY_TYPE,
 	SESSION_AUDIO_SCHEMA_VERSION,
 	SESSION_AUDIO_STATUSES,

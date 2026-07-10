@@ -404,11 +404,20 @@ export function handleSetCharacterSpell(
 	const guard = manageGuard(state, actorId, parsed.data.characterId, now);
 	if ('rejection' in guard) return guard.rejection;
 
+	// Optional SRD-style detail fields pass through as patches (omitted ⇒ recorded detail preserved).
+	const detail = {
+		...(parsed.data.castingTime !== undefined ? { castingTime: parsed.data.castingTime } : {}),
+		...(parsed.data.range !== undefined ? { range: parsed.data.range } : {}),
+		...(parsed.data.components !== undefined ? { components: parsed.data.components } : {}),
+		...(parsed.data.duration !== undefined ? { duration: parsed.data.duration } : {}),
+		...(parsed.data.school !== undefined ? { school: parsed.data.school } : {}),
+	};
 	const result = setSpell(resourcesOf(guard.existing), {
 		id: parsed.data.id,
 		name: parsed.data.name,
 		level: parsed.data.level,
 		prepared: parsed.data.prepared,
+		...detail,
 	});
 	if (!result.ok) return reject({ code: 'invalid-payload', message: result.message }, state);
 	return commitManagedResources(state, env, guard.actor, guard.existing, result.resources, 'character.set-spell', {
@@ -416,6 +425,7 @@ export function handleSetCharacterSpell(
 		name: parsed.data.name,
 		level: parsed.data.level,
 		prepared: parsed.data.prepared,
+		...detail,
 	}, now);
 }
 

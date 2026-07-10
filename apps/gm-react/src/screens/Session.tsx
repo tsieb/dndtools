@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+	EMPTY_PRESENCE_STATE,
 	addDays,
 	allowedTransitionsFrom,
 	daysInMonth,
@@ -8,15 +9,20 @@ import {
 	getDiceHistoryForActor,
 	getHandoutsForActor,
 	getHandoutStatusForDm,
+	getPrepRecapDigest,
 	getSessionAudioView,
 	listAudioAssetsForActor,
 	listAudioSourceClassificationsForActor,
 	listCharactersForActor,
 	listMapsForActor,
 	listScenesForActor,
+	projectSessionPresence,
 	type CalendarDefinition,
 	type CombatTrackerView,
 	type CustomDate,
+	type PrepRecapDigest,
+	type ProjectedPresenceEntry,
+	type SessionArchiveSnapshot,
 	type SessionWorkflowState,
 } from '@dndtools/core';
 import {
@@ -45,6 +51,8 @@ import { Toaster } from '../ds';
 import { EncounterDialog } from '../app/EncounterBuilder';
 import { Page, Panel, Seg, SetRow, T, eb, mono } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
+import { useSession } from '../net/SessionContext';
+import type { HostPeer } from '../net/SessionHost';
 
 /**
  * Session — the live-play console, wired to the real Processing Core (was a local-reducer mock).
@@ -55,8 +63,10 @@ import { useRuntime } from '../runtime/RuntimeContext';
  * `getCombatTrackerForActor`), the dice roller (`dice.roll` over `getDiceHistoryForActor`), handout
  * delivery (`session.deliver-handout/revoke-handout/acknowledge-handout`), now-playing session audio
  * (`session.audio.pause/resume/stop/set-volume`), the active-map stage
- * (`session.set-active-map/project-active-map`), and the campaign date (`session.set-campaign-date`
- * over `getCalendarContinuityForActor` — the control the Campaign timeline points at). Combat, dice,
+ * (`session.set-active-map/project-active-map`), the campaign date (`session.set-campaign-date`
+ * over `getCalendarContinuityForActor` — the control the Campaign timeline points at), and the
+ * SES-009 prep/recap panel (the `getPrepRecapDigest` continuity digest, the session archives, and
+ * recap authoring via `session.author-recap`). Combat, dice,
  * and delivery are Processing-Core gated to the live (`active`) workflow, so the console guides the
  * DM to go live first. Reads are actor-filtered, so previewing as a player projects the player-safe
  * view; every durable write is rejected read-only while previewing. Tracker rows follow the DS
@@ -75,6 +85,7 @@ type CombatantRow = CombatTrackerView['combatants'][number];
 
 export function Session() {
 	const runtime = useRuntime();
+	const session = useSession();
 	const actorId = runtime.defaultActorId;
 	const workflow = runtime.state.session.workflow;
 	const isLive = workflow === 'active';
@@ -97,6 +108,9 @@ export function Session() {
 		players,
 		calendar,
 		campaignDate,
+		digest,
+		archives,
+		recapArchiveId,
 	} = useMemo(() => {
 		const session = runtime.state.session;
 		const perms = runtime.state.permissions;
@@ -127,6 +141,22 @@ export function Session() {
 			actorId,
 			'long',
 		).currentDate;
+		// SES-009 — the prep/recap continuity digest (DM-only: a non-DM receives an EMPTY digest) and
+		// the durable session archives that recap authoring writes onto. In `recap` the digest looks
+		// back at the just-archived session; every other phase preps forward.
+		const digest = getPrepRecapDigest(
+			session,
+			runtime.state.content,
+			runtime.state.maps,
+			runtime.state.characters,
+			perms,
+			runtime.state.sync,
+			actorId,
+			session.workflow === 'recap' ? 'recap' : 'prep',
+		);
+		const archives = Object.values(session.archives).sort((a, b) =>
+			b.archivedAt.localeCompare(a.archivedAt),
+		);
 		return {
 			tracker,
 			dice,
@@ -143,7 +173,22 @@ export function Session() {
 			players: Object.values(perms.actors).filter((a) => a.role === 'player'),
 			calendar,
 			campaignDate,
+			digest,
+			archives,
+			recapArchiveId: session.recapArchiveId,
 		};
+	}, [runtime.state, actorId]);
+
+	// COLLAB-004 — the ephemeral core presence, projected for this viewer via the core query (fail
+	// closed: only registered participants surface). Written by `session.set-presence`, which the P2P
+	// host applies (stamped) whenever a connected player's presence beat arrives; never persisted.
+	const presenceByActor = useMemo(() => {
+		const projection = projectSessionPresence(
+			runtime.state.presence ?? EMPTY_PRESENCE_STATE,
+			runtime.state.permissions,
+			actorId,
+		);
+		return new Map(projection.visible.map((entry) => [entry.actorId, entry]));
 	}, [runtime.state, actorId]);
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -327,6 +372,22 @@ export function Session() {
 							onSet={(date, ok) => void dispatch({ type: 'session.set-campaign-date', actorId, payload: { date } }, ok)}
 						/>
 					)}
+					{isDm && (
+						<RecapPanel
+							digest={digest}
+							archives={archives}
+							defaultArchiveId={recapArchiveId}
+							previewing={previewing}
+							onAuthor={(archiveId, markdown) =>
+								dispatch({ type: 'session.author-recap', actorId, payload: { archiveId, markdown } }, 'Recap saved')
+							}
+						/>
+					)}
+					<RosterPanel
+						hosting={session.role === 'host'}
+						peers={session.peers}
+						presence={presenceByActor}
+					/>
 					<PartyPanel party={party} />
 				</div>
 			</div>
@@ -787,6 +848,123 @@ function CampaignDatePanel({
 	);
 }
 
+// ── Prep & recap (SES-009 — the continuity digest, session archives, recap authoring) ─────────────
+
+function formatArchiveStamp(iso: string): string {
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return iso;
+	return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+}
+
+/**
+ * RecapPanel — the DM-only SES-009 surface: the computed prep/recap continuity digest (pure
+ * derivation, never a copied dataset), the durable session archives, and recap AUTHORING via
+ * `session.author-recap` (markdown onto the selected archive; re-saving replaces it). Ending a live
+ * session into Recap is what creates an archive — the empty state says so instead of faking one.
+ */
+function RecapPanel({
+	digest,
+	archives,
+	defaultArchiveId,
+	previewing,
+	onAuthor,
+}: {
+	digest: PrepRecapDigest;
+	archives: SessionArchiveSnapshot[];
+	defaultArchiveId: string | null;
+	previewing: boolean;
+	onAuthor: (archiveId: string, markdown: string) => Promise<boolean>;
+}) {
+	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const [draft, setDraft] = useState('');
+	const [busy, setBusy] = useState(false);
+	const target = archives.find((a) => a.id === (selectedId ?? defaultArchiveId)) ?? archives[0] ?? null;
+
+	// Seed the editor from the canonical authored recap whenever the target archive (or its authored
+	// revision) changes — same sync-from-canonical pattern as CampaignDatePanel.
+	const seedKey = target ? `${target.id}:${target.recap?.revision ?? 0}` : 'none';
+	useEffect(() => {
+		setDraft(target?.recap?.markdown ?? '');
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- seed from the canonical recap only
+	}, [seedKey]);
+
+	const prompts = digest.continuityPrompts.slice(0, 6);
+
+	async function save() {
+		if (!target || busy) return;
+		setBusy(true);
+		await onAuthor(target.id, draft);
+		setBusy(false);
+	}
+
+	return (
+		// The whole panel (digest + recap authoring) is DM-only — labeled explicitly in the header.
+		<Panel title="Prep & recap" action={<VisibilityChip level="dm-only" compact />}>
+			<div>
+				<div style={{ ...eb, marginBottom: 5 }}>
+					{digest.mode === 'recap' ? 'What happened' : 'Carry into the session'}
+				</div>
+				{prompts.length === 0 ? (
+					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>Nothing to carry over yet.</div>
+				) : (
+					prompts.map((p) => (
+						<div key={p.id} style={{ display: 'flex', alignItems: 'baseline', gap: 7, font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+							<span aria-hidden style={{ width: 5, height: 5, borderRadius: '50%', background: T.accBd, flexShrink: 0, transform: 'translateY(-2px)' }} />
+							<span style={{ minWidth: 0 }}>{p.text}</span>
+						</div>
+					))
+				)}
+			</div>
+
+			<div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+				<div style={eb}>Session archives</div>
+				{archives.length === 0 ? (
+					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>
+						No archived sessions yet — wrapping a live session into Recap archives it here.
+					</div>
+				) : (
+					<>
+						{archives.length > 1 && (
+							<Select
+								aria-label="Archived session"
+								value={target?.id ?? ''}
+								options={archives.map((a) => ({
+									value: a.id,
+									label: `${formatArchiveStamp(a.archivedAt)}${a.recap ? ' · has recap' : ''}`,
+								}))}
+								onChange={(e: { target: { value: string } }) => setSelectedId(e.target.value)}
+							/>
+						)}
+						{target && (
+							<>
+								<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+									{formatArchiveStamp(target.archivedAt)}
+									{target.recap ? ` · recap v${target.recap.revision}` : ' · no recap yet'}
+								</div>
+								<Textarea
+									value={draft}
+									onChange={(e: { target: { value: string } }) => setDraft(e.target.value)}
+									rows={4}
+									placeholder="What happened this session — markdown prose. Re-saving replaces the recap."
+								/>
+								<Button
+									variant="primary"
+									size="sm"
+									icon="check"
+									disabled={previewing || busy || !draft.trim()}
+									onClick={() => void save()}
+								>
+									{target.recap ? 'Update recap' : 'Save recap'}
+								</Button>
+							</>
+						)}
+					</>
+				)}
+			</div>
+		</Panel>
+	);
+}
+
 // ── Dice ──────────────────────────────────────────────────────────────────────────────────────────
 
 function DicePanel({
@@ -1071,6 +1249,85 @@ function StagePanel({
 						Show players the map
 					</Button>
 				</>
+			)}
+		</Panel>
+	);
+}
+
+// ── Table roster (COLLAB-004 — connected players + live presence) ─────────────────────────────────
+
+/**
+ * RosterPanel — who is at the table right now. Connection + the hand-raised / ready hints come from
+ * the P2P host's peer roster; the online/away status and device come from the CORE presence state via
+ * its projection query (`projectSessionPresence` — the model `session.set-presence` writes when a
+ * player's presence beat arrives). Honest when there is no transport: not hosting ⇒ it says how to
+ * host, hosting with nobody joined ⇒ it says players appear as they connect.
+ */
+function RosterPanel({
+	hosting,
+	peers,
+	presence,
+}: {
+	hosting: boolean;
+	peers: HostPeer[];
+	presence: Map<string, ProjectedPresenceEntry>;
+}) {
+	const connected = peers.filter((p) => p.connected);
+	return (
+		<Panel
+			title="Table roster"
+			action={hosting ? <Badge status={connected.length > 0 ? 'success' : 'neutral'}>{connected.length} connected</Badge> : undefined}
+		>
+			{!hosting ? (
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+					No live table — use <strong style={{ color: T.sub }}>Host</strong> in the top bar to open your table, then connected players and their presence appear here.
+				</div>
+			) : peers.length === 0 ? (
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+					Hosting — no players yet. Invite from the Host panel; players appear here as they connect.
+				</div>
+			) : (
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+					{peers.map((p) => {
+						const entry = presence.get(p.actorId);
+						const status = p.connected ? (entry?.status ?? p.status) : 'offline';
+						return (
+							<div
+								key={p.peerId}
+								style={{
+									display: 'flex',
+									alignItems: 'center',
+									gap: 10,
+									padding: '8px 10px',
+									borderRadius: 9,
+									border: `1px solid ${p.hand ? T.accBd : T.bd}`,
+									background: p.hand ? T.accSub : T.surf,
+								}}
+							>
+								<StatusDot status={status === 'online' ? 'live' : 'idle'} pulse={p.hand} />
+								<Avatar name={p.displayName} size="sm" />
+								<div style={{ flex: 1, minWidth: 0 }}>
+									<div style={{ font: `600 13px ${T.sans}`, color: T.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+										{p.displayName}
+									</div>
+									<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+										{p.role}
+										{p.connected ? ` · ${status}` : ' · invited, not connected'}
+										{entry && entry.device !== 'unknown' ? ` · ${entry.device}` : ''}
+									</div>
+								</div>
+								{p.connected &&
+									(p.hand ? (
+										<Badge status="accent" icon="flag">Hand raised</Badge>
+									) : p.ready ? (
+										<Badge status="success" icon="check">Ready</Badge>
+									) : (
+										<Badge status="neutral">Idle</Badge>
+									))}
+							</div>
+						);
+					})}
+				</div>
 			)}
 		</Panel>
 	);

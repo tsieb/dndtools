@@ -348,6 +348,18 @@ export interface QuickReferencePanel {
 	revision: number;
 }
 
+/**
+ * A DM-AUTHORED RECAP written onto a session archive (SES-009 recap authoring). The markdown is the
+ * DM's prose summary of the archived session; `revision` bumps on each re-authoring so the latest
+ * authored recap is unambiguous. Optional on the snapshot so archives persisted before hydrate safely.
+ */
+export interface SessionArchiveRecap {
+	markdown: string;
+	authoredBy: ActorId;
+	authoredAt: string;
+	revision: number;
+}
+
 export interface SessionArchiveSnapshot {
 	id: string;
 	archivedBy: ActorId;
@@ -364,6 +376,8 @@ export interface SessionArchiveSnapshot {
 	quickReferencePanels: Record<string, QuickReferencePanel>;
 	/** AUDIO-002 / AUDIO-003 — the session-owned currently-playing audio state at archive time (back-compat optional). */
 	audioPlayback?: SessionAudioState;
+	/** SES-009 — the DM-authored recap markdown for this archive (back-compat optional; absent ⇒ none). */
+	recap?: SessionArchiveRecap;
 }
 
 export interface SessionState {

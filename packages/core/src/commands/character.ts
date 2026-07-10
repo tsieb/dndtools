@@ -512,7 +512,22 @@ export function handleFinalizeCharacterDraft(
 	const identity = values['identity'] ?? {};
 	const abilities = values['abilities'] ?? {};
 	const classStep = values['class'] ?? {};
+	// The OPTIONAL `kit` step (AC / hit points / speed / custom attacks). It is not part of the
+	// validated core flow, so every read is tolerant: an absent/partial kit finalizes exactly like
+	// before (fail-safe defaults), while a saved kit carries onto the finalized character — including
+	// the draft's CUSTOM ATTACKS, which previously were silently dropped.
+	const kit = values['kit'] ?? {};
 	const name = typeof identity['name'] === 'string' && identity['name'].trim() ? identity['name'] : existing.name;
+
+	const kitAttacks: Character['attacks'] = Array.isArray(kit['attacks'])
+		? (kit['attacks'] as unknown[])
+				.map((raw) => draftAttackToCharacterAttack(raw, env.ids))
+				.filter((attack): attack is Character['attacks'][number] => attack !== null)
+		: [];
+	const kitMaxHp = numberOrUndefined(kit['maxHp']) ?? numberOrUndefined(kit['hp']);
+	const kitHp = numberOrUndefined(kit['hp']) ?? kitMaxHp;
+	const kitAc = numberOrUndefined(kit['ac']);
+	const kitSpeed = numberOrUndefined(kit['speed']);
 
 	const character: Character = {
 		id: env.ids(),
@@ -531,11 +546,18 @@ export function handleFinalizeCharacterDraft(
 			wis: numberOrUndefined(abilities['wis']),
 			cha: numberOrUndefined(abilities['cha']),
 		},
-		attacks: [],
-		combat: { hp: 0, maxHp: 0, tempHp: 0, ac: 10, conditions: [] },
+		attacks: kitAttacks,
+		combat: {
+			hp: kitHp ?? 0,
+			maxHp: kitMaxHp ?? 0,
+			tempHp: 0,
+			ac: kitAc ?? 10,
+			conditions: [],
+		},
 		data: {
 			background: identity['background'] ?? null,
 			class: classStep['class'] ?? null,
+			...(kitSpeed !== undefined ? { speed: kitSpeed } : {}),
 		},
 		dmOnlyFields: [],
 		createdBy: actor.id,
@@ -854,6 +876,32 @@ export function handleResolveCharacterConflict(
 		nextState: { ...charactersWith(state, nextCharacters), sync: op.log },
 		events,
 		operationIds: [op.op.id],
+	};
+}
+
+/**
+ * Normalize one draft-kit attack entry to a durable {@link Character} attack. Accepts either the
+ * canonical `{name, detail}` shape or the builder's `{name, kind, hit, dmg}` row (folded into the
+ * free-form `detail` text the quick-create attack model uses). A row with no usable name is dropped.
+ */
+function draftAttackToCharacterAttack(
+	raw: unknown,
+	ids: () => string,
+): { id: string; name: string; detail: string } | null {
+	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+	const entry = raw as Record<string, unknown>;
+	const name = typeof entry['name'] === 'string' ? entry['name'].trim() : '';
+	if (name === '') return null;
+	if (typeof entry['detail'] === 'string') {
+		return { id: typeof entry['id'] === 'string' && entry['id'] ? entry['id'] : ids(), name, detail: entry['detail'] };
+	}
+	const parts = [entry['kind'], entry['hit'], entry['dmg'], entry['type']]
+		.filter((part): part is string => typeof part === 'string' && part.trim() !== '')
+		.map((part) => part.trim());
+	return {
+		id: typeof entry['id'] === 'string' && entry['id'] ? entry['id'] : ids(),
+		name,
+		detail: parts.join(' · '),
 	};
 }
 

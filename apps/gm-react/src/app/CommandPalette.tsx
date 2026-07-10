@@ -41,9 +41,14 @@ const HIT_PRESENTATION: Record<SearchHit['type'], { group: string; route: string
 	'session-artifact': { group: 'Session', route: '/session', icon: 'dice', kind: 'Roll' },
 };
 
-/** A note hit deep-links the exact note; everything else lands on its owning section. */
+/** A note hit deep-links the exact note; a POI hit deep-links its map and highlights the marker
+ *  (`/atlas?map=…&poi=…`, the same URL contract as MapBuilder's copy-link); everything else lands
+ *  on its owning section. */
 function routeForHit(hit: SearchHit): string {
 	if (hit.type === 'note') return `/knowledge/${hit.id}`;
+	if (hit.type === 'poi' && hit.mapId) {
+		return `/atlas?map=${encodeURIComponent(hit.mapId)}&poi=${encodeURIComponent(hit.id)}`;
+	}
 	return HIT_PRESENTATION[hit.type].route;
 }
 
@@ -52,7 +57,7 @@ function routeForHit(hit: SearchHit): string {
  * command set composes:
  *  - the static "Go to" / "Create" launchers (section destinations),
  *  - the actor-filtered entity lists the core exposes (`listScenesForActor` → `/scene/:id`,
- *    `listCharactersForActor` → Characters, `listMapsForActor` → Atlas), and
+ *    `listCharactersForActor` → Characters, `listMapsForActor` → `/atlas?map=:id`), and
  *  - once the user types, REAL full-text hits from `searchVaultForActor` (SRCH-001/003/005) — the
  *    same actor-filtered, deterministically ranked read the core quick-switcher composes — over
  *    notes, structured objects, map POIs, handouts, and session artifacts, grouped by kind and
@@ -130,7 +135,8 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 				group: 'Maps',
 				keywords: m.description,
 				description: m.visibility === 'dm-only' ? 'DM-only' : 'Shared',
-				run: goTo('/atlas'),
+				// Deep-link the SPECIFIC map (`?map=…` — the Atlas deep-link contract), not the list.
+				run: goTo(`/atlas?map=${encodeURIComponent(m.id)}`),
 			}));
 		// Each launcher lands with `state.create` so the destination OPENS its create flow (instead of
 		// leaving the user on a list hunting for the button). Keywords cover the words a GM actually

@@ -2,6 +2,7 @@ import type { SceneVisibility } from './scene-state';
 import type { MapAsset } from './map-assets';
 import type { MapEmbed } from './map-nesting';
 import type { MapFogOp, MapPoi, MapRoute, MapToken } from './map-annotations';
+import { cloneFogRegion } from './map-annotations';
 import { type MapOverlaySettings, normalizeOverlaySettings } from './map-overlay-modes';
 
 export const MAP_STATE_SCHEMA_VERSION = 1 as const;
@@ -263,7 +264,7 @@ export function normalizeMapEntity(
 				position: { ...waypoint.position },
 			})),
 		})),
-		fog: (map.fog ?? []).map((op) => ({ ...op, region: { ...op.region } })),
+		fog: (map.fog ?? []).map((op) => ({ ...op, region: cloneFogRegion(op.region) })),
 		tokens: (map.tokens ?? []).map((token) => ({ ...token, position: { ...token.position } })),
 		overlay: normalizeOverlaySettings(map.overlay),
 		defaultRegionId: map.defaultRegionId,

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deploy one dndtools infra stack for one stage.
 # Usage: infra/deploy.sh <stack> [stage]
-#   <stack>  foundation | identity | signaling | turn | sync-api | web-hosting
+#   <stack>  foundation | identity | signaling | turn | sync-api | app-api | web-hosting
 #   [stage]  dev (default) | prod
 #
 # Thin wrapper around `sam build && sam deploy --config-env <stage>` run from the
@@ -19,7 +19,7 @@ STACK_DIR="$HERE/$STACK"
 
 # Stacks whose Lambdas import @dndtools/core need the cloud-fns bundle built first.
 case "$STACK" in
-  signaling|sync-api)
+  signaling|sync-api|app-api)
     echo "==> building @dndtools/cloud-fns (Lambda bundles)"
     ( cd "$HERE/.." && pnpm --filter @dndtools/cloud-fns build )
     ;;

@@ -2,6 +2,11 @@ import { createRoot } from 'react-dom/client';
 import './styles/index.css';
 import { Toaster } from './ds';
 import { App } from './App';
+import { captureGoogleAuthRedirect } from './cloud/googleDocs';
+
+// A popup-blocked Google sign-in returns with the OAuth token in the URL FRAGMENT, which HashRouter
+// would consume as a route — capture it (and restore the real route) before the router mounts.
+captureGoogleAuthRedirect();
 
 // Safety net for a durable-write failure: `SceneRuntime.dispatch` rolls back and RE-THROWS on a persist
 // failure (PLAT-018), so a caller that only inspects `result.status` would let it escape as an unhandled

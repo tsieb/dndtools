@@ -1,115 +1,66 @@
 import { useState, type ReactNode } from 'react';
 import { Button, Dialog, Icon, Switch, Toaster } from '../ds';
 import { BackBar, Page, T, eb } from '../app/screen-kit';
-import { DNDAccount } from '../runtime/mockCampaign';
+import { useAuth } from '../cloud/AuthContext';
+import { isAccountApiConfigured } from '../cloud/config';
+import {
+	OFFLINE_FALLBACK_MATRIX,
+	PLAN_CARDS,
+	useEntitlements,
+	type PlanCard,
+	type PlanId,
+} from '../cloud/entitlements';
 
 /**
- * Upgrade — "Plans & cloud", a faithful React port of the design-package `views/upgrade.jsx`
- * PricingSection: the acquisition surface for a local-first app ("free to play, pay only for the
- * cloud"). The plan cards read the real `DNDAccount.subscription.plans`; the marketing copy (`why`)
- * and the detailed feature matrix are NOT present in the mock, so they fall back to a local
- * design-vocabulary matrix (noted in the report).
+ * Upgrade — "Plans & cloud", the acquisition surface for a local-first app ("free to play, pay
+ * only for the cloud"), a React port of the design-package `views/upgrade.jsx` PricingSection.
  *
- * Plan state: billing has no Core backing BY DESIGN (local-first app, no account/transport,
- * ADR-014), so the active plan is device-local app state persisted to localStorage — the same
- * Contract-1 pattern Settings uses for theme/tier. The Upgrade/Switch CTAs open the design
- * package's changePlan confirm modal (settings.jsx `A.MODALS.changePlan`, ported below as a local
- * DS Dialog); Confirm really changes the plan on this device and survives reload, but takes NO
- * payment — and says so in the dialog instead of pretending to charge. The full-screen Signup flow
- * + CloudChip/CloudOverlay nudges (which depend on a global app dispatch the React port lacks)
- * remain intentionally out of scope for this single route.
+ * Plan state comes from `useEntitlements()` — REAL server entitlements when the account backend
+ * is configured and the user is signed in (the feature matrix below is then the server's copy,
+ * the single source of truth; `OFFLINE_FALLBACK_MATRIX` renders only offline/unconfigured).
+ * Checkout is SIMULATED end to end: the backend stores the plan with `simulated: true` and no
+ * payment processor exists anywhere — the confirm dialog says so plainly instead of pretending
+ * to charge. Signed-out/unconfigured keeps the honest device-local plan choice (localStorage,
+ * the same key Settings' Subscription pane reads) with a nudge to sign in when signing in would
+ * make the choice durable.
  */
 
-const sub = ((DNDAccount as any).subscription ?? {}) as any;
-const PLANS: any[] = sub.plans ?? [];
+const PLANS: PlanCard[] = PLAN_CARDS;
 const planById = (id: string) => PLANS.find((p) => p.id === id) || PLANS[0];
 
-// A plan chosen through the confirm dialog is device-local app state (no Core/billing backing by
-// design), persisted to localStorage so it survives reload. Until the user picks one, the active
-// plan is the mock account's `subscription.current` — the SAME representation Settings'
-// Subscription pane reads — so the two screens never disagree about which plan you're on.
-const LOCAL_PLAN = PLANS.find((p) => !p.cloud) ?? PLANS[0];
-const PLAN_KEY = 'dndtools:react:plan';
-
-function readPlanId(): string {
-	try {
-		const v = window.localStorage.getItem(PLAN_KEY);
-		if (v && PLANS.some((p) => p.id === v)) return v;
-	} catch {
-		/* ignore */
-	}
-	if (PLANS.some((p) => p.id === sub.current)) return sub.current;
-	return LOCAL_PLAN?.id;
-}
-
-function writePlanId(id: string) {
-	try {
-		window.localStorage.setItem(PLAN_KEY, id);
-	} catch {
-		/* ignore */
-	}
-}
-
-const FALLBACK_WHY =
+const WHY =
 	'DND Tools runs entirely on your device, free, forever. The paid plans exist only to cover the cost of the cloud services some tables want — sync, off-device backup, audio projection and AI — which run on servers we rent by the gigabyte and the minute.';
 
-// `sub.matrix` is absent from the mock, so this is the design-vocabulary fallback comparison built from
-// the same three plan tiers (hearth / lantern / beacon). Cells: true → check, false → dash, string → value.
-const FALLBACK_MATRIX: { group: string; rows: { label: string; cloud?: boolean; hearth: any; lantern: any; beacon: any }[] }[] = [
-	{
-		group: 'At the table',
-		rows: [
-			{ label: 'On-device vault', hearth: true, lantern: true, beacon: true },
-			{ label: 'Core widgets, maps & fog', hearth: true, lantern: true, beacon: true },
-			{ label: 'Players at the table', hearth: '4', lantern: '6', beacon: '12' },
-			{ label: 'Co-DM seats', hearth: false, lantern: '1', beacon: '3' },
-			{ label: 'Community modules (read-only)', hearth: true, lantern: true, beacon: true },
-		],
-	},
-	{
-		group: 'Cloud',
-		rows: [
-			{ label: 'Sync across devices', cloud: true, hearth: false, lantern: true, beacon: true },
-			{ label: 'Off-device backup', cloud: true, hearth: false, lantern: true, beacon: true },
-			{ label: 'Vault storage', cloud: true, hearth: '—', lantern: '20 GB', beacon: '200 GB' },
-			{ label: 'Live audio projection', cloud: true, hearth: false, lantern: true, beacon: true },
-		],
-	},
-	{
-		group: 'Assist & publish',
-		rows: [
-			{ label: 'AI assist credits', cloud: true, hearth: false, lantern: '500 / mo', beacon: 'Unlimited' },
-			{ label: 'Public campaign wikis', cloud: true, hearth: false, lantern: false, beacon: true },
-			{ label: 'Priority sync & support', cloud: true, hearth: false, lantern: false, beacon: true },
-		],
-	},
-];
-
-function MatrixCell({ v, accent }: { v: any; accent?: boolean }) {
+function MatrixCell({ v, accent }: { v: unknown; accent?: boolean }) {
 	if (v === true) return <Icon name="check" size={16} color={accent ? T.acc : T.ok} />;
 	if (v === false) return <span style={{ font: `13px ${T.sans}`, color: T.ter }}>—</span>;
 	return <span style={{ font: `12.5px ${T.sans}`, color: T.ink }}>{v as ReactNode}</span>;
 }
 
 /**
- * ChangePlanDialog — port of the design package's changePlan confirm modal (settings.jsx
- * `A.MODALS.changePlan`) onto the DS Dialog. Confirm performs a REAL device-local plan change
- * (persisted via `writePlanId` by the caller) — but billing has no Core/transport backing, so no
- * payment happens and the dialog says so plainly. The cloud→local downgrade warning is per the
- * design source. Price reflects the billing-cycle toggle honestly (annual = 10× monthly).
+ * ChangePlanDialog — the design package's changePlan confirm modal (settings.jsx
+ * `A.MODALS.changePlan`) on the DS Dialog. Confirm performs a REAL plan change — saved to the
+ * account when the backend is reachable, to this device otherwise — but checkout is SIMULATED
+ * either way (no payment processor exists) and the dialog says so explicitly. The cloud→local
+ * downgrade warning is per the design source. Price reflects the billing-cycle toggle honestly
+ * (annual = 10× monthly).
  */
 function ChangePlanDialog({
 	toId,
 	currentId,
 	annual,
+	serverBacked,
+	busy,
 	onClose,
 	onConfirm,
 }: {
-	toId: string | null;
-	currentId: string;
+	toId: PlanId | null;
+	currentId: PlanId;
 	annual: boolean;
+	serverBacked: boolean;
+	busy: boolean;
 	onClose: () => void;
-	onConfirm: (id: string) => void;
+	onConfirm: (id: PlanId) => void;
 }) {
 	const target = toId ? planById(toId) : null;
 	if (!target) return null;
@@ -128,9 +79,9 @@ function ChangePlanDialog({
 			size="md"
 			footer={
 				<>
-					<Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
-					<Button variant="primary" size="sm" icon={up ? 'ArrowUp' : 'check'} onClick={() => onConfirm(target.id)}>
-						{target.price ? `Confirm — ${price}${per}` : 'Confirm'}
+					<Button variant="secondary" size="sm" onClick={onClose} disabled={busy}>Cancel</Button>
+					<Button variant="primary" size="sm" icon={up ? 'ArrowUp' : 'check'} disabled={busy} onClick={() => onConfirm(target.id)}>
+						{busy ? 'Saving…' : target.price ? `Confirm — ${price}${per}` : 'Confirm'}
 					</Button>
 				</>
 			}
@@ -141,7 +92,7 @@ function ChangePlanDialog({
 				<span style={{ marginLeft: 'auto', font: `12px ${T.sans}`, color: T.sub }}>{target.tagline}</span>
 			</div>
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-				{(target.features ?? []).map((f: string) => (
+				{target.features.map((f: string) => (
 					<span key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, font: `12.5px ${T.sans}`, color: T.sub }}>
 						<Icon name="check" size={13} color={T.acc} />{f}
 					</span>
@@ -153,41 +104,57 @@ function ChangePlanDialog({
 					<span>Your vaults stay on this device, but cloud sync, AI credits, and extra player seats will stop at the end of the cycle.</span>
 				</div>
 			)}
-			{/* Honest-local: billing has no Core/transport backing — the plan choice is real, the charge is not. */}
-			<div style={{ marginTop: 14, font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
-				No payment is taken and no account is created. Your plan choice is saved on this device only.
+			{/* Honest checkout: there is NO payment processor — the plan choice is real, the charge is not. */}
+			<div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 14, padding: '10px 12px', borderRadius: 9, background: T.accSub, border: `1px solid ${T.accBd}`, font: `11.5px/1.5 ${T.sans}`, color: T.sub }}>
+				<span style={{ marginTop: 1 }}><Icon name="info" size={13} color={T.acc} /></span>
+				<span>
+					<strong style={{ color: T.ink }}>Simulated checkout — no payment is processed.</strong>{' '}
+					{serverBacked
+						? 'Your plan choice is saved to your account (marked simulated); no card is asked for and nothing is charged.'
+						: 'No account is connected, so your plan choice is saved on this device only.'}
+				</span>
 			</div>
 		</Dialog>
 	);
 }
 
 export function Upgrade() {
+	const auth = useAuth();
+	const ent = useEntitlements();
 	const [annual, setAnnual] = useState(false);
-	const [planId, setPlanId] = useState<string>(() => readPlanId());
-	const [confirmTo, setConfirmTo] = useState<string | null>(null);
-	const why: string = sub.why ?? FALLBACK_WHY;
-	const matrix = (sub.matrix as typeof FALLBACK_MATRIX | undefined) ?? FALLBACK_MATRIX;
+	const [confirmTo, setConfirmTo] = useState<PlanId | null>(null);
+	const [busy, setBusy] = useState(false);
+	const planId = ent.plan;
+	// The feature matrix: the server's copy when reachable (live or last-known cache); the
+	// annotated offline fallback otherwise. Both share the same shape.
+	const matrix = ent.features ?? OFFLINE_FALLBACK_MATRIX;
 	const cycleLabel = annual ? 'annually' : 'monthly';
 
-	const priceStr = (p: any) => (p?.price ? (annual ? `$${p.price * 10}` : `$${p.price}`) : 'Free');
-	const perStr = (p: any) => (p?.price ? (annual ? '/yr' : '/mo') : '');
+	const priceStr = (p: PlanCard) => (p.price ? (annual ? `$${p.price * 10}` : `$${p.price}`) : 'Free');
+	const perStr = (p: PlanCard) => (p.price ? (annual ? '/yr' : '/mo') : '');
 	const currentPrice = planById(planId)?.price || 0;
 
-	const confirmChange = (id: string) => {
-		setPlanId(id);
-		writePlanId(id);
-		setConfirmTo(null);
-		Toaster.success(`Now on ${planById(id)?.name}`);
+	const confirmChange = (id: PlanId) => {
+		setBusy(true);
+		void ent
+			.setPlan(id)
+			.then(() => {
+				setConfirmTo(null);
+				Toaster.success(
+					ent.serverBacked
+						? `Now on ${planById(id)?.name} (simulated — no payment taken).`
+						: `Now on ${planById(id)?.name} on this device.`,
+				);
+			})
+			.catch((e: unknown) => {
+				Toaster.error(e instanceof Error ? e.message : 'Could not change the plan.');
+			})
+			.finally(() => setBusy(false));
 	};
 
-	if (PLANS.length === 0) {
-		return (
-			<Page max={1080}>
-				<BackBar to="/settings" label="Settings" />
-				<div style={{ textAlign: 'center', color: T.ter, font: `14px ${T.sans}` }}>No plans to compare.</div>
-			</Page>
-		);
-	}
+	// Nudge, not a wall: the pricing page stays fully usable signed out (device-local choice),
+	// but signing in makes the simulated plan follow the account.
+	const showSignInNudge = isAccountApiConfigured && auth.status === 'signed-out';
 
 	return (
 		<Page max={1080}>
@@ -199,8 +166,16 @@ export function Upgrade() {
 					<Icon name="Sprout" size={13} />Local-first · your table runs offline
 				</span>
 				<h2 style={{ margin: 0, font: `800 34px ${T.disp}`, letterSpacing: '-.02em', color: T.ink }}>Free to play. Pay only for the cloud.</h2>
-				<p style={{ font: `14px/1.7 ${T.sans}`, color: T.sub, marginTop: 12 }}>{why}</p>
+				<p style={{ font: `14px/1.7 ${T.sans}`, color: T.sub, marginTop: 12 }}>{WHY}</p>
 			</div>
+
+			{showSignInNudge && (
+				<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, margin: '4px auto 0', maxWidth: 560, padding: '10px 14px', borderRadius: 10, background: T.surf, border: `1px solid ${T.bd}` }}>
+					<Icon name="UserCircle" size={16} color={T.acc} />
+					<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>Your plan choice is saved on this device. Sign in to keep it with your account.</span>
+					<Button variant="secondary" size="sm" onClick={() => auth.openAuthModal()}>Sign in</Button>
+				</div>
+			)}
 
 			{/* billing cycle toggle */}
 			<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, margin: '22px 0 20px' }}>
@@ -235,20 +210,20 @@ export function Upgrade() {
 							</div>
 							<div style={{ height: 1, background: T.bd }} />
 							<div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-								{(pl.features ?? []).map((f: string) => (
+								{pl.features.map((f: string) => (
 									<span key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, font: `12.5px/1.45 ${T.sans}`, color: T.sub }}>
 										<span style={{ marginTop: 1 }}><Icon name="check" size={13} color={pl.cloud ? T.acc : T.ter} /></span>{f}
 									</span>
 								))}
 							</div>
-							{/* Opens the changePlan confirm dialog — a real device-local plan change, no payment (no core command; billing is out of core scope by design). */}
+							{/* Opens the changePlan confirm dialog — a real (simulated-checkout) plan change; server-backed when signed in. */}
 							{on ? (
 								<Button variant="secondary" size="md" disabled icon="check">Your current plan</Button>
 							) : isUpgrade ? (
 								/* icon="ArrowUp" is the direct Lucide name (like "Sprout" above): it renders correctly whether or not the registry carries an 'arrow-up' alias, unlike unknown kebab names which fall back to a Square glyph. */
-								<Button variant="primary" size="md" icon="ArrowUp" onClick={() => setConfirmTo(pl.id)}>Upgrade to {pl.name}</Button>
+								<Button variant="primary" size="md" icon="ArrowUp" disabled={ent.loading} onClick={() => setConfirmTo(pl.id)}>Upgrade to {pl.name}</Button>
 							) : (
-								<Button variant="secondary" size="md" onClick={() => setConfirmTo(pl.id)}>Switch to {pl.name}</Button>
+								<Button variant="secondary" size="md" disabled={ent.loading} onClick={() => setConfirmTo(pl.id)}>Switch to {pl.name}</Button>
 							)}
 						</div>
 					);
@@ -263,10 +238,17 @@ export function Upgrade() {
 				</div>
 			</div>
 
-			{/* detailed matrix */}
+			{/* detailed matrix — served by the account backend when reachable (single source of truth) */}
 			<div style={{ borderRadius: 16, border: `1px solid ${T.bd}`, background: T.raised, overflow: 'hidden', marginTop: 8 }}>
 				<div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr 1fr 1fr', alignItems: 'end', gap: 0, padding: '16px 20px', borderBottom: `1px solid ${T.bdS}`, background: T.surf }}>
-					<div style={{ font: `700 14px ${T.disp}`, color: T.ink }}>Compare every feature</div>
+					<div style={{ font: `700 14px ${T.disp}`, color: T.ink }}>
+						Compare every feature
+						{ent.source !== 'server' && (
+							<span style={{ display: 'block', font: `400 10.5px ${T.sans}`, color: T.ter, marginTop: 2 }}>
+								{ent.source === 'cache' ? 'Showing your last-synced plan details (offline).' : 'Offline comparison — connect an account to load live plan details.'}
+							</span>
+						)}
+					</div>
 					{PLANS.map((pl) => (
 						<div key={pl.id} style={{ textAlign: 'center' }}>
 							<div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, font: `700 13px ${T.sans}`, color: pl.id === planId ? T.acc : T.ink }}>
@@ -295,10 +277,10 @@ export function Upgrade() {
 			</div>
 
 			<div style={{ textAlign: 'center', font: `12px ${T.sans}`, color: T.ter, marginTop: 18 }}>
-				Prices in USD. Cloud plans bill {cycleLabel} and cancel any time. No account needed to keep playing locally.
+				Prices in USD. Cloud plans bill {cycleLabel} and cancel any time. No account needed to keep playing locally. Checkout is simulated — no payment is ever processed.
 			</div>
 
-			<ChangePlanDialog toId={confirmTo} currentId={planId} annual={annual} onClose={() => setConfirmTo(null)} onConfirm={confirmChange} />
+			<ChangePlanDialog toId={confirmTo} currentId={planId} annual={annual} serverBacked={ent.serverBacked} busy={busy} onClose={() => setConfirmTo(null)} onConfirm={confirmChange} />
 		</Page>
 	);
 }

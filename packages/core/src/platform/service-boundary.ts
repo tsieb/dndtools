@@ -24,6 +24,12 @@ export const PLATFORM_SERVICE_METHODS = [
 	'storage.persistFullState',
 	'storage.recoverPendingMigration',
 	'storage.resetCoreStorage',
+	// Asset-byte store (ADR-014 amendment): raw bytes never cross the JSON boundary — these
+	// methods validate a small {id, mime, byteLength} DESCRIPTOR here, and the adapter enforces
+	// the byte-length limit against the actual buffer before touching storage.
+	'storage.putAssetBytes',
+	'storage.getAssetBytes',
+	'storage.deleteAssetBytes',
 ] as const;
 
 export type PlatformServiceMethod = (typeof PLATFORM_SERVICE_METHODS)[number];

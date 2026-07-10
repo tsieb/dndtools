@@ -416,6 +416,7 @@ export function handleAppendMapFog(
 			layerId: parsed.data.layerId,
 			kind: parsed.data.kind,
 			region: parsed.data.region,
+			...(parsed.data.feather !== undefined ? { feather: parsed.data.feather } : {}),
 			visibility: parsed.data.visibility,
 		},
 		stampFor(env, pre.actorId),

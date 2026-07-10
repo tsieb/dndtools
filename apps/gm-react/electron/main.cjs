@@ -56,7 +56,10 @@ const DEV_SERVER_URL = !app.isPackaged ? process.env.VITE_DEV_SERVER_URL : undef
  * (`wss://*.execute-api.<region>`) for internet remote play, and the sync-api HTTP endpoint
  * (`https://*.execute-api.<region>`) for E2EE cloud sync/backup. STUN/TURN media is governed by `webrtc`,
  * not `connect-src`, so no relay origin is listed here. Region is ca-central-1 (see infra/); nothing is
- * contacted until the user opts into a cloud feature.
+ * contacted until the user opts into a cloud feature. Content integrations add `api.open5e.com`
+ * (compendium browse) and `docs.googleapis.com` (Google Docs vault source) — the Google OAuth popup is
+ * a navigation, not a fetch, so accounts.google.com is deliberately absent. Mirror any change here into
+ * infra/web-hosting/template.yaml (the CloudFront CSP).
  */
 const CSP = [
 	"default-src 'self'",
@@ -65,7 +68,7 @@ const CSP = [
 	"font-src 'self' data:",
 	"img-src 'self' data: blob:",
 	"media-src 'self' data: blob:",
-	"connect-src 'self' https://cognito-idp.ca-central-1.amazonaws.com https://*.execute-api.ca-central-1.amazonaws.com wss://*.execute-api.ca-central-1.amazonaws.com",
+	"connect-src 'self' https://cognito-idp.ca-central-1.amazonaws.com https://*.execute-api.ca-central-1.amazonaws.com wss://*.execute-api.ca-central-1.amazonaws.com https://api.open5e.com https://docs.googleapis.com",
 	"webrtc 'allow'",
 	"object-src 'none'",
 	"base-uri 'self'",

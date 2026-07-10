@@ -93,7 +93,19 @@ export interface Scene {
 	templateMeta: SceneTemplateMeta;
 	sections: SectionLayoutRegion[];
 	widgets: WidgetInstance[];
+	/**
+	 * SOFT-DELETE tombstone (mirrors `ContentItem.deletedAt`). Absent/`null` for a live scene; an ISO
+	 * timestamp once the scene is soft-deleted. A tombstoned scene is RECOVERABLE (`scene.restore`
+	 * clears it), is OMITTED from every actor-filtered read, and cannot be targeted by scene commands.
+	 * Optional so a scene persisted before this field existed hydrates as live.
+	 */
+	deletedAt?: string | null;
 	schemaVersion: typeof SCENE_SCHEMA_VERSION;
+}
+
+/** Whether a scene is live (not soft-deleted). The single tombstone predicate the reads share. */
+export function isLiveScene(scene: Scene): boolean {
+	return scene.deletedAt === undefined || scene.deletedAt === null;
 }
 
 export interface SceneState {

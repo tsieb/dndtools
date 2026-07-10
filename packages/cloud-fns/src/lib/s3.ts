@@ -5,6 +5,7 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  DeleteObjectCommand,
   NoSuchKey,
 } from '@aws-sdk/client-s3';
 
@@ -21,6 +22,11 @@ export async function putJson(bucket: string, key: string, value: unknown): Prom
       ContentType: 'application/json',
     }),
   );
+}
+
+/** Delete an object. Deleting a nonexistent key is a no-op (S3 returns success). */
+export async function deleteObject(bucket: string, key: string): Promise<void> {
+  await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
 
 /** Read and parse a JSON object, or null when the key does not exist. */

@@ -11,6 +11,8 @@ import {
 	checkAdvancementEligibility,
 	validateAdvancement,
 	xpForLevel,
+	passivePerception,
+	effectiveProficiencyBonus,
 	type CharacterView,
 	type PreparedSpell,
 } from '@dndtools/core';
@@ -37,12 +39,13 @@ import {
 	Tabs,
 	VisibilityChip,
 } from '../ds';
-import { CharBuilder } from '../app/CharBuilder';
+import { CharBuilder, portraitGradient } from '../app/CharBuilder';
+import { ABILITY_IDS, SKILLS } from '../app/charImport/skills';
 import { Page, Panel, T, eb, mono } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 
 /**
- * Characters — the roster library, now wired to the live Processing Core (was static `mockCampaign`).
+ * Characters — the roster library, wired to the live Processing Core.
  * The roster is the actor-filtered `listCharactersForActor` read model (a player/observer sees only
  * what the core permits — a dm-only NPC is omitted, never redacted-but-listed); opening a character
  * loads the redacted `getCharacterForActor` view bound to a real sheet (ability scores, combat vitals,
@@ -57,14 +60,21 @@ import { useRuntime } from '../runtime/RuntimeContext';
  * flows through the single `runtime.dispatch` write choke point — the GUI never writes core state
  * directly (Architecture Contract 1).
  *
+ * Sheet extension slices (WS-4, all core-backed — formerly listed here as honest gaps):
+ *   - Skills & saves / hit dice / passive perception render from the structured
+ *     `Character.proficiencies` block on the redacted view; the bonuses derive from the PURE core
+ *     queries `effectiveProficiencyBonus` / `passivePerception` (computed on read, never stored).
+ *     A character with no proficiency data gets an honest empty state, not a fabricated sheet.
+ *   - Spell rows show the extended `PreparedSpell` detail fields (school / casting time / range /
+ *     components / duration) when present; older `{id,name,level,prepared}` records render as before.
+ *   - Attacks are DM/owner-editable post-create through `character.update-attacks` (full-replacement
+ *     semantics: the saved rows ARE the new list).
+ *   - The Sharing panel widens visibility through the DM-only `character.set-sharing`
+ *     (entity level + explicit `sharedWith` delivery list — fail-closed, never widened by default).
+ *   - "Import character (JSON)" is REAL (WS-4): the toolbar button opens the CharBuilder's import
+ *     path (D&D Beyond export / native JSON with a fail-closed field-mapping preview).
+ *
  * Honest gaps (no backing command after checking commands/ + the Svelte route):
- *   - "Import from D&D Beyond" — no content/character import command exists in core. Honest stub
- *     (both the toolbar button and the builder's entry card say so).
- *   - Skills & saves, hit dice, passive perception, proficiency — the simplified core character has
- *     no such fields. Those mock-only panels are dropped, not faked. (Race/alignment/speed/bio ARE
- *     rendered when present — the builder writes them into validated `data.*` fields.)
- *   - The DS SpellCard's casting-time/range/components/duration need core fields `PreparedSpell`
- *     doesn't carry ({id,name,level,prepared} only) — spells render as an honest list instead.
  *   - "Start combat" — `combat.start` is DM + active-session gated and is authoritatively driven from
  *     the Session / Combat Tracker surfaces; it is dispatched here as a convenience and surfaces the
  *     core rejection (e.g. "start a session first") rather than silently no-op-ing.
@@ -79,6 +89,7 @@ const STANDARD_CONDITIONS = [
 ];
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+const sgn = (n: number) => (n >= 0 ? `+${n}` : String(n));
 
 const COND_ALIAS: Record<string, string> = {
 	concentrating: 'concentration', blessed: 'blessed', prone: 'prone', poisoned: 'poisoned', stunned: 'stunned',
@@ -126,7 +137,7 @@ function CharCard({ view, onOpen }: { view: CharacterView; onOpen: () => void })
 	const conditions = view.combat.conditions;
 	return (
 		<Card elevation="flat" interactive padding="none" onClick={onOpen} style={{ overflow: 'hidden' }}>
-			<div style={{ height: 84, background: `linear-gradient(${grad}deg,#2a2117,#14100b)`, position: 'relative' }}>
+			<div style={{ height: 84, background: portraitGradient(grad), position: 'relative' }}>
 				<div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(var(--map-grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--map-grid-line) 1px,transparent 1px)', backgroundSize: '20px 20px' }} />
 				<div style={{ position: 'absolute', left: 14, bottom: -18 }}>
 					<Avatar name={view.name} ring="turn" />
@@ -198,6 +209,12 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	const [slotLevel, setSlotLevel] = useState('1');
 	const [slotMax, setSlotMax] = useState('');
 
+	// Attack-list editor rows (null ⇒ not editing). Saved through `character.update-attacks`
+	// (full-replacement: the submitted rows ARE the new list; a row without an id is a new attack).
+	const [attackRows, setAttackRows] = useState<{ id?: string; name: string; detail: string }[] | null>(null);
+	// Sharing editor draft (null ⇒ read-only). Applied through the DM-only `character.set-sharing`.
+	const [shareDraft, setShareDraft] = useState<{ visibility: string; sharedWith: string[] } | null>(null);
+
 	// The redacted view gates visibility (null when this actor may not see the character); the raw
 	// record is read ONLY after that gate passes, so its resources/advancement never leak (the same
 	// pattern as party-overview + the Svelte combat/advancement surfaces).
@@ -207,6 +224,19 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 	const record = view ? runtime.state.characters.characters[id] ?? null : null;
 	const resources = record ? resourcesOf(record) : null;
 	const advancement = record ? advancementStateOf(record) : null;
+	const players = runtime.actors.filter((a) => a.role === 'player');
+
+	// Structured proficiency slice (hydrated with safe defaults on the view) + the PURE derived
+	// queries: the effective proficiency bonus (explicit override, else derived from `data.level` by
+	// the standard 5e progression) and passive perception (10 + WIS mod + perception proficiency).
+	// Both derive on read — they can never drift from the stored scores/proficiencies.
+	const prof = view?.proficiencies ?? null;
+	const profBonus = record ? effectiveProficiencyBonus(record) : null;
+	const passivePer = record ? passivePerception(record) : null;
+	const hasProficiencyData = !!prof && (
+		Object.keys(prof.skills).length > 0 || prof.saves.length > 0 ||
+		prof.proficiencyBonus !== null || prof.hitDice.total > 0
+	);
 
 	// Cross-links: notes that mention this character by name (the same actor-filtered full-text
 	// read the ⌘K palette uses), so the sheet connects to the lore written about it.
@@ -294,6 +324,32 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 		if (!Number.isFinite(Number(slotMax)) || slotMax.trim() === '') return;
 		if (await dispatch({ type: 'character.set-spell-slots', actorId, payload: { characterId: id, level, max } })) {
 			setSlotMax('');
+		}
+	}
+
+	// Post-create attack editing (owner-or-DM, `character.update-attacks`): the saved rows replace the
+	// whole list in one validated step, so add/edit/remove all flow through the same command.
+	async function saveAttacks() {
+		if (!attackRows) return;
+		const attacks = attackRows
+			.filter((a) => a.name.trim())
+			.map((a) => ({ ...(a.id ? { id: a.id } : {}), name: a.name.trim(), detail: a.detail.trim() }));
+		if (await dispatch({ type: 'character.update-attacks', actorId, payload: { characterId: id, attacks } })) {
+			setAttackRows(null);
+		}
+	}
+
+	// Sharing (DM-only `character.set-sharing`): entity visibility + the explicit `sharedWith`
+	// delivery list. `sharedWith` is always sent as-is so flipping the level never silently drops a
+	// PC's owner from the delivery list (visibility never narrows/widens as a side effect).
+	async function applySharing() {
+		if (!shareDraft) return;
+		if (await dispatch({
+			type: 'character.set-sharing',
+			actorId,
+			payload: { characterId: id, visibility: shareDraft.visibility, sharedWith: shareDraft.sharedWith },
+		})) {
+			setShareDraft(null);
 		}
 	}
 
@@ -385,7 +441,7 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 					<Stat label="AC" value={String(view.combat.ac)} icon="shield" />
 					{advancement && <Stat label="Level" value={String(advancement.level)} />}
 					{isDm && (
-						<Button variant={editMode ? 'primary' : 'secondary'} size="sm" icon="note-edit" onClick={() => setEditMode((v) => !v)}>
+						<Button variant={editMode ? 'primary' : 'secondary'} size="sm" icon="note-edit" onClick={() => { setEditMode((v) => !v); setAttackRows(null); setShareDraft(null); }}>
 							{editMode ? 'Done' : 'Edit'}
 						</Button>
 					)}
@@ -402,8 +458,85 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 						</Panel>
 					) : null}
 
-					<Panel title="Attacks">
-						{view.attacks.length > 0 ? (
+					{/* Skills / saves / hit dice / passive perception — the structured `proficiencies` slice.
+					    Bonuses derive from the pure core queries (effectiveProficiencyBonus / passivePerception)
+					    plus the shared skill registry; nothing here is stored, so it can never drift. */}
+					<Panel title="Skills & saves">
+						{hasProficiencyData && prof && profBonus !== null ? (
+							<>
+								<div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 14 }}>
+									<Stat label="Proficiency" value={sgn(profBonus)} />
+									{passivePer !== null && <Stat label="Passive Perception" value={String(passivePer)} icon="visibility-players" />}
+									{prof.hitDice.total > 0 && (
+										<Stat label="Hit dice" value={`${prof.hitDice.total - prof.hitDice.spent}/${prof.hitDice.total} ${prof.hitDice.die}`} />
+									)}
+								</div>
+								<div style={{ ...eb, marginBottom: 6 }}>Saving throws</div>
+								<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+									{ABILITY_IDS.map((a) => {
+										const proficient = prof.saves.includes(a);
+										const bonus = abilityModifier(view.abilityScores[a] ?? 10) + (proficient ? profBonus : 0);
+										return (
+											<span key={a} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 16, font: `12px ${T.sans}`, border: `1px solid ${proficient ? T.accBd : T.bd}`, background: proficient ? T.accSub : T.surf, color: proficient ? T.acc : T.ter }}>
+												{a.toUpperCase()}<span style={mono}>{sgn(bonus)}</span>
+											</span>
+										);
+									})}
+								</div>
+								<div style={{ ...eb, marginBottom: 6 }}>Skills</div>
+								<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 18px' }}>
+									{SKILLS.map((s) => {
+										const level = prof.skills[s.id] ?? 'none';
+										const bonus = abilityModifier(view.abilityScores[s.ability] ?? 10)
+											+ (level === 'expertise' ? profBonus * 2 : level === 'proficient' ? profBonus : 0);
+										return (
+											<div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, font: `12.5px ${T.sans}`, color: level === 'none' ? T.ter : T.ink }}>
+												<span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', flex: '0 0 auto', background: level === 'none' ? 'transparent' : T.acc, border: `1.5px solid ${level === 'none' ? T.bdS : T.acc}` }} />
+												<span style={{ flex: 1, minWidth: 0 }}>{s.label}{level === 'expertise' ? ' ★' : ''}</span>
+												<span style={mono}>{sgn(bonus)}</span>
+											</div>
+										);
+									})}
+								</div>
+								<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 8 }}>● proficient · ★ expertise (double proficiency)</div>
+							</>
+						) : (
+							// Honest empty state — no fabricated skill sheet when the character carries no
+							// proficiency data (older records, bare quick-creates).
+							<div style={{ font: `13px ${T.sans}`, color: T.ter }}>
+								No skills, saves, or hit dice recorded for this character. Import a character file
+								(JSON) or set proficiencies to see save/skill bonuses and passive perception here.
+							</div>
+						)}
+					</Panel>
+
+					<Panel title="Attacks" action={editMode && isDm && attackRows === null ? (
+						<Button variant="secondary" size="sm" icon="note-edit" onClick={() => setAttackRows(view.attacks.map((a: any) => ({ id: a.id, name: a.name, detail: a.detail ?? '' })))}>
+							Edit attacks
+						</Button>
+					) : undefined}>
+						{attackRows !== null ? (
+							// Full-replacement editor: the saved rows become the attack list via
+							// `character.update-attacks` (rows without an id are new attacks).
+							<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+								{attackRows.map((a, idx) => (
+									<div key={a.id ?? `new-${idx}`} style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 28px', gap: 8, alignItems: 'center' }}>
+										<Input value={a.name} aria-label="Attack name" placeholder="Name" onChange={(e: any) => setAttackRows((rows) => rows!.map((x, j) => (j === idx ? { ...x, name: e.target.value } : x)))} />
+										<Input value={a.detail} aria-label="Attack detail" placeholder="e.g. Melee · +4 to hit · 1d8+2 slashing" onChange={(e: any) => setAttackRows((rows) => rows!.map((x, j) => (j === idx ? { ...x, detail: e.target.value } : x)))} />
+										<IconButton icon="close" label="Remove attack" variant="ghost" size="sm" onClick={() => setAttackRows((rows) => rows!.filter((_, j) => j !== idx))} />
+									</div>
+								))}
+								{attackRows.length === 0 && (
+									<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Saving with no rows clears the attack list.</div>
+								)}
+								<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+									<Button variant="secondary" size="sm" icon="add" onClick={() => setAttackRows((rows) => [...(rows ?? []), { name: '', detail: '' }])}>Add attack</Button>
+									<div style={{ flex: 1 }} />
+									<Button variant="ghost" size="sm" onClick={() => setAttackRows(null)}>Cancel</Button>
+									<Button variant="primary" size="sm" onClick={saveAttacks}>Save attacks</Button>
+								</div>
+							</div>
+						) : view.attacks.length > 0 ? (
 							<DataTable
 								columns={[
 									{ key: 'name', header: 'Name', strong: true },
@@ -413,7 +546,9 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 								rowKey={(r: any) => r.id}
 							/>
 						) : (
-							<div style={{ font: `13px ${T.sans}`, color: T.ter }}>No attacks recorded.</div>
+							<div style={{ font: `13px ${T.sans}`, color: T.ter }}>
+								No attacks recorded.{isDm ? ' Use Edit to add them.' : ''}
+							</div>
 						)}
 					</Panel>
 
@@ -539,9 +674,10 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 							{spells.length > 0 && (
 								<div style={{ marginTop: slots.length || classResources.length ? 12 : 0 }}>
 									{/* WHAT the character can cast — resources.spells (CHAR-008 PreparedSpell).
-									    The core model carries {name, level, prepared} only; the DS SpellCard's
-									    casting-time/range/components meta would need core fields it doesn't have,
-									    so spells render as an honest list. Prepared toggles via character.set-spell. */}
+									    The extended detail fields (school / casting time / range / components /
+									    duration, set via character.set-spell) render as a meta line when present;
+									    older {id,name,level,prepared} records show the name alone — no field is
+									    ever fabricated. Prepared toggles via character.set-spell. */}
 									<div style={{ ...eb, marginBottom: 6 }}>Spells ({spells.filter((s) => s.prepared).length} prepared)</div>
 									<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
 										{spells.map((s) => (
@@ -549,7 +685,14 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 												<span style={{ width: 24, height: 24, borderRadius: 6, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', font: `700 12px ${T.mono}`, background: T.alt, color: T.acc }} title={s.level === 0 ? 'Cantrip' : `Level ${s.level}`}>
 													{s.level}
 												</span>
-												<span style={{ flex: 1, minWidth: 0, font: `600 12.5px ${T.sans}` }}>{s.name}</span>
+												<span style={{ flex: 1, minWidth: 0 }}>
+													<span style={{ display: 'block', font: `600 12.5px ${T.sans}` }}>{s.name}</span>
+													{(s.school || s.castingTime || s.range || s.components || s.duration) && (
+														<span style={{ display: 'block', font: `11px ${T.sans}`, color: T.ter, marginTop: 1 }}>
+															{[s.school, s.castingTime, s.range, s.components, s.duration].filter(Boolean).join(' · ')}
+														</span>
+													)}
+												</span>
 												{isDm ? (
 													<button
 														type="button"
@@ -610,6 +753,75 @@ function CharacterSheet({ id, onBack }: { id: string; onBack: () => void }) {
 						/>
 					</Panel>
 
+					{/* Sharing — the DM-only `character.set-sharing` (entity visibility + the explicit
+					    `sharedWith` delivery list). Fail-closed: nothing here widens by default; the DM
+					    states the audience and applies it in one command. */}
+					{isDm && record && (
+						<Panel
+							title="Sharing"
+							action={shareDraft === null ? (
+								<Button variant="secondary" size="sm" icon="visibility-players" onClick={() => setShareDraft({ visibility: record.visibility, sharedWith: [...record.sharedWith] })}>
+									Change
+								</Button>
+							) : undefined}
+						>
+							{shareDraft ? (
+								<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+									<Field label="Who can see this character">
+										<Select
+											value={shareDraft.visibility}
+											onChange={(e: any) => setShareDraft((d) => ({ ...d!, visibility: e.target.value }))}
+											options={[
+												{ value: 'dm-only', label: 'DM only' },
+												{ value: 'player-visible', label: 'All players' },
+												{ value: 'shared', label: 'Specific players' },
+											]}
+										/>
+									</Field>
+									{shareDraft.visibility === 'shared' && (
+										players.length > 0 ? (
+											<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+												{players.map((p) => {
+													const on = shareDraft.sharedWith.includes(p.id);
+													return (
+														<button
+															key={p.id}
+															type="button"
+															aria-pressed={on}
+															onClick={() => setShareDraft((d) => ({ ...d!, sharedWith: on ? d!.sharedWith.filter((x) => x !== p.id) : [...d!.sharedWith, p.id] }))}
+															style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 16, cursor: 'pointer', font: `12px ${T.sans}`, border: `1px solid ${on ? T.accBd : T.bd}`, background: on ? T.accSub : T.surf, color: on ? T.acc : T.ter }}
+														>
+															{on && <Icon name="check" size={12} />}{p.displayName}
+														</button>
+													);
+												})}
+											</div>
+										) : (
+											<div style={{ font: `12px ${T.sans}`, color: T.ter }}>No player actors registered — add players in Settings first.</div>
+										)
+									)}
+									<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+										<Button variant="ghost" size="sm" onClick={() => setShareDraft(null)}>Cancel</Button>
+										<Button variant="primary" size="sm" onClick={applySharing}>Apply</Button>
+									</div>
+								</div>
+							) : (
+								<div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+									<VisibilityChip level={visChip(view.visibility)} />
+									<span style={{ font: `12.5px ${T.sans}`, color: T.sub }}>
+										{view.visibility === 'dm-only'
+											? 'Hidden from players until you share it.'
+											: view.visibility === 'shared'
+												? (record.sharedWith.length > 0
+													? `Shared with ${record.sharedWith.map((aid) => runtime.state.permissions.actors[aid]?.displayName ?? aid).join(', ')}.`
+													: 'Shared, but delivered to no one yet.')
+												: 'Visible to all players.'}
+									</span>
+								</div>
+							)}
+						</Panel>
+					)}
+
 					{typeof view.data.bio === 'string' && view.data.bio.trim() !== '' && (
 						<Panel title="Bio">
 							<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>{String(view.data.bio)}</div>
@@ -663,6 +875,8 @@ export function Characters() {
 	const [kind, setKind] = useState('all');
 	const [creating, setCreating] = useState(false);
 	const [initialKind, setInitialKind] = useState<string | null>(null);
+	// When set, the CharBuilder overlay opens straight into the file-import path (WS-4 JSON import).
+	const [importIntent, setImportIntent] = useState(false);
 	const [notice, setNotice] = useState<string | null>(null);
 
 	// Create-intent handoff: "New character" launchers elsewhere (home hub, ⌘K) navigate here with
@@ -723,10 +937,13 @@ export function Characters() {
 				{data.isDm && partyPcs.length > 0 && (
 					<Button variant="ghost" size="sm" icon="sword" onClick={startCombat}>Start combat</Button>
 				)}
-				{/* no core command — there is no D&D Beyond / character import command in the Processing Core. */}
-				<Button variant="ghost" size="sm" icon="import" onClick={() => setNotice('Import from D&D Beyond is not yet available — no import command exists in the core.')}>
-					Import from D&amp;D Beyond
-				</Button>
+				{/* REAL import (WS-4): opens the CharBuilder's file-import path — a D&D Beyond export or
+				    native JSON, previewed field-by-field (fail closed) before anything is created. */}
+				{data.isDm && (
+					<Button variant="ghost" size="sm" icon="import" onClick={() => { setImportIntent(true); setCreating(true); }}>
+						Import character (JSON)
+					</Button>
+				)}
 				{data.isDm && (
 					<Button variant="primary" size="sm" icon="new-character" onClick={() => setCreating(true)}>
 						New character
@@ -760,8 +977,9 @@ export function Characters() {
 			{creating && data.isDm && (
 				<CharBuilder
 					initialKind={initialKind ?? undefined}
-					onClose={() => { setCreating(false); setInitialKind(null); }}
-					onCreated={(id) => { setCreating(false); setInitialKind(null); navigate(`/characters/${id}`); }}
+					initialAction={importIntent ? 'import' : undefined}
+					onClose={() => { setCreating(false); setInitialKind(null); setImportIntent(false); }}
+					onCreated={(id) => { setCreating(false); setInitialKind(null); setImportIntent(false); navigate(`/characters/${id}`); }}
 				/>
 			)}
 		</Page>

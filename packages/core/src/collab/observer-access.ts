@@ -1,6 +1,7 @@
 import type { ActorId } from '../state/ids';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { Scene, SceneState } from '../state/scene-state';
+import { isLiveScene } from '../state/scene-state';
 import type { SessionState } from '../state/session-state';
 import { evaluateSceneVisibility } from '../permissions/visibility';
 import { computeEffectivePermissionsForActor } from '../permissions/base-roles';
@@ -112,6 +113,7 @@ export function observerVisibleScenes(
 
 	const out: ObserverVisibleScene[] = [];
 	for (const scene of Object.values(scenes.scenes)) {
+		if (!isLiveScene(scene)) continue; // soft-deleted scenes are omitted (tombstone)
 		if (scene.templateMeta.isTemplate) continue;
 		const evaluation = evaluateSceneVisibility(scene, actor, permission);
 		if (evaluation.kind !== 'visible') continue;

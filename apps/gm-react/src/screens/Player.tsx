@@ -2,11 +2,13 @@ import { useMemo, useState } from 'react';
 import {
 	advancementStateOf,
 	checkAdvancementEligibility,
+	effectiveProficiencyBonus,
 	getCharacterForActor,
 	getCharacterJournalForActor,
 	getPartyOverviewForActor,
 	hasGrantedCapability,
 	listCharactersForActor,
+	passivePerception,
 	resourcesOf,
 	availableSlots,
 	validateAdvancement,
@@ -19,7 +21,8 @@ import {
 	type JournalEntryView,
 	type PartyOverview,
 } from '@dndtools/core';
-import { Avatar, Badge, Button, Chip, ConditionBadge, CONDITIONS, DefinitionList, Field, HPBar, Icon, IconButton, Input, ProgressMeter, Select, Stat, Tabs, Textarea } from '../ds';
+import { ABILITY_IDS, SKILLS } from '../app/charImport/skills';
+import { Avatar, Badge, Button, Chip, ConditionBadge, CONDITIONS, DefinitionList, EmptyState, Field, HPBar, Icon, IconButton, Input, ProgressMeter, Select, SpellSlots, Stat, Tabs, Textarea, Toaster } from '../ds';
 import { Page, Panel, T, eb } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 
@@ -46,9 +49,15 @@ import { useRuntime } from '../runtime/RuntimeContext';
  * that feed the side panels), and DM-only party logistics (`character.set-marching-order` /
  * `upsert-party-inventory-item` / `remove-party-inventory-item`).
  *
- * HONEST GAP (labeled in the UI, not simulated): the structured skills / equipment / currency
- * taxonomy has NO core model home yet — those panels were mock fiction and are removed, replaced by
- * a visible note. // no core field
+ * WS-4: the sheet mirrors the roster's proficiency panels — skills / saves / hit dice / passive
+ * perception from the view's structured `proficiencies` block, with the PURE core queries
+ * `effectiveProficiencyBonus` / `passivePerception` (derived on read after the visibility gate, the
+ * same player-safe pattern as `resourcesOf`). A signed-in player may control MULTIPLE PCs: the
+ * vitals bar carries a PC switcher (the actor-filtered PC list; the hardcoded first-PC pick is gone).
+ *
+ * HONEST GAP (labeled in the UI, not simulated): the structured equipment / currency taxonomy has
+ * NO core model home yet — those panels were mock fiction and are removed, replaced by a visible
+ * note. // no core field
  */
 
 const ABIL_ORDER = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
@@ -83,6 +92,11 @@ interface PlayerData {
 	characterId: string | null;
 	view: CharacterView | null;
 	resources: CharacterResources | null;
+	/** Every PC this actor may see (the switcher's options — a player may control multiple PCs). */
+	pcs: { id: string; name: string }[];
+	/** Pure derived reads (after the visibility gate): passive perception + effective prof bonus. */
+	passive: number | null;
+	profBonus: number | null;
 	journal: JournalEntryView[];
 	canAuthorJournal: boolean;
 	party: PartyOverview;
@@ -100,11 +114,15 @@ export function Player() {
 	const actorId = runtime.defaultActorId;
 	const state = runtime.state;
 
+	// The switcher's selection — null falls back to the first visible PC. A signed-in player may
+	// control multiple PCs (multiple `owner` grants / shared PCs), so the pick is theirs, not `pcs[0]`.
+	const [pcChoice, setPcChoice] = useState<string | null>(null);
+
 	const data = useMemo<PlayerData>(() => {
-		// The player's PC: the first player-visible PC the actor may see (finalized PCs are `shared`
-		// with their owning player actor, so a player sees their own; the DM sees the roster's first).
+		// The player's PCs: every player-visible PC the actor may see (finalized PCs are `shared`
+		// with their owning player actor, so a player sees their own; the DM sees the whole roster).
 		const pcs = listCharactersForActor(state.characters, state.permissions, actorId).filter((c) => c.kind === 'pc');
-		const chosen = pcs[0] ?? null;
+		const chosen = pcs.find((c) => c.id === pcChoice) ?? pcs[0] ?? null;
 		const view = chosen ? getCharacterForActor(state.characters, state.permissions, actorId, chosen.id) : null;
 		const record = chosen ? state.characters.characters[chosen.id] : undefined;
 		const resources = record ? resourcesOf(record) : null;
@@ -122,6 +140,11 @@ export function Player() {
 			characterId: chosen?.id ?? null,
 			view,
 			resources,
+			pcs: pcs.map((c) => ({ id: c.id, name: c.name })),
+			// Pure derived queries, computed AFTER the actor-filtered gate passed (same pattern as
+			// `resourcesOf` above) — they read only abilityScores / proficiencies / data.level.
+			passive: record ? passivePerception(record) : null,
+			profBonus: record ? effectiveProficiencyBonus(record) : null,
 			journal: journalView?.entries ?? [],
 			canAuthorJournal: isDm || isOwner,
 			party,
@@ -131,7 +154,7 @@ export function Player() {
 			canAdvance: isDm || isOwner,
 			isDm,
 		};
-	}, [state, actorId]);
+	}, [state, actorId, pcChoice]);
 
 	const C = data.view;
 	const [tab, setTab] = useState('sheet');
@@ -211,6 +234,16 @@ export function Player() {
 					</div>
 					<div style={{ font: `12px ${T.sans}`, color: T.ter }}>{identityLine}</div>
 				</div>
+				{/* PC switcher — a signed-in player may control multiple PCs (the actor-filtered list);
+				    the whole surface (sheet/resources/level-up/journal) follows the selection. */}
+				{data.pcs.length > 1 && (
+					<Select
+						value={charId}
+						onChange={(e: any) => setPcChoice(e.target.value)}
+						options={data.pcs.map((p) => ({ value: p.id, label: p.name }))}
+						aria-label="Switch character"
+					/>
+				)}
 				{/* HP stepper — real combat-resource write */}
 				<div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 12px', borderRadius: 11, background: T.alt, border: `1px solid ${T.bd}` }}>
 					<IconButton icon="chevron-down" label="Damage" variant="ghost" size="sm" onClick={() => stepHp(-1)} />
@@ -250,7 +283,7 @@ export function Player() {
 
 			<Page max={1180}>
 				<div style={{ marginBottom: 18 }}><Tabs value={activeTab} onChange={setTab} tabs={tabs} /></div>
-				{activeTab === 'sheet' && <PlayerSheet C={C} level={level} isDm={data.isDm} charId={charId} actorId={actorId} dispatch={dispatch} />}
+				{activeTab === 'sheet' && <PlayerSheet C={C} level={level} isDm={data.isDm} charId={charId} actorId={actorId} passive={data.passive} profBonus={data.profBonus} dispatch={dispatch} />}
 				{activeTab === 'resources' && <PlayerResources charId={charId} resources={data.resources} actorId={actorId} dispatch={dispatch} />}
 				{activeTab === 'party' && <PlayerParty party={data.party} selfId={charId} isDm={data.isDm} actorId={actorId} dispatch={dispatch} />}
 				{activeTab === 'levelup' && data.canAdvance && (
@@ -280,12 +313,15 @@ const IDENTITY_FIELDS: { key: string; label: string; hint?: string }[] = [
 	{ key: 'init', label: 'Initiative bonus', hint: 'e.g. +2' },
 ];
 
-function PlayerSheet({ C, level, isDm, charId, actorId, dispatch }: {
+function PlayerSheet({ C, level, isDm, charId, actorId, passive, profBonus, dispatch }: {
 	C: CharacterView;
 	level: number | null;
 	isDm: boolean;
 	charId: string;
 	actorId: string;
+	/** Pure derived reads (passivePerception / effectiveProficiencyBonus), computed post-gate. */
+	passive: number | null;
+	profBonus: number | null;
 	dispatch: Dispatch;
 }) {
 	const [editing, setEditing] = useState(false);
@@ -325,6 +361,14 @@ function PlayerSheet({ C, level, isDm, charId, actorId, dispatch }: {
 	});
 	const cls = dataStr('class');
 	const backstory = dataStr('backstory');
+
+	// Structured proficiencies from the (redacted, player-safe) view — mirrors the roster sheet's
+	// panels. Honest empty state when the character carries no proficiency data at all.
+	const prof = C.proficiencies;
+	const hasProficiencyData =
+		Object.keys(prof.skills).length > 0 || prof.saves.length > 0 ||
+		prof.proficiencyBonus !== null || prof.hitDice.total > 0;
+	const abilScore = (id: string) => (C.abilityScores as Record<string, number | undefined>)[id] ?? 10;
 
 	return (
 		<div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 18, alignItems: 'start' }}>
@@ -412,12 +456,66 @@ function PlayerSheet({ C, level, isDm, charId, actorId, dispatch }: {
 						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No backstory written yet.</div>
 					)}
 				</Panel>
-				{/* no core field — the structured skills/equipment/currency taxonomy has no core model home
-				    yet. Stated plainly instead of rendering a fictional sheet. */}
+				{/* Skills / saves / hit dice / passive perception — the view's structured `proficiencies`
+				    block (player-safe: read through the redacted view + post-gate pure queries), the same
+				    slice the roster sheet renders. */}
+				<Panel title="Skills & saves">
+					{hasProficiencyData && profBonus !== null ? (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+							<div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+								<Stat label="Proficiency" value={sgn(profBonus)} />
+								{passive !== null && <Stat label="Passive Perception" value={String(passive)} icon="visibility-players" />}
+								{prof.hitDice.total > 0 && (
+									<Stat label="Hit dice" value={`${prof.hitDice.total - prof.hitDice.spent}/${prof.hitDice.total} ${prof.hitDice.die}`} />
+								)}
+							</div>
+							<div>
+								<div style={{ ...eb, marginBottom: 6 }}>Saving throws</div>
+								<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+									{ABILITY_IDS.map((a) => {
+										const proficient = prof.saves.includes(a);
+										const bonus = abilMod(abilScore(a)) + (proficient ? profBonus : 0);
+										return (
+											<span key={a} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 16, font: `12px ${T.sans}`, border: `1px solid ${proficient ? T.accBd : T.bd}`, background: proficient ? T.accSub : T.surf, color: proficient ? T.acc : T.ter }}>
+												{a.toUpperCase()}<span style={{ font: `12px ${T.mono}` }}>{sgn(bonus)}</span>
+											</span>
+										);
+									})}
+								</div>
+							</div>
+							<div>
+								<div style={{ ...eb, marginBottom: 6 }}>Skills</div>
+								<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 18px' }}>
+									{SKILLS.map((s) => {
+										const skillLevel = prof.skills[s.id] ?? 'none';
+										const bonus = abilMod(abilScore(s.ability))
+											+ (skillLevel === 'expertise' ? profBonus * 2 : skillLevel === 'proficient' ? profBonus : 0);
+										return (
+											<div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, font: `12.5px ${T.sans}`, color: skillLevel === 'none' ? T.ter : T.ink }}>
+												<span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', flex: '0 0 auto', background: skillLevel === 'none' ? 'transparent' : T.acc, border: `1.5px solid ${skillLevel === 'none' ? T.bdS : T.acc}` }} />
+												<span style={{ flex: 1, minWidth: 0 }}>{s.label}{skillLevel === 'expertise' ? ' ★' : ''}</span>
+												<span style={{ font: `12px ${T.mono}` }}>{sgn(bonus)}</span>
+											</div>
+										);
+									})}
+								</div>
+								<div style={{ font: `11px ${T.sans}`, color: T.ter, marginTop: 8 }}>● proficient · ★ expertise (double proficiency)</div>
+							</div>
+						</div>
+					) : (
+						// Honest empty state — no proficiency data on this character yet, nothing is faked.
+						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
+							No skills, saves, or hit dice recorded for this character yet — they're set on the
+							roster sheet or arrive with a character-file import.
+						</div>
+					)}
+				</Panel>
+				{/* no core field — the structured equipment/currency taxonomy has no core model home yet.
+				    Stated plainly instead of rendering a fictional sheet. */}
 				<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 10, background: T.alt, border: `1px dashed ${T.bdS}` }}>
 					<Icon name="hidden" size={15} color={T.ter} />
 					<span style={{ font: `12.5px ${T.sans}`, color: T.ter }}>
-						Skills, equipment, and currency aren't part of the core character model yet — they'll appear here when the model carries them.
+						Equipment and currency aren't part of the core character model yet — they'll appear here when the model carries them.
 					</span>
 				</div>
 			</div>
@@ -480,32 +578,25 @@ function PlayerResources({
 				)}
 				<Panel title="Spell slots">
 					{slots.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No spell slots tracked for this character.</div>
+						<EmptyState inset icon="sparkle" title="No spell slots" description="No spell slots are tracked for this character yet." />
 					) : (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-							{slots.map((s) => {
-								const avail = availableSlots(s);
-								return (
-									<div key={s.level} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-										<span style={{ font: `600 12px ${T.sans}`, color: T.sub, width: 48 }}>Level {s.level}</span>
-										<div style={{ display: 'flex', gap: 7, flex: 1 }}>
-											{Array.from({ length: s.max }).map((_, i) => (
-												<button key={i} type="button" onClick={() => toggleSlot(s.level, s.max, s.expended, i)} aria-label="Toggle slot" style={{ width: 22, height: 22, flex: '0 0 auto', cursor: 'pointer', border: 'none', background: 'transparent', padding: 0 }}>
-													<span style={{ display: 'block', width: '100%', height: '100%', transform: 'rotate(45deg)', borderRadius: 3, background: i < avail ? T.acc : 'transparent', border: `1.5px solid ${i < avail ? T.acc : T.bdS}` }} />
-												</button>
-											))}
-										</div>
-										<span style={{ font: `12px ${T.mono}`, color: T.ter }}>{avail}/{s.max}</span>
-									</div>
-								);
-							})}
-						</div>
+						// The DS SpellSlots economy (same component as the roster sheet) — a pip click
+						// spends/recovers through the same character.set-spell-slots write as before.
+						<SpellSlots
+							levels={slots.map((s) => ({ level: s.level, total: s.max, used: s.max - availableSlots(s) }))}
+							onToggle={(level: number, idx: number) => {
+								const s = slots.find((x) => x.level === level);
+								if (s) void toggleSlot(s.level, s.max, s.expended, idx);
+							}}
+						/>
 					)}
 				</Panel>
 				<Panel title="Class resources">
 					{classResources.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No class resources tracked.</div>
+						<EmptyState inset icon="sparkle" title="No class resources" description="Resources like Rage or Ki appear here once the sheet tracks them." />
 					) : (
+						// Named resources keep round pips (the DS SpellSlots row is hard-labeled "Lvl N", which
+						// misreads for a named resource) — but each pip mirrors SpellSlots' a11y contract.
 						classResources.map((res, i) => {
 							const cur = res.max - res.expended;
 							return (
@@ -514,7 +605,7 @@ function PlayerResources({
 									<div style={{ flex: 1 }}><div style={{ font: `600 12.5px ${T.sans}` }}>{res.name}</div><div style={{ font: `10.5px ${T.sans}`, color: T.ter }}>Recovers on {res.recharge} rest</div></div>
 									<div style={{ display: 'flex', gap: 5 }}>
 										{Array.from({ length: res.max }).map((_, j) => (
-											<button key={j} type="button" aria-label="Toggle resource" onClick={() => toggleResource(res, j)} style={{ width: 13, height: 13, padding: 0, borderRadius: '50%', cursor: 'pointer', background: j < cur ? T.acc : 'transparent', border: `1.5px solid ${j < cur ? T.acc : T.bdS}` }} />
+											<button key={j} type="button" aria-label={`${res.name} use ${j + 1} ${j < cur ? 'available' : 'expended'}`} aria-pressed={j < cur} onClick={() => toggleResource(res, j)} style={{ width: 13, height: 13, padding: 0, borderRadius: '50%', cursor: 'pointer', background: j < cur ? T.acc : 'transparent', border: `1.5px solid ${j < cur ? T.acc : T.bdS}` }} />
 										))}
 									</div>
 									<span style={{ font: `12px ${T.mono}`, color: T.ter, width: 30, textAlign: 'right' }}>{cur}/{res.max}</span>
@@ -542,13 +633,21 @@ function PlayerResources({
 				</Panel>
 				<Panel title={`Prepared spells (${spells.filter((s) => s.prepared).length})`}>
 					{spells.length === 0 ? (
-						<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No spells tracked for this character.</div>
+						<EmptyState inset icon="knowledge-book" title="No spells tracked" description="Spells the character learns show up here with a prepared toggle." />
 					) : (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
 							{spells.map((s) => (
 								<div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 9, border: `1px solid ${T.bd}`, background: T.surf }}>
 									<span style={{ width: 24, height: 24, borderRadius: 6, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', font: `700 12px ${T.mono}`, background: T.alt, color: T.acc }}>{s.level}</span>
-									<div style={{ flex: 1, minWidth: 0 }}><span style={{ font: `600 12.5px ${T.sans}` }}>{s.name}</span></div>
+									<div style={{ flex: 1, minWidth: 0 }}>
+										<span style={{ display: 'block', font: `600 12.5px ${T.sans}` }}>{s.name}</span>
+										{/* extended PreparedSpell detail fields — shown only when the record carries them */}
+										{(s.school || s.castingTime || s.range || s.components || s.duration) && (
+											<span style={{ display: 'block', font: `11px ${T.sans}`, color: T.ter, marginTop: 1 }}>
+												{[s.school, s.castingTime, s.range, s.components, s.duration].filter(Boolean).join(' · ')}
+											</span>
+										)}
+									</div>
 									{/* real prepared toggle → character.set-spell */}
 									<button
 										type="button"
@@ -599,8 +698,24 @@ function PlayerParty({ party, selfId, isDm, actorId, dispatch }: {
 		});
 		if (ok) { setItemName(''); setItemDetail(''); }
 	};
-	const removeItem = (itemId: string) =>
-		dispatch({ type: 'character.remove-party-inventory-item', actorId, payload: { itemId } });
+	// Removal is instant with an UNDO toast — the undo re-creates the item through the same upsert
+	// command, preserving its id via the schema's optional `id` (same pattern as scene delete).
+	const removeItem = async (item: PartyOverview['inventory'][number]) => {
+		const ok = await dispatch({ type: 'character.remove-party-inventory-item', actorId, payload: { itemId: item.id } });
+		if (!ok) return;
+		Toaster.success(`“${item.name}” removed from the stash`, {
+			action: 'Undo',
+			onAction: () => {
+				void dispatch({
+					type: 'character.upsert-party-inventory-item',
+					actorId,
+					payload: { id: item.id, name: item.name, detail: item.detail, visibility: item.visibility, sharedWith: [] },
+				}).then((restored) => {
+					if (restored) Toaster.success(`“${item.name}” restored`);
+				});
+			},
+		});
+	};
 
 	return (
 		<div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 18, alignItems: 'start' }}>
@@ -668,7 +783,7 @@ function PlayerParty({ party, selfId, isDm, actorId, dispatch }: {
 								<span style={{ flex: 1, font: `12.5px ${T.sans}` }}>{s.name}</span>
 								<span style={{ font: `11px ${T.sans}`, color: T.ter }}>{s.detail}</span>
 								{isDm && s.visibility === 'dm-only' && <Badge status="neutral" icon="hidden">dm-only</Badge>}
-								{isDm && <IconButton icon="close" label={`Remove ${s.name}`} variant="ghost" size="sm" onClick={() => removeItem(s.id)} />}
+								{isDm && <IconButton icon="close" label={`Remove ${s.name}`} variant="ghost" size="sm" onClick={() => void removeItem(s)} />}
 							</div>
 						))
 					)}
@@ -782,7 +897,7 @@ function PlayerLevelUp({ charId, actorId, advancement, xpEligible, milestoneElig
 					const done = !pending.has(field);
 					return (
 						<div key={field} style={{ display: 'flex', gap: 13, padding: 14, borderRadius: 11, border: `1px solid ${done ? T.bd : T.accBd}`, background: T.surf }}>
-							<span style={{ width: 28, height: 28, borderRadius: '50%', flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: done ? T.ok : T.alt, color: done ? '#fff' : T.ter }}>{done ? <Icon name="check" size={15} /> : <span style={{ font: `700 12px ${T.mono}` }}>{i + 1}</span>}</span>
+							<span style={{ width: 28, height: 28, borderRadius: '50%', flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: done ? T.ok : T.alt, color: done ? T.accFg : T.ter }}>{done ? <Icon name="check" size={15} /> : <span style={{ font: `700 12px ${T.mono}` }}>{i + 1}</span>}</span>
 							<div style={{ flex: 1 }}>
 								<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}><span style={{ font: `600 13.5px ${T.sans}` }}>{meta.label}</span><Badge status="neutral">{meta.kind}</Badge></div>
 								{done ? (
@@ -878,8 +993,25 @@ function PlayerJournal({
 		});
 		if (ok) setEditId(null);
 	};
-	const remove = (entry: JournalEntryView) =>
-		dispatch({ type: 'character.remove-journal-entry', actorId, payload: { characterId: charId, entryId: entry.id } });
+	// Delete is instant with an UNDO toast — the undo re-authors the captured entry through the
+	// same add command (kind/title/body/visibility preserved; the restored entry gets a fresh id).
+	const remove = async (entry: JournalEntryView) => {
+		const ok = await dispatch({ type: 'character.remove-journal-entry', actorId, payload: { characterId: charId, entryId: entry.id } });
+		if (!ok) return;
+		const { kind: entryKind, title: entryTitle, body: entryBody, visibility } = entry;
+		Toaster.success(`“${entryTitle}” deleted`, {
+			action: 'Undo',
+			onAction: () => {
+				void dispatch({
+					type: 'character.add-journal-entry',
+					actorId,
+					payload: { characterId: charId, kind: entryKind, title: entryTitle, body: entryBody, visibility, sharedWith: [] },
+				}).then((restored) => {
+					if (restored) Toaster.success(`“${entryTitle}” restored`);
+				});
+			},
+		});
+	};
 
 	// Quests + highlights are REAL journal-entry kinds (core `journalEntryKindSchema`), projected into
 	// their own side panels; the main list carries every entry (the editable source of truth).
@@ -895,7 +1027,7 @@ function PlayerJournal({
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 					<Panel title={`Journal entries (${entries.length})`}>
 						{entries.length === 0 ? (
-							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No entries yet.</div>
+							<EmptyState inset icon="note-edit" title="No entries yet" description="Write the first journal entry below — it stays private until shared." />
 						) : (
 							<div style={{ display: 'flex', flexDirection: 'column' }}>
 								{entries.map((im, i) => {
@@ -922,7 +1054,7 @@ function PlayerJournal({
 																	<Icon name={shared ? 'visibility-players' : 'hidden'} size={12} />{shared ? 'Shared' : 'Private'}
 																</button>
 																<IconButton icon="note-edit" label={`Edit ${im.title}`} variant="ghost" size="sm" onClick={() => startEdit(im)} />
-																<IconButton icon="close" label={`Delete ${im.title}`} variant="ghost" size="sm" onClick={() => remove(im)} />
+																<IconButton icon="close" label={`Delete ${im.title}`} variant="ghost" size="sm" onClick={() => void remove(im)} />
 															</span>
 														)}
 													</div>
@@ -950,7 +1082,7 @@ function PlayerJournal({
 					{/* Real projections of the journal's `personal-quest` / `session-highlight` entry kinds. */}
 					<Panel title={`Personal quests (${quests.length})`}>
 						{quests.length === 0 ? (
-							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No personal quests yet — add a journal entry with the "Personal quest" kind.</div>
+							<EmptyState inset icon="flag" title="No personal quests" description="Add a journal entry with the &quot;Personal quest&quot; kind to track one here." />
 						) : (
 							quests.map((q, i) => (
 								<div key={q.id} style={{ display: 'flex', gap: 10, padding: '9px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
@@ -965,7 +1097,7 @@ function PlayerJournal({
 					</Panel>
 					<Panel title={`Session highlights (${highlights.length})`}>
 						{highlights.length === 0 ? (
-							<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No highlights recorded yet — add a journal entry with the "Session highlight" kind.</div>
+							<EmptyState inset icon="sparkle" title="No highlights yet" description="Add a journal entry with the &quot;Session highlight&quot; kind to capture one." />
 						) : (
 							highlights.map((h, i) => (
 								<div key={h.id} style={{ padding: '9px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>

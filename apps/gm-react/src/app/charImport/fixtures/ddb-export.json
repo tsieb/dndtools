@@ -1,0 +1,153 @@
+{
+	"id": 133742,
+	"userId": 998877,
+	"username": "trinkle",
+	"readonlyUrl": "https://dndbeyond.com/characters/133742",
+	"name": "Seraphine Duskwhisper",
+	"gender": "Female",
+	"faith": "Sehanine",
+	"alignmentId": 3,
+	"inspiration": true,
+	"currentXp": 2700,
+	"baseHitPoints": 21,
+	"bonusHitPoints": null,
+	"overrideHitPoints": null,
+	"removedHitPoints": 5,
+	"temporaryHitPoints": 4,
+	"stats": [
+		{ "id": 1, "value": 8 },
+		{ "id": 2, "value": 15 },
+		{ "id": 3, "value": 12 },
+		{ "id": 4, "value": 14 },
+		{ "id": 5, "value": 10 },
+		{ "id": 6, "value": 13 }
+	],
+	"bonusStats": [
+		{ "id": 1, "value": null },
+		{ "id": 2, "value": null },
+		{ "id": 3, "value": null },
+		{ "id": 4, "value": null },
+		{ "id": 5, "value": null },
+		{ "id": 6, "value": null }
+	],
+	"overrideStats": [
+		{ "id": 1, "value": null },
+		{ "id": 2, "value": null },
+		{ "id": 3, "value": null },
+		{ "id": 4, "value": null },
+		{ "id": 5, "value": null },
+		{ "id": 6, "value": 18 }
+	],
+	"race": {
+		"fullName": "Half-Elf",
+		"baseName": "Half-Elf"
+	},
+	"background": {
+		"definition": { "name": "Charlatan" }
+	},
+	"classes": [
+		{
+			"level": 4,
+			"hitDiceUsed": 1,
+			"definition": { "name": "Bard", "hitDice": 8 }
+		}
+	],
+	"modifiers": {
+		"race": [
+			{ "type": "bonus", "subType": "charisma-score", "value": 2 },
+			{ "type": "bonus", "subType": "dexterity-score", "value": 1 },
+			{ "type": "proficiency", "subType": "persuasion", "value": null }
+		],
+		"class": [
+			{ "type": "proficiency", "subType": "dexterity-saving-throws", "value": null },
+			{ "type": "proficiency", "subType": "charisma-saving-throws", "value": null },
+			{ "type": "proficiency", "subType": "deception", "value": null },
+			{ "type": "expertise", "subType": "deception", "value": null },
+			{ "type": "proficiency", "subType": "sleight-of-hand", "value": null },
+			{ "type": "bonus", "subType": "magical-damage", "value": 1 }
+		],
+		"background": [
+			{ "type": "proficiency", "subType": "deception", "value": null }
+		],
+		"item": [],
+		"feat": []
+	},
+	"classSpells": [
+		{
+			"characterClassId": 1,
+			"spells": [
+				{
+					"prepared": true,
+					"definition": {
+						"name": "Vicious Mockery",
+						"level": 0,
+						"school": "Enchantment",
+						"activation": { "activationTime": 1, "activationType": 1 },
+						"range": { "origin": "Ranged", "rangeValue": 60 },
+						"components": [1],
+						"duration": { "durationInterval": 0, "durationUnit": null, "durationType": "Instantaneous" }
+					}
+				},
+				{
+					"prepared": true,
+					"definition": {
+						"name": "Hideous Laughter",
+						"level": 1,
+						"school": "Enchantment",
+						"activation": { "activationTime": 1, "activationType": 1 },
+						"range": { "origin": "Ranged", "rangeValue": 30 },
+						"components": [1, 2, 3],
+						"duration": { "durationInterval": 1, "durationUnit": "Minute", "durationType": "Concentration" }
+					}
+				},
+				{
+					"prepared": false,
+					"definition": {
+						"name": "Longstrider",
+						"level": 1,
+						"school": "Transmutation",
+						"activation": { "activationTime": 1, "activationType": 1 },
+						"range": { "origin": "Touch" },
+						"components": [1, 2, 3],
+						"duration": { "durationInterval": 1, "durationUnit": "Hour", "durationType": "Time" }
+					}
+				},
+				{
+					"prepared": true,
+					"definition": null
+				}
+			]
+		}
+	],
+	"spells": {
+		"race": [],
+		"class": [],
+		"feat": []
+	},
+	"notes": {
+		"backstory": "Raised in a traveling troupe; fled after a con went wrong.",
+		"otherNotes": "Owes money in three ports."
+	},
+	"traits": {
+		"personalityTraits": "Flattery is my preferred trick.",
+		"ideals": "Freedom.",
+		"bonds": "The troupe was family.",
+		"flaws": "Can't resist a wager."
+	},
+	"inventory": [
+		{ "definition": { "name": "Rapier" } },
+		{ "definition": { "name": "Leather Armor" } }
+	],
+	"currencies": { "cp": 12, "sp": 3, "ep": 0, "gp": 25, "pp": 0 },
+	"feats": [],
+	"conditions": [],
+	"deathSaves": { "failCount": null, "successCount": null, "isStabilized": false },
+	"spellSlots": [{ "level": 1, "used": 2, "available": 3 }],
+	"pactMagic": [],
+	"options": { "race": [], "class": [], "background": [], "feat": [] },
+	"choices": { "race": [], "class": [], "background": [], "feat": [] },
+	"actions": { "race": [], "class": [], "background": [], "feat": [] },
+	"customActions": [],
+	"campaign": { "name": "Sunless Citadel" },
+	"mysteryBlob": { "answer": 42 }
+}

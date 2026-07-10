@@ -1,10 +1,12 @@
 import {
+	authorRecapInputSchema,
 	projectActiveMapInputSchema,
 	recordSessionDiceInputSchema,
 	recoverSessionInputSchema,
 	setActiveMapInputSchema,
 	setSessionWorkflowInputSchema,
 } from '../schemas/commands';
+import { EMPTY_PRESENCE_STATE } from '../state/presence-state';
 import type { MapEntity } from '../state/map-state';
 import {
 	type ActiveMapDeliveryStatus,
@@ -377,6 +379,15 @@ export function handleSetSessionWorkflow(
 		workflowRevision: state.session.workflowRevision + 1,
 	};
 
+	// COLLAB-004 — presence is EPHEMERAL and never durable: the host RESETS it on session start
+	// (`active`) and on the session-ending transitions (`recap`/`archived`/`idle`), so stale entries
+	// from a previous session never survive into the next one. Prep/pause keep live presence intact.
+	const resetPresence =
+		targetWorkflow === 'active' ||
+		targetWorkflow === 'recap' ||
+		targetWorkflow === 'archived' ||
+		targetWorkflow === 'idle';
+
 	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
 		entityType: 'session',
 		entityId: SESSION_ENTITY_ID,
@@ -403,8 +414,84 @@ export function handleSetSessionWorkflow(
 
 	return {
 		status: 'accepted',
-		nextState: { ...state, session: nextSession, sync: nextLog },
+		nextState: {
+			...state,
+			session: nextSession,
+			sync: nextLog,
+			...(resetPresence ? { presence: { ...EMPTY_PRESENCE_STATE, entries: {} } } : {}),
+		},
 		events,
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * SES-009 — AUTHOR a recap (markdown) onto a session archive (DM-only). The recap is the DM's prose
+ * summary of the archived session; re-authoring replaces it and bumps its revision. `archiveId` is
+ * optional: absent targets the session's current `recapArchiveId` (the most recent archive). Fail
+ * closed when no archive resolves — a recap can never be authored against nothing. The authored
+ * recap is surfaced by the prep/recap digest (`queries/prep-recap-digest.ts`).
+ */
+export function handleAuthorRecap(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(authorRecapInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const archiveId = parsed.data.archiveId ?? state.session.recapArchiveId;
+	if (!archiveId) {
+		return reject(
+			{ code: 'invalid-state', message: 'No archived session is available to author a recap on.' },
+			state,
+		);
+	}
+	const archive = state.session.archives[archiveId];
+	if (!archive) {
+		return reject(
+			{ code: 'invalid-state', message: `Archived session ${archiveId} does not exist.` },
+			state,
+		);
+	}
+
+	const now = env.clock();
+	const revision = (archive.recap?.revision ?? 0) + 1;
+	const nextArchive: SessionArchiveSnapshot = {
+		...archive,
+		recap: {
+			markdown: parsed.data.markdown,
+			authoredBy: actor.id,
+			authoredAt: now,
+			revision,
+		},
+	};
+	const nextSession: SessionState = {
+		...state.session,
+		archives: { ...state.session.archives, [archiveId]: nextArchive },
+	};
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'session',
+		entityId: SESSION_ENTITY_ID,
+		opType: 'session.author-recap',
+		path: `archives/${archiveId}/recap`,
+		value: { archiveId, markdown: parsed.data.markdown },
+		beforeRevision: archive.recap?.revision ?? 0,
+		afterRevision: revision,
+		dependencies: [`session-archive:${archiveId}`],
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, session: nextSession, sync: nextLog },
+		events: [{ kind: 'session.recap-authored', archiveId, revision, actorId: actor.id }],
 		operationIds: [op.id],
 	};
 }

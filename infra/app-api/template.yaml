@@ -1,0 +1,260 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >-
+  dndtools app-api stack — the application backend for account-scoped features that
+  are NOT E2EE vault sync: marketplace module publish/discover, player invites
+  (server-minted join links), account/device management, and plan entitlements
+  (simulated checkout — no payment processor; every entitlement row carries
+  simulated=true). One HTTP API with a native Cognito JWT authorizer, one on-demand
+  single-table DynamoDB (pk/sk + TTL) for accounts/entitlements/invites/listings,
+  one private S3 bucket for marketplace module payloads. Unlike sync-api this stack
+  sees PLAINTEXT module payloads (they are published for sharing, not private vault
+  data) — nothing here may ever store vault content. Scale-to-zero: $0 idle.
+  Cross-stack values are read from SSM at deploy time (no ImportValue).
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: dndtools
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  WebOrigin:
+    Type: String
+    Default: 'https://d1xn0o010v89mt.cloudfront.net'
+    Description: Deployed web app origin allowed by CORS (localhost dev origins are always included).
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Architectures: [arm64]
+    MemorySize: 256
+    Timeout: 20
+    Tracing: Active
+
+Resources:
+  # --- Marketplace module payloads: private, encrypted-at-rest S3 --------------
+  ModulesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: abort-incomplete-multipart
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+
+  # --- Single-table application data (on-demand) -------------------------------
+  # pk / sk layout (tenant isolation by Cognito sub in pk where account-scoped):
+  #   account#<sub>            | profile                  — account row
+  #   account#<sub>            | entitlement              — plan row {plan, simulated:true}
+  #   account#<sub>            | invite#<inviteId>        — owner's pending invite
+  #   invite#<token>           | redeem                   — token → invite lookup (TTL `expiresAt`)
+  #   module#<moduleId>        | listing                  — marketplace listing (payload in S3)
+  #   modules                  | listing#<moduleId>       — browse partition (single-tenant scan-free list)
+  AppTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+
+  # --- HTTP API with a native Cognito JWT authorizer ---------------------------
+  AppHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Stage
+      Auth:
+        DefaultAuthorizer: CognitoJwt
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: '$request.header.Authorization'
+            JwtConfiguration:
+              issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/{{resolve:ssm:/${ProjectName}/${Stage}/identity/user-pool-id}}'
+              audience:
+                - !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/app-client-id}}'
+      CorsConfiguration:
+        AllowOrigins:
+          - 'http://localhost:5273'
+          - 'http://localhost:4273'
+          - !Ref WebOrigin
+        AllowHeaders:
+          - authorization
+          - content-type
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+
+  # --- The app-api handler ------------------------------------------------------
+  AppFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../packages/cloud-fns/build/app-api-handler
+      Handler: index.handler
+      Environment:
+        Variables:
+          APP_TABLE: !Ref AppTable
+          MODULES_BUCKET: !Ref ModulesBucket
+          USER_POOL_ID: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/user-pool-id}}'
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref AppTable }
+        - S3CrudPolicy: { BucketName: !Ref ModulesBucket }
+        # Account/device management acts on the caller's OWN Cognito identity only —
+        # the handler derives the username from the verified JWT, never from input.
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminUpdateUserAttributes
+                - cognito-idp:AdminUserGlobalSignOut
+                - cognito-idp:AdminDeleteUser
+                - cognito-idp:AdminListDevices
+                - cognito-idp:AdminForgetDevice
+              Resource: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/user-pool-arn}}'
+      Events:
+        # Account -----------------------------------------------------------------
+        GetProfile:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: /account/profile
+        PutProfile:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: PUT
+            Path: /account/profile
+        GetDevices:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: /account/devices
+        RevokeDevices:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: POST
+            Path: /account/devices/revoke
+        ExportAccount:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: POST
+            Path: /account/export
+        DeleteAccount:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: DELETE
+            Path: /account
+        # Entitlements (simulated checkout) ----------------------------------------
+        GetEntitlements:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: /account/entitlements
+        PutEntitlements:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: POST
+            Path: /account/entitlements
+        # Marketplace ---------------------------------------------------------------
+        ListModules:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: /marketplace/modules
+        PublishModule:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: POST
+            Path: /marketplace/modules
+        GetModule:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: '/marketplace/modules/{moduleId}'
+        DeleteModule:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: DELETE
+            Path: '/marketplace/modules/{moduleId}'
+        # Invites -------------------------------------------------------------------
+        CreateInvite:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: POST
+            Path: /invites
+        ListInvites:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: /invites
+        RevokeInvite:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: DELETE
+            Path: '/invites/{inviteId}'
+        # Redeeming a join link must work for an invitee with NO account yet: this is
+        # the single unauthenticated route. It resolves a high-entropy single-use token
+        # to non-secret join metadata; the actual session join still runs the P2P/cloud
+        # join authz (PIN + pairing key), so an intercepted link alone admits no one.
+        ResolveInvite:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: '/invites/resolve/{token}'
+            Auth:
+              Authorizer: NONE
+
+  # --- Publish the API URL for the client build --------------------------------
+  ParamAppApiUrl:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/${ProjectName}/${Stage}/app-api/url'
+      Type: String
+      Value: !Sub 'https://${AppHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+
+Outputs:
+  AppApiUrl:
+    Description: HTTP API base URL for the application backend (send Authorization=<cognito-id-token>).
+    Value: !Sub 'https://${AppHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}'
+  AppTable:
+    Value: !Ref AppTable
+  ModulesBucket:
+    Value: !Ref ModulesBucket

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
 	deliveredMapIdsForActor,
 	getMapViewForActor,
@@ -7,21 +7,23 @@ import {
 	queryMapLayers,
 	type SceneVisibility,
 } from '@dndtools/core';
-import { Badge, Button, Icon, IconButton, Input, POIPopover, Select, StatusDot, Switch } from '../ds';
+import { Badge, Button, EmptyState, Icon, IconButton, MapCreationForm, POIPopover, Skeleton, StatusDot, Switch, Toaster, VisibilityChip } from '../ds';
 import { Page, Panel, T } from '../app/screen-kit';
+import { fogRegionSummary } from '../app/fogRegions';
+import { pickRasterAssetId } from '../app/mapGeometry';
 import {
 	CATEGORY_LABEL,
 	CATEGORY_VAR,
 	MapBuilder,
 	MapCanvas,
 	POI_MARKER_CAT,
+	VIS_CHIP,
 	VIS_LABEL,
-	VIS_OPTIONS,
-	VIS_STATUS,
 	dsToVis,
 	visToDs,
 	type MapTool,
 } from '../app/MapBuilder';
+import { useAssetObjectUrl } from '../platform/assetUrl';
 import { useRuntime } from '../runtime/RuntimeContext';
 
 /**
@@ -41,6 +43,15 @@ import { useRuntime } from '../runtime/RuntimeContext';
 
 const ghostBtn = { border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, display: 'inline-flex' } as const;
 
+/** Map-switcher chip thumbnail: the map's real raster bytes when they exist on this device
+ *  (content-addressed asset store), else the atlas glyph. Missing bytes degrade to the glyph —
+ *  never a broken image. */
+function MapChipThumb({ assetId, active }: { assetId: string | null; active: boolean }) {
+	const url = useAssetObjectUrl(assetId);
+	if (!url) return <Icon name="atlas-map" size={14} color={active ? T.acc : T.ter} />;
+	return <img src={url} alt="" style={{ width: 18, height: 18, borderRadius: 4, objectFit: 'cover', flex: '0 0 auto' }} />;
+}
+
 export function Atlas() {
 	const runtime = useRuntime();
 	// One actor id for EVERY query AND every dispatch payload — this is what makes "view as player"
@@ -48,6 +59,10 @@ export function Atlas() {
 	// active "view as" actor in this runtime.
 	const actorId = runtime.defaultActorId;
 	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
+
+	// Async-load sentinel: the runtime hydrates from IndexedDB after first paint, so an empty `maps`
+	// while `!loaded` means "still loading", never "you have no maps".
+	const loading = !runtime.loaded;
 
 	const [mapId, setMapId] = useState<string | null>(null);
 	const [mapZoom, setMapZoom] = useState(1);
@@ -60,10 +75,9 @@ export function Atlas() {
 	const [selPoiId, setSelPoiId] = useState<string | null>(null);
 	const [selTokenId, setSelTokenId] = useState<string | null>(null);
 
-	// New-map inline create form (DM authoring) — dispatches a real `map.create`.
+	// New-map create form (DM authoring) — the DS MapCreationForm (name, scale/unit, projection,
+	// default visibility) dispatching a real `map.create`.
 	const [creating, setCreating] = useState(false);
-	const [newMapName, setNewMapName] = useState('');
-	const [newMapVis, setNewMapVis] = useState<SceneVisibility>('dm-only');
 
 	// Create-intent handoff from "New map" launchers (home hub, ⌘K): open the create form on
 	// arrival. Consumed once, then cleared.
@@ -85,6 +99,31 @@ export function Atlas() {
 		() => listMapsForActor(runtime.state.maps, runtime.state.permissions, actorId),
 		[runtime.state.maps, runtime.state.permissions, actorId],
 	);
+
+	// POI deep links — `#/atlas?map=…&poi=…`, the exact URL MapBuilder's "copy link" writes and the
+	// ⌘K palette's map/POI hits navigate to. A present `map` selects that map (when the actor-filtered
+	// list contains it — visibility authority stays with the core read); a present `poi` highlights
+	// that marker (canvas ring + popover + list tint). Params are consumed once then stripped so
+	// manual navigation afterwards isn't sticky. An unavailable map degrades to an honest notice.
+	const [searchParams, setSearchParams] = useSearchParams();
+	useEffect(() => {
+		const linkMap = searchParams.get('map');
+		const linkPoi = searchParams.get('poi');
+		if (linkMap === null && linkPoi === null) return;
+		if (linkMap !== null) {
+			if (maps.some((mp) => mp.id === linkMap)) {
+				setMapId(linkMap);
+				setMapZoom(1);
+				setSelTokenId(null);
+				setSelPoiId(linkPoi);
+			} else {
+				setNotice('This link points at a map that isn’t available to you.');
+			}
+		} else if (linkPoi !== null) {
+			setSelPoiId(linkPoi);
+		}
+		setSearchParams({}, { replace: true });
+	}, [searchParams, maps, setSearchParams]);
 
 	// Async load → `maps` is empty on the first paint, so never index `maps[0]` in a state initializer.
 	// Selection falls back to the first visible map and clears if the selected map is no longer visible.
@@ -111,6 +150,15 @@ export function Atlas() {
 	);
 	const layers = layerResult.layers;
 
+	// Raster base layer for the preview canvas — the same DM-side rule as MapBuilder: the most
+	// recently imported image/SVG asset (`pickRasterAssetId`). MapCanvas only renders it once the
+	// actor-filtered view is available, and shows the honest missing-bytes state when the bytes
+	// aren't in this device's asset store. Player-side raster gating lives in projectedMap.ts.
+	const rasterAssetId = useMemo(() => {
+		const entity = selectedId ? runtime.state.maps.maps[selectedId] : undefined;
+		return entity ? pickRasterAssetId(entity.assetIds, runtime.state.maps.assets) : null;
+	}, [runtime.state.maps, selectedId]);
+
 	// The single durable write path with a re-entrancy guard (mirrors the Svelte panels' `busy`).
 	const run = async (command: Parameters<typeof runtime.dispatch>[0]) => {
 		if (busy) return undefined;
@@ -131,18 +179,20 @@ export function Atlas() {
 		setBuilder({ tool, fogMode });
 	};
 
-	async function createMap() {
-		const name = newMapName.trim();
-		if (!name) return;
+	// The DS form's draft → the real `map.create` payload: scale becomes the core's
+	// {unitsPerMap, unit} (or null when unset), the form's `mercator` value maps to the core's
+	// `web-mercator` projection kind, and DS visibility values go through `dsToVis`.
+	async function createMap(draft: { name: string; scale: number | null; unit: string; projection: string; visibility: string }) {
+		const visibility = dsToVis(draft.visibility);
 		const res = await run({
 			type: 'map.create',
 			actorId,
 			payload: {
-				name,
-				visibility: newMapVis,
-				scale: null,
-				projection: { kind: 'flat', rotationDegrees: 0 },
-				initialLayers: [{ name: 'Base', category: 'base', visibility: newMapVis }],
+				name: draft.name,
+				visibility,
+				scale: draft.scale && draft.scale > 0 ? { unitsPerMap: draft.scale, unit: draft.unit.trim() || 'miles' } : null,
+				projection: { kind: draft.projection === 'mercator' ? 'web-mercator' : draft.projection, rotationDegrees: 0 },
+				initialLayers: [{ name: 'Base', category: 'base', visibility }],
 			},
 		});
 		if (res?.status === 'accepted') {
@@ -150,8 +200,9 @@ export function Atlas() {
 				(e) => e.kind === 'map.created',
 			);
 			if (created?.mapId) setMapId(created.mapId);
-			setNewMapName('');
 			setCreating(false);
+		} else if (res) {
+			setNotice(res.rejection.message);
 		}
 	}
 
@@ -192,10 +243,88 @@ export function Atlas() {
 		if (!selectedId) return;
 		void run({ type: 'map.update-poi', actorId, payload: { mapId: selectedId, poiId, visibility } });
 	}
-	function deletePoi(poiId: string) {
-		if (!selectedId) return;
+	// Delete is a durable core op with no inverse-op log — capture the POI's prior payload BEFORE
+	// dispatching and raise an Undo toast that re-creates it via the real `map.create-poi` (the
+	// re-created POI gets a fresh id; visibility/notes/links are preserved).
+	async function deletePoi(poiId: string) {
+		const mid = selectedId;
+		if (!mid) return;
+		const prior = mapView?.pois.find((p) => p.id === poiId) ?? null;
 		if (selPoiId === poiId) setSelPoiId(null);
-		void run({ type: 'map.delete-poi', actorId, payload: { mapId: selectedId, poiId } });
+		const res = await run({ type: 'map.delete-poi', actorId, payload: { mapId: mid, poiId } });
+		if (res?.status !== 'accepted' || !prior) return;
+		Toaster.success(`POI “${prior.label}” deleted`, {
+			action: 'Undo',
+			onAction: () => {
+				void runtime
+					.dispatch({
+						type: 'map.create-poi',
+						actorId,
+						payload: {
+							mapId: mid,
+							layerId: prior.layerId,
+							label: prior.label,
+							category: prior.category,
+							position: prior.position,
+							visibility: prior.visibility,
+							notes: prior.notes,
+							linkedEntityType: prior.linkedEntityType,
+							linkedEntityId: prior.linkedEntityId,
+						},
+					})
+					.then((restored) => {
+						if (restored.status === 'accepted') Toaster.success(`“${prior.label}” restored`);
+						else Toaster.error(restored.rejection.message ?? 'The POI could not be restored.');
+					});
+			},
+		});
+	}
+
+	// POI deep link — the SAME shareable hash URL MapBuilder's copy-link writes (`#/atlas?map=…&poi=…`);
+	// opening it selects this map and highlights the POI. Clipboard denial degrades to showing the link.
+	async function copyPoiLink(poiId: string) {
+		if (!selectedId) return;
+		// `window.location` explicitly — the react-router `location` above shadows the global here.
+		const url = `${window.location.origin}${window.location.pathname}${window.location.search}#/atlas?map=${encodeURIComponent(selectedId)}&poi=${encodeURIComponent(poiId)}`;
+		try {
+			await navigator.clipboard.writeText(url);
+			setNotice('POI link copied — opening it selects this map and highlights the POI.');
+		} catch {
+			setNotice(`POI link (copy failed — copy it manually): ${url}`);
+		}
+	}
+
+	// Projection to players — the same two durable commands the Session console's Stage panel
+	// dispatches: `session.set-active-map` stages this map on the session, then
+	// `session.project-active-map` delivers it to every player actor. Core-side validation (live
+	// session, DM role, map visibility) rejects with a message surfaced honestly in the notice bar;
+	// the chip row's live dot then marks the delivered map.
+	async function projectToPlayers() {
+		if (!selectedId) return;
+		const players = Object.values(runtime.state.permissions.actors).filter((a) => a.role === 'player');
+		if (players.length === 0) {
+			setNotice('No player actors exist yet — projection needs at least one player.');
+			return;
+		}
+		const staged = await run({ type: 'session.set-active-map', actorId, payload: { mapId: selectedId } });
+		if (!staged) return;
+		if (staged.status !== 'accepted') {
+			setNotice(staged.rejection.message);
+			return;
+		}
+		const projected = await run({
+			type: 'session.project-active-map',
+			actorId,
+			payload: { playerActorIds: players.map((p) => p.id) },
+		});
+		if (!projected) return;
+		if (projected.status === 'accepted') {
+			setNotice(
+				`Projected “${selectedEntry?.name ?? 'map'}” to ${players.length} player${players.length === 1 ? '' : 's'} — the live dot marks delivered maps.`,
+			);
+		} else {
+			setNotice(projected.rejection.message);
+		}
 	}
 
 	return (
@@ -215,13 +344,21 @@ export function Atlas() {
 							}}
 							style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 9, cursor: 'pointer', border: `1px solid ${on ? T.accBd : T.bd}`, background: on ? T.accSub : T.surf, color: on ? T.acc : T.sub, font: `600 12.5px ${T.sans}` }}
 						>
-							<Icon name="atlas-map" size={14} color={on ? T.acc : T.ter} />
+							<MapChipThumb assetId={pickRasterAssetId(runtime.state.maps.maps[mp.id]?.assetIds ?? [], runtime.state.maps.assets)} active={on} />
 							{mp.name}
 							{delivered.has(mp.id) && <StatusDot status="live" pulse />}
 						</button>
 					);
 				})}
-				{maps.length === 0 && (
+				{maps.length === 0 && loading && (
+					// Hydration in flight — skeleton chips, never a premature "no maps" claim.
+					<>
+						<Skeleton width={128} height={33} radius={9} />
+						<Skeleton width={104} height={33} radius={9} />
+						<Skeleton width={118} height={33} radius={9} />
+					</>
+				)}
+				{maps.length === 0 && !loading && (
 					<span style={{ font: `13px ${T.sans}`, color: T.ter, padding: '7px 4px' }}>No maps are visible to you.</span>
 				)}
 				<div style={{ flex: 1 }} />
@@ -246,21 +383,14 @@ export function Atlas() {
 			)}
 
 			{creating && isDm && (
-				<div style={{ marginBottom: 16, padding: 14, borderRadius: 10, background: T.raised, border: `1px solid ${T.accBd}`, display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-					<label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '1 1 200px' }}>
-						<span style={{ font: `600 11px ${T.sans}`, color: T.sub }}>Map name</span>
-						<Input value={newMapName} placeholder="e.g. Sunless Citadel" onChange={(e: { target: { value: string } }) => setNewMapName(e.target.value)} />
-					</label>
-					<label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '0 0 170px' }}>
-						<span style={{ font: `600 11px ${T.sans}`, color: T.sub }}>Default visibility</span>
-						<Select value={newMapVis} options={VIS_OPTIONS} onChange={(e: { target: { value: string } }) => setNewMapVis(e.target.value as SceneVisibility)} />
-					</label>
-					<Button variant="primary" size="sm" icon="new-map" disabled={busy || !newMapName.trim()} onClick={createMap}>
-						Create map
-					</Button>
-					<Button variant="ghost" size="sm" onClick={() => setCreating(false)}>
-						Cancel
-					</Button>
+				<div style={{ marginBottom: 16, padding: 16, borderRadius: 10, background: T.raised, border: `1px solid ${T.accBd}`, maxWidth: 520 }}>
+					<MapCreationForm
+						submitting={busy}
+						onCancel={() => setCreating(false)}
+						onCreate={(draft: { name: string; scale: number | null; unit: string; projection: string; visibility: string }) =>
+							void createMap(draft)
+						}
+					/>
 				</div>
 			)}
 
@@ -274,6 +404,7 @@ export function Atlas() {
 					isDm={isDm}
 					zoom={mapZoom}
 					height={560}
+					rasterAssetId={rasterAssetId}
 					selectedPoiId={selPoiId}
 					selectedTokenId={selTokenId}
 					onSelectPoi={setSelPoiId}
@@ -288,8 +419,8 @@ export function Atlas() {
 							onVisibilityChange={(v: string) => setPoiVisibility(poi.id, dsToVis(v))}
 							onFocus={() => openBuilder('select')}
 							onEdit={() => openBuilder('select')}
-							onDeepLink={() => setNotice('POI deep links are not wired in this build.')}
-							onDelete={() => deletePoi(poi.id)}
+							onDeepLink={() => void copyPoiLink(poi.id)}
+							onDelete={() => void deletePoi(poi.id)}
 						/>
 					)}
 				>
@@ -299,7 +430,7 @@ export function Atlas() {
 						</span>
 						{selectedEntry && (
 							<span style={{ display: 'flex', alignItems: 'center', gap: 7, font: `11px ${T.sans}`, color: T.sub, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-								<Badge status={VIS_STATUS[selectedEntry.visibility] ?? 'neutral'}>{VIS_LABEL[selectedEntry.visibility] ?? selectedEntry.visibility}</Badge>
+								<VisibilityChip level={VIS_CHIP[selectedEntry.visibility] ?? 'dm-only'} />
 								{selectedEntry.description || 'No description'}
 							</span>
 						)}
@@ -321,14 +452,17 @@ export function Atlas() {
 								Fog of war
 							</Button>
 						)}
-						<Button
-							variant="ghost"
-							size="sm"
-							icon="visibility-players"
-							onClick={() => setNotice('Projection to players runs from the Session console (session.project-active-map requires an active session). The live dot marks maps already delivered to this device.')}
-						>
-							Project to players
-						</Button>
+						{isDm && (
+							<Button
+								variant="ghost"
+								size="sm"
+								icon="visibility-players"
+								disabled={busy || !mapView}
+								onClick={() => void projectToPlayers()}
+							>
+								Project to players
+							</Button>
+						)}
 					</div>
 				</MapCanvas>
 
@@ -370,17 +504,23 @@ export function Atlas() {
 									</div>
 									{isDm ? (
 										<>
-											<button type="button" title="Toggle player visibility" disabled={busy} onClick={() => toggleLayerVisibility(l.layerId, l.visibility)} style={ghostBtn}>
-												<Icon name={l.visibility === 'dm-only' ? 'dm-only' : 'visibility-players'} size={15} color={l.visibility === 'dm-only' ? T.dm : T.ok} />
+											{/* compact chip = the grayscale-safe status display; the button stays the toggle */}
+											<button type="button" title={`Visibility: ${VIS_LABEL[l.visibility] ?? l.visibility} — click to toggle DM-only ↔ player-visible`} aria-label={`Toggle ${l.name} player visibility`} disabled={busy} onClick={() => toggleLayerVisibility(l.layerId, l.visibility)} style={ghostBtn}>
+												<VisibilityChip level={VIS_CHIP[l.visibility] ?? 'dm-only'} compact />
 											</button>
 											<Switch checked={l.enabled} aria-label={`Display ${l.name}`} onChange={() => toggleLayerEnabled(l.layerId, l.enabled)} />
 										</>
 									) : (
-										<Badge status={VIS_STATUS[l.visibility] ?? 'neutral'}>{VIS_LABEL[l.visibility] ?? l.visibility}</Badge>
+										<VisibilityChip level={VIS_CHIP[l.visibility] ?? 'dm-only'} />
 									)}
 								</div>
 							))}
-							{layers.length === 0 && <div style={{ font: `12.5px ${T.sans}`, color: T.ter, padding: '4px 6px' }}>No layers are visible to you.</div>}
+							{layers.length === 0 &&
+								(loading ? (
+									<Skeleton height={44} />
+								) : (
+									<EmptyState inset icon="layers" title="No layers are visible to you" description={isDm && selectedId ? 'Add one with the + above.' : undefined} />
+								))}
 						</div>
 					</Panel>
 
@@ -419,20 +559,33 @@ export function Atlas() {
 									</button>
 									{isDm ? (
 										<>
-											<button type="button" title="Toggle player visibility" disabled={busy} onClick={() => togglePoiVisibility(poi.id, poi.visibility)} style={ghostBtn}>
-												<Icon name={poi.visibility === 'dm-only' ? 'dm-only' : 'visibility-players'} size={15} color={poi.visibility === 'dm-only' ? T.dm : T.ok} />
+											{/* compact chip = the grayscale-safe status display; the button stays the toggle */}
+											<button type="button" title={`Visibility: ${VIS_LABEL[poi.visibility] ?? poi.visibility} — click to toggle DM-only ↔ player-visible`} aria-label={`Toggle ${poi.label} player visibility`} disabled={busy} onClick={() => togglePoiVisibility(poi.id, poi.visibility)} style={ghostBtn}>
+												<VisibilityChip level={VIS_CHIP[poi.visibility] ?? 'dm-only'} compact />
 											</button>
-											<button type="button" title="Delete POI" disabled={busy} onClick={() => deletePoi(poi.id)} style={ghostBtn}>
+											<button type="button" title="Delete POI" disabled={busy} onClick={() => void deletePoi(poi.id)} style={ghostBtn}>
 												<Icon name="delete" size={14} color={T.ter} />
 											</button>
 										</>
 									) : (
-										<Badge status={VIS_STATUS[poi.visibility] ?? 'neutral'}>{VIS_LABEL[poi.visibility] ?? poi.visibility}</Badge>
+										<VisibilityChip level={VIS_CHIP[poi.visibility] ?? 'dm-only'} />
 									)}
 								</div>
 							))}
-							{mapView && mapView.pois.length === 0 && <div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No points of interest{isDm ? ' yet.' : ' are visible to you.'}</div>}
-							{!mapView && <div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Open a map to see its points of interest.</div>}
+							{mapView && mapView.pois.length === 0 && (
+								<EmptyState
+									inset
+									icon="poi"
+									title={isDm ? 'No points of interest yet' : 'No points of interest are visible to you'}
+									description={isDm ? 'The builder’s POI tool places one at the exact clicked position.' : undefined}
+								/>
+							)}
+							{!mapView &&
+								(loading ? (
+									<Skeleton height={44} />
+								) : (
+									<EmptyState inset icon="atlas-map" title="Open a map to see its points of interest" />
+								))}
 						</div>
 					</Panel>
 
@@ -462,7 +615,7 @@ export function Atlas() {
 								{mapView.fog.slice(-4).map((op) => (
 									<div key={op.id} style={{ display: 'flex', alignItems: 'center', gap: 8, font: `11px ${T.mono}`, color: T.ter }}>
 										<Badge status={op.kind === 'reveal' ? 'success' : 'neutral'}>{op.kind}</Badge>
-										seq {op.sequence} · {Math.round(op.region.w * 100)}×{Math.round(op.region.h * 100)}% at {Math.round(op.region.x * 100)},{Math.round(op.region.y * 100)}
+										seq {op.sequence} · {fogRegionSummary(op.region)}
 									</div>
 								))}
 							</div>

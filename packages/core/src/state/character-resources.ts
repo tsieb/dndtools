@@ -80,6 +80,12 @@ export interface PreparedSpell {
 	name: string;
 	level: number;
 	prepared: boolean;
+	/** Optional spell DETAIL fields (SRD-style). All optional so records persisted before hydrate safely. */
+	castingTime?: string;
+	range?: string;
+	components?: string;
+	duration?: string;
+	school?: string;
 }
 
 /** The kinds of rest that can recover resources (CHAR-008 rest recovery). */
@@ -586,6 +592,12 @@ export interface SetSpellInput {
 	name: string;
 	level: number;
 	prepared: boolean;
+	/** Optional detail fields. Omitted ⇒ an existing spell's recorded detail is preserved. */
+	castingTime?: string;
+	range?: string;
+	components?: string;
+	duration?: string;
+	school?: string;
 }
 
 /** Add/update a known spell and its prepared flag (CHAR-008 "manage prepared spells"). Pure. */
@@ -599,12 +611,25 @@ export function setSpell(
 	if (!Number.isInteger(input.level) || input.level < 0 || input.level > 9) {
 		return { ok: false, error: 'invalid-amount', message: 'Spell level must be an integer 0–9.' };
 	}
+	const existing = resources.spells.find((s) => s.id === input.id);
 	const next: PreparedSpell = {
 		id: input.id,
 		name: input.name,
 		level: input.level,
 		prepared: input.prepared,
 	};
+	// Optional detail fields: a supplied value wins; an omitted one preserves the recorded detail so a
+	// prepared-flag toggle never erases previously-imported SRD detail.
+	const castingTime = input.castingTime ?? existing?.castingTime;
+	if (castingTime !== undefined) next.castingTime = castingTime;
+	const range = input.range ?? existing?.range;
+	if (range !== undefined) next.range = range;
+	const components = input.components ?? existing?.components;
+	if (components !== undefined) next.components = components;
+	const duration = input.duration ?? existing?.duration;
+	if (duration !== undefined) next.duration = duration;
+	const school = input.school ?? existing?.school;
+	if (school !== undefined) next.school = school;
 	const existingIndex = resources.spells.findIndex((s) => s.id === input.id);
 	const spells =
 		existingIndex === -1

@@ -1,0 +1,127 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Button, Icon } from '../ds';
+import { T } from '../app/screen-kit';
+import { useAuth } from '../cloud/AuthContext';
+import { isAuthConfigured } from '../cloud/config';
+import { AppApiError, resolveInvite, type ResolvedInvite } from '../cloud/appApi';
+
+/**
+ * Join — the invite-redeem landing (`#/join?token=…`). Chrome-less like `/play`: the person
+ * opening an invite link is a PLAYER with no vault, so they must never land in DM onboarding.
+ * The token resolves against the PUBLIC app-api route (no account needed to look, matching the
+ * server contract); the page then walks them to the player app, with a sign-in step when the
+ * build has cloud auth. Resolution failures render honestly (expired/revoked vs unreachable).
+ */
+
+type JoinState =
+	| { phase: 'loading' }
+	| { phase: 'missing' }
+	| { phase: 'invalid'; message: string }
+	| { phase: 'ready'; invite: ResolvedInvite };
+
+const WRAP: React.CSSProperties = {
+	minHeight: '100vh',
+	display: 'flex',
+	alignItems: 'center',
+	justifyContent: 'center',
+	padding: 24,
+	background: 'var(--color-bg)',
+};
+
+const CARD: React.CSSProperties = {
+	width: 'min(440px, 100%)',
+	display: 'flex',
+	flexDirection: 'column',
+	gap: 14,
+	padding: '28px 28px 24px',
+	borderRadius: 16,
+	border: `1px solid ${T.bd}`,
+	background: T.raised,
+	boxShadow: T.smd,
+};
+
+export function Join() {
+	const location = useLocation();
+	const navigate = useNavigate();
+	const auth = useAuth();
+	const token = useMemo(() => new URLSearchParams(location.search).get('token') ?? '', [location.search]);
+	const [state, setState] = useState<JoinState>(token ? { phase: 'loading' } : { phase: 'missing' });
+
+	useEffect(() => {
+		if (!token) {
+			setState({ phase: 'missing' });
+			return;
+		}
+		let cancelled = false;
+		setState({ phase: 'loading' });
+		resolveInvite(token)
+			.then((invite) => {
+				if (!cancelled) setState({ phase: 'ready', invite });
+			})
+			.catch((e: unknown) => {
+				if (cancelled) return;
+				const message =
+					e instanceof AppApiError ? e.message : 'This invite link could not be checked — try again.';
+				setState({ phase: 'invalid', message });
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [token]);
+
+	const signedOut = isAuthConfigured && auth.status !== 'signed-in';
+	return (
+		<div style={WRAP}>
+			<div style={CARD} role="main" aria-label="Campaign invite">
+				<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+					<span style={{ width: 38, height: 38, borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: T.accSub, color: T.acc }}>
+						<Icon name="send" size="md" />
+					</span>
+					<div style={{ font: `700 17px ${T.disp}`, color: T.ink }}>You’re invited</div>
+				</div>
+
+				{state.phase === 'loading' && (
+					<div style={{ font: `13px ${T.sans}`, color: T.ter }} role="status" aria-live="polite">Checking your invite…</div>
+				)}
+				{state.phase === 'missing' && (
+					<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>
+						This join link is missing its invite token. Ask your DM to copy the full link from
+						Settings → Players and send it again.
+					</div>
+				)}
+				{state.phase === 'invalid' && (
+					<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>{state.message}</div>
+				)}
+				{state.phase === 'ready' && (
+					<>
+						<div style={{ font: `13px/1.6 ${T.sans}`, color: T.sub }}>
+							<strong style={{ color: T.ink }}>{state.invite.invitedBy}</strong> invited you to join{' '}
+							<strong style={{ color: T.ink }}>{state.invite.campaignName}</strong>.
+							{state.invite.note ? ` “${state.invite.note}”` : ''}
+						</div>
+						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+							Invite expires {new Date(state.invite.expiresAt * 1000).toLocaleDateString()}.
+						</div>
+						{signedOut && (
+							<div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: T.surf, border: `1px solid ${T.bd}`, font: `12px/1.5 ${T.sans}`, color: T.sub }}>
+								<Icon name="UserCircle" size="sm" />
+								<span style={{ flex: 1 }}>Sign in (or create a free account) first if your table plays over the internet.</span>
+								<Button variant="secondary" size="sm" onClick={() => auth.openAuthModal()}>Sign in</Button>
+							</div>
+						)}
+						<Button variant="primary" icon="play" onClick={() => navigate('/play')}>
+							Open the player app
+						</Button>
+						<div style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+							From there, join your DM’s session with the room name and PIN they share at game time.
+						</div>
+					</>
+				)}
+				{(state.phase === 'invalid' || state.phase === 'missing') && (
+					<Button variant="secondary" onClick={() => navigate('/')}>Go to the app</Button>
+				)}
+			</div>
+		</div>
+	);
+}

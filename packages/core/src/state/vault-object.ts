@@ -79,6 +79,13 @@ function valueMatchesType(value: unknown, type: VaultObjectFieldType): boolean {
 			return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 		case 'object':
 			return typeof value === 'object' && value !== null && !Array.isArray(value);
+		case 'object-array':
+			return (
+				Array.isArray(value) &&
+				value.every(
+					(entry) => typeof entry === 'object' && entry !== null && !Array.isArray(entry),
+				)
+			);
 	}
 }
 
@@ -192,6 +199,18 @@ function coerceFieldValue(raw: string | string[] | undefined, type: VaultObjectF
 	switch (type) {
 		case 'string-array':
 			return Array.isArray(raw) ? [...raw] : [raw];
+		case 'object-array': {
+			// Each frontmatter entry is a JSON-serialized object (see `serializeFieldValue`). A
+			// non-parsable entry is kept verbatim so validation fails closed on the wrong type.
+			const entries = Array.isArray(raw) ? raw : [raw];
+			return entries.map((entry) => {
+				try {
+					return JSON.parse(entry) as unknown;
+				} catch {
+					return entry;
+				}
+			});
+		}
 		case 'number': {
 			const single = Array.isArray(raw) ? raw[0] : raw;
 			const n = Number(single);
@@ -212,7 +231,13 @@ function coerceFieldValue(raw: string | string[] | undefined, type: VaultObjectF
 
 /** Serialize a typed field value to the markdown-frontmatter scalar/list representation. */
 function serializeFieldValue(value: unknown): string | string[] {
-	if (Array.isArray(value)) return value.map((entry) => String(entry));
+	if (Array.isArray(value)) {
+		// Object entries (an `object-array` field, e.g. quest objectives) round-trip as JSON so
+		// `coerceFieldValue` can parse them back losslessly; string entries stay verbatim.
+		return value.map((entry) =>
+			typeof entry === 'object' && entry !== null ? JSON.stringify(entry) : String(entry),
+		);
+	}
 	if (typeof value === 'boolean') return value ? 'true' : 'false';
 	if (typeof value === 'number') return String(value);
 	if (value === undefined || value === null) return '';

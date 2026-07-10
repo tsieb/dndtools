@@ -1,12 +1,15 @@
 import {
 	createSceneInputSchema,
+	deleteSceneInputSchema,
 	instantiateSceneTemplateInputSchema,
+	restoreSceneInputSchema,
 	saveSceneTemplateInputSchema,
 	setSceneSectionsInputSchema,
 	updateSceneMetadataInputSchema,
 } from '../schemas/commands';
 import {
 	SCENE_SCHEMA_VERSION,
+	isLiveScene,
 	type Scene,
 	type SceneState,
 	type WidgetInstance,
@@ -141,6 +144,129 @@ export function handleUpdateSceneMetadata(
 				paths: changedPaths,
 			},
 		],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * SOFT-DELETE a scene (DM-only) — a TOMBSTONE, mirroring `content.remove-item`: the scene is stamped
+ * `deletedAt` + revision-bumped, leaves every actor-filtered read, and stays RECOVERABLE via
+ * `scene.restore`. Fail-closed guards: the session's ACTIVE scene and the Command Center HOME scene
+ * can never be deleted (they are load-bearing live surfaces), and a deleted scene cannot be re-deleted.
+ */
+export function handleDeleteScene(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(deleteSceneInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	// Read raw (not requireScene) so an already-tombstoned scene gets the DISTINCT rejection.
+	const scene = state.scenes.scenes[parsed.data.sceneId];
+	if (!scene) {
+		return reject(
+			{ code: 'scene-not-found', message: `Scene ${parsed.data.sceneId} does not exist.` },
+			state,
+		);
+	}
+	if (!isLiveScene(scene)) {
+		return reject(
+			{ code: 'scene-deleted', message: `Scene ${parsed.data.sceneId} is already deleted.` },
+			state,
+		);
+	}
+	if (state.session.activeSceneId === scene.id) {
+		return reject(
+			{ code: 'invalid-state', message: 'The active scene cannot be deleted.' },
+			state,
+		);
+	}
+	if (state.commandCenter.homeSceneId === scene.id) {
+		return reject(
+			{ code: 'invalid-state', message: 'The Command Center home scene cannot be deleted.' },
+			state,
+		);
+	}
+
+	const now = env.clock();
+	const nextScene = bumpRevision({ ...scene, deletedAt: now }, env);
+	const nextSceneState = withScene(state.scenes, scene.id, () => nextScene);
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'scene',
+		entityId: scene.id,
+		opType: 'scene.delete',
+		path: `scenes/${scene.id}`,
+		value: { sceneId: scene.id, softDelete: true },
+		beforeRevision: scene.ownership.revision,
+		afterRevision: nextScene.ownership.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, scenes: nextSceneState, sync: nextLog },
+		events: [{ kind: 'scene.deleted', sceneId: scene.id, actorId: actor.id }],
+		operationIds: [op.id],
+	};
+}
+
+/**
+ * RESTORE a soft-deleted scene (DM-only) — the undo counterpart of `scene.delete`, mirroring
+ * `content.restore-item`: clears the tombstone + bumps the revision. Fail closed: a live scene
+ * cannot be restored.
+ */
+export function handleRestoreScene(
+	state: CoreStateSlice,
+	env: CoreEnvironment,
+	actorId: string,
+	rawPayload: unknown,
+): CommandResult {
+	const actor = requireActor(state, actorId);
+	if ('code' in actor) return reject(actor, state);
+	const dmCheck = requireDm(actor);
+	if (dmCheck) return reject(dmCheck, state);
+
+	const parsed = parseInput(restoreSceneInputSchema, rawPayload);
+	if (!parsed.ok) return reject(parsed.rejection, state);
+
+	const scene = state.scenes.scenes[parsed.data.sceneId];
+	if (!scene) {
+		return reject(
+			{ code: 'scene-not-found', message: `Scene ${parsed.data.sceneId} does not exist.` },
+			state,
+		);
+	}
+	if (isLiveScene(scene)) {
+		return reject(
+			{ code: 'scene-not-deleted', message: `Scene ${parsed.data.sceneId} is not deleted.` },
+			state,
+		);
+	}
+
+	const nextScene = bumpRevision({ ...scene, deletedAt: null }, env);
+	const nextSceneState = withScene(state.scenes, scene.id, () => nextScene);
+
+	const { log: nextLog, op } = appendOperationDraft(env, state.sync, actor.id, {
+		entityType: 'scene',
+		entityId: scene.id,
+		opType: 'scene.restore',
+		path: `scenes/${scene.id}`,
+		value: { sceneId: scene.id },
+		beforeRevision: scene.ownership.revision,
+		afterRevision: nextScene.ownership.revision,
+	});
+
+	return {
+		status: 'accepted',
+		nextState: { ...state, scenes: nextSceneState, sync: nextLog },
+		events: [{ kind: 'scene.restored', sceneId: scene.id, actorId: actor.id }],
 		operationIds: [op.id],
 	};
 }

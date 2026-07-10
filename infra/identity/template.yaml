@@ -74,6 +74,12 @@ Resources:
       UserAttributeUpdateSettings:
         AttributesRequireVerificationBeforeUpdate:
           - email
+      # Device tracking backs the app-api "signed-in devices" list + per-device revoke.
+      # Auto-remember (no user prompt, no new-device challenge) — the app surfaces the
+      # list read-only and offers revoke; it never gates sign-in on device state.
+      DeviceConfiguration:
+        ChallengeRequiredOnNewDevice: false
+        DeviceOnlyRememberedOnUserPrompt: false
       DeletionProtection: ACTIVE
       UserPoolTags:
         project: !Ref ProjectName

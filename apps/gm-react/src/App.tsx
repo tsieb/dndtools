@@ -6,6 +6,7 @@ import { Component, Suspense, lazy, useEffect, type CSSProperties, type ReactNod
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RuntimeProvider, useRuntime } from './runtime/RuntimeContext';
 import { AuthProvider } from './cloud/AuthContext';
+import { EntitlementsProvider } from './cloud/entitlements';
 import { CloudSyncProvider } from './cloud/CloudSyncContext';
 import { SessionProvider } from './net/SessionContext';
 import { ensureAudioPlayback } from './runtime/audio-playback';
@@ -33,6 +34,7 @@ const Community = lazy(() => import('./screens/Community').then((m) => ({ defaul
 const Player = lazy(() => import('./screens/Player').then((m) => ({ default: m.Player })));
 const Upgrade = lazy(() => import('./screens/Upgrade').then((m) => ({ default: m.Upgrade })));
 const PlayerView = lazy(() => import('./screens/PlayerView').then((m) => ({ default: m.PlayerView })));
+const Join = lazy(() => import('./screens/Join').then((m) => ({ default: m.Join })));
 
 const CENTERED: CSSProperties = {
 	display: 'flex',
@@ -175,6 +177,16 @@ function Shell() {
 					</Suspense>
 				}
 			/>
+			{/* invite-redeem landing: chrome-less like /play — an invitee has no vault and must
+			    never be dropped into DM onboarding. */}
+			<Route
+				path="/join"
+				element={
+					<Suspense fallback={<Boot />}>
+						<Join />
+					</Suspense>
+				}
+			/>
 			<Route path="/*" element={<ShelledRoutes />} />
 		</Routes>
 	);
@@ -194,15 +206,17 @@ export function App() {
 	return (
 		<RuntimeProvider>
 			<AuthProvider>
-				<CloudSyncProvider>
-					<SessionProvider>
-						<HashRouter>
-							<ErrorBoundary>
-								<Shell />
-							</ErrorBoundary>
-						</HashRouter>
-					</SessionProvider>
-				</CloudSyncProvider>
+				<EntitlementsProvider>
+					<CloudSyncProvider>
+						<SessionProvider>
+							<HashRouter>
+								<ErrorBoundary>
+									<Shell />
+								</ErrorBoundary>
+							</HashRouter>
+						</SessionProvider>
+					</CloudSyncProvider>
+				</EntitlementsProvider>
 			</AuthProvider>
 		</RuntimeProvider>
 	);
