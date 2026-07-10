@@ -29,7 +29,6 @@ import {
 	isGoogleDocsConfigured,
 	isGoogleSignedIn,
 	listGdocConnections,
-	maybeCompleteGoogleAuth,
 	pushMarkdownToDoc,
 	removeGdocConnection,
 	signOutGoogle,
@@ -143,11 +142,9 @@ export function ConnectedSourcesPanel() {
 	};
 
 	useEffect(() => {
+		// A popup-blocked full-redirect sign-in was already captured pre-router (main.tsx →
+		// captureGoogleAuthRedirect), so the initial isGoogleSignedIn() state reflects it.
 		void refresh();
-		// Finish a popup-blocked full-redirect Google sign-in, if one is pending on this URL.
-		void maybeCompleteGoogleAuth().then((completed) => {
-			if (completed) setGoogleSignedIn(true);
-		});
 	}, []);
 
 	const setStatusFor = (key: string, message: string) =>

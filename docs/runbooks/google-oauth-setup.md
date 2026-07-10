@@ -5,7 +5,9 @@ The Google Docs vault-source connection (import + write-back in the Knowledge/Co
 build carries a Google OAuth client id in `VITE_GOOGLE_CLIENT_ID`. Registering that client
 is a human step in the Google Cloud console — it cannot be automated from this repo.
 
-The integration uses OAuth 2.0 with PKCE from the browser and requests ONLY the
+The integration uses the OAuth 2.0 **token grant** from the browser (GIS-style
+`response_type=token` in a popup — the access token comes back in the redirect fragment, so
+there is **no token-endpoint call and no client secret in the bundle**). It requests ONLY the
 `https://www.googleapis.com/auth/drive.file` scope (per-file access to files the user
 explicitly picks/creates). `drive.file` is a **non-restricted** scope, so no Google
 security review is required for testing or small-scale use.
@@ -27,9 +29,9 @@ security review is required for testing or small-scale use.
      - `http://localhost:5273` (vite dev)
      - `http://localhost:4273` (vite preview)
      - `https://d1xn0o010v89mt.cloudfront.net` (deployed dev web app — adjust per stage)
-   - Authorized redirect URIs — the app implements the **authorization-code + PKCE** flow
-     (popup-first with a full-redirect fallback), so the app's own page URL must be a
-     registered redirect URI (origin + path, no `#/…` fragment):
+   - Authorized redirect URIs — the token grant returns to the app's own page URL
+     (popup-first with a full-redirect fallback), so that URL must be a registered
+     redirect URI (origin + path, no `#/…` fragment):
      - `http://localhost:5273/`
      - `http://localhost:4273/`
      - `https://d1xn0o010v89mt.cloudfront.net/`
@@ -53,16 +55,14 @@ security review is required for testing or small-scale use.
 
 ## Notes / gotchas
 
-- **If the token exchange fails with a `client_secret`-related error** (e.g.
-  `invalid_request: client_secret is missing`): Google sometimes requires a client secret
-  at the token endpoint for "Web application"-type clients even with PKCE, and the app
-  deliberately ships no secret. Workarounds, in preference order: (1) some Google Cloud
-  console flows let you create a web client without a secret requirement — try recreating
-  the client; (2) for **local-only** use, a "Desktop app"-type client id exchanges
-  secret-less, but Desktop clients only allow loopback redirect URIs, so the deployed
-  CloudFront origin cannot use one. If neither works for the deployed app, that's a code
-  change (switch to the GIS token model), not a console setting — file it rather than
-  pasting a secret into the bundle.
+- **Why the token grant (and not authorization-code + PKCE)**: verified 2026-07-10 against a
+  freshly created Web-application client — Google's token endpoint refuses the secret-less
+  code exchange (`invalid_request: client_secret is missing.`) even with PKCE; Web clients
+  are treated as confidential there, and the app must never ship a secret in the bundle. The
+  token grant needs no token-endpoint call at all, which is exactly the model Google's own
+  GIS SDK uses for browser apps. The web client's issued `client_secret` is therefore unused;
+  it is parked in SSM (`/dndtools/dev/google/client-secret`, SecureString) purely so it never
+  lives in a file — nothing reads it.
 - **Testing mode tokens expire**: consent-screen "Testing" apps issue short-lived tokens
   without refresh; the app holds them in sessionStorage only and shows an honest
   "sign in again" state on expiry. Publish the consent screen only if/when this leaves

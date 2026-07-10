@@ -1,8 +1,10 @@
 /**
- * googleDocs — the GOOGLE DOCS vault source (WS-7, product decision E). OAuth 2 authorization-code +
- * PKCE from the browser (no client secret in the bundle — the code exchange carries only the
- * `code_verifier`), requesting ONLY the non-restricted `drive.file` scope, so the app can reach just
- * the Docs the user created through it or explicitly connected.
+ * googleDocs — the GOOGLE DOCS vault source (WS-7, product decision E). OAuth 2 TOKEN grant from a
+ * popup (GIS-style `response_type=token` — the access token comes back in the redirect fragment, so
+ * there is NO token-endpoint call: Google requires `client_secret` at that endpoint for
+ * Web-application clients, and a browser bundle must never carry a secret). Requests ONLY the
+ * non-restricted `drive.file` scope, so the app can reach just the Docs the user created through it
+ * or explicitly connected.
  *
  * FAIL CLOSED: the entire feature is hidden/disabled until the build carries a client id in
  * `VITE_GOOGLE_CLIENT_ID` ({@link isGoogleDocsConfigured} — same pattern as cloud/config.ts). The
@@ -34,37 +36,17 @@ export const googleDocsClientId: string = (() => {
 export const isGoogleDocsConfigured: boolean = googleDocsClientId !== '';
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
-const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const DOCS_API_BASE = 'https://docs.googleapis.com/v1/documents';
 /** Per-file access to files the user creates/opens with this app. Non-restricted; never widen it. */
 const GOOGLE_DOCS_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
-// --- PKCE helpers (pure over injectable crypto — unit-testable in Node) --------------------------
+// --- encoding helper (pure — unit-testable in Node) -----------------------------------------------
 
 /** RFC 4648 §5 base64url (no padding) of raw bytes. */
 export function bytesToBase64Url(bytes: Uint8Array): string {
 	let binary = '';
 	for (const byte of bytes) binary += String.fromCharCode(byte);
 	return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-export interface PkcePair {
-	verifier: string;
-	challenge: string;
-}
-
-/**
- * Create an RFC 7636 code_verifier (43-char base64url of 32 random bytes) + S256 code_challenge.
- * Crypto is injectable so the pair is testable in Node (globalThis.crypto is the browser default).
- */
-export async function createPkcePair(
-	cryptoImpl: Pick<Crypto, 'getRandomValues' | 'subtle'> = globalThis.crypto,
-): Promise<PkcePair> {
-	const random = new Uint8Array(32);
-	cryptoImpl.getRandomValues(random);
-	const verifier = bytesToBase64Url(random);
-	const digest = await cryptoImpl.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-	return { verifier, challenge: bytesToBase64Url(new Uint8Array(digest)) };
 }
 
 // --- token custody (memory + sessionStorage ONLY — never localStorage) ---------------------------
@@ -128,7 +110,7 @@ export function signOutGoogle(): void {
 	}
 }
 
-// --- OAuth flow (popup-first authorization-code + PKCE; full-redirect fallback) ------------------
+// --- OAuth flow (popup-first token grant; full-redirect fallback) ---------------------------------
 
 function authRedirectUri(): string {
 	// HashRouter: origin + pathname is stable regardless of the in-app route (no fragment allowed
@@ -136,52 +118,39 @@ function authRedirectUri(): string {
 	return `${window.location.origin}${window.location.pathname}`;
 }
 
-function buildAuthUrl(challenge: string, state: string, redirectUri: string): string {
+function buildAuthUrl(state: string, redirectUri: string): string {
 	const params = new URLSearchParams({
 		client_id: googleDocsClientId,
 		redirect_uri: redirectUri,
-		response_type: 'code',
+		response_type: 'token',
 		scope: GOOGLE_DOCS_SCOPE,
-		code_challenge: challenge,
-		code_challenge_method: 'S256',
 		state,
 	});
 	return `${GOOGLE_AUTH_URL}?${params.toString()}`;
 }
 
-async function exchangeCode(code: string, verifier: string, redirectUri: string): Promise<void> {
-	const body = new URLSearchParams({
-		grant_type: 'authorization_code',
-		code,
-		client_id: googleDocsClientId,
-		redirect_uri: redirectUri,
-		code_verifier: verifier,
-	});
-	const response = await fetch(GOOGLE_TOKEN_URL, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-		body: body.toString(),
-	});
-	const payload = (await response.json().catch(() => ({}))) as {
-		access_token?: string;
-		expires_in?: number;
-		error?: string;
-		error_description?: string;
-	};
-	if (!response.ok || typeof payload.access_token !== 'string') {
-		throw new GoogleDocsError(
-			'auth',
-			response.status,
-			`Google token exchange failed${payload.error ? ` (${payload.error})` : ''}: ${
-				payload.error_description ?? 'no access token returned'
-			}.`,
-		);
-	}
-	storeToken(payload.access_token, payload.expires_in ?? 3600);
+interface TokenGrant {
+	accessToken: string;
+	expiresIn: number;
 }
 
-/** Poll a popup until it returns to our origin carrying ?code&state, is closed, or times out. */
-function pollPopupForCode(popup: Window, state: string): Promise<string | null> {
+/**
+ * Parse a token-grant redirect FRAGMENT (`#access_token=…&expires_in=…&state=…`). Null when the
+ * fragment carries no token or the anti-CSRF state doesn't match. Pure (unit-tested in Node).
+ */
+export function parseTokenFragment(hash: string, expectedState: string): TokenGrant | null {
+	const params = new URLSearchParams(hash.replace(/^#/, ''));
+	const accessToken = params.get('access_token');
+	if (!accessToken || params.get('state') !== expectedState) return null;
+	const expiresIn = Number(params.get('expires_in'));
+	return {
+		accessToken,
+		expiresIn: Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600,
+	};
+}
+
+/** Poll a popup until it returns to our origin carrying the token fragment, closes, or times out. */
+function pollPopupForToken(popup: Window, state: string): Promise<TokenGrant | null> {
 	return new Promise((resolve) => {
 		const startedAt = Date.now();
 		const timer = window.setInterval(() => {
@@ -200,11 +169,10 @@ function pollPopupForCode(popup: Window, state: string): Promise<string | null> 
 			try {
 				const url = new URL(popup.location.href);
 				if (url.origin !== window.location.origin) return;
-				const code = url.searchParams.get('code');
-				const returnedState = url.searchParams.get('state');
+				const grant = parseTokenFragment(url.hash, state);
 				window.clearInterval(timer);
 				popup.close();
-				resolve(code && returnedState === state ? code : null);
+				resolve(grant);
 			} catch {
 				/* still on the Google origin */
 			}
@@ -218,9 +186,10 @@ export type GoogleAuthOutcome =
 	| { status: 'failed'; message: string };
 
 /**
- * Start the sign-in: open the Google consent POPUP and complete the PKCE code exchange when it
- * returns. If the popup is blocked, falls back to a FULL-PAGE redirect (the pending verifier is
- * stashed in sessionStorage and {@link maybeCompleteGoogleAuth} finishes the exchange on return).
+ * Start the sign-in: open the Google consent POPUP and store the granted token when it returns. If
+ * the popup is blocked, falls back to a FULL-PAGE redirect (the pending state is stashed in
+ * sessionStorage and {@link captureGoogleAuthRedirect} — called from main.tsx BEFORE the router
+ * mounts — picks the token out of the return fragment).
  */
 export async function connectGoogleAccount(): Promise<GoogleAuthOutcome> {
 	if (!isGoogleDocsConfigured) {
@@ -229,16 +198,15 @@ export async function connectGoogleAccount(): Promise<GoogleAuthOutcome> {
 			message: `Google Docs isn’t configured in this build (see ${GOOGLE_DOCS_SETUP_RUNBOOK}).`,
 		};
 	}
-	const { verifier, challenge } = await createPkcePair();
 	const state = bytesToBase64Url(crypto.getRandomValues(new Uint8Array(16)));
 	const redirectUri = authRedirectUri();
-	const url = buildAuthUrl(challenge, state, redirectUri);
+	const url = buildAuthUrl(state, redirectUri);
 	const popup = window.open(url, 'dndtools-google-auth', 'popup,width=480,height=680');
 	if (!popup) {
 		try {
 			sessionStorage.setItem(
 				PENDING_AUTH_KEY,
-				JSON.stringify({ verifier, state, redirectUri, returnHash: window.location.hash }),
+				JSON.stringify({ state, returnHash: window.location.hash }),
 			);
 		} catch {
 			return { status: 'failed', message: 'Sign-in needs sessionStorage, which is unavailable.' };
@@ -246,22 +214,19 @@ export async function connectGoogleAccount(): Promise<GoogleAuthOutcome> {
 		window.location.assign(url);
 		return { status: 'redirecting' };
 	}
-	const code = await pollPopupForCode(popup, state);
-	if (!code) return { status: 'failed', message: 'Google sign-in was cancelled.' };
-	try {
-		await exchangeCode(code, verifier, redirectUri);
-		return { status: 'signed-in' };
-	} catch (error) {
-		return { status: 'failed', message: error instanceof Error ? error.message : String(error) };
-	}
+	const grant = await pollPopupForToken(popup, state);
+	if (!grant) return { status: 'failed', message: 'Google sign-in was cancelled.' };
+	storeToken(grant.accessToken, grant.expiresIn);
+	return { status: 'signed-in' };
 }
 
 /**
- * Finish a FULL-REDIRECT sign-in (popup-blocked fallback): if the current URL carries the ?code
- * matching a stashed pending auth, exchange it, scrub the query from the URL, and restore the
- * in-app hash route the user started from. Safe to call on every panel mount (no-op otherwise).
+ * Finish a FULL-REDIRECT sign-in (popup-blocked fallback). The token arrives in the URL FRAGMENT,
+ * which HashRouter would otherwise consume as a route — so main.tsx MUST call this synchronously
+ * BEFORE rendering the app. No-op unless a pending auth is stashed and the fragment carries a
+ * matching token; on capture it stores the token and restores the hash route the user started from.
  */
-export async function maybeCompleteGoogleAuth(): Promise<boolean> {
+export function captureGoogleAuthRedirect(): boolean {
 	let pendingRaw: string | null;
 	try {
 		pendingRaw = sessionStorage.getItem(PENDING_AUTH_KEY);
@@ -269,21 +234,15 @@ export async function maybeCompleteGoogleAuth(): Promise<boolean> {
 		return false;
 	}
 	if (!pendingRaw) return false;
-	const params = new URLSearchParams(window.location.search);
-	const code = params.get('code');
-	const state = params.get('state');
-	if (!code || !state) return false;
+	if (!/[#&]access_token=/.test(window.location.hash)) return false;
 	try {
-		const pending = JSON.parse(pendingRaw) as {
-			verifier: string;
-			state: string;
-			redirectUri: string;
-			returnHash?: string;
-		};
+		// One-shot: the pending stash is consumed whether or not the fragment validates.
 		sessionStorage.removeItem(PENDING_AUTH_KEY);
-		if (pending.state !== state) return false;
-		await exchangeCode(code, pending.verifier, pending.redirectUri);
-		const hash = pending.returnHash || window.location.hash;
+		const pending = JSON.parse(pendingRaw) as { state: string; returnHash?: string };
+		const grant = parseTokenFragment(window.location.hash, pending.state);
+		if (!grant) return false;
+		storeToken(grant.accessToken, grant.expiresIn);
+		const hash = pending.returnHash || '#/';
 		window.history.replaceState(null, '', `${window.location.pathname}${hash}`);
 		return true;
 	} catch {

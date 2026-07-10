@@ -1,16 +1,15 @@
-import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
 	bytesToBase64Url,
-	createPkcePair,
 	docEndIndex,
 	docToMarkdown,
 	extractDocIdFromInput,
 	markdownToDocRequests,
+	parseTokenFragment,
 	type GDocDocument,
 } from './googleDocs';
 
-// --- PKCE helpers -----------------------------------------------------------------------------------
+// --- OAuth helpers ------------------------------------------------------------------------------------
 
 describe('bytesToBase64Url', () => {
 	it('encodes without padding using the url-safe alphabet', () => {
@@ -21,26 +20,25 @@ describe('bytesToBase64Url', () => {
 	});
 });
 
-describe('createPkcePair', () => {
-	it('derives the S256 challenge from a 43-char base64url verifier', async () => {
-		const { verifier, challenge } = await createPkcePair();
-		expect(verifier).toMatch(/^[A-Za-z0-9_-]{43}$/);
-		const expected = createHash('sha256').update(verifier).digest('base64url');
-		expect(challenge).toBe(expected);
+describe('parseTokenFragment', () => {
+	it('parses a token-grant fragment with a matching state', () => {
+		const grant = parseTokenFragment(
+			'#state=abc123&access_token=ya29.tok&token_type=Bearer&expires_in=3599&scope=drive.file',
+			'abc123',
+		);
+		expect(grant).toEqual({ accessToken: 'ya29.tok', expiresIn: 3599 });
 	});
 
-	it('uses the injected randomness (deterministic pair for a fixed source)', async () => {
-		const fixed: Pick<Crypto, 'getRandomValues' | 'subtle'> = {
-			getRandomValues: <T>(array: T): T => {
-				(array as unknown as Uint8Array).fill(7);
-				return array;
-			},
-			subtle: globalThis.crypto.subtle,
-		};
-		const a = await createPkcePair(fixed);
-		const b = await createPkcePair(fixed);
-		expect(a).toEqual(b);
-		expect(a.verifier).toBe(bytesToBase64Url(new Uint8Array(32).fill(7)));
+	it('rejects a state mismatch and a fragment without a token', () => {
+		expect(parseTokenFragment('#access_token=ya29.tok&state=evil', 'abc123')).toBeNull();
+		expect(parseTokenFragment('#error=access_denied&state=abc123', 'abc123')).toBeNull();
+		expect(parseTokenFragment('#/atlas?map=m1', 'abc123')).toBeNull();
+	});
+
+	it('defaults a missing or malformed expires_in to one hour', () => {
+		expect(parseTokenFragment('#access_token=t&state=s', 's')?.expiresIn).toBe(3600);
+		expect(parseTokenFragment('#access_token=t&state=s&expires_in=nope', 's')?.expiresIn).toBe(3600);
+		expect(parseTokenFragment('#access_token=t&state=s&expires_in=-5', 's')?.expiresIn).toBe(3600);
 	});
 });
 
