@@ -23,6 +23,7 @@ let passed = 0;
 let failed = 0;
 const ok = (n) => { console.log(`  ✓ ${n}`); passed++; };
 const bad = (n, d) => { console.log(`  ✗ ${n}${d ? ' — ' + d : ''}`); failed++; };
+const check = (cond, n, d) => (cond ? ok(n) : bad(n, d));
 
 const authed = { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' };
 const req = (path, opts = {}) =>
@@ -32,7 +33,7 @@ const anon = (path, opts = {}) => fetch(`${APP_API_URL}${path}`, opts);
 // --- 1. auth gate -------------------------------------------------------------------
 {
   const r = await anon('/account/entitlements');
-  r.status === 401 ? ok('unauthenticated entitlements read is rejected (401)') : bad('auth gate', `status ${r.status}`);
+  check(r.status === 401, 'unauthenticated entitlements read is rejected (401)', `status ${r.status}`);
 }
 
 // --- 2. entitlements ----------------------------------------------------------------
@@ -41,14 +42,14 @@ const anon = (path, opts = {}) => fetch(`${APP_API_URL}${path}`, opts);
   if (!r.ok) bad('entitlements read', `status ${r.status}`);
   else {
     const body = await r.json();
-    body.plan ? ok(`entitlements resolve (plan=${body.plan})`) : bad('entitlements read', 'no plan in body');
-    body.simulated === true ? ok('entitlements are marked simulated') : bad('simulated flag', JSON.stringify(body));
+    check(Boolean(body.plan), `entitlements resolve (plan=${body.plan})`, 'no plan in body');
+    check(body.simulated === true, 'entitlements are marked simulated', JSON.stringify(body));
   }
   const w = await req('/account/entitlements', { method: 'POST', body: JSON.stringify({ plan: 'lantern' }) });
   if (!w.ok) bad('simulated plan change', `status ${w.status}`);
   else {
     const back = await (await req('/account/entitlements')).json();
-    back.plan === 'lantern' ? ok('simulated plan change round-trips') : bad('plan round-trip', JSON.stringify(back));
+    check(back.plan === 'lantern', 'simulated plan change round-trips', JSON.stringify(back));
   }
 }
 
@@ -65,16 +66,16 @@ let moduleId = null;
   if (!r.ok) bad('module publish', `status ${r.status}: ${await r.text()}`);
   else {
     moduleId = (await r.json()).moduleId;
-    moduleId ? ok(`module published (${moduleId})`) : bad('module publish', 'no moduleId returned');
+    check(Boolean(moduleId), `module published (${moduleId})`, 'no moduleId returned');
   }
   if (moduleId) {
     const list = await (await req('/marketplace/modules')).json();
     const found = (list.modules ?? []).some((m) => m.moduleId === moduleId);
-    found ? ok('published module appears in browse') : bad('browse', 'module missing from list');
+    check(found, 'published module appears in browse', 'module missing from list');
     const got = await (await req(`/marketplace/modules/${moduleId}`)).json();
-    got.package?.meta?.verify === true ? ok('module payload fetch matches published package') : bad('payload fetch', JSON.stringify(got).slice(0, 200));
+    check(got.package?.meta?.verify === true, 'module payload fetch matches published package', JSON.stringify(got).slice(0, 200));
     const del = await req(`/marketplace/modules/${moduleId}`, { method: 'DELETE' });
-    del.ok ? ok('own-module delete works') : bad('module delete', `status ${del.status}`);
+    check(del.ok, 'own-module delete works', `status ${del.status}`);
   }
 }
 
@@ -84,26 +85,26 @@ let moduleId = null;
   if (!r.ok) bad('invite create', `status ${r.status}: ${await r.text()}`);
   else {
     const { inviteId, token } = await r.json();
-    inviteId && token ? ok('invite minted with join token') : bad('invite create', 'missing inviteId/token');
+    check(Boolean(inviteId && token), 'invite minted with join token', 'missing inviteId/token');
     const list = await (await req('/invites')).json();
-    (list.invites ?? []).some((i) => i.inviteId === inviteId) ? ok('invite listed as pending') : bad('invite list', 'not listed');
+    check((list.invites ?? []).some((i) => i.inviteId === inviteId), 'invite listed as pending', 'not listed');
     const pub = await anon(`/invites/resolve/${token}`);
     if (!pub.ok) bad('public invite resolve', `status ${pub.status}`);
     else {
       const meta = await pub.json();
-      meta.campaignName === 'Verify Campaign' ? ok('public resolve returns join metadata (no auth)') : bad('resolve body', JSON.stringify(meta));
+      check(meta.campaignName === 'Verify Campaign', 'public resolve returns join metadata (no auth)', JSON.stringify(meta));
     }
     const rev = await req(`/invites/${inviteId}`, { method: 'DELETE' });
-    rev.ok ? ok('invite revoke works') : bad('invite revoke', `status ${rev.status}`);
+    check(rev.ok, 'invite revoke works', `status ${rev.status}`);
     const gone = await anon(`/invites/resolve/${token}`);
-    gone.status === 404 || gone.status === 410 ? ok('revoked invite no longer resolves') : bad('revoked resolve', `status ${gone.status}`);
+    check(gone.status === 404 || gone.status === 410, 'revoked invite no longer resolves', `status ${gone.status}`);
   }
 }
 
 // --- 5. tenant isolation --------------------------------------------------------------
 {
   const r = await req('/marketplace/modules/not-my-module-id', { method: 'DELETE' });
-  r.status === 403 || r.status === 404 ? ok('foreign module delete refused') : bad('tenant isolation', `status ${r.status}`);
+  check(r.status === 403 || r.status === 404, 'foreign module delete refused', `status ${r.status}`);
 }
 
 console.log(`\napp-api verify: ${passed} passed, ${failed} failed`);

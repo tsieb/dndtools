@@ -12,10 +12,28 @@ import {
 	visibleFeatures,
 	type FeatureTier,
 } from '@dndtools/core';
-import { Avatar, Badge, Button, Chip, DataTable, Dialog, Icon, IconButton, ProgressMeter, StatusDot, Switch, Toaster } from '../ds';
-import { Page, Panel, Seg, SetRow, T, eb } from '../app/screen-kit';
+import { Avatar, Badge, Button, Chip, DataTable, Dialog, Icon, IconButton, Input, ProgressMeter, StatusDot, Switch, Textarea, Toaster } from '../ds';
+import { Page, Panel, Seg, SetRow, T } from '../app/screen-kit';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useCloudSync } from '../cloud/CloudSyncContext';
+import { useAuth } from '../cloud/AuthContext';
+import { isAccountApiConfigured } from '../cloud/config';
+import {
+	createInvite as apiCreateInvite,
+	deleteAccount as apiDeleteAccount,
+	exportAccountData,
+	getProfile,
+	listDevices,
+	listInvites,
+	revokeAllSessions,
+	revokeDevice,
+	revokeInvite as apiRevokeInvite,
+	updateProfile,
+	type Device,
+	type Invite,
+	type Profile,
+} from '../cloud/appApi';
+import { qrDataUrl } from '../net/qr';
 import { ONBOARDED_KEY, REPLAY_EVENT } from '../app/Onboarding';
 import { DNDAccount, DNDExt, DNDGaps2, DNDPages } from '../runtime/mockCampaign';
 
@@ -29,8 +47,11 @@ import { DNDAccount, DNDExt, DNDGaps2, DNDPages } from '../runtime/mockCampaign'
  *   • PERSISTED DISPLAY PREFS — Appearance (theme/density/motion → `data-*` attrs restored pre-paint by
  *     index.html) and Accessibility (reduce-motion / high-contrast toggles that write the SAME persisted
  *     attrs, so there is one source of truth). The feature tier is persisted to localStorage too.
- *   • HONEST STUBS (`// no core command`) — Account, Subscription, Vault, AI, Plugins, Systems. Billing,
- *     identity, AI-provider and the plugin/system registry are out of the local-first Core's scope, so
+ *   • REAL CLOUD (app-api, when configured + signed in) — Account (profile edit, signed-in devices +
+ *     revoke, data export, delete account) and the Players tab's pending invites (server-minted join
+ *     links). Fail-closed: unconfigured/signed-out builds show honest labeled states instead.
+ *   • HONEST STUBS (`// no core command`) — Subscription billing detail, Vault, AI, Plugins, Systems.
+ *     Billing, AI-provider and the plugin/system registry are out of the local-first Core's scope, so
  *     these stay device-local mock state; UI prefs that make sense to keep (notifications) are persisted.
  */
 
@@ -144,15 +165,267 @@ function SettingsAppearance() {
 	);
 }
 
-/* ---- Account (honest stub — no core command for identity/billing/devices) --------------------- */
+/* ---- Account — REAL app-api backend when configured + signed in (profile edit, devices,
+ * export, delete); honest labeled fallback otherwise. ------------------------------------------- */
+
+// TODO(ws-1): use platform/download once the shared download util lands.
+function downloadJsonLocal(filename: string, value: unknown) {
+	const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }));
+	const anchor = document.createElement('a');
+	anchor.href = url;
+	anchor.download = filename;
+	document.body.appendChild(anchor);
+	anchor.click();
+	anchor.remove();
+	setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+const errMsg = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
+
+/** Profile from Cognito via the app-api: display-name edit is a REAL account write. */
+function AccountProfilePanel() {
+	const [profile, setProfile] = useState<Profile | null>(null);
+	const [failed, setFailed] = useState(false);
+	const [editing, setEditing] = useState(false);
+	const [draft, setDraft] = useState('');
+	const [busy, setBusy] = useState(false);
+	useEffect(() => {
+		let cancelled = false;
+		getProfile()
+			.then((prof) => {
+				if (!cancelled) setProfile(prof);
+			})
+			.catch(() => {
+				if (!cancelled) setFailed(true);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+	const save = () => {
+		const name = draft.trim();
+		if (!name || name.length > 60) {
+			Toaster.error('Display name must be 1–60 characters.');
+			return;
+		}
+		setBusy(true);
+		updateProfile(name)
+			.then((displayName) => {
+				setProfile((prof) => (prof ? { ...prof, displayName } : prof));
+				setEditing(false);
+				Toaster.success('Display name updated.');
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not update your profile.')))
+			.finally(() => setBusy(false));
+	};
+	const shownName = profile?.displayName || profile?.email || '…';
+	return (
+		<Panel title="Profile" action={<Badge status="success" icon="check">Cloud account</Badge>}>
+			{failed ? (
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Couldn’t load your profile — check your connection and reopen this tab.</div>
+			) : (
+				<div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+					<Avatar name={shownName} size="lg" ring="active" />
+					<div style={{ flex: 1, minWidth: 0 }}>
+						{editing ? (
+							<div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: 380 }}>
+								<Input value={draft} onChange={(e: { target: { value: string } }) => setDraft(e.target.value)} placeholder="Display name" aria-label="Display name" maxLength={60} />
+								<Button variant="primary" size="sm" icon="check" disabled={busy} onClick={save}>Save</Button>
+								<Button variant="ghost" size="sm" disabled={busy} onClick={() => setEditing(false)}>Cancel</Button>
+							</div>
+						) : (
+							<div style={{ font: `700 18px ${T.disp}` }}>{shownName}</div>
+						)}
+						<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>{profile?.email ?? ''}</div>
+						{profile?.createdAt && (
+							<div style={{ display: 'flex', gap: 7, marginTop: 7, flexWrap: 'wrap' }}>
+								<Badge status="neutral">Member since {new Date(profile.createdAt).toLocaleDateString()}</Badge>
+							</div>
+						)}
+					</div>
+					{!editing && (
+						<Button
+							variant="secondary"
+							size="sm"
+							icon="edit"
+							disabled={!profile}
+							onClick={() => {
+								setDraft(profile?.displayName ?? '');
+								setEditing(true);
+							}}
+						>
+							Edit
+						</Button>
+					)}
+				</div>
+			)}
+		</Panel>
+	);
+}
+
+/** Signed-in devices from Cognito device tracking: per-device revoke + global sign-out. */
+function AccountDevicesPanel() {
+	const auth = useAuth();
+	const [devices, setDevices] = useState<Device[] | null>(null);
+	const [failed, setFailed] = useState(false);
+	const [busy, setBusy] = useState(false);
+	const load = () => {
+		listDevices()
+			.then(setDevices)
+			.catch(() => setFailed(true));
+	};
+	useEffect(load, []);
+	const revoke = (deviceKey: string) => {
+		setBusy(true);
+		revokeDevice(deviceKey)
+			.then(() => {
+				setDevices((list) => (list ? list.filter((d) => d.deviceKey !== deviceKey) : list));
+				Toaster.success('Device revoked.');
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not revoke that device.')))
+			.finally(() => setBusy(false));
+	};
+	const signOutEverywhere = () => {
+		setBusy(true);
+		revokeAllSessions()
+			.then(async () => {
+				Toaster.success('Signed out everywhere — sign in again to continue.');
+				await auth.signOut(); // the global revoke killed this session's refresh token too
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not sign out everywhere.')))
+			.finally(() => setBusy(false));
+	};
+	return (
+		<Panel
+			title="Signed-in devices"
+			action={<Button variant="ghost" size="sm" icon="close" disabled={busy} onClick={signOutEverywhere}>Sign out everywhere</Button>}
+		>
+			<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>
+				Devices your account has signed in from. Revoking one forgets it; “Sign out everywhere” revokes every session, including this one.
+			</div>
+			{failed ? (
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Couldn’t load your devices — check your connection and reopen this tab.</div>
+			) : devices === null ? (
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Loading devices…</div>
+			) : devices.length === 0 ? (
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No remembered devices yet — devices appear here after they sign in.</div>
+			) : (
+				<div style={{ display: 'flex', flexDirection: 'column' }}>
+					{devices.map((d, i) => (
+						<div key={d.deviceKey} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
+							<span style={{ width: 34, height: 34, borderRadius: 8, flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: T.alt, color: T.sub }}><Icon name="Monitor" size="sm" /></span>
+							<div style={{ flex: 1, minWidth: 0 }}>
+								<div style={{ font: `600 13px ${T.sans}` }}>{d.name}</div>
+								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{d.lastSeen ? `Last seen ${new Date(d.lastSeen).toLocaleString()}` : 'Last seen: unknown'}</div>
+							</div>
+							<Button variant="ghost" size="sm" disabled={busy} onClick={() => revoke(d.deviceKey)}>Revoke</Button>
+						</div>
+					))}
+				</div>
+			)}
+		</Panel>
+	);
+}
+
+/** Export (real backend data) + delete account behind a type-to-confirm dialog. */
+const DELETE_PHRASE = 'delete my account';
+function AccountDangerPanel() {
+	const auth = useAuth();
+	const [busy, setBusy] = useState(false);
+	const [confirmOpen, setConfirmOpen] = useState(false);
+	const [phrase, setPhrase] = useState('');
+	const exportData = () => {
+		setBusy(true);
+		exportAccountData()
+			.then((data) => {
+				downloadJsonLocal(`dndtools-account-${new Date().toISOString().slice(0, 10)}.json`, data);
+				Toaster.success('Account data downloaded.');
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not export your account data.')))
+			.finally(() => setBusy(false));
+	};
+	const destroy = () => {
+		setBusy(true);
+		apiDeleteAccount()
+			.then(async () => {
+				setConfirmOpen(false);
+				Toaster.success('Your account has been deleted. Local vaults stay on this device.');
+				await auth.signOut();
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not delete your account.')))
+			.finally(() => setBusy(false));
+	};
+	return (
+		<Panel title="Danger zone" style={{ borderColor: 'var(--color-status-error-border)' }}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+				<div style={{ flex: '1 1 240px' }}>
+					<div style={{ font: `600 13px ${T.sans}` }}>Export or delete your account data</div>
+					<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>
+						Download everything the cloud backend holds for this account (vault content is end-to-end encrypted and exports from the app itself), or permanently close the account. Local vaults are never touched.
+					</div>
+				</div>
+				<Button variant="secondary" size="sm" icon="download" disabled={busy} onClick={exportData}>Export my data</Button>
+				<Button variant="danger" size="sm" icon="trash" disabled={busy} onClick={() => { setPhrase(''); setConfirmOpen(true); }}>Delete account</Button>
+			</div>
+			<Dialog
+				open={confirmOpen}
+				onClose={() => setConfirmOpen(false)}
+				title="Delete this account?"
+				description="Permanent: cloud entitlements, invites and published modules are removed and the sign-in is deleted."
+				icon="warning"
+				size="md"
+				footer={
+					<>
+						<Button variant="secondary" size="sm" disabled={busy} onClick={() => setConfirmOpen(false)}>Cancel</Button>
+						<Button variant="danger" size="sm" icon="trash" disabled={busy || phrase.trim().toLowerCase() !== DELETE_PHRASE} onClick={destroy}>
+							{busy ? 'Deleting…' : 'Delete forever'}
+						</Button>
+					</>
+				}
+			>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub, marginBottom: 10 }}>
+					Your vaults stay on this device — only the cloud account and everything it stores server-side are destroyed. This cannot be undone. Type <strong style={{ color: T.ink }}>{DELETE_PHRASE}</strong> to confirm.
+				</div>
+				<Input value={phrase} onChange={(e: { target: { value: string } }) => setPhrase(e.target.value)} placeholder={DELETE_PHRASE} aria-label={`Type "${DELETE_PHRASE}" to confirm`} />
+			</Dialog>
+		</Panel>
+	);
+}
+
+/** Honest gate when the account surface can't be real: local-only build, or signed out. */
+function CloudAccountGate() {
+	const auth = useAuth();
+	if (!isAccountApiConfigured) {
+		return (
+			<Panel title="Cloud account" action={<Badge status="neutral">Local-only build</Badge>}>
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					This build isn’t connected to a cloud backend, so there is no account to manage — everything
+					works locally on this device. Profile, devices, invites and plans appear here when a cloud
+					backend is configured.
+				</div>
+			</Panel>
+		);
+	}
+	return (
+		<Panel title="Cloud account" action={<Badge status="neutral">Signed out</Badge>}>
+			<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+				<div style={{ flex: '1 1 240px', font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+					Sign in to manage your profile, signed-in devices, campaign invites and plan. The app stays
+					fully usable locally without an account.
+				</div>
+				<Button variant="primary" size="sm" icon="UserCircle" onClick={() => auth.openAuthModal()}>Sign in</Button>
+			</div>
+		</Panel>
+	);
+}
+
 const NOTIF_KEY = 'dndtools:react:notifications';
 function SettingsAccount() {
-	const p = ACCT.profile;
-	// no core command — third-party service links, devices and identity are out of the local-first Core's
-	// scope, so these stay device-local mock state (toggling resets on reload, intentionally).
-	const [services, setServices] = useState<any[]>(ACCT.services.map((s: any) => ({ ...s })));
-	const [devices, setDevices] = useState<any[]>(ACCT.devices.map((d: any) => ({ ...d })));
-	// Notification prefs DO survive reload (persisted to localStorage) since they are a sensible device pref.
+	const auth = useAuth();
+	// The account surface is REAL (app-api) when the backend is configured AND the user is signed
+	// in; otherwise it shows an honest gate — no fake profile pretending to be yours.
+	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
+	// Notification prefs survive reload (persisted to localStorage) since they are a sensible device pref.
 	const [notif, setNotif] = useState<boolean[]>(() => {
 		try {
 			const raw = window.localStorage.getItem(NOTIF_KEY);
@@ -174,29 +447,14 @@ function SettingsAccount() {
 		});
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-			<Panel title="Profile">
-				<div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-					<Avatar name={p.name} size="lg" ring="active" />
-					<div style={{ flex: 1, minWidth: 0 }}>
-						<div style={{ font: `700 18px ${T.disp}` }}>{p.name}</div>
-						<div style={{ font: `12.5px ${T.sans}`, color: T.sub }}>{p.handle} · {p.email}</div>
-						<div style={{ display: 'flex', gap: 7, marginTop: 7, flexWrap: 'wrap' }}>
-							<Badge status="accent">{p.role}</Badge>
-							<Badge status="neutral">{p.tables} tables</Badge>
-							<Badge status="neutral">{p.hoursRun}h run</Badge>
-							<Badge status="neutral">{p.since}</Badge>
-						</div>
-					</div>
-					<Button variant="secondary" size="sm" icon="edit" onClick={toast}>Edit</Button>
-				</div>
-				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 14 }}>
-					{[['Pronouns', p.pronouns], ['Timezone', p.timezone], ['Language', p.language]].map(([k, v]) => (
-						<div key={k} style={{ padding: '10px 12px', borderRadius: 9, background: T.surf, border: `1px solid ${T.bd}` }}>
-							<div style={{ ...eb }}>{k}</div><div style={{ font: `13px ${T.sans}`, color: T.ink, marginTop: 3 }}>{v}</div>
-						</div>
-					))}
-				</div>
-			</Panel>
+			{cloudReady ? (
+				<>
+					<AccountProfilePanel />
+					<AccountDevicesPanel />
+				</>
+			) : (
+				<CloudAccountGate />
+			)}
 
 			<Panel
 				title="Onboarding & help"
@@ -222,38 +480,6 @@ function SettingsAccount() {
 				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>Re-run the guided first-time setup, revisit the product tour, or reopen the table-readiness checklist any time.</div>
 			</Panel>
 
-			<Panel title="Online services" action={<Badge status="neutral">{services.filter((s) => s.connected).length} connected</Badge>}>
-				<div style={{ display: 'flex', flexDirection: 'column' }}>
-					{services.map((s, i) => (
-						<div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
-							<span style={{ width: 38, height: 38, borderRadius: 9, flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: s.connected ? T.accSub : T.alt, color: s.connected ? T.acc : T.ter }}><Icon name={s.icon} size="md" /></span>
-							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ font: `600 13.5px ${T.sans}` }}>{s.name}</span><span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{s.kind}</span></div>
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter, marginTop: 2 }}>{s.connected ? `Connected · ${s.account}` : s.scopes.join(' · ')}</div>
-							</div>
-							<Button variant={s.connected ? 'ghost' : 'secondary'} size="sm" icon={s.connected ? undefined : 'link'} onClick={() => setServices((arr) => arr.map((x) => (x.id === s.id ? { ...x, connected: !x.connected, account: !x.connected ? x.account || 'connected' : null } : x)))}>
-								{s.connected ? 'Disconnect' : 'Connect'}
-							</Button>
-						</div>
-					))}
-				</div>
-			</Panel>
-
-			<Panel title="Signed-in devices" action={<Button variant="ghost" size="sm" icon="close" onClick={toast}>Sign out all others</Button>}>
-				<div style={{ display: 'flex', flexDirection: 'column' }}>
-					{devices.map((d, i) => (
-						<div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
-							<span style={{ width: 34, height: 34, borderRadius: 8, flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: T.alt, color: d.stale ? T.warn : T.sub }}><Icon name={d.icon} size="sm" /></span>
-							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ font: `600 13px ${T.sans}` }}>{d.name}</span>{d.current && <Badge status="success">This device</Badge>}{d.stale && <Badge status="warning">Inactive</Badge>}</div>
-								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{d.kind} · {d.where} · {d.last}</div>
-							</div>
-							{!d.current && <Button variant="ghost" size="sm" onClick={() => setDevices((arr) => arr.filter((x) => x.id !== d.id))}>Revoke</Button>}
-						</div>
-					))}
-				</div>
-			</Panel>
-
 			<Panel title="Notifications">
 				<div style={{ display: 'flex', flexDirection: 'column' }}>
 					{ACCT.notifications.map((n: any, i: number) => (
@@ -265,16 +491,7 @@ function SettingsAccount() {
 				</div>
 			</Panel>
 
-			<Panel title="Danger zone" style={{ borderColor: 'var(--color-status-error-border)' }}>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-					<div style={{ flex: '1 1 240px' }}>
-						<div style={{ font: `600 13px ${T.sans}` }}>Export or delete your data</div>
-						<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>Download a full archive of every vault, or permanently close this account.</div>
-					</div>
-					<Button variant="secondary" size="sm" icon="download" onClick={toast}>Export data</Button>
-					<Button variant="danger" size="sm" icon="trash" onClick={toast}>Delete account</Button>
-				</div>
-			</Panel>
+			{cloudReady && <AccountDangerPanel />}
 		</div>
 	);
 }
@@ -393,8 +610,154 @@ function SettingsSubscription() {
 
 /* ---- Players (REAL — the live actor roster the Core enforces visibility against) ---------------- */
 const ROLE_LABEL: Record<string, string> = { dm: 'Dungeon Master', player: 'Player', observer: 'Observer' };
+/** The web join link an invite token redeems at — the /join route outside the DM shell. */
+const inviteJoinUrl = (token: string) =>
+	`${window.location.origin}${window.location.pathname}#/join?token=${encodeURIComponent(token)}`;
+
+const copyText = async (text: string, okMessage: string) => {
+	try {
+		await navigator.clipboard.writeText(text);
+		Toaster.success(okMessage);
+	} catch {
+		Toaster.error('Could not copy — copy the link manually.');
+	}
+};
+
+/** Pending invites — REAL server-minted join links (app-api) when configured + signed in. */
+function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: boolean; createOpen: boolean; onCloseCreate: () => void }) {
+	const [invites, setInvites] = useState<Invite[] | null>(null);
+	const [failed, setFailed] = useState(false);
+	const [busy, setBusy] = useState(false);
+	const [campaignName, setCampaignName] = useState('');
+	const [note, setNote] = useState('');
+	const [minted, setMinted] = useState<Invite | null>(null);
+	const [qr, setQr] = useState<string | null>(null);
+	useEffect(() => {
+		if (!cloudReady) return;
+		let cancelled = false;
+		listInvites()
+			.then((list) => {
+				if (!cancelled) setInvites(list);
+			})
+			.catch(() => {
+				if (!cancelled) setFailed(true);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [cloudReady]);
+	useEffect(() => {
+		if (!minted) {
+			setQr(null);
+			return;
+		}
+		let cancelled = false;
+		void qrDataUrl(inviteJoinUrl(minted.token)).then((url) => {
+			if (!cancelled) setQr(url);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [minted]);
+	const close = () => {
+		setMinted(null);
+		setCampaignName('');
+		setNote('');
+		onCloseCreate();
+	};
+	const mint = () => {
+		const name = campaignName.trim();
+		if (!name) {
+			Toaster.error('Give the invite a campaign name.');
+			return;
+		}
+		setBusy(true);
+		apiCreateInvite({ campaignName: name, note: note.trim() || undefined })
+			.then((invite) => {
+				setMinted(invite);
+				setInvites((list) => (list ? [invite, ...list] : [invite]));
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not create the invite.')))
+			.finally(() => setBusy(false));
+	};
+	const revoke = (inviteId: string) => {
+		setBusy(true);
+		apiRevokeInvite(inviteId)
+			.then(() => {
+				setInvites((list) => (list ? list.filter((i) => i.inviteId !== inviteId) : list));
+				Toaster.success('Invite revoked — its link no longer works.');
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not revoke that invite.')))
+			.finally(() => setBusy(false));
+	};
+	return (
+		<Panel title="Pending invites">
+			{!cloudReady ? (
+				<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.ter }}>
+					Invite links are minted by the cloud backend so they work before the invitee ever opens the
+					app. {isAccountApiConfigured ? 'Sign in to create and manage them.' : 'This build has no cloud backend configured — share your session room name and PIN directly instead.'}
+				</div>
+			) : failed ? (
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Couldn’t load your invites — check your connection and reopen this tab.</div>
+			) : invites === null ? (
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>Loading invites…</div>
+			) : invites.length === 0 ? (
+				<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No pending invites. “Invite player” mints a shareable join link (it expires after 14 days).</div>
+			) : (
+				<div style={{ display: 'flex', flexDirection: 'column' }}>
+					{invites.map((v, i) => (
+						<div key={v.inviteId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
+							<Icon name="send" size={15} color={T.ter} />
+							<div style={{ flex: 1, minWidth: 0 }}>
+								<div style={{ font: `600 13px ${T.sans}` }}>{v.campaignName}</div>
+								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{v.note ? `${v.note} · ` : ''}expires {new Date(v.expiresAt * 1000).toLocaleDateString()}</div>
+							</div>
+							<Button variant="secondary" size="sm" icon="link" disabled={busy} onClick={() => void copyText(inviteJoinUrl(v.token), 'Join link copied.')}>Copy link</Button>
+							<Button variant="ghost" size="sm" disabled={busy} onClick={() => revoke(v.inviteId)}>Revoke</Button>
+						</div>
+					))}
+				</div>
+			)}
+			<Dialog
+				open={createOpen}
+				onClose={close}
+				title={minted ? 'Invite ready to share' : 'Invite a player'}
+				description={minted ? 'Send this link however you like — it works for 14 days or until you revoke it.' : 'Mints a shareable join link — no email is sent.'}
+				icon="send"
+				size="md"
+				footer={
+					minted ? (
+						<Button variant="primary" size="sm" onClick={close}>Done</Button>
+					) : (
+						<>
+							<Button variant="secondary" size="sm" disabled={busy} onClick={close}>Cancel</Button>
+							<Button variant="primary" size="sm" icon="send" disabled={busy} onClick={mint}>{busy ? 'Creating…' : 'Create invite'}</Button>
+						</>
+					)
+				}
+			>
+				{minted ? (
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+						{qr && <img src={qr} alt="QR code for the join link" style={{ width: 168, height: 168, borderRadius: 10, border: `1px solid ${T.bd}`, background: '#fff', padding: 8 }} />}
+						<code style={{ font: `11.5px ${T.mono}`, color: T.sub, wordBreak: 'break-all', textAlign: 'center' }}>{inviteJoinUrl(minted.token)}</code>
+						<Button variant="secondary" size="sm" icon="link" onClick={() => void copyText(inviteJoinUrl(minted.token), 'Join link copied.')}>Copy link</Button>
+					</div>
+				) : (
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+						<Input value={campaignName} onChange={(e: { target: { value: string } }) => setCampaignName(e.target.value)} placeholder="Campaign name (shown to the invitee)" aria-label="Campaign name" maxLength={80} />
+						<Textarea value={note} onChange={(e: { target: { value: string } }) => setNote(e.target.value)} placeholder="Note (optional) — e.g. “We play Fridays at 7”" aria-label="Invite note" rows={2} maxLength={200} />
+					</div>
+				)}
+			</Dialog>
+		</Panel>
+	);
+}
+
 function SettingsPlayers() {
 	const runtime = useRuntime();
+	const auth = useAuth();
+	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
+	const [inviteOpen, setInviteOpen] = useState(false);
 	const actors = Object.values(runtime.state.permissions.actors) as { id: string; role: string; displayName: string }[];
 	const sorted = [...actors].sort((a, b) => (a.role === 'dm' ? -1 : b.role === 'dm' ? 1 : a.displayName.localeCompare(b.displayName)));
 	return (
@@ -402,8 +765,18 @@ function SettingsPlayers() {
 			<Panel
 				title="Players"
 				action={
-					// no core command — sending an invite needs a transport (deferred); the roster itself is real.
-					<Button variant="primary" size="sm" icon="add" onClick={toast}>Invite player</Button>
+					<Button
+						variant="primary"
+						size="sm"
+						icon="add"
+						onClick={() => {
+							if (cloudReady) setInviteOpen(true);
+							else if (isAccountApiConfigured) auth.openAuthModal();
+							else Toaster.info('Invite links need the cloud backend — share your session room name and PIN directly.');
+						}}
+					>
+						Invite player
+					</Button>
 				}
 			>
 				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>{sorted.length} {sorted.length === 1 ? 'actor' : 'actors'} in this campaign — the real permission actors the Core filters every view against.</div>
@@ -421,14 +794,7 @@ function SettingsPlayers() {
 					))}
 				</div>
 			</Panel>
-			<Panel title="Pending invites">
-				{/* no core command — pending invites are mock until a live transport exists. */}
-				{PAGES.invites.map((v: any) => (
-					<div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 10, font: `13px ${T.sans}`, color: T.sub }}>
-						<Icon name="send" size={15} color={T.ter} /><span style={{ flex: 1 }}>{v.email}</span><Badge status="warning">{v.role}</Badge><span style={{ font: `11px ${T.sans}`, color: T.ter }}>{v.sent}</span>
-					</div>
-				))}
-			</Panel>
+			<InvitesPanel cloudReady={cloudReady} createOpen={inviteOpen} onCloseCreate={() => setInviteOpen(false)} />
 		</div>
 	);
 }
