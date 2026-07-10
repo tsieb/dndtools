@@ -334,11 +334,15 @@ export function CharBuilder({
 	onClose,
 	onCreated,
 	initialKind,
+	initialAction,
 }: {
 	onClose: () => void;
 	onCreated: (id: string) => void;
 	/** Pre-select the character kind — lets "New NPC"-style launchers land on the right wizard. */
 	initialKind?: string;
+	/** `'import'` opens the file picker immediately — lets "Import character (JSON)" launchers skip
+	 *  the entry choice (cancelling the picker lands on the choice screen as usual). */
+	initialAction?: 'import';
 }) {
 	const runtime = useRuntime();
 	const dmActorId = runtime.defaultActorId;
@@ -577,6 +581,13 @@ export function CharBuilder({
 		setError(null);
 		setPhase('import');
 	}
+
+	// Import-intent launchers (the roster's "Import character (JSON)" button) skip the entry choice:
+	// open the file picker once on mount. Consumed once — closing/cancelling behaves as usual.
+	useEffect(() => {
+		if (initialAction === 'import') void startImport();
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only launcher intent
+	}, []);
 
 	/** Execute the reviewed plan: quick-create → set-proficiencies → set-spell ×N → update-attacks. */
 	async function runImport() {
