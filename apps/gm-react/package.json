@@ -38,7 +38,8 @@
 		"qrcode": "^1.5.4",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
-		"react-router-dom": "^6.28.0"
+		"react-router-dom": "^6.28.0",
+		"zod": "^4.4.3"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "^4.12.1",
