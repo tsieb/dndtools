@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { ActorRole } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
@@ -112,7 +113,7 @@ export function getConflictLifecycle(
 		conflictedEntityKeys.push(key);
 	}
 
-	const isDm = actor.role === 'dm';
+	const isDm = hasDmAuthority(actor.role);
 	const dmDetail: ConflictLifecycleDmDetailView[] = isDm
 		? conflicts.map((record) => ({
 				...structuralEntry(record),
@@ -157,7 +158,7 @@ export function conflictLifecycleIsStructuralOnly(
 	view: ConflictLifecycleView,
 	secrets: readonly unknown[],
 ): boolean {
-	if (view.role === 'dm') return true;
+	if (hasDmAuthority(view.role)) return true;
 	if (view.dmDetail.length > 0) return false;
 	const serialized = JSON.stringify(view.entries);
 	for (const secret of secrets) {

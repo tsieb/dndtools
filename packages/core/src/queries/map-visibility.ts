@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { MapEntity } from '../state/map-state';
 import type { Actor } from '../state/permission-state';
 import type { MapFogOpKind, MapFogRegion, NormalizedPoint } from '../state/map-annotations';
@@ -10,7 +11,7 @@ import { fogCoverageAtPoint, type FogCoverage } from '../state/map-annotations';
  * the map-layer query so the map-level rule cannot diverge.
  */
 export function mapVisibleToActor(map: MapEntity, actor: Actor, delivered: boolean): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (map.visibility === 'dm-only') return false;
 	if (map.visibility === 'player-visible') return true;
 	return delivered; // `shared` map requires explicit delivery.

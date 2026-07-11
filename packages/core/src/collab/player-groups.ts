@@ -1,5 +1,6 @@
 import type { ActorId } from '../state/ids';
 import type { Actor, PermissionState } from '../state/permission-state';
+import { hasDmAuthority } from '../state/permission-state';
 import type { PlayerGroup } from '../state/player-group';
 
 /**
@@ -39,10 +40,11 @@ export interface ResolvedDeliveryTarget {
 	skippedActorIds: ActorId[];
 }
 
-/** Whether an actor id is a valid DELIVERY TARGET: a registered, non-DM participant (player/observer). */
+/** Whether an actor id is a valid DELIVERY TARGET: a registered, non-elevated participant
+ *  (player/observer). A DM / co-DM already sees everything and is never a delivery recipient. */
 function isDeliverableRecipient(actorId: ActorId, permission: PermissionState): boolean {
 	const actor: Actor | undefined = permission.actors[actorId];
-	return !!actor && actor.role !== 'dm';
+	return !!actor && !hasDmAuthority(actor.role);
 }
 
 /**

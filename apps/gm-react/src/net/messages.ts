@@ -47,7 +47,7 @@ export type JoinResultMessage =
 			/** The authenticated participant actor id the host bound this connection to. */
 			actorId: string;
 			displayName: string;
-			role: 'player' | 'observer';
+			role: 'player' | 'observer' | 'co-dm';
 	  }
 	| { kind: 'join-result'; ok: false; reason: string; message: string };
 

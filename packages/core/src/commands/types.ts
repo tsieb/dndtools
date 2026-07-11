@@ -5,7 +5,7 @@ import type { CommandCenterState } from '../state/command-center-state';
 import type { MapState } from '../state/map-state';
 import type { MapLayerMutationKind } from '../state/map-layers';
 import type { MapImportAdapterRegistry } from '../state/map-import';
-import type { PermissionState } from '../state/permission-state';
+import type { ActorRole, PermissionState } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
 import type {
 	DiceRollSourceKind,
@@ -266,6 +266,7 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	| { type: 'permission.assign-role'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'map.create-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'map.rename-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'map.reorder-layer'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
@@ -937,6 +938,14 @@ export type CoreEvent =
 			actorId: ActorId;
 	  }
 	| {
+			kind: 'permission.role-assigned';
+			targetActorId: ActorId;
+			role: ActorRole;
+			previousRole: ActorRole;
+			/** The owner (DM) who made the assignment. */
+			actorId: ActorId;
+	  }
+	| {
 			kind: 'map.layer-changed';
 			mapId: string;
 			layerId: string;
@@ -1081,7 +1090,7 @@ export type CoreEvent =
 			characterId: string;
 			path: string;
 			revision: number;
-			authorRole: 'dm' | 'player' | 'observer';
+			authorRole: 'dm' | 'co-dm' | 'player' | 'observer';
 			actorId: ActorId;
 	  }
 	| {

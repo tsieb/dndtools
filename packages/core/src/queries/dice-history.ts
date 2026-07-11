@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import { getActor } from '../state/permission-state';
 import type {
@@ -112,7 +113,7 @@ export function getDiceHistoryForActor(
 	actorId: string,
 ): DiceHistoryView {
 	const actor = getActor(permissions, actorId);
-	const isDm = actor?.role === 'dm';
+	const isDm = hasDmAuthority(actor?.role);
 	const rolls: DiceRollView[] = [];
 	let hiddenCount = 0;
 	for (const roll of session.diceHistory) {

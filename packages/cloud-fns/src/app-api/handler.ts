@@ -525,6 +525,8 @@ async function createInvite(caller: Caller, body: string | undefined) {
 	const parsed = parseBody(body);
 	const campaignName = requireString(parsed.campaignName, 'campaignName', MAX_CAMPAIGN_NAME_CHARS);
 	const note = optionalString(parsed.note, 'note', MAX_NOTE_CHARS);
+	// The seat the invite grants. Strict allowlist, fail closed to an ordinary `player` seat.
+	const role = parsed.role === 'co-dm' ? 'co-dm' : 'player';
 	const inviteId = randomUUID();
 	const token = randomBytes(32).toString('base64url');
 	const createdAt = nowIso();
@@ -537,6 +539,7 @@ async function createInvite(caller: Caller, body: string | undefined) {
 		token,
 		campaignName,
 		note,
+		role,
 		createdAt,
 		expiresAt,
 	});
@@ -547,11 +550,12 @@ async function createInvite(caller: Caller, body: string | undefined) {
 		inviteId,
 		campaignName,
 		note,
+		role,
 		invitedBy,
 		createdAt,
 		expiresAt,
 	});
-	return json(200, { inviteId, token, campaignName, note, createdAt, expiresAt });
+	return json(200, { inviteId, token, campaignName, note, role, createdAt, expiresAt });
 }
 
 async function listInvites(caller: Caller) {
@@ -568,6 +572,7 @@ async function listInvites(caller: Caller) {
 			token: row.token, // the owner's own token — needed to re-show the join link
 			campaignName: row.campaignName,
 			note: row.note ?? '',
+			role: row.role === 'co-dm' ? 'co-dm' : 'player', // default legacy rows to an ordinary seat
 			createdAt: row.createdAt,
 			expiresAt: Number(row.expiresAt),
 		}));
@@ -596,6 +601,7 @@ async function resolveInvite(rawToken: string | undefined) {
 	return json(200, {
 		campaignName: row.campaignName,
 		note: row.note ?? '',
+		role: row.role === 'co-dm' ? 'co-dm' : 'player',
 		invitedBy: row.invitedBy || 'a GM',
 		expiresAt: Number(row.expiresAt),
 	});

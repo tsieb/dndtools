@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import { getActor } from '../state/permission-state';
 import type { AudioState } from '../state/audio-state';
@@ -145,7 +146,7 @@ export function listAudioDeliveryForDm(
 	devices: readonly AudioParticipantDeviceInput[],
 ): AudioParticipantDeliveryView[] {
 	const actor = getActor(permissions, actorId);
-	if (actor?.role !== 'dm') return [];
+	if (!hasDmAuthority(actor?.role)) return [];
 	return [...devices]
 		.sort((a, b) => a.actorId.localeCompare(b.actorId))
 		.flatMap((device) => {

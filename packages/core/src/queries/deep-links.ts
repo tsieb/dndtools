@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
 import type { SceneState } from '../state/scene-state';
@@ -188,7 +189,7 @@ function resolveMapDeepLink(
 	// Map visibility (Contract 3): a dm-only map is hidden from non-DM actors. `shared`
 	// maps are not exposed by a bare deep link without an active projection, so a
 	// non-DM actor without DM access sees the same generic unavailable.
-	if (actor.role !== 'dm') {
+	if (!hasDmAuthority(actor.role)) {
 		if (map.visibility === 'dm-only' || map.visibility === 'shared') {
 			return unavailable('map', target.sectionId, 'hidden');
 		}

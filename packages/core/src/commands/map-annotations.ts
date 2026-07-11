@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import {
 	appendMapFogInputSchema,
 	configureMapOverlayInputSchema,
@@ -570,7 +571,7 @@ export function handleMoveMapToken(
 	// token whose declared controller is them. A non-DM is also blocked from moving a token they cannot
 	// see (dm-only token, or a token on a dm-only layer) — checked via the controller, which is never
 	// set to a player for a hidden token in practice, plus an explicit visibility guard.
-	if (actor.role !== 'dm') {
+	if (!hasDmAuthority(actor.role)) {
 		const layer = map.layers.find((candidate) => candidate.id === token.layerId);
 		const tokenVisible =
 			!!layer && layer.visibility !== 'dm-only' && token.visibility !== 'dm-only';

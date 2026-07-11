@@ -1178,6 +1178,20 @@ export const transferOwnershipInputSchema = z
 	})
 	.strict();
 
+// PERM-011 (Co-DM) — assign a BASE ROLE to an existing participant actor. Owner-only (the DM);
+// the reducer refuses to touch the owner's own row or to mint/settle a `dm` role (ownership moves
+// only through `permission.transfer-ownership`). The assignable roles are the non-owner base roles.
+// `coDmSeatLimit` is the caller's plan entitlement (co-DM seats): the reducer fails closed when
+// promoting to `co-dm` would exceed it, so an over-seat promotion can never be replayed in.
+export const assignRoleInputSchema = z
+	.object({
+		targetActorId: idSchema,
+		role: z.enum(['co-dm', 'player', 'observer']),
+		/** Plan entitlement for co-DM seats (0 on plans without them). Enforced only for `co-dm`. */
+		coDmSeatLimit: z.number().int().nonnegative().default(0),
+	})
+	.strict();
+
 // --- CHAR-001 / CHAR-002 / CHAR-013 — character command input schemas ---------------------------
 
 const characterVisibilitySchema = z.enum(['dm-only', 'player-visible', 'shared']);

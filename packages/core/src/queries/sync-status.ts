@@ -95,7 +95,7 @@ export interface SyncRetryActionView {
 export interface SyncStatusView {
 	kind: 'sync-status';
 	actorId: ActorId;
-	role: 'dm' | 'player' | 'observer';
+	role: 'dm' | 'co-dm' | 'player' | 'observer';
 	health: SystemHealthLevel;
 	online: boolean;
 	sources: SyncSourceStatusView[];

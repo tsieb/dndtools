@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import { getActor } from '../state/permission-state';
 import {
@@ -64,7 +65,7 @@ export function listAudioAssociationsForActor(
 	filter?: { targetKind: AudioAssociationTargetKind; targetId: string },
 ): AudioAssociationView[] {
 	const actor = getActor(permissions, actorId);
-	if (actor?.role !== 'dm') return [];
+	if (!hasDmAuthority(actor?.role)) return [];
 	return Object.values(state.associations)
 		.filter(
 			(association) =>
@@ -92,6 +93,6 @@ export function resolveActivatedSceneAudioForActor(
 	activation: AudioAssociationActivation,
 ): ResolvedAudioPreset[] | null {
 	const actor = getActor(permissions, actorId);
-	if (actor?.role !== 'dm') return null;
+	if (!hasDmAuthority(actor?.role)) return null;
 	return resolveAudioAssociations(activation, state.associations, state);
 }

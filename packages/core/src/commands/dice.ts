@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import {
 	appendRollToNoteInputSchema,
 	rollDiceInputSchema,
@@ -86,7 +87,7 @@ function resolveRollVisibility(
 	requested: DiceRollVisibility,
 	sharedWith: string[],
 ): { visibility: DiceRollVisibility; sharedWith: string[] } | CommandRejection {
-	if (requested === 'dm-only' && actor.role !== 'dm') {
+	if (requested === 'dm-only' && !hasDmAuthority(actor.role)) {
 		return {
 			code: 'actor-not-authorized',
 			message: 'Only the DM may make a secret (DM-only) roll.',
@@ -468,7 +469,7 @@ export function handleRollTable(
  * `now` (from `env.clock()`) is required so expired grants are treated as inert (PERM-004 AC2).
  */
 function actorMayUseTable(state: CoreStateSlice, actor: Actor, itemId: string, now: string): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
 	return (
 		hasGrantedCapability(state.permissions, actor, CONTENT_ITEM_ENTITY_TYPE, itemId, 'section-editor', now) ||

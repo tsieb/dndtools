@@ -11,6 +11,9 @@ export {
 	EMPTY_PERMISSION_STATE,
 	PERMISSION_STATE_SCHEMA_VERSION,
 	getActor,
+	hasDmAuthority,
+	isCampaignOwnerRole,
+	countCoDmActors,
 } from './state/permission-state';
 
 export type {
@@ -4734,6 +4737,7 @@ export type {
 } from './queries/preview-mode';
 export {
 	PREVIEW_EXIT_ANNOUNCEMENT,
+	PREVIEW_CODM_ACTOR_ID,
 	PREVIEW_OBSERVER_ACTOR_ID,
 	PREVIEW_PLAYER_ACTOR_ID,
 	PREVIEW_READONLY_MESSAGE,

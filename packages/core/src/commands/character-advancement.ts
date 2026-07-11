@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import {
 	cancelAdvancementInputSchema,
 	commitAdvancementInputSchema,
@@ -59,7 +60,7 @@ function charactersWith(state: CoreStateSlice, characters: CoreStateSlice['chara
  * effective, violating the grant expiry guarantee.
  */
 function actorMayAdvance(state: CoreStateSlice, actor: Actor, characterId: string, now?: string): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
 	return hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, characterId, 'owner', now);
 }

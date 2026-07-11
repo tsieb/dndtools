@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
 
@@ -110,7 +111,7 @@ export function resolveSessionPrivacy(
 	departures: readonly DepartedParticipantRecord[],
 	now: string,
 ): SessionPrivacyView | null {
-	if (permissions.actors[actorId]?.role !== 'dm') return null;
+	if (!hasDmAuthority(permissions.actors[actorId]?.role)) return null;
 	const nowMs = Date.parse(now);
 	const effectiveNowMs = Number.isFinite(nowMs) ? nowMs : Number.NEGATIVE_INFINITY;
 	const current = departures.filter((record) => withinWindow(record.departedAt, effectiveNowMs));

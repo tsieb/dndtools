@@ -1,5 +1,5 @@
 import type { PermissionState } from '../state/permission-state';
-import { getActor } from '../state/permission-state';
+import { getActor, hasDmAuthority } from '../state/permission-state';
 import type { AudioState } from '../state/audio-state';
 import type {
 	SessionAmbienceLayer,
@@ -157,7 +157,7 @@ export function getSessionAudioView(
 	const trackView = toTrackView(session);
 	const activeTrack = toActiveTrack(session);
 
-	if (actor?.role === 'dm') {
+	if (hasDmAuthority(actor?.role)) {
 		// AUDIO-006 AC2 — the per-participant delivery roster (DM-only, enforced inside the delivery query).
 		const participantDelivery = activeTrack
 			? listAudioDeliveryForDm(library, permissions, actorId, activeTrack, deviceInputs)

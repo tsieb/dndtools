@@ -30,6 +30,7 @@ export function ViewAsControl() {
 	const isDm = runtime.actors.some((a) => a.role === 'dm' && a.id === runtime.defaultActorId) || ownerActor?.role === 'dm';
 
 	const players = runtime.actors.filter((a) => a.role === 'player');
+	const coDms = runtime.actors.filter((a) => a.role === 'co-dm');
 
 	function preview_(selection: PreviewSelection, label: string) {
 		runtime.enterPreview(selection);
@@ -114,6 +115,21 @@ export function ViewAsControl() {
 							active={!!preview && preview.role === 'observer'}
 							onClick={() => preview_({ role: 'observer' }, 'Observer')}
 						/>
+						<MenuItem
+							icon="session-bolt"
+							label="Co-DM"
+							active={!!preview && preview.role === 'co-dm' && !preview.specific}
+							onClick={() => preview_({ role: 'co-dm' }, 'Co-DM')}
+						/>
+						{coDms.map((c) => (
+							<MenuItem
+								key={c.id}
+								icon="session-bolt"
+								label={c.displayName}
+								active={!!preview && preview.specific && preview.actorId === c.id}
+								onClick={() => preview_({ role: 'co-dm', playerActorId: c.id }, c.displayName)}
+							/>
+						))}
 						{players.length > 0 && <MenuLabel>Specific players</MenuLabel>}
 						{players.map((p) => (
 							<MenuItem

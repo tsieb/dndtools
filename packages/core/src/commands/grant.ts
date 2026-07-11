@@ -15,15 +15,16 @@ import {
 	type GrantRecordInput,
 } from '../permissions/grant-records';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
-import { appendOperationDraft, parseInput, reject, requireActor, requireDm } from './helpers';
+import { appendOperationDraft, parseInput, reject, requireActor, requireCampaignOwner } from './helpers';
 import { findRawFieldListGrant } from '../con/capability-set-sustainability';
 
 /**
  * PERM-004 / PERM-013 / CON-004 — durable grant + transfer commands (Architecture Contract 3, Axis 2).
  *
- * Grants are DM-authored only and additive over base role. Each mutation:
+ * Grants are OWNER-authored only (the DM — never a co-DM, whose elevation must not let them widen
+ * anyone's access) and additive over base role. Each mutation:
  *
- *   1. requires the actor be the DM (fail closed for player/observer authors),
+ *   1. requires the actor be the campaign-owner DM (fail closed for co-DM/player/observer authors),
  *   2. REJECTS a per-instance RAW FIELD-LIST grant before anything else (CON-004 AC1) — the only
  *      permission selector is a single named `capabilitySet`, never a list/map of fields,
  *   3. validates the grant against the per-entity-type capability schema (PERM-005),
@@ -65,8 +66,8 @@ export function handleGrantCapabilitySet(
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
-	const dmCheck = requireDm(actor);
-	if (dmCheck) return reject(dmCheck, state);
+	const ownerCheck = requireCampaignOwner(actor);
+	if (ownerCheck) return reject(ownerCheck, state);
 
 	// CON-004 AC1 — a per-instance raw field-list grant is rejected before schema validation.
 	const rawFieldListRejection = rejectRawFieldListGrant(state, rawPayload);
@@ -147,8 +148,8 @@ export function handleRevokeGrant(
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
-	const dmCheck = requireDm(actor);
-	if (dmCheck) return reject(dmCheck, state);
+	const ownerCheck = requireCampaignOwner(actor);
+	if (ownerCheck) return reject(ownerCheck, state);
 
 	const parsed = parseInput(revokeGrantInputSchema, rawPayload);
 	if (!parsed.ok) return reject(parsed.rejection, state);
@@ -202,8 +203,8 @@ export function handleTransferOwnership(
 ): CommandResult {
 	const actor = requireActor(state, actorId);
 	if ('code' in actor) return reject(actor, state);
-	const dmCheck = requireDm(actor);
-	if (dmCheck) return reject(dmCheck, state);
+	const ownerCheck = requireCampaignOwner(actor);
+	if (ownerCheck) return reject(ownerCheck, state);
 
 	// CON-004 AC1 — a per-instance raw field-list grant is rejected before schema validation.
 	const rawFieldListRejection = rejectRawFieldListGrant(state, rawPayload);

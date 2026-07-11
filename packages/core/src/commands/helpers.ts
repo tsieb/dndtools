@@ -1,6 +1,7 @@
 import type { ZodError, ZodType } from 'zod';
 import type { CommandRejection, CoreEnvironment, CoreStateSlice } from './types';
 import type { Actor, PermissionState } from '../state/permission-state';
+import { hasDmAuthority, isCampaignOwnerRole } from '../state/permission-state';
 import type { Scene, SceneState, WidgetInstance } from '../state/scene-state';
 import type { ActorId } from '../state/ids';
 import { appendOperation, type OperationLog, type SyncOperation } from '../sync/operation-log';
@@ -44,9 +45,29 @@ export function requireActor(state: CoreStateSlice, actorId: ActorId): Actor | C
 	return actor;
 }
 
+/**
+ * DM-grade AUTHORING authority: the DM or a co-DM. Every "DM-only" command that is campaign
+ * authoring (scenes, content, session control, combat, …) gates here, so a co-DM can run the
+ * table like a DM. Owner-scoped administration must use {@link requireCampaignOwner} instead.
+ */
 export function requireDm(actor: Actor): CommandRejection | null {
-	if (actor.role !== 'dm') {
+	if (!hasDmAuthority(actor.role)) {
 		return { code: 'actor-not-authorized', message: 'Only the DM may perform this action.' };
+	}
+	return null;
+}
+
+/**
+ * Campaign-OWNER authority: the DM only, never a co-DM. Gates the powers that administer the
+ * permission model itself — role assignment, grants/revokes/transfers (and, app-side, invites and
+ * vault/account settings) — so a co-DM can never widen anyone's access, including their own.
+ */
+export function requireCampaignOwner(actor: Actor): CommandRejection | null {
+	if (!isCampaignOwnerRole(actor.role)) {
+		return {
+			code: 'actor-not-authorized',
+			message: 'Only the campaign owner (DM) may perform this action.',
+		};
 	}
 	return null;
 }

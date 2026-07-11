@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import { getActor } from '../state/permission-state';
 import {
@@ -86,7 +87,7 @@ export function listAudioAssetsForActor(
 	actorId: string,
 ): AudioAssetView[] {
 	const actor = getActor(permissions, actorId);
-	if (actor?.role !== 'dm') return [];
+	if (!hasDmAuthority(actor?.role)) return [];
 	return Object.values(state.assets)
 		.sort((a, b) => a.id.localeCompare(b.id))
 		.map(toAssetView);
@@ -115,7 +116,7 @@ export function listAudioSourceClassificationsForActor(
 	actorId: string,
 ): AudioSourceClassification[] {
 	const actor = getActor(permissions, actorId);
-	if (actor?.role !== 'dm') return [];
+	if (!hasDmAuthority(actor?.role)) return [];
 	return Object.values(state.sources)
 		.sort((a, b) => a.id.localeCompare(b.id))
 		.map(classifyAudioSource);
@@ -141,7 +142,7 @@ export function resolveAudioPlaybackForActor(
 	},
 ): AudioPlaybackAvailability | null {
 	const actor = getActor(permissions, actorId);
-	if (actor?.role !== 'dm') return null;
+	if (!hasDmAuthority(actor?.role)) return null;
 	const source = state.sources[request.sourceId];
 	if (!source) return null;
 	// When the request names a local asset, it must exist; a missing asset id fails closed (no playback).
@@ -166,7 +167,7 @@ export function listAudioAutomationRulesForActor(
 	actorId: string,
 ): AudioAutomationRule[] {
 	const actor = getActor(permissions, actorId);
-	if (actor?.role !== 'dm') return [];
+	if (!hasDmAuthority(actor?.role)) return [];
 	return Object.values(state.automationRules)
 		.sort((a, b) => a.id.localeCompare(b.id))
 		.map((rule) => ({ ...rule }));
@@ -187,6 +188,6 @@ export function resolveAudioAutomationForActor(
 	trigger: AudioAutomationTrigger,
 ): AudioAutomationResolution | null {
 	const actor = getActor(permissions, actorId);
-	if (actor?.role !== 'dm') return null;
+	if (!hasDmAuthority(actor?.role)) return null;
 	return resolveAudioAutomation(trigger, state.automationRules, state);
 }

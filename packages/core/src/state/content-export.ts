@@ -1,3 +1,4 @@
+import { hasDmAuthority } from './permission-state';
 import type { Actor, PermissionState } from './permission-state';
 import type { ContentItem, VaultContentState } from './content';
 import { serializeMarkdownNote } from './markdown';
@@ -194,7 +195,7 @@ function selectExportItems(
 	// dm-only — under a `portable` label (a leak). An unknown/missing actor is likewise invalid. In
 	// either case nothing is eligible, so the portable export carries no hidden content by construction.
 	const viewer = permissions.actors[portableViewerActorId];
-	if (!viewer || viewer.role === 'dm') {
+	if (!viewer || hasDmAuthority(viewer.role)) {
 		return { items: [], omittedForVisibility: all.length };
 	}
 	// Portable: the filtered query returns ONLY the items the player may see. We re-key those view ids

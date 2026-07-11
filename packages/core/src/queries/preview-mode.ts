@@ -28,16 +28,19 @@ import type { Actor, PermissionState } from '../state/permission-state';
  * copy.
  */
 
-/** The two roles a DM may preview as. Never `dm`. */
-export type PreviewRole = 'player' | 'observer';
+/** The roles a DM may preview as. Never `dm` (that is just the normal view). Includes `co-dm`: the
+ *  trusted elevated seat, whose generic preview actor carries full dm-authority read visibility. */
+export type PreviewRole = 'player' | 'observer' | 'co-dm';
 
 /** Reserved synthetic actor ids for the generic (no specific player) previews. */
 export const PREVIEW_PLAYER_ACTOR_ID: ActorId = 'preview-generic-player';
 export const PREVIEW_OBSERVER_ACTOR_ID: ActorId = 'preview-generic-observer';
+export const PREVIEW_CODM_ACTOR_ID: ActorId = 'preview-generic-codm';
 
 const RESERVED_PREVIEW_IDS: ReadonlySet<string> = new Set([
 	PREVIEW_PLAYER_ACTOR_ID,
 	PREVIEW_OBSERVER_ACTOR_ID,
+	PREVIEW_CODM_ACTOR_ID,
 ]);
 
 /** True for the reserved generic preview actor ids. */
@@ -73,11 +76,22 @@ const GENERIC_PREVIEW_ACTORS: Readonly<Record<PreviewRole, Actor>> = Object.free
 		role: 'observer',
 		displayName: 'Observer (preview)',
 	}) as Actor,
+	'co-dm': Object.freeze({
+		id: PREVIEW_CODM_ACTOR_ID,
+		role: 'co-dm',
+		displayName: 'Co-DM (preview)',
+	}) as Actor,
+});
+
+const PREVIEW_ROLE_LABEL: Readonly<Record<PreviewRole, string>> = Object.freeze({
+	player: 'Player',
+	observer: 'Observer',
+	'co-dm': 'Co-DM',
 });
 
 /** Coerce an arbitrary requested role to a previewable one. `dm`/unknown ⇒ `observer` (least visible). */
 function normalizePreviewRole(role: unknown): PreviewRole {
-	return role === 'player' ? 'player' : 'observer';
+	return role === 'player' ? 'player' : role === 'co-dm' ? 'co-dm' : 'observer';
 }
 
 /**
@@ -91,13 +105,19 @@ export function resolvePreviewActor(
 	selection: PreviewSelection,
 ): ResolvedPreview {
 	const role = normalizePreviewRole(selection.role);
-	if (role === 'player' && selection.playerActorId && !isPreviewActorId(selection.playerActorId)) {
+	// A specific participant is honoured for `player` and `co-dm` only when the named actor exists AND
+	// holds exactly that role (fail closed for observers, unknown ids, and reserved preview ids).
+	if (
+		(role === 'player' || role === 'co-dm') &&
+		selection.playerActorId &&
+		!isPreviewActorId(selection.playerActorId)
+	) {
 		const actor = permissions.actors[selection.playerActorId];
-		if (actor && actor.role === 'player') {
+		if (actor && actor.role === role) {
 			return {
 				role,
 				actorId: actor.id,
-				label: `${actor.displayName} (Player)`,
+				label: `${actor.displayName} (${PREVIEW_ROLE_LABEL[role]})`,
 				specific: true,
 			};
 		}
@@ -106,7 +126,7 @@ export function resolvePreviewActor(
 	return {
 		role,
 		actorId: generic.id,
-		label: role === 'player' ? 'Player' : 'Observer',
+		label: PREVIEW_ROLE_LABEL[role],
 		specific: false,
 	};
 }
@@ -124,6 +144,7 @@ export function permissionsWithPreviewActors(permissions: PermissionState): Perm
 			...permissions.actors,
 			[PREVIEW_PLAYER_ACTOR_ID]: GENERIC_PREVIEW_ACTORS.player,
 			[PREVIEW_OBSERVER_ACTOR_ID]: GENERIC_PREVIEW_ACTORS.observer,
+			[PREVIEW_CODM_ACTOR_ID]: GENERIC_PREVIEW_ACTORS['co-dm'],
 		},
 		grants: permissions.grants.filter((grant) => !isPreviewActorId(grant.playerActorId)),
 	};
@@ -134,7 +155,7 @@ export function permissionsWithPreviewActors(permissions: PermissionState): Perm
  * value (including `dm`, casing variants, empty) is `null` — no preview (fail closed).
  */
 export function parsePreviewParam(value: string | null | undefined): PreviewRole | null {
-	return value === 'player' || value === 'observer' ? value : null;
+	return value === 'player' || value === 'observer' || value === 'co-dm' ? value : null;
 }
 
 // --- Banner / copy --------------------------------------------------------------------------------

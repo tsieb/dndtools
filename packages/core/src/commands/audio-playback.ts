@@ -7,6 +7,7 @@ import {
 	setSessionAudioVolumeInputSchema,
 } from '../schemas/commands';
 import { assetNeedsLicenseReview } from '../state/audio-asset';
+import { hasDmAuthority } from '../state/permission-state';
 import {
 	classifyAudioSource,
 	resolveAudioPlaybackAvailability,
@@ -674,7 +675,7 @@ export function handleProjectSessionAudio(
 
 	for (const playerActorId of parsed.data.playerActorIds) {
 		const player = state.permissions.actors[playerActorId];
-		if (!player || player.role === 'dm') {
+		if (!player || hasDmAuthority(player.role)) {
 			return reject(
 				{
 					code: 'invalid-payload',

@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { MapEntity, MapFeature, MapLayer, MapState } from '../state/map-state';
 import { sortedLayers } from '../state/map-layers';
@@ -71,7 +72,7 @@ export interface MapLayerQuery {
 
 /** Whether the LAYER is visible to the actor, given the map is already visible. Fail-closed. */
 function layerVisibleToActor(layer: MapLayer, actor: Actor, delivered: boolean): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (layer.visibility === 'dm-only') return false;
 	if (layer.visibility === 'player-visible') return true;
 	return delivered; // `shared` layer requires explicit delivery.
@@ -174,7 +175,7 @@ export function queryMapLayers(
 			const visible = mapVisible && layerVisibleToActor(layer, actor, delivered);
 			if (visible) {
 				result.push(toEntry(map, layer));
-			} else if (actor.role === 'dm') {
+			} else if (hasDmAuthority(actor.role)) {
 				// Unreachable for the DM (always visible), kept for completeness/typing.
 				hiddenMatchCount += 1;
 			} else {
@@ -187,7 +188,7 @@ export function queryMapLayers(
 	// For the DM, also report how many matching layers are hidden FROM PLAYERS (player-facing
 	// `dm-only`, or `shared` with no general delivery). This is a DM-only authoring aid and never
 	// reaches a non-DM caller.
-	if (actor.role === 'dm') {
+	if (hasDmAuthority(actor.role)) {
 		hiddenMatchCount = 0;
 		for (const map of scopedMaps) {
 			for (const layer of map.layers) {

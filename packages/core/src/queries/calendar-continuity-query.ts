@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import type { SessionState } from '../state/session-state';
 import type { CalendarLink, CalendarLinkTargetKind } from '../state/calendar-continuity';
@@ -155,7 +156,7 @@ export function resolveCalendarLinkForActor(
 	format: CalendarDateFormat = 'medium',
 ): CalendarLinkView {
 	const actor = permissions.actors[actorId];
-	const isDm = actor?.role === 'dm';
+	const isDm = hasDmAuthority(actor?.role);
 	const resolved = actor
 		? resolveTarget(link, { session, content, maps, permissions, actorId, isDm })
 		: { available: false, title: null };

@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { MapEntity, MapLayer, MapState } from '../state/map-state';
 import type { ActorId } from '../state/ids';
 import type { Actor, PermissionState } from '../state/permission-state';
@@ -141,7 +142,7 @@ function canSeeVisibility(
 	visibility: MapEntity['visibility'] | MapLayer['visibility'],
 	hasProjection: boolean,
 ): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (visibility === 'dm-only') return false;
 	if (visibility === 'player-visible') return true;
 	return hasProjection;
@@ -159,7 +160,7 @@ export function getActiveMapViewForActor(
 	if (!map) return { kind: 'missing', mapId: session.activeMap.mapId };
 	const projection = session.activeMapProjections[actorId] ?? null;
 	const hasProjection =
-		actor.role === 'dm' ||
+		hasDmAuthority(actor.role) ||
 		!!(
 			projection &&
 			projection.mapId === session.activeMap.mapId &&
@@ -191,7 +192,7 @@ export function getActiveMapViewForActor(
 			enabled: layer.enabled,
 		})),
 		hiddenLayerCount,
-		deliveryStatus: actor.role === 'dm' ? 'dm-local' : (projection?.deliveryStatus ?? 'queued'),
-		deliveryReason: actor.role === 'dm' ? 'dm-local' : (projection?.deliveryReason ?? 'offline'),
+		deliveryStatus: hasDmAuthority(actor.role) ? 'dm-local' : (projection?.deliveryStatus ?? 'queued'),
+		deliveryReason: hasDmAuthority(actor.role) ? 'dm-local' : (projection?.deliveryReason ?? 'offline'),
 	};
 }
