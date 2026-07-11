@@ -3,14 +3,15 @@ Transform: AWS::Serverless-2016-10-31
 Description: >-
   dndtools app-api stack — the application backend for account-scoped features that
   are NOT E2EE vault sync: marketplace module publish/discover, player invites
-  (server-minted join links), account/device management, and plan entitlements
+  (server-minted join links), the public campaign wiki (player-safe published pages,
+  readable without an account), account/device management, and plan entitlements
   (simulated checkout — no payment processor; every entitlement row carries
   simulated=true). One HTTP API with a native Cognito JWT authorizer, one on-demand
-  single-table DynamoDB (pk/sk + TTL) for accounts/entitlements/invites/listings,
-  one private S3 bucket for marketplace module payloads. Unlike sync-api this stack
-  sees PLAINTEXT module payloads (they are published for sharing, not private vault
-  data) — nothing here may ever store vault content. Scale-to-zero: $0 idle.
-  Cross-stack values are read from SSM at deploy time (no ImportValue).
+  single-table DynamoDB (pk/sk + TTL) for accounts/entitlements/invites/listings/wikis,
+  one private S3 bucket for marketplace module payloads and wiki page bundles. Unlike
+  sync-api this stack sees PLAINTEXT payloads (they are published for sharing, not
+  private vault data) — nothing here may ever store vault content. Scale-to-zero:
+  $0 idle. Cross-stack values are read from SSM at deploy time (no ImportValue).
 
 Parameters:
   ProjectName:
@@ -34,7 +35,9 @@ Globals:
     Tracing: Active
 
 Resources:
-  # --- Marketplace module payloads: private, encrypted-at-rest S3 --------------
+  # --- Marketplace module payloads + wiki page bundles (`wikis/` prefix): -------
+  # --- private, encrypted-at-rest S3; only the Lambda reads/writes it (wiki -----
+  # --- reads are served THROUGH the handler, never as public bucket access). ----
   ModulesBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -65,6 +68,8 @@ Resources:
   #   invite#<token>           | redeem                   — token → invite lookup (TTL `expiresAt`)
   #   module#<moduleId>        | listing                  — marketplace listing (payload in S3)
   #   modules                  | listing#<moduleId>       — browse partition (single-tenant scan-free list)
+  #   account#<sub>            | wiki                     — owner's published-wiki status (stable wikiId)
+  #   wiki#<wikiId>            | site                     — public wikiId → site lookup (pages in S3)
   AppTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -101,6 +106,9 @@ Resources:
         AllowHeaders:
           - authorization
           - content-type
+          # Presented password for a password-protected wiki read (header, not query,
+          # so it never lands in access logs or browser history).
+          - x-wiki-password
         AllowMethods:
           - GET
           - POST
@@ -210,6 +218,38 @@ Resources:
             ApiId: !Ref AppHttpApi
             Method: DELETE
             Path: '/marketplace/modules/{moduleId}'
+        # Campaign wiki ---------------------------------------------------------------
+        GetOwnWiki:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: /wiki
+        PublishWiki:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: PUT
+            Path: /wiki
+        UnpublishWiki:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: DELETE
+            Path: /wiki
+        # Reading a published campaign wiki must work for players/readers with NO
+        # account: unauthenticated like invite-resolve. It resolves a high-entropy,
+        # strictly-shaped wiki id to the player-safe page bundle the owner published;
+        # password-protected wikis additionally require the x-wiki-password header
+        # (salted-scrypt check in the handler). Never returns the owner's sub.
+        ReadWiki:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AppHttpApi
+            Method: GET
+            Path: '/wikis/{wikiId}'
+            Auth:
+              Authorizer: NONE
         # Invites -------------------------------------------------------------------
         CreateInvite:
           Type: HttpApi
@@ -230,7 +270,7 @@ Resources:
             Method: DELETE
             Path: '/invites/{inviteId}'
         # Redeeming a join link must work for an invitee with NO account yet: this is
-        # the single unauthenticated route. It resolves a high-entropy single-use token
+        # unauthenticated (like ReadWiki above). It resolves a high-entropy single-use token
         # to non-secret join metadata; the actual session join still runs the P2P/cloud
         # join authz (PIN + pairing key), so an intercepted link alone admits no one.
         ResolveInvite:
