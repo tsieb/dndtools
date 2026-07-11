@@ -12,6 +12,7 @@ import {
 	createStoragePlatformServiceRegistry,
 	ensureAudioState,
 	ensureCalendarContinuityState,
+	ensureSceneCardState,
 	ensureEncounterState,
 	ensureMcpPolicyState,
 	ensureSessionAudioState,
@@ -246,6 +247,7 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 		audioPlayback: ensureSessionAudioState(EMPTY_SESSION_STATE.audioPlayback),
 		playerGroups: {},
 		calendarContinuity: { ...EMPTY_SESSION_STATE.calendarContinuity },
+		sceneCards: { ...EMPTY_SESSION_STATE.sceneCards },
 		recapArchiveId: null,
 		archives: {},
 		schemaVersion: EMPTY_SESSION_STATE.schemaVersion,
@@ -274,6 +276,9 @@ export async function loadCoreState(): Promise<CoreStateSlice> {
 	// SES-012 — a session document persisted before campaign calendar continuity restores with no current
 	// date and no links (fail closed, never undefined).
 	session.calendarContinuity = ensureCalendarContinuityState(session.calendarContinuity);
+	// I11 S11.2 — a session document persisted before scene cards restores with no cards/queue/history
+	// (fail closed): the tolerant hydrator drops dangling refs and collapses corrupt enums.
+	session.sceneCards = ensureSceneCardState(session.sceneCards);
 	session.recapArchiveId ??= null;
 	session.archives ??= {};
 	const widgets = mergeSystemWidgetPackages(

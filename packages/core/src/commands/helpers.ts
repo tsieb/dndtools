@@ -12,6 +12,7 @@ import { SESSION_STATE_SCHEMA_VERSION } from '../state/session-state';
 import { ensureSessionAudioState } from '../state/session-audio';
 import { ensurePlayerGroups } from '../state/player-group';
 import { ensureCalendarContinuityState } from '../state/calendar-continuity';
+import { ensureSceneCardState } from '../state/scene-card';
 import { ensureSessionCombatState } from '../state/combat-tracker';
 import type { EncounterState } from '../state/encounter';
 import { ensureEncounterState } from '../state/encounter';
@@ -260,6 +261,10 @@ export function ensureSessionState(state: SessionState | undefined): SessionStat
 		// SES-012 — hydrate campaign calendar continuity fail-closed: a session document persisted before
 		// this slice restores with no current date and no links (never undefined).
 		calendarContinuity: ensureCalendarContinuityState(state?.calendarContinuity),
+		// I11 S11.2 — hydrate scene cards fail-closed: a session document persisted before this slice
+		// restores with no cards/queue/history (never undefined), and a corrupt record collapses to
+		// dm-only/exploration/crossfade with dangling queue/active/push refs dropped.
+		sceneCards: ensureSceneCardState(state?.sceneCards),
 		recapArchiveId: state?.recapArchiveId ?? null,
 		archives: state?.archives ?? {},
 		schemaVersion: SESSION_STATE_SCHEMA_VERSION,

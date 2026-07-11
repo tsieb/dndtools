@@ -178,6 +178,23 @@ const MCP_TOOL_COVERAGE: McpToolCoverageRow[] = [
 		invalidInput: { title: '' }, // empty title
 		validInput: { title: 'Drafted', body: 'by the agent' },
 	},
+	{
+		// I11 S11.2.1 — the staged scene-card create. Routes through the authorized `scene-card.create`
+		// command; visibility is omitted so an agent-authored card fails closed to dm-only.
+		toolId: 'create_scene_card',
+		kind: 'write',
+		behaviors: [
+			'schema-validation',
+			'actor-policy',
+			'visibility-filtering',
+			'idempotency',
+			'staged-preview',
+			'direct-mode',
+			'failure-handling',
+		],
+		invalidInput: { title: '' }, // empty title
+		validInput: { title: 'Ambush at the Bridge', mood: 'combat', flavorText: 'Steel rings.' },
+	},
 ];
 
 function denied(result: McpToolResult): Extract<McpToolResult, { status: 'denied' }> {

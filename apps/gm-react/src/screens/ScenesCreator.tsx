@@ -4,6 +4,7 @@ import { listScenesForActor } from '@dndtools/core';
 import { Badge, Button, Card, Dialog, Field, Icon, IconButton, Input, Select, Textarea, Toaster } from '../ds';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { parseTags, sceneStatus, statusLabel } from '../app/scene-helpers';
+import { SceneCardsPanel } from './SceneCardsPanel';
 
 type Visibility = 'dm-only' | 'shared' | 'player-visible';
 
@@ -120,6 +121,7 @@ export function ScenesCreator() {
 	}
 
 	return (
+		<>
 		<div
 			style={{
 				display: 'grid',
@@ -323,6 +325,8 @@ export function ScenesCreator() {
 				</div>
 			</Dialog>
 		</div>
+		<SceneCardsPanel />
+		</>
 	);
 }
 

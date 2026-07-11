@@ -3954,6 +3954,61 @@ export {
 	normalizeMembers,
 } from './state/player-group';
 
+// I11 S11.2 — the durable SCENE CARD (atmosphere) model: a DM-authored title/mood/hero-image/flavor/audio
+// card, the ordered display queue, the active card, the transition style, and the player push history.
+// Distinct from the Command Center `Scene` (canvas of widgets) — a card is presentation content only.
+export type {
+	SceneCard,
+	SceneCardHeroImage,
+	SceneCardMood,
+	SceneCardPushRecord,
+	SceneCardState,
+	SceneCardTransitionStyle,
+	SceneCardVisibility,
+} from './state/scene-card';
+export {
+	EMPTY_SCENE_CARD_STATE,
+	SCENE_CARD_DISPLAY_ENTITY_ID,
+	SCENE_CARD_ENTITY_TYPE,
+	SCENE_CARD_FLAVOR_MAX_LENGTH,
+	SCENE_CARD_MOODS,
+	SCENE_CARD_SCHEMA_VERSION,
+	SCENE_CARD_TRANSITION_STYLES,
+	SCENE_CARD_VISIBILITIES,
+	ensureSceneCardState,
+	isLiveSceneCard,
+	isSceneCardMood,
+	isSceneCardTransitionStyle,
+	isSceneCardVisibility,
+} from './state/scene-card';
+
+// I11 S11.2 — the actor-filtered SCENE CARD read models (display surface, management list, DM queue, and
+// the player-reviewable push history — all fail-closed on visibility).
+export type { SceneCardPushView, SceneCardView, SceneDisplayView } from './queries/scene-card';
+export {
+	getActiveSceneCardForActor,
+	getSceneCardForActor,
+	getSceneCardPushHistoryForActor,
+	getSceneCardQueueForActor,
+	getSceneDisplayForActor,
+	listSceneCardsForActor,
+} from './queries/scene-card';
+
+// I11 S11.2 — SCENE CARD command input schemas (all DM-only; validated fail-closed before each reducer).
+export {
+	activateSceneCardInputSchema,
+	advanceSceneCardQueueInputSchema,
+	createSceneCardInputSchema,
+	dequeueSceneCardInputSchema,
+	deleteSceneCardInputSchema,
+	enqueueSceneCardInputSchema,
+	reorderSceneCardQueueInputSchema,
+	restoreSceneCardInputSchema,
+	setSceneCardTransitionInputSchema,
+	setSceneCardVisibilityInputSchema,
+	updateSceneCardInputSchema,
+} from './schemas/commands';
+
 // COLLAB-005 — the DM controls DIFFERENT PLAYER VIEW assignments for DIFFERENT players during the SAME
 // session (Contract 4 Player View Rules). The COLLAB layer over the CANVAS player-view machinery:
 // `projectPlayerViews` resolves EACH connected, non-DM participant's OWN filtered player view (assigned
@@ -4495,6 +4550,7 @@ export {
 	createBaselineMcpToolRegistry,
 	createMcpToolRegistry,
 	mcpBundleInputSchema,
+	mcpCreateSceneCardInputSchema,
 	mcpDiceRollInputSchema,
 	mcpEmptyInputSchema,
 	mcpEntityIdInputSchema,

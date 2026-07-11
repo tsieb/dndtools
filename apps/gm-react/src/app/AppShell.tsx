@@ -28,6 +28,8 @@ import {
 	type NavSection,
 } from './nav';
 import { T } from './screen-kit';
+import { SceneDisplayOverlay, useSceneDisplayBroadcast } from './SceneDisplayOverlay';
+import { getSceneDisplayForActor } from '@dndtools/core';
 
 /**
  * AppShell — the React port of the online prototype's shell (app.jsx Sidebar + Topbar): a 264px
@@ -703,17 +705,53 @@ function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
 
 export function AppShell({ children }: { children: ReactNode }) {
 	const [paletteOpen, setPaletteOpen] = useState(false);
+	// I11 S11.2.2 — the in-window fullscreen scene display (Ctrl+Shift+S toggles; Escape exits).
+	const [displayOpen, setDisplayOpen] = useState(false);
 	const viewport = useViewport();
+	const runtime = useRuntime();
+	// I11 S11.2.2 — keep any open second-screen window live with the DM window's edits.
+	useSceneDisplayBroadcast(runtime);
 	useEffect(() => {
 		function onKey(e: KeyboardEvent) {
 			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
 				e.preventDefault();
 				setPaletteOpen((v) => !v);
+				return;
+			}
+			// I11 S11.2.2 — Ctrl/Cmd+Shift+S enters/exits the fullscreen scene display.
+			if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 's') {
+				e.preventDefault();
+				setDisplayOpen((v) => !v);
+				return;
+			}
+			// I11 S11.2.3 — Ctrl/Cmd+Right advances the scene queue during play (only when a card is queued).
+			if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') {
+				const display = getSceneDisplayForActor(
+					runtime.state.session,
+					runtime.state.permissions,
+					runtime.defaultActorId,
+				);
+				if (display.queuedCount > 0) {
+					e.preventDefault();
+					void runtime.dispatch({
+						type: 'scene-card.advance',
+						actorId: runtime.defaultActorId,
+						payload: {},
+					});
+				}
+				return;
+			}
+			// Exit the fullscreen display on Escape.
+			if (e.key === 'Escape') {
+				setDisplayOpen((wasOpen) => {
+					if (wasOpen) e.preventDefault();
+					return false;
+				});
 			}
 		}
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, []);
+	}, [runtime]);
 	return (
 		<div
 			style={{
@@ -754,6 +792,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 				{viewport === 'phone' && <PhoneNav />}
 			</div>
 			<CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+			<SceneDisplayOverlay open={displayOpen} onClose={() => setDisplayOpen(false)} />
 			<ToastViewport placement="bottom-right" />
 		</div>
 	);

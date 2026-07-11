@@ -4,9 +4,11 @@ import {
 	availableSlots,
 	type DiceRollView,
 	type EvaluatedDiceTerm,
+	type SceneCardView,
 } from '@dndtools/core';
 import { Avatar, Badge, Chip, ConditionBadge, CONDITIONS, DiceResult, HPBar, Icon, IconButton, Stat } from '../ds';
 import { T, eb } from '../app/screen-kit';
+import { moodTheme } from '../app/sceneCardMood';
 import { useAssetObjectUrl } from '../platform/assetUrl';
 import { useRuntime } from '../runtime/RuntimeContext';
 import { useSession } from '../net/SessionContext';
@@ -142,6 +144,89 @@ function LockedNote({ what }: { what: string }) {
 // computed once by `buildPlayerData` so the LOCAL (DM preview / offline) path and the REMOTE (joined,
 // replicated over P2P) path can never diverge.
 type LiveData = PlayerData;
+
+/**
+ * I11 S11.2.4 — the dismissible SCENE PUSH banner. When the DM activates a player-visible scene card the
+ * actor-filtered view-model carries it here, and this hero+flavor banner appears over the player's screen.
+ * It auto-dismisses after 5s (and is manually dismissible immediately); a NEW push (different card or
+ * revision) re-shows. `aria-live="polite"` announces it without stealing focus.
+ */
+function SceneBanner({ card }: { card: SceneCardView | null }) {
+	const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+	const key = card ? `${card.id}:${card.revision}` : null;
+	useEffect(() => {
+		if (!key) return;
+		const timer = window.setTimeout(() => setDismissedKey(key), 5000);
+		return () => window.clearTimeout(timer);
+	}, [key]);
+
+	const vaultAssetId = card?.heroImage?.kind === 'vault-asset' ? card.heroImage.ref : null;
+	const resolvedAsset = useAssetObjectUrl(vaultAssetId);
+	const heroUrl = card?.heroImage
+		? card.heroImage.kind === 'url'
+			? card.heroImage.ref
+			: resolvedAsset
+		: null;
+
+	if (!card || !key || dismissedKey === key) return null;
+	const theme = moodTheme(card.mood);
+	return (
+		<div
+			role="status"
+			aria-live="polite"
+			style={{
+				display: 'flex',
+				alignItems: 'stretch',
+				gap: 0,
+				margin: '14px 28px 0',
+				borderRadius: 14,
+				overflow: 'hidden',
+				border: `1px solid ${theme.accent}`,
+				background: `linear-gradient(120deg, ${theme.from}, ${theme.to})`,
+				boxShadow: T.smd,
+			}}
+		>
+			{heroUrl ? (
+				<img
+					src={heroUrl}
+					alt=""
+					style={{ width: 132, flex: '0 0 auto', objectFit: 'cover' }}
+				/>
+			) : null}
+			<div style={{ flex: 1, minWidth: 0, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+				<span
+					style={{
+						alignSelf: 'flex-start',
+						padding: '2px 9px',
+						borderRadius: 999,
+						background: `${theme.accent}22`,
+						border: `1px solid ${theme.accent}`,
+						color: theme.accent,
+						font: `700 10px ${T.sans}`,
+						letterSpacing: '0.1em',
+						textTransform: 'uppercase',
+					}}
+				>
+					{theme.label} · Now on scene
+				</span>
+				<div style={{ font: `800 19px ${T.disp}`, color: theme.ink, lineHeight: 1.15 }}>{card.title}</div>
+				{card.flavorText ? (
+					<div style={{ font: `13px/1.5 ${T.sans}`, color: theme.ink, opacity: 0.92, whiteSpace: 'pre-wrap' }}>
+						{card.flavorText}
+					</div>
+				) : null}
+			</div>
+			<IconButton
+				icon="close"
+				label="Dismiss scene banner"
+				variant="ghost"
+				size="sm"
+				onClick={() => setDismissedKey(key)}
+				style={{ flex: '0 0 auto', margin: 8, color: theme.ink }}
+			/>
+		</div>
+	);
+}
 
 export function PlayerView() {
 	const runtime = useRuntime();
@@ -296,7 +381,8 @@ export function PlayerView() {
 						<span style={{ font: `12px ${T.sans}`, color: T.ter }}>{joined ? 'Connected to table' : data.live ? 'Session live' : 'Offline'}</span>
 					</span>
 				</div>
-				<main style={{ flex: 1, minWidth: 0 }}>{body}</main>
+				<SceneBanner card={data.activeSceneCard} />
+					<main style={{ flex: 1, minWidth: 0 }}>{body}</main>
 			</div>
 
 			{/* toasts */}
@@ -728,6 +814,29 @@ function JournalSection({ data }: { data: LiveData }) {
 								{e.body && <div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>{e.body}</div>}
 							</div>
 						))}
+					</div>
+				)}
+			</Panel>
+			{/* I11 S11.2.4 — the reviewable SCENE HISTORY: player-visible scene cards the DM has pushed. */}
+			<div style={{ marginTop: 18 }} />
+			<Panel title={`Scene history (${data.sceneHistory.length})`}>
+				{data.sceneHistory.length === 0 ? (
+					<div style={{ font: `12.5px ${T.sans}`, color: T.ter }}>No scenes have been shown to the table yet.</div>
+				) : (
+					<div style={{ display: 'flex', flexDirection: 'column' }}>
+						{[...data.sceneHistory].reverse().map((row, i) => {
+							const theme = moodTheme(row.card.mood);
+							return (
+								<div key={row.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
+									<span style={{ width: 10, height: 10, marginTop: 4, borderRadius: '50%', flex: '0 0 auto', background: theme.accent }} />
+									<div style={{ minWidth: 0, flex: 1 }}>
+										<div style={{ font: `600 13px ${T.sans}`, color: T.ink }}>{row.card.title}</div>
+										{row.card.flavorText && <div style={{ font: `12px/1.5 ${T.sans}`, color: T.sub }}>{row.card.flavorText}</div>}
+									</div>
+									<span style={{ flex: '0 0 auto' }}><Badge status="neutral">{theme.label}</Badge></span>
+								</div>
+							);
+						})}
 					</div>
 				)}
 			</Panel>

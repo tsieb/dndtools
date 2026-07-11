@@ -35,6 +35,9 @@ const Player = lazy(() => import('./screens/Player').then((m) => ({ default: m.P
 const Upgrade = lazy(() => import('./screens/Upgrade').then((m) => ({ default: m.Upgrade })));
 const PlayerView = lazy(() => import('./screens/PlayerView').then((m) => ({ default: m.PlayerView })));
 const Join = lazy(() => import('./screens/Join').then((m) => ({ default: m.Join })));
+// I11 S11.2.2 — the chrome-less scene DISPLAY surface for the second screen / projector window
+// (opened via `window.open('#/display')`). Like `/play` it mounts OUTSIDE the DM AppShell.
+const SceneDisplay = lazy(() => import('./screens/SceneDisplay').then((m) => ({ default: m.SceneDisplay })));
 
 const CENTERED: CSSProperties = {
 	display: 'flex',
@@ -184,6 +187,16 @@ function Shell() {
 				element={
 					<Suspense fallback={<Boot />}>
 						<Join />
+					</Suspense>
+				}
+			/>
+			{/* I11 S11.2.2 — the second-screen scene display: chrome-less like /play, driven live by
+			    the primary window over a BroadcastChannel. */}
+			<Route
+				path="/display"
+				element={
+					<Suspense fallback={<Boot />}>
+						<SceneDisplay />
 					</Suspense>
 				}
 			/>

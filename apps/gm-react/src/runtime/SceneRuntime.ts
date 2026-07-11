@@ -90,6 +90,7 @@ function emptySlice(): CoreStateSlice {
 			},
 			playerGroups: {},
 			calendarContinuity: { ...EMPTY_SESSION_STATE.calendarContinuity },
+			sceneCards: { ...EMPTY_SESSION_STATE.sceneCards },
 			recapArchiveId: null,
 			archives: {},
 			schemaVersion: EMPTY_SESSION_STATE.schemaVersion,

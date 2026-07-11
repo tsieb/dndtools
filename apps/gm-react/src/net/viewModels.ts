@@ -7,6 +7,8 @@ import {
 	getContentItemsForActor,
 	getCombatTrackerForActor,
 	getDiceHistoryForActor,
+	getActiveSceneCardForActor,
+	getSceneCardPushHistoryForActor,
 	listCharactersForActor,
 	resourcesOf,
 	type ActorId,
@@ -17,6 +19,8 @@ import {
 	type DiceRollView,
 	type JournalEntryView,
 	type ContentItemView,
+	type SceneCardView,
+	type SceneCardPushView,
 } from '@dndtools/core';
 import { resolveProjectedMapForViewer, type ProjectedMapInfo } from '../app/projectedMap';
 
@@ -74,6 +78,14 @@ export interface PlayerData {
 	displayName: string;
 	/** The role the Core resolved for this viewer (`player` | `observer`) — drives the tier gate. */
 	role: 'player' | 'observer';
+	/**
+	 * I11 S11.2.4 — the ACTIVE player-visible scene card pushed to this viewer (null when the display is
+	 * idle or the active card is dm-only). Rendered as the dismissible hero+flavor banner in PlayerView.
+	 * Actor-filtered, so a dm-only card never reaches a player device.
+	 */
+	activeSceneCard: SceneCardView | null;
+	/** I11 S11.2.4 — the viewer's reviewable SCENE HISTORY (player-visible pushes), oldest-first. */
+	sceneHistory: SceneCardPushView[];
 }
 
 /**
@@ -141,5 +153,7 @@ export function buildPlayerData(state: CoreStateSlice, viewer: ActorId): PlayerD
 		projectedMap: resolveProjectedMapForViewer(state, viewer),
 		displayName: home.kind === 'participant' ? home.displayName : (actor?.displayName ?? 'Player'),
 		role,
+		activeSceneCard: getActiveSceneCardForActor(state.session, state.permissions, viewer),
+		sceneHistory: getSceneCardPushHistoryForActor(state.session, state.permissions, viewer),
 	};
 }
