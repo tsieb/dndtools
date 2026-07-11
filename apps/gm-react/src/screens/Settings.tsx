@@ -49,6 +49,20 @@ import { ONBOARDED_KEY, REPLAY_EVENT } from '../app/Onboarding';
 import { isFsSourceSupported, listFolderSources, disconnectFolderSource, type FolderSourceRecord } from '../platform/fsSource';
 import { GOOGLE_DOCS_SETUP_RUNBOOK, addGdocConnection, isGoogleDocsConfigured, listGdocConnections, removeGdocConnection, type GdocConnection } from '../cloud/googleDocs';
 import { PLAN_CARDS, useEntitlements } from '../cloud/entitlements';
+import {
+	DEFAULT_ANTHROPIC_MODEL,
+	clearAiProviderKey,
+	getAiProviderKey,
+	getAiProviderSettings,
+	isAiProviderConfigured,
+	resolveAiProviderConfig,
+	saveAiProviderSettings,
+	setAiProviderKey,
+	type AiProviderKind,
+} from '../ai/providerConfig';
+import { sendAiChat } from '../ai/transport';
+import { buildAiToolSpecs, runAssistantExchange, type AssistantEvent } from '../ai/mcpBridge';
+import type { AiTurn } from '../ai/transport';
 
 /**
  * Settings — the category-rail section. The subpages now split by how much of the app Core backs:
@@ -1323,17 +1337,275 @@ function LocalBackupPanel() {
 	);
 }
 
-/* ---- AI & tools (REAL — the durable MCP identity/policy/staged-writes slice + `mcp.*` commands.
- * The POLICY layer is fully real: master enable, per-agent bindings/modes/allowlists, staged-proposal
- * review and the audit trail all dispatch validated Core commands and persist. What does NOT exist in
- * this build is any provider/agent TRANSPORT — nothing can connect yet, and the panel says so plainly
- * instead of showing fake "connected" agents. Fail-closed: MCP is OFF by default.) ------------------ */
+/* ---- AI & tools (REAL — the durable MCP identity/policy/staged-writes slice + `mcp.*` commands,
+ * PLUS the client-side provider transport (ADR-021, closing the ADR-014 deferral). The POLICY layer:
+ * master enable, per-agent bindings/modes/allowlists, staged-proposal review and the audit trail all
+ * dispatch validated Core commands and persist. The TRANSPORT layer: a BYO-key Anthropic / OpenAI-
+ * compatible chat client (src/ai/) whose tool calls route through the SAME fail-closed agent
+ * pipeline — reads are actor-filtered, writes become the staged proposals reviewed below. Fail
+ * closed twice over: MCP is OFF by default, and with no API key every AI surface stays off. -------- */
 const MCP_MODE_LABEL: Record<McpPolicyMode, string> = {
 	disabled: 'Disabled',
 	strict_review: 'Strict review',
 	balanced: 'Balanced',
 	trusted_direct: 'Trusted direct',
 };
+
+/** The offered tool surface, projected once from the Core's declared registry (pure). */
+const AI_TOOL_SPECS = buildAiToolSpecs();
+
+/** Provider configuration — BYO key, device-local custody, fail-closed until complete. */
+function AiProviderPanel({ onConfiguredChange }: { onConfiguredChange: () => void }) {
+	const [settings, setSettings] = useState(() => getAiProviderSettings());
+	const [keyDraft, setKeyDraft] = useState('');
+	const [hasKey, setHasKey] = useState(() => getAiProviderKey() !== null);
+	const configured = isAiProviderConfigured();
+
+	const patch = (p: Partial<typeof settings>) => {
+		setSettings(saveAiProviderSettings(p));
+		onConfiguredChange();
+	};
+	const saveKey = () => {
+		if (keyDraft.trim() === '') return;
+		setAiProviderKey(keyDraft);
+		setKeyDraft('');
+		setHasKey(true);
+		Toaster.success('API key stored on this device.');
+		onConfiguredChange();
+	};
+	const forgetKey = () => {
+		clearAiProviderKey();
+		setHasKey(false);
+		Toaster.success('API key forgotten.');
+		onConfiguredChange();
+	};
+
+	return (
+		<Panel
+			title="AI provider"
+			action={<Badge status={configured ? 'success' : 'neutral'}>{configured ? 'Configured' : 'Not configured'}</Badge>}
+		>
+			<div style={{ font: `12.5px/1.6 ${T.sans}`, color: T.sub }}>
+				Bring your own key — this build ships no key and proxies nothing through a server. The key stays on this
+				device (memory + this browser session; OS-encrypted storage on desktop) and is never written to the
+				vault, the op-log, or cloud sync. Until a key is saved, every AI surface stays off.
+			</div>
+			<SetRow
+				label="Provider"
+				help="Anthropic's API directly, or any OpenAI-compatible endpoint (local runner, proxy, other vendor)."
+				control={
+					<Seg
+						value={settings.provider}
+						ariaLabel="AI provider"
+						onChange={(v) => {
+							const provider = v as AiProviderKind;
+							patch({ provider, model: provider === 'anthropic' ? DEFAULT_ANTHROPIC_MODEL : settings.model });
+						}}
+						options={[
+							{ value: 'anthropic', label: 'Anthropic' },
+							{ value: 'openai-compatible', label: 'OpenAI-compatible' },
+						]}
+					/>
+				}
+			/>
+			<SetRow
+				label="Model"
+				help={settings.provider === 'anthropic' ? `Defaults to ${DEFAULT_ANTHROPIC_MODEL}.` : 'The model id the endpoint expects.'}
+				control={
+					<span style={{ flex: '0 0 240px' }}>
+						<Input
+							value={settings.model}
+							aria-label="Model id"
+							onChange={(e: { target: { value: string } }) => patch({ model: e.target.value })}
+						/>
+					</span>
+				}
+			/>
+			{settings.provider === 'openai-compatible' && (
+				<SetRow
+					label="Base URL"
+					help="The API base, e.g. https://api.example.com/v1 — /chat/completions is appended."
+					control={
+						<span style={{ flex: '0 0 300px' }}>
+							<Input
+								value={settings.baseUrl}
+								aria-label="API base URL"
+								placeholder="https://api.example.com/v1"
+								onChange={(e: { target: { value: string } }) => patch({ baseUrl: e.target.value })}
+							/>
+						</span>
+					}
+				/>
+			)}
+			<SetRow
+				label="API key"
+				help={hasKey ? 'A key is stored on this device. Paste a new one to replace it.' : 'Paste your provider API key to turn the assistant on.'}
+				control={
+					<span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+						<span style={{ flex: '1 1 220px', minWidth: 180 }}>
+							<Input
+								type="password"
+								value={keyDraft}
+								aria-label="Provider API key"
+								placeholder={hasKey ? '••••••••  (stored)' : 'sk-…'}
+								onChange={(e: { target: { value: string } }) => setKeyDraft(e.target.value)}
+							/>
+						</span>
+						<Button variant="primary" size="sm" icon="check" disabled={keyDraft.trim() === ''} onClick={saveKey}>
+							Save key
+						</Button>
+						{hasKey && (
+							<Button variant="ghost" size="sm" icon="trash" onClick={forgetKey}>
+								Forget key
+							</Button>
+						)}
+					</span>
+				}
+			/>
+		</Panel>
+	);
+}
+
+/** One rendered assistant-feed entry (the user ask, assistant text, or a tool-call outcome). */
+type AssistantFeedItem = { kind: 'user'; text: string } | ({ kind: 'event' } & AssistantEvent);
+
+const TOOL_OUTCOME_BADGE: Record<string, { status: string; label: string }> = {
+	read: { status: 'info', label: 'read' },
+	staged: { status: 'warning', label: 'staged' },
+	'direct-write': { status: 'success', label: 'committed' },
+	denied: { status: 'error', label: 'denied' },
+	error: { status: 'error', label: 'failed' },
+};
+
+/**
+ * The assistant — one ask at a time, run AS a registered agent connection through the Core's
+ * fail-closed pipeline. Reads come back actor-filtered; writes surface as staged proposals in the
+ * review panel below. Disabled honestly (with the reason) until every prerequisite is real:
+ * provider key, MCP master switch, a registered binding, DM + not previewing.
+ */
+function AiAssistantPanel({ canWrite }: { canWrite: boolean }) {
+	const runtime = useRuntime();
+	const mcp = runtime.state.mcp;
+	const bindings = Object.values(mcp.bindings);
+	// `configured` re-reads on every render; the parent bumps its own state on a provider-config
+	// change (see SettingsAI), which re-renders this sibling — no local mirror of ai/ module state.
+	const configured = isAiProviderConfigured();
+	const [agentId, setAgentId] = useState<string>(bindings[0]?.agentId ?? '');
+	const [input, setInput] = useState('');
+	const [feed, setFeed] = useState<AssistantFeedItem[]>([]);
+	const [turns, setTurns] = useState<AiTurn[]>([]);
+	const [asking, setAsking] = useState(false);
+
+	const selectedAgent = mcp.bindings[agentId] ? agentId : (bindings[0]?.agentId ?? '');
+	const blocker = !configured
+		? 'Add a provider API key above to turn the assistant on.'
+		: !mcp.enabled
+			? 'Enable MCP above — the master switch gates every agent capability.'
+			: bindings.length === 0
+				? 'Register an agent connection below — the assistant speaks as a bound actor.'
+				: !canWrite
+					? 'The assistant is DM-only and unavailable while previewing.'
+					: null;
+
+	const ask = () => {
+		const text = input.trim();
+		if (text === '' || asking || blocker !== null || selectedAgent === '') return;
+		setAsking(true);
+		setInput('');
+		setFeed((prev) => [...prev, { kind: 'user', text }]);
+		const config = resolveAiProviderConfig();
+		void runAssistantExchange({
+			send: (req) => sendAiChat(config, req),
+			invoke: (toolId, toolInput) => runtime.invokeAgentTool({ agentId: selectedAgent, toolId, input: toolInput }),
+			tools: AI_TOOL_SPECS,
+			turns,
+			userText: text,
+		})
+			.then((result) => {
+				setTurns(result.turns);
+				setFeed((prev) => [...prev, ...result.events.map((event) => ({ kind: 'event' as const, ...event }))]);
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'The assistant request failed.')))
+			.finally(() => setAsking(false));
+	};
+
+	return (
+		<Panel title="Assistant" action={asking ? <Badge status="info">Thinking…</Badge> : undefined}>
+			<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter }}>
+				Ask about the campaign. The assistant reads through the Core's actor-filtered tools as the agent you
+				pick, and anything it tries to write lands as a staged proposal in the review panel below — nothing
+				commits without you.
+			</div>
+			{blocker !== null ? (
+				<div style={{ padding: '9px 12px', borderRadius: 9, border: `1px solid ${T.bd}`, background: T.alt, font: `12px/1.6 ${T.sans}`, color: T.ter }}>
+					{blocker}
+				</div>
+			) : (
+				<>
+					{feed.length > 0 && (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto', padding: '4px 0' }}>
+							{feed.map((item, i) => {
+								if (item.kind === 'user') {
+									return (
+										<div key={i} style={{ alignSelf: 'flex-end', maxWidth: '85%', padding: '7px 11px', borderRadius: 10, background: T.accSub, border: `1px solid ${T.accBd}`, font: `12.5px/1.55 ${T.sans}`, color: T.ink, whiteSpace: 'pre-wrap' }}>
+											{item.text}
+										</div>
+									);
+								}
+								if (item.type === 'text') {
+									return (
+										<div key={i} style={{ alignSelf: 'flex-start', maxWidth: '85%', padding: '7px 11px', borderRadius: 10, background: T.alt, border: `1px solid ${T.bd}`, font: `12.5px/1.55 ${T.sans}`, color: T.ink, whiteSpace: 'pre-wrap' }}>
+											{item.text}
+										</div>
+									);
+								}
+								const badge = TOOL_OUTCOME_BADGE[item.outcome] ?? TOOL_OUTCOME_BADGE.error;
+								return (
+									<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, font: `11.5px ${T.sans}`, color: T.ter }}>
+										<Icon name="sparkle" size={13} color={T.ter} />
+										<span style={{ font: `11.5px ${T.mono}` }}>{item.toolId}</span>
+										<Badge status={badge.status}>{badge.label}</Badge>
+										<span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.detail}</span>
+									</div>
+								);
+							})}
+						</div>
+					)}
+					<div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+						<span style={{ flex: '0 0 200px' }}>
+							<Select
+								aria-label="Agent connection the assistant speaks as"
+								value={selectedAgent}
+								disabled={asking}
+								onChange={(e: { target: { value: string } }) => setAgentId(e.target.value)}
+								options={bindings.map((b) => ({ value: b.agentId, label: b.label || b.agentId }))}
+							/>
+						</span>
+						<span style={{ flex: '1 1 240px', minWidth: 200 }}>
+							<Textarea
+								value={input}
+								rows={2}
+								aria-label="Ask the assistant"
+								placeholder="e.g. What loose threads should tonight's session pick up?"
+								disabled={asking}
+								onChange={(e: { target: { value: string } }) => setInput(e.target.value)}
+								onKeyDown={(e: { key: string; shiftKey: boolean; preventDefault: () => void }) => {
+									if (e.key === 'Enter' && !e.shiftKey) {
+										e.preventDefault();
+										ask();
+									}
+								}}
+							/>
+						</span>
+						<Button variant="primary" size="sm" icon="sparkle" disabled={asking || input.trim() === ''} onClick={ask}>
+							{asking ? 'Asking…' : 'Ask'}
+						</Button>
+					</div>
+				</>
+			)}
+		</Panel>
+	);
+}
 
 function SettingsAI() {
 	const runtime = useRuntime();
@@ -1342,6 +1614,9 @@ function SettingsAI() {
 	const isDm = runtime.state.permissions.actors[actorId]?.role === 'dm';
 	const canWrite = isDm && !runtime.preview;
 	const [busy, setBusy] = useState(false);
+	// Bumped when the provider panel saves/forgets a key so the assistant panel re-reads its
+	// configured state (the key lives in the ai/ module, not in Core state or React).
+	const [, bumpAiConfig] = useState(0);
 	const actors = Object.values(runtime.state.permissions.actors) as { id: string; role: string; displayName: string }[];
 
 	// Register-agent form (a binding names WHICH actor a future connection speaks as — no capability).
@@ -1429,6 +1704,10 @@ function SettingsAI() {
 					}
 				/>
 			</Panel>
+
+			<AiProviderPanel onConfiguredChange={() => bumpAiConfig((v) => v + 1)} />
+
+			<AiAssistantPanel canWrite={canWrite} />
 
 			<Panel title="Agent connections" action={<Badge status="neutral">{bindings.length}</Badge>}>
 				<div style={{ font: `12px/1.6 ${T.sans}`, color: T.ter, marginBottom: 4 }}>

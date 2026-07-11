@@ -13,6 +13,7 @@ import {
 	ensureEncounterState,
 	ensureSessionAudioState,
 	ensureSessionCombatState,
+	createBaselineMcpToolRegistry,
 	createCommandLifecycle,
 	createOperationLog,
 	createDemoMapState,
@@ -23,6 +24,7 @@ import {
 	markSuccess,
 	PERMISSION_STATE_SCHEMA_VERSION,
 	dispatchCommand,
+	invokeMcpToolAsAgent,
 	permissionsWithPreviewActors,
 	resolvePreviewActor,
 	PREVIEW_READONLY_MESSAGE,
@@ -33,6 +35,9 @@ import {
 	type CoreCommand,
 	type CoreEnvironment,
 	type CoreStateSlice,
+	type McpAgentInvocation,
+	type McpAgentToolResult,
+	type McpToolRegistry,
 	type PreviewSelection,
 	type ResolvedPreview,
 	type SyncOperation,
@@ -157,6 +162,8 @@ export class SceneRuntime {
 	private version = 0;
 	private readonly listeners = new Set<() => void>();
 	private readonly dispatchListeners = new Set<DispatchListener>();
+	// The Core's declared MCP tool allowlist — built once; construction fails closed on wiring errors.
+	private readonly mcpToolRegistry: McpToolRegistry = createBaselineMcpToolRegistry();
 
 	constructor(options: RuntimeOptions) {
 		this.options = options;
@@ -416,6 +423,51 @@ export class SceneRuntime {
 		}
 		this.lifecycle = lifecycle;
 		this.emit();
+		return result;
+	}
+
+	/**
+	 * The single AGENT write/read path (the AI transport's only door into the vault). Runs the
+	 * Core's full fail-closed pipeline — optionality → identity → policy → stage/direct
+	 * (`invokeMcpToolAsAgent`) — against the AUTHORITATIVE state, then persists exactly like
+	 * `dispatch`: a staged proposal / direct write / audit entry is durable state, so a failed
+	 * persist rolls the in-memory slice back and rethrows (PLAT-018). Reads leave state untouched
+	 * and skip persistence entirely. Preview mode throws (the assistant UI is disabled there);
+	 * the model never sees a previewed view. Not a user command, so it never touches `lifecycle`.
+	 */
+	async invokeAgentTool(invocation: McpAgentInvocation): Promise<McpAgentToolResult> {
+		if (this.previewState) {
+			throw new Error(PREVIEW_READONLY_MESSAGE);
+		}
+		const before = this.innerState;
+		const { result, nextState } = invokeMcpToolAsAgent(
+			before,
+			this.options.env,
+			this.mcpToolRegistry,
+			invocation,
+		);
+		if (nextState !== before) {
+			this.innerState = nextState;
+			try {
+				await persistFullState(before, nextState);
+			} catch (error) {
+				this.innerState = before;
+				this.emit();
+				throw error;
+			}
+			// Same "op-log grew" signal as dispatch — staged-proposal ops replicate like any other.
+			const newOperations = nextState.sync.operations.slice(before.sync.operations.length);
+			if (newOperations.length > 0 && this.dispatchListeners.size > 0) {
+				for (const listener of this.dispatchListeners) {
+					try {
+						listener(newOperations, nextState);
+					} catch {
+						// A replication listener failure must not affect the local durable write.
+					}
+				}
+			}
+			this.emit();
+		}
 		return result;
 	}
 }

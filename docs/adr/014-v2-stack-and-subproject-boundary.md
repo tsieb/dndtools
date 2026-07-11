@@ -14,6 +14,10 @@
   storage deferral and the `content.write-to-source` transport deferral are lifted; asset bytes
   now live in a content-addressed Dexie blob table behind the platform boundary. The storage
   boundary itself (Dexie/IndexedDB, no binary in core state or the op log) remains in force.
+- Amended by: ADR-021 (2026-07-11) — the AI/agent-provider **transport** deferral ("defer
+  provider choices"; no MCP/provider transport in the first slice) is lifted by a client-side
+  BYO-key provider transport in `apps/gm-react/src/ai/`. The staged-write contract (ADR-002) and
+  this ADR's storage boundary remain in force.
 
 ## Context
 
