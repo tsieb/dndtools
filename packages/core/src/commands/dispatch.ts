@@ -48,6 +48,7 @@ import {
 	handleUnlinkCalendarDate,
 } from './calendar-continuity';
 import { handleGrantCapabilitySet, handleRevokeGrant, handleTransferOwnership } from './grant';
+import { handleAssignRole } from './assign-role';
 import {
 	handleAuthorRecap,
 	handleProjectActiveMap,
@@ -383,6 +384,8 @@ export function dispatchCommand(
 			return handleRevokeGrant(state, env, command.actorId, command.payload);
 		case 'permission.transfer-ownership':
 			return handleTransferOwnership(state, env, command.actorId, command.payload);
+		case 'permission.assign-role':
+			return handleAssignRole(state, env, command.actorId, command.payload);
 		case 'map.create-layer':
 			return handleCreateMapLayer(state, env, command.actorId, command.payload);
 		case 'map.rename-layer':

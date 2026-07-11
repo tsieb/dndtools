@@ -249,10 +249,42 @@ describe('invites', () => {
 		expect(pub.body).toEqual({
 			campaignName: 'The Sunken Outpost',
 			note: 'Thursdays 7pm',
+			role: 'player',
 			invitedBy: 'Sam the GM',
 			expiresAt: body.expiresAt,
 		});
 		expect(JSON.stringify(pub.body)).not.toContain('user-1');
+	});
+
+	it('mints a CO-DM invite: the role is stored, listed, and resolved (defaults to player otherwise)', async () => {
+		const res = await call(
+			event('POST /invites', {
+				name: 'Sam the GM',
+				body: { campaignName: 'The Sunken Outpost', role: 'co-dm' },
+			}),
+		);
+		expect(res.status).toBe(200);
+		expect(res.body.role).toBe('co-dm');
+
+		const list = await call(event('GET /invites'));
+		expect(list.body.invites[0].role).toBe('co-dm');
+
+		const pub = await call(
+			event('GET /invites/resolve/{token}', { sub: null, params: { token: res.body.token } }),
+		);
+		expect(pub.body.role).toBe('co-dm');
+
+		// An invite minted without a role defaults to an ordinary player seat.
+		const plain = await mint();
+		expect(plain.body.role).toBe('player');
+	});
+
+	it('an unknown/garbage role fails closed to a player seat', async () => {
+		const res = await call(
+			event('POST /invites', { body: { campaignName: 'Camp', role: 'admin' } }),
+		);
+		expect(res.status).toBe(200);
+		expect(res.body.role).toBe('player');
 	});
 
 	it('answers 404 for an absent, malformed, or expired token', async () => {

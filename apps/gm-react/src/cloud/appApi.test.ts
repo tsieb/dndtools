@@ -88,6 +88,18 @@ describe('authed requests', () => {
 		await expect(api.listDevices()).resolves.toEqual([{ deviceKey: 'd1' }]);
 	});
 
+	it('createInvite forwards a co-dm role in the POST body', async () => {
+		configured();
+		const api = await loadApi();
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse(200, { inviteId: 'i1', token: 't', campaignName: 'Camp', note: '', role: 'co-dm', createdAt: 'now', expiresAt: 1 }),
+		);
+		const invite = await api.createInvite({ campaignName: 'Camp', role: 'co-dm' });
+		expect(invite.role).toBe('co-dm');
+		expect(fetchMock.mock.calls[0][1].method).toBe('POST');
+		expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ campaignName: 'Camp', role: 'co-dm' });
+	});
+
 	it('publishes a module (returns moduleId) and deletes with the DELETE method', async () => {
 		configured();
 		const api = await loadApi();

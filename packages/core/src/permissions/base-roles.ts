@@ -41,8 +41,9 @@ export const LEAST_PRIVILEGED_ROLE: ActorRole = 'observer';
 /** Ordering of roles from most to least privileged. Lower number = more authority. */
 const ROLE_PRIVILEGE_RANK: Record<ActorRole, number> = {
 	dm: 0,
-	player: 1,
-	observer: 2,
+	'co-dm': 1,
+	player: 2,
+	observer: 3,
 };
 
 /**
@@ -80,7 +81,7 @@ export interface BaseRoleResolution {
 	reason: BaseRoleResolutionReason;
 }
 
-const VALID_ROLES: ReadonlySet<string> = new Set<ActorRole>(['dm', 'player', 'observer']);
+const VALID_ROLES: ReadonlySet<string> = new Set<ActorRole>(['dm', 'co-dm', 'player', 'observer']);
 
 function isValidRole(role: unknown): role is ActorRole {
 	return typeof role === 'string' && VALID_ROLES.has(role);
@@ -188,6 +189,15 @@ export interface BasePermissionFloor {
 
 const ROLE_FLOORS: Record<ActorRole, Omit<BasePermissionFloor, 'role'>> = {
 	dm: {
+		canWrite: true,
+		canReadCharacterData: true,
+		readOnly: false,
+		maxGrantAction: 'write',
+		allowsCharacterGrants: true,
+	},
+	// Co-DM floor: identical to the DM floor. The co-DM's restriction is not a read/write ceiling —
+	// it is the OWNER-scope gate (isCampaignOwnerRole) on role/grant/invite administration.
+	'co-dm': {
 		canWrite: true,
 		canReadCharacterData: true,
 		readOnly: false,

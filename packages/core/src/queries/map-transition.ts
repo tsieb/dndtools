@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { MapEntity, MapState } from '../state/map-state';
 import type { MapEmbed, MapEmbedTransform, Point2D } from '../state/map-nesting';
@@ -90,7 +91,7 @@ function unavailableEmbed(embedId: string, reason: MapChildUnavailableReason): R
  * independent permission model is authoritative even when the parent is more visible.
  */
 function isChildVisibleToActor(child: MapEntity, actor: Actor): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	return child.visibility === 'player-visible';
 }
 
@@ -119,7 +120,7 @@ export function resolveEmbedsForActor(
 		if (!child) {
 			// Only the DM may even learn the bucket is "missing"; a non-DM gets the same `hidden`-shaped
 			// generic result, so deletion is indistinguishable from never-having-access.
-			return unavailableEmbed(embed.id, actor.role === 'dm' ? 'missing' : 'hidden');
+			return unavailableEmbed(embed.id, hasDmAuthority(actor.role) ? 'missing' : 'hidden');
 		}
 		if (!isChildVisibleToActor(child, actor)) return unavailableEmbed(embed.id, 'hidden');
 		const inverse = invertMatrix(embedTransformToMatrix(embed.transform));
@@ -237,7 +238,7 @@ export function computeTransitionIntoChild(
 		return {
 			kind: 'unavailable',
 			embedId,
-			reason: actor.role === 'dm' ? 'missing' : 'hidden',
+			reason: hasDmAuthority(actor.role) ? 'missing' : 'hidden',
 			message: MAP_CHILD_UNAVAILABLE_MESSAGE,
 		};
 	}

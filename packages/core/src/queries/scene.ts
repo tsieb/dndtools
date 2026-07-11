@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId, SceneId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
 import type { Scene, SceneState, SectionLayoutRegion, WidgetInstance } from '../state/scene-state';
@@ -100,7 +101,7 @@ export function listScenesForActor(
 		if (!isLiveScene(scene)) continue;
 		const evaluation = evaluateSceneVisibility(scene, actor, permission);
 		if (evaluation.kind !== 'visible') continue;
-		if (scene.templateMeta.isTemplate && actor.role !== 'dm') continue;
+		if (scene.templateMeta.isTemplate && !hasDmAuthority(actor.role)) continue;
 		out.push({
 			id: scene.id,
 			name: scene.name,

@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { Actor } from '../state/permission-state';
 import type { WidgetBinding } from '../state/scene-state';
 import type { WidgetOutputDestinationClass } from '../state/widget-package-state';
@@ -147,7 +148,7 @@ function entityVisibilityForActor(
 	record: EntityBindingRecord,
 	actor: Actor,
 ): 'visible' | 'dm-only' | 'not-shared' {
-	if (actor.role === 'dm') return 'visible';
+	if (hasDmAuthority(actor.role)) return 'visible';
 	if (record.visibility === 'dm-only') return 'dm-only';
 	if (record.visibility === 'player-visible') return 'visible';
 	return (record.sharedWith ?? []).includes(actor.id) ? 'visible' : 'not-shared';
@@ -235,7 +236,7 @@ export function resolveWidgetBinding(
 		return options.bindingRequired ? { state: 'unbound' } : { state: 'available', value: null };
 	}
 	const { entityType, entityId, selector } = binding.source;
-	const isDm = actor.role === 'dm';
+	const isDm = hasDmAuthority(actor.role);
 	const key = entityBindingKey(entityType, entityId);
 	const record = env.entities[key];
 

@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { SyncOperation } from '../sync/operation-log';
@@ -76,7 +77,7 @@ export function isOperationVisibleToRecipient(
 	permission?: PermissionState,
 ): { visible: true } | { visible: false; reason: ReplicationWithholdReason } {
 	if (!recipient) return { visible: false, reason: 'unknown-recipient' };
-	if (recipient.role === 'dm') return { visible: true };
+	if (hasDmAuthority(recipient.role)) return { visible: true };
 
 	// Entity-level visibility first: if the recipient cannot see the target entity, the op is withheld.
 	const entityDecision = evaluateVisibility(metadata, {}, recipient, permission);
@@ -136,7 +137,7 @@ export function filterReplicationStream(
 	const recipientActorId = recipient?.id ?? null;
 
 	// DM: unfiltered. Copy to keep the result independent of the caller's array.
-	if (recipient && recipient.role === 'dm') {
+	if (recipient && hasDmAuthority(recipient.role)) {
 		return { recipientActorId, delivered: [...operations], withheld: [] };
 	}
 
@@ -192,7 +193,7 @@ export function assertStreamCarriesNoHiddenContent(
 	resolveVisibility: ReplicationVisibilitySource,
 	permission?: PermissionState,
 ): void {
-	if (recipient && recipient.role === 'dm') return;
+	if (recipient && hasDmAuthority(recipient.role)) return;
 	for (const op of delivered) {
 		const metadata = resolveVisibility(op) ?? defaultMetadata(op);
 		const decision = isOperationVisibleToRecipient(op, recipient, metadata, permission);

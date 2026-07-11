@@ -20,7 +20,7 @@ export interface OfferPayload {
 	/** The participant actor id this invitation admits (the host binds the connection to it). */
 	actorId: string;
 	displayName: string;
-	participantRole: 'player' | 'observer';
+	participantRole: 'player' | 'observer' | 'co-dm';
 	/** The base64 AES-GCM session key. Holding this code is the credential (S7.3.4). */
 	keyB64: string;
 	sdp: string;

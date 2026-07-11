@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import type { VaultContentState } from '../state/content';
 import {
@@ -109,7 +110,7 @@ export function getGraphHealthForDm(
 	referenceInstant: string,
 ): GraphHealthReport {
 	const actor = permissions.actors[actorId];
-	if (!actor || actor.role !== 'dm') return emptyReport();
+	if (!actor || !hasDmAuthority(actor.role)) return emptyReport();
 	return computeHealthForActor(content, permissions, actorId, referenceInstant);
 }
 

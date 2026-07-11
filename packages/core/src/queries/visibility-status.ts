@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import type { VaultContentState } from '../state/content';
 import { isLiveContentItem } from '../state/content';
@@ -71,7 +72,7 @@ export function visibilityAnnouncement(level: VisibilityLevel): string {
 
 /** True when the actor is a known DM — the single role gate for every resolver in this module. */
 function isDm(permissions: PermissionState, actorId: string): boolean {
-	return permissions.actors[actorId]?.role === 'dm';
+	return hasDmAuthority(permissions.actors[actorId]?.role);
 }
 
 /**

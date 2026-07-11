@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { ContentItem, TimelineReference, VaultContentState } from '../state/content';
 import { CONTENT_ITEM_ENTITY_TYPE, contentItemVisibilityMetadata, isLiveContentItem } from '../state/content';
@@ -80,7 +81,7 @@ function itemVisibleToActor(
 	permissions: PermissionState,
 ): boolean {
 	if (!isLiveContentItem(item)) return false;
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (item.visibility === 'dm-only') return false;
 	if (item.visibility === 'player-visible') return actor.role === 'player' || actor.role === 'observer';
 	// `shared`: delivered only through an explicit channel — `sharedWith` membership OR a viewer grant
@@ -219,7 +220,7 @@ export function getCalendarTimelineForActor(
  */
 export function actorCanAuthorContent(permissions: PermissionState, actorId: string): boolean {
 	const actor = permissions.actors[actorId];
-	return !!actor && actor.role === 'dm';
+	return !!actor && hasDmAuthority(actor.role);
 }
 
 /** A soft-deleted item as projected to the DM recycle bin: just enough to identify and restore it. */
@@ -243,7 +244,7 @@ export function getDeletedContentItemsForActor(
 	actorId: string,
 ): DeletedContentItemView[] {
 	const actor = permissions.actors[actorId];
-	if (!actor || actor.role !== 'dm') return [];
+	if (!actor || !hasDmAuthority(actor.role)) return [];
 	return Object.values(content.items)
 		.filter((item): item is ContentItem & { deletedAt: string } => item.deletedAt !== null)
 		.sort((a, b) => (a.deletedAt === b.deletedAt ? a.id.localeCompare(b.id) : a.deletedAt.localeCompare(b.deletedAt)))
@@ -373,9 +374,9 @@ export function getContentItemDetailForActor(
 		visibleFields,
 		// The DM sees no redaction (the filter returns everything); a non-DM sees the redacted keys for
 		// authoring affordances ONLY when it is the DM — for a non-DM these stay empty so nothing leaks.
-		redactedSectionIds: actor.role === 'dm' ? filtered.redactedSectionIds : [],
+		redactedSectionIds: hasDmAuthority(actor.role) ? filtered.redactedSectionIds : [],
 		redactedFieldKeys:
-			actor.role === 'dm' ? filtered.redactedFieldPaths.map(fieldKeyFromPath) : [],
+			hasDmAuthority(actor.role) ? filtered.redactedFieldPaths.map(fieldKeyFromPath) : [],
 		revision: item.revision,
 	};
 }

@@ -1,6 +1,7 @@
 import type { CoreStateSlice } from '../commands/types';
 import type { ActorId, SceneId } from '../state/ids';
 import type { ActorRole } from '../state/permission-state';
+import { hasDmAuthority } from '../state/permission-state';
 import type { SessionWorkflowState } from '../state/session-state';
 import { getCombatTrackerForActor } from './combat-tracker-view';
 import { getSessionAudioView } from './session-audio-query';
@@ -110,7 +111,7 @@ export function getSessionStatusStrip(
 ): SessionStatusStripResult {
 	const actor = state.permissions.actors[actorId];
 	if (!actor) return { kind: 'unknown-actor' };
-	const isDm = actor.role === 'dm';
+	const isDm = hasDmAuthority(actor.role);
 
 	const phasePresentation = PHASE_PRESENTATION[state.session.workflow];
 	const phase: StatusStripPhaseCell = { phase: state.session.workflow, ...phasePresentation };
@@ -134,7 +135,7 @@ export function getSessionStatusStrip(
 	const players: StatusStripPlayersCell | null = isDm
 		? ((): StatusStripPlayersCell => {
 				const connectedCount = Object.values(state.permissions.actors).filter(
-					(participant) => participant.role !== 'dm',
+					(participant) => !hasDmAuthority(participant.role),
 				).length;
 				return {
 					connectedCount,
@@ -219,7 +220,7 @@ export function resolveCommandCenterHome(
 	const statusStrip = getSessionStatusStrip(state, actorId);
 	if (statusStrip.kind !== 'status-strip') return { kind: 'unknown-actor' };
 
-	if (actor.role === 'dm') {
+	if (hasDmAuthority(actor.role)) {
 		return {
 			kind: 'dm',
 			actorId: actor.id,
@@ -238,13 +239,15 @@ export function resolveCommandCenterHome(
 		actorId,
 		options,
 	);
+	// Reached only for a non-elevated actor (dm / co-dm returned above): narrow to the participant roles.
+	const participantRole: 'player' | 'observer' = actor.role === 'observer' ? 'observer' : 'player';
 	return {
 		kind: 'participant',
 		actorId: actor.id,
-		role: actor.role,
+		role: participantRole,
 		displayName: actor.displayName,
-		readOnly: actor.role === 'observer',
-		observerMode: actor.role === 'observer',
+		readOnly: participantRole === 'observer',
+		observerMode: participantRole === 'observer',
 		statusStrip,
 		playerView,
 	};

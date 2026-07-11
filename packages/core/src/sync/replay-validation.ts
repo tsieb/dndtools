@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { SyncOperation } from './operation-log';
 import type { CoreStateSlice } from '../commands/types';
 import type { Actor } from '../state/permission-state';
@@ -191,7 +192,7 @@ export function validateReplayOperation(
 
 	// 6. VISIBILITY — the actor must be able to SEE the target (reuse the PERM visibility engine).
 	// The DM always can; a non-DM is decided by the supplied metadata (absent ⇒ fail closed dm-only).
-	if (actor.role !== 'dm') {
+	if (!hasDmAuthority(actor.role)) {
 		const metadata: EntityVisibilityMetadata = context.visibilityMetadata ?? {
 			entityType: operation.entityType,
 			entityId: operation.entityId,
@@ -214,7 +215,7 @@ export function validateReplayOperation(
 	// 7. PERMISSION — the actor must be allowed to WRITE the target. The DM bypasses capability-set
 	// restrictions inherently (Contract 3 DM Authority). A non-DM needs the required grant; an
 	// unclassified write (no `requiredCapability`) is treated as DM-only and fails closed for non-DM.
-	if (actor.role !== 'dm') {
+	if (!hasDmAuthority(actor.role)) {
 		const required = context.requiredCapability;
 		const permitted =
 			required !== undefined &&

@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import { getActor } from '../state/permission-state';
 import {
@@ -69,7 +70,7 @@ export function listEncountersForActor(
 	actorId: string,
 ): EncounterView[] {
 	const actor = getActor(permissions, actorId);
-	if (actor?.role !== 'dm') return [];
+	if (!hasDmAuthority(actor?.role)) return [];
 	return Object.values(state.encounters)
 		.sort((a, b) => a.id.localeCompare(b.id))
 		.map(toView);
@@ -87,7 +88,7 @@ export function getEncounterForActor(
 	encounterId: string,
 ): EncounterView | null {
 	const actor = getActor(permissions, actorId);
-	if (actor?.role !== 'dm') return null;
+	if (!hasDmAuthority(actor?.role)) return null;
 	const encounter = state.encounters[encounterId];
 	if (!encounter) return null;
 	return toView(encounter);

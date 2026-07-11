@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { PermissionState } from '../state/permission-state';
 import type { SessionState, SessionArchiveSnapshot } from '../state/session-state';
 import type { VaultContentState } from '../state/content';
@@ -301,7 +302,7 @@ export function searchCalendarTimeForActor(
 		};
 	}
 
-	const isDm = actor.role === 'dm';
+	const isDm = hasDmAuthority(actor.role);
 	const sources = new Set(filter.sources ?? CALENDAR_EVENT_SOURCES);
 	const needle = (filter.query ?? '').trim().toLowerCase();
 

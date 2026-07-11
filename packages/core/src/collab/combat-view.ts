@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { Actor, PermissionState } from '../state/permission-state';
 import { getActor } from '../state/permission-state';
@@ -97,7 +98,7 @@ function actorMayEditCombatant(
 	combatant: { kind: string; characterId: string | null },
 	now?: string,
 ): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
 	if (combatant.kind !== 'character' || !combatant.characterId) return false;
 	return hasGrantedCapability(
@@ -126,7 +127,7 @@ export function computeCombatControls(
 ): CombatControlPermissions {
 	if (!actor) return NO_CONTROLS;
 	const live = liveness === 'live';
-	const isDm = actor.role === 'dm';
+	const isDm = hasDmAuthority(actor.role);
 
 	// Editable combatants: only those the viewer can SEE (present in the filtered tracker, non-redacted)
 	// AND has authority over. A redacted placeholder row is never editable (no leak of edit affordance).
@@ -189,7 +190,7 @@ function recipientCanSeeCombatant(
 	recipient: Actor,
 	now?: string,
 ): boolean {
-	if (recipient.role === 'dm') return true;
+	if (hasDmAuthority(recipient.role)) return true;
 	if (!combatant.hidden) return true;
 	if (combatant.kind === 'character' && combatant.characterId) {
 		return hasGrantedCapability(
@@ -278,7 +279,7 @@ export function filterCombatStreamForRecipient(
 	now?: string,
 ): SyncOperation[] {
 	if (!recipient) return [];
-	if (recipient.role === 'dm') return [...operations];
+	if (hasDmAuthority(recipient.role)) return [...operations];
 	const delivered: SyncOperation[] = [];
 	for (const op of operations) {
 		if (op.entityType !== COMBAT_ENTITY_TYPE) {
@@ -312,7 +313,7 @@ export function assertCombatStreamCarriesNoHiddenCombatant(
 	recipient: Actor | undefined,
 	now?: string,
 ): void {
-	if (recipient && recipient.role === 'dm') return;
+	if (recipient && hasDmAuthority(recipient.role)) return;
 	const canSee = (id: string): boolean => {
 		const combatant = combat.combatants[id];
 		return !!combatant && !!recipient && recipientCanSeeCombatant(combatant, permissions, recipient, now);

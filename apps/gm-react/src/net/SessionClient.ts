@@ -18,7 +18,7 @@ export interface JoinedIdentity {
 	sessionId: string;
 	actorId: string;
 	displayName: string;
-	role: 'player' | 'observer';
+	role: 'player' | 'observer' | 'co-dm';
 }
 
 export interface ClientState {

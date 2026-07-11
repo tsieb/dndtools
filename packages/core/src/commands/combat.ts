@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import {
 	addCombatantsInputSchema,
 	advanceCombatTurnInputSchema,
@@ -485,7 +486,7 @@ function actorMayEditCombatant(
 	combatant: Combatant,
 	now?: string,
 ): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
 	if (combatant.kind !== 'character' || !combatant.characterId) return false;
 	return hasGrantedCapability(

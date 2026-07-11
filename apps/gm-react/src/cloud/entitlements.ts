@@ -275,3 +275,14 @@ export function useEntitlements(): EntitlementsValue {
 export function currentLocalPlan(): PlanId {
   return readLocalPlan();
 }
+
+/**
+ * How many CO-DM SEATS a plan includes. Mirrors the 'Co-DM seats' row of the feature matrix
+ * (hearth: none, lantern: 1, beacon: 3) and the marketing copy. This is the entitlement the
+ * Settings promote-to-Co-DM flow enforces (passed to the Core `permission.assign-role` command,
+ * which fails closed when a promotion would exceed it). Fail-closed: an unknown plan ⇒ 0 seats.
+ */
+const CO_DM_SEATS_BY_PLAN: Record<PlanId, number> = { hearth: 0, lantern: 1, beacon: 3 };
+export function coDmSeatsForPlan(plan: PlanId): number {
+  return CO_DM_SEATS_BY_PLAN[plan] ?? 0;
+}

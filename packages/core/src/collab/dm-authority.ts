@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { Actor, PermissionState } from '../state/permission-state';
 import { hasGrantedCapability } from '../permissions/grants';
@@ -103,7 +104,7 @@ function validateCommandAuthority(
 ): RejectedSessionCommand['reason'] | null {
 	const actor: Actor | undefined = permission.actors[command.actorId];
 	if (!actor) return 'unknown-actor';
-	if (actor.role === 'dm') return null;
+	if (hasDmAuthority(actor.role)) return null;
 	if (actor.role === 'observer') return 'observer-write';
 	// Player: needs the required capability on the target. A DM-only field (no requiredCapability) is
 	// never writable by a non-DM.
@@ -120,7 +121,7 @@ function validateCommandAuthority(
 }
 
 function isDmCommand(command: SessionFieldCommand, permission: PermissionState): boolean {
-	return permission.actors[command.actorId]?.role === 'dm';
+	return hasDmAuthority(permission.actors[command.actorId]?.role);
 }
 
 /** Deterministic ordering for same-authority ties: earliest `issuedAt`, then lexicographic command id. */

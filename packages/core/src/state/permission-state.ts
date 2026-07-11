@@ -2,7 +2,31 @@ import type { ActorId, GrantId } from './ids';
 
 export const PERMISSION_STATE_SCHEMA_VERSION = 1 as const;
 
-export type ActorRole = 'dm' | 'player' | 'observer';
+/**
+ * Base roles, most to least privileged. `co-dm` is the trusted elevated seat: it carries full
+ * DM-grade READ visibility (dm-only scenes/notes/maps/combatants are visible) and DM-grade
+ * AUTHORING authority, but NEVER the campaign-owner powers — granting/revoking permissions,
+ * changing roles, transferring ownership, or minting invites stay with the owner DM
+ * ({@link isCampaignOwnerRole}). Policy code must gate on {@link hasDmAuthority} for
+ * elevated read/author checks and on {@link isCampaignOwnerRole} for owner-scoped checks.
+ */
+export type ActorRole = 'dm' | 'co-dm' | 'player' | 'observer';
+
+/**
+ * DM-level authority: full read visibility + DM-grade authoring. True for the campaign-owner DM
+ * and for a co-DM. Accepts any string-ish input and fails closed for unknown values.
+ */
+export function hasDmAuthority(role: ActorRole | string | null | undefined): boolean {
+	return role === 'dm' || role === 'co-dm';
+}
+
+/**
+ * Campaign-owner powers (role assignment, permission grants/revokes/transfers, invites, vault /
+ * account / sync settings, campaign deletion): the DM only — NEVER a co-DM. Fails closed.
+ */
+export function isCampaignOwnerRole(role: ActorRole | string | null | undefined): boolean {
+	return role === 'dm';
+}
 
 export interface Actor {
 	id: ActorId;
@@ -50,4 +74,9 @@ export const EMPTY_PERMISSION_STATE: PermissionState = Object.freeze({
 
 export function getActor(state: PermissionState, actorId: ActorId): Actor | undefined {
 	return state.actors[actorId];
+}
+
+/** How many actors currently hold the `co-dm` role (for seat-entitlement checks). */
+export function countCoDmActors(state: PermissionState): number {
+	return Object.values(state.actors).filter((actor) => actor.role === 'co-dm').length;
 }

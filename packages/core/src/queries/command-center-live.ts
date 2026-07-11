@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { PermissionState } from '../state/permission-state';
 import type { SessionState, SessionWorkflowState } from '../state/session-state';
@@ -183,7 +184,7 @@ export function listSessionPhaseActions(
 	actorId: ActorId,
 ): SessionPhaseAction[] {
 	const actor = state.permissions.actors[actorId];
-	if (!actor || actor.role !== 'dm') return [];
+	if (!actor || !hasDmAuthority(actor.role)) return [];
 
 	const from = state.session.workflow;
 	const actions: SessionPhaseAction[] = [];
@@ -224,7 +225,7 @@ export function listPushableContent(
 	actorId: ActorId,
 ): PushableContentItem[] {
 	const actor = state.permissions.actors[actorId];
-	if (!actor || actor.role !== 'dm') return [];
+	if (!actor || !hasDmAuthority(actor.role)) return [];
 	return getContentItemsForActor(state.content, state.permissions, actorId)
 		.filter((item) => item.visibility === 'player-visible')
 		.map((item) => ({ id: item.id, title: item.title, kind: item.kind, body: item.body }))
@@ -298,7 +299,7 @@ export function getActiveMapProjectionSummary(
 	actorId: ActorId,
 ): ActiveMapProjectionSummary | null {
 	const actor = state.permissions.actors[actorId];
-	if (!actor || actor.role !== 'dm') return null;
+	if (!actor || !hasDmAuthority(actor.role)) return null;
 	const active = state.session.activeMap;
 	if (!active) return { projecting: false, deliveredCount: 0, queuedCount: 0 };
 

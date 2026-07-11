@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { Character, CharacterState, PartyInventoryItem } from '../state/character-state';
 import { partyRecordOf } from '../state/character-state';
@@ -102,7 +103,7 @@ function totalAvailableClassResources(character: Character): number {
 
 /** Whether a party-inventory item is visible to an actor (per-item canonical visibility). */
 function inventoryVisibleToActor(item: PartyInventoryItem, actor: Actor): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (item.visibility === 'dm-only') return false;
 	if (item.visibility === 'player-visible') return actor.role === 'player';
 	return item.sharedWith.includes(actor.id); // `shared`: explicit delivery only.
@@ -131,7 +132,7 @@ export function getPartyOverviewForActor(
 	// CHAR-015 / PERM-011 observer ceiling: deny character data wholesale before any projection.
 	if (decideCharacterDataRead(permissions, actorId).kind !== 'granted') return EMPTY_OVERVIEW;
 
-	const isDm = actor.role === 'dm';
+	const isDm = hasDmAuthority(actor.role);
 	const party = partyRecordOf(characters);
 
 	// Members the viewer may see — the same redaction the roster uses (CharacterView strips DM-only

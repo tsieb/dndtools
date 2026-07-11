@@ -46,11 +46,16 @@ export interface ModuleWithPackage extends ModuleListing {
   package: unknown;
 }
 
+/** The seat an invite grants. Absent/`player` is an ordinary seat; `co-dm` is the elevated seat. */
+export type InviteRole = 'player' | 'co-dm';
+
 export interface Invite {
   inviteId: string;
   token: string;
   campaignName: string;
   note: string;
+  /** The seat this invite grants (defaults to `player` when the server omits it). */
+  role: InviteRole;
   createdAt: string;
   /** Epoch seconds (14-day TTL). */
   expiresAt: number;
@@ -58,6 +63,7 @@ export interface Invite {
 export interface ResolvedInvite {
   campaignName: string;
   note: string;
+  role: InviteRole;
   invitedBy: string;
   expiresAt: number;
 }
@@ -166,7 +172,11 @@ export async function deleteModule(moduleId: string): Promise<void> {
 }
 
 // --- Invites --------------------------------------------------------------------------------
-export function createInvite(input: { campaignName: string; note?: string }): Promise<Invite> {
+export function createInvite(input: {
+  campaignName: string;
+  note?: string;
+  role?: InviteRole;
+}): Promise<Invite> {
   return authedFetch<Invite>('/invites', post(input));
 }
 

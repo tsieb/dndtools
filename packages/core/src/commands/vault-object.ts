@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import {
 	createVaultObjectInputSchema,
 	renameWikilinkTargetInputSchema,
@@ -60,7 +61,7 @@ function contentWith(state: CoreStateSlice, content: VaultContentState): CoreSta
 
 /** Vault-level authoring (create object): DM only. Fail closed otherwise. */
 function actorMayAuthorVault(actor: Actor): boolean {
-	return actor.role === 'dm';
+	return hasDmAuthority(actor.role);
 }
 
 

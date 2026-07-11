@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { Character } from '../state/character-state';
 import { CHARACTER_ENTITY_TYPE } from '../state/character-state';
 import {
@@ -280,7 +281,7 @@ export function resolveCharacterExposure(
 		// `hidden` first below, so we gate the unknown-selector check on a record the resolver can see.
 		const key = entityBindingKey(CHARACTER_ENTITY_TYPE, entityId);
 		const record = env.entities[key];
-		if (record && actor.role === 'dm' && !isSupportedExposureSelector(selector)) {
+		if (record && hasDmAuthority(actor.role) && !isSupportedExposureSelector(selector)) {
 			// For the DM (who can see everything) an unsupported selector is simply not in the contract.
 			return { state: 'missing' };
 		}

@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { CoreStateSlice } from '../commands/types';
 import type { ActorId } from '../state/ids';
 import type { ActorRole } from '../state/permission-state';
@@ -33,7 +34,7 @@ export interface PlayerViewControllerAssignment {
 export interface PlayerViewControllerParticipant {
 	actorId: ActorId;
 	displayName: string;
-	role: Exclude<ActorRole, 'dm'>;
+	role: Exclude<ActorRole, 'dm' | 'co-dm'>;
 	assignment: PlayerViewControllerAssignment | null;
 }
 
@@ -46,7 +47,7 @@ export type PlayerViewControllerQueryResult =
 	  }
 	| { kind: 'denied'; reason: 'unknown-actor' | 'actor-not-authorized' };
 
-const PARTICIPANT_ROLE_ORDER: Record<Exclude<ActorRole, 'dm'>, number> = {
+const PARTICIPANT_ROLE_ORDER: Record<Exclude<ActorRole, 'dm' | 'co-dm'>, number> = {
 	player: 0,
 	observer: 1,
 };
@@ -92,7 +93,7 @@ export function getPlayerViewController(
 ): PlayerViewControllerQueryResult {
 	const actor = state.permissions.actors[actorId];
 	if (!actor) return { kind: 'denied', reason: 'unknown-actor' };
-	if (actor.role !== 'dm') return { kind: 'denied', reason: 'actor-not-authorized' };
+	if (!hasDmAuthority(actor.role)) return { kind: 'denied', reason: 'actor-not-authorized' };
 
 	const sceneOptions = Object.values(state.scenes.scenes)
 		.filter((scene) => !scene.templateMeta.isTemplate)
@@ -101,8 +102,11 @@ export function getPlayerViewController(
 
 	const participants = Object.values(state.permissions.actors)
 		.filter(
-			(participant): participant is typeof participant & { role: Exclude<ActorRole, 'dm'> } =>
-				participant.role !== 'dm',
+			(participant): participant is typeof participant & {
+				role: Exclude<ActorRole, 'dm' | 'co-dm'>;
+			} =>
+				// A DM / co-DM operates the Player-View controller; they are never a projection TARGET.
+				!hasDmAuthority(participant.role),
 		)
 		.sort((a, b) => {
 			const roleDelta = PARTICIPANT_ROLE_ORDER[a.role] - PARTICIPANT_ROLE_ORDER[b.role];

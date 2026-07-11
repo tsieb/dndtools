@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { ActorId } from '../state/ids';
 import type { PermissionGrant, PermissionState } from '../state/permission-state';
 import {
@@ -55,7 +56,7 @@ export type DmDiagnosticsResult =
 export function actorCanViewDmDiagnostics(permissions: PermissionState, actorId: ActorId): boolean {
 	const actor = permissions.actors[actorId];
 	if (!actor) return false;
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	return permissions.grants.some(
 		(grant: PermissionGrant) =>
 			grant.playerActorId === actorId &&

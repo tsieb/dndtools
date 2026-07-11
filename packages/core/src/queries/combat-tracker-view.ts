@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import { getActor } from '../state/permission-state';
 import { hasGrantedCapability } from '../permissions/grants';
@@ -134,7 +135,7 @@ function actorCanSeeCombatant(
 	combatant: Combatant,
 	now?: string,
 ): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (!combatant.hidden) return true;
 	// A hidden combatant that IS a character is visible to a player who is its combat-participant.
 	if (combatant.kind === 'character' && combatant.characterId) {
@@ -172,7 +173,7 @@ export function getCombatTrackerForActor(
 	now?: string,
 ): CombatTrackerView {
 	const actor = getActor(permissions, actorId);
-	const isDm = actor?.role === 'dm';
+	const isDm = hasDmAuthority(actor?.role);
 	const activeId = combat.order[combat.turn] ?? null;
 
 	const combatants: CombatantView[] = [];

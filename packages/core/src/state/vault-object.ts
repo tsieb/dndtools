@@ -1,3 +1,4 @@
+import { hasDmAuthority } from './permission-state';
 import {
 	parseMarkdownNote,
 	serializeMarkdownNote,
@@ -310,9 +311,9 @@ export function readObjectSubtype(noteText: string): VaultObjectSubtype | null {
 export function projectObjectFieldsForRole(
 	subtype: VaultObjectSubtype,
 	fields: Record<string, unknown>,
-	role: 'dm' | 'player' | 'observer',
+	role: 'dm' | 'co-dm' | 'player' | 'observer',
 ): Record<string, unknown> {
-	if (role === 'dm') return { ...fields };
+	if (hasDmAuthority(role)) return { ...fields };
 	const schema = VAULT_OBJECT_SCHEMAS[subtype];
 	const hiddenKeys = new Set(schema.fields.filter((f) => f.dmOnly === true).map((f) => f.key));
 	const projected: Record<string, unknown> = {};

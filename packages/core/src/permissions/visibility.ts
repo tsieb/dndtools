@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import type { Actor, PermissionState } from '../state/permission-state';
 import type { Scene } from '../state/scene-state';
 import { hasGrantedCapability } from './grants';
@@ -12,7 +13,7 @@ export function evaluateSceneVisibility(
 	permission?: PermissionState,
 ): SceneVisibilityResult {
 	if (!actor) return { kind: 'hidden', reason: 'unknown-actor' };
-	if (actor.role === 'dm') return { kind: 'visible', assignedSectionIds: null };
+	if (hasDmAuthority(actor.role)) return { kind: 'visible', assignedSectionIds: null };
 	if (scene.visibility === 'dm-only') return { kind: 'hidden', reason: 'dm-only' };
 
 	const assignment = scene.playerViewAssignments.find((a) => a.playerActorId === actor.id);

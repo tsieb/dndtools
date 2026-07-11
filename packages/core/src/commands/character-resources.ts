@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import {
 	restCharacterInputSchema,
 	setCharacterSpellInputSchema,
@@ -82,7 +83,7 @@ function actorMayUpdateCombatResources(
 	characterId: string,
 	now?: string,
 ): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
 	return hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, characterId, 'combat-participant', now);
 }
@@ -99,7 +100,7 @@ function actorMayManageResources(
 	characterId: string,
 	now?: string,
 ): boolean {
-	if (actor.role === 'dm') return true;
+	if (hasDmAuthority(actor.role)) return true;
 	if (actor.role === 'observer') return false;
 	return hasGrantedCapability(state.permissions, actor, CHARACTER_ENTITY_TYPE, characterId, 'owner', now);
 }

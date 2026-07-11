@@ -5,6 +5,7 @@ import type {
 	SessionPlayerViewAssignment,
 } from '../state/session-state';
 import { resolveDeliveryTarget } from '../collab/player-groups';
+import { hasDmAuthority } from '../state/permission-state';
 import type { CommandResult, CoreEnvironment, CoreEvent, CoreStateSlice } from './types';
 import {
 	appendOperationDraft,
@@ -66,7 +67,7 @@ export function handleProjectPlayerView(
 
 	for (const playerActorId of parsed.data.playerActorIds) {
 		const player = state.permissions.actors[playerActorId];
-		if (!player || player.role === 'dm') {
+		if (!player || hasDmAuthority(player.role)) {
 			return reject(
 				{
 					code: 'invalid-payload',

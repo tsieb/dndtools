@@ -1,3 +1,4 @@
+import { hasDmAuthority } from '../state/permission-state';
 import { setPresenceInputSchema } from '../schemas/commands';
 import {
 	applyPresenceBroadcast,
@@ -39,7 +40,7 @@ export function handleSetPresence(
 	const targetActorId = parsed.data.targetActorId ?? actor.id;
 	if (targetActorId !== actor.id) {
 		// Fail closed: only the DM may touch another participant's presence, and only to CLEAR it.
-		if (actor.role !== 'dm') {
+		if (!hasDmAuthority(actor.role)) {
 			return reject(
 				{ code: 'actor-not-authorized', message: 'You may only set your own presence.' },
 				state,

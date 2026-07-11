@@ -51,7 +51,7 @@ import { getDiceHistoryForActor } from './dice-history';
 /** The PUBLISHED search-index freshness for an actor: per-domain freshness + overall partial/stale flags. */
 export interface SearchIndexStatusView {
 	actorId: string;
-	role: 'dm' | 'player' | 'observer';
+	role: 'dm' | 'co-dm' | 'player' | 'observer';
 	/** Per-domain freshness (status + indexed/source cursors + behind-by), one per searchable domain. */
 	domains: SearchDomainFreshness[];
 	/** True when ANY domain is `partial` or `stale` (cached results may be behind — SRCH-009 AC1). */

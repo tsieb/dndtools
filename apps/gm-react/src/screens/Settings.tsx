@@ -6,6 +6,7 @@ import {
 	FEATURE_TIERS,
 	MCP_BASELINE_TOOL_IDS,
 	MCP_POLICY_MODES,
+	countCoDmActors,
 	describeCapabilitySet,
 	deriveVaultConflicts,
 	getContentItemsForActor,
@@ -48,7 +49,7 @@ import { exportFullVault, importFullVault, validateVaultBackup, type VaultBackup
 import { ONBOARDED_KEY, REPLAY_EVENT } from '../app/Onboarding';
 import { isFsSourceSupported, listFolderSources, disconnectFolderSource, type FolderSourceRecord } from '../platform/fsSource';
 import { GOOGLE_DOCS_SETUP_RUNBOOK, addGdocConnection, isGoogleDocsConfigured, listGdocConnections, removeGdocConnection, type GdocConnection } from '../cloud/googleDocs';
-import { PLAN_CARDS, useEntitlements } from '../cloud/entitlements';
+import { PLAN_CARDS, coDmSeatsForPlan, useEntitlements } from '../cloud/entitlements';
 
 /**
  * Settings — the category-rail section. The subpages now split by how much of the app Core backs:
@@ -616,7 +617,10 @@ function SettingsSubscription() {
 }
 
 /* ---- Players (REAL — the live actor roster the Core enforces visibility against) ---------------- */
-const ROLE_LABEL: Record<string, string> = { dm: 'Dungeon Master', player: 'Player', observer: 'Observer' };
+const ROLE_LABEL: Record<string, string> = { dm: 'Dungeon Master', 'co-dm': 'Co-DM', player: 'Player', observer: 'Observer' };
+/** Badge tone per role — the Co-DM shares the DM's accent (elevated), players `info`, observers neutral. */
+const roleBadgeTone = (role: string): 'accent' | 'info' | 'neutral' =>
+	role === 'dm' || role === 'co-dm' ? 'accent' : role === 'observer' ? 'neutral' : 'info';
 /** The web join link an invite token redeems at — the /join route outside the DM shell. */
 const inviteJoinUrl = (token: string) =>
 	`${window.location.origin}${window.location.pathname}#/join?token=${encodeURIComponent(token)}`;
@@ -632,11 +636,14 @@ const copyText = async (text: string, okMessage: string) => {
 
 /** Pending invites — REAL server-minted join links (app-api) when configured + signed in. */
 function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: boolean; createOpen: boolean; onCloseCreate: () => void }) {
+	const ent = useEntitlements();
+	const coDmSeats = coDmSeatsForPlan(ent.plan);
 	const [invites, setInvites] = useState<Invite[] | null>(null);
 	const [failed, setFailed] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [campaignName, setCampaignName] = useState('');
 	const [note, setNote] = useState('');
+	const [role, setRole] = useState<'player' | 'co-dm'>('player');
 	const [minted, setMinted] = useState<Invite | null>(null);
 	const [qr, setQr] = useState<string | null>(null);
 	// Revoking kills the link server-side for good (no undo exists), so it confirms first.
@@ -672,6 +679,7 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 		setMinted(null);
 		setCampaignName('');
 		setNote('');
+		setRole('player');
 		onCloseCreate();
 	};
 	const mint = () => {
@@ -680,8 +688,12 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 			Toaster.error('Give the invite a campaign name.');
 			return;
 		}
+		if (role === 'co-dm' && coDmSeats <= 0) {
+			Toaster.error('Your plan has no Co-DM seats — upgrade to invite a Co-DM.');
+			return;
+		}
 		setBusy(true);
-		apiCreateInvite({ campaignName: name, note: note.trim() || undefined })
+		apiCreateInvite({ campaignName: name, note: note.trim() || undefined, role })
 			.then((invite) => {
 				setMinted(invite);
 				setInvites((list) => (list ? [invite, ...list] : [invite]));
@@ -722,7 +734,10 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 						<div key={v.inviteId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
 							<Icon name="send" size={15} color={T.ter} />
 							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ font: `600 13px ${T.sans}` }}>{v.campaignName}</div>
+								<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+									<span style={{ font: `600 13px ${T.sans}` }}>{v.campaignName}</span>
+									{v.role === 'co-dm' && <Badge status="accent">Co-DM</Badge>}
+								</div>
 								<div style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{v.note ? `${v.note} · ` : ''}expires {new Date(v.expiresAt * 1000).toLocaleDateString()}</div>
 							</div>
 							<Button variant="secondary" size="sm" icon="link" disabled={busy} onClick={() => void copyText(inviteJoinUrl(v.token), 'Join link copied.')}>Copy link</Button>
@@ -778,6 +793,22 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 						<Input value={campaignName} onChange={(e: { target: { value: string } }) => setCampaignName(e.target.value)} placeholder="Campaign name (shown to the invitee)" aria-label="Campaign name" maxLength={80} />
 						<Textarea value={note} onChange={(e: { target: { value: string } }) => setNote(e.target.value)} placeholder="Note (optional) — e.g. “We play Fridays at 7”" aria-label="Invite note" rows={2} maxLength={200} />
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+							<span style={{ font: `600 11.5px ${T.sans}`, color: T.ter, textTransform: 'uppercase', letterSpacing: '.06em' }}>Seat</span>
+							<Seg
+								value={role}
+								onChange={(v: string) => setRole(v as 'player' | 'co-dm')}
+								options={[
+									{ value: 'player', label: 'Player' },
+									{ value: 'co-dm', label: coDmSeats > 0 ? 'Co-DM' : 'Co-DM (no seats)' },
+								]}
+							/>
+							<span style={{ font: `11.5px/1.5 ${T.sans}`, color: T.ter }}>
+								{role === 'co-dm'
+									? 'A Co-DM sees your DM-only prep and helps run the table. Finish the promotion from the Players roster once they join your session.'
+									: 'An ordinary player seat — sees only what you share with the table.'}
+							</span>
+						</div>
 					</div>
 				)}
 			</Dialog>
@@ -788,10 +819,31 @@ function InvitesPanel({ cloudReady, createOpen, onCloseCreate }: { cloudReady: b
 function SettingsPlayers() {
 	const runtime = useRuntime();
 	const auth = useAuth();
+	const ent = useEntitlements();
 	const cloudReady = isAccountApiConfigured && auth.status === 'signed-in';
 	const [inviteOpen, setInviteOpen] = useState(false);
 	const actors = Object.values(runtime.state.permissions.actors) as { id: string; role: string; displayName: string }[];
 	const sorted = [...actors].sort((a, b) => (a.role === 'dm' ? -1 : b.role === 'dm' ? 1 : a.displayName.localeCompare(b.displayName)));
+
+	// Co-DM seat entitlement — the plan's seats vs. the live co-DM headcount. The Core `assign-role`
+	// command re-checks this and fails closed; the UI mirrors it so the affordance is honest.
+	const coDmSeats = coDmSeatsForPlan(ent.plan);
+	const coDmInUse = countCoDmActors(runtime.state.permissions);
+	const dmActorId = runtime.defaultActorId;
+
+	const assignRole = (targetActorId: string, role: 'co-dm' | 'player' | 'observer', displayName: string) => {
+		void runtime
+			.dispatch({ type: 'permission.assign-role', actorId: dmActorId, payload: { targetActorId, role, coDmSeatLimit: coDmSeats } })
+			.then((res: CommandResult) => {
+				if (res.status !== 'accepted') {
+					Toaster.error(res.rejection.message);
+					return;
+				}
+				Toaster.success(`${displayName} is now ${ROLE_LABEL[role]}.`);
+			})
+			.catch((e: unknown) => Toaster.error(errMsg(e, 'Could not change that role.')));
+	};
+
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel
@@ -812,19 +864,46 @@ function SettingsPlayers() {
 				}
 			>
 				<div style={{ font: `12.5px/1.5 ${T.sans}`, color: T.ter, marginBottom: 4 }}>{sorted.length} {sorted.length === 1 ? 'actor' : 'actors'} in this campaign — the real permission actors the Core filters every view against.</div>
+				<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 8 }}>
+					{coDmSeats > 0
+						? <>Co-DM seats: <strong style={{ color: T.ink }}>{coDmInUse} of {coDmSeats}</strong> used. A Co-DM sees your DM-only content and can run the table, but never manages roles, grants, invites, or the vault.</>
+						: <>Your plan has no Co-DM seats — upgrade to promote a trusted player to Co-DM.</>}
+				</div>
 				<div style={{ display: 'flex', flexDirection: 'column' }}>
-					{sorted.map((a, i) => (
-						<div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
-							<Avatar name={a.displayName} size="sm" ring={a.role === 'dm' ? 'active' : undefined} />
-							<div style={{ flex: 1, minWidth: 0 }}>
-								<div style={{ font: `600 13px ${T.sans}` }}>{a.displayName}</div>
-								<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{a.id}</div>
+					{sorted.map((a, i) => {
+						const promotable = a.role !== 'dm';
+						const roleOptions = [
+							{ value: 'player', label: 'Player' },
+							{ value: 'observer', label: 'Observer' },
+							{ value: 'co-dm', label: coDmSeats > 0 ? `Co-DM (${coDmInUse}/${coDmSeats})` : 'Co-DM (no seats)' },
+						];
+						return (
+							<div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? `1px solid ${T.bd}` : 'none' }}>
+								<Avatar name={a.displayName} size="sm" ring={a.role === 'dm' || a.role === 'co-dm' ? 'active' : undefined} />
+								<div style={{ flex: 1, minWidth: 0 }}>
+									<div style={{ font: `600 13px ${T.sans}` }}>{a.displayName}</div>
+									<div style={{ font: `11.5px ${T.mono}`, color: T.ter }}>{a.id}</div>
+								</div>
+								{/* No presence dot here: this roster has no live session/connection state to derive one
+								    from, and a role-derived "live" would be a fake claim. The role badge carries the row. */}
+								{promotable ? (
+									<span style={{ minWidth: 150 }}>
+										<Select
+											aria-label={`Role for ${a.displayName}`}
+											value={a.role}
+											onChange={(e: { target: { value: string } }) => {
+												const next = e.target.value as 'co-dm' | 'player' | 'observer';
+												if (next !== a.role) assignRole(a.id, next, a.displayName);
+											}}
+											options={roleOptions}
+										/>
+									</span>
+								) : (
+									<Badge status={roleBadgeTone(a.role)}>{ROLE_LABEL[a.role] ?? a.role}</Badge>
+								)}
 							</div>
-							{/* No presence dot here: this roster has no live session/connection state to derive one
-							    from, and a role-derived "live" would be a fake claim. The role badge carries the row. */}
-							<Badge status={a.role === 'dm' ? 'accent' : a.role === 'observer' ? 'neutral' : 'info'}>{ROLE_LABEL[a.role] ?? a.role}</Badge>
-						</div>
-					))}
+						);
+					})}
 				</div>
 			</Panel>
 			<InvitesPanel cloudReady={cloudReady} createOpen={inviteOpen} onCloseCreate={() => setInviteOpen(false)} />
@@ -839,13 +918,16 @@ function SettingsPermissions() {
 	const actors = runtime.state.permissions.actors as Record<string, { id: string; role: string; displayName: string }>;
 	const grants = runtime.state.permissions.grants;
 	const scenes = Object.values(runtime.state.scenes.scenes) as { id: string; name: string }[];
-	const players = Object.values(actors).filter((a) => a.role !== 'dm');
+	// Grant targets are players/observers only — a DM / Co-DM already has full authority, so granting to
+	// them is meaningless (and a Co-DM must never be a grant target from this owner-only surface).
+	const players = Object.values(actors).filter((a) => a.role !== 'dm' && a.role !== 'co-dm');
 	const sceneSets = listGrantableCapabilitySets('scene');
 
-	const roleCounts = { dm: 0, player: 0, observer: 0 } as Record<string, number>;
+	const roleCounts = { dm: 0, 'co-dm': 0, player: 0, observer: 0 } as Record<string, number>;
 	for (const a of Object.values(actors)) roleCounts[a.role] = (roleCounts[a.role] ?? 0) + 1;
 	const roleCards = [
 		{ id: 'dm', name: 'Dungeon Master', desc: 'Full authority — authors content, grants, and the live session.', tone: 'accent' },
+		{ id: 'co-dm', name: 'Co-DM', desc: 'Sees DM-only content and runs the table, but never manages roles, grants, invites, or the vault.', tone: 'accent' },
 		{ id: 'player', name: 'Player', desc: 'Owns their character; sees only what the DM shares.', tone: 'info' },
 		{ id: 'observer', name: 'Observer', desc: 'Read-only; never holds character data.', tone: 'neutral' },
 	];
@@ -907,7 +989,7 @@ function SettingsPermissions() {
 	return (
 		<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 			<Panel title="Roles">
-				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+				<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
 					{roleCards.map((r) => (
 						<div key={r.id} style={{ padding: 13, borderRadius: 10, border: `1px solid ${r.tone === 'accent' ? T.accBd : T.bd}`, background: T.surf }}>
 							<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
