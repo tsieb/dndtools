@@ -302,6 +302,13 @@ function CommExport() {
 
 	// REAL counts from the live actor-filtered content read (the DM sees every item).
 	const items = useMemo(() => getContentItemsForActor(runtime.state.content, runtime.state.permissions, dmId), [runtime.state.content, runtime.state.permissions, dmId]);
+	// A portable export is evaluated from a REPRESENTATIVE PLAYER's perspective (core fails closed to an
+	// empty bundle for a DM/unknown viewer, so a portable export MUST name a real player actor or it
+	// silently exports nothing). Pick any player; absent one, '' keeps the fail-closed empty result.
+	const portableViewerId = useMemo(
+		() => (Object.values(runtime.state.permissions.actors) as { id: string; role: string }[]).find((a) => a.role === 'player')?.id ?? '',
+		[runtime.state.permissions],
+	);
 	const dmOnlyCount = items.filter((i) => i.visibility === 'dm-only').length;
 	const playerCount = items.length - dmOnlyCount;
 
@@ -334,6 +341,7 @@ function CommExport() {
 			actorId: dmId,
 			payload: {
 				mode: priv ? 'dm-backup' : 'portable',
+				...(priv ? {} : { portableViewerActorId: portableViewerId }),
 				...(allSelected ? {} : { itemTypes: selectedKinds }),
 			},
 		});
