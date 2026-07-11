@@ -46,6 +46,41 @@ export interface ModuleWithPackage extends ModuleListing {
   package: unknown;
 }
 
+// --- campaign wiki ------------------------------------------------------------------------
+export type WikiAccess = 'public' | 'unlisted' | 'password';
+export const WIKI_ACCESS_VALUES: readonly WikiAccess[] = ['public', 'unlisted', 'password'] as const;
+
+/** One player-safe wiki page: text only — the reader renders markdown as React nodes. */
+export interface WikiPage {
+  slug: string;
+  title: string;
+  markdown: string;
+  updatedAt?: string;
+}
+
+/** The owner's published-wiki status (never contains page content). */
+export interface WikiStatus {
+  /** Stable high-entropy id minted at first publish — survives re-publishes. */
+  wikiId: string;
+  title: string;
+  access: WikiAccess;
+  pageCount: number;
+  size: number;
+  publishedAt: string;
+  updatedAt: string;
+}
+
+/** A published wiki as served to anonymous readers (never carries the owner's identity). */
+export interface PublicWiki {
+  wikiId: string;
+  title: string;
+  access: WikiAccess;
+  publishedAt: string;
+  updatedAt: string;
+  pageCount: number;
+  pages: WikiPage[];
+}
+
 export interface Invite {
   inviteId: string;
   token: string;
@@ -163,6 +198,57 @@ export async function deleteModule(moduleId: string): Promise<void> {
   await authedFetch<{ ok: true }>(`/marketplace/modules/${encodeURIComponent(moduleId)}`, {
     method: 'DELETE',
   });
+}
+
+// --- Campaign wiki ---------------------------------------------------------------------------
+/** Publish (or re-publish — same stable wikiId) the player-safe page bundle. Beacon-plan gated
+ *  server-side; `password` is required exactly when `access === 'password'`. */
+export function publishWiki(input: {
+  title: string;
+  access: WikiAccess;
+  pages: WikiPage[];
+  password?: string;
+}): Promise<WikiStatus> {
+  return authedFetch<WikiStatus>('/wiki', { method: 'PUT', body: JSON.stringify(input) });
+}
+
+/** The caller's own published-wiki status, or null when nothing is published. */
+export async function getMyWiki(): Promise<WikiStatus | null> {
+  try {
+    return await authedFetch<WikiStatus>('/wiki');
+  } catch (e) {
+    if (e instanceof AppApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+/** Unpublish: the public wiki page dies immediately; local content is untouched. */
+export async function unpublishWiki(): Promise<void> {
+  await authedFetch<{ ok: true }>('/wiki', { method: 'DELETE' });
+}
+
+/** UNAUTHENTICATED — readers need no account. Needs only the API URL. A password-protected
+ *  wiki answers 401 until the right password rides the x-wiki-password header. */
+export async function getPublicWiki(wikiId: string, password?: string): Promise<PublicWiki> {
+  if (!cloudConfig.appApiUrl)
+    throw new AppApiError('Cloud account backend is not configured for this build.', 'not-configured');
+  let res: Response;
+  try {
+    res = await fetch(`${base()}/wikis/${encodeURIComponent(wikiId)}`, {
+      headers: password ? { 'x-wiki-password': password } : {},
+    });
+  } catch {
+    throw new AppApiError('Could not reach the cloud service — check your connection.', 'network');
+  }
+  if (res.status === 401)
+    throw new AppApiError(
+      password ? 'That password is not right — try again.' : 'This wiki is password-protected.',
+      'http',
+      401,
+    );
+  if (res.status === 404 || res.status === 410)
+    throw new AppApiError('This wiki link is invalid or the wiki was unpublished.', 'http', res.status);
+  return parse<PublicWiki>(res);
 }
 
 // --- Invites --------------------------------------------------------------------------------

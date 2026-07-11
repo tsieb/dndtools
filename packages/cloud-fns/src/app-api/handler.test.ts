@@ -284,6 +284,147 @@ describe('invites', () => {
 	});
 });
 
+describe('campaign wiki', () => {
+	const PAGES = [
+		{ slug: 'welcome', title: 'Welcome', markdown: '# Hi\nplayer-safe **lore**' },
+		{ slug: 'factions', title: 'Factions', markdown: '- The Ashen Circle' },
+	];
+	// Publishing is Beacon-gated; put the caller on Beacon first.
+	const asBeacon = async (sub = 'user-1') => {
+		await call(event('POST /account/entitlements', { sub, body: { plan: 'beacon' } }));
+	};
+	const publish = (body: unknown, sub = 'user-1') => call(event('PUT /wiki', { sub, body }));
+
+	it('refuses to publish on a non-Beacon plan (403) — gate is honest even though plans are simulated', async () => {
+		const res = await publish({ title: 'My Wiki', access: 'unlisted', pages: PAGES });
+		expect(res.status).toBe(403);
+		expect(res.body.error).toMatch(/beacon/i);
+		// Nothing was written — no public site row exists.
+		expect([...store.items.keys()].some((k) => k.startsWith('wiki#'))).toBe(false);
+	});
+
+	it('publishes on Beacon, returns a stable wikiId + status, and stores the bundle in S3', async () => {
+		await asBeacon();
+		const res = await publish({ title: 'My Wiki', access: 'unlisted', pages: PAGES });
+		expect(res.status).toBe(200);
+		expect(res.body.wikiId).toMatch(/^[A-Za-z0-9_-]{8,32}$/);
+		expect(res.body).toMatchObject({ title: 'My Wiki', access: 'unlisted', pageCount: 2 });
+		expect(res.body.size).toBeGreaterThan(0);
+		// The status is readable back by the owner; the S3 bundle exists.
+		const own = await call(event('GET /wiki'));
+		expect(own.body).toMatchObject({ wikiId: res.body.wikiId, pageCount: 2 });
+		expect(store.objects.has(`wikis/${res.body.wikiId}.json`)).toBe(true);
+	});
+
+	it('re-publish keeps the SAME wikiId + first publishedAt (readers’ links survive)', async () => {
+		await asBeacon();
+		const first = await publish({ title: 'V1', access: 'public', pages: PAGES });
+		const again = await publish({ title: 'V2', access: 'unlisted', pages: [PAGES[0]] });
+		expect(again.body.wikiId).toBe(first.body.wikiId);
+		expect(again.body.publishedAt).toBe(first.body.publishedAt);
+		expect(again.body.pageCount).toBe(1);
+		expect(again.body.title).toBe('V2');
+	});
+
+	it('reads a public wiki with NO auth and never leaks the owner sub', async () => {
+		await asBeacon('owner-9');
+		const pub = await publish({ title: 'Public Lore', access: 'public', pages: PAGES }, 'owner-9');
+		const read = await call(event('GET /wikis/{wikiId}', { sub: null, params: { wikiId: pub.body.wikiId } }));
+		expect(read.status).toBe(200);
+		expect(read.body).toMatchObject({ wikiId: pub.body.wikiId, title: 'Public Lore', pageCount: 2 });
+		expect(read.body.pages).toHaveLength(2);
+		expect(read.body.pages[0]).toMatchObject({ slug: 'welcome', title: 'Welcome' });
+		expect(JSON.stringify(read.body)).not.toContain('owner-9');
+		expect(read.body.ownerSub).toBeUndefined();
+		expect(read.body.passwordHash).toBeUndefined();
+	});
+
+	it('answers 404 for an absent or malformed wiki id (hostile input is bounded)', async () => {
+		expect((await call(event('GET /wikis/{wikiId}', { sub: null, params: { wikiId: 'ABCDEFGH' } }))).status).toBe(404);
+		expect((await call(event('GET /wikis/{wikiId}', { sub: null, params: { wikiId: '../../etc' } }))).status).toBe(404);
+	});
+
+	it('password wikis: 401 without/with a wrong password, 200 with the right one — pages hidden until then', async () => {
+		await asBeacon();
+		const pub = await publish({ title: 'Secret', access: 'password', password: 'dragons', pages: PAGES });
+		expect(pub.status).toBe(200);
+
+		const noPw = await call(event('GET /wikis/{wikiId}', { sub: null, params: { wikiId: pub.body.wikiId } }));
+		expect(noPw.status).toBe(401);
+		expect(noPw.body.pages).toBeUndefined(); // content withheld
+
+		const wrong = { ...event('GET /wikis/{wikiId}', { sub: null, params: { wikiId: pub.body.wikiId } }), headers: { 'x-wiki-password': 'nope' } };
+		expect((await call(wrong as never)).status).toBe(401);
+
+		const right = { ...event('GET /wikis/{wikiId}', { sub: null, params: { wikiId: pub.body.wikiId } }), headers: { 'x-wiki-password': 'dragons' } };
+		const ok = await call(right as never);
+		expect(ok.status).toBe(200);
+		expect(ok.body.pages).toHaveLength(2);
+	});
+
+	it('rejects a password wiki with a too-short/absent password (400)', async () => {
+		await asBeacon();
+		expect((await publish({ title: 'S', access: 'password', password: '123', pages: PAGES })).status).toBe(400);
+		expect((await publish({ title: 'S', access: 'password', pages: PAGES })).status).toBe(400);
+	});
+
+	it('validates page shape: bad slug, duplicate slug, empty pages, bad access (400)', async () => {
+		await asBeacon();
+		expect((await publish({ title: 'T', access: 'public', pages: [] })).status).toBe(400);
+		expect((await publish({ title: 'T', access: 'public', pages: [{ slug: 'Not Kebab', title: 'x', markdown: '' }] })).status).toBe(400);
+		expect((await publish({ title: 'T', access: 'public', pages: [{ slug: 'a', title: 'x', markdown: '' }, { slug: 'a', title: 'y', markdown: '' }] })).status).toBe(400);
+		expect((await publish({ title: 'T', access: 'sometimes', pages: PAGES })).status).toBe(400);
+	});
+
+	it('drops unknown/hostile page fields — only text fields are persisted (no script survives)', async () => {
+		await asBeacon();
+		const pub = await publish({
+			title: 'Clean',
+			access: 'public',
+			pages: [{ slug: 'p', title: 'P', markdown: 'ok', onclick: 'alert(1)', __proto__: { polluted: true } }],
+		});
+		const bundle = store.objects.get(`wikis/${pub.body.wikiId}.json`) as { pages: Record<string, unknown>[] };
+		expect(Object.keys(bundle.pages[0]).sort()).toEqual(['markdown', 'slug', 'title', 'updatedAt']);
+	});
+
+	it('rejects an oversized bundle (400, size cap)', async () => {
+		await asBeacon();
+		const huge = [{ slug: 'big', title: 'Big', markdown: 'x'.repeat(600 * 1024) }];
+		const res = await publish({ title: 'T', access: 'public', pages: huge });
+		expect(res.status).toBe(400);
+		expect(res.body.error).toMatch(/too large/i);
+	});
+
+	it('unpublish kills the public link immediately and leaves no S3 bundle', async () => {
+		await asBeacon();
+		const pub = await publish({ title: 'Bye', access: 'public', pages: PAGES });
+		const del = await call(event('DELETE /wiki'));
+		expect(del.status).toBe(200);
+		const gone = await call(event('GET /wikis/{wikiId}', { sub: null, params: { wikiId: pub.body.wikiId } }));
+		expect(gone.status).toBe(404);
+		expect((await call(event('GET /wiki'))).status).toBe(404);
+		expect(store.objects.has(`wikis/${pub.body.wikiId}.json`)).toBe(false);
+	});
+
+	it('is tenant-isolated: another account has no wiki even after this one publishes', async () => {
+		await asBeacon('owner-1');
+		await publish({ title: 'Mine', access: 'public', pages: PAGES }, 'owner-1');
+		const other = await call(event('GET /wiki', { sub: 'intruder-2' }));
+		expect(other.status).toBe(404);
+	});
+
+	it('export + delete-account include and purge the published wiki', async () => {
+		await asBeacon();
+		const pub = await publish({ title: 'Exported', access: 'unlisted', pages: PAGES });
+		const exp = await call(event('POST /account/export'));
+		expect(exp.body.publishedWiki).toMatchObject({ wikiId: pub.body.wikiId, title: 'Exported' });
+
+		await call(event('DELETE /account'));
+		expect(store.objects.has(`wikis/${pub.body.wikiId}.json`)).toBe(false);
+		expect([...store.items.keys()].some((k) => k.startsWith('wiki#'))).toBe(false);
+	});
+});
+
 describe('account', () => {
 	it('returns the profile mapped from Cognito and updates the display name', async () => {
 		const prof = await call(event('GET /account/profile'));

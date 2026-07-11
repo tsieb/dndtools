@@ -129,6 +129,82 @@ describe('authed requests', () => {
 	});
 });
 
+describe('campaign wiki', () => {
+	const PAGES = [{ slug: 'welcome', title: 'Welcome', markdown: 'hi' }];
+
+	it('publishes with PUT /wiki and the Bearer token, returning the status', async () => {
+		configured();
+		const status = { wikiId: 'w1', title: 'My Wiki', access: 'unlisted', pageCount: 1, size: 40, publishedAt: 't', updatedAt: 't' };
+		fetchMock.mockResolvedValueOnce(jsonResponse(200, status));
+		const api = await loadApi();
+
+		await expect(api.publishWiki({ title: 'My Wiki', access: 'unlisted', pages: PAGES })).resolves.toEqual(status);
+		const [url, init] = fetchMock.mock.calls[0];
+		expect(url).toBe('https://api.example.com/dev/wiki');
+		expect(init.method).toBe('PUT');
+		expect(init.headers.authorization).toBe('Bearer JWT-TOKEN');
+		expect(JSON.parse(init.body)).toEqual({ title: 'My Wiki', access: 'unlisted', pages: PAGES });
+	});
+
+	it('getMyWiki maps a 404 to null (nothing published) but rethrows other errors', async () => {
+		configured();
+		const api = await loadApi();
+		fetchMock.mockResolvedValueOnce(jsonResponse(404, { error: 'no published wiki' }));
+		await expect(api.getMyWiki()).resolves.toBeNull();
+
+		fetchMock.mockResolvedValueOnce(jsonResponse(403, { error: 'needs the Beacon plan' }));
+		await expect(api.getMyWiki()).rejects.toMatchObject({ code: 'http', status: 403 });
+	});
+
+	it('unpublishWiki issues DELETE /wiki', async () => {
+		configured();
+		const api = await loadApi();
+		fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+		await api.unpublishWiki();
+		const [url, init] = fetchMock.mock.calls[0];
+		expect(url).toBe('https://api.example.com/dev/wiki');
+		expect(init.method).toBe('DELETE');
+	});
+
+	it('getPublicWiki fetches unauthenticated (no Authorization) and works signed out', async () => {
+		configured();
+		token.value = null; // readers have no account
+		const wiki = { wikiId: 'w1', title: 'Lore', access: 'public', publishedAt: 't', updatedAt: 't', pageCount: 1, pages: PAGES };
+		fetchMock.mockResolvedValueOnce(jsonResponse(200, wiki));
+		const api = await loadApi();
+
+		await expect(api.getPublicWiki('w1')).resolves.toEqual(wiki);
+		const [url, init] = fetchMock.mock.calls[0];
+		expect(url).toBe('https://api.example.com/dev/wikis/w1');
+		expect(init?.headers?.authorization ?? undefined).toBeUndefined();
+	});
+
+	it('getPublicWiki sends the password header and maps 401/404 to friendly errors', async () => {
+		configured();
+		const api = await loadApi();
+
+		fetchMock.mockResolvedValueOnce(jsonResponse(200, { wikiId: 'w1', pages: [] }));
+		await api.getPublicWiki('w1', 'dragons');
+		expect(fetchMock.mock.calls[0][1].headers['x-wiki-password']).toBe('dragons');
+
+		fetchMock.mockResolvedValueOnce(jsonResponse(401, { error: 'password required' }));
+		await expect(api.getPublicWiki('w1')).rejects.toMatchObject({ status: 401 });
+
+		fetchMock.mockResolvedValueOnce(jsonResponse(401, { error: 'password required' }));
+		await expect(api.getPublicWiki('w1', 'wrong')).rejects.toThrow(/password is not right/i);
+
+		fetchMock.mockResolvedValueOnce(jsonResponse(404, { error: 'wiki not found' }));
+		await expect(api.getPublicWiki('gone')).rejects.toThrow(/invalid or the wiki was unpublished/i);
+	});
+
+	it('getPublicWiki is fail-closed when the backend URL is absent', async () => {
+		// no env stubbed → cloudConfig.appApiUrl is ''
+		const api = await loadApi();
+		await expect(api.getPublicWiki('w1')).rejects.toMatchObject({ code: 'not-configured' });
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+});
+
 describe('resolveInvite (unauthenticated)', () => {
 	it('fetches without any Authorization header and works signed out', async () => {
 		configured();

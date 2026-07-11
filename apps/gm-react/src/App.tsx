@@ -35,6 +35,7 @@ const Player = lazy(() => import('./screens/Player').then((m) => ({ default: m.P
 const Upgrade = lazy(() => import('./screens/Upgrade').then((m) => ({ default: m.Upgrade })));
 const PlayerView = lazy(() => import('./screens/PlayerView').then((m) => ({ default: m.PlayerView })));
 const Join = lazy(() => import('./screens/Join').then((m) => ({ default: m.Join })));
+const WikiReader = lazy(() => import('./screens/WikiReader').then((m) => ({ default: m.WikiReader })));
 
 const CENTERED: CSSProperties = {
 	display: 'flex',
@@ -184,6 +185,16 @@ function Shell() {
 				element={
 					<Suspense fallback={<Boot />}>
 						<Join />
+					</Suspense>
+				}
+			/>
+			{/* public campaign-wiki reader: chrome-less like /join — a reader has no vault and reads a
+			    published wiki by its high-entropy id (`#/wiki?id=…`) with no account. */}
+			<Route
+				path="/wiki"
+				element={
+					<Suspense fallback={<Boot />}>
+						<WikiReader />
 					</Suspense>
 				}
 			/>

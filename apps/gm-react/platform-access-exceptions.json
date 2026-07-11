@@ -101,6 +101,16 @@
       "owner": "MAP (atlas)",
       "rationale": "Copy-POI-deep-link uses navigator.clipboard.writeText as a pure UI convenience; denial degrades honestly by showing the URL in the notice bar for manual copy. No durable state, no capability assumption.",
       "removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
+    },
+    {
+      "id": "community-wiki-link-clipboard",
+      "path": "apps/gm-react/src/screens/Community.tsx",
+      "primitives": [
+        "navigator"
+      ],
+      "owner": "COMMUNITY (campaign wiki)",
+      "rationale": "Copy-public-wiki-link uses navigator.clipboard.writeText as a pure UI convenience after publishing a campaign wiki; denial degrades honestly with a toast telling the user to copy the shown link manually. No durable state, no capability assumption — identical rationale to the atlas/mapbuilder POI-link clipboard entries.",
+      "removalCriteria": "Route through a typed platform-clipboard adapter once one exists (DEBT-2026-001)."
     }
   ]
 }
