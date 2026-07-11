@@ -8,6 +8,7 @@ import {
 	widgetDockSchema,
 } from './scene';
 import { widgetPackageDefinitionSchema } from './widget-package';
+import { SCENE_CARD_FLAVOR_MAX_LENGTH } from '../state/scene-card';
 
 const idSchema = z.string().min(1);
 
@@ -317,6 +318,85 @@ export const deletePlayerGroupInputSchema = z
 		groupId: idSchema,
 	})
 	.strict();
+
+// I11 S11.2.1–S11.2.4 — SCENE CARD (atmosphere) command inputs. All DM-only (authority enforced in the
+// reducer). A card is presentation content only (title/mood/hero image/flavor/audio ref/visibility); the
+// queue + active display + player push live on the same slice. Enums mirror the closed sets in
+// `state/scene-card.ts`; flavor is bounded to SCENE_CARD_FLAVOR_MAX_LENGTH.
+const sceneCardMoodSchema = z.enum(['combat', 'exploration', 'mystery', 'social', 'rest']);
+const sceneCardVisibilitySchema = z.enum(['dm-only', 'player-visible']);
+const sceneCardTransitionStyleSchema = z.enum(['crossfade', 'slide', 'cut']);
+const sceneCardHeroImageSchema = z
+	.object({
+		kind: z.enum(['vault-asset', 'url']),
+		ref: z.string().min(1),
+	})
+	.strict();
+const sceneCardFlavorSchema = z.string().max(SCENE_CARD_FLAVOR_MAX_LENGTH);
+
+export const createSceneCardInputSchema = z
+	.object({
+		/** Reuse an existing id (idempotent create) or omit to mint a new one. */
+		cardId: idSchema.optional(),
+		title: z.string().min(1, 'A scene card needs a title.'),
+		mood: sceneCardMoodSchema.default('exploration'),
+		heroImage: z.union([z.null(), sceneCardHeroImageSchema]).default(null),
+		flavorText: sceneCardFlavorSchema.default(''),
+		audioAssociationId: z.union([z.null(), idSchema]).default(null),
+		visibility: sceneCardVisibilitySchema.default('dm-only'),
+	})
+	.strict();
+
+export const updateSceneCardInputSchema = z
+	.object({
+		cardId: idSchema,
+		title: z.string().min(1).optional(),
+		mood: sceneCardMoodSchema.optional(),
+		/** Provide `null` to clear the hero image; omit to leave unchanged. */
+		heroImage: z.union([z.null(), sceneCardHeroImageSchema]).optional(),
+		flavorText: sceneCardFlavorSchema.optional(),
+		/** Provide `null` to clear the audio cue; omit to leave unchanged. */
+		audioAssociationId: z.union([z.null(), idSchema]).optional(),
+	})
+	.strict();
+
+export const deleteSceneCardInputSchema = z.object({ cardId: idSchema }).strict();
+
+export const restoreSceneCardInputSchema = z.object({ cardId: idSchema }).strict();
+
+export const setSceneCardVisibilityInputSchema = z
+	.object({
+		cardId: idSchema,
+		visibility: sceneCardVisibilitySchema,
+	})
+	.strict();
+
+// Activate a card onto the display (or `null` to clear the display). A player-visible activation pushes.
+export const activateSceneCardInputSchema = z
+	.object({
+		cardId: z.union([z.null(), idSchema]),
+	})
+	.strict();
+
+export const setSceneCardTransitionInputSchema = z
+	.object({
+		transitionStyle: sceneCardTransitionStyleSchema,
+	})
+	.strict();
+
+export const enqueueSceneCardInputSchema = z.object({ cardId: idSchema }).strict();
+
+export const dequeueSceneCardInputSchema = z.object({ cardId: idSchema }).strict();
+
+// Full replacement of the queue order (a permutation of currently-queued live cards).
+export const reorderSceneCardQueueInputSchema = z
+	.object({
+		queue: z.array(idSchema),
+	})
+	.strict();
+
+// Advance the queue: activate the head card and remove it from the queue. No arguments.
+export const advanceSceneCardQueueInputSchema = z.object({}).strict();
 
 export const setSessionWorkflowInputSchema = z
 	.object({

@@ -13,6 +13,7 @@ import type {
 	SessionWorkflowState,
 	SessionState,
 } from '../state/session-state';
+import type { SceneCardTransitionStyle, SceneCardVisibility } from '../state/scene-card';
 import type { WidgetPackageState } from '../state/widget-package-state';
 import type { VaultContentState } from '../state/content';
 import type { AudioState } from '../state/audio-state';
@@ -230,6 +231,21 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// I11 S11.2.1–S11.2.4 — SCENE CARD (atmosphere) authoring + display. All DM-only. Create/update/delete
+	// (soft tombstone) / restore / set-visibility a card; activate a card onto the display (null clears);
+	// set-transition + enqueue/dequeue/reorder-queue/advance drive the queue (S11.2.3); a player-visible
+	// activation pushes the card banner to player devices and records the durable push history (S11.2.4).
+	| { type: 'scene-card.create'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.update'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.delete'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.restore'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.set-visibility'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.activate'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.set-transition'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.enqueue'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.dequeue'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.reorder-queue'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'scene-card.advance'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| { type: 'session.set-active-map'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	| {
 			type: 'session.project-active-map';
@@ -666,6 +682,35 @@ export type CoreEvent =
 			actorId: ActorId;
 	  }
 	| { kind: 'session.player-group-deleted'; groupId: string; actorId: ActorId }
+	// I11 S11.2.1–S11.2.4 — SCENE CARD lifecycle + display + player push events.
+	| { kind: 'scene-card.created'; cardId: string; actorId: ActorId }
+	| { kind: 'scene-card.updated'; cardId: string; actorId: ActorId }
+	| { kind: 'scene-card.deleted'; cardId: string; actorId: ActorId }
+	| { kind: 'scene-card.restored'; cardId: string; actorId: ActorId }
+	| {
+			kind: 'scene-card.visibility-changed';
+			cardId: string;
+			visibility: SceneCardVisibility;
+			actorId: ActorId;
+	  }
+	// A card was put on (or cleared from, `cardId: null`) the scene display. `pushed` ⇒ it was
+	// player-visible and its banner was pushed to player devices (a `scene-card.pushed` also fires).
+	| { kind: 'scene-card.activated'; cardId: string | null; pushed: boolean; actorId: ActorId }
+	// S11.2.4 — a player-visible card was pushed to player devices (on the session event timeline).
+	| { kind: 'scene-card.pushed'; cardId: string; pushRecordId: string; actorId: ActorId }
+	// S11.2.3 — the scene queue changed (a card enqueued/dequeued, the order reordered, or advanced).
+	| {
+			kind: 'scene-card.queue-changed';
+			mutation: 'enqueue' | 'dequeue' | 'reorder' | 'advance';
+			cardId: string | null;
+			actorId: ActorId;
+	  }
+	// S11.2.3 — the display transition style changed.
+	| {
+			kind: 'scene-card.transition-changed';
+			transitionStyle: SceneCardTransitionStyle;
+			actorId: ActorId;
+	  }
 	// SES-007 — a quick-reference panel was pinned. `kind_` is the panel kind (the `kind` key is the event
 	// discriminant). Carries the REFERENCE (kind + target id), never the target's content.
 	| {
@@ -1576,6 +1621,11 @@ export type RejectionCode =
 	// cannot be restored (mirrors content-item-deleted / content-item-not-deleted).
 	| 'scene-deleted'
 	| 'scene-not-deleted'
+	// I11 S11.2.1 — a scene card target does not exist; is already soft-deleted (must be restored before
+	// editing); or a live card cannot be restored. Mirrors scene-deleted / scene-not-deleted, fail closed.
+	| 'scene-card-not-found'
+	| 'scene-card-deleted'
+	| 'scene-card-not-deleted'
 	// A system-package switch would DROP widget content per the dry-run and the caller did not
 	// acknowledge the loss (mirrors content-write-loss-unacknowledged). Fail closed: never silent.
 	| 'system-switch-loss-unacknowledged';

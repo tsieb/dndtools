@@ -14,6 +14,7 @@ import {
 	EMPTY_SESSION_AUDIO_STATE,
 	type SessionAudioState,
 } from './session-audio';
+import { EMPTY_SCENE_CARD_STATE, type SceneCardState } from './scene-card';
 
 // COLLAB-012 — durable PLAYER GROUPS (DM-authored delivery/projection target sets) live on the session
 // document. Re-exported here so existing session-state importers keep their import site while the model
@@ -24,6 +25,27 @@ export {
 	PLAYER_GROUP_SCHEMA_VERSION,
 	ensurePlayerGroups,
 } from './player-group';
+
+// I11 S11.2 — the durable SCENE CARD (atmosphere) slice lives ON the session document but is
+// CAMPAIGN-level (cards/queue/push history are NOT reset between sessions — the calendar-continuity
+// precedent). Re-exported here so existing session-state importers keep their import site.
+export type {
+	SceneCard,
+	SceneCardHeroImage,
+	SceneCardMood,
+	SceneCardPushRecord,
+	SceneCardState,
+	SceneCardTransitionStyle,
+	SceneCardVisibility,
+} from './scene-card';
+export {
+	EMPTY_SCENE_CARD_STATE,
+	SCENE_CARD_ENTITY_TYPE,
+	SCENE_CARD_FLAVOR_MAX_LENGTH,
+	SCENE_CARD_SCHEMA_VERSION,
+	ensureSceneCardState,
+	isLiveSceneCard,
+} from './scene-card';
 
 export const SESSION_STATE_SCHEMA_VERSION = 1 as const;
 
@@ -407,6 +429,12 @@ export interface SessionState {
 	 * Campaign-level: this is NOT reset when the session workflow transitions (unlike the live fields).
 	 */
 	calendarContinuity: CalendarContinuityState;
+	/**
+	 * I11 S11.2 — durable SCENE CARDS (atmosphere): the card library, the ordered display queue, the
+	 * active card, the transition style, and the player-visible push history. Campaign-level (not reset
+	 * between sessions).
+	 */
+	sceneCards: SceneCardState;
 	recapArchiveId: string | null;
 	archives: Record<string, SessionArchiveSnapshot>;
 	schemaVersion: typeof SESSION_STATE_SCHEMA_VERSION;
@@ -427,6 +455,7 @@ export const EMPTY_SESSION_STATE: SessionState = Object.freeze({
 	audioPlayback: EMPTY_SESSION_AUDIO_STATE,
 	playerGroups: {},
 	calendarContinuity: EMPTY_CALENDAR_CONTINUITY_STATE,
+	sceneCards: EMPTY_SCENE_CARD_STATE,
 	recapArchiveId: null,
 	archives: {},
 	schemaVersion: SESSION_STATE_SCHEMA_VERSION,

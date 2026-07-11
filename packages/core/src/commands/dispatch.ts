@@ -41,6 +41,19 @@ import {
 	handleDeletePlayerGroup,
 	handleUpdatePlayerGroup,
 } from './player-group';
+import {
+	handleActivateSceneCard,
+	handleAdvanceSceneCardQueue,
+	handleCreateSceneCard,
+	handleDequeueSceneCard,
+	handleDeleteSceneCard,
+	handleEnqueueSceneCard,
+	handleReorderSceneCardQueue,
+	handleRestoreSceneCard,
+	handleSetSceneCardTransition,
+	handleSetSceneCardVisibility,
+	handleUpdateSceneCard,
+} from './scene-card';
 import { handlePinQuickReference, handleUnpinQuickReference } from './quick-reference';
 import {
 	handleLinkCalendarDate,
@@ -363,6 +376,29 @@ export function dispatchCommand(
 			return handleUpdatePlayerGroup(state, env, command.actorId, command.payload);
 		case 'session.delete-player-group':
 			return handleDeletePlayerGroup(state, env, command.actorId, command.payload);
+		// I11 S11.2.1–S11.2.4 — SCENE CARD (atmosphere) authoring, display, queue, and player push.
+		case 'scene-card.create':
+			return handleCreateSceneCard(state, env, command.actorId, command.payload);
+		case 'scene-card.update':
+			return handleUpdateSceneCard(state, env, command.actorId, command.payload);
+		case 'scene-card.delete':
+			return handleDeleteSceneCard(state, env, command.actorId, command.payload);
+		case 'scene-card.restore':
+			return handleRestoreSceneCard(state, env, command.actorId, command.payload);
+		case 'scene-card.set-visibility':
+			return handleSetSceneCardVisibility(state, env, command.actorId, command.payload);
+		case 'scene-card.activate':
+			return handleActivateSceneCard(state, env, command.actorId, command.payload);
+		case 'scene-card.set-transition':
+			return handleSetSceneCardTransition(state, env, command.actorId, command.payload);
+		case 'scene-card.enqueue':
+			return handleEnqueueSceneCard(state, env, command.actorId, command.payload);
+		case 'scene-card.dequeue':
+			return handleDequeueSceneCard(state, env, command.actorId, command.payload);
+		case 'scene-card.reorder-queue':
+			return handleReorderSceneCardQueue(state, env, command.actorId, command.payload);
+		case 'scene-card.advance':
+			return handleAdvanceSceneCardQueue(state, env, command.actorId, command.payload);
 		case 'session.pin-quick-reference':
 			return handlePinQuickReference(state, env, command.actorId, command.payload);
 		case 'session.unpin-quick-reference':

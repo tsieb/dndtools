@@ -70,6 +70,8 @@ describe('MCP-002 — the baseline tool set includes dice.roll and session.prep'
 				'bundle.coverage-gaps',
 				'bundle.campaign-health',
 				'note.create',
+				// I11 S11.2.1 — the staged scene-card create write tool.
+				'create_scene_card',
 			].sort(),
 		);
 	});
