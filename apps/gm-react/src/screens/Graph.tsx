@@ -11,6 +11,7 @@ import {
 } from '@dndtools/core';
 import { Badge, Button, Icon, VisibilityChip } from '../ds';
 import { Page, Panel, Seg, T, eb } from '../app/screen-kit';
+import { useViewport } from '../app/useViewport';
 import { useRuntime } from '../runtime/RuntimeContext';
 
 /**
@@ -74,6 +75,7 @@ function HealthRow({ label, count }: { label: string; count: number }) {
 
 export function Graph() {
 	const runtime = useRuntime();
+	const isPhone = useViewport() === 'phone';
 	const navigate = useNavigate();
 	const dmId = runtime.defaultActorId;
 	const actors = runtime.state.permissions.actors;
@@ -181,7 +183,7 @@ export function Graph() {
 				</div>
 			</div>
 
-			<div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 18, alignItems: 'start' }}>
+			<div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : '1fr 320px', gap: 18, alignItems: 'start' }}>
 				{/* graph canvas — real nodes (sized by visible degree) + real directed link edges */}
 				<div
 					style={{

@@ -16,6 +16,7 @@ import { CommandPalette } from './CommandPalette';
 import { ViewAsControl } from './ViewAsControl';
 import { ProjectionControl } from './ProjectionControl';
 import { HostSessionButton, AccountButton } from '../net/SessionPanel';
+import { useViewport } from './useViewport';
 import {
 	LIBRARY,
 	PLATFORM,
@@ -62,28 +63,7 @@ const SECTION_PATH: Record<string, string> = {
 
 /* ── Responsive breakpoints (UX nav-profiles): ≥1025px the full sidebar, 641–1024px the icon
  * NavRail (same IA, presentation change only), ≤640px a BottomTabBar of the hot destinations
- * plus a "More" sheet. One hook, live via matchMedia — no resize listeners, no layout thrash. */
-type Viewport = 'desktop' | 'rail' | 'phone';
-
-function computeViewport(): Viewport {
-	if (typeof window === 'undefined') return 'desktop';
-	if (window.matchMedia('(max-width: 640px)').matches) return 'phone';
-	if (window.matchMedia('(max-width: 1024px)').matches) return 'rail';
-	return 'desktop';
-}
-
-function useViewport(): Viewport {
-	const [vp, setVp] = useState<Viewport>(() => computeViewport());
-	useEffect(() => {
-		const queries = [window.matchMedia('(max-width: 640px)'), window.matchMedia('(max-width: 1024px)')];
-		const onChange = () => setVp(computeViewport());
-		for (const q of queries) q.addEventListener('change', onChange);
-		return () => {
-			for (const q of queries) q.removeEventListener('change', onChange);
-		};
-	}, []);
-	return vp;
-}
+ * plus a "More" sheet. The matchMedia hook lives in ./useViewport (shared with detail screens). */
 
 type SceneStatus = 'live' | 'ready' | 'draft';
 const SCENE_STATUS: Record<SceneStatus, { dot: 'live' | 'idle' | 'off'; label: string }> = {
