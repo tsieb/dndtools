@@ -232,6 +232,11 @@ import {
 	handleSetSessionAudioVolume,
 	handleStopSessionAudio,
 } from './audio-playback';
+import {
+	handleApplyAudioPreset,
+	handleDeleteAudioPreset,
+	handleSaveAudioPreset,
+} from './audio-preset';
 import { handleSetPresence } from './presence';
 import { handleResolveVaultConflict } from './conflict-resolution';
 import {
@@ -657,6 +662,12 @@ export function dispatchCommand(
 			return handleRemoveAmbienceLayer(state, env, command.actorId, command.payload);
 		case 'session.audio.set-output-device':
 			return handleSetAudioOutputDevice(state, env, command.actorId, command.payload);
+		case 'session.audio.apply-preset':
+			return handleApplyAudioPreset(state, env, command.actorId, command.payload);
+		case 'audio.save-preset':
+			return handleSaveAudioPreset(state, env, command.actorId, command.payload);
+		case 'audio.delete-preset':
+			return handleDeleteAudioPreset(state, env, command.actorId, command.payload);
 		case 'session.author-recap':
 			return handleAuthorRecap(state, env, command.actorId, command.payload);
 		case 'session.set-presence':
