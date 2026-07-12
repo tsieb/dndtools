@@ -1485,12 +1485,15 @@ export const setMarchingOrderInputSchema = z
 	})
 	.strict();
 
-// CHAR-011 — add/update a party-inventory item. DM-only. Visibility fails closed to `dm-only`.
+// CHAR-011 / I10 S10.4.2 — add/update a party-inventory item. DM-only. Visibility fails closed to
+// `dm-only`. Optional structured `quantity`/`weight` (S10.4.2) drive the stash encumbrance baseline.
 export const upsertPartyInventoryItemInputSchema = z
 	.object({
 		id: idSchema.optional(),
 		name: z.string().min(1, 'Item name is required'),
 		detail: z.string().default(''),
+		quantity: z.number().int().min(0).optional(),
+		weight: z.number().min(0).optional(),
 		visibility: characterVisibilitySchema.default('dm-only'),
 		sharedWith: z.array(idSchema).default([]),
 	})
@@ -1500,6 +1503,102 @@ export const upsertPartyInventoryItemInputSchema = z
 export const removePartyInventoryItemInputSchema = z
 	.object({
 		itemId: idSchema,
+	})
+	.strict();
+
+// --- I10 S10.1.3 / S10.4.2 — structured equipment / currency / encumbrance ----------------------
+
+// The five 5e coin denominations. Every field optional so a currency command carries only the coins
+// it changes (set replaces them; adjust applies signed deltas — see setCurrencyInputSchema).
+const currencySetSchema = z
+	.object({
+		cp: z.number().int().min(0).optional(),
+		sp: z.number().int().min(0).optional(),
+		ep: z.number().int().min(0).optional(),
+		gp: z.number().int().min(0).optional(),
+		pp: z.number().int().min(0).optional(),
+	})
+	.strict();
+
+const currencyAdjustSchema = z
+	.object({
+		cp: z.number().int().optional(),
+		sp: z.number().int().optional(),
+		ep: z.number().int().optional(),
+		gp: z.number().int().optional(),
+		pp: z.number().int().optional(),
+	})
+	.strict();
+
+// Optional armor metadata: an equipped item with `armor` set contributes to the derived AC (S10.1.3).
+const equipmentArmorSchema = z
+	.object({
+		category: z.enum(['light', 'medium', 'heavy', 'shield']),
+		baseAc: z.number().int().min(0).max(40),
+		addDex: z.boolean(),
+		maxDexBonus: z.number().int().min(0).max(20).nullable(),
+	})
+	.strict();
+
+// S10.1.3 — add/update an equipment item (owner or DM). No `id` ⇒ a NEW item (the handler assigns
+// one); an id ⇒ PATCH the item in place (an omitted optional field preserves its value).
+export const upsertEquipmentItemInputSchema = z
+	.object({
+		characterId: idSchema,
+		id: idSchema.optional(),
+		name: z.string().min(1, 'Item name is required').max(120),
+		quantity: z.number().int().min(0).optional(),
+		weight: z.number().min(0).optional(),
+		equipped: z.boolean().optional(),
+		attuned: z.boolean().optional(),
+		vaultObjectId: idSchema.nullable().optional(),
+		container: z.string().max(80).nullable().optional(),
+		armor: equipmentArmorSchema.nullable().optional(),
+		notes: z.string().max(500).optional(),
+	})
+	.strict();
+
+// S10.1.3 — remove an equipment item (owner or DM).
+export const removeEquipmentItemInputSchema = z
+	.object({
+		characterId: idSchema,
+		itemId: idSchema,
+	})
+	.strict();
+
+// S10.1.3 — move an equipment item to a container/slot (or `null` for loose). Owner or DM.
+export const moveEquipmentItemInputSchema = z
+	.object({
+		characterId: idSchema,
+		itemId: idSchema,
+		container: z.string().max(80).nullable(),
+	})
+	.strict();
+
+// S10.1.3 — set or adjust a character's coin purse (owner or DM). `set` replaces the supplied
+// denominations; `adjust` applies signed deltas (fail-closed on insufficient funds). `consolidate`
+// re-expresses the purse in the fewest coins afterwards.
+export const setCurrencyInputSchema = z
+	.object({
+		characterId: idSchema,
+		mode: z.enum(['set', 'adjust']).default('set'),
+		currency: z.union([currencySetSchema, currencyAdjustSchema]).optional(),
+		consolidate: z.boolean().optional(),
+	})
+	.strict()
+	.refine((value) => value.currency !== undefined || value.consolidate === true, {
+		message: 'Provide currency changes and/or consolidate.',
+	});
+
+// S10.4.2 — CLAIM an item from the shared party stash into a character's personal equipment. Any
+// connected participant may do this for a character they may edit (owner or DM). The item leaves the
+// stash and becomes an equipment line on the character.
+export const claimPartyInventoryItemInputSchema = z
+	.object({
+		characterId: idSchema,
+		itemId: idSchema,
+		/** How many to claim; defaults to the whole stack. Fewer ⇒ the stash keeps the remainder. */
+		quantity: z.number().int().min(1).optional(),
 	})
 	.strict();
 

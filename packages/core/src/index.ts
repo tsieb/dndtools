@@ -2189,6 +2189,49 @@ export {
 	upsertPartyInventoryItem,
 } from './state/character-state';
 
+// I10 S10.1.3 / S10.4.2: the durable STRUCTURED EQUIPMENT / CURRENCY model plus the PURE deterministic
+// policy that mutates and derives it — equipment items (qty/weight/equipped/armor), the five-coin purse,
+// and the DERIVED carried weight / encumbrance band / computed AC (never stored, so they cannot drift).
+export type {
+	ArmorCategory,
+	CharacterInventory,
+	CoinType,
+	CurrencyError,
+	CurrencyPurse,
+	EncumbranceLevel,
+	EncumbranceState,
+	EquipmentArmor,
+	EquipmentError,
+	EquipmentItem,
+	UpsertEquipmentInput,
+} from './state/character-inventory';
+export {
+	CHARACTER_INVENTORY_SCHEMA_VERSION,
+	COINS_PER_POUND,
+	COIN_TYPES,
+	COIN_VALUE_CP,
+	EMPTY_CHARACTER_INVENTORY,
+	EMPTY_CURRENCY,
+	adjustCurrency,
+	carriedItemWeight,
+	coinCount,
+	coinWeight,
+	computeEncumbrance,
+	consolidateCurrency,
+	currencyValueCp,
+	currencyValueGp,
+	derivedArmorClass,
+	effectiveStrength,
+	encumbranceLevelFor,
+	ensureCharacterInventory,
+	ensureCurrency,
+	inventoryOf,
+	moveEquipmentItem,
+	removeEquipmentItem,
+	setCurrency,
+	upsertEquipmentItem,
+} from './state/character-inventory';
+
 // CHAR-012 / CHAR-016: the durable CHARACTER JOURNAL model — per-character entries (bookmarks, NPC
 // impressions, personal quests, session highlights) each carrying their OWN canonical visibility.
 // A new entry fails closed to `shared`-to-owner (owner-readable, DM-auditable, NOT player-visible).
@@ -3623,6 +3666,11 @@ export {
 	removeContentItemInputSchema,
 	removeJournalEntryInputSchema,
 	removePartyInventoryItemInputSchema,
+	removeEquipmentItemInputSchema,
+	moveEquipmentItemInputSchema,
+	upsertEquipmentItemInputSchema,
+	setCurrencyInputSchema,
+	claimPartyInventoryItemInputSchema,
 	resolveCharacterConflictInputSchema,
 	restCharacterInputSchema,
 	restoreContentItemInputSchema,
