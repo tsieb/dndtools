@@ -95,6 +95,22 @@ export interface Invite {
   /** Epoch seconds (14-day TTL). */
   expiresAt: number;
 }
+
+/**
+ * Outcome of the OPTIONAL invite-email delivery. The link + QR always work regardless:
+ *  • `none`           — no recipient was supplied (link-only invite).
+ *  • `sent`           — SES accepted the message (`emailedTo` echoes the address).
+ *  • `not-configured` — this deployment has no verified sender wired in — share the link.
+ *  • `failed`         — SES rejected the send (unverified/sandbox) — share the link.
+ */
+export type InviteEmailStatus = 'none' | 'sent' | 'not-configured' | 'failed';
+
+/** createInvite result — the minted Invite plus the (best-effort) email-delivery status. */
+export interface CreateInviteResult extends Invite {
+  emailStatus: InviteEmailStatus;
+  /** Present only when emailStatus === 'sent' — the address the invite went to. */
+  emailedTo?: string;
+}
 export interface ResolvedInvite {
   campaignName: string;
   note: string;
@@ -258,12 +274,19 @@ export async function getPublicWiki(wikiId: string, password?: string): Promise<
 }
 
 // --- Invites --------------------------------------------------------------------------------
+/**
+ * Mint a server-side join link (+ token the UI renders as a QR). `email` is OPTIONAL: when
+ * supplied the backend also tries to send the invite via SES — but delivery is best-effort,
+ * so the link/QR are returned no matter what and `emailStatus` reports whether the mail went.
+ * `role` selects the seat the invite grants (defaults to a plain player seat server-side).
+ */
 export function createInvite(input: {
   campaignName: string;
   note?: string;
+  email?: string;
   role?: InviteRole;
-}): Promise<Invite> {
-  return authedFetch<Invite>('/invites', post(input));
+}): Promise<CreateInviteResult> {
+  return authedFetch<CreateInviteResult>('/invites', post(input));
 }
 
 export async function listInvites(): Promise<Invite[]> {

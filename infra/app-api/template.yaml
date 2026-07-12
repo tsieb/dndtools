@@ -24,7 +24,16 @@ Parameters:
   WebOrigin:
     Type: String
     Default: 'https://d1xn0o010v89mt.cloudfront.net'
-    Description: Deployed web app origin allowed by CORS (localhost dev origins are always included).
+    Description: Deployed web app origin allowed by CORS (localhost dev origins are always included). Also the trusted base for invite-email join links (built server-side, never from caller input).
+  InviteSender:
+    Type: String
+    Default: ''
+    Description: >-
+      Verified Amazon SES sender address for emailed invites (e.g. invites@yourdomain).
+      LEAVE EMPTY to ship email delivery disabled (fail-closed): invites still mint their
+      link + QR and the API returns emailStatus="not-configured". Set this ONLY to an
+      address/domain already verified in SES for this account+region, or sends will fail
+      (fail-open — the invite is still returned with emailStatus="failed").
 
 Globals:
   Function:
@@ -127,9 +136,24 @@ Resources:
           APP_TABLE: !Ref AppTable
           MODULES_BUCKET: !Ref ModulesBucket
           USER_POOL_ID: !Sub '{{resolve:ssm:/${ProjectName}/${Stage}/identity/user-pool-id}}'
+          # Invite email delivery (optional; empty INVITE_SENDER = disabled/fail-closed).
+          # WEB_ORIGIN is the trusted base for the join link the email carries.
+          INVITE_SENDER: !Ref InviteSender
+          WEB_ORIGIN: !Ref WebOrigin
       Policies:
         - DynamoDBCrudPolicy: { TableName: !Ref AppTable }
         - S3CrudPolicy: { BucketName: !Ref ModulesBucket }
+        # Emailed invites: send ONLY as the configured verified sender (ses:FromAddress
+        # condition), across whatever SES identity authorizes it. Harmless when
+        # InviteSender is empty — the handler never calls SES without a sender configured.
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+              Resource: !Sub 'arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/*'
+              Condition:
+                StringEquals:
+                  ses:FromAddress: !Ref InviteSender
         # Account/device management acts on the caller's OWN Cognito identity only —
         # the handler derives the username from the verified JWT, never from input.
         - Statement:

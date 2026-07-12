@@ -13,14 +13,38 @@ vi.hoisted(() => {
 	process.env.MODULES_BUCKET = 'modules';
 	process.env.USER_POOL_ID = 'ca-central-1_pool';
 	process.env.AWS_REGION = 'ca-central-1';
+	// Invite-email delivery is configured by default so the send path is exercised; the
+	// "not-configured" test deletes INVITE_SENDER at runtime (the handler reads it lazily).
+	process.env.INVITE_SENDER = 'invites@dndtools.example';
+	process.env.WEB_ORIGIN = 'https://app.example.test';
 });
 
 const store = vi.hoisted(() => {
 	const items = new Map<string, Record<string, string>>(); // `${pk}|${sk}` -> row
 	const objects = new Map<string, unknown>(); // s3 key -> value
 	const cognitoCalls: { name: string; input: Record<string, unknown> }[] = [];
-	return { items, objects, cognitoCalls };
+	const sesCalls: Record<string, unknown>[] = []; // SendEmail inputs
+	const ses = { shouldThrow: false };
+	return { items, objects, cognitoCalls, sesCalls, ses };
 });
+
+// SESv2 fake: records every SendEmail input and can be told to reject (unverified/sandbox).
+vi.mock('@aws-sdk/client-sesv2', () => ({
+	SESv2Client: class {
+		async send(cmd: { input: Record<string, unknown> }) {
+			store.sesCalls.push(cmd.input);
+			if (store.ses.shouldThrow) {
+				const err = new Error('rejected');
+				err.name = 'MessageRejected';
+				throw err;
+			}
+			return { MessageId: 'msg-1' };
+		}
+	},
+	SendEmailCommand: class {
+		constructor(public input: Record<string, unknown>) {}
+	},
+}));
 
 vi.mock('../lib/aws.ts', () => ({
 	putItem: async (_table: string, obj: Record<string, string | number | undefined>) => {
@@ -135,6 +159,11 @@ beforeEach(() => {
 	store.items.clear();
 	store.objects.clear();
 	store.cognitoCalls.length = 0;
+	store.sesCalls.length = 0;
+	store.ses.shouldThrow = false;
+	// Restore the default email config (a test may delete it to simulate not-configured).
+	process.env.INVITE_SENDER = 'invites@dndtools.example';
+	process.env.WEB_ORIGIN = 'https://app.example.test';
 });
 
 describe('app-api handler — auth gate', () => {
@@ -313,6 +342,83 @@ describe('invites', () => {
 		const { body } = await mint('owner-1');
 		const res = await call(event('DELETE /invites/{inviteId}', { sub: 'intruder-2', params: { inviteId: body.inviteId } }));
 		expect(res.status).toBe(404);
+	});
+
+	it('preserves an optional co-DM role field on both rows and echoes it back', async () => {
+		const res = await call(
+			event('POST /invites', { name: 'Sam the GM', body: { campaignName: 'Co-run', role: 'co-dm' } }),
+		);
+		expect(res.status).toBe(200);
+		expect(res.body.role).toBe('co-dm');
+		// round-trips through the owner list and the public resolve response
+		const list = await call(event('GET /invites'));
+		expect(list.body.invites[0].role).toBe('co-dm');
+		const pub = await call(event('GET /invites/resolve/{token}', { sub: null, params: { token: res.body.token } }));
+		expect(pub.body.role).toBe('co-dm');
+	});
+});
+
+describe('invite email delivery (optional, fail-open)', () => {
+	const mintWithEmail = (body: Record<string, unknown>) =>
+		call(event('POST /invites', { name: 'Sam the GM', body: { campaignName: 'The Sunken Outpost', ...body } }));
+
+	it('emails the invite via SES when a recipient is supplied — link carries the token', async () => {
+		const res = await mintWithEmail({ email: 'player@example.com', note: 'Thursdays 7pm' });
+		expect(res.status).toBe(200);
+		expect(res.body.emailStatus).toBe('sent');
+		expect(res.body.emailedTo).toBe('player@example.com');
+		expect(res.body.token).toMatch(/^[A-Za-z0-9_-]{43}$/); // invite still minted normally
+		// SES was called once, from the configured sender, to the recipient, with the join link.
+		expect(store.sesCalls).toHaveLength(1);
+		const input = store.sesCalls[0] as {
+			FromEmailAddress: string;
+			Destination: { ToAddresses: string[] };
+			Content: { Simple: { Body: { Text: { Data: string } } } };
+		};
+		expect(input.FromEmailAddress).toBe('invites@dndtools.example');
+		expect(input.Destination.ToAddresses).toEqual(['player@example.com']);
+		const bodyText = input.Content.Simple.Body.Text.Data;
+		expect(bodyText).toContain(`https://app.example.test/#/join?token=${res.body.token}`);
+	});
+
+	it('link-only invite (no email) does not call SES and reports emailStatus none', async () => {
+		const res = await mintWithEmail({});
+		expect(res.body.emailStatus).toBe('none');
+		expect(res.body.emailedTo).toBeUndefined();
+		expect(store.sesCalls).toHaveLength(0);
+	});
+
+	it('SES failure is non-fatal: the invite is still returned with emailStatus failed', async () => {
+		store.ses.shouldThrow = true;
+		const res = await mintWithEmail({ email: 'player@example.com' });
+		expect(res.status).toBe(200);
+		expect(res.body.token).toMatch(/^[A-Za-z0-9_-]{43}$/); // link + QR still work
+		expect(res.body.emailStatus).toBe('failed');
+		expect(res.body.emailedTo).toBeUndefined();
+		// The minted invite is still queryable (mint never rolls back on a send failure).
+		expect((await call(event('GET /invites'))).body.invites).toHaveLength(1);
+	});
+
+	it('unconfigured sender is non-fatal: mints the invite with emailStatus not-configured', async () => {
+		delete process.env.INVITE_SENDER; // no verified sender wired into this deployment
+		const res = await mintWithEmail({ email: 'player@example.com' });
+		expect(res.status).toBe(200);
+		expect(res.body.emailStatus).toBe('not-configured');
+		expect(store.sesCalls).toHaveLength(0); // never touches SES without a sender
+		expect(res.body.token).toBeTruthy();
+	});
+
+	it('rejects a malformed email BEFORE minting (400 — a DM typo, not a send failure)', async () => {
+		const res = await mintWithEmail({ email: 'not-an-email' });
+		expect(res.status).toBe(400);
+		expect(store.sesCalls).toHaveLength(0);
+		// nothing was minted — the DM can fix the typo and retry
+		expect((await call(event('GET /invites'))).body.invites).toHaveLength(0);
+	});
+
+	it('rejects an over-long email (400, length bound)', async () => {
+		const res = await mintWithEmail({ email: `${'a'.repeat(250)}@x.co` });
+		expect(res.status).toBe(400);
 	});
 });
 
