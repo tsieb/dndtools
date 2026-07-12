@@ -154,6 +154,10 @@ test.describe('campaign: story objects', () => {
 			name,
 			{ timeout: 10_000 },
 		);
+		// The editor closes only AFTER both the update-object and set-item-visibility dispatches have
+		// resolved — and each resolves only after persistFullState() writes to IndexedDB. Waiting for
+		// it to close is the durability barrier; reloading on the in-memory state alone races the write.
+		await expect(page.getByRole('button', { name: 'Save faction' })).toHaveCount(0);
 
 		// Reload-persistence for the dossier edit.
 		await page.reload({ waitUntil: 'domcontentloaded' });
