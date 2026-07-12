@@ -4221,9 +4221,49 @@ export {
 	audioAssetById,
 	audioAssociationById,
 	audioAutomationRuleById,
+	audioPresetById,
 	audioSourceById,
 	ensureAudioState,
+	listUserAudioPresets,
 } from './state/audio-state';
+
+// AUDIO-014 (Epic 11.3) — CATEGORIZED AUDIO PRESETS + SCENE PACKAGES: a durable, named, multi-layer
+// atmosphere mixer the DM applies to the session audio in one action (`session.audio.apply-preset`), plus a
+// built-in library of shipped presets and the ability to capture the live session audio as a reusable user
+// preset (`audio.save-preset` / `delete-preset`). References audio only — never asset bytes (Contract 2).
+export type {
+	AudioPreset,
+	AudioPresetCategory,
+	AudioPresetLayer,
+	AudioPresetLayerSourceKind,
+	AudioPresetResult,
+	AudioPresetRejectionReason,
+	BuildAudioPresetInput,
+	BuildAudioPresetLayerInput,
+} from './state/audio-preset';
+export {
+	AUDIO_PRESET_CATEGORIES,
+	AUDIO_PRESET_CATEGORY_LABELS,
+	AUDIO_PRESET_ENTITY_TYPE,
+	AUDIO_PRESET_LAYER_SOURCE_KINDS,
+	AUDIO_PRESET_SCHEMA_VERSION,
+	MAX_AUDIO_PRESET_LAYERS,
+	buildAudioPreset,
+	cloneAudioPreset,
+	ensureAudioPreset,
+	isAudioPresetCategory,
+	isAudioPresetLayerSourceKind,
+} from './state/audio-preset';
+export {
+	BUILTIN_AUDIO_PRESETS,
+	BUILTIN_AUDIO_PRESET_COUNT,
+	builtinAudioPresetById,
+	builtinPresetId,
+	copyPresetForUser,
+	isBuiltinAudioPresetId,
+	listBuiltinAudioPresets,
+	listBuiltinAudioPresetsByCategory,
+} from './state/audio-preset-library';
 
 // MCP-001 / MCP-003 / MCP-009 / MCP-011 — the durable MCP IDENTITY, POLICY, and STAGED-WRITES VaultState
 // slice: the vault-wide MASTER ENABLE switch (MCP-001 — off by default, fail-closed on hydration), agent →

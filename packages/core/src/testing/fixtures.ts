@@ -133,6 +133,7 @@ export function buildInitialState(...actors: Actor[]): CoreStateSlice {
 			sources: { ...EMPTY_AUDIO_STATE.sources },
 			automationRules: { ...EMPTY_AUDIO_STATE.automationRules },
 			associations: { ...EMPTY_AUDIO_STATE.associations },
+			presets: { ...EMPTY_AUDIO_STATE.presets },
 			schemaVersion: EMPTY_AUDIO_STATE.schemaVersion,
 		},
 		mcp: {

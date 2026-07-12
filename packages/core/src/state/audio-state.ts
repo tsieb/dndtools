@@ -11,6 +11,7 @@ import {
 	isAudioAutomationTriggerKind,
 	type AudioAutomationRule,
 } from './audio-automation';
+import { ensureAudioPreset, type AudioPreset } from './audio-preset';
 import type { AudioCacheBehavior, AudioSource } from './audio-source';
 
 /**
@@ -38,6 +39,13 @@ export interface AudioState {
 	automationRules: Record<string, AudioAutomationRule>;
 	/** The DM-authored scene/map/layer audio associations, keyed by association id (AUDIO-001). DM-only. */
 	associations: Record<string, AudioAssociation>;
+	/**
+	 * AUDIO-014 (Epic 11.3) — DM-authored USER audio PRESETS / scene packages, keyed by preset id. A user
+	 * preset is a durable, categorized atmosphere mixer (built by copying a built-in, or captured from the
+	 * live session audio via `audio.save-preset`). Built-in presets are shipped code, NOT here. DM-only
+	 * config. Optional so a vault persisted before this field existed hydrates safely (absent ⇒ no presets).
+	 */
+	presets: Record<string, AudioPreset>;
 	schemaVersion: typeof AUDIO_STATE_SCHEMA_VERSION;
 }
 
@@ -46,6 +54,7 @@ export const EMPTY_AUDIO_STATE: AudioState = Object.freeze({
 	sources: {},
 	automationRules: {},
 	associations: {},
+	presets: {},
 	schemaVersion: AUDIO_STATE_SCHEMA_VERSION,
 });
 
@@ -155,11 +164,20 @@ export function ensureAudioState(state: PersistedAudioState | undefined): AudioS
 		const ensured = ensureAudioAssociation(association as AudioAssociation);
 		if (ensured) associations[id] = ensured;
 	}
+	// AUDIO-014 — hydrate user presets fail-closed: a corrupt/empty preset (no valid layer survives) is
+	// DROPPED by `ensureAudioPreset` rather than restored into an un-playable husk. A persisted record can
+	// never re-assert itself as a built-in (`ensureAudioPreset` forces `builtIn: false`).
+	const presets: Record<string, AudioPreset> = {};
+	for (const [id, preset] of Object.entries(state?.presets ?? {})) {
+		const ensured = ensureAudioPreset(preset as AudioPreset);
+		if (ensured) presets[id] = ensured;
+	}
 	return {
 		assets,
 		sources,
 		automationRules,
 		associations,
+		presets,
 		schemaVersion: AUDIO_STATE_SCHEMA_VERSION,
 	};
 }
@@ -188,4 +206,16 @@ export function audioAssociationById(
 	associationId: string,
 ): AudioAssociation | undefined {
 	return state.associations[associationId];
+}
+
+/** Look up a DM-authored USER audio preset by id (never a built-in — those are shipped code). Pure. */
+export function audioPresetById(state: AudioState, presetId: string): AudioPreset | undefined {
+	return state.presets[presetId];
+}
+
+/** List the DM-authored user presets in stable (id-sorted) order. Pure. */
+export function listUserAudioPresets(state: AudioState): AudioPreset[] {
+	return Object.keys(state.presets)
+		.sort()
+		.map((id) => state.presets[id]!);
 }

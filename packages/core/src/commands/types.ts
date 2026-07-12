@@ -554,6 +554,14 @@ export type CoreCommand =
 			payload: unknown;
 			idempotencyKey?: string;
 	  }
+	// AUDIO-014 (Epic 11.3): APPLY a categorized audio PRESET / scene package to the session audio in one
+	// action — the primary track + ambience layers are driven through the EXISTING AUDIO-009/010/004 gates
+	// (only a ready, bound layer becomes audible; never a guessed track). DM-only.
+	| { type: 'session.audio.apply-preset'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	// AUDIO-014 (Epic 11.3): SAVE the current session audio as a named USER preset / scene package (capture
+	// track + ambience as references), and DELETE a user preset (a built-in id is refused). DM-only.
+	| { type: 'audio.save-preset'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
+	| { type: 'audio.delete-preset'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// SES-009 — AUTHOR a recap (markdown) onto a session archive. DM-only; fails closed with no archive.
 	| { type: 'session.author-recap'; actorId: ActorId; payload: unknown; idempotencyKey?: string }
 	// COLLAB-004 — set/clear ephemeral session PRESENCE. Actor-scoped (a player sets only their own;
@@ -1328,6 +1336,10 @@ export type CoreEvent =
 			deviceId: string | null;
 			actorId: ActorId;
 	  }
+	// AUDIO-014 (Epic 11.3) — a USER audio preset / scene package was saved (created or updated).
+	| { kind: 'audio.preset-saved'; presetId: string; actorId: ActorId }
+	// AUDIO-014 (Epic 11.3) — a USER audio preset / scene package was deleted.
+	| { kind: 'audio.preset-deleted'; presetId: string; actorId: ActorId }
 	// SES-009 — a recap was authored onto a session archive. Carries the archive id + revision only.
 	| {
 			kind: 'session.recap-authored';
@@ -1550,6 +1562,17 @@ export type RejectionCode =
 	| 'audio-track-unavailable'
 	// AUDIO-002 — pause/stop/set-volume targeted a session with no active track (nothing to do, fail closed).
 	| 'audio-not-playing'
+	// AUDIO-014 (Epic 11.3) — apply/delete targeted a preset id that resolves to neither a built-in nor a
+	// user preset (fail closed: never a guessed atmosphere).
+	| 'audio-preset-not-found'
+	// AUDIO-014 — apply targeted a preset with no layer bound to a ready/licensed/available source (nothing
+	// audible to apply — never a guessed track).
+	| 'audio-preset-not-playable'
+	// AUDIO-014 — save/delete targeted a BUILT-IN preset id (shipped code — non-deletable, non-overwritable;
+	// copy to customize).
+	| 'audio-preset-builtin'
+	// AUDIO-014 — save was invoked with nothing playing (no track, no ambience) so there is nothing to capture.
+	| 'audio-preset-empty'
 	// MCP-011 — an agent binding targeted an actor that is not a registered participant (fail closed: an
 	// agent can never be bound to an actor that does not exist). Distinct so the DM authoring UI can guide.
 	| 'mcp-actor-not-registered'

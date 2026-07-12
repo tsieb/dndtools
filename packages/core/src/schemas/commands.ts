@@ -2415,6 +2415,42 @@ export const setAudioOutputDeviceInputSchema = z
 	})
 	.strict();
 
+// AUDIO-014 (Epic 11.3) — APPLY an audio PRESET / scene package to the SESSION-OWNED audio (DM-only). The
+// preset id resolves to a built-in library preset OR a user preset; the handler drives the SAME session
+// audio model (primary track + ambience layers) through the EXISTING AUDIO-009/010/004 gates, fail closed —
+// only a layer bound to a ready, licensed, available source becomes audible (never a guessed track). The
+// optional device inputs feed the AUDIO-010 availability gate (default online + locally available).
+export const applyAudioPresetInputSchema = z
+	.object({
+		presetId: idSchema,
+		assetLocallyAvailable: z.boolean().optional(),
+		assetCached: z.boolean().optional(),
+		cacheEvicted: z.boolean().optional(),
+		online: z.boolean().optional(),
+	})
+	.strict();
+
+// AUDIO-014 (Epic 11.3) — SAVE the CURRENT session audio (primary track + ambience layers) as a named,
+// categorized USER preset / scene package (DM-only). `presetId` optional: absent creates a new preset;
+// present UPDATES an existing user preset (a built-in id is refused). The category is validated by the
+// fail-closed `buildAudioPreset` builder (an undeclared category is rejected), never here.
+export const saveAudioPresetInputSchema = z
+	.object({
+		name: z.string().min(1).max(120),
+		category: z.string().min(1),
+		presetId: idSchema.optional(),
+	})
+	.strict();
+
+// AUDIO-014 (Epic 11.3) — DELETE a USER audio preset / scene package by id (DM-only). Fail closed: a
+// built-in preset id is refused (shipped code, non-deletable — copy to customize) and an unknown id is
+// rejected (nothing to remove).
+export const deleteAudioPresetInputSchema = z
+	.object({
+		presetId: idSchema,
+	})
+	.strict();
+
 // SES-009 — AUTHOR a recap onto a session archive (DM-only). `archiveId` optional: absent targets the
 // session's current `recapArchiveId` (the most recent archive). Fail closed when no archive resolves.
 export const authorRecapInputSchema = z

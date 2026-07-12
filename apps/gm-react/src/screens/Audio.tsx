@@ -2,18 +2,24 @@ import { useEffect, useMemo, useState, useSyncExternalStore, type FormEvent } fr
 import {
 	AUDIO_AUTOMATION_ACTIONS,
 	AUDIO_AUTOMATION_TRIGGER_KINDS,
+	AUDIO_PRESET_CATEGORIES,
+	AUDIO_PRESET_CATEGORY_LABELS,
 	getSessionAudioView,
 	listAudioAssetsForActor,
 	listAudioAssociationsForActor,
 	listAudioAutomationRulesForActor,
 	listAudioSourceClassificationsForActor,
+	listBuiltinAudioPresetsByCategory,
 	listScenesForActor,
+	listUserAudioPresets,
 	resolveAudioAutomationForActor,
 	type AudioAssetView,
 	type AudioAutomationAction,
 	type AudioAutomationOutcome,
 	type AudioAutomationRule,
 	type AudioAutomationTriggerKind,
+	type AudioPreset,
+	type AudioPresetCategory,
 	type AudioSourceClassification,
 } from '@dndtools/core';
 import { Badge, Button, EmptyState, Field, Icon, Input, Select, Slider, StatusDot, Switch, Tabs, Toaster } from '../ds';
@@ -194,7 +200,7 @@ export function Audio() {
 		: 'Nothing playing';
 	const webStreamSource = sources.find((s) => s.type === 'web-stream');
 
-	const [tab, setTab] = useState<'playback' | 'automation'>('playback');
+	const [tab, setTab] = useState<'playback' | 'presets' | 'automation'>('playback');
 	const [pulse, setPulse] = useState<string | null>(null);
 	const [playError, setPlayError] = useState<string | null>(null);
 
@@ -404,6 +410,60 @@ export function Audio() {
 				...(deviceId && device?.label ? { label: device.label } : {}),
 			},
 		});
+	};
+
+	// ── Presets & scene packages (AUDIO-014: apply-preset / save-preset / delete-preset) ─────────
+	// User scene packages are captured from the LIVE session audio; the built-in library is a browsable
+	// catalog of atmosphere recipes. Applying drives the real session track + ambience through the core
+	// gates — a preset whose layers aren't bound to a ready source reports honestly, never a guessed track.
+	const userPresets = useMemo(() => listUserAudioPresets(state.audio), [state.audio]);
+	const [presetName, setPresetName] = useState('');
+	const [presetCategory, setPresetCategory] = useState<AudioPresetCategory>('dungeon');
+	const [presetBusy, setPresetBusy] = useState(false);
+	const [presetError, setPresetError] = useState<string | null>(null);
+	const canSavePreset = canEdit && (!!track || ambienceLayers.length > 0);
+
+	const applyPreset = async (preset: AudioPreset) => {
+		if (!canEdit) return;
+		const result = await runtime.dispatch({
+			type: 'session.audio.apply-preset',
+			actorId: dmId,
+			payload: { presetId: preset.id, online: typeof navigator === 'undefined' ? true : navigator.onLine !== false },
+		});
+		if (result.status === 'accepted') Toaster.success(`Applied “${preset.name}”.`);
+		else Toaster.error(result.rejection.message);
+	};
+
+	const saveCurrentPreset = async (e: FormEvent) => {
+		e.preventDefault();
+		if (presetBusy || !presetName.trim() || !canSavePreset) return;
+		setPresetBusy(true);
+		setPresetError(null);
+		try {
+			const result = await runtime.dispatch({
+				type: 'audio.save-preset',
+				actorId: dmId,
+				payload: { name: presetName.trim(), category: presetCategory },
+			});
+			if (result.status === 'accepted') {
+				Toaster.success(`Saved “${presetName.trim()}” as a scene package.`);
+				setPresetName('');
+			} else {
+				setPresetError(result.rejection.message);
+			}
+		} finally {
+			setPresetBusy(false);
+		}
+	};
+
+	const deletePreset = async (preset: AudioPreset) => {
+		const result = await runtime.dispatch({
+			type: 'audio.delete-preset',
+			actorId: dmId,
+			payload: { presetId: preset.id },
+		});
+		if (result.status === 'accepted') Toaster.success(`Deleted “${preset.name}”.`);
+		else Toaster.error(result.rejection.message);
 	};
 
 	// ── Automation (AUDIO-005: audio.configure-automation / delete-automation + the resolver) ────
@@ -649,10 +709,11 @@ export function Audio() {
 			<Tabs
 				tabs={[
 					{ id: 'playback', label: 'Playback', icon: 'audio' },
+					{ id: 'presets', label: 'Presets', icon: 'sparkle' },
 					{ id: 'automation', label: 'Automation', icon: 'wand' },
 				]}
 				value={tab}
-				onChange={(id: string) => setTab(id as 'playback' | 'automation')}
+				onChange={(id: string) => setTab(id as 'playback' | 'presets' | 'automation')}
 				style={{ marginBottom: 18 }}
 			/>
 
@@ -1011,6 +1072,114 @@ export function Audio() {
 							)}
 						</Panel>
 					</div>
+				</div>
+			)}
+
+			{tab === 'presets' && (
+				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'start' }}>
+					{/* your scene packages — captured from the LIVE session audio; apply/delete are real commands */}
+					<Panel
+						title="Your scene packages"
+						action={<span style={{ font: `11.5px ${T.sans}`, color: T.ter }}>{userPresets.length} {userPresets.length === 1 ? 'package' : 'packages'}</span>}
+					>
+						<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 10 }}>
+							Save the current track + ambience as a reusable atmosphere, then re-apply it in one action — it
+							drives the real session audio, synced like the track itself.
+						</div>
+						{canEdit ? (
+							<form onSubmit={saveCurrentPreset} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+								<div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 10 }}>
+									<Field label="Package name" htmlFor="preset-name" required>
+										<Input
+											id="preset-name"
+											value={presetName}
+											onChange={(e: { target: { value: string } }) => setPresetName(e.target.value)}
+											placeholder="Tavern night"
+										/>
+									</Field>
+									<Field label="Category" htmlFor="preset-category">
+										<Select
+											id="preset-category"
+											value={presetCategory}
+											onChange={(e: { target: { value: string } }) => setPresetCategory(e.target.value as AudioPresetCategory)}
+											options={AUDIO_PRESET_CATEGORIES.map((c) => ({ value: c, label: AUDIO_PRESET_CATEGORY_LABELS[c] }))}
+										/>
+									</Field>
+								</div>
+								<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+									<Button type="submit" variant="secondary" size="sm" icon="add" disabled={!canSavePreset || presetBusy || !presetName.trim()}>
+										{presetBusy ? 'Saving…' : 'Save current audio'}
+									</Button>
+									{!canSavePreset && (
+										<span style={{ font: `11px ${T.sans}`, color: T.ter }}>Play a track or add an ambience layer to capture.</span>
+									)}
+									{presetError && (
+										<span role="status" style={{ font: `11.5px ${T.sans}`, color: 'var(--color-status-error-text)' }}>{presetError}</span>
+									)}
+								</div>
+							</form>
+						) : (
+							<div style={{ font: `12px/1.5 ${T.sans}`, color: T.ter, marginBottom: 12 }}>
+								Presets are DM-only{previewing ? ' — exit preview to save or apply.' : '.'}
+							</div>
+						)}
+						{userPresets.length === 0 ? (
+							<EmptyState
+								inset
+								icon="sparkle"
+								title="No scene packages yet."
+								description="Set up a track and some ambience, then save it here to re-apply the whole atmosphere later."
+							/>
+						) : (
+							<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+								{userPresets.map((preset) => (
+									<div key={preset.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', border: `1px solid ${T.bd}`, borderRadius: 9, background: T.surf }}>
+										<Icon name="sparkle" size={15} color={T.acc} />
+										<div style={{ flex: 1, minWidth: 0 }}>
+											<div style={{ font: `600 12.5px ${T.sans}` }}>{preset.name}</div>
+											<div style={{ font: `11px ${T.sans}`, color: T.ter }}>
+												{AUDIO_PRESET_CATEGORY_LABELS[preset.category]} · {preset.layers.length} {preset.layers.length === 1 ? 'layer' : 'layers'}
+											</div>
+										</div>
+										<Button variant="ghost" size="sm" icon="play" disabled={!canEdit} aria-label={`Apply ${preset.name}`} onClick={() => void applyPreset(preset)}>
+											Apply
+										</Button>
+										<Button variant="ghost" size="sm" icon="delete" disabled={!canEdit} aria-label={`Delete ${preset.name}`} onClick={() => void deletePreset(preset)} />
+									</div>
+								))}
+							</div>
+						)}
+					</Panel>
+
+					{/* built-in atmosphere library — a browsable catalog of recipes, grouped by category */}
+					<Panel title="Atmosphere library">
+						<div style={{ font: `11px/1.5 ${T.sans}`, color: T.ter, marginBottom: 10 }}>
+							Shipped atmosphere recipes, grouped by scene type. Apply one once its layers are bound to your
+							own sources — otherwise the app tells you what to bind, never guesses a track.
+						</div>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+							{AUDIO_PRESET_CATEGORIES.map((category) => {
+								const presets = listBuiltinAudioPresetsByCategory(category);
+								if (presets.length === 0) return null;
+								return (
+									<div key={category}>
+										<div style={{ ...eb, marginBottom: 8 }}>{AUDIO_PRESET_CATEGORY_LABELS[category]}</div>
+										<div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
+											{presets.map((preset) => (
+												<div key={preset.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: `1px solid ${T.bd}`, borderRadius: 9, background: T.surf }}>
+													<div style={{ flex: 1, minWidth: 0 }}>
+														<div style={{ font: `600 12px ${T.sans}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{preset.name}</div>
+														<div style={{ font: `10.5px ${T.sans}`, color: T.ter }}>{preset.layers.length} {preset.layers.length === 1 ? 'layer' : 'layers'}</div>
+													</div>
+													<Button variant="ghost" size="sm" icon="play" disabled={!canEdit} aria-label={`Apply ${preset.name}`} onClick={() => void applyPreset(preset)} />
+												</div>
+											))}
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					</Panel>
 				</div>
 			)}
 
