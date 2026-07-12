@@ -73,9 +73,11 @@ import type {
  * HONEST LIMITS (no core command — each panel says so, no fake controls):
  *   - Community marketplace: browsing/fetching community packages needs a network backend — nothing
  *     is fetched; the panel says so and offers no fake controls.
- *   - Custom object types: the Core has no define-object-type command; the tab says custom types
- *     aren't supported yet instead of offering a schema editor that saves nowhere.
  *   - Per-token theme overrides: presets are the architecture (ADR-011); token rows are read-only.
+ *
+ * Custom object types ARE now backed by the Core `content.define/update/delete-object-type`
+ * commands (ADR-023): the Custom Types panel defines a type's field schema and creates instances of
+ * it, dispatching through the runtime like every other panel.
  */
 
 const TRUST_TONE: Record<string, string> = { trusted: 'success', unreviewed: 'warning', denied: 'error' };
