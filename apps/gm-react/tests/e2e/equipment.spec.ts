@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { dispatch, enterPreview, exitPreview, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
+import { dispatch, exitPreview, gotoRoute, markOnboarded, seedFresh, waitReady } from './_helpers';
 
 // EQUIPMENT — the /player sheet's structured equipment / currency / encumbrance panel (I10 S10.1.3 /
 // S10.4.2) against the live Processing Core. Every mutation is a durable `character.*` command

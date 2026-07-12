@@ -172,7 +172,7 @@ test.describe('custom types: user-defined vault object types', () => {
 		// The form leaves edit mode only after the awaited update dispatch + persist resolve.
 		await expect(page.getByRole('button', { name: 'Save changes' })).toHaveCount(0);
 
-		let def = await customType(page, id);
+		const def = await customType(page, id);
 		expect(def?.fields.map((f) => f.key)).toEqual(['leader', 'members']);
 		expect(def?.revision).toBe(2); // the definition revision bumped on the accepted edit
 

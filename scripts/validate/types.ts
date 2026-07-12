@@ -29,6 +29,9 @@ export interface ServerSpec {
 	readyTimeoutMs: number;
 	/** Optional human note shown in logs. */
 	note?: string;
+	/** Extra environment for the spawned server, merged over process.env (e.g. blank VITE_* cloud
+	 *  keys so a managed dev server is local-first, matching playwright.config's webServer env). */
+	env?: Record<string, string>;
 }
 
 export interface CheckContext {

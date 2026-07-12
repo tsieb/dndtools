@@ -20,6 +20,20 @@ export const SERVERS: Record<string, ServerSpec> = {
 		port: 5273,
 		readyTimeoutMs: 60_000,
 		note: 'React app vite dev server (DEV __rt seam)',
+		// Force this managed dev server LOCAL-FIRST even when apps/gm-react/.env.local carries real
+		// cloud coordinates (pull-cloud-env.mjs / a live deploy). Process env outranks .env files in
+		// Vite, so blanking these guarantees isCloudConfigured === false — no browser gate can reach
+		// Cognito/signaling/sync/app-api. This mirrors playwright.config.ts's webServer env exactly;
+		// tests/e2e/isolation-guard.spec.ts asserts the invariant and fails loudly otherwise.
+		env: {
+			VITE_CLOUD_REGION: '',
+			VITE_COGNITO_USER_POOL_ID: '',
+			VITE_COGNITO_CLIENT_ID: '',
+			VITE_SIGNALING_WS_URL: '',
+			VITE_SYNC_API_URL: '',
+			VITE_APP_API_URL: '',
+			VITE_GOOGLE_CLIENT_ID: '',
+		},
 	},
 };
 
@@ -43,7 +57,7 @@ export class ServerManager {
 			return;
 		}
 		console.log(c.dim(`   · starting ${spec.name} → :${spec.port} …`));
-		const handle = spawnServer(spec.command, path.join(this.logDir, `server-${spec.name}.log`));
+		const handle = spawnServer(spec.command, path.join(this.logDir, `server-${spec.name}.log`), spec.env);
 		this.running.set(name, { spec, handle });
 		try {
 			await waitForPort(spec.port, spec.readyTimeoutMs);
